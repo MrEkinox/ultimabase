@@ -66,7 +66,7 @@ test('preserves exact operation descriptors and bootstrap handles', () => {
 	>()
 
 	const ultimabase = new (UltimaBase.use(plugin))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Post],
 	})
 	const operation = ultimabase.operation(inspect)

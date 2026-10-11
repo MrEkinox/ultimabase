@@ -70,7 +70,7 @@ const fixture = () => {
 	const setup = vi.fn()
 	const application = new FrameworkApplication({
 		schemas: [Target],
-		pluginPrivileges: { logger: false },
+		logger: false,
 		plugins: [
 			createPlugin({
 				id: 'fixture.compiler-integrity',
@@ -460,7 +460,7 @@ describe('mandatory direct compilation integrity', () => {
 		const callback = vi.fn()
 		const application = new FrameworkApplication({
 			schemas: [],
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [
 				createPlugin({
 					id: 'fixture.empty-selection',
@@ -507,7 +507,7 @@ describe('mandatory direct compilation integrity', () => {
 			new FrameworkApplication({
 				schemas: [UltimaBase.Schema.define({ className, fields: () => ({}) })],
 				plugins: [],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}).compileSchemas()
 		}
 		expect(seen).toEqual([['DirectFirst'], ['DirectSecond']])

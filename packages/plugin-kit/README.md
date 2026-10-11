@@ -89,6 +89,42 @@ migrating an existing manual parser; new plugins normally use the default
 message. Plugin Kit depends only on the types-only `@standard-schema/spec`
 protocol and never installs Zod or another concrete validator for consumers.
 
+## Derive environment-dependent defaults
+
+A plugin whose default depends on the deployment reads `NODE_ENV` in its
+factory, never per request; Core never reads it (ADR-0312). The helpers keep
+that rule in one place: `production` means production, any other value or
+none means development, and an explicit option always wins.
+
+```ts
+import {
+	deriveEnvironmentDefault,
+	describeEnvironmentSource,
+} from '@ultimabase/plugin-kit'
+
+export const auditPlugin = (options: { verbose?: boolean } = {}) => {
+	const verbose = deriveEnvironmentDefault(options.verbose, {
+		development: true,
+		production: false,
+	})
+	return plugin({
+		// …
+		contributions: [
+			contributeApplication(({ logger }) => {
+				logger.debug(
+					`verbose ${String(verbose.value)} (${describeEnvironmentSource(verbose.source)})`,
+				)
+				return { exports: undefined }
+			}),
+		],
+	})
+}
+```
+
+`readDeploymentEnvironment()` returns `'development'` or `'production'`
+directly. Log the derived value and its source at debug level through the
+plugin logger (ADR-0313), never an option value or secret.
+
 ## Build common additive schema patches
 
 `SchemaPatchBuilder` is immutable. Each call delegates to Core's nominal patch

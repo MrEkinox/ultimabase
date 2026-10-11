@@ -106,7 +106,7 @@ describe('plugin schema field transformations', () => {
 		})
 		const registrationApplication = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [registrationPlugin],
 				schemas: [Existing],
 			}),
@@ -158,7 +158,7 @@ describe('plugin schema field transformations', () => {
 		})
 		const optionApplication = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [optionFailurePlugin],
 				schemas: [],
 			}),
@@ -203,7 +203,7 @@ describe('plugin schema field transformations', () => {
 		})
 		const patchApplication = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [patchFailurePlugin],
 				schemas: [PatchTarget],
 			}),
@@ -239,7 +239,7 @@ describe('plugin schema field transformations', () => {
 		})
 		const finalValidationApplication = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [finalValidationPlugin],
 				schemas: [],
 			}),
@@ -280,7 +280,7 @@ describe('plugin schema field transformations', () => {
 		})
 		const selectorApplication = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [selectorFailurePlugin],
 				schemas: [],
 			}),

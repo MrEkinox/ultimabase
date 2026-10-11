@@ -73,7 +73,7 @@ describe('schema mutation Typegen', () => {
 			],
 		})
 		const application = new (UltimaBase.use(plugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post, WithoutMutations],
 		})
 		const first = generateApplicationTypes({

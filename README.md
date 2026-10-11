@@ -15,18 +15,14 @@ explicitly. This example uses a disposable development PostgreSQL database;
 adds REST, GraphQL, authentication and policies to the same authoring path.
 
 ```ts
-import process from 'node:process'
-
 import { typegenPlugin } from '@ultimabase/typegen'
 import { UltimaBase, toJSON } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
+// postgresPlugin() reads DATABASE_URL when the application starts.
 const Blog = UltimaBase.use(typegenPlugin())
-	.use(postgresPlugin({ url: databaseUrl, schemaPolicy: 'override' }))
+	.use(postgresPlugin())
 	.use(softDeletePlugin({ defaultMode: 'explicit' }))
 
 export const Post = Blog.Schema.define({
@@ -44,21 +40,25 @@ export const AuditLog = Blog.Schema.define({
 	fields: (field) => ({ message: field.string({ required: true }) }),
 })
 
-const application = new Blog({ schemas: [Post, AuditLog] })
+export const ultimabase = new Blog({ schemas: [Post, AuditLog] })
 
-try {
-	await application.start()
-	const post = await Post.createOne({ data: { title: 'Hello UltimaBase' } })
-	await Post.softDelete({ id: post.id })
-	const posts = await Post.findMany({
-		where: { published: { eq: true } },
-		take: 25,
-	})
-	// Results are frozen plain objects; toJSON serializes them as REST does.
-	console.log(toJSON(posts))
-} finally {
-	await application.dispose()
+// One declaration per application gives name-keyed editor types.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
 }
+
+// start() resolves to the application; leaving the scope disposes it.
+await using app = await ultimabase.start()
+const post = await Post.createOne({ data: { title: 'Hello UltimaBase' } })
+await Post.softDelete({ id: post.id })
+const posts = await Post.findMany({
+	where: { published: { eq: true } },
+	take: 25,
+})
+// Results are frozen plain objects; toJSON serializes them as REST does.
+console.log(toJSON(posts), app.state)
 ```
 
 Local plugin fields, options and commands infer from the configured factory.

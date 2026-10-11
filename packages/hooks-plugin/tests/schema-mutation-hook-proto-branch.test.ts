@@ -84,7 +84,7 @@ describe('schema mutation Hook branch keyed __proto__ (reference defect regressi
 			version: '1.0.0',
 		})
 		const ultimabase = new (UltimaBase.use(hooksPlugin(), provider, database))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 		onTestFinished(() => ultimabase.dispose())

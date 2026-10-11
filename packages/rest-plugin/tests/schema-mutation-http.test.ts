@@ -33,6 +33,7 @@ import {
 	RestSchemaMutationAdapter,
 	schemaMutationRestId,
 } from './schema-mutation-http.test-support.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 const restRoutes = { rest: { mutations: true } }
 const RestSchemaApplication = UltimaBase.use(restPlugin())
@@ -232,7 +233,7 @@ const createFixture = async (
 				audits.push(event)
 			},
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [WorkflowDocument],
 	})
 	onTestFinished(() => application.dispose())
@@ -433,7 +434,7 @@ describe('REST schema mutation exposure', () => {
 
 	it('keeps application context provenance and cancellation ahead of decoding', async () => {
 		const second = await createFixture()
-		const foreign = second.application.anonymous({
+		const foreign = anonymous(second.application, {
 			requestId: 'foreign',
 			source: 'rest',
 		})
@@ -467,7 +468,7 @@ describe('REST schema mutation exposure', () => {
 
 			const cancelled = new AbortController()
 			cancelled.abort()
-			const context = first.application.anonymous({
+			const context = anonymous(first.application, {
 				requestId: 'cancelled',
 				signal: cancelled.signal,
 				source: 'rest',

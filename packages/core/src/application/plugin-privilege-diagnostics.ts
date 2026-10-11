@@ -9,8 +9,8 @@ import {
 	type PluginPrivilege,
 	type PluginPrivilegeSeverity,
 } from '../plugins/manifest.js'
+import type { ApplicationLog } from './application-log.js'
 import type {
-	PluginPrivilegeLogger,
 	PluginPrivilegePluginReport,
 	PluginPrivilegeReport,
 } from './plugin-privilege-policy.js'
@@ -59,18 +59,18 @@ export const missingPrivilegeDetails = (
 		severity: pluginPrivilegeMetadata[privilege].severity,
 	})
 
-/** Reports policy once while isolating synchronous and asynchronous logger failures. */
+/**
+ * Logs the complete report at `debug`, or at `error` before a denial fails the
+ * application (ADR-0313); the start summary line names critical privileges.
+ */
 export const emitPolicyReport = (
-	logger: PluginPrivilegeLogger | false,
+	log: ApplicationLog,
 	report: PluginPrivilegeReport,
 ): void => {
-	if (logger === false) return
-
-	try {
-		const result = report.allowed ? logger.info(report) : logger.error(report)
-		void Promise.resolve(result).catch(() => undefined)
-	} catch {
-		// Diagnostics must never replace the policy result they describe.
+	if (report.allowed) {
+		log.debug('UltimaBase plugin privilege report', report)
+	} else {
+		log.error('UltimaBase plugin privilege report', report)
 	}
 }
 

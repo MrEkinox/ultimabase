@@ -27,6 +27,12 @@ sources:
   - packages/core/src/runtime/application/application-health.ts
   - docs/adr/0279-source-typed-configured-application-authoring.md
   - docs/adr/0282-variadic-configured-plugin-installation.md
+  - docs/adr/0297-declare-schemas-without-typegen.md
+  - docs/adr/0311-application-lifecycle-and-authority-surface.md
+  - docs/adr/0312-environment-dependent-plugin-defaults.md
+  - docs/adr/0313-readable-startup-diagnostics.md
+  - packages/core/src/application/application-log.ts
+  - packages/core/src/application/startup-summary.ts
 ---
 
 An application is one `UltimaBase` instance. It owns a set of schemas and
@@ -77,7 +83,9 @@ configuration without connecting to infrastructure. Its instance options are:
 | ------------------ | -------- | ------------------------------------------------------------------------------------------- |
 | `schemas`          | Yes      | Exact schema classes owned by this application.                                             |
 | `masterAuthority`  | No       | Audited server authority for explicit Master work.                                          |
-| `pluginPrivileges` | No       | Privilege and environment-claim denials plus the reporting logger.                          |
+| `pluginPrivileges` | No       | Privilege and environment-claim denials.                                                    |
+| `logger`           | No       | Receives Core and plugin log lines: the console by default, `false` silences everything.    |
+| `logLevel`         | No       | Lowest level written: `'debug'`, `'info'` (default), `'warn'` or `'error'`.                 |
 | `validation`       | No       | Structural validation settings, timezone, clock, UUID generation, and nested-write budgets. |
 
 No database, server, API, plugin behavior, or Master authority is installed
@@ -100,8 +108,12 @@ Use `getCurrentEngine()` or `getCurrentRequest()` when only that focused value
 is needed; Core does not expose a second aggregate context API. Classes and
 models keep no application resource or authority.
 
-Read and validate required environment values at the composition root before
-passing them to plugin factories. Keep credentials server-side; the
+Official plugins choose their environment-dependent defaults themselves when
+they are created: `NODE_ENV=production` means production, any other value
+development, and an explicit option always wins. `postgresPlugin()` reads
+`DATABASE_URL` only when the application starts, so schemas and the
+application import and type-check without environment. Core never reads the
+environment. Keep credentials server-side; the
 [pre-exposure checklist](/docs/1.0.0/operations/before-exposing-your-application)
 collects the other boundaries to review before accepting public traffic.
 
@@ -148,17 +160,27 @@ generators in trusted application setup, not request input.
 ## Start and dispose
 
 Call `start()` before executing operations. It finishes setup, connects the
-installed resources, and starts transports in dependency order. Put `dispose()`
-in `finally` so normal work and failures both release application resources.
-If startup fails, Core attempts cleanup of its initialized resources.
-Repeated disposal shares the same cleanup outcome. If cleanup also fails, startup reports the original failure
+installed resources, starts transports in dependency order, and resolves to
+the application itself, so `await using` releases it when the scope ends:
+
+```ts
+await using app = await ultimabase.start()
+```
+
+Without `await using`, put `dispose()` in `finally` so normal work and
+failures both release application resources. If startup fails, Core attempts
+cleanup of its initialized resources. Repeated disposal shares the same
+cleanup outcome. If cleanup also fails, startup reports the original failure
 and the cleanup failure in an `AggregateError`.
 
-`app.state` reports the current lifecycle state. `start()`, `stop()`, and
-`dispose()` resolve to `void`; `stop()` ends active infrastructure without
-releasing setup-owned resources, while `dispose()` permanently releases the
-application. A stopped or disposed application cannot restart. The facade is
-frozen, but its private lifecycle state advances through these methods.
+`app.state` reports the current lifecycle state. Concurrent `start()` calls
+share one promise. `dispose()` permanently releases the application; a
+disposed application cannot restart. The facade is frozen, but its private
+lifecycle state advances through these methods. For advanced cases,
+`compile()` returns the immutable application facts without effects,
+`initialize()` runs plugin setup without starting infrastructure, and `stop()`
+ends active infrastructure without releasing setup-owned resources; a stopped
+application cannot restart either.
 
 `await app.health()` resolves to `'OK'` when the application is started and its
 database answers within two seconds, and to `'DEGRADED'` otherwise: before
@@ -174,38 +196,65 @@ packages and disposable database from [Manual Installation](/docs/1.0.0/manual-i
 import { UltimaBase, toJSON } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const Task = UltimaBase.Schema.define({
+// postgresPlugin() reads DATABASE_URL when the application starts.
+const App = UltimaBase.use(postgresPlugin())
+
+const Task = App.Schema.define({
 	className: 'Task',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 })
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) {
-	throw new TypeError('DATABASE_URL is required')
+export const ultimabase = new App({ schemas: [Task] })
+
+// Required once per application: it gives name-keyed editor types.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
 }
 
-const Application = UltimaBase.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-)
-
-const app = new Application({
-	schemas: [Task],
-})
-
-try {
-	await app.start()
-	const tasks = await Task.findMany({ take: 20 })
-	console.log(toJSON(tasks))
-} finally {
-	await app.dispose()
-}
+await using app = await ultimabase.start()
+const tasks = await Task.findMany({ take: 20 })
+console.log(toJSON(tasks), app.state)
 ```
 
-`schemaPolicy: 'override'` is only for this disposable database. The `Task`
+Outside production the schema policy defaults to `override`, which suits this
+disposable database; `NODE_ENV=production` defaults to `fail`. The `Task`
 read passes through the same Runtime pipeline as a REST or GraphQL read would
 if you installed either transport. No HTTP plugin is required for this direct
 call. For writes and query options, continue with [Writing Data](/docs/1.0.0/core/writing-data/create)
 and [Reading Data](/docs/1.0.0/core/reading-data/overview).
+
+### Register the application
+
+Each application declares itself once in `Register`. Constructing an
+application without this declaration is a type error whose message shows the
+line to add. Name-keyed types (`Model<"Task">`, `WhereBuilder<SchemaRef<"Task">>`)
+then keep editor hovers short, and rule checking stays fast as schemas grow.
+
+## Logs
+
+The application logger receives Core and plugin lines. `logger` is any object
+with `debug`, `info`, `warn` and `error` methods taking
+`(message, details?)`; the console is compatible and is the default.
+`logger: false` silences everything. Core never reads the environment to
+choose the logger or its level, and lines never contain option values,
+secrets, credentials or row values.
+
+After a successful `start()`, Core logs one `info` line:
+
+```text
+UltimaBase started: 1 schema, 1 plugin (@ultimabase/postgres-plugin); no critical privileges. Use logLevel 'debug' for the privilege report.
+```
+
+`logLevel: 'debug'` adds the complete plugin privilege report and the
+environment-dependent defaults each plugin derived, with their source. A
+denied privilege still logs the report at `error` and fails construction.
+Warnings stay visible at the default level, one line each naming the plugin
+and the fix: a REST surface that exposes no schema or operation, REST routes
+without the HTTP plugin, HTTP routes without a server plugin, and unverified
+public transport protection. Plugin lines start with the plugin package
+name, for example `[@ultimabase/rest-plugin]`.
 
 ## Application boundaries
 

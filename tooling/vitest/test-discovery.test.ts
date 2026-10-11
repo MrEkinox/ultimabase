@@ -205,6 +205,7 @@ describe('test ownership and discovery', () => {
 			'packages/soft-delete-plugin/tests/e2e/soft-delete-plugin.e2e.test.ts',
 			'packages/validation-plugin/tests/e2e/standard-schema-validation.e2e.test.ts',
 			'tests/e2e/optional-product-public-api.e2e.test.ts',
+			'tests/e2e/register-required.e2e.test.ts',
 		])
 		for (const file of e2eFiles) {
 			const coverage = rootFiles.filter(

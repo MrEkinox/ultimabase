@@ -208,7 +208,7 @@ const createFixture = async (
 		httpPlugin({ appId: 'response-app' }),
 		capturePlugin(capture),
 	))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 	})
 	await application.start()

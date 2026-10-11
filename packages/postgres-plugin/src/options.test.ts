@@ -125,7 +125,7 @@ describe('direct PostgreSQL options', () => {
 
 			await expect(
 				new PostgresSchemaApplication({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [schema],
 				}).initialize(),
 			).rejects.toSatisfy((error: unknown) =>
@@ -162,7 +162,7 @@ describe('direct PostgreSQL options', () => {
 
 			await expect(
 				new PostgresSchemaApplication({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [schema],
 				}).initialize(),
 			).rejects.toSatisfy((error: unknown) =>

@@ -32,14 +32,18 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
 import { Article } from './article.js'
 
-const url = process.env.DATABASE_URL
-if (!url) throw new Error('DATABASE_URL is required')
-
+// postgresPlugin() reads DATABASE_URL when the application starts.
 const Application = UltimaBase.use(
-    postgresPlugin({ url, schemaPolicy: 'fail' }),
+    postgresPlugin({ schemaPolicy: 'fail' }),
     typegenPlugin(),
 )
 const app = new Application({ schemas: [Article] })
+
+declare module '@ultimabase/core' {
+  interface Register {
+    readonly app: typeof app
+  }
+}
 
 await app.start()`
 

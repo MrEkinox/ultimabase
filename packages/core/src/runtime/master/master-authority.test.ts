@@ -1,5 +1,4 @@
 import { FrameworkError } from '../../foundation.js'
-import { RequestContextValue } from '../../access/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -13,6 +12,7 @@ import {
 	type MasterKeyGrant,
 	type MasterAuthorityOptions,
 } from './master-authority.js'
+import { RequestContextValue } from '../../plugin.js'
 
 const principalValue = new RequestContextValue<string>(
 	'fixture.principal',

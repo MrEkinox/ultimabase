@@ -23,11 +23,14 @@ export const requireCurrentRequestRoleResolver = (): RequestRoleResolver => {
 	if (contribution === undefined) {
 		throw new FrameworkError(
 			'PLUGIN_CAPABILITY_MISSING',
-			'Active application requires a request role resolver capability.',
+			`Active application requires a request role resolver capability.${requestRoleResolverCapability.hint === undefined ? '' : ` ${requestRoleResolverCapability.hint}`}`,
 			{
 				internalDetails: {
 					capabilityId: requestRoleResolverCapability.capabilityId,
 					requiredVersion: '^1.0.0',
+					...(requestRoleResolverCapability.hint === undefined
+						? {}
+						: { hint: requestRoleResolverCapability.hint }),
 				},
 			},
 		)

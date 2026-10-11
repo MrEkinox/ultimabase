@@ -97,11 +97,10 @@ export type {
 	QueryStructuralContainmentFilterNode,
 	QueryStructuralContainmentFilterOperator,
 } from './filters/primitive.js'
-export {
-	normalizeWhereInput,
-	resolveWhereInput,
-	WhereBuilder,
-} from './filters/where.js'
+export { normalizeWhereInput, resolveWhereInput } from './filters/where.js'
+// Applications receive builders where Core passes them; plugin authors
+// construct them from `@ultimabase/core/plugin` (ADR-0311).
+export type { WhereBuilder } from './filters/where.js'
 export type {
 	WhereCallback,
 	WhereInput,
@@ -211,7 +210,7 @@ export type {
 	QueryRelationTargetInput,
 	QuerySelectedFieldFromInput,
 } from './query/input.js'
-export { QueryBuilder } from './query/query.js'
+export type { QueryBuilder } from './query/query.js'
 export type { QueryPointerTargetBuilder } from './query/query-contracts.js'
 export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'

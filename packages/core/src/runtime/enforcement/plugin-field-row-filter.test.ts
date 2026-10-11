@@ -1,7 +1,7 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import { QueryBuilder, type FindManyOperationAst } from '../../query/index.js'
+import { type FindManyOperationAst } from '../../query/index.js'
 import { definePluginField } from '../../schema/index.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { RuntimeCallbackExecutor } from '../contributions/execution.js'
@@ -16,6 +16,7 @@ import {
 } from './protected-policy.js'
 import { getEnforcementStateSnapshot } from './state.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const containedField = definePluginField(
 	'fixture.policy.contained',

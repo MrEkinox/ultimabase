@@ -1,7 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import { QueryBuilder } from '../../query/index.js'
 import { SchemaRegistry } from '../../schema/index.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
@@ -14,6 +13,7 @@ import { databasePersistencePlanCapability } from '../database/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { bindRuntimeVirtualFields } from '../pipeline/application-bindings.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const context = RequestContext.anonymous({
 	requestId: 'virtual-scheduler',

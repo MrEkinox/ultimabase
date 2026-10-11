@@ -17,6 +17,7 @@ sources:
   - docs/adr/0009-http-server-plugins.md
   - docs/adr/0226-http-browser-and-predispatch-boundaries.md
   - docs/adr/0260-single-owner-http-dispatch.md
+  - docs/adr/0312-environment-dependent-plugin-defaults.md
 ---
 
 ## Overview
@@ -78,11 +79,9 @@ import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })
+const server = honoServerPlugin()
 
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const Application = UltimaBase.use(postgresPlugin())
 	.use(httpPlugin({ appId: 'blog' }))
 	.use(server)
 
@@ -93,9 +92,11 @@ export const ultimabase = new Application({
 
 This starts the HTTP boundary, not an API route. Add a transport plugin to
 serve REST or GraphQL. Without `port`, the managed listener uses the `PORT` environment variable that
-most hosting platforms set, then `1337`. The
-optional `host` is forwarded only when you set it; the loopback value above is
-appropriate for local development. Port `0` lets the operating system choose
+most hosting platforms set, then `1337`. Without `host`, it uses the `HOST`
+environment variable, then `127.0.0.1` in development and every interface
+when `NODE_ENV=production`; the plugin reads these when it is created and an
+explicit option always wins. `logLevel: 'debug'` logs the derived address and
+its source. Port `0` lets the operating system choose
 an ephemeral port for tests. Once started, read the bound address through the
 plugin exports; it is `undefined` before start, after stop, and when you pass
 your own `app`:

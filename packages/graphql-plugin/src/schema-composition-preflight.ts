@@ -1,3 +1,4 @@
+import type { Logger } from '@ultimabase/core'
 import type {
 	ApplicationCallbackExecutor,
 	PluginIdentity,
@@ -35,6 +36,8 @@ export interface OwnedGraphqlSchema {
 /** @internal Supplies trusted attribution while cloning contributed callbacks. */
 export interface GraphqlSchemaCompositionContext {
 	readonly callbacks: ApplicationCallbackExecutor
+	/** Receives masked resolver failures (ADR-0305, ADR-0313). */
+	readonly logger: Logger
 	readonly schemas: readonly OwnedGraphqlSchema[]
 }
 

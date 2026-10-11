@@ -1,12 +1,14 @@
 import {
 	contributeApplication,
 	plugin,
+	provideCapability,
 	requireCapability,
 	type PluginInstance,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
 	httpBrowserPolicyCapability,
+	httpServerCapability,
 } from '@ultimabase/http-plugin'
 import { immutableRecord } from '@ultimabase/shared'
 import type { Env, Schema } from 'hono'
@@ -63,10 +65,18 @@ export const honoServerPlugin = <
 >(
 	options: HonoServerPluginOptions<TEnvironment, TSchema, TBasePath> = {},
 ): HonoServerPlugin => {
-	const provider = new HonoServerProvider(
-		normalizeHonoServerPluginOptions(options),
-	)
-	const application = contributeApplication(({ capabilities }) => {
+	const normalized = normalizeHonoServerPluginOptions(options)
+	const provider = new HonoServerProvider(normalized)
+	const application = contributeApplication(({ capabilities, logger }) => {
+		if (normalized.app === undefined) {
+			// ADR-0312: derived values and their sources, at debug level.
+			logger.debug(
+				`listen host ${normalized.host ?? 'every interface'} (${normalized.sources.host})`,
+			)
+			logger.debug(
+				`listen port ${String(normalized.port)} (${normalized.sources.port})`,
+			)
+		}
 		const httpApplication = capabilities.get(applicationRequirement)
 		// Stop and disposal release the same exact owner, including failed-startup cleanup.
 		const stop = (): Promise<void> => provider.stop(httpApplication)
@@ -83,6 +93,14 @@ export const honoServerPlugin = <
 		}
 	})
 
+	// Tells httpPlugin() that its routes have a server (ADR-0313).
+	const server = provideCapability(httpServerCapability, {
+		contributionId: 'official-hono-http-server',
+		create: () => ({
+			value: immutableRecord({ name: '@ultimabase/server-hono-plugin' }),
+		}),
+	})
+
 	return plugin({
 		id: '@ultimabase/server-hono-plugin',
 		version: '0.0.0',
@@ -90,6 +108,7 @@ export const honoServerPlugin = <
 		contributions: [
 			applicationRequirement,
 			browserPolicyRequirement,
+			server,
 			application,
 		],
 		environment: ['environment:network'],

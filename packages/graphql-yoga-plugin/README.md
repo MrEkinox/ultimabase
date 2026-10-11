@@ -29,20 +29,18 @@ const Post = SchemaApplication.Schema.define({
 	graphql: { operations: { get: true, findMany: true } },
 })
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-
+// postgresPlugin() reads DATABASE_URL at start (ADR-0312).
 const Application = SchemaApplication.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+	postgresPlugin({ schemaPolicy: 'override' }),
 )
 	.use(httpPlugin({ appId: 'notes' }))
 	.use(graphqlYogaPlugin())
-	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
-const ultimabase = new Application({
+	.use(honoServerPlugin())
+export const ultimabase = new Application({
 	schemas: [Post],
 })
 
-await ultimabase.start()
+await using app = await ultimabase.start()
 ```
 
 This local example exposes two reads and needs a disposable PostgreSQL database;
@@ -54,7 +52,12 @@ includes the complete installation and matching HTTP request.
 `graphqlYogaPlugin()` mounts `POST /graphql` by default. It accepts only UTF-8
 JSON GraphQL requests, rejects batching, uploads, subscriptions, SSE, and the
 built-in GraphiQL UI, and limits streamed request bodies to 1 MiB. HTTP
-introspection is disabled unless `introspection: true` is configured.
+introspection follows `NODE_ENV` (ADR-0312): the plugin reads it when created,
+enabling introspection in development and disabling it when `NODE_ENV` is
+`production`; an explicit `introspection` always wins, and `logLevel: 'debug'`
+logs the value and its source. While introspection is enabled, the plugin
+publishes the `ultimabase.graphql.introspection` capability that served
+explorers require.
 
 ```ts
 graphqlYogaPlugin({

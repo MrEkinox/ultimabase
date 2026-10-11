@@ -56,7 +56,7 @@ describe('plugin embedded-field transformations', () => {
 			],
 		})
 		const application = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [plugin],
 			schemas: [Target],
 		})

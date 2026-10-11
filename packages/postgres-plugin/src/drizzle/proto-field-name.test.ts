@@ -105,7 +105,7 @@ const resolvePatchedSchema = async (): Promise<SchemaDefinition> => {
 		version: '1.0.0',
 	})
 	const ultimabase = new (UltimaBase.use(patch, database))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Item],
 	})
 	try {

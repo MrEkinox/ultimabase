@@ -8,7 +8,6 @@ import {
 	type DatabaseMutationOperationAst,
 	getCurrentEngine,
 	MasterAuthority,
-	requestSources,
 	runWithRequestEngine,
 } from '../../src/runtime/index.js'
 import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
@@ -21,6 +20,7 @@ import {
 	type RecordingPipelineBehaviorStages,
 } from './fixtures/recording-database-adapter.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import { requestSources } from '../../src/plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'AutomaticTransactionArticle',

@@ -6,7 +6,6 @@ import {
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type ExecutableOperationAst,
-	type RequestContext,
 	type RuntimePreparedMutationRecords,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
@@ -33,6 +32,7 @@ import {
 	requireAccessSchemaPlan,
 	type AccessScope,
 } from './rule-evaluation.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** Applies one item branch with its canonical Runtime identity. */
 const assertItemRules = (

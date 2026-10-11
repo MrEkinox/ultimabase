@@ -1,8 +1,6 @@
 import {
 	FrameworkError,
 	MasterAuthority,
-	RequestContext,
-	RequestContextValue,
 	UltimaBase,
 	plugin,
 	getCurrentRequest,
@@ -27,7 +25,7 @@ import {
 	GraphQLSchema,
 	GraphQLString,
 } from 'graphql'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { graphqlYogaPlugin } from './plugin.js'
 import {
@@ -35,6 +33,11 @@ import {
 	graphqlYogaFixtureHttpConsumer,
 	readFixtureHttpApplication,
 } from './test-application.test-support.js'
+import {
+	RequestContext,
+	RequestContextValue,
+	anonymous,
+} from '@ultimabase/core/plugin'
 
 const sessionPrincipal = new RequestContextValue<
 	Readonly<{ readonly id: string }>
@@ -164,7 +167,7 @@ const createFixture = async (
 					}),
 				}
 			: {}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	await ultimabase.start()
@@ -245,7 +248,7 @@ describe('GraphQL Yoga HTTP adapter', () => {
 		const graphql = fixture.ultimabase.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const context = fixture.ultimabase.anonymous({
+		const context = anonymous(fixture.ultimabase, {
 			requestId: 'networkless-context',
 			source: 'test',
 		}).context
@@ -443,7 +446,10 @@ describe('GraphQL Yoga HTTP adapter', () => {
 		await fixture.ultimabase.dispose()
 	})
 
-	it('disables HTTP introspection by default and enables it explicitly', async () => {
+	// ADR-0312: introspection is on in development and off in production; an
+	// explicit value wins in both.
+	it('disables HTTP introspection by default in production and enables it explicitly', async () => {
+		vi.stubEnv('NODE_ENV', 'production')
 		const disabled = await createFixture()
 		const denied = await request(disabled.http, {
 			body: JSON.stringify({ query: '{ __schema { queryType { name } } }' }),
@@ -462,6 +468,24 @@ describe('GraphQL Yoga HTTP adapter', () => {
 			data: { __schema: { queryType: { name: 'Query' } } },
 		})
 		await enabled.ultimabase.dispose()
+
+		vi.stubEnv('NODE_ENV', undefined)
+		const development = await createFixture()
+		const allowed = await request(development.http, {
+			body: JSON.stringify({ query: '{ __schema { queryType { name } } }' }),
+			contentType: 'application/json',
+		})
+		expect(allowed.status).toBe(200)
+		await development.ultimabase.dispose()
+
+		const explicit = await createFixture({ introspection: false })
+		const refused = await request(explicit.http, {
+			body: JSON.stringify({ query: '{ __schema { queryType { name } } }' }),
+			contentType: 'application/json',
+		})
+		expect(refused.status).toBe(400)
+		await explicit.ultimabase.dispose()
+		vi.unstubAllEnvs()
 	})
 
 	it('inherits audited Master authority without exposing its raw header', async () => {
@@ -495,9 +519,10 @@ describe('GraphQL Yoga HTTP adapter', () => {
 		const graphql = fixture.ultimabase.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const directContext = fixture.ultimabase
-			.anonymous({ requestId: 'direct-session', source: 'test' })
-			.context.withValue(sessionPrincipal, { id: 'Bearer session-1' })
+		const directContext = anonymous(fixture.ultimabase, {
+			requestId: 'direct-session',
+			source: 'test',
+		}).context.withValue(sessionPrincipal, { id: 'Bearer session-1' })
 		await expect(
 			graphql.execute({ context: directContext, document: '{ principal }' }),
 		).resolves.toEqual({ data: { principal: 'Bearer session-1' } })

@@ -88,7 +88,7 @@ ${Array.from({ length: schemaCount }, (_, index) => defineSourceSchema(index)).j
 
 const Benchmark = Authoring.use(passwordAuthPlugin({ user: User }))
 export const application = new Benchmark({
-  pluginPrivileges: { logger: false },
+  logger: false,
   schemas: [${Array.from({ length: schemaCount }, (_, index) => schemaName(index)).join(', ')}],
 })
 

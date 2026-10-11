@@ -1,6 +1,5 @@
 import {
 	MasterAuthority,
-	RequestContextValue,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -28,6 +27,7 @@ import {
 	graphqlYogaFixtureHttpConsumer,
 	readFixtureHttpApplication,
 } from './test-application.test-support.js'
+import { RequestContextValue } from '@ultimabase/core/plugin'
 
 const viewer = new RequestContextValue<string>(
 	'fixture.graphql-yoga.virtual-viewer',
@@ -158,7 +158,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 			keys: [{ id: 'graphql-yoga-master', value: 'master-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [VirtualYogaRecord],
 	})
 	await application.start()

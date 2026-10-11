@@ -97,7 +97,7 @@ it('composes installed Access, Hooks, Validation, and ACL authoring contracts', 
 	})
 	const generated = generateApplicationTypes({
 		ultimabase: new OfficialApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		}),
 		applicationId: 'fixture.official-options',
@@ -108,7 +108,7 @@ it('composes installed Access, Hooks, Validation, and ACL authoring contracts', 
 	})
 	const withoutOfficialPlugins = generateApplicationTypes({
 		ultimabase: new UltimaBase({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [PlainDocument],
 		}),
 		applicationId: 'fixture.official-options',

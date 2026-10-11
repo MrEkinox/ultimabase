@@ -115,7 +115,7 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 			keys: [{ id: 'schema-mutation-purge-master', value: 'unused' }],
 			onUse: audit,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Document],
 	})
 

@@ -1,9 +1,10 @@
-import { QueryBuilder, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 import { compilePostgresQueryClauses } from './clause-compiler.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const ArticleSchema = UltimaBase.Schema.define({
 	className: 'Article',

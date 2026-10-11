@@ -21,12 +21,21 @@ sources:
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
+  - docs/adr/0311-application-lifecycle-and-authority-surface.md
+  - packages/core/src/plugin.ts
 ---
 
 A `RequestContextValue<T>` is a typed, validated slot for one request. An
 identity plugin can use it to attach a principal after checking credentials;
 another plugin might attach a tenant or API-client identity. The value is
 information for installed policies, not permission by itself.
+
+Request contexts are plugin-author machinery: `RequestContext`,
+`RequestContextValue`, `RequestCapability`, `requestSources`, `RequestEngine`,
+`anonymous(app, options)`, `withContext(app, context)` and
+`authorizeMasterKey(app, rawKey)` come from `@ultimabase/core/plugin`.
+Application code needs none of them: it uses `useMasterKey` for trusted
+elevation and `ultimabase.transaction(fn)` to group writes.
 
 ## Derive a typed context
 
@@ -35,7 +44,7 @@ import {
 	RequestContext,
 	RequestContextValue,
 	requestSources,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 export const tenantId = new RequestContextValue<string>(
 	'acme.identity.tenant-id',
@@ -71,7 +80,7 @@ application in the final operation options. This also lets a background job
 carry its own cancellation signal:
 
 ```ts title="src/read-posts.ts"
-import { RequestContext, requestSources } from '@ultimabase/core'
+import { RequestContext, requestSources } from '@ultimabase/core/plugin'
 
 import { Post } from './post.js'
 

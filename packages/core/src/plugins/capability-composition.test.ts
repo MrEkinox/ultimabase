@@ -70,7 +70,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [consumer],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -125,7 +125,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [consumer, provider],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -184,7 +184,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [consumer, first, second],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -252,7 +252,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [consumer, secondProvider, firstProvider],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -297,7 +297,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [undeclaredConsumer, provider],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -346,7 +346,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [cyclic],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -416,7 +416,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [first, second],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -526,7 +526,7 @@ describe('capability composition', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [dependency, consumer],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -612,8 +612,8 @@ describe('capability composition', () => {
 					plugins: [provider],
 					pluginPrivileges: {
 						deny: ['event:publish'],
-						logger: false,
 					},
+					logger: false,
 				}),
 			),
 		).toThrow(

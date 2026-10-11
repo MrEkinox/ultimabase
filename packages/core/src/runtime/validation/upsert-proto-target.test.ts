@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	normalizeUpdateExpression,
-	QueryBuilder,
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { createRuntimeValidationStage } from './runtime-validation.js'
 import { executeStage } from '../../../tests/fixtures/runtime-validation.js'
+import { QueryBuilder } from '../../plugin.js'
 
 // Regression: unique upsert target values were copied with plain assignment
 // (`values[fieldName] = value`). For a declared `__proto__` field the write hit

@@ -100,7 +100,7 @@ describe('REST response errors', () => {
 			expect(masked.status).toBe(500)
 			expect(JSON.stringify(await readError(masked))).not.toContain('secret')
 			expect(log).toHaveBeenCalledWith(
-				`[UltimaBase] REST request ${requestId} failed`,
+				`REST request ${requestId} failed`,
 				failure,
 			)
 		} finally {

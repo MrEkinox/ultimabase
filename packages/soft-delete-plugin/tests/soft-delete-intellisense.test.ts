@@ -18,7 +18,7 @@ it('offers the source-owned schema option and accepted values', () => {
 	})
 	const generated = generateApplicationTypes({
 		ultimabase: new SoftDeleteApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		}),
 		applicationId: 'fixture.soft-delete-intellisense',

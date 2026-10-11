@@ -1,5 +1,4 @@
 import {
-	RequestContext,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type CapabilityProviderContribution,
@@ -15,6 +14,7 @@ import {
 	type HttpContextResolverContributionsCapability,
 	type HttpContextResolverInput,
 } from './context.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 const owner = { pluginId: 'fixture.browser-aware-resolver' } as const
 const callbacks: ApplicationCallbackExecutor = {

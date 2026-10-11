@@ -73,8 +73,9 @@ describe('native Hooks and Access removal', () => {
 			for (const file of readFiles(sourceRoot).filter((candidate) =>
 				candidate.endsWith('.ts'),
 			)) {
+				// `@ultimabase/core/plugin` is a public entry (ADR-0311).
 				expect(fs.readFileSync(file, 'utf8')).not.toMatch(
-					/from ['"]@ultimabase\/core\//u,
+					/from ['"]@ultimabase\/core\/(?!plugin['"])/u,
 				)
 			}
 		}

@@ -40,6 +40,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { withContext } from '@ultimabase/core/plugin'
 
 type RoleApplication = ReturnType<typeof createRoleApplication>
 
@@ -337,7 +338,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			requireMember(alice, 'Alice').id,
 			'roles-e2e-stable-reference',
 		)
-		const request = app.withContext(context)
+		const request = withContext(app, context)
 		const resolver = requireRoleResolver(
 			app.plugin(roleResolverConsumerPluginName),
 		)
@@ -371,7 +372,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			app.plugin(roleResolverConsumerPluginName),
 		)
 		const hasLinkedRole = () =>
-			runWithRequestEngine(app.withContext(context), () =>
+			runWithRequestEngine(withContext(app, context), () =>
 				resolver.hasRole({ context, role: AppRole.role('linked') }),
 			)
 

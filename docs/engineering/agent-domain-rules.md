@@ -146,9 +146,10 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
   reported before any plugin static declaration, Typegen, setup, connection,
   Runtime, or transport effect.
 - Privileges are denied globally, by plugin ID, or by exact instance. Unknown
-  policy targets are configuration errors. The default console logger reports
-  installed plugins, privileges, reasons, severity, and claims unless the
-  developer explicitly replaces or silences that diagnostic sink.
+  policy targets are configuration errors. The application logger
+  (ADR-0313) reports installed plugins, privileges, reasons, severity, and
+  claims at `debug`, one startup summary line at `info`, and denials at
+  `error`; `logger: false` silences every line.
 - Environmental claims describe direct filesystem, network, process, and native
   behavior that in-process JavaScript cannot be forced to declare. Privileges
   and claims are inspectable policy, not an operating-system sandbox.

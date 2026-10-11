@@ -238,6 +238,14 @@ original-header requirements, immutable route graph, and one Fetch-compatible
 dispatcher. It never exposes an UltimaBase application, Runtime engine,
 adapter, `MasterAuthority`, grant, or lifecycle control.
 
+Server plugins also provide `httpServerCapability` with their package name
+(`{ name: '@acme/server-plugin' }`). `httpPlugin()` reads these announcements
+at setup and logs one `warn` line when routes exist but no server plugin is
+installed (ADR-0313). Both HTTP capabilities carry the hint
+`Install @ultimabase/http-plugin and add httpPlugin() to UltimaBase.use(...).`,
+appended to `PLUGIN_CAPABILITY_MISSING` when a server plugin is installed
+without HTTP.
+
 Providers keep one optional `HttpApplication` owner. Capability composition
 validates its protocol version and ordered original-header contract before
 server setup. A competing application is rejected before listener effects;

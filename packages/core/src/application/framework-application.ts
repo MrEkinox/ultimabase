@@ -52,6 +52,12 @@ import {
 	type PluginPrivilegeReport,
 } from './plugin-privilege-policy.js'
 import * as diagnostics from './plugin-privilege-diagnostics.js'
+import {
+	ApplicationLog,
+	type LogLevel,
+	type Logger,
+} from './application-log.js'
+import { formatStartupSummary } from './startup-summary.js'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
@@ -86,6 +92,13 @@ export interface FrameworkApplicationOptions<
 	readonly plugins: TPlugins
 	/** Configures cumulative plugin privilege and environment-claim denials. */
 	readonly pluginPrivileges?: PluginPrivilegePolicy<TPlugins>
+	/**
+	 * Receives Core and plugin log lines; the console by default, `false`
+	 * silences everything (ADR-0313).
+	 */
+	readonly logger?: Logger | false
+	/** Lowest level written to the logger. @default 'info' */
+	readonly logLevel?: LogLevel
 }
 
 const assertApplicationOptions: (
@@ -120,6 +133,7 @@ export class FrameworkApplication<
 	readonly #schemaDeclarations = new SchemaDeclarationRegistry()
 	readonly #declarationHost: PluginDeclarationHost
 	readonly #privateStorage = new PrivateStorageRegistry()
+	readonly #log: ApplicationLog
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
 	#schemaCompilationError: FrameworkError | undefined
 	#initializePromise: Promise<this> | undefined
@@ -135,14 +149,15 @@ export class FrameworkApplication<
 
 		assertApplicationOptions(untrustedOptions)
 
+		this.#log = new ApplicationLog(options.logger, options.logLevel)
 		const graph = new PluginGraph(normalizePlugins(options.plugins))
-		const privilegePolicy = evaluatePluginPrivilegePolicy(
+		const report = evaluatePluginPrivilegePolicy(
 			graph,
 			options.pluginPrivileges,
 		)
-		this.pluginPrivilegeReport = privilegePolicy.report
-		diagnostics.emitPolicyReport(privilegePolicy.logger, privilegePolicy.report)
-		diagnostics.assertPolicyAllowed(privilegePolicy.report)
+		this.pluginPrivilegeReport = report
+		diagnostics.emitPolicyReport(this.#log, report)
+		diagnostics.assertPolicyAllowed(report)
 		composeDeclarationCapabilities(graph.capabilities)
 
 		this.schemas = new SchemaRegistry(options.schemas)
@@ -185,6 +200,7 @@ export class FrameworkApplication<
 				return host.forPlugin(owner)
 			},
 			() => this.#schemaDeclarations.typegenGraph(),
+			(owner) => this.#log.forPlugin(owner),
 		)
 		const capabilityHost = new ApplicationCapabilityHost(
 			graph,
@@ -211,6 +227,7 @@ export class FrameworkApplication<
 			new ApplicationKernelState({
 				assertPrivilege: assertPluginPrivilege,
 				capabilities: capabilityHost,
+				log: this.#log,
 				pluginExports: (plugin) => this.#lifecycle.getPluginExports(plugin),
 				privateStorage: this.#privateStorage,
 			}),
@@ -433,6 +450,9 @@ export class FrameworkApplication<
 			await this.initialize()
 			beforeStart?.()
 			await this.#lifecycle.start()
+			this.#log.info(
+				formatStartupSummary(this.schemas.size, this.pluginPrivilegeReport),
+			)
 		} catch (error: unknown) {
 			this.#startFailed = true
 			if (this.#lifecycle.state !== 'disposed') {

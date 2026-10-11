@@ -2,7 +2,6 @@ import {
 	createDatabasePersistencePlan,
 	databasePluginFieldStructuralContainsCapability,
 	normalizeUpdateExpression,
-	QueryBuilder,
 	rewriteDeletePersistencePlan,
 	UltimaBase,
 	type CreateOneOperationAst,
@@ -25,6 +24,7 @@ import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import { createPostgresDatabaseAdapter } from './adapter.js'
 import type { PostgresDriverQueryClient } from './client.js'
 import { readPostgresPersistenceOperation } from './persistence-plan.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 interface DriverResult {
 	readonly rowCount: number

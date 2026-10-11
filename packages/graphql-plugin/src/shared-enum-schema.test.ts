@@ -44,7 +44,7 @@ describe('GraphQL shared enums', () => {
 			graphql: true,
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [graphqlPlugin({ default: true }), graphqlFixtureDatabasePlugin],
 			schemas: [Task, Project],
 		})

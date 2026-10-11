@@ -18,6 +18,7 @@ sources:
   - docs/adr/0218-master-bypasses-authorization-policies.md
   - docs/adr/0258-single-active-application-lifecycle.md
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
+  - docs/adr/0311-application-lifecycle-and-authority-surface.md
 ---
 
 Master is trusted server-side authority for work that must bypass
@@ -37,11 +38,10 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
 
-if (!databaseUrl || !masterKey) {
-	throw new TypeError('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
+if (!masterKey) {
+	throw new TypeError('ULTIMABASE_MASTER_KEY is required')
 }
 
 const Post = UltimaBase.Schema.define({
@@ -60,9 +60,8 @@ const masterAuthority = new MasterAuthority({
 	},
 })
 
-const Application = UltimaBase.use(accessPlugin()).use(
-	postgresPlugin({ url: databaseUrl }),
-)
+// postgresPlugin() reads DATABASE_URL when the application starts.
+const Application = UltimaBase.use(accessPlugin()).use(postgresPlugin())
 
 export const ultimabase = new Application({
 	masterAuthority,
@@ -78,12 +77,9 @@ Run that command from an entry point that owns startup and cleanup:
 ```ts title="src/run-maintenance.ts"
 import { createMaintenancePost, ultimabase } from './maintenance.js'
 
-try {
-	await ultimabase.start()
-	await createMaintenancePost('Rebuild complete')
-} finally {
-	await ultimabase.dispose()
-}
+await using app = await ultimabase.start()
+await createMaintenancePost('Rebuild complete')
+console.log(app.state)
 ```
 
 Calling `createMaintenancePost('Rebuild complete')` from trusted server code
@@ -96,9 +92,22 @@ access controls, and failure handling for production.
 
 `useMasterKey: true` is the concise, trusted direct-server option. It uses the
 first configured key ID for the audit and does not verify a raw key at that
-call. When a trusted boundary receives a raw key, `MasterAuthority.authorize()`
-verifies it and returns an opaque grant; `RequestEngine.useMasterKey(grant,
-reason)` then audits and binds the elevation to its exact application. A
+call. The option is a boolean, so a conditional elevation stays one call:
+
+```ts
+await Report.createOne({ data }, { useMasterKey: isScheduledJob })
+```
+
+`false` is identical to omitting the option: it inherits the current
+authority and never downgrades a Master request. Any other value is rejected
+before execution. Derive the value from server-side state only, never from
+request input such as the body, query string, or headers. Plugin-initiated
+elevation still requires the plugin's `authority:elevate` privilege.
+
+When a trusted transport receives a raw key, `authorizeMasterKey(app, rawKey)`
+from `@ultimabase/core/plugin` verifies it and returns an opaque grant;
+`RequestEngine.useMasterKey(grant, reason)` then audits and binds the
+elevation to its exact application. A
 grant or Master context from another application is rejected, even if both
 applications reuse the same `MasterAuthority` object in sequential lifetimes.
 Disposing an application does not make its grants or contexts reusable: obtain

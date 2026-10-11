@@ -1,3 +1,4 @@
+import { readApplicationLog } from '../../application/application-kernel-state.js'
 import {
 	assertApplicationExecution,
 	runApplicationWork,
@@ -444,6 +445,7 @@ export class RequestEngine<
 						run,
 						this.context.signal,
 						label,
+						readApplicationLog(this.#application),
 					),
 		)
 	}

@@ -3,8 +3,6 @@ import {
 	plugin,
 	MasterAuthority,
 	normalizeWhereInput,
-	QueryBuilder,
-	RequestContextValue,
 } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
@@ -19,6 +17,7 @@ import { RequestContext, requestSources } from '../context/request-context.js'
 import { protectedPolicy } from '../enforcement/protected-policy.js'
 import { RuntimeRelationFilterResolver } from './execution.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder, RequestContextValue } from '../../plugin.js'
 
 const tenant = new RequestContextValue<string>(
 	'fixture.relation-predicate-tenant',

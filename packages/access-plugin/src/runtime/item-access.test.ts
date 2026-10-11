@@ -1,6 +1,5 @@
 import {
 	collectOperationFieldInputs,
-	QueryBuilder,
 	UltimaBase,
 	SchemaRegistry,
 	normalizeUpdateExpression,
@@ -24,6 +23,7 @@ import {
 } from '../authoring/plan.js'
 import { requiresAccessPreparedMutationItems } from './item-access.js'
 import { collectUpdateFieldValues } from './mutation-transitions.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const Document = UltimaBase.Schema.define({
 	className: 'AccessPreparedSetDecision',

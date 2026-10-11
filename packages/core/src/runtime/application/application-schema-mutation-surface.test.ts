@@ -100,7 +100,7 @@ describe('application schema mutation surface capability', () => {
 	it('exposes one immutable descriptor per exact schema command', async () => {
 		const fixture = defineFixture('exact')
 		const application = new FrameworkApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [fixture.owner, fixture.inspector],
 			schemas: [fixture.Post],
 		})
@@ -145,7 +145,7 @@ describe('application schema mutation surface capability', () => {
 			expect(
 				() =>
 					new FrameworkApplication({
-						pluginPrivileges: { logger: false },
+						logger: false,
 						plugins: [fixture.owner, fixture.inspector, plugin],
 						schemas: [fixture.Post],
 					}),

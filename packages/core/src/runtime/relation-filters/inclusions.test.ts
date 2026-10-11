@@ -1,4 +1,4 @@
-import { plugin, RequestContextValue } from '../../index.js'
+import { plugin } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 
@@ -11,6 +11,7 @@ import { RequestContext, requestSources } from '../context/request-context.js'
 import { protectedPolicy } from '../enforcement/protected-policy.js'
 import { normalizeWhereInput } from '../../query/filters/where.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { RequestContextValue } from '../../plugin.js'
 
 const now = '2026-09-11T12:00:00.000Z'
 const firstSourceId = '0198f090-2a50-7000-8000-000000000201'

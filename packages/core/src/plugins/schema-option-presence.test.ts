@@ -104,14 +104,14 @@ describe('schema option-presence selection', () => {
 
 		await (
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [documentPlugin],
 				schemas: [Document, Plain],
 			})
 		).dispose()
 		await (
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [documentPlugin],
 				schemas: [Isolated],
 			})
@@ -207,7 +207,7 @@ describe('schema option-presence selection', () => {
 
 		await (
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [plugin],
 				schemas: [Omitted, Disabled, Explicit],
 			})
@@ -272,7 +272,7 @@ describe('schema option-presence selection', () => {
 
 			await expect(
 				createApplication({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					plugins: [plugin],
 					schemas: [],
 				}),
@@ -345,14 +345,14 @@ describe('schema option-presence selection', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [patcher('fixture.unknown-option-selector', 'missing')],
 				schemas: [],
 			}),
 		).rejects.toThrow('Unknown schema selector option: missing')
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					optionProvider('fixture.shared-option-a'),
 					optionProvider('fixture.shared-option-b'),

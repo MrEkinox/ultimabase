@@ -1,5 +1,5 @@
 import type { ServerType } from '@hono/node-server'
-import { getCurrentRequest, type RequestContext } from '@ultimabase/core'
+import { getCurrentRequest } from '@ultimabase/core'
 import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { Hono } from 'hono'
@@ -25,6 +25,7 @@ import {
 } from './relation-filter-public-support.js'
 import {
 	invoke,
+	invokeCorePlugin,
 	loadMinimalExample,
 	readObject,
 	readString,
@@ -32,6 +33,7 @@ import {
 	type MinimalClient,
 	type MinimalExampleModule,
 } from './rest-public-vertical-support.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 const applicationId = 'relation-filter-public'
 const masterKey = 'relation-filter-public-master'
@@ -85,7 +87,8 @@ const createContext = async (
 	kind: 'anonymous' | 'master',
 ): Promise<RequestContext> => {
 	const anonymous = readObject(
-		await invoke(app(), 'anonymous', [
+		await invokeCorePlugin('anonymous', [
+			app(),
 			{
 				requestId: `relation-filter-${kind}`,
 				source: 'internal',
@@ -99,7 +102,7 @@ const createContext = async (
 			'anonymous context',
 		) as RequestContext
 	}
-	const grant = await invoke(app(), 'authorizeMasterKey', [masterKey])
+	const grant = await invokeCorePlugin('authorizeMasterKey', [app(), masterKey])
 	const master = readObject(
 		await invoke(anonymous, 'useMasterKey', [
 			grant,

@@ -174,26 +174,26 @@ relation-filter examples and visibility rules.
 
 ## Build a filter dynamically
 
-Use `WhereBuilder` when application code chooses operands at runtime. Its
-methods return new immutable branches; `.build()` produces the same `where`
-object used in the examples above:
+When application code chooses operands at runtime, build the `where` object
+itself. Fields listed together combine with `AND`:
 
 ```ts title="src/visible-posts.ts"
-import { WhereBuilder } from '@ultimabase/core'
+import type { Where } from '@ultimabase/core'
 
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readVisiblePosts = (minimumViews: number) => {
-	const where = new WhereBuilder(Post)
-		.eq('published', true)
-		.gte('views', minimumViews)
+	const where: Where<typeof Post> = {
+		published: true,
+		views: { gte: minimumViews },
+	}
 
-	return Post.findMany({ where: where.build() })
+	return Post.findMany({ where })
 }
 ```
 
-The two conditions combine with `AND`. The builder does not execute a query;
-`Post.findMany()` does. A built filter can also be passed to `QueryBuilder.where()`
-when you need a reusable selection or ordering. See
+The object does not execute a query; `Post.findMany()` does. A `WhereBuilder`
+reaches application code only where Core passes one, in Access rules and
+relation `where` callbacks; plugin authors construct one from
+`@ultimabase/core/plugin`. See
 [Reusable Dynamic Queries](./overview#reusable-dynamic-queries).

@@ -1,7 +1,14 @@
-import { FrameworkError, PluginError } from '@ultimabase/core'
-import { describe, expect, it } from 'vitest'
+import { FrameworkError, PluginError, type Logger } from '@ultimabase/core'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createSafeGraphqlError } from './execution-errors.js'
+
+const createLogger = () => ({
+	debug: vi.fn<Logger['debug']>(),
+	error: vi.fn<Logger['error']>(),
+	info: vi.fn<Logger['info']>(),
+	warn: vi.fn<Logger['warn']>(),
+})
 
 describe('GraphQL execution errors', () => {
 	it('preserves only explicitly public Core metadata', () => {
@@ -13,6 +20,7 @@ describe('GraphQL execution errors', () => {
 				retryable: true,
 			}),
 			'graphql-safe-error',
+			createLogger(),
 		)
 
 		expect(error.toJSON()).toMatchObject({
@@ -32,7 +40,17 @@ describe('GraphQL execution errors', () => {
 			new Error('SQL password super-secret'),
 			new PluginError('fixture.private', 'private plugin trace'),
 		]) {
-			const masked = createSafeGraphqlError(diagnostic, 'masked-request')
+			const logger = createLogger()
+			const masked = createSafeGraphqlError(
+				diagnostic,
+				'masked-request',
+				logger,
+			)
+			// ADR-0313: the masked failure reaches the plugin logger only.
+			expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+				'GraphQL request masked-request failed',
+				diagnostic,
+			)
 			expect(masked.toJSON()).toMatchObject({
 				extensions: {
 					code: 'INTERNAL_SERVER_ERROR',

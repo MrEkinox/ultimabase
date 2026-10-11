@@ -6,7 +6,6 @@ import {
 	type CapabilityProviderContribution,
 	type MasterRequestAccess,
 	type PluginIdentity,
-	type RequestContext,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -43,6 +42,7 @@ import {
 	selectHttpEndpoint,
 	type HttpRouteGraph,
 } from './route-graph.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 export { httpApplicationCapability } from './application-capability.js'
 

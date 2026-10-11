@@ -619,9 +619,11 @@ Each plugin definition contains a static manifest with its structured identity,
 package and Core compatibility, derived privileges with author or generated
 reasons (ADR-0290), environment claims, and provided and required capability
 tokens. An application may deny privileges globally, by plugin ID, or for an exact
-instance. The default console logger reports every plugin and requested power,
-then one typed diagnostic aggregates denials before declarations, Typegen,
-setup, connections, Runtime, or transports can produce effects.
+instance. The application logger (ADR-0313) writes the complete report of
+every plugin and requested power at `debug`, and one `info` startup line names
+critical privileges; one typed diagnostic aggregates denials, logged at
+`error`, before declarations, Typegen, setup, connections, Runtime, or
+transports can produce effects.
 
 Plugins are trusted in-process Node.js code. Privileges govern UltimaBase-owned
 facades and make powers inspectable; separate environmental claims describe

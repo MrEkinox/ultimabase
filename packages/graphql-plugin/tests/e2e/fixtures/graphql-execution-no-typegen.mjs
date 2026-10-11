@@ -8,6 +8,7 @@ import {
 	plugin,
 	provideCapability,
 } from '@ultimabase/core'
+import { anonymous } from '@ultimabase/core/plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphql } from 'graphql'
 
@@ -81,12 +82,12 @@ const Note = Application.Schema.define({
 	graphql: true,
 })
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Target, Note],
 })
 
 await ultimabase.start()
-const context = ultimabase.anonymous({
+const context = anonymous(ultimabase, {
 	requestId: 'javascript-graphql-request',
 	source: 'ultimabase.graphql',
 }).context

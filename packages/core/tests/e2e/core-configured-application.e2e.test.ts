@@ -21,7 +21,13 @@ describe('packed configured UltimaBase application factories', () => {
 				.readMemberCompletions('options')
 				.map(({ name }) => name)
 				.sort(),
-		).toStrictEqual(['masterAuthority', 'pluginPrivileges', 'validation'])
+		).toStrictEqual([
+			'logLevel',
+			'logger',
+			'masterAuthority',
+			'pluginPrivileges',
+			'validation',
+		])
 		const lifecycle = languageFixture
 			.readMemberCompletions('lifecycle')
 			.map(({ name }) => name)
@@ -33,8 +39,13 @@ describe('packed configured UltimaBase application factories', () => {
 				'plugin',
 				'start',
 				'stop',
+				'transaction',
 			]),
 		)
+		// ADR-0311: request-context machinery lives on `@ultimabase/core/plugin`.
+		for (const removed of ['anonymous', 'authorizeMasterKey', 'withContext']) {
+			expect(lifecycle).not.toContain(removed)
+		}
 
 		const use = languageFixture.readHover('use')
 		expect(use.display).toContain('.use<')

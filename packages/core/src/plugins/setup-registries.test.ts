@@ -11,6 +11,7 @@ describe('PluginSetupRegistries', () => {
 		expect(Object.keys(context).sort()).toStrictEqual([
 			'capabilities',
 			'fieldBuilderMethods',
+			'logger',
 			'pluginFieldTypes',
 			'schemas',
 			'typegenGraph',

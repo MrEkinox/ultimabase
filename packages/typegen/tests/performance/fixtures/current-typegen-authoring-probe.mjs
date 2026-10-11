@@ -84,9 +84,17 @@ ${Array.from({ length: schemaCount }, (_, index) => defineSourceSchema(index)).j
 
 const Benchmark = Authoring.use(passwordAuthPlugin({ user: User }))
 export const application = new Benchmark({
-  pluginPrivileges: { logger: false },
+  logger: false,
   schemas: [${Array.from({ length: schemaCount }, (_, index) => schemaName(index)).join(', ')}],
 })
+
+// Register is required (ADR-0297 amendment 1); old-form rules read the
+// registry while typed, so this Typegen probe registers without schemas.
+declare module '@ultimabase/core' {
+  interface Register {
+    readonly app: UltimaBase<readonly []>
+  }
+}
 
 ${Array.from({ length: schemaCount }, (_, index) => {
 	const name = schemaName(index)

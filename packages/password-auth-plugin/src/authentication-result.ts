@@ -1,6 +1,5 @@
 import {
 	FrameworkError,
-	RequestContext,
 	type OperationOptions,
 	type SchemaReference,
 	type SchemaResult,
@@ -16,6 +15,7 @@ import {
 	type PasswordSession,
 } from './session.js'
 import type { PasswordUserReference } from './user-schema.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 /** Reads one User profile, rejecting a missing or filtered-out row uniformly. */
 export const readPasswordProfile = async <

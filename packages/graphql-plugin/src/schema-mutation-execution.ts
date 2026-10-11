@@ -2,12 +2,12 @@ import type {
 	ApplicationSchemaMutationTransport,
 	ApplicationSchemaMutationTransportPlan,
 	ExposedSchemaMutationTransportBinding,
-	RequestContext,
 	SchemaDefinition,
 } from '@ultimabase/core'
 
 import { matchesGraphqlPlan } from './operation-execution.js'
 import type { graphqlProtocol } from './protocol.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 type Transport = ApplicationSchemaMutationTransport<typeof graphqlProtocol>
 type Plan = ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>

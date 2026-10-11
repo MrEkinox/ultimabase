@@ -39,7 +39,8 @@ describe('Typegen declaration facades', () => {
 		expect(
 			() =>
 				new FrameworkApplication({
-					pluginPrivileges: { deny: ['typegen:reference'], logger: false },
+					pluginPrivileges: { deny: ['typegen:reference'] },
+					logger: false,
 					plugins: [createContributor()],
 					schemas: [],
 				}),

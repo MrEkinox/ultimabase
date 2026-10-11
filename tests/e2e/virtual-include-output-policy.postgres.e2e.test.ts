@@ -50,7 +50,7 @@ const createFactory = (url: string) =>
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'virtual_include' })
 	application = new (createFactory(fixture.connectionUri))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Person, Post],
 	})
 	await application.start()

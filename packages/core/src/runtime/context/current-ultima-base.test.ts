@@ -8,6 +8,7 @@ import {
 } from '../../index.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
+import { anonymous } from '../application/plugin-authority.js'
 
 const createApplication = () =>
 	applicationFixture(
@@ -20,7 +21,7 @@ const createApplication = () =>
 					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
 				],
 			}),
-		))({ pluginPrivileges: { logger: false }, schemas: [] }),
+		))({ logger: false, schemas: [] }),
 	)
 
 describe('current UltimaBase facade', () => {
@@ -34,7 +35,7 @@ describe('current UltimaBase facade', () => {
 		try {
 			expect(getCurrentUltimaBase()).toBe(first)
 			const scope = (app: typeof first) =>
-				app.anonymous({ requestId: 'facade', source: 'internal' })
+				anonymous(app, { requestId: 'facade', source: 'internal' })
 			const observed = await Promise.all(
 				[first, first].map((app) =>
 					runWithRequestEngine(scope(app), async () => {

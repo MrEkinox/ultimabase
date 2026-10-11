@@ -1,6 +1,5 @@
 import {
 	normalizeUpdateExpression,
-	QueryBuilder,
 	type CountOperationAst,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -31,6 +30,7 @@ import {
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
 import { createRuntimeBehaviorBoundaries } from './validation-boundaries.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const fixedInstant = new Date('2026-08-02T12:34:56.000Z')
 const generatedId = '00000000-0000-7000-8000-000000000001'

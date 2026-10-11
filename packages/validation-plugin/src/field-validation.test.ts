@@ -10,9 +10,6 @@ import {
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
-	QueryBuilder,
-	RequestContext,
-	requestSources,
 	UltimaBase,
 	type ApplicationCallbackExecutor,
 	type CreateOneOperationAst,
@@ -27,6 +24,11 @@ import {
 } from './operation-validation.js'
 import { readValidationIssues } from './field-validation-fixture.js'
 import { validationPlugin } from './plugin.js'
+import {
+	QueryBuilder,
+	RequestContext,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 const ValidationApplication = UltimaBase.use(validationPlugin())
 
@@ -92,7 +94,7 @@ const validateFinalCreate = <const TSchema extends SchemaDefinition>(
 	dependencies: readonly SchemaDefinition[] = [],
 ): CreateOneOperationAst<TSchema> => {
 	new ValidationApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [...dependencies, schema],
 	}).compile()
 	const operation = {

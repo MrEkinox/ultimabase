@@ -7,7 +7,7 @@ import {
 } from '../../plugins/callback-execution.js'
 import { plugin as createPlugin, contributeDeclarations } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
-import { QueryBuilder, type ExecutableOperationAst } from '../../query/index.js'
+import { type ExecutableOperationAst } from '../../query/index.js'
 import { SchemaRegistry } from '../../schema/index.js'
 import type {
 	DatabaseMutationOperationAst,
@@ -29,6 +29,7 @@ import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { bindRuntimeVirtualFields } from '../pipeline/application-bindings.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const context = RequestContext.anonymous({
 	requestId: 'virtual-runtime',

@@ -1,11 +1,12 @@
 import process from 'node:process'
 
-import {
-	MasterAuthority,
-	RequestContextValue,
-	UltimaBase,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import {
+	RequestContextValue,
+	anonymous as anonymousRequest,
+	authorizeMasterKey,
+} from '@ultimabase/core/plugin'
 
 const databaseUrl = process.env.ULTIMABASE_TEST_DATABASE_URL
 if (databaseUrl === undefined) {
@@ -57,7 +58,7 @@ const ultimabase = new Application({
 		],
 		onUse: () => undefined,
 	}),
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Target, Source],
 })
 
@@ -66,14 +67,14 @@ const labels = (models) => models.map(({ label }) => label).sort()
 await ultimabase.start()
 
 try {
-	const anonymousEngine = ultimabase.anonymous({
+	const anonymousEngine = anonymousRequest(ultimabase, {
 		requestId: 'javascript-relation-filter',
 		source: 'internal',
 	})
 	const anonymous = anonymousEngine.context
 	const authenticated = anonymous.withValue(authenticatedViewer, true)
 	const master = await anonymousEngine.useMasterKey(
-		ultimabase.authorizeMasterKey('javascript-master-key'),
+		authorizeMasterKey(ultimabase, 'javascript-master-key'),
 		'Prove JavaScript relation shaping under Master',
 	)
 	const targets = await Target.createMany(

@@ -1,7 +1,6 @@
 import {
 	FrameworkError,
 	MasterAuthority,
-	RequestContext,
 	UltimaBase,
 	plugin,
 	runWithRequestEngine,
@@ -28,6 +27,7 @@ import {
 import { defaultPasswordSessionPolicy } from '../src/session-policy.js'
 import * as sessions from '../src/sessions.js'
 import { PasswordUser } from '../src/user-schema.js'
+import { RequestContext, withContext } from '@ultimabase/core/plugin'
 
 describe('Password Auth refresh concurrency', () => {
 	it('rejects a generation invalidated after its read without rotating the session', async () => {
@@ -75,7 +75,7 @@ describe('Password Auth refresh concurrency', () => {
 				}),
 			)
 			await using app = new App({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [PasswordUser],
 			})
 			await app.start()
@@ -101,7 +101,7 @@ describe('Password Auth refresh concurrency', () => {
 					),
 				)
 			await expect(
-				runWithRequestEngine(app.withContext(context), () =>
+				runWithRequestEngine(withContext(app, context), () =>
 					app.operation(passwordAuthOperations.refresh).execute(null),
 				),
 			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
@@ -177,7 +177,7 @@ describe('Password Auth sign-up duplicates', () => {
 				keys: [{ id: 'password-sign-up', value: 'fixture-secret' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [PasswordUser],
 		})
 		await app.start()
@@ -185,7 +185,7 @@ describe('Password Auth sign-up duplicates', () => {
 			requestId: 'sign-up-duplicate',
 			source: 'fixture',
 		})
-		return await runWithRequestEngine(app.withContext(context), () =>
+		return await runWithRequestEngine(withContext(app, context), () =>
 			app
 				.operation(passwordAuthOperations.signUp)
 				.execute({ username: 'ada', password: 'a long enough password' }),

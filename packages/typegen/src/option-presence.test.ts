@@ -112,7 +112,7 @@ describe('option-presence Typegen', () => {
 			...internalMarker,
 		} as never)
 		const application = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 		const generated = generateApplicationTypes({

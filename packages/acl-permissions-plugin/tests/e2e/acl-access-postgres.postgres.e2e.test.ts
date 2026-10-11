@@ -3,9 +3,6 @@ import {
 	RequestSubjectReference,
 	plugin,
 	MasterAuthority,
-	RequestContext,
-	RequestContextValue,
-	requestSources,
 	UltimaBase,
 	type PluginSourceState,
 } from '@ultimabase/core'
@@ -22,6 +19,11 @@ import {
 	provideTestPrincipalResolver,
 	provideTestRoleResolver,
 } from '../../../../tests/fixtures/access-capability-fixtures.js'
+import {
+	RequestContext,
+	RequestContextValue,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 const Principal = UltimaBase.Schema.define({
 	className: 'ACLAccessPrincipal',

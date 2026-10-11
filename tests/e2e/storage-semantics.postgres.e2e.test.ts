@@ -1,7 +1,7 @@
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
 	createPostgresWorkerFixture,
@@ -90,9 +90,22 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 		hooksPlugin(),
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
 	))({
-		pluginPrivileges: { logger: false },
+		// Retries are `debug` lines of the application logger (ADR-0313).
+		logger: {
+			debug: (message, details) => {
+				debugLines.push({ details, message })
+			},
+			error: () => undefined,
+			info: () => undefined,
+			warn: () => undefined,
+		},
+		logLevel: 'debug',
 		schemas: [Item, Left, Right],
 	})
+const debugLines: {
+	readonly details: object | undefined
+	readonly message: string
+}[] = []
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: ReturnType<typeof createApplication> | undefined
@@ -220,43 +233,42 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('resolves a deadlock between two concurrent updates by replaying one', async () => {
-			const debug = vi
-				.spyOn(console, 'debug')
-				.mockImplementation(() => undefined)
-			try {
-				const left = await Left.createOne({ data: {} })
-				const right = await Right.createOne({ data: {} })
-				partners.left = left.id
-				partners.right = right.id
+			debugLines.length = 0
+			const left = await Left.createOne({ data: {} })
+			const right = await Right.createOne({ data: {} })
+			partners.left = left.id
+			partners.right = right.id
 
-				const results = await Promise.all([
-					Left.updateOne({
-						where: { id: left.id },
-						data: { touchPartner: true },
-					}),
-					Right.updateOne({
-						where: { id: right.id },
-						data: { touchPartner: true },
-					}),
-				])
+			const results = await Promise.all([
+				Left.updateOne({
+					where: { id: left.id },
+					data: { touchPartner: true },
+				}),
+				Right.updateOne({
+					where: { id: right.id },
+					data: { touchPartner: true },
+				}),
+			])
 
-				expect(results).toHaveLength(2)
-				// The deadlock victim replays its whole transaction, hooks included.
-				expect(hookRuns.left + hookRuns.right).toBe(3)
-				expect(debug).toHaveBeenCalledWith(
-					'[UltimaBase] Retrying automatic transaction after a transient conflict',
-					expect.objectContaining({ attempt: 1, code: 'TRANSACTION_CONFLICT' }),
-				)
-				// Each committed attempt incremented its partner exactly once.
-				await expect(
-					Left.findOne({ where: { id: { eq: left.id } } }),
-				).resolves.toMatchObject({ value: 1 })
-				await expect(
-					Right.findOne({ where: { id: { eq: right.id } } }),
-				).resolves.toMatchObject({ value: 1 })
-			} finally {
-				debug.mockRestore()
-			}
+			expect(results).toHaveLength(2)
+			// The deadlock victim replays its whole transaction, hooks included.
+			expect(hookRuns.left + hookRuns.right).toBe(3)
+			const retry = debugLines.find(
+				({ message }) =>
+					message ===
+					'UltimaBase: retrying an automatic transaction after a transient conflict',
+			)
+			expect(retry?.details).toMatchObject({
+				attempt: 1,
+				code: 'TRANSACTION_CONFLICT',
+			})
+			// Each committed attempt incremented its partner exactly once.
+			await expect(
+				Left.findOne({ where: { id: { eq: left.id } } }),
+			).resolves.toMatchObject({ value: 1 })
+			await expect(
+				Right.findOne({ where: { id: { eq: right.id } } }),
+			).resolves.toMatchObject({ value: 1 })
 		})
 	},
 )

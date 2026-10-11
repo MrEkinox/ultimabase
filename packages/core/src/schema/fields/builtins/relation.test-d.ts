@@ -4,12 +4,12 @@ import {
 	relationField,
 	type RelationWhere,
 	type RelationWhereResolver,
-	type RequestContext,
 	type SchemaClass,
 	type SchemaInputsTypeInfo,
 	type SchemaTypeInfo,
 	type WhereBuilder,
 } from '../../../index.js'
+import type { RequestContext } from '../../../plugin.js'
 
 interface RelationWhereTargetTypeInfo extends SchemaTypeInfo {
 	readonly fields: 'active' | 'score'

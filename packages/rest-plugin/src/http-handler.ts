@@ -1,3 +1,4 @@
+import type { Logger } from '@ultimabase/core'
 import {
 	FrameworkError,
 	getCurrentRequest,
@@ -40,6 +41,8 @@ import type {
 /** @internal Setup-owned routes and exposure bound after the HTTP mount exists. */
 export interface RestHttpConfiguration {
 	readonly limits: RestReadLimits
+	/** The plugin logger: masked failures are logged here (ADR-0313). */
+	readonly logger: Logger
 	readonly operationTransport: RestOperationTransport | undefined
 	readonly routes: readonly RestRouteDefinition[]
 	readonly schemaMutationTransport: RestSchemaMutationTransport | undefined
@@ -374,6 +377,9 @@ export const createRestHttpMounts = (
 		} catch (error: unknown) {
 			if (request.signal.aborted) throw error
 			return createRestCaughtErrorResponse(error, requestId, {
+				...(configuration === undefined
+					? {}
+					: { logger: configuration.logger }),
 				...(route.kind === 'rest-schema-route' ? {} : { route }),
 				statusFor: (operation, code) =>
 					configuration?.operationTransport?.statusFor(operation, code) ??

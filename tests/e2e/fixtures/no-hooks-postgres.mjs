@@ -1,7 +1,8 @@
 import process from 'node:process'
 
-import { UltimaBase, requestSources } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { anonymous, requestSources } from '@ultimabase/core/plugin'
 
 const databaseUrl = process.env.ULTIMABASE_TEST_DATABASE_URL
 if (databaseUrl === undefined) {
@@ -19,7 +20,7 @@ const Post = Application.Schema.define({
 	}),
 })
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Post],
 })
 
@@ -28,7 +29,7 @@ await ultimabase.start()
 try {
 	const created = await Post.createOne({ data: { title: 'JavaScript create' } })
 	const found = await Post.findOne({ where: { id: { eq: created.id } } })
-	const request = ultimabase.anonymous({
+	const request = anonymous(ultimabase, {
 		requestId: 'javascript-no-engine-transaction',
 		source: requestSources.internal,
 	})

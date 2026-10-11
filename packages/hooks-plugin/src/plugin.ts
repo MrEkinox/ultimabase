@@ -100,7 +100,7 @@ const schemaMutationSurfaceRequirement = requireCapability(
 
 const hooksRuntimeProvider = provideRuntimeBehavior({
 	contributionId: 'official-hooks-runtime',
-	create: ({ callbacks, capabilities, schemas }) => {
+	create: ({ callbacks, capabilities, logger, schemas }) => {
 		// Core attributes every contribution to its exact plugin instance.
 		const contributions = capabilities
 			.contributions(optionalHookContributions)
@@ -130,6 +130,7 @@ const hooksRuntimeProvider = provideRuntimeBehavior({
 			observer,
 			immutableArray(eventHandlers),
 			callbacks,
+			logger,
 		)
 
 		return immutableRecord({ value: createHookBehavior(plan, runtime) })

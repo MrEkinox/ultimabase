@@ -1,6 +1,5 @@
 import {
 	collectQueryRelationPredicates,
-	QueryBuilder,
 	SchemaRegistry,
 } from '@ultimabase/core'
 import { PgDialect } from 'drizzle-orm/pg-core'
@@ -15,6 +14,7 @@ import {
 } from '../../tests/fixtures/relation-fixture.js'
 import { compilePostgresFilter } from './filter-compiler.js'
 import { createPostgresRelationPredicateCompiler } from './relation-predicate-compiler.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const relationSchemas = [
 	PostgresRelationArticle,

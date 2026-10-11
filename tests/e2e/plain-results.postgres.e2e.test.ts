@@ -100,7 +100,7 @@ const createApplication = (connectionUri: string) =>
 			keys: [{ id: 'plain-results', value: 'plain-results-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Author, Tag, Item],
 	})
 

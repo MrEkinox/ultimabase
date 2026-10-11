@@ -101,7 +101,7 @@ it('serves GraphQL through a real browser Fetch boundary', async () => {
 			app,
 			browserPolicyOwner: 'ultimabase',
 		}),
-	))({ pluginPrivileges: { logger: false }, schemas: [] })
+	))({ logger: false, schemas: [] })
 	let targetServer: ServerType | undefined
 	const browser = await chromium.launch({ headless: true })
 

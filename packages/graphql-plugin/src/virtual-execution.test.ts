@@ -1,6 +1,5 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
-	RequestContextValue,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -14,6 +13,7 @@ import {
 } from '@ultimabase/core'
 
 import { graphqlPlugin } from './index.js'
+import { RequestContextValue, anonymous } from '@ultimabase/core/plugin'
 
 const objectId = '01991f00-0000-7000-8000-000000000702'
 const viewer = new RequestContextValue<string>(
@@ -128,7 +128,7 @@ const createFixture = async () => {
 	const application = new (UltimaBase.use(
 		databasePlugin(adapter),
 		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-	))({ pluginPrivileges: { logger: false }, schemas: [VirtualRecord] })
+	))({ logger: false, schemas: [VirtualRecord] })
 	onTestFinished(() => application.dispose())
 	await application.start()
 	return {
@@ -141,9 +141,10 @@ const createFixture = async () => {
 describe('GraphQL virtual networkless execution', () => {
 	it('selects Core virtuals in connections and serializes nested output values', async () => {
 		const fixture = await createFixture()
-		const context = fixture.application
-			.anonymous({ requestId: 'graphql-virtual', source: 'test' })
-			.context.withValue(viewer, 'member')
+		const context = anonymous(fixture.application, {
+			requestId: 'graphql-virtual',
+			source: 'test',
+		}).context.withValue(viewer, 'member')
 		const result = await fixture.graphql.execute({
 			context,
 			document: `query {
@@ -180,7 +181,7 @@ describe('GraphQL virtual networkless execution', () => {
 
 	it('uses the safe GraphQL boundary for resolver and output failures', async () => {
 		const fixture = await createFixture()
-		const context = fixture.application.anonymous({
+		const context = anonymous(fixture.application, {
 			requestId: 'graphql-virtual-errors',
 			source: 'test',
 		}).context
@@ -207,7 +208,7 @@ describe('GraphQL virtual networkless execution', () => {
 		const fixture = await createFixture()
 		const controller = new AbortController()
 		const pending = fixture.graphql.execute({
-			context: fixture.application.anonymous({
+			context: anonymous(fixture.application, {
 				requestId: 'graphql-virtual-cancel',
 				signal: controller.signal,
 				source: 'test',
@@ -230,9 +231,10 @@ describe('GraphQL virtual networkless execution', () => {
 
 	it('keeps virtual resolution bound to one application context', async () => {
 		const first = await createFixture()
-		const firstContext = first.application
-			.anonymous({ requestId: 'graphql-virtual-first', source: 'test' })
-			.context.withValue(viewer, 'first')
+		const firstContext = anonymous(first.application, {
+			requestId: 'graphql-virtual-first',
+			source: 'test',
+		}).context.withValue(viewer, 'first')
 		const document = '{ findOneGraphqlVirtualRecord { displayTitle } }'
 		const firstResult = await first.graphql.execute({
 			context: firstContext,
@@ -240,9 +242,10 @@ describe('GraphQL virtual networkless execution', () => {
 		})
 		await first.application.dispose()
 		const second = await createFixture()
-		const secondContext = second.application
-			.anonymous({ requestId: 'graphql-virtual-second', source: 'test' })
-			.context.withValue(viewer, 'second')
+		const secondContext = anonymous(second.application, {
+			requestId: 'graphql-virtual-second',
+			source: 'test',
+		}).context.withValue(viewer, 'second')
 
 		await expect(
 			second.graphql.execute({ context: firstContext, document }),

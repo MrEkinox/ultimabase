@@ -46,7 +46,7 @@ describe('validationPlugin', () => {
 			fields: (field) => ({ title: field.string({ validation: validator }) }),
 		})
 		const application = new ValidationApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 

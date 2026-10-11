@@ -1,5 +1,4 @@
 import {
-	RequestContext,
 	UltimaBase,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
@@ -13,6 +12,7 @@ import { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlOperationExecution } from './operation-execution.js'
 import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
 import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 const Parent = UltimaBase.Schema.define({
 	className: 'QueryCountParent',
@@ -57,6 +57,7 @@ describe('GraphQL generated execution', () => {
 			callbacks,
 			connections,
 			executor,
+			logger: console,
 			operations,
 			owner: { pluginId: '@ultimabase/graphql-plugin' },
 			schemaMutations,

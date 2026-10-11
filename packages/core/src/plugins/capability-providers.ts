@@ -1,3 +1,4 @@
+import type { Logger } from '../application/application-log.js'
 import {
 	assertNonEmptyString,
 	immutableRecord,
@@ -77,6 +78,8 @@ export interface ApplicationCapabilityFactoryContext {
 	readonly assertPrivilege: (privilege: PluginPrivilege) => void
 	readonly capabilities: PluginCapabilityReader<'materialization'>
 	readonly schemas: CompiledSchemaRegistry
+	/** The plugin-prefixed application logger (ADR-0313). */
+	readonly logger: Logger
 }
 
 /** Creates one application-local provider without exposing it in static metadata. */

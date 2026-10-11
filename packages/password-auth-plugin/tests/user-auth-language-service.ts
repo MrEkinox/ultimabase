@@ -20,7 +20,7 @@ export const assertUserAuthLanguageService = (
 	const generated = generateApplicationTypes({
 		ultimabase: new (UltimaBase.use(passwordAuthPlugin({ user: User })))({
 			schemas: [User],
-			pluginPrivileges: { logger: false },
+			logger: false,
 		}),
 		applicationId: 'user-auth-editor',
 	})
@@ -161,7 +161,11 @@ void revoked
 void invalid
 void dynamicToken
 `
-	const operationService = createLanguageService(operationFile, operationSource)
+	const operationService = createLanguageService(
+		operationFile,
+		operationSource,
+		{ register: true },
+	)
 	try {
 		expect(
 			operationService

@@ -58,7 +58,8 @@ describe('API project templates', () => {
 				expect(plan.plugins).toContain(id)
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 			}
-			const application = files.get(`src/ultimabase.${language}`) ?? ''
+			// One plugin list in the schema module (ADR-0312).
+			const application = files.get(`src/schema.${language}`) ?? ''
 			expect(application.includes('honoServerPlugin(')).toBe(
 				plan.plugins.includes('server-hono-plugin'),
 			)
@@ -76,7 +77,8 @@ describe('API project templates', () => {
 				}
 			}
 			if (plan.plugins.includes('server-hono-plugin')) {
-				expect(application).toContain("host: '127.0.0.1', port: 1337")
+				// The listen address follows HOST and NODE_ENV (ADR-0312).
+				expect(application).toContain('honoServerPlugin()')
 				expect(files.get(`src/main.${language}`)).toContain(
 					"process.once('SIGTERM'",
 				)
@@ -141,9 +143,10 @@ describe('API project templates', () => {
 		expect(application).not.toContain('cookie:')
 	})
 
-	it('enables introspection only for a selected development explorer', () => {
+	// ADR-0312: introspection and explorers follow NODE_ENV themselves.
+	it('writes no environment expression for introspection or explorers', () => {
 		const plain = resolveSelection({ name: 'plain', apis: ['graphql'] }, '/tmp')
-		expect(renderBaseFiles(plain).get('src/ultimabase.ts')).toContain(
+		expect(renderBaseFiles(plain).get('src/schema.ts')).toContain(
 			'graphqlYogaPlugin()',
 		)
 		const explorer = resolveSelection(
@@ -153,13 +156,15 @@ describe('API project templates', () => {
 			},
 			'/tmp',
 		)
-		const application = renderBaseFiles(explorer).get('src/ultimabase.ts') ?? ''
-		expect(application).toContain(
-			"graphqlYogaPlugin({ introspection: process.env.NODE_ENV !== 'production' })",
-		)
-		expect(application).toContain(
-			"process.env.NODE_ENV === 'production' ? 'production' : 'development'",
-		)
+		const files = renderBaseFiles(explorer)
+		const application = files.get('src/schema.ts') ?? ''
+		expect(application).toContain('graphqlYogaPlugin()')
+		expect(application).toContain('graphiqlPlugin()')
+		expect(application).toContain('apolloSandboxPlugin()')
+		for (const contents of files.values()) {
+			expect(contents).not.toContain('NODE_ENV ===')
+			expect(contents).not.toContain('NODE_ENV !==')
+		}
 		expect(application).not.toContain('allowInProduction: true')
 	})
 })

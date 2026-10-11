@@ -3,6 +3,7 @@ import {
 	applicationRequestExecutionCapability,
 	contributeApplication,
 	contributeDeclarations,
+	optionalCapability,
 	plugin,
 	provideCapability,
 	requireCapability,
@@ -14,7 +15,10 @@ import {
 	type PluginInstance,
 	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
-import { httpEndpointContributionsCapability } from '@ultimabase/http-plugin'
+import {
+	httpApplicationCapability,
+	httpEndpointContributionsCapability,
+} from '@ultimabase/http-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -62,6 +66,12 @@ const transportPlanningRequirement = requireCapability(
 	applicationOperationTransportPlanningCapability,
 	'^1.0.0',
 	{ phase: 'materialization' },
+)
+// Read at setup only, to warn when no HTTP plugin serves the routes (ADR-0313).
+const optionalHttpApplication = optionalCapability(
+	httpApplicationCapability,
+	'^1.0.0',
+	{ phase: 'setup' },
 )
 
 type RestRouteCompiler = (
@@ -197,82 +207,96 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				schema: { rest: restSchemaOption },
 			}),
 	})
-	const application = contributeApplication(({ capabilities, schemas }) => {
-		const routeGraph = capabilities.get(routeGraphRequirement)
-		const readLimits = immutableRecord({
-			bodyBytes: normalized.bodyLimit,
-			defaultTake: normalized.pagination.defaultTake,
-			maxTake: normalized.pagination.maxTake,
-		})
-		const ownRoutes = routeGraph.routes.filter(
-			({ provenance: { plugin } }) =>
-				plugin.pluginId === restPluginId && plugin.instanceId === instanceId,
-		)
-		const operationRoutes = ownRoutes.filter(
-			(route): route is RestPluginOperationRouteDefinition =>
-				route.kind === 'rest-plugin-operation-route',
-		)
-		const schemaMutationRoutes = ownRoutes.filter(
-			(route): route is RestSchemaMutationRouteDefinition =>
-				route.kind === 'rest-schema-mutation-route',
-		)
-		const operations =
-			operationRoutes.length === 0
-				? undefined
-				: createRestOperationTransport(operationRoutes, schemas)
-		const schemaMutations =
-			schemaMutationRoutes.length === 0
-				? undefined
-				: createRestSchemaMutationTransport(schemaMutationRoutes)
-		const operationTransport = operations?.[0]
-		const schemaMutationTransport = schemaMutations?.[0]
-		const slot = httpSlots.get(capabilities.get(requestExecutionRequirement))
-		if (slot !== undefined) {
-			slot.configuration = immutableRecord({
-				limits: readLimits,
-				operationTransport,
-				routes: immutableArray(ownRoutes),
-				schemaMutationTransport,
+	const application = contributeApplication(
+		({ capabilities, logger, schemas }) => {
+			const routeGraph = capabilities.get(routeGraphRequirement)
+			const readLimits = immutableRecord({
+				bodyBytes: normalized.bodyLimit,
+				defaultTake: normalized.pagination.defaultTake,
+				maxTake: normalized.pagination.maxTake,
 			})
-		} else if (ownRoutes.length > 0) {
-			throw new TypeError('REST HTTP owner state is unavailable')
-		}
-		const exports = immutableRecord({
-			basePath,
-			readLimits,
-			routeGraph,
-			...(operationTransport === undefined ? {} : { operationTransport }),
-			...(schemaMutationTransport === undefined
-				? {}
-				: { schemaMutationTransport }),
-		})
-		return {
-			exports,
-			startTransports: () => {
-				// Core exposes only the exact allowlists compiled into this route graph.
-				operations?.[1](
-					capabilities.get(requestExecutionRequirement).exposeOperations({
-						...acknowledgement,
-						operations: normalized.operations,
-						transport: restProtocol,
-					}),
+			const ownRoutes = routeGraph.routes.filter(
+				({ provenance: { plugin } }) =>
+					plugin.pluginId === restPluginId && plugin.instanceId === instanceId,
+			)
+			const operationRoutes = ownRoutes.filter(
+				(route): route is RestPluginOperationRouteDefinition =>
+					route.kind === 'rest-plugin-operation-route',
+			)
+			const schemaMutationRoutes = ownRoutes.filter(
+				(route): route is RestSchemaMutationRouteDefinition =>
+					route.kind === 'rest-schema-mutation-route',
+			)
+			const operations =
+				operationRoutes.length === 0
+					? undefined
+					: createRestOperationTransport(operationRoutes, schemas)
+			const schemaMutations =
+				schemaMutationRoutes.length === 0
+					? undefined
+					: createRestSchemaMutationTransport(schemaMutationRoutes)
+			const operationTransport = operations?.[0]
+			const schemaMutationTransport = schemaMutations?.[0]
+			const slot = httpSlots.get(capabilities.get(requestExecutionRequirement))
+			if (slot !== undefined) {
+				slot.configuration = immutableRecord({
+					limits: readLimits,
+					logger,
+					operationTransport,
+					routes: immutableArray(ownRoutes),
+					schemaMutationTransport,
+				})
+			} else if (ownRoutes.length > 0) {
+				throw new TypeError('REST HTTP owner state is unavailable')
+			}
+			const exports = immutableRecord({
+				basePath,
+				readLimits,
+				routeGraph,
+				...(operationTransport === undefined ? {} : { operationTransport }),
+				...(schemaMutationTransport === undefined
+					? {}
+					: { schemaMutationTransport }),
+			})
+			if (ownRoutes.length === 0) {
+				logger.warn(
+					'REST exposes no schema or operation: register application schemas in new App({ schemas }) or pass restPlugin({ operations }).',
 				)
-				schemaMutations?.[1](
-					capabilities.get(requestExecutionRequirement).exposeSchemaMutations({
-						...acknowledgement,
-						transport: restProtocol,
-					}),
+			} else if (capabilities.get(optionalHttpApplication) === undefined) {
+				logger.warn(
+					'REST has routes but no HTTP plugin to serve them: install @ultimabase/http-plugin and add httpPlugin() to UltimaBase.use(...).',
 				)
-				if (routeGraph.routes.length === 0) return
-				capabilities
-					.get(requestExecutionRequirement)
-					.reportPublicTransportProtection({
-						...acknowledgement,
-						transport: restProtocol,
-					})
-			},
-		}
-	})
+			}
+			return {
+				exports,
+				startTransports: () => {
+					// Core exposes only the exact allowlists compiled into this route graph.
+					operations?.[1](
+						capabilities.get(requestExecutionRequirement).exposeOperations({
+							...acknowledgement,
+							operations: normalized.operations,
+							transport: restProtocol,
+						}),
+					)
+					schemaMutations?.[1](
+						capabilities
+							.get(requestExecutionRequirement)
+							.exposeSchemaMutations({
+								...acknowledgement,
+								transport: restProtocol,
+							}),
+					)
+					if (routeGraph.routes.length === 0) return
+					capabilities
+						.get(requestExecutionRequirement)
+						.reportPublicTransportProtection({
+							...acknowledgement,
+							transport: restProtocol,
+						})
+				},
+			}
+		},
+	)
 	return plugin({
 		id: restPluginId,
 		version: restPluginVersion,
@@ -284,6 +308,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			routeGraphRequirement,
 			requestExecutionRequirement,
 			transportPlanningRequirement,
+			optionalHttpApplication,
 			declarations,
 			application,
 		],

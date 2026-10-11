@@ -74,6 +74,7 @@ export default defineConfig(
 		files: [
 			'packages/*/src/**/*.test.ts',
 			'packages/*/src/**/*.test-d.ts',
+			'packages/*/src/**/*.test-support.ts',
 			// Package test helpers share the same strict project as executable tests.
 			'packages/*/tests/**/*.ts',
 			'tests/e2e/**/*.ts',

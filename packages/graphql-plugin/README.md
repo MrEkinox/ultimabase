@@ -4,6 +4,7 @@ Network-independent GraphQL schema generation for UltimaBase applications.
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
+import { anonymous } from '@ultimabase/core/plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -15,31 +16,28 @@ const Post = SchemaApplication.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	graphql: { operations: { findMany: true } },
 })
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
+// postgresPlugin() reads DATABASE_URL at start (ADR-0312).
 const Application = SchemaApplication.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+	postgresPlugin({ schemaPolicy: 'override' }),
 )
-const application = new Application({
+export const application = new Application({
 	schemas: [Post],
 })
-try {
-	await application.start()
-	const graphql = application.plugin('@ultimabase/graphql-plugin')
-	const context = application.anonymous({
-		requestId: crypto.randomUUID(),
-		source: 'internal',
-	}).context
-	console.log(
-		await graphql.execute({
-			context,
-			document: '{ findManyPost(first: 10) { nodes { id title } } }',
-		}),
-	)
-} finally {
-	await application.dispose()
-}
+
+await using app = await application.start()
+const graphql = app.plugin('@ultimabase/graphql-plugin')
+// Request contexts are plugin-author machinery (ADR-0311).
+const context = anonymous(app, {
+	requestId: crypto.randomUUID(),
+	source: 'internal',
+}).context
+console.log(
+	await graphql.execute({
+		context,
+		document: '{ findManyPost(first: 10) { nodes { id title } } }',
+	}),
+)
 ```
 
 Use a disposable database: `override` may create or alter tables. This example

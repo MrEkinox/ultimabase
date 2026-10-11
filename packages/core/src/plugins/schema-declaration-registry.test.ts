@@ -240,7 +240,7 @@ describe('plugin schema declaration registry', () => {
 		} as never)
 		const first = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [owner],
 				schemas: [Shared],
 			}),
@@ -255,7 +255,7 @@ describe('plugin schema declaration registry', () => {
 
 		await (
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [owner],
 				schemas: [Shared],
 			})
@@ -264,7 +264,7 @@ describe('plugin schema declaration registry', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [plugin('fixture.incompatible-option-owner')],
 				schemas: [Shared],
 			}),
@@ -307,7 +307,7 @@ describe('plugin schema declaration registry', () => {
 
 		await (
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [contributor],
 				schemas: [Shared],
 			})
@@ -316,7 +316,7 @@ describe('plugin schema declaration registry', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [],
 				schemas: [Shared],
 			}),
@@ -582,7 +582,7 @@ describe('plugin schema declaration registry', () => {
 
 		const application = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [plugin('primary', Primary), plugin('analytics', Analytics)],
 				schemas: [],
 			}),
@@ -635,7 +635,7 @@ describe('plugin schema declaration registry', () => {
 		})
 		const application = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [plugin],
 				schemas: [],
 			}),

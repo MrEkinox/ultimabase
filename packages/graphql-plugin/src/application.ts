@@ -105,6 +105,7 @@ export const graphqlApplicationCapability: CapabilityToken<
 	version: '1.0.0',
 	cardinality: 'single',
 	lifetime: 'application',
+	hint: 'Install @ultimabase/graphql-plugin and add graphqlPlugin() to UltimaBase.use(...).',
 	providerPrivilege: 'transport:expose',
 	compose: ([application]) => {
 		assertGraphqlApplication(application)

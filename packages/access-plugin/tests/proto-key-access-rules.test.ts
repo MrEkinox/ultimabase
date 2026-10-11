@@ -68,7 +68,7 @@ const createApplication = (
 		accessPlugin({ default: true }),
 		provider,
 		database,
-	))({ pluginPrivileges: { logger: false }, schemas: [schema] })
+	))({ logger: false, schemas: [schema] })
 	onTestFinished(() => ultimabase.dispose())
 	return ultimabase
 }

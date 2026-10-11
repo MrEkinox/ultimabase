@@ -75,7 +75,7 @@ describe('HTTP application capability compatibility', () => {
 						}),
 					],
 				}),
-			))({ schemas: [], pluginPrivileges: { logger: false } })
+			))({ schemas: [], logger: false })
 			try {
 				await expect(application.initialize()).rejects.toThrow(message)
 				expect(seen).not.toHaveBeenCalled()
@@ -133,7 +133,7 @@ describe('HTTP application capability compatibility', () => {
 						contributeApplication(() => ({ exports: undefined })),
 					],
 				}),
-			))({ schemas: [], pluginPrivileges: { logger: false } })
+			))({ schemas: [], logger: false })
 			try {
 				if (rejected) {
 					await expect(application.initialize()).rejects.toThrow(

@@ -122,7 +122,7 @@ describe('independent protected policy engine', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		const application = new UltimaBase({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Plain],
 		})
 
@@ -216,11 +216,11 @@ describe('independent protected policy engine', () => {
 		})
 		const support = createSupportPlugin(new AlternativeReadAdapter())
 		const first = new (UltimaBase.use(support, engine.plugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 		const second = new (UltimaBase.use(support, engine.plugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 
@@ -250,7 +250,7 @@ describe('independent protected policy engine', () => {
 			aclPlugin(),
 			createSupportPlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 
@@ -273,7 +273,7 @@ describe('independent protected policy engine', () => {
 			engine.plugin,
 			createSupportPlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 		try {
@@ -319,7 +319,7 @@ describe('independent protected policy engine', () => {
 			createSupportPlugin(new AlternativeReadAdapter(plainRow)),
 		))({
 			masterAuthority: authority('none'),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Plain],
 		})
 		const official = new (UltimaBase.use(
@@ -327,7 +327,7 @@ describe('independent protected policy engine', () => {
 			createSupportPlugin(new AlternativeReadAdapter(plainRow)),
 		))({
 			masterAuthority: authority('official'),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Plain],
 		})
 		const alternativeFixture = createAlternativeFixture()
@@ -336,7 +336,7 @@ describe('independent protected policy engine', () => {
 			createSupportPlugin(alternativeFixture.adapter),
 		))({
 			masterAuthority: authority('alternative'),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [alternativeFixture.Document],
 		})
 
@@ -385,7 +385,7 @@ describe('independent protected policy engine', () => {
 		const application = new (UltimaBase.use(
 			createSupportPlugin(adapter),
 			engine.plugin,
-		))({ pluginPrivileges: { logger: false }, schemas: [Document] })
+		))({ logger: false, schemas: [Document] })
 		const generated = generateApplicationTypes({
 			ultimabase: application,
 			applicationId: 'alternative-policy-language-service',

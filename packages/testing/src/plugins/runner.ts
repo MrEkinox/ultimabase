@@ -5,6 +5,7 @@ import {
 	type PluginEnvironmentClaim,
 	type PluginPrivilege,
 	type SchemaDefinition,
+	type UltimaBaseInstanceOptions,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -93,11 +94,15 @@ const assertCapabilities = ({ manifest }: PluginDefinition): void => {
 const createUltimaBase = <TSchemas extends readonly SchemaDefinition[]>(
 	plugins: readonly PluginDefinition[],
 	schemas: TSchemas,
-) =>
-	new (UltimaBase.use(...plugins))({
-		pluginPrivileges: { logger: false },
-		schemas,
-	})
+): UltimaBase<TSchemas, readonly PluginDefinition[]> => {
+	// Conformance assembles arbitrary fixtures outside any application
+	// program: the `Register` requirement (ADR-0297 amendment 1) belongs to
+	// applications, and generic code cannot satisfy it, hence this cast.
+	const Application = UltimaBase.use(...plugins) as unknown as new (
+		options: UltimaBaseInstanceOptions<TSchemas, readonly PluginDefinition[]>,
+	) => UltimaBase<TSchemas, readonly PluginDefinition[]>
+	return new Application({ logger: false, schemas })
+}
 
 type Disposable = Readonly<{ dispose(): Promise<void> }>
 
@@ -128,9 +133,9 @@ const assertDenied = async (
 	try {
 		const application = new (UltimaBase.use(...fixture.plugins))({
 			pluginPrivileges: {
-				logger: false,
 				plugins: { [identity.pluginId]: pluginPolicy },
 			},
+			logger: false,
 			schemas: fixture.schemas,
 		})
 		await application.dispose()

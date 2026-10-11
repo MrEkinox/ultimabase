@@ -454,6 +454,7 @@ export const databaseAdapterCapability: CapabilityToken<
 	cardinality: 'single',
 	lifetime: 'application',
 	compose: ([provider]) => provider,
+	hint: 'Add a database adapter plugin to UltimaBase.use(...).',
 })
 
 /** Checks one adapter-shaped value by its nominal kind and required methods. */

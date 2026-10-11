@@ -273,6 +273,7 @@ export const httpPluginPublicApi = {
 		'HttpPreDispatchErrorCode',
 		'HttpPreDispatchErrorEnvelope',
 		'HttpRouteGraph',
+		'HttpServerDescriptor',
 		'HttpServerOwnership',
 		'HttpServerRequest',
 		'OwnedHttpEndpoint',
@@ -281,6 +282,7 @@ export const httpPluginPublicApi = {
 		'OwnedHttpRoute',
 		'dispatchHttpBrowserRequest',
 		'httpApplicationCapability',
+		'httpServerCapability',
 		'httpApplicationIdHeader',
 		'httpApplicationProtocolVersion',
 		'httpBrowserBootstrapPathPrefix',
@@ -403,7 +405,10 @@ export const graphqlHttpPublicApi = {
 	compatibleProviderContract: [
 		'GraphqlHttpEndpoint',
 		'GraphqlHttpEndpointCapability',
+		'GraphqlIntrospection',
+		'GraphqlIntrospectionCapability',
 		'graphqlHttpEndpointCapability',
+		'graphqlIntrospectionCapability',
 	],
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi

@@ -1,4 +1,9 @@
-import { FrameworkError, PluginError, PublicError } from '@ultimabase/core'
+import {
+	FrameworkError,
+	PluginError,
+	PublicError,
+	type Logger,
+} from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import { GraphQLError, type GraphQLErrorExtensions } from 'graphql'
 
@@ -58,11 +63,15 @@ const failureFor = (error: unknown): PublicFailure =>
 export const createSafeGraphqlError = (
 	error: unknown,
 	requestId: string,
+	logger: Logger,
 ): GraphQLError => {
 	const failure = failureFor(error)
 	if (failure === internalFailure) {
-		// Masked failures keep their stack in server logs only (ADR-0305).
-		console.error(`[UltimaBase] GraphQL request ${requestId} failed`, error)
+		// Masked failures keep their stack in server logs only (ADR-0305, ADR-0313).
+		logger.error(
+			`GraphQL request ${requestId} failed`,
+			typeof error === 'object' && error !== null ? error : { error },
+		)
 	}
 	const extensions: GraphQLErrorExtensions = {
 		code: failure.code,

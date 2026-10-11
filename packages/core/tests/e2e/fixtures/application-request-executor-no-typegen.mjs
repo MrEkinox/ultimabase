@@ -69,7 +69,7 @@ const databasePlugin = plugin({
 
 const Application = UltimaBase.use(transportPlugin, databasePlugin)
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [],
 })
 await ultimabase.start()

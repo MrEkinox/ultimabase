@@ -13,7 +13,10 @@ import {
 	type PluginDefinition,
 } from '@ultimabase/core'
 
-import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
+import {
+	graphqlHttpEndpointCapability,
+	graphqlIntrospectionCapability,
+} from '@ultimabase/graphql-http'
 
 import {
 	httpApplicationCapability,
@@ -54,7 +57,10 @@ export const databasePlugin = (): PluginDefinition =>
 		],
 	})
 
-export const graphqlHttpProvider = (): PluginDefinition =>
+/** Publishes the endpoint and, unless disabled, introspection (ADR-0312). */
+export const graphqlHttpProvider = ({
+	introspection = true,
+}: { readonly introspection?: boolean } = {}): PluginDefinition =>
 	plugin({
 		core: '^0.0.0',
 		id: 'fixture.graphql-http-provider',
@@ -64,6 +70,14 @@ export const graphqlHttpProvider = (): PluginDefinition =>
 				contributionId: 'endpoint',
 				create: () => ({ value: { path: '/custom-graphql' } }),
 			}),
+			...(introspection
+				? [
+						provideCapability(graphqlIntrospectionCapability, {
+							contributionId: 'introspection',
+							create: () => ({ value: { path: '/custom-graphql' } }),
+						}),
+					]
+				: []),
 		],
 	})
 

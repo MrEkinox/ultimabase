@@ -12,10 +12,7 @@ import { FrameworkError } from '../../src/foundation.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
-import {
-	requestSources,
-	runWithRequestEngine,
-} from '../../src/runtime/index.js'
+import { runWithRequestEngine } from '../../src/runtime/index.js'
 import { applicationFixture } from '../application-fixture.js'
 import {
 	createRecordingPipeline,
@@ -23,6 +20,7 @@ import {
 	type QueuedAdapterResult,
 	type RecordingPipelineBehaviorStages,
 } from './fixtures/recording-database-adapter.js'
+import { requestSources } from '../../src/plugin.js'
 
 const noteSchema = UltimaBase.Schema.define({
 	className: 'RetriedNote',
@@ -57,10 +55,17 @@ const createRequest = async (
 	const adapter = new RecordingDatabaseAdapter(results, trace)
 	const framework = new FrameworkEngine({
 		application: await applicationFixture(
-			new FrameworkApplication({ schemas: [noteSchema], plugins: [] }),
+			// ADR-0313: retries are `debug` lines of the application logger.
+			new FrameworkApplication({
+				logLevel: 'debug',
+				plugins: [],
+				schemas: [noteSchema],
+			}),
 		).initialize(),
 		pipeline: createRecordingPipeline(adapter, trace, behaviorStages),
 	})
+	// The privilege report is also a debug line; keep only the retry lines.
+	vi.mocked(console.debug).mockClear()
 	const request = framework.anonymous({
 		requestId: 'automatic-transaction-retry',
 		source: requestSources.internal,
@@ -117,7 +122,7 @@ describe('automatic mutation transaction retries (ADR-0300)', () => {
 		])
 		expect(debug).toHaveBeenCalledTimes(2)
 		expect(debug).toHaveBeenCalledWith(
-			'[UltimaBase] Retrying automatic transaction after a transient conflict',
+			'UltimaBase: retrying an automatic transaction after a transient conflict',
 			{
 				attempt: 1,
 				code: 'TRANSACTION_CONFLICT',
@@ -143,7 +148,7 @@ describe('automatic mutation transaction retries (ADR-0300)', () => {
 		expect(trace).not.toContain('event:create-one')
 		expect(warn).toHaveBeenCalledOnce()
 		expect(warn).toHaveBeenCalledWith(
-			'[UltimaBase] Automatic transaction retries exhausted',
+			'UltimaBase: automatic transaction retries exhausted after transient conflicts',
 			expect.objectContaining({ attempt: 3, operation: 'create-one' }),
 		)
 	})

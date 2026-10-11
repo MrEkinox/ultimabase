@@ -164,7 +164,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [owned.plugin],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		application.compileSchemas()
@@ -209,7 +209,7 @@ describe('canonical command graph', () => {
 				new FrameworkApplication({
 					schemas: [Document],
 					plugins: [owned.plugin],
-					pluginPrivileges: { logger: false },
+					logger: false,
 				}),
 			),
 		)
@@ -261,7 +261,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [owned.plugin],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		application.compileSchemas()
@@ -315,7 +315,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [owned.plugin],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		application.compileSchemas()
@@ -351,7 +351,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [first.plugin, second.plugin],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		application.compileSchemas()
@@ -361,7 +361,7 @@ describe('canonical command graph', () => {
 		const equivalent = new FrameworkApplication({
 			schemas: [Document],
 			plugins: [fixture('first').plugin, fixture('second').plugin],
-			pluginPrivileges: { logger: false },
+			logger: false,
 		})
 		equivalent.compileSchemas()
 		expect(fingerprint(graph.commands)).toBe(
@@ -417,7 +417,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [reserved],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -460,7 +460,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [owned.plugin, duplicate],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		expect(() => application.compileSchemas()).toThrow(
@@ -478,7 +478,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [owned.plugin],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		application.compileSchemas()
@@ -543,7 +543,7 @@ describe('canonical command graph', () => {
 			new FrameworkApplication({
 				schemas: [Document],
 				plugins: [owned.plugin, foreign],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		await expect(application.initialize()).rejects.toMatchObject({

@@ -88,7 +88,7 @@ describe('application capability resources', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [consumer, provider],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 
@@ -155,7 +155,7 @@ describe('application capability resources', () => {
 				new FrameworkApplication({
 					schemas: [],
 					plugins: [consumer, provider],
-					pluginPrivileges: { logger: false },
+					logger: false,
 				}),
 			)
 		const first = createApplication()
@@ -210,7 +210,7 @@ describe('application capability resources', () => {
 			new FrameworkApplication({
 				schemas: [],
 				plugins: [provider, failing],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 

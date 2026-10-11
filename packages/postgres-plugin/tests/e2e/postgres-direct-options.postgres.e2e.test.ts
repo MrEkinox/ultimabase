@@ -40,7 +40,7 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		postgres: { table: 'direct_option_articles' },
 	})
 	const legacy = new LegacyApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [LegacyArticle],
 	})
 	await legacy.start()
@@ -66,7 +66,7 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		postgres: { table: 'direct_option_articles' },
 	})
 	const renamed = new RenamedApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Article],
 	})
 	await renamed.start()

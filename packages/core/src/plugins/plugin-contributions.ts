@@ -1,3 +1,4 @@
+import type { Logger } from '../application/application-log.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -305,11 +306,17 @@ export const runPluginDeclarationContribution = (
 	}
 }
 
+/** Given to each start phase of a plugin application resource (ADR-0313). */
+export interface PluginStartContext {
+	/** The same plugin-prefixed logger as the setup context. */
+	readonly logger: Logger
+}
+
 interface PluginApplicationLifecycle {
-	readonly connect?: () => MaybePromise<void>
-	readonly prepareSchema?: () => MaybePromise<void>
-	readonly startRuntime?: () => MaybePromise<void>
-	readonly startTransports?: () => MaybePromise<void>
+	readonly connect?: (context: PluginStartContext) => MaybePromise<void>
+	readonly prepareSchema?: (context: PluginStartContext) => MaybePromise<void>
+	readonly startRuntime?: (context: PluginStartContext) => MaybePromise<void>
+	readonly startTransports?: (context: PluginStartContext) => MaybePromise<void>
 	readonly stop?: () => MaybePromise<void>
 	readonly dispose?: () => MaybePromise<void>
 }

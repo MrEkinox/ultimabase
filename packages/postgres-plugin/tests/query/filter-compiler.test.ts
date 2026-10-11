@@ -1,7 +1,6 @@
 import {
 	collectQueryRelationPredicates,
 	fieldPath,
-	QueryBuilder,
 	UltimaBase,
 } from '@ultimabase/core'
 import { SchemaRegistry } from '@ultimabase/core'
@@ -24,6 +23,7 @@ import {
 	PostgresRelationPost,
 	PostgresRelationTag,
 } from '../fixtures/relation-fixture.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 describe('PostgreSQL filter compiler', () => {
 	it('compiles one-dimensional list filters through parameterized JSONB operators', () => {

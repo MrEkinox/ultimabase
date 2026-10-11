@@ -30,7 +30,7 @@ import { provideCapability } from '../plugins/capabilities.js'
 import { stringField } from '../schema/fields/builtins/string.js'
 import { uuidField } from '../schema/fields/builtins/uuid.js'
 import { FrameworkError } from '../errors/framework-error.js'
-import { QueryBuilder, type CreateOneOperationAst } from '../query/index.js'
+import { type CreateOneOperationAst } from '../query/index.js'
 
 import { createPreparedOperationFixture } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import type { PrivateCollectionHandle } from './contracts.js'
@@ -41,6 +41,7 @@ import type {
 import { registerPrivateStorageAdapter } from './adapter.js'
 import { definePrivateCollection } from './definition.js'
 import { privateStore } from './runtime.js'
+import { QueryBuilder } from '../plugin.js'
 
 type StoredRows = Map<
 	PrivateStorageAdapterCollection,
@@ -446,7 +447,7 @@ const createFixture = async () => {
 	})
 	const ultimabase = applicationFixture(
 		new (UltimaBase.use(database, plugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [PublicRecord],
 		}),
 	)
@@ -621,7 +622,8 @@ describe('owner-private plugin storage', () => {
 		expect(() =>
 			applicationFixture(
 				new (UltimaBase.use(database, plugin))({
-					pluginPrivileges: { deny: ['storage:private'], logger: false },
+					pluginPrivileges: { deny: ['storage:private'] },
+					logger: false,
 					schemas: [],
 				}),
 			),
@@ -646,7 +648,7 @@ describe('owner-private plugin storage', () => {
 		})
 		const ultimabase = applicationFixture(
 			new (UltimaBase.use(database))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			}),
 		)

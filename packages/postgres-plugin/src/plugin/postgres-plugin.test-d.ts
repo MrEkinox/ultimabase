@@ -31,9 +31,11 @@ test('accepts URL and pg-compatible existing-pool configuration', async () => {
 	expectTypeOf(connection).not.toHaveProperty('pool')
 })
 
-test('requires exactly one typed connection source', () => {
-	// @ts-expect-error -- PostgreSQL needs either a URL or an existing pool.
+test('accepts at most one typed connection source', () => {
+	// ADR-0312: without url or pool, DATABASE_URL is read at start.
+	postgresPlugin()
 	postgresPlugin({})
+	postgresPlugin({ schemaPolicy: 'fail' })
 	// @ts-expect-error -- Connection ownership is ambiguous when both are present.
 	postgresPlugin({ url: 'postgresql://localhost/fixture', pool: new Pool() })
 	postgresPlugin({

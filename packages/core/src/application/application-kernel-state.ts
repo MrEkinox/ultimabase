@@ -1,3 +1,5 @@
+import { readActiveApplicationOwner } from './active-application.js'
+import { ApplicationLog } from './application-log.js'
 import type { PrivateStorageRegistry } from '../private-storage/registry.js'
 import type {
 	CapabilityConsumerValue,
@@ -18,6 +20,7 @@ interface ApplicationKernelStateOptions {
 		privilege: PluginPrivilege,
 	) => void
 	readonly capabilities: ApplicationCapabilityHost
+	readonly log: ApplicationLog
 	readonly pluginExports: (plugin: PluginDefinition) => unknown
 	readonly privateStorage: PrivateStorageRegistry
 }
@@ -41,6 +44,11 @@ export class ApplicationKernelState {
 			throw new TypeError('Application commands have not been compiled')
 		}
 		return this.#commands
+	}
+
+	/** The application logger (ADR-0313) for Core's own lines. */
+	get log(): ApplicationLog {
+		return this.#requireOptions().log
 	}
 
 	get privateStorage(): PrivateStorageRegistry {
@@ -83,6 +91,20 @@ export class ApplicationKernelState {
 }
 
 const applicationStates = new WeakMap<object, ApplicationKernelState>()
+// Harnesses without an application keep Core's lines on the console.
+const consoleLog = new ApplicationLog(undefined, undefined)
+
+/**
+ * @internal Core's own log (ADR-0313): the given application's logger, else
+ * the sole active application's, else the console at `info`.
+ */
+export const readApplicationLog = (
+	application: object | undefined = readActiveApplicationOwner(),
+): ApplicationLog => {
+	const state =
+		application === undefined ? undefined : applicationStates.get(application)
+	return state?.bound === true ? state.log : consoleLog
+}
 
 /** Attaches the single private kernel state once during application construction. */
 export const bindApplicationKernelState = (

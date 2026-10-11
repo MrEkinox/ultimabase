@@ -26,7 +26,7 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 			})
 			const application = new FrameworkApplication({
 				schemas: [Target],
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					createPlugin({
 						id: 'fixture.own-field-selector',
@@ -68,7 +68,7 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 						fields: () => ({}),
 					}),
 				],
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					createPlugin({
 						id: 'fixture.own-field-patch',
@@ -129,7 +129,7 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 			})
 			const application = new FrameworkApplication({
 				schemas: [Target],
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					createPlugin({
 						id: 'fixture.own-mutation-selection',

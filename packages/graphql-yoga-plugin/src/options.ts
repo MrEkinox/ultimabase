@@ -1,10 +1,18 @@
-import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import {
+	definePluginOptionsParser,
+	deriveEnvironmentDefault,
+	type EnvironmentDefault,
+} from '@ultimabase/plugin-kit'
 
 /** Configures the GraphQL-over-HTTP adapter without changing GraphQL execution. */
 export interface GraphqlYogaPluginOptions {
 	/** Maximum streamed JSON request size in bytes. @default 1048576 */
 	readonly bodyLimit?: number
-	/** Enables schema introspection over HTTP. @default false */
+	/**
+	 * Enables schema introspection over HTTP: on in development, off when
+	 * `NODE_ENV` is `production`; an explicit value always wins (ADR-0312).
+	 * @default process.env.NODE_ENV !== 'production'
+	 */
 	readonly introspection?: boolean
 	/** Absolute normalized HTTP mount path. @default "/graphql" */
 	readonly path?: string
@@ -13,6 +21,8 @@ export interface GraphqlYogaPluginOptions {
 export interface NormalizedGraphqlYogaPluginOptions {
 	readonly bodyLimit: number
 	readonly introspection: boolean
+	/** Where `introspection` comes from, for the plugin's debug line. */
+	readonly introspectionSource: EnvironmentDefault<boolean>['source']
 	readonly path: string
 }
 
@@ -68,9 +78,14 @@ const parseGraphqlYogaPluginOptions = definePluginOptionsParser({
 		if (introspection !== undefined && typeof introspection !== 'boolean') {
 			throw new TypeError('GraphQL Yoga plugin introspection must be a boolean')
 		}
+		const derived = deriveEnvironmentDefault(introspection, {
+			development: true,
+			production: false,
+		})
 		return {
 			bodyLimit,
-			introspection: introspection ?? false,
+			introspection: derived.value,
+			introspectionSource: derived.source,
 			path: normalizePath(path),
 		}
 	},

@@ -2,7 +2,6 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	RequestSubjectReference,
-	RequestContextValue,
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	createRequestPrincipalReference,
@@ -22,6 +21,7 @@ import {
 	type CapabilityToken,
 } from '../../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
+import { RequestContextValue } from '../../plugin.js'
 
 interface FixturePrincipal {
 	readonly id: string

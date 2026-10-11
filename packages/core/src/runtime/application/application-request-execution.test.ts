@@ -1,6 +1,5 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
-import { RequestContextValue } from '../../access/index.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { getCurrentRequest } from '../context/active-framework-context.js'
@@ -15,6 +14,7 @@ import {
 	type RequestExecutionHarness,
 } from '../../../tests/runtime/fixtures/application-request-execution-harness.js'
 import { UltimaBase } from './ultima-base.js'
+import { RequestContextValue } from '../../plugin.js'
 describe('applicationRequestExecutionCapability', () => {
 	it('late-binds once, requires completed startup, and expires with the application', async () => {
 		const unboundHarness: RequestExecutionHarness = {}

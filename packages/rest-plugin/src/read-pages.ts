@@ -1,6 +1,5 @@
 import type {
 	ApplicationRequestExecutor,
-	RequestContext,
 	SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -19,6 +18,7 @@ import {
 	normalizeRestReadInput,
 	type RestReadLimits,
 } from './reads.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** One `find` page: the rows, the next cursor and the fields added for it. */
 export interface RestFindPage {

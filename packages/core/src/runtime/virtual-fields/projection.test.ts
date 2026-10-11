@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { QueryBuilder } from '../../query/index.js'
 import { SchemaRegistry } from '../../schema/index.js'
 import { prepareRuntimeVirtualFieldProjection } from './projection.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 describe('Runtime virtual field projection', () => {
 	it('keeps logical relations out of the private persisted selection', () => {

@@ -1,7 +1,6 @@
 import { plugin as createPlugin, FrameworkError } from '../../foundation.js'
 import { createApplication } from '../../application/framework-application.js'
 import {
-	QueryBuilder,
 	type CreateOneOperationAst,
 	type FindManyOperationAst,
 } from '../../query/index.js'
@@ -27,6 +26,7 @@ import {
 	requireEnforcementStages,
 	runtimeConstrainPrivileges,
 } from '../../../tests/fixtures/enforcement-dispatcher.js'
+import { QueryBuilder } from '../../plugin.js'
 const constrainReason = runtimeConstrainPrivileges[0].reason
 describe('createEnforcementStages', () => {
 	it('skips only contributions that explicitly declare trusted master bypass', async () => {

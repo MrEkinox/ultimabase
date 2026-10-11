@@ -53,7 +53,7 @@ const createApplication = (schema: typeof UniqueActiveSlug) =>
 	new (UltimaBase.use(
 		softDeletePlugin(),
 		postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-	))({ pluginPrivileges: { logger: false }, schemas: [schema] })
+	))({ logger: false, schemas: [schema] })
 
 const readPartialIndexes = async (): Promise<readonly string[]> => {
 	const result = await getFixture().pool.query<{ readonly indexdef: string }>(

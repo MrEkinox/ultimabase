@@ -1,4 +1,4 @@
-import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
+import { type CreateOneOperationAst } from '../../query/index.js'
 
 import type { MaybePromise } from '@ultimabase/shared'
 import { expectTypeOf } from 'vitest'
@@ -11,6 +11,7 @@ import {
 } from '../index.js'
 import type { RuntimeOperationTransformStage } from '../pipeline/contracts.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const schema = UltimaBase.Schema.define({
 	className: 'TypedRuntimeValidation',

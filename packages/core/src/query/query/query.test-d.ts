@@ -1,5 +1,5 @@
 import { expectTypeOf, test } from 'vitest'
-import { QueryBuilder, type FindManyInput } from '../../index.js'
+import { type FindManyInput } from '../../index.js'
 
 // @ts-expect-error -- Core no longer exposes transport cursor contracts.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import protects the removed public API.
@@ -37,6 +37,7 @@ import { executeSchemaUpsertMany } from './query.js'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
 import { executeQueryDeleteMany } from './query.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 test('keeps Query execution and scope internals absent from source exports', () => {
 	expectTypeOf<true>().toEqualTypeOf<true>()

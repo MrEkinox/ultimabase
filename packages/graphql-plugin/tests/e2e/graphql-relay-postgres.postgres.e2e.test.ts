@@ -8,7 +8,6 @@ import {
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type PluginIdentity,
-	type RequestContext,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
@@ -19,6 +18,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 const RelayRecord = GraphqlSchemaApplication.Schema.define({
@@ -111,7 +111,7 @@ const createPostgresApplication = (connectionUri: string) => {
 		createHarnessPlugin(harness),
 	).use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri }))
 	return new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [RelayRecord],
 	})
 }

@@ -61,12 +61,12 @@ Current records (accepted or still active in part):
 - [ADR-0054: Deterministic logical filter normalization](0054-logical-filter-normalization.md)
 - [ADR-0055: Deterministic query clause normalization](0055-deterministic-query-clause-normalization.md)
 - [ADR-0057: Independent Query limit and pagination position](0057-independent-query-limit.md)
-- [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md)
+- [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md), the public `QueryBuilder` constructor superseded by ADR-0311
 - [ADR-0059: Terminal Operation AST](0059-terminal-operation-ast.md)
 - [ADR-0060: Typed atomic update expressions](0060-typed-atomic-update-expressions.md)
 - [ADR-0063: Portable database adapter boundary](0063-portable-database-adapter-boundary.md)
 - [ADR-0065: Application-owned request engines](0065-application-owned-request-engines.md)
-- [ADR-0066: Derived asynchronous request scopes](0066-derived-asynchronous-request-scopes.md)
+- [ADR-0066: Derived asynchronous request scopes](0066-derived-asynchronous-request-scopes.md), `withContext` on the public application superseded by ADR-0311
 - [ADR-0067: Selection-aware singular terminals](0067-selection-aware-singular-terminals.md), `get` read superseded by ADR-0307
 - [ADR-0068: RequestEngine transaction lifetime](0068-request-engine-transactions.md)
 - [ADR-0069: Atomic bulk writes and unique upsert targets](0069-atomic-bulk-and-unique-upserts.md)
@@ -92,7 +92,7 @@ Current records (accepted or still active in part):
 - [ADR-0089: Native schema and field hook lifecycle](0089-native-schema-and-field-hooks.md)
 - [ADR-0090: Permission plugins contribute monotonic hooks](0090-permission-plugins-through-hooks.md)
 - [ADR-0091: JSON fields require document roots](0091-json-document-root-values.md)
-- [ADR-0094: UltimaBase public facade](0094-ultimabase-public-facade.md)
+- [ADR-0094: UltimaBase public facade](0094-ultimabase-public-facade.md), `anonymous` and `withContext` on the public application superseded by ADR-0311
 - [ADR-0095: Consolidated foundational Core package](0095-consolidated-foundational-core.md)
 - [ADR-0096: Native hook declaration capabilities](0096-native-hook-declaration-capabilities.md)
 - [ADR-0097: Owner-scoped typed plugin hook targets](0097-owner-scoped-typed-plugin-hook-targets.md)
@@ -137,7 +137,7 @@ Current records (accepted or still active in part):
 - [ADR-0148: Uniform mutation result selections](0148-uniform-mutation-result-selections.md)
 - [ADR-0149: Explicit operation cardinality names](0149-explicit-operation-cardinality-names.md)
 - [ADR-0152: Schema-root object read commands](0152-schema-root-object-read-commands.md), `get` read superseded by ADR-0307
-- [ADR-0153: Operation-wide execution options](0153-operation-execution-options.md)
+- [ADR-0153: Operation-wide execution options](0153-operation-execution-options.md), the literal-`true` `useMasterKey` rule superseded by ADR-0311
 - [ADR-0154: Unified eager relationship inclusion](0154-unified-eager-relationship-inclusion.md)
 - [ADR-0155: Canonical offset pagination naming](0155-canonical-offset-pagination-naming.md), `limit`/`offset` names superseded by ADR-0309
 - [ADR-0156: Visible relation cardinality filters](0156-visible-relation-cardinality-filters.md)
@@ -174,7 +174,7 @@ Current records (accepted or still active in part):
 - [ADR-0188: Plugin operations and rewritable persistence plans](0188-plugin-operations-and-persistence-plans.md)
 - [ADR-0189: Hooks and Access become optional official plugins](0189-optional-hooks-and-access-plugins.md)
 - [ADR-0190: Capability host lifecycle and legacy convergence](0190-capability-host-lifecycle-and-legacy-convergence.md)
-- [ADR-0191: Plugin privilege taxonomy, reporting, and diagnostics](0191-plugin-privilege-taxonomy-and-diagnostics.md)
+- [ADR-0191: Plugin privilege taxonomy, reporting, and diagnostics](0191-plugin-privilege-taxonomy-and-diagnostics.md), the default complete privilege report and `pluginPrivileges.logger` superseded by ADR-0313
 - [ADR-0192: Schema transformations, model surfaces, and plugin upgrades](0192-schema-transformations-model-surfaces-and-upgrades.md), the `model` instance surface superseded by ADR-0310
 - [ADR-0193: Plugin operation, transport, adapter, and Typegen bridges](0193-plugin-operation-transport-and-adapter-bridges.md)
 - [ADR-0194: Optional engine contract packages and unprotected transports](0194-optional-engine-contract-packages.md)
@@ -290,6 +290,9 @@ Current records (accepted or still active in part):
 - [ADR-0308: One checked vocabulary for pointer and relation links](0308-one-checked-link-vocabulary.md)
 - [ADR-0309: Keyset pagination in Core, shared by REST and GraphQL](0309-core-cursor-pagination.md)
 - [ADR-0310: Plain data results, named model types and shared enums](0310-plain-data-results-and-named-types.md)
+- [ADR-0311: Application lifecycle, explicit transactions and the authority surface](0311-application-lifecycle-and-authority-surface.md)
+- [ADR-0312: Environment-dependent plugin defaults](0312-environment-dependent-plugin-defaults.md)
+- [ADR-0313: Readable startup diagnostics and capability hints](0313-readable-startup-diagnostics.md)
 - [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 
 Proposed records (awaiting user validation):

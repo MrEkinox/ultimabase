@@ -101,32 +101,46 @@ export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 	...apiNextCommands(plan),
 ]
 
-const applicationSource = (plan: InitializerPlan): string =>
-	joinSections([
+/**
+ * ADR-0297 amendment 1: one `Register` declaration per application. Old-form
+ * Role schemas read the registry while they are typed, so a Roles selection
+ * registers an application without schemas until Roles moves to its schema
+ * factory; Typegen provides its named types either way.
+ */
+const registerSource = (plan: InitializerPlan): string =>
+	plan.language !== 'ts'
+		? ''
+		: has(plan, 'roles-plugin')
+			? `// Typegen names these schemas: old-form Role schemas cannot reference the
+// application they belong to without a type cycle.
+declare module '@ultimabase/core' {
+  interface Register {
+    readonly app: UltimaBase<readonly []>
+  }
+}`
+			: `// One declaration per application gives name-keyed editor types.
+declare module '@ultimabase/core' {
+  interface Register {
+    readonly app: typeof ultimabase
+  }
+}`
+
+const applicationSource = (plan: InitializerPlan): string => {
+	const security = securityPluginEntries(plan)
+	return joinSections([
 		renderImports([
-			['@ultimabase/postgres-plugin', 'postgresPlugin'],
+			...(plan.language === 'ts' && has(plan, 'roles-plugin')
+				? [['@ultimabase/core', 'type UltimaBase'] as const]
+				: []),
 			...securityApplicationImports(plan),
-			...apiApplicationImports(plan),
 			[
 				'./schema.js',
 				['SchemaApplication', ...applicationSchemaNames(plan)].join(', '),
 			],
 		]),
-		[
-			'const databaseUrl = process.env.DATABASE_URL',
-			"if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')",
-			securityMasterSource(plan),
-		]
-			.filter((line) => line !== '')
-			.join('\n'),
+		securityMasterSource(plan),
 		securityPolicySource(plan),
-		`const Application = SchemaApplication${useChain([
-			...securityPluginEntries(plan),
-			"postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })",
-			...apiPluginEntries(plan),
-		])}`,
-		`// Override synchronization is only suitable for this disposable development database.
-export const ultimabase = new Application({
+		`export const ultimabase = new ${security.length === 0 ? 'SchemaApplication' : `(SchemaApplication${useChain(security)})`}({
 ${[
 	`  schemas: [${applicationSchemaNames(plan).join(', ')}],`,
 	securityApplicationOption(plan),
@@ -134,7 +148,9 @@ ${[
 	.filter((line) => line !== '')
 	.join('\n')}
 })`,
+		registerSource(plan),
 	])
+}
 
 const taskSchemaSource = (
 	plan: InitializerPlan,
@@ -157,6 +173,7 @@ ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value
 
 const schemaSource = (plan: InitializerPlan): string => {
 	const task = plan.starter === 'task'
+	// One plugin list: postgresPlugin() reads DATABASE_URL at start (ADR-0312).
 	const entries = [
 		...(plan.typegen ? ['typegenPlugin()'] : []),
 		...behaviorPlugins
@@ -164,6 +181,8 @@ const schemaSource = (plan: InitializerPlan): string => {
 			.map(([, , entry]) => entry),
 		...securitySchemaPluginEntries(plan),
 		...apiSchemaPluginEntries(plan),
+		'postgresPlugin()',
+		...apiPluginEntries(plan),
 	]
 	return joinSections([
 		renderImports([
@@ -177,6 +196,8 @@ const schemaSource = (plan: InitializerPlan): string => {
 				: []),
 			...securitySchemaImports(plan),
 			...apiSchemaPluginImports(plan),
+			['@ultimabase/postgres-plugin', 'postgresPlugin'],
+			...apiApplicationImports(plan),
 		]),
 		`export const SchemaApplication = UltimaBase${useChain(entries)}`,
 		task
@@ -262,7 +283,7 @@ ${plan.starter === 'task' ? 'The Task starter seeds one record on its first run;
 			plan.database === 'docker'
 				? 'Docker Compose. Run docker compose up -d --wait to start the disposable local PostgreSQL 17 service and wait until it is ready. Its credentials live only in the ignored .env file.'
 				: 'A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.',
-			'The application uses direct schema synchronization with override for a disposable development database. Do not point it at production or shared data.',
+			'`postgresPlugin()` reads DATABASE_URL when the application starts. Schema synchronization uses override outside production for a disposable development database (`NODE_ENV=production` uses fail). Do not point it at production or shared data.',
 			plan.typegen
 				? 'Typegen generates replaceable declarations before typecheck and build; it does not create a Runtime client or connect to PostgreSQL.'
 				: 'JavaScript runs the same application graph without Typegen or generated declarations.',
@@ -299,6 +320,8 @@ export const renderBaseFiles = (
 	if (has(plan, 'validation-plugin') && plan.starter === 'task')
 		dependencies.zod = '^4.4.3'
 	if (plan.typegen) dependencies['@ultimabase/typegen'] = '^0.0.0'
+	// Type checks need no .env (ADR-0312); only a Master key is read at import.
+	const generateEnv = needsMasterKey(plan) ? '--env-file=.env ' : ''
 	const packageJson = {
 		name: plan.name,
 		version: '0.0.0',
@@ -306,10 +329,9 @@ export const renderBaseFiles = (
 		type: 'module',
 		scripts: plan.typegen
 			? {
-					'generate:types': 'node --env-file=.env scripts/generate-types.mjs',
-					typecheck:
-						'node --env-file=.env scripts/generate-types.mjs && tsc --noEmit',
-					build: 'node --env-file=.env scripts/generate-types.mjs && tsc',
+					'generate:types': `node ${generateEnv}scripts/generate-types.mjs`,
+					typecheck: `node ${generateEnv}scripts/generate-types.mjs && tsc --noEmit`,
+					build: `node ${generateEnv}scripts/generate-types.mjs && tsc`,
 					start: 'node --env-file=.env dist/main.js',
 				}
 			: { start: 'node --env-file=.env src/main.js' },

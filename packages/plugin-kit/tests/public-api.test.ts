@@ -11,10 +11,13 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'definePluginEventCapability',
 			'definePluginFieldOption',
 			'definePluginOptionsParser',
+			'deriveEnvironmentDefault',
+			'describeEnvironmentSource',
 			'observePluginEvent',
 			'optionalPluginEvents',
 			'patchSchemas',
 			'providePluginEvent',
+			'readDeploymentEnvironment',
 			'schemaPatch',
 		])
 	})

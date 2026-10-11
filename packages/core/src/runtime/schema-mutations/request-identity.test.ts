@@ -28,6 +28,7 @@ import {
 } from './transport-capabilities.js'
 import { planApplicationSchemaMutations } from '../application/schema-mutation-transport-planning.js'
 import { exposeFrameworkSchemaMutations } from './transport.js'
+import { anonymous } from '../application/plugin-authority.js'
 
 const protocol = defineOperationTransport({
 	name: 'fixture.canonical-mutation.wire',
@@ -115,7 +116,7 @@ describe('canonical mutation request identity', () => {
 		const ultimabase = applicationFixture(
 			new (UltimaBase.use(database, owner))({
 				schemas: [Post, Other],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		await ultimabase.start()
@@ -135,7 +136,7 @@ describe('canonical mutation request identity', () => {
 			input: undefined,
 			projection: {},
 		})
-		const engine = ultimabase.anonymous({
+		const engine = anonymous(ultimabase, {
 			requestId: 'canonical-mutation',
 			source: 'fixture',
 		})

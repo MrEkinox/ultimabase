@@ -4,7 +4,6 @@ import {
 	createApplication,
 	FrameworkApplication,
 } from '../../application/framework-application.js'
-import { QueryBuilder } from '../../query/index.js'
 
 import { describe, expect, it, vi } from 'vitest'
 import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
@@ -14,6 +13,7 @@ import type { UpdateOneOperationAst } from '../../query/index.js'
 import { preparedOperation } from './definitions.js'
 import { composeRuntimeContributionBehavior } from './composition.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'ContributionStageArticle',

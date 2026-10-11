@@ -81,7 +81,7 @@ export const runRuntimeCostScenario = async (
 		deterministicDatabasePlugin(adapter),
 	)
 	const ultimabase = new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [MeasuredPost],
 	})
 

@@ -8,7 +8,12 @@ import { createLanguageServiceFixture } from '../../../../tooling/vitest/typescr
 // ADR-0304: through `Register`, the principal is typed by name, from source.
 const fixtureFile = path.join(import.meta.dirname, 'principal-hover.fixture.ts')
 const source = `
-import { RequestContext, UltimaBase, getRequestPrincipal, type Principal } from '../../src/index.js'
+import {
+	UltimaBase,
+	getRequestPrincipal,
+	type Principal,
+} from '../../src/index.js'
+import { RequestContext } from '../../src/plugin.js'
 
 const TodoUser = UltimaBase.Schema.define({
   className: 'TodoUser',

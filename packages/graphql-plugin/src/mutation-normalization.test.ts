@@ -33,7 +33,7 @@ const RecordSchema = GraphqlSchemaApplication.Schema.define({
 
 const createFixture = async () => {
 	const application = await createApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		plugins: [graphqlPlugin({ acknowledgeUnverifiedProtection: true })],
 		schemas: [Author, RecordSchema],
 	})

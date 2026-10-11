@@ -23,7 +23,7 @@ describe('hookDiagnosticsObserverCapability', () => {
 			version: '0.0.0',
 		})
 		const application = new (UltimaBase.use(provider, hooksPlugin()))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await application.initialize()

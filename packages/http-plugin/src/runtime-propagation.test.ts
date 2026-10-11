@@ -29,6 +29,7 @@ import {
 } from './application.js'
 import { httpRoute, provideHttpEndpoints } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
+import { withContext } from '@ultimabase/core/plugin'
 
 const RuntimeProbe = UltimaBase.Schema.define({
 	className: 'HttpRuntimeSecretProbe',
@@ -179,7 +180,7 @@ describe('HTTP Runtime propagation', () => {
 									headers: [...request.headers],
 									kind: 'handler',
 								})
-								const engine = runtime.withContext(getCurrentRequest())
+								const engine = withContext(runtime, getCurrentRequest())
 								const results = await engine.transaction(() =>
 									RuntimeProbe.findMany(),
 								)
@@ -220,16 +221,21 @@ describe('HTTP Runtime propagation', () => {
 					audits.push(event)
 				},
 			}),
-			pluginPrivileges: {
-				logger: {
-					error: (report) => {
-						logs.push(report)
-					},
-					info: (report) => {
-						logs.push(report)
-					},
+			logger: {
+				debug: (message, details) => {
+					logs.push({ details, message })
+				},
+				error: (message, details) => {
+					logs.push({ details, message })
+				},
+				info: (message, details) => {
+					logs.push({ details, message })
+				},
+				warn: (message, details) => {
+					logs.push({ details, message })
 				},
 			},
+			logLevel: 'debug',
 			schemas: [RuntimeProbe],
 		})
 		runtimeState.current = created

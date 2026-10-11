@@ -28,7 +28,7 @@ const startWith = async (
 ): Promise<UltimaBase> => {
 	const adapter = new RecordingDatabaseAdapter([], [], {}, options)
 	const ultimabase = new (UltimaBase.use(databasePlugin(adapter)))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 	})
 	try {
@@ -168,8 +168,9 @@ describe('ultimabase.health() (ADR-0303)', () => {
 	) => {
 		const adapter = new RecordingDatabaseAdapter([], [])
 		Object.defineProperty(adapter, 'checkHealth', { value: checkHealth })
+		// The default console logger at `error` (ADR-0313).
 		return new (UltimaBase.use(databasePlugin(adapter)))({
-			pluginPrivileges: { logger: false },
+			logLevel: 'error',
 			schemas: [],
 		})
 	}
@@ -194,7 +195,7 @@ describe('ultimabase.health() (ADR-0303)', () => {
 			await ultimabase.start()
 			await expect(ultimabase.health()).resolves.toBe('DEGRADED')
 			expect(error).toHaveBeenCalledWith(
-				'[UltimaBase] Database health check failed',
+				'UltimaBase: the database health check failed',
 				cause,
 			)
 		} finally {

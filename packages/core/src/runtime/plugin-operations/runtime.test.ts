@@ -36,6 +36,7 @@ import {
 	operationTransportBinding,
 	operationWireCodec,
 } from './capabilities.js'
+import { anonymous, authorizeMasterKey, withContext } from '../../plugin.js'
 
 const messageValue = defineOperationValue((value, path) => {
 	if (!isPlainRecord(value) || typeof value.message !== 'string') {
@@ -138,7 +139,7 @@ const createFixture = async (options: FixtureOptions = {}) => {
 			...(options.masterAuthority === undefined
 				? {}
 				: { masterAuthority: options.masterAuthority }),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		}),
 	)
@@ -216,7 +217,7 @@ describe('plugin operation Runtime', () => {
 		const envelope = ultimabase
 			.operation(applicationOperation)
 			.prepare({ message: 'valid' })
-		const engine = ultimabase.anonymous({
+		const engine = anonymous(ultimabase, {
 			requestId: 'canonical-command',
 			source: 'fixture',
 		})
@@ -280,7 +281,7 @@ describe('plugin operation Runtime', () => {
 		})
 		const ultimabase = applicationFixture(
 			new (UltimaBase.use(database, operation))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			}),
 		)
@@ -361,7 +362,8 @@ describe('plugin operation Runtime', () => {
 
 		const controller = new AbortController()
 		controller.abort('cancelled')
-		const cancelled = fixture.ultimabase.withContext(
+		const cancelled = withContext(
+			fixture.ultimabase,
 			RequestContext.anonymous({
 				requestId: 'cancelled-operation',
 				signal: controller.signal,
@@ -385,7 +387,7 @@ describe('plugin operation Runtime', () => {
 				.operation(forbiddenOperation)
 				.execute({ message: 'outside' }),
 		).resolves.toStrictEqual({ accepted: true })
-		const request = fixture.ultimabase.anonymous({
+		const request = anonymous(fixture.ultimabase, {
 			requestId: 'forbidden-transaction',
 			source: 'fixture',
 		})
@@ -408,7 +410,7 @@ describe('plugin operation Runtime', () => {
 			applicationHandler: () => {
 				if (state.foreignContext === undefined)
 					throw new TypeError('Missing foreign context')
-				fixture.ultimabase.withContext(state.foreignContext)
+				withContext(fixture.ultimabase, state.foreignContext)
 				return immutableRecord({ accepted: true })
 			},
 		})
@@ -420,7 +422,7 @@ describe('plugin operation Runtime', () => {
 			requestId: 'foreign-plugin-operation-context',
 			source: 'internal',
 		})
-		fixture.ultimabase.withContext(source)
+		withContext(fixture.ultimabase, source)
 		state.foreignContext = await elevateMasterRequest(
 			foreignAuthority,
 			foreignAuthority.authorize('foreign-secret'),
@@ -489,12 +491,12 @@ describe('plugin operation Runtime', () => {
 				version: '0.9.0',
 			}),
 		).rejects.toMatchObject({ code: 'PLUGIN_PROTOCOL_INCOMPATIBLE' })
-		const anonymous = fixture.ultimabase.anonymous({
+		const anonymousEngine = anonymous(fixture.ultimabase, {
 			requestId: 'master-source',
 			source: 'fixture',
 		})
-		const master = await anonymous.useMasterKey(
-			fixture.ultimabase.authorizeMasterKey('transport-master-key'),
+		const master = await anonymousEngine.useMasterKey(
+			authorizeMasterKey(fixture.ultimabase, 'transport-master-key'),
 			'Test public transport authority rejection',
 		)
 		await expect(

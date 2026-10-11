@@ -1,3 +1,4 @@
+import type { Logger } from '@ultimabase/core'
 import {
 	getCurrentRequest,
 	type ApplicationCallbackExecutor,
@@ -62,12 +63,14 @@ const currentRequestId = (): string => {
 /** Clones and deterministically merges generated and contributed schemas. */
 class GraphqlSchemaComposer {
 	readonly #callbacks: ApplicationCallbackExecutor
+	readonly #logger: Logger
 	readonly #directives: readonly GraphQLDirective[]
 	readonly #groups: ReadonlyMap<string, TypeGroup>
 	readonly #roots = new Map<GraphQLObjectType, GraphQLObjectType>()
 
 	constructor(context: GraphqlSchemaCompositionContext) {
 		this.#callbacks = context.callbacks
+		this.#logger = context.logger
 		const preflight = preflightGraphqlSchemas(context.schemas)
 		this.#directives = preflight.directives
 		this.#groups = preflight.groups
@@ -102,7 +105,11 @@ class GraphqlSchemaComposer {
 			try {
 				return await this.#run(source, () => resolver(...args))
 			} catch (error: unknown) {
-				throw createSafeGraphqlError(error, requestIdOf(args[contextIndex]))
+				throw createSafeGraphqlError(
+					error,
+					requestIdOf(args[contextIndex]),
+					this.#logger,
+				)
 			}
 		}
 	}
@@ -117,7 +124,7 @@ class GraphqlSchemaComposer {
 			try {
 				return this.#run(source, () => callback(...args))
 			} catch (error: unknown) {
-				throw createSafeGraphqlError(error, currentRequestId())
+				throw createSafeGraphqlError(error, currentRequestId(), this.#logger)
 			}
 		}
 	}

@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	PublicError,
-	RequestContext,
 	UltimaBase,
 	plugin,
 	contributeApplication,
@@ -29,6 +28,7 @@ import {
 } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
 import { httpTestDatabasePlugin } from './test-database.test-support.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 const protocol = { name: 'fixture.http', version: '1' } as const
 const applicationRequirement = requireCapability(
@@ -93,7 +93,7 @@ const initialize = async (plugins: readonly PluginDefinition[]) => {
 		serverPlugin((value) => (http = value)),
 	)
 	const application = new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	onTestFinished(() => application.dispose())
@@ -244,7 +244,7 @@ describe('HTTP application graph', () => {
 			httpPlugin({ appId: 'collision' }),
 			serverPlugin(seen),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		onTestFinished(() => application.dispose())
@@ -285,7 +285,7 @@ describe('HTTP application graph', () => {
 			httpPlugin({ appId: 'replaced' }),
 			serverPlugin(seen),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		onTestFinished(() => application.dispose())
@@ -369,7 +369,7 @@ describe('HTTP application graph', () => {
 				competing,
 				serverPlugin(seen),
 			))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			})
 			onTestFinished(() => application.dispose())

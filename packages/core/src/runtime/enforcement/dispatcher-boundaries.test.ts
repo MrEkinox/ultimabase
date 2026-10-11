@@ -1,6 +1,6 @@
 import { plugin as createPlugin } from '../../foundation.js'
 import { createApplication } from '../../application/framework-application.js'
-import { QueryBuilder, type ExecutableOperationAst } from '../../query/index.js'
+import { type ExecutableOperationAst } from '../../query/index.js'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestRuntimeConstraints } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import {
@@ -14,6 +14,7 @@ import {
 import { guard } from './definitions.js'
 import { protectedPolicy } from './protected-policy.js'
 import { createEnforcementStages } from './dispatcher.js'
+import { QueryBuilder } from '../../plugin.js'
 
 describe('createEnforcementStages mutation boundaries', () => {
 	it('rejects excluded input across every create, update, and upsert shape', async () => {

@@ -32,6 +32,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 // ADR-0305: a PublicError aborts and rolls back the operation, is never
 // retried, and reaches clients; any other error stays masked and logged.
@@ -111,7 +112,8 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 		httpPlugin({ appId }),
 		capturePlugin,
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
-	))({ pluginPrivileges: { logger: false }, schemas: [ErrorTodo] })
+		// Errors reach the console logger; masked failures are plugin lines (ADR-0313).
+	))({ logLevel: 'error', schemas: [ErrorTodo] })
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: ReturnType<typeof createApplication> | undefined
@@ -145,7 +147,7 @@ const createWithGraphql = (title: string) =>
 	application()
 		.plugin('@ultimabase/graphql-plugin')
 		.execute({
-			context: application().anonymous({
+			context: anonymous(application(), {
 				requestId: `graphql-${title}`,
 				source: 'ultimabase.graphql',
 			}).context,

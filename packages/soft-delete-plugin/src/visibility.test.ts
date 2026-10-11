@@ -90,7 +90,7 @@ describe('soft-delete visibility', () => {
 		const adapter = new VisibilityReadAdapter([])
 		const ultimabase = new (VisibilitySchemaApplication.use(
 			databasePlugin(adapter),
-		))({ pluginPrivileges: { logger: false }, schemas: [Document] })
+		))({ logger: false, schemas: [Document] })
 		onTestFinished(() => ultimabase.dispose())
 
 		try {
@@ -128,7 +128,7 @@ describe('soft-delete visibility', () => {
 				keys: [{ id: 'soft-delete-master', value: 'unused' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Enabled],
 		})
 		onTestFinished(() => enabled.dispose())
@@ -142,7 +142,7 @@ describe('soft-delete visibility', () => {
 		])
 		const disabled = new (VisibilitySchemaApplication.use(
 			databasePlugin(disabledAdapter),
-		))({ pluginPrivileges: { logger: false }, schemas: [Disabled] })
+		))({ logger: false, schemas: [Disabled] })
 		onTestFinished(() => disabled.dispose())
 
 		try {

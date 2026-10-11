@@ -374,7 +374,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		))({ schemas: relationSchemas })
 
 		try {
-			await expect(verifier.start()).resolves.toBeUndefined()
+			await expect(verifier.start()).resolves.toBe(verifier)
 			await expect(
 				activeFixture.pool.query(
 					"SELECT to_regclass('relation_external_notes') AS name",

@@ -1,6 +1,5 @@
 import {
 	RequestSubjectReference,
-	QueryBuilder,
 	UltimaBase,
 	type RequestSubjectContext,
 	type RequestRoleResolver,
@@ -13,6 +12,7 @@ import {
 	requiredACLPermission,
 	resolveACLAccessSubjects,
 } from './acl-access.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const Principal = UltimaBase.Schema.define({
 	className: 'ACLAccessPrincipal',

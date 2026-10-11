@@ -4,18 +4,21 @@ import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/record
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import {
 	MasterAuthority,
-	RequestContext,
 	getCurrentRequest,
 	getRequestPrincipal,
 	isAuthenticated,
 	plugin,
 	provideCapability,
 	requestPrincipalResolverCapability,
-	requestSources,
 	runWithRequestEngine,
 	type RequestPrincipalResolver,
 } from '../../index.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import {
+	anonymous,
+	authorizeMasterKey,
+} from '../application/plugin-authority.js'
+import { RequestContext, requestSources } from '../../plugin.js'
 
 const Member = UltimaBase.Schema.define({
 	className: 'PrincipalMember',
@@ -60,20 +63,20 @@ const startApplication = async (resolver?: RequestPrincipalResolver) => {
 			keys: [{ id: 'principal-test', value: 'principal-test-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Member],
 	})
 	await ultimabase.start()
 	return ultimabase
 }
 
-const anonymous = (requestId: string) =>
+const anonymousContext = (requestId: string) =>
 	RequestContext.anonymous({ requestId, source: requestSources.internal })
 
 describe('request principal (ADR-0304)', () => {
 	it('is undefined without a provider and outside a request', async () => {
 		await using ultimabase = await startApplication()
-		const engine = ultimabase.anonymous({
+		const engine = anonymous(ultimabase, {
 			requestId: 'no-provider',
 			source: requestSources.internal,
 		})
@@ -81,14 +84,14 @@ describe('request principal (ADR-0304)', () => {
 		await expect(getRequestPrincipal(engine.context)).resolves.toBeUndefined()
 		// An unbound context belongs to no application, so it has no provider.
 		await expect(
-			getRequestPrincipal(anonymous('unbound')),
+			getRequestPrincipal(anonymousContext('unbound')),
 		).resolves.toBeUndefined()
 	})
 
 	it('resolves once per request context and keeps it under Master', async () => {
 		const resolveCurrent = vi.fn(() => Member.pointer(memberId))
 		await using ultimabase = await startApplication({ resolveCurrent })
-		const engine = ultimabase.anonymous({
+		const engine = anonymous(ultimabase, {
 			requestId: 'one-resolution',
 			source: requestSources.internal,
 		})
@@ -98,7 +101,7 @@ describe('request principal (ADR-0304)', () => {
 			getRequestPrincipal(getCurrentRequest()),
 		)
 		const master = await engine.useMasterKey(
-			ultimabase.authorizeMasterKey('principal-test-secret'),
+			authorizeMasterKey(ultimabase, 'principal-test-secret'),
 			'principal test',
 		)
 
@@ -113,7 +116,7 @@ describe('request principal (ADR-0304)', () => {
 	it('uses an explicit principal, anonymous included, instead of the provider', async () => {
 		const resolveCurrent = vi.fn(() => Member.pointer(memberId))
 		await using ultimabase = await startApplication({ resolveCurrent })
-		const engine = ultimabase.anonymous({
+		const engine = anonymous(ultimabase, {
 			requestId: 'explicit',
 			source: requestSources.internal,
 		})
@@ -132,7 +135,7 @@ describe('request principal (ADR-0304)', () => {
 		await using forged = await startApplication({
 			resolveCurrent: () => ({ id: 'forged' }) as never,
 		})
-		const forgedEngine = forged.anonymous({
+		const forgedEngine = anonymous(forged, {
 			requestId: 'forged',
 			source: requestSources.internal,
 		})
@@ -144,7 +147,7 @@ describe('request principal (ADR-0304)', () => {
 		await using foreign = await startApplication({
 			resolveCurrent: () => Foreign.pointer(memberId),
 		})
-		const foreignEngine = foreign.anonymous({
+		const foreignEngine = anonymous(foreign, {
 			requestId: 'foreign',
 			source: requestSources.internal,
 		})

@@ -127,7 +127,10 @@ Generated routes are public exposure, not authorization. Access, ACL,
 authentication, and Master authority are configured independently. Unless the
 developer passes `acknowledgeUnverifiedProtection: true`, starting an
 application with generated routes uses Core's shared
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic.
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic, a `warn` line of the
+application logger (ADR-0313). REST also logs one `warn` line, prefixed with
+`[@ultimabase/rest-plugin]`, when it exposes no schema or operation, and when
+it has routes but no HTTP plugin to serve them.
 
 ## Plugin-owned schema mutations
 
@@ -313,7 +316,7 @@ application `PublicError` (status `400`, ADR-0305) may retain its safe
 message, details, and retryability. Unknown exceptions, internal details,
 unrepresentable output, and undeclared or unmapped plugin errors become the
 fixed non-retryable `REST_INTERNAL_ERROR` response and are logged with their
-stack and request ID.
+stack and request ID through the plugin logger (ADR-0313).
 
 Mutation results obey the row read rules (ADR-0306): a client allowed to write
 a row it cannot read requests the identifier alone, `?select=id` on create,

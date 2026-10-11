@@ -2,7 +2,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
-import { QueryBuilder } from '../../query/index.js'
 import type {
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
@@ -27,6 +26,7 @@ import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { testDatabaseFilterOperators } from '../../../../../tooling/vitest/database-filter-operators.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const Article = UltimaBase.Schema.define({
 	className: 'FinalMutationGuardArticle',

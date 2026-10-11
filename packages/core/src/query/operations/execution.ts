@@ -58,8 +58,9 @@ export const normalizeOperationOptions = (
 		throw new TypeError('operation context must be a RequestContext instance')
 	}
 
-	if (useMasterKey !== undefined && useMasterKey !== true) {
-		throw new TypeError('operation useMasterKey must be true when present')
+	// `false` equals omission: it inherits and never downgrades (ADR-0311).
+	if (useMasterKey !== undefined && typeof useMasterKey !== 'boolean') {
+		throw new TypeError('operation useMasterKey must be a boolean when present')
 	}
 
 	return immutableRecord({ context, useMasterKey: useMasterKey === true })

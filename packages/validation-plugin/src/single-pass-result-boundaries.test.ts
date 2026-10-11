@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
 	createRuntimeBehaviorBoundaries,
-	QueryBuilder,
 	UltimaBase,
 	type FindManyOperationAst,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { validationPlugin } from './plugin.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const ValidationApplication = UltimaBase.use(validationPlugin())
 

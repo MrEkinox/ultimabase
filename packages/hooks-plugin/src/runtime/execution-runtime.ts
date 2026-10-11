@@ -13,7 +13,7 @@ import {
 	throwIfOperationCancelled,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
-	type RequestContext,
+	type Logger,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -39,6 +39,7 @@ import {
 	createRuntimeHookContext,
 	type HookContextEmission,
 } from './hook-context-runtime.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** Supplies one stable structural identity to the shared hook executor. */
 export interface HookExecutionDescriptor {
@@ -192,12 +193,14 @@ export class HookExecutionRuntime {
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #eventHandlers: readonly OwnedHookEventHandler[]
 	readonly #observer: HookDiagnosticsObserver | undefined
+	readonly #logger: Logger
 	readonly #storage = new AsyncLocalStorage<readonly HookExecutionFrame[]>()
 
 	constructor(
 		observer: HookDiagnosticsObserver | undefined,
 		eventHandlers: readonly OwnedHookEventHandler[] = immutableArray([]),
 		callbacks: ApplicationCallbackExecutor = directCallbackExecutor,
+		logger: Logger = console,
 	) {
 		if (observer !== undefined && typeof observer !== 'function') {
 			throw new TypeError('Hook diagnostics observer must be a function')
@@ -206,6 +209,7 @@ export class HookExecutionRuntime {
 		this.#eventHandlers = immutableArray(eventHandlers)
 		this.#observer = observer
 		this.#callbacks = callbacks
+		this.#logger = logger
 		Object.freeze(this)
 	}
 
@@ -462,9 +466,9 @@ export class HookExecutionRuntime {
 				)
 			} catch (error: unknown) {
 				if (error instanceof PublicError) {
-					// After commit a PublicError is only logged (ADR-0305).
-					console.error(
-						'[UltimaBase] A PublicError thrown after commit was logged, not sent to the client',
+					// After commit a PublicError is only logged (ADR-0305, ADR-0313).
+					this.#logger.error(
+						'A PublicError thrown by an event handler after commit was logged, not sent to the client',
 						error,
 					)
 					continue

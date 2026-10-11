@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import * as ts from 'typescript'
@@ -73,13 +74,34 @@ export const createLanguageServiceWorkspace = (
 	}
 }
 
+/**
+ * The test program's `Register` declaration of one application without
+ * schemas (ADR-0297 amendment 1): structural types, as without `Register`.
+ */
+export const testRegisterDeclarationFile: string = path.resolve(
+	import.meta.dirname,
+	'../../tests/fixtures/register.d.ts',
+)
+
+/** Adds the test `Register` declaration to a fixture that does not declare its own. */
+export const addTestRegisterDeclaration = (
+	workspace: LanguageServiceWorkspace,
+): void => {
+	workspace.addFile(
+		testRegisterDeclarationFile,
+		readFileSync(testRegisterDeclarationFile, 'utf8'),
+	)
+}
+
 /** Creates a TypeScript service with the same strict module settings used by editors. */
 export const createLanguageService = (
 	fileName: string,
 	source: string,
+	options: Readonly<{ register?: true }> = {},
 ): ts.LanguageService => {
 	const workspace = createLanguageServiceWorkspace()
 
+	if (options.register === true) addTestRegisterDeclaration(workspace)
 	workspace.addFile(fileName, source)
 	return workspace.service
 }

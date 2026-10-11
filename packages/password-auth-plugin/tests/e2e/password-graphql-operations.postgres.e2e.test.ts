@@ -11,7 +11,6 @@ import {
 	getCurrentRequest,
 	type PluginDefinition,
 	type PluginSourceState,
-	type RequestContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -34,6 +33,8 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
+import { anonymous } from '@ultimabase/core/plugin'
 
 const password = 'correct horse battery staple'
 const GraphqlAuthRecord = UltimaBase.Schema.define({
@@ -67,7 +68,7 @@ const executeAnonymous = <
 	requestId: string,
 	variables?: Readonly<Record<string, unknown>>,
 ) => {
-	const context = ultimabase.anonymous({
+	const context = anonymous(ultimabase, {
 		requestId,
 		source: 'ultimabase.graphql',
 	}).context
@@ -154,7 +155,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				keys: [{ id: 'graphql-sign-up', value: 'server-secret' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [User, GraphqlAuthRecord],
 		})
 		await ultimabase.start()

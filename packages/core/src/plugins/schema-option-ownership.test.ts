@@ -24,7 +24,7 @@ describe('plugin schema option ownership rejection', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					optionPlugin('fixture.first-options'),
 					optionPlugin('fixture.second-options'),

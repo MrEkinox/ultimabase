@@ -6,7 +6,6 @@ import {
 	createApplication,
 	FrameworkApplication,
 } from '../application/framework-application.js'
-import { QueryBuilder } from '../query/index.js'
 
 import { plugin as createPlugin } from '../plugins/plugin.js'
 import type { PluginDefinition } from '../plugins/definition.js'
@@ -36,6 +35,7 @@ import {
 import { RecordingDatabaseAdapter } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../tests/runtime/fixtures/database-adapter-capability.js'
 import { UltimaBase } from './application/ultima-base.js'
+import { QueryBuilder } from '../plugin.js'
 
 const runtimeSchema = UltimaBase.Schema.define({
 	className: 'RuntimeCapabilityArticle',
@@ -54,7 +54,7 @@ const runtimeTarget = { id: 'runtime-target', title: 'Locked' } as never
 const createPluginApplication = (plugin: PluginDefinition) =>
 	applicationFixture(
 		new FrameworkApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [plugin],
 			schemas: [runtimeSchema],
 		}),
@@ -220,7 +220,7 @@ describe('public Runtime capabilities', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [malformed],
 				schemas: [runtimeSchema],
 			}),
@@ -339,7 +339,7 @@ describe('public Runtime capabilities', () => {
 		})
 		const application = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [behavior, database],
 				schemas: [runtimeSchema],
 			}),

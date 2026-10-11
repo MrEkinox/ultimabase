@@ -2,10 +2,8 @@ import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 } from '../../access/index.js'
-import { RequestContextValue } from '../../access/index.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import type { FindManyOperationAst, QueryResult } from '../../query/index.js'
-import { QueryBuilder } from '../../query/index.js'
 
 import { expectTypeOf, test } from 'vitest'
 
@@ -15,6 +13,7 @@ import { RequestContext } from '../context/request-context.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { RequestContextValue, QueryBuilder } from '../../plugin.js'
 
 const schema = UltimaBase.Schema.define({
 	className: 'TypedArticle',

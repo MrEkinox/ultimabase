@@ -12,7 +12,6 @@ import {
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type PluginIdentity,
-	type RequestContext,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { executeRestReadRequest, restPlugin } from '@ultimabase/rest-plugin'
@@ -23,6 +22,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 const publicAcl = new ACL().grantPublic('read')
 const privateAcl = new ACL()
@@ -183,7 +183,7 @@ const createApplication = (connectionUri: string) =>
 			keys: [{ id: 'rest-e2e', value: 'rest-e2e-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [RestAuthor, RestPost],
 		validation: {
 			clock: () => new Date('2026-09-05T12:00:00.000Z'),

@@ -31,6 +31,7 @@ import {
 } from './constants.js'
 import { httpContextResolverContributionsCapability } from './context.js'
 import { httpEndpointContributionsCapability } from './endpoints.js'
+import { httpServerCapability } from './server-capability.js'
 
 const requestExecutionRequirement = requireCapability(
 	applicationRequestExecutionCapability,
@@ -44,6 +45,10 @@ const optionalContextResolverContributions = optionalCapability(
 	httpContextResolverContributionsCapability,
 	'^1.0.0',
 )
+// Read at setup only: server plugins read the HTTP application themselves.
+const optionalServers = optionalCapability(httpServerCapability, '^1.0.0', {
+	phase: 'setup',
+})
 
 /** Enables the exact audited Master credential pair for one HTTP application. */
 export interface HttpMasterTransportOptions {
@@ -153,14 +158,29 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 				create: () => ({ value: normalized.browser }),
 			}),
 			requestExecutionRequirement,
-			contributeApplication(() => ({
-				exports: immutableRecord({
-					appId: normalized.appId,
-					browser: normalized.browser,
-					master: immutableRecord({ enabled: normalized.masterEnabled }),
-					requestTimeoutMs: normalized.requestTimeoutMs,
-				}),
-			})),
+			optionalServers,
+			contributeApplication(({ capabilities, logger }) => {
+				const routes = capabilities
+					.contributions(optionalEndpointContributions)
+					.reduce((count, { value }) => count + value.length, 0)
+				if (
+					routes > 0 &&
+					(capabilities.get(optionalServers) ?? []).length === 0
+				) {
+					// ADR-0313: routes nothing can answer are a visible warning.
+					logger.warn(
+						`HTTP has ${String(routes)} route${routes === 1 ? '' : 's'} but no server plugin: install @ultimabase/server-hono-plugin and add honoServerPlugin() to UltimaBase.use(...), or serve the HTTP application's fetch handler yourself.`,
+					)
+				}
+				return {
+					exports: immutableRecord({
+						appId: normalized.appId,
+						browser: normalized.browser,
+						master: immutableRecord({ enabled: normalized.masterEnabled }),
+						requestTimeoutMs: normalized.requestTimeoutMs,
+					}),
+				}
+			}),
 		],
 		permissions: normalized.masterEnabled ? masterPermissions : undefined,
 	})

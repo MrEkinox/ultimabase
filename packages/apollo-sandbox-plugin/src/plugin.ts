@@ -1,9 +1,13 @@
 import {
+	contributeApplication,
 	plugin,
 	requireCapability,
 	type PluginInstance,
 } from '@ultimabase/core'
-import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
+import {
+	graphqlHttpEndpointCapability,
+	graphqlIntrospectionCapability,
+} from '@ultimabase/graphql-http'
 import {
 	httpBrowserBootstrapRoute,
 	provideHttpEndpoints,
@@ -17,6 +21,11 @@ import { createApolloSandboxPageResponse } from './page.js'
 
 const endpointRequirement = requireCapability(
 	graphqlHttpEndpointCapability,
+	'^1.0.0',
+)
+// A served explorer refuses to start without introspection (ADR-0312).
+const introspectionRequirement = requireCapability(
+	graphqlIntrospectionCapability,
 	'^1.0.0',
 )
 
@@ -41,13 +50,20 @@ export type ApolloSandboxPlugin =
 
 /** Adds a development Sandbox page for the selected GraphQL HTTP provider. */
 export const apolloSandboxPlugin = (
-	options: ApolloSandboxPluginOptions,
+	options: ApolloSandboxPluginOptions = {},
 ): ApolloSandboxPlugin => {
 	const normalized = normalizeApolloSandboxPluginOptions(options)
+	// ADR-0312: whether the route is served and why, at debug level.
+	const report = contributeApplication(({ logger }) => {
+		logger.debug(
+			`${normalized.enabled ? `route ${normalized.path} served` : 'route not served'}: ${normalized.reason}`,
+		)
+		return { exports: undefined }
+	})
 	if (!normalized.enabled) {
 		return plugin({
 			...apolloSandboxPluginMetadata,
-			contributions: [],
+			contributions: [report],
 		})
 	}
 
@@ -67,7 +83,12 @@ export const apolloSandboxPlugin = (
 	})
 	return plugin({
 		...apolloSandboxPluginMetadata,
-		contributions: [routes, endpointRequirement],
+		contributions: [
+			routes,
+			endpointRequirement,
+			introspectionRequirement,
+			report,
+		],
 		environment: ['environment:network'],
 		peers: httpPeers,
 	})

@@ -23,6 +23,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 // ADR-0308: one link vocabulary, and every `connect`, `set` or `disconnect`
 // target must be visible; a hidden target is reported like a missing one.
@@ -76,7 +77,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'checked-links', value: 'checked-links-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Member, Team],
 	})
 
@@ -105,7 +106,7 @@ const graphql = (document: string) =>
 	application()
 		.plugin('@ultimabase/graphql-plugin')
 		.execute({
-			context: application().anonymous({
+			context: anonymous(application(), {
 				requestId: 'checked-links-graphql',
 				source: 'ultimabase.graphql',
 			}).context,

@@ -173,3 +173,13 @@ record did not announce; the user accepted both:
 2. **Property order** changes in a few result and input hovers of the old
    declaration form (same properties, different truncation); the old form is
    removed at the end of the migration.
+
+## Step 4 conflict accepted (2026-10-11)
+
+Requiring `Register` (amendment 1) creates TS7022/TS2502 cycles when an old-form schema reads the
+registry while it is typed: `RoleSchema.define` (create-app with Roles, examples `minimal` and
+`todo-backend`) and old-form Access rules inside `define` (website landing harness, Typegen
+performance probes). Those places register a schema-less application
+(`readonly app: UltimaBase<readonly []>`, with a comment) and keep their Typegen-provided types.
+The user accepted this workaround on 2026-10-11 until migration step 6 moves Roles, create-app
+and the examples to form D (`App.RoleSchema`, amendment 3) and removes the old form.

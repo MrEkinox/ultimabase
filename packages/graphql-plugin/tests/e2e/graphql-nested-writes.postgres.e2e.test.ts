@@ -1,4 +1,4 @@
-import { UltimaBase, type RequestContext } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { httpApplicationIdHeader, httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -12,6 +12,8 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
+import { anonymous } from '@ultimabase/core/plugin'
 
 const appId = 'graphql-nested-writes'
 const GraphqlSchemaApplication = UltimaBase.use(httpPlugin({ appId })).use(
@@ -62,7 +64,7 @@ const createPostgresApplication = (connectionUri: string) => {
 		.use(honoServerPlugin({ app: hono, browserPolicyOwner: 'ultimabase' }))
 		.use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri }))
 	return new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 		validation: { timezone: 'UTC' },
 	})
@@ -144,7 +146,7 @@ beforeAll(async () => {
 	application = createPostgresApplication(fixture.connectionUri)
 	try {
 		await application.start()
-		requestContext = application.anonymous({
+		requestContext = anonymous(application, {
 			requestId: 'graphql-nested-writes',
 			source: 'ultimabase.graphql',
 		}).context

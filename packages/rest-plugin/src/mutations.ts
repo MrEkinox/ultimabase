@@ -2,7 +2,6 @@ import type {
 	ApplicationRequestExecutor,
 	ApplicationSchemaMutationRequest,
 	ApplicationSchemaMutationResult,
-	RequestContext,
 	SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -28,6 +27,7 @@ import {
 	parseRestSelectionParameter,
 	type RestReadLimits,
 } from './reads.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 export type RestMutationOperation =
 	| 'bulk-create'

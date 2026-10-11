@@ -2,9 +2,13 @@
 
 Schema reads use canonical typed object inputs. `QueryBuilder<TSchema>` is an
 optional immutable utility that never retains an application, request,
-transaction, adapter, or authority:
+transaction, adapter, or authority. Plugin code constructs it from
+`@ultimabase/core/plugin`; the main entry exports it as a type only
+(ADR-0311):
 
 ```ts
+import { QueryBuilder } from '@ultimabase/core/plugin'
+
 const activeUsers = new QueryBuilder(UserSchema)
 	.where({ isActive: { eq: true } })
 	.descending('createdAt')
@@ -106,7 +110,8 @@ linked target's visibility before the write.
 `new Application(options)` creates its application boundary. Its `start()` method
 assembles the mandatory pipeline from the application's database capability and
 plugin contributions. Schema classes expose schema-root object reads;
-`new QueryBuilder(Post)` is the equivalent non-executing composition utility. The
+`new QueryBuilder(Post)` from `@ultimabase/core/plugin` is the equivalent
+non-executing composition utility. The
 lower-level `createFrameworkEngine(application)` factory remains available to
 framework packages and explicit transport composition.
 

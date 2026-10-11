@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	MasterAuthority,
-	RequestContextValue,
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	databaseAdapterCapability,
@@ -24,7 +23,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type PluginIdentity,
-	type RequestContext,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
@@ -36,6 +34,10 @@ import {
 
 import { executeRestReadRequest } from './reads.js'
 import { restPlugin } from './plugin.js'
+import {
+	RequestContextValue,
+	type RequestContext,
+} from '@ultimabase/core/plugin'
 
 /** Declares the built-in operators these fixtures filter with (ADR-0301). */
 const testDatabaseFilterOperators: DatabaseFilterOperatorCapability = {
@@ -319,7 +321,7 @@ describe('REST read execution', () => {
 			createHarnessPlugin(harness),
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -352,7 +354,7 @@ describe('REST read execution', () => {
 			createHarnessPlugin(harness),
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -441,14 +443,14 @@ describe('REST read execution', () => {
 				keys: [{ id: 'rest-master', value: 'rest-secret' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => first.dispose())
 		const second = new (UltimaBase.use(
 			createHarnessPlugin(secondHarness),
 			databasePlugin(secondAdapter),
-		))({ pluginPrivileges: { logger: false }, schemas: [RecordSchema] })
+		))({ logger: false, schemas: [RecordSchema] })
 		onTestFinished(() => second.dispose())
 		await first.start()
 		const anonymous = createContext(firstHarness, 'rest-read-security')
@@ -524,7 +526,7 @@ describe('REST read execution', () => {
 			httpPlugin({ appId: 'rest-deadline', requestTimeoutMs: 10 }),
 			createHttpCapturePlugin(capture),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())

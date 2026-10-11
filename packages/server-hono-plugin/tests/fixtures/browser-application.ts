@@ -99,7 +99,7 @@ export const createBrowserApplication = async (
 		}),
 	))({
 		schemas: [],
-		pluginPrivileges: { logger: false },
+		logger: false,
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'browser', value: 'master-secret' }],
 			onUse: () => undefined,

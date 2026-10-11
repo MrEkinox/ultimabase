@@ -20,6 +20,9 @@ sources:
   - examples/minimal/src/main.ts
   - examples/minimal/src/create-application.ts
   - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0311-application-lifecycle-and-authority-surface.md
+  - docs/adr/0312-environment-dependent-plugin-defaults.md
+  - docs/adr/0313-readable-startup-diagnostics.md
 ---
 
 ## What you will build
@@ -220,9 +223,12 @@ export const Task = UltimaBase.Schema.define({
 
 ### Configure the application
 
-Create the application. `schemaPolicy: 'override'` is convenient for this
-disposable database: it creates missing structures and applies supported
-changes, but it is not a replacement for reviewed production migrations.
+Create the application. `postgresPlugin()` reads `DATABASE_URL` when the
+application starts, so the project type-checks without it. Outside
+production, its schema policy is `override`: convenient for this disposable
+database, it creates missing structures and applies supported changes, but it
+is not a replacement for reviewed production migrations. `NODE_ENV=production`
+selects `fail`.
 
 ```ts title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'
@@ -230,19 +236,18 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 import { Task } from './schema.js'
 
-const databaseUrl = process.env.DATABASE_URL
-
-if (databaseUrl === undefined) {
-	throw new TypeError('DATABASE_URL is required')
-}
-
-const Application = UltimaBase.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-)
+const Application = UltimaBase.use(postgresPlugin())
 
 export const ultimabase = new Application({
 	schemas: [Task],
 })
+
+// Required once per application: it gives name-keyed editor types.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 The local imports end in `.js` even though the source files are `.ts`. With
@@ -252,7 +257,8 @@ that Node.js can execute.
 ### Start and verify
 
 Start the application, create one record through the shared Runtime, and always
-release resources:
+release resources. `start()` resolves to the application, so `await using`
+disposes it when the scope exits, even after a failure:
 
 ```ts title="src/main.ts"
 import { toJSON } from '@ultimabase/core'
@@ -260,31 +266,17 @@ import { toJSON } from '@ultimabase/core'
 import { Task } from './schema.js'
 import { ultimabase } from './ultimabase.js'
 
-try {
-	await ultimabase.start()
+await using app = await ultimabase.start()
 
-	const task = await Task.createOne({
-		data: { title: 'Write the documentation' },
-	})
+const task = await Task.createOne({
+	data: { title: 'Write the documentation' },
+})
 
-	console.log(toJSON(task))
-} finally {
-	await ultimabase.dispose()
-}
+console.log(toJSON(task), app.state)
 ```
 
-This example imports a shared application, so its lifetime is explicit. When a
-script constructs the application locally, `await using` provides the same
-guarantee without a handwritten `finally` block:
-
-```ts
-await using ultimabase = new Application(options)
-await ultimabase.start()
-// `dispose()` is awaited automatically when this async scope exits.
-```
-
-Use explicit shutdown handling for long-running servers whose application must
-remain alive beyond one lexical scope.
+A long-running server keeps the scope open until it is asked to stop, for
+example by awaiting a promise resolved on `SIGTERM`.
 
 Run the complete local check:
 
@@ -308,8 +300,9 @@ pnpm start
 
 ## Expected result
 
-The default logger first reports the installed plugin and its requested
-privileges. The process then prints a JavaScript object like this (the
+The default logger first prints one line naming the schemas, the installed
+plugin, and any critical privilege (`logLevel: 'debug'` prints the complete
+privilege report). The process then prints a JavaScript object like this (the
 generated ID and timestamps vary):
 
 ```text

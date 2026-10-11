@@ -173,7 +173,7 @@ const createPasswordHttpApplication = (
 			keys: [{ id: 'password-http-master', value: 'master-secret' }],
 			onUse: options.onMasterUse ?? (() => undefined),
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	return {
@@ -680,7 +680,7 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 				keys: [{ id: 'policy', value: 'master-secret' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await expect(application.start()).rejects.toThrow(

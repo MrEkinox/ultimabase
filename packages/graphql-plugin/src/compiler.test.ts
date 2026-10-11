@@ -69,7 +69,7 @@ describe('GraphQL structural schema compilation', () => {
 	it('compiles every built-in shape, plugin JSON codec, and relationship type', async () => {
 		const { Author, Post } = defineCompleteSchemas()
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [pgVectorPlugin(), graphqlPlugin()],
 			schemas: [Author, Post],
 		})
@@ -219,7 +219,7 @@ describe('GraphQL structural schema compilation', () => {
 			graphql: true,
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [graphqlPlugin()],
 			schemas: [CircularAuthor, CircularPost],
 		})
@@ -266,7 +266,7 @@ describe('GraphQL structural schema compilation', () => {
 			fields: (field) => ({ state: field.enum({ values: ['in-review'] }) }),
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [graphqlPlugin()],
 			schemas: [Entry],
 		})
@@ -309,7 +309,7 @@ describe('GraphQL structural schema compilation', () => {
 			],
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [provider, graphqlPlugin()],
 			schemas: [Post],
 		})
@@ -356,7 +356,7 @@ describe('GraphQL structural schema compilation', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [provider, graphqlPlugin()],
 				schemas: [Post],
 			}),
@@ -372,7 +372,7 @@ describe('GraphQL structural schema compilation', () => {
 		})
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin()],
 				schemas: [Invalid],
 			}),
@@ -384,7 +384,7 @@ describe('GraphQL structural schema compilation', () => {
 		})
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin()],
 				schemas: [Collision],
 			}),
@@ -421,7 +421,7 @@ describe('GraphQL structural schema compilation', () => {
 		})
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [owner, graphqlPlugin()],
 				schemas: [Missing],
 			}),
@@ -440,7 +440,7 @@ describe('GraphQL structural schema compilation', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin()],
 				schemas: [Post, Conflicting],
 			}),
@@ -456,7 +456,7 @@ describe('GraphQL structural schema compilation', () => {
 		})
 		const create = () =>
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin()],
 				schemas: [Repeatable],
 			})
@@ -476,7 +476,7 @@ describe('GraphQL structural schema compilation', () => {
 		})
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin({ default: false })],
 				schemas: [Hidden],
 			}),
@@ -487,7 +487,7 @@ describe('GraphQL structural schema compilation', () => {
 			fields: (field) => ({ value: field.string() }),
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [graphqlPlugin()],
 			schemas: [Visible],
 		})
@@ -505,7 +505,7 @@ describe('GraphQL structural schema compilation', () => {
 		})
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin(), graphqlPlugin()],
 				schemas: [Duplicate],
 			}),
@@ -526,14 +526,14 @@ describe('GraphQL structural schema compilation', () => {
 			}),
 		})
 		const alpha = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [graphqlPlugin()],
 			schemas: [Alpha],
 		})
 		const alphaSchema = readGraphql(alpha).schema
 		await alpha.dispose()
 		const beta = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [graphqlPlugin()],
 			schemas: [Beta],
 		})

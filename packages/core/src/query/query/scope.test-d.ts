@@ -1,7 +1,8 @@
 import { expect, expectTypeOf, test } from 'vitest'
 
-import { QueryBuilder, type QueryScope } from '../index.js'
+import { type QueryScope } from '../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const postSchema = UltimaBase.Schema.define({
 	className: 'Post',

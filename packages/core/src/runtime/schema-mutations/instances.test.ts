@@ -131,7 +131,7 @@ describe('schema mutation instance ownership', () => {
 			first.plugin,
 			second.plugin,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		})
 		await ultimabase.start()

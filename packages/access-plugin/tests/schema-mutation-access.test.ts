@@ -361,7 +361,7 @@ describe('schema mutation Access', () => {
 			owner.plugin,
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Restricted],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -389,7 +389,7 @@ describe('schema mutation Access', () => {
 			owner.plugin,
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [AccessDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -448,7 +448,7 @@ describe('schema mutation Access', () => {
 			deniedOwner.plugin,
 			databasePlugin(deniedAdapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [GranularDeniedDocument],
 		})
 		onTestFinished(() => denied.dispose())
@@ -458,7 +458,7 @@ describe('schema mutation Access', () => {
 			allowedOwner.plugin,
 			databasePlugin(allowedAdapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [GranularAllowedDocument],
 		})
 		onTestFinished(() => allowed.dispose())
@@ -467,7 +467,7 @@ describe('schema mutation Access', () => {
 			booleanOwner.plugin,
 			databasePlugin(booleanAdapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [BooleanDefaultDocument],
 		})
 		onTestFinished(() => booleanAllowed.dispose())
@@ -529,7 +529,7 @@ describe('schema mutation Access', () => {
 			owner.plugin,
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [ProviderDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -564,7 +564,7 @@ describe('schema mutation Access', () => {
 				keys: [{ id: 'schema-mutation-access-master', value: 'unused' }],
 				onUse: audit,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [MasterDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -601,7 +601,7 @@ describe('schema mutation Access', () => {
 		const ultimabase = new (UltimaBase.use(
 			owner.plugin,
 			databasePlugin(adapter),
-		))({ pluginPrivileges: { logger: false }, schemas: [NoAccessDocument] })
+		))({ logger: false, schemas: [NoAccessDocument] })
 		onTestFinished(() => ultimabase.dispose())
 
 		try {
@@ -628,7 +628,7 @@ describe('schema mutation Access', () => {
 			owner.plugin,
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [StaleDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -649,7 +649,7 @@ describe('schema mutation Access', () => {
 			createMasterMutationOwner(MasterOnlyDocument),
 			databasePlugin(masterAdapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [MasterOnlyDocument],
 		})
 		onTestFinished(() => masterOnly.dispose())

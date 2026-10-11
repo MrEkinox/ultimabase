@@ -11,9 +11,9 @@ export type {
 	ConfiguredPluginIdentity,
 	ConfiguredPluginIdentityExports,
 } from './application/configured-plugins.js'
+export type { LogLevel, Logger } from './application/application-log.js'
 export type {
 	PluginEnvironmentClaimReport,
-	PluginPrivilegeLogger,
 	PluginPrivilegePluginPolicy,
 	PluginPrivilegePluginReport,
 	PluginPrivilegePolicy,
@@ -57,6 +57,7 @@ export type {
 	PluginOperationDeclarationContributionContext,
 	PluginPrivateStorageContributionContext,
 	PluginPrivilegedContribution,
+	PluginStartContext,
 	PluginSchemaContributionContext,
 	PluginTypegenContributionContext,
 } from './plugins/plugin-contributions.js'

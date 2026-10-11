@@ -193,10 +193,11 @@ const ultimabase = new Application({
 Startup reports identity, version, derived privileges, author or generated
 reasons, severity, claims, and policy result. A denied privilege prevents
 every later declaration, Typegen, setup, connection, Runtime, or transport
-effect. Supply
-`pluginPrivileges.logger: false` for explicit silence or an `{ info, error }`
-logger; the detached report remains available through
-`ultimabase.application.pluginPrivilegeReport`.
+effect. The application logger (ADR-0313) writes the complete report at
+`debug` and denials at `error`; `logger: false` silences it, and the detached
+report remains available through `ultimabase.pluginPrivilegeReport`. Plugins
+receive the same logger, prefixed with their package name, in their setup
+context, start phases and capability factories.
 
 ## Use the installed surface
 

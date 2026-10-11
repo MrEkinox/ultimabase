@@ -37,6 +37,9 @@ const PublicSchema = UltimaBase.Schema.define({
 	fields: () => ({}),
 })
 
+const noHttpLine =
+	'[@ultimabase/rest-plugin] REST has routes but no HTTP plugin to serve them: install @ultimabase/http-plugin and add httpPlugin() to UltimaBase.use(...).'
+
 afterEach(() => {
 	vi.restoreAllMocks()
 })
@@ -53,8 +56,10 @@ describe('REST public protection reporting', () => {
 		onTestFinished(() => ultimabase.dispose())
 
 		await ultimabase.start()
-		expect(warning).toHaveBeenCalledOnce()
-		expect(warning.mock.calls[0]?.[1]).toMatchObject({
+		// ADR-0313: the missing HTTP plugin is a REST line; protection is Core's.
+		expect(warning).toHaveBeenCalledTimes(2)
+		expect(warning.mock.calls[0]?.[0]).toBe(noHttpLine)
+		expect(warning.mock.calls[1]?.[1]).toMatchObject({
 			code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
 			transport: { name: 'ultimabase.rest', version: '1.0.0' },
 		})
@@ -83,7 +88,10 @@ describe('REST public protection reporting', () => {
 		await acknowledged.start()
 		await acknowledged.dispose()
 		await disabled.start()
-		expect(warning).not.toHaveBeenCalled()
+		expect(warning.mock.calls.map((call): unknown => call[0])).toStrictEqual([
+			noHttpLine,
+			'[@ultimabase/rest-plugin] REST exposes no schema or operation: register application schemas in new App({ schemas }) or pass restPlugin({ operations }).',
+		])
 		await disabled.dispose()
 	})
 })

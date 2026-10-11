@@ -7,7 +7,6 @@ import {
 	contributeApplication,
 	getCurrentRequest,
 	requireCapability,
-	type RequestContext,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
@@ -34,6 +33,7 @@ import {
 	type RestMutationExecutionHarness as ExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
 import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
@@ -191,7 +191,7 @@ const createApplication = (connectionUri: string) =>
 			keys: [{ id: 'rest-mutation-e2e', value: 'rest-mutation-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [MutationPost],
 		validation: {
 			clock: () => new Date('2026-09-05T15:00:00.000Z'),

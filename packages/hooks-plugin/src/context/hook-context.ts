@@ -1,10 +1,9 @@
+import type { Principal, RequestAccess } from '@ultimabase/core'
+import type { JsonDocument, OperationKind } from '@ultimabase/core'
 import type {
-	Principal,
-	RequestAccess,
 	RequestCapability,
 	RequestContextValue,
-} from '@ultimabase/core'
-import type { JsonDocument, OperationKind } from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 /**
  * Defines the durable minimal execution identity implemented by HookContext.

@@ -1,8 +1,4 @@
-import {
-	UltimaBase,
-	type ApplicationRequestExecutor,
-	type RequestContext,
-} from '@ultimabase/core'
+import { UltimaBase, type ApplicationRequestExecutor } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -10,6 +6,7 @@ import {
 	normalizeRestMutationRequest,
 	type RestMutationCommand,
 } from './index.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 const Article = UltimaBase.Schema.define({
 	className: 'RestMutationTypeArticle',

@@ -1,7 +1,6 @@
 import {
 	FrameworkError,
 	Schema,
-	WhereBuilder,
 	getOperationSchema,
 	getRequestPrincipal,
 	normalizeLogicalFilter,
@@ -14,7 +13,6 @@ import {
 	type OperationKind,
 	type PluginSchemaMutationOperationAst,
 	type QueryFilterNode,
-	type RequestContext,
 	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
 	type WhereInput,
@@ -41,6 +39,7 @@ import type {
 	AccessPhase,
 	AccessRuleIdentity,
 } from './execution-runtime.js'
+import { WhereBuilder, type RequestContext } from '@ultimabase/core/plugin'
 
 /** Carries the request facts shared by every rule evaluated at one boundary. */
 export interface RuleScope {

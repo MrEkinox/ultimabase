@@ -1,4 +1,4 @@
-import { QueryBuilder, type FindManyOperationAst } from '../../query/index.js'
+import { type FindManyOperationAst } from '../../query/index.js'
 
 import {
 	immutableArray,
@@ -42,6 +42,7 @@ import {
 	requestContext,
 	TraceDatabaseExecutor,
 } from '../../../tests/fixtures/runtime-pipeline.js'
+import { QueryBuilder } from '../../plugin.js'
 
 describe('RuntimePipeline', () => {
 	it('keeps protected identities attached when result hooks filter a find', async () => {

@@ -132,8 +132,12 @@ describe('contextual operation execution', () => {
 		expect(() =>
 			normalizeOperationOptions({ context: 'forged' } as never),
 		).toThrow('operation context must be a RequestContext instance')
+		expect(normalizeOperationOptions({ useMasterKey: false })).toEqual({
+			context: undefined,
+			useMasterKey: false,
+		})
 		expect(() =>
-			normalizeOperationOptions({ useMasterKey: false } as never),
-		).toThrow('operation useMasterKey must be true when present')
+			normalizeOperationOptions({ useMasterKey: 'true' } as never),
+		).toThrow('operation useMasterKey must be a boolean when present')
 	})
 })

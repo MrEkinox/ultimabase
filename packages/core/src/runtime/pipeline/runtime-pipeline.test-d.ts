@@ -1,5 +1,4 @@
 import {
-	QueryBuilder,
 	type FindManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
@@ -27,6 +26,7 @@ import type {
 import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',

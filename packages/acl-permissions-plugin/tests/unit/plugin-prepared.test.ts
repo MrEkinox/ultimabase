@@ -1,10 +1,5 @@
 import type { FrameworkError } from '@ultimabase/core'
-import {
-	MasterAuthority,
-	QueryBuilder,
-	plugin,
-	UltimaBase,
-} from '@ultimabase/core'
+import { MasterAuthority, plugin, UltimaBase } from '@ultimabase/core'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { ACL } from '../../src/acl.js'
@@ -23,6 +18,7 @@ import {
 	protectedPostNode,
 	ACLRejectedWriteAdapter,
 } from './plugin-fixtures.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 describe('aclPlugin prepared input resolution', () => {
 	beforeAll(async () => {

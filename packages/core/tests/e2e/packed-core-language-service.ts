@@ -48,7 +48,10 @@ const createCoreLanguageFixture = async (
 	const packedSource = packedFixture.replace(markerPattern, (marker) =>
 		' '.repeat(marker.length),
 	)
-	const languageService = createLanguageService(fixtureFile, packedSource)
+	// The fixtures construct applications without their own Register (ADR-0297).
+	const languageService = createLanguageService(fixtureFile, packedSource, {
+		register: true,
+	})
 
 	return {
 		diagnostics: () => languageService.getSemanticDiagnostics(fixtureFile),

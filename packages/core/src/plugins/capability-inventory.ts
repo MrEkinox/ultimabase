@@ -132,14 +132,16 @@ const throwMissingCapability = (
 	owner: PluginIdentity,
 	requirement: CapabilityRequirement,
 ): never => {
+	const { hint } = requirement.token
 	throw new FrameworkError(
 		'PLUGIN_CAPABILITY_MISSING',
-		`Plugin "${formatPluginIdentity(owner)}" requires capability "${requirement.token.capabilityId}" version "${requirement.version}", but no compatible provider is installed.`,
+		`Plugin "${formatPluginIdentity(owner)}" requires capability "${requirement.token.capabilityId}" version "${requirement.version}", but no compatible provider is installed.${hint === undefined ? '' : ` ${hint}`}`,
 		{
 			internalDetails: {
 				...snapshotPluginIdentity(owner),
 				capabilityId: requirement.token.capabilityId,
 				requiredVersion: requirement.version,
+				...(hint === undefined ? {} : { hint }),
 			},
 		},
 	)

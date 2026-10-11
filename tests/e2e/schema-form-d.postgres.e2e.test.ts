@@ -31,7 +31,7 @@ const createApplication = (connectionUri: string) =>
 			keys: [{ id: 'schema-form-d-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [TodoUser, Todo, Tag],
 	})
 

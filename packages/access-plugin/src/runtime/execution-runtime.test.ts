@@ -1,12 +1,9 @@
-import {
-	RequestContext,
-	UltimaBase,
-	type ApplicationCallbackExecutor,
-} from '@ultimabase/core'
+import { UltimaBase, type ApplicationCallbackExecutor } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { AccessExecutionRuntime } from './execution-runtime.js'
 import type { AccessExecutionDescriptor } from './execution-runtime.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 const schema = UltimaBase.Schema.define({
 	className: 'AttributedAccessRule',

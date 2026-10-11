@@ -34,6 +34,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { anonymous, authorizeMasterKey } from '@ultimabase/core/plugin'
 
 const password = 'correct horse battery staple'
 let fixture: PostgresWorkerFixture | undefined
@@ -91,7 +92,7 @@ const createApplication = (
 			keys: [{ id: 'password-sign-up', value: 'server-secret' }],
 			onUse,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	return { onUse, plugin, ultimabase }
@@ -381,12 +382,12 @@ describe(
 			const application = createApplication()
 			await application.ultimabase.start()
 			try {
-				const anonymous = application.ultimabase.anonymous({
+				const anonymousEngine = anonymous(application.ultimabase, {
 					requestId: 'master-sign-up',
 					source: 'internal',
 				})
-				const master = await anonymous.useMasterKey(
-					application.ultimabase.authorizeMasterKey('server-secret'),
+				const master = await anonymousEngine.useMasterKey(
+					authorizeMasterKey(application.ultimabase, 'server-secret'),
 					'Trusted server sign-up',
 				)
 				await runWithRequestEngine(master, () =>
@@ -482,7 +483,7 @@ describe(
 					keys: [{ id: 'rest-sign-up', value: 'server-secret' }],
 					onUse: () => undefined,
 				}),
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			})
 			await ultimabase.start()
@@ -515,7 +516,7 @@ describe(
 					)
 				}
 				const result: unknown = await rest.operationTransport.execute(
-					ultimabase.anonymous({
+					anonymous(ultimabase, {
 						requestId: 'password-rest-operation',
 						source: 'rest',
 					}).context,

@@ -1,5 +1,4 @@
 import {
-	QueryBuilder,
 	createDatabasePersistencePlan,
 	normalizeUpdateExpression,
 	type CreateOneOperationAst,
@@ -34,6 +33,7 @@ import {
 	timestamp,
 	articleRow,
 } from './adapter-fixtures.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 describe('internal PostgreSQL database adapter preparation', () => {
 	it('compiles private row filters inside eager relation branches', async () => {

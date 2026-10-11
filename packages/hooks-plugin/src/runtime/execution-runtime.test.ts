@@ -11,7 +11,6 @@ import {
 	normalizeHookDeclarations,
 	type NormalizedHookHandler,
 } from '../authoring/declarations.js'
-import { RequestContext, requestSources } from '@ultimabase/core'
 import type { HookDiagnosticEvent } from './diagnostics.js'
 import type { HookExecutionDescriptor } from './execution-runtime.js'
 import {
@@ -20,6 +19,7 @@ import {
 	createPluginHookOwner,
 } from './execution-runtime.js'
 import { HookExecutionRuntime } from './execution-runtime.js'
+import { RequestContext, requestSources } from '@ultimabase/core/plugin'
 
 const request = RequestContext.anonymous({
 	metadata: { diagnosticSecret: 'must-not-leak' },

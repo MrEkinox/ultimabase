@@ -62,7 +62,7 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	expectTypeOf(ultimabase.plugin(databasePlugin)).toEqualTypeOf<{
 		readonly dialect: 'fixture'
 	}>()
-	expectTypeOf(ultimabase.start()).toEqualTypeOf<Promise<void>>()
+	expectTypeOf(ultimabase.start()).toEqualTypeOf<Promise<typeof ultimabase>>()
 	expectTypeOf(ultimabase.stop()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(ultimabase.dispose()).toEqualTypeOf<Promise<void>>()
 	// Ownership remains a Runtime identity check because QueryBuilder stays application-free.

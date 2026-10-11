@@ -8,6 +8,7 @@ describe('@ultimabase/testing public API', () => {
 			'PluginConformanceError',
 			'PluginConformanceSuite',
 			'PostgresTestWorker',
+			'createCapturingLogger',
 			'createPluginConformanceFixture',
 			'definePluginConformanceSuite',
 			'readVitestPoolId',

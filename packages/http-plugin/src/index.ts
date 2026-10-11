@@ -1,4 +1,6 @@
 export { httpApplicationCapability } from './application.js'
+export { httpServerCapability } from './server-capability.js'
+export type { HttpServerDescriptor } from './server-capability.js'
 export type {
 	HttpApplication,
 	HttpApplicationAuthority,

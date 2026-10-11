@@ -1,9 +1,5 @@
-export { RequestContext, requestSources } from './context/request-context.js'
-export type {
-	BuiltInRequestSource,
-	RequestContextOptions,
-	RequestMetadata,
-} from './context/request-context.js'
+// RequestContext, requestSources and RequestEngine are plugin-author names
+// exported by `@ultimabase/core/plugin` only (ADR-0311).
 // Contextual access is optional; transports should still inject request engines explicitly.
 export {
 	getCurrentEngine,
@@ -86,10 +82,7 @@ export type {
 	PluginSchemaMutationSchemaInput,
 } from '../application/application-schema-mutations.js'
 export { requireCurrentRequestRoleResolver } from './context/subject-capabilities.js'
-// Applications create request-bound engines; opaque grants protect master construction.
-export { RequestEngine } from './engine/request-engine.js'
 export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
-export type { RequestTransactionHandler } from './engine/request-engine.js'
 // Database plugins implement this neutral boundary without leaking their query builders.
 export {
 	databaseAdapterCapability,

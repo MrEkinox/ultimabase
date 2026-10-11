@@ -23,6 +23,7 @@ describe('@ultimabase/http-plugin public entry point', () => {
 			'httpPreDispatchErrorCodes',
 			'httpRequestIdHeader',
 			'httpRoute',
+			'httpServerCapability',
 			'normalizeHttpBrowserBootstrapPath',
 			'provideHttpContextResolvers',
 			'provideHttpEndpoints',

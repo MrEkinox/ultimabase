@@ -149,7 +149,13 @@ const RuntimeConfiguredApplication = RuntimeApplication.use(
   runtimeValidationPlugin(),
   runtimeAccessPlugin(),
 )
-export const app = new RuntimeConfiguredApplication({ schemas: [${example.schema}] })`
+export const app = new RuntimeConfiguredApplication({ schemas: [${example.schema}] })
+// Old-form rules read the registry while typed: register without schemas.
+declare module '@ultimabase/core' {
+  interface Register {
+    readonly app: RuntimeApplication<readonly []>
+  }
+}`
 			await writeFile(filename, source)
 			const application = await loadTypegenApplication({
 				sourcePath: filename,

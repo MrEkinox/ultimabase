@@ -3,7 +3,6 @@ import type {
 	ApplicationSchemaMutationTransport,
 	CompiledSchemaRegistry,
 	ExposedSchemaMutationTransportBinding,
-	RequestContext,
 	SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -31,6 +30,7 @@ import type {
 	RestPluginOperationRouteDefinition,
 	RestSchemaMutationRouteDefinition,
 } from './routes.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** Exposes only the selected REST operation inventory and its execution method. */
 export interface RestOperationTransport {

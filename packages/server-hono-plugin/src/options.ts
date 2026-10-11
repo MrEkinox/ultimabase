@@ -1,12 +1,21 @@
 import process from 'node:process'
 
 import { assertNonEmptyString } from '@ultimabase/shared'
-import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import {
+	definePluginOptionsParser,
+	describeEnvironmentSource,
+	readDeploymentEnvironment,
+} from '@ultimabase/plugin-kit'
 import type { Hono, Env, Schema } from 'hono'
 
 /** Configures the framework-owned Node listener created by the plugin. */
 export interface ManagedHonoServerPluginOptions {
-	/** Optional hostname passed to the Node listener. */
+	/**
+	 * Hostname passed to the Node listener. When omitted, the `HOST`
+	 * environment variable is used, then `127.0.0.1` in development and every
+	 * interface when `NODE_ENV` is `production` (ADR-0312).
+	 * @default process.env.HOST ?? (production ? every interface : '127.0.0.1')
+	 */
 	readonly host?: string
 	/**
 	 * TCP port passed to the Node listener. Port zero requests an ephemeral port.
@@ -47,8 +56,11 @@ export type HonoServerPluginOptions<
 export interface NormalizedHonoServerPluginOptions {
 	readonly app: Hono | undefined
 	readonly browserPolicyOwner: HonoBrowserPolicyOwner
+	/** `undefined` listens on every interface. */
 	readonly host: string | undefined
 	readonly port: number
+	/** Where `host` and `port` come from, for the plugin's debug lines. */
+	readonly sources: Readonly<{ host: string; port: string }>
 }
 
 const isHonoApplication = (value: unknown): value is Hono =>
@@ -72,6 +84,22 @@ const readEnvironmentPort = (): number | undefined => {
 		)
 	}
 	return port
+}
+
+/** `host`, else `HOST`, else the deployment default (ADR-0312). */
+const resolveHost = (
+	host: string | undefined,
+): Readonly<{ host: string | undefined; source: string }> => {
+	if (host !== undefined) return { host, source: 'explicit option' }
+	const environmentHost = process.env.HOST
+	if (environmentHost !== undefined && environmentHost !== '') {
+		return { host: environmentHost, source: 'HOST' }
+	}
+	const environment = readDeploymentEnvironment()
+	return {
+		host: environment === 'production' ? undefined : '127.0.0.1',
+		source: describeEnvironmentSource(environment),
+	}
 }
 
 export const normalizeHonoServerPluginOptions: (
@@ -109,6 +137,7 @@ export const normalizeHonoServerPluginOptions: (
 				browserPolicyOwner,
 				host: undefined,
 				port: 1337,
+				sources: { host: 'external app', port: 'external app' },
 			}
 		}
 		if (browserPolicyOwner !== undefined) {
@@ -127,12 +156,24 @@ export const normalizeHonoServerPluginOptions: (
 				'Hono server plugin port must be an integer from 0 through 65535',
 			)
 		}
+		const listen = resolveHost(host)
+		const environmentPort =
+			port === undefined ? readEnvironmentPort() : undefined
 		return {
 			app: undefined,
 			browserPolicyOwner: 'ultimabase',
-			host,
+			host: listen.host,
 			// An explicit port wins, then the hosting convention, then the default.
-			port: port ?? readEnvironmentPort() ?? 1337,
+			port: port ?? environmentPort ?? 1337,
+			sources: {
+				host: listen.source,
+				port:
+					port !== undefined
+						? 'explicit option'
+						: environmentPort !== undefined
+							? 'PORT'
+							: 'default',
+			},
 		}
 	},
 })

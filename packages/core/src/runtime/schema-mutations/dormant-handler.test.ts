@@ -46,11 +46,11 @@ it('keeps a valid handler dormant when no schema selects its mutation', async ()
 	})
 	const ultimabase = applicationFixture(
 		new (UltimaBase.use(database, dormantOwner))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		}),
 	)
 
-	await expect(ultimabase.start()).resolves.toBeUndefined()
+	await expect(ultimabase.start()).resolves.toBe(ultimabase)
 	await ultimabase.dispose()
 })

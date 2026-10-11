@@ -1,3 +1,4 @@
+import { readApplicationLog } from '../../application/application-kernel-state.js'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../foundation.js'
@@ -112,8 +113,8 @@ const protectedError = (
 		kind: 'protected-filter-operator-unsupported',
 		...unsupported,
 	}
-	console.error(
-		'[UltimaBase] A protected filter uses an operator the database adapter does not declare',
+	readApplicationLog().error(
+		'UltimaBase: a protected filter uses an operator the database adapter does not declare',
 		internalDetails,
 	)
 	return new FrameworkError(

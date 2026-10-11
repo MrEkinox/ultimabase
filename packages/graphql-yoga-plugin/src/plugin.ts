@@ -1,11 +1,16 @@
 import {
+	contributeApplication,
 	plugin,
 	provideCapability,
 	requireCapability,
 	type PluginInstance,
 } from '@ultimabase/core'
+import { describeEnvironmentSource } from '@ultimabase/plugin-kit'
 import { graphqlApplicationCapability } from '@ultimabase/graphql-plugin'
-import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
+import {
+	graphqlHttpEndpointCapability,
+	graphqlIntrospectionCapability,
+} from '@ultimabase/graphql-http'
 import { httpEndpointContributionsCapability } from '@ultimabase/http-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -63,6 +68,22 @@ export const graphqlYogaPlugin = (
 			}),
 		},
 	)
+	// Published only while introspection is on, so a served explorer without
+	// it refuses to start (ADR-0312).
+	const introspectionProvider = provideCapability(
+		graphqlIntrospectionCapability,
+		{
+			contributionId: 'official-graphql-yoga-introspection',
+			create: () => ({ value: immutableRecord({ path: normalized.path }) }),
+		},
+	)
+	// ADR-0312: the derived value and its source, at debug level.
+	const application = contributeApplication(({ logger }) => {
+		logger.debug(
+			`introspection ${normalized.introspection ? 'enabled' : 'disabled'} (${describeEnvironmentSource(normalized.introspectionSource)})`,
+		)
+		return { exports: undefined }
+	})
 	return plugin({
 		id: '@ultimabase/graphql-yoga-plugin',
 		version: '0.0.0',
@@ -70,7 +91,9 @@ export const graphqlYogaPlugin = (
 		contributions: [
 			endpointProvider,
 			endpointDescriptionProvider,
+			...(normalized.introspection ? [introspectionProvider] : []),
 			graphqlApplicationRequirement,
+			application,
 		],
 		peers: graphqlYogaPeers,
 	})

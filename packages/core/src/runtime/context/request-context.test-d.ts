@@ -1,4 +1,3 @@
-import { RequestCapability, RequestContextValue } from '../../access/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { expectTypeOf, test } from 'vitest'
 
@@ -7,6 +6,7 @@ import {
 	type RequestMetadata,
 	requestSources,
 } from './request-context.js'
+import { RequestCapability, RequestContextValue } from '../../plugin.js'
 
 interface FixturePrincipal {
 	readonly id: string

@@ -3,7 +3,6 @@ import type { FrameworkError } from '@ultimabase/core'
 import {
 	RequestSubjectReference,
 	MasterAuthority,
-	QueryBuilder,
 	plugin,
 	contributeApplication,
 	UltimaBase,
@@ -28,6 +27,7 @@ import {
 	ACLRejectedWriteAdapter,
 	createRoleProviderFixture,
 } from './plugin-fixtures.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const ACLSchemaApplication = UltimaBase.use(aclPlugin())
 

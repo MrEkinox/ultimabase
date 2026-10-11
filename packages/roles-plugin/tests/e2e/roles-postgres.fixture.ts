@@ -1,6 +1,5 @@
 import {
 	MasterAuthority,
-	RequestContextValue,
 	UltimaBase,
 	requestSubjectReferenceCleanupCapability,
 	requestRoleResolverCapability,
@@ -32,6 +31,7 @@ import {
 	roleMembershipChangedEvent,
 	rolesPlugin,
 } from '@ultimabase/roles-plugin'
+import { RequestContextValue } from '@ultimabase/core/plugin'
 
 /** Carries a member identity without making authentication a Core feature. */
 export const currentRoleMemberId = new RequestContextValue<string>(

@@ -62,7 +62,7 @@ describe('GraphQL HTTP endpoint path snapshot (reference defect regression)', ()
 			version: '1.0.0',
 		})
 		const ultimabase = new (UltimaBase.use(provider, consumer))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		onTestFinished(() => ultimabase.dispose())

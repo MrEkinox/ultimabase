@@ -23,6 +23,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 const password = 'correct horse battery staple'
 let fixture: PostgresWorkerFixture | undefined
@@ -84,7 +85,7 @@ const createApplication = (
 		accessPlugin({ default: true }),
 	))({
 		schemas: [User],
-		pluginPrivileges: { logger: false },
+		logger: false,
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'test', value: 'server-only-test-key' }],
 			onUse: () => undefined,
@@ -155,7 +156,7 @@ describe('Password User authentication methods', () => {
 		const User = createUser()
 		const ultimabase = new (UltimaBase.use(
 			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-		))({ schemas: [User], pluginPrivileges: { logger: false } })
+		))({ schemas: [User], logger: false })
 		await ultimabase.start()
 		try {
 			await expect(
@@ -183,7 +184,7 @@ describe('Password User authentication methods', () => {
 			})
 			expect(signedUp.principal.user.schema).toBe(User)
 			const login = await runWithRequestEngine(
-				ultimabase.anonymous({ requestId: 'login', source: 'internal' }),
+				anonymous(ultimabase, { requestId: 'login', source: 'internal' }),
 				() => User.login({ username: 'ADA', password }),
 			)
 			expect(login.user.id).toBe(signedUp.user.id)
@@ -305,7 +306,7 @@ describe('Password User authentication methods', () => {
 			await ultimabase.dispose()
 			await other.start()
 			await runWithRequestEngine(
-				other.anonymous({
+				anonymous(other, {
 					requestId: 'foreign',
 					source: 'internal',
 				}),
@@ -330,13 +331,13 @@ describe('Password User authentication methods', () => {
 		await first.start()
 		try {
 			const left = await runWithRequestEngine(
-				first.anonymous({ requestId: 'first', source: 'internal' }),
+				anonymous(first, { requestId: 'first', source: 'internal' }),
 				() => User.signUp({ username: 'same-name', password }),
 			)
 			await first.dispose()
 			await second.start()
 			const right = await runWithRequestEngine(
-				second.anonymous({ requestId: 'second', source: 'internal' }),
+				anonymous(second, { requestId: 'second', source: 'internal' }),
 				() => User.signUp({ username: 'same-name', password }),
 			)
 			expect(left.user.id).not.toBe(right.user.id)

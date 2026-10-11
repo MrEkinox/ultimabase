@@ -10,7 +10,7 @@ const fixtureFile = path.join(
 	'plugin-manifest-language-service.prototype.ts',
 )
 const source = await readFile(fixtureFile, 'utf8')
-const service = createLanguageService(fixtureFile, source)
+const service = createLanguageService(fixtureFile, source, { register: true })
 
 const readStringCompletions = (name: string): readonly string[] => {
 	const marker = `/* completion:${name} */`

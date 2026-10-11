@@ -41,11 +41,12 @@ describe('base project templates', () => {
 		)
 		expect(files.get('tsconfig.json')).toContain('.ultimabase/**/*.d.ts')
 		expect(manifest.dependencies).toHaveProperty('@ultimabase/typegen')
+		// ADR-0312: type checks need no .env without a Master key.
 		expect(manifest.scripts.typecheck).toMatch(
-			/^node --env-file=\.env scripts\/generate-types\.mjs && tsc --noEmit$/,
+			/^node scripts\/generate-types\.mjs && tsc --noEmit$/,
 		)
 		expect(manifest.scripts.build).toMatch(
-			/^node --env-file=\.env scripts\/generate-types\.mjs && tsc$/,
+			/^node scripts\/generate-types\.mjs && tsc$/,
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([
@@ -255,5 +256,42 @@ describe('base project templates', () => {
 		expect(files.get('.env')).toContain('ULTIMABASE_MASTER_KEY=test-master-key')
 		expect(files.get('.env.example')).not.toContain('test-master-key')
 		expect(files.get('.gitignore')).toContain('.env\n')
+	})
+
+	// ADR-0297 amendment 1, ADR-0311, ADR-0312.
+	it('writes Register, start() with await using and postgresPlugin() without environment code', () => {
+		const typescript = renderBaseFiles(
+			resolveSelection({ name: 'notes', install: false }, '/tmp'),
+		)
+		const application = typescript.get('src/ultimabase.ts') ?? ''
+		expect(application).toContain(
+			"declare module '@ultimabase/core' {\n  interface Register {\n    readonly app: typeof ultimabase\n  }\n}",
+		)
+		expect(application).not.toContain('process.env.DATABASE_URL')
+		expect(typescript.get('src/schema.ts')).toContain('.use(postgresPlugin())')
+		expect(typescript.get('src/main.ts')).toContain(
+			'await using app = await ultimabase.start()',
+		)
+		expect(typescript.get('src/main.ts')).not.toContain('dispose()')
+
+		// Old-form Role schemas would make `typeof ultimabase` circular.
+		const roles = renderBaseFiles(
+			resolveSelection(
+				{ name: 'notes', install: false, plugins: ['roles-plugin'] },
+				'/tmp',
+			),
+		).get('src/ultimabase.ts')
+		expect(roles).toContain('readonly app: UltimaBase<readonly []>')
+		expect(roles).toContain(
+			"import { type UltimaBase, MasterAuthority } from '@ultimabase/core'",
+		)
+
+		const javascript = renderBaseFiles(
+			resolveSelection(
+				{ name: 'notes', install: false, language: 'js' },
+				'/tmp',
+			),
+		)
+		expect(javascript.get('src/ultimabase.js')).not.toContain('Register')
 	})
 })

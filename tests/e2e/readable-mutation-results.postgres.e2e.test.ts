@@ -23,6 +23,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 // ADR-0306: mutation results obey the row read rules, like PostgreSQL's
 // RETURNING under row-level security.
@@ -99,7 +100,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'readable-results', value: masterKey }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Note, Secret, Archived, Explicit],
 	})
 
@@ -141,7 +142,7 @@ const graphql = (document: string) =>
 	application()
 		.plugin('@ultimabase/graphql-plugin')
 		.execute({
-			context: application().anonymous({
+			context: anonymous(application(), {
 				requestId: `readable-${String(Math.random())}`,
 				source: 'ultimabase.graphql',
 			}).context,

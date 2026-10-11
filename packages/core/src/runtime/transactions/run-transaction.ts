@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 
 import type { MaybePromise } from '@ultimabase/shared'
+import type { ApplicationLog } from '../../application/application-log.js'
 import { FrameworkError } from '../../foundation.js'
 import { TrackedExecutionLifetime } from '../engine/tracked-execution-lifetime.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
@@ -189,6 +190,7 @@ export const runAutomaticRequestTransaction = async <TEngine, TResult>(
 	handler: (engine: TEngine) => MaybePromise<TResult>,
 	signal: AbortSignal,
 	label: AutomaticTransactionLabel,
+	log: ApplicationLog,
 ): Promise<TResult> => {
 	for (let attempt = 1; ; attempt += 1) {
 		try {
@@ -202,15 +204,15 @@ export const runAutomaticRequestTransaction = async <TEngine, TResult>(
 			if (!isTransientConflict(error)) throw error
 			const diagnostic = { ...label, attempt, code: error.code }
 			if (attempt >= automaticTransactionAttempts) {
-				console.warn(
-					'[UltimaBase] Automatic transaction retries exhausted',
+				log.warn(
+					'UltimaBase: automatic transaction retries exhausted after transient conflicts',
 					diagnostic,
 				)
 				throw error
 			}
 			if (isAborted(signal)) throw error
-			console.debug(
-				'[UltimaBase] Retrying automatic transaction after a transient conflict',
+			log.debug(
+				'UltimaBase: retrying an automatic transaction after a transient conflict',
 				diagnostic,
 			)
 			await waitBeforeRetry(attempt, signal)

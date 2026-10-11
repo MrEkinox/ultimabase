@@ -12,7 +12,6 @@ import {
 	type DatabaseOperationAst,
 	type NestedWriteGraph,
 	type PluginSchemaMutationOperationAst,
-	type RequestContext,
 	type RuntimeBehaviorStages,
 	type RuntimeLogicalMutationOperationAst,
 	type RuntimeLogicalOperationAst,
@@ -54,6 +53,7 @@ import {
 	getMutationHookKind,
 	getNativeHookPhaseOrder,
 } from './lifecycle.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** Flattens one phase while retaining the precompiled contribution order. */
 const collectHandlers = <TDeclarations extends object>(

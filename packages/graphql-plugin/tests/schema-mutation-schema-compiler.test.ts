@@ -25,6 +25,7 @@ import {
 	GraphqlSchemaMutationAdapter,
 	graphqlSchemaMutationId,
 } from './schema-mutation.test-support.js'
+import { anonymous, authorizeMasterKey } from '@ultimabase/core/plugin'
 
 const WorkflowDocument = UltimaBase.Schema.define({
 	className: 'GraphqlWorkflowDocument',
@@ -255,7 +256,7 @@ const createFixture = async (
 				audits.push(event)
 			},
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [WorkflowDocument],
 	})
 	onTestFinished(() => application.dispose())
@@ -288,7 +289,7 @@ describe('GraphQL schema mutation exposure', () => {
 				'input SealDocumentGraphqlWorkflowDocumentInput {\n  id: ID!\n}',
 			)
 
-			const context = fixture.application.anonymous({
+			const context = anonymous(fixture.application, {
 				requestId: 'graphql-schema-mutation',
 				source: 'ultimabase.graphql',
 			}).context
@@ -330,15 +331,13 @@ describe('GraphQL schema mutation exposure', () => {
 			})
 			expect(unitResult.errors).toBeUndefined()
 
-			const master = await fixture.application
-				.anonymous({
-					requestId: 'graphql-schema-mutation-master',
-					source: 'ultimabase.graphql',
-				})
-				.useMasterKey(
-					fixture.application.authorizeMasterKey('master-secret'),
-					'GraphQL schema mutation fixture',
-				)
+			const master = await anonymous(fixture.application, {
+				requestId: 'graphql-schema-mutation-master',
+				source: 'ultimabase.graphql',
+			}).useMasterKey(
+				authorizeMasterKey(fixture.application, 'master-secret'),
+				'GraphQL schema mutation fixture',
+			)
 			const masterResult = await fixture.graphql.execute({
 				context: master.context,
 				document: `mutation Archive($id: ID!) {
@@ -359,7 +358,7 @@ describe('GraphQL schema mutation exposure', () => {
 
 	it('keeps safe errors, cancellation, and context provenance ahead of codecs', async () => {
 		const second = await createFixture()
-		const foreign = second.application.anonymous({
+		const foreign = anonymous(second.application, {
 			requestId: 'graphql-schema-mutation-foreign',
 			source: 'ultimabase.graphql',
 		}).context
@@ -373,7 +372,7 @@ describe('GraphQL schema mutation exposure', () => {
 			}) { id }
 		}`
 		try {
-			const context = first.application.anonymous({
+			const context = anonymous(first.application, {
 				requestId: 'graphql-schema-mutation-error',
 				source: 'ultimabase.graphql',
 			}).context
@@ -403,7 +402,7 @@ describe('GraphQL schema mutation exposure', () => {
 			expect(first.decode).toHaveBeenCalledTimes(before)
 
 			const controller = new AbortController()
-			const cancelled = first.application.anonymous({
+			const cancelled = anonymous(first.application, {
 				requestId: 'graphql-schema-mutation-cancelled',
 				signal: controller.signal,
 				source: 'ultimabase.graphql',

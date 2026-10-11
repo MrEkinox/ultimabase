@@ -66,7 +66,7 @@ describe('REST route metadata', () => {
 	it('generates the accepted provenance-aware defaults in deterministic order', async () => {
 		const Post = defineRestSchema('Post')
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [restPlugin()],
 			schemas: [Post],
 		})
@@ -174,7 +174,7 @@ describe('REST route metadata', () => {
 			find: false,
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [
 				restPlugin({
 					basePath: '/public',
@@ -213,7 +213,7 @@ describe('REST route metadata', () => {
 		const Enabled = defineRestSchema('Enabled', true)
 		const Disabled = defineRestSchema('Disabled', false)
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [restPlugin({ default: false })],
 			schemas: [Enabled, Disabled],
 		})
@@ -238,7 +238,7 @@ describe('REST route metadata', () => {
 
 		defaults.count = false
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [plugin],
 			schemas: [Post],
 		})
@@ -258,7 +258,7 @@ describe('REST route metadata', () => {
 	])('rejects malformed direct schema routes %#', async (rest, message) => {
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [restPlugin()],
 				schemas: [defineInvalidRestSchema('MalformedRestRoutes', rest)],
 			}),
@@ -293,7 +293,7 @@ describe('REST route metadata', () => {
 				],
 			})
 		const privateApplication = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [storagePlugin(false), restPlugin({ default: true })],
 			schemas: [],
 		})
@@ -304,7 +304,7 @@ describe('REST route metadata', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [storagePlugin(true), restPlugin()],
 				schemas: [],
 			}),
@@ -340,7 +340,7 @@ describe('REST route metadata', () => {
 		const Visible = defineRestSchema('Visible')
 		const compile = (withDynamicSchema: boolean) =>
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [pluginWithSchema(withDynamicSchema), restPlugin()],
 				schemas: [Visible],
 			})
@@ -359,7 +359,7 @@ describe('REST route metadata', () => {
 	it('composes explicit instances and reports deterministic route conflicts', async () => {
 		const Post = defineRestSchema('Post')
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [
 				restPlugin({ basePath: '/public', instanceId: 'public' }),
 				restPlugin({ basePath: '/admin', instanceId: 'admin' }),
@@ -383,7 +383,7 @@ describe('REST route metadata', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					restPlugin({ instanceId: 'first' }),
 					restPlugin({ instanceId: 'second' }),
@@ -399,7 +399,7 @@ describe('REST route metadata', () => {
 		const Post = defineRestSchema('Post')
 		const create = () =>
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [restPlugin()],
 				schemas: [Post],
 			})
@@ -452,14 +452,14 @@ describe('REST route metadata', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [restPlugin()],
 				schemas: [define(false)],
 			}),
 		).rejects.toThrow('requires an exact REST v1 field codec')
 
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [restPlugin()],
 			schemas: [define(true)],
 		})
@@ -485,7 +485,7 @@ describe('REST route metadata', () => {
 			}),
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [restPlugin()],
 			schemas: [Virtual],
 		})
@@ -533,7 +533,7 @@ describe('REST route metadata', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [restPlugin()],
 				schemas: [Virtual],
 			}),

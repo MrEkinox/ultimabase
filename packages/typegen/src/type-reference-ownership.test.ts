@@ -77,7 +77,7 @@ it.each(['missing', 'foreign', 'owner'] as const)(
 			],
 		})
 		const application = new (UltimaBase.use(owner, foreign))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		const generate = () =>

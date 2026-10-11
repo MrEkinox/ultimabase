@@ -1,6 +1,5 @@
 import {
 	MasterAuthority,
-	RequestContextValue,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -25,6 +24,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { restPlugin } from './plugin.js'
+import { RequestContextValue } from '@ultimabase/core/plugin'
 
 const objectId = '01991f00-0000-7000-8000-000000000201'
 const upsertRouteOption = { rest: { upsert: true } }
@@ -205,7 +205,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 			keys: [{ id: 'rest-http-master', value: 'rest-http-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [VirtualHttpRecord, VirtualFailureRecord],
 	})
 	await application.start()

@@ -41,6 +41,8 @@ export interface CapabilityToken<
 	readonly lifetime: TLifetime
 	/** Requires every provider owner to request this privilege. */
 	readonly providerPrivilege?: PluginPrivilege
+	/** One line telling the developer what to install when no provider exists. */
+	readonly hint?: string
 }
 
 /** Extracts the exact value accepted from a capability provider. */
@@ -87,6 +89,13 @@ export interface DefineCapabilityOptions<
 	readonly compose: CapabilityComposer<TProvider, TConsumer, TCardinality>
 	/** Requires every provider owner before static or application materialization. */
 	readonly providerPrivilege?: PluginPrivilege
+	/**
+	 * One line of plain text (at most 200 characters) appended to
+	 * `PLUGIN_CAPABILITY_MISSING` when no provider is installed (ADR-0313).
+	 *
+	 * @example `hint: 'Install @acme/audit-plugin and add auditPlugin() to UltimaBase.use(...)'`
+	 */
+	readonly hint?: string
 }
 
 /** Creates exact token metadata after the protocol selects its value types. */
@@ -124,8 +133,10 @@ const defineCapabilityOptionKeys = new Set([
 	'cardinality',
 	'lifetime',
 	'compose',
+	'hint',
 	'providerPrivilege',
 ])
+const maxCapabilityHintLength = 200
 
 /** Defines one nominal capability protocol without installing a provider. */
 export const defineCapability =
@@ -209,6 +220,18 @@ export const defineCapability =
 			)
 		}
 
+		if (
+			options.hint !== undefined &&
+			(typeof options.hint !== 'string' ||
+				options.hint.trim().length === 0 ||
+				options.hint.length > maxCapabilityHintLength ||
+				/[\r\n]/u.test(options.hint))
+		) {
+			throw new TypeError(
+				`capability hint must be one non-empty line of at most ${String(maxCapabilityHintLength)} characters`,
+			)
+		}
+
 		const token = immutableRecord({
 			kind: 'capability-token' as const,
 			capabilityId: options.capabilityId,
@@ -218,6 +241,7 @@ export const defineCapability =
 			...(options.providerPrivilege === undefined
 				? {}
 				: { providerPrivilege: options.providerPrivilege }),
+			...(options.hint === undefined ? {} : { hint: options.hint }),
 		})
 
 		capabilityTokens.add(token)

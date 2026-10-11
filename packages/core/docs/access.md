@@ -36,9 +36,12 @@ enforced for master.
 
 ## Request capabilities
 
-Plugins can share identity-based capability tokens:
+Plugins can share identity-based capability tokens (`RequestCapability` and
+`RequestContextValue` come from `@ultimabase/core/plugin`, ADR-0311):
 
 ```ts
+import { RequestCapability } from '@ultimabase/core/plugin'
+
 export const tenantRead = new RequestCapability('tenant:read')
 ```
 
