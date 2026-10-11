@@ -283,7 +283,13 @@ describe('ultimabase.can() (ADR-0305)', () => {
 		).rejects.toThrow('can() received an unknown operation')
 
 		expect(hookCalls).toBe(0)
-		await expect(CanTodo.count({}, { useMasterKey: true })).resolves.toBe(1)
+		// Master holds `readDeleted` (ADR-0317): count the live rows only.
+		await expect(
+			CanTodo.count(
+				{ where: { isDeleted: { eq: false } } },
+				{ useMasterKey: true },
+			),
+		).resolves.toBe(1)
 		await expect(
 			CanTodo.findOne(
 				{ where: { id: { eq: adaTodo } }, select: { title: true } },

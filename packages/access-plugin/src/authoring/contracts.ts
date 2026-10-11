@@ -227,29 +227,35 @@ interface NativeSchemaAccess<TSchema extends SchemaDefinition> {
  * Delete's `readDeleted` (ADR-0317): `true`, `false` or a predicate. Without
  * a rule, only the permission's own `allowWithoutRule` key grants it.
  */
-export type SchemaPermissionAccessMap<TSchema extends SchemaDefinition> =
-	Readonly<
-		Partial<
-			Record<
-				PluginSourceSchemaPermissions<TSchema>,
-				AccessDecisionRule<AccessPolicyInput>
-			>
+export type SchemaPermissionAccessMap<TSource> = Readonly<
+	Partial<
+		Record<
+			PluginSourceSchemaPermissions<TSource>,
+			AccessDecisionRule<AccessPolicyInput>
 		>
 	>
+>
 
-/** Combines native families, request plugin commands and plugin permissions. */
-export type SchemaAccess<TSchema extends SchemaDefinition> = Readonly<{
+/**
+ * Combines native families, request plugin commands and plugin permissions.
+ * `TSource` is the schema whose statics carry the commands and permissions:
+ * the registered schema when `TSchema` is a `SchemaRef` (ADR-0297).
+ */
+export type SchemaAccess<
+	TSchema extends SchemaDefinition,
+	TSource = TSchema,
+> = Readonly<{
 	[
 		TKey in
 			| keyof NativeSchemaAccess<TSchema>
-			| keyof SchemaMutationAccessMap<TSchema>
-			| keyof SchemaPermissionAccessMap<TSchema>
+			| keyof SchemaMutationAccessMap<TSchema, TSource>
+			| keyof SchemaPermissionAccessMap<TSource>
 	]?: TKey extends keyof NativeSchemaAccess<TSchema>
 		? Exclude<NativeSchemaAccess<TSchema>[TKey], undefined>
-		: TKey extends keyof SchemaMutationAccessMap<TSchema>
-			? Exclude<SchemaMutationAccessMap<TSchema>[TKey], undefined>
-			: TKey extends keyof SchemaPermissionAccessMap<TSchema>
-				? Exclude<SchemaPermissionAccessMap<TSchema>[TKey], undefined>
+		: TKey extends keyof SchemaMutationAccessMap<TSchema, TSource>
+			? Exclude<SchemaMutationAccessMap<TSchema, TSource>[TKey], undefined>
+			: TKey extends keyof SchemaPermissionAccessMap<TSource>
+				? Exclude<SchemaPermissionAccessMap<TSource>[TKey], undefined>
 				: never
 }>
 

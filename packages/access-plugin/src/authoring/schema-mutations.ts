@@ -95,13 +95,25 @@ type GeneratedMutationMap<TSchema extends SchemaDefinition> =
 			: Readonly<Record<never, never>>
 		: Readonly<Record<never, never>>
 
-type SchemaMutationMap<TSchema extends SchemaDefinition> =
-	GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSchema>
+type SchemaMutationMap<
+	TSchema extends SchemaDefinition,
+	TSource,
+> = GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSource>
 
-/** Projects only request-authority commands present on this generated schema. */
-export type SchemaMutationAccessMap<TSchema extends SchemaDefinition> = {
+/**
+ * Projects only request-authority commands present on this schema. `TSource`
+ * is the schema whose statics carry the commands (the registered schema of a
+ * `SchemaRef`).
+ */
+export type SchemaMutationAccessMap<
+	TSchema extends SchemaDefinition,
+	TSource = TSchema,
+> = {
 	readonly [
-		TCommand in keyof SchemaMutationMap<TSchema> as SchemaMutationMap<TSchema>[TCommand] extends PluginSchemaMutationDefinition<
+		TCommand in keyof SchemaMutationMap<TSchema, TSource> as SchemaMutationMap<
+			TSchema,
+			TSource
+		>[TCommand] extends PluginSchemaMutationDefinition<
 			string,
 			string,
 			unknown,
@@ -110,8 +122,10 @@ export type SchemaMutationAccessMap<TSchema extends SchemaDefinition> = {
 		>
 			? TCommand
 			: never
-	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
-		PluginSchemaMutationDefinition
+	]?: SchemaMutationMap<
+		TSchema,
+		TSource
+	>[TCommand] extends infer TMutation extends PluginSchemaMutationDefinition
 		? SchemaMutationAccessDeclaration<TSchema, TMutation>
 		: never
 }

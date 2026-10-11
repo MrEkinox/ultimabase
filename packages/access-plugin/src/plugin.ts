@@ -19,6 +19,7 @@ import {
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
 	type SchemaRulesHKT,
+	type SchemaRulesSource,
 } from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
@@ -104,7 +105,10 @@ export interface AccessRules<TSchema> {
 	 * `allowWithoutRule` opens it.
 	 * @example `access: { read: ({ where }) => where.eq('archived', false) }`
 	 */
-	readonly access?: SchemaAccess<Extract<TSchema, SchemaDefinition>>
+	readonly access?: SchemaAccess<
+		Extract<TSchema, SchemaDefinition>,
+		SchemaRulesSource<TSchema>
+	>
 }
 
 /** Contributes `access` to `.with({ ... })` through Core's rules slot (ADR-0297). */

@@ -35,25 +35,11 @@ export interface PluginSourceSchemaMutationCarrier<
 	readonly [pluginSourceSchemaMutationType]: TMutations
 }
 
-// A registered `SchemaRef<"Todo">` (ADR-0297) names its schema without its
-// statics: carriers are read from the registered schema of that class name.
-type CarrierSource<TSchema> = TSchema extends {
-	readonly className: infer TClassName extends string
-}
-	? [RegisteredSchema<TClassName>] extends [never]
-		? TSchema
-		: RegisteredSchema<TClassName>
-	: TSchema
-
 /** Reads exact source-declared mutations from one configured schema class. */
 export type PluginSourceSchemaMutations<TSchema> =
 	TSchema extends PluginSourceSchemaMutationCarrier<infer TMutations>
 		? TMutations
-		: CarrierSource<TSchema> extends PluginSourceSchemaMutationCarrier<
-					infer TMutations
-			  >
-			? TMutations
-			: Readonly<Record<never, never>>
+		: Readonly<Record<never, never>>
 
 /**
  * Types the permissions a statics slot declares on one configured schema
@@ -73,11 +59,24 @@ export type PluginSourceSchemaPermissions<TSchema> = TSchema extends {
 	readonly [pluginSourceSchemaPermissionType]: infer TPermissions
 }
 	? keyof TPermissions & string
-	: CarrierSource<TSchema> extends {
-				readonly [pluginSourceSchemaPermissionType]: infer TPermissions
-		  }
-		? keyof TPermissions & string
-		: never
+	: never
+
+/**
+ * The schema whose statics carry plugin commands and permissions, for one
+ * schema given to a rules slot: a registered `SchemaRef<"Todo">` (ADR-0297)
+ * names its schema without its statics, so it reads the registered schema.
+ * Read it only from lazy positions such as `.with` rules: it reads the
+ * application registry.
+ *
+ * @example `SchemaMutationAccessMap<SchemaRulesSource<this['schema']>>`
+ */
+export type SchemaRulesSource<TSchema> = TSchema extends {
+	readonly className: infer TClassName extends string
+}
+	? [RegisteredSchema<TClassName>] extends [never]
+		? TSchema
+		: RegisteredSchema<TClassName>
+	: TSchema
 
 /**
  * Types the commands a statics slot adds to one configured schema (ADR-0316):
