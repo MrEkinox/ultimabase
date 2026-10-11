@@ -5,8 +5,10 @@ describe('@ultimabase/plugin-kit public API', () => {
 	it('exports only focused authoring helpers', () => {
 		expect(Object.keys(pluginKit).sort()).toStrictEqual([
 			'SchemaPatchBuilder',
+			'command',
 			'createPluginEventDispatcher',
 			'defineOutputDescriptor',
+			'definePlugin',
 			'definePluginEvent',
 			'definePluginEventCapability',
 			'definePluginFieldOption',
@@ -19,6 +21,7 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'providePluginEvent',
 			'readDeploymentEnvironment',
 			'schemaPatch',
+			'shapeMethod',
 		])
 	})
 })

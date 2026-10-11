@@ -54,13 +54,13 @@ const defineSourceSchema = (index) => {
 			? ''
 			: `
   access: { update: { allow: true, item: ({ item }) => item.field0.length > 0 } },
-  hooks: { afterOperation: { update: ({ item }) => { void item.field0 } } },
-  softDelete: 'explicit',`
+  hooks: { afterOperation: { update: ({ item }) => { void item.field0 } } },`
+	const shape = index < 2 ? '' : ".softDelete({ mode: 'command' })"
 	return `export const ${name} = ${definition}{
   className: '${name}',${roleOptions}
   fields: (field) => ({${sourceFields(target)}
   }),${sourceOptions}
-})`
+})${shape}`
 }
 
 const applicationSource = `
@@ -77,7 +77,7 @@ const Authoring = UltimaBase.use(accessPlugin())
   .use(hooksPlugin())
   .use(pgVectorPlugin())
   .use(rolesPlugin())
-  .use(softDeletePlugin({ defaultMode: 'explicit' }))
+  .use(softDeletePlugin())
   .use(validationPlugin())
 
 ${Array.from({ length: schemaCount }, (_, index) => defineSourceSchema(index)).join('\n\n')}

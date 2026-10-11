@@ -23,20 +23,19 @@ import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 // postgresPlugin() reads DATABASE_URL when the application starts.
 const Blog = UltimaBase.use(typegenPlugin())
 	.use(postgresPlugin())
-	.use(softDeletePlugin({ defaultMode: 'explicit' }))
+	.use(softDeletePlugin())
 
+// Each schema opts in to plugin behavior; nothing is registered automatically.
 export const Post = Blog.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 		published: field.boolean({ default: false }),
 	}),
-})
+}).softDelete({ mode: 'command' })
 
-// One local exception; no repeated installation or schema auto-registration.
 export const AuditLog = Blog.Schema.define({
 	className: 'AuditLog',
-	softDelete: false,
 	fields: (field) => ({ message: field.string({ required: true }) }),
 })
 
@@ -52,7 +51,7 @@ declare module '@ultimabase/core' {
 // start() resolves to the application; leaving the scope disposes it.
 await using app = await ultimabase.start()
 const post = await Post.createOne({ data: { title: 'Hello UltimaBase' } })
-await Post.softDelete({ id: post.id })
+await Post.softDeleteOne({ id: post.id })
 const posts = await Post.findMany({
 	where: { published: { eq: true } },
 	take: 25,
@@ -99,10 +98,12 @@ the first TypeScript build. JavaScript executes the same graph without Typegen.
   through application-owned handles. Plugin schema mutations can also be
   called directly on a frozen configured schema class; the class resolves the
   sole active owner and dispatches through its compiled handle.
-- The official soft-delete plugin can preserve native delete as a tombstone
-  rewrite or add an independently authorized `softDelete` mutation. Ordinary
-  reads stay tombstone-blind, while audited `restore` and `purge` commands remain
-  private to trusted server code.
+- The official soft-delete plugin turns a schema's native deletes into a
+  tombstone (`.softDelete()`) or keeps them physical and adds the
+  `softDeleteOne`/`softDeleteMany` commands (`.softDelete({ mode: 'command' })`).
+  Ordinary reads stay tombstone-blind; `restoreOne`/`restoreMany` are
+  authorized by Access, while audited `purgeOne`/`purgeMany` remain private to
+  trusted server code.
 - Owner-private plugin records retain typed transactional persistence and
   versioned physical provenance without becoming application schemas, Query or Typegen
   surfaces, generated transport routes, or application behavior inputs.

@@ -328,9 +328,9 @@ export const plugin = <
 	const TContributions extends readonly PluginContribution[] = readonly [],
 	/**
 	 * Static source projection of the plugin. Inferred from `contributions` by
-	 * default; a facade that knows the projection better (such as
-	 * `definePlugin` in `@ultimabase/plugin-kit`) passes it explicitly instead
-	 * of re-typing the result (ADR-0316).
+	 * default; a facade that knows the projection better, such as
+	 * `definePlugin`, passes it explicitly instead of re-typing the result
+	 * (ADR-0316).
 	 */
 	TSource extends PluginSourceProjection =
 		ContributionSourceProjection<TContributions>,

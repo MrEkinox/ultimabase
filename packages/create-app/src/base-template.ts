@@ -56,11 +56,7 @@ const dependencyOrder: readonly PluginId[] = [
 /** Data and behavior plugins installed on the schema factory: [plugin, factory, entry]. */
 const behaviorPlugins: readonly (readonly [PluginId, string, string])[] = [
 	['hooks-plugin', 'hooksPlugin', 'hooksPlugin()'],
-	[
-		'soft-delete-plugin',
-		'softDeletePlugin',
-		"softDeletePlugin({ defaultMode: 'disabled' })",
-	],
+	['soft-delete-plugin', 'softDeletePlugin', 'softDeletePlugin()'],
 	['validation-plugin', 'validationPlugin', 'validationPlugin()'],
 ]
 
@@ -158,7 +154,6 @@ const taskSchemaSource = (
 export const Task = SchemaApplication.Schema.define({
 ${[
 	"  className: 'Task',",
-	has(plan, 'soft-delete-plugin') ? "  softDelete: 'replace-delete'," : '',
 	taskSecurityOptions(plan),
 	`  fields: (f) => ({
     title: f.string({
@@ -169,7 +164,7 @@ ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value
 ]
 	.filter((line) => line !== '')
 	.join('\n')}
-})`
+})${has(plan, 'soft-delete-plugin') ? '.softDelete()' : ''}`
 
 const schemaSource = (plan: InitializerPlan): string => {
 	const task = plan.starter === 'task'

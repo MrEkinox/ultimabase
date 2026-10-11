@@ -1,4 +1,7 @@
-import type { ApplicationSchemaMutationMethod } from '../application/application-schema-mutations.js'
+import type {
+	ApplicationSchemaMutationManyMethod,
+	ApplicationSchemaMutationMethod,
+} from '../application/application-schema-mutations.js'
 import type { PluginSchemaMutationDefinition } from '../plugins/plugin-schema-mutations.js'
 import type { SchemaClass } from './schema/definition.js'
 import type {
@@ -85,10 +88,15 @@ export type UltimaBaseGeneratedSchemaClassSurface<TClassName extends string> =
 			? {
 					readonly [TName in keyof TMethods]: TName extends keyof TMutations
 						? TMutations[TName] extends PluginSchemaMutationDefinition
-							? ApplicationSchemaMutationMethod<
-									SchemaClass<SchemaTypeInfoByNameOrBase<TClassName>>,
-									TMutations[TName]
-								>
+							? TMutations[TName] extends Readonly<{ target: 'many' }>
+								? ApplicationSchemaMutationManyMethod<
+										SchemaClass<SchemaTypeInfoByNameOrBase<TClassName>>,
+										TMutations[TName]
+									>
+								: ApplicationSchemaMutationMethod<
+										SchemaClass<SchemaTypeInfoByNameOrBase<TClassName>>,
+										TMutations[TName]
+									>
 							: never
 						: never
 				}

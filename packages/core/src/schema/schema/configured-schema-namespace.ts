@@ -137,13 +137,18 @@ type ConfiguredSchemaClassSurface<
 		ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
 		ConfiguredSchemaSelectorOptions<TSource, TOptions>
 	> &
-	SchemaStaticsFor<
-		TSource['schemaStatics'],
-		SchemaShapeOf<TOptions>,
-		SchemaClass<
-			ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
-		>
-	>
+	// Typegen surfaces already type the commands of generated class names
+	// (old form, until step 6.8); evaluating the slots there again would
+	// rebuild a source contract for every command.
+	(TClassName extends keyof UltimaBaseGeneratedSchemas
+		? unknown
+		: SchemaStaticsFor<
+				TSource['schemaStatics'],
+				SchemaShapeOf<TOptions>,
+				SchemaClass<
+					ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
+				>
+			>)
 
 type ConfiguredSourceSchemaMutations<
 	TSource extends PluginSourceState,
