@@ -147,7 +147,47 @@ TypeScript 7.0.2 (LSP, `tools/lsp-bench.mjs`, 3 exécutions à 50, 2 à 200) :
 Les bornes ne s'additionnent pas (travail partagé) ; le prototype sans ces
 couches vérifie 50 schémas en 0,22 s d'édition.
 
+## Porte finale (code au commit 50d0b2b9, arbre au commit du handoff)
+
+- `packages/*/dist` et tous les `*.tsbuildinfo` hors `node_modules` supprimés,
+  puis `yarn validate:full` : code 0 (Prettier « All matched files use
+  Prettier code style! » ; performance « Test Files 3 passed (3) / Tests 4
+  passed (4) », budget `hybrid-authoring` compris ; couverture « Test Files
+  687 passed (687) / Tests 3341 passed (3341) / Type Errors no errors », All
+  files 92,52 / 86,16 / 97,18 / 93,17 ; dernier lot « Test Files 17 passed
+  (17) / Tests 66 passed (66) »). Un premier lancement avait échoué au
+  formatage sur les projets générés `examples/schema-form-d/gen/` (ignorés de
+  Git, pas de Prettier) : supprimés, relancé.
+- `yarn test:e2e:built` : code 0, « Test Files 120 passed (120) / Tests 514
+  passed (514) ».
+- `git diff -U0 5fe975d6 -- '*.test.ts' '*.test-d.ts'` : vide.
+- Aucun fichier sous `apps/website` modifié (`yarn website:test` non requis).
+
+## Audit DX (`node tooling/dx-audit/run.mjs ../ub-step5-baseline . --only <23 paquets>,tests,examples/minimal,examples/todo-backend`)
+
+101 différences (36 412 / 36 414 enregistrements), toutes expliquées :
+
+- 69 infobulles d'options de plugin (ACL `acl`/`default`/`resolveInput`/
+  `input`/`limits`, `rest`, `graphql`, `postgres`, `decimalLedger`,
+  `workflow`, `define` qui les contient) : `ResolveSourceSchemaObject<…>` →
+  objet résolu ; il n'en reste aucune (69 → 0). 70 différences sont plus
+  courtes, les autres plus longues parce que l'objet est maintenant déplié
+  (texte d'avant l'étape 0).
+- `CreateInput` : survol d'export et d'import → définition conditionnelle
+  (`IsRegisteredSchema<TSchema> extends true ? CreateInput<ClassNameOf<TSchema>> : CreateInput<TSchema>`) ;
+  complétion d'export : modificateur `export` absent (export renommé
+  `CreateInputOf as CreateInput`) ; usage `CreateInput<typeof Todo>` →
+  `CreateInput<"Todo">` (604 → 38).
+- Déclarations : `ConfiguredProjectionOptions`, `CreateInputOf` ajoutés ;
+  `ResolveSourceSchemaObject`, `ConfiguredSchemaNamespace`,
+  `ConfiguredSchemaOptionValidationSource`, `CreateInput` modifiés ; noms de
+  morceaux `foundation-*.js` (hachage).
+- `examples/todo-backend` : ordre des membres de deux unions/résultats de
+  l'ancienne forme (`update@1`, `listPendingTodos@0`, `data@5`) : mêmes
+  membres, ordre de création des types différent (même classe que la
+  différence acceptée à l'étape 0, point 2).
+
 ## Prochaine action vérifiable
 
-Porte finale sur le dernier commit de code : `yarn validate:full`,
-`yarn test:e2e:built`, diff des tests, audit DX contre `../ub-step5-baseline`.
+Revue par le coordinateur ; décision de l'utilisateur sur le coût de la
+correction des infobulles (piste 3) et sur les options de l'écart restant.
