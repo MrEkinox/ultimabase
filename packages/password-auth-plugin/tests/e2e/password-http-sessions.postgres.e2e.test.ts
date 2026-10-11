@@ -156,9 +156,7 @@ const createPasswordHttpApplication = (
 		httpPlugin({
 			appId: options.appId,
 			...(browser === undefined ? {} : { browser }),
-			...(options.masterTransport === true
-				? { master: true as const }
-				: {}),
+			...(options.masterTransport === true ? { master: true as const } : {}),
 		}),
 		capture,
 		...(server === undefined ? [] : [server]),

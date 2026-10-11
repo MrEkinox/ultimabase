@@ -80,11 +80,13 @@ const send = (
 		['Host', 'localhost'],
 		...(options.headers ?? []),
 	]
+	const fetchHeaders = new Headers()
+	for (const [name, value] of headers) fetchHeaders.append(name, value)
 	return http.fetch({
 		originalHeaders: headers,
 		remoteAddress: options.remoteAddress,
 		request: new Request(`${options.url ?? 'http://localhost'}${path}`, {
-			headers: new Headers(headers.map(([name, value]) => [name, value])),
+			headers: fetchHeaders,
 			method: options.method ?? 'GET',
 			...(options.body === undefined ? {} : { body: options.body }),
 		}),
