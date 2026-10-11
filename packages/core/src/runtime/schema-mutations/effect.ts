@@ -112,13 +112,18 @@ export const validateSchemaMutationEffect = (
 				fieldName,
 			)
 		}
+		const required = 'required' in field.options && field.options.required
 		let snapshot: unknown
 		try {
-			snapshot = snapshotDeclaredFieldValue(
-				field,
-				value,
-				`${command.definition.name}.data.${fieldName}`,
-			)
+			// `null` clears an optional field, as in update data (ADR-0133).
+			snapshot =
+				value === null && required !== true
+					? null
+					: snapshotDeclaredFieldValue(
+							field,
+							value,
+							`${command.definition.name}.data.${fieldName}`,
+						)
 		} catch (cause: unknown) {
 			throw new FrameworkError(
 				'PLUGIN_OPERATION_INVALID',

@@ -35,6 +35,25 @@ export interface ShapeMethodDefinition<
 
 const shapeMethodKeys = new Set(['commands', 'fields', 'options'])
 
+/** Reads the options object a shape method accepts (`never`: no argument). */
+export type ShapeMethodOptionsOf<TDefinition> =
+	'options' extends keyof TDefinition
+		? Exclude<
+				TDefinition['options' & keyof TDefinition],
+				undefined
+			> extends Validator<infer TOptions extends object>
+			? TOptions
+			: never
+		: never
+
+/** Reads the fields or commands of one shape method (empty when omitted). */
+export type ShapeMethodMember<
+	TDefinition,
+	TKey extends 'commands' | 'fields',
+> = TKey extends keyof TDefinition
+	? Exclude<TDefinition[TKey], undefined>
+	: Readonly<Record<never, never>>
+
 /**
  * Declares one shape method: the fields and commands a schema gains when its
  * declaration calls the method before `.with(...)`.
@@ -50,12 +69,10 @@ const shapeMethodKeys = new Set(['commands', 'fields', 'options'])
  * ```
  */
 export const shapeMethod = <
-	const TFields extends ShapeMethodFields = Readonly<Record<never, never>>,
-	const TCommands extends ShapeMethodCommands = Readonly<Record<never, never>>,
-	TOptions extends object = never,
+	const TDefinition extends ShapeMethodDefinition<object>,
 >(
-	definition: ShapeMethodDefinition<TOptions, TFields, TCommands>,
-): ShapeMethodDefinition<TOptions, TFields, TCommands> => {
+	definition: TDefinition,
+): Readonly<TDefinition> => {
 	const untrusted: unknown = definition
 	if (!isPlainRecord(untrusted)) {
 		throw new TypeError('shape method definition must be a plain object')

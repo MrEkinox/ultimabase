@@ -16,10 +16,16 @@ import type {
 } from '@ultimabase/core/plugin'
 
 import type { CommandMutation } from './commands.js'
-import type { ShapeMethodDefinition } from './shape.js'
+import type {
+	ShapeMethodDefinition,
+	ShapeMethodMember,
+	ShapeMethodOptionsOf,
+} from './shape.js'
 
 /** Shape methods of one plugin, keyed by method name. */
-export type ShapeMethods = Readonly<Record<string, ShapeMethodDefinition>>
+export type ShapeMethods = Readonly<
+	Record<string, ShapeMethodDefinition<object>>
+>
 
 /** Rule values of one plugin, keyed by `.with({ ... })` entry. */
 export type RuleValues = Readonly<Record<string, unknown>>
@@ -39,7 +45,7 @@ type CalledShapeMember<
 > = UnionToIntersection<
 	{
 		[TName in keyof TShape]: TName extends TCalled
-			? Exclude<TShape[TName][TKey], undefined>
+			? ShapeMethodMember<TShape[TName], TKey>
 			: unknown
 	}[keyof TShape]
 >
@@ -87,12 +93,11 @@ export interface DefinedRules<
 }
 
 /** Arguments of one shape method: none, or one optional options object. */
-export type ShapeMethodArguments<TMethod> =
-	TMethod extends ShapeMethodDefinition<infer TOptions>
-		? [TOptions] extends [never]
-			? readonly []
-			: readonly [options?: TOptions]
-		: readonly []
+export type ShapeMethodArguments<TMethod> = [
+	ShapeMethodOptionsOf<TMethod>,
+] extends [never]
+	? readonly []
+	: readonly [options?: ShapeMethodOptionsOf<TMethod>]
 
 type DefinedShapeSource<TShape extends ShapeMethods> = [keyof TShape] extends [
 	never,

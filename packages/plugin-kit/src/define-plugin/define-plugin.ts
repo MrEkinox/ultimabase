@@ -15,6 +15,8 @@ import {
 	provideSchemaShapeMethods,
 	readSchemaRules,
 	type PluginContribution,
+	type PluginModelContributionContext,
+	type PluginSchemaContributionContext,
 	type PluginSchemaShapeSource,
 	type SchemaShapeMethod,
 } from '@ultimabase/core/plugin'
@@ -125,74 +127,91 @@ const normalizeShapeOptions =
 		return immutableRecord({})
 	}
 
+const declareSchemas =
+	(
+		shape: readonly (readonly [string, ShapeMethodDefinition])[],
+		rules: readonly (readonly [string, Validator<unknown>])[],
+	) =>
+	({ schemas }: PluginSchemaContributionContext): undefined => {
+		schemas.defineOptions({
+			contributionId: 'options',
+			schema: Object.fromEntries([
+				...shape.map(([method, definition]) => [
+					method,
+					defineSchemaOption({
+						normalize: normalizeShapeOptions(method, definition.options),
+						protocolVersion: 1,
+						typegen: false,
+						valueKind: 'opaque',
+					}),
+				]),
+				...rules.map(([name, validate]) => [
+					name,
+					defineSchemaOption({
+						normalize: validate,
+						protocolVersion: 1,
+						typegen: false,
+						valueKind: 'opaque',
+					}),
+				]),
+			]),
+		})
+		for (const [method, definition] of shape) {
+			const operations = Object.entries(definition.fields ?? {}).map(
+				([name, field]) =>
+					addSchemaField({
+						contributionId: `${method}.${name}`,
+						field,
+						mutationInput: 'forbidden',
+						name,
+					}),
+			)
+			if (operations.length === 0) continue
+			schemas.patch({
+				operations,
+				targets: schemas.select({
+					option: { name: method },
+					owner: { kind: 'application' },
+				}),
+			})
+		}
+		return undefined
+	}
+
+const extendModels =
+	(commands: readonly GeneratedCommand[]) =>
+	({ models }: PluginModelContributionContext): undefined => {
+		for (const method of new Set(commands.map((entry) => entry.method))) {
+			models.extend(
+				{ option: { name: method }, owner: { kind: 'application' } },
+				{
+					contributionId: `${method}.commands`,
+					schemaMutations: Object.fromEntries(
+						commands
+							.filter((generated) => generated.method === method)
+							.map(({ command, mutation }) => [
+								command,
+								{ mutation, surfaces: ['schema'] as const },
+							]),
+					),
+				},
+			)
+		}
+		return undefined
+	}
+
+// `models` is declared only with commands: Core derives `model:extend` from it.
 const createDeclarations = (
 	shape: readonly (readonly [string, ShapeMethodDefinition])[],
 	rules: readonly (readonly [string, Validator<unknown>])[],
 	commands: readonly GeneratedCommand[],
 ) =>
-	contributeDeclarations({
-		schema: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'options',
-				schema: Object.fromEntries([
-					...shape.map(([method, definition]) => [
-						method,
-						defineSchemaOption({
-							normalize: normalizeShapeOptions(method, definition.options),
-							protocolVersion: 1,
-							typegen: false,
-							valueKind: 'opaque',
-						}),
-					]),
-					...rules.map(([name, validate]) => [
-						name,
-						defineSchemaOption({
-							normalize: validate,
-							protocolVersion: 1,
-							typegen: false,
-							valueKind: 'opaque',
-						}),
-					]),
-				]),
+	commands.length === 0
+		? contributeDeclarations({ schema: declareSchemas(shape, rules) })
+		: contributeDeclarations({
+				schema: declareSchemas(shape, rules),
+				models: extendModels(commands),
 			})
-			for (const [method, definition] of shape) {
-				const operations = Object.entries(definition.fields ?? {}).map(
-					([name, field]) =>
-						addSchemaField({
-							contributionId: `${method}.${name}`,
-							field,
-							mutationInput: 'forbidden',
-							name,
-						}),
-				)
-				if (operations.length === 0) continue
-				schemas.patch({
-					operations,
-					targets: schemas.select({
-						option: { name: method },
-						owner: { kind: 'application' },
-					}),
-				})
-			}
-		},
-		models: ({ models }) => {
-			for (const [method] of shape) {
-				const schemaMutations = Object.fromEntries(
-					commands
-						.filter((generated) => generated.method === method)
-						.map(({ command, mutation }) => [
-							command,
-							{ mutation, surfaces: ['schema'] as const },
-						]),
-				)
-				if (Object.keys(schemaMutations).length === 0) continue
-				models.extend(
-					{ option: { name: method }, owner: { kind: 'application' } },
-					{ contributionId: `${method}.commands`, schemaMutations },
-				)
-			}
-		},
-	})
 
 const createAfterCommit = <TRules extends RuleValues>(
 	afterCommit: (input: CommitInput<TRules>) => void | Promise<void>,

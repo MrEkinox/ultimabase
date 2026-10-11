@@ -79,6 +79,10 @@ const commandKeys = new Set([
 ])
 const noData = (): Readonly<Record<string, unknown>> => immutableRecord({})
 
+/** Reads the target a command's options select (`'one'` when omitted). */
+export type CommandOptionsTarget<TOptions> =
+	TOptions extends Readonly<{ target: 'many' }> ? 'many' : 'one'
+
 /**
  * Declares one schema command without input, for a shape method's `commands`.
  *
@@ -87,13 +91,13 @@ const noData = (): Readonly<Record<string, unknown>> => immutableRecord({})
  * archiveOne: command({ authority: 'request', effect: 'update', data: () => ({ archivedAt: new Date() }) })
  * ```
  */
-export const command = <
-	const TAuthority extends CommandAuthority,
-	const TEffect extends CommandEffect,
-	const TTarget extends CommandTarget = 'one',
->(
-	options: CommandOptions<TAuthority, TEffect, TTarget>,
-): CommandDefinition<TAuthority, TEffect, TTarget> => {
+export const command = <const TOptions extends CommandOptions>(
+	options: TOptions,
+): CommandDefinition<
+	TOptions['authority'],
+	TOptions['effect'],
+	CommandOptionsTarget<TOptions>
+> => {
 	const untrusted: unknown = options
 	if (!isPlainRecord(untrusted)) {
 		throw new TypeError('command options must be a plain object')
