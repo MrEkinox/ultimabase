@@ -1,5 +1,13 @@
-import type { SchemaDefinition } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import type {
+	NestedWriteGraph,
+	OperationAstNode,
+	SchemaDefinition,
+} from '@ultimabase/core'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import type { NormalizedHookHandler } from '../authoring/declarations.js'
 import type { HookOperationKind } from '../context/hook-context.js'
@@ -77,3 +85,33 @@ export const createInputFor = (
 				? { ...input, ...internals }
 				: input,
 	)
+
+/** The internal tree a `provideHookContributions` hook may read (ADR-0318). */
+export interface HookInternals {
+	/** The normalized operation being processed. */
+	readonly operation: OperationAstNode
+	/** The complete nested-write graph, during a nested write only. */
+	readonly nestedWrite?: NestedWriteGraph
+}
+
+/**
+ * Reads the internal operation tree of a hook input. Only hooks contributed
+ * through `provideHookContributions` receive it; application hooks see plain
+ * data and get `undefined`.
+ *
+ * @example `const graph = readHookInternals(input)?.nestedWrite`
+ */
+export const readHookInternals = (input: object): HookInternals | undefined => {
+	const operation: unknown = Reflect.get(input, 'operation')
+	if (!isPlainRecord(operation) || typeof operation.kind !== 'string') {
+		return undefined
+	}
+	const nestedWrite: unknown = Reflect.get(input, 'nestedWrite')
+	// Runtime attached both values from its own operation and graph.
+	return immutableRecord({
+		operation: operation as unknown as OperationAstNode,
+		...(isPlainRecord(nestedWrite)
+			? { nestedWrite: nestedWrite as unknown as NestedWriteGraph }
+			: {}),
+	})
+}

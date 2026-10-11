@@ -184,9 +184,11 @@ type PluginSourceFieldOptionValidity<
 
 /** Keeps the options whose constraint answered with a message. */
 type PluginSourceFieldOptionMessages<TValidity> = {
-	readonly [TKey in keyof TValidity as TValidity[TKey] extends string
-		? TKey
-		: never]: TValidity[TKey]
+	readonly [TKey in keyof TValidity as [TValidity[TKey]] extends [never]
+		? never
+		: TValidity[TKey] extends string
+			? TKey
+			: never]: TValidity[TKey]
 }
 
 /**

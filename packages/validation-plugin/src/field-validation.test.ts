@@ -37,25 +37,29 @@ const callbacks: ApplicationCallbackExecutor = {
 	runPlugin: (_owner, callback) => callback(),
 }
 
-const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
-	((typeof value === 'object' && value !== null) ||
-		typeof value === 'function') &&
-	typeof Reflect.get(value, 'then') === 'function'
-
+/**
+ * Mirrors Core's final pass: structural validation, then the plugin, whose
+ * issues become one VALIDATION_ERROR and whose outputs are revalidated.
+ */
 const createFinalMutationValidationStage =
 	(): RuntimeMutationRevalidationStage => {
 		const validateStructure = createCoreFinalMutationValidationStage()
 		const readPlans = createValidationPlanCache()
-		return (input) => {
-			const operation = validateStructure(input)
-			if (isPromiseLike(operation)) {
-				throw new TypeError(
-					'Core final mutation validation must be synchronous',
-				)
+		return async (input) => {
+			const operation = await validateStructure(input)
+			const result = await validateMutationInput(
+				{ ...input, operation, structuralIssues: [] },
+				readPlans(operation),
+				callbacks,
+			)
+			if (result.issues.length > 0) {
+				throw new FrameworkError('VALIDATION_ERROR', 'Invalid input.', {
+					publicDetails: { issues: result.issues },
+				})
 			}
-			const plans = readPlans(operation)
-			validateMutationInput({ ...input, operation }, plans, callbacks)
-			return operation
+			return result.operation === operation
+				? operation
+				: validateStructure({ ...input, operation: result.operation })
 		}
 	}
 
@@ -88,11 +92,11 @@ const validationContext = RequestContext.anonymous({
 })
 
 /** Exercises application validation only through the mandatory final mutation stage. */
-const validateFinalCreate = <const TSchema extends SchemaDefinition>(
+const validateFinalCreate = async <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: Readonly<Record<string, unknown>>,
 	dependencies: readonly SchemaDefinition[] = [],
-): CreateOneOperationAst<TSchema> => {
+): Promise<CreateOneOperationAst<TSchema>> => {
 	new ValidationApplication({
 		logger: false,
 		schemas: [...dependencies, schema],
@@ -104,12 +108,12 @@ const validateFinalCreate = <const TSchema extends SchemaDefinition>(
 		schema: new QueryBuilder(schema).ast.schema,
 	} as unknown as CreateOneOperationAst<TSchema>
 
-	return createFinalMutationValidationStage()({
+	return (await createFinalMutationValidationStage()({
 		context: validationContext,
 		operation,
 		previousOperation: operation,
 		target: undefined,
-	}) as CreateOneOperationAst<TSchema>
+	})) as CreateOneOperationAst<TSchema>
 }
 
 const passThrough = <TValue>(
@@ -212,30 +216,30 @@ describe('Standard Schema field validation', () => {
 		})
 
 		expect(validate).not.toHaveBeenCalled()
-		expect(() =>
+		await expect(
 			createFinalMutationValidationStage()({
 				context,
 				operation: normalized,
 				previousOperation: normalized,
 				target: undefined,
 			}),
-		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 
 		const transformed = {
 			...normalized,
 			input: { ...normalized.input, slug: 'hello-world' },
 		}
-		expect(
+		await expect(
 			createFinalMutationValidationStage()({
 				context,
 				operation: transformed,
 				previousOperation: normalized,
 				target: undefined,
 			}),
-		).toMatchObject({ input: { slug: 'hello-world' } })
+		).resolves.toMatchObject({ input: { slug: 'hello-world' } })
 	})
 
-	it('runs after every built-in and plugin scalar family snapshot', () => {
+	it('runs after every built-in and plugin scalar family snapshot', async () => {
 		const Target = ValidationApplication.Schema.define({
 			className: 'ValidatedPointerTarget',
 			fields: () => ({}),
@@ -321,7 +325,7 @@ describe('Standard Schema field validation', () => {
 			uuid: '0198d1ae-a800-7000-8000-000000000001',
 		} as const
 
-		validateFinalCreate(schema, values, [Target])
+		await validateFinalCreate(schema, values, [Target])
 
 		expect([...calls.keys()].sort()).toStrictEqual(
 			[
@@ -352,7 +356,7 @@ describe('Standard Schema field validation', () => {
 		expect([...calls.values()].every((count) => count === 1)).toBe(true)
 	})
 
-	it('validates complete canonical lists and prefixes nested issue paths', () => {
+	it('validates complete canonical lists and prefixes nested issue paths', async () => {
 		const validate = vi.fn((value: unknown) => {
 			void value
 			return {
@@ -375,7 +379,7 @@ describe('Standard Schema field validation', () => {
 		})
 
 		try {
-			validateFinalCreate(schema, { tags: ['first', 'second'] })
+			await validateFinalCreate(schema, { tags: ['first', 'second'] })
 			expect.unreachable('Expected list validation to fail')
 		} catch (error: unknown) {
 			expect(error).toMatchObject({ code: 'VALIDATION_ERROR' })
@@ -391,7 +395,7 @@ describe('Standard Schema field validation', () => {
 		expect(Object.isFrozen(validate.mock.calls[0]?.[0])).toBe(true)
 	})
 
-	it('runs child validators before the containing object validator', () => {
+	it('runs child validators before the containing object validator', async () => {
 		const order: string[] = []
 		const child = rejectingString('Name is required')
 		const childValidate = child['~standard'].validate
@@ -429,12 +433,12 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		validateFinalCreate(schema, { profile: { name: 'Ada' } })
+		await validateFinalCreate(schema, { profile: { name: 'Ada' } })
 
 		expect(order).toStrictEqual(['child', 'parent'])
 	})
 
-	it('accepts an equal cloned output while retaining the Core snapshot', () => {
+	it('accepts an equal cloned output while retaining the Core snapshot', async () => {
 		let vendorOutput: Readonly<{ name: string }> | undefined
 		const validator: StandardSchemaV1<Readonly<{ name: string }>> = {
 			'~standard': {
@@ -464,14 +468,14 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		const result = validateFinalCreate(schema, { profile: { name: 'Ada' } })
+		const result = await validateFinalCreate(schema, { profile: { name: 'Ada' } })
 
 		expect(result.input.profile).toStrictEqual({ name: 'Ada' })
 		expect(result.input.profile).not.toBe(vendorOutput)
 		expect(Object.isFrozen(result.input.profile)).toBe(true)
 	})
 
-	it('does not run an object validator after a child rejection', () => {
+	it('does not run an object validator after a child rejection', async () => {
 		const parentValidate = vi.fn((value: unknown) => ({ value }))
 		const parent = {
 			'~standard': {
@@ -495,13 +499,13 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		expect(() =>
+		await expect(
 			validateFinalCreate(schema, { profile: { name: '' } }),
-		).toThrow(FrameworkError)
+		).rejects.toThrow(FrameworkError)
 		expect(parentValidate).not.toHaveBeenCalled()
 	})
 
-	it('bypasses missing and nullable values and retains validator identity', () => {
+	it('bypasses missing and nullable values and retains validator identity', async () => {
 		const validate = vi.fn((value: unknown) => ({ value: String(value) }))
 		const validator: StandardSchemaV1<string> = {
 			'~standard': { version: 1 as const, vendor: 'identity-test', validate },
@@ -528,7 +532,7 @@ describe('Standard Schema field validation', () => {
 		expect(validate).not.toHaveBeenCalled()
 	})
 
-	it('keeps independent field validators isolated', () => {
+	it('keeps independent field validators isolated', async () => {
 		const firstValidate = vi.fn((value: unknown) => ({ value }))
 		const secondValidate = vi.fn((value: unknown) => ({ value }))
 		const firstValidator = {
@@ -558,25 +562,22 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		validateFinalCreate(firstSchema, { value: 'first' })
+		await validateFinalCreate(firstSchema, { value: 'first' })
 		expect(firstValidate).toHaveBeenCalledTimes(1)
 		expect(secondValidate).not.toHaveBeenCalled()
 
-		validateFinalCreate(secondSchema, { value: 'second' })
+		await validateFinalCreate(secondSchema, { value: 'second' })
 		expect(firstValidate).toHaveBeenCalledTimes(1)
 		expect(secondValidate).toHaveBeenCalledTimes(1)
 	})
 
 	it.each([
-		['async result', () => Promise.resolve({ value: 'value' })],
-		['promise-like result', () => ({ then: () => undefined })],
 		[
 			'thrown error',
 			() => {
 				throw new Error('vendor failure')
 			},
 		],
-		['transformation', () => ({ value: 'trimmed' })],
 		['malformed result', () => ({})],
 		['malformed issue list', () => ({ issues: 'invalid' })],
 		['malformed issue', () => ({ issues: [{}] })],
@@ -588,7 +589,7 @@ describe('Standard Schema field validation', () => {
 			'malformed issue path segment',
 			() => ({ issues: [{ message: 'Invalid', path: [{ key: {} }] }] }),
 		],
-	])('rejects the %s as a validator contract failure', (_name, validate) => {
+	])('rejects the %s as a validator contract failure', async (_name, validate) => {
 		const malformedValidator = {
 			'~standard': {
 				version: 1,
@@ -605,64 +606,83 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		expect(() => validateFinalCreate(schema, { value: ' value ' })).toThrow(
-			expect.objectContaining<Partial<FrameworkError>>({
-				code: 'INTERNAL_ERROR',
-			}),
-		)
+		await expect(
+			validateFinalCreate(schema, { value: ' value ' }),
+		).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
 	})
 
-	it.each([
-		[
-			'default insertion',
-			(value: Readonly<Record<string, unknown>>) => ({
-				value: { ...value, inserted: 'default' },
-			}),
-		],
-		[
-			'property stripping',
-			(value: Readonly<Record<string, unknown>>) => ({
-				value: { name: value.name },
-			}),
-		],
-	] as const)('rejects object %s as a transformation', (_name, transform) => {
-		const validator = {
+	it('stores a stripped object output and revalidates an inserted unknown key', async () => {
+		const objectValidator = (
+			transform: (
+				value: Readonly<Record<string, unknown>>,
+			) => Readonly<Record<string, unknown>>,
+		) =>
+			({
+				'~standard': {
+					version: 1 as const,
+					vendor: 'object-transformation-test',
+					validate: (value: unknown) =>
+						typeof value === 'object' && value !== null
+							? { value: transform(value as Readonly<Record<string, unknown>>) }
+							: { issues: [{ message: 'Expected object' }] },
+				},
+			}) as unknown as StandardSchemaV1<
+				Readonly<{ name: string; role: string | null }>
+			>
+		const define = (className: string, validator: ReturnType<typeof objectValidator>) =>
+			ValidationApplication.Schema.define({
+				className,
+				fields: (field) => ({
+					profile: field.object({
+						fields: (nested) => ({
+							name: nested.string({ required: true }),
+							role: nested.string(),
+						}),
+						validation: validator,
+					}),
+				}),
+			})
+
+		// ADR-0319: the validator output is what gets stored.
+		const stripped = await validateFinalCreate(
+			define('ObjectTransformationStripping', objectValidator((value) => ({ name: value.name }))),
+			{ profile: { name: 'Ada', role: 'admin' } },
+		)
+		expect(stripped.input.profile).toStrictEqual({ name: 'Ada' })
+
+		// An output must stay structurally valid: Core checks it again.
+		await expect(
+			validateFinalCreate(
+				define(
+					'ObjectTransformationInsertion',
+					objectValidator((value) => ({ ...value, inserted: 'default' })),
+				),
+				{ profile: { name: 'Ada', role: 'admin' } },
+			),
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+	})
+
+	it('awaits asynchronous Standard Schema validators and stores their output', async () => {
+		const trimming = {
 			'~standard': {
 				version: 1 as const,
-				vendor: 'object-transformation-test',
-				validate: (value: unknown) =>
-					typeof value === 'object' && value !== null
-						? transform(value as Readonly<Record<string, unknown>>)
-						: { issues: [{ message: 'Expected object' }] },
+				vendor: 'async-transform-test',
+				validate: async (value: unknown) => {
+					await Promise.resolve()
+					return { value: typeof value === 'string' ? value.trim() : value }
+				},
 			},
-		} as unknown as StandardSchemaV1<
-			Readonly<{ name: string; role: string | null }>
-		>
+		} as unknown as StandardSchemaV1<string>
 		const schema = ValidationApplication.Schema.define({
-			className: `ObjectTransformation${_name}`,
-			fields: (field) => ({
-				profile: field.object({
-					fields: (nested) => ({
-						name: nested.string({ required: true }),
-						role: nested.string(),
-					}),
-					validation: validator,
-				}),
-			}),
+			className: 'AsyncTrimmedValidation',
+			fields: (field) => ({ value: field.string({ validation: trimming }) }),
 		})
 
-		expect(() =>
-			validateFinalCreate(schema, {
-				profile: { name: 'Ada', role: 'admin' },
-			}),
-		).toThrow(
-			expect.objectContaining<Partial<FrameworkError>>({
-				code: 'INTERNAL_ERROR',
-			}),
-		)
+		const result = await validateFinalCreate(schema, { value: '  padded  ' })
+		expect(result.input.value).toBe('padded')
 	})
 
-	it('turns an empty failure into one immutable fallback issue', () => {
+	it('turns an empty failure into one immutable fallback issue', async () => {
 		const emptyFailure = {
 			'~standard': {
 				version: 1,
@@ -680,7 +700,7 @@ describe('Standard Schema field validation', () => {
 		})
 
 		try {
-			validateFinalCreate(schema, { value: 'value' })
+			await validateFinalCreate(schema, { value: 'value' })
 			expect.unreachable('validation should fail')
 		} catch (error: unknown) {
 			expect(error).toBeInstanceOf(FrameworkError)

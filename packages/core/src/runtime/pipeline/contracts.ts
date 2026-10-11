@@ -339,7 +339,7 @@ export type RuntimeFinalMutationGuardStage = <
 
 /** One problem found in a mutation candidate, as `VALIDATION_ERROR` lists it. */
 export interface RuntimeMutationValidationIssue {
-	/** A stable code (`field.validation`, `required`, …) a client may react to. */
+	/** A stable code (Core's structural codes, or a validation plugin's own) a client may react to. */
 	readonly code: string
 	readonly message: string
 	readonly path: readonly (number | string)[]

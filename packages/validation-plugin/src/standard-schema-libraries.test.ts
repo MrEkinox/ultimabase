@@ -35,12 +35,22 @@ const callbacks: ApplicationCallbackExecutor = {
 	runPlugin: (_owner, callback) => callback(),
 }
 
+/** Runs the plugin stage and raises its issues as Core's merged error would. */
 const createFinalMutationValidationStage =
 	(): RuntimeMutationRevalidationStage => {
 		const readPlans = createValidationPlanCache()
-		return (input) => {
-			validateMutationInput(input, readPlans(input.operation), callbacks)
-			return input.operation
+		return async (input) => {
+			const result = await validateMutationInput(
+				{ ...input, structuralIssues: [] },
+				readPlans(input.operation),
+				callbacks,
+			)
+			if (result.issues.length > 0) {
+				throw new FrameworkError('VALIDATION_ERROR', 'Invalid input.', {
+					publicDetails: { issues: result.issues },
+				})
+			}
+			return result.operation
 		}
 	}
 
@@ -143,10 +153,10 @@ const validationContext = RequestContext.anonymous({
 	source: requestSources.internal,
 })
 
-const validateFinalCreate = <const TSchema extends SchemaDefinition>(
+const validateFinalCreate = async <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: Readonly<Record<string, unknown>>,
-): CreateOneOperationAst<TSchema> => {
+): Promise<CreateOneOperationAst<TSchema>> => {
 	new ValidationApplication({
 		logger: false,
 		schemas: [Target, schema],
@@ -158,12 +168,12 @@ const validateFinalCreate = <const TSchema extends SchemaDefinition>(
 		schema: new QueryBuilder(schema).ast.schema,
 	} as unknown as CreateOneOperationAst<TSchema>
 
-	return createFinalMutationValidationStage()({
+	return (await createFinalMutationValidationStage()({
 		context: validationContext,
 		operation,
 		previousOperation: operation,
 		target: undefined,
-	}) as CreateOneOperationAst<TSchema>
+	})) as CreateOneOperationAst<TSchema>
 }
 
 const readIssues = (error: unknown): readonly unknown[] => {
@@ -236,12 +246,12 @@ const createSchema = ({ name, validators }: LibraryFixture) => {
 }
 
 describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
-	it('validates every canonical built-in and plugin field family', () => {
+	it('validates every canonical built-in and plugin field family', async () => {
 		const schema = createSchema(fixture)
 		const pointer = Target.pointer('target-1')
 		const plugin = new LibraryPluginValue('plugin')
 
-		expect(
+		await expect(
 			validateFinalCreate(schema, {
 				bigint: 1n,
 				binary: new Uint8Array([1]),
@@ -261,12 +271,12 @@ describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
 				time: '12:00:00.000',
 				uuid: '0198d1ae-a800-7000-8000-000000000001',
 			}),
-		).toMatchObject({
+		).resolves.toMatchObject({
 			input: { list: ['first', 'second'], object: { label: 'valid' } },
 		})
 	})
 
-	it('maps vendor diagnostics to the neutral field.validation issue', () => {
+	it('maps vendor diagnostics to the neutral field.validation issue', async () => {
 		const schema = ValidationApplication.Schema.define({
 			className: `LibraryValidationFailure${fixture.name}`,
 			fields: (field) => ({
@@ -277,7 +287,7 @@ describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
 		})
 
 		try {
-			validateFinalCreate(schema, { title: 'x' })
+			await validateFinalCreate(schema, { title: 'x' })
 		} catch (error: unknown) {
 			expect(readIssues(error)).toContainEqual({
 				code: 'field.validation',
@@ -291,7 +301,7 @@ describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
 	})
 })
 
-it('keeps validators isolated between applications with the same logical schema', () => {
+it('keeps validators isolated between applications with the same logical schema', async () => {
 	const zodValidator = z
 		.string()
 		.refine((value) => value === 'zod', 'Expected the Zod application value')
@@ -332,10 +342,10 @@ it('keeps validators isolated between applications with the same logical schema'
 	expect(
 		Reflect.get(ValibotSchema.fields.value?.options ?? {}, 'validation'),
 	).toBe(valibotValidator)
-	expect(() => validateFinalCreate(ZodSchema, { value: 'valibot' })).toThrow(
-		FrameworkError,
-	)
-	expect(() => validateFinalCreate(ValibotSchema, { value: 'zod' })).toThrow(
-		FrameworkError,
-	)
+	await expect(
+		validateFinalCreate(ZodSchema, { value: 'valibot' }),
+	).rejects.toThrow(FrameworkError)
+	await expect(
+		validateFinalCreate(ValibotSchema, { value: 'zod' }),
+	).rejects.toThrow(FrameworkError)
 })

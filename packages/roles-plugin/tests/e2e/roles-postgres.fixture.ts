@@ -89,10 +89,8 @@ export const AppRole = RoleSchema.define(RoleSchemaApplication.Schema, {
 	access: protectedRoleOperations,
 	hooks: {
 		beforeOperation: {
-			update: ({ operation }) => {
-				roleDeveloperHookTrace.push(operation.kind)
-
-				void operation
+			update: ({ kind }) => {
+				roleDeveloperHookTrace.push(kind)
 			},
 		},
 	},
@@ -183,9 +181,8 @@ export const MissingProviderPost =
 		},
 		hooks: {
 			beforeOperation: {
-				update: ({ operation }) => {
+				update: () => {
 					missingProviderHookCalls += 1
-					void operation
 				},
 			},
 		},

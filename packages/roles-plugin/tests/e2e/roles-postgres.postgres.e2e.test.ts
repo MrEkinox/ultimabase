@@ -193,7 +193,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			description: 'Edits published content',
 		})
 		expect(updated?.description).toBe('Edits published content')
-		expect(roleDeveloperHookTrace).toContain('update-one')
+		expect(roleDeveloperHookTrace).toContain('update')
 
 		const eventCount = committedRoleEvents.length
 		await updateAppRole(currentEditor.id, {

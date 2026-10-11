@@ -2,54 +2,41 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	defineEvent,
-	getHookEventContractImplementation,
 	getHookEventImplementation,
+	isHookEventContract,
 	onEvent,
 } from './events.js'
 
 describe('defineEvent', () => {
-	it('creates one immutable trusted delivery contract', () => {
-		const event = defineEvent()('post.created', { delivery: 'optional' })
+	it('creates one immutable trusted contract bound by value', () => {
+		const event = defineEvent('post.created')
 
 		expect(event).toStrictEqual({
-			delivery: 'optional',
 			kind: 'hook-event-contract',
 			name: 'post.created',
 		})
 		expect(Object.isFrozen(event)).toBe(true)
-		expect(getHookEventContractImplementation(event)).toStrictEqual({
-			delivery: 'optional',
-			name: 'post.created',
-		})
+		expect(isHookEventContract(event)).toBe(true)
+		// Two contracts with one name stay distinct values.
+		expect(defineEvent('post.created')).not.toBe(event)
 	})
 
-	it('rejects malformed contracts and structural lookalikes', () => {
-		const createEvent = defineEvent()
-
-		for (const [name, options] of [
-			['', { delivery: 'optional' }],
-			['post.created', null],
-			['post.created', {}],
-			['post.created', { delivery: 'ignored' }],
-			['post.created', { delivery: 'required', extra: true }],
-		] as const) {
-			expect(() => createEvent(name, options as never)).toThrow(TypeError)
-		}
-
+	it('rejects an empty name and structural lookalikes', () => {
+		expect(() => defineEvent('')).toThrow(TypeError)
 		expect(
-			getHookEventContractImplementation({
-				delivery: 'optional',
+			isHookEventContract({
 				kind: 'hook-event-contract',
 				name: 'post.created',
 			}),
-		).toBeUndefined()
+		).toBe(false)
 	})
 })
 
 describe('onEvent', () => {
-	it('creates an immutable opaque named-event definition', () => {
+	it('creates an immutable opaque consumer of one contract', () => {
 		const handler = () => undefined
-		const definition = onEvent({ handler, name: 'post.created' })
+		const event = defineEvent('post.created')
+		const definition = onEvent(event, handler)
 
 		expect(definition).toStrictEqual({
 			kind: 'hook-event',
@@ -57,22 +44,22 @@ describe('onEvent', () => {
 		})
 		expect(Object.isFrozen(definition)).toBe(true)
 		expect(getHookEventImplementation(definition)).toMatchObject({
+			contract: event,
 			handler,
-			name: 'post.created',
 		})
 	})
 
-	it('rejects malformed options without trusting structural lookalikes', () => {
-		for (const options of [
-			null,
-			{},
-			{ handler: undefined, name: 'post.created' },
-			{ handler: () => undefined, name: '' },
-			{ extra: true, handler: () => undefined, name: 'post.created' },
-		]) {
-			expect(() => onEvent(options as never)).toThrow(TypeError)
-		}
-
+	it('rejects forged contracts and non-function handlers', () => {
+		const event = defineEvent('post.created')
+		expect(() =>
+			onEvent(
+				{ kind: 'hook-event-contract', name: 'post.created' } as never,
+				() => undefined,
+			),
+		).toThrow('onEvent requires an event created by defineEvent')
+		expect(() => onEvent(event, undefined as never)).toThrow(
+			'onEvent handler must be a function',
+		)
 		expect(
 			getHookEventImplementation({ kind: 'hook-event', name: 'post.created' }),
 		).toBeUndefined()

@@ -54,11 +54,8 @@ const AccessArticle = AccessApplication.Schema.define({
 	},
 	hooks: {
 		beforeOperation: {
-			update: async ({ operation }) => {
-				await AccessAudit.createOne({
-					data: { action: `update:${operation.kind}` },
-				})
-				void operation
+			update: async ({ kind }) => {
+				await AccessAudit.createOne({ data: { action: `update:${kind}` } })
 			},
 		},
 	},

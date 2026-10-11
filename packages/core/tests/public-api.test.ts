@@ -225,9 +225,11 @@ describe('@ultimabase/core public entry point', () => {
 			'readSchemaRules',
 			'requestSources',
 			'requireCapability',
+			'runAfterCommit',
 			'schemaPermissionsCapability',
 			'setSchemaFieldOption',
 			'setSchemaOption',
+			'waitForAfterCommitWork',
 			'withContext',
 			'withPluginPrivileges',
 		])

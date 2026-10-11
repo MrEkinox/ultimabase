@@ -13,7 +13,6 @@ export type {
 	HookChanges,
 	HookCreateData,
 	HookHandlerDeclaration,
-	HookItem,
 	HookRelationChanges,
 	SaveHookFamily,
 	SchemaAfterCreateHookInput,
@@ -125,6 +124,8 @@ export {
 	provideHookEvent,
 } from './runtime/events.js'
 export type { HookEventContributionsCapability } from './runtime/events.js'
+export { readHookInternals } from './runtime/planned-handlers.js'
+export type { HookInternals } from './runtime/planned-handlers.js'
 
 // Conformance support: redacted diagnostics and their optional observer token.
 export { hookDiagnosticsObserverCapability } from './runtime/diagnostics.js'

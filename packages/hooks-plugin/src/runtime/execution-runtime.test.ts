@@ -3,11 +3,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import {
-	getHookHandlerEntries,
-	normalizeHookDeclarations,
-	type NormalizedHookHandler,
-} from '../authoring/declarations.js'
 import type { HookDiagnosticEvent } from './diagnostics.js'
 import type { HookExecutionDescriptor } from './execution-runtime.js'
 import {
@@ -29,7 +24,7 @@ const request = RequestContext.anonymous({
 })
 
 const createDescriptor = (
-	phase: 'beforeCreate' | 'beforeUpdate',
+	phase: 'afterOperation' | 'beforeOperation',
 	className: string,
 	handlerIndex = 0,
 ): HookExecutionDescriptor => {
@@ -41,16 +36,6 @@ const createDescriptor = (
 		phase,
 		target: immutableRecord({ className, kind: 'schema' as const }),
 	})
-}
-
-const requireHandlerEntry = (
-	entry: NormalizedHookHandler | undefined,
-): NormalizedHookHandler => {
-	if (entry === undefined) {
-		throw new TypeError('Expected one normalized hook handler entry')
-	}
-
-	return entry
 }
 
 describe('HookExecutionRuntime', () => {
@@ -71,7 +56,7 @@ describe('HookExecutionRuntime', () => {
 			immutableArray([]),
 			callbacks,
 		)
-		const application = createDescriptor('beforeCreate', 'Article')
+		const application = createDescriptor('beforeOperation', 'Article')
 		const plugin = createHookExecutionDescriptor({
 			handler: () => undefined,
 			handlerIndex: 0,
@@ -81,7 +66,7 @@ describe('HookExecutionRuntime', () => {
 				'audit-hook',
 				'worker',
 			),
-			phase: 'beforeCreate',
+			phase: 'beforeOperation',
 			target: immutableRecord({
 				className: 'Article',
 				kind: 'schema' as const,
@@ -104,51 +89,43 @@ describe('HookExecutionRuntime', () => {
 		])
 	})
 
-	it('rejects direct and indirect active-hook recursion with a safe stack', async () => {
+	it('allows 16 nested hook operations and rejects the 17th with its chain', async () => {
 		const runtime = new HookExecutionRuntime(undefined)
-		const first = createDescriptor('beforeCreate', 'Article')
-		const second = createDescriptor('beforeUpdate', 'Article')
+		const hook = createDescriptor('beforeOperation', 'Article')
+		const nest = (remaining: number): Promise<number> =>
+			runtime.invoke(hook, request, () =>
+				remaining === 0 ? 0 : nest(remaining - 1).then((depth) => depth + 1),
+			)
 
-		const direct = runtime.invoke(first, request, () =>
-			runtime.invoke(first, request, () => undefined),
-		)
-
-		await expect(direct).rejects.toMatchObject({
-			code: 'RUNTIME_CALLBACK_RECURSION',
-		})
+		await expect(nest(16)).resolves.toBe(16)
 
 		try {
-			await runtime.invoke(first, request, () =>
-				runtime.invoke(second, request, () =>
-					runtime.invoke(first, request, () => undefined),
-				),
-			)
-			expect.unreachable('Expected indirect hook recursion to fail')
+			await nest(17)
+			expect.unreachable('Expected the depth limit to fail')
 		} catch (error: unknown) {
-			if (!(error instanceof FrameworkError)) {
-				throw error
-			}
-
+			if (!(error instanceof FrameworkError)) throw error
 			expect(error.code).toBe('RUNTIME_CALLBACK_RECURSION')
+			expect(error.message).toBe(
+				`Hooks nested more than 16 operations: ${Array.from({ length: 18 }, () => 'Article.create-one').join(' -> ')}.`,
+			)
 			expect(error.toJSON()).toStrictEqual({
 				code: 'RUNTIME_CALLBACK_RECURSION',
 				message: 'A recursive hook execution was rejected.',
 				retryable: false,
 			})
-			expect(Object.isFrozen(error.internalDetails?.stack)).toBe(true)
 			expect(JSON.stringify(error)).not.toContain('must-not-leak')
 		}
 	})
 
-	it('allows other hook identities and isolates concurrent root stacks', async () => {
+	it('lets the same hook nest and isolates concurrent root stacks', async () => {
 		const runtime = new HookExecutionRuntime(undefined)
-		const first = createDescriptor('beforeCreate', 'Article')
-		const otherTarget = createDescriptor('beforeCreate', 'Comment')
+		const first = createDescriptor('beforeOperation', 'Article')
 		const trace: string[] = []
 
+		// A child completing its parent re-enters the same hook (ADR-0318).
 		await runtime.invoke(first, request, () =>
-			runtime.invoke(otherTarget, request, () => {
-				trace.push('nested-other-target')
+			runtime.invoke(first, request, () => {
+				trace.push('nested-same-hook')
 			}),
 		)
 
@@ -164,79 +141,10 @@ describe('HookExecutionRuntime', () => {
 		])
 
 		expect(trace).toStrictEqual([
-			'nested-other-target',
+			'nested-same-hook',
 			'first-root',
 			'second-root',
 		])
-	})
-
-	it('uses stable family branches instead of composed-list positions', async () => {
-		const shared = () => undefined
-		const create = () => undefined
-		const update = () => undefined
-		const declarations = normalizeHookDeclarations({
-			descriptors: {
-				beforeOperation: {
-					order: 'broad-first',
-					variants: ['create', 'update'],
-				},
-			},
-			hooks: { beforeOperation: { all: shared, create, update } },
-			phases: ['beforeOperation'],
-			scope: 'fixture',
-		})
-		const createEntries = getHookHandlerEntries(
-			declarations,
-			'beforeOperation',
-			'create',
-		)
-		const updateEntries = getHookHandlerEntries(
-			declarations,
-			'beforeOperation',
-			'update',
-		)
-		const toDescriptor = (
-			entry: NormalizedHookHandler,
-			operationKind: 'create-one' | 'update-one',
-		): HookExecutionDescriptor =>
-			createHookExecutionDescriptor({
-				...entry,
-				operationKind,
-				owner: applicationHookOwner,
-				phase: 'beforeCreate',
-				target: immutableRecord({
-					className: 'FamilyArticle',
-					kind: 'schema' as const,
-				}),
-			})
-		const runtime = new HookExecutionRuntime(undefined)
-		const createSpecific = toDescriptor(
-			requireHandlerEntry(createEntries[1]),
-			'create-one',
-		)
-		const updateSpecific = toDescriptor(
-			requireHandlerEntry(updateEntries[1]),
-			'update-one',
-		)
-		const createShared = toDescriptor(
-			requireHandlerEntry(createEntries[0]),
-			'create-one',
-		)
-		const updateShared = toDescriptor(
-			requireHandlerEntry(updateEntries[0]),
-			'update-one',
-		)
-
-		await expect(
-			runtime.invoke(createSpecific, request, () =>
-				runtime.invoke(updateSpecific, request, () => undefined),
-			),
-		).resolves.toBeUndefined()
-		await expect(
-			runtime.invoke(createShared, request, () =>
-				runtime.invoke(updateShared, request, () => undefined),
-			),
-		).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_RECURSION' })
 	})
 
 	it('reports redacted immutable diagnostics without trusting the observer', async () => {
@@ -246,7 +154,7 @@ describe('HookExecutionRuntime', () => {
 			events.push(event)
 			throw observerFailure
 		})
-		const descriptor = createDescriptor('beforeCreate', 'Article')
+		const descriptor = createDescriptor('beforeOperation', 'Article')
 
 		await expect(
 			runtime.invoke(descriptor, request, () => 'business-result'),
@@ -258,7 +166,7 @@ describe('HookExecutionRuntime', () => {
 			handlerIndex: 0,
 			kind: 'hook',
 			operationKind: 'create-one',
-			phase: 'beforeCreate',
+			phase: 'beforeOperation',
 			requestId: 'hook-execution-runtime',
 			status: 'succeeded',
 			transactionId: undefined,
@@ -273,7 +181,7 @@ describe('HookExecutionRuntime', () => {
 		const runtime = new HookExecutionRuntime(() =>
 			Promise.reject(new Error('async observer failure')),
 		)
-		const descriptor = createDescriptor('beforeCreate', 'Article')
+		const descriptor = createDescriptor('beforeOperation', 'Article')
 
 		await expect(
 			runtime.invoke(descriptor, request, () => {
@@ -293,7 +201,7 @@ describe('HookExecutionRuntime', () => {
 
 		await expect(
 			runtime.invoke(
-				createDescriptor('beforeCreate', 'Article'),
+				createDescriptor('beforeOperation', 'Article'),
 				request,
 				() => {
 					throw codedError
@@ -315,7 +223,7 @@ describe('HookExecutionRuntime', () => {
 		const runtime = new HookExecutionRuntime((event) => {
 			events.push(event)
 		})
-		const descriptor = createDescriptor('beforeCreate', 'Article')
+		const descriptor = createDescriptor('beforeOperation', 'Article')
 
 		await expect(
 			runtime.invoke(descriptor, cancellableRequest, () => {
@@ -339,7 +247,7 @@ describe('HookExecutionRuntime', () => {
 			source: requestSources.internal,
 		})
 		const runtime = new HookExecutionRuntime(undefined)
-		const descriptor = createDescriptor('beforeCreate', 'Article')
+		const descriptor = createDescriptor('beforeOperation', 'Article')
 
 		await expect(
 			runtime.invoke(descriptor, timeoutRequest, async () => {

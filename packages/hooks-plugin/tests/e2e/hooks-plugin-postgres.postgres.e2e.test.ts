@@ -7,6 +7,7 @@ import {
 } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
+	defineEvent,
 	hooksPlugin,
 	onEvent,
 	provideHookContributions,
@@ -14,6 +15,7 @@ import {
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { waitForAfterCommit } from '@ultimabase/testing'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -29,6 +31,10 @@ import { requestSources, anonymous, plugin } from '@ultimabase/core/plugin'
 const hookTrace: string[] = []
 const committedEvents: string[] = []
 const rollbackHookError = new Error('Hooks plugin rollback fixture')
+const articleCreated = defineEvent<{
+	readonly scopeId: string
+	readonly title: string
+}>('hooks-plugin.article-created')
 
 const trace = (label: string): void => {
 	hookTrace.push(label)
@@ -97,9 +103,8 @@ const HookArticleSchema = HookApplication.Schema.define({
 						resolveInput: ({ value }) => {
 							trace('field:slug:developer:resolveInput')
 
-							return value === null
-								? null
-								: value.trim().toLowerCase().replace(/\s+/gu, '-')
+							// Field hooks never receive null (ADR-0318).
+							return value.trim().toLowerCase().replace(/\s+/gu, '-')
 						},
 					},
 					required: true,
@@ -117,12 +122,11 @@ const HookArticleSchema = HookApplication.Schema.define({
 	hooks: {
 		afterOperation: {
 			create: (input) => {
-				const { operation } = input
 				trace('schema:developer:afterCreate')
 				trace(
 					`schema:developer:afterCreate:item:${readItemString(input.item, 'title')}`,
 				)
-				if (operation.input.title === 'Rollback after persistence') {
+				if (input.item.title === 'Rollback after persistence') {
 					throw rollbackHookError
 				}
 			},
@@ -157,10 +161,7 @@ const HookArticleSchema = HookApplication.Schema.define({
 						scopeId,
 					},
 				})
-				context.emit('hooks-plugin.article-created', {
-					scopeId,
-					title,
-				})
+				context.emit(articleCreated, { scopeId, title })
 			},
 			delete: (input) => {
 				trace('schema:developer:beforeDelete')
@@ -175,9 +176,9 @@ const HookArticleSchema = HookApplication.Schema.define({
 				)
 			},
 		},
-		resolveInput: ({ operation }) => {
+		resolveInput: () => {
 			trace('schema:developer:resolveInput')
-			return operation
+			return undefined
 		},
 	},
 })
@@ -307,12 +308,9 @@ const behaviorPlugin = plugin({
 		),
 		provideHookEvent(
 			'fixture.hooks-plugin-created-event',
-			onEvent({
-				name: 'hooks-plugin.article-created',
-				handler: ({ event }) => {
-					committedEvents.push(event.name)
-					trace(`event:${event.name}`)
-				},
+			onEvent(articleCreated, ({ event }) => {
+				committedEvents.push(event.name)
+				trace(`event:${event.name}`)
 			}),
 		),
 	],
@@ -421,6 +419,8 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 				}),
 			),
 		).resolves.toBe(true)
+		// Events reach consumers after commit, without delaying the call.
+		await waitForAfterCommit()
 		expect(committedEvents).toStrictEqual(['hooks-plugin.article-created'])
 		expectTraceSubsequence([
 			'field:title:developer:resolveInput',
@@ -469,6 +469,7 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 				}),
 			),
 		).resolves.toBe(false)
+		await waitForAfterCommit()
 		expect(committedEvents).toStrictEqual([])
 		expect(rollbackTrace).toContain('schema:developer:afterCreate')
 	})

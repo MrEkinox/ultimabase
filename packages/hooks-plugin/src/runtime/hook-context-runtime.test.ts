@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { HookContextIdentity } from '../context/hook-context.js'
+import { defineEvent } from './events.js'
 import { createRuntimeHookContext } from './hook-context-runtime.js'
 import {
 	RequestCapability,
@@ -13,7 +14,7 @@ const identity: HookContextIdentity = {
 	handlerIndex: 0,
 	operationKind: 'create-one',
 	owner: { kind: 'application' },
-	phase: 'beforeCreate',
+	phase: 'beforeOperation',
 	target: { className: 'RevocableHookArticle', kind: 'schema' },
 }
 
@@ -22,6 +23,10 @@ const requestValue = new RequestContextValue('fixture.hook-value', (value) => {
 	return value
 })
 const requestCapability = new RequestCapability('fixture:hook-capability')
+const articleCreated = defineEvent<{ readonly nested: { readonly value: string } }>(
+	'article.created',
+)
+const lateEvent = defineEvent('late.event')
 
 const request = RequestContext.anonymous({
 	capabilities: [requestCapability],
@@ -44,7 +49,7 @@ describe('Runtime HookContext revocation', () => {
 
 		expect(scope.context.getValue(requestValue)).toBe('visible')
 		expect(scope.context.hasCapability(requestCapability)).toBe(true)
-		scope.context.emit('article.created', payload)
+		scope.context.emit(articleCreated, payload)
 		payload.nested.value = 'mutated'
 		await expect(
 			scope.queryGuard.run(() => Promise.resolve('result')),
@@ -52,7 +57,7 @@ describe('Runtime HookContext revocation', () => {
 
 		expect(emissions).toEqual([
 			expect.objectContaining({
-				delivery: 'required',
+				contract: articleCreated,
 				name: 'article.created',
 				payload: { nested: { value: 'original' } },
 				request,
@@ -65,7 +70,7 @@ describe('Runtime HookContext revocation', () => {
 			() => scope.context.getValue(requestValue),
 			() => scope.context.hasCapability(requestCapability),
 			() => {
-				scope.context.emit('late.event', {})
+				scope.context.emit(lateEvent, {})
 			},
 			() => scope.queryGuard.run(() => Promise.resolve()),
 		]) {
@@ -92,14 +97,10 @@ describe('Runtime HookContext revocation', () => {
 		)
 		expect(() => {
 			scope.context.emit(
-				{
-					delivery: 'optional',
-					kind: 'hook-event-contract',
-					name: 'forged.event',
-				},
+				{ kind: 'hook-event-contract', name: 'forged.event' },
 				{},
 			)
-		}).toThrow('Invalid hook event contract')
+		}).toThrow('context.emit requires an event created by defineEvent')
 		await scope.lifetime.close()
 	})
 })

@@ -1,13 +1,13 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type {
-	Model,
 	NumericUpdateFieldName,
 	NumericUpdateOperation,
 	SchemaDefinition,
 	SchemaItem,
 	SchemaPreparedDraft,
 	SchemaRelationFieldName,
+	SchemaResult,
 	SchemaStoredCreateData,
 	SchemaStoredUpdateData,
 } from '@ultimabase/core'
@@ -46,12 +46,6 @@ interface SaveHookFamilyOptions<TAll, TCreate, TUpdate, TUpsert> {
 export type SaveHookFamily<TAll, TCreate, TUpdate, TUpsert> = RequireAtLeastOne<
 	SaveHookFamilyOptions<TAll, TCreate, TUpdate, TUpsert>
 >
-
-/**
- * A persisted object as hooks receive it: plain frozen data without methods
- * (ADR-0310, ADR-0318).
- */
-export type HookItem<TSchema extends SchemaDefinition> = Model<TSchema>
 
 /**
  * The values of a create as they will be stored: a `{ connect }` link is the
@@ -95,9 +89,15 @@ export type HookChanges<TSchema extends SchemaDefinition> = {
 	readonly [TKey in keyof SchemaStoredUpdateData<TSchema>]?:
 		| StoredUpdateValue<TSchema, TKey>
 		| NumericChange<TSchema, TKey>
-} & {
-	readonly [TKey in SchemaRelationFieldName<TSchema>]?: HookRelationChanges
-}
+} & RelationChangeFields<TSchema>
+
+/** Relation link changes, only when the schema's relation names are known. */
+type RelationChangeFields<TSchema extends SchemaDefinition> =
+	string extends SchemaRelationFieldName<TSchema>
+		? unknown
+		: {
+				readonly [TKey in SchemaRelationFieldName<TSchema>]?: HookRelationChanges
+			}
 
 /** What `resolveInput.create` receives. */
 export interface SchemaResolveCreateInput<TSchema extends SchemaDefinition> {
@@ -116,7 +116,7 @@ export interface SchemaResolveUpdateInput<TSchema extends SchemaDefinition> {
 	/** Only what the update changes; return a replacement to change it. */
 	readonly changes: HookChanges<TSchema>
 	/** The object before the update, locked by the transaction. */
-	readonly originalItem: HookItem<TSchema>
+	readonly originalItem: SchemaResult<TSchema>
 }
 
 /** What `resolveInput.upsert` receives. */
@@ -131,7 +131,7 @@ export interface SchemaResolveUpsertInput<TSchema extends SchemaDefinition> {
 	/** The changes applied when an object matches. */
 	readonly changes: HookChanges<TSchema>
 	/** The matching object, or `null` when the upsert creates. */
-	readonly originalItem: HookItem<TSchema> | null
+	readonly originalItem: SchemaResult<TSchema> | null
 }
 
 /** What an upsert `resolveInput` returns to replace both of its branches. */
@@ -203,7 +203,7 @@ export interface SchemaBeforeUpdateHookInput<TSchema extends SchemaDefinition> {
 	/** The complete object as the update will store it. */
 	readonly item: Readonly<SchemaItem<TSchema>>
 	/** The object before the update, locked by the transaction. */
-	readonly originalItem: HookItem<TSchema>
+	readonly originalItem: SchemaResult<TSchema>
 	/** Only what the update changes, relation links included. */
 	readonly changes: HookChanges<TSchema>
 }
@@ -218,7 +218,7 @@ export interface SchemaBeforeUpsertHookInput<TSchema extends SchemaDefinition> {
 	/** The complete object as the upsert will store it. */
 	readonly item: Readonly<SchemaItem<TSchema>>
 	/** The matching object, or `null` when the upsert creates. */
-	readonly originalItem: HookItem<TSchema> | null
+	readonly originalItem: SchemaResult<TSchema> | null
 }
 
 /** What `beforeOperation.delete` receives. */
@@ -228,7 +228,7 @@ export interface SchemaBeforeDeleteHookInput<TSchema extends SchemaDefinition> {
 	readonly kind: 'delete'
 	readonly item: null
 	/** The object about to be deleted, locked by the transaction. */
-	readonly originalItem: HookItem<TSchema>
+	readonly originalItem: SchemaResult<TSchema>
 }
 
 /** What `beforeOperation.all` receives: one of the four native inputs. */
@@ -244,7 +244,7 @@ export interface SchemaAfterCreateHookInput<TSchema extends SchemaDefinition> {
 	readonly context: HookContext
 	readonly kind: 'create'
 	/** The stored object. */
-	readonly item: HookItem<TSchema>
+	readonly item: SchemaResult<TSchema>
 	readonly originalItem: null
 }
 
@@ -254,9 +254,9 @@ export interface SchemaAfterUpdateHookInput<TSchema extends SchemaDefinition> {
 	readonly context: HookContext
 	readonly kind: 'update'
 	/** The stored object. */
-	readonly item: HookItem<TSchema>
+	readonly item: SchemaResult<TSchema>
 	/** The object before the update. */
-	readonly originalItem: HookItem<TSchema>
+	readonly originalItem: SchemaResult<TSchema>
 	/** Only what the update changed, relation links included. */
 	readonly changes: HookChanges<TSchema>
 }
@@ -269,9 +269,9 @@ export interface SchemaAfterUpsertHookInput<TSchema extends SchemaDefinition> {
 	/** `create` when no object matched, `update` otherwise. */
 	readonly mode: 'create' | 'update'
 	/** The stored object. */
-	readonly item: HookItem<TSchema>
+	readonly item: SchemaResult<TSchema>
 	/** The matched object, or `null` when the upsert created. */
-	readonly originalItem: HookItem<TSchema> | null
+	readonly originalItem: SchemaResult<TSchema> | null
 }
 
 /** What `afterOperation.delete` and `afterCommit.delete` receive. */
@@ -281,7 +281,7 @@ export interface SchemaAfterDeleteHookInput<TSchema extends SchemaDefinition> {
 	readonly kind: 'delete'
 	readonly item: null
 	/** The deleted object. */
-	readonly originalItem: HookItem<TSchema>
+	readonly originalItem: SchemaResult<TSchema>
 }
 
 /** What `afterOperation.all` and `afterCommit.all` receive: one of the four native inputs. */

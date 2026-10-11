@@ -1,22 +1,13 @@
 import {
 	normalizeUpdateExpression,
-	type CreateOneOperationAst,
-	type DeleteManyOperationAst,
-	type DeleteOneOperationAst,
-	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
-	type UpsertOneOperationAst,
 } from '@ultimabase/core'
 import { UltimaBase, type SchemaItem } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import type { DatabaseOperationOutcome } from '@ultimabase/core'
-import {
-	collectMutationAfterItems,
-	collectMutationBeforeItems,
-} from './lifecycle.js'
-import { QueryBuilder } from '@ultimabase/core/plugin'
+import { applyUpdateToTarget, collectMutationAfterItems } from './lifecycle.js'
 
 const schema = UltimaBase.Schema.define({
 	className: 'MutationItemPairs',
@@ -24,8 +15,6 @@ const schema = UltimaBase.Schema.define({
 		title: field.string({ required: true }),
 	}),
 })
-const schemaNode = new QueryBuilder(schema).ast.schema
-const query = new QueryBuilder(schema).ast
 const original: SchemaItem<typeof schema> = {
 	createdAt: '2026-08-08T10:00:00.000Z',
 	id: '00000000-0000-7000-8000-000000000001',
@@ -39,81 +28,28 @@ const current: SchemaItem<typeof schema> = {
 }
 
 describe('parent mutation item materializations', () => {
-	it('builds create candidates before persistence', () => {
-		const operation = immutableRecord({
-			input: current,
-			kind: 'create-one',
-			selection: query.selection,
-			schema: schemaNode,
-		}) satisfies CreateOneOperationAst<typeof schema>
+	it('applies scalar update values to one locked target', () => {
+		const update = normalizeUpdateExpression(schema, { title: 'After' })
 
-		expect(collectMutationBeforeItems(operation, undefined)).toStrictEqual([
-			{ item: current, originalItem: null },
-		])
+		expect(applyUpdateToTarget(schema, original, update)).toStrictEqual({
+			...original,
+			title: 'After',
+		})
 	})
 
-	it('applies scalar updates to one prepared preimage', () => {
-		const operation = immutableRecord({
-			kind: 'update-one',
-			query,
-			update: normalizeUpdateExpression(schema, { title: 'After' }),
-		}) satisfies UpdateOneOperationAst<typeof schema>
+	it('keeps the target unchanged for relation-only link changes', () => {
+		const relationOnly = immutableRecord({
+			kind: 'update-expression' as const,
+			operations: [
+				immutableRecord({
+					field: 'tags',
+					kind: 'relation' as const,
+					value: immutableRecord({ action: 'connect' as const, targets: [] }),
+				}),
+			],
+		})
 
-		expect(collectMutationBeforeItems(operation, original)).toStrictEqual([
-			{
-				item: { ...original, title: 'After' },
-				originalItem: original,
-			},
-		])
-		expect(collectMutationBeforeItems(operation, null)).toStrictEqual([])
-	})
-
-	it('builds stable item pairs for prepared set-based targets', () => {
-		const second = { ...original, id: '00000000-0000-7000-8000-000000000002' }
-		const update = immutableRecord({
-			kind: 'update-many',
-			query,
-			update: normalizeUpdateExpression(schema, { title: 'After' }),
-		}) satisfies UpdateManyOperationAst<typeof schema>
-		const deletion = immutableRecord({
-			kind: 'delete-many',
-			query,
-		}) satisfies DeleteManyOperationAst<typeof schema>
-
-		expect(
-			collectMutationBeforeItems(update, undefined, [second, original]),
-		).toStrictEqual([
-			{ item: { ...second, title: 'After' }, originalItem: second },
-			{ item: { ...original, title: 'After' }, originalItem: original },
-		])
-		expect(
-			collectMutationBeforeItems(deletion, undefined, [second, original]),
-		).toStrictEqual([
-			{ item: null, originalItem: second },
-			{ item: null, originalItem: original },
-		])
-	})
-
-	it('exposes one delete preimage and keeps atomic upsert unresolved', () => {
-		const deletion = immutableRecord({
-			kind: 'delete-one',
-			query,
-		}) satisfies DeleteOneOperationAst<typeof schema>
-		const upsert = immutableRecord({
-			create: current,
-			kind: 'upsert-one',
-			query,
-			target: immutableRecord({
-				fields: ['id'],
-				kind: 'unique-upsert-target' as const,
-			}),
-			update: normalizeUpdateExpression(schema, { title: 'After' }),
-		}) satisfies UpsertOneOperationAst<typeof schema>
-
-		expect(collectMutationBeforeItems(deletion, original)).toStrictEqual([
-			{ item: null, originalItem: original },
-		])
-		expect(collectMutationBeforeItems(upsert, undefined)).toStrictEqual([])
+		expect(applyUpdateToTarget(schema, original, relationOnly)).toBe(original)
 	})
 
 	it('builds exact post-persistence pairs independently from selection', () => {

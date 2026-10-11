@@ -13,6 +13,7 @@ describe('@ultimabase/testing public API', () => {
 			'definePluginConformanceSuite',
 			'readVitestPoolId',
 			'runPluginConformance',
+			'waitForAfterCommit',
 			'withPluginTypegenConformance',
 		])
 	})
