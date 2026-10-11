@@ -534,19 +534,27 @@ describe(
 				{ where: { slug: { eq: 'forged-authority' } } },
 			)
 			expect(await responseJson(forgedLookup)).toStrictEqual(emptyPage)
-			const rejectedResponses = await Promise.all([
-				fetch(`${baseUrl}${articlePath}`),
-				fetch(`${baseUrl}${articlePath}`, {
-					headers: { 'X-UltimaBase-Application-Id': 'missing-app' },
-				}),
-				minimal
-					.createMinimalClient({
-						applicationId: firstAppId,
-						baseUrl,
-						masterKey: 'invalid-master-secret',
-					})
-					.fetch(articlePath),
-			])
+			const [headerless, unknownApplication, ...rejectedResponses] =
+				await Promise.all([
+					fetch(`${baseUrl}${articlePath}`),
+					fetch(`${baseUrl}${articlePath}`, {
+						headers: { 'X-UltimaBase-Application-Id': 'missing-app' },
+					}),
+					minimal
+						.createMinimalClient({
+							applicationId: firstAppId,
+							baseUrl,
+							masterKey: 'invalid-master-secret',
+						})
+						.fetch(articlePath),
+				])
+			// ADR-0323: without the header a request reaches the only application;
+			// a different application ID is unknown.
+			expect(headerless.status).toBe(200)
+			expect(unknownApplication.status).toBe(404)
+			expect(await unknownApplication.text()).toContain(
+				'HTTP_APPLICATION_UNKNOWN',
+			)
 			rejectedResponses.push(foreignMasterRejected)
 			await firstApplication.dispose()
 			await requireApplication(auditFailureApplication, 'audit failure').start()

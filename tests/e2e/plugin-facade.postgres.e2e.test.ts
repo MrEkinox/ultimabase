@@ -221,7 +221,7 @@ describe('definePlugin probe plugins on PostgreSQL (ADR-0316)', () => {
 		const originalHeaders: HttpOriginalHeader[] = [...headers.entries()]
 		const response = await http.fetch({
 			originalHeaders,
-			request: new Request('https://example.test/health', { headers }),
+			request: new Request('https://example.test/status', { headers }),
 		})
 		expect(response.status).toBe(200)
 		await expect(response.json()).resolves.toEqual({ status: 'ok' })

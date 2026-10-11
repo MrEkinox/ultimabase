@@ -132,7 +132,7 @@ const graphql = (query: string, token?: string): Promise<Response> =>
 	})
 
 describe('generated HTTP and GraphQL applications with PostgreSQL', () => {
-	it('serves a read-only REST Task route and rejects missing application identity', async () => {
+	it('serves a read-only REST Task route and rejects an unknown application identity', async () => {
 		const project = await setupProject('create_app_rest', {
 			language: 'js',
 			apis: ['rest'],
@@ -140,9 +140,17 @@ describe('generated HTTP and GraphQL applications with PostgreSQL', () => {
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {
 			server = await startServer(project.destination, 'js')
-			const missing = await fetch(`${endpoint}/api/v1/classes/Task`)
-			expect(missing.status).not.toBe(200)
-			expect(await missing.text()).toContain('HTTP_APPLICATION_REJECTED')
+			// ADR-0323: the header is optional, a different one is refused.
+			const unknown = await fetch(`${endpoint}/api/v1/classes/Task`, {
+				headers: { 'X-UltimaBase-Application-Id': 'other' },
+			})
+			expect(unknown.status).toBe(404)
+			expect(await unknown.text()).toContain('HTTP_APPLICATION_UNKNOWN')
+			const headerless = await fetch(`${endpoint}/api/v1/classes/Task`)
+			expect(headerless.status).toBe(200)
+			const health = await fetch(`${endpoint}/health`)
+			expect(health.status).toBe(200)
+			expect(await health.json()).toStrictEqual({ status: 'OK' })
 			const read = await fetch(`${endpoint}/api/v1/classes/Task`, {
 				headers: applicationHeader,
 			})

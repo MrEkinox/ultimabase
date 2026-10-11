@@ -425,12 +425,22 @@ describe(
 				/(?:get|find|count|exists|create|update|delete|upsert).*ExampleRole/u,
 			)
 
+			// ADR-0323: without the header a request reaches the only application.
 			const missingApp = await fetch(`${baseUrl}/graphql`, {
 				body: JSON.stringify({ query: statusQuery }),
 				headers: { 'Content-Type': 'application/json' },
 				method: 'POST',
 			})
-			expect(missingApp.status).toBe(401)
+			expect(missingApp.status).toBe(200)
+			const unknownApp = await fetch(`${baseUrl}/graphql`, {
+				body: JSON.stringify({ query: statusQuery }),
+				headers: {
+					'Content-Type': 'application/json',
+					'X-UltimaBase-Application-Id': 'unknown-app',
+				},
+				method: 'POST',
+			})
+			expect(unknownApp.status).toBe(404)
 
 			const invalidSecret = 'must-not-appear-in-errors'
 			const rejected = await requireExample()

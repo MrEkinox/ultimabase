@@ -112,7 +112,7 @@ describe('packed GraphiQL plugin', () => {
 					browserRequest('production-disabled', '/graphiql'),
 				)
 			).status,
-		).toBe(401)
+		).toBe(404)
 		await disabled.dispose()
 	})
 })

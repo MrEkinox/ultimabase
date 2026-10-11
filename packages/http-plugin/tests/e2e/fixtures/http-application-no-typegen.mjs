@@ -92,6 +92,10 @@ try {
 		originalHeaders: [['X-UltimaBase-Application-Id', 'javascript-app']],
 		request: new Request('http://localhost/javascript'),
 	})
+	// ADR-0323: a header-less request runs without a server through fetch().
+	const portFree = await ultimabase
+		.plugin(httpPlugin)
+		.fetch(new Request('http://localhost/javascript'))
 	const absent = await dispatchHttpApplicationRequest(undefined, {
 		originalHeaders: [['X-UltimaBase-Request-Id', 'absent.request']],
 		request: new Request('http://localhost/javascript'),
@@ -101,7 +105,10 @@ try {
 			appId: http.appId,
 			absentStatus: absent.status,
 			absentRequestId: absent.headers.get('X-UltimaBase-Request-Id'),
-			owner: http.routeGraph.routes[0].provenance.owner,
+			owner: http.routeGraph.routes.find(
+				(route) => route.path === '/javascript',
+			).provenance.owner,
+			portFree: await portFree.text(),
 			response: await response.text(),
 		}),
 	)

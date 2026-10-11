@@ -67,7 +67,7 @@ describe('API project templates', () => {
 				plan.plugins.includes('graphql-yoga-plugin'),
 			)
 			if (plan.plugins.includes('http-plugin')) {
-				expect(application).toContain("httpPlugin({ appId: 'main' })")
+				expect(application).toContain('httpPlugin()')
 				expect(application).not.toContain('master: true')
 				expect(application).not.toContain('browser: {')
 				if (!plan.plugins.includes('hono-server-plugin')) {
@@ -112,7 +112,7 @@ describe('API project templates', () => {
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([
-				"curl -i -H 'X-UltimaBase-Application-Id: main' 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
+				"curl -i 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
 			]),
 		)
 	})

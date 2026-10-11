@@ -19,6 +19,7 @@ it('runs the packed HTTP application from JavaScript without Typegen', async () 
 		absentStatus: 401,
 		absentRequestId: 'absent.request',
 		owner: { pluginId: 'fixture.javascript-http-route' },
+		portFree: 'typegen-free',
 		response: 'typegen-free',
 	})
 })

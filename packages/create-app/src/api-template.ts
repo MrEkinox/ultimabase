@@ -78,7 +78,7 @@ export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
 
 export const apiPluginEntries = (plan: InitializerPlan): string[] =>
 	included([
-		[has(plan, 'http-plugin'), "httpPlugin({ appId: 'main' })"],
+		[has(plan, 'http-plugin'), 'httpPlugin()'],
 		[has(plan, 'graphql-yoga-plugin'), 'graphqlYogaPlugin()'],
 		[has(plan, 'graphiql-plugin'), explorerEntry('graphiqlPlugin')],
 		[has(plan, 'apollo-sandbox-plugin'), explorerEntry('apolloSandboxPlugin')],
@@ -103,11 +103,11 @@ export const apiNextCommands = (plan: InitializerPlan): string[] => {
 		],
 		[
 			has(plan, 'rest-plugin') && task,
-			"curl -i -H 'X-UltimaBase-Application-Id: main' 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
+			"curl -i 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
 		],
 		[
 			has(plan, 'graphql-yoga-plugin') && task,
-			`curl -i -X POST -H 'X-UltimaBase-Application-Id: main' -H 'Content-Type: application/json' --data '{"query":"{ findManyTask(first: 10) { nodes { id title done } } }"}' http://127.0.0.1:1337/graphql`,
+			`curl -i -X POST -H 'Content-Type: application/json' --data '{"query":"{ findManyTask(first: 10) { nodes { id title done } } }"}' http://127.0.0.1:1337/graphql`,
 		],
 		[
 			has(plan, 'graphiql-plugin'),
@@ -124,7 +124,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 	included([
 		[
 			has(plan, 'http-plugin'),
-			'HTTP identifies this application as `main`; each real request needs `X-UltimaBase-Application-Id: main`. This header selects an application, not authority. Browser-origin access and HTTP Master keys stay disabled.',
+			'HTTP serves this application as `main`: requests reach it without an application header, and `GET /health` reports its health. Browser-origin access (`browser.origins`) and HTTP Master keys stay disabled; requests are limited to 1 MiB bodies and 30 seconds.',
 		],
 		[
 			hasHttpListener(plan),
