@@ -245,13 +245,43 @@ export type SchemaTypeInfoByNameOrBase<TClassName extends string> = [
 type SchemaTypeInfoForLiteral<TClassName extends string> =
 	string extends TClassName ? never : SchemaTypeInfoByName<TClassName>
 
+/**
+ * The members `SchemaTypeInfoFor` compares when it reads a contract. The write
+ * inputs are left out: computing a source contract's create and update inputs
+ * walks its relation graph, so comparing them made every read of a schema pay
+ * for the write types of every reachable schema (Core migration step 5b).
+ * Contracts are still declared against the complete `SchemaTypeInfo`.
+ */
+interface ReadSchemaTypeInfo {
+	readonly fields: string
+	readonly inputs: Readonly<{
+		readonly create: unknown
+		readonly dependencySelect: object
+		readonly include?: object
+		readonly nestedCreate: unknown
+		readonly nestedUpdate: object
+		readonly orderBy: object
+		readonly select: object
+		readonly update: unknown
+		readonly where: object
+	}>
+	readonly item: SchemaItemType
+	readonly key: string
+	readonly numericFields: string
+	readonly output: SchemaItemType
+	readonly persistedFields: string
+	readonly relationships?: Readonly<Record<string, SchemaRelationshipTypeInfo>>
+	readonly selectableFields: string
+}
+
 /** Resolves an exact generated entry only for a literal registered class name. */
 export type SchemaTypeInfoFor<TSource extends SchemaTypeInfoSource> =
-	TSource extends SchemaTypeInfo
+	TSource extends ReadSchemaTypeInfo
 		? TSource
-		: TSource extends SchemaTypeInfoCarrier<
-					infer TContract extends SchemaTypeInfo
-			  >
+		: TSource extends {
+					readonly [schemaTypeInfoType]?: infer TContract extends
+						ReadSchemaTypeInfo
+			  }
 			? TContract
 			: TSource extends DeferredSchemaTarget<unknown>
 				? SchemaTypeInfoForDeferred<ResolveSchemaTarget<TSource>>
@@ -265,10 +295,11 @@ export type SchemaTypeInfoFor<TSource extends SchemaTypeInfoSource> =
 
 // A deferred target is read only from lazy positions, after its schema is typed.
 // Reading the carrier directly avoids re-entering SchemaTypeInfoFor (unbounded for `any`).
-type SchemaTypeInfoForDeferred<TTarget> =
-	TTarget extends SchemaTypeInfoCarrier<infer TContract extends SchemaTypeInfo>
-		? TContract
-		: BaseSchemaTypeInfo<string>
+type SchemaTypeInfoForDeferred<TTarget> = TTarget extends {
+	readonly [schemaTypeInfoType]?: infer TContract extends ReadSchemaTypeInfo
+}
+	? TContract
+	: BaseSchemaTypeInfo<string>
 
 /** Reads an exact generated relationship target without inspecting local callbacks. */
 export type SchemaRelationshipTargetName<
