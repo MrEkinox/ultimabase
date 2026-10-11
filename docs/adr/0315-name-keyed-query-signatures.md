@@ -1,10 +1,10 @@
 # ADR-0315: Name-keyed query signatures
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: ADR-0297 (form D, name-keyed types), ADR-0310 (named types); applies ADR-0288
 - Approval: direction decided by the user on 2026-10-11 after Core migration step 5
-  (`docs/handoff/migration-core.md`, step 5, option 2)
+  (`docs/handoff/migration-core.md`, step 5, option 2); record accepted by the user on 2026-10-11
 - Evidence: `docs/handoff/migration-core-etape-5.md` (step 5 profile and ablations, `main`
   5fe975d6), `docs/handoff/formes/d-named.md` (variant `named-args`)
 
