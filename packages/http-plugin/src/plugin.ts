@@ -169,7 +169,7 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 				) {
 					// ADR-0313: routes nothing can answer are a visible warning.
 					logger.warn(
-						`HTTP has ${String(routes)} route${routes === 1 ? '' : 's'} but no server plugin: install @ultimabase/server-hono-plugin and add honoServerPlugin() to UltimaBase.use(...), or serve the HTTP application's fetch handler yourself.`,
+						`HTTP has ${String(routes)} route${routes === 1 ? '' : 's'} but no server plugin: install @ultimabase/hono-server-plugin and add honoServerPlugin() to UltimaBase.use(...), or serve the HTTP application's fetch handler yourself.`,
 					)
 				}
 				return {

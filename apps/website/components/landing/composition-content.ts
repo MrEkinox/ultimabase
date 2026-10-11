@@ -1,7 +1,7 @@
 import { applicationExample } from './content'
 
 const httpImports = `import { httpPlugin } from '@ultimabase/http-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'`
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'`
 const httpPlugins = `    httpPlugin({ appId: 'articles' }),
     honoServerPlugin(),`
 

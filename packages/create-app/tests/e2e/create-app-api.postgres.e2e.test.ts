@@ -287,7 +287,7 @@ try {
 	it('starts a Hono-only selection without inventing data routes', async () => {
 		const project = await setupProject('create_app_hono_only', {
 			language: 'js',
-			plugins: ['server-hono-plugin'],
+			plugins: ['hono-server-plugin'],
 		})
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {

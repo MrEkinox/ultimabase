@@ -10,9 +10,9 @@ outcome: Run an UltimaBase HTTP application on a managed or existing Hono server
 releaseStatus: pre-release
 reviewedAt: 2026-09-21
 sources:
-  - packages/server-hono-plugin/README.md
-  - packages/server-hono-plugin/src/options.ts
-  - packages/server-hono-plugin/src/plugin.ts
+  - packages/hono-server-plugin/README.md
+  - packages/hono-server-plugin/src/options.ts
+  - packages/hono-server-plugin/src/plugin.ts
   - docs/adr/0295-hono-listener-address-export.md
   - docs/adr/0009-http-server-plugins.md
   - docs/adr/0226-http-browser-and-predispatch-boundaries.md
@@ -22,7 +22,7 @@ sources:
 
 ## Overview
 
-`@ultimabase/server-hono-plugin` connects an UltimaBase HTTP application to
+`@ultimabase/hono-server-plugin` connects an UltimaBase HTTP application to
 Hono on Node.js. It can own a listener or mount onto an existing Hono app. The
 [HTTP plugin](./http) owns application identity, request boundaries, and
 browser policy; Hono supplies the server. Neither plugin creates REST or
@@ -38,15 +38,15 @@ current code; the registry commands below describe installation after publicatio
 Install the Hono server provider alongside the [HTTP plugin](./http):
 
 ```bash tab="npm" tab-group="package-manager"
-npm install @ultimabase/server-hono-plugin
+npm install @ultimabase/hono-server-plugin
 ```
 
 ```bash tab="yarn"
-yarn add @ultimabase/server-hono-plugin
+yarn add @ultimabase/hono-server-plugin
 ```
 
 ```bash tab="pnpm"
-pnpm add @ultimabase/server-hono-plugin
+pnpm add @ultimabase/hono-server-plugin
 ```
 
 If you supply your own Hono app and start its listener yourself, also install
@@ -77,7 +77,7 @@ listener after the application graph validates:
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 const server = honoServerPlugin()
 
@@ -103,7 +103,7 @@ your own `app`:
 
 ```ts
 await ultimabase.start()
-const address = ultimabase.plugin('@ultimabase/server-hono-plugin').address()
+const address = ultimabase.plugin('@ultimabase/hono-server-plugin').address()
 console.log(`Listening on port ${String(address?.port)}`)
 ```
 
@@ -143,7 +143,7 @@ import { Hono } from 'hono'
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')

@@ -72,7 +72,7 @@
 				"@ultimabase/graphql-yoga-plugin",
 				"@ultimabase/http-plugin",
 				"@ultimabase/rest-plugin",
-				"@ultimabase/server-hono-plugin"
+				"@ultimabase/hono-server-plugin"
 			],
 			"sections": [
 				"plugins/official/http",

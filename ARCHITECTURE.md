@@ -147,7 +147,7 @@ roles-plugin ─────────→ plugin-kit, core, shared
 acl-permissions-plugin → plugin-kit, core, shared
 postgres-plugin ──────→ plugin-kit, core, shared
 http-plugin ──────────→ plugin-kit, core, shared
-server-hono-plugin ───→ http-plugin, plugin-kit, core, shared
+hono-server-plugin ───→ http-plugin, plugin-kit, core, shared
 rest-plugin ──────────→ http-plugin, plugin-kit, core, shared
 password-auth-plugin ─→ http-plugin, plugin-kit, core, shared
 graphql-plugin ───────→ plugin-kit, core, shared
@@ -449,7 +449,7 @@ per-domain records are archived at tag `rebuild-archive`.
 | `pg-vector-plugin`       | `index.ts` (public types dominate; unchanged except one local)                                                                                                                                                                                                                                         |            202 → 201 |
 | `postgres-plugin`        | `required.ts` and `naming.ts` (new), `schema/`, `query/` (`jsonb-operand.ts` merges two modules), `drizzle/` (`prepared-operation.ts` merges four modules; one `PostgresStatementContext`), `synchronization/`, `introspection/`                                                                       |        9,307 → 7,966 |
 | `http-plugin`            | `definitions.ts` (shared exact-option checks and definition registry), `application.ts` (one `dispatchPreparedRequest`), `request-boundary.ts`, `browser-policy.ts`, `route-graph.ts`, `endpoints.ts`                                                                                                  |        2,338 → 2,080 |
-| `server-hono-plugin`     | `plugin.ts`, `options.ts`, `provider.ts`, `original-headers.ts`                                                                                                                                                                                                                                        |            431 → 424 |
+| `hono-server-plugin`     | `plugin.ts`, `options.ts`, `provider.ts`, `original-headers.ts`                                                                                                                                                                                                                                        |            431 → 424 |
 | `rest-plugin`            | `errors.ts` (all three error families), `transports.ts` (closures instead of class, `WeakMap` and exported binders), `http-handler.ts`, `reads.ts`, `mutations.ts` (one contract table), `field-values.ts`, `routes.ts`                                                                                |        4,320 → 3,728 |
 | `password-auth-plugin`   | `operation-handlers.ts` (one closure over private state), `credentials.ts` (one compare-and-swap writer), `sessions.ts`, `operations.ts`, `http-cookie-routes.ts` (one `route(key)`), `plugin.ts`                                                                                                      |        3,567 → 3,366 |
 | `graphql-plugin`         | `compile-context.ts` (one `GraphqlCompileContext`), `binding-compiler.ts`, `binding-metadata.ts`, `binding-types.ts`, `root-fields.ts`, `wire-values.ts`, `connection-runtime.ts`, `schema-composition.ts`                                                                                             |        7,620 → 6,661 |

@@ -27,7 +27,7 @@ import {
 	passwordSession,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { Hono } from 'hono'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 

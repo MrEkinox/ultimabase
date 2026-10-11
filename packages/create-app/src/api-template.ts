@@ -8,7 +8,7 @@ import {
 import type { NamedImport } from './source.js'
 
 export const hasHttpListener = (plan: InitializerPlan): boolean =>
-	has(plan, 'server-hono-plugin')
+	has(plan, 'hono-server-plugin')
 
 const hasGraphqlExplorer = (plan: InitializerPlan): boolean =>
 	has(plan, 'graphiql-plugin') || has(plan, 'apollo-sandbox-plugin')
@@ -51,7 +51,7 @@ const explorerEntry = (factory: string): string => `${factory}()`
 export const apiApplicationImports = (plan: InitializerPlan): NamedImport[] =>
 	pluginImports(plan, [
 		['http-plugin', 'httpPlugin'],
-		['server-hono-plugin', 'honoServerPlugin'],
+		['hono-server-plugin', 'honoServerPlugin'],
 		['graphql-yoga-plugin', 'graphqlYogaPlugin'],
 		['graphiql-plugin', 'graphiqlPlugin'],
 		['apollo-sandbox-plugin', 'apolloSandboxPlugin'],

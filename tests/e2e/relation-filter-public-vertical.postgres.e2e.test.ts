@@ -1,7 +1,7 @@
 import type { ServerType } from '@hono/node-server'
 import { getCurrentRequest } from '@ultimabase/core'
 import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { Hono } from 'hono'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

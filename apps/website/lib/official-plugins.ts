@@ -5,6 +5,7 @@ export const officialPluginCatalog = Object.freeze({
 	'graphiql-plugin': 'GraphQL browser explorer',
 	'graphql-plugin': 'Network-independent GraphQL schema',
 	'graphql-yoga-plugin': 'GraphQL over HTTP adapter',
+	'hono-server-plugin': 'Node.js Hono server provider',
 	'hooks-plugin': 'Application lifecycle behavior',
 	'http-plugin': 'Fetch-compatible application boundary',
 	'password-auth-plugin': 'Username, password, and session identity',
@@ -12,7 +13,6 @@ export const officialPluginCatalog = Object.freeze({
 	'postgres-plugin': 'PostgreSQL database adapter',
 	'rest-plugin': 'REST v1 transport',
 	'roles-plugin': 'Schema-backed roles',
-	'server-hono-plugin': 'Node.js Hono server provider',
 	'soft-delete-plugin': 'Tombstone lifecycle',
 	'validation-plugin': 'Standard Schema field validation',
 } as const)

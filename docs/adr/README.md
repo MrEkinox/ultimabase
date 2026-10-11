@@ -205,10 +205,10 @@ Current records (accepted or still active in part):
 - [ADR-0221: Field validation is a single mutation-input boundary](0221-single-pass-field-validation.md)
 - [ADR-0222: Sparse Access resolves granular secure defaults](0222-sparse-read-access-inherits-secure-defaults.md), the `default` option of `accessPlugin` superseded by ADR-0317
 - [ADR-0223: Application field validation is an optional plugin](0223-optional-field-validation-plugin.md)
-- [ADR-0224: HTTP application, REST, and password authentication boundaries](0224-http-application-rest-and-password-auth-boundaries.md)
+- [ADR-0224: HTTP application, REST, and password authentication boundaries](0224-http-application-rest-and-password-auth-boundaries.md), the required application header superseded by ADR-0323
 - [ADR-0225: Core provides a narrow application request execution capability](0225-core-application-request-execution-capability.md)
 - [ADR-0226: HTTP browser and pre-dispatch boundaries are server-consistent](0226-http-browser-and-predispatch-boundaries.md)
-- [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md), offset-only REST pagination superseded by ADR-0309
+- [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md), offset-only REST pagination superseded by ADR-0309, the required application header by ADR-0323
 - [ADR-0229: Plugin fields own nominal REST wire codecs](0229-field-owned-rest-wire-codecs.md)
 - [ADR-0230: Plugin-field wire protocols have canonical identities](0230-canonical-plugin-field-wire-protocols.md)
 - [ADR-0231: Core request executors accept normalized schema reads](0231-core-application-request-read-execution.md)
@@ -302,6 +302,7 @@ Current records (accepted or still active in part):
 - [ADR-0318: Hooks on plain data, post-commit delivery and bounded recursion](0318-hooks-data-phases-and-post-commit-delivery.md)
 - [ADR-0319: Validation transforms, schema checks and complete issues](0319-validation-transforms-schema-checks-and-issues.md)
 - [ADR-0320: PostgreSQL safe synchronization, connection settings and debugging](0320-postgres-safe-sync-connection-and-debug.md)
+- [ADR-0323: HTTP foundation defaults and the Hono server](0323-http-foundation-and-hono-server.md)
 
 Proposed records (awaiting user validation):
 

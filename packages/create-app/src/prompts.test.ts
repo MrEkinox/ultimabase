@@ -97,7 +97,7 @@ describe('selection flow', () => {
 			expect.arrayContaining([
 				'postgres-plugin',
 				'http-plugin',
-				'server-hono-plugin',
+				'hono-server-plugin',
 				'rest-plugin',
 				'graphql-plugin',
 				'graphql-yoga-plugin',

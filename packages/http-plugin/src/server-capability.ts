@@ -8,7 +8,7 @@ import {
 
 /** Announces one server plugin that serves the HTTP application. */
 export interface HttpServerDescriptor {
-	/** Package name of the server plugin. @example "@ultimabase/server-hono-plugin" */
+	/** Package name of the server plugin. @example "@ultimabase/hono-server-plugin" */
 	readonly name: string
 }
 

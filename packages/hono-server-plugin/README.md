@@ -1,4 +1,4 @@
-# @ultimabase/server-hono-plugin
+# @ultimabase/hono-server-plugin
 
 Node.js Hono server provider for UltimaBase's shared HTTP application
 capability. Hono and `@hono/node-server` stay confined to this package; Core,
@@ -17,7 +17,7 @@ application stops.
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 const server = honoServerPlugin()
 

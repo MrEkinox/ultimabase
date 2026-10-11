@@ -71,7 +71,7 @@ describe('honoServerPlugin', () => {
 				],
 			},
 			environment: ['environment:network'],
-			identity: { pluginId: '@ultimabase/server-hono-plugin' },
+			identity: { pluginId: '@ultimabase/hono-server-plugin' },
 			privileges: [],
 		})
 	})
@@ -232,8 +232,8 @@ describe('honoServerPlugin', () => {
 		}
 		expect(debug).toEqual(
 			expect.arrayContaining([
-				'[@ultimabase/server-hono-plugin] listen host every interface (NODE_ENV is production)',
-				'[@ultimabase/server-hono-plugin] listen port 1337 (default)',
+				'[@ultimabase/hono-server-plugin] listen host every interface (NODE_ENV is production)',
+				'[@ultimabase/hono-server-plugin] listen port 1337 (default)',
 			]),
 		)
 	})

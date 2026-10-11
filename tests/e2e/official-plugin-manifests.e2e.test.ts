@@ -15,7 +15,7 @@ import {
 } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
@@ -170,7 +170,7 @@ it('publishes the audited privilege and environment contract for every official 
 		},
 		{
 			environment: ['environment:network'],
-			pluginId: '@ultimabase/server-hono-plugin',
+			pluginId: '@ultimabase/hono-server-plugin',
 			privileges: [],
 		},
 	])

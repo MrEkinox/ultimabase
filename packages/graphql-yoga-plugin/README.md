@@ -18,7 +18,7 @@ import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 const SchemaApplication = UltimaBase.use(
 	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),

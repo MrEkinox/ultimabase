@@ -65,15 +65,15 @@ To serve GraphQL with the official [Hono Server](./hono-server) provider, also
 install these three plugins:
 
 ```bash tab="npm" tab-group="package-manager"
-npm install @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/server-hono-plugin
+npm install @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/hono-server-plugin
 ```
 
 ```bash tab="yarn"
-yarn add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/server-hono-plugin
+yarn add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/hono-server-plugin
 ```
 
 ```bash tab="pnpm"
-pnpm add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/server-hono-plugin
+pnpm add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/hono-server-plugin
 ```
 
 For a development explorer, additionally install the package you choose:
@@ -107,7 +107,7 @@ import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 const SchemaApplication = UltimaBase.use(
 	graphqlPlugin({

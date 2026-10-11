@@ -10,7 +10,7 @@ import { postgresPlugin, type PostgresPool } from '@ultimabase/postgres-plugin'
 import {
 	honoServerPlugin,
 	type HonoServerPlugin,
-} from '@ultimabase/server-hono-plugin'
+} from '@ultimabase/hono-server-plugin'
 
 import { MinimalSchemaApplication, minimalSchemas } from './schema.ts'
 import { exampleStatusPlugin } from './status-plugin.ts'

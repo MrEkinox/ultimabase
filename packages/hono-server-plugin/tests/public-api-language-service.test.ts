@@ -16,7 +16,7 @@ const fixture = createPublicApiLanguageServiceFixture({
 	moduleSpecifier,
 })
 
-describe('@ultimabase/server-hono-plugin source declarations', () => {
+describe('@ultimabase/hono-server-plugin source declarations', () => {
 	it('exposes only the deliberate application surface', () => {
 		expect(fixture.readExportCompletions()).toStrictEqual([
 			'ExistingHonoServerPluginOptions',

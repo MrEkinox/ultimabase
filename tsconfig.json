@@ -32,7 +32,7 @@
 		{ "path": "./packages/graphql-yoga-plugin" },
 		{ "path": "./packages/graphiql-plugin" },
 		{ "path": "./packages/apollo-sandbox-plugin" },
-		{ "path": "./packages/server-hono-plugin" },
+		{ "path": "./packages/hono-server-plugin" },
 		{ "path": "./packages/password-auth-plugin" },
 		{ "path": "./packages/acl-permissions-plugin" },
 		{ "path": "./packages/postgres-plugin" },

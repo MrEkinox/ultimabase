@@ -50,7 +50,7 @@ export interface HonoServerPluginExports {
 
 /** Names one exact Hono server provider definition. */
 export type HonoServerPlugin = PluginInstance<{
-	readonly id: '@ultimabase/server-hono-plugin'
+	readonly id: '@ultimabase/hono-server-plugin'
 	readonly exports: HonoServerPluginExports
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
@@ -97,12 +97,12 @@ export const honoServerPlugin = <
 	const server = provideCapability(httpServerCapability, {
 		contributionId: 'official-hono-http-server',
 		create: () => ({
-			value: immutableRecord({ name: '@ultimabase/server-hono-plugin' }),
+			value: immutableRecord({ name: '@ultimabase/hono-server-plugin' }),
 		}),
 	})
 
 	return plugin({
-		id: '@ultimabase/server-hono-plugin',
+		id: '@ultimabase/hono-server-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
 		contributions: [

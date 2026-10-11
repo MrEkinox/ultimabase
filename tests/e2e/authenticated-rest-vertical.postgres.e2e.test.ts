@@ -1,6 +1,6 @@
 import { serve, type ServerType } from '@hono/node-server'
 import type { MasterAccessEvent } from '@ultimabase/core'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { Hono } from 'hono'
 import { createServer, type Server } from 'node:http'
 import { chromium, type Page } from 'playwright'

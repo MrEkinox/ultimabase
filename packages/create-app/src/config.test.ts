@@ -44,7 +44,7 @@ describe('initializer flags', () => {
 			'http-plugin',
 			'postgres-plugin',
 			'rest-plugin',
-			'server-hono-plugin',
+			'hono-server-plugin',
 		])
 		expect(plan.automaticPlugins).toContain('postgres-plugin')
 		expect(plan.install).toBe(false)
@@ -71,7 +71,7 @@ describe('initializer flags', () => {
 			'graphql-yoga-plugin',
 			'http-plugin',
 			'postgres-plugin',
-			'server-hono-plugin',
+			'hono-server-plugin',
 		])
 	})
 
@@ -88,7 +88,7 @@ describe('initializer flags', () => {
 			root(),
 		)
 		expect(plan.plugins).toContain('graphql-yoga-plugin')
-		expect(plan.plugins).toContain('server-hono-plugin')
+		expect(plan.plugins).toContain('hono-server-plugin')
 		expect(plan.typegen).toBe(false)
 	})
 
