@@ -59,6 +59,10 @@ logs the value and its source. While introspection is enabled, the plugin
 publishes the `ultimabase.graphql.introspection` capability that served
 explorers require.
 
+Without `bodyLimit`, GraphQL inherits `httpPlugin({ bodyLimit })` (1 MiB by
+default), enforced while the body streams; `bodyLimit` replaces it for the
+GraphQL endpoint (ADR-0323).
+
 ```ts
 graphqlYogaPlugin({
 	bodyLimit: 512 * 1024,

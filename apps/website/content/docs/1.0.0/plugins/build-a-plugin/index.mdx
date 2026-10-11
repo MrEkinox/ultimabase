@@ -175,7 +175,7 @@ export const auditPlugin = () =>
 ```
 
 A transport supplies its own helper for `contributions`, such as
-`httpRoutes({ 'GET /health': () => Response.json({ status: 'ok' }) })` from
+`httpRoutes({ 'GET /status': () => Response.json({ status: 'ok' }) })` from
 `@ultimabase/http-plugin`. Keep raw `plugin()` for rules or commands that
 depend on the schema they apply to, as Access, Hooks and ACL do.
 

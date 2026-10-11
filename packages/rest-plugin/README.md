@@ -23,7 +23,7 @@ const Application = UltimaBase.use(httpPlugin({ appId: 'blog' })).use(
 	restPlugin({
 		acknowledgeUnverifiedProtection: true,
 		basePath: '/api',
-		bodyLimit: 1_048_576,
+		bodyLimit: 2_097_152,
 		pagination: { defaultTake: 100, maxTake: 1_000 },
 	}),
 )
@@ -183,7 +183,9 @@ to Core (ADR-0309).
 POST reads require `application/json` with an optional UTF-8 charset. The body
 is counted while its stream is consumed; `Content-Length` is validated as a
 hint and checked against the observed byte count, but never trusted as the
-enforcement boundary. The default maximum is 1 MiB and `bodyLimit` changes it.
+enforcement boundary. Without `bodyLimit`, REST inherits `httpPlugin({ bodyLimit })`
+(1 MiB by default), which the HTTP plugin enforces while the body streams;
+`bodyLimit` replaces it for REST routes (ADR-0323).
 Malformed requests throw `RestReadNormalizationError` with a stable safe code;
 raw parser or Core diagnostics are not retained. An invalid `after` (malformed
 cursor, another schema or ordering, or combined with `skip`) keeps Core's

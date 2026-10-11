@@ -123,7 +123,7 @@ production data without a reviewed schema plan.
 | --------------------------------- | -------------------------------------------------------------------- |
 | `acknowledgeUnverifiedProtection` | Accepts that Core cannot prove complete public policy coverage.      |
 | `basePath`                        | Mount prefix, `/api` by default; REST appends `/v1`.                 |
-| `bodyLimit`                       | Maximum JSON request body, 1 MiB by default.                         |
+| `bodyLimit`                       | Maximum JSON request body; inherits `httpPlugin({ bodyLimit })`.     |
 | `pagination`                      | `{ defaultTake, maxTake }` of collection reads, 100 and 1,000.       |
 | `default`                         | Boolean or sparse generated-route defaults for application schemas.  |
 | `operations`                      | Exact plugin-operation tokens to expose; none are public by default. |

@@ -449,8 +449,9 @@ or supply a valid custom GraphQL schema. An empty `schemas` array creates no
 placeholder query. If direct execution rejects a context, create it from the
 same started application and do not retain it after cancellation or disposal.
 
-For HTTP selection errors, first check the exact
-`X-UltimaBase-Application-Id` header and configured `appId`. If an explorer
+For HTTP selection errors, first check that an
+`X-UltimaBase-Application-Id` header, when sent, matches the configured
+`appId`. If an explorer
 refuses to start with `PLUGIN_CAPABILITY_MISSING` for
 `ultimabase.graphql.introspection`, enable Yoga introspection or stop serving
 the explorer in that environment. A missing explorer route in production is

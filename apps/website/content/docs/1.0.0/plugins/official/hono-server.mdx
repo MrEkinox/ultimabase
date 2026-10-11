@@ -8,7 +8,7 @@ contentType: guide
 order: 3
 outcome: Run an UltimaBase HTTP application on a managed or existing Hono server without mixing listener and browser-policy ownership.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-11
 sources:
   - packages/hono-server-plugin/README.md
   - packages/hono-server-plugin/src/options.ts
@@ -18,6 +18,7 @@ sources:
   - docs/adr/0226-http-browser-and-predispatch-boundaries.md
   - docs/adr/0260-single-owner-http-dispatch.md
   - docs/adr/0312-environment-dependent-plugin-defaults.md
+  - docs/adr/0323-http-foundation-and-hono-server.md
 ---
 
 ## Overview
@@ -82,7 +83,7 @@ import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 const server = honoServerPlugin()
 
 const Application = UltimaBase.use(postgresPlugin())
-	.use(httpPlugin({ appId: 'blog' }))
+	.use(httpPlugin())
 	.use(server)
 
 export const ultimabase = new Application({
@@ -90,8 +91,8 @@ export const ultimabase = new Application({
 })
 ```
 
-This starts the HTTP boundary, not an API route. Add a transport plugin to
-serve REST or GraphQL. Without `port`, the managed listener uses the `PORT` environment variable that
+This serves the HTTP foundation and its `/health` route. Add a transport plugin
+to serve REST or GraphQL. Without `port`, the managed listener uses the `PORT` environment variable that
 most hosting platforms set, then `1337`. Without `host`, it uses the `HOST`
 environment variable, then `127.0.0.1` in development and every interface
 when `NODE_ENV=production`; the plugin reads these when it is created and an
@@ -132,10 +133,19 @@ then it awaits application cleanup, including the managed listener and database.
 For deployment, wire the host's shutdown mechanism (often SIGTERM) to the same
 awaited disposal. Do not start another application before that cleanup completes.
 
+`stop()` and `dispose()` refuse new requests, wait at most `shutdownTimeoutMs`
+(10 seconds by default) for in-flight ones, then close the remaining
+connections. `compression: true` compresses responses with gzip or deflate; it
+is off by default because proxies and CDNs usually compress:
+
+```ts
+honoServerPlugin({ compression: true, shutdownTimeoutMs: 5_000 })
+```
+
 ### Join an existing Hono listener
 
-To join an existing Hono app instead, pass that `app` and name the browser
-policy owner. You start and stop the listener yourself:
+To join an existing Hono app instead, pass that `app`. You start and stop the
+listener yourself:
 
 ```ts title="src/server.ts"
 import { serve } from '@hono/node-server'
@@ -148,11 +158,11 @@ import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 const app = new Hono()
-app.get('/health', (context) => context.text('ok'))
+app.get('/ping', (context) => context.text('pong'))
 
 const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
-	.use(httpPlugin({ appId: 'blog' }))
-	.use(honoServerPlugin({ app, browserPolicyOwner: 'ultimabase' }))
+	.use(httpPlugin())
+	.use(honoServerPlugin({ app }))
 
 const application = new Application({
 	schemas: [],
@@ -162,12 +172,12 @@ await application.start()
 const listener = serve({ fetch: app.fetch, port: 1337 })
 ```
 
-Here `/health` is an ordinary Hono route. UltimaBase application routes still
-require a transport plugin and an `X-UltimaBase-Application-Id` header. In
-existing-app mode, `host` and `port` are not Hono plugin options; configure
-them on your own listener.
+Here `/ping` is an ordinary Hono route; UltimaBase serves `/health` and the
+routes of its transport plugins. In existing-app mode, `host`, `port` and
+`shutdownTimeoutMs` are not Hono plugin options; configure them on your own
+listener.
 
-To stop only UltimaBase, await `application.dispose()`; `/health` and the
+To stop only UltimaBase, await `application.dispose()`; `/ping` and the
 externally owned listener stay available. When the whole process shuts down,
 also close your listener from the same entry point:
 
@@ -196,21 +206,23 @@ UltimaBase application.
 
 ### Choose one browser-policy owner
 
-With an existing app, `browserPolicyOwner` is required. Choose
-`'ultimabase'` to use the [HTTP browser policy](./http#browser-policy). Choose
-`'external'` when existing middleware already owns CORS, and leave the HTTP
-`browser` policy disabled. UltimaBase rejects conflicting ownership rather
-than combining CORS headers. Browser preflight selects no application; real
-application requests still require their exact `appId`.
+With an existing app, `browserPolicyOwner` is required only when
+`httpPlugin({ browser })` enables CORS. Choose `'ultimabase'` to use the
+[HTTP browser policy](./http#browser-policy). Choose `'external'` when existing
+middleware already owns CORS, and leave the HTTP `browser` policy disabled.
+UltimaBase rejects conflicting ownership rather than combining CORS headers.
+Browser preflight selects no application.
 
 ### Keep the boundary intact
 
 The existing-app Node integration must expose Hono's standard
 `incoming.rawHeaders` binding. UltimaBase uses that evidence to reject
 duplicate sensitive headers before application identity and fails closed if
-the evidence is missing. CORS is not authentication, authorization, or CSRF
-protection. TLS, proxy trust, compression, rate limiting, REST, GraphQL, and
-authentication remain outside this server plugin.
+the evidence is missing, with a message naming the fix. CORS is not
+authentication, authorization, or CSRF protection. TLS and HTTP/2 come from
+the proxy or platform; proxy trust, rate limits and security headers are
+[HTTP plugin](./http) options; REST, GraphQL and authentication are separate
+plugins. Servers for Bun, Deno and Workers are not provided yet.
 
 ## Troubleshooting
 

@@ -1,14 +1,14 @@
 ---
 title: HTTP
-description: Identify the HTTP application, apply browser policy, and handle requests before a transport runs.
+description: Serve the HTTP foundation shared by REST, GraphQL and application routes, with health, CORS, limits and port-free testing.
 audience:
   - application-developer
   - operator
 contentType: guide
 order: 2
-outcome: Configure the HTTP application boundary, browser policy, and pre-dispatch request handling.
+outcome: Configure the HTTP foundation, its defaults, application routes, CORS, rate limits and pre-dispatch handling.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-11
 sources:
   - packages/http-plugin/README.md
   - packages/http-plugin/src/request-boundary.ts
@@ -16,17 +16,17 @@ sources:
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
   - docs/adr/0258-single-active-application-lifecycle.md
   - docs/adr/0260-single-owner-http-dispatch.md
+  - docs/adr/0323-http-foundation-and-hono-server.md
 ---
 
 ## Overview
 
-`@ultimabase/http-plugin` owns the Fetch-compatible application boundary. It does
-not open a socket. Every real public request must carry exactly one public application
-identifier. It must match the sole active application and grants no authority:
-
-```http
-X-UltimaBase-Application-Id: blog
-```
+`@ultimabase/http-plugin` is the Fetch-compatible foundation every HTTP
+transport shares. It does not open a socket: a server plugin such as
+[Hono Server](./hono-server) serves it. It owns application identity, the
+built-in health route, application routes, CORS, the request deadline, the
+body limit, security headers, rate limits, the access log and port-free
+testing (ADR-0323).
 
 ## Installation
 
@@ -48,15 +48,11 @@ yarn add @ultimabase/http-plugin
 pnpm add @ultimabase/http-plugin
 ```
 
-The HTTP plugin does not open a socket. For a Node listener, follow the
-separate [Hono Server](./hono-server) guide; REST and GraphQL routes also need
-their own transport plugins.
+REST and GraphQL routes need their own transport plugins.
 
 ## Configuration
 
-Give each public application one exact `appId`. Browser policy and request
-timeout are optional; the example enables an explicit, restrictive browser
-policy:
+`httpPlugin()` needs no option. Every option below is optional:
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
@@ -64,102 +60,164 @@ import { httpPlugin } from '@ultimabase/http-plugin'
 
 export const Application = UltimaBase.use(
 	httpPlugin({
-		appId: 'blog',
-		browser: {
-			allowedHeaders: ['Content-Type', 'X-UltimaBase-Application-Id'],
-			allowedMethods: ['GET', 'POST'],
-			allowedOrigins: ['https://console.example'],
-			credentials: false,
-			maxAgeSeconds: 600,
+		browser: { origins: ['https://console.example'] },
+		routes: {
+			'GET /status': (request, { context }) =>
+				Response.json({ mode: context.access.mode }),
 		},
-		requestTimeoutMs: 15_000,
+		trustProxy: 1,
+		rateLimit: { default: { perMinute: 300 } },
+		accessLog: true,
 	}),
 )
 ```
 
-`requestTimeoutMs` is a whole number of milliseconds from 1 through
-2147483647, the largest delay a JavaScript timer honors; `httpPlugin()` rejects
-any other value instead of letting every request time out at once.
+| Option                 | Default                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `appId`                | `'main'`                                                   |
+| `requireApplicationId` | `false`: requests without the header reach the application |
+| `browser`              | CORS disabled                                              |
+| `master`               | Master header refused; `true` enables it                   |
+| `routes`               | none                                                       |
+| `health`               | `{ path: '/health' }`; `false` removes it                  |
+| `requestTimeoutMs`     | `30_000`                                                   |
+| `bodyLimit`            | `1_048_576` bytes for every route                          |
+| `securityHeaders`      | `nosniff`, `X-Frame-Options: DENY`, HSTS on HTTPS          |
+| `trustProxy`           | unset: the socket peer is the client                       |
+| `rateLimit`            | none                                                       |
+| `accessLog`            | `false`                                                    |
 
-`httpPlugin()` also accepts `master: { enabled: true }`, but only when the
-selected application has a configured `MasterAuthority`. Do not expose a raw
-Master key to browser code.
+`requestTimeoutMs` is a whole number of milliseconds from 1 through
+2147483647, the largest delay a JavaScript timer honors.
+
+`master: true` enables the canonical `X-UltimaBase-Master-Key` header, only
+with a configured `MasterAuthority`. Do not expose a raw Master key to browser
+code.
 
 ## Behavior and limitations
 
+### Application identity
+
+The public `appId` grants no authority. A request without
+`X-UltimaBase-Application-Id` reaches the only application of the process; a
+different value is refused with `HTTP_APPLICATION_UNKNOWN`. With several
+applications behind one proxy, `requireApplicationId: true` makes the header
+mandatory again.
+
+### Application routes and health
+
+`routes` takes the same record as the plugin helper `httpRoutes`: keys are
+`"<METHOD> /<path>"`, values a handler `(request, { context }) => Response` or
+`{ handle, bodyLimit?, rateLimit? }`. No plugin is needed for an application
+route.
+
+`GET /health` answers 200 `{ "status": "OK" }` or 503
+`{ "status": "DEGRADED" }` from `ultimabase.health()`, without application
+header or credential, whichever transports are installed. Move it with
+`health: { path: '/healthz' }` or remove it with `health: false`.
+
+### Limits and security headers
+
+Request bodies are limited to 1 MiB for every route, counted while the body
+streams; a larger one is answered `HTTP_PAYLOAD_TOO_LARGE`. A route sets its
+own `bodyLimit`, and `restPlugin({ bodyLimit })` or
+`graphqlYogaPlugin({ bodyLimit })` replaces it for that transport.
+
+Responses carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY`,
+plus `Strict-Transport-Security` on HTTPS. Each is configurable under
+`securityHeaders`, and `securityHeaders: false` removes them. TLS and HTTP/2
+come from the proxy or platform in front of the server.
+
+### Rate limits and proxies
+
+`rateLimit: { default: { perMinute } }` limits requests per client address and
+minute; a refused request gets `HTTP_RATE_LIMITED` with `Retry-After`. Routes
+may add stricter limits. Behind proxies, set `trustProxy` to the number of
+proxy hops or their exact addresses: only then are `X-Forwarded-For` and
+`X-Forwarded-Proto` believed. Counts live in memory per process; pass a
+`store` with an `increment(key, expiresAt)` method to share them, for example
+in Redis. A failing store refuses requests rather than letting them through.
+
+### Access log
+
+`accessLog: true` writes one line per request through the application logger:
+method, path, status, duration and request ID, never bodies, query strings or
+credentials.
+
 ### Browser policy
 
-Browser-origin behavior is disabled by default. When enabled, the sole active
-application owns one effective policy for its server provider. CORS controls browser
-responses; it is not authentication, authorization, or protection from non-browser
-clients. Preflight may run without an application ID, but it selects no application
-and invokes no context resolver, credential check, route, Runtime, or database work.
+CORS is disabled by default. `browser: { origins, credentials? }` enables it
+for exact origins. Allowed methods come from the mounted routes and allowed
+headers from the installed plugins: `Content-Type`, the application and
+request ID headers, `Authorization` with an authentication plugin, and the
+Master header only with `master: true`. Without a policy, a browser preflight
+is refused with `CORS is not enabled: configure browser.origins`.
 
-List only the origins, methods, and headers the client actually uses. Wildcard
-origin is incompatible with credentials, cookies, Authorization, or enabled
-Master transport. CORS also does not provide CSRF protection.
+CORS controls browser responses; it is not authentication, authorization, CSRF
+protection, or protection from non-browser clients. A wildcard origin is
+incompatible with credentials and Master transport.
 
-### Application identity and authority
+### Test without a server
 
-Application identity, duplicate sensitive headers, credentials, optional Master
-verification, timeout, and request correlation run before a protocol handler. These
-failures use the safe `HTTP_*` boundary. Once REST or GraphQL begins, that protocol
-owns its response.
+```ts
+await ultimabase.start()
+const response = await ultimabase
+	.plugin(httpPlugin)
+	.fetch(new Request('http://localhost/health'))
+```
 
-Enable the canonical `X-UltimaBase-Master-Key` header only with `master: { enabled: true }` and a
-configured `MasterAuthority`. The selected application's authority verifies the raw
-key and must complete its audit before dispatch. Alternative headers, body flags,
-foreign credentials, contexts, and grants cannot select Master.
+The request takes the same path as a network request, CORS included, without
+a server or a port.
 
 ### Connect a server and a transport
 
-The HTTP plugin contributes a Fetch-compatible application boundary, not a
-listener or an API route. The [Hono Server](./hono-server) guide covers managed
-and existing listeners. Add [REST](./rest) or [GraphQL](./graphql) to expose
-routes through that boundary.
+The [Hono Server](./hono-server) guide covers managed and existing listeners.
+Add [REST](./rest) or [GraphQL](./graphql) to expose data routes through the
+same foundation.
 
 ### Implement a server provider
 
 A custom server consumes `httpApplicationCapability` and
-`httpBrowserPolicyCapability`. Keep one optional HTTP application and pass it
-with the original header pairs to `dispatchHttpApplicationRequest(application,
-input)`. Clear the owner before teardown. When no owner remains, the helper
-still validates header cardinality and correlation, then returns the safe HTTP
-rejection envelope. A Hono external listener can therefore keep serving its
-ordinary routes after UltimaBase stops.
+`httpBrowserPolicyCapability`. Keep one optional HTTP application and pass it,
+with the original header pairs and the socket peer `remoteAddress`, to
+`dispatchHttpApplicationRequest(application, input)`. Clear the owner before
+teardown. When no owner remains, the helper still validates header cardinality
+and correlation, then returns the safe HTTP rejection envelope.
 
 The application boundary also owns exact browser-bootstrap URLs such as
-`/__ultimabase/apps/blog/graphiql`. Only a contributed GET bootstrap route can
-use path identity; normal API requests still require the header. See
-[GraphQL](./graphql) for the browser tool setup.
+`/__ultimabase/apps/blog/graphiql`. See [GraphQL](./graphql) for the browser
+tool setup.
+
+ETag, OpenTelemetry tracing, connection takeover for realtime plugins and
+`multipart` bodies are not provided yet.
 
 ## Troubleshooting
 
 Before a route starts, HTTP returns a private, non-cacheable envelope with a
 stable code and `X-UltimaBase-Request-Id`:
 
-| Code                        | First interpretation                              |
-| --------------------------- | ------------------------------------------------- |
-| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence           |
-| `HTTP_APPLICATION_REJECTED` | application identity or credentials were rejected |
-| `HTTP_NOT_FOUND`            | no selected route owns the path                   |
-| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired               |
-| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely           |
+| Code                        | First interpretation                                            |
+| --------------------------- | --------------------------------------------------------------- |
+| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence                         |
+| `HTTP_APPLICATION_REJECTED` | credentials rejected, or a missing header under strict identity |
+| `HTTP_APPLICATION_UNKNOWN`  | the header names another application                            |
+| `HTTP_CORS_DISABLED`        | a browser preflight reached an application without CORS         |
+| `HTTP_NOT_FOUND`            | no selected route owns the path                                 |
+| `HTTP_PAYLOAD_TOO_LARGE`    | the request body exceeded the route's limit                     |
+| `HTTP_RATE_LIMITED`         | the client exceeded a rate limit; retry after `Retry-After`     |
+| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired                             |
+| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely                         |
 
 Reproduce without credentials first:
 
 ```sh
-curl -i \
-  -H 'X-UltimaBase-Application-Id: blog' \
-  http://127.0.0.1:1337/api/v1/classes/Post
+curl -i http://127.0.0.1:1337/health
 ```
 
-The path above assumes the REST plugin's default route is installed alongside
-HTTP and a server provider. Without REST or another route owner, a 404 is
-expected. Record status, stable error code, and request ID. Confirm the public
-`appId`, mount, method, and route. Send exactly one application ID on real
-requests and never combine Bearer and cookie credentials. Do not copy
-Authorization, Cookie, Master values, or request bodies into logs or reports.
+Record status, stable error code, and request ID. Confirm the public `appId`,
+mount, method, and route. Never combine Bearer and cookie credentials. Do not
+copy Authorization, Cookie, Master values, or request bodies into logs or
+reports.
 
 If the boundary still rejects the request, follow
 [Reporting a problem](/docs/1.0.0/operations/troubleshooting#report-a-problem)

@@ -429,8 +429,10 @@ export const statusRoutePlugin = () =>
 
 The application must also install the HTTP plugin and a server provider to
 listen on a socket. Route collisions fail during application materialization.
-Even this status route requires `X-UltimaBase-Application-Id`; only configured
-browser preflight can omit application identity. If a route handles application data, it must use the selected request context
+Like every route, it accepts requests without `X-UltimaBase-Application-Id`
+unless the application sets `requireApplicationId: true`, and every handler
+receives `(request, { context })`. Applications declare their own routes
+without a plugin through `httpPlugin({ routes })`. If a route handles application data, it must use the selected request context
 and Core's public request-execution facade rather than bypassing Runtime.
 
 A plugin that exposes a browser bootstrap UI can validate a configurable route

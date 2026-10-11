@@ -289,11 +289,13 @@ set a `Secure`, `HttpOnly`, `Path=/`, host-only cookie whose expiration matches
 the rolling session; their JSON omits the raw token. Password change preserves
 the current cookie. Logout and logout everywhere expire it. Sign-up, login and
 password change read at most 1 MiB of JSON body: a larger or malformed body
-fails with the route's public rejection, without being buffered whole.
+fails without being buffered whole, with the route's public rejection or the
+HTTP plugin's `HTTP_PAYLOAD_TOO_LARGE` beyond its own body limit.
 
 The application's HTTP browser policy must enable credentials for explicit
-origins and allow `POST`, `Content-Type`, and
-`X-UltimaBase-Application-Id`. Every cookie route requires exact
+origins: `httpPlugin({ browser: { origins: [...], credentials: true } })`.
+The cookie routes make `POST` an allowed method and `Content-Type` and
+`X-UltimaBase-Application-Id` are always allowed headers (ADR-0323). Every cookie route requires exact
 `application/json` and a non-null matching `Origin`; unsafe application routes
 authenticated by the cookie apply the same proof. Cookie mode rejects startup
 when the effective policy is incompatible. A request containing both Bearer
