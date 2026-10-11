@@ -74,9 +74,15 @@ const foreignKeyActions = new Map<
 	['set null', 'setNull'],
 ])
 
+/** Logical facts of one column that Drizzle metadata does not carry. */
+interface DesiredColumnFacts {
+	readonly field: string
+	readonly renamedFrom?: string
+}
+
 const compileDesiredTable = (
 	table: PgTable,
-	renamedFromByColumn: ReadonlyMap<string, string>,
+	factsByColumn: ReadonlyMap<string, DesiredColumnFacts>,
 ): DesiredPostgresTable => {
 	const config = getTableConfig(table)
 	const tablePrimaryColumns = new Set(
@@ -95,10 +101,12 @@ const compileDesiredTable = (
 					.trim()
 				const defaultExpression = renderDefaultExpression(column, type)
 				const identity = column.generatedIdentity?.type
-				const renamedFrom = renamedFromByColumn.get(column.name)
+				const facts = factsByColumn.get(column.name)
+				const renamedFrom = facts?.renamedFrom
 
 				return immutableRecord({
 					...(defaultExpression === undefined ? {} : { defaultExpression }),
+					...(facts === undefined ? {} : { field: facts.field }),
 					...(identity === undefined ? {} : { identity }),
 					name: column.name,
 					nullable: !column.notNull,
@@ -155,7 +163,7 @@ const compileDesiredTable = (
 	})
 }
 
-/** Normalizes Drizzle table metadata while overlaying UltimaBase rename intent. */
+/** Normalizes Drizzle table metadata while overlaying field names and rename intent. */
 export const compileDesiredPostgresTables = (
 	schemas: readonly Readonly<{
 		readonly fields: Readonly<Record<string, CompiledPostgresField>>
@@ -168,9 +176,14 @@ export const compileDesiredPostgresTables = (
 			compileDesiredTable(
 				schema.table,
 				new Map(
-					Object.values(schema.fields).flatMap(
-						({ column, renamedFrom }): [string, string][] =>
-							renamedFrom === undefined ? [] : [[column.name, renamedFrom]],
+					Object.entries(schema.fields).map(
+						([field, { column, renamedFrom }]): [
+							string,
+							DesiredColumnFacts,
+						] => [
+							column.name,
+							renamedFrom === undefined ? { field } : { field, renamedFrom },
+						],
 					),
 				),
 			),

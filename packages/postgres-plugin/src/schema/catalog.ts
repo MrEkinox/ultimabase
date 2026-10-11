@@ -14,6 +14,7 @@ import {
 import type { PostgresConstraintDescription } from '../drizzle/operation-error.js'
 import { required } from '../required.js'
 import type {
+	CompiledPostgresField,
 	CompiledPostgresJoinRelation,
 	CompiledPostgresPointerRelation,
 	CompiledPostgresRelation,
@@ -102,7 +103,7 @@ export class PostgresSchemaCatalog {
 			pointers,
 		)
 		for (const schema of compiled) {
-			this.#registerConstraints(schema.table, {
+			this.#registerConstraints(schema, {
 				schema: schema.definition.className,
 			})
 		}
@@ -110,16 +111,28 @@ export class PostgresSchemaCatalog {
 
 	/** Records unique indexes and foreign keys in logical names for error mapping. */
 	#registerConstraints(
-		table: PgTable,
+		compiled: Readonly<{
+			fields: Readonly<Record<string, CompiledPostgresField>>
+			table: PgTable
+		}>,
 		owner: Readonly<{ schema: string } | { collection: string }>,
 	): void {
-		const config = getTableConfig(table)
+		const config = getTableConfig(compiled.table)
+		// Constraints name physical columns; errors report logical field names.
+		const fieldByColumn = new Map(
+			Object.entries(compiled.fields).map(([fieldName, field]) => [
+				field.column.name,
+				fieldName,
+			]),
+		)
+		const fieldOf = (column: string): string =>
+			fieldByColumn.get(column) ?? column
 		for (const index of config.indexes) {
 			if (index.config.unique) {
 				this.#constraints.set(readDrizzleIndexName(index), {
 					kind: 'unique',
 					...owner,
-					fields: readDrizzleIndexColumns(index),
+					fields: readDrizzleIndexColumns(index).map(fieldOf),
 				})
 			}
 		}
@@ -132,10 +145,10 @@ export class PostgresSchemaCatalog {
 			this.#constraints.set(foreignKey.getName(), {
 				kind: 'reference',
 				...owner,
-				field: required(
-					reference.columns[0],
-					'PostgreSQL foreign key has no column',
-				).name,
+				field: fieldOf(
+					required(reference.columns[0], 'PostgreSQL foreign key has no column')
+						.name,
+				),
 				target: target?.definition.className ?? targetTable,
 			})
 		}
@@ -163,7 +176,7 @@ export class PostgresSchemaCatalog {
 			}
 			tableNames.add(compiled.tableName)
 			this.#privateCollections.set(collection, compiled)
-			this.#registerConstraints(compiled.table, {
+			this.#registerConstraints(compiled, {
 				collection: collection.contributionId,
 			})
 		}

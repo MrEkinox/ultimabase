@@ -54,8 +54,8 @@ describe('PostgreSQL primitive schema compiler', () => {
 		expect(table.columns.map(({ name }) => name)).toStrictEqual([
 			'title',
 			'id',
-			'createdAt',
-			'updatedAt',
+			'created_at',
+			'updated_at',
 		])
 		expect(resolve).not.toHaveBeenCalled()
 	})
@@ -182,20 +182,20 @@ describe('PostgreSQL primitive schema compiler', () => {
 			blob: 'bytea',
 			count: 'bigint',
 			counter: 'bigint',
-			createdAt: 'timestamp(3) with time zone',
+			created_at: 'timestamp(3) with time zone',
 			document: 'jsonb',
-			eventAt: 'timestamp(3)',
+			event_at: 'timestamp(3)',
 			huge: 'bigint',
 			id: 'uuid',
 			labels: 'jsonb',
-			preciseAmount: 'numeric(18)',
+			precise_amount: 'numeric(18)',
 			profile: 'jsonb',
 			rating: 'double precision',
 			status: 'text',
 			token: 'uuid',
-			unshapedAmount: 'numeric',
-			updatedAt: 'timestamp(3) with time zone',
-			wakeAt: 'time(3) with time zone',
+			unshaped_amount: 'numeric',
+			updated_at: 'timestamp(3) with time zone',
+			wake_at: 'time(3) with time zone',
 		})
 		expect(columns.id).toMatchObject({
 			hasDefault: false,
@@ -222,9 +222,9 @@ describe('PostgreSQL primitive schema compiler', () => {
 		})
 		expect(columns.counter?.generatedIdentity?.type).toBe('byDefault')
 		expect(columns.blob?.columnType).toBe('PgBytea')
-		expect(columns.eventAt?.columnType).toBe('PgTimestampString')
+		expect(columns.event_at?.columnType).toBe('PgTimestampString')
 		expect(columns.status?.enumValues).toStrictEqual(['draft', 'live'])
-		expect(columns.wakeAt?.columnType).toBe('PgTime')
+		expect(columns.wake_at?.columnType).toBe('PgTime')
 		expect(columns.document?.default).toStrictEqual({ valid: true })
 		expect(columns.labels?.default).toStrictEqual(['one', 'two'])
 		expect(runtimeDefault).not.toHaveBeenCalled()

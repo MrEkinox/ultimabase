@@ -3,6 +3,38 @@ import { createHash } from 'node:crypto'
 
 const postgresIdentifierByteLimit = 63
 
+/**
+ * Derives the default physical column of one field in `snake_case`, like table
+ * names (ADR-0320): `createdAt` → `created_at`, `userID` → `user_id`,
+ * `URLValue` → `url_value`. Names without capitals are kept as they are.
+ */
+export const toPostgresColumnName = (fieldName: string): string =>
+	fieldName
+		.replaceAll(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, '$1_$2')
+		.replaceAll(/([\p{Ll}\p{Nd}])(\p{Lu})/gu, '$1_$2')
+		.toLowerCase()
+
+/** Rejects two fields of one table whose default column names coincide. */
+export const assertDistinctPostgresColumns = (
+	owner: string,
+	fieldNames: Iterable<string>,
+): void => {
+	const fieldByColumn = new Map<string, string>()
+
+	for (const fieldName of fieldNames) {
+		const column = toPostgresColumnName(fieldName)
+		const other = fieldByColumn.get(column)
+
+		if (other !== undefined) {
+			throw new TypeError(
+				`PostgreSQL fields ${owner}.${other} and ${owner}.${fieldName} both map to column "${column}"; rename one of them.`,
+			)
+		}
+
+		fieldByColumn.set(column, fieldName)
+	}
+}
+
 /** Keeps every generated PostgreSQL identifier stable, distinct, and UTF-8 safe. */
 const createPostgresIdentifier = (
 	readable: string,

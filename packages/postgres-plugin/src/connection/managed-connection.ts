@@ -1,4 +1,6 @@
-import { FrameworkError } from '@ultimabase/core'
+import { setTimeout as delay } from 'node:timers/promises'
+
+import { FrameworkError, type Logger } from '@ultimabase/core'
 
 import type {
 	PostgresConnectionService,
@@ -14,6 +16,22 @@ export interface ManagedPostgresConnection extends PostgresConnectionService {
 	close(): Promise<void>
 	getPool(): PostgresPool
 }
+
+/** How the first connection is retried (ADR-0320). */
+export interface PostgresConnectRetryPolicy {
+	/** Further attempts after the first failure; 0 fails at once. */
+	readonly connectRetries: number
+	readonly logger: Logger
+	/** Waits between attempts; replaced by tests. */
+	readonly wait?: (milliseconds: number) => Promise<void>
+}
+
+const firstRetryDelayMs = 500
+const maximumRetryDelayMs = 8000
+
+/** Doubles from 0.5 s up to 8 s: 0.5, 1, 2, 4, 8, 8, ... seconds. */
+export const postgresConnectRetryDelay = (retry: number): number =>
+	Math.min(firstRetryDelayMs * 2 ** retry, maximumRetryDelayMs)
 
 const sqlStatePattern = /^[0-9A-Z]{5}$/u
 const systemCodePattern = /^E[A-Z0-9_]{1,39}$/u
@@ -63,14 +81,20 @@ class ApplicationPostgresConnection
 {
 	readonly #pool: PostgresPool
 	readonly #ownsPool: boolean
+	readonly #retry: PostgresConnectRetryPolicy | undefined
 	#state: PostgresConnectionState = 'idle'
 	#connectPromise: Promise<void> | undefined
 	#closePromise: Promise<void> | undefined
 	#closing = false
 
-	constructor(pool: PostgresPool, ownsPool: boolean) {
+	constructor(
+		pool: PostgresPool,
+		ownsPool: boolean,
+		retry: PostgresConnectRetryPolicy | undefined,
+	) {
 		this.#pool = pool
 		this.#ownsPool = ownsPool
+		this.#retry = retry
 	}
 
 	get state(): PostgresConnectionState {
@@ -104,11 +128,25 @@ class ApplicationPostgresConnection
 	}
 
 	async #performConnect(): Promise<void> {
-		try {
-			const client = await this.#pool.connect()
-			client.release()
-		} catch (error: unknown) {
-			throw createSanitizedPostgresError('connection', error)
+		const retries = this.#retry?.connectRetries ?? 0
+
+		for (let retry = 0; ; retry += 1) {
+			try {
+				const client = await this.#pool.connect()
+				client.release()
+				break
+			} catch (error: unknown) {
+				if (this.#retry === undefined || retry >= retries || this.#closing) {
+					throw createSanitizedPostgresError('connection', error)
+				}
+
+				const waitMs = postgresConnectRetryDelay(retry)
+				// The driver code only: messages may contain credentials.
+				this.#retry.logger.warn(
+					`connection attempt ${String(retry + 1)} of ${String(retries + 1)} failed${describeDriverCode(readPostgresDriverCode(error))}; retrying in ${String(waitMs)} ms.`,
+				)
+				await (this.#retry.wait ?? delay)(waitMs)
+			}
 		}
 
 		// A concurrent close owns the final state even if verification just succeeded.
@@ -142,9 +180,13 @@ class ApplicationPostgresConnection
 	}
 }
 
-/** Creates the internal service while retaining whether the plugin owns its pool. */
+/**
+ * Creates the internal service while retaining whether the plugin owns its
+ * pool and how its first connection is retried.
+ */
 export const createManagedPostgresConnection = (
 	pool: PostgresPool,
 	ownsPool: boolean,
+	retry?: PostgresConnectRetryPolicy,
 ): ManagedPostgresConnection =>
-	new ApplicationPostgresConnection(pool, ownsPool)
+	new ApplicationPostgresConnection(pool, ownsPool, retry)

@@ -1,4 +1,4 @@
-import { FrameworkError } from '@ultimabase/core'
+import { FrameworkError, type Logger } from '@ultimabase/core'
 import { immutableArray, isPlainRecord } from '@ultimabase/shared'
 
 import type { PostgresPool } from '../connection/contracts.js'
@@ -14,6 +14,11 @@ import {
 import type { PostgresSchemaChange, PostgresSchemaPolicy } from './contracts.js'
 import { compileDesiredPostgresTables } from './desired-schema.js'
 import { planPostgresSchemaChanges } from './planner.js'
+import {
+	describeUnmanagedPostgresColumn,
+	findUnmanagedPostgresColumns,
+	isWideningPostgresTypeChange,
+} from './safety.js'
 import { renderPostgresSchemaChange } from './sql-renderer.js'
 
 const readCurrentNamespace = async (pool: PostgresPool): Promise<string> => {
@@ -37,20 +42,30 @@ const readCurrentNamespace = async (pool: PostgresPool): Promise<string> => {
 
 const rejectChanges = (
 	message: string,
-	kind: 'postgres-schema-drift' | 'postgres-schema-unsupported',
+	kind:
+		| 'postgres-schema-drift'
+		| 'postgres-schema-unsafe-type-change'
+		| 'postgres-schema-unsupported',
 	changes: readonly PostgresSchemaChange[],
+	advice = '',
 ): never => {
 	throw new FrameworkError(
 		'VALIDATION_ERROR',
-		`${message} ${String(changes.length)} change(s): ${summarizePostgresSchemaChanges(changes)}.`,
+		`${message} ${String(changes.length)} change(s): ${summarizePostgresSchemaChanges(changes)}.${advice}`,
 		{ internalDetails: { kind, changes: immutableArray(changes) } },
 	)
 }
+
+/** Only widening conversions apply on their own; others need a migration. */
+const isUnsafeChange = (change: PostgresSchemaChange): boolean =>
+	change.kind === 'alter-column-type' &&
+	!isWideningPostgresTypeChange(change.from, change.to)
 
 const executeChanges = async (
 	pool: PostgresPool,
 	namespace: string,
 	changes: readonly PostgresSchemaChange[],
+	logger: Logger,
 ): Promise<void> => {
 	const steps = changes.flatMap((change) =>
 		renderPostgresSchemaChange(namespace, change).map((statement) => ({
@@ -74,6 +89,12 @@ const executeChanges = async (
 		current = undefined
 
 		await client.query('COMMIT')
+		// One line per applied change, physical names and types only (ADR-0320).
+		for (const change of changes) {
+			logger.info(
+				`schema change applied: ${describePostgresSchemaChange(change)}`,
+			)
+		}
 	} catch (error: unknown) {
 		try {
 			await client.query('ROLLBACK')
@@ -109,11 +130,48 @@ const executeChanges = async (
 	}
 }
 
+/**
+ * Refuses a required column that no field declares (every insert would fail)
+ * and warns about an optional one that looks renamed (ADR-0320).
+ */
+const checkUnmanagedColumns = (
+	desired: Parameters<typeof findUnmanagedPostgresColumns>[0],
+	live: Parameters<typeof findUnmanagedPostgresColumns>[1],
+	changes: readonly PostgresSchemaChange[],
+	logger: Logger,
+): void => {
+	const unmanaged = findUnmanagedPostgresColumns(desired, live, changes)
+	const blocking = unmanaged.filter(({ blocksInserts }) => blocksInserts)
+
+	if (blocking.length > 0) {
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			`PostgreSQL schema has ${String(blocking.length)} required column(s) that no field declares, so every insert would fail: ${blocking.map(describeUnmanagedPostgresColumn).join('; ')}. Unless a column was renamed, make it optional, give it a default or drop it with a migration outside UltimaBase.`,
+			{
+				internalDetails: {
+					kind: 'postgres-schema-unmanaged-required-column',
+					columns: immutableArray(
+						blocking.map(({ column, table }) => `${table}.${column.name}`),
+					),
+				},
+			},
+		)
+	}
+
+	for (const column of unmanaged) {
+		if (column.renameCandidates.length === 0) continue
+		logger.warn(
+			`column ${describeUnmanagedPostgresColumn(column)}; otherwise its data stays in the old column.`,
+		)
+	}
+}
+
 /** Applies the built-in policy only when no database-specific migrator owns preparation. */
 export const prepareDirectPostgresSchema = async (
 	pool: PostgresPool,
 	catalog: PostgresSchemaCatalog,
 	policy: PostgresSchemaPolicy,
+	logger: Logger,
 ): Promise<void> => {
 	if (policy === 'ignore') return
 
@@ -129,6 +187,9 @@ export const prepareDirectPostgresSchema = async (
 	)
 	const changes = planPostgresSchemaChanges(desired, live)
 
+	if (policy === 'override') {
+		checkUnmanagedColumns(desired, live, changes, logger)
+	}
 	if (changes.length === 0) return
 	if (policy === 'fail') {
 		rejectChanges(
@@ -150,5 +211,16 @@ export const prepareDirectPostgresSchema = async (
 		)
 	}
 
-	await executeChanges(pool, namespace, changes)
+	const unsafe = changes.filter(isUnsafeChange)
+
+	if (unsafe.length > 0) {
+		rejectChanges(
+			'PostgreSQL direct synchronization applies only widening type conversions; it refuses',
+			'postgres-schema-unsafe-type-change',
+			unsafe,
+			' Restore the field type, or convert the column with a migration outside UltimaBase.',
+		)
+	}
+
+	await executeChanges(pool, namespace, changes, logger)
 }

@@ -18,6 +18,7 @@ sources:
   - packages/password-auth-plugin/README.md
   - docs/adr/0312-environment-dependent-plugin-defaults.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
+  - docs/adr/0320-postgres-safe-sync-connection-and-debug.md
   - packages/access-plugin/README.md
 ---
 
@@ -47,6 +48,10 @@ database before evaluating a public environment.
   deliberately. `override` changes supported physical structures; it is not
   an unattended production migration strategy. `fail` checks a prepared
   schema for drift, while `ignore` leaves preparation to another process.
+- Tune the PostgreSQL [connection](/docs/1.0.0/plugins/official/postgresql#connection-settings)
+  for your host: `ssl`, `max`, and `statementTimeoutMs`, plus `connectRetries`
+  when the database may start after the application (Docker, Kubernetes).
+  `debug: { slowQueryMs }` logs slow statements without their values.
 - Test your own backup and restore procedure before depending on stored data.
   UltimaBase does not provide one or ship an official migration runner yet.
 

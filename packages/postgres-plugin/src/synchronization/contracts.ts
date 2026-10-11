@@ -5,6 +5,8 @@ import type { PostgresIndexMethod } from '../schema/contracts.js'
 /** Describes one desired physical column without exposing its Drizzle builder. */
 export interface DesiredPostgresColumn {
 	readonly defaultExpression?: string
+	/** The logical field stored in this column, for diagnostics. */
+	readonly field?: string
 	readonly identity?: PostgresIdentityKind
 	readonly name: string
 	readonly nullable: boolean
