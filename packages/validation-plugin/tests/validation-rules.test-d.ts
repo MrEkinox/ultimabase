@@ -34,8 +34,8 @@ test('types field validators against the field value', () => {
 					return value !== 'closed' || 'Closed room'
 				},
 			}),
-			// @ts-expect-error -- The output must remain storable in the field.
 			length: field.string({
+				// @ts-expect-error -- The output must remain storable in the field.
 				validation: z.string().transform((v) => v.length),
 			}),
 			// @ts-expect-error -- The validator must accept the field's value.
