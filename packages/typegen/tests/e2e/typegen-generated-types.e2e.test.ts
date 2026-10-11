@@ -168,7 +168,7 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 			'(parameter) item: Core.SchemaResult<',
 		)
 		expect(ts.displayPartsToString(afterItem?.documentation)).toContain(
-			'Contains the candidate or persisted object',
+			'The stored object',
 		)
 		expect(
 			service

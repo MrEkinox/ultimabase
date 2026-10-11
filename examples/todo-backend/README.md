@@ -29,7 +29,7 @@ export const Todo = TodoSchemaApplication.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
 		title: field.string({
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			hooks: { resolveInput: ({ value }) => value.trim() },
 			postgres: { renamedFrom: 'summary' },
 			required: true,
 			validation: z.string().max(200),
@@ -41,7 +41,7 @@ export const Todo = TodoSchemaApplication.Schema.define({
 		slug: field.string({
 			hooks: {
 				resolveInput: ({ value }) =>
-					value?.trim().toLowerCase().replace(/\s+/gu, '-') ?? null,
+					value.trim().toLowerCase().replace(/\s+/gu, '-'),
 			},
 			validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
 		}),

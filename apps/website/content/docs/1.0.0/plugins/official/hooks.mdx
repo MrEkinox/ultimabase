@@ -95,7 +95,7 @@ export const Post = Application.Schema.define({
 		published: f.boolean({ default: false }),
 		title: f.string({
 			required: true,
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			hooks: { resolveInput: ({ value }) => value.trim() },
 		}),
 	}),
 	hooks: {

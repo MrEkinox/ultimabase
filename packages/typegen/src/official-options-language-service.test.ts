@@ -251,7 +251,7 @@ const TypedDocument = SourceApplication.Schema.define({
     visibility: field.string(),
     title: field.string({
       access: { read: true, write: true },
-      hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+      hooks: { resolveInput: ({ value }) => value.trim() },
       required: true,
       validation: titleValidator,
     }),
