@@ -215,8 +215,7 @@ type PostgresOptionSource = PluginSchemaOptionSource<{
 }>
 
 type PostgresSource =
-	| PostgresOptionSource
-	| PluginSchemaRulesSource<PostgresSchemaRules>
+	PostgresOptionSource | PluginSchemaRulesSource<PostgresSchemaRules>
 
 /** Names the exact official PostgreSQL plugin definition. */
 export type PostgresPlugin = PluginInstance<{

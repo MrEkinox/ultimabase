@@ -76,14 +76,14 @@ export const postgresSchemaOption: SchemaOptionDefinition<
 	SchemaOptionRuntimeRequirement,
 	never
 > = defineSchemaOption({
-		normalize: (value, path): PostgresSchemaOption =>
-			immutableRecord({ table: readSingleStringOption(value, path, 'table') }),
-		protocolVersion: 1,
-		typegen: {
-			module: '@ultimabase/postgres-plugin',
-			type: 'PostgresSchemaOption',
-		},
-	})
+	normalize: (value, path): PostgresSchemaOption =>
+		immutableRecord({ table: readSingleStringOption(value, path, 'table') }),
+	protocolVersion: 1,
+	typegen: {
+		module: '@ultimabase/postgres-plugin',
+		type: 'PostgresSchemaOption',
+	},
+})
 
 /** Owns the direct field `postgres` namespace as data-preserving rename metadata. */
 export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =

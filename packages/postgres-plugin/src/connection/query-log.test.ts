@@ -76,7 +76,7 @@ describe('PostgreSQL query log (ADR-0320)', () => {
 		const client = await observed.connect()
 		await client.query('BEGIN')
 		// Drizzle passes a query config object.
-		await Reflect.apply(client.query, client, [
+		await Reflect.apply(client.query.bind(client), undefined, [
 			{ text: 'update "posts" set "title" = $1', rowMode: 'array' },
 			['secret-title'],
 		])
