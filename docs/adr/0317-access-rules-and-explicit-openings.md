@@ -1,6 +1,6 @@
 # ADR-0317: Access rules, explicit openings and plugin permissions
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Supersedes, once accepted: ADR-0293 where `allow` and `where` are separate rule steps and an
   omitted result is possible; the `default` option of `accessPlugin`
@@ -9,7 +9,7 @@
   ADR-0316 (rules in `.with`); applies ADR-0288
 - Approval: decisions of the Access review (`docs/handoff/revue-plugins/access.md`, decisions 1
   to 3 and 5 to 10, validated by the user on 2026-10-09) and of the Soft Delete review
-  (`soft-delete.md`, decisions 5 and 6); record to be accepted by the user
+  (`soft-delete.md`, decisions 5 and 6); record accepted by the user on 2026-10-11
 - Already implemented elsewhere: principal (ADR-0304), `can()` and `PublicError` (ADR-0305),
   readable results (ADR-0306), checked links (ADR-0308), `isAuthenticated` (ADR-0304)
 

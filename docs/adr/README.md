@@ -304,6 +304,7 @@ Current records (accepted or still active in part):
 - [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 - [ADR-0315: Name-keyed query signatures](0315-name-keyed-query-signatures.md)
 - [ADR-0316: `definePlugin` and higher-kinded projection slots](0316-plugin-facade-and-projection-slots.md)
+- [ADR-0317: Access rules, explicit openings and plugin permissions](0317-access-rules-and-explicit-openings.md)
 
 Proposed records (awaiting user validation):
 
