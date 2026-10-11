@@ -1,90 +1,122 @@
 # @ultimabase/validation-plugin
 
-Optional official application field validation for UltimaBase.
+Optional official application validation for UltimaBase.
 
-Install `validationPlugin()` in the application graph to expose the direct
-`validation` field option and validate final mutation candidates with any
-Standard Schema V1 implementation. Core continues to enforce required presence,
-nullability, canonical scalar and object shapes, defaults, generators, immutable
-fields, and database integrity without this plugin.
-
-The option is available on stored fields and embedded object properties only.
-Virtual wrappers and output descriptors are result contracts rather than
-mutation candidates, so configured source autocomplete does not offer
-`validation` there and Core rejects stale or untyped uses.
+Install `validationPlugin()` in the application graph to expose the
+`validation` field option, the schema check of `.with({ validation })`, and
+`check()`. Core continues to enforce required presence, nullability, canonical
+scalar and object shapes, defaults, generators, immutable fields, and database
+integrity without this plugin.
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
-const Application = UltimaBase.use(validationPlugin())
-const Article = Application.Schema.define({
-	className: 'Article',
+const App = UltimaBase.use(validationPlugin())
+export const Event = App.Schema.define({
+	className: 'Event',
 	fields: (field) => ({
+		// A Standard Schema validator's output is stored: trimmed, then checked.
 		title: field.string({
 			required: true,
-			validation: z.string().min(1).max(200),
+			validation: z.string().trim().max(200),
 		}),
+		// A function validator: true, a message, or { message, code }.
+		code: field.string({
+			validation: (code) =>
+				/^[A-Z]{3}$/u.test(code) || {
+					code: 'event.code',
+					message: 'Three capital letters',
+				},
+		}),
+		startsAt: field.int({ required: true }),
+		endsAt: field.int({ required: true }),
 	}),
-})
-
-const ultimabase = new Application({
-	schemas: [Article],
+}).with({
+	// The schema check sees the complete item as it would be stored.
+	validation: ({ item }) =>
+		item.endsAt >= item.startsAt || {
+			path: ['endsAt'],
+			message: 'An event cannot end before it starts',
+		},
 })
 ```
 
-Validation is synchronous and rejection-only. It runs once over complete,
-present, non-null mutation values after input resolution and Core structural
-validation, before value-dependent policy reevaluation and persistence. Reads
-and result materialization do not replay application validators.
+The `validation` options of `define` follow the same types until the
+declaration form is retired. Importing this package has no effect; without
+`validationPlugin()`, the configured factory omits the options and application
+compilation rejects untyped declarations that use them.
 
-Importing this package has no effect. Without `validationPlugin()`, the
-configured factory omits the option and application compilation rejects
-untyped declarations that use it.
+## Field validators (ADR-0319)
 
-## Field contract
+`validation` accepts a `FieldValidator<TValue>`: any Standard Schema V1
+implementation (Zod, Valibot, ArkType…) or a function
+`(value) => true | 'message' | { message, code }`, without a library. Both may
+be `async`. A Standard Schema validator must accept the field's value (its
+input may also accept `null`, so a form validator can be reused as is) and
+return a value the field can store; a mismatch is reported on the option, for
+example `validation must accept string, got number`. An untyped `any`
+validator is refused.
 
-`validation` accepts any Standard Schema V1 implementation whose input and
-output are compatible with the field's complete canonical value. The configured
-source factory keeps that contract exact for scalars, lists, embedded objects,
-pointers, and plugin-defined stored fields. Relation handles do not expose the
-option, and an untyped `any` validator does not satisfy the compatibility check.
+The output of a Standard Schema validator is what gets stored, so
+`z.string().trim()` trims the value. Formatting a value belongs in the
+validator; business logic (deriving, cross-checking) belongs in Hooks
+`resolveInput`. Core revalidates an output structurally before storing it.
 
-The validator is retained by identity as an opaque application value. Static
-schema compilation checks its Standard Schema shape but never invokes, clones,
-serializes, or emits its callback.
+The option is available on stored fields and embedded object properties only;
+relation handles, virtual wrappers, and output descriptors do not expose it.
+`required` remains a Core option: a validator does not decide whether a field
+may be omitted or set to `null`, and it never runs for `null`.
 
-`required` remains a Core option. It controls mutation input presence and
-persisted nullability whether or not this plugin is installed; `validation`
-adds only an application rejection rule over a present non-null canonical
-value.
+## Schema checks
+
+`.with({ validation })` takes a function on the complete final item,
+`({ item }) => true | 'message' | { path, message, code? } | readonly issues[]`,
+or a Standard Schema object validator run on the item (its output is not
+stored).
 
 ## Runtime semantics
 
-The plugin validates create, update, and upsert candidates in deterministic
-field, nested-object, and list occurrence order. Defaults, generated values,
-field and schema input resolvers, and prepared-operation transforms run first.
-Anonymous and Master mutations use the same validation path; Master bypasses
-authorization policies, not validation.
+Validation is the last step before storage: defaults, generated values, Hooks
+`resolveInput`, prepared-operation transforms and Core's final structural
+validation run first. A create validates every present field; an update
+validates only the fields it changes; the schema check always sees the
+complete item. Child validators run before the containing object's validator,
+which does not run when a child failed. Anonymous and Master mutations use the
+same validation path; Master bypasses authorization policies, not validation.
 
-A successful validator must return the same value. An equal clone is accepted
-but discarded, while transformations, promises, malformed results, and thrown
-vendor errors are rejected. Standard Schema issues are prefixed with their
-field occurrence path and exposed with the stable `field.validation` code.
+Asynchronous validators run inside the transaction: a slow call holds its
+locks. Uniqueness belongs to a unique index, not to a validator.
+
+Core's structural issues and every validator issue are collected into one
+`VALIDATION_ERROR`, each issue `{ path, message, code }`: `field.validation`
+for a field validator, `schema.validation` for a schema check, or the `code` a
+function returned. Field paths follow Core's (`['input', 'title']` for a
+create, `['update', 0, 'title', 'value']` for an update); schema-check paths
+are relative to the item; bulk calls prefix each path with the failing item's
+index. REST answers `422` with `details.issues` and GraphQL reports
+`extensions.details.issues`.
 
 Numeric update expressions remain atomic. For integer, bigint, float, and
 decimal arithmetic, the plugin validates the projected complete value from the
-prepared target and leaves the original delta unchanged. A targetless or
-unprepared branch that cannot prove the complete value fails closed.
+prepared target and leaves the original delta unchanged (an output is not
+stored). A targetless or unprepared branch that cannot prove the complete value
+fails closed.
 
 Reads, includes, adapter results, materialization, mutation results, and final
 projections run Core structural snapshots only and never replay application
 validators.
 
+## Validating without writing
+
+`ultimabase.plugin(validationPlugin).check(Schema, { data })` runs the field
+validators and the schema check of a create on `data`, without a write or a
+transaction, and returns `{ valid: true }` or `{ valid: false, issues }` with
+the paths `createOne` reports. Core's structural checks run when the data is
+written.
+
 Each `validationPlugin()` installation owns an application-local plan cache.
 Sequential applications in one JavaScript realm can use different validators,
-or omit the plugin, without sharing callbacks or option ownership. Dispose the
-active application before starting its replacement; parallel test workers stay
-isolated. The plugin intentionally exposes no global default, schema-wide
-validator, provider registry, or implicit installation behavior.
+or omit the plugin, without sharing callbacks or option ownership. The plugin
+has no options, global default, or provider registry.
