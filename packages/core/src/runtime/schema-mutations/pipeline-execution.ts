@@ -51,6 +51,7 @@ import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pip
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'
 import { resolveSchemaMutation } from './runtime.js'
+import { describeSchemaMutationConflict } from './unique-conflict.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
 interface SchemaMutationPipelineBinding {
@@ -107,6 +108,12 @@ export const registerRuntimeSchemaMutationPipeline = (
 ): void => {
 	pipelineBindings.set(pipeline, binding)
 }
+
+/** @internal Reads the stages bound to one pipeline for many-row target resolution. */
+export const readRuntimeSchemaMutationStages = (
+	pipeline: RuntimePipeline,
+): Readonly<RuntimePipelineStages> | undefined =>
+	pipelineBindings.get(pipeline)?.stages
 
 const readPreparedTarget = (
 	prepared: SchemaMutationPreparedOperation,
@@ -403,12 +410,16 @@ export const executeRuntimeSchemaMutation = async (
 		operationKind: logical.kind,
 		phase: 'database-operation',
 	})
-	let outcome: SchemaMutationOutcome = await prepared.execute(
-		immutableRecord({
-			operation: physical,
-			plan: persistencePlan,
-		}),
-	)
+	let outcome: SchemaMutationOutcome = await prepared
+		.execute(immutableRecord({ operation: physical, plan: persistencePlan }))
+		.catch((error: unknown) => {
+			throw describeSchemaMutationConflict(error, {
+				className: schema.className,
+				command: envelope.command,
+				id: envelope.id,
+				original: completeOriginal,
+			})
+		})
 	outcome = boundaries.snapshotMutationOutcome(
 		physical,
 		outcome,

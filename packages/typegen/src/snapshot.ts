@@ -130,6 +130,8 @@ export interface TypegenSchemaMutationSnapshot {
 	readonly returning: 'after' | 'before'
 	readonly select: readonly string[]
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
+	/** One row by `id`, or every row matching a `where` (ADR-0316). */
+	readonly target: 'many' | 'one'
 	readonly version: string
 }
 

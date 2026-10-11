@@ -39,7 +39,10 @@ import { Schema } from '../../schema/index.js'
 import { createConfiguredSchemaNamespace } from '../../schema/schema/schema-declaration-chain.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 
-import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
+import type {
+	PluginSchemaMutationEnvelope,
+	PluginSchemaMutationManyEnvelope,
+} from '../../application/application-schema-mutations.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-contracts.js'
 import { getActiveRequestEngine } from '../context/active-framework-context.js'
 import { registerApplicationFacade } from '../context/current-ultima-base.js'
@@ -514,7 +517,7 @@ export class UltimaBase<
 	#executeSchemaMutation(
 		command: CompiledSchemaMutationCommand,
 		schema: SchemaDefinition,
-		envelope: PluginSchemaMutationEnvelope,
+		envelope: PluginSchemaMutationEnvelope | PluginSchemaMutationManyEnvelope,
 		options: OperationOptions | undefined,
 	): Promise<unknown> {
 		return executeRequestSchemaMutation(

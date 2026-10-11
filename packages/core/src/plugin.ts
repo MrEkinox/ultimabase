@@ -103,6 +103,7 @@ export type {
 	PluginSchemaMutationInput,
 	PluginSchemaMutationNoInput,
 	PluginSchemaMutationReturning,
+	PluginSchemaMutationTarget,
 } from './plugins/plugin-schema-mutations.js'
 export type {
 	DefinePluginOperationOptions,
@@ -167,9 +168,18 @@ export type {
 	PluginSourceState,
 } from './plugins/source-projections.js'
 export { provideSchemaShapeMethods } from './plugins/schema-extensions.js'
+export { readSchemaRules } from './plugins/schema-rule-values.js'
 export type {
+	DeclaredSchemaShape,
+	PluginSchemaFieldsSource,
 	PluginSchemaRulesSource,
 	PluginSchemaShapeSource,
+	PluginSchemaStaticsSource,
+	SchemaFieldsFor,
+	SchemaFieldsHKT,
+	SchemaShapeOf,
+	SchemaStaticsFor,
+	SchemaStaticsHKT,
 	SchemaRulesFor,
 	SchemaRulesHKT,
 	SchemaShapeMethod,
@@ -177,6 +187,7 @@ export type {
 	SchemaShapeMethodImplementations,
 } from './plugins/schema-extensions.js'
 export type {
+	SchemaCommands,
 	PluginSourceSchemaFieldValues,
 	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaMutations,

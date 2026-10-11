@@ -220,6 +220,7 @@ describe('@ultimabase/core public entry point', () => {
 			'plugin',
 			'provideCapability',
 			'provideSchemaShapeMethods',
+			'readSchemaRules',
 			'requestSources',
 			'requireCapability',
 			'setSchemaFieldOption',

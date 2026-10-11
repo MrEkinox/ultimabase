@@ -1,5 +1,7 @@
 import type {
+	DeclaredSchemaShape,
 	SchemaRulesFor,
+	SchemaShapeOf,
 	SchemaShapeMethodArguments,
 	SchemaShapeMethodRuntime,
 	SchemaShapeMethodOptions,
@@ -100,7 +102,11 @@ type AvailableShapeMethodName<
 }[keyof TMethods] &
 	string
 
-/** Shape methods not called yet; each one is a single non-generic signature. */
+/**
+ * Shape methods not called yet. Each one is generic over its arguments, which
+ * the chain records in the declaration's shape record for the field and
+ * statics slots (ADR-0316); a method never sees the schema, so no cycle.
+ */
 export type SchemaShapeMethods<
 	TSource extends PluginSourceState,
 	TClassName extends string,
@@ -110,8 +116,12 @@ export type SchemaShapeMethods<
 > = {
 	readonly [
 		TName in AvailableShapeMethodName<TSource['shapeMethods'], TOptions, TUsed>
-	]: (
-		...arguments_: SchemaShapeMethodArguments<TSource['shapeMethods'][TName]>
+	]: <
+		const TArguments extends SchemaShapeMethodArguments<
+			TSource['shapeMethods'][TName]
+		>,
+	>(
+		...arguments_: TArguments
 	) => DeclaredSchema<
 		TSource,
 		TClassName,
@@ -119,7 +129,10 @@ export type SchemaShapeMethods<
 		ConfiguredSchemaSelectorOptions<
 			TSource,
 			TOptions & SchemaShapeMethodOptions<TSource['shapeMethods'][TName]>
-		>,
+		> &
+			DeclaredSchemaShape<
+				SchemaShapeOf<TOptions> & Readonly<Record<TName, TArguments>>
+			>,
 		TUsed | TName
 	>
 }

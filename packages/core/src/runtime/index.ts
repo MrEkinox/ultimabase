@@ -77,7 +77,9 @@ export type {
 	PluginOperationEnvelopeTarget,
 } from '../application/application-handles.js'
 export type {
+	ApplicationSchemaMutationManyMethod,
 	ApplicationSchemaMutationMethod,
+	PluginSchemaMutationManyInput,
 	PluginSchemaMutationResult,
 	PluginSchemaMutationSchemaInput,
 } from '../application/application-schema-mutations.js'

@@ -32,6 +32,7 @@ describe('plugin schema mutation definitions', () => {
 		expect(definition).toStrictEqual({
 			...options,
 			kind: 'plugin-schema-mutation',
+			target: 'one',
 		})
 		expect(Object.isFrozen(definition)).toBe(true)
 		expect(Object.isFrozen(definition.errors)).toBe(true)
@@ -63,6 +64,12 @@ describe('plugin schema mutation definitions', () => {
 		expect(() =>
 			defineSchemaMutation({ ...options, returning: 'none' } as never),
 		).toThrow('schema mutation returning must be before or after')
+		expect(() =>
+			defineSchemaMutation({ ...options, target: 'all' } as never),
+		).toThrow('schema mutation target must be one or many')
+		expect(defineSchemaMutation({ ...options, target: 'many' }).target).toBe(
+			'many',
+		)
 		expect(() =>
 			defineSchemaMutation({ ...options, select: [] } as never),
 		).toThrow('schema mutation select must be a plain object')

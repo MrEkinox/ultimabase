@@ -8,6 +8,11 @@ import type {
 	PluginSourceSchemaMutations,
 } from '../../plugins/source-schema-templates.js'
 import type {
+	SchemaFieldsFor,
+	SchemaShapeOf,
+	SchemaStaticsFor,
+} from '../../plugins/schema-extensions.js'
+import type {
 	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoCarrier,
 	UltimaBaseGeneratedSchemas,
@@ -18,6 +23,7 @@ import type { ConfiguredFieldBuilder } from './field-builder-contract.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type {
 	Schema,
+	SchemaClass,
 	SchemaDeclaredFields,
 	SchemaDefinition,
 	SchemaFields,
@@ -99,7 +105,9 @@ export type CompleteConfiguredFields<
 	TFields extends SchemaDeclaredFields,
 	TOptions extends object,
 > = Readonly<
-	TFields & ConfiguredSourceFields<TSource, TClassName, TFields, TOptions>
+	TFields &
+		ConfiguredSourceFields<TSource, TClassName, TFields, TOptions> &
+		SchemaFieldsFor<TSource['shapeFields'], SchemaShapeOf<TOptions>>
 >
 
 type ConfiguredSchemaContract<
@@ -128,6 +136,13 @@ type ConfiguredSchemaClassSurface<
 		TSource['schemaClass'],
 		ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
 		ConfiguredSchemaSelectorOptions<TSource, TOptions>
+	> &
+	SchemaStaticsFor<
+		TSource['schemaStatics'],
+		SchemaShapeOf<TOptions>,
+		SchemaClass<
+			ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
+		>
 	>
 
 type ConfiguredSourceSchemaMutations<

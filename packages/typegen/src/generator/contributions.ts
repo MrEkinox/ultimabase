@@ -23,12 +23,15 @@ export const renderGeneratedSurfaces = (
 			mutation.select.length === 0
 				? 'Readonly<Record<never, never>>'
 				: `Readonly<{ ${mutation.select.map((field) => `readonly ${propertyName(field)}: true`).join('; ')} }>`
-		return `CorePlugin.PluginSchemaMutationDefinition<${quote(mutation.mutation)}, ${quote(mutation.version)}, ${typeOf(mutation.input)}, ${renderErrors(mutation.errors)}, ${quote(mutation.authority)}, ${quote(mutation.effect)}, ${quote(mutation.returning)}, ${select}>`
+		// The target argument appears only for many-row commands, so one-row
+		// output stays unchanged.
+		const target =
+			mutation.target === 'many' ? `, ${quote(mutation.target)}` : ''
+		return `CorePlugin.PluginSchemaMutationDefinition<${quote(mutation.mutation)}, ${quote(mutation.version)}, ${typeOf(mutation.input)}, ${renderErrors(mutation.errors)}, ${quote(mutation.authority)}, ${quote(mutation.effect)}, ${quote(mutation.returning)}, ${select}${target}>`
 	}
 	const renderSurfaceType = (
 		mutations: readonly TypegenSchemaMutationSnapshot[],
 		className: string,
-		method: 'ApplicationSchemaMutationMethod',
 	): string => {
 		if (mutations.length === 0) return 'Readonly<Record<never, never>>'
 		// One descriptor owns each command's input, authority and result
@@ -37,7 +40,7 @@ export const renderGeneratedSurfaces = (
 ${mutations
 	.map(
 		(mutation) =>
-			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<Core.SchemaReference<${quote(className)}>, Core.UltimaBaseGeneratedSchemaSurfaces[${quote(className)}]["schemaMutations"][${quote(mutation.name)}]>`,
+			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${mutation.target === 'many' ? 'ApplicationSchemaMutationManyMethod' : 'ApplicationSchemaMutationMethod'}<Core.SchemaReference<${quote(className)}>, Core.UltimaBaseGeneratedSchemaSurfaces[${quote(className)}]["schemaMutations"][${quote(mutation.name)}]>`,
 	)
 	.join('\n')}
 \t\t\t}`
@@ -58,7 +61,7 @@ ${mutations
 				)
 				.join('\n')
 			return `\t\treadonly ${quote(surface.className)}: {
-\t\t\treadonly schema: ${renderSurfaceType(surface.schemaMutations, surface.className, 'ApplicationSchemaMutationMethod')}
+\t\t\treadonly schema: ${renderSurfaceType(surface.schemaMutations, surface.className)}
 \t\t\treadonly schemaMutations: {
 ${schemaMutations}
 \t\t\t}

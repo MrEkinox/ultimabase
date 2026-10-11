@@ -159,6 +159,7 @@ export const snapshotTypegenGraph = (
 						returning: mutation.returning,
 						select: immutableArray(Object.keys(mutation.select)),
 						staticOptions: value.staticOptions,
+						target: mutation.target,
 						version: mutation.version,
 					})
 				}),

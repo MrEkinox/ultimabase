@@ -18,8 +18,12 @@ import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
 } from '../plugins/plugin-schema-mutations.js'
+import type { WhereInput } from '../query/filters/where-contracts.js'
 import { readMutationCommand } from '../plugins/command-graph.js'
-import { prepareSchemaMutationEnvelope } from './schema-mutation-envelope.js'
+import {
+	prepareSchemaMutationEnvelope,
+	prepareSchemaMutationManyEnvelope,
+} from './schema-mutation-envelope.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type {
 	SchemaTypeInfoFor,
@@ -36,15 +40,34 @@ export interface PluginSchemaMutationEnvelope {
 	readonly mutation: CompiledSchemaMutationCommand['mutation']
 }
 
+/**
+ * Carries one normalized many-row call (ADR-0316): the identifier-only query
+ * of the targeted rows and the result projection applied to each row.
+ */
+export interface PluginSchemaMutationManyEnvelope {
+	readonly command: string
+	readonly kind: 'plugin-schema-mutation-many'
+	readonly mutation: CompiledSchemaMutationCommand['mutation']
+	readonly payload: unknown
+	readonly projection: Readonly<{ include?: unknown; select?: unknown }>
+	readonly query: QueryAst
+}
+
 /** Executes one application-owned schema mutation behind its dynamic method. */
 export type ApplicationSchemaMutationExecutor = (
 	command: CompiledSchemaMutationCommand,
 	schema: SchemaDefinition,
-	envelope: PluginSchemaMutationEnvelope,
+	envelope: PluginSchemaMutationEnvelope | PluginSchemaMutationManyEnvelope,
 	options: OperationOptions | undefined,
 ) => Promise<unknown>
 
 const schemaMutationInputKeys = new Set(['id', 'include', 'input', 'select'])
+const schemaMutationManyInputKeys = new Set([
+	'include',
+	'input',
+	'select',
+	'where',
+])
 
 const assertSchemaMutationInput = (
 	value: unknown,
@@ -76,13 +99,39 @@ export const createApplicationSchemaMutationMethod =
 			)
 		}
 
+		const { command, graph } = readMutationCommand(options.command)
+		if (command.definition.target === 'many') {
+			assertExactEnumerablePlainObject(
+				arguments_[0],
+				schemaMutationManyInputKeys,
+				`Schema mutation ${options.name} input must be a plain object`,
+				`Schema mutation ${options.name} input contains unknown key: `,
+			)
+			const manyInput: Readonly<Record<string, unknown>> = arguments_[0]
+			if (!Object.hasOwn(manyInput, 'where')) {
+				throw new TypeError(`Schema mutation ${options.name} requires where`)
+			}
+			return options.execute(
+				options.command,
+				options.schema,
+				prepareSchemaMutationManyEnvelope({
+					graph,
+					command,
+					schema: options.schema,
+					name: options.name,
+					where: manyInput.where,
+					input: manyInput.input,
+					projection: manyInput,
+				}),
+				arguments_[1] as OperationOptions | undefined,
+			)
+		}
 		const input = assertSchemaMutationInput(arguments_[0], options.name)
 		const idValue = input.id
 		if (typeof idValue !== 'string') {
 			throw new TypeError(`Schema mutation ${options.name} id must be a string`)
 		}
 
-		const { command, graph } = readMutationCommand(options.command)
 		const envelope = prepareSchemaMutationEnvelope({
 			graph,
 			command,
@@ -169,6 +218,43 @@ export type PluginSchemaMutationSchemaInput<
 > = Readonly<{ readonly id: OperationObjectId<TSchema> }> &
 	MutationPayloadField<TMutation> &
 	MutationProjection<TSchema, TSelection, TInclude>
+
+/**
+ * Describes one many-row schema-handle mutation call (ADR-0316): every row
+ * matching `where` (`{}` targets every row the caller may target).
+ */
+export type PluginSchemaMutationManyInput<
+	TSchema extends SchemaTypeInfoSource,
+	TMutation extends PluginSchemaMutationDefinition,
+	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
+		undefined,
+> = Readonly<{ readonly where: WhereInput<TSchema> }> &
+	MutationPayloadField<TMutation> &
+	MutationProjection<TSchema, TSelection, TInclude>
+
+/**
+ * Exposes one many-row mutation on an application schema handle; it resolves
+ * to one result per written row, in identifier order (ADR-0316).
+ */
+export type ApplicationSchemaMutationManyMethod<
+	TSchema extends SchemaDefinition,
+	TMutation extends PluginSchemaMutationDefinition,
+> = <
+	const TSelection extends QuerySelection<TSchema> | undefined = undefined,
+	const TInclude extends
+		SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined = undefined,
+>(
+	input: PluginSchemaMutationManyInput<
+		TSchema,
+		TMutation,
+		TSelection,
+		TInclude
+	>,
+	options?: OperationOptions,
+) => Promise<
+	readonly PluginSchemaMutationResult<TSchema, TSelection, TInclude>[]
+>
 
 /** Exposes one exact direct mutation on an application schema handle. */
 export type ApplicationSchemaMutationMethod<
