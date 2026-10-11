@@ -219,6 +219,7 @@ normalization
 → schema resolveInput with originalItem
 → target-aware preparedOperation transforms
 → mandatory Core structural validation without replaying defaults or generators
+→ optional final mutation validation (issues merged with Core's, outputs revalidated)
 → optional rejection-only final mutation-input guards
 → value-dependent Access re-evaluation
 → plugin/global before observers
@@ -229,7 +230,8 @@ normalization
 → final monotonic output restrictions
 → beforeCommit
 → commit
-→ afterCommit and post-commit events
+→ after-commit work (Hooks afterCommit and events), outside the transaction,
+  not awaited by the response, failures logged (ADR-0318)
 ```
 
 The optional Validation plugin runs Standard Schema field validators only through

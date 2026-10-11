@@ -54,14 +54,17 @@ operation or narrow its target. For updates and deletes, Core then loads and
 locks the visible target. Field and schema input resolution can use that
 original item; target-aware transforms run before Core's mandatory final
 structural validation. Defaults and generators are not replayed. The optional
-Validation plugin runs application field validators at the final mutation
-input boundary.
+Validation plugin then runs application validators as the last step before
+storage: its issues and Core's structural issues form one `VALIDATION_ERROR`,
+and a validator's output is checked structurally again before it is stored.
 
 Core reevaluates value-dependent policy after the final candidate exists.
 Optional business before-Hooks run next, followed by the database operation and
 business after-Hooks. After-Hooks can still abort the transaction. Core applies
 final output restrictions and the caller's `select` / `include` projection
-before commit; buffered events are delivered only after a successful commit.
+before commit. After-commit work (Hooks `afterCommit` and events) runs only
+after a successful commit, outside the transaction, without delaying the
+response.
 
 Policy contributions are monotonic: deny-only guards, row filters, adapter
 constraints, field restrictions, and output subsets can narrow accumulated

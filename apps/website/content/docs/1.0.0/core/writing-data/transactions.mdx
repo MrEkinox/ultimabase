@@ -17,6 +17,7 @@ sources:
   - docs/adr/0099-automatic-mutation-transactions.md
   - docs/adr/0107-hook-context-capabilities-and-events.md
   - docs/adr/0172-focused-schema-hook-results.md
+  - docs/adr/0318-hooks-data-phases-and-post-commit-delivery.md
   - docs/adr/0300-retry-automatic-mutation-transactions.md
   - docs/adr/0302-neutral-storage-errors-and-semantics.md
   - docs/adr/0311-application-lifecycle-and-authority-surface.md
@@ -116,19 +117,20 @@ Even if your code catches a failed operation inside the callback, that
 transaction remains rollback-only. Do not start a nested explicit transaction:
 savepoints are not supported, and the call fails with `TRANSACTION_ERROR`.
 
-Business `beforeOperation` and `afterOperation` Hooks from the optional
-[Hooks plugin](/docs/1.0.0/plugins/official/hooks)
-run before commit and may abort it. For post-commit delivery, a Hook can call
-`context.emit(name, payload)` when a matching named-event consumer is
-installed. The event is buffered until the successful outer commit. Without
-a consumer, emission fails immediately. If a consumer fails after commit, the
-call may report an error, but the committed data cannot be rolled back. Named
-events are in-process delivery, not a durable queue that survives a crash.
+Business `resolveInput`, `beforeOperation` and `afterOperation` Hooks from
+the optional [Hooks plugin](/docs/1.0.0/plugins/official/hooks) run before
+commit and may abort it. For work after commit, a schema declares
+`afterCommit` Hooks, or a Hook calls `context.emit(event, payload)` with an
+event created by `defineEvent` and consumed with `onEvent`. Both run once the
+outer transaction has committed, outside it, without delaying the response; a
+failure is logged and never rejects the call. A rolled-back transaction
+discards them. They are in-process delivery, best effort, not a durable queue
+that survives a crash. Plugins queue the same kind of work with
+`runAfterCommit()` from `@ultimabase/core/plugin`.
 
 External effects such as emails or HTTP requests made directly inside a
 transaction callback are not undone by a database rollback. Keep those
-effects behind post-commit delivery. Public schema `beforeCommit` and
-`afterCommit` callbacks do not exist.
+effects in `afterCommit` Hooks or events.
 
 ## Conflicts and retries
 
@@ -146,7 +148,7 @@ once. No attempt starts after the request is cancelled or past its deadline.
 Every callback that runs inside the transaction may therefore run several
 times for one call: keep it free of effects outside the transaction. Writes
 through the UltimaBase API are fine because they join the transaction; send
-emails, queue messages or HTTP calls from post-commit events.
+emails, queue messages or HTTP calls from `afterCommit` Hooks or events.
 
 `ultimabase.transaction(callback)` is never replayed, because Core cannot know
 whether your callback is safe to run twice. It rejects with

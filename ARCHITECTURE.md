@@ -363,13 +363,18 @@ defaults and generators and guarantees immutable structural shape before Access
 or developer behavior. After every optional input transform, one mandatory
 final pass repeats structural snapshots before value-dependent enforcement,
 observers, or persistence. Behavior providers cannot omit or replace this
-revalidation invariant. Authorized providers may run a generic rejection-only
-final mutation-input guard with stable prepared targets before enforcement
-reevaluation; the guard cannot replace the operation.
+revalidation invariant. Authorized providers may then run a generic final
+mutation validation stage with stable prepared targets: its issues and Core's
+structural issues form one `VALIDATION_ERROR` (Core also asks it for its issues
+when the initial pass rejects a mutation), and a candidate it returns with
+other values is revalidated structurally and counts as a replacement for
+enforcement reevaluation (ADR-0319). A generic rejection-only final
+mutation-input guard follows; it cannot replace the operation.
 
-The optional `@ultimabase/validation-plugin` owns the direct `validation` option,
-Standard Schema execution, issue mapping, and projected arithmetic checks at
-that guard boundary. Reads, adapter results, materializations, includes, and
+The optional `@ultimabase/validation-plugin` owns the `validation` field option
+and schema check, Standard Schema and function validators, stored validator
+outputs, issue mapping, projected arithmetic checks and `check()` at that
+validation boundary. Reads, adapter results, materializations, includes, and
 final projections repeat only Core structural snapshots. An application without
 the plugin has no application field validator or placeholder Runtime behavior.
 
