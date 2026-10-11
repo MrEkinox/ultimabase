@@ -203,7 +203,7 @@ Current records (accepted or still active in part):
 - [ADR-0219: Field constraints use Standard Schema](0219-standard-schema-field-validation.md)
 - [ADR-0220: Field validation follows input resolution](0220-post-resolution-field-validation.md)
 - [ADR-0221: Field validation is a single mutation-input boundary](0221-single-pass-field-validation.md)
-- [ADR-0222: Sparse Access resolves granular secure defaults](0222-sparse-read-access-inherits-secure-defaults.md)
+- [ADR-0222: Sparse Access resolves granular secure defaults](0222-sparse-read-access-inherits-secure-defaults.md), the `default` option of `accessPlugin` superseded by ADR-0317
 - [ADR-0223: Application field validation is an optional plugin](0223-optional-field-validation-plugin.md)
 - [ADR-0224: HTTP application, REST, and password authentication boundaries](0224-http-application-rest-and-password-auth-boundaries.md)
 - [ADR-0225: Core provides a narrow application request execution capability](0225-core-application-request-execution-capability.md)
@@ -274,6 +274,8 @@ Current records (accepted or still active in part):
 - [ADR-0290: Derive plugin privileges instead of restating them](0290-derived-plugin-privileges.md)
 - [ADR-0291: Run each suite once and validate fully before merging](0291-faster-validation-cadence.md)
 - [ADR-0292: Default the PostgreSQL schema policy from the environment](0292-environment-aware-postgres-schema-policy.md)
+- [ADR-0293: Let Access row filters deny explicitly and stop teaching open defaults](0293-explicit-empty-access-filters.md), separate `allow` and `where` rule steps and the omitted `where` result superseded by ADR-0317
+- [ADR-0294: Make public transport writes an explicit choice](0294-explicit-public-writes.md)
 - [ADR-0295: Export the Hono listener address](0295-hono-listener-address-export.md)
 - [ADR-0296: Treat added diagnostic context as a fix](0296-diagnostic-message-fixes.md)
 - [ADR-0297: Declare schemas without Typegen](0297-declare-schemas-without-typegen.md)
@@ -296,6 +298,7 @@ Current records (accepted or still active in part):
 - [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 - [ADR-0315: Name-keyed query signatures](0315-name-keyed-query-signatures.md)
 - [ADR-0316: `definePlugin` and higher-kinded projection slots](0316-plugin-facade-and-projection-slots.md)
+- [ADR-0317: Access rules, explicit openings and plugin permissions](0317-access-rules-and-explicit-openings.md)
 
 Proposed records (awaiting user validation):
 
