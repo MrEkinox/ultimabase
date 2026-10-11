@@ -24,7 +24,7 @@ export const normalizeHttpHealthPath = (value: unknown): string | undefined => {
  */
 export const createHttpHealthRoute = (
 	path: string,
-	readHealth: () => Promise<'DEGRADED' | 'OK'>,
+	readHealth: () => Promise<'OK' | 'DEGRADED'>,
 ): HttpRouteDefinition =>
 	httpRoute({
 		handle: async () => {

@@ -6,7 +6,7 @@ import {
 } from '../database/contracts.js'
 
 /** Reports whether a started application reaches its database (ADR-0303). */
-export type ApplicationHealthStatus = 'DEGRADED' | 'OK'
+export type ApplicationHealthStatus = 'OK' | 'DEGRADED'
 
 /** Bounds one adapter health check so a stalled database reports `DEGRADED`. */
 export const applicationHealthTimeoutMs = 2_000

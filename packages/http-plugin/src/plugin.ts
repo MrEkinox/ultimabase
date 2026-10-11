@@ -143,7 +143,7 @@ const deriveBrowserPolicy = (
 const ownRoutes = (
 	normalized: NormalizedHttpPluginOptions,
 	owner: PluginIdentity,
-	readHealth: () => Promise<'DEGRADED' | 'OK'>,
+	readHealth: () => Promise<'OK' | 'DEGRADED'>,
 ): CapabilityProviderContribution<HttpEndpointContributionsCapability> =>
 	immutableRecord({
 		contributionId: 'official-http-routes',
