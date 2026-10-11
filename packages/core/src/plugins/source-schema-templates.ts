@@ -105,15 +105,21 @@ export type ResolveSourceSchemaTemplate<
  * branches captures their unresolved `infer` parameters, which makes every
  * schema type containing it look generic. TypeScript then re-instantiates whole
  * schemas when a relationship target thunk is resolved (TS2589 on self relations).
+ * The `infer` here only rebinds the template itself, so nothing else is
+ * captured, and a resolved conditional carries no alias: editors print the
+ * resolved object instead of `ResolveSourceSchemaObject<…>` with whole schema
+ * arguments (about 0.1 s of checking, measured in migration step 5).
  */
 type ResolveSourceSchemaObject<
 	TTemplate,
 	TContract extends SchemaTypeInfo,
 	TSchema extends SchemaDefinition,
-> = {
-	readonly [TKey in keyof TTemplate]: ResolveSourceSchemaTemplate<
-		TTemplate[TKey],
-		TContract,
-		TSchema
-	>
-}
+> = TTemplate extends infer TObject
+	? {
+			readonly [TKey in keyof TObject]: ResolveSourceSchemaTemplate<
+				TObject[TKey],
+				TContract,
+				TSchema
+			>
+		}
+	: never

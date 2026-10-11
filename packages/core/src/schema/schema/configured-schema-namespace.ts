@@ -282,6 +282,17 @@ export type ConfiguredSchemaOptionsForDeclaration<
 	> &
 	Readonly<{ fields: TFieldDeclaration }>
 
+// Projections read declared options only through their selectors, so the
+// selector subset resolves the same templates. When it is empty, the shared
+// empty record lets TypeScript reuse the projection already resolved for the
+// declaration options instead of resolving it again for every schema.
+type ConfiguredProjectionOptions<
+	TSource extends PluginSourceState,
+	TOptions extends object,
+> = keyof ConfiguredSchemaSelectorOptions<TSource, TOptions> extends never
+	? Readonly<Record<never, never>>
+	: ConfiguredSchemaSelectorOptions<TSource, TOptions>
+
 type ConfiguredSchemaOptionValidationSource<
 	TSource extends PluginSourceState,
 	TClassName extends string,
@@ -303,7 +314,7 @@ type ConfiguredSchemaOptionValidationSource<
 			TSource,
 			TClassName,
 			TBaseFields,
-			TDeclaredOptions
+			ConfiguredProjectionOptions<TSource, TDeclaredOptions>
 		>
 
 /** Validates one package-specialized declaration through the configured source graph. */
@@ -381,6 +392,9 @@ export type ConfiguredSchemaNamespace<
 			TSource,
 			TClassName,
 			TFields,
-			ConfiguredSchemaSelectorOptions<TSource, TDeclaredOptions>
+			ConfiguredSchemaSelectorOptions<
+				TSource,
+				ConfiguredProjectionOptions<TSource, TDeclaredOptions>
+			>
 		>
 	}>
