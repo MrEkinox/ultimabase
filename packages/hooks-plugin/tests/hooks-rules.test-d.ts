@@ -1,6 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
-import { UltimaBase, type Pointer } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
 import {
 	defineEvent,
@@ -128,5 +128,4 @@ test('rejects unknown phases and string events', () => {
 			beforeFind: () => undefined,
 		},
 	})
-	void ({} as Pointer)
 })

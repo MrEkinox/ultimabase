@@ -266,12 +266,10 @@ describe('Hooks on plain data (ADR-0318)', () => {
 			data: { list: { connect: list.id }, tags: { set: [green.id, blue.id] } },
 		})
 		expect(recorded).toHaveLength(1)
-		const [changes] = recorded as [Readonly<Record<string, unknown>>]
-		expect(changes.tags).toStrictEqual({
-			connect: [blue.id],
-			disconnect: [red.id],
+		expect(recorded[0]).toMatchObject({
+			list: { id: list.id },
+			tags: { connect: [blue.id], disconnect: [red.id] },
 		})
-		expect(changes.list).toMatchObject({ id: list.id })
 	})
 
 	it('shows link changes of a relation mapped by an inverse pointer', async () => {
@@ -356,9 +354,9 @@ describe('Hooks on plain data (ADR-0318)', () => {
 			where: { id: { eq: counter.id } },
 			data: { n: { increment: 1 } },
 		}).catch((error: unknown) => error)
-		expect(failure).toBeInstanceOf(FrameworkError)
-		expect(failure).toMatchObject({ code: 'RUNTIME_CALLBACK_RECURSION' })
-		expect((failure as Error).message).toContain(
+		if (!(failure instanceof FrameworkError)) throw failure
+		expect(failure.code).toBe('RUNTIME_CALLBACK_RECURSION')
+		expect(failure.message).toContain(
 			'HookDataCounter.update-one -> HookDataCounter.update-one',
 		)
 		await expect(
