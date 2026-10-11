@@ -36,7 +36,7 @@ Hors périmètre (étape 6, migration d'Access) : `allowWithoutRule`, sa valeur
 - [x] ADR-0312 (plugin-kit, PostgreSQL, Hono, Yoga, explorateurs)
 - [x] ADR-0297 amendement 1 (Register obligatoire, create-app, exemples)
 - [x] Documentation (site, README, docs internes)
-- [ ] Porte finale
+- [x] Porte finale
 
 ## Décisions (à confirmer par l'utilisateur)
 
@@ -210,7 +210,35 @@ fd7f5c3f (ADR-0312), 21496451 (Register), e15cd068 et suivants (e2e, docs).
   corrigé.
 - `--project website-content` : 66 / 66.
 
+Porte finale sur 0f2f7f98 (`dist` et `*.tsbuildinfo` supprimés) :
+
+- `yarn validate:full` : exit 0 ; couverture 687 fichiers, 3 341 tests,
+  0 erreur de type ; performance 3 fichiers, 4 / 4 (hybrid-authoring compris,
+  après ajout de `Register` aux sondes Typegen) ; website-content 17 / 66 ;
+  lint 0 erreur. Deux passages précédents ont échoué et ont été corrigés :
+  sondes de performance Typegen sans `Register` (diagnostic, pas un
+  dépassement de budget) et contrat de documentation ignorant les sous-chemins
+  d'exports.
+- `yarn test:e2e:built` : exit 0 ; 120 fichiers, 514 tests.
+- Audit DX contre 53c6ae38 (tous paquets, `tests`, `examples/minimal`,
+  `examples/todo-backend`) : 661 différences, toutes expliquées : exports et
+  survols déplacés vers `./plugin` (ADR-0311), `start`, `transaction`,
+  `useMasterKey: boolean`, `Logger` / `LogLevel` / `PluginStartContext`,
+  `logger` / `logLevel`, `PluginPrivilegeLogger` retiré, membre `hint` sur
+  chaque jeton de capacité (ADR-0313), nouvelles capacités (`httpServer`,
+  introspection) et exports (plugin-kit, testing), options PostgreSQL / Hono
+  / Yoga / explorateurs (ADR-0312), `Register` obligatoire (JSDoc et
+  diagnostics des fixtures exécutées sans `Register` par l'audit), sources
+  d'exemples modifiées. Le passage de `QueryBuilder` / `WhereBuilder` en
+  types n'apparaît pas dans la section `exports` de l'audit (sens du symbole
+  cible) : vérifié dans `dist/index.d.ts` (`type QueryBuilder`) et par
+  `public-api.test.ts`.
+- Banc forme D (TS 6, médianes de 3, alterné, charge 2,65 à 3,77) :
+  50 schémas édition 2 298 → 2 302 ms, froid 5 191 → 5 136 ms ; 200 schémas
+  7 907 → 7 915 ms, froid 19 451 → 19 454 ms ; sans `Register` : un
+  diagnostic (l'erreur `Register`) au lieu de zéro, temps inchangés
+  (50 : froid 6 686 → 6 752 ; 200 : froid 67 832 → 67 003 ms).
+
 ## Prochaine action vérifiable
 
-Porte finale : `rm -rf packages/*/dist`, `*.tsbuildinfo`, `yarn validate:full`,
-`yarn test:e2e:built`, audit DX contre 53c6ae38, banc forme D.
+Revue du coordinateur.
