@@ -19,6 +19,51 @@ const createLifecycle = (
 	)
 
 describe('PluginLifecycleManager', () => {
+	it('runs ready once the application is started, and fails start() with it', async () => {
+		const events: string[] = []
+		const ready = (failing: boolean) =>
+			createPlugin({
+				version: '0.0.0',
+				core: '^0.0.0',
+				id: `fixture.ready-${String(failing)}`,
+				contributions: [
+					contributeApplication(() => ({
+						exports: undefined,
+						startTransports: () => {
+							events.push('startTransports')
+						},
+						// ADR-0322: seeding work runs once queries are available.
+						ready: () => {
+							events.push(`ready:${lifecycle.state}`)
+							if (failing) throw new Error('ready failed')
+						},
+						dispose: () => {
+							events.push('dispose')
+						},
+					})),
+				],
+			})
+		let lifecycle = createLifecycle([ready(false)])
+
+		await lifecycle.start()
+		await lifecycle.dispose()
+		expect(events).toStrictEqual([
+			'startTransports',
+			'ready:started',
+			'dispose',
+		])
+
+		events.length = 0
+		lifecycle = createLifecycle([ready(true)])
+		await expect(lifecycle.start()).rejects.toThrow('ready failed')
+		expect(lifecycle.state).toBe('disposed')
+		expect(events).toStrictEqual([
+			'startTransports',
+			'ready:started',
+			'dispose',
+		])
+	})
+
 	it('runs every phase in dependency order and teardown in reverse order', async () => {
 		const events: string[] = []
 		const dependency = createPlugin({
