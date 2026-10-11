@@ -8,23 +8,26 @@ contentType: guide
 order: 4
 outcome: Define fail-closed authorization that can only narrow as policies compose.
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-11
 sources:
   - packages/access-plugin/README.md
   - packages/access-plugin/src/authoring/contracts.ts
+  - packages/access-plugin/src/authoring/allow-without-rule.ts
   - packages/access-plugin/src/authoring/field-declarations.ts
   - packages/access-plugin/src/plugin.ts
+  - packages/access-plugin/src/startup.ts
+  - packages/access-plugin/src/runtime/denial-log.ts
   - packages/password-auth-plugin/README.md
   - packages/access-plugin/tests/e2e/access-plugin-postgres.postgres.e2e.test.ts
   - examples/minimal/src/schema.ts
   - docs/adr/0204-access-is-one-vertical-plugin.md
   - docs/adr/0205-protected-policy-contributions.md
-  - docs/adr/0222-sparse-read-access-inherits-secure-defaults.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
   - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0308-one-checked-link-vocabulary.md
+  - docs/adr/0317-access-rules-and-explicit-openings.md
 ---
 
 ## Overview
@@ -89,10 +92,7 @@ export const Article = Application.Schema.define({
 		title: f.string({ required: true }),
 	}),
 	access: {
-		read: {
-			allow: true,
-			where: ({ where }) => where.eq('published', true),
-		},
+		read: ({ where }) => where.eq('published', true),
 	},
 })
 ```
@@ -113,10 +113,10 @@ Keep startup in the existing entry point from
 `ultimabase.start()` there and always await `dispose()` when the process finishes.
 This configuration module stays safe to load for static Typegen generation.
 
-The installed engine denies operations without an exact schema decision by
-default. In this example, `read.allow: true` covers all four read capabilities;
-the private row filter still limits them to published rows. Create, update,
-upsert, and delete remain denied. A normal result omits `internalNote`, while
+The installed engine denies every operation that has no schema rule. In this
+example, the `read` rule covers all four read operations and returns a private
+row filter that limits them to published rows. Create, update, upsert, and
+delete have no rule, so they remain denied. A normal result omits `internalNote`, while
 an explicit selection, filter, or sort using it is rejected. Audited Master
 requests bypass these Access restrictions.
 
@@ -128,23 +128,25 @@ loading generated declarations.
 
 ## Behavior and limitations
 
-### Operation decisions and defaults
+### One rule per operation
 
-For each operation, Access evaluates an exact schema decision first. If the
-schema omits that decision, it uses the plugin's `default`. With plain
-`accessPlugin()`, that fallback is `false`. A compatible Access provider runs
-afterward and can only narrow an allowed decision.
+Each operation has at most one schema rule, evaluated before any row is
+loaded (ADR-0317). It is `true` (every row), `false` (no row), or a function
+that returns one of them or a row filter built with the typed `where` builder.
+A function that may return nothing is a type error, so a forgotten branch can
+never open every row.
 
-| Schema key | Applies to                                                                         |
-| ---------- | ---------------------------------------------------------------------------------- |
-| `read`     | `one` (`findOne` and `findOneOrThrow`), `many` (`findMany`), `count`, and `exists` |
-| `create`   | Singular and itemized bulk creates                                                 |
-| `update`   | Singular and itemized bulk updates                                                 |
-| `upsert`   | Singular and itemized bulk upserts                                                 |
-| `delete`   | Singular and itemized bulk deletes                                                 |
+| Schema key  | Applies to                                                                         | Rule                                                         |
+| ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `read`      | `one` (`findOne` and `findOneOrThrow`), `many` (`findMany`), `count`, and `exists` | `true`, `false`, a filter, or `{ one, many, … }`             |
+| `create`    | Singular and itemized bulk creates                                                 | `true`, `false`, a predicate, or `{ where, item }`           |
+| `update`    | Singular and itemized bulk updates                                                 | `true`, `false`, a filter, or `{ where, item }`              |
+| `upsert`    | Singular and itemized bulk upserts                                                 | `true`, `false`, a filter, or `{ where, item }`              |
+| `delete`    | Singular and itemized bulk deletes                                                 | `true`, `false`, a filter, or `{ where, item }`              |
+| plugin keys | Request commands such as `softDeleteOne`, permissions such as `readDeleted`        | Commands like `update`; permissions `true`/`false`/predicate |
 
-Each schema key accepts a boolean, a request-aware boolean callback, or a
-detailed object. A detailed `read` rule can grant only selected capabilities:
+`read` takes one rule for its four operations, or an object whose members
+`one`, `many`, `count` and `exists` are each optional:
 
 ```ts title="src/count-only-article.ts"
 import { Application } from './application.js'
@@ -152,31 +154,55 @@ import { Application } from './application.js'
 export const CountOnlyArticle = Application.Schema.define({
 	className: 'CountOnlyArticle',
 	fields: (f) => ({ title: f.string({ required: true }) }),
-	access: { read: { allow: { count: true } } },
+	access: { read: { count: true } },
 })
 ```
 
-With plain `accessPlugin()`, `count` is allowed, while `one`, `many`, and
-`exists` stay denied. Omitted capabilities inherit their configured defaults;
-they are not implicitly allowed by a neighboring `true`.
+With plain `accessPlugin()`, `count` is allowed while `one`, `many`, and
+`exists` stay denied: an omitted member has no schema rule.
 
-Use `accessPlugin({ default: true })` only when a permissive fallback is
-intentional: it allows native operations and plugin-owned request mutations
-unless an exact rule denies them. A granular default can separate those
-families—for example, `default: { read: { one: true, many: true, count: false,
-exists: true }, create: false }`. Every omitted family remains denied;
-`schemaMutations` controls plugin-owned request mutations. Defaults are static
-fallbacks, not a place for `where`, `item`, or request-aware callbacks.
+### Operations without a rule: `allowWithoutRule`
 
-### Row and item rules
+Without a schema rule an operation is denied, unless the plugin's
+`allowWithoutRule` option opens it for every schema that has no rule for it:
 
-Detailed schema rules separate the early `allow` decision from later checks:
+```ts
+accessPlugin({ allowWithoutRule: { all: true, write: false } })
+accessPlugin({
+	allowWithoutRule: { read: true, count: false, write: isAuthenticated },
+})
+accessPlugin({ allowWithoutRule: { all: 'development' } })
+```
 
-| Rule    | Available on                   | Checks                                                                            |
-| ------- | ------------------------------ | --------------------------------------------------------------------------------- |
-| `allow` | Every operation family         | Whether the operation may begin; a callback receives `principal` and `context`    |
-| `where` | Read, update, upsert, delete   | An additional private row predicate, combined with the caller's query using `AND` |
-| `item`  | Create, update, upsert, delete | A prepared draft, locked original, or final candidate according to the operation  |
+- **Keys:** `all`; the groups `read` (`one`, `many`, `count`, `exists`) and
+  `write` (`create`, `update`, `upsert`, `delete` and request plugin commands);
+  each operation or plugin command key alone (`softDeleteOne`). An operation
+  key wins over its group, a group over `all`, and a schema rule always wins.
+  A plugin permission (`readDeleted`) is opened only by its own key, never by
+  `all`, `read` or `write`.
+- **Values:** `true` opens everywhere, production included; `'development'`
+  opens outside production, and in production `start()` fails with a message
+  naming the operations; a `PolicyPredicate` such as `isAuthenticated` opens
+  when it allows (it receives the principal, operation and schema, never a
+  row filter, since it applies to every schema); `false` or an absent key
+  keeps the operation denied.
+
+After `start()`, Access logs one `warn` line per opening, production
+included, naming predicates, and one `info` line listing the schemas that have
+no Access rule at all (they are fully denied unless an opening applies). An
+opening of `write` is an explicit policy: Access is installed, so public
+transports never ask for a separate acknowledgment of public writes.
+
+### Detailed mutations: `where` and `item`
+
+A mutation can also take `{ where, item }`. `where` is the same operation
+rule (for `create`, a boolean decision, since nothing is loaded); `item` runs
+on stable, prepared values and returns a boolean:
+
+| Member  | Available on                             | Checks                                                                           |
+| ------- | ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `where` | Create, update, upsert, delete, commands | The operation rule: every row, no row, or a private row filter combined by `AND` |
+| `item`  | Create, update, upsert, delete, commands | A prepared draft, locked original, or final candidate according to the operation |
 
 For example, an update can reach only unlocked rows and can keep a published
 article's title unchanged:
@@ -193,7 +219,6 @@ export const EditableArticle = Application.Schema.define({
 	}),
 	access: {
 		update: {
-			allow: true,
 			where: ({ where }) => where.eq('locked', false),
 			item: ({ item, originalItem }) =>
 				!originalItem.published || item.title === originalItem.title,
@@ -202,15 +227,12 @@ export const EditableArticle = Application.Schema.define({
 })
 ```
 
-`where` can be a static filter or a callback using the typed `where` builder;
-a filter object takes the same equality shorthand as a query
-(`where: () => ({ locked: false })`).
-A callback may return `undefined` to add no row restriction. It does **not**
-grant an operation: `where` without `allow` still needs an allowed default.
+A filter object takes the same equality shorthand as a query
+(`({ where }) => where.eq('locked', false)` or `() => ({ locked: false })`).
 Row rules also constrain mutation targets; a target outside the visible row
-universe cannot be reached by changing the caller's predicate. `item` runs
-against stable, prepared values. For upsert it also receives `mode` (`create`
-or `update`); update and upsert-update receive `originalItem`.
+universe cannot be reached by changing the caller's predicate. For upsert,
+`item` also receives `mode` (`create` or `update`); update and upsert-update
+receive `originalItem`.
 
 ### Request-aware decisions
 
@@ -233,16 +255,14 @@ export const PrivateNote = Application.Schema.define({
 	}),
 	access: {
 		create: isAuthenticated,
-		read: {
-			allow: isAuthenticated,
-			where: ({ principal, where }) => where.eq('author', principal?.id ?? ''),
-		},
+		read: ({ principal, where }) =>
+			principal === undefined ? false : where.eq('author', principal.id),
 	},
 })
 ```
 
-`isAuthenticated` alone allows any authenticated caller; the row `where` rule
-makes notes private to their author. A rule never imports the authentication
+`isAuthenticated` alone allows any authenticated caller; the `read` rule
+denies anonymous callers and makes notes private to their author. A rule never imports the authentication
 plugin: the [Password Authentication](./password-authentication) page explains
 how a session becomes the principal, and [Roles](./roles) documents the
 `hasRole()` predicate. A rule or predicate that throws rejects the operation;
@@ -264,17 +284,17 @@ provider narrows it. Put `access` on a stored field, embedded property, or
 virtual field. For a virtual field, the rule protects the logical field as a
 whole, not individual properties inside its output descriptor.
 
-| Field rule                         | Effect                                                                                             |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `read: false`                      | Denies output, `where`, and `orderBy` together                                                     |
-| `read: { output, where, orderBy }` | Controls those three disclosure paths separately; all three keys are required                      |
-| `write: false`                     | Denies fills, replacements, and clears together                                                    |
-| `write: { fill, replace, clear }`  | Controls null-to-value, value-to-value, and value-to-null transitions; all three keys are required |
+| Field rule                         | Effect                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `read: false`                      | Denies output, `where`, and `orderBy` together                                                             |
+| `read: { output, where, orderBy }` | Controls those three disclosure paths separately; an omitted member restricts nothing                      |
+| `write: false`                     | Denies fills, replacements, and clears together                                                            |
+| `write: { fill, replace, clear }`  | Controls null-to-value, value-to-value, and value-to-null transitions; an omitted member restricts nothing |
 
-For example, `read: { output: true, where: false, orderBy: false }` permits
-displaying a field but not using it to infer information through filtering or
-ordering. `write: { fill: true, replace: false, clear: false }` permits its first
-non-null value but prevents later replacement or clearing. Field callbacks
+For example, `read: { where: false, orderBy: false }` permits displaying a
+field but not using it to infer information through filtering or ordering.
+`write: { replace: false, clear: false }` permits its first non-null value but
+prevents later replacement or clearing. Field callbacks
 receive the request `principal` and `context`; value-aware callbacks receive
 the relevant `value` or `originalValue`.
 
@@ -286,15 +306,22 @@ each child's own Access policy. See [Related Data](/docs/1.0.0/core/reading-data
 and [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes) for those
 operations.
 
-### Plugin-owned mutations and policy composition
+### Plugin commands, plugin permissions and policy composition
 
-A plugin-owned request mutation, such as explicit
-[Soft Delete](./soft-delete), has its own exact schema `access` key. It does not
-inherit `update` or `delete` permission merely because its physical effect is
-an update or delete. Its detailed rule can use `allow`, `where`, and `item`;
-the `item` callback sees the locked original and the resolved candidate.
-When no exact rule exists, the `schemaMutations` default applies. Master-only
-commands do not become public through that default.
+A plugin-owned request command, such as [Soft Delete](./soft-delete)'s
+`softDeleteOne`, has its own exact schema `access` key with the same forms as
+`update`; its `input` is available to the rule. It does not inherit `update`
+or `delete` permission merely because its physical effect is an update or
+delete. Without a rule, its own `allowWithoutRule` key, then `write`, then
+`all` decide. Master-only commands have no Access key and never become public.
+
+A plugin can also declare a named schema permission, such as Soft Delete's
+`readDeleted`. Access grants it through a rule of the same name (`true`,
+`false` or a predicate: `readDeleted: hasRole(Admin)`) or through its own
+`allowWithoutRule` key; `all`, `read` and `write` never include it. Core asks
+every installed policy, holds the permission only when one grants it and none
+refuses it, and Master always holds it. Neither Access nor the declaring
+plugin imports the other.
 
 Compatible provider contributions join schema decisions through logical
 `AND`; private row filters also join through `AND`, and field restrictions
@@ -342,26 +369,39 @@ Access policy, including field rules and compatible-provider callbacks; it
 still runs validation, Hooks, transactions, database constraints, and integrity
 work. Never expose Master as a substitute for a public policy.
 
+### Denial diagnostics
+
+When Access denies a request, the server logs one line naming the schema, the
+operation, the step (`operation`, `row filter`, `item` or `field`) and the
+rule that denied, for example
+`denied update on Article at the item step (Article.access.update.item)`. The
+line is `info` outside production and `debug` in production; clients receive
+the same `PERMISSION_DENIED` as before. `ultimabase.can()` answers are not
+logged.
+
 ## Troubleshooting
 
-- **Every request is denied:** confirm `accessPlugin()` is installed and check
-  the exact schema decision and plugin default. Plain `accessPlugin()` denies
-  operations that the schema does not allow. A `where` or `item` rule alone is
-  not an operation grant.
-- **`count` works but `findMany` fails:** inspect `read.allow`. A sparse
-  declaration such as `{ count: true }` leaves `many`, `one`, and `exists` at
-  their defaults.
+- **Every request is denied:** confirm `accessPlugin()` is installed, read the
+  denial line in the server log, and check the schema rule or the
+  `allowWithoutRule` key that should open the operation. The startup `info`
+  line lists the schemas without any rule.
+- **`count` works but `findMany` fails:** inspect `read`. A declaration such as
+  `{ count: true }` leaves `many`, `one`, and `exists` without a rule, so only
+  `allowWithoutRule` can open them.
+- **`start()` fails in production:** an `allowWithoutRule` value is
+  `'development'`. Write schema rules for those operations, or use `true` to
+  open them in production too.
 - **A row cannot be found or updated:** check the caller's query together with
   the private `where` restrictions on the relevant operation. Check `item`
   separately if a prepared target is rejected.
-- **A field is missing or a query fails with `PERMISSION_DENIED`:** check all
-  three read channels (`output`, `where`, `orderBy`) and the write transition
-  that the operation performs. Explicit selection of a denied field fails;
+- **A field is missing or a query fails with `PERMISSION_DENIED`:** check the
+  declared read channels (`output`, `where`, `orderBy`) and the write
+  transition that the operation performs. Explicit selection of a denied field fails;
   ordinary output omits it.
 - **An `access` option is rejected during compilation:** install
   `accessPlugin()` on the configured factory used to declare that schema and
-  check the exact rule shape. Read capabilities may be sparse, but grouped field
-  read and write rules must be complete.
+  check the exact rule shape. A detailed mutation rule needs both `where` and
+  `item`; a permission rule is `true`, `false` or a predicate.
 - **A role-dependent rule denies unexpectedly:** verify that [Roles](./roles)
   and its subject resolver are configured in the same application. Do not use
   Master to hide a broken caller policy.

@@ -62,11 +62,15 @@ export const archivePlugin = () =>
 // await Post.archiveOne({ id }) / await Post.archiveMany({ where })
 ```
 
-- `shapeMethod({ options?, fields?, commands? })` declares one method chained
-  before `.with(...)`. The method takes one optional options object, validated
-  by `options` when the application compiles (an omitted object is validated
-  as `{}`); without `options` it takes no argument. `fields` are added to the
-  schemas that call the method and rejected in create and update input.
+- `shapeMethod({ options?, fields?, commands?, permissions? })` declares one
+  method chained before `.with(...)`. The method takes one optional options
+  object, validated by `options` when the application compiles (an omitted
+  object is validated as `{}`); without `options` it takes no argument.
+  `fields` are added to the schemas that call the method and rejected in
+  create and update input. `permissions` (`['readArchived']`) declares named
+  schema permissions on those schemas (ADR-0317): rule plugins such as Access
+  grant them by a rule of the same name, and the plugin asks for one with
+  `holdsSchemaPermission` from `@ultimabase/core/plugin`.
 - `command({ authority, effect, data?, target?, checkReadable? })` declares one
   command without input. `authority: 'request'` commands are ruled by rule
   plugins such as Access under their own name; `'master'` commands need Master.

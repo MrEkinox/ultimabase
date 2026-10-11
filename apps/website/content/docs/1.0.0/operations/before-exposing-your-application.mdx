@@ -8,7 +8,7 @@ contentType: guide
 order: 1
 outcome: Identify the checks your application and deployment must pass before public exposure.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-11
 sources:
   - README.md
   - packages/core/README.md
@@ -17,6 +17,8 @@ sources:
   - packages/server-hono-plugin/README.md
   - packages/password-auth-plugin/README.md
   - docs/adr/0312-environment-dependent-plugin-defaults.md
+  - docs/adr/0317-access-rules-and-explicit-openings.md
+  - packages/access-plugin/README.md
 ---
 
 UltimaBase is [pre-release](/docs/1.0.0/project/release-status). This checklist identifies
@@ -55,6 +57,10 @@ database before evaluating a public environment.
   [Access](/docs/1.0.0/plugins/official/access) and, where needed,
   [Object ACLs](/docs/1.0.0/plugins/official/acl-permissions). Verify both an
   allowed request and a denied request against the mounted application.
+- Read the Access startup lines: one `warn` line per `allowWithoutRule`
+  opening and one `info` line listing schemas without any rule. Production
+  refuses to start while an opening is `'development'`; replace it with schema
+  rules or an explicit `true`.
 - Configure the exact [HTTP application ID and browser policy](/docs/1.0.0/plugins/official/http)
   for each public application. Browser-origin policy is disabled by default;
   enabling CORS does not grant access or protect against CSRF.

@@ -14,7 +14,7 @@ selectable result.
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { UltimaBase } from '@ultimabase/core'
 
-const Application = UltimaBase.use(accessPlugin({ default: true }))
+const Application = UltimaBase.use(accessPlugin())
 const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
@@ -23,7 +23,7 @@ const Post = Application.Schema.define({
 		title: field.string(),
 	}),
 	access: {
-		read: { where: ({ where }) => where.eq('published', true) },
+		read: ({ where }) => where.eq('published', true),
 	},
 })
 
@@ -53,7 +53,7 @@ export const Post = App.Schema.define({
 		author: field.pointer({ target: () => Author }),
 	}),
 }).with({
-	access: { read: { where: ({ where }) => where.eq('published', true) } },
+	access: { read: ({ where }) => where.eq('published', true) },
 })
 ```
 
@@ -61,9 +61,11 @@ export const Post = App.Schema.define({
 
 The root export has three deliberate groups:
 
-- **Application API:** `accessPlugin`, its options, `AccessContext`, schema and
-  field rule types, exact plugin schema-mutation rule types, and the `allowAll`, `denyAll`,
-  `anyOf`, `allOf`, `not`, `allOperations`, and `allMutations` authoring helpers.
+- **Application API:** `accessPlugin`, its options (`AllowWithoutRule`),
+  `AccessContext`, schema and field rule types, exact plugin command and
+  permission rule types, and the `anyOf`, `allOf` and `not` authoring helpers
+  (`allowAll`, `denyAll`, `allOperations` and `allMutations` were removed by
+  ADR-0317: `true`, `false` and `allowWithoutRule` replace them).
 - **Compatible-provider contract:** `accessContributionsCapability`,
   `provideAccessContributions`, the direct and field-kind contribution
   factories, `defineFieldKindAccessTarget`, and their input or definition
@@ -161,81 +163,108 @@ and rolls back; `select: { id: true }` is always allowed. Rules evaluated for
 `ultimabase.can()` skip field rules: the operation carries no input or
 selection (`readPolicyQuery()` marks it).
 
-## Defaults
+## Rules (ADR-0317)
 
-The operation fallback denies when no exact schema declaration exists. Fields
-stay available until an exact field declaration or compatible provider narrows
-them, so applications do not need a second field-wide default.
-
-Applications may configure every operation with one boolean or use the granular
-operation-family form:
-
-```ts
-accessPlugin({ default: true })
-accessPlugin({
-	default: {
-		read: {
-			one: true,
-			many: true,
-			count: false,
-			exists: true,
-		},
-		create: true,
-		update: true,
-		upsert: true,
-		delete: true,
-		schemaMutations: true,
-	},
-})
-```
-
-Defaults belong to the configured plugin instance and never mutate a schema or
-another application. Every omitted operation family or read capability denies.
-Dynamic `where`, `item`, or callback policies remain schema declarations and
-cannot be configured as defaults.
-
-The boolean form applies to native operations and plugin-owned request
-mutations together. In the granular form, `schemaMutations` controls every
-custom request mutation that has no exact schema declaration and defaults to
-`false` when omitted. It does not affect Master-only commands.
-
-A detailed schema read decision may name only the capabilities it overrides.
-Every omitted capability inherits the operation default:
+Each operation has at most one schema rule, evaluated before any row is
+loaded: `true` (every row), `false` (no row), or a function returning one of
+them or a row filter. A function that may return nothing is a type error.
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 
-const Application = UltimaBase.use(accessPlugin())
-const CountOnlyPost = Application.Schema.define({
-	className: 'CountOnlyPost',
-	fields: (field) => ({ title: field.string() }),
+const App = UltimaBase.use(accessPlugin(), rolesPlugin())
+export const Post = App.Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		author: field.string(),
+		published: field.boolean(),
+	}),
+}).with({
 	access: {
-		read: {
-			allow: { count: true },
+		read: ({ where }) => where.eq('published', true),
+		create: isAuthenticated,
+		update: {
+			where: ({ principal }) => principal !== undefined,
+			item: ({ originalItem, item, principal }) =>
+				originalItem.author === principal?.id &&
+				item.author === originalItem.author,
 		},
+		delete: hasRole(Admin),
 	},
-})
-
-const ultimabase = new Application({
-	schemas: [CountOnlyPost],
 })
 ```
 
-With plain `accessPlugin()`, this authorizes `count` while `one`, `many`, and
-`exists` remain denied. An exact schema rule takes precedence over a conflicting
-plugin default, so this `count: true` also wins over
-`default.read.count: false`. Omitted capabilities inherit their exact
-configured defaults instead.
+- `read` covers `one`, `many`, `count` and `exists`, or takes
+  `{ one, many, count, exists }` with each member optional.
+- Mutations (`create`, `update`, `upsert`, `delete`) also take the detailed form
+  `{ where, item }`: `where` is the operation rule (a boolean decision for
+  `create`, since nothing is loaded) and `item` checks each prepared draft,
+  locked original or candidate.
+- Request plugin commands keep their own key (`softDeleteOne`, `restoreMany`)
+  with the same forms; their `input` is available to the rule.
+- Plugin permissions declared on the schema (Soft Delete's `readDeleted`) take
+  `true`, `false` or a predicate.
+- Field rules `read: { output, where, orderBy }` and
+  `write: { fill, replace, clear }` are partial: an omitted member restricts
+  nothing.
 
-Compatible provider contributions run after that base decision and combine
-through logical `AND`. They may narrow an allowed operation, but cannot grant an
-operation denied by the schema/default resolution.
+## Operations without a rule: `allowWithoutRule`
+
+Without a schema rule an operation is denied, unless `allowWithoutRule` opens
+it. It replaces the former `default` option.
+
+```ts
+accessPlugin({ allowWithoutRule: { all: true, write: false } })
+accessPlugin({
+	allowWithoutRule: { read: true, count: false, write: isAuthenticated },
+})
+accessPlugin({ allowWithoutRule: { all: 'development' } })
+```
+
+- Keys: `all`; the groups `read` (`one`, `many`, `count`, `exists`) and `write`
+  (`create`, `update`, `upsert`, `delete` and request plugin commands); each
+  operation or plugin command key alone. An operation key wins over its group,
+  a group over `all`, and a schema rule always wins. A plugin permission is
+  opened only by its own key: `all`, `read` and `write` never include it.
+- Values: `true` (open, production included), `'development'` (open outside
+  production; in production `start()` fails with a message naming the
+  operations, ADR-0312), a `PolicyPredicate` (no filter: it applies to every
+  schema), or `false`/absent (denied). Unknown keys fail when the application
+  compiles.
+- After `start()`, Access logs one `warn` line per opening, production
+  included, with predicate names, and one `info` line listing the schemas
+  without any Access rule (ADR-0313).
+- A `write` opening is an explicit policy for ADR-0294: Access is a protected
+  policy, so transports never also require a public-writes acknowledgment.
+
+Openings belong to the configured plugin instance and never mutate a schema or
+another application. Compatible provider contributions run after the schema
+rule or opening and combine through logical `AND`: they may narrow an allowed
+operation, but cannot grant one.
 
 Trusted master requests bypass the complete official Access policy. Therefore
-`false`, callback denials, row filters, field restrictions, and configured
-defaults apply only to non-master callers. Validation, hooks, transactions, and
-database constraints still execute.
+`false`, callback denials, row filters, field restrictions, and openings apply
+only to non-master callers. Validation, hooks, transactions, and database
+constraints still execute.
+
+## Plugin permissions
+
+A plugin declares a named schema permission through Core
+(`provideSchemaPermissions`, or `permissions` in a `definePlugin` shape
+method) and asks with `holdsSchemaPermission(context, schema, name)`. Access
+answers through its protected policy: the rule of the same name, else the
+permission's own `allowWithoutRule` key, else a refusal. Core holds the
+permission when one policy grants it and none refuses it, and Master always
+holds it. Access never imports the declaring plugin.
+
+```ts
+const App = UltimaBase.use(accessPlugin(), softDeletePlugin())
+App.Schema.define({ className: 'Post', fields })
+	.softDelete()
+	.with({ access: { read: true, readDeleted: hasRole(Admin) } })
+```
 
 ## Plugin-owned schema mutations
 
@@ -258,10 +287,10 @@ const Post = Application.Schema.define({
 	}),
 	access: {
 		archive: {
-			allow: ({ input, mutation }) =>
+			where: ({ input, mutation, where }) =>
 				input.reason.length > 0 &&
-				mutation.name === 'community.workflow.archive',
-			where: ({ where }) => where.eq('published', true),
+				mutation.name === 'community.workflow.archive' &&
+				where.eq('published', true),
 			item: ({ item, originalItem }) =>
 				item.published === false && originalItem.published === true,
 		},
@@ -277,8 +306,10 @@ const ultimabase = new Application({
 
 `archive` is authorized as its own logical operation. Its physical update does
 not invoke or inherit `access.update`, and an update or delete rule cannot grant
-it. `allow` runs before target loading, `where` narrows the target query, and
-`item` observes the locked original plus the owner-resolved candidate. Ordinary
+it. `where` runs before target loading and returns `true`, `false` or the
+target filter, and `item` observes the locked original plus the
+owner-resolved candidate. Without a rule, its own `allowWithoutRule` key, then
+`write`, then `all` decide. Ordinary
 field output restrictions still shape the final selected result. Compatible
 providers may add the same exact branch through `schemaAccess()`; those rules
 run after the developer decision and can only narrow it.
@@ -309,9 +340,7 @@ export const editorialPolicyPlugin = plugin({
 	contributions: [
 		provideAccessContributions('published-posts', () =>
 			schemaAccess(Post, {
-				read: {
-					where: ({ where }) => where.eq('published', true),
-				},
+				read: ({ where }) => where.eq('published', true),
 			}),
 		),
 	],
@@ -360,7 +389,7 @@ const suite = definePluginConformanceSuite({
 		createPluginConformanceFixture({
 			subject: editorialPolicyPlugin,
 			supportPlugins: [
-				accessPlugin({ default: true }),
+				accessPlugin({ allowWithoutRule: { all: true } }),
 				databaseFixturePlugin(),
 			],
 			schemas: [Post],
@@ -391,6 +420,14 @@ protects ACL-enabled schemas with no official Access engine installed and
 composes monotonically when Access or another policy engine is present.
 
 ## Diagnostics
+
+When Access denies a request, it logs one line naming the schema, the
+operation, the step (`operation`, `row filter`, `item` or `field`) and the
+rule, for example
+`denied update on Post at the item step (Post.access.update.item)`. The line
+is `info` outside production and `debug` in production (ADR-0313); clients
+receive the same `PERMISSION_DENIED` as before, and `can()` answers are not
+logged.
 
 Provide `accessDiagnosticsObserverCapability` from a plugin with
 `runtime:observe` to receive immutable callback completion events. Observer

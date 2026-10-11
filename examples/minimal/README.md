@@ -128,9 +128,11 @@ await restoreArticle(articleId)
 await purgeArticle(obsoleteArticleId)
 ```
 
-Purge and the many-row commands are absent from REST and GraphQL. The plugin
-also deliberately excludes include-deleted queries, deleter metadata, cascade
-behavior, retention jobs, automatic purge, and nested soft delete.
+Purge and the many-row commands are absent from REST and GraphQL. Tombstones
+stay hidden from ordinary callers here: no Access rule grants `readDeleted`,
+so only Master reads them (ADR-0317). The plugin deliberately excludes deleter
+metadata, cascade behavior, retention jobs, automatic purge, and nested soft
+delete.
 
 ## Contextual relation views
 

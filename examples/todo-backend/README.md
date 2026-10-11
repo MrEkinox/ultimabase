@@ -19,7 +19,7 @@ import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
-const TodoSchemaApplication = UltimaBase.use(accessPlugin({ default: true }))
+const TodoSchemaApplication = UltimaBase.use(accessPlugin())
 	.use(hooksPlugin())
 	.use(validationPlugin())
 	.use(rolesPlugin())
@@ -53,7 +53,7 @@ export const Todo = TodoSchemaApplication.Schema.define({
 		}),
 	}),
 	access: {
-		read: { where: ({ where }) => where.eq('archived', false) },
+		read: ({ where }) => where.eq('archived', false),
 		create: false,
 		update: true,
 		upsert: false,
@@ -113,7 +113,8 @@ The same file also contains:
 explicitly. Importing a plugin package alone changes nothing:
 
 ```ts
-const Application = UltimaBase.use(accessPlugin({ default: true }))
+// Every schema rules every operation, so nothing is opened without a rule.
+const Application = UltimaBase.use(accessPlugin())
 	.use(hooksPlugin())
 	.use(validationPlugin())
 	.use(rolesPlugin())

@@ -66,7 +66,7 @@ export const Todo = App.Schema.define({
 })
 	.softDelete()
 	.with({
-		access: { read: { where: ({ where }) => where.eq('archived', false) } },
+		access: { read: ({ where }) => where.eq('archived', false) },
 		hooks: { beforeOperation: { update: ({ item }) => {} } },
 	})
 
@@ -1793,6 +1793,42 @@ policy work before hook-recursion checks.
 The official Access policy and ACL authorization use bypass unconditionally;
 their separate integrity-maintenance contributions remain enforceable for
 master.
+
+### Plugin permissions
+
+A plugin can declare a named schema permission and ask, during a request,
+whether the caller holds it (ADR-0317). Soft Delete declares `readDeleted`
+this way; Core never names it:
+
+```ts
+provideSchemaPermissions({
+	contributionId: 'permissions',
+	create: ({ schemas }) => ({
+		value: schemas
+			.values()
+			.filter(isArchivable)
+			.map((schema) => ({ permission: 'readArchived', schema })),
+	}),
+})
+
+// Inside the declaring plugin's own policy or behavior:
+const seesArchived = await holdsSchemaPermission(
+	context,
+	schema,
+	'readArchived',
+)
+```
+
+Both come from `@ultimabase/core/plugin`. Master always holds every declared
+permission. Otherwise Core asks every installed protected policy through its
+optional `permission` handler, which answers `true`, `false` or `undefined`:
+the permission is held when one policy grants it and none refuses it, so it is
+refused when no policy answers (fail-closed). Asking about a permission the
+schema does not declare is a programming error. Rule plugins discover the
+declared names at the type level through `SchemaPermissions` and
+`PluginSourceSchemaPermissions`, and through `SchemaRulesSource` for a
+registered `SchemaRef` in `.with`; `definePlugin` shape methods declare
+them with `permissions: ['readArchived']`.
 
 The official Access plugin compiles its package-owned declarations into
 `protectedPolicy()` contributions supplied through this same

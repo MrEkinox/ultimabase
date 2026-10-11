@@ -28,6 +28,8 @@ sources:
   - docs/adr/0303-core-partial-indexes-and-health.md
   - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0316-plugin-facade-and-projection-slots.md
+  - docs/adr/0317-access-rules-and-explicit-openings.md
+  - tests/e2e/soft-delete-read-deleted.postgres.e2e.test.ts
 ---
 
 ## Overview
@@ -203,8 +205,8 @@ preserves the ID, stored fields, pointers, and relation memberships; it only
 sees tombstones, so an active or missing ID fails with `NOT_FOUND`.
 
 Restoration is a request command: with [Access](./access) installed it needs an
-`access.restoreOne` rule, and is closed when the rule is absent and your Access
-default denies. Without Access, any caller that reaches the command may run
+`access.restoreOne` rule, and is closed when the rule is absent and no
+`allowWithoutRule` key opens it. Without Access, any caller that reaches the command may run
 it, like every other request operation. To keep restoration server-side, deny
 it and run it with Master, which bypasses Access:
 
@@ -504,17 +506,38 @@ write them through create, update, nested commands, REST, or GraphQL. You may
 select them in results and filter or sort them like ordinary fields, subject to
 installed field policy. A filter such as `where: { isDeleted: { eq: true } }`
 still returns no tombstones: the plugin always combines ordinary reads with its
-private `isDeleted: false` constraint. Filtering is not an include-deleted
-permission.
+private `isDeleted: false` constraint, unless the caller holds `readDeleted`.
 
 Tombstones are hidden from ordinary reads, counts, existence checks, pointer
 and relation traversal, eager loading, and ordinary update or delete targets.
-This also applies to Master reads: Master is not an include-deleted switch.
 Direct database queries do not apply these application rules.
 
+### Reading deleted rows: `readDeleted`
+
+`.softDelete()` declares the schema permission `readDeleted` (ADR-0317). A
+caller who holds it sees tombstones in ordinary reads, REST and GraphQL
+included, and can filter and sort them (`where: { isDeleted: { eq: true } }`,
+`orderBy: { deletedAt: 'desc' }`); without it the private filter applies.
+Updates, deletes and request commands never reach tombstones through it.
+With [Access](./access), grant it with a rule of the same name or with its own
+`allowWithoutRule` key (`all`, `read` and `write` never include it):
+
+```ts title="src/schemas.ts (an audit trash)"
+export const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+})
+	.softDelete()
+	.with({ access: { read: true, readDeleted: hasRole(Auditor) } })
+```
+
+Without a policy that grants it, nobody but Master holds it. Master always
+holds it, so trusted server code reads tombstones without extra rules.
+
 With [Access](./access), each command has its own rule (`softDeleteOne`,
-`softDeleteMany`, `restoreOne`, `restoreMany`); granting native update or delete
-does not grant them, and purge is Master-only so it has none. With
+`softDeleteMany`, `restoreOne`, `restoreMany`) and `readDeleted` its own
+permission rule; granting native update or delete does not grant them, and
+purge is Master-only so it has none. With
 [Hooks](./hooks), each command has its own `beforeOperation` and
 `afterOperation` branch. REST, GraphQL, and TypeScript enter the same Runtime
 pipeline and preserve transaction and protected-policy boundaries.
@@ -523,9 +546,8 @@ A soft deletion is an update: it triggers no `onDelete` referential action. A
 pointer to a tombstone keeps its value, and including it returns `null` until a
 purge physically deletes the row.
 
-There is no deleter identity, reason, include-deleted query, retention job,
-automatic purge, or nested soft delete yet; a read permission for tombstones
-will come with the Access extension point.
+There is no deleter identity, reason, retention job, automatic purge, or
+nested soft delete yet.
 
 ## Troubleshooting
 
@@ -535,7 +557,8 @@ will come with the Access extension point.
 - **Soft deletion returns `NOT_FOUND`:** the ID may be absent, already deleted,
   or hidden by a policy. Repeating soft deletion does not succeed again.
 - **A deleted record remains visible:** check the selected application, the
-  schema's mode, and the operation result. Direct database reads still see
+  schema's mode, the operation result, and whether the caller holds
+  `readDeleted` (Master always does). Direct database reads still see
   tombstones.
 - **Native deletion cannot be restored:** in command mode, or on a schema
   without `.softDelete()`, native delete is permanent.
