@@ -1,11 +1,11 @@
 # ADR-0316: `definePlugin` and higher-kinded projection slots
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: ADR-0297 (form D shape methods and `.with`), ADR-0311 (plugin-author entry), ADR-0200
   (plugin schema mutations); applies ADR-0288 and ADR-0289
 - Approval: direction decided by the user on 2026-10-11 after the 6.0 spike (points 1 to 7 of
-  the coordinator's recommendation); record to be accepted by the user
+  the coordinator's recommendation); record accepted by the user on 2026-10-11
 - Evidence: `docs/handoff/spike-definePlugin.md` (branch `spike/plugin-facade`, base `main`
   73109860), `docs/handoff/migration-core-etape-5.md` (lever 3), `docs/handoff/simplification.md`
   (facade mandate), `docs/handoff/revue-plugins/soft-delete.md`
