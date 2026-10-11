@@ -18,6 +18,7 @@ import {
 	type PluginModelContributionContext,
 	type PluginSchemaContributionContext,
 	type PluginSchemaShapeSource,
+	type SchemaOptionDefinition,
 	type SchemaShapeMethod,
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -136,16 +137,18 @@ const declareSchemas =
 		schemas.defineOptions({
 			contributionId: 'options',
 			schema: Object.fromEntries([
-				...shape.map(([method, definition]) => [
-					method,
-					defineSchemaOption({
-						normalize: normalizeShapeOptions(method, definition.options),
-						protocolVersion: 1,
-						typegen: false,
-						valueKind: 'opaque',
-					}),
-				]),
-				...rules.map(([name, validate]) => [
+				...shape.map(
+					([method, definition]): [string, SchemaOptionDefinition] => [
+						method,
+						defineSchemaOption({
+							normalize: normalizeShapeOptions(method, definition.options),
+							protocolVersion: 1,
+							typegen: false,
+							valueKind: 'opaque',
+						}),
+					],
+				),
+				...rules.map(([name, validate]): [string, SchemaOptionDefinition] => [
 					name,
 					defineSchemaOption({
 						normalize: validate,

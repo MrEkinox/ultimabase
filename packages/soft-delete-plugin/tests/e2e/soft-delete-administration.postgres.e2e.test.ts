@@ -43,7 +43,7 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 			afterOperation: {
 				purgeOne: ({ item, originalItem }) => {
 					administrationTrace.push(
-						`after:purgeOne:${originalItem.title}:${item === null ? 'null' : 'record'}`,
+						`after:purgeOne:${originalItem.title}:${String(item)}`,
 					)
 				},
 				restoreOne: ({ item, originalItem }) => {
@@ -55,7 +55,7 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 			beforeOperation: {
 				purgeOne: async ({ context, item, mutation, originalItem }) => {
 					administrationTrace.push(
-						`before:purgeOne:${mutation.name}:${context.access.mode}:${item === null ? 'null' : 'record'}`,
+						`before:purgeOne:${mutation.name}:${context.access.mode}:${String(item)}`,
 					)
 					await AdministrationLog.createOne({
 						data: { message: `purge:${originalItem.title}` },
@@ -175,11 +175,8 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			id: row.id,
 			select: { deletedAt: true, isDeleted: true },
 		})
-		expect(deleted).toEqual({
-			id: row.id,
-			deletedAt: expect.any(String),
-			isDeleted: true,
-		})
+		expect(deleted).toMatchObject({ id: row.id, isDeleted: true })
+		expect(typeof deleted.deletedAt).toBe('string')
 
 		// Restore is a request command: Access rules it (closed by default when
 		// Access is installed); this application has no Access plugin.

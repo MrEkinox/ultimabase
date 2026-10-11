@@ -2,14 +2,14 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	UltimaBase,
-	booleanField,
-	stringField,
+	type BooleanField,
 	type ForbiddenMutationInputField,
+	type ScalarFieldTypegenState,
+	type StringField,
 } from '../index.js'
 import {
-	defineOperationValue,
-	defineSchemaMutation,
 	plugin,
+	type PluginSchemaMutationDefinition,
 	type PluginSchemaFieldsSource,
 	type PluginSchemaRulesSource,
 	type PluginSchemaShapeSource,
@@ -24,38 +24,40 @@ import type { PluginSource } from './definition.js'
 
 // ADR-0316 decision 1: plugins add fields, statics and rules through
 // higher-kinded slots that Core evaluates against the called shape methods.
-const flagged = booleanField({ default: false, required: true })
-const note = stringField()
-const noInput = defineOperationValue((): undefined => undefined)
-const archive = defineSchemaMutation({
-	authority: 'request',
-	effect: 'update',
-	input: noInput,
-	name: 'fixture.slots.archive',
-	returning: 'after',
-	version: '1.0.0',
-})
-const archiveAll = defineSchemaMutation({
-	authority: 'request',
-	effect: 'update',
-	input: noInput,
-	name: 'fixture.slots.archive-all',
-	returning: 'after',
-	target: 'many',
-	version: '1.0.0',
-})
+type Flagged = BooleanField<ScalarFieldTypegenState<true, false, false, true>>
+type Note = StringField<ScalarFieldTypegenState<false, false, false, false>>
+type Archive = PluginSchemaMutationDefinition<
+	'fixture.slots.archive',
+	'1.0.0',
+	undefined,
+	readonly [],
+	'request',
+	'update',
+	'after'
+>
+type ArchiveAll = PluginSchemaMutationDefinition<
+	'fixture.slots.archive-all',
+	'1.0.0',
+	undefined,
+	readonly [],
+	'request',
+	'update',
+	'after',
+	Readonly<Record<never, never>>,
+	'many'
+>
 
 type FlagOptions = Readonly<{ commands?: true; note?: true }>
 
 // Fields read the shape arguments only, never the schema.
 interface FlagFields extends SchemaFieldsHKT {
 	readonly fields: ('flag' extends keyof this['shape']
-		? Readonly<{ flagged: ForbiddenMutationInputField<typeof flagged> }>
+		? Readonly<{ flagged: ForbiddenMutationInputField<Flagged> }>
 		: unknown) &
 		(this['shape'] extends Readonly<{
 			flag: readonly [{ readonly note: true }]
 		}>
-			? Readonly<{ note: typeof note }>
+			? Readonly<{ note: Note }>
 			: unknown)
 }
 
@@ -66,7 +68,7 @@ interface FlagStatics extends SchemaStaticsHKT {
 	}>
 		? SchemaCommands<
 				this['schema'],
-				{ archiveOne: typeof archive; archiveMany: typeof archiveAll }
+				{ archiveOne: Archive; archiveMany: ArchiveAll }
 			>
 		: unknown
 }
@@ -111,6 +113,7 @@ test('plugin() keeps an explicit static source', () => {
 		core: '^0.0.0',
 		contributions: [],
 	})
+	expectTypeOf(inferred).toHaveProperty('manifest')
 	expectTypeOf<PluginSource<typeof inferred>>().toBeNever()
 })
 

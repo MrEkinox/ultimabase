@@ -69,7 +69,7 @@ documentation (site, README des paquets), porte complète, audit DX, banc.
 - Règle Access d'une commande `Many` : sa propre clé (`softDeleteMany`).
 - Message de conflit à la restauration : générique dans Core pour toute
   commande de plugin, `Cannot run restoreOne on Todo <id>: slug is now used by
-  another row.` ; les valeurs restent dans `internalDetails` (les règles de
+another row.` ; les valeurs restent dans `internalDetails` (les règles de
   lecture de champ peuvent les cacher).
 - `restoreOne/Many` : autorité `request` (règle Access, fermée par défaut
   avec Access) ; `purgeOne/Many` : Master.

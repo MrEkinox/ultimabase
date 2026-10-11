@@ -2,11 +2,11 @@ import type { CapabilityProviderDeclaration } from '@ultimabase/core/plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import {
-	httpEndpointContributionsCapability,
 	httpRoute,
 	provideHttpEndpoints,
 	type HttpMethod,
 	type HttpRequestHandler,
+	type httpEndpointContributionsCapability,
 } from './endpoints.js'
 
 /** One `"<METHOD> /<path>"` key of {@link httpRoutes}. */

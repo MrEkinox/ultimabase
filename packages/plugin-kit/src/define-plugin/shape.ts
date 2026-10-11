@@ -68,9 +68,7 @@ export type ShapeMethodMember<
  * })
  * ```
  */
-export const shapeMethod = <
-	const TDefinition extends ShapeMethodDefinition<object>,
->(
+export const shapeMethod = <const TDefinition extends ShapeMethodDefinition>(
 	definition: TDefinition,
 ): Readonly<TDefinition> => {
 	const untrusted: unknown = definition

@@ -106,26 +106,24 @@ export const command = <const TOptions extends CommandOptions>(
 	if (unknownKey !== undefined) {
 		throw new TypeError(`Unknown command option: ${unknownKey}`)
 	}
-	if (options.authority !== 'request' && options.authority !== 'master') {
+	const { authority, checkReadable, data, effect } = untrusted
+	if (authority !== 'request' && authority !== 'master') {
 		throw new TypeError('command authority must be request or master')
 	}
-	if (options.effect !== 'update' && options.effect !== 'delete') {
+	if (effect !== 'update' && effect !== 'delete') {
 		throw new TypeError('command effect must be update or delete')
 	}
-	const target: unknown = options.target ?? 'one'
+	const target = untrusted.target ?? 'one'
 	if (target !== 'one' && target !== 'many') {
 		throw new TypeError('command target must be one or many')
 	}
-	if (options.data !== undefined && typeof options.data !== 'function') {
+	if (data !== undefined && typeof data !== 'function') {
 		throw new TypeError('command data must be a function')
 	}
-	if (options.effect === 'delete' && options.data !== undefined) {
+	if (effect === 'delete' && data !== undefined) {
 		throw new TypeError('delete commands write no data')
 	}
-	if (
-		options.checkReadable !== undefined &&
-		options.checkReadable !== 'before'
-	) {
+	if (checkReadable !== undefined && checkReadable !== 'before') {
 		throw new TypeError('command checkReadable must be before')
 	}
 	return immutableRecord({
@@ -190,8 +188,10 @@ const unitInputTransports = [
 	},
 ] as const
 
-const decodeUnitInput = (value: unknown): undefined =>
+const decodeUnitInput = (value: unknown): undefined => {
 	noInput.snapshot(value, 'command input')
+	return undefined
+}
 
 /** Converts a camelCase key into one segment of a namespaced mutation name. */
 const nameSegment = (value: string): string =>

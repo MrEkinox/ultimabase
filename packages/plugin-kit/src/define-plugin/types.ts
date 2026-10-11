@@ -23,9 +23,7 @@ import type {
 } from './shape.js'
 
 /** Shape methods of one plugin, keyed by method name. */
-export type ShapeMethods = Readonly<
-	Record<string, ShapeMethodDefinition<object>>
->
+export type ShapeMethods = Readonly<Record<string, ShapeMethodDefinition>>
 
 /** Rule values of one plugin, keyed by `.with({ ... })` entry. */
 export type RuleValues = Readonly<Record<string, unknown>>
