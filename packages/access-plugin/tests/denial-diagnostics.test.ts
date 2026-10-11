@@ -19,6 +19,7 @@ const Bare = App.Schema.define({
 const Ruled = App.Schema.define({
 	className: 'DeniedRuled',
 	fields: (field) => ({
+		hidden: field.string({ access: { read: false, write: false } }),
 		secret: field.string({ access: { read: { orderBy: false } } }),
 		title: field.string(),
 	}),
@@ -74,12 +75,23 @@ describe('Access denial diagnostics (ADR-0317)', () => {
 			await expect(
 				Ruled.findMany({ orderBy: { secret: 'asc' } }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				Ruled.findMany({ select: { hidden: true } }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				Ruled.updateOne({
+					data: { hidden: 'x' },
+					where: { id: { eq: rowId } },
+				}),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(denials(logger, 'info')).toEqual([
 				'[@ultimabase/access-plugin] denied many on DeniedBare at the operation step (no rule for many, and allowWithoutRule does not open it).',
 				'[@ultimabase/access-plugin] denied create on DeniedRuled at the operation step (DeniedRuled.access.create).',
 				'[@ultimabase/access-plugin] denied delete on DeniedRuled at the row filter step (DeniedRuled.access.delete.where).',
 				'[@ultimabase/access-plugin] denied update on DeniedRuled at the item step (DeniedRuled.access.update.item).',
 				'[@ultimabase/access-plugin] denied many on DeniedRuled at the field step (DeniedRuled.secret.access.read.orderBy).',
+				'[@ultimabase/access-plugin] denied many on DeniedRuled at the field step (DeniedRuled.hidden.access.read.output).',
+				'[@ultimabase/access-plugin] denied update on DeniedRuled at the field step (DeniedRuled.hidden.access.write.fill).',
 			])
 			expect(denials(logger, 'debug')).toEqual([])
 		} finally {
