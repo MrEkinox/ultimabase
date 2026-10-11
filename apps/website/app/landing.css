@@ -404,6 +404,12 @@ html.dark .ub-landing {
 	font-size: 0.875rem;
 	line-height: 1.9;
 }
+/* The application block stays dark in both themes, so its comments need the dark-surface gray
+   instead of the light-theme override from globals.css. */
+html .ub-application-code .ub-application-codeblock .line span[style*='#6A737D'] {
+	--shiki-light: #a5b0c3 !important;
+	--shiki-dark: #a5b0c3 !important;
+}
 /* Shared execution diagram. */
 .ub-landing-flow {
 	padding: 3.5rem;
