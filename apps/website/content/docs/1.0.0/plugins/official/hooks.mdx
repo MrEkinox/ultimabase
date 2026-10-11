@@ -171,7 +171,9 @@ come from the schema itself, without generated files. The `hooks` option of
 
 Every phase accepts `create`, `update`, `upsert` and `delete` branches (no
 `delete` for `resolveInput`) and an `all` branch that runs before the
-operation's own branch. Each branch takes one callback or a non-empty array.
+operation's own branch. `all` also runs for plugin commands, such as Soft
+Delete's `softDeleteOne`, with `kind` naming the operation or the command, so
+`if (input.kind === 'softDeleteOne')` narrows the input. Each branch takes one callback or a non-empty array.
 Hooks never run for reads, and no option skips them: Master bypasses
 authorization, never Hooks.
 
@@ -258,7 +260,8 @@ is left to a future queue plugin.
 
 `hooksPlugin({ global })` declares the same phases and `all` for every schema
 of the application. Its callbacks receive a generic `item` and the `schema`
-name, and run before each schema's own Hooks:
+name, and run before each schema's own Hooks. Global `all` also sees plugin
+commands; since they depend on each schema, its `kind` is typed as `string`:
 
 ```ts
 hooksPlugin({
@@ -274,8 +277,18 @@ Installed schema mutations add their own branches. For example, with the
 [Soft Delete plugin](./soft-delete), `softDeleteOne`, `restoreOne`, `purgeOne`
 and their `Many` forms are separate logical branches of `beforeOperation`,
 `afterOperation` and `afterCommit`. A `softDeleteOne` implemented by a physical
-update runs `softDeleteOne` Hooks, not native `update` Hooks; `all` covers the
-native operations only.
+update runs `softDeleteOne` Hooks, not native `update` Hooks. `all` runs for
+these commands too, before their own branch, with `kind` set to the command
+name (`resolveInput` has no command form). An audit Hook therefore sees every
+write:
+
+```ts
+.with({
+	hooks: {
+		afterCommit: { all: ({ kind }) => audit(kind) },
+	},
+})
+```
 
 Compatible plugins can contribute `globalHooks()`, `schemaHooks()`, or
 `fieldHooks()` through `provideHookContributions()`. Their handlers retain

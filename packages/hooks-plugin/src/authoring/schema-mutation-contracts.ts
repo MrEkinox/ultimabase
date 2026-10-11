@@ -93,6 +93,26 @@ type GeneratedMutationMap<TSchema extends SchemaDefinition> =
 type SchemaMutationMap<TSchema extends SchemaDefinition> =
 	GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSchema>
 
+/**
+ * What an `all` hook receives for one plugin command: the command's input
+ * with `kind` set to its name, so `all` can narrow on it (ADR-0318 amendment).
+ */
+export type SchemaMutationAllHookInput<
+	TSchema extends SchemaDefinition,
+	TPhase extends 'after' | 'before',
+> = {
+	[
+		TCommand in keyof SchemaMutationMap<TSchema> & string
+	]: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
+		PluginSchemaMutationDefinition
+		? (TPhase extends 'before'
+				? SchemaMutationBeforeHookInput<TSchema, TMutation>
+				: SchemaMutationAfterHookInput<TSchema, TMutation>) & {
+				readonly kind: TCommand
+			}
+		: never
+}[keyof SchemaMutationMap<TSchema> & string]
+
 /** Projects exact custom before-operation branches from the generated graph. */
 type SchemaMutationBeforeOperationHooks<TSchema extends SchemaDefinition> = {
 	readonly [
@@ -114,9 +134,15 @@ type SchemaMutationAfterOperationHooks<TSchema extends SchemaDefinition> = {
 }
 
 interface NativeSchemaBeforeOperationHooks<TSchema extends SchemaDefinition> {
-	/** Runs for every create, update, upsert and delete, before its own branch. */
+	/**
+	 * Runs for every create, update, upsert, delete and plugin command, before
+	 * its own branch; `kind` names the operation or the command.
+	 */
 	readonly all?: HookHandlerDeclaration<
-		SchemaOperationHook<SchemaBeforeOperationHookInput<TSchema>>
+		SchemaOperationHook<
+			| SchemaBeforeOperationHookInput<TSchema>
+			| SchemaMutationAllHookInput<TSchema, 'before'>
+		>
 	>
 	readonly create?: HookHandlerDeclaration<
 		SchemaOperationHook<SchemaBeforeCreateHookInput<TSchema>>
@@ -147,9 +173,15 @@ export type SchemaBeforeOperationHooks<TSchema extends SchemaDefinition> =
 	}>
 
 interface NativeSchemaAfterOperationHooks<TSchema extends SchemaDefinition> {
-	/** Runs for every create, update, upsert and delete, before its own branch. */
+	/**
+	 * Runs for every create, update, upsert, delete and plugin command, before
+	 * its own branch; `kind` names the operation or the command.
+	 */
 	readonly all?: HookHandlerDeclaration<
-		SchemaOperationHook<SchemaAfterOperationHookInput<TSchema>>
+		SchemaOperationHook<
+			| SchemaAfterOperationHookInput<TSchema>
+			| SchemaMutationAllHookInput<TSchema, 'after'>
+		>
 	>
 	readonly create?: HookHandlerDeclaration<
 		SchemaOperationHook<SchemaAfterCreateHookInput<TSchema>>

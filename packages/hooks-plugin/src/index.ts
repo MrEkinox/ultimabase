@@ -45,6 +45,7 @@ export type {
 	SchemaBeforeOperationHooks,
 	SchemaMutationAfterHook,
 	SchemaMutationAfterHookInput,
+	SchemaMutationAllHookInput,
 	SchemaMutationBeforeHook,
 	SchemaMutationBeforeHookInput,
 	SchemaMutationHookIdentity,
@@ -52,6 +53,7 @@ export type {
 export type {
 	GlobalAfterOperationHookInput,
 	GlobalBeforeOperationHookInput,
+	GlobalCommandHookInput,
 	GlobalHookItem,
 	GlobalHooks,
 	GlobalOperationHooks,

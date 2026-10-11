@@ -22,9 +22,8 @@ const App = UltimaBase.use(
 			afterCommit: {
 				all: ({ schema, kind }) => {
 					expectTypeOf(schema).toEqualTypeOf<string>()
-					expectTypeOf(kind).toEqualTypeOf<
-						'create' | 'delete' | 'update' | 'upsert'
-					>()
+					// Global `all` also runs for plugin commands, named by `kind`.
+					expectTypeOf(kind).toEqualTypeOf<string>()
 				},
 			},
 		},

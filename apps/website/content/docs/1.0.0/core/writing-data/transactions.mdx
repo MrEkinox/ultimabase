@@ -7,7 +7,7 @@ contentType: concept
 order: 7
 outcome: Group related writes, handle failures, and place external effects after commit.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-11
 sources:
   - packages/core/README.md
   - packages/core/docs/runtime.md
@@ -126,7 +126,11 @@ outer transaction has committed, outside it, without delaying the response; a
 failure is logged and never rejects the call. A rolled-back transaction
 discards them. They are in-process delivery, best effort, not a durable queue
 that survives a crash. Plugins queue the same kind of work with
-`runAfterCommit()` from `@ultimabase/core/plugin`.
+`runAfterCommit()` from `@ultimabase/core/plugin`. The rule holds for every
+effect after commit, plugin ones included (a Runtime `postCommit` stage, a
+`definePlugin` `afterCommit`, a plugin event observer): its failure is logged
+at `error` level with the request id and the failing plugin, never the written
+values, and the remaining effects still run.
 
 External effects such as emails or HTTP requests made directly inside a
 transaction callback are not undone by a database rollback. Keep those

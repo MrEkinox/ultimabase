@@ -556,8 +556,9 @@ With [Access](./access), each command has its own rule (`softDeleteOne`,
 `softDeleteMany`, `restoreOne`, `restoreMany`) and `readDeleted` its own
 permission rule; granting native update or delete does not grant them, and
 purge is Master-only so it has none. With
-[Hooks](./hooks), each command has its own `beforeOperation` and
-`afterOperation` branch. REST, GraphQL, and TypeScript enter the same Runtime
+[Hooks](./hooks), each command has its own `beforeOperation`,
+`afterOperation` and `afterCommit` branch, and the `all` branch runs for it
+first with `kind` naming the command. REST, GraphQL, and TypeScript enter the same Runtime
 pipeline and preserve transaction and protected-policy boundaries.
 
 A soft deletion is an update: it triggers no `onDelete` referential action. A

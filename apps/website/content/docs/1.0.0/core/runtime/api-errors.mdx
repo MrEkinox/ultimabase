@@ -8,7 +8,7 @@ contentType: reference
 order: 6
 outcome: Read a safe error response and find the contract owned by the rejecting layer.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-11
 sources:
   - packages/core/src/errors/framework-error.ts
   - packages/core/src/errors/public-error.ts
@@ -108,7 +108,8 @@ The error aborts the operation and rolls its transaction back; it is never
 retried. REST answers `400` with `{ code, message, details }`, GraphQL reports
 the code in `extensions.code`, and an HTTP route answers `400` with the same
 `error` envelope. Every other error stays masked. After commit (post-commit
-behaviors and Hooks event consumers) a `PublicError` is only logged: the
+behaviors, plugin events, `afterCommit` Hooks and event consumers) any error,
+a `PublicError` included, is only logged and never rejects the call: the
 client already has its answer.
 
 ## FrameworkError

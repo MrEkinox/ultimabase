@@ -54,6 +54,10 @@ export const createSchemaMutationHooks = (
 		return schemaPlan
 	}
 
+	/**
+	 * Lists, per contribution, the phase's `all` branch then the command's own
+	 * branch: `all` covers plugin commands too (ADR-0318 amendment).
+	 */
 	const handlersFor = (
 		schemaPlan: SchemaHookContributionPlan,
 		operation: PluginSchemaMutationOperationAst,
@@ -61,10 +65,13 @@ export const createSchemaMutationHooks = (
 	): readonly PlannedHandler[] =>
 		collectHandlers(
 			schemaPlan.contributions[phase === 'afterOperation' ? 'after' : 'before'],
-			(declarations) =>
-				declarations.mutations?.[operation.command]?.[phase]?.all ?? [],
+			(declarations) => [
+				...(declarations[phase]?.all ?? []),
+				...(
+					declarations.mutations?.[operation.command]?.[phase]?.all ?? []
+				).map((entry) => ({ ...entry, declarationBranch: operation.command })),
+			],
 			{
-				declarationBranch: operation.command,
 				operationKind: 'plugin-schema-mutation',
 				phase,
 				target: createSchemaHookTarget(schemaPlan.schema.className),
@@ -87,6 +94,8 @@ export const createSchemaMutationHooks = (
 			throw new TypeError(pairError)
 		}
 		return {
+			// `all` hooks tell commands apart by name (ADR-0318 amendment).
+			kind: operation.command,
 			input: operation.input,
 			item: item === null ? null : materializeSchemaModel(schema, item),
 			mutation: immutableRecord({

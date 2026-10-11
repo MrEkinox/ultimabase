@@ -69,6 +69,20 @@ export type GlobalAfterOperationHookInput = GlobalHookInputBase &
 		| Readonly<{ kind: 'delete'; item: null; originalItem: GlobalHookItem }>
 	)
 
+/**
+ * What a global `all` hook receives for a plugin command (`softDeleteOne`, …):
+ * `kind` is the command name (ADR-0318 amendment).
+ */
+export type GlobalCommandHookInput = GlobalHookInputBase &
+	Readonly<{
+		kind: string
+		input: unknown
+		item: GlobalHookItem | null
+		originalItem: GlobalHookItem
+		mutation: Readonly<{ name: string; effect: string }>
+		target: Readonly<{ id: string }>
+	}>
+
 type GlobalHook<TInput> = (input: TInput) => MaybePromise<void>
 
 type GlobalResolveHook<TInput> = (
@@ -79,8 +93,10 @@ type GlobalResolveHook<TInput> = (
 export interface GlobalOperationHooks<
 	TInput extends { readonly kind: string },
 > {
-	/** Runs for every operation, before its own branch. */
-	readonly all?: HookHandlerDeclaration<GlobalHook<TInput>>
+	/** Runs for every operation and plugin command, before its own branch. */
+	readonly all?: HookHandlerDeclaration<
+		GlobalHook<TInput | GlobalCommandHookInput>
+	>
 	readonly create?: HookHandlerDeclaration<
 		GlobalHook<Extract<TInput, { readonly kind: 'create' }>>
 	>

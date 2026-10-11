@@ -83,7 +83,9 @@ Request commands are ruled by the optional Access plugin under their own name
 (`access.softDeleteOne`, `access.restoreOne`, …): restoration is closed when
 the rule is absent and no `allowWithoutRule` key opens it (ADR-0317). Purge requires an audited
 Master context; Master never bypasses Hooks. The Hooks plugin exposes
-`beforeOperation` and `afterOperation` branches for every command.
+`beforeOperation`, `afterOperation` and `afterCommit` branches for every
+command, and its `all` branch runs for each command first with `kind` naming
+it.
 
 The one-row request commands are published by the installed transports:
 `POST /api/v1/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one` in

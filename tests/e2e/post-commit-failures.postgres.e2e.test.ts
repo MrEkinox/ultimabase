@@ -37,10 +37,7 @@ const noteEvents = definePluginEventCapability({
 })
 const noteEventsRequirement = optionalPluginEvents(noteEvents, '^1.0.0')
 
-const postCommitPlugin = (
-	id: string,
-	postCommit: () => void,
-): ReturnType<typeof plugin> =>
+const postCommitPlugin = (id: string, postCommit: () => void) =>
 	plugin({
 		core: '^0.0.0',
 		id,

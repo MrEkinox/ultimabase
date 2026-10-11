@@ -93,9 +93,8 @@ value }` ; la valeur exclut `null` et le hook n'est pas appelé pour `null`.
    les identifiants sont des chaînes, un pointeur reste un `Pointer`.
 4. `resolveInput.all` renvoie l'union (données, changements ou paire
    d'upsert) ; forme vérifiée à l'exécution selon `kind`.
-5. `all` couvre les opérations natives, pas les mutations de plugin
-   (`softDeleteOne`…), qui gardent leur propre branche (y compris
-   `afterCommit`).
+5. Remplacée par l'amendement du 2026-10-11 : `all` couvre aussi les
+   commandes de plugin (voir ci-dessous).
 6. Hooks d'application : plus d'`operation` ni de `nestedWrite` ; les
    contributions de plugins les lisent par `readHookInternals(input)`
    (nouvel export).
@@ -140,6 +139,31 @@ value }` ; la valeur exclut `null` et le hook n'est pas appelé pour `null`.
 - Nouvelle erreur préfixée sans `cause` : agrégée par la transaction
   (« Transaction callback and an operation both failed ») ; corrigé dans
   `combineErrors`.
+
+## Amendement 6.2 (2026-10-11, validé par l'utilisateur)
+
+Consigné dans ADR-0318, section « 6.2 amendment (2026-10-11) ».
+
+1. Aucun échec après commit ne rejette l'appel. `runPostCommitEffect` journalise
+   (niveau `error`, `requestId`, plugin et étape, jamais les valeurs) au lieu
+   d'agréger et de relancer ; l'étape `postCommit` composée isole chaque
+   fournisseur (identité de plugin via `BehaviorProvider.owner`) ; les
+   effets différés (`deferCurrentTransactionEffect(effect, identity?)`)
+   portent une identité ; `definePluginEvent` diffère un effet par
+   observateur. Preuve : `tests/e2e/post-commit-failures.postgres.e2e.test.ts`
+   (appel résolu, trois lignes d'erreur, effets suivants exécutés, aucune
+   valeur dans le journal). Commit 2798b48b.
+2. `all` couvre les commandes de plugin (`beforeOperation`, `afterOperation`,
+   `afterCommit` ; schéma et global), avant la branche de la commande, avec
+   `kind` = nom de la commande. Types : `SchemaMutationAllHookInput`
+   (rétrécissement sur `kind` pour un schéma) et `GlobalCommandHookInput`
+   (`kind: string` en global, les commandes dépendant du schéma). Décision :
+   `resolveInput` n'a pas de forme commande, son `all` reste natif. Preuve :
+   `packages/soft-delete-plugin/tests/e2e/soft-delete-all-hooks.postgres.e2e.test.ts`
+   (audit `all` voyant `softDeleteOne`, `restoreOne`, `softDeleteMany`,
+   `purgeMany` ; branche `softDeleteOne` après `all` ; global avant le schéma).
+   Assertion de test public modifiée : `hooks-rules.test-d.ts`, `kind` du `all`
+   global `'create' | 'delete' | 'update' | 'upsert'` → `string`.
 
 ## Preuves (porte finale sur 98c4141f, dernier commit de code)
 

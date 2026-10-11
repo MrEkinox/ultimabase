@@ -71,3 +71,23 @@ join table are invisible to hooks.
 ## Out of scope
 
 Durable event delivery, read hooks, hook skipping.
+
+## 6.2 amendment (2026-10-11)
+
+Validated by the user after the 6.2 review, with the rule from the plugin reviews: a failure
+after commit never rejects the call.
+
+1. **No post-commit failure rejects a call.** Every effect that runs after commit (Core's Runtime
+   `postCommit` stage, effects deferred with `deferCurrentTransactionEffect`, `definePlugin`
+   `afterCommit`, `definePluginEvent` observers, `afterCommit` Hooks and `onEvent` consumers) is
+   isolated: its error is logged through the application logger at `error` level, naming the
+   request id and the failing plugin and stage, never the row values; the call resolves with its
+   result and the remaining effects still run. The previous aggregation of post-commit failures
+   into a rejected call is removed. Proof: `tests/e2e/post-commit-failures.postgres.e2e.test.ts`.
+2. **`all` covers plugin commands.** The `all` key of `beforeOperation`, `afterOperation` and
+   `afterCommit` (schema and global hooks) also runs for plugin schema commands (`softDeleteOne`,
+   `restoreOne`, `purgeOne`, their `Many` forms, community commands), before the command's own
+   branch, with `kind` set to the command name. Schema hook types narrow on `kind`; global `all`
+   types `kind` as `string`, since commands depend on each schema. `resolveInput` has no command
+   form, so its `all` stays native. Proof:
+   `packages/soft-delete-plugin/tests/e2e/soft-delete-all-hooks.postgres.e2e.test.ts`.

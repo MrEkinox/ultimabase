@@ -55,7 +55,9 @@ export const Post = App.Schema.define({
 
 Each phase takes `create`, `update`, `upsert` and `delete` branches (no
 `delete` for `resolveInput`), plus `all`, which runs before the operation's own
-branch. A branch is one callback or a non-empty ordered array. There are no
+branch. `all` also runs for plugin commands (Soft Delete's `softDeleteOne`,
+`restoreOne`, `purgeOne`, their `Many` forms, community commands) with `kind`
+naming the command; types narrow on `kind`. A branch is one callback or a non-empty ordered array. There are no
 read hooks and no option to skip Hooks: Master bypasses authorization, never
 Hooks.
 
@@ -117,7 +119,8 @@ delivery (an outbox, retries) is left to a future queue plugin.
 
 `hooksPlugin({ global })` declares the same phases and `all` for every schema;
 callbacks receive a generic `item` and the `schema` name and run before each
-schema's own Hooks.
+schema's own Hooks. Global `all` also sees plugin commands, so its `kind` is
+`string`.
 
 ## Recursion
 
@@ -216,8 +219,9 @@ export const Post = App.Schema.define({
 
 Before Hooks receive the validated payload, locked preimage, and owner-resolved
 candidate. After Hooks receive the adapter-validated persisted pair before
-commit. Delete effects expose `item` as `null`. `all` covers the native
-operations only.
+commit. Delete effects expose `item` as `null`. `all` runs for every command
+before the command's own branch, with `kind` set to the command name;
+`resolveInput` has no command form.
 
 Dispatch uses the custom logical command, never its physical statement. A
 `softDeleteOne` implemented by `update-one` therefore runs only its own branch;

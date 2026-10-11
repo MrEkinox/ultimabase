@@ -1977,8 +1977,10 @@ never serialized. Thrown from a hook, a policy rule or predicate, an ACL
 callback, a virtual field, a custom operation or an HTTP route handler, it
 aborts and rolls back the operation and is never retried; transports
 serialize `{ code, message, details }` as a client error. Any other error
-stays masked and logged with its stack. After commit a `PublicError` is only
-logged.
+stays masked and logged with its stack. After commit any error, a
+`PublicError` included, is only logged: a Runtime `postCommit` stage or a
+post-commit effect never rejects the committed call, and the remaining effects
+still run (ADR-0318 amendment).
 
 Database adapters report three neutral storage failures (ADR-0302):
 `UNIQUE_VIOLATION` with `publicDetails: { schema, fields }` (index fields,
