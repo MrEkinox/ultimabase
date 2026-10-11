@@ -2,12 +2,9 @@ import {
 	Pointer,
 	getOperationSchema,
 	requestSubjectReferenceCleanupCapability,
-	requestRoleResolverCapability,
 	materializeSchemaModel,
 	provideRuntimeBehavior,
 	type runtimeBehaviorCapability,
-	type CompiledSchemaRegistry,
-	type Logger,
 	type NamedRequestSubjectReferenceCleanup,
 	type RelationMutationAction,
 	type RuntimeBehaviorStages,
@@ -18,7 +15,6 @@ import {
 	contributeDeclarations,
 	optionalCapability,
 	plugin,
-	provideCapability,
 	provideSchemaFactories,
 	withPluginPrivileges,
 	type CapabilityProviderDeclaration,
@@ -37,14 +33,18 @@ import {
 
 import {
 	createRoleSchemaFactory,
-	getRoleSchemaDeclaration,
 	rolesPluginId,
-	type RoleSchemaDeclaration,
 	type RoleSchemaFactories,
 	type RoleSchemaStaticsSlot,
 } from './role-schema.js'
-import { ensureRoles } from './role-ensure.js'
-import { createRoleQueries, type RolesPluginExports } from './role-queries.js'
+import {
+	ensureAllRoles,
+	readRoleDomains,
+	readRoleState,
+	roleResolverProvider,
+	type RoleDomain,
+} from './role-application.js'
+import type { RolesPluginExports } from './role-queries.js'
 import {
 	roleSchemaIdentityOption,
 	roleSchemaIdentityOptionName,
@@ -54,12 +54,7 @@ import {
 	readPersistedRoleId,
 } from './role-hierarchy.js'
 import { applyRoleDeletionPolicy } from './role-deletion.js'
-import {
-	createStoredRoleResolver,
-	type StoredRoleResolver,
-} from './role-access.js'
 import { normalizeRoleOperation } from './role-reference.js'
-import { registerRoleSchemas } from './role-resolution.js'
 import {
 	roleDeletedEventContract,
 	roleHierarchyChangedEventContract,
@@ -80,69 +75,6 @@ const referenceCleanupsBySchemas = new WeakMap<
 	object,
 	readonly NamedRequestSubjectReferenceCleanup[]
 >()
-
-/** Pairs one discovered role schema with its package-private declaration. */
-interface RoleDomain {
-	readonly declaration: RoleSchemaDeclaration
-	readonly schema: SchemaDefinition
-}
-
-/** Discovers role schemas only through the identity recorded by `App.RoleSchema.define()`. */
-const readRoleDomains = (
-	schemas: CompiledSchemaRegistry,
-): readonly RoleDomain[] =>
-	schemas.values().flatMap((schema) => {
-		const declaration = getRoleSchemaDeclaration(schema)
-
-		return declaration === undefined ? [] : [{ declaration, schema }]
-	})
-
-/** One application's resolver and its query exports, shared by setup and `start()`. */
-interface RoleApplicationState {
-	readonly queries: RolesPluginExports
-	readonly resolver: StoredRoleResolver
-}
-
-const roleStatesBySchemas = new WeakMap<object, RoleApplicationState>()
-
-const readRoleState = (schemas: object): RoleApplicationState => {
-	const state = roleStatesBySchemas.get(schemas)
-	if (state === undefined) {
-		throw new TypeError('Roles plugin is not initialized for this application')
-	}
-	return state
-}
-
-const roleResolverProvider: CapabilityProviderDeclaration<
-	typeof requestRoleResolverCapability
-> = provideCapability(requestRoleResolverCapability, {
-	contributionId: 'stored-roles',
-	create: ({ callbacks, owner, schemas }) => {
-		const roleSchemas = readRoleDomains(schemas).map(({ schema }) => schema)
-		registerRoleSchemas(roleSchemas)
-		const resolver = createStoredRoleResolver(roleSchemas)
-		roleStatesBySchemas.set(
-			schemas,
-			immutableRecord({
-				resolver,
-				// Exports run application code paths; their Master reads stay attributed to Roles.
-				queries: createRoleQueries(
-					() => resolver,
-					new Set(roleSchemas),
-					(work) => callbacks.runPlugin(owner, work),
-				),
-			}),
-		)
-		const { hasRole, resolveCurrentRoles, resolvePersistentRole } = resolver
-		return {
-			value: immutableRecord({
-				hasRole,
-				resolveCurrentRoles,
-				resolvePersistentRole,
-			}),
-		}
-	},
-})
 
 interface RoleRelationChange {
 	readonly action: RelationMutationAction
@@ -374,28 +306,6 @@ export interface RolesPluginFactory {
 	 */
 	(): RolesPlugin
 	readonly pluginId: typeof rolesPluginId
-}
-
-const ensureAllRoles = async (
-	schemas: CompiledSchemaRegistry,
-	logger: Logger,
-): Promise<void> => {
-	for (const { declaration, schema } of readRoleDomains(schemas)) {
-		if (declaration.ensure.length === 0) continue
-		let created: readonly string[]
-		try {
-			created = await ensureRoles(schema, declaration.ensure)
-		} catch (error: unknown) {
-			// Creating roles is a Master write: name the declaration that needs it.
-			throw new TypeError(
-				`Roles could not create the ensure roles of ${schema.className} (they are created with the application's masterAuthority)`,
-				{ cause: error },
-			)
-		}
-		if (created.length > 0) {
-			logger.info(`created ${schema.className} roles: ${created.join(', ')}`)
-		}
-	}
 }
 
 /**

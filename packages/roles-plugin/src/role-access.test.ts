@@ -134,7 +134,7 @@ describe('stored role Access integration', () => {
 		const resolver = createStoredRoleResolver([AppRole], fixture.dependencies)
 		const context = createContext('current-role-list')
 
-		const roles = await resolver.resolveCurrentRoles?.({ context })
+		const roles = await resolver.resolveCurrentRoles({ context })
 		await resolver.hasRole({ context, role: AppRole.role({ id: editorId }) })
 
 		expect(roles?.map(({ value }) => value)).toHaveLength(2)
@@ -151,7 +151,7 @@ describe('stored role Access integration', () => {
 		const fixture = createDependencies()
 		const resolver = createStoredRoleResolver([AppRole], fixture.dependencies)
 		const context = createContext('persistent-role-reference')
-		const resolved = await resolver.resolvePersistentRole?.({
+		const resolved = await resolver.resolvePersistentRole({
 			context,
 			role: AppRole.role('editor'),
 		})

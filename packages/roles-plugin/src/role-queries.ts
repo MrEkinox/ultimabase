@@ -120,14 +120,10 @@ export const createRoleQueries = (
 					'has() principal must be a Pointer',
 				)
 			}
-			const declaration =
-				state === undefined
-					? undefined
-					: getRoleSchemaDeclaration(state.schema)
 			if (
 				state === undefined ||
-				declaration === undefined ||
-				principal.schema !== declaration.memberSchema()
+				principal.schema !==
+					getRoleSchemaDeclaration(state.schema)?.memberSchema()
 			) {
 				return false
 			}

@@ -13,7 +13,6 @@ import {
 	createValidationIssue,
 	validateScalarFieldShape,
 } from '../../schema/plans/scalar-shape-validation.js'
-import { snapshotUpdateInputFieldValue } from '../../schema/fields/base/definition.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -82,7 +81,7 @@ interface InvalidValue {
 	readonly valid: false
 }
 
-type ValueValidationResult = InvalidValue | ValidValue
+export type ValueValidationResult = InvalidValue | ValidValue
 
 interface MissingValue {
 	readonly found: false
@@ -95,7 +94,9 @@ interface ResolvedValue {
 
 type MissingValueResolution = MissingValue | ResolvedValue
 
-const readScalarFailureCode = (field: GenericField): AnyValidationIssueCode => {
+export const readScalarFailureCode = (
+	field: GenericField,
+): AnyValidationIssueCode => {
 	switch (field.kind) {
 		case 'bigint':
 			return 'bigint.type'
@@ -160,33 +161,6 @@ export const snapshotScalarValue = (
 			error instanceof Error ? error.message : 'Invalid scalar value',
 		)
 
-		return { valid: false }
-	}
-}
-
-/** Snapshots one update `set` value of a field declaring an extra update input (ADR-0321). */
-export const snapshotUpdateInputValue = (
-	field: GenericField,
-	value: unknown,
-	path: ValidationIssuePath,
-	execution: ValidationExecution,
-): ValueValidationResult => {
-	try {
-		return {
-			valid: true,
-			value: snapshotUpdateInputFieldValue(
-				field,
-				value,
-				path.map(String).join('.'),
-			),
-		}
-	} catch (error: unknown) {
-		appendIssue(
-			execution,
-			readScalarFailureCode(field),
-			path,
-			error instanceof Error ? error.message : 'Invalid update value',
-		)
 		return { valid: false }
 	}
 }

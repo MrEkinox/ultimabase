@@ -42,6 +42,16 @@ const withACL = (className: string, rule: Readonly<{ acl: ACLRule }>) =>
 
 let fixture: PostgresWorkerFixture | undefined
 
+/** Resolves to the error a promise rejects with. */
+const rejection = async (promise: Promise<unknown>): Promise<Error> => {
+	try {
+		await promise
+	} catch (error: unknown) {
+		if (error instanceof Error) return error
+	}
+	throw new TypeError('Expected a rejection with an Error')
+}
+
 const requireFixture = (): PostgresWorkerFixture => {
 	if (fixture === undefined) throw new TypeError('Fixture has not started')
 	return fixture
@@ -156,32 +166,30 @@ describe('ACL backfill with PostgreSQL', { concurrent: false }, () => {
 	it('refuses to start with a function default and no existingRows', async () => {
 		await seed('BackfillMissing', ['a'])
 
-		await expect(
+		const failure = await rejection(
 			start(
 				withACL('BackfillMissing', {
 					acl: { default: ({ principal }) => new ACL(principal) },
 				}),
 			),
-		).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
-			message: expect.stringContaining(
-				'BackfillMissing has rows and its acl.default is a function',
-			),
-		})
+		)
+		expect(failure).toMatchObject({ code: 'VALIDATION_ERROR' })
+		expect(failure.message).toContain(
+			'BackfillMissing has rows and its acl.default is a function',
+		)
 		await expect(readColumn('backfill_missings')).resolves.toBeUndefined()
 	})
 
 	it('changes nothing under fail and names the value to provide', async () => {
 		await seed('BackfillFail', ['a'])
 
-		await expect(
+		const failure = await rejection(
 			start(withACL('BackfillFail', { acl: { default: publicRead } }), 'fail'),
-		).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
-			message: expect.stringContaining(
-				`Existing rows of "backfill_fails" would receive '${JSON.stringify(publicRead.toJSON())}'::jsonb in "acl".`,
-			),
-		})
+		)
+		expect(failure).toMatchObject({ code: 'VALIDATION_ERROR' })
+		expect(failure.message).toContain(
+			`Existing rows of "backfill_fails" would receive '${JSON.stringify(publicRead.toJSON())}'::jsonb in "acl".`,
+		)
 		await expect(readColumn('backfill_fails')).resolves.toBeUndefined()
 	})
 

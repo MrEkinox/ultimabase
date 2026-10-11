@@ -15,7 +15,7 @@ import { UltimaBase } from '../../index.js'
 import {
 	hasFieldUpdateInput,
 	snapshotUpdateInputFieldValue,
-} from './base/definition.js'
+} from './base/plugin-field-metadata.js'
 
 interface FixtureFieldOptions extends FieldOptions<string> {
 	readonly storageProfile?: string

@@ -116,10 +116,10 @@ describe('schema factories', () => {
 				contributions: [],
 			})
 		expect(() =>
-			provideSchemaFactories(bare(), { Schema: () => ({}) } as never),
+			provideSchemaFactories(bare(), { Schema: () => ({}) }),
 		).toThrow(new TypeError('Invalid schema factory name: Schema'))
 		expect(() =>
-			provideSchemaFactories(bare(), { noteSchema: () => ({}) } as never),
+			provideSchemaFactories(bare(), { noteSchema: () => ({}) }),
 		).toThrow(new TypeError('Invalid schema factory name: noteSchema'))
 		expect(() =>
 			provideSchemaFactories(bare(), { NoteSchema: {} } as never),

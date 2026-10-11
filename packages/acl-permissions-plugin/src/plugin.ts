@@ -75,12 +75,14 @@ import {
 	type ACLRule,
 } from './acl-option.js'
 import {
-	recomputeUpdateOperationACL,
 	resolveCreateOperationACL,
-	resolvePreparedOperationACL,
 	type ACLCreateOperation,
-	type ACLPreparedUpdateOperation,
 } from './acl-operation-resolution.js'
+import {
+	recomputeUpdateOperationACL,
+	resolvePreparedOperationACL,
+	type ACLPreparedUpdateOperation,
+} from './acl-update-resolution.js'
 import {
 	createACLReferenceCleanups,
 	createACLReferenceRowFilter,
@@ -92,11 +94,11 @@ import {
 	type ACLApplicationState,
 } from './application-state.js'
 
+export { resolveCreateOperationACL } from './acl-operation-resolution.js'
 export {
 	recomputeUpdateOperationACL,
-	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
-} from './acl-operation-resolution.js'
+} from './acl-update-resolution.js'
 
 const aclSchemaSelector = { option: { name: 'acl' } } as const
 const aclSchemaPatch: SchemaPatchBuilder<

@@ -269,7 +269,10 @@ const readCustomFields = (
 	if (typeof value !== 'function') {
 		throw new TypeError('fields must be a function')
 	}
-	return (field) => Reflect.apply(value, undefined, [field])
+	return (field) => {
+		const declared: unknown = Reflect.apply(value, undefined, [field])
+		return declared
+	}
 }
 
 const readMemberSchema =

@@ -25,10 +25,13 @@ import type {
 	ValidatedFieldOptions,
 } from './base/contract.js'
 import type {
-	PluginFieldExistingRows,
 	PluginFieldStorageCodec,
 	PluginFieldWireCodec,
 } from './base/definition.js'
+import {
+	bindPluginFieldMetadata,
+	type PluginFieldExistingRows,
+} from './base/plugin-field-metadata.js'
 import type { SchemaDefinition } from '../schema/definition.js'
 import { snapshotJsonValue } from './base/portable-json.js'
 
@@ -333,14 +336,17 @@ export const definePluginField = <
 					),
 				})
 
-	return createFieldDefinition(kind, normalizedOptions, snapshotValue, {
+	const field = createFieldDefinition(kind, normalizedOptions, snapshotValue, {
 		deferRequiredUntilResolveInput:
 			normalizers.deferRequiredUntilResolveInput === true,
-		...(snapshotUpdateInput === undefined ? {} : { snapshotUpdateInput }),
-		...(existingRows === undefined ? {} : { existingRows }),
-		...(storageDefault === undefined ? {} : { storageDefault }),
 		wireCodecs,
 		...(storageCodec === undefined ? {} : { storageCodec }),
 		...(structuralContains === undefined ? {} : { structuralContains }),
 	})
+	bindPluginFieldMetadata(field, {
+		...(snapshotUpdateInput === undefined ? {} : { snapshotUpdateInput }),
+		...(existingRows === undefined ? {} : { existingRows }),
+		...(storageDefault === undefined ? {} : { storageDefault }),
+	})
+	return field
 }

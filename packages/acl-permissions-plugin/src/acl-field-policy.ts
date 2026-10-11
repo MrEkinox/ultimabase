@@ -18,7 +18,7 @@ import {
 import { ACL } from './acl.js'
 import { isACLChangeValue } from './acl-change.js'
 import { aclFieldName, type ACLClientSharing } from './acl-option.js'
-import { isAcceptedACLValue } from './acl-operation-resolution.js'
+import { isAcceptedACLValue } from './acl-acceptance.js'
 
 /** What the field policy reads from the ACL application state. */
 export interface ACLFieldPolicyState {

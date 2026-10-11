@@ -88,5 +88,5 @@ test('rejects invalid deletion policies and unknown options', () => {
 test('exists only on applications that install Roles', () => {
 	// @ts-expect-error -- No RoleSchema factory without rolesPlugin().
 	void UltimaBase.use().RoleSchema
-	expectTypeOf(Roles.RoleSchema.define).toBeFunction()
+	expectTypeOf<typeof Roles.RoleSchema.define>().toBeFunction()
 })

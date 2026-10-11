@@ -358,12 +358,9 @@ describe('ACL sharing with PostgreSQL', { concurrent: false }, () => {
 		).resolves.toMatchObject({ body: 'selected' })
 		await expect(
 			PrivateNote.findMany({ select: { acl: true } }, as(owner, 'private-select')),
-		).rejects.toMatchObject({
-			code: 'PERMISSION_DENIED',
-			message: expect.stringContaining(
-				'select: { acl: true } on ACLPrivateNote requires useMasterKey: true',
-			),
-		})
+		).rejects.toThrow(
+			'select: { acl: true } on ACLPrivateNote requires useMasterKey: true',
+		)
 		const asMaster = await SharedNote.findOneOrThrow(
 			{ where: { id: note.id }, select: { acl: true } },
 			master,

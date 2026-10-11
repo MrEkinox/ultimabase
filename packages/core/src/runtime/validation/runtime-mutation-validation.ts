@@ -2,13 +2,15 @@ import { isDeepStrictEqual } from 'node:util'
 import {
 	Pointer,
 	type FieldValidationPlan,
+	type GenericField,
 	type SchemaValidationPlan,
 	type ValidationIssuePath,
 } from '../../schema/index.js'
+import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import {
-	getFieldSchemaTarget,
 	hasFieldUpdateInput,
-} from '../../schema/fields/base/definition.js'
+	snapshotUpdateInputFieldValue,
+} from '../../schema/fields/base/plugin-field-metadata.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -22,13 +24,41 @@ import type {
 } from '../../query/index.js'
 import {
 	appendIssue,
+	readScalarFailureCode,
 	snapshotScalarValue,
-	snapshotUpdateInputValue,
 	validateFieldValue,
 	validateSchemaInput,
 	type ValidationExecution,
+	type ValueValidationResult,
 } from './runtime-field-validation.js'
 import { readUniqueUpsertTargetValues } from '../../query/operations/upsert.js'
+
+/** Snapshots one update `set` value of a field declaring an extra update input (ADR-0321). */
+const snapshotUpdateInputValue = (
+	field: GenericField,
+	value: unknown,
+	path: ValidationIssuePath,
+	execution: ValidationExecution,
+): ValueValidationResult => {
+	try {
+		return {
+			valid: true,
+			value: snapshotUpdateInputFieldValue(
+				field,
+				value,
+				path.map(String).join('.'),
+			),
+		}
+	} catch (error: unknown) {
+		appendIssue(
+			execution,
+			readScalarFailureCode(field),
+			path,
+			error instanceof Error ? error.message : 'Invalid update value',
+		)
+		return { valid: false }
+	}
+}
 
 const updateKinds: ReadonlySet<string> = new Set([
 	'decrement',

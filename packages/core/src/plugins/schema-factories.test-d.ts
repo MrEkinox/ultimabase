@@ -7,21 +7,21 @@ import {
 	type PluginFieldDefinition,
 	type SchemaDefinition,
 } from '../index.js'
-import {
+import type {
 	plugin,
-	type DeclaredSchemaShape,
-	type PluginSchemaFactoriesSource,
-	type PluginSchemaFieldsSource,
-	type PluginSchemaRulesSource,
-	type PluginSchemaShapeSource,
-	type PluginSchemaStaticsSource,
-	type PluginSourceState,
-	type SchemaFactoriesHKT,
-	type SchemaFactoryShape,
-	type SchemaFieldsHKT,
-	type SchemaRulesHKT,
-	type SchemaShapeMethod,
-	type SchemaStaticsHKT,
+	DeclaredSchemaShape,
+	PluginSchemaFactoriesSource,
+	PluginSchemaFieldsSource,
+	PluginSchemaRulesSource,
+	PluginSchemaShapeSource,
+	PluginSchemaStaticsSource,
+	PluginSourceState,
+	SchemaFactoriesHKT,
+	SchemaFactoryShape,
+	SchemaFieldsHKT,
+	SchemaRulesHKT,
+	SchemaShapeMethod,
+	SchemaStaticsHKT,
 } from '../plugin.js'
 
 // ADR-0322: a factory slot adds `App.NoteSchema`; its declarations carry a

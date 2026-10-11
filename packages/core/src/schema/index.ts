@@ -90,12 +90,14 @@ export {
 	isFieldRequiredDeferred,
 	pluginFieldStructuralContainsProtocolVersion,
 	readFieldTypegenState,
-	readPluginFieldExistingRows,
-	readPluginFieldStorageDefault,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
+export {
+	readPluginFieldExistingRows,
+	readPluginFieldStorageDefault,
+} from './fields/base/plugin-field-metadata.js'
+export type { PluginFieldExistingRows } from './fields/base/plugin-field-metadata.js'
 export type {
-	PluginFieldExistingRows,
 	PluginFieldStorageCodec,
 	PluginFieldWireCodec,
 	PluginFieldWireProtocol,

@@ -121,18 +121,20 @@ export const provideSchemaFactories = <
 type SourceFactorySlot<TSource> =
 	TSource extends Readonly<{ schemaFactories: infer TSlot }> ? TSlot : never
 
-type FactoryNames<TSource> = keyof (SourceFactorySlot<TSource> extends infer TSlot
-	? TSlot extends SchemaFactoriesHKT
-		? TSlot['factories']
-		: never
-	: never)
+type FactoryNames<TSource> =
+	keyof (SourceFactorySlot<TSource> extends infer TSlot
+		? TSlot extends SchemaFactoriesHKT
+			? TSlot['factories']
+			: never
+		: never)
 
 /** Runtime implementations matching the schema factories a plugin source declares. */
-export type SchemaFactoryImplementationsOf<TSource> = {
-	readonly [TName in FactoryNames<TSource> & string]: (
-		context: SchemaFactoryContext,
-	) => object
-}
+export type SchemaFactoryImplementationsOf<TSource> = Readonly<
+	Record<
+		FactoryNames<TSource> & string,
+		(context: SchemaFactoryContext) => object
+	>
+>
 
 /**
  * @internal Collects the schema factories of one installed plugin tuple. Two

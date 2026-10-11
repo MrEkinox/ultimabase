@@ -46,7 +46,7 @@ import {
 	hasStaticRoleGrant,
 	snapshotResolvedACL,
 	type PersistentRoleResolver,
-} from './acl-operation-resolution.js'
+} from './acl-acceptance.js'
 
 /** Discovers the optional role provider after setup, in any install order. */
 export const optionalRoleResolver: CapabilityRequirement<
