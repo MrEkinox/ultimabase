@@ -57,7 +57,7 @@ const countStoredSessions = async (): Promise<number> => {
 		throw new TypeError('Profile fixture is unavailable')
 	const tables = await fixture.pool.query<{ readonly table_name: string }>(
 		`SELECT table_name FROM information_schema.columns
-		 WHERE table_schema = current_schema() AND column_name = 'tokenDigest'`,
+		 WHERE table_schema = current_schema() AND column_name = 'token_digest'`,
 	)
 	const table = tables.rows[0]?.table_name
 	if (table === undefined || !/^_ub_private_[a-f0-9]{32}$/u.test(table))

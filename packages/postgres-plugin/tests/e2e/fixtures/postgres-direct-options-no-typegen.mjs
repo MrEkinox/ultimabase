@@ -11,15 +11,20 @@ const pool = {
 	query: async () => ({ rows: [] }),
 }
 
-const compile = async (className, table) => {
+// The first schema uses the `.with` rule (ADR-0320); the second the old
+// `define({ postgres })` form, accepted at runtime until it is removed.
+const compile = async (className, table, form) => {
 	const Application = UltimaBase.use(postgresPlugin({ pool }))
-	const Post = Application.Schema.define({
+	const options = {
 		className,
 		fields: (field) => ({
 			title: field.string({ postgres: { renamedFrom: 'headline' } }),
 		}),
-		postgres: { table },
-	})
+	}
+	const Post =
+		form === 'rule'
+			? Application.Schema.define(options).with({ postgres: { table } })
+			: Application.Schema.define({ ...options, postgres: { table } })
 	const application = new Application({
 		logger: false,
 		schemas: [Post],
@@ -43,8 +48,12 @@ const compile = async (className, table) => {
 	return result
 }
 
-const first = await compile('JavaScriptPostgresFirst', 'first_posts')
-const second = await compile('JavaScriptPostgresSecond', 'second_posts')
+const first = await compile('JavaScriptPostgresFirst', 'first_posts', 'rule')
+const second = await compile(
+	'JavaScriptPostgresSecond',
+	'second_posts',
+	'option',
+)
 const MissingPlugin = UltimaBase.Schema.define({
 	className: 'JavaScriptPostgresMissingPlugin',
 	fields: () => ({}),

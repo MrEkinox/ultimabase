@@ -2,6 +2,7 @@ import type {
 	PostgresColumnSnapshot,
 	PostgresDatabaseSnapshot,
 } from '../introspection/contracts.js'
+import { toPostgresColumnName } from '../naming.js'
 import type { DesiredPostgresTable, PostgresSchemaChange } from './contracts.js'
 
 /** Canonical spelling shared by catalog (`numeric(12,4)`) and Drizzle types. */
@@ -140,9 +141,28 @@ export const findUnmanagedPostgresColumns = (
 			change.kind === 'add-column' &&
 			change.table === desired.name &&
 			change.column.field !== undefined
-				? [{ field: change.column.field, type: change.column.type }]
+				? [
+						{
+							column: change.column.name,
+							field: change.column.field,
+							type: change.column.type,
+						},
+					]
 				: [],
 		)
+		/** Same-type new fields; the `snake_case` spelling of the old name wins. */
+		const candidatesFor = (
+			column: PostgresColumnSnapshot,
+		): readonly string[] => {
+			const sameType = added.filter(
+				({ type }) =>
+					normalizePostgresType(type) === normalizePostgresType(column.type),
+			)
+			const exact = sameType.filter(
+				(candidate) => candidate.column === toPostgresColumnName(column.name),
+			)
+			return (exact.length > 0 ? exact : sameType).map(({ field }) => field)
+		}
 
 		return current.columns
 			.filter(({ name }) => !declared.has(name) && !renamed.has(name))
@@ -152,13 +172,7 @@ export const findUnmanagedPostgresColumns = (
 					column.defaultExpression === undefined &&
 					column.identity === undefined,
 				column,
-				renameCandidates: added
-					.filter(
-						({ type }) =>
-							normalizePostgresType(type) ===
-							normalizePostgresType(column.type),
-					)
-					.map(({ field }) => field),
+				renameCandidates: candidatesFor(column),
 				table: desired.name,
 			}))
 	})

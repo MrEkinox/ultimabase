@@ -318,7 +318,7 @@ describe('documented official soft-delete public vertical', () => {
 			id: authorId,
 		})
 		const storedAuthor = await fixture?.pool.query<{ isDeleted: boolean }>(
-			`select "isDeleted" from example_authors where id = $1`,
+			`select is_deleted as "isDeleted" from example_authors where id = $1`,
 			[authorId],
 		)
 		expect(storedAuthor?.rows).toStrictEqual([{ isDeleted: true }])

@@ -213,7 +213,7 @@ describe('official explicit soft-delete transports', () => {
 			'explicit soft delete rejected',
 		)
 		const stored = await database.pool.query<{ isDeleted: boolean }>(
-			`select "isDeleted" from soft_delete_transport_explicits where id = $1`,
+			`select is_deleted as "isDeleted" from soft_delete_transport_explicits where id = $1`,
 			[row.id],
 		)
 		expect(stored.rows).toStrictEqual([{ isDeleted: false }])
