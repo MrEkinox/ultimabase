@@ -1,14 +1,16 @@
+import type {
+	CompiledSchemaRegistry,
+	GenericField,
+	SchemaDefinition,
+} from '@ultimabase/core'
 import {
 	defineCapability,
 	provideCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
-	type CompiledSchemaRegistry,
-	type GenericField,
 	type PluginCapabilityReader,
 	type PluginIdentity,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,

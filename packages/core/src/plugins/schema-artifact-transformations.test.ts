@@ -1,7 +1,7 @@
 import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
-import { plugin as createPlugin, contributeDeclarations } from '../index.js'
+import { plugin as createPlugin, contributeDeclarations } from '../plugin.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin schema artifact transformations', () => {

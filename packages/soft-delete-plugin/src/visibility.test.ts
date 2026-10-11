@@ -5,8 +5,6 @@ import {
 	databaseAdapterCapability,
 	databaseFilterOperatorCapabilityVersion,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseFilterOperatorCapability,
 	type DatabaseOperationAst,
@@ -14,8 +12,8 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 
-import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'
 
 /** Declares the built-in operators these fixtures filter with (ADR-0301). */
@@ -66,18 +64,15 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 	})
 
 const VisibilitySchemaApplication = UltimaBase.use(softDeletePlugin())
-const documentSchema = (
-	className: string,
-	softDelete?: SoftDeleteSchemaOption,
-) =>
+const declareDocument = (className: string) =>
 	VisibilitySchemaApplication.Schema.define({
 		className,
-		...(softDelete === undefined ? {} : { softDelete }),
 		fields: (field) => ({ title: field.string({ required: true }) }),
 	})
 
 const activeRow = {
 	createdAt: '2026-09-10T00:00:00.000Z',
+	deletedAt: null,
 	id: '019d0000-0000-7000-8000-000000000001',
 	isDeleted: false,
 	title: 'visible',
@@ -86,7 +81,9 @@ const activeRow = {
 
 describe('soft-delete visibility', () => {
 	it('keeps the active-row predicate private from contradictory developer filters', async () => {
-		const Document = documentSchema('SoftDeleteVisibleDocument', 'explicit')
+		const Document = declareDocument('SoftDeleteVisibleDocument')
+			.softDelete({ mode: 'command' })
+			.with({})
 		const adapter = new VisibilityReadAdapter([])
 		const ultimabase = new (VisibilitySchemaApplication.use(
 			databasePlugin(adapter),
@@ -95,7 +92,7 @@ describe('soft-delete visibility', () => {
 
 		try {
 			await ultimabase.start()
-			await Document.findMany({ where: { isDeleted: { eq: true } } } as never)
+			await Document.findMany({ where: { isDeleted: { eq: true } } })
 
 			expect(adapter.requests).toHaveLength(1)
 			expect(adapter.requests[0]).toMatchObject({
@@ -118,8 +115,10 @@ describe('soft-delete visibility', () => {
 	})
 
 	it('enforces the same visibility for Master and leaves disabled schemas untouched', async () => {
-		const Enabled = documentSchema('SoftDeleteMasterDocument', 'replace-delete')
-		const Disabled = documentSchema('SoftDeletePlainDocument', false)
+		const Enabled = declareDocument('SoftDeleteMasterDocument')
+			.softDelete()
+			.with({})
+		const Disabled = declareDocument('SoftDeletePlainDocument').with({})
 		const enabledAdapter = new VisibilityReadAdapter([activeRow])
 		const enabled = new (VisibilitySchemaApplication.use(
 			databasePlugin(enabledAdapter),

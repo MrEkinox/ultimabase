@@ -1,10 +1,10 @@
+import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	defineSchemaOption,
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
-	type SchemaDefinition,
 	type SchemaOptionDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import {
 	immutableArray,

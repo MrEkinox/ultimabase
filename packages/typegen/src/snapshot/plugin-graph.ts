@@ -1,4 +1,4 @@
-import type { CompiledTypegenGraph } from '@ultimabase/core'
+import type { CompiledTypegenGraph } from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { SchemaTypegenError } from '../errors.js'
@@ -159,6 +159,7 @@ export const snapshotTypegenGraph = (
 						returning: mutation.returning,
 						select: immutableArray(Object.keys(mutation.select)),
 						staticOptions: value.staticOptions,
+						target: mutation.target,
 						version: mutation.version,
 					})
 				}),

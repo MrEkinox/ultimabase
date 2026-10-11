@@ -3,9 +3,9 @@ import {
 	type CompiledSchemaRegistry,
 	type GenericField,
 	type GenericOutputDescriptor,
-	type PluginIdentity,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import type { PluginIdentity } from '@ultimabase/core/plugin'
 import type { HttpMethod } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 

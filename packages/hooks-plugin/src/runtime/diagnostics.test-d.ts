@@ -1,4 +1,4 @@
-import type { CapabilityToken } from '@ultimabase/core'
+import type { CapabilityToken } from '@ultimabase/core/plugin'
 
 import {
 	hookDiagnosticsObserverCapability,

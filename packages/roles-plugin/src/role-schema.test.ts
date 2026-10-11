@@ -1,17 +1,16 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
-import {
-	Schema,
-	UltimaBase,
-	plugin,
-	contributeApplication,
-	stringField,
-} from '@ultimabase/core'
+import { Schema, UltimaBase, stringField } from '@ultimabase/core'
+
 import type { FrameworkError } from '@ultimabase/core'
 
 import { rolesPlugin } from './plugin.js'
 import { getRoleSchemaDeclaration, RoleSchema } from './role-schema.js'
 import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
-import { QueryBuilder } from '@ultimabase/core/plugin'
+import {
+	QueryBuilder,
+	plugin,
+	contributeApplication,
+} from '@ultimabase/core/plugin'
 
 /** Calls `new` on a value whose type has no construct signature (ADR-0310). */
 const construct = (target: unknown, args: readonly unknown[]): unknown => {

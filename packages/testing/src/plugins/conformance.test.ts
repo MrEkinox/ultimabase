@@ -1,9 +1,17 @@
 import {
-	addSchemaField,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
+	UltimaBase,
+	stringField,
+	type DatabaseAdapter,
+	type DatabaseOperationAst,
+	type DatabaseOperationRequest,
+	type DatabaseOperationResult,
+} from '@ultimabase/core'
+import {
+	addSchemaField,
 	contributeApplication,
 	contributeOperation,
 	contributeSchemaMutation,
@@ -16,13 +24,7 @@ import {
 	defineTypegenReference,
 	provideCapability,
 	withPluginPrivileges,
-	UltimaBase,
-	stringField,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import {

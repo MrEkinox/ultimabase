@@ -3,7 +3,7 @@ import type { MaybePromise } from '@ultimabase/shared'
 import type {
 	PluginSourceFieldObjectValue,
 	PluginSourceOpaque,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 import type { HookContext } from '../context/hook-context.js'
 

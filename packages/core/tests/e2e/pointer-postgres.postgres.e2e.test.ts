@@ -5,7 +5,6 @@ import {
 	Pointer,
 	UltimaBase,
 	runWithRequestEngine,
-	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -16,7 +15,11 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { generatePointerId, queuedPointerIds } from './pointer-id-fixture.js'
 import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
-import { requestSources, anonymous } from '@ultimabase/core/plugin'
+import {
+	requestSources,
+	anonymous,
+	type PluginSourceState,
+} from '@ultimabase/core/plugin'
 
 const pointerTrace: string[] = []
 const pointerRollbackError = new Error('pointer update rollback fixture')

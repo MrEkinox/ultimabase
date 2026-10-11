@@ -9,6 +9,7 @@
 				"../../packages/acl-permissions-plugin/src/index.ts"
 			],
 			"@ultimabase/core": ["../../packages/core/src/index.ts"],
+			"@ultimabase/core/plugin": ["../../packages/core/src/plugin.ts"],
 			"@ultimabase/hooks-plugin": ["../../packages/hooks-plugin/src/index.ts"],
 			"@ultimabase/plugin-kit": ["../../packages/plugin-kit/src/index.ts"],
 			"@ultimabase/postgres-plugin": [

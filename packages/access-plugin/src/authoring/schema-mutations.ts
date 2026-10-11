@@ -1,7 +1,4 @@
 import type {
-	PluginSchemaMutationDefinition,
-	PluginSchemaMutationInput,
-	PluginSourceSchemaMutations,
 	SchemaDefinition,
 	SchemaItem,
 	SchemaResult,
@@ -9,6 +6,11 @@ import type {
 	WhereBuilder,
 	WhereInput,
 } from '@ultimabase/core'
+import type {
+	PluginSchemaMutationDefinition,
+	PluginSchemaMutationInput,
+	PluginSourceSchemaMutations,
+} from '@ultimabase/core/plugin'
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type { AccessPolicyInput } from './contracts.js'

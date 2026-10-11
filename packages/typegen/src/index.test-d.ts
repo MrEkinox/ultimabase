@@ -1,8 +1,5 @@
-import {
-	UltimaBase,
-	type PluginDefinition,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import {

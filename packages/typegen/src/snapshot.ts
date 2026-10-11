@@ -1,16 +1,18 @@
 import type {
 	CompiledApplication,
 	CompiledSchemaRegistry,
-	CompiledTypegenGraph,
 	FieldDeclarationContext,
 	FieldTypegenState,
 	JsonValue,
 	OwnedFieldBuilderMethod,
 	OwnedPluginFieldType,
-	PluginDefinition,
 	SchemaDefinition,
 	UltimaBase,
 } from '@ultimabase/core'
+import type {
+	CompiledTypegenGraph,
+	PluginDefinition,
+} from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -128,6 +130,8 @@ export interface TypegenSchemaMutationSnapshot {
 	readonly returning: 'after' | 'before'
 	readonly select: readonly string[]
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
+	/** One row by `id`, or every row matching a `where` (ADR-0316). */
+	readonly target: 'many' | 'one'
 	readonly version: string
 }
 

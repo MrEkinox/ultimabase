@@ -2,27 +2,20 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
 	compileValidationPlans,
-	contributeApplication,
-	plugin,
 	readFieldTypegenState,
 	type CompiledApplication,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 
-import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'
 import { createSoftDeletePersistenceRewriter } from './replace-delete.js'
 
-const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
-
-const documentSchema = (
-	className: string,
-	softDelete?: SoftDeleteSchemaOption,
-) =>
-	SoftDeleteSchemaApplication.Schema.define({
+const App = UltimaBase.use(softDeletePlugin())
+const declare = (className: string) =>
+	App.Schema.define({
 		className,
-		...(softDelete === undefined ? {} : { softDelete }),
 		fields: (field) => ({ title: field.string() }),
 	})
 
@@ -36,223 +29,154 @@ const schemaSurface = (
 			({ schema }) => schema.className === className,
 		)
 
+const commandNames = [
+	'purgeMany',
+	'purgeOne',
+	'restoreMany',
+	'restoreOne',
+	'softDeleteMany',
+	'softDeleteOne',
+]
+
 describe('softDeletePlugin', () => {
 	it('declares only its exact schema and visibility powers', () => {
-		const plugin = softDeletePlugin()
+		const instance = softDeletePlugin()
 
-		expect(plugin.manifest).toMatchObject({
+		expect(instance.manifest).toMatchObject({
 			capabilities: {
 				provides: [
-					{
-						contributionId: 'official-soft-delete-visibility',
-					},
-					{
-						contributionId: 'official-soft-delete-replace-delete',
-					},
+					{ contributionId: 'visibility' },
+					{ contributionId: 'delete' },
 				],
 				requires: [],
 			},
 			environment: [],
 			identity: { pluginId: '@ultimabase/soft-delete-plugin' },
-			privileges: [
-				{
-					name: 'schema:declare',
-					reason: 'Declares schema fields, options or schemas.',
-				},
-				{
-					name: 'model:extend',
-					reason: 'Adds plugin commands to application schemas.',
-				},
-				{ name: 'operation:declare', reason: 'Declares plugin operations.' },
-				{
-					name: 'runtime:constrain',
-					reason: 'Registers protected Runtime constraints.',
-				},
-				{
-					name: 'persistence:rewrite',
-					reason:
-						'Declares schema mutations that rewrite persistence. Registers persistence plan rewriters.',
-				},
-				{ name: 'transport:expose', reason: 'Binds operations to transports.' },
-				{
-					name: 'typegen:reference',
-					reason: 'References Typegen types in operations.',
-				},
-			],
 		})
+		expect(instance.manifest.privileges.map(({ name }) => name)).toEqual([
+			'schema:declare',
+			'model:extend',
+			'operation:declare',
+			'runtime:constrain',
+			'persistence:rewrite',
+			'transport:expose',
+			'typegen:reference',
+		])
 	})
 
-	it('attaches Master administration only to enabled schema handles', async () => {
-		const Explicit = documentSchema('AdministrationExplicit', 'explicit')
-		const Replace = documentSchema('AdministrationReplace', 'replace-delete')
-		const Inherited = documentSchema('AdministrationInherited')
-		const Disabled = documentSchema('AdministrationDisabled', false)
-		const application = new (UltimaBase.use(
-			softDeletePlugin({ defaultMode: 'replace-delete' }),
-		))({
+	it('attaches the same six commands to both modes and none elsewhere', async () => {
+		const Logical = declare('CommandsLogical').softDelete().with({})
+		const Command = declare('CommandsCommand')
+			.softDelete({ mode: 'command' })
+			.with({})
+		const Plain = declare('CommandsPlain').with({})
+		const application = new App({
 			logger: false,
-			schemas: [Explicit, Replace, Inherited, Disabled],
+			schemas: [Logical, Command, Plain],
 		})
 		onTestFinished(() => application.dispose())
 
 		await application.initialize()
-		try {
-			for (const schema of [Explicit, Replace, Inherited]) {
-				const surface = schemaSurface(application, schema.className)
-				expect([...(surface?.schemaMutations.keys() ?? [])]).toEqual(
-					expect.arrayContaining(['restore', 'purge']),
-				)
-				expect(surface?.schemaMutations.get('restore')).toMatchObject({
-					mutation: {
-						authority: 'master',
-						effect: 'update',
-						name: 'ultimabase.soft-delete.restore',
-						returning: 'after',
-					},
-				})
-				expect(surface?.schemaMutations.get('purge')).toMatchObject({
-					mutation: {
-						authority: 'master',
-						effect: 'delete',
-						name: 'ultimabase.soft-delete.purge',
-						returning: 'before',
-					},
-				})
-				// Results have no model methods (ADR-0310).
-				expect(surface).not.toHaveProperty('modelMutations')
-			}
-			const disabled = schemaSurface(application, Disabled.className)
-			expect(disabled?.schemaMutations.has('restore')).toBe(false)
-			expect(disabled?.schemaMutations.has('purge')).toBe(false)
-		} finally {
-			await application.dispose()
-		}
-	})
-
-	it('attaches the logical command only to explicit schema and model handles', async () => {
-		const Direct = documentSchema('DirectExplicitSoftDelete', 'explicit')
-		const Inherited = documentSchema('InheritedExplicitSoftDelete')
-		const Replace = documentSchema(
-			'ReplaceWithoutSoftDeleteCommand',
-			'replace-delete',
-		)
-		const Disabled = documentSchema('DisabledWithoutSoftDeleteCommand', false)
-		const application = new (UltimaBase.use(
-			softDeletePlugin({ defaultMode: 'explicit' }),
-		))({
-			logger: false,
-			schemas: [Direct, Inherited, Replace, Disabled],
-		})
-		onTestFinished(() => application.dispose())
-
-		await application.initialize()
-		try {
-			for (const schema of [Direct, Inherited]) {
-				const command = schemaSurface(
-					application,
-					schema.className,
-				)?.schemaMutations.get('softDelete')
-				expect(command).toMatchObject({
-					mutation: {
-						authority: 'request',
-						effect: 'update',
-						name: 'ultimabase.soft-delete.soft-delete',
-						returning: 'after',
-					},
-				})
-			}
-			for (const schema of [Replace, Disabled]) {
-				expect(
-					schemaSurface(application, schema.className)?.schemaMutations.has(
-						'softDelete',
-					),
-				).toBe(false)
-			}
-		} finally {
-			await application.dispose()
-		}
-	})
-
-	it('compiles replace-delete targets without matching explicit or disabled schemas', async () => {
-		const Direct = documentSchema(
-			'DirectReplaceDeleteDocument',
-			'replace-delete',
-		)
-		const Inherited = documentSchema('InheritedReplaceDeleteDocument')
-		const Explicit = documentSchema('ExplicitHardDeleteDocument', 'explicit')
-		const Disabled = documentSchema('DisabledHardDeleteDocument', false)
-		const plugin = softDeletePlugin({
-			defaultMode: 'replace-delete',
-			instanceId: 'replace-targets',
-		})
-		const application = new (UltimaBase.use(plugin))({
-			logger: false,
-			schemas: [Direct, Inherited, Explicit, Disabled],
-		})
-		onTestFinished(() => application.dispose())
-
-		await application.initialize()
-		try {
-			const rewriter = createSoftDeletePersistenceRewriter(
-				application.compile().schemas,
-				plugin.manifest.identity,
-				'replace-delete',
+		for (const schema of [Logical, Command]) {
+			const surface = schemaSurface(application, schema.className)
+			expect([...(surface?.schemaMutations.keys() ?? [])].sort()).toEqual(
+				commandNames,
 			)
-
-			expect(rewriter).toMatchObject({
-				operations: ['delete-one'],
-				schemas: [Direct, Inherited],
+			expect(surface?.schemaMutations.get('softDeleteOne')).toMatchObject({
+				mutation: {
+					authority: 'request',
+					checkReadable: 'before',
+					effect: 'update',
+					name: 'ultimabase.soft-delete-plugin.soft-delete.soft-delete-one',
+					returning: 'after',
+					target: 'one',
+				},
 			})
-		} finally {
-			await application.dispose()
+			expect(surface?.schemaMutations.get('restoreMany')).toMatchObject({
+				mutation: { authority: 'request', effect: 'update', target: 'many' },
+			})
+			expect(surface?.schemaMutations.get('purgeOne')).toMatchObject({
+				mutation: {
+					authority: 'master',
+					effect: 'delete',
+					returning: 'before',
+				},
+			})
+			// Results have no model methods (ADR-0310).
+			expect(surface).not.toHaveProperty('modelMutations')
 		}
+		expect(
+			schemaSurface(application, Plain.className)?.schemaMutations.size ?? 0,
+		).toBe(0)
 	})
 
-	it('keeps replace-delete plans isolated between applications', async () => {
-		const ReplaceDocument = documentSchema('IsolatedReplaceDeleteDocument')
-		const ExplicitDocument = documentSchema('IsolatedReplaceDeleteDocument')
-		const replacePlugin = softDeletePlugin({ defaultMode: 'replace-delete' })
-		const explicitPlugin = softDeletePlugin({ defaultMode: 'explicit' })
-		const replaceApplication = new (UltimaBase.use(replacePlugin))({
+	it('rewrites native deletes of the default mode only', async () => {
+		const Logical = declare('RewriteLogical').softDelete().with({})
+		const Command = declare('RewriteCommand')
+			.softDelete({ mode: 'command' })
+			.with({})
+		const Plain = declare('RewritePlain').with({})
+		const instance = softDeletePlugin()
+		const application = new (UltimaBase.use(instance))({
 			logger: false,
-			schemas: [ReplaceDocument],
+			schemas: [Logical, Command, Plain],
 		})
-		onTestFinished(() => replaceApplication.dispose())
-		const explicitApplication = new (UltimaBase.use(explicitPlugin))({
-			logger: false,
-			schemas: [ExplicitDocument],
+		onTestFinished(() => application.dispose())
+
+		await application.initialize()
+		const rewriter = createSoftDeletePersistenceRewriter(
+			application.compile().schemas,
+			instance.manifest.identity,
+		)
+		expect(rewriter).toMatchObject({
+			operations: ['delete-one'],
+			schemas: [Logical],
 		})
-		onTestFinished(() => explicitApplication.dispose())
-
-		await replaceApplication.initialize()
-		await replaceApplication.dispose()
-		await explicitApplication.initialize()
-		try {
-			const replacePlan = createSoftDeletePersistenceRewriter(
-				replaceApplication.compile().schemas,
-				replacePlugin.manifest.identity,
-				'replace-delete',
-			)
-			const explicitPlan = createSoftDeletePersistenceRewriter(
-				explicitApplication.compile().schemas,
-				explicitPlugin.manifest.identity,
-				'explicit',
-			)
-
-			expect(replacePlan.schemas).toStrictEqual([ReplaceDocument])
-			expect(explicitPlan.schemas).toStrictEqual([])
-		} finally {
-			await replaceApplication.dispose()
-			await explicitApplication.dispose()
-		}
 	})
 
-	it('does not install the direct option through import side effects', async () => {
+	it('keeps rewrite plans isolated between applications', async () => {
+		const LogicalDocument = declare('IsolatedRewriteDocument')
+			.softDelete()
+			.with({})
+		const CommandDocument = declare('IsolatedRewriteDocument')
+			.softDelete({ mode: 'command' })
+			.with({})
+		const first = softDeletePlugin()
+		const second = softDeletePlugin()
+		const logicalApplication = new (UltimaBase.use(first))({
+			logger: false,
+			schemas: [LogicalDocument],
+		})
+		onTestFinished(() => logicalApplication.dispose())
+		const commandApplication = new (UltimaBase.use(second))({
+			logger: false,
+			schemas: [CommandDocument],
+		})
+		onTestFinished(() => commandApplication.dispose())
+
+		await logicalApplication.initialize()
+		await logicalApplication.dispose()
+		await commandApplication.initialize()
+		expect(
+			createSoftDeletePersistenceRewriter(
+				logicalApplication.compile().schemas,
+				first.manifest.identity,
+			).schemas,
+		).toStrictEqual([LogicalDocument])
+		expect(
+			createSoftDeletePersistenceRewriter(
+				commandApplication.compile().schemas,
+				second.manifest.identity,
+			).schemas,
+		).toStrictEqual([])
+	})
+
+	it('does not install the option through import side effects', async () => {
 		// The stale runtime definition deliberately bypasses source diagnostics.
 		const Document = UltimaBase.Schema.define({
 			className: 'MissingSoftDeletePlugin',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-			softDelete: 'explicit',
+			softDelete: {},
 		} as never)
 		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
@@ -262,74 +186,74 @@ describe('softDeletePlugin', () => {
 		)
 	})
 
-	it('adds the protected tombstone only to enabled application schemas', async () => {
-		const Explicit = documentSchema('ExplicitSoftDeleteDocument', 'explicit')
-		const Disabled = documentSchema('DisabledSoftDeleteDocument', false)
-		const Inherited = documentSchema('InheritedSoftDeleteDocument')
-		const application = new (UltimaBase.use(
-			softDeletePlugin({ defaultMode: 'replace-delete' }),
-		))({
+	it('adds the server-written fields only to schemas that call .softDelete()', async () => {
+		const Logical = declare('FieldsLogical').softDelete().with({})
+		const Command = declare('FieldsCommand')
+			.softDelete({ mode: 'command' })
+			.with({})
+		const Plain = declare('FieldsPlain').with({})
+		const application = new App({
 			logger: false,
-			schemas: [Explicit, Disabled, Inherited],
+			schemas: [Logical, Command, Plain],
 		})
 		onTestFinished(() => application.dispose())
 
 		await application.initialize()
 		expect(
-			application.compile().schemas.get(Explicit.className)?.definition,
-		).toHaveProperty('softDelete', 'explicit')
+			application.compile().schemas.get(Command.className)?.definition,
+		).toHaveProperty('softDelete', { mode: 'command' })
 		expect(
-			application.compile().schemas.get(Disabled.className)?.definition,
-		).toHaveProperty('softDelete', false)
-		for (const schema of [Explicit, Inherited]) {
-			const tombstone = schema.persistedFields.isDeleted
-			expect(tombstone).toMatchObject({
+			application.compile().schemas.get(Logical.className)?.definition,
+		).toHaveProperty('softDelete', {})
+		for (const schema of [Logical, Command]) {
+			expect(schema.persistedFields.isDeleted).toMatchObject({
 				kind: 'boolean',
 				options: { default: false, required: true },
 			})
-			if (tombstone === undefined) {
-				throw new TypeError('Expected the compiled soft-delete tombstone')
+			expect(schema.persistedFields.deletedAt).toMatchObject({
+				kind: 'dateTime',
+			})
+			for (const field of ['isDeleted', 'deletedAt'] as const) {
+				const declared = schema.persistedFields[field]
+				if (declared === undefined) throw new TypeError(`Missing ${field}`)
+				expect(schema.provenance.fields[field]).toMatchObject({
+					contributionId: `softDelete.${field}`,
+					owner: {
+						kind: 'plugin',
+						pluginId: '@ultimabase/soft-delete-plugin',
+					},
+				})
+				expect(readFieldTypegenState(declared)).toMatchObject({
+					create: 'forbidden',
+					update: 'forbidden',
+				})
+				const plans = compileValidationPlans(schema)
+				expect(plans.create.fields[field]?.presence).toBe('forbidden')
+				expect(plans.update.fields[field]?.presence).toBe('forbidden')
 			}
-			expect(schema.provenance.fields.isDeleted).toMatchObject({
-				contributionId: 'official-soft-delete-tombstone',
-				owner: {
-					kind: 'plugin',
-					pluginId: '@ultimabase/soft-delete-plugin',
-				},
-			})
-			expect(readFieldTypegenState(tombstone)).toMatchObject({
-				create: 'forbidden',
-				object: 'required',
-				update: 'forbidden',
-			})
-			const plans = compileValidationPlans(schema)
-			expect(plans.create.fields.isDeleted?.presence).toBe('forbidden')
-			expect(plans.update.fields.isDeleted?.presence).toBe('forbidden')
 		}
-		expect(Disabled.fields.isDeleted).toBeUndefined()
-		await application.dispose()
+		expect(Plain.fields).not.toHaveProperty('isDeleted')
+		expect(Plain.fields).not.toHaveProperty('deletedAt')
 	})
 
-	it('rejects an enabled schema tombstone collision deterministically', async () => {
-		const Document = SoftDeleteSchemaApplication.Schema.define({
+	it('rejects a developer field named like a soft-delete field', async () => {
+		const Document = App.Schema.define({
 			className: 'SoftDeleteCollisionDocument',
 			fields: (field) => ({
-				isDeleted: field.boolean({ default: false, required: true }),
+				deletedAt: field.string(),
 			}),
-			softDelete: 'explicit',
 		})
-		const application = new (UltimaBase.use(softDeletePlugin()))({
-			logger: false,
-			schemas: [Document],
-		})
+			.softDelete()
+			.with({})
+		const application = new App({ logger: false, schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
-			'Duplicate schema field: SoftDeleteCollisionDocument.isDeleted',
+			'Duplicate schema field: SoftDeleteCollisionDocument.deletedAt',
 		)
 	})
 
-	it('rejects stale invalid schema values before setup effects', async () => {
+	it('rejects invalid shape options before setup effects', async () => {
 		const setup = vi.fn()
 		const observer = plugin({
 			core: '^0.0.0',
@@ -342,12 +266,9 @@ describe('softDeletePlugin', () => {
 				}),
 			],
 		})
-		// A persisted stale value must still fail before plugin setup effects.
-		const Invalid = SoftDeleteSchemaApplication.Schema.define({
-			className: 'InvalidSoftDeleteDocument',
-			fields: (field) => ({ title: field.string() }),
-			softDelete: 'disabled' as never,
-		})
+		const Invalid = declare('InvalidSoftDeleteDocument')
+			.softDelete({ mode: 'explicit' } as never)
+			.with({})
 		const application = new (UltimaBase.use(softDeletePlugin(), observer))({
 			logger: false,
 			schemas: [Invalid],
@@ -360,61 +281,30 @@ describe('softDeletePlugin', () => {
 		expect(setup).not.toHaveBeenCalled()
 	})
 
-	it('rejects ambiguous direct-option ownership between explicit instances', async () => {
-		const Document = documentSchema('AmbiguousSoftDeleteDocument', 'explicit')
-		const application = new (UltimaBase.use(
-			softDeletePlugin({ instanceId: 'editorial' }),
-			softDeletePlugin({ instanceId: 'legal' }),
-		))({
-			logger: false,
-			schemas: [Document],
-		})
-		onTestFinished(() => application.dispose())
-
-		await expect(application.initialize()).rejects.toThrow(
-			'Ambiguous schema option owner for "softDelete"',
+	it('cannot be installed twice in one application (review decision 2)', () => {
+		const Twice = UltimaBase.use(softDeletePlugin(), softDeletePlugin())
+		expect(() => new Twice({ logger: false, schemas: [] })).toThrow(
+			'Plugin "@ultimabase/soft-delete-plugin" was declared more than once.',
 		)
 	})
 
-	it('keeps source-owned options and defaults isolated between applications', () => {
-		const Editorial = documentSchema('IsolatedSoftDeleteDocument', 'explicit')
-		const Legal = documentSchema('IsolatedSoftDeleteDocument')
-		const editorial = generateApplicationTypes({
-			ultimabase: new (UltimaBase.use(
-				softDeletePlugin({
-					defaultMode: 'explicit',
-					instanceId: 'editorial',
-				}),
-			))({ logger: false, schemas: [Editorial] }),
-			applicationId: 'editorial',
-		})
-		const legal = generateApplicationTypes({
-			ultimabase: new (UltimaBase.use(
-				softDeletePlugin({
-					defaultMode: 'replace-delete',
-					instanceId: 'legal',
-				}),
-			))({ logger: false, schemas: [Legal] }),
-			applicationId: 'legal',
+	it('generates the six commands for Typegen applications', () => {
+		const Document = declare('TypegenSoftDeleteDocument').softDelete().with({})
+		const generated = generateApplicationTypes({
+			ultimabase: new App({ logger: false, schemas: [Document] }),
+			applicationId: 'soft-delete',
 		})
 
-		// Source-owned options no longer need a parallel Typegen descriptor. The
-		// compiled schema and mutation snapshots below still prove isolated defaults.
-		expect(editorial.snapshot.options).toStrictEqual([])
-		expect(legal.snapshot.options).toStrictEqual([])
-		expect(editorial.snapshot.surfaces[0]?.schemaMutations).toEqual([
-			expect.objectContaining({ name: 'purge' }),
-			expect.objectContaining({ name: 'restore' }),
-			expect.objectContaining({ name: 'softDelete' }),
-		])
-		expect(editorial.contents).toContain('PluginSchemaMutationNoInput as')
-		expect(editorial.contents).not.toContain(
-			'"ultimabase.soft-delete.soft-delete", "1.0.0", unknown',
+		expect(generated.snapshot.options).toStrictEqual([])
+		expect(
+			generated.snapshot.surfaces[0]?.schemaMutations.map(({ name }) => name),
+		).toEqual(commandNames)
+		expect(generated.contents).toContain('PluginSchemaMutationNoInput as')
+		expect(generated.contents).toContain(
+			'readonly softDeleteMany: Core.ApplicationSchemaMutationManyMethod<',
 		)
-		expect(legal.snapshot.surfaces[0]?.schemaMutations).toEqual([
-			expect.objectContaining({ name: 'purge' }),
-			expect.objectContaining({ name: 'restore' }),
-		])
-		expect(editorial.fingerprint).not.toBe(legal.fingerprint)
+		expect(generated.contents).toContain(
+			'readonly softDeleteOne: Core.ApplicationSchemaMutationMethod<',
+		)
 	})
 })

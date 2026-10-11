@@ -295,6 +295,7 @@ Current records (accepted or still active in part):
 - [ADR-0313: Readable startup diagnostics and capability hints](0313-readable-startup-diagnostics.md)
 - [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 - [ADR-0315: Name-keyed query signatures](0315-name-keyed-query-signatures.md)
+- [ADR-0316: `definePlugin` and higher-kinded projection slots](0316-plugin-facade-and-projection-slots.md)
 
 Proposed records (awaiting user validation):
 

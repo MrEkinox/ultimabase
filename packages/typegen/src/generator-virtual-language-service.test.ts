@@ -58,6 +58,7 @@ const createSourceLanguageService = (
 			moduleResolution: ts.ModuleResolutionKind.NodeNext,
 			paths: {
 				'@ultimabase/core': ['packages/core/src/index.ts'],
+				'@ultimabase/core/plugin': ['packages/core/src/plugin.ts'],
 				'@ultimabase/shared': ['packages/shared/src/index.ts'],
 			},
 			strict: true,

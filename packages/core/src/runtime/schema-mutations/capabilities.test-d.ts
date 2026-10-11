@@ -1,11 +1,11 @@
 import { expectTypeOf, test } from 'vitest'
 
+import type { PluginSchemaMutationHandlerInput } from '../../index.js'
 import {
 	contributeSchemaMutation,
 	defineOperationValue,
 	defineSchemaMutation,
-	type PluginSchemaMutationHandlerInput,
-} from '../../index.js'
+} from '../../plugin.js'
 
 const update = defineSchemaMutation({
 	authority: 'request',

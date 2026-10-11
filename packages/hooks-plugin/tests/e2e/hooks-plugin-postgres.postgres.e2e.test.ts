@@ -1,7 +1,6 @@
 import {
 	FrameworkError,
 	UltimaBase,
-	plugin,
 	guard,
 	protectedPolicy,
 	runWithRequestEngine,
@@ -25,7 +24,7 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { profileSlugPlugin } from './fixtures/profile-slug-field.js'
 import { provideTestRuntimeConstraint } from '../../../../tests/fixtures/runtime-capabilities.js'
-import { requestSources, anonymous } from '@ultimabase/core/plugin'
+import { requestSources, anonymous, plugin } from '@ultimabase/core/plugin'
 
 const hookTrace: string[] = []
 const committedEvents: string[] = []

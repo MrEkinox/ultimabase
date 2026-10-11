@@ -1,10 +1,9 @@
 import {
-	contributeDeclarations,
 	definePluginField,
 	definePluginFieldFamily,
-	plugin,
 	type FieldOptions,
 } from '@ultimabase/core'
+import { contributeDeclarations, plugin } from '@ultimabase/core/plugin'
 
 const profileSlugField = (options: FieldOptions<string>) =>
 	definePluginField('fixture.profile-slug', options, {

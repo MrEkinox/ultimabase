@@ -6,17 +6,19 @@ import {
 	getCurrentRequest,
 	getOperationSchema,
 	getRequestPrincipal,
-	optionalCapability,
 	requestRoleResolverCapability,
 	Schema,
-	type ApplicationCapabilityFactoryContext,
-	type CapabilityRequirement,
 	type DatabaseMutationMaterializationSource,
 	type RequestRoleResolver,
 	type RequestSubjectContext,
 	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	optionalCapability,
+	type ApplicationCapabilityFactoryContext,
+	type CapabilityRequirement,
+} from '@ultimabase/core/plugin'
 import { immutableArray } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'

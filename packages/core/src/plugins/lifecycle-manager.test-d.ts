@@ -7,7 +7,7 @@ import {
 	normalizePlugins,
 	PluginGraph,
 	type PluginLifecycleState,
-} from '../index.js'
+} from '../plugin.js'
 import { PluginLifecycleManager } from './lifecycle-manager.js'
 import { PluginSetupRegistries } from './setup-registries.js'
 

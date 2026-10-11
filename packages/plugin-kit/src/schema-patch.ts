@@ -1,3 +1,8 @@
+import type {
+	ForbiddenMutationInputField,
+	GenericField,
+	JsonValue,
+} from '@ultimabase/core'
 import {
 	addSchemaField,
 	addSchemaIndex,
@@ -6,14 +11,11 @@ import {
 	type AddSchemaFieldOperation,
 	type AddSchemaFieldOptions,
 	type AddSchemaIndexOperation,
-	type ForbiddenMutationInputField,
-	type GenericField,
-	type JsonValue,
 	type SchemaPatchOperation,
 	type SchemaSelection,
 	type SetSchemaFieldOptionOperation,
 	type SetSchemaOptionOperation,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,

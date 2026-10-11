@@ -1,4 +1,7 @@
-import type { ApplicationSchemaMutationMethod } from '../application/application-schema-mutations.js'
+import type {
+	ApplicationSchemaMutationManyMethod,
+	ApplicationSchemaMutationMethod,
+} from '../application/application-schema-mutations.js'
 import type {
 	FieldSourceOpaque,
 	FieldSourceValue,
@@ -35,6 +38,31 @@ export type PluginSourceSchemaMutations<TSchema> =
 	TSchema extends PluginSourceSchemaMutationCarrier<infer TMutations>
 		? TMutations
 		: Readonly<Record<never, never>>
+
+/**
+ * Types the commands a statics slot adds to one configured schema (ADR-0316):
+ * one method per plugin schema mutation, plus the carrier through which rule
+ * plugins such as Access discover request commands without knowing their
+ * owner.
+ *
+ * @example `SchemaCommands<this['schema'], { restoreOne: typeof restoreMutation }>`
+ */
+export type SchemaCommands<
+	TSchema,
+	TCommands extends Readonly<Record<string, PluginSchemaMutationDefinition>>,
+> = {
+	readonly [TName in keyof TCommands]: TCommands[TName] extends Readonly<{
+		target: 'many'
+	}>
+		? ApplicationSchemaMutationManyMethod<
+				Extract<TSchema, SchemaDefinition>,
+				TCommands[TName]
+			>
+		: ApplicationSchemaMutationMethod<
+				Extract<TSchema, SchemaDefinition>,
+				TCommands[TName]
+			>
+} & PluginSourceSchemaMutationCarrier<TCommands>
 
 /** Defers one mutation method until the configured schema contract is known. */
 export interface PluginSourceMutationMethod<

@@ -1,8 +1,6 @@
 import type { Logger } from '@ultimabase/core'
-import {
-	getCurrentRequest,
-	type ApplicationCallbackExecutor,
-} from '@ultimabase/core'
+import { getCurrentRequest } from '@ultimabase/core'
+import type { ApplicationCallbackExecutor } from '@ultimabase/core/plugin'
 import { rewireTypes } from '@graphql-tools/utils'
 import {
 	assertNamedType,

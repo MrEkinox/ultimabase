@@ -7,8 +7,88 @@ package identity, configured plugin instances, public plugin typing, provenance,
 privilege checks, capability storage, lifecycle, adapters, and Master authority.
 Use Core's `plugin()`, contribution list, and nominal Typegen
 references directly. Plugin Kit is reserved for optional higher-level
-composition such as events, option parsing, contextual fields, and immutable
-schema-patch builders.
+composition such as the `definePlugin` facade, events, option parsing,
+contextual fields, and immutable schema-patch builders. It imports only Core's
+public entries, and `@ultimabase/core/plugin` for the authoring contracts.
+
+## Define a plugin from one object
+
+`definePlugin` (ADR-0316) builds the `plugin()` call of the common cases from a
+declarative object: shape methods with their fields and commands, `.with({ ... })`
+rules, a post-commit callback, and raw contributions. It writes the option
+definitions, schema selectors, patches with server-written fields, schema
+mutations, model extensions, Runtime behavior and static source types; Core
+still derives the privileges.
+
+```ts
+import { dateTimeField } from '@ultimabase/core'
+import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+
+export const archivePlugin = () =>
+	definePlugin({
+		name: '@community/archive',
+		shape: {
+			archivable: shapeMethod({
+				fields: { archivedAt: dateTimeField() },
+				commands: {
+					archiveOne: command({
+						authority: 'request',
+						effect: 'update',
+						data: () => ({ archivedAt: new Date().toISOString() }),
+					}),
+					archiveMany: command({
+						authority: 'request',
+						effect: 'update',
+						data: () => ({ archivedAt: new Date().toISOString() }),
+						target: 'many',
+					}),
+				},
+			}),
+		},
+		rules: {
+			audit: (value, path) => {
+				if (typeof value !== 'boolean')
+					throw new TypeError(`${path} must be a boolean`)
+				return value
+			},
+		},
+		afterCommit: ({ className, operation, rules }) => {
+			if (rules.audit === true)
+				console.info(`[audit] ${className} ${operation}`)
+		},
+	})
+
+// App.Schema.define({ className: 'Post', fields }).archivable().with({ audit: true })
+// await Post.archiveOne({ id }) / await Post.archiveMany({ where })
+```
+
+- `shapeMethod({ options?, fields?, commands? })` declares one method chained
+  before `.with(...)`. The method takes one optional options object, validated
+  by `options` when the application compiles (an omitted object is validated
+  as `{}`); without `options` it takes no argument. `fields` are added to the
+  schemas that call the method and rejected in create and update input.
+- `command({ authority, effect, data?, target?, checkReadable? })` declares one
+  command without input. `authority: 'request'` commands are ruled by rule
+  plugins such as Access under their own name; `'master'` commands need Master.
+  `effect: 'delete'` requires `'master'`. `target: 'many'` makes the command
+  take `{ where }` and run the one-row rules for each matching row in one
+  transaction. `checkReadable: 'before'` suits a command that hides its row.
+- One-row request commands are bound to the REST and GraphQL transports without
+  input (until transports discover commands generically); many-row commands
+  have no binding.
+- `rules` validate the entries of `.with({ ... })`; `afterCommit` receives them,
+  as `readSchemaRules` from `@ultimabase/core/plugin` returns them to raw
+  plugins.
+- `contributions` take raw Core contributions or a transport helper such as
+  `httpRoutes` from `@ultimabase/http-plugin`.
+- Mutation names are derived from the package name, the method and the command
+  (`community.archive.archivable.archive-one`).
+
+Keep raw `plugin()` when rules or commands depend on the schema they apply to
+(Access, Hooks, ACL) or when a command takes input. With
+`isolatedDeclarations`, annotate the factory result with
+`DefinedPlugin<Name, Shape, Rules>` and the shape with
+`ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does.
 
 ## Publish typed post-commit events
 
@@ -244,7 +324,7 @@ import {
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 const text = defineOperationValue((value, path): string => {
 	if (typeof value !== 'string') throw new TypeError(`${path} must be text`)

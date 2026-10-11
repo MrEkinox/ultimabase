@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
-import {
-	plugin as createPlugin,
-	contributeDeclarations,
-	type FieldBuilder,
-} from '../index.js'
+import type { FieldBuilder } from '../index.js'
+import { plugin as createPlugin, contributeDeclarations } from '../plugin.js'
 import {
 	jsonObjectFieldOption,
 	jsonObjectOption,

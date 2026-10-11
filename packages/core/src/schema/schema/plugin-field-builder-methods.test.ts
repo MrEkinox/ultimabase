@@ -4,17 +4,19 @@ import { isPlainRecord } from '@ultimabase/shared'
 
 import {
 	definePluginFieldFamily,
-	plugin as createPlugin,
-	contributeApplication,
-	contributeDeclarations,
-	withPluginPrivileges,
 	definePluginField,
 	UltimaBase,
 	type FieldBuilder,
 	type FieldOptions,
 	type PluginFieldFamilyDefinition,
-	type PluginSchemaContributionContext,
 } from '../../index.js'
+import {
+	plugin as createPlugin,
+	contributeApplication,
+	contributeDeclarations,
+	withPluginPrivileges,
+	type PluginSchemaContributionContext,
+} from '../../plugin.js'
 import { createApplication } from '../../application/framework-application.js'
 
 interface FixtureFieldOptions extends FieldOptions<string> {

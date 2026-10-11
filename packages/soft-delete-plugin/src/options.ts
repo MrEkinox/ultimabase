@@ -1,94 +1,50 @@
-import {
-	defineSchemaOption,
-	type SchemaDefinition,
-	type SchemaOptionDefinition,
-} from '@ultimabase/core'
-import {
-	definePluginOptionsParser,
-	type PluginOptionsParser,
-} from '@ultimabase/plugin-kit'
+import type { SchemaDefinition } from '@ultimabase/core'
+import { readSchemaRules, type PluginIdentity } from '@ultimabase/core/plugin'
+import type { Validator } from '@ultimabase/plugin-kit'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type {
-	NormalizedSoftDeletePluginOptions,
-	SoftDeleteMode,
-	SoftDeletePluginOptions,
-	SoftDeleteSchemaOption,
-} from './contracts.js'
-
-const snapshotMode = (value: unknown, path: string): SoftDeleteMode => {
-	if (
-		value === 'disabled' ||
-		value === 'explicit' ||
-		value === 'replace-delete'
-	) {
-		return value
-	}
-
-	throw new TypeError(
-		`${path} must be "disabled", "replace-delete", or "explicit"`,
-	)
+/**
+ * Options of `.softDelete(...)`. Without `mode`, `deleteOne` and `deleteMany`
+ * become logical; with `mode: 'command'` they keep deleting rows and only the
+ * `softDeleteOne`/`softDeleteMany` commands hide them.
+ */
+export interface SoftDeleteOptions {
+	/** Keeps native deletes physical; soft deletion goes through the commands. */
+	readonly mode?: 'command'
 }
 
-const snapshotSchemaOption = (
-	value: unknown,
-	path: string,
-): SoftDeleteSchemaOption => {
-	if (value === false || value === 'explicit' || value === 'replace-delete') {
-		return value
-	}
+/** How one schema soft-deletes: native deletes rewritten, or commands only. */
+export type SoftDeleteSchemaMode = 'command' | 'delete'
 
-	throw new TypeError(`${path} must be false, "replace-delete", or "explicit"`)
+/** @internal Validates the options object of `.softDelete(...)`. */
+export const parseSoftDeleteOptions: Validator<SoftDeleteOptions> = (
+	value,
+	path,
+) => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be an options object`)
+	}
+	const unknownKey = Object.keys(value).find((key) => key !== 'mode')
+	if (unknownKey !== undefined) {
+		throw new TypeError(`${path} contains unknown option: ${unknownKey}`)
+	}
+	if (value.mode !== undefined && value.mode !== 'command') {
+		throw new TypeError(`${path}.mode must be "command"`)
+	}
+	return immutableRecord(value.mode === undefined ? {} : { mode: 'command' })
 }
 
-/** @internal Owns the direct application-schema option used by the package. */
-export const softDeleteSchemaOption: SchemaOptionDefinition<SoftDeleteSchemaOption> =
-	defineSchemaOption({
-		normalize: snapshotSchemaOption,
-		protocolVersion: 1,
-		typegen: false,
-	})
-
-/** @internal Parses the factory boundary before Core observes a plugin. */
-export const normalizeSoftDeletePluginOptions: PluginOptionsParser<
-	NormalizedSoftDeletePluginOptions,
-	SoftDeletePluginOptions
-> = definePluginOptionsParser({
-	name: 'softDeletePlugin options',
-	keys: ['defaultMode', 'instanceId'] as const,
-	normalize: ({
-		defaultMode,
-		instanceId,
-	}): NormalizedSoftDeletePluginOptions => {
-		if (
-			instanceId !== undefined &&
-			(typeof instanceId !== 'string' || instanceId.length === 0)
-		) {
-			throw new TypeError(
-				'softDeletePlugin instanceId must be a non-empty string',
-			)
-		}
-
-		return {
-			defaultMode:
-				defaultMode === undefined
-					? 'disabled'
-					: snapshotMode(defaultMode, 'softDeletePlugin defaultMode'),
-			...(instanceId === undefined ? {} : { instanceId }),
-		}
-	},
-})
-
-/** @internal Resolves one schema without making the default part of Core. */
-export const resolveSoftDeleteMode = (
+/**
+ * @internal Reads how one compiled schema soft-deletes for this exact plugin
+ * instance, or `undefined` when its declaration did not call `.softDelete()`.
+ */
+export const readSoftDeleteMode = (
 	schema: SchemaDefinition,
-	defaultMode: SoftDeleteMode,
-): SoftDeleteMode => {
-	if (!Object.hasOwn(schema.definition, 'softDelete')) return defaultMode
-
-	const option: unknown = Reflect.get(schema.definition, 'softDelete')
-	const normalized = snapshotSchemaOption(
-		option,
-		`${schema.className}.softDelete`,
-	)
-	return normalized === false ? 'disabled' : normalized
+	owner: PluginIdentity,
+): SoftDeleteSchemaMode | undefined => {
+	const options = readSchemaRules(schema, owner).softDelete
+	if (options === undefined) return undefined
+	return isPlainRecord(options) && options.mode === 'command'
+		? 'command'
+		: 'delete'
 }

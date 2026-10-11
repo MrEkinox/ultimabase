@@ -1,16 +1,18 @@
 import {
 	booleanField,
-	contributeDeclarations,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	protectedPolicy,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
-	plugin,
 	rewriteDeletePersistencePlan,
-	type PluginDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	plugin,
+	type PluginDefinition,
+} from '@ultimabase/core/plugin'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 
 export interface SoftDeletePluginOptions {

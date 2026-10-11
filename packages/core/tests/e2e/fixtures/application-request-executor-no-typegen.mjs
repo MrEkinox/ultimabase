@@ -4,13 +4,15 @@ import {
 	applicationRequestExecutionCapability,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	defineCapability,
-	plugin,
 	getCurrentRequest,
-	provideCapability,
-	requireCapability,
 	UltimaBase,
 } from '@ultimabase/core'
+import {
+	defineCapability,
+	plugin,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 const requestExecution = requireCapability(
 	applicationRequestExecutionCapability,

@@ -3,8 +3,6 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -13,7 +11,12 @@ import {
 } from '@ultimabase/core'
 
 import { graphqlPlugin } from './index.js'
-import { RequestContextValue, anonymous } from '@ultimabase/core/plugin'
+import {
+	RequestContextValue,
+	anonymous,
+	plugin,
+	provideCapability,
+} from '@ultimabase/core/plugin'
 
 const objectId = '01991f00-0000-7000-8000-000000000702'
 const viewer = new RequestContextValue<string>(

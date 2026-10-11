@@ -1,15 +1,14 @@
 import { expectTypeOf, test } from 'vitest'
 import { FrameworkApplication } from './framework-application.js'
 
+import { UltimaBase, type PluginPrivilegeReport } from '../index.js'
 import {
 	contributeApplication,
 	plugin,
-	UltimaBase,
 	type PluginEnvironmentClaim,
 	type PluginPrivilege,
-	type PluginPrivilegeReport,
 	withPluginPrivileges,
-} from '../index.js'
+} from '../plugin.js'
 
 const primary = plugin({
 	id: 'fixture.typed-policy',

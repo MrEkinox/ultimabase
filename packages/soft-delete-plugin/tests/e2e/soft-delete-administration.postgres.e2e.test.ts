@@ -19,15 +19,6 @@ const masterAudits: MasterAccessEvent[] = []
 let rejectedAdministration: 'purge' | 'restore' | undefined
 let rejectMasterAudit = false
 
-interface AdministrationHookInput {
-	readonly context: Readonly<{
-		readonly access: Readonly<{ readonly mode: string }>
-	}>
-	readonly item: Readonly<Record<string, unknown>> | null
-	readonly mutation: Readonly<{ readonly name: string }>
-	readonly originalItem: Readonly<Record<string, unknown>>
-}
-
 const SoftDeleteAdministrationApplication = UltimaBase.use(
 	softDeletePlugin(),
 	hooksPlugin(),
@@ -36,87 +27,83 @@ const SoftDeleteAdministrationApplication = UltimaBase.use(
 const AdministrationLog = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationLog',
 	fields: (field) => ({ message: field.string({ required: true }) }),
-})
+}).with({})
 
 const Document = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationDocument',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-	hooks: {
-		afterOperation: {
-			purge: ({ item, originalItem }: AdministrationHookInput) => {
-				administrationTrace.push(
-					`after:purge:${String(originalItem.title)}:${item === null ? 'null' : 'record'}`,
-				)
-			},
-			restore: ({ item, originalItem }: AdministrationHookInput) => {
-				administrationTrace.push(
-					`after:restore:${String(originalItem.title)}:${String(item?.isDeleted)}`,
-				)
-			},
-		},
-		beforeOperation: {
-			purge: async ({
-				context,
-				item,
-				mutation,
-				originalItem,
-			}: AdministrationHookInput) => {
-				administrationTrace.push(
-					`before:purge:${mutation.name}:${context.access.mode}:${item === null ? 'null' : 'record'}`,
-				)
-				await AdministrationLog.createOne({
-					data: { message: `purge:${String(originalItem.title)}` },
-				})
-				if (rejectedAdministration === 'purge') {
-					throw new Error('administrative purge rejected')
-				}
-			},
-			restore: async ({
-				context,
-				item,
-				mutation,
-				originalItem,
-			}: AdministrationHookInput) => {
-				administrationTrace.push(
-					`before:restore:${mutation.name}:${context.access.mode}:${String(item?.isDeleted)}`,
-				)
-				await AdministrationLog.createOne({
-					data: { message: `restore:${String(originalItem.title)}` },
-				})
-				if (rejectedAdministration === 'restore') {
-					throw new Error('administrative restore rejected')
-				}
-			},
-		},
-	} as never,
-	softDelete: 'explicit',
+	fields: (field) => ({
+		slug: field.string(),
+		title: field.string({ required: true }),
+	}),
 })
+	.softDelete({ mode: 'command' })
+	.with({
+		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+		hooks: {
+			afterOperation: {
+				purgeOne: ({ item, originalItem }) => {
+					administrationTrace.push(
+						`after:purgeOne:${originalItem.title}:${String(item)}`,
+					)
+				},
+				restoreOne: ({ item, originalItem }) => {
+					administrationTrace.push(
+						`after:restoreOne:${originalItem.title}:${String(item.isDeleted)}`,
+					)
+				},
+			},
+			beforeOperation: {
+				purgeOne: async ({ context, item, mutation, originalItem }) => {
+					administrationTrace.push(
+						`before:purgeOne:${mutation.name}:${context.access.mode}:${String(item)}`,
+					)
+					await AdministrationLog.createOne({
+						data: { message: `purge:${originalItem.title}` },
+					})
+					if (rejectedAdministration === 'purge') {
+						throw new Error('administrative purge rejected')
+					}
+				},
+				restoreOne: async ({ context, item, mutation, originalItem }) => {
+					administrationTrace.push(
+						`before:restoreOne:${mutation.name}:${context.access.mode}:${String(item.isDeleted)}`,
+					)
+					await AdministrationLog.createOne({
+						data: { message: `restore:${originalItem.title}` },
+					})
+					if (rejectedAdministration === 'restore') {
+						throw new Error('administrative restore rejected')
+					}
+				},
+			},
+		},
+	})
 
 const Author = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-})
+}).with({})
 
 const Tag = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
-})
+}).with({})
 
 const Article = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationArticle',
 	fields: (field) => ({
-		author: field.pointer({ target: 'SoftDeleteAdministrationAuthor' }),
-		tags: field.relation({ target: 'SoftDeleteAdministrationTag' }),
+		author: field.pointer({ target: () => Author }),
+		tags: field.relation({ target: () => Tag }),
 		title: field.string({ required: true }),
 	}),
-	softDelete: 'replace-delete',
 })
+	.softDelete()
+	.with({})
 
-const Disabled = SoftDeleteAdministrationApplication.Schema.define({
-	className: 'SoftDeleteAdministrationDisabled',
+const Plain = SoftDeleteAdministrationApplication.Schema.define({
+	className: 'SoftDeleteAdministrationPlain',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: false,
-})
+}).with({})
 
 const schemas = [
 	AdministrationLog,
@@ -124,7 +111,7 @@ const schemas = [
 	Author,
 	Tag,
 	Article,
-	Disabled,
+	Plain,
 ] as const
 
 const createApplication = (database: PostgresWorkerFixture) =>
@@ -155,18 +142,8 @@ const getFixture = () => {
 	return { database: fixture, ultimabase }
 }
 
-const schemaCommand = (
-	app: SoftDeleteAdministrationApplication,
-	schema: typeof Document | typeof Article,
-	command: 'purge' | 'restore' | 'softDelete',
-): ((
-	input: unknown,
-	options?: unknown,
-) => Promise<Readonly<Record<string, unknown>>>) =>
-	Reflect.get(app.schema(schema), command) as (
-		input: unknown,
-		options?: unknown,
-	) => Promise<Readonly<Record<string, unknown>>>
+const restoreName = 'ultimabase.soft-delete-plugin.soft-delete.restore-one'
+const purgeName = 'ultimabase.soft-delete-plugin.soft-delete.purge-one'
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'soft_delete_admin' })
@@ -189,44 +166,57 @@ afterAll(async () => {
 })
 
 describe('official soft-delete administration with PostgreSQL', () => {
-	it('requires Master before target lookup and restores only a tombstone', async () => {
-		const { ultimabase: app } = getFixture()
+	it('stamps deletedAt, then restores only a tombstone and clears it', async () => {
 		administrationTrace.length = 0
 		masterAudits.length = 0
 		rejectedAdministration = undefined
 		const row = await Document.createOne({ data: { title: 'restore target' } })
-		const softDelete = schemaCommand(app, Document, 'softDelete')
-		const restore = schemaCommand(app, Document, 'restore')
-		await softDelete({ id: row.id })
-
-		await expect(restore({ id: row.id })).rejects.toMatchObject({
-			code: 'MASTER_ACCESS_DENIED',
-		})
-		expect(administrationTrace).toStrictEqual([])
-		await expect(
-			restore(
-				{ id: row.id, select: { isDeleted: true, title: true } },
-				{ useMasterKey: true },
-			),
-		).resolves.toMatchObject({
+		const deleted = await Document.softDeleteOne({
 			id: row.id,
+			select: { deletedAt: true, isDeleted: true },
+		})
+		expect(deleted).toMatchObject({ id: row.id, isDeleted: true })
+		expect(typeof deleted.deletedAt).toBe('string')
+
+		// Restore is a request command: Access rules it (closed by default when
+		// Access is installed); this application has no Access plugin.
+		await expect(
+			Document.restoreOne({
+				id: row.id,
+				select: { deletedAt: true, isDeleted: true, title: true },
+			}),
+		).resolves.toEqual({
+			id: row.id,
+			deletedAt: null,
 			isDeleted: false,
 			title: 'restore target',
 		})
-		expect(masterAudits).toHaveLength(1)
-		expect(masterAudits[0]?.reason).toBe(
-			'Schema mutation ultimabase.soft-delete.restore on schema SoftDeleteAdministrationDocument',
-		)
+		expect(masterAudits).toHaveLength(0)
 		expect(administrationTrace).toStrictEqual([
-			'before:restore:ultimabase.soft-delete.restore:master:false',
-			'after:restore:restore target:false',
+			`before:restoreOne:${restoreName}:anonymous:false`,
+			'after:restoreOne:restore target:false',
 		])
 		await expect(
 			Document.findOne({ where: { id: { eq: row.id } } }),
 		).resolves.toMatchObject({ id: row.id, title: 'restore target' })
-		await expect(
-			restore({ id: row.id }, { useMasterKey: true }),
-		).rejects.toMatchObject({ code: 'NOT_FOUND' })
+		await expect(Document.restoreOne({ id: row.id })).rejects.toMatchObject({
+			code: 'NOT_FOUND',
+		})
+	})
+
+	it('names the command, row and field when a restored value was taken', async () => {
+		const first = await Document.createOne({
+			data: { slug: 'taken', title: 'first' },
+		})
+		await Document.softDeleteOne({ id: first.id })
+		// The partial index ignores soft-deleted rows, so the slug is free again.
+		await Document.createOne({ data: { slug: 'taken', title: 'second' } })
+
+		await expect(Document.restoreOne({ id: first.id })).rejects.toMatchObject({
+			code: 'UNIQUE_VIOLATION',
+			publicMessage: `Cannot run restoreOne on SoftDeleteAdministrationDocument ${first.id}: slug is now used by another row.`,
+			internalDetails: { command: 'restoreOne', values: { slug: 'taken' } },
+		})
 	})
 
 	it('inherits an existing Master context without a second elevation audit', async () => {
@@ -234,7 +224,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		const row = await Document.createOne({
 			data: { title: 'inherited master' },
 		})
-		await schemaCommand(app, Document, 'softDelete')({ id: row.id })
+		await Document.softDeleteOne({ id: row.id })
 		masterAudits.length = 0
 		const request = anonymous(app, {
 			requestId: 'soft-delete-inherited-master',
@@ -247,11 +237,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		expect(masterAudits).toHaveLength(1)
 
 		await expect(
-			schemaCommand(
-				app,
-				Document,
-				'restore',
-			)({ id: row.id }, { context: master.context }),
+			Document.purgeOne({ id: row.id }, { context: master.context }),
 		).resolves.toMatchObject({ id: row.id })
 		expect(masterAudits).toHaveLength(1)
 	})
@@ -262,14 +248,10 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		const auditTarget = await Document.createOne({
 			data: { title: 'audit failure' },
 		})
-		await schemaCommand(app, Document, 'softDelete')({ id: auditTarget.id })
+		await Document.softDeleteOne({ id: auditTarget.id })
 		rejectMasterAudit = true
 		await expect(
-			schemaCommand(
-				app,
-				Document,
-				'restore',
-			)({ id: auditTarget.id }, { useMasterKey: true }),
+			Document.purgeOne({ id: auditTarget.id }, { useMasterKey: true }),
 		).rejects.toThrow('administration audit unavailable')
 		rejectMasterAudit = false
 		expect(administrationTrace).toStrictEqual([])
@@ -277,30 +259,19 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		const cancellationTarget = await Document.createOne({
 			data: { title: 'cancelled restore' },
 		})
-		await schemaCommand(
-			app,
-			Document,
-			'softDelete',
-		)({
-			id: cancellationTarget.id,
-		})
+		await Document.softDeleteOne({ id: cancellationTarget.id })
 		const controller = new AbortController()
 		const request = anonymous(app, {
 			requestId: 'soft-delete-cancelled-administration',
 			signal: controller.signal,
 			source: 'internal',
 		})
-		const master = await request.useMasterKey(
-			authorizeMasterKey(app, 'administration-key'),
-			'Trusted cancellable maintenance request',
-		)
 		controller.abort('maintenance cancelled')
 		await expect(
-			schemaCommand(
-				app,
-				Document,
-				'restore',
-			)({ id: cancellationTarget.id }, { context: master.context }),
+			Document.restoreOne(
+				{ id: cancellationTarget.id },
+				{ context: request.context },
+			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 		expect(administrationTrace).toStrictEqual([])
 
@@ -316,15 +287,17 @@ describe('official soft-delete administration with PostgreSQL', () => {
 	})
 
 	it('physically purges only a tombstone and returns its preimage', async () => {
-		const { database, ultimabase: app } = getFixture()
+		const { database } = getFixture()
 		administrationTrace.length = 0
 		masterAudits.length = 0
 		const row = await Document.createOne({ data: { title: 'purge target' } })
-		await schemaCommand(app, Document, 'softDelete')({ id: row.id })
-		const purge = schemaCommand(app, Document, 'purge')
+		await Document.softDeleteOne({ id: row.id })
 
+		await expect(Document.purgeOne({ id: row.id })).rejects.toMatchObject({
+			code: 'MASTER_ACCESS_DENIED',
+		})
 		await expect(
-			purge(
+			Document.purgeOne(
 				{ id: row.id, select: { isDeleted: true, title: true } },
 				{ useMasterKey: true },
 			),
@@ -334,11 +307,11 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			title: 'purge target',
 		})
 		expect(administrationTrace).toStrictEqual([
-			'before:purge:ultimabase.soft-delete.purge:master:null',
-			'after:purge:purge target:null',
+			`before:purgeOne:${purgeName}:master:null`,
+			'after:purgeOne:purge target:null',
 		])
 		expect(masterAudits[0]?.reason).toBe(
-			'Schema mutation ultimabase.soft-delete.purge on schema SoftDeleteAdministrationDocument',
+			`Schema mutation ${purgeName} on schema SoftDeleteAdministrationDocument`,
 		)
 		const stored = await database.pool.query<{ count: number }>(
 			`select count(*)::int as count
@@ -348,36 +321,59 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		)
 		expect(stored.rows).toStrictEqual([{ count: 0 }])
 		await expect(
-			purge({ id: row.id }, { useMasterKey: true }),
+			Document.purgeOne({ id: row.id }, { useMasterKey: true }),
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 	})
 
+	it('restores and purges every matching tombstone with the many-row commands', async () => {
+		const rows = await Document.createMany({
+			data: [{ title: 'batch a' }, { title: 'batch b' }, { title: 'batch c' }],
+		})
+		await expect(
+			Document.softDeleteMany({
+				where: { title: { startsWith: 'batch ' } },
+				select: { title: true },
+			}),
+		).resolves.toHaveLength(3)
+		const restored = await Document.restoreMany({
+			where: { title: { in: ['batch a', 'batch b'] } },
+			select: { deletedAt: true, title: true },
+		})
+		expect(restored.map(({ title }) => title).sort()).toEqual([
+			'batch a',
+			'batch b',
+		])
+		expect(restored.every(({ deletedAt }) => deletedAt === null)).toBe(true)
+		// Purge sees hidden rows only: the restored ones stay.
+		await expect(
+			Document.purgeMany(
+				{ where: { title: { startsWith: 'batch ' } }, select: { id: true } },
+				{ useMasterKey: true },
+			),
+		).resolves.toEqual([{ id: rows[2]?.id }])
+		await expect(
+			Document.count({ where: { title: { startsWith: 'batch ' } } }),
+		).resolves.toBe(2)
+	})
+
 	it('rolls back the effect and Hook-started work when administration rejects', async () => {
-		const { database, ultimabase: app } = getFixture()
+		const { database } = getFixture()
 		const restoreTarget = await Document.createOne({
 			data: { title: 'rejected restore' },
 		})
-		await schemaCommand(app, Document, 'softDelete')({ id: restoreTarget.id })
+		await Document.softDeleteOne({ id: restoreTarget.id })
 		rejectedAdministration = 'restore'
-		await expect(
-			schemaCommand(
-				app,
-				Document,
-				'restore',
-			)({ id: restoreTarget.id }, { useMasterKey: true }),
-		).rejects.toThrow('administrative restore rejected')
+		await expect(Document.restoreOne({ id: restoreTarget.id })).rejects.toThrow(
+			'administrative restore rejected',
+		)
 
 		const purgeTarget = await Document.createOne({
 			data: { title: 'rejected purge' },
 		})
-		await schemaCommand(app, Document, 'softDelete')({ id: purgeTarget.id })
+		await Document.softDeleteOne({ id: purgeTarget.id })
 		rejectedAdministration = 'purge'
 		await expect(
-			schemaCommand(
-				app,
-				Document,
-				'purge',
-			)({ id: purgeTarget.id }, { useMasterKey: true }),
+			Document.purgeOne({ id: purgeTarget.id }, { useMasterKey: true }),
 		).rejects.toThrow('administrative purge rejected')
 		rejectedAdministration = undefined
 
@@ -404,13 +400,11 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		).resolves.toEqual([])
 	})
 
-	it('preserves pointer and relation state through replace-delete restore', async () => {
-		const { ultimabase: app } = getFixture()
+	it('preserves pointer and relation state through a logical delete and restore', async () => {
 		const author = await Author.createOne({ data: { name: 'Ada' } })
 		const tag = await Tag.createOne({ data: { label: 'runtime' } })
 		const article = await Article.createOne({
 			data: {
-				// The fixture has no generated named-schema graph for this pointer.
 				author: { connect: Author.pointer(author.id) },
 				title: 'recoverable graph',
 			},
@@ -421,18 +415,11 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		})
 		await Article.deleteOne({ where: { id: article.id } })
 
-		const restored = await schemaCommand(
-			app,
-			Article,
-			'restore',
-		)(
-			{
-				id: article.id,
-				include: { author: {}, tags: {} },
-				select: { isDeleted: true, title: true },
-			},
-			{ useMasterKey: true },
-		)
+		const restored = await Article.restoreOne({
+			id: article.id,
+			include: { author: {}, tags: {} },
+			select: { isDeleted: true, title: true },
+		})
 		expect(restored).toMatchObject({
 			author: { id: author.id, name: 'Ada' },
 			id: article.id,
@@ -442,12 +429,12 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		})
 	})
 
-	it('does not expose administration on disabled schemas or model handles', async () => {
+	it('does not expose administration on plain schemas or results', async () => {
 		const { ultimabase: app } = getFixture()
-		expect(Reflect.has(app.schema(Disabled), 'restore')).toBe(false)
-		expect(Reflect.has(app.schema(Disabled), 'purge')).toBe(false)
+		expect(Reflect.has(app.schema(Plain), 'restoreOne')).toBe(false)
+		expect(Reflect.has(app.schema(Plain), 'purgeOne')).toBe(false)
 		const row = await Document.createOne({ data: { title: 'model surface' } })
-		expect(Reflect.has(row, 'restore')).toBe(false)
-		expect(Reflect.has(row, 'purge')).toBe(false)
+		expect(Reflect.has(row, 'restoreOne')).toBe(false)
+		expect(Reflect.has(row, 'purgeOne')).toBe(false)
 	})
 })

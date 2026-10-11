@@ -1,6 +1,8 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
+} from '@ultimabase/core'
+import {
 	contributeApplication,
 	contributeDeclarations,
 	optionalCapability,
@@ -11,7 +13,7 @@ import {
 	type PluginInstance,
 	type PluginOperationDefinition,
 	type PluginSchemaOptionSource,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableArray, isUnknownArray } from '@ultimabase/shared'
 import { GraphQLSchema } from 'graphql'

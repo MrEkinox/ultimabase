@@ -1,18 +1,20 @@
 import {
+	definePluginFieldFamily,
+	definePluginField,
+	defineEnum,
+	UltimaBase,
+	stringField,
+} from '@ultimabase/core'
+import {
 	addSchemaField,
 	contributeApplication,
-	definePluginFieldFamily,
 	defineOperation,
 	defineOperationValue,
 	plugin as createPlugin,
 	contributeDeclarations,
-	definePluginField,
-	defineEnum,
 	defineSchemaOption,
 	defineTypegenReference,
-	UltimaBase,
-	stringField,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'

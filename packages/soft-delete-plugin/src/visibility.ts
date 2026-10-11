@@ -3,16 +3,14 @@ import {
 	protectedPolicy,
 	type CompiledSchemaRegistry,
 	type DatabaseRowFilterNode,
-	type PluginIdentity,
 	type ProtectedPolicyDefinition,
-	type SchemaDefinition,
 } from '@ultimabase/core'
+import type { PluginIdentity } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { purgeMutationName, restoreMutationName } from './contracts.js'
+import { readSoftDeleteMode } from './options.js'
 
-export const softDeleteTombstoneContributionId =
-	'official-soft-delete-tombstone'
+/** The field the protected filter reads; `deletedAt` only records the time. */
 export const softDeleteTombstoneFieldName = 'isDeleted'
 
 const visibleRowFilter: DatabaseRowFilterNode = immutableRecord({
@@ -27,66 +25,50 @@ const tombstonedRowFilter: DatabaseRowFilterNode = immutableRecord({
 	value: true,
 })
 
-const isOwnedAdministration = (
+// Commands that act on hidden rows; every other operation sees visible rows.
+const tombstoneCommands: ReadonlySet<string> = new Set([
+	'purgeMany',
+	'purgeOne',
+	'restoreMany',
+	'restoreOne',
+])
+
+/** Recognizes this instance's restore and purge commands only. */
+const isTombstoneCommand = (
 	operation: unknown,
 	owner: PluginIdentity,
-): boolean => {
-	if (
-		!isPlainRecord(operation) ||
-		operation.kind !== 'plugin-schema-mutation' ||
-		!isPlainRecord(operation.owner) ||
-		!isPlainRecord(operation.mutation)
-	) {
-		return false
-	}
-	return (
-		operation.owner.kind === 'plugin' &&
-		operation.owner.pluginId === owner.pluginId &&
-		operation.owner.instanceId === owner.instanceId &&
-		operation.mutation.version === '1.0.0' &&
-		((operation.command === 'restore' &&
-			operation.mutation.name === restoreMutationName) ||
-			(operation.command === 'purge' &&
-				operation.mutation.name === purgeMutationName))
-	)
-}
+): boolean =>
+	isPlainRecord(operation) &&
+	operation.kind === 'plugin-schema-mutation' &&
+	typeof operation.command === 'string' &&
+	tombstoneCommands.has(operation.command) &&
+	isPlainRecord(operation.owner) &&
+	operation.owner.kind === 'plugin' &&
+	operation.owner.pluginId === owner.pluginId &&
+	operation.owner.instanceId === owner.instanceId
 
-/** @internal Matches only the tombstone contributed by one exact plugin instance. */
-export const isSoftDeleteTombstoneOwner = (
-	schema: SchemaDefinition,
-	owner: PluginIdentity,
-): boolean => {
-	const provenance = schema.provenance.fields[softDeleteTombstoneFieldName]
-	return (
-		provenance?.contributionId === softDeleteTombstoneContributionId &&
-		provenance.owner.kind === 'plugin' &&
-		provenance.owner.pluginId === owner.pluginId &&
-		provenance.owner.instanceId === owner.instanceId
-	)
-}
-
-/** Creates the private application-local visibility plan for enabled schemas. */
+/**
+ * Hides soft-deleted rows from every operation on the schemas that called
+ * `.softDelete()`, Master included; restore and purge see only those rows.
+ */
 export const createSoftDeleteVisibilityPolicy = (
 	schemas: CompiledSchemaRegistry,
 	owner: PluginIdentity,
 ): ProtectedPolicyDefinition => {
-	// Only exact compiled schemas with this instance's tombstone enter the policy.
 	const targets = new Set<unknown>(
 		schemas
 			.values()
-			.filter((schema) => isSoftDeleteTombstoneOwner(schema, owner)),
+			.filter((schema) => readSoftDeleteMode(schema, owner) !== undefined),
 	)
 
 	return protectedPolicy({
 		evaluate: ({ operation }) => {
-			const operationSchema = getOperationSchema(operation)
-			if (!targets.has(operationSchema)) return undefined
-
+			if (!targets.has(getOperationSchema(operation))) return undefined
 			if (operation.kind === 'create-one' || operation.kind === 'create-many') {
 				return undefined
 			}
 			return immutableRecord({
-				rowFilter: isOwnedAdministration(operation, owner)
+				rowFilter: isTombstoneCommand(operation, owner)
 					? tombstonedRowFilter
 					: visibleRowFilter,
 			})

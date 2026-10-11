@@ -1,14 +1,16 @@
 import {
 	MasterAuthority,
 	UltimaBase,
-	contributeSchemaMutation,
 	databaseAdapterCapability,
+} from '@ultimabase/core'
+import {
+	contributeSchemaMutation,
 	defineOperationValue,
 	plugin,
 	contributeDeclarations,
 	defineSchemaMutation,
 	provideCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { expect, it, vi } from 'vitest'
 

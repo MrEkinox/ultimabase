@@ -1,10 +1,10 @@
 import { applicationFixture } from '../application-fixture.js'
 import { isPlainRecord } from '@ultimabase/shared'
+import type { SchemaDefinition } from '../../src/index.js'
 import {
 	plugin as createPlugin,
 	type PluginDefinition,
-	type SchemaDefinition,
-} from '../../src/index.js'
+} from '../../src/plugin.js'
 import {
 	createApplication,
 	type FrameworkApplication,

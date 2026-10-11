@@ -3,10 +3,6 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	contributeApplication,
-	provideCapability,
-	requireCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -24,7 +20,13 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { restPlugin } from './plugin.js'
-import { RequestContextValue } from '@ultimabase/core/plugin'
+import {
+	RequestContextValue,
+	plugin,
+	contributeApplication,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 const objectId = '01991f00-0000-7000-8000-000000000201'
 const upsertRouteOption = { rest: { upsert: true } }

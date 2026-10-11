@@ -1,9 +1,9 @@
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	plugin,
 	contributeApplication,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import {
 	httpApplicationCapability,

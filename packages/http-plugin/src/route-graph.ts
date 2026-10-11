@@ -2,7 +2,7 @@ import type {
 	ApplicationCallbackExecutor,
 	CapabilityProviderContribution,
 	PluginIdentity,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {

@@ -1,11 +1,13 @@
 import {
 	UltimaBase,
 	MasterAuthority,
+	getCurrentRequest,
+} from '@ultimabase/core'
+import {
 	plugin,
 	contributeApplication,
-	getCurrentRequest,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
 	httpPlugin,

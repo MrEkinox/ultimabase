@@ -8,7 +8,7 @@ such as GraphiQL or Apollo Sandbox require it without importing that adapter:
 
 ```ts
 import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
-import { requireCapability } from '@ultimabase/core'
+import { requireCapability } from '@ultimabase/core/plugin'
 
 const endpoint = requireCapability(graphqlHttpEndpointCapability, '^1.0.0')
 ```

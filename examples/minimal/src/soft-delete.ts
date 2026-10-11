@@ -19,7 +19,7 @@ export const softDeleteArticle = (
 	sessionToken: string,
 ) =>
 	runWithSession(app, sessionToken, () =>
-		ExampleArticle.softDelete({
+		ExampleArticle.softDeleteOne({
 			id,
 			select: { id: true, isDeleted: true, title: true },
 		}),
@@ -27,14 +27,14 @@ export const softDeleteArticle = (
 
 /** Restores one hidden article through trusted server authority. */
 export const restoreArticle = (id: string) =>
-	ExampleArticle.restore(
+	ExampleArticle.restoreOne(
 		{ id, select: { id: true, isDeleted: true, title: true } },
 		{ useMasterKey: true },
 	)
 
 /** Permanently removes one already hidden article. */
 export const purgeArticle = (id: string) =>
-	ExampleArticle.purge(
+	ExampleArticle.purgeOne(
 		{ id, select: { id: true, isDeleted: true, title: true } },
 		{ useMasterKey: true },
 	)

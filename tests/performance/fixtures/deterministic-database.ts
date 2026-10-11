@@ -1,8 +1,6 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseAdapterCapabilities,
 	type DatabaseLogicalRecord,
@@ -13,8 +11,12 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type PreparedDatabaseOperation,
-	type PluginDefinition,
 } from '@ultimabase/core'
+import {
+	plugin,
+	provideCapability,
+	type PluginDefinition,
+} from '@ultimabase/core/plugin'
 
 const capabilities: DatabaseAdapterCapabilities = Object.freeze({
 	persistencePlans: databasePersistencePlanCapability,

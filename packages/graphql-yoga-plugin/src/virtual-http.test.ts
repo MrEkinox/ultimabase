@@ -3,8 +3,6 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -27,7 +25,11 @@ import {
 	graphqlYogaFixtureHttpConsumer,
 	readFixtureHttpApplication,
 } from './test-application.test-support.js'
-import { RequestContextValue } from '@ultimabase/core/plugin'
+import {
+	RequestContextValue,
+	plugin,
+	provideCapability,
+} from '@ultimabase/core/plugin'
 
 const viewer = new RequestContextValue<string>(
 	'fixture.graphql-yoga.virtual-viewer',

@@ -1,10 +1,10 @@
 import {
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
-	provideCapability,
 	type RequestPrincipalResolver,
 	type RequestRoleResolver,
 } from '@ultimabase/core'
+import { provideCapability } from '@ultimabase/core/plugin'
 
 /** Creates one application-local principal resolver for an E2E fixture plugin. */
 export const provideTestPrincipalResolver = (

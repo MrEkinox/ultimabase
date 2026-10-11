@@ -8,16 +8,23 @@ import type {
 	PluginSourceSchemaMutations,
 } from '../../plugins/source-schema-templates.js'
 import type {
+	SchemaFieldsFor,
+	SchemaShapeOf,
+	SchemaStaticsFor,
+} from '../../plugins/schema-extensions.js'
+import type {
 	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoCarrier,
 	UltimaBaseGeneratedSchemas,
 } from '../type-info.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import type { DeclaredSchema } from './schema-declaration-chain.js'
+import type { ConfiguredDeclaredOptionValidation } from './declared-option-validation.js'
 import type { ConfiguredFieldBuilder } from './field-builder-contract.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type {
 	Schema,
+	SchemaClass,
 	SchemaDeclaredFields,
 	SchemaDefinition,
 	SchemaFields,
@@ -99,7 +106,9 @@ export type CompleteConfiguredFields<
 	TFields extends SchemaDeclaredFields,
 	TOptions extends object,
 > = Readonly<
-	TFields & ConfiguredSourceFields<TSource, TClassName, TFields, TOptions>
+	TFields &
+		ConfiguredSourceFields<TSource, TClassName, TFields, TOptions> &
+		SchemaFieldsFor<TSource['shapeFields'], SchemaShapeOf<TOptions>>
 >
 
 type ConfiguredSchemaContract<
@@ -128,7 +137,19 @@ type ConfiguredSchemaClassSurface<
 		TSource['schemaClass'],
 		ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
 		ConfiguredSchemaSelectorOptions<TSource, TOptions>
-	>
+	> &
+	// Typegen surfaces already type the commands of generated class names
+	// (old form, until step 6.8); evaluating the slots there again would
+	// rebuild a source contract for every command.
+	(TClassName extends keyof UltimaBaseGeneratedSchemas
+		? unknown
+		: SchemaStaticsFor<
+				TSource['schemaStatics'],
+				SchemaShapeOf<TOptions>,
+				SchemaClass<
+					ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
+				>
+			>)
 
 type ConfiguredSourceSchemaMutations<
 	TSource extends PluginSourceState,
@@ -204,56 +225,6 @@ export type ConfiguredSchemaRuleOptions<
 	>,
 	SchemaFieldSelectorOptionName<TSource>
 >
-
-type KeysOfUnion<TValue> = TValue extends unknown ? keyof TValue : never
-
-type UnionValueAtKey<TValue, TKey extends PropertyKey> = TValue extends unknown
-	? TKey extends keyof TValue
-		? TValue[TKey]
-		: never
-	: never
-
-type RemainingDepth<TDepth extends readonly unknown[]> =
-	TDepth extends readonly [unknown, ...infer TRest] ? TRest : readonly []
-
-type ValidateDeclaredSourceValue<
-	TDeclared,
-	TExpected,
-	TDepth extends readonly unknown[],
-> = TDepth extends readonly []
-	? TDeclared
-	: TDeclared extends (...arguments_: never[]) => unknown
-		? TDeclared
-		: TDeclared extends readonly unknown[]
-			? TDeclared
-			: TDeclared extends object
-				? {
-						readonly [TKey in keyof TDeclared]: TKey extends KeysOfUnion<
-							NonNullable<TExpected>
-						>
-							? ValidateDeclaredSourceValue<
-									TDeclared[TKey],
-									UnionValueAtKey<NonNullable<TExpected>, TKey>,
-									RemainingDepth<TDepth>
-								>
-							: never
-					}
-				: TDeclared
-
-type ConfiguredDeclaredOptionValidation<
-	TDeclaredOptions extends object,
-	TSourceOptions extends object,
-> = {
-	readonly [
-		TName in keyof TDeclaredOptions as TName extends keyof TSourceOptions
-			? TName
-			: never
-	]: ValidateDeclaredSourceValue<
-		TDeclaredOptions[TName],
-		TName extends keyof TSourceOptions ? TSourceOptions[TName] : never,
-		readonly [unknown, unknown, unknown, unknown, unknown, unknown]
-	>
-}
 
 export type ConfiguredSchemaOptionsForDeclaration<
 	TSource extends PluginSourceState,

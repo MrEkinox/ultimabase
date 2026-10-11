@@ -4,14 +4,12 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
+import { FrameworkError, MasterAuthority, UltimaBase } from '@ultimabase/core'
 import {
-	FrameworkError,
-	MasterAuthority,
-	UltimaBase,
 	plugin,
 	contributeApplication,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	httpPlugin,
 	httpApplicationCapability,

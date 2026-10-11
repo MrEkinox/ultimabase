@@ -1,7 +1,7 @@
 import {
 	defineSchemaOption,
 	type SchemaOptionDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 const roleSchemaIdentityBrand: unique symbol = Symbol('RoleSchemaIdentity')
 const roleSchemaClassNames = new WeakMap<object, string>()

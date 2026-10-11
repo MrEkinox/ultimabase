@@ -2,7 +2,7 @@ import {
 	plugin,
 	contributeApplication,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,

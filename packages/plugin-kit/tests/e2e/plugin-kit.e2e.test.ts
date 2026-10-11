@@ -1,13 +1,12 @@
+import { UltimaBase, stringField } from '@ultimabase/core'
 import {
-	UltimaBase,
 	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
 	plugin,
 	defineTypegenReference,
-	stringField,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	SchemaPatchBuilder,
 	definePluginOptionsParser,

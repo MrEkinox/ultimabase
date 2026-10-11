@@ -1,11 +1,11 @@
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	contributeDeclarations,
 	defineOperationValue,
 	plugin as createPlugin,
 	defineSchemaMutation,
 	defineTypegenReference,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -112,11 +112,11 @@ describe('schema mutation Typegen', () => {
 		// ADR-0310: results have no methods, so no model surface is emitted.
 		expect(first.contents).not.toContain('ApplicationModelSchemaMutationMethod')
 		expect(first.contents).toContain(
-			'Core.PluginSchemaMutationDefinition<"fixture.workflow.archive", "1.1.0", Plugin0_BaseItem, readonly ["fixture.workflow.archive-rejected"], "request", "update", "after", Readonly<{ readonly workflowState: true }>>',
+			'CorePlugin.PluginSchemaMutationDefinition<"fixture.workflow.archive", "1.1.0", Plugin0_BaseItem, readonly ["fixture.workflow.archive-rejected"], "request", "update", "after", Readonly<{ readonly workflowState: true }>>',
 		)
 		// Handles reference one descriptor; Core derives schema methods.
 		expect(
-			first.contents.match(/Core\.PluginSchemaMutationDefinition</gu),
+			first.contents.match(/CorePlugin\.PluginSchemaMutationDefinition</gu),
 		).toHaveLength(1)
 		expect(
 			first.contents.match(

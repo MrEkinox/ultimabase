@@ -6,7 +6,7 @@ import {
 	type HttpBrowserPolicy,
 	type httpContextResolverContributionsCapability,
 } from '@ultimabase/http-plugin'
-import { type CapabilityProviderDeclaration } from '@ultimabase/core'
+import type { CapabilityProviderDeclaration } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { ResolvedPasswordAuthCookieOptions } from './http-options.js'

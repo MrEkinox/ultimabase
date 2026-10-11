@@ -35,17 +35,22 @@ it('runs the packed JavaScript plugin against PostgreSQL without Typegen', async
 		},
 	})
 
+	const commands = [
+		'softDeleteOne',
+		'softDeleteMany',
+		'restoreOne',
+		'restoreMany',
+		'purgeOne',
+		'purgeMany',
+	]
 	expect(JSON.parse(stdout)).toStrictEqual({
+		// Purge and the Master count; restore no longer needs Master.
 		auditCount: 2,
-		deletedDisabled: false,
-		hiddenExplicit: 0,
-		hiddenReplace: 0,
-		purgedExplicit: 0,
-		restoredExplicit: 1,
-		surfaces: {
-			disabled: [],
-			explicit: ['softDelete', 'restore', 'purge'],
-			replace: ['restore', 'purge'],
-		},
+		deletedPlain: false,
+		hiddenCommand: 0,
+		hiddenLogical: 0,
+		purgedCommand: 0,
+		restoredCommand: 1,
+		surfaces: { command: commands, logical: commands, plain: [] },
 	})
 }, 30_000)

@@ -1,11 +1,13 @@
 import {
+	type UltimaBase,
+	UltimaBase as UltimaBaseFactory,
+} from '@ultimabase/core'
+import {
 	plugin,
 	contributeApplication,
 	contributeDeclarations,
 	defineSchemaOption,
-	type UltimaBase,
-	UltimaBase as UltimaBaseFactory,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import {

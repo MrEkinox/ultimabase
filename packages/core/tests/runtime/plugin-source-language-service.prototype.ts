@@ -1,15 +1,17 @@
 import {
 	booleanField,
+	definePluginFieldFamily,
+	UltimaBase,
+	type Model,
+} from '../../src/index.js'
+import {
 	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	definePluginFieldFamily,
 	defineSchemaOption,
 	plugin,
-	UltimaBase,
-	type Model,
-} from '../../src/index.js'
+} from '../../src/plugin.js'
 
 const importance = (options: { readonly required: true }) =>
 	booleanField({ required: options.required })

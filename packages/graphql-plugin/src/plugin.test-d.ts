@@ -1,8 +1,5 @@
-import {
-	UltimaBase,
-	defineOperation,
-	defineOperationValue,
-} from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { defineOperation, defineOperationValue } from '@ultimabase/core/plugin'
 import type { ExecutionResult } from 'graphql'
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { expectTypeOf, test } from 'vitest'

@@ -70,6 +70,7 @@ export type {
 	HttpRouteOptions,
 	ProvideHttpEndpointsOptions,
 } from './endpoints.js'
+export { httpRoutes, type HttpRouteKey } from './http-routes.js'
 export { dispatchHttpApplicationRequest } from './server-dispatch.js'
 export { httpPlugin } from './plugin.js'
 export type {

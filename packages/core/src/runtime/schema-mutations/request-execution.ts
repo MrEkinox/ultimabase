@@ -3,7 +3,11 @@ import {
 	assertApplicationExecution,
 	runApplicationWork,
 } from '../../application/active-application.js'
-import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
+import type {
+	PluginSchemaMutationEnvelope,
+	PluginSchemaMutationManyEnvelope,
+} from '../../application/application-schema-mutations.js'
+import { createSchemaMutationRowEnvelope } from '../../application/schema-mutation-envelope.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import {
@@ -23,14 +27,19 @@ import {
 import { resolveTerminalContext } from '../engine/application-binding.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
 import { executeRuntimeSchemaMutation } from './pipeline-execution.js'
+import { resolveRuntimeSchemaMutationTargets } from './target-resolution.js'
+
+type SchemaMutationRequestEnvelope =
+	PluginSchemaMutationEnvelope | PluginSchemaMutationManyEnvelope
 
 const assertEnvelope = (
 	application: RequestEngineInternals['application'],
 	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
-	envelope: PluginSchemaMutationEnvelope,
+	envelope: SchemaMutationRequestEnvelope,
 ): void => {
 	const envelopeKind: unknown = envelope.kind
+	const many = command.definition.target === 'many'
 	if (
 		!application.ownsSchema(schema) ||
 		readApplicationKernelState(application).commands.get(
@@ -41,9 +50,10 @@ const assertEnvelope = (
 				surface.className === schema.className &&
 				surface.name === envelope.command,
 		) ||
-		envelopeKind !== 'plugin-schema-mutation' ||
+		envelopeKind !==
+			(many ? 'plugin-schema-mutation-many' : 'plugin-schema-mutation') ||
 		envelope.mutation !== command.definition ||
-		envelope.id.length === 0 ||
+		('id' in envelope && envelope.id.length === 0) ||
 		envelope.query.schema.definition !== schema
 	) {
 		throw new FrameworkError(
@@ -62,7 +72,7 @@ const executeSchemaMutationRequest = async (
 	engine: RequestEngine,
 	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
-	envelope: PluginSchemaMutationEnvelope,
+	envelope: SchemaMutationRequestEnvelope,
 	options: NormalizedOperationOptions,
 ): Promise<unknown> => {
 	const {
@@ -110,6 +120,39 @@ const executeSchemaMutationRequest = async (
 		)
 	}
 
+	if (envelope.kind === 'plugin-schema-mutation-many') {
+		// Every matching row runs the one-row pipeline in this one transaction,
+		// so a refused row rolls the whole command back (ADR-0316).
+		const executions = await lifetime.run(() =>
+			runWithRequestEngineScope(engine, async () => {
+				const ids = await resolveRuntimeSchemaMutationTargets(pipeline, {
+					command,
+					context,
+					envelope,
+					schema,
+				})
+				const written = []
+				for (const id of ids) {
+					written.push(
+						await executeRuntimeSchemaMutation(pipeline, {
+							application,
+							command,
+							context,
+							envelope: createSchemaMutationRowEnvelope(envelope, schema, id),
+							schema,
+						}),
+					)
+				}
+				return written
+			}),
+		)
+		return executions.map((execution) =>
+			materializeOperationResult(
+				execution.operation as never,
+				execution.result as never,
+			),
+		)
+	}
 	const execution = await lifetime.run(() =>
 		runWithRequestEngineScope(engine, () =>
 			executeRuntimeSchemaMutation(pipeline, {
@@ -132,7 +175,7 @@ export const executeRequestSchemaMutation = (
 	engine: RequestEngine,
 	command: CompiledMutationCommand,
 	schema: SchemaDefinition,
-	envelope: PluginSchemaMutationEnvelope,
+	envelope: SchemaMutationRequestEnvelope,
 	options: NormalizedOperationOptions,
 ): Promise<unknown> =>
 	runApplicationWork(readRequestEngineInternals(engine).application, () =>

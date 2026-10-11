@@ -7,7 +7,7 @@ import {
 	type PluginDeclarationContext,
 	type CompiledTypegenGraph,
 	type TypegenReferenceRegistrar,
-} from '../index.js'
+} from '../plugin.js'
 
 type TypegenPrivileges = readonly [
 	{ name: 'typegen:reference'; reason: 'References one public type.' },

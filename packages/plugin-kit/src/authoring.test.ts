@@ -1,5 +1,5 @@
+import { UltimaBase, stringField } from '@ultimabase/core'
 import {
-	UltimaBase,
 	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
@@ -7,9 +7,8 @@ import {
 	plugin,
 	defineSchemaOption,
 	defineTypegenReference,
-	stringField,
 	type ResourcePluginOperationContributionOptions,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'

@@ -1,8 +1,5 @@
-import {
-	UltimaBase,
-	type PluginExports,
-	type PolicyPredicate,
-} from '@ultimabase/core'
+import { UltimaBase, type PolicyPredicate } from '@ultimabase/core'
+import type { PluginExports } from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import { RoleSchema, hasRole } from './index.js'

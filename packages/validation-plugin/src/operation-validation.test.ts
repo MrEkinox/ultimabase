@@ -5,7 +5,6 @@ import {
 	FrameworkError,
 	normalizeUpdateExpression,
 	UltimaBase,
-	type ApplicationCallbackExecutor,
 	type RuntimeMutationRevalidationStage,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
@@ -27,6 +26,7 @@ import {
 	QueryBuilder,
 	RequestContext,
 	requestSources,
+	type ApplicationCallbackExecutor,
 } from '@ultimabase/core/plugin'
 
 const ValidationApplication = UltimaBase.use(validationPlugin())

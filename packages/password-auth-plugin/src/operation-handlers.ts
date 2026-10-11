@@ -1,7 +1,3 @@
-import {
-	contributeOperation,
-	type PluginOperationContribution,
-} from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -51,7 +47,11 @@ import {
 } from './sign-up-input.js'
 import { readPasswordAuthenticationResult } from './authentication-result.js'
 import type { PasswordUserReference } from './user-schema.js'
-import type { RequestContext } from '@ultimabase/core/plugin'
+import {
+	type RequestContext,
+	contributeOperation,
+	type PluginOperationContribution,
+} from '@ultimabase/core/plugin'
 
 interface PasswordOperationHandlerOptions<TUser extends PasswordUserReference> {
 	readonly credentials: PasswordCredentialCollection

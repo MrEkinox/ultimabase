@@ -1,9 +1,9 @@
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	defineOperationValue,
 	defineSchemaMutation,
 	type PluginSchemaMutationDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import type { SchemaHooks, SchemaMutationHookIdentity } from './index.js'

@@ -2,12 +2,14 @@ import { serve, type ServerType } from '@hono/node-server'
 import {
 	MasterAuthority,
 	UltimaBase,
-	plugin,
-	contributeApplication,
 	getCurrentRequest,
-	requireCapability,
 	type MasterAccessEvent,
 } from '@ultimabase/core'
+import {
+	plugin,
+	contributeApplication,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
 	httpApplicationIdHeader,

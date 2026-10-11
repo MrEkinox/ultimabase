@@ -12,19 +12,19 @@ import {
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
-import {
-	UltimaBase,
-	contributeApplication,
-	plugin,
-	requireCapability,
-} from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
-import { anonymous } from '@ultimabase/core/plugin'
+import {
+	anonymous,
+	contributeApplication,
+	plugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 const explicitSoftDeleteTrace: string[] = []
 let rejectedSoftDeleteTitle: string | undefined
@@ -35,57 +35,49 @@ const SchemaApplication = UltimaBase.use(
 	accessPlugin(),
 )
 const Explicit = SchemaApplication.Schema.define({
-	access: {
-		create: true,
-		delete: true,
-		read: true,
-		softDelete: true,
-		update: false,
-	} as never,
 	className: 'SoftDeleteTransportExplicit',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	hooks: {
-		afterOperation: {
-			softDelete: ({
-				item,
-			}: {
-				readonly item: Readonly<Record<string, unknown>>
-			}) => {
-				explicitSoftDeleteTrace.push(`after:softDelete:${String(item.title)}`)
-			},
-		},
-		beforeOperation: {
-			softDelete: ({
-				item,
-				originalItem,
-			}: {
-				readonly item: Readonly<Record<string, unknown>>
-				readonly originalItem: Readonly<Record<string, unknown>>
-			}) => {
-				const title = String(originalItem.title)
-				explicitSoftDeleteTrace.push(
-					`before:softDelete:${title}:${String(item.isDeleted)}`,
-				)
-				if (title === rejectedSoftDeleteTitle) {
-					throw new Error('explicit soft delete rejected')
-				}
-			},
-		},
-	} as never,
-	softDelete: 'explicit',
 })
+	.softDelete({ mode: 'command' })
+	.with({
+		access: {
+			create: true,
+			delete: true,
+			read: true,
+			softDeleteOne: true,
+			update: false,
+		},
+		hooks: {
+			afterOperation: {
+				softDeleteOne: ({ item }) => {
+					explicitSoftDeleteTrace.push(`after:softDeleteOne:${item.title}`)
+				},
+			},
+			beforeOperation: {
+				softDeleteOne: ({ item, originalItem }) => {
+					const title = originalItem.title
+					explicitSoftDeleteTrace.push(
+						`before:softDeleteOne:${title}:${String(item.isDeleted)}`,
+					)
+					if (title === rejectedSoftDeleteTitle) {
+						throw new Error('explicit soft delete rejected')
+					}
+				},
+			},
+		},
+	})
 
 const Replace = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportReplace',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'replace-delete',
 })
+	.softDelete()
+	.with({})
 
 const Disabled = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportDisabled',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: false,
-})
+}).with({})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
@@ -181,19 +173,14 @@ afterAll(async () => {
 })
 
 describe('official explicit soft-delete transports', () => {
-	it('executes its own Access and Hooks identity through schema handles', async () => {
-		const { ultimabase: app } = current()
+	it('executes its own Access and Hooks identity through the schema', async () => {
 		explicitSoftDeleteTrace.length = 0
 		rejectedSoftDeleteTitle = undefined
 		const row = await Explicit.createOne({
 			data: { title: 'explicit command' },
 		})
-		const softDelete = Reflect.get(app.schema(Explicit), 'softDelete') as (
-			input: unknown,
-		) => Promise<Readonly<Record<string, unknown>>>
-
 		await expect(
-			softDelete({
+			Explicit.softDeleteOne({
 				id: row.id,
 				select: { isDeleted: true, title: true },
 			}),
@@ -203,29 +190,26 @@ describe('official explicit soft-delete transports', () => {
 			title: 'explicit command',
 		})
 		expect(explicitSoftDeleteTrace).toStrictEqual([
-			'before:softDelete:explicit command:true',
-			'after:softDelete:explicit command',
+			'before:softDeleteOne:explicit command:true',
+			'after:softDeleteOne:explicit command',
 		])
-		await expect(softDelete({ id: row.id })).rejects.toMatchObject({
+		await expect(Explicit.softDeleteOne({ id: row.id })).rejects.toMatchObject({
 			code: 'NOT_FOUND',
 		})
 
 		// ADR-0310: results have no methods, so no command is bound to a row.
 		const bound = await Explicit.createOne({ data: { title: 'bound command' } })
-		expect(Reflect.get(bound, 'softDelete')).toBeUndefined()
+		expect(Reflect.get(bound, 'softDeleteOne')).toBeUndefined()
 	})
 
 	it('rolls back when the explicit before hook rejects the command', async () => {
-		const { database, ultimabase: app } = current()
+		const { database } = current()
 		const row = await Explicit.createOne({
 			data: { title: 'reject explicit command' },
 		})
 		rejectedSoftDeleteTitle = 'reject explicit command'
-		const softDelete = Reflect.get(app.schema(Explicit), 'softDelete') as (
-			input: unknown,
-		) => Promise<unknown>
 
-		await expect(softDelete({ id: row.id })).rejects.toThrow(
+		await expect(Explicit.softDeleteOne({ id: row.id })).rejects.toThrow(
 			'explicit soft delete rejected',
 		)
 		const stored = await database.pool.query<{ isDeleted: boolean }>(
@@ -237,30 +221,36 @@ describe('official explicit soft-delete transports', () => {
 		await Explicit.deleteOne({ where: { id: row.id } })
 	})
 
-	it('publishes only the explicit REST route and GraphQL field', () => {
+	it('publishes the one-row request commands of both modes only', () => {
 		const { ultimabase: app } = current()
 		const rest = app.plugin('@ultimabase/rest-plugin')
 		const paths = rest.routeGraph.routes
 			.filter(({ kind }) => kind === 'rest-schema-mutation-route')
 			.map(({ path }) => path)
+			.sort()
 		expect(paths).toStrictEqual([
-			'/api/v1/classes/SoftDeleteTransportExplicit/{id}/soft-delete',
+			'/api/v1/classes/SoftDeleteTransportExplicit/{id}/restore-one',
+			'/api/v1/classes/SoftDeleteTransportExplicit/{id}/soft-delete-one',
+			'/api/v1/classes/SoftDeleteTransportReplace/{id}/restore-one',
+			'/api/v1/classes/SoftDeleteTransportReplace/{id}/soft-delete-one',
 		])
-		expect(paths.some((path) => path.endsWith('/restore'))).toBe(false)
-		expect(paths.some((path) => path.endsWith('/purge'))).toBe(false)
+		expect(paths.some((path) => path.includes('/purge'))).toBe(false)
+		expect(paths.some((path) => path.endsWith('-many'))).toBe(false)
 
 		const graphql = app.plugin('@ultimabase/graphql-plugin')
 		const sdl = graphql.printSchema()
 		expect(sdl).toContain(
-			'softDeleteSoftDeleteTransportExplicit(input: SoftDeleteSoftDeleteTransportExplicitInput!): SoftDeleteTransportExplicit',
+			'softDeleteOneSoftDeleteTransportExplicit(input: SoftDeleteOneSoftDeleteTransportExplicitInput!): SoftDeleteTransportExplicit',
 		)
 		expect(sdl).toContain(
-			'input SoftDeleteSoftDeleteTransportExplicitInput {\n  id: ID!\n}',
+			'input SoftDeleteOneSoftDeleteTransportExplicitInput {\n  id: ID!\n}',
 		)
-		expect(sdl).not.toContain('softDeleteSoftDeleteTransportReplace')
-		expect(sdl).not.toContain('softDeleteSoftDeleteTransportDisabled')
-		expect(sdl).not.toContain('restoreSoftDeleteTransportExplicit')
-		expect(sdl).not.toContain('purgeSoftDeleteTransportExplicit')
+		expect(sdl).toContain('softDeleteOneSoftDeleteTransportReplace')
+		expect(sdl).toContain('restoreOneSoftDeleteTransportExplicit')
+		expect(sdl).not.toContain('softDeleteOneSoftDeleteTransportDisabled')
+		expect(sdl).not.toContain('restoreOneSoftDeleteTransportDisabled')
+		expect(sdl).not.toContain('purgeOneSoftDeleteTransportExplicit')
+		expect(sdl).not.toContain('softDeleteManySoftDeleteTransportExplicit')
 	})
 
 	it('executes the same command through REST and networkless GraphQL', async () => {
@@ -270,7 +260,7 @@ describe('official explicit soft-delete transports', () => {
 		})
 		const response = await fetchApplication(
 			http,
-			`/api/v1/classes/${Explicit.className}/${restRow.id}/soft-delete`,
+			`/api/v1/classes/${Explicit.className}/${restRow.id}/soft-delete-one`,
 			{
 				body: JSON.stringify({ select: { isDeleted: true, title: true } }),
 				headers: { 'content-type': 'application/json' },
@@ -293,7 +283,7 @@ describe('official explicit soft-delete transports', () => {
 		const result = await graphql.execute({
 			context,
 			document: `mutation SoftDelete($id: ID!) {
-				softDeleteSoftDeleteTransportExplicit(input: { id: $id }) {
+				softDeleteOneSoftDeleteTransportExplicit(input: { id: $id }) {
 					id isDeleted title
 				}
 			}`,
@@ -301,7 +291,7 @@ describe('official explicit soft-delete transports', () => {
 		})
 		expect(result).toMatchObject({
 			data: {
-				softDeleteSoftDeleteTransportExplicit: {
+				softDeleteOneSoftDeleteTransportExplicit: {
 					id: graphqlRow.id,
 					isDeleted: true,
 					title: 'GraphQL explicit',
@@ -316,7 +306,7 @@ describe('official explicit soft-delete transports', () => {
 		const response = await fetchApplication(http, '/graphql', {
 			body: JSON.stringify({
 				query: `mutation SoftDelete($id: ID!) {
-					softDeleteSoftDeleteTransportExplicit(input: { id: $id }) {
+					softDeleteOneSoftDeleteTransportExplicit(input: { id: $id }) {
 						id isDeleted title
 					}
 				}`,
@@ -328,7 +318,7 @@ describe('official explicit soft-delete transports', () => {
 		expect(response.status).toBe(200)
 		await expect(response.json()).resolves.toMatchObject({
 			data: {
-				softDeleteSoftDeleteTransportExplicit: {
+				softDeleteOneSoftDeleteTransportExplicit: {
 					id: row.id,
 					isDeleted: true,
 					title: 'Yoga explicit',

@@ -1,8 +1,6 @@
-import {
-	plugin as createPlugin,
-	contributeApplication,
-	type PluginDefinition,
-} from '../../foundation.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeApplication } from '../../plugins/plugin-contributions.js'
+import { type PluginDefinition } from '../../plugins/definition.js'
 import { type SchemaItem } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 

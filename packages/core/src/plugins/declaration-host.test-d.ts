@@ -1,13 +1,13 @@
 import { expectTypeOf, test } from 'vitest'
 
+import type { PluginFieldFamilyRegistrar } from '../index.js'
 import {
 	defineCapability,
 	plugin as createPlugin,
 	contributeDeclarations,
 	optionalCapability,
 	requireCapability,
-	type PluginFieldFamilyRegistrar,
-} from '../index.js'
+} from '../plugin.js'
 
 const staticCapability = defineCapability<{ readonly label: 'static' }>()({
 	capabilityId: 'fixture.typed-static',

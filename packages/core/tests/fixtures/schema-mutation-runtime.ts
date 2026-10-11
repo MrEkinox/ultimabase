@@ -15,7 +15,7 @@ import {
 	contributeDeclarations,
 	plugin as createPlugin,
 	defineSchemaMutation,
-} from '../../src/foundation.js'
+} from '../../src/plugin.js'
 import type { SchemaDefinition } from '../../src/schema/index.js'
 import { stringField } from '../../src/schema/index.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'

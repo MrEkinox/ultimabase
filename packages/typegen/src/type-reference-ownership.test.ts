@@ -1,11 +1,11 @@
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	defineOperation,
 	defineOperationValue,
 	plugin,
 	contributeDeclarations,
 	defineTypegenReference,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'

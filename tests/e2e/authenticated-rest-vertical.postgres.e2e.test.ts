@@ -402,7 +402,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		const isolatedArticleId = readString(isolatedArticle, 'id')
 		const foreignSoftDelete = await requestJson(
 			secondAppId,
-			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete`,
+			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete-one`,
 			{
 				body: {},
 				method: 'POST',
@@ -412,7 +412,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		expect(foreignSoftDelete.status).toBe(401)
 		const isolatedSoftDelete = await requestJson(
 			secondAppId,
-			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete`,
+			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete-one`,
 			{
 				body: {},
 				method: 'POST',

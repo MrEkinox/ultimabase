@@ -1,16 +1,18 @@
 import {
 	PluginError,
-	contributeOperationBinding,
 	defineOperationTransport,
 	getCurrentRequest,
 	operationTransportBinding,
 	operationWireCodec,
 	type ApplicationOperationTransport,
 	type ApplicationRequestExecutor,
+} from '@ultimabase/core'
+import {
+	contributeOperationBinding,
 	type CapabilityProviderDeclaration,
 	type PluginOperationBindingContribution,
 	type PluginOperationInput,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	httpRoute,
 	provideHttpEndpoints,

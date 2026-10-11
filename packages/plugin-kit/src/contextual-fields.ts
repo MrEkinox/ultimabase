@@ -1,7 +1,5 @@
-import {
-	defineFieldOption,
-	definePluginOutputDescriptor,
-} from '@ultimabase/core'
+import { definePluginOutputDescriptor } from '@ultimabase/core'
+import { defineFieldOption } from '@ultimabase/core/plugin'
 
 /** Defines one contextual direct field option through Core's canonical factory. */
 export const definePluginFieldOption: typeof defineFieldOption =

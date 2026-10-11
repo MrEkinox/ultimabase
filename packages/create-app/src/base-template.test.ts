@@ -6,7 +6,7 @@ import { resolveSelection } from './config.js'
 describe('base project templates', () => {
 	it.each([
 		['hooks-plugin', 'hooksPlugin()'],
-		['soft-delete-plugin', "softDeletePlugin({ defaultMode: 'disabled' })"],
+		['soft-delete-plugin', 'softDeletePlugin()'],
 		['validation-plugin', 'validationPlugin()'],
 	] as const)(
 		'includes only the selected %s factory in both languages',
@@ -134,9 +134,9 @@ describe('base project templates', () => {
 			expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 		expect(manifest.dependencies).toHaveProperty('zod')
 		expect(schema).toContain('hooksPlugin()')
-		expect(schema).toContain("softDeletePlugin({ defaultMode: 'disabled' })")
+		expect(schema).toContain('softDeletePlugin()')
 		expect(schema).toContain('validationPlugin()')
-		expect(schema).toContain("softDelete: 'replace-delete'")
+		expect(schema).toContain('}).softDelete()')
 		expect(schema).toContain('resolveInput:')
 		expect(schema).toContain('validation: z.string().min(1).max(200)')
 	})

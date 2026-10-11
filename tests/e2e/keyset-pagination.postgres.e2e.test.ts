@@ -1,12 +1,5 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
-import {
-	FrameworkError,
-	MasterAuthority,
-	UltimaBase,
-	contributeApplication,
-	plugin,
-	requireCapability,
-} from '@ultimabase/core'
+import { FrameworkError, MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import {
 	httpApplicationCapability,
@@ -24,7 +17,12 @@ import {
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
 import { RecordingPostgresPool } from '../fixtures/recording-postgres-pool.js'
-import { anonymous } from '@ultimabase/core/plugin'
+import {
+	anonymous,
+	contributeApplication,
+	plugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 // ADR-0309: `findMany({ after })` pages by position in a total order, and
 // REST and GraphQL encode the same positions with one shared cursor encoder.

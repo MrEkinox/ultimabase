@@ -1,12 +1,11 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineOperation,
 	defineOperationTransport,
-	defineOperationValue,
 	type ApplicationOperationTransportPlan,
 	type ApplicationOperationTransportPlanner,
 } from '../../index.js'
+import { defineOperation, defineOperationValue } from '../../plugin.js'
 
 const value = defineOperationValue((input: unknown): string => {
 	if (typeof input !== 'string') throw new TypeError('Expected a string')

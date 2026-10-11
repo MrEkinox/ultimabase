@@ -4,9 +4,7 @@ import {
 	databasePluginFieldStructuralContainsCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
-	plugin,
 	getOperationSchema,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
@@ -17,6 +15,7 @@ import {
 	type PreparedDatabaseOperation,
 	type PreparedDatabaseOperationExecution,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,

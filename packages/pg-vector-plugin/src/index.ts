@@ -1,20 +1,22 @@
 import { immutableArray } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
-	contributeDeclarations,
 	type CompatibleFieldOptionsInput,
 	definePluginField,
 	definePluginFieldFamily,
 	definePluginFieldWireProtocol,
-	plugin,
 	type FieldListOption,
 	type FieldOptions,
 	type FieldValidationPlan,
-	type PluginDeclarationContribution,
 	type PluginFieldDefinition,
-	type PluginInstance,
 	type ScalarValidationPlan,
 } from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	plugin,
+	type PluginDeclarationContribution,
+	type PluginInstance,
+} from '@ultimabase/core/plugin'
 
 /** Names the immutable logical value shared by generation and runtime. */
 export type VectorValue = readonly number[]

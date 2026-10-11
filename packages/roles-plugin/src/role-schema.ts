@@ -9,7 +9,6 @@ import {
 	type ConfiguredSchemaNamespace,
 	type ConfiguredSchemaResult,
 	type Pointer,
-	type PluginSourceState,
 	type RelationField,
 	type SchemaReference,
 	type SchemaDefinition,
@@ -23,6 +22,7 @@ import {
 	type StringField,
 	type UltimaBaseGeneratedSchemaOptions,
 } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 
 import {
 	createRoleReference,

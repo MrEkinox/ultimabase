@@ -43,7 +43,7 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 		hooksPlugin(),
 		pgVectorPlugin(),
 		rolesPlugin(),
-		softDeletePlugin({ defaultMode: 'explicit' }),
+		softDeletePlugin(),
 		validationPlugin(),
 	)
 	const schemas = []
@@ -67,7 +67,7 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 			Application.Schema.define({
 				className: schemaName(index),
 				fields: runtimeFields,
-			}),
+			}).softDelete({ mode: 'command' }),
 		)
 	}
 

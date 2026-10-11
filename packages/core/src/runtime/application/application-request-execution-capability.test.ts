@@ -1,8 +1,8 @@
+import { plugin } from '../../plugins/plugin.js'
 import {
-	plugin,
 	provideCapability,
 	requireCapability,
-} from '../../foundation.js'
+} from '../../plugins/capabilities.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 

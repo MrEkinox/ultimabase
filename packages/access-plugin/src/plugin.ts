@@ -1,20 +1,22 @@
 import {
 	FrameworkError,
 	applicationSchemaMutationSurfaceCapability,
+	provideRuntimeConstraint,
+	protectedPolicy,
+	type SchemaDefinition,
+} from '@ultimabase/core'
+import {
 	contributeDeclarations,
 	optionalCapability,
 	plugin,
-	provideRuntimeConstraint,
-	protectedPolicy,
 	requireCapability,
 	type PluginDeclarationContribution,
 	type PluginDeclarationSource,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
-	type SchemaDefinition,
 	type SchemaRulesHKT,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 

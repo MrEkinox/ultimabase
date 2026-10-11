@@ -1,10 +1,8 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
-	plugin,
 	guard,
 	preparedOperation,
-	requireCapability,
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
@@ -13,6 +11,7 @@ import {
 	type ApplicationOperationTransportPlanner,
 	type ApplicationRequestExecutor,
 } from '../../src/index.js'
+import { plugin, requireCapability } from '../../src/plugin.js'
 
 const schema = UltimaBase.Schema.define({
 	className: 'PackedRuntimeCapability',

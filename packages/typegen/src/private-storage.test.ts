@@ -1,10 +1,9 @@
 import {
-	plugin,
-	contributeDeclarations,
 	definePrivateCollection,
 	UltimaBase,
 	stringField,
 } from '@ultimabase/core'
+import { plugin, contributeDeclarations } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'

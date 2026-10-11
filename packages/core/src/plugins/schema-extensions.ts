@@ -24,6 +24,95 @@ export type PluginSchemaRulesSource<TRules extends SchemaRulesHKT> = Readonly<{
 	schemaRules: TRules
 }>
 
+/**
+ * Higher-kinded slot through which one plugin adds fields to a schema from the
+ * shape methods called on its declaration (ADR-0316). Core substitutes
+ * `shape`, the record of the shape methods called so far and their arguments
+ * (`{ archivable: readonly [] }`), and reads `fields`. Fields never see the
+ * schema, so they cannot create an initializer cycle.
+ *
+ * @example
+ * ```ts
+ * interface ArchiveFields extends SchemaFieldsHKT {
+ *   readonly fields: 'archivable' extends keyof this['shape']
+ *     ? Readonly<{ archivedAt: ForbiddenMutationInputField<typeof archivedAt> }>
+ *     : unknown
+ * }
+ * ```
+ */
+export interface SchemaFieldsHKT {
+	readonly shape: object
+	readonly fields: unknown
+}
+
+/**
+ * Higher-kinded slot through which one plugin adds static members, usually
+ * commands, to a configured schema (ADR-0316). Core substitutes `shape` (as
+ * for {@link SchemaFieldsHKT}) and `schema`, the configured schema class, and
+ * reads `statics`; {@link SchemaCommands} types the commands.
+ *
+ * @example
+ * ```ts
+ * interface ArchiveStatics extends SchemaStaticsHKT {
+ *   readonly statics: 'archivable' extends keyof this['shape']
+ *     ? SchemaCommands<this['schema'], { archiveOne: typeof archiveMutation }>
+ *     : unknown
+ * }
+ * ```
+ */
+export interface SchemaStaticsHKT {
+	readonly shape: object
+	readonly schema: unknown
+	readonly statics: unknown
+}
+
+/** Source projection carrying one plugin's field slot. */
+export type PluginSchemaFieldsSource<TFields extends SchemaFieldsHKT> =
+	Readonly<{ shapeFields: TFields }>
+
+/** Source projection carrying one plugin's statics slot. */
+export type PluginSchemaStaticsSource<TStatics extends SchemaStaticsHKT> =
+	Readonly<{ schemaStatics: TStatics }>
+
+type ApplySchemaFields<TSlot, TShape> = TSlot extends SchemaFieldsHKT
+	? (TSlot & { readonly shape: TShape })['fields']
+	: unknown
+
+type ApplySchemaStatics<TSlot, TShape, TSchema> = TSlot extends SchemaStaticsHKT
+	? (TSlot & { readonly shape: TShape; readonly schema: TSchema })['statics']
+	: unknown
+
+/** Evaluates every installed field slot against one declaration shape. */
+export type SchemaFieldsFor<TSlots, TShape> = TSlots extends readonly [
+	infer TFirst,
+	...infer TRest,
+]
+	? ApplySchemaFields<TFirst, TShape> & SchemaFieldsFor<TRest, TShape>
+	: unknown
+
+/** Evaluates every installed statics slot against one declaration and schema. */
+export type SchemaStaticsFor<TSlots, TShape, TSchema> =
+	TSlots extends readonly [infer TFirst, ...infer TRest]
+		? ApplySchemaStatics<TFirst, TShape, TSchema> &
+				SchemaStaticsFor<TRest, TShape, TSchema>
+		: unknown
+
+declare const declaredSchemaShapeType: unique symbol
+
+/**
+ * Records, in a declaration's options, the shape methods called on it and
+ * their arguments; the field and statics slots read it as `shape`.
+ */
+export interface DeclaredSchemaShape<TShape extends object> {
+	readonly [declaredSchemaShapeType]: TShape
+}
+
+/** Reads the shape record of one declaration's options (empty when none was called). */
+export type SchemaShapeOf<TOptions> =
+	TOptions extends DeclaredSchemaShape<infer TShape>
+		? TShape
+		: Readonly<Record<never, never>>
+
 declare const shapeMethodArgumentsType: unique symbol
 declare const shapeMethodOptionsType: unique symbol
 
@@ -43,7 +132,9 @@ export interface SchemaShapeMethod<
 
 /** Source projection carrying one plugin's shape methods. */
 export type PluginSchemaShapeSource<
-	TMethods extends Readonly<Record<string, SchemaShapeMethod>>,
+	TMethods extends Readonly<
+		Record<string, SchemaShapeMethod<readonly unknown[], object>>
+	>,
 > = Readonly<{ shapeMethods: TMethods }>
 
 /** Reads the arguments accepted by one declared shape method. */
@@ -155,7 +246,7 @@ const snapshotShapeMethod = (
  * Attaches the runtime of the shape methods one plugin declares in its source
  * type. Returns the same frozen plugin instance.
  *
- * @example `provideSchemaShapeMethods(instance, { softDelete: { sets: ['softDelete'], apply: () => ({ softDelete: 'replace-delete' }) } })`
+ * @example `provideSchemaShapeMethods(instance, { archivable: { sets: ['archivable'], apply: (options = {}) => ({ archivable: options }) } })`
  */
 export const provideSchemaShapeMethods = <
 	TPlugin extends PluginDefinition,

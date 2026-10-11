@@ -1,6 +1,7 @@
 import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import * as application from '../application/framework-application.js'
+import { stringField, type FieldBuilder } from '../index.js'
 import {
 	defineCapability,
 	defineFieldOption,
@@ -11,10 +12,8 @@ import {
 	defineSchemaOption,
 	provideCapability,
 	requireCapability,
-	stringField,
 	type SchemaOptionRuntimeCompilationContext,
-	type FieldBuilder,
-} from '../index.js'
+} from '../plugin.js'
 import {
 	requireField,
 	optionPlugin,

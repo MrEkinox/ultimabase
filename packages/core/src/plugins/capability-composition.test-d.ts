@@ -1,5 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
+import type { CompiledSchemaRegistry } from '../index.js'
 import {
 	defineCapability,
 	plugin as createPlugin,
@@ -7,8 +8,7 @@ import {
 	optionalCapability,
 	provideCapability,
 	requireCapability,
-	type CompiledSchemaRegistry,
-} from '../index.js'
+} from '../plugin.js'
 
 interface Provider {
 	readonly write: (message: string) => Promise<void>

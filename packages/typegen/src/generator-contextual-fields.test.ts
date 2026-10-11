@@ -1,11 +1,13 @@
 import {
 	definePluginFieldFamily,
-	defineFieldOption,
-	plugin,
-	contributeDeclarations,
 	UltimaBase,
 	stringField,
 } from '@ultimabase/core'
+import {
+	defineFieldOption,
+	plugin,
+	contributeDeclarations,
+} from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'

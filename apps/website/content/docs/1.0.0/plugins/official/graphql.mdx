@@ -266,8 +266,8 @@ Exact application operations appear only when selected through
 `graphqlPlugin({ operations })` and bound by their owner. For example,
 [Password Authentication](./password-authentication) can contribute `signUp`,
 `login`, `refresh`, and `logout` mutations when explicitly selected, while
-[Soft Delete](./soft-delete) can contribute a schema-specific `softDeletePost`
-mutation when enabled. Custom GraphQL schemas may add other root fields.
+[Soft Delete](./soft-delete) can contribute schema-specific `softDeleteOnePost`
+and `restoreOnePost` mutations when enabled. Custom GraphQL schemas may add other root fields.
 
 To inspect what **your** application exposes, run this standalone script
 instead of the server entry point. It starts the same configuration, prints

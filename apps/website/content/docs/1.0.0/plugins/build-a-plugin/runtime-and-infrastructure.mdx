@@ -57,7 +57,7 @@ import {
 	plugin,
 	provideCapability,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 export const formatCapability = defineCapability<{
 	readonly format: 'compact'
@@ -242,12 +242,8 @@ must never become a model, Query surface, generated REST/GraphQL route, or
 Typegen schema:
 
 ```ts title="src/private-sessions.ts"
-import {
-	contributeDeclarations,
-	definePrivateCollection,
-	plugin,
-	stringField,
-} from '@ultimabase/core'
+import { definePrivateCollection, stringField } from '@ultimabase/core'
+import { contributeDeclarations, plugin } from '@ultimabase/core/plugin'
 
 const sessions = definePrivateCollection({
 	contributionId: 'sessions',

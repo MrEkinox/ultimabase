@@ -1,8 +1,4 @@
-import {
-	UltimaBase,
-	type ApplicationCallbackExecutor,
-	type ApplicationRequestExecutor,
-} from '@ultimabase/core'
+import { UltimaBase, type ApplicationRequestExecutor } from '@ultimabase/core'
 import type { GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
@@ -12,7 +8,10 @@ import { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlOperationExecution } from './operation-execution.js'
 import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
 import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
-import { RequestContext } from '@ultimabase/core/plugin'
+import {
+	RequestContext,
+	type ApplicationCallbackExecutor,
+} from '@ultimabase/core/plugin'
 
 const Parent = UltimaBase.Schema.define({
 	className: 'QueryCountParent',

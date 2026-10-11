@@ -1,11 +1,11 @@
+import type { CompiledSchemaRegistry } from '@ultimabase/core'
 import {
 	defineCapability,
 	provideCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
-	type CompiledSchemaRegistry,
 	type PluginCapabilityReader,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	assertNonEmptyString,
 	immutableArray,

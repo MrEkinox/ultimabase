@@ -1,20 +1,22 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
+	type ApplicationOperationTransportPlanner,
+	type ApplicationRequestExecutor,
+	type CompiledSchemaRegistry,
+} from '@ultimabase/core'
+import {
 	contributeApplication,
 	contributeDeclarations,
 	optionalCapability,
 	plugin,
 	provideCapability,
 	requireCapability,
-	type ApplicationOperationTransportPlanner,
-	type ApplicationRequestExecutor,
-	type CompiledSchemaRegistry,
 	type PluginDeclarationContribution,
 	type PluginIdentity,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
 	httpEndpointContributionsCapability,

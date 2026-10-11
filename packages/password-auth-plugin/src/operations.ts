@@ -1,19 +1,21 @@
 import {
 	PluginError,
-	defineOperation,
 	defineOperationTransport,
-	defineOperationValue,
-	defineTypegenReference,
 	operationTransportBinding,
 	operationWireCodec,
 	type OperationTransportBindingDefinition,
+	type SchemaResult,
+} from '@ultimabase/core'
+import {
+	defineOperation,
+	defineOperationValue,
+	defineTypegenReference,
 	type PluginOperationDefinition,
 	type PluginOperationInput,
 	type PluginOperationResult,
 	type PluginOperationTransaction,
 	type PluginOperationValueContract,
-	type SchemaResult,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,

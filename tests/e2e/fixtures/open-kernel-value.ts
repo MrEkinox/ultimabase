@@ -1,15 +1,17 @@
 import {
-	contributeDeclarations,
 	definePluginFieldFamily,
-	defineFieldOption,
 	definePluginField,
-	defineSchemaOption,
-	defineTypegenReference,
-	plugin,
 	type FieldOptions,
 	type JsonObject,
 	type PluginFieldDefinition,
 } from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	defineFieldOption,
+	defineSchemaOption,
+	defineTypegenReference,
+	plugin,
+} from '@ultimabase/core/plugin'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 

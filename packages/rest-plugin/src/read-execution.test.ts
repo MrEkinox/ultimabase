@@ -6,14 +6,7 @@ import {
 	databaseAdapterCapability,
 	databaseFilterOperatorCapabilityVersion,
 	databasePersistencePlanCapability,
-	defineCapability,
-	plugin,
-	contributeApplication,
 	getCurrentRequest,
-	provideCapability,
-	requireCapability,
-	withPluginPrivileges,
-	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type AnonymousRequestAccess,
 	type DatabaseAdapter,
@@ -22,7 +15,6 @@ import {
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
-	type PluginIdentity,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
@@ -37,6 +29,14 @@ import { restPlugin } from './plugin.js'
 import {
 	RequestContextValue,
 	type RequestContext,
+	defineCapability,
+	plugin,
+	contributeApplication,
+	provideCapability,
+	requireCapability,
+	withPluginPrivileges,
+	type ApplicationCallbackExecutor,
+	type PluginIdentity,
 } from '@ultimabase/core/plugin'
 
 /** Declares the built-in operators these fixtures filter with (ADR-0301). */

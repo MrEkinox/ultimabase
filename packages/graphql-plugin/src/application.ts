@@ -1,10 +1,12 @@
+import type {
+	ApplicationOperationTransport,
+	ApplicationSchemaMutationTransport,
+} from '@ultimabase/core'
 import {
 	defineCapability,
-	type ApplicationOperationTransport,
 	type ApplicationCapabilityResource,
-	type ApplicationSchemaMutationTransport,
 	type CapabilityToken,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	GraphQLSchema,
 	lexicographicSortSchema,

@@ -86,6 +86,13 @@ export const schemaMutationTransportBinding = <
 			'schema mutation transport binding codec targets another mutation',
 		)
 	}
+	// Transports address one row by identifier; `where` inputs come with
+	// commands that take input data (ADR-0316, out of scope).
+	if (options.mutation.target === 'many') {
+		throw new TypeError(
+			'many-row schema mutations cannot be bound to a transport yet',
+		)
+	}
 	const binding = immutableRecord({
 		codec: options.codec,
 		kind: 'schema-mutation-transport-binding' as const,

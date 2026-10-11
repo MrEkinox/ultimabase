@@ -18,7 +18,12 @@ import type {
 } from '../schema/fields/base/contract.js'
 import type { RelationMutationDelta } from '../schema/relations/mutation.js'
 import type { ResolveSourceSchemaTemplate } from './source-schema-templates.js'
-import type { SchemaRulesHKT, SchemaShapeMethod } from './schema-extensions.js'
+import type {
+	SchemaFieldsHKT,
+	SchemaRulesHKT,
+	SchemaShapeMethod,
+	SchemaStaticsHKT,
+} from './schema-extensions.js'
 
 declare const pluginSourceReceiptType: unique symbol
 declare const pluginSourceRelationChangeType: unique symbol
@@ -69,7 +74,13 @@ export interface PluginSourceProjection {
 	/** Rule entries accepted by the final `.with({ ... })` (ADR-0297). */
 	readonly schemaRules?: SchemaRulesHKT
 	/** Callback-free shape methods chained before `.with(...)` (ADR-0297). */
-	readonly shapeMethods?: Readonly<Record<string, SchemaShapeMethod>>
+	readonly shapeMethods?: Readonly<
+		Record<string, SchemaShapeMethod<readonly unknown[], object>>
+	>
+	/** Fields added from the called shape methods (ADR-0316). */
+	readonly shapeFields?: SchemaFieldsHKT
+	/** Static members added to the configured schema (ADR-0316). */
+	readonly schemaStatics?: SchemaStaticsHKT
 }
 
 /** Carries one registrar call's source projection without exposing Runtime state. */
@@ -110,6 +121,8 @@ export interface EmptyPluginSourceState {
 	readonly schemaOptions: never
 	readonly schemaRules: readonly []
 	readonly shapeMethods: Readonly<Record<never, never>>
+	readonly shapeFields: readonly []
+	readonly schemaStatics: readonly []
 }
 
 /** Complete source aggregate carried once by one configured factory. */
@@ -126,6 +139,8 @@ export interface PluginSourceState {
 	readonly schemaOptions: PluginSourceSchemaProjection
 	readonly schemaRules: readonly SchemaRulesHKT[]
 	readonly shapeMethods: object
+	readonly shapeFields: readonly SchemaFieldsHKT[]
+	readonly schemaStatics: readonly SchemaStaticsHKT[]
 }
 
 /** Reads one contextual field or option surface from a configured source state. */
@@ -227,10 +242,29 @@ export type MergePluginSourceState<
 				: readonly [...TCurrent['schemaRules'], RulesProjection<TAdded>]
 			readonly shapeMethods: TCurrent['shapeMethods'] &
 				ObjectProjection<TAdded, 'shapeMethods'>
+			readonly shapeFields: AppendSlot<
+				TCurrent['shapeFields'],
+				SlotProjection<TAdded, 'shapeFields'>
+			>
+			readonly schemaStatics: AppendSlot<
+				TCurrent['schemaStatics'],
+				SlotProjection<TAdded, 'schemaStatics'>
+			>
 		}
 
 type RulesProjection<TProjection> =
 	TProjection extends Readonly<{ schemaRules: infer TRules }> ? TRules : never
+
+// Slots are accumulated as tuples, like rules: intersecting `this`-typed
+// interfaces directly makes TypeScript give up with TS2589.
+type SlotProjection<TProjection, TKey extends 'shapeFields' | 'schemaStatics'> =
+	TProjection extends Readonly<Record<TKey, infer TSlot>> ? TSlot : never
+
+type AppendSlot<TSlots extends readonly unknown[], TSlot> = [TSlot] extends [
+	never,
+]
+	? TSlots
+	: readonly [...TSlots, TSlot]
 
 type ValueAtPath<TValue, TPath> = TPath extends readonly [
 	infer TKey extends PropertyKey,

@@ -1,14 +1,16 @@
 import {
 	applicationRequestExecutionCapability,
+	type ApplicationRequestExecutor,
+} from '@ultimabase/core'
+import {
 	defineCapability,
 	plugin,
 	provideCapability,
 	requireCapability,
 	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
-	type ApplicationRequestExecutor,
 	type PluginIdentity,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 export interface RestMutationExecutionHarness {
 	callbacks?: ApplicationCallbackExecutor

@@ -1,8 +1,5 @@
-import {
-	type PluginExports,
-	type Principal,
-	UltimaBase,
-} from '@ultimabase/core'
+import { type Principal, UltimaBase } from '@ultimabase/core'
+import type { PluginExports } from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import { ACL } from './acl.js'

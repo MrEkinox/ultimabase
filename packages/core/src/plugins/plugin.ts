@@ -118,6 +118,8 @@ type ContributionCapabilityOptions<
 	TContributions extends readonly PluginContribution[],
 > = CollectContributionCapabilities<TContributions>
 
+declare const pluginStaticSourceType: unique symbol
+
 /** Defines one plugin directly from public facts and one contribution list. */
 export interface PluginOptions<
 	TPluginId extends string,
@@ -130,7 +132,13 @@ export interface PluginOptions<
 	TConflicts extends readonly string[] | undefined,
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
 	TContributions extends readonly PluginContribution[],
+	TSource extends PluginSourceProjection = PluginSourceProjection,
 > {
+	/**
+	 * Type-only: carries the static source passed as `plugin()`'s last type
+	 * argument (ADR-0316). It is never set at Runtime.
+	 */
+	readonly [pluginStaticSourceType]?: TSource
 	/** Stable namespaced package identity. @example "community.workflow" */
 	readonly id: TPluginId
 	/** Exact package version recorded in plugin provenance. @example "1.2.0" */
@@ -326,6 +334,14 @@ export const plugin = <
 	const TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
 		undefined,
 	const TContributions extends readonly PluginContribution[] = readonly [],
+	/**
+	 * Static source projection of the plugin. Inferred from `contributions` by
+	 * default; a facade that knows the projection better, such as
+	 * `definePlugin`, passes it explicitly instead of re-typing the result
+	 * (ADR-0316).
+	 */
+	TSource extends PluginSourceProjection =
+		ContributionSourceProjection<TContributions>,
 >(
 	options: PluginOptions<
 		TPluginId,
@@ -337,7 +353,8 @@ export const plugin = <
 		TPeers,
 		TConflicts,
 		TEnvironment,
-		TContributions
+		TContributions,
+		TSource
 	>,
 ): PluginInstance<{
 	readonly id: TPluginId
@@ -351,7 +368,7 @@ export const plugin = <
 	readonly conflicts: TConflicts
 	readonly environment: TEnvironment
 	readonly capabilities: ContributionCapabilityOptions<TContributions>
-	readonly source: ContributionSourceProjection<TContributions>
+	readonly source: TSource
 }> => {
 	assertExactPlainObject(
 		options,
@@ -415,6 +432,6 @@ export const plugin = <
 		readonly conflicts: TConflicts
 		readonly environment: TEnvironment
 		readonly capabilities: ContributionCapabilityOptions<TContributions>
-		readonly source: ContributionSourceProjection<TContributions>
+		readonly source: TSource
 	}>
 }

@@ -13,8 +13,6 @@ import {
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseAdapterCapabilities,
 	type DatabaseMutationOperationAst,
@@ -25,6 +23,7 @@ import {
 	type FrameworkError,
 	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { describe, expect, it } from 'vitest'

@@ -1,64 +1,70 @@
 import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-import type { SoftDeleteSchemaOption } from './contracts.js'
-import {
-	normalizeSoftDeletePluginOptions,
-	resolveSoftDeleteMode,
-} from './options.js'
+import { parseSoftDeleteOptions, readSoftDeleteMode } from './options.js'
 import { softDeletePlugin } from './plugin.js'
 
-const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
-const schemaWith = (className: string, softDelete?: SoftDeleteSchemaOption) =>
-	SoftDeleteSchemaApplication.Schema.define({
+const App = UltimaBase.use(softDeletePlugin())
+const owner = { pluginId: '@ultimabase/soft-delete-plugin' }
+const declare = (className: string) =>
+	App.Schema.define({
 		className,
-		...(softDelete === undefined ? {} : { softDelete }),
 		fields: (field) => ({ title: field.string() }),
 	})
 
 describe('soft-delete options', () => {
-	it('normalizes the safe disabled default and every explicit factory mode', () => {
-		expect(normalizeSoftDeletePluginOptions({})).toStrictEqual({
-			defaultMode: 'disabled',
-		})
-		for (const defaultMode of [
-			'disabled',
-			'replace-delete',
-			'explicit',
-		] as const) {
-			const normalized = normalizeSoftDeletePluginOptions({ defaultMode })
-			expect(normalized).toStrictEqual({ defaultMode })
-			expect(Object.isFrozen(normalized)).toBe(true)
-		}
-	})
-
-	it('rejects unknown, malformed, and mutable-selector factory options', () => {
+	it('accepts only the empty options object and the command mode', () => {
+		expect(parseSoftDeleteOptions({}, 'Todo.softDelete')).toStrictEqual({})
+		const command = parseSoftDeleteOptions(
+			{ mode: 'command' },
+			'Todo.softDelete',
+		)
+		expect(command).toStrictEqual({ mode: 'command' })
+		expect(Object.isFrozen(command)).toBe(true)
 		for (const value of [
 			null,
-			{ defaultMode: true },
-			{ defaultMode: 'delete' },
-			{ instanceId: '' },
-			{ schemas: ['Post'] },
-			{ select: () => true },
+			'command',
+			{ mode: 'explicit' },
+			{ mode: 'replace-delete' },
+			{ defaultMode: 'disabled' },
 		]) {
-			expect(() => normalizeSoftDeletePluginOptions(value as never)).toThrow(
+			expect(() => parseSoftDeleteOptions(value, 'Todo.softDelete')).toThrow(
 				TypeError,
 			)
 		}
 	})
 
-	it('resolves omission through the default and direct false as disabled', () => {
-		expect(resolveSoftDeleteMode(schemaWith('InheritedMode'), 'explicit')).toBe(
-			'explicit',
+	it('reads each compiled schema mode for this plugin instance only', () => {
+		const Logical = declare('LogicalMode').softDelete().with({})
+		const Command = declare('CommandMode')
+			.softDelete({ mode: 'command' })
+			.with({})
+		const Plain = declare('PlainMode').with({})
+		const { schemas } = new App({
+			logger: false,
+			schemas: [Logical, Command, Plain],
+		}).compile()
+		const mode = (className: string, identity = owner) => {
+			const schema = schemas.get(className)
+			if (schema === undefined) throw new TypeError(`Missing ${className}`)
+			return readSoftDeleteMode(schema, identity)
+		}
+
+		expect(mode('LogicalMode')).toBe('delete')
+		expect(mode('CommandMode')).toBe('command')
+		expect(mode('PlainMode')).toBeUndefined()
+		expect(mode('LogicalMode', { pluginId: 'community.other' })).toBe(undefined)
+	})
+
+	it('rejects invalid options when the application compiles', () => {
+		const Invalid = declare('InvalidMode')
+			// @ts-expect-error -- Only `mode: 'command'` exists.
+			.softDelete({ mode: 'replace-delete' })
+			.with({})
+		expect(() =>
+			new App({ logger: false, schemas: [Invalid] }).compile(),
+		).toThrow(
+			'InvalidMode.softDelete is invalid for option owner @ultimabase/soft-delete-plugin',
 		)
-		expect(
-			resolveSoftDeleteMode(schemaWith('DisabledMode', false), 'explicit'),
-		).toBe('disabled')
-		expect(
-			resolveSoftDeleteMode(
-				schemaWith('ReplacedMode', 'replace-delete'),
-				'explicit',
-			),
-		).toBe('replace-delete')
 	})
 })

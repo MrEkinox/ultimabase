@@ -3,10 +3,7 @@ import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
 	UltimaBase,
-	plugin,
-	contributeApplication,
 	getCurrentRequest,
-	requireCapability,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
@@ -33,7 +30,12 @@ import {
 	type RestMutationExecutionHarness as ExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
 import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
-import type { RequestContext } from '@ultimabase/core/plugin'
+import {
+	type RequestContext,
+	plugin,
+	contributeApplication,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()

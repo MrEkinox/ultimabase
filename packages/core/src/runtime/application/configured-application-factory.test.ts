@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	contributeApplication,
-	plugin as createPlugin,
-	type PluginDefinition,
 	withPluginPrivileges,
-} from '../../foundation.js'
+} from '../../plugins/plugin-contributions.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { type PluginDefinition } from '../../plugins/definition.js'
 import { Schema } from '../../schema/index.js'
 import { UltimaBase } from './ultima-base.js'
 

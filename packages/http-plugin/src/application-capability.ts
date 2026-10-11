@@ -1,4 +1,4 @@
-import { defineCapability, type CapabilityToken } from '@ultimabase/core'
+import { defineCapability, type CapabilityToken } from '@ultimabase/core/plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import type { HttpApplication } from './application.js'

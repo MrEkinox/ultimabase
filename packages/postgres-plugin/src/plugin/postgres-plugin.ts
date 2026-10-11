@@ -1,7 +1,7 @@
 import process from 'node:process'
 
+import { databaseAdapterCapability } from '@ultimabase/core'
 import {
-	databaseAdapterCapability,
 	contributeApplication,
 	contributeDeclarations,
 	plugin,
@@ -12,7 +12,7 @@ import {
 	type PluginInstance,
 	type PluginDeclarationContribution,
 	type PluginSchemaOptionSource,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	definePluginOptionsParser,
 	deriveEnvironmentDefault,

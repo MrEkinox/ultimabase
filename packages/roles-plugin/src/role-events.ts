@@ -1,9 +1,8 @@
+import type { JsonObject, RelationMutationAction } from '@ultimabase/core'
 import type {
 	CapabilityProviderDeclaration,
 	CapabilityRequirement,
-	JsonObject,
-	RelationMutationAction,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	definePluginEvent,
 	definePluginEventCapability,

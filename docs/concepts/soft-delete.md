@@ -1,104 +1,98 @@
 # Soft delete
 
 `@ultimabase/soft-delete-plugin` is the official way to keep deleted records as
-hidden PostgreSQL rows without teaching Core or a transport what “soft delete”
-means. The source schema selects behavior; Typegen only describes the resulting
-application handles.
+hidden rows without teaching Core or a transport what “soft delete” means. Each
+schema opts in with the `.softDelete()` shape method; the plugin is written
+with `definePlugin` (ADR-0316).
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const Application = UltimaBase.use(
-	softDeletePlugin({ defaultMode: 'disabled' }),
-)
+const Application = UltimaBase.use(softDeletePlugin())
+
 const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'explicit',
 })
+	.softDelete()
+	.with({})
 
-const ultimabase = new Application({
-	schemas: [Post],
-})
+const ultimabase = new Application({ schemas: [Post] })
 ```
 
 ## Choosing a mode
 
-The application default is `disabled`, `replace-delete`, or `explicit`. An
-omitted schema option inherits it; `softDelete: false` always disables the
-plugin for that schema.
+| Declaration                        | Native delete                             | Added commands   |
+| ---------------------------------- | ----------------------------------------- | ---------------- |
+| no `.softDelete()`                 | Physical delete                           | None             |
+| `.softDelete()`                    | Logical delete, physical tombstone update | The six commands |
+| `.softDelete({ mode: 'command' })` | Physical delete                           | The six commands |
 
-| Mode             | Native delete                             | Added command |
-| ---------------- | ----------------------------------------- | ------------- |
-| `disabled`       | Physical delete                           | None          |
-| `replace-delete` | Logical delete, physical tombstone update | None          |
-| `explicit`       | Physical delete                           | `softDelete`  |
-
-Replace mode is useful when every existing delete entry point must become
-recoverable without changing its public name. Access, Hooks, audit results, and
-ordered `deleteMany` item semantics still observe a native logical delete; only
-the protected persistence plan changes.
-
-Explicit mode is useful when callers must choose between recoverable and
-permanent deletion. It adds a separately authorized command to the schema
-class and the application schema handle; results have no methods (ADR-0310):
+The six commands are `softDeleteOne`, `softDeleteMany`, `restoreOne`,
+`restoreMany`, `purgeOne` and `purgeMany`. The default mode is useful when
+every existing delete entry point must become recoverable without changing its
+public name: Access, Hooks, audit results and ordered `deleteMany` item
+semantics still observe a native logical delete; only the protected persistence
+plan changes. Command mode is useful when callers must choose between
+recoverable and permanent deletion.
 
 ```ts
-await Post.softDelete({ id: postId })
-await ultimabase.schema(Post).softDelete({ id: postId })
+await Post.softDeleteOne({ id: postId })
+await Post.softDeleteMany({ where: { title: { startsWith: 'Draft' } } })
 ```
 
-When REST or GraphQL already exposes the schema mutation, the optional
-transport plugin derives `POST /api/v1/classes/Post/{id}/soft-delete` or
-`softDeletePost(input: { id: ID! })`. Transport exposure grants no authority.
+The one-row request commands are exposed by the transports that already expose
+the schema mutation: `POST /api/v1/classes/Post/{id}/soft-delete-one` and
+`…/restore-one`, `softDeleteOnePost` and `restoreOnePost`. Transport exposure
+grants no authority.
 
 ## Visibility and lifecycle
 
-Enabled schemas receive a protected required boolean `isDeleted` field whose
-default is `false`. Mutation input cannot set it. Core's generic protected
-constraint boundary adds `isDeleted = false` to ordinary singular and
-collection reads, counts, existence checks, relation and pointer traversal,
-eager materialization, and mutation target lookup. Master does not bypass this
-integrity rule.
+Opted-in schemas receive the server-written `isDeleted` (required boolean,
+default `false`) and `deletedAt` (optional date-time) fields. Mutation input
+cannot set them. Core's generic protected constraint boundary adds
+`isDeleted = false` to ordinary singular and collection reads, counts,
+existence checks, relation and pointer traversal, eager materialization, and
+mutation target lookup. Master does not bypass this integrity rule; restore and
+purge see tombstones only.
 
-The optional Access plugin accepts an independent `access.softDelete` policy.
-It does not reuse `access.update` or `access.delete`. The optional Hooks plugin
-similarly accepts `beforeOperation.softDelete` and
-`afterOperation.softDelete`. A physical tombstone update never manufactures
-logical update Hooks. In replace mode, the original logical delete Hooks run
-once.
+The optional Access plugin rules each request command under its own name
+(`access.softDeleteOne`, `access.restoreOne`, …); it does not reuse
+`access.update` or `access.delete`. The optional Hooks plugin similarly accepts
+`beforeOperation.softDeleteOne` and the other command branches. A physical
+tombstone update never manufactures logical update Hooks; in the default mode
+the original logical delete Hooks run once.
 
 All effects execute inside the ordinary automatic mutation transaction. A
-rejected Access decision or Hook leaves the row unchanged, and an ordered
-native delete batch rolls back every earlier tombstone when one later item
-fails.
+rejected Access decision or Hook leaves the row unchanged, and a many-row
+command or an ordered native delete batch rolls back every earlier write when
+one later row fails.
 
 ## Restore and purge
 
-Enabled schemas also receive private `restore` and `purge` methods on their
-application schema handle. They require an application-provenanced, audited
-Master context before target lookup:
+`restoreOne` and `restoreMany` clear the tombstone and `deletedAt` while
+preserving identity, fields, pointers and relations; they are request commands
+ruled by Access. `purgeOne` and `purgeMany` permanently delete existing
+tombstones under normal database integrity rules and require an audited Master
+context. All retain transactional Hooks and cancellation.
 
 ```ts
-await ultimabase.schema(Post).restore({ id: postId }, { useMasterKey: true })
-
-await ultimabase.schema(Post).purge({ id: postId }, { useMasterKey: true })
+await Post.restoreOne({ id: postId })
+await Post.purgeOne({ id: postId }, { useMasterKey: true })
 ```
 
-`restore` clears the tombstone while preserving identity, fields, pointers, and
-relations. `purge` permanently deletes only an existing tombstone under normal
-database integrity rules. Both retain transactional Hooks and cancellation.
-Neither command has a model method, Access branch, REST route, or GraphQL field.
+Restoring a row whose unique value another row took meanwhile fails with a
+`UNIQUE_VIOLATION` naming the command, the row and the field. Applications that
+want deleted rows to release their unique values declare a partial unique index
+`where: { isDeleted: false }` in `.with`.
 
-## Deliberate V1 limits
+## Deliberate limits
 
-V1 has one fixed tombstone field and no include-deleted query, deletion time,
-actor or reason metadata, cascade policy, partial unique-index strategy,
-uniqueness reuse, retention job, automatic purge, public restore or purge,
-bulk soft delete, or nested soft delete. Application code should not update the
-tombstone manually; use the generated commands so protected constraints,
-authority, Hooks, and transactions remain intact.
+No include-deleted read permission yet (it needs the Access extension point),
+no actor or reason metadata, cascade policy, retention job or automatic purge.
+Application code should not update the tombstone manually; use the commands so
+protected constraints, authority, Hooks, and transactions remain intact.
 
 See the runnable [`minimal`](../../examples/minimal/README.md) application for
 direct, REST, networkless GraphQL, Yoga, Access, Hooks, and PostgreSQL examples.

@@ -6,11 +6,8 @@ import {
 	runPluginConformance,
 	withPluginTypegenConformance,
 } from '@ultimabase/testing'
-import {
-	MasterAuthority,
-	UltimaBase,
-	type PluginDefinition,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 import { createOfficialAccessConformanceFixture } from '../../packages/access-plugin/tests/e2e/fixtures/official-access-conformance.js'
 import {

@@ -217,7 +217,7 @@
 				{
 					"slug": "official/soft-delete",
 					"contentType": "guide",
-					"outcome": "Soft-delete a record, verify that ordinary reads hide it, and restore it from trusted server code."
+					"outcome": "Soft-delete a record, verify that ordinary reads hide it, restore it, and purge it from trusted server code."
 				},
 				{
 					"slug": "official/graphql",

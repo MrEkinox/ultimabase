@@ -1,103 +1,106 @@
 import { expectTypeOf, test } from 'vitest'
 import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 
-import {
-	softDeletePlugin,
-	type SoftDeleteMode,
-	type SoftDeletePluginOptions,
-	type SoftDeleteSchemaOption,
-} from './index.js'
+import { softDeletePlugin, type SoftDeleteOptions } from './index.js'
 
-test('types only the accepted plugin and schema modes', () => {
-	expectTypeOf<SoftDeleteMode>().toEqualTypeOf<
-		'disabled' | 'explicit' | 'replace-delete'
-	>()
-	expectTypeOf<SoftDeleteSchemaOption>().toEqualTypeOf<
-		false | 'explicit' | 'replace-delete'
-	>()
+const App = UltimaBase.use(softDeletePlugin())
 
-	softDeletePlugin()
+test('types only the accepted shape-method options', () => {
+	expectTypeOf<SoftDeleteOptions>().toEqualTypeOf<{
+		readonly mode?: 'command'
+	}>()
+
+	App.Schema.define({
+		className: 'TypedSoftDeleteModes',
+		fields: (field) => ({ title: field.string() }),
+	}).softDelete({ mode: 'command' })
+	App.Schema.define({
+		className: 'TypedSoftDeleteBadMode',
+		fields: (field) => ({ title: field.string() }),
+		// @ts-expect-error -- Only `mode: 'command'` exists.
+	}).softDelete({ mode: 'replace-delete' })
+	// @ts-expect-error -- The plugin factory takes no options (review decisions 1-2).
 	softDeletePlugin({ defaultMode: 'disabled' })
-	softDeletePlugin({ defaultMode: 'replace-delete', instanceId: 'archive' })
-
-	// @ts-expect-error -- Plugin options deliberately have no schema allowlist.
-	softDeletePlugin({ schemas: ['Post'] })
-	// @ts-expect-error -- Plugin defaults use the closed mode vocabulary.
-	softDeletePlugin({ defaultMode: 'delete' })
-
-	const options = {
-		defaultMode: 'explicit',
-		instanceId: 'editorial',
-	} as const satisfies SoftDeletePluginOptions
-	expectTypeOf(options.defaultMode).toEqualTypeOf<'explicit'>()
 })
 
-test('projects explicit schema fields and mutations without Typegen', () => {
-	const Application = UltimaBase.use(softDeletePlugin())
-	const Explicit = Application.Schema.define({
+test('projects fields and the same commands in both modes without Typegen', () => {
+	const Logical = App.Schema.define({
 		className: 'SourceSoftDeleteDocument',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-		softDelete: 'explicit',
 	})
-	const ReplaceDelete = Application.Schema.define({
-		className: 'SourceReplaceDeleteDocument',
+		.softDelete()
+		.with({})
+	const Command = App.Schema.define({
+		className: 'SourceSoftDeleteCommandDocument',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-		softDelete: 'replace-delete',
 	})
+		.softDelete({ mode: 'command' })
+		.with({})
 
-	void Explicit.softDelete({ id: 'document-1', select: { isDeleted: true } })
-	void Explicit.restore({ id: 'document-1', select: { isDeleted: true } })
-	void Explicit.purge({ id: 'document-1' })
-	void ReplaceDelete.restore({ id: 'document-1', select: { isDeleted: true } })
-	void ReplaceDelete.purge({ id: 'document-1' })
-	type HasReplaceDeleteSoftDelete =
-		'softDelete' extends keyof typeof ReplaceDelete ? true : false
-	expectTypeOf<HasReplaceDeleteSoftDelete>().toEqualTypeOf<false>()
+	void Command.softDeleteOne({ id: 'document-1', select: { isDeleted: true } })
+	void Command.softDeleteMany({ where: { title: { eq: 'old' } } })
+	void Command.restoreOne({ id: 'document-1', select: { deletedAt: true } })
+	void Command.restoreMany({ where: {} })
+	void Command.purgeOne({ id: 'document-1' })
+	void Command.purgeMany({ where: {} })
+	expectTypeOf(
+		Logical.softDeleteMany({ where: {}, select: { deletedAt: true } }),
+	).resolves.toEqualTypeOf<
+		readonly { readonly id: string; readonly deletedAt: string | null }[]
+	>()
+	expectTypeOf(
+		Logical.restoreOne({ id: 'document-1', select: { isDeleted: true } }),
+	).resolves.toEqualTypeOf<{
+		readonly id: string
+		readonly isDeleted: boolean
+	}>()
+
+	// @ts-expect-error -- A many-row command targets a `where`, not an `id`.
+	void Logical.restoreMany({ id: 'document-1' })
+	// @ts-expect-error -- Server-written fields are rejected in create input.
+	void Logical.createOne({ data: { title: 'x', isDeleted: true } })
+	// @ts-expect-error -- `deletedAt` is server-written too.
+	void Logical.updateOne({ where: { id: 'x' }, data: { deletedAt: null } })
 })
 
-test('projects only the commands inherited from one literal default mode', () => {
-	const ExplicitApp = UltimaBase.use(
-		softDeletePlugin({ defaultMode: 'explicit' }),
-	)
-	const Inherited = ExplicitApp.Schema.define({
-		className: 'SourceInheritedSoftDeleteDocument',
+test('adds nothing to schemas that do not call .softDelete()', () => {
+	const Plain = App.Schema.define({
+		className: 'SourcePlainDocument',
 		fields: (field) => ({ title: field.string() }),
-	})
-	const Excluded = ExplicitApp.Schema.define({
-		className: 'SourceExcludedSoftDeleteDocument',
-		fields: (field) => ({ title: field.string() }),
-		softDelete: false,
-	})
-	void Inherited.softDelete({ id: 'document-1', select: { isDeleted: true } })
-	void Inherited.restore({ id: 'document-1', select: { isDeleted: true } })
-	void Inherited.purge({ id: 'document-1' })
-	type ExcludedSoftDelete = 'softDelete' extends keyof typeof Excluded
-		? true
-		: false
-	type ExcludedRestore = 'restore' extends keyof typeof Excluded ? true : false
-	expectTypeOf<ExcludedSoftDelete>().toEqualTypeOf<false>()
-	expectTypeOf<ExcludedRestore>().toEqualTypeOf<false>()
-	void Excluded
+	}).with({})
+	type PlainCommands = Extract<
+		keyof typeof Plain,
+		'purgeOne' | 'restoreOne' | 'softDeleteOne'
+	>
+	expectTypeOf<PlainCommands>().toEqualTypeOf<never>()
+	// @ts-expect-error -- No `isDeleted` without `.softDelete()`.
+	void Plain.findMany({ where: { isDeleted: { eq: false } } })
+})
 
-	const ReplaceApp = UltimaBase.use(
-		softDeletePlugin({ defaultMode: 'replace-delete' }),
-	)
-	const Replaced = ReplaceApp.Schema.define({
-		className: 'SourceInheritedReplaceDeleteDocument',
+test('lets Access rule the request commands by name', () => {
+	const Guarded = UltimaBase.use(softDeletePlugin(), accessPlugin())
+	Guarded.Schema.define({
+		className: 'SourceGuardedDocument',
 		fields: (field) => ({ title: field.string() }),
 	})
-	void Replaced.restore({ id: 'document-1', select: { isDeleted: true } })
-	type ReplaceSoftDelete = 'softDelete' extends keyof typeof Replaced
-		? true
-		: false
-	expectTypeOf<ReplaceSoftDelete>().toEqualTypeOf<false>()
-
-	const DisabledApp = UltimaBase.use(softDeletePlugin())
-	const Disabled = DisabledApp.Schema.define({
-		className: 'SourceInheritedDisabledDocument',
+		.softDelete()
+		.with({
+			access: {
+				read: true,
+				softDeleteOne: true,
+				softDeleteMany: true,
+				restoreOne: false,
+				restoreMany: false,
+			},
+		})
+	Guarded.Schema.define({
+		className: 'SourceGuardedPurgeDocument',
 		fields: (field) => ({ title: field.string() }),
 	})
-	type DisabledRestore = 'restore' extends keyof typeof Disabled ? true : false
-	expectTypeOf<DisabledRestore>().toEqualTypeOf<false>()
-	void Disabled
+		.softDelete()
+		.with({
+			// @ts-expect-error -- Purge is Master-only, so Access has no rule for it.
+			access: { purgeOne: true },
+		})
 })

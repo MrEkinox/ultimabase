@@ -6,19 +6,21 @@ import {
 	FrameworkApplication,
 } from '../application/framework-application.js'
 import {
-	addSchemaField,
-	addSchemaIndex,
 	compileValidationPlans,
-	plugin as createPlugin,
-	contributeDeclarations,
-	defineSchemaOption,
 	pointerField,
 	readFieldTypegenState,
-	setSchemaFieldOption,
-	setSchemaOption,
 	stringField,
 	type FieldBuilder,
 } from '../index.js'
+import {
+	addSchemaField,
+	addSchemaIndex,
+	plugin as createPlugin,
+	contributeDeclarations,
+	defineSchemaOption,
+	setSchemaFieldOption,
+	setSchemaOption,
+} from '../plugin.js'
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
 import {

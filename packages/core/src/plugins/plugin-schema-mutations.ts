@@ -22,6 +22,12 @@ export type PluginSchemaMutationEffect = 'update' | 'delete'
 /** Selects which logical record is materialized as the public result. */
 export type PluginSchemaMutationReturning = 'before' | 'after'
 
+/**
+ * Selects the rows one command targets: one row named by `id`, or every row
+ * matching a `where` (ADR-0316), each written with the one-row rules.
+ */
+export type PluginSchemaMutationTarget = 'one' | 'many'
+
 /** Reuses one public Typegen reference for mutations with no custom payload. */
 export type PluginSchemaMutationNoInput = undefined
 
@@ -43,6 +49,7 @@ export interface DefinePluginSchemaMutationOptions<
 		PluginSchemaMutationReturning,
 	TSelect extends PluginSchemaMutationDependencySelection =
 		PluginSchemaMutationDependencySelection,
+	TTarget extends PluginSchemaMutationTarget = PluginSchemaMutationTarget,
 > {
 	/** Accepts the caller's authority or requires an already trusted Master request. */
 	readonly authority: TAuthority
@@ -66,6 +73,13 @@ export interface DefinePluginSchemaMutationOptions<
 	readonly checkReadable?: PluginSchemaMutationReturning
 	/** Declares flat persisted dependencies privately loaded for the resolver. */
 	readonly select?: TSelect
+	/**
+	 * Targets one row by `id` (default) or every row matching a `where`. A
+	 * many-row command runs the one-row Access, hooks, readable-result and
+	 * transaction rules for each matching row, in one transaction (ADR-0316).
+	 * @example `target: 'many'`
+	 */
+	readonly target?: TTarget
 	/** Exact semantic protocol version. @example `"1.0.0"` */
 	readonly version: TVersion
 }
@@ -85,6 +99,7 @@ export interface PluginSchemaMutationDefinition<
 		PluginSchemaMutationReturning,
 	TSelect extends PluginSchemaMutationDependencySelection =
 		PluginSchemaMutationDependencySelection,
+	TTarget extends PluginSchemaMutationTarget = PluginSchemaMutationTarget,
 > extends DefinePluginSchemaMutationOptions<
 	TName,
 	TVersion,
@@ -93,11 +108,13 @@ export interface PluginSchemaMutationDefinition<
 	TAuthority,
 	TEffect,
 	TReturning,
-	TSelect
+	TSelect,
+	TTarget
 > {
 	readonly errors: TErrors
 	readonly kind: 'plugin-schema-mutation'
 	readonly select: TSelect
+	readonly target: TTarget
 	readonly [pluginSchemaMutationDefinitionType]?: Readonly<{
 		readonly errors: TErrors[number]
 		readonly input: TInput
@@ -119,6 +136,7 @@ export interface CompiledPluginSchemaMutationDefinition<
 	readonly returning: PluginSchemaMutationReturning
 	readonly checkReadable?: PluginSchemaMutationReturning
 	readonly select: PluginSchemaMutationDependencySelection
+	readonly target: PluginSchemaMutationTarget
 	readonly version: TVersion
 }
 
@@ -171,6 +189,7 @@ export const defineSchemaMutation = <
 		PluginSchemaMutationReturning,
 	const TSelect extends PluginSchemaMutationDependencySelection =
 		PluginSchemaMutationDependencySelection,
+	const TTarget extends PluginSchemaMutationTarget = 'one',
 >(
 	options: DefinePluginSchemaMutationOptions<
 		TName,
@@ -180,7 +199,8 @@ export const defineSchemaMutation = <
 		TAuthority,
 		TEffect,
 		TReturning,
-		TSelect
+		TSelect,
+		TTarget
 	>,
 ): PluginSchemaMutationDefinition<
 	TName,
@@ -190,7 +210,8 @@ export const defineSchemaMutation = <
 	TAuthority,
 	TEffect,
 	TReturning,
-	TSelect
+	TSelect,
+	TTarget
 > => {
 	const untrusted: unknown = options
 	assertExactEnumerablePlainObject(
@@ -204,6 +225,7 @@ export const defineSchemaMutation = <
 			'name',
 			'returning',
 			'select',
+			'target',
 			'version',
 		]),
 		'schema mutation definition must be a plain object',
@@ -238,6 +260,10 @@ export const defineSchemaMutation = <
 	if (options.effect === 'delete' && options.checkReadable === 'after') {
 		throw new TypeError('delete schema mutations must check the before record')
 	}
+	const target: unknown = options.target ?? 'one'
+	if (target !== 'one' && target !== 'many') {
+		throw new TypeError('schema mutation target must be one or many')
+	}
 
 	const definition = immutableRecord({
 		authority: options.authority,
@@ -251,6 +277,7 @@ export const defineSchemaMutation = <
 			? {}
 			: { checkReadable: options.checkReadable }),
 		select: snapshotSelection(options.select),
+		target,
 		version: options.version,
 	}) as PluginSchemaMutationDefinition<
 		TName,
@@ -260,7 +287,8 @@ export const defineSchemaMutation = <
 		TAuthority,
 		TEffect,
 		TReturning,
-		TSelect
+		TSelect,
+		TTarget
 	>
 	schemaMutationDefinitions.add(definition)
 	return definition
@@ -294,6 +322,7 @@ export const compilePluginSchemaMutationDefinition = (
 			? {}
 			: { checkReadable: definition.checkReadable }),
 		select: definition.select,
+		target: definition.target,
 		version: definition.version,
 	})
 }

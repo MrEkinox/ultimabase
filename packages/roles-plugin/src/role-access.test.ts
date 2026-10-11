@@ -3,11 +3,13 @@ import {
 	RequestSubjectReference,
 	requestRoleResolverCapability,
 	UltimaBase,
+} from '@ultimabase/core'
+import {
 	plugin,
 	contributeApplication,
 	provideCapability,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import type { AccessContext } from '@ultimabase/access-plugin'
 
 import {

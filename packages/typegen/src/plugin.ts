@@ -4,7 +4,7 @@ import {
 	contributeApplication,
 	plugin,
 	type PluginInstance,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { generateApplicationTypesFromSnapshot } from './generator.js'

@@ -44,3 +44,4 @@ export {
 	type EnvironmentDefault,
 	type EnvironmentDefaults,
 } from './deployment-environment.js'
+export * from './define-plugin/index.js'

@@ -1,11 +1,8 @@
 import {
 	PublicError,
 	type AnonymousRequestAccess,
-	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
-	type CapabilityProviderContribution,
 	type MasterRequestAccess,
-	type PluginIdentity,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -42,7 +39,12 @@ import {
 	selectHttpEndpoint,
 	type HttpRouteGraph,
 } from './route-graph.js'
-import type { RequestContext } from '@ultimabase/core/plugin'
+import type {
+	RequestContext,
+	ApplicationCallbackExecutor,
+	CapabilityProviderContribution,
+	PluginIdentity,
+} from '@ultimabase/core/plugin'
 
 export { httpApplicationCapability } from './application-capability.js'
 

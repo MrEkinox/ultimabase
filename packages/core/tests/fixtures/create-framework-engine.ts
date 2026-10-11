@@ -1,4 +1,4 @@
-import { plugin } from '../../src/foundation.js'
+import { plugin } from '../../src/plugin.js'
 
 import type { DatabaseAdapter } from '../../src/runtime/database/contracts.js'
 import { provideTestDatabaseAdapter } from '../runtime/fixtures/database-adapter-capability.js'

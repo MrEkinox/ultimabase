@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { runApplicationWork } from '../../application/active-application.js'
 import { FrameworkError } from '../../foundation.js'
-import type { PluginDefinition } from '../../foundation.js'
+import type { PluginDefinition } from '../../plugins/definition.js'
 import {
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,

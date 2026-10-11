@@ -12,7 +12,8 @@ const pluginHoverMarker = '/* typegen-plugin-hover */'
 const sourceWithMarkers = `
 import { typegenPlugin, generateApplicationTypes } from './index.js'
 import type { GenerateApplicationTypesOptions } from './index.js'
-import type { PluginDefinition, SchemaDefinition, UltimaBase } from '@ultimabase/core'
+import type { SchemaDefinition, UltimaBase } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 
 declare const ultimabase: UltimaBase<readonly SchemaDefinition[], readonly PluginDefinition[]>
 

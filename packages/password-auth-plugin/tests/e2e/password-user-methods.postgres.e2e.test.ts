@@ -3,7 +3,6 @@ import {
 	UltimaBase,
 	getCurrentRequest,
 	runWithRequestEngine,
-	plugin,
 } from '@ultimabase/core'
 import {
 	accessPlugin,
@@ -23,7 +22,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
-import { anonymous } from '@ultimabase/core/plugin'
+import { anonymous, plugin } from '@ultimabase/core/plugin'
 
 const password = 'correct horse battery staple'
 let fixture: PostgresWorkerFixture | undefined

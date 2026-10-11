@@ -1,11 +1,7 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import {
-	MasterAuthority,
-	UltimaBase,
-	type Model,
-	type PluginSourceState,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase, type Model } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 

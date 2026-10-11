@@ -1,11 +1,10 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	UltimaBase,
-	plugin,
-	contributeDeclarations,
 	definePluginField,
 	definePluginOutputDescriptor,
 } from '@ultimabase/core'
+import { plugin, contributeDeclarations } from '@ultimabase/core/plugin'
 import { initializeRestTestApplication as createApplication } from './application.test-support.js'
 
 import {

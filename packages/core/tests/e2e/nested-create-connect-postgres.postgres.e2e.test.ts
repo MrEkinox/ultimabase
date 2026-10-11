@@ -4,8 +4,8 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	type NestedWriteGraph,
-	type PluginSourceState,
 } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 

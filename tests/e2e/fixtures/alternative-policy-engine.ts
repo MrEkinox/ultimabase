@@ -1,19 +1,21 @@
 import {
 	Schema,
-	contributeApplication,
-	contributeDeclarations,
-	defineCapability,
-	defineSchemaOption,
 	getOperationSchema,
 	protectedPolicy,
-	provideCapability,
 	provideRuntimeConstraint,
-	plugin as createPlugin,
-	requireCapability,
 	resolveWhereInput,
 	type CompiledSchemaRegistry,
 	type OperationKind,
 } from '@ultimabase/core'
+import {
+	contributeApplication,
+	contributeDeclarations,
+	defineCapability,
+	defineSchemaOption,
+	provideCapability,
+	plugin as createPlugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,

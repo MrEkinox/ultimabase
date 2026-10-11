@@ -41,15 +41,16 @@ general SQL or arbitrary-operation rewrite API. A rewriter needs the exact
     A[Logical delete] --> B[Delete policy, Hooks, audit, result]
     A --> C[Physical plan]
     C -->|default| D[Native database delete]
-    C -->|replace-delete| E[Guarded tombstone update]"
+    C -->|.softDelete()| E[Guarded tombstone update]"
 />
 
-With the optional Soft Delete plugin in `replace-delete` mode, `deleteOne` is
-still a logical delete. The database writes a tombstone update, but update
-policy, update Hooks, defaults, and generators do not run as if the caller had
-requested `updateOne`. The returned delete result and transaction semantics
-stay those of a delete. By contrast, the plugin's `explicit` mode adds a
-separate logical `softDelete` command; it does not reinterpret native delete.
+On a schema declared with the optional Soft Delete plugin's `.softDelete()`,
+`deleteOne` is still a logical delete. The database writes a tombstone update,
+but update policy, update Hooks, defaults, and generators do not run as if the
+caller had requested `updateOne`. The returned delete result and transaction
+semantics stay those of a delete. By contrast, `.softDelete({ mode: 'command' })`
+adds separate logical `softDeleteOne` and `softDeleteMany` commands; it does
+not reinterpret native delete.
 
 ## Protected constraints stay outside the rewrite
 

@@ -1,12 +1,14 @@
 import {
-	defineOperation,
 	defineOperationTransport,
-	defineOperationValue,
-	plugin,
-	contributeOperation,
 	operationTransportBinding,
 	operationWireCodec,
 } from '@ultimabase/core'
+import {
+	defineOperation,
+	defineOperationValue,
+	plugin,
+	contributeOperation,
+} from '@ultimabase/core/plugin'
 import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
 
 const statusInput = defineOperationValue((value, path): null => {

@@ -1,13 +1,13 @@
+import type { GenericField } from '../../src/index.js'
 import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineFieldOption,
 	defineSchemaOption,
 	type FieldOptionDefinition,
-	type GenericField,
 	type PluginDefinition,
 	type SchemaOptionDefinition,
-} from '../../src/index.js'
+} from '../../src/plugin.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import { snapshotJsonValue } from '../../src/schema/fields/builtins/json.js'
 

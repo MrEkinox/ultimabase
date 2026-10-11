@@ -1,11 +1,11 @@
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
 	plugin,
 	contributeDeclarations,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	PasswordUser,
 	PasswordUserSchema,

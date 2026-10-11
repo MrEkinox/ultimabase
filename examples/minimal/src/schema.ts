@@ -21,9 +21,7 @@ import { exampleStatusOperation } from './status-plugin.ts'
 const publicArticleACL = new ACL().grantPublic('delete', 'read', 'update')
 
 /** Owns every source-typed schema declaration used by the example. */
-export const MinimalSchemaApplication = UltimaBase.use(
-	softDeletePlugin({ defaultMode: 'disabled' }),
-)
+export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 	.use(accessPlugin({ default: true }))
 	.use(hooksPlugin())
 	.use(validationPlugin())
@@ -104,11 +102,10 @@ export const ExampleSoftDeleteEvent = MinimalSchemaApplication.Schema.define({
 	},
 	graphql: false,
 	rest: false,
-	softDelete: false,
 })
 
 const recordSoftDeleteEvent = async (
-	logicalOperation: 'delete' | 'purge' | 'restore' | 'softDelete',
+	logicalOperation: 'delete' | 'purgeOne' | 'restoreOne' | 'softDeleteOne',
 	persistenceEffect: 'delete' | 'update',
 	schemaName: 'ExampleArticle' | 'ExampleAuthor',
 	targetId: string,
@@ -148,6 +145,9 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 			allow: true,
 			where: ({ where }) => where.eq('readable', true),
 		},
+		// Restoring stays server-side: Master bypasses Access.
+		restoreOne: false,
+		restoreMany: false,
 	},
 	acl: {
 		default: publicArticleACL,
@@ -165,17 +165,17 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 					originalItem.id,
 				)
 			},
-			purge: async ({ originalItem }) => {
+			purgeOne: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
-					'purge',
+					'purgeOne',
 					'delete',
 					'ExampleAuthor',
 					originalItem.id,
 				)
 			},
-			restore: async ({ originalItem }) => {
+			restoreOne: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
-					'restore',
+					'restoreOne',
 					'update',
 					'ExampleAuthor',
 					originalItem.id,
@@ -184,8 +184,8 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 		},
 	},
 	rest: true,
-	softDelete: 'replace-delete',
-})
+	// `deleteOne` hides the author instead of deleting the row.
+}).softDelete()
 
 /** Articles demonstrate policy, lifecycle, validation, and relationships. */
 export const ExampleArticle = MinimalSchemaApplication.Schema.define({
@@ -293,7 +293,11 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 		},
 		update: true,
 		upsert: true,
-		softDelete: { allow: isAuthenticated },
+		softDeleteOne: { allow: isAuthenticated },
+		// Restoring stays server-side: Master bypasses Access.
+		restoreOne: false,
+		restoreMany: false,
+		softDeleteMany: false,
 	},
 	graphql: true,
 	acl: {
@@ -302,7 +306,6 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 			inputAcl ?? currentAcl ?? publicArticleACL,
 	},
 	rest: true,
-	softDelete: 'explicit',
 	hooks: {
 		afterOperation: {
 			delete: async ({ originalItem }) => {
@@ -313,25 +316,25 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 					originalItem.id,
 				)
 			},
-			purge: async ({ originalItem }) => {
+			purgeOne: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
-					'purge',
+					'purgeOne',
 					'delete',
 					'ExampleArticle',
 					originalItem.id,
 				)
 			},
-			restore: async ({ originalItem }) => {
+			restoreOne: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
-					'restore',
+					'restoreOne',
 					'update',
 					'ExampleArticle',
 					originalItem.id,
 				)
 			},
-			softDelete: async ({ originalItem }) => {
+			softDeleteOne: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
-					'softDelete',
+					'softDeleteOne',
 					'update',
 					'ExampleArticle',
 					originalItem.id,
@@ -339,7 +342,8 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 			},
 		},
 	},
-})
+	// `deleteOne` stays physical; `softDeleteOne` hides the article.
+}).softDelete({ mode: 'command' })
 
 /** Notes prove authenticated role-based Access and ACL through public CRUD. */
 export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({

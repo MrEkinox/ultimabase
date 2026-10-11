@@ -1,4 +1,5 @@
-import { contributeApplication, plugin, UltimaBase } from '../../src/index.js'
+import { UltimaBase } from '../../src/index.js'
+import { contributeApplication, plugin } from '../../src/plugin.js'
 
 const database = plugin({
 	core: '^0.0.0',

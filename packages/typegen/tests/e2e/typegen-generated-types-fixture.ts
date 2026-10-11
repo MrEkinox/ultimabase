@@ -3,11 +3,10 @@ import path from 'node:path'
 import {
 	defineEnum,
 	definePluginFieldFamily,
-	plugin,
-	contributeDeclarations,
 	definePluginField,
 	UltimaBase,
 } from '@ultimabase/core'
+import { plugin, contributeDeclarations } from '@ultimabase/core/plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -153,13 +152,15 @@ export const generated = generateApplicationTypes({
 })
 export const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes, typegenPlugin as packedTypegenPlugin } from '@ultimabase/typegen'
-import { UltimaBase, plugin } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import * as Hooks from '@ultimabase/hooks-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
-import type { PluginDefinition, SchemaDefinition } from '@ultimabase/core'
+import type { SchemaDefinition } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ultimabase/typegen'
 import { containedVectorPlugin as packedContainedVectorPlugin } from './typegen-generated-types-fixture.js'
 

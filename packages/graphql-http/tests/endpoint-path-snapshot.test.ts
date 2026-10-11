@@ -1,10 +1,10 @@
+import { UltimaBase } from '@ultimabase/core'
 import {
 	contributeApplication,
 	plugin,
 	provideCapability,
 	requireCapability,
-	UltimaBase,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
 import {

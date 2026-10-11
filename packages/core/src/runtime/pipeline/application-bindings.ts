@@ -1,5 +1,5 @@
 import type { FrameworkApplication } from '../../application/framework-application.js'
-import type { PluginDefinition } from '../../foundation.js'
+import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'

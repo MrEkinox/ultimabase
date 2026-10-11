@@ -7,12 +7,11 @@ import {
 	getCurrentRequest,
 	getRequestPrincipal,
 	isAuthenticated,
-	plugin,
-	provideCapability,
 	requestPrincipalResolverCapability,
 	runWithRequestEngine,
 	type RequestPrincipalResolver,
 } from '../../index.js'
+import { plugin, provideCapability } from '../../plugin.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import {
 	anonymous,

@@ -1,0 +1,354 @@
+// `definePlugin` (ADR-0316): one declarative object instead of selectors,
+// patches, source templates and contribution identifiers. It is built only on
+// Core's public plugin-author contracts; Core still owns manifests, derived
+// privileges, slot evaluation, Runtime order and transactions.
+import {
+	getOperationSchema,
+	provideRuntimeBehavior,
+	Schema,
+} from '@ultimabase/core'
+import {
+	addSchemaField,
+	contributeDeclarations,
+	defineSchemaOption,
+	plugin,
+	provideSchemaShapeMethods,
+	readSchemaRules,
+	type PluginContribution,
+	type PluginModelContributionContext,
+	type PluginSchemaContributionContext,
+	type PluginSchemaShapeSource,
+	type SchemaOptionDefinition,
+	type SchemaShapeMethod,
+} from '@ultimabase/core/plugin'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+
+import { createCommand, type GeneratedCommand } from './commands.js'
+import type { ShapeMethodDefinition, Validator } from './shape.js'
+import type {
+	DefinedPlugin,
+	DefinedPluginSource,
+	RuleValues,
+	ShapeMethods,
+} from './types.js'
+
+/** Data passed to `afterCommit` after each committed write. */
+export interface CommitInput<TRules extends RuleValues> {
+	/** The written schema. */
+	readonly className: string
+	/** The operation kind (`create-one`, `update-many`…) or the plugin command (`restoreOne`). */
+	readonly operation: string
+	/** The request identifier, for correlation in logs. */
+	readonly requestId: string
+	/**
+	 * This plugin's `.with({ ... })` entries on the written schema, as their
+	 * validators returned them when the application compiled.
+	 */
+	readonly rules: { readonly [TKey in keyof TRules]?: unknown }
+}
+
+/** Declares one plugin (see {@link definePlugin}). */
+export interface DefinePluginOptions<
+	TName extends string,
+	TShape extends ShapeMethods,
+	TRules extends RuleValues,
+> {
+	/** The npm package name: plugin identity, log prefix and command namespace. */
+	readonly name: TName
+	/**
+	 * The package version recorded in provenance.
+	 * @default "0.0.0"
+	 */
+	readonly version?: string
+	/** Shape methods chained before `.with(...)`, made with `shapeMethod(...)`. */
+	readonly shape?: TShape
+	/** Entries accepted by `.with({ ... })`, each with its validator. */
+	readonly rules?: { readonly [TKey in keyof TRules]: Validator<TRules[TKey]> }
+	/** Runs after each committed write, outside the transaction. */
+	readonly afterCommit?: (input: CommitInput<TRules>) => void | Promise<void>
+	/** Raw Core contributions, or a transport plugin's helper such as `httpRoutes(...)`. */
+	readonly contributions?: readonly PluginContribution[]
+}
+
+const definitionKeys = new Set([
+	'afterCommit',
+	'contributions',
+	'name',
+	'rules',
+	'shape',
+	'version',
+])
+const methodNamePattern = /^[A-Za-z_$][\w$]*$/u
+const readOperations: ReadonlySet<string> = new Set([
+	'count',
+	'exists',
+	'find-many',
+	'find-one',
+	'get',
+])
+
+const assertDefinition = (definition: unknown): void => {
+	if (!isPlainRecord(definition)) {
+		throw new TypeError('definePlugin options must be a plain object')
+	}
+	const unknownKey = Object.keys(definition).find(
+		(key) => !definitionKeys.has(key),
+	)
+	if (unknownKey !== undefined) {
+		throw new TypeError(`Unknown definePlugin option: ${unknownKey}`)
+	}
+	for (const key of ['shape', 'rules'] as const) {
+		const value = definition[key]
+		if (value !== undefined && !isPlainRecord(value)) {
+			throw new TypeError(`definePlugin ${key} must be a plain object`)
+		}
+	}
+	if (
+		definition.afterCommit !== undefined &&
+		typeof definition.afterCommit !== 'function'
+	) {
+		throw new TypeError('definePlugin afterCommit must be a function')
+	}
+	if (
+		definition.contributions !== undefined &&
+		!Array.isArray(definition.contributions)
+	) {
+		throw new TypeError('definePlugin contributions must be an array')
+	}
+}
+
+// A method called without its options object is validated as `{}`.
+const normalizeShapeOptions =
+	(method: string, validate: Validator<object> | undefined) =>
+	(value: unknown, path: string): unknown => {
+		if (validate !== undefined) return validate(value, path)
+		if (!isPlainRecord(value) || Object.keys(value).length > 0) {
+			throw new TypeError(`${path}: .${method}() takes no options`)
+		}
+		return immutableRecord({})
+	}
+
+const declareSchemas =
+	(
+		shape: readonly (readonly [string, ShapeMethodDefinition])[],
+		rules: readonly (readonly [string, Validator<unknown>])[],
+	) =>
+	({ schemas }: PluginSchemaContributionContext): undefined => {
+		schemas.defineOptions({
+			contributionId: 'options',
+			schema: Object.fromEntries([
+				...shape.map(
+					([method, definition]): [string, SchemaOptionDefinition] => [
+						method,
+						defineSchemaOption({
+							normalize: normalizeShapeOptions(method, definition.options),
+							protocolVersion: 1,
+							typegen: false,
+							valueKind: 'opaque',
+						}),
+					],
+				),
+				...rules.map(([name, validate]): [string, SchemaOptionDefinition] => [
+					name,
+					defineSchemaOption({
+						normalize: validate,
+						protocolVersion: 1,
+						typegen: false,
+						valueKind: 'opaque',
+					}),
+				]),
+			]),
+		})
+		for (const [method, definition] of shape) {
+			const operations = Object.entries(definition.fields ?? {}).map(
+				([name, field]) =>
+					addSchemaField({
+						contributionId: `${method}.${name}`,
+						field,
+						mutationInput: 'forbidden',
+						name,
+					}),
+			)
+			if (operations.length === 0) continue
+			schemas.patch({
+				operations,
+				targets: schemas.select({
+					option: { name: method },
+					owner: { kind: 'application' },
+				}),
+			})
+		}
+		return undefined
+	}
+
+const extendModels =
+	(commands: readonly GeneratedCommand[]) =>
+	({ models }: PluginModelContributionContext): undefined => {
+		for (const method of new Set(commands.map((entry) => entry.method))) {
+			models.extend(
+				{ option: { name: method }, owner: { kind: 'application' } },
+				{
+					contributionId: `${method}.commands`,
+					schemaMutations: Object.fromEntries(
+						commands
+							.filter((generated) => generated.method === method)
+							.map(({ command, mutation }) => [
+								command,
+								{ mutation, surfaces: ['schema'] as const },
+							]),
+					),
+				},
+			)
+		}
+		return undefined
+	}
+
+// `models` is declared only with commands: Core derives `model:extend` from it.
+const createDeclarations = (
+	shape: readonly (readonly [string, ShapeMethodDefinition])[],
+	rules: readonly (readonly [string, Validator<unknown>])[],
+	commands: readonly GeneratedCommand[],
+) =>
+	commands.length === 0
+		? contributeDeclarations({ schema: declareSchemas(shape, rules) })
+		: contributeDeclarations({
+				schema: declareSchemas(shape, rules),
+				models: extendModels(commands),
+			})
+
+const createAfterCommit = <TRules extends RuleValues>(
+	afterCommit: (input: CommitInput<TRules>) => void | Promise<void>,
+	ruleNames: ReadonlySet<string>,
+) =>
+	provideRuntimeBehavior({
+		contributionId: 'after-commit',
+		create: ({ owner }) => ({
+			value: {
+				postCommit: async ({ context, operation }) => {
+					if (readOperations.has(operation.kind)) return
+					const schema = getOperationSchema(operation)
+					if (!Schema.is(schema)) return
+					// Shape-method values share the option namespace; only rules are passed.
+					const rules: Readonly<Record<string, unknown>> = Object.fromEntries(
+						Object.entries(readSchemaRules(schema, owner)).filter(([name]) =>
+							ruleNames.has(name),
+						),
+					)
+					await afterCommit({
+						className: schema.className,
+						operation:
+							operation.kind === 'plugin-schema-mutation'
+								? operation.command
+								: operation.kind,
+						requestId: context.requestId,
+						rules,
+					})
+				},
+			},
+		}),
+	})
+
+// Shape methods are applied at Runtime under one wide signature; their exact
+// typed signatures come from the plugin's static source.
+type RuntimeShapeSource = PluginSchemaShapeSource<
+	Readonly<
+		Record<
+			string,
+			SchemaShapeMethod<
+				readonly [options?: unknown],
+				Readonly<Record<string, object>>
+			>
+		>
+	>
+>
+
+/**
+ * Defines one plugin from a declarative object: shape methods with their
+ * fields and commands, `.with({ ... })` rules, a post-commit callback and raw
+ * contributions. Core derives the privileges.
+ *
+ * @example
+ * ```ts
+ * export const auditPlugin = () =>
+ *   definePlugin({
+ *     name: '@community/audit',
+ *     rules: { audit: (value, path) => { if (typeof value !== 'boolean') throw new TypeError(`${path} must be a boolean`); return value } },
+ *     afterCommit: ({ className, operation, rules }) => {
+ *       if (rules.audit === true) console.info(`[audit] ${className} ${operation}`)
+ *     },
+ *   })
+ * ```
+ */
+export const definePlugin = <
+	const TName extends string,
+	const TShape extends ShapeMethods = Readonly<Record<never, never>>,
+	const TRules extends RuleValues = Readonly<Record<never, never>>,
+>(
+	definition: DefinePluginOptions<TName, TShape, TRules>,
+): DefinedPlugin<TName, TShape, TRules> => {
+	assertDefinition(definition)
+	const shape = Object.entries<ShapeMethodDefinition>(definition.shape ?? {})
+	const rules = Object.entries<Validator<unknown>>(definition.rules ?? {})
+	for (const [method] of shape) {
+		if (!methodNamePattern.test(method) || method === 'with') {
+			throw new TypeError(`Invalid shape method name: ${method}`)
+		}
+	}
+	const duplicate = rules.find(([name]) =>
+		shape.some(([method]) => method === name),
+	)
+	if (duplicate !== undefined) {
+		throw new TypeError(`Rule ${duplicate[0]} is also a shape method`)
+	}
+	const commands = shape.flatMap(([method, { commands: declared = {} }]) =>
+		Object.entries(declared).map(([name, command]) =>
+			createCommand(definition.name, method, name, command),
+		),
+	)
+	const instance = plugin<
+		TName,
+		undefined,
+		string,
+		'^0.0.0',
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		readonly PluginContribution[],
+		DefinedPluginSource<TShape, TRules>
+	>({
+		id: definition.name,
+		version: definition.version ?? '0.0.0',
+		core: '^0.0.0',
+		contributions: [
+			...(shape.length + rules.length === 0
+				? []
+				: [createDeclarations(shape, rules, commands)]),
+			...commands.map(({ contribution }) => contribution),
+			...(definition.afterCommit === undefined
+				? []
+				: [
+						createAfterCommit(
+							definition.afterCommit,
+							new Set(rules.map(([name]) => name)),
+						),
+					]),
+			...(definition.contributions ?? []),
+		],
+	})
+	if (shape.length === 0) return instance
+	return provideSchemaShapeMethods<typeof instance, RuntimeShapeSource>(
+		instance,
+		Object.fromEntries(
+			shape.map(([method]) => [
+				method,
+				{
+					sets: [method],
+					apply: (options?: unknown) =>
+						Object.fromEntries([[method, options ?? {}]]),
+				},
+			]),
+		),
+	)
+}

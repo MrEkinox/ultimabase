@@ -1,10 +1,10 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	plugin,
 	provideCapability,
 	type PluginDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
 	httpApplicationProtocolVersion,

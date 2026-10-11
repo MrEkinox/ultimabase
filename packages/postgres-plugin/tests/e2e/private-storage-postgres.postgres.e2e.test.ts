@@ -1,15 +1,17 @@
 import {
 	UltimaBase,
-	contributeOperation,
-	defineOperation,
-	defineOperationValue,
-	plugin,
-	contributeDeclarations,
 	definePrivateCollection,
 	privateStore,
 	stringField,
 	uuidField,
 } from '@ultimabase/core'
+import {
+	contributeOperation,
+	defineOperation,
+	defineOperationValue,
+	plugin,
+	contributeDeclarations,
+} from '@ultimabase/core/plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

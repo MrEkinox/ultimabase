@@ -1,12 +1,14 @@
 import {
-	defineCapability,
 	defineOperationTransport,
-	type CapabilityToken,
 	type GenericOutputDescriptor,
 	type OperationTransportProtocol,
-	type PluginIdentity,
 	type SchemaContributionProvenance,
 } from '@ultimabase/core'
+import {
+	defineCapability,
+	type CapabilityToken,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 import type { HttpMethod } from '@ultimabase/http-plugin'
 import {
 	immutableArray,

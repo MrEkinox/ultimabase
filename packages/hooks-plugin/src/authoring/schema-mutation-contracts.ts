@@ -1,13 +1,15 @@
 import type {
-	PluginSchemaMutationDefinition,
-	PluginSchemaMutationInput,
 	PluginSchemaMutationTarget,
-	PluginSourceSchemaMutations,
 	SchemaDefinition,
 	SchemaItem,
 	SchemaResult,
 	UltimaBaseGeneratedSchemaSurfaces,
 } from '@ultimabase/core'
+import type {
+	PluginSchemaMutationDefinition,
+	PluginSchemaMutationInput,
+	PluginSourceSchemaMutations,
+} from '@ultimabase/core/plugin'
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type { HookContext } from '../context/hook-context.js'

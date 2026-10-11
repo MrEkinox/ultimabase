@@ -2,18 +2,17 @@ import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
 
+import { definePluginFieldFamily, stringField } from '../index.js'
 import {
 	defineCapability,
-	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeDeclarations,
 	optionalCapability,
 	provideCapability,
 	requireCapability,
-	stringField,
 	type CapabilityRequirement,
 	type PluginDeclarationCapabilityReader,
-} from '../index.js'
+} from '../plugin.js'
 import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-method-registry.js'
 
 const alphaMethod = definePluginFieldFamily({

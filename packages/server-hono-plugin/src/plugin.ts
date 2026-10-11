@@ -4,7 +4,7 @@ import {
 	provideCapability,
 	requireCapability,
 	type PluginInstance,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
 	httpBrowserPolicyCapability,

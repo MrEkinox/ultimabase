@@ -3,14 +3,14 @@ import path from 'node:path'
 import ts from 'typescript'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	contributeDeclarations,
 	defineOperationValue,
 	plugin,
 	defineSchemaMutation,
 	defineTypegenReference,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { expect, it } from 'vitest'
@@ -116,14 +116,8 @@ it('composes installed Access, Hooks, Validation, and ACL authoring contracts', 
 	const sourceWithMarkers = `${generated.contents}
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import {
-  UltimaBase,
-  contributeDeclarations,
-  defineOperationValue,
-  defineSchemaMutation,
-  defineTypegenReference,
-  plugin,
-} from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { contributeDeclarations, defineOperationValue, defineSchemaMutation, defineTypegenReference, plugin } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 declare const titleValidator: import('@standard-schema/spec').StandardSchemaV1<string>
@@ -394,7 +388,7 @@ void TypedDocument
 	expect(generated.contents).not.toContain('titleValidator')
 	expect(generated.contents).toContain('readonly schemaMutations: {')
 	expect(generated.contents).toContain(
-		'readonly archive: Core.PluginSchemaMutationDefinition',
+		'readonly archive: CorePlugin.PluginSchemaMutationDefinition',
 	)
 	expect(withoutOfficialPlugins.snapshot.options).toStrictEqual([])
 	expect(withoutOfficialPlugins.fingerprint).not.toBe(generated.fingerprint)

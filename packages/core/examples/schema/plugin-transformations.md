@@ -5,15 +5,14 @@ declaration contribution. It receives no adapter, request, clock, service, or
 application resource at this boundary.
 
 ```ts
+import { UltimaBase, stringField } from '@ultimabase/core'
 import {
-	UltimaBase,
 	addSchemaField,
 	addSchemaIndex,
 	contributeDeclarations,
 	defineSchemaOption,
 	plugin,
-	stringField,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 const workflowOption = defineSchemaOption({
 	normalize(value, path) {

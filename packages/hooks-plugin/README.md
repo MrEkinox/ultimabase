@@ -167,13 +167,13 @@ const Post = Application.Schema.define({
 	fields: (field) => ({ title: field.string() }),
 	hooks: {
 		beforeOperation: {
-			softDelete: ({ context, input, item, originalItem, target }) => {
+			softDeleteOne: ({ context, input, item, originalItem, target }) => {
 				console.log(context.requestId, input, target.id)
 				console.log(originalItem, item)
 			},
 		},
 		afterOperation: {
-			softDelete: ({ item, mutation }) => {
+			softDeleteOne: ({ item, mutation }) => {
 				console.log(mutation.name, item)
 			},
 		},
@@ -193,8 +193,8 @@ queries, or emit post-commit events; returning a value never replaces the
 payload, effect, result, or persistence plan.
 
 Dispatch uses the custom logical command, never its physical statement. A
-`softDelete` implemented by `update-one` therefore runs only
-`beforeOperation.softDelete` and `afterOperation.softDelete`; it does not run
+`softDeleteOne` implemented by `update-one` therefore runs only
+`beforeOperation.softDeleteOne` and `afterOperation.softDeleteOne`; it does not run
 native update or delete Hooks. JavaScript declarations are validated against
 the same final application mutation catalog during startup, so stale command
 keys fail before Runtime work begins.

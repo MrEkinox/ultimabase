@@ -258,7 +258,10 @@ without replaying native update or delete semantics. Application schema and
 model handles, optional official Access and Hooks engines, REST, and GraphQL
 derive exact application-local command keys from the inert compiled mutation
 surface. Static transport planning and late execution remain separate; Core and
-the transports never name `softDelete`, `restore`, or `purge`.
+the transports never name `softDeleteOne`, `restoreOne`, or `purgeOne`. A
+mutation declared with `target: 'many'` takes a `where`: Core resolves the
+rows the command may target, then runs the one-row pipeline for each inside one
+transaction (ADR-0316).
 
 ADR-0248 also exposes schema mutations through direct frozen-class syntax.
 Each call resolves the sole active initialized application and verifies exact
@@ -370,18 +373,18 @@ that guard boundary. Reads, adapter results, materializations, includes, and
 final projections repeat only Core structural snapshots. An application without
 the plugin has no application field validator or placeholder Runtime behavior.
 
-The official `@ultimabase/soft-delete-plugin` owns the direct `softDelete`
-schema option and its application-local `disabled`, `replace-delete`, and
-`explicit` mode inheritance. Replace mode retains the native logical delete
-while a protected plan rewrite performs the physical tombstone update. Explicit
-mode retains hard delete and contributes a separate application-owned schema
-mutation. Both use the same generic Runtime transaction, protected constraints,
-and persistence boundary. Optional Access and Hooks engines derive independent
-logical operation keys, while REST and GraphQL expose only the explicit command
-on otherwise eligible schemas. Audited Master-only `restore` and `purge`
-commands exist only on application schema handles. The package depends only on
-public foundations and never imports those optional engines, transports, Yoga,
-or a database implementation.
+The official `@ultimabase/soft-delete-plugin` is written with `definePlugin`
+(ADR-0316). A schema opts in with the `.softDelete()` shape method, which adds
+the server-written `isDeleted` and `deletedAt` fields and the `softDeleteOne`,
+`softDeleteMany`, `restoreOne`, `restoreMany`, `purgeOne` and `purgeMany`
+commands. Without options, the native logical delete is kept while a protected
+plan rewrite performs the physical tombstone update; `{ mode: 'command' }`
+keeps hard delete. Both use the same generic Runtime transaction, protected
+constraints, and persistence boundary. Optional Access and Hooks engines derive
+independent logical operation keys; REST and GraphQL expose the one-row
+request commands on otherwise eligible schemas. Purge is audited Master-only.
+The package depends only on public foundations and never imports those
+optional engines, transports, Yoga, or a database implementation.
 
 ## Module layout
 

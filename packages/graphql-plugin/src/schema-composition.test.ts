@@ -1,4 +1,4 @@
-import { UltimaBase, plugin, type PluginIdentity } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import {
 	GraphQLDirective,
 	GraphQLInt,
@@ -16,7 +16,12 @@ import type { GraphqlApplication } from './application.js'
 import { composeGraphqlSchemas } from './schema-composition.js'
 import { provideGraphqlSchemas } from './schema-contributions.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
-import { RequestContext, anonymous } from '@ultimabase/core/plugin'
+import {
+	RequestContext,
+	anonymous,
+	plugin,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 
 const Hidden = UltimaBase.Schema.define({
 	className: 'CompositionHidden',

@@ -10,23 +10,25 @@ if (databaseUrl === undefined) {
 }
 
 const Application = UltimaBase.use(
-	softDeletePlugin({ defaultMode: 'disabled' }),
+	softDeletePlugin(),
 	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 )
-const Explicit = Application.Schema.define({
-	className: 'JavaScriptSoftDeleteExplicit',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'explicit',
-})
-const Replace = Application.Schema.define({
-	className: 'JavaScriptSoftDeleteReplace',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'replace-delete',
-})
-const Disabled = Application.Schema.define({
-	className: 'JavaScriptSoftDeleteDisabled',
+const Command = Application.Schema.define({
+	className: 'JavaScriptSoftDeleteCommand',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
+	.softDelete({ mode: 'command' })
+	.with({})
+const Logical = Application.Schema.define({
+	className: 'JavaScriptSoftDeleteLogical',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+})
+	.softDelete()
+	.with({})
+const Plain = Application.Schema.define({
+	className: 'JavaScriptSoftDeletePlain',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+}).with({})
 const audits = []
 const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
@@ -34,71 +36,58 @@ const ultimabase = new Application({
 		onUse: (event) => audits.push(event.reason),
 	}),
 	logger: false,
-	schemas: [Explicit, Replace, Disabled],
+	schemas: [Command, Logical, Plain],
 })
 
 await ultimabase.start()
 
+const surface = (className) => [
+	...(ultimabase
+		.compile()
+		.typegenGraph.schemaSurfaces.find(
+			({ schema }) => schema.className === className,
+		)
+		?.schemaMutations.keys() ?? []),
+]
+
 try {
-	const explicit = await Explicit.createOne({
-		data: { title: 'Explicit JavaScript' },
+	const command = await Command.createOne({
+		data: { title: 'Command JavaScript' },
 	})
-	const explicitHandle = ultimabase.schema(Explicit)
-	await explicitHandle.softDelete({ id: explicit.id })
-	const hiddenExplicit = await Explicit.count({})
-	await explicitHandle.restore({ id: explicit.id }, { useMasterKey: true })
-	const restoredExplicit = await Explicit.count({})
-	await explicitHandle.softDelete({ id: explicit.id })
-	await explicitHandle.purge({ id: explicit.id }, { useMasterKey: true })
-	const purgedExplicit = await Explicit.count({})
+	await Command.softDeleteOne({ id: command.id })
+	const hiddenCommand = await Command.count({})
+	await Command.restoreOne({ id: command.id })
+	const restoredCommand = await Command.count({})
+	await Command.softDeleteOne({ id: command.id })
+	await Command.purgeOne({ id: command.id }, { useMasterKey: true })
+	const purgedCommand = await Command.count({}, { useMasterKey: true })
 
-	const replace = await Replace.createOne({
-		data: { title: 'Replace JavaScript' },
+	const logical = await Logical.createOne({
+		data: { title: 'Logical JavaScript' },
 	})
-	await Replace.deleteOne({ where: { id: replace.id } })
-	const hiddenReplace = await Replace.count({})
+	await Logical.deleteOne({ where: { id: logical.id } })
+	const hiddenLogical = await Logical.count({})
 
-	const disabled = await Disabled.createOne({
-		data: { title: 'Disabled JavaScript' },
+	const plain = await Plain.createOne({
+		data: { title: 'Plain JavaScript' },
 	})
-	await Disabled.deleteOne({ where: { id: disabled.id } })
-	const deletedDisabled = await Disabled.exists({
-		where: { id: { eq: disabled.id } },
+	await Plain.deleteOne({ where: { id: plain.id } })
+	const deletedPlain = await Plain.exists({
+		where: { id: { eq: plain.id } },
 	})
 
 	process.stdout.write(
 		`${JSON.stringify({
 			auditCount: audits.length,
-			deletedDisabled,
-			hiddenExplicit,
-			hiddenReplace,
-			purgedExplicit,
-			restoredExplicit,
+			deletedPlain,
+			hiddenCommand,
+			hiddenLogical,
+			purgedCommand,
+			restoredCommand,
 			surfaces: {
-				disabled: [
-					...(ultimabase
-						.compile()
-						.typegenGraph.schemaSurfaces.find(
-							({ schema }) => schema.className === Disabled.className,
-						)
-						?.schemaMutations.keys() ?? []),
-				],
-				explicit: [
-					...(ultimabase
-						.compile()
-						.typegenGraph.schemaSurfaces.find(
-							({ schema }) => schema.className === Explicit.className,
-						)
-						?.schemaMutations.keys() ?? []),
-				],
-				replace: [
-					...(ultimabase
-						.compile()
-						.typegenGraph.schemaSurfaces.find(
-							({ schema }) => schema.className === Replace.className,
-						)
-						?.schemaMutations.keys() ?? []),
-				],
+				command: surface(Command.className),
+				logical: surface(Logical.className),
+				plain: surface(Plain.className),
 			},
 		})}\n`,
 	)

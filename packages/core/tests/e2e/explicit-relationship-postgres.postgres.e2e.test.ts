@@ -1,4 +1,4 @@
-import { UltimaBase, type PluginSourceState } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -8,7 +8,11 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
-import { requestSources, anonymous } from '@ultimabase/core/plugin'
+import {
+	requestSources,
+	anonymous,
+	type PluginSourceState,
+} from '@ultimabase/core/plugin'
 
 const membershipTrace: string[] = []
 const ExplicitRelationshipApplication =

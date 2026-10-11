@@ -2,13 +2,13 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	PluginGraph,
 	plugin,
 	contributeApplication,
 	normalizePlugins,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { typegenPlugin } from './plugin.js'

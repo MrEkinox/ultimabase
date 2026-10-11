@@ -1,9 +1,8 @@
+import type { JsonObject, PointerValue } from '@ultimabase/core'
 import type {
 	CapabilityProviderDeclaration,
 	CapabilityRequirement,
-	JsonObject,
-	PointerValue,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	definePluginEvent,
 	definePluginEventCapability,

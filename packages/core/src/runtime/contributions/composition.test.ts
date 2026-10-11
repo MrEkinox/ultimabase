@@ -1,5 +1,5 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { plugin as createPlugin } from '../../foundation.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
 import {
 	createApplication,
 	FrameworkApplication,

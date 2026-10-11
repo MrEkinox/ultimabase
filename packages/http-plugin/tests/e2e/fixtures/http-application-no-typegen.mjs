@@ -2,14 +2,13 @@
 
 import process from 'node:process'
 
+import { UltimaBase, databaseAdapterCapability } from '@ultimabase/core'
 import {
-	UltimaBase,
 	contributeApplication,
-	databaseAdapterCapability,
 	plugin,
 	provideCapability,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	dispatchHttpApplicationRequest,
 	httpApplicationCapability,

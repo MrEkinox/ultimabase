@@ -210,7 +210,7 @@ import {
 	onACLChange,
 	provideACLChangeObserver,
 } from '@ultimabase/acl-permissions-plugin'
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 
 const aclAuditPlugin = plugin({
 	id: 'app.acl-audit',

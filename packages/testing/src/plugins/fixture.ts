@@ -1,8 +1,5 @@
-import type {
-	UltimaBase,
-	PluginDefinition,
-	SchemaDefinition,
-} from '@ultimabase/core'
+import type { UltimaBase, SchemaDefinition } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,

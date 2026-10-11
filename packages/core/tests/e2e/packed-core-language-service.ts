@@ -208,8 +208,10 @@ export const createPackedCoreLanguageFixture = async (
 		sourceFixtureFile,
 		path.join(repositoryRoot, 'tests/e2e', packedFixtureName),
 		(source) =>
-			`${source.replaceAll(
-				"'../../src/index.js'",
-				"'@ultimabase/core'",
-			)}\n${additionalSource}`,
+			`${source
+				.replaceAll("'../../src/index.js'", "'@ultimabase/core'")
+				.replaceAll(
+					"'../../src/plugin.js'",
+					"'@ultimabase/core/plugin'",
+				)}\n${additionalSource}`,
 	)

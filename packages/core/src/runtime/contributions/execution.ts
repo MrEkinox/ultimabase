@@ -14,7 +14,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { FrameworkApplication } from '../../application/framework-application.js'
-import type { PluginDefinition } from '../../foundation.js'
+import type { PluginDefinition } from '../../plugins/definition.js'
 import type { CapabilityToken } from '../../plugins/capability-token.js'
 import {
 	ownPluginContribution,

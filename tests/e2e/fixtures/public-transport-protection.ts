@@ -1,12 +1,14 @@
 import {
-	contributeOperation,
-	defineOperation,
 	defineOperationTransport,
-	defineOperationValue,
-	plugin,
 	operationTransportBinding,
 	operationWireCodec,
 } from '@ultimabase/core'
+import {
+	contributeOperation,
+	defineOperation,
+	defineOperationValue,
+	plugin,
+} from '@ultimabase/core/plugin'
 
 const emptyValue = defineOperationValue((value, path): null => {
 	if (value !== null) throw new TypeError(`${path} must be null`)

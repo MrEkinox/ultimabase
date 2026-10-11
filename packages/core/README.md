@@ -87,6 +87,17 @@ declare module '@ultimabase/core' {
 - Plugins contribute shape methods through `provideSchemaShapeMethods` and
   `.with` entries through `PluginSchemaRulesSource`; Core never names them.
   `.with` must be the last call. `define` returns a `DeclaredSchema`.
+- Shape methods are generic over their arguments, and the chain records the
+  methods called with their arguments (`{ softDelete: readonly [] }`). Plugins
+  type what a schema gains through higher-kinded slots that Core evaluates
+  against that record (ADR-0316): `SchemaFieldsHKT` returns the added fields
+  (never reading the schema, so no cycle), `SchemaStaticsHKT` the added
+  statics, typed with `SchemaCommands<this['schema'], { … }>`, and
+  `SchemaRulesHKT` the `.with` entries, which replace plugin options in form D.
+  The template projections (`schemaFields`, `schemaClass`, `schemaOptions`)
+  remain for ACL, PostgreSQL, REST and GraphQL until their migration.
+  `definePlugin` from `@ultimabase/plugin-kit` writes these slots for the
+  common cases.
 - The `Register` declaration gives name-keyed types (`Model<'Todo'>`,
   `Item<'Todo'>`, `CreateInput<'Todo'>`, `Where<'Todo'>`, `Select<'Todo'>`).
   ADR-0297 makes it required; that type error is not enforced yet.
@@ -1949,7 +1960,7 @@ Core owns one package-level authoring entry point. A package factory returns one
 direct `plugin()` call with stable facts and one ordered contribution list:
 
 ```ts
-import { contributeApplication, plugin } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 
 export const workflowPlugin = (instanceId?: string) =>
 	plugin({
@@ -1992,9 +2003,51 @@ Core exposes `undefined` for that plugin and keeps the same resource for every
 lifecycle callback. If the plugin exposes an application-local API, add
 `exports` and its exact type remains available through plugin lookup.
 
-Transports and other plugin packages import authoring helpers from the
-plugin-author subpath `@ultimabase/core/plugin` (ADR-0311). It exports the
-request-context machinery that applications never need: `RequestContext`
+Plugin packages import every authoring contract from the plugin-author
+subpath `@ultimabase/core/plugin` (ADR-0311, ADR-0316): `plugin()`, the
+contribution factories, capabilities, schema declaration registrars and patch
+operations, option definitions, operations, schema mutations, projection
+slots, Typegen references, plugin identities and the plugin graph. The main
+entry keeps what applications use.
+
+`plugin()` infers the plugin's static source from its contributions; a facade
+that knows it better passes it as the last type argument instead of re-typing
+the result. `readSchemaRules(schema, owner)` returns the values a compiled
+schema gave to the options one plugin declared, `.with` rules and shape-method
+arguments alike, and nothing of other plugins:
+
+```ts
+provideRuntimeBehavior({
+	contributionId: 'audit',
+	create: ({ owner }) => ({
+		value: {
+			postCommit: ({ operation }) => {
+				const schema = getOperationSchema(operation)
+				if (
+					Schema.is(schema) &&
+					readSchemaRules(schema, owner).audit === true
+				) {
+					console.info(schema.className)
+				}
+			},
+		},
+	}),
+})
+```
+
+A schema mutation declared with `target: 'many'` takes `{ where }` instead of
+`{ id }`: inside one transaction, Core enforces the command once to find the
+rows it may target (protected policies and rule filters included), then runs
+the one-row pipeline for each of them, in identifier order, so Access, Hooks
+and readable-result checks apply per row and one refusal rolls everything back.
+Many-row mutations have no transport binding yet. When a command's write hits
+a unique index, Core reports `UNIQUE_VIOLATION` with `Cannot run <command> on
+<Schema> <id>: <fields> is now used by another row.`, keeping the values in the
+internal details. A command effect may write `null` to clear an optional field
+it owns.
+
+The same entry exports the request-context machinery that applications never
+need: `RequestContext`
 (with `RequestContext.anonymous`), `RequestContextValue`,
 `RequestCapability`, `requestSources`, `RequestEngine`,
 `anonymous(app, options)`, `withContext(app, context)` and

@@ -142,7 +142,7 @@ describe('schema declaration form without Typegen (ADR-0297)', () => {
 			const typos = readExpectedErrors(configName, 'src/typos.ts')
 			const exactness = readExpectedErrors(configName, 'src/exactness.ts')
 			const selectTypo =
-				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; isDeleted?: boolean; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; assignee?: boolean; title?: boolean; archived?: boolean; priority?: boolean; parent?: boolean; }>'. Did you mean to write 'title'?"
+				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; assignee?: boolean; title?: boolean; archived?: boolean; priority?: boolean; parent?: boolean; isDeleted?: boolean; deletedAt?: boolean; }>'. Did you mean to write 'title'?"
 
 			expect(typos).toContain(`src/typos.ts:82 ${selectTypo}`)
 			expect(exactness).toContain(`src/exactness.ts:27 ${selectTypo}`)

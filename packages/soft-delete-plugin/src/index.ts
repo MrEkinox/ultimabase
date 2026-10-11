@@ -1,7 +1,8 @@
 export { softDeletePlugin } from './plugin.js'
-export type { SoftDeletePlugin, SoftDeleteShapeSource } from './plugin.js'
 export type {
-	SoftDeleteMode,
-	SoftDeletePluginOptions,
-	SoftDeleteSchemaOption,
-} from './contracts.js'
+	SoftDeleteCommands,
+	SoftDeleteFields,
+	SoftDeletePlugin,
+	SoftDeleteShape,
+} from './plugin.js'
+export type { SoftDeleteOptions, SoftDeleteSchemaMode } from './options.js'

@@ -2,11 +2,13 @@ import path from 'node:path'
 
 import {
 	definePluginFieldFamily,
-	plugin as createPlugin,
-	contributeDeclarations,
 	definePluginField,
 	UltimaBase,
 } from '@ultimabase/core'
+import {
+	plugin as createPlugin,
+	contributeDeclarations,
+} from '@ultimabase/core/plugin'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -108,6 +110,7 @@ const createLanguageService = (
 			paths: {
 				'@fixture/containment-plugin': [pluginFileName],
 				'@ultimabase/core': ['packages/core/src/index.ts'],
+				'@ultimabase/core/plugin': ['packages/core/src/plugin.ts'],
 				'@ultimabase/shared': ['packages/shared/src/index.ts'],
 			},
 			strict: true,

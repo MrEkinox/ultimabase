@@ -1,4 +1,4 @@
-import { defineCapability, type CapabilityToken } from '@ultimabase/core'
+import { defineCapability, type CapabilityToken } from '@ultimabase/core/plugin'
 
 /** Describes the lifecycle state visible without exposing the driver pool. */
 export type PostgresConnectionState = 'closed' | 'connected' | 'idle'

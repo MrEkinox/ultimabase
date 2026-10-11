@@ -8,7 +8,7 @@ import {
 	requireCapability,
 	type CapabilityConsumerValue,
 	type CapabilityProviderValue,
-} from '../index.js'
+} from '../plugin.js'
 
 interface AuditProvider {
 	readonly write: (entry: { readonly message: string }) => Promise<void>

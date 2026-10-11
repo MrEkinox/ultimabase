@@ -1,10 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
-import {
-	plugin,
-	provideRuntimeBehavior,
-	UltimaBase,
-	type PluginDefinition,
-} from '@ultimabase/core'
+import { provideRuntimeBehavior, UltimaBase } from '@ultimabase/core'
+import { plugin, type PluginDefinition } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	diffRuntimeCostSnapshots,

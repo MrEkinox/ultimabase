@@ -1,14 +1,16 @@
 import {
 	databaseAdapterCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
-	type PluginDefinition,
 } from '@ultimabase/core'
+import {
+	plugin,
+	provideCapability,
+	type PluginDefinition,
+} from '@ultimabase/core/plugin'
 
 class EmptyHttpTestDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const

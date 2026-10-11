@@ -1,11 +1,11 @@
 import type {
 	CompiledApplication,
-	PluginDefinition,
 	SchemaCompilationProvenance,
 	SchemaContributionProvenance,
 	SchemaDefinition,
 	UltimaBase,
 } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 type PublicOwner = Readonly<{
 	readonly instanceId?: string
 	readonly pluginId: string

@@ -8,11 +8,8 @@ const fileName = path.join(
 	'plugin-kit-authoring.fixture.ts',
 )
 const source = `
-import {
-  contributeApplication,
-  plugin,
-  stringField,
-} from '@ultimabase/core'
+import { stringField } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 import { z } from 'zod'
 import {
   definePluginOptionsParser,

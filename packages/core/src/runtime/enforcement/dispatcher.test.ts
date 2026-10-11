@@ -1,4 +1,5 @@
-import { plugin as createPlugin, FrameworkError } from '../../foundation.js'
+import { FrameworkError } from '../../foundation.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { createApplication } from '../../application/framework-application.js'
 import {
 	type CreateOneOperationAst,

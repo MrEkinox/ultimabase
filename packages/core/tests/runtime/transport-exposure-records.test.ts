@@ -4,19 +4,21 @@ import { describe, expect, it } from 'vitest'
 import { applicationFixture } from '../application-fixture.js'
 import {
 	applicationRequestExecutionCapability,
+	defineOperationTransport,
+	operationTransportBinding,
+	operationWireCodec,
+	UltimaBase,
+	type ApplicationSchemaMutationTransport,
+} from '../../src/index.js'
+import {
 	contributeApplication,
 	contributeOperation,
 	contributeOperationBinding,
 	defineOperation,
-	defineOperationTransport,
 	defineOperationValue,
-	operationTransportBinding,
-	operationWireCodec,
 	plugin as createPlugin,
 	requireCapability,
-	UltimaBase,
-	type ApplicationSchemaMutationTransport,
-} from '../../src/index.js'
+} from '../../src/plugin.js'
 import { provideTestDatabaseAdapter } from './fixtures/database-adapter-capability.js'
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
 

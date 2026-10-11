@@ -5,7 +5,6 @@ import {
 	PublicError,
 	UltimaBase,
 	isAuthenticated,
-	plugin,
 	type PointerValue,
 	type PolicyPredicate,
 } from '@ultimabase/core'
@@ -24,6 +23,7 @@ import {
 	RequestContext,
 	RequestContextValue,
 	requestSources,
+	plugin,
 } from '@ultimabase/core/plugin'
 
 // ADR-0304: Core resolves the principal once per request and hands it to

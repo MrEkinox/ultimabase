@@ -1,4 +1,5 @@
-import { UltimaBase, plugin, type JsonObject } from '@ultimabase/core'
+import { UltimaBase, type JsonObject } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
