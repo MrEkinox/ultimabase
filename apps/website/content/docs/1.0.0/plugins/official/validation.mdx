@@ -1,35 +1,39 @@
 ---
 title: Validation
-description: Add synchronous Standard Schema validation to final mutation values while Core retains structural validation.
+description: Validate and format stored values with Standard Schema validators or functions, check complete items, and report every issue at once.
 audience:
   - application-developer
 contentType: concept
 outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-11
 sources:
   - packages/validation-plugin/README.md
   - packages/validation-plugin/src/field-validation.ts
   - packages/validation-plugin/src/operation-validation.ts
+  - packages/validation-plugin/src/schema-validation.ts
+  - packages/validation-plugin/src/check.ts
   - packages/validation-plugin/src/field-validation.test.ts
+  - packages/validation-plugin/tests/e2e/validation-rules.postgres.e2e.test.ts
   - docs/adr/0223-optional-field-validation-plugin.md
+  - docs/adr/0319-validation-transforms-schema-checks-and-issues.md
   - examples/minimal/src/schema.ts
 ---
 
 ## Overview
 
-`@ultimabase/validation-plugin` owns the optional `validation` field option.
-Core always enforces requiredness, nullability, canonical value shapes, defaults,
-immutable fields, and database integrity; installing this plugin adds
-application-specific rejection rules. Importing the package alone does not
-install those rules in an application.
+`@ultimabase/validation-plugin` adds application validation: a `validation`
+option on fields, a schema check in `.with({ validation })`, and `check()` to
+validate data without writing. Core always enforces requiredness, nullability,
+canonical value shapes, defaults, immutable fields, and database integrity;
+this plugin adds application rules on top. Importing the package alone does
+not install them in an application.
 
 ## Installation
 
 Start from an UltimaBase application with a database provider, as in
 [Manual Installation](/docs/1.0.0/manual-installation). Install this plugin
-and a Standard Schema V1 implementation such as Zod. The example below uses
-the already-installed PostgreSQL provider.
+and, if you want one, a Standard Schema V1 library such as Zod:
 
 ```bash tab="npm" tab-group="package-manager"
 npm install @ultimabase/validation-plugin zod
@@ -45,105 +49,129 @@ pnpm add @ultimabase/validation-plugin zod
 
 ## Configuration
 
-Attach a validator to a stored field. Here Zod checks the complete canonical
-string after Core has resolved the input:
+A field validator is a Standard Schema validator (Zod, Valibot, ArkType…) or
+a function. A schema check sees the complete item:
 
 ```ts title="src/application.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-
-export const Application = UltimaBase.use(
-	postgresPlugin({ url: databaseUrl }),
-).use(validationPlugin())
+export const Application = UltimaBase.use(postgresPlugin(), validationPlugin())
 ```
 
-```ts title="src/article.ts"
+```ts title="src/event.ts"
 import { z } from 'zod'
 import { Application } from './application.js'
 
-export const Article = Application.Schema.define({
-	className: 'Article',
+export const Event = Application.Schema.define({
+	className: 'Event',
 	fields: (f) => ({
-		title: f.string({
-			required: true,
-			validation: z.string().min(1).max(200),
+		// The output is stored: the title is trimmed, then checked.
+		title: f.string({ required: true, validation: z.string().trim().max(200) }),
+		code: f.string({
+			validation: (code) =>
+				/^[A-Z]{3}$/u.test(code) || {
+					code: 'event.code',
+					message: 'Three capital letters',
+				},
 		}),
+		startsAt: f.int({ required: true }),
+		endsAt: f.int({ required: true }),
 	}),
+}).with({
+	validation: ({ item }) =>
+		item.endsAt >= item.startsAt || {
+			path: ['endsAt'],
+			message: 'An event cannot end before it starts',
+		},
 })
 ```
 
-Install the plugin in the same application that registers `Article`:
+Register the schema in the application that installs the plugin:
 
 ```ts title="src/ultimabase.ts"
 import { Application } from './application.js'
-import { Article } from './article.js'
+import { Event } from './event.js'
 
-export const ultimabase = new Application({
-	schemas: [Article],
-})
+export const ultimabase = new Application({ schemas: [Event] })
 ```
 
-Keep startup in the existing entry point from
-[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
-`ultimabase.start()` there and always await `dispose()` when the process finishes.
-This configuration module stays safe to load for static Typegen generation.
+`validationPlugin()` takes no options. Types come from the schema itself,
+without generated files; the `validation` option of `define` follows the same
+types until the declaration form is retired.
 
-`validationPlugin()` takes no options. Its configured factory exposes
-`validation` on supported fields directly from source. Regenerate Typegen
-when the application-wide named schema graph or a generated `where` contract
-changes; see
-[Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
-
-The option accepts one synchronous Standard Schema V1 validator whose input
-and output are compatible with the field's complete canonical non-null value.
-It works on stored fields and embedded object properties, including list and
-plugin-defined stored values. Relation handles, virtual fields, and output
-descriptors do not expose it. `required` remains an independent Core option:
-the validator does not decide whether a field may be omitted or set to `null`.
+A Standard Schema validator must accept the field's value (its input may also
+accept `null`, so a form schema can be reused) and return a value the field
+can store. A mismatch is reported on the option, for example
+`validation must accept string, got number`, and the option's hover reads
+`FieldValidator<string>`. A function validator receives the value and returns
+`true`, a message, or `{ message, code }`; the `code` reaches the client. Both
+may be `async`. Relation handles, virtual fields, and output descriptors do not
+expose the option.
 
 ## Behavior and limitations
 
 ### What runs, and when
 
-The plugin checks each present, non-null field occurrence once for create,
-update, and upsert candidates. Defaults, generators, optional field and schema
-`resolveInput` hooks, prepared-operation transforms, and final Core structural
-validation run first. The validator sees the resulting complete value, not a
-raw transport input or an arithmetic delta. An update that increments a
-validated number checks its projected complete value while keeping the
-database operation atomic.
+Validation is the last step before storage: defaults, generators, Hooks
+`resolveInput` and Core's structural validation run first. A create validates
+every present field; an update validates only the fields it changes; the
+schema check always sees the complete item as it would be stored. A field
+validator never runs for `null`, and an object validator does not run when one
+of its properties failed. An update that increments a validated number checks
+the projected value while keeping the database operation atomic.
 
-Standard Schema issues become `field.validation` issues with the affected
-field path, including nested object and list positions. Master mutations take
-the same validation path; Master bypasses authorization, not validation.
+A Standard Schema validator's output is what gets stored, so
+`z.string().trim()` trims the value. Formatting a value belongs in the
+validator; deriving or cross-checking business data belongs in Hooks
+`resolveInput`. Core checks the output structurally again before storing it.
 
-The validator may accept or reject the value, but its output is not adopted as
-a replacement. A schema that trims, coerces, inserts a default, or otherwise
-changes the value is a validator-contract error. Use [Hooks](./hooks) for input
-normalization, then validate the resolved result. Validators must be
-synchronous; promises and thrown vendor errors are contract errors too.
+Validators may be `async`, but they run inside the transaction: a slow call
+holds its locks. Uniqueness belongs to a unique index, not to a validator.
+Master mutations take the same validation path; Master bypasses
+authorization, not validation.
 
-Reads, included records, adapter results, and mutation results retain Core's
-structural checks but do **not** rerun application validators. This plugin is
-not a read-time data-cleaning mechanism or a substitute for database
-constraints such as unique indexes.
+### One response for every issue
+
+Core's structural issues (a missing required field, a wrong type) and every
+validator issue are collected into one `VALIDATION_ERROR`, each issue as
+`{ path, message, code }`: `field.validation` for a field validator,
+`schema.validation` for a schema check, or the `code` a function returned. A
+field path starts with the operation part (`['input', 'title']` for a create,
+`['update', 0, 'title', 'value']` for an update); a schema check's path is
+relative to the item. `updateMany` and the other bulk calls prefix each path
+with the item's index. REST answers `422` with the list in `details.issues`;
+GraphQL reports it in `extensions.details.issues`.
+
+### Validating without writing
+
+`check()` runs the field validators and the schema check of a create, without
+a write or a transaction, for forms, imports and tests:
+
+```ts
+const result = await ultimabase.plugin(validationPlugin).check(Event, { data })
+if (!result.valid) console.log(result.issues)
+```
+
+It reports the plugin's issues only: Core's structural checks run when the
+data is written.
+
+Reads, included records, adapter results, and mutation results keep Core's
+structural checks but do **not** rerun application validators.
 
 ## Troubleshooting
 
-- **`validation` is an unknown field option:** confirm `validationPlugin()` is
-  installed on the configured factory used to declare the schema. Importing the
-  package or installing it only on another factory does not expose the option.
+- **`validation` is an unknown option:** confirm `validationPlugin()` is
+  installed on the configured factory used to declare the schema.
+- **`validation must accept …` or `validation must return …`:** the validator's
+  input or output type does not fit the field; use a validator of the field's
+  type, or a function.
 - **A value is rejected with `field.validation`:** inspect the issue path and
-  the vendor's message. In the example, an empty title fails `min(1)`; a
-  non-empty title passes. The same rule applies to Master mutations.
-- **A validator-contract error occurs:** keep validation synchronous and
-  rejection-only. For example, `z.string().trim()` can change accepted values;
-  normalize through a `resolveInput` hook instead, then validate the result.
-- **A value that fails an application rule still reads:** application validators
-  do not run on reads, although Core still checks its structural shape. Check
-  the data source and enforce persistent invariants with the appropriate
-  database constraint or migration.
+  message. The same rules apply to Master mutations.
+- **A validator-contract error (`INTERNAL_ERROR`) occurs:** a validator threw,
+  returned a malformed result, or a function returned something other than
+  `true`, a message, or `{ message, code }`.
+- **A value that fails an application rule still reads:** application
+  validators do not run on reads. Enforce persistent invariants with a database
+  constraint or a migration.

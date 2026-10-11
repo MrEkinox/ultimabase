@@ -214,7 +214,7 @@ const SemanticArticle = SemanticApplication.Schema.define({
             },
             write: true,
           },
-          hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+          hooks: { resolveInput: ({ value }) => value.trim() },
         }),
       }),
     }),

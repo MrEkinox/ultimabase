@@ -20,6 +20,7 @@ import {
 import {
 	type PluginDefinition,
 	type PluginExports,
+	type PluginFactory,
 } from '../../plugins/definition.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
@@ -333,6 +334,13 @@ export class UltimaBase<
 	plugin<const TPlugin extends PluginDefinition>(
 		plugin: TPlugin,
 	): PluginExports<TPlugin>
+	/**
+	 * Retrieves the exports of the installed plugin a factory creates.
+	 * @example `ultimabase.plugin(validationPlugin).check(Todo, { data })`
+	 */
+	plugin<const TFactory extends PluginFactory>(
+		factory: TFactory,
+	): PluginExports<ReturnType<TFactory>>
 	plugin<const TPluginId extends ConfiguredPluginId<TPlugins>>(
 		pluginId: TPluginId,
 	): ConfiguredPluginExports<TPlugins, TPluginId>
@@ -340,8 +348,12 @@ export class UltimaBase<
 		identity: TIdentity,
 	): ConfiguredPluginIdentityExports<TPlugins, TIdentity>
 	plugin(
-		pluginOrIdentity: PluginDefinition | PluginIdentity | string,
+		pluginOrIdentity:
+			PluginDefinition | PluginFactory | PluginIdentity | string,
 	): unknown {
+		if (typeof pluginOrIdentity === 'function') {
+			return this.#application.getPluginDynamic(pluginOrIdentity.pluginId)
+		}
 		return typeof pluginOrIdentity === 'object' &&
 			'manifest' in pluginOrIdentity
 			? readApplicationKernelState(this.#application).pluginExports(

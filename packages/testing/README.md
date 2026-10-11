@@ -259,6 +259,21 @@ expect(logger.lines.at(-1)?.message).toMatch(/^UltimaBase started:/u)
 `lines` keeps every `{ level, message, details }` record in arrival order,
 `messages(level?)` lists messages, and `clear()` forgets them.
 
+## Waiting for after-commit work
+
+`afterCommit` Hooks and event consumers run after the transaction commits,
+without delaying the response (ADR-0318). `waitForAfterCommit()` resolves once
+the active application's pending after-commit work has run, including work it
+started; it never rejects, failures being logged by the application:
+
+```ts
+import { waitForAfterCommit } from '@ultimabase/testing'
+
+await Todo.createOne({ data: { title: 'Ship' } })
+await waitForAfterCommit()
+expect(sentEmails).toHaveLength(1)
+```
+
 ## Fake public operation transport
 
 `FakePublicOperationTransport` exercises an application's explicit generic

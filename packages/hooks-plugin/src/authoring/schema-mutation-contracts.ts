@@ -15,13 +15,17 @@ import type { MaybePromise } from '@ultimabase/shared'
 import type { HookContext } from '../context/hook-context.js'
 import type {
 	HookHandlerDeclaration,
-	SchemaAfterCreateHook,
-	SchemaAfterDeleteHook,
-	SchemaAfterUpdateHook,
-	SchemaAfterUpsertHook,
-	SchemaBeforeCreateHook,
-	SchemaBeforeDeleteHook,
-	SchemaBeforeUpdateHook,
+	SchemaAfterCreateHookInput,
+	SchemaAfterDeleteHookInput,
+	SchemaAfterOperationHookInput,
+	SchemaAfterUpdateHookInput,
+	SchemaAfterUpsertHookInput,
+	SchemaBeforeCreateHookInput,
+	SchemaBeforeDeleteHookInput,
+	SchemaBeforeOperationHookInput,
+	SchemaBeforeUpdateHookInput,
+	SchemaBeforeUpsertHookInput,
+	SchemaOperationHook,
 } from './contracts.js'
 
 /** Exposes only the stable logical identity used to select one custom Hook branch. */
@@ -89,6 +93,26 @@ type GeneratedMutationMap<TSchema extends SchemaDefinition> =
 type SchemaMutationMap<TSchema extends SchemaDefinition> =
 	GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSchema>
 
+/**
+ * What an `all` hook receives for one plugin command: the command's input
+ * with `kind` set to its name, so `all` can narrow on it (ADR-0318 amendment).
+ */
+export type SchemaMutationAllHookInput<
+	TSchema extends SchemaDefinition,
+	TPhase extends 'after' | 'before',
+> = {
+	[
+		TCommand in keyof SchemaMutationMap<TSchema> & string
+	]: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
+		PluginSchemaMutationDefinition
+		? (TPhase extends 'before'
+				? SchemaMutationBeforeHookInput<TSchema, TMutation>
+				: SchemaMutationAfterHookInput<TSchema, TMutation>) & {
+				readonly kind: TCommand
+			}
+		: never
+}[keyof SchemaMutationMap<TSchema> & string]
+
 /** Projects exact custom before-operation branches from the generated graph. */
 type SchemaMutationBeforeOperationHooks<TSchema extends SchemaDefinition> = {
 	readonly [
@@ -110,9 +134,28 @@ type SchemaMutationAfterOperationHooks<TSchema extends SchemaDefinition> = {
 }
 
 interface NativeSchemaBeforeOperationHooks<TSchema extends SchemaDefinition> {
-	readonly create?: HookHandlerDeclaration<SchemaBeforeCreateHook<TSchema>>
-	readonly update?: HookHandlerDeclaration<SchemaBeforeUpdateHook<TSchema>>
-	readonly delete?: HookHandlerDeclaration<SchemaBeforeDeleteHook<TSchema>>
+	/**
+	 * Runs for every create, update, upsert, delete and plugin command, before
+	 * its own branch; `kind` names the operation or the command.
+	 */
+	readonly all?: HookHandlerDeclaration<
+		SchemaOperationHook<
+			| SchemaBeforeOperationHookInput<TSchema>
+			| SchemaMutationAllHookInput<TSchema, 'before'>
+		>
+	>
+	readonly create?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaBeforeCreateHookInput<TSchema>>
+	>
+	readonly update?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaBeforeUpdateHookInput<TSchema>>
+	>
+	readonly upsert?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaBeforeUpsertHookInput<TSchema>>
+	>
+	readonly delete?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaBeforeDeleteHookInput<TSchema>>
+	>
 }
 
 /** Combines native lifecycle names with this application's exact schema mutations. */
@@ -130,10 +173,28 @@ export type SchemaBeforeOperationHooks<TSchema extends SchemaDefinition> =
 	}>
 
 interface NativeSchemaAfterOperationHooks<TSchema extends SchemaDefinition> {
-	readonly create?: HookHandlerDeclaration<SchemaAfterCreateHook<TSchema>>
-	readonly update?: HookHandlerDeclaration<SchemaAfterUpdateHook<TSchema>>
-	readonly upsert?: HookHandlerDeclaration<SchemaAfterUpsertHook<TSchema>>
-	readonly delete?: HookHandlerDeclaration<SchemaAfterDeleteHook<TSchema>>
+	/**
+	 * Runs for every create, update, upsert, delete and plugin command, before
+	 * its own branch; `kind` names the operation or the command.
+	 */
+	readonly all?: HookHandlerDeclaration<
+		SchemaOperationHook<
+			| SchemaAfterOperationHookInput<TSchema>
+			| SchemaMutationAllHookInput<TSchema, 'after'>
+		>
+	>
+	readonly create?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaAfterCreateHookInput<TSchema>>
+	>
+	readonly update?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaAfterUpdateHookInput<TSchema>>
+	>
+	readonly upsert?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaAfterUpsertHookInput<TSchema>>
+	>
+	readonly delete?: HookHandlerDeclaration<
+		SchemaOperationHook<SchemaAfterDeleteHookInput<TSchema>>
+	>
 }
 
 /** Combines native lifecycle names with this application's exact schema mutations. */
@@ -149,3 +210,10 @@ export type SchemaAfterOperationHooks<TSchema extends SchemaDefinition> =
 				? Exclude<SchemaMutationAfterOperationHooks<TSchema>[TKey], undefined>
 				: never
 	}>
+
+/**
+ * Runs after the transaction commits, outside it (ADR-0318): the same
+ * branches and inputs as `afterOperation`.
+ */
+export type SchemaAfterCommitHooks<TSchema extends SchemaDefinition> =
+	SchemaAfterOperationHooks<TSchema>

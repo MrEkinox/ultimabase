@@ -98,7 +98,7 @@ Application.Schema.define({
 		).toContain('hooks')
 	})
 
-	it('exposes the optional nested graph on schema mutation hooks', () => {
+	it('gives schema hooks plain data, without the internal operation tree', () => {
 		const source = `
 import type {} from './fixtures/options.generated.js'
 import { UltimaBase } from '@ultimabase/core'
@@ -115,8 +115,12 @@ Application.Schema.define({
 			'/* hook-input */',
 		])
 
-		expect(completionNames(fixture, nestedFile, '/* hook-input */')).toContain(
-			'nestedWrite',
+		// ADR-0318: the operation tree stays with provideHookContributions.
+		const names = completionNames(fixture, nestedFile, '/* hook-input */')
+		expect(names).toEqual(
+			expect.arrayContaining(['context', 'item', 'kind', 'originalItem']),
 		)
+		expect(names).not.toContain('nestedWrite')
+		expect(names).not.toContain('operation')
 	})
 })

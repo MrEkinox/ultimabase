@@ -54,8 +54,8 @@ const Membership = ExplicitRelationshipApplication.Schema.define({
 	}),
 	hooks: {
 		afterOperation: {
-			create: ({ operation }) => {
-				membershipTrace.push(`created:${String(operation.input.role)}`)
+			create: ({ item }) => {
+				membershipTrace.push(`created:${String(item.role)}`)
 			},
 		},
 		beforeOperation: {

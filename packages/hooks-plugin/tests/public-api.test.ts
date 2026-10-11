@@ -17,6 +17,7 @@ describe('@ultimabase/hooks-plugin public entry point', () => {
 			'onEvent',
 			'provideHookContributions',
 			'provideHookEvent',
+			'readHookInternals',
 			'schemaHookPhases',
 			'schemaHooks',
 		])

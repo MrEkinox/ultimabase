@@ -251,7 +251,7 @@ const TypedDocument = SourceApplication.Schema.define({
     visibility: field.string(),
     title: field.string({
       access: { read: true, write: true },
-      hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+      hooks: { resolveInput: ({ value }) => value.trim() },
       required: true,
       validation: titleValidator,
     }),
@@ -379,6 +379,7 @@ void TypedDocument
 		{ name: 'access', scope: 'schema' },
 		{ name: 'acl', scope: 'schema' },
 		{ name: 'hooks', scope: 'schema' },
+		{ name: 'validation', scope: 'schema' },
 	])
 	expect(generated.contents).not.toContain('FieldValidationCompatibility')
 	expect(generated.contents).not.toContain('FieldValidationOption')
@@ -387,6 +388,7 @@ void TypedDocument
 	expect(generated.contents).toContain('SchemaAccessOption')
 	expect(generated.contents).toContain('ACLSchemaOption')
 	expect(generated.contents).toContain('SchemaHooksOption')
+	expect(generated.contents).toContain('SchemaValidationOption')
 	expect(generated.contents).not.toContain('titleValidator')
 	expect(generated.contents).toContain('readonly schemaMutations: {')
 	expect(generated.contents).toContain(

@@ -1,7 +1,10 @@
 import { FrameworkError } from '../../foundation.js'
 import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
-import { runPostCommitEffect } from '../../errors/post-commit-errors.js'
+import {
+	runPostCommitEffect,
+	type PostCommitEffectIdentity,
+} from '../../errors/post-commit-errors.js'
 
 import {
 	isDatabaseAdapter,
@@ -23,7 +26,10 @@ export interface RuntimePipelineTransactionScope {
 	readonly pipeline: RuntimePipeline
 	commit(): Promise<void>
 	rollback(): Promise<void>
-	deferPostCommitEffect(effect: DeferredPostCommitEffect): void
+	deferPostCommitEffect(
+		effect: DeferredPostCommitEffect,
+		identity?: PostCommitEffectIdentity,
+	): void
 	flushPostCommitEvents(): Promise<void>
 }
 
@@ -62,7 +68,10 @@ export const beginPipelineTransaction = async (
 		)
 	}
 
-	const effects: DeferredPostCommitEffect[] = []
+	const effects: {
+		readonly effect: DeferredPostCommitEffect
+		readonly identity: PostCommitEffectIdentity
+	}[] = []
 	const postCommit = stages.behaviors?.postCommit
 	const pipeline = createPipeline({
 		...stages,
@@ -75,7 +84,13 @@ export const beginPipelineTransaction = async (
 					behaviors: immutableRecord({
 						...stages.behaviors,
 						postCommit: (input) => {
-							effects.push(() => postCommit(input))
+							effects.push({
+								effect: () => postCommit(input),
+								identity: {
+									requestId: input.context.requestId,
+									source: 'the postCommit stage',
+								},
+							})
 						},
 					}),
 				}),
@@ -107,7 +122,10 @@ export const beginPipelineTransaction = async (
 				transactionAdapters.delete(pipeline)
 			}
 		},
-		deferPostCommitEffect: (effect: DeferredPostCommitEffect): void => {
+		deferPostCommitEffect: (
+			effect: DeferredPostCommitEffect,
+			identity: PostCommitEffectIdentity = { source: 'a post-commit effect' },
+		): void => {
 			if (state !== 'active' && state !== 'committed') {
 				throw new TypeError(
 					'Runtime transaction effects require an active transaction',
@@ -116,7 +134,7 @@ export const beginPipelineTransaction = async (
 			if (typeof effect !== 'function') {
 				throw new TypeError('Runtime transaction effect must be a function')
 			}
-			effects.push(effect)
+			effects.push({ effect, identity })
 		},
 		flushPostCommitEvents: async (): Promise<void> => {
 			if (state !== 'committed') {
@@ -125,24 +143,11 @@ export const beginPipelineTransaction = async (
 				)
 			}
 			state = 'flushing'
-			const failures: unknown[] = []
-			for (const effect of effects.splice(0)) {
-				try {
-					await runPostCommitEffect(effect)
-				} catch (error: unknown) {
-					// One committed observer cannot suppress independent sibling delivery.
-					failures.push(error)
-				}
+			// Every failure is logged; none rejects the committed call (ADR-0318).
+			for (const { effect, identity } of effects.splice(0)) {
+				await runPostCommitEffect(effect, identity)
 			}
 			state = 'flushed'
-			if (failures.length === 1) throw failures[0]
-			if (failures.length > 1) {
-				throw new AggregateError(
-					failures,
-					'Multiple post-commit effects failed.',
-					{ cause: failures[0] },
-				)
-			}
 		},
 	})
 }

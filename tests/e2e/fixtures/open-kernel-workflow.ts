@@ -45,9 +45,8 @@ export interface WorkflowCommittedPayload extends JsonObject {
 	readonly auditId: string
 }
 
-export const workflowCommittedEvent = defineEvent<WorkflowCommittedPayload>()(
+export const workflowCommittedEvent = defineEvent<WorkflowCommittedPayload>(
 	'fixture.workflow.committed',
-	{ delivery: 'required' },
 )
 
 const transitionInputReference = defineTypegenReference({
@@ -162,10 +161,9 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			),
 			provideHookEvent(
 				'committed-events',
-				onEvent<typeof workflowCommittedEvent.name, WorkflowCommittedPayload>({
-					handler: ({ event }) => options.onCommitted?.(event.payload),
-					name: workflowCommittedEvent.name,
-				}),
+				onEvent(workflowCommittedEvent, ({ event }) =>
+					options.onCommitted?.(event.payload),
+				),
 			),
 			contributeOperation({
 				bindings: [workflowTransportBinding],

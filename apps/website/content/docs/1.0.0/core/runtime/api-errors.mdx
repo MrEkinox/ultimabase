@@ -8,13 +8,14 @@ contentType: reference
 order: 6
 outcome: Read a safe error response and find the contract owned by the rejecting layer.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-11
 sources:
   - packages/core/src/errors/framework-error.ts
   - packages/core/src/errors/public-error.ts
   - packages/core/src/runtime/cancellation/operation-cancellation.ts
   - packages/core/src/schema/plans/contracts.ts
   - packages/core/src/runtime/validation/runtime-validation.ts
+  - packages/core/src/runtime/validation/validation-issues.ts
   - packages/postgres-plugin/src/drizzle/operation-error.ts
   - packages/http-plugin/README.md
   - packages/rest-plugin/README.md
@@ -22,6 +23,7 @@ sources:
   - docs/adr/0274-canonical-operation-cancellation.md
   - docs/adr/0302-neutral-storage-errors-and-semantics.md
   - docs/adr/0305-public-errors-and-can.md
+  - docs/adr/0319-validation-transforms-schema-checks-and-issues.md
 ---
 
 Core errors have transport-independent codes. A public HTTP request adds another
@@ -106,7 +108,8 @@ The error aborts the operation and rolls its transaction back; it is never
 retried. REST answers `400` with `{ code, message, details }`, GraphQL reports
 the code in `extensions.code`, and an HTTP route answers `400` with the same
 `error` envelope. Every other error stays masked. After commit (post-commit
-behaviors and Hooks event consumers) a `PublicError` is only logged: the
+behaviors, plugin events, `afterCommit` Hooks and event consumers) any error,
+a `PublicError` included, is only logged and never rejects the call: the
 client already has its answer.
 
 ## FrameworkError
@@ -176,10 +179,13 @@ export const findPostOrNull = async (postId: string) => {
 
 ### Read validation issues when present
 
-Core structural input validation can attach an `issues` array in the public
-details of a `VALIDATION_ERROR`. Each issue has a stable `code`, a `path` of
-field names and numeric list positions, and a readable `message`. For example,
-a missing label in the first item of a nested input can be reported as:
+A `VALIDATION_ERROR` about operation input lists every problem in one
+`issues` array of its public details: Core's structural issues and, when the
+[Validation plugin](/docs/1.0.0/plugins/official/validation) is installed,
+every validator and schema-check issue of the same call. Each issue has a
+stable `code`, a `path` of field names and numeric list positions, and a
+readable `message`. For example, a create that omits a required name and sends
+an invalid code reports:
 
 ```json title="Validation error payload"
 {
@@ -190,16 +196,24 @@ a missing label in the first item of a nested input can be reported as:
 		"issues": [
 			{
 				"code": "field.required",
-				"path": ["input", "items", 0, "label"],
+				"path": ["input", "name"],
 				"message": "Field is required"
+			},
+			{
+				"code": "contact.code",
+				"path": ["input", "code"],
+				"message": "Three capital letters"
 			}
 		]
 	}
 }
 ```
 
-Use the path to associate a structural issue with an input field and the code
-for programmatic handling. Do not parse the message to identify the failure.
+Use the path to associate an issue with an input field and the code for
+programmatic handling. Do not parse the message to identify the failure. In a
+bulk call such as `updateMany`, each path starts with the index of the failing
+item. REST answers `422` with this list in `details.issues`; GraphQL reports it
+in `extensions.details.issues`.
 Not every `VALIDATION_ERROR` has field issues: a database also uses this code
 for other data constraints, with a generic public message, and an unsupported
 filter operator reports `details: { field, operator }`. Check that

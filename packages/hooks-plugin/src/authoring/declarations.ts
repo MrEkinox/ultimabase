@@ -17,17 +17,24 @@ export type HookOperationFamily =
 /** Lists accepted phases once so runtime validation and public diagnostics cannot drift. */
 export const schemaHookPhases = [
 	'resolveInput',
-	'beforeCreate',
-	'afterCreate',
-	'beforeUpdate',
-	'afterUpdate',
-	'afterUpsert',
-	'beforeDelete',
-	'afterDelete',
+	'beforeOperation',
+	'afterOperation',
+	'afterCommit',
 ] as const
 
 /** Identifies every schema phase accepted at the declaration boundary. */
 export type SchemaHookPhase = (typeof schemaHookPhases)[number]
+
+/** Names the phases that observe operations, as opposed to `resolveInput`. */
+export type SchemaHookGroup = Exclude<SchemaHookPhase, 'resolveInput'>
+
+/** Lists the native operation branches of one observing phase. */
+export const operationHookFamilies: readonly [
+	'create',
+	'update',
+	'upsert',
+	'delete',
+] = immutableArray(['create', 'update', 'upsert', 'delete'])
 
 /** Lists accepted inline phases once so declaration validation cannot drift. */
 export const fieldHookPhases = ['resolveInput'] as const
@@ -63,10 +70,9 @@ export type NormalizedHookDeclarations<TPhase extends string> = Readonly<
 >
 
 /** Retains one custom logical mutation's exact observer branches. */
-export interface SchemaMutationHookDeclarations {
-	readonly afterOperation?: NormalizedHookPhase
-	readonly beforeOperation?: NormalizedHookPhase
-}
+export type SchemaMutationHookDeclarations = Readonly<
+	Partial<Record<SchemaHookGroup, NormalizedHookPhase>>
+>
 
 /** Retains only validated handlers for later internal Runtime composition. */
 export type SchemaHookDeclarations =
@@ -87,6 +93,12 @@ const emptyHookVariants: NormalizedHookPhase['variants'] = immutableRecord({})
 const resolveInputDescriptor: HookPhaseDescriptor = immutableRecord({
 	order: 'broad-first',
 	variants: saveHookFamilies,
+})
+
+// Observing phases: `all` runs before the operation's own branch (ADR-0318).
+const operationGroupDescriptor: HookPhaseDescriptor = immutableRecord({
+	order: 'broad-first',
+	variants: operationHookFamilies,
 })
 
 const includes = <TValue extends string>(
@@ -238,28 +250,32 @@ export const normalizeFieldHookDeclarations = (
 		scope: 'field',
 	})
 
-type SchemaHookGroup = 'afterOperation' | 'beforeOperation'
+const schemaHookGroups: readonly SchemaHookGroup[] = immutableArray([
+	'beforeOperation',
+	'afterOperation',
+	'afterCommit',
+])
 
-// Concise public group branches mapped to their native phases.
-const schemaGroupPhases: ReadonlyMap<string, SchemaHookPhase> = new Map([
-	['afterOperation.create', 'afterCreate'],
-	['afterOperation.delete', 'afterDelete'],
-	['afterOperation.update', 'afterUpdate'],
-	['afterOperation.upsert', 'afterUpsert'],
-	['beforeOperation.create', 'beforeCreate'],
-	['beforeOperation.delete', 'beforeDelete'],
-	['beforeOperation.update', 'beforeUpdate'],
+const isSchemaHookGroup = (key: string): key is SchemaHookGroup =>
+	includes(schemaHookGroups, key)
+
+const nativeBranches: ReadonlySet<string> = new Set([
+	'all',
+	...operationHookFamilies,
 ])
 
 /**
- * Copies and validates one schema hook declaration without attaching it.
+ * Copies and validates one schema or global hook declaration without
+ * attaching it.
  *
- * The concise groups are flattened first so structural errors win over
- * handler errors; unknown identifier branches name custom schema mutations,
- * which the contribution plan checks against the application catalog.
+ * Native branches (`all`, `create`, `update`, `upsert`, `delete`) are grouped
+ * per phase so `all` runs before the operation's own branch; other identifier
+ * branches name custom schema mutations, which the contribution plan checks
+ * against the application catalog. Global declarations accept none.
  */
-export const normalizeSchemaHookDeclarations = (
+const normalizeGroupedHookDeclarations = (
 	hooks: unknown,
+	scope: 'global' | 'schema',
 ): SchemaHookDeclarations | undefined => {
 	if (hooks === undefined) return undefined
 	if (!isPlainRecord(hooks)) {
@@ -279,8 +295,8 @@ export const normalizeSchemaHookDeclarations = (
 			paths.resolveInput = 'hooks.resolveInput'
 			continue
 		}
-		if (key !== 'afterOperation' && key !== 'beforeOperation') {
-			throw new TypeError(`Unknown schema hook: hooks.${key}`)
+		if (!isSchemaHookGroup(key)) {
+			throw new TypeError(`Unknown ${scope} hook: hooks.${key}`)
 		}
 
 		const group = hooks[key]
@@ -292,51 +308,59 @@ export const normalizeSchemaHookDeclarations = (
 			throw new TypeError(`hooks.${key} must not be empty`)
 		}
 
+		const nativeGroup: Record<string, unknown> = {}
 		for (const branch of branches) {
 			if (typeof branch !== 'string') {
 				throw new TypeError(`hooks.${key} contains an unsupported symbol key`)
 			}
-			const phase = schemaGroupPhases.get(`${key}.${branch}`)
-			if (phase !== undefined) {
-				native[phase] = group[branch]
-				paths[phase] = `hooks.${key}.${branch}`
+			if (nativeBranches.has(branch)) {
+				nativeGroup[branch] = group[branch]
 				continue
 			}
-			if (!/^[_A-Za-z][_0-9A-Za-z]*$/u.test(branch)) {
-				throw new TypeError(`Unknown schema hook: hooks.${key}.${branch}`)
+			if (scope === 'global' || !/^[_A-Za-z][_0-9A-Za-z]*$/u.test(branch)) {
+				throw new TypeError(`Unknown ${scope} hook: hooks.${key}.${branch}`)
 			}
 			mutations.set(branch, { ...mutations.get(branch), [key]: group[branch] })
+		}
+		if (Object.keys(nativeGroup).length > 0) {
+			native[key] = nativeGroup
+			paths[key] = `hooks.${key}`
 		}
 	}
 
 	const declarations = normalizeHookDeclarations({
-		descriptors: { resolveInput: resolveInputDescriptor },
+		descriptors: {
+			afterCommit: operationGroupDescriptor,
+			afterOperation: operationGroupDescriptor,
+			beforeOperation: operationGroupDescriptor,
+			resolveInput: resolveInputDescriptor,
+		},
 		hooks: native,
 		paths,
 		phases: schemaHookPhases,
-		scope: 'schema',
+		scope,
 	})
-	const normalizeBranch = (
-		command: string,
-		groups: Partial<Record<SchemaHookGroup, unknown>>,
-		group: SchemaHookGroup,
-	) =>
-		groups[group] === undefined
-			? {}
-			: {
-					[group]: normalizePhase(
-						groups[group],
-						undefined,
-						`hooks.${group}.${command}`,
-					),
-				}
 	const normalizedMutations = Object.fromEntries(
 		Array.from(mutations, ([command, groups]) => [
 			command,
-			immutableRecord({
-				...normalizeBranch(command, groups, 'beforeOperation'),
-				...normalizeBranch(command, groups, 'afterOperation'),
-			}),
+			immutableRecord(
+				Object.fromEntries(
+					schemaHookGroups.flatMap((group) =>
+						groups[group] === undefined
+							? []
+							: [
+									[
+										group,
+										normalizePhase(
+											groups[group],
+											undefined,
+											`hooks.${group}.${command}`,
+										),
+									],
+								],
+					),
+				),
+			),
 		]),
 	)
 
@@ -349,3 +373,15 @@ export const normalizeSchemaHookDeclarations = (
 			: { mutations: immutableRecord(normalizedMutations) }),
 	})
 }
+
+/** Copies and validates one schema hook declaration without attaching it. */
+export const normalizeSchemaHookDeclarations = (
+	hooks: unknown,
+): SchemaHookDeclarations | undefined =>
+	normalizeGroupedHookDeclarations(hooks, 'schema')
+
+/** Copies and validates the application's global hooks (ADR-0318). */
+export const normalizeGlobalHookDeclarations = (
+	hooks: unknown,
+): SchemaHookDeclarations | undefined =>
+	normalizeGroupedHookDeclarations(hooks, 'global')

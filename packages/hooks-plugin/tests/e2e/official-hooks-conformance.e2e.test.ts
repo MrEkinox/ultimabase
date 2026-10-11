@@ -1,6 +1,7 @@
 import {
 	definePluginConformanceSuite,
 	runPluginConformance,
+	waitForAfterCommit,
 } from '@ultimabase/testing'
 import { describe, expect, it } from 'vitest'
 import {
@@ -31,6 +32,8 @@ describe('official Hooks capability conformance', () => {
 			const successEvidence = getOfficialHooksConformanceEvidence(successSchema)
 			await success.ultimabase.start()
 			await successSchema.createOne({ data: { title: '  published  ' } })
+			// Events reach consumers after commit, without delaying the call.
+			await waitForAfterCommit()
 			expect(successEvidence.trace).toStrictEqual([
 				'developer:field',
 				'provider:before',
@@ -54,6 +57,7 @@ describe('official Hooks capability conformance', () => {
 			await expect(
 				rollbackSchema.createOne({ data: { title: 'rollback' } }),
 			).rejects.toThrow('Hooks conformance requested rollback')
+			await waitForAfterCommit()
 			expect(rollbackEvidence.database.rollbacks).toBe(1)
 			expect(rollbackEvidence.trace).not.toContain(
 				'event:official-hooks.created',

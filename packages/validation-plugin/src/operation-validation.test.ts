@@ -36,12 +36,22 @@ const callbacks: ApplicationCallbackExecutor = {
 	runPlugin: (_owner, callback) => callback(),
 }
 
+/** Runs the plugin stage and raises its issues as Core's merged error would. */
 const createFinalMutationValidationStage =
 	(): RuntimeMutationRevalidationStage => {
 		const readPlans = createValidationPlanCache()
-		return (input) => {
-			validateMutationInput(input, readPlans(input.operation), callbacks)
-			return input.operation
+		return async (input) => {
+			const result = await validateMutationInput(
+				{ ...input, structuralIssues: [] },
+				readPlans(input.operation),
+				callbacks,
+			)
+			if (result.issues.length > 0) {
+				throw new FrameworkError('VALIDATION_ERROR', 'Invalid input.', {
+					publicDetails: { issues: result.issues },
+				})
+			}
+			return result.operation
 		}
 	}
 
@@ -86,7 +96,7 @@ const readIssues = (error: unknown): readonly unknown[] => {
 }
 
 describe('projected arithmetic field validation', () => {
-	it('validates direct update and both explicit upsert branches once', () => {
+	it('validates direct update and both explicit upsert branches once', async () => {
 		const validate = vi.fn()
 		const schema = ValidationApplication.Schema.define({
 			className: 'DirectMutationValidationCounts',
@@ -106,7 +116,7 @@ describe('projected arithmetic field validation', () => {
 			update: normalizeUpdateExpression(schema, { title: 'updated' }),
 		}) satisfies UpdateOneOperationAst<typeof schema>
 
-		createFinalMutationValidationStage()({
+		await createFinalMutationValidationStage()({
 			context,
 			operation: updateOne,
 			previousOperation: updateOne,
@@ -126,7 +136,7 @@ describe('projected arithmetic field validation', () => {
 			update: normalizeUpdateExpression(schema, { title: 'updated' }),
 		}) as unknown as UpsertOneOperationAst<typeof schema>
 
-		createFinalMutationValidationStage()({
+		await createFinalMutationValidationStage()({
 			context,
 			operation: upsert,
 			previousOperation: upsert,
@@ -194,7 +204,7 @@ describe('projected arithmetic field validation', () => {
 		expect(validated.update).toStrictEqual(operation.update)
 	})
 
-	it('rejects an application-invalid projection before changing the delta', () => {
+	it('rejects an application-invalid projection before changing the delta', async () => {
 		const validate = vi.fn((value: unknown) =>
 			value === 10
 				? { value }
@@ -222,14 +232,14 @@ describe('projected arithmetic field validation', () => {
 			update: normalizeUpdateExpression(schema, { score: { increment: 1 } }),
 		}) satisfies UpdateOneOperationAst<typeof schema>
 
-		expect(() =>
+		await expect(
 			createFinalMutationValidationStage()({
 				context,
 				operation,
 				previousOperation: operation,
 				target: completeRecord({ score: 10 }),
 			}),
-		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		expect(validate).toHaveBeenCalledExactlyOnceWith(11)
 		expect(operation.update.operations[0]).toMatchObject({
 			kind: 'increment',
@@ -237,7 +247,7 @@ describe('projected arithmetic field validation', () => {
 		})
 	})
 
-	it('rejects unsafe integer and decimal projections structurally before the validator', () => {
+	it('rejects unsafe integer and decimal projections structurally before the validator', async () => {
 		const intValidate = vi.fn()
 		const decimalValidate = vi.fn()
 		const schema = ValidationApplication.Schema.define({
@@ -281,7 +291,7 @@ describe('projected arithmetic field validation', () => {
 			],
 		] as const) {
 			try {
-				createFinalMutationValidationStage()({
+				await createFinalMutationValidationStage()({
 					context,
 					operation,
 					previousOperation: operation,
@@ -299,7 +309,7 @@ describe('projected arithmetic field validation', () => {
 		expect(decimalValidate).not.toHaveBeenCalled()
 	})
 
-	it('requires exact targets for targetless upsert and set-based arithmetic', () => {
+	it('requires exact targets for targetless upsert and set-based arithmetic', async () => {
 		const validate = vi.fn()
 		const schema = ValidationApplication.Schema.define({
 			className: 'RequiredArithmeticTargets',
@@ -350,14 +360,14 @@ describe('projected arithmetic field validation', () => {
 			[updateMany, undefined],
 			[upsertMany, undefined],
 		] as const) {
-			expect(() =>
+			await expect(
 				createFinalMutationValidationStage()({
 					context,
 					operation,
 					previousOperation: operation,
 					target,
 				}),
-			).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		}
 	})
 

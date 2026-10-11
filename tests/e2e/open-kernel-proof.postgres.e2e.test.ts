@@ -1,6 +1,7 @@
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { waitForAfterCommit } from '@ultimabase/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -124,6 +125,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			const audit = await workflow.DynamicAudit.createOne({
 				data: { action: 'publish' },
 			})
+			// Events reach consumers after commit, without delaying the call.
+			await waitForAfterCommit()
 			expect(committed).toStrictEqual([
 				{ action: 'publish', auditId: audit.id },
 			])
@@ -139,6 +142,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 					throw new Error('rollback event')
 				}),
 			).rejects.toThrow('rollback event')
+			await waitForAfterCommit()
 			expect(committed).toHaveLength(1)
 			expect(
 				await workflow.DynamicAudit.count({

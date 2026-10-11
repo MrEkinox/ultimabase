@@ -1,7 +1,7 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type {
-	PluginSourceFieldObjectValue,
+	PluginSourceFieldPresentValue,
 	PluginSourceOpaque,
 } from '@ultimabase/core/plugin'
 
@@ -21,7 +21,7 @@ type SourceFieldInput<
 	context: PluginSourceOpaque<HookContext>
 	kind: TKind
 	mode: TMode
-	value: PluginSourceFieldObjectValue
+	value: PluginSourceFieldPresentValue
 }>
 
 type SourceFieldAllInput =
@@ -31,7 +31,7 @@ type SourceFieldAllInput =
 
 type SourceFieldHandler<TInput> = SourceHandler<
 	TInput,
-	PluginSourceFieldObjectValue | undefined
+	PluginSourceFieldPresentValue | undefined
 >
 
 /** Derives field Hooks from exact scalar, list, and nullability metadata. */

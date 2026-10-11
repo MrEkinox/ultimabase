@@ -1,4 +1,5 @@
 import {
+	defineEvent,
 	hooksPlugin,
 	onEvent,
 	provideHookContributions,
@@ -20,6 +21,9 @@ interface HooksConformanceEvidence {
 }
 
 const hooksEvidence = new WeakMap<object, HooksConformanceEvidence>()
+const articleCreated = defineEvent<{ readonly title: string }>(
+	'official-hooks.created',
+)
 const HooksApplication = UltimaBase.use(hooksPlugin())
 
 const assertImmutable = (value: unknown, label: string): void => {
@@ -68,9 +72,7 @@ export const createOfficialHooksConformanceFixture = () => {
 					if (typeof input.item.title !== 'string') {
 						throw new TypeError('Hooks conformance title is not a string')
 					}
-					input.context.emit('official-hooks.created', {
-						title: input.item.title,
-					})
+					input.context.emit(articleCreated, { title: input.item.title })
 				},
 			},
 		},
@@ -93,11 +95,8 @@ export const createOfficialHooksConformanceFixture = () => {
 			),
 			provideHookEvent(
 				'article-created',
-				onEvent({
-					handler: ({ event }) => {
-						trace.push(`event:${event.name}`)
-					},
-					name: 'official-hooks.created',
+				onEvent(articleCreated, ({ event }) => {
+					trace.push(`event:${event.name}`)
 				}),
 			),
 		],

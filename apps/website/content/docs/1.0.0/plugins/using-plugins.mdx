@@ -102,7 +102,7 @@ export const Task = SchemaApplication.Schema.define({
 		done: f.boolean({ default: false }),
 		title: f.string({
 			required: true,
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			hooks: { resolveInput: ({ value }) => value.trim() },
 			validation: z.string().min(1),
 		}),
 	}),

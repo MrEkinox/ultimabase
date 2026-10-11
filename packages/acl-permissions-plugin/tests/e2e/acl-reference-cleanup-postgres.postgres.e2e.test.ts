@@ -118,11 +118,10 @@ const ProtectedSecondary = ACLReferenceApplication.Schema.define({
 	postgres: { table: 'acl_reference_secondary' },
 	hooks: {
 		beforeOperation: {
-			update: ({ operation }) => {
+			update: () => {
 				if (!rejectNextSecondaryCleanup) return
 
 				rejectNextSecondaryCleanup = false
-				void operation
 				throw new Error('ACL reference cleanup rollback fixture')
 			},
 		},

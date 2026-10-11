@@ -278,6 +278,10 @@ export type {
 	RuntimeMaterializedResultTransformStage,
 	RuntimeMutationRevalidationStage,
 	RuntimeMutationRevalidationStageInput,
+	RuntimeMutationValidationIssue,
+	RuntimeMutationValidationResult,
+	RuntimeMutationValidationStage,
+	RuntimeMutationValidationStageInput,
 	RuntimeOperationGuardStage,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
@@ -320,6 +324,11 @@ export {
 	deferCurrentTransactionEffect,
 	getCurrentTransactionId,
 } from './transactions/run-transaction.js'
+export type { PostCommitEffectIdentity } from '../errors/post-commit-errors.js'
+export type {
+	RuntimeNestedWriteStageContext,
+	RuntimeRelationLinkChanges,
+} from './nested-writes/execution-context.js'
 export {
 	createRuntimeValidationStage,
 	snapshotRuntimeResultRecord,

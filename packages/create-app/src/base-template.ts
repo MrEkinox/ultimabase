@@ -158,7 +158,7 @@ ${[
 	`  fields: (f) => ({
     title: f.string({
       required: true,
-${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value?.trim() ?? null },\n' : ''}${has(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
+${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value.trim() },\n' : ''}${has(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
     done: f.boolean({ default: false }),
   }),`,
 ]

@@ -59,6 +59,7 @@ import {
 	type RuntimePipelineStages,
 } from './contracts.js'
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
+import { validateRuntimeStructure } from './structural-validation.js'
 import { isRuntimeMutationOperation } from '../operations/characteristics.js'
 import {
 	RuntimeInclusionProjector,
@@ -386,7 +387,9 @@ export class RuntimePipeline {
 				)
 
 			const result = await runWithRuntimeNestedWriteStageContext(
-				createRuntimeNestedWriteStageContext(graph, graph.root),
+				createRuntimeNestedWriteStageContext(graph, graph.root, () =>
+					coordinator.readRelationChanges(graph.root),
+				),
 				() =>
 					this.#executeOperation(
 						immutableRecord({ ...request, operation: rootOperation }),
@@ -435,9 +438,7 @@ export class RuntimePipeline {
 		if (reservedCreateId !== undefined) {
 			operation = retainReservedCreateId(operation, reservedCreateId)
 		}
-		operation = await stages.structuralValidation(
-			createRuntimeOperationInput(context, operation),
-		)
+		operation = await validateRuntimeStructure(this.#stages, context, operation)
 
 		const relationRead =
 			relation !== undefined && !isRuntimeMutationOperation(operation)

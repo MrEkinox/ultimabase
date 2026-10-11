@@ -34,9 +34,14 @@ import type {
 	RuntimeBehaviorStages,
 	RuntimeEnforcementStages,
 	RuntimeMutationRevalidationStage,
+	RuntimeMutationValidationIssue,
 } from './contracts.js'
 import { loadSingularMutationInclusionSource } from './mutation-inclusion-source.js'
 import { assertDatabaseRequestCapabilities } from './database-capability-validation.js'
+import {
+	readValidationErrorIssues,
+	throwMergedValidationIssues,
+} from '../validation/validation-issues.js'
 import {
 	createRuntimeEnforcementInput,
 	createRuntimeOperationInput,
@@ -319,15 +324,57 @@ export const executeRuntimeDatabaseOperation = async <
 		)
 	}
 
-	operation = await finalMutationValidation(
-		createRuntimeStageInput({
-			context,
-			operation,
-			previousOperation: initialOperation,
-			target,
-			...(targets === undefined ? {} : { targets }),
-		}),
-	)
+	const revalidate = (
+		candidate: TMutationOperation,
+	): Promise<TMutationOperation> =>
+		Promise.resolve(
+			finalMutationValidation(
+				createRuntimeStageInput({
+					context,
+					operation: candidate,
+					previousOperation: initialOperation,
+					target,
+					...(targets === undefined ? {} : { targets }),
+				}),
+			),
+		)
+	const validateMutationInput = behaviors?.validateMutationInput
+	if (validateMutationInput === undefined) {
+		operation = await revalidate(operation)
+	} else {
+		// Core's structural issues and the validation behaviors' issues form
+		// one VALIDATION_ERROR (ADR-0319).
+		let structuralIssues: readonly RuntimeMutationValidationIssue[] = []
+		try {
+			operation = await revalidate(operation)
+		} catch (error: unknown) {
+			const issues = readValidationErrorIssues(error)
+			if (issues === undefined) throw error
+			structuralIssues = issues
+		}
+		const cancellation = {
+			operationKind: operation.kind,
+			phase: 'final-mutation-validation',
+		}
+		throwIfOperationCancelled(context.signal, cancellation)
+		const validation = await validateMutationInput(
+			immutableRecord({
+				...createRuntimePreparedMutationInput(
+					context,
+					operation,
+					target,
+					targets,
+				),
+				structuralIssues,
+			}),
+		)
+		throwIfOperationCancelled(context.signal, cancellation)
+		throwMergedValidationIssues([...structuralIssues, ...validation.issues])
+		if (validation.operation !== operation) {
+			// Validator outputs are stored: they must stay structurally valid.
+			replaceOperation(await revalidate(validation.operation))
+		}
+	}
 
 	if (behaviors?.guardMutationInput !== undefined) {
 		const cancellation = {

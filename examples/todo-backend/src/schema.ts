@@ -47,7 +47,7 @@ export const TodoRole = RoleSchema.define(TodoSchemaApplication.Schema, {
 	fields: (field) => ({
 		description: field.string({
 			description: 'Human-readable explanation of the role.',
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			hooks: { resolveInput: ({ value }) => value.trim() },
 		}),
 		priority: field.int({
 			default: 0,
@@ -87,8 +87,9 @@ export const Todo = TodoSchemaApplication.Schema.define({
 			description:
 				'Immutable external name used to demonstrate update omission.',
 			hooks: {
+				// Field hooks run only for a non-null value (ADR-0318).
 				resolveInput: ({ value }) =>
-					value?.trim().toLowerCase().replace(/\s+/gu, '-') ?? null,
+					value.trim().toLowerCase().replace(/\s+/gu, '-'),
 			},
 			immutable: true,
 			validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),

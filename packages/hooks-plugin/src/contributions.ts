@@ -21,11 +21,13 @@ import {
 import type { SchemaHooks } from './authoring/contracts.js'
 import {
 	normalizeFieldHookDeclarations,
+	normalizeGlobalHookDeclarations,
 	normalizeSchemaHookDeclarations,
 	type FieldHookDeclarations,
 	type SchemaHookDeclarations,
 } from './authoring/declarations.js'
 import type { FieldHooks } from './authoring/field-contracts.js'
+import type { GlobalHooks } from './authoring/global-contracts.js'
 
 /** Identifies the official declaration target selected by a compatible plugin. */
 export type HookContributionTargetKind = 'field' | 'global' | 'schema'
@@ -99,10 +101,12 @@ const requireHooks = <TDeclarations>(
 }
 
 /** Targets every application schema with one compatible contribution. */
-export const globalHooks = (hooks: unknown): GlobalHookContributionDefinition =>
+export const globalHooks = (
+	hooks: GlobalHooks,
+): GlobalHookContributionDefinition =>
 	immutableRecord({
 		declarations: requireHooks(
-			normalizeSchemaHookDeclarations(hooks),
+			normalizeGlobalHookDeclarations(hooks),
 			'global hooks',
 		),
 		schema: undefined,

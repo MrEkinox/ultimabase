@@ -20,16 +20,25 @@ import {
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeRequirement,
 } from '@ultimabase/core/plugin'
-import { definePluginFieldOption } from '@ultimabase/plugin-kit'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	definePluginFieldOption,
+	definePluginOptionsParser,
+} from '@ultimabase/plugin-kit'
+import {
+	immutableArray,
+	immutableRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import type { SchemaHooks } from './authoring/contracts.js'
 import {
 	normalizeFieldHookDeclarations,
+	normalizeGlobalHookDeclarations,
 	normalizeSchemaHookDeclarations,
 	type FieldHookDeclarations,
 	type SchemaHookDeclarations,
 } from './authoring/declarations.js'
+import type { GlobalHooks } from './authoring/global-contracts.js'
 import type { SourceFieldHooksOption } from './authoring/source-contracts.js'
 import { hookContributionsCapability } from './contributions.js'
 import { compileHookContributionPlan } from './runtime/contribution-plan.js'
@@ -38,8 +47,12 @@ import { createHookBehavior } from './runtime/dispatcher.js'
 import {
 	getHookEventImplementation,
 	hookEventContributionsCapability,
+	type HookEventDefinition,
 } from './runtime/events.js'
-import { HookExecutionRuntime } from './runtime/execution-runtime.js'
+import {
+	HookExecutionRuntime,
+	type OwnedHookEventHandler,
+} from './runtime/execution-runtime.js'
 
 type SchemaForOptions<TOptions> =
 	TOptions extends Readonly<{
@@ -100,44 +113,100 @@ const schemaMutationSurfaceRequirement = requireCapability(
 	{ phase: 'materialization' },
 )
 
-const hooksRuntimeProvider = provideRuntimeBehavior({
-	contributionId: 'official-hooks-runtime',
-	create: ({ callbacks, capabilities, logger, schemas }) => {
-		// Core attributes every contribution to its exact plugin instance.
-		const contributions = capabilities
-			.contributions(optionalHookContributions)
-			.flatMap(({ contributionId, owner, pluginVersion, value }) =>
-				value.map((definition) =>
-					immutableRecord({ contributionId, definition, owner, pluginVersion }),
-				),
-			)
-		const eventHandlers = capabilities
-			.contributions(optionalHookEvents)
-			.map(({ contributionId, owner, value }) => {
-				const implementation = getHookEventImplementation(value)
-				if (implementation === undefined) {
-					throw new TypeError(
-						'Hook event capabilities must use provideHookEvent',
-					)
-				}
-				return immutableRecord({ contributionId, implementation, owner })
-			})
-		const observer = capabilities.get(optionalHookDiagnostics)
-		const plan = compileHookContributionPlan(
-			schemas,
-			contributions,
-			capabilities.get(schemaMutationSurfaceRequirement),
-		)
-		const runtime = new HookExecutionRuntime(
-			observer,
-			immutableArray(eventHandlers),
-			callbacks,
-			logger,
-		)
+/** Configures the Hooks plugin; every option is optional. */
+export interface HooksPluginOptions {
+	/**
+	 * Hooks run for every schema, before each schema's own hooks (ADR-0318).
+	 * @example `global: { afterCommit: { all: ({ schema, kind }) => audit(schema, kind) } }`
+	 */
+	readonly global?: GlobalHooks
+	/**
+	 * Consumers of typed events, bound with `onEvent`; they run after commit,
+	 * in this order, best effort within the process (ADR-0318).
+	 * @example `events: [onEvent(todoCreated, ({ event }) => notify(event.payload.todoId))]`
+	 */
+	readonly events?: readonly HookEventDefinition[]
+}
 
-		return immutableRecord({ value: createHookBehavior(plan, runtime) })
+interface HooksPluginPlan {
+	readonly events: readonly OwnedHookEventHandler[]
+	readonly global: SchemaHookDeclarations | undefined
+}
+
+const parseOptions = definePluginOptionsParser({
+	name: 'Hooks plugin options',
+	keys: ['events', 'global'] as const,
+	normalize: ({ events, global }): HooksPluginPlan => {
+		if (events !== undefined && !isUnknownArray(events)) {
+			throw new TypeError('Hooks plugin events must be an array of onEvent()')
+		}
+		return immutableRecord({
+			events: immutableArray(
+				(events ?? []).map((definition, index) => {
+					const implementation = getHookEventImplementation(definition)
+					if (implementation === undefined) {
+						throw new TypeError(
+							`Hooks plugin events[${String(index)}] must be created by onEvent`,
+						)
+					}
+					return immutableRecord({
+						contributionId: `events[${String(index)}]`,
+						implementation,
+						owner: undefined,
+					})
+				}),
+			),
+			global: normalizeGlobalHookDeclarations(global),
+		})
 	},
 })
+
+const createHooksRuntimeProvider = (options: HooksPluginPlan) =>
+	provideRuntimeBehavior({
+		contributionId: 'official-hooks-runtime',
+		create: ({ callbacks, capabilities, logger, schemas }) => {
+			// Core attributes every contribution to its exact plugin instance.
+			const contributions = capabilities
+				.contributions(optionalHookContributions)
+				.flatMap(({ contributionId, owner, pluginVersion, value }) =>
+					value.map((definition) =>
+						immutableRecord({
+							contributionId,
+							definition,
+							owner,
+							pluginVersion,
+						}),
+					),
+				)
+			const pluginEventHandlers = capabilities
+				.contributions(optionalHookEvents)
+				.map(({ contributionId, owner, value }) => {
+					const implementation = getHookEventImplementation(value)
+					if (implementation === undefined) {
+						throw new TypeError(
+							'Hook event capabilities must use provideHookEvent',
+						)
+					}
+					return immutableRecord({ contributionId, implementation, owner })
+				})
+			const observer = capabilities.get(optionalHookDiagnostics)
+			const plan = compileHookContributionPlan(
+				schemas,
+				contributions,
+				capabilities.get(schemaMutationSurfaceRequirement),
+				options.global,
+			)
+			const runtime = new HookExecutionRuntime(
+				observer,
+				// Application consumers first, then plugin consumers in graph order.
+				immutableArray([...options.events, ...pluginEventHandlers]),
+				callbacks,
+				logger,
+			)
+
+			return immutableRecord({ value: createHookBehavior(plan, runtime) })
+		},
+	})
 
 type HooksOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-hooks-options'
@@ -188,8 +257,10 @@ export type HooksPlugin = PluginInstance<{
  * Installs the official Hook authoring namespaces and Runtime lifecycle.
  *
  * Importing the package alone has no application effect.
+ *
+ * @example `UltimaBase.use(hooksPlugin({ events: [onEvent(todoCreated, notify)] }))`
  */
-export const hooksPlugin = (): HooksPlugin =>
+export const hooksPlugin = (options: HooksPluginOptions = {}): HooksPlugin =>
 	plugin({
 		id: '@ultimabase/hooks-plugin',
 		version: '0.0.0',
@@ -198,7 +269,7 @@ export const hooksPlugin = (): HooksPlugin =>
 			optionalHookContributions,
 			optionalHookEvents,
 			optionalHookDiagnostics,
-			hooksRuntimeProvider,
+			createHooksRuntimeProvider(parseOptions(options)),
 			schemaMutationSurfaceRequirement,
 			hooksDeclarations,
 		],

@@ -164,6 +164,20 @@ export type PluginExports<TPlugin> = TPlugin extends PluginDefinition
 	? TPlugin[typeof pluginSetupExportsBrand]
 	: never
 
+/**
+ * A plugin factory that names the plugin it creates, so
+ * `ultimabase.plugin(factory)` returns that installed plugin's exports.
+ *
+ * @example `ultimabase.plugin(validationPlugin).check(Todo, { data })`
+ */
+export interface PluginFactory<
+	TPlugin extends PluginDefinition = PluginDefinition,
+> {
+	(...arguments_: never[]): TPlugin
+	/** The id of the plugin this factory creates. */
+	readonly pluginId: string
+}
+
 /** Reads source-authoring surfaces inferred from one plugin's static definition. */
 export type PluginSource<TPlugin> = TPlugin extends PluginDefinition
 	? TPlugin[typeof pluginSourceProjectionBrand]

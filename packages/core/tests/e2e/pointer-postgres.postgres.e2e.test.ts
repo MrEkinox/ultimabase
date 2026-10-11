@@ -43,27 +43,18 @@ const Post = PointerSchemaApplication.Schema.define({
 	}),
 	hooks: {
 		afterOperation: {
-			update: ({ operation }) => {
+			update: ({ changes }) => {
 				pointerTrace.push('post:afterUpdate')
 
 				// The write has happened at this point, so this failure proves transaction rollback.
-				if (
-					operation.update.operations.some(
-						(update) =>
-							update.kind === 'set' &&
-							update.field === 'title' &&
-							update.value === 'rollback-pointer',
-					)
-				) {
+				if (changes.title === 'rollback-pointer') {
 					throw pointerRollbackError
 				}
 			},
 		},
 		beforeOperation: {
-			update: ({ operation }) => {
+			update: () => {
 				pointerTrace.push('post:beforeUpdate')
-
-				void operation
 			},
 		},
 	},

@@ -3,61 +3,28 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { Pointer } from '@ultimabase/core'
 import {
-	createFinalMutationValidationStage as createCoreFinalMutationValidationStage,
 	createRuntimeValidationStage,
 	compileValidationPlans,
 	definePluginField,
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
-	UltimaBase,
 	type CreateOneOperationAst,
-	type RuntimeMutationRevalidationStage,
-	type SchemaDefinition,
 	type SchemaReference,
 	snapshotRuntimeResultRecord,
 } from '@ultimabase/core'
-import {
-	createValidationPlanCache,
-	validateMutationInput,
-} from './operation-validation.js'
 import { readValidationIssues } from './field-validation-fixture.js'
-import { validationPlugin } from './plugin.js'
+import {
+	completeRecord,
+	createFinalMutationValidationStage,
+	validateFinalCreate,
+	ValidationApplication,
+} from './field-validation.test-support.js'
 import {
 	QueryBuilder,
 	RequestContext,
 	requestSources,
-	type ApplicationCallbackExecutor,
 } from '@ultimabase/core/plugin'
-
-const ValidationApplication = UltimaBase.use(validationPlugin())
-
-const callbacks: ApplicationCallbackExecutor = {
-	runApplication: (callback) => callback(),
-	runPlugin: (_owner, callback) => callback(),
-}
-
-const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
-	((typeof value === 'object' && value !== null) ||
-		typeof value === 'function') &&
-	typeof Reflect.get(value, 'then') === 'function'
-
-const createFinalMutationValidationStage =
-	(): RuntimeMutationRevalidationStage => {
-		const validateStructure = createCoreFinalMutationValidationStage()
-		const readPlans = createValidationPlanCache()
-		return (input) => {
-			const operation = validateStructure(input)
-			if (isPromiseLike(operation)) {
-				throw new TypeError(
-					'Core final mutation validation must be synchronous',
-				)
-			}
-			const plans = readPlans(operation)
-			validateMutationInput({ ...input, operation }, plans, callbacks)
-			return operation
-		}
-	}
 
 const rejectingString = (
 	message: string,
@@ -72,45 +39,6 @@ const rejectingString = (
 				: { issues: [{ message, ...(path === undefined ? {} : { path }) }] },
 	},
 })
-
-const completeRecord = (
-	value: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> => ({
-	id: '0198d1ae-a800-7000-8000-000000000001',
-	createdAt: '2026-08-21T12:00:00.000Z',
-	updatedAt: '2026-08-21T12:00:00.000Z',
-	...value,
-})
-
-const validationContext = RequestContext.anonymous({
-	requestId: 'field-standard-schema-test',
-	source: requestSources.internal,
-})
-
-/** Exercises application validation only through the mandatory final mutation stage. */
-const validateFinalCreate = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	input: Readonly<Record<string, unknown>>,
-	dependencies: readonly SchemaDefinition[] = [],
-): CreateOneOperationAst<TSchema> => {
-	new ValidationApplication({
-		logger: false,
-		schemas: [...dependencies, schema],
-	}).compile()
-	const operation = {
-		input: completeRecord(input),
-		kind: 'create-one',
-		selection: new QueryBuilder(schema).ast.selection,
-		schema: new QueryBuilder(schema).ast.schema,
-	} as unknown as CreateOneOperationAst<TSchema>
-
-	return createFinalMutationValidationStage()({
-		context: validationContext,
-		operation,
-		previousOperation: operation,
-		target: undefined,
-	}) as CreateOneOperationAst<TSchema>
-}
 
 const passThrough = <TValue>(
 	validate: (value: unknown) => void,
@@ -212,30 +140,30 @@ describe('Standard Schema field validation', () => {
 		})
 
 		expect(validate).not.toHaveBeenCalled()
-		expect(() =>
+		await expect(
 			createFinalMutationValidationStage()({
 				context,
 				operation: normalized,
 				previousOperation: normalized,
 				target: undefined,
 			}),
-		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 
 		const transformed = {
 			...normalized,
 			input: { ...normalized.input, slug: 'hello-world' },
 		}
-		expect(
+		await expect(
 			createFinalMutationValidationStage()({
 				context,
 				operation: transformed,
 				previousOperation: normalized,
 				target: undefined,
 			}),
-		).toMatchObject({ input: { slug: 'hello-world' } })
+		).resolves.toMatchObject({ input: { slug: 'hello-world' } })
 	})
 
-	it('runs after every built-in and plugin scalar family snapshot', () => {
+	it('runs after every built-in and plugin scalar family snapshot', async () => {
 		const Target = ValidationApplication.Schema.define({
 			className: 'ValidatedPointerTarget',
 			fields: () => ({}),
@@ -321,7 +249,7 @@ describe('Standard Schema field validation', () => {
 			uuid: '0198d1ae-a800-7000-8000-000000000001',
 		} as const
 
-		validateFinalCreate(schema, values, [Target])
+		await validateFinalCreate(schema, values, [Target])
 
 		expect([...calls.keys()].sort()).toStrictEqual(
 			[
@@ -352,7 +280,7 @@ describe('Standard Schema field validation', () => {
 		expect([...calls.values()].every((count) => count === 1)).toBe(true)
 	})
 
-	it('validates complete canonical lists and prefixes nested issue paths', () => {
+	it('validates complete canonical lists and prefixes nested issue paths', async () => {
 		const validate = vi.fn((value: unknown) => {
 			void value
 			return {
@@ -375,7 +303,7 @@ describe('Standard Schema field validation', () => {
 		})
 
 		try {
-			validateFinalCreate(schema, { tags: ['first', 'second'] })
+			await validateFinalCreate(schema, { tags: ['first', 'second'] })
 			expect.unreachable('Expected list validation to fail')
 		} catch (error: unknown) {
 			expect(error).toMatchObject({ code: 'VALIDATION_ERROR' })
@@ -391,7 +319,7 @@ describe('Standard Schema field validation', () => {
 		expect(Object.isFrozen(validate.mock.calls[0]?.[0])).toBe(true)
 	})
 
-	it('runs child validators before the containing object validator', () => {
+	it('runs child validators before the containing object validator', async () => {
 		const order: string[] = []
 		const child = rejectingString('Name is required')
 		const childValidate = child['~standard'].validate
@@ -429,12 +357,12 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		validateFinalCreate(schema, { profile: { name: 'Ada' } })
+		await validateFinalCreate(schema, { profile: { name: 'Ada' } })
 
 		expect(order).toStrictEqual(['child', 'parent'])
 	})
 
-	it('accepts an equal cloned output while retaining the Core snapshot', () => {
+	it('accepts an equal cloned output while retaining the Core snapshot', async () => {
 		let vendorOutput: Readonly<{ name: string }> | undefined
 		const validator: StandardSchemaV1<Readonly<{ name: string }>> = {
 			'~standard': {
@@ -464,14 +392,16 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		const result = validateFinalCreate(schema, { profile: { name: 'Ada' } })
+		const result = await validateFinalCreate(schema, {
+			profile: { name: 'Ada' },
+		})
 
 		expect(result.input.profile).toStrictEqual({ name: 'Ada' })
 		expect(result.input.profile).not.toBe(vendorOutput)
 		expect(Object.isFrozen(result.input.profile)).toBe(true)
 	})
 
-	it('does not run an object validator after a child rejection', () => {
+	it('does not run an object validator after a child rejection', async () => {
 		const parentValidate = vi.fn((value: unknown) => ({ value }))
 		const parent = {
 			'~standard': {
@@ -495,9 +425,9 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		expect(() =>
+		await expect(
 			validateFinalCreate(schema, { profile: { name: '' } }),
-		).toThrow(FrameworkError)
+		).rejects.toThrow(FrameworkError)
 		expect(parentValidate).not.toHaveBeenCalled()
 	})
 
@@ -528,7 +458,7 @@ describe('Standard Schema field validation', () => {
 		expect(validate).not.toHaveBeenCalled()
 	})
 
-	it('keeps independent field validators isolated', () => {
+	it('keeps independent field validators isolated', async () => {
 		const firstValidate = vi.fn((value: unknown) => ({ value }))
 		const secondValidate = vi.fn((value: unknown) => ({ value }))
 		const firstValidator = {
@@ -558,25 +488,22 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		validateFinalCreate(firstSchema, { value: 'first' })
+		await validateFinalCreate(firstSchema, { value: 'first' })
 		expect(firstValidate).toHaveBeenCalledTimes(1)
 		expect(secondValidate).not.toHaveBeenCalled()
 
-		validateFinalCreate(secondSchema, { value: 'second' })
+		await validateFinalCreate(secondSchema, { value: 'second' })
 		expect(firstValidate).toHaveBeenCalledTimes(1)
 		expect(secondValidate).toHaveBeenCalledTimes(1)
 	})
 
 	it.each([
-		['async result', () => Promise.resolve({ value: 'value' })],
-		['promise-like result', () => ({ then: () => undefined })],
 		[
 			'thrown error',
 			() => {
 				throw new Error('vendor failure')
 			},
 		],
-		['transformation', () => ({ value: 'trimmed' })],
 		['malformed result', () => ({})],
 		['malformed issue list', () => ({ issues: 'invalid' })],
 		['malformed issue', () => ({ issues: [{}] })],
@@ -588,81 +515,32 @@ describe('Standard Schema field validation', () => {
 			'malformed issue path segment',
 			() => ({ issues: [{ message: 'Invalid', path: [{ key: {} }] }] }),
 		],
-	])('rejects the %s as a validator contract failure', (_name, validate) => {
-		const malformedValidator = {
-			'~standard': {
-				version: 1,
-				vendor: 'contract-test',
-				validate,
-			},
-		} as unknown as StandardSchemaV1<string>
-		const schema = ValidationApplication.Schema.define({
-			className: `ContractFailure${_name}`,
-			fields: (field) => ({
-				value: field.string({
-					validation: malformedValidator,
-				}),
-			}),
-		})
-
-		expect(() => validateFinalCreate(schema, { value: ' value ' })).toThrow(
-			expect.objectContaining<Partial<FrameworkError>>({
-				code: 'INTERNAL_ERROR',
-			}),
-		)
-	})
-
-	it.each([
-		[
-			'default insertion',
-			(value: Readonly<Record<string, unknown>>) => ({
-				value: { ...value, inserted: 'default' },
-			}),
-		],
-		[
-			'property stripping',
-			(value: Readonly<Record<string, unknown>>) => ({
-				value: { name: value.name },
-			}),
-		],
-	] as const)('rejects object %s as a transformation', (_name, transform) => {
-		const validator = {
-			'~standard': {
-				version: 1 as const,
-				vendor: 'object-transformation-test',
-				validate: (value: unknown) =>
-					typeof value === 'object' && value !== null
-						? transform(value as Readonly<Record<string, unknown>>)
-						: { issues: [{ message: 'Expected object' }] },
-			},
-		} as unknown as StandardSchemaV1<
-			Readonly<{ name: string; role: string | null }>
-		>
-		const schema = ValidationApplication.Schema.define({
-			className: `ObjectTransformation${_name}`,
-			fields: (field) => ({
-				profile: field.object({
-					fields: (nested) => ({
-						name: nested.string({ required: true }),
-						role: nested.string(),
+	])(
+		'rejects the %s as a validator contract failure',
+		async (_name, validate) => {
+			const malformedValidator = {
+				'~standard': {
+					version: 1,
+					vendor: 'contract-test',
+					validate,
+				},
+			} as unknown as StandardSchemaV1<string>
+			const schema = ValidationApplication.Schema.define({
+				className: `ContractFailure${_name}`,
+				fields: (field) => ({
+					value: field.string({
+						validation: malformedValidator,
 					}),
-					validation: validator,
 				}),
-			}),
-		})
+			})
 
-		expect(() =>
-			validateFinalCreate(schema, {
-				profile: { name: 'Ada', role: 'admin' },
-			}),
-		).toThrow(
-			expect.objectContaining<Partial<FrameworkError>>({
-				code: 'INTERNAL_ERROR',
-			}),
-		)
-	})
+			await expect(
+				validateFinalCreate(schema, { value: ' value ' }),
+			).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
+		},
+	)
 
-	it('turns an empty failure into one immutable fallback issue', () => {
+	it('turns an empty failure into one immutable fallback issue', async () => {
 		const emptyFailure = {
 			'~standard': {
 				version: 1,
@@ -680,7 +558,7 @@ describe('Standard Schema field validation', () => {
 		})
 
 		try {
-			validateFinalCreate(schema, { value: 'value' })
+			await validateFinalCreate(schema, { value: 'value' })
 			expect.unreachable('validation should fail')
 		} catch (error: unknown) {
 			expect(error).toBeInstanceOf(FrameworkError)

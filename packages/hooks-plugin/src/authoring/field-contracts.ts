@@ -15,11 +15,14 @@ type ReadPresentFieldValue<TFields> = TFields extends {
 	readonly value?: infer TValue
 }
 	? 'value' extends keyof TFields
-		? Exclude<TValue, undefined>
+		? Exclude<TValue, null | undefined>
 		: never
 	: never
 
-/** Infers a field value only when that operation mode can actually provide it. */
+/**
+ * Infers the value a field hook receives: present and never `null`, since
+ * field hooks run only for a non-null value (ADR-0318).
+ */
 export type PresentFieldValue<
 	TField extends GenericField,
 	TMode extends FieldHookMode,
@@ -147,7 +150,8 @@ export type FieldResolveInputHookDeclaration<TField extends GenericField> =
  */
 export interface FieldHooks<TField extends GenericField> {
 	/**
-	 * Transforms a present create, update, or upsert value before validation.
+	 * Transforms a present non-null create, update, or upsert value before
+	 * validation; `null` is stored as is without calling it.
 	 *
 	 * @example `resolveInput: ({ value }) => value.trim()`
 	 */

@@ -337,6 +337,49 @@ export type RuntimeFinalMutationGuardStage = <
 	>,
 ) => MaybePromise<void>
 
+/** One problem found in a mutation candidate, as `VALIDATION_ERROR` lists it. */
+export interface RuntimeMutationValidationIssue {
+	/** A stable code (Core's structural codes, or a validation plugin's own) a client may react to. */
+	readonly code: string
+	readonly message: string
+	readonly path: readonly (number | string)[]
+}
+
+/** Supplies the final candidate and Core's structural issues to validation. */
+export interface RuntimeMutationValidationStageInput<
+	TOperation extends DatabaseMutationOperationAst,
+> extends RuntimePreparedMutationStageInput<
+	TOperation,
+	DatabaseMutationLogicalRecord<TOperation>
+> {
+	/**
+	 * Core's structural issues for this candidate (ADR-0319); values under
+	 * their paths are not structurally valid. Empty for a valid candidate.
+	 */
+	readonly structuralIssues: readonly RuntimeMutationValidationIssue[]
+}
+
+/** The issues one validation found and the candidate to store. */
+export interface RuntimeMutationValidationResult<
+	TOperation extends DatabaseMutationOperationAst,
+> {
+	readonly issues: readonly RuntimeMutationValidationIssue[]
+	/** The candidate, with validator outputs in place of the values they checked. */
+	readonly operation: TOperation
+}
+
+/**
+ * Validates one mutation candidate after Core's structural pass and reports
+ * every issue; Core merges them with its own into one `VALIDATION_ERROR`
+ * (ADR-0319). A returned operation with other values is checked structurally
+ * again before it is stored.
+ */
+export type RuntimeMutationValidationStage = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	input: RuntimeMutationValidationStageInput<TOperation>,
+) => MaybePromise<RuntimeMutationValidationResult<TOperation>>
+
 /** Replaces values for one locked singular mutation without changing its target. */
 export type RuntimePreparedMutationTransformStage = <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -369,6 +412,7 @@ export const runtimeBehaviorStageNames: readonly (keyof RuntimeBehaviorStages)[]
 		'transformPreparedInput',
 		'transformPreparedOperation',
 		'transformResult',
+		'validateMutationInput',
 	]
 
 /**
@@ -388,7 +432,12 @@ export interface RuntimeBehaviorStages {
 	readonly transformPreparedInput?: RuntimePreparedMutationTransformStage
 	/** Applies a late target-aware operation transform before final revalidation. */
 	readonly transformPreparedOperation?: RuntimePreparedMutationTransformStage
-	/** Guards final mutation input after structural validation and before reevaluation. */
+	/**
+	 * Validates (and may transform values of) the final mutation candidate
+	 * after structural validation; its issues join Core's (ADR-0319).
+	 */
+	readonly validateMutationInput?: RuntimeMutationValidationStage
+	/** Guards final mutation input after validation and before reevaluation. */
 	readonly guardMutationInput?: RuntimeFinalMutationGuardStage
 	/** Observes the final logical operation immediately before persistence. */
 	readonly beforeOperation?: RuntimeOperationGuardStage

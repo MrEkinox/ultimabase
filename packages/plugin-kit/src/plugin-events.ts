@@ -16,6 +16,7 @@ import {
 import {
 	type RequestContext,
 	defineCapability,
+	formatPluginIdentity,
 	optionalCapability,
 	provideCapability,
 	type CapabilityProviderDeclaration,
@@ -224,14 +225,14 @@ export const createPluginEventDispatcher = <
 }): PluginEventDispatcher => {
 	const observers = options.capabilities
 		.contributions(options.requirement)
-		.map(({ value }) => {
+		.map(({ owner, value }) => {
 			const implementation = eventObservers.get(value)
 			if (implementation === undefined) {
 				throw new TypeError(
 					'Plugin event capability contains an invalid observer',
 				)
 			}
-			return implementation
+			return { ...implementation, owner }
 		})
 
 	const dispatcher: PluginEventDispatcher = {
@@ -270,23 +271,17 @@ export const createPluginEventDispatcher = <
 				transactionId,
 			})
 
-			deferCurrentTransactionEffect(async () => {
-				const failures: unknown[] = []
-				for (const observer of handlers) {
-					try {
-						await observer.handler(immutableRecord({ context, event }))
-					} catch (error: unknown) {
-						failures.push(error)
-					}
-				}
-				if (failures.length === 1) throw failures[0]
-				if (failures.length > 1) {
-					throw new AggregateError(
-						failures,
-						`Plugin event "${contract.name}" observers failed.`,
-					)
-				}
-			})
+			// One effect per observer: Core logs a failure after commit and runs
+			// the next observer; the committed call never rejects (ADR-0318).
+			for (const observer of handlers) {
+				deferCurrentTransactionEffect(
+					() => observer.handler(immutableRecord({ context, event })),
+					{
+						requestId: context.requestId,
+						source: `the "${contract.name}" event observer of ${formatPluginIdentity(observer.owner)}`,
+					},
+				)
+			}
 		},
 	}
 	return immutableRecord(dispatcher)

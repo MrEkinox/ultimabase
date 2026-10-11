@@ -1731,6 +1731,15 @@ provider contracts, diagnostics, and exact Runtime semantics. Community
 alternatives may define different vocabularies through Core's generic public
 kernel; they do not inherit an official engine or a neutral no-op stage.
 
+An authorized behavior provider may use `validateMutationInput` to validate
+the final mutation candidate (ADR-0319). It receives the structurally
+validated operation, the stable prepared targets and Core's
+`structuralIssues`, and returns `{ issues, operation }`: Core merges its
+issues with its own into one `VALIDATION_ERROR` (it also calls the stage with
+the raw candidate when the initial structural pass rejects a mutation), and a
+returned operation with other values is revalidated structurally before it is
+stored. Bulk calls prefix each issue path with the failing item's index.
+
 An authorized behavior provider may use `guardMutationInput` for a final
 mutation-only rejection boundary. The handler receives the structurally
 validated immutable operation plus stable prepared targets, returns no
@@ -1867,7 +1876,9 @@ it is not a default application, schema registry, or request context. Retain a
 configured definition and call `ultimabase.plugin(database)` for the shortest
 precisely typed setup-export lookup. `ultimabase.plugin('fixture.database')`
 resolves by stable identity for dynamic integrations; repeated configurations use its structured
-`{ pluginId, instanceId }` overload instead.
+`{ pluginId, instanceId }` overload instead. A factory that names the plugin it
+creates (a `PluginFactory`, with a static `pluginId`) is accepted too:
+`ultimabase.plugin(validationPlugin).check(Todo, { data })`.
 
 Plugins consume only capability requirements declared in their own manifest.
 Application code reaches deliberately public application-local behavior through
@@ -1966,8 +1977,10 @@ never serialized. Thrown from a hook, a policy rule or predicate, an ACL
 callback, a virtual field, a custom operation or an HTTP route handler, it
 aborts and rolls back the operation and is never retried; transports
 serialize `{ code, message, details }` as a client error. Any other error
-stays masked and logged with its stack. After commit a `PublicError` is only
-logged.
+stays masked and logged with its stack. After commit any error, a
+`PublicError` included, is only logged: a Runtime `postCommit` stage or a
+post-commit effect never rejects the committed call, and the remaining effects
+still run (ADR-0318 amendment).
 
 Database adapters report three neutral storage failures (ADR-0302):
 `UNIQUE_VIOLATION` with `publicDetails: { schema, fields }` (index fields,
@@ -2070,6 +2083,14 @@ provideRuntimeBehavior({
 	}),
 })
 ```
+
+`runAfterCommit(work)` queues work on the current transaction: once it
+commits, the queued works run in order outside the transaction and the
+request, without delaying the response; a rollback or a replayed attempt
+discards them, and a failure is logged (ADR-0318). The application tracks the
+pending work: `stop()` and `dispose()` wait for it, and so does
+`waitForAfterCommitWork()`, which tests use through `waitForAfterCommit()` from
+`@ultimabase/testing`.
 
 A schema mutation declared with `target: 'many'` takes `{ where }` instead of
 `{ id }`: inside one transaction, Core enforces the command once to find the

@@ -27,6 +27,9 @@ export type {
 	RequestMetadata,
 } from './runtime/context/request-context.js'
 export { RequestEngine } from './runtime/engine/request-engine.js'
+export { runAfterCommit } from './runtime/transactions/run-transaction.js'
+export { waitForAfterCommitWork } from './runtime/transactions/after-commit-work.js'
+export type { AfterCommitWork } from './runtime/transactions/after-commit-work.js'
 export type { RequestTransactionHandler } from './runtime/engine/request-engine.js'
 export {
 	anonymous,
@@ -157,10 +160,14 @@ export type {
 	FrameworkPluginContract,
 	PluginDefinition,
 	PluginExports,
+	PluginFactory,
 } from './plugins/definition.js'
 export type { PluginSetupContext } from './plugins/setup-registries.js'
 export type {
 	PluginSourceFieldObjectValue,
+	PluginSourceFieldApply,
+	PluginSourceFieldHKT,
+	PluginSourceFieldPresentValue,
 	PluginSourceFieldOptionByKind,
 	PluginSourceFieldValue,
 	PluginSourceOpaque,

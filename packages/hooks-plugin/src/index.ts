@@ -1,55 +1,64 @@
-// Application API: plugin installation, generated schema-option contracts,
-// inline callback authoring, request context, and typed event emission.
+// Application API: plugin installation, schema rule contracts, inline
+// callback authoring, request context, and typed events.
 export { hooksPlugin } from './plugin.js'
 export type {
 	HooksPlugin,
+	HooksPluginOptions,
 	HooksRules,
 	HooksSchemaRules,
 	SchemaHooksOption,
 } from './plugin.js'
 
 export type {
+	HookChanges,
+	HookCreateData,
 	HookHandlerDeclaration,
+	HookRelationChanges,
 	SaveHookFamily,
-	SchemaAfterCreateHook,
-	SchemaAfterDeleteHook,
-	SchemaAfterHook,
-	SchemaAfterMutationHookInput,
-	SchemaAfterUpdateHook,
-	SchemaAfterUpsertHook,
-	SchemaBeforeCreateHook,
+	SchemaAfterCreateHookInput,
+	SchemaAfterDeleteHookInput,
+	SchemaAfterOperationHookInput,
+	SchemaAfterUpdateHookInput,
+	SchemaAfterUpsertHookInput,
 	SchemaBeforeCreateHookInput,
-	SchemaBeforeDeleteHook,
-	SchemaBeforeMutationHook,
-	SchemaBeforeMutationHookInput,
-	SchemaBeforeOperationHookKind,
-	SchemaBeforeUpdateHook,
-	SchemaCreateHookKind,
-	SchemaDeleteHookKind,
-	SchemaHookOperation,
+	SchemaBeforeDeleteHookInput,
+	SchemaBeforeOperationHookInput,
+	SchemaBeforeUpdateHookInput,
+	SchemaBeforeUpsertHookInput,
 	SchemaHooks,
-	SchemaMutationHookKind,
-	SchemaMutationItemPair,
 	SchemaMutationKind,
-	SchemaMutationKindForOperation,
-	SchemaOperationHookInput,
-	SchemaResolveHook,
+	SchemaOperationHook,
+	SchemaResolveCreateHook,
+	SchemaResolveCreateInput,
 	SchemaResolveInputHook,
 	SchemaResolveInputHookDeclaration,
 	SchemaResolveInputHookInput,
-	SchemaSaveHookKind,
-	SchemaUpdateHookKind,
-	SchemaUpsertHookKind,
+	SchemaResolveUpdateHook,
+	SchemaResolveUpdateInput,
+	SchemaResolveUpsertHook,
+	SchemaResolveUpsertInput,
+	SchemaUpsertResolution,
 } from './authoring/contracts.js'
 export type {
+	SchemaAfterCommitHooks,
 	SchemaAfterOperationHooks,
 	SchemaBeforeOperationHooks,
 	SchemaMutationAfterHook,
 	SchemaMutationAfterHookInput,
+	SchemaMutationAllHookInput,
 	SchemaMutationBeforeHook,
 	SchemaMutationBeforeHookInput,
 	SchemaMutationHookIdentity,
 } from './authoring/schema-mutation-contracts.js'
+export type {
+	GlobalAfterOperationHookInput,
+	GlobalBeforeOperationHookInput,
+	GlobalCommandHookInput,
+	GlobalHookItem,
+	GlobalHooks,
+	GlobalOperationHooks,
+	GlobalResolveInputHookInput,
+} from './authoring/global-contracts.js'
 export type {
 	FieldCreateHookKind,
 	FieldHookDeclaration,
@@ -71,13 +80,14 @@ export type {
 export { HookContext } from './context/hook-context.js'
 export type {
 	HookEventContract,
-	HookEventDelivery,
 	HookExecutionContext,
 } from './context/hook-context.js'
-export { defineEvent } from './runtime/events.js'
+export { defineEvent, onEvent } from './runtime/events.js'
 export type {
-	DefineEventFactory,
-	DefineEventOptions,
+	HookEvent,
+	HookEventDefinition,
+	HookEventHandler,
+	HookEventHandlerInput,
 } from './runtime/events.js'
 
 // Compatible-provider contract: official phase metadata, contribution
@@ -113,17 +123,11 @@ export type {
 
 export {
 	hookEventContributionsCapability,
-	onEvent,
 	provideHookEvent,
 } from './runtime/events.js'
-export type {
-	HookEvent,
-	HookEventContributionsCapability,
-	HookEventDefinition,
-	HookEventHandler,
-	HookEventHandlerInput,
-	OnEventOptions,
-} from './runtime/events.js'
+export type { HookEventContributionsCapability } from './runtime/events.js'
+export { readHookInternals } from './runtime/planned-handlers.js'
+export type { HookInternals } from './runtime/planned-handlers.js'
 
 // Conformance support: redacted diagnostics and their optional observer token.
 export { hookDiagnosticsObserverCapability } from './runtime/diagnostics.js'

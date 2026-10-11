@@ -195,7 +195,7 @@ const PackedGeneratedDocument = PackedSchemaApplication.Schema.define({
 		summary: field.string({ ${validationMarker} }),
     title: field.string({
       hooks: {
-        ${fieldHookMarker}resolveInput: ({ value }) => value?.trim() ?? null,
+        ${fieldHookMarker}resolveInput: ({ value }) => value.trim(),
       },
       required: true,
       validation: packedTitleValidator,

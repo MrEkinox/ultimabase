@@ -2,47 +2,41 @@ import { expectTypeOf, test } from 'vitest'
 
 import type { JsonObject } from '@ultimabase/core'
 
-import type { HookContext } from '../context/hook-context.js'
-import { defineEvent, onEvent } from './events.js'
+import type { HookContext, HookEventContract } from '../context/hook-context.js'
+import { defineEvent, onEvent, type HookEventDefinition } from './events.js'
 
 interface PostCreatedEvent extends JsonObject {
 	readonly postId: string
 }
 
-test('defineEvent preserves payload, name, and delivery semantics', () => {
-	const optionalEvent = defineEvent<PostCreatedEvent>()('post.created', {
-		delivery: 'optional',
-	})
+test('defineEvent types the payload its emitters and consumers share', () => {
+	const postCreated = defineEvent<PostCreatedEvent>('post.created')
 
-	expectTypeOf(optionalEvent.name).toEqualTypeOf<'post.created'>()
-	expectTypeOf(optionalEvent.delivery).toEqualTypeOf<'optional'>()
+	expectTypeOf(postCreated).toEqualTypeOf<HookEventContract<PostCreatedEvent>>()
 
 	const emit = (context: HookContext): void => {
-		context.emit(optionalEvent, { postId: 'post-1' })
+		context.emit(postCreated, { postId: 'post-1' })
 		// @ts-expect-error -- Contract payloads retain their required properties.
-		context.emit(optionalEvent, {})
-		// Legacy names deliberately keep accepting portable JSON payloads.
-		context.emit('legacy.required', {})
+		context.emit(postCreated, {})
+		// @ts-expect-error -- Events are bound by value, never by name (ADR-0318).
+		context.emit('post.created', { postId: 'post-1' })
 	}
 
 	void emit
 })
 
-test('onEvent preserves exact event names and payload contracts', () => {
-	const definition = onEvent<'post.created', { readonly postId: string }>({
-		name: 'post.created',
-		handler: ({ context, event }) => {
-			expectTypeOf(event.name).toEqualTypeOf<'post.created'>()
-			expectTypeOf(event.payload).toEqualTypeOf<{
-				readonly postId: string
-			}>()
-			expectTypeOf(context).not.toHaveProperty('query')
-		},
+test('onEvent types the consumed payload from the contract', () => {
+	const postCreated = defineEvent<PostCreatedEvent>('post.created')
+	const definition = onEvent(postCreated, ({ context, event }) => {
+		expectTypeOf(event.payload).toEqualTypeOf<PostCreatedEvent>()
+		expectTypeOf(event.name).toEqualTypeOf<string>()
+		expectTypeOf(context).toEqualTypeOf<HookContext>()
 	})
 
-	expectTypeOf(definition.name).toEqualTypeOf<'post.created'>()
-	expectTypeOf(definition.kind).toEqualTypeOf<'hook-event'>()
+	expectTypeOf(definition).toEqualTypeOf<
+		HookEventDefinition<PostCreatedEvent>
+	>()
 
 	// @ts-expect-error -- Event payload roots must remain portable JSON documents.
-	onEvent<'invalid', Date>({ name: 'invalid', handler: () => undefined })
+	defineEvent<Date>('invalid')
 })

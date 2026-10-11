@@ -1,11 +1,16 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import {
+	hooksPlugin,
+	provideHookContributions,
+	readHookInternals,
+	schemaHooks,
+} from '@ultimabase/hooks-plugin'
 import {
 	MasterAuthority,
 	UltimaBase,
 	type NestedWriteGraph,
 } from '@ultimabase/core'
-import type { PluginSourceState } from '@ultimabase/core/plugin'
+import { plugin, type PluginSourceState } from '@ultimabase/core/plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
@@ -35,8 +40,7 @@ const Author = NestedCreateApplication.Schema.define({
 	}),
 	hooks: {
 		afterOperation: {
-			create: ({ nestedWrite }) => {
-				observedAuthorGraph = nestedWrite
+			create: () => {
 				trace.push('author:after')
 			},
 		},
@@ -110,18 +114,48 @@ const Post = NestedCreateApplication.Schema.define({
 	}),
 	hooks: {
 		afterOperation: {
-			create: ({ nestedWrite }) => {
-				observedPostAfterGraph = nestedWrite
+			create: () => {
 				trace.push('post:after')
 			},
 		},
 		beforeOperation: {
-			create: ({ nestedWrite }) => {
-				observedPostBeforeGraph = nestedWrite
+			create: () => {
 				trace.push('post:before')
 			},
 		},
 	},
+})
+
+// ADR-0318: the nested-write graph reaches hooks contributed by plugins only.
+const graphObserver = plugin({
+	core: '^0.0.0',
+	id: 'fixture.nested-graph-observer',
+	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
+	permissions: { 'runtime:intercept': 'Observes nested-write graphs.' },
+	version: '1.0.0',
+	contributions: [
+		provideHookContributions('nested-graphs', () => [
+			schemaHooks(Author, {
+				afterOperation: {
+					create: (input) => {
+						observedAuthorGraph = readHookInternals(input)?.nestedWrite
+					},
+				},
+			}),
+			schemaHooks(Post, {
+				afterOperation: {
+					create: (input) => {
+						observedPostAfterGraph = readHookInternals(input)?.nestedWrite
+					},
+				},
+				beforeOperation: {
+					create: (input) => {
+						observedPostBeforeGraph = readHookInternals(input)?.nestedWrite
+					},
+				},
+			}),
+		]),
+	],
 })
 
 const schemas = [Author, Tag, Comment, Post] as const
@@ -130,6 +164,7 @@ let ultimabase:
 	| UltimaBase<
 			readonly [...typeof schemas],
 			readonly [
+				typeof graphObserver,
 				ReturnType<typeof hooksPlugin>,
 				ReturnType<typeof accessPlugin>,
 				ReturnType<typeof postgresPlugin>,
@@ -141,6 +176,7 @@ let ultimabase:
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
+		graphObserver,
 		hooksPlugin(),
 		accessPlugin({ allowWithoutRule: { all: true } }),
 		postgresPlugin({

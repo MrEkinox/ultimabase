@@ -7,11 +7,20 @@ import { FrameworkError } from '../../foundation.js'
 import { TrackedExecutionLifetime } from '../engine/tracked-execution-lifetime.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
+import {
+	startAfterCommitWork,
+	type AfterCommitWork,
+} from './after-commit-work.js'
+import type { PostCommitEffectIdentity } from '../../errors/post-commit-errors.js'
 
 type DeferredTransactionEffect = () => MaybePromise<void>
 
 interface TransactionExecutionState {
-	readonly deferPostCommitEffect: (effect: DeferredTransactionEffect) => void
+	readonly afterCommit: AfterCommitWork[]
+	readonly deferPostCommitEffect: (
+		effect: DeferredTransactionEffect,
+		identity?: PostCommitEffectIdentity,
+	) => void
 	readonly transactionId: string
 }
 
@@ -21,15 +30,45 @@ const transactionExecution = new AsyncLocalStorage<TransactionExecutionState>()
 export const getCurrentTransactionId = (): string | undefined =>
 	transactionExecution.getStore()?.transactionId
 
-/** Queues one effect on the exact transaction inherited by the current callback. */
+/**
+ * Queues one effect on the exact transaction inherited by the current
+ * callback; `identity` names it in the log line if it fails after commit.
+ */
 export const deferCurrentTransactionEffect = (
 	effect: DeferredTransactionEffect,
+	identity?: PostCommitEffectIdentity,
 ): void => {
 	const state = transactionExecution.getStore()
 	if (state === undefined) {
 		throw new TypeError('Transaction execution scope is unavailable')
 	}
-	state.deferPostCommitEffect(effect)
+	state.deferPostCommitEffect(effect, identity)
+}
+
+/**
+ * Queues `work` to run once the current transaction commits, outside it and
+ * outside the request, without delaying the response (ADR-0318). The works of
+ * one transaction run in queue order; a rollback or a retried attempt
+ * discards them; a failure is logged and never reaches the caller.
+ *
+ * @example `runAfterCommit(() => sendWelcomeEmail(user.email))`
+ */
+export const runAfterCommit = (work: AfterCommitWork): void => {
+	if (typeof work !== 'function') {
+		throw new TypeError('After-commit work must be a function')
+	}
+	const state = transactionExecution.getStore()
+	if (state === undefined) {
+		throw new FrameworkError(
+			'TRANSACTION_ERROR',
+			'After-commit work requires an active transaction.',
+			{
+				publicMessage: 'This work cannot be queued outside a transaction.',
+				internalDetails: { reason: 'after-commit-transaction-required' },
+			},
+		)
+	}
+	state.afterCommit.push(work)
 }
 
 /** Creates the explicit Runtime policy failure for unsupported nesting. */
@@ -64,13 +103,17 @@ export class TransactionLifetime extends TrackedExecutionLifetime {
 	}
 }
 
-/** Preserves both independent failures without duplicating one caught error. */
+/**
+ * Preserves both independent failures without duplicating one caught error;
+ * an error that wraps the other (its `cause`) is the same failure.
+ */
 const combineErrors = (
 	primary: unknown,
 	secondary: unknown,
 	message: string,
 ): unknown =>
-	primary === secondary
+	primary === secondary ||
+	(primary instanceof Error && primary.cause === secondary)
 		? primary
 		: new AggregateError([primary, secondary], message, { cause: secondary })
 
@@ -90,8 +133,9 @@ export const runRequestTransaction = async <TEngine, TResult>(
 ): Promise<TResult> => {
 	const scope = await pipeline.beginTransaction()
 	const state: TransactionExecutionState = {
-		deferPostCommitEffect: (effect) => {
-			scope.deferPostCommitEffect(effect)
+		afterCommit: [],
+		deferPostCommitEffect: (effect, identity) => {
+			scope.deferPostCommitEffect(effect, identity)
 		},
 		transactionId: randomUUID(),
 	}
@@ -139,7 +183,12 @@ export const runRequestTransaction = async <TEngine, TResult>(
 			}
 			throw error
 		}
-		await scope.flushPostCommitEvents()
+		try {
+			await scope.flushPostCommitEvents()
+		} finally {
+			// The write is committed: its background work starts whatever the flush did.
+			startAfterCommitWork(state.afterCommit.splice(0))
+		}
 		return outcome.value
 	})
 }

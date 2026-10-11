@@ -1,5 +1,5 @@
 import { createPointer } from '../../schema/relations/pointer.js'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type {
 	CreateOneOperationAst,
@@ -14,6 +14,7 @@ import type {
 	NestedWriteRelationNode,
 } from '../../schema/nested-writes/contracts.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
+import type { RuntimeRelationLinkChanges } from './execution-context.js'
 import {
 	createRuntimeNestedUpdateOperation,
 	readNestedPointerTarget,
@@ -155,6 +156,70 @@ export class RuntimeNestedWriteCoordinator {
 					current,
 				)
 			: operation
+	}
+
+	/**
+	 * Reads the relation link changes of one node by field name: created and
+	 * connected targets, disconnected ones, and a `set` as its difference with
+	 * the preflighted members (ADR-0318).
+	 */
+	readRelationChanges(
+		node: NestedWriteObjectNode,
+	): Readonly<Record<string, RuntimeRelationLinkChanges>> {
+		const changes = new Map<
+			string,
+			{ connect: string[]; disconnect: string[] }
+		>()
+		const entry = (fieldName: string) => {
+			let current = changes.get(fieldName)
+			if (current === undefined) {
+				current = { connect: [], disconnect: [] }
+				changes.set(fieldName, current)
+			}
+			return current
+		}
+		for (const relationship of node.relationships) {
+			if (relationship.kind !== 'relation') continue
+			switch (relationship.command) {
+				case 'connect':
+					entry(relationship.fieldName).connect.push(...relationship.ids)
+					break
+				case 'disconnect':
+					entry(relationship.fieldName).disconnect.push(...relationship.ids)
+					break
+				case 'create':
+					entry(relationship.fieldName).connect.push(
+						...relationship.children.map(requireReservedId),
+					)
+					break
+				case 'set': {
+					const current = (
+						this.#preflight.readRelationTargets(relationship) ?? []
+					).map(readNestedWriteRecordId)
+					const requested = new Set(relationship.ids)
+					const existing = new Set(current)
+					const changed = entry(relationship.fieldName)
+					changed.disconnect.push(...current.filter((id) => !requested.has(id)))
+					changed.connect.push(
+						...relationship.ids.filter((id) => !existing.has(id)),
+					)
+					break
+				}
+				case 'update':
+					break
+			}
+		}
+		return immutableRecord(
+			Object.fromEntries(
+				Array.from(changes, ([fieldName, { connect, disconnect }]) => [
+					fieldName,
+					immutableRecord({
+						connect: immutableArray(connect),
+						disconnect: immutableArray(disconnect),
+					}),
+				]),
+			),
+		)
 	}
 
 	/** Prevents input resolvers from redirecting a mutation away from its graph. */

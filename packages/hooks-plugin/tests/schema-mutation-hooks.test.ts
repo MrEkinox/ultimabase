@@ -9,7 +9,10 @@ import {
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
+import { waitForAfterCommit } from '@ultimabase/testing'
+
 import {
+	defineEvent,
 	hooksPlugin,
 	onEvent,
 	provideHookContributions,
@@ -48,6 +51,10 @@ interface RuntimeMutationHookInput {
 }
 
 let fixtureIndex = 0
+const archiveCompleted = defineEvent<{ readonly id: string }>(
+	'fixture.archive.completed',
+)
+
 const HookSchemaApplication = UltimaBase.use(hooksPlugin())
 
 const databasePlugin = (adapter: DatabaseAdapter, id: number) =>
@@ -187,9 +194,7 @@ describe('schema mutation Hooks', () => {
 				archive: (input: RuntimeMutationHookInput) => {
 					trace.push('inline:after')
 					inputs.push(input)
-					input.context.emit('fixture.archive.completed', {
-						id: input.target.id,
-					})
+					input.context.emit(archiveCompleted, { id: input.target.id })
 				},
 				delete: nativeDelete,
 				update: nativeUpdate,
@@ -250,11 +255,8 @@ describe('schema mutation Hooks', () => {
 			contributions: [
 				provideHookEvent(
 					'archive-events',
-					onEvent({
-						handler: () => {
-							trace.push('event')
-						},
-						name: 'fixture.archive.completed',
+					onEvent(archiveCompleted, () => {
+						trace.push('event')
 					}),
 				),
 			],
@@ -277,6 +279,8 @@ describe('schema mutation Hooks', () => {
 			await expect(parts.execute(ultimabase)).resolves.toMatchObject({
 				workflowState: 'archived',
 			})
+			// Events reach consumers after commit, without delaying the call.
+			await waitForAfterCommit()
 			expect(trace).toStrictEqual([
 				'begin',
 				'prepare:delete-one',
