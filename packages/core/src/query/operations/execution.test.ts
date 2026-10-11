@@ -53,18 +53,21 @@ describe('contextual operation execution', () => {
 		const secondFailure = new Error('second execution')
 		const first = new RecordingDispatcher(firstFailure)
 		const second = new RecordingDispatcher(secondFailure)
-		const reusable = new QueryBuilder(PostSchema)
-			.where((where) => where.eq('title', 'shared'))
-			.select({ id: true })
+		// One immutable input shared by both scopes (the `QueryBuilder` overload of
+		// `findMany` was removed by ADR-0315).
+		const reusable = {
+			where: { title: { eq: 'shared' } },
+			select: { id: true },
+		} as const
 		const firstApplication = {}
 		const secondApplication = {}
 
 		const [firstResult, secondResult] = await Promise.allSettled([
 			runWithQueryExecution(firstApplication, first, () =>
-				PostSchema.findMany(reusable.build()),
+				PostSchema.findMany(reusable),
 			),
 			runWithQueryExecution(secondApplication, second, () =>
-				PostSchema.findMany(reusable.build()),
+				PostSchema.findMany(reusable),
 			),
 		])
 
@@ -80,11 +83,16 @@ describe('contextual operation execution', () => {
 		expect(second.operations).toHaveLength(1)
 		expect(first.operations[0]).toMatchObject({ kind: 'find-many' })
 		expect(second.operations[0]).toMatchObject({ kind: 'find-many' })
-		expect(reusable.ast.selection.fields).toStrictEqual([
-			{ field: 'id', kind: 'selected-field' },
-		])
-		// Execution never becomes mutable state on the reusable QueryBuilder itself.
-		expect('engine' in reusable).toBe(false)
+		expect(first.operations[0]).toMatchObject({
+			query: {
+				selection: { fields: [{ field: 'id', kind: 'selected-field' }] },
+			},
+		})
+		// Execution never becomes mutable state on the reusable input itself.
+		expect(reusable).toStrictEqual({
+			where: { title: { eq: 'shared' } },
+			select: { id: true },
+		})
 	})
 
 	it('rejects the removed application selector before dispatch', async () => {

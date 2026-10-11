@@ -78,6 +78,29 @@ const formatDiagnostic = (diagnostic: ts.Diagnostic): string => {
 	return `${path.relative(exampleDirectory, diagnostic.file.fileName)}:${String(line + 1)} ${message}`
 }
 
+/**
+ * Reads the diagnostics of one example file with its `@ts-expect-error`
+ * directives removed, so the expected errors become visible.
+ */
+const readExpectedErrors = (configName: string, fileName: string): string[] => {
+	const parsed = readExampleConfig(configName)
+	const file = path.join(exampleDirectory, fileName)
+	const source = (ts.sys.readFile(file) ?? '').replaceAll(
+		/\/\/ @ts-expect-error[^\n]*/gu,
+		'//',
+	)
+	const host = ts.createCompilerHost(parsed.options)
+	const readSourceFile = host.getSourceFile.bind(host)
+	host.getSourceFile = (name, languageVersion, ...rest) =>
+		path.resolve(name) === file
+			? ts.createSourceFile(name, source, languageVersion)
+			: readSourceFile(name, languageVersion, ...rest)
+	const program = ts.createProgram(parsed.fileNames, parsed.options, host)
+	return program
+		.getSemanticDiagnostics(program.getSourceFile(file))
+		.map(formatDiagnostic)
+}
+
 describe('schema declaration form without Typegen (ADR-0297)', () => {
 	it('type-checks the example, its assertions and its typo cases from the built packages', () => {
 		const program = readExampleProgram()
@@ -106,6 +129,31 @@ describe('schema declaration form without Typegen (ADR-0297)', () => {
 			expect(readExampleHover(configName, 'namedUpdate')).toContain(
 				'UpdateInput<"Todo">',
 			)
+		},
+		120_000,
+	)
+
+	// ADR-0315 (step 5b amendment): a misspelled `select` or `include` field is
+	// reported by name against the schema's contract, not as "No overload
+	// matches this call", from source and built packages.
+	it.each(['tsconfig.json', 'tsconfig.source.json'])(
+		'reports select and include typos by field name through %s',
+		(configName) => {
+			const typos = readExpectedErrors(configName, 'src/typos.ts')
+			const exactness = readExpectedErrors(configName, 'src/exactness.ts')
+			const selectTypo =
+				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; isDeleted?: boolean; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; assignee?: boolean; title?: boolean; archived?: boolean; priority?: boolean; parent?: boolean; }>'. Did you mean to write 'title'?"
+
+			expect(typos).toContain(`src/typos.ts:82 ${selectTypo}`)
+			expect(exactness).toContain(`src/exactness.ts:27 ${selectTypo}`)
+			expect(exactness).toContain(
+				"src/exactness.ts:29 Object literal may only specify known properties, but 'labl' does not exist in type 'Readonly<{ id?: true; createdAt?: boolean; updatedAt?: boolean; label?: boolean; }>'. Did you mean to write 'label'?",
+			)
+			expect(
+				[...typos, ...exactness].filter((diagnostic) =>
+					diagnostic.includes('No overload matches this call'),
+				),
+			).toStrictEqual([])
 		},
 		120_000,
 	)

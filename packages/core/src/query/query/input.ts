@@ -60,6 +60,7 @@ export type {
 	ExactGeneratedFindManyInput,
 	ExactGeneratedFindOneInput,
 	ExactGeneratedInclusionInput,
+	FitsQueryProjection,
 	ExactReadInput,
 	ExistsInput,
 	FindManyInput,

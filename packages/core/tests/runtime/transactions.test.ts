@@ -271,9 +271,7 @@ describe('RequestEngine transactions', () => {
 			}),
 		)
 		expect(() =>
-			escapedQuery === undefined
-				? undefined
-				: articleSchema.findMany(escapedQuery.build()),
+			escapedQuery === undefined ? undefined : articleSchema.findMany(),
 		).toThrow(expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }))
 		expect(trace).toStrictEqual(['adapter:begin', 'adapter:commit'])
 	})

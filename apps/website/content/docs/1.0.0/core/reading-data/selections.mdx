@@ -7,13 +7,14 @@ contentType: guide
 order: 3
 outcome: Choose an inclusion or exclusion projection and predict the returned model shape.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-11
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/docs/schema.md
   - packages/core/src/query/clauses/selection.ts
   - docs/adr/0152-schema-root-object-read-commands.md
+  - docs/adr/0315-name-keyed-query-signatures.md
 ---
 
 ## Outcome
@@ -67,7 +68,10 @@ At least one `true` flag switches to inclusion mode. A selection containing
 only `false` flags uses exclusion mode. The flags must be literal booleans so
 TypeScript can infer the result accurately; use `as const` when reusing a
 selection object. `id: false` is rejected. Unknown field names and non-boolean
-flags are also rejected before the read executes.
+flags are also rejected before the read executes. A misspelled field is
+reported on its own line against the schema's selection, for example
+`'titel' does not exist in type 'Readonly<{ id?: true; title?: boolean; … }>'. Did you mean to write 'title'?`;
+the same applies to a misspelled field inside `include`.
 
 `select` is flat: it chooses whole fields, not properties inside an embedded
 object. To load and shape a pointer or relation target, use `include` with its

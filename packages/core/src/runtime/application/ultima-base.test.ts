@@ -6,7 +6,6 @@ import {
 } from '../../foundation.js'
 
 import { describe, expect, it } from 'vitest'
-import { QueryBuilder } from '../../query/query/query.js'
 
 import { type DatabaseAdapter } from '../database/contracts.js'
 import { provideRuntimeBehavior } from '../capabilities.js'
@@ -207,12 +206,10 @@ describe('UltimaBase', () => {
 			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
 		)
 
-		const escapedQuery = new QueryBuilder(articleSchema)
-
 		await ultimabase.stop()
 		expect(ultimabase.state).toBe('stopped')
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop'])
-		expect(() => articleSchema.findMany(escapedQuery.build())).toThrow(
+		expect(() => articleSchema.findMany({})).toThrow(
 			new TypeError(
 				'Framework engine requires its initialized active application; received stopped',
 			),

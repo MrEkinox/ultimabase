@@ -18,7 +18,10 @@ import type {
 	NestedUpdateExpressionInput,
 	UpdateExpressionInput,
 } from '../updates/contracts.js'
-import type { ExactGeneratedInclusionInput } from '../query/input.js'
+import type {
+	ExactGeneratedInclusionInput,
+	FitsQueryProjection,
+} from '../query/input.js'
 
 /** Exposes typed immutable filters without selection, ordering, or execution methods. */
 export type SchemaWhere<TSchema extends SchemaDefinition> =
@@ -42,40 +45,51 @@ interface SchemaCreateManyFields<TSchema extends SchemaTypeInfoSource> {
 	readonly data: readonly SchemaCreateData<TSchema>[]
 }
 
+type SchemaIncludeContract<TSchema extends SchemaTypeInfoSource> = NonNullable<
+	SchemaTypeInfoFor<TSchema>['inputs']['include']
+>
+
 type SchemaResultProjection<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined,
-	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined,
-> = Readonly<{
-	/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
-	readonly select?: TSelection &
-		QuerySelection<TSchema> &
-		ExactQuerySelection<TSchema, TSelection> &
-		LiteralQuerySelection<TSelection>
-}> &
+	TSelection,
+	TInclude,
+> = SchemaResultSelection<TSchema, TSelection> &
 	(string extends SchemaTypeInfoFor<TSchema>['fields']
 		? Readonly<{
 				readonly include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
 			}>
-		: ExactGeneratedInclusionInput<TSchema, TInclude> &
-				Readonly<{ readonly include?: TInclude }>)
+		: FitsQueryProjection<
+					TInclude,
+					SchemaIncludeContract<TSchema>
+			  > extends false
+			? Readonly<{ readonly include?: SchemaIncludeContract<TSchema> }>
+			: ExactGeneratedInclusionInput<
+					TSchema,
+					Extract<TInclude, SchemaIncludeContract<TSchema> | undefined>
+				> &
+					Readonly<{ readonly include?: TInclude }>)
 
-type SchemaResultSelection<
-	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined,
-> = Readonly<{
-	readonly select?: TSelection &
-		QuerySelection<TSchema> &
-		ExactQuerySelection<TSchema, TSelection> &
-		LiteralQuerySelection<TSelection>
-}>
+// A selection that does not fit the schema is checked against the selection
+// contract alone, so a misspelled field is reported by name (ADR-0315).
+type SchemaResultSelection<TSchema extends SchemaTypeInfoSource, TSelection> =
+	FitsQueryProjection<TSelection, QuerySelection<TSchema>> extends false
+		? Readonly<{
+				/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
+				readonly select?: QuerySelection<TSchema>
+			}>
+		: Readonly<{
+				/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
+				readonly select?: TSelection &
+					QuerySelection<TSchema> &
+					ExactQuerySelection<TSchema, TSelection> &
+					LiteralQuerySelection<TSelection>
+			}>
 
 /** Creates one row with an optional exact result projection. */
 export type SchemaCreateOneInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
-		undefined,
+	TSelection = undefined,
+	TInclude = undefined,
 > = SchemaCreateOneFields<TSchema> &
 	SchemaResultProjection<TSchema, TSelection, TInclude>
 
@@ -91,9 +105,8 @@ export type SchemaCreateOneExecutionInput<
 /** Creates ordered rows with one optional projection shared by every result. */
 export type SchemaCreateManyInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
-		undefined,
+	TSelection = undefined,
+	TInclude = undefined,
 > = SchemaCreateManyFields<TSchema> &
 	SchemaResultProjection<TSchema, TSelection, TInclude>
 
@@ -135,9 +148,8 @@ type SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> =
 /** Updates one uniquely identified row with an optional exact result projection. */
 export type SchemaUpdateOneInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
-		undefined,
+	TSelection = undefined,
+	TInclude = undefined,
 > = SchemaUpdateOneFields<TSchema> &
 	SchemaResultProjection<TSchema, TSelection, TInclude>
 
@@ -166,9 +178,8 @@ interface SchemaUpdateManyFields<TSchema extends SchemaTypeInfoSource> {
 /** Updates uniquely targeted rows in order and returns their selected values. */
 export type SchemaUpdateManyInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
-		undefined,
+	TSelection = undefined,
+	TInclude = undefined,
 > = SchemaUpdateManyFields<TSchema> &
 	SchemaResultProjection<TSchema, TSelection, TInclude>
 
@@ -187,7 +198,7 @@ type SchemaDeleteOneFields<TSchema extends SchemaTypeInfoSource> =
 /** Deletes one uniquely identified row with an optional exact result projection. */
 export type SchemaDeleteOneInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+	TSelection = undefined,
 > = SchemaDeleteOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
@@ -204,7 +215,7 @@ interface SchemaDeleteManyFields<TSchema extends SchemaTypeInfoSource> {
 /** Deletes uniquely targeted rows in order and returns their selected values. */
 export type SchemaDeleteManyInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+	TSelection = undefined,
 > = SchemaDeleteManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
@@ -225,7 +236,7 @@ interface SchemaUpsertOneFields<TSchema extends SchemaTypeInfoSource> {
 /** Creates one row or updates its unique target with an optional result projection. */
 export type SchemaUpsertOneInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+	TSelection = undefined,
 > = SchemaUpsertOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
@@ -246,7 +257,7 @@ interface SchemaUpsertManyFields<TSchema extends SchemaTypeInfoSource> {
 /** Upserts ordered items with one optional projection shared by every result. */
 export type SchemaUpsertManyInput<
 	TSchema extends SchemaTypeInfoSource,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+	TSelection = undefined,
 > = SchemaUpsertManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */

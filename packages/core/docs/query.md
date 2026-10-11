@@ -7,7 +7,9 @@ Generated schema classes expose object-input read commands. These objects are
 the canonical, serializable contract shared with future transports. The
 optional `QueryBuilder<TSchema>` remains a context-free immutable utility: it
 retains only transport-neutral AST state and `build()` returns the same object
-input without executing it. Neither form retains a database, adapter,
+input without executing it, for plugin and transport code; schema read
+commands take that object as a literal (`findMany` has no built-query
+overload, ADR-0315). Neither form retains a database, adapter,
 transaction, request, authority, or transport.
 
 Transport packages use `normalizeReadOperation(schema, kind, input)` to reach
@@ -197,7 +199,7 @@ changing its selection. The main entry exports `QueryBuilder` and
 Core passes them; plugin authors construct them from `@ultimabase/core/plugin`:
 
 ```ts
-import type { QueryScope } from '@ultimabase/core'
+import { normalizeReadOperation, type QueryScope } from '@ultimabase/core'
 import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const published: QueryScope<typeof Post> = (query) =>
@@ -210,7 +212,7 @@ const feedInput = new QueryBuilder(Post)
 	.select({ id: true, title: true })
 	.use(recentPublished)
 	.build()
-const feed = await Post.findMany(feedInput)
+const feed = normalizeReadOperation(Post, 'find-many', feedInput)
 ```
 
 Repeated `where` calls combine through implicit `AND`. Object filters never
@@ -285,8 +287,6 @@ const updated = await Post.updateMany({
 
 const reusable = new WhereBuilder(Post).eq('published', false).gte('views', 10)
 
-const reusableInput = new QueryBuilder(Post).where(reusable).build()
-await Post.findMany(reusableInput)
 await Post.findMany({ where: reusable.build() })
 ```
 

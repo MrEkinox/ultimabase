@@ -8,6 +8,8 @@ plus the `Register` declaration for name-keyed types. No Typegen step runs.
 
 - `src/usage.ts` asserts the inferred query results, inputs and filters;
   `src/typos.ts` holds the eight typo cases, each expected on its own line.
+  `src/exactness.ts` holds the acceptance rules of query inputs (rejected and
+  accepted selections, inclusions and clauses, ADR-0315).
   `tests/e2e/schema-form-d-types.e2e.test.ts` type-checks both against the
   built packages, and `tests/e2e/schema-form-d.postgres.e2e.test.ts` runs the
   schemas on PostgreSQL.
