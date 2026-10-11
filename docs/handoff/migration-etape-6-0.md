@@ -50,8 +50,13 @@ Fait et vérifié par tests ciblés :
 - Tests racine, exemple minimal (types régénérés), create-app, sondes de
   performance Typegen, README racine.
 
-Reste : tests Core/plugin-kit/http-plugin des nouveautés, compilation TS7,
-documentation (site, README des paquets), porte complète, audit DX, banc.
+Ensuite : tests Core (`projection-slots.test-d.ts`, `plugin-commands.test.ts`,
+`unique-conflict.test.ts`), plugin-kit (`define-plugin.test.ts`/`.test-d.ts`),
+`http-routes.test.ts` ; documentation (page Soft Delete, guide d'auteur
+`build-a-plugin`, README Core/plugin-kit/http/Soft Delete/minimal, concepts,
+ARCHITECTURE) ; lint.
+
+Reste : porte complète, audit DX, banc TS6/TS7.
 
 ## Décisions prises (non fixées par l'ADR, à confirmer)
 
@@ -73,9 +78,35 @@ another row.` ; les valeurs restent dans `internalDetails` (les règles de
   lecture de champ peuvent les cacher).
 - `restoreOne/Many` : autorité `request` (règle Access, fermée par défaut
   avec Access) ; `purgeOne/Many` : Master.
+- `plugin()` : le paramètre de type `TSource` (dernier) est aussi porté par
+  `PluginOptions` sous un symbole de type seulement (`[pluginStaticSourceType]?`),
+  sinon la règle eslint `no-unnecessary-type-parameters` le refuse (pas de
+  désactivation en ligne).
+- Le réécrivain de suppression reste sur `delete-one` : `deleteMany` de Core
+  est une suite de `delete-one`, donc logique aussi.
+- `CommitInput.rules` : clés typées, valeurs `unknown` (pas de transtypage).
 - Statiques des emplacements non évaluées pour un nom de classe généré par
   Typegen (ancienne forme) : les surfaces générées les typent déjà ; sinon la
   sonde Typegen « current » passait de 4,1 s à 17,6 s à 10 schémas.
+
+## Ce qui reste du chemin des gabarits (à retirer quand plus personne ne l'utilise)
+
+Clés `schemaFields`, `schemaClass`, `schemaOptions` de `PluginSourceProjection`,
+`PluginSourceState` et `EmptyPluginSourceState` ; `PluginSourceSchemaProjection`,
+`ResolvePluginSchemaProjection`, `ResolveSourceSchemaTemplate`,
+`PluginSourceMutationMethod`, `PluginSourceSchemaFieldValues`,
+`PluginSchemaPatchSource`, `PluginModelSurfaceSource`, le volet `schema` de
+`PluginSchemaOptionSource`, `ConfiguredSchemaSelectorOptions`,
+`ConfiguredProjectionOptions`, les reçus typés des registraires, et
+`plugin-source-projections.test-d.ts`. Utilisateurs :
+
+- ACL : champ `acl` par `PluginSchemaPatchSource`/`PluginModelSurfaceSource`
+  (`acl-option.ts`, `plugin.ts`) et option `acl` → 6.3.
+- PostgreSQL : option `postgres: { table }` → 6.5.
+- REST (`rest`) et GraphQL (`graphql`) : options de schéma → 6.6.
+- Access et Hooks : volet `schema` de leur `PluginSchemaOptionSource`
+  (`access`, `hooks` dans `define`, ancienne forme) ; leur `.with` passe déjà
+  par `SchemaRulesHKT` → 6.1/6.2 ou retrait de l'ancienne forme (6.8).
 
 ## Preuves
 
@@ -83,5 +114,5 @@ another row.` ; les valeurs restent dans `internalDetails` (les règles de
 
 ## Prochaine action vérifiable
 
-Tests Core (emplacements, many-row, accesseur, conflit), plugin-kit et
-`httpRoutes` ; puis documentation et porte.
+Porte complète (`validate:full`, `test:e2e:built`, `website:test`), audit DX
+contre `../ub-step6-0-baseline`, banc forme D.
