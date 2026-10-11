@@ -1,12 +1,12 @@
 # ADR-0318: Hooks on plain data, post-commit delivery and bounded recursion
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: ADR-0300 (replayable transactional hooks), ADR-0304 (`context.principal`), ADR-0305
   (`PublicError`, post-commit logging), ADR-0310 (plain data results), ADR-0316 (rules in
   `.with`); applies ADR-0288
 - Approval: decisions of the Hooks review (`docs/handoff/revue-plugins/hooks.md`, decisions 1 to
-  16, validated by the user on 2026-10-09); record to be accepted by the user
+  16, validated by the user on 2026-10-09); record accepted by the user on 2026-10-11
 - Already implemented elsewhere: `context.principal` (ADR-0304), `PublicError` (ADR-0305),
   automatic transaction retries (ADR-0300)
 

@@ -1,13 +1,13 @@
 # ADR-0320: PostgreSQL safe synchronization, connection settings and debugging
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: ADR-0292 (schema policies), ADR-0299 to ADR-0303 (adapter contracts), ADR-0312
   (`DATABASE_URL`, environment defaults), ADR-0313 (logger), ADR-0316 (rules in `.with`);
   applies ADR-0288
 - Approval: decisions of the PostgreSQL review (`docs/handoff/revue-plugins/postgres.md`,
   decisions 1 to 13, validated by the user on 2026-10-09, as corrected by the adapter audit
-  `adaptateurs.md`); record to be accepted by the user
+  `adaptateurs.md`); record accepted by the user on 2026-10-11
 - Already implemented elsewhere: partial indexes and `ultimabase.health()` (ADR-0303), neutral
   errors and retries (ADR-0299, ADR-0300, ADR-0302), `DATABASE_URL` at start (ADR-0312)
 

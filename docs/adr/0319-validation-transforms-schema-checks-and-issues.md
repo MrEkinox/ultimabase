@@ -1,11 +1,11 @@
 # ADR-0319: Validation transforms, schema checks and complete issues
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: the Validation plugin records, ADR-0316 (rules in `.with`), ADR-0305 (client
   errors); applies ADR-0288
 - Approval: decisions of the Validation review (`docs/handoff/revue-plugins/validation.md`,
-  decisions 1 to 12, validated by the user on 2026-10-09); record to be accepted by the user
+  decisions 1 to 12, validated by the user on 2026-10-09); record accepted by the user on 2026-10-11
 
 ## Context
 
