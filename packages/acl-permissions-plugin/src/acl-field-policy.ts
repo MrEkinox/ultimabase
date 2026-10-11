@@ -40,24 +40,37 @@ const withoutACL = (
 		),
 	)
 
-/** Keeps the ACL of the rows `keep` allows; removes it from the others. */
-const restrictACLResult = async <const TResult>(
-	result: TResult,
-	keep: (acl: unknown) => Promise<boolean>,
-): Promise<TResult> => {
-	const restrict = async (item: unknown): Promise<unknown> =>
-		isPlainRecord(item) &&
-		Object.hasOwn(item, aclFieldName) &&
-		!(await keep(item[aclFieldName]))
-			? withoutACL(item)
-			: item
+/** Removes the protected ACL property while retaining result cardinality. */
+const removeACL = <const TResult>(result: TResult): TResult => {
 	const value: unknown = result
 	if (isUnknownArray(value)) {
 		return immutableArray(
-			await Promise.all(value.map((item) => restrict(item))),
+			value.map((item) => (isPlainRecord(item) ? withoutACL(item) : item)),
 		) as TResult
 	}
-	return (await restrict(value)) as TResult
+	return (isPlainRecord(value) ? withoutACL(value) : result) as TResult
+}
+
+/** Refuses a selected ACL on any row `clientSharing` does not allow. */
+const assertShareableRows = async (
+	result: unknown,
+	className: string,
+	shareable: (acl: ACL) => Promise<boolean>,
+): Promise<void> => {
+	const rows = isUnknownArray(result) ? result : [result]
+	for (const row of rows) {
+		if (!isPlainRecord(row)) continue
+		const acl: unknown = row[aclFieldName]
+		if (acl instanceof ACL && (await shareable(acl))) continue
+		throw new FrameworkError(
+			'PERMISSION_DENIED',
+			`select: { acl: true } on ${className} returned a row acl.clientSharing does not allow: select the acl only on rows the caller may share.`,
+			{
+				publicMessage: 'The operation is not permitted.',
+				internalDetails: { kind: 'acl-select-not-shareable' },
+			},
+		)
+	}
 }
 
 const selectsACL = (operation: RuntimeLogicalOperationAst): boolean =>
@@ -80,14 +93,11 @@ export const createACLFieldPolicy = (
 
 			const selected = selectsACL(operation)
 			if (selected && option.config.clientSharing === undefined) {
-				throw new FrameworkError(
-					'PERMISSION_DENIED',
-					`select: { acl: true } on ${option.schema.className} requires useMasterKey: true, or acl.clientSharing for the rows it allows.`,
-					{
-						publicMessage: 'The acl field cannot be selected.',
-						internalDetails: { kind: 'acl-select-denied' },
-					},
-				)
+				// A denial, not an error, so an inclusion reads it as absence.
+				return immutableRecord({
+					allowed: false,
+					reason: `select: { acl: true } on ${option.schema.className} requires useMasterKey: true, or acl.clientSharing for the rows it allows`,
+				})
 			}
 
 			return immutableRecord({
@@ -122,14 +132,12 @@ export const createACLFieldPolicy = (
 			if (option === undefined) return result
 			const sharing = option.config.clientSharing
 			if (sharing === undefined || !selectsACL(operation)) {
-				return restrictACLResult(result, () => Promise.resolve(false))
+				return removeACL(result)
 			}
 			const principal = await state.resolvePrincipal()
-			return restrictACLResult(
-				result,
-				async (currentAcl) =>
-					currentAcl instanceof ACL &&
-					(await sharing({ currentAcl, principal })),
+			await assertShareableRows(result, option.schema.className, (currentAcl) =>
+				Promise.resolve(sharing({ currentAcl, principal })),
 			)
+			return result
 		},
 	})

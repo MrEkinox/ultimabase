@@ -56,25 +56,27 @@ const Author = ACLSchemaApplication.Schema.define({
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
-	acl: {
-		default: emptyACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? emptyACL,
-	},
 	postgres: { table: 'acl_relationship_authors' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: emptyACL,
+		},
+	})
 const Tag = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipTag',
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
-	acl: {
-		default: emptyACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? emptyACL,
-	},
 	postgres: { table: 'acl_relationship_tags' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: emptyACL,
+		},
+	})
 const Article = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipArticle',
 	fields: (field) => ({
@@ -82,13 +84,14 @@ const Article = ACLSchemaApplication.Schema.define({
 		tags: field.relation({ target: 'ACLRelationshipTag' }),
 		title: field.string({ required: true }),
 	}),
-	acl: {
-		default: emptyACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? emptyACL,
-	},
 	postgres: { table: 'acl_relationship_articles' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: emptyACL,
+		},
+	})
 
 type PersistedMember = Model<typeof Member>
 type PersistedAuthor = Model<typeof Author>

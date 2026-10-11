@@ -520,10 +520,12 @@ describe('aclPlugin create input resolution', () => {
 			schema: protectedPostNode,
 		} as const
 
+		const resolveInput = vi.fn(() => new ACL())
+
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl }),
+				normalizedACL({ resolveInput }),
 				undefined,
 				context,
 			),
@@ -532,26 +534,24 @@ describe('aclPlugin create input resolution', () => {
 			internalDetails: { kind: 'acl-management-requires-master' },
 		} satisfies Partial<FrameworkError>)
 
-		await expect(
-			resolveCreateOperationACL(
-				operation,
-				normalizedACL(),
-				undefined,
-				masterContext,
-			),
-		).rejects.toThrow(
-			new TypeError(
-				'Explicit ACL input requires an acl.resolveInput declaration',
-			),
+		// ADR-0321: Master writes an explicit ACL without resolveInput.
+		const withoutResolver = await resolveCreateOperationACL(
+			operation,
+			normalizedACL(),
+			undefined,
+			masterContext,
 		)
+		expect(withoutResolver.input.acl).toStrictEqual(explicit)
 
+		// resolveInput only recomputes from data: an explicit ACL bypasses it.
 		const accepted = await resolveCreateOperationACL(
 			operation,
-			normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl }),
+			normalizedACL({ resolveInput }),
 			undefined,
 			masterContext,
 		)
 
-		expect(accepted.input.acl).toBe(explicit)
+		expect(accepted.input.acl).toStrictEqual(explicit)
+		expect(resolveInput).not.toHaveBeenCalled()
 	})
 })

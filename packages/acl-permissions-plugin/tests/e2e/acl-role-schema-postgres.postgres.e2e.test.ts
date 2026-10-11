@@ -2,7 +2,7 @@ import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { MasterAuthority, UltimaBase, type Model } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -52,25 +52,20 @@ const identityPlugin = plugin({
 	],
 })
 const emptyACL = new ACL()
-const AppRole = RoleSchema.define(ACLRoleSchemaApplication.Schema, {
+const AppRole = ACLRoleSchemaApplication.RoleSchema.define({
 	className: 'ACLProtectedAppRole',
-	deletion: { references: 'fail' },
+	deletion: 'fail',
 	fields: (field) => ({ description: field.string() }),
-	members: {
-		resolveCurrent: ({ context }) => {
-			const id = context.getValue(currentMemberId)
+	members: () => Member,
+	resolveCurrent: ({ context }) => {
+		const id = context.getValue(currentMemberId)
 
-			return id === undefined ? undefined : Member.pointer(id)
-		},
-		schema: Member,
+		return id === undefined ? undefined : Member.pointer(id)
 	},
-	acl: {
-		default: emptyACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? emptyACL,
-	},
-	postgres: { table: 'acl_protected_app_roles' },
 })
+	.acl()
+	// The default table name is `acl_protected_app_roles`.
+	.with({ acl: { default: emptyACL } })
 
 type PersistedMember = Model<typeof Member>
 type PersistedRole = Model<typeof AppRole>
@@ -264,7 +259,7 @@ describe(
 				AppRole.updateOne(
 					{
 						where: { id: { eq: currentParent.id } },
-						data: { roles: { connect: [currentChild.id] } },
+						data: { includedRoles: { connect: [currentChild.id] } },
 					},
 					{ context },
 				),
@@ -283,11 +278,11 @@ describe(
 				{
 					where: { id: { eq: currentParent.id } },
 					select: { id: true },
-					include: { roles: { select: { id: true } } },
+					include: { includedRoles: { select: { id: true } } },
 				},
 				{ context },
 			)
-			expect(parentLinks.roles).toHaveLength(1)
+			expect(parentLinks.includedRoles).toHaveLength(1)
 		})
 
 		it('keeps ACL replacement master-only while honoring delete rights', async () => {

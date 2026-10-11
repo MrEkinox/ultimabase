@@ -30,7 +30,7 @@ import {
 } from '@ultimabase/hooks-plugin'
 import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -71,24 +71,22 @@ const principalPolicies = immutableArray([
 	immutableRecord({ policy: 'cascade' as const, schema: CascadePrincipal }),
 ])
 
-const FailRole = RoleSchema.define({
+const RoleApplication = UltimaBase.use(rolesPlugin())
+const FailRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferenceFailRole',
-	members: { schema: FailPrincipal },
-	deletion: { references: 'fail' },
-	fields: () => ({}),
-})
-const PreserveRole = RoleSchema.define({
+	members: () => FailPrincipal,
+	deletion: 'fail',
+}).with({})
+const PreserveRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferencePreserveRole',
-	members: { schema: FailPrincipal },
-	deletion: { references: 'preserve' },
-	fields: () => ({}),
-})
-const CascadeRole = RoleSchema.define({
+	members: () => FailPrincipal,
+	deletion: 'preserve',
+}).with({})
+const CascadeRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferenceCascadeRole',
-	members: { schema: FailPrincipal },
-	deletion: { references: 'cascade' },
-	fields: () => ({}),
-})
+	members: () => FailPrincipal,
+	deletion: 'cascade',
+}).with({})
 
 const emptyACL = new ACL()
 const committedACLChanges: ACLChangedEvent[] = []
@@ -98,23 +96,19 @@ const ProtectedPrimary = ACLReferenceApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	acl: {
-		default: emptyACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? emptyACL,
-	},
 	postgres: { table: 'acl_reference_primary' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: emptyACL,
+		},
+	})
 const ProtectedSecondary = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	acl: {
-		default: emptyACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? emptyACL,
-	},
 	postgres: { table: 'acl_reference_secondary' },
 	hooks: {
 		beforeOperation: {
@@ -127,6 +121,12 @@ const ProtectedSecondary = ACLReferenceApplication.Schema.define({
 		},
 	},
 })
+	.acl()
+	.with({
+		acl: {
+			default: emptyACL,
+		},
+	})
 
 const readPrincipalCleanups = (
 	values: readonly NamedRequestSubjectReferenceCleanup[],

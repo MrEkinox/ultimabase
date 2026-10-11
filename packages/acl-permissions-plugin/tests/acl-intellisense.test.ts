@@ -10,8 +10,8 @@ const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'acl-intellisense.fixture.ts')
 const source = `
 import { ACL, aclPlugin, onACLChange } from '@ultimabase/acl-permissions-plugin'
-import type { ACLSchemaOption } from '@ultimabase/acl-permissions-plugin'
-import { UltimaBase, stringField } from '@ultimabase/core'
+import type { ACLRule } from '@ultimabase/acl-permissions-plugin'
+import { UltimaBase } from '@ultimabase/core'
 
 const Application = UltimaBase.use(aclPlugin())
 
@@ -25,10 +25,10 @@ void ACL.fromJSON/* from-json-hover */
 acl.grantPublic(/* permission-complete */)
 const /* acl-hover */value = acl.grantPublic('read')
 const /* json-hover */document = acl.toJSON()
-void ({} as ACLSchemaOption/* option-hover */<unknown>)
-const directACL: ACLSchemaOption<unknown> = { /* options-complete */ }
+void ({} as ACLRule/* option-hover */)
+const directACL: Partial<ACLRule> = { /* options-complete */ }
 void directACL
-Application.Schema.define({ /* schema-option-complete */ })
+Application.Schema.define({ className: 'Completed', fields: () => ({}) }).acl().with({ /* schema-option-complete */ })
 void aclPlugin/* plugin-hover */
 aclPlugin({ /* plugin-options-complete */ })
 aclPlugin({ limits: { /* plugin-limits-complete */ } })
@@ -41,11 +41,14 @@ onACLChange(({ event }) => {
 
 const ContextualPost = Application.Schema.define({
 	className: 'ContextualPost',
-	fields: () => ({
-		title: stringField({ required: true }),
-		visibility: stringField(),
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		visibility: field.string(),
 	}),
-	acl: {
+})
+	.acl()
+	.with({
+		acl: {
 			default: ({ data }) => {
 				data./* schema-data-complete */
 				const /* schema-title-hover */title = data.title
@@ -56,11 +59,11 @@ const ContextualPost = Application.Schema.define({
 			resolveInput: (input) => {
 				const /* schema-input-hover */candidate = input.data
 
-				return input.inputAcl ?? input.currentAcl
+				return input.currentAcl
 			},
-		limits: { /* schema-limits-complete */ },
-	},
-})
+			limits: { /* schema-limits-complete */ },
+		},
+	})
 
 void ContextualPost
 `
@@ -181,7 +184,7 @@ describe('ACL IntelliSense', () => {
 		)
 	})
 
-	it('documents the direct schema option and completes its focused options', () => {
+	it('documents the acl rule and completes its focused options', () => {
 		const hoverMarker = '/* option-hover */'
 		const hover = service.getQuickInfoAtPosition(
 			fixtureFile,
@@ -202,10 +205,16 @@ describe('ACL IntelliSense', () => {
 		)
 
 		expect(ts.displayPartsToString(hover?.documentation)).toContain(
-			'Configures ACL generation and accepted input from exact sibling fields',
+			'The `acl` entry of `.with({ ... })` once `.acl()` is called',
 		)
 		expect(names).toEqual(
-			expect.arrayContaining(['default', 'limits', 'resolveInput']),
+			expect.arrayContaining([
+				'clientSharing',
+				'default',
+				'existingRows',
+				'limits',
+				'resolveInput',
+			]),
 		)
 		expect(schemaCompletions?.entries.map(({ name }) => name) ?? []).toContain(
 			'acl',

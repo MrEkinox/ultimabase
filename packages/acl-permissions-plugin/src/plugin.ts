@@ -10,8 +10,11 @@ import {
 	type DatabaseOperationAst,
 	type ExecutableOperationAst as ExecutableAst,
 	type RuntimeConstraintDefinition,
+	type RuntimeLogicalMutationOperationAst,
 	type RuntimeOperationStageInput,
 	type RuntimeOperationTransformStage,
+	type RuntimePreparedMutationStageInput,
+	type RuntimePreparedMutationTransformStage,
 	type SchemaDefinition,
 	type SchemaItem,
 } from '@ultimabase/core'
@@ -72,9 +75,11 @@ import {
 	type ACLRule,
 } from './acl-option.js'
 import {
+	recomputeUpdateOperationACL,
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
 	type ACLCreateOperation,
+	type ACLPreparedUpdateOperation,
 } from './acl-operation-resolution.js'
 import {
 	createACLReferenceCleanups,
@@ -88,6 +93,7 @@ import {
 } from './application-state.js'
 
 export {
+	recomputeUpdateOperationACL,
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
 } from './acl-operation-resolution.js'
@@ -375,6 +381,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				// `operations` limits this policy to executable terminals Core types broadly.
 				const permission = requiredACLPermission(
 					operation as unknown as ExecutableAst,
+					option.config.clientSharing !== undefined,
 				)
 				if (permission === undefined) return undefined
 				return immutableRecord({
@@ -427,9 +434,40 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				return resolved as unknown as TOperation
 			}
 
+			const transformPreparedInput: RuntimePreparedMutationTransformStage =
+				async <const TOperation extends RuntimeLogicalMutationOperationAst>(
+					input: RuntimePreparedMutationStageInput<TOperation, unknown>,
+				): Promise<TOperation> => {
+					const { context, operation, target } = input
+					const option = state.protectedOption(operation)
+					if (
+						operation.kind !== 'update-one' ||
+						option?.config.resolveInput === undefined ||
+						!isPlainRecord(target) ||
+						getACLReferenceScope(option.schema) !== undefined
+					) {
+						return operation
+					}
+					const subjects = await state.resolveSubjects()
+					// `resolveInput` recomputes the ACL of updates that carry none;
+					// the kind check above narrows what TypeScript cannot.
+					const recomputed = await recomputeUpdateOperationACL(
+						operation as unknown as ACLPreparedUpdateOperation,
+						target,
+						option.config,
+						subjects.principal,
+						context,
+						subjects.roleResolutionAvailable,
+						option.limits,
+						state.persistentRoleResolver,
+					)
+					return recomputed as unknown as TOperation
+				}
+
 			return {
 				value: {
 					transformInput,
+					transformPreparedInput,
 					transformResult: async (input) => {
 						if (input.outcome === undefined) return input.result
 						const option = state.protectedOption(input.operation)

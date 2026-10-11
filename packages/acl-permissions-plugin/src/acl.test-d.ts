@@ -1,10 +1,16 @@
-import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
+import {
+	RequestSubjectReference,
+	UltimaBase,
+	type Pointer,
+	type RequestRoleReference,
+} from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import {
 	ACL,
 	aclPermissions,
 	aclPlugin,
+	type ACLEntry,
 	type ACLEntryLimits,
 	type ACLPermission,
 	type ACLPrincipal,
@@ -52,6 +58,23 @@ test('keeps the complete ACL builder surface compact and precise', () => {
 		readonly ACLPrincipalJSON[]
 	>()
 	expectTypeOf(acl.toJSON().roles).toEqualTypeOf<readonly ACLRoleJSON[]>()
+})
+
+test('grants the owner and the write group (ADR-0321)', () => {
+	expectTypeOf(new ACL(principal)).toEqualTypeOf<ACL>()
+	expectTypeOf(new ACL(undefined)).toEqualTypeOf<ACL>()
+	expectTypeOf(new ACL().grantPublic('read', 'write')).toEqualTypeOf<ACL>()
+	expectTypeOf(new ACL().revokePrincipal(principal, 'write')).toEqualTypeOf<ACL>()
+	expectTypeOf(new ACL().entries()).toEqualTypeOf<readonly ACLEntry[]>()
+	const [entry] = new ACL(principal).entries()
+	if (entry?.kind === 'principal') {
+		expectTypeOf(entry.principal).toEqualTypeOf<Pointer>()
+	}
+	if (entry?.kind === 'role') {
+		expectTypeOf(entry.role).toEqualTypeOf<RequestRoleReference>()
+	}
+	// @ts-expect-error -- `write` is an input group, never a stored right.
+	new ACL().hasPublicPermission('write')
 })
 
 test('rejects ambiguous subjects and unknown rights at compile time', () => {

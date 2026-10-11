@@ -34,6 +34,7 @@ let rollbackResolution: CapturedUpdateResolution | undefined
 let resolutionCount = 0
 
 const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+const publicRead = new ACL().grantPublic('read')
 const ResolutionPost = ACLSchemaApplication.Schema.define({
 	className: 'ACLInputResolutionPost',
 	fields: (field) => ({
@@ -44,39 +45,46 @@ const ResolutionPost = ACLSchemaApplication.Schema.define({
 		title: field.string({ required: true }),
 		views: field.int({ default: 2 }),
 	}),
-	acl: {
-		default: emptyACL,
-		resolveInput: (input) => {
-			resolutionCount += 1
+	postgres: { table: 'acl_input_resolution_posts' },
+})
+	.acl()
+	.with({
+		acl: {
+			default: emptyACL,
+			// ADR-0321: recomputes the ACL from the row's data on each write
+			// that carries no explicit ACL.
+			resolveInput: (input) => {
+				resolutionCount += 1
 
-			if (input.operation === 'create') {
-				createResolution = immutableRecord({
+				if (input.operation === 'create') {
+					createResolution = immutableRecord({
+						currentData: input.currentData,
+						data: input.data,
+						update: input.update,
+					})
+
+					return undefined
+				}
+
+				const captured = immutableRecord({
 					currentData: input.currentData,
 					data: input.data,
 					update: input.update,
 				})
 
-				return input.inputAcl ?? emptyACL
-			}
+				if (input.data.title === 'rollback-candidate') {
+					rollbackResolution = captured
+					throw new Error('ACL resolver requested rollback')
+				}
 
-			const captured = immutableRecord({
-				currentData: input.currentData,
-				data: input.data,
-				update: input.update,
-			})
+				updateResolution = captured
 
-			if (input.data.title === 'rollback-candidate') {
-				rollbackResolution = captured
-				throw new Error('ACL resolver requested rollback')
-			}
-
-			updateResolution = captured
-
-			return input.inputAcl ?? input.currentAcl
+				return input.data.title === 'resolved-candidate'
+					? publicRead
+					: undefined
+			},
 		},
-	},
-	postgres: { table: 'acl_input_resolution_posts' },
-})
+	})
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
@@ -125,7 +133,7 @@ beforeAll(async () => {
 	})
 	await ultimabase.start()
 	const created = await ResolutionPost.createOne(
-		{ data: { acl: emptyACL, note: 'remove-me', title: 'current' } },
+		{ data: { note: 'remove-me', title: 'current' } },
 		{ useMasterKey: true },
 	)
 
@@ -140,7 +148,6 @@ afterAll(async () => {
 describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 	it('exposes honest create and update candidates inside the mutation transaction', async () => {
 		const id = getPostId()
-		const replacement = new ACL().grantPublic('read')
 		const masterOptions = { useMasterKey: true } as const
 
 		expect(createResolution).toStrictEqual({
@@ -160,7 +167,6 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 			{
 				where: { id: { eq: id } },
 				data: {
-					acl: replacement,
 					labels: ['stable', 'typed'],
 					title: 'resolved-candidate',
 					note: null,
@@ -171,8 +177,8 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 			masterOptions,
 		)
 
+		expect(updated.acl.toJSON()).toStrictEqual(publicRead.toJSON())
 		expect(updated).toMatchObject({
-			acl: replacement,
 			balance: '11.50',
 			labels: ['stable', 'typed'],
 			status: 'unchanged',
@@ -223,7 +229,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		expect(persisted.rows[0]?.note).toBeNull()
 	})
 
-	it('rolls back resolver failures and skips ordinary object updates', async () => {
+	it('rolls back resolver failures and recomputes on ordinary updates', async () => {
 		const id = getPostId()
 		const masterOptions = { useMasterKey: true } as const
 		const countBeforeRollback = resolutionCount
@@ -235,7 +241,6 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 					data: {
 						balance: { decrement: '0.25' },
 						views: { decrement: 1 },
-						acl: new ACL(),
 						title: 'rollback-candidate',
 					},
 				},
@@ -278,6 +283,16 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 				masterOptions,
 			),
 		).resolves.toMatchObject({ status: 'ordinary' })
-		expect(resolutionCount).toBe(countBeforeOrdinaryUpdate)
+		expect(resolutionCount).toBe(countBeforeOrdinaryUpdate + 1)
+
+		// Master's explicit ACL is written as is, without resolveInput.
+		const explicit = new ACL().grantAuthenticated('read')
+		await expect(
+			ResolutionPost.updateOne(
+				{ where: { id: { eq: id } }, data: { acl: explicit } },
+				masterOptions,
+			),
+		).resolves.toMatchObject({ acl: explicit })
+		expect(resolutionCount).toBe(countBeforeOrdinaryUpdate + 1)
 	})
 })

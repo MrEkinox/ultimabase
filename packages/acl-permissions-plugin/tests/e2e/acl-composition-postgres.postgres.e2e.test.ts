@@ -85,17 +85,6 @@ const Document = ACLCompositionApplication.Schema.define({
 			required: true,
 		}),
 	}),
-	acl: {
-		default: ({ data, principal }) => {
-			const initial =
-				data.title === 'public' ? emptyACL.grantPublic('read') : emptyACL
-			return principal === undefined
-				? initial
-				: initial.grantPrincipal(principal, 'read', 'update', 'delete')
-		},
-		// Returning undefined on create deliberately delegates to the configured default.
-		resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
-	},
 	postgres: { table: 'acl_composition_documents' },
 	access: {
 		create: true,
@@ -105,6 +94,18 @@ const Document = ACLCompositionApplication.Schema.define({
 		update: ({ where }) => where.eq('nativeScope', 'allowed'),
 	},
 })
+	.acl()
+	.with({
+		acl: {
+			default: ({ data, principal }) => {
+				const initial =
+					data.title === 'public' ? emptyACL.grantPublic('read') : emptyACL
+				return principal === undefined
+					? initial
+					: initial.grantPrincipal(principal, 'read', 'update', 'delete')
+			},
+		},
+	})
 
 const sharedPrincipalId = '0198a43e-2431-7000-8000-000000000610'
 let fixture: PostgresWorkerFixture | undefined

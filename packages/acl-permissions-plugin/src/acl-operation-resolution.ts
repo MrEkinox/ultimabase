@@ -46,7 +46,7 @@ export type ACLCreateOperation = Extract<
 	{ readonly kind: 'create-many' | 'create-one' | 'upsert-many' | 'upsert-one' }
 >
 
-interface ACLPreparedUpdateOperation {
+export interface ACLPreparedUpdateOperation {
 	readonly kind: 'update-one'
 	readonly query: Readonly<{
 		readonly schema: Readonly<{ readonly definition: SchemaDefinition }>
@@ -223,8 +223,10 @@ const acceptACL = async (
 	}
 
 	assertACLEntryLimits(accepted, limits)
-	acceptedACLValues.add(accepted)
-	return accepted
+	// A fresh copy: a caller's own instance never becomes trusted.
+	const trusted = ACL.fromJSON(accepted.toJSON())
+	acceptedACLValues.add(trusted)
+	return trusted
 }
 
 const resolveCreateInputACL = async <
@@ -381,10 +383,62 @@ const readResolutionUpdate = (
 	}),
 })
 
+const readUpdateExpression = (
+	operation: ACLPreparedUpdateOperation,
+): Readonly<{
+	operations: readonly unknown[]
+	record: Readonly<Record<string, unknown>>
+}> => {
+	const update: unknown = operation.update
+	if (
+		!isPlainRecord(update) ||
+		update.kind !== 'update-expression' ||
+		!isUnknownArray(update.operations)
+	) {
+		throw new TypeError('ACL update requires a normalized update expression')
+	}
+	return { operations: update.operations, record: update }
+}
+
+const findACLOperation = (
+	operations: readonly unknown[],
+): Readonly<Record<string, unknown>> | undefined => {
+	const found = operations.find(
+		(candidate) => isPlainRecord(candidate) && candidate.field === aclFieldName,
+	)
+	return isPlainRecord(found) ? found : undefined
+}
+
+/** Replaces the ACL operation of an update, or appends one. */
+const withACLOperation = <const TOperation extends ACLPreparedUpdateOperation>(
+	operation: TOperation,
+	acl: ACL,
+): TOperation => {
+	const update = readUpdateExpression(operation)
+	const current = findACLOperation(update.operations)
+	const replacement = immutableRecord({
+		field: aclFieldName,
+		kind: 'set' as const,
+		value: acl,
+	})
+	return immutableRecord({
+		...operation,
+		update: immutableRecord({
+			...update.record,
+			operations: immutableArray(
+				current === undefined
+					? [...update.operations, replacement]
+					: update.operations.map((candidate) =>
+							candidate === current ? replacement : candidate,
+						),
+			),
+		}),
+	})
+}
+
 /**
- * Resolves the ACL of one singular update against its locked row, after
- * Access approval: an explicit Master ACL, a `grant`/`revoke`, subject
- * cleanup, or `resolveInput` recomputing it from the row's data.
+ * Resolves an explicit ACL, a `grant`/`revoke` or a subject cleanup of one
+ * singular update against its locked row, after Access approval.
  */
 export const resolvePreparedOperationACL = async <
 	const TOperation extends ACLPreparedUpdateOperation,
@@ -401,14 +455,12 @@ export const resolvePreparedOperationACL = async <
 	referenceCleanup?: ACLReferenceSubject,
 	roles: readonly RequestRoleReference[] = [],
 ): Promise<TOperation> => {
-	const update: unknown = operation.update
-
-	if (
-		!isPlainRecord(update) ||
-		update.kind !== 'update-expression' ||
-		!isUnknownArray(update.operations)
-	) {
-		throw new TypeError('ACL update requires a normalized update expression')
+	const aclOperation = findACLOperation(
+		readUpdateExpression(operation).operations,
+	)
+	// Values this plugin produced (`resolveInput`) are already accepted.
+	if (aclOperation === undefined || isAcceptedACLValue(aclOperation.value)) {
+		return operation
 	}
 	const acceptance = {
 		context,
@@ -417,23 +469,23 @@ export const resolvePreparedOperationACL = async <
 		roleResolutionAvailable,
 	}
 	const currentAcl = snapshotResolvedACL(target[aclFieldName], 'current acl')
-	const aclOperation = update.operations.find(
-		(candidate) => isPlainRecord(candidate) && candidate.field === aclFieldName,
-	)
-	let resolvedAcl: ACL | undefined
 
 	if (referenceCleanup !== undefined) {
-		if (!isPlainRecord(aclOperation)) return operation
 		assertMasterACLManagement(context)
 		// Subject cleanup removes one exact entry from the locked current value.
-		resolvedAcl = removeACLReference(currentAcl, referenceCleanup)
-	} else if (isPlainRecord(aclOperation)) {
-		if (aclOperation.kind !== 'set' || !Object.hasOwn(aclOperation, 'value')) {
-			throw new TypeError('ACL update must set an ACL, a grant or a revoke')
-		}
-		const value = snapshotACLUpdateInput(aclOperation.value, 'acl')
-		if (value instanceof ACLChange) {
-			resolvedAcl = await acceptACL(
+		return withACLOperation(
+			operation,
+			removeACLReference(currentAcl, referenceCleanup),
+		)
+	}
+	if (aclOperation.kind !== 'set' || !Object.hasOwn(aclOperation, 'value')) {
+		throw new TypeError('ACL update must set an ACL, a grant or a revoke')
+	}
+	const value = snapshotACLUpdateInput(aclOperation.value, 'acl')
+	if (value instanceof ACLChange) {
+		return withACLOperation(
+			operation,
+			await acceptACL(
 				await applyACLChange(
 					value,
 					currentAcl,
@@ -444,57 +496,71 @@ export const resolvePreparedOperationACL = async <
 				),
 				'acl change',
 				acceptance,
-			)
-		} else {
-			// Master writes an explicit ACL as is; `resolveInput` is not called.
-			assertMasterACLManagement(context)
-			resolvedAcl = await acceptACL(value, 'acl input', acceptance)
-		}
-	} else if (config.resolveInput !== undefined) {
-		const schema = operation.query.schema.definition
-		const { currentData, data, update: normalizedUpdate } = readResolutionUpdate(
-			schema,
-			target,
-			update.operations,
+			),
 		)
-		// Structural revalidation has normalized every operation before this locked callback.
-		const resolved: unknown = await config.resolveInput({
-			context,
-			currentAcl,
-			currentData: currentData as TData,
-			data: data as TData,
-			operation: 'update',
-			principal,
-			update: normalizedUpdate,
-		})
-		if (
-			resolved === undefined ||
-			(resolved instanceof ACL &&
-				isDeepStrictEqual(resolved.toJSON(), currentAcl.toJSON()))
-		) {
-			return operation
-		}
-		resolvedAcl = await acceptACL(resolved, 'acl resolveInput', acceptance)
-	} else {
+	}
+	// Master writes an explicit ACL as is; `resolveInput` is not called.
+	assertMasterACLManagement(context)
+	return withACLOperation(
+		operation,
+		await acceptACL(value, 'acl input', acceptance),
+	)
+}
+
+/**
+ * Recomputes the ACL of one singular update that carries none through
+ * `resolveInput`, from the locked row and the proposed data (ADR-0321).
+ */
+export const recomputeUpdateOperationACL = async <
+	const TOperation extends ACLPreparedUpdateOperation,
+	TData extends Readonly<Record<string, unknown>>,
+>(
+	operation: TOperation,
+	target: Readonly<Record<string, unknown>>,
+	config: NormalizedACLSchemaOption<TData>,
+	principal: Principal | undefined,
+	context: RequestSubjectContext,
+	roleResolutionAvailable = false,
+	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
+	resolvePersistentRole?: PersistentRoleResolver,
+): Promise<TOperation> => {
+	const update = readUpdateExpression(operation)
+	if (
+		config.resolveInput === undefined ||
+		findACLOperation(update.operations) !== undefined
+	) {
 		return operation
 	}
-
-	const replacement = immutableRecord({
-		field: aclFieldName,
-		kind: 'set' as const,
-		value: resolvedAcl,
+	const currentAcl = snapshotResolvedACL(target[aclFieldName], 'current acl')
+	const { currentData, data, update: normalizedUpdate } = readResolutionUpdate(
+		operation.query.schema.definition,
+		target,
+		update.operations,
+	)
+	// Structural revalidation has normalized every operation before this locked callback.
+	const resolved: unknown = await config.resolveInput({
+		context,
+		currentAcl,
+		currentData: currentData as TData,
+		data: data as TData,
+		operation: 'update',
+		principal,
+		update: normalizedUpdate,
 	})
-	const operations = isPlainRecord(aclOperation)
-		? update.operations.map((candidate) =>
-				candidate === aclOperation ? replacement : candidate,
-			)
-		: [...update.operations, replacement]
-
-	return immutableRecord({
-		...operation,
-		update: immutableRecord({
-			...update,
-			operations: immutableArray(operations),
+	if (
+		resolved === undefined ||
+		(resolved instanceof ACL &&
+			isDeepStrictEqual(resolved.toJSON(), currentAcl.toJSON()))
+	) {
+		return operation
+	}
+	return withACLOperation(
+		operation,
+		await acceptACL(resolved, 'acl resolveInput', {
+			context,
+			limits,
+			resolvePersistentRole,
+			roleResolutionAvailable,
 		}),
-	})
+	)
 }
