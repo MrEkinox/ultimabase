@@ -103,7 +103,7 @@ const createBrowserPolicy = (allowedOrigin: string): HttpBrowserPolicy => ({
 		'X-UltimaBase-Master-Key',
 	],
 	allowedMethods: ['GET', 'POST'],
-	allowedOrigins: [allowedOrigin],
+	origins: [allowedOrigin],
 	credentials: true,
 	enabled: true,
 	maxAgeSeconds: 600,

@@ -18,6 +18,7 @@ import {
 	provideHttpEndpoints,
 	type HttpEndpointContributionsCapability,
 } from './endpoints.js'
+import { parseHttpPluginOptions } from './options.js'
 import { httpPlugin } from './plugin.js'
 import { httpTestDatabasePlugin } from './test-database.test-support.js'
 import {
@@ -121,7 +122,7 @@ describe('HTTP application graph', () => {
 		})
 		const fixture = await initialize([
 			endpointPlugin('fixture.routes', [first, second], 'primary'),
-			httpPlugin({ appId: 'blog' }),
+			httpPlugin({ appId: 'blog', health: false }),
 		])
 
 		expect(
@@ -180,7 +181,7 @@ describe('HTTP application graph', () => {
 		})
 		const fixture = await initialize([
 			endpointPlugin('fixture.refused-route', refused),
-			httpPlugin({ appId: 'hooks' }),
+			httpPlugin({ appId: 'hooks', health: false }),
 		])
 
 		const response = await fixture.http.fetch(
@@ -222,7 +223,7 @@ describe('HTTP application graph', () => {
 		})
 		const { application, http } = await initialize([
 			mountOwner,
-			httpPlugin({ appId: 'graph' }),
+			httpPlugin({ appId: 'graph', health: false }),
 		])
 		expect(
 			await (await http.fetch(serverRequest('graph', '/graphql/a'))).text(),
@@ -243,7 +244,7 @@ describe('HTTP application graph', () => {
 		const application = new (UltimaBase.use(
 			endpointPlugin('fixture.first-routes', route),
 			endpointPlugin('fixture.second-routes', route),
-			httpPlugin({ appId: 'collision' }),
+			httpPlugin({ appId: 'collision', health: false }),
 			serverPlugin(seen),
 		))({
 			logger: false,
@@ -284,7 +285,7 @@ describe('HTTP application graph', () => {
 		})
 		const application = new (UltimaBase.use(
 			provider,
-			httpPlugin({ appId: 'replaced' }),
+			httpPlugin({ appId: 'replaced', health: false }),
 			serverPlugin(seen),
 		))({
 			logger: false,
@@ -321,7 +322,7 @@ describe('HTTP application graph', () => {
 		})
 		const fixture = await initialize([
 			provider,
-			httpPlugin({ appId: 'provider-app' }),
+			httpPlugin({ appId: 'provider-app', health: false }),
 		])
 
 		expect(fixture.http.routeGraph.routes[0]?.provenance).toMatchObject({
@@ -352,7 +353,7 @@ describe('HTTP application graph', () => {
 							authority: { master: { enabled: false } },
 							protocolVersion: '1.0.0',
 							originalHeaderMode: 'ordered-pairs',
-							requestTimeoutMs: undefined,
+							requestTimeoutMs: 30_000,
 							routeGraph: {
 								browserBootstraps: [],
 								endpoints: [],
@@ -367,7 +368,7 @@ describe('HTTP application graph', () => {
 		})
 		expect(() => {
 			const application = new (UltimaBase.use(
-				httpPlugin({ appId: 'official' }),
+				httpPlugin({ appId: 'official', health: false }),
 				competing,
 				serverPlugin(seen),
 			))({
@@ -389,12 +390,12 @@ describe('HTTP application graph', () => {
 		})
 		const first = await initialize([
 			endpointPlugin('fixture.shared', route),
-			httpPlugin({ appId: 'one' }),
+			httpPlugin({ appId: 'one', health: false }),
 		])
 		await first.application.dispose()
 		const second = await initialize([
 			endpointPlugin('fixture.shared', route),
-			httpPlugin({ appId: 'two' }),
+			httpPlugin({ appId: 'two', health: false }),
 		])
 
 		await first.application.dispose()
@@ -461,15 +462,14 @@ describe('HTTP callback attribution', () => {
 				Promise.reject(new TypeError('Master is not used by this fixture')),
 		} as unknown as ApplicationRequestExecutor
 		const resource = createHttpApplicationResource({
-			appId: 'owner-app',
 			browserPolicy: { enabled: false },
 			callbacks,
 			contextContributions: [],
 			endpointContributions: [contribution],
-			masterEnabled: false,
+			logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 			owner: { pluginId: '@ultimabase/http-plugin' },
 			requestExecution,
-			requestTimeoutMs: undefined,
+			settings: parseHttpPluginOptions({ appId: 'owner-app' }),
 		})
 
 		expect(

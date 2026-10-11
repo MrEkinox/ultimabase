@@ -121,14 +121,7 @@ const createPasswordHttpApplication = (
 	const browser =
 		options.cookie === true
 			? {
-					allowedHeaders: [
-						httpApplicationIdHeader,
-						'Authorization',
-						'Content-Type',
-						...(options.masterTransport === true ? [httpMasterKeyHeader] : []),
-					],
-					allowedMethods: ['GET', 'POST'] as const,
-					allowedOrigins: [browserOrigin],
+					origins: [browserOrigin],
 					credentials: true,
 					maxAgeSeconds: 60,
 				}
@@ -164,7 +157,7 @@ const createPasswordHttpApplication = (
 			appId: options.appId,
 			...(browser === undefined ? {} : { browser }),
 			...(options.masterTransport === true
-				? { master: { enabled: true as const } }
+				? { master: true as const }
 				: {}),
 		}),
 		capture,

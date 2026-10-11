@@ -54,9 +54,34 @@ test('preserves exact route and plugin input types', () => {
 		normalizeHttpBrowserBootstrapPath('/explorer', 'Explorer path'),
 	).toEqualTypeOf<string>()
 
-	// @ts-expect-error -- appId is mandatory public routing identity.
+	// ADR-0323: appId is optional and Master is enabled with `true`.
+	expectTypeOf(httpPlugin()).toEqualTypeOf<HttpPlugin>()
 	httpPlugin({})
-	httpPlugin({ appId: 'typed-app', master: { enabled: true } })
+	httpPlugin({ appId: 'typed-app', master: true })
+	// @ts-expect-error -- the former `{ enabled: true }` shape is gone.
+	httpPlugin({ master: { enabled: true } })
+	httpPlugin({
+		routes: {
+			'GET /status': (request, { context }) => {
+				expectTypeOf(request).toEqualTypeOf<Request>()
+				expectTypeOf(context.access.mode).toEqualTypeOf<
+					'anonymous' | 'master'
+				>()
+				return Response.json({ ok: true })
+			},
+			'POST /upload': {
+				bodyLimit: 10_485_760,
+				handle: () => new Response(null, { status: 204 }),
+				rateLimit: { perMinute: 5 },
+			},
+		},
+	})
+	httpPlugin({
+		routes: {
+			// @ts-expect-error -- route keys start with an HTTP method.
+			'FETCH /status': () => new Response(),
+		},
+	})
 	httpPlugin({ appId: 'typed-app', requestTimeoutMs: 1_000 })
 	httpRoute({
 		method: 'GET',

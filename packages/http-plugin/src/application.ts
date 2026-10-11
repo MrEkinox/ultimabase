@@ -4,14 +4,18 @@ import {
 	type ApplicationRequestExecutor,
 	type MasterRequestAccess,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+
+import { acceptHttpApplicationRequest } from './application-identity.js'
+
+import { limitHttpBody } from './body-limit.js'
+import type { HttpEndpointLimits } from './endpoint-limits.js'
 
 import {
-	httpApplicationIdHeader,
 	httpApplicationProtocolVersion,
-	httpBrowserBootstrapPathPrefix,
 	httpMasterKeyHeader,
 	httpOriginalHeaderMode,
+	httpRequestIdHeader,
 } from './constants.js'
 import {
 	compileHttpContextResolvers,
@@ -24,10 +28,10 @@ import {
 	createHttpPreDispatchErrorResponse,
 	createHttpPublicErrorResponse,
 	finalizeHttpResponse,
+	httpNetworkHeadersMissingMessage,
 	httpPreDispatchErrorCodes,
 	prepareHttpServerRequestOrReject,
 	readPreparedHeader,
-	rebuildHttpRequest,
 	withoutHttpCredentialHeaders,
 	type HttpOriginalHeader,
 	type HttpPreDispatchErrorCode,
@@ -35,16 +39,31 @@ import {
 	type PreparedHttpServerRequest,
 } from './request-boundary.js'
 import {
+	HttpRateLimiter,
+	isHttpsRequest,
+	resolveHttpClientAddress,
+	type HttpTrustProxy,
+	type NormalizedHttpRateLimit,
+} from './rate-limit.js'
+import {
 	compileHttpRouteGraph,
 	selectHttpEndpoint,
 	type HttpRouteGraph,
+	type OwnedHttpEndpoint,
 } from './route-graph.js'
+import {
+	applyHttpSecurityHeaders,
+	type NormalizedHttpSecurityHeaders,
+} from './security-headers.js'
 import type {
 	RequestContext,
 	ApplicationCallbackExecutor,
+	ApplicationCapabilityFactoryContext,
 	CapabilityProviderContribution,
 	PluginIdentity,
 } from '@ultimabase/core/plugin'
+
+type Logger = ApplicationCapabilityFactoryContext['logger']
 
 export { httpApplicationCapability } from './application-capability.js'
 
@@ -73,16 +92,32 @@ export interface HttpApplication {
 	readonly originalHeaderMode: typeof httpOriginalHeaderMode
 	readonly routeGraph: HttpRouteGraph
 	readonly authority: HttpApplicationAuthority
-	readonly requestTimeoutMs: number | undefined
+	readonly requestTimeoutMs: number
 	/** Resolves one application-bound context before dispatching a Fetch request. */
 	fetch(input: HttpServerRequest): Promise<Response>
+}
+
+/** @internal Request handling settings fixed when the plugin is created. */
+export interface HttpApplicationSettings {
+	readonly accessLog: boolean
+	readonly appId: string
+	readonly bodyLimit: number
+	readonly masterEnabled: boolean
+	readonly rateLimit: NormalizedHttpRateLimit
+	readonly requestTimeoutMs: number
+	readonly requireApplicationId: boolean
+	readonly securityHeaders: NormalizedHttpSecurityHeaders
+	readonly trustProxy: HttpTrustProxy | undefined
 }
 
 interface HttpApplicationState {
 	readonly browserPolicy: HttpBrowserPolicy
 	readonly callbacks: ApplicationCallbackExecutor
 	readonly contextResolvers: ReturnType<typeof compileHttpContextResolvers>
+	readonly logger: Logger
 	readonly owner: PluginIdentity
+	readonly rateLimiter: HttpRateLimiter
+	readonly settings: HttpApplicationSettings
 	requestExecution: ApplicationRequestExecutor | undefined
 }
 
@@ -96,93 +131,47 @@ const requireRequestExecution = (
 	return state.requestExecution
 }
 
-// Reads `/__ultimabase/apps/{encoded appId}{routePath}` from one GET request.
-const readBrowserBootstrapSelection = (
-	request: Request,
-): Readonly<{ appId: string; routePath: string }> | undefined => {
-	if (request.method !== 'GET') return undefined
-	const pathname = new URL(request.url).pathname
-	const prefix = `${httpBrowserBootstrapPathPrefix}/`
-	if (!pathname.startsWith(prefix)) return undefined
+// Network requests carry headers; a request with headers but no captured
+// originals reached the network path without its evidence.
+const lacksNetworkHeaders = (prepared: PreparedHttpServerRequest): boolean =>
+	prepared.originalHeaders.length === 0 &&
+	[...prepared.input.request.headers.keys()].length > 0
 
-	const remainder = pathname.slice(prefix.length)
-	const separator = remainder.indexOf('/')
-	if (separator < 1) return undefined
-
-	let appId: string
-	try {
-		appId = decodeURIComponent(remainder.slice(0, separator))
-	} catch {
-		return undefined
-	}
-	if (appId.length === 0) return undefined
-	return { appId, routePath: remainder.slice(separator) }
-}
-
-/**
- * Accepts the exact header identity, or path identity only for an exact owned
- * browser bootstrap, which is rewritten into an ordinary identified request.
- * An explicit header never falls back to the path, even when empty.
- */
-const acceptApplicationRequest = (
-	application: HttpApplication,
-	prepared: PreparedHttpServerRequest,
-): PreparedHttpServerRequest | undefined => {
-	const appId = readPreparedHeader(
-		prepared.originalHeaders,
-		httpApplicationIdHeader,
-	)
-	if (appId !== undefined) {
-		return appId.length > 0 && appId === application.appId
-			? prepared
-			: undefined
-	}
-	const source = prepared.input.request
-	const selection = readBrowserBootstrapSelection(source)
-	if (
-		selection?.appId !== application.appId ||
-		!application.routeGraph.browserBootstraps.some(
-			(route) => route.path === selection.routePath,
-		)
-	)
-		return undefined
-
-	const originalHeaders = immutableArray([
-		...prepared.originalHeaders,
-		immutableArray([httpApplicationIdHeader, selection.appId] as const),
-	])
-	const url = new URL(source.url)
-	url.pathname = selection.routePath
-	const headers = new Headers(source.headers)
-	headers.set(httpApplicationIdHeader, selection.appId)
-	const request = rebuildHttpRequest(source, url, headers, source.signal, null)
-	return immutableRecord({
-		input: immutableRecord({ originalHeaders, request }),
-		originalHeaders,
-		requestId: prepared.requestId,
-	})
-}
+const rateLimitKey = (endpoint: OwnedHttpEndpoint): string =>
+	endpoint.kind === 'mount'
+		? `mount ${endpoint.path}`
+		: `${endpoint.method} ${endpoint.path}`
 
 const dispatchPreparedRequest = async (
 	application: HttpApplication,
 	state: HttpApplicationState,
 	prepared: PreparedHttpServerRequest,
 ): Promise<Response> => {
-	const reject = (code: HttpPreDispatchErrorCode): Response =>
-		createHttpPreDispatchErrorResponse(code, prepared.requestId)
+	const reject = (
+		code: HttpPreDispatchErrorCode,
+		options?: Parameters<typeof createHttpPreDispatchErrorResponse>[2],
+	): Response =>
+		createHttpPreDispatchErrorResponse(code, prepared.requestId, options)
 	if (state.requestExecution === undefined) {
 		return reject(httpPreDispatchErrorCodes.internalError)
 	}
+	if (lacksNetworkHeaders(prepared)) {
+		return reject(httpPreDispatchErrorCodes.badRequest, {
+			message: httpNetworkHeadersMissingMessage,
+		})
+	}
 
-	let accepted: PreparedHttpServerRequest | undefined
+	let accepted: PreparedHttpServerRequest | HttpPreDispatchErrorCode
 	try {
-		accepted = acceptApplicationRequest(application, prepared)
+		accepted = acceptHttpApplicationRequest(
+			application,
+			state.settings.requireApplicationId,
+			prepared,
+		)
 	} catch {
-		accepted = undefined
+		accepted = httpPreDispatchErrorCodes.applicationRejected
 	}
-	if (accepted === undefined) {
-		return reject(httpPreDispatchErrorCodes.applicationRejected)
-	}
+	if (typeof accepted === 'string') return reject(accepted)
 	const request = accepted.input.request
 	const endpoint = selectHttpEndpoint(application.routeGraph, request)
 	if (endpoint === undefined) return reject(httpPreDispatchErrorCodes.notFound)
@@ -194,16 +183,31 @@ const dispatchPreparedRequest = async (
 		return reject(httpPreDispatchErrorCodes.applicationRejected)
 	}
 
+	// Browser bootstraps are pages: they keep the application-wide limits.
+	const limits: HttpEndpointLimits =
+		endpoint.kind === 'browser-bootstrap' ? {} : endpoint
+	// Without an applicable limit, no store is consulted and nothing awaits.
+	if (state.rateLimiter.applies(limits.rateLimit)) {
+		let retryAfter: number | undefined
+		try {
+			retryAfter = await state.rateLimiter.check(
+				resolveHttpClientAddress(accepted, state.settings.trustProxy),
+				{ key: rateLimitKey(endpoint), limit: limits.rateLimit },
+			)
+		} catch {
+			return reject(httpPreDispatchErrorCodes.internalError)
+		}
+		if (retryAfter !== undefined) {
+			return reject(httpPreDispatchErrorCodes.rateLimited, {
+				headers: { 'Retry-After': String(retryAfter) },
+			})
+		}
+	}
+
 	// One deadline signal is shared by resolvers, handlers and Runtime work.
-	const deadline =
-		application.requestTimeoutMs === undefined
-			? undefined
-			: AbortSignal.timeout(application.requestTimeoutMs)
-	const signal =
-		deadline === undefined
-			? request.signal
-			: AbortSignal.any([request.signal, deadline])
-	const timedOut = (): boolean => deadline?.aborted === true
+	const deadline = AbortSignal.timeout(application.requestTimeoutMs)
+	const signal = AbortSignal.any([request.signal, deadline])
+	const timedOut = (): boolean => deadline.aborted
 	// Context failures stay sanitized, but a client abort keeps its own reason.
 	const contextFailure = (
 		fallback:
@@ -214,10 +218,15 @@ const dispatchPreparedRequest = async (
 		if (request.signal.aborted) throw request.signal.reason
 		return reject(fallback)
 	}
+	const body = limitHttpBody(
+		request.body,
+		limits.bodyLimit ?? state.settings.bodyLimit,
+	)
 	const resolverRequest = withoutHttpCredentialHeaders(
 		request,
 		[httpMasterKeyHeader],
 		signal,
+		body.body,
 	)
 
 	let anonymous: RequestContext<AnonymousRequestAccess>
@@ -264,6 +273,7 @@ const dispatchPreparedRequest = async (
 		resolverRequest,
 		['Authorization', 'Cookie'],
 		signal,
+		resolverRequest.body,
 	)
 	try {
 		const requestExecution = requireRequestExecution(state)
@@ -271,14 +281,19 @@ const dispatchPreparedRequest = async (
 			endpoint.provenance.owner,
 			() =>
 				requestExecution.runWithContext(context, () =>
-					endpoint.handle(handlerRequest),
+					endpoint.handle(handlerRequest, immutableRecord({ context })),
 				),
 		)
-		return timedOut()
-			? reject(httpPreDispatchErrorCodes.requestTimeout)
-			: finalizeHttpResponse(response, prepared.requestId)
+		if (timedOut()) return reject(httpPreDispatchErrorCodes.requestTimeout)
+		// A transport that answered 413 in its own format keeps its answer.
+		if (body.exceeded() && response.status !== 413) {
+			return reject(httpPreDispatchErrorCodes.payloadTooLarge)
+		}
+		return finalizeHttpResponse(response, prepared.requestId)
 	} catch (error: unknown) {
 		if (timedOut()) return reject(httpPreDispatchErrorCodes.requestTimeout)
+		if (body.exceeded())
+			return reject(httpPreDispatchErrorCodes.payloadTooLarge)
 		if (error instanceof PublicError) {
 			return createHttpPublicErrorResponse(error.toJSON(), prepared.requestId)
 		}
@@ -286,23 +301,44 @@ const dispatchPreparedRequest = async (
 	}
 }
 
+// Logs one line per request: never bodies, queries, headers or credentials.
+const logAccess = (
+	logger: Logger,
+	input: HttpServerRequest,
+	status: number,
+	startedAt: number,
+	requestId: string | null,
+): void => {
+	const request: unknown = isPlainRecord(input) ? input.request : undefined
+	const method = request instanceof Request ? request.method : 'UNKNOWN'
+	const path = request instanceof Request ? new URL(request.url).pathname : ''
+	const durationMs = Math.round(performance.now() - startedAt)
+	logger.info(`${method} ${path} ${String(status)} ${String(durationMs)}ms`, {
+		durationMs,
+		method,
+		path,
+		requestId,
+		status,
+	})
+}
+
 /** @internal Materializes one application graph while keeping Core execution private. */
 export const createHttpApplicationResource = (
 	options: Readonly<{
-		readonly appId: string
 		readonly browserPolicy: HttpBrowserPolicy
 		readonly callbacks: ApplicationCallbackExecutor
 		readonly contextContributions: readonly CapabilityProviderContribution<HttpContextResolverContributionsCapability>[]
 		readonly endpointContributions: readonly CapabilityProviderContribution<HttpEndpointContributionsCapability>[]
-		readonly masterEnabled: boolean
+		readonly logger: Logger
 		readonly owner: PluginIdentity
 		readonly requestExecution: ApplicationRequestExecutor
-		readonly requestTimeoutMs: number | undefined
+		readonly settings: HttpApplicationSettings
 	}>,
 ): Readonly<{
 	readonly value: HttpApplication
 	readonly dispose: () => void
 }> => {
+	const { settings } = options
 	const routeGraph = compileHttpRouteGraph(
 		options.endpointContributions,
 		options.callbacks,
@@ -316,23 +352,43 @@ export const createHttpApplicationResource = (
 			options.browserPolicy,
 			options.callbacks,
 		),
+		logger: options.logger,
 		owner: immutableRecord(options.owner),
+		rateLimiter: new HttpRateLimiter(settings.rateLimit),
 		requestExecution: options.requestExecution,
+		settings,
 	}
 	const application: HttpApplication = immutableRecord({
-		appId: options.appId,
+		appId: settings.appId,
 		authority: immutableRecord({
-			master: immutableRecord({ enabled: options.masterEnabled }),
+			master: immutableRecord({ enabled: settings.masterEnabled }),
 		}),
 		protocolVersion: httpApplicationProtocolVersion,
 		originalHeaderMode: httpOriginalHeaderMode,
-		requestTimeoutMs: options.requestTimeoutMs,
+		requestTimeoutMs: settings.requestTimeoutMs,
 		routeGraph,
 		fetch: async (input: HttpServerRequest): Promise<Response> => {
-			const prepared = prepareHttpServerRequestOrReject(input)
-			return prepared instanceof Response
-				? prepared
-				: dispatchPreparedRequest(application, state, prepared)
+			const startedAt = performance.now()
+			let status = 500
+			let requestId: string | null = null
+			try {
+				const prepared = prepareHttpServerRequestOrReject(input)
+				const response =
+					prepared instanceof Response
+						? prepared
+						: applyHttpSecurityHeaders(
+								await dispatchPreparedRequest(application, state, prepared),
+								settings.securityHeaders,
+								isHttpsRequest(prepared, settings.trustProxy),
+							)
+				status = response.status
+				requestId = response.headers.get(httpRequestIdHeader)
+				return response
+			} finally {
+				if (settings.accessLog) {
+					logAccess(state.logger, input, status, startedAt, requestId)
+				}
+			}
 		},
 	})
 

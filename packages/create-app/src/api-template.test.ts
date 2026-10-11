@@ -68,7 +68,7 @@ describe('API project templates', () => {
 			)
 			if (plan.plugins.includes('http-plugin')) {
 				expect(application).toContain("httpPlugin({ appId: 'main' })")
-				expect(application).not.toContain('master: { enabled: true }')
+				expect(application).not.toContain('master: true')
 				expect(application).not.toContain('browser: {')
 				if (!plan.plugins.includes('hono-server-plugin')) {
 					expect(files.get('README.md')).toContain(

@@ -165,7 +165,7 @@ const createApplication = (requiredProfile = false) => {
 		}),
 		policy,
 		accessPlugin({ allowWithoutRule: { all: true } }),
-		httpPlugin({ appId: 'profile', master: { enabled: true } }),
+		httpPlugin({ appId: 'profile', master: true }),
 		restPlugin({
 			acknowledgeUnverifiedProtection: true,
 			operations: Object.values(passwordAuthOperations),

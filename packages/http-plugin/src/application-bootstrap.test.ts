@@ -18,7 +18,8 @@ import {
 import { httpPlugin } from './plugin.js'
 import { httpTestDatabasePlugin } from './test-database.test-support.js'
 
-// Exercise the real application boundary after removing the server mount table.
+// Exercise the real application boundary after removing the server mount table,
+// in the strict mode that still requires the application header (ADR-0323).
 describe('application-owned HTTP identity and browser bootstrap', () => {
 	let application: Pick<UltimaBase<readonly []>, 'start' | 'dispose'>
 	let http: HttpApplication
@@ -30,7 +31,7 @@ describe('application-owned HTTP identity and browser bootstrap', () => {
 		})
 		application = new (UltimaBase.use(
 			httpTestDatabasePlugin(),
-			httpPlugin({ appId: 'notes/team' }),
+			httpPlugin({ appId: 'notes/team', requireApplicationId: true }),
 			plugin({
 				id: 'fixture.bootstrap',
 				version: '1.0.0',
@@ -121,7 +122,10 @@ describe('application-owned HTTP identity and browser bootstrap', () => {
 					'http://localhost/__ultimabase/apps/notes%2Fteam/graphiql',
 				),
 			})
-			expect(response.status).toBe(401)
+			expect(response.status).toBe(404)
+			expect(await response.json()).toMatchObject({
+				error: { code: 'HTTP_APPLICATION_UNKNOWN' },
+			})
 			expect(handler).not.toHaveBeenCalled()
 		},
 	)

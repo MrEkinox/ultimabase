@@ -34,7 +34,7 @@ it('retains failed-startup resources until exact-owner disposal succeeds', async
 		authority: { master: { enabled: false } },
 		protocolVersion: '1.0.0',
 		originalHeaderMode: 'ordered-pairs',
-		requestTimeoutMs: undefined,
+		requestTimeoutMs: 30_000,
 		routeGraph: {
 			browserBootstraps: [],
 			endpoints: [],

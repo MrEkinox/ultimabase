@@ -33,7 +33,7 @@ const applicationProvider = (
 						authority: { master: { enabled: false } },
 						protocolVersion: httpApplicationProtocolVersion,
 						originalHeaderMode: httpOriginalHeaderMode,
-						requestTimeoutMs: undefined,
+						requestTimeoutMs: 30_000,
 						routeGraph: {
 							browserBootstraps: [],
 							endpoints: [],

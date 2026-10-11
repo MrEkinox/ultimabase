@@ -92,7 +92,7 @@ const assertCookieBrowserPolicy = (
 ): EnabledHttpBrowserPolicy => {
 	if (
 		!policy.enabled ||
-		policy.allowedOrigins === '*' ||
+		policy.origins === '*' ||
 		!policy.credentials ||
 		!policy.allowedMethods.includes('POST') ||
 		!includesHeader(policy, httpApplicationIdHeader) ||
@@ -114,8 +114,8 @@ const assertCookieRequestProof = (
 		request.headers.get('Content-Type') !== 'application/json' ||
 		origin === null ||
 		origin === 'null' ||
-		policy.allowedOrigins === '*' ||
-		!policy.allowedOrigins.includes(origin)
+		policy.origins === '*' ||
+		!policy.origins.includes(origin)
 	) {
 		return rejectPasswordSession()
 	}

@@ -18,18 +18,31 @@ export type HttpOriginalHeader = readonly [name: string, value: string]
 export interface HttpServerRequest {
 	readonly request: Request
 	readonly originalHeaders: readonly HttpOriginalHeader[]
+	/**
+	 * Address of the connection's peer, used for rate limiting and proxy trust.
+	 * @example "203.0.113.7"
+	 */
+	readonly remoteAddress?: string | undefined
 }
 
 export const httpPreDispatchErrorCodes: Readonly<{
 	readonly applicationRejected: 'HTTP_APPLICATION_REJECTED'
+	readonly applicationUnknown: 'HTTP_APPLICATION_UNKNOWN'
 	readonly badRequest: 'HTTP_BAD_REQUEST'
+	readonly corsDisabled: 'HTTP_CORS_DISABLED'
 	readonly internalError: 'HTTP_INTERNAL_ERROR'
 	readonly notFound: 'HTTP_NOT_FOUND'
+	readonly payloadTooLarge: 'HTTP_PAYLOAD_TOO_LARGE'
+	readonly rateLimited: 'HTTP_RATE_LIMITED'
 	readonly requestTimeout: 'HTTP_REQUEST_TIMEOUT'
 }> = immutableRecord({
 	badRequest: 'HTTP_BAD_REQUEST',
 	applicationRejected: 'HTTP_APPLICATION_REJECTED',
+	applicationUnknown: 'HTTP_APPLICATION_UNKNOWN',
+	corsDisabled: 'HTTP_CORS_DISABLED',
 	notFound: 'HTTP_NOT_FOUND',
+	payloadTooLarge: 'HTTP_PAYLOAD_TOO_LARGE',
+	rateLimited: 'HTTP_RATE_LIMITED',
 	requestTimeout: 'HTTP_REQUEST_TIMEOUT',
 	internalError: 'HTTP_INTERNAL_ERROR',
 } as const)
@@ -51,6 +64,7 @@ export interface HttpPreDispatchErrorEnvelope {
 export interface PreparedHttpServerRequest {
 	readonly input: HttpServerRequest
 	readonly originalHeaders: readonly HttpOriginalHeader[]
+	readonly remoteAddress: string | undefined
 	readonly requestId: string
 }
 
@@ -78,10 +92,21 @@ const errorContracts: Readonly<
 		401,
 		'The application or credentials were rejected.',
 	],
+	HTTP_APPLICATION_UNKNOWN: [404, 'The HTTP application is unknown.'],
+	HTTP_CORS_DISABLED: [403, 'CORS is not enabled: configure browser.origins'],
 	HTTP_NOT_FOUND: [404, 'The requested HTTP route was not found.'],
+	HTTP_PAYLOAD_TOO_LARGE: [413, 'The HTTP request body is too large.'],
+	HTTP_RATE_LIMITED: [429, 'Too many HTTP requests; retry later.'],
 	HTTP_REQUEST_TIMEOUT: [408, 'The HTTP request deadline was reached.'],
 	HTTP_INTERNAL_ERROR: [500, 'The HTTP request could not be completed.'],
 })
+
+/**
+ * @internal Explains a request that reached the network path without the
+ * headers every network connection carries (ADR-0323).
+ */
+export const httpNetworkHeadersMissingMessage =
+	'The HTTP request carries no network connection headers: serve it through a server plugin, or call ultimabase.plugin(httpPlugin).fetch(request) without a server.'
 
 /** @internal Marks one sanitized failure without retaining its raw cause. */
 class HttpPreDispatchFailure extends Error {
@@ -139,6 +164,10 @@ export const prepareHttpServerRequest = (
 	const originalHeaders = snapshotOriginalHeaders(
 		untrustedInput.originalHeaders,
 	)
+	const remoteAddress = untrustedInput.remoteAddress
+	if (remoteAddress !== undefined && typeof remoteAddress !== 'string') {
+		throw badRequest()
+	}
 	const suppliedRequestId = readPreparedHeader(
 		originalHeaders,
 		httpRequestIdHeader,
@@ -153,9 +182,11 @@ export const prepareHttpServerRequest = (
 	return immutableRecord({
 		input: immutableRecord({
 			originalHeaders,
+			remoteAddress,
 			request: untrustedInput.request,
 		}),
 		originalHeaders,
+		remoteAddress,
 		requestId: suppliedRequestId ?? createHttpRequestId(),
 	})
 }
@@ -175,18 +206,23 @@ export const readPreparedHeader = (
 export const createHttpPreDispatchErrorResponse = (
 	code: HttpPreDispatchErrorCode,
 	requestId: string,
+	options: Readonly<{
+		readonly headers?: Readonly<Record<string, string>>
+		readonly message?: string
+	}> = {},
 ): Response => {
 	const [status, message] = errorContracts[code]
 	const body: HttpPreDispatchErrorEnvelope = immutableRecord({
 		error: immutableRecord({
 			code,
-			message,
+			message: options.message ?? message,
 			requestId,
 			retryable: false as const,
 		}),
 	})
 	return Response.json(body, {
 		headers: {
+			...options.headers,
 			'Cache-Control': 'private, no-store',
 			[httpRequestIdHeader]: requestId,
 		},
@@ -292,8 +328,9 @@ export const withoutHttpCredentialHeaders = (
 	request: Request,
 	names: readonly string[],
 	signal: AbortSignal,
+	body: ReadableStream<Uint8Array> | null,
 ): Request => {
 	const headers = new Headers(request.headers)
 	for (const name of names) headers.delete(name)
-	return rebuildHttpRequest(request, request.url, headers, signal, request.body)
+	return rebuildHttpRequest(request, request.url, headers, signal, body)
 }

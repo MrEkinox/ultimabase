@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+	deriveHttpBrowserPolicy,
 	dispatchHttpBrowserRequest,
-	normalizeHttpBrowserPolicy,
+	normalizeHttpBrowserOptions,
 	type EnabledHttpBrowserPolicy,
+	type HttpBrowserPolicy,
 } from './browser-policy.js'
 import {
 	httpApplicationIdHeader,
@@ -12,22 +14,40 @@ import {
 } from './constants.js'
 
 const origin = 'https://console.example'
-const policy: EnabledHttpBrowserPolicy = normalizeHttpBrowserPolicy(
-	{
-		allowedHeaders: [
-			httpApplicationIdHeader,
-			'Authorization',
-			'Content-Type',
-			httpRequestIdHeader,
-			httpMasterKeyHeader,
-		],
-		allowedMethods: ['GET', 'POST'],
-		allowedOrigins: [origin],
-		credentials: true,
-		maxAgeSeconds: 600,
-	},
-	true,
-) as EnabledHttpBrowserPolicy
+const routes = [
+	{ kind: 'route', method: 'GET' },
+	{ kind: 'route', method: 'POST' },
+] as const
+
+// Normalizes the option, then derives methods and headers as httpPlugin() does.
+const browserPolicy = (
+	options: unknown,
+	derivation: Readonly<{
+		credentialResolvers?: boolean
+		endpoints?: Parameters<typeof deriveHttpBrowserPolicy>[1]['endpoints']
+		masterEnabled?: boolean
+	}> = {},
+): HttpBrowserPolicy =>
+	deriveHttpBrowserPolicy(
+		normalizeHttpBrowserOptions(options, derivation.masterEnabled ?? false),
+		{
+			credentialResolvers: derivation.credentialResolvers ?? false,
+			endpoints: derivation.endpoints ?? routes,
+			masterEnabled: derivation.masterEnabled ?? false,
+		},
+	)
+
+const enabled = (value: HttpBrowserPolicy): EnabledHttpBrowserPolicy => {
+	if (!value.enabled) throw new TypeError('Expected an enabled policy')
+	return value
+}
+
+const policy = enabled(
+	browserPolicy(
+		{ credentials: true, origins: [origin] },
+		{ credentialResolvers: true, masterEnabled: true },
+	),
+)
 
 const serverRequest = (
 	method: string,
@@ -38,72 +58,95 @@ const serverRequest = (
 })
 
 describe('HTTP browser policy', () => {
-	it('is disabled by default and snapshots every configured collection', () => {
-		expect(normalizeHttpBrowserPolicy(undefined, false)).toStrictEqual({
-			enabled: false,
-		})
+	it('is disabled by default and snapshots the configured origins', () => {
+		expect(browserPolicy(undefined)).toStrictEqual({ enabled: false })
 		const origins = ['https://one.example']
-		const methods = ['GET'] as const
-		const headers = [httpApplicationIdHeader]
-		const normalized = normalizeHttpBrowserPolicy(
-			{
-				allowedHeaders: headers,
-				allowedMethods: methods,
-				allowedOrigins: origins,
-				credentials: false,
-				maxAgeSeconds: 0,
-			},
-			false,
-		)
+		const normalized = browserPolicy({ origins })
 		origins.push('https://two.example')
-		headers.push('Authorization')
-		expect(normalized).toMatchObject({
-			allowedHeaders: [httpApplicationIdHeader],
-			allowedMethods: ['GET'],
-			allowedOrigins: ['https://one.example'],
+		expect(normalized).toStrictEqual({
+			allowedHeaders: [
+				'Content-Type',
+				httpApplicationIdHeader,
+				httpRequestIdHeader,
+			],
+			allowedMethods: ['GET', 'POST'],
+			credentials: false,
 			enabled: true,
+			maxAgeSeconds: 600,
+			origins: ['https://one.example'],
 		})
 	})
 
+	it('derives methods from routes and mounts and headers from the installed plugins', () => {
+		expect(
+			enabled(browserPolicy({ origins: [origin] }, { endpoints: [] }))
+				.allowedMethods,
+		).toStrictEqual([])
+		expect(
+			enabled(
+				browserPolicy(
+					{ origins: [origin] },
+					{ endpoints: [{ kind: 'mount' }] },
+				),
+			).allowedMethods,
+		).toStrictEqual(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'])
+		expect(policy.allowedHeaders).toStrictEqual([
+			'Content-Type',
+			httpApplicationIdHeader,
+			httpRequestIdHeader,
+			'Authorization',
+			httpMasterKeyHeader,
+		])
+		// A wildcard origin never lets browsers send credential headers.
+		expect(
+			enabled(browserPolicy({ origins: '*' }, { credentialResolvers: true }))
+				.allowedHeaders,
+		).not.toContain('Authorization')
+	})
+
 	it.each([
-		[
-			{
-				allowedHeaders: [httpApplicationIdHeader],
-				allowedMethods: ['GET'],
-				allowedOrigins: '*',
-				credentials: true,
-				maxAgeSeconds: 0,
-			},
-			false,
-		],
-		[
-			{
-				allowedHeaders: [httpApplicationIdHeader, 'Authorization'],
-				allowedMethods: ['GET'],
-				allowedOrigins: '*',
-				credentials: false,
-				maxAgeSeconds: 0,
-			},
-			false,
-		],
-		[
-			{
-				allowedHeaders: [httpApplicationIdHeader],
-				allowedMethods: ['GET'],
-				allowedOrigins: '*',
-				credentials: false,
-				maxAgeSeconds: 0,
-			},
-			true,
-		],
+		[{ credentials: true, origins: '*' }, false, 'wildcard origins'],
+		[{ origins: '*' }, true, 'wildcard origins'],
+		[{ origins: [] }, false, 'non-empty array'],
+		[{ origins: ['https://console.example/'] }, false, 'serialized origins'],
+		[{ origins: [origin, origin] }, false, 'duplicates'],
+		[{ credentials: 'yes', origins: [origin] }, false, 'boolean'],
+		[{ maxAgeSeconds: -1, origins: [origin] }, false, 'non-negative'],
+		[{ allowedOrigins: [origin] }, false, 'unknown option: allowedOrigins'],
 	])(
-		'rejects wildcard origin with credential-bearing configuration %#',
-		(options, masterEnabled) => {
-			expect(() => normalizeHttpBrowserPolicy(options, masterEnabled)).toThrow(
-				'wildcard origins',
+		'rejects invalid browser options %#',
+		(options, masterEnabled, message) => {
+			expect(() => normalizeHttpBrowserOptions(options, masterEnabled)).toThrow(
+				message,
 			)
 		},
 	)
+
+	it('refuses a preflight with a clear message when CORS is not enabled', async () => {
+		const next = vi.fn<() => Promise<Response>>()
+		const response = await dispatchHttpBrowserRequest(
+			{ enabled: false },
+			serverRequest('OPTIONS', [
+				['Origin', origin],
+				['Access-Control-Request-Method', 'POST'],
+			]),
+			next,
+		)
+		expect(next).not.toHaveBeenCalled()
+		expect(response.status).toBe(403)
+		expect(await response.json()).toMatchObject({
+			error: {
+				code: 'HTTP_CORS_DISABLED',
+				message: 'CORS is not enabled: configure browser.origins',
+			},
+		})
+		const ordinary = await dispatchHttpBrowserRequest(
+			{ enabled: false },
+			serverRequest('OPTIONS', [['Origin', origin]]),
+			() => Promise.resolve(new Response('ran')),
+		)
+		expect(await ordinary.text()).toBe('ran')
+	})
 
 	it('answers accepted preflight without entering application dispatch', async () => {
 		const applicationEffects = {
@@ -206,16 +249,7 @@ describe('HTTP browser policy', () => {
 	it.each(['Authorization', 'Cookie', httpMasterKeyHeader])(
 		'does not expose wildcard responses carrying %s credentials',
 		async (header) => {
-			const wildcard = normalizeHttpBrowserPolicy(
-				{
-					allowedHeaders: [httpApplicationIdHeader],
-					allowedMethods: ['GET'],
-					allowedOrigins: '*',
-					credentials: false,
-					maxAgeSeconds: 0,
-				},
-				false,
-			)
+			const wildcard = browserPolicy({ maxAgeSeconds: 0, origins: '*' })
 			const response = await dispatchHttpBrowserRequest(
 				wildcard,
 				serverRequest('GET', [

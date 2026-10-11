@@ -410,7 +410,7 @@ try {
 				path.join(project.destination, 'src/ultimabase.ts'),
 				'utf8',
 			)
-			expect(application).not.toContain('master: { enabled: true }')
+			expect(application).not.toContain('master: true')
 		} finally {
 			if (server !== undefined) await stopServer(server)
 			await project.dispose()

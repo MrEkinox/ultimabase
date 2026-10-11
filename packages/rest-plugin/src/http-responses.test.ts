@@ -306,9 +306,9 @@ describe('REST HTTP response boundary', () => {
 				headers: { 'X-UltimaBase-Application-Id': 'wrong-application' },
 			},
 		)
-		expect(rejected.status).toBe(401)
+		expect(rejected.status).toBe(404)
 		expect(await rejected.json()).toMatchObject({
-			error: { code: 'HTTP_APPLICATION_REJECTED' },
+			error: { code: 'HTTP_APPLICATION_UNKNOWN' },
 		})
 		await fixture.application.dispose()
 	})

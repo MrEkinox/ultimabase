@@ -23,6 +23,13 @@ export interface ManagedHonoServerPluginOptions {
 	 * @default process.env.PORT ?? 1337
 	 */
 	readonly port?: number
+	/**
+	 * Milliseconds `stop()` waits for in-flight requests before closing the
+	 * remaining connections (ADR-0323). @default 10000
+	 */
+	readonly shutdownTimeoutMs?: number
+	/** Compresses responses with gzip or deflate; often done by the proxy instead. @default false */
+	readonly compression?: boolean
 	readonly app?: never
 	readonly browserPolicyOwner?: never
 }
@@ -38,10 +45,16 @@ export interface ExistingHonoServerPluginOptions<
 > {
 	/** Existing Hono application whose listener remains developer-owned. */
 	readonly app: Hono<TEnvironment, TSchema, TBasePath>
-	/** Explicitly assigns CORS ownership to UltimaBase or existing middleware. */
-	readonly browserPolicyOwner: HonoBrowserPolicyOwner
+	/**
+	 * Assigns CORS ownership to UltimaBase or existing middleware; required
+	 * only when `httpPlugin({ browser })` enables CORS (ADR-0323).
+	 */
+	readonly browserPolicyOwner?: HonoBrowserPolicyOwner
+	/** Compresses UltimaBase responses with gzip or deflate. @default false */
+	readonly compression?: boolean
 	readonly host?: never
 	readonly port?: never
+	readonly shutdownTimeoutMs?: never
 }
 
 /** Chooses either a framework-owned listener or one externally owned Hono app. */
@@ -55,7 +68,10 @@ export type HonoServerPluginOptions<
 
 export interface NormalizedHonoServerPluginOptions {
 	readonly app: Hono | undefined
-	readonly browserPolicyOwner: HonoBrowserPolicyOwner
+	/** `undefined` until CORS needs an owner; UltimaBase answers preflights. */
+	readonly browserPolicyOwner: HonoBrowserPolicyOwner | undefined
+	readonly compression: boolean
+	readonly shutdownTimeoutMs: number
 	/** `undefined` listens on every interface. */
 	readonly host: string | undefined
 	readonly port: number
@@ -106,25 +122,42 @@ export const normalizeHonoServerPluginOptions: (
 	options: unknown,
 ) => NormalizedHonoServerPluginOptions = definePluginOptionsParser({
 	name: 'Hono server plugin options',
-	keys: ['app', 'browserPolicyOwner', 'host', 'port'] as const,
+	keys: [
+		'app',
+		'browserPolicyOwner',
+		'compression',
+		'host',
+		'port',
+		'shutdownTimeoutMs',
+	] as const,
 	formatUnknownKey: (key) =>
 		`Unknown Hono server plugin option: ${String(key)}`,
 	normalize: ({
 		app,
 		browserPolicyOwner,
+		compression = false,
 		host,
 		port,
+		shutdownTimeoutMs,
 	}): NormalizedHonoServerPluginOptions => {
+		if (typeof compression !== 'boolean') {
+			throw new TypeError('Hono server plugin compression must be a boolean')
+		}
 		if (app !== undefined) {
 			if (!isHonoApplication(app)) {
 				throw new TypeError('Hono server plugin app must be a Hono application')
 			}
-			if (host !== undefined || port !== undefined) {
+			if (
+				host !== undefined ||
+				port !== undefined ||
+				shutdownTimeoutMs !== undefined
+			) {
 				throw new TypeError(
-					'Hono server plugin host and port cannot configure an external app',
+					'Hono server plugin host, port and shutdownTimeoutMs cannot configure an external app',
 				)
 			}
 			if (
+				browserPolicyOwner !== undefined &&
 				browserPolicyOwner !== 'external' &&
 				browserPolicyOwner !== 'ultimabase'
 			) {
@@ -135,8 +168,10 @@ export const normalizeHonoServerPluginOptions: (
 			return {
 				app,
 				browserPolicyOwner,
+				compression,
 				host: undefined,
 				port: 1337,
+				shutdownTimeoutMs: 0,
 				sources: { host: 'external app', port: 'external app' },
 			}
 		}
@@ -156,13 +191,25 @@ export const normalizeHonoServerPluginOptions: (
 				'Hono server plugin port must be an integer from 0 through 65535',
 			)
 		}
+		if (
+			shutdownTimeoutMs !== undefined &&
+			(typeof shutdownTimeoutMs !== 'number' ||
+				!Number.isSafeInteger(shutdownTimeoutMs) ||
+				shutdownTimeoutMs < 0)
+		) {
+			throw new TypeError(
+				'Hono server plugin shutdownTimeoutMs must be a non-negative safe integer',
+			)
+		}
 		const listen = resolveHost(host)
 		const environmentPort =
 			port === undefined ? readEnvironmentPort() : undefined
 		return {
 			app: undefined,
 			browserPolicyOwner: 'ultimabase',
+			compression,
 			host: listen.host,
+			shutdownTimeoutMs: shutdownTimeoutMs ?? 10_000,
 			// An explicit port wins, then the hosting convention, then the default.
 			port: port ?? environmentPort ?? 1337,
 			sources: {

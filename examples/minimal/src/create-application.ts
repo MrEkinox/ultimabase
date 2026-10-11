@@ -64,19 +64,11 @@ export const createMinimalApplication = ({
 			httpPlugin({
 				appId: applicationId,
 				browser: {
-					allowedHeaders: [
-						'Authorization',
-						'Content-Type',
-						'X-UltimaBase-Application-Id',
-						'X-UltimaBase-Master-Key',
-						'X-UltimaBase-Request-Id',
-					],
-					allowedMethods: ['DELETE', 'GET', 'PATCH', 'POST'],
-					allowedOrigins: [browserOrigin],
+					origins: [browserOrigin],
 					credentials: true,
 					maxAgeSeconds: 600,
 				},
-				...(masterTransport ? { master: { enabled: true as const } } : {}),
+				...(masterTransport ? { master: true as const } : {}),
 				requestTimeoutMs: 15_000,
 			}),
 		)

@@ -198,7 +198,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 		restPlugin({ acknowledgeUnverifiedProtection: true }),
 		httpPlugin({
 			appId: 'response-app',
-			master: { enabled: true },
+			master: true,
 			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 		}),
 		capturePlugin(capture),

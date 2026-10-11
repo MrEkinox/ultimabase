@@ -9,6 +9,7 @@ import {
 import {
 	httpApplicationIdHeader,
 	httpMasterKeyHeader,
+	httpRequestIdHeader,
 	isHttpMethod,
 } from './constants.js'
 import { assertExactOptions } from './definitions.js'
@@ -21,18 +22,19 @@ import {
 	type HttpServerRequest,
 } from './request-boundary.js'
 
-/** Configures one explicit cross-origin browser boundary. */
+/**
+ * Lets browser pages on other origins call the application (CORS). Allowed
+ * methods come from the mounted routes and allowed headers from the installed
+ * plugins (ADR-0323).
+ * @example `{ origins: ['https://app.example.com'], credentials: true }`
+ */
 export interface HttpBrowserPolicyOptions {
-	/** Exact serialized origins, or a non-credentialed wildcard. */
-	readonly allowedOrigins: '*' | readonly string[]
-	/** Methods accepted by browser preflight. */
-	readonly allowedMethods: readonly HttpMethod[]
-	/** Request header names accepted by browser preflight. */
-	readonly allowedHeaders: readonly string[]
-	/** Allows browser credentials for exact origins only. */
-	readonly credentials: boolean
-	/** Browser preflight cache lifetime in seconds. */
-	readonly maxAgeSeconds: number
+	/** Exact serialized origins, or `'*'` for any origin without credentials. */
+	readonly origins: '*' | readonly string[]
+	/** Lets browsers send cookies, for exact origins only. @default false */
+	readonly credentials?: boolean
+	/** Browser preflight cache lifetime in seconds. @default 600 */
+	readonly maxAgeSeconds?: number
 }
 
 /** Disables all UltimaBase-owned CORS behavior. */
@@ -40,14 +42,28 @@ export interface DisabledHttpBrowserPolicy {
 	readonly enabled: false
 }
 
-/** Represents one validated immutable CORS policy. */
-export interface EnabledHttpBrowserPolicy extends HttpBrowserPolicyOptions {
+/** Represents one validated immutable CORS policy and its derived lists. */
+export interface EnabledHttpBrowserPolicy {
 	readonly enabled: true
+	readonly origins: '*' | readonly string[]
+	readonly credentials: boolean
+	/** Methods of the mounted routes; every method when a mount exists. */
+	readonly allowedMethods: readonly HttpMethod[]
+	/** Headers the installed plugins read from browser requests. */
+	readonly allowedHeaders: readonly string[]
+	readonly maxAgeSeconds: number
 }
 
 /** Describes the complete browser-origin behavior of one HTTP application. */
 export type HttpBrowserPolicy =
 	DisabledHttpBrowserPolicy | EnabledHttpBrowserPolicy
+
+/** @internal The validated `browser` option, before derivation from routes. */
+export interface NormalizedHttpBrowserOptions {
+	readonly credentials: boolean
+	readonly maxAgeSeconds: number
+	readonly origins: '*' | readonly string[]
+}
 
 const headerNamePattern = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u
 const corsResponseHeaderNames = [
@@ -58,44 +74,24 @@ const corsResponseHeaderNames = [
 	'Access-Control-Expose-Headers',
 	'Access-Control-Max-Age',
 ] as const
-const appIdHeader = httpApplicationIdHeader.toLowerCase()
 const wildcardCredentialHeaders = new Set([
 	'authorization',
 	'cookie',
 	httpMasterKeyHeader.toLowerCase(),
 ])
+// Every method a mount may answer, in the order emitted to browsers.
+const mountMethods: readonly HttpMethod[] = [
+	'GET',
+	'HEAD',
+	'POST',
+	'PUT',
+	'PATCH',
+	'DELETE',
+]
 
 const disabledPolicy: DisabledHttpBrowserPolicy = immutableRecord({
 	enabled: false as const,
 })
-
-// Snapshots one non-empty list, rejecting invalid items and duplicate keys.
-const snapshotList = <TItem extends string>(
-	value: unknown,
-	field: 'allowedHeaders' | 'allowedMethods' | 'allowedOrigins',
-	messages: readonly [notList: string, invalidItem: string],
-	isValid: (item: unknown) => item is TItem,
-	key: (item: TItem) => string,
-): readonly TItem[] => {
-	if (!isUnknownArray(value) || value.length === 0) {
-		throw new TypeError(`HTTP browser policy ${field} ${messages[0]}`)
-	}
-	const items: TItem[] = []
-	const keys = new Set<string>()
-	for (const item of value) {
-		if (!isValid(item)) {
-			throw new TypeError(`HTTP browser policy ${field} ${messages[1]}`)
-		}
-		if (keys.has(key(item))) {
-			throw new TypeError(
-				`HTTP browser policy ${field} must not contain duplicates`,
-			)
-		}
-		keys.add(key(item))
-		items.push(item)
-	}
-	return immutableArray(items)
-}
 
 const isHeaderName = (value: unknown): value is string =>
 	typeof value === 'string' && headerNamePattern.test(value)
@@ -111,87 +107,112 @@ const isSerializedOrigin = (value: unknown): value is string => {
 	}
 }
 
-const identity = (value: string): string => value
 const lowerCase = (value: string): string => value.toLowerCase()
 
-/** @internal Validates and snapshots browser policy before plugin effects. */
-export const normalizeHttpBrowserPolicy = (
-	value: unknown,
-	masterEnabled: boolean,
-): HttpBrowserPolicy => {
-	if (value === undefined) return disabledPolicy
-	assertExactOptions(
-		value,
-		[
-			'allowedHeaders',
-			'allowedMethods',
-			'allowedOrigins',
-			'credentials',
-			'maxAgeSeconds',
-		],
-		'HTTP browser policy',
-	)
-	const allowedOrigins =
-		value.allowedOrigins === '*'
-			? '*'
-			: snapshotList(
-					value.allowedOrigins,
-					'allowedOrigins',
-					['must be * or a non-empty array', 'must contain serialized origins'],
-					isSerializedOrigin,
-					identity,
-				)
-	const allowedMethods = snapshotList(
-		value.allowedMethods,
-		'allowedMethods',
-		['must be a non-empty array', 'contains an unsupported method'],
-		isHttpMethod,
-		identity,
-	)
-	const allowedHeaders = snapshotList(
-		value.allowedHeaders,
-		'allowedHeaders',
-		['must be a non-empty array', 'must contain HTTP header names'],
-		isHeaderName,
-		lowerCase,
-	)
-	// Every real browser request must still identify its application.
-	if (!allowedHeaders.some((header) => lowerCase(header) === appIdHeader)) {
+const normalizeOrigins = (value: unknown): '*' | readonly string[] => {
+	if (value === '*') return '*'
+	if (!isUnknownArray(value) || value.length === 0) {
 		throw new TypeError(
-			`HTTP browser policy allowedHeaders must include ${httpApplicationIdHeader}`,
+			'HTTP browser policy origins must be * or a non-empty array',
 		)
 	}
-	if (typeof value.credentials !== 'boolean') {
+	const origins: string[] = []
+	for (const origin of value) {
+		if (!isSerializedOrigin(origin)) {
+			throw new TypeError(
+				`HTTP browser policy origins must contain serialized origins such as https://app.example.com, got ${JSON.stringify(origin)}`,
+			)
+		}
+		if (origins.includes(origin)) {
+			throw new TypeError(
+				'HTTP browser policy origins must not contain duplicates',
+			)
+		}
+		origins.push(origin)
+	}
+	return immutableArray(origins)
+}
+
+/** @internal Validates and snapshots the `browser` option before plugin effects. */
+export const normalizeHttpBrowserOptions = (
+	value: unknown,
+	masterEnabled: boolean,
+): NormalizedHttpBrowserOptions | undefined => {
+	if (value === undefined) return undefined
+	assertExactOptions(
+		value,
+		['credentials', 'maxAgeSeconds', 'origins'],
+		'HTTP browser policy',
+	)
+	const origins = normalizeOrigins(value.origins)
+	const credentials = value.credentials ?? false
+	if (typeof credentials !== 'boolean') {
 		throw new TypeError('HTTP browser policy credentials must be a boolean')
 	}
+	const maxAgeSeconds = value.maxAgeSeconds ?? 600
 	if (
-		typeof value.maxAgeSeconds !== 'number' ||
-		!Number.isSafeInteger(value.maxAgeSeconds) ||
-		value.maxAgeSeconds < 0
+		typeof maxAgeSeconds !== 'number' ||
+		!Number.isSafeInteger(maxAgeSeconds) ||
+		maxAgeSeconds < 0
 	) {
 		throw new TypeError(
 			'HTTP browser policy maxAgeSeconds must be a non-negative safe integer',
 		)
 	}
-	if (
-		allowedOrigins === '*' &&
-		(value.credentials ||
-			masterEnabled ||
-			allowedHeaders.some((header) =>
-				wildcardCredentialHeaders.has(lowerCase(header)),
-			))
-	) {
+	if (origins === '*' && (credentials || masterEnabled)) {
 		throw new TypeError(
 			'HTTP browser policy wildcard origins cannot be combined with credentials, cookies, Authorization, or Master transport',
 		)
 	}
+	return immutableRecord({ credentials, maxAgeSeconds, origins })
+}
+
+/**
+ * @internal Derives the effective policy: methods from the mounted endpoints,
+ * headers from what the installed plugins read. A wildcard origin never allows
+ * credential headers.
+ */
+export const deriveHttpBrowserPolicy = (
+	options: NormalizedHttpBrowserOptions | undefined,
+	derivation: Readonly<{
+		readonly credentialResolvers: boolean
+		readonly endpoints: readonly (
+			| Readonly<{ readonly kind: 'mount' }>
+			| Readonly<{
+					readonly kind: 'browser-bootstrap' | 'route'
+					readonly method: HttpMethod
+			  }>
+		)[]
+		readonly masterEnabled: boolean
+	}>,
+): HttpBrowserPolicy => {
+	if (options === undefined) return disabledPolicy
+	const methods = new Set<HttpMethod>()
+	for (const endpoint of derivation.endpoints) {
+		if (endpoint.kind === 'mount') {
+			for (const method of mountMethods) methods.add(method)
+		} else methods.add(endpoint.method)
+	}
+	const allowedHeaders = [
+		'Content-Type',
+		httpApplicationIdHeader,
+		httpRequestIdHeader,
+		...(derivation.credentialResolvers && options.origins !== '*'
+			? ['Authorization']
+			: []),
+		...(derivation.masterEnabled ? [httpMasterKeyHeader] : []),
+	]
 	return immutableRecord({
-		allowedHeaders,
-		allowedMethods,
-		allowedOrigins,
-		credentials: value.credentials,
+		allowedHeaders: immutableArray(allowedHeaders),
+		allowedMethods: immutableArray(
+			[...mountMethods, 'OPTIONS' as const].filter((method) =>
+				methods.has(method),
+			),
+		),
+		credentials: options.credentials,
 		enabled: true as const,
-		maxAgeSeconds: value.maxAgeSeconds,
+		maxAgeSeconds: options.maxAgeSeconds,
+		origins: options.origins,
 	})
 }
 
@@ -210,8 +231,7 @@ const addVary = (headers: Headers, names: readonly string[]): void => {
 const isAllowedOrigin = (
 	policy: EnabledHttpBrowserPolicy,
 	origin: string,
-): boolean =>
-	policy.allowedOrigins === '*' || policy.allowedOrigins.includes(origin)
+): boolean => policy.origins === '*' || policy.origins.includes(origin)
 
 const applyAllowedOrigin = (
 	headers: Headers,
@@ -220,7 +240,7 @@ const applyAllowedOrigin = (
 ): void => {
 	headers.set(
 		'Access-Control-Allow-Origin',
-		policy.allowedOrigins === '*' ? '*' : origin,
+		policy.origins === '*' ? '*' : origin,
 	)
 	if (policy.credentials) {
 		headers.set('Access-Control-Allow-Credentials', 'true')
@@ -236,6 +256,28 @@ const parseRequestedHeaders = (
 	return headers.every(isHeaderName) ? headers : undefined
 }
 
+// Reads untrusted provider input defensively: a malformed one is not a preflight.
+const isPreflight = (input: HttpServerRequest): boolean => {
+	const untrusted: unknown = input
+	if (!isPlainRecord(untrusted) || !(untrusted.request instanceof Request)) {
+		return false
+	}
+	const headers: unknown = untrusted.originalHeaders
+	const has = (name: string): boolean =>
+		isUnknownArray(headers) &&
+		headers.some(
+			(header) =>
+				isUnknownArray(header) &&
+				typeof header[0] === 'string' &&
+				header[0].toLowerCase() === name,
+		)
+	return (
+		untrusted.request.method === 'OPTIONS' &&
+		has('origin') &&
+		has('access-control-request-method')
+	)
+}
+
 /**
  * Enforces one server-owned browser policy before application identity validation and
  * decorates only responses whose origin is explicitly accepted.
@@ -245,20 +287,29 @@ export const dispatchHttpBrowserRequest = async (
 	input: HttpServerRequest,
 	next: () => Promise<Response>,
 ): Promise<Response> => {
-	if (!policy.enabled) return next()
-
+	if (!policy.enabled) {
+		// Disabled CORS forwards everything except a preflight, which learns
+		// how to enable it (ADR-0323); the application validates the rest.
+		if (!isPreflight(input)) return next()
+		const prepared = prepareHttpServerRequestOrReject(input)
+		return prepared instanceof Response
+			? prepared
+			: createHttpPreDispatchErrorResponse(
+					httpPreDispatchErrorCodes.corsDisabled,
+					prepared.requestId,
+				)
+	}
 	const prepared = prepareHttpServerRequestOrReject(input)
 	if (prepared instanceof Response) return prepared
 	const header = (name: string): string | undefined =>
 		readPreparedHeader(prepared.originalHeaders, name)
 	const origin = header('Origin')
 	if (origin === undefined) return next()
-
 	const requestedMethod = header('Access-Control-Request-Method')
-	if (
-		prepared.input.request.method === 'OPTIONS' &&
-		requestedMethod !== undefined
-	) {
+	const preflight =
+		prepared.input.request.method === 'OPTIONS' && requestedMethod !== undefined
+
+	if (preflight) {
 		// A preflight is answered here and never reaches application behavior.
 		const requestedHeaders = parseRequestedHeaders(
 			header('Access-Control-Request-Headers'),
@@ -309,7 +360,7 @@ export const dispatchHttpBrowserRequest = async (
 	// A wildcard never answers a request that carried credentials.
 	if (
 		isAllowedOrigin(policy, origin) &&
-		(policy.allowedOrigins !== '*' ||
+		(policy.origins !== '*' ||
 			!prepared.originalHeaders.some(([name]) =>
 				wildcardCredentialHeaders.has(lowerCase(name)),
 			))
@@ -331,7 +382,7 @@ const assertHttpBrowserPolicy: (
 	}
 	if (!policy.enabled) return
 	if (
-		(policy.allowedOrigins !== '*' && !Array.isArray(policy.allowedOrigins)) ||
+		(policy.origins !== '*' && !Array.isArray(policy.origins)) ||
 		!Array.isArray(policy.allowedMethods) ||
 		!Array.isArray(policy.allowedHeaders) ||
 		typeof policy.credentials !== 'boolean' ||

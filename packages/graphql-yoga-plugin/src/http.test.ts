@@ -147,7 +147,7 @@ const createFixture = async (
 		graphqlYogaFixtureDatabasePlugin,
 		httpPlugin({
 			appId: 'notes',
-			...(master ? { master: { enabled: true as const } } : {}),
+			...(master ? { master: true as const } : {}),
 			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 		}),
 		sessionResolverPlugin,
@@ -277,16 +277,16 @@ describe('GraphQL Yoga HTTP adapter', () => {
 		expect(nested.status).toBe(404)
 
 		const preDispatch = await fixture.http.fetch({
-			originalHeaders: [],
+			originalHeaders: [[httpApplicationIdHeader, 'other']],
 			request: new Request('http://localhost/api/graphql', {
 				body: JSON.stringify({ query: '{ context }' }),
 				headers: { 'Content-Type': 'application/json' },
 				method: 'POST',
 			}),
 		})
-		expect(preDispatch.status).toBe(401)
+		expect(preDispatch.status).toBe(404)
 		expect(await json(preDispatch)).toMatchObject({
-			error: { code: 'HTTP_APPLICATION_REJECTED' },
+			error: { code: 'HTTP_APPLICATION_UNKNOWN' },
 		})
 		await fixture.ultimabase.dispose()
 	})

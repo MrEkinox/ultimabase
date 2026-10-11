@@ -72,9 +72,7 @@ it('serves GraphQL through a real browser Fetch boundary', async () => {
 		httpPlugin({
 			appId: 'browser-graphql',
 			browser: {
-				allowedHeaders: ['Content-Type', httpApplicationIdHeader],
-				allowedMethods: ['POST'],
-				allowedOrigins: [browserOrigin],
+				origins: [browserOrigin],
 				credentials: false,
 				maxAgeSeconds: 300,
 			},

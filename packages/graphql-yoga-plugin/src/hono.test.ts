@@ -33,9 +33,7 @@ const createApplication = (
 				...(browser
 					? {
 							browser: {
-								allowedHeaders: ['Content-Type', httpApplicationIdHeader],
-								allowedMethods: ['POST'],
-								allowedOrigins: ['https://console.example'],
+								origins: ['https://console.example'],
 								credentials: false,
 								maxAgeSeconds: 300,
 							},
@@ -130,7 +128,7 @@ describe('GraphQL Yoga Hono integration', () => {
 
 		await first.stop()
 		const removed = await hono.fetch(graphqlRequest(), rawEnvironment('first'))
-		expect(removed.status).toBe(401)
+		expect(removed.status).toBe(404)
 		const retained = await hono.fetch(
 			graphqlRequest(),
 			rawEnvironment('second'),
