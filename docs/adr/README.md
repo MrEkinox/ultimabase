@@ -299,6 +299,7 @@ Current records (accepted or still active in part):
 - [ADR-0315: Name-keyed query signatures](0315-name-keyed-query-signatures.md)
 - [ADR-0316: `definePlugin` and higher-kinded projection slots](0316-plugin-facade-and-projection-slots.md)
 - [ADR-0317: Access rules, explicit openings and plugin permissions](0317-access-rules-and-explicit-openings.md)
+- [ADR-0320: PostgreSQL safe synchronization, connection settings and debugging](0320-postgres-safe-sync-connection-and-debug.md)
 
 Proposed records (awaiting user validation):
 

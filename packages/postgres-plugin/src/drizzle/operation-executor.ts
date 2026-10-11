@@ -299,10 +299,13 @@ export const tryCreatePostgresUpsert = async (
 	create: unknown,
 	target: UniqueUpsertTargetNode,
 ): Promise<DatabaseLogicalRecord | null> => {
-	const targetFields = target.fields
-	const matchesTarget = (fields: readonly string[]): boolean =>
-		fields.length === targetFields.length &&
-		fields.every((fieldName, index) => fieldName === targetFields[index])
+	// Index columns are physical (snake_case) names; compare in that space.
+	const targetColumns = target.fields.map(
+		(fieldName) => resolveCompiledPostgresField(schema, fieldName).column.name,
+	)
+	const matchesTarget = (columns: readonly string[]): boolean =>
+		columns.length === targetColumns.length &&
+		columns.every((column, index) => column === targetColumns[index])
 	const targetsUniqueIndex = getTableConfig(schema.table).indexes.some(
 		(index) =>
 			index.config.unique && matchesTarget(readDrizzleIndexColumns(index)),
@@ -312,10 +315,6 @@ export const tryCreatePostgresUpsert = async (
 		throw new TypeError(
 			'PostgreSQL upsert target must match id or one compiled unique index',
 		)
-	}
-
-	for (const fieldName of targetFields) {
-		resolveCompiledPostgresField(schema, fieldName)
 	}
 
 	// A concurrent insert can violate another unique index on the same row before

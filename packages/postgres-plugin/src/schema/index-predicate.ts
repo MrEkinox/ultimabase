@@ -45,10 +45,11 @@ const renderLiteral = (
 export const renderPostgresIndexPredicate = (
 	conditions: readonly SchemaIndexCondition[],
 	storageByField: ReadonlyMap<string, PostgresStorageKind>,
+	columnNameOf: (fieldName: string) => string,
 ): string =>
 	conditions
 		.map((condition) => {
-			const column = quoteIdentifier(condition.field)
+			const column = quoteIdentifier(columnNameOf(condition.field))
 			if (condition.kind === 'null') {
 				return `${column} IS ${condition.isNull ? '' : 'NOT '}NULL`
 			}

@@ -36,8 +36,7 @@ const App = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture
 const Post = App.Schema.define({
   className: 'PostgresSourceOptionPost',
   fields: (field) => ({ title: field.string({ postgres: { renamedFrom: 'headline' } }) }),
-  postgres: { table: 'posts' },
-})
+}).with({ postgres: { table: 'posts' } })
 void Post`
 		const service = createLanguageService(fileName, source)
 		expect(

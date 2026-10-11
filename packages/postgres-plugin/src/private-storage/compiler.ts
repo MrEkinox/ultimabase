@@ -11,7 +11,11 @@ import {
 	type UpdateDeleteAction,
 } from 'drizzle-orm/pg-core'
 
-import { createPostgresForeignKeyName } from '../naming.js'
+import {
+	assertDistinctPostgresColumns,
+	createPostgresForeignKeyName,
+	toPostgresColumnName,
+} from '../naming.js'
 import { required } from '../required.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { CompiledPostgresField } from '../schema/contracts.js'
@@ -42,6 +46,7 @@ export const compilePostgresPrivateCollection = (
 		collection.contributionId,
 	])
 	const tableName = `_ub_private_${createHash('sha256').update(identity).digest('hex').slice(0, 32)}`
+	assertDistinctPostgresColumns(tableName, Object.keys(collection.fields))
 	const pending = Object.entries(collection.fields).map(
 		([name, field]) =>
 			[
@@ -78,7 +83,7 @@ export const compilePostgresPrivateCollection = (
 					],
 					name: createPostgresForeignKeyName(
 						tableName,
-						reference.field,
+						toPostgresColumnName(reference.field),
 						target.tableName,
 						'id',
 					),
@@ -94,7 +99,7 @@ export const compilePostgresPrivateCollection = (
 			name,
 			immutableRecord({
 				column: required(
-					columns.get(name),
+					columns.get(toPostgresColumnName(name)),
 					`PostgreSQL omitted private field: ${name}`,
 				),
 				...(field.generation === undefined

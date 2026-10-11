@@ -12,6 +12,7 @@ import {
 	type PluginInstance,
 	type PluginDeclarationContribution,
 	type PluginSchemaOptionSource,
+	type PluginSchemaRulesSource,
 } from '@ultimabase/core/plugin'
 import {
 	definePluginOptionsParser,
@@ -30,12 +31,26 @@ import {
 	createManagedPostgresConnection,
 	type ManagedPostgresConnection,
 } from '../connection/managed-connection.js'
+import {
+	observePostgresQueries,
+	type PostgresDebugOptions,
+} from '../connection/query-log.js'
 import { postgresPluginName } from '../constants.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
-import { postgresFieldOption, postgresSchemaOption } from '../options.js'
+import {
+	postgresFieldOption,
+	postgresSchemaOption,
+	type PostgresSchemaRules,
+} from '../options.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaPolicy } from '../synchronization/contracts.js'
 import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
+import {
+	normalizePostgresConnectionOptions,
+	normalizePostgresDebugOptions,
+	type PostgresConnectionOptions,
+	type PostgresConnectionSettings,
+} from './plugin-options.js'
 
 /** Configures the explicit direct schema synchronization policy. */
 export interface PostgresSchemaPolicyOptions {
@@ -47,6 +62,16 @@ export interface PostgresSchemaPolicyOptions {
 	readonly schemaPolicy?: PostgresSchemaPolicy
 }
 
+/** Options shared by every connection mode. */
+export interface PostgresCommonOptions extends PostgresSchemaPolicyOptions {
+	/**
+	 * Logs statements and their durations through the plugin logger, never
+	 * parameter values (ADR-0320).
+	 * @example `debug: { slowQueryMs: 500 }`
+	 */
+	readonly debug?: PostgresDebugOptions
+}
+
 /**
  * Reads the `DATABASE_URL` environment variable when the application starts,
  * not when the plugin is created, so schemas and applications import and
@@ -54,20 +79,26 @@ export interface PostgresSchemaPolicyOptions {
  *
  * @example `postgresPlugin()`
  */
-export interface PostgresEnvironmentOptions extends PostgresSchemaPolicyOptions {
+export interface PostgresEnvironmentOptions extends PostgresCommonOptions {
+	/** Pool settings of the connection created from `DATABASE_URL`. */
+	readonly connection?: PostgresConnectionOptions
 	readonly pool?: never
 	readonly url?: never
 }
 
 /** Creates an application-owned pool from a private connection URL. */
-export interface PostgresUrlOptions extends PostgresSchemaPolicyOptions {
+export interface PostgresUrlOptions extends PostgresCommonOptions {
+	/** Pool settings of the connection created from `url`. */
+	readonly connection?: PostgresConnectionOptions
 	readonly pool?: never
 	/** Connection URL; it always wins over `DATABASE_URL`. */
 	readonly url: string
 }
 
 /** Uses a developer-owned pg-compatible pool without taking disposal ownership. */
-export interface PostgresExistingPoolOptions extends PostgresSchemaPolicyOptions {
+export interface PostgresExistingPoolOptions extends PostgresCommonOptions {
+	/** An injected pool keeps its own settings. */
+	readonly connection?: never
 	readonly pool: PostgresPool
 	readonly url?: never
 }
@@ -96,12 +127,21 @@ const isPostgresPool = (value: unknown): value is PostgresPool =>
 	'query' in value &&
 	typeof value.query === 'function'
 
+/** The validated plugin options: at most one of `url` and `pool`. */
+type NormalizedPostgresPluginOptions = Readonly<{
+	connection?: PostgresConnectionSettings
+	debug?: PostgresDebugOptions
+	pool?: PostgresPool
+	schemaPolicy?: PostgresSchemaPolicy
+	url?: string
+}>
+
 const normalizePostgresPluginOptions = definePluginOptionsParser({
 	formatUnknownKey: (key) =>
 		`postgres plugin contains unknown key: ${String(key)}`,
-	keys: ['pool', 'schemaPolicy', 'url'] as const,
+	keys: ['connection', 'debug', 'pool', 'schemaPolicy', 'url'] as const,
 	name: 'postgres plugin options',
-	normalize: (options): PostgresPluginOptions => {
+	normalize: (options): NormalizedPostgresPluginOptions => {
 		const schemaPolicy = options.schemaPolicy
 		if (schemaPolicy !== undefined && !isPostgresSchemaPolicy(schemaPolicy)) {
 			throw new TypeError(
@@ -109,21 +149,32 @@ const normalizePostgresPluginOptions = definePluginOptionsParser({
 			)
 		}
 
-		const policy = schemaPolicy === undefined ? {} : { schemaPolicy }
+		const debug =
+			options.debug === undefined
+				? {}
+				: normalizePostgresDebugOptions(options.debug)
+		const common = {
+			...(schemaPolicy === undefined ? {} : { schemaPolicy }),
+			...(Object.keys(debug).length === 0 ? {} : { debug }),
+		}
+		const connection =
+			options.connection === undefined
+				? {}
+				: { connection: normalizePostgresConnectionOptions(options.connection) }
 		const hasUrl = Object.hasOwn(options, 'url')
 		const hasPool = Object.hasOwn(options, 'pool')
 		if (hasUrl && hasPool) {
 			throw new TypeError('postgres plugin accepts at most one of url or pool')
 		}
 		// Neither: DATABASE_URL is read when the application starts (ADR-0312).
-		if (!hasUrl && !hasPool) return policy
+		if (!hasUrl && !hasPool) return { ...common, ...connection }
 
 		if (hasUrl) {
 			if (typeof options.url !== 'string' || options.url.length === 0) {
 				throw new TypeError('postgres url must be a non-empty string')
 			}
 
-			return { ...policy, url: options.url }
+			return { ...common, ...connection, url: options.url }
 		}
 
 		if (!isPostgresPool(options.pool)) {
@@ -131,8 +182,13 @@ const normalizePostgresPluginOptions = definePluginOptionsParser({
 				'postgres pool must provide connect(), end(), and query()',
 			)
 		}
+		if (options.connection !== undefined) {
+			throw new TypeError(
+				'postgres connection settings apply to url or DATABASE_URL; configure an injected pool directly',
+			)
+		}
 
-		return { pool: options.pool, ...policy }
+		return { pool: options.pool, ...common }
 	},
 })
 
@@ -150,12 +206,17 @@ type PostgresPluginCapabilities = readonly [
 	typeof connectionRequirement,
 ]
 
-// Keep the public projection tied to the two option definitions installed below.
+// Keep the projection tied to the two option definitions installed below. The
+// schema option projects nothing: `.with({ postgres })` types it (ADR-0320).
 type PostgresOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'postgres-options'
 	readonly field: Readonly<{ postgres: typeof postgresFieldOption }>
 	readonly schema: Readonly<{ postgres: typeof postgresSchemaOption }>
 }>
+
+type PostgresSource =
+	| PostgresOptionSource
+	| PluginSchemaRulesSource<PostgresSchemaRules>
 
 /** Names the exact official PostgreSQL plugin definition. */
 export type PostgresPlugin = PluginInstance<{
@@ -165,7 +226,7 @@ export type PostgresPlugin = PluginInstance<{
 	readonly core: '^0.0.0'
 	readonly environment: typeof postgresPluginEnvironment
 	readonly capabilities: PostgresPluginCapabilities
-	readonly source: PostgresOptionSource
+	readonly source: PostgresSource
 }>
 
 /**
@@ -200,9 +261,9 @@ export const postgresPlugin = (
 		{ development: 'override', production: 'fail' },
 	)
 	const connectionSource =
-		'url' in source
+		source.url !== undefined
 			? 'the url option'
-			: 'pool' in source
+			: source.pool !== undefined
 				? 'the pool option'
 				: 'DATABASE_URL'
 	// Application-scoped state is keyed by the schema registry of each application.
@@ -210,18 +271,22 @@ export const postgresPlugin = (
 	const catalogs = new WeakMap<object, PostgresSchemaCatalog>()
 	const connectionProvider = provideCapability(postgresConnectionCapability, {
 		contributionId: 'connection',
-		create: ({ schemas }) => {
+		create: ({ logger, schemas }) => {
 			// A URL creates an owned pool; an injected pool stays developer-owned.
-			const connection =
-				'pool' in source
-					? createManagedPostgresConnection(source.pool, false)
-					: createManagedPostgresConnection(
-							new Pool({
-								connectionString:
-									'url' in source ? source.url : readDatabaseUrl(),
-							}),
-							true,
-						)
+			const owned = source.pool === undefined
+			const pool =
+				source.pool ??
+				new Pool({
+					...source.connection?.pool,
+					connectionString: source.url ?? readDatabaseUrl(),
+				})
+			const connection = createManagedPostgresConnection(
+				source.debug === undefined
+					? pool
+					: observePostgresQueries(pool, source.debug, logger),
+				owned,
+				{ connectRetries: source.connection?.connectRetries ?? 0, logger },
+			)
 			connections.set(schemas, connection)
 
 			return {
@@ -294,6 +359,7 @@ export const postgresPlugin = (
 						managedConnection.getPool(),
 						schemaCatalog,
 						schemaPolicy.value,
+						logger,
 					),
 				stop: () => connection.close(),
 			}

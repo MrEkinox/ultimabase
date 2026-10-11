@@ -16,10 +16,11 @@ declare module '@ultimabase/core' {
 	}
 }
 
-test('types the direct PostgreSQL schema and field options exactly', () => {
+test('types the PostgreSQL table rule and field option exactly', () => {
 	const App = UltimaBase.use(
 		postgresPlugin({ url: 'postgresql://localhost/fixture' }),
 	)
+	// ADR-0320: the table is a `.with` rule.
 	const Post = App.Schema.define({
 		className: 'PostgresDirectOptionTypePost',
 		fields: (field) => ({
@@ -27,21 +28,22 @@ test('types the direct PostgreSQL schema and field options exactly', () => {
 				postgres: { renamedFrom: 'headline' },
 			}),
 		}),
-		postgres: { table: 'content_posts' },
-	})
+	}).with({ postgres: { table: 'content_posts' } })
 
 	expectTypeOf(Post.className).toEqualTypeOf<'PostgresDirectOptionTypePost'>()
 
 	App.Schema.define({
 		className: 'PostgresInvalidSchemaOption',
 		fields: () => ({}),
-		// @ts-expect-error -- The direct schema option requires one table name.
+	}).with({
+		// @ts-expect-error -- The table rule requires one table name.
 		postgres: {},
 	})
 	App.Schema.define({
 		className: 'PostgresUnknownSchemaOption',
 		fields: () => ({}),
-		// @ts-expect-error -- Unknown PostgreSQL schema keys are rejected.
+	}).with({
+		// @ts-expect-error -- Unknown PostgreSQL rule keys are rejected.
 		postgres: { namespace: 'public', table: 'posts' },
 	})
 	App.Schema.define({
@@ -57,5 +59,12 @@ test('types the direct PostgreSQL schema and field options exactly', () => {
 			// @ts-expect-error -- Unknown PostgreSQL field keys are rejected.
 			title: field.string({ postgres: { column: 'title' } }),
 		}),
+	})
+	UltimaBase.Schema.define({
+		className: 'PostgresRuleWithoutPlugin',
+		fields: () => ({}),
+	}).with({
+		// @ts-expect-error -- The rule exists only with postgresPlugin().
+		postgres: { table: 'posts' },
 	})
 })

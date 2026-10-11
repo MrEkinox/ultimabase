@@ -17,7 +17,11 @@ import {
 	type UpdateDeleteAction,
 } from 'drizzle-orm/pg-core'
 
-import { createPostgresForeignKeyName } from '../naming.js'
+import {
+	assertDistinctPostgresColumns,
+	createPostgresForeignKeyName,
+	toPostgresColumnName,
+} from '../naming.js'
 import {
 	resolvePostgresRenamedFrom,
 	resolvePostgresTableName,
@@ -102,7 +106,7 @@ const resolvePointerMetadata = (
 	return immutableRecord({
 		constraintName: createPostgresForeignKeyName(
 			resolvePostgresTableName(schema),
-			fieldName,
+			toPostgresColumnName(fieldName),
 			targetTable,
 			'id',
 		),
@@ -122,11 +126,16 @@ const preparePostgresSchema = (
 	const pendingFields: [string, Omit<CompiledPostgresField, 'column'>][] = []
 	const pointers: PreparedPostgresPointer[] = []
 	const storageByField = new Map<string, PostgresStorageKind>()
-	const fieldNames = new Set(Object.keys(validationPlan.fields))
+	// To-many relations own edge storage and never become row columns.
+	const storedFieldNames = Object.entries(validationPlan.fields)
+		.filter(([, plan]) => plan.field.kind !== 'relation')
+		.map(([fieldName]) => fieldName)
+	const columnNames = new Set(storedFieldNames.map(toPostgresColumnName))
 	const renameSources = new Set<string>()
 
+	assertDistinctPostgresColumns(schema.className, storedFieldNames)
+
 	for (const [fieldName, plan] of Object.entries(validationPlan.fields)) {
-		// To-many relations own edge storage and never become row columns.
 		if (plan.field.kind === 'relation') continue
 
 		assertNoNestedRenames(plan, fieldName)
@@ -139,7 +148,8 @@ const preparePostgresSchema = (
 		const renamedFrom = resolvePostgresRenamedFrom(plan.field)
 
 		if (renamedFrom !== undefined) {
-			if (renamedFrom === fieldName || fieldNames.has(renamedFrom)) {
+			// renamedFrom names the previous physical column (ADR-0320).
+			if (columnNames.has(renamedFrom)) {
 				throw new TypeError(
 					`PostgreSQL renamedFrom must not be a declared field: ${renamedFrom}`,
 				)
@@ -202,6 +212,9 @@ const finalizePostgresSchema = ({
 	table,
 	tableName,
 }: PreparedPostgresSchema): CompiledPostgresSchema => {
+	// Reading the configuration also evaluates indexes and foreign keys, so
+	// invalid declarations fail here. Drizzle's table keys are not read: a
+	// `__proto__` field corrupts them.
 	const columns = new Map(
 		getTableConfig(table).columns.map((column) => [column.name, column]),
 	)
@@ -211,7 +224,7 @@ const finalizePostgresSchema = ({
 			immutableRecord({
 				...pending,
 				column: required(
-					columns.get(fieldName),
+					columns.get(toPostgresColumnName(fieldName)),
 					`Drizzle omitted PostgreSQL field: ${fieldName}`,
 				),
 			}),

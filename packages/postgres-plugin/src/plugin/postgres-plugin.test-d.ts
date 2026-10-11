@@ -45,6 +45,37 @@ test('accepts at most one typed connection source', () => {
 	})
 })
 
+test('types connection settings in URL modes and debugging everywhere (ADR-0320)', () => {
+	postgresPlugin({
+		url: 'postgresql://localhost/fixture',
+		connection: {
+			max: 20,
+			ssl: { ca: 'PEM', rejectUnauthorized: true },
+			statementTimeoutMs: 5000,
+			idleTimeoutMs: 10_000,
+			connectRetries: 5,
+		},
+		debug: { logQueries: true, slowQueryMs: 500 },
+	})
+	postgresPlugin({ connection: { ssl: true } })
+	postgresPlugin({ pool: new Pool(), debug: { slowQueryMs: 500 } })
+	postgresPlugin({
+		pool: new Pool(),
+		// @ts-expect-error -- An injected pool keeps its own settings.
+		connection: { max: 2 },
+	})
+	postgresPlugin({
+		url: 'postgresql://localhost/fixture',
+		// @ts-expect-error -- Unknown connection settings are rejected.
+		connection: { min: 2 },
+	})
+	postgresPlugin({
+		url: 'postgresql://localhost/fixture',
+		// @ts-expect-error -- Statement values are never logged.
+		debug: { logValues: true },
+	})
+})
+
 // @ts-expect-error The preparation marker is no longer part of the public package.
 import type { PostgresSchemaPreparationCapability } from '../index.js'
 void (undefined as unknown as PostgresSchemaPreparationCapability)
