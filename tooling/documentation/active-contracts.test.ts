@@ -59,7 +59,7 @@ const workspacePackageNames = new Set(
 			path.join(repositoryRoot, 'packages', entry.name, 'package.json'),
 		)
 		.filter((packageJson) => fs.existsSync(packageJson))
-		.map((packageJson) => {
+		.flatMap((packageJson) => {
 			const parsed: unknown = JSON.parse(fs.readFileSync(packageJson, 'utf8'))
 			if (
 				typeof parsed !== 'object' ||
@@ -69,7 +69,16 @@ const workspacePackageNames = new Set(
 			) {
 				throw new TypeError(`${packageJson} must declare a package name`)
 			}
-			return parsed.name
+			const name = parsed.name
+			// Public subpath exports, such as `@ultimabase/core/plugin` (ADR-0311).
+			const exports: unknown = Reflect.get(parsed, 'exports')
+			const subpaths =
+				typeof exports === 'object' && exports !== null
+					? Object.keys(exports)
+							.filter((key) => key.startsWith('./'))
+							.map((key) => `${name}/${key.slice(2)}`)
+					: []
+			return [name, ...subpaths]
 		}),
 )
 
