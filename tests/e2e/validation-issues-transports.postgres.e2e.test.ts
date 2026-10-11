@@ -37,7 +37,7 @@ const Contact = App.Schema.define({
 	className: 'ValidationIssuesContact',
 	fields: (field) => ({
 		name: field.string({ required: true }),
-		email: field.string({ validation: z.string().email() }),
+		email: field.string({ validation: z.email() }),
 		code: field.string({
 			validation: (value) =>
 				/^[A-Z]{3}$/u.test(value) || {

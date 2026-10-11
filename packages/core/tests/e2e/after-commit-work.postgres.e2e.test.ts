@@ -94,11 +94,11 @@ describe('runAfterCommit', () => {
 
 	it('discards the work of a rolled-back transaction', async () => {
 		await expect(
-			transaction(async () => {
+			transaction(() => {
 				runAfterCommit(() => {
 					trace.push('never')
 				})
-				throw new Error('rolled back')
+				return Promise.reject(new Error('rolled back'))
 			}),
 		).rejects.toThrow('rolled back')
 		await waitForAfterCommitWork()

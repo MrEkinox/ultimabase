@@ -168,12 +168,12 @@ const validateFinalCreate = async <const TSchema extends SchemaDefinition>(
 		schema: new QueryBuilder(schema).ast.schema,
 	} as unknown as CreateOneOperationAst<TSchema>
 
-	return (await createFinalMutationValidationStage()({
+	return createFinalMutationValidationStage()({
 		context: validationContext,
 		operation,
 		previousOperation: operation,
 		target: undefined,
-	})) as CreateOneOperationAst<TSchema>
+	})
 }
 
 const readIssues = (error: unknown): readonly unknown[] => {

@@ -66,8 +66,13 @@ const Range = App.Schema.define({
 		}),
 })
 
+const createApplication = (database: PostgresWorkerFixture) =>
+	new (App.use(
+		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
+	))({ logger: false, schemas: [Event, Range] })
+
 let fixture: PostgresWorkerFixture | undefined
-let ultimabase: InstanceType<ReturnType<typeof App.use>> | undefined
+let ultimabase: ReturnType<typeof createApplication> | undefined
 
 const readIssues = async (call: Promise<unknown>): Promise<unknown> => {
 	const error: unknown = await call.then(
@@ -75,7 +80,7 @@ const readIssues = async (call: Promise<unknown>): Promise<unknown> => {
 		(failure: unknown) => failure,
 	)
 	if (!(error instanceof FrameworkError) || error.code !== 'VALIDATION_ERROR') {
-		throw error ?? new TypeError('Expected a validation error')
+		throw new TypeError('Expected a validation error', { cause: error })
 	}
 	const details: unknown = error.publicDetails
 	return typeof details === 'object' && details !== null
@@ -85,9 +90,7 @@ const readIssues = async (call: Promise<unknown>): Promise<unknown> => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'validation_rules' })
-	const app = new (App.use(
-		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
-	))({ logger: false, schemas: [Event, Range] })
+	const app = createApplication(fixture)
 	ultimabase = app
 	try {
 		await app.start()

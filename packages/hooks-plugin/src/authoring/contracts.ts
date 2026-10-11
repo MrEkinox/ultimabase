@@ -95,9 +95,9 @@ export type HookChanges<TSchema extends SchemaDefinition> = {
 type RelationChangeFields<TSchema extends SchemaDefinition> =
 	string extends SchemaRelationFieldName<TSchema>
 		? unknown
-		: {
-				readonly [TKey in SchemaRelationFieldName<TSchema>]?: HookRelationChanges
-			}
+		: Readonly<
+				Partial<Record<SchemaRelationFieldName<TSchema>, HookRelationChanges>>
+			>
 
 /** What `resolveInput.create` receives. */
 export interface SchemaResolveCreateInput<TSchema extends SchemaDefinition> {

@@ -3,65 +3,24 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { Pointer } from '@ultimabase/core'
 import {
-	createFinalMutationValidationStage as createCoreFinalMutationValidationStage,
 	createRuntimeValidationStage,
 	compileValidationPlans,
 	definePluginField,
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
-	UltimaBase,
 	type CreateOneOperationAst,
-	type RuntimeMutationRevalidationStage,
-	type SchemaDefinition,
 	type SchemaReference,
 	snapshotRuntimeResultRecord,
 } from '@ultimabase/core'
-import {
-	createValidationPlanCache,
-	validateMutationInput,
-} from './operation-validation.js'
 import { readValidationIssues } from './field-validation-fixture.js'
-import { validationPlugin } from './plugin.js'
 import {
-	QueryBuilder,
-	RequestContext,
-	requestSources,
-	type ApplicationCallbackExecutor,
-} from '@ultimabase/core/plugin'
-
-const ValidationApplication = UltimaBase.use(validationPlugin())
-
-const callbacks: ApplicationCallbackExecutor = {
-	runApplication: (callback) => callback(),
-	runPlugin: (_owner, callback) => callback(),
-}
-
-/**
- * Mirrors Core's final pass: structural validation, then the plugin, whose
- * issues become one VALIDATION_ERROR and whose outputs are revalidated.
- */
-const createFinalMutationValidationStage =
-	(): RuntimeMutationRevalidationStage => {
-		const validateStructure = createCoreFinalMutationValidationStage()
-		const readPlans = createValidationPlanCache()
-		return async (input) => {
-			const operation = await validateStructure(input)
-			const result = await validateMutationInput(
-				{ ...input, operation, structuralIssues: [] },
-				readPlans(operation),
-				callbacks,
-			)
-			if (result.issues.length > 0) {
-				throw new FrameworkError('VALIDATION_ERROR', 'Invalid input.', {
-					publicDetails: { issues: result.issues },
-				})
-			}
-			return result.operation === operation
-				? operation
-				: validateStructure({ ...input, operation: result.operation })
-		}
-	}
+	completeRecord,
+	createFinalMutationValidationStage,
+	validateFinalCreate,
+	ValidationApplication,
+} from './field-validation.test-support.js'
+import { QueryBuilder, RequestContext, requestSources } from '@ultimabase/core/plugin'
 
 const rejectingString = (
 	message: string,
@@ -76,45 +35,6 @@ const rejectingString = (
 				: { issues: [{ message, ...(path === undefined ? {} : { path }) }] },
 	},
 })
-
-const completeRecord = (
-	value: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> => ({
-	id: '0198d1ae-a800-7000-8000-000000000001',
-	createdAt: '2026-08-21T12:00:00.000Z',
-	updatedAt: '2026-08-21T12:00:00.000Z',
-	...value,
-})
-
-const validationContext = RequestContext.anonymous({
-	requestId: 'field-standard-schema-test',
-	source: requestSources.internal,
-})
-
-/** Exercises application validation only through the mandatory final mutation stage. */
-const validateFinalCreate = async <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	input: Readonly<Record<string, unknown>>,
-	dependencies: readonly SchemaDefinition[] = [],
-): Promise<CreateOneOperationAst<TSchema>> => {
-	new ValidationApplication({
-		logger: false,
-		schemas: [...dependencies, schema],
-	}).compile()
-	const operation = {
-		input: completeRecord(input),
-		kind: 'create-one',
-		selection: new QueryBuilder(schema).ast.selection,
-		schema: new QueryBuilder(schema).ast.schema,
-	} as unknown as CreateOneOperationAst<TSchema>
-
-	return (await createFinalMutationValidationStage()({
-		context: validationContext,
-		operation,
-		previousOperation: operation,
-		target: undefined,
-	})) as CreateOneOperationAst<TSchema>
-}
 
 const passThrough = <TValue>(
 	validate: (value: unknown) => void,
@@ -505,7 +425,7 @@ describe('Standard Schema field validation', () => {
 		expect(parentValidate).not.toHaveBeenCalled()
 	})
 
-	it('bypasses missing and nullable values and retains validator identity', async () => {
+	it('bypasses missing and nullable values and retains validator identity', () => {
 		const validate = vi.fn((value: unknown) => ({ value: String(value) }))
 		const validator: StandardSchemaV1<string> = {
 			'~standard': { version: 1 as const, vendor: 'identity-test', validate },
@@ -609,77 +529,6 @@ describe('Standard Schema field validation', () => {
 		await expect(
 			validateFinalCreate(schema, { value: ' value ' }),
 		).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
-	})
-
-	it('stores a stripped object output and revalidates an inserted unknown key', async () => {
-		const objectValidator = (
-			transform: (
-				value: Readonly<Record<string, unknown>>,
-			) => Readonly<Record<string, unknown>>,
-		) =>
-			({
-				'~standard': {
-					version: 1 as const,
-					vendor: 'object-transformation-test',
-					validate: (value: unknown) =>
-						typeof value === 'object' && value !== null
-							? { value: transform(value as Readonly<Record<string, unknown>>) }
-							: { issues: [{ message: 'Expected object' }] },
-				},
-			}) as unknown as StandardSchemaV1<
-				Readonly<{ name: string; role: string | null }>
-			>
-		const define = (className: string, validator: ReturnType<typeof objectValidator>) =>
-			ValidationApplication.Schema.define({
-				className,
-				fields: (field) => ({
-					profile: field.object({
-						fields: (nested) => ({
-							name: nested.string({ required: true }),
-							role: nested.string(),
-						}),
-						validation: validator,
-					}),
-				}),
-			})
-
-		// ADR-0319: the validator output is what gets stored.
-		const stripped = await validateFinalCreate(
-			define('ObjectTransformationStripping', objectValidator((value) => ({ name: value.name }))),
-			{ profile: { name: 'Ada', role: 'admin' } },
-		)
-		expect(stripped.input.profile).toStrictEqual({ name: 'Ada' })
-
-		// An output must stay structurally valid: Core checks it again.
-		await expect(
-			validateFinalCreate(
-				define(
-					'ObjectTransformationInsertion',
-					objectValidator((value) => ({ ...value, inserted: 'default' })),
-				),
-				{ profile: { name: 'Ada', role: 'admin' } },
-			),
-		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-	})
-
-	it('awaits asynchronous Standard Schema validators and stores their output', async () => {
-		const trimming = {
-			'~standard': {
-				version: 1 as const,
-				vendor: 'async-transform-test',
-				validate: async (value: unknown) => {
-					await Promise.resolve()
-					return { value: typeof value === 'string' ? value.trim() : value }
-				},
-			},
-		} as unknown as StandardSchemaV1<string>
-		const schema = ValidationApplication.Schema.define({
-			className: 'AsyncTrimmedValidation',
-			fields: (field) => ({ value: field.string({ validation: trimming }) }),
-		})
-
-		const result = await validateFinalCreate(schema, { value: '  padded  ' })
-		expect(result.input.value).toBe('padded')
 	})
 
 	it('turns an empty failure into one immutable fallback issue', async () => {

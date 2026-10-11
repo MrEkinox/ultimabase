@@ -44,7 +44,8 @@ const App = UltimaBase.use(
 			},
 			beforeOperation: {
 				create: ({ item, schema }) => {
-					trace.push(`before:global:${schema}:${String(item.title ?? '')}`)
+					const title = typeof item.title === 'string' ? item.title : ''
+					trace.push(`before:global:${schema}:${title}`)
 				},
 			},
 		},
@@ -223,8 +224,11 @@ describe('Hooks on plain data (ADR-0318)', () => {
 			data: { views: { increment: 2 } },
 		})
 		// Core's generated `updatedAt` is part of what the update changes.
-		expect(recorded).toStrictEqual([
-			{ updatedAt: expect.any(String), views: { increment: 2 } },
+		expect(recorded).toHaveLength(1)
+		expect(recorded[0]).toMatchObject({ views: { increment: 2 } })
+		expect(Object.keys(recorded[0] ?? {}).sort()).toStrictEqual([
+			'updatedAt',
+			'views',
 		])
 		expect(updated?.views).toBe(2)
 
@@ -233,8 +237,11 @@ describe('Hooks on plain data (ADR-0318)', () => {
 			where: { id: { eq: todo.id } },
 			data: { title: 'Renamed Todo' },
 		})
-		expect(recorded).toStrictEqual([
-			{ title: 'Renamed Todo', updatedAt: expect.any(String) },
+		expect(recorded).toHaveLength(1)
+		expect(recorded[0]).toMatchObject({ title: 'Renamed Todo' })
+		expect(Object.keys(recorded[0] ?? {}).sort()).toStrictEqual([
+			'title',
+			'updatedAt',
 		])
 		expect(renamed).toMatchObject({ slug: 'renamed-todo', views: 2 })
 	})

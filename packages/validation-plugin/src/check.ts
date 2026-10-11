@@ -8,10 +8,7 @@ import {
 import { immutableArray, immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { runFieldValidator, type ValidationIssue } from './field-validation.js'
-import {
-	readFieldValidator,
-	readSchemaValidation,
-} from './operation-validation.js'
+import { readFieldValidator, readSchemaValidation } from './field-validator.js'
 import { runSchemaValidation } from './schema-validation.js'
 
 /** What `check()` answers. */
