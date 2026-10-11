@@ -11,6 +11,8 @@ import type {
 	FieldSourceOptionByKind,
 	FieldSourceObjectValue,
 	FieldSourceOpaque,
+	FieldSourceApply,
+	FieldSourceHKT,
 	FieldSourcePresentValue,
 	FieldSourceValue,
 	FieldTypegenState,
@@ -37,6 +39,17 @@ export type PluginSourceFieldObjectValue = FieldSourceObjectValue
 
 /** Substitutes the persisted field value without `null` in one plugin template. */
 export type PluginSourceFieldPresentValue = FieldSourcePresentValue
+
+/** A plugin type function over one field's present value (see `PluginSourceFieldApply`). */
+export type PluginSourceFieldHKT = FieldSourceHKT
+
+/**
+ * Applies one plugin type function to the field's present value, so the
+ * option prints as the plugin's named type.
+ * @example `PluginSourceFieldApply<FieldValidatorHKT>` prints `FieldValidator<string>`
+ */
+export type PluginSourceFieldApply<THKT extends FieldSourceHKT> =
+	FieldSourceApply<THKT>
 
 /** Selects exact plugin field options without treating relations as values. */
 export type PluginSourceFieldOptionByKind<TValueOption, TRelationOption> =

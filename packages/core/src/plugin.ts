@@ -162,10 +162,13 @@ export type {
 	FrameworkPluginContract,
 	PluginDefinition,
 	PluginExports,
+	PluginFactory,
 } from './plugins/definition.js'
 export type { PluginSetupContext } from './plugins/setup-registries.js'
 export type {
 	PluginSourceFieldObjectValue,
+	PluginSourceFieldApply,
+	PluginSourceFieldHKT,
 	PluginSourceFieldPresentValue,
 	PluginSourceFieldOptionByKind,
 	PluginSourceFieldValue,

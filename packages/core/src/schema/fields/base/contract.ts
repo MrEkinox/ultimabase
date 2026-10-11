@@ -15,6 +15,8 @@ export type {
 	FieldSourceObjectValue,
 	FieldSourceOpaque,
 	FieldSourceOptionByKind,
+	FieldSourceApply,
+	FieldSourceHKT,
 	FieldSourcePresentValue,
 	FieldSourceValue,
 	PluginSourceFieldOption,

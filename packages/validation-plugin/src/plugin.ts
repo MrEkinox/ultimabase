@@ -1,23 +1,36 @@
-import { provideRuntimeBehavior } from '@ultimabase/core'
 import {
+	provideRuntimeBehavior,
+	type SchemaDefinition,
+} from '@ultimabase/core'
+import {
+	contributeApplication,
 	contributeDeclarations,
 	plugin,
 	type PluginDeclarationContribution,
 	type PluginDeclarationSource,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
+	type PluginSchemaRulesSource,
+	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
+import { immutableRecord } from '@ultimabase/shared'
 
-import { fieldValidationOption } from './options.js'
+import {
+	createValidationCheck,
+	type ValidationPluginExports,
+} from './check.js'
+import { fieldValidationOption, schemaValidationOption } from './options.js'
 import {
 	createValidationPlanCache,
 	requiresValidationTargets,
 	validateMutationInput,
 } from './operation-validation.js'
+import type { SchemaValidation } from './schema-validation.js'
 
 type ValidationOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-field-validation-option'
 	readonly field: Readonly<{ validation: typeof fieldValidationOption }>
+	readonly schema: Readonly<{ validation: typeof schemaValidationOption }>
 }>
 
 const validationDeclarations: PluginDeclarationContribution<
@@ -28,31 +41,59 @@ const validationDeclarations: PluginDeclarationContribution<
 		schemas.defineOptions({
 			contributionId: 'official-field-validation-option',
 			field: { validation: fieldValidationOption },
+			schema: { validation: schemaValidationOption },
 		}),
 })
 
-type ValidationSource = PluginDeclarationSource<typeof validationDeclarations>
+/** Entry of `.with({ ... })` owned by Validation, for one schema. */
+export interface ValidationRules<TSchema> {
+	/**
+	 * Checks the complete item of every create and update, after field
+	 * validation (ADR-0319): a function or a Standard Schema object validator.
+	 * @example `validation: ({ item }) => item.endsAt > item.startsAt || 'Ends before it starts'`
+	 */
+	readonly validation?: SchemaValidation<Extract<TSchema, SchemaDefinition>>
+}
 
-/** Names the exact configured official field-validation engine. */
+/** Contributes `validation` to `.with({ ... })` through Core's rules slot. */
+export interface ValidationSchemaRules extends SchemaRulesHKT {
+	readonly rules: ValidationRules<this['schema']>
+}
+
+type ValidationSource =
+	| PluginDeclarationSource<typeof validationDeclarations>
+	| PluginSchemaRulesSource<ValidationSchemaRules>
+
+/** Names the exact configured official validation engine. */
 export type ValidationPlugin = PluginInstance<{
 	readonly id: '@ultimabase/validation-plugin'
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
+	readonly exports: ValidationPluginExports
 	readonly source: ValidationSource
 }>
 
-/** Installs direct field validation and its final mutation guard explicitly. */
-export const validationPlugin = (): ValidationPlugin => {
+/** The `validationPlugin` factory; `ultimabase.plugin(validationPlugin)` reads its exports. */
+export interface ValidationPluginFactory {
+	/**
+	 * Installs field validators, schema checks, their final mutation stage and
+	 * `check()` (ADR-0319).
+	 * @example `UltimaBase.use(validationPlugin())`
+	 */
+	(): ValidationPlugin
+	readonly pluginId: '@ultimabase/validation-plugin'
+}
+
+const createValidationPlugin = (): ValidationPlugin => {
 	const runtimeProvider = provideRuntimeBehavior({
 		contributionId: 'official-field-validation-runtime',
 		create: ({ callbacks }) => {
 			const readPlans = createValidationPlanCache()
 			return {
 				value: {
-					guardMutationInput: (input) => {
-						validateMutationInput(input, readPlans(input.operation), callbacks)
-					},
 					requiresPreparedMutationItems: requiresValidationTargets,
+					validateMutationInput: (input) =>
+						validateMutationInput(input, readPlans(input.operation), callbacks),
 				},
 			}
 		},
@@ -62,6 +103,18 @@ export const validationPlugin = (): ValidationPlugin => {
 		id: '@ultimabase/validation-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		contributions: [runtimeProvider, validationDeclarations],
+		contributions: [
+			runtimeProvider,
+			validationDeclarations,
+			contributeApplication(({ schemas }) => ({
+				exports: immutableRecord({ check: createValidationCheck(schemas) }),
+			})),
+		],
 	})
 }
+
+/** Installs field validators, schema checks and `check()` explicitly. */
+export const validationPlugin: ValidationPluginFactory = Object.assign(
+	createValidationPlugin,
+	{ pluginId: '@ultimabase/validation-plugin' as const },
+)

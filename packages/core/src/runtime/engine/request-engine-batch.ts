@@ -14,6 +14,7 @@ import {
 	type RuntimePipeline,
 } from '../pipeline/runtime-pipeline.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
+import { prefixValidationError } from '../validation/validation-issues.js'
 
 /** Retains one item's unmaterialized result and its effective request context. */
 export interface RuntimeTerminalExecution {
@@ -45,6 +46,18 @@ const projectOperation = (
 }
 
 /** Preserves item order, private identities, and one final batch projection. */
+/** Names the failing item in a batch's validation issue paths (ADR-0319). */
+const withItemIndex = async <TResult>(
+	index: number,
+	execute: () => Promise<TResult>,
+): Promise<TResult> => {
+	try {
+		return await execute()
+	} catch (error: unknown) {
+		throw prefixValidationError(error, index)
+	}
+}
+
 export const executeRequestTerminalBatch = async (
 	entries: readonly OperationBatchEntry[],
 	projection: OperationBatchProjection | undefined,
@@ -53,8 +66,10 @@ export const executeRequestTerminalBatch = async (
 ): Promise<readonly unknown[]> => {
 	if (projection === undefined) {
 		const results: unknown[] = []
-		for (const entry of entries) {
-			const result = await terminal.execute(entry.operation)
+		for (const [index, entry] of entries.entries()) {
+			const result = await withItemIndex(index, () =>
+				terminal.execute(entry.operation),
+			)
 			if (entry.requireResult === true && result === null) {
 				throw createProtectedObjectNotFoundError()
 			}
@@ -66,8 +81,10 @@ export const executeRequestTerminalBatch = async (
 	const records: Readonly<Record<string, unknown>>[] = []
 	const objectIds: string[] = []
 	let context: RequestContext | undefined
-	for (const entry of entries) {
-		const execution = await terminal.executeWithRuntime(entry.operation)
+	for (const [index, entry] of entries.entries()) {
+		const execution = await withItemIndex(index, () =>
+			terminal.executeWithRuntime(entry.operation),
+		)
 		context = execution.context
 		if (entry.requireResult === true && execution.result === null) {
 			throw createProtectedObjectNotFoundError()

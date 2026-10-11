@@ -92,13 +92,17 @@ export class TransactionLifetime extends TrackedExecutionLifetime {
 	}
 }
 
-/** Preserves both independent failures without duplicating one caught error. */
+/**
+ * Preserves both independent failures without duplicating one caught error;
+ * an error that wraps the other (its `cause`) is the same failure.
+ */
 const combineErrors = (
 	primary: unknown,
 	secondary: unknown,
 	message: string,
 ): unknown =>
-	primary === secondary
+	primary === secondary ||
+	(primary instanceof Error && primary.cause === secondary)
 		? primary
 		: new AggregateError([primary, secondary], message, { cause: secondary })
 

@@ -1,5 +1,6 @@
 declare const fieldSourceObjectValueType: unique symbol
 declare const fieldSourcePresentValueType: unique symbol
+declare const fieldSourceApplyType: unique symbol
 declare const fieldSourceOpaqueType: unique symbol
 declare const fieldSourceValueType: unique symbol
 declare const fieldSourceOptionByKindType: unique symbol
@@ -21,6 +22,21 @@ export interface FieldSourcePresentValue {
 	readonly [fieldSourcePresentValueType]: 'field-present-value'
 }
 
+/**
+ * A plugin type function over one field's present (non-null) value: Core
+ * reads `type` with `value` set, so the option prints as the plugin's named
+ * type (`FieldValidator<string>`).
+ */
+export interface FieldSourceHKT {
+	readonly value: unknown
+	readonly type: unknown
+}
+
+/** Applies one plugin type function to the field's present value. */
+export interface FieldSourceApply<THKT extends FieldSourceHKT> {
+	readonly [fieldSourceApplyType]: THKT
+}
+
 /** Preserves one plugin-owned type while Core resolves neighboring field markers. */
 export interface FieldSourceOpaque<TValue> {
 	readonly [fieldSourceOpaqueType]: TValue
@@ -34,10 +50,14 @@ export interface FieldSourceOptionByKind<TValueOption, TRelationOption> {
 	}>
 }
 
-/** Evaluates one plugin-owned constraint after exact field options are inferred. */
+/**
+ * Evaluates one plugin-owned constraint after exact field options are
+ * inferred: `true` accepts, `false` rejects, and a message string rejects with
+ * that message as the expected type of the option (ADR-0319).
+ */
 export interface PluginSourceFieldOptionConstraint {
 	readonly options: object
-	readonly valid: boolean
+	readonly valid: boolean | string
 	readonly value: unknown
 }
 
@@ -79,6 +99,10 @@ export type ResolveFieldSourceTemplate<
 		? [TObjectValue] extends [never]
 			? TTemplate
 			: Exclude<TObjectValue, null>
+	: TTemplate extends FieldSourceApply<infer THKT>
+		? [TObjectValue] extends [never]
+			? TTemplate
+			: (THKT & { readonly value: Exclude<TObjectValue, null> })['type']
 	: TTemplate extends FieldSourceOpaque<infer TValue>
 		? TValue
 		: TTemplate extends FieldSourceOptionByKind<infer TValueOption, unknown>
@@ -146,17 +170,43 @@ type PluginSourceFieldOptionIsValid<TOption, TOptions extends object, TValue> =
 				}>)['valid']
 		: true
 
-/** Applies every generic plugin constraint after exact source options are inferred. */
-export type CompatiblePluginSourceFieldOptions<
+type PluginSourceFieldOptionValidity<
 	TSourceOptions extends object,
 	TOptions extends object,
 	TValue,
-> = false extends {
-	readonly [TKey in keyof TSourceOptions]: TOptions extends Readonly<
+> = {
+	readonly [TKey in keyof TSourceOptions]-?: TOptions extends Readonly<
 		Record<TKey, unknown>
 	>
 		? PluginSourceFieldOptionIsValid<TSourceOptions[TKey], TOptions, TValue>
 		: true
-}[keyof TSourceOptions]
-	? never
-	: unknown
+}
+
+/** Keeps the options whose constraint answered with a message. */
+type PluginSourceFieldOptionMessages<TValidity> = {
+	readonly [TKey in keyof TValidity as TValidity[TKey] extends string
+		? TKey
+		: never]: TValidity[TKey]
+}
+
+/**
+ * Applies every generic plugin constraint after exact source options are
+ * inferred; an option rejected with a message expects that message, so the
+ * editor shows it on the option.
+ */
+export type CompatiblePluginSourceFieldOptions<
+	TSourceOptions extends object,
+	TOptions extends object,
+	TValue,
+> =
+	PluginSourceFieldOptionValidity<
+		TSourceOptions,
+		TOptions,
+		TValue
+	> extends infer TValidity
+		? false extends TValidity[keyof TValidity]
+			? never
+			: keyof PluginSourceFieldOptionMessages<TValidity> extends never
+				? unknown
+				: PluginSourceFieldOptionMessages<TValidity>
+		: never

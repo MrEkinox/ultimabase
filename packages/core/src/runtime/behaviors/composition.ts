@@ -1,4 +1,4 @@
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
@@ -11,6 +11,7 @@ import { composeRuntimeContributionBehavior } from '../contributions/composition
 import type { RuntimeNestedWriteStageContext } from '../nested-writes/execution-context.js'
 import type {
 	RuntimeBehaviorStages,
+	RuntimeMutationValidationIssue,
 	RuntimePreparedMutationTransformStage,
 } from '../pipeline/contracts.js'
 
@@ -100,6 +101,7 @@ export const composeRuntimeBehaviors = (
 		true,
 	)
 	const beforeObservers = collect('beforeOperation')
+	const mutationValidators = collect('validateMutationInput')
 	const mutationInputGuards = collect('guardMutationInput')
 	const preparedObservers = collect('observePreparedMutation')
 	const outcomeTransforms = collect('transformMutationOutcome')
@@ -144,6 +146,29 @@ export const composeRuntimeBehaviors = (
 		composed.beforeOperation = async (input) => {
 			for (const { run, stage } of beforeObservers)
 				await run(() => stage(input))
+		}
+	}
+	if (mutationValidators.length > 0) {
+		composed.validateMutationInput = async (input) => {
+			let { operation } = input
+			const issues: RuntimeMutationValidationIssue[] = []
+			for (const { run, stage } of mutationValidators) {
+				const result = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation,
+							structuralIssues: input.structuralIssues,
+							target: input.target,
+							...(input.targets === undefined ? {} : { targets: input.targets }),
+						}),
+					),
+				)
+				issues.push(...result.issues)
+				operation = result.operation
+			}
+			return immutableRecord({ issues: immutableArray(issues), operation })
 		}
 	}
 	if (mutationInputGuards.length > 0) {
