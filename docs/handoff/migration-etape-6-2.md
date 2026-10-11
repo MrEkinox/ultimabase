@@ -18,9 +18,8 @@ expliqué, banc forme D TS6/TS7.
 
 ## État
 
-Implémentation, migration des tests et documentation faites (commits
-`wip(hooks-validation)`). Reste : porte finale, audit DX, banc (voir
-« Preuves »).
+Implémentation, migration des tests, documentation, porte finale, audit DX
+et banc faits (voir « Preuves »). Dernier commit de code : 98c4141f.
 
 ### Core (extensions génériques, sans nommer de plugin)
 
@@ -142,11 +141,64 @@ value }` ; la valeur exclut `null` et le hook n'est pas appelé pour `null`.
   (« Transaction callback and an operation both failed ») ; corrigé dans
   `combineErrors`.
 
-## Preuves
+## Preuves (porte finale sur 98c4141f, dernier commit de code)
 
-À compléter avec la porte finale.
+- `packages/*/dist` et `*.tsbuildinfo` hors `node_modules` supprimés, puis
+  `yarn validate:full` : code 0. « All matched files use Prettier code
+  style! » ; lint 0 erreur (49 + 18 + 2 avertissements, tous de taille de
+  fichier ; 70 sur 50209ff0) ; performance « Test Files 3 passed (3) / Tests 4
+  passed (4) » ; couverture « Test Files 711 passed (711) / Tests 3445 passed
+  (3445) / Type Errors no errors », All files 92,62 / 86,3 / 97,22 / 93,3 ;
+  site « Test Files 17 passed (17) / Tests 66 passed (66) ».
+- `yarn test:e2e:built` : code 0, « Test Files 127 passed (127) / Tests 560
+  passed (560) » (un premier passage avait révélé la déclaration générée de
+  l'exemple minimal périmée, régénérée par 98c4141f).
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+
+### Audit DX (`--only` 23 paquets, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+Base : worktree détaché de 50209ff0 (construit puis supprimé). 1 481
+différences (37 695 / 38 239 enregistrements), classées par script puis
+lecture d'échantillons :
+
+| Cause                                                                                                                               | Nombre |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -----: |
+| Sites d'usage dans des fichiers modifiés ou ajoutés par l'étape (tests, fixtures, exemples)                                         |    523 |
+| Validation : `FieldValidator`, contrôle de schéma, `check()`, exports, survols de l'option                                          |    318 |
+| Hooks : entrées sur données, phases, `all`, `afterCommit`, événements typés, hooks globaux                                          |    287 |
+| Exports ajoutés ou retirés (Hooks, Validation, Core, testing) et leurs survols                                                      |    210 |
+| État de source configuré : Validation déclare une option de schéma (`fieldOptions … & object`)                                      |     38 |
+| Core : JSDoc de `guardMutationInput`, marqueurs privés, contexte d'écriture imbriquée                                               |     38 |
+| Core : étape `validateMutationInput`, `runAfterCommit`, marqueurs de source, `PluginFactory`                                        |     36 |
+| `ultimabase.plugin(...)` : `+2 overloads` → `+3 overloads`                                                                          |     11 |
+| Reste lu à la main : `hooksPlugin(options?)`, JSDoc de `context`/`originalItem`, `waitForAfterCommit`, suggestions « Did you mean » |     20 |
+
+### Banc forme D (base = 50209ff0, branche = 98c4141f ; alterné, médianes)
+
+TypeScript 6.0.3 (3 exécutions, `tools/bench.mjs`) :
+
+| N   | Arbre   | Charges     | Éd.→diag (s) | Exécutions     | Froid (s) | Schéma (s) | Tas (Mio) | Hover `q0` |
+| --- | ------- | ----------- | -----------: | -------------- | --------: | ---------: | --------: | ---------: |
+| 50  | base    | 4,8 4,0 4,0 |         2,05 | 2,04/2,05/2,08 |      4,84 |       2,12 |       849 |        199 |
+| 50  | branche | 4,3 3,9 3,9 |         2,09 | 2,09/2,11/2,08 |      4,78 |       2,12 |       863 |        199 |
+| 200 | base    | 3,6 3,1 5,2 |         7,14 | 7,14/7,03/7,49 |     16,72 |       7,30 |     2 539 |        199 |
+| 200 | branche | 3,2 4,3 5,2 |         7,55 | 7,34/7,58/7,55 |     17,61 |       7,43 |     2 478 |        199 |
+
+TypeScript 7.0.2 (`tools/lsp-bench.mjs`, 3 exécutions à 50, 2 à 200 ; médiane
+haute à 200) : éd.→diag 50 : 0,77 → 0,77 ; 200 : 2,49 → 2,59 ; premier
+diagnostic 50 : 0,86 → 0,86 ; 200 : 2,69 → 2,74 ; édition de règle 50 :
+0,51 → 0,54 ; 200 : 1,46 → 1,48 ; RSS serveur 651 → 725 Mio (50),
+1 813 → 1 755 Mio (200). Aucun diagnostic inattendu.
+
+Lecture : +2 % à 50 et +5,7 % à 200 en TS6 (éd.→diag), +4 % à 200 en TS7,
+sous des charges de 3 à 5 (sous-étape 6.5 en parallèle). Coût probable : les
+contrats de Hooks plus riches (`all`, `upsert`, `afterCommit`, `changes`)
+évalués pour chaque `.with({ hooks })` du banc. Dossiers `gen/` supprimés.
 
 ## Prochaine action vérifiable
 
-Porte finale, audit DX, banc ; puis revue du coordinateur et décisions de
-l'utilisateur sur les points ci-dessus.
+Revue du coordinateur, décisions de l'utilisateur sur les points ci-dessus,
+puis fusion `--no-ff` dans `main` ; supprimer ce handoff après la fusion.
+Suivi hors portée : l'extrait de `packages/postgres-plugin/README.md` (émission
+d'un événement par nom) est à migrer vers `defineEvent` (6.5 ou après fusion).
