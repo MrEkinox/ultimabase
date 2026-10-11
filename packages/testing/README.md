@@ -240,6 +240,25 @@ rollback, post-commit delivery, protected scope row filters, field restrictions,
 and atomic item-oriented collection behavior through built public package
 exports.
 
+## Capturing logger
+
+`createCapturingLogger()` returns an application logger (ADR-0313) that
+records lines instead of printing them, for `new App({ logger })`:
+
+```ts
+import { createCapturingLogger } from '@ultimabase/testing'
+
+const logger = createCapturingLogger()
+const app = new App({ schemas: [Todo], logger, logLevel: 'debug' })
+await app.start()
+
+expect(logger.messages('warn')).toEqual([])
+expect(logger.lines.at(-1)?.message).toMatch(/^UltimaBase started:/u)
+```
+
+`lines` keeps every `{ level, message, details }` record in arrival order,
+`messages(level?)` lists messages, and `clear()` forgets them.
+
 ## Fake public operation transport
 
 `FakePublicOperationTransport` exercises an application's explicit generic

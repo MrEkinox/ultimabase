@@ -49,6 +49,12 @@ describe('graphqlYogaPlugin options', () => {
 		expect(provided(graphqlYogaPlugin({ introspection: true }))).toContain(
 			'official-graphql-yoga-introspection',
 		)
+		// Read once, when the plugin is created.
+		const production = graphqlYogaPlugin()
+		vi.stubEnv('NODE_ENV', 'development')
+		expect(provided(production)).not.toContain(
+			'official-graphql-yoga-introspection',
+		)
 		vi.unstubAllEnvs()
 	})
 

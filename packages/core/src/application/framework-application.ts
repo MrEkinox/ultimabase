@@ -52,7 +52,11 @@ import {
 	type PluginPrivilegeReport,
 } from './plugin-privilege-policy.js'
 import * as diagnostics from './plugin-privilege-diagnostics.js'
-import { ApplicationLog, type LogLevel, type Logger } from './application-log.js'
+import {
+	ApplicationLog,
+	type LogLevel,
+	type Logger,
+} from './application-log.js'
 import { formatStartupSummary } from './startup-summary.js'
 import type {
 	CompiledApplicationSchemaSurface,

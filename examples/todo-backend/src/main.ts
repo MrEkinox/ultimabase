@@ -11,6 +11,10 @@ process.stdout.write(
 
 // Keep framework-owned resources until the development process stops.
 await new Promise<void>((resolve) => {
-	process.once('SIGINT', () => resolve())
-	process.once('SIGTERM', () => resolve())
+	process.once('SIGINT', () => {
+		resolve()
+	})
+	process.once('SIGTERM', () => {
+		resolve()
+	})
 })

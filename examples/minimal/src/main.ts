@@ -16,6 +16,10 @@ process.stdout.write(
 )
 
 await new Promise<void>((resolve) => {
-	process.once('SIGINT', () => resolve())
-	process.once('SIGTERM', () => resolve())
+	process.once('SIGINT', () => {
+		resolve()
+	})
+	process.once('SIGTERM', () => {
+		resolve()
+	})
 })

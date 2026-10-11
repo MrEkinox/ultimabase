@@ -1,4 +1,4 @@
-import { onTestFinished, describe, expect, it } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
 	plugin,
@@ -199,5 +199,42 @@ describe('honoServerPlugin', () => {
 			onTestFinished(() => application.dispose())
 			return application
 		}).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_MISSING' }))
+	})
+
+	// ADR-0312: the listen address is derived when the plugin is created and
+	// logged with its source at debug level, never per request.
+	it('reads HOST and NODE_ENV in the factory and logs the derived address', async () => {
+		vi.stubEnv('HOST', undefined)
+		vi.stubEnv('PORT', undefined)
+		vi.stubEnv('NODE_ENV', 'production')
+		const server = honoServerPlugin()
+		vi.stubEnv('NODE_ENV', 'development')
+		const debug: string[] = []
+		const application = new (UltimaBase.use(
+			applicationProvider('fixture.environment-http', 'environment'),
+		).use(server))({
+			logLevel: 'debug',
+			logger: {
+				debug: (message) => {
+					debug.push(message)
+				},
+				error: () => undefined,
+				info: () => undefined,
+				warn: () => undefined,
+			},
+			schemas: [],
+		})
+		try {
+			await application.initialize()
+		} finally {
+			await application.dispose()
+			vi.unstubAllEnvs()
+		}
+		expect(debug).toEqual(
+			expect.arrayContaining([
+				'[@ultimabase/server-hono-plugin] listen host every interface (NODE_ENV is production)',
+				'[@ultimabase/server-hono-plugin] listen port 1337 (default)',
+			]),
+		)
 	})
 })

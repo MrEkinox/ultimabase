@@ -88,7 +88,7 @@ describe('REST public protection reporting', () => {
 		await acknowledged.start()
 		await acknowledged.dispose()
 		await disabled.start()
-		expect(warning.mock.calls.map(([message]) => message)).toStrictEqual([
+		expect(warning.mock.calls.map((call): unknown => call[0])).toStrictEqual([
 			noHttpLine,
 			'[@ultimabase/rest-plugin] REST exposes no schema or operation: register application schemas in new App({ schemas }) or pass restPlugin({ operations }).',
 		])

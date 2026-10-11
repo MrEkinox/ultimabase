@@ -253,13 +253,14 @@ describe(
 			expect(results).toHaveLength(2)
 			// The deadlock victim replays its whole transaction, hooks included.
 			expect(hookRuns.left + hookRuns.right).toBe(3)
-			expect(debugLines).toContainEqual({
-				details: expect.objectContaining({
-					attempt: 1,
-					code: 'TRANSACTION_CONFLICT',
-				}),
-				message:
+			const retry = debugLines.find(
+				({ message }) =>
+					message ===
 					'UltimaBase: retrying an automatic transaction after a transient conflict',
+			)
+			expect(retry?.details).toMatchObject({
+				attempt: 1,
+				code: 'TRANSACTION_CONFLICT',
 			})
 			// Each committed attempt incremented its partner exactly once.
 			await expect(

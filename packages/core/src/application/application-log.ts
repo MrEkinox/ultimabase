@@ -1,4 +1,7 @@
-import { formatPluginIdentity, type PluginIdentity } from '../plugins/manifest.js'
+import {
+	formatPluginIdentity,
+	type PluginIdentity,
+} from '../plugins/manifest.js'
 
 /**
  * Receives UltimaBase log lines (ADR-0313). The console is compatible and is
@@ -33,9 +36,7 @@ export class ApplicationLog {
 
 	constructor(logger: unknown, level: unknown) {
 		if (level !== undefined && !isLogLevel(level)) {
-			throw new TypeError(
-				"logLevel must be 'debug', 'info', 'warn' or 'error'",
-			)
+			throw new TypeError("logLevel must be 'debug', 'info', 'warn' or 'error'")
 		}
 		this.#threshold = logLevels.indexOf(level ?? 'info')
 		if (logger === false) {

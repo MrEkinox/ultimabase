@@ -32,3 +32,8 @@ export {
 	withPluginTypegenConformance,
 	type PluginTypegenConformanceOptions,
 } from './plugins/typegen-check.js'
+export {
+	createCapturingLogger,
+	type CapturedLogLine,
+	type CapturingLogger,
+} from './logging/capturing-logger.js'

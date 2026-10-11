@@ -316,9 +316,7 @@ interface PluginApplicationLifecycle {
 	readonly connect?: (context: PluginStartContext) => MaybePromise<void>
 	readonly prepareSchema?: (context: PluginStartContext) => MaybePromise<void>
 	readonly startRuntime?: (context: PluginStartContext) => MaybePromise<void>
-	readonly startTransports?: (
-		context: PluginStartContext,
-	) => MaybePromise<void>
+	readonly startTransports?: (context: PluginStartContext) => MaybePromise<void>
 	readonly stop?: () => MaybePromise<void>
 	readonly dispose?: () => MaybePromise<void>
 }

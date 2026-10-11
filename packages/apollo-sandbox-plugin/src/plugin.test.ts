@@ -1,3 +1,4 @@
+import type { PluginDefinition } from '@ultimabase/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { apolloSandboxPlugin } from './plugin.js'
@@ -51,7 +52,7 @@ describe('apolloSandboxPlugin', () => {
 
 	// ADR-0312: environment is optional and derived from NODE_ENV.
 	describe('derived environment', () => {
-		const served = (plugin: ReturnType<typeof apolloSandboxPlugin>) =>
+		const served = (plugin: PluginDefinition) =>
 			plugin.manifest.capabilities.provides.length > 0
 
 		afterEach(() => {
