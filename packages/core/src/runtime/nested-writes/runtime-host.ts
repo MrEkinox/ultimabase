@@ -97,7 +97,9 @@ export const createRuntimeNestedWriteHost = (
 		relation?: DatabaseRelationScope,
 	): Promise<unknown> =>
 		runWithRuntimeNestedWriteStageContext(
-			createRuntimeNestedWriteStageContext(graph, node),
+			createRuntimeNestedWriteStageContext(graph, node, () =>
+				readCoordinator().readRelationChanges(node),
+			),
 			() =>
 				executor.execute(
 					operation,

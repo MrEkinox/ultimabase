@@ -386,7 +386,9 @@ export class RuntimePipeline {
 				)
 
 			const result = await runWithRuntimeNestedWriteStageContext(
-				createRuntimeNestedWriteStageContext(graph, graph.root),
+				createRuntimeNestedWriteStageContext(graph, graph.root, () =>
+					coordinator.readRelationChanges(graph.root),
+				),
 				() =>
 					this.#executeOperation(
 						immutableRecord({ ...request, operation: rootOperation }),

@@ -32,6 +32,7 @@ export {
 	withPluginTypegenConformance,
 	type PluginTypegenConformanceOptions,
 } from './plugins/typegen-check.js'
+export { waitForAfterCommit } from './after-commit/wait.js'
 export {
 	createCapturingLogger,
 	type CapturedLogLine,

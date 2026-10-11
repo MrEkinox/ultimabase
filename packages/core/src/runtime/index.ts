@@ -320,6 +320,10 @@ export {
 	deferCurrentTransactionEffect,
 	getCurrentTransactionId,
 } from './transactions/run-transaction.js'
+export type {
+	RuntimeNestedWriteStageContext,
+	RuntimeRelationLinkChanges,
+} from './nested-writes/execution-context.js'
 export {
 	createRuntimeValidationStage,
 	snapshotRuntimeResultRecord,

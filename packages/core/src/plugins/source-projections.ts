@@ -11,6 +11,7 @@ import type {
 	FieldSourceOptionByKind,
 	FieldSourceObjectValue,
 	FieldSourceOpaque,
+	FieldSourcePresentValue,
 	FieldSourceValue,
 	FieldTypegenState,
 	ResolveFieldSourceTemplate,
@@ -33,6 +34,9 @@ export type PluginSourceFieldValue = FieldSourceValue
 
 /** Substitutes the exact persisted field value inside one plugin template. */
 export type PluginSourceFieldObjectValue = FieldSourceObjectValue
+
+/** Substitutes the persisted field value without `null` in one plugin template. */
+export type PluginSourceFieldPresentValue = FieldSourcePresentValue
 
 /** Selects exact plugin field options without treating relations as values. */
 export type PluginSourceFieldOptionByKind<TValueOption, TRelationOption> =

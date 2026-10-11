@@ -1,61 +1,25 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type {
-	OperationAst,
-	OperationAstNode,
-	OperationKind,
-	NestedWriteGraph,
-	QueryFieldName,
-	QueryFilterNode,
-	RelationUpdateExpression,
+	Model,
+	NumericUpdateFieldName,
+	NumericUpdateOperation,
 	SchemaDefinition,
 	SchemaItem,
 	SchemaPreparedDraft,
-	SchemaResult,
-	UpdateExpression,
+	SchemaRelationFieldName,
+	SchemaStoredCreateData,
+	SchemaStoredUpdateData,
 } from '@ultimabase/core'
 import type { HookContext } from '../context/hook-context.js'
 import type {
+	SchemaAfterCommitHooks,
 	SchemaAfterOperationHooks,
 	SchemaBeforeOperationHooks,
 } from './schema-mutation-contracts.js'
 
-/** Groups the terminal kinds that create persisted objects. */
-export type SchemaCreateHookKind = 'create-many' | 'create-one'
-
-/** Groups the terminal kinds that update existing objects. */
-export type SchemaUpdateHookKind = 'update-many' | 'update-one'
-
-/** Groups the terminal kinds that create or update through a unique target. */
-export type SchemaUpsertHookKind = 'upsert-many' | 'upsert-one'
-
-/** Groups the terminal kinds that remove persisted objects. */
-export type SchemaDeleteHookKind = 'delete-many' | 'delete-one'
-
-/** Groups every create, update, and upsert terminal. */
-export type SchemaSaveHookKind =
-	SchemaCreateHookKind | SchemaUpdateHookKind | SchemaUpsertHookKind
-
-/** Groups every terminal whose business work participates in a transaction. */
-export type SchemaMutationHookKind = SchemaDeleteHookKind | SchemaSaveHookKind
-
-/** Groups mutations whose exact item pair is knowable before persistence. */
-export type SchemaBeforeOperationHookKind =
-	'create-one' | 'delete-one' | 'update-one'
-
 /** Names one item-oriented mutation independently from its internal terminal. */
 export type SchemaMutationKind = 'create' | 'delete' | 'update' | 'upsert'
-
-/** Maps one normalized mutation terminal to its public item lifecycle name. */
-export type SchemaMutationKindForOperation<
-	TKind extends SchemaMutationHookKind,
-> = TKind extends SchemaCreateHookKind
-	? 'create'
-	: TKind extends SchemaUpdateHookKind
-		? 'update'
-		: TKind extends SchemaUpsertHookKind
-			? 'upsert'
-			: 'delete'
 
 /** Declares one handler or a non-empty immutable sequence of handlers. */
 export type HookHandlerDeclaration<THandler> =
@@ -68,7 +32,7 @@ type RequireAtLeastOne<TFamily extends object> = {
 }[keyof TFamily]
 
 interface SaveHookFamilyOptions<TAll, TCreate, TUpdate, TUpsert> {
-	/** Runs for every create, update, and upsert operation. */
+	/** Runs for every create, update, and upsert, before the operation's own branch. */
 	readonly all?: HookHandlerDeclaration<TAll>
 	/** Runs only for create operations. */
 	readonly create?: HookHandlerDeclaration<TCreate>
@@ -84,299 +48,283 @@ export type SaveHookFamily<TAll, TCreate, TUpdate, TUpsert> = RequireAtLeastOne<
 >
 
 /**
- * Retains one schema's exact normalized operation while hiding internal Runtime types.
- *
- * `TSelectedField` remains generic because selection is known only when a query runs.
+ * A persisted object as hooks receive it: plain frozen data without methods
+ * (ADR-0310, ADR-0318).
  */
-export type SchemaHookOperation<
-	TSchema extends SchemaDefinition,
-	TKind extends OperationKind = OperationKind,
-	TSelectedField extends QueryFieldName<TSchema> = QueryFieldName<TSchema>,
-	TIncludedPointer = never,
-> = Extract<
-	OperationAst<
-		TSchema,
-		UpdateExpression<TSchema> | RelationUpdateExpression<TSchema>,
-		QueryFilterNode<TSchema>,
-		TSelectedField,
-		TIncludedPointer
-	>,
-	{ readonly kind: TKind }
->
+export type HookItem<TSchema extends SchemaDefinition> = Model<TSchema>
 
-/** Describes one operation before its adapter result exists. */
-export type SchemaOperationHookInput<
-	TOperation extends OperationAstNode & {
-		readonly kind: SchemaMutationHookKind
-	},
-> = TOperation extends OperationAstNode
-	? Readonly<{
-			/** Carries immutable request identity and revocable hook capabilities. */
-			context: HookContext
-			/** Identifies the item-oriented mutation independently from cardinality. */
-			kind: SchemaMutationKindForOperation<TOperation['kind']>
-			/** The immutable normalized operation being processed. */
-			operation: TOperation
-			/** Exposes the complete Core-owned graph only during a nested write. */
-			readonly nestedWrite?: NestedWriteGraph
-		}>
-	: never
+/**
+ * The values of a create as they will be stored: a `{ connect }` link is the
+ * Pointer it names.
+ */
+export type HookCreateData<TSchema extends SchemaDefinition> =
+	SchemaStoredCreateData<TSchema>
 
-type SchemaResolveOriginalItem<
-	TSchema extends SchemaDefinition,
-	TKind extends 'create-one' | 'update-one' | 'upsert-one',
-> = TKind extends 'create-one'
-	? null
-	: TKind extends 'update-one'
-		? SchemaResult<TSchema>
-		: SchemaResult<TSchema> | null
-
-/** Supplies the stable visible preimage to one item-oriented input resolver. */
-export type SchemaResolveInputHookInput<
-	TSchema extends SchemaDefinition,
-	TOperation extends SchemaHookOperation<
-		TSchema,
-		'create-one' | 'update-one' | 'upsert-one',
-		QueryFieldName<TSchema>,
-		unknown
-	>,
-> = TOperation extends OperationAstNode
-	? SchemaOperationHookInput<TOperation> &
-			Readonly<{
-				/** Contains the locked existing object, or `null` for a create candidate. */
-				originalItem: SchemaResolveOriginalItem<TSchema, TOperation['kind']>
-			}>
-	: never
-
-/** Correlates one complete logical object across a materialized mutation. */
-export interface SchemaMutationItemPair<
-	TSchema extends SchemaDefinition,
-	TOriginalItem extends object | null = SchemaResult<TSchema> | null,
-	TItem extends object | null = Readonly<SchemaItem<TSchema>> | null,
-> {
-	/** Contains the object visible before persistence, or `null` for creation. */
-	readonly originalItem: TOriginalItem
-	/** Contains the candidate or persisted object, or `null` for deletion. */
-	readonly item: TItem
+/**
+ * The link changes an update makes on one relation field, as object ids; a
+ * `set` is shown as its difference with the current members (ADR-0318).
+ */
+export interface HookRelationChanges {
+	/** Targets this update links. */
+	readonly connect: readonly string[]
+	/** Targets this update unlinks. */
+	readonly disconnect: readonly string[]
 }
 
-type SchemaCreateItemPair<TSchema extends SchemaDefinition> =
-	SchemaMutationItemPair<TSchema, null, Readonly<SchemaItem<TSchema>>>
+type StoredUpdateValue<
+	TSchema extends SchemaDefinition,
+	TKey extends keyof SchemaStoredUpdateData<TSchema>,
+> = Exclude<SchemaStoredUpdateData<TSchema>[TKey], undefined>
 
-type SchemaUpdateItemPair<TSchema extends SchemaDefinition> =
-	SchemaMutationItemPair<
-		TSchema,
-		SchemaResult<TSchema>,
-		Readonly<SchemaItem<TSchema>>
-	>
+type NumericChange<
+	TSchema extends SchemaDefinition,
+	TKey,
+> = TKey extends NumericUpdateFieldName<TSchema>
+	? NumericUpdateOperation<
+			Exclude<SchemaStoredUpdateData<TSchema>[TKey], null | undefined>
+		>
+	: never
 
-type SchemaDeleteItemPair<TSchema extends SchemaDefinition> =
-	SchemaMutationItemPair<TSchema, SchemaResult<TSchema>, null>
+/**
+ * The fields one update changes, and only those: a new value, an atomic
+ * `{ increment }` / `{ decrement }`, or a relation's link changes.
+ *
+ * @example `{ title: 'Renamed', views: { increment: 1 } }`
+ */
+export type HookChanges<TSchema extends SchemaDefinition> = {
+	readonly [TKey in keyof SchemaStoredUpdateData<TSchema>]?:
+		| StoredUpdateValue<TSchema, TKey>
+		| NumericChange<TSchema, TKey>
+} & {
+	readonly [TKey in SchemaRelationFieldName<TSchema>]?: HookRelationChanges
+}
 
-/** Supplies the final candidate to one item-oriented create observer. */
-export interface SchemaBeforeCreateHookInput<TSchema extends SchemaDefinition> {
-	/** Carries immutable request identity and revocable hook capabilities. */
+/** What `resolveInput.create` receives. */
+export interface SchemaResolveCreateInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
 	readonly context: HookContext
-	/** Identifies the business operation independently from internal cardinality. */
 	readonly kind: 'create'
-	/** Contains the complete normalized candidate as an immutable schema draft. */
-	readonly item: SchemaPreparedDraft<TSchema>
-	/** Exposes the complete Core-owned graph only during a nested write. */
-	readonly nestedWrite?: NestedWriteGraph
+	/** The values to create; return a replacement to change them. */
+	readonly data: HookCreateData<TSchema>
 }
 
-type SchemaBeforeMutationItemsForKind<
-	TSchema extends SchemaDefinition,
-	TKind extends SchemaBeforeOperationHookKind,
-> = TKind extends SchemaCreateHookKind
-	? SchemaCreateItemPair<TSchema>
-	: TKind extends SchemaUpdateHookKind
-		? SchemaUpdateItemPair<TSchema>
-		: TKind extends SchemaDeleteHookKind
-			? SchemaDeleteItemPair<TSchema>
-			: never
+/** What `resolveInput.update` receives. */
+export interface SchemaResolveUpdateInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'update'
+	/** Only what the update changes; return a replacement to change it. */
+	readonly changes: HookChanges<TSchema>
+	/** The object before the update, locked by the transaction. */
+	readonly originalItem: HookItem<TSchema>
+}
 
-type SchemaAfterMutationItemsForKind<
-	TSchema extends SchemaDefinition,
-	TKind extends SchemaMutationHookKind,
-> = TKind extends SchemaCreateHookKind
-	? SchemaMutationItemPair<TSchema, null, SchemaResult<TSchema>>
-	: TKind extends SchemaUpdateHookKind
-		? SchemaMutationItemPair<
-				TSchema,
-				SchemaResult<TSchema>,
-				SchemaResult<TSchema>
-			>
-		: TKind extends SchemaUpsertHookKind
-			? SchemaMutationItemPair<
-					TSchema,
-					SchemaResult<TSchema> | null,
-					SchemaResult<TSchema>
-				>
-			: TKind extends SchemaDeleteHookKind
-				? SchemaDeleteItemPair<TSchema>
-				: never
+/** What `resolveInput.upsert` receives. */
+export interface SchemaResolveUpsertInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'upsert'
+	/** `create` when no object matches, `update` otherwise. */
+	readonly mode: 'create' | 'update'
+	/** The values created when no object matches. */
+	readonly data: HookCreateData<TSchema>
+	/** The changes applied when an object matches. */
+	readonly changes: HookChanges<TSchema>
+	/** The matching object, or `null` when the upsert creates. */
+	readonly originalItem: HookItem<TSchema> | null
+}
 
-/** Adds complete prepared values only where Runtime can know them before writing. */
-export type SchemaBeforeMutationHookInput<
-	TSchema extends SchemaDefinition,
-	TOperation extends SchemaHookOperation<
-		TSchema,
-		SchemaBeforeOperationHookKind,
-		QueryFieldName<TSchema>,
-		unknown
-	>,
-> = TOperation extends OperationAstNode
-	? TOperation['kind'] extends 'create-one'
-		? SchemaBeforeCreateHookInput<TSchema>
-		: TOperation['kind'] extends SchemaBeforeOperationHookKind
-			? SchemaOperationHookInput<TOperation> &
-					SchemaBeforeMutationItemsForKind<TSchema, TOperation['kind']>
-			: never
-	: never
+/** What an upsert `resolveInput` returns to replace both of its branches. */
+export interface SchemaUpsertResolution<TSchema extends SchemaDefinition> {
+	readonly data: HookCreateData<TSchema>
+	readonly changes: HookChanges<TSchema>
+}
 
-/** Adds selection-independent materializations to one completed mutation. */
-export type SchemaAfterMutationHookInput<
-	TSchema extends SchemaDefinition,
-	TOperation extends SchemaHookOperation<
-		TSchema,
-		SchemaMutationHookKind,
-		QueryFieldName<TSchema>,
-		unknown
-	>,
-> = TOperation extends OperationAstNode
-	? SchemaOperationHookInput<TOperation> &
-			SchemaAfterMutationItemsForKind<TSchema, TOperation['kind']>
-	: never
+/** What `resolveInput.all` receives: one of the three save inputs. */
+export type SchemaResolveInputHookInput<TSchema extends SchemaDefinition> =
+	| SchemaResolveCreateInput<TSchema>
+	| SchemaResolveUpdateInput<TSchema>
+	| SchemaResolveUpsertInput<TSchema>
 
-type SchemaBeforeMutationInputForKind<
-	TSchema extends SchemaDefinition,
-	TKind extends SchemaBeforeOperationHookKind,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
-> = SchemaBeforeMutationHookInput<
-	TSchema,
-	SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
->
+/** Replaces the values of a create; `undefined` keeps them. */
+export type SchemaResolveCreateHook<TSchema extends SchemaDefinition> = (
+	input: SchemaResolveCreateInput<TSchema>,
+) => MaybePromise<HookCreateData<TSchema> | undefined>
 
-/** Transforms one directed mutation after its visible preimage is stable. */
-export type SchemaResolveHook<
-	TSchema extends SchemaDefinition,
-	TKind extends 'create-one' | 'update-one' | 'upsert-one',
-> = <
-	const TSelectedField extends QueryFieldName<TSchema>,
-	const TIncludedPointer = never,
->(
-	input: SchemaResolveInputHookInput<
-		TSchema,
-		SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
-	>,
+/** Replaces the changes of an update; `undefined` keeps them. */
+export type SchemaResolveUpdateHook<TSchema extends SchemaDefinition> = (
+	input: SchemaResolveUpdateInput<TSchema>,
+) => MaybePromise<HookChanges<TSchema> | undefined>
+
+/** Replaces both branches of an upsert; `undefined` keeps them. */
+export type SchemaResolveUpsertHook<TSchema extends SchemaDefinition> = (
+	input: SchemaResolveUpsertInput<TSchema>,
+) => MaybePromise<SchemaUpsertResolution<TSchema> | undefined>
+
+/**
+ * Runs for every save: return the data, changes or upsert pair matching
+ * `kind`, or `undefined` to keep the input.
+ */
+export type SchemaResolveInputHook<TSchema extends SchemaDefinition> = (
+	input: SchemaResolveInputHookInput<TSchema>,
 ) => MaybePromise<
-	| SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
+	| HookCreateData<TSchema>
+	| HookChanges<TSchema>
+	| SchemaUpsertResolution<TSchema>
 	| undefined
 >
 
-/**
- * Observes or rejects one mutation after its reliable preimage is prepared.
- *
- * Returning a value has no effect. Mutation transformations belong to
- * `resolveInput`, after Access has approved and prepared the stable target.
- */
-export type SchemaBeforeMutationHook<
-	TSchema extends SchemaDefinition,
-	TKind extends Exclude<SchemaBeforeOperationHookKind, 'create-one'>,
-> = <
-	const TSelectedField extends QueryFieldName<TSchema>,
-	const TIncludedPointer = never,
->(
-	input: SchemaBeforeMutationInputForKind<
-		TSchema,
-		TKind,
-		TSelectedField,
-		TIncludedPointer
-	>,
-) => MaybePromise<void>
-
-/** Observes or rejects one persisted mutation before the transaction commits. */
-export type SchemaAfterHook<
-	TSchema extends SchemaDefinition,
-	TKind extends SchemaMutationHookKind,
-> = <
-	const TSelectedField extends QueryFieldName<TSchema>,
-	const TIncludedPointer = never,
->(
-	input: SchemaAfterMutationHookInput<
-		TSchema,
-		SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
-	>,
-) => MaybePromise<void>
-
-/** Resolves normalized create and update values before business validation. */
-export type SchemaResolveInputHook<TSchema extends SchemaDefinition> =
-	SchemaResolveHook<TSchema, 'create-one' | 'update-one' | 'upsert-one'>
-
-/** Runs before one itemized create operation. */
-export type SchemaBeforeCreateHook<TSchema extends SchemaDefinition> = (
-	input: SchemaBeforeCreateHookInput<TSchema>,
-) => MaybePromise<void>
-
-/** Runs after one itemized create operation. */
-export type SchemaAfterCreateHook<TSchema extends SchemaDefinition> =
-	SchemaAfterHook<TSchema, 'create-one'>
-
-/** Runs before one itemized update operation. */
-export type SchemaBeforeUpdateHook<TSchema extends SchemaDefinition> =
-	SchemaBeforeMutationHook<TSchema, 'update-one'>
-
-/** Runs after one itemized update operation. */
-export type SchemaAfterUpdateHook<TSchema extends SchemaDefinition> =
-	SchemaAfterHook<TSchema, 'update-one'>
-
-/** Runs after one itemized upsert operation. */
-export type SchemaAfterUpsertHook<TSchema extends SchemaDefinition> =
-	SchemaAfterHook<TSchema, 'upsert-one'>
-
-/** Runs before one itemized delete operation. */
-export type SchemaBeforeDeleteHook<TSchema extends SchemaDefinition> =
-	SchemaBeforeMutationHook<TSchema, 'delete-one'>
-
-/** Runs after one itemized delete operation. */
-export type SchemaAfterDeleteHook<TSchema extends SchemaDefinition> =
-	SchemaAfterHook<TSchema, 'delete-one'>
-
-/** Declares input resolution directly, as a list, or by save family. */
+/** Declares input resolution directly (for every save), as a list, or by operation. */
 export type SchemaResolveInputHookDeclaration<
 	TSchema extends SchemaDefinition,
 > =
 	| HookHandlerDeclaration<SchemaResolveInputHook<TSchema>>
 	| SaveHookFamily<
 			SchemaResolveInputHook<TSchema>,
-			SchemaResolveHook<TSchema, 'create-one'>,
-			SchemaResolveHook<TSchema, 'update-one'>,
-			SchemaResolveHook<TSchema, 'upsert-one'>
+			SchemaResolveCreateHook<TSchema>,
+			SchemaResolveUpdateHook<TSchema>,
+			SchemaResolveUpsertHook<TSchema>
 	  >
 
+/** What `beforeOperation.create` receives. */
+export interface SchemaBeforeCreateHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'create'
+	/** The complete candidate about to be stored. */
+	readonly item: SchemaPreparedDraft<TSchema>
+}
+
+/** What `beforeOperation.update` receives. */
+export interface SchemaBeforeUpdateHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'update'
+	/** The complete object as the update will store it. */
+	readonly item: Readonly<SchemaItem<TSchema>>
+	/** The object before the update, locked by the transaction. */
+	readonly originalItem: HookItem<TSchema>
+	/** Only what the update changes, relation links included. */
+	readonly changes: HookChanges<TSchema>
+}
+
+/** What `beforeOperation.upsert` receives. */
+export interface SchemaBeforeUpsertHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'upsert'
+	/** `create` when no object matches, `update` otherwise. */
+	readonly mode: 'create' | 'update'
+	/** The complete object as the upsert will store it. */
+	readonly item: Readonly<SchemaItem<TSchema>>
+	/** The matching object, or `null` when the upsert creates. */
+	readonly originalItem: HookItem<TSchema> | null
+}
+
+/** What `beforeOperation.delete` receives. */
+export interface SchemaBeforeDeleteHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'delete'
+	readonly item: null
+	/** The object about to be deleted, locked by the transaction. */
+	readonly originalItem: HookItem<TSchema>
+}
+
+/** What `beforeOperation.all` receives: one of the four native inputs. */
+export type SchemaBeforeOperationHookInput<TSchema extends SchemaDefinition> =
+	| SchemaBeforeCreateHookInput<TSchema>
+	| SchemaBeforeUpdateHookInput<TSchema>
+	| SchemaBeforeUpsertHookInput<TSchema>
+	| SchemaBeforeDeleteHookInput<TSchema>
+
+/** What `afterOperation.create` and `afterCommit.create` receive. */
+export interface SchemaAfterCreateHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'create'
+	/** The stored object. */
+	readonly item: HookItem<TSchema>
+	readonly originalItem: null
+}
+
+/** What `afterOperation.update` and `afterCommit.update` receive. */
+export interface SchemaAfterUpdateHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'update'
+	/** The stored object. */
+	readonly item: HookItem<TSchema>
+	/** The object before the update. */
+	readonly originalItem: HookItem<TSchema>
+	/** Only what the update changed, relation links included. */
+	readonly changes: HookChanges<TSchema>
+}
+
+/** What `afterOperation.upsert` and `afterCommit.upsert` receive. */
+export interface SchemaAfterUpsertHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'upsert'
+	/** `create` when no object matched, `update` otherwise. */
+	readonly mode: 'create' | 'update'
+	/** The stored object. */
+	readonly item: HookItem<TSchema>
+	/** The matched object, or `null` when the upsert created. */
+	readonly originalItem: HookItem<TSchema> | null
+}
+
+/** What `afterOperation.delete` and `afterCommit.delete` receive. */
+export interface SchemaAfterDeleteHookInput<TSchema extends SchemaDefinition> {
+	/** Request identity and hook capabilities. */
+	readonly context: HookContext
+	readonly kind: 'delete'
+	readonly item: null
+	/** The deleted object. */
+	readonly originalItem: HookItem<TSchema>
+}
+
+/** What `afterOperation.all` and `afterCommit.all` receive: one of the four native inputs. */
+export type SchemaAfterOperationHookInput<TSchema extends SchemaDefinition> =
+	| SchemaAfterCreateHookInput<TSchema>
+	| SchemaAfterUpdateHookInput<TSchema>
+	| SchemaAfterUpsertHookInput<TSchema>
+	| SchemaAfterDeleteHookInput<TSchema>
+
+/** Observes or rejects one operation; returning a value has no effect. */
+export type SchemaOperationHook<TInput> = (input: TInput) => MaybePromise<void>
+
 /**
- * Declares schema-owned business behavior without requiring a plugin.
+ * Declares schema-owned business behavior run around each operation
+ * (ADR-0318).
  *
- * Operation groups expose concise create, update, upsert, and delete branches.
- * Every branch accepts one handler or a non-empty ordered handler list.
+ * Every phase accepts `all`, which runs before the operation's own branch.
+ * `resolveInput`, `beforeOperation` and `afterOperation` run inside the
+ * transaction and may replay after a transient conflict (ADR-0300): external
+ * effects belong in `afterCommit` or events.
  */
 export interface SchemaHooks<TSchema extends SchemaDefinition> {
 	/**
-	 * Transforms normalized create, update, or upsert values before validation.
+	 * Changes the data of a create, the changes of an update, or both branches
+	 * of an upsert, before validation.
 	 *
-	 * @example `resolveInput: ({ operation }) => operation`
+	 * @example `resolveInput: { create: ({ data }) => ({ ...data, slug: slugify(data.title) }) }`
 	 */
 	readonly resolveInput?: SchemaResolveInputHookDeclaration<TSchema>
 	/**
-	 * Observes prepared mutation items without transforming the operation.
+	 * Observes or rejects an operation once its items are known, before it is stored.
 	 * @example `beforeOperation: { update: ({ originalItem, item }) => audit(originalItem, item) }`
 	 */
 	readonly beforeOperation?: SchemaBeforeOperationHooks<TSchema>
 	/**
-	 * Observes persisted mutation items without transforming the result.
+	 * Observes or rejects a stored operation before the transaction commits.
 	 * @example `afterOperation: { create: ({ item }) => audit(item) }`
 	 */
 	readonly afterOperation?: SchemaAfterOperationHooks<TSchema>
+	/**
+	 * Runs after the transaction commits, outside it, without delaying the
+	 * response; a failure is logged. Delivery is best effort in this process.
+	 * @example `afterCommit: { create: ({ item }) => sendWelcomeEmail(item.email) }`
+	 */
+	readonly afterCommit?: SchemaAfterCommitHooks<TSchema>
 }

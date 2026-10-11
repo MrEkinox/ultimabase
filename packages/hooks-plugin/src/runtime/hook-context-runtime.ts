@@ -7,21 +7,23 @@ import {
 	type Principal,
 	type QueryExecutionGuard,
 } from '@ultimabase/core'
-import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	createTrustedHookContext,
 	type HookContext,
 	type HookContextIdentity,
+	type HookEventContract,
 } from '../context/hook-context.js'
-import { getHookEventContractImplementation } from './events.js'
+import { isHookEventContract } from './events.js'
 import type { RequestContext } from '@ultimabase/core/plugin'
 
 export interface HookContextEmission {
-	readonly delivery: 'optional' | 'required'
+	readonly contract: HookEventContract
 	readonly hook: HookContextIdentity
 	readonly name: string
 	readonly payload: JsonDocument
+	readonly principal: Principal | undefined
 	readonly request: RequestContext
 }
 
@@ -90,24 +92,22 @@ export const createRuntimeHookContext = ({
 		{
 			emit: (event, payload): void => {
 				lifetime.assertActive()
-				const contract =
-					typeof event === 'string'
-						? { delivery: 'required' as const, name: event }
-						: getHookEventContractImplementation(event)
-				if (contract === undefined) {
-					throw new TypeError('Invalid hook event contract')
+				if (!isHookEventContract(event)) {
+					throw new TypeError(
+						'context.emit requires an event created by defineEvent',
+					)
 				}
-				assertNonEmptyString(contract.name, 'Hook event name')
 				emit({
-					delivery: contract.delivery,
+					contract: event,
 					hook,
-					name: contract.name,
+					name: event.name,
 					// Detaches the payload from developer-owned mutable state.
 					payload: snapshotScalarFieldValue(
 						hookEventPayloadField,
 						payload,
 						'hook event payload',
 					),
+					principal,
 					request,
 				})
 			},

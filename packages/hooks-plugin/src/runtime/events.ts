@@ -1,7 +1,6 @@
 import {
 	assertNonEmptyString,
 	immutableRecord,
-	isPlainRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
 
@@ -16,192 +15,110 @@ import type {
 	HookContext,
 	HookContextIdentity,
 	HookEventContract,
-	HookEventDelivery,
 } from '../context/hook-context.js'
 
-/** Configures whether one named event may be emitted without consumers. */
-export interface DefineEventOptions<
-	TDelivery extends HookEventDelivery = HookEventDelivery,
-> {
-	/** Requires a consumer or treats zero consumers as an intentional no-op. */
-	readonly delivery: TDelivery
-}
-
-/** Creates exact event contracts after the package selects its payload type. */
-export type DefineEventFactory<TPayload extends JsonDocument = JsonDocument> = <
-	const TName extends string,
-	const TDelivery extends HookEventDelivery,
->(
-	name: TName,
-	options: DefineEventOptions<TDelivery>,
-) => HookEventContract<TName, TPayload, TDelivery>
-
-interface HookEventContractImplementation {
-	readonly delivery: HookEventDelivery
-	readonly name: string
-}
-
-const hookEventContracts = new WeakMap<
-	object,
-	HookEventContractImplementation
->()
-
-/** Rejects non-record and unknown options before reading any declared value. */
-const assertExactOptions = (
-	options: unknown,
-	keys: readonly string[],
-	factory: string,
-): void => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(`${factory} options must be a plain object`)
-	}
-	for (const key of Object.keys(options)) {
-		if (!keys.includes(key)) {
-			throw new TypeError(`${factory} contains unknown option: ${key}`)
-		}
-	}
-}
+// Only contracts made by `defineEvent` are trusted; they are frozen.
+const hookEventContracts = new WeakSet<object>()
 
 /**
- * Defines one trusted named-event contract with explicit delivery semantics.
+ * Defines one typed event; emitters and consumers bind to this value, not to
+ * its name (ADR-0318).
  *
- * @example `defineEvent<PostCreatedEvent>()('post.created', { delivery: 'optional' })`
+ * @example `export const todoCreated = defineEvent<{ todoId: string }>('todo.created')`
  */
-export const defineEvent =
-	<
-		TPayload extends JsonDocument = JsonDocument,
-	>(): DefineEventFactory<TPayload> =>
-	<const TName extends string, const TDelivery extends HookEventDelivery>(
-		name: TName,
-		options: DefineEventOptions<TDelivery>,
-	): HookEventContract<TName, TPayload, TDelivery> => {
-		assertNonEmptyString(name, 'event name')
-		assertExactOptions(options, ['delivery'], 'defineEvent')
+export const defineEvent = <TPayload extends JsonDocument = JsonDocument>(
+	name: string,
+): HookEventContract<TPayload> => {
+	assertNonEmptyString(name, 'event name')
+	const contract: HookEventContract<TPayload> = immutableRecord({
+		kind: 'hook-event-contract' as const,
+		name,
+	})
+	hookEventContracts.add(contract)
+	return contract
+}
 
-		if (options.delivery !== 'optional' && options.delivery !== 'required') {
-			throw new TypeError('defineEvent delivery must be optional or required')
-		}
-
-		const contract: HookEventContract<TName, TPayload, TDelivery> =
-			immutableRecord({
-				delivery: options.delivery,
-				kind: 'hook-event-contract' as const,
-				name,
-			})
-
-		hookEventContracts.set(
-			contract,
-			immutableRecord({ delivery: options.delivery, name }),
-		)
-
-		return contract
-	}
-
-const readTrusted = <TValue>(
-	registry: WeakMap<object, TValue>,
+/** Tells whether a value is a contract created by `defineEvent`. */
+export const isHookEventContract = (
 	value: unknown,
-): TValue | undefined =>
-	typeof value === 'object' && value !== null ? registry.get(value) : undefined
+): value is HookEventContract =>
+	typeof value === 'object' && value !== null && hookEventContracts.has(value)
 
-/** Reads only event contracts created by the trusted public factory. */
-export const getHookEventContractImplementation = (
-	contract: unknown,
-): HookEventContractImplementation | undefined =>
-	readTrusted(hookEventContracts, contract)
-
-/** Carries one detached portable business event after its transaction commits. */
-export interface HookEvent<
-	TName extends string = string,
-	TPayload extends JsonDocument = JsonDocument,
-> {
-	/** Identifies the event contract selected by its producer and consumers. */
-	readonly name: TName
-	/** Contains the deeply immutable JSON document captured during emission. */
+/** One event delivered after the transaction that emitted it committed. */
+export interface HookEvent<TPayload extends JsonDocument = JsonDocument> {
+	/** The name given to `defineEvent`. */
+	readonly name: string
+	/** The frozen JSON payload captured when the event was emitted. */
 	readonly payload: TPayload
-	/** Correlates delivery with the request that emitted the event. */
+	/** The request that emitted the event, for correlation in logs. */
 	readonly requestId: string
-	/** Correlates delivery with the successfully committed transaction. */
+	/** The committed transaction that emitted the event. */
 	readonly transactionId: string
-	/** Identifies the hook declaration that emitted the event. */
+	/** The hook declaration that emitted the event. */
 	readonly emittedBy: HookContextIdentity
 }
 
-/** Supplies one post-commit event and a capability-restricted hook context. */
+/** What an event consumer receives. */
 export interface HookEventHandlerInput<
-	TName extends string = string,
 	TPayload extends JsonDocument = JsonDocument,
 > {
+	/** The originating request's identity, outside its transaction. */
 	readonly context: HookContext
-	readonly event: HookEvent<TName, TPayload>
+	readonly event: HookEvent<TPayload>
 }
 
-/** Handles one named event after the transaction has committed successfully. */
-export type HookEventHandler<
-	TName extends string = string,
-	TPayload extends JsonDocument = JsonDocument,
-> = (input: HookEventHandlerInput<TName, TPayload>) => MaybePromise<void>
-
-/** Configures one plugin-owned consumer for an exact event name. */
-export interface OnEventOptions<
-	TName extends string,
-	TPayload extends JsonDocument = JsonDocument,
-> {
-	/** Selects the exact emitted event name consumed by this handler. */
-	readonly name: TName
-	/** Runs after commit in deterministic plugin contribution order. */
-	readonly handler: HookEventHandler<TName, TPayload>
-}
+/**
+ * Handles one event after commit, outside the transaction: it may use the
+ * normal API, which starts its own request; a failure is logged.
+ */
+export type HookEventHandler<TPayload extends JsonDocument = JsonDocument> = (
+	input: HookEventHandlerInput<TPayload>,
+) => MaybePromise<void>
 
 declare const hookEventDefinitionType: unique symbol
 
-/** Retains event-name and payload inference without exposing the callback. */
+/** One consumer bound to an event contract, created by `onEvent`. */
 export interface HookEventDefinition<
-	TName extends string = string,
 	TPayload extends JsonDocument = JsonDocument,
 > {
 	readonly kind: 'hook-event'
-	readonly name: TName
-	readonly [hookEventDefinitionType]?: Readonly<{
-		readonly name: TName
-		readonly payload: TPayload
-	}>
+	/** The consumed event's name. */
+	readonly name: string
+	readonly [hookEventDefinitionType]?: TPayload
 }
 
-/** @internal Retains one validated callback behind its opaque public definition. */
+/** @internal Retains one validated consumer behind its opaque public definition. */
 export interface HookEventImplementation {
+	readonly contract: HookEventContract
 	readonly handler: (input: never) => MaybePromise<void>
-	readonly name: string
 }
 
 const hookEventImplementations = new WeakMap<object, HookEventImplementation>()
 
-/** Creates one immutable named-event consumer for a plugin events registry. */
-export const onEvent = <
-	const TName extends string,
-	TPayload extends JsonDocument = JsonDocument,
->(
-	options: OnEventOptions<TName, TPayload>,
-): HookEventDefinition<TName, TPayload> => {
-	assertExactOptions(options, ['handler', 'name'], 'onEvent')
-	assertNonEmptyString(options.name, 'onEvent name')
-
-	if (typeof options.handler !== 'function') {
+/**
+ * Binds one consumer to an event contract. Consumers run after commit, in
+ * declaration order, best effort within the process (ADR-0318).
+ *
+ * @example `hooksPlugin({ events: [onEvent(todoCreated, ({ event }) => notify(event.payload.todoId))] })`
+ */
+export const onEvent = <TPayload extends JsonDocument>(
+	contract: HookEventContract<TPayload>,
+	handler: HookEventHandler<TPayload>,
+): HookEventDefinition<TPayload> => {
+	if (!isHookEventContract(contract)) {
+		throw new TypeError('onEvent requires an event created by defineEvent')
+	}
+	if (typeof handler !== 'function') {
 		throw new TypeError('onEvent handler must be a function')
 	}
-
-	const definition: HookEventDefinition<TName, TPayload> = immutableRecord({
+	const definition: HookEventDefinition<TPayload> = immutableRecord({
 		kind: 'hook-event' as const,
-		name: options.name,
+		name: contract.name,
 	})
-
 	hookEventImplementations.set(
 		definition,
-		immutableRecord({
-			handler: options.handler,
-			name: options.name,
-		}),
+		immutableRecord({ contract, handler }),
 	)
-
 	return definition
 }
 
@@ -209,7 +126,9 @@ export const onEvent = <
 export const getHookEventImplementation = (
 	definition: unknown,
 ): HookEventImplementation | undefined =>
-	readTrusted(hookEventImplementations, definition)
+	typeof definition === 'object' && definition !== null
+		? hookEventImplementations.get(definition)
+		: undefined
 
 export type HookEventContributionsCapability = CapabilityToken<
 	HookEventDefinition,
@@ -231,7 +150,7 @@ export const hookEventContributionsCapability: HookEventContributionsCapability 
 		compose: (providers) => Object.freeze([...providers]),
 	})
 
-/** Provides one official Hook event consumer without a Core-owned registry. */
+/** Provides one plugin-owned event consumer without a Core-owned registry. */
 export const provideHookEvent = (
 	contributionId: string,
 	definition: HookEventDefinition,

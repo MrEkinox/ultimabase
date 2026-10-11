@@ -1,4 +1,5 @@
 declare const fieldSourceObjectValueType: unique symbol
+declare const fieldSourcePresentValueType: unique symbol
 declare const fieldSourceOpaqueType: unique symbol
 declare const fieldSourceValueType: unique symbol
 declare const fieldSourceOptionByKindType: unique symbol
@@ -13,6 +14,11 @@ export interface FieldSourceValue {
 /** Substitutes the exact persisted field value inside one option template. */
 export interface FieldSourceObjectValue {
 	readonly [fieldSourceObjectValueType]: 'field-object-value'
+}
+
+/** Substitutes the persisted field value without `null`, as a field hook receives it. */
+export interface FieldSourcePresentValue {
+	readonly [fieldSourcePresentValueType]: 'field-present-value'
 }
 
 /** Preserves one plugin-owned type while Core resolves neighboring field markers. */
@@ -69,6 +75,10 @@ export type ResolveFieldSourceTemplate<
 	? [TObjectValue] extends [never]
 		? TTemplate
 		: TObjectValue
+	: TTemplate extends FieldSourcePresentValue
+		? [TObjectValue] extends [never]
+			? TTemplate
+			: Exclude<TObjectValue, null>
 	: TTemplate extends FieldSourceOpaque<infer TValue>
 		? TValue
 		: TTemplate extends FieldSourceOptionByKind<infer TValueOption, unknown>

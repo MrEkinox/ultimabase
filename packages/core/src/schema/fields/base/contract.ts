@@ -15,6 +15,7 @@ export type {
 	FieldSourceObjectValue,
 	FieldSourceOpaque,
 	FieldSourceOptionByKind,
+	FieldSourcePresentValue,
 	FieldSourceValue,
 	PluginSourceFieldOption,
 	PluginSourceFieldOptionConstraint,

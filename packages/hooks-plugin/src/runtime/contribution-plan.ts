@@ -32,9 +32,13 @@ interface PluginHookContribution<TDeclarations extends object> {
 
 export type HookContribution<TDeclarations extends object> =
 	| Readonly<{ declarations: TDeclarations; kind: 'developer' }>
+	| Readonly<{ declarations: TDeclarations; kind: 'global' }>
 	| PluginHookContribution<TDeclarations>
 
-/** Before order lists plugins in graph order, then the developer declaration. */
+/**
+ * Before order lists plugins in graph order, then the application's global
+ * hooks, then the schema's own declaration.
+ */
 export interface HookContributionNesting<TDeclarations extends object> {
 	/** Unwinds the exact before nesting, retaining each owner. */
 	readonly after: readonly HookContribution<TDeclarations>[]
@@ -205,24 +209,27 @@ const applyPluginContributions = (
 const nestContributions = <TDeclarations extends object>(
 	plugins: readonly HookContribution<TDeclarations>[],
 	developer: TDeclarations | undefined,
+	global?: TDeclarations,
 ): HookContributionNesting<TDeclarations> => {
-	const before =
-		developer === undefined
-			? [...plugins]
-			: [
-					...plugins,
-					immutableRecord({
-						declarations: developer,
-						kind: 'developer' as const,
-					}),
-				]
+	const before: HookContribution<TDeclarations>[] = [...plugins]
+	if (global !== undefined) {
+		before.push(immutableRecord({ declarations: global, kind: 'global' as const }))
+	}
+	if (developer !== undefined) {
+		before.push(
+			immutableRecord({ declarations: developer, kind: 'developer' as const }),
+		)
+	}
 	return immutableRecord({
 		after: immutableArray(before.toReversed()),
 		before: immutableArray(before),
 	})
 }
 
-const finalizeSchemaPlan = (draft: SchemaDraft) => {
+const finalizeSchemaPlan = (
+	draft: SchemaDraft,
+	global: SchemaHookDeclarations | undefined,
+) => {
 	const { schema, schemaMutations } = draft
 	const fields = new Map<string, FieldHookContributionPlan>()
 
@@ -257,7 +264,7 @@ const finalizeSchemaPlan = (draft: SchemaDraft) => {
 			`${schema.className}.hooks`,
 		)
 	}
-	const contributions = nestContributions(draft.plugins, developer)
+	const contributions = nestContributions(draft.plugins, developer, global)
 
 	// Stale custom mutation branches fail at startup, before Runtime work begins.
 	for (const { declarations } of contributions.before) {
@@ -266,9 +273,11 @@ const finalizeSchemaPlan = (draft: SchemaDraft) => {
 		)) {
 			if (schemaMutations.has(command)) continue
 			const group =
-				branches.beforeOperation === undefined
-					? 'afterOperation'
-					: 'beforeOperation'
+				branches.beforeOperation !== undefined
+					? 'beforeOperation'
+					: branches.afterOperation !== undefined
+						? 'afterOperation'
+						: 'afterCommit'
 			throw new TypeError(
 				`Unknown schema mutation Hook branch: ${schema.className}.hooks.${group}.${command}`,
 			)
@@ -286,13 +295,14 @@ export const compileHookContributionPlan = (
 	schemas: CompiledSchemaRegistry,
 	contributions: readonly OwnedHookContribution[],
 	mutationSurface?: ApplicationSchemaMutationSurface,
+	global?: SchemaHookDeclarations,
 ): HookContributionPlan => {
 	const drafts = schemas
 		.values()
 		.map((schema) => createSchemaDraft(schema, mutationSurface?.get(schema)))
 	applyPluginContributions(drafts, contributions)
 	const plans = new Map(
-		drafts.map((draft) => [draft.schema, finalizeSchemaPlan(draft)]),
+		drafts.map((draft) => [draft.schema, finalizeSchemaPlan(draft, global)]),
 	)
 
 	return immutableRecord({

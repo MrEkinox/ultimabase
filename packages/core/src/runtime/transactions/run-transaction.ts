@@ -7,10 +7,12 @@ import { FrameworkError } from '../../foundation.js'
 import { TrackedExecutionLifetime } from '../engine/tracked-execution-lifetime.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
+import { startAfterCommitWork, type AfterCommitWork } from './after-commit-work.js'
 
 type DeferredTransactionEffect = () => MaybePromise<void>
 
 interface TransactionExecutionState {
+	readonly afterCommit: AfterCommitWork[]
 	readonly deferPostCommitEffect: (effect: DeferredTransactionEffect) => void
 	readonly transactionId: string
 }
@@ -30,6 +32,32 @@ export const deferCurrentTransactionEffect = (
 		throw new TypeError('Transaction execution scope is unavailable')
 	}
 	state.deferPostCommitEffect(effect)
+}
+
+/**
+ * Queues `work` to run once the current transaction commits, outside it and
+ * outside the request, without delaying the response (ADR-0318). The works of
+ * one transaction run in queue order; a rollback or a retried attempt
+ * discards them; a failure is logged and never reaches the caller.
+ *
+ * @example `runAfterCommit(() => sendWelcomeEmail(user.email))`
+ */
+export const runAfterCommit = (work: AfterCommitWork): void => {
+	if (typeof work !== 'function') {
+		throw new TypeError('After-commit work must be a function')
+	}
+	const state = transactionExecution.getStore()
+	if (state === undefined) {
+		throw new FrameworkError(
+			'TRANSACTION_ERROR',
+			'After-commit work requires an active transaction.',
+			{
+				publicMessage: 'This work cannot be queued outside a transaction.',
+				internalDetails: { reason: 'after-commit-transaction-required' },
+			},
+		)
+	}
+	state.afterCommit.push(work)
 }
 
 /** Creates the explicit Runtime policy failure for unsupported nesting. */
@@ -90,6 +118,7 @@ export const runRequestTransaction = async <TEngine, TResult>(
 ): Promise<TResult> => {
 	const scope = await pipeline.beginTransaction()
 	const state: TransactionExecutionState = {
+		afterCommit: [],
 		deferPostCommitEffect: (effect) => {
 			scope.deferPostCommitEffect(effect)
 		},
@@ -139,7 +168,12 @@ export const runRequestTransaction = async <TEngine, TResult>(
 			}
 			throw error
 		}
-		await scope.flushPostCommitEvents()
+		try {
+			await scope.flushPostCommitEvents()
+		} finally {
+			// The write is committed: its background work starts whatever the flush did.
+			startAfterCommitWork(state.afterCommit.splice(0))
+		}
 		return outcome.value
 	})
 }
