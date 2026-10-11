@@ -2,7 +2,7 @@ import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { MasterAuthority, UltimaBase, type Model } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { rolesPlugin } from '@ultimabase/roles-plugin'
+import { resolveRoleReference, rolesPlugin } from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -307,6 +307,25 @@ describe(
 			await expect(
 				AppRole.findMany({ select: { acl: true } }, { context }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		})
+
+		it('lists role entries whose name Roles reads (ADR-0321)', async () => {
+			const row = await AppRole.findOneOrThrow(
+				{
+					where: { id: { eq: requireFixture(roleProtected, 'role-protected').id } },
+					select: { acl: true },
+				},
+				{ useMasterKey: true },
+			)
+			const roles = row.acl
+				.entries()
+				.flatMap((entry) => (entry.kind === 'role' ? [entry.role] : []))
+			expect(roles).toHaveLength(1)
+			const [role] = roles
+			if (role === undefined) throw new TypeError('Missing role entry')
+			await expect(
+				resolveRoleReference(role, { useMasterKey: true }),
+			).resolves.toMatchObject({ name: 'editor' })
 		})
 	},
 )

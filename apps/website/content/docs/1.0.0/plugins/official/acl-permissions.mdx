@@ -1,42 +1,52 @@
 ---
 title: Object ACLs
-description: Persist object-level read, update, and delete policy beside each protected record.
+description: Persist object-level read, update, and delete rights beside each protected record and share records one by one.
 audience:
   - application-developer
 contentType: guide
 order: 6
-outcome: Protect individual objects with public, principal, and role permissions.
+outcome: Protect individual objects with public, principal, and role permissions, and share them without lost updates.
 releaseStatus: pre-release
-reviewedAt: 2026-10-01
+reviewedAt: 2026-10-11
 sources:
   - packages/acl-permissions-plugin/README.md
   - packages/acl-permissions-plugin/src/acl-access.ts
+  - packages/acl-permissions-plugin/src/acl-change.ts
+  - packages/acl-permissions-plugin/src/acl-entries.ts
+  - packages/acl-permissions-plugin/src/acl-field-policy.ts
   - packages/acl-permissions-plugin/src/acl-option.ts
   - packages/acl-permissions-plugin/src/acl.ts
+  - packages/acl-permissions-plugin/src/plugin.ts
   - packages/acl-permissions-plugin/tests/e2e/acl-access-postgres.postgres.e2e.test.ts
+  - packages/acl-permissions-plugin/tests/e2e/acl-backfill-postgres.postgres.e2e.test.ts
+  - packages/acl-permissions-plugin/tests/e2e/acl-sharing-postgres.postgres.e2e.test.ts
+  - packages/postgres-plugin/src/synchronization/existing-rows.ts
   - docs/adr/0123-master-only-acl-management.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0218-master-bypasses-authorization-policies.md
-  - docs/adr/0283-acl-callbacks-use-retained-typegen-graph.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
+  - docs/adr/0321-acl-shape-sharing-and-backfill.md
 ---
 
 ## Overview
 
-`@ultimabase/acl-permissions-plugin` adds a stored access-control list to
-each schema that opts in. An ACL can grant object-level `read`, `update`,
-and `delete` rights to public, authenticated, exact-principal, or role
-subjects. The plugin enforces those rights through Core protected constraints
-and database filtering, not by loading every row and filtering afterward.
+`@ultimabase/acl-permissions-plugin` stores an access-control list on each
+row of the schemas that call `.acl()`. An ACL grants object-level `read`,
+`update`, and `delete` rights to public, authenticated, exact-principal, or
+role subjects. The plugin enforces those rights through Core protected
+constraints and database filtering, not by loading every row and filtering
+afterward.
 
-An ACL does **not** decide who may create a record. The optional
-[Access plugin](./access) can govern creation and other schema or field
-decisions. Authentication identifies a caller, and [Roles](./roles) can supply
+**Access or ACL?** [Access](./access) computes one rule for all rows of a
+schema (`read: ({ where }) => where.eq('published', true)`). ACL stores the
+rights of each row with the row, so one document can be shared with Alice and
+another with Bob. When both are installed, their restrictions compose; neither
+can widen the other.
+
+An ACL does **not** decide who may create a record: govern creation with
+Access. Authentication identifies a caller and [Roles](./roles) can supply
 role membership; neither grants an ACL right unless the stored ACL names that
 subject.
-
-ACL is independent of [Access](./access). When both are installed, their
-restrictions compose; neither can widen the other.
 
 ## Installation
 
@@ -58,150 +68,164 @@ pnpm add @ultimabase/acl-permissions-plugin
 
 ## Configuration
 
-Opt a schema in with its direct `acl` option. This default makes each new
-post publicly readable but does not grant ordinary callers update or delete:
+Call `.acl()` before `.with(...)`: it adds the reserved, required `acl` field.
+`.with({ acl })` then configures it, and its `default` is required, because an
+empty ACL would hide each new row from everyone but Master:
 
 ```ts title="src/application.ts"
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-
-export const Application = UltimaBase.use(
-	postgresPlugin({ url: databaseUrl }),
-).use(aclPlugin())
+export const Application = UltimaBase.use(postgresPlugin(), aclPlugin())
 ```
 
-```ts title="src/post.ts"
+```ts title="src/note.ts"
 import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { Application } from './application.js'
 
-export const Post = Application.Schema.define({
-	className: 'Post',
+export const Note = Application.Schema.define({
+	className: 'Note',
 	fields: (f) => ({
 		title: f.string({ required: true }),
+		visibility: f.string(),
 	}),
+})
+	.acl()
+	.with({
+		acl: {
+			// The creator may read, update and delete; anonymous creators get an empty ACL.
+			default: ({ principal }) => new ACL(principal),
+		},
+	})
+```
+
+`new ACL(principal)` grants `read` and `write` to its owner, like
+`new Parse.ACL(user)`. The group `'write'` means `update` and `delete`, as in
+Access: `new ACL().grantPublic('read', 'write')`.
+
+`default` may also be one fixed ACL, or a function of the created values
+(`data`, typed from the schema's fields) and the request `principal`. The
+rule also accepts:
+
+- `resolveInput`: recomputes the ACL from the row's data on each create and
+  singular update that carries no explicit ACL; returning `undefined` keeps
+  the default or the current ACL.
+- `clientSharing`: lets clients share rows (see below).
+- `existingRows`: the ACL that rows already in the table receive when
+  `.acl()` is added (see below).
+- `limits`: overrides `aclPlugin({ limits: { maxPrincipals, maxRoles } })`
+  (100 principals and 50 roles by default) for this schema. Public and
+  authenticated grants do not count.
+
+Master may write a complete ACL in `createOne` and `updateOne` data; it is
+written as is, without `resolveInput`. `upsert` updates and set-based
+`updateMany` cannot replace an ACL, and a schema with `resolveInput` refuses
+set-based updates, which cannot recompute each row.
+
+## Sharing a row
+
+Share or unshare a row without reading its ACL first. The change applies to
+the locked row inside the update's transaction, so two concurrent shares never
+overwrite each other:
+
+```ts title="src/share.ts"
+await Note.updateOne({
+	where: { id: noteId },
+	data: {
+		acl: {
+			grant: { principal: User.pointer(bobId), permissions: ['read'] },
+		},
+	},
+})
+await Note.updateOne({
+	where: { id: noteId },
+	data: { acl: { revoke: { principal: User.pointer(bobId) } } },
+})
+```
+
+`revoke` removes every right of the principal, or only the `permissions` it
+lists. Master may share any row. A client may share only when the schema
+allows it:
+
+```ts
+.with({
 	acl: {
-		default: () => new ACL().grantPublic('read'),
+		default: ({ principal }) => new ACL(principal),
+		// Whoever may update a note may share it.
+		clientSharing: ({ principal, currentAcl }) =>
+			principal !== undefined &&
+			currentAcl.hasPrincipalPermission(principal, 'update'),
 	},
 })
 ```
 
-Install the plugin in the same application and register `Post`:
+On a row a client can read, `clientSharing` decides instead of the `update`
+right. A client never grants a right it does not hold itself on that row;
+replacing the complete ACL stays reserved to Master.
 
-```ts title="src/ultimabase.ts"
-import { Application } from './application.js'
-import { Post } from './post.js'
+## Reading an ACL
 
-export const ultimabase = new Application({
-	schemas: [Post],
-})
+The `acl` field is not part of ordinary results. `select: { acl: true }` is
+accepted for Master and, when the schema declares `clientSharing`, on the rows
+`clientSharing` allows; any other row makes the read fail with
+`PERMISSION_DENIED`. Clients never filter or order by `acl`.
+
+`acl.entries()` lists who holds which rights: `public` and `authenticated`
+when they hold any, users as Pointers, and roles as references whose name
+Roles' `resolveRoleReference(entry.role)` reads:
+
+```ts
+const note = await Note.findOneOrThrow(
+	{ where: { id }, select: { acl: true } },
+	{ useMasterKey: true },
+)
+for (const entry of note.acl.entries()) {
+	if (entry.kind === 'principal') console.log(entry.principal.id, entry.permissions)
+}
 ```
 
-Keep startup in the existing entry point from
-[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
-`ultimabase.start()` there and always await `dispose()` when the process finishes.
-This configuration module stays safe to load for static Typegen generation.
+## Adding or removing ACL on a table with rows
 
-The plugin adds the reserved, required stored `acl` field; do not declare it
-manually. Without an `acl.default`, it starts as an empty ACL, denying all
-ordinary object reads, updates, and deletes. It still does not prevent a
-caller from creating a record; add an explicit creation policy if needed.
+When PostgreSQL synchronization adds the `acl` column to a table:
 
-`aclPlugin()` defaults to at most 100 distinct principal entries and 50 role
-entries per ACL. Configure application-wide limits with
-`aclPlugin({ limits: { maxPrincipals, maxRoles } })`, or override either limit
-for one schema through `acl.limits`. Public and authenticated grants do not
-count toward those entry limits.
+- an empty table gets the column directly;
+- a table with rows gives them a fixed value, without rewriting the table:
+  the `default` when it is one ACL, else `existingRows`;
+- a function `default` without `existingRows` stops `start()` with the steps
+  to follow: declare `existingRows`, or empty the table first.
 
-The schema option also accepts `resolveInput` for deriving a replacement
-ACL from proposed data, the current ACL, and trusted input. Explicit ACL input
-requires Master authority and a schema input resolver; ordinary callers cannot
-replace the ACL directly.
-
-The configured factory exposes `acl` before Typegen runs. For exact sibling
-field completion and diagnostics inside `acl.default` or `acl.resolveInput`,
-generate the application's Typegen declarations after defining its schemas.
-This uses the same generated schema graph as cross-schema relations; it does
-not create a Runtime client. JavaScript applications need no generation.
+Under `schemaPolicy: 'fail'` nothing changes and the drift message names the
+value existing rows would receive. The column is `NOT NULL`. Removing `.acl()`
+later keeps the column and its data, gives rows written afterward an empty
+ACL, and drops the index.
 
 ## Behavior and limitations
 
-### Rights and subjects
+`ACL` is immutable: each grant, revoke, or replacement returns a new value.
+`grantPublic()` applies to everyone; `grantAuthenticated()` applies only when
+a principal is resolved. `grantPrincipal()` uses one exact Pointer and
+`grantRole()` a role reference a compatible role provider resolves. The
+closed rights are `read`, `update`, and `delete`. `toJSON()` produces
+detached, versioned data, and `ACL.fromJSON()` strictly validates it.
 
-`ACL` is immutable: each grant, revoke, or replacement method returns a new
-value. `grantPublic()` applies to everyone; `grantAuthenticated()` applies only
-when a compatible identity provider resolves a principal. `grantPrincipal()`
-uses one exact schema-qualified Pointer. `grantRole()` uses a role reference
-that a compatible role provider can resolve. The closed rights are `read`,
-`update`, and `delete`; there is no `create` or `manageAcl` grant.
-
-`read` covers object reads, counts, and existence checks. `update` and
-`delete` restrict which persisted targets a mutation can reach. Ordinary
-callers may edit permitted business fields, but even an `update` grant never
-lets them read or replace the reserved ACL. `toJSON()` produces detached,
-versioned data, and `ACL.fromJSON()` strictly validates that format.
-
-### Defaults and trusted changes
-
-`acl.default` may be a static ACL or a synchronous/asynchronous function. Its
-`data` argument contains the resolved developer fields for the new record;
-`principal` is the request principal resolved by Core (`undefined` when
-anonymous). The default runs independently for each created item. For a
-private-by-default owner policy, return `new ACL(principal)`: the owner may
-read, update and delete, and an anonymous caller gets an empty ACL.
-
-```ts title="src/owned-note.ts"
-acl: { default: ({ principal }) => new ACL(principal) }
-```
-
-See [Password Authentication](./password-authentication) for one identity
-provider.
-
-To supply an ACL explicitly on create or replace one on update, trusted server
-code must use audited Master authority **and** the schema must declare
-`acl.resolveInput`. On update, that callback can inspect `currentAcl`, the
-proposed developer-field `data`, and `inputAcl` while the target is locked.
-Returning `undefined` retains the current ACL; on create it falls back to
-`acl.default`. `Post.updateOne()` and itemized `Post.updateMany()` entries can
-replace an existing ACL. Upsert updates and set-based updates cannot. See
-[Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
-before building an administrative path.
-
-### Enforcement and integrations
-
-PostgreSQL stores the ACL as indexed JSONB on the same row, so it is written
-atomically with its object. Non-Master callers cannot select, filter, order by,
-or replace the reserved field. Authentication and
-Roles are optional subject providers; an ACL with role grants needs a
-compatible role resolver. Master bypasses ACL authorization, but not size
-validation, reference integrity, input resolution, events, or transactions.
-
-ACL contributes versioned REST and GraphQL field codecs but installs neither
-transport. Non-Master callers still cannot select or replace the stored field.
-The database adapter must support protected containment; unsupported adapters
-fail rather than silently dropping enforcement.
-
-Role names are resolved to stable schema-qualified role IDs before an ACL is
-stored. ACL changes emit optional notifications only after commit; a rollback
-does not publish them. Neither feature makes Roles or an event observer a
-mandatory ACL dependency.
+PostgreSQL stores the ACL as indexed JSONB on the same row, written
+atomically with its object. Master bypasses ACL authorization, but not size
+validation, reference integrity, events, or transactions. Role names are
+resolved to stable role IDs before an ACL is stored. Each ACL change emits an
+optional notification after commit; a rollback publishes nothing.
 
 ## Troubleshooting
 
-- **The schema rejects `acl` or omits it from autocomplete:** declare it from
-  the configured factory that installs `aclPlugin()`.
-- **A record is unexpectedly invisible:** inspect its ACL through trusted
-  server code. An empty ACL denies ordinary object rights; identity or role
-  membership alone does not grant them.
-- **A role grant cannot be stored:** install a compatible role provider and
-  confirm the reference points to its exact role schema. The provider must
-  resolve the role to a stable persisted identity.
-- **ACL selection or replacement is denied:** the reserved field is private to
-  Master. For replacement, also declare `acl.resolveInput` and use
-  `updateOne()` or an itemized `updateMany()` entry, not an upsert.
-- **An ACL exceeds its entry limit:** check the effective application and
-  schema `maxPrincipals` and `maxRoles` values. Repeated rights for one subject
-  count as one entry.
+- **`.acl()` is missing from autocomplete:** declare the schema from the
+  configured factory that installs `aclPlugin()`.
+- **`acl.default` is required:** `.with({ acl: { default } })` must follow
+  `.acl()`.
+- **A record is unexpectedly invisible:** inspect its ACL with Master. An
+  empty ACL denies ordinary object rights.
+- **A share is denied:** the schema needs `clientSharing`, it must allow the
+  row, and the client must hold every right it grants.
+- **`start()` stops on existing rows:** add `existingRows` to the rule, or use
+  a fixed `default`.
+- **An ACL exceeds its entry limit:** check the effective `maxPrincipals` and
+  `maxRoles`; repeated rights for one subject count once.

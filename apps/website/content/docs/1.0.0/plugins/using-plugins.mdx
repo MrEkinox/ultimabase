@@ -228,11 +228,12 @@ Use one replacement for each removed form; these are migrations, not compatibili
 
 No schema is registered by being declared: keep `new App({ schemas: [...] })`.
 Advanced dynamically named handles remain for capabilities that need them; they
-are not the ordinary CRUD journey. Specialized User and Role declarations use
-`PasswordUserSchema.define(App.Schema, options)` and
-`RoleSchema.define(App.Schema, options)` to inherit the same plugin configuration.
-Their supported standalone forms retain generated builder contracts; no
-additional plugin installation is required per schema.
+are not the ordinary CRUD journey. Plugins may add schema factories to the
+configured application: installing Roles adds `App.RoleSchema.define(...)`,
+whose declarations end with `.with(...)` like any schema and inherit the same
+plugin configuration. Specialized User declarations use
+`PasswordUserSchema.define(App.Schema, options)`; no additional plugin
+installation is required per schema.
 
 ## Next steps
 

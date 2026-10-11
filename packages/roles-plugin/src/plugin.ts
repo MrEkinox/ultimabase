@@ -59,6 +59,7 @@ import {
 	type StoredRoleResolver,
 } from './role-access.js'
 import { normalizeRoleOperation } from './role-reference.js'
+import { registerRoleSchemas } from './role-resolution.js'
 import {
 	roleDeletedEventContract,
 	roleHierarchyChangedEventContract,
@@ -118,6 +119,7 @@ const roleResolverProvider: CapabilityProviderDeclaration<
 	contributionId: 'stored-roles',
 	create: ({ callbacks, owner, schemas }) => {
 		const roleSchemas = readRoleDomains(schemas).map(({ schema }) => schema)
+		registerRoleSchemas(roleSchemas)
 		const resolver = createStoredRoleResolver(roleSchemas)
 		roleStatesBySchemas.set(
 			schemas,
