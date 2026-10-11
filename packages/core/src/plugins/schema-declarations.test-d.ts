@@ -10,7 +10,10 @@ import {
 	defineSchemaOption,
 	requireCapability,
 	type PluginSchemaDeclarationRegistrar,
+	type PluginSchemaOptionSource,
 	type SchemaOptionAbsenceSelector,
+	type SchemaOptionDefinition,
+	type SchemaOptionRuntimeRequirement,
 	type SchemaSelection,
 } from '../plugin.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
@@ -270,4 +273,34 @@ test('accepts only inert Core receipts from static declarations', () => {
 	contributeDeclarations({
 		schema: () => ({ registered: true }),
 	})
+})
+
+test('projects no schema-option template for options typed elsewhere (ADR-0320)', () => {
+	type RuleOnly = SchemaOptionDefinition<
+		Readonly<{ table: string }>,
+		SchemaOptionRuntimeRequirement,
+		never
+	>
+	type Templated = SchemaOptionDefinition<Readonly<{ table: string }>>
+
+	expectTypeOf<
+		PluginSchemaOptionSource<{
+			readonly contributionId: 'rule-only'
+			readonly schema: Readonly<{ storage: RuleOnly }>
+		}>
+	>().toBeNever()
+	expectTypeOf<
+		PluginSchemaOptionSource<{
+			readonly contributionId: 'templated'
+			readonly schema: Readonly<{ storage: Templated }>
+		}>
+	>().toEqualTypeOf<
+		Readonly<{
+			schemaOptions: Readonly<{
+				template: {
+					readonly storage?: Readonly<{ table: string }>
+				}
+			}>
+		}>
+	>()
 })

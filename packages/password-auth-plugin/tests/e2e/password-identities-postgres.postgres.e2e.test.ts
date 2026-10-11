@@ -301,13 +301,13 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				 FROM information_schema.columns
 				 WHERE table_schema = current_schema()
 				   AND table_name LIKE '_ub_private_%'
-				   AND column_name = 'passwordVerifier'`,
+				   AND column_name = 'password_verifier'`,
 			)
 			let storedVerifier: string | undefined
 			for (const { table_name: tableName } of privateTables.rows) {
 				const stored = await getFixture().pool.query<{
 					readonly passwordVerifier: string
-				}>(`SELECT "passwordVerifier" FROM "${tableName}"`)
+				}>(`SELECT password_verifier AS "passwordVerifier" FROM "${tableName}"`)
 				storedVerifier ??= stored.rows[0]?.passwordVerifier
 			}
 			expect(storedVerifier).toMatch(/^\$argon2id\$v=19\$/u)

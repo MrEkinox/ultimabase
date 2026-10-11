@@ -24,6 +24,7 @@ import {
 	type AnyPgColumnBuilder,
 } from 'drizzle-orm/pg-core'
 
+import { toPostgresColumnName } from '../naming.js'
 import type {
 	PostgresFieldGeneration,
 	PostgresStorageKind,
@@ -280,7 +281,7 @@ const finalizeBuilder = (
 }
 
 const createCodecColumnBuilder = (
-	fieldName: string,
+	columnName: string,
 	type: 'jsonb' | 'uuid',
 	codec: PostgresValueCodec,
 ) =>
@@ -289,14 +290,19 @@ const createCodecColumnBuilder = (
 		dataType: () => type,
 		fromDriver: (value: unknown): unknown => codec.decode(value),
 		toDriver: (value: unknown): unknown => codec.encode(value),
-	})(fieldName)
+	})(columnName)
 
-/** Compiles one top-level built-in field into private Drizzle metadata. */
+/**
+ * Compiles one top-level built-in field into private Drizzle metadata. The
+ * column takes the field's `snake_case` name (ADR-0320); the Drizzle table
+ * key stays the logical field name.
+ */
 export const compilePostgresFieldBuilder = (
 	fieldName: string,
 	plan: FieldValidationPlan,
 	pointerContext?: PostgresPointerCompilerContext,
 ): CompiledPostgresFieldBuilder => {
+	const columnName = toPostgresColumnName(fieldName)
 	const field = plan.field
 	const options = readFieldOptions(field)
 	const declared: StaticDefault =
@@ -325,7 +331,7 @@ export const compilePostgresFieldBuilder = (
 		getPluginFieldStorageCodec(field) !== undefined
 	) {
 		const builder = createCodecColumnBuilder(
-			fieldName,
+			columnName,
 			'jsonb',
 			createPostgresValueCodec(plan),
 		)
@@ -349,7 +355,7 @@ export const compilePostgresFieldBuilder = (
 		// Referential metadata is attached at table level after every circular target exists.
 		return finish(
 			createCodecColumnBuilder(
-				fieldName,
+				columnName,
 				'uuid',
 				createPostgresPointerValueCodec(plan, pointerContext.target),
 			),
@@ -376,7 +382,7 @@ export const compilePostgresFieldBuilder = (
 	}
 
 	return finish(
-		column.build(fieldName, options, declared, autoIncrement),
+		column.build(columnName, options, declared, autoIncrement),
 		column.storage,
 		generation,
 	)

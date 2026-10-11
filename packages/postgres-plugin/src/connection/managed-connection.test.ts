@@ -2,7 +2,10 @@ import { FrameworkError } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import type { PostgresPool, PostgresPoolClient } from './contracts.js'
-import { createManagedPostgresConnection } from './managed-connection.js'
+import {
+	createManagedPostgresConnection,
+	postgresConnectRetryDelay,
+} from './managed-connection.js'
 
 interface FixturePoolOptions {
 	readonly connectBarrier?: Promise<void>
@@ -198,5 +201,103 @@ describe('managed PostgreSQL connection', () => {
 		expect(JSON.stringify(failure)).not.toContain(secret)
 		expect(connection.state).toBe('closed')
 		await expect(connection.close()).rejects.toBe(failure)
+	})
+
+	describe('first-connection retries (ADR-0320)', () => {
+		/** Fails the first `failures` attempts with one driver code. */
+		class FlakyPool extends FixturePool {
+			#remaining: number
+
+			constructor(failures: number) {
+				super()
+				this.#remaining = failures
+			}
+
+			override async connect(): Promise<PostgresPoolClient> {
+				if (this.#remaining > 0) {
+					this.#remaining -= 1
+					this.connectCalls += 1
+					throw createDriverError('password=secret refused', 'ECONNREFUSED')
+				}
+				return super.connect()
+			}
+		}
+
+		const createRetryPolicy = (connectRetries: number) => {
+			const waits: number[] = []
+			const warnings: string[] = []
+			const ignore = (): undefined => undefined
+			return {
+				policy: {
+					connectRetries,
+					logger: {
+						debug: ignore,
+						error: ignore,
+						info: ignore,
+						warn: (message: string) => {
+							warnings.push(message)
+						},
+					},
+					wait: (milliseconds: number): Promise<void> => {
+						waits.push(milliseconds)
+						return Promise.resolve()
+					},
+				},
+				waits,
+				warnings,
+			}
+		}
+
+		it('retries with growing delays and logs each failure without its message', async () => {
+			const pool = new FlakyPool(3)
+			const { policy, waits, warnings } = createRetryPolicy(5)
+			const connection = createManagedPostgresConnection(pool, true, policy)
+
+			await connection.connect()
+
+			expect(connection.state).toBe('connected')
+			expect(pool.connectCalls).toBe(4)
+			expect(waits).toStrictEqual([500, 1000, 2000])
+			expect(warnings).toStrictEqual([
+				'connection attempt 1 of 6 failed [ECONNREFUSED]; retrying in 500 ms.',
+				'connection attempt 2 of 6 failed [ECONNREFUSED]; retrying in 1000 ms.',
+				'connection attempt 3 of 6 failed [ECONNREFUSED]; retrying in 2000 ms.',
+			])
+		})
+
+		it('fails with the sanitized error once the retries are exhausted', async () => {
+			const pool = new FlakyPool(10)
+			const { policy, waits } = createRetryPolicy(2)
+			const connection = createManagedPostgresConnection(pool, true, policy)
+
+			const failure = await connection
+				.connect()
+				.catch((error: unknown) => error)
+
+			expect(failure).toBeInstanceOf(FrameworkError)
+			expect(failure).toMatchObject({
+				message: 'PostgreSQL connection verification failed [ECONNREFUSED].',
+				cause: undefined,
+			})
+			expect(String(failure)).not.toContain('secret')
+			expect(pool.connectCalls).toBe(3)
+			expect(waits).toStrictEqual([500, 1000])
+		})
+
+		it('does not retry by default', async () => {
+			const pool = new FlakyPool(1)
+			const { policy, waits } = createRetryPolicy(0)
+			const connection = createManagedPostgresConnection(pool, true, policy)
+
+			await expect(connection.connect()).rejects.toBeInstanceOf(FrameworkError)
+			expect(pool.connectCalls).toBe(1)
+			expect(waits).toStrictEqual([])
+		})
+
+		it('caps the delay at 8 seconds', () => {
+			expect(
+				[0, 1, 2, 3, 4, 5, 9].map((retry) => postgresConnectRetryDelay(retry)),
+			).toStrictEqual([500, 1000, 2000, 4000, 8000, 8000, 8000])
+		})
 	})
 })

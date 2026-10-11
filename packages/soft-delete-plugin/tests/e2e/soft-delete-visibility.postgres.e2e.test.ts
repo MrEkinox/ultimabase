@@ -245,7 +245,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			 from information_schema.columns
 			 where table_schema = $1
 			   and table_name in ('soft_delete_visible_records', 'soft_delete_plain_records')
-			   and column_name in ('isDeleted', 'deletedAt')
+			   and column_name in ('is_deleted', 'deleted_at')
 			 order by column_name`,
 			[database.schemaName],
 		)
@@ -253,12 +253,12 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		expect(columns.rows).toEqual([
 			expect.objectContaining({
 				column_default: null,
-				column_name: 'deletedAt',
+				column_name: 'deleted_at',
 				is_nullable: 'YES',
 			}),
 			expect.objectContaining({
 				column_default: 'false',
-				column_name: 'isDeleted',
+				column_name: 'is_deleted',
 				is_nullable: 'NO',
 			}),
 		])
@@ -283,7 +283,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		expect(active).toMatchObject({ isDeleted: false, title: 'active' })
 
 		await database.pool.query(
-			`update soft_delete_visible_records set "isDeleted" = true where id = $1`,
+			`update soft_delete_visible_records set is_deleted = true where id = $1`,
 			[active.id],
 		)
 
@@ -306,7 +306,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		const { database } = getFixture()
 		const row = await VisibleRecord.createOne({ data: { title: 'target' } })
 		await database.pool.query(
-			`update soft_delete_visible_records set "isDeleted" = true where id = $1`,
+			`update soft_delete_visible_records set is_deleted = true where id = $1`,
 			[row.id],
 		)
 
@@ -324,7 +324,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			isDeleted: boolean
 			title: string
 		}>(
-			`select "isDeleted", title from soft_delete_visible_records where id = $1`,
+			`select is_deleted as "isDeleted", title from soft_delete_visible_records where id = $1`,
 			[row.id],
 		)
 		expect(stored.rows).toStrictEqual([{ isDeleted: true, title: 'target' }])
@@ -351,7 +351,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			title: 'logical delete',
 		})
 		const stamped = await database.pool.query<{ deletedAt: Date | null }>(
-			`select "deletedAt" from soft_delete_replace_records where id = $1`,
+			`select deleted_at as "deletedAt" from soft_delete_replace_records where id = $1`,
 			[row.id],
 		)
 		expect(stamped.rows[0]?.deletedAt).toBeInstanceOf(Date)
@@ -364,7 +364,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			isDeleted: boolean
 			title: string
 		}>(
-			`select "isDeleted", title from soft_delete_replace_records where id = $1`,
+			`select is_deleted as "isDeleted", title from soft_delete_replace_records where id = $1`,
 			[row.id],
 		)
 		expect(stored.rows).toStrictEqual([
@@ -389,7 +389,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			{ useMasterKey: true },
 		)
 		const masterStored = await database.pool.query<{ isDeleted: boolean }>(
-			`select "isDeleted" from soft_delete_replace_records where id = $1`,
+			`select is_deleted as "isDeleted" from soft_delete_replace_records where id = $1`,
 			[masterRow.id],
 		)
 		expect(masterStored.rows).toStrictEqual([{ isDeleted: true }])
@@ -417,7 +417,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			'before:delete:batch rejected',
 		])
 		const stored = await database.pool.query<{ isDeleted: boolean }>(
-			`select "isDeleted" from soft_delete_replace_records
+			`select is_deleted as "isDeleted" from soft_delete_replace_records
 			 where id = any($1::uuid[])
 			 order by id`,
 			[[first.id, second.id]],
@@ -471,7 +471,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			isDeleted: boolean
 			title: string
 		}>(
-			`select "isDeleted", title from soft_delete_visible_records where id = $1`,
+			`select is_deleted as "isDeleted", title from soft_delete_visible_records where id = $1`,
 			[row.id],
 		)
 		expect(stored.rows).toStrictEqual([
@@ -492,11 +492,11 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		})
 
 		await database.pool.query(
-			`update soft_delete_visibility_authors set "isDeleted" = true where id = $1`,
+			`update soft_delete_visibility_authors set is_deleted = true where id = $1`,
 			[author.id],
 		)
 		await database.pool.query(
-			`update soft_delete_visibility_tags set "isDeleted" = true where id = $1`,
+			`update soft_delete_visibility_tags set is_deleted = true where id = $1`,
 			[tag.id],
 		)
 

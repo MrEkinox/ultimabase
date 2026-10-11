@@ -276,7 +276,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		expect(administrationTrace).toStrictEqual([])
 
 		const stored = await database.pool.query<{ isDeleted: boolean }>(
-			`select "isDeleted"
+			`select is_deleted as "isDeleted"
 			 from soft_delete_administration_documents
 			 where id = any($1::uuid[])
 			 order by id`,
@@ -381,7 +381,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			id: string
 			isDeleted: boolean
 		}>(
-			`select id, "isDeleted"
+			`select id, is_deleted as "isDeleted"
 			 from soft_delete_administration_documents
 			 where id = any($1::uuid[])
 			 order by id`,

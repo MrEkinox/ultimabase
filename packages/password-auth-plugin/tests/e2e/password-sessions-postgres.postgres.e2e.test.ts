@@ -329,12 +329,12 @@ describe(
 					readonly table_name: string
 				}>(
 					`SELECT table_name FROM information_schema.columns
-				 WHERE table_schema = current_schema() AND column_name = 'tokenDigest'`,
+				 WHERE table_schema = current_schema() AND column_name = 'token_digest'`,
 				)
 				const stored = await getFixture().pool.query<{
 					readonly tokenDigest: string
 				}>(
-					`SELECT "tokenDigest" FROM "${getFirstTableName(privateTables.rows)}"`,
+					`SELECT token_digest AS "tokenDigest" FROM "${getFirstTableName(privateTables.rows)}"`,
 				)
 				expect(stored.rows[0]?.tokenDigest).toMatch(/^[a-f0-9]{64}$/u)
 				expect(stored.rows[0]?.tokenDigest).not.toContain(created.session.token)
@@ -423,11 +423,11 @@ describe(
 					readonly table_name: string
 				}>(
 					`SELECT table_name FROM information_schema.columns
-				 WHERE table_schema = current_schema() AND column_name = 'passwordVerifier'`,
+				 WHERE table_schema = current_schema() AND column_name = 'password_verifier'`,
 				)
 				const stored = await getFixture().pool.query<{
 					readonly policyVersion: string
-				}>(`SELECT "policyVersion" FROM "${getFirstTableName(credentialTable.rows)}"
+				}>(`SELECT policy_version AS "policyVersion" FROM "${getFirstTableName(credentialTable.rows)}"
 			   WHERE username = 'upgrade-user'`)
 				expect(stored.rows[0]?.policyVersion).toBe('2')
 				expect(upgraded.onUse).not.toHaveBeenCalled()

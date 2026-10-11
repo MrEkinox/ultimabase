@@ -59,8 +59,8 @@ describe('PostgreSQL index compiler', () => {
 		).toStrictEqual([
 			{ fields: ['slug'], unique: true },
 			{ fields: ['title'], unique: false },
-			{ fields: ['authorId', 'createdAt'], unique: false },
-			{ fields: ['authorId', 'slug'], unique: true },
+			{ fields: ['author_id', 'created_at'], unique: false },
+			{ fields: ['author_id', 'slug'], unique: true },
 		])
 		const names = drizzleIndexes.map(({ config }) => config.name)
 
@@ -85,8 +85,8 @@ describe('PostgreSQL index compiler', () => {
 
 		// The Drizzle table remains the physical source for later upsert validation.
 		expect(target?.config.columns.map(readIndexColumnName)).toStrictEqual([
-			'organizationId',
-			'userId',
+			'organization_id',
+			'user_id',
 		])
 	})
 

@@ -38,13 +38,34 @@ export const compilePostgresIndexBuilders = (
 	const names = new Set<string>()
 
 	return definitions.map((definition) => {
+		const [first, ...rest] = definition.fields.map((fieldName) =>
+			required(
+				Object.hasOwn(columns, fieldName) ? columns[fieldName] : undefined,
+				`PostgreSQL index references missing field: ${fieldName}`,
+			),
+		)
+
+		if (first === undefined) {
+			throw new TypeError(`PostgreSQL index has no fields: ${tableName}`)
+		}
+
+		// Names and predicates use physical (snake_case) columns (ADR-0320).
+		const columnNameOf = (fieldName: string): string =>
+			required(
+				Object.hasOwn(columns, fieldName) ? columns[fieldName] : undefined,
+				`PostgreSQL index predicate references missing field: ${fieldName}`,
+			).name
 		const predicate =
 			definition.where === undefined
 				? undefined
-				: renderPostgresIndexPredicate(definition.where, storageByField)
+				: renderPostgresIndexPredicate(
+						definition.where,
+						storageByField,
+						columnNameOf,
+					)
 		const name = createPostgresIndexName(
 			tableName,
-			definition.fields,
+			[first, ...rest].map((column) => column.name),
 			definition.unique,
 			predicate,
 		)
@@ -55,17 +76,6 @@ export const compilePostgresIndexBuilders = (
 		}
 
 		names.add(name)
-		const [first, ...rest] = definition.fields.map((fieldName) =>
-			required(
-				columns[fieldName],
-				`PostgreSQL index references missing field: ${fieldName}`,
-			),
-		)
-
-		if (first === undefined) {
-			throw new TypeError(`PostgreSQL index has no fields: ${name}`)
-		}
-
 		const builder = definition.unique ? uniqueIndex(name) : index(name)
 
 		// GIN is used only for one non-unique JSONB containment index.

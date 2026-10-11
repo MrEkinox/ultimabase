@@ -9,7 +9,7 @@ contentType: guide
 order: 3
 outcome: Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-11
 sources:
   - docs/adr/0266-defer-migration-only-protocols.md
   - docs/adr/0292-environment-aware-postgres-schema-policy.md
@@ -26,6 +26,12 @@ sources:
   - docs/adr/0303-core-partial-indexes-and-health.md
   - packages/postgres-plugin/src/drizzle/operation-error.ts
   - docs/adr/0312-environment-dependent-plugin-defaults.md
+  - docs/adr/0320-postgres-safe-sync-connection-and-debug.md
+  - packages/postgres-plugin/src/plugin/plugin-options.ts
+  - packages/postgres-plugin/src/connection/query-log.ts
+  - packages/postgres-plugin/src/connection/settings.ts
+  - packages/postgres-plugin/src/synchronization/safety.ts
+  - packages/postgres-plugin/src/naming.ts
 ---
 
 ## Overview
@@ -106,38 +112,83 @@ console.log(connection.state) // 'connected'
 	without reviewing the proposed schema and a recovery plan.
 </Callout>
 
-| Plugin option  | Purpose                                                                              |
-| -------------- | ------------------------------------------------------------------------------------ |
-| `url`          | Non-empty connection URL; it wins over `DATABASE_URL`. The plugin owns the pool.     |
-| `pool`         | Existing `pg`-compatible pool. Your application owns and closes it.                  |
-| `schemaPolicy` | `'override'`, `'fail'`, or `'ignore'`; the default depends on `NODE_ENV`, see below. |
+| Plugin option  | Purpose                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
+| `url`          | Non-empty connection URL; it wins over `DATABASE_URL`. The plugin owns the pool.                           |
+| `pool`         | Existing `pg`-compatible pool. Your application owns, configures, and closes it.                           |
+| `connection`   | Pool settings with `url` or `DATABASE_URL`: see [Connection settings](#connection-settings).               |
+| `schemaPolicy` | `'override'`, `'fail'`, or `'ignore'`; the default depends on `NODE_ENV`, see below.                       |
+| `debug`        | `{ logQueries, slowQueryMs }`: statement logs without values, see [Debugging queries](#debugging-queries). |
 
 Do not pass both `url` and `pool`. Creating `UltimaBase` does not contact the
 database. `start()` verifies a connection, returns the borrowed client to its
 pool, and then runs schema preparation. `dispose()` closes only a pool that
 the plugin created.
 
-### Physical table names and column renames
+### Connection settings
 
-The optional schema-level `postgres.table` chooses an exact physical table
-identifier; otherwise PostgreSQL derives a plural `snake_case` name from
-`className`. The stored-field `postgres.renamedFrom` records one explicit
-old column name for a data-preserving rename:
+With `url` or `DATABASE_URL`, `connection` tunes the pool that the plugin
+creates. An injected `pool` keeps its own settings and rejects `connection`.
+
+```ts
+postgresPlugin({
+	connection: {
+		max: 20,
+		ssl: true,
+		statementTimeoutMs: 5000,
+		idleTimeoutMs: 30_000,
+		connectRetries: 5,
+	},
+})
+```
+
+| Setting              | Effect                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `max`                | Maximum pooled connections (default 10).                                                                       |
+| `ssl`                | `true`, or `{ rejectUnauthorized, ca, cert, key }` with PEM strings. An `sslmode` in the URL takes precedence. |
+| `statementTimeoutMs` | Cancels a statement that runs longer; it fails with the driver code `57014`.                                   |
+| `idleTimeoutMs`      | Closes a pooled connection idle this long; `0` keeps it (default 10 s).                                        |
+| `connectRetries`     | Retries the first connection of `start()` after 0.5 s, 1 s, 2 s, 4 s, then 8 s (default 0).                    |
+
+Use `connectRetries` when the database may still be starting, as in Docker
+Compose or Kubernetes. Each failed attempt logs one `warn` line naming only the
+driver code.
+
+### Debugging queries
+
+`debug` logs statements through the plugin logger, never their values:
+
+```ts
+postgresPlugin({ debug: { logQueries: true, slowQueryMs: 500 } })
+```
+
+`logQueries` writes one `info` line per statement, with its duration and its
+text with `$1` placeholders. `slowQueryMs` writes one `warn` line per statement
+that takes at least that many milliseconds; it is cheap enough to keep in
+production.
+
+### Table and column names
+
+PostgreSQL derives a plural `snake_case` table name from `className`
+(`BlogPost` → `blog_posts`) and a `snake_case` column from each field
+(`createdAt` → `created_at`). Queries, results, and errors keep the field
+names. The `postgres` rule of `.with` chooses an exact table identifier, and
+the stored-field `postgres.renamedFrom` names the previous column for a
+data-preserving rename:
 
 ```ts
 const Article = Application.Schema.define({
 	className: 'Article',
-	postgres: { table: 'articles' },
 	fields: (f) => ({
 		title: f.string({ postgres: { renamedFrom: 'headline' } }),
 	}),
-})
+}).with({ postgres: { table: 'articles' } })
 ```
 
 Use `renamedFrom` only when an existing managed column is actually being
-renamed. The configured `Application` above projects both options from
-`postgresPlugin()` without Typegen; a factory without the plugin rejects them.
-Field-level `postgres` is limited to stored fields.
+renamed, and remove it once every database has applied the rename. The
+configured `Application` above types both without Typegen; a factory without
+the plugin rejects them. Field-level `postgres` is limited to stored fields.
 
 ## Behavior and limitations
 
@@ -161,6 +212,23 @@ It does not infer that unmatched tables or columns should be dropped. Removed
 fields and plugin-owned storage need an explicit migration plan. Unsupported
 structures on a managed table stop direct preparation rather than being
 approximated. No official migration runner is shipped yet.
+
+`override` also protects existing data:
+
+- Each applied change logs one `info` line, such as
+  `schema change applied: add column "articles"."title" (text, optional)`.
+- Only widening type conversions apply (a wider `numeric`, `bigint` to a
+  `numeric` that holds it, a finer `time` or `timestamp`). Turning a `float`
+  field into a `string`, for example, refuses to start and asks for a
+  migration.
+- A managed table that keeps a required column without default that no field
+  declares refuses to start, because every insert would fail. When a field of
+  the same type appears at the same time, the message suggests the forgotten
+  `renamedFrom`.
+
+A database created before columns became `snake_case` is not converted: the
+check above reports its camelCase columns. Rename them outside UltimaBase
+before starting.
 
 Preparation always follows the configured `schemaPolicy`. Select `ignore`
 explicitly when external tooling manages schema changes. The former
@@ -205,7 +273,7 @@ helper is exported.
 
 A URL-backed pool belongs to the application; an injected pool stays yours.
 Neither connection URLs, raw pools, Drizzle objects, nor driver messages appear
-in public plugin exports or framework errors. The server-side message of a
+in public plugin exports, framework errors, or logs. The server-side message of a
 failed connection names only the driver code, such as
 `PostgreSQL connection verification failed [SQLSTATE 28P01].` for rejected
 credentials, `[SQLSTATE 3D000]` for a missing database, or `[ECONNREFUSED]`
@@ -213,14 +281,22 @@ when nothing listens at the address. Reads and mutations still use
 Core's policy and Runtime pipeline. This provider never grants access or
 installs Access, ACL, authentication, REST, or GraphQL.
 
+UltimaBase runs no manual SQL: a raw statement would bypass Access, ACL, Soft
+Delete, and hooks. For reports, query the database with your own pool outside
+UltimaBase, ideally on a read-only account; no UltimaBase rule applies there.
+To keep the tables in a dedicated PostgreSQL schema, set `search_path` in the
+connection URL, for example `?options=-c%20search_path%3Dmy_app`.
+
 ## Troubleshooting
 
-| Symptom                                                                   | Check                                                                                                                            | Next action                                                                                               |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `INTERNAL_ERROR` with “The database connection could not be established.” | Confirm `DATABASE_URL` is loaded, the database already exists, and network/TLS settings work with a supported PostgreSQL client. | Correct connectivity or credentials without logging the URL.                                              |
-| `VALIDATION_ERROR` at startup with `schemaPolicy: 'fail'`                 | Compare the compiled schema with the live managed tables in trusted server diagnostics.                                          | Prepare the reviewed change through a controlled process; do not switch production blindly to `override`. |
-| `VALIDATION_ERROR` for an unsupported structure                           | Check for a view, partitioned table, generated column, or unsupported index or constraint on a managed table.                    | Keep that structure under an explicit migration owner.                                                    |
-| `INTERNAL_ERROR` during direct synchronization                            | Check sanitized server diagnostics and database permissions; a physical change may have failed.                                  | Fix the cause and restart after reviewing the database state.                                             |
+| Symptom                                                                   | Check                                                                                                                            | Next action                                                                                                                   |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `INTERNAL_ERROR` with “The database connection could not be established.” | Confirm `DATABASE_URL` is loaded, the database already exists, and network/TLS settings work with a supported PostgreSQL client. | Correct connectivity or credentials without logging the URL.                                                                  |
+| `VALIDATION_ERROR` at startup with `schemaPolicy: 'fail'`                 | Compare the compiled schema with the live managed tables in trusted server diagnostics.                                          | Prepare the reviewed change through a controlled process; do not switch production blindly to `override`.                     |
+| `VALIDATION_ERROR`: required column(s) that no field declares             | A field was renamed or removed while its `NOT NULL` column stayed.                                                               | Declare `renamedFrom` on the new field, or make the column optional, give it a default, or drop it with a reviewed migration. |
+| `VALIDATION_ERROR`: applies only widening type conversions                | A field changed to a type that cannot hold every stored value.                                                                   | Restore the field type, or convert the column with a reviewed migration outside UltimaBase.                                   |
+| `VALIDATION_ERROR` for an unsupported structure                           | Check for a view, partitioned table, generated column, or unsupported index or constraint on a managed table.                    | Keep that structure under an explicit migration owner.                                                                        |
+| `INTERNAL_ERROR` during direct synchronization                            | Check sanitized server diagnostics and database permissions; a physical change may have failed.                                  | Fix the cause and restart after reviewing the database state.                                                                 |
 
 Check that the environment variable exists without printing its value:
 

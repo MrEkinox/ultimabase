@@ -97,7 +97,7 @@ describe(
 					UniqueActiveSlug.createOne({ data: { slug: 'alpha' } }),
 				).resolves.toMatchObject({ slug: 'alpha' })
 				await expect(readPartialIndexes()).resolves.toEqual([
-					expect.stringContaining('WHERE ("isDeleted" = false)'),
+					expect.stringContaining('WHERE (is_deleted = false)'),
 				])
 			} finally {
 				await ultimabase.dispose()
@@ -110,7 +110,7 @@ describe(
 			try {
 				const indexes = await readPartialIndexes()
 				expect(indexes).toHaveLength(1)
-				expect(indexes[0]).toContain('"isDeleted" = false')
+				expect(indexes[0]).toContain('is_deleted = false')
 				expect(indexes[0]).toContain("slug > 'm'::text")
 				// Rows outside the new predicate may now repeat a slug.
 				await UniqueActiveLongSlug.createOne({ data: { slug: 'beta' } })

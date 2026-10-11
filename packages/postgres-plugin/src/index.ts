@@ -9,11 +9,22 @@ export type {
 } from './connection/contracts.js'
 export { postgresPlugin } from './plugin/postgres-plugin.js'
 
-export type { PostgresFieldOption, PostgresSchemaOption } from './options.js'
+export type {
+	PostgresFieldOption,
+	PostgresRules,
+	PostgresSchemaOption,
+	PostgresSchemaRules,
+} from './options.js'
+export type {
+	PostgresConnectionOptions,
+	PostgresDebugOptions,
+	PostgresSslOptions,
+} from './connection/settings.js'
 
 export type { PostgresSchemaPolicy } from './synchronization/contracts.js'
 export type { PostgresSchemaPolicyOptions } from './plugin/postgres-plugin.js'
 export type {
+	PostgresCommonOptions,
 	PostgresExistingPoolOptions,
 	PostgresPlugin,
 	PostgresPluginExports,

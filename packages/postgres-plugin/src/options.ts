@@ -3,6 +3,8 @@ import {
 	defineSchemaOption,
 	type FieldOptionDefinition,
 	type SchemaOptionDefinition,
+	type SchemaOptionRuntimeRequirement,
+	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 import {
@@ -16,6 +18,21 @@ import { tableize } from 'inflection'
 export interface PostgresSchemaOption {
 	/** Preserves the exact PostgreSQL table identifier, including case and punctuation. */
 	readonly table: string
+}
+
+/** Entry of `.with({ ... })` owned by PostgreSQL, for one schema (ADR-0320). */
+export interface PostgresRules {
+	/**
+	 * Names the exact PostgreSQL table instead of the plural `snake_case`
+	 * class name.
+	 * @example `postgres: { table: 'content_items' }`
+	 */
+	readonly postgres?: PostgresSchemaOption
+}
+
+/** Contributes `postgres` to `.with({ ... })` through Core's rules slot (ADR-0320). */
+export interface PostgresSchemaRules extends SchemaRulesHKT {
+	readonly rules: PostgresRules
 }
 
 /** Configures direct synchronization metadata for one persisted PostgreSQL field. */
@@ -48,17 +65,25 @@ const readSingleStringOption = (
 	return option
 }
 
-/** Owns the direct schema `postgres` namespace as portable naming metadata. */
-export const postgresSchemaOption: SchemaOptionDefinition<PostgresSchemaOption> =
-	defineSchemaOption({
-		normalize: (value, path): PostgresSchemaOption =>
-			immutableRecord({ table: readSingleStringOption(value, path, 'table') }),
-		protocolVersion: 1,
-		typegen: {
-			module: '@ultimabase/postgres-plugin',
-			type: 'PostgresSchemaOption',
-		},
-	})
+/**
+ * Owns the schema `postgres` namespace as portable naming metadata. Its static
+ * type comes from the `.with` rules slot (`never` keeps it out of the
+ * projection templates); Typegen still types the old-form `define({ postgres })`
+ * until that form is removed.
+ */
+export const postgresSchemaOption: SchemaOptionDefinition<
+	PostgresSchemaOption,
+	SchemaOptionRuntimeRequirement,
+	never
+> = defineSchemaOption({
+	normalize: (value, path): PostgresSchemaOption =>
+		immutableRecord({ table: readSingleStringOption(value, path, 'table') }),
+	protocolVersion: 1,
+	typegen: {
+		module: '@ultimabase/postgres-plugin',
+		type: 'PostgresSchemaOption',
+	},
+})
 
 /** Owns the direct field `postgres` namespace as data-preserving rename metadata. */
 export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =

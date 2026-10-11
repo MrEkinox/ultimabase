@@ -119,12 +119,12 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 
 		expect(columns.rows.map(({ column_name: name }) => name)).toStrictEqual([
 			'email',
-			'firstName',
-			'lastName',
+			'first_name',
+			'last_name',
 			'secret',
 			'id',
-			'createdAt',
-			'updatedAt',
+			'created_at',
+			'updated_at',
 		])
 
 		const created = await Person.createOne({
@@ -157,9 +157,9 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		const select = recorder.statements.find((statement) =>
 			statement.trimStart().toLowerCase().startsWith('select'),
 		)
-		expect(select).toContain('"firstName"')
-		expect(select).toContain('"lastName"')
-		expect(select).not.toContain('"displayName"')
+		expect(select).toContain('"first_name"')
+		expect(select).toContain('"last_name"')
+		expect(select).not.toContain('"display_name"')
 		expect(select).not.toContain('"initials"')
 
 		const complete = await Person.findOne({ where: { id: { eq: created.id } } })

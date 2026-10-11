@@ -15,15 +15,19 @@ before plugin declaration or connection work. It is deliberately not a network
 privilege: Core exposes no network facade and does not claim to sandbox the
 in-process driver.
 
-It requests `schema:declare` to own the direct `postgres` schema and field
-options. The options are recognized only when `postgresPlugin()` is installed; unknown keys
+It requests `schema:declare` to own the `postgres` schema rule and field
+option. Both are recognized only when `postgresPlugin()` is installed; unknown keys
 and empty identifiers fail static application compilation.
 
-The configured factory projects the schema-level `postgres.table` and stored
-field `postgres.renamedFrom` options directly from the installed plugin without
-Typegen. Embedded properties, virtual wrappers, and output descriptors have no
-independent physical column identity, so the option is absent in those contexts
-and Core rejects stale or untyped declarations before connection setup.
+The table name is a rule of the final `.with({ postgres: { table } })` call,
+typed through Core's rules slot (ADR-0320), and the stored-field
+`postgres.renamedFrom` option is projected directly from the installed plugin,
+both without Typegen. Embedded properties, virtual wrappers, and output
+descriptors have no independent physical column identity, so the field option
+is absent in those contexts and Core rejects stale or untyped declarations
+before connection setup. The former `define({ postgres: { table } })` form
+still works at runtime and through Typegen until the old declaration form is
+removed.
 
 ## Connection lifecycle
 
@@ -74,6 +78,44 @@ await pool.end()
 Connection URLs, driver messages, and raw pools are excluded from plugin
 metadata and framework errors. Drizzle and concrete `pg` runtime objects are
 not re-exported by this package.
+
+### Connection settings
+
+With `url` or `DATABASE_URL`, `connection` tunes the pool the plugin creates
+(ADR-0320); an injected `pool` keeps its own settings and rejects `connection`.
+
+```ts
+postgresPlugin({
+	connection: {
+		max: 20, // pooled connections, default 10
+		ssl: { ca: process.env.DATABASE_CA }, // or true; sslmode in the URL wins
+		statementTimeoutMs: 5000, // cancels longer statements, default none
+		idleTimeoutMs: 30_000, // closes idle connections, 0 keeps them, default 10 s
+		connectRetries: 5, // first connection only, default 0
+	},
+})
+```
+
+`connectRetries` retries the verification of `start()` with growing delays
+(0.5 s, 1 s, 2 s, 4 s, then 8 s), for a database that is still starting in
+Docker or Kubernetes. Each failed attempt logs one `warn` line with the driver
+code only. A cancelled statement fails with the driver code `57014`.
+
+### Debugging
+
+`debug` logs statements through the plugin logger, never their values:
+
+```ts
+postgresPlugin({ debug: { logQueries: true, slowQueryMs: 500 } })
+```
+
+`logQueries` writes one `info` line per statement with its duration and its
+text with `$n` placeholders (`query 1.2 ms: select "id", "title" from "posts"
+where "id" = $1`); `slowQueryMs` writes one `warn` line for each statement
+that takes at least that many milliseconds and is cheap enough for production.
+Schema synchronization statements are logged too; their DDL contains declared
+static defaults and partial-index literals, never row values. `debug` applies
+to every connection mode, injected pools included.
 
 ## Internal database adapter
 
@@ -471,6 +513,21 @@ used for query execution. UltimaBase adds only explicit transition metadata,
 such as `renamedFrom`, before comparing that state with the live PostgreSQL
 catalog.
 
+Under `override`, synchronization is safe by construction (ADR-0320):
+
+- Each applied change logs one `info` line after the transaction commits, for
+  example `schema change applied: add column "articles"."title" (text, optional)`.
+- Only widening type conversions apply: a wider or unconstrained `numeric`,
+  `bigint` to a `numeric` that holds it, or a finer `time`/`timestamp` of the
+  same time-zone kind. Any other change, such as `double precision` to `text`
+  after a `float` field became a `string`, refuses to start and points to a
+  migration.
+- A managed table that keeps a `NOT NULL` column without default that no field
+  declares any more refuses to start, because every insert would fail. When a
+  field of the same type appears in the same plan, the message suggests the
+  forgotten `renamedFrom`; for an optional orphan column it is a `warn` line
+  and the plan still applies.
+
 Use `fail` to inspect and reject any drift without mutation, or `ignore` to
 skip structural inspection entirely. Direct synchronization preserves tables
 outside the current application catalog and unmatched columns inside managed
@@ -480,7 +537,12 @@ application field or uninstalling its contributing plugin never infers a
 destructive `DROP COLUMN`. Unsupported structures on a managed table stop
 `override` before its transaction rather than being approximated.
 
-Renames are explicit direct field options and preserve existing column data:
+Renames are explicit direct field options and preserve existing column data.
+`renamedFrom` names the previous physical column, so it can also adopt a
+camelCase column from a database created before column names became
+`snake_case` (`renamedFrom: 'publishedAt'` on `publishedAt`, now stored as
+`published_at`). It stays until a migrations plugin exists; remove it once the
+rename has been applied to every database:
 
 ```ts
 import { Application } from './application.js'
@@ -504,8 +566,7 @@ part of direct synchronization and preserves data as shown above.
 ## Pointer storage
 
 Portable Core pointers compile to PostgreSQL UUID columns and named foreign
-keys. The logical field name remains the physical column name, while the
-constraint name is deterministic and safe within PostgreSQL's identifier
+keys. The column takes the field's `snake_case` name, while the constraint name is deterministic and safe within PostgreSQL's identifier
 limit. Optional pointers use nullable columns, while `required`, `indexed`, and
 `indexed: "unique"` retain their normal Schema meaning. `onDelete` becomes
 `RESTRICT`, `CASCADE`, or `SET NULL`, which enforce Core's referential-integrity
@@ -841,18 +902,23 @@ receives the ordinary Query AST.
 The builder remains a non-executing utility. Schema-root read commands normalize
 their canonical objects to the same AST before this compiler runs.
 
-## Table names
+## Table and column names
 
 PostgreSQL owns physical naming. Without an override, class names use standard
-English inflection and plural `snake_case`:
+English inflection and plural `snake_case`, and field names become
+`snake_case` columns (ADR-0320):
 
 ```text
-BlogPost → blog_posts
-Person   → people
-Category → categories
+BlogPost  → blog_posts      createdAt → created_at
+Person    → people          userID    → user_id
+Category  → categories      URLValue  → url_value
 ```
 
-Use the direct schema option when the database needs an exact identifier:
+Two fields of one schema that give the same column (`fooBar` and `foo_bar`)
+fail compilation. Index and foreign-key names are derived from the physical
+columns. Queries, results, errors, and logs keep the logical field names.
+
+Use the `postgres` rule when the database needs an exact table identifier:
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
@@ -864,12 +930,30 @@ const ArticleSchema = Application.Schema.define({
 	fields: (field) => ({
 		title: field.string(),
 	}),
-	postgres: { table: 'ContentItems-v2' },
-})
+}).with({ postgres: { table: 'ContentItems-v2' } })
 ```
 
 The explicit name is preserved verbatim. It is passed to Drizzle as an
-identifier and escaped there, never interpolated into raw SQL. The option is
+identifier and escaped there, never interpolated into raw SQL. The rule is
 declared and compiled entirely by `@ultimabase/postgres-plugin`, so Core remains
 independent from PostgreSQL. Configuring it without `postgresPlugin()` fails
 static application compilation.
+
+A database created with camelCase columns is not migrated automatically: under
+`override` the new names are new columns, and the forgotten-rename check
+refuses to start while the old required columns remain (`"posts"."createdAt"
+... looks renamed to field createdAt`). Rename those columns outside
+UltimaBase, or declare `renamedFrom` on developer fields.
+
+## Kept boundaries
+
+- No manual SQL goes through UltimaBase: a raw statement would bypass Access,
+  ACL, Soft Delete, and hooks. The package exports no SQL or Drizzle API.
+- For reports or analytics, query the database with your own pool outside
+  UltimaBase (for example a `pg` pool on a read-only account); no UltimaBase
+  rule applies there.
+- To keep the tables in a dedicated PostgreSQL schema, set `search_path` in the
+  URL: `postgres://app@db/main?options=-c%20search_path%3Dmy_app`.
+  Synchronization and introspection follow `current_schema()`.
+- `url` or `pool`, the three policies, and no destructive drop stay as
+  described above.
