@@ -1,5 +1,4 @@
 import type { QueryFieldName } from '../../query/ast/contracts.js'
-import type { QuerySelection } from '../../query/clauses/selection.js'
 import type {
 	SchemaCreateManyInput,
 	SchemaCreateOneInput,
@@ -51,8 +50,8 @@ type SchemaReadResult<
 type SchemaMutationResult<
 	TContract extends SchemaTypeInfo,
 	TSchema extends SchemaDefinition,
-	TSelection extends QuerySelection<TContract> | undefined,
-	TInclude extends TContract['inputs']['include'] | undefined = undefined,
+	TSelection,
+	TInclude = undefined,
 	TDefaultField extends QueryFieldName<TContract> = never,
 > = QueryResult<
 	TSchema,
@@ -88,9 +87,8 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 
 	/** Creates ordered rows and returns their requested projections. */
 	createMany<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
+		const TSelection extends object | undefined = undefined,
+		const TInclude extends object | undefined = undefined,
 	>(
 		input: SchemaCreateManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
@@ -100,18 +98,15 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 
 	/** Creates one row and returns its requested projection. */
 	createOne<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
+		const TSelection extends object | undefined = undefined,
+		const TInclude extends object | undefined = undefined,
 	>(
 		input: SchemaCreateOneInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection, TInclude>>
 
 	/** Deletes ordered unique targets and always retains each result `id`. */
-	deleteMany<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-	>(
+	deleteMany<const TSelection extends object | undefined = undefined>(
 		input: SchemaDeleteManyInput<TContract, TSelection>,
 		options?: OperationOptions,
 	): Promise<
@@ -125,9 +120,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	>
 
 	/** Deletes one unique target or returns `null` when none matches. */
-	deleteOne<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-	>(
+	deleteOne<const TSelection extends object | undefined = undefined>(
 		input: SchemaDeleteOneInput<TContract, TSelection>,
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection> | null>
@@ -140,10 +133,8 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 
 	/** Reads matching rows through optional offset pagination. */
 	findMany<
-		const TSelection extends TContract['inputs']['select'] | undefined =
-			undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
+		const TSelection extends object | undefined = undefined,
+		const TInclude extends object | undefined = undefined,
 	>(
 		input?: ExactGeneratedFindManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
@@ -151,10 +142,8 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 
 	/** Reads the first matching row or returns `null`. */
 	findOne<
-		const TSelection extends TContract['inputs']['select'] | undefined =
-			undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
+		const TSelection extends object | undefined = undefined,
+		const TInclude extends object | undefined = undefined,
 	>(
 		input?: ExactGeneratedFindOneInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
@@ -167,10 +156,8 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	 * @example `await Todo.findOneOrThrow({ where: { id } })`
 	 */
 	findOneOrThrow<
-		const TSelection extends TContract['inputs']['select'] | undefined =
-			undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
+		const TSelection extends object | undefined = undefined,
+		const TInclude extends object | undefined = undefined,
 	>(
 		input?: ExactGeneratedFindOneInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
@@ -178,9 +165,8 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 
 	/** Updates ordered unique targets and always retains each result `id`. */
 	updateMany<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
+		const TSelection extends object | undefined = undefined,
+		const TInclude extends object | undefined = undefined,
 	>(
 		input: SchemaUpdateManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
@@ -196,26 +182,21 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 
 	/** Updates one unique target or returns `null` when none matches. */
 	updateOne<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-		const TInclude extends TContract['inputs']['include'] | undefined =
-			undefined,
+		const TSelection extends object | undefined = undefined,
+		const TInclude extends object | undefined = undefined,
 	>(
 		input: SchemaUpdateOneInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection, TInclude> | null>
 
 	/** Creates or updates ordered unique targets. */
-	upsertMany<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-	>(
+	upsertMany<const TSelection extends object | undefined = undefined>(
 		input: SchemaUpsertManyInput<TContract, TSelection>,
 		options?: OperationOptions,
 	): Promise<readonly SchemaMutationResult<TContract, this, TSelection>[]>
 
 	/** Creates or updates one unique target. */
-	upsertOne<
-		const TSelection extends QuerySelection<TContract> | undefined = undefined,
-	>(
+	upsertOne<const TSelection extends object | undefined = undefined>(
 		input: SchemaUpsertOneInput<TContract, TSelection>,
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection>>

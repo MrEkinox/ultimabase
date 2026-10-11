@@ -229,24 +229,40 @@ export type ExactReadInput<
 				ExactSelectionForInput<TSchema, TInput> &
 				ExactIncludeForInput<TSchema, TInput>
 
+/**
+ * Reports whether an inferred projection fits its contract. A projection that
+ * does not fit is checked against the contract alone, so a misspelled field is
+ * reported by name rather than through the exactness intersections (ADR-0315,
+ * step 5b amendment).
+ */
+export type FitsQueryProjection<TProjection, TContract> = [
+	TProjection,
+] extends [undefined]
+	? true
+	: [NonNullable<TProjection>] extends [TContract]
+		? true
+		: false
+
 type ExactReadSelectionInput<
 	TContract extends SchemaTypeInfo,
-	TSelection extends TContract['inputs']['select'] | undefined,
+	TSelection,
 > = string extends TContract['fields']
 	? Readonly<{
 			readonly select?: TSelection & TContract['inputs']['select']
 		}>
-	: Readonly<{
-			readonly select?: TSelection &
-				TContract['inputs']['select'] &
-				Readonly<
-					Record<
-						Exclude<keyof TSelection, keyof TContract['inputs']['select']>,
-						never
-					>
-				> &
-				LiteralQuerySelection<TSelection>
-		}>
+	: FitsQueryProjection<TSelection, TContract['inputs']['select']> extends false
+		? Readonly<{ readonly select?: TContract['inputs']['select'] }>
+		: Readonly<{
+				readonly select?: TSelection &
+					TContract['inputs']['select'] &
+					Readonly<
+						Record<
+							Exclude<keyof TSelection, keyof TContract['inputs']['select']>,
+							never
+						>
+					> &
+					LiteralQuerySelection<TSelection>
+			}>
 
 type ExactGeneratedValue<TInput, TContract> = TInput extends readonly unknown[]
 	? TInput extends TContract
@@ -279,14 +295,21 @@ type ExactReadInclusionInput<
 	? Readonly<{
 			readonly include?: TInclude & NonNullable<TContract['inputs']['include']>
 		}>
-	: Readonly<{
-			readonly include?: NonNullable<TContract['inputs']['include']> &
-				TInclude &
-				ExactGeneratedValue<
-					TInclude,
-					NonNullable<TContract['inputs']['include']>
-				>
-		}>
+	: FitsQueryProjection<
+				TInclude,
+				NonNullable<TContract['inputs']['include']>
+		  > extends false
+		? Readonly<{
+				readonly include?: NonNullable<TContract['inputs']['include']>
+			}>
+		: Readonly<{
+				readonly include?: NonNullable<TContract['inputs']['include']> &
+					TInclude &
+					ExactGeneratedValue<
+						TInclude,
+						NonNullable<TContract['inputs']['include']>
+					>
+			}>
 
 /** Reuses exact resolved nested inclusion validation outside read terminals. */
 export type ExactGeneratedInclusionInput<
@@ -312,8 +335,8 @@ interface ExactFindManyFields<TContract extends SchemaTypeInfo> {
 
 type ExactFindManyProjectionInput<
 	TContract extends SchemaTypeInfo,
-	TSelection extends TContract['inputs']['select'] | undefined,
-	TInclude extends TContract['inputs']['include'] | undefined,
+	TSelection,
+	TInclude,
 > = ExactFindManyFields<TContract> &
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
@@ -328,8 +351,8 @@ interface ExactFindOneFields<TContract extends SchemaTypeInfo> {
 /** Describes one exact first-match read from its resolved contract. */
 export type ExactGeneratedFindOneInput<
 	TContract extends SchemaTypeInfo,
-	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends TContract['inputs']['include'] | undefined = undefined,
+	TSelection = undefined,
+	TInclude = undefined,
 > = ExactFindOneFields<TContract> &
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
@@ -337,8 +360,8 @@ export type ExactGeneratedFindOneInput<
 /** Describes one exact collection read using optional `skip` or `after` pagination. */
 export type ExactGeneratedFindManyInput<
 	TContract extends SchemaTypeInfo,
-	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends TContract['inputs']['include'] | undefined = undefined,
+	TSelection = undefined,
+	TInclude = undefined,
 > = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
 	Readonly<{
 		/** Skips this many rows. Cannot be combined with `after`. */
