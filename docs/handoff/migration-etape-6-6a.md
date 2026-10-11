@@ -21,8 +21,8 @@ expliqué, banc forme D TS6.
 
 ## État
 
-Implémentation, tests, documentation faits ; porte finale, audit DX et banc :
-voir « Preuves ».
+Implémentation, tests, documentation, porte finale, audit DX et banc faits
+(voir « Preuves »). Dernier commit de code : 60f45ada.
 
 ### HTTP (`packages/http-plugin`)
 
@@ -109,8 +109,60 @@ frameOptions, hsts }`, HSTS par défaut `max-age=31536000; includeSubDomains`.
 
 ## Preuves
 
-(complétées à la porte finale)
+Sur 60f45ada, `packages/*/dist` et `*.tsbuildinfo` supprimés :
+
+- `yarn validate:full` → exit 0 (lint : 0 erreur, avertissements préexistants ;
+  performance 3 fichiers / 4 tests ; couverture 722 fichiers / 3 558 tests,
+  « Type Errors no errors », lignes 93,43 % ; site 17 fichiers / 66 tests).
+  Deux exécutions précédentes en échec sous charge (machine partagée avec
+  6.3, charge 12 à 26) : budget `hybrid-authoring` (2 667 ms contre 2 505 ms,
+  vert seul) et `password-user-language-service` (délai de 20 s) ; relancées
+  sur machine calme.
+- `yarn test:e2e:built` → 573/574 ; seul `create-app-packed` dépasse 120 s
+  sous charge, vert seul (7/7 ; 58,6 s contre 75,2 s pour la base dans les
+  mêmes conditions).
+- `yarn website:test` → exit 0 (8 fichiers / 59 tests).
+
+### Audit DX (base a0d7ff3c, tous les paquets des deux arbres, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+545 différences, toutes expliquées :
+
+- `server-hono-plugin` (144, base seule) / `hono-server-plugin` (159,
+  branche seule) : après remplacement du nom, 136 enregistrements identiques ;
+  les 23 restants sont `shutdownTimeoutMs`, `compression`,
+  `browserPolicyOwner` facultatif et les nouveaux appels du test de types.
+- `http-plugin` (200) : nouveaux exports (`HttpPluginFactory`,
+  `HttpRouteRecord`, `HttpRouteSettings`, `HttpRequestHandlerInput`,
+  `HttpEndpointLimits`, `HttpRateLimit*`, `HttpTrustProxy`,
+  `HttpSecurityHeadersOptions`, `HttpStrictTransportSecurityOptions`,
+  `HttpHealthOptions`), `HttpMasterTransportOptions` retiré, options et
+  politique navigateur réécrites, gestionnaire `(request, { context })`,
+  `remoteAddress`, quatre codes d'erreur, `requestTimeoutMs: number`, survols
+  des tests modifiés.
+- `core` (3) : `ApplicationRequestExecutor.health()` et l'alias
+  `ApplicationHealthStatus` désormais visible dans les déclarations.
+- `rest-plugin` (5), `graphql-yoga-plugin` (4) : JSDoc de `bodyLimit`
+  (héritage) et survols `httpPlugin` des fixtures.
+- `create-app` (8) : identifiant `hono-server-plugin` dans le catalogue.
+- `graphql-plugin` (3), `examples/minimal` (15), `tests` (4) : survols de
+  `httpPlugin`/`browser` dans les sites d'usage modifiés, nom retiré ajouté
+  à la liste des noms supprimés.
+
+### Banc forme D, TypeScript 6 (alterné, 3 exécutions, médianes)
+
+| N   | Arbre   | Charges     | Éd.→diag (s) | Exécutions     | Froid (s) | Schéma (s) | Tas (Mio) | Hover |
+| --- | ------- | ----------- | -----------: | -------------- | --------: | ---------: | --------: | ----: |
+| 50  | base    | 7,9 6,6 6,3 |         2,24 | 2,13/2,24/2,45 |      5,23 |       2,30 |       867 |   199 |
+| 50  | branche | 7,1 6,0 6,7 |         2,26 | 2,30/2,26/2,17 |      5,17 |       2,34 |       866 |   199 |
+| 200 | base    | 6,2 4,6 4,6 |         7,07 | 7,07/7,35/6,80 |     17,11 |       6,94 |     2 386 |   199 |
+| 200 | branche | 5,1 5,0 3,8 |         7,26 | 7,34/7,26/7,03 |     17,12 |       6,88 |     2 414 |   199 |
+
+Écarts dans le bruit (+0,9 % à 50, +2,7 % à 200 sous charge 4 à 8) ; le banc
+n'utilise pas le paquet HTTP. TS7 non mesuré (types de Core inchangés hors
+`health()`). Dossiers `gen/` supprimés, worktree de base retiré.
 
 ## Prochaine action vérifiable
 
-Porte finale, audit DX, banc ; puis relecture du coordinateur.
+Relecture du coordinateur, décisions de l'utilisateur sur les points
+ci-dessus, puis fusion `--no-ff` dans `main` ; supprimer ce handoff après la
+fusion.
