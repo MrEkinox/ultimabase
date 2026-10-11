@@ -40,7 +40,8 @@ ownership is enforced before initialization, admitted Core work drains before
 teardown, and a cleanup failure retains the slot. There is no shared-server
 routing: under [ADR-0260](docs/adr/0260-single-owner-http-dispatch.md), server
 providers dispatch to one optional HTTP owner through the safe HTTP boundary,
-including rejection after shutdown; HTTP application identity remains required.
+including rejection after shutdown; the application header is optional and a
+different value is refused ([ADR-0323](docs/adr/0323-http-foundation-and-hono-server.md)).
 
 [ADR-0259](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md)
 removes ten precisely listed extension powers and introduces one private
@@ -179,10 +180,14 @@ better-auth-plugin ────────→ http-plugin, plugin-kit, core, sh
 ```
 
 The HTTP package owns application IDs, an
-application-lifetime Fetch route graph, anonymous
-request-context resolution, safe pre-dispatch failures, and the explicitly
-enabled audited Master header boundary without opening a socket. The Hono
-package supplies the optional server lifecycle. The REST package owns
+application-lifetime Fetch route graph, application routes and the built-in
+health route, anonymous request-context resolution, CORS derived from the
+installed plugins, the deadline, body limit, security headers, rate limits and
+access log shared by every transport, port-free `fetch()`, safe pre-dispatch
+failures, and the explicitly enabled audited Master header boundary without
+opening a socket (ADR-0323). Its health route reads Core's health through the
+request executor's generic `health()`. The Hono package supplies the optional
+server lifecycle, bounded shutdown and optional compression. The REST package owns
 deterministic application-local REST v1 route metadata, the direct schema
 option, schema-aware read and mutation normalization, response encoding, route
 dispatch, and logical delegation through Core's narrow application request
@@ -207,7 +212,7 @@ It remains network-independent.
 the selected GraphQL HTTP path. Yoga provides it, while the optional GraphiQL
 and Apollo Sandbox plugins consume it without depending on Yoga. Explorer
 bootstrap pages use only HTTP's reserved application path; every non-explorer
-application request still verifies its header identity. Yoga, REST, Hono, and HTTP
+application request still verifies any header identity it carries. Yoga, REST, Hono, and HTTP
 authentication integrations meet through the HTTP plugin rather than importing
 one another.
 
