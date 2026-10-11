@@ -192,6 +192,21 @@ describe('definePlugin', () => {
 		expect(() => shapeMethod({ apply: () => ({}) } as never)).toThrow(
 			'Unknown shape method option: apply',
 		)
+		expect(() => shapeMethod({ permissions: ['read archived'] })).toThrow(
+			'shape method permissions must list identifiers',
+		)
+	})
+
+	it('declares shape-method permissions through one Core provider (ADR-0317)', () => {
+		const withPermission = definePlugin({
+			name: '@community/archive-permission',
+			shape: { archivable: shapeMethod({ permissions: ['readArchived'] }) },
+		})
+		expect(withPermission.manifest.capabilities.provides).toEqual([
+			expect.objectContaining({ contributionId: 'permissions' }),
+		])
+		// No permission is declared, so no provider is added.
+		expect(archivePlugin().manifest.capabilities.provides).toEqual([])
 	})
 
 	it('rejects commands that Core could not run', () => {

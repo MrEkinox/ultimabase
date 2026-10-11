@@ -45,6 +45,7 @@ describe('softDeletePlugin', () => {
 		expect(instance.manifest).toMatchObject({
 			capabilities: {
 				provides: [
+					{ contributionId: 'permissions' },
 					{ contributionId: 'visibility' },
 					{ contributionId: 'delete' },
 				],

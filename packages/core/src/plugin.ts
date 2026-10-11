@@ -188,10 +188,21 @@ export type {
 } from './plugins/schema-extensions.js'
 export type {
 	SchemaCommands,
+	SchemaPermissions,
 	PluginSourceSchemaFieldValues,
 	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaMutations,
+	PluginSourceSchemaPermissions,
 } from './plugins/source-schema-templates.js'
+export {
+	holdsSchemaPermission,
+	provideSchemaPermissions,
+	schemaPermissionsCapability,
+} from './runtime/enforcement/schema-permissions.js'
+export type {
+	SchemaPermissionDeclaration,
+	SchemaPermissionsProviderOptions,
+} from './runtime/enforcement/schema-permissions.js'
 export type {
 	PluginDeclaration,
 	PluginDeclarationCapabilityReader,

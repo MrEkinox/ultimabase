@@ -12,6 +12,7 @@ import {
 	contributeDeclarations,
 	defineSchemaOption,
 	plugin,
+	provideSchemaPermissions,
 	provideSchemaShapeMethods,
 	readSchemaRules,
 	type PluginContribution,
@@ -248,6 +249,30 @@ const createAfterCommit = <TRules extends RuleValues>(
 		}),
 	})
 
+// Each schema whose declaration called a shape method gets its permissions.
+const createPermissions = (
+	shape: readonly (readonly [string, ShapeMethodDefinition])[],
+) => {
+	const declared = shape.flatMap(([method, { permissions = [] }]) =>
+		permissions.map((permission) => [method, permission] as const),
+	)
+	return declared.length === 0
+		? []
+		: [
+				provideSchemaPermissions({
+					contributionId: 'permissions',
+					create: ({ owner, schemas }) => ({
+						value: schemas.values().flatMap((schema) => {
+							const rules = readSchemaRules(schema, owner)
+							return declared
+								.filter(([method]) => rules[method] !== undefined)
+								.map(([, permission]) => ({ permission, schema }))
+						}),
+					}),
+				}),
+			]
+}
+
 // Shape methods are applied at Runtime under one wide signature; their exact
 // typed signatures come from the plugin's static source.
 type RuntimeShapeSource = PluginSchemaShapeSource<
@@ -326,6 +351,7 @@ export const definePlugin = <
 				? []
 				: [createDeclarations(shape, rules, commands)]),
 			...commands.map(({ contribution }) => contribution),
+			...createPermissions(shape),
 			...(definition.afterCommit === undefined
 				? []
 				: [

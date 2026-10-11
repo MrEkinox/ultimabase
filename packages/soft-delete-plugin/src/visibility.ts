@@ -4,8 +4,12 @@ import {
 	type CompiledSchemaRegistry,
 	type DatabaseRowFilterNode,
 	type ProtectedPolicyDefinition,
+	type SchemaDefinition,
 } from '@ultimabase/core'
-import type { PluginIdentity } from '@ultimabase/core/plugin'
+import {
+	holdsSchemaPermission,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { readSoftDeleteMode } from './options.js'
@@ -24,6 +28,18 @@ const tombstonedRowFilter: DatabaseRowFilterNode = immutableRecord({
 	kind: 'equal',
 	value: true,
 })
+
+/** The permission that lets ordinary reads see soft-deleted rows (ADR-0317). */
+export const readDeletedPermission = 'readDeleted'
+
+// Ordinary reads: with `readDeleted` they see every row.
+const readOperations: ReadonlySet<string> = new Set([
+	'count',
+	'exists',
+	'find-many',
+	'find-one',
+	'get',
+])
 
 // Commands that act on hidden rows; every other operation sees visible rows.
 const tombstoneCommands: ReadonlySet<string> = new Set([
@@ -49,7 +65,8 @@ const isTombstoneCommand = (
 
 /**
  * Hides soft-deleted rows from every operation on the schemas that called
- * `.softDelete()`, Master included; restore and purge see only those rows.
+ * `.softDelete()`; restore and purge see only those rows. Reads by a caller
+ * holding `readDeleted` (Master always does) see every row.
  */
 export const createSoftDeleteVisibilityPolicy = (
 	schemas: CompiledSchemaRegistry,
@@ -60,11 +77,20 @@ export const createSoftDeleteVisibilityPolicy = (
 			.values()
 			.filter((schema) => readSoftDeleteMode(schema, owner) !== undefined),
 	)
+	const isTarget = (schema: unknown): schema is SchemaDefinition =>
+		targets.has(schema)
 
 	return protectedPolicy({
-		evaluate: ({ operation }) => {
-			if (!targets.has(getOperationSchema(operation))) return undefined
+		evaluate: async ({ context, operation }) => {
+			const schema = getOperationSchema(operation)
+			if (!isTarget(schema)) return undefined
 			if (operation.kind === 'create-one' || operation.kind === 'create-many') {
+				return undefined
+			}
+			if (
+				readOperations.has(operation.kind) &&
+				(await holdsSchemaPermission(context, schema, readDeletedPermission))
+			) {
 				return undefined
 			}
 			return immutableRecord({

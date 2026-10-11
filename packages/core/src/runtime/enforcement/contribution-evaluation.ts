@@ -64,6 +64,7 @@ const attributeProtectedPolicy = (
 	const {
 		evaluate,
 		mutationOutcome,
+		permission,
 		preparedMutation,
 		reevaluate,
 		relation,
@@ -81,6 +82,10 @@ const attributeProtectedPolicy = (
 			mutationOutcome === undefined
 				? undefined
 				: (input) => run(() => mutationOutcome(input)),
+		permission:
+			permission === undefined
+				? undefined
+				: (input) => run(() => permission(input)),
 		preparedMutation:
 			preparedMutation === undefined
 				? undefined

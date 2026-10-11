@@ -114,7 +114,7 @@ describe('soft-delete visibility', () => {
 		}
 	})
 
-	it('enforces the same visibility for Master and leaves disabled schemas untouched', async () => {
+	it('lets Master read deleted rows, hides them from others and leaves disabled schemas untouched', async () => {
 		const Enabled = declareDocument('SoftDeleteMasterDocument')
 			.softDelete()
 			.with({})
@@ -149,11 +149,15 @@ describe('soft-delete visibility', () => {
 			await Enabled.findMany(undefined, {
 				useMasterKey: true,
 			})
+			// No policy grants `readDeleted` to anonymous callers (fail-closed).
+			await Enabled.findMany(undefined)
 			await enabled.dispose()
 			await disabled.start()
 			await Disabled.findMany(undefined)
 
-			expect(enabledAdapter.requests[0]?.rowFilter).toEqual({
+			// Master holds every schema permission, `readDeleted` included (ADR-0317).
+			expect(enabledAdapter.requests[0]?.rowFilter).toBeUndefined()
+			expect(enabledAdapter.requests[1]?.rowFilter).toEqual({
 				field: 'isDeleted',
 				kind: 'equal',
 				value: false,

@@ -7,6 +7,7 @@ import {
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
+import type { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseMutationOperationAst,
 	DatabaseRowFilterNode,
@@ -81,6 +82,23 @@ export type ProtectedPolicyResultRestriction = <
 	input: RuntimeResultStageInput<TOperation, TResult>,
 ) => MaybePromise<TResult | undefined>
 
+/** What a policy receives when Core asks whether a caller holds one schema permission. */
+export interface ProtectedPolicyPermissionInput {
+	readonly context: RequestContext
+	/** The declared permission name, for example `readDeleted`. */
+	readonly permission: string
+	readonly schema: SchemaDefinition
+}
+
+/**
+ * Answers whether the caller holds one declared schema permission (ADR-0317):
+ * `true` grants, `false` refuses whatever other policies answer, `undefined`
+ * gives no answer. Core never asks it for Master, which holds every permission.
+ */
+export type ProtectedPolicyPermission = (
+	input: ProtectedPolicyPermissionInput,
+) => MaybePromise<boolean | undefined>
+
 /** Configures one application-local protected policy without exposing Core state. */
 export interface ProtectedPolicyOptions<
 	TSchema extends SchemaDefinition = SchemaDefinition,
@@ -99,6 +117,8 @@ export interface ProtectedPolicyOptions<
 	readonly preparedMutation?: ProtectedPolicyPreparedMutationGuard
 	readonly mutationOutcome?: ProtectedPolicyMutationOutcomeGuard
 	readonly restrictResult?: ProtectedPolicyResultRestriction
+	/** Answers schema permission questions such as `readDeleted` (ADR-0317). */
+	readonly permission?: ProtectedPolicyPermission
 	/** Requests stable set-based preimages only when this policy consumes them. */
 	readonly requiresPreparedMutationItems?: (
 		operation: DatabaseMutationOperationAst,
@@ -131,6 +151,7 @@ export interface ProtectedPolicyImplementation {
 	readonly preparedMutation: ProtectedPolicyPreparedMutationGuard | undefined
 	readonly mutationOutcome: ProtectedPolicyMutationOutcomeGuard | undefined
 	readonly restrictResult: ProtectedPolicyResultRestriction | undefined
+	readonly permission: ProtectedPolicyPermission | undefined
 	readonly requiresPreparedMutationItems:
 		((operation: DatabaseMutationOperationAst) => boolean) | undefined
 }
@@ -139,6 +160,7 @@ const implementations = new WeakMap<object, ProtectedPolicyImplementation>()
 const handlerKeys = [
 	'evaluate',
 	'mutationOutcome',
+	'permission',
 	'preparedMutation',
 	'reevaluate',
 	'relation',
@@ -202,6 +224,7 @@ export const protectedPolicy = <
 			master: options.master ?? 'enforce',
 			mutationOutcome: options.mutationOutcome,
 			operations,
+			permission: options.permission,
 			preparedMutation: options.preparedMutation,
 			reevaluate: options.reevaluate,
 			relation: options.relation,
