@@ -82,7 +82,16 @@ type SchemaOptionSourceProjection<TOptions> =
 			? never
 			: Readonly<{
 					schemaOptions: Readonly<{
-						template: SchemaOptionTemplate<TOptions>
+						// Spelled out, not aliased, so hovers show the option names.
+						template: {
+							readonly [
+								TName in keyof TOptions as SchemaOptionSource<
+									TOptions[TName]
+								> extends never
+									? never
+									: TName
+							]?: SchemaOptionSource<TOptions[TName]>
+						}
 					}>
 				}>
 		: never

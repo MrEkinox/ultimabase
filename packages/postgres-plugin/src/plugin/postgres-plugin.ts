@@ -80,7 +80,7 @@ export interface PostgresCommonOptions extends PostgresSchemaPolicyOptions {
  * @example `postgresPlugin()`
  */
 export interface PostgresEnvironmentOptions extends PostgresCommonOptions {
-	/** Pool settings of the connection created from `DATABASE_URL`. */
+	/** Pool settings when the plugin creates the pool from `url` or `DATABASE_URL`. */
 	readonly connection?: PostgresConnectionOptions
 	readonly pool?: never
 	readonly url?: never
@@ -88,7 +88,7 @@ export interface PostgresEnvironmentOptions extends PostgresCommonOptions {
 
 /** Creates an application-owned pool from a private connection URL. */
 export interface PostgresUrlOptions extends PostgresCommonOptions {
-	/** Pool settings of the connection created from `url`. */
+	/** Pool settings when the plugin creates the pool from `url` or `DATABASE_URL`. */
 	readonly connection?: PostgresConnectionOptions
 	readonly pool?: never
 	/** Connection URL; it always wins over `DATABASE_URL`. */
@@ -97,7 +97,7 @@ export interface PostgresUrlOptions extends PostgresCommonOptions {
 
 /** Uses a developer-owned pg-compatible pool without taking disposal ownership. */
 export interface PostgresExistingPoolOptions extends PostgresCommonOptions {
-	/** An injected pool keeps its own settings. */
+	// An injected pool keeps its own settings.
 	readonly connection?: never
 	readonly pool: PostgresPool
 	readonly url?: never
