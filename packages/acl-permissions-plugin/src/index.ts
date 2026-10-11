@@ -1,5 +1,9 @@
 export { aclPermissions } from './acl-contracts.js'
-export type { ACLPermission, ACLPrincipal } from './acl-contracts.js'
+export type {
+	ACLPermission,
+	ACLPermissionInput,
+	ACLPrincipal,
+} from './acl-contracts.js'
 export type { ACLJSON, ACLPrincipalJSON, ACLRoleJSON } from './acl-json.js'
 export { ACL } from './acl.js'
 export type { ACLContainmentOperand } from './acl-containment.js'
@@ -29,10 +33,13 @@ export type {
 	ACLPlugin,
 	ACLRules,
 	ACLSchemaRules,
+	ACLShapeFields,
 	ACLShapeSource,
 } from './plugin.js'
 export type { ACLEntryLimits, ACLPluginOptions } from './acl-limits.js'
 export type {
+	ACLClientSharing,
+	ACLClientSharingInput,
 	ACLCreateInputResolution,
 	ACLDefaultFactory,
 	ACLDefaultInput,
@@ -40,7 +47,13 @@ export type {
 	ACLInputResolver,
 	ACLNormalizedUpdateInput,
 	ACLNormalizedUpdateOperation,
+	ACLRule,
 	ACLSchemaLimits,
-	ACLSchemaOption,
 	ACLUpdateInputResolution,
 } from './acl-option.js'
+export type {
+	ACLChangeInput,
+	ACLGrantInput,
+	ACLRevokeInput,
+} from './acl-change.js'
+export type { ACLEntry } from './acl-entries.js'

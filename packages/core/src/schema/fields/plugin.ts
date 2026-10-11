@@ -25,9 +25,11 @@ import type {
 	ValidatedFieldOptions,
 } from './base/contract.js'
 import type {
+	PluginFieldExistingRows,
 	PluginFieldStorageCodec,
 	PluginFieldWireCodec,
 } from './base/definition.js'
+import type { SchemaDefinition } from '../schema/definition.js'
 import { snapshotJsonValue } from './base/portable-json.js'
 
 /** Retains plugin-owned and installed option metadata for application compilation. */
@@ -87,6 +89,25 @@ export interface PluginFieldNormalizers<
 	readonly wireCodecs?: readonly PluginFieldWireCodec<TValue>[]
 	/** Enables a portable partial JSON containment operand for non-list fields. */
 	readonly structuralContains?: PluginFieldStructuralContains<TStructuralContainsOperand>
+	/**
+	 * Accepts update data besides the field value, such as ACL's `{ grant }`
+	 * (ADR-0321). The owning plugin must turn the result into a field value in
+	 * a singular prepared update; storage never receives it. Type the input
+	 * with `FieldUpdateInputCarrier` on the field type.
+	 */
+	readonly snapshotUpdateInput?: (value: unknown, path: string) => unknown
+	/**
+	 * Tells storage what existing rows of `schema` receive when the field is
+	 * added to a table that already has rows (ADR-0321).
+	 */
+	readonly existingRows?: (
+		schema: SchemaDefinition,
+	) => PluginFieldExistingRows<TValue>
+	/**
+	 * Keeps a database default for rows written without this field, for
+	 * example after a schema stops declaring it. Never used as input.
+	 */
+	readonly storageDefault?: TValue
 }
 
 /** Defines the field owner's exact partial operand snapshot at the Query boundary. */
@@ -103,6 +124,9 @@ const normalizerKeys = new Set([
 	'storageCodec',
 	'wireCodecs',
 	'structuralContains',
+	'snapshotUpdateInput',
+	'existingRows',
+	'storageDefault',
 ])
 const structuralContainsKeys = new Set(['snapshotOperand'])
 const isCodecFunction = (
@@ -290,9 +314,31 @@ export const definePluginField = <
 		}
 	}
 
+	for (const key of ['snapshotUpdateInput', 'existingRows'] as const) {
+		if (
+			normalizers[key] !== undefined &&
+			typeof normalizers[key] !== 'function'
+		) {
+			throw new TypeError(`Plugin field ${key} must be a function`)
+		}
+	}
+	const { existingRows, snapshotUpdateInput } = normalizers
+	const storageDefault =
+		normalizers.storageDefault === undefined
+			? undefined
+			: immutableRecord({
+					value: snapshotValue(
+						normalizers.storageDefault,
+						'Plugin field storageDefault',
+					),
+				})
+
 	return createFieldDefinition(kind, normalizedOptions, snapshotValue, {
 		deferRequiredUntilResolveInput:
 			normalizers.deferRequiredUntilResolveInput === true,
+		...(snapshotUpdateInput === undefined ? {} : { snapshotUpdateInput }),
+		...(existingRows === undefined ? {} : { existingRows }),
+		...(storageDefault === undefined ? {} : { storageDefault }),
 		wireCodecs,
 		...(storageCodec === undefined ? {} : { storageCodec }),
 		...(structuralContains === undefined ? {} : { structuralContains }),

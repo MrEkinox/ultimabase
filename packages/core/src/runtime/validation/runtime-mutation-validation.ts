@@ -5,7 +5,10 @@ import {
 	type SchemaValidationPlan,
 	type ValidationIssuePath,
 } from '../../schema/index.js'
-import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
+import {
+	getFieldSchemaTarget,
+	hasFieldUpdateInput,
+} from '../../schema/fields/base/definition.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -20,6 +23,7 @@ import type {
 import {
 	appendIssue,
 	snapshotScalarValue,
+	snapshotUpdateInputValue,
 	validateFieldValue,
 	validateSchemaInput,
 	type ValidationExecution,
@@ -306,13 +310,22 @@ export const validateUpdateExpression = (
 						execution,
 						false,
 					)
-				: validateFieldValue(
-						fieldPlan,
-						candidate.value,
-						valuePath,
-						execution,
-						false,
-					)
+				: fieldPlan.kind === 'scalar' &&
+					  hasFieldUpdateInput(fieldPlan.field) &&
+					  candidate.value !== null
+					? snapshotUpdateInputValue(
+							fieldPlan.field,
+							candidate.value,
+							valuePath,
+							execution,
+						)
+					: validateFieldValue(
+							fieldPlan,
+							candidate.value,
+							valuePath,
+							execution,
+							false,
+						)
 
 		if (fieldResult.valid) {
 			operations.push(

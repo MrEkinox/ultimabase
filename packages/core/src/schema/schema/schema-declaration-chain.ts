@@ -77,7 +77,8 @@ export interface SchemaRulesMethod<
 			TSource['schemaRules'],
 			SchemaRulesTarget<
 				ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
-			>
+			>,
+			SchemaShapeOf<TOptions>
 		> &
 			ConfiguredSchemaRuleOptions<TSource, TClassName, TFields, TOptions> &
 			ConfiguredSchemaIndexRules<TSource, TClassName, TFields, TOptions>,

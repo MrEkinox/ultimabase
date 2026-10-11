@@ -1,6 +1,11 @@
 import { Buffer } from 'node:buffer'
 
-import type { PointerReferentialAction } from '@ultimabase/core'
+import {
+	Schema,
+	readPluginFieldExistingRows,
+	type PluginFieldExistingRows,
+	type PointerReferentialAction,
+} from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { getTableName } from 'drizzle-orm'
 import {
@@ -33,10 +38,18 @@ const renderDefaultExpression = (
 	const declaredDefault: unknown = column.default
 
 	if (declaredDefault === undefined) return undefined
+	return renderValueExpression(column, type, declaredDefault)
+}
 
+/** Renders one logical value of `column` as an SQL literal. */
+const renderValueExpression = (
+	column: PgColumn,
+	type: string,
+	logical: unknown,
+): string => {
 	// Drizzle columns own logical-to-storage mapping for static defaults too.
 	const value: unknown =
-		declaredDefault === null ? null : column.mapToDriverValue(declaredDefault)
+		logical === null ? null : column.mapToDriverValue(logical)
 
 	if (value === null) {
 		return type === 'jsonb' ? "'null'::jsonb" : 'NULL'
@@ -76,6 +89,7 @@ const foreignKeyActions = new Map<
 
 /** Logical facts of one column that Drizzle metadata does not carry. */
 interface DesiredColumnFacts {
+	readonly existingRows?: PluginFieldExistingRows
 	readonly field: string
 	readonly renamedFrom?: string
 }
@@ -103,9 +117,23 @@ const compileDesiredTable = (
 				const identity = column.generatedIdentity?.type
 				const facts = factsByColumn.get(column.name)
 				const renamedFrom = facts?.renamedFrom
+				const backfill = facts?.existingRows
+				const existingRows =
+					backfill === undefined
+						? undefined
+						: 'missing' in backfill
+							? immutableRecord({ missing: backfill.missing })
+							: immutableRecord({
+									expression: renderValueExpression(
+										column,
+										type,
+										backfill.value,
+									),
+								})
 
 				return immutableRecord({
 					...(defaultExpression === undefined ? {} : { defaultExpression }),
+					...(existingRows === undefined ? {} : { existingRows }),
 					...(facts === undefined ? {} : { field: facts.field }),
 					...(identity === undefined ? {} : { identity }),
 					name: column.name,
@@ -164,8 +192,19 @@ const compileDesiredTable = (
 }
 
 /** Normalizes Drizzle table metadata while overlaying field names and rename intent. */
+/** Reads the neutral `existingRows` metadata of one top-level plugin field. */
+const readExistingRows = (
+	definition: unknown,
+	{ plan }: CompiledPostgresField,
+): PluginFieldExistingRows | undefined =>
+	// Private storage collections are not schemas and declare nothing.
+	!Schema.is(definition) || plan.kind !== 'scalar'
+		? undefined
+		: readPluginFieldExistingRows(plan.field, definition)
+
 export const compileDesiredPostgresTables = (
 	schemas: readonly Readonly<{
+		readonly definition?: unknown
 		readonly fields: Readonly<Record<string, CompiledPostgresField>>
 		readonly table: PgTable
 	}>[],
@@ -177,13 +216,22 @@ export const compileDesiredPostgresTables = (
 				schema.table,
 				new Map(
 					Object.entries(schema.fields).map(
-						([field, { column, renamedFrom }]): [
-							string,
-							DesiredColumnFacts,
-						] => [
-							column.name,
-							renamedFrom === undefined ? { field } : { field, renamedFrom },
-						],
+						([field, compiled]): [string, DesiredColumnFacts] => {
+							const existingRows = readExistingRows(
+								schema.definition,
+								compiled,
+							)
+							return [
+								compiled.column.name,
+								{
+									field,
+									...(compiled.renamedFrom === undefined
+										? {}
+										: { renamedFrom: compiled.renamedFrom }),
+									...(existingRows === undefined ? {} : { existingRows }),
+								},
+							]
+						},
 					),
 				),
 			),

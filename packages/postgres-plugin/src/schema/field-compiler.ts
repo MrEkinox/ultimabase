@@ -1,5 +1,6 @@
 import {
 	getPluginFieldStorageCodec,
+	readPluginFieldStorageDefault,
 	type FieldValidationPlan,
 	type GenericField,
 	type SchemaDefinition,
@@ -305,10 +306,15 @@ export const compilePostgresFieldBuilder = (
 	const columnName = toPostgresColumnName(fieldName)
 	const field = plan.field
 	const options = readFieldOptions(field)
+	// A plugin field's storage default stays in the table for rows written
+	// without it, for example after a schema stops declaring it (ADR-0321).
+	const storageDefault = readPluginFieldStorageDefault(field)
 	const declared: StaticDefault =
 		Object.hasOwn(options, 'default') && typeof options.default !== 'function'
 			? { present: true, value: options.default }
-			: { present: false }
+			: storageDefault === undefined
+				? { present: false }
+				: { present: true, value: storageDefault.value }
 	const finish = (
 		builder: ConfigurableColumnBuilder,
 		storage: PostgresStorageKind,

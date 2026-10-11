@@ -28,6 +28,7 @@ declare const fieldValueMarker: unique symbol
 declare const fieldTypegenMarker: unique symbol
 declare const fieldStructuralContainsOperandMarker: unique symbol
 declare const fieldContainsInputMarker: unique symbol
+declare const fieldUpdateInputMarker: unique symbol
 declare const fieldOptionsValueType: unique symbol
 /** Resolves one source option template against the scalar or list field value. */
 export type ResolvedFieldSourceOptions<
@@ -485,6 +486,22 @@ export type FieldStructuralContainsOperand<TField> = TField extends {
 export interface FieldContainsInputCarrier<TInput> {
 	readonly [fieldContainsInputMarker]?: TInput
 }
+
+/**
+ * Declares an extra value a plugin field accepts in update data besides its
+ * own value, such as ACL's `{ grant }` (ADR-0321). The owning plugin turns it
+ * into a field value inside the singular prepared update; storage never sees it.
+ */
+export interface FieldUpdateInputCarrier<TInput> {
+	readonly [fieldUpdateInputMarker]?: TInput
+}
+
+/** Extracts the extra update input a field type declares, if any. */
+export type FieldUpdateInput<TField> = TField extends {
+	readonly [fieldUpdateInputMarker]?: infer TInput
+}
+	? TInput
+	: never
 
 /** Extracts the developer `contains` operand a field type declares, if any. */
 export type FieldContainsInput<TField> = TField extends {

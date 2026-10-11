@@ -20,6 +20,7 @@ import type {
 } from './contract.js'
 import { snapshotJsonValue } from './portable-json.js'
 import type { SchemaTarget } from '../../schema/targets.js'
+import type { SchemaDefinition } from '../../schema/definition.js'
 import type { RelationWhereDeclaration } from '../builtins/relation.js'
 import { assertPlainObject } from '../../../exact-object-validation.js'
 
@@ -148,7 +149,22 @@ export interface FieldDefinitionCapabilities {
 	readonly structuralContains?: { readonly snapshotOperand: OperandSnapshot }
 	/** Records Core-owned root option names for specialized factories. */
 	readonly optionsContract?: BuiltInFieldOptionsContract
+	/** Accepts the extra update input a plugin field declares (ADR-0321). */
+	readonly snapshotUpdateInput?: ScalarValueSnapshot
+	/** Tells storage what existing rows receive when the field is added (ADR-0321). */
+	readonly existingRows?: (schema: SchemaDefinition) => PluginFieldExistingRows
+	/** The value storage keeps as its default for rows written without the field. */
+	readonly storageDefault?: Readonly<{ value: unknown }>
 }
+
+/**
+ * What existing rows receive when storage adds a required plugin field to a
+ * table that already has rows: a fixed `value`, or why none exists (`missing`,
+ * a sentence naming what to declare).
+ */
+export type PluginFieldExistingRows<TValue = unknown> =
+	| Readonly<{ value: TValue }>
+	| Readonly<{ missing: string }>
 
 /** Private behavior retained for one factory-created field. */
 interface FieldCapabilities extends FieldDefinitionCapabilities {
@@ -277,6 +293,45 @@ export const getPluginFieldWireCodec = (
 	fieldCapabilities
 		.get(field)
 		?.wireCodecs?.find((codec) => codec.protocol === protocol)
+
+/**
+ * Snapshots one update `set` value: the field's extra update input when it
+ * declares one (ADR-0321), else its ordinary value.
+ */
+export const snapshotUpdateInputFieldValue = (
+	field: GenericField,
+	value: unknown,
+	path: string,
+): unknown => {
+	const capabilities = readFieldCapabilities(
+		field,
+		`${path} uses a field not created by a field factory`,
+	)
+	return (capabilities.snapshotUpdateInput ?? capabilities.snapshotValue)(
+		value,
+		path,
+	)
+}
+
+/** Reports whether one field accepts an extra update input. */
+export const hasFieldUpdateInput = (field: GenericField): boolean =>
+	fieldCapabilities.get(field)?.snapshotUpdateInput !== undefined
+
+/**
+ * Reads what existing rows of `schema` receive when storage adds this plugin
+ * field to a table with rows; `undefined` when the field declares nothing.
+ */
+export const readPluginFieldExistingRows = (
+	field: GenericField,
+	schema: SchemaDefinition,
+): PluginFieldExistingRows | undefined =>
+	fieldCapabilities.get(field)?.existingRows?.(schema)
+
+/** Reads the storage default of one plugin field, if it declares one. */
+export const readPluginFieldStorageDefault = (
+	field: GenericField,
+): Readonly<{ value: unknown }> | undefined =>
+	fieldCapabilities.get(field)?.storageDefault
 
 /** Reads only the inert protocol marker; plugin callbacks never leave Core ownership. */
 export const getPluginFieldStructuralContains = (

@@ -6,10 +6,17 @@ import {
 import { immutableArray } from '@ultimabase/shared'
 
 import {
+	expandACLPermissions,
 	normalizeACLPermissions,
 	type ACLPermission,
+	type ACLPermissionInput,
 	type ACLPrincipal,
 } from './acl-contracts.js'
+import {
+	createACLEntries,
+	principalKey,
+	type ACLEntry,
+} from './acl-entries.js'
 import {
 	createACLJSON,
 	parseACLJSON,
@@ -26,6 +33,9 @@ const ownerPermissions: readonly ACLPermission[] = immutableArray([
 
 /** Keeps each instance's state, its canonical frozen document, private. */
 const documents = new WeakMap<object, ACLJSON>()
+/** Principal Pointers granted on this instance, so `entries()` returns them. */
+const pointers = new WeakMap<object, ReadonlyMap<string, Pointer>>()
+const noPointers: ReadonlyMap<string, Pointer> = new Map()
 
 const emptyDocument: ACLJSON = createACLJSON({
 	version: 1,
@@ -67,6 +77,8 @@ interface SubjectSlot {
 		document: ACLJSON,
 		permissions: readonly ACLPermission[],
 	) => ACLJSON
+	/** The Pointer this slot names, retained for `entries()`. */
+	readonly pointer?: Pointer
 }
 
 const audienceSlot = (audience: 'authenticated' | 'public'): SubjectSlot => ({
@@ -86,7 +98,8 @@ const replaceEntry = <TEntry>(
 	...(replacement === undefined ? [] : [replacement]),
 ]
 
-const principalSlot = (principal: ACLPrincipal): SubjectSlot => {
+const principalSlot = (candidate: ACLPrincipal): SubjectSlot => {
+	const principal: unknown = candidate
 	if (!Pointer.is(principal)) {
 		throw new TypeError('ACL principal must be a Pointer')
 	}
@@ -95,6 +108,7 @@ const principalSlot = (principal: ACLPrincipal): SubjectSlot => {
 		entry.className === className && entry.id === id
 
 	return {
+		pointer: principal,
 		read: (document) => document.principals.find(matches)?.permissions ?? [],
 		write: (document, permissions) => ({
 			...document,
@@ -128,12 +142,23 @@ const roleSlot = (role: RequestRoleSubject): SubjectSlot => {
 
 /** Derives a new ACL whose `slot` rights are `change(current, requested)`. */
 const edit = (
-	document: ACLJSON,
+	acl: ACL,
 	slot: SubjectSlot,
 	change: PermissionChange,
-	requested: readonly ACLPermission[],
-): ACL =>
-	createACL(slot.write(document, change(slot.read(document), requested)))
+	requested: readonly ACLPermissionInput[],
+): ACL => {
+	const document = stateOf(acl)
+	const known = pointers.get(acl) ?? noPointers
+	return createACL(
+		slot.write(
+			document,
+			change(slot.read(document), expandACLPermissions(requested)),
+		),
+		slot.pointer === undefined
+			? known
+			: new Map([...known, [principalKey(slot.pointer), slot.pointer]]),
+	)
+}
 
 /** Returns a detached frozen copy of one subject's rights. */
 const snapshot = (
@@ -190,22 +215,25 @@ export class ACL {
 						),
 					),
 		)
+		if (Pointer.is(candidate)) {
+			pointers.set(this, new Map([[principalKey(candidate), candidate]]))
+		}
 		Object.freeze(this)
 	}
 
 	/** Adds public rights without replacing existing public rights. */
-	grantPublic(...permissions: readonly ACLPermission[]): ACL {
-		return edit(stateOf(this), publicSlot, grant, permissions)
+	grantPublic(...permissions: readonly ACLPermissionInput[]): ACL {
+		return edit(this, publicSlot, grant, permissions)
 	}
 
 	/** Removes only the supplied public rights. */
-	revokePublic(...permissions: readonly ACLPermission[]): ACL {
-		return edit(stateOf(this), publicSlot, revoke, permissions)
+	revokePublic(...permissions: readonly ACLPermissionInput[]): ACL {
+		return edit(this, publicSlot, revoke, permissions)
 	}
 
 	/** Replaces the complete public right set; no rights clears it. */
-	setPublicPermissions(...permissions: readonly ACLPermission[]): ACL {
-		return edit(stateOf(this), publicSlot, replace, permissions)
+	setPublicPermissions(...permissions: readonly ACLPermissionInput[]): ACL {
+		return edit(this, publicSlot, replace, permissions)
 	}
 
 	/** Returns a detached readonly snapshot of public rights. */
@@ -219,18 +247,18 @@ export class ACL {
 	}
 
 	/** Adds authenticated-principal rights without replacing existing rights. */
-	grantAuthenticated(...permissions: readonly ACLPermission[]): ACL {
-		return edit(stateOf(this), authenticatedSlot, grant, permissions)
+	grantAuthenticated(...permissions: readonly ACLPermissionInput[]): ACL {
+		return edit(this, authenticatedSlot, grant, permissions)
 	}
 
 	/** Removes only the supplied authenticated-principal rights. */
-	revokeAuthenticated(...permissions: readonly ACLPermission[]): ACL {
-		return edit(stateOf(this), authenticatedSlot, revoke, permissions)
+	revokeAuthenticated(...permissions: readonly ACLPermissionInput[]): ACL {
+		return edit(this, authenticatedSlot, revoke, permissions)
 	}
 
 	/** Replaces the authenticated-principal right set; no rights clears it. */
-	setAuthenticatedPermissions(...permissions: readonly ACLPermission[]): ACL {
-		return edit(stateOf(this), authenticatedSlot, replace, permissions)
+	setAuthenticatedPermissions(...permissions: readonly ACLPermissionInput[]): ACL {
+		return edit(this, authenticatedSlot, replace, permissions)
 	}
 
 	/** Returns a detached readonly snapshot of authenticated-principal rights. */
@@ -246,25 +274,25 @@ export class ACL {
 	/** Adds rights for one exact schema-qualified principal Pointer. */
 	grantPrincipal(
 		principal: ACLPrincipal,
-		...permissions: readonly ACLPermission[]
+		...permissions: readonly ACLPermissionInput[]
 	): ACL {
-		return edit(stateOf(this), principalSlot(principal), grant, permissions)
+		return edit(this, principalSlot(principal), grant, permissions)
 	}
 
 	/** Removes only the supplied rights from one exact principal. */
 	revokePrincipal(
 		principal: ACLPrincipal,
-		...permissions: readonly ACLPermission[]
+		...permissions: readonly ACLPermissionInput[]
 	): ACL {
-		return edit(stateOf(this), principalSlot(principal), revoke, permissions)
+		return edit(this, principalSlot(principal), revoke, permissions)
 	}
 
 	/** Replaces one principal's complete right set; no rights removes the entry. */
 	setPrincipalPermissions(
 		principal: ACLPrincipal,
-		...permissions: readonly ACLPermission[]
+		...permissions: readonly ACLPermissionInput[]
 	): ACL {
-		return edit(stateOf(this), principalSlot(principal), replace, permissions)
+		return edit(this, principalSlot(principal), replace, permissions)
 	}
 
 	/** Returns a detached readonly snapshot of one principal's rights. */
@@ -283,25 +311,25 @@ export class ACL {
 	/** Adds rights for one neutral role reference or persisted role carrier. */
 	grantRole(
 		role: RequestRoleSubject,
-		...permissions: readonly ACLPermission[]
+		...permissions: readonly ACLPermissionInput[]
 	): ACL {
-		return edit(stateOf(this), roleSlot(role), grant, permissions)
+		return edit(this, roleSlot(role), grant, permissions)
 	}
 
 	/** Removes only the supplied rights from one neutral role subject. */
 	revokeRole(
 		role: RequestRoleSubject,
-		...permissions: readonly ACLPermission[]
+		...permissions: readonly ACLPermissionInput[]
 	): ACL {
-		return edit(stateOf(this), roleSlot(role), revoke, permissions)
+		return edit(this, roleSlot(role), revoke, permissions)
 	}
 
 	/** Replaces one role's complete right set; no rights removes the entry. */
 	setRolePermissions(
 		role: RequestRoleSubject,
-		...permissions: readonly ACLPermission[]
+		...permissions: readonly ACLPermissionInput[]
 	): ACL {
-		return edit(stateOf(this), roleSlot(role), replace, permissions)
+		return edit(this, roleSlot(role), replace, permissions)
 	}
 
 	/** Returns a detached readonly snapshot of one role's rights. */
@@ -318,6 +346,22 @@ export class ACL {
 	}
 
 	/**
+	 * Lists who holds which rights (ADR-0321): `public` and `authenticated`
+	 * when they hold any, users as Pointers, roles as references whose name
+	 * Roles' `resolveRoleReference` reads.
+	 *
+	 * @example
+	 * ```ts
+	 * for (const entry of acl.entries()) {
+	 *   if (entry.kind === 'principal') console.log(entry.principal.id, entry.permissions)
+	 * }
+	 * ```
+	 */
+	entries(): readonly ACLEntry[] {
+		return createACLEntries(stateOf(this), pointers.get(this) ?? noPointers)
+	}
+
+	/**
 	 * Returns one deeply detached canonical JSON snapshot of this ACL.
 	 *
 	 * @example `const document = acl.toJSON()`
@@ -329,8 +373,12 @@ export class ACL {
 }
 
 /** Creates one ACL shell and attaches its canonical private document. */
-const createACL = (document: ACLJSON): ACL => {
+const createACL = (
+	document: ACLJSON,
+	known: ReadonlyMap<string, Pointer> = noPointers,
+): ACL => {
 	const acl = new ACL()
 	documents.set(acl, createACLJSON(document))
+	if (known.size > 0) pointers.set(acl, known)
 	return acl
 }

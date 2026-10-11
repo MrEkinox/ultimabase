@@ -13,6 +13,7 @@ import {
 	createValidationIssue,
 	validateScalarFieldShape,
 } from '../../schema/plans/scalar-shape-validation.js'
+import { snapshotUpdateInputFieldValue } from '../../schema/fields/base/definition.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -159,6 +160,33 @@ export const snapshotScalarValue = (
 			error instanceof Error ? error.message : 'Invalid scalar value',
 		)
 
+		return { valid: false }
+	}
+}
+
+/** Snapshots one update `set` value of a field declaring an extra update input (ADR-0321). */
+export const snapshotUpdateInputValue = (
+	field: GenericField,
+	value: unknown,
+	path: ValidationIssuePath,
+	execution: ValidationExecution,
+): ValueValidationResult => {
+	try {
+		return {
+			valid: true,
+			value: snapshotUpdateInputFieldValue(
+				field,
+				value,
+				path.map(String).join('.'),
+			),
+		}
+	} catch (error: unknown) {
+		appendIssue(
+			execution,
+			readScalarFailureCode(field),
+			path,
+			error instanceof Error ? error.message : 'Invalid update value',
+		)
 		return { valid: false }
 	}
 }

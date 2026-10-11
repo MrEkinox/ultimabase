@@ -9,6 +9,7 @@ import {
 	requestRoleResolverCapability,
 	Schema,
 	type DatabaseMutationMaterializationSource,
+	type Principal,
 	type RequestRoleResolver,
 	type RequestSubjectContext,
 	type RuntimeLogicalOperationAst,
@@ -22,6 +23,7 @@ import {
 import { immutableArray } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
+import { registerACLPrincipalSchemas } from './acl-entries.js'
 import {
 	resolveACLAccessSubjects,
 	type ACLAccessSubjects,
@@ -81,6 +83,8 @@ export interface ACLApplicationState {
 	readonly persistentRoleResolver: PersistentRoleResolver | undefined
 	/** Resolves request subjects once per engine, shared by every hook context. */
 	readonly resolveSubjects: () => Promise<ACLAccessSubjects>
+	/** The request principal, from the same cached subjects. */
+	readonly resolvePrincipal: () => Promise<Principal | undefined>
 	readonly collectACLChanges: (
 		context: RequestSubjectContext,
 		schema: SchemaDefinition,
@@ -96,6 +100,7 @@ const createACLApplicationState = (
 	pluginLimits: ResolvedACLEntryLimits,
 ): ACLApplicationState => {
 	const configs = readProtectedSchemaOptions(schemas)
+	registerACLPrincipalSchemas(schemas.values())
 	const options = new Map<SchemaDefinition, ProtectedSchemaOption>()
 	for (const [schema, config] of configs) {
 		const limits = resolveACLEntryLimits(pluginLimits, config.limits)
@@ -159,6 +164,7 @@ const createACLApplicationState = (
 						)
 					},
 		resolveSubjects,
+		resolvePrincipal: async () => (await resolveSubjects()).principal,
 		collectACLChanges: async (context, schema, kind, input) => {
 			const events: ACLChangedEvent[] = []
 			// Core has already validated and frozen these complete mutation snapshots.

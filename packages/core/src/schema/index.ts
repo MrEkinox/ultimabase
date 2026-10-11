@@ -90,9 +90,12 @@ export {
 	isFieldRequiredDeferred,
 	pluginFieldStructuralContainsProtocolVersion,
 	readFieldTypegenState,
+	readPluginFieldExistingRows,
+	readPluginFieldStorageDefault,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
 export type {
+	PluginFieldExistingRows,
 	PluginFieldStorageCodec,
 	PluginFieldWireCodec,
 	PluginFieldWireProtocol,
@@ -128,6 +131,8 @@ export type {
 	FieldScalarValue,
 	FieldContainsInput,
 	FieldContainsInputCarrier,
+	FieldUpdateInput,
+	FieldUpdateInputCarrier,
 	FieldStructuralContainsOperand,
 	FieldValue,
 	ResolveFieldTypegenState,
