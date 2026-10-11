@@ -1,4 +1,4 @@
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { accessPlugin, type AccessPluginOptions } from '../src/index.js'
@@ -31,7 +31,7 @@ const Counted = App.Schema.define({
 }).with({ access: { read: { many: true, exists: false } } })
 
 const run = async <TResult>(
-	schema: typeof Post | typeof Counted,
+	schema: SchemaDefinition,
 	scenario: (
 		ultimabase: Awaited<ReturnType<typeof start>>['ultimabase'],
 		database: ReturnType<typeof createFixtureDatabase>,
@@ -47,7 +47,7 @@ const run = async <TResult>(
 }
 
 const start = async (
-	schema: typeof Post | typeof Counted,
+	schema: SchemaDefinition,
 	options: AccessPluginOptions,
 ) => {
 	const database = createFixtureDatabase()
