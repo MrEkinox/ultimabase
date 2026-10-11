@@ -284,11 +284,12 @@ filesystem, or process claims.
 
 Generated application types also expose installed schema mutation names in
 `beforeOperation` and `afterOperation`. For example, with the
-[Soft Delete plugin](./soft-delete), `softDelete`, `restore`, and `purge`
-are separate logical branches. A `softDelete` implemented by a physical
-update runs `softDelete` Hooks, not native `update` Hooks. Master-only
-`restore` and `purge` still run business Hooks and never acquire public
-transport routes merely because a Hook exists.
+[Soft Delete plugin](./soft-delete), `softDeleteOne`, `restoreOne`, `purgeOne`
+and their `Many` forms are separate logical branches. A `softDeleteOne`
+implemented by a physical update runs `softDeleteOne` Hooks, not native
+`update` Hooks; a many-row command runs its Hooks once per row. Master-only
+`purgeOne` still runs business Hooks and never acquires a public transport
+route merely because a Hook exists.
 
 Compatible plugins can contribute `globalHooks()`, `schemaHooks()`, or
 `fieldHooks()` through `provideHookContributions()`. Their handlers retain

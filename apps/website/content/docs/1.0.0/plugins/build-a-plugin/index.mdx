@@ -7,10 +7,14 @@ contentType: guide
 order: 4
 outcome: Export a reusable plugin factory and verify its application-local setup result.
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-10-11
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
+  - packages/plugin-kit/src/define-plugin/define-plugin.ts
+  - packages/http-plugin/README.md
+  - tests/e2e/plugin-facade.postgres.e2e.test.ts
+  - docs/adr/0316-plugin-facade-and-projection-slots.md
   - packages/testing/README.md
   - docs/concepts/open-plugin-authoring.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
@@ -102,6 +106,73 @@ reason, or a reason for a privilege the plugin does not use, fails while the
 definition is still inert. There is no separate setup/hooks authoring model
 behind this API.
 
+### Or declare it with `definePlugin`
+
+Most plugins add a shape method, a `.with({ ... })` rule, a post-commit
+callback, or a route. `definePlugin` from `@ultimabase/plugin-kit` writes the
+`plugin()` call for you: the selectors, patches, schema mutations, contribution
+identifiers and static types come from one declarative object, and Core still
+derives the privileges.
+
+```ts title="src/archive.ts"
+import { dateTimeField } from '@ultimabase/core'
+import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+
+export const archivePlugin = () =>
+	definePlugin({
+		name: '@your-scope/archive-plugin',
+		shape: {
+			archivable: shapeMethod({
+				fields: { archivedAt: dateTimeField() },
+				commands: {
+					archiveOne: command({
+						authority: 'request',
+						effect: 'update',
+						data: () => ({ archivedAt: new Date().toISOString() }),
+					}),
+					archiveMany: command({
+						authority: 'request',
+						effect: 'update',
+						data: () => ({ archivedAt: new Date().toISOString() }),
+						target: 'many',
+					}),
+				},
+			}),
+		},
+	})
+```
+
+An application then declares `App.Schema.define({ ... }).archivable().with({})`
+and calls `Post.archiveOne({ id })` or `Post.archiveMany({ where })`. The
+added fields are written by the server only; `authority: 'request'` commands
+are ruled by Access under their own name, `'master'` commands need Master.
+Rules and post-commit callbacks read the schema's `.with` values:
+
+```ts title="src/audit.ts"
+import { definePlugin } from '@ultimabase/plugin-kit'
+
+export const auditPlugin = () =>
+	definePlugin({
+		name: '@your-scope/audit-plugin',
+		rules: {
+			audit: (value, path) => {
+				if (typeof value !== 'boolean')
+					throw new TypeError(`${path} must be a boolean`)
+				return value
+			},
+		},
+		afterCommit: ({ className, operation, rules }) => {
+			if (rules.audit === true)
+				console.info(`[audit] ${className} ${operation}`)
+		},
+	})
+```
+
+A transport supplies its own helper for `contributions`, such as
+`httpRoutes({ 'GET /health': () => Response.json({ status: 'ok' }) })` from
+`@ultimabase/http-plugin`. Keep raw `plugin()` for rules or commands that
+depend on the schema they apply to, as Access, Hooks and ACL do.
+
 ### Install test tooling
 
 Add the conformance harness and Vitest as development dependencies:
@@ -179,14 +250,15 @@ Start with the reader-visible behavior, then use the smallest owning contract.
 One feature may cross several boundaries; none is automatic merely because its
 neighbor exists.
 
-| You want to add                                                                 | Start with                                                                                                                     | Exact additional power                       |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| A schema, field, direct option, index, or additive patch                        | [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen)                                                  | `schema:declare`                             |
-| A public type reference used by the compiled graph                              | [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen#contribute-to-typegen)                            | `typegen:reference`                          |
-| An app-wide operation or item-oriented schema mutation                          | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)                                            | `operation:declare`, often `model:extend`    |
-| A GraphQL field or selected operation                                           | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql#expose-behavior-through-graphql)            | `transport:expose` for an owner contribution |
-| A shared protocol, lifecycle resource, observer, policy, or persistence rewrite | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure)                                    | Depends on the exact Core facade             |
-| A database adapter or owner-private record                                      | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#data-and-infrastructure-boundaries) | `storage:private` for owner-private records  |
+| You want to add                                                                    | Start with                                                                                                                     | Exact additional power                       |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| A shape method with fields and commands, a `.with` rule, or a post-commit callback | [`definePlugin`](#or-declare-it-with-defineplugin)                                                                             | Derived from what it declares                |
+| A schema, field, direct option, index, or additive patch                           | [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen)                                                  | `schema:declare`                             |
+| A public type reference used by the compiled graph                                 | [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen#contribute-to-typegen)                            | `typegen:reference`                          |
+| An app-wide operation or item-oriented schema mutation                             | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)                                            | `operation:declare`, often `model:extend`    |
+| A GraphQL field or selected operation                                              | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql#expose-behavior-through-graphql)            | `transport:expose` for an owner contribution |
+| A shared protocol, lifecycle resource, observer, policy, or persistence rewrite    | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure)                                    | Depends on the exact Core facade             |
+| A database adapter or owner-private record                                         | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#data-and-infrastructure-boundaries) | `storage:private` for owner-private records  |
 
 The full current privilege and environment-claim map is in
 [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#privilege-and-claim-reference).

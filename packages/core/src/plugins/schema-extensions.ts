@@ -28,7 +28,7 @@ export type PluginSchemaRulesSource<TRules extends SchemaRulesHKT> = Readonly<{
  * Higher-kinded slot through which one plugin adds fields to a schema from the
  * shape methods called on its declaration (ADR-0316). Core substitutes
  * `shape`, the record of the shape methods called so far and their arguments
- * (`{ softDelete: readonly [] }`), and reads `fields`. Fields never see the
+ * (`{ archivable: readonly [] }`), and reads `fields`. Fields never see the
  * schema, so they cannot create an initializer cycle.
  *
  * @example
@@ -246,7 +246,7 @@ const snapshotShapeMethod = (
  * Attaches the runtime of the shape methods one plugin declares in its source
  * type. Returns the same frozen plugin instance.
  *
- * @example `provideSchemaShapeMethods(instance, { softDelete: { sets: ['softDelete'], apply: () => ({ softDelete: 'replace-delete' }) } })`
+ * @example `provideSchemaShapeMethods(instance, { archivable: { sets: ['archivable'], apply: (options = {}) => ({ archivable: options }) } })`
  */
 export const provideSchemaShapeMethods = <
 	TPlugin extends PluginDefinition,

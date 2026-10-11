@@ -15,7 +15,7 @@ sources:
   - packages/http-plugin/README.md
   - packages/http-plugin/src/browser-bootstrap-path.ts
   - packages/rest-plugin/README.md
-  - packages/soft-delete-plugin/src/explicit.ts
+  - packages/plugin-kit/src/define-plugin/commands.ts
   - docs/adr/0240-static-operation-transport-planning.md
   - docs/adr/0261-command-compilation-and-binding-phases.md
   - docs/adr/0269-core-native-plugin-authoring.md
@@ -375,7 +375,8 @@ owner may describe only the optional payload's closed input types, not choose
 its own root name, target ID, result type, resolver, or authority. A
 Master-only mutation never enters the public SDL. The official
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
-mutations with both REST and GraphQL bindings.
+mutations with both REST and GraphQL bindings: `definePlugin` binds every
+one-row request command without input to both transports.
 
 ## REST and HTTP are separate choices
 

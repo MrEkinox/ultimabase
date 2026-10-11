@@ -65,15 +65,16 @@ same automatic mutation transaction.
 
 ## Official soft delete
 
-The application installs `softDeletePlugin({ defaultMode: 'disabled' })` and
-then makes each schema's intent explicit:
+The application installs `softDeletePlugin()`, and each schema states its own
+intent with the `.softDelete()` shape method:
 
-- `ExampleAuthor` uses `replace-delete`, so its ordinary `deleteOne`, REST
+- `ExampleAuthor` calls `.softDelete()`, so its ordinary `deleteOne`, REST
   `DELETE`, and GraphQL delete mutation keep the logical delete contract while
-  PostgreSQL writes a tombstone.
-- `ExampleArticle` uses `explicit`, so native delete remains a hard delete and a
-  separately authorized `softDelete` command is added.
-- `ExamplePrivateNote` omits the option and therefore inherits `disabled`.
+  PostgreSQL writes a tombstone and stamps `deletedAt`.
+- `ExampleArticle` calls `.softDelete({ mode: 'command' })`, so native delete
+  remains a hard delete and the separately authorized `softDeleteOne` command
+  hides a row.
+- `ExamplePrivateNote` does not call it, so its deletes stay physical.
 
 An authenticated direct call uses the configured schema class; results have no
 methods (ADR-0310). The example helper validates a real Password Auth session
@@ -85,11 +86,11 @@ import { softDeleteArticle } from './src/soft-delete.ts'
 await softDeleteArticle(ultimabase, articleId, sessionToken)
 ```
 
-The matching REST and GraphQL calls are generated from that same mutation
-descriptor; they are not custom business handlers:
+The matching REST and GraphQL calls are generated from that same command; they
+are not custom business handlers:
 
 ```sh
-curl "http://127.0.0.1:1337/api/v1/classes/ExampleArticle/ARTICLE_ID/soft-delete" \
+curl "http://127.0.0.1:1337/api/v1/classes/ExampleArticle/ARTICLE_ID/soft-delete-one" \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer SESSION_TOKEN' \
@@ -99,7 +100,7 @@ curl "http://127.0.0.1:1337/api/v1/classes/ExampleArticle/ARTICLE_ID/soft-delete
 
 ```graphql
 mutation SoftDelete($id: ID!) {
-	softDeleteExampleArticle(input: { id: $id }) {
+	softDeleteOneExampleArticle(input: { id: $id }) {
 		id
 		isDeleted
 		title
@@ -108,14 +109,17 @@ mutation SoftDelete($id: ID!) {
 ```
 
 Every ordinary read, count, existence check, pointer, and relation traversal
-excludes the resulting tombstone. `access.delete` and `access.softDelete` remain
-independent decisions. The Hooks plugin likewise reports `delete`,
-`softDelete`, `restore`, and `purge` as distinct logical operations. This
-example writes one `ExampleSoftDeleteEvent` in the same transaction to make the
-logical operation and its physical `update` or `delete` effect observable
-without adding a public audit route.
+excludes the resulting tombstone. `access.delete` and `access.softDeleteOne`
+remain independent decisions. The Hooks plugin likewise reports `delete`,
+`softDeleteOne`, `restoreOne`, and `purgeOne` as distinct logical operations.
+This example writes one `ExampleSoftDeleteEvent` in the same transaction to
+make the logical operation and its physical `update` or `delete` effect
+observable without adding a public audit route.
 
-Restoration and irreversible purge are server-only Master operations:
+Restoration stays server-side here: both schemas deny `access.restoreOne` and
+`access.restoreMany`, so the REST `restore-one` route and the GraphQL
+`restoreOne…` field refuse every client, and the helpers run with Master.
+Purge is Master-only:
 
 ```ts
 import { purgeArticle, restoreArticle } from './src/soft-delete.ts'
@@ -124,9 +128,9 @@ await restoreArticle(articleId)
 await purgeArticle(obsoleteArticleId)
 ```
 
-They are absent from REST and GraphQL. V1 also deliberately excludes
-include-deleted queries, deletion metadata, cascade behavior, uniqueness reuse,
-retention jobs, automatic purge, bulk soft delete, and nested soft delete.
+Purge and the many-row commands are absent from REST and GraphQL. The plugin
+also deliberately excludes include-deleted queries, deleter metadata, cascade
+behavior, retention jobs, automatic purge, and nested soft delete.
 
 ## Contextual relation views
 

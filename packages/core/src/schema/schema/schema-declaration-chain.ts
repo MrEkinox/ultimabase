@@ -83,7 +83,7 @@ export interface SchemaRulesMethod<
 }
 
 // A shape method is unavailable once called, or when the declaration already
-// sets the options it would set (`define({ softDelete: 'explicit' })`).
+// sets the options it would set (`define({ acl: { … } })` for `.acl()`).
 type AvailableShapeMethodName<
 	TMethods,
 	TOptions extends object,

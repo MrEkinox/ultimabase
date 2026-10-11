@@ -230,6 +230,28 @@ only applies the final correlation and privacy metadata: it replaces
 completion still replaces the handler outcome with the protocol-neutral
 `HTTP_REQUEST_TIMEOUT` response.
 
+### Routes for `definePlugin`
+
+`httpRoutes` contributes the routes of the calling plugin from one object,
+keyed by `"<METHOD> /<path>"`; each route's protocol identity is its key. It
+returns an ordinary provider, so it fits `definePlugin`'s `contributions` as
+well as a raw `plugin()` list (ADR-0316):
+
+```ts
+import { httpRoutes } from '@ultimabase/http-plugin'
+import { definePlugin } from '@ultimabase/plugin-kit'
+
+export const healthPlugin = () =>
+	definePlugin({
+		name: '@community/health',
+		contributions: [
+			httpRoutes({ 'GET /health': () => Response.json({ status: 'ok' }) }),
+		],
+	})
+```
+
+A malformed key or a missing handler fails when the plugin is defined.
+
 ## Implement a server provider
 
 Server plugins require `httpApplicationCapability` and

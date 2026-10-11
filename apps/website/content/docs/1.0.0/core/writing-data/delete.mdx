@@ -95,11 +95,12 @@ run no Hooks or policy on the referencing records. There is no
 general option to skip installed Hooks. See [Relationships](/docs/1.0.0/core/data-modeling/relationships)
 before deleting records that other schemas reference.
 
-With no delete-rewriting plugin, native delete physically removes the row. The
-optional Soft Delete plugin's `replace-delete` mode instead stores a tombstone
-while preserving the same logical delete result; its `explicit` mode leaves
-native delete physical and adds a separate `softDelete` command. Its own page
-covers configuration, restore, purge, and tombstone visibility.
+With no delete-rewriting plugin, native delete physically removes the row. On
+a schema declared with `.softDelete()`, the optional Soft Delete plugin instead
+stores a tombstone while preserving the same logical delete result;
+`.softDelete({ mode: 'command' })` leaves native delete physical and adds
+separate `softDeleteOne` and `softDeleteMany` commands. Its own page covers
+configuration, restore, purge, and tombstone visibility.
 
 ## Next steps
 
