@@ -191,9 +191,12 @@ void editProbe
 void hoverProbe
 `
 
+// Both forms time generation from an already constructed application, like
+// the current-Typegen probe; constructing the fixture is not generation.
+const runtimeFixture = createCurrentTypegenRuntimeFixture(schemaCount)
 const generationStartedAt = performance.now()
 createTypegenSnapshot(
-	createCurrentTypegenRuntimeFixture(schemaCount),
+	runtimeFixture,
 	`issue-6301-hybrid-${String(schemaCount)}`,
 )
 const generatedRegistry = createRegistry()
