@@ -62,7 +62,6 @@ export const ExampleRole = MinimalSchemaApplication.RoleSchema.define({
 	className: 'ExampleRole',
 	members: () => PasswordUser,
 	deletion: 'fail',
-	ensure: ['editor'],
 	fields: (field) => ({
 		description: field.string(),
 	}),

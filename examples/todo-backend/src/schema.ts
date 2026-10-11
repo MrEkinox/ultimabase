@@ -44,7 +44,6 @@ export const TodoRole = TodoSchemaApplication.RoleSchema.define({
 	className: 'TodoRole',
 	members: () => TodoUser,
 	deletion: 'fail',
-	ensure: ['editor'],
 	fields: (field) => ({
 		description: field.string({
 			description: 'Human-readable explanation of the role.',

@@ -109,8 +109,7 @@ The same file also contains:
 - field `resolveInput` Hooks and a schema business Hook that rejects reopening
   completed tasks;
 - `TodoRole`, declared through `App.RoleSchema.define()`, with custom fields,
-  an `ensure`d `editor` role, indexes, Access and Hooks in `.with(...)`,
-  members, and included roles;
+  indexes, Access and Hooks in `.with(...)`, members, and included roles;
 - the ACL field `.acl()` adds, configured by `.with({ acl })`.
 
 [`src/create-application.ts`](src/create-application.ts) installs the behavior
