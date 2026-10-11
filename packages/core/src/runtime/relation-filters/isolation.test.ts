@@ -1,5 +1,5 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { plugin } from '../../index.js'
+import { plugin } from '../../plugin.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 

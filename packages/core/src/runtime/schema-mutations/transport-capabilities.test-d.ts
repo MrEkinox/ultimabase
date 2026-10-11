@@ -2,13 +2,12 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	defineOperationTransport,
-	defineOperationValue,
-	defineSchemaMutation,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 	type SchemaMutationTransportBindingMetadata,
 	type SchemaMutationTransportWireInput,
 } from '../../index.js'
+import { defineOperationValue, defineSchemaMutation } from '../../plugin.js'
 
 const mutation = defineSchemaMutation({
 	authority: 'request',

@@ -1,14 +1,14 @@
 import path from 'node:path'
 
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	contributeDeclarations,
 	defineOperation,
 	defineOperationValue,
 	plugin as createPlugin,
 	defineSchemaMutation,
 	defineTypegenReference,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -25,7 +25,7 @@ const createGeneratedRegistry = (): string => {
 	})
 	const noInputReference = defineTypegenReference({
 		exportName: 'PluginSchemaMutationNoInput',
-		module: '@ultimabase/core',
+		module: '@ultimabase/core/plugin',
 	})
 	const Dynamic = UltimaBase.Schema.define({
 		className: 'SemanticDynamicPost',
@@ -139,6 +139,9 @@ const createService = (
 			moduleResolution: ts.ModuleResolutionKind.NodeNext,
 			paths: {
 				'@ultimabase/core': [corePath],
+				'@ultimabase/core/plugin': [
+					corePath.replace(/index(\.d)?\.ts$/u, 'plugin$1.ts'),
+				],
 				'@ultimabase/shared': ['packages/shared/src/index.ts'],
 			},
 			strict: true,
@@ -192,7 +195,7 @@ StaticPost.findMany(undefined, { ultimabase })
 const operation = ultimabase.operation('fixture.semantic.publish')
 operation.prepare({ id: 'post-2' })
 const operationExecution: Promise<Core.BaseItem> = operation.execute({ id: 'post-2' })
-const operationError: Core.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.rejected'
+const operationError: CorePlugin.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.rejected'
 const directSchema = schema.schema
 const Author = UltimaBase.Schema.define({
 	className: 'SemanticSurfaceAuthor',
@@ -237,7 +240,7 @@ schema.archive({ id: 'post-1', input: { id: 'reason-4' }, select: { missing: tru
 // @ts-expect-error -- Payload-free schema mutations omit the input property.
 schema.softDelete({ id: 'post-1', input: undefined })
 // @ts-expect-error -- Generated execution preserves declared public error codes.
-const unknownError: Core.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.unknown'
+const unknownError: CorePlugin.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.unknown'
 // @ts-expect-error -- Core no longer exports the official Hooks callback context.
 type RemovedHookContext = Core.HookContext
 // @ts-expect-error -- Core no longer exports native schema Access contracts.

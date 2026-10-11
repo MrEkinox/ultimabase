@@ -3,8 +3,8 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	applicationSchemaMutationSurfaceCapability,
 	type ApplicationSchemaMutationSurface,
-	type CapabilityConsumerValue,
 } from '../../index.js'
+import type { CapabilityConsumerValue } from '../../plugin.js'
 
 test('schema mutation surface capability retains its exact protocol', () => {
 	expectTypeOf(

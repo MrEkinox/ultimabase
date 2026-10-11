@@ -1,9 +1,9 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
 import {
-	plugin as createPlugin,
 	contributeApplication,
 	withPluginPrivileges,
-} from '../../foundation.js'
+} from '../../plugins/plugin-contributions.js'
 
 import { describe, expect, it } from 'vitest'
 

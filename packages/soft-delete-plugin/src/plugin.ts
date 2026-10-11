@@ -1,9 +1,14 @@
 import {
 	booleanField,
-	contributeDeclarations,
-	plugin,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
+	type BooleanField,
+	type ForbiddenMutationInputField,
+	type ScalarFieldTypegenState,
+} from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	plugin,
 	provideSchemaShapeMethods,
 	type PluginDeclarationContribution,
 	type PluginInstance,
@@ -14,10 +19,7 @@ import {
 	type PluginSchemaPatchSource,
 	type SchemaSelection,
 	type AddSchemaFieldOperation,
-	type BooleanField,
-	type ForbiddenMutationInputField,
-	type ScalarFieldTypegenState,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	patchSchemas,
 	schemaPatch,

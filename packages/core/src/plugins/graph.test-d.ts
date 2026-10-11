@@ -5,7 +5,7 @@ import {
 	normalizePlugins,
 	PluginGraph,
 	type NormalizedPlugin,
-} from '../index.js'
+} from '../plugin.js'
 
 test('exposes immutable ordered graph metadata', () => {
 	const plugin = createPlugin({

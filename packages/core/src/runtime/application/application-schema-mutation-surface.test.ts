@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	defineCapability,
-	defineOperationValue,
-	plugin as createPlugin,
-	contributeDeclarations,
-	defineSchemaMutation,
 	provideCapability,
 	requireCapability,
-} from '../../foundation.js'
+} from '../../plugins/capabilities.js'
+import { defineOperationValue } from '../../plugins/plugin-operations.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
+import { defineSchemaMutation } from '../../plugins/plugin-schema-mutations.js'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
 import {

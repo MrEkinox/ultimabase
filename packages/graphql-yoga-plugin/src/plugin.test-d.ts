@@ -1,4 +1,4 @@
-import type { PluginDefinition, PluginExports } from '@ultimabase/core'
+import type { PluginDefinition, PluginExports } from '@ultimabase/core/plugin'
 import { expectTypeOf } from 'vitest'
 
 import {

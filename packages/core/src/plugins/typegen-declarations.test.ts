@@ -7,7 +7,7 @@ import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineTypegenReference,
-} from '../index.js'
+} from '../plugin.js'
 
 const publicReference = defineTypegenReference({
 	exportName: 'WorkflowState',

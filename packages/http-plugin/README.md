@@ -109,7 +109,8 @@ credential-only request view, then returns an immutable derivative made with
 `withValue()`:
 
 ```ts
-import { RequestContextValue, plugin } from '@ultimabase/core'
+import { RequestContextValue } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import {
 	httpContextResolver,
 	provideHttpContextResolvers,
@@ -180,7 +181,7 @@ capability. Every provider requests `transport:expose`; Core retains its exact
 plugin and optional instance identity:
 
 ```ts
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import {
 	httpMount,
 	httpRoute,

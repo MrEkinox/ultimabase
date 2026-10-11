@@ -2,11 +2,10 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import {
-	plugin as createPlugin,
-	contributeDeclarations,
 	definePluginFieldFamily,
 	type PluginFieldFamilyDefinition,
 } from '../../index.js'
+import { plugin as createPlugin, contributeDeclarations } from '../../plugin.js'
 import { createApplication } from '../../application/framework-application.js'
 
 const validDefinition = () => ({

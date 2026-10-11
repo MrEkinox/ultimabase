@@ -1,8 +1,5 @@
-import {
-	defineCapability,
-	type CapabilityToken,
-	type FrameworkErrorCode,
-} from '@ultimabase/core'
+import type { FrameworkErrorCode } from '@ultimabase/core'
+import { defineCapability, type CapabilityToken } from '@ultimabase/core/plugin'
 
 import type { AccessOperationKind, AccessPhase } from './execution-runtime.js'
 

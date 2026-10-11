@@ -2,10 +2,9 @@ import { onTestFinished, afterEach, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
 	databaseAdapterCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 
 import { restPlugin } from './plugin.js'
 

@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-	type ApplicationCallbackExecutor,
-	type ApplicationRequestExecutor,
-	type PluginIdentity,
-} from '@ultimabase/core'
+import type { ApplicationRequestExecutor } from '@ultimabase/core'
+
 import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
 import type { PasswordCredentialCollection } from './credentials.js'
@@ -16,7 +13,11 @@ import {
 	type PasswordSessionCollection,
 } from './sessions.js'
 import type { PasswordUserReference } from './user-schema.js'
-import { requestSources } from '@ultimabase/core/plugin'
+import {
+	requestSources,
+	type ApplicationCallbackExecutor,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 
 /** Exposes application-bound authenticated execution without raw Runtime access. */
 export interface PasswordAuthPluginExports {

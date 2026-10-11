@@ -2,18 +2,20 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	addSchemaField,
 	booleanField,
+	defineOperationTransport,
+	schemaMutationTransportBinding,
+	schemaMutationWireCodec,
+} from '@ultimabase/core'
+import {
+	addSchemaField,
 	contributeDeclarations,
 	contributeSchemaMutation,
-	defineOperationTransport,
 	defineOperationValue,
 	plugin,
 	provideCapability,
-	schemaMutationTransportBinding,
-	schemaMutationWireCodec,
 	defineSchemaMutation,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpApplicationIdHeader, httpPlugin } from '@ultimabase/http-plugin'

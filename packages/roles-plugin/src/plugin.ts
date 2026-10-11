@@ -1,26 +1,28 @@
 import {
 	Pointer,
-	contributeApplication,
-	contributeDeclarations,
 	getOperationSchema,
 	requestSubjectReferenceCleanupCapability,
 	requestRoleResolverCapability,
 	materializeSchemaModel,
-	optionalCapability,
-	plugin,
-	provideCapability,
 	provideRuntimeBehavior,
-	withPluginPrivileges,
 	type runtimeBehaviorCapability,
-	type CapabilityProviderDeclaration,
-	type CapabilityRequirement,
 	type CompiledSchemaRegistry,
 	type NamedRequestSubjectReferenceCleanup,
-	type PluginInstance,
 	type RelationMutationAction,
 	type RuntimeBehaviorStages,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	contributeApplication,
+	contributeDeclarations,
+	optionalCapability,
+	plugin,
+	provideCapability,
+	withPluginPrivileges,
+	type CapabilityProviderDeclaration,
+	type CapabilityRequirement,
+	type PluginInstance,
+} from '@ultimabase/core/plugin'
 import { createPluginEventDispatcher } from '@ultimabase/plugin-kit'
 import {
 	immutableArray,

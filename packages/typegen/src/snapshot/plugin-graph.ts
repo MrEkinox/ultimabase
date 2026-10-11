@@ -1,4 +1,4 @@
-import type { CompiledTypegenGraph } from '@ultimabase/core'
+import type { CompiledTypegenGraph } from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { SchemaTypegenError } from '../errors.js'

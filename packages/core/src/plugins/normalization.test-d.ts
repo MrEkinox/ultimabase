@@ -4,7 +4,7 @@ import {
 	plugin as createPlugin,
 	normalizePlugins,
 	type NormalizedPlugin,
-} from '../index.js'
+} from '../plugin.js'
 
 test('exposes immutable normalized plugin metadata', () => {
 	const plugin = createPlugin({

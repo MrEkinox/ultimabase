@@ -1,9 +1,5 @@
-import {
-	databaseAdapterCapability,
-	plugin,
-	provideCapability,
-	UltimaBase,
-} from '@ultimabase/core'
+import { databaseAdapterCapability, UltimaBase } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import process from 'node:process'
 import * as v from 'valibot'

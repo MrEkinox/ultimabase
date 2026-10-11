@@ -1,12 +1,10 @@
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import {
-	contributeSchemaMutation,
-	defineOperationValue,
-	plugin,
-	defineSchemaMutation,
-} from '../../foundation.js'
+import { contributeSchemaMutation } from '../../plugins/plugin-command-contributions.js'
+import { defineOperationValue } from '../../plugins/plugin-operations.js'
+import { plugin } from '../../plugins/plugin.js'
+import { defineSchemaMutation } from '../../plugins/plugin-schema-mutations.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
 import {
 	schemaMutationTransportBinding,

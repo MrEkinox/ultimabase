@@ -87,14 +87,14 @@ state field and index. The option's normalized return type is also its source
 authoring type, so the plugin does not publish a second Typegen declaration:
 
 ```ts title="src/index.ts"
+import { stringField } from '@ultimabase/core'
 import {
 	addSchemaField,
 	addSchemaIndex,
 	contributeDeclarations,
 	defineSchemaOption,
 	plugin,
-	stringField,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 const workflowOption = defineSchemaOption({
 	normalize(value, path) {
@@ -217,7 +217,10 @@ instead of emitting another copy for each surface.
 For an operation value, attach a nominal reference to its snapshot contract:
 
 ```ts title="src/operation-values.ts"
-import { defineOperationValue, defineTypegenReference } from '@ultimabase/core'
+import {
+	defineOperationValue,
+	defineTypegenReference,
+} from '@ultimabase/core/plugin'
 
 export type WorkflowState = 'draft' | 'published'
 

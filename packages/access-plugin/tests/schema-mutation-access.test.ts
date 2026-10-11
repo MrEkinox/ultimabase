@@ -2,21 +2,23 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	UltimaBase,
+	databaseAdapterCapability,
+	stringField,
+	type DatabaseAdapter,
+	type SchemaDefinition,
+} from '@ultimabase/core'
+import {
 	addSchemaField,
 	contributeDeclarations,
 	contributeSchemaMutation,
-	databaseAdapterCapability,
 	defineOperationValue,
 	plugin,
 	defineSchemaMutation,
 	provideCapability,
-	stringField,
-	type DatabaseAdapter,
 	type PluginDefinition,
 	type PluginSourceState,
 	type PluginSchemaMutationDefinition,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import {

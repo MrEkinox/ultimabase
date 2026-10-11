@@ -1,5 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
+import { stringField } from '../index.js'
 import {
 	addSchemaField,
 	addSchemaIndex,
@@ -8,11 +9,10 @@ import {
 	contributeDeclarations,
 	defineSchemaOption,
 	requireCapability,
-	stringField,
 	type PluginSchemaDeclarationRegistrar,
 	type SchemaOptionAbsenceSelector,
 	type SchemaSelection,
-} from '../index.js'
+} from '../plugin.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 const workflowOption = defineSchemaOption({

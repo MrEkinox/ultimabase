@@ -13,9 +13,7 @@ import type {
 	ACLContainmentOperand as Plugin1_ACLContainmentOperand,
 	ACLSchemaOption as Plugin1_ACLSchemaOption,
 } from "@ultimabase/acl-permissions-plugin"
-import type {
-	PluginSchemaMutationNoInput as Plugin2_PluginSchemaMutationNoInput,
-} from "@ultimabase/core"
+import type { PluginSchemaMutationNoInput as Plugin2_PluginSchemaMutationNoInput } from "@ultimabase/core/plugin"
 import type {
 	SchemaHooksOption as Plugin3_SchemaHooksOption,
 } from "@ultimabase/hooks-plugin"

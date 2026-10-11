@@ -1,25 +1,27 @@
 import {
 	applicationRequestExecutionCapability,
-	contributeApplication,
-	contributeDeclarations,
-	contributeOperationBinding,
 	getOperationSchema,
-	plugin,
-	provideCapability,
 	provideRuntimeBehavior,
 	requestPrincipalResolverCapability,
-	requireCapability,
-	withPluginPrivileges,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DatabaseMutationOperationAst,
-	type PluginInstance,
-	type PluginOperationDefinition,
 	type RuntimeFinalMutationGuardStage,
 	type SchemaDefinition,
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
+import {
+	contributeApplication,
+	contributeDeclarations,
+	contributeOperationBinding,
+	plugin,
+	provideCapability,
+	requireCapability,
+	withPluginPrivileges,
+	type PluginInstance,
+	type PluginOperationDefinition,
+} from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 
 import { createPasswordCredentialCollection } from './credentials.js'

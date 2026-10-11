@@ -12,19 +12,20 @@ import {
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
-import {
-	UltimaBase,
-	contributeApplication,
-	plugin,
-	requireCapability,
-} from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
-import { anonymous } from '@ultimabase/core/plugin'
+import {
+	anonymous,
+	contributeApplication,
+	plugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 const explicitSoftDeleteTrace: string[] = []
 let rejectedSoftDeleteTitle: string | undefined

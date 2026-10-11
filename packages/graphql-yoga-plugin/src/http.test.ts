@@ -2,9 +2,9 @@ import {
 	FrameworkError,
 	MasterAuthority,
 	UltimaBase,
-	plugin,
 	getCurrentRequest,
 } from '@ultimabase/core'
+
 import {
 	graphqlPlugin,
 	type GraphqlApplication,
@@ -37,6 +37,7 @@ import {
 	RequestContext,
 	RequestContextValue,
 	anonymous,
+	plugin,
 } from '@ultimabase/core/plugin'
 
 const sessionPrincipal = new RequestContextValue<

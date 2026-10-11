@@ -1,9 +1,5 @@
-import {
-	databaseAdapterCapability,
-	plugin,
-	provideCapability,
-	UltimaBase,
-} from '@ultimabase/core'
+import { databaseAdapterCapability, UltimaBase } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { PreparedMutationTestAdapter } from '../../../tooling/vitest/prepared-mutation-adapter.js'

@@ -3,14 +3,16 @@ import {
 	MasterAuthority,
 	Pointer,
 	UltimaBase,
-	contributeApplication,
 	defineEnum,
-	plugin,
-	requireCapability,
 	toJSON,
 	type BinaryJSON,
 	type JsonOf,
 } from '@ultimabase/core'
+import {
+	contributeApplication,
+	plugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
 	httpApplicationIdHeader,

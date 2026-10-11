@@ -3,12 +3,10 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import {
-	defineOperationValue,
-	plugin as createPlugin,
-	contributeSchemaMutation,
-	defineSchemaMutation,
-} from '../../foundation.js'
+import { defineOperationValue } from '../../plugins/plugin-operations.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeSchemaMutation } from '../../plugins/plugin-command-contributions.js'
+import { defineSchemaMutation } from '../../plugins/plugin-schema-mutations.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
 // An unselected declaration must not demand a schema or execute its handler.

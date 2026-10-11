@@ -1,4 +1,4 @@
-import type { ApplicationCallbackExecutor } from '@ultimabase/core'
+import type { ApplicationCallbackExecutor } from '@ultimabase/core/plugin'
 import {
 	assertEnumType,
 	assertInputObjectType,

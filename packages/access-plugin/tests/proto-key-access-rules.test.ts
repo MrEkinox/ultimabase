@@ -1,10 +1,9 @@
 import {
 	databaseAdapterCapability,
-	plugin,
-	provideCapability,
 	UltimaBase,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { PreparedMutationTestAdapter } from '../../../tooling/vitest/prepared-mutation-adapter.js'

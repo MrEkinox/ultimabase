@@ -1,4 +1,4 @@
-import { provideCapability } from '../../../src/foundation.js'
+import { provideCapability } from '../../../src/plugin.js'
 import {
 	databaseAdapterCapability,
 	type DatabaseAdapter,

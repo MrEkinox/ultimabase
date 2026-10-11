@@ -5,8 +5,6 @@ import {
 	databaseAdapterCapability,
 	databaseFilterOperatorCapabilityVersion,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseFilterOperatorCapability,
 	type DatabaseOperationAst,
@@ -14,6 +12,7 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 
 import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'

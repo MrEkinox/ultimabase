@@ -3,7 +3,7 @@ import {
 	defineSchemaMutation,
 	type PluginSchemaMutationContribution,
 	type PluginSchemaMutationDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 import {
 	purgeMutationName,

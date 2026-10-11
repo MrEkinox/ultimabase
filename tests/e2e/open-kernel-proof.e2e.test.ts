@@ -4,12 +4,15 @@ import {
 	FrameworkError,
 	UltimaBase,
 	databaseAdapterCapability,
-	plugin,
 	getPluginFieldStorageCodec,
+} from '@ultimabase/core'
+
+import {
+	RequestContext,
+	plugin,
 	provideCapability,
 	type PluginPrivilege,
-} from '@ultimabase/core'
-import { RequestContext } from '@ultimabase/core/plugin'
+} from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	FakePublicOperationTransport,
@@ -420,6 +423,7 @@ void invalidWhere
 				paths: {
 					'@fixture/open-kernel': ['tests/e2e/fixtures/open-kernel-types.ts'],
 					'@ultimabase/core': ['packages/core/dist/index.d.ts'],
+					'@ultimabase/core/plugin': ['packages/core/dist/plugin.d.ts'],
 					'@ultimabase/shared': ['packages/shared/dist/index.d.ts'],
 				},
 				strict: true,

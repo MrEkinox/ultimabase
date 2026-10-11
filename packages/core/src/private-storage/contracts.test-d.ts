@@ -1,8 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	plugin as createPlugin,
-	contributeDeclarations,
 	definePrivateCollection,
 	privateStore,
 	stringField,
@@ -11,6 +9,7 @@ import {
 	type PrivateStorageAdapterCollection,
 	type PrivateStorageOperationRequest,
 } from '../index.js'
+import { plugin as createPlugin, contributeDeclarations } from '../plugin.js'
 
 declare const adapterCollection: PrivateStorageAdapterCollection
 

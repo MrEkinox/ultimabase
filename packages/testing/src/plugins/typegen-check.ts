@@ -1,4 +1,5 @@
-import type { PluginDefinition, SchemaDefinition } from '@ultimabase/core'
+import type { SchemaDefinition } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
 	generateApplicationTypes,

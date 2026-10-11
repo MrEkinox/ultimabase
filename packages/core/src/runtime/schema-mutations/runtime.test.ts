@@ -9,7 +9,7 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { plugin } from '../../foundation.js'
+import { plugin } from '../../plugins/plugin.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { RequestContext, requestSources } from '../context/request-context.js'

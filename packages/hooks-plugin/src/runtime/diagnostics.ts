@@ -1,8 +1,5 @@
-import {
-	defineCapability,
-	type FrameworkErrorCode,
-	type CapabilityToken,
-} from '@ultimabase/core'
+import type { FrameworkErrorCode } from '@ultimabase/core'
+import { defineCapability, type CapabilityToken } from '@ultimabase/core/plugin'
 import type {
 	FieldHookPhase,
 	SchemaHookPhase,

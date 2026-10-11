@@ -1,12 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
-import {
-	FrameworkError,
-	MasterAuthority,
-	UltimaBase,
-	contributeApplication,
-	plugin,
-	requireCapability,
-} from '@ultimabase/core'
+import { FrameworkError, MasterAuthority, UltimaBase } from '@ultimabase/core'
+
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import {
 	httpApplicationCapability,
@@ -23,7 +17,12 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
-import { anonymous } from '@ultimabase/core/plugin'
+import {
+	anonymous,
+	contributeApplication,
+	plugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 // ADR-0308: one link vocabulary, and every `connect`, `set` or `disconnect`
 // target must be visible; a hidden target is reported like a missing one.

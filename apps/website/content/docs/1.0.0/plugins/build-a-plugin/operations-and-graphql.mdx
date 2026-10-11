@@ -73,7 +73,7 @@ database work, so it forbids a transaction. The token stays independently
 exportable; its Core contribution correlates declaration and execution:
 
 ```ts title="src/operations.ts"
-import { defineOperation, defineOperationValue } from '@ultimabase/core'
+import { defineOperation, defineOperationValue } from '@ultimabase/core/plugin'
 
 const text = defineOperationValue((value, path): string => {
 	if (typeof value !== 'string') {
@@ -97,7 +97,7 @@ the single source for the static declaration, executable handler, owner-local
 identifier, optional wire bindings, and lifecycle resource boundary:
 
 ```ts title="src/plugin.ts"
-import { contributeOperation, plugin } from '@ultimabase/core'
+import { contributeOperation, plugin } from '@ultimabase/core/plugin'
 
 import { formatWorkflow } from './operations.js'
 
@@ -245,7 +245,7 @@ Replace the previous plugin definition with the version that installs both
 providers under the same owner and requests the additional privilege:
 
 ```ts title="src/plugin.ts"
-import { contributeOperation, plugin } from '@ultimabase/core'
+import { contributeOperation, plugin } from '@ultimabase/core/plugin'
 
 import { formatGraphqlBinding } from './graphql-binding.js'
 import { formatWorkflow } from './operations.js'
@@ -318,7 +318,7 @@ pnpm add graphql @ultimabase/graphql-plugin
 ```
 
 ```ts title="src/graphql-addon.ts"
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import { provideGraphqlSchemas } from '@ultimabase/graphql-plugin'
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 
@@ -402,7 +402,7 @@ example reads no application data; it still belongs to the selected HTTP
 application and requires its identity header:
 
 ```ts title="src/status-route.ts"
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import { httpRoute, provideHttpEndpoints } from '@ultimabase/http-plugin'
 
 export const statusRoutePlugin = () =>

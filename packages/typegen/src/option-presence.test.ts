@@ -1,16 +1,14 @@
 import path from 'node:path'
 
+import { UltimaBase, stringField, type FieldBuilder } from '@ultimabase/core'
 import {
-	UltimaBase,
 	addSchemaField,
 	defineFieldOption,
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineSchemaOption,
-	stringField,
-	type FieldBuilder,
 	type SchemaOptionRuntimeRequirement,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
@@ -135,7 +133,8 @@ describe('option-presence Typegen', () => {
 
 		const marker = '/* schema-option-completion */'
 		const sourceWithMarker = `${generated.contents}
-import { UltimaBase, contributeDeclarations, defineSchemaOption, plugin } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { contributeDeclarations, defineSchemaOption, plugin } from '@ultimabase/core/plugin'
 const documentOption = defineSchemaOption({
   normalize: (value: unknown) => {
     if (typeof value !== 'string') throw new TypeError('document must be a string')

@@ -6,17 +6,19 @@ product vocabulary to Core or mutating an exported schema class.
 ```ts
 import {
 	UltimaBase,
-	addSchemaField,
-	contributeDeclarations,
-	contributeSchemaMutation,
-	defineOperationValue,
 	defineOperationTransport,
-	defineSchemaMutation,
-	plugin,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 	stringField,
 } from '@ultimabase/core'
+import {
+	addSchemaField,
+	contributeDeclarations,
+	contributeSchemaMutation,
+	defineOperationValue,
+	defineSchemaMutation,
+	plugin,
+} from '@ultimabase/core/plugin'
 
 const Post = UltimaBase.Schema.define({
 	className: 'Post',

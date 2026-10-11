@@ -1,9 +1,5 @@
-import {
-	UltimaBase,
-	plugin,
-	contributeDeclarations,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
+import { plugin, contributeDeclarations } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { hooksPlugin } from '../src/plugin.js'

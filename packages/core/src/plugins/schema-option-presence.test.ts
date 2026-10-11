@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
 
+import { stringField, type FieldBuilder } from '../index.js'
 import {
 	addSchemaField,
 	addSchemaIndex,
@@ -9,11 +10,9 @@ import {
 	contributeDeclarations,
 	withPluginPrivileges,
 	defineSchemaOption,
-	stringField,
 	type SchemaSelectorOptions,
 	type SchemaSelection,
-	type FieldBuilder,
-} from '../index.js'
+} from '../plugin.js'
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 

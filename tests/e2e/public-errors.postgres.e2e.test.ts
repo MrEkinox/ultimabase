@@ -2,11 +2,9 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	PublicError,
 	UltimaBase,
-	contributeApplication,
-	plugin,
 	provideRuntimeBehavior,
-	requireCapability,
 } from '@ultimabase/core'
+
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
@@ -32,7 +30,12 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
-import { anonymous } from '@ultimabase/core/plugin'
+import {
+	anonymous,
+	contributeApplication,
+	plugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 // ADR-0305: a PublicError aborts and rolls back the operation, is never
 // retried, and reaches clients; any other error stays masked and logged.

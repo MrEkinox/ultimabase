@@ -2,22 +2,24 @@ import {
 	definePluginField,
 	definePluginFieldFamily,
 	definePluginFieldWireProtocol,
-	defineSchemaOption,
 	type CompiledSchemaRegistry,
 	type FieldContainsInputCarrier,
 	type FieldValueMap,
 	type PluginFieldDefinition,
 	type PluginFieldFamilyDefinition,
 	type Principal,
-	type PluginSourceOpaque,
-	type PluginSourceSchemaFieldValues,
 	type RequestSubjectContext,
 	type SchemaDefinition,
 	type SchemaFieldBuilderDeclaration,
 	type SchemaFields,
+} from '@ultimabase/core'
+import {
+	defineSchemaOption,
+	type PluginSourceOpaque,
+	type PluginSourceSchemaFieldValues,
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeRequirement,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	immutableRecord,
 	isPlainRecord,

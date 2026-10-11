@@ -1,12 +1,11 @@
 import type { Logger } from '@ultimabase/core'
-import {
-	type ApplicationCallbackExecutor,
-	type ApplicationRequestExecutor,
-	type ExposedOperationTransportBinding,
-	type ExposedSchemaMutationTransportBinding,
-	type PluginIdentity,
-	type SchemaDefinition,
+import type {
+	ApplicationRequestExecutor,
+	ExposedOperationTransportBinding,
+	ExposedSchemaMutationTransportBinding,
+	SchemaDefinition,
 } from '@ultimabase/core'
+
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import type { GraphQLFieldResolver } from 'graphql'
 
@@ -23,7 +22,11 @@ import {
 import type { GraphqlOperationExecution } from './operation-execution.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 import { normalizeGraphqlSelection } from './selection-normalization.js'
-import { RequestContext } from '@ultimabase/core/plugin'
+import {
+	RequestContext,
+	type ApplicationCallbackExecutor,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 
 type GeneratedResolver = GraphQLFieldResolver<unknown, unknown>
 

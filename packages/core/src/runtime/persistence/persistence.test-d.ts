@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	plugin as createPlugin,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
@@ -9,6 +8,7 @@ import {
 	type DatabasePersistencePlan,
 	type PersistencePlanOperationKind,
 } from '../../index.js'
+import { plugin as createPlugin } from '../../plugin.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { QueryBuilder } from '../../plugin.js'
 

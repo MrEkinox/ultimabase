@@ -1,5 +1,5 @@
+import { applicationRequestExecutionCapability } from '@ultimabase/core'
 import {
-	applicationRequestExecutionCapability,
 	contributeApplication,
 	optionalCapability,
 	plugin,
@@ -7,7 +7,7 @@ import {
 	requireCapability,
 	withPluginPrivileges,
 	type PluginInstance,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import {
 	assertNonEmptyString,

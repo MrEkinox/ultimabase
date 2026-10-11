@@ -6,12 +6,11 @@ import {
 	getOperationSchema,
 	MasterAuthority,
 	UltimaBase,
-	plugin,
 	preparedOperation,
 	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
-	type PluginSourceState,
 } from '@ultimabase/core'
+import { plugin, type PluginSourceState } from '@ultimabase/core/plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

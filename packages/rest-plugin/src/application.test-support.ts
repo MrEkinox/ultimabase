@@ -1,10 +1,12 @@
 import {
 	UltimaBase,
-	type PluginDefinition,
-	type PluginSourceState,
 	type SchemaDefinition,
 	type UltimaBaseInstanceOptions,
 } from '@ultimabase/core'
+import type {
+	PluginDefinition,
+	PluginSourceState,
+} from '@ultimabase/core/plugin'
 
 /** Initializes one setup-only UltimaBase fixture without reviving a Core factory. */
 export const initializeRestTestApplication = async <

@@ -1,5 +1,5 @@
 import type { FrameworkApplication } from '../../application/framework-application.js'
-import type { PluginDefinition } from '../../foundation.js'
+import type { PluginDefinition } from '../../plugins/definition.js'
 import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'

@@ -3,7 +3,7 @@ import {
 	type /* hover:option-equality-selector */ SchemaOptionEqualitySelector,
 	type /* hover:option-presence-selector */ SchemaOptionPresenceSelector,
 	type SchemaSelectorOptions,
-} from '../../src/index.js'
+} from '../../src/plugin.js'
 
 declare const absenceSelector: SchemaOptionAbsenceSelector
 declare const presenceSelector: SchemaOptionPresenceSelector

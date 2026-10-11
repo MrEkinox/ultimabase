@@ -1,11 +1,10 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	provideRuntimeBehavior,
 	UltimaBase,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import process from 'node:process'
 
 const trace = []

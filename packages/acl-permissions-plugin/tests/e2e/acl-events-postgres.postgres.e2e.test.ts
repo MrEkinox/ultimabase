@@ -6,12 +6,8 @@ import {
 	type ACLChangedEvent,
 	type aclChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
-import {
-	MasterAuthority,
-	UltimaBase,
-	plugin,
-	type PluginSourceState,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+import { plugin, type PluginSourceState } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'

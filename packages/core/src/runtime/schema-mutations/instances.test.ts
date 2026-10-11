@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-	addSchemaField,
-	contributeDeclarations,
-	contributeSchemaMutation,
-	defineOperationValue,
-	plugin as createPlugin,
-	defineSchemaMutation,
-} from '../../foundation.js'
+import { addSchemaField } from '../../plugins/schema-field-patch-operations.js'
+import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
+import { contributeSchemaMutation } from '../../plugins/plugin-command-contributions.js'
+import { defineOperationValue } from '../../plugins/plugin-operations.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { defineSchemaMutation } from '../../plugins/plugin-schema-mutations.js'
 import { stringField } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'

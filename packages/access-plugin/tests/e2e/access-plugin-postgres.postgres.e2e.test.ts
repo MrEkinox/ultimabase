@@ -4,12 +4,8 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
-import {
-	MasterAuthority,
-	UltimaBase,
-	plugin,
-	type PluginSourceState,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+import { plugin, type PluginSourceState } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

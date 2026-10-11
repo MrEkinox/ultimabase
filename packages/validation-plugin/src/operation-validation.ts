@@ -7,13 +7,13 @@ import {
 	readRuntimeFieldValuePath,
 	Schema,
 	snapshotRuntimeResultRecord,
-	type ApplicationCallbackExecutor,
 	type DatabaseMutationOperationAst,
 	type GenericField,
 	type RuntimePreparedMutationStageInput,
 	type SchemaValidationPlans,
 	type UpdateExpressionNode,
 } from '@ultimabase/core'
+import type { ApplicationCallbackExecutor } from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,

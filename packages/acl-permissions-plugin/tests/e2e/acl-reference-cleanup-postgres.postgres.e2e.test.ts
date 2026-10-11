@@ -12,15 +12,17 @@ import {
 	UltimaBase,
 	requestSubjectReferenceCleanupCapability,
 	createRequestPrincipalReference,
-	plugin,
-	contributeApplication,
-	optionalCapability,
-	withPluginPrivileges,
 	type RequestSubjectContext,
 	type RequestSubjectReferenceCleanup,
 	type NamedRequestSubjectReferenceCleanup,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	plugin,
+	contributeApplication,
+	optionalCapability,
+	withPluginPrivileges,
+} from '@ultimabase/core/plugin'
 import {
 	hooksPlugin,
 	provideHookContributions,

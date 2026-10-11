@@ -2,12 +2,11 @@ import {
 	FrameworkError,
 	MasterAuthority,
 	UltimaBase,
-	plugin,
 	runWithRequestEngine,
-	withPluginPrivileges,
 	type DatabaseTransactionAdapter,
 	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -27,7 +26,12 @@ import {
 import { defaultPasswordSessionPolicy } from '../src/session-policy.js'
 import * as sessions from '../src/sessions.js'
 import { PasswordUser } from '../src/user-schema.js'
-import { RequestContext, withContext } from '@ultimabase/core/plugin'
+import {
+	RequestContext,
+	withContext,
+	plugin,
+	withPluginPrivileges,
+} from '@ultimabase/core/plugin'
 
 describe('Password Auth refresh concurrency', () => {
 	it('rejects a generation invalidated after its read without rotating the session', async () => {

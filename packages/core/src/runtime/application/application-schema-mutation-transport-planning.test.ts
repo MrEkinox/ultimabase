@@ -3,17 +3,19 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	contributeDeclarations,
-	contributeSchemaMutation,
+	withPluginPrivileges,
+} from '../../plugins/plugin-contributions.js'
+import { contributeSchemaMutation } from '../../plugins/plugin-command-contributions.js'
+import {
 	defineCapability,
-	defineOperationValue,
-	plugin as createPlugin,
-	defineSchemaMutation,
 	provideCapability,
 	requireCapability,
-	withPluginPrivileges,
-	type ApplicationCallbackExecutor,
-	type PluginIdentity,
-} from '../../foundation.js'
+} from '../../plugins/capabilities.js'
+import { defineOperationValue } from '../../plugins/plugin-operations.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { defineSchemaMutation } from '../../plugins/plugin-schema-mutations.js'
+import { type ApplicationCallbackExecutor } from '../../plugins/callback-execution.js'
+import { type PluginIdentity } from '../../plugins/manifest.js'
 import { createApplication } from '../../application/framework-application.js'
 import { addSchemaField } from '../../plugins/schema-field-patch-operations.js'
 import { stringField } from '../../schema/index.js'

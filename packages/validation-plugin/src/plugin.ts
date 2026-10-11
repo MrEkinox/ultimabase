@@ -1,12 +1,12 @@
+import { provideRuntimeBehavior } from '@ultimabase/core'
 import {
 	contributeDeclarations,
 	plugin,
-	provideRuntimeBehavior,
 	type PluginDeclarationContribution,
 	type PluginDeclarationSource,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 import { fieldValidationOption } from './options.js'
 import {

@@ -1,20 +1,22 @@
 import {
 	UltimaBase,
-	contributeDeclarations,
-	contributeOperation,
-	defineOperation,
 	defineOperationTransport,
-	defineOperationValue,
-	defineSchemaOption,
-	defineTypegenReference,
 	intField,
 	operationTransportBinding,
 	operationWireCodec,
-	plugin as createPlugin,
 	stringField,
 	type JsonObject,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	contributeOperation,
+	defineOperation,
+	defineOperationValue,
+	defineSchemaOption,
+	defineTypegenReference,
+	plugin as createPlugin,
+} from '@ultimabase/core/plugin'
 import {
 	defineEvent,
 	onEvent,

@@ -1,10 +1,9 @@
+import { UltimaBase, type Logger } from '@ultimabase/core'
 import {
-	UltimaBase,
 	plugin,
 	provideCapability,
-	type Logger,
 	type PluginDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { describe, expect, it, vi } from 'vitest'
 
 import { httpRoute, provideHttpEndpoints } from './endpoints.js'

@@ -9,8 +9,6 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databasePluginFieldStructuralContainsCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -18,6 +16,7 @@ import {
 	type DatabaseTransactionAdapter,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
@@ -404,6 +403,7 @@ describe('independent protected policy engine', () => {
 				moduleResolution: ts.ModuleResolutionKind.NodeNext,
 				paths: {
 					'@ultimabase/core': ['packages/core/dist/index.d.ts'],
+					'@ultimabase/core/plugin': ['packages/core/dist/plugin.d.ts'],
 					'@ultimabase/shared': ['packages/shared/dist/index.d.ts'],
 				},
 				strict: true,

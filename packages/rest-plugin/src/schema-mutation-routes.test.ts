@@ -1,10 +1,12 @@
 import {
 	UltimaBase,
+	type ApplicationSchemaMutationTransportPlan,
+} from '@ultimabase/core'
+import {
 	plugin,
 	provideCapability,
-	type ApplicationSchemaMutationTransportPlan,
 	type PluginIdentity,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { initializeRestTestApplication as createApplication } from './application.test-support.js'
 import { describe, expect, it } from 'vitest'
 

@@ -5,10 +5,10 @@ import {
 	PublicError,
 	UltimaBase,
 	isAuthenticated,
-	plugin,
 	type PointerValue,
 	type PolicyPredicate,
 } from '@ultimabase/core'
+
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -24,6 +24,7 @@ import {
 	RequestContext,
 	RequestContextValue,
 	requestSources,
+	plugin,
 } from '@ultimabase/core/plugin'
 
 // ADR-0304: Core resolves the principal once per request and hands it to

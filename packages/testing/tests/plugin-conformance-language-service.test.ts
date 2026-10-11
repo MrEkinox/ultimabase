@@ -5,7 +5,8 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 
 const fileName = path.join(import.meta.dirname, 'plugin-conformance.fixture.ts')
 const source = `
-import { plugin, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import {
   createPluginConformanceFixture,
   definePluginConformanceSuite,

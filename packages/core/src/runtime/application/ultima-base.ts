@@ -16,9 +16,11 @@ import {
 	type ConfiguredPluginId,
 	type ConfiguredPluginIdentity,
 	type ConfiguredPluginIdentityExports,
+} from '../../foundation.js'
+import {
 	type PluginDefinition,
 	type PluginExports,
-} from '../../foundation.js'
+} from '../../plugins/definition.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
 import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'

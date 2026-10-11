@@ -1,14 +1,16 @@
 import {
-	addSchemaField,
-	contributeApplication,
-	contributeDeclarations,
 	databaseAdapterCapability,
-	plugin,
-	provideCapability,
 	stringField,
 	UltimaBase,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	addSchemaField,
+	contributeApplication,
+	contributeDeclarations,
+	plugin,
+	provideCapability,
+} from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { PreparedMutationTestAdapter } from '../../../../tooling/vitest/prepared-mutation-adapter.js'

@@ -1,8 +1,8 @@
 import type {
 	ApplicationSchemaMutationTransportPlan,
 	CompiledSchemaRegistry,
-	PluginIdentity,
 } from '@ultimabase/core'
+import type { PluginIdentity } from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { readRestSchemaRoutes, type RestSchemaRoutesOption } from './options.js'

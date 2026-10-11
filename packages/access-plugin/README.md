@@ -299,7 +299,7 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 
 export const editorialPolicyPlugin = plugin({
 	version: '1.0.0',

@@ -1,16 +1,20 @@
 import {
 	defineCapability,
-	defineOperation,
-	defineOperationValue,
-	plugin as createPlugin,
-	contributeDeclarations,
-	contributeOperationBinding,
 	provideCapability,
 	requireCapability,
+} from '../../plugins/capabilities.js'
+import {
+	defineOperation,
+	defineOperationValue,
+} from '../../plugins/plugin-operations.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import {
+	contributeDeclarations,
 	withPluginPrivileges,
-	type ApplicationCallbackExecutor,
-	type PluginIdentity,
-} from '../../foundation.js'
+} from '../../plugins/plugin-contributions.js'
+import { contributeOperationBinding } from '../../plugins/plugin-command-contributions.js'
+import { type ApplicationCallbackExecutor } from '../../plugins/callback-execution.js'
+import { type PluginIdentity } from '../../plugins/manifest.js'
 import {
 	createApplication,
 	FrameworkApplication,

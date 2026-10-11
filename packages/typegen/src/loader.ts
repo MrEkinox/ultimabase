@@ -1,10 +1,7 @@
 import path from 'node:path'
 
-import {
-	UltimaBase,
-	type PluginDefinition,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import { createJiti } from 'jiti'
 

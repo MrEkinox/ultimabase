@@ -116,6 +116,7 @@ export const createSourceLanguageServiceWorkspace =
 				paths: {
 					'@ultimabase/access-plugin': ['packages/access-plugin/src/index.ts'],
 					'@ultimabase/core': ['packages/core/src/index.ts'],
+					'@ultimabase/core/plugin': ['packages/core/src/plugin.ts'],
 					'@ultimabase/hooks-plugin': ['packages/hooks-plugin/src/index.ts'],
 					'@ultimabase/pg-vector-plugin': [
 						'packages/pg-vector-plugin/src/index.ts',

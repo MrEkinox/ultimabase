@@ -1,8 +1,8 @@
+import type { CompiledSchemaRegistry } from '@ultimabase/core'
 import type {
 	ApplicationCapabilityFactoryContext,
-	CompiledSchemaRegistry,
 	PluginCapabilityReader,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	assertNonEmptyString,
 	immutableArray,

@@ -1,8 +1,8 @@
+import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	defineSchemaOption,
-	type SchemaDefinition,
 	type SchemaOptionDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	definePluginOptionsParser,
 	type PluginOptionsParser,

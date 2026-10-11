@@ -1,11 +1,10 @@
 import {
 	databaseAdapterCapability,
-	plugin,
-	provideCapability,
 	registerPrivateStorageAdapter,
 	type DatabaseAdapter,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,

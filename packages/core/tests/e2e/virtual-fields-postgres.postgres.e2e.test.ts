@@ -1,9 +1,6 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import {
-	FrameworkError,
-	UltimaBase,
-	type PluginSourceState,
-} from '@ultimabase/core'
+import { FrameworkError, UltimaBase } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

@@ -1,9 +1,9 @@
+import { UltimaBase } from '@ultimabase/core'
 import {
-	UltimaBase,
 	plugin,
 	contributeApplication,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { httpApplicationCapability } from './application.js'

@@ -4,7 +4,7 @@ import {
 	runApplicationWork,
 } from '../../application/active-application.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
-import type { PluginDefinition } from '../../foundation.js'
+import type { PluginDefinition } from '../../plugins/definition.js'
 import type { MasterRequestAccess } from '../../access/index.js'
 import type {
 	ExecutableOperationAst,

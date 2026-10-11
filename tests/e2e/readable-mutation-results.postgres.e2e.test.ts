@@ -1,11 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
-import {
-	MasterAuthority,
-	UltimaBase,
-	contributeApplication,
-	plugin,
-	requireCapability,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import {
 	httpApplicationCapability,
@@ -23,7 +18,12 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
-import { anonymous } from '@ultimabase/core/plugin'
+import {
+	anonymous,
+	contributeApplication,
+	plugin,
+	requireCapability,
+} from '@ultimabase/core/plugin'
 
 // ADR-0306: mutation results obey the row read rules, like PostgreSQL's
 // RETURNING under row-level security.

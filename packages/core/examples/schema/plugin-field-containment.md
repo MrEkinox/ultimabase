@@ -7,12 +7,11 @@ snapshot is a separate partial contract:
 
 ```ts
 import {
-	contributeDeclarations,
 	definePluginFieldFamily,
 	definePluginField,
-	plugin,
 	type FieldOptions,
 } from '@ultimabase/core'
+import { contributeDeclarations, plugin } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 export interface SearchDocument {

@@ -1949,7 +1949,7 @@ Core owns one package-level authoring entry point. A package factory returns one
 direct `plugin()` call with stable facts and one ordered contribution list:
 
 ```ts
-import { contributeApplication, plugin } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 
 export const workflowPlugin = (instanceId?: string) =>
 	plugin({

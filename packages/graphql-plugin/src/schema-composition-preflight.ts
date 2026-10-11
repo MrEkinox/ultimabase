@@ -1,9 +1,9 @@
 import type { Logger } from '@ultimabase/core'
+import type { SchemaContributionOwner } from '@ultimabase/core'
 import type {
 	ApplicationCallbackExecutor,
 	PluginIdentity,
-	SchemaContributionOwner,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	isEnumType,
 	isInputObjectType,

@@ -2,7 +2,7 @@ import {
 	defineOperationValue,
 	defineTypegenReference,
 	type PluginOperationValueContract,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 /** Selects the application-wide fallback used when a schema omits `softDelete`. */
 export type SoftDeleteMode = 'disabled' | 'explicit' | 'replace-delete'

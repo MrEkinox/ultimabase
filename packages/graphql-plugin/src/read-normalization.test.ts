@@ -1,12 +1,11 @@
 import {
 	UltimaBase,
-	plugin,
-	contributeDeclarations,
 	definePluginField,
 	definePluginFieldFamily,
 	normalizeReadOperation,
 	type ReadOperationAst,
 } from '@ultimabase/core'
+import { plugin, contributeDeclarations } from '@ultimabase/core/plugin'
 import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import { graphql, type GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it, onTestFinished } from 'vitest'

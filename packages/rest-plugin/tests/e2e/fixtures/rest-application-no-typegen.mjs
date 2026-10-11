@@ -4,11 +4,13 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+} from '@ultimabase/core'
+import {
 	contributeApplication,
 	plugin,
 	provideCapability,
 	requireCapability,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { httpApplicationCapability, httpPlugin } from '@ultimabase/http-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 

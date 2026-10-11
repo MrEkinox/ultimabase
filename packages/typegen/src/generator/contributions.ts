@@ -23,7 +23,7 @@ export const renderGeneratedSurfaces = (
 			mutation.select.length === 0
 				? 'Readonly<Record<never, never>>'
 				: `Readonly<{ ${mutation.select.map((field) => `readonly ${propertyName(field)}: true`).join('; ')} }>`
-		return `Core.PluginSchemaMutationDefinition<${quote(mutation.mutation)}, ${quote(mutation.version)}, ${typeOf(mutation.input)}, ${renderErrors(mutation.errors)}, ${quote(mutation.authority)}, ${quote(mutation.effect)}, ${quote(mutation.returning)}, ${select}>`
+		return `CorePlugin.PluginSchemaMutationDefinition<${quote(mutation.mutation)}, ${quote(mutation.version)}, ${typeOf(mutation.input)}, ${renderErrors(mutation.errors)}, ${quote(mutation.authority)}, ${quote(mutation.effect)}, ${quote(mutation.returning)}, ${select}>`
 	}
 	const renderSurfaceType = (
 		mutations: readonly TypegenSchemaMutationSnapshot[],
@@ -44,7 +44,7 @@ ${mutations
 	}
 	const operations = snapshot.operations.map(
 		(operation) =>
-			`\t\treadonly ${quote(operation.name)}: Core.PluginOperationDefinition<${quote(operation.name)}, ${quote(operation.version)}, ${quote(operation.target)}, ${typeOf(operation.input)}, ${typeOf(operation.result)}, ${renderErrors(operation.errors)}>`,
+			`\t\treadonly ${quote(operation.name)}: CorePlugin.PluginOperationDefinition<${quote(operation.name)}, ${quote(operation.version)}, ${quote(operation.target)}, ${typeOf(operation.input)}, ${typeOf(operation.result)}, ${renderErrors(operation.errors)}>`,
 	)
 	// Empty projections remain compiled graph facts, but add no ambient types.
 	const surfaces = snapshot.surfaces

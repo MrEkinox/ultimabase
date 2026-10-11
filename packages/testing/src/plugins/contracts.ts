@@ -1,4 +1,7 @@
-import type { PluginEnvironmentClaim, PluginPrivilege } from '@ultimabase/core'
+import type {
+	PluginEnvironmentClaim,
+	PluginPrivilege,
+} from '@ultimabase/core/plugin'
 
 /** Names every invariant reported independently by the public conformance suite. */
 export type PluginConformanceContract =

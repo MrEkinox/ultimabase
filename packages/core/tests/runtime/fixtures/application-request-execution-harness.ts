@@ -7,7 +7,7 @@ import {
 	withPluginPrivileges,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
-} from '../../../src/foundation.js'
+} from '../../../src/plugin.js'
 import {
 	applicationRequestExecutionCapability,
 	type ApplicationRequestExecutor,

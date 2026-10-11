@@ -5,7 +5,6 @@ import {
 	type ConfiguredFieldDeclaration,
 	type ConfiguredSchemaDeclarationOptions,
 	type ConfiguredSchemaNamespace,
-	type PluginSourceState,
 	type ScalarFieldTypegenState,
 	type StringField,
 	type SchemaFieldBuilderDeclaration,
@@ -15,6 +14,7 @@ import {
 	type SchemaReference,
 	type UltimaBaseGeneratedSchemaOptions,
 } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
 	createPasswordUserAuthMethods,

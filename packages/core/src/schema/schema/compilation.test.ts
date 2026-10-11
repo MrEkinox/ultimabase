@@ -1,10 +1,8 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
-import {
-	plugin as createPlugin,
-	contributeApplication,
-} from '../../foundation.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeApplication } from '../../plugins/plugin-contributions.js'
 import { createApplication } from '../../application/framework-application.js'
 import { SchemaRegistry, stringField, type SchemaFields } from '../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'

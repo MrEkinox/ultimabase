@@ -2,14 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { immutableRecord } from '@ultimabase/shared'
 import { FrameworkApplication } from '../application/framework-application.js'
 
+import { FrameworkError, objectField, stringField } from '../index.js'
 import {
-	FrameworkError,
 	addSchemaField,
 	plugin as createPlugin,
 	contributeDeclarations,
-	objectField,
-	stringField,
-} from '../index.js'
+} from '../plugin.js'
 import { replaceDeclaredFieldOptions } from '../schema/fields/base/definition.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 

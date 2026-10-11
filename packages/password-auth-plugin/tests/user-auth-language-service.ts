@@ -95,7 +95,8 @@ const revoked: true = logout.revoked
 		`user-auth-operations-${mode}.virtual.ts`,
 	)
 	const operationSource = `
-import { UltimaBase, contributeDeclarations, defineSchemaOption, plugin } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { contributeDeclarations, defineSchemaOption, plugin } from '@ultimabase/core/plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { PasswordUserSchema, passwordAuthPlugin } from '${mode === 'source' ? '../src/index.js' : '@ultimabase/password-auth-plugin'}'
 const profileOptions = plugin({

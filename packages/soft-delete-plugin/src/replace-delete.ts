@@ -4,8 +4,8 @@ import {
 	rewriteDeletePersistencePlan,
 	type CompiledSchemaRegistry,
 	type PersistencePlanRewriterDefinition,
-	type PluginIdentity,
 } from '@ultimabase/core'
+import type { PluginIdentity } from '@ultimabase/core/plugin'
 
 import type { SoftDeleteMode } from './contracts.js'
 import { resolveSoftDeleteMode } from './options.js'

@@ -1,10 +1,6 @@
 import type { Logger } from '@ultimabase/core'
-import {
-	type ApplicationCallbackExecutor,
-	type PointerValue,
-	type ApplicationRequestExecutor,
-	type PluginIdentity,
-} from '@ultimabase/core'
+import type { PointerValue, ApplicationRequestExecutor } from '@ultimabase/core'
+
 import { isPlainRecord } from '@ultimabase/shared'
 import {
 	BREAK,
@@ -31,7 +27,11 @@ import {
 	createSafeGraphqlError,
 } from './execution-errors.js'
 import { assertGraphqlKnownKeys } from './options.js'
-import { RequestContext } from '@ultimabase/core/plugin'
+import {
+	RequestContext,
+	type ApplicationCallbackExecutor,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 
 /** Supplies a trusted context and one exact GraphQL operation document. */
 export interface GraphqlExecuteOptions {

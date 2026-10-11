@@ -1,9 +1,13 @@
 import {
+	UltimaBase,
+	type PluginPrivilegePolicy,
+	type PluginPrivilegeReport,
+} from '../../src/index.js'
+import {
 	defineCapability,
 	plugin as createPlugin,
 	contributeApplication,
 	defineSchemaOption,
-	UltimaBase,
 	provideCapability,
 	requireCapability,
 	withPluginPrivileges,
@@ -14,9 +18,7 @@ import {
 	type PluginIdentity,
 	type PluginManifest,
 	type PluginPrivilege,
-	type PluginPrivilegePolicy,
-	type PluginPrivilegeReport,
-} from '../../src/index.js'
+} from '../../src/plugin.js'
 
 const capability = defineCapability<{ readonly endpoint: string }>()({
 	capabilityId: 'fixture.language-capability',

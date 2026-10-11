@@ -3,7 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import type {
 	ApplicationCallbackExecutor,
 	ApplicationCapabilityFactoryContext,
-} from '../index.js'
+} from '../plugin.js'
 
 test('retains exact callback results without exposing construction or application state', () => {
 	const context = null as unknown as ApplicationCapabilityFactoryContext

@@ -68,7 +68,7 @@ Export the factory at the package root so consumers never need a `src/`
 deep import:
 
 ```ts title="src/index.ts"
-import { contributeApplication, plugin } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 
 export const workflowPlugin = (instanceId?: string) =>
 	plugin({

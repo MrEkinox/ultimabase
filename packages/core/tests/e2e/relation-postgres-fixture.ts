@@ -1,9 +1,5 @@
-import {
-	booleanField,
-	stringField,
-	UltimaBase,
-	type PluginSourceState,
-} from '@ultimabase/core'
+import { booleanField, stringField, UltimaBase } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'

@@ -216,7 +216,7 @@ commit. The provider ranges below target this `1.0.0` documentation line.
 The event contract and its consumer can live in one module:
 
 ```ts title="src/post-created-event.ts"
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import {
 	defineEvent,
 	onEvent,
@@ -297,7 +297,7 @@ lend its own. A compatible provider needs `runtime:intercept` and can declare
 the Hooks plugin as a peer:
 
 ```ts title="src/post-rules-plugin.ts"
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import { provideHookContributions, schemaHooks } from '@ultimabase/hooks-plugin'
 import { Post } from './post.js'
 

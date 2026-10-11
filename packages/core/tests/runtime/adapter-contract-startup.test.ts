@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
 
-import { plugin } from '../../src/foundation.js'
+import { plugin } from '../../src/plugin.js'
 import {
 	definePluginField,
 	type SchemaDefinition,

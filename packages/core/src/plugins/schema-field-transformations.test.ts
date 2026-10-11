@@ -4,14 +4,13 @@ import {
 	createApplication,
 	FrameworkApplication,
 } from '../application/framework-application.js'
+import { stringField, type FieldBuilder } from '../index.js'
 import {
 	addSchemaField,
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineSchemaOption,
-	stringField,
-	type FieldBuilder,
-} from '../index.js'
+} from '../plugin.js'
 
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'

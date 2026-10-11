@@ -5,7 +5,7 @@ import {
 	contributeApplication,
 	contributeDeclarations,
 	withPluginPrivileges,
-} from '../index.js'
+} from '../plugin.js'
 import {
 	pluginEnvironmentClaimMetadata,
 	pluginPrivilegeMetadata,

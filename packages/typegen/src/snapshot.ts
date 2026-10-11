@@ -1,16 +1,18 @@
 import type {
 	CompiledApplication,
 	CompiledSchemaRegistry,
-	CompiledTypegenGraph,
 	FieldDeclarationContext,
 	FieldTypegenState,
 	JsonValue,
 	OwnedFieldBuilderMethod,
 	OwnedPluginFieldType,
-	PluginDefinition,
 	SchemaDefinition,
 	UltimaBase,
 } from '@ultimabase/core'
+import type {
+	CompiledTypegenGraph,
+	PluginDefinition,
+} from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {

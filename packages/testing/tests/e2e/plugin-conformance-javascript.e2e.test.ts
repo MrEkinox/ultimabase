@@ -10,7 +10,7 @@ const workspaceRoot = path.resolve(import.meta.dirname, '../../../..')
 describe('packed JavaScript plugin conformance', () => {
 	it('runs the same public suite without Typegen or TypeScript execution', async () => {
 		const source = `
-import { plugin } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import {
   createPluginConformanceFixture,
   definePluginConformanceSuite,

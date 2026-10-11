@@ -1,3 +1,9 @@
+import type {
+	PolicyOperation,
+	Principal,
+	SchemaDefinition,
+	SchemaReference,
+} from '@ultimabase/core'
 import {
 	defineSchemaOption,
 	type FieldOptionDefinition,
@@ -6,13 +12,9 @@ import {
 	type PluginSourceFieldValue,
 	type PluginSourceOpaque,
 	type PluginSourceRelationChange,
-	type PolicyOperation,
-	type Principal,
-	type SchemaDefinition,
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeRequirement,
-	type SchemaReference,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 import type { MaybePromise } from '@ultimabase/shared'
 

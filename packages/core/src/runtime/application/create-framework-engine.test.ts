@@ -1,8 +1,6 @@
 import { provideRuntimeBehavior } from '../capabilities.js'
-import {
-	plugin as createPlugin,
-	withPluginPrivileges,
-} from '../../foundation.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { withPluginPrivileges } from '../../plugins/plugin-contributions.js'
 import {
 	createApplication,
 	FrameworkApplication,

@@ -2,10 +2,10 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import {
 	UltimaBase,
-	plugin,
 	getCurrentUltimaBase,
 	runWithRequestEngine,
 } from '../../index.js'
+import { plugin } from '../../plugin.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { anonymous } from '../application/plugin-authority.js'

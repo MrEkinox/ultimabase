@@ -1,10 +1,9 @@
+import type { GenericField, SchemaDefinition } from '@ultimabase/core'
 import {
 	defineSchemaOption,
 	type FieldOptionDefinition,
-	type GenericField,
-	type SchemaDefinition,
 	type SchemaOptionDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 import {
 	assertNonEmptyString,

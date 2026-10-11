@@ -1,21 +1,23 @@
 import {
 	UltimaBase,
-	contributeApplication,
-	contributeDeclarations,
-	defineCapability,
-	defineSchemaOption,
 	getOperationSchema,
-	provideCapability,
 	provideRuntimeBehavior,
-	plugin as createPlugin,
-	requireCapability,
-	withPluginPrivileges,
 	type CompiledSchemaRegistry,
 	type JsonObject,
 	type OperationKind,
 	type RuntimeBehaviorStages,
 	type RuntimeLogicalOperationAst,
 } from '@ultimabase/core'
+import {
+	contributeApplication,
+	contributeDeclarations,
+	defineCapability,
+	defineSchemaOption,
+	provideCapability,
+	plugin as createPlugin,
+	requireCapability,
+	withPluginPrivileges,
+} from '@ultimabase/core/plugin'
 import {
 	createPluginEventDispatcher,
 	definePluginEvent,

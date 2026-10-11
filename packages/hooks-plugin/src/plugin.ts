@@ -1,10 +1,14 @@
 import {
 	applicationSchemaMutationSurfaceCapability,
+	provideRuntimeBehavior,
+	type SchemaDefinition,
+	type SchemaReference,
+} from '@ultimabase/core'
+import {
 	contributeDeclarations,
 	defineSchemaOption,
 	optionalCapability,
 	plugin,
-	provideRuntimeBehavior,
 	requireCapability,
 	type FieldOptionDefinition,
 	type PluginDeclarationContribution,
@@ -13,11 +17,9 @@ import {
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
 	type SchemaRulesHKT,
-	type SchemaDefinition,
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeRequirement,
-	type SchemaReference,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 

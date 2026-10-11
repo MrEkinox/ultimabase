@@ -1,12 +1,14 @@
 import {
 	FrameworkError,
 	UltimaBase,
-	type PluginDefinition,
-	type PluginEnvironmentClaim,
-	type PluginPrivilege,
 	type SchemaDefinition,
 	type UltimaBaseInstanceOptions,
 } from '@ultimabase/core'
+import type {
+	PluginDefinition,
+	PluginEnvironmentClaim,
+	PluginPrivilege,
+} from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {

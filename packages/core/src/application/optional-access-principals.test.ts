@@ -4,12 +4,14 @@ import { createApplication } from './framework-application.js'
 import {
 	FrameworkError,
 	requestPrincipalResolverCapability,
+	type RequestPrincipalResolver,
+} from '../index.js'
+import {
 	plugin as createPlugin,
 	contributeApplication,
 	optionalCapability,
 	provideCapability,
-	type RequestPrincipalResolver,
-} from '../index.js'
+} from '../plugin.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 const Principal = UltimaBase.Schema.define({

@@ -1,15 +1,17 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
-	type PluginDefinition,
 } from '@ultimabase/core'
+import {
+	plugin,
+	provideCapability,
+	type PluginDefinition,
+} from '@ultimabase/core/plugin'
 
 class GraphqlFixtureDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const

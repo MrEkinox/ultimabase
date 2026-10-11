@@ -2,12 +2,11 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
 	compileValidationPlans,
-	contributeApplication,
-	plugin,
 	readFieldTypegenState,
 	type CompiledApplication,
 	type FieldBuilder,
 } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 
 import type { SoftDeleteSchemaOption } from './contracts.js'

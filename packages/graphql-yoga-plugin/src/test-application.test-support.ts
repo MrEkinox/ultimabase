@@ -1,17 +1,19 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	contributeApplication,
-	provideCapability,
-	requireCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
-	type PluginDefinition,
 } from '@ultimabase/core'
+import {
+	plugin,
+	contributeApplication,
+	provideCapability,
+	requireCapability,
+	type PluginDefinition,
+} from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
 	type HttpApplication,

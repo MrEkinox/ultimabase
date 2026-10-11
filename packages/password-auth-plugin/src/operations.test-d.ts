@@ -1,9 +1,8 @@
-import {
-	UltimaBase,
-	type PluginOperationInput,
-	type PluginOperationResult,
-	type SchemaResult,
-} from '@ultimabase/core'
+import { UltimaBase, type SchemaResult } from '@ultimabase/core'
+import type {
+	PluginOperationInput,
+	PluginOperationResult,
+} from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import {

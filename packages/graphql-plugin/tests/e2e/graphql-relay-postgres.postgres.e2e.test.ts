@@ -1,14 +1,9 @@
 import {
 	UltimaBase,
 	applicationRequestExecutionCapability,
-	defineCapability,
-	plugin,
-	provideCapability,
-	requireCapability,
-	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
-	type PluginIdentity,
 } from '@ultimabase/core'
+
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -18,7 +13,15 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
-import type { RequestContext } from '@ultimabase/core/plugin'
+import {
+	type RequestContext,
+	defineCapability,
+	plugin,
+	provideCapability,
+	requireCapability,
+	type ApplicationCallbackExecutor,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 
 const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 const RelayRecord = GraphqlSchemaApplication.Schema.define({

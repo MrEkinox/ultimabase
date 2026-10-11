@@ -1,11 +1,9 @@
 import {
 	databaseAdapterCapability,
-	plugin as createPlugin,
-	contributeApplication,
-	requireCapability,
 	UltimaBase,
 	type SchemaResult,
 } from '@ultimabase/core'
+
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
 import { afterAll, beforeAll, expect } from 'vitest'
@@ -17,6 +15,9 @@ import {
 	QueryBuilder,
 	type RequestContext,
 	RequestContextValue,
+	plugin as createPlugin,
+	contributeApplication,
+	requireCapability,
 } from '@ultimabase/core/plugin'
 
 export const databaseAdapterRequirement = requireCapability(

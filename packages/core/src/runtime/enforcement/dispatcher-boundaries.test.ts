@@ -1,4 +1,4 @@
-import { plugin as createPlugin } from '../../foundation.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { createApplication } from '../../application/framework-application.js'
 import { type ExecutableOperationAst } from '../../query/index.js'
 import { describe, expect, it, vi } from 'vitest'

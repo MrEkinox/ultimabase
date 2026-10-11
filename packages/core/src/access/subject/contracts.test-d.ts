@@ -18,8 +18,8 @@ import {
 	type RequestSubjectValueOf,
 	type ResolvedRequestSubject,
 	type Principal,
-	type CapabilityToken,
 } from '../../index.js'
+import type { CapabilityToken } from '../../plugin.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 import { RequestContextValue } from '../../plugin.js'
 

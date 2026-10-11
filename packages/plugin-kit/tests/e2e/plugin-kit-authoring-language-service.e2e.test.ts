@@ -9,14 +9,8 @@ const fileName = path.join(
 	'plugin-kit-authoring.packed.fixture.ts',
 )
 const source = `
-import {
-  contributeApplication,
-  contributeDeclarations,
-  plugin,
-  UltimaBase,
-  type PluginExports,
-  type SchemaItem,
-} from '@ultimabase/core'
+import { UltimaBase, type SchemaItem } from '@ultimabase/core'
+import { contributeApplication, contributeDeclarations, plugin, type PluginExports } from '@ultimabase/core/plugin'
 import { z } from 'zod'
 import {
   definePluginFieldOption,

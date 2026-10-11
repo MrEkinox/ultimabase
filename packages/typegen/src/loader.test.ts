@@ -32,7 +32,8 @@ afterEach(async () => {
 describe('loadTypegenApplication', () => {
 	it('transpiles an unresolved plugin method and never runs plugin setup', async () => {
 		const sourcePath = await createTypeScriptModule(`
-import { contributeApplication, plugin, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
 const SetupGuard = plugin({

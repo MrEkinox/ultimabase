@@ -1,15 +1,18 @@
 import {
 	definePluginFieldFamily,
-	plugin as createPlugin,
-	contributeDeclarations,
 	definePluginField,
 	UltimaBase,
 } from '@ultimabase/core'
+
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
-import { QueryBuilder } from '@ultimabase/core/plugin'
+import {
+	QueryBuilder,
+	plugin as createPlugin,
+	contributeDeclarations,
+} from '@ultimabase/core/plugin'
 
 const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 	const containedField = () =>

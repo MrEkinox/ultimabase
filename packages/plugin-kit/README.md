@@ -244,7 +244,7 @@ import {
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 const text = defineOperationValue((value, path): string => {
 	if (typeof value !== 'string') throw new TypeError(`${path} must be text`)

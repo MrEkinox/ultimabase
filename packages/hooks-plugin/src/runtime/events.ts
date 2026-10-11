@@ -11,7 +11,7 @@ import {
 	provideCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import type {
 	HookContext,
 	HookContextIdentity,

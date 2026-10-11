@@ -1,7 +1,5 @@
-import {
-	FrameworkError,
-	type ApplicationCallbackExecutor,
-} from '@ultimabase/core'
+import { FrameworkError } from '@ultimabase/core'
+
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -19,7 +17,11 @@ import {
 	createPluginHookOwner,
 } from './execution-runtime.js'
 import { HookExecutionRuntime } from './execution-runtime.js'
-import { RequestContext, requestSources } from '@ultimabase/core/plugin'
+import {
+	RequestContext,
+	requestSources,
+	type ApplicationCallbackExecutor,
+} from '@ultimabase/core/plugin'
 
 const request = RequestContext.anonymous({
 	metadata: { diagnosticSecret: 'must-not-leak' },

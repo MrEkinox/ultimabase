@@ -3,11 +3,8 @@ import {
 	aclPlugin,
 	type ACLNormalizedUpdateInput,
 } from '@ultimabase/acl-permissions-plugin'
-import {
-	MasterAuthority,
-	UltimaBase,
-	type PluginSourceState,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { immutableRecord } from '@ultimabase/shared'

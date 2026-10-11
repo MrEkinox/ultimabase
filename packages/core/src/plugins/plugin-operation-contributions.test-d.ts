@@ -1,22 +1,24 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	contributeOperation,
-	contributeOperationBinding,
-	contributeSchemaMutation,
-	defineOperation,
 	defineOperationTransport,
-	defineOperationValue,
-	plugin,
-	defineSchemaMutation,
 	operationTransportBinding,
 	operationWireCodec,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
+} from '../index.js'
+import {
+	contributeOperation,
+	contributeOperationBinding,
+	contributeSchemaMutation,
+	defineOperation,
+	defineOperationValue,
+	plugin,
+	defineSchemaMutation,
 	type ApplicationCapabilityFactoryContext,
 	type PluginOperationContribution,
 	type PluginSchemaMutationContribution,
-} from '../index.js'
+} from '../plugin.js'
 
 const input = defineOperationValue((value) => String(value))
 const result = defineOperationValue((value) => Boolean(value))

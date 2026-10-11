@@ -7,7 +7,7 @@ import {
 	contributeDeclarations,
 	setSchemaFieldOption,
 	setSchemaOption,
-} from '../index.js'
+} from '../plugin.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('additive option patch boundaries', () => {

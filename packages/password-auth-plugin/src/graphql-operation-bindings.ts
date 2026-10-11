@@ -4,9 +4,11 @@ import {
 	operationWireCodec,
 	type JsonValue,
 	type OperationTransportBindingDefinition,
-	type PluginOperationInput,
-	type PluginOperationResult,
 } from '@ultimabase/core'
+import type {
+	PluginOperationInput,
+	PluginOperationResult,
+} from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {

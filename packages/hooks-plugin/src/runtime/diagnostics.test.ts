@@ -1,4 +1,5 @@
-import { UltimaBase, plugin, provideCapability } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { hooksPlugin } from '../plugin.js'

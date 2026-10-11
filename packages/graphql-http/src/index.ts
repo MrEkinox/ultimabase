@@ -1,4 +1,4 @@
-import { defineCapability, type CapabilityToken } from '@ultimabase/core'
+import { defineCapability, type CapabilityToken } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 import {
 	normalizeGraphqlHttpEndpoint,

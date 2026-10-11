@@ -1,11 +1,10 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	UltimaBase,
-	plugin,
-	contributeDeclarations,
 	definePluginField,
 	definePluginFieldFamily,
 } from '@ultimabase/core'
+import { plugin, contributeDeclarations } from '@ultimabase/core/plugin'
 import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import { pgVectorPlugin, vectorField } from '@ultimabase/pg-vector-plugin'
 import {

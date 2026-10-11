@@ -5,10 +5,10 @@ import {
 	PublicError,
 	UltimaBase,
 	isAuthenticated,
-	plugin,
 	runWithRequestEngine,
 	type PointerValue,
 } from '@ultimabase/core'
+
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
@@ -25,6 +25,7 @@ import {
 	requestSources,
 	authorizeMasterKey,
 	withContext,
+	plugin,
 } from '@ultimabase/core/plugin'
 
 // ADR-0305: `ultimabase.can()` combines every installed policy (Access, ACL,

@@ -1,5 +1,6 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { UltimaBase, type PluginSourceState } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import type { PluginSourceState } from '@ultimabase/core/plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

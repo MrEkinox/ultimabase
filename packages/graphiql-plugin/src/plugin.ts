@@ -3,7 +3,7 @@ import {
 	plugin,
 	requireCapability,
 	type PluginInstance,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 import {
 	graphqlHttpEndpointCapability,
 	graphqlIntrospectionCapability,

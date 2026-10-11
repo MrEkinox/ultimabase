@@ -1,4 +1,4 @@
-import type { PluginDefinition } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core/plugin'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { apolloSandboxPlugin } from './plugin.js'

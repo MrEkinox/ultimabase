@@ -5,13 +5,11 @@ import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/data
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
-import {
-	defineOperationValue,
-	plugin as createPlugin,
-	contributeDeclarations,
-	contributeSchemaMutation,
-	defineSchemaMutation,
-} from '../../foundation.js'
+import { defineOperationValue } from '../../plugins/plugin-operations.js'
+import { plugin as createPlugin } from '../../plugins/plugin.js'
+import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
+import { contributeSchemaMutation } from '../../plugins/plugin-command-contributions.js'
+import { defineSchemaMutation } from '../../plugins/plugin-schema-mutations.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { normalizeOperationOptions } from '../../query/operations/execution.js'
 

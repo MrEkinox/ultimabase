@@ -1,12 +1,14 @@
 import {
-	contributeSchemaMutation,
 	defineOperationTransport,
-	defineSchemaMutation,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
+} from '@ultimabase/core'
+import {
+	contributeSchemaMutation,
+	defineSchemaMutation,
 	type PluginSchemaMutationContribution,
 	type PluginSchemaMutationDefinition,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 import { softDeleteNoInput } from './contracts.js'
 import { softDeleteTombstoneFieldName } from './visibility.js'

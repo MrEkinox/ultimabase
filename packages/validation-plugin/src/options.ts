@@ -1,10 +1,12 @@
-import {
-	type FieldOptionDefinition,
-	type FieldOptionsValue,
-	type PluginSourceFieldOption,
-	type PluginSourceFieldOptionConstraint,
-	type SchemaOptionRuntimeRequirement,
+import type {
+	FieldOptionsValue,
+	PluginSourceFieldOption,
+	PluginSourceFieldOptionConstraint,
 } from '@ultimabase/core'
+import type {
+	FieldOptionDefinition,
+	SchemaOptionRuntimeRequirement,
+} from '@ultimabase/core/plugin'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 
 import {

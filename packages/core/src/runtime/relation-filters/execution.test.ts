@@ -1,10 +1,9 @@
+import { relationField, type RelationWhereResolver } from '../../index.js'
 import {
 	addSchemaField,
 	plugin as createPlugin,
 	contributeDeclarations,
-	relationField,
-	type RelationWhereResolver,
-} from '../../index.js'
+} from '../../plugin.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 

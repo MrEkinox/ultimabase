@@ -5,12 +5,11 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
-	plugin,
-	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationResult,
 } from '@ultimabase/core'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	createPluginConformanceFixture,
@@ -266,6 +265,7 @@ describe('optional Hooks engine proof', () => {
 				moduleResolution: ts.ModuleResolutionKind.NodeNext,
 				paths: {
 					'@ultimabase/core': ['packages/core/dist/index.d.ts'],
+					'@ultimabase/core/plugin': ['packages/core/dist/plugin.d.ts'],
 					'@ultimabase/shared': ['packages/shared/dist/index.d.ts'],
 				},
 				strict: true,

@@ -1,6 +1,7 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { UltimaBase, type FrameworkPlugin } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import type { FrameworkPlugin } from '@ultimabase/core/plugin'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createAlternativePolicyEngine } from './fixtures/alternative-policy-engine.js'

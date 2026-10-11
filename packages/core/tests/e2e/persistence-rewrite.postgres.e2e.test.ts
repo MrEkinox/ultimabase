@@ -1,7 +1,6 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	getOperationSchema,
-	plugin,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
@@ -10,6 +9,7 @@ import {
 	rewriteDeletePersistencePlan,
 	UltimaBase,
 } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

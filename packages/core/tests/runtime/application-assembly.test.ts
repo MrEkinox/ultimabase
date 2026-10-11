@@ -1,4 +1,5 @@
-import { plugin as createPlugin, UltimaBase } from '../../src/index.js'
+import { UltimaBase } from '../../src/index.js'
+import { plugin as createPlugin } from '../../src/plugin.js'
 
 import { describe, expect, it } from 'vitest'
 

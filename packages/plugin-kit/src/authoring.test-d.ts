@@ -1,22 +1,24 @@
 import {
-	contributeApplication,
-	contributeDeclarations,
-	contributeOperation,
 	definePluginField,
 	definePluginFieldFamily,
-	defineOperation,
-	defineOperationValue,
-	plugin,
 	stringField,
 	UltimaBase,
-	defineTypegenReference,
 	type FieldOptions,
 	type JsonObject,
-	type PluginExports,
 	type PluginFieldDefinition,
 	type ScalarFieldTypegenState,
 	type SchemaItem,
 } from '@ultimabase/core'
+import {
+	contributeApplication,
+	contributeDeclarations,
+	contributeOperation,
+	defineOperation,
+	defineOperationValue,
+	plugin,
+	defineTypegenReference,
+	type PluginExports,
+} from '@ultimabase/core/plugin'
 import { expectTypeOf } from 'vitest'
 import { z } from 'zod'
 

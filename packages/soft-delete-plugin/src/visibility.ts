@@ -3,10 +3,10 @@ import {
 	protectedPolicy,
 	type CompiledSchemaRegistry,
 	type DatabaseRowFilterNode,
-	type PluginIdentity,
 	type ProtectedPolicyDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import type { PluginIdentity } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { purgeMutationName, restoreMutationName } from './contracts.js'
