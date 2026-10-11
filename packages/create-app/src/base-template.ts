@@ -28,7 +28,7 @@ import {
 	securitySchemaImports,
 	securitySchemaPluginEntries,
 	securitySchemaNames,
-	taskACLChain,
+	taskRulesChain,
 	taskSecurityOptions,
 } from './security-template.js'
 import { mainSource } from './main-template.js'
@@ -149,7 +149,7 @@ ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value
 ]
 	.filter((line) => line !== '')
 	.join('\n')}
-})${has(plan, 'soft-delete-plugin') ? '.softDelete()' : ''}${taskACLChain(plan)}`
+})${has(plan, 'soft-delete-plugin') ? '.softDelete()' : ''}${taskRulesChain(plan)}`
 
 const schemaSource = (plan: InitializerPlan): string => {
 	const task = plan.starter === 'task'

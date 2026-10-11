@@ -198,8 +198,10 @@ describe('base project templates', () => {
 					expect(schema).toContain(
 						'read: false, create: false, update: false, delete: false',
 					)
-				if (id === 'acl-permissions-plugin')
-					expect(schema).toContain('.with({ acl: { default: new ACL() } })')
+				if (id === 'acl-permissions-plugin') {
+					expect(schema).toContain('.acl().with({')
+					expect(schema).toContain('  acl: { default: new ACL() },')
+				}
 				if (id === 'password-auth-plugin') {
 					expect(schema).toContain(
 						'PasswordUserSchema.define(SchemaApplication.Schema, {',
@@ -212,6 +214,9 @@ describe('base project templates', () => {
 						'export const Member = SchemaApplication.Schema.define(',
 					)
 					expect(application).toContain('schemas: [Task, Member, AppRole]')
+					// Regression: unfinished `define(...)` calls beside a role schema
+					// made `typeof ultimabase` circular in `Register`.
+					expect(schema.match(/\.with\(\{\}\)/gu)).toHaveLength(3)
 				}
 			}
 		},

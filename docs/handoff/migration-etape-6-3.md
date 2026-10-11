@@ -69,6 +69,14 @@ passent. Reste : porte complète, audit DX, banc forme D, rapport.
   de relation `ExampleArticle.reviewers`), le harnais de la page d'accueil du
   site et les sondes Typegen (règles Access de l'ancienne forme) ; note
   ajoutée à la section étape 4 de l'ADR-0297.
+- create-app : une application qui mélange des `define(...)` non terminés
+  (sans `.with`) et des déclarations terminées ne peut pas nommer
+  `typeof ultimabase` dans `Register` dès qu'un plugin est installé (TS7022,
+  déjà vrai sur a0d7ff3c avec ACL). Avec Roles ou ACL, `Task` et `Member`
+  se terminent donc par `.with(...)`, qui reçoit leurs règles (`access`,
+  `acl`, `rest`, `graphql`). Trouvé par `create-app-packed` (projet Roles
+  seul : `npm run build` échouait), corrigé et vérifié en construisant sept
+  combinaisons générées.
 - `ensure` retiré des exemples minimal et todo-backend (il cassait le test
   e2e vertical REST qui suppose une table vide).
 
