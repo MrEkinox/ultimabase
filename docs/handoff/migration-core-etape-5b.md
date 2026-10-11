@@ -1,23 +1,82 @@
-# Migration de Core, étape 5b : signatures de requête indexées par nom (ADR-0315)
+# Migration de Core, étape 5b : signatures de requête (ADR-0315 et son amendement)
 
 Branche `migration/named-queries` (worktree `../ub-step5b`), basée sur `main`
 local 0df2ebac (étape 5). Référence de mesure : worktree détaché
 `../ub-step5b-baseline` (0df2ebac, construit), à supprimer en fin d'étape.
 
-## État : arrêt sur la règle de mesure, avant implémentation
+## État
 
-La consigne était de mesurer d'abord et de s'arrêter si les signatures
-indexées par nom n'apportent pas de gain mesurable ou coûtent plus qu'elles
-n'économisent. Mesure faite : **elles coûtent plus** (+5 % d'instanciations à
-50 schémas, +44 % à 200 par rapport à la même base sans elles), parce que
-chaque nom doit être retrouvé dans le registre, et que cette recherche coûte
-O(N) par nom (O(N²) au total). Trois variantes de recherche ont échoué (règle
-d'arrêt). Rien de l'ADR-0315 n'est implémenté ; les décisions sont à prendre
-par l'utilisateur (voir « Options »).
+Première phase : arrêt sur la règle de mesure, avant implémentation (les
+signatures indexées par nom coûtent plus qu'elles n'économisent, voir les
+découvertes 1 à 3). L'utilisateur a amendé l'ADR-0315 le 2026-10-11 (section
+« Step 5b amendment ») : décisions 1–2 retirées (pas d'alias nommés), décision
+3 maintenue (surcharge `QueryBuilder` retirée), vérification allégée du
+contrat retenue (point 3), fautes de `select`/`include` signalées par nom de
+champ sans noms de schéma (point 4). Deuxième phase : implémentation de
+l'amendement, voir « Implémentation de l'amendement ».
 
-Seul changement de code sur la branche : la vérification allégée du contrat
-dans `SchemaTypeInfoFor` (voir « Découverte 2 »), hors périmètre de
-l'ADR-0315, gardée dans un commit séparé pour pouvoir être reprise ou retirée.
+## Implémentation de l'amendement
+
+Commits : `36fffa22` (vérification allégée), `5e92e39a` (surcharge
+retirée), commit « report select and include typos by field name »
+(contraintes relâchées).
+
+1. **Surcharge `QueryBuilder` de `findMany` retirée** (`schema-api.ts`).
+   Trois tests (et non un seul) lui passaient une requête construite ; la
+   sortie de `build()` porte une sélection non littérale, que la signature
+   restante refuse comme toute sélection dynamique :
+   - `packages/core/src/query/operations/execution.test.ts` (interne) :
+     `reusable` devient l'objet d'entrée équivalent ; les assertions sur
+     l'état du constructeur deviennent l'AST envoyé
+     (`query.selection.fields = [{ field: 'id', kind: 'selected-field' }]`)
+     et l'objet d'entrée inchangé après les deux exécutions.
+   - `packages/core/src/runtime/application/ultima-base.test.ts` (interne) :
+     `findMany(escapedQuery.build())` → `findMany({})`, même erreur attendue.
+   - `packages/core/tests/runtime/transactions.test.ts` (public) :
+     `findMany(escapedQuery.build())` → `findMany()`, même erreur
+     `MISSING_EXECUTION_CONTEXT` ; la garde sur `escapedQuery` reste.
+   - `packages/core/docs/query.md` : les exemples passent la requête
+     construite à `normalizeReadOperation` au lieu de `findMany`.
+2. **Fautes signalées par nom de champ** : `TSelection`/`TInclude` prennent
+   la contrainte `object | undefined` dans les onze méthodes ; l'exactitude
+   reste dans le paramètre (`ExactReadSelectionInput`,
+   `ExactReadInclusionInput`, `SchemaResultSelection`,
+   `SchemaResultProjection`), et une projection qui ne correspond pas au
+   contrat est vérifiée contre le contrat seul (`FitsQueryProjection`).
+   Les contraintes des types d'entrée exportés (`SchemaCreateOneInput`, …,
+   `ExactGeneratedFindManyInput`) sont retirées de la même façon.
+3. **Règles d'acceptation gardées** : `examples/schema-form-d/src/exactness.ts`
+   (16 cas rejetés, 8 acceptés), vérifié identique sur la base 0df2ebac
+   (copié dans `../ub-step5b-baseline`, `tsc` code 0) et sur la branche.
+4. **Tests** : `tests/e2e/schema-form-d-types.e2e.test.ts` vérifie le texte
+   exact des fautes `select` (`typos.ts:82`, `exactness.ts:27`) et `include`
+   (`exactness.ts:29`), sans « No overload matches », depuis
+   `tsconfig.json` (paquets construits) et `tsconfig.source.json`.
+
+Messages (paquets construits ; source identique) :
+
+| Cas                               | Base 0df2ebac                             | Surcharge retirée | + contraintes relâchées |
+| --------------------------------- | ----------------------------------------- | ----------------- | ----------------------- |
+| `findMany({ select: { titel } })` | 1 539, « No overload matches this call. » | 361               | **316**                 |
+| `include.tags.select.labl`        | 1 419, idem                               | 356               | **201**                 |
+| `findMany({ include: { tagz } })` | 1 676, idem                               | 407               | 407                     |
+| `where: { titel }`                | 1 724, idem                               | 439               | 439                     |
+| `findOne({ select: { titel } })`  | 361                                       | 361               | 316                     |
+| `select` dynamique / `boolean`    | 1 550 / 1 548, idem                       | 60 / 49           | 60 / 49                 |
+
+Texte après : `Object literal may only specify known properties, but 'titel'
+does not exist in type 'Readonly<{ id?: true; isDeleted?: boolean; acl?:
+boolean; createdAt?: boolean; updatedAt?: boolean; assignee?: boolean; title?:
+boolean; archived?: boolean; priority?: boolean; parent?: boolean; }>'. Did
+you mean to write 'title'?`
+
+Coût des contraintes relâchées (`usage-check`, `usage.ts`, avant = surcharge
+retirée, 2 passes alternées) : 50 schémas 1 138 710 → 1 140 197
+instanciations (+0,13 %), 2,33–2,34 → 2,36 s ; 200 : 3 920 880 → 3 919 667,
+6,64–6,72 → 6,73–6,80 s. Différence dans le bruit : gardé.
+
+Documentation : `selections.mdx` (site, message de faute), `query.md`
+(interne), README de l'exemple forme D. Impact : `both`.
 
 ## Méthode
 
@@ -186,9 +245,80 @@ d'où la contrainte relâchée `object | undefined` du prototype.
   construits ; `tsconfig.source.json` : 20 erreurs, identiques sur la base
   (mélange `src`/`dist` de l'environnement, préexistant).
 
+## Porte finale (code au commit « report select and include typos by field name »)
+
+- `packages/*/dist` et tous les `*.tsbuildinfo` hors `node_modules`
+  supprimés, puis `yarn validate:full` : code 0 (« All matched files use
+  Prettier code style! » ; performance « Test Files 3 passed (3) / Tests 4
+  passed (4) », budget `hybrid-authoring` compris ; couverture « Test Files
+  687 passed (687) / Tests 3343 passed (3343) / Type Errors no errors », All
+  files 92,52 / 86,16 / 97,18 / 93,17 ; dernier lot « Test Files 17 passed
+  (17) / Tests 66 passed (66) »).
+- `yarn test:e2e:built` : code 0, « Test Files 120 passed (120) / Tests 516
+  passed (516) ».
+- `yarn website:test` (page `selections.mdx` modifiée) : code 0, « Test
+  Files 8 passed (8) / Tests 59 passed (59) ».
+- `git diff 0df2ebac -- '*.test.ts' '*.test-d.ts'` : `execution.test.ts` et
+  `ultima-base.test.ts` (internes), `tests/runtime/transactions.test.ts`
+  (public, surcharge retirée), `tests/e2e/schema-form-d-types.e2e.test.ts`
+  (tests ajoutés). Aucune assertion retirée.
+
+## Audit DX (`node tooling/dx-audit/run.mjs ../ub-step5b-baseline . --only <23 paquets>,tests,examples/minimal,examples/todo-backend`)
+
+407 différences (36 414 / 36 596 enregistrements), toutes expliquées :
+
+- `examples/schema-form-d` (189, inclus par l'outil malgré `--only`) :
+  nouveau fichier `src/exactness.ts` (source, survols, complétions,
+  diagnostics), rien d'autre.
+- Déclarations de Core (25) : `ReadSchemaTypeInfo`, `FitsQueryProjection`,
+  `SchemaIncludeContract` ajoutés ; `SchemaTypeInfoFor`,
+  `SchemaTypeInfoForDeferred`, `SchemaAPI` (surcharge retirée, contraintes
+  `object | undefined`), `ExactGenerated*Input`, `ExactRead*Input`,
+  `SchemaResultProjection`/`Selection`, `SchemaMutationResult` et les huit
+  `Schema*Input` d'écriture (contraintes retirées) modifiés ; noms de
+  morceaux `foundation-*` (hachage).
+- Survols d'export (10) et de membres (Core 79, Password Auth 33, Roles 11) :
+  signatures des onze méthodes (contraintes, surcharge retirée, « +1
+  overload » disparu) et types d'entrée exportés ;
+  `PluginSchemaMutationSchemaInput.include` : une branche de plus dans le
+  type affiché ; `ExactReadInput` : ordre de l'union `keyof` imprimée
+  (`unique symbol` en dernier), même type.
+- Survols d'usage (Core 49, `typegen` 5, `tests` 2, `examples/minimal` 1,
+  `examples/todo-backend` 2) : appels de méthodes (signature instanciée sans
+  surcharge) ; propriétés `select`/`include` hors contrat (faute attendue
+  dans un test) imprimées contre le contrat seul (plus courtes) ; `select`
+  des écritures montre maintenant sa documentation (« Projects returned
+  models… ») ; `skip`/`take` d'un `satisfies FindManyInput<…>` impriment
+  le type déclarant instancié au lieu du générique (même propriété, ordre de
+  création des types).
+- Diagnostic (`tests`, 1) : `open-kernel-proof` passe de « No overload
+  matches this call » (deux surcharges) à `TS2353 … 'eq' does not exist in
+type 'NullFilter'` (surcharge retirée, annoncé).
+
+## Banc final
+
+TypeScript 6.0.3 (`runbench.mjs`, 3 exécutions alternées, médianes ; base =
+0df2ebac, branche = commit de code final) :
+
+| N   | Arbre   | Charges     | Éd.→diag | Froid | Schéma | Éd.→tout | Tas (Mio) | Hover `q0` |
+| --- | ------- | ----------- | -------- | ----- | ------ | -------- | --------- | ---------- |
+| 50  | base    | 3,0 3,0 3,2 | 2,20     | 4,76  | 2,18   | 4,09     | 861       | 199        |
+| 50  | branche | 3,2 3,2 3,1 | 2,05     | 4,76  | 2,23   | 3,93     | 923       | 199        |
+| 200 | base    | 2,9 2,9 3,1 | 7,22     | 16,38 | 7,25   | 16,57    | 2 484     | 199        |
+| 200 | branche | 2,9 3,2 3,6 | 6,87     | 16,28 | 6,89   | 16,51    | 2 440     | 199        |
+
+TypeScript 7.0.2 (`tools/lsp-bench.mjs`, alterné, 3 exécutions à 50, 2 à
+200, médianes ; charge 3,0–7,5, machine chargée) : éd.→diag 50 : 0,72 →
+0,68 ; 200 : 2,40 → 2,24 ; schéma 50 : 1,20 → 1,19 ; 200 : 3,79 → 3,58 ;
+premier diagnostic 50 : 0,81 → 0,76 ; 200 : 2,58 → 2,42 ; RSS serveur 640 →
+664 Mio (50), 1 297 → 1 416 Mio (200).
+
+Cibles de l'ADR-0297 (1 s à 50 et 3 s à 200 sous TS6, 0,5 s à 50 sous TS7)
+non atteintes. Message de la faute `select` : 1 539 → 316 caractères.
+
+Le worktree `../ub-step5b-baseline` et les dossiers `gen/` sont supprimés.
+
 ## Prochaine action vérifiable
 
-Décision de l'utilisateur entre les options ; pour l'option 1, lancer la
-porte complète (`validate:full`, `test:e2e:built`, audit DX contre
-`../ub-step5b-baseline`, gardé construit pour cela) sur le commit de la
-vérification allégée, puis supprimer le worktree de référence.
+Revue du coordinateur et fusion `--no-ff` dans `main` après validation de
+l'utilisateur ; supprimer ce handoff après la fusion.
