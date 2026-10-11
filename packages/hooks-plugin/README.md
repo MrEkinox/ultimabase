@@ -10,16 +10,10 @@ without generated files. The `hooks` option of `define` follows the same types
 until the declaration form is retired.
 
 ```ts
-import { UltimaBase } from '@ultimabase/core'
-import { defineEvent, hooksPlugin, onEvent } from '@ultimabase/hooks-plugin'
+import { PublicError, UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-export const postCreated = defineEvent<{ postId: string }>('post.created')
-
-const App = UltimaBase.use(
-	hooksPlugin({
-		events: [onEvent(postCreated, ({ event }) => notify(event.payload.postId))],
-	}),
-)
+const App = UltimaBase.use(hooksPlugin())
 
 export const Post = App.Schema.define({
 	className: 'Post',
@@ -40,11 +34,6 @@ export const Post = App.Schema.define({
 				if (changes.title !== undefined && originalItem.slug === 'home') {
 					throw new PublicError('The home post keeps its title.')
 				}
-			},
-		},
-		afterOperation: {
-			create: ({ context, item }) => {
-				context.emit(postCreated, { postId: item.id })
 			},
 		},
 		afterCommit: {
@@ -100,6 +89,19 @@ next Hooks. Delivery is best effort within the process. Tests await it with
 `waitForAfterCommit()` from `@ultimabase/testing`.
 
 ## Typed events
+
+```ts
+import { defineEvent, hooksPlugin, onEvent } from '@ultimabase/hooks-plugin'
+
+export const postCreated = defineEvent<{ postId: string }>('post.created')
+
+const App = UltimaBase.use(
+	hooksPlugin({
+		events: [onEvent(postCreated, ({ event }) => notify(event.payload.postId))],
+	}),
+)
+// In a schema Hook: context.emit(postCreated, { postId: item.id })
+```
 
 `defineEvent<TPayload>(name)` creates an event bound by value;
 `context.emit(event, payload)` queues it inside the transaction; consumers are
@@ -186,6 +188,11 @@ Every installed schema mutation (Soft Delete's `softDeleteOne`, `restoreOne`,
 trusted maintenance operations still retain business Hooks:
 
 ```ts
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+
+const App = UltimaBase.use(hooksPlugin(), softDeletePlugin())
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
