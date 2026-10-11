@@ -193,7 +193,7 @@ const createHttpPlugin = (options: HttpPluginOptions = {}): HttpPlugin => {
 			}
 		},
 	})
-	const fetch = (request: Request): Promise<Response> => {
+	const fetch = async (request: Request): Promise<Response> => {
 		const input = readFetchRequest(request)
 		const current = active
 		return current === undefined
