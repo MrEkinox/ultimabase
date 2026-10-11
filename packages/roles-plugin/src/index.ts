@@ -29,6 +29,7 @@ export { rolesPluginId } from './role-schema.js'
 export type {
 	ReservedRoleFieldName,
 	RoleCurrentMemberInput,
+	RoleOwnedFields,
 	RoleReferenceDeletionPolicy,
 	RoleSchemaFactories,
 	RoleSchemaFactory,

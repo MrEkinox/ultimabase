@@ -11,7 +11,7 @@ import {
 	type ScalarFieldTypegenState,
 	type SchemaDefinition,
 	type SchemaFields,
-	type SchemaReference,
+	type SchemaRef,
 	type StringField,
 } from '@ultimabase/core'
 import type {
@@ -70,20 +70,38 @@ export interface RoleCurrentMemberInput {
 /** Selects how one role deletion treats references owned outside its schema. */
 export type RoleReferenceDeletionPolicy = 'cascade' | 'fail' | 'preserve'
 
-/** Describes the fields every role schema gets beside its own fields. */
+/** The fields the factory adds to every role schema. */
+export interface RoleOwnedFields<TClassName extends string, TMembers> {
+	/** Stores the canonical locale-independent role identity. */
+	readonly name: RoleNameField
+	/** Stores direct members from the declared member schema. */
+	readonly members: RelationField<DeferredSchemaTarget<TMembers>, undefined>
+	/** Stores included roles: their members are members of this role too. */
+	// A deferred name-keyed target: reading the registry here would make a
+	// registered application reference itself while it is typed (TS7022).
+	readonly includedRoles: RelationField<
+		DeferredSchemaTarget<() => SchemaRef<TClassName>>,
+		undefined
+	>
+}
+
+type RoleFieldMap<TClassName extends string, TMembers, TCustomFields> =
+	TCustomFields & RoleOwnedFields<TClassName, TMembers>
+
+/**
+ * Describes the fields of one role schema: its own fields beside `name`,
+ * `members` and `includedRoles`. One object type, not an intersection: a
+ * registered application could otherwise reference itself while the role
+ * schema is typed (TS7022).
+ */
 export type RoleSchemaFields<
 	TClassName extends string,
 	TMembers,
 	TCustomFields extends SchemaFields,
-> = Readonly<TCustomFields> &
-	Readonly<{
-		/** Stores the canonical locale-independent role identity. */
-		name: RoleNameField
-		/** Stores direct members from the declared member schema. */
-		members: RelationField<DeferredSchemaTarget<TMembers>, undefined>
-		/** Stores included roles: their members are members of this role too. */
-		includedRoles: RelationField<SchemaReference<TClassName>, undefined>
-	}>
+> =
+	RoleFieldMap<TClassName, TMembers, TCustomFields> extends infer TFields
+		? { readonly [TKey in keyof TFields]: TFields[TKey] }
+		: never
 
 /** Static members of every role schema. */
 export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
