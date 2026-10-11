@@ -7,7 +7,6 @@ import {
 	type Logger,
 	type PluginPrivilegePolicy,
 } from '@ultimabase/core'
-
 import { isUnknownArray } from '@ultimabase/shared'
 
 import {

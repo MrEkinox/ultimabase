@@ -1,5 +1,4 @@
 import { UltimaBase } from '@ultimabase/core'
-
 import {
 	GraphQLDirective,
 	GraphQLInt,

@@ -6,7 +6,6 @@ import {
 	databasePointerCapability,
 	databasePersistencePlanCapability,
 } from '@ultimabase/core'
-
 import { anonymous, plugin, provideCapability } from '@ultimabase/core/plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphql } from 'graphql'

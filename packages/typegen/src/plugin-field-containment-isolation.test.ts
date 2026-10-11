@@ -3,7 +3,6 @@ import {
 	definePluginField,
 	UltimaBase,
 } from '@ultimabase/core'
-
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 

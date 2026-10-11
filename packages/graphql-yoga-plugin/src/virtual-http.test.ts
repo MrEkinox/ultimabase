@@ -9,7 +9,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import {
 	httpContextResolver,

@@ -1,7 +1,6 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
-
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

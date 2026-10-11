@@ -3,7 +3,6 @@ import {
 	UltimaBase,
 	type SchemaResult,
 } from '@ultimabase/core'
-
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
 import { afterAll, beforeAll, expect } from 'vitest'

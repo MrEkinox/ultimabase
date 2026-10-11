@@ -10,7 +10,6 @@ import {
 	getCurrentRequest,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-
 import {
 	graphqlPlugin,
 	type GraphqlApplication,

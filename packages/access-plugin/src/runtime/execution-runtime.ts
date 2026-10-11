@@ -8,7 +8,6 @@ import {
 	type OperationKind,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { CompiledAccessRule, FieldAccessPlan } from '../authoring/plan.js'

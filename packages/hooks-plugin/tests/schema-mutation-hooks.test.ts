@@ -7,7 +7,6 @@ import {
 	type DatabaseAdapter,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import {

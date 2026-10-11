@@ -1,5 +1,4 @@
 import { FrameworkError } from '@ultimabase/core'
-
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import { setTimeout as delay } from 'node:timers/promises'

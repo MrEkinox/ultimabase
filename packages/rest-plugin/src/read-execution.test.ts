@@ -16,7 +16,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-
 import {
 	httpApplicationCapability,
 	httpPlugin,

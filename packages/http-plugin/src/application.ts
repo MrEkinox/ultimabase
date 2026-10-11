@@ -4,7 +4,6 @@ import {
 	type ApplicationRequestExecutor,
 	type MasterRequestAccess,
 } from '@ultimabase/core'
-
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {

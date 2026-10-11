@@ -17,7 +17,6 @@ import {
 	type SchemaReference,
 	snapshotRuntimeResultRecord,
 } from '@ultimabase/core'
-
 import {
 	createValidationPlanCache,
 	validateMutationInput,

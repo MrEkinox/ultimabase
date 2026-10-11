@@ -13,7 +13,6 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { UltimaBase } from '@ultimabase/core'
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

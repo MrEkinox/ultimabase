@@ -11,7 +11,6 @@ import {
 	type JsonValue,
 	type OperationTransportProtocol,
 } from '@ultimabase/core'
-
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { restPlugin } from './plugin.js'

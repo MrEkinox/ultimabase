@@ -10,7 +10,6 @@ import {
 	operationWireCodec,
 	stringField,
 } from '@ultimabase/core'
-
 import {
 	FakePublicOperationTransport,
 	createPluginConformanceFixture,

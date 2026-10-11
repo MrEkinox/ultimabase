@@ -1,6 +1,5 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { MasterAuthority, UltimaBase, type Model } from '@ultimabase/core'
-
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	executeRestMutationRequest,

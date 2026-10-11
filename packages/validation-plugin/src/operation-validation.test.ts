@@ -11,7 +11,6 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-
 import {
 	immutableRecord,
 	isPlainRecord,

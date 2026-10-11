@@ -11,7 +11,6 @@ import {
 	type DatabaseAdapter,
 	type JsonValue,
 } from '@ultimabase/core'
-
 import {
 	httpApplicationCapability,
 	httpPlugin,

@@ -19,7 +19,6 @@ import type {
 	OperationResult,
 	SchemaDefinition,
 } from '@ultimabase/core'
-
 import type {
 	RequestContext,
 	PluginOperationDefinition,

@@ -3,7 +3,6 @@ import {
 	applicationRequestExecutionCapability,
 	type ApplicationRequestExecutor,
 } from '@ultimabase/core'
-
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

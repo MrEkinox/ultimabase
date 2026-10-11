@@ -13,7 +13,6 @@ import {
 	throwIfOperationCancelled,
 	type Logger,
 } from '@ultimabase/core'
-
 import {
 	immutableArray,
 	immutableRecord,

@@ -6,7 +6,6 @@ import {
 	databaseAdapterCapability,
 	getPluginFieldStorageCodec,
 } from '@ultimabase/core'
-
 import {
 	RequestContext,
 	plugin,

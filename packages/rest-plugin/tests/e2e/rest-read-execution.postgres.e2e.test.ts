@@ -6,7 +6,6 @@ import {
 	applicationRequestExecutionCapability,
 	type ApplicationRequestExecutor,
 } from '@ultimabase/core'
-
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { executeRestReadRequest, restPlugin } from '@ultimabase/rest-plugin'
 import { isUnknownArray } from '@ultimabase/shared'

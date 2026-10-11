@@ -8,7 +8,6 @@ import {
 	type PointerValue,
 	type PolicyPredicate,
 } from '@ultimabase/core'
-
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'

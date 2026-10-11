@@ -4,7 +4,6 @@ import {
 	MasterAuthority,
 	UltimaBase,
 } from '@ultimabase/core'
-
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'

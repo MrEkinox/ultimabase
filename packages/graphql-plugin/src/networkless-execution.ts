@@ -1,6 +1,5 @@
 import type { Logger } from '@ultimabase/core'
 import type { PointerValue, ApplicationRequestExecutor } from '@ultimabase/core'
-
 import { isPlainRecord } from '@ultimabase/shared'
 import {
 	BREAK,

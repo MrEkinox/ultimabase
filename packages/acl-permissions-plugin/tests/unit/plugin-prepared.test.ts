@@ -1,6 +1,5 @@
 import type { FrameworkError } from '@ultimabase/core'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
-
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { ACL } from '../../src/acl.js'

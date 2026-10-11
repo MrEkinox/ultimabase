@@ -5,7 +5,6 @@ import {
 	UltimaBase,
 	getCurrentRequest,
 } from '@ultimabase/core'
-
 import {
 	httpApplicationCapability,
 	httpPlugin,

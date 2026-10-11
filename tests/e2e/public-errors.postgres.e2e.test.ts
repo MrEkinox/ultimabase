@@ -4,7 +4,6 @@ import {
 	UltimaBase,
 	provideRuntimeBehavior,
 } from '@ultimabase/core'
-
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {

@@ -3,7 +3,6 @@ import type {
 	ApplicationRequestExecutor,
 	CompiledSchemaRegistry,
 } from '@ultimabase/core'
-
 import {
 	immutableArray,
 	immutableRecord,

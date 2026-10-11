@@ -6,7 +6,6 @@ import {
 	snapshotScalarFieldValue,
 	type JsonDocument,
 } from '@ultimabase/core'
-
 import {
 	assertNonEmptyString,
 	immutableArray,

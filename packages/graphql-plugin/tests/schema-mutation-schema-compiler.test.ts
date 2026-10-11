@@ -11,7 +11,6 @@ import {
 	type DatabaseAdapter,
 	type JsonValue,
 } from '@ultimabase/core'
-
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { graphqlPlugin } from '../src/plugin.js'

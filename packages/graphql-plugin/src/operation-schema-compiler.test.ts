@@ -15,7 +15,6 @@ import {
 	type JsonValue,
 	type OperationTransportBindingDefinition,
 } from '@ultimabase/core'
-
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { graphql, printSchema } from 'graphql'
 

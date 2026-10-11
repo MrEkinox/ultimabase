@@ -5,7 +5,6 @@ import {
 	protectedPolicy,
 	runWithRequestEngine,
 } from '@ultimabase/core'
-
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	hooksPlugin,

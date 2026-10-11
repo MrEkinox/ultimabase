@@ -1,6 +1,5 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
-
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import {
 	httpApplicationCapability,

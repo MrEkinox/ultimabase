@@ -5,7 +5,6 @@ import type {
 	ExposedSchemaMutationTransportBinding,
 	SchemaDefinition,
 } from '@ultimabase/core'
-
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import type { GraphQLFieldResolver } from 'graphql'
 

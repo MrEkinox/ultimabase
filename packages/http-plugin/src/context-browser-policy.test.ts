@@ -1,5 +1,4 @@
 import type { ApplicationRequestExecutor } from '@ultimabase/core'
-
 import { describe, expect, it, vi } from 'vitest'
 
 import type { HttpBrowserPolicy } from './browser-policy.js'

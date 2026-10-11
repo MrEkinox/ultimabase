@@ -8,7 +8,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-
 import { graphql } from 'graphql'
 import { describe, expect, it, vi } from 'vitest'
 

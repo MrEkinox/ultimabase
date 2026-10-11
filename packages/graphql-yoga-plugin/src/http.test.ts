@@ -4,7 +4,6 @@ import {
 	UltimaBase,
 	getCurrentRequest,
 } from '@ultimabase/core'
-
 import {
 	graphqlPlugin,
 	type GraphqlApplication,

@@ -13,7 +13,6 @@ import {
 	type RuntimeRelationEnforcementStageInput,
 	type RuntimeResultStageInput,
 } from '@ultimabase/core'
-
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { AccessPlan } from '../authoring/plan.js'

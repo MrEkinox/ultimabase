@@ -16,7 +16,6 @@ import {
 	type PreparedDatabaseOperation,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-
 import { describe, expect, it } from 'vitest'
 
 import {

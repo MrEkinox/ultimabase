@@ -5,7 +5,6 @@ import {
 	requestRoleResolverCapability,
 	defineRequestSubjectReferenceCleanup,
 } from '@ultimabase/core'
-
 import {
 	allMutations,
 	allOf,

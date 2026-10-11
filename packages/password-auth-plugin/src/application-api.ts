@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
 import type { ApplicationRequestExecutor } from '@ultimabase/core'
-
 import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
 import type { PasswordCredentialCollection } from './credentials.js'

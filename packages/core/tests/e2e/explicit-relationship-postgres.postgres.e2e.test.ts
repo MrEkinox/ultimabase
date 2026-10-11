@@ -1,5 +1,4 @@
 import { UltimaBase } from '@ultimabase/core'
-
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'

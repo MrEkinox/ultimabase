@@ -1,5 +1,4 @@
 import { UltimaBase, type ApplicationRequestExecutor } from '@ultimabase/core'
-
 import type { GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
