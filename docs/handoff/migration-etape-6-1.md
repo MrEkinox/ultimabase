@@ -117,11 +117,62 @@ Fait et vérifié par tests ciblés (commits `wip(access)`) :
   de l'application enregistrée (gabarit create-app). Remplacé par
   `SchemaRulesSource`, lu seulement depuis `.with`.
 
-## Preuves
+## Preuves (porte finale sur fe647810, dernier commit de code)
 
-(complétées après la porte finale)
+- `packages/*/dist` et `*.tsbuildinfo` hors `node_modules` supprimés, puis
+  `yarn validate:full` : code 0 (13 min 42 s). « All matched files use
+  Prettier code style! » ; lint 0 erreur (49 + 19 + 2 avertissements, tous de
+  taille de fichier, aucun nouveau : `schema-mutation-access.test.ts` passe de
+  664 à 663 lignes) ; performance « Test Files 3 passed (3) / Tests 4 passed
+  (4) » ; couverture « Test Files 702 passed (702) / Tests 3415 passed (3415) /
+  Type Errors no errors », All files 92,58 / 86,28 / 97,28 / 93,25 ; site
+  « Test Files 17 passed (17) / Tests 66 passed (66) ». Une première exécution
+  avait échoué au typecheck (fixture `rule-forms.test.ts`), corrigée par
+  fe647810.
+- `yarn test:e2e:built` : code 0, « Test Files 123 passed (123) / Tests 529
+  passed (529) ».
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+
+### Audit DX (`--only` 23 paquets, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+Base : worktree détaché de 97607147 (construit puis supprimé). 1 027
+différences (37 231 / 37 646 enregistrements), classées par script puis lecture
+d'échantillons :
+
+| Cause                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Nombre |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -----: |
+| Sites d'usage ajoutés ou retirés (nouveaux tests, règles réécrites qui décalent les index d'identifiants)                                                                                                                                                                                                                                                                                                                                                 |    475 |
+| Une règle par opération (`AccessRule`, formes `{ where, item }`, `SchemaReadAccess`, types retirés, entrée des règles avec `where`)                                                                                                                                                                                                                                                                                                                       |    138 |
+| Règles de champ partielles (membres facultatifs, JSDoc)                                                                                                                                                                                                                                                                                                                                                                                                   |    137 |
+| Permissions de plugin (Core, plugin-kit, Soft Delete, `SchemaRulesSource`, clés `readDeleted`)                                                                                                                                                                                                                                                                                                                                                            |    129 |
+| `allowWithoutRule` remplace `default`                                                                                                                                                                                                                                                                                                                                                                                                                     |     53 |
+| Utilitaires retirés                                                                                                                                                                                                                                                                                                                                                                                                                                       |     39 |
+| Décalages d'index (même survol à une autre occurrence d'un fichier réécrit)                                                                                                                                                                                                                                                                                                                                                                               |     23 |
+| Sources de sites d'usage modifiées par l'étape                                                                                                                                                                                                                                                                                                                                                                                                            |     10 |
+| Reste lu à la main : reformulations JSDoc (`AccessDecisionRule`, `AccessPluginOptions`, `FieldAccess*`), alias privés (`SchemaMutationMap<…, TSource>`, `schemaOperationAccessSlots`, retrait de `schemaFilterAccessFamilies`), import de type `@ultimabase/plugin-kit`, marque de `SoftDeletePlugin` (tuple de permissions), complétions de règle avec `where` (test principal), survols typegen des fixtures réécrites, décalage de ligne de `typos.ts` |     23 |
+
+### Banc forme D (base = 97607147, branche = fe647810 ; alterné, médianes)
+
+TypeScript 6.0.3 (3 exécutions, `tools/bench.mjs`) :
+
+| N   | Arbre   | Charges     | Éd.→diag (s) | Exécutions     | Froid (s) | Schéma (s) | Tas (Mio) | Hover `q0` |
+| --- | ------- | ----------- | -----------: | -------------- | --------: | ---------: | --------: | ---------: |
+| 50  | base    | 3,9 4,0 3,8 |         2,04 | 2,02/2,05/2,04 |      4,80 |       2,08 |       849 |        199 |
+| 50  | branche | 3,7 3,6 3,7 |         2,06 | 2,08/2,06/2,06 |      4,79 |       2,09 |       846 |        199 |
+| 200 | base    | 3,8 3,1 2,9 |         6,86 | 6,86/6,84/7,06 |     16,46 |       6,81 |     2 553 |        199 |
+| 200 | branche | 3,6 3,5 3,0 |         6,97 | 7,10/6,97/6,88 |     16,55 |       6,84 |     2 581 |        199 |
+
+TypeScript 7.0.2 (`tools/lsp-bench.mjs`, 3 exécutions à 50, 2 à 200 ; médiane
+haute à 200) : éd.→diag 50 : 0,69 → 0,70 ; 200 : 2,31 → 2,31 ; premier
+diagnostic 50 : 0,78 → 0,79 ; 200 : 2,48 → 2,52 ; édition de règle 50 :
+0,44 → 0,47 ; 200 : 1,36 → 1,31 ; RSS serveur 669 → 503 Mio (50),
+1 919 → 1 783 Mio (200). Aucun diagnostic inattendu (0 au départ, 1 après
+l'édition volontaire). Lecture : neutre (écarts ≤ 1,6 %, dans le bruit des
+charges). Dossiers `gen/` supprimés.
 
 ## Prochaine action vérifiable
 
-Porte finale sur le dernier commit de code, audit DX, banc forme D, puis revue
-du coordinateur.
+Revue du coordinateur, décisions de l'utilisateur sur les points non fixés
+par l'ADR, puis fusion `--no-ff` dans `main` ; supprimer ce handoff après la
+fusion.
