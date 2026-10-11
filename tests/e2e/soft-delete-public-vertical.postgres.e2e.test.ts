@@ -153,7 +153,7 @@ afterAll(async () => {
 })
 
 describe('documented official soft-delete public vertical', () => {
-	it('publishes only the explicit mutation and keeps administration private', async () => {
+	it('publishes the one-row request commands and keeps purge private', async () => {
 		const rest = readObject(
 			await invoke(requireApplication(), 'plugin', ['@ultimabase/rest-plugin']),
 			'REST application',
@@ -171,8 +171,13 @@ describe('documented official soft-delete public vertical', () => {
 					readValue(route, 'kind') === 'rest-schema-mutation-route',
 			)
 			.map((route) => readValue(route, 'path'))
+			.sort()
+		// Restore routes exist but Access refuses them (`restoreOne: false`).
 		expect(schemaMutationPaths).toStrictEqual([
-			'/api/v1/classes/ExampleArticle/{id}/soft-delete',
+			'/api/v1/classes/ExampleArticle/{id}/restore-one',
+			'/api/v1/classes/ExampleArticle/{id}/soft-delete-one',
+			'/api/v1/classes/ExampleAuthor/{id}/restore-one',
+			'/api/v1/classes/ExampleAuthor/{id}/soft-delete-one',
 		])
 
 		const graphql = readObject(
@@ -183,10 +188,11 @@ describe('documented official soft-delete public vertical', () => {
 		)
 		const sdl = await invoke(graphql, 'printSchema', [])
 		expect(sdl).toEqual(expect.any(String))
-		expect(sdl).toContain('softDeleteExampleArticle(')
-		expect(sdl).not.toContain('softDeleteExampleAuthor')
-		expect(sdl).not.toContain('softDeleteExamplePrivateNote')
-		expect(sdl).not.toMatch(/(?:restore|purge)Example/u)
+		expect(sdl).toContain('softDeleteOneExampleArticle(')
+		expect(sdl).toContain('softDeleteOneExampleAuthor(')
+		expect(sdl).not.toContain('softDeleteOneExamplePrivateNote')
+		expect(sdl).not.toMatch(/purge(?:One|Many)Example/u)
+		expect(sdl).not.toMatch(/(?:softDelete|restore)ManyExample/u)
 	})
 
 	it('joins Access, Hooks, direct calls, REST, GraphQL, Yoga, and PostgreSQL', async () => {
@@ -194,7 +200,7 @@ describe('documented official soft-delete public vertical', () => {
 		const app = requireApplication()
 		const deniedId = await createArticle('anonymous-denied')
 		const deniedRest = await requireClient().fetch(
-			`${articlePath}/${deniedId}/soft-delete`,
+			`${articlePath}/${deniedId}/soft-delete-one`,
 			{
 				body: JSON.stringify({ select: { id: true } }),
 				headers: { 'Content-Type': 'application/json' },
@@ -210,7 +216,7 @@ describe('documented official soft-delete public vertical', () => {
 			await executeMinimalGraphql(
 				app,
 				`mutation Denied($id: ID!) {
-					softDeleteExampleArticle(input: { id: $id }) { id }
+					softDeleteOneExampleArticle(input: { id: $id }) { id }
 				}`,
 				'soft-delete-networkless-denied',
 				{ id: deniedId },
@@ -254,7 +260,7 @@ describe('documented official soft-delete public vertical', () => {
 		).resolves.toMatchObject({ id: modelId, isDeleted: true })
 
 		const restDeleted = await authenticated.fetch(
-			`${articlePath}/${restId}/soft-delete`,
+			`${articlePath}/${restId}/soft-delete-one`,
 			{
 				body: JSON.stringify({ select: { id: true, isDeleted: true } }),
 				headers: { 'Content-Type': 'application/json' },
@@ -269,11 +275,11 @@ describe('documented official soft-delete public vertical', () => {
 		const yogaDeleted = await graphqlHttp(
 			authenticated,
 			`mutation SoftDelete($id: ID!) {
-				softDeleteExampleArticle(input: { id: $id }) { id isDeleted }
+				softDeleteOneExampleArticle(input: { id: $id }) { id isDeleted }
 			}`,
 			{ id: yogaId },
 		)
-		expect(graphqlData(yogaDeleted, 'softDeleteExampleArticle')).toEqual({
+		expect(graphqlData(yogaDeleted, 'softDeleteOneExampleArticle')).toEqual({
 			id: yogaId,
 			isDeleted: true,
 		})
@@ -343,12 +349,12 @@ describe('documented official soft-delete public vertical', () => {
 		})
 		expect(observed).toEqual(
 			expect.arrayContaining([
-				['softDelete', 'update', 'ExampleArticle', schemaId],
-				['softDelete', 'update', 'ExampleArticle', modelId],
-				['softDelete', 'update', 'ExampleArticle', restId],
-				['softDelete', 'update', 'ExampleArticle', yogaId],
-				['restore', 'update', 'ExampleArticle', schemaId],
-				['purge', 'delete', 'ExampleArticle', modelId],
+				['softDeleteOne', 'update', 'ExampleArticle', schemaId],
+				['softDeleteOne', 'update', 'ExampleArticle', modelId],
+				['softDeleteOne', 'update', 'ExampleArticle', restId],
+				['softDeleteOne', 'update', 'ExampleArticle', yogaId],
+				['restoreOne', 'update', 'ExampleArticle', schemaId],
+				['purgeOne', 'delete', 'ExampleArticle', modelId],
 				['delete', 'delete', 'ExampleArticle', hardDeleteId],
 				['delete', 'update', 'ExampleAuthor', authorId],
 			]),

@@ -102,11 +102,12 @@ const fixtures: readonly OptionalProductFixture[] = [
 	{
 		classification: {
 			applicationApi: [
-				'SoftDeleteMode',
+				'SoftDeleteCommands',
+				'SoftDeleteFields',
+				'SoftDeleteOptions',
 				'SoftDeletePlugin',
-				'SoftDeletePluginOptions',
-				'SoftDeleteShapeSource',
-				'SoftDeleteSchemaOption',
+				'SoftDeleteSchemaMode',
+				'SoftDeleteShape',
 				'softDeletePlugin',
 			],
 			compatibleProviderContract: [],
@@ -117,6 +118,10 @@ const fixtures: readonly OptionalProductFixture[] = [
 			'normalizeSoftDeletePluginOptions',
 			'resolveSoftDeleteMode',
 			'softDeleteSchemaOption',
+			'SoftDeleteMode',
+			'SoftDeletePluginOptions',
+			'SoftDeleteSchemaOption',
+			'SoftDeleteShapeSource',
 		],
 	},
 	{

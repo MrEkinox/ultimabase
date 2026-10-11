@@ -65,9 +65,11 @@ const Explicit = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		secret: field.string({ access: { read: false } }),
 	}),
-	access: { read: { where: ({ where }) => where.eq('visible', true) } },
-	softDelete: 'explicit',
 })
+	.softDelete({ mode: 'command' })
+	.with({
+		access: { read: { where: ({ where }) => where.eq('visible', true) } },
+	})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
@@ -306,15 +308,8 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 			),
 		).resolves.toBe(1)
 
-		const softDelete: unknown = Reflect.get(
-			application().schema(Explicit),
-			'softDelete',
-		)
-		if (typeof softDelete !== 'function') {
-			throw new TypeError('softDelete command is missing')
-		}
 		const softDeleteRow = (id: string): Promise<unknown> =>
-			Promise.resolve(Reflect.apply(softDelete, undefined, [{ id }]))
+			Explicit.softDeleteOne({ id })
 		const explicit = await Explicit.createOne({
 			data: { title: 'explicit', secret: 'kept private' },
 		})

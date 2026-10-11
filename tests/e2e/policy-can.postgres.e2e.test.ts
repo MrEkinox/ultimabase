@@ -104,10 +104,9 @@ const CanTodo = App.Schema.define({
 const CanExplicit = App.Schema.define({
 	className: 'CanExplicit',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'explicit',
-	// The explicit command key is typed by Typegen only (old declaration form).
-	access: { softDelete: isAuthenticated } as never,
 })
+	.softDelete({ mode: 'command' })
+	.with({ access: { softDeleteOne: isAuthenticated, restoreOne: false } })
 
 const masterKey = 'policy-can-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>
@@ -232,12 +231,12 @@ describe('ultimabase.can() (ADR-0305)', () => {
 
 	it('evaluates plugin mutation keys', async () => {
 		await expect(
-			can(undefined, 'softDelete', undefined, CanExplicit),
+			can(undefined, 'softDeleteOne', undefined, CanExplicit),
 		).resolves.toBe(false)
 		await expect(
-			can(ada, 'softDelete', { id: explicitRow }, CanExplicit),
+			can(ada, 'softDeleteOne', { id: explicitRow }, CanExplicit),
 		).resolves.toBe(true)
-		await expect(can(ada, 'restore', undefined, CanExplicit)).resolves.toBe(
+		await expect(can(ada, 'restoreOne', undefined, CanExplicit)).resolves.toBe(
 			false,
 		)
 	})

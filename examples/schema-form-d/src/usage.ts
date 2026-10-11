@@ -84,6 +84,7 @@ expectTypeOf<keyof Select<'Todo'>>().toEqualTypeOf<
 	| 'archived'
 	| 'assignee'
 	| 'createdAt'
+	| 'deletedAt'
 	| 'id'
 	| 'isDeleted'
 	| 'parent'
