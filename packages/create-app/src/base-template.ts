@@ -28,6 +28,7 @@ import {
 	securitySchemaImports,
 	securitySchemaPluginEntries,
 	securitySchemaNames,
+	taskACLChain,
 	taskSecurityOptions,
 } from './security-template.js'
 import { mainSource } from './main-template.js'
@@ -97,24 +98,11 @@ export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 	...apiNextCommands(plan),
 ]
 
-/**
- * ADR-0297 amendment 1: one `Register` declaration per application. Old-form
- * Role schemas read the registry while they are typed, so a Roles selection
- * registers an application without schemas until Roles moves to its schema
- * factory; Typegen provides its named types either way.
- */
+/** ADR-0297 amendment 1: one `Register` declaration per application. */
 const registerSource = (plan: InitializerPlan): string =>
 	plan.language !== 'ts'
 		? ''
-		: has(plan, 'roles-plugin')
-			? `// Typegen names these schemas: old-form Role schemas cannot reference the
-// application they belong to without a type cycle.
-declare module '@ultimabase/core' {
-  interface Register {
-    readonly app: UltimaBase<readonly []>
-  }
-}`
-			: `// One declaration per application gives name-keyed editor types.
+		: `// One declaration per application gives name-keyed editor types.
 declare module '@ultimabase/core' {
   interface Register {
     readonly app: typeof ultimabase
@@ -125,9 +113,6 @@ const applicationSource = (plan: InitializerPlan): string => {
 	const security = securityPluginEntries(plan)
 	return joinSections([
 		renderImports([
-			...(plan.language === 'ts' && has(plan, 'roles-plugin')
-				? [['@ultimabase/core', 'type UltimaBase'] as const]
-				: []),
 			...securityApplicationImports(plan),
 			[
 				'./schema.js',
@@ -164,7 +149,7 @@ ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value
 ]
 	.filter((line) => line !== '')
 	.join('\n')}
-})${has(plan, 'soft-delete-plugin') ? '.softDelete()' : ''}`
+})${has(plan, 'soft-delete-plugin') ? '.softDelete()' : ''}${taskACLChain(plan)}`
 
 const schemaSource = (plan: InitializerPlan): string => {
 	const task = plan.starter === 'task'

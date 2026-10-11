@@ -9,7 +9,7 @@ import {
 	passwordPrincipal,
 } from '@ultimabase/password-auth-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
-import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
@@ -58,13 +58,15 @@ export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 export const ExampleUser = PasswordUser
 
 /** The current member is the request principal Core resolves (ADR-0304). */
-export const ExampleRole = RoleSchema.define(MinimalSchemaApplication.Schema, {
+export const ExampleRole = MinimalSchemaApplication.RoleSchema.define({
 	className: 'ExampleRole',
-	members: { schema: PasswordUser },
-	deletion: { references: 'fail' },
+	members: () => PasswordUser,
+	deletion: 'fail',
+	ensure: ['editor'],
 	fields: (field) => ({
 		description: field.string(),
 	}),
+}).with({
 	access: {
 		create: false,
 		delete: false,
@@ -148,11 +150,6 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 		restoreOne: false,
 		restoreMany: false,
 	},
-	acl: {
-		default: publicArticleACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? publicArticleACL,
-	},
 	graphql: true,
 	hooks: {
 		afterOperation: {
@@ -184,7 +181,10 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 	},
 	rest: true,
 	// `deleteOne` hides the author instead of deleting the row.
-}).softDelete()
+})
+	.softDelete()
+	.acl()
+	.with({ acl: { default: publicArticleACL } })
 
 /** Articles demonstrate policy, lifecycle, validation, and relationships. */
 export const ExampleArticle = MinimalSchemaApplication.Schema.define({
@@ -296,11 +296,6 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 		softDeleteMany: false,
 	},
 	graphql: true,
-	acl: {
-		default: publicArticleACL,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? publicArticleACL,
-	},
 	rest: true,
 	hooks: {
 		afterOperation: {
@@ -339,7 +334,10 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 		},
 	},
 	// `deleteOne` stays physical; `softDeleteOne` hides the article.
-}).softDelete({ mode: 'command' })
+})
+	.softDelete({ mode: 'command' })
+	.acl()
+	.with({ acl: { default: publicArticleACL } })
 
 /** Notes prove authenticated role-based Access and ACL through public CRUD. */
 export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
@@ -353,10 +351,11 @@ export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
 		read: editorAccess,
 		update: editorAccess,
 	},
-	acl: { default: editorACL },
 	graphql: true,
 	rest: true,
 })
+	.acl()
+	.with({ acl: { default: editorACL } })
 
 export const minimalSchemas = [
 	ExampleAuthor,

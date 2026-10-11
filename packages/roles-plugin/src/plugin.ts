@@ -86,7 +86,7 @@ interface RoleDomain {
 	readonly schema: SchemaDefinition
 }
 
-/** Discovers role schemas only through the identity recorded by `RoleSchema.define()`. */
+/** Discovers role schemas only through the identity recorded by `App.RoleSchema.define()`. */
 const readRoleDomains = (
 	schemas: CompiledSchemaRegistry,
 ): readonly RoleDomain[] =>

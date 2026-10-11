@@ -25,7 +25,7 @@ import {
 } from '@ultimabase/core'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { describe, expect, it } from 'vitest'
 import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filter-operators.js'
 
@@ -176,29 +176,34 @@ const Principal = AccessCompositionApplication.Schema.define({
 	className: 'AccessCompositionPrincipal',
 	fields: () => ({}),
 })
-const RoleOnly = RoleSchema.define({
+// Declarations only: each test installs its own plugin list.
+const ACLCompositionApplication = AccessCompositionApplication.use(
+	aclPlugin(),
+	rolesPlugin(),
+)
+const RoleOnly = ACLCompositionApplication.RoleSchema.define({
 	className: 'AccessCompositionRoleOnly',
-	fields: () => ({}),
-	members: { schema: Principal },
-})
-const ACLRole = RoleSchema.define({
+	members: () => Principal,
+}).with({})
+const ACLRole = ACLCompositionApplication.RoleSchema.define({
 	className: 'AccessCompositionACLRole',
-	fields: () => ({}),
-	members: { schema: Principal },
-	acl: {},
+	members: () => Principal,
 })
+	.acl()
+	.with({ acl: { default: new ACL() } })
 
 const publicACL = new ACL().grantPublic('read')
-const PublicACLPost = AccessCompositionApplication.Schema.define({
+const PublicACLPost = ACLCompositionApplication.Schema.define({
 	className: 'AccessCompositionPublicACLPost',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	acl: { default: publicACL },
 })
+	.acl()
+	.with({ acl: { default: publicACL } })
 
 const roleACL = new ACL().grantRole(editor, 'read')
-const CombinedPost = AccessCompositionApplication.Schema.define({
+const CombinedPost = ACLCompositionApplication.Schema.define({
 	className: 'AccessCompositionPost',
 	fields: (field) => ({
 		businessScope: field.string(),
@@ -214,9 +219,10 @@ const CombinedPost = AccessCompositionApplication.Schema.define({
 				.eq('nativeScope', 'native-allowed')
 				.eq('businessScope', 'business-allowed'),
 	},
-	// A callback defers role discovery so this fixture can prove runtime composition.
-	acl: { default: () => roleACL },
 })
+	.acl()
+	// A callback defers role discovery so this fixture can prove runtime composition.
+	.with({ acl: { default: () => roleACL } })
 
 const createRoleProvider = (allowed: boolean) =>
 	plugin({
@@ -326,7 +332,7 @@ const runCombinedComposition = async (): Promise<CompositionSnapshot> => {
 }
 
 let roleAwareBusinessHooks = 0
-const MissingRolePost = AccessCompositionApplication.Schema.define({
+const MissingRolePost = ACLCompositionApplication.Schema.define({
 	className: 'AccessCompositionMissingRolePost',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -339,9 +345,10 @@ const MissingRolePost = AccessCompositionApplication.Schema.define({
 			},
 		},
 	},
-	// Dynamic grants validate the absent provider before business or storage hooks.
-	acl: { default: () => roleACL },
 })
+	.acl()
+	// Dynamic grants validate the absent provider before business or storage hooks.
+	.with({ acl: { default: () => roleACL } })
 
 describe('Access provider composition', () => {
 	it('keeps native field Access complete without ACL or roles', async () => {

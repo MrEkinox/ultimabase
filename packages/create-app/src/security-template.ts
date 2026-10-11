@@ -25,7 +25,7 @@ export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
 		['access-plugin', 'accessPlugin'],
 		['acl-permissions-plugin', 'ACL, aclPlugin'],
 		['password-auth-plugin', 'PasswordUserSchema'],
-		['roles-plugin', 'RoleSchema, rolesPlugin'],
+		['roles-plugin', 'rolesPlugin'],
 	]),
 ]
 
@@ -70,15 +70,14 @@ ${[
 		[
 			has(plan, 'roles-plugin'),
 			`// Role membership is data, not an authorization grant by itself.
-export const AppRole = RoleSchema.define(SchemaApplication.Schema, {
+export const AppRole = SchemaApplication.RoleSchema.define({
 ${[
 	"  className: 'Role',",
-	...privateSchemaApiOptions(plan),
-	`  members: { schema: ${roleMembers(plan)} },`,
-	"  deletion: { references: 'fail' },",
+	`  members: () => ${roleMembers(plan)},`,
+	"  deletion: 'fail',",
 	'  fields: (f) => ({ description: f.string() }),',
 ].join('\n')}
-})`,
+}).with({${privateSchemaApiOptions(plan).length === 0 ? '' : `\n${privateSchemaApiOptions(plan).join('\n')}\n`}})`,
 		],
 	]).join('\n\n')
 
@@ -89,15 +88,16 @@ export const taskSecurityOptions = (plan: InitializerPlan): string =>
 			`  // Deny ordinary requests; the local demonstration uses audited Master access.
   access: { read: false, create: false, update: false, delete: false },`,
 		],
-		[
-			has(plan, 'acl-permissions-plugin'),
-			`  // An empty ACL grants no read, update, or delete rights.
-  acl: {
-    default: () => new ACL(),
-    resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl ?? new ACL(),
-  },`,
-		],
 	]).join('\n')
+
+/** ACL is added by `.acl()` and configured in `.with({ acl })` (ADR-0321). */
+export const taskACLChain = (plan: InitializerPlan): string =>
+	has(plan, 'acl-permissions-plugin')
+		? `
+  .acl()
+  // An empty ACL grants no read, update, or delete rights.
+  .with({ acl: { default: new ACL() } })`
+		: ''
 
 export const securityApplicationImports = (
 	plan: InitializerPlan,

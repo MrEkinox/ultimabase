@@ -177,7 +177,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 			masterOptions,
 		)
 
-		expect(updated.acl.toJSON()).toStrictEqual(publicRead.toJSON())
+		expect(updated?.acl.toJSON()).toStrictEqual(publicRead.toJSON())
 		expect(updated).toMatchObject({
 			balance: '11.50',
 			labels: ['stable', 'typed'],

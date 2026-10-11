@@ -2,7 +2,7 @@ import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { UltimaBase, defineEnum } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
@@ -39,11 +39,12 @@ export const TodoUser = TodoSchemaApplication.Schema.define({
 	postgres: { table: 'todo_users' },
 })
 
-/** Stores application roles with ordinary schema fields and model commands. */
-export const TodoRole = RoleSchema.define(TodoSchemaApplication.Schema, {
+/** Stores application roles with ordinary schema fields (ADR-0322). */
+export const TodoRole = TodoSchemaApplication.RoleSchema.define({
 	className: 'TodoRole',
-	members: { schema: TodoUser },
-	deletion: { references: 'fail' },
+	members: () => TodoUser,
+	deletion: 'fail',
+	ensure: ['editor'],
 	fields: (field) => ({
 		description: field.string({
 			description: 'Human-readable explanation of the role.',
@@ -54,9 +55,10 @@ export const TodoRole = RoleSchema.define(TodoSchemaApplication.Schema, {
 			description: 'Display priority for administrative role lists.',
 		}),
 	}),
+}).with({
+	// Stored in the default table, `todo_roles`.
 	indexes: [{ fields: ['priority', 'createdAt'] }],
 	access: serverManagedAccess,
-	postgres: { table: 'todo_roles' },
 })
 
 /** Stable role reference used by ACL defaults without loading role storage. */
@@ -230,11 +232,6 @@ export const Todo = TodoSchemaApplication.Schema.define({
 		upsert: false,
 		delete: false,
 	},
-	acl: {
-		default: new ACL()
-			.grantPublic('read')
-			.grantRole(TodoEditorRole, 'read', 'update'),
-	},
 	hooks: {
 		beforeOperation: {
 			update: ({ item, originalItem }) => {
@@ -246,3 +243,11 @@ export const Todo = TodoSchemaApplication.Schema.define({
 	},
 	postgres: { table: 'todos' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: new ACL()
+				.grantPublic('read')
+				.grantRole(TodoEditorRole, 'read', 'update'),
+		},
+	})

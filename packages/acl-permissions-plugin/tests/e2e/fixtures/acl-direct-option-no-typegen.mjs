@@ -7,8 +7,9 @@ const Application = UltimaBase.use(aclPlugin())
 const ProtectedPost = Application.Schema.define({
 	className: 'JavaScriptDirectACLPost',
 	fields: (field) => ({ title: field.string() }),
-	acl: { default: new ACL().grantPublic('read') },
 })
+	.acl()
+	.with({ acl: { default: new ACL().grantPublic('read') } })
 const application = new Application({
 	logger: false,
 	schemas: [ProtectedPost],

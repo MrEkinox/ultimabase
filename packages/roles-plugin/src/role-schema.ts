@@ -19,6 +19,7 @@ import type {
 	PluginSourceState,
 	SchemaFactoriesHKT,
 	SchemaFactoryContext,
+	SchemaFactoryShape,
 	SchemaStaticsHKT,
 } from '@ultimabase/core/plugin'
 import {
@@ -150,7 +151,7 @@ export interface RoleSchemaOptions<
 
 /** Marks a declaration made by `App.RoleSchema.define` for the statics slot. */
 type RoleSchemaDeclarationOptions = DeclaredSchemaShape<
-	Readonly<{ RoleSchema: readonly [] }>
+	SchemaFactoryShape<'RoleSchema'>
 >
 
 /** The `App.RoleSchema` factory of an application that installs Roles. */

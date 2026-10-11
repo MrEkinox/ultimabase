@@ -183,6 +183,8 @@ export type {
 	SchemaFactoryContext,
 	SchemaFactoryImplementations,
 	SchemaFactoryImplementationsOf,
+	SchemaFactoryShape,
+	SchemaFactoryShapeBrand,
 } from './plugins/schema-factories.js'
 export { readSchemaRules } from './plugins/schema-rule-values.js'
 export type {

@@ -172,13 +172,16 @@ describe('aclPlugin create input resolution', () => {
 		const StaticRolePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLStaticRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
-			acl: {
-				default: new ACL().grantRole(
-					new RequestSubjectReference('role', 'fixture-static-role'),
-					'read',
-				),
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: new ACL().grantRole(
+						new RequestSubjectReference('role', 'fixture-static-role'),
+						'read',
+					),
+				},
+			})
 		let infrastructureStarted = false
 		const infrastructure = plugin({
 			version: '0.0.0',
@@ -234,10 +237,13 @@ describe('aclPlugin create input resolution', () => {
 		const DynamicRolePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLDynamicRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
-			acl: {
-				default: () => new ACL().grantRole(dynamicRole, 'read'),
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: () => new ACL().grantRole(dynamicRole, 'read'),
+				},
+			})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = plugin({
 			version: '0.0.0',
@@ -382,29 +388,34 @@ describe('aclPlugin create input resolution', () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-			acl: {
-				default: ({ data }) => {
-					const value = new ACL().grantPrincipal(
-						Principal.pointer('first'),
-						'read',
-					)
-
-					return data.title === 'Oversized'
-						? value.grantPrincipal(Principal.pointer('second'), 'read')
-						: value
-				},
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: ({ data }) => {
+						const value = new ACL().grantPrincipal(
+							Principal.pointer('first'),
+							'read',
+						)
+						return data.title === 'Oversized'
+							? value.grantPrincipal(Principal.pointer('second'), 'read')
+							: value
+					},
+				},
+			})
 		const OverridePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLSchemaLimitOverridePost',
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-			acl: {
-				default: twoPrincipals,
-				limits: { maxPrincipals: 2 },
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: twoPrincipals,
+					limits: { maxPrincipals: 2 },
+				},
+			})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = plugin({
 			version: '0.0.0',

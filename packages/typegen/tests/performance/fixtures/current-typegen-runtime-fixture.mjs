@@ -6,7 +6,7 @@ import {
 	passwordAuthPlugin,
 } from '../../../../password-auth-plugin/dist/index.js'
 import { pgVectorPlugin } from '../../../../pg-vector-plugin/dist/index.js'
-import { RoleSchema, rolesPlugin } from '../../../../roles-plugin/dist/index.js'
+import { rolesPlugin } from '../../../../roles-plugin/dist/index.js'
 import { softDeletePlugin } from '../../../../soft-delete-plugin/dist/index.js'
 import { validationPlugin } from '../../../../validation-plugin/dist/index.js'
 
@@ -54,11 +54,11 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 	schemas.push(User)
 	if (schemaCount > 1) {
 		schemas.push(
-			RoleSchema.define(Base.Schema, {
+			Base.RoleSchema.define({
 				className: 'Role',
 				fields: runtimeFields,
-				members: { schema: User },
-			}),
+				members: () => User,
+			}).with({}),
 		)
 	}
 	const Application = Base.use(passwordAuthPlugin({ user: User }))

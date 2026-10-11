@@ -108,7 +108,7 @@ describe('API project templates', () => {
 			/export const Member = SchemaApplication\.Schema\.define\(\{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
 		)
 		expect(schema).toMatch(
-			/export const AppRole = RoleSchema\.define\(SchemaApplication\.Schema, \{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
+			/export const AppRole = SchemaApplication\.RoleSchema\.define\(\{[\s\S]*?\}\)\.with\(\{\n  rest: false,\n  graphql: false,\n\}\)/u,
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([

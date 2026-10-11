@@ -282,7 +282,8 @@ describe('independent protected policy engine', () => {
 			}).contents
 
 			expect(generated).toContain('@ultimabase/acl-permissions-plugin')
-			expect(generated).toContain('ACLSchemaOption<this>')
+			// ADR-0321: the `acl` option is no longer typed through Typegen.
+			expect(generated).not.toContain('ACLSchemaOption')
 			expect(generated).toContain('readonly acl: Plugin1_ACL')
 			expect(
 				application.compile().schemas.get(Document.className)?.fields.acl?.kind,

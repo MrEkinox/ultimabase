@@ -155,7 +155,7 @@ describe('aclPlugin prepared input resolution', () => {
 			undefined,
 			context,
 		)
-		expect(recomputed.update.operations[1]).toStrictEqual({
+		expect(recomputed.update.operations.at(-1)).toStrictEqual({
 			field: 'acl',
 			kind: 'set',
 			value: resolvedACL,

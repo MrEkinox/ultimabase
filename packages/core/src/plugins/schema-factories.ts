@@ -37,6 +37,25 @@ export type SchemaFactoriesFor<TSlots, TSource> = TSlots extends readonly [
 	? ApplySchemaFactories<TFirst, TSource> & SchemaFactoriesFor<TRest, TSource>
 	: unknown
 
+declare const schemaFactoryShapeType: unique symbol
+
+/** Marks the shape record of a declaration started by a schema factory. */
+export interface SchemaFactoryShapeBrand {
+	readonly [schemaFactoryShapeType]: true
+}
+
+/**
+ * The shape record a schema factory starts its declarations with, so the
+ * factory's statics slot recognizes them (`'RoleSchema' extends keyof
+ * this['shape']`), Typegen-named schemas included.
+ *
+ * @example `DeclaredSchemaShape<SchemaFactoryShape<'RoleSchema'>>`
+ */
+export type SchemaFactoryShape<TName extends string> = Readonly<
+	Record<TName, readonly []>
+> &
+	SchemaFactoryShapeBrand
+
 /** Given to one schema factory when Core attaches it to a configured application. */
 export interface SchemaFactoryContext {
 	/**

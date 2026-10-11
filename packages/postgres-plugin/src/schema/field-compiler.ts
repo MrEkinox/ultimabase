@@ -1,5 +1,6 @@
 import {
 	getPluginFieldStorageCodec,
+	isFieldRequiredDeferred,
 	readPluginFieldStorageDefault,
 	type FieldValidationPlan,
 	type GenericField,
@@ -273,6 +274,8 @@ const finalizeBuilder = (
 	const notNull =
 		!plan.nullable &&
 		(plan.presence === 'required' ||
+			// A plugin supplies this required value at write time (ADR-0321).
+			isFieldRequiredDeferred(plan.field) ||
 			Object.hasOwn(options, 'default') ||
 			hasTrueOption(options, 'autoNow') ||
 			hasTrueOption(options, 'autoIncrement') ||

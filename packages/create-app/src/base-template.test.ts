@@ -199,7 +199,7 @@ describe('base project templates', () => {
 						'read: false, create: false, update: false, delete: false',
 					)
 				if (id === 'acl-permissions-plugin')
-					expect(schema).toContain('default: () => new ACL()')
+					expect(schema).toContain('.with({ acl: { default: new ACL() } })')
 				if (id === 'password-auth-plugin') {
 					expect(schema).toContain(
 						'PasswordUserSchema.define(SchemaApplication.Schema, {',
@@ -207,7 +207,7 @@ describe('base project templates', () => {
 					expect(application).toContain('schemas: [Task, AppUser]')
 				}
 				if (id === 'roles-plugin') {
-					expect(schema).toContain('RoleSchema.define(')
+					expect(schema).toContain('SchemaApplication.RoleSchema.define({')
 					expect(schema).toContain(
 						'export const Member = SchemaApplication.Schema.define(',
 					)
@@ -232,12 +232,11 @@ describe('base project templates', () => {
 		const files = renderBaseFiles(plan)
 		const schema = files.get('src/schema.ts') ?? ''
 		const application = files.get('src/ultimabase.ts') ?? ''
-		expect(schema).toContain('schema: AppUser')
+		expect(schema).toContain('members: () => AppUser')
 		// Roles reads the Core principal: rules no longer import the session token.
 		expect(schema).not.toContain('passwordPrincipal')
-		expect(schema).toContain(
-			'resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl ?? new ACL()',
-		)
+		expect(schema).toContain('.acl()')
+		expect(schema).not.toContain('resolveInput')
 		expect(application).toContain('schemas: [Task, AppUser, AppRole]')
 		expect(application).not.toContain('accessPlugin()')
 		expect(files.get('README.md')).toContain(
@@ -274,17 +273,16 @@ describe('base project templates', () => {
 		)
 		expect(typescript.get('src/main.ts')).not.toContain('dispose()')
 
-		// Old-form Role schemas would make `typeof ultimabase` circular.
+		// ADR-0322: role schemas come from App.RoleSchema, so Roles registers
+		// the real application like any other selection.
 		const roles = renderBaseFiles(
 			resolveSelection(
 				{ name: 'notes', install: false, plugins: ['roles-plugin'] },
 				'/tmp',
 			),
 		).get('src/ultimabase.ts')
-		expect(roles).toContain('readonly app: UltimaBase<readonly []>')
-		expect(roles).toContain(
-			"import { type UltimaBase, MasterAuthority } from '@ultimabase/core'",
-		)
+		expect(roles).toContain('readonly app: typeof ultimabase')
+		expect(roles).toContain("import { MasterAuthority } from '@ultimabase/core'")
 
 		const javascript = renderBaseFiles(
 			resolveSelection(
