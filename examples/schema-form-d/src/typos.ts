@@ -23,18 +23,12 @@ export const TypoRules = App.Schema.define({
 	}),
 }).with({
 	access: {
-		read: {
-			// @ts-expect-error -- `archivd` is not a field of TypoRules.
-			where: ({ where }) => where.eq('archivd', false),
-		},
-		update: {
-			// @ts-expect-error -- `emial` is not a field of TodoUser.
-			where: ({ where }) => where.is('owner', (user) => user.eq('emial', 'x')),
-		},
-		delete: {
-			// @ts-expect-error -- a filter returns a builder or a where object.
-			where: () => 42,
-		},
+		// @ts-expect-error -- `archivd` is not a field of TypoRules.
+		read: ({ where }) => where.eq('archivd', false),
+		// @ts-expect-error -- `emial` is not a field of TodoUser.
+		update: ({ where }) => where.is('owner', (user) => user.eq('emial', 'x')),
+		// @ts-expect-error -- a rule returns true, false or a filter.
+		delete: () => 42,
 	},
 })
 

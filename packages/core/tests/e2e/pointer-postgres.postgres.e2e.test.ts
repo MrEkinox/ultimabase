@@ -211,7 +211,7 @@ const getUltimaBase = () => {
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (PointerSchemaApplication.use(
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		postgresPlugin({
 			schemaPolicy: 'override',
 			url: fixture.connectionUri,
@@ -594,7 +594,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const app = getUltimaBase()
 		const graph = app.compile().schemas.schemaTargets
 		const independentApp = new (PointerSchemaApplication.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 		))({ schemas: pointerSchemas })
 
 		try {

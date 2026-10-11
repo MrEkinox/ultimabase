@@ -64,7 +64,7 @@ const createApplication = (
 		version: '1.0.0',
 	})
 	const ultimabase = new (UltimaBase.use(
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		provider,
 		database,
 	))({ logger: false, schemas: [schema] })
@@ -73,7 +73,7 @@ const createApplication = (
 }
 
 describe('Access declarations with an own __proto__ key (reference defect regression)', () => {
-	it('keeps a static where __proto__ key so Core rejects it instead of dropping the row filter', async () => {
+	it('keeps a returned where __proto__ key so Core rejects it instead of dropping the row filter', async () => {
 		const Document = UltimaBase.Schema.define({
 			className: 'AccessProtoStaticWhereDocument',
 			fields: (field) => ({ title: field.string() }),
@@ -81,7 +81,7 @@ describe('Access declarations with an own __proto__ key (reference defect regres
 		const where = {}
 		defineOwnProtoKey(where, { title: { eq: 'visible' } })
 		const ultimabase = createApplication('where', Document, () =>
-			schemaAccess(Document, { read: { allow: true, where } }),
+			schemaAccess(Document, { read: () => where }),
 		)
 		await ultimabase.start()
 
@@ -105,7 +105,7 @@ describe('Access declarations with an own __proto__ key (reference defect regres
 
 		// The reference dropped the `__proto__` rule and started normally.
 		await expect(ultimabase.start()).rejects.toThrow(
-			'Unknown request schema mutation Access branch: access.__proto__',
+			'Unknown Access rule: access.__proto__',
 		)
 	})
 })

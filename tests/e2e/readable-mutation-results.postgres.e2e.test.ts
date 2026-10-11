@@ -26,7 +26,10 @@ import {
 
 // ADR-0306: mutation results obey the row read rules, like PostgreSQL's
 // RETURNING under row-level security.
-const App = UltimaBase.use(softDeletePlugin(), accessPlugin({ default: true }))
+const App = UltimaBase.use(
+	softDeletePlugin(),
+	accessPlugin({ allowWithoutRule: { all: true } }),
+)
 
 const Note = App.Schema.define({
 	className: 'ReadableNote',
@@ -36,7 +39,7 @@ const Note = App.Schema.define({
 		parent: field.pointer({ target: () => Note }),
 	}),
 }).with({
-	access: { read: { where: ({ where }) => where.eq('visible', true) } },
+	access: { read: ({ where }) => where.eq('visible', true) },
 })
 
 const Secret = App.Schema.define({
@@ -54,7 +57,7 @@ const Archived = App.Schema.define({
 })
 	.softDelete()
 	.with({
-		access: { read: { where: ({ where }) => where.eq('visible', true) } },
+		access: { read: ({ where }) => where.eq('visible', true) },
 	})
 
 const Explicit = App.Schema.define({
@@ -67,7 +70,7 @@ const Explicit = App.Schema.define({
 })
 	.softDelete({ mode: 'command' })
 	.with({
-		access: { read: { where: ({ where }) => where.eq('visible', true) } },
+		access: { read: ({ where }) => where.eq('visible', true) },
 	})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {

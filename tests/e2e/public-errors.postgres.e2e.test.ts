@@ -38,7 +38,10 @@ import {
 
 // ADR-0305: a PublicError aborts and rolls back the operation, is never
 // retried, and reaches clients; any other error stays masked and logged.
-const App = UltimaBase.use(accessPlugin({ default: true }), hooksPlugin())
+const App = UltimaBase.use(
+	accessPlugin({ allowWithoutRule: { all: true } }),
+	hooksPlugin(),
+)
 
 let attempts = 0
 let failAfterCommit = false

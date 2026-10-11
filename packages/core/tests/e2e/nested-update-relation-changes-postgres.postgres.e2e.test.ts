@@ -19,7 +19,7 @@ const NestedUpdateApplication =
 const Child = NestedUpdateApplication.Schema.define({
 	className: 'NestedUpdateChild',
 	access: {
-		read: { where: ({ where }) => where.eq('visible', true) },
+		read: ({ where }) => where.eq('visible', true),
 	},
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -120,7 +120,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		postgresPlugin({
 			schemaPolicy: 'override',
 			url: fixture.connectionUri,

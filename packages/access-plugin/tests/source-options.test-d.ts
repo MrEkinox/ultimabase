@@ -3,7 +3,9 @@ import { expectTypeOf, test } from 'vitest'
 import { UltimaBase } from '@ultimabase/core'
 
 import { accessPlugin } from '../src/plugin.js'
-const AccessApplication = UltimaBase.use(accessPlugin({ default: true }))
+const AccessApplication = UltimaBase.use(
+	accessPlugin({ allowWithoutRule: { all: true } }),
+)
 
 test('infers field Access directly from the configured source', () => {
 	const Post = AccessApplication.Schema.define({

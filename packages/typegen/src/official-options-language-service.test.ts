@@ -217,9 +217,11 @@ const TypedDocument = SourceApplication.Schema.define({
   },
   access: {
     archive: {
-      allow: ({ input, mutation }) => input.id.length > 0 && mutation.authority === 'request',
+      where: ({ input, mutation, where }) =>
+        input.id.length > 0 && mutation.authority === 'request'
+          ? where.eq('id', input.id)
+          : false,
       item: ({ input, item, originalItem }) => input.id !== item.id && originalItem.id.length > 0,
-      where: ({ input, where }) => where.eq('id', input.id),
     },
     read: true,
     // @ts-expect-error -- Master-only mutations are absent from request Access.

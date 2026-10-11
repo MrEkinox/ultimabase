@@ -4,19 +4,17 @@ import type {
 	SchemaResult,
 	UltimaBaseGeneratedSchemaSurfaces,
 	WhereBuilder,
-	WhereInput,
 } from '@ultimabase/core'
 import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
 	PluginSourceSchemaMutations,
 } from '@ultimabase/core/plugin'
-import type { MaybePromise } from '@ultimabase/shared'
-
-import type { AccessPolicyInput } from './contracts.js'
-
-type SchemaMutationDecisionRule<TInput> =
-	boolean | ((input: TInput) => MaybePromise<boolean>)
+import type {
+	AccessDecisionRule,
+	AccessPolicyInput,
+	AccessRule,
+} from './contracts.js'
 
 /** Exposes only the stable logical identity used to select one Access branch. */
 export type SchemaMutationAccessIdentity<
@@ -55,39 +53,37 @@ export interface SchemaMutationItemAccessInput<
 	readonly originalItem: SchemaResult<TSchema>
 }
 
-/** Restricts rows eligible for one exact plugin-owned schema mutation. */
-export type SchemaMutationWhereRule<
-	TSchema extends SchemaDefinition,
-	TMutation extends PluginSchemaMutationDefinition,
-> =
-	| WhereInput<TSchema>
-	| ((
-			input: SchemaMutationWhereAccessInput<TSchema, TMutation>,
-	  ) => MaybePromise<WhereBuilder<TSchema> | WhereInput<TSchema> | undefined>)
-
-/** Groups every monotonic decision for one exact custom logical mutation. */
+/**
+ * Rules one request plugin command before loading, then checks each locked
+ * original and candidate (ADR-0317).
+ */
 export interface SchemaMutationAccess<
 	TSchema extends SchemaDefinition,
 	TMutation extends PluginSchemaMutationDefinition,
 > {
-	/** Makes the early decision before Core loads the target. */
-	readonly allow?: SchemaMutationDecisionRule<
-		SchemaMutationOperationAccessInput<TMutation>
+	/**
+	 * The operation rule: every row, no row, or the rows the command may change.
+	 * @example `where: ({ input }) => input.reason.length > 0`
+	 */
+	readonly where: AccessRule<
+		TSchema,
+		SchemaMutationWhereAccessInput<TSchema, TMutation>
 	>
-	/** Restricts the private row universe eligible for the mutation. */
-	readonly where?: SchemaMutationWhereRule<TSchema, TMutation>
-	/** Checks the locked original and owner-resolved logical candidate. */
-	readonly item?: SchemaMutationDecisionRule<
+	/**
+	 * Checks the locked original and the owner-resolved candidate.
+	 * @example `item: ({ originalItem }) => originalItem.published`
+	 */
+	readonly item: AccessDecisionRule<
 		SchemaMutationItemAccessInput<TSchema, TMutation>
 	>
 }
 
-/** Allows one concise decision or the complete custom mutation stages. */
+/** One rule for a request plugin command, or its detailed `{ where, item }` form. */
 export type SchemaMutationAccessDeclaration<
 	TSchema extends SchemaDefinition,
 	TMutation extends PluginSchemaMutationDefinition,
 > =
-	| SchemaMutationDecisionRule<SchemaMutationOperationAccessInput<TMutation>>
+	| AccessRule<TSchema, SchemaMutationWhereAccessInput<TSchema, TMutation>>
 	| SchemaMutationAccess<TSchema, TMutation>
 
 type GeneratedMutationMap<TSchema extends SchemaDefinition> =

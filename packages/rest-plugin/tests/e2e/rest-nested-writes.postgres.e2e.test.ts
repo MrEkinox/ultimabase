@@ -115,7 +115,7 @@ const includedTargets = (
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'rest_nested_writes' })
 	application = new (UltimaBase.use(
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		restPlugin(),
 		createRestMutationExecutionHarnessPlugin(harness),
 		postgresPlugin({

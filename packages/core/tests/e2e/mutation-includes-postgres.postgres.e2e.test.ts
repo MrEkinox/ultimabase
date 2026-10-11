@@ -28,15 +28,13 @@ const Author = MutationIncludeApplication.Schema.define({
 		}),
 	}),
 	access: {
-		read: {
-			allow: () => {
-				if (authorReadsBeforeRejection === 0) throw projectionAccessError
-				if (authorReadsBeforeRejection !== undefined) {
-					authorReadsBeforeRejection -= 1
-				}
+		read: () => {
+			if (authorReadsBeforeRejection === 0) throw projectionAccessError
+			if (authorReadsBeforeRejection !== undefined) {
+				authorReadsBeforeRejection -= 1
+			}
 
-				return true
-			},
+			return true
 		},
 	},
 })
@@ -91,7 +89,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'mutation_include' })
 	pool = new RecordingPostgresPool(fixture.pool)
 	ultimabase = new (UltimaBase.use(
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		postgresPlugin({ pool, schemaPolicy: 'override' }),
 	))({ schemas })
 

@@ -19,8 +19,8 @@ import { compileAccessPlan } from '../authoring/compiler.js'
 import {
 	accessOperationKinds,
 	readAccessOperationFamily,
-	type AccessDefaultPolicy,
 } from '../authoring/plan.js'
+import { normalizeAllowWithoutRule } from '../authoring/allow-without-rule.js'
 import { requiresAccessPreparedMutationItems } from './item-access.js'
 import { collectUpdateFieldValues } from './mutation-transitions.js'
 import { QueryBuilder } from '@ultimabase/core/plugin'
@@ -32,14 +32,7 @@ const Document = UltimaBase.Schema.define({
 const scoreField = Document.fields.score
 if (scoreField?.kind !== 'int') throw new TypeError('Expected the score field')
 
-const defaults: AccessDefaultPolicy = {
-	create: false,
-	delete: false,
-	read: { count: false, exists: false, many: false, one: false },
-	update: false,
-	upsert: false,
-	schemaMutations: false,
-}
+const defaults = normalizeAllowWithoutRule(undefined)
 
 const owned = (
 	definition: AccessContributionDefinition,
@@ -116,7 +109,9 @@ it('requests set preimages only when item or value-dependent rules need them', (
 	const registry = new SchemaRegistry([Document])
 	const staticPlan = compileAccessPlan(registry, defaults)
 	const itemPlan = compileAccessPlan(registry, defaults, [
-		owned(schemaAccess(Document, { delete: { item: () => true } })),
+		owned(
+			schemaAccess(Document, { delete: { where: true, item: () => true } }),
+		),
 	])
 	const fieldPlan = compileAccessPlan(registry, defaults, [
 		owned(

@@ -3,6 +3,8 @@ import {
 	applicationSchemaMutationSurfaceCapability,
 	provideRuntimeConstraint,
 	protectedPolicy,
+	readPolicyQuery,
+	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -10,6 +12,7 @@ import {
 	optionalCapability,
 	plugin,
 	requireCapability,
+	schemaPermissionsCapability,
 	type PluginDeclarationContribution,
 	type PluginDeclarationSource,
 	type PluginInstance,
@@ -18,19 +21,22 @@ import {
 	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaAccess } from './authoring/contracts.js'
-import type { AccessDefaultPolicy } from './authoring/plan.js'
 import {
-	schemaAccessFamilies,
-	schemaReadAccessBranches,
-} from './authoring/declarations.js'
+	normalizeAllowWithoutRule,
+	type AllowWithoutRule,
+	type AllowWithoutRulePlan,
+} from './authoring/allow-without-rule.js'
 import { compileAccessPlan } from './authoring/compiler.js'
 import { fieldAccessOption, schemaAccessOption } from './options.js'
 import { accessContributionsCapability } from './contributions.js'
+import { createDenialLog } from './runtime/denial-log.js'
 import { AccessRuntime } from './runtime/dispatcher.js'
 import { accessDiagnosticsObserverCapability } from './runtime/diagnostics.js'
+import { readPolicyOperation } from './runtime/rule-evaluation.js'
+import { contributeAccessStartup } from './startup.js'
 
 const optionalAccessContributions = optionalCapability(
 	accessContributionsCapability,
@@ -40,128 +46,38 @@ const optionalAccessDiagnostics = optionalCapability(
 	accessDiagnosticsObserverCapability,
 	'^1.0.0',
 )
+const optionalSchemaPermissions = optionalCapability(
+	schemaPermissionsCapability,
+	'^1.0.0',
+)
 const schemaMutationSurfaceRequirement = requireCapability(
 	applicationSchemaMutationSurfaceCapability,
 	'^1.0.0',
 	{ phase: 'materialization' },
 )
 
-/** Configures static read-capability fallbacks for every application schema. */
-export interface SchemaReadAccessDefaults {
-	readonly one?: boolean
-	readonly many?: boolean
-	readonly count?: boolean
-	readonly exists?: boolean
-}
-
-/**
- * Configures static operation fallbacks without schema-specific row or item rules.
- * Every omitted family or read capability denies.
- */
-export interface SchemaAccessDefaults {
-	readonly read?: boolean | SchemaReadAccessDefaults
-	readonly create?: boolean
-	readonly update?: boolean
-	readonly upsert?: boolean
-	readonly delete?: boolean
-	/** Controls every plugin-owned request mutation unless an exact rule overrides it. */
-	readonly schemaMutations?: boolean
-}
-
-/** Configures the fallback used only when no exact schema decision exists. */
+/** Configures Access; without options every operation without a rule is denied. */
 export interface AccessPluginOptions {
-	readonly default?: boolean | SchemaAccessDefaults
+	/**
+	 * Opens operations that have no schema rule (ADR-0317); everything else
+	 * is denied.
+	 * @example `accessPlugin({ allowWithoutRule: { read: true, write: isAuthenticated } })`
+	 */
+	readonly allowWithoutRule?: AllowWithoutRule
 }
 
-const uniformReadDefaults = (value: boolean): AccessDefaultPolicy['read'] =>
-	immutableRecord({ count: value, exists: value, many: value, one: value })
-
-const uniformDefaults = (value: boolean): AccessDefaultPolicy =>
-	immutableRecord({
-		create: value,
-		delete: value,
-		read: uniformReadDefaults(value),
-		update: value,
-		upsert: value,
-		schemaMutations: value,
-	})
-
-const denyByDefault = uniformDefaults(false)
-const readDefaultKeys = new Set<string>(schemaReadAccessBranches)
-const defaultKeys = new Set<string>([
-	...schemaAccessFamilies,
-	'schemaMutations',
-])
-
-const normalizeReadDefaults = (value: unknown): AccessDefaultPolicy['read'] => {
-	if (typeof value === 'boolean') return uniformReadDefaults(value)
-	if (!isPlainRecord(value)) {
-		throw new TypeError('Access read default must be a boolean or plain object')
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !readDefaultKeys.has(key)) {
-			throw new TypeError(`Unknown Access read default: ${String(key)}`)
-		}
-		if (typeof value[key] !== 'boolean') {
-			throw new TypeError(`Access read default ${key} must be a boolean`)
-		}
-	}
-	return immutableRecord({
-		count: value.count === true,
-		exists: value.exists === true,
-		many: value.many === true,
-		one: value.one === true,
-	})
-}
-
-const normalizeDefaults = definePluginOptionsParser({
+const parseOptions = definePluginOptionsParser({
 	name: 'Access plugin options',
-	keys: ['default'] as const,
-	formatUnknownKey: (key) => `Unknown Access plugin option: ${String(key)}`,
-	normalize: ({ default: defaults }): AccessDefaultPolicy => {
-		if (defaults === undefined) return denyByDefault
-		if (typeof defaults === 'boolean') return uniformDefaults(defaults)
-		if (!isPlainRecord(defaults)) {
-			throw new TypeError('Access default must be a boolean or plain object')
-		}
-		for (const key of Reflect.ownKeys(defaults)) {
-			if (typeof key !== 'string' || !defaultKeys.has(key)) {
-				throw new TypeError(`Unknown Access default: ${String(key)}`)
-			}
-			if (key !== 'read' && typeof defaults[key] !== 'boolean') {
-				throw new TypeError(`Access ${key} default must be a boolean`)
-			}
-		}
-		return immutableRecord({
-			create: defaults.create === true,
-			delete: defaults.delete === true,
-			read:
-				defaults.read === undefined
-					? denyByDefault.read
-					: normalizeReadDefaults(defaults.read),
-			update: defaults.update === true,
-			upsert: defaults.upsert === true,
-			schemaMutations: defaults.schemaMutations === true,
-		})
-	},
+	keys: ['allowWithoutRule'] as const,
+	formatUnknownKey: (key) =>
+		key === 'default'
+			? 'Unknown Access plugin option: default (replaced by allowWithoutRule, ADR-0317)'
+			: `Unknown Access plugin option: ${String(key)}`,
+	normalize: ({ allowWithoutRule }): AllowWithoutRulePlan =>
+		normalizeAllowWithoutRule(allowWithoutRule),
 })
 
 const deniedEffects = immutableRecord({ allowed: false as const })
-
-/** Turns authorization denials into policy decisions; other failures propagate. */
-const unlessDenied = async <TResult, TDenied>(
-	run: () => Promise<TResult>,
-	denied: TDenied,
-): Promise<TDenied | TResult> => {
-	try {
-		return await run()
-	} catch (error: unknown) {
-		if (error instanceof FrameworkError && error.code === 'PERMISSION_DENIED') {
-			return denied
-		}
-		throw error
-	}
-}
 
 type AccessOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-access-options'
@@ -184,8 +100,9 @@ const accessDeclarations: PluginDeclarationContribution<
 /** Entry of `.with({ ... })` owned by Access, for one schema. */
 export interface AccessRules<TSchema> {
 	/**
-	 * Declares schema operation rules; omitted families use the plugin default.
-	 * @example `access: { read: { where: ({ where }) => where.eq('archived', false) } }`
+	 * Declares schema rules; an operation without a rule is denied unless
+	 * `allowWithoutRule` opens it.
+	 * @example `access: { read: ({ where }) => where.eq('archived', false) }`
 	 */
 	readonly access?: SchemaAccess<Extract<TSchema, SchemaDefinition>>
 }
@@ -211,10 +128,10 @@ export type AccessPlugin = PluginInstance<{
 export const accessPlugin = (
 	options: AccessPluginOptions = {},
 ): AccessPlugin => {
-	const defaults = normalizeDefaults(options)
+	const allowWithoutRule = parseOptions(options)
 	const runtimeProvider = provideRuntimeConstraint({
 		contributionId: 'official-access-runtime',
-		create: ({ callbacks, capabilities, schemas }) => {
+		create: ({ callbacks, capabilities, logger, schemas }) => {
 			const contributions = capabilities
 				.contributions(optionalAccessContributions)
 				.flatMap(({ contributionId, owner, pluginVersion, value }) =>
@@ -230,27 +147,78 @@ export const accessPlugin = (
 			const runtime = new AccessRuntime(
 				compileAccessPlan(
 					schemas,
-					defaults,
+					allowWithoutRule,
 					contributions,
 					capabilities.get(schemaMutationSurfaceRequirement),
+					capabilities
+						.contributions(optionalSchemaPermissions)
+						.flatMap(({ value }) => value),
 				),
 				capabilities.get(optionalAccessDiagnostics),
 				callbacks,
 			)
+			const logDenial = createDenialLog(logger, allowWithoutRule.environment)
+			/** Turns authorization denials into policy decisions; other failures propagate. */
+			const unlessDenied = async <TResult, TDenied>(
+				run: () => Promise<TResult>,
+				denied: TDenied,
+				operation?: RuntimeLogicalOperationAst,
+			): Promise<TDenied | TResult> => {
+				try {
+					return await run()
+				} catch (error: unknown) {
+					if (
+						!(error instanceof FrameworkError) ||
+						error.code !== 'PERMISSION_DENIED'
+					) {
+						throw error
+					}
+					// `can()` questions are answers, not denials (ADR-0305).
+					if (
+						operation !== undefined &&
+						readPolicyQuery(operation) === undefined
+					) {
+						logDenial(error, readPolicyOperation(operation))
+					}
+					return denied
+				}
+			}
 
 			return {
 				value: protectedPolicy({
 					evaluate: (input) =>
-						unlessDenied(() => runtime.evaluate(input), deniedEffects),
+						unlessDenied(
+							() => runtime.evaluate(input),
+							deniedEffects,
+							input.operation,
+						),
 					master: 'bypass',
 					mutationOutcome: (input) =>
-						unlessDenied(() => runtime.enforceMutationOutcome(input), false),
+						unlessDenied(
+							() => runtime.enforceMutationOutcome(input),
+							false,
+							input.operation,
+						),
+					permission: (input) =>
+						unlessDenied(() => runtime.holdsPermission(input), false),
 					preparedMutation: (input) =>
-						unlessDenied(() => runtime.enforcePreparedMutation(input), false),
+						unlessDenied(
+							() => runtime.enforcePreparedMutation(input),
+							false,
+							input.operation,
+						),
 					reevaluate: (input) =>
-						unlessDenied(() => runtime.reevaluate(input), false),
+						unlessDenied(
+							() => runtime.reevaluate(input),
+							false,
+							input.operation,
+						),
 					relation: (input) =>
-						unlessDenied(() => runtime.enforceRelationRead(input), false),
+						unlessDenied(
+							() => runtime.enforceRelationRead(input),
+							false,
+							input.operation,
+						),
 					requiresPreparedMutationItems: (operation) =>
 						runtime.requiresPreparedMutationItems(operation),
 					restrictResult: (input) => runtime.enforceOutput(input),
@@ -266,9 +234,11 @@ export const accessPlugin = (
 		contributions: [
 			optionalAccessContributions,
 			optionalAccessDiagnostics,
+			optionalSchemaPermissions,
 			runtimeProvider,
 			schemaMutationSurfaceRequirement,
 			accessDeclarations,
+			contributeAccessStartup(allowWithoutRule),
 		],
 	})
 	return instance

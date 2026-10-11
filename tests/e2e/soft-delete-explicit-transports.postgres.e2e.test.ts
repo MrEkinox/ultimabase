@@ -103,7 +103,7 @@ const createUltimabase = (database: PostgresWorkerFixture) =>
 	new (UltimaBase.use(
 		softDeletePlugin(),
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		restPlugin({
 			acknowledgeUnverifiedProtection: true,
 			default: { mutations: true },

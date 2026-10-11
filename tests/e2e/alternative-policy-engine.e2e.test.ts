@@ -244,7 +244,7 @@ describe('independent protected policy engine', () => {
 	it('composes official and alternative engines through disjoint claims', async () => {
 		const { adapter, Document, engine } = createAlternativeFixture(true)
 		const composed = new (UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			engine.plugin,
 			aclPlugin(),
 			createSupportPlugin(adapter),

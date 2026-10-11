@@ -32,7 +32,7 @@ import {
 
 // ADR-0310: results are frozen plain data, and `toJSON` serializes them
 // exactly as REST responses do.
-const App = UltimaBase.use(accessPlugin({ default: true }))
+const App = UltimaBase.use(accessPlugin({ allowWithoutRule: { all: true } }))
 const Priority = defineEnum('PlainResultPriority', ['low', 'high'])
 
 const Author = App.Schema.define({

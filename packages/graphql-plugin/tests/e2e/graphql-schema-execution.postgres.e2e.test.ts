@@ -31,7 +31,7 @@ const deniedVirtualAccess = { access: { read: false } }
 const hookTrace: string[] = []
 const GraphqlSchemaApplication = UltimaBase.use(hooksPlugin())
 	.use(validationPlugin())
-	.use(accessPlugin({ default: true }))
+	.use(accessPlugin({ allowWithoutRule: { all: true } }))
 	.use(aclPlugin())
 	.use(graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: true }))
 

@@ -29,7 +29,9 @@ export type AccessPhase =
 	| 'access-item'
 	| 'access-operation'
 
-export type AccessOperationKind = OperationKind | 'plugin-schema-mutation'
+/** The Runtime terminal a rule runs for; `schema-permission` when Core asks about a permission. */
+export type AccessOperationKind =
+	OperationKind | 'plugin-schema-mutation' | 'schema-permission'
 
 /** Identifies one compiled rule at one exact policy boundary. */
 export interface AccessRuleIdentity {

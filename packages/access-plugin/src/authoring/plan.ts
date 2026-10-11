@@ -6,9 +6,9 @@ import type {
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
+import type { AllowWithoutRulePlan } from './allow-without-rule.js'
 import type {
 	NormalizedAccessRule,
-	SchemaFilterAccessFamily,
 	SchemaItemAccessFamily,
 	SchemaReadAccessBranch,
 } from './declarations.js'
@@ -75,23 +75,11 @@ export const readAccessOperationFamily = (
 	return isReadAccessSlot(slot) ? 'read' : slot
 }
 
-export interface AccessDefaultPolicy {
-	readonly create: boolean
-	readonly delete: boolean
-	readonly read: Readonly<Record<SchemaReadAccessBranch, boolean>>
-	readonly update: boolean
-	readonly upsert: boolean
-	readonly schemaMutations: boolean
-}
-
-/** Resolves one terminal through the public operation-family defaults. */
-export const readAccessOperationDefault = (
-	defaults: AccessDefaultPolicy,
+/** The `allowWithoutRule` group of one terminal: reads or writes. */
+export const readAccessOperationGroup = (
 	kind: OperationKind,
-): boolean => {
-	const slot = accessOperationSlots[kind]
-	return isReadAccessSlot(slot) ? defaults.read[slot] : defaults[slot]
-}
+): 'read' | 'write' =>
+	isReadAccessSlot(accessOperationSlots[kind]) ? 'read' : 'write'
 
 /** Fields stay available until one exact field declaration narrows them. */
 export const allowUndeclaredFieldAccess = true as const
@@ -113,8 +101,12 @@ export interface PluginAccessSource {
 export type AccessRuleSource = DeveloperAccessSource | PluginAccessSource
 
 export interface CompiledAccessRule {
+	/** Where the rule is declared, for denial diagnostics (`Post.access.update`). */
+	readonly location: string
 	readonly rule: NormalizedAccessRule
 	readonly source: AccessRuleSource
+	/** `filter` for the `where` member of a detailed rule (ADR-0317). */
+	readonly step: 'filter' | 'operation'
 }
 
 export type CompiledAccessRuleMap<TKey extends string> = Readonly<
@@ -131,22 +123,22 @@ export interface FieldAccessPlan {
 
 export interface SchemaMutationAccessPlan {
 	readonly descriptor: ApplicationSchemaMutationDescriptor
-	readonly filter: readonly CompiledAccessRule[]
 	readonly item: readonly CompiledAccessRule[]
 	readonly operation: readonly CompiledAccessRule[]
 }
 
 export interface SchemaAccessPlan {
 	readonly fields: readonly FieldAccessPlan[]
-	readonly filter: CompiledAccessRuleMap<SchemaFilterAccessFamily>
 	readonly item: CompiledAccessRuleMap<SchemaItemAccessFamily>
 	readonly operation: CompiledAccessRuleMap<OperationKind>
+	/** Rules of the plugin permissions declared on this schema, by name. */
+	readonly permissions: ReadonlyMap<string, readonly CompiledAccessRule[]>
 	readonly schemaMutations: ReadonlyMap<string, SchemaMutationAccessPlan>
 	readonly schema: SchemaDefinition
 }
 
 export interface AccessPlan {
-	readonly defaults: AccessDefaultPolicy
+	readonly allowWithoutRule: AllowWithoutRulePlan
 	getField(
 		schema: SchemaDefinition,
 		path: readonly string[],

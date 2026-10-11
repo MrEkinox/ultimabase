@@ -97,31 +97,42 @@ Application.Schema.define({
 		).toContain('access')
 	})
 
-	it('offers granular plugin defaults with sparse read capabilities', () => {
+	it('offers every allowWithoutRule key and accepts each value form', () => {
 		const source = `
+import { isAuthenticated } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 accessPlugin({
-  default: {
-    /* operation-defaults */
-	read: { count: false, /* read-defaults */ },
+  allowWithoutRule: {
+    /* opening-keys */
+    read: true,
+    count: false,
+    write: isAuthenticated,
+    all: 'development',
   },
 })
 `
-		const defaultsFile = fixtureFile('plugin-defaults')
+		const openingsFile = fixtureFile('plugin-openings')
 		const fixture = createLanguageServiceFixture(
-			defaultsFile,
+			openingsFile,
 			source,
-			['/* operation-defaults */', '/* read-defaults */'],
+			['/* opening-keys */'],
 			coreWorkspace,
 		)
 
 		expect(
-			completionNames(fixture, defaultsFile, '/* operation-defaults */'),
-		).toEqual(expect.arrayContaining(['create', 'delete', 'update', 'upsert']))
-		expect(
-			completionNames(fixture, defaultsFile, '/* read-defaults */'),
-		).toEqual(expect.arrayContaining(['exists', 'many', 'one']))
-		const diagnostics = fixture.service.getSemanticDiagnostics(defaultsFile)
+			completionNames(fixture, openingsFile, '/* opening-keys */'),
+		).toEqual(
+			expect.arrayContaining([
+				'create',
+				'delete',
+				'exists',
+				'many',
+				'one',
+				'update',
+				'upsert',
+			]),
+		)
+		const diagnostics = fixture.service.getSemanticDiagnostics(openingsFile)
 
 		expect(diagnostics).toStrictEqual([])
 	})

@@ -62,16 +62,17 @@ interface SourceFieldClearAccessInput extends SourceFieldAccessInput {
 	readonly originalValue: PluginSourceFieldObjectValue
 }
 
+// Omitted members restrict nothing (ADR-0317).
 interface SourceFieldReadAccessOption {
-	readonly orderBy: SourceAccessDecision<SourceFieldAccessInput>
-	readonly output: SourceAccessDecision<SourceFieldValueAccessInput>
-	readonly where: SourceAccessDecision<SourceFieldAccessInput>
+	readonly orderBy?: SourceAccessDecision<SourceFieldAccessInput>
+	readonly output?: SourceAccessDecision<SourceFieldValueAccessInput>
+	readonly where?: SourceAccessDecision<SourceFieldAccessInput>
 }
 
 interface SourceFieldWriteAccessOption {
-	readonly clear: SourceAccessDecision<SourceFieldClearAccessInput>
-	readonly fill: SourceAccessDecision<SourceFieldPresentValueAccessInput>
-	readonly replace: SourceAccessDecision<SourceFieldReplaceAccessInput>
+	readonly clear?: SourceAccessDecision<SourceFieldClearAccessInput>
+	readonly fill?: SourceAccessDecision<SourceFieldPresentValueAccessInput>
+	readonly replace?: SourceAccessDecision<SourceFieldReplaceAccessInput>
 }
 
 interface SourceValueFieldAccessOption {

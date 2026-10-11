@@ -12,6 +12,8 @@ import type {
 	WhereInput,
 } from '@ultimabase/core'
 
+import type { PluginSourceSchemaPermissions } from '@ultimabase/core/plugin'
+
 import type { AccessContext } from '../context.js'
 import type { SchemaMutationAccessMap } from './schema-mutations.js'
 
@@ -31,7 +33,7 @@ type AccessFieldValue<
 	: ReadPresentFieldValue<FieldValueMap<{ readonly value: TField }, TMode>>
 
 /**
- * Allows one direct decision or one cancellable request-aware decision. Every
+ * A boolean decision: `true`, `false` or a function returning one. Every
  * decision receives the Core policy context, so a `PolicyPredicate` such as
  * `isAuthenticated` is accepted wherever a rule returns a boolean (ADR-0304).
  */
@@ -48,13 +50,7 @@ export interface AccessPolicyInput extends PolicyContext {
 	readonly context: AccessContext
 }
 
-/** Supplies request authority to one explicitly named operation rule. */
-export interface SchemaOperationAccessInput extends PolicyContext {
-	/** Carries immutable authority and explicitly typed request capabilities. */
-	readonly context: AccessContext
-}
-
-/** Supplies one isolated typed where builder for a dynamic row restriction. */
+/** Adds one isolated typed where builder to the facts of an operation rule. */
 export interface SchemaWhereAccessInput<
 	TSchema extends SchemaDefinition,
 > extends AccessPolicyInput {
@@ -62,17 +58,21 @@ export interface SchemaWhereAccessInput<
 	readonly where: WhereBuilder<TSchema>
 }
 
+/** What an operation rule decides: every row (`true`), no row (`false`) or a row filter. */
+export type AccessRuleResult<TSchema extends SchemaDefinition> =
+	boolean | WhereBuilder<TSchema> | WhereInput<TSchema>
+
 /**
- * Declares one static or request-aware row restriction.
+ * One operation rule, evaluated before any row is loaded (ADR-0317): `true`
+ * allows every row, `false` none, and a function returns one of them or a row
+ * filter. A function that may return nothing is a type error.
  *
- * Returning `undefined` contributes no additional restriction. Complete denial
- * belongs to the containing operation's `allow` rule rather than `where`.
+ * @example `read: ({ where }) => where.eq('published', true)`
  */
-export type AccessWhereRule<TSchema extends SchemaDefinition> =
-	| WhereInput<TSchema>
-	| ((
-			input: SchemaWhereAccessInput<TSchema>,
-	  ) => MaybePromise<WhereBuilder<TSchema> | WhereInput<TSchema> | undefined>)
+export type AccessRule<
+	TSchema extends SchemaDefinition,
+	TInput = SchemaWhereAccessInput<TSchema>,
+> = boolean | ((input: TInput) => MaybePromise<AccessRuleResult<TSchema>>)
 
 /** Correlates item checks with the materialized values available to one family. */
 export type SchemaItemAccessInput<
@@ -109,173 +109,148 @@ export type SchemaItemAccessInput<
 					}>
 
 /**
- * Declares selected read capabilities without exposing Runtime terminal names.
- * Omitted capabilities inherit the configured Access operation default.
+ * Rules each read operation separately; an omitted member has no schema rule,
+ * so `allowWithoutRule` decides it.
  */
-export interface SchemaReadAllowAccess {
-	/**
-	 * Controls singular object reads through `get` and `findOne`.
-	 * @example `one: true`
-	 */
-	readonly one?: AccessDecisionRule<SchemaOperationAccessInput>
-	/**
-	 * Controls collection reads through `findMany`.
-	 * @example `many: true`
-	 */
-	readonly many?: AccessDecisionRule<SchemaOperationAccessInput>
-	/**
-	 * Controls exact row counts without enabling other reads.
-	 * @example `count: false`
-	 */
-	readonly count?: AccessDecisionRule<SchemaOperationAccessInput>
-	/**
-	 * Controls existence checks without enabling object output.
-	 * @example `exists: true`
-	 */
-	readonly exists?: AccessDecisionRule<SchemaOperationAccessInput>
-}
-
-/** Allows one shared read decision or a sparse capability declaration. */
-export type SchemaReadAllowAccessDeclaration =
-	AccessDecisionRule<SchemaOperationAccessInput> | SchemaReadAllowAccess
-
-/** Groups the operation decision and private row universe for reads. */
 export interface SchemaReadAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Makes the early read decision, optionally by public read capability.
-	 * Omitted capabilities inherit the Access plugin's operation default.
-	 * @example `allow: { count: true }`
+	 * Rules singular reads such as `findOne`.
+	 * @example `one: true`
 	 */
-	readonly allow?: SchemaReadAllowAccessDeclaration
+	readonly one?: AccessRule<TSchema>
 	/**
-	 * Adds one private row restriction shared by every read capability.
-	 * @example `where: { published: { eq: true } }`
+	 * Rules collection reads through `findMany`.
+	 * @example `many: ({ where }) => where.eq('published', true)`
 	 */
-	readonly where?: AccessWhereRule<TSchema>
+	readonly many?: AccessRule<TSchema>
+	/**
+	 * Rules exact row counts without enabling other reads.
+	 * @example `count: false`
+	 */
+	readonly count?: AccessRule<TSchema>
+	/**
+	 * Rules existence checks without enabling object output.
+	 * @example `exists: true`
+	 */
+	readonly exists?: AccessRule<TSchema>
 }
 
-/** Groups the operation and prepared-item decisions for creation. */
+/** Decides creation, then checks each prepared draft. */
 export interface SchemaCreateAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Makes the early create decision before item materialization.
-	 * @example `allow: true`
+	 * Decides the operation before any draft is prepared; nothing is loaded,
+	 * so it returns a boolean.
+	 * @example `where: isAuthenticated`
 	 */
-	readonly allow?: AccessDecisionRule<SchemaOperationAccessInput>
+	readonly where: AccessDecisionRule<AccessPolicyInput>
 	/**
 	 * Checks every immutable prepared draft.
 	 * @example `item: ({ item }) => item.title.length > 0`
 	 */
-	readonly item?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'create'>>
+	readonly item: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'create'>>
 }
 
-/** Groups every decision that can constrain an update. */
+/** Rules an update before loading, then checks each original and candidate. */
 export interface SchemaUpdateAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Makes the early update decision before resolving a target.
-	 * @example `allow: true`
+	 * The operation rule: every row, no row, or the rows that may be updated.
+	 * @example `where: ({ principal }) => principal !== undefined`
 	 */
-	readonly allow?: AccessDecisionRule<SchemaOperationAccessInput>
+	readonly where: AccessRule<TSchema>
 	/**
-	 * Restricts rows eligible for update.
-	 * @example `where: { locked: { eq: false } }`
+	 * Checks the locked original and its final candidate.
+	 * @example `item: ({ item, originalItem }) => item.author === originalItem.author`
 	 */
-	readonly where?: AccessWhereRule<TSchema>
-	/**
-	 * Checks a target and its final candidate.
-	 * @example `item: ({ item }) => item.title.length > 0`
-	 */
-	readonly item?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'update'>>
+	readonly item: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'update'>>
 }
 
-/** Groups every decision that can constrain an upsert. */
+/** Rules an upsert before loading, then checks the branch the database selects. */
 export interface SchemaUpsertAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Makes the early upsert decision.
-	 * @example `allow: true`
+	 * The operation rule: every row, no row, or the rows that may be updated.
+	 * @example `where: true`
 	 */
-	readonly allow?: AccessDecisionRule<SchemaOperationAccessInput>
-	/**
-	 * Restricts conflict targets.
-	 * @example `where: { locked: { eq: false } }`
-	 */
-	readonly where?: AccessWhereRule<TSchema>
+	readonly where: AccessRule<TSchema>
 	/**
 	 * Checks the selected branch.
 	 * @example `item: ({ mode }) => mode === "create"`
 	 */
-	readonly item?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'upsert'>>
+	readonly item: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'upsert'>>
 }
 
-/** Groups every decision that can constrain deletion. */
+/** Rules a deletion before loading, then checks each persisted target. */
 export interface SchemaDeleteAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Makes the early delete decision before resolving a target.
-	 * @example `allow: false`
+	 * The operation rule: every row, no row, or the rows that may be deleted.
+	 * @example `where: ({ where }) => where.eq('archived', true)`
 	 */
-	readonly allow?: AccessDecisionRule<SchemaOperationAccessInput>
-	/**
-	 * Restricts rows eligible for deletion.
-	 * @example `where: { protected: { eq: false } }`
-	 */
-	readonly where?: AccessWhereRule<TSchema>
+	readonly where: AccessRule<TSchema>
 	/**
 	 * Checks the persisted target.
 	 * @example `item: ({ originalItem }) => originalItem.archived`
 	 */
-	readonly item?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'delete'>>
+	readonly item: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'delete'>>
 }
 
-/** Allows one concise operation decision or its complete staged declaration. */
-export type SchemaOperationAccessDeclaration<TDetails> =
-	AccessDecisionRule<SchemaOperationAccessInput> | TDetails
-
-/** Groups every schema policy by the operation developers are authorizing. */
+/** Groups every schema rule by the operation developers are authorizing. */
 interface NativeSchemaAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Controls read capabilities and their mandatory private row universe.
-	 * @example `read: { allow: true, where: { published: { eq: true } } }`
+	 * Rules `one`, `many`, `count` and `exists` together, or each one.
+	 * @example `read: ({ where }) => where.eq('published', true)`
 	 */
-	readonly read?: SchemaOperationAccessDeclaration<SchemaReadAccess<TSchema>>
+	readonly read?: AccessRule<TSchema> | SchemaReadAccess<TSchema>
 	/**
-	 * Controls creation before and after one immutable draft is prepared.
-	 * @example `create: { allow: true, item: ({ item }) => item.title.length > 0 }`
+	 * Rules creation: a boolean decision, or `{ where, item }` to check drafts.
+	 * @example `create: isAuthenticated`
 	 */
-	readonly create?: SchemaOperationAccessDeclaration<
-		SchemaCreateAccess<TSchema>
-	>
+	readonly create?:
+		AccessDecisionRule<AccessPolicyInput> | SchemaCreateAccess<TSchema>
 	/**
-	 * Controls update permission, eligible rows, and final candidates together.
-	 * @example `update: { where: { locked: { eq: false } }, item: ({ item }) => item.title.length > 0 }`
+	 * Rules updates: a rule, or `{ where, item }` to check each candidate.
+	 * @example `update: ({ principal, where }) => principal ? where.eq('author', principal.id) : false`
 	 */
-	readonly update?: SchemaOperationAccessDeclaration<
-		SchemaUpdateAccess<TSchema>
-	>
+	readonly update?: AccessRule<TSchema> | SchemaUpdateAccess<TSchema>
 	/**
-	 * Controls both materialized upsert branches without exposing cardinality.
-	 * @example `upsert: { allow: true, item: ({ mode }) => mode === "create" }`
+	 * Rules upserts: a rule, or `{ where, item }` to check the selected branch.
+	 * @example `upsert: false`
 	 */
-	readonly upsert?: SchemaOperationAccessDeclaration<
-		SchemaUpsertAccess<TSchema>
-	>
+	readonly upsert?: AccessRule<TSchema> | SchemaUpsertAccess<TSchema>
 	/**
-	 * Controls delete permission, eligible rows, and the persisted target.
-	 * @example `delete: { allow: false }`
+	 * Rules deletion: a rule, or `{ where, item }` to check each target.
+	 * @example `delete: hasRole(Admin)`
 	 */
-	readonly delete?: SchemaOperationAccessDeclaration<
-		SchemaDeleteAccess<TSchema>
-	>
+	readonly delete?: AccessRule<TSchema> | SchemaDeleteAccess<TSchema>
 }
 
-/** Combines native families with this application's exact request mutations. */
+/**
+ * Grants the permissions plugins declare on this schema, such as Soft
+ * Delete's `readDeleted` (ADR-0317): `true`, `false` or a predicate. Without
+ * a rule, only the permission's own `allowWithoutRule` key grants it.
+ */
+export type SchemaPermissionAccessMap<TSchema extends SchemaDefinition> =
+	Readonly<
+		Partial<
+			Record<
+				PluginSourceSchemaPermissions<TSchema>,
+				AccessDecisionRule<AccessPolicyInput>
+			>
+		>
+	>
+
+/** Combines native families, request plugin commands and plugin permissions. */
 export type SchemaAccess<TSchema extends SchemaDefinition> = Readonly<{
 	[
 		TKey in
-			keyof NativeSchemaAccess<TSchema> | keyof SchemaMutationAccessMap<TSchema>
+			| keyof NativeSchemaAccess<TSchema>
+			| keyof SchemaMutationAccessMap<TSchema>
+			| keyof SchemaPermissionAccessMap<TSchema>
 	]?: TKey extends keyof NativeSchemaAccess<TSchema>
 		? Exclude<NativeSchemaAccess<TSchema>[TKey], undefined>
 		: TKey extends keyof SchemaMutationAccessMap<TSchema>
 			? Exclude<SchemaMutationAccessMap<TSchema>[TKey], undefined>
-			: never
+			: TKey extends keyof SchemaPermissionAccessMap<TSchema>
+				? Exclude<SchemaPermissionAccessMap<TSchema>[TKey], undefined>
+				: never
 }>
 
 /** Supplies immutable request authority to one field decision. */
@@ -290,23 +265,26 @@ export interface FieldValueAccessInput<TValue> extends FieldAccessInput {
 	readonly value: TValue
 }
 
-/** Describes every way one logical field value can disclose information. */
+/**
+ * Describes every way one logical field value can disclose information; an
+ * omitted member restricts nothing (ADR-0317).
+ */
 export interface FieldReadAccessFor<TValue> {
 	/**
 	 * Controls each concrete output value and structurally omits denied properties.
 	 * @example `output: ({ value }) => value.length > 0`
 	 */
-	readonly output: AccessDecisionRule<FieldValueAccessInput<TValue>>
+	readonly output?: AccessDecisionRule<FieldValueAccessInput<TValue>>
 	/**
 	 * Controls whether callers may reference this field in a `where` predicate.
 	 * @example `where: false`
 	 */
-	readonly where: AccessDecisionRule<FieldAccessInput>
+	readonly where?: AccessDecisionRule<FieldAccessInput>
 	/**
 	 * Controls whether callers may reference this field in `orderBy`.
 	 * @example `orderBy: false`
 	 */
-	readonly orderBy: AccessDecisionRule<FieldAccessInput>
+	readonly orderBy?: AccessDecisionRule<FieldAccessInput>
 }
 
 /** Resolves the read contract from one exact declared field. */
@@ -314,7 +292,7 @@ export type FieldReadAccess<TField extends GenericField> = FieldReadAccessFor<
 	AccessFieldValue<TField, 'object'>
 >
 
-/** Applies one boolean to every read channel or declares each channel explicitly. */
+/** Applies one boolean to every read channel or rules some channels. */
 export type FieldReadAccessDeclaration<TField extends GenericField> =
 	boolean | FieldReadAccess<TField>
 
@@ -338,25 +316,28 @@ export interface FieldClearAccessInput<TValue> extends FieldAccessInput {
 	readonly originalValue: TValue
 }
 
-/** Declares every generic field value transition explicitly. */
+/**
+ * Rules generic field value transitions; an omitted member restricts nothing
+ * (ADR-0317).
+ */
 export interface FieldWriteAccessFor<TCreateValue, TObjectValue> {
 	/**
 	 * Controls every transition from canonical null to a non-null value.
 	 * @example `fill: ({ value }) => value.length > 0`
 	 */
-	readonly fill: AccessDecisionRule<
+	readonly fill?: AccessDecisionRule<
 		FieldFillAccessInput<TCreateValue | TObjectValue>
 	>
 	/**
 	 * Controls updates from one non-null value to another non-null value.
 	 * @example `replace: ({ originalValue, value }) => originalValue !== value`
 	 */
-	readonly replace: AccessDecisionRule<FieldReplaceAccessInput<TObjectValue>>
+	readonly replace?: AccessDecisionRule<FieldReplaceAccessInput<TObjectValue>>
 	/**
 	 * Controls every update whose final candidate is canonical null.
 	 * @example `clear: false`
 	 */
-	readonly clear: AccessDecisionRule<FieldClearAccessInput<TObjectValue>>
+	readonly clear?: AccessDecisionRule<FieldClearAccessInput<TObjectValue>>
 }
 
 /** Resolves transition values from one exact declared field. */
@@ -365,7 +346,7 @@ export type FieldWriteAccess<TField extends GenericField> = FieldWriteAccessFor<
 	AccessFieldValue<TField, 'object'>
 >
 
-/** Applies one boolean to every write or requires all three transitions. */
+/** Applies one boolean to every write or rules some transitions. */
 export type FieldWriteAccessDeclaration<TField extends GenericField> =
 	boolean | FieldWriteAccess<TField>
 
@@ -385,13 +366,13 @@ export interface RelationFieldAccess<TTarget extends SchemaDefinition> {
 /** Controls one field through its disclosure and value-transition boundaries. */
 export interface FieldAccess<TField extends GenericField> {
 	/**
-	 * Controls output, where predicates, and ordering together or explicitly.
-	 * @example `read: { output: true, where: false, orderBy: false }`
+	 * Controls output, where predicates, and ordering together or separately.
+	 * @example `read: { where: false, orderBy: false }`
 	 */
 	readonly read?: FieldReadAccessDeclaration<TField>
 	/**
 	 * Controls every write together or through fill, replace, and clear.
-	 * @example `write: { fill: true, replace: true, clear: false }`
+	 * @example `write: { clear: false }`
 	 */
 	readonly write?: FieldWriteAccessDeclaration<TField>
 }
@@ -407,7 +388,7 @@ export interface FieldAccessDeclaration<TField extends GenericField> {
 	/**
 	 * Declares grouped read disclosure and write-transition decisions.
 	 *
-	 * @example `access: { read: { output: true, where: false, orderBy: false }, write: false }`
+	 * @example `access: { read: { where: false }, write: false }`
 	 */
 	readonly access?: FieldAccess<NoInfer<TField>>
 }

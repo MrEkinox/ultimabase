@@ -42,7 +42,7 @@ const privateAcl = new ACL()
 const hookTrace: string[] = []
 const RestMutationApplication = UltimaBase.use(hooksPlugin())
 	.use(validationPlugin())
-	.use(accessPlugin({ default: true }))
+	.use(accessPlugin({ allowWithoutRule: { all: true } }))
 	.use(aclPlugin())
 
 const MutationPost = RestMutationApplication.Schema.define({
@@ -174,7 +174,7 @@ const createApplication = (connectionUri: string) =>
 	new (UltimaBase.use(
 		hooksPlugin(),
 		validationPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		aclPlugin(),
 		restPlugin({
 			acknowledgeUnverifiedProtection: true,

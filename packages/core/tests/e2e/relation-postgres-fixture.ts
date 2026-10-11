@@ -72,7 +72,7 @@ export const Tag = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2ETag',
 	fields: tagFields,
 	access: {
-		read: { where: ({ where }) => where.eq('visible', true) },
+		read: ({ where }) => where.eq('visible', true),
 	},
 })
 
@@ -90,7 +90,7 @@ export const Author = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EAuthor',
 	fields: authorFields,
 	access: {
-		read: { where: ({ where }) => where.eq('visible', true) },
+		read: ({ where }) => where.eq('visible', true),
 	},
 })
 
@@ -117,9 +117,7 @@ export const PrivateArticle = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EPrivateArticle',
 	fields: privateArticleFields,
 	access: {
-		read: {
-			where: ({ where }) => where.some('tags', { visible: { eq: true } }),
-		},
+		read: ({ where }) => where.some('tags', { visible: { eq: true } }),
 	},
 })
 
@@ -165,7 +163,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		postgresPlugin({
 			schemaPolicy: 'override',
 			url: fixture.connectionUri,

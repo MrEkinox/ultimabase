@@ -38,10 +38,7 @@ const RestAuthor = RestReadApplication.Schema.define({
 		visible: field.boolean({ default: true }),
 	}),
 	access: {
-		read: {
-			allow: true,
-			where: ({ where }) => where.eq('visible', true),
-		},
+		read: ({ where }) => where.eq('visible', true),
 	},
 	acl: {
 		default: privateAcl,
@@ -69,10 +66,7 @@ const RestPost = RestReadApplication.Schema.define({
 		}),
 	}),
 	access: {
-		read: {
-			allow: { count: true, exists: true, many: true, one: true },
-			where: ({ where }) => where.eq('published', true),
-		},
+		read: ({ where }) => where.eq('published', true),
 	},
 	acl: {
 		default: privateAcl,
@@ -169,7 +163,7 @@ const readIncludedNames = (value: unknown): readonly unknown[] => {
 
 const createApplication = (connectionUri: string) =>
 	new (UltimaBase.use(
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		aclPlugin(),
 		restPlugin({
 			acknowledgeUnverifiedProtection: true,

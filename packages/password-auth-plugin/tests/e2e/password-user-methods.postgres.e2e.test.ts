@@ -64,12 +64,10 @@ const createApplication = (
 		contributions: [
 			provideAccessContributions('profile', () => [
 				schemaAccess(User, {
-					read: {
-						allow: ({ context }) =>
-							allow &&
-							context.access.mode === 'anonymous' &&
-							context.getValue(passwordPrincipal) !== undefined,
-					},
+					read: ({ context }) =>
+						allow &&
+						context.access.mode === 'anonymous' &&
+						context.getValue(passwordPrincipal) !== undefined,
 				}),
 			]),
 		],
@@ -81,7 +79,7 @@ const createApplication = (
 			password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
 		}),
 		policy,
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 	))({
 		schemas: [User],
 		logger: false,

@@ -53,7 +53,7 @@ const identityPlugin = plugin({
 })
 
 const App = UltimaBase.use(
-	accessPlugin({ default: true }),
+	accessPlugin({ allowWithoutRule: { all: true } }),
 	hooksPlugin(),
 	aclPlugin(),
 	rolesPlugin(),
@@ -108,7 +108,7 @@ export const PrincipalTodo = App.Schema.define({
 			read: true,
 			update: hasRole(PrincipalRole.role('editor')),
 			upsert: {
-				allow: isTodoAuthor,
+				where: isTodoAuthor,
 				item: ({ principal, item }) => item.owner === principal?.id,
 			},
 			delete: explode,

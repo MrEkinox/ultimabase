@@ -3,29 +3,17 @@ import {
 	Schema,
 	getOperationSchema,
 	getRequestPrincipal,
-	normalizeLogicalFilter,
 	readOperationQueries,
-	resolveWhereInput,
 	traverseQueryExpression,
 	type DatabaseOperationAst,
-	type DatabaseRowFilterNode,
 	type ExecutableOperationAst,
-	type OperationKind,
 	type PluginSchemaMutationOperationAst,
-	type QueryFilterNode,
 	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
-	type WhereInput,
 } from '@ultimabase/core'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
-	readAccessOperationDefault,
-	readAccessOperationFamily,
 	readAccessOperationSlot,
 	type AccessPlan,
 	type CompiledAccessRule,
@@ -39,7 +27,7 @@ import type {
 	AccessPhase,
 	AccessRuleIdentity,
 } from './execution-runtime.js'
-import { WhereBuilder, type RequestContext } from '@ultimabase/core/plugin'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** Carries the request facts shared by every rule evaluated at one boundary. */
 export interface RuleScope {
@@ -64,11 +52,19 @@ export interface RuleTarget {
 	readonly phase: AccessPhase
 }
 
-/** Keeps public denials stable while diagnostics retain only static identity. */
+/** Where one denial happened, for the server-side diagnostic line (ADR-0317). */
+export interface AccessDenialSite {
+	/** Where the deciding rule is declared, or why no rule allowed. */
+	readonly rule: string
+	readonly schema: string
+}
+
+/** Keeps public denials stable; internal details name the denying rule. */
 export const createAccessDeniedError = (
 	phase: AccessPhase,
 	operation: AccessOperationKind,
 	field?: FieldAccessPlan,
+	site?: AccessDenialSite,
 ): FrameworkError<'PERMISSION_DENIED'> =>
 	new FrameworkError('PERMISSION_DENIED', `Native Access denied ${phase}.`, {
 		publicMessage: 'The operation is not permitted.',
@@ -77,6 +73,7 @@ export const createAccessDeniedError = (
 			kind: 'access-rule-denied',
 			operation,
 			phase,
+			...(site === undefined ? {} : { rule: site.rule, schema: site.schema }),
 		},
 	})
 
@@ -135,7 +132,7 @@ export const readExecutableOperation = (
  * Evaluates one rule. Static booleans skip the callback runtime unless
  * `invokeStatic` asks for the same diagnostics and cancellation as callbacks.
  */
-const evaluateRule = async (
+export const evaluateRule = async (
 	scope: RuleScope,
 	identity: AccessRuleIdentity,
 	input: Readonly<Record<string, unknown>>,
@@ -162,20 +159,13 @@ const evaluateRule = async (
 	)
 }
 
-/**
- * Requires every rule to return `true`. An empty list allows unless
- * `allowWhenEmpty` is false, which is how fail-closed defaults deny.
- */
+/** Requires every rule to return `true`; an empty list restricts nothing. */
 export const assertAccessRules = async (
 	scope: RuleScope,
 	rules: readonly CompiledAccessRule[],
 	target: RuleTarget,
 	input: Readonly<Record<string, unknown>>,
-	allowWhenEmpty = true,
 ): Promise<void> => {
-	if (rules.length === 0 && !allowWhenEmpty) {
-		throw createAccessDeniedError(target.phase, scope.operation, target.field)
-	}
 	for (const [ruleIndex, rule] of rules.entries()) {
 		const output = await evaluateRule(
 			scope,
@@ -188,99 +178,14 @@ export const assertAccessRules = async (
 			)
 		}
 		if (!output) {
-			throw createAccessDeniedError(target.phase, scope.operation, target.field)
+			throw createAccessDeniedError(
+				target.phase,
+				scope.operation,
+				target.field,
+				{ rule: rule.location, schema: scope.schema.className },
+			)
 		}
 	}
-}
-
-/**
- * Lets developer rules apply the configured default, then lets provider rules
- * only deny. `createInput` runs once per group.
- */
-const assertOperationRules = async (
-	scope: AccessScope,
-	rules: readonly CompiledAccessRule[],
-	branch: string,
-	createInput: () => Readonly<Record<string, unknown>>,
-	defaultDecision: boolean,
-): Promise<void> => {
-	const target = { branch, phase: 'access-operation' as const }
-	const developerRules = rules.filter(
-		({ source }) => source.kind === 'developer',
-	)
-	const providerRules = rules.filter(({ source }) => source.kind === 'plugin')
-	await assertAccessRules(
-		scope,
-		developerRules,
-		target,
-		createInput(),
-		defaultDecision,
-	)
-	await assertAccessRules(scope, providerRules, target, createInput())
-}
-
-const normalizeAccessWhereResult = (
-	schema: SchemaDefinition,
-	result: unknown,
-): QueryFilterNode<SchemaDefinition> => {
-	if (!(result instanceof WhereBuilder) && !isPlainRecord(result)) {
-		throw new TypeError(
-			'Access where must return undefined, a WhereInput, or a WhereBuilder',
-		)
-	}
-	// `resolveWhereInput` validates the plain object exactly like public `where`.
-	return resolveWhereInput(
-		schema,
-		result as WhereBuilder<SchemaDefinition> | WhereInput<SchemaDefinition>,
-	)
-}
-
-/** ANDs independent row restrictions so no later contribution can broaden rows. */
-const evaluateFilters = async (
-	scope: AccessScope,
-	rules: readonly CompiledAccessRule[],
-	branch: string,
-	createInput: () => Readonly<Record<string, unknown>>,
-	invokeStatic?: boolean,
-): Promise<DatabaseRowFilterNode | undefined> => {
-	const results: unknown[] = []
-	for (const [ruleIndex, rule] of rules.entries()) {
-		const result = await evaluateRule(
-			scope,
-			{ branch, phase: 'access-filter', rule, ruleIndex, schema: scope.schema },
-			createInput(),
-			invokeStatic,
-		)
-		if (result !== undefined) results.push(result)
-	}
-	if (results.length === 0) return undefined
-	return normalizeLogicalFilter({
-		kind: 'and',
-		expressions: immutableArray(
-			results.map((result) => normalizeAccessWhereResult(scope.schema, result)),
-		),
-	})
-}
-
-/** Applies the native operation decision and returns its private row filter. */
-export const evaluateAccessOperation = async (
-	scope: AccessScope,
-	kind: OperationKind,
-): Promise<DatabaseRowFilterNode | undefined> => {
-	const { context, plan, schemaPlan } = scope
-	const input = immutableRecord({ context })
-	await assertOperationRules(
-		scope,
-		schemaPlan.operation[kind],
-		kind,
-		() => input,
-		readAccessOperationDefault(plan.defaults, kind),
-	)
-	const family = readAccessOperationFamily(kind)
-	if (family === 'create') return undefined
-	return evaluateFilters(scope, schemaPlan.filter[family], family, () =>
-		immutableRecord({ context, where: new WhereBuilder(scope.schema) }),
-	)
 }
 
 /** Checks the exact field references of where and orderBy clauses. */
@@ -330,7 +235,8 @@ export const evaluateAccessFieldReferenceRules = async (
 	}
 }
 
-const readSchemaMutationPlan = (
+/** Reads the compiled rules of one request plugin command. */
+export const readSchemaMutationPlan = (
 	scope: AccessScope,
 	operation: PluginSchemaMutationOperationAst,
 ): SchemaMutationAccessPlan => {
@@ -346,7 +252,8 @@ const readSchemaMutationPlan = (
 	return mutation
 }
 
-const schemaMutationInput = (
+/** The input of a command rule: the command's validated `input` and identity. */
+export const schemaMutationInput = (
 	context: RequestContext,
 	operation: PluginSchemaMutationOperationAst,
 ): Readonly<Record<string, unknown>> => {
@@ -356,34 +263,6 @@ const schemaMutationInput = (
 		input: operation.input,
 		mutation: immutableRecord({ authority, effect, kind, name, version }),
 	})
-}
-
-/** Applies the exact custom operation decision and private target universe. */
-export const evaluateSchemaMutationAccess = async (
-	scope: AccessScope,
-	operation: PluginSchemaMutationOperationAst,
-): Promise<DatabaseRowFilterNode | undefined> => {
-	const mutation = readSchemaMutationPlan(scope, operation)
-	const createInput = () => schemaMutationInput(scope.context, operation)
-	await assertOperationRules(
-		scope,
-		mutation.operation,
-		operation.command,
-		createInput,
-		scope.plan.defaults.schemaMutations,
-	)
-	// Custom filters always run through the callback runtime, even when static.
-	return evaluateFilters(
-		scope,
-		mutation.filter,
-		operation.command,
-		() =>
-			immutableRecord({
-				...createInput(),
-				where: new WhereBuilder(scope.schema),
-			}),
-		true,
-	)
 }
 
 /** Evaluates the owner-resolved candidate once it becomes available. */

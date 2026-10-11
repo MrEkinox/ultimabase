@@ -66,7 +66,7 @@ const readScopeId = (metadata: Readonly<Record<string, unknown>>): string => {
 const HookApplication = UltimaBase.use(profileSlugPlugin)
 	.use(hooksPlugin())
 	.use(validationPlugin())
-	.use(accessPlugin({ default: true }))
+	.use(accessPlugin({ allowWithoutRule: { all: true } }))
 
 const HookAuditSchema = HookApplication.Schema.define({
 	className: 'NativeHookPostgresAudit',
@@ -112,7 +112,7 @@ const HookArticleSchema = HookApplication.Schema.define({
 		revision: field.int({ default: 0 }),
 	}),
 	access: {
-		read: { where: ({ where }) => where.eq('published', true) },
+		read: ({ where }) => where.eq('published', true),
 	},
 	hooks: {
 		afterOperation: {

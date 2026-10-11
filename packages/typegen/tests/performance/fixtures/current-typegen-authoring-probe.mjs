@@ -53,7 +53,7 @@ const defineSourceSchema = (index) => {
 		index === 0
 			? ''
 			: `
-  access: { update: { allow: true, item: ({ item }) => item.field0.length > 0 } },
+  access: { update: { where: true, item: ({ item }) => item.field0.length > 0 } },
   hooks: { afterOperation: { update: ({ item }) => { void item.field0 } } },`
 	const shape = index < 2 ? '' : ".softDelete({ mode: 'command' })"
 	return `export const ${name} = ${definition}{

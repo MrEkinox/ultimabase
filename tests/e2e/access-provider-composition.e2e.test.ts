@@ -31,6 +31,7 @@ import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filte
 
 const fixedInstant = '2026-08-04T00:00:00.000Z'
 const editor = new RequestSubjectReference('role', 'fixture.editor')
+const isEditor = hasRole(editor)
 
 /** Records complete requests while returning one trusted logical fixture result. */
 class CompositionReadAdapter implements DatabaseAdapter {
@@ -207,13 +208,11 @@ const CombinedPost = AccessCompositionApplication.Schema.define({
 		title: field.string({ required: true }),
 	}),
 	access: {
-		read: {
-			allow: hasRole(editor),
-			where: ({ where }) =>
-				where
-					.eq('nativeScope', 'native-allowed')
-					.eq('businessScope', 'business-allowed'),
-		},
+		read: async (input) =>
+			(await isEditor(input)) &&
+			input.where
+				.eq('nativeScope', 'native-allowed')
+				.eq('businessScope', 'business-allowed'),
 	},
 	// A callback defers role discovery so this fixture can prove runtime composition.
 	acl: { default: () => roleACL },
@@ -249,9 +248,7 @@ const communityPolicy = plugin({
 	contributions: [
 		provideAccessContributions('community-scope', () =>
 			schemaAccess(CombinedPost, {
-				read: {
-					where: ({ where }) => where.eq('communityScope', 'community-allowed'),
-				},
+				read: ({ where }) => where.eq('communityScope', 'community-allowed'),
 			}),
 		),
 	],
@@ -281,9 +278,7 @@ const runCombinedComposition = async (): Promise<CompositionSnapshot> => {
 	const roleProvider = createRoleProvider(true)
 	const aclProvider = aclPlugin()
 	const database = databasePlugin(adapter)
-	const access = accessPlugin({
-		default: false,
-	})
+	const access = accessPlugin()
 	const plugins = [
 		hooksPlugin(),
 		access,
@@ -360,7 +355,7 @@ describe('Access provider composition', () => {
 			},
 		])
 		const ultimabase = new (UltimaBase.use(
-			accessPlugin({ default: false }),
+			accessPlugin(),
 			databasePlugin(adapter),
 		))({ schemas: [NativeDocument] })
 

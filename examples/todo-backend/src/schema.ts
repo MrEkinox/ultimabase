@@ -1,5 +1,5 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { accessPlugin, allMutations } from '@ultimabase/access-plugin'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { UltimaBase, defineEnum } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
@@ -8,7 +8,10 @@ import { z } from 'zod'
 
 const serverManagedAccess = {
 	read: true,
-	...allMutations(false),
+	create: false,
+	update: false,
+	upsert: false,
+	delete: false,
 }
 const TodoSchemaApplication = UltimaBase.use(accessPlugin())
 	.use(hooksPlugin())
@@ -220,7 +223,7 @@ export const Todo = TodoSchemaApplication.Schema.define({
 	}),
 	indexes: [{ fields: ['completed', 'dueAt'] }],
 	access: {
-		read: { where: ({ where }) => where.eq('archived', false) },
+		read: ({ where }) => where.eq('archived', false),
 		create: false,
 		update: true,
 		upsert: false,

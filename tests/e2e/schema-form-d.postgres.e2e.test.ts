@@ -21,7 +21,7 @@ const master = { useMasterKey: true } as const
 
 const createApplication = (connectionUri: string) =>
 	new (UltimaBase.use(
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		hooksPlugin(),
 		softDeletePlugin(),
 		aclPlugin(),

@@ -128,6 +128,8 @@ test('projects shape-method permissions for rule plugins (ADR-0317)', () => {
 		fields: (field) => ({ title: field.string() }),
 	}).with({})
 
+	void Archived
+	void Plain
 	expectTypeOf<
 		PluginSourceSchemaPermissions<typeof Archived>
 	>().toEqualTypeOf<'readArchived'>()

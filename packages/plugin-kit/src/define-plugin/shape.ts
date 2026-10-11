@@ -72,8 +72,10 @@ export type ShapeMethodMember<
 /** Reads the permission names of one shape method (`never` when omitted). */
 export type ShapeMethodPermissionNames<TDefinition> =
 	'permissions' extends keyof TDefinition
-		? Exclude<TDefinition['permissions' & keyof TDefinition], undefined> extends
-				readonly (infer TName extends string)[]
+		? Exclude<
+				TDefinition['permissions' & keyof TDefinition],
+				undefined
+			> extends readonly (infer TName extends string)[]
 			? TName
 			: never
 		: never
@@ -121,8 +123,7 @@ export const shapeMethod = <const TDefinition extends ShapeMethodDefinition>(
 		permissions !== undefined &&
 		(!Array.isArray(permissions) ||
 			permissions.some(
-				(name) =>
-					typeof name !== 'string' || !permissionNamePattern.test(name),
+				(name) => typeof name !== 'string' || !permissionNamePattern.test(name),
 			))
 	) {
 		throw new TypeError('shape method permissions must list identifiers')

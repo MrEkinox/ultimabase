@@ -93,7 +93,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		postgresPlugin({
 			schemaPolicy: 'override',
 			url: fixture.connectionUri,

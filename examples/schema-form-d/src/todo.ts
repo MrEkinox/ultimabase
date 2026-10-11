@@ -24,11 +24,9 @@ export const Todo = App.Schema.define({
 	.acl()
 	.with({
 		access: {
-			read: { where: ({ where }) => where.eq('archived', false) },
-			update: {
-				where: ({ where }) =>
-					where.is('assignee', (user) => user.endsWith('email', '@admin.test')),
-			},
+			read: ({ where }) => where.eq('archived', false),
+			update: ({ where }) =>
+				where.is('assignee', (user) => user.endsWith('email', '@admin.test')),
 			create: true,
 			delete: true,
 		},

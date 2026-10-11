@@ -79,7 +79,7 @@ const ObservedDocument = AccessApplication.Schema.define({
 const CountOnlyDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginCountOnlyDocument',
 	fields: (field) => ({ title: field.string() }),
-	access: { read: { allow: { count: true } } },
+	access: { read: { count: true } },
 })
 
 const MasterBypassDocument = AccessApplication.Schema.define({
@@ -136,7 +136,7 @@ describe('accessPlugin', () => {
 
 	it('enforces official declarations through the protected Core policy kernel', async () => {
 		const ultimabase = new (UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			databasePlugin(new StaticReadAdapter([row])),
 		))({ schemas: [SecretDocument] })
 		onTestFinished(() => ultimabase.dispose())
@@ -156,7 +156,7 @@ describe('accessPlugin', () => {
 
 	it('keeps virtual read policy separate from persisted adapter projection', async () => {
 		const ultimabase = new (UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			databasePlugin(new StaticReadAdapter([{ id: row.id, title: 'visible' }])),
 		))({ schemas: [VirtualDocument] })
 		onTestFinished(() => ultimabase.dispose())
@@ -207,9 +207,9 @@ describe('accessPlugin', () => {
 		}
 	})
 
-	it('denies by default and isolates explicit defaults between applications', async () => {
+	it('denies without a rule and isolates openings between applications', async () => {
 		const allowed = new (UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			databasePlugin(new StaticReadAdapter([plainRow])),
 		))({ schemas: [PlainDocument] })
 		onTestFinished(() => allowed.dispose())
@@ -232,22 +232,9 @@ describe('accessPlugin', () => {
 		}
 	})
 
-	it('supports granular defaults that allow reads except count', async () => {
+	it('opens every operation except count', async () => {
 		const ultimabase = new (UltimaBase.use(
-			accessPlugin({
-				default: {
-					create: true,
-					delete: true,
-					read: {
-						count: false,
-						exists: true,
-						many: true,
-						one: true,
-					},
-					update: true,
-					upsert: true,
-				},
-			}),
+			accessPlugin({ allowWithoutRule: { all: true, count: false } }),
 			databasePlugin(new StaticReadAdapter([plainRow])),
 		))({
 			schemas: [PlainDocument],
@@ -265,18 +252,16 @@ describe('accessPlugin', () => {
 		}
 	})
 
-	it('prefers exact schema decisions and lets omissions inherit the default', async () => {
+	it('prefers exact schema rules and lets omitted reads use allowWithoutRule', async () => {
 		const deniedByDefault = new (UltimaBase.use(
-			accessPlugin({
-				default: { read: { count: false } },
-			}),
+			accessPlugin({ allowWithoutRule: { count: false } }),
 			databasePlugin(new StaticReadAdapter(1)),
 		))({
 			schemas: [CountOnlyDocument],
 		})
 		onTestFinished(() => deniedByDefault.dispose())
 		const allowedByConfiguredDefault = new (UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			databasePlugin(new StaticReadAdapter([plainRow])),
 		))({
 			schemas: [CountOnlyDocument],
@@ -302,7 +287,7 @@ describe('accessPlugin', () => {
 		}
 	})
 
-	it('keeps provider contributions deny-only after schema and default decisions', async () => {
+	it('keeps provider contributions deny-only after schema rules and openings', async () => {
 		const peer = plugin({
 			version: '0.0.0',
 			core: '^0.0.0',
@@ -314,10 +299,10 @@ describe('accessPlugin', () => {
 			contributions: [
 				provideAccessContributions('monotonic-read-policies', () => [
 					schemaAccess(CountOnlyDocument, {
-						read: { allow: { count: false } },
+						read: { count: false },
 					}),
 					schemaAccess(PlainDocument, {
-						read: { allow: { many: true } },
+						read: { many: true },
 					}),
 				]),
 			],
