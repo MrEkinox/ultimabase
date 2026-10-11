@@ -252,9 +252,10 @@ Drizzle client, or explicit transaction:
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { defineEvent, hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
+const auditCreated = defineEvent<{ title: string }>('audit.created')
 const Application = UltimaBase.use(hooksPlugin()).use(postgresPlugin())
 const AuditSchema = Application.Schema.define({
 	className: 'Audit',
@@ -274,7 +275,7 @@ const ArticleSchema = Application.Schema.define({
 				await AuditSchema.createOne({
 					data: { action: `create:${item.title}` },
 				})
-				context.emit('audit.created', { title: item.title })
+				context.emit(auditCreated, { title: item.title })
 			},
 		},
 	},
