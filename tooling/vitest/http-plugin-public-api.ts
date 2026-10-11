@@ -87,14 +87,3 @@ export const httpPluginPublicApi = {
 	],
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
-
-/** Names HTTP assembly internals deliberately kept out of the root API. */
-export const removedHttpPluginPublicApiNames = [
-	'HttpApplicationMountTable',
-	'HttpMasterTransportOptions',
-	'HttpServerProviderCompatibility',
-	'assertHttpEndpointDefinitions',
-	'assertHttpServerRequest',
-	'createHttpApplicationResource',
-	'readHttpApplicationId',
-] as const

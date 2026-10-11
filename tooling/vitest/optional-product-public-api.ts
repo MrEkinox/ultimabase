@@ -1,7 +1,4 @@
-export {
-	httpPluginPublicApi,
-	removedHttpPluginPublicApiNames,
-} from './http-plugin-public-api.js'
+export { httpPluginPublicApi } from './http-plugin-public-api.js'
 export {
 	passwordAuthPluginPublicApi,
 	removedPasswordAuthPluginPublicApiNames,
@@ -442,6 +439,17 @@ export const removedValidationPluginPublicApiNames = [
 	'fieldValidationOption',
 	'requiresValidationTargets',
 	'validateMutationInput',
+] as const
+
+/** Names HTTP assembly internals deliberately kept out of the root API. */
+export const removedHttpPluginPublicApiNames = [
+	'HttpApplicationMountTable',
+	'HttpMasterTransportOptions',
+	'HttpServerProviderCompatibility',
+	'assertHttpEndpointDefinitions',
+	'assertHttpServerRequest',
+	'createHttpApplicationResource',
+	'readHttpApplicationId',
 ] as const
 
 /** Names REST compiler details deliberately kept out of the root API. */
