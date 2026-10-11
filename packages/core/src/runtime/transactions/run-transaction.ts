@@ -11,12 +11,16 @@ import {
 	startAfterCommitWork,
 	type AfterCommitWork,
 } from './after-commit-work.js'
+import type { PostCommitEffectIdentity } from '../../errors/post-commit-errors.js'
 
 type DeferredTransactionEffect = () => MaybePromise<void>
 
 interface TransactionExecutionState {
 	readonly afterCommit: AfterCommitWork[]
-	readonly deferPostCommitEffect: (effect: DeferredTransactionEffect) => void
+	readonly deferPostCommitEffect: (
+		effect: DeferredTransactionEffect,
+		identity?: PostCommitEffectIdentity,
+	) => void
 	readonly transactionId: string
 }
 
@@ -26,15 +30,19 @@ const transactionExecution = new AsyncLocalStorage<TransactionExecutionState>()
 export const getCurrentTransactionId = (): string | undefined =>
 	transactionExecution.getStore()?.transactionId
 
-/** Queues one effect on the exact transaction inherited by the current callback. */
+/**
+ * Queues one effect on the exact transaction inherited by the current
+ * callback; `identity` names it in the log line if it fails after commit.
+ */
 export const deferCurrentTransactionEffect = (
 	effect: DeferredTransactionEffect,
+	identity?: PostCommitEffectIdentity,
 ): void => {
 	const state = transactionExecution.getStore()
 	if (state === undefined) {
 		throw new TypeError('Transaction execution scope is unavailable')
 	}
-	state.deferPostCommitEffect(effect)
+	state.deferPostCommitEffect(effect, identity)
 }
 
 /**
@@ -126,8 +134,8 @@ export const runRequestTransaction = async <TEngine, TResult>(
 	const scope = await pipeline.beginTransaction()
 	const state: TransactionExecutionState = {
 		afterCommit: [],
-		deferPostCommitEffect: (effect) => {
-			scope.deferPostCommitEffect(effect)
+		deferPostCommitEffect: (effect, identity) => {
+			scope.deferPostCommitEffect(effect, identity)
 		},
 		transactionId: randomUUID(),
 	}

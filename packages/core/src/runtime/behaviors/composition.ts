@@ -4,7 +4,11 @@ import type { FrameworkApplication } from '../../application/framework-applicati
 import type { PluginDefinition } from '../../plugins/definition.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import type { PluginIdentity } from '../../plugins/manifest.js'
+import {
+	formatPluginIdentity,
+	type PluginIdentity,
+} from '../../plugins/manifest.js'
+import { runPostCommitEffect } from '../../errors/post-commit-errors.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { runtimeBehaviorCapability } from '../capabilities.js'
 import { composeRuntimeContributionBehavior } from '../contributions/composition.js'
@@ -19,6 +23,7 @@ type OwnerScope = <TResult>(callback: () => TResult) => TResult
 
 /** Pairs one installed stage with the scope restoring its exact provider owner. */
 interface BehaviorProvider<TStage> {
+	readonly owner?: PluginIdentity
 	readonly run: OwnerScope
 	readonly stage: TStage
 }
@@ -74,7 +79,7 @@ export const composeRuntimeBehaviors = (
 			runWithApplicationPluginOwner(application, owner, callback)
 	const behaviors = readApplicationKernelState(application)
 		.capabilityContributions(runtimeBehaviorCapability)
-		.map(({ owner, value }) => ({ run: ownerScope(owner), value }))
+		.map(({ owner, value }) => ({ owner, run: ownerScope(owner), value }))
 	const interceptors = composeRuntimeContributionBehavior(application)
 
 	if (behaviors.length === 0 && interceptors === undefined) return undefined
@@ -84,9 +89,9 @@ export const composeRuntimeBehaviors = (
 		key: TKey,
 		includeInterceptors = false,
 	): readonly BehaviorProvider<NonNullable<RuntimeBehaviorStages[TKey]>>[] => {
-		const providers = behaviors.flatMap(({ run, value }) => {
+		const providers = behaviors.flatMap(({ owner, run, value }) => {
 			const stage = value[key]
-			return stage === undefined ? [] : [{ run, stage }]
+			return stage === undefined ? [] : [{ owner, run, stage }]
 		})
 		const interceptor = includeInterceptors ? interceptors?.[key] : undefined
 		return interceptor === undefined
@@ -246,9 +251,14 @@ export const composeRuntimeBehaviors = (
 		}
 	}
 	if (postCommitObservers.length > 0) {
+		// One failing provider is logged and never stops the next (ADR-0318).
 		composed.postCommit = async (input) => {
-			for (const { run, stage } of postCommitObservers)
-				await run(() => stage(input))
+			for (const { owner, run, stage } of postCommitObservers) {
+				await runPostCommitEffect(() => run(() => stage(input)), {
+					requestId: input.context.requestId,
+					source: `the postCommit stage of ${owner === undefined ? 'a Runtime interceptor' : formatPluginIdentity(owner)}`,
+				})
+			}
 		}
 	}
 	if (preparationPredicates.length > 0) {

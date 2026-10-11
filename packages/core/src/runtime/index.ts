@@ -324,6 +324,7 @@ export {
 	deferCurrentTransactionEffect,
 	getCurrentTransactionId,
 } from './transactions/run-transaction.js'
+export type { PostCommitEffectIdentity } from '../errors/post-commit-errors.js'
 export type {
 	RuntimeNestedWriteStageContext,
 	RuntimeRelationLinkChanges,

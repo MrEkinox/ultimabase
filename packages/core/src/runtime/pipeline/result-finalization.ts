@@ -150,7 +150,10 @@ export const finalizeRuntimeOperationResult = async <
 	await stages.commit(completed)
 	const postCommit = stages.behaviors?.postCommit
 	if (postCommit !== undefined) {
-		await runPostCommitEffect(() => postCommit(completed))
+		await runPostCommitEffect(() => postCommit(completed), {
+			requestId: completed.context.requestId,
+			source: 'the postCommit stage',
+		})
 	}
 	return result
 }

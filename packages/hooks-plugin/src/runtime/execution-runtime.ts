@@ -469,7 +469,7 @@ export class HookExecutionRuntime {
 			)
 			// After commit nothing rolls back and the client has its answer.
 			this.#logger.error(
-				`A ${identity.phase} hook failed after commit (${describeFrame(identity)}); the committed write is kept`,
+				`A ${identity.phase} hook failed after commit (${describeFrame(identity)}, request ${scope.request.requestId}); the committed write is kept`,
 				error instanceof Error ? error : { error },
 			)
 		} finally {
