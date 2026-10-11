@@ -189,16 +189,23 @@ const contextPlugin = plugin({
 	],
 })
 
-const createFixture = async (requestTimeoutMs?: number) => {
+const createFixture = async (
+	requestTimeoutMs?: number,
+	limits: Readonly<{ http?: number; rest?: number }> = {},
+) => {
 	const adapter = new VirtualDatabase()
 	const capture: { current?: HttpApplication } = {}
 	const application = new (UltimaBase.use(
 		databasePlugin(adapter),
 		contextPlugin,
-		restPlugin({ acknowledgeUnverifiedProtection: true }),
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			...(limits.rest === undefined ? {} : { bodyLimit: limits.rest }),
+		}),
 		httpPlugin({
 			appId: 'response-app',
 			master: true,
+			...(limits.http === undefined ? {} : { bodyLimit: limits.http }),
 			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 		}),
 		capturePlugin(capture),
@@ -351,5 +358,29 @@ describe('REST virtual HTTP boundary', () => {
 			error: { code: 'REST_READ_INVALID_INPUT' },
 		})
 		await fixture.application.dispose()
+	})
+
+	// ADR-0323: REST inherits the HTTP body limit unless it sets its own.
+	it('inherits the HTTP body limit and lets its own bodyLimit replace it', async () => {
+		const post = (http: HttpApplication) =>
+			fetchApplication(http, '/api/v1/classes/RestHttpVirtualRecord', {
+				body: JSON.stringify({ title: 'x'.repeat(64) }),
+				headers: { 'Content-Type': 'application/json' },
+				method: 'POST',
+			})
+		const inherited = await createFixture(undefined, { http: 32 })
+		const refused = await post(inherited.http)
+		expect(refused.status).toBe(413)
+		expect(await refused.json()).toMatchObject({
+			error: { code: 'HTTP_PAYLOAD_TOO_LARGE' },
+		})
+		await inherited.application.dispose()
+
+		const replaced = await createFixture(undefined, { http: 32, rest: 4_096 })
+		// The body reaches REST, which answers with its own outcome.
+		const accepted = await post(replaced.http)
+		expect(accepted.status).not.toBe(413)
+		expect(JSON.stringify(await accepted.json())).toMatch(/"code":"REST_/u)
+		await replaced.application.dispose()
 	})
 })

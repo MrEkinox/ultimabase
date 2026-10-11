@@ -327,6 +327,7 @@ const restHttpProtocol = immutableRecord({
  */
 export const createRestHttpMounts = (
 	mountPath: string,
+	bodyLimit: number | undefined,
 	executor: ApplicationRequestExecutor,
 	schemas: CompiledSchemaRegistry,
 	readConfiguration: () => RestHttpConfiguration | undefined,
@@ -388,6 +389,12 @@ export const createRestHttpMounts = (
 		}
 	}
 	return immutableArray([
-		httpMount({ handle, path: mountPath, protocol: restHttpProtocol }),
+		// An explicit REST bodyLimit replaces the HTTP one for REST (ADR-0323).
+		httpMount({
+			...(bodyLimit === undefined ? {} : { bodyLimit }),
+			handle,
+			path: mountPath,
+			protocol: restHttpProtocol,
+		}),
 	])
 }

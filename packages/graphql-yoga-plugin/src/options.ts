@@ -6,7 +6,10 @@ import {
 
 /** Configures the GraphQL-over-HTTP adapter without changing GraphQL execution. */
 export interface GraphqlYogaPluginOptions {
-	/** Maximum streamed JSON request size in bytes. @default 1048576 */
+	/**
+	 * Maximum streamed JSON request size in bytes, replacing
+	 * `httpPlugin({ bodyLimit })` for GraphQL. @default the HTTP plugin's bodyLimit
+	 */
 	readonly bodyLimit?: number
 	/**
 	 * Enables schema introspection over HTTP: on in development, off when
@@ -19,7 +22,8 @@ export interface GraphqlYogaPluginOptions {
 }
 
 export interface NormalizedGraphqlYogaPluginOptions {
-	readonly bodyLimit: number
+	/** `undefined` inherits the HTTP plugin's limit (ADR-0323). */
+	readonly bodyLimit: number | undefined
 	readonly introspection: boolean
 	/** Where `introspection` comes from, for the plugin's debug line. */
 	readonly introspectionSource: EnvironmentDefault<boolean>['source']
@@ -65,11 +69,12 @@ const parseGraphqlYogaPluginOptions = definePluginOptionsParser({
 	formatUnknownKey: (key) =>
 		`GraphQL Yoga plugin options contains unknown option: ${String(key)}`,
 	normalize: ({ bodyLimit: inputBodyLimit, introspection, path }) => {
-		const bodyLimit = inputBodyLimit ?? 1_048_576
+		const bodyLimit = inputBodyLimit
 		if (
-			typeof bodyLimit !== 'number' ||
-			!Number.isSafeInteger(bodyLimit) ||
-			bodyLimit < 1
+			bodyLimit !== undefined &&
+			(typeof bodyLimit !== 'number' ||
+				!Number.isSafeInteger(bodyLimit) ||
+				bodyLimit < 1)
 		) {
 			throw new TypeError(
 				'GraphQL Yoga plugin bodyLimit must be a positive safe integer',

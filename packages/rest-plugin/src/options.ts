@@ -135,7 +135,10 @@ export interface RestPluginOptions {
 	readonly acknowledgeUnverifiedProtection?: true
 	/** Absolute normalized prefix; REST always appends `/v1`. @default "/api" */
 	readonly basePath?: string
-	/** Maximum streamed JSON request size in bytes. @default 1048576 */
+	/**
+	 * Maximum streamed JSON request size in bytes, replacing
+	 * `httpPlugin({ bodyLimit })` for REST routes. @default the HTTP plugin's bodyLimit
+	 */
 	readonly bodyLimit?: number
 	/** Supplies sparse route defaults inherited by application schemas. */
 	readonly default?: RestSchemaRoutesOption
@@ -285,7 +288,8 @@ const normalizePositiveSafeInteger = (
 export interface NormalizedRestPluginOptions {
 	readonly acknowledgeUnverifiedProtection: true | undefined
 	readonly basePath: string
-	readonly bodyLimit: number
+	/** `undefined` inherits the HTTP plugin's limit (ADR-0323). */
+	readonly bodyLimit: number | undefined
 	readonly defaultRoutes: RestSchemaRoutesOption | undefined
 	readonly instanceId: string | undefined
 	readonly mountPath: string
@@ -334,11 +338,14 @@ export const parseRestPluginOptions: (
 		return {
 			acknowledgeUnverifiedProtection,
 			...paths,
-			bodyLimit: normalizePositiveSafeInteger(
-				bodyLimit,
-				'bodyLimit',
-				defaultRestReadLimits.bodyBytes,
-			),
+			bodyLimit:
+				bodyLimit === undefined
+					? undefined
+					: normalizePositiveSafeInteger(
+							bodyLimit,
+							'bodyLimit',
+							defaultRestReadLimits.bodyBytes,
+						),
 			defaultRoutes:
 				defaultRoutes === undefined
 					? undefined

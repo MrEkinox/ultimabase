@@ -191,6 +191,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 							? immutableArray([])
 							: createRestHttpMounts(
 									normalized.mountPath,
+									normalized.bodyLimit,
 									executor,
 									schemas,
 									() => slot.configuration,
@@ -213,7 +214,8 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		({ capabilities, logger, schemas }) => {
 			const routeGraph = capabilities.get(routeGraphRequirement)
 			const readLimits = immutableRecord({
-				bodyBytes: normalized.bodyLimit,
+				// Without its own limit REST inherits the HTTP one, which HTTP enforces.
+				bodyBytes: normalized.bodyLimit ?? Number.MAX_SAFE_INTEGER,
 				defaultTake: normalized.pagination.defaultTake,
 				maxTake: normalized.pagination.maxTake,
 			})

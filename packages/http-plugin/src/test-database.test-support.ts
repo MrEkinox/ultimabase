@@ -43,7 +43,9 @@ export const httpTestDatabasePlugin = (
 		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'empty-http-test-adapter',
-				create: () => ({ value: new EmptyHttpTestDatabaseAdapter(checkHealth) }),
+				create: () => ({
+					value: new EmptyHttpTestDatabaseAdapter(checkHealth),
+				}),
 			}),
 		],
 	})

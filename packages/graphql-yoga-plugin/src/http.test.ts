@@ -183,6 +183,7 @@ const request = async (
 		readonly accept?: string
 		readonly authorization?: string
 		readonly body?: string
+		readonly contentLength?: boolean
 		readonly contentType?: string
 		readonly masterKey?: string
 		readonly method?: string
@@ -195,6 +196,12 @@ const request = async (
 	if (input.accept !== undefined) headers.set('Accept', input.accept)
 	if (input.contentType !== undefined) {
 		headers.set('Content-Type', input.contentType)
+	}
+	if (input.contentLength === true && input.body !== undefined) {
+		headers.set(
+			'Content-Length',
+			String(new TextEncoder().encode(input.body).byteLength),
+		)
 	}
 	if (input.authorization !== undefined) {
 		headers.set('Authorization', input.authorization)
@@ -344,8 +351,19 @@ describe('GraphQL Yoga HTTP adapter', () => {
 			body: JSON.stringify({ query: `{ echo(value: "${'x'.repeat(80)}") }` }),
 			contentType: 'application/json',
 		})
+		// ADR-0323: HTTP enforces the GraphQL limit while the body streams.
 		expect(oversized.status).toBe(413)
 		expect(await json(oversized)).toMatchObject({
+			error: { code: 'HTTP_PAYLOAD_TOO_LARGE' },
+		})
+		const declared = await request(fixture.http, {
+			body: JSON.stringify({ query: `{ echo(value: "${'x'.repeat(80)}") }` }),
+			contentLength: true,
+			contentType: 'application/json',
+		})
+		// A declared Content-Length is still refused by GraphQL in its own format.
+		expect(declared.status).toBe(413)
+		expect(await json(declared)).toMatchObject({
 			errors: [{ extensions: { code: 'PAYLOAD_TOO_LARGE' } }],
 		})
 		await fixture.ultimabase.dispose()
