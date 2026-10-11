@@ -50,13 +50,14 @@ Fait et vérifié par tests ciblés :
 - Tests racine, exemple minimal (types régénérés), create-app, sondes de
   performance Typegen, README racine.
 
-Ensuite : tests Core (`projection-slots.test-d.ts`, `plugin-commands.test.ts`,
-`unique-conflict.test.ts`), plugin-kit (`define-plugin.test.ts`/`.test-d.ts`),
-`http-routes.test.ts` ; documentation (page Soft Delete, guide d'auteur
-`build-a-plugin`, README Core/plugin-kit/http/Soft Delete/minimal, concepts,
-ARCHITECTURE) ; lint.
+- Tests Core (`projection-slots.test-d.ts`, `plugin-commands.test.ts`,
+  `unique-conflict.test.ts`), plugin-kit (`define-plugin.test.ts`/`.test-d.ts`),
+  `http-routes.test.ts` ; documentation (page Soft Delete, guide d'auteur
+  `build-a-plugin`, README Core/plugin-kit/http/Soft Delete/minimal, concepts,
+  ARCHITECTURE) ; lint.
 
-Reste : porte complète, audit DX, banc TS6/TS7.
+Porte, audit DX et banc faits (voir « Preuves »). Le worktree de base et les
+dossiers `gen/` sont supprimés.
 
 ## Décisions prises (non fixées par l'ADR, à confirmer)
 
@@ -108,11 +109,75 @@ Clés `schemaFields`, `schemaClass`, `schemaOptions` de `PluginSourceProjection`
   (`access`, `hooks` dans `define`, ancienne forme) ; leur `.with` passe déjà
   par `SchemaRulesHKT` → 6.1/6.2 ou retrait de l'ancienne forme (6.8).
 
-## Preuves
+## Preuves (porte finale sur 1b287fb1, dernier commit de code)
 
-(complétées à la porte finale)
+- `packages/*/dist` et `*.tsbuildinfo` hors `node_modules` supprimés, puis
+  `yarn validate:full` : code 0. « All matched files use Prettier code
+  style! » ; lint 0 erreur (49 + 21 + 2 avertissements, tous de taille de
+  fichier ; nouveaux par rapport à 73109860 : aucun en production,
+  `context-and-master.test.ts` 599 → 602 lignes par le découpage des imports) ;
+  performance « Test Files 3 passed (3) / Tests 4 passed (4) » ; couverture
+  « Test Files 694 passed (694) / Tests 3376 passed (3376) / Type Errors no
+  errors », All files 92,52 / 86,22 / 97,19 / 93,18 ; site « Test Files 17
+  passed (17) / Tests 66 passed (66) ».
+- `yarn test:e2e:built` : code 0, « Test Files 121 passed (121) / Tests 524
+  passed (524) ».
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+- Budget `hybrid-authoring` : deux échecs (97,7 et 100,3 ms contre ~93) avant
+  la correction de la sonde : la sonde hybride chronométrait la construction de
+  l'application, la sonde Typegen non ; la construction coûte ~7 ms de plus
+  (chaîne `.softDelete()` sur 48 schémas, 6 commandes chacun). Après : vert,
+  seul et dans `validate:full`.
+- TypeScript 7.0.2 (`ub-typing-spike/ts7`) : `examples/schema-form-d` et
+  `gen/form-d-200` code 0 ; `tsconfig.test.json` de plugin-kit et Soft Delete
+  code 0 ; Core : 12 erreurs, identiques sur la base 73109860 (positions de
+  `@ts-expect-error` dans des tests de champs), aucune dans
+  `projection-slots.test-d.ts`.
+
+### Audit DX (`--only` 23 paquets, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+4 939 différences (36 804 / 37 381 enregistrements), classées par script
+(motif puis lecture d'échantillons) :
+
+| Cause                                                                                                                                                                                                        | Nombre |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -----: |
+| Exports déplacés vers `@ultimabase/core/plugin` et nouveaux exports (exports, survols d'export, survols de membres des noms déplacés)                                                                        |  1 697 |
+| Projection : emplacements, méthodes de forme génériques (`TArguments`, `DeclaredSchemaShape` dans les `DeclaredSchema` imprimés)                                                                             |  1 043 |
+| Tests, fixtures et paquet Soft Delete réécrits ou ajoutés                                                                                                                                                    |    941 |
+| `plugin()` : paramètre `TSource` (signature) et `PluginOptions<…, source>` dans les survols                                                                                                                  |    378 |
+| API Soft Delete revue (exemple minimal, forme D, `deletedAt`)                                                                                                                                                |    366 |
+| Façade (`definePlugin`, `httpRoutes`, `readSchemaRules`)                                                                                                                                                     |    176 |
+| Mutations sur plusieurs lignes (`target`, 9ᵉ argument de `PluginSchemaMutationDefinition`, `…ManyMethod`)                                                                                                    |     97 |
+| Chemins d'import ou noms de morceaux seulement                                                                                                                                                               |     52 |
+| Typegen (`CorePlugin`)                                                                                                                                                                                       |      8 |
+| Reste lu à la main : 9ᵉ argument `"one"` des définitions de mutation, noms déplacés imprimés sans `core.`, ordre d'union `"anonymous" \| "master"`, `… 9 more …` (deletedAt), nouveaux membres de plugin-kit |    181 |
+
+### Banc forme D (base = 73109860, branche = 1b287fb1 ; alterné, médianes)
+
+TypeScript 6.0.3 (3 exécutions) :
+
+| N   | Arbre   | Charges     | Éd.→diag (s) | Exécutions     | Froid (s) | Schéma (s) | Tas (Mio) | Hover `q0` |
+| --- | ------- | ----------- | -----------: | -------------- | --------: | ---------: | --------: | ---------: |
+| 50  | base    | 2,9 3,0 3,1 |         2,05 | 2,03/2,04/2,05 |      4,71 |       2,09 |       851 |        199 |
+| 50  | branche | 2,9 3,1 3,1 |         2,03 | 2,03/2,02/2,05 |      4,79 |       2,08 |       824 |        199 |
+| 200 | base    | 2,8 3,7 3,4 |         6,88 | 7,00/6,82/6,88 |     16,17 |       6,82 |     2 434 |        199 |
+| 200 | branche | 2,7 3,1 3,2 |         7,08 | 7,08/6,90/7,28 |     16,60 |       6,82 |     2 515 |        199 |
+
+TypeScript 7.0.2 (`lsp-bench.mjs`, 3 exécutions à 50, 2 à 200) : éd.→diag
+50 : 0,69 → 0,70 ; 200 : 2,23 → 2,29 ; premier diagnostic 50 : 0,78 → 0,80 ;
+200 : 2,41 → 2,46 ; RSS serveur 675 → 714 Mio (50), 1 639 → 1 812 Mio (200).
+`tsc --extendedDiagnostics` à 50 : 2 333 803 → 2 384 915 instanciations
+(+2,2 %), vérification 4,00 → 4,03 s.
+
+Lecture : aucun gain en 6.0, contrairement au spike (2,05 → 1,72 s), car ACL
+et PostgreSQL gardent leurs gabarits (le spike les avait aussi migrés : ses
+gabarits valaient `never` dans l'application du banc). Le gain attendu vient
+avec 6.3 et 6.5. Survols : `.softDelete` 607 → 686 caractères (signature
+générique), commandes 676/674 → 671/668/666, `isDeleted` 41, `deletedAt` 47.
 
 ## Prochaine action vérifiable
 
-Porte complète (`validate:full`, `test:e2e:built`, `website:test`), audit DX
-contre `../ub-step6-0-baseline`, banc forme D.
+Revue du coordinateur, décisions de l'utilisateur sur les points non fixés
+par l'ADR, puis fusion `--no-ff` dans `main` ; supprimer ce handoff après la
+fusion.
