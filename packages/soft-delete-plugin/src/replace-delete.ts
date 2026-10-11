@@ -19,15 +19,15 @@ export const restoredValues = (): Readonly<Record<string, unknown>> =>
 	immutableRecord({ deletedAt: null, isDeleted: false })
 
 /**
- * Turns `deleteOne` and `deleteMany` into soft deletes on the schemas that
- * called `.softDelete()` without `mode: 'command'`.
+ * Turns `deleteOne` and `deleteMany` (one delete per target) into soft
+ * deletes on the schemas that called `.softDelete()` without `mode: 'command'`.
  */
 export const createSoftDeletePersistenceRewriter = (
 	schemas: CompiledSchemaRegistry,
 	owner: PluginIdentity,
 ): PersistencePlanRewriterDefinition =>
 	persistencePlanRewriter({
-		operations: ['delete-one', 'delete-many'],
+		operations: ['delete-one'],
 		rewrite: ({ plan }) =>
 			rewriteDeletePersistencePlan(
 				plan,

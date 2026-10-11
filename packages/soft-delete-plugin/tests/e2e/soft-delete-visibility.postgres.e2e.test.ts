@@ -25,51 +25,53 @@ const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
 const VisibleRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibleRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'explicit',
 })
+	.softDelete({ mode: 'command' })
+	.with({})
 
 const PlainRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeletePlainRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: false,
-})
+}).with({})
 
 const replaceDeleteTrace: string[] = []
 let rejectedDeleteTitle: string | undefined
 
 const ReplaceRecord = SoftDeleteSchemaApplication.Schema.define({
-	access: {
-		create: true,
-		delete: true,
-		read: true,
-		update: false,
-	},
 	className: 'SoftDeleteReplaceRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	hooks: {
-		afterOperation: {
-			delete: ({ originalItem }) => {
-				replaceDeleteTrace.push(`after:delete:${String(originalItem.title)}`)
-			},
-			update: () => {
-				replaceDeleteTrace.push('after:update')
-			},
-		},
-		beforeOperation: {
-			delete: ({ originalItem }) => {
-				const title = String(originalItem.title)
-				replaceDeleteTrace.push(`before:delete:${title}`)
-				if (title === rejectedDeleteTitle) {
-					throw new Error('replace-delete batch rejected')
-				}
-			},
-			update: () => {
-				replaceDeleteTrace.push('before:update')
-			},
-		},
-	},
-	softDelete: 'replace-delete',
 })
+	.softDelete()
+	.with({
+		access: {
+			create: true,
+			delete: true,
+			read: true,
+			update: false,
+		},
+		hooks: {
+			afterOperation: {
+				delete: ({ originalItem }) => {
+					replaceDeleteTrace.push(`after:delete:${originalItem.title}`)
+				},
+				update: () => {
+					replaceDeleteTrace.push('after:update')
+				},
+			},
+			beforeOperation: {
+				delete: ({ originalItem }) => {
+					const title = originalItem.title
+					replaceDeleteTrace.push(`before:delete:${title}`)
+					if (title === rejectedDeleteTitle) {
+						throw new Error('replace-delete batch rejected')
+					}
+				},
+				update: () => {
+					replaceDeleteTrace.push('before:update')
+				},
+			},
+		},
+	})
 
 const replaceDeleteObserver = plugin({
 	core: '^0.0.0',
@@ -142,24 +144,27 @@ const staleTombstoneWriter = plugin({
 const Author = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-	softDelete: 'explicit',
 })
+	.softDelete({ mode: 'command' })
+	.with({})
 
 const Tag = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
-	softDelete: 'explicit',
 })
+	.softDelete({ mode: 'command' })
+	.with({})
 
 const Article = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityArticle',
 	fields: (field) => ({
-		author: field.pointer({ target: 'SoftDeleteVisibilityAuthor' }),
-		tags: field.relation({ target: 'SoftDeleteVisibilityTag' }),
+		author: field.pointer({ target: () => Author }),
+		tags: field.relation({ target: () => Tag }),
 		title: field.string({ required: true }),
 	}),
-	softDelete: 'explicit',
 })
+	.softDelete({ mode: 'command' })
+	.with({})
 
 const schemas = [
 	VisibleRecord,
@@ -229,7 +234,7 @@ afterAll(async () => {
 })
 
 describe('official soft-delete visibility with PostgreSQL', () => {
-	it('persists the owned boolean only for enabled schemas', async () => {
+	it('persists the owned columns only for enabled schemas', async () => {
 		const { database } = getFixture()
 		const columns = await database.pool.query<{
 			column_default: string | null
@@ -240,11 +245,17 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			 from information_schema.columns
 			 where table_schema = $1
 			   and table_name in ('soft_delete_visible_records', 'soft_delete_plain_records')
-			   and column_name = 'isDeleted'`,
+			   and column_name in ('isDeleted', 'deletedAt')
+			 order by column_name`,
 			[database.schemaName],
 		)
 
 		expect(columns.rows).toEqual([
+			expect.objectContaining({
+				column_default: null,
+				column_name: 'deletedAt',
+				is_nullable: 'YES',
+			}),
 			expect.objectContaining({
 				column_default: 'false',
 				column_name: 'isDeleted',
@@ -339,6 +350,11 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			isDeleted: true,
 			title: 'logical delete',
 		})
+		const stamped = await database.pool.query<{ deletedAt: Date | null }>(
+			`select "deletedAt" from soft_delete_replace_records where id = $1`,
+			[row.id],
+		)
+		expect(stamped.rows[0]?.deletedAt).toBeInstanceOf(Date)
 		expect(replaceDeleteTrace).toStrictEqual([
 			'before:delete:logical delete',
 			'after:delete:logical delete',
@@ -413,7 +429,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		rejectedDeleteTitle = undefined
 	})
 
-	it('retains native hard-delete persistence for explicit and disabled schemas', async () => {
+	it('retains native hard-delete persistence for command-mode and plain schemas', async () => {
 		const { database } = getFixture()
 		const explicit = await VisibleRecord.createOne({
 			data: { title: 'explicit hard delete' },

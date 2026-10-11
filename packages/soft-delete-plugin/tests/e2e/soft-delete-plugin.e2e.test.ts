@@ -13,23 +13,32 @@ const fixturePath = path.join(
 	'fixtures/soft-delete-option-no-typegen.mjs',
 )
 
-it('compiles the packed soft-delete option from JavaScript without Typegen', async () => {
+it('compiles the packed shape method from JavaScript without Typegen', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
+	const commands = [
+		'softDeleteOne',
+		'softDeleteMany',
+		'restoreOne',
+		'restoreMany',
+		'purgeOne',
+		'purgeMany',
+	]
 
 	expect(output).toStrictEqual({
-		defaultMode: 'replace-delete',
-		explicitMode: 'explicit',
-		explicitSchemaMutations: ['softDelete', 'restore', 'purge'],
-		explicitTombstone: { default: false, required: true },
-		omissionPreserved: true,
-		omittedSchemaMutations: ['restore', 'purge'],
-		omittedTombstoneOwner: '@ultimabase/soft-delete-plugin',
+		commandMode: { mode: 'command' },
+		commandSchemaMutations: commands,
+		deletedAt: 'dateTime',
+		logicalMode: {},
+		logicalSchemaMutations: commands,
 		owner: {
 			kind: 'plugin',
 			pluginId: '@ultimabase/soft-delete-plugin',
 			version: '0.0.0',
 		},
+		plainSchemaMutations: [],
+		plainTombstone: true,
+		tombstone: { default: false, required: true },
 	})
 })
 
@@ -37,20 +46,20 @@ describe.each([
 	['source', '../../src/index.js'],
 	['packed', '@ultimabase/soft-delete-plugin'],
 ] as const)('%s inherited soft-delete surface', (mode, moduleName) => {
-	it('types omitted-schema defaults and excludes direct false overrides', () => {
+	it('types the shape method and leaves other schemas untouched', () => {
 		const fileName = path.join(
 			import.meta.dirname,
-			`soft-delete-default.${mode}.fixture.ts`,
+			`soft-delete-shape.${mode}.fixture.ts`,
 		)
 		const source = `import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '${moduleName}'
-const App = UltimaBase.use(softDeletePlugin({ defaultMode: 'explicit' }))
-const Enabled = App.Schema.define({ className: 'EnabledPost', fields: (field) => ({ title: field.string() }) })
-const Disabled = App.Schema.define({ className: 'DisabledPost', fields: (field) => ({ title: field.string() }), softDelete: false })
-void Enabled.softDelete({ id: 'post-1', select: { isDeleted: true } })
-void Enabled.restore({ id: 'post-1', select: { isDeleted: true } })
-void Enabled.purge({ id: 'post-1' })
-void Disabled`
+const App = UltimaBase.use(softDeletePlugin())
+const Enabled = App.Schema.define({ className: 'EnabledPost', fields: (field) => ({ title: field.string() }) }).softDelete().with({})
+const Plain = App.Schema.define({ className: 'PlainPost', fields: (field) => ({ title: field.string() }) }).with({})
+void Enabled.softDeleteOne({ id: 'post-1', select: { isDeleted: true, deletedAt: true } })
+void Enabled.restoreMany({ where: { title: { eq: 'post' } } })
+void Enabled.purgeOne({ id: 'post-1' })
+void Plain`
 		const service = createLanguageService(fileName, source)
 		expect(
 			service
@@ -61,20 +70,29 @@ void Disabled`
 		).toStrictEqual([])
 		const enabled = service.getCompletionsAtPosition(
 			fileName,
-			source.indexOf('Enabled.softDelete') + 'Enabled.'.length,
+			source.indexOf('Enabled.softDeleteOne') + 'Enabled.'.length,
 			{},
 		)
-		const absentSource = source.replace('void Disabled', 'void Disabled.')
+		const absentSource = source.replace('void Plain', 'void Plain.')
 		const absentService = createLanguageService(fileName, absentSource)
-		const disabled = absentService.getCompletionsAtPosition(
+		const plain = absentService.getCompletionsAtPosition(
 			fileName,
-			absentSource.lastIndexOf('Disabled.') + 'Disabled.'.length,
+			absentSource.lastIndexOf('Plain.') + 'Plain.'.length,
 			{},
 		)
-		expect(enabled?.entries.map(({ name }) => name)).toContain('softDelete')
-		expect(disabled?.entries.map(({ name }) => name)).not.toContain(
-			'softDelete',
+		expect(enabled?.entries.map(({ name }) => name)).toEqual(
+			expect.arrayContaining([
+				'softDeleteOne',
+				'softDeleteMany',
+				'restoreOne',
+				'restoreMany',
+				'purgeOne',
+				'purgeMany',
+			]),
 		)
-		expect(disabled?.entries.map(({ name }) => name)).not.toContain('restore')
+		expect(plain?.entries.map(({ name }) => name)).not.toContain(
+			'softDeleteOne',
+		)
+		expect(plain?.entries.map(({ name }) => name)).not.toContain('restoreOne')
 	})
 })

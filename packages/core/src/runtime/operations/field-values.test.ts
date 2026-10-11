@@ -259,6 +259,7 @@ it('collects plugin schema mutation effect fields through the logical operation'
 			name: 'fixture.workflow.archive',
 			returning: 'after',
 			select: {},
+			target: 'one',
 			version: '1.0.0',
 		},
 		originalItem: undefined,
