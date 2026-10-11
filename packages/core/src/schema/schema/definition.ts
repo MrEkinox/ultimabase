@@ -382,10 +382,27 @@ export const defineOrdinarySchemaModel = <
 		ReservedSchemaFieldCollision<NoInfer<TFields>>,
 	declarationStatics: Readonly<Record<string, unknown>> = {},
 	ruleIndexes?: readonly SchemaIndexInput[],
+	createStatics?: (schema: SchemaDefinition) => Readonly<Record<string, unknown>>,
 ): SchemaReference<TClassName> => {
 	const schema = defineSchemaModel<TClassName, TFields>(options, ruleIndexes)
+	// Schema factory statics (`TodoRole.role(...)`, ADR-0322) are bound to this class.
+	const factoryStatics: unknown =
+		createStatics === undefined ? {} : createStatics(schema)
+	assertPlainObject(
+		factoryStatics,
+		'schema factory statics must be a plain object',
+	)
+	const collision = Object.keys(factoryStatics).find((name) =>
+		Object.hasOwn(declarationStatics, name),
+	)
+	if (collision !== undefined) {
+		throw new TypeError(`Reserved schema declaration method: ${collision}`)
+	}
 	// Declaration chain methods (`.with`, shape methods) follow class-method visibility.
-	for (const [name, value] of Object.entries(declarationStatics)) {
+	for (const [name, value] of Object.entries({
+		...factoryStatics,
+		...declarationStatics,
+	})) {
 		if (Object.hasOwn(schema, name)) {
 			throw new TypeError(`Reserved schema declaration method: ${name}`)
 		}

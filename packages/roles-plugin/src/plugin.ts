@@ -7,6 +7,7 @@ import {
 	provideRuntimeBehavior,
 	type runtimeBehaviorCapability,
 	type CompiledSchemaRegistry,
+	type Logger,
 	type NamedRequestSubjectReferenceCleanup,
 	type RelationMutationAction,
 	type RuntimeBehaviorStages,
@@ -18,10 +19,13 @@ import {
 	optionalCapability,
 	plugin,
 	provideCapability,
+	provideSchemaFactories,
 	withPluginPrivileges,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type PluginInstance,
+	type PluginSchemaFactoriesSource,
+	type PluginSchemaStaticsSource,
 } from '@ultimabase/core/plugin'
 import { createPluginEventDispatcher } from '@ultimabase/plugin-kit'
 import {
@@ -32,10 +36,15 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	createRoleSchemaFactory,
 	getRoleSchemaDeclaration,
 	rolesPluginId,
 	type RoleSchemaDeclaration,
+	type RoleSchemaFactories,
+	type RoleSchemaStaticsSlot,
 } from './role-schema.js'
+import { ensureRoles } from './role-ensure.js'
+import { createRoleQueries, type RolesPluginExports } from './role-queries.js'
 import {
 	roleSchemaIdentityOption,
 	roleSchemaIdentityOptionName,
@@ -45,7 +54,10 @@ import {
 	readPersistedRoleId,
 } from './role-hierarchy.js'
 import { applyRoleDeletionPolicy } from './role-deletion.js'
-import { createStoredRoleResolver } from './role-access.js'
+import {
+	createStoredRoleResolver,
+	type StoredRoleResolver,
+} from './role-access.js'
 import { normalizeRoleOperation } from './role-reference.js'
 import {
 	roleDeletedEventContract,
@@ -84,20 +96,55 @@ const readRoleDomains = (
 		return declaration === undefined ? [] : [{ declaration, schema }]
 	})
 
+/** One application's resolver and its query exports, shared by setup and `start()`. */
+interface RoleApplicationState {
+	readonly queries: RolesPluginExports
+	readonly resolver: StoredRoleResolver
+}
+
+const roleStatesBySchemas = new WeakMap<object, RoleApplicationState>()
+
+const readRoleState = (schemas: object): RoleApplicationState => {
+	const state = roleStatesBySchemas.get(schemas)
+	if (state === undefined) {
+		throw new TypeError('Roles plugin is not initialized for this application')
+	}
+	return state
+}
+
 const roleResolverProvider: CapabilityProviderDeclaration<
 	typeof requestRoleResolverCapability
 > = provideCapability(requestRoleResolverCapability, {
 	contributionId: 'stored-roles',
-	create: ({ schemas }) => ({
-		value: createStoredRoleResolver(
-			readRoleDomains(schemas).map(({ schema }) => schema),
-		),
-	}),
+	create: ({ callbacks, owner, schemas }) => {
+		const roleSchemas = readRoleDomains(schemas).map(({ schema }) => schema)
+		const resolver = createStoredRoleResolver(roleSchemas)
+		roleStatesBySchemas.set(
+			schemas,
+			immutableRecord({
+				resolver,
+				// Exports run application code paths; their Master reads stay attributed to Roles.
+				queries: createRoleQueries(
+					() => resolver,
+					new Set(roleSchemas),
+					(work) => callbacks.runPlugin(owner, work),
+				),
+			}),
+		)
+		const { hasRole, resolveCurrentRoles, resolvePersistentRole } = resolver
+		return {
+			value: immutableRecord({
+				hasRole,
+				resolveCurrentRoles,
+				resolvePersistentRole,
+			}),
+		}
+	},
 })
 
 interface RoleRelationChange {
 	readonly action: RelationMutationAction
-	readonly field: 'members' | 'roles'
+	readonly field: 'includedRoles' | 'members'
 	readonly targetIds: readonly string[]
 }
 
@@ -120,7 +167,7 @@ const readRoleRelationChanges = (
 		if (
 			!isPlainRecord(update) ||
 			update.kind !== 'relation' ||
-			(update.field !== 'members' && update.field !== 'roles') ||
+			(update.field !== 'members' && update.field !== 'includedRoles') ||
 			!isPlainRecord(update.value) ||
 			!isUnknownArray(update.value.targets)
 		) {
@@ -169,7 +216,7 @@ const readNestedRoleRelationChanges = (
 				const field = relationship.fieldName
 				if (
 					relationship.kind !== 'relation' ||
-					(field !== 'members' && field !== 'roles') ||
+					(field !== 'members' && field !== 'includedRoles') ||
 					relationship.command === 'update'
 				) {
 					return []
@@ -254,7 +301,7 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 					...readRoleRelationChanges(operation),
 					...readNestedRoleRelationChanges(nestedWrite),
 				]
-				const hierarchyChanged = changes.some(({ field }) => field === 'roles')
+				const hierarchyChanged = changes.some(({ field }) => field === 'includedRoles')
 
 				for (const materialization of outcome.materializations) {
 					if (
@@ -303,21 +350,50 @@ const rolesPluginPermissions = {
 		'Resolves and maintains persisted role membership through audited internal Master queries.',
 } as const
 
+type RolesSource =
+	| PluginSchemaFactoriesSource<RoleSchemaFactories>
+	| PluginSchemaStaticsSource<RoleSchemaStaticsSlot>
+
 /** Represents the exact option-light official stored-role provider. */
 export type RolesPlugin = PluginInstance<{
 	readonly id: typeof rolesPluginId
-	readonly exports: ReturnType<() => void>
+	readonly exports: RolesPluginExports
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
+	readonly source: RolesSource
 }>
 
+/** The `rolesPlugin` factory; `ultimabase.plugin(rolesPlugin)` reads its exports. */
+export interface RolesPluginFactory {
+	/**
+	 * Installs Roles: adds `App.RoleSchema`, resolves role membership for
+	 * `hasRole` and other policies, and creates `ensure` roles at `start()`.
+	 * @example `const App = UltimaBase.use(accessPlugin(), rolesPlugin())`
+	 */
+	(): RolesPlugin
+	readonly pluginId: typeof rolesPluginId
+}
+
+const ensureAllRoles = async (
+	schemas: CompiledSchemaRegistry,
+	logger: Logger,
+): Promise<void> => {
+	for (const { declaration, schema } of readRoleDomains(schemas)) {
+		if (declaration.ensure.length === 0) continue
+		const created = await ensureRoles(schema, declaration.ensure)
+		if (created.length > 0) {
+			logger.info(`created ${schema.className} roles: ${created.join(', ')}`)
+		}
+	}
+}
+
 /**
- * Discovers every registered `RoleSchema` through exact package-owned identity.
+ * Discovers every registered role schema through exact package-owned identity.
  *
  * Schema fields, hooks, Access, indexes, and transports stay in their native
  * declarations rather than becoming plugin options.
  */
-export const rolesPlugin = (): RolesPlugin => {
+const createRolesPlugin = (): RolesPlugin => {
 	const declarations = contributeDeclarations({
 		schema: ({ schemas }) => {
 			schemas.defineOptions({
@@ -339,13 +415,21 @@ export const rolesPlugin = (): RolesPlugin => {
 				),
 			),
 		)
-		return { exports: undefined }
+		return {
+			exports: immutableRecord({
+				has: (...arguments_: Parameters<RolesPluginExports['has']>) =>
+					readRoleState(schemas).queries.has(...arguments_),
+				current: (schema: SchemaDefinition) =>
+					readRoleState(schemas).queries.current(schema),
+			}),
+			ready: ({ logger }) => ensureAllRoles(schemas, logger),
+		}
 	})
 	const behavior = withPluginPrivileges(roleBehaviorProvider, [
 		'authority:elevate',
 		'event:publish',
 	])
-	return plugin({
+	const instance: RolesPlugin = plugin({
 		id: rolesPluginId,
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -359,4 +443,23 @@ export const rolesPlugin = (): RolesPlugin => {
 			application,
 		],
 	})
+	return provideSchemaFactories<RolesPlugin, RolesSource>(instance, {
+		RoleSchema: createRoleSchemaFactory,
+	})
 }
+
+/**
+ * Installs Roles (ADR-0322). Role schemas are declared with
+ * `App.RoleSchema.define(...)`; `ultimabase.plugin(rolesPlugin)` returns
+ * `has` and `current`.
+ *
+ * @example
+ * ```ts
+ * const App = UltimaBase.use(accessPlugin(), rolesPlugin())
+ * export const TodoRole = App.RoleSchema.define({ className: 'TodoRole', members: () => TodoUser }).with({})
+ * ```
+ */
+export const rolesPlugin: RolesPluginFactory = Object.assign(
+	createRolesPlugin,
+	{ pluginId: rolesPluginId },
+)

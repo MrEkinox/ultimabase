@@ -1,4 +1,4 @@
-import { immutableArray } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
@@ -16,7 +16,18 @@ import type {
 } from '../../plugins/source-projections.js'
 import type { PluginSource } from '../../plugins/definition.js'
 import { readSchemaShapeMethods } from '../../plugins/schema-extensions.js'
-import { createConfiguredSchemaNamespace } from '../../schema/schema/schema-declaration-chain.js'
+import {
+	readSchemaFactories,
+	type SchemaFactoriesFor,
+} from '../../plugins/schema-factories.js'
+import {
+	createConfiguredSchemaNamespace,
+	defineFactorySchema,
+} from '../../schema/schema/schema-declaration-chain.js'
+
+type FactoryStatics = (
+	schema: SchemaDefinition,
+) => Readonly<Record<string, unknown>>
 
 type AppendPlugins<
 	TPlugins extends readonly PluginDefinition[],
@@ -41,9 +52,17 @@ export type MergeInstalledPluginSources<
 
 /**
  * Constructs one application with the exact immutable plugin tuple accumulated
- * by `UltimaBase.use()`.
+ * by `UltimaBase.use()`, plus the schema factories its plugins add
+ * (`App.RoleSchema`, ADR-0322).
  */
-export interface ConfiguredUltimaBaseFactory<
+export type ConfiguredUltimaBaseFactory<
+	TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState = EmptyPluginSourceState,
+> = ConfiguredUltimaBaseConstructor<TPlugins, TSource> &
+	SchemaFactoriesFor<TSource['schemaFactories'], TSource>
+
+/** The constructor and `use()` of one configured factory. */
+export interface ConfiguredUltimaBaseConstructor<
 	TPlugins extends readonly PluginDefinition[],
 	TSource extends PluginSourceState = EmptyPluginSourceState,
 > {
@@ -113,6 +132,27 @@ export const appendConfiguredPlugins = <
 			configurable: false,
 			enumerable: true,
 			value: createConfiguredSchemaNamespace(shapes),
+			writable: false,
+		})
+	}
+	// Plugin schema factories declare through the same chain (ADR-0322).
+	const context = immutableRecord({
+		define: (options: object, statics?: FactoryStatics) =>
+			defineFactorySchema(shapes, options, statics),
+	})
+	for (const [name, create] of readSchemaFactories(plugins)) {
+		// Inherited factories are rebound to this factory's own shape methods.
+		if (Object.hasOwn(ConfiguredApplication, name)) {
+			throw new TypeError(`Reserved schema factory name: ${name}`)
+		}
+		const factory: unknown = create(context)
+		if (typeof factory !== 'object' || factory === null) {
+			throw new TypeError(`schema factory ${name} must return an object`)
+		}
+		Object.defineProperty(ConfiguredApplication, name, {
+			configurable: false,
+			enumerable: true,
+			value: Object.freeze(factory),
 			writable: false,
 		})
 	}

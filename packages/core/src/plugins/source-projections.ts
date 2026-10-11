@@ -27,6 +27,7 @@ import type {
 	SchemaShapeMethod,
 	SchemaStaticsHKT,
 } from './schema-extensions.js'
+import type { SchemaFactoriesHKT } from './schema-factories.js'
 
 declare const pluginSourceReceiptType: unique symbol
 declare const pluginSourceRelationChangeType: unique symbol
@@ -98,6 +99,8 @@ export interface PluginSourceProjection {
 	readonly shapeFields?: SchemaFieldsHKT
 	/** Static members added to the configured schema (ADR-0316). */
 	readonly schemaStatics?: SchemaStaticsHKT
+	/** Schema factories added to the configured application (ADR-0322). */
+	readonly schemaFactories?: SchemaFactoriesHKT
 }
 
 /** Carries one registrar call's source projection without exposing Runtime state. */
@@ -140,6 +143,7 @@ export interface EmptyPluginSourceState {
 	readonly shapeMethods: Readonly<Record<never, never>>
 	readonly shapeFields: readonly []
 	readonly schemaStatics: readonly []
+	readonly schemaFactories: readonly []
 }
 
 /** Complete source aggregate carried once by one configured factory. */
@@ -158,6 +162,7 @@ export interface PluginSourceState {
 	readonly shapeMethods: object
 	readonly shapeFields: readonly SchemaFieldsHKT[]
 	readonly schemaStatics: readonly SchemaStaticsHKT[]
+	readonly schemaFactories: readonly SchemaFactoriesHKT[]
 }
 
 /** Reads one contextual field or option surface from a configured source state. */
@@ -267,6 +272,10 @@ export type MergePluginSourceState<
 				TCurrent['schemaStatics'],
 				SlotProjection<TAdded, 'schemaStatics'>
 			>
+			readonly schemaFactories: AppendSlot<
+				TCurrent['schemaFactories'],
+				SlotProjection<TAdded, 'schemaFactories'>
+			>
 		}
 
 type RulesProjection<TProjection> =
@@ -274,7 +283,10 @@ type RulesProjection<TProjection> =
 
 // Slots are accumulated as tuples, like rules: intersecting `this`-typed
 // interfaces directly makes TypeScript give up with TS2589.
-type SlotProjection<TProjection, TKey extends 'shapeFields' | 'schemaStatics'> =
+type SlotProjection<
+	TProjection,
+	TKey extends 'shapeFields' | 'schemaStatics' | 'schemaFactories',
+> =
 	TProjection extends Readonly<Record<TKey, infer TSlot>> ? TSlot : never
 
 type AppendSlot<TSlots extends readonly unknown[], TSlot> = [TSlot] extends [

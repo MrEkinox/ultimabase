@@ -175,6 +175,15 @@ export type {
 	PluginSourceState,
 } from './plugins/source-projections.js'
 export { provideSchemaShapeMethods } from './plugins/schema-extensions.js'
+export { provideSchemaFactories } from './plugins/schema-factories.js'
+export type {
+	PluginSchemaFactoriesSource,
+	SchemaFactoriesFor,
+	SchemaFactoriesHKT,
+	SchemaFactoryContext,
+	SchemaFactoryImplementations,
+	SchemaFactoryImplementationsOf,
+} from './plugins/schema-factories.js'
 export { readSchemaRules } from './plugins/schema-rule-values.js'
 export type {
 	DeclaredSchemaShape,

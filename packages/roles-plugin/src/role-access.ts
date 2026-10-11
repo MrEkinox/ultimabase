@@ -14,7 +14,10 @@ import {
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import { resolveStoredRoleMembership } from './role-membership.js'
+import {
+	resolveStoredRoleMembership,
+	type RoleMembershipSnapshot,
+} from './role-membership.js'
 import {
 	createRoleReference,
 	getRoleReferenceState,
@@ -86,14 +89,14 @@ export interface StoredRoleResolverDependencies {
 		schema: SchemaDefinition,
 		declaration: RoleSchemaDeclaration,
 		context: RequestSubjectContext,
-	): Promise<readonly string[] | undefined>
+	): Promise<RoleMembershipSnapshot | undefined>
 	resolveReferenceId(reference: RoleReference): Promise<string | undefined>
 }
 
 /** Holds one request's lazy membership snapshot and reference ids for one domain. */
 interface RoleDomainRequestCache {
 	readonly declaration: RoleSchemaDeclaration
-	membership?: Promise<readonly string[] | undefined>
+	membership?: Promise<RoleMembershipSnapshot | undefined>
 	readonly references: Map<string, Promise<string | undefined>>
 }
 
@@ -114,10 +117,11 @@ const createDefaultDependencies = (): StoredRoleResolverDependencies => ({
 			declaration.resolveCurrent === undefined
 				? await getRequestPrincipal(getCurrentRequest())
 				: await declaration.resolveCurrent({ context })
+		const memberSchema = declaration.memberSchema()
 		if (
 			declaration.resolveCurrent === undefined &&
 			Pointer.is(member) &&
-			member.schema !== declaration.memberSchema
+			member.schema !== memberSchema
 		) {
 			return undefined
 		}
@@ -126,13 +130,13 @@ const createDefaultDependencies = (): StoredRoleResolverDependencies => ({
 			return undefined
 		}
 
-		if (!Pointer.is(member) || member.schema !== declaration.memberSchema) {
+		if (!Pointer.is(member) || member.schema !== memberSchema) {
 			throw new TypeError(
-				'Role current-member resolver must return a Pointer from members.schema',
+				'Role resolveCurrent must return a Pointer of the members schema',
 			)
 		}
 
-		return (await resolveStoredRoleMembership(schema, member)).allRoleIds
+		return resolveStoredRoleMembership(schema, member)
 	},
 	async resolveReferenceId(reference) {
 		try {
@@ -150,11 +154,20 @@ const createDefaultDependencies = (): StoredRoleResolverDependencies => ({
 	},
 })
 
+/** The neutral resolver plus the role names `current()` reads (ADR-0322). */
+export interface StoredRoleResolver extends Required<RequestRoleResolver> {
+	/** Names of the current request's roles in `schema`, inheritance included. */
+	currentRoleNames(
+		context: RequestSubjectContext,
+		schema: SchemaDefinition,
+	): Promise<readonly string[]>
+}
+
 /** Creates one application-isolated neutral resolver for discovered role domains. */
 export const createStoredRoleResolver = (
 	roleSchemas: readonly SchemaDefinition[],
 	dependencies: StoredRoleResolverDependencies = createDefaultDependencies(),
-): RequestRoleResolver => {
+): StoredRoleResolver => {
 	const registeredSchemas = new Set(roleSchemas)
 	const requestCaches = new WeakMap<
 		object,
@@ -191,7 +204,7 @@ export const createStoredRoleResolver = (
 		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 		domain: RoleDomainRequestCache,
-	): Promise<readonly string[] | undefined> =>
+	): Promise<RoleMembershipSnapshot | undefined> =>
 		(domain.membership ??= dependencies.resolveMembership(
 			schema,
 			domain.declaration,
@@ -227,6 +240,22 @@ export const createStoredRoleResolver = (
 	}
 
 	return immutableRecord({
+		async currentRoleNames(context, schema): Promise<readonly string[]> {
+			const domain = registeredSchemas.has(schema)
+				? getDomain(context, schema)
+				: undefined
+			if (domain === undefined) {
+				throw new TypeError(
+					`${schema.className} is not a role schema of this application`,
+				)
+			}
+			const membership = await resolveMembership(context, schema, domain)
+			return immutableArray(
+				[...(membership?.roleNames.values() ?? [])].sort((left, right) =>
+					left.localeCompare(right),
+				),
+			)
+		},
 		async hasRole({ context, role }): Promise<boolean> {
 			const state = resolveReferenceState(role)
 			const domain =
@@ -240,7 +269,10 @@ export const createStoredRoleResolver = (
 
 			const resolvedRoleId = await resolveReferenceId(role, state, domain)
 
-			return resolvedRoleId !== undefined && membership.includes(resolvedRoleId)
+			return (
+				resolvedRoleId !== undefined &&
+				membership.allRoleIds.includes(resolvedRoleId)
+			)
 		},
 		async resolvePersistentRole({ context, role }) {
 			const state = resolveReferenceState(role)
@@ -265,7 +297,7 @@ export const createStoredRoleResolver = (
 
 				const membership = await resolveMembership(context, schema, domain)
 
-				for (const roleId of membership ?? []) {
+				for (const roleId of membership?.allRoleIds ?? []) {
 					references.push(createRoleReference(schema, { id: roleId }))
 				}
 			}
