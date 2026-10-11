@@ -5,10 +5,7 @@ export type {
 	ValidationRules,
 	ValidationSchemaRules,
 } from './plugin.js'
-export type {
-	ValidationCheckResult,
-	ValidationPluginExports,
-} from './check.js'
+export type { ValidationCheckResult, ValidationPluginExports } from './check.js'
 export type {
 	FieldValidationIssueCode,
 	ValidationIssue,

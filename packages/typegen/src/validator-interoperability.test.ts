@@ -50,9 +50,7 @@ it('omits opaque validators from declarations and deterministic fingerprints', (
 		zod.contents
 			.split('\n')
 			.filter((line) => line.includes('readonly validation?:')),
-	).toStrictEqual([
-		expect.stringContaining('Plugin0_SchemaValidationOption'),
-	])
+	).toStrictEqual([expect.stringContaining('Plugin0_SchemaValidationOption')])
 	for (const artifact of [zod.contents, JSON.stringify(zod.snapshot)]) {
 		expect(artifact).not.toContain('zod')
 		expect(artifact).not.toContain('valibot')

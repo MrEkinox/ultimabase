@@ -1,7 +1,4 @@
-import {
-	provideRuntimeBehavior,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { provideRuntimeBehavior, type SchemaDefinition } from '@ultimabase/core'
 import {
 	contributeApplication,
 	contributeDeclarations,
@@ -15,10 +12,7 @@ import {
 } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
-import {
-	createValidationCheck,
-	type ValidationPluginExports,
-} from './check.js'
+import { createValidationCheck, type ValidationPluginExports } from './check.js'
 import { fieldValidationOption, schemaValidationOption } from './options.js'
 import {
 	createValidationPlanCache,

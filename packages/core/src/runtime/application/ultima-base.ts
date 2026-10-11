@@ -348,7 +348,8 @@ export class UltimaBase<
 		identity: TIdentity,
 	): ConfiguredPluginIdentityExports<TPlugins, TIdentity>
 	plugin(
-		pluginOrIdentity: PluginDefinition | PluginFactory | PluginIdentity | string,
+		pluginOrIdentity:
+			PluginDefinition | PluginFactory | PluginIdentity | string,
 	): unknown {
 		if (typeof pluginOrIdentity === 'function') {
 			return this.#application.getPluginDynamic(pluginOrIdentity.pluginId)

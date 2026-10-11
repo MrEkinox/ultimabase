@@ -70,14 +70,12 @@ type StoredUpdateValue<
 	TKey extends keyof SchemaStoredUpdateData<TSchema>,
 > = Exclude<SchemaStoredUpdateData<TSchema>[TKey], undefined>
 
-type NumericChange<
-	TSchema extends SchemaDefinition,
-	TKey,
-> = TKey extends NumericUpdateFieldName<TSchema>
-	? NumericUpdateOperation<
-			Exclude<SchemaStoredUpdateData<TSchema>[TKey], null | undefined>
-		>
-	: never
+type NumericChange<TSchema extends SchemaDefinition, TKey> =
+	TKey extends NumericUpdateFieldName<TSchema>
+		? NumericUpdateOperation<
+				Exclude<SchemaStoredUpdateData<TSchema>[TKey], null | undefined>
+			>
+		: never
 
 /**
  * The fields one update changes, and only those: a new value, an atomic
@@ -87,8 +85,7 @@ type NumericChange<
  */
 export type HookChanges<TSchema extends SchemaDefinition> = {
 	readonly [TKey in keyof SchemaStoredUpdateData<TSchema>]?:
-		| StoredUpdateValue<TSchema, TKey>
-		| NumericChange<TSchema, TKey>
+		StoredUpdateValue<TSchema, TKey> | NumericChange<TSchema, TKey>
 } & RelationChangeFields<TSchema>
 
 /** Relation link changes, only when the schema's relation names are known. */

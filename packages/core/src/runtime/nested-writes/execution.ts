@@ -166,7 +166,10 @@ export class RuntimeNestedWriteCoordinator {
 	readRelationChanges(
 		node: NestedWriteObjectNode,
 	): Readonly<Record<string, RuntimeRelationLinkChanges>> {
-		const changes = new Map<string, { connect: string[]; disconnect: string[] }>()
+		const changes = new Map<
+			string,
+			{ connect: string[]; disconnect: string[] }
+		>()
 		const entry = (fieldName: string) => {
 			let current = changes.get(fieldName)
 			if (current === undefined) {

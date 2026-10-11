@@ -45,13 +45,13 @@ export const Post = App.Schema.define({
 
 ## Phases (ADR-0318)
 
-| Phase                 | Runs                                            | Receives                                                                         |
-| --------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
-| Field `resolveInput`  | for a present non-null value                    | the field's `value` (returned value replaces it); `null` is stored without it    |
-| Schema `resolveInput` | before validation, the update target locked     | `data` (create), `changes` and `originalItem` (update), both and `mode` (upsert) |
-| `beforeOperation`     | before the write is stored                      | `item`, `originalItem`, `changes` (update), `mode` (upsert)                      |
-| `afterOperation`      | after the write is stored, before commit        | the stored `item`, `originalItem`, `changes` (update), `mode` (upsert)           |
-| `afterCommit`         | after the commit, outside the transaction       | the same input as `afterOperation`                                               |
+| Phase                 | Runs                                        | Receives                                                                         |
+| --------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| Field `resolveInput`  | for a present non-null value                | the field's `value` (returned value replaces it); `null` is stored without it    |
+| Schema `resolveInput` | before validation, the update target locked | `data` (create), `changes` and `originalItem` (update), both and `mode` (upsert) |
+| `beforeOperation`     | before the write is stored                  | `item`, `originalItem`, `changes` (update), `mode` (upsert)                      |
+| `afterOperation`      | after the write is stored, before commit    | the stored `item`, `originalItem`, `changes` (update), `mode` (upsert)           |
+| `afterCommit`         | after the commit, outside the transaction   | the same input as `afterOperation`                                               |
 
 Each phase takes `create`, `update`, `upsert` and `delete` branches (no
 `delete` for `resolveInput`), plus `all`, which runs before the operation's own

@@ -5,7 +5,11 @@ import {
 	type CreateInput,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import { runFieldValidator, type ValidationIssue } from './field-validation.js'
 import { readFieldValidator, readSchemaValidation } from './field-validator.js'
@@ -59,9 +63,9 @@ export const createValidationCheck =
 				validator === undefined ||
 				value.value === null ||
 				failed.some((path) =>
-					path.slice(0, value.valuePath.length).every(
-						(segment, index) => segment === value.valuePath[index],
-					),
+					path
+						.slice(0, value.valuePath.length)
+						.every((segment, index) => segment === value.valuePath[index]),
 				)
 			) {
 				continue
@@ -81,5 +85,8 @@ export const createValidationCheck =
 		}
 		return issues.length === 0
 			? valid
-			: immutableRecord({ issues: immutableArray(issues), valid: false as const })
+			: immutableRecord({
+					issues: immutableArray(issues),
+					valid: false as const,
+				})
 	}

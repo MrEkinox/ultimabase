@@ -174,7 +174,9 @@ const readErrorCode = (error: unknown): HookDiagnosticEvent['errorCode'] => {
 }
 
 /** Names one hook frame as `Schema.operation` for the recursion message. */
-const describeFrame = (identity: HookExecutionDescriptor['identity']): string => {
+const describeFrame = (
+	identity: HookExecutionDescriptor['identity'],
+): string => {
 	const schema =
 		identity.target.kind === 'global' ? '*' : identity.target.className
 	const operation =

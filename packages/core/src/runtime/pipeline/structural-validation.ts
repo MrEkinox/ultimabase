@@ -37,7 +37,12 @@ export const validateRuntimeStructure = async <
 			throw error
 		}
 		const validation = await validate(
-			immutableRecord({ context, operation, structuralIssues, target: undefined }),
+			immutableRecord({
+				context,
+				operation,
+				structuralIssues,
+				target: undefined,
+			}),
 		)
 		throwMergedValidationIssues([...structuralIssues, ...validation.issues])
 		throw error

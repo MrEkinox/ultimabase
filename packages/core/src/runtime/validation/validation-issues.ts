@@ -22,10 +22,7 @@ const isIssue = (value: unknown): value is RuntimeMutationValidationIssue =>
 export const readValidationErrorIssues = (
 	error: unknown,
 ): readonly RuntimeMutationValidationIssue[] | undefined => {
-	if (
-		!(error instanceof FrameworkError) ||
-		error.code !== 'VALIDATION_ERROR'
-	) {
+	if (!(error instanceof FrameworkError) || error.code !== 'VALIDATION_ERROR') {
 		return undefined
 	}
 	const details: unknown = error.publicDetails
@@ -44,7 +41,10 @@ export const throwMergedValidationIssues = (
  * Prefixes the issue paths of one batch item's `VALIDATION_ERROR` with its
  * index, so `updateMany` issues name their target (ADR-0319).
  */
-export const prefixValidationError = (error: unknown, index: number): unknown => {
+export const prefixValidationError = (
+	error: unknown,
+	index: number,
+): unknown => {
 	const issues = readValidationErrorIssues(error)
 	if (issues === undefined || !(error instanceof FrameworkError)) return error
 	const prefixed = immutableArray(

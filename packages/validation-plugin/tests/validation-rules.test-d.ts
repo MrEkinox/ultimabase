@@ -20,7 +20,12 @@ test('types field validators against the field value', () => {
 			code: field.string({
 				validation: (value) => {
 					expectTypeOf(value).toEqualTypeOf<string>()
-					return value.length === 3 || { code: 'code.length', message: 'Three letters' }
+					return (
+						value.length === 3 || {
+							code: 'code.length',
+							message: 'Three letters',
+						}
+					)
 				},
 			}),
 			room: field.string({
@@ -30,7 +35,9 @@ test('types field validators against the field value', () => {
 				},
 			}),
 			// @ts-expect-error -- The output must remain storable in the field.
-			length: field.string({ validation: z.string().transform((v) => v.length) }),
+			length: field.string({
+				validation: z.string().transform((v) => v.length),
+			}),
 			// @ts-expect-error -- The validator must accept the field's value.
 			count: field.int({ validation: z.string() }),
 		}),
@@ -67,6 +74,9 @@ test('types the schema check on the complete item', () => {
 		className: 'TypedSchemaIssues',
 		fields: (field) => ({ low: field.int({ required: true }) }),
 	}).with({
-		validation: () => [{ message: 'First' }, { message: 'Second', path: ['low'] }],
+		validation: () => [
+			{ message: 'First' },
+			{ message: 'Second', path: ['low'] },
+		],
 	})
 })

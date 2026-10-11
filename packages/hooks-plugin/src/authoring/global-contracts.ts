@@ -76,7 +76,9 @@ type GlobalResolveHook<TInput> = (
 ) => MaybePromise<GlobalHookItem | undefined>
 
 /** One observing phase of the global hooks, by operation. */
-export interface GlobalOperationHooks<TInput extends { readonly kind: string }> {
+export interface GlobalOperationHooks<
+	TInput extends { readonly kind: string },
+> {
 	/** Runs for every operation, before its own branch. */
 	readonly all?: HookHandlerDeclaration<GlobalHook<TInput>>
 	readonly create?: HookHandlerDeclaration<

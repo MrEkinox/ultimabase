@@ -7,7 +7,10 @@ import { FrameworkError } from '../../foundation.js'
 import { TrackedExecutionLifetime } from '../engine/tracked-execution-lifetime.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
-import { startAfterCommitWork, type AfterCommitWork } from './after-commit-work.js'
+import {
+	startAfterCommitWork,
+	type AfterCommitWork,
+} from './after-commit-work.js'
 
 type DeferredTransactionEffect = () => MaybePromise<void>
 

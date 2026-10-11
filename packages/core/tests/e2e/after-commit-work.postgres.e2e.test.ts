@@ -20,8 +20,10 @@ const trace: string[] = []
 const logger = createCapturingLogger()
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: { dispose(): Promise<void> } | undefined
-let transaction: <TResult>(fn: () => Promise<TResult>) => Promise<TResult> =
-	() => Promise.reject(new TypeError('Application not started'))
+let transaction: <TResult>(
+	fn: () => Promise<TResult>,
+) => Promise<TResult> = () =>
+	Promise.reject(new TypeError('Application not started'))
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'after_commit_work' })

@@ -23,9 +23,9 @@ const requestValue = new RequestContextValue('fixture.hook-value', (value) => {
 	return value
 })
 const requestCapability = new RequestCapability('fixture:hook-capability')
-const articleCreated = defineEvent<{ readonly nested: { readonly value: string } }>(
-	'article.created',
-)
+const articleCreated = defineEvent<{
+	readonly nested: { readonly value: string }
+}>('article.created')
 const lateEvent = defineEvent('late.event')
 
 const request = RequestContext.anonymous({

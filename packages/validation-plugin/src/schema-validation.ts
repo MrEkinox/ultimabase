@@ -1,7 +1,4 @@
-import type {
-	SchemaDefinition,
-	SchemaItem,
-} from '@ultimabase/core'
+import type { SchemaDefinition, SchemaItem } from '@ultimabase/core'
 import {
 	immutableArray,
 	immutableRecord,
@@ -33,10 +30,7 @@ export interface SchemaCheckIssue {
  * message, one issue, or several issues (ADR-0319).
  */
 export type SchemaCheckResult =
-	| true
-	| string
-	| SchemaCheckIssue
-	| readonly SchemaCheckIssue[]
+	true | string | SchemaCheckIssue | readonly SchemaCheckIssue[]
 
 /** What a schema check receives: the complete item as it would be stored. */
 export interface SchemaCheckInput<TSchema extends SchemaDefinition> {
@@ -58,8 +52,7 @@ export type SchemaCheck<TSchema extends SchemaDefinition> = (
  * validator run on the complete item (its output is not stored).
  */
 export type SchemaValidation<TSchema extends SchemaDefinition> =
-	| SchemaCheck<TSchema>
-	| FieldStandardSchema
+	SchemaCheck<TSchema> | FieldStandardSchema
 
 /** Accepts a check function or a Standard Schema validator at declaration time. */
 export const normalizeSchemaValidation = (value: unknown): unknown => {
@@ -119,6 +112,7 @@ export const runSchemaValidation = async (
 	if (isUnknownArray(result)) {
 		return immutableArray(result.map((issue) => readCheckIssue(issue, prefix)))
 	}
-	if (isPlainRecord(result)) return immutableArray([readCheckIssue(result, prefix)])
+	if (isPlainRecord(result))
+		return immutableArray([readCheckIssue(result, prefix)])
 	return readValidationResult(result, [...prefix], 'schema.validation')
 }

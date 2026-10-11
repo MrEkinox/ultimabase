@@ -43,8 +43,7 @@ export const startAfterCommitWork = (
 ): void => {
 	if (works.length === 0) return
 	const owner = readActiveApplicationOwner()
-	const start = (): Promise<void> =>
-		runDetached(() => runSequentially(works))
+	const start = (): Promise<void> => runDetached(() => runSequentially(works))
 	if (owner === undefined) {
 		void start()
 		return

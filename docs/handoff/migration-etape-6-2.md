@@ -69,7 +69,7 @@ Implémentation, migration des tests et documentation faites (commits
 
 - `FieldValidator<T>` (Standard Schema ou fonction, async), sortie stockée,
   entrée pouvant accepter `null`, message `validation must accept string, got
-  number` / `must return …`, contrôle de schéma `.with({ validation })`
+number` / `must return …`, contrôle de schéma `.with({ validation })`
   (fonction ou validateur d'objet), seuls les champs modifiés d'une mise à
   jour, `check()` exposé par `ultimabase.plugin(validationPlugin)`.
 - Modules : `standard-schema.ts`, `field-validation.ts`, `schema-validation.ts`,
@@ -87,7 +87,7 @@ transactions, pipeline ; ARCHITECTURE et règles de domaine (ordre Runtime).
 ## Décisions prises (non fixées par les ADR, à confirmer)
 
 1. Hooks de champ « la valeur seule » : l'entrée reste `{ context, kind, mode,
-   value }` ; la valeur exclut `null` et le hook n'est pas appelé pour `null`.
+value }` ; la valeur exclut `null` et le hook n'est pas appelé pour `null`.
 2. `changes` aussi dans `beforeOperation.update`, `afterOperation.update` et
    `afterCommit.update` (pas seulement `resolveInput`).
 3. Liens de relation en lecture seule dans `resolveInput` (erreur si modifiés) ;

@@ -16,9 +16,7 @@ export interface FieldStandardSchema {
  * @example `(title) => title.length <= 200 || 'At most 200 characters'`
  */
 export type ValidationResult =
-	| true
-	| string
-	| Readonly<{ message: string; code?: string }>
+	true | string | Readonly<{ message: string; code?: string }>
 
 /** Validates one field value without a library (ADR-0319); it may be async. */
 export type FieldValidationFunction<TValue> = (
@@ -32,8 +30,7 @@ export type FieldValidationFunction<TValue> = (
  * @example `validation: z.string().trim().max(200)`
  */
 export type FieldValidator<TValue> =
-	| FieldStandardSchema
-	| FieldValidationFunction<TValue>
+	FieldStandardSchema | FieldValidationFunction<TValue>
 
 type IsAny<TValue> = 0 extends 1 & TValue ? true : false
 
@@ -95,7 +92,9 @@ export const isObjectOrFunction = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
 
 /** Tells a Standard Schema validator (object or callable) from a plain function. */
-export const isStandardSchema = (value: unknown): value is FieldStandardSchema =>
+export const isStandardSchema = (
+	value: unknown,
+): value is FieldStandardSchema =>
 	isObjectOrFunction(value) && Reflect.has(value, '~standard')
 
 /** Validates the protocol shape without invoking, cloning, or freezing the validator. */

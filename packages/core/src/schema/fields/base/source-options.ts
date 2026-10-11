@@ -99,59 +99,69 @@ export type ResolveFieldSourceTemplate<
 		? [TObjectValue] extends [never]
 			? TTemplate
 			: Exclude<TObjectValue, null>
-	: TTemplate extends FieldSourceApply<infer THKT>
-		? [TObjectValue] extends [never]
-			? TTemplate
-			: (THKT & { readonly value: Exclude<TObjectValue, null> })['type']
-	: TTemplate extends FieldSourceOpaque<infer TValue>
-		? TValue
-		: TTemplate extends FieldSourceOptionByKind<infer TValueOption, unknown>
-			? ResolveFieldSourceTemplate<TValueOption, TValue, TObjectValue>
-			: TTemplate extends PluginSourceFieldOption<
-						infer TOptionTemplate,
-						infer TConstraint
-				  >
-				? ResolvePluginSourceFieldOption<
-						ResolveFieldSourceTemplate<TOptionTemplate, TValue, TObjectValue>,
-						TConstraint
-					>
-				: TTemplate extends FieldSourceValue
-					? TValue
-					: TTemplate extends (...arguments_: infer TArguments) => infer TResult
-						? (
-								...arguments_: {
-									[TIndex in keyof TArguments]: ResolveFieldSourceTemplate<
-										TArguments[TIndex],
-										TValue,
-										TObjectValue
-									>
-								}
-							) => ResolveFieldSourceTemplate<TResult, TValue, TObjectValue>
-						: TTemplate extends Promise<infer TResult>
-							? Promise<
-									ResolveFieldSourceTemplate<TResult, TValue, TObjectValue>
-								>
-							: TTemplate extends PromiseLike<infer TResult>
-								? PromiseLike<
-										ResolveFieldSourceTemplate<TResult, TValue, TObjectValue>
-									>
-								: TTemplate extends readonly (infer TEntry)[]
-									? readonly ResolveFieldSourceTemplate<
-											TEntry,
-											TValue,
-											TObjectValue
-										>[]
-									: TTemplate extends object
-										? {
-												readonly [
-													TKey in keyof TTemplate
-												]: ResolveFieldSourceTemplate<
-													TTemplate[TKey],
+		: TTemplate extends FieldSourceApply<infer THKT>
+			? [TObjectValue] extends [never]
+				? TTemplate
+				: (THKT & { readonly value: Exclude<TObjectValue, null> })['type']
+			: TTemplate extends FieldSourceOpaque<infer TValue>
+				? TValue
+				: TTemplate extends FieldSourceOptionByKind<infer TValueOption, unknown>
+					? ResolveFieldSourceTemplate<TValueOption, TValue, TObjectValue>
+					: TTemplate extends PluginSourceFieldOption<
+								infer TOptionTemplate,
+								infer TConstraint
+						  >
+						? ResolvePluginSourceFieldOption<
+								ResolveFieldSourceTemplate<
+									TOptionTemplate,
+									TValue,
+									TObjectValue
+								>,
+								TConstraint
+							>
+						: TTemplate extends FieldSourceValue
+							? TValue
+							: TTemplate extends (
+										...arguments_: infer TArguments
+								  ) => infer TResult
+								? (
+										...arguments_: {
+											[TIndex in keyof TArguments]: ResolveFieldSourceTemplate<
+												TArguments[TIndex],
+												TValue,
+												TObjectValue
+											>
+										}
+									) => ResolveFieldSourceTemplate<TResult, TValue, TObjectValue>
+								: TTemplate extends Promise<infer TResult>
+									? Promise<
+											ResolveFieldSourceTemplate<TResult, TValue, TObjectValue>
+										>
+									: TTemplate extends PromiseLike<infer TResult>
+										? PromiseLike<
+												ResolveFieldSourceTemplate<
+													TResult,
 													TValue,
 													TObjectValue
 												>
-											}
-										: TTemplate
+											>
+										: TTemplate extends readonly (infer TEntry)[]
+											? readonly ResolveFieldSourceTemplate<
+													TEntry,
+													TValue,
+													TObjectValue
+												>[]
+											: TTemplate extends object
+												? {
+														readonly [
+															TKey in keyof TTemplate
+														]: ResolveFieldSourceTemplate<
+															TTemplate[TKey],
+															TValue,
+															TObjectValue
+														>
+													}
+												: TTemplate
 
 type PluginSourceFieldOptionConstraintAt<TOption> =
 	typeof resolvedPluginSourceFieldOptionConstraintType extends keyof NonNullable<TOption>
@@ -184,11 +194,13 @@ type PluginSourceFieldOptionValidity<
 
 /** Keeps the options whose constraint answered with a message. */
 type PluginSourceFieldOptionMessages<TValidity> = {
-	readonly [TKey in keyof TValidity as [TValidity[TKey]] extends [never]
-		? never
-		: TValidity[TKey] extends string
-			? TKey
-			: never]: TValidity[TKey]
+	readonly [
+		TKey in keyof TValidity as [TValidity[TKey]] extends [never]
+			? never
+			: TValidity[TKey] extends string
+				? TKey
+				: never
+	]: TValidity[TKey]
 }
 
 /**

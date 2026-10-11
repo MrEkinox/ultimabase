@@ -30,7 +30,11 @@ describe('schema checks', () => {
 		])
 		await expect(
 			runSchemaValidation(
-				() => Promise.resolve([{ message: 'First' }, { message: 'Second', path: ['startsAt'] }]),
+				() =>
+					Promise.resolve([
+						{ message: 'First' },
+						{ message: 'Second', path: ['startsAt'] },
+					]),
 				item,
 			),
 		).resolves.toStrictEqual([
@@ -46,7 +50,11 @@ describe('schema checks', () => {
 					typeof value === 'object' &&
 					value !== null &&
 					Reflect.get(value, 'endsAt') < Reflect.get(value, 'startsAt')
-						? { issues: [{ message: 'Ends before it starts', path: ['endsAt'] }] }
+						? {
+								issues: [
+									{ message: 'Ends before it starts', path: ['endsAt'] },
+								],
+							}
 						: { value: item },
 				vendor: 'schema-check-test',
 				version: 1,
@@ -54,7 +62,11 @@ describe('schema checks', () => {
 		}
 
 		await expect(runSchemaValidation(range, item)).resolves.toStrictEqual([
-			{ code: 'schema.validation', message: 'Ends before it starts', path: ['endsAt'] },
+			{
+				code: 'schema.validation',
+				message: 'Ends before it starts',
+				path: ['endsAt'],
+			},
 		])
 	})
 

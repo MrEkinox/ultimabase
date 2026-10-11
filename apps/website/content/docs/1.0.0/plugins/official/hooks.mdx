@@ -161,12 +161,12 @@ come from the schema itself, without generated files. The `hooks` option of
 
 ### Choose the right phase
 
-| Hook                  | Runs                                                       | What it receives or changes                                                                                       |
-| --------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Field `resolveInput`  | Before schema Hooks, for a present non-null value.         | The field's `value`; a returned value replaces it. `null` is stored as is without calling the Hook.               |
-| Schema `resolveInput` | Once the target of an update is locked, before validation. | The `data` of a create, the `changes` of an update, or both for an upsert; a returned object replaces them.       |
-| `beforeOperation`     | Before the write is stored.                                | The candidate `item`, the locked `originalItem`, and the `changes` of an update. Its return value is ignored.     |
-| `afterOperation`      | After the write is stored, before commit.                  | The stored `item`, the `originalItem`, and the `changes` of an update. Its return value is ignored.               |
+| Hook                  | Runs                                                       | What it receives or changes                                                                                        |
+| --------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Field `resolveInput`  | Before schema Hooks, for a present non-null value.         | The field's `value`; a returned value replaces it. `null` is stored as is without calling the Hook.                |
+| Schema `resolveInput` | Once the target of an update is locked, before validation. | The `data` of a create, the `changes` of an update, or both for an upsert; a returned object replaces them.        |
+| `beforeOperation`     | Before the write is stored.                                | The candidate `item`, the locked `originalItem`, and the `changes` of an update. Its return value is ignored.      |
+| `afterOperation`      | After the write is stored, before commit.                  | The stored `item`, the `originalItem`, and the `changes` of an update. Its return value is ignored.                |
 | `afterCommit`         | After the transaction commits, outside it.                 | The same input as `afterOperation`. The response does not wait for it; a failure is logged and rolls nothing back. |
 
 Every phase accepts `create`, `update`, `upsert` and `delete` branches (no

@@ -213,7 +213,9 @@ const nestContributions = <TDeclarations extends object>(
 ): HookContributionNesting<TDeclarations> => {
 	const before: HookContribution<TDeclarations>[] = [...plugins]
 	if (global !== undefined) {
-		before.push(immutableRecord({ declarations: global, kind: 'global' as const }))
+		before.push(
+			immutableRecord({ declarations: global, kind: 'global' as const }),
+		)
 	}
 	if (developer !== undefined) {
 		before.push(

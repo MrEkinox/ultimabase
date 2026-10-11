@@ -185,7 +185,10 @@ export const runFieldValidator = async (
 		return runStandardSchema(validator, value, path, 'field.validation')
 	}
 	if (typeof validator !== 'function') {
-		return contractFailure(path, 'the validator is neither a schema nor a function')
+		return contractFailure(
+			path,
+			'the validator is neither a schema nor a function',
+		)
 	}
 	const result: unknown = await Reflect.apply(validator, undefined, [value])
 	return immutableRecord({

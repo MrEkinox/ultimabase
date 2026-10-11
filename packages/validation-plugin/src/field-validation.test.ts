@@ -20,7 +20,11 @@ import {
 	validateFinalCreate,
 	ValidationApplication,
 } from './field-validation.test-support.js'
-import { QueryBuilder, RequestContext, requestSources } from '@ultimabase/core/plugin'
+import {
+	QueryBuilder,
+	RequestContext,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 const rejectingString = (
 	message: string,
@@ -388,7 +392,9 @@ describe('Standard Schema field validation', () => {
 			}),
 		})
 
-		const result = await validateFinalCreate(schema, { profile: { name: 'Ada' } })
+		const result = await validateFinalCreate(schema, {
+			profile: { name: 'Ada' },
+		})
 
 		expect(result.input.profile).toStrictEqual({ name: 'Ada' })
 		expect(result.input.profile).not.toBe(vendorOutput)
@@ -509,27 +515,30 @@ describe('Standard Schema field validation', () => {
 			'malformed issue path segment',
 			() => ({ issues: [{ message: 'Invalid', path: [{ key: {} }] }] }),
 		],
-	])('rejects the %s as a validator contract failure', async (_name, validate) => {
-		const malformedValidator = {
-			'~standard': {
-				version: 1,
-				vendor: 'contract-test',
-				validate,
-			},
-		} as unknown as StandardSchemaV1<string>
-		const schema = ValidationApplication.Schema.define({
-			className: `ContractFailure${_name}`,
-			fields: (field) => ({
-				value: field.string({
-					validation: malformedValidator,
+	])(
+		'rejects the %s as a validator contract failure',
+		async (_name, validate) => {
+			const malformedValidator = {
+				'~standard': {
+					version: 1,
+					vendor: 'contract-test',
+					validate,
+				},
+			} as unknown as StandardSchemaV1<string>
+			const schema = ValidationApplication.Schema.define({
+				className: `ContractFailure${_name}`,
+				fields: (field) => ({
+					value: field.string({
+						validation: malformedValidator,
+					}),
 				}),
-			}),
-		})
+			})
 
-		await expect(
-			validateFinalCreate(schema, { value: ' value ' }),
-		).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
-	})
+			await expect(
+				validateFinalCreate(schema, { value: ' value ' }),
+			).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
+		},
+	)
 
 	it('turns an empty failure into one immutable fallback issue', async () => {
 		const emptyFailure = {

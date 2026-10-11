@@ -26,10 +26,12 @@ const Event = App.Schema.define({
 		code: field.string({
 			validation: (value) => {
 				calls.push(`code:${value}`)
-				return /^[A-Z]{3}$/u.test(value) || {
-					code: 'event.code',
-					message: 'Three capital letters',
-				}
+				return (
+					/^[A-Z]{3}$/u.test(value) || {
+						code: 'event.code',
+						message: 'Three capital letters',
+					}
+				)
 			},
 		}),
 		room: field.string({
@@ -134,23 +136,41 @@ describe('Validation rules (ADR-0319)', () => {
 				}),
 			),
 		).resolves.toStrictEqual([
-			{ code: 'event.code', message: 'Three capital letters', path: ['input', 'code'] },
-			{ code: 'field.validation', message: 'This room is closed', path: ['input', 'room'] },
+			{
+				code: 'event.code',
+				message: 'Three capital letters',
+				path: ['input', 'code'],
+			},
+			{
+				code: 'field.validation',
+				message: 'This room is closed',
+				path: ['input', 'room'],
+			},
 		])
 	})
 
 	it('runs the schema check on the complete item, in each form', async () => {
 		await expect(
 			readIssues(
-				Event.createOne({ data: { endsAt: 1, startsAt: 5, title: 'Backwards' } }),
+				Event.createOne({
+					data: { endsAt: 1, startsAt: 5, title: 'Backwards' },
+				}),
 			),
 		).resolves.toStrictEqual([
-			{ code: 'event.range', message: 'Ends before it starts', path: ['endsAt'] },
+			{
+				code: 'event.range',
+				message: 'Ends before it starts',
+				path: ['endsAt'],
+			},
 		])
 		await expect(
 			readIssues(Range.createOne({ data: { high: 1, low: 3 } })),
 		).resolves.toStrictEqual([
-			{ code: 'schema.validation', message: 'high must exceed low', path: ['high'] },
+			{
+				code: 'schema.validation',
+				message: 'high must exceed low',
+				path: ['high'],
+			},
 		])
 	})
 
@@ -173,7 +193,11 @@ describe('Validation rules (ADR-0319)', () => {
 				}),
 			),
 		).resolves.toStrictEqual([
-			{ code: 'event.range', message: 'Ends before it starts', path: ['endsAt'] },
+			{
+				code: 'event.range',
+				message: 'Ends before it starts',
+				path: ['endsAt'],
+			},
 		])
 	})
 
@@ -195,7 +219,11 @@ describe('Validation rules (ADR-0319)', () => {
 			),
 		).resolves.toStrictEqual([
 			expect.objectContaining({ path: ['input', 'title'] }),
-			{ code: 'event.code', message: 'Three capital letters', path: ['input', 'code'] },
+			{
+				code: 'event.code',
+				message: 'Three capital letters',
+				path: ['input', 'code'],
+			},
 		])
 	})
 
@@ -238,8 +266,16 @@ describe('Validation rules (ADR-0319)', () => {
 			}),
 		).resolves.toStrictEqual({
 			issues: [
-				{ code: 'event.code', message: 'Three capital letters', path: ['input', 'code'] },
-				{ code: 'event.range', message: 'Ends before it starts', path: ['endsAt'] },
+				{
+					code: 'event.code',
+					message: 'Three capital letters',
+					path: ['input', 'code'],
+				},
+				{
+					code: 'event.range',
+					message: 'Ends before it starts',
+					path: ['endsAt'],
+				},
 			],
 			valid: false,
 		})

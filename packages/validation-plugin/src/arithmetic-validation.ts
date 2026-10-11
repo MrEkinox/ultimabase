@@ -43,7 +43,8 @@ export const readArithmeticFields = (
 			continue
 		}
 		const field = fields[operation.field]
-		const validator = field === undefined ? undefined : readFieldValidator(field)
+		const validator =
+			field === undefined ? undefined : readFieldValidator(field)
 		if (validator !== undefined) {
 			occurrences.set(operation.field, {
 				field: operation.field,
@@ -178,4 +179,3 @@ export const validateArithmetic = async (
 	}
 	return validateTarget(input.target, ['target'])
 }
-

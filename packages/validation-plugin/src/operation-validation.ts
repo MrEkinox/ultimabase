@@ -124,7 +124,10 @@ const readCandidateItems = (
 	operation: unknown,
 	target: Readonly<Record<string, unknown>> | null | undefined,
 	targets: readonly Readonly<Record<string, unknown>>[] | undefined,
-): readonly Readonly<{ item: Readonly<Record<string, unknown>>; prefix: Path }>[] => {
+): readonly Readonly<{
+	item: Readonly<Record<string, unknown>>
+	prefix: Path
+}>[] => {
 	if (!isPlainRecord(operation)) return []
 	const applyTo = (current: Readonly<Record<string, unknown>>) =>
 		isRelationUpdateExpression(operation.update) ||
@@ -235,8 +238,8 @@ export const requiresValidationTargets = (
 	return (
 		readSchemaValidation(schema) !== undefined ||
 		(isPlainRecord(candidate) &&
-			readArithmeticFields(candidate.update, schema.fields, ['update'])
-				.length > 0)
+			readArithmeticFields(candidate.update, schema.fields, ['update']).length >
+				0)
 	)
 }
 

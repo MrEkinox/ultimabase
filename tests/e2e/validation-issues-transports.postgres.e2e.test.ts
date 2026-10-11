@@ -87,8 +87,15 @@ const application = () => {
 const invalidContact = { code: 'abc', email: 'not an email' }
 const expectedIssues = [
 	expect.objectContaining({ path: ['input', 'name'] }),
-	expect.objectContaining({ code: 'field.validation', path: ['input', 'email'] }),
-	{ code: 'contact.code', message: 'Three capital letters', path: ['input', 'code'] },
+	expect.objectContaining({
+		code: 'field.validation',
+		path: ['input', 'email'],
+	}),
+	{
+		code: 'contact.code',
+		message: 'Three capital letters',
+		path: ['input', 'code'],
+	},
 ]
 
 beforeAll(async () => {

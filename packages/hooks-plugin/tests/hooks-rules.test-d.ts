@@ -89,9 +89,7 @@ test('types every phase on plain data in .with', () => {
 				},
 				upsert: ({ mode, originalItem }) => {
 					expectTypeOf(mode).toEqualTypeOf<'create' | 'update'>()
-					expectTypeOf(originalItem?.title).toEqualTypeOf<
-						string | undefined
-					>()
+					expectTypeOf(originalItem?.title).toEqualTypeOf<string | undefined>()
 				},
 				create: ({ context, item }) => {
 					context.emit(todoCreated, { title: item.title })
@@ -103,7 +101,10 @@ test('types every phase on plain data in .with', () => {
 				update: ({ changes, item }) => {
 					expectTypeOf(item.views).toEqualTypeOf<number>()
 					expectTypeOf(changes.views).toEqualTypeOf<
-						number | { readonly increment: number; readonly decrement?: never } | { readonly decrement: number; readonly increment?: never } | undefined
+						| number
+						| { readonly increment: number; readonly decrement?: never }
+						| { readonly decrement: number; readonly increment?: never }
+						| undefined
 					>()
 				},
 			},

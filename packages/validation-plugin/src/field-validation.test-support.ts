@@ -67,7 +67,9 @@ const validationContext = RequestContext.anonymous({
 })
 
 /** Exercises application validation only through the mandatory final mutation stage. */
-export const validateFinalCreate = async <const TSchema extends SchemaDefinition>(
+export const validateFinalCreate = async <
+	const TSchema extends SchemaDefinition,
+>(
 	schema: TSchema,
 	input: Readonly<Record<string, unknown>>,
 	dependencies: readonly SchemaDefinition[] = [],
@@ -90,4 +92,3 @@ export const validateFinalCreate = async <const TSchema extends SchemaDefinition
 		target: undefined,
 	})
 }
-

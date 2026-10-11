@@ -52,7 +52,8 @@ const emptyRelationChanges: RelationChanges = immutableRecord({})
 
 const readRelationChanges = (
 	nestedWrite: RuntimeNestedWriteStageContext | undefined,
-): RelationChanges => nestedWrite?.readRelationChanges?.() ?? emptyRelationChanges
+): RelationChanges =>
+	nestedWrite?.readRelationChanges?.() ?? emptyRelationChanges
 
 const requireDeclaredOperationSchema = (
 	operation: DatabaseOperationAst,
@@ -120,7 +121,8 @@ export const createHookBehavior = (
 	const schemaHandlers = (
 		schemaPlan: SchemaHookContributionPlan,
 		order: 'after' | 'before',
-		phase: 'afterCommit' | 'afterOperation' | 'beforeOperation' | 'resolveInput',
+		phase:
+			'afterCommit' | 'afterOperation' | 'beforeOperation' | 'resolveInput',
 		operation: DatabaseOperationAst,
 	): readonly PlannedHandler[] =>
 		collectHandlers(
@@ -227,10 +229,13 @@ export const createHookBehavior = (
 			kind === 'create-one' || target === null || target === undefined
 				? null
 				: materializeSchemaModel(schema, target)
-		const mode = kind === 'create-one' || originalItem === null ? 'create' : 'update'
+		const mode =
+			kind === 'create-one' || originalItem === null ? 'create' : 'update'
 		let data: unknown = record.input ?? record.create
 		let changes: unknown =
-			kind === 'create-one' ? undefined : readUpdateChanges(record.update, relations)
+			kind === 'create-one'
+				? undefined
+				: readUpdateChanges(record.update, relations)
 		const initial = { changes, data }
 
 		for (const handler of handlers) {
@@ -433,8 +438,11 @@ export const createHookBehavior = (
 				createInputFor(handler, schema, internals, { ...base, context }),
 			)
 			if (afterCommitScope !== undefined) {
-				runtime.queueAfterCommit(commitHandlers, afterCommitScope, (handler, context) =>
-					createInputFor(handler, schema, internals, { ...base, context }),
+				runtime.queueAfterCommit(
+					commitHandlers,
+					afterCommitScope,
+					(handler, context) =>
+						createInputFor(handler, schema, internals, { ...base, context }),
 				)
 			}
 		}

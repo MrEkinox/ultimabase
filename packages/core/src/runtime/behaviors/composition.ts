@@ -161,7 +161,9 @@ export const composeRuntimeBehaviors = (
 							operation,
 							structuralIssues: input.structuralIssues,
 							target: input.target,
-							...(input.targets === undefined ? {} : { targets: input.targets }),
+							...(input.targets === undefined
+								? {}
+								: { targets: input.targets }),
 						}),
 					),
 				)

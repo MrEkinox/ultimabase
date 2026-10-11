@@ -26,7 +26,10 @@ describe('Standard Schema field transforms', () => {
 			}) as unknown as StandardSchemaV1<
 				Readonly<{ name: string; role: string | null }>
 			>
-		const define = (className: string, validator: ReturnType<typeof objectValidator>) =>
+		const define = (
+			className: string,
+			validator: ReturnType<typeof objectValidator>,
+		) =>
 			ValidationApplication.Schema.define({
 				className,
 				fields: (field) => ({
@@ -42,7 +45,10 @@ describe('Standard Schema field transforms', () => {
 
 		// ADR-0319: the validator output is what gets stored.
 		const stripped = await validateFinalCreate(
-			define('ObjectTransformationStripping', objectValidator((value) => ({ name: value.name }))),
+			define(
+				'ObjectTransformationStripping',
+				objectValidator((value) => ({ name: value.name })),
+			),
 			{ profile: { name: 'Ada', role: 'admin' } },
 		)
 		expect(stripped.input.profile).toStrictEqual({ name: 'Ada' })
@@ -78,5 +84,4 @@ describe('Standard Schema field transforms', () => {
 		const result = await validateFinalCreate(schema, { value: '  padded  ' })
 		expect(result.input.value).toBe('padded')
 	})
-
 })

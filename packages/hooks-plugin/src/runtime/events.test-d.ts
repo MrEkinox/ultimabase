@@ -12,9 +12,7 @@ interface PostCreatedEvent extends JsonObject {
 test('defineEvent types the payload its emitters and consumers share', () => {
 	const postCreated = defineEvent<PostCreatedEvent>('post.created')
 
-	expectTypeOf(postCreated).toEqualTypeOf<
-		HookEventContract<PostCreatedEvent>
-	>()
+	expectTypeOf(postCreated).toEqualTypeOf<HookEventContract<PostCreatedEvent>>()
 
 	const emit = (context: HookContext): void => {
 		context.emit(postCreated, { postId: 'post-1' })
