@@ -18,7 +18,6 @@ import {
 	type StoredRoleResolverDependencies,
 } from './role-access.js'
 import { getRoleReferenceState } from './role-reference.js'
-import { RoleSchema } from './role-schema.js'
 import { rolesPlugin } from './plugin.js'
 
 const roleResolverRequirement = requireCapability(
@@ -45,16 +44,15 @@ const Member = UltimaBase.Schema.define({
 	className: 'AccessRoleMember',
 	fields: () => ({}),
 })
-const AppRole = RoleSchema.define({
+const Roles = UltimaBase.use(rolesPlugin())
+const AppRole = Roles.RoleSchema.define({
 	className: 'AccessAppRole',
-	members: { schema: Member },
-	fields: () => ({}),
-})
-const OtherRole = RoleSchema.define({
+	members: () => Member,
+}).with({})
+const OtherRole = Roles.RoleSchema.define({
 	className: 'AccessOtherRole',
-	members: { schema: Member },
-	fields: () => ({}),
-})
+	members: () => Member,
+}).with({})
 const editorId = '123e4567-e89b-42d3-a456-426614174001'
 const administratorId = '123e4567-e89b-42d3-a456-426614174002'
 
@@ -76,7 +74,16 @@ const createDependencies = (): Readonly<{
 	references: Mock<ReferenceResolver>
 }> => {
 	const membership = vi.fn<MembershipResolver>(() =>
-		Promise.resolve([editorId, administratorId] as readonly string[]),
+		Promise.resolve({
+			allRoleIds: [editorId, administratorId],
+			directRoleIds: [editorId],
+			inheritedRoleIds: [administratorId],
+			memberId: 'member',
+			roleNames: new Map([
+				[editorId, 'editor'],
+				[administratorId, 'administrator'],
+			]),
+		}),
 	)
 	const references = vi.fn<ReferenceResolver>((reference) => {
 		const selector = getRoleReferenceState(reference)?.selector
@@ -131,6 +138,12 @@ describe('stored role Access integration', () => {
 		await resolver.hasRole({ context, role: AppRole.role({ id: editorId }) })
 
 		expect(roles?.map(({ value }) => value)).toHaveLength(2)
+		await expect(
+			resolver.currentRoleNames(context, AppRole),
+		).resolves.toStrictEqual(['administrator', 'editor'])
+		await expect(resolver.currentRoleNames(context, Member)).rejects.toThrow(
+			new TypeError('AccessRoleMember is not a role schema of this application'),
+		)
 		expect(fixture.membership).toHaveBeenCalledOnce()
 	})
 

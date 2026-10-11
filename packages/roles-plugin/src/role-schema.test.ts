@@ -4,7 +4,7 @@ import { Schema, UltimaBase, stringField } from '@ultimabase/core'
 import type { FrameworkError } from '@ultimabase/core'
 
 import { rolesPlugin } from './plugin.js'
-import { getRoleSchemaDeclaration, RoleSchema } from './role-schema.js'
+import { getRoleSchemaDeclaration } from './role-schema.js'
 import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
 import {
 	QueryBuilder,
@@ -18,6 +18,7 @@ const construct = (target: unknown, args: readonly unknown[]): unknown => {
 	return Reflect.construct(target, args)
 }
 
+const Roles = UltimaBase.use(rolesPlugin())
 const User = UltimaBase.Schema.define({
 	className: 'RoleUser',
 	fields: (field) => ({
@@ -25,14 +26,15 @@ const User = UltimaBase.Schema.define({
 	}),
 })
 
-describe('RoleSchema', () => {
-	it('accepts only the configured application Schema namespace', () => {
-		const Application = UltimaBase.use(rolesPlugin())
-		const ConfiguredRole = RoleSchema.define(Application.Schema, {
+describe('App.RoleSchema', () => {
+	it('exists only on applications that install Roles', () => {
+		expect(Object.isFrozen(Roles.RoleSchema)).toBe(true)
+		expect('RoleSchema' in UltimaBase).toBe(false)
+		const ConfiguredRole = Roles.RoleSchema.define({
 			className: 'ConfiguredRole',
-			members: { schema: User },
+			members: () => User,
 			fields: (field) => ({ description: field.string() }),
-		})
+		}).with({})
 
 		expect(ConfiguredRole.fields).toHaveProperty('description')
 		// ADR-0310: role schemas are not constructible and carry no role methods.
@@ -42,42 +44,34 @@ describe('RoleSchema', () => {
 			),
 		)
 		expect(() =>
-			RoleSchema.define(
-				Object.freeze({}) as unknown as typeof Application.Schema,
-				{
-					className: 'InvalidConfiguredRole',
-					members: { schema: User },
-					fields: () => ({}),
-				},
-			),
-		).toThrow(
-			new TypeError(
-				'RoleSchema configured declarations require an UltimaBase Schema namespace',
-			),
-		)
-		expect(() =>
-			RoleSchema.define(Schema as unknown as typeof Application.Schema, {
-				className: 'BareClassRole',
-				members: { schema: User },
-				fields: () => ({}),
+			Roles.RoleSchema.define({
+				className: 'InvalidMembersRole',
+				members: User as unknown as () => typeof User,
 			}),
 		).toThrow(
 			new TypeError(
-				'RoleSchema configured declarations require an UltimaBase Schema namespace',
+				'members must return the member schema: members: () => User',
 			),
 		)
+		expect(() =>
+			Roles.RoleSchema.define({
+				className: 'UnknownOptionRole',
+				members: () => User,
+				indexes: [],
+			} as never),
+		).toThrow(new TypeError('Unknown RoleSchema option: indexes'))
 	})
 
 	it('compiles canonical FieldBuilder declarations before adding role fields', async () => {
-		const BuilderRole = RoleSchema.define({
+		const BuilderRole = Roles.RoleSchema.define({
 			className: 'BuilderRole',
-			members: { schema: User },
+			members: () => User,
 			fields: (field) => ({
 				description: field.string(),
 				priority: field.int({ default: 0 }),
 			}),
-		})
-		const application = new (UltimaBase.use(rolesPlugin()))({
+		}).with({})
+		const application = new Roles({
 			schemas: [User, BuilderRole],
 		})
 		await application.initialize()
@@ -88,7 +82,7 @@ describe('RoleSchema', () => {
 			'priority',
 			'name',
 			'members',
-			'roles',
+			'includedRoles',
 			'id',
 			'createdAt',
 			'updatedAt',
@@ -98,20 +92,19 @@ describe('RoleSchema', () => {
 	})
 
 	it('creates one ordinary immutable schema class with generated role fields', () => {
-		const AppRole = RoleSchema.define({
+		const AppRole = Roles.RoleSchema.define({
 			className: 'AppRole',
-			members: { schema: User },
+			members: () => User,
 			fields: (field) => ({
 				description: field.string(),
 				priority: field.int({ default: 0 }),
 			}),
-			indexes: [{ fields: ['priority', 'createdAt'] }],
-		})
+		}).with({ indexes: [{ fields: ['priority', 'createdAt'] }] })
 
 		expect(Schema.is(AppRole)).toBe(true)
 		expect(AppRole.fields).toHaveProperty('name')
 		expect(AppRole.fields).toHaveProperty('members')
-		expect(AppRole.fields).toHaveProperty('roles')
+		expect(AppRole.fields).toHaveProperty('includedRoles')
 		expect(AppRole.fields).toHaveProperty('description')
 		expect(AppRole.indexes).toContainEqual({ fields: ['name'], unique: true })
 		expect(AppRole.indexes).toContainEqual({
@@ -125,57 +118,81 @@ describe('RoleSchema', () => {
 			'transportVisibility',
 		)
 		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
-		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
 		expect(() => construct(AppRole, [{ name: 'editor' }])).toThrow(
 			'AppRole is not constructible',
 		)
 		expect(Object.isFrozen(AppRole)).toBe(true)
 		expect(getRoleSchemaDeclaration(AppRole)?.deletionPolicy).toBe('fail')
+		expect(getRoleSchemaDeclaration(AppRole)?.memberSchema()).toBe(User)
+		expect(AppRole.role('Editor').value).toContain('"name":"editor"')
 	})
 
 	it('retains one validated schema-owned reference deletion policy', () => {
-		const CascadingRole = RoleSchema.define({
+		const CascadingRole = Roles.RoleSchema.define({
 			className: 'CascadingRole',
-			members: { schema: User },
-			fields: () => ({}),
-			deletion: { references: 'cascade' },
-		})
+			members: () => User,
+			deletion: 'cascade',
+		}).with({})
 
 		expect(getRoleSchemaDeclaration(CascadingRole)?.deletionPolicy).toBe(
 			'cascade',
 		)
 		expect(() =>
-			RoleSchema.define({
+			Roles.RoleSchema.define({
 				className: 'InvalidDeletionRole',
-				members: { schema: User },
-				fields: () => ({}),
-				deletion: {
-					references: 'remove' as unknown as 'fail',
-				},
+				members: () => User,
+				deletion: 'remove' as unknown as 'fail',
 			}),
 		).toThrow(
-			new TypeError(
-				'deletion.references must be "fail", "preserve", or "cascade"',
-			),
+			new TypeError('deletion must be "fail", "preserve", or "cascade"'),
 		)
 	})
 
-	it('rejects generated field collisions with precise diagnostics', () => {
-		const fields: Record<string, ReturnType<typeof stringField>> = {
-			name: stringField(),
-		}
+	it('normalizes ensure names and rejects invalid ones', () => {
+		const SeededRole = Roles.RoleSchema.define({
+			className: 'SeededRole',
+			members: () => User,
+			ensure: ['Admin', ' admin ', 'Editor'],
+		}).with({})
 
+		expect(getRoleSchemaDeclaration(SeededRole)?.ensure).toStrictEqual([
+			'admin',
+			'editor',
+		])
 		expect(() =>
-			RoleSchema.define({
-				className: 'InvalidRole',
-				members: { schema: User },
-				fields: () => fields,
+			Roles.RoleSchema.define({
+				className: 'InvalidEnsureRole',
+				members: () => User,
+				ensure: [' '],
 			}),
-		).toThrow(
-			expect.objectContaining({
-				cause: new TypeError('Reserved role field: name'),
+		).toThrow(new TypeError('role name must not be empty'))
+		expect(() =>
+			Roles.RoleSchema.define({
+				className: 'InvalidEnsureListRole',
+				members: () => User,
+				ensure: 'admin' as unknown as readonly string[],
 			}),
-		)
+		).toThrow(new TypeError('ensure must be a list of role names'))
+	})
+
+	it('rejects generated field collisions with precise diagnostics', () => {
+		for (const reserved of ['name', 'members', 'includedRoles']) {
+			const fields: Record<string, ReturnType<typeof stringField>> = {
+				[reserved]: stringField(),
+			}
+
+			expect(() =>
+				Roles.RoleSchema.define({
+					className: 'InvalidRole',
+					members: () => User,
+					fields: () => fields,
+				}),
+			).toThrow(
+				expect.objectContaining({
+					cause: new TypeError(`Reserved role field: ${reserved}`),
+				}),
+			)
+		}
 	})
 
 	it('requires its plugin only when a role schema is registered', async () => {
@@ -189,11 +206,10 @@ describe('RoleSchema', () => {
 
 		await plainApplication.dispose()
 
-		const AppRole = RoleSchema.define({
+		const AppRole = Roles.RoleSchema.define({
 			className: 'OwnedRole',
-			members: { schema: User },
-			fields: () => ({}),
-		})
+			members: () => User,
+		}).with({})
 		let infrastructureStarted = false
 		const infrastructure = plugin({
 			core: '^0.0.0',
@@ -218,11 +234,10 @@ describe('RoleSchema', () => {
 	})
 
 	it('rejects copied and foreign identity values before setup', async () => {
-		const OwnedRole = RoleSchema.define({
+		const OwnedRole = Roles.RoleSchema.define({
 			className: 'IdentityOwnerRole',
-			members: { schema: User },
-			fields: () => ({}),
-		})
+			members: () => User,
+		}).with({})
 		const identity: unknown = Reflect.get(
 			OwnedRole.definition,
 			roleSchemaIdentityOptionName,
@@ -271,10 +286,10 @@ describe('RoleSchema', () => {
 			fields: (field) => ({
 				members: field.relation({ target: 'RoleUser' }),
 				name: field.string(),
-				roles: field.relation({ target: 'RoleUser' }),
+				includedRoles: field.relation({ target: 'RoleUser' }),
 			}),
 		})
-		const application = new (UltimaBase.use(rolesPlugin()))({
+		const application = new Roles({
 			schemas: [User, Similar],
 		})
 		await application.initialize()
@@ -282,16 +297,14 @@ describe('RoleSchema', () => {
 		expect(getRoleSchemaDeclaration(Similar)).toBeUndefined()
 		await application.dispose()
 
-		const FirstRole = RoleSchema.define({
+		const FirstRole = Roles.RoleSchema.define({
 			className: 'DuplicateRoleDomain',
-			members: { schema: User },
-			fields: () => ({}),
-		})
-		const SecondRole = RoleSchema.define({
+			members: () => User,
+		}).with({})
+		const SecondRole = Roles.RoleSchema.define({
 			className: 'DuplicateRoleDomain',
-			members: { schema: User },
-			fields: () => ({}),
-		})
+			members: () => User,
+		}).with({})
 		let infrastructureStarted = false
 		const infrastructure = plugin({
 			core: '^0.0.0',
@@ -320,16 +333,14 @@ describe('RoleSchema', () => {
 			className: 'SecondRoleUser',
 			fields: (field) => ({ email: field.string() }),
 		})
-		const FirstRole = RoleSchema.define({
+		const FirstRole = Roles.RoleSchema.define({
 			className: 'FirstRoleDomain',
-			members: { schema: User },
-			fields: () => ({}),
-		})
-		const SecondRole = RoleSchema.define({
+			members: () => User,
+		}).with({})
+		const SecondRole = Roles.RoleSchema.define({
 			className: 'SecondRoleDomain',
-			members: { schema: SecondUser },
-			fields: () => ({}),
-		})
+			members: () => SecondUser,
+		}).with({})
 		const firstPlugin = rolesPlugin()
 		const secondPlugin = rolesPlugin()
 		const first = new (UltimaBase.use(firstPlugin))({
@@ -345,8 +356,30 @@ describe('RoleSchema', () => {
 		onTestFinished(() => second.dispose())
 
 		expect(second.compile().schemas.get(SecondRole.className)).toBe(SecondRole)
-		expect(getRoleSchemaDeclaration(FirstRole)?.memberSchema).toBe(User)
-		expect(getRoleSchemaDeclaration(SecondRole)?.memberSchema).toBe(SecondUser)
+		expect(getRoleSchemaDeclaration(FirstRole)?.memberSchema()).toBe(User)
+		expect(getRoleSchemaDeclaration(SecondRole)?.memberSchema()).toBe(
+			SecondUser,
+		)
 		await Promise.all([first.dispose(), second.dispose()])
+	})
+
+	it('allows several role schemas in one application', async () => {
+		const TeamRole = Roles.RoleSchema.define({
+			className: 'SeveralTeamRole',
+			members: () => User,
+		}).with({})
+		const ProjectRole = Roles.RoleSchema.define({
+			className: 'SeveralProjectRole',
+			members: () => User,
+		}).with({})
+		const application = new Roles({
+			schemas: [User, TeamRole, ProjectRole],
+		})
+		await application.initialize()
+		onTestFinished(() => application.dispose())
+
+		expect(getRoleSchemaDeclaration(TeamRole)).toBeDefined()
+		expect(getRoleSchemaDeclaration(ProjectRole)).toBeDefined()
+		await application.dispose()
 	})
 })

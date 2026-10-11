@@ -5,13 +5,14 @@ import { resolveRoleMembershipGraph } from './role-membership.js'
 
 interface MembershipRole {
 	readonly id: string
+	readonly name: string
 	readonly parents: readonly MembershipRole[]
 }
 
 const role = (
 	id: string,
 	parents: readonly MembershipRole[] = [],
-): MembershipRole => ({ id, parents })
+): MembershipRole => ({ id, name: `${id} role`, parents })
 
 const readParents = (value: unknown): Promise<readonly unknown[]> => {
 	if (typeof value !== 'object' || value === null) {
@@ -44,6 +45,12 @@ describe('stored role membership traversal', () => {
 			directRoleIds: ['editor'],
 			inheritedRoleIds: ['administrator', 'publisher', 'reviewer'],
 			memberId: 'member-1',
+			roleNames: new Map([
+				['editor', 'editor role'],
+				['publisher', 'publisher role'],
+				['reviewer', 'reviewer role'],
+				['administrator', 'administrator role'],
+			]),
 		})
 		expect(Object.isFrozen(snapshot)).toBe(true)
 		expect(Object.isFrozen(snapshot.allRoleIds)).toBe(true)

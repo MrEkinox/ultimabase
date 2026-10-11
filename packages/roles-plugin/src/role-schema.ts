@@ -87,14 +87,14 @@ export type RoleSchemaFields<
 /** Static members of every role schema. */
 export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
 	/**
-	 * Creates a reference to one role by its name, without database I/O.
+	 * Creates a normalized name reference without performing database I/O.
 	 * @example `const Editor = TodoRole.role('editor')`
 	 */
 	role<const TName extends string>(
 		name: TName,
 	): RoleReference<TSchema, RoleNameSelector<TName>>
 	/**
-	 * Creates a reference to one role by its UUID, without database I/O.
+	 * Creates an explicit UUID reference without guessing string semantics.
 	 * @example `TodoRole.role({ id: role.id })`
 	 */
 	role<const TId extends string>(
@@ -118,10 +118,12 @@ export interface RoleSchemaOptions<
 	 */
 	readonly members: TMembers
 	/**
-	 * Controls references other plugins hold to a deleted role: `fail` (the
-	 * default) refuses the deletion, `preserve` leaves them inert, `cascade`
-	 * asks their owners to remove them in the same transaction (Master only).
+	 * Controls references registered by independent consumer plugins when a
+	 * role is deleted: `fail` (the default) refuses the deletion, `preserve`
+	 * leaves them inert, `cascade` asks their owners to remove them in the
+	 * same transaction (Master only).
 	 * @default "fail"
+	 * @example `deletion: 'cascade'`
 	 */
 	readonly deletion?: RoleReferenceDeletionPolicy
 	/**
@@ -312,7 +314,8 @@ export const createRoleSchemaFactory = ({
 			if (typeof className !== 'string' || className.length === 0) {
 				throw new TypeError('className must be a non-empty string')
 			}
-			if (typeof members !== 'function') {
+			// A schema is a class: it must be wrapped so it may be declared later.
+			if (typeof members !== 'function' || Schema.is(members)) {
 				throw new TypeError(
 					'members must return the member schema: members: () => User',
 				)

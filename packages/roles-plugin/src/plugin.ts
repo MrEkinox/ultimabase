@@ -380,7 +380,16 @@ const ensureAllRoles = async (
 ): Promise<void> => {
 	for (const { declaration, schema } of readRoleDomains(schemas)) {
 		if (declaration.ensure.length === 0) continue
-		const created = await ensureRoles(schema, declaration.ensure)
+		let created: readonly string[]
+		try {
+			created = await ensureRoles(schema, declaration.ensure)
+		} catch (error: unknown) {
+			// Creating roles is a Master write: name the declaration that needs it.
+			throw new TypeError(
+				`Roles could not create the ensure roles of ${schema.className} (they are created with the application's masterAuthority)`,
+				{ cause: error },
+			)
+		}
 		if (created.length > 0) {
 			logger.info(`created ${schema.className} roles: ${created.join(', ')}`)
 		}

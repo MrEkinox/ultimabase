@@ -113,16 +113,16 @@ beforeAll(async () => {
 		members: { connect: [requireMember(alice, 'Alice').id] },
 	})
 	await updateAppRole(requireRole(publisher, 'publisher').id, {
-		roles: { connect: [requireRole(editor, 'editor').id] },
+		includedRoles: { connect: [requireRole(editor, 'editor').id] },
 	})
 	await updateAppRole(requireRole(reviewer, 'reviewer').id, {
-		roles: { connect: [requireRole(editor, 'editor').id] },
+		includedRoles: { connect: [requireRole(editor, 'editor').id] },
 	})
 	await updateAppRole(requireRole(administrator, 'administrator').id, {
-		roles: { connect: [requireRole(publisher, 'publisher').id] },
+		includedRoles: { connect: [requireRole(publisher, 'publisher').id] },
 	})
 	await updateAppRole(requireRole(administrator, 'administrator').id, {
-		roles: { connect: [requireRole(reviewer, 'reviewer').id] },
+		includedRoles: { connect: [requireRole(reviewer, 'reviewer').id] },
 	})
 
 	const posts = await ProtectedPost.createMany(
@@ -217,13 +217,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			masterOptions,
 		)
 		await updateAppRole(currentEditor.id, {
-			roles: { connect: [temporaryChild.id] },
+			includedRoles: { connect: [temporaryChild.id] },
 		})
-		await expect(countRoleLinks(currentEditor.id, 'roles')).resolves.toBe(1)
+		await expect(countRoleLinks(currentEditor.id, 'includedRoles')).resolves.toBe(1)
 		await updateAppRole(currentEditor.id, {
-			roles: { disconnect: [temporaryChild.id] },
+			includedRoles: { disconnect: [temporaryChild.id] },
 		})
-		await expect(countRoleLinks(currentEditor.id, 'roles')).resolves.toBe(0)
+		await expect(countRoleLinks(currentEditor.id, 'includedRoles')).resolves.toBe(0)
 		expect(committedRoleEvents.slice(eventCount)).toContain(
 			'ultimabase.roles.membership.changed',
 		)
@@ -308,12 +308,12 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		await expect(
 			updateAppRole(currentEditor.id, {
-				roles: {
+				includedRoles: {
 					connect: [requireRole(administrator, 'administrator').id],
 				},
 			}),
 		).rejects.toMatchObject({ code: 'ROLE_HIERARCHY_CYCLE' })
-		await expect(countRoleLinks(currentEditor.id, 'roles')).resolves.toBe(0)
+		await expect(countRoleLinks(currentEditor.id, 'includedRoles')).resolves.toBe(0)
 		expect(committedRoleEvents).toHaveLength(eventCount)
 	})
 
@@ -386,7 +386,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: { id: requireRole(editor, 'editor').id },
 					data: {
-						roles: {
+						includedRoles: {
 							connect: [requireRole(administrator, 'administrator').id],
 						},
 					},
@@ -494,7 +494,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			{
 				where: { id: { eq: cascadeParent.id } },
 				data: {
-					roles: { connect: [cascadeChild.id] },
+					includedRoles: { connect: [cascadeChild.id] },
 				},
 			},
 			masterOptions,
@@ -516,7 +516,9 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		).resolves.toMatchObject({ id: cascadeChild.id })
 		await expect(
 			CascadeRole.count(
-				{ where: { id: { eq: cascadeParent.id }, roles: { some: {} } } },
+				{
+					where: { id: { eq: cascadeParent.id }, includedRoles: { some: {} } },
+				},
 				masterOptions,
 			),
 		).resolves.toBe(0)
