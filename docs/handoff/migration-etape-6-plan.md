@@ -34,6 +34,8 @@ couches Typegen).
 
 Parallélisme proposé après 6.1 : 6.2 avec 6.5, puis 6.3 avec 6.6, puis 6.4.
 
+6.6 découpée le 2026-10-11 (trop grande pour une seule relecture) : 6.6a socle HTTP et Hono (ADR-0323), 6.6b REST (exposition par le plugin propriétaire, `defineOperation`, OpenAPI, `/api`, `publicWrites`, liaisons automatiques de 6.0 retirées), 6.6c GraphQL, Yoga, explorateur unique, opérateurs déclarés d'ADR-0301 et preset `api-server`.
+
 ## Points à trancher en cours de route
 
 - Authentification : l'OAuth lié au même utilisateur (revue password-auth)
