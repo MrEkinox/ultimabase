@@ -46,7 +46,7 @@ const identityPlugin = plugin({
 
 const App = UltimaBase.use(
 	softDeletePlugin(),
-	accessPlugin({ default: true }),
+	accessPlugin({ allowWithoutRule: { all: true } }),
 	hooksPlugin(),
 	aclPlugin(),
 )
@@ -71,11 +71,11 @@ const CanTodo = App.Schema.define({
 	.with({
 		access: {
 			create: {
-				allow: isAuthenticated,
+				where: isAuthenticated,
 				item: ({ item }) => item.title !== 'forbidden',
 			},
 			update: {
-				allow: function notRefused() {
+				where: function notRefused() {
 					if (refuseUpdates === 'public') {
 						throw new PublicError('Updates are paused.')
 					}

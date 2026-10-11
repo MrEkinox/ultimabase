@@ -10,12 +10,10 @@ export const Tag = App.Schema.define({
 	}),
 }).with({
 	access: {
-		read: {
-			where: ({ where }) =>
-				where.some('todos', (todo) =>
-					todo.is('assignee', (user) => user.endsWith('email', '@team.test')),
-				),
-		},
+		read: ({ where }) =>
+			where.some('todos', (todo) =>
+				todo.is('assignee', (user) => user.endsWith('email', '@team.test')),
+			),
 		create: true,
 	},
 })

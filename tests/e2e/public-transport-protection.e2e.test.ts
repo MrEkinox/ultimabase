@@ -65,6 +65,14 @@ describe('public transport protection through public package exports', () => {
 		await verifyProviderPresence(accessPlugin())
 	})
 
+	it('counts an Access write opening as an installed policy (ADR-0317, ADR-0294)', async () => {
+		// Access is a protected policy whatever it opens: a transport never
+		// needs a separate public-writes acknowledgment for it.
+		await verifyProviderPresence(
+			accessPlugin({ allowWithoutRule: { write: true } }),
+		)
+	})
+
 	it('keeps independent ACL presence informational', async () => {
 		await verifyProviderPresence(aclPlugin())
 	})

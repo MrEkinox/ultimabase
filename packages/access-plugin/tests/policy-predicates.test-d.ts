@@ -13,9 +13,9 @@ import {
 	anyOf,
 	not,
 	type AccessDecisionRule,
+	type AccessPolicyInput,
 	type FieldAccessInput,
 	type SchemaItemAccessInput,
-	type SchemaOperationAccessInput,
 	type SchemaWhereAccessInput,
 } from '../src/index.js'
 
@@ -27,13 +27,13 @@ const isOwner: PolicyPredicate = function isOwner({ principal }) {
 }
 
 test('gives every rule input the principal, operation and schema', () => {
-	expectTypeOf<SchemaOperationAccessInput['principal']>().toEqualTypeOf<
+	expectTypeOf<AccessPolicyInput['principal']>().toEqualTypeOf<
 		Principal | undefined
 	>()
 	expectTypeOf<
-		SchemaOperationAccessInput['operation']
+		AccessPolicyInput['operation']
 	>().toEqualTypeOf<PolicyOperation>()
-	expectTypeOf<SchemaOperationAccessInput['schema']>().toEqualTypeOf<string>()
+	expectTypeOf<AccessPolicyInput['schema']>().toEqualTypeOf<string>()
 	expectTypeOf<FieldAccessInput['principal']>().toEqualTypeOf<
 		Principal | undefined
 	>()
@@ -45,9 +45,7 @@ test('gives every rule input the principal, operation and schema', () => {
 		Principal | undefined
 	>()
 	expectTypeOf(isAuthenticated).toEqualTypeOf<PolicyPredicate>()
-	expectTypeOf(isOwner).toExtend<
-		AccessDecisionRule<SchemaOperationAccessInput>
-	>()
+	expectTypeOf(isOwner).toExtend<AccessDecisionRule<AccessPolicyInput>>()
 })
 
 const Document = App.Schema.define({
@@ -56,8 +54,8 @@ const Document = App.Schema.define({
 }).with({
 	access: {
 		create: isAuthenticated,
-		read: { allow: { many: isAuthenticated, one: isOwner } },
-		update: { allow: anyOf(isAuthenticated, isOwner), item: isOwner },
+		read: { many: isAuthenticated, one: isOwner },
+		update: { where: anyOf(isAuthenticated, isOwner), item: isOwner },
 		delete: allOf(isAuthenticated, not(isOwner)),
 	},
 })

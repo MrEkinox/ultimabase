@@ -203,6 +203,7 @@ const PackedGeneratedDocument = PackedSchemaApplication.Schema.define({
   }),
   access: {
     update: {
+      where: true,
       item: ({ item }) => {
         item.${accessMarker}embedding
         return item.status === 'published'

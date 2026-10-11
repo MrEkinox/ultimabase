@@ -6,15 +6,18 @@ export type {
 	AccessPluginOptions,
 	AccessRules,
 	AccessSchemaRules,
-	SchemaAccessDefaults,
-	SchemaReadAccessDefaults,
 } from './plugin.js'
+export type {
+	AllowWithoutRule,
+	AllowWithoutRuleValue,
+} from './authoring/allow-without-rule.js'
 export type { SchemaAccessOption } from './options.js'
 export type { AccessContext } from './context.js'
 export type {
 	AccessDecisionRule,
 	AccessPolicyInput,
-	AccessWhereRule,
+	AccessRule,
+	AccessRuleResult,
 	FieldAccess,
 	FieldAccessDeclaration,
 	FieldAccessInput,
@@ -35,11 +38,8 @@ export type {
 	SchemaCreateAccess,
 	SchemaDeleteAccess,
 	SchemaItemAccessInput,
-	SchemaOperationAccessDeclaration,
-	SchemaOperationAccessInput,
+	SchemaPermissionAccessMap,
 	SchemaReadAccess,
-	SchemaReadAllowAccess,
-	SchemaReadAllowAccessDeclaration,
 	SchemaUpdateAccess,
 	SchemaUpsertAccess,
 	SchemaWhereAccessInput,
@@ -52,23 +52,9 @@ export type {
 	SchemaMutationItemAccessInput,
 	SchemaMutationOperationAccessInput,
 	SchemaMutationWhereAccessInput,
-	SchemaMutationWhereRule,
 } from './authoring/schema-mutations.js'
-export {
-	allMutations,
-	allOf,
-	allOperations,
-	allowAll,
-	anyOf,
-	denyAll,
-	not,
-} from './authoring/utilities.js'
-export type {
-	AccessDecisionInput,
-	AllMutationAccess,
-	AllOperationAccess,
-	OperationAccessRule,
-} from './authoring/utilities.js'
+export { allOf, anyOf, not } from './authoring/utilities.js'
+export type { AccessDecisionInput } from './authoring/utilities.js'
 
 // Compatible-provider contract: official contribution targets, factories,
 // definitions, and the versioned capability token consumed by the engine.

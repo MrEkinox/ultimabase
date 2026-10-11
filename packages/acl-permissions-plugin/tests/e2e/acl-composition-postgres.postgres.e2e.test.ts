@@ -99,19 +99,10 @@ const Document = ACLCompositionApplication.Schema.define({
 	postgres: { table: 'acl_composition_documents' },
 	access: {
 		create: true,
-		delete: {
-			allow: true,
-			where: ({ where }) => where.eq('nativeScope', 'allowed'),
-		},
-		read: {
-			allow: true,
-			where: ({ where }) =>
-				where.eq('nativeScope', 'allowed').eq('hookScope', 'allowed'),
-		},
-		update: {
-			allow: true,
-			where: ({ where }) => where.eq('nativeScope', 'allowed'),
-		},
+		delete: ({ where }) => where.eq('nativeScope', 'allowed'),
+		read: ({ where }) =>
+			where.eq('nativeScope', 'allowed').eq('hookScope', 'allowed'),
+		update: ({ where }) => where.eq('nativeScope', 'allowed'),
 	},
 })
 
@@ -145,7 +136,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		identityPlugin,
 		aclPlugin(),
 		postgresPlugin({

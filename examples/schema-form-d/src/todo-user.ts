@@ -11,10 +11,8 @@ export const TodoUser = App.Schema.define({
 	}),
 }).with({
 	access: {
-		read: {
-			where: ({ where }) =>
-				where.some('assignedTodos', (todo) => todo.eq('archived', false)),
-		},
+		read: ({ where }) =>
+			where.some('assignedTodos', (todo) => todo.eq('archived', false)),
 		create: true,
 	},
 })

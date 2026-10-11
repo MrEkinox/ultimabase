@@ -31,13 +31,16 @@ import {
 	enforceAccessOutput,
 } from './output-access.js'
 import {
+	evaluateAccessOperation,
+	evaluateAccessPermission,
+	evaluateSchemaMutationAccess,
+} from './operation-rules.js'
+import {
 	assertAccessRules,
 	createAccessScope,
 	readPolicyOperation,
 	enforceSchemaMutationItemAccess,
 	evaluateAccessFieldReferenceRules,
-	evaluateAccessOperation,
-	evaluateSchemaMutationAccess,
 	readExecutableOperation,
 	type AccessScope,
 } from './rule-evaluation.js'
@@ -45,6 +48,7 @@ import type {
 	RequestContext,
 	ApplicationCallbackExecutor,
 } from '@ultimabase/core/plugin'
+import type { ProtectedPolicyPermissionInput } from '@ultimabase/core'
 
 /**
  * Executes one application's immutable official Access plan at Runtime
@@ -150,6 +154,23 @@ export class AccessRuntime {
 			immutableRecord({ context: request.context }),
 		)
 		return true
+	}
+
+	/** Answers whether the caller holds one plugin permission (ADR-0317). */
+	async holdsPermission({
+		context,
+		permission,
+		schema,
+	}: ProtectedPolicyPermissionInput): Promise<boolean | undefined> {
+		const schemaPlan = this.#plan.getSchema(schema)
+		if (schemaPlan === undefined) return undefined
+		return evaluateAccessPermission(
+			this.#runtime,
+			this.#plan,
+			schemaPlan,
+			context,
+			permission,
+		)
 	}
 
 	/** Requests set preimages only when configured rules need item values. */

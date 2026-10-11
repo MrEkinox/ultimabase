@@ -10,7 +10,7 @@ import {
 
 // Regression: a complete include (no `select`) of a target whose virtual field
 // an output policy hides failed with "Requested virtual field is missing".
-const App = UltimaBase.use(accessPlugin({ default: true }))
+const App = UltimaBase.use(accessPlugin({ allowWithoutRule: { all: true } }))
 
 const Person = App.Schema.define({
 	className: 'VirtualIncludePerson',

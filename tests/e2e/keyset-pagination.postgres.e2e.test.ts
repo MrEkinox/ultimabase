@@ -26,7 +26,7 @@ import {
 
 // ADR-0309: `findMany({ after })` pages by position in a total order, and
 // REST and GraphQL encode the same positions with one shared cursor encoder.
-const App = UltimaBase.use(accessPlugin({ default: true }))
+const App = UltimaBase.use(accessPlugin({ allowWithoutRule: { all: true } }))
 
 const Item = App.Schema.define({
 	className: 'KeysetItem',

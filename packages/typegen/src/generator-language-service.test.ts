@@ -234,7 +234,7 @@ const SemanticArticle = SemanticApplication.Schema.define({
     create: false,
     delete: false,
     update: {
-      where: { status: { eq: 'draft' } },
+      where: () => ({ status: { eq: 'draft' } }),
       item: ({ item, originalItem }) => {
         item./* public-access-item */embedding
         return originalItem.status === 'draft' && item.status === 'published'

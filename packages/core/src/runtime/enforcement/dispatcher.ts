@@ -23,6 +23,7 @@ import {
 	enforceOutputRestrictions,
 	enforceSelectionResultRestrictions,
 } from './result-restrictions.js'
+import { bindSchemaPermissionPolicies } from './schema-permissions.js'
 import { createEnforcementState } from './state.js'
 
 /** Compiles optional product-neutral restrictions into one monotonic boundary. */
@@ -37,6 +38,12 @@ export const createEnforcementStages = <
 	}
 
 	const contributions = readEnforcementContributions(application)
+	bindSchemaPermissionPolicies(
+		application,
+		contributions.flatMap(({ implementation }) =>
+			implementation.kind === 'protected-policy' ? [implementation] : [],
+		),
+	)
 	if (contributions.length === 0) {
 		return undefined
 	}

@@ -22,7 +22,9 @@ const publicArticleACL = new ACL().grantPublic('delete', 'read', 'update')
 
 /** Owns every source-typed schema declaration used by the example. */
 export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
-	.use(accessPlugin({ default: true }))
+	// Opens every operation and command that a schema leaves without a rule,
+	// production included; each schema below narrows its own (ADR-0317).
+	.use(accessPlugin({ allowWithoutRule: { all: true } }))
 	.use(hooksPlugin())
 	.use(validationPlugin())
 	.use(rolesPlugin())
@@ -141,10 +143,7 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 		readable: field.boolean({ default: true }),
 	}),
 	access: {
-		read: {
-			allow: true,
-			where: ({ where }) => where.eq('readable', true),
-		},
+		read: ({ where }) => where.eq('readable', true),
 		// Restoring stays server-side: Master bypasses Access.
 		restoreOne: false,
 		restoreMany: false,
@@ -287,13 +286,10 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 	access: {
 		create: true,
 		delete: true,
-		read: {
-			allow: { count: true, exists: true, many: true, one: true },
-			where: ({ where }) => where.eq('published', true),
-		},
+		read: ({ where }) => where.eq('published', true),
 		update: true,
 		upsert: true,
-		softDeleteOne: { allow: isAuthenticated },
+		softDeleteOne: isAuthenticated,
 		// Restoring stays server-side: Master bypasses Access.
 		restoreOne: false,
 		restoreMany: false,

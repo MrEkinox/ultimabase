@@ -84,11 +84,8 @@ export const writeCapabilities = [
 
 // The policy excerpt is also compiled in its complete schema below.
 export const accessRuleExample = `access: {
-  read: {
-    allow: true,
-    where: ({ where }) =>
-      where.eq('published', true),
-  },
+  read: ({ where }) =>
+    where.eq('published', true),
 }`
 
 export const accessSchemaExample = `import { UltimaBase } from '@ultimabase/core'

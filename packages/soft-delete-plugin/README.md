@@ -81,7 +81,7 @@ on the row before it hides it (`checkReadable: 'before'`).
 
 Request commands are ruled by the optional Access plugin under their own name
 (`access.softDeleteOne`, `access.restoreOne`, …): restoration is closed when
-the rule is absent and your Access default denies. Purge requires an audited
+the rule is absent and no `allowWithoutRule` key opens it (ADR-0317). Purge requires an audited
 Master context; Master never bypasses Hooks. The Hooks plugin exposes
 `beforeOperation` and `afterOperation` branches for every command.
 
@@ -124,14 +124,53 @@ date-time) are written by the server only: create, update, nested-write, REST
 and GraphQL input cannot write them. A protected monotonic constraint keeps
 `isDeleted = false` on every singular and collection read, count, existence
 check, pointer and relation traversal, eager target and ordinary update or
-delete target, Master included; restore and purge see tombstones only. The
-predicate stays outside the developer query AST, so `where: { isDeleted: { eq:
-true } }` still returns nothing. A soft deletion triggers no referential action
+delete target; restore and purge see tombstones only. The predicate stays
+outside the developer query AST, so `where: { isDeleted: { eq: true } }`
+returns nothing to a caller without `readDeleted`.
+
+## Reading deleted rows: `readDeleted`
+
+`.softDelete()` declares the schema permission `readDeleted` through Core
+(ADR-0317). Reads by a caller who holds it skip the protected filter: they see
+tombstones and can filter and sort them (`where: { isDeleted: { eq: true } }`,
+`orderBy: { deletedAt: 'desc' }`), REST and GraphQL included. Updates, deletes
+and commands never reach tombstones through it. With Access, grant it by a rule
+of the same name or by its own `allowWithoutRule` key (`all`, `read` and
+`write` never include it); a caller without it never sees tombstones, whatever
+its `where`:
+
+```ts
+const App = UltimaBase.use(softDeletePlugin(), accessPlugin())
+App.Schema.define({ className: 'Post', fields })
+	.softDelete()
+	.with({ access: { read: true, readDeleted: hasRole(Auditor) } })
+```
+
+Master holds every permission, but its reads keep the trash filter by default
+(ADR-0317, 6.1 amendment): a server job using `useMasterKey` never includes
+tombstones silently, and no longer needs `where: { isDeleted: false }`. A
+Master read returns tombstones only when its own `where` constrains
+`isDeleted`: any condition on this schema's `isDeleted`, at any depth of `AND`,
+`OR` and `NOT` (a condition inside a relation predicate does not count):
+
+```ts
+await Post.findMany(undefined, { useMasterKey: true }) // live rows only
+await Post.findMany({ where: { isDeleted: true } }, { useMasterKey: true }) // the trash
+await Post.count(
+	{ where: { isDeleted: { in: [true, false] } } },
+	{ useMasterKey: true },
+) // every row
+```
+
+This holds for `findMany`, `findOne`, `findOneOrThrow`, `count`, `exists`,
+inclusions (with the inclusion's own `where`), REST and GraphQL. Restore and
+purge keep reaching tombstones for Master and for allowed callers.
+
+The package still imports neither Access nor any other policy plugin. A soft deletion triggers no referential action
 (ADR-0299): a pointer to a tombstone keeps its value and its inclusion returns
 `null` until a purge.
 
 ## Not yet
 
-No deleter identity, reason, include-deleted read permission (it waits for the
-Access extension point), cascade policy, retention job, automatic purge or
+No deleter identity, reason, cascade policy, retention job, automatic purge or
 nested soft delete.

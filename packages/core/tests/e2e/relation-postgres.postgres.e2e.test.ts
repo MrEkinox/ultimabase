@@ -366,7 +366,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await getUltimaBase().dispose()
 		const verifier = new (UltimaBase.use(
 			hooksPlugin(),
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			postgresPlugin({
 				schemaPolicy: 'fail',
 				url: activeFixture.connectionUri,

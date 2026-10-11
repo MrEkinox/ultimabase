@@ -31,7 +31,8 @@ export const createTodoPlugins = ({
 	generatedTypesPath = defaultGeneratedTypesPath,
 }: TodoApplicationOptions = {}) =>
 	[
-		accessPlugin({ default: true }),
+		// Every schema has a rule for every operation: nothing is opened.
+		accessPlugin(),
 		hooksPlugin(),
 		validationPlugin(),
 		rolesPlugin(),

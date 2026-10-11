@@ -4,9 +4,9 @@ import {
 	forEachKnownKey,
 	isAccessRule,
 	isRuleCallback,
-	normalizeRequiredAccessRuleMap,
+	normalizeAccessRuleMap,
 	type NormalizedAccessRule,
-	type NormalizedRequiredAccessRuleMap,
+	type NormalizedAccessRuleMap,
 } from './declarations.js'
 
 export const fieldReadAccessChannels = ['item', 'filter', 'order'] as const
@@ -16,12 +16,14 @@ export type FieldReadAccessChannel = (typeof fieldReadAccessChannels)[number]
 export type FieldWriteAccessTransition =
 	(typeof fieldWriteAccessTransitions)[number]
 
-/** Retains only validated field rules inside private field capabilities. */
+/**
+ * Retains only validated field rules inside private field capabilities; an
+ * omitted channel or transition restricts nothing (ADR-0317).
+ */
 export interface FieldAccessDeclarations {
 	readonly read?:
-		| NormalizedAccessRule
-		| NormalizedRequiredAccessRuleMap<FieldReadAccessChannel>
-	readonly write?: NormalizedRequiredAccessRuleMap<FieldWriteAccessTransition>
+		NormalizedAccessRule | NormalizedAccessRuleMap<FieldReadAccessChannel>
+	readonly write?: NormalizedAccessRuleMap<FieldWriteAccessTransition>
 	readonly relationWrite?: NormalizedAccessRule
 }
 
@@ -49,15 +51,15 @@ export const normalizeFieldAccessDeclarations = (
 				declarations.read = value
 				return
 			}
-			const read = normalizeRequiredAccessRuleMap(
+			const read = normalizeAccessRuleMap(
 				value,
 				publicFieldReadAccessChannels,
 				'access.read',
 			)
 			declarations.read = immutableRecord({
-				filter: read.where,
-				item: read.output,
-				order: read.orderBy,
+				...(read.where === undefined ? {} : { filter: read.where }),
+				...(read.output === undefined ? {} : { item: read.output }),
+				...(read.orderBy === undefined ? {} : { order: read.orderBy }),
 			})
 		} else if (isRuleCallback(value)) {
 			// A write callback is only meaningful as a relation edge decision.
@@ -70,7 +72,7 @@ export const normalizeFieldAccessDeclarations = (
 			})
 			declarations.relationWrite = value
 		} else {
-			declarations.write = normalizeRequiredAccessRuleMap(
+			declarations.write = normalizeAccessRuleMap(
 				value,
 				fieldWriteAccessTransitions,
 				'access.write',

@@ -14,9 +14,9 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-const AccessApplication = UltimaBase.use(accessPlugin({ default: true })).use(
-	hooksPlugin(),
-)
+const AccessApplication = UltimaBase.use(
+	accessPlugin({ allowWithoutRule: { all: true } }),
+).use(hooksPlugin())
 
 const AccessAudit = AccessApplication.Schema.define({
 	className: 'NativeAccessAudit',
@@ -43,23 +43,14 @@ const AccessArticle = AccessApplication.Schema.define({
 		}),
 	}),
 	access: {
-		read: {
-			allow: { count: true, exists: true, many: true, one: true },
-			where: ({ where }) => where.eq('published', true).gte('rank', 0),
-		},
+		read: ({ where }) => where.eq('published', true).gte('rank', 0),
 		create: false,
 		update: {
 			where: ({ where }) => where.eq('published', true),
 			item: ({ originalItem }) => !originalItem.locked,
 		},
-		delete: {
-			allow: true,
-			where: ({ where }) => where.eq('published', true),
-		},
-		upsert: {
-			allow: true,
-			where: ({ where }) => where.eq('published', true),
-		},
+		delete: ({ where }) => where.eq('published', true),
+		upsert: ({ where }) => where.eq('published', true),
 	},
 	hooks: {
 		beforeOperation: {
@@ -82,10 +73,10 @@ const BulkDocument = AccessApplication.Schema.define({
 	}),
 	access: {
 		create: false,
-		delete: { allow: true, where: ({ where }) => where.eq('visible', true) },
-		read: { allow: true, where: ({ where }) => where.eq('visible', true) },
-		update: { allow: true, where: ({ where }) => where.eq('visible', true) },
-		upsert: { allow: true, where: ({ where }) => where.eq('visible', true) },
+		delete: ({ where }) => where.eq('visible', true),
+		read: ({ where }) => where.eq('visible', true),
+		update: ({ where }) => where.eq('visible', true),
+		upsert: ({ where }) => where.eq('visible', true),
 	},
 })
 
@@ -99,7 +90,7 @@ const UpsertDecisionDocument = AccessApplication.Schema.define({
 		create: false,
 		read: true,
 		upsert: {
-			allow: true,
+			where: true,
 			item: ({ item }) => typeof item.score === 'number' && item.score < 5,
 		},
 	},
@@ -117,9 +108,7 @@ const pluginVisibility = plugin({
 	contributions: [
 		provideAccessContributions('hide-plugin-rows', () =>
 			schemaAccess(AccessArticle, {
-				read: {
-					where: ({ where }) => where.ne('title', 'plugin-hidden'),
-				},
+				read: ({ where }) => where.ne('title', 'plugin-hidden'),
 			}),
 		),
 	],
@@ -147,7 +136,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		pluginVisibility,
 		postgresPlugin({ schemaPolicy: 'override', url: fixture.connectionUri }),
 	))({

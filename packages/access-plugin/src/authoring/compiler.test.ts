@@ -17,7 +17,7 @@ import {
 } from '../contributions.js'
 import { defineFieldKindAccessTarget } from '../targets.js'
 import { compileAccessPlan } from './compiler.js'
-import type { AccessDefaultPolicy } from './plan.js'
+import { normalizeAllowWithoutRule } from './allow-without-rule.js'
 
 const owner = { instanceId: 'primary', pluginId: 'fixture.security' } as const
 
@@ -32,14 +32,7 @@ const owned = (
 	pluginVersion: '1.0.0',
 })
 
-const defaults: AccessDefaultPolicy = {
-	create: false,
-	delete: false,
-	read: { count: false, exists: false, many: false, one: false },
-	update: false,
-	upsert: false,
-	schemaMutations: false,
-}
+const defaults = normalizeAllowWithoutRule(undefined)
 
 const secureText = definePluginField(
 	'fixture.secure-text',
@@ -112,7 +105,7 @@ describe('compileAccessPlan plugin contributions', () => {
 			targetKind: 'field-kind',
 		})
 		expect(plan.getFields(Secured, securedTitle)).toEqual([titlePlan])
-		expect(plan.defaults).toBe(defaults)
+		expect(plan.allowWithoutRule).toBe(defaults)
 		expect(seen).toStrictEqual([
 			'CompiledAccessSecurityBoundary:custom:fixture.secure-text',
 		])

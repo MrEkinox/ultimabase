@@ -12,6 +12,9 @@ export type ShapeMethodFields = Readonly<Record<string, GenericField>>
 /** Commands a shape method adds, keyed by command name. */
 export type ShapeMethodCommands = Readonly<Record<string, CommandDefinition>>
 
+/** Permission names a shape method declares, such as `['readDeleted']`. */
+export type ShapeMethodPermissions = readonly string[]
+
 /**
  * Declares one shape method chained before `.with(...)` (see {@link shapeMethod}).
  * `TOptions` is `never` when the method takes no argument.
@@ -20,6 +23,7 @@ export interface ShapeMethodDefinition<
 	TOptions extends object = object,
 	TFields extends ShapeMethodFields = ShapeMethodFields,
 	TCommands extends ShapeMethodCommands = ShapeMethodCommands,
+	TPermissions extends ShapeMethodPermissions = ShapeMethodPermissions,
 > {
 	/**
 	 * Validates the method's optional options object, such as
@@ -31,9 +35,20 @@ export interface ShapeMethodDefinition<
 	readonly fields?: TFields
 	/** Commands the method adds to the schema, made with `command(...)`. */
 	readonly commands?: TCommands
+	/**
+	 * Schema permissions the method declares (ADR-0317). Policies such as
+	 * Access grant them by name; the plugin asks with `holdsSchemaPermission`.
+	 */
+	readonly permissions?: TPermissions
 }
 
-const shapeMethodKeys = new Set(['commands', 'fields', 'options'])
+const shapeMethodKeys = new Set([
+	'commands',
+	'fields',
+	'options',
+	'permissions',
+])
+const permissionNamePattern = /^[A-Za-z_$][\w$]*$/u
 
 /** Reads the options object a shape method accepts (`never`: no argument). */
 export type ShapeMethodOptionsOf<TDefinition> =
@@ -53,6 +68,17 @@ export type ShapeMethodMember<
 > = TKey extends keyof TDefinition
 	? Exclude<TDefinition[TKey], undefined>
 	: Readonly<Record<never, never>>
+
+/** Reads the permission names of one shape method (`never` when omitted). */
+export type ShapeMethodPermissionNames<TDefinition> =
+	'permissions' extends keyof TDefinition
+		? Exclude<
+				TDefinition['permissions' & keyof TDefinition],
+				undefined
+			> extends readonly (infer TName extends string)[]
+			? TName
+			: never
+		: never
 
 /**
  * Declares one shape method: the fields and commands a schema gains when its
@@ -91,6 +117,16 @@ export const shapeMethod = <const TDefinition extends ShapeMethodDefinition>(
 		if (definition[key] !== undefined && !isPlainRecord(definition[key])) {
 			throw new TypeError(`shape method ${key} must be a plain object`)
 		}
+	}
+	const permissions: unknown = definition.permissions
+	if (
+		permissions !== undefined &&
+		(!Array.isArray(permissions) ||
+			permissions.some(
+				(name) => typeof name !== 'string' || !permissionNamePattern.test(name),
+			))
+	) {
+		throw new TypeError('shape method permissions must list identifiers')
 	}
 	return immutableRecord({ ...definition })
 }

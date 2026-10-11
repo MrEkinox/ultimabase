@@ -102,31 +102,29 @@ const createApplication = (requiredProfile = false) => {
 					throw new TypeError('Missing fixture secret field')
 				return [
 					schemaAccess(User, {
-						read: {
-							allow: ({ context }) => {
-								const userId = context.getValue(passwordPrincipal)?.user.id
-								const version =
-									context.getValue(passwordSession)?.rotationVersion
-								reads.push({
-									userId,
-									version,
-									authority: context.access.mode,
-								})
-								if (mode === 'fail')
-									throw new FrameworkError(
-										'INTERNAL_ERROR',
-										'Profile read failed',
-									)
-								return (
-									mode !== 'deny' &&
-									userId !== undefined &&
-									version !== undefined
+						read: ({ context, where }) => {
+							const userId = context.getValue(passwordPrincipal)?.user.id
+							const version = context.getValue(passwordSession)?.rotationVersion
+							reads.push({
+								userId,
+								version,
+								authority: context.access.mode,
+							})
+							if (mode === 'fail')
+								throw new FrameworkError(
+									'INTERNAL_ERROR',
+									'Profile read failed',
 								)
-							},
-							where: ({ where }) =>
-								mode === 'missing'
-									? where.eq('id', '01991f00-0000-7000-8000-000000000000')
-									: where.ne('id', '01991f00-0000-7000-8000-000000000000'),
+							if (
+								mode === 'deny' ||
+								userId === undefined ||
+								version === undefined
+							) {
+								return false
+							}
+							return mode === 'missing'
+								? where.eq('id', '01991f00-0000-7000-8000-000000000000')
+								: where.ne('id', '01991f00-0000-7000-8000-000000000000')
 						},
 					}),
 					fieldAccess(User, secretField, ['secret'], { read: false }),
@@ -166,7 +164,7 @@ const createApplication = (requiredProfile = false) => {
 			password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
 		}),
 		policy,
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		httpPlugin({ appId: 'profile', master: { enabled: true } }),
 		restPlugin({
 			acknowledgeUnverifiedProtection: true,

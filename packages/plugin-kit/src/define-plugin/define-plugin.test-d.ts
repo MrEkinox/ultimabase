@@ -1,5 +1,8 @@
 import { UltimaBase, dateTimeField } from '@ultimabase/core'
-import type { PluginSchemaMutationDefinition } from '@ultimabase/core/plugin'
+import type {
+	PluginSchemaMutationDefinition,
+	PluginSourceSchemaPermissions,
+} from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -103,4 +106,32 @@ test('projects fields, commands and rules into form D schemas', () => {
 	}).with({})
 	// @ts-expect-error -- No command without the shape method.
 	void Plain.archiveOne
+})
+
+test('projects shape-method permissions for rule plugins (ADR-0317)', () => {
+	const App = UltimaBase.use(
+		definePlugin({
+			name: '@community/archive-permission',
+			shape: {
+				archivable: shapeMethod({ permissions: ['readArchived'] }),
+			},
+		}),
+	)
+	const Archived = App.Schema.define({
+		className: 'TypedPermissionArchived',
+		fields: (field) => ({ title: field.string() }),
+	})
+		.archivable()
+		.with({})
+	const Plain = App.Schema.define({
+		className: 'TypedPermissionPlain',
+		fields: (field) => ({ title: field.string() }),
+	}).with({})
+
+	void Archived
+	void Plain
+	expectTypeOf<
+		PluginSourceSchemaPermissions<typeof Archived>
+	>().toEqualTypeOf<'readArchived'>()
+	expectTypeOf<PluginSourceSchemaPermissions<typeof Plain>>().toBeNever()
 })

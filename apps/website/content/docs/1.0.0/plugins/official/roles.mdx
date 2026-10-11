@@ -132,10 +132,8 @@ export const profilePolicy = plugin({
 			schemas.values().map((schema) =>
 				schema === PasswordUser
 					? schemaAccess(PasswordUser, {
-							read: {
-								where: ({ principal, where }) =>
-									where.in('id', principal === undefined ? [] : [principal.id]),
-							},
+							read: ({ principal, where }) =>
+								where.in('id', principal === undefined ? [] : [principal.id]),
 						})
 					: schemaAccess(schema, {
 							read: schema === AppRole || schema === Post,
@@ -146,12 +144,12 @@ export const profilePolicy = plugin({
 })
 ```
 
-The configuration below enables the read fallback and installs this narrowing
-policy together. A compatible provider cannot grant a read that the base Access
+The configuration below opens reads without a schema rule
+(`allowWithoutRule: { read: true }`) and installs this narrowing policy
+together. A compatible provider cannot grant a read that the base Access
 decision denied. Keep both entries: omitting the provider would broaden the
-read fallback, while omitting the fallback would prevent User profile reads.
-Other native operations retain their deny default unless the schema grants
-one explicitly. The Core range matches the current pre-release packages;
+read opening, while omitting the opening would prevent User profile reads.
+Other native operations stay denied unless the schema grants one explicitly. The Core range matches the current pre-release packages;
 check the installed range when updating.
 
 ### Assemble the application
@@ -173,7 +171,7 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
 export const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
 	.use(passwordAuthPlugin())
-	.use(accessPlugin({ default: { read: true } }))
+	.use(accessPlugin({ allowWithoutRule: { read: true } }))
 	.use(profilePolicy)
 	.use(rolesPlugin())
 ```

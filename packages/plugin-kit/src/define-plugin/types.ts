@@ -10,6 +10,7 @@ import type {
 	PluginSchemaStaticsSource,
 	SchemaCommands,
 	SchemaFieldsHKT,
+	SchemaPermissions,
 	SchemaRulesHKT,
 	SchemaShapeMethod,
 	SchemaStaticsHKT,
@@ -20,6 +21,7 @@ import type {
 	ShapeMethodDefinition,
 	ShapeMethodMember,
 	ShapeMethodOptionsOf,
+	ShapeMethodPermissionNames,
 } from './shape.js'
 
 /** Shape methods of one plugin, keyed by method name. */
@@ -69,7 +71,14 @@ type CalledCommands<TShape extends ShapeMethods, TCalled> = CalledShapeMember<
 	'commands'
 >
 
-/** Statics slot of a plugin made by `definePlugin`: its commands. */
+// Permission names of the shape methods a declaration called.
+type CalledPermissions<TShape extends ShapeMethods, TCalled> = {
+	[TName in keyof TShape]: TName extends TCalled
+		? ShapeMethodPermissionNames<TShape[TName]>
+		: never
+}[keyof TShape]
+
+/** Statics slot of a plugin made by `definePlugin`: its commands and permissions. */
 export interface DefinedShapeCommands<
 	TShape extends ShapeMethods,
 > extends SchemaStaticsHKT {
@@ -80,7 +89,8 @@ export interface DefinedShapeCommands<
 				TName in keyof CalledCommands<TShape, keyof this['shape']>
 			]: CommandMutation<CalledCommands<TShape, keyof this['shape']>[TName]>
 		}
-	>
+	> &
+		SchemaPermissions<CalledPermissions<TShape, keyof this['shape']>>
 }
 
 /** Rules slot of a plugin made by `definePlugin`: its `.with({ ... })` entries. */

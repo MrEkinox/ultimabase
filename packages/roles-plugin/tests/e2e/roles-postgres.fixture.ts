@@ -5,12 +5,7 @@ import {
 	requestRoleResolverCapability,
 	defineRequestSubjectReferenceCleanup,
 } from '@ultimabase/core'
-import {
-	allMutations,
-	allOf,
-	not,
-	accessPlugin,
-} from '@ultimabase/access-plugin'
+import { allOf, not, accessPlugin } from '@ultimabase/access-plugin'
 
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
@@ -48,10 +43,10 @@ export const currentRoleMemberId = new RequestContextValue<string>(
 )
 
 const RoleSchemaApplication = UltimaBase.use(hooksPlugin())
-	.use(accessPlugin({ default: true }))
+	.use(accessPlugin({ allowWithoutRule: { all: true } }))
 	.use(rolesPlugin())
 const MissingProviderSchemaApplication = UltimaBase.use(hooksPlugin()).use(
-	accessPlugin({ default: true }),
+	accessPlugin({ allowWithoutRule: { all: true } }),
 )
 
 export const RoleMember = RoleSchemaApplication.Schema.define({
@@ -63,7 +58,10 @@ export const RoleMember = RoleSchemaApplication.Schema.define({
 
 const protectedRoleOperations = {
 	read: true,
-	...allMutations(false),
+	create: false,
+	update: false,
+	upsert: false,
+	delete: false,
 }
 
 /** Records principal resolution so request-local membership caching is observable. */
@@ -149,10 +147,7 @@ export const ProtectedPost = RoleSchemaApplication.Schema.define({
 	access: {
 		create: false,
 		delete: hasRole(AdministratorReference),
-		read: {
-			allow: true,
-			where: ({ where }) => where.eq('published', true),
-		},
+		read: ({ where }) => where.eq('published', true),
 		update: allOf(
 			hasRole(EditorReference),
 			hasRole(AdministratorReference),
@@ -318,7 +313,7 @@ export const createRoleApplication = (
 ) =>
 	new (UltimaBase.use(
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		externalRoleReferencePlugin,
 		rolesPlugin(),
 		roleResolverConsumerPlugin,
@@ -356,7 +351,7 @@ export const createProviderBoundaryApplication = (
 
 	const Application = UltimaBase.use(
 		hooksPlugin(),
-		accessPlugin({ default: true }),
+		accessPlugin({ allowWithoutRule: { all: true } }),
 		...(provider === 'community' ? [communityProvider] : []),
 		postgresPlugin({ schemaPolicy: 'ignore', url: connectionUri }),
 	)

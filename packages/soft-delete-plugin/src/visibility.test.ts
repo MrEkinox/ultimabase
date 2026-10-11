@@ -114,7 +114,7 @@ describe('soft-delete visibility', () => {
 		}
 	})
 
-	it('enforces the same visibility for Master and leaves disabled schemas untouched', async () => {
+	it('keeps the filter for Master unless its where names isDeleted, and leaves disabled schemas untouched', async () => {
 		const Enabled = declareDocument('SoftDeleteMasterDocument')
 			.softDelete()
 			.with({})
@@ -149,15 +149,23 @@ describe('soft-delete visibility', () => {
 			await Enabled.findMany(undefined, {
 				useMasterKey: true,
 			})
+			await Enabled.findMany(
+				{ where: { NOT: { title: 'x', isDeleted: true } } },
+				{ useMasterKey: true },
+			)
+			// No policy grants `readDeleted` to anonymous callers (fail-closed).
+			await Enabled.findMany({ where: { isDeleted: true } })
 			await enabled.dispose()
 			await disabled.start()
 			await Disabled.findMany(undefined)
 
-			expect(enabledAdapter.requests[0]?.rowFilter).toEqual({
-				field: 'isDeleted',
-				kind: 'equal',
-				value: false,
-			})
+			const visible = { field: 'isDeleted', kind: 'equal', value: false }
+			// Master's default read keeps the trash filter (ADR-0317, 6.1 amendment).
+			expect(enabledAdapter.requests[0]?.rowFilter).toEqual(visible)
+			// Any condition on isDeleted in its own where, even under NOT, lifts it.
+			expect(enabledAdapter.requests[1]?.rowFilter).toBeUndefined()
+			// A non-holder naming isDeleted still gets the filter.
+			expect(enabledAdapter.requests[2]?.rowFilter).toEqual(visible)
 			expect(disabledAdapter.requests[0]?.rowFilter).toBeUndefined()
 		} finally {
 			await enabled.dispose()

@@ -161,8 +161,8 @@ const SecuredPost = SecuredApplication.Schema.define({
 	className: 'Post',
 	access: {
 		archive: {
-			allow: ({ input }) => input.reason.length > 0,
-			where: ({ where }) => where.eq('workflowState', 'published'),
+			where: ({ input, where }) =>
+				input.reason.length > 0 && where.eq('workflowState', 'published'),
 			item: ({ item }) => item.workflowState === 'archived',
 		},
 		update: false,

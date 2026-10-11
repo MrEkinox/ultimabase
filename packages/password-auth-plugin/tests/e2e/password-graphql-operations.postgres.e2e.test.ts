@@ -146,7 +146,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				schemaPolicy: 'override',
 			}),
 			passwordPlugin,
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			profilePolicy,
 			graphqlPlugin({
 				acknowledgeUnverifiedProtection: true,

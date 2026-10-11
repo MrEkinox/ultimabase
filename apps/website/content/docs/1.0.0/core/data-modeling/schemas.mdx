@@ -250,7 +250,7 @@ export const Todo = App.Schema.define({
 })
 	.softDelete()
 	.with({
-		access: { read: { where: ({ where }) => where.eq('archived', false) } },
+		access: { read: ({ where }) => where.eq('archived', false) },
 	})
 ```
 

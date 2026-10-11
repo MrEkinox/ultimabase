@@ -10,7 +10,7 @@ import {
 
 // ADR-0307 decision 3: `findOneOrThrow` takes the input of `findOne`, is
 // Access's `one` read, and reports a hidden row exactly like a missing one.
-const App = UltimaBase.use(accessPlugin({ default: true }))
+const App = UltimaBase.use(accessPlugin({ allowWithoutRule: { all: true } }))
 
 const Doc = App.Schema.define({
 	className: 'RequiredReadDoc',
@@ -20,7 +20,7 @@ const Doc = App.Schema.define({
 	}),
 }).with({
 	// An Access rule object takes the same equality shorthand (ADR-0307).
-	access: { read: { where: () => ({ visible: true }) } },
+	access: { read: () => ({ visible: true }) },
 })
 
 const OneOnly = App.Schema.define({
@@ -28,7 +28,7 @@ const OneOnly = App.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 }).with({
 	access: {
-		read: { allow: { count: false, exists: false, many: false, one: true } },
+		read: { count: false, exists: false, many: false, one: true },
 	},
 })
 

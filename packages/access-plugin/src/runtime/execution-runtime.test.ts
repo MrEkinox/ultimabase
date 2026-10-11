@@ -23,7 +23,12 @@ const createDescriptor = (
 	identity: {
 		branch: 'read',
 		phase: 'access-operation',
-		rule: { rule: () => true, source },
+		rule: {
+			location: 'Fixture.access.read',
+			rule: () => true,
+			source,
+			step: 'operation',
+		},
 		ruleIndex: 0,
 		schema,
 	},

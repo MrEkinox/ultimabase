@@ -56,8 +56,7 @@ const Post = App.Schema.define({
 			// Many-row commands keep the one-row rules: a filter narrows the
 			// targeted rows, an item rule refuses one row and rolls all back.
 			archiveMany: {
-				allow: true,
-				where: { owner: { eq: 'ada' } },
+				where: () => ({ owner: { eq: 'ada' } }),
 				item: ({ originalItem }) => originalItem.title !== 'locked',
 			},
 		},

@@ -20,7 +20,7 @@ import {
 
 const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
 	.use(hooksPlugin())
-	.use(accessPlugin({ default: true }))
+	.use(accessPlugin({ allowWithoutRule: { all: true } }))
 
 const VisibleRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibleRecord',

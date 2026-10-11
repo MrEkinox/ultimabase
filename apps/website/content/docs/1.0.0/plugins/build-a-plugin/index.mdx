@@ -15,6 +15,7 @@ sources:
   - packages/http-plugin/README.md
   - tests/e2e/plugin-facade.postgres.e2e.test.ts
   - docs/adr/0316-plugin-facade-and-projection-slots.md
+  - docs/adr/0317-access-rules-and-explicit-openings.md
   - packages/testing/README.md
   - docs/concepts/open-plugin-authoring.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
@@ -146,6 +147,11 @@ An application then declares `App.Schema.define({ ... }).archivable().with({})`
 and calls `Post.archiveOne({ id })` or `Post.archiveMany({ where })`. The
 added fields are written by the server only; `authority: 'request'` commands
 are ruled by Access under their own name, `'master'` commands need Master.
+A shape method can also declare schema permissions, such as
+`permissions: ['readArchived']`: Access grants one by a rule of the same name,
+Master always holds it, and the plugin asks for it during a request with
+`holdsSchemaPermission(context, schema, 'readArchived')` from
+`@ultimabase/core/plugin` (ADR-0317).
 Rules and post-commit callbacks read the schema's `.with` values:
 
 ```ts title="src/audit.ts"

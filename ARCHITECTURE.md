@@ -820,6 +820,15 @@ Core Runtime still has no permission-specific bypass branch. A community Access
 engine may expose different syntax while using the same protected constraint
 contracts and must opt into bypass at the generic policy boundary.
 
+Plugin permissions are generic (ADR-0317): a plugin declares a named schema
+permission through `provideSchemaPermissions` and asks during a request with
+`holdsSchemaPermission`. Core answers `true` for Master, otherwise asks every
+protected policy's optional `permission` handler and holds the permission only
+when one grants it and none refuses it. Soft Delete's `readDeleted` is the
+first consumer and Access the first grantor; neither imports the other. Soft
+Delete keeps its trash filter on Master reads unless their own `where` names
+`isDeleted` (ADR-0317, 6.1 amendment).
+
 Official-compatible Access providers import public contracts from
 `@ultimabase/access-plugin`; independent policy engines use the generic kernel
 directly and own their protocol identity. Official-compatible Hook providers

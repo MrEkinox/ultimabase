@@ -35,7 +35,7 @@ export const securitySchemaPluginEntries = (plan: InitializerPlan): string[] =>
 		[
 			has(plan, 'access-plugin'),
 			hasAuth(plan)
-				? 'accessPlugin({ default: { read: true } })'
+				? 'accessPlugin({ allowWithoutRule: { read: true } })'
 				: 'accessPlugin()',
 		],
 		[has(plan, 'acl-permissions-plugin'), 'aclPlugin()'],
@@ -137,10 +137,8 @@ const profilePolicy = plugin({
   contributions: [provideAccessContributions('own-profile', ({ schemas }) =>
       schemas.values().map((schema) => schema === AppUser
         ? schemaAccess(AppUser, {
-            read: {
-              where: ({ principal, where }) =>
-                where.in('id', principal === undefined ? [] : [principal.id]),
-            },
+            read: ({ principal, where }) =>
+              where.in('id', principal === undefined ? [] : [principal.id]),
           })
         : schemaAccess(schema, { read: false })),
     )],
@@ -178,7 +176,7 @@ export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasProfilePolicy(plan),
-			'The generated User read policy exposes only the current session owner. Sign-up, login, and refresh require this readable profile; other User operations still use Access defaults.',
+			'The generated User read policy exposes only the current session owner. Sign-up, login, and refresh require this readable profile; other User operations stay denied unless `allowWithoutRule` opens them.',
 		],
 		[
 			has(plan, 'access-plugin'),

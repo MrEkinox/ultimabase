@@ -53,7 +53,8 @@ export type SoftDeleteShape = Readonly<{
 	/**
 	 * Soft-deletes this schema's rows: adds `isDeleted` and `deletedAt`, hides
 	 * deleted rows from every read and write, and adds the `softDeleteOne/Many`,
-	 * `restoreOne/Many` and `purgeOne/Many` commands. Without options,
+	 * `restoreOne/Many` and `purgeOne/Many` commands and the `readDeleted`
+	 * permission (ordinary reads then see deleted rows). Without options,
 	 * `deleteOne` and `deleteMany` soft-delete too; `{ mode: 'command' }` keeps
 	 * them physical. Call it before `.with(...)`.
 	 * @example `App.Schema.define({ className: 'Todo', fields }).softDelete().with({})`
@@ -61,7 +62,8 @@ export type SoftDeleteShape = Readonly<{
 	softDelete: ShapeMethodDefinition<
 		SoftDeleteOptions,
 		SoftDeleteFields,
-		SoftDeleteCommands
+		SoftDeleteCommands,
+		readonly ['readDeleted']
 	>
 }>
 
@@ -112,6 +114,7 @@ const shape: SoftDeleteShape = {
 		options: parseSoftDeleteOptions,
 		fields,
 		commands,
+		permissions: ['readDeleted'],
 	}),
 }
 

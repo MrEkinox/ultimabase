@@ -172,11 +172,10 @@ const AccessDocument = AccessMutationApplication.Schema.define({
 	}),
 	access: {
 		archive: {
-			allow: (input) => {
-				operationInputs.push(input)
-				return input.input.reason !== 'deny'
-			},
+			// One rule before loading (ADR-0317): no row, or a row filter.
 			where: (input) => {
+				operationInputs.push(input)
+				if (input.input.reason === 'deny') return false
 				filterInputs.push(input)
 				return input.where.eq('title', 'visible')
 			},
@@ -348,7 +347,7 @@ const executeArchive = (
 describe('schema mutation Access', () => {
 	it('rejects a forbidden selection before preparing a custom mutation', async () => {
 		const Restricted = UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 		).Schema.define({
 			className: 'AccessSchemaMutationRestrictedSelection',
 			fields: (field) => ({
@@ -359,7 +358,7 @@ describe('schema mutation Access', () => {
 		const adapter = new SchemaMutationAdapter()
 		const owner = createMutationOwner(Restricted)
 		const ultimabase = new (UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			owner.plugin,
 			databasePlugin(adapter),
 		))({
@@ -380,7 +379,7 @@ describe('schema mutation Access', () => {
 		expect(adapter.transactions[0]?.preparations).toHaveLength(0)
 	})
 
-	it('keeps custom operation, filter, item, and output rules independent', async () => {
+	it('keeps the custom operation rule, item, and output rules independent', async () => {
 		operationInputs.length = 0
 		filterInputs.length = 0
 		itemInputs.length = 0
@@ -438,7 +437,7 @@ describe('schema mutation Access', () => {
 		}
 	})
 
-	it('uses a fail-closed granular default and isolates application defaults', async () => {
+	it('uses fail-closed openings and isolates them between applications', async () => {
 		const deniedAdapter = new SchemaMutationAdapter()
 		const allowedAdapter = new SchemaMutationAdapter()
 		const booleanAdapter = new SchemaMutationAdapter()
@@ -446,7 +445,7 @@ describe('schema mutation Access', () => {
 		const allowedOwner = createMutationOwner(GranularAllowedDocument)
 		const booleanOwner = createMutationOwner(BooleanDefaultDocument)
 		const denied = new (UltimaBase.use(
-			accessPlugin({ default: { update: true } }),
+			accessPlugin({ allowWithoutRule: { update: true } }),
 			deniedOwner.plugin,
 			databasePlugin(deniedAdapter),
 		))({
@@ -456,7 +455,7 @@ describe('schema mutation Access', () => {
 		onTestFinished(() => denied.dispose())
 		const allowed = new (UltimaBase.use(
 			// Mutation results obey the read rules (ADR-0306).
-			accessPlugin({ default: { read: true, schemaMutations: true } }),
+			accessPlugin({ allowWithoutRule: { read: true, archive: true } }),
 			allowedOwner.plugin,
 			databasePlugin(allowedAdapter),
 		))({
@@ -465,7 +464,7 @@ describe('schema mutation Access', () => {
 		})
 		onTestFinished(() => allowed.dispose())
 		const booleanAllowed = new (UltimaBase.use(
-			accessPlugin({ default: true }),
+			accessPlugin({ allowWithoutRule: { all: true } }),
 			booleanOwner.plugin,
 			databasePlugin(booleanAdapter),
 		))({
@@ -527,7 +526,7 @@ describe('schema mutation Access', () => {
 		const ultimabase = new (UltimaBase.use(
 			provider,
 			// Mutation results obey the read rules (ADR-0306).
-			accessPlugin({ default: { read: true, schemaMutations: true } }),
+			accessPlugin({ allowWithoutRule: { read: true, archive: true } }),
 			owner.plugin,
 			databasePlugin(adapter),
 		))({
@@ -636,7 +635,7 @@ describe('schema mutation Access', () => {
 		onTestFinished(() => ultimabase.dispose())
 
 		await expect(ultimabase.start()).rejects.toThrow(
-			'Unknown request schema mutation Access branch: access.stale',
+			'Unknown Access rule: access.stale',
 		)
 		expect(adapter.transactions).toHaveLength(0)
 

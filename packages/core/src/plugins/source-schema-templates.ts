@@ -12,12 +12,14 @@ import type {
 	SchemaDefinition,
 } from '../schema/schema/definition.js'
 import type { SchemaItem } from '../schema/schema/values.js'
+import type { RegisteredSchema } from '../schema/schema/registered-schemas.js'
 import type { SchemaTypeInfo } from '../schema/type-info.js'
 import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 
 declare const pluginSourceMutationMethodType: unique symbol
 declare const pluginSourceSchemaMutationType: unique symbol
 declare const pluginSourceSchemaFieldValuesType: unique symbol
+declare const pluginSourceSchemaPermissionType: unique symbol
 
 /** Marks persisted developer-field values without Core system fields. */
 export interface PluginSourceSchemaFieldValues<
@@ -38,6 +40,43 @@ export type PluginSourceSchemaMutations<TSchema> =
 	TSchema extends PluginSourceSchemaMutationCarrier<infer TMutations>
 		? TMutations
 		: Readonly<Record<never, never>>
+
+/**
+ * Types the permissions a statics slot declares on one configured schema
+ * (ADR-0317), such as Soft Delete's `readDeleted`, so that policy plugins
+ * such as Access accept a rule of the same name without knowing its owner.
+ *
+ * @example `SchemaCommands<this['schema'], { … }> & SchemaPermissions<'readArchived'>`
+ */
+export interface SchemaPermissions<TPermission extends string> {
+	readonly [pluginSourceSchemaPermissionType]: Readonly<
+		Record<TPermission, true>
+	>
+}
+
+/** Reads the permission names declared on one configured schema class. */
+export type PluginSourceSchemaPermissions<TSchema> = TSchema extends {
+	readonly [pluginSourceSchemaPermissionType]: infer TPermissions
+}
+	? keyof TPermissions & string
+	: never
+
+/**
+ * The schema whose statics carry plugin commands and permissions, for one
+ * schema given to a rules slot: a registered `SchemaRef<"Todo">` (ADR-0297)
+ * names its schema without its statics, so it reads the registered schema.
+ * Read it only from lazy positions such as `.with` rules: it reads the
+ * application registry.
+ *
+ * @example `SchemaMutationAccessMap<SchemaRulesSource<this['schema']>>`
+ */
+export type SchemaRulesSource<TSchema> = TSchema extends {
+	readonly className: infer TClassName extends string
+}
+	? [RegisteredSchema<TClassName>] extends [never]
+		? TSchema
+		: RegisteredSchema<TClassName>
+	: TSchema
 
 /**
  * Types the commands a statics slot adds to one configured schema (ADR-0316):

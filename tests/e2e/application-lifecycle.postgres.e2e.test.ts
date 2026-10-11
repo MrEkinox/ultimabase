@@ -24,7 +24,7 @@ import {
 // ADR-0311: `start()` resolves to the application, `transaction(fn)` runs in
 // the current request or a fresh anonymous one, and `useMasterKey` is a
 // boolean whose `false` value never downgrades.
-const App = UltimaBase.use(accessPlugin({ default: true }))
+const App = UltimaBase.use(accessPlugin({ allowWithoutRule: { all: true } }))
 
 const LifecycleTodo = App.Schema.define({
 	className: 'LifecycleTodo',

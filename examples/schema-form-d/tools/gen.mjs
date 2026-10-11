@@ -82,8 +82,8 @@ export const ${name(i)} = App.Schema.define({
 	.acl()
 	.with({
 		access: {
-			read: { where: ({ where }) => where.eq('f2', false) },
-			update: { where: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')) },
+			read: ({ where }) => where.eq('f2', false),
+			update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
 			create: true,
 		},
 		hooks: {

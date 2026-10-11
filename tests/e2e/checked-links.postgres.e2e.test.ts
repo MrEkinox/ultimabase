@@ -25,7 +25,7 @@ import {
 
 // ADR-0308: one link vocabulary, and every `connect`, `set` or `disconnect`
 // target must be visible; a hidden target is reported like a missing one.
-const App = UltimaBase.use(accessPlugin({ default: true }))
+const App = UltimaBase.use(accessPlugin({ allowWithoutRule: { all: true } }))
 
 const Member = App.Schema.define({
 	className: 'LinkMember',
@@ -33,7 +33,7 @@ const Member = App.Schema.define({
 		name: field.string({ required: true }),
 		visible: field.boolean({ default: true }),
 	}),
-}).with({ access: { read: { where: () => ({ visible: true }) } } })
+}).with({ access: { read: () => ({ visible: true }) } })
 
 const Team = App.Schema.define({
 	className: 'LinkTeam',

@@ -55,10 +55,17 @@ export const assertAccessExplicitSelection = (
 	if (permitted === undefined) return
 	for (const { field } of readOperationResultSelection(operation).fields) {
 		if (!permitted.includes(field)) {
+			const fieldPlan = scope.plan.getField(scope.schema, [field])
 			throw createAccessDeniedError(
 				'access-field-read',
 				scope.operation,
-				scope.plan.getField(scope.schema, [field]),
+				fieldPlan,
+				{
+					rule:
+						fieldPlan?.read.item.find(({ rule }) => rule === false)?.location ??
+						`${scope.schema.className}.${field}.access.read.output`,
+					schema: scope.schema.className,
+				},
 			)
 		}
 	}

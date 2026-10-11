@@ -227,6 +227,8 @@ export type {
 	ProtectedPolicyEvaluate,
 	ProtectedPolicyMutationOutcomeGuard,
 	ProtectedPolicyOptions,
+	ProtectedPolicyPermission,
+	ProtectedPolicyPermissionInput,
 	ProtectedPolicyPreparedMutationGuard,
 	ProtectedPolicyReevaluate,
 	ProtectedPolicyRelationGuard,
