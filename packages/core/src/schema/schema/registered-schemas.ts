@@ -122,16 +122,26 @@ export type Item<TSchema> = {
 	]: NameOrSchemaContract<TSchema>['item'][TKey]
 }
 
+// The printed form of `CreateInput`: an alias prints its arguments as written,
+// so the exported type below applies it to the class name of a registered
+// schema and editors show `CreateInput<"Todo">` for `CreateInput<typeof Todo>`.
+type CreateInput<TSchema> = {
+	readonly [
+		TKey in keyof NameOrSchemaInputs<TSchema>['nestedCreate']
+	]: NameOrSchemaInputs<TSchema>['nestedCreate'][TKey]
+}
+
 /**
  * Create data of one schema: exactly the `data` of `createOne`, nested link
  * and create commands included (ADR-0310).
  * @example `const data: CreateInput<'Todo'> = { title: 'Write the slice' }`
  */
-export type CreateInput<TSchema> = {
-	readonly [
-		TKey in keyof NameOrSchemaInputs<TSchema>['nestedCreate']
-	]: NameOrSchemaInputs<TSchema>['nestedCreate'][TKey]
-}
+type CreateInputOf<TSchema> =
+	IsRegisteredSchema<TSchema> extends true
+		? CreateInput<ClassNameOf<TSchema>>
+		: CreateInput<TSchema>
+
+export type { CreateInputOf as CreateInput }
 
 /**
  * Update data of one schema: exactly the `data` of `updateOne`, with nested
