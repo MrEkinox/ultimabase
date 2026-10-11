@@ -12,7 +12,7 @@ const fixturePath = path.join(
 )
 
 describe('packed plugin operation execution', () => {
-	it.each(['../../packages/core/src/index.js', '@ultimabase/core'])(
+	it.each(['../../packages/core/src/plugin.js', '@ultimabase/core/plugin'])(
 		'keeps the tooling contract descriptive in %s',
 		(moduleName) => {
 			const fileName = path.resolve(

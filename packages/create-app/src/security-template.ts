@@ -109,7 +109,7 @@ export const securityApplicationImports = (
 			['@ultimabase/access-plugin', 'provideAccessContributions, schemaAccess'],
 		],
 		[hasAuth(plan), ['@ultimabase/password-auth-plugin', 'passwordAuthPlugin']],
-		[hasProfilePolicy(plan), ['@ultimabase/core', 'plugin']],
+		[hasProfilePolicy(plan), ['@ultimabase/core/plugin', 'plugin']],
 	])
 
 export const securitySchemaNames = (plan: InitializerPlan): string[] =>
