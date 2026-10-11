@@ -96,3 +96,13 @@ export const acceptHttpApplicationRequest = (
 		? httpPreDispatchErrorCodes.applicationRejected
 		: prepared
 }
+
+/**
+ * @internal Network requests carry headers; a request with headers but no
+ * captured originals reached the network path without its evidence.
+ */
+export const lacksNetworkHeaders = (
+	prepared: PreparedHttpServerRequest,
+): boolean =>
+	prepared.originalHeaders.length === 0 &&
+	[...prepared.input.request.headers.keys()].length > 0

@@ -76,7 +76,7 @@ export interface HttpPluginExports {
 	 *   .fetch(new Request('http://localhost/health'))
 	 * ```
 	 */
-	fetch(request: Request): Promise<Response>
+	readonly fetch: (request: Request) => Promise<Response>
 }
 
 const pluginId = '@ultimabase/http-plugin' as const

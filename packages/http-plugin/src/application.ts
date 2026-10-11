@@ -6,7 +6,10 @@ import {
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { acceptHttpApplicationRequest } from './application-identity.js'
+import {
+	acceptHttpApplicationRequest,
+	lacksNetworkHeaders,
+} from './application-identity.js'
 
 import { limitHttpBody } from './body-limit.js'
 import type { HttpEndpointLimits } from './endpoint-limits.js'
@@ -130,12 +133,6 @@ const requireRequestExecution = (
 	}
 	return state.requestExecution
 }
-
-// Network requests carry headers; a request with headers but no captured
-// originals reached the network path without its evidence.
-const lacksNetworkHeaders = (prepared: PreparedHttpServerRequest): boolean =>
-	prepared.originalHeaders.length === 0 &&
-	[...prepared.input.request.headers.keys()].length > 0
 
 const rateLimitKey = (endpoint: OwnedHttpEndpoint): string =>
 	endpoint.kind === 'mount'

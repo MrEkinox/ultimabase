@@ -273,13 +273,12 @@ describe('rate limiting by client address (ADR-0323 decision 7)', () => {
 
 	it('uses a replaceable store and stricter route limits', async () => {
 		const counts = new Map<string, number>()
-		const store: HttpRateLimitStore = {
-			increment: vi.fn((key: string) => {
-				const count = (counts.get(key) ?? 0) + 1
-				counts.set(key, count)
-				return Promise.resolve(count)
-			}),
-		}
+		const increment = vi.fn((key: string) => {
+			const count = (counts.get(key) ?? 0) + 1
+			counts.set(key, count)
+			return Promise.resolve(count)
+		})
+		const store: HttpRateLimitStore = { increment }
 		const http = await start({
 			rateLimit: { default: { perMinute: 100 }, store },
 			routes: {
@@ -292,7 +291,7 @@ describe('rate limiting by client address (ADR-0323 decision 7)', () => {
 		expect((await send(http, '/login', { method: 'POST' })).status).toBe(200)
 		expect((await send(http, '/login', { method: 'POST' })).status).toBe(429)
 		expect((await send(http, '/health')).status).toBe(200)
-		expect(store.increment).toHaveBeenCalledWith(
+		expect(increment).toHaveBeenCalledWith(
 			expect.stringContaining('POST /login'),
 			expect.any(Number),
 		)
@@ -334,8 +333,12 @@ describe('access log (ADR-0323 decision 8)', () => {
 		expect(lines[0]?.[0]).toMatch(
 			/^\[@ultimabase\/http-plugin\] POST \/echo 200 \d+ms$/u,
 		)
-		expect(lines[0]?.[1]).toStrictEqual({
-			durationMs: expect.any(Number),
+		const { durationMs, ...details } = (lines[0]?.[1] ?? {}) as Record<
+			string,
+			unknown
+		>
+		expect(typeof durationMs).toBe('number')
+		expect(details).toStrictEqual({
 			method: 'POST',
 			path: '/echo',
 			requestId: 'logged.request',

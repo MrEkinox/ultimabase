@@ -235,14 +235,11 @@ describe('port-free fetch() and network evidence (ADR-0323 decision 9)', () => {
 		if (application === undefined) throw new TypeError('Missing application')
 		const response = await dispatchCaptured(application)
 		expect(response.status).toBe(400)
-		expect(await response.json()).toMatchObject({
-			error: {
-				code: 'HTTP_BAD_REQUEST',
-				message: expect.stringContaining(
-					'carries no network connection headers',
-				),
-			},
-		})
+		const { error } = (await response.json()) as {
+			error: { code: string; message: string }
+		}
+		expect(error.code).toBe('HTTP_BAD_REQUEST')
+		expect(error.message).toContain('carries no network connection headers')
 	})
 })
 

@@ -51,10 +51,11 @@ describe('httpPlugin', () => {
 			schemas: [],
 		})
 		await application.initialize()
-		expect(application.plugin('@ultimabase/http-plugin')).toStrictEqual({
+		const { fetch, ...settings } = application.plugin('@ultimabase/http-plugin')
+		expect(typeof fetch).toBe('function')
+		expect(settings).toStrictEqual({
 			appId: 'blog',
 			browser: { enabled: false },
-			fetch: expect.any(Function),
 			master: { enabled: false },
 			requestTimeoutMs: 30_000,
 		})

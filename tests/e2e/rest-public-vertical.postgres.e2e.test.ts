@@ -548,8 +548,7 @@ describe(
 						})
 						.fetch(articlePath),
 				])
-			// ADR-0323: without the header a request reaches the only application;
-			// a different application ID is unknown.
+			// ADR-0323: header optional, a different application ID is unknown.
 			expect(headerless.status).toBe(200)
 			expect(unknownApplication.status).toBe(404)
 			expect(await unknownApplication.text()).toContain(
