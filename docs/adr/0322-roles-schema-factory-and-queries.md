@@ -1,12 +1,12 @@
 # ADR-0322: Role schema factory, linked hierarchy and role queries
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: the Roles plugin records, ADR-0297 (form D, amendment 3 and the step 4 `Register`
   workaround), ADR-0304 (principal and `hasRole`), ADR-0308 (links), ADR-0310 (plain results),
   ADR-0316 (slots); applies ADR-0288
 - Approval: decisions of the Roles review (`docs/handoff/revue-plugins/roles.md`, decisions 1 to
-  10, validated by the user on 2026-10-09); record to be accepted by the user
+  10, validated by the user on 2026-10-09); record accepted by the user on 2026-10-11
 - Already implemented elsewhere: current member from the Core principal and `hasRole` as a
   predicate (ADR-0304), plain results (ADR-0310), membership through `connect` (ADR-0308)
 

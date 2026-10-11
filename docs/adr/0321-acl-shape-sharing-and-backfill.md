@@ -1,12 +1,12 @@
 # ADR-0321: ACL as a shape method, atomic sharing and safe backfill
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: the ACL plugin records, ADR-0297 (shape methods), ADR-0304 (principal), ADR-0305
   (`can()`), ADR-0313 (logger), ADR-0316 (slots and `.with` rules), ADR-0320 (PostgreSQL
   synchronization); applies ADR-0288
 - Approval: decisions of the ACL review (`docs/handoff/revue-plugins/acl.md`, decisions 1 to 13,
-  validated by the user on 2026-10-09); record to be accepted by the user
+  validated by the user on 2026-10-09); record accepted by the user on 2026-10-11
 - Already implemented elsewhere: typed principal (ADR-0304), `can()` (ADR-0305)
 
 ## Context

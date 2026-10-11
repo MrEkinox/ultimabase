@@ -1,13 +1,13 @@
 # ADR-0323: HTTP foundation defaults and the Hono server
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-11
 - Refines: the HTTP and Hono plugin records, ADR-0303 (`ultimabase.health()`), ADR-0312
   (environment defaults), ADR-0313 (warnings and hints), ADR-0316 (`httpRoutes`); applies
   ADR-0288
 - Approval: decisions of the HTTP and Hono reviews (`docs/handoff/revue-plugins/http.md`,
   decisions 1 to 14, and `hono.md`, decisions 1 to 9, validated by the user on 2026-10-09);
-  record to be accepted by the user
+  record accepted by the user on 2026-10-11
 - Already implemented elsewhere: Hono listen defaults (ADR-0312), capability hints and the
   "nothing can answer" warnings (ADR-0313), `httpRoutes` for plugins (ADR-0316)
 
