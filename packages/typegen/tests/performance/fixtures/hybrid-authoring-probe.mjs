@@ -148,6 +148,14 @@ ${Array.from(
 export const application = new Benchmark({
   schemas: [${Array.from({ length: schemaCount }, (_, index) => schemaName(index)).join(', ')}],
 })
+
+// Register is required (ADR-0297 amendment 1); old-form rules read the
+// registry while typed, so this Typegen probe registers without schemas.
+declare module '@ultimabase/core' {
+  interface Register {
+    readonly app: CurrentCore.UltimaBase<readonly []>
+  }
+}
 `
 
 const createUsage = () => `
