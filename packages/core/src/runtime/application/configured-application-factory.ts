@@ -51,18 +51,22 @@ export type MergeInstalledPluginSources<
 		: TSource
 
 /**
- * Constructs one application with the exact immutable plugin tuple accumulated
- * by `UltimaBase.use()`, plus the schema factories its plugins add
- * (`App.RoleSchema`, ADR-0322).
+ * One configured factory plus the schema factories its plugins add
+ * (`App.RoleSchema`, ADR-0322); without any, exactly the factory.
  */
-export type ConfiguredUltimaBaseFactory<
+export type ConfiguredApplicationFactory<
 	TPlugins extends readonly PluginDefinition[],
 	TSource extends PluginSourceState = EmptyPluginSourceState,
-> = ConfiguredUltimaBaseConstructor<TPlugins, TSource> &
-	SchemaFactoriesFor<TSource['schemaFactories'], TSource>
+> = TSource['schemaFactories'] extends readonly []
+	? ConfiguredUltimaBaseFactory<TPlugins, TSource>
+	: ConfiguredUltimaBaseFactory<TPlugins, TSource> &
+			SchemaFactoriesFor<TSource['schemaFactories'], TSource>
 
-/** The constructor and `use()` of one configured factory. */
-export interface ConfiguredUltimaBaseConstructor<
+/**
+ * Constructs one application with the exact immutable plugin tuple accumulated
+ * by `UltimaBase.use()`.
+ */
+export interface ConfiguredUltimaBaseFactory<
 	TPlugins extends readonly PluginDefinition[],
 	TSource extends PluginSourceState = EmptyPluginSourceState,
 > {
@@ -75,7 +79,7 @@ export interface ConfiguredUltimaBaseConstructor<
 	 */
 	use<const TAdded extends readonly PluginDefinition[]>(
 		...plugins: TAdded
-	): ConfiguredUltimaBaseFactory<
+	): ConfiguredApplicationFactory<
 		AppendPlugins<TPlugins, TAdded>,
 		MergeInstalledPluginSources<TSource, TAdded>
 	>
@@ -109,12 +113,12 @@ export const appendConfiguredPlugins = <
 >(
 	factory: object,
 	...added: TAdded
-): ConfiguredUltimaBaseFactory<
+): ConfiguredApplicationFactory<
 	AppendPlugins<TPlugins, TAdded>,
 	MergeInstalledPluginSources<TSource, TAdded>
 > => {
 	if (added.length === 0) {
-		return factory as ConfiguredUltimaBaseFactory<
+		return factory as ConfiguredApplicationFactory<
 			AppendPlugins<TPlugins, TAdded>,
 			MergeInstalledPluginSources<TSource, TAdded>
 		>
@@ -158,7 +162,7 @@ export const appendConfiguredPlugins = <
 	}
 	return Object.freeze(
 		ConfiguredApplication,
-	) as unknown as ConfiguredUltimaBaseFactory<
+	) as unknown as ConfiguredApplicationFactory<
 		AppendPlugins<TPlugins, TAdded>,
 		MergeInstalledPluginSources<TSource, TAdded>
 	>
