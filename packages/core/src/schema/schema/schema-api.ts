@@ -14,7 +14,6 @@ import type { OperationOptions } from '../../query/operations/options.js'
 import type {
 	ExactGeneratedFindManyInput,
 	ExactGeneratedFindOneInput,
-	QueryBuilderInput,
 	QueryIncludedFieldFromInput,
 	QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
@@ -149,12 +148,6 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		input?: ExactGeneratedFindManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
 	): Promise<readonly SchemaReadResult<TContract, this, TSelection, TInclude>[]>
-
-	/** Executes one already-materialized immutable query without schema inference. */
-	findMany<TSelectedField extends QueryFieldName<TContract>, TIncludedField>(
-		input: QueryBuilderInput<TContract, TSelectedField, TIncludedField>,
-		options?: OperationOptions,
-	): Promise<readonly QueryResult<this, TSelectedField, TIncludedField>[]>
 
 	/** Reads the first matching row or returns `null`. */
 	findOne<
