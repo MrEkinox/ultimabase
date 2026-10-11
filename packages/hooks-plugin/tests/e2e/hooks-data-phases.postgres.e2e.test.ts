@@ -87,6 +87,7 @@ const Todo = App.Schema.define({
 		done: field.boolean({ default: false }),
 		list: field.pointer({ target: () => List }),
 		parent: field.pointer({ target: () => Todo }),
+		children: field.relation({ target: () => Todo, mappedBy: 'parent' }),
 		tags: field.relation({ target: () => Tag }),
 	}),
 }).with({
@@ -271,6 +272,29 @@ describe('Hooks on plain data (ADR-0318)', () => {
 			disconnect: [red.id],
 		})
 		expect(changes.list).toMatchObject({ id: list.id })
+	})
+
+	it('shows link changes of a relation mapped by an inverse pointer', async () => {
+		const parent = await Todo.createOne({ data: { title: 'Parent list' } })
+		const child = await Todo.createOne({ data: { title: 'Child item' } })
+		await waitForAfterCommit()
+		recorded.length = 0
+
+		await Todo.updateOne({
+			where: { id: { eq: parent.id } },
+			data: { children: { connect: [child.id] } },
+		})
+		// The parent sees its link change; the child sees its new pointer.
+		expect(recorded).toContainEqual(
+			expect.objectContaining({
+				children: { connect: [child.id], disconnect: [] },
+			}),
+		)
+		const childChanges = recorded.find(
+			(entry): entry is Readonly<{ parent: { readonly id: string } }> =>
+				typeof entry === 'object' && entry !== null && 'parent' in entry,
+		)
+		expect(childChanges?.parent.id).toBe(parent.id)
 	})
 
 	it('runs upsert hooks with the resolved mode', async () => {
