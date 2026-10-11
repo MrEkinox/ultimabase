@@ -66,21 +66,25 @@ export interface PluginSchemaOptionNamespace<
 	readonly staticOptions?: Readonly<Record<string, JsonValue>>
 }
 
+type SchemaOptionTemplate<TOptions> = {
+	readonly [
+		TName in keyof TOptions as SchemaOptionSource<TOptions[TName]> extends never
+			? never
+			: TName
+	]?: SchemaOptionSource<TOptions[TName]>
+}
+
+// Options typed elsewhere (`never` source, such as `.with` rules) project
+// nothing, so a namespace of only such options adds no template to resolve.
 type SchemaOptionSourceProjection<TOptions> =
 	TOptions extends Readonly<Record<string, SchemaOptionDefinition>>
-		? Readonly<{
-				schemaOptions: Readonly<{
-					template: {
-						readonly [
-							TName in keyof TOptions as SchemaOptionSource<
-								TOptions[TName]
-							> extends never
-								? never
-								: TName
-						]?: SchemaOptionSource<TOptions[TName]>
-					}
+		? [keyof SchemaOptionTemplate<TOptions>] extends [never]
+			? never
+			: Readonly<{
+					schemaOptions: Readonly<{
+						template: SchemaOptionTemplate<TOptions>
+					}>
 				}>
-			}>
 		: never
 
 type FieldOptionSourceProjection<TOptions> =
