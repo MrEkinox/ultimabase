@@ -146,7 +146,8 @@ credentials.
 
 ### Browser policy
 
-CORS is disabled by default. `browser: { origins, credentials? }` enables it
+Browser-origin behavior is disabled by default.
+`browser: { origins, credentials? }` enables it
 for exact origins. Allowed methods come from the mounted routes and allowed
 headers from the installed plugins: `Content-Type`, the application and
 request ID headers, `Authorization` with an authentication plugin, and the

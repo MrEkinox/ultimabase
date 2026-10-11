@@ -98,7 +98,7 @@ database before evaluating a public environment.
   failed-start path. The host process owns signal handling and graceful
   shutdown; [Application](/docs/1.0.0/core/application#start-and-dispose)
   explains the framework lifecycle.
-- Point the platform's health checks at `GET /health` (200 or 503 from
+- Point the platform's health checks at the `GET /health` health endpoint (200 or 503 from
   `ultimabase.health()`), and enable `accessLog` if you need request lines.
   Provide the metrics or tracing, backups, and operational alerts your
   deployment needs. UltimaBase currently ships no observability product, cache,
