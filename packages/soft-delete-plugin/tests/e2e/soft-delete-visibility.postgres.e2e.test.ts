@@ -264,7 +264,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		])
 	})
 
-	it('rejects caller tombstones and filters every ordinary read except Master (readDeleted)', async () => {
+	it('rejects caller tombstones and filters every ordinary read including Master', async () => {
 		const { database } = getFixture()
 		const createUntrustedVisibleRecord = VisibleRecord.createOne.bind(
 			VisibleRecord,
@@ -292,14 +292,11 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		await expect(
 			VisibleRecord.exists({ where: { id: { eq: active.id } } }),
 		).resolves.toBe(false)
-		// Master holds every schema permission, `readDeleted` included (ADR-0317).
 		await expect(
 			VisibleRecord.findMany(undefined, {
 				useMasterKey: true,
 			}),
-		).resolves.toEqual([
-			expect.objectContaining({ id: active.id, isDeleted: true }),
-		])
+		).resolves.toEqual([])
 		await expect(
 			VisibleRecord.findMany({ where: { isDeleted: { eq: true } } }),
 		).resolves.toEqual([])
@@ -378,7 +375,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 				{ where: { id: { eq: row.id } } },
 				{ useMasterKey: true },
 			),
-		).resolves.toMatchObject({ id: row.id, isDeleted: true })
+		).resolves.toBeNull()
 		await expect(
 			ReplaceRecord.deleteOne({ where: { id: row.id } }),
 		).resolves.toBeNull()

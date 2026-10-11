@@ -55,8 +55,9 @@ cannot set them. Core's generic protected constraint boundary adds
 `isDeleted = false` to ordinary singular and collection reads, counts,
 existence checks, relation and pointer traversal, eager materialization, and
 mutation target lookup. Reads by a caller holding the `readDeleted` schema
-permission skip it (Master always holds it; Access grants it by rule,
-ADR-0317); writes never do, and restore and purge see tombstones only.
+permission skip it (Access grants it by rule, ADR-0317); Master holds it but
+skips the filter only when its own `where` names `isDeleted` (6.1 amendment);
+writes never skip it, and restore and purge see tombstones only.
 
 The optional Access plugin rules each request command under its own name
 (`access.softDeleteOne`, `access.restoreOne`, …); it does not reuse
@@ -92,8 +93,8 @@ want deleted rows to release their unique values declare a partial unique index
 
 No actor or reason metadata, cascade policy, retention job or automatic purge.
 Reading tombstones goes through the `readDeleted` schema permission
-(ADR-0317): a caller who holds it, Master included, sees them in ordinary
-reads.
+(ADR-0317): a caller who holds it sees them in ordinary reads; Master sees them
+when its `where` names `isDeleted`.
 Application code should not update the tombstone manually; use the commands so
 protected constraints, authority, Hooks, and transactions remain intact.
 

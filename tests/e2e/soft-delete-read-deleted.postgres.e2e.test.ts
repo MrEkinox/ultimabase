@@ -1,5 +1,9 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase, type PolicyPredicate } from '@ultimabase/core'
+import {
+	MasterAuthority,
+	UltimaBase,
+	type PolicyPredicate,
+} from '@ultimabase/core'
 import {
 	anonymous,
 	contributeApplication,
@@ -43,8 +47,13 @@ const Note = SchemaApplication.Schema.define({
 			create: true,
 			delete: true,
 			readDeleted: isAuditing,
+			restoreOne: isAuditing,
 		},
 	})
+const Ref = SchemaApplication.Schema.define({
+	className: 'ReadDeletedRef',
+	fields: (field) => ({ note: field.pointer({ target: () => Note }) }),
+}).with({ access: { read: true, create: true } })
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
@@ -72,13 +81,22 @@ const createUltimabase = (database: PostgresWorkerFixture) =>
 		httpPlugin({ appId: 'read-deleted' }),
 		capturePlugin,
 		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
-	))({ logger: false, schemas: [Note] })
+	))({
+		logger: false,
+		masterAuthority: new MasterAuthority({
+			keys: [{ id: 'read-deleted-master', value: 'unused' }],
+			onUse: () => undefined,
+		}),
+		schemas: [Note, Ref],
+	})
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: ReturnType<typeof createUltimabase> | undefined
 let live = ''
 let older = ''
 let newer = ''
+let refToOlder = ''
+const master = { useMasterKey: true } as const
 
 const current = () => {
 	if (ultimabase === undefined || capture.current === undefined) {
@@ -131,6 +149,7 @@ beforeAll(async () => {
 	live = (await Note.createOne({ data: { title: 'live' } })).id
 	older = (await Note.createOne({ data: { title: 'older' } })).id
 	newer = (await Note.createOne({ data: { title: 'newer' } })).id
+	refToOlder = (await Ref.createOne({ data: { note: { connect: older } } })).id
 	await Note.deleteOne({ where: { id: older } })
 	await Note.deleteOne({ where: { id: newer } })
 }, 30_000)
@@ -220,5 +239,93 @@ describe('Soft Delete readDeleted through Access (ADR-0317)', () => {
 		} finally {
 			auditing = false
 		}
+	})
+
+	it('keeps the trash filter for Master reads unless their where names isDeleted', async () => {
+		// Server jobs with useMasterKey never include the trash silently.
+		await expect(
+			Note.findMany({ select: { title: true } }, master),
+		).resolves.toEqual([{ id: live, title: 'live' }])
+		await expect(Note.count({}, master)).resolves.toBe(1)
+		await expect(
+			Note.exists({ where: { id: { eq: older } } }, master),
+		).resolves.toBe(false)
+		await expect(
+			Note.findOne({ where: { id: { eq: older } } }, master),
+		).resolves.toBeNull()
+		await expect(
+			Ref.findOneOrThrow(
+				{ where: { id: refToOlder }, include: { note: {} } },
+				master,
+			),
+		).resolves.toMatchObject({ note: null })
+
+		// Any condition on isDeleted in Master's own where lifts the filter.
+		await expect(
+			Note.findMany(
+				{ where: { isDeleted: true }, orderBy: { deletedAt: 'asc' } },
+				master,
+			),
+		).resolves.toEqual([
+			expect.objectContaining({ id: older }),
+			expect.objectContaining({ id: newer }),
+		])
+		await expect(
+			Note.count({ where: { isDeleted: { in: [true, false] } } }, master),
+		).resolves.toBe(3)
+		await expect(
+			Note.findOneOrThrow(
+				{ where: { id: older, OR: [{ isDeleted: true }] } },
+				master,
+			),
+		).resolves.toMatchObject({ id: older, isDeleted: true })
+		await expect(
+			Note.exists({ where: { id: older, NOT: { isDeleted: false } } }, master),
+		).resolves.toBe(true)
+	})
+
+	it('lets holders include deleted targets, never non-holders', async () => {
+		auditing = true
+		try {
+			await expect(
+				Ref.findOneOrThrow({
+					where: { id: refToOlder },
+					include: { note: {} },
+				}),
+			).resolves.toMatchObject({ note: { id: older, isDeleted: true } })
+		} finally {
+			auditing = false
+		}
+		await expect(
+			Ref.findOneOrThrow({ where: { id: refToOlder }, include: { note: {} } }),
+		).resolves.toMatchObject({ note: null })
+		// Naming isDeleted grants nothing to a non-holder.
+		await expect(Note.count({ where: { isDeleted: true } })).resolves.toBe(0)
+	})
+
+	it('keeps restore and purge on deleted rows for Master and allowed callers', async () => {
+		await expect(Note.restoreOne({ id: newer })).rejects.toMatchObject({
+			code: 'PERMISSION_DENIED',
+		})
+		auditing = true
+		try {
+			await expect(Note.restoreOne({ id: newer })).resolves.toMatchObject({
+				id: newer,
+				isDeleted: false,
+			})
+		} finally {
+			auditing = false
+		}
+		await Note.deleteOne({ where: { id: newer } })
+		await expect(Note.restoreOne({ id: newer }, master)).resolves.toMatchObject(
+			{ id: newer, isDeleted: false },
+		)
+		await Note.deleteOne({ where: { id: newer } })
+		await expect(Note.purgeOne({ id: newer }, master)).resolves.toMatchObject({
+			id: newer,
+		})
+		await expect(
+			Note.count({ where: { isDeleted: { in: [true, false] } } }, master),
+		).resolves.toBe(2)
 	})
 })

@@ -531,8 +531,26 @@ export const Post = Application.Schema.define({
 	.with({ access: { read: true, readDeleted: hasRole(Auditor) } })
 ```
 
-Without a policy that grants it, nobody but Master holds it. Master always
-holds it, so trusted server code reads tombstones without extra rules.
+A caller without the permission never sees tombstones, whatever its `where`.
+Master holds every permission, but its reads keep the trash filter by default,
+so a server job using `useMasterKey` never processes deleted rows by accident
+and does not need `where: { isDeleted: false }`. A Master read returns
+tombstones only when its own `where` constrains `isDeleted`: any condition on
+the schema's `isDeleted`, at any depth of `AND`, `OR` and `NOT` (a condition
+inside a relation predicate does not count; an inclusion uses its own `where`):
+
+```ts title="src/server-jobs.ts"
+await Post.findMany(undefined, { useMasterKey: true }) // live rows only
+await Post.findMany({ where: { isDeleted: true } }, { useMasterKey: true }) // the trash
+await Post.count(
+	{ where: { isDeleted: { in: [true, false] } } },
+	{ useMasterKey: true },
+) // every row
+```
+
+The rule applies to `findMany`, `findOne`, `findOneOrThrow`, `count`, `exists`,
+inclusions, REST and GraphQL. Restore and purge keep reaching tombstones for
+Master and for allowed callers.
 
 With [Access](./access), each command has its own rule (`softDeleteOne`,
 `softDeleteMany`, `restoreOne`, `restoreMany`) and `readDeleted` its own
@@ -557,9 +575,9 @@ nested soft delete yet.
 - **Soft deletion returns `NOT_FOUND`:** the ID may be absent, already deleted,
   or hidden by a policy. Repeating soft deletion does not succeed again.
 - **A deleted record remains visible:** check the selected application, the
-  schema's mode, the operation result, and whether the caller holds
-  `readDeleted` (Master always does). Direct database reads still see
-  tombstones.
+  schema's mode, the operation result, whether the caller holds
+  `readDeleted`, and, for Master, whether its `where` names `isDeleted`.
+  Direct database reads still see tombstones.
 - **Native deletion cannot be restored:** in command mode, or on a schema
   without `.softDelete()`, native delete is permanent.
 - **Restoration is refused:** check `access.restoreOne` and that the ID is a

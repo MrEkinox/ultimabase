@@ -825,7 +825,9 @@ permission through `provideSchemaPermissions` and asks during a request with
 `holdsSchemaPermission`. Core answers `true` for Master, otherwise asks every
 protected policy's optional `permission` handler and holds the permission only
 when one grants it and none refuses it. Soft Delete's `readDeleted` is the
-first consumer and Access the first grantor; neither imports the other.
+first consumer and Access the first grantor; neither imports the other. Soft
+Delete keeps its trash filter on Master reads unless their own `where` names
+`isDeleted` (ADR-0317, 6.1 amendment).
 
 Official-compatible Access providers import public contracts from
 `@ultimabase/access-plugin`; independent policy engines use the generic kernel

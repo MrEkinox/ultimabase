@@ -104,3 +104,26 @@ helpers duplicate `true`/`false`, and a denial gives no server-side hint. Soft D
 
 Multi-tenant isolation (a later plugin), an `owner` shortcut (rejected by the review), field
 answers from `can()`, ACL's own options (6.3).
+
+## 6.1 amendment (2026-10-11)
+
+Validated by the user during the review of migration step 6.1.
+
+Master still holds every plugin permission, `readDeleted` included, and still
+bypasses authorization; Soft Delete's trash filter nevertheless stays a default
+for Master reads. A Master read (`findMany`, `findOne`, `findOneOrThrow`,
+`count`, `exists`, inclusions, REST and GraphQL alike) returns soft-deleted
+rows only when its own `where` explicitly constrains `isDeleted`: any condition
+on the `isDeleted` field of the read schema, at any depth of `AND`, `OR` and
+`NOT`. A condition inside a relation predicate concerns another schema and does
+not count, and an inclusion is read with its own `where`. For example,
+`where: { isDeleted: true }` reads the trash and
+`where: { isDeleted: { in: [true, false] } }` reads everything.
+
+Reason: server jobs run with `useMasterKey`; if Master reads included the
+trash, every job would have to add `where: { isDeleted: false }` and a
+forgotten filter would silently process deleted rows. Non-Master holders of
+`readDeleted` keep decision 7 (their ordinary reads include deleted rows), a
+caller without the permission never sees them whatever its `where`, and Soft
+Delete's own commands (`restoreOne/Many`, `purgeOne/Many`) keep reaching
+deleted rows for Master and for allowed callers.

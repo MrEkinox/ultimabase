@@ -1,6 +1,9 @@
 import {
 	getOperationSchema,
 	protectedPolicy,
+	readOperationQueries,
+	traverseQueryExpression,
+	type RuntimeLogicalOperationAst,
 	type CompiledSchemaRegistry,
 	type DatabaseRowFilterNode,
 	type ProtectedPolicyDefinition,
@@ -49,6 +52,27 @@ const tombstoneCommands: ReadonlySet<string> = new Set([
 	'restoreOne',
 ])
 
+/**
+ * Tells whether the caller's own filter constrains `isDeleted`: any condition
+ * on it anywhere in the root `where` (inside AND, OR and NOT included), but
+ * not a condition inside a relation predicate, which concerns another schema
+ * (ADR-0317, 6.1 amendment).
+ */
+export const constrainsTombstones = (
+	operation: RuntimeLogicalOperationAst,
+): boolean => {
+	let found = false
+	for (const query of readOperationQueries(operation)) {
+		if (query.where === undefined) continue
+		traverseQueryExpression(query.where.expression, (candidate) => {
+			if (candidate.kind === 'relation-predicate') return 'skip'
+			if (candidate.field === softDeleteTombstoneFieldName) found = true
+			return found ? 'skip' : 'continue'
+		})
+	}
+	return found
+}
+
 /** Recognizes this instance's restore and purge commands only. */
 const isTombstoneCommand = (
 	operation: unknown,
@@ -66,7 +90,9 @@ const isTombstoneCommand = (
 /**
  * Hides soft-deleted rows from every operation on the schemas that called
  * `.softDelete()`; restore and purge see only those rows. Reads by a caller
- * holding `readDeleted` (Master always does) see every row.
+ * holding `readDeleted` see every row, except Master: Master holds every
+ * permission, but its reads keep the filter unless their own `where`
+ * constrains `isDeleted`, so server jobs never include the trash silently.
  */
 export const createSoftDeleteVisibilityPolicy = (
 	schemas: CompiledSchemaRegistry,
@@ -89,7 +115,9 @@ export const createSoftDeleteVisibilityPolicy = (
 			}
 			if (
 				readOperations.has(operation.kind) &&
-				(await holdsSchemaPermission(context, schema, readDeletedPermission))
+				(context.access.mode === 'master'
+					? constrainsTombstones(operation)
+					: await holdsSchemaPermission(context, schema, readDeletedPermission))
 			) {
 				return undefined
 			}

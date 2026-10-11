@@ -171,6 +171,21 @@ diagnostic 50 : 0,78 → 0,79 ; 200 : 2,48 → 2,52 ; édition de règle 50 :
 l'édition volontaire). Lecture : neutre (écarts ≤ 1,6 %, dans le bruit des
 charges). Dossiers `gen/` supprimés.
 
+## Amendement 6.1 (2026-10-11, option B validée par l'utilisateur)
+
+Master garde toutes les permissions, mais le filtre de corbeille de Soft
+Delete reste un défaut pour ses lectures : une lecture Master ne renvoie des
+lignes supprimées que si son propre `where` contraint `isDeleted` (toute
+condition sur le champ `isDeleted` du schéma lu, à toute profondeur de
+`AND`/`OR`/`NOT` ; une condition dans un prédicat de relation ne compte pas ;
+une inclusion se lit avec son propre `where`). Les détenteurs non Master de
+`readDeleted` gardent la décision 7 ; les non-détenteurs ne voient jamais les
+lignes supprimées ; restore et purge sont inchangés. Implémentation :
+`constrainsTombstones` dans `packages/soft-delete-plugin/src/visibility.ts`.
+Section ajoutée à ADR-0317 ; README et page Soft Delete, concept, ARCHITECTURE
+mis à jour. Les deux tests publics qui faisaient voir la corbeille à Master
+reviennent aux attentes de `main`.
+
 ## Prochaine action vérifiable
 
 Revue du coordinateur, décisions de l'utilisateur sur les points non fixés
