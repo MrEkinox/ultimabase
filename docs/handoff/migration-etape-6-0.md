@@ -23,23 +23,65 @@ Critère de fin : porte complète sur le dernier commit de code
 (`yarn validate:full`, `yarn test:e2e:built`, `yarn website:test`), audit DX
 expliqué, banc forme D TS6/TS7.
 
-## État
+## État (commits wip(plugin-facade))
 
-Démarrage : ADR copié et indexé.
+Fait et vérifié par tests ciblés :
 
-## Décisions
+- Exports d'auteur déplacés (163 noms, 29 valeurs ; liste = tout ce que
+  `foundation.ts` exportait depuis `./plugins/`) ; importeurs, sortie Typegen
+  (`import type * as CorePlugin from '@ultimabase/core/plugin'` pour
+  `PluginSchemaMutationDefinition`/`PluginOperationDefinition`), chemins des
+  services de langage et `tsconfig.source.json` de la forme D (ses 20 erreurs
+  préexistantes venaient de `core/plugin` non mappé : 0 maintenant).
+- Core : emplacements (`schema-extensions.ts`, `source-projections.ts`),
+  enregistrement de la forme dans les options sous un symbole
+  (`DeclaredSchemaShape`, `SchemaShapeOf`) pour ne pas heurter les sélecteurs
+  des gabarits (`.acl()` pose l'option `acl`), `SchemaCommands`,
+  `plugin<…, TSource>`, `readSchemaRules`, mutations `target: 'many'`
+  (`target-resolution.ts`, enveloppe `plugin-schema-mutation-many`,
+  `ApplicationSchemaMutationManyMethod`), reformulation des violations
+  d'unicité des commandes (`unique-conflict.ts`), `null` accepté pour un champ
+  optionnel dans l'effet d'une commande.
+- plugin-kit `define-plugin/` ; http-plugin `httpRoutes`.
+- Soft Delete réécrit sur `definePlugin` (aucun `plugin()` brut) ; tests
+  unitaires, de type, intellisense et e2e PostgreSQL du paquet en forme D.
+- Sondes : `tests/e2e/fixtures/plugin-facade/{audit,archive,health}.ts`,
+  `tests/e2e/plugin-facade.postgres.e2e.test.ts` (6 tests verts).
+- Tests racine, exemple minimal (types régénérés), create-app, sondes de
+  performance Typegen, README racine.
 
-(à compléter)
+Reste : tests Core/plugin-kit/http-plugin des nouveautés, compilation TS7,
+documentation (site, README des paquets), porte complète, audit DX, banc.
 
-## Approches rejetées
+## Décisions prises (non fixées par l'ADR, à confirmer)
 
-(à compléter)
+- Méthode de forme : un seul argument optionnel, objet d'options ; omis =
+  `{}` (validateur appelé sur `{}`).
+- `command()` : options `target: 'one' | 'many'` et `checkReadable: 'before'`
+  en plus de `authority`/`effect`/`data` (Soft Delete en a besoin).
+- Commandes de requête à une ligne : liaisons REST et GraphQL sans entrée
+  générées par plugin-kit (temporaire jusqu'à 6.6, commentaire TEMPORARY) pour
+  garder les routes que Soft Delete exposait (`/soft-delete-one`,
+  `softDeleteOne<Classe>`, plus `restore-one`). Les commandes `Many` n'ont pas
+  de liaison (Core la refuse).
+- Noms des mutations : `<paquet sans @, / → .>.<méthode kebab>.<commande kebab>`
+  (`ultimabase.soft-delete-plugin.soft-delete.restore-one`).
+- Règle Access d'une commande `Many` : sa propre clé (`softDeleteMany`).
+- Message de conflit à la restauration : générique dans Core pour toute
+  commande de plugin, `Cannot run restoreOne on Todo <id>: slug is now used by
+  another row.` ; les valeurs restent dans `internalDetails` (les règles de
+  lecture de champ peuvent les cacher).
+- `restoreOne/Many` : autorité `request` (règle Access, fermée par défaut
+  avec Access) ; `purgeOne/Many` : Master.
+- Statiques des emplacements non évaluées pour un nom de classe généré par
+  Typegen (ancienne forme) : les surfaces générées les typent déjà ; sinon la
+  sonde Typegen « current » passait de 4,1 s à 17,6 s à 10 schémas.
 
 ## Preuves
 
-(à compléter)
+(complétées à la porte finale)
 
 ## Prochaine action vérifiable
 
-Déplacement des exports d'auteur vers `@ultimabase/core/plugin`, puis
-`yarn typecheck` code 0.
+Tests Core (emplacements, many-row, accesseur, conflit), plugin-kit et
+`httpRoutes` ; puis documentation et porte.
