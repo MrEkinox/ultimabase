@@ -180,6 +180,32 @@ Consigné dans ADR-0318, section « 6.2 amendment (2026-10-11) ».
 - `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
   (59) ».
 
+### Porte de l'amendement (sur 784781e6, dernier commit de code)
+
+- `packages/*/dist` et `*.tsbuildinfo` supprimés, puis `yarn validate:full` :
+  un premier passage a échoué sur un délai dépassé
+  (`schema-form-d-types.e2e.test.ts`, 120 s, charge moyenne 14,7 ; le test
+  seul passe en 19 s) ; second passage depuis un état propre : code 0.
+  « All matched files use Prettier code style! » ; lint 0 erreur (49 + 18 + 2
+  avertissements, inchangés) ; performance « Test Files 3 passed (3) / Tests 4
+  passed (4) » ; couverture « Test Files 713 passed (713) / Tests 3448 passed
+  (3448) / Type Errors no errors », All files 92,65 / 86,31 / 97,24 / 93,32 ;
+  site « Test Files 17 passed (17) / Tests 66 passed (66) ».
+- `yarn test:e2e:built` : code 0, « Test Files 129 passed (129) / Tests 563
+  passed (563) ».
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+- Audit DX contre une base 50209ff0 neuve (supprimée ensuite) : 1 503
+  différences (1 481 avant l'amendement). Les 22 de plus : Core exporte
+  `PostCommitEffectIdentity` (déclaration, export, survols de membres,
+  complétions) et `deferCurrentTransactionEffect` prend une identité
+  optionnelle ; `RuntimeBehaviorStages`/`RuntimePipelineTransactionScope`
+  (JSDoc) ; Hooks exporte `GlobalCommandHookInput` et
+  `SchemaMutationAllHookInput` (survols de membres), `all` des contrats
+  natifs et globaux élargi, survol de `kind` dans `hooks-rules.test-d.ts`.
+- Banc non relancé : seul le type de `all` gagne une union sur la carte des
+  commandes du schéma (vide sans commande de plugin).
+
 ### Audit DX (`--only` 23 paquets, `tests`, `examples/minimal`, `examples/todo-backend`)
 
 Base : worktree détaché de 50209ff0 (construit puis supprimé). 1 481
