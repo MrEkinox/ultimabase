@@ -26,6 +26,11 @@ describe('HTTP application capability compatibility', () => {
 		{ patch: { appId: '' }, message: 'must be a non-empty string' },
 		{ patch: { authority: {} }, message: 'capability is malformed' },
 		{ patch: { requestTimeoutMs: 0 }, message: 'capability is malformed' },
+		// ADR-0323: every application carries its deadline.
+		{
+			patch: { requestTimeoutMs: undefined },
+			message: 'capability is malformed',
+		},
 	])(
 		'rejects incompatible provider values before setup: $message',
 		async ({ patch, message }) => {
@@ -49,7 +54,7 @@ describe('HTTP application capability compatibility', () => {
 									authority: { master: { enabled: false } },
 									protocolVersion: httpApplicationProtocolVersion,
 									originalHeaderMode: httpOriginalHeaderMode,
-									requestTimeoutMs: undefined,
+									requestTimeoutMs: 30_000,
 									routeGraph: {
 										browserBootstraps: [],
 										endpoints: [],

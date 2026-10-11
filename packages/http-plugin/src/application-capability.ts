@@ -31,8 +31,7 @@ const assertHttpApplication: (
 		!isPlainRecord(application.authority) ||
 		!isPlainRecord(application.authority.master) ||
 		typeof application.authority.master.enabled !== 'boolean' ||
-		(application.requestTimeoutMs !== undefined &&
-			!isHttpRequestTimeoutMs(application.requestTimeoutMs)) ||
+		!isHttpRequestTimeoutMs(application.requestTimeoutMs) ||
 		!isPlainRecord(application.routeGraph) ||
 		typeof application.fetch !== 'function'
 	) {
