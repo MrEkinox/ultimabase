@@ -9,21 +9,7 @@ import type {
 	PostgresQueryResult,
 } from './contracts.js'
 import { readPostgresDriverCode } from './driver-error.js'
-
-/** Debugging switches of `postgresPlugin({ debug })` (ADR-0320). */
-export interface PostgresDebugOptions {
-	/**
-	 * Logs every statement and its duration at `info`, never parameter values.
-	 * @example `debug: { logQueries: true }`
-	 */
-	readonly logQueries?: boolean
-	/**
-	 * Logs statements slower than this many milliseconds at `warn`, never
-	 * parameter values; cheap enough for production.
-	 * @example `debug: { slowQueryMs: 500 }`
-	 */
-	readonly slowQueryMs?: number
-}
+import type { PostgresDebugOptions } from './settings.js'
 
 const hasQueryResultRows = (value: unknown): value is PostgresQueryResult =>
 	typeof value === 'object' &&

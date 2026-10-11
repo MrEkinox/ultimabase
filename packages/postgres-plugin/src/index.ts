@@ -15,11 +15,11 @@ export type {
 	PostgresSchemaOption,
 	PostgresSchemaRules,
 } from './options.js'
-export type { PostgresDebugOptions } from './connection/query-log.js'
 export type {
 	PostgresConnectionOptions,
+	PostgresDebugOptions,
 	PostgresSslOptions,
-} from './plugin/plugin-options.js'
+} from './connection/settings.js'
 
 export type { PostgresSchemaPolicy } from './synchronization/contracts.js'
 export type { PostgresSchemaPolicyOptions } from './plugin/postgres-plugin.js'

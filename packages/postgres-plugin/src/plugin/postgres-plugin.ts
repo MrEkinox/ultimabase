@@ -31,10 +31,11 @@ import {
 	createManagedPostgresConnection,
 	type ManagedPostgresConnection,
 } from '../connection/managed-connection.js'
-import {
-	observePostgresQueries,
-	type PostgresDebugOptions,
-} from '../connection/query-log.js'
+import { observePostgresQueries } from '../connection/query-log.js'
+import type {
+	PostgresConnectionOptions,
+	PostgresDebugOptions,
+} from '../connection/settings.js'
 import { postgresPluginName } from '../constants.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
 import {
@@ -48,7 +49,6 @@ import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
 import {
 	normalizePostgresConnectionOptions,
 	normalizePostgresDebugOptions,
-	type PostgresConnectionOptions,
 	type PostgresConnectionSettings,
 } from './plugin-options.js'
 

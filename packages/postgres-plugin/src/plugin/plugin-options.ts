@@ -3,51 +3,21 @@ import {
 	type PluginOptionsParser,
 } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import type { PoolConfig } from 'pg'
-
-import type { PostgresDebugOptions } from '../connection/query-log.js'
-
-/** TLS settings of a URL connection; `sslmode` in the URL takes precedence. */
-export interface PostgresSslOptions {
-	/** Rejects a server certificate that the CA does not sign. @default true */
-	readonly rejectUnauthorized?: boolean
-	/** PEM certificate authority, for a private or self-signed CA. */
-	readonly ca?: string
-	/** PEM client certificate, for mutual TLS. */
-	readonly cert?: string
-	/** PEM client key, for mutual TLS. */
-	readonly key?: string
-}
-
-/**
- * Pool settings of a connection created from `url` or `DATABASE_URL`
- * (ADR-0320). An injected `pool` keeps its own settings.
- *
- * @example `connection: { max: 20, statementTimeoutMs: 5000, connectRetries: 5 }`
- */
-export interface PostgresConnectionOptions {
-	/** Maximum number of pooled connections. @default 10 */
-	readonly max?: number
-	/** Requires TLS: `true` verifies the server certificate with the system CAs. */
-	readonly ssl?: boolean | PostgresSslOptions
-	/** Cancels a statement running longer than this, in milliseconds. @default no limit */
-	readonly statementTimeoutMs?: number
-	/** Closes a pooled connection idle for this long, in milliseconds; 0 keeps it. @default 10000 */
-	readonly idleTimeoutMs?: number
-	/**
-	 * Retries the first connection this many times, waiting 0.5 s, 1 s, 2 s,
-	 * 4 s, then 8 s between attempts (a database still starting in Docker or
-	 * Kubernetes). @default 0
-	 */
-	readonly connectRetries?: number
-}
+import type {
+	PostgresDebugOptions,
+	PostgresSslOptions,
+} from '../connection/settings.js'
 
 /** Normalized connection settings applied by the plugin. */
 export interface PostgresConnectionSettings {
 	readonly connectRetries: number
-	readonly pool: Readonly<
-		Pick<PoolConfig, 'idleTimeoutMillis' | 'max' | 'ssl' | 'statement_timeout'>
-	>
+	/** Driver pool settings, in the driver's own names. */
+	readonly pool: Readonly<{
+		idleTimeoutMillis?: number
+		max?: number
+		ssl?: boolean | PostgresSslOptions
+		statement_timeout?: number
+	}>
 }
 
 const readInteger = (
@@ -70,7 +40,7 @@ const readInteger = (
 
 const sslKeys = ['ca', 'cert', 'key', 'rejectUnauthorized'] as const
 
-const readSsl = (value: unknown): PoolConfig['ssl'] => {
+const readSsl = (value: unknown): boolean | PostgresSslOptions | undefined => {
 	if (value === undefined || typeof value === 'boolean') return value
 	if (!isPlainRecord(value)) {
 		throw new TypeError(
