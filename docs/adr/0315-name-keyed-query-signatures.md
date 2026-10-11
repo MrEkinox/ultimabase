@@ -58,3 +58,28 @@ schema has a registered name.
 
 Plugin projection templates (step 6, with the plugin facade), removal of the old form and of
 Typegen (step 6), the shape of query inputs themselves.
+
+## Step 5b amendment (2026-10-11)
+
+Measured before implementation (`docs/handoff/migration-core-etape-5b.md`), name-keyed arguments
+cost more than they save: finding a schema by name in the registry is linear in the number of
+schemas for each name, so quadratic for an application (edit→diagnostics at 200 schemas
+7.24 → 9.41 s), and three cheaper lookups failed. The per-call cost of `findMany` comes from
+checking the target schema's whole contract, write inputs included, not from the argument
+shapes. The user decided on 2026-10-11:
+
+1. **Decisions 1 and 2 are withdrawn.** Query arguments and results keep their structural types;
+   no `FindManyArgs`, `Select`, `Include`, `Where` or `OrderBy` alias is added. A name-keyed form
+   needs a constant-time lookup by name (for example a name map in `Register`, which would change
+   ADR-0297's contract) and is reconsidered only after migration step 6 if the targets remain out
+   of reach.
+2. **Decision 3 stands**: one signature per method; the `QueryBuilder` overload of `findMany` is
+   removed.
+3. **Read-only contract check.** Core resolves a schema's contract through a check that compares
+   only its read parts (write inputs unknown); contracts are still declared against the full
+   type. Measured: edit→diagnostics 2.18 → 2.03 s at 50 schemas, 7.31 → 6.85 s at 200.
+4. **Shorter typo diagnostics without names.** With one signature, the `select` and `include`
+   type parameters take loose constraints and exactness is checked inside the parameter, so a
+   typo reports the misspelled field instead of "No overload matches this call". Kept only if it
+   costs nothing measurable.
+5. Decision 4 (behaviour unchanged) stands; decision 5 no longer applies.
