@@ -94,18 +94,25 @@ declare module '@ultimabase/core' {
   (never reading the schema, so no cycle), `SchemaStaticsHKT` the added
   statics, typed with `SchemaCommands<this['schema'], { … }>`, and
   `SchemaRulesHKT` the `.with` entries, which replace plugin options in form D.
-  The template projections (`schemaFields`, `schemaClass`, `schemaOptions`)
-  remain for ACL, PostgreSQL, REST and GraphQL until their migration.
-  `definePlugin` from `@ultimabase/plugin-kit` writes these slots for the
-  common cases.
+  A rules slot also reads `this['shape']`, so a rule can be required once its
+  shape method is called (ACL's `acl.default`, ADR-0321). The template
+  projections (`schemaFields`, `schemaClass`, `schemaOptions`) remain for REST
+  and GraphQL until their migration. `definePlugin` from
+  `@ultimabase/plugin-kit` writes these slots for the common cases.
+- `SchemaFactoriesHKT` and `provideSchemaFactories` add schema factories to
+  the configured application, such as Roles' `App.RoleSchema` (ADR-0322). A
+  factory receives `define(options, statics)`: the same declaration chain as
+  `App.Schema.define`, with `statics` bound to every class it creates, and
+  starts its declarations with `DeclaredSchemaShape<SchemaFactoryShape<'Name'>>`
+  so its statics slot recognizes them.
 - The `Register` declaration gives name-keyed types (`Model<'Todo'>`,
   `Item<'Todo'>`, `CreateInput<'Todo'>`, `Where<'Todo'>`, `Select<'Todo'>`).
   ADR-0297 makes it required; that type error is not enforced yet.
 
 Both forms coexist during the Core migration: the declaration below, with
 plugin options in `define` and the Typegen graph, keeps working unchanged until
-every consumer is migrated. Plugin schema factories (`App.RoleSchema`,
-`App.PasswordUserSchema`) are not available in the new form yet.
+every consumer is migrated. Roles provides `App.RoleSchema` in the new form;
+`App.PasswordUserSchema` arrives with Password Auth's migration.
 
 ## Static schema compilation and relationship targets
 
@@ -1786,7 +1793,9 @@ const publishedOnlyPlugin = () =>
 ```
 
 `guard` only allows or throws. A protected policy's `evaluate` effects may deny
-the request (`allowed: false`), AND private row filters, and return allowed
+the request (`allowed: false`, with an optional server-side `reason` added to
+the error message; inclusions still read the denial as absence), AND private
+row filters, and return allowed
 `inputFields` and `selectionFields` that compose by intersection. ADR-0289
 removed the opaque `constraints` effect, `databaseConstraint` and the adapter
 constraint compilers: no production policy produced them. Restricted mutation
@@ -2626,6 +2635,15 @@ sends such a leaf. Lists remain unsupported, and the opt-in does not grant
 any other operator. See the
 [`community field example`](examples/schema/plugin-field-containment.md).
 
+A plugin field may also declare, without placing callbacks in metadata:
+`snapshotUpdateInput`, an extra value its update data accepts (typed with
+`FieldUpdateInputCarrier`, such as ACL's `{ grant }`), which the owning plugin
+turns into a field value in a singular prepared update; `existingRows(schema)`,
+the value existing rows receive when storage adds the field to a table with
+rows, or why there is none; and `storageDefault`, the default storage keeps
+for rows written without the field. Adapters read them with
+`readPluginFieldExistingRows` and `readPluginFieldStorageDefault` (ADR-0321).
+
 ## Plugin-owned declaration targets
 
 Core provides provenance-checked generic schema, nested-field, and
@@ -2656,7 +2674,10 @@ await lifecycle.dispose()
 ```
 
 Setup and forward phases use dependency order. The forward sequence is
-`connect`, `prepareSchema`, `startRuntime`, then `startTransports`. Stop and
+`connect`, `prepareSchema`, `startRuntime`, then `startTransports`; `ready`
+then runs once the application is started and accepts queries, before
+`start()` resolves, for seeding work such as Roles `ensure` (ADR-0322). A
+failing `ready` fails `start()`. Stop and
 dispose use reverse dependency order. Setup, start, stop, and dispose retain one
 promise while active and do not repeat completed work. A lifecycle cannot start
 again after stop or disposal; calling stop before start is a no-op.

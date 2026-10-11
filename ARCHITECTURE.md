@@ -784,15 +784,22 @@ remove the private Access state.
 Persisted object ACL is an independent protected policy. Its immutable value
 stores public, authenticated, exact schema-qualified principal, and
 schema-qualified role grants for `read`, `update`, and `delete`. The reserved
-ACL field itself is visible and mutable only under trusted master execution;
-ordinary object update grants never authorize ACL management.
+ACL field is replaced only under trusted master execution; ordinary object
+update grants never authorize ACL management. Clients share a row through
+atomic `grant`/`revoke` update inputs only when the schema's `clientSharing`
+rule allows that locked row, and never grant a right they do not hold
+(ADR-0321).
 The ACL package reads the Core current principal (ADR-0304) and consumes the
 separate neutral role resolver; it never imports a concrete authentication or
 roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.
 
-The direct plugin-owned `acl` schema option owns row-aware defaults and shared create/update
-input resolution through public capability middleware. `aclPlugin()` owns an
+The `.acl()` shape method adds the field through Core's fields slot, and the
+`acl` rule of `.with(...)` owns row-aware defaults and input recomputation
+through public capability middleware. The field declares, through neutral
+plugin-field metadata, the value existing rows receive when storage adds it
+(`existingRows`) and its storage default; PostgreSQL synchronization applies
+them without knowing ACL. `aclPlugin()` owns an
 independent monotonic protected policy and declares master bypass. It does not
 depend on the official Access package. Core Runtime has no ACL stage or subject
 vocabulary. PostgreSQL stores one indexed JSONB ACL document on each protected
