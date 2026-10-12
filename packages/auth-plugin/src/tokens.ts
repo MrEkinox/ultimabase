@@ -93,11 +93,7 @@ const findCurrentToken = async (
 	const record = await privateStore(collections.tokens).findUnique({
 		where: { digest: digestToken(token) },
 	})
-	if (
-		record === null ||
-		record.purpose !== purpose ||
-		Date.parse(record.expiresAt) <= now
-	) {
+	if (record?.purpose !== purpose || Date.parse(record.expiresAt) <= now) {
 		return undefined
 	}
 	const state = await readUserState(collections, record.userId)

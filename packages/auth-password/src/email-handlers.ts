@@ -1,18 +1,13 @@
-import { randomUUID } from 'node:crypto'
-
 import {
 	rejectNotConfigured,
 	rejectToken,
 	rejectUnverifiedEmail,
-	type AttemptSubject,
 	type AuthServices,
-	type AuthTokenPurpose,
 	type AuthUserRecord,
 } from '@ultimabase/auth-plugin'
 import { FrameworkError, privateStore } from '@ultimabase/core'
 import {
 	contributeOperation,
-	runAfterCommit,
 	type PluginOperationContribution,
 	type PluginOperationPublicDeclaration,
 	type RequestContext,
@@ -22,10 +17,10 @@ import { immutableRecord } from '@ultimabase/shared'
 import { swapCredential, type CredentialCollection } from './credentials.js'
 import type { ResolvedPasswordEmailOptions } from './email-options.js'
 import { passwordEmailOperations } from './email-operations.js'
+import { accepted, createEmailRequests, deliver } from './email-requests.js'
 import {
 	createCurrentPasswordVerifier,
 	passwordMethodName,
-	passwordSubject,
 	tryNormalize,
 	type PasswordTransaction,
 } from './handlers.js'
@@ -46,21 +41,9 @@ interface PasswordEmailHandlerOptions {
 	readonly services: AuthServices
 }
 
-const accepted = immutableRecord({ accepted: true as const })
-
 // Attempt namespaces beside logins (`password`): each request counts once.
 const resetRequests = 'password-reset'
 const verificationRequests = 'email-verification'
-
-/** Delivers one message after commit: a failure is logged, never returned. */
-const deliver = <TMessage>(
-	send: (message: TMessage) => unknown,
-	message: TMessage,
-): void => {
-	runAfterCommit(async () => {
-		await send(message)
-	})
-}
 
 const isUniqueViolation = (error: unknown): boolean =>
 	error instanceof FrameworkError && error.code === 'UNIQUE_VIOLATION'
@@ -94,70 +77,10 @@ export const createPasswordEmailHandlers = (
 		options.credentials,
 		policy,
 	)
-	/** Failed token redemptions are counted per client address. */
-	const tokenSubject = (
-		context: RequestContext,
-	): AttemptSubject | undefined => {
-		const address = services.client(context)?.address
-		return address === undefined
-			? undefined
-			: {
-					address: undefined,
-					identifier: `address:${address}`,
-					method: 'token',
-				}
-	}
-	/**
-	 * Checks one token without using it; an invalid token is counted for the
-	 * client address and rejected with `AUTH_INVALID_TOKEN`.
-	 */
-	const checkToken = async (
-		purpose: AuthTokenPurpose,
-		token: string,
-		context: RequestContext,
-		transaction: PasswordTransaction,
-	) => {
-		const subject = tokenSubject(context)
-		const claim = await transaction(async () => {
-			if (subject !== undefined) await services.checkAttempt(subject)
-			return services.findToken(purpose, token)
-		})
-		if (claim === undefined) {
-			if (subject !== undefined) {
-				await transaction(() => services.countAttempt(subject))
-			}
-			return rejectToken()
-		}
-		return claim
-	}
-	/**
-	 * Answers an email request the same whether the account exists or not:
-	 * the same limiting, the same reads (a decoy for unknown addresses), and
-	 * delivery after commit, outside the request.
-	 */
-	const requestByEmail = async (
-		input: Readonly<{ email: string }>,
-		context: RequestContext,
-		transaction: PasswordTransaction,
-		namespace: string,
-		issue: (user: AuthUserRecord, address: string) => Promise<void>,
-	) => {
-		const address = tryNormalize(normalizeEmail, input.email)
-		if (address === undefined) return accepted
-		const subject = passwordSubject(services, context, address, namespace)
-		await transaction(async () => {
-			await services.checkAttempt(subject)
-			await services.countAttempt(subject)
-			const credential = await store().findUnique({
-				where: { identifier: address },
-			})
-			const user = await services.readUser(credential?.userId ?? randomUUID())
-			if (credential !== null && user?.email === address) {
-				await issue(user, address)
-			}
-		})
-		return accepted
-	}
+	const { checkToken, requestByEmail } = createEmailRequests(
+		services,
+		options.credentials,
+	)
 	const sendVerification = async (user: AuthUserRecord, address: string) => {
 		const verification = email.verification
 		if (verification === undefined || user.emailVerified === true) return

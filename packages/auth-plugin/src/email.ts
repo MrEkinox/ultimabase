@@ -56,14 +56,15 @@ export const createEmailVerificationFields = (): Readonly<
 export type AuthUserRecord = Readonly<Record<string, unknown>> &
 	Readonly<{ readonly id: string }>
 
-// Only this module creates the marker: the writes it allows are the
+// Only this module holds the marker: the writes it allows are the
 // authentication flows' own.
-class ManagedWrite {
-	constructor() {
-		Object.freeze(this)
-	}
+const managedWriteBrand: unique symbol = Symbol('AuthManagedWrite')
+interface ManagedWrite {
+	readonly [managedWriteBrand]: true
 }
-const managedWrite = new ManagedWrite()
+const managedWrite: ManagedWrite = Object.freeze({
+	[managedWriteBrand]: true as const,
+})
 const managedWriteValue = new RequestContextValue<
 	ManagedWrite,
 	'ultimabase.auth.managed-write'

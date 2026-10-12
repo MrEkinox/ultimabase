@@ -82,9 +82,8 @@ export const createOutbox = (
 ) => {
 	const sent: SentMessage[] = []
 	const record =
-		(kind: SentMessage['kind']) =>
-		(message: Readonly<Record<string, unknown>> & { email: string }) => {
-			sent.push({ email: message.email, kind, message })
+		(kind: SentMessage['kind']) => (message: Readonly<{ email: string }>) => {
+			sent.push({ email: message.email, kind, message: { ...message } })
 		}
 	const flows: EmailFlows = {
 		emailChange: {

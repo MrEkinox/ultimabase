@@ -99,9 +99,12 @@ describe('password reset', { concurrent: false }, () => {
 			const token = outbox.tokenFor('reset', 'ada@example.test')
 			expect(token).toMatch(/^ub_r1\.[A-Za-z0-9_-]{43}$/u)
 			expect(resets[0]?.message).toMatchObject({
-				expiresAt: expect.any(String),
 				user: { displayName: 'Ada', email: 'ada@example.test' },
 			})
+			// One hour by default.
+			expect(
+				Date.parse(String(resets[0]?.message.expiresAt)) - Date.now(),
+			).toBeGreaterThan(59 * 60_000)
 			const rows = await storedRows()
 			expect(rows).not.toContain(token)
 			expect(rows).toContain(createHash('sha256').update(token).digest('hex'))
@@ -164,10 +167,8 @@ describe('password reset', { concurrent: false }, () => {
 				email: 'bob@example.test',
 				password: newSecret,
 			})
-			expect(login.user).toMatchObject({
-				emailVerified: true,
-				emailVerifiedAt: expect.any(String),
-			})
+			expect(login.user.emailVerified).toBe(true)
+			expect(Date.parse(String(login.user.emailVerifiedAt))).not.toBeNaN()
 			await waitForAfterCommit()
 			expect(events).toStrictEqual([
 				expect.objectContaining({
@@ -271,10 +272,8 @@ describe('email verification', { concurrent: false }, () => {
 			const me = await ultimabase
 				.plugin(authPlugin)
 				.runWithSession(signed.session.token, () => AuthUser.current())
-			expect(me).toMatchObject({
-				emailVerified: true,
-				emailVerifiedAt: expect.any(String),
-			})
+			expect(me.emailVerified).toBe(true)
+			expect(Date.parse(String(me.emailVerifiedAt))).not.toBeNaN()
 			const before = outbox.sent.length
 			for (const email of ['eve@example.test', 'nobody@example.test']) {
 				expect(

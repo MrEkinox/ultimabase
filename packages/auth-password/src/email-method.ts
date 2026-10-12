@@ -22,6 +22,7 @@ import {
 	type PasswordResetResult,
 	type PasswordTokenInput,
 } from './email-operations.js'
+import { objectSchema } from './password-transports.js'
 
 /** Static members `password({ identifier: 'email' })` adds to the User class. */
 export interface PasswordEmailUserStatics {
@@ -69,17 +70,6 @@ export interface PasswordEmailUserStatics {
 		input: PasswordTokenInput,
 	): Promise<EmailChangeConfirmResult>
 }
-
-const stringSchema = immutableRecord({ type: 'string' })
-const objectSchema = (names: readonly string[]) =>
-	immutableRecord({
-		type: 'object',
-		properties: immutableRecord(
-			Object.fromEntries(names.map((name) => [name, stringSchema])),
-		),
-		required: immutableArray(names),
-		additionalProperties: false,
-	})
 
 /** The public names and input schemas of the email operations. */
 export const passwordEmailPublicOperations: Readonly<

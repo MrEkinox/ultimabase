@@ -1,10 +1,5 @@
 import {
-	authGraphqlBinding,
-	authPayloadTypes,
 	defineAuthMethod,
-	graphqlField,
-	graphqlObjectType,
-	toAuthPayload,
 	type AuthEmailVerificationFields,
 	type AuthenticationResult,
 	type AuthMethod,
@@ -18,9 +13,8 @@ import {
 	type SchemaDefinition,
 	type StringField,
 } from '@ultimabase/core'
-import type { PluginOperationPublicDeclaration } from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	createCredentialCollection,
@@ -65,6 +59,11 @@ import {
 	type PasswordHashPolicyOptions,
 } from './password-policy.js'
 import { defaultUndefinedOptions } from './policy-options.js'
+import {
+	createPasswordGraphqlBindings,
+	createPasswordPublicOperations,
+	passwordRoutes,
+} from './password-transports.js'
 
 /** Configures `password()`. */
 export interface PasswordOptions<
@@ -207,17 +206,6 @@ const readIdentifier = (value: unknown): PasswordIdentifier => {
 	return value
 }
 
-const stringSchema = immutableRecord({ type: 'string' })
-const objectSchema = (names: readonly string[]) =>
-	immutableRecord({
-		type: 'object',
-		properties: immutableRecord(
-			Object.fromEntries(names.map((name) => [name, stringSchema])),
-		),
-		required: immutableArray(names),
-		additionalProperties: false,
-	})
-
 const invalidIdentifier = (identifier: string, message: string): never => {
 	throw new FrameworkError('VALIDATION_ERROR', message, {
 		publicMessage: 'The operation input is invalid.',
@@ -260,27 +248,6 @@ export const password = <
 		}
 		return credentials
 	}
-	const publicOperations: Readonly<
-		Record<keyof typeof passwordOperations, PluginOperationPublicDeclaration>
-	> = immutableRecord({
-		changePassword: immutableRecord({
-			name: 'changePassword',
-			input: objectSchema(['currentPassword', 'newPassword']),
-		}),
-		login: immutableRecord({
-			name: 'login',
-			input: objectSchema([identifier, 'password']),
-		}),
-		reauthenticate: immutableRecord({
-			name: 'reauthenticate',
-			input: objectSchema(['password']),
-		}),
-		signUp: immutableRecord({ name: 'signUp' }),
-	})
-	const loginType = graphqlObjectType('input-object', 'PasswordLoginInput', [
-		graphqlField(identifier, 'String'),
-		graphqlField('password', 'String'),
-	])
 	return defineAuthMethod<
 		'password',
 		PasswordUserFields<TIdentifier>,
@@ -340,97 +307,15 @@ export const password = <
 					identifier,
 					normalizeIdentifier,
 					policy,
-					publicOperations,
+					publicOperations: createPasswordPublicOperations(identifier),
 					services,
 				}),
 				...(emailHandlers?.contributions ?? []),
 				...(ownsEmail ? passwordEmailGraphqlBindings : []),
-				authGraphqlBinding({
-					encode: toAuthPayload,
-					field: 'signUp',
-					input: 'PasswordSignUpInput',
-					operation: passwordOperations.signUp,
-					result: 'AuthPayload',
-					root: 'mutation',
-					types: [
-						graphqlObjectType(
-							'input-object',
-							'PasswordSignUpInput',
-							[graphqlField('password', 'String')],
-							true,
-						),
-						...authPayloadTypes,
-					],
-				}),
-				authGraphqlBinding({
-					encode: toAuthPayload,
-					field: 'login',
-					input: 'PasswordLoginInput',
-					operation: passwordOperations.login,
-					result: 'AuthPayload',
-					root: 'mutation',
-					types: [loginType, ...authPayloadTypes],
-				}),
-				authGraphqlBinding({
-					field: 'changePassword',
-					input: 'PasswordChangeInput',
-					operation: passwordOperations.changePassword,
-					result: 'PasswordChangePayload',
-					root: 'mutation',
-					types: [
-						graphqlObjectType('input-object', 'PasswordChangeInput', [
-							graphqlField('currentPassword', 'String'),
-							graphqlField('newPassword', 'String'),
-						]),
-						graphqlObjectType('object', 'PasswordChangePayload', [
-							graphqlField('changed', 'Boolean'),
-						]),
-					],
-				}),
-				authGraphqlBinding({
-					field: 'reauthenticate',
-					input: 'PasswordReauthenticateInput',
-					operation: passwordOperations.reauthenticate,
-					result: 'PasswordReauthenticatePayload',
-					root: 'mutation',
-					types: [
-						graphqlObjectType('input-object', 'PasswordReauthenticateInput', [
-							graphqlField('password', 'String'),
-						]),
-						graphqlObjectType('object', 'PasswordReauthenticatePayload', [
-							graphqlField('reauthenticated', 'Boolean'),
-						]),
-					],
-				}),
+				...createPasswordGraphqlBindings(identifier),
 			]
 		},
-		routes: [
-			{
-				body: 'json',
-				operation: passwordOperations.signUp,
-				path: 'sign-up',
-				response: 'session',
-			},
-			{
-				body: 'json',
-				operation: passwordOperations.login,
-				path: 'login',
-				response: 'session',
-			},
-			{
-				body: 'json',
-				operation: passwordOperations.changePassword,
-				path: 'change-password',
-				response: 'result',
-			},
-			{
-				body: 'json',
-				operation: passwordOperations.reauthenticate,
-				path: 'reauthenticate',
-				response: 'result',
-			},
-			...(ownsEmail ? passwordEmailRoutes : []),
-		],
+		routes: [...passwordRoutes, ...(ownsEmail ? passwordEmailRoutes : [])],
 		errorStatuses: {
 			[passwordErrorCodes.emailChangeRejected]: 400,
 			[passwordErrorCodes.passwordChangeRejected]: 400,

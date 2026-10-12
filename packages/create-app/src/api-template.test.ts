@@ -142,11 +142,17 @@ describe('API project templates', () => {
 		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
 		expect(application).not.toContain('authOperations')
 		// The `/api/auth` routes serve HTTP clients: REST hides every operation,
-		// GraphQL exposes them (ADR-0324, ADR-0325, ADR-0326).
+		// GraphQL exposes them but the unconfigured email flows (ADR-0324,
+		// ADR-0325, ADR-0326).
 		expect(schema.match(/hide: \[/gu)).toHaveLength(1)
 		expect(schema).toContain(
-			'hide: [...Object.values(authOperations), ...Object.values(passwordOperations)]',
+			`hide: [
+        ...Object.values(authOperations),
+        ...Object.values(passwordOperations),
+        ...Object.values(passwordEmailOperations),
+      ]`,
 		)
+		expect(schema).toContain('hide: Object.values(passwordEmailOperations)')
 		expect(application).not.toContain('cookie:')
 	})
 

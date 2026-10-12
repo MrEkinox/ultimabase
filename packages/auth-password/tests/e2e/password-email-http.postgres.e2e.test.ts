@@ -37,7 +37,7 @@ afterAll(async () => {
 const createApplication = (
 	options: Readonly<{
 		cookie?: boolean
-		sendResetEmail?: (message: Readonly<{ token: string }>) => unknown
+		sendResetEmail?: (message: Readonly<{ token: string }>) => Promise<void>
 	}> = {},
 ) => {
 	const outbox = createOutbox()

@@ -59,6 +59,15 @@ The User schema belongs to the `authPlugin` instance whose `App` declared it:
 an application installing that User installs that same instance. Applications
 are started one at a time with it.
 
+When a method owns the User's `email` (`password({ identifier: 'email' })`),
+the foundation adds `emailVerified` (`false` by default) and
+`emailVerifiedAt`. Only the authentication flows write these three fields:
+creates keep the defaults, updates never name them, Master included
+(`VALIDATION_ERROR` with the issue code `field.protected`); TypeScript leaves
+them out of create and update input. The email changes only through a
+confirmed email change, so it stays in step with credentials and linked
+accounts.
+
 Sign-up creates the User through the ordinary pipeline (validation, defaults,
 Hooks) with the plugin's own `authority:elevate` privilege: the User's Access
 need not open creation and no `masterAuthority` is required. Invalid data
@@ -112,6 +121,17 @@ success resets both counters. A locked attempt fails with
 `AUTH_TOO_MANY_ATTEMPTS` (HTTP 429 with `Retry-After`) before any password
 work. The HTTP plugin's per-address `rateLimit` adds a global limit.
 
+## Account tokens
+
+Password reset, email verification and email change use single-use tokens:
+32 random bytes with a prefix per purpose (`ub_r1.`, `ub_v1.`, `ub_c1.`),
+stored only as their SHA-256 digest. A user has at most one live token per
+purpose: a new one cancels the previous one. A token is accepted once, before
+its expiry, for its own purpose only; any other token fails with
+`AUTH_INVALID_TOKEN`. Methods issue and redeem them through the foundation's
+services (`issueToken`, `findToken`, `consumeToken`); UltimaBase sends no
+email, the application's callbacks deliver them.
+
 ## Linked accounts
 
 Each method account of a user is a private row `{ method, providerUserId,
@@ -120,7 +140,9 @@ secrets never enter the User row. `listMethods()` lists a user's methods and
 `unlinkMethod(id)` removes one, never the last (`AUTH_LAST_METHOD`). With
 `linking: 'verified-email'` (the default) a method may attach a new account to
 the user who verified the same email; with `'manual'` only an authenticated
-user links. Methods call the foundation's services for this (see
+user links. A password email counts as verified after `verifyEmail`, a
+password reset or a confirmed email change; the first user to verify an email
+keeps it for automatic linking. Methods call the foundation's services for this (see
 `defineAuthMethod`).
 
 ## HTTP
@@ -131,7 +153,12 @@ Installing `@ultimabase/http-plugin` serves every operation under one prefix,
 `/api/auth/logout`, `/api/auth/logout-everywhere`, `/api/auth/list-sessions`,
 `/api/auth/revoke-session`, `/api/auth/list-methods`,
 `/api/auth/unlink-method`, `/api/auth/delete-account`,
-`/api/auth/change-password`, `/api/auth/reauthenticate`. They sit beside REST,
+`/api/auth/change-password`, `/api/auth/reauthenticate`, and with an email
+identifier `/api/auth/request-password-reset`, `/api/auth/reset-password`,
+`/api/auth/request-email-verification`, `/api/auth/verify-email`,
+`/api/auth/request-email-change` and `/api/auth/confirm-email-change`. Routes
+that redeem or request tokens ignore a stale session cookie; a reset clears
+it. They sit beside REST,
 which mounts only its own roots under `/api` (ADR-0324, 6.4a amendment). The
 JSON body is the operation input; the response is `{ "result": … }`. Requests authenticate with `Authorization: Bearer <token>`.
 
@@ -177,13 +204,19 @@ the transaction that caused them commits, outside the request, best effort
 the method, the client address and the attempted identifier, never a password
 or token. The client address and `afterLoginFailed`'s normalized identifier
 (an email or username, even for an unknown account) are personal data: store,
-retain and forward them under the application's privacy policy. Password reset and email events are declared for migration step
-6.4b. UltimaBase sends no email: messages go through application callbacks.
+retain and forward them under the application's privacy policy, like the
+emails of `afterEmailVerified` and `afterEmailChanged`. `afterPasswordReset`
+follows a reset (every session revoked), `afterEmailVerified` a verification
+or a reset that verified the email, `afterEmailChanged` a confirmed change.
+UltimaBase sends no email: messages go through application callbacks.
 
 ## Writing a method
 
 `defineAuthMethod({ name, contributions, … })` creates a method from
 operations and the foundation's services (`createUser`, `signIn`,
 `authenticateAccount`, `linkAccount`, attempt limiting, recent
-authentication). Its type arguments name the User fields, the statics slot and
-the operations it adds.
+authentication, single-use tokens, `markEmailVerified`, `changeEmail`,
+`completePasswordReset`). `userEmail: true` declares that the method adds the
+User's `email`, which brings the verification fields and their protection.
+Its type arguments name the User fields, the statics slot and the operations
+it adds.
