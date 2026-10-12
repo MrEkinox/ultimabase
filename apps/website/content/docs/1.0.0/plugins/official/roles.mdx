@@ -336,5 +336,6 @@ it exceeds 64 levels or 10,000 visited roles.
 - **Role deletion fails:** inspect direct members, child and parent roles,
   and external references under the schema's deletion policy. For `deleteMany()`,
   each target must satisfy that policy; a failure rolls back the whole batch.
-- **`start()` fails on `ensure`:** creating seed roles is a Master write;
-  configure the application's `masterAuthority`.
+- **`start()` fails on `ensure`:** Roles creates seed roles with its own
+  `authority:elevate` privilege, without a `masterAuthority`; the error's
+  `cause` names the write that failed (validation, a Hook or a constraint).

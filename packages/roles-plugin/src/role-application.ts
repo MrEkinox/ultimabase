@@ -95,9 +95,9 @@ export const ensureAllRoles = async (
 		try {
 			created = await ensureRoles(schema, declaration.ensure)
 		} catch (error: unknown) {
-			// Creating roles is a Master write: name the declaration that needs it.
+			// Roles elevates with its own privilege: name the declaration that failed.
 			throw new TypeError(
-				`Roles could not create the ensure roles of ${schema.className} (they are created with the application's masterAuthority)`,
+				`Roles could not create the ensure roles of ${schema.className} (they are created with Roles' authority:elevate privilege; the cause names the failing write)`,
 				{ cause: error },
 			)
 		}

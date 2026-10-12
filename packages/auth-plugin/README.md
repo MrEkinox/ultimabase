@@ -173,7 +173,9 @@ authPlugin({
 the transaction that caused them commits, outside the request, best effort
 (ADR-0318); a failure is logged and never fails the call. Payloads carry ids,
 the method, the client address and the attempted identifier, never a password
-or token. Password reset and email events are declared for migration step
+or token. The client address and `afterLoginFailed`'s normalized identifier
+(an email or username, even for an unknown account) are personal data: store,
+retain and forward them under the application's privacy policy. Password reset and email events are declared for migration step
 6.4b. UltimaBase sends no email: messages go through application callbacks.
 
 ## Writing a method

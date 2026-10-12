@@ -31,8 +31,9 @@ export interface AuthLoginEvent extends AuthEventBase {
 
 /** A login failed; `limited` tells whether attempt limiting refused it. */
 export interface AuthLoginFailedEvent extends AuthEventBase {
+	/** The client address (personal data), or `null` when unknown. */
 	readonly address: string | null
-	/** The normalized identifier the attempt targeted, never a password. */
+	/** The normalized identifier the attempt targeted (personal data), never a password. */
 	readonly identifier: string
 	readonly limited: boolean
 	readonly method: string
