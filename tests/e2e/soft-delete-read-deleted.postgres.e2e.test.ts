@@ -76,7 +76,7 @@ const createUltimabase = (database: PostgresWorkerFixture) =>
 	new (UltimaBase.use(
 		softDeletePlugin(),
 		accessPlugin(),
-		restPlugin({ acknowledgeUnverifiedProtection: true }),
+		restPlugin(),
 		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
 		httpPlugin({ appId: 'read-deleted' }),
 		capturePlugin,
@@ -114,7 +114,7 @@ const restQuery = async (body: object): Promise<unknown> => {
 	const response = await http.fetch({
 		originalHeaders,
 		request: new Request(
-			`https://example.test/api/v1/classes/${Note.className}/query`,
+			`https://example.test/api/classes/${Note.className}/query`,
 			{ body: JSON.stringify(body), headers, method: 'POST' },
 		),
 	})

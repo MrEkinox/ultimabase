@@ -121,10 +121,14 @@ const statusGraphqlBinding = operationTransportBinding({
 	operation: exampleStatusOperation,
 })
 
-/** Owns the operation handler and its explicit REST v1 binding. */
+/**
+ * Owns the operation handler, declares it public (every installed transport
+ * exposes it, ADR-0324) and binds its REST and GraphQL wire formats.
+ */
 export const exampleStatusPlugin = plugin({
 	contributions: [
 		contributeOperation({
+			public: { name: 'status' },
 			bindings: [
 				operationTransportBinding({
 					codec: statusCodec,

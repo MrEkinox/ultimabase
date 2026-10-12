@@ -33,6 +33,7 @@ const SchemaApplication = UltimaBase.use(
 	softDeletePlugin(),
 	hooksPlugin(),
 	accessPlugin(),
+	restPlugin(),
 )
 const Explicit = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportExplicit',
@@ -40,6 +41,8 @@ const Explicit = SchemaApplication.Schema.define({
 })
 	.softDelete({ mode: 'command' })
 	.with({
+		// ADR-0324: REST exposes a plugin command only when its rule names it.
+		rest: { restoreOne: true, softDeleteOne: true },
 		access: {
 			create: true,
 			delete: true,
@@ -72,7 +75,7 @@ const Replace = SchemaApplication.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 	.softDelete()
-	.with({})
+	.with({ rest: { restoreOne: true, softDeleteOne: true } })
 
 const Disabled = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportDisabled',
@@ -104,10 +107,7 @@ const createUltimabase = (database: PostgresWorkerFixture) =>
 		softDeletePlugin(),
 		hooksPlugin(),
 		accessPlugin({ allowWithoutRule: { all: true } }),
-		restPlugin({
-			acknowledgeUnverifiedProtection: true,
-			default: { mutations: true },
-		}),
+		restPlugin(),
 		graphqlPlugin({
 			acknowledgeUnverifiedProtection: true,
 			default: { mutations: true },
@@ -229,10 +229,10 @@ describe('official explicit soft-delete transports', () => {
 			.map(({ path }) => path)
 			.sort()
 		expect(paths).toStrictEqual([
-			'/api/v1/classes/SoftDeleteTransportExplicit/{id}/restore-one',
-			'/api/v1/classes/SoftDeleteTransportExplicit/{id}/soft-delete-one',
-			'/api/v1/classes/SoftDeleteTransportReplace/{id}/restore-one',
-			'/api/v1/classes/SoftDeleteTransportReplace/{id}/soft-delete-one',
+			'/api/classes/SoftDeleteTransportExplicit/{id}/restore-one',
+			'/api/classes/SoftDeleteTransportExplicit/{id}/soft-delete-one',
+			'/api/classes/SoftDeleteTransportReplace/{id}/restore-one',
+			'/api/classes/SoftDeleteTransportReplace/{id}/soft-delete-one',
 		])
 		expect(paths.some((path) => path.includes('/purge'))).toBe(false)
 		expect(paths.some((path) => path.endsWith('-many'))).toBe(false)
@@ -260,7 +260,7 @@ describe('official explicit soft-delete transports', () => {
 		})
 		const response = await fetchApplication(
 			http,
-			`/api/v1/classes/${Explicit.className}/${restRow.id}/soft-delete-one`,
+			`/api/classes/${Explicit.className}/${restRow.id}/soft-delete-one`,
 			{
 				body: JSON.stringify({ select: { isDeleted: true, title: true } }),
 				headers: { 'content-type': 'application/json' },

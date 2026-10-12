@@ -37,7 +37,7 @@ import type { RequestContext } from '@ultimabase/core/plugin'
 
 const applicationId = 'relation-filter-public'
 const masterKey = 'relation-filter-public-master'
-const articlePath = '/api/v1/classes/ExampleArticle'
+const articlePath = '/api/classes/ExampleArticle'
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
 

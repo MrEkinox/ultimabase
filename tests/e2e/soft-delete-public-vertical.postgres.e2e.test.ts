@@ -20,7 +20,7 @@ import {
 
 const applicationId = 'soft-delete-public-vertical'
 const masterKey = 'soft-delete-public-vertical-master'
-const articlePath = '/api/v1/classes/ExampleArticle'
+const articlePath = '/api/classes/ExampleArticle'
 
 let fixture: PostgresWorkerFixture | undefined
 let example: MinimalExampleModule | undefined
@@ -174,10 +174,10 @@ describe('documented official soft-delete public vertical', () => {
 			.sort()
 		// Restore routes exist but Access refuses them (`restoreOne: false`).
 		expect(schemaMutationPaths).toStrictEqual([
-			'/api/v1/classes/ExampleArticle/{id}/restore-one',
-			'/api/v1/classes/ExampleArticle/{id}/soft-delete-one',
-			'/api/v1/classes/ExampleAuthor/{id}/restore-one',
-			'/api/v1/classes/ExampleAuthor/{id}/soft-delete-one',
+			'/api/classes/ExampleArticle/{id}/restore-one',
+			'/api/classes/ExampleArticle/{id}/soft-delete-one',
+			'/api/classes/ExampleAuthor/{id}/restore-one',
+			'/api/classes/ExampleAuthor/{id}/soft-delete-one',
 		])
 
 		const graphql = readObject(

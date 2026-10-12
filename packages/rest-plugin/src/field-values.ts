@@ -103,6 +103,22 @@ const decodePointer = (
 	return target.pointer(value.id)
 }
 
+const isString = (value: unknown): boolean => typeof value === 'string'
+
+// JSON types of the built-in scalars REST passes through; Core checks values.
+const jsonScalarChecks: Readonly<Record<string, (value: unknown) => boolean>> =
+	{
+		boolean: (value) => typeof value === 'boolean',
+		date: isString,
+		dateTime: isString,
+		decimal: isString,
+		enum: isString,
+		float: (value) => typeof value === 'number' && Number.isFinite(value),
+		int: (value) => Number.isSafeInteger(value),
+		string: isString,
+		time: isString,
+	}
+
 const decodeScalar = (
 	field: GenericField,
 	value: unknown,
@@ -136,7 +152,12 @@ const decodeScalar = (
 		case 'relation':
 			throw invalid()
 	}
-	if (!field.kind.includes('.')) return value
+	if (!field.kind.includes('.')) {
+		// The wire JSON type is checked here so the failure has a path (ADR-0324).
+		const check = jsonScalarChecks[field.kind]
+		if (check !== undefined && !check(value)) throw invalid()
+		return value
+	}
 	const codec = getPluginFieldWireCodec(field, restFieldProtocol)
 	if (codec === undefined) throw invalid()
 	try {
@@ -246,6 +267,15 @@ const decodeOperand = (
 
 const kindReasons: Readonly<Record<string, string>> = {
 	bigint: 'must be a base-10 integer string',
+	boolean: 'must be a boolean',
+	date: 'must be an ISO 8601 date string',
+	dateTime: 'must be an ISO 8601 date-time string',
+	decimal: 'must be a decimal string',
+	enum: 'must be one of the enum values',
+	float: 'must be a finite number',
+	int: 'must be a safe integer',
+	string: 'must be a string',
+	time: 'must be an ISO 8601 time string',
 	binary: 'must be { "type": "binary", "encoding": "base64", "data" }',
 	object: 'must be an object of the declared embedded fields',
 	pointer: 'must be a UUID v7 identifier',

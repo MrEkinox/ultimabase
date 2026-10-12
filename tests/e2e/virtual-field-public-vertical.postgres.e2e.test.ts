@@ -18,7 +18,7 @@ import {
 } from './rest-public-vertical-support.js'
 
 const appId = 'virtual-field-public-vertical'
-const articlePath = '/api/v1/classes/ExampleArticle'
+const articlePath = '/api/classes/ExampleArticle'
 const masterKey = 'virtual-field-public-master-secret'
 const virtualSelection =
 	'id,displayTitle,labels,optionalSubtitle,summary,viewerLabel'

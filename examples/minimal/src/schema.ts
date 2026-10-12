@@ -30,14 +30,12 @@ export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 	.use(rolesPlugin())
 	.use(aclPlugin())
 	.use(
+		// Public operations (status, Password Auth) are exposed by their
+		// owners; the example hides the two it does not use (ADR-0324).
 		restPlugin({
-			acknowledgeUnverifiedProtection: true,
-			operations: [
-				exampleStatusOperation,
-				passwordAuthOperations.signUp,
-				passwordAuthOperations.login,
-				passwordAuthOperations.logout,
-				passwordAuthOperations.refresh,
+			hide: [
+				passwordAuthOperations.changePassword,
+				passwordAuthOperations.logoutEverywhere,
 			],
 		}),
 	)

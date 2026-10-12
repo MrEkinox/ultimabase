@@ -65,7 +65,7 @@ const capturePlugin = plugin({
 const appId = 'checked-links'
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(
-		restPlugin({ default: { mutations: true } }),
+		restPlugin(),
 		graphqlPlugin({ default: { mutations: true } }),
 		httpPlugin({ appId }),
 		capturePlugin,
@@ -372,7 +372,7 @@ describe(
 			)
 			const rest = async (data: unknown) => {
 				const response = await fetchApplication(
-					`/api/v1/classes/LinkTeam/${team.id}`,
+					`/api/classes/LinkTeam/${team.id}`,
 					{ body: JSON.stringify(data), method: 'PATCH' },
 				)
 				const body: unknown = await response.json()

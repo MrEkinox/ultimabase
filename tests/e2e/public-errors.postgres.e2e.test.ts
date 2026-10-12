@@ -112,7 +112,7 @@ const appId = 'public-errors'
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(
 		postCommitPlugin,
-		restPlugin({ default: { mutations: true } }),
+		restPlugin(),
 		graphqlPlugin({ default: { mutations: true } }),
 		httpPlugin({ appId }),
 		capturePlugin,
@@ -141,7 +141,7 @@ const postTodo = async (title: string) => {
 	const response = await http().fetch({
 		originalHeaders,
 		request: new Request(
-			`https://example.test/api/v1/classes/${ErrorTodo.className}`,
+			`https://example.test/api/classes/${ErrorTodo.className}`,
 			{ body: JSON.stringify({ title }), headers, method: 'POST' },
 		),
 	})

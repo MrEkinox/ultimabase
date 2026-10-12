@@ -94,7 +94,7 @@ const appId = 'readable-results'
 const masterKey = 'readable-results-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(
-		restPlugin({ default: { mutations: true } }),
+		restPlugin(),
 		graphqlPlugin({ default: { mutations: true } }),
 		httpPlugin({ appId }),
 		capturePlugin,
@@ -333,7 +333,7 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 
 	it('offers id-only selections through REST and GraphQL', async () => {
 		const create = (query: string) =>
-			fetchApplication(`/api/v1/classes/ReadableSecret${query}`, {
+			fetchApplication(`/api/classes/ReadableSecret${query}`, {
 				body: JSON.stringify({ body: 'rest' }),
 				headers: { 'content-type': 'application/json' },
 				method: 'POST',

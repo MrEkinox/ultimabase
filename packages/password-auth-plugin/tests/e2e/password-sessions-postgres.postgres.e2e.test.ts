@@ -463,7 +463,7 @@ describe(
 			}
 		})
 
-		it('binds all four operations to REST only when explicitly selected', async () => {
+		it('exposes every public operation REST does not hide (ADR-0324)', async () => {
 			const plugin = passwordAuthPlugin({
 				password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
 			})
@@ -471,11 +471,9 @@ describe(
 				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
 				plugin,
 				restPlugin({
-					operations: [
-						passwordAuthOperations.signUp,
-						passwordAuthOperations.login,
-						passwordAuthOperations.logout,
-						passwordAuthOperations.refresh,
+					hide: [
+						passwordAuthOperations.changePassword,
+						passwordAuthOperations.logoutEverywhere,
 					],
 				}),
 			))({
