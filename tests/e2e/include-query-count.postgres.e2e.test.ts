@@ -59,7 +59,7 @@ const Tag = App.Schema.define({
 			select: { name: true },
 			resolveMany: ({ items }) => {
 				labelCalls.push(items.length)
-				return items.map((item) => `#${item.name}`)
+				return items.map((item) => `#${String(item.name)}`)
 			},
 		}),
 	}),
