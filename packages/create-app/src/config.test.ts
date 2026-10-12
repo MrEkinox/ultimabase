@@ -75,7 +75,7 @@ describe('initializer flags', () => {
 		])
 	})
 
-	it('adds explorer HTTP prerequisites but never Typegen for JavaScript', () => {
+	it('adds explorer HTTP prerequisites for JavaScript', () => {
 		const plan = resolveSelection(
 			parseOptions([
 				'--name',
@@ -89,7 +89,51 @@ describe('initializer flags', () => {
 		)
 		expect(plan.plugins).toContain('graphql-yoga-plugin')
 		expect(plan.plugins).toContain('hono-server-plugin')
-		expect(plan.typegen).toBe(false)
+	})
+
+	// ADR-0327: --yes selects REST and Access, so `none` chooses nothing.
+	it('accepts none for APIs and plugins, alone', () => {
+		const plan = resolveSelection(
+			parseOptions(['--name', 'bare', '--api', 'none', '--plugin', 'none']),
+			root(),
+		)
+		expect(plan.apis).toEqual([])
+		expect(plan.plugins).toEqual(['postgres-plugin'])
+		expect(() => parseOptions(['--api', 'none', '--api', 'rest'])).toThrow(
+			'--api none cannot be combined with other values',
+		)
+	})
+
+	// ADR-0327 decision 8: an existing database URL goes to .env.
+	it('keeps an existing database URL and rejects other values', () => {
+		const plan = resolveSelection(
+			parseOptions([
+				'--name',
+				'existing',
+				'--database',
+				'existing',
+				'--database-url',
+				'postgres://user:secret@127.0.0.1:5432/notes',
+			]),
+			root(),
+		)
+		expect(plan.databaseUrl).toBe('postgres://user:secret@127.0.0.1:5432/notes')
+		expect(() =>
+			resolveSelection(
+				{ name: 'notes', databaseUrl: 'mysql://localhost/notes' },
+				root(),
+			),
+		).toThrow('The database URL must be a postgres:// URL.')
+		expect(() =>
+			resolveSelection(
+				{
+					name: 'notes',
+					database: 'docker',
+					databaseUrl: 'postgres://localhost/notes',
+				},
+				root(),
+			),
+		).toThrow('--database-url applies to an existing database only.')
 	})
 
 	it('keeps direct authentication independent of HTTP', () => {

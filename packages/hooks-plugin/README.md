@@ -88,7 +88,7 @@ the schema's `all`, then the operation's branch; a bulk call runs one
 `afterCommit` per row after the whole transaction commits. The response does
 not wait for it; a failure is logged and never rejects the call nor stops the
 next Hooks. Delivery is best effort within the process. Tests await it with
-`waitForAfterCommit()` from `@ultimabase/testing`.
+`t.afterCommit()` of `testApplication` from `@ultimabase/testing`.
 
 ## Typed events
 
@@ -262,7 +262,7 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 
 const suite = definePluginConformanceSuite({
 	createFixture: () =>
@@ -287,6 +287,6 @@ await runPluginConformance(suite)
 ```
 
 `definePluginConformanceSuite`, `createPluginConformanceFixture`, and
-`runPluginConformance` come from `@ultimabase/testing`; every Hooks symbol in
+`runPluginConformance` come from `@ultimabase/testing/plugins`; every Hooks symbol in
 the example comes from this package root. Independent lifecycle engines are not
 expected to run this official-protocol check.

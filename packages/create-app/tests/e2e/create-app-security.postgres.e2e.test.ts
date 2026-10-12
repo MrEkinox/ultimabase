@@ -164,7 +164,9 @@ try {
 		}
 	}, 60_000)
 
-	it('denies ordinary access and audits trusted Master use in TypeScript', async () => {
+	// ADR-0327: Access starts as a prototype, so the empty ACL is what hides
+	// Tasks in development; production refusal is tested with the starter.
+	it('hides Tasks through the empty ACL and audits trusted Master use in TypeScript', async () => {
 		const project = await generate('ts', [
 			'auth-plugin',
 			'roles-plugin',
@@ -179,7 +181,7 @@ try {
 			const output = await runVerification(
 				project.destination,
 				`import { ultimabase } from './dist/ultimabase.js'
-import { AppRole, Task } from './dist/schema.js'
+import { Task } from './dist/schema.js'
 
 const audit = []
 const originalInfo = console.info
@@ -187,14 +189,8 @@ console.info = (label, metadata) => audit.push({ label, metadata })
 await ultimabase.start()
 try {
   await Task.createOne({ data: { title: 'Private task' } }, { useMasterKey: true })
-  for (const operation of [
-    () => Task.findOne({ select: { title: true } }),
-    () => AppRole.findMany(),
-    () => Task.createOne({ data: { title: 'Denied task' } }),
-  ]) {
-    let denied = false
-    try { await operation() } catch (error) { denied = error?.code === 'PERMISSION_DENIED' }
-    if (!denied) throw new Error('Access did not deny an ordinary operation')
+  if ((await Task.findOne({ select: { title: true } })) !== null) {
+    throw new Error('The empty ACL did not hide the Task')
   }
   if (!audit.some(({ label, metadata }) => label === 'Master authority used' && metadata?.kind === 'master-access')) {
     throw new Error('Master audit event is missing')

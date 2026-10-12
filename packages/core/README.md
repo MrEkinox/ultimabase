@@ -2112,8 +2112,9 @@ commits, the queued works run in order outside the transaction and the
 request, without delaying the response; a rollback or a replayed attempt
 discards them, and a failure is logged (ADR-0318). The application tracks the
 pending work: `stop()` and `dispose()` wait for it, and so does
-`waitForAfterCommitWork()`, which tests use through `waitForAfterCommit()` from
-`@ultimabase/testing`.
+`waitForAfterCommitWork()`, which tests use through `t.afterCommit()` of
+`testApplication` (`@ultimabase/testing`) or `waitForAfterCommit()` from
+`@ultimabase/testing/plugins`.
 
 A schema mutation declared with `target: 'many'` takes `{ where }` instead of
 `{ id }`: inside one transaction, Core enforces the command once to find the

@@ -8,9 +8,7 @@
 		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
 		"directory": "packages/testing"
 	},
-	"sideEffects": [
-		"./dist/vitest-setup-file.js"
-	],
+	"sideEffects": false,
 	"files": [
 		"dist"
 	],

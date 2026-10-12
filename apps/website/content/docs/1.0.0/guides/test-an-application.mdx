@@ -1,239 +1,175 @@
 ---
 title: Test an Application
-description: Exercise a real UltimaBase operation in an isolated PostgreSQL schema with Vitest.
+description: Start the real application on an isolated PostgreSQL schema with testApplication and Vitest.
 audience:
   - application-developer
 contentType: guide
 order: 2
-outcome: Verify a create-and-read path without sharing application or database state between test workers.
+outcome: Verify application behavior through the production application itself, from empty tables in every test, without sharing database state between test workers.
 releaseStatus: pre-release
-reviewedAt: 2026-09-26
+reviewedAt: 2026-10-12
 sources:
-  - packages/core/README.md
-  - packages/postgres-plugin/README.md
+  - docs/adr/0327-test-application-and-create-app-starter.md
   - packages/testing/README.md
-  - packages/testing/tests/e2e/postgres-worker-isolation.postgres.e2e.test.ts
+  - packages/testing/src/application/test-application.ts
+  - packages/testing/src/vitest.ts
+  - tests/e2e/test-application.postgres.e2e.test.ts
+  - tests/e2e/test-application-vitest.postgres.e2e.test.ts
   - apps/website/content/docs/1.0.0/manual-installation.mdx
 ---
 
-Test the application boundary your code actually uses: start a fresh
-UltimaBase application, write through its public schema API, read the result,
-then release every resource. This example extends the `Task` schema from
-[Manual Installation](/docs/1.0.0/manual-installation); it does not run
-UltimaBase's repository test suite inside your project.
+Test the application your code actually runs: `testApplication` starts the
+production application itself (same plugins, same rules) on a PostgreSQL
+schema that belongs to the test worker, and every test starts from empty
+tables. Projects created by the initializer already contain this setup and a
+first test in `tests/task.test.ts`.
 
 ## Prerequisites
 
-- Complete Manual Installation and keep `src/schema.ts` with its `Task` class.
-- Have a **separate, disposable** PostgreSQL database for tests. The test
-  user needs permission to create and drop schemas in that database. Never
-  point this guide at shared development or production data.
-- Use Node.js 24 or newer and the same package manager as your application.
+- An application module that exports the configured application, such as
+  `src/ultimabase.ts` with `export const ultimabase = new App({ schemas })`,
+  and `postgresPlugin()` without `url` or `pool`: `testApplication` gives it
+  the test schema through `DATABASE_URL`.
+- Docker, so that Vitest can start a disposable PostgreSQL container, or a
+  **separate, disposable** test database in `TEST_DATABASE_URL`. The test user
+  needs permission to create and drop schemas in it. Never point it at shared
+  development or production data.
+- Node.js 24 or newer and the same package manager as your application.
 
 ## Shortest path
 
 ### Install test dependencies
 
-Vitest runs the test. `pg` supplies a pool that the test owns, and
-`@ultimabase/testing` supplies an isolated PostgreSQL schema for each Vitest
-worker:
-
 ```bash tab="npm" tab-group="package-manager"
-npm install --save-dev vitest @ultimabase/testing pg @types/pg
+npm install --save-dev vitest @ultimabase/testing
 ```
 
 ```bash tab="yarn"
-yarn add --dev vitest @ultimabase/testing pg @types/pg
+yarn add --dev vitest @ultimabase/testing
 ```
 
 ```bash tab="pnpm"
-pnpm add --save-dev vitest @ultimabase/testing pg @types/pg
+pnpm add --save-dev vitest @ultimabase/testing
 ```
 
-Add `.env.test` to `.gitignore`, then create it with a connection to the
-disposable test database, not the `DATABASE_URL` used by the first application:
-
-```dotenv title=".env.test"
-TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_first_app_test
-```
-
-Add these scripts to your existing `package.json`:
+Add a `test` script to `package.json`:
 
 ```json title="package.json"
 {
 	"scripts": {
-		"test": "vitest run",
-		"test:typecheck": "tsc -p tsconfig.test.json"
+		"test": "vitest run"
 	}
 }
 ```
 
-Keep the production TypeScript configuration from Manual Installation. This
-second configuration checks test files without emitting them into `dist/`:
+### Configure Vitest
 
-```json title="tsconfig.test.json"
-{
-	"extends": "./tsconfig.json",
-	"compilerOptions": {
-		"noEmit": true,
-		"rootDir": "."
-	},
-	"include": ["src", "tests", ".ultimabase/**/*.d.ts"]
-}
+`ultimabaseTesting()` starts PostgreSQL once per run (unless
+`TEST_DATABASE_URL` is set), gives each worker its own schema and drops it
+after each test file:
+
+```ts title="vitest.config.ts"
+import { ultimabaseTesting } from '@ultimabase/testing/vitest'
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({ test: { ...ultimabaseTesting() } })
 ```
 
-### Start once for the suite
-
-Create `tests/task.test.ts`:
+### Write the test
 
 ```ts title="tests/task.test.ts"
-import process from 'node:process'
+import { testApplication } from '@ultimabase/testing'
+import { expect, it } from 'vitest'
 
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { PostgresTestWorker, readVitestPoolId } from '@ultimabase/testing'
-import { Pool } from 'pg'
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import { Task } from '../src/schema.ts'
+import { ultimabase } from '../src/ultimabase.ts'
 
-import { Task } from '../src/schema.js'
-
-process.loadEnvFile('.env.test')
-const databaseUrl = process.env.TEST_DATABASE_URL
-if (databaseUrl === undefined) {
-	throw new TypeError('TEST_DATABASE_URL is required')
-}
-
-const workerId = readVitestPoolId(process.env.VITEST_POOL_ID)
-const adminPool = new Pool({ connectionString: databaseUrl })
-const worker = new PostgresTestWorker({
-	prefix: 'task_app_test',
-	query: (statement) => adminPool.query(statement),
-	workerId,
-})
-const pool = new Pool({
-	connectionString: databaseUrl,
-	options: worker.connectionOptions,
-})
-const Application = UltimaBase.use(
-	postgresPlugin({ pool, schemaPolicy: 'override' }),
-)
-const ultimabase = new Application({
-	schemas: [Task],
+it('creates a Task with its defaults', async () => {
+	await using t = await testApplication(ultimabase)
+	const task = await Task.createOne({ data: { title: 'Test the application' } })
+	expect(task).toMatchObject({ done: false, title: 'Test the application' })
+	await t.afterCommit()
 })
 
-beforeAll(async () => {
-	await worker.reset()
-	await ultimabase.start()
-}, 30_000)
-
-afterAll(async () => {
-	// Attempt every owned cleanup even when an earlier cleanup reports an error.
-	try {
-		await ultimabase.dispose()
-	} finally {
-		try {
-			await pool.end()
-		} finally {
-			try {
-				await worker.dispose()
-			} finally {
-				await adminPool.end()
-			}
-		}
-	}
-}, 30_000)
-
-it('creates and reads a Task through one application', async () => {
-	const created = await Task.createOne({
-		data: { title: 'Test the application' },
-	})
-	const saved = await Task.findOneOrThrow({ where: { id: created.id } })
-
-	expect(saved.get('title')).toBe('Test the application')
-	expect(saved.get('done')).toBe(false)
-})
-
-it('stores a completed Task independently of the previous test', async () => {
-	const created = await Task.createOne({
-		data: { title: 'Another task', done: true },
-	})
-	const saved = await Task.findOneOrThrow({ where: { id: created.id } })
-	expect(saved.get('done')).toBe(true)
+it('starts each test from empty tables', async () => {
+	await using t = await testApplication(ultimabase)
+	expect(await Task.count()).toBe(0)
+	await t.afterCommit()
 })
 ```
 
-`worker.reset()` drops and recreates **only its named test schema**; the
-worker-specific `search_path` makes the application prepare and use tables
-there. The application receives a borrowed pool, so the test closes that pool
-after `ultimabase.dispose()`. The administrative pool then removes the schema
-and closes. No application instance, plugin state, or database schema is
-shared with another worker.
+The first call starts the application; a later call in the same file reuses
+it after emptying its tables. Leaving the `await using` scope waits for
+after-commit work. The application stops after the file and its schema is
+dropped.
 
-`UltimaBase` and `PostgresTestWorker` also implement JavaScript's native
-`AsyncDisposable` contract. Prefer `await using` when either resource belongs
-to one asynchronous test; it guarantees cleanup when an assertion throws. This
-guide keeps explicit `afterAll` teardown because its resources span the whole
-suite and because the application and borrowed pool must close before the
-worker removes its schema.
+### Use the handle
 
-### Use the same lifecycle with Jest
+| Member                 | Use it to                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `t.fetch(path, init?)` | Send an in-memory HTTP request through the HTTP plugin, without a port, authenticated by its headers.    |
+| `t.as(principal, fn)`  | Run direct calls as one user: `t.as(User.pointer(id), () => Task.findMany())`; rules see that principal. |
+| `t.asMaster(fn)`       | Seed or inspect data with Master authority, without a configured key; validation and hooks still run.    |
+| `t.reset()`            | Empty every table within a test; plugins' start seeding, such as Roles `ensure`, runs again.             |
+| `t.afterCommit()`      | Wait for `afterCommit` hooks and event consumers before asserting their effects.                         |
 
-Import the hooks and assertions from `@jest/globals` instead of `vitest`.
-Use `Number(process.env.JEST_WORKER_ID)` for `workerId` and omit
-`readVitestPoolId` from the testing import. `PostgresTestWorker` validates
-that the number is a positive integer. The application setup and teardown
-are unchanged: await `start()` in `beforeAll` and `dispose()` in `afterAll`.
+```ts title="tests/rest.test.ts"
+it('lists Tasks over REST', async () => {
+	await using t = await testApplication(ultimabase)
+	const task = await t.asMaster(() =>
+		Task.createOne({ data: { title: 'Listed' } }),
+	)
+	const response = await t.fetch('/api/classes/Task')
+	expect(await response.json()).toMatchObject({ results: [{ id: task.id }] })
+})
+```
 
-Only one application may be initialized in a JavaScript realm. Separate test
-workers may each run their own. Within a suite, many requests can share the
-same application, but each test should create its own records and avoid
-relying on another test's writes. To replace the application in a test, await
-its disposal before initializing the next one. `stop()` alone does not release
-setup-owned resources or permit replacement. No additional lifecycle helper
-or test-only activation mode is needed.
+`t.as` and `t.asMaster` exist only on a handle from `testApplication`, which
+opens the application harness before the application starts. An application
+started with `ultimabase.start()` can never gain those powers, and
+`testApplication` refuses `NODE_ENV=production`.
 
 ## Verify the outcome
 
-Run the type check and the test:
+Run the tests:
 
 ```bash tab="npm" tab-group="package-manager"
-npm run test:typecheck
 npm test
 ```
 
 ```bash tab="yarn"
-yarn test:typecheck
 yarn test
 ```
 
 ```bash tab="pnpm"
-pnpm test:typecheck
 pnpm test
 ```
 
-Both tests should pass, each creating and reading its own `Task`. If you use
-Typegen, the test configuration also includes its generated declarations. Temporarily
-change the expected title to confirm that the assertion fails, then restore
-it. If startup fails, check the test database URL and the test user's schema
-permissions before changing `schemaPolicy`.
+Both tests should pass. Temporarily change the expected title to confirm that
+the assertion fails, then restore it. If startup fails, check that Docker is
+running or that `TEST_DATABASE_URL` points to a database where the test user
+may create schemas.
 
 ## Limitations
 
-This is an integration test, not a unit test: it needs a running PostgreSQL
-server. It proves the chosen create-and-read path, not every schema, plugin,
-transport, or authorization rule in your application. Add focused tests for
-the behavior you install, including both allowed and denied public requests
-when you expose an API. Run only one test suite with this schema prefix
-against a given test database at a time; use another prefix or database for
-independent concurrent suites.
+These are integration tests: they need PostgreSQL. Workers share one database
+and use separate schemas, `ultimabase_test_<worker>`; run one suite at a time
+against a given `TEST_DATABASE_URL`. Tests that share one application in a
+file run one after another. `testApplication` refuses an application whose
+database plugin did not connect through `DATABASE_URL`, so it never empties
+another database. With another test runner, `testApplication` works without
+`ultimabaseTesting()`: it starts one container per process when
+`TEST_DATABASE_URL` is unset, and you call `await ultimabase.dispose()` after
+the suite.
 
-`@ultimabase/testing` also exposes plugin conformance tools. Those belong to
-the [plugin-author workflow](/docs/1.0.0/plugins/build-a-plugin), not to
-ordinary application assertions.
+Plugin conformance suites and lower-level helpers live in
+`@ultimabase/testing/plugins`; they belong to the [plugin-author
+workflow](/docs/1.0.0/plugins/build-a-plugin), not to ordinary application
+assertions.
 
 ## Related concepts
 
 Read [Transactions](/docs/1.0.0/core/writing-data/transactions) when testing
 rollback behavior, [Using Plugins](/docs/1.0.0/plugins/using-plugins) when a
 test installs optional behavior, and [PostgreSQL](/docs/1.0.0/plugins/official/postgresql)
-for pool ownership and schema policies.
+for connection settings and schema policies.

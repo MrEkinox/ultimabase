@@ -38,58 +38,80 @@ export const pluginImports = (
  * routes serve HTTP clients, so REST hides them; GraphQL exposes them, except
  * the email flows, which need application callbacks first.
  */
-const hiddenAuthOperations = (plan: InitializerPlan, indent: string): string =>
+const hiddenAuthOperations = (plan: InitializerPlan): readonly string[] =>
 	has(plan, 'auth-plugin')
-		? `,
-${indent}// Served under /api/auth by authPlugin (ADR-0326).
-${indent}hide: [
-${indent}  ...Object.values(authOperations),
-${indent}  ...Object.values(passwordOperations),
-${indent}  ...Object.values(passwordEmailOperations),
-${indent}]`
-		: ''
+		? [
+				`// Served under /api/auth by authPlugin (ADR-0326).
+hide: [
+  ...Object.values(authOperations),
+  ...Object.values(passwordOperations),
+  ...Object.values(passwordEmailOperations),
+]`,
+			]
+		: []
 
-const hiddenEmailOperations = (plan: InitializerPlan): string =>
+const hiddenEmailOperations = (plan: InitializerPlan): readonly string[] =>
 	hasPublishedAuth(plan)
-		? `,
-      // Expose them once password({ reset, verification, emailChange }) has email callbacks.
-      hide: Object.values(passwordEmailOperations)`
-		: ''
+		? [
+				`// Exposed once password({ reset, verification, emailChange }) has email
+// callbacks.
+hide: Object.values(passwordEmailOperations)`,
+			]
+		: []
 
-// Read-only data APIs need no protected policy; writes would (ADR-0294).
-const readOnly =
-	'default: { createOne: false, updateOne: false, deleteOne: false }'
+/** Access is the protected policy that lets data APIs expose writes (ADR-0294). */
+const hasPolicy = (plan: InitializerPlan): boolean => has(plan, 'access-plugin')
+
+// Without a policy plugin, data APIs stay read-only: REST and GraphQL refuse
+// public writes otherwise (ADR-0294).
+const readOnly = (plan: InitializerPlan): readonly string[] =>
+	hasPolicy(plan)
+		? []
+		: ['default: { createOne: false, updateOne: false, deleteOne: false }']
+
+/** Indents every line but the first of a generated fragment. */
+export const indentRest = (text: string, spaces: number): string =>
+	text.replaceAll('\n', `\n${' '.repeat(spaces)}`)
+
+/**
+ * `true` when no option applies, else one expanded object (Prettier keeps an
+ * object expanded when its first property starts a new line).
+ */
+const apiOptions = (entries: readonly string[]): string =>
+	entries.length === 0
+		? 'true'
+		: `{\n  ${entries.map((entry) => indentRest(entry, 2)).join(',\n  ')},\n}`
 
 const restOptions = (plan: InitializerPlan): string =>
-	`{
-      ${readOnly}${hiddenAuthOperations(plan, '      ')},
-    }`
+	apiOptions([...readOnly(plan), ...hiddenAuthOperations(plan)])
 
 const graphqlOptions = (plan: InitializerPlan, explorer: boolean): string =>
-	`{
-      ${readOnly}${hiddenEmailOperations(plan)}${
-				explorer
-					? `,
-      // GraphiQL at /graphiql, in development only (ADR-0325).
-      explorer: 'graphiql'`
-					: ''
-			},
-    }`
+	apiOptions([
+		...readOnly(plan),
+		...hiddenEmailOperations(plan),
+		...(explorer
+			? [
+					`// GraphiQL at /graphiql, in development only (ADR-0325).
+explorer: 'graphiql'`,
+				]
+			: []),
+	])
 
 const apiServerEntry = (plan: InitializerPlan): string => {
-	const options = included([
-		[has(plan, 'rest-plugin'), `    rest: ${restOptions(plan)},`],
+	const options = included<readonly [string, string]>([
+		[has(plan, 'rest-plugin'), ['rest', restOptions(plan)]],
 		[
 			graphqlOverHttp(plan),
-			`    graphql: ${graphqlOptions(plan, hasGraphqlExplorer(plan))},`,
+			['graphql', graphqlOptions(plan, hasGraphqlExplorer(plan))],
 		],
-		[!hasHttpListener(plan), '    server: false,'],
+		[!hasHttpListener(plan), ['server', 'false']],
 	])
-	return options.length === 0
-		? '...apiServer()'
-		: `...apiServer({
-${options.join('\n')}
-  })`
+	if (options.length === 0) return '...apiServer()'
+	if (options.every(([, value]) => !value.includes('\n')))
+		return `...apiServer({ ${options.map(([key, value]) => `${key}: ${value}`).join(', ')} })`
+	return `...apiServer({\n  ${options
+		.map(([key, value]) => `${key}: ${indentRest(value, 2)}`)
+		.join(',\n  ')},\n})`
 }
 
 /** Installs transport options before schema declaration so they are source typed. */
@@ -120,7 +142,7 @@ export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
 		[usesApiServer(plan), apiServerEntry(plan)],
 		[
 			has(plan, 'graphql-plugin') && !graphqlOverHttp(plan),
-			`graphqlPlugin(${graphqlOptions(plan, false)})`,
+			`graphqlPlugin(${graphqlOptions(plan, false).replace(/^true$/u, '')})`,
 		],
 	])
 
@@ -166,12 +188,12 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 			'The Hono listener binds to `127.0.0.1:1337` in development (`HOST` and `PORT` override it; `NODE_ENV=production` listens on every interface). Keep it local until you add and review complete protection, rate limits, TLS, and hosting policy.',
 		],
 		[
-			hasDataApi(plan),
+			hasDataApi(plan) && !hasPolicy(plan),
 			'Generated Task API mutations are disabled; the server-side Task write in `main` seeds a record. REST and GraphQL refuse to start with public writes unless a policy plugin such as Access is installed or you pass `publicWrites: true` in their options.',
 		],
 		[
-			has(plan, 'access-plugin') && hasDataApi(plan),
-			'Access intentionally denies ordinary Task reads. The sample API request therefore returns a permission error until you write an exact policy.',
+			hasDataApi(plan) && hasPolicy(plan),
+			'Generated Task API routes include writes: Access decides each request, and its prototype opening allows them outside production until you write rules.',
 		],
 		[
 			has(plan, 'acl-permissions-plugin') &&

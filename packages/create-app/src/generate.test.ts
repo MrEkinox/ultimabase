@@ -40,6 +40,9 @@ describe('project generation', () => {
 		expect(existsSync(path.join(plan.destination, 'src/main.js'))).toBe(true)
 		expect(existsSync(path.join(plan.destination, 'tsconfig.json'))).toBe(false)
 		expect(existsSync(path.join(plan.destination, '.env'))).toBe(false)
+		expect(existsSync(path.join(plan.destination, 'vitest.config.js'))).toBe(
+			true,
+		)
 	})
 
 	it('creates an ignored secret with owner-only permissions for Docker', async () => {
@@ -128,8 +131,8 @@ describe('project generation', () => {
 		const plan = resolveSelection(
 			{
 				name: 'secure-notes',
-				// Access needs the local Master key; authentication does not (ADR-0326).
-				plugins: ['access-plugin'],
+				// ACL needs the local Master key; authentication does not (ADR-0326).
+				plugins: ['acl-permissions-plugin'],
 				database: 'docker',
 				install: true,
 			},

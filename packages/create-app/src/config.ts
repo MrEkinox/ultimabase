@@ -27,6 +27,8 @@ export interface SelectionInput {
 	readonly database?: Database
 	readonly packageManager?: PackageManager
 	readonly install?: boolean
+	/** An existing database written to `.env`; `existing` database only. */
+	readonly databaseUrl?: string
 }
 
 export interface ParsedOptions extends SelectionInput {
@@ -46,7 +48,7 @@ export interface InitializerPlan {
 	readonly database: Database
 	readonly packageManager: PackageManager
 	readonly install: boolean
-	readonly typegen: boolean
+	readonly databaseUrl?: string
 }
 
 const oneOf = <const T extends string>(
@@ -71,6 +73,17 @@ const offeredPluginId = (id: string, label: string): PluginId => {
 	return id
 }
 
+/** `--api none` or `--plugin none` selects no value; `none` stands alone. */
+const readNone = (
+	values: readonly string[] | undefined,
+	flag: string,
+): readonly string[] | undefined => {
+	if (!values?.includes('none')) return values
+	if (values.length > 1)
+		throw new Error(`${flag} none cannot be combined with other values`)
+	return []
+}
+
 /** Parse only declared automation flags; unknown values fail before any destination write. */
 export const parseOptions = (args: readonly string[]): ParsedOptions => {
 	const parsed = parseArgs({
@@ -85,6 +98,7 @@ export const parseOptions = (args: readonly string[]): ParsedOptions => {
 			plugin: { type: 'string', multiple: true },
 			starter: { type: 'string' },
 			database: { type: 'string' },
+			'database-url': { type: 'string' },
 			'package-manager': { type: 'string' },
 			install: { type: 'boolean' },
 			'no-install': { type: 'boolean' },
@@ -95,10 +109,11 @@ export const parseOptions = (args: readonly string[]): ParsedOptions => {
 	const values = parsed.values
 	if (values.install && values['no-install'])
 		throw new Error('--install conflicts with --no-install')
-	const apiValues = values.api?.map((value) =>
+	// `none` chooses nothing explicitly, since --yes now selects defaults.
+	const apiValues = readNone(values.api, '--api')?.map((value) =>
 		oneOf(value, ['rest', 'graphql'], '--api'),
 	)
-	const pluginValues = values.plugin?.map((value) => {
+	const pluginValues = readNone(values.plugin, '--plugin')?.map((value) => {
 		if (!value.startsWith('@ultimabase/'))
 			throw new Error(`Use the full official package ID for --plugin: ${value}`)
 		return offeredPluginId(value.slice('@ultimabase/'.length), value)
@@ -116,6 +131,9 @@ export const parseOptions = (args: readonly string[]): ParsedOptions => {
 		}),
 		...(values.database !== undefined && {
 			database: oneOf(values.database, ['existing', 'docker'], '--database'),
+		}),
+		...(values['database-url'] !== undefined && {
+			databaseUrl: values['database-url'],
 		}),
 		...(values['package-manager'] !== undefined && {
 			packageManager: oneOf(
@@ -142,6 +160,25 @@ export const detectPackageManager = (
 const unique = <T extends string>(values: readonly T[]): T[] => [
 	...new Set(values),
 ]
+
+/** A PostgreSQL URL for an existing database; an empty answer means later. */
+const readDatabaseUrl = (
+	value: string | undefined,
+	database: Database,
+): string | undefined => {
+	if (value === undefined || value.trim() === '') return undefined
+	if (database !== 'existing')
+		throw new Error('--database-url applies to an existing database only.')
+	let url: URL
+	try {
+		url = new URL(value.trim())
+	} catch {
+		throw new Error('The database URL must be a postgres:// URL.')
+	}
+	if (url.protocol !== 'postgres:' && url.protocol !== 'postgresql:')
+		throw new Error('The database URL must be a postgres:// URL.')
+	return value.trim()
+}
 
 /** Resolve one immutable model used by prompts, flags, preview, and later generation. */
 export const resolveSelection = (
@@ -185,6 +222,8 @@ export const resolveSelection = (
 		)
 	}
 	const language = input.language ?? 'ts'
+	const database = input.database ?? 'existing'
+	const databaseUrl = readDatabaseUrl(input.databaseUrl, database)
 	return Object.freeze({
 		name: input.name,
 		destination,
@@ -196,10 +235,10 @@ export const resolveSelection = (
 			plugins.filter((id) => !requestedPlugins.includes(id)),
 		),
 		starter,
-		database: input.database ?? 'existing',
+		database,
 		packageManager: input.packageManager ?? 'npm',
 		install: input.install ?? true,
-		typegen: language === 'ts',
+		...(databaseUrl === undefined ? {} : { databaseUrl }),
 	})
 }
 

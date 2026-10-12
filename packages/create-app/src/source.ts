@@ -15,7 +15,13 @@ export const renderImports = (imports: readonly NamedImport[]): string => {
 		bySource.set(source, merged)
 	}
 	return [...bySource]
-		.map(([source, names]) => `import { ${names.join(', ')} } from '${source}'`)
+		.map(([source, names]) => {
+			const line = `import { ${names.join(', ')} } from '${source}'`
+			// Prettier breaks an import longer than its 80 columns.
+			return line.length <= 80
+				? line
+				: `import {\n${names.map((name) => `  ${name},`).join('\n')}\n} from '${source}'`
+		})
 		.join('\n')
 }
 

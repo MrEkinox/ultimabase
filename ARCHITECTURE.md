@@ -341,9 +341,14 @@ references without weakening a Core validation boundary.
 Capabilities, privileges, ownership, registries, adapters, and
 Master remain direct Core contracts. Core never imports the kit. Official
 plugins use the same toolbox where it removes real duplication, while
-`@ultimabase/testing` owns runner-agnostic conformance fixtures and assertions.
-Its optional generic Typegen check explains the dependency on Typegen; the
-baseline kernel suite remains logical-only and opens no PostgreSQL resource.
+`@ultimabase/testing/plugins` owns runner-agnostic conformance fixtures and
+assertions. Its optional generic Typegen check explains the dependency on
+Typegen until it leaves with Typegen; the baseline kernel suite remains
+logical-only and opens no PostgreSQL resource. `@ultimabase/testing` starts an
+application itself on an isolated PostgreSQL schema (`testApplication`,
+ADR-0327) through Core's application harness, which grants Master without a
+key and empties data only to the code that opened it before start; the
+database plugin provides the neutral `ultimabase.database-reset` capability.
 The types-only `@standard-schema/spec` dependency is owned only by packages that
 parse Standard Schema contracts, including Plugin Kit and the optional Validation
 plugin. Core has no direct dependency on it.

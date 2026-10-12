@@ -12,7 +12,7 @@ import {
 } from 'node:fs/promises'
 import path from 'node:path'
 
-import { renderBaseFiles } from './base-template.js'
+import { renderBaseFiles, writesEnv } from './base-template.js'
 import { isPluginId } from './catalog.js'
 import type { InitializerPlan, PackageManager } from './config.js'
 import { needsMasterKey } from './security-template.js'
@@ -76,7 +76,7 @@ export const createProject = async (
 		const files = renderBaseFiles(
 			plan,
 			docker ? randomBytes(24).toString('hex') : undefined,
-			docker && needsMasterKey(plan)
+			writesEnv(plan) && needsMasterKey(plan)
 				? randomBytes(32).toString('hex')
 				: undefined,
 		)

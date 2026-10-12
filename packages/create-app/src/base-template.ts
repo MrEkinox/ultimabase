@@ -5,6 +5,7 @@ import {
 	apiReadmeNotes,
 	apiSchemaPluginEntries,
 	apiSchemaPluginImports,
+	indentRest,
 	pluginImports,
 } from './api-template.js'
 import type { PluginId } from './catalog.js'
@@ -25,10 +26,16 @@ import {
 	securitySchemaPluginEntries,
 	securitySchemaNames,
 	taskRulesChain,
-	taskSecurityOptions,
 } from './security-template.js'
 import { mainSource } from './main-template.js'
 import { joinSections, renderImports } from './source.js'
+import {
+	environmentFile,
+	json,
+	packageScripts,
+	typescriptConfigs,
+} from './project-files.js'
+import { taskTestSource, vitestConfigSource } from './test-template.js'
 
 export type ProjectFiles = ReadonlyMap<string, string>
 
@@ -63,33 +70,47 @@ const applicationSchemaNames = (plan: InitializerPlan): readonly string[] => [
 
 const scriptCommand = (
 	manager: PackageManager,
-	script: 'build' | 'start' | 'typecheck',
+	script: 'dev' | 'test',
 ): string => {
 	if (manager === 'npm')
-		return script === 'start' ? 'npm start' : `npm run ${script}`
+		return script === 'test' ? 'npm test' : `npm run ${script}`
 	return `${manager} ${script}`
 }
 
-/** One `.use(entry)` line per plugin entry, appended to a factory expression. */
-const useChain = (entries: readonly string[]): string =>
-	entries.map((entry) => `\n  .use(${entry})`).join('')
+/**
+ * The one plugin list, as Prettier prints it: on one line when it fits,
+ * otherwise one entry per line. Leading `//` lines of an entry are comments
+ * above it.
+ */
+const pluginList = (entries: readonly string[]): string => {
+	const single = `export const SchemaApplication = UltimaBase.use(${entries.join(', ')})`
+	if (single.length <= 80 && !entries.some((entry) => entry.includes('\n')))
+		return single
+	return `export const SchemaApplication = UltimaBase.use(\n  ${entries
+		.map((entry) => indentRest(entry, 2))
+		.join(',\n  ')},\n)`
+}
+
+/** A relative import of a generated module; Node 24 runs `.ts` sources. */
+const local = (plan: InitializerPlan, name: string): string =>
+	`./${name}.${plan.language}`
+
+/** The initializer writes `.env` when it knows the database URL. */
+export const writesEnv = (plan: InitializerPlan): boolean =>
+	plan.database === 'docker' || plan.databaseUrl !== undefined
 
 /** These commands come from the same scripts written into package.json. */
 export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 	`cd ${path.relative(process.cwd(), plan.destination) || plan.destination}`,
 	...(plan.database === 'docker'
 		? ['docker compose up -d --wait']
-		: [
-				`Create .env from .env.example and set DATABASE_URL for a disposable PostgreSQL database${needsMasterKey(plan) ? ' and a private random ULTIMABASE_MASTER_KEY' : ''}.`,
-			]),
+		: writesEnv(plan)
+			? []
+			: [
+					`Create .env from .env.example and set DATABASE_URL for a disposable PostgreSQL database${needsMasterKey(plan) ? ' and a private random ULTIMABASE_MASTER_KEY' : ''}.`,
+				]),
 	...(!plan.install ? [`${plan.packageManager} install`] : []),
-	...(plan.typegen
-		? [
-				scriptCommand(plan.packageManager, 'typecheck'),
-				scriptCommand(plan.packageManager, 'build'),
-			]
-		: []),
-	scriptCommand(plan.packageManager, 'start'),
+	scriptCommand(plan.packageManager, 'dev'),
 	...apiNextCommands(plan),
 ]
 
@@ -109,7 +130,7 @@ const applicationSource = (plan: InitializerPlan): string =>
 		renderImports([
 			...securityApplicationImports(plan),
 			[
-				'./schema.js',
+				local(plan, 'schema'),
 				['SchemaApplication', ...applicationSchemaNames(plan)].join(', '),
 			],
 		]),
@@ -125,29 +146,33 @@ ${[
 		registerSource(plan),
 	])
 
+/** Prettier keeps one call on the closing line and breaks two or more. */
+const shapeChain = (calls: readonly string[]): string =>
+	calls.length < 2
+		? calls.join('')
+		: calls.map((call) => `\n  ${indentRest(call, 2)}`).join('')
+
+// Form D (ADR-0297): data in `define`, shape methods, then rules in `.with`.
 const taskSchemaSource = (
 	plan: InitializerPlan,
 ): string => `// The same declaration drives TypeScript inference and Runtime validation.
 export const Task = SchemaApplication.Schema.define({
-${[
-	"  className: 'Task',",
-	taskSecurityOptions(plan),
-	`  fields: (f) => ({
+  className: 'Task',
+  fields: (f) => ({
     title: f.string({
       required: true,
 ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value.trim() },\n' : ''}${has(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
     done: f.boolean({ default: false }),
-  }),`,
-]
-	.filter((line) => line !== '')
-	.join('\n')}
-})${has(plan, 'soft-delete-plugin') ? '.softDelete()' : ''}${taskRulesChain(plan)}`
+  }),
+})${shapeChain([
+	...(has(plan, 'soft-delete-plugin') ? ['.softDelete()'] : []),
+	...taskRulesChain(plan),
+])}`
 
 const schemaSource = (plan: InitializerPlan): string => {
 	const task = plan.starter === 'task'
 	// One plugin list: postgresPlugin() reads DATABASE_URL at start (ADR-0312).
 	const entries = [
-		...(plan.typegen ? ['typegenPlugin()'] : []),
 		...behaviorPlugins
 			.filter(([id]) => has(plan, id))
 			.map(([, , entry]) => entry),
@@ -158,9 +183,6 @@ const schemaSource = (plan: InitializerPlan): string => {
 	return joinSections([
 		renderImports([
 			['@ultimabase/core', 'UltimaBase'],
-			...(plan.typegen
-				? [['@ultimabase/typegen', 'typegenPlugin'] as const]
-				: []),
 			...pluginImports(plan, behaviorPlugins),
 			...(task && has(plan, 'validation-plugin')
 				? [['zod', 'z'] as const]
@@ -169,7 +191,7 @@ const schemaSource = (plan: InitializerPlan): string => {
 			...apiSchemaPluginImports(plan),
 			['@ultimabase/postgres-plugin', 'postgresPlugin'],
 		]),
-		`export const SchemaApplication = UltimaBase${useChain(entries)}`,
+		pluginList(entries),
 		task
 			? taskSchemaSource(plan)
 			: `// Add your first SchemaApplication.Schema.define() declaration here.
@@ -177,26 +199,6 @@ export {}`,
 		securitySchemaDeclarations(plan),
 	])
 }
-
-const typegenScript = `import path from 'node:path'
-import {
-  generateApplicationTypes,
-  loadTypegenApplication,
-  writeGeneratedTypeFiles,
-} from '@ultimabase/typegen'
-
-const applicationId = 'main'
-const outputPath = path.resolve('.ultimabase/schema.generated.d.ts')
-// Load the configured application without starting it or connecting to PostgreSQL.
-const ultimabase = await loadTypegenApplication({
-  sourcePath: './src/ultimabase.ts',
-  exportName: 'ultimabase',
-})
-const generated = generateApplicationTypes({ ultimabase, applicationId })
-await writeGeneratedTypeFiles([
-  { applicationId, contents: generated.contents, outputPath },
-])
-`
 
 const composeFile = `services:
   postgres:
@@ -242,6 +244,9 @@ const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
 	])
 }
 
+const commandList = (commands: readonly string[]): string =>
+	commands.map((command) => `    ${command}`).join('\n')
+
 const projectReadme = (plan: InitializerPlan): string =>
 	joinSections([
 		`# ${plan.name}`,
@@ -249,14 +254,13 @@ const projectReadme = (plan: InitializerPlan): string =>
 ${plan.starter === 'task' ? 'The Task starter seeds one record on its first run; later runs print that record instead of writing another.' : 'This empty application starts and stops without a data operation.'}`,
 		'## Before running',
 		[
-			'Node.js 24 or newer.',
+			'Node.js 24 or newer: it runs the TypeScript sources directly in development.',
 			plan.database === 'docker'
 				? 'Docker Compose. Run docker compose up -d --wait to start the disposable local PostgreSQL 17 service and wait until it is ready. Its credentials live only in the ignored .env file.'
-				: 'A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.',
+				: plan.databaseUrl === undefined
+					? 'A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.'
+					: 'The existing PostgreSQL database you gave, in the ignored .env file. Use a disposable database: the initializer does not create it.',
 			'`postgresPlugin()` reads DATABASE_URL when the application starts. Schema synchronization uses override outside production for a disposable development database (`NODE_ENV=production` uses fail). Do not point it at production or shared data.',
-			plan.typegen
-				? 'Typegen generates replaceable declarations before typecheck and build; it does not create a Runtime client or connect to PostgreSQL.'
-				: 'JavaScript runs the same application graph without Typegen or generated declarations.',
 			...behaviorReadmeNotes(plan),
 			...securityReadmeNotes(plan),
 			...apiReadmeNotes(plan),
@@ -264,11 +268,10 @@ ${plan.starter === 'task' ? 'The Task starter seeds one record on its first run;
 			.map((note) => `- ${note}`)
 			.join('\n'),
 		'## Run',
-		'Commands:',
-		nextCommands(plan)
-			.slice(1)
-			.map((command) => '    ' + command)
-			.join('\n'),
+		`Commands:\n\n${commandList(nextCommands(plan).slice(1))}`,
+		`\`${scriptCommand(plan.packageManager, 'dev')}\` restarts the application when a source file changes.${plan.language === 'ts' ? ` For production, \`${plan.packageManager === 'npm' ? 'npm run build' : `${plan.packageManager} build`}\` compiles to dist/ and \`${plan.packageManager === 'npm' ? 'npm start' : `${plan.packageManager} start`}\` runs it.` : ''}`,
+		'## Test',
+		`${plan.starter === 'task' ? '`tests/task.test' + `.${plan.language}` + '` starts this application with `testApplication` from `@ultimabase/testing` on its own PostgreSQL schema; each call starts from empty tables.' : 'Add tests under tests/ with `testApplication` from `@ultimabase/testing`.'} Run them with \`${scriptCommand(plan.packageManager, 'test')}\`. Vitest starts a disposable PostgreSQL container once with Docker; set TEST_DATABASE_URL to use an existing test database instead.`,
 		plan.database === 'docker'
 			? 'When finished, docker compose down -v removes the disposable database volume.'
 			: 'Keep .env private. It is ignored by Git.',
@@ -296,30 +299,23 @@ export const renderBaseFiles = (
 		dependencies['@ultimabase/auth-password'] = '^0.0.0'
 	if (has(plan, 'validation-plugin') && plan.starter === 'task')
 		dependencies.zod = '^4.4.3'
-	if (plan.typegen) dependencies['@ultimabase/typegen'] = '^0.0.0'
-	// Type checks need no .env (ADR-0312); only a Master key is read at import.
-	const generateEnv = needsMasterKey(plan) ? '--env-file=.env ' : ''
 	const packageJson = {
 		name: plan.name,
 		version: '0.0.0',
 		private: true,
 		type: 'module',
-		scripts: plan.typegen
-			? {
-					'generate:types': `node ${generateEnv}scripts/generate-types.mjs`,
-					typecheck: `node ${generateEnv}scripts/generate-types.mjs && tsc --noEmit`,
-					build: `node ${generateEnv}scripts/generate-types.mjs && tsc`,
-					start: 'node --env-file=.env dist/main.js',
-				}
-			: { start: 'node --env-file=.env src/main.js' },
+		scripts: packageScripts(plan),
 		dependencies,
-		...(plan.typegen
-			? { devDependencies: { '@types/node': '^24.0.0', typescript: '^6.0.3' } }
-			: {}),
+		devDependencies: {
+			...(plan.language === 'ts' ? { '@types/node': '^24.0.0' } : {}),
+			'@ultimabase/testing': '^0.0.0',
+			...(plan.language === 'ts' ? { typescript: '^6.0.3' } : {}),
+			vitest: '^4.1.11',
+		},
 	}
 	const files = new Map<string, string>([
-		['package.json', `${JSON.stringify(packageJson, null, 2)}\n`],
-		['.gitignore', '.env\n.ultimabase/\ndist/\nnode_modules/\n'],
+		['package.json', json(packageJson)],
+		['.gitignore', '.env\ndist/\nnode_modules/\n'],
 		[
 			'.env.example',
 			(plan.database === 'docker'
@@ -327,49 +323,21 @@ export const renderBaseFiles = (
 				: 'DATABASE_URL=postgres://user:password@127.0.0.1:5432/your_disposable_database\n') +
 				(needsMasterKey(plan)
 					? 'ULTIMABASE_MASTER_KEY=<generate-a-random-local-key>\n'
-					: ''),
+					: '') +
+				'# Optional: an existing test database instead of a Docker container.\n# TEST_DATABASE_URL=postgres://user:password@127.0.0.1:5432/your_test_database\n',
 		],
 		[`src/schema.${extension}`, schemaSource(plan)],
 		[`src/ultimabase.${extension}`, applicationSource(plan)],
 		[`src/main.${extension}`, mainSource(plan)],
+		[`vitest.config.${extension}`, vitestConfigSource(plan)],
+		...(plan.starter === 'task'
+			? [[`tests/task.test.${extension}`, taskTestSource(plan)] as const]
+			: []),
+		...(plan.language === 'ts' ? typescriptConfigs() : []),
 		['README.md', projectReadme(plan)],
 	])
-	if (plan.typegen) {
-		files.set(
-			'tsconfig.json',
-			`${JSON.stringify(
-				{
-					compilerOptions: {
-						module: 'NodeNext',
-						moduleResolution: 'NodeNext',
-						outDir: 'dist',
-						rootDir: 'src',
-						skipLibCheck: true,
-						strict: true,
-						target: 'ES2024',
-						types: ['node'],
-					},
-					include: ['src', '.ultimabase/**/*.d.ts'],
-				},
-				null,
-				2,
-			)}\n`,
-		)
-		files.set('scripts/generate-types.mjs', typegenScript)
-	}
-	if (plan.database === 'docker') {
-		if (!dockerPassword)
-			throw new Error('A random Docker password is required.')
-		let masterEntry = ''
-		if (needsMasterKey(plan)) {
-			if (!masterKey) throw new Error('A random local Master key is required.')
-			masterEntry = `ULTIMABASE_MASTER_KEY=${masterKey}\n`
-		}
-		files.set('compose.yaml', composeFile)
-		files.set(
-			'.env',
-			`POSTGRES_PASSWORD=${dockerPassword}\nDATABASE_URL=postgres://ultimabase:${dockerPassword}@127.0.0.1:54329/ultimabase\n${masterEntry}`,
-		)
-	}
+	if (plan.database === 'docker') files.set('compose.yaml', composeFile)
+	const environment = environmentFile(plan, dockerPassword, masterKey)
+	if (environment !== undefined) files.set('.env', environment)
 	return files
 }

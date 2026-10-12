@@ -160,9 +160,9 @@ describe('documentation navigation architecture', () => {
 			path.join(contentRoot, '1.0.0/guides/test-an-application.mdx'),
 			'utf8',
 		)
-		expect(page).toContain('PostgresTestWorker')
+		expect(page).toContain('testApplication')
 		expect(page).toContain('Task.createOne(')
-		expect(page).toContain('Task.findOneOrThrow(')
+		expect(page).toContain("t.fetch('/api/classes/Task')")
 		expect(page).not.toContain('yarn test:e2e:built')
 	})
 

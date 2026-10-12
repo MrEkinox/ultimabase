@@ -7,6 +7,7 @@ import { parseOptions } from './config.js'
 import {
 	CancelledError,
 	collectSelection,
+	dockerMissingNotice,
 	pluginChoices,
 	type PluginChoice,
 	type PromptAdapter,
@@ -34,10 +35,12 @@ const adapter = (overrides: Partial<PromptAdapter> = {}): PromptAdapter => ({
 	plugins: () => Promise.resolve(['hooks-plugin']),
 	starter: () => Promise.resolve('task'),
 	database: () => Promise.resolve('existing'),
+	databaseUrl: () => Promise.resolve(''),
 	packageManager: () => Promise.resolve('npm'),
 	install: () => Promise.resolve(false),
 	confirm: () => Promise.resolve(true),
 	print: () => undefined,
+	notice: () => undefined,
 	...overrides,
 })
 
@@ -124,15 +127,53 @@ describe('selection flow', () => {
 				adapter(),
 			),
 		).rejects.toThrow('Non-interactive mode needs')
+		// ADR-0327 decision 6: REST and the prototype Access by default.
 		const plan = await collectSelection(
 			parseOptions(['--name', 'notes', '--yes']),
-			{ cwd: directory, isTTY: false },
+			{ cwd: directory, dockerAvailable: true, isTTY: false },
 			adapter(),
 		)
-		expect(plan.apis).toEqual([])
-		expect(plan.plugins).toEqual(['postgres-plugin'])
-		expect(plan.typegen).toBe(true)
+		expect(plan.apis).toEqual(['rest'])
+		expect(plan.requestedPlugins).toEqual(['access-plugin'])
+		expect(plan.plugins).toEqual(
+			expect.arrayContaining(['access-plugin', 'rest-plugin', 'http-plugin']),
+		)
+		expect(plan.database).toBe('docker')
+		expect(plan.language).toBe('ts')
 		expect(readdirSync(directory)).toEqual([])
+	})
+
+	// ADR-0327 decision 8: without Docker, an existing database, with a notice.
+	it('falls back to an existing database when Docker is missing', async () => {
+		const notices: string[] = []
+		const plan = await collectSelection(
+			parseOptions(['--name', 'notes', '--yes']),
+			{ cwd: root(), dockerAvailable: false, isTTY: false },
+			adapter({
+				notice: (message) => {
+					notices.push(message)
+				},
+			}),
+		)
+		expect(plan.database).toBe('existing')
+		expect(notices).toEqual([dockerMissingNotice])
+		const offered: boolean[] = []
+		const asked = await collectSelection(
+			parseOptions([]),
+			{ cwd: root(), dockerAvailable: false, isTTY: true },
+			adapter({
+				database: (dockerAvailable) => {
+					offered.push(dockerAvailable)
+					return Promise.resolve('existing')
+				},
+				databaseUrl: () =>
+					Promise.resolve('postgres://user:secret@127.0.0.1:5432/notes'),
+			}),
+		)
+		expect(offered).toEqual([false])
+		expect(asked.databaseUrl).toBe(
+			'postgres://user:secret@127.0.0.1:5432/notes',
+		)
 	})
 
 	it('cancels before any write or final confirmation', async () => {

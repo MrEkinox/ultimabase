@@ -382,7 +382,7 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 
 const suite = definePluginConformanceSuite({
 	createFixture: () =>
@@ -409,7 +409,7 @@ const suite = definePluginConformanceSuite({
 await runPluginConformance(suite)
 ```
 
-The suite helpers come from `@ultimabase/testing`; the Access engine and
+The suite helpers come from `@ultimabase/testing/plugins`; the Access engine and
 provider helpers come from this package root. A provider can add focused item,
 field, relation, transition, and master-bypass assertions without asking an
 independent policy engine to adopt this vocabulary.

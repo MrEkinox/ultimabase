@@ -29,18 +29,38 @@ expliqué contre une base 5e719ea2 construite.
 
 ## État
 
-En cours. Fait :
+Implémentation, tests et documentation faits ; porte finale à passer.
 
 - Core : `databaseResetCapability` (neutre, durée de vie `application`,
   exportée par `@ultimabase/core` comme les autres capacités de base de
   données) ; `openApplicationHarness(ultimabase)` dans
   `@ultimabase/core/plugin` (`master(options)`, `resetDatabase()`), autorité
-  sans clé propre au harnais acceptée par `bindRequestContextToApplication`.
-- PostgreSQL : fournisseur `database-reset` (`TRUNCATE` de toutes les tables
-  du catalogue, liaisons et stockage privé compris, `RESTART IDENTITY`, sans
-  `CASCADE`).
+  sans clé propre au harnais acceptée par `bindRequestContextToApplication` ;
+  `resetDatabase()` relance la phase `ready` des plugins
+  (`LifecycleManager.seed()`, `FrameworkApplication.seed()` interne).
+- PostgreSQL : fournisseur `database-reset` (`synchronization/reset.ts` :
+  `TRUNCATE` de toutes les tables du catalogue, liaisons et stockage privé
+  compris, `RESTART IDENTITY`, sans `CASCADE`).
 - Testing : `testApplication`, `ultimabaseTesting()` (global setup, fichier
-  de setup `afterAll`), entrée `/plugins` ; imports du dépôt déplacés.
+  de setup `afterAll`), entrées `/plugins` et `/vitest` ; imports du dépôt
+  déplacés vers `/plugins` ; dépendances `pg`, `@testcontainers/postgresql`,
+  pair facultatif `vitest`.
+- Hooks : les clés de commandes de plugin (`purgeOne`, `restoreOne`…) sont
+  lues dans le schéma enregistré (`SchemaRulesSource`, comme Access) ; sans
+  cela, une application nommée dans `Register` ne pouvait pas écrire de Hook
+  de commande dans `.with` (trouvé en passant minimal en forme D).
+- Exemples : todo-backend (forme D, `apiServer({ rest: true })`, Master par
+  `ULTIMABASE_MASTER_KEY`, `ensure: ['editor']`, `dev`, `test` et quatre
+  tests avec `testApplication`) ; minimal (forme D, `Register` réel, plus de
+  Typegen ni de fichiers générés).
+- create-app : forme D, scripts `dev`/`test`, REST et Access par défaut,
+  ouverture prototype, `tests/task.test.*`, `vitest.config.*`,
+  `tsconfig.json` + `tsconfig.build.json`, Docker par défaut avec détection
+  (`docker.ts`) et repli, `--database-url`, `--api none`/`--plugin none`,
+  test Prettier + ESLint des projets générés (132 cas).
+- Documentation : README de testing, de create-app, des exemples ; guide de
+  test ; démarrage rapide ; pages qui importaient les outils déplacés ;
+  `ARCHITECTURE.md`.
 
 ## Décisions prises (non fixées par l'ADR, à confirmer)
 
@@ -79,8 +99,50 @@ En cours. Fait :
    `PostgresTestWorker`, `waitForAfterCommit` et `createCapturingLogger`
    (outils des tests qui construisent leur application) ; `readVitestPoolId`
    reste interne.
-6. **Reset** : supprime aussi les lignes créées au démarrage par des plugins
-   (`ensure` de Roles) ; documenté.
+6. **Reset** : vide les tables puis relance la phase `ready` (amorçage, où
+   Roles crée ses rôles `ensure`) : les données sont celles d'un démarrage.
+   Les hooks `ready` doivent rester idempotents (contrat déjà écrit dans
+   `PluginApplicationLifecycle`).
+7. **create-app, Access** : Access sélectionné (par défaut ou non) s'installe
+   toujours avec l'ouverture prototype, et la Task n'a plus de règle. Le
+   message de refus en production est celui d'Access (« … which production
+   refuses (NODE_ENV is production). Write schema rules, or use true … ») ;
+   le commentaire généré et le README disent d'écrire les règles puis de
+   retirer l'ouverture. Avec Access, REST et GraphQL exposent les écritures ;
+   sans Access, ils restent en lecture seule. Le User (authentification +
+   Access) reçoit des règles explicites (`read` propre profil, écritures à
+   `false`), sans quoi l'ouverture prototype ouvrirait ses écritures.
+8. **create-app, clé Master** : seuls ACL et Roles l'exigent désormais
+   (Access prototype n'en a plus besoin pour l'amorçage). Elle est générée
+   dès que `.env` est écrit (Docker ou URL fournie).
+9. **create-app, défauts** : `--yes` et les questions choisissent REST et
+   Access ; `--api none` et `--plugin none` permettent de ne rien choisir
+   sans terminal. `resolveSelection` (API programmatique) garde ses défauts
+   vides : seul le parcours de questions applique ceux de l'ADR.
+10. **create-app, base** : Docker par défaut si `docker compose version`
+    répond en 5 s ; sinon avis « Docker was not found… » et base existante ;
+    la question suivante propose une URL (vide = plus tard), écrite dans
+    `.env` ; `--database-url` pour les drapeaux.
+11. **create-app, TypeScript** : `tsconfig.json` sans émission (src, tests,
+    `vitest.config.ts`) avec `rewriteRelativeImportExtensions`,
+    `verbatimModuleSyntax`, `erasableSyntaxOnly` ; `tsconfig.build.json`
+    émet `src` vers `dist`. Imports relatifs en `.ts`. Scripts : `dev`,
+    `build`, `start` (dist), `typecheck` (`tsc`), `test` ; JavaScript : `dev`,
+    `start`, `test` ; starter vide : `vitest run --passWithNoTests`.
+12. **create-app, style** : vérifié avec Prettier (`semi: false`,
+    `singleQuote: true`) et les règles recommandées d'ESLint et
+    typescript-eslint sans information de type ; aucun fichier de
+    configuration Prettier ou ESLint n'est généré.
+13. **Exemple todo-backend** : devient l'application de référence avec REST
+    (`apiServer`), une autorité Master (ses fonctions d'administration
+    utilisaient `useMasterKey` sans autorité configurée) et `ensure:
+['editor']` (son ACL par défaut accorde ce rôle : sans lui, aucune tâche
+    ne pouvait être créée).
+14. **Exemple minimal** : garde ses plugins HTTP un par un (ses tests
+    injectent serveur et réglages HTTP par instance) ; `apiServer` n'y est
+    pas utilisé.
+15. **Entrées de testing** : `withPluginTypegenConformance` reste dans
+    `/plugins`, marqué TEMPORAIRE jusqu'à 6.8.
 
 ## Correctif hors ADR (à confirmer)
 
@@ -95,6 +157,39 @@ En cours. Fait :
   `test-application.postgres.e2e.test.ts` vérifie `sequence = 1` après
   `reset()`.
 
+## Blocage rapporté (règle d'arrêt) : filtres de relation dans les deux sens
+
+Le callback `where` de `ExampleArticle.reviewers` cycle en forme D quand
+`Register` nomme l'application (TS7023 : le type de retour inféré lit le
+registre pendant que le schéma est typé). Contournement trouvé : une
+constante typée par la cible différée,
+`RelationWhereResolver<DeferredSchemaTarget<() => typeof ExampleAuthor>>`,
+passée à `where`. En revanche, deux relations qui se filtrent l'une l'autre
+(`ExampleAuthor.articles`/`contributions` filtrés sur `published` et
+`ExampleArticle.contributors` filtré sur `listed`) cyclent quelle que soit la
+forme : objet en ligne (TS2615), constante annotée `typeof` (TS2502),
+constante annotée `SchemaRef<'…'>` (TS2502). Cause : Core type l'option
+`where` contre la cible résolue pendant `define(...)`. Les filtres du côté
+Author ont été retirés (la règle de lecture d'Article masque déjà les
+articles non publiés aux appelants ordinaires ; les tests e2e restent
+verts). Options : (a) Core type `where` par le nom (`SchemaRef`) de façon
+paresseuse ; (b) filtres de relation dans `.with(...)` ; (c) accepter un seul
+sens. Décision à prendre (6.8 ou ADR).
+
+## Observé pour 6.8
+
+- En forme D, les résolveurs de champs virtuels déclarés dans `define(...)`
+  reçoivent des valeurs `unknown` (minimal les lit par
+  `src/stored-values.ts`).
+- Des `.with({})` restent dans des tests et des pages de documentation
+  (soft-delete, hooks, password-authentication, build-a-plugin) : hors des
+  gabarits et des exemples visés par la décision 10.
+- Les tests d'un projet généré avec GraphQL échouent si ses paquets
+  `@ultimabase/*` sont des liens symboliques vers l'espace de travail (deux
+  royaumes `graphql`) ; avec des paquets installés (copie, comme le registre)
+  ils passent. Le test e2e du starter installe donc des copies.
+
 ## Prochaine action vérifiable
 
-Point de contrôle testing, puis create-app et exemples.
+Porte finale sur le dernier commit de code, audit DX contre 5e719ea2, puis
+relecture du coordinateur.

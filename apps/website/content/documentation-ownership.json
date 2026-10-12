@@ -25,6 +25,7 @@
 			],
 			"sections": [
 				"guides/generate-types",
+				"guides/test-an-application",
 				"plugins/overview",
 				"plugins/build-a-plugin",
 				"operations/troubleshooting",

@@ -4,6 +4,7 @@ import process from 'node:process'
 
 import { nextCommands } from './base-template.js'
 import { parseOptions } from './config.js'
+import { detectDockerCompose } from './docker.js'
 import { createProject } from './generate.js'
 import { CancelledError, collectSelection, terminalPrompts } from './prompts.js'
 
@@ -15,18 +16,21 @@ Options:
   --name <name>                  npm package name (required without a TTY)
   --directory <path>             new destination (defaults to the package name)
   --language <ts|js>             TypeScript or JavaScript
-  --api <rest|graphql>           HTTP API; repeat to select both
-  --plugin <@ultimabase/id>      official plugin; repeat to select several
+  --api <rest|graphql|none>      HTTP API; repeat to select both
+  --plugin <@ultimabase/id|none> official plugin; repeat to select several
   --starter <task|empty>         runnable example or empty application
-  --database <existing|docker>   PostgreSQL setup
+  --database <docker|existing>   PostgreSQL setup
+  --database-url <url>           existing PostgreSQL URL written to .env
   --package-manager <npm|yarn|pnpm>
   --install | --no-install       install dependencies or skip
   --yes                          accept documented defaults and skip confirmation
   -h, --help                     show this help
 
-Defaults with --yes: TypeScript, no HTTP API, PostgreSQL plugin, Task starter,
-existing PostgreSQL, npm if no manager is detected, and dependency installation.
-Existing destinations are never overwritten. The package is not published yet.`
+Defaults with --yes: TypeScript, REST, Access in prototype mode, the Task
+starter, PostgreSQL in Docker Compose (an existing database when Docker is
+missing), npm if no manager is detected, and dependency installation.
+Existing destinations are never overwritten. The package is not published yet:
+npm create @ultimabase/app works once the packages are published.`
 
 /** Exit cleanly on cancellation and report validation errors without a stack trace. */
 export const run = async (args: readonly string[]): Promise<number> => {
@@ -41,6 +45,9 @@ export const run = async (args: readonly string[]): Promise<number> => {
 			options,
 			{
 				cwd: process.cwd(),
+				// Only a default database needs the answer.
+				dockerAvailable:
+					options.database !== undefined || (await detectDockerCompose()),
 				isTTY: process.stdin.isTTY && process.stdout.isTTY,
 				...(process.env.npm_config_user_agent !== undefined && {
 					userAgent: process.env.npm_config_user_agent,
