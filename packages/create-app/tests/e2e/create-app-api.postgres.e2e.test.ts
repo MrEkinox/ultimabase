@@ -438,9 +438,9 @@ try {
 				const server = await startServer(project.destination, 'js', environment)
 				try {
 					// One application: GraphiQL at /graphiql (ADR-0325).
-					const response = await fetch(`${endpoint}/graphiql`)
-					if (environment === 'development') expect(response.status).toBe(200)
-					else expect(response.status).not.toBe(200)
+					const page = await fetch(`${endpoint}/graphiql`)
+					if (environment === 'development') expect(page.status).toBe(200)
+					else expect(page.status).not.toBe(200)
 					const response = await graphql('{ __schema { queryType { name } } }')
 					const result = await response.text()
 					if (environment === 'development')

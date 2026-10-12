@@ -4,14 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { graphqlExplorerPlugin } from './plugin.js'
 
 describe('graphqlExplorerPlugin', () => {
-	it.each([
-		[undefined, 'ultimabase.graphiql'],
-		['graphiql', 'ultimabase.graphiql'],
-		['apollo-sandbox', 'ultimabase.apollo-sandbox'],
-	] as const)(
+	it.each([undefined, 'graphiql', 'apollo-sandbox'] as const)(
 		'declares its route privilege, provider requirements and asset claim (%s)',
 		(ui) => {
-			const plugin = graphqlExplorerPlugin({ environment: 'development', ui })
+			const plugin = graphqlExplorerPlugin({
+				environment: 'development',
+				...(ui === undefined ? {} : { ui }),
+			})
 
 			expect(plugin.manifest).toMatchObject({
 				capabilities: {

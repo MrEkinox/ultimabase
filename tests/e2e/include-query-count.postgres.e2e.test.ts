@@ -120,9 +120,11 @@ beforeAll(async () => {
 	await ultimabase.start()
 	const master = { useMasterKey: true } as const
 	const tags = await Tag.createMany(
-		{ data: ['a', 'b', 'c'].map((name) => ({ name })) },
+		{ data: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] },
 		master,
 	)
+	const [first, ...others] = tags.map(({ id }) => id)
+	if (first === undefined) throw new TypeError('Expected tags')
 	for (const name of ['ada', 'grace', 'linus']) {
 		const author = await Author.createOne({ data: { name } }, master)
 		for (const index of [1, 2]) {
@@ -130,7 +132,7 @@ beforeAll(async () => {
 				{
 					data: {
 						author: { connect: author.id },
-						tags: { connect: tags.map(({ id }) => id) },
+						tags: { connect: [first, ...others] },
 						title: `${name}-${String(index)}`,
 					},
 				},
