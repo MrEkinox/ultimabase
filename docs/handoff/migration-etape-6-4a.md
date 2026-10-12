@@ -41,7 +41,8 @@ coordinateur a validé 6.4a et les décisions de sécurité 1 à 5.
 
 Demandes avant fusion :
 
-1. préfixe par défaut `/api/auth` : **bloqué**, voir ci-dessous ;
+1. préfixe par défaut `/api/auth` : fait (3d00a1ca), après l'option B choisie
+   par l'utilisateur (0e39ea48, amendement « 6.4a » d'ADR-0324) ;
 2. message Roles périmé (`masterAuthority`) : fait (899891fd), message et
    dépannage du site parlent du privilège `authority:elevate` ;
 3. données personnelles d'`afterLoginFailed` (identifiant normalisé, adresse) :
@@ -49,9 +50,9 @@ Demandes avant fusion :
 4. fusion de `main` (72bca61b) : faite (139eb4fd), conflit résolu dans
    `tests/e2e/schema-form-d-types.e2e.test.ts` (structure de `main`, chaîne
    `selectTypo` d'`exactness.ts` recalculée sur l'arbre fusionné) ;
-5. porte complète : non lancée, en attente du point 1.
+5. porte complète sur 3d00a1ca : voir « Preuves après fusion ».
 
-### Blocage : `/api/auth` et le montage REST
+### `/api/auth` et le montage REST (résolu par l'option B)
 
 REST se monte sur `/api` (`httpMount`, qui possède tout le sous-arbre) ; HTTP
 refuse une route sous un montage (README de `http-plugin` : « a route under a
@@ -76,7 +77,12 @@ Options, toutes avec un changement de contrat public (ADR-0288) :
   nouveau point d'extension REST.
 
 Recommandation : B (garde l'invariant de propriété des montages d'HTTP,
-changement local à REST).
+changement local à REST). **Choix de l'utilisateur : B.** REST monte
+`<basePath>/classes`, `<basePath>/operations`, `<basePath>/openapi.json` (si
+activé) et les racines des chemins déclarés ; la règle d'HTTP ne change pas.
+Tests : coexistence de `/api/auth/*` (plugin voisin de test) avec
+`/api/classes/*` et `/api/openapi.json`, et collision refusée au démarrage pour
+une route sous `/api/classes`.
 
 ## Décisions prises (non fixées par l'ADR, à confirmer)
 
@@ -116,8 +122,8 @@ Sécurité (à confirmer en priorité) :
 
 Architecture :
 
-6. **Routes HTTP du socle** : préfixe unique `http.basePath` (`/auth`), `POST
-/auth/<opération en kebab>`, corps JSON = entrée, réponse `{ result }`,
+6. **Routes HTTP du socle** : préfixe unique `http.basePath` (`/api/auth` depuis
+   la demande avant fusion), `POST /api/auth/<opération en kebab>`, corps JSON = entrée, réponse `{ result }`,
    codes d'erreur mappés (400/401/403/404/409/429), corps invalide →
    `AUTH_INVALID_REQUEST` 400. REST ne peut pas poser de cookie : les routes
    sont celles du socle, pas des liaisons REST. Les opérations restent publiques
@@ -232,8 +238,31 @@ Banc forme D (base 48a448e8 / branche, alternés, 3 passes, médianes en ms) :
 1750 MiB d'une passe à l'autre sans tendance. Survols identiques (199
 caractères). Dossiers `gen/` supprimés ; worktree de référence retiré.
 
+## Preuves après fusion (3d00a1ca)
+
+Après suppression de `packages/*/dist` et `*.tsbuildinfo` :
+
+- `yarn validate:full` : code 0 ; « All matched files use Prettier code
+  style! » ; lint 0 erreur (48, 15 et 2 avertissements) ; performance « Test
+  Files 3 passed (3) / Tests 4 passed (4) » ; couverture « Test Files 730
+  passed (730) / Tests 3610 passed (3610) / Type Errors no errors », All files
+  92.51 / 85.82 / 96.81 / 93.2 ; site « Test Files 17 passed (17) / Tests 66
+  passed (66) ».
+- `yarn test:e2e:built` : code 0, « Test Files 132 passed (132) / Tests 582
+  passed (582) » (`create-app-packed` sans dépassement).
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) » (124 pages statiques).
+
+Audit DX contre 72bca61b construit (mêmes `--only`) : 2706 différences
+(39431 / 39433), mêmes effectifs par groupe que contre 48a448e8. Écart avec
+l'audit précédent, 15 enregistrements : défaut `@default "/api/auth"` et JSDoc
+d'`authPlugin` (« `/api/auth` routes ») dans les déclarations et 4 survols
+d'usage ; JSDoc « personal data » d'`AuthLoginFailedEvent` (déclaration et
+2 survols) ; noms de chunks privés de Core (hash, 4 enregistrements). Aucune
+différence nouvelle pour `rest-plugin` (`readRestMountRoots` est interne).
+Pas de banc (types inchangés hors JSDoc). Worktree de référence retiré.
+
 ## Prochaine action vérifiable
 
-Choix de l'option pour `/api/auth` par l'utilisateur ; puis implémentation,
-migration des consommateurs (create-app, exemples, tests, site, READMEs), porte
-complète sur l'arbre fusionné et delta DX contre 72bca61b.
+Revue du diff par le coordinateur et fusion dans `main` ; puis 6.4b
+(réinitialisation, vérification et changement d'e-mail).
