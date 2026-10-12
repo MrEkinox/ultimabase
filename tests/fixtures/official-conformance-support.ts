@@ -1,5 +1,5 @@
 import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
-import { PluginConformanceError } from '@ultimabase/testing'
+import { PluginConformanceError } from '@ultimabase/testing/plugins'
 import { expect } from 'vitest'
 
 export const createProofSchema = () =>

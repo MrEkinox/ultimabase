@@ -5,7 +5,7 @@ import {
 	definePluginConformanceSuite,
 	runPluginConformance,
 	withPluginTypegenConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import type { PluginDefinition } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'

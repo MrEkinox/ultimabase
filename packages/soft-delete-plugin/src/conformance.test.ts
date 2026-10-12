@@ -3,7 +3,7 @@ import {
 	definePluginConformanceSuite,
 	runPluginConformance,
 	withPluginTypegenConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 import { expect, it } from 'vitest'
 
 import { softDeletePlugin } from './index.js'

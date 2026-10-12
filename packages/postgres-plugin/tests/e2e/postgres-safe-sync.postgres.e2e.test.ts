@@ -1,6 +1,6 @@
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { createCapturingLogger } from '@ultimabase/testing'
+import { createCapturingLogger } from '@ultimabase/testing/plugins'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

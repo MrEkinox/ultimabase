@@ -7,7 +7,7 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 import { describe, expect, it } from 'vitest'
 
 import {

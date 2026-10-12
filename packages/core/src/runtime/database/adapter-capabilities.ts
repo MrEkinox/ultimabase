@@ -136,3 +136,53 @@ export const readDeclaredFilterOperators = (
 			)
 		: []
 }
+
+/** Selects the data-reset protocol understood by Core (ADR-0327). */
+export const databaseResetCapabilityVersion = 1 as const
+
+/**
+ * Empties every table a database adapter manages for one application (schema
+ * rows, relation links and plugin private storage) while keeping the tables,
+ * so tests start from no data without synchronizing again (ADR-0327). Core
+ * invokes it only through an application harness, never during requests.
+ */
+export interface DatabaseResetCapability {
+	readonly kind: 'reset'
+	readonly version: typeof databaseResetCapabilityVersion
+	/** Deletes every managed row; identity sequences restart. */
+	reset(): Promise<void>
+}
+
+const isResetCapability = (value: unknown): value is DatabaseResetCapability =>
+	isPlainRecord(value) &&
+	value.kind === 'reset' &&
+	value.version === databaseResetCapabilityVersion &&
+	typeof value.reset === 'function'
+
+/**
+ * Publishes a database adapter's data reset for one started application
+ * (ADR-0327); a database plugin provides it beside its adapter.
+ *
+ * @example `provideCapability(databaseResetCapability, { contributionId: 'reset', create: () => ({ value: reset }) })`
+ */
+export const databaseResetCapability: CapabilityToken<
+	DatabaseResetCapability,
+	DatabaseResetCapability,
+	'ultimabase.database-reset',
+	'1.0.0',
+	'single',
+	'application'
+> = defineCapability<DatabaseResetCapability>()({
+	capabilityId: 'ultimabase.database-reset',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => {
+		if (!isResetCapability(provider)) {
+			throw new TypeError(
+				'Database reset must be a version 1 reset capability with a reset() method',
+			)
+		}
+		return provider
+	},
+})

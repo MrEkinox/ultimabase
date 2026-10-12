@@ -2,7 +2,7 @@ import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
-import { waitForAfterCommit } from '@ultimabase/testing'
+import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 import {
 	afterAll,
 	beforeAll,

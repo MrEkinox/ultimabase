@@ -69,6 +69,27 @@ const readPluginElevationAuthority = (application: object): MasterAuthority => {
 	return authority
 }
 
+// One keyless authority per harnessed application (ADR-0327): only the
+// harness object returned before start can elevate through it.
+const harnessAuthorities = new WeakMap<object, MasterAuthority>()
+
+/** @internal Reads the keyless authority of one application harness. */
+export const readHarnessAuthority = (application: object): MasterAuthority => {
+	const existing = harnessAuthorities.get(application)
+	if (existing !== undefined) return existing
+	const authority = new MasterAuthority({
+		keys: [{ id: 'harness', value: randomBytes(32).toString('base64url') }],
+		onUse: (event) => {
+			readApplicationLog(application).debug('Harness elevated to Master', {
+				reason: event.reason,
+				requestId: event.requestId,
+			})
+		},
+	})
+	harnessAuthorities.set(application, authority)
+	return authority
+}
+
 /** Claims an unbound context or rejects reuse across isolated applications. */
 export const bindRequestContextToApplication = (
 	application: EngineApplication,
@@ -82,7 +103,8 @@ export const bindRequestContextToApplication = (
 		if (
 			provenance?.application !== application ||
 			(provenance.authority !== masterAuthority &&
-				provenance.authority !== pluginElevationAuthorities.get(application)) ||
+				provenance.authority !== pluginElevationAuthorities.get(application) &&
+				provenance.authority !== harnessAuthorities.get(application)) ||
 			owner !== application
 		) {
 			throw new FrameworkError(

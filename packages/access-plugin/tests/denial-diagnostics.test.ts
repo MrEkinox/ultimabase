@@ -1,5 +1,5 @@
 import { FrameworkError, UltimaBase } from '@ultimabase/core'
-import { createCapturingLogger } from '@ultimabase/testing'
+import { createCapturingLogger } from '@ultimabase/testing/plugins'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { accessPlugin } from '../src/index.js'

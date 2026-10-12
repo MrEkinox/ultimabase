@@ -5,7 +5,7 @@ import {
 	authPlugin,
 	type AuthEventHandlers,
 } from '@ultimabase/auth-plugin'
-import { waitForAfterCommit } from '@ultimabase/testing'
+import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import {

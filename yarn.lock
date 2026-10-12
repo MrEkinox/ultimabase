@@ -3625,12 +3625,20 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/testing@workspace:packages/testing"
   dependencies:
+    "@testcontainers/postgresql": "npm:^12.0.4"
+    "@types/pg": "npm:^8.15.5"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/typegen": "workspace:^"
+    pg: "npm:^8.16.3"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
+  peerDependencies:
+    vitest: ^4.1.11
+  peerDependenciesMeta:
+    vitest:
+      optional: true
   languageName: unknown
   linkType: soft
 

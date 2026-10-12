@@ -9,7 +9,7 @@ import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
-import { waitForAfterCommit } from '@ultimabase/testing'
+import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 import type { Pool } from 'pg'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 

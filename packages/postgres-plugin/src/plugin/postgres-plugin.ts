@@ -50,6 +50,7 @@ import {
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaPolicy } from '../synchronization/contracts.js'
 import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
+import { providePostgresReset } from '../synchronization/reset.js'
 import {
 	normalizePostgresConnectionOptions,
 	normalizePostgresDebugOptions,
@@ -208,6 +209,7 @@ type PostgresPluginCapabilities = readonly [
 	CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
 	CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
 	CapabilityProviderDeclaration<typeof databaseFilterOperatorsCapability>,
+	ReturnType<typeof providePostgresReset>,
 	typeof connectionRequirement,
 ]
 
@@ -387,6 +389,7 @@ export const postgresPlugin = (
 			connectionProvider,
 			adapterProvider,
 			operatorsProvider,
+			providePostgresReset(connections, catalogs),
 			connectionRequirement,
 			declarations,
 			application,

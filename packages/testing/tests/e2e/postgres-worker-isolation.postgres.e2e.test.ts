@@ -1,6 +1,6 @@
 import process from 'node:process'
 
-import { PostgresTestWorker, readVitestPoolId } from '@ultimabase/testing'
+import { PostgresTestWorker } from '@ultimabase/testing/plugins'
 import { Pool } from 'pg'
 import { describe, expect, inject, it } from 'vitest'
 
@@ -10,7 +10,7 @@ describe('PostgreSQL worker isolation', () => {
 	it('keeps equal table names and resets independent across concurrent namespaces', async () => {
 		const connectionUri = inject(postgresConnectionUriContextKey)
 		const adminPool = new Pool({ connectionString: connectionUri })
-		const workerId = readVitestPoolId(process.env.VITEST_POOL_ID) * 10
+		const workerId = Number(process.env.VITEST_POOL_ID) * 10
 		const createWorker = (offset: number): PostgresTestWorker =>
 			new PostgresTestWorker({
 				prefix: 'ultimabase_parallel',

@@ -16,7 +16,7 @@ import {
 	definePluginConformanceSuite,
 	runPluginConformance,
 	withPluginTypegenConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'

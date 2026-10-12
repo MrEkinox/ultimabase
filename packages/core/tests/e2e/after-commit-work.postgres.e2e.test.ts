@@ -1,7 +1,7 @@
 import { UltimaBase } from '@ultimabase/core'
 import { runAfterCommit, waitForAfterCommitWork } from '@ultimabase/core/plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { createCapturingLogger } from '@ultimabase/testing'
+import { createCapturingLogger } from '@ultimabase/testing/plugins'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import {

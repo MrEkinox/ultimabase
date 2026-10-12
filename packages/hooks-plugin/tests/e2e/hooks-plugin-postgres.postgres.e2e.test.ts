@@ -15,7 +15,7 @@ import {
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { waitForAfterCommit } from '@ultimabase/testing'
+import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'

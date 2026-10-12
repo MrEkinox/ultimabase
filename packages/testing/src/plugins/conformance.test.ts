@@ -33,7 +33,7 @@ import {
 	PluginConformanceError,
 	runPluginConformance,
 	withPluginTypegenConformance,
-} from '../index.js'
+} from '../plugins.js'
 import { testDatabaseFilterOperators } from '../../../../tooling/vitest/database-filter-operators.js'
 
 const expectedContracts = [

@@ -1,7 +1,10 @@
 import { FrameworkError, UltimaBase } from '@ultimabase/core'
 import { defineEvent, hooksPlugin, onEvent } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { createCapturingLogger, waitForAfterCommit } from '@ultimabase/testing'
+import {
+	createCapturingLogger,
+	waitForAfterCommit,
+} from '@ultimabase/testing/plugins'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import {

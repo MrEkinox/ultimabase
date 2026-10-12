@@ -5,7 +5,7 @@ import {
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-import { FakePublicOperationTransport } from '../src/index.js'
+import { FakePublicOperationTransport } from '../src/plugins.js'
 
 const request = {
 	context: {} as never,
