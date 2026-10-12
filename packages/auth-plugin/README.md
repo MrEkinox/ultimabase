@@ -8,6 +8,7 @@ under one HTTP prefix. Sign-in methods are separate packages, such as
 foundation and never on each other.
 
 ```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { password } from '@ultimabase/auth-password'
 import { authPlugin } from '@ultimabase/auth-plugin'
 import { UltimaBase } from '@ultimabase/core'
@@ -15,6 +16,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 export const App = UltimaBase.use(
 	postgresPlugin(),
+	accessPlugin(),
 	authPlugin({ methods: [password({ identifier: 'email' })] }),
 )
 

@@ -29,7 +29,7 @@ const expectedConcepts = [
 	'Nested writes',
 	'Virtual fields and contextual relations',
 	'HTTP, REST, and GraphQL transport boundary',
-	'Password authentication and sessions',
+	'Authentication, sessions and sign-in methods',
 	'Typegen and generated declarations',
 	'Validation, tests, and CI',
 ] as const
