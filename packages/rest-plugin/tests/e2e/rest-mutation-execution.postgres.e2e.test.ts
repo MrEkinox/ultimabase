@@ -88,13 +88,14 @@ const MutationPost = RestMutationApplication.Schema.define({
 			},
 		},
 	},
-	acl: {
-		default: publicAcl,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? publicAcl,
-	},
 	postgres: { table: 'rest_mutation_execution_posts' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: publicAcl,
+		},
+	})
 
 const httpApplicationRequirement = requireCapability(
 	httpApplicationCapability,

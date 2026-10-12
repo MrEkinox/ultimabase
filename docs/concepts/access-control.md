@@ -79,23 +79,34 @@ ACL accepts role UUID or name references, but persistence resolves and stores th
 
 Referenced-role deletion supports `fail`, `preserve`, and `cascade`; the default is `fail`.
 
-The direct `acl` option is valid on a developer-defined RoleSchema. Normal RoleSchema Access
-still controls creation, while per-role ACL rights may narrow reads, updates,
-membership or hierarchy mutations, and deletion. Only master may inspect or
-replace the role row's ACL value. Internal role membership resolution uses its
-existing trusted provider boundary so evaluating a role grant never recurses
-through the ACL protecting that RoleSchema row.
+A role schema declared with `App.RoleSchema.define(...)` may call `.acl()`.
+Its Access still controls creation, while per-role ACL rights may narrow
+reads, updates, membership or hierarchy (`includedRoles`) mutations, and
+deletion. Only master may inspect or replace the role row's ACL value.
+Internal role membership resolution uses its existing trusted provider
+boundary so evaluating a role grant never recurses through the ACL protecting
+that role row. `ultimabase.plugin(rolesPlugin)` answers `has(role)` and
+`current(schema)` with the same computation, and `ensure` creates seed roles
+at `start()` (ADR-0322).
 
 ## ACL input
 
-Create and update accept the same immutable `ACL` value. The direct `acl` schema
-option accepts one static or asynchronous default and one shared
-`resolveInput` callback for both operations. A default factory receives the
+`.acl()` adds the field and the `acl` rule of `.with(...)` configures it
+(ADR-0321): a required static or asynchronous `default`, and an optional
+`resolveInput` that recomputes the ACL from the row's data on each create and
+singular update without an explicit ACL. A default factory receives the
 field-resolved create candidate, optional current principal, and operation
 context, so it may derive object grants from the data being inserted. The
-complete row is revalidated before protected policy evaluation. Only trusted
-master execution may supply, inspect, or replace an ACL value. An ordinary
-object `update` grant never grants control over its ACL.
+complete row is revalidated before protected policy evaluation. Trusted master
+execution may supply a complete ACL, written as is. Rows are shared through
+atomic `grant`/`revoke` update inputs applied to the locked row; clients may
+use them only where `clientSharing` allows and never grant rights they do not
+hold. `select: { acl: true }` is limited to Master and to those shareable
+rows. An ordinary object `update` grant never grants control over its ACL.
+
+When storage adds the `acl` column to a table with rows, the field's neutral
+`existingRows` metadata gives them a fixed ACL (the static `default` or the
+`existingRows` rule), or stops `start()` with the steps to follow.
 
 Master is trusted execution authority rather than an ACL subject. It bypasses
 ACL authorization but not validation, default generation, installed Runtime
@@ -103,7 +114,7 @@ behavior, transactions, database constraints, or audit events.
 
 `aclPlugin()` defaults each ACL to at most 100 exact principals and 50 roles.
 Applications may change those defaults through plugin options, while the
-schema-local `acl: { limits }` option overrides either value and inherits
+`acl: { limits }` rule overrides either value for one schema and inherits
 omitted values. Limits count canonical subject entries after duplicate grants are
 merged. Public and authenticated rights consume no subject entry, and every
 create or update path—including master execution—is checked before persistence.

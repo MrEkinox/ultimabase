@@ -12,95 +12,110 @@ hierarchy, and deletion maintenance initiate audited internal Master queries.
 Caller-selected Master execution is merely inherited; no dependency, peer, or
 policy consumer receives this privilege from Roles.
 
-`rolesPlugin()` keeps its application-local setup work but returns no setup
-value; registered role schemas remain in `application.schemas`.
+Installing `rolesPlugin()` adds `App.RoleSchema` to the configured factory
+(ADR-0322). Declare each role schema with the schema of its members, then end
+with `.with({ ... })` like any schema; an application may declare several role
+schemas.
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 
-const Application = UltimaBase.use(accessPlugin()).use(rolesPlugin())
-const User = Application.Schema.define({
-	className: 'User',
-	fields: (field) => ({
-		email: field.string({ required: true }),
-	}),
+const App = UltimaBase.use(accessPlugin(), rolesPlugin())
+
+export const TodoUser = App.Schema.define({
+	className: 'TodoUser',
+	fields: (field) => ({ email: field.string({ required: true }) }),
+}).with({ access: { read: true } })
+
+export const TodoRole = App.RoleSchema.define({
+	className: 'TodoRole',
+	members: () => TodoUser,
+	deletion: 'fail',
+	// Created at start() when missing; existing roles are left unchanged.
+	ensure: ['editor', 'administrator'],
+	fields: (field) => ({ description: field.string() }),
+}).with({
+	access: { read: true, create: false, update: false, delete: false },
 })
 
-const AppRole = RoleSchema.define(Application.Schema, {
-	className: 'Role',
-	members: { schema: User },
-	deletion: { references: 'fail' },
-	fields: (field) => ({
-		description: field.string(),
-		priority: field.int({ default: 0 }),
-	}),
-	access: {
-		read: true,
-		create: false,
-		update: false,
-		delete: false,
-	},
-})
+export const Editor = TodoRole.role('editor')
 
-const EditorReference = AppRole.role('editor')
-
-const Post = Application.Schema.define({
+export const Post = App.Schema.define({
 	className: 'Post',
-	access: {
-		update: hasRole(EditorReference),
-	},
-	fields: (field) => ({
-		title: field.string(),
-	}),
-})
+	fields: (field) => ({ title: field.string() }),
+}).with({ access: { read: true, update: hasRole(Editor) } })
 
-const ultimabase = new Application({
-	schemas: [User, AppRole, Post],
-})
+export const ultimabase = new App({ schemas: [TodoUser, TodoRole, Post] })
 
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+```
+
+`members` is a function so the role and member schemas may reference each
+other. Rules, indexes and plugin options go in `.with(...)`; shape methods
+such as `.acl()` may be chained before it. `deletion` is `'fail'` (default),
+`'preserve'` or `'cascade'`. `resolveCurrent` replaces the current member for
+special cases. Applications with role schemas register `typeof ultimabase`
+like any other (the ADR-0297 step 4 workaround is gone).
+
+```ts
 const master = { useMasterKey: true } as const
-const Editor = await AppRole.createOne(
+const editor = await TodoRole.findOneOrThrow(
+	{ where: { name: 'editor' } },
+	master,
+)
+await TodoRole.updateOne(
 	{
-		data: {
-			name: 'editor',
-			description: 'Content editors',
-			members: { connect: [User.pointer(user.id)] },
-		},
+		where: { id: editor.id },
+		data: { members: { connect: [TodoUser.pointer(userId)] } },
 	},
 	master,
 )
-const Administrator = await AppRole.createOne(
-	{ data: { name: 'administrator', roles: { connect: [Editor.id] } } },
+await TodoRole.updateOne(
+	{
+		where: { name: 'administrator' },
+		data: { includedRoles: { connect: [editor.id] } },
+	},
 	master,
 )
-const EditorById = AppRole.role({ id: Editor.id })
+const EditorById = TodoRole.role({ id: editor.id })
 ```
 
 Members and included roles link through the same relation commands as any
-schema (ADR-0308): `members` and `roles` take `connect`, `disconnect` and
-`set` in `createOne` and `updateOne` data. Every target must be visible to the
-caller, the plugin rejects hierarchy cycles, and membership and hierarchy
-events are emitted for these links. Role results are plain data without
-commands (ADR-0310): these relation writes are the only membership and
-hierarchy API.
+schema (ADR-0308): `members` and `includedRoles` take `connect`, `disconnect`
+and `set` in `createOne` and `updateOne` data. Every target must be visible to
+the caller, the plugin rejects hierarchy cycles and depth beyond its limits,
+and membership and hierarchy events are emitted for these links. Role results
+are plain data without commands (ADR-0310).
 
-The generation-free declaration form of
-[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) will provide
-role schemas through an `App.RoleSchema.define` factory once Roles migrates;
-until then declare roles as above. `RoleSchema.define` accepts the `Schema`
-namespace of any configured factory, including one whose plugins add shape
-methods such as `.softDelete()`.
+`ultimabase.plugin(rolesPlugin)` exposes role queries outside rules, with the
+same computation and cache as the rules:
 
-`RoleSchema.define()` injects `name`, `members`, and `roles`. Role names are
-stored as their NFKC-normalized, trimmed, lower-case identity and are unique in
-their schema. The framework-owned UUID remains stable when a role is renamed.
-The generated `members` relation targets the exact declared member schema;
-`roles` is a self relation used for nested membership.
+```ts
+const roles = ultimabase.plugin(rolesPlugin)
+await roles.has(Editor) // the current request's member, inside a request
+await roles.has(Editor, { principal: TodoUser.pointer(userId) })
+await roles.current(TodoRole) // names, inheritance included
+```
 
-`AppRole.role(name)` always means a normalized name. The object form
-`AppRole.role({ id })` always means a UUID, so a string is never guessed to be
+`ensure` creates its roles at `start()` through the application's
+`masterAuthority`, idempotently: a role another instance created concurrently
+counts as present.
+
+The factory injects `name`, `members`, and `includedRoles`. Role names are
+stored as their NFKC-normalized, trimmed, lower-case identity and are unique
+in their schema. The framework-owned UUID remains stable when a role is
+renamed. The `members` relation targets the declared member schema;
+`includedRoles` is a self relation: the members of an included role are
+members of the role that includes it.
+
+`TodoRole.role(name)` always means a normalized name. The object form
+`TodoRole.role({ id })` always means a UUID, so a string is never guessed to be
 one or the other. Both return frozen Core-neutral role references without
 performing I/O.
 
@@ -109,16 +124,16 @@ code needs the stored row. A UUID reference reads the exact object directly;
 a name reference reads at most two matches and rejects absent or ambiguous
 storage. Renaming a role never changes its UUID identity.
 
-`rolesPlugin()` receives no configuration. `RoleSchema.define()` records exact
-package-private class identity and inserts an opaque, package-created direct
-option that requires the plugin during static compilation. Copying the option
+`rolesPlugin()` receives no configuration. `App.RoleSchema.define()` records
+exact package-private class identity and inserts an opaque, package-created
+direct option that requires the plugin during static compilation. Copying the option
 as a plain object or reproducing the generated fields cannot create role
 behavior. The compiler-only option declares `typegen: false`, so its internal
 name and nominal value type never appear in generated authoring options or
 autocomplete. Applications without a role schema do not need the plugin.
 
 Role schemas carry no generic transport metadata. Trusted server code can use
-schema-root reads such as `AppRole.findMany()`; future generated transport
+schema-root reads such as `TodoRole.findMany()`; future generated transport
 exposure must use an explicit contract owned by the relevant transport plugin.
 
 A `members` link change delegates to the normal relation lifecycle, inherits
@@ -139,8 +154,8 @@ and leaves external references inert. `cascade` requires master authority,
 clears role-owned edges, and invokes only explicit provider-neutral cleanup
 contributions inside the same transaction. Successful deletion emits
 `ultimabase.roles.deleted` after commit.
-`AppRole.deleteOne({ where: { id: { eq: id } } })` executes the complete policy.
-`AppRole.deleteMany({ where: [...] })` executes the same policy for each unique
+`TodoRole.deleteOne({ where: { id: { eq: id } } })` executes the complete policy.
+`TodoRole.deleteMany({ where: [...] })` executes the same policy for each unique
 target, in input order, inside one transaction. A failure rolls back the whole
 collection, including its cleanup and post-commit notifications.
 
@@ -167,8 +182,8 @@ neutral resolver converts a name selector to the RoleSchema's stable UUID
 without loading current membership, allowing ACL storage to remain independent
 from this package and from mutable role names.
 
-Connecting Editor to Administrator's `roles` makes Editor a child role, so its
-direct and inherited members belong to Administrator. The plugin checks the complete
+Connecting Editor to Administrator's `includedRoles` makes Editor an included
+role, so its direct and inherited members belong to Administrator. The plugin checks the complete
 post-update graph inside the active transaction, rejects self or indirect
 cycles before commit, handles diamond paths once, and fails explicitly beyond
 64 levels or 10,000 visited roles. Direct membership and membership inherited

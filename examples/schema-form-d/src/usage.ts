@@ -7,11 +7,14 @@ import type {
 	UpdateInput,
 	Where,
 } from '@ultimabase/core'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { expectTypeOf } from 'vitest'
 
 import { Tag } from './tag.ts'
 import { Todo } from './todo.ts'
+import { TodoRole } from './todo-role.ts'
 import { TodoUser } from './todo-user.ts'
+import { ultimabase } from './ultimabase.ts'
 
 /** Lists visible todos of one assignee with their tags. */
 export const listAssignedTodos = (email: string) =>
@@ -148,3 +151,34 @@ export const linkPatch: UpdateInput<'Todo'> = {
 }
 // @ts-expect-error -- Update data names at least one field.
 export const emptyPatch: UpdateInput<'Todo'> = {}
+
+// ADR-0322: role schemas come from `App.RoleSchema` and register like any
+// schema; `includedRoles` links roles, `role()` names one.
+expectTypeOf<Model<'TodoRole'>['name']>().toEqualTypeOf<string>()
+expectTypeOf<Model<'TodoRole'>['description']>().toEqualTypeOf<string | null>()
+expectTypeOf(TodoRole.role('admin').kind).toEqualTypeOf<'role'>()
+export const listAdmins = () =>
+	TodoUser.findMany({
+		where: { roles: { some: { name: { eq: 'admin' } } } },
+		select: { email: true },
+	})
+export const includeRole = (roleId: string, childId: string) =>
+	TodoRole.updateOne({
+		where: { id: roleId },
+		data: { includedRoles: { connect: [childId] } },
+	})
+export const currentRoles = () =>
+	ultimabase.plugin(rolesPlugin).current(TodoRole)
+expectTypeOf<Awaited1<ReturnType<typeof currentRoles>>>().toEqualTypeOf<
+	readonly string[]
+>()
+// ADR-0321: sharing a todo without reading its ACL first.
+export const shareTodo = (todoId: string, userId: string) =>
+	Todo.updateOne({
+		where: { id: todoId },
+		data: {
+			acl: {
+				grant: { principal: TodoUser.pointer(userId), permissions: ['read'] },
+			},
+		},
+	})

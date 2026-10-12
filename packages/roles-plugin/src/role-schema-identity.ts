@@ -9,7 +9,7 @@ const roleSchemaClassNames = new WeakMap<object, string>()
 /**
  * Carries the opaque Typegen contract for RoleSchema's plugin-owned marker.
  *
- * Application code cannot construct this nominal value. `RoleSchema.define()`
+ * Application code cannot construct this nominal value. `App.RoleSchema.define()`
  * creates it so static compilation can require the official Roles plugin.
  */
 interface RoleSchemaIdentityOption {
@@ -24,7 +24,7 @@ class RoleSchemaIdentityValue implements RoleSchemaIdentityOption {
 	}
 }
 
-/** Names the package-private direct option inserted by `RoleSchema.define()`. */
+/** Names the package-private direct option inserted by `App.RoleSchema.define()`. */
 export const roleSchemaIdentityOptionName = 'ultimabase.roles.identity' as const
 
 /** Creates one exact package-owned marker without exposing authoring syntax. */
@@ -47,7 +47,7 @@ const normalizeRoleSchemaIdentity = (
 		roleSchemaClassNames.get(value) !==
 			path.slice(0, -`.${roleSchemaIdentityOptionName}`.length)
 	) {
-		throw new TypeError(`${path} must be created by RoleSchema.define()`)
+		throw new TypeError(`${path} must be created by App.RoleSchema.define()`)
 	}
 
 	return value

@@ -3,11 +3,13 @@ import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { Tag } from '../../examples/schema-form-d/src/tag.ts'
 import { Todo } from '../../examples/schema-form-d/src/todo.ts'
+import { TodoRole } from '../../examples/schema-form-d/src/todo-role.ts'
 import { TodoUser } from '../../examples/schema-form-d/src/todo-user.ts'
 import {
 	createPostgresWorkerFixture,
@@ -25,6 +27,7 @@ const createApplication = (connectionUri: string) =>
 		hooksPlugin(),
 		softDeletePlugin(),
 		aclPlugin(),
+		rolesPlugin(),
 		postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),
 	))({
 		masterAuthority: new MasterAuthority({
@@ -32,7 +35,7 @@ const createApplication = (connectionUri: string) =>
 			onUse: () => undefined,
 		}),
 		logger: false,
-		schemas: [TodoUser, Todo, Tag],
+		schemas: [TodoUser, TodoRole, Todo, Tag],
 	})
 
 let fixture: PostgresWorkerFixture | undefined
@@ -174,5 +177,27 @@ describe('schema form D on PostgreSQL', { concurrent: false }, () => {
 			column.toLowerCase().replaceAll('_', '').includes('isdeleted'),
 		)
 		expect(tombstone?.[1]).toBe(true)
+	})
+
+	it('creates ensure roles and filters users through their roles (ADR-0322)', async () => {
+		const roles = await TodoRole.findMany({ select: { name: true } }, master)
+		expect(roles.map(({ name }) => name)).toStrictEqual(['admin'])
+		const [admin] = roles
+		if (admin === undefined) throw new TypeError('Missing ensured role')
+		await TodoRole.updateOne(
+			{
+				where: { id: admin.id },
+				data: { members: { connect: [idOf('ada@admin.test')] } },
+			},
+			master,
+		)
+		const admins = await TodoUser.findMany(
+			{
+				where: { roles: { some: { name: { eq: 'admin' } } } },
+				select: { email: true },
+			},
+			master,
+		)
+		expect(admins.map(({ email }) => email)).toStrictEqual(['ada@admin.test'])
 	})
 })

@@ -81,7 +81,7 @@ interface InvalidValue {
 	readonly valid: false
 }
 
-type ValueValidationResult = InvalidValue | ValidValue
+export type ValueValidationResult = InvalidValue | ValidValue
 
 interface MissingValue {
 	readonly found: false
@@ -94,7 +94,9 @@ interface ResolvedValue {
 
 type MissingValueResolution = MissingValue | ResolvedValue
 
-const readScalarFailureCode = (field: GenericField): AnyValidationIssueCode => {
+export const readScalarFailureCode = (
+	field: GenericField,
+): AnyValidationIssueCode => {
 	switch (field.kind) {
 		case 'bigint':
 			return 'bigint.type'

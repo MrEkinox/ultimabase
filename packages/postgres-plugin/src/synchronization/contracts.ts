@@ -5,6 +5,13 @@ import type { PostgresIndexMethod } from '../schema/contracts.js'
 /** Describes one desired physical column without exposing its Drizzle builder. */
 export interface DesiredPostgresColumn {
 	readonly defaultExpression?: string
+	/**
+	 * What rows already in the table receive when the column is added, from
+	 * the field's neutral `existingRows` metadata (ADR-0321): an SQL value, or
+	 * why there is none.
+	 */
+	readonly existingRows?:
+		Readonly<{ expression: string }> | Readonly<{ missing: string }>
 	/** The logical field stored in this column, for diagnostics. */
 	readonly field?: string
 	readonly identity?: PostgresIdentityKind

@@ -172,6 +172,72 @@ describe('ACL', () => {
 		)
 	})
 
+	it('grants read and write to an owner and expands the write group (ADR-0321)', () => {
+		const owned = new ACL(alice)
+
+		expect(owned.permissionsForPrincipal(alice)).toStrictEqual([
+			'read',
+			'update',
+			'delete',
+		])
+		expect(new ACL(undefined).toJSON()).toStrictEqual(new ACL().toJSON())
+		expect(
+			new ACL().grantPublic('read', 'write').permissionsForPublic(),
+		).toStrictEqual(['read', 'update', 'delete'])
+		expect(
+			owned.revokePrincipal(alice, 'write').permissionsForPrincipal(alice),
+		).toStrictEqual(['read'])
+		expect(
+			new ACL()
+				.setAuthenticatedPermissions('write')
+				.permissionsForAuthenticated(),
+		).toStrictEqual(['update', 'delete'])
+	})
+
+	it('lists readable entries with Pointers and role references (ADR-0321)', () => {
+		const acl = new ACL(alice)
+			.grantPublic('read')
+			.grantRole(editor, 'update')
+			.grantPrincipal(service, 'read')
+
+		const entries = acl.entries()
+		expect(entries.map((entry) => entry.kind)).toStrictEqual([
+			'public',
+			'principal',
+			'principal',
+			'role',
+		])
+		expect(entries[0]).toStrictEqual({ kind: 'public', permissions: ['read'] })
+		const principals = entries.flatMap((entry) =>
+			entry.kind === 'principal' ? [entry.principal] : [],
+		)
+		expect(principals).toContain(alice)
+		expect(principals).toContain(service)
+		const role = entries.find((entry) => entry.kind === 'role')
+		expect(role?.kind === 'role' ? role.role.value : undefined).toBe(
+			editor.value,
+		)
+		expect(Object.isFrozen(entries)).toBe(true)
+		// Entries round-trip into a new ACL.
+		const rebuilt = entries.reduce(
+			(current, entry) =>
+				entry.kind === 'principal'
+					? current.grantPrincipal(entry.principal, ...entry.permissions)
+					: entry.kind === 'role'
+						? current.grantRole(entry.role, ...entry.permissions)
+						: entry.kind === 'public'
+							? current.grantPublic(...entry.permissions)
+							: current.grantAuthenticated(...entry.permissions),
+			new ACL(),
+		)
+		expect(rebuilt.toJSON()).toStrictEqual(acl.toJSON())
+		expect(() => ACL.fromJSON(acl.toJSON()).entries()).toThrow(
+			new TypeError(
+				'ACL entries() needs the schema ACLServiceAccount: initialize the application first',
+			),
+		)
+	})
+
 	it('cannot be subclassed', () => {
 		class ExtendedACL extends ACL {}
 

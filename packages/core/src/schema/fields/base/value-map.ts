@@ -1,5 +1,6 @@
 import type {
 	FieldTypegenStateOf,
+	FieldUpdateInput,
 	FieldList,
 	FieldListValue,
 	FieldValue,
@@ -108,7 +109,8 @@ type UpdateFields<TFields extends SchemaFields> = {
 				: TKey
 			: never
 	]?: TFields[TKey] extends GenericField
-		? ResolvedFieldValue<TFields[TKey], 'update'>
+		? | ResolvedFieldValue<TFields[TKey], 'update'>
+			| FieldUpdateInput<TFields[TKey]>
 		: never
 }
 

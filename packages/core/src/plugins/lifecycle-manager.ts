@@ -232,6 +232,13 @@ export class PluginLifecycleManager {
 			}
 
 			this.#state = 'started'
+			// Queries are available from here on; a failing `ready` fails start().
+			for (const { definition, resource } of this.#initializedPlugins) {
+				const { logger } = this.#registries.forPlugin(
+					definition.manifest.identity,
+				)
+				await this.#runAs(definition, () => resource?.ready?.({ logger }))
+			}
 		} catch (error: unknown) {
 			if (this.#state === 'disposed') {
 				throw error

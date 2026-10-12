@@ -46,16 +46,20 @@ const defineSourceSchema = (index) => {
 		index === 0
 			? 'PasswordUserSchema.define(Authoring.Schema, '
 			: index === 1
-				? 'RoleSchema.define(Authoring.Schema, '
+				? 'Authoring.RoleSchema.define('
 				: 'Authoring.Schema.define('
-	const roleOptions = index === 1 ? '\n  members: { schema: User },' : ''
-	const sourceOptions =
-		index === 0
-			? ''
-			: `
+	const roleOptions = index === 1 ? '\n  members: () => User,' : ''
+	const rules = `
   access: { update: { where: true, item: ({ item }) => item.field0.length > 0 } },
   hooks: { afterOperation: { update: ({ item }) => { void item.field0 } } },`
-	const shape = index < 2 ? '' : ".softDelete({ mode: 'command' })"
+	// The role factory takes its rules in the final `.with(...)` (ADR-0322).
+	const sourceOptions = index === 0 || index === 1 ? '' : rules
+	const shape =
+		index === 1
+			? `.with({${rules}\n})`
+			: index < 2
+				? ''
+				: ".softDelete({ mode: 'command' })"
 	return `export const ${name} = ${definition}{
   className: '${name}',${roleOptions}
   fields: (field) => ({${sourceFields(target)}
@@ -69,7 +73,7 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { PasswordUserSchema, passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
-import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 

@@ -1,25 +1,20 @@
-import type { ACL } from './acl.js'
+import { ACL } from './acl.js'
 import {
 	normalizeACLSchemaOption,
+	type ACLClientSharing,
 	type ACLDefaultFactory,
 	type ACLDefaultInput,
 	type ACLInputResolver,
 	type ACLSchemaLimits,
-	type ACLSchemaOption,
 	type NormalizedACLSchemaOption,
 } from './acl-option.js'
-
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly acl?: ACLSchemaOption<this>
-	}
-}
 
 interface ACLTestOptions<
 	TData extends Readonly<Record<string, unknown>> = Readonly<
 		Record<string, unknown>
 	>,
 > {
+	readonly clientSharing?: ACLClientSharing
 	readonly default?: ACL | ACLDefaultFactory<TData>
 	readonly limits?: ACLSchemaLimits
 	readonly resolveInput?: ACLInputResolver<TData>
@@ -32,6 +27,7 @@ export const normalizedACL = <
 >(
 	options: ACLTestOptions<TData> = {},
 ): NormalizedACLSchemaOption<TData> =>
-	normalizeACLSchemaOption(options, 'test.acl')
+	// Unit fixtures keep the empty default unless a test states one.
+	normalizeACLSchemaOption({ default: new ACL(), ...options }, 'test.acl')
 
 export type { ACLDefaultInput }

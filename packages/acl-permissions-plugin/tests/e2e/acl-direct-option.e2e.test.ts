@@ -10,7 +10,7 @@ const fixturePath = path.join(
 	'fixtures/acl-direct-option-no-typegen.mjs',
 )
 
-it('compiles the direct ACL option from JavaScript without Typegen', async () => {
+it('compiles the .acl() shape method from JavaScript without Typegen', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 

@@ -14,9 +14,11 @@ import type {
 	ConfiguredSchemaRuleOptions,
 	ConfiguredSchemaSelectorOptions,
 } from './configured-schema-namespace.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 import {
 	defineOrdinarySchemaModel,
 	Schema,
+	type SchemaDefinition,
 	type SchemaDeclaredFields,
 	type SchemaFields,
 	type SchemaOptions,
@@ -75,7 +77,8 @@ export interface SchemaRulesMethod<
 			TSource['schemaRules'],
 			SchemaRulesTarget<
 				ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
-			>
+			>,
+			SchemaShapeOf<TOptions>
 		> &
 			ConfiguredSchemaRuleOptions<TSource, TClassName, TFields, TOptions> &
 			ConfiguredSchemaIndexRules<TSource, TClassName, TFields, TOptions>,
@@ -151,11 +154,16 @@ export type DeclaredSchema<
 type DeclarationOptions = SchemaOptions<string, SchemaFields> &
 	Readonly<Record<string, unknown>>
 
+type DeclarationStatics = (
+	schema: SchemaDefinition,
+) => Readonly<Record<string, unknown>>
+
 const defineDeclaredSchema = (
 	options: DeclarationOptions,
 	shapes: ReadonlyMap<string, SchemaShapeMethodRuntime>,
+	statics?: DeclarationStatics,
 ): unknown => {
-	const statics: [string, unknown][] = [
+	const chain: [string, unknown][] = [
 		[
 			'with',
 			markSchemaDeclarationMethod((rules: unknown) => {
@@ -173,6 +181,7 @@ const defineDeclaredSchema = (
 					{ ...options, ...rest },
 					{},
 					indexes as readonly SchemaIndexInput[] | undefined,
+					statics,
 				)
 			}),
 		],
@@ -182,17 +191,23 @@ const defineDeclaredSchema = (
 		if (method.sets.some((key) => Object.hasOwn(options, key))) continue
 		const remaining = new Map(shapes)
 		remaining.delete(name)
-		statics.push([
+		chain.push([
 			name,
 			markSchemaDeclarationMethod((...arguments_: readonly unknown[]) =>
 				defineDeclaredSchema(
 					{ ...options, ...method.apply(...arguments_) },
 					remaining,
+					statics,
 				),
 			),
 		])
 	}
-	return defineOrdinarySchemaModel(options, Object.fromEntries(statics))
+	return defineOrdinarySchemaModel(
+		options,
+		Object.fromEntries(chain),
+		undefined,
+		statics,
+	)
 }
 
 const configuredSchemaNamespaces = new WeakSet<object>()
@@ -205,6 +220,23 @@ export const isConfiguredSchemaNamespace = (value: unknown): boolean =>
 	typeof value === 'object' &&
 	value !== null &&
 	configuredSchemaNamespaces.has(value)
+
+/**
+ * @internal Starts one declaration of a configured factory for a plugin
+ * schema factory (ADR-0322): the same chain as `App.Schema.define`, with
+ * `statics` bound to every class it creates.
+ */
+export const defineFactorySchema = (
+	shapes: ReadonlyMap<string, SchemaShapeMethodRuntime>,
+	options: object,
+	statics: DeclarationStatics | undefined,
+): unknown => {
+	assertPlainObject(options, 'schema options must be an object')
+	if (statics !== undefined && typeof statics !== 'function') {
+		throw new TypeError('schema factory statics must be a function')
+	}
+	return defineDeclaredSchema(options as DeclarationOptions, shapes, statics)
+}
 
 /** @internal Creates the schema namespace of one configured factory. */
 export const createConfiguredSchemaNamespace = (

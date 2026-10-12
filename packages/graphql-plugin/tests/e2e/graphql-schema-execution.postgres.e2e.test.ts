@@ -93,13 +93,14 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 			},
 		},
 	},
-	acl: {
-		default: publicAcl,
-		resolveInput: ({ currentAcl, inputAcl }) =>
-			inputAcl ?? currentAcl ?? publicAcl,
-	},
 	postgres: { table: 'graphql_execution_posts' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: publicAcl,
+		},
+	})
 
 const harness: ExecutionHarness = {}
 let fixture: PostgresWorkerFixture | undefined

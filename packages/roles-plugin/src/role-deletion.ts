@@ -45,7 +45,7 @@ const readRoleEdges = async (
 			select: { id: true },
 			include: {
 				members: { select: { id: true }, take: 1 },
-				roles: { select: { id: true }, take: 1 },
+				includedRoles: { select: { id: true }, take: 1 },
 			},
 		},
 		masterOptions,
@@ -54,7 +54,7 @@ const readRoleEdges = async (
 		const value: unknown = role === null ? [] : Reflect.get(role, field)
 		return isUnknownArray(value) ? value.length : 0
 	}
-	return { children: count('roles'), members: count('members') }
+	return { children: count('includedRoles'), members: count('members') }
 }
 
 const readRoleId = (role: object): string => {
@@ -74,7 +74,7 @@ const readParentRoles = (
 ): Promise<readonly object[]> =>
 	// The public quantified relation predicate compiles to one indexed join lookup.
 	roleQuerySchema(schema).findMany(
-		{ where: { roles: { some: { id: { eq: roleId } } } } },
+		{ where: { includedRoles: { some: { id: { eq: roleId } } } } },
 		masterOptions,
 	)
 
@@ -134,7 +134,7 @@ const cascadeReferences = async (
 	await roles.updateOne(
 		{
 			where: { id: roleId },
-			data: { members: { set: [] }, roles: { set: [] } },
+			data: { members: { set: [] }, includedRoles: { set: [] } },
 			select: { id: true },
 		},
 		masterOptions,
@@ -144,7 +144,7 @@ const cascadeReferences = async (
 		await roles.updateOne(
 			{
 				where: { id: readRoleId(parentRole) },
-				data: { roles: { disconnect: [roleId] } },
+				data: { includedRoles: { disconnect: [roleId] } },
 				select: { id: true },
 			},
 			masterOptions,

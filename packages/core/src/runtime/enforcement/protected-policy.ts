@@ -29,6 +29,12 @@ import { assertMasterMode } from './definitions.js'
 export interface ProtectedPolicyEffects {
 	/** False denies the request; true and omission cannot override an earlier denial. */
 	readonly allowed?: boolean
+	/**
+	 * Explains a denial in the server-side error message; clients keep the
+	 * generic public message.
+	 * @example `reason: 'select: { acl: true } requires useMasterKey: true'`
+	 */
+	readonly reason?: string
 	/** Intersects fields accepted by mutation input. */
 	readonly inputFields?: readonly string[]
 	/** ANDs one private row predicate outside the developer operation. */
@@ -248,6 +254,7 @@ export const getProtectedPolicyImplementation = (
 const effectKeys = new Set([
 	'allowed',
 	'inputFields',
+	'reason',
 	'rowFilter',
 	'selectionFields',
 ])
@@ -265,6 +272,9 @@ export const normalizeProtectedPolicyEffects = (
 	if (value.allowed !== undefined && typeof value.allowed !== 'boolean') {
 		throw new TypeError('protected policy allowed must be a boolean')
 	}
+	if (value.reason !== undefined && typeof value.reason !== 'string') {
+		throw new TypeError('protected policy reason must be a string')
+	}
 	for (const key of ['inputFields', 'selectionFields'] as const) {
 		const fields: unknown = value[key]
 		if (fields !== undefined && !isUnknownArray(fields)) {
@@ -274,6 +284,7 @@ export const normalizeProtectedPolicyEffects = (
 
 	return immutableRecord({
 		...(value.allowed === undefined ? {} : { allowed: value.allowed }),
+		...(value.reason === undefined ? {} : { reason: value.reason }),
 		...(value.inputFields === undefined
 			? {}
 			: {

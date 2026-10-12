@@ -102,9 +102,10 @@ export const createMinimalApplication = ({
 }
 
 // One declaration per application (ADR-0297 amendment 1). Typegen names these
-// old-form schemas; registering the real application would make the Role
-// schema reference itself through the registry (TS7022) until Roles moves to
-// its schema factory.
+// old-form schemas; registering the real application would make the
+// field-level relation `where` callback of ExampleArticle.reviewers read the
+// registry while ExampleArticle is typed (TS7022). Roles no longer needs this
+// (ADR-0322); the example moves to the declaration form in migration step 6.7.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: UltimaBase<readonly []>

@@ -6,6 +6,7 @@ import { ACL } from '../../src/acl.js'
 import { normalizedACL } from '../../src/acl-option.test-support.js'
 import {
 	aclPlugin,
+	recomputeUpdateOperationACL,
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
 } from '../../src/plugin.js'
@@ -37,7 +38,7 @@ describe('aclPlugin prepared input resolution', () => {
 		const oversized = new ACL()
 			.grantPrincipal(Principal.pointer('first'), 'read')
 			.grantPrincipal(Principal.pointer('second'), 'read')
-		const config = normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl })
+		const config = normalizedACL()
 		const limits = { maxPrincipals: 1, maxRoles: 50 }
 		const createOperation = {
 			input: { title: 'Explicit', acl: oversized },
@@ -86,12 +87,11 @@ describe('aclPlugin prepared input resolution', () => {
 	it('resolves one master ACL replacement against the locked current value', async () => {
 		const currentACL = new ACL().grantPublic('read')
 		const proposedACL = new ACL().grantPublic('update')
-		const resolvedACL = proposedACL.grantPublic('delete')
+		const resolvedACL = currentACL.grantPublic('delete')
 		const resolver = vi.fn(
-			({ currentAcl, currentData, data, inputAcl, operation, update }) => {
+			({ currentAcl, currentData, data, operation, update }) => {
 				expect(operation).toBe('update')
 				expect(currentAcl).toBe(currentACL)
-				expect(inputAcl).toBe(proposedACL)
 				expect(currentData).toStrictEqual({ title: 'Current' })
 				expect(data).toStrictEqual({ title: 'Changed' })
 				expect(update).toStrictEqual({
@@ -102,11 +102,12 @@ describe('aclPlugin prepared input resolution', () => {
 				return resolvedACL
 			},
 		)
+		const query = new QueryBuilder(ProtectedPost).where({
+			id: { eq: '0198a43e-2431-7000-8000-000000000031' },
+		}).ast
 		const operation = {
 			kind: 'update-one',
-			query: new QueryBuilder(ProtectedPost).where({
-				id: { eq: '0198a43e-2431-7000-8000-000000000031' },
-			}).ast,
+			query,
 			update: {
 				kind: 'update-expression',
 				operations: [
@@ -123,6 +124,7 @@ describe('aclPlugin prepared input resolution', () => {
 			updatedAt: '2026-08-04T00:00:00.000Z',
 		}
 
+		// ADR-0321: Master's explicit ACL is written as is, without resolveInput.
 		const resolved = await resolvePreparedOperationACL(
 			operation,
 			target,
@@ -132,6 +134,28 @@ describe('aclPlugin prepared input resolution', () => {
 		)
 
 		expect(resolved.update.operations[1]).toStrictEqual({
+			field: 'acl',
+			kind: 'set',
+			value: proposedACL,
+		})
+		expect(resolver).not.toHaveBeenCalled()
+
+		// resolveInput recomputes the ACL of an update that carries none.
+		const recomputed = await recomputeUpdateOperationACL(
+			{
+				kind: 'update-one',
+				query,
+				update: {
+					kind: 'update-expression',
+					operations: [{ field: 'title', kind: 'set', value: 'Changed' }],
+				},
+			} as const,
+			target,
+			normalizedACL({ resolveInput: resolver }),
+			undefined,
+			context,
+		)
+		expect(recomputed.update.operations.at(-1)).toStrictEqual({
 			field: 'acl',
 			kind: 'set',
 			value: resolvedACL,
@@ -219,8 +243,9 @@ describe('aclPlugin prepared input resolution', () => {
 					),
 			] as const
 
+			// ADR-0321: Master's itemized replacement reaches the database.
 			const expectedMessages = [
-				'Explicit ACL input requires an acl.resolveInput declaration',
+				'ACL limit fixture stops before database execution',
 				'ACL replacement requires an itemized singular update.',
 				'ACL replacement requires an itemized singular update.',
 			] as const

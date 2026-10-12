@@ -12,6 +12,8 @@ import { roleQuerySchema } from './role-resolution.js'
 /** Retains one request-local, duplicate-free stored membership closure. */
 export interface RoleMembershipSnapshot {
 	readonly allRoleIds: readonly string[]
+	/** Canonical role names by role id, for every role in `allRoleIds`. */
+	readonly roleNames: ReadonlyMap<string, string>
 	readonly directRoleIds: readonly string[]
 	readonly inheritedRoleIds: readonly string[]
 	readonly memberId: string
@@ -24,6 +26,7 @@ export const resolveRoleMembershipGraph = async (
 	readParents: (role: unknown) => Promise<readonly unknown[]>,
 ): Promise<RoleMembershipSnapshot> => {
 	const minimumDepthByRoleId = new Map<string, number>()
+	const roleNames = new Map<string, string>()
 	const pending = directRoles.map((role) => ({ depth: 0, role }))
 
 	// Breadth-first: `for...of` also visits entries appended during iteration.
@@ -41,6 +44,11 @@ export const resolveRoleMembershipGraph = async (
 		}
 
 		minimumDepthByRoleId.set(roleId, depth)
+		const name: unknown =
+			typeof role === 'object' && role !== null
+				? Reflect.get(role, 'name')
+				: undefined
+		if (typeof name === 'string') roleNames.set(roleId, name)
 
 		if (minimumDepthByRoleId.size > roleHierarchyMaxVisitedRoles) {
 			throw new RoleHierarchyError(
@@ -60,6 +68,7 @@ export const resolveRoleMembershipGraph = async (
 
 	return immutableRecord({
 		allRoleIds: immutableArray(allRoleIds),
+		roleNames,
 		directRoleIds: immutableArray(
 			allRoleIds.filter((roleId) => minimumDepthByRoleId.get(roleId) === 0),
 		),
@@ -87,7 +96,9 @@ export const resolveStoredRoleMembership = async (
 	return resolveRoleMembershipGraph(member.id, directRoles, async (role) =>
 		roles.findMany(
 			{
-				where: { roles: { some: { id: { eq: readPersistedRoleId(role) } } } },
+				where: {
+					includedRoles: { some: { id: { eq: readPersistedRoleId(role) } } },
+				},
 				orderBy: { id: 'asc' },
 			},
 			{ useMasterKey: true },
