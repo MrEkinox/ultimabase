@@ -3366,7 +3366,6 @@ __metadata:
     "@ultimabase/rest-plugin": "workspace:^"
     "@ultimabase/roles-plugin": "workspace:^"
     "@ultimabase/soft-delete-plugin": "workspace:^"
-    "@ultimabase/typegen": "workspace:^"
     "@ultimabase/validation-plugin": "workspace:^"
     typescript: "npm:^6.0.3"
     zod: "npm:^4.4.3"
