@@ -1,7 +1,7 @@
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { waitForAfterCommit } from '@ultimabase/testing'
+import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

@@ -482,7 +482,7 @@ Test direct TypeScript execution first. For every selected public operation,
 inspect the generated GraphQL SDL or REST route graph and exercise one valid
 request, one invalid input, one undeclared error, and a context from another
 application. Confirm unselected operations stay private and that teardown
-revokes their handles. Use `@ultimabase/testing`'s `operation`,
+revokes their handles. Use `@ultimabase/testing/plugins`' `operation`,
 `schema-mutation`, `transport`, and `javascript-operation` optional checks
 where they match the feature; add real protocol-level tests for the wire
 representation and safe errors.

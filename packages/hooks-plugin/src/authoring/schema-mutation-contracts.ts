@@ -9,6 +9,7 @@ import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
 	PluginSourceSchemaMutations,
+	SchemaRulesSource,
 } from '@ultimabase/core/plugin'
 import type { MaybePromise } from '@ultimabase/shared'
 
@@ -90,8 +91,11 @@ type GeneratedMutationMap<TSchema extends SchemaDefinition> =
 			: Readonly<Record<never, never>>
 		: Readonly<Record<never, never>>
 
+// A registered `SchemaRef<"Todo">` carries no statics: its commands come
+// from the registered schema, read lazily from `.with` rules (ADR-0297).
 type SchemaMutationMap<TSchema extends SchemaDefinition> =
-	GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSchema>
+	GeneratedMutationMap<TSchema> &
+		PluginSourceSchemaMutations<SchemaRulesSource<TSchema>>
 
 /**
  * What an `all` hook receives for one plugin command: the command's input

@@ -36,6 +36,8 @@ export {
 	authorizeMasterKey,
 	withContext,
 } from './runtime/application/plugin-authority.js'
+export { openApplicationHarness } from './runtime/application/application-harness.js'
+export type { ApplicationHarness } from './runtime/application/application-harness.js'
 export { WhereBuilder } from './query/filters/where.js'
 export { QueryBuilder } from './query/query/query.js'
 export { plugin } from './plugins/plugin.js'

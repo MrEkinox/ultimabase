@@ -1,8 +1,4 @@
-import {
-	MasterAuthority,
-	type MasterAccessEvent,
-	type UltimaBase,
-} from '@ultimabase/core'
+import { MasterAuthority, type MasterAccessEvent } from '@ultimabase/core'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin, type PostgresPool } from '@ultimabase/postgres-plugin'
@@ -82,13 +78,9 @@ export const createMinimalApplication = ({
 	})
 }
 
-// One declaration per application (ADR-0297 amendment 1). Typegen names these
-// old-form schemas; registering the real application would make the
-// field-level relation `where` callback of ExampleArticle.reviewers read the
-// registry while ExampleArticle is typed (TS7022). Roles no longer needs this
-// (ADR-0322); the example moves to the declaration form in migration step 6.7.
+// One declaration per application gives name-keyed editor types (ADR-0297).
 declare module '@ultimabase/core' {
 	interface Register {
-		readonly app: UltimaBase<readonly []>
+		readonly app: ReturnType<typeof createMinimalApplication>
 	}
 }

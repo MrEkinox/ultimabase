@@ -359,7 +359,7 @@ try {
 		}
 	}, 60_000)
 
-	it('exposes exact auth operations in both protocols without granting Task reads', async () => {
+	it('exposes exact auth operations in both protocols beside the prototype opening', async () => {
 		const project = await setupProject('create_app_both', {
 			language: 'ts',
 			apis: ['rest', 'graphql'],
@@ -402,18 +402,24 @@ try {
 			expect(await refreshed.json()).toMatchObject({
 				data: { refresh: { user: { email: 'alice@example.test' } } },
 			})
-			const deniedRest = await fetch(`${endpoint}/api/classes/Task`, {
+			const openRest = await fetch(`${endpoint}/api/classes/Task`, {
 				headers: {
 					...applicationHeader,
 					Authorization: `Bearer ${session.token}`,
 				},
 			})
-			expect(deniedRest.status).toBe(403)
-			const deniedGraphql = await graphql(
+			// ADR-0327: the prototype Access opening allows Task reads in
+			// development; a session still grants nothing by itself.
+			expect(openRest.status).toBe(200)
+			const openGraphql = await graphql(
 				'{ findManyTask(first: 10) { nodes { title } } }',
 				session.token,
 			)
-			expect(await deniedGraphql.text()).toContain('PERMISSION_DENIED')
+			expect(await openGraphql.json()).toMatchObject({
+				data: {
+					findManyTask: { nodes: [{ title: 'Ship the first feature' }] },
+				},
+			})
 			const application = await readFile(
 				path.join(project.destination, 'src/ultimabase.ts'),
 				'utf8',

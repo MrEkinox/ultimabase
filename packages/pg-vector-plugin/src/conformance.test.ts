@@ -3,7 +3,7 @@ import {
 	definePluginConformanceSuite,
 	runPluginConformance,
 	withPluginTypegenConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 import { expect, it } from 'vitest'
 
 import { pgVectorPlugin } from './index.js'

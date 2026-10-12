@@ -375,6 +375,11 @@ export class FrameworkApplication<
 		return this.#startPromise
 	}
 
+	/** @internal Reruns the `ready` seeding phase for an application harness. */
+	seed(): Promise<void> {
+		return this.#lifecycle.seed()
+	}
+
 	/** Stops active infrastructure without releasing setup-owned state. */
 	stop(): Promise<void> {
 		assertOutsideApplicationWork(this)

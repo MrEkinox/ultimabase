@@ -1,42 +1,92 @@
 # @ultimabase/testing
 
-Testing utilities and conformance suites for framework applications and plugin authors.
+Testing utilities for applications and conformance suites for plugin authors.
 
-## Application suites
+Applications import `@ultimabase/testing`; plugin authors import
+`@ultimabase/testing/plugins`; the Vitest configuration comes from
+`@ultimabase/testing/vitest` (ADR-0327).
 
-Use the existing application lifecycle with your runner's suite hooks. For an
-existing `app` instance owned by the suite:
+## Test an application: `testApplication`
+
+`testApplication(ultimabase)` starts the production application itself (same
+plugins, same rules) on the test worker's own PostgreSQL schema. Leaving the
+`await using` scope closes the handle:
 
 ```ts
-import { afterAll, beforeAll, it } from 'vitest'
-beforeAll(() => app.start())
-afterAll(() => app.dispose())
+import { testApplication } from '@ultimabase/testing'
+import { expect, it } from 'vitest'
 
-it('executes application behavior', async () => {
-	// Create independent records and assert behavior through this application's API.
+import { Task } from '../src/schema.ts'
+import { ultimabase } from '../src/ultimabase.ts'
+
+it('creates a Task', async () => {
+	await using t = await testApplication(ultimabase)
+	const task = await Task.createOne({ data: { title: 'Ship' } })
+	expect(task.done).toBe(false)
 })
 ```
 
-For Jest, import these hooks from `@jest/globals`. Always return or await the
-lifecycle promises. Core permits one initialized application per JavaScript
-realm, so tests requiring a replacement must await disposal first. Concurrent
-requests in one application and applications in separate workers remain
-supported. An injected database pool belongs to the test: close it after
-application disposal, then remove its worker schema. See the website's
-[Test an Application](../../apps/website/content/docs/1.0.0/guides/test-an-application.mdx)
-for the complete PostgreSQL example. There is no test-only activation bypass.
+- **Database.** The connection comes from `TEST_DATABASE_URL`, otherwise
+  from a PostgreSQL container (Testcontainers, Docker required) started once.
+  Each worker uses its own schema, `ultimabase_test_<worker>`, dropped and
+  recreated when the application starts. `testApplication` gives the schema
+  to `postgresPlugin()` through `DATABASE_URL`, only while the application
+  starts, and refuses an application that did not connect through it (an
+  explicit `url` or `pool` option): it never empties another database.
+- **One application per file.** An application does not restart after
+  `dispose()`, so a later call with the same application reuses it, after
+  emptying its tables: every test starts from no data. The application stops
+  after the test file (`ultimabaseTesting()` registers it) and its schema is
+  dropped. Tests sharing an application run one after another.
+- **Production.** `testApplication` refuses `NODE_ENV=production`.
 
-For an application owned by one asynchronous test, prefer its native resource
-scope instead of a manual trailing cleanup:
+The handle `t` provides:
+
+| Member                 | Effect                                                                                                                                                                                                                                 |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `t.reset()`            | Empties every table the database plugin manages (`TRUNCATE`, identities restarted), keeping the tables, then reruns the plugins' `ready` seeding, such as Roles `ensure`. The adapter capability is neutral; PostgreSQL implements it. |
+| `t.fetch(path, init?)` | Sends one in-memory request through the HTTP plugin, without a port, as a client would: authentication comes from its headers.                                                                                                         |
+| `t.as(principal, fn)`  | Runs `fn` as `principal` (a pointer such as `User.pointer(id)`, or `undefined` for anonymous): rules and hooks see that principal.                                                                                                     |
+| `t.asMaster(fn)`       | Runs `fn` with Master authority without a configured key; Master bypasses authorization, never validation or hooks.                                                                                                                    |
+| `t.afterCommit()`      | Resolves once pending after-commit work (`afterCommit` hooks, event consumers) has run, including the work it started.                                                                                                                 |
 
 ```ts
-it('executes one isolated application', async () => {
-	const Application = UltimaBase.use(databasePlugin())
-	await using app = new Application({ schemas })
-	await app.start()
-	// The application is disposed on success and on failure.
-})
+await using t = await testApplication(ultimabase)
+const user = await t.asMaster(() => User.createOne({ data: { name: 'Ada' } }))
+const mine = await t.as(User.pointer(user.id), () => Note.findMany())
+const response = await t.fetch('/api/classes/Note')
+await t.afterCommit()
 ```
+
+`t.as` and `t.asMaster` apply to the calls made inside `fn`. They exist only
+on a handle: `testApplication` opens Core's application harness
+(`openApplicationHarness` from `@ultimabase/core/plugin`) before the
+application starts, and only that object grants Master without a key or
+empties data. An application started with `ultimabase.start()` can never be
+harnessed afterwards, and no option, environment variable or transport input
+opens one. Each harness elevation is logged at `debug`.
+
+## Vitest configuration
+
+```ts
+// vitest.config.ts
+import { ultimabaseTesting } from '@ultimabase/testing/vitest'
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({ test: { ...ultimabaseTesting() } })
+```
+
+`ultimabaseTesting()` returns a global setup that starts PostgreSQL once per
+run unless `TEST_DATABASE_URL` is set, a setup file that stops each file's
+application and drops its schema, `PORT=0` (a server plugin listens on a free
+port, so workers never compete for the development port) and 30-second test
+and hook timeouts. Spread it first so your own values win; merge your own
+`setupFiles` or `env` with its values.
+
+With another runner, `testApplication` works the same way without the global
+setup: without `TEST_DATABASE_URL` it starts one container per process. Call
+`await ultimabase.dispose()` after the suite; the worker schema is recreated
+at the next run.
 
 ## Plugin conformance
 
@@ -53,7 +103,7 @@ import {
 	definePluginConformanceSuite,
 	runPluginConformance,
 	withPluginTypegenConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 import { expect, it } from 'vitest'
 
 const suite = definePluginConformanceSuite({
@@ -173,7 +223,8 @@ its logical identity and physical effect without installing Access, Hooks, or a
 product plugin. This keeps the report precise while leaving each
 plugin-specific assertion readable. `withPluginTypegenConformance()` implements
 the generic `typegen` check and compares two complete generated outputs before
-running an optional package-specific assertion.
+running an optional package-specific assertion. It leaves with Typegen in
+migration step 6.8 (ADR-0327 decision 4).
 
 For JavaScript, import the same helpers and select `javascript-operation`; no
 generated declarations or Typegen import is required. Transport checks can use
@@ -196,15 +247,20 @@ above; `@ultimabase/testing` does not import either product. An independent
 lifecycle or policy engine runs the common kernel suite and its own optional
 checks without implementing the official Hooks or Access vocabulary.
 
-## PostgreSQL worker isolation
+## Lower-level helpers for plugin tests
 
-`PostgresTestWorker` gives every Vitest fork a deterministic PostgreSQL schema
-without depending on `pg` or Testcontainers:
+`@ultimabase/testing/plugins` also exports the helpers of tests that build
+their own applications instead of starting one with `testApplication`.
+
+### PostgreSQL worker isolation
+
+`PostgresTestWorker` gives every test worker a deterministic PostgreSQL schema
+without depending on a driver:
 
 ```ts
 import process from 'node:process'
 
-import { PostgresTestWorker, readVitestPoolId } from '@ultimabase/testing'
+import { PostgresTestWorker } from '@ultimabase/testing/plugins'
 import { Pool } from 'pg'
 
 const adminPool = new Pool({ connectionString: databaseUrl })
@@ -212,7 +268,7 @@ const worker = new PostgresTestWorker({
 	query: async (statement) => {
 		await adminPool.query(statement)
 	},
-	workerId: readVitestPoolId(process.env.VITEST_POOL_ID),
+	workerId: Number(process.env.VITEST_POOL_ID),
 })
 
 await worker.reset()
@@ -226,27 +282,16 @@ const pool = new Pool({
 `reset()` drops and recreates only `worker.schemaName`. `connectionOptions`
 sets that schema as the pool's `search_path`. Close the worker pool before
 calling `worker.dispose()`, then close the administrative pool.
-`PostgresTestWorker` also implements `AsyncDisposable`, so a worker owned by one
-test can use `await using worker = new PostgresTestWorker(...)`. Close every
-pool that uses its schema before leaving that scope. Suite-level fixtures that
-span hooks should retain explicit ordered teardown.
+`PostgresTestWorker` also implements `AsyncDisposable`. `testApplication`
+uses it for each worker.
 
-The repository's PostgreSQL E2E project starts one Testcontainer globally and
-shares only its connection URI. No mutable application, pool, container,
-schema registry, or plugin instance is shared between Vitest workers.
-
-The official Hooks PostgreSQL scenario uses this boundary to verify nested writes,
-rollback, post-commit delivery, protected scope row filters, field restrictions,
-and atomic item-oriented collection behavior through built public package
-exports.
-
-## Capturing logger
+### Capturing logger
 
 `createCapturingLogger()` returns an application logger (ADR-0313) that
 records lines instead of printing them, for `new App({ logger })`:
 
 ```ts
-import { createCapturingLogger } from '@ultimabase/testing'
+import { createCapturingLogger } from '@ultimabase/testing/plugins'
 
 const logger = createCapturingLogger()
 const app = new App({ schemas: [Todo], logger, logLevel: 'debug' })
@@ -259,22 +304,21 @@ expect(logger.lines.at(-1)?.message).toMatch(/^UltimaBase started:/u)
 `lines` keeps every `{ level, message, details }` record in arrival order,
 `messages(level?)` lists messages, and `clear()` forgets them.
 
-## Waiting for after-commit work
+### Waiting for after-commit work
 
-`afterCommit` Hooks and event consumers run after the transaction commits,
-without delaying the response (ADR-0318). `waitForAfterCommit()` resolves once
-the active application's pending after-commit work has run, including work it
-started; it never rejects, failures being logged by the application:
+`waitForAfterCommit()` resolves once the active application's pending
+after-commit work has run, like `t.afterCommit()`, for an application a test
+started itself:
 
 ```ts
-import { waitForAfterCommit } from '@ultimabase/testing'
+import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 
 await Todo.createOne({ data: { title: 'Ship' } })
 await waitForAfterCommit()
 expect(sentEmails).toHaveLength(1)
 ```
 
-## Fake public operation transport
+### Fake public operation transport
 
 `FakePublicOperationTransport` exercises an application's explicit generic
 operation exposure without installing HTTP or GraphQL. It returns only encoded

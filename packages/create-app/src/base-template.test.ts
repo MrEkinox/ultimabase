@@ -28,37 +28,45 @@ describe('base project templates', () => {
 		},
 	)
 
-	it('puts Typegen in the same TypeScript application graph and before both checks', () => {
-		const plan = resolveSelection({ name: 'notes', install: false }, '/tmp')
+	// ADR-0327 decisions 5 and 7: Node runs the sources, Vitest the first test.
+	it('writes dev, test and build scripts and the first test without Typegen', () => {
+		const plan = resolveSelection(
+			{ name: 'notes', install: false, apis: ['rest'] },
+			'/tmp',
+		)
 		const files = renderBaseFiles(plan)
 		const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 			readonly dependencies: Record<string, string>
+			readonly devDependencies: Record<string, string>
 			readonly scripts: Record<string, string>
 		}
-		expect(files.get('src/schema.ts')).toContain('typegenPlugin()')
-		expect(files.get('scripts/generate-types.mjs')).toContain(
-			'loadTypegenApplication',
-		)
-		expect(files.get('tsconfig.json')).toContain('.ultimabase/**/*.d.ts')
-		expect(manifest.dependencies).toHaveProperty('@ultimabase/typegen')
-		// ADR-0312: type checks need no .env without a Master key.
-		expect(manifest.scripts.typecheck).toMatch(
-			/^node scripts\/generate-types\.mjs && tsc --noEmit$/,
-		)
-		expect(manifest.scripts.build).toMatch(
-			/^node scripts\/generate-types\.mjs && tsc$/,
+		expect(manifest.scripts).toEqual({
+			dev: 'node --watch --env-file=.env src/main.ts',
+			build: 'tsc -p tsconfig.build.json',
+			start: 'node --env-file=.env dist/main.js',
+			typecheck: 'tsc',
+			test: 'vitest run',
+		})
+		expect(manifest.dependencies).not.toHaveProperty('@ultimabase/typegen')
+		expect(manifest.devDependencies).toHaveProperty('@ultimabase/testing')
+		expect(manifest.devDependencies).toHaveProperty('vitest')
+		expect(
+			[...files.keys()].filter((name) => name.includes('generate')),
+		).toEqual([])
+		expect(files.get('src/main.ts')).toContain("from './schema.ts'")
+		expect(files.get('vitest.config.ts')).toContain('...ultimabaseTesting()')
+		const test = files.get('tests/task.test.ts') ?? ''
+		expect(test).toContain('await using t = await testApplication(ultimabase)')
+		expect(test).toContain("await t.fetch('/api/classes/Task')")
+		expect(files.get('tsconfig.json')).toContain(
+			'"rewriteRelativeImportExtensions": true',
 		)
 		expect(nextCommands(plan)).toEqual(
-			expect.arrayContaining([
-				'npm install',
-				'npm run typecheck',
-				'npm run build',
-				'npm start',
-			]),
+			expect.arrayContaining(['npm install', 'npm run dev']),
 		)
 	})
 
-	it('writes JavaScript without Typegen, TypeScript, or generated declarations', () => {
+	it('writes JavaScript without TypeScript', () => {
 		const plan = resolveSelection(
 			{
 				name: 'notes',
@@ -72,26 +80,44 @@ describe('base project templates', () => {
 		const files = renderBaseFiles(plan)
 		const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 			readonly dependencies: Record<string, string>
-			readonly devDependencies?: Record<string, string>
+			readonly devDependencies: Record<string, string>
 			readonly scripts: Record<string, string>
 		}
 		expect(
 			[...files.keys()].filter(
-				(name) =>
-					name.endsWith('.ts') ||
-					name === 'tsconfig.json' ||
-					name.startsWith('.ultimabase'),
+				(name) => name.endsWith('.ts') || name.startsWith('tsconfig'),
 			),
 		).toEqual([])
-		expect(manifest.dependencies).not.toHaveProperty('@ultimabase/typegen')
-		expect(manifest.devDependencies).toBeUndefined()
-		expect(manifest.scripts).toEqual({
-			start: 'node --env-file=.env src/main.js',
+		expect(manifest.devDependencies).toEqual({
+			'@ultimabase/testing': '^0.0.0',
+			vitest: '^4.1.11',
 		})
+		expect(manifest.scripts).toEqual({
+			dev: 'node --watch --env-file=.env src/main.js',
+			start: 'node --env-file=.env src/main.js',
+			test: 'vitest run --passWithNoTests',
+		})
+		expect(files.has('tests/task.test.js')).toBe(false)
 		expect(files.get('src/main.js')).not.toContain('Task.createOne')
 		expect(nextCommands(plan)).toEqual(
-			expect.arrayContaining(['pnpm install', 'pnpm start']),
+			expect.arrayContaining(['pnpm install', 'pnpm dev']),
 		)
+	})
+
+	// ADR-0327 decision 8: an existing database URL is written to .env.
+	it('writes .env for an existing database URL', () => {
+		const plan = resolveSelection(
+			{
+				name: 'notes',
+				databaseUrl: 'postgres://user:secret@127.0.0.1:5432/notes',
+			},
+			'/tmp',
+		)
+		const files = renderBaseFiles(plan)
+		expect(files.get('.env')).toBe(
+			'DATABASE_URL=postgres://user:secret@127.0.0.1:5432/notes\n',
+		)
+		expect(nextCommands(plan).join('\n')).not.toContain('Create .env')
 	})
 
 	// `up -d` returns before PostgreSQL accepts connections; `--wait` uses the
@@ -162,7 +188,7 @@ describe('base project templates', () => {
 	})
 
 	it.each([
-		['access-plugin', 'accessPlugin()'],
+		['access-plugin', 'accessPlugin('],
 		['acl-permissions-plugin', 'aclPlugin()'],
 		['roles-plugin', 'rolesPlugin()'],
 	] as const)(
@@ -182,23 +208,29 @@ describe('base project templates', () => {
 				}
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 				expect(schema).toContain(factory)
-				expect(application).toContain('new MasterAuthority({')
-				expect(application).toContain('requestId: event.requestId')
 				expect(application).not.toContain('restPlugin(')
 				expect(application).not.toContain('graphqlYogaPlugin(')
 				expect(application).not.toContain('cookie:')
 				expect(application).not.toContain('console.log(masterKey)')
-				expect(main).toContain('useMasterKey: true')
-				expect(files.get('.env.example')).toContain(
-					'ULTIMABASE_MASTER_KEY=<generate-a-random-local-key>',
-				)
-				if (id === 'access-plugin')
+				// ADR-0327: the prototype opening needs no Master key; an empty
+				// ACL and role administration still do.
+				const master = id !== 'access-plugin'
+				expect(application.includes('new MasterAuthority({')).toBe(master)
+				expect(main.includes('useMasterKey: true')).toBe(master)
+				expect(
+					files
+						.get('.env.example')
+						?.includes('ULTIMABASE_MASTER_KEY=<generate-a-random-local-key>'),
+				).toBe(master)
+				if (id === 'access-plugin') {
 					expect(schema).toContain(
-						'read: false, create: false, update: false, delete: false',
+						"accessPlugin({ allowWithoutRule: { all: 'development' } })",
 					)
+					expect(schema).not.toContain('access: {')
+				}
 				if (id === 'acl-permissions-plugin') {
-					expect(schema).toContain('.acl().with({')
-					expect(schema).toContain('  acl: { default: new ACL() },')
+					expect(schema).toContain('  .acl()\n  .with({')
+					expect(schema).toContain('    acl: { default: new ACL() },')
 				}
 				if (id === 'roles-plugin') {
 					expect(schema).toContain('SchemaApplication.RoleSchema.define({')
@@ -206,9 +238,9 @@ describe('base project templates', () => {
 						'export const Member = SchemaApplication.Schema.define(',
 					)
 					expect(application).toContain('schemas: [Task, Member, AppRole]')
-					// Regression: unfinished `define(...)` calls beside a role schema
-					// made `typeof ultimabase` circular in `Register`.
-					expect(schema.match(/\.with\(\{\}\)/gu)).toHaveLength(3)
+					// The Register cycle is fixed in Core (ADR-0297 note of
+					// 2026-10-12): no `.with({})` only to finish a declaration.
+					expect(schema).not.toContain('.with({})')
 				}
 			}
 		},
@@ -230,12 +262,11 @@ describe('base project templates', () => {
 			expect(manifest.dependencies).toHaveProperty('@ultimabase/auth-plugin')
 			expect(manifest.dependencies).toHaveProperty('@ultimabase/auth-password')
 			expect(schema).toContain(
-				".use(authPlugin({ methods: [password({ identifier: 'email' })] }))",
+				"authPlugin({ methods: [password({ identifier: 'email' })] })",
 			)
 			expect(schema).toContain('SchemaApplication.UserSchema.define({')
-			// Regression: an unfinished Task beside the User made `typeof
-			// ultimabase` circular in `Register` (TS7022).
-			expect(schema.match(/\.with\(\{\}\)/gu)).toHaveLength(2)
+			// The Register cycle is fixed in Core: no `.with({})` is needed.
+			expect(schema).not.toContain('.with({})')
 			expect(application).toContain('schemas: [Task, AppUser]')
 			expect(application).not.toContain('MasterAuthority')
 			expect(application).not.toContain('cookie:')
@@ -260,7 +291,7 @@ describe('base project templates', () => {
 		expect(schema).toContain('.acl()')
 		expect(schema).not.toContain('resolveInput')
 		expect(application).toContain('schemas: [Task, AppUser, AppRole]')
-		expect(application).not.toContain('accessPlugin()')
+		expect(schema).not.toContain('accessPlugin(')
 		expect(files.get('README.md')).toContain(
 			'A session identifies a caller; it does not grant Task access',
 		)
@@ -269,7 +300,11 @@ describe('base project templates', () => {
 
 	it('requires a local Master key for security Docker projects', () => {
 		const plan = resolveSelection(
-			{ name: 'secure-notes', database: 'docker', plugins: ['access-plugin'] },
+			{
+				name: 'secure-notes',
+				database: 'docker',
+				plugins: ['acl-permissions-plugin'],
+			},
 			'/tmp',
 		)
 		expect(() => renderBaseFiles(plan, 'docker-password')).toThrow('Master key')
@@ -289,7 +324,9 @@ describe('base project templates', () => {
 			"declare module '@ultimabase/core' {\n  interface Register {\n    readonly app: typeof ultimabase\n  }\n}",
 		)
 		expect(application).not.toContain('process.env.DATABASE_URL')
-		expect(typescript.get('src/schema.ts')).toContain('.use(postgresPlugin())')
+		expect(typescript.get('src/schema.ts')).toContain(
+			'UltimaBase.use(postgresPlugin())',
+		)
 		expect(typescript.get('src/main.ts')).toContain(
 			'await using app = await ultimabase.start()',
 		)

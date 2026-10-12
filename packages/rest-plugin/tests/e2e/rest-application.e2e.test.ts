@@ -13,10 +13,6 @@ const nestedFixturePath = path.join(
 	import.meta.dirname,
 	'fixtures/rest-nested-normalization-no-typegen.mjs',
 )
-const generatedTypesCheckPath = path.join(
-	import.meta.dirname,
-	'../../../../examples/minimal/src/check-generated-types.ts',
-)
 
 it('runs packed REST v1 from JavaScript without Typegen', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
@@ -57,10 +53,3 @@ it('decodes packed nested writes from JavaScript without Typegen', async () => {
 		validLegacyRejection: true,
 	})
 })
-
-// The child TypeScript check can exceed the default timeout under parallel E2E load.
-it('keeps the generated minimal REST declarations aligned', async () => {
-	await expect(
-		executeFile(process.execPath, [generatedTypesCheckPath]),
-	).resolves.toBeDefined()
-}, 20_000)

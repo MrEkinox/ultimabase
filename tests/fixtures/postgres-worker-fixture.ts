@@ -1,6 +1,6 @@
 import process from 'node:process'
 
-import { PostgresTestWorker, readVitestPoolId } from '@ultimabase/testing'
+import { PostgresTestWorker } from '@ultimabase/testing/plugins'
 import { Pool } from 'pg'
 import { inject } from 'vitest'
 
@@ -42,7 +42,7 @@ export const createPostgresWorkerFixture = async (
 		query: async (statement): Promise<void> => {
 			await adminPool.query(statement)
 		},
-		workerId: readVitestPoolId(process.env.VITEST_POOL_ID),
+		workerId: Number(process.env.VITEST_POOL_ID),
 	})
 
 	try {

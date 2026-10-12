@@ -281,7 +281,7 @@ the configured factory must provide the same completion, hover, signatures, and
 diagnostics without generated plugin declarations. If the fixture uses named
 cross-schema targets, also generate twice and compare the retained graph output.
 
-Use `withPluginTypegenConformance()` from `@ultimabase/testing` for the generic
+Use `withPluginTypegenConformance()` from `@ultimabase/testing/plugins` for the generic
 repeatability check, then add a focused assertion for the public type or field
 your plugin promises. Finally start a JavaScript application without Typegen:
 the plugin's Runtime behavior must still work.

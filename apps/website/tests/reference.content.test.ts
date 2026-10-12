@@ -68,9 +68,14 @@ describe('curated public reference', () => {
 			) {
 				throw new TypeError(`${directory.name} has no public package contract`)
 			}
-			// Core adds only its plugin-author subpath (ADR-0311, decision 4).
+			// Core adds only its plugin-author subpath (ADR-0311, decision 4);
+			// Testing adds plugin conformance and Vitest (ADR-0327).
+			const subpaths: Readonly<Record<string, readonly string[]>> = {
+				'@ultimabase/core': ['.', './plugin'],
+				'@ultimabase/testing': ['.', './plugins', './vitest'],
+			}
 			expect(Object.keys(packageJson.exports)).toEqual(
-				packageJson.name === '@ultimabase/core' ? ['.', './plugin'] : ['.'],
+				subpaths[packageJson.name] ?? ['.'],
 			)
 			packageNames.push(packageJson.name)
 		}

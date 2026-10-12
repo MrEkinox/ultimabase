@@ -148,7 +148,10 @@ describe('packed initializer outside the repository', () => {
 			)
 			expect(stdout).toContain(`manager: ${manager}`)
 			expect(stdout).toContain(`${manager} install`)
-			expect(stdout).toContain(`${manager} start`)
+			// ADR-0327 decision 5: Node 24 runs the sources in development.
+			expect(stdout).toContain(
+				manager === 'npm' ? 'npm run dev' : `${manager} dev`,
+			)
 			expect(await readdir(path.join(destination, 'src'))).toEqual(
 				expect.arrayContaining([
 					`schema.${language}`,
@@ -156,18 +159,16 @@ describe('packed initializer outside the repository', () => {
 					`main.${language}`,
 				]),
 			)
+			expect(manifest).toHaveProperty('devDependencies.@ultimabase/testing')
+			expect(manifest).not.toHaveProperty('dependencies.@ultimabase/typegen')
+			expect(await readdir(destination)).toContain(`vitest.config.${language}`)
+			if (starter === 'task')
+				expect(await readdir(path.join(destination, 'tests'))).toEqual([
+					`task.test.${language}`,
+				])
 			if (language === 'ts') {
-				expect(stdout).toContain(
-					manager === 'npm' ? 'npm run typecheck' : `${manager} typecheck`,
-				)
-				expect(stdout).toContain(
-					manager === 'npm' ? 'npm run build' : `${manager} build`,
-				)
-				expect(manifest).toHaveProperty('dependencies.@ultimabase/typegen')
 				expect(await readdir(destination)).toContain('tsconfig.json')
 			} else {
-				expect(manifest).not.toHaveProperty('devDependencies')
-				expect(manifest).not.toHaveProperty('dependencies.@ultimabase/typegen')
 				expect(await readdir(destination)).not.toContain('tsconfig.json')
 			}
 			if (database === 'docker') {
@@ -229,6 +230,29 @@ describe('packed initializer outside the repository', () => {
 			})
 		}
 	}, 120_000)
+
+	// ADR-0327 decision 8: Docker Compose by default, else an existing database.
+	it('falls back to an existing database when Docker is missing', async () => {
+		const emptyPath = path.join(temporaryRoot, 'no-docker-bin')
+		await execFileAsync('mkdir', ['-p', emptyPath])
+		const { stdout } = await execFileAsync(
+			process.execPath,
+			[cliPath, '--name', 'no-docker', '--yes', '--no-install'],
+			{
+				cwd: consumerRoot,
+				env: {
+					...process.env,
+					PATH: emptyPath,
+					npm_config_user_agent: 'npm/1',
+				},
+			},
+		)
+		expect(stdout).toContain('Docker was not found')
+		expect(stdout).toContain('database: existing')
+		const files = await readdir(path.join(consumerRoot, 'no-docker'))
+		expect(files).not.toContain('compose.yaml')
+		expect(files).not.toContain('.env')
+	})
 
 	// Regression: the packed CLI offered pg-vector although it cannot persist vectors.
 	it('rejects a withheld official plugin before writing', async () => {

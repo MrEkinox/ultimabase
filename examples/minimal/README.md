@@ -21,8 +21,10 @@ public schema.
 Access, ACL, Hooks, Validation, Roles, authentication, REST, GraphQL, Yoga,
 HTTP, Hono, and PostgreSQL remain explicit independently removable plugins.
 The schema factory installs REST and GraphQL before declaring schemas, so their
-`rest` and `graphql` options are typed from source; the application extends that same flat plugin
-chain and explicitly registers the schemas at construction.
+`rest` and `graphql` rules are typed from source; the application extends that
+same flat plugin chain and explicitly registers the schemas at construction.
+The example installs the HTTP plugins one by one instead of `apiServer()`:
+its tests give each application instance its own server and HTTP settings.
 REST and GraphQL normalize requests into the same Core operation pipeline;
 their `{ results, nextCursor }` envelopes and Relay connections remain
 intentionally different wire representations of the same cursors.
@@ -146,16 +148,22 @@ Relations may define one reusable read subset directly on the source field.
 uses the authentication request context:
 
 ```ts
+// A contextual filter is a constant typed by its deferred target, so that
+// `define(...)` never infers it while the schemas are typed (ADR-0297).
+const visibleReviewers: RelationWhereResolver<
+	DeferredSchemaTarget<() => typeof ExampleAuthor>
+> = ({ context, where }) =>
+	context.getValue(authPrincipal) === undefined
+		? where.eq('audience', 'public')
+		: where
+
 contributors: field.relation({
-	target: 'ExampleAuthor',
+	target: () => ExampleAuthor,
 	where: { listed: { eq: true } },
 }),
 reviewers: field.relation({
-	target: 'ExampleAuthor',
-	where: ({ context, where }) =>
-		context.getValue(authPrincipal) === undefined
-			? where.eq('audience', 'public')
-			: where,
+	target: () => ExampleAuthor,
+	where: visibleReviewers,
 }),
 ```
 
@@ -163,8 +171,11 @@ The same declaration shapes direct relation handles, nested inclusions, REST
 relationship projections, GraphQL connections, and the visible universe used
 by `some`, `none`, `every`, `count`, `isEmpty`, and `isNotEmpty`. A caller's
 target `where` is added with logical `AND`; ordering, `skip`, and `take` run
-after filtering. `ExampleAuthor.articles` and `contributions` show the same
-contract on inverse pointer and inverse relation storage.
+after filtering. `ExampleAuthor.articles` and `contributions` are the inverse
+pointer and inverse relation without a filter of their own: in the declaration
+form, two relations that filter each other's schema would type each schema
+from the other while both are typed. The Article read rule already hides
+unpublished articles from ordinary callers.
 
 This is presentation logic, not security. The example's independent Author
 Access filter and ACL can still hide rows that satisfy a relation filter, while
@@ -392,21 +403,23 @@ hooks, transactions, constraints, or integrity maintenance.
 `createMinimalClient()` demonstrates the shared Fetch header handling. Its
 `masterKey` option exists for trusted integration code only.
 
-## Generated declarations and current boundary
+## Declaration form and current boundary
 
-REST and GraphQL schema options infer from the configured source factory.
-The committed `.ultimabase/schema.generated.d.ts` supplies named relationships,
-complete filters, exact schema callbacks and the other retained graph contracts.
-Regenerate and verify it with:
+Every schema uses the declaration form (ADR-0297): relation targets are
+thunks such as `target: () => ExampleAuthor`, shape methods such as
+`.softDelete()` and `.acl()` follow `define(...)`, and Access, ACL, Hooks,
+REST and GraphQL rules sit in the final `.with(...)`. The application
+declares itself once in `Register`
+(`readonly app: ReturnType<typeof createMinimalApplication>`), which gives
+name-keyed types such as `WhereBuilder<SchemaRef<"ExampleArticle">>`. There is
+no generated declaration and no generation step:
 
 ```sh
-corepack yarn workspace @ultimabase/example-minimal generate-types
-corepack yarn workspace @ultimabase/example-minimal check-generated-types
 corepack yarn workspace @ultimabase/example-minimal typecheck
 ```
 
-The application executes the compiled declaration graph directly; generated
-declarations are replaceable tooling and never Runtime truth. Subscriptions,
-live queries, federation, uploads, persisted queries, `@defer`, `@stream`,
-OpenAPI, generated clients, realtime, and administration remain intentionally
-outside this example.
+Virtual field resolvers inside `define(...)` read their selected values as
+`unknown`; `src/stored-values.ts` narrows them. Subscriptions, live queries,
+federation, uploads, persisted queries, `@defer`, `@stream`, OpenAPI,
+generated clients, realtime, and administration remain intentionally outside
+this example.

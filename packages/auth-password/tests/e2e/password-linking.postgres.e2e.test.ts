@@ -14,7 +14,7 @@ import {
 } from '@ultimabase/core/plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import { waitForAfterCommit } from '@ultimabase/testing'
+import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

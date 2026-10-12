@@ -219,8 +219,8 @@ sequentially: the application's global Hooks, then the schema's `all`, then
 the operation's branch. The client response does not wait for them. A failure
 is logged and never rejects the call nor stops the next Hooks. Delivery is
 best effort within the process: work still pending when the process stops is
-lost. In tests, `await waitForAfterCommit()` from `@ultimabase/testing` waits
-for it.
+lost. In tests, `await t.afterCommit()` of `testApplication` from
+`@ultimabase/testing` waits for it.
 
 ### Typed events
 
@@ -350,7 +350,7 @@ schemas and operations.
   `null`. A plugin-defined mutation uses its own name rather than the physical
   update/delete name.
 - **An `afterCommit` Hook or event did not run in a test:** await
-  `waitForAfterCommit()` from `@ultimabase/testing` before asserting; the
+  `t.afterCommit()` of `testApplication` from `@ultimabase/testing` before asserting; the
   response does not wait for after-commit work.
 - **A write rolls back:** inspect the first thrown Hook or nested operation.
   `RUNTIME_CALLBACK_RECURSION` names the chain of more than 16 nested

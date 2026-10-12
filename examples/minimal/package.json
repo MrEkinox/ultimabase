@@ -4,8 +4,6 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"check-generated-types": "node src/check-generated-types.ts",
-		"generate-types": "node src/generate-types.ts",
 		"start": "node src/main.ts",
 		"typecheck": "tsc --noEmit"
 	},
@@ -24,7 +22,6 @@
 		"@ultimabase/rest-plugin": "workspace:^",
 		"@ultimabase/roles-plugin": "workspace:^",
 		"@ultimabase/soft-delete-plugin": "workspace:^",
-		"@ultimabase/typegen": "workspace:^",
 		"@ultimabase/validation-plugin": "workspace:^",
 		"zod": "^4.4.3"
 	},

@@ -15,7 +15,7 @@ import {
 	definePluginConformanceSuite,
 	type OptionalPluginConformanceContract,
 	type PluginConformanceContract,
-} from '../index.js'
+} from '../plugins.js'
 
 const sourceOption = defineSchemaOption({
 	normalize: (value) => value === true,

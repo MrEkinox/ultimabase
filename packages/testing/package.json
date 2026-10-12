@@ -16,6 +16,14 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./plugins": {
+			"types": "./dist/plugins.d.ts",
+			"import": "./dist/plugins.js"
+		},
+		"./vitest": {
+			"types": "./dist/vitest.d.ts",
+			"import": "./dist/vitest.js"
 		}
 	},
 	"scripts": {
@@ -28,14 +36,25 @@
 		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {
+		"@testcontainers/postgresql": "^12.0.4",
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/shared": "workspace:^",
-		"@ultimabase/typegen": "workspace:^"
+		"@ultimabase/typegen": "workspace:^",
+		"pg": "^8.16.3"
 	},
 	"devDependencies": {
+		"@types/pg": "^8.15.5",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
 		"vitest": "4.1.11"
+	},
+	"peerDependencies": {
+		"vitest": "^4.1.11"
+	},
+	"peerDependenciesMeta": {
+		"vitest": {
+			"optional": true
+		}
 	},
 	"engines": {
 		"node": ">=24.0.0"

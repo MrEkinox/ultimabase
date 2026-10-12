@@ -16,6 +16,14 @@ const sourcePackageAliasEntries: readonly (readonly [string, string])[] = [
 		'@ultimabase/core/plugin',
 		path.join(workspaceRoot, 'packages', 'core', 'src', 'plugin.ts'),
 	],
+	[
+		'@ultimabase/testing/plugins',
+		path.join(workspaceRoot, 'packages', 'testing', 'src', 'plugins.ts'),
+	],
+	[
+		'@ultimabase/testing/vitest',
+		path.join(workspaceRoot, 'packages', 'testing', 'src', 'vitest.ts'),
+	],
 	...[
 		'access-plugin',
 		'acl-permissions-plugin',

@@ -15,7 +15,7 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-} from '@ultimabase/testing'
+} from '@ultimabase/testing/plugins'
 import {
 	RequestContext,
 	addSchemaField,

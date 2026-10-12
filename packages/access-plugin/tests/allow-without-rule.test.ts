@@ -6,7 +6,7 @@ import {
 } from '@ultimabase/core'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
-import { createCapturingLogger } from '@ultimabase/testing'
+import { createCapturingLogger } from '@ultimabase/testing/plugins'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { PreparedMutationTestAdapter } from '../../../tooling/vitest/prepared-mutation-adapter.js'

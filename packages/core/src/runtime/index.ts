@@ -108,11 +108,14 @@ export {
 	databaseFilterOperatorsCapability,
 	databasePartialIndexCapability,
 	databasePartialIndexCapabilityVersion,
+	databaseResetCapability,
+	databaseResetCapabilityVersion,
 } from './database/adapter-capabilities.js'
 export type {
 	DatabaseFilterOperatorCapability,
 	DatabaseFilterOperatorFamily,
 	DatabasePartialIndexCapability,
+	DatabaseResetCapability,
 } from './database/adapter-capabilities.js'
 export type {
 	DatabaseAdapterCapabilities,

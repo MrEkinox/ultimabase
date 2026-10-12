@@ -2,11 +2,11 @@ import { pluginImports, privateSchemaApiOptions } from './api-template.js'
 import { hasPlugin as has, included, type InitializerPlan } from './config.js'
 import type { NamedImport } from './source.js'
 
-// Sign-up needs no Master key: authPlugin elevates with its own privilege (ADR-0326).
+// Sign-up needs no Master key: authPlugin elevates with its own privilege
+// (ADR-0326), and the prototype Access opening allows the Task seed in
+// development (ADR-0327). An empty ACL still hides the seed from its check.
 export const needsMasterKey = (plan: InitializerPlan): boolean =>
-	has(plan, 'access-plugin') ||
-	has(plan, 'acl-permissions-plugin') ||
-	has(plan, 'roles-plugin')
+	has(plan, 'acl-permissions-plugin') || has(plan, 'roles-plugin')
 
 const hasAuth = (plan: InitializerPlan): boolean => has(plan, 'auth-plugin')
 
@@ -22,7 +22,10 @@ const hasMember = (plan: InitializerPlan): boolean =>
 export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
 	...pluginImports(plan, [
 		['access-plugin', 'accessPlugin'],
-		['acl-permissions-plugin', 'ACL, aclPlugin'],
+		[
+			'acl-permissions-plugin',
+			plan.starter === 'task' ? 'ACL, aclPlugin' : 'aclPlugin',
+		],
 		['auth-plugin', 'authPlugin'],
 		['roles-plugin', 'rolesPlugin'],
 	]),
@@ -31,10 +34,19 @@ export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
 	]),
 ]
 
+/**
+ * The prototype opening (ADR-0327): operations without a rule are open
+ * outside production; `start()` refuses production until rules replace it.
+ */
+const prototypeAccess = `// Prototype: operations without an Access rule are open outside production.
+// Production refuses to start until you write .with({ access }) rules and
+// remove this opening.
+accessPlugin({ allowWithoutRule: { all: 'development' } })`
+
 /** Installs security plugins once on the schema-owning application factory. */
 export const securitySchemaPluginEntries = (plan: InitializerPlan): string[] =>
 	included([
-		[has(plan, 'access-plugin'), 'accessPlugin()'],
+		[has(plan, 'access-plugin'), prototypeAccess],
 		[has(plan, 'acl-permissions-plugin'), 'aclPlugin()'],
 		[has(plan, 'roles-plugin'), 'rolesPlugin()'],
 		[
@@ -59,8 +71,15 @@ export const AppUser = SchemaApplication.UserSchema.define({
 })${withRules([
 				...(hasProfilePolicy(plan)
 					? [
-							'// Each user reads only their own profile.',
-							"access: { read: ({ principal, where }) => where.in('id', principal === undefined ? [] : [principal.id]) },",
+							'// Each user reads only their own profile; writes stay with authPlugin.',
+							'access: {',
+							'  read: ({ principal, where }) =>',
+							"    where.in('id', principal === undefined ? [] : [principal.id]),",
+							'  create: false,',
+							'  update: false,',
+							'  upsert: false,',
+							'  delete: false,',
+							'},',
 						]
 					: []),
 				...privateSchemaApiOptions(plan).map((line) => line.trim()),
@@ -89,47 +108,25 @@ ${[
 	]).join('\n\n')
 
 /**
- * Role and User schemas are complete declarations (`.with(...)`), and an
- * application mixing them with unfinished `define(...)` calls cannot name its
- * own type in `Register` (TS7022). With Roles, ACL or authentication, the Task
- * rules therefore go in `.with(...)`.
+ * Renders the final `.with(...)` of a declaration from its rule lines; a
+ * declaration without rules stays an unfinished `define(...)` (ADR-0297).
  */
-const finishesTask = (plan: InitializerPlan): boolean =>
-	has(plan, 'roles-plugin') ||
-	has(plan, 'acl-permissions-plugin') ||
-	hasAuth(plan)
-
-const taskAccessRule = [
-	'// Deny ordinary requests; the local demonstration uses audited Master access.',
-	'access: { read: false, create: false, update: false, delete: false },',
-]
-
-/** Renders the final `.with(...)` of a declaration from its rule lines. */
 const withRules = (rules: readonly string[]): string =>
 	rules.length === 0
-		? '.with({})'
+		? ''
 		: `.with({\n${rules.map((rule) => `  ${rule}`).join('\n')}\n})`
 
-/** Old-form Task options, kept in `define(...)` while the Task stays unfinished. */
-export const taskSecurityOptions = (plan: InitializerPlan): string =>
-	has(plan, 'access-plugin') && !finishesTask(plan)
-		? taskAccessRule.map((line) => `  ${line}`).join('\n')
-		: ''
-
 /** ACL is added by `.acl()` and configured in `.with({ acl })` (ADR-0321). */
-export const taskRulesChain = (plan: InitializerPlan): string => {
-	if (!finishesTask(plan)) return ''
-	const rules = [
-		...(has(plan, 'access-plugin') ? taskAccessRule : []),
-		...(has(plan, 'acl-permissions-plugin')
-			? [
+export const taskRulesChain = (plan: InitializerPlan): readonly string[] =>
+	has(plan, 'acl-permissions-plugin')
+		? [
+				'.acl()',
+				withRules([
 					'// An empty ACL grants no read, update, or delete rights.',
 					'acl: { default: new ACL() },',
-				]
-			: []),
-	]
-	return `${has(plan, 'acl-permissions-plugin') ? '.acl()' : ''}${withRules(rules)}`
-}
+				]),
+			]
+		: []
 
 export const securityApplicationImports = (
 	plan: InitializerPlan,
@@ -159,7 +156,11 @@ export const securityApplicationOption = (plan: InitializerPlan): string =>
     keys: [{ id: 'local', value: masterKey }],
     onUse: (event) => {
       // Replace this development console record with a durable audit sink before deployment.
-      console.info('Master authority used', { kind: event.kind, keyId: event.keyId, requestId: event.requestId })
+      console.info('Master authority used', {
+        kind: event.kind,
+        keyId: event.keyId,
+        requestId: event.requestId,
+      })
     },
   }),`
 		: ''
@@ -176,11 +177,11 @@ export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasProfilePolicy(plan),
-			'The generated User read rule exposes only the current session owner. Sign-up, login, and refresh require this readable profile; other User operations stay denied.',
+			'The generated User rules expose only the current session owner and deny direct User writes. Sign-up, login, and refresh require this readable profile.',
 		],
 		[
 			has(plan, 'access-plugin'),
-			'Access denies every operation without a rule. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.',
+			"Access starts as a prototype: `allowWithoutRule: { all: 'development' }` opens every operation without a rule outside production, with a warning at start. With `NODE_ENV=production` the application refuses to start until you write `.with({ access })` rules for your schemas and remove that opening. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.",
 		],
 		[
 			has(plan, 'acl-permissions-plugin'),

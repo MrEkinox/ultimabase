@@ -1,7 +1,9 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
 import { UltimaBase, defineEnum } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
@@ -13,14 +15,25 @@ const serverManagedAccess = {
 	upsert: false,
 	delete: false,
 }
-const TodoSchemaApplication = UltimaBase.use(accessPlugin())
-	.use(hooksPlugin())
-	.use(validationPlugin())
-	.use(rolesPlugin())
-	.use(aclPlugin())
+/**
+ * One plugin list types every schema and builds the application (ADR-0297).
+ * Every schema rules every operation, so Access opens nothing by default.
+ * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	accessPlugin(),
+	hooksPlugin(),
+	validationPlugin(),
+	rolesPlugin(),
+	aclPlugin(),
+	// REST over HTTP and a local Hono listener (ADR-0325); Access decides
+	// what each request may do.
+	...apiServer({ rest: true }),
+	postgresPlugin(),
+)
 
 /** Owns tasks assigned to one person and demonstrates inverse relations. */
-export const TodoUser = TodoSchemaApplication.Schema.define({
+export const TodoUser = App.Schema.define({
 	className: 'TodoUser',
 	fields: (field) => ({
 		displayName: field.string({
@@ -32,18 +45,22 @@ export const TodoUser = TodoSchemaApplication.Schema.define({
 		assignedTodos: field.relation({
 			description: 'Tasks whose assignee pointer references this user.',
 			mappedBy: 'assignee',
-			target: 'Todo',
+			target: () => Todo,
 		}),
 	}),
+}).with({
 	access: serverManagedAccess,
 	postgres: { table: 'todo_users' },
+	rest: false,
 })
 
 /** Stores application roles with ordinary schema fields (ADR-0322). */
-export const TodoRole = TodoSchemaApplication.RoleSchema.define({
+export const TodoRole = App.RoleSchema.define({
 	className: 'TodoRole',
 	members: () => TodoUser,
 	deletion: 'fail',
+	// The Todo ACL default grants this role: it must exist (ADR-0322).
+	ensure: ['editor'],
 	fields: (field) => ({
 		description: field.string({
 			description: 'Human-readable explanation of the role.',
@@ -58,6 +75,7 @@ export const TodoRole = TodoSchemaApplication.RoleSchema.define({
 	// Stored in the default table, `todo_roles`.
 	indexes: [{ fields: ['priority', 'createdAt'] }],
 	access: serverManagedAccess,
+	rest: false,
 })
 
 /** Stable role reference used by ACL defaults without loading role storage. */
@@ -71,7 +89,7 @@ export const TodoPriority = defineEnum('TodoPriority', [
 ])
 
 /** Exercises every built-in field family supported by the Todo application. */
-export const Todo = TodoSchemaApplication.Schema.define({
+export const Todo = App.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
 		title: field.string({
@@ -220,33 +238,33 @@ export const Todo = TodoSchemaApplication.Schema.define({
 			},
 			description: 'Optional user currently responsible for the task.',
 			onDelete: 'setNull',
-			target: 'TodoUser',
+			target: () => TodoUser,
 		}),
 	}),
 	indexes: [{ fields: ['completed', 'dueAt'] }],
-	access: {
-		read: ({ where }) => where.eq('archived', false),
-		create: false,
-		update: true,
-		upsert: false,
-		delete: false,
-	},
-	hooks: {
-		beforeOperation: {
-			update: ({ item, originalItem }) => {
-				if (originalItem.completed && !item.completed) {
-					throw new TypeError('Completed todos cannot be reopened')
-				}
-			},
-		},
-	},
-	postgres: { table: 'todos' },
 })
 	.acl()
 	.with({
+		access: {
+			read: ({ where }) => where.eq('archived', false),
+			create: false,
+			update: true,
+			upsert: false,
+			delete: false,
+		},
 		acl: {
 			default: new ACL()
 				.grantPublic('read')
 				.grantRole(TodoEditorRole, 'read', 'update'),
 		},
+		hooks: {
+			beforeOperation: {
+				update: ({ item, originalItem }) => {
+					if (originalItem.completed && !item.completed) {
+						throw new TypeError('Completed todos cannot be reopened')
+					}
+				},
+			},
+		},
+		postgres: { table: 'todos' },
 	})

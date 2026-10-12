@@ -6,7 +6,7 @@ import {
 } from '@ultimabase/access-plugin'
 import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
 import { plugin } from '@ultimabase/core/plugin'
-import { createPluginConformanceFixture } from '@ultimabase/testing'
+import { createPluginConformanceFixture } from '@ultimabase/testing/plugins'
 import {
 	OfficialConformanceDatabase,
 	officialConformanceDatabasePlugin,

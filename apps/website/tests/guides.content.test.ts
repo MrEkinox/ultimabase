@@ -70,11 +70,12 @@ describe('focused guide contracts', () => {
 			path.join(contentRoot, 'test-an-application.mdx'),
 			'utf8',
 		)
+		// ADR-0327: the production application, one schema per worker.
 		expect(guide).toContain('TEST_DATABASE_URL')
-		expect(guide).toContain('PostgresTestWorker')
-		expect(guide).toContain('await worker.reset()')
-		expect(guide).toContain('await ultimabase.dispose()')
-		expect(guide).toContain('await worker.dispose()')
+		expect(guide).toContain('await using t = await testApplication(ultimabase)')
+		expect(guide).toContain('...ultimabaseTesting()')
+		expect(guide).toContain('t.asMaster(')
+		expect(guide).not.toContain('readVitestPoolId')
 		expect(guide).not.toContain('yarn test:e2e:built')
 	})
 })

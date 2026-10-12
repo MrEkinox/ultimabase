@@ -2112,8 +2112,9 @@ commits, the queued works run in order outside the transaction and the
 request, without delaying the response; a rollback or a replayed attempt
 discards them, and a failure is logged (ADR-0318). The application tracks the
 pending work: `stop()` and `dispose()` wait for it, and so does
-`waitForAfterCommitWork()`, which tests use through `waitForAfterCommit()` from
-`@ultimabase/testing`.
+`waitForAfterCommitWork()`, which tests use through `t.afterCommit()` of
+`testApplication` (`@ultimabase/testing`) or `waitForAfterCommit()` from
+`@ultimabase/testing/plugins`.
 
 A schema mutation declared with `target: 'many'` takes `{ where }` instead of
 `{ id }`: inside one transaction, Core enforces the command once to find the
@@ -2142,6 +2143,17 @@ the `after` position for a read with the same schema and ordering. A malformed
 or mismatched cursor fails with the same `after` `VALIDATION_ERROR`. Cursors are
 unsigned: a position grants nothing, so it stays valid across restarts and
 instances.
+
+`openApplicationHarness(ultimabase)` is the test harness `testApplication`
+of `@ultimabase/testing` uses (ADR-0327). It opens only on an application
+that has not started, once, and returns the only object holding two powers:
+`master(options)` creates a request engine with Master authority without a
+configured key, each elevation logged at `debug` ("Harness elevated to
+Master"), and `resetDatabase()` empties the application's data through the
+database plugin's `databaseResetCapability`, then reruns the plugins' `ready`
+seeding. An application started with `ultimabase.start()` can never be
+harnessed afterwards; no option, environment variable or transport input
+opens one.
 
 ## Cross-plugin integration
 
@@ -2191,6 +2203,11 @@ offers and Core does not emulate it.
   fails with `PLUGIN_ADAPTER_CAPABILITY_MISSING` when a partial index, its
   operators, a plugin containment field or a relation field needs a capability
   the adapter lacks.
+- **Reset (ADR-0327).** A database plugin may provide the application-lifetime
+  `databaseResetCapability` (`{ kind: 'reset', version: 1, reset() }`): it
+  empties every table it manages for the application (schemas, relation links,
+  private storage), keeping the tables and restarting identities. Only an
+  application harness invokes it; no request path does.
 - **Health (ADR-0303).** `checkHealth(signal)` is required; it backs
   `ultimabase.health()`, which resolves to `'OK'` when the application is
   started and the database answers within two seconds and to `'DEGRADED'`

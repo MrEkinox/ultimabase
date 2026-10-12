@@ -10,7 +10,7 @@ import { plugin } from '@ultimabase/core/plugin'
 import {
   createPluginConformanceFixture,
   definePluginConformanceSuite,
-} from '../src/index.js'
+} from '../src/plugins.js'
 
 const Article = UltimaBase.Schema.define({
   className: 'ConformanceArticle',
@@ -44,7 +44,10 @@ const packedFileName = path.join(
 	import.meta.dirname,
 	'plugin-conformance.packed.fixture.ts',
 )
-const packedSource = source.replace('../src/index.js', '@ultimabase/testing')
+const packedSource = source.replace(
+	'../src/plugins.js',
+	'@ultimabase/testing/plugins',
+)
 const packedService = createLanguageService(packedFileName, packedSource)
 
 const quickInfo = (needle: string, offset = 0) => {
