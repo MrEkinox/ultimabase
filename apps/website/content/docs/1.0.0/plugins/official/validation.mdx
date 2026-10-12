@@ -95,11 +95,17 @@ import { Application } from './application.js'
 import { Event } from './event.js'
 
 export const ultimabase = new Application({ schemas: [Event] })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 `validationPlugin()` takes no options. Types come from the schema itself,
-without generated files; the `validation` option of `define` follows the same
-types until the declaration form is retired.
+without generated files. `define` takes no `validation` option: the schema
+rule belongs in the final `.with()`, and field rules stay on their fields.
 
 A Standard Schema validator must accept the field's value (its input may also
 accept `null`, so a form schema can be reused) and return a value the field

@@ -90,7 +90,7 @@ export const PostTitleChange = Application.Schema.define({
 		previousTitle: f.string({ required: true }),
 		title: f.string({ required: true }),
 	}),
-}).with({})
+})
 
 export const Post = Application.Schema.define({
 	className: 'Post',
@@ -146,6 +146,12 @@ import { Post, PostTitleChange } from './post.js'
 export const ultimabase = new Application({
 	schemas: [Post, PostTitleChange],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 Keep startup in the existing entry point from
@@ -154,8 +160,8 @@ Keep startup in the existing entry point from
 
 `hooksPlugin()` takes two optional options: `global`, Hooks run for every
 schema, and `events`, the consumers of typed events (see below). Hook types
-come from the schema itself, without generated files. The `hooks` option of
-`define` follows the same types until the declaration form is retired.
+come from the schema itself, without generated files. `define` takes no
+`hooks` option: schema Hooks belong in the final `.with()`.
 
 ## Behavior and limitations
 

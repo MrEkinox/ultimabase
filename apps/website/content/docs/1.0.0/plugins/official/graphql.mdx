@@ -110,6 +110,12 @@ const Post = Application.Schema.define({
 export const ultimabase = new Application({
 	schemas: [Post],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 The same application without the preset installs each plugin:
@@ -127,7 +133,7 @@ UltimaBase.use(
 
 Start this configuration from the [managed listener entry point](./hono-server#start-and-stop-the-managed-listener).
 It serves until Ctrl+C and then awaits disposal. Keep startup out of
-`src/ultimabase.ts` so Typegen and the direct scripts below can load it safely.
+`src/ultimabase.ts` so the direct scripts below can load it safely.
 
 `default: false` disables every generated root and plugin command unless a
 schema's rule enables it. Exposing only reads lets this application start
@@ -141,8 +147,7 @@ not use `override` against shared or production data without a reviewed
 schema plan.
 
 Install GraphQL before `Application.Schema.define(...)` so the
-`.with({ graphql })` rule is typed from source. Typegen still supplies the
-application-wide named-schema graph where needed.
+`.with({ graphql })` rule is typed from source, with no generation step.
 
 For direct execution only, install `graphqlPlugin()` without HTTP, Yoga and
 Hono. Its options are `default`, `hide` (public operations not to expose),

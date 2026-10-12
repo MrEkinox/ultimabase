@@ -40,6 +40,7 @@ const Application = UltimaBase.use(hooksPlugin())
 const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string() }),
+}).with({
 	hooks: {
 		beforeOperation: {
 			create: ({ item }) => console.log(item.title),
@@ -50,11 +51,17 @@ const Post = Application.Schema.define({
 export const application = new Application({
 	schemas: [Post],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof application
+	}
+}
 ```
 
-The `hooks` option belongs to the Hooks plugin. If you remove `hooksPlugin()`
-but leave that option on `Post`, application compilation rejects the unknown
-option; it does not silently skip the callback. This excerpt assembles an
+The `hooks` rule belongs to the Hooks plugin. If you remove `hooksPlugin()`
+but leave that rule in `Post`'s `.with()`, TypeScript and application
+compilation reject the unknown rule; it does not silently skip the callback. This excerpt assembles an
 application but does not start a database or an API. For a complete working
 setup, follow [Using Plugins](./using-plugins).
 

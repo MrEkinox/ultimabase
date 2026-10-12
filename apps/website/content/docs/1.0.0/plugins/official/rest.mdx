@@ -99,13 +99,19 @@ const Post = Application.Schema.define({
 export const ultimabase = new Application({
 	schemas: [Post],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 Start this configuration from the [managed listener entry point](./hono-server#start-and-stop-the-managed-listener).
 It keeps serving until Ctrl+C and awaits disposal. The exported configuration
-can also be loaded by Typegen without opening a database or listener.
-The `rest` rule is typed by the installed plugin without first running
-Typegen. Schema declaration does not register it; `schemas: [Post]` does.
+can be imported without opening a database or listener. The `rest` rule is
+typed by the installed plugin, with no generation step. Schema declaration
+does not register it; `schemas: [Post]` does.
 
 `default: false` disables every method unless the schema opts in. The schema
 above enables only reads, so no protected policy is required. **REST refuses

@@ -89,6 +89,12 @@ const Application = UltimaBase.use(postgresPlugin())
 export const ultimabase = new Application({
 	schemas: [],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 This serves the HTTP foundation and its `/health` route. Add a transport plugin
@@ -110,7 +116,8 @@ console.log(`Listening on port ${String(address?.port)}`)
 
 ### Start and stop the managed listener
 
-Keep the exported configuration free of startup effects so Typegen can load it.
+Keep the exported configuration free of startup effects so other modules can
+import it.
 The REST and GraphQL examples use the same `ultimabase` export and entry point:
 
 ```ts title="src/main.ts"
@@ -167,6 +174,12 @@ const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
 const application = new Application({
 	schemas: [],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof application
+	}
+}
 
 await application.start()
 const listener = serve({ fetch: app.fetch, port: 1337 })

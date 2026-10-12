@@ -77,8 +77,8 @@ application that owns the schema; it takes no options. REST, GraphQL, Access,
 and Hooks are optional integrations, installed separately.
 
 The configured factory types `.softDelete()`, its commands, and the
-`isDeleted` and `deletedAt` fields directly from the plugin declaration; no
-generated declarations are needed. JavaScript executes the same compiled
+`isDeleted` and `deletedAt` fields directly from the plugin declaration, with
+no generation step. JavaScript executes the same compiled
 application.
 
 ## Configuration
@@ -105,9 +105,7 @@ import { Application } from './application.js'
 export const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
-})
-	.softDelete()
-	.with({})
+}).softDelete()
 ```
 
 This example uses a **disposable development database**: PostgreSQL's
@@ -474,9 +472,7 @@ compiled application:
 export const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
-})
-	.softDelete({ mode: 'command' })
-	.with({})
+}).softDelete({ mode: 'command' })
 ```
 
 `Post.deleteOne()`, REST `DELETE`, and GraphQL `deletePost` now delete the
