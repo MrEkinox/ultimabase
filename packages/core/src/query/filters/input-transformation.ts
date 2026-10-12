@@ -24,6 +24,11 @@ export type QueryFilterOperandSource = 'field' | 'shorthand' | 'structured-path'
 export interface QueryFilterOperandInput {
 	readonly field: GenericField
 	readonly operator: string
+	/**
+	 * Location of the operand in the filter, for transport error details:
+	 * `['title', 'contains']`, `['AND', 0, 'author', 'is', 'name', 'eq']`.
+	 */
+	readonly path: readonly (number | string)[]
 	readonly source: QueryFilterOperandSource
 	readonly value: unknown
 }
@@ -67,10 +72,11 @@ const transformStructuredPaths = (
 	field: GenericField,
 	value: unknown,
 	transformOperand: QueryFilterOperandTransformer,
+	path: readonly (number | string)[],
 ): unknown => {
 	if (!isUnknownArray(value)) return value
 	return immutableArray(
-		value.map((entry) => {
+		value.map((entry, index) => {
 			if (!isPlainRecord(entry) || !isUnknownArray(entry.path)) return entry
 			const target = resolveStructuredPathField(field, entry.path)
 			if (target === undefined) return entry
@@ -80,6 +86,7 @@ const transformStructuredPaths = (
 					: transformOperand({
 							field: target,
 							operator,
+							path: immutableArray([...path, index, operator]),
 							source: 'structured-path',
 							value: operand,
 						}),
@@ -92,17 +99,27 @@ const transformFieldOperators = (
 	field: GenericField,
 	value: unknown,
 	transformOperand: QueryFilterOperandTransformer,
+	path: readonly (number | string)[],
 ): unknown => {
 	if (!isPlainRecord(value)) {
 		// `null` (isNull) and shapes Core rejects need no transport decoding.
 		return value === null || !isWhereShorthandField(field)
 			? value
-			: transformOperand({ field, operator: 'eq', source: 'shorthand', value })
+			: transformOperand({
+					field,
+					operator: 'eq',
+					path,
+					source: 'shorthand',
+					value,
+				})
 	}
 	const target = getFieldSchemaTarget(field)?.()
 	return transformRecord(value, (operator, operand) => {
 		if (target !== undefined && relationshipOperators.has(operator)) {
-			return transformQueryFilterInput(target, operand, transformOperand)
+			return transformFilter(target, operand, transformOperand, [
+				...path,
+				operator,
+			])
 		}
 		if (target !== undefined && operator === 'count') {
 			if (!isPlainRecord(operand)) return operand
@@ -110,20 +127,24 @@ const transformFieldOperators = (
 				...operand,
 				...(Object.hasOwn(operand, 'where')
 					? {
-							where: transformQueryFilterInput(
-								target,
-								operand.where,
-								transformOperand,
-							),
+							where: transformFilter(target, operand.where, transformOperand, [
+								...path,
+								operator,
+								'where',
+							]),
 						}
 					: {}),
 			})
 		}
 		return operator === 'at'
-			? transformStructuredPaths(field, operand, transformOperand)
+			? transformStructuredPaths(field, operand, transformOperand, [
+					...path,
+					operator,
+				])
 			: transformOperand({
 					field,
 					operator,
+					path: immutableArray([...path, operator]),
 					source: 'field',
 					value: operand,
 				})
@@ -140,20 +161,31 @@ export const transformQueryFilterInput = (
 	schema: SchemaDefinition,
 	value: unknown,
 	transformOperand: QueryFilterOperandTransformer,
+): unknown => transformFilter(schema, value, transformOperand, [])
+
+const transformFilter = (
+	schema: SchemaDefinition,
+	value: unknown,
+	transformOperand: QueryFilterOperandTransformer,
+	path: readonly (number | string)[],
 ): unknown => {
 	if (!isPlainRecord(value)) return value
 	return transformRecord(value, (name, item) => {
 		if (name === 'AND' || name === 'OR') {
 			return isUnknownArray(item)
 				? immutableArray(
-						item.map((entry) =>
-							transformQueryFilterInput(schema, entry, transformOperand),
+						item.map((entry, index) =>
+							transformFilter(schema, entry, transformOperand, [
+								...path,
+								name,
+								index,
+							]),
 						),
 					)
 				: item
 		}
 		if (name === 'NOT') {
-			return transformQueryFilterInput(schema, item, transformOperand)
+			return transformFilter(schema, item, transformOperand, [...path, name])
 		}
 		// Inherited `Object.prototype` members are never persisted fields.
 		const field = Object.hasOwn(schema.persistedFields, name)
@@ -161,6 +193,11 @@ export const transformQueryFilterInput = (
 			: undefined
 		return field === undefined
 			? item
-			: transformFieldOperators(field, item, transformOperand)
+			: transformFieldOperators(
+					field,
+					item,
+					transformOperand,
+					immutableArray([...path, name]),
+				)
 	})
 }

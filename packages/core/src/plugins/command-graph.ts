@@ -207,6 +207,11 @@ export class CompiledCommandGraph {
 		return snapshot
 	}
 
+	/** Reads one command's nominal source token for Core-owned default bindings. */
+	source(command: CompiledCommand): CommandSource {
+		return this.#source(command)
+	}
+
 	#source(command: CompiledCommand): CommandSource {
 		const entry = this.#entries.get(command.definition.name)
 		if (entry?.command !== command)

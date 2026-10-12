@@ -8,7 +8,11 @@ import {
 import { FrameworkError } from '../../errors/framework-error.js'
 import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
-import { describeOperationTransport } from '../commands/transport-projection.js'
+import { resolveCommandTransport } from '../commands/default-transports.js'
+import {
+	describeOperationTransport,
+	projectPublicOperationTransports,
+} from '../commands/transport-projection.js'
 import {
 	defineCapability,
 	provideCapability,
@@ -32,11 +36,14 @@ import {
 	type SchemaMutationTransportPlanningOptions,
 } from './schema-mutation-transport-planning.js'
 
-/** Selects exact operation tokens for deterministic transport schema planning. */
+/**
+ * Selects exact operation tokens for deterministic transport schema planning;
+ * without `operations`, every public operation (ADR-0324).
+ */
 export interface OperationTransportPlanningOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 > {
-	readonly operations: readonly PluginOperationDefinition[]
+	readonly operations?: readonly PluginOperationDefinition[]
 	readonly transport: TTransport
 }
 
@@ -66,7 +73,7 @@ interface PlannerState {
 
 const plannerStates = new WeakMap<object, PlannerState>()
 const planningOptionKeys = new Set(['operations', 'transport'])
-const schemaPlanningOptionKeys = new Set(['transport'])
+const schemaPlanningOptionKeys = new Set(['bindings', 'transport'])
 
 const operationFailure = (
 	operation: PluginOperationDefinition,
@@ -92,7 +99,7 @@ const descriptorFor = (
 			`Operation ${operation.name} is not an installed application operation.`,
 		)
 	}
-	const owned = graph.bindings.transport(command, transport)
+	const owned = resolveCommandTransport(graph, command, transport)
 	if (owned?.kind !== 'operation') {
 		throw operationFailure(
 			operation,
@@ -100,7 +107,7 @@ const descriptorFor = (
 			`Operation ${operation.name} requires one exact binding for ${transport.name}@${transport.version}.`,
 		)
 	}
-	return describeOperationTransport(command, owned)
+	return describeOperationTransport(graph, command, owned)
 }
 
 /** Requires a bound planner and an attributed owner allowed to expose transports. */
@@ -142,7 +149,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 		if (
 			!isPlainRecord(options) ||
 			!isOperationTransportProtocol(options.transport) ||
-			!isUnknownArray(options.operations)
+			(options.operations !== undefined && !isUnknownArray(options.operations))
 		) {
 			throw new TypeError(
 				'operation transport planning requires a protocol and operation list',
@@ -153,6 +160,15 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 			planningOptionKeys,
 			'operation transport planning contains unknown key: ',
 		)
+		if (options.operations === undefined) {
+			return immutableRecord({
+				operations: projectPublicOperationTransports(
+					readApplicationKernelState(application).commands,
+					options.transport,
+				),
+				transport: options.transport,
+			})
+		}
 		const names = new Set<string>()
 		const descriptors: ExposedOperationTransportBinding[] = []
 		for (const [index, operation] of options.operations.entries()) {

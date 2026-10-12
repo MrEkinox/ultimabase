@@ -45,3 +45,9 @@ export {
 	type EnvironmentDefaults,
 } from './deployment-environment.js'
 export * from './define-plugin/index.js'
+export {
+	defineOperation,
+	type ApplicationOperation,
+	type DefineOperationOptions,
+	type OperationHandlerInput,
+} from './define-operation.js'

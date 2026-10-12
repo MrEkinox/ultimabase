@@ -27,6 +27,11 @@ import { decodeSchemaMutationInput } from './runtime.js'
 /** Contains only the inert facts needed to compile and bind one public route. */
 export interface ExposedSchemaMutationTransportBinding {
 	readonly authority: CompiledSchemaMutationCommand['mutation']['authority']
+	/**
+	 * `true` when the owner bound the command to this transport; `false` when
+	 * Core's default keeps the wire input as is (ADR-0324).
+	 */
+	readonly bound: boolean
 	readonly command: string
 	readonly effect: CompiledSchemaMutationCommand['mutation']['effect']
 	readonly errors: readonly string[]
@@ -43,9 +48,16 @@ export interface ExposedSchemaMutationTransportBinding {
 }
 
 /** Selects every schema-local binding for one exact transport protocol. */
-export type SchemaMutationTransportExposureOptions<
+export interface SchemaMutationTransportExposureOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
-> = PublicTransportProtectionOptions<TTransport>
+> extends PublicTransportProtectionOptions<TTransport> {
+	/**
+	 * `'optional'` also exposes request commands on one row that have no
+	 * binding for this transport, with their own input contract (ADR-0324).
+	 * @default "required"
+	 */
+	readonly bindings?: 'optional' | 'required'
+}
 
 /** Carries one route-selected mutation through the exact executable allowlist. */
 export interface SchemaMutationTransportRequest {
@@ -77,6 +89,13 @@ const requestKeys = new Set([
 	'select',
 ])
 
+/** @internal Validates the binding mode shared by planning and exposure. */
+export const readBindingsMode = (value: unknown): 'optional' | 'required' => {
+	if (value === undefined || value === 'required') return 'required'
+	if (value === 'optional') return 'optional'
+	throw new TypeError('schema mutation bindings must be optional or required')
+}
+
 /** Builds the complete exact schema-mutation allowlist for one protocol. */
 export const exposeFrameworkSchemaMutations = <
 	const TTransport extends OperationTransportProtocol,
@@ -84,7 +103,7 @@ export const exposeFrameworkSchemaMutations = <
 	framework: FrameworkEngine,
 	options: SchemaMutationTransportExposureOptions<TTransport>,
 ): ApplicationSchemaMutationTransport<TTransport> => {
-	assertTransportExposureOptions(options, [], {
+	assertTransportExposureOptions(options, ['bindings'], {
 		invalid: 'schema mutation transport exposure requires a transport protocol',
 		exposure: 'schema mutation transport exposure',
 		ack: 'schema mutation transport',
@@ -92,7 +111,11 @@ export const exposeFrameworkSchemaMutations = <
 	const { application } = framework
 	const graph = readApplicationKernelState(application).commands
 	const exposed = new Map(
-		projectSchemaMutationTransports(graph, options.transport).map((entry) => {
+		projectSchemaMutationTransports(
+			graph,
+			options.transport,
+			readBindingsMode(options.bindings),
+		).map((entry) => {
 			const schema = application.schemas.get(entry.descriptor.schema)
 			if (schema === undefined) {
 				throw new TypeError('Compiled command schema is unavailable')
@@ -100,7 +123,12 @@ export const exposeFrameworkSchemaMutations = <
 			return [entry.descriptor, { ...entry, schema }] as const
 		}),
 	)
-	reportFrameworkPublicTransportProtection(framework, options)
+	reportFrameworkPublicTransportProtection(framework, {
+		...(options.acknowledgeUnverifiedProtection === true
+			? { acknowledgeUnverifiedProtection: true }
+			: {}),
+		transport: options.transport,
+	})
 
 	return immutableRecord({
 		mutations: immutableArray([...exposed.keys()]),

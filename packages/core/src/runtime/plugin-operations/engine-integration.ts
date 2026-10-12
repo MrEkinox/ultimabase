@@ -14,6 +14,7 @@ import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.
 import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import { runtimeConstraintCapability } from '../capabilities.js'
 import type { OperationTransportImplementation } from '../commands/bindings.js'
+import { resolveCommandTransport } from '../commands/default-transports.js'
 import { describeOperationTransport } from '../commands/transport-projection.js'
 import { isRequestContext } from '../context/request-context.js'
 import { getProtectedPolicyImplementation } from '../enforcement/protected-policy.js'
@@ -66,6 +67,14 @@ export const assertTransportExposureOptions = (
 	}
 }
 
+/** Reports whether at least one protected policy contribution is installed. */
+export const hasFrameworkProtectedPolicy = (
+	framework: FrameworkEngine,
+): boolean =>
+	readApplicationKernelState(framework.application)
+		.capabilityContributions(runtimeConstraintCapability)
+		.some(({ value }) => getProtectedPolicyImplementation(value) !== undefined)
+
 /** Reports Core's exact policy knowledge without claiming complete coverage. */
 export const reportFrameworkPublicTransportProtection = <
 	const TTransport extends OperationTransportProtocol,
@@ -88,9 +97,7 @@ export const reportFrameworkPublicTransportProtection = <
 	if (warned.has(options.transport)) return
 	warned.add(options.transport)
 
-	const providerPresence = readApplicationKernelState(framework.application)
-		.capabilityContributions(runtimeConstraintCapability)
-		.some(({ value }) => getProtectedPolicyImplementation(value) !== undefined)
+	const providerPresence = hasFrameworkProtectedPolicy(framework)
 		? ('present' as const)
 		: ('none' as const)
 	const warning: PublicTransportProtectionWarning = immutableRecord({
@@ -189,7 +196,7 @@ export const exposeFrameworkOperations = <
 		if (exposed.has(name)) {
 			throw new TypeError(`operation transport exposure repeats ${name}`)
 		}
-		const binding = graph.bindings.transport(compiled, transport)
+		const binding = resolveCommandTransport(graph, compiled, transport)
 		if (binding?.kind !== 'operation') {
 			throw commandFailure(
 				compiled,
@@ -209,7 +216,7 @@ export const exposeFrameworkOperations = <
 	return immutableRecord({
 		operations: immutableArray(
 			[...exposed.values()].map(({ binding, compiled }) =>
-				describeOperationTransport(compiled, binding),
+				describeOperationTransport(graph, compiled, binding),
 			),
 		),
 		transport,

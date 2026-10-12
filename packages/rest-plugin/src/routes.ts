@@ -276,6 +276,13 @@ export const encodeRestPathSegment = (value: string, label: string): string => {
 	)
 }
 
+/** @internal Joins the base path and one absolute route suffix (`/` mounts at the root). */
+export const restRoutePath = (basePath: string, suffix: string): string =>
+	`${basePath === '/' ? '' : basePath}${suffix}`
+
 /** @internal Builds the encoded collection path shared by schema-bound routes. */
 export const restClassPath = (basePath: string, className: string): string =>
-	`${basePath}/classes/${encodeRestPathSegment(className, `REST schema className ${className}`)}`
+	restRoutePath(
+		basePath,
+		`/classes/${encodeRestPathSegment(className, `REST schema className ${className}`)}`,
+	)

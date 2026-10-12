@@ -16,6 +16,7 @@ import {
 	type PluginIdentity,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
+	type PluginSchemaRulesSource,
 } from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
@@ -27,18 +28,29 @@ import {
 	parseRestPluginOptions,
 	restSchemaOption,
 	type RestPluginOptions,
+	type RestSchemaRules,
 } from './options.js'
+import { createRestOpenApiDocument } from './openapi.js'
 import { compileRestOperationRouteFragment } from './operation-routes.js'
 import {
+	restClassPath,
 	restProtocol,
 	restRouteGraphCapability,
 	type RestPluginOperationRouteDefinition,
+	type RestRouteDefinition,
 	type RestRouteFragmentValue,
 	type RestRouteGraph,
 	type RestSchemaMutationRouteDefinition,
 } from './routes.js'
-import { compileRestRouteFragment } from './schema-routes.js'
-import { compileRestSchemaMutationRouteFragment } from './schema-mutation-routes.js'
+import {
+	compileRestRouteFragment,
+	restRouteTemplates,
+} from './schema-routes.js'
+import {
+	compileRestSchemaMutationRouteFragment,
+	readExposableCommands,
+	restCommandPath,
+} from './schema-mutation-routes.js'
 import {
 	createRestOperationTransport,
 	createRestSchemaMutationTransport,
@@ -93,11 +105,13 @@ export interface RestPluginExports {
 	readonly schemaMutationTransport?: RestSchemaMutationTransport
 }
 
-// The installed option definition is also the configured factory's type source.
+// The schema option projects nothing: `.with({ rest })` types it (ADR-0324).
 type RestOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-rest-schema-option'
 	readonly schema: Readonly<{ rest: typeof restSchemaOption }>
 }>
+
+type RestSource = RestOptionSource | PluginSchemaRulesSource<RestSchemaRules>
 
 /** Names one configured REST v1 route generator. */
 export type RestPlugin = PluginInstance<{
@@ -106,17 +120,54 @@ export type RestPlugin = PluginInstance<{
 	readonly instanceId: string | undefined
 	readonly version: typeof restPluginVersion
 	readonly core: '^0.0.0'
-	readonly source: RestOptionSource
+	readonly source: RestSource
 }>
 
-/** Installs deterministic REST v1 route metadata without executing Runtime. */
+// Native routes that write; with plugin commands they need a policy (ADR-0294).
+const writeOperations: ReadonlySet<string> = new Set([
+	'bulkCreate',
+	'bulkDelete',
+	'bulkUpdate',
+	'bulkUpsert',
+	'create',
+	'delete',
+	'update',
+	'upsert',
+])
+
+const describeRoute = (route: RestRouteDefinition): string =>
+	route.kind === 'rest-schema-mutation-route'
+		? `${route.schema}.${route.command}`
+		: route.kind === 'rest-schema-route'
+			? `${route.method} ${route.path}`
+			: route.operation
+
+/**
+ * Refuses to start when REST exposes writes and no protected policy is
+ * installed, unless `publicWrites` opts in (ADR-0294).
+ */
+const assertPublicWrites = (
+	routes: readonly RestRouteDefinition[],
+	executor: ApplicationRequestExecutor,
+	publicWrites: boolean,
+): void => {
+	if (publicWrites) return
+	const writes = routes.filter(
+		(route) =>
+			route.kind === 'rest-schema-mutation-route' ||
+			(route.kind === 'rest-schema-route' &&
+				writeOperations.has(route.operation)),
+	)
+	if (writes.length === 0 || executor.hasProtectedPolicy()) return
+	throw new TypeError(
+		`REST exposes writes (${writes.slice(0, 3).map(describeRoute).join(', ')}${writes.length > 3 ? ', …' : ''}) but no protected policy plugin is installed: install one, such as accessPlugin(), or pass restPlugin({ publicWrites: true }) to let every client write.`,
+	)
+}
+
+/** Installs deterministic REST route metadata without executing Runtime. */
 export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 	const normalized = parseRestPluginOptions(options)
-	const { basePath, defaultRoutes, instanceId } = normalized
-	const acknowledgement =
-		normalized.acknowledgeUnverifiedProtection === true
-			? { acknowledgeUnverifiedProtection: true as const }
-			: {}
+	const { basePath, defaultRule, instanceId } = normalized
 	// Each application's HTTP mount reads the configuration its setup binds later.
 	const httpSlots = new WeakMap<
 		ApplicationRequestExecutor,
@@ -126,9 +177,14 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 	// Each compiler sees the same configuration; planning is read only when needed.
 	const routeConfig = {
 		basePath,
-		defaultRoutes,
+		defaultRule,
 		pluginVersion: restPluginVersion,
 	}
+	const planMutations = (planner: ApplicationOperationTransportPlanner) =>
+		planner.planSchemaMutations({
+			bindings: 'optional',
+			transport: restProtocol,
+		})
 	const compilers: readonly [string, RestRouteCompiler][] = [
 		[
 			'official-rest-schema-routes',
@@ -140,11 +196,9 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			(owner, schemas, planner) =>
 				compileRestOperationRouteFragment({
 					...routeConfig,
+					hide: normalized.hide,
 					owner,
-					plan: planner().plan({
-						operations: normalized.operations,
-						transport: restProtocol,
-					}),
+					plan: planner().plan({ transport: restProtocol }),
 					schemas,
 				}),
 		],
@@ -154,7 +208,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				compileRestSchemaMutationRouteFragment({
 					...routeConfig,
 					owner,
-					plan: planner().planSchemaMutations({ transport: restProtocol }),
+					plan: planMutations(planner()),
 					schemas,
 				}),
 		],
@@ -190,7 +244,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 						routeCount === 0
 							? immutableArray([])
 							: createRestHttpMounts(
-									normalized.mountPath,
+									basePath,
 									normalized.bodyLimit,
 									executor,
 									schemas,
@@ -241,11 +295,28 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 					: createRestSchemaMutationTransport(schemaMutationRoutes)
 			const operationTransport = operations?.[0]
 			const schemaMutationTransport = schemaMutations?.[0]
+			const planner = capabilities.get(transportPlanningRequirement)
 			const slot = httpSlots.get(capabilities.get(requestExecutionRequirement))
 			if (slot !== undefined) {
 				slot.configuration = immutableRecord({
+					knownPaths: readKnownPaths(
+						basePath,
+						ownRoutes,
+						readExposableCommands(planMutations(planner)),
+					),
 					limits: readLimits,
 					logger,
+					openapi: normalized.openapi
+						? lazyDocument(() =>
+								createRestOpenApiDocument({
+									basePath,
+									operations: planner.plan({ transport: restProtocol })
+										.operations,
+									routes: ownRoutes,
+									schemas,
+								}),
+							)
+						: undefined,
 					operationTransport,
 					routes: immutableArray(ownRoutes),
 					schemaMutationTransport,
@@ -264,7 +335,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			})
 			if (ownRoutes.length === 0) {
 				logger.warn(
-					'REST exposes no schema or operation: register application schemas in new App({ schemas }) or pass restPlugin({ operations }).',
+					'REST exposes no schema or operation: register application schemas in new App({ schemas }), or install a plugin or defineOperation() that declares public operations.',
 				)
 			} else if (capabilities.get(optionalHttpApplication) === undefined) {
 				logger.warn(
@@ -274,29 +345,26 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			return {
 				exports,
 				startTransports: () => {
+					const executor = capabilities.get(requestExecutionRequirement)
+					assertPublicWrites(ownRoutes, executor, normalized.publicWrites)
+					// REST settles ADR-0294 itself; Core's unverified-protection
+					// warning stays only for GraphQL until migration step 6.6c.
+					const handled = { acknowledgeUnverifiedProtection: true } as const
 					// Core exposes only the exact allowlists compiled into this route graph.
 					operations?.[1](
-						capabilities.get(requestExecutionRequirement).exposeOperations({
-							...acknowledgement,
-							operations: normalized.operations,
+						executor.exposeOperations({
+							...handled,
+							operations: operationRoutes.map(({ operation }) => operation),
 							transport: restProtocol,
 						}),
 					)
 					schemaMutations?.[1](
-						capabilities
-							.get(requestExecutionRequirement)
-							.exposeSchemaMutations({
-								...acknowledgement,
-								transport: restProtocol,
-							}),
-					)
-					if (routeGraph.routes.length === 0) return
-					capabilities
-						.get(requestExecutionRequirement)
-						.reportPublicTransportProtection({
-							...acknowledgement,
+						executor.exposeSchemaMutations({
+							...handled,
+							bindings: 'optional',
 							transport: restProtocol,
-						})
+						}),
+					)
 				},
 			}
 		},
@@ -317,4 +385,45 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			application,
 		],
 	})
+}
+
+/** Builds a JSON document once, on the first request that reads it. */
+const lazyDocument = (build: () => unknown): (() => string) => {
+	let document: string | undefined
+	return () => {
+		document ??= JSON.stringify(build())
+		return document
+	}
+}
+
+/**
+ * Every route path of each schema REST exposes, enabled or not, and of its
+ * exposable commands: a request for a disabled method answers 405, not 404
+ * (ADR-0324). A schema without any route stays 404.
+ */
+const readKnownPaths = (
+	basePath: string,
+	routes: readonly RestRouteDefinition[],
+	commands: ReadonlyMap<
+		string,
+		readonly Readonly<{ command: string; schema: string }>[]
+	>,
+): readonly string[] => {
+	const exposed = new Set(
+		routes.flatMap((route) =>
+			route.kind === 'rest-plugin-operation-route' ? [] : [route.schema],
+		),
+	)
+	return immutableArray(
+		[...exposed].flatMap((className) => {
+			const classPath = restClassPath(basePath, className)
+			return [...new Set(restRouteTemplates.map(({ suffix }) => suffix))]
+				.map((suffix) => `${classPath}${suffix}`)
+				.concat(
+					(commands.get(className) ?? []).map(
+						({ command }) => `${classPath}/{id}/${restCommandPath(command)}`,
+					),
+				)
+		}),
+	)
 }

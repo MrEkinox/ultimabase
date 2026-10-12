@@ -23,12 +23,15 @@ import {
 import {
 	createRestCaughtErrorResponse,
 	createRestJsonResponse,
+	createRestJsonText,
+	createRestMethodNotAllowed,
 	createRestResponseFailure,
 	restResponseErrorCodes,
 } from './responses.js'
 import {
 	encodeRestPathSegment,
 	restProtocol,
+	restRoutePath,
 	type RestRouteDefinition,
 	type RestSchemaRouteDefinition,
 } from './routes.js'
@@ -40,7 +43,11 @@ import type {
 
 /** @internal Setup-owned routes and exposure bound after the HTTP mount exists. */
 export interface RestHttpConfiguration {
+	/** Paths of exposed schemas whose disabled methods answer 405 (ADR-0324). */
+	readonly knownPaths: readonly string[]
 	readonly limits: RestReadLimits
+	/** Serializes the OpenAPI document when `restPlugin({ openapi: true })`. */
+	readonly openapi: (() => string) | undefined
 	/** The plugin logger: masked failures are logged here (ADR-0313). */
 	readonly logger: Logger
 	readonly operationTransport: RestOperationTransport | undefined
@@ -100,6 +107,41 @@ const matchRoute = (
 		return { id, route }
 	}
 	return undefined
+}
+
+/** Matches one path template, whose `{id}` segment accepts any value. */
+const matchesTemplate = (template: string, pathname: string): boolean => {
+	const segments = template.slice(1).split('/')
+	const requestSegments = pathname.slice(1).split('/')
+	return (
+		segments.length === requestSegments.length &&
+		segments.every(
+			(segment, index) =>
+				segment === '{id}' || segment === requestSegments[index],
+		)
+	)
+}
+
+/**
+ * Lists the methods of one path when it exists with another method, or
+ * when it is a disabled method of an exposed schema (both answer 405).
+ */
+const readAllowedMethods = (
+	configuration: RestHttpConfiguration | undefined,
+	pathname: string,
+): readonly string[] | undefined => {
+	if (configuration === undefined) return undefined
+	const allowed = [
+		...new Set(
+			configuration.routes
+				.filter(({ path }) => matchesTemplate(path, pathname))
+				.map(({ method }) => method),
+		),
+	].sort()
+	return allowed.length > 0 ||
+		configuration.knownPaths.some((path) => matchesTemplate(path, pathname))
+		? allowed
+		: undefined
 }
 
 /** @internal Resolves JSON compatibility using the most specific media range. */
@@ -332,18 +374,24 @@ export const createRestHttpMounts = (
 	schemas: CompiledSchemaRegistry,
 	readConfiguration: () => RestHttpConfiguration | undefined,
 ): readonly HttpMountDefinition[] => {
-	const versionRoot = mountPath === '/' ? '/v1' : `${mountPath}/v1`
+	const openapiPath = restRoutePath(mountPath, '/openapi.json')
 	const handle = async (request: Request): Promise<Response> => {
 		const requestId = getCurrentRequest().requestId
 		const pathname = new URL(request.url).pathname
 		const configuration = readConfiguration()
-		const failure = !isCanonicalPath(pathname)
-			? restResponseErrorCodes.badRequest
-			: pathname !== versionRoot && !pathname.startsWith(`${versionRoot}/`)
-				? restResponseErrorCodes.unsupportedVersion
-				: undefined
-		if (failure !== undefined) {
-			return createRestResponseFailure(failure, requestId)
+		if (!isCanonicalPath(pathname)) {
+			return createRestResponseFailure(
+				restResponseErrorCodes.badRequest,
+				requestId,
+			)
+		}
+		const openapi = configuration?.openapi
+		if (
+			openapi !== undefined &&
+			pathname === openapiPath &&
+			request.method === 'GET'
+		) {
+			return createRestJsonText(openapi(), 200)
 		}
 		const match = matchRoute(
 			configuration?.routes ?? [],
@@ -351,10 +399,10 @@ export const createRestHttpMounts = (
 			pathname,
 		)
 		if (match === undefined) {
-			return createRestResponseFailure(
-				restResponseErrorCodes.notFound,
-				requestId,
-			)
+			const allowed = readAllowedMethods(configuration, pathname)
+			return allowed === undefined
+				? createRestResponseFailure(restResponseErrorCodes.notFound, requestId)
+				: createRestMethodNotAllowed(allowed, requestId)
 		}
 		if (readRestAcceptQuality(request.headers.get('accept')) <= 0) {
 			return createRestResponseFailure(

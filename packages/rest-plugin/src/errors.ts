@@ -1,4 +1,4 @@
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 export const restReadErrorCodes: Readonly<{
 	readonly bodyTooLarge: 'REST_READ_BODY_TOO_LARGE'
@@ -42,8 +42,31 @@ export type RestOperationErrorCode =
 /** Names the three safe failures every REST request boundary can report. */
 export type RestFailureReason = keyof typeof restReadErrorCodes
 
+/**
+ * Locates one client error (ADR-0324): the request `parameter` (`where`,
+ * `take`, `body`…), the `path` inside it and the `reason` in words.
+ *
+ * @example `{ parameter: 'where', path: ['createdAt', 'gt'], reason: 'must be an ISO 8601 date-time string' }`
+ */
+export interface RestErrorDetails {
+	readonly parameter: string
+	readonly path: readonly (number | string)[]
+	readonly reason: string
+}
+
 /** Creates one boundary-specific safe failure; omission means malformed input. */
-export type RestFailure = (reason?: RestFailureReason) => Error
+export type RestFailure = (
+	reason?: RestFailureReason,
+	details?: RestErrorDetails,
+) => Error
+
+/** @internal Snapshots one details record for a normalization error. */
+export const restErrorDetails = (
+	parameter: string,
+	reason: string,
+	path: readonly (number | string)[] = [],
+): RestErrorDetails =>
+	immutableRecord({ parameter, path: immutableArray([...path]), reason })
 
 /**
  * Derives the safe message from the code suffix: size and media failures share
@@ -67,11 +90,15 @@ export class RestReadNormalizationError extends Error {
 		readonly message: string
 	}>
 
-	constructor(code: RestReadErrorCode) {
+	/** Where the request is wrong, when known (ADR-0324). */
+	readonly details: RestErrorDetails | undefined
+
+	constructor(code: RestReadErrorCode, details?: RestErrorDetails) {
 		const message = safeMessage(code, 'read')
 		super(message)
 		this.name = 'RestReadNormalizationError'
 		this.code = code
+		this.details = details
 		this.issue = immutableRecord({ code, message })
 	}
 }
@@ -84,11 +111,15 @@ export class RestMutationNormalizationError extends Error {
 		readonly message: string
 	}>
 
-	constructor(code: RestMutationErrorCode) {
+	/** Where the request is wrong, when known (ADR-0324). */
+	readonly details: RestErrorDetails | undefined
+
+	constructor(code: RestMutationErrorCode, details?: RestErrorDetails) {
 		const message = safeMessage(code, 'mutation')
 		super(message)
 		this.name = 'RestMutationNormalizationError'
 		this.code = code
+		this.details = details
 		this.issue = immutableRecord({ code, message })
 	}
 }
@@ -101,11 +132,15 @@ export class RestOperationNormalizationError extends Error {
 		readonly message: string
 	}>
 
-	constructor(code: RestOperationErrorCode) {
+	/** Where the request is wrong, when known (ADR-0324). */
+	readonly details: RestErrorDetails | undefined
+
+	constructor(code: RestOperationErrorCode, details?: RestErrorDetails) {
 		const message = safeMessage(code, 'operation')
 		super(message)
 		this.name = 'RestOperationNormalizationError'
 		this.code = code
+		this.details = details
 		this.issue = immutableRecord({ code, message })
 	}
 }
@@ -116,11 +151,95 @@ export type RestNormalizationError =
 	| RestOperationNormalizationError
 	| RestReadNormalizationError
 
-export const invalidRestRead: RestFailure = (reason = 'invalidInput') =>
-	new RestReadNormalizationError(restReadErrorCodes[reason])
+export const invalidRestRead: RestFailure = (
+	reason = 'invalidInput',
+	details,
+) => new RestReadNormalizationError(restReadErrorCodes[reason], details)
 
-export const invalidRestMutation: RestFailure = (reason = 'invalidInput') =>
-	new RestMutationNormalizationError(restMutationErrorCodes[reason])
+export const invalidRestMutation: RestFailure = (
+	reason = 'invalidInput',
+	details,
+) => new RestMutationNormalizationError(restMutationErrorCodes[reason], details)
 
-export const invalidRestOperation: RestFailure = (reason = 'invalidInput') =>
-	new RestOperationNormalizationError(restOperationErrorCodes[reason])
+export const invalidRestOperation: RestFailure = (
+	reason = 'invalidInput',
+	details,
+) =>
+	new RestOperationNormalizationError(restOperationErrorCodes[reason], details)
+
+/** Reads the details of a normalization error, if it carries any. */
+export const readRestErrorDetails = (
+	error: unknown,
+): RestErrorDetails | undefined =>
+	error instanceof RestReadNormalizationError ||
+	error instanceof RestMutationNormalizationError ||
+	error instanceof RestOperationNormalizationError
+		? error.details
+		: undefined
+
+/** Narrows the three REST normalization errors. */
+export const isRestNormalizationError = (
+	error: unknown,
+): error is RestNormalizationError =>
+	error instanceof RestReadNormalizationError ||
+	error instanceof RestMutationNormalizationError ||
+	error instanceof RestOperationNormalizationError
+
+const failureReason = (code: string): RestFailureReason =>
+	code.endsWith('_BODY_TOO_LARGE')
+		? 'bodyTooLarge'
+		: code.endsWith('_UNSUPPORTED_MEDIA_TYPE')
+			? 'unsupportedMediaType'
+			: 'invalidInput'
+
+/**
+ * Places a value failure inside one request parameter: the failure keeps its
+ * path and reason and gains `parameter`; a failure without details gets
+ * `reason` as its reason.
+ */
+export const failInParameter = (
+	error: unknown,
+	fail: RestFailure,
+	parameter: string,
+	reason = 'is invalid',
+): unknown => {
+	if (!isRestNormalizationError(error)) return error
+	const details = error.details
+	return fail(
+		failureReason(error.code),
+		details !== undefined && details.parameter !== ''
+			? details
+			: restErrorDetails(
+					parameter,
+					details?.reason ?? reason,
+					details?.path ?? [],
+				),
+	)
+}
+
+/** Runs one parameter decoder, placing its failures in that parameter. */
+export const decodeParameter = <TValue>(
+	parameter: string,
+	fail: RestFailure,
+	decode: () => TValue,
+	reason?: string,
+): TValue => {
+	try {
+		return decode()
+	} catch (error: unknown) {
+		throw failInParameter(error, fail, parameter, reason)
+	}
+}
+
+/**
+ * A value failure whose parameter the caller fills in: `path` locates the
+ * value inside that parameter.
+ */
+export const invalidRestValue = (
+	reason: string,
+	path: readonly (number | string)[],
+): RestReadNormalizationError =>
+	new RestReadNormalizationError(
+		restReadErrorCodes.invalidInput,
+		restErrorDetails('', reason, path),
+	)

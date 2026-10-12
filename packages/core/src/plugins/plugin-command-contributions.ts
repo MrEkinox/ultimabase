@@ -15,11 +15,13 @@ import { isSchemaMutationTransportBinding } from '../runtime/schema-mutations/tr
 import type { SchemaMutationTransportBindingDefinition } from '../runtime/schema-mutations/transport-contracts.js'
 import { assertExactPlainObject } from '../exact-object-validation.js'
 import type { ApplicationCapabilityFactoryContext } from './capabilities.js'
+import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 import type {
 	PluginOperationBindingContribution,
 	PluginOperationContribution,
 	PluginOperationContributionOptions,
 	PluginOperationHandlerResource,
+	PluginOperationPublicDeclaration,
 	PluginSchemaMutationContribution,
 	PluginSchemaMutationContributionOptions,
 	PluginSchemaMutationResource,
@@ -109,11 +111,54 @@ const commandContributionId = (
 		transportName === undefined ? '' : `:transport:${transportName}`
 	}`
 
+// A camelCase identifier is a valid URL segment and GraphQL field name alike.
+const publicNamePattern = /^[a-z][A-Za-z0-9]*$/u
+const publicDeclarationKeys = new Set(['input', 'name', 'output'])
+
+/** Validates and snapshots one operation's public declaration (ADR-0324). */
+const snapshotPublicDeclaration = (
+	value: unknown,
+): PluginOperationPublicDeclaration | undefined => {
+	if (value === undefined) return undefined
+	assertExactPlainObject(
+		value,
+		publicDeclarationKeys,
+		'plugin operation contribution public must be a plain object',
+		'Unknown plugin operation contribution public option: ',
+	)
+	if (typeof value.name !== 'string' || !publicNamePattern.test(value.name)) {
+		throw new TypeError(
+			'plugin operation contribution public.name must be a camelCase identifier',
+		)
+	}
+	return immutableRecord({
+		name: value.name,
+		...(value.input === undefined
+			? {}
+			: {
+					input: snapshotJsonValue(
+						value.input,
+						'plugin operation contribution public.input',
+					),
+				}),
+		...(value.output === undefined
+			? {}
+			: {
+					output: snapshotJsonValue(
+						value.output,
+						'plugin operation contribution public.output',
+					),
+				}),
+	})
+}
+
 /** Creates the one lifecycle-aware plan for either command kind. */
 const planPluginCommandHandler = (
 	runtime: PluginCommandContributionRuntime,
+	publicDeclaration?: PluginOperationPublicDeclaration,
 ): PluginCommandHandlerPlan =>
 	immutableRecord({
+		...(publicDeclaration === undefined ? {} : { public: publicDeclaration }),
 		contributionId: commandContributionId(runtime.kind, runtime.source.name),
 		create: async (context: ApplicationCapabilityFactoryContext) => {
 			if (runtime.kind === 'operation') {
@@ -198,7 +243,13 @@ const assertCommandOptions = <TBinding>(
 	const { label, sourceKey, handlerKey } = spec
 	assertExactPlainObject(
 		options,
-		new Set(['bindings', 'create', handlerKey, sourceKey]),
+		new Set([
+			'bindings',
+			'create',
+			handlerKey,
+			sourceKey,
+			...(sourceKey === 'operation' ? ['public'] : []),
+		]),
 		`${label} must be a plain object`,
 		`Unknown ${label} option: `,
 	)
@@ -271,14 +322,19 @@ export const contributeOperation = <
 			operation: options.operation,
 		}),
 		{
-			handler: planPluginCommandHandler({
-				...(Object.hasOwn(options, 'create') ? { create: options.create } : {}),
-				...(Object.hasOwn(options, 'execute')
-					? { execute: options.execute }
-					: {}),
-				kind: 'operation',
-				source: options.operation,
-			}),
+			handler: planPluginCommandHandler(
+				{
+					...(Object.hasOwn(options, 'create')
+						? { create: options.create }
+						: {}),
+					...(Object.hasOwn(options, 'execute')
+						? { execute: options.execute }
+						: {}),
+					kind: 'operation',
+					source: options.operation,
+				},
+				snapshotPublicDeclaration(options.public),
+			),
 			transports: immutableArray(bindings.map(planPluginCommandBinding)),
 		},
 	)

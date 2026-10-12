@@ -12,13 +12,16 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	defaultErrorStatuses,
 	readRestErrorStatusMap,
-	readRestOperationBindingMetadata,
+	readRestOperationRouteMetadata,
 	resolveRestOperationInputSchema,
 } from './binding-metadata.js'
 import {
+	decodeParameter,
 	invalidRestMutation,
 	invalidRestOperation,
+	restErrorDetails,
 	type RestFailure,
 } from './errors.js'
 import { isUuidV7 } from './field-values.js'
@@ -74,15 +77,23 @@ const readCustomBody = async (
 	accepted: boolean,
 ): Promise<Readonly<Record<string, unknown>>> => {
 	request.signal.throwIfAborted()
-	if (
-		!accepted ||
-		request.method !== 'POST' ||
-		new URL(request.url).search !== ''
-	) {
-		throw fail()
+	if (!accepted) {
+		throw fail(
+			undefined,
+			restErrorDetails('id', 'must be a UUID v7 identifier'),
+		)
+	}
+	if (request.method !== 'POST') throw fail()
+	if (new URL(request.url).search !== '') {
+		throw fail(
+			undefined,
+			restErrorDetails('query', 'must be empty: this route takes a JSON body'),
+		)
 	}
 	const body = await readRestJsonBody(request, limits.bodyBytes, fail)
-	if (!isPlainRecord(body)) throw fail()
+	if (!isPlainRecord(body)) {
+		throw fail(undefined, restErrorDetails('body', 'must be a JSON object'))
+	}
 	return body
 }
 
@@ -117,11 +128,7 @@ export const createRestOperationTransport = (
 					`REST operation route ${route.operation} has no exact Core exposure`,
 				)
 			}
-			const metadata = readRestOperationBindingMetadata(
-				descriptor.metadata,
-				descriptor.errors,
-				route.operation,
-			)
+			const metadata = readRestOperationRouteMetadata(descriptor)
 			statuses.set(route.operation, metadata.errors)
 			const schema = resolveRestOperationInputSchema(
 				metadata.inputSchema,
@@ -161,7 +168,10 @@ export const createRestOperationTransport = (
 			)
 			// The envelope is exactly `{ input }`; nothing else can steer execution.
 			if (Object.keys(body).length !== 1 || !Object.hasOwn(body, 'input')) {
-				throw invalidRestOperation()
+				throw invalidRestOperation(
+					undefined,
+					restErrorDetails('body', 'must be exactly { "input": value }'),
+				)
 			}
 			request.signal.throwIfAborted()
 			const schema = inputSchemas.get(route.operation)
@@ -170,12 +180,14 @@ export const createRestOperationTransport = (
 				input:
 					schema === undefined
 						? body.input
-						: decodeRestMutationData(
-								schema,
-								body.input,
-								'create',
-								'nested',
-								invalidRestOperation,
+						: decodeParameter('input', invalidRestOperation, () =>
+								decodeRestMutationData(
+									schema,
+									body.input,
+									'create',
+									'nested',
+									invalidRestOperation,
+								),
 							),
 				operation: route.operation,
 				version: route.operationVersion,
@@ -235,11 +247,13 @@ export const createRestSchemaMutationTransport = (
 			descriptors.set(key, descriptor)
 			statuses.set(
 				descriptor.mutation,
-				readRestErrorStatusMap(
-					descriptor.metadata,
-					descriptor.errors,
-					descriptor.mutation,
-				),
+				descriptor.bound
+					? readRestErrorStatusMap(
+							descriptor.metadata,
+							descriptor.errors,
+							descriptor.mutation,
+						)
+					: defaultErrorStatuses(descriptor.errors),
 			)
 		}
 		if (descriptors.size !== mutations.length) {
@@ -279,8 +293,17 @@ export const createRestSchemaMutationTransport = (
 				invalidRestMutation,
 				isUuidV7(id),
 			)
-			if (Object.keys(body).some((key) => !mutationBodyKeys.has(key))) {
-				throw invalidRestMutation()
+			const unknownKey = Object.keys(body).find(
+				(key) => !mutationBodyKeys.has(key),
+			)
+			if (unknownKey !== undefined) {
+				throw invalidRestMutation(
+					undefined,
+					restErrorDetails(
+						unknownKey,
+						'is not accepted; the body takes input, select and include',
+					),
+				)
 			}
 			request.signal.throwIfAborted()
 			// Core keeps ownership of the target, selection, policy, and result.
@@ -289,7 +312,11 @@ export const createRestSchemaMutationTransport = (
 				context,
 				id,
 				...(Object.hasOwn(body, 'include')
-					? { include: decodeRestInclude(schema, body.include, limits) }
+					? {
+							include: decodeParameter('include', invalidRestMutation, () =>
+								decodeRestInclude(schema, body.include, limits),
+							),
+						}
 					: {}),
 				input: body.input,
 				schema,

@@ -12,7 +12,10 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	decodeParameter,
 	invalidRestMutation,
+	readRestErrorDetails,
+	restErrorDetails,
 	RestMutationNormalizationError,
 } from './errors.js'
 import { decodeRestWhere, isUuidV7 } from './field-values.js'
@@ -122,11 +125,17 @@ const dataDecoder =
 			invalidRestMutation,
 		)
 
+/** Decodes one body key, placing its failures in that parameter (ADR-0324). */
+const inParameter =
+	(parameter: string, decode: Decoder): Decoder =>
+	(input) =>
+		decodeParameter(parameter, invalidRestMutation, () => decode(input))
+
 const decodeUpsert = (schema: SchemaDefinition, value: unknown): unknown =>
 	decodeKeys(value, {
-		where: (where) => decodeRestWhere(schema, where),
-		create: dataDecoder(schema, 'create', 'flat'),
-		update: dataDecoder(schema, 'update', 'flat'),
+		where: inParameter('where', (where) => decodeRestWhere(schema, where)),
+		create: inParameter('create', dataDecoder(schema, 'create', 'flat')),
+		update: inParameter('update', dataDecoder(schema, 'update', 'flat')),
 	})
 
 const decodeBulk = (
@@ -151,13 +160,16 @@ const decodeBulk = (
 		isPlainRecord(value) &&
 		isUnknownArray(value.where)
 	return decodeKeys(value, {
-		include: (include) => decodeRestInclude(schema, include, limits),
+		include: inParameter('include', (include) =>
+			decodeRestInclude(schema, include, limits),
+		),
 		...(listsWhere
 			? {
-					where: (where) =>
+					where: inParameter('where', (where) =>
 						decodeList(where, (item) => decodeRestWhere(schema, item)),
+					),
 				}
-			: { data: (data) => decodeList(data, decodeItem) }),
+			: { data: inParameter('data', (data) => decodeList(data, decodeItem)) }),
 	})
 }
 
@@ -168,14 +180,33 @@ const parseProjectionQuery = (
 	limits: RestReadLimits,
 ): Readonly<Record<string, unknown>> => {
 	const projection: Record<string, unknown> = {}
-	for (const [name, value] of parseRestQueryEntries(request)) {
-		if (!allowed.includes(name) || Object.hasOwn(projection, name)) {
-			throw invalidRestMutation()
+	for (const [name, value] of decodeParameter(
+		'query',
+		invalidRestMutation,
+		() => parseRestQueryEntries(request),
+	)) {
+		if (!allowed.includes(name)) {
+			throw invalidRestMutation(
+				undefined,
+				restErrorDetails(
+					name,
+					allowed.length === 0
+						? 'is not accepted: this route takes no query parameter'
+						: `is not a parameter of this route; use ${allowed.join(', ')}`,
+				),
+			)
 		}
-		projection[name] =
+		if (Object.hasOwn(projection, name)) {
+			throw invalidRestMutation(
+				undefined,
+				restErrorDetails(name, 'is repeated'),
+			)
+		}
+		projection[name] = decodeParameter(name, invalidRestMutation, () =>
 			name === 'select'
 				? parseRestSelectionParameter(value)
-				: decodeRestInclude(schema, parseRestIncludeParameter(value), limits)
+				: decodeRestInclude(schema, parseRestIncludeParameter(value), limits),
+		)
 	}
 	return immutableRecord(projection)
 }
@@ -205,7 +236,10 @@ export const normalizeRestMutationRequest = async <
 			(input.operation === 'delete' || input.operation === 'update') &&
 			!isUuidV7(input.id)
 		) {
-			throw invalidRestMutation()
+			throw invalidRestMutation(
+				undefined,
+				restErrorDetails('id', 'must be a UUID v7 identifier'),
+			)
 		}
 
 		let commandInput: unknown
@@ -224,12 +258,18 @@ export const normalizeRestMutationRequest = async <
 			commandInput =
 				input.operation === 'create'
 					? immutableRecord({
-							data: dataDecoder(schema, 'create', 'nested')(body),
+							data: inParameter(
+								'body',
+								dataDecoder(schema, 'create', 'nested'),
+							)(body),
 							...projection,
 						})
 					: input.operation === 'update'
 						? immutableRecord({
-								data: dataDecoder(schema, 'update', 'nested')(body),
+								data: inParameter(
+									'body',
+									dataDecoder(schema, 'update', 'nested'),
+								)(body),
 								where: immutableRecord({
 									id: immutableRecord({ eq: input.id }),
 								}),
@@ -251,7 +291,7 @@ export const normalizeRestMutationRequest = async <
 		) {
 			throw error
 		}
-		throw invalidRestMutation()
+		throw invalidRestMutation(undefined, readRestErrorDetails(error))
 	}
 }
 

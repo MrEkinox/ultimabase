@@ -58,6 +58,31 @@ export const readRestOperationBindingMetadata = (
 	})
 }
 
+/**
+ * Reads the REST facts of one public operation: its owner's REST binding, or
+ * the defaults of an operation without one (declared errors answer 400).
+ */
+export const readRestOperationRouteMetadata = (
+	descriptor: ExposedOperationTransportBinding,
+): Readonly<{
+	readonly errors: Readonly<Record<string, number>>
+	readonly path?: string
+	readonly inputSchema?: string
+}> =>
+	descriptor.bound
+		? readRestOperationBindingMetadata(
+				descriptor.metadata,
+				descriptor.errors,
+				descriptor.name,
+			)
+		: immutableRecord({ errors: defaultErrorStatuses(descriptor.errors) })
+
+/** Maps every declared public error of a command without a REST binding to 400. */
+export const defaultErrorStatuses = (
+	errors: readonly string[],
+): Readonly<Record<string, number>> =>
+	immutableRecord(Object.fromEntries(errors.map((code) => [code, 400])))
+
 /** Schema-derived operation input can reference only the operation owner's schema. */
 export const resolveRestOperationInputSchema = (
 	name: string | undefined,

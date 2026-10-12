@@ -9,7 +9,14 @@ import {
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { invalidRestRead, RestReadNormalizationError } from './errors.js'
+import {
+	decodeParameter,
+	invalidRestRead,
+	readRestErrorDetails,
+	restErrorDetails,
+	RestReadNormalizationError,
+	type RestErrorDetails,
+} from './errors.js'
 import { decodeRestWhere, isUuidV7 } from './field-values.js'
 import { readRestJsonBody } from './read-body.js'
 import { decodeRestAfterCursor, isRestPositionError } from './read-cursors.js'
@@ -124,13 +131,19 @@ const parseGetInput = (
 ): Readonly<Record<string, unknown>> => {
 	const result: Record<string, unknown> = {}
 	for (const [name, value] of parseRestQueryEntries(request)) {
-		if (
-			!getQueryKeys[operation].includes(name) ||
-			Object.hasOwn(result, name)
-		) {
-			throw invalidRestRead()
+		if (!getQueryKeys[operation].includes(name)) {
+			throw invalidRestRead(
+				undefined,
+				restErrorDetails(
+					name,
+					`is not a parameter of this route; use ${getQueryKeys[operation].join(', ')}`,
+				),
+			)
 		}
-		result[name] =
+		if (Object.hasOwn(result, name)) {
+			throw invalidRestRead(undefined, restErrorDetails(name, 'is repeated'))
+		}
+		result[name] = decodeParameter(name, invalidRestRead, () =>
 			name === 'where'
 				? parseJson(value)
 				: name === 'select'
@@ -141,7 +154,8 @@ const parseGetInput = (
 							? parseOrdering(value)
 							: name === 'after'
 								? value
-								: parseNonNegativeInteger(value)
+								: parseNonNegativeInteger(value),
+		)
 	}
 	return immutableRecord(result)
 }
@@ -184,16 +198,23 @@ const decodeArguments = (
 	if (!isPlainRecord(value)) return value
 	const decoded: Record<string, unknown> = { ...value }
 	if (Object.hasOwn(value, 'where')) {
-		decoded.where = decodeRestWhere(schema, value.where)
+		decoded.where = decodeParameter('where', invalidRestRead, () =>
+			decodeRestWhere(schema, value.where),
+		)
 	}
 	if (Object.hasOwn(value, 'include')) {
-		decoded.include = decodeRestInclude(schema, value.include, limits)
+		decoded.include = decodeParameter('include', invalidRestRead, () =>
+			decodeRestInclude(schema, value.include, limits),
+		)
 	}
 	if (!Object.hasOwn(value, 'take')) {
 		// Collections never run unbounded when the caller omits `take`.
 		if (collection) decoded.take = limits.defaultTake
 	} else if (typeof value.take === 'number' && value.take > limits.maxTake) {
-		throw invalidRestRead()
+		throw invalidRestRead(
+			undefined,
+			restErrorDetails('take', `must not exceed ${String(limits.maxTake)}`),
+		)
 	}
 	return immutableRecord(decoded)
 }
@@ -209,11 +230,17 @@ export const decodeRestReadInput = async (
 		request.signal.throwIfAborted()
 		const normalizedLimits = normalizeRestLimits(limits, 'read')
 		const isGet = request.method === 'GET'
-		if (
-			!(isGet || (request.method === 'POST' && input.operation !== 'get')) ||
-			(!isGet && parseRestQueryEntries(request).length > 0)
-		) {
+		if (!(isGet || (request.method === 'POST' && input.operation !== 'get'))) {
 			throw invalidRestRead()
+		}
+		if (!isGet && parseRestQueryEntries(request).length > 0) {
+			throw invalidRestRead(
+				undefined,
+				restErrorDetails(
+					'query',
+					'must be empty: a POST read takes its arguments in the body',
+				),
+			)
 		}
 		let raw = isGet
 			? parseGetInput(request, input.operation)
@@ -223,8 +250,20 @@ export const decodeRestReadInput = async (
 					invalidRestRead,
 				)
 		if (input.operation === 'get') {
-			if (!isUuidV7(input.id) || !isPlainRecord(raw)) throw invalidRestRead()
+			if (!isUuidV7(input.id)) {
+				throw invalidRestRead(
+					undefined,
+					restErrorDetails('id', 'must be a UUID v7 identifier'),
+				)
+			}
+			if (!isPlainRecord(raw)) throw invalidRestRead()
 			raw = immutableRecord({ ...raw, id: input.id })
+		}
+		if (!isPlainRecord(raw)) {
+			throw invalidRestRead(
+				undefined,
+				restErrorDetails('body', 'must be a JSON object'),
+			)
 		}
 		const decoded = decodeArguments(
 			schema,
@@ -234,7 +273,9 @@ export const decodeRestReadInput = async (
 		)
 		request.signal.throwIfAborted()
 		return input.operation === 'find' && isPlainRecord(decoded)
-			? decodeRestAfterCursor(schema, decoded, invalidRestRead)
+			? decodeParameter('after', invalidRestRead, () =>
+					decodeRestAfterCursor(schema, decoded, invalidRestRead),
+				)
 			: decoded
 	} catch (error) {
 		if (
@@ -244,7 +285,7 @@ export const decodeRestReadInput = async (
 		) {
 			throw error
 		}
-		throw invalidRestRead()
+		throw invalidRestRead(undefined, readRestErrorDetails(error))
 	}
 }
 
@@ -270,16 +311,44 @@ export const normalizeRestReadInput = (
 	input: RestReadRequest,
 	decoded: unknown,
 ): ReturnType<typeof normalizeReadOperation> => {
+	const kind = readOperationKinds[input.operation]
 	try {
-		return normalizeReadOperation(
-			schema,
-			readOperationKinds[input.operation],
-			decoded,
-		)
+		return normalizeReadOperation(schema, kind, decoded)
 	} catch (error) {
 		if (isRestPositionError(error)) throw error
-		throw invalidRestRead()
+		throw invalidRestRead(
+			undefined,
+			locateCoreReadFailure(schema, kind, decoded, error),
+		)
 	}
+}
+
+/** The reason of one Core normalization failure: its message (the schema is public). */
+const coreReason = (error: unknown): string =>
+	error instanceof TypeError ? error.message : 'is invalid'
+
+/**
+ * Finds the parameter Core rejected by normalizing each one alone, so the
+ * client error names it (ADR-0324).
+ */
+const locateCoreReadFailure = (
+	schema: SchemaDefinition,
+	kind: ReadOperationKind,
+	decoded: unknown,
+	error: unknown,
+): RestErrorDetails => {
+	if (isPlainRecord(decoded)) {
+		const id = Object.hasOwn(decoded, 'id') ? { id: decoded.id } : {}
+		for (const [name, value] of Object.entries(decoded)) {
+			if (name === 'id') continue
+			try {
+				normalizeReadOperation(schema, kind, { ...id, [name]: value })
+			} catch (isolated: unknown) {
+				return restErrorDetails(name, coreReason(isolated))
+			}
+		}
+	}
+	return restErrorDetails('query', coreReason(error))
 }
 
 /**

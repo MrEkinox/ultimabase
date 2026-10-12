@@ -1,9 +1,20 @@
-import type { SchemaDefinition } from '@ultimabase/core'
+import type {
+	SchemaDefinition,
+	UltimaBaseGeneratedSchemaSurfaces,
+} from '@ultimabase/core'
 import {
 	defineSchemaOption,
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
+	type PluginSchemaMutationDefinition,
+	type PluginSchemaMutationDependencySelection,
+	type PluginSchemaMutationEffect,
+	type PluginSchemaMutationReturning,
+	type PluginSourceSchemaMutations,
 	type SchemaOptionDefinition,
+	type SchemaOptionRuntimeRequirement,
+	type SchemaRulesHKT,
+	type SchemaRulesSource,
 } from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import {
@@ -15,137 +26,220 @@ import {
 
 import { defaultRestReadLimits } from './reads.js'
 
-/** Selects the itemized bulk REST routes generated for one schema. */
-export interface RestBulkRoutes {
-	/** Generates `POST /bulk/create`. */
-	readonly create?: boolean
-	/** Generates `POST /bulk/update`. */
-	readonly update?: boolean
-	/** Generates `POST /bulk/delete`. */
-	readonly delete?: boolean
-	/** Generates `POST /bulk/upsert`. */
-	readonly upsert?: boolean
-}
-
-/** Selects the REST v1 routes generated for one application-owned schema. */
-export interface RestSchemaRoutes {
-	/** Generates the simple GET and complex POST collection queries. */
-	readonly find?: boolean
-	/** Generates the UUID-v7 item read route. */
-	readonly get?: boolean
-	/** Generates the GET and POST first-item routes. */
-	readonly first?: boolean
-	/** Generates the GET and POST count routes. */
+/**
+ * Exposure of one schema's methods over REST, keyed by the schema method
+ * names (ADR-0324). An omitted method inherits `restPlugin({ default })`,
+ * then its built-in default.
+ */
+export interface RestMethodRules {
+	/** `GET /classes/{Schema}` and `POST /classes/{Schema}/query`. @default true */
+	readonly findMany?: boolean
+	/** `GET /classes/{Schema}/{id}` and `GET|POST /classes/{Schema}/first`. @default true */
+	readonly findOne?: boolean
+	/** `GET|POST /classes/{Schema}/count`. @default false */
 	readonly count?: boolean
-	/** Generates the GET and POST existence routes. */
+	/** `GET|POST /classes/{Schema}/exists`. @default true */
 	readonly exists?: boolean
-	/** Generates the collection create route. */
-	readonly create?: boolean
-	/** Generates the UUID-v7 item update route. */
-	readonly update?: boolean
-	/** Generates the UUID-v7 item delete route. */
-	readonly delete?: boolean
-	/** Generates the explicit unique-predicate upsert route. */
-	readonly upsert?: boolean
-	/** Selects homogeneous, ordered, atomic itemized bulk routes. */
-	readonly bulk?: boolean | RestBulkRoutes
-	/** Generates explicitly bound plugin-owned schema mutation routes. */
-	readonly mutations?: boolean
+	/** `POST /classes/{Schema}`. @default true */
+	readonly createOne?: boolean
+	/** `PATCH /classes/{Schema}/{id}`. @default true */
+	readonly updateOne?: boolean
+	/** `DELETE /classes/{Schema}/{id}`. @default true */
+	readonly deleteOne?: boolean
+	/** `POST /classes/{Schema}/upsert`. @default false */
+	readonly upsertOne?: boolean
+	/** `POST /classes/{Schema}/bulk/create`, ordered and atomic. @default false */
+	readonly createMany?: boolean
+	/** `POST /classes/{Schema}/bulk/update`, ordered and atomic. @default false */
+	readonly updateMany?: boolean
+	/** `POST /classes/{Schema}/bulk/delete`, ordered and atomic. @default false */
+	readonly deleteMany?: boolean
+	/** `POST /classes/{Schema}/bulk/upsert`, ordered and atomic. @default false */
+	readonly upsertMany?: boolean
 }
 
-export type RestSchemaRoutesOption = boolean | RestSchemaRoutes
+/** One native schema method REST can expose. */
+export type RestMethodName = keyof RestMethodRules
 
-const schemaRouteKeys = new Set([
-	'bulk',
+type GeneratedMutations<TSchema> =
+	TSchema extends Readonly<{
+		className: infer TClassName extends keyof UltimaBaseGeneratedSchemaSurfaces
+	}>
+		? UltimaBaseGeneratedSchemaSurfaces[TClassName] extends Readonly<{
+				readonly schemaMutations: infer TMutations
+			}>
+			? TMutations
+			: Readonly<Record<never, never>>
+		: Readonly<Record<never, never>>
+
+type SchemaMutations<TSchema> = GeneratedMutations<TSchema> &
+	PluginSourceSchemaMutations<SchemaRulesSource<TSchema>>
+
+/** A command REST can expose: request authority, one row named by `id`. */
+type ExposableCommand = PluginSchemaMutationDefinition<
+	string,
+	string,
+	unknown,
+	readonly string[],
+	'request',
+	PluginSchemaMutationEffect,
+	PluginSchemaMutationReturning,
+	PluginSchemaMutationDependencySelection,
+	'one'
+>
+
+/** Names the plugin commands of one schema that REST can expose. */
+export type RestCommandName<TSchema> = {
+	readonly [
+		TName in keyof SchemaMutations<TSchema>
+	]: SchemaMutations<TSchema>[TName] extends ExposableCommand ? TName : never
+}[keyof SchemaMutations<TSchema>] &
+	string
+
+/**
+ * REST exposure of one schema (ADR-0324): `false` exposes nothing, `true`
+ * every method and command, an object each method or command by name.
+ * A plugin command (`softDeleteOne`) is exposed only when named.
+ *
+ * @example `rest: { count: true, softDeleteOne: true }`
+ */
+export type RestSchemaRule<TSchema = never> =
+	| boolean
+	| (RestMethodRules & {
+			readonly [TCommand in RestCommandName<TSchema>]?: boolean
+	  })
+
+/** Entry of `.with({ ... })` owned by REST, for one schema (ADR-0324). */
+export interface RestRules<TSchema> {
+	/**
+	 * Selects the REST routes of this schema by method name; omitted methods
+	 * inherit `restPlugin({ default })`.
+	 * @example `rest: { count: true, deleteOne: false }`
+	 */
+	readonly rest?: RestSchemaRule<TSchema>
+}
+
+/** Contributes `rest` to `.with({ ... })` through Core's rules slot (ADR-0324). */
+export interface RestSchemaRules extends SchemaRulesHKT {
+	readonly rules: RestRules<this['schema']>
+}
+
+/** Every native method key, in route order. */
+export const restMethodNames: readonly RestMethodName[] = immutableArray([
+	'findMany',
+	'findOne',
 	'count',
-	'create',
-	'delete',
 	'exists',
-	'find',
-	'first',
-	'get',
-	'mutations',
-	'update',
-	'upsert',
+	'createOne',
+	'updateOne',
+	'deleteOne',
+	'upsertOne',
+	'createMany',
+	'updateMany',
+	'deleteMany',
+	'upsertMany',
 ])
-const bulkRouteKeys = new Set(['create', 'delete', 'update', 'upsert'])
+const methodKeys: ReadonlySet<string> = new Set(restMethodNames)
+const commandKeyPattern = /^[a-z][A-Za-z0-9]*$/u
 
-const assertBoolean = (value: unknown, path: string): boolean => {
-	if (typeof value !== 'boolean') {
-		throw new TypeError(`${path} must be a boolean`)
-	}
-	return value
-}
+/** The normalized rule of one schema: a boolean, or a sparse per-key record. */
+export type NormalizedRestRule = boolean | Readonly<Record<string, boolean>>
 
-// Copies one sparse selection; omitted keys keep inheriting their defaults.
-const normalizeSelection = (
+const normalizeRule = (
 	value: unknown,
 	path: string,
-	keys: ReadonlySet<string>,
-): Readonly<Record<string, boolean | RestBulkRoutes>> => {
+	commands: boolean,
+): NormalizedRestRule => {
+	if (typeof value === 'boolean') return value
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a boolean or plain object`)
 	}
-	const normalized: Record<string, boolean | RestBulkRoutes> = {}
+	const entries: [string, boolean][] = []
 	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !keys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
+		const known =
+			typeof key === 'string' &&
+			(methodKeys.has(key) || (commands && commandKeyPattern.test(key)))
+		if (!known) {
+			throw new TypeError(
+				`${path} contains unknown method: ${String(key)}; use ${restMethodNames.join(', ')}${commands ? ' or a plugin command name' : ''}`,
+			)
 		}
-		const option = value[key]
-		normalized[key] =
-			key === 'bulk' && typeof option !== 'boolean'
-				? normalizeSelection(option, `${path}.bulk`, bulkRouteKeys)
-				: assertBoolean(option, `${path}.${key}`)
+		const option: unknown = value[key]
+		if (typeof option !== 'boolean') {
+			throw new TypeError(`${path}.${key} must be a boolean`)
+		}
+		entries.push([key, option])
 	}
-	return immutableRecord(normalized)
+	return immutableRecord(Object.fromEntries(entries))
 }
 
-/** Normalizes a sparse route selection while preserving inheritance by omission. */
-export const normalizeRestSchemaRoutes = (
-	value: unknown,
-	path: string,
-): RestSchemaRoutesOption =>
-	typeof value === 'boolean'
-		? value
-		: normalizeSelection(value, path, schemaRouteKeys)
+/**
+ * Owns the schema `rest` namespace. Its static type comes from the `.with`
+ * rules slot (`never` keeps it out of the projection templates); Typegen
+ * still types the old-form `define({ rest })` until that form is removed.
+ */
+export const restSchemaOption: SchemaOptionDefinition<
+	NormalizedRestRule,
+	SchemaOptionRuntimeRequirement,
+	never
+> = defineSchemaOption({
+	normalize: (value, path): NormalizedRestRule =>
+		normalizeRule(value, path, true),
+	protocolVersion: 1,
+	typegen: {
+		module: '@ultimabase/rest-plugin',
+		type: 'RestSchemaRule',
+	},
+})
 
-/** Owns the direct application schema `rest` route-selection option. */
-export const restSchemaOption: SchemaOptionDefinition<RestSchemaRoutesOption> =
-	defineSchemaOption({
-		normalize: normalizeRestSchemaRoutes,
-		protocolVersion: 1,
-		typegen: {
-			module: '@ultimabase/rest-plugin',
-			type: 'RestSchemaRoutesOption',
-		},
-	})
+const isNormalizedRule = (value: unknown): value is NormalizedRestRule =>
+	typeof value === 'boolean' ||
+	(isPlainRecord(value) &&
+		Object.values(value).every((item) => typeof item === 'boolean'))
 
-/** Reads the normalized direct option without treating omission as a denial. */
-export const readRestSchemaRoutes = (
+/** Reads the normalized rule without treating omission as a denial. */
+export const readRestSchemaRule = (
 	schema: SchemaDefinition,
-): RestSchemaRoutesOption | undefined =>
-	Object.hasOwn(schema.definition, 'rest')
-		? (Reflect.get(schema.definition, 'rest') as
-				RestSchemaRoutesOption | undefined)
-		: undefined
+): NormalizedRestRule | undefined => {
+	if (!Object.hasOwn(schema.definition, 'rest')) return undefined
+	const rule: unknown = Reflect.get(schema.definition, 'rest')
+	return isNormalizedRule(rule) ? rule : undefined
+}
 
-/** Configures immutable REST v1 schema-route generation. */
+/** Configures one REST instance (ADR-0324). */
 export interface RestPluginOptions {
-	/** Accepts Core's inability to prove complete public policy coverage. */
-	readonly acknowledgeUnverifiedProtection?: true
-	/** Absolute normalized prefix; REST always appends `/v1`. @default "/api" */
+	/**
+	 * Absolute prefix of every REST route; it carries no protocol version
+	 * (the `X-UltimaBase-Rest-Version` response header does).
+	 * @default "/api"
+	 * @example `basePath: '/api/v1'` to version the application's own API
+	 */
 	readonly basePath?: string
 	/**
 	 * Maximum streamed JSON request size in bytes, replacing
 	 * `httpPlugin({ bodyLimit })` for REST routes. @default the HTTP plugin's bodyLimit
 	 */
 	readonly bodyLimit?: number
-	/** Supplies sparse route defaults inherited by application schemas. */
-	readonly default?: RestSchemaRoutesOption
+	/**
+	 * Exposure inherited by every schema method a `.with({ rest })` rule
+	 * leaves out: `true`, `false`, or per method.
+	 * @example `default: { createOne: false, updateOne: false, deleteOne: false }`
+	 */
+	readonly default?: boolean | RestMethodRules
+	/**
+	 * Public operations this instance does not expose; every other operation
+	 * its owner declared public is exposed.
+	 * @example `hide: [passwordAuthOperations.refresh]`
+	 */
+	readonly hide?: readonly PluginOperationDefinition[]
 	/** Distinguishes two explicit REST configurations in one application. */
 	readonly instanceId?: string
-	/** Explicitly exposes these exact application operation tokens through REST. */
-	readonly operations?: readonly PluginOperationDefinition[]
+	/**
+	 * Serves the OpenAPI 3.1 description of the exposed routes at
+	 * `{basePath}/openapi.json`.
+	 * @default false
+	 */
+	readonly openapi?: boolean
 	/**
 	 * Default and largest collection `take`, as GraphQL `first` (ADR-0309).
 	 *
@@ -153,6 +247,12 @@ export interface RestPluginOptions {
 	 * @example `restPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
 	 */
 	readonly pagination?: RestPaginationOptions
+	/**
+	 * Starts even when REST exposes writes and no protected policy (such as
+	 * Access) is installed: every client may then write (ADR-0294).
+	 * @default false
+	 */
+	readonly publicWrites?: boolean
 }
 
 /**
@@ -206,24 +306,24 @@ const normalizeRestPagination = (
 	return { defaultTake, maxTake }
 }
 
-/** @internal Validates the exact operation tokens exposed by one REST instance. */
-const normalizeRestOperations = (
+/** @internal Validates the public operation tokens one REST instance hides. */
+const normalizeRestHide = (
 	value: unknown,
 ): readonly PluginOperationDefinition[] => {
 	if (value === undefined) return immutableArray([])
 	if (!isUnknownArray(value)) {
-		throw new TypeError('REST plugin operations must be an array')
+		throw new TypeError('REST plugin hide must be an array')
 	}
 	const names = new Set<string>()
 	const operations: PluginOperationDefinition[] = []
 	for (const [index, operation] of value.entries()) {
 		if (!isPluginOperationDefinition(operation)) {
 			throw new TypeError(
-				`REST plugin operations[${String(index)}] must be an operation token`,
+				`REST plugin hide[${String(index)}] must be an operation token`,
 			)
 		}
 		if (names.has(operation.name)) {
-			throw new TypeError(`REST plugin operations repeats ${operation.name}`)
+			throw new TypeError(`REST plugin hide repeats ${operation.name}`)
 		}
 		names.add(operation.name)
 		operations.push(operation)
@@ -231,13 +331,8 @@ const normalizeRestOperations = (
 	return immutableArray(operations)
 }
 
-interface NormalizedRestBasePath {
-	readonly basePath: string
-	readonly mountPath: string
-}
-
-const normalizeBasePath = (value: unknown): NormalizedRestBasePath => {
-	if (value === undefined) return { basePath: '/api/v1', mountPath: '/api' }
+const normalizeBasePath = (value: unknown): string => {
+	if (value === undefined) return '/api'
 	if (typeof value !== 'string' || !value.startsWith('/')) {
 		throw new TypeError('REST plugin basePath must be an absolute path')
 	}
@@ -260,16 +355,11 @@ const normalizeBasePath = (value: unknown): NormalizedRestBasePath => {
 		} catch {
 			throw new TypeError('REST plugin basePath contains invalid encoding')
 		}
-		if (decoded === '.' || decoded === '..' || decoded === 'v1') {
-			throw new TypeError(
-				'REST plugin basePath cannot contain dot or protocol-version segments',
-			)
+		if (decoded === '.' || decoded === '..') {
+			throw new TypeError('REST plugin basePath cannot contain dot segments')
 		}
 	}
-	return {
-		basePath: value === '/' ? '/v1' : `${value}/v1`,
-		mountPath: value,
-	}
+	return value
 }
 
 const normalizePositiveSafeInteger = (
@@ -284,17 +374,26 @@ const normalizePositiveSafeInteger = (
 	return value
 }
 
+const normalizeBoolean = (value: unknown, name: string): boolean => {
+	if (value === undefined) return false
+	if (typeof value !== 'boolean') {
+		throw new TypeError(`REST plugin ${name} must be a boolean`)
+	}
+	return value
+}
+
 /** @internal The validated configuration one `restPlugin()` call closes over. */
 export interface NormalizedRestPluginOptions {
-	readonly acknowledgeUnverifiedProtection: true | undefined
+	/** The mount path; `/` mounts REST at the root. */
 	readonly basePath: string
 	/** `undefined` inherits the HTTP plugin's limit (ADR-0323). */
 	readonly bodyLimit: number | undefined
-	readonly defaultRoutes: RestSchemaRoutesOption | undefined
+	readonly defaultRule: NormalizedRestRule | undefined
+	readonly hide: readonly PluginOperationDefinition[]
 	readonly instanceId: string | undefined
-	readonly mountPath: string
-	readonly operations: readonly PluginOperationDefinition[]
+	readonly openapi: boolean
 	readonly pagination: Readonly<{ defaultTake: number; maxTake: number }>
+	readonly publicWrites: boolean
 }
 
 /** @internal Rejects unknown keys and normalizes every plugin factory option. */
@@ -303,32 +402,25 @@ export const parseRestPluginOptions: (
 ) => NormalizedRestPluginOptions = definePluginOptionsParser({
 	name: 'REST plugin options',
 	keys: [
-		'acknowledgeUnverifiedProtection',
 		'basePath',
 		'bodyLimit',
 		'default',
+		'hide',
 		'instanceId',
-		'operations',
+		'openapi',
 		'pagination',
+		'publicWrites',
 	] as const,
 	normalize: ({
-		acknowledgeUnverifiedProtection,
 		basePath,
 		bodyLimit,
-		default: defaultRoutes,
+		default: defaultRule,
+		hide,
 		instanceId,
-		operations,
+		openapi,
 		pagination,
+		publicWrites,
 	}) => {
-		const paths = normalizeBasePath(basePath)
-		if (
-			acknowledgeUnverifiedProtection !== undefined &&
-			acknowledgeUnverifiedProtection !== true
-		) {
-			throw new TypeError(
-				'REST plugin acknowledgeUnverifiedProtection must be true when provided',
-			)
-		}
 		if (
 			instanceId !== undefined &&
 			(typeof instanceId !== 'string' || instanceId.length === 0)
@@ -336,8 +428,7 @@ export const parseRestPluginOptions: (
 			throw new TypeError('REST plugin instanceId must be a non-empty string')
 		}
 		return {
-			acknowledgeUnverifiedProtection,
-			...paths,
+			basePath: normalizeBasePath(basePath),
 			bodyLimit:
 				bodyLimit === undefined
 					? undefined
@@ -346,13 +437,15 @@ export const parseRestPluginOptions: (
 							'bodyLimit',
 							defaultRestReadLimits.bodyBytes,
 						),
-			defaultRoutes:
-				defaultRoutes === undefined
+			defaultRule:
+				defaultRule === undefined
 					? undefined
-					: normalizeRestSchemaRoutes(defaultRoutes, 'REST plugin default'),
+					: normalizeRule(defaultRule, 'REST plugin default', false),
+			hide: normalizeRestHide(hide),
 			instanceId,
-			operations: normalizeRestOperations(operations),
+			openapi: normalizeBoolean(openapi, 'openapi'),
 			pagination: normalizeRestPagination(pagination),
+			publicWrites: normalizeBoolean(publicWrites, 'publicWrites'),
 		}
 	},
 })

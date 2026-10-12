@@ -14,8 +14,15 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	isRestNormalizationError,
+	readRestErrorDetails,
+	restErrorDetails,
+	type RestFailure,
+} from './errors.js'
+import {
 	decodeRestFieldValue,
 	isUuidV7,
+	restValueReason,
 	type InvalidRestValue,
 } from './field-values.js'
 
@@ -160,10 +167,47 @@ export const decodeRestMutationData = (
 	value: unknown,
 	mode: 'create' | 'update',
 	relationships: 'flat' | 'nested',
-	invalid: InvalidRestValue,
+	invalid: RestFailure,
 ): unknown =>
 	transformSchemaMutationDataInput(schema, value, {
 		mode,
 		relationships,
-		transformField: (input) => decodeMutationField(input, invalid),
+		transformField: (input) => {
+			try {
+				return decodeMutationField(input, invalid)
+			} catch (error: unknown) {
+				throw locateMutationFailure(error, input, invalid)
+			}
+		},
 	})
+
+const relationshipReasons = {
+	pointer: 'must be { "connect": id }, { "create": data }, or null',
+	relation: 'must be link commands: create, connect, update, disconnect, set',
+} as const
+
+/** Places one data failure at its field path with a reason (ADR-0324). */
+const locateMutationFailure = (
+	error: unknown,
+	input: SchemaMutationDataFieldInput,
+	fail: RestFailure,
+): unknown => {
+	if (
+		!isRestNormalizationError(error) ||
+		readRestErrorDetails(error) !== undefined
+	) {
+		return error
+	}
+	const { field, path } = input
+	const reason =
+		field === undefined
+			? input.kind === 'virtual'
+				? 'is a virtual field and cannot be written'
+				: 'is not a field of this schema'
+			: field.kind === 'pointer' || field.kind === 'relation'
+				? input.relationships === 'flat'
+					? 'cannot be linked in this request'
+					: relationshipReasons[field.kind]
+				: restValueReason(field)
+	return fail(undefined, restErrorDetails('', reason, path))
+}

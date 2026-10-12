@@ -16,6 +16,7 @@ import {
 } from './normalization.js'
 import {
 	passwordAuthOperations,
+	passwordAuthPublicOperations,
 	rejectPasswordChange,
 	rejectPasswordCredentials,
 	rejectPasswordSession,
@@ -145,6 +146,7 @@ export const createPasswordOperationHandlers = <
 		// Sign-up: hash first, then create the User, credential, and session atomically.
 		contributeOperation({
 			operation: passwordAuthOperations.signUp,
+			public: passwordAuthPublicOperations.signUp,
 			execute: async ({ engine, input }) => {
 				const { password, username } = normalizeCredentials(
 					input,
@@ -202,6 +204,7 @@ export const createPasswordOperationHandlers = <
 		// Login: every rejection is identical, including for unknown usernames.
 		contributeOperation({
 			operation: passwordAuthOperations.login,
+			public: passwordAuthPublicOperations.login,
 			execute: async ({ engine, input }) => {
 				const { password, username } = normalizeCredentials(
 					input,
@@ -264,6 +267,7 @@ export const createPasswordOperationHandlers = <
 		// Logout: revokes only the unchanged current session.
 		contributeOperation({
 			operation: passwordAuthOperations.logout,
+			public: passwordAuthPublicOperations.logout,
 			execute: async ({ context }) => {
 				const session = context.getValue(passwordSession)
 				if (
@@ -278,6 +282,7 @@ export const createPasswordOperationHandlers = <
 		// Logout everywhere: advancing the account generation invalidates every session.
 		contributeOperation({
 			operation: passwordAuthOperations.logoutEverywhere,
+			public: passwordAuthPublicOperations.logoutEverywhere,
 			execute: async ({ context }) => {
 				const credential = await requireCurrentCredential(
 					credentials,
@@ -297,6 +302,7 @@ export const createPasswordOperationHandlers = <
 		// Change password: the current session moves to the new account generation.
 		contributeOperation({
 			operation: passwordAuthOperations.changePassword,
+			public: passwordAuthPublicOperations.changePassword,
 			execute: async ({ context, engine, input }) => {
 				const authenticated = requireAuthenticated(context)
 				let currentPassword: string
@@ -359,6 +365,7 @@ export const createPasswordOperationHandlers = <
 		// Refresh: rotates the current session token and rereads the profile.
 		contributeOperation({
 			operation: passwordAuthOperations.refresh,
+			public: passwordAuthPublicOperations.refresh,
 			execute: async ({ context }) => {
 				const authenticated = requireAuthenticated(context)
 				const credential = await requireCurrentCredential(

@@ -14,6 +14,11 @@ export interface SchemaMutationDataFieldInput {
 	readonly field: GenericField | undefined
 	readonly kind: 'persisted' | 'unknown' | 'virtual'
 	readonly mode: 'create' | 'update'
+	/**
+	 * Location of the value in the data, for transport error details:
+	 * `['title']`, `['comments', 'create', 0, 'body']`.
+	 */
+	readonly path: readonly (number | string)[]
 	readonly relationships: 'flat' | 'nested'
 	readonly value: unknown
 }
@@ -29,38 +34,50 @@ const transformNestedData = (
 	field: GenericField,
 	value: unknown,
 	options: SchemaMutationDataTransformOptions,
+	path: readonly (number | string)[],
 ): unknown => {
 	if (!isPlainRecord(value)) return value
 	const target = getFieldSchemaTarget(field)?.()
 	if (target === undefined) return value
 	const transformed: Record<string, unknown> = { ...value }
-	const nested = (data: unknown, mode: 'create' | 'update'): unknown =>
-		transformSchemaMutationDataInput(target, data, {
-			mode,
-			relationships: 'nested',
-			transformField: options.transformField,
-		})
+	const nested = (
+		data: unknown,
+		mode: 'create' | 'update',
+		at: readonly (number | string)[],
+	): unknown =>
+		transformData(
+			target,
+			data,
+			{
+				mode,
+				relationships: 'nested',
+				transformField: options.transformField,
+			},
+			[...path, ...at],
+		)
 
 	if (field.kind === 'pointer') {
 		if (Object.hasOwn(value, 'create')) {
-			transformed.create = nested(value.create, 'create')
+			transformed.create = nested(value.create, 'create', ['create'])
 		}
 		if (options.mode === 'update' && Object.hasOwn(value, 'update')) {
-			transformed.update = nested(value.update, 'update')
+			transformed.update = nested(value.update, 'update', ['update'])
 		}
 	} else {
 		if (isUnknownArray(value.create)) {
 			transformed.create = immutableArray(
-				value.create.map((item) => nested(item, 'create')),
+				value.create.map((item, index) =>
+					nested(item, 'create', ['create', index]),
+				),
 			)
 		}
 		if (isUnknownArray(value.update)) {
 			transformed.update = immutableArray(
-				value.update.map((item) =>
+				value.update.map((item, index) =>
 					isPlainRecord(item) && Object.hasOwn(item, 'data')
 						? immutableRecord({
 								...item,
-								data: nested(item.data, 'update'),
+								data: nested(item.data, 'update', ['update', index, 'data']),
 							})
 						: item,
 				),
@@ -78,6 +95,13 @@ export const transformSchemaMutationDataInput = (
 	schema: SchemaDefinition,
 	value: unknown,
 	options: SchemaMutationDataTransformOptions,
+): unknown => transformData(schema, value, options, [])
+
+const transformData = (
+	schema: SchemaDefinition,
+	value: unknown,
+	options: SchemaMutationDataTransformOptions,
+	path: readonly (number | string)[],
 ): unknown => {
 	if (!isPlainRecord(value)) return value
 	// Entries keep every input name, including `__proto__`, as an own key.
@@ -100,6 +124,7 @@ export const transformSchemaMutationDataInput = (
 						: 'unknown'
 					: 'persisted',
 			mode: options.mode,
+			path: immutableArray([...path, name]),
 			relationships: options.relationships,
 			value: item,
 		})
@@ -108,7 +133,7 @@ export const transformSchemaMutationDataInput = (
 			options.relationships === 'nested' &&
 			field !== undefined &&
 			(field.kind === 'pointer' || field.kind === 'relation')
-				? transformNestedData(field, decoded, options)
+				? transformNestedData(field, decoded, options, [...path, name])
 				: decoded,
 		])
 	}

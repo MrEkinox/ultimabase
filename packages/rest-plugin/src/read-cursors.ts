@@ -6,18 +6,27 @@ import {
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
+import { restErrorDetails, type RestFailure } from './errors.js'
+
 /** Reads a decoded `orderBy` object, or fails as malformed REST input. */
 const readOrderBy = (
 	value: unknown,
-	invalid: () => Error,
+	invalid: RestFailure,
 ): QueryCursorOrderBy | undefined => {
 	if (value === undefined) return undefined
-	if (!isPlainRecord(value)) throw invalid()
+	if (!isPlainRecord(value)) {
+		throw invalid(undefined, restErrorDetails('orderBy', 'must be an object'))
+	}
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(value).map(
 				([field, direction]): [string, 'asc' | 'desc'] => {
-					if (direction !== 'asc' && direction !== 'desc') throw invalid()
+					if (direction !== 'asc' && direction !== 'desc') {
+						throw invalid(
+							undefined,
+							restErrorDetails('orderBy', 'must order by asc or desc', [field]),
+						)
+					}
 					return [field, direction]
 				},
 			),
@@ -29,11 +38,16 @@ const readOrderBy = (
 export const decodeRestAfterCursor = (
 	schema: SchemaDefinition,
 	value: Readonly<Record<string, unknown>>,
-	invalid: () => Error,
+	invalid: RestFailure,
 ): Readonly<Record<string, unknown>> => {
 	if (!Object.hasOwn(value, 'after')) return value
 	const { after } = value
-	if (typeof after !== 'string') throw invalid()
+	if (typeof after !== 'string') {
+		throw invalid(
+			undefined,
+			restErrorDetails('after', 'must be a string cursor'),
+		)
+	}
 	return immutableRecord({
 		...value,
 		after: decodeQueryCursor(
@@ -49,7 +63,7 @@ export const encodeRestNextCursor = (
 	schema: SchemaDefinition,
 	orderBy: unknown,
 	row: unknown,
-	invalid: () => Error,
+	invalid: RestFailure,
 ): string => encodeQueryCursor(schema, readOrderBy(orderBy, invalid), row)
 
 /**

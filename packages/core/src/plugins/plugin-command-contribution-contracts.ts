@@ -6,6 +6,7 @@ import type {
 } from '../runtime/plugin-operations/contracts.js'
 import type { PluginSchemaMutationHandler } from '../runtime/schema-mutations/contracts.js'
 import type { SchemaMutationTransportBindingDefinition } from '../runtime/schema-mutations/transport-contracts.js'
+import type { JsonValue } from '../schema/fields/builtins/json.js'
 import type { ApplicationCapabilityFactoryContext } from './capabilities.js'
 import type { PluginOperationDefinition } from './plugin-operations.js'
 import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
@@ -18,6 +19,29 @@ export interface PluginOperationHandlerResource<
 	readonly execute: PluginOperationHandler<TOperation>
 }
 
+/**
+ * Declares an operation meant for clients (ADR-0324): every installed
+ * transport exposes it, unless the application hides it. An operation
+ * without this declaration is never exposed by a transport.
+ *
+ * @example `public: { name: 'login' }`
+ */
+export interface PluginOperationPublicDeclaration {
+	/**
+	 * Client-facing name, unique in the application: transports derive their
+	 * default route or field from it (`POST /api/operations/login`).
+	 * @example `name: 'login'`
+	 */
+	readonly name: string
+	/**
+	 * JSON Schema (draft 2020-12) of the wire input, when the owner can
+	 * describe it; transports document it (OpenAPI) without validating with it.
+	 */
+	readonly input?: JsonValue
+	/** JSON Schema (draft 2020-12) of the wire result, when the owner can describe it. */
+	readonly output?: JsonValue
+}
+
 interface PluginOperationContributionBase<
 	TOperation extends PluginOperationDefinition,
 	TBindings extends readonly OperationTransportBindingDefinition<TOperation>[],
@@ -26,6 +50,12 @@ interface PluginOperationContributionBase<
 	readonly operation: TOperation
 	/** Adds nominal wire bindings without making the operation publicly exposed. */
 	readonly bindings?: TBindings
+	/**
+	 * Makes the operation public: every installed transport exposes it
+	 * (ADR-0324). A binding only adapts its wire format to one transport.
+	 * @example `public: { name: 'login' }`
+	 */
+	readonly public?: PluginOperationPublicDeclaration
 }
 
 /** Implements one operation directly without creating an application resource. */

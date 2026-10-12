@@ -168,17 +168,11 @@ const noInput: PluginOperationValueContract<undefined> = defineOperationValue(
 	}),
 )
 
-// TEMPORARY (until sub-step 6.6): request commands keep the REST and GraphQL
-// routes Soft Delete exposed before the facade. The transports will discover
-// commands generically; this module then stops naming their protocols.
+// TEMPORARY (until sub-step 6.6c): request commands keep the GraphQL fields
+// Soft Delete exposed before the facade. REST discovers commands generically
+// through `.with({ rest })` (ADR-0324); GraphQL will do the same (ADR-0325),
+// and this module then stops naming any protocol.
 const unitInputTransports = [
-	{
-		metadata: { errors: {} },
-		transport: defineOperationTransport({
-			name: 'ultimabase.rest',
-			version: '1.0.0',
-		}),
-	},
 	{
 		metadata: { kind: 'graphql-schema-mutation-binding', types: [] },
 		transport: defineOperationTransport({

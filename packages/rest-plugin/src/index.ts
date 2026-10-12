@@ -1,9 +1,12 @@
 export type {
-	RestBulkRoutes,
+	RestCommandName,
+	RestMethodName,
+	RestMethodRules,
 	RestPaginationOptions,
 	RestPluginOptions,
-	RestSchemaRoutes,
-	RestSchemaRoutesOption,
+	RestRules,
+	RestSchemaRule,
+	RestSchemaRules,
 } from './options.js'
 export { restPlugin } from './plugin.js'
 export { restFieldCodec } from './field-codecs.js'
@@ -11,7 +14,7 @@ export {
 	restOperationErrorCodes,
 	RestOperationNormalizationError,
 } from './errors.js'
-export type { RestOperationErrorCode } from './errors.js'
+export type { RestErrorDetails, RestOperationErrorCode } from './errors.js'
 export type {
 	RestOperationTransport,
 	RestSchemaMutationTransport,
