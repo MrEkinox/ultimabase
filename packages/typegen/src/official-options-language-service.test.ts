@@ -24,7 +24,6 @@ const schemaOptionsMarker = '/* official-schema-options */'
 const mutationAccessMarker = '/* schema-mutation-access */'
 const mutationBeforeHookMarker = '/* schema-mutation-before-hook */'
 const mutationAfterHookMarker = '/* schema-mutation-after-hook */'
-const aclDataMarker = '/* acl-sibling-fields */'
 
 it('composes installed Access, Hooks, Validation, and ACL authoring contracts', () => {
 	const inputReference = defineTypegenReference({
@@ -93,8 +92,9 @@ it('composes installed Access, Hooks, Validation, and ACL authoring contracts', 
 			title: field.string(),
 			visibility: field.string(),
 		}),
-		acl: { default: new ACL() },
 	})
+		.acl()
+		.with({ acl: { default: new ACL() } })
 	const generated = generateApplicationTypes({
 		ultimabase: new OfficialApplication({
 			logger: false,
@@ -187,34 +187,6 @@ const SourceApplication = UltimaBase.use(sourceMutationOwner)
 
 const TypedDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionDocument',
-  acl: {
-    default: ({ data }) => {
-      data.${aclDataMarker}
-      const title: string | null = data.title
-      const visibility: string | null = data.visibility
-      void title
-      void visibility
-      // @ts-expect-error -- ACL callbacks expose only exact sibling fields.
-      void data.notDeclared
-      return new ACL()
-    },
-    resolveInput: (input) => {
-      const title: string | null = input.data.title
-      void title
-      if (input.operation === 'create') {
-        const current: undefined = input.currentData
-        const update: undefined = input.update
-        void current
-        void update
-        return input.inputAcl
-      }
-      const currentTitle: string | null = input.currentData.title
-      const updateKind: 'update-expression' = input.update.kind
-      void currentTitle
-      void updateKind
-      return input.inputAcl ?? input.currentAcl
-    },
-  },
   access: {
     archive: {
       where: ({ input, mutation, where }) =>
@@ -309,7 +281,6 @@ void TypedDocument
 	const mutationAfterHookPosition = sourceWithMarkers.indexOf(
 		mutationAfterHookMarker,
 	)
-	const aclDataPosition = sourceWithMarkers.indexOf(aclDataMarker)
 	const source = sourceWithMarkers
 		.replace(fieldOptionsMarker, ' '.repeat(fieldOptionsMarker.length))
 		.replace(schemaOptionsMarker, ' '.repeat(schemaOptionsMarker.length))
@@ -322,7 +293,6 @@ void TypedDocument
 			mutationAfterHookMarker,
 			' '.repeat(mutationAfterHookMarker.length),
 		)
-		.replace(aclDataMarker, ' '.repeat(aclDataMarker.length))
 	const fileName = path.join(
 		import.meta.dirname,
 		'official-options.semantic.fixture.ts',
@@ -349,10 +319,10 @@ void TypedDocument
 		expect.arrayContaining(['access', 'hooks', 'required', 'validation']),
 	)
 	expect(completionNames(schemaOptionsPosition)).toEqual(
-		expect.arrayContaining(['access', 'acl', 'hooks']),
+		expect.arrayContaining(['access', 'hooks']),
 	)
-	expect(completionNames(aclDataPosition)).toContain('title')
-	expect(completionNames(aclDataPosition)).not.toContain('acl')
+	// ADR-0321: ACL is configured by `.acl().with({ acl })`, not Typegen.
+	expect(completionNames(schemaOptionsPosition)).not.toContain('acl')
 	expect(completionNames(mutationAccessPosition)).toEqual(
 		expect.arrayContaining(['archive', 'create', 'delete', 'read', 'update']),
 	)
@@ -377,7 +347,6 @@ void TypedDocument
 		generated.snapshot.options.map(({ name, scope }) => ({ name, scope })),
 	).toStrictEqual([
 		{ name: 'access', scope: 'schema' },
-		{ name: 'acl', scope: 'schema' },
 		{ name: 'hooks', scope: 'schema' },
 		{ name: 'validation', scope: 'schema' },
 	])
@@ -386,7 +355,7 @@ void TypedDocument
 	expect(generated.contents).not.toContain('FieldAccessOption')
 	expect(generated.contents).not.toContain('FieldHooksOption')
 	expect(generated.contents).toContain('SchemaAccessOption')
-	expect(generated.contents).toContain('ACLSchemaOption')
+	expect(generated.contents).not.toContain('ACLSchemaOption')
 	expect(generated.contents).toContain('SchemaHooksOption')
 	expect(generated.contents).toContain('SchemaValidationOption')
 	expect(generated.contents).not.toContain('titleValidator')

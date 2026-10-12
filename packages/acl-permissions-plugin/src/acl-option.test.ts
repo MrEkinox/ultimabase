@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
 	aclField,
 	aclFieldKind,
+	aclShapeDeclared,
 	normalizeACLSchemaOption,
 	type ACLInputResolver,
 } from './acl-option.js'
@@ -83,9 +84,11 @@ describe('acl schema option', () => {
 
 	it('normalizes callbacks and schema-level limits without mutating source options', () => {
 		const limits = { maxPrincipals: 10, maxRoles: 5 }
-		const resolveInput: ACLInputResolver = ({ inputAcl }) => inputAcl
+		const resolveInput: ACLInputResolver = ({ currentAcl }) => currentAcl
+		const clientSharing = () => true
+		const existingRows = new ACL().grantAuthenticated('read')
 		const option = normalizeACLSchemaOption(
-			{ limits, resolveInput },
+			{ default: new ACL(), limits, resolveInput, clientSharing, existingRows },
 			'Post.acl',
 		)
 
@@ -96,6 +99,8 @@ describe('acl schema option', () => {
 			maxRoles: 5,
 		})
 		expect(option.resolveInput).toBe(resolveInput)
+		expect(option.clientSharing).toBe(clientSharing)
+		expect(option.existingRows).toBe(existingRows)
 		expect(Object.isFrozen(option.limits)).toBe(true)
 	})
 
@@ -103,11 +108,18 @@ describe('acl schema option', () => {
 		expect(() =>
 			normalizeACLSchemaOption({ default: 'public' }, 'Post.acl'),
 		).toThrow(new TypeError('Post.acl.default must be an ACL or a function'))
+		const empty = new ACL()
 		expect(() =>
-			normalizeACLSchemaOption({ resolveInput: true }, 'Post.acl'),
+			normalizeACLSchemaOption(
+				{ default: empty, resolveInput: true },
+				'Post.acl',
+			),
 		).toThrow(new TypeError('Post.acl.resolveInput must be a function'))
 		expect(() =>
-			normalizeACLSchemaOption({ limits: { maxPrincipals: -1 } }, 'Post.acl'),
+			normalizeACLSchemaOption(
+				{ default: empty, limits: { maxPrincipals: -1 } },
+				'Post.acl',
+			),
 		).toThrow(
 			new RangeError(
 				'Post.acl.limits.maxPrincipals must be a non-negative safe integer',
@@ -115,6 +127,29 @@ describe('acl schema option', () => {
 		)
 		expect(() => normalizeACLSchemaOption({ extra: true }, 'Post.acl')).toThrow(
 			new TypeError('Unknown Post.acl option: extra'),
+		)
+		// ADR-0321: `default` is required, `existingRows` is a fixed ACL.
+		expect(() => normalizeACLSchemaOption({}, 'Post.acl')).toThrow(
+			new TypeError('Post.acl.default must be an ACL or a function'),
+		)
+		expect(() =>
+			normalizeACLSchemaOption(
+				{ default: empty, existingRows: () => empty },
+				'Post.acl',
+			),
+		).toThrow(new TypeError('Post.acl.existingRows must be an ACL'))
+		expect(() =>
+			normalizeACLSchemaOption(
+				{ default: empty, clientSharing: true },
+				'Post.acl',
+			),
+		).toThrow(new TypeError('Post.acl.clientSharing must be a function'))
+		expect(() =>
+			normalizeACLSchemaOption(aclShapeDeclared, 'Post.acl'),
+		).toThrow(
+			new TypeError(
+				'Post.acl: .acl() needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master',
+			),
 		)
 	})
 })

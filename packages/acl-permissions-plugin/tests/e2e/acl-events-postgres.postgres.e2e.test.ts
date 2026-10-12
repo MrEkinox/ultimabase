@@ -41,12 +41,14 @@ const Post = ACLChangeApplication.Schema.define({
 			},
 		},
 	},
-	acl: {
-		default: new ACL().grantPublic('read'),
-		resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
-	},
 	postgres: { table: 'acl_change_event_posts' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: new ACL().grantPublic('read'),
+		},
+	})
 
 const committedChanges: ACLChangedEvent[] = []
 const committedRows: string[] = []

@@ -152,7 +152,8 @@ jobs:
     # Ordinary affected runs must not secretly execute every suite again here.
     if: needs.select.outputs.coverage == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # The complete suite grew past 18 minutes on hosted runners (2026-10-11).
+    timeout-minutes: 30
     env:
       # Pass the safe hosted bound through CLI without overriding serial projects.
       ULTIMABASE_COVERAGE_WORKERS: 2

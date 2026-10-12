@@ -10,8 +10,11 @@ import {
 	type DatabaseOperationAst,
 	type ExecutableOperationAst as ExecutableAst,
 	type RuntimeConstraintDefinition,
+	type RuntimeLogicalMutationOperationAst,
 	type RuntimeOperationStageInput,
 	type RuntimeOperationTransformStage,
+	type RuntimePreparedMutationStageInput,
+	type RuntimePreparedMutationTransformStage,
 	type SchemaDefinition,
 	type SchemaItem,
 } from '@ultimabase/core'
@@ -23,12 +26,11 @@ import {
 	type AddSchemaFieldOperation,
 	type PluginDeclarationContribution,
 	type PluginInstance,
-	type PluginSchemaOptionSource,
-	type PluginSchemaPatchSource,
+	type PluginSchemaFieldsSource,
 	type PluginSchemaRulesSource,
 	type PluginSchemaShapeSource,
+	type SchemaFieldsHKT,
 	type SchemaRulesHKT,
-	type SchemaSelection,
 	type SchemaShapeMethod,
 	provideSchemaShapeMethods,
 } from '@ultimabase/core/plugin'
@@ -67,17 +69,20 @@ import {
 	aclFieldName,
 	aclPluginId,
 	aclSchemaOption,
+	aclShapeDeclared,
 	readProtectedSchemaOptions,
-	type ACLDefaultFactory,
-	type ACLInputResolver,
-	type ACLSchemaLimits,
+	type ACLField,
+	type ACLRule,
 } from './acl-option.js'
-import type { ACL } from './acl.js'
 import {
 	resolveCreateOperationACL,
-	resolvePreparedOperationACL,
 	type ACLCreateOperation,
 } from './acl-operation-resolution.js'
+import {
+	recomputeUpdateOperationACL,
+	resolvePreparedOperationACL,
+	type ACLPreparedUpdateOperation,
+} from './acl-update-resolution.js'
 import {
 	createACLReferenceCleanups,
 	createACLReferenceRowFilter,
@@ -89,10 +94,11 @@ import {
 	type ACLApplicationState,
 } from './application-state.js'
 
+export { resolveCreateOperationACL } from './acl-operation-resolution.js'
 export {
-	resolveCreateOperationACL,
+	recomputeUpdateOperationACL,
 	resolvePreparedOperationACL,
-} from './acl-operation-resolution.js'
+} from './acl-update-resolution.js'
 
 const aclSchemaSelector = { option: { name: 'acl' } } as const
 const aclSchemaPatch: SchemaPatchBuilder<
@@ -103,15 +109,7 @@ const aclSchemaPatch: SchemaPatchBuilder<
 	name: aclFieldName,
 })
 
-type ACLOptionSource = PluginSchemaOptionSource<{
-	readonly contributionId: 'official-acl-option'
-	readonly schema: Readonly<{ acl: typeof aclSchemaOption }>
-}>
-type ACLFieldSource = PluginSchemaPatchSource<
-	typeof aclSchemaPatch.operations,
-	SchemaSelection<typeof aclSchemaSelector>
->
-/** Values an ACL default sees: the persisted developer fields, without the ACL. */
+/** Values an ACL rule sees: the persisted developer fields, without the ACL. */
 type ACLRuleData<TSchema> = TSchema extends SchemaDefinition
 	? Omit<
 			SchemaItem<TSchema>,
@@ -119,56 +117,62 @@ type ACLRuleData<TSchema> = TSchema extends SchemaDefinition
 		>
 	: Readonly<Record<string, unknown>>
 
-/** Entry of `.with({ ... })` owned by ACL, for one schema. */
+/** Entry of `.with({ ... })` owned by ACL once `.acl()` is called. */
 export interface ACLRules<TSchema> {
 	/**
-	 * Supplies the default ACL, optionally derived from the created values.
-	 * Call `.acl()` before `.with(...)` to add the `acl` field.
-	 * @example `acl: { default: ({ data }) => new ACL().grantPublic('read') }`
+	 * Configures the `acl` field `.acl()` added; `default` is required.
+	 * @example `acl: { default: ({ principal }) => new ACL(principal) }`
 	 */
-	readonly acl?: {
-		readonly default?: ACL | ACLDefaultFactory<ACLRuleData<TSchema>>
-		readonly resolveInput?: ACLInputResolver<ACLRuleData<TSchema>>
-		readonly limits?: ACLSchemaLimits
-	}
+	readonly acl: ACLRule<ACLRuleData<TSchema>>
 }
 
-/** Contributes `acl` to `.with({ ... })` through Core's rules slot (ADR-0297). */
+/**
+ * Contributes `acl` to `.with({ ... })` through Core's rules slot, required
+ * once `.acl()` is called (ADR-0321).
+ */
 export interface ACLSchemaRules extends SchemaRulesHKT {
-	readonly rules: ACLRules<this['schema']>
+	readonly rules: 'acl' extends keyof this['shape']
+		? ACLRules<this['schema']>
+		: Readonly<Record<never, never>>
+}
+
+/** Adds the `acl` field through Core's fields slot once `.acl()` is called. */
+export interface ACLShapeFields extends SchemaFieldsHKT {
+	readonly fields: 'acl' extends keyof this['shape']
+		? Readonly<{ acl: ACLField }>
+		: unknown
 }
 
 /** Shape method chained before `.with(...)`: `.acl()` adds the `acl` field. */
 export type ACLShapeSource = PluginSchemaShapeSource<{
 	/**
-	 * Adds the ACL field; configure its default in `.with({ acl })`.
-	 * @example `App.Schema.define({ className: 'Todo', fields }).acl().with({})`
+	 * Adds the ACL field: per-row rights stored with each row (ADR-0321).
+	 * Configure it in `.with({ acl: { default } })`.
+	 * @example `App.Schema.define({ className: 'Todo', fields }).acl().with({ acl: { default: ({ principal }) => new ACL(principal) } })`
 	 */
 	readonly acl: SchemaShapeMethod<readonly [], Readonly<{ acl: object }>>
 }>
 
 type ACLSource =
-	| ACLOptionSource
-	| ACLFieldSource
+	| PluginSchemaFieldsSource<ACLShapeFields>
 	| PluginSchemaRulesSource<ACLSchemaRules>
 	| ACLShapeSource
 
-const aclDeclarations: PluginDeclarationContribution<readonly [], ACLSource> =
+const aclDeclarations: PluginDeclarationContribution<readonly [], never> =
 	contributeDeclarations({
 		schema: ({ fields, schemas }) => {
 			fields.register(aclFieldFamily)
-			const options = schemas.defineOptions({
+			schemas.defineOptions({
 				contributionId: 'official-acl-option',
 				schema: { acl: aclSchemaOption },
 			})
-			const field = schemas.patch(
+			schemas.patch(
 				patchSchemas({
 					patch: aclSchemaPatch,
 					targets: schemas.select(aclSchemaSelector),
 				}),
 			)
-
-			return [options, field] as const
+			return undefined
 		},
 	})
 
@@ -231,6 +235,29 @@ const aclReplacementInvariantOperationKinds = Object.freeze([
 	'upsert-one',
 ] as const)
 
+/** `resolveInput` recomputes each row's ACL: set-based updates cannot. */
+const assertRecomputableUpdate = (
+	operation: ExecutableAst,
+	option: Readonly<{
+		config: Readonly<{ resolveInput: unknown }>
+		schema: SchemaDefinition
+	}>,
+): void => {
+	if (
+		operation.kind !== 'update-many' ||
+		option.config.resolveInput === undefined
+	) {
+		return
+	}
+	throw new FrameworkError(
+		'VALIDATION_ERROR',
+		`${option.schema.className} declares acl.resolveInput, which recomputes each row's ACL: use updateOne() or an itemized updateMany().`,
+		{
+			publicMessage: 'This update must target one row at a time.',
+		},
+	)
+}
+
 const updateTouchesACL = (update: unknown): boolean =>
 	isPlainRecord(update) &&
 	isUnknownArray(update.operations) &&
@@ -291,15 +318,17 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			guard({
 				handler: ({ operation }) => {
 					// Mutation shape is a data invariant, so trusted master execution must enforce it too.
-					if (state.protectedOption(operation) !== undefined) {
+					const option = state.protectedOption(operation)
+					if (option !== undefined) {
 						assertSingularACLReplacement(operation)
+						assertRecomputableUpdate(operation, option)
 					}
 				},
 				operations: aclReplacementInvariantOperationKinds,
 			}),
 	)
 	const fieldPolicyProvider = stateConstraint('acl-protected-field', (state) =>
-		createACLFieldPolicy(state.protectedOption),
+		createACLFieldPolicy(state),
 	)
 	const inputProvider = provideRuntimeInterceptor({
 		contributionId: 'acl-input',
@@ -323,6 +352,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 								option.limits,
 								state.persistentRoleResolver,
 								getACLReferenceScope(option.schema),
+								subjects.roles,
 							),
 						}
 					},
@@ -355,6 +385,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				// `operations` limits this policy to executable terminals Core types broadly.
 				const permission = requiredACLPermission(
 					operation as unknown as ExecutableAst,
+					option.config.clientSharing !== undefined,
 				)
 				if (permission === undefined) return undefined
 				return immutableRecord({
@@ -407,9 +438,40 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				return resolved as unknown as TOperation
 			}
 
+			const transformPreparedInput: RuntimePreparedMutationTransformStage =
+				async <const TOperation extends RuntimeLogicalMutationOperationAst>(
+					input: RuntimePreparedMutationStageInput<TOperation, unknown>,
+				): Promise<TOperation> => {
+					const { context, operation, target } = input
+					const option = state.protectedOption(operation)
+					if (
+						operation.kind !== 'update-one' ||
+						option?.config.resolveInput === undefined ||
+						!isPlainRecord(target) ||
+						getACLReferenceScope(option.schema) !== undefined
+					) {
+						return operation
+					}
+					const subjects = await state.resolveSubjects()
+					// `resolveInput` recomputes the ACL of updates that carry none;
+					// the kind check above narrows what TypeScript cannot.
+					const recomputed = await recomputeUpdateOperationACL(
+						operation as unknown as ACLPreparedUpdateOperation,
+						target,
+						option.config,
+						subjects.principal,
+						context,
+						subjects.roleResolutionAvailable,
+						option.limits,
+						state.persistentRoleResolver,
+					)
+					return recomputed as unknown as TOperation
+				}
+
 			return {
 				value: {
 					transformInput,
+					transformPreparedInput,
 					transformResult: async (input) => {
 						if (input.outcome === undefined) return input.result
 						const option = state.protectedOption(input.operation)
@@ -461,6 +523,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		],
 	})
 	return provideSchemaShapeMethods<ACLPlugin, ACLShapeSource>(instance, {
-		acl: { sets: ['acl'], apply: () => ({ acl: {} }) },
+		acl: { sets: ['acl'], apply: () => ({ acl: aclShapeDeclared }) },
 	})
 }

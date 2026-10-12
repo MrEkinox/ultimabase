@@ -13,6 +13,12 @@ import {
 } from './change-description.js'
 import type { PostgresSchemaChange, PostgresSchemaPolicy } from './contracts.js'
 import { compileDesiredPostgresTables } from './desired-schema.js'
+import {
+	applyExistingRows,
+	describeExistingRows,
+	findMissingExistingRows,
+	readExistingRowsColumns,
+} from './existing-rows.js'
 import { planPostgresSchemaChanges } from './planner.js'
 import {
 	describeUnmanagedPostgresColumn,
@@ -185,19 +191,32 @@ export const prepareDirectPostgresSchema = async (
 		namespace,
 		catalog.tableNames(),
 	)
-	const changes = planPostgresSchemaChanges(desired, live)
+	const planned = planPostgresSchemaChanges(desired, live)
 
 	if (policy === 'override') {
-		checkUnmanagedColumns(desired, live, changes, logger)
+		checkUnmanagedColumns(desired, live, planned, logger)
 	}
-	if (changes.length === 0) return
+	if (planned.length === 0) return
+	// Required columns added to tables with rows take their field's
+	// `existingRows` value (ADR-0321).
+	const existingRows = await readExistingRowsColumns(pool, namespace, planned)
 	if (policy === 'fail') {
 		rejectChanges(
 			'PostgreSQL schema differs from the registered UltimaBase schemas.',
 			'postgres-schema-drift',
-			changes,
+			planned,
+			describeExistingRows(existingRows),
 		)
 	}
+	const missing = findMissingExistingRows(existingRows)
+	if (missing.length > 0) {
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			`PostgreSQL cannot add a required column to a table that has rows without a value for them. ${missing.join(' ')}`,
+			{ internalDetails: { kind: 'postgres-schema-existing-rows-missing' } },
+		)
+	}
+	const changes = applyExistingRows(planned, existingRows)
 
 	const unsupported = changes.filter(
 		({ kind }) => kind === 'unsupported-structure',

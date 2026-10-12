@@ -49,6 +49,19 @@ describe('protectedPolicy', () => {
 		expect(() =>
 			normalizeProtectedPolicyEffects({ allowed: true, replace: {} }),
 		).toThrow('protected policy effects contain unknown key: replace')
+		// A denial may explain itself in the server-side message (ADR-0321).
+		expect(
+			normalizeProtectedPolicyEffects({ allowed: false, reason: 'why' }),
+		).toStrictEqual({ allowed: false, reason: 'why' })
+		expect(() => normalizeProtectedPolicyEffects({ reason: 1 })).toThrow(
+			'protected policy reason must be a string',
+		)
+		expect(createProtectedPolicyDeniedError('why').message).toBe(
+			'A protected policy denied the operation: why',
+		)
+		expect(createProtectedPolicyDeniedError().publicMessage).toBe(
+			'The operation is not permitted.',
+		)
 	})
 
 	it('accepts only structural result subsets with unchanged leaf values', () => {

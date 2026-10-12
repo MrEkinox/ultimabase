@@ -28,7 +28,7 @@ export const addUserToRole = (roleId: string, userId: string) =>
 export const addChildRole = (parentId: string, childId: string) =>
 	TodoRole.updateOne(
 		{
-			data: { roles: { connect: [childId] } },
+			data: { includedRoles: { connect: [childId] } },
 			select: { id: true },
 			where: { id: { eq: parentId } },
 		},

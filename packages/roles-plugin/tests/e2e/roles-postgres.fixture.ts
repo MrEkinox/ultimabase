@@ -13,7 +13,6 @@ import {
 	type PostgresSchemaPolicy,
 } from '@ultimabase/postgres-plugin'
 import {
-	RoleSchema,
 	hasRole,
 	onRoleEvent,
 	provideRoleEventObserver,
@@ -69,22 +68,21 @@ export const roleResolutionTrace: string[] = []
 /** Records developer hooks independently from plugin-owned invariants. */
 export const roleDeveloperHookTrace: string[] = []
 
-export const AppRole = RoleSchema.define(RoleSchemaApplication.Schema, {
+export const AppRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EAppRole',
-	members: {
-		schema: RoleMember,
-		resolveCurrent: ({ context }) => {
-			roleResolutionTrace.push('resolve-current')
-			const memberId = context.getValue(currentRoleMemberId)
+	members: () => RoleMember,
+	resolveCurrent: ({ context }) => {
+		roleResolutionTrace.push('resolve-current')
+		const memberId = context.getValue(currentRoleMemberId)
 
-			return memberId === undefined ? undefined : RoleMember.pointer(memberId)
-		},
+		return memberId === undefined ? undefined : RoleMember.pointer(memberId)
 	},
-	deletion: { references: 'fail' },
+	deletion: 'fail',
 	fields: (field) => ({
 		description: field.string(),
 		priority: field.int({ default: 0 }),
 	}),
+}).with({
 	indexes: [{ fields: ['priority', 'createdAt'] }],
 	access: protectedRoleOperations,
 	hooks: {
@@ -96,27 +94,23 @@ export const AppRole = RoleSchema.define(RoleSchemaApplication.Schema, {
 	},
 })
 
-export const FailRole = RoleSchema.define(RoleSchemaApplication.Schema, {
+export const FailRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EFailRole',
-	members: { schema: RoleMember },
-	deletion: { references: 'fail' },
-	fields: () => ({}),
-	access: protectedRoleOperations,
-})
+	members: () => RoleMember,
+	deletion: 'fail',
+}).with({ access: protectedRoleOperations })
 
-export const PreserveRole = RoleSchema.define(RoleSchemaApplication.Schema, {
+export const PreserveRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EPreserveRole',
-	members: { schema: RoleMember },
-	deletion: { references: 'preserve' },
-	fields: () => ({}),
-	access: { ...protectedRoleOperations, delete: true },
-})
+	members: () => RoleMember,
+	deletion: 'preserve',
+}).with({ access: { ...protectedRoleOperations, delete: true } })
 
-export const CascadeRole = RoleSchema.define(RoleSchemaApplication.Schema, {
+export const CascadeRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2ECascadeRole',
-	members: { schema: RoleMember },
-	deletion: { references: 'cascade' },
-	fields: () => ({}),
+	members: () => RoleMember,
+	deletion: 'cascade',
+}).with({
 	access: {
 		// Native Access permits deletion so the plugin's master-only cascade guard is exercised.
 		...protectedRoleOperations,

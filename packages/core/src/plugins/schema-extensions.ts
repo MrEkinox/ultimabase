@@ -5,7 +5,9 @@ import type { PluginDefinition, PluginSource } from './definition.js'
 /**
  * Higher-kinded slot through which one plugin contributes rule entries to the
  * final `.with({ ... })` call of a schema declaration. Core substitutes the
- * schema reference into `schema` and reads `rules`; it never names a plugin.
+ * schema reference into `schema` and the shape methods called on the
+ * declaration into `shape` (`{ acl: readonly [] }`, so a rule can be required
+ * once its shape method is called), and reads `rules`; it never names a plugin.
  *
  * @example
  * ```ts
@@ -16,6 +18,7 @@ import type { PluginDefinition, PluginSource } from './definition.js'
  */
 export interface SchemaRulesHKT {
 	readonly schema: unknown
+	readonly shape: object
 	readonly rules: object
 }
 
@@ -149,8 +152,8 @@ export type SchemaShapeMethodOptions<TMethod> =
 		? TOptions
 		: never
 
-type ApplySchemaRules<TRules, TSchema> = TRules extends SchemaRulesHKT
-	? (TRules & { readonly schema: TSchema })['rules']
+type ApplySchemaRules<TRules, TSchema, TShape> = TRules extends SchemaRulesHKT
+	? (TRules & { readonly schema: TSchema; readonly shape: TShape })['rules']
 	: unknown
 
 /**
@@ -158,11 +161,13 @@ type ApplySchemaRules<TRules, TSchema> = TRules extends SchemaRulesHKT
  * accumulated as a tuple: intersecting `this`-typed interfaces directly makes
  * TypeScript give up with TS2589.
  */
-export type SchemaRulesFor<TRulesList, TSchema> = TRulesList extends readonly [
-	infer TFirst,
-	...infer TRest,
-]
-	? ApplySchemaRules<TFirst, TSchema> & SchemaRulesFor<TRest, TSchema>
+export type SchemaRulesFor<
+	TRulesList,
+	TSchema,
+	TShape = Readonly<Record<never, never>>,
+> = TRulesList extends readonly [infer TFirst, ...infer TRest]
+	? ApplySchemaRules<TFirst, TSchema, TShape> &
+			SchemaRulesFor<TRest, TSchema, TShape>
 	: unknown
 
 type SourceShapeMethods<TSource> =

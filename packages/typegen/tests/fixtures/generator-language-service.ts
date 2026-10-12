@@ -1,10 +1,10 @@
 import path from 'node:path'
 
-import { UltimaBase, Schema, defineEnum } from '@ultimabase/core'
+import { UltimaBase, defineEnum } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
-import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import * as ts from 'typescript'
 import {
 	createLanguageServiceWorkspace,
@@ -83,18 +83,15 @@ export const createGeneratedRoleRegistry = (): string => {
 			name: field.string({ required: true }),
 		}),
 	})
-	const roleCandidate: unknown = RoleSchema.define({
+	const RoleApplication = UltimaBase.use(hooksPlugin(), rolesPlugin())
+	const Role = RoleApplication.RoleSchema.define({
 		className: 'SemanticRole',
 		fields: (field) => ({
 			description: field.string(),
 		}),
-		members: { schema: Member },
-	})
-	if (!Schema.is(roleCandidate)) {
-		throw new TypeError('Expected the semantic role schema to be defined')
-	}
-	const Role = roleCandidate
-	const application = new (UltimaBase.use(hooksPlugin(), rolesPlugin()))({
+		members: () => Member,
+	}).with({})
+	const application = new RoleApplication({
 		schemas: [Member, Role],
 	})
 

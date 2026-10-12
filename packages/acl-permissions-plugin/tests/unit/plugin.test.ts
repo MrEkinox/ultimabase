@@ -172,13 +172,16 @@ describe('aclPlugin create input resolution', () => {
 		const StaticRolePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLStaticRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
-			acl: {
-				default: new ACL().grantRole(
-					new RequestSubjectReference('role', 'fixture-static-role'),
-					'read',
-				),
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: new ACL().grantRole(
+						new RequestSubjectReference('role', 'fixture-static-role'),
+						'read',
+					),
+				},
+			})
 		let infrastructureStarted = false
 		const infrastructure = plugin({
 			version: '0.0.0',
@@ -234,10 +237,13 @@ describe('aclPlugin create input resolution', () => {
 		const DynamicRolePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLDynamicRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
-			acl: {
-				default: () => new ACL().grantRole(dynamicRole, 'read'),
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: () => new ACL().grantRole(dynamicRole, 'read'),
+				},
+			})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = plugin({
 			version: '0.0.0',
@@ -382,29 +388,34 @@ describe('aclPlugin create input resolution', () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-			acl: {
-				default: ({ data }) => {
-					const value = new ACL().grantPrincipal(
-						Principal.pointer('first'),
-						'read',
-					)
-
-					return data.title === 'Oversized'
-						? value.grantPrincipal(Principal.pointer('second'), 'read')
-						: value
-				},
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: ({ data }) => {
+						const value = new ACL().grantPrincipal(
+							Principal.pointer('first'),
+							'read',
+						)
+						return data.title === 'Oversized'
+							? value.grantPrincipal(Principal.pointer('second'), 'read')
+							: value
+					},
+				},
+			})
 		const OverridePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLSchemaLimitOverridePost',
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-			acl: {
-				default: twoPrincipals,
-				limits: { maxPrincipals: 2 },
-			},
 		})
+			.acl()
+			.with({
+				acl: {
+					default: twoPrincipals,
+					limits: { maxPrincipals: 2 },
+				},
+			})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = plugin({
 			version: '0.0.0',
@@ -520,10 +531,12 @@ describe('aclPlugin create input resolution', () => {
 			schema: protectedPostNode,
 		} as const
 
+		const resolveInput = vi.fn(() => new ACL())
+
 		await expect(
 			resolveCreateOperationACL(
 				operation,
-				normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl }),
+				normalizedACL({ resolveInput }),
 				undefined,
 				context,
 			),
@@ -532,26 +545,24 @@ describe('aclPlugin create input resolution', () => {
 			internalDetails: { kind: 'acl-management-requires-master' },
 		} satisfies Partial<FrameworkError>)
 
-		await expect(
-			resolveCreateOperationACL(
-				operation,
-				normalizedACL(),
-				undefined,
-				masterContext,
-			),
-		).rejects.toThrow(
-			new TypeError(
-				'Explicit ACL input requires an acl.resolveInput declaration',
-			),
+		// ADR-0321: Master writes an explicit ACL without resolveInput.
+		const withoutResolver = await resolveCreateOperationACL(
+			operation,
+			normalizedACL(),
+			undefined,
+			masterContext,
 		)
+		expect(withoutResolver.input.acl).toStrictEqual(explicit)
 
+		// resolveInput only recomputes from data: an explicit ACL bypasses it.
 		const accepted = await resolveCreateOperationACL(
 			operation,
-			normalizedACL({ resolveInput: ({ inputAcl }) => inputAcl }),
+			normalizedACL({ resolveInput }),
 			undefined,
 			masterContext,
 		)
 
-		expect(accepted.input.acl).toBe(explicit)
+		expect(accepted.input.acl).toStrictEqual(explicit)
+		expect(resolveInput).not.toHaveBeenCalled()
 	})
 })

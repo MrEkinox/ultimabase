@@ -54,12 +54,9 @@ export const createTodoApplication = (options: TodoApplicationOptions = {}) => {
 	return new Application({ schemas: todoSchemas })
 }
 
-// One declaration per application (ADR-0297 amendment 1). Typegen names these
-// old-form schemas; registering the real application would make the Role
-// schema reference itself through the registry (TS7022) until Roles moves to
-// its schema factory.
+// One declaration per application (ADR-0297 amendment 1).
 declare module '@ultimabase/core' {
 	interface Register {
-		readonly app: UltimaBase<readonly []>
+		readonly app: ReturnType<typeof createTodoApplication>
 	}
 }

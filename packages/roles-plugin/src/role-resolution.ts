@@ -1,5 +1,6 @@
 import {
 	type OperationOptions,
+	type RequestRoleReference,
 	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaResult,
@@ -7,6 +8,7 @@ import {
 
 import {
 	getRoleReferenceState,
+	restoreRoleReferenceState,
 	type RoleReference,
 	type RoleReferenceState,
 } from './role-reference.js'
@@ -36,10 +38,29 @@ export class RoleReferenceResolutionError extends Error {
 export const roleQuerySchema = (schema: SchemaDefinition): SchemaClass =>
 	schema as unknown as SchemaClass
 
-const requireRoleReferenceState = <const TSchema extends SchemaDefinition>(
-	reference: RoleReference<TSchema>,
-): RoleReferenceState<TSchema> => {
-	const state = getRoleReferenceState(reference)
+// References read back from stored data (ACL `entries()`) carry no package
+// state; they are restored against the role schemas of the initialized
+// application (one per realm), the latest declaration of a class name winning.
+const registeredRoleSchemas = new Map<string, SchemaDefinition>()
+
+/** Records the role schemas of one application for restored references. */
+export const registerRoleSchemas = (
+	schemas: readonly SchemaDefinition[],
+): void => {
+	for (const schema of schemas) {
+		registeredRoleSchemas.set(schema.className, schema)
+	}
+}
+
+const requireRoleReferenceState = (
+	reference: RequestRoleReference,
+): RoleReferenceState => {
+	const state =
+		getRoleReferenceState(reference) ??
+		restoreRoleReferenceState(
+			reference,
+			new Set(registeredRoleSchemas.values()),
+		)
 
 	if (state === undefined) {
 		throw new RoleReferenceResolutionError(
@@ -113,13 +134,27 @@ export const resolveRoleReferenceId = async <
 	)
 }
 
-/** Resolves one reference to the exact persisted role model in its own domain. */
-export const resolveRoleReference = async <
+/**
+ * Resolves one reference to the exact persisted role model in its own domain.
+ * A role reference read from stored data, such as an ACL `entries()` role,
+ * resolves against the role schemas of the initialized application.
+ *
+ * @example `const { name } = await resolveRoleReference(entry.role, { useMasterKey: true })`
+ */
+export async function resolveRoleReference<
 	const TSchema extends SchemaDefinition,
 >(
 	reference: RoleReference<TSchema>,
 	options?: OperationOptions,
-): Promise<SchemaResult<TSchema>> => {
+): Promise<SchemaResult<TSchema>>
+export async function resolveRoleReference(
+	reference: RequestRoleReference,
+	options?: OperationOptions,
+): Promise<SchemaResult<SchemaDefinition>>
+export async function resolveRoleReference(
+	reference: RequestRoleReference,
+	options?: OperationOptions,
+): Promise<SchemaResult<SchemaDefinition>> {
 	const { schema, selector } = requireRoleReferenceState(reference)
 	let role: object | null
 
@@ -139,7 +174,7 @@ export const resolveRoleReference = async <
 		}
 	}
 
-	// Runtime preserves the exact schema identity; this generic bridge only hides
-	// the bootstrap BaseItem branch that TypeScript cannot reduce for TSchema.
-	return role as unknown as SchemaResult<TSchema>
+	// Runtime preserves the exact schema identity; this bridge only hides the
+	// bootstrap BaseItem branch that TypeScript cannot reduce for a schema.
+	return role as unknown as SchemaResult<SchemaDefinition>
 }

@@ -183,3 +183,11 @@ performance probes). Those places register a schema-less application
 (`readonly app: UltimaBase<readonly []>`, with a comment) and keep their Typegen-provided types.
 The user accepted this workaround on 2026-10-11 until migration step 6 moves Roles, create-app
 and the examples to form D (`App.RoleSchema`, amendment 3) and removes the old form.
+
+Note (migration step 6.3, 2026-10-11): ADR-0322 removed this workaround where Roles caused it.
+Role schemas come from `App.RoleSchema.define`, proven on TypeScript 6 and 7 without TS7022, and
+create-app with Roles, `examples/todo-backend` and the form D example register `typeof ultimabase`
+again. Three places keep the schema-less registration for causes other than Roles, until their
+migration steps (6.7, 6.8): `examples/minimal` (the field-level relation `where` callback of
+`ExampleArticle.reviewers` reads the registry while its schema is typed), the website landing
+harness and the Typegen performance probes (old-form Access rules inside `define`).

@@ -25,7 +25,7 @@ export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
 		['access-plugin', 'accessPlugin'],
 		['acl-permissions-plugin', 'ACL, aclPlugin'],
 		['password-auth-plugin', 'PasswordUserSchema'],
-		['roles-plugin', 'RoleSchema, rolesPlugin'],
+		['roles-plugin', 'rolesPlugin'],
 	]),
 ]
 
@@ -60,44 +60,63 @@ export const AppUser = PasswordUserSchema.define(SchemaApplication.Schema, {
 			hasMember(plan),
 			`// A local member model keeps Roles useful without installing authentication.
 export const Member = SchemaApplication.Schema.define({
-${[
-	"  className: 'Member',",
-	...privateSchemaApiOptions(plan),
-	'  fields: (f) => ({ name: f.string({ required: true }) }),',
-].join('\n')}
-})`,
+  className: 'Member',
+  fields: (f) => ({ name: f.string({ required: true }) }),
+})${withRules(privateSchemaApiOptions(plan).map((line) => line.trim()))}`,
 		],
 		[
 			has(plan, 'roles-plugin'),
 			`// Role membership is data, not an authorization grant by itself.
-export const AppRole = RoleSchema.define(SchemaApplication.Schema, {
+export const AppRole = SchemaApplication.RoleSchema.define({
 ${[
 	"  className: 'Role',",
-	...privateSchemaApiOptions(plan),
-	`  members: { schema: ${roleMembers(plan)} },`,
-	"  deletion: { references: 'fail' },",
+	`  members: () => ${roleMembers(plan)},`,
+	"  deletion: 'fail',",
 	'  fields: (f) => ({ description: f.string() }),',
 ].join('\n')}
-})`,
+})${withRules(privateSchemaApiOptions(plan).map((line) => line.trim()))}`,
 		],
 	]).join('\n\n')
 
+/**
+ * Role schemas are complete declarations (`.with(...)`), and an application
+ * mixing them with unfinished `define(...)` calls cannot name its own type in
+ * `Register`. With Roles or ACL, the Task rules therefore go in `.with(...)`.
+ */
+const finishesTask = (plan: InitializerPlan): boolean =>
+	has(plan, 'roles-plugin') || has(plan, 'acl-permissions-plugin')
+
+const taskAccessRule = [
+	'// Deny ordinary requests; the local demonstration uses audited Master access.',
+	'access: { read: false, create: false, update: false, delete: false },',
+]
+
+/** Renders the final `.with(...)` of a declaration from its rule lines. */
+const withRules = (rules: readonly string[]): string =>
+	rules.length === 0
+		? '.with({})'
+		: `.with({\n${rules.map((rule) => `  ${rule}`).join('\n')}\n})`
+
+/** Old-form Task options, kept in `define(...)` while the Task stays unfinished. */
 export const taskSecurityOptions = (plan: InitializerPlan): string =>
-	included([
-		[
-			has(plan, 'access-plugin'),
-			`  // Deny ordinary requests; the local demonstration uses audited Master access.
-  access: { read: false, create: false, update: false, delete: false },`,
-		],
-		[
-			has(plan, 'acl-permissions-plugin'),
-			`  // An empty ACL grants no read, update, or delete rights.
-  acl: {
-    default: () => new ACL(),
-    resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl ?? new ACL(),
-  },`,
-		],
-	]).join('\n')
+	has(plan, 'access-plugin') && !finishesTask(plan)
+		? taskAccessRule.map((line) => `  ${line}`).join('\n')
+		: ''
+
+/** ACL is added by `.acl()` and configured in `.with({ acl })` (ADR-0321). */
+export const taskRulesChain = (plan: InitializerPlan): string => {
+	if (!finishesTask(plan)) return ''
+	const rules = [
+		...(has(plan, 'access-plugin') ? taskAccessRule : []),
+		...(has(plan, 'acl-permissions-plugin')
+			? [
+					'// An empty ACL grants no read, update, or delete rights.',
+					'acl: { default: new ACL() },',
+				]
+			: []),
+	]
+	return `${has(plan, 'acl-permissions-plugin') ? '.acl()' : ''}${withRules(rules)}`
+}
 
 export const securityApplicationImports = (
 	plan: InitializerPlan,

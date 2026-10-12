@@ -13,18 +13,19 @@ describe('generated RoleSchema TypeScript contracts', () => {
 		expect(registry).not.toContain('ultimabase.roles.identity')
 		const source = `${registry}
 import { UltimaBase } from '@ultimabase/core'
-import { RoleSchema } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
+const RoleApplication = UltimaBase.use(rolesPlugin())
 const Member = UltimaBase.Schema.define({
   className: 'SemanticRoleMember',
   fields: (field) => ({
     name: field.string({ required: true }),
   }),
 })
-const AppRole = RoleSchema.define({
+const AppRole = RoleApplication.RoleSchema.define({
   className: 'SemanticRole',
   fields: (field) => ({ description: field.string() }),
-  members: { schema: Member },
-})
+  members: () => Member,
+}).with({})
 
 // @ts-expect-error -- Role schemas are not constructible (ADR-0310).
 new AppRole({ description: 'Editors', name: 'editor' })

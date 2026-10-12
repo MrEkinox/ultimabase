@@ -8,8 +8,14 @@ import {
 	type ExecutableOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
+import { isACLChangeValue } from './acl-change.js'
 import type { ACLPermission } from './acl-contracts.js'
 import type { ACLContainmentOperand } from './acl-containment.js'
 import { aclFieldName } from './acl-option.js'
@@ -90,10 +96,46 @@ export const createACLPermissionRowFilter = (
 	})
 }
 
+const isSystemField = (schema: SchemaDefinition, field: unknown): boolean => {
+	if (typeof field !== 'string') return false
+	const options: unknown = schema.persistedFields[field]?.options
+	return isPlainRecord(options) && options.system === true
+}
+
+/**
+ * Recognizes an update that only shares the row (`grant`/`revoke`, plus
+ * framework timestamps): `clientSharing` authorizes it on a row the caller
+ * reads, instead of the `update` right (ADR-0321).
+ */
+const isSharingUpdate = <TSchema extends SchemaDefinition>(
+	operation: ExecutableOperationAst<TSchema>,
+): boolean => {
+	if (operation.kind !== 'update-one') return false
+	const update: unknown = operation.update
+	if (!isPlainRecord(update) || !isUnknownArray(update.operations)) {
+		return false
+	}
+	const schema = operation.query.schema.definition
+	let shares = false
+	for (const candidate of update.operations) {
+		if (!isPlainRecord(candidate)) return false
+		if (candidate.field === aclFieldName && isACLChangeValue(candidate.value)) {
+			shares = true
+		} else if (!isSystemField(schema, candidate.field)) {
+			return false
+		}
+	}
+	return shares
+}
+
 /** Maps each terminal to its one object-level right; creation grants no ACL authority. */
 export const requiredACLPermission = <TSchema extends SchemaDefinition>(
 	operation: ExecutableOperationAst<TSchema>,
+	clientSharing = false,
 ): ACLPermission | undefined => {
+	if (clientSharing && isSharingUpdate(operation)) {
+		return 'read'
+	}
 	switch (operation.kind) {
 		case 'count':
 		case 'exists':

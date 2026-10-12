@@ -11,7 +11,7 @@ import {
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { provideTestPrincipalResolver } from '../fixtures/access-capability-fixtures.js'
@@ -77,12 +77,11 @@ export const PrincipalMember = App.Schema.define({
 	fields: (field) => ({ name: field.string({ required: true }) }),
 }).with({ access: { read: true, create: true } })
 
-export const PrincipalRole = RoleSchema.define(App.Schema, {
+export const PrincipalRole = App.RoleSchema.define({
 	className: 'PrincipalRole',
-	members: { schema: PrincipalMember },
-	deletion: { references: 'fail' },
-	fields: () => ({}),
-})
+	members: () => PrincipalMember,
+	deletion: 'fail',
+}).with({})
 
 let failPredicate: 'error' | 'public' | undefined
 const explode: PolicyPredicate = function explode() {

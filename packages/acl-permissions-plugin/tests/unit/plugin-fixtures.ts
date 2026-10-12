@@ -58,8 +58,9 @@ export const ProtectedPost = ACLSchemaApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	acl: {},
 })
+	.acl()
+	.with({ acl: { default: new ACL() } })
 export const protectedPostNode = new QueryBuilder(ProtectedPost).ast.schema
 export const aclAdapterCapabilities = {
 	filterOperators: testDatabaseFilterOperators,

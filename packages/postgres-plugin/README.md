@@ -528,6 +528,14 @@ Under `override`, synchronization is safe by construction (ADR-0320):
   field of the same type appears in the same plan, the message suggests the
   forgotten `renamedFrom`; for an optional orphan column it is a `warn` line
   and the plan still applies.
+- A required plugin field added to a table that already has rows (ACL's
+  `acl`, ADR-0321) takes the value its field declares for existing rows
+  through Core's neutral `existingRows` metadata: the column is added as
+  `NOT NULL DEFAULT …` (no table rewrite since PostgreSQL 11), then keeps the
+  field's own `storageDefault`. When the field has no value for existing rows,
+  `start()` refuses with the field's explanation; an empty table gets the
+  column directly. Under `fail`, the drift message names the value existing
+  rows would receive. The plugin itself knows no plugin field.
 
 Use `fail` to inspect and reject any drift without mutation, or `ignore` to
 skip structural inspection entirely. Direct synchronization preserves tables

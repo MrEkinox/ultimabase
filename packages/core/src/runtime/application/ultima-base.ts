@@ -73,7 +73,7 @@ import {
 import {
 	appendConfiguredPlugins,
 	readConfiguredPlugins,
-	type ConfiguredUltimaBaseFactory,
+	type ConfiguredApplicationFactory,
 	type MergeInstalledPluginSources,
 } from './configured-application-factory.js'
 import type {
@@ -148,7 +148,7 @@ export class UltimaBase<
 	 */
 	static use<const TInstalled extends readonly PluginDefinition[]>(
 		...plugins: TInstalled
-	): ConfiguredUltimaBaseFactory<
+	): ConfiguredApplicationFactory<
 		readonly [...TInstalled],
 		MergeInstalledPluginSources<EmptyPluginSourceState, TInstalled>
 	> {

@@ -59,13 +59,16 @@ export const Todo = TodoSchemaApplication.Schema.define({
 		upsert: false,
 		delete: false,
 	},
-	acl: {
-		default: new ACL()
-			.grantPublic('read')
-			.grantRole(TodoEditorRole, 'read', 'update'),
-	},
 	postgres: { table: 'todos' },
 })
+	.acl()
+	.with({
+		acl: {
+			default: new ACL()
+				.grantPublic('read')
+				.grantRole(TodoEditorRole, 'read', 'update'),
+		},
+	})
 ```
 
 The configured schema factory supplies field Access, field Hooks, Validation,
@@ -105,9 +108,9 @@ The same file also contains:
 - a composite index and PostgreSQL table/rename metadata;
 - field `resolveInput` Hooks and a schema business Hook that rejects reopening
   completed tasks;
-- `TodoRole`, declared through `RoleSchema.define()`, with custom fields,
-  indexes, Access, Hooks, PostgreSQL options, members, and nested roles;
-- an ACL-injected reserved field without declaring `acl` manually.
+- `TodoRole`, declared through `App.RoleSchema.define()`, with custom fields,
+  indexes, Access and Hooks in `.with(...)`, members, and included roles;
+- the ACL field `.acl()` adds, configured by `.with({ acl })`.
 
 [`src/create-application.ts`](src/create-application.ts) installs the behavior
 explicitly. Importing a plugin package alone changes nothing:
@@ -224,7 +227,7 @@ export type TodoCreateInput = {
 
 export type TodoRoleWhereInput = {
 	readonly members?: RelationFilter<TodoUserWhereInput>
-	readonly roles?: RelationFilter<TodoRoleWhereInput>
+	readonly includedRoles?: RelationFilter<TodoRoleWhereInput>
 	// ...scalar filters
 }
 ```

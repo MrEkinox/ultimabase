@@ -257,7 +257,7 @@ export const evaluateEnforcementContributions = async <
 				(await implementation.evaluate(createHandlerInput())) ?? {},
 			)
 			if (effects.allowed === false) {
-				throw createProtectedPolicyDeniedError()
+				throw createProtectedPolicyDeniedError(effects.reason)
 			}
 			if (effects.rowFilter !== undefined) {
 				const rowFilter = normalizeWhereInput(

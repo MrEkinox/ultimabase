@@ -12,6 +12,7 @@ import type {
 	SchemaShapeOf,
 	SchemaStaticsFor,
 } from '../../plugins/schema-extensions.js'
+import type { SchemaFactoryShapeBrand } from '../../plugins/schema-factories.js'
 import type {
 	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoCarrier,
@@ -140,9 +141,18 @@ type ConfiguredSchemaClassSurface<
 	> &
 	// Typegen surfaces already type the commands of generated class names
 	// (old form, until step 6.8); evaluating the slots there again would
-	// rebuild a source contract for every command.
+	// rebuild a source contract for every command. Schema factory statics
+	// (`TodoRole.role(...)`) have no generated surface, so they still apply.
 	(TClassName extends keyof UltimaBaseGeneratedSchemas
-		? unknown
+		? SchemaShapeOf<TOptions> extends SchemaFactoryShapeBrand
+			? SchemaStaticsFor<
+					TSource['schemaStatics'],
+					SchemaShapeOf<TOptions>,
+					SchemaClass<
+						ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
+					>
+				>
+			: unknown
 		: SchemaStaticsFor<
 				TSource['schemaStatics'],
 				SchemaShapeOf<TOptions>,

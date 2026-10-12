@@ -47,7 +47,7 @@ export const updateAppRole = (
 // ADR-0310: links are read through include, not relation handles.
 export const countRoleLinks = async (
 	roleId: string,
-	field: 'members' | 'roles',
+	field: 'includedRoles' | 'members',
 ): Promise<number> => {
 	const role = await AppRole.findOneOrThrow(
 		{
@@ -55,7 +55,7 @@ export const countRoleLinks = async (
 			select: { id: true },
 			include: {
 				members: { select: { id: true } },
-				roles: { select: { id: true } },
+				includedRoles: { select: { id: true } },
 			},
 		},
 		masterOptions,

@@ -13,7 +13,8 @@ export type {
 	RoleMembershipChangedEvent,
 } from './role-events.js'
 export { rolesPlugin } from './plugin.js'
-export type { RolesPlugin } from './plugin.js'
+export type { RolesPlugin, RolesPluginFactory } from './plugin.js'
+export type { RoleHasOptions, RolesPluginExports } from './role-queries.js'
 export {
 	RoleHierarchyError,
 	roleHierarchyMaxDepth,
@@ -24,18 +25,19 @@ export {
 	resolveRoleReference,
 	resolveRoleReferenceId,
 } from './role-resolution.js'
-export { RoleSchema, rolesPluginId } from './role-schema.js'
+export { rolesPluginId } from './role-schema.js'
 export type {
 	ReservedRoleFieldName,
 	RoleCurrentMemberInput,
-	RoleDeletionOptions,
-	RoleMemberOptions,
+	RoleOwnedFields,
 	RoleReferenceDeletionPolicy,
-	RoleSchemaClass,
+	RoleSchemaFactories,
+	RoleSchemaFactory,
+	RoleSchemaFactoryMembers,
 	RoleSchemaFields,
 	RoleSchemaOptions,
-	RoleSchemaSelfDefinition,
 	RoleSchemaStatics,
+	RoleSchemaStaticsSlot,
 } from './role-schema.js'
 export type {
 	RoleIdSelector,

@@ -47,12 +47,14 @@ const readChildRoles =
 			{
 				where: { id: readPersistedRoleId(role) },
 				select: { id: true },
-				include: { roles: { select: { id: true }, orderBy: { id: 'asc' } } },
+				include: {
+					includedRoles: { select: { id: true }, orderBy: { id: 'asc' } },
+				},
 			},
 			{ useMasterKey: true },
 		)
 		const children: unknown =
-			parent === null ? [] : Reflect.get(parent, 'roles')
+			parent === null ? [] : Reflect.get(parent, 'includedRoles')
 		if (!isUnknownArray(children)) {
 			throw new TypeError('Role hierarchy result must include its roles')
 		}

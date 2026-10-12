@@ -15,6 +15,7 @@
 			"@ultimabase/postgres-plugin": [
 				"../../packages/postgres-plugin/src/index.ts"
 			],
+			"@ultimabase/roles-plugin": ["../../packages/roles-plugin/src/index.ts"],
 			"@ultimabase/shared": ["../../packages/shared/src/index.ts"],
 			"@ultimabase/soft-delete-plugin": [
 				"../../packages/soft-delete-plugin/src/index.ts"

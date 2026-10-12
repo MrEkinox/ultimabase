@@ -317,6 +317,12 @@ interface PluginApplicationLifecycle {
 	readonly prepareSchema?: (context: PluginStartContext) => MaybePromise<void>
 	readonly startRuntime?: (context: PluginStartContext) => MaybePromise<void>
 	readonly startTransports?: (context: PluginStartContext) => MaybePromise<void>
+	/**
+	 * Runs once every start phase has completed and the application accepts
+	 * queries, before `start()` resolves; a failure fails `start()`. Seeding
+	 * work, such as Roles `ensure` (ADR-0322), belongs here.
+	 */
+	readonly ready?: (context: PluginStartContext) => MaybePromise<void>
 	readonly stop?: () => MaybePromise<void>
 	readonly dispose?: () => MaybePromise<void>
 }
@@ -350,6 +356,7 @@ export const pluginApplicationLifecyclePhases: readonly PluginApplicationLifecyc
 		'prepareSchema',
 		'startRuntime',
 		'startTransports',
+		'ready',
 		'stop',
 		'dispose',
 	])

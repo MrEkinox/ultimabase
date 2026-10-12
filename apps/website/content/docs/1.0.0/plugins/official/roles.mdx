@@ -7,7 +7,7 @@ contentType: guide
 order: 5
 outcome: Compose role membership with Access or ACL without treating membership as a grant.
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-11
 sources:
   - packages/roles-plugin/README.md
   - packages/access-plugin/README.md
@@ -15,23 +15,28 @@ sources:
   - packages/password-auth-plugin/src/authentication-result.ts
   - packages/roles-plugin/src/role-access.ts
   - packages/roles-plugin/src/role-deletion.ts
+  - packages/roles-plugin/src/role-ensure.ts
+  - packages/roles-plugin/src/role-queries.ts
   - packages/roles-plugin/src/role-reference.ts
   - packages/roles-plugin/src/role-schema.ts
   - packages/roles-plugin/tests/e2e/roles-postgres.postgres.e2e.test.ts
+  - packages/roles-plugin/tests/e2e/roles-queries.postgres.e2e.test.ts
   - examples/minimal/src/schema.ts
   - docs/adr/0119-developer-defined-role-schemas.md
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0308-one-checked-link-vocabulary.md
+  - docs/adr/0322-roles-schema-factory-and-queries.md
 ---
 
 ## Overview
 
 `@ultimabase/roles-plugin` stores roles as ordinary application schemas with
-typed members and parent–child hierarchy. You define the role schema and its
-exact member schema; the plugin supplies membership commands and a request
-resolver. A role reference identifies a role.
+typed members and included roles. You declare each role schema with
+`App.RoleSchema.define(...)` and its member schema; the plugin supplies the
+membership resolver, role queries, and seed roles. A role reference identifies
+a role. An application may declare several role schemas.
 A role, a role hierarchy, and an authenticated principal
 grant nothing by themselves.
 
@@ -68,23 +73,28 @@ membership queries need configured, audited
 
 ## Configuration
 
-Define a role domain for the exact member schema. The current member is the
-request principal resolved by Core when it belongs to `members.schema`; here
-the Password Authentication principal points to the same `PasswordUser` class,
-so `hasRole()` can evaluate the caller's membership:
+Installing `rolesPlugin()` adds `App.RoleSchema` to the configured factory.
+Declare a role schema with the schema of its members, then end with
+`.with({ ... })` like any schema. The current member is the request principal
+resolved by Core when it belongs to the member schema; here the Password
+Authentication principal points to the same `PasswordUser` class, so
+`hasRole()` can evaluate the caller's membership:
 
 ```ts title="src/roles.ts"
 import { PasswordUser } from '@ultimabase/password-auth-plugin'
-import { RoleSchema, hasRole } from '@ultimabase/roles-plugin'
+import { hasRole } from '@ultimabase/roles-plugin'
 import { Application } from './application.js'
 
-export const AppRole = RoleSchema.define(Application.Schema, {
+export const AppRole = Application.RoleSchema.define({
 	className: 'Role',
-	members: { schema: PasswordUser },
-	deletion: { references: 'fail' },
+	members: () => PasswordUser,
+	deletion: 'fail',
+	// Created at start() when missing; existing roles are left unchanged.
+	ensure: ['editor', 'administrator'],
 	fields: (f) => ({
 		description: f.string(),
 	}),
+}).with({
 	access: {
 		read: true,
 		create: false,
@@ -98,12 +108,17 @@ export const EditorRole = AppRole.role('editor')
 export const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
+}).with({
 	access: {
 		read: true,
 		update: hasRole(EditorRole),
 	},
 })
 ```
+
+`members` is a function so that the role and member schemas may reference each
+other, like relation targets. Declare `Register` with `typeof ultimabase` as
+for any application (ADR-0297); role schemas need no special declaration.
 
 ### Permit the session owner to read its profile
 
@@ -201,36 +216,45 @@ This configuration module stays safe to load for static Typegen generation.
 Use a disposable database or a reviewed PostgreSQL schema policy while
 developing. Replace the console audit with a reliable sink before deployment;
 never send Master credentials to a browser. `rolesPlugin()` takes no factory
-options. Role behavior is selected by the registered `RoleSchema.define()`
-declaration:
+options; each role schema declares its behavior:
 
-| Role schema option                     | Purpose                                                                                               |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `members.schema`                       | The exact schema of persisted direct members                                                          |
-| `members.resolveCurrent`               | Special cases only: maps request-local identity to a member Pointer instead of the Core principal     |
-| `deletion.references`                  | External-reference policy: `fail` (default), `preserve`, or `cascade`                                 |
-| `fields`, `indexes`, `access`, `hooks` | Ordinary custom schema features beside generated role fields, when their owning plugins are installed |
+| `App.RoleSchema.define` option | Purpose                                                                                      |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `members`                      | A function returning the schema of the persisted direct members                              |
+| `fields`                       | Ordinary custom fields beside `name`, `members` and `includedRoles`                          |
+| `deletion`                     | External-reference policy: `'fail'` (default), `'preserve'`, or `'cascade'`                  |
+| `ensure`                       | Role names created at `start()` when missing (idempotent, existing roles unchanged)          |
+| `resolveCurrent`               | Special cases only: maps request-local identity to a member Pointer instead of the principal |
 
-`RoleSchema.define()` injects `name`, `members`, and `roles`. Do not redeclare
-those reserved fields. Role schemas remain available to trusted server Query,
-but are not automatically published as generated REST or GraphQL CRUD routes.
+Rules (`access`, `hooks`), indexes and plugin options go in the final
+`.with({ ... })`; shape methods such as `.acl()` may be chained before it.
+The factory adds `name`, `members`, and `includedRoles`; do not redeclare
+them. Role schemas remain available to trusted server Query, but are not
+automatically published as generated REST or GraphQL CRUD routes.
 
 ## Behavior and limitations
 
 ### Create roles and manage membership
 
-Persist roles through the ordinary schema commands. Run administrative
-commands only from trusted server code with audited Master authority when the
-role schema denies ordinary mutations, as in the configuration above:
+`ensure` creates seed roles at `start()`. Persist other roles through the
+ordinary schema commands. Run administrative commands only from trusted server
+code with audited Master authority when the role schema denies ordinary
+mutations, as in the configuration above:
 
 ```ts title="src/seed-roles.ts"
 import { PasswordUser } from '@ultimabase/password-auth-plugin'
 import { AppRole } from './roles.js'
 
 const master = { useMasterKey: true } as const
-const editor = await AppRole.createOne({ data: { name: 'editor' } }, master)
-const administrator = await AppRole.createOne(
-	{ data: { name: 'administrator', roles: { connect: [editor.id] } } },
+const editor = await AppRole.findOneOrThrow(
+	{ where: { name: 'editor' } },
+	master,
+)
+await AppRole.updateOne(
+	{
+		where: { name: 'administrator' },
+		data: { includedRoles: { connect: [editor.id] } },
+	},
 	master,
 )
 
@@ -245,12 +269,11 @@ export const addEditor = (userId: string) =>
 	)
 ```
 
-Run the role creation once as setup, not on every request. Members and
-included roles change through the ordinary relation commands of `createOne`
-and `updateOne` (ADR-0308): `members: { connect: [...] }`, `disconnect`, or
-`set`, with IDs or Pointers of the member schema. `roles` changes hierarchy:
-connecting Editor to Administrator's `roles` makes Editor a child of
-Administrator, so Editor members also satisfy Administrator membership. The
+Members and included roles change through the ordinary relation commands of
+`createOne` and `updateOne` (ADR-0308): `members: { connect: [...] }`,
+`disconnect`, or `set`, with IDs or Pointers of the member schema.
+`includedRoles` changes hierarchy: connecting Editor to Administrator's
+`includedRoles` means Editor's members are members of Administrator too. The
 opposite link would mean the opposite inheritance. Role results are plain data
 without commands (ADR-0310): these relation writes are the only way to change
 membership and hierarchy.
@@ -261,6 +284,22 @@ visible to the caller. The plugin rejects self or indirect cycles and emits its
 membership and hierarchy events for links made through these commands as well. A membership or hierarchy change is visible to a **new** request;
 membership is resolved once and cached within an active request, so do not
 expect a policy check already in progress to reread changed membership.
+
+### Query roles outside rules
+
+`ultimabase.plugin(rolesPlugin)` exposes the same computation and cache as
+the rules:
+
+```ts
+const roles = ultimabase.plugin(rolesPlugin)
+await roles.has(EditorRole) // the current request's member, inside a request
+await roles.has(EditorRole, { principal: PasswordUser.pointer(userId) })
+await roles.current(AppRole) // ['administrator', 'editor']: names, inheritance included
+```
+
+`has(role)` and `current(schema)` read the current request, so call them
+inside a hook, a rule or an operation handler; with `{ principal }`, `has`
+checks that member anywhere on the server.
 
 ### Choose a role reference
 
@@ -282,11 +321,11 @@ matching role exists.
 [policy predicate](/docs/1.0.0/core/security-foundations/request-identity#policy-predicates),
 accepted wherever an Access rule returns a decision. In the example, it grants
 `Post.update` only when the request principal is a direct or inherited Editor
-member. Without `members.resolveCurrent`, the current member is the request
-principal when it belongs to `members.schema`; a principal of another schema,
-or none, denies. `members.resolveCurrent` remains for special cases: it may be
-asynchronous but must return a Pointer from the exact `members.schema`, or
-`undefined` when there is no current member.
+member. Without `resolveCurrent`, the current member is the request principal
+when it belongs to the member schema; a principal of another schema, or none,
+denies. `resolveCurrent` remains for special cases: it may be asynchronous but
+must return a Pointer of the member schema, or `undefined` when there is no
+current member.
 
 If a rule uses `hasRole()` without any application-local role-resolver
 provider, execution raises `PLUGIN_CAPABILITY_MISSING` before business Hooks
@@ -302,13 +341,13 @@ subject boundary; role membership alone still grants nothing. See
 
 ### Deletion, events, and limits
 
-| `deletion.references` | Effect                                                                                                                       |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `fail` (default)      | Rejects deletion while the role has members, child or parent edges, or references reported by another plugin                 |
-| `preserve`            | Deletes the role and leaves external references inert; choose this only when the dangling-reference behavior is intentional  |
-| `cascade`             | Requires Master, clears role edges, and invokes explicit cleanup contributions from reference owners in the same transaction |
+| `deletion`       | Effect                                                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `fail` (default) | Rejects deletion while the role has members, child or parent edges, or references reported by another plugin                 |
+| `preserve`       | Deletes the role and leaves external references inert; choose this only when the dangling-reference behavior is intentional  |
+| `cascade`        | Requires Master, clears role edges, and invokes explicit cleanup contributions from reference owners in the same transaction |
 
-Both `role.delete()` and `AppRole.deleteOne()` apply the policy.
+`AppRole.deleteOne()` applies the policy.
 `AppRole.deleteMany({ where: [{ id: { eq: firstId } }, { id: { eq: secondId } }] })`
 applies it to each unique target in order, within one transaction. If a target
 is missing or a policy fails, all deletions, cleanup and queued events roll back.
@@ -321,13 +360,12 @@ it exceeds 64 levels or 10,000 visited roles.
 
 ## Troubleshooting
 
-- **`RoleSchema` is rejected during compilation:** check that `rolesPlugin()`
-  is installed, `AppRole` is registered, and `members.schema` is the exact
-  registered member class. Generated `name`, `members`, and `roles` cannot be
-  replaced by custom fields.
+- **`App.RoleSchema` is missing:** declare the role schema from the
+  configured factory that installs `rolesPlugin()`, and register it. The
+  `name`, `members`, and `includedRoles` fields cannot be replaced by custom
+  fields.
 - **`hasRole()` always denies:** verify that the request principal (or
-  `members.resolveCurrent`, if declared) is a Pointer of the exact member
-  schema. A session by itself
+  `resolveCurrent`, if declared) is a Pointer of the member schema. A session by itself
   supplies identity, not a role grant; confirm the persisted membership and
   hierarchy in the same application.
 - **`PLUGIN_CAPABILITY_MISSING`:** the Access rule ran without an installed
@@ -336,3 +374,5 @@ it exceeds 64 levels or 10,000 visited roles.
 - **Role deletion fails:** inspect direct members, child and parent roles,
   and external references under the schema's deletion policy. For `deleteMany()`,
   each target must satisfy that policy; a failure rolls back the whole batch.
+- **`start()` fails on `ensure`:** creating seed roles is a Master write;
+  configure the application's `masterAuthority`.

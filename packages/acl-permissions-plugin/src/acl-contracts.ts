@@ -4,6 +4,13 @@ import { immutableArray } from '@ultimabase/shared'
 /** Names every object-level right understood by the ACL provider. */
 export type ACLPermission = 'delete' | 'read' | 'update'
 
+/**
+ * A right or the group `'write'`, which means `update` and `delete` as in
+ * Access (ADR-0321).
+ * @example `acl.grantPublic('read', 'write')`
+ */
+export type ACLPermissionInput = ACLPermission | 'write'
+
 /** Accepts an exact Core Pointer while erasing schema details ACL never reads. */
 export type ACLPrincipal = PointerValue
 
@@ -35,3 +42,13 @@ export const normalizeACLPermissions = (
 		aclPermissions.filter((permission) => permissions.includes(permission)),
 	)
 }
+
+/** Expands the `'write'` group, then canonicalizes like `normalizeACLPermissions`. */
+export const expandACLPermissions = (
+	permissions: readonly ACLPermissionInput[],
+): readonly ACLPermission[] =>
+	normalizeACLPermissions(
+		permissions.flatMap((permission): readonly ACLPermission[] =>
+			permission === 'write' ? ['update', 'delete'] : [permission],
+		),
+	)

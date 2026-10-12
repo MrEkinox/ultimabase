@@ -7,8 +7,15 @@ import {
 	getPluginFieldStructuralContains,
 	getPluginFieldStorageCodec,
 	getPluginFieldWireCodec,
+	readPluginFieldExistingRows,
+	readPluginFieldStorageDefault,
 	type FieldOptions,
 } from '../index.js'
+import { UltimaBase } from '../../index.js'
+import {
+	hasFieldUpdateInput,
+	snapshotUpdateInputFieldValue,
+} from './base/plugin-field-metadata.js'
 
 interface FixtureFieldOptions extends FieldOptions<string> {
 	readonly storageProfile?: string
@@ -273,4 +280,59 @@ describe('plugin fields', () => {
 			}).toThrow()
 		},
 	)
+
+	it('carries update inputs, existing-rows values and storage defaults (ADR-0321)', () => {
+		const Fixture = UltimaBase.Schema.define({
+			className: 'PluginFieldMetadataFixture',
+			fields: () => ({}),
+		})
+		const field = definePluginField(
+			'fixture.metadata',
+			{ required: true },
+			{
+				snapshotValue,
+				snapshotUpdateInput: (value, path) =>
+					typeof value === 'object' && value !== null && 'append' in value
+						? value
+						: snapshotValue(value, path),
+				existingRows: (schema) =>
+					schema.className === 'PluginFieldMetadataFixture'
+						? { value: 'existing' }
+						: { missing: 'Declare existing rows.' },
+				storageDefault: 'stored',
+			},
+		)
+		const plain = definePluginField('fixture.plain', {}, { snapshotValue })
+
+		expect(hasFieldUpdateInput(field)).toBe(true)
+		expect(hasFieldUpdateInput(plain)).toBe(false)
+		expect(
+			snapshotUpdateInputFieldValue(field, { append: 'x' }, 'data.metadata'),
+		).toStrictEqual({ append: 'x' })
+		expect(() =>
+			snapshotUpdateInputFieldValue(plain, { append: 'x' }, 'data.plain'),
+		).toThrow(new TypeError('data.plain must be a string'))
+		expect(readPluginFieldExistingRows(field, Fixture)).toStrictEqual({
+			value: 'existing',
+		})
+		expect(readPluginFieldExistingRows(plain, Fixture)).toBeUndefined()
+		expect(readPluginFieldStorageDefault(field)).toStrictEqual({
+			value: 'stored',
+		})
+		expect(readPluginFieldStorageDefault(plain)).toBeUndefined()
+		expect(() =>
+			definePluginField(
+				'fixture.invalid',
+				{},
+				{ snapshotValue, existingRows: 'value' as never },
+			),
+		).toThrow(new TypeError('Plugin field existingRows must be a function'))
+		expect(() =>
+			definePluginField(
+				'fixture.invalid',
+				{},
+				{ snapshotValue, storageDefault: 1 as never },
+			),
+		).toThrow(new TypeError('Plugin field storageDefault must be a string'))
+	})
 })

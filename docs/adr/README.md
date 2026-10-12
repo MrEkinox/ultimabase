@@ -302,6 +302,8 @@ Current records (accepted or still active in part):
 - [ADR-0318: Hooks on plain data, post-commit delivery and bounded recursion](0318-hooks-data-phases-and-post-commit-delivery.md)
 - [ADR-0319: Validation transforms, schema checks and complete issues](0319-validation-transforms-schema-checks-and-issues.md)
 - [ADR-0320: PostgreSQL safe synchronization, connection settings and debugging](0320-postgres-safe-sync-connection-and-debug.md)
+- [ADR-0321: ACL as a shape method, atomic sharing and safe backfill](0321-acl-shape-sharing-and-backfill.md)
+- [ADR-0322: Role schema factory, linked hierarchy and role queries](0322-roles-schema-factory-and-queries.md)
 - [ADR-0323: HTTP foundation defaults and the Hono server](0323-http-foundation-and-hono-server.md)
 
 Proposed records (awaiting user validation):

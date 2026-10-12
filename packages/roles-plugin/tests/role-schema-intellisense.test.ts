@@ -13,30 +13,28 @@ const fixtureFile = path.join(
 	'role-schema-intellisense.fixture.ts',
 )
 const source = `
-import type {} from '../../access-plugin/tests/fixtures/options.generated.js'
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase, stringField } from '@ultimabase/core'
-import { RoleSchema, hasRole, rolesPlugin } from '../src/index.js'
+import { UltimaBase } from '@ultimabase/core'
+import { hasRole, rolesPlugin } from '../src/index.js'
 
 const RoleApplication = UltimaBase.use(accessPlugin()).use(rolesPlugin())
-const User = RoleApplication.Schema.define({ className: 'User', fields: () => ({}) })
-const AppRole = RoleSchema.define(RoleApplication.Schema, {
+const User = RoleApplication.Schema.define({ className: 'User', fields: () => ({}) }).with({})
+const AppRole = RoleApplication.RoleSchema.define({
   className: 'Role',
-  members: { schema: User },
-  fields: () => ({ description: stringField() }),
-  deletion: { /* deletion-hover */references: 'fail' },
-})
+  members: () => User,
+  fields: (field) => ({ description: field.string() }),
+  /* deletion-hover */deletion: 'fail',
+}).with({ access: { read: true } })
 
-RoleSchema.define(RoleApplication.Schema, {
+RoleApplication.RoleSchema.define({
   className: 'CompletedRole',
-  members: { schema: User },
-  fields: () => ({}),
-  deletion: { /* deletion-complete */ },
+  members: () => User,
+  deletion: '/* deletion-complete */',
 })
 
 AppRole./* role-hover */role('editor')
 void /* access-hover */hasRole(AppRole.role('editor'))
-RoleSchema.define(RoleApplication.Schema, { /* options-complete */ })
+RoleApplication.RoleSchema.define({ /* options-complete */ })
 async function inspectRoleResult() {
   const role = await AppRole.findOne()
   role?./* result-complete */name
@@ -111,14 +109,17 @@ describe('RoleSchema IntelliSense', () => {
 
 		expect(names).toEqual(
 			expect.arrayContaining([
-				'access',
 				'className',
 				'deletion',
+				'ensure',
 				'fields',
-				'indexes',
 				'members',
+				'resolveCurrent',
 			]),
 		)
+		// Rules and indexes go in the final `.with(...)` (ADR-0322).
+		expect(names).not.toContain('access')
+		expect(names).not.toContain('indexes')
 		expect(names).not.toContain('extensions')
 		expect(names).not.toContain('ultimabase.roles.identity')
 	})
@@ -136,7 +137,9 @@ describe('RoleSchema IntelliSense', () => {
 			markerPosition(marker) + marker.length,
 		)
 
-		expect(names).toContain('references')
+		expect(names).toEqual(
+			expect.arrayContaining(['cascade', 'fail', 'preserve']),
+		)
 		expect(ts.displayPartsToString(quickInfo?.documentation)).toContain(
 			'Controls references registered by independent consumer plugins',
 		)
