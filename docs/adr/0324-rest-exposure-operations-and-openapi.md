@@ -1,13 +1,13 @@
 # ADR-0324: REST exposure, application operations and OpenAPI
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-12
 - Refines: the REST plugin records, ADR-0294 (`publicWrites`), ADR-0305 (client errors),
   ADR-0309 (cursor pagination), ADR-0316 (`definePlugin`, `.with` rules, temporary command
   bindings), ADR-0319 (validation issues), ADR-0323 (HTTP foundation); applies ADR-0288
 - Approval: decisions of the REST review (`docs/handoff/revue-plugins/rest.md`, decisions 1 to
-  13, validated by the user on 2026-10-09) and Validation review decision 13; record to be
-  accepted by the user
+  13, validated by the user on 2026-10-09) and Validation review decision 13; record accepted by the user on 2026-10-12
+
 - Already implemented elsewhere: shared pagination and cursor (ADR-0309), body limit inherited
   from HTTP (ADR-0323)
 

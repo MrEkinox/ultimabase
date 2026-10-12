@@ -1,6 +1,6 @@
 # ADR-0325: GraphQL options, one explorer plugin and the `api-server` preset
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-12
 - Refines: the GraphQL, Yoga and explorer plugin records, ADR-0294 (`publicWrites`), ADR-0301
   (decision 5, deferred for GraphQL at migration step 1), ADR-0303 (`ultimabase.health()`),
@@ -9,7 +9,7 @@
   decisions); applies ADR-0288
 - Approval: decisions of the GraphQL, Yoga, explorer and `api-server` reviews
   (`docs/handoff/revue-plugins/graphql.md`, `graphql-yoga.md`, `graphql-explorers.md`,
-  `api-server.md`, validated by the user on 2026-10-09); record to be accepted by the user
+  `api-server.md`, validated by the user on 2026-10-09); record accepted by the user on 2026-10-12
 - Already implemented elsewhere: Yoga introspection by environment and the explorer's
   introspection requirement (ADR-0312), shared pagination and nested `after` (ADR-0309),
   `execute({ principal })` (ADR-0304)
