@@ -55,21 +55,25 @@ a listing is not a compatibility guarantee.
 ## Public package roots
 
 Import only the package root. A path into a package's `src/` directory is not
-part of its public contract. The one exception is `@ultimabase/core/plugin`,
-Core's plugin-author subpath (ADR-0311), which transports import for the shared
-pagination cursor encoder (ADR-0309); applications do not need it. Importing a plugin package does not install its
-behavior; add its factory to your application graph.
+part of its public contract. Three subpaths are public too:
+`@ultimabase/core/plugin`, Core's plugin-author subpath (ADR-0311), which
+transports import for the shared pagination cursor encoder (ADR-0309), and
+`@ultimabase/testing/plugins` (plugin conformance) and
+`@ultimabase/testing/vitest` (the Vitest configuration of `testApplication`,
+ADR-0327). Applications import neither plugin subpath. Importing a plugin
+package does not install its behavior; add its factory to your application
+graph.
 
 ### Framework and tooling
 
-| Package                  | Purpose                                                                                                                                                                                         |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@ultimabase/core`       | Schema, Query, application, and Runtime API. Start with [Application](/docs/1.0.0/core/application).                                                                                            |
-| `@ultimabase/shared`     | Foundation contracts used by packages; most applications do not need a direct import.                                                                                                           |
-| `@ultimabase/plugin-kit` | Optional composition helpers for events, options, contextual fields, and schema patches. Start plugin authoring with [Core](/docs/1.0.0/plugins/build-a-plugin).                                |
-| `@ultimabase/create-app` | Unpublished [project initializer](/docs/1.0.0/quick-start); its packed local executable generates TypeScript or JavaScript applications with the official plugin choices described there.       |
-| `@ultimabase/typegen`    | Optional [generated TypeScript declarations](/docs/1.0.0/guides/generate-types), not a Runtime client.                                                                                          |
-| `@ultimabase/testing`    | Public application-test isolation and plugin conformance utilities; see [Test an Application](/docs/1.0.0/guides/test-an-application) and [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin). |
+| Package                  | Purpose                                                                                                                                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@ultimabase/core`       | Schema, Query, application, and Runtime API. Start with [Application](/docs/1.0.0/core/application).                                                                                                                                                   |
+| `@ultimabase/shared`     | Foundation contracts used by packages; most applications do not need a direct import.                                                                                                                                                                  |
+| `@ultimabase/plugin-kit` | Optional composition helpers for events, options, contextual fields, and schema patches. Start plugin authoring with [Core](/docs/1.0.0/plugins/build-a-plugin).                                                                                       |
+| `@ultimabase/create-app` | Unpublished [project initializer](/docs/1.0.0/quick-start); its packed local executable generates TypeScript or JavaScript applications with the official plugin choices described there.                                                              |
+| `@ultimabase/typegen`    | Optional [generated TypeScript declarations](/docs/1.0.0/guides/generate-types), not a Runtime client.                                                                                                                                                 |
+| `@ultimabase/testing`    | `testApplication` for application tests, plugin conformance under `/plugins` and the Vitest configuration under `/vitest`; see [Test an Application](/docs/1.0.0/guides/test-an-application) and [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin). |
 
 ### Data, validation, and security
 
