@@ -9,6 +9,8 @@
 	"dependencies": {
 		"@ultimabase/access-plugin": "workspace:^",
 		"@ultimabase/acl-permissions-plugin": "workspace:^",
+		"@ultimabase/auth-password": "workspace:^",
+		"@ultimabase/auth-plugin": "workspace:^",
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/hooks-plugin": "workspace:^",
 		"@ultimabase/postgres-plugin": "workspace:^",
