@@ -106,7 +106,7 @@ Reste : suites complètes, porte finale, audit DX, banc.
     même surface).
 11. **`defineOperation`** dans plugin-kit (dépend déjà de
     `@standard-schema/spec`), transaction `optional`, entrée `{ input,
-    context }`, code d'issue `operation.input`, résultat passé par `toJSON`.
+context }`, code d'issue `operation.input`, résultat passé par `toJSON`.
 12. **OpenAPI** : `info.version: '1'`, `servers: [{ url: basePath }]`,
     contraintes = options de champ implémentant Standard JSON Schema (ex.
     `validation` de Validation) sans que REST connaisse Validation ; validité
