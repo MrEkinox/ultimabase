@@ -1,12 +1,11 @@
 # ADR-0328: Declared relation filters move into `.with({ relations })`
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-13
 - Refines: ADR-0247 (declared relation filters), ADR-0297 (form D: rules needing the complete
   schema go in `.with`), ADR-0308 (links; step 3b amendment), ADR-0316 (`.with` rules); applies
   ADR-0288
-- Approval: option (b) decided by the user on 2026-10-12 after migration step 6.7; record to be
-  accepted by the user
+- Approval: option (b) decided by the user on 2026-10-12 after migration step 6.7; record accepted by the user on 2026-10-13
 - Evidence: `docs/handoff/spike-relation-where.md` (branch `spike/relation-where`, base `main`
   e864067e)
 
