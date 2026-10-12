@@ -47,7 +47,7 @@ export const Note = Application.Schema.define({
 The rule (`ACLRule`) accepts:
 
 - `default` (required): one ACL, or a function of the created values (`data`,
-  typed from the schema's fields without Typegen) and the request
+  typed from the schema's fields) and the request
   `principal` (ADR-0304). It runs independently for each created item.
 - `resolveInput`: recomputes the ACL from the row's data on each create and
   each singular update that carries no explicit ACL. On update it receives
@@ -161,8 +161,9 @@ never size validation or the singular replacement requirement.
 ## Subjects, references and events
 
 Authentication and roles are optional providers. ACL discovers them only
-through neutral Core capabilities and never imports a concrete auth or roles
-plugin. A static default that contains role grants requires a compatible
+through neutral capabilities (Core's principal resolver and the role protocol
+of `@ultimabase/plugin-kit`, ADR-0329) and never imports a concrete auth or
+roles plugin. A static default that contains role grants requires a compatible
 provider during setup; dynamically produced role grants fail before
 persistence when the required role capabilities are unavailable. Logical role
 names resolve to schema-qualified stable UUID references before persistence.

@@ -39,8 +39,8 @@ const ultimabase = new Application({
 })
 ```
 
-`.with({ rest })` is typed only because this factory installed `restPlugin()`;
-no Typegen run is needed. Its keys are the schema method names (ADR-0324):
+`.with({ rest })` is typed only because this factory installed `restPlugin()`.
+Its keys are the schema method names (ADR-0324):
 `findMany`, `findOne`, `count`, `exists`, `createOne`, `updateOne`,
 `deleteOne`, `upsertOne`, `createMany`, `updateMany`, `deleteMany`,
 `upsertMany`, and the plugin commands REST can expose on that schema, such as
@@ -49,8 +49,7 @@ registers it. An omitted method inherits the plugin `default`, then the
 built-in default: `findMany`, `findOne`, `exists`, `createOne`, `updateOne`
 and `deleteOne` are on; `count`, `upsertOne`, the `…Many` methods and every
 plugin command are off. `rest: true` exposes every method and command,
-`rest: false` none. The old-form `define({ rest })` keeps the same keys through
-Typegen until that form is removed.
+`rest: false` none. `define` rejects a `rest` option (ADR-0297).
 
 | Method key   | Route below the base path                               |
 | ------------ | ------------------------------------------------------- |

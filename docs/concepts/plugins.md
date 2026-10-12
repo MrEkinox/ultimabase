@@ -53,5 +53,5 @@ process, or native-code behavior; neither mechanism claims to sandbox trusted
 in-process JavaScript.
 
 See [Open plugin authoring](open-plugin-authoring.md) for the implemented
-developer experience, including schema transformations, operations, Typegen,
-transport bindings, adapter contracts, and JavaScript use without generated code.
+developer experience, including schema transformations, operations,
+transport bindings, adapter contracts, and JavaScript use.

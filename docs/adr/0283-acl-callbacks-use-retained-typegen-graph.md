@@ -1,6 +1,7 @@
 # ADR-0283: Exact ACL schema callbacks use the retained Typegen graph
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0297 (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-10-01
 - Refines: ADR-0280's classification of ACL schema options as entirely source-typed
 - Approval: user approved the existing Typegen fallback rather than repeating source-only inference attempts

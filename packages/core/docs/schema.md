@@ -84,12 +84,11 @@ identity explicitly registered by the application.
 Callbacks are synchronous declarations. They may close over static values, but
 cannot receive requests, services, adapters, transactions, or lifecycle state.
 Core derives local model, create, update, filter, selection, nested-write, and
-result contracts from the captured field map. The deterministic registry emitted
-by `@ultimabase/typegen` remains the application-wide literal-name graph for
-pointers, relations and circular schemas. It also supplies complete filters,
-schema Access/Hooks/ACL callbacks, exact Password User results and retained
-standalone/advanced contracts. Configured local plugin surfaces infer from
-`App.Schema` without regeneration; see the [Typegen contract](../../typegen/README.md).
+result contracts from the captured field map. Pointers and relations name their
+target with a thunk (`() => Author`) whose type Core captures without resolving
+it, so circular schemas across files type without generation; the `Register`
+declaration gives name-keyed types (ADR-0297). Configured plugin surfaces infer
+from `App.Schema`.
 
 The root builder exposes every Core field kind. `field.object()` receives a
 path-aware embedded builder with a named option type for every built-in factory.
@@ -105,9 +104,8 @@ Plugin-owned methods and direct field options declare a non-empty subset of the
 closed `stored`, `embedded`, `virtual`, and `output` contexts. Each supported
 method context has its own factory; one stored
 field factory is never converted into an embedded field or output descriptor.
-Configured builders infer their methods from those factories. Public Typegen
-references retain only the matching standalone contextual interface. Core repeats the
-same checks for JavaScript and stale generated declarations before setup.
+Configured builders infer their methods from those factories. Core repeats the
+same checks for JavaScript and untyped calls before setup.
 
 Framework and plugin authors may reuse the immutable low-level field factories
 internally. Normal application code uses named builder methods; Core
@@ -295,7 +293,7 @@ schema without relation fields.
 The resolver receives no source model, engine, adapter, transaction, or mutable
 context. Its builder starts empty, is immutable, and is correlated with the
 exact target schema, including nested relationship predicates. Core retains the
-callback privately; schema snapshots and Typegen contain no executable code.
+callback privately; schema snapshots contain no executable code.
 The relation filter is application shaping rather than authorization: it always
 narrows caller filters with `AND` and cannot replace Access, ACL, or protected
 constraints. It also remains active for Master unless the resolver explicitly

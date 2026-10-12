@@ -102,7 +102,6 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '@ultimabase/testing/plugins'
 import { expect, it } from 'vitest'
 
@@ -120,7 +119,7 @@ const suite = definePluginConformanceSuite({
 })
 
 it('conforms to the public kernel', async () => {
-	const report = await runPluginConformance(withPluginTypegenConformance(suite))
+	const report = await runPluginConformance(suite)
 	expect(report.checks.every(({ status }) => status === 'passed')).toBe(true)
 })
 ```
@@ -146,8 +145,7 @@ inside `createFixture`: define the schema through the same ordered
 `UltimaBase.use(support).use(subject).Schema.define(...)` chain used by the
 fixture (omit `.use(support)` when none is required), then pass the subject and
 schema to `createPluginConformanceFixture`. Test the same fixture against
-package-root exports for packed editor behavior. Typegen conformance still
-checks the retained named-schema graph, not local plugin projections.
+package-root exports for packed editor behavior.
 
 Official plugins list `expected.environment` even when it is `[]`. This makes a
 deliberate absence of direct filesystem, network, process, and native-code
@@ -199,9 +197,7 @@ const completeSuite = suite
 		expect(
 			ultimabase
 				.compile()
-				.schemaSurfaces.some(
-					({ schema }) => schema.className === 'Post',
-				),
+				.schemaSurfaces.some(({ schema }) => schema.className === 'Post'),
 		).toBe(true)
 	})
 	.check('middleware', async (context) => {
@@ -212,7 +208,7 @@ const completeSuite = suite
 	})
 ```
 
-The optional contract names are `typegen`, `javascript-operation`, `operation`,
+The optional contract names are `javascript-operation`, `operation`,
 `relation-read`, `schema-mutation`, `schema-surface`, `transport`, `middleware`,
 `persistence`, `codec`, `migration`, and `adapter-failure`. A `relation-read`
 verifier should execute a relation filter or include and assert the portable
@@ -221,13 +217,11 @@ policy product. A `schema-mutation` verifier should
 execute one neutral application-owned schema command and assert
 its logical identity and physical effect without installing Access, Hooks, or a
 product plugin. This keeps the report precise while leaving each
-plugin-specific assertion readable. `withPluginTypegenConformance()` implements
-the generic `typegen` check and compares two complete generated outputs before
-running an optional package-specific assertion. It leaves with Typegen in
-migration step 6.8 (ADR-0327 decision 4).
+plugin-specific assertion readable. The `typegen` contract and
+`withPluginTypegenConformance()` left with Typegen in migration step 6.8b
+(ADR-0297, ADR-0327 decision 4).
 
-For JavaScript, import the same helpers and select `javascript-operation`; no
-generated declarations or Typegen import is required. Transport checks can use
+For JavaScript, import the same helpers and select `javascript-operation`. Transport checks can use
 `FakePublicOperationTransport`; adapter checks can deliberately install a
 failing public capability provider. The existing `migration` check label is
 only a category for a plugin's own verifier, not a bundled migration planner.

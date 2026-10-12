@@ -474,12 +474,12 @@ generic `readCurrentCapabilityProvider(token)`.
 
 ## Static and Runtime boundaries
 
-| Concern                         | Static declaration                           | Application/Runtime                            |
-| ------------------------------- | -------------------------------------------- | ---------------------------------------------- |
-| Plugin identity and permissions | Core `plugin()` + one contribution list      | Core validates before effects                  |
-| Option fingerprint facts        | plugin-owned normalized safe values          | secrets and resources stay out                 |
-| Schema patches                  | `schemaPatch` + `patchSchemas`               | Core applies owner-attributed operations       |
-| Operations                      | Core-owned operation contribution            | handler materializes and executes through Core |
+| Concern                         | Static declaration                      | Application/Runtime                            |
+| ------------------------------- | --------------------------------------- | ---------------------------------------------- |
+| Plugin identity and permissions | Core `plugin()` + one contribution list | Core validates before effects                  |
+| Option fingerprint facts        | plugin-owned normalized safe values     | secrets and resources stay out                 |
+| Schema patches                  | `schemaPatch` + `patchSchemas`          | Core applies owner-attributed operations       |
+| Operations                      | Core-owned operation contribution       | handler materializes and executes through Core |
 
 ## When to use Core directly
 

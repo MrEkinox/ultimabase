@@ -149,8 +149,9 @@ update or delete behavior.
 
 Optional policy engines inspect the final callback-free mutation catalog through
 Core's versioned `applicationSchemaMutationSurfaceCapability`. For example, when
-`@ultimabase/access-plugin` is installed, Typegen makes the exact request
-mutation available as a schema option:
+`@ultimabase/access-plugin` is installed and the owner's statics slot types the
+command (`SchemaCommands`), the exact request mutation is available as an
+Access rule in `.with`:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -159,6 +160,8 @@ import { UltimaBase } from '@ultimabase/core'
 const SecuredApplication = UltimaBase.use(accessPlugin())
 const SecuredPost = SecuredApplication.Schema.define({
 	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+}).with({
 	access: {
 		archive: {
 			where: ({ input, where }) =>
@@ -168,7 +171,6 @@ const SecuredPost = SecuredApplication.Schema.define({
 		update: false,
 		delete: false,
 	},
-	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 
 const securedApplication = new SecuredApplication({
@@ -186,6 +188,7 @@ const ObservedApplication = UltimaBase.use(hooksPlugin())
 const ObservedPost = ObservedApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
+}).with({
 	hooks: {
 		beforeOperation: {
 			archive: ({ input, originalItem, item }) => {

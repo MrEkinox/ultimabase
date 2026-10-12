@@ -175,7 +175,7 @@ boundaries. Independent behavior engines can use that same helper with their
 own `AbortSignal`; it standardizes the `OPERATION_CANCELLED` failure but does
 not detach or forcibly terminate running JavaScript.
 
-JavaScript uses the same compiled graph and does not require Typegen. Omitting
+JavaScript uses the same compiled graph. Omitting
 the plugin means ordinary CRUD has no official Hooks lifecycle; adding a `hooks`
 option without `hooksPlugin()` is an unknown-option application compilation
 error. The packed PostgreSQL lifecycle is exercised by the

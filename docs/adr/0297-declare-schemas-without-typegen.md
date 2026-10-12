@@ -205,3 +205,12 @@ form D example (`typos.ts`) list the same members in another order. `tests/e2e/r
 TypeScript defers conditional types, so the TypeScript 6 and 7 reproduction matrix of the spike
 (`docs/handoff/spike-register-cycle.md`, branch `spike/register-cycle`) is rerun at each
 TypeScript upgrade.
+
+## Migration step 6.8b (2026-10-13)
+
+Typegen (package, plugin, generated files, Core contracts, performance budgets)
+and the old declaration form (plugin options inside `define`) were removed once
+every consumer was migrated, as decided above. `define(...)` now accepts only
+`className`, `fields` and `indexes`, at runtime as in the editor. ADR-0280,
+ADR-0281 and ADR-0283 are superseded by this record. Handoff:
+`docs/handoff/migration-etape-6-8b.md`.

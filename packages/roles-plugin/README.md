@@ -129,9 +129,8 @@ storage. Renaming a role never changes its UUID identity.
 exact package-private class identity and inserts an opaque, package-created
 direct option that requires the plugin during static compilation. Copying the option
 as a plain object or reproducing the generated fields cannot create role
-behavior. The compiler-only option declares `typegen: false`, so its internal
-name and nominal value type never appear in generated authoring options or
-autocomplete. Applications without a role schema do not need the plugin.
+behavior. No rules slot types the compiler-only option, so its internal name
+and nominal value type never appear in authoring options or autocomplete. Applications without a role schema do not need the plugin.
 
 Role schemas carry no generic transport metadata. Trusted server code can use
 schema-root reads such as `TodoRole.findMany()`; future generated transport

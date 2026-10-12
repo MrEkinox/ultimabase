@@ -1,6 +1,7 @@
 # ADR-0281: Retain generated Where contracts for the source-authoring milestone
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0297 (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-09-30
 - Refines: ADR-0279 and ADR-0280
 - Approval: user chose to keep all schema `WhereInput` contracts in Typegen until the final milestone audit

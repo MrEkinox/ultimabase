@@ -165,6 +165,7 @@ const UserSchema = Application.Schema.define({
 			},
 		}),
 	}),
+}).with({
 	hooks: {
 		resolveInput: {
 			update: ({ operation }) => operation,

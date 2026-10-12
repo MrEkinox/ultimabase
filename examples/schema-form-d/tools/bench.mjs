@@ -1,6 +1,6 @@
 // Copy of ub-typing-spike/tools/bench.mjs (TypeScript 6 from this repository).
 // One isolated measurement of a generated application (run in a fresh process).
-// Mirrors packages/typegen/tests/performance/fixtures/editor-probe-runner.mjs:
+// Mirrors the editor probe runner of the removed Typegen performance budget:
 // cold = createProgram + getPreEmitDiagnostics; then a language service, an edit of a
 // query literal ('valid' -> 42) and getSemanticDiagnostics of the edited file.
 // Adds a schema edit (one field type change in s0.ts) re-requesting diagnostics of the

@@ -3,7 +3,7 @@
 `UltimaBase.Schema.define()` combines typed field declarations and automatically
 adds the framework-owned `id`, `createdAt`, and `updatedAt` fields. Core derives
 the local model, create, update, filter, selection, and result contracts directly
-from this declaration; those contracts do not wait for Typegen.
+from this declaration, without a generation step.
 
 ```ts
 import {
@@ -42,10 +42,8 @@ The callback runs once to capture inert builder calls without registering the
 schema. Core-only calls resolve their Runtime metadata immediately. Configured
 plugin calls resolve when a compatible application compiles the explicit
 `schemas` list before plugin setup. Neither path reruns the callback or mutates
-the exported class. Typegen retains the application-wide literal-name graph
-used by pointers, relations, and circular schemas; when a generated registry is
-present, its current compact Core aliases remain compatible with the same
-source-derived contract.
+the exported class. Pointers and relations name their target with a thunk, so
+circular schemas across files type from source (ADR-0297).
 
 `User` is an immutable persisted snapshot. `CreateUserInput` requires
 `username` and `displayName` but omits system fields, while `UpdateUserInput`

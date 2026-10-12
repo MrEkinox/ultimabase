@@ -45,9 +45,8 @@ explorer. `apiServer({ graphql: true })` from `@ultimabase/api-server` installs
 GraphQL with its HTTP transport (ADR-0325).
 
 Install the plugin on the configured factory before declaring schemas: the
-`.with({ graphql })` rule is then typed from source. The old form
-`define({ graphql })` stays typed by Typegen until it is removed. Typegen
-remains responsible for the application-wide named-schema graph.
+`.with({ graphql })` rule is then typed from source; `define` rejects a
+`graphql` option (ADR-0297).
 
 The plugin compiles one application-local executable `GraphQLSchema` after the
 complete Core schema graph exists. Importing the package installs no behavior.
@@ -240,6 +239,7 @@ const Post = SchemaApplication.Schema.define({
 			select: { title: true },
 		}),
 	}),
+}).with({
 	graphql: true,
 })
 ```

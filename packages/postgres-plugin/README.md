@@ -22,12 +22,10 @@ and empty identifiers fail static application compilation.
 The table name is a rule of the final `.with({ postgres: { table } })` call,
 typed through Core's rules slot (ADR-0320), and the stored-field
 `postgres.renamedFrom` option is projected directly from the installed plugin,
-both without Typegen. Embedded properties, virtual wrappers, and output
+both from source. Embedded properties, virtual wrappers, and output
 descriptors have no independent physical column identity, so the field option
 is absent in those contexts and Core rejects stale or untyped declarations
-before connection setup. The former `define({ postgres: { table } })` form
-still works at runtime and through Typegen until the old declaration form is
-removed.
+before connection setup. `define` rejects a `postgres` option (ADR-0297).
 
 ## Connection lifecycle
 
@@ -277,6 +275,7 @@ const ArticleSchema = Application.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
+}).with({
 	hooks: {
 		beforeOperation: {
 			create: async ({ context, item }) => {

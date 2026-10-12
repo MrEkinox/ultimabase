@@ -57,8 +57,9 @@ declaration view is a derived adapter, not an execution registry. Schema
 mutations use the same boundary: request dispatch validates the exact canonical
 command and its frozen schema-local aliases, while the logical pipeline
 preserves Master checks, protected targeting, owner-only effects, and
-before/after results. Typegen inspection derives from canonical inert commands
-and the same alias index as direct handles;
+before/after results. Tooling inspection (`compile().operations` and
+`.schemaSurfaces`) derives from canonical inert commands and the same alias
+index as direct handles;
 [ADR-0262](docs/adr/0262-descriptive-typegen-command-inspection.md) removes
 executable tokens and constructors from that tooling view, while direct
 execution retains exact original declarations. Static and executable transport
@@ -71,11 +72,13 @@ path.
 defines the current authoring target. `UltimaBase.use(plugin())` builds one
 immutable configured application factory, `App.Schema.define()` projects its
 exact source-owned plugin surface, and `new App({ schemas: [...] })` remains the
-explicit Runtime registration root. Typegen remains the sole application-local
-literal-name graph for circular and cross-file schema relationships. Configured
-local fields, options and command surfaces infer from plugin source definitions;
-retained standalone, advanced-handle and complete-graph consumers still use
-generated descriptors. Direct schema class commands
+explicit Runtime registration root.
+[ADR-0297](docs/adr/0297-declare-schemas-without-typegen.md) completes it
+without generation: schemas declare data in `define`, relation targets as
+thunks, plugin shape through shape methods and plugin rules in a final
+`.with(...)`; one `Register` declaration gives name-keyed types. Typegen and
+the old declaration form (plugin options inside `define`) were removed in
+migration step 6.8b. Direct schema class commands
 resolve and verify the sole active application without storing resources or
 authority on the class.
 
@@ -83,15 +86,9 @@ authority on the class.
 the same installation entry point to fixed or dynamic plugin lists through
 `UltimaBase.use(...plugins)`, without a second constructor plugin option.
 
-[ADR-0281](docs/adr/0281-retain-generated-where-contracts.md) also retains
-the complete generated `WhereInput` for every schema.
-Source filters before generation are a bootstrap shape, not a claim that
-custom plugin operators have complete Typegen-free editor typing.
-
-ADR-0280 and ADR-0283 retain complete schema Access/Hooks/ACL callback contexts.
-ADR-0284 supplies configured Password User authoring while retaining exact User
-results and standalone specialized builders. The [Typegen contract](packages/typegen/README.md)
-records the final consumer boundary; generation is not limited to relationships.
+ADR-0297 supersedes the Typegen-based records (ADR-0280, ADR-0281, ADR-0283)
+where they retained the generated graph: complete-schema callbacks and filters
+are typed from the declarations through `.with` rules slots and `Register`.
 
 ```text
 developer declarations + pure authorized plugin declarations
@@ -99,7 +96,6 @@ developer declarations + pure authorized plugin declarations
 privilege policy → deterministic capability graph
                               ↓
 compiled application graph + owner provenance
-                  ├───────────→ optional Typegen → inert name graph + retained declarations
                               ↓
 logical Query / operation
                               ↓
@@ -138,7 +134,6 @@ Plugin Kit outside it, including development dependencies.
 ```text
 core ─────────────────→ shared
 plugin-kit ───────────→ core, shared
-typegen ──────────────→ core, shared
 hooks-plugin ─────────→ plugin-kit, core, shared
 access-plugin ────────→ plugin-kit, core, shared
 validation-plugin ────→ plugin-kit, core, shared
@@ -158,7 +153,7 @@ graphql-yoga-plugin ──→ graphql-http, http-plugin, graphql-plugin, plugin-
 graphql-explorer-plugin → graphql-http, http-plugin, plugin-kit, core
 api-server ───────────→ http-plugin, rest-plugin, graphql-plugin, graphql-yoga-plugin,
                         graphql-explorer-plugin, hono-server-plugin
-testing ──────────────→ typegen, core, shared
+testing ──────────────→ core, shared
 ```
 
 `create-app`, the interactive project initializer, has no workspace dependency:
@@ -305,7 +300,7 @@ allowlist through the ordinary request executor.
 ADR-0234 adds exact owner-private plugin records for data such as password and
 session verifiers that must participate in typed transactions and schema preparation
 without becoming application schemas. Private collections remain outside
-Query, Typegen, generated transports, Hooks, Access, application validators,
+Query, generated transports, Hooks, Access, application validators,
 Runtime observers, and events. The critical `storage:private` privilege grants
 one plugin instance access only to its own declarations and never exposes a raw
 adapter or another authority mode. ADR-0235 applied that boundary to Password
@@ -338,15 +333,14 @@ their protocols and use the generic kernel directly.
 `@ultimabase/plugin-kit` is the public authoring toolbox. It binds stable package
 manifest facts, parses strict manual or synchronous Standard Schema plugin
 options into immutable objects, builds common additive
-schema patches, flattens operation-provider wrappers, and groups nominal Typegen
-references without weakening a Core validation boundary.
+schema patches, flattens operation-provider wrappers, and hosts the role
+protocol shared by permission and role providers (ADR-0329) without weakening
+a Core validation boundary.
 Capabilities, privileges, ownership, registries, adapters, and
 Master remain direct Core contracts. Core never imports the kit. Official
 plugins use the same toolbox where it removes real duplication, while
 `@ultimabase/testing/plugins` owns runner-agnostic conformance fixtures and
-assertions. Its optional generic Typegen check explains the dependency on
-Typegen until it leaves with Typegen; the baseline kernel suite remains
-logical-only and opens no PostgreSQL resource. `@ultimabase/testing` starts an
+assertions. The baseline kernel suite remains logical-only and opens no PostgreSQL resource. `@ultimabase/testing` starts an
 application itself on an isolated PostgreSQL schema (`testApplication`,
 ADR-0327) through Core's application harness, which grants Master without a
 key and empties data only to the code that opened it before start; the
@@ -355,16 +349,11 @@ The types-only `@standard-schema/spec` dependency is owned only by packages that
 parse Standard Schema contracts, including Plugin Kit and the optional Validation
 plugin. Core has no direct dependency on it.
 
-`@ultimabase/typegen` is optional development tooling. It snapshots the final
-compiled application graph and retains the sole exact mapping from literal
-relationship targets to application schema contracts. Plugin-added builders,
-options, methods, mutations, commands, and operations project from the
-installed plugin source definitions on configured factories. Retained standalone
-and advanced consumers still use generated descriptors from this same graph.
-Typegen emits one replaceable `.d.ts`
-contract before infrastructure connection; it never generates JavaScript or a
-Runtime client. Core never imports Typegen, and JavaScript applications execute
-the same compiled graph without generated artifacts.
+Editor types need no generation step (ADR-0297): relation targets are thunks
+whose type Core captures, plugin builders, field options, shape methods,
+`.with` rules, commands and operations project from the installed plugin source
+definitions on configured factories, and one `Register` declaration gives
+name-keyed types. JavaScript applications execute the same compiled graph.
 
 Core retains request authority and generic protected constraint contracts. The
 official Access plugin owns Access vocabulary and compilation; Runtime does not
@@ -425,26 +414,26 @@ the reference) and separates its internals into domains. The table lists the
 directories under `packages/core/src` and the modules that own each mechanism
 after the rebuild.
 
-| Directory                                                                                              | Responsibility                                                                                   | Owning modules in the rebuild                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.` (root)                                                                                             | Public entry, plugin-author foundation exports, shared exact-object boundary                     | `index.ts`, `foundation.ts`, `exact-object-validation.ts` (one implementation of the plain-object and unknown-key checks every domain uses)                                                                                                                                                                                                                                      |
-| `schema/fields/`                                                                                       | Field definitions, options, built-in and plugin field kinds                                      | `base/factory.ts` (one `createScalarFieldFactory` for every scalar kind), `base/definition.ts`, `base/options.ts`, one module per built-in kind in `builtins/`, `constraints/temporal.ts`, `plugin.ts`                                                                                                                                                                           |
-| `schema/schema/`                                                                                       | `Schema` classes, field builders, registry, compilation, immutable models and static commands    | `definition.ts`, `definition-compilation.ts` (compiled-record store, `SchemaCompilationError` and compilation together), `registry.ts`, `field-builder.ts`, `runtime-field-builder.ts`, `model-class.ts` (static commands and the static-mutation proxy), `model-commands.ts`, `source-type-info.ts`                                                                             |
-| `schema/nested-writes/`, `schema/output/`, `schema/plans/`, `schema/relations/`                        | Nested-write normalization, output builders, structural validation plans, pointers and relations | `nested-writes/normalization.ts` (one `NestedWriteNormalizer`), `output/builder.ts`, `plans/compiler.ts`, `relations/mapping.ts`                                                                                                                                                                                                                                                 |
-| `query/`                                                                                               | Query AST, clauses, filters, updates, logical operations and schema commands                     | `filters/primitive.ts` (one `where` operator table shared by normalization, serialization and relation counts), `filters/where-normalize.ts`, `filters/where-builder.ts`, `filters/operand-snapshots.ts`, `operations/execution.ts`, `operations/schema-command-execution.ts`, `operations/results.ts`, `query/query.ts`                                                         |
-| `access/`                                                                                              | Request access and subject contracts                                                             | Unchanged from the reference (public contracts and JSDoc only)                                                                                                                                                                                                                                                                                                                   |
-| `plugins/`                                                                                             | Plugin definitions, graph, manifests, privileges, capabilities, declarations, commands, Typegen  | `plugin.ts` (with its private contribution compiler), `graph.ts`, `manifest.ts`, `capabilities.ts`, `capability-rules.ts` (one table of protected protocol families), `capability-inventory.ts`, `capability-host.ts`, `declaration-host.ts`, `plugin-contributions.ts`, `plugin-command-contributions.ts`, `command-graph.ts`, `typegen-declarations.ts`, `schema-compilation/` |
-| `application/`                                                                                         | Active application slot, handles, model views, privilege policy, command envelopes               | `active-application.ts`, `application-handles.ts`, `application-model-views.ts`, `plugin-privilege-policy.ts`, `framework-application.ts`                                                                                                                                                                                                                                        |
-| `errors/`                                                                                              | Framework and plugin error classes                                                               | `framework-error.ts` (with the private public-error base), `plugin-error.ts`                                                                                                                                                                                                                                                                                                     |
-| `runtime/application/`                                                                                 | The `UltimaBase` facade, configured factories, the application request execution capability      | `ultima-base.ts` (kernel and engine in `#private` fields), `configured-application-factory.ts`, `application-request-execution.ts`, `application-operation-transport-planning.ts`                                                                                                                                                                                                |
-| `runtime/engine/`                                                                                      | Framework and request engines, Master elevation, terminal context resolution                     | `request-engine.ts` (private state read through one `readRequestEngineInternals` accessor), `framework-engine.ts`, `request-engine-batch.ts`, `application-binding.ts`                                                                                                                                                                                                           |
-| `runtime/pipeline/`, `runtime/behaviors/`, `runtime/contributions/`                                    | Logical operation pipeline, stage inputs, database execution, behavior composition               | `pipeline/runtime-pipeline.ts`, `pipeline/stage-inputs.ts`, `pipeline/database-execution.ts`, `pipeline/inclusion-projection.ts`, `pipeline/application-bindings.ts` (one bind-once factory for relation filters and virtual fields), `behaviors/composition.ts`, `behaviors/validation-boundaries.ts`                                                                           |
-| `runtime/enforcement/`, `runtime/validation/`                                                          | Protected policies and constraints, structural and final mutation validation                     | `enforcement/state.ts`, `enforcement/protected-policy.ts`, `validation/runtime-validation.ts` (one compiled-plan cache), `validation/runtime-mutation-validation.ts`, `validation/final-mutation-validation.ts`                                                                                                                                                                  |
-| `runtime/transactions/`, `runtime/context/`, `runtime/master/`, `runtime/cancellation/`                | Transactions, request context, Master authority, cancellation                                    | `transactions/run-transaction.ts` (identity, callback, lifetime, commit, rollback and post-commit flush in one function), `transactions/pipeline-transaction.ts`, `context/active-framework-context.ts`, `master/master-authority.ts`                                                                                                                                            |
-| `runtime/nested-writes/`, `runtime/relations/`, `runtime/relation-filters/`, `runtime/virtual-fields/` | Nested-write execution, relation mutations and inclusions, contextual relation filters, virtuals | `nested-writes/runtime-host.ts`, `relations/relation-mutation.ts`, `relation-filters/execution.ts`, `virtual-fields/execution.ts`                                                                                                                                                                                                                                                |
-| `runtime/plugin-operations/`, `runtime/schema-mutations/`, `runtime/commands/`                         | Plugin operations, plugin schema mutations, command bindings and transport projections           | `plugin-operations/request-execution.ts`, `plugin-operations/engine-integration.ts`, `schema-mutations/runtime.ts`, `schema-mutations/request-execution.ts`, `schema-mutations/transport.ts`, `commands/transport-projection.ts`                                                                                                                                                 |
-| `runtime/database/`, `runtime/persistence/`, `runtime/operations/`                                     | Database adapter contracts, persistence plans, result materialization                            | `database/contracts.ts`, `persistence/plans.ts`, `persistence/execution.ts`, `operations/materialize-result.ts`                                                                                                                                                                                                                                                                  |
-| `private-storage/`                                                                                     | Owner-private plugin records                                                                     | `runtime.ts` (reads the engine internals instead of its own registration), `registry.ts`, `request.ts`                                                                                                                                                                                                                                                                           |
+| Directory                                                                                              | Responsibility                                                                                   | Owning modules in the rebuild                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.` (root)                                                                                             | Public entry, plugin-author foundation exports, shared exact-object boundary                     | `index.ts`, `foundation.ts`, `exact-object-validation.ts` (one implementation of the plain-object and unknown-key checks every domain uses)                                                                                                                                                                                                           |
+| `schema/fields/`                                                                                       | Field definitions, options, built-in and plugin field kinds                                      | `base/factory.ts` (one `createScalarFieldFactory` for every scalar kind), `base/definition.ts`, `base/options.ts`, one module per built-in kind in `builtins/`, `constraints/temporal.ts`, `plugin.ts`                                                                                                                                                |
+| `schema/schema/`                                                                                       | `Schema` classes, field builders, registry, compilation, immutable models and static commands    | `definition.ts`, `definition-compilation.ts` (compiled-record store, `SchemaCompilationError` and compilation together), `registry.ts`, `field-builder.ts`, `runtime-field-builder.ts`, `model-class.ts` (static commands and the static-mutation proxy), `model-commands.ts`, `source-type-info.ts`                                                  |
+| `schema/nested-writes/`, `schema/output/`, `schema/plans/`, `schema/relations/`                        | Nested-write normalization, output builders, structural validation plans, pointers and relations | `nested-writes/normalization.ts` (one `NestedWriteNormalizer`), `output/builder.ts`, `plans/compiler.ts`, `relations/mapping.ts`                                                                                                                                                                                                                      |
+| `query/`                                                                                               | Query AST, clauses, filters, updates, logical operations and schema commands                     | `filters/primitive.ts` (one `where` operator table shared by normalization, serialization and relation counts), `filters/where-normalize.ts`, `filters/where-builder.ts`, `filters/operand-snapshots.ts`, `operations/execution.ts`, `operations/schema-command-execution.ts`, `operations/results.ts`, `query/query.ts`                              |
+| `access/`                                                                                              | Request access and subject contracts                                                             | Unchanged from the reference (public contracts and JSDoc only)                                                                                                                                                                                                                                                                                        |
+| `plugins/`                                                                                             | Plugin definitions, graph, manifests, privileges, capabilities, declarations, commands           | `plugin.ts` (with its private contribution compiler), `graph.ts`, `manifest.ts`, `capabilities.ts`, `capability-rules.ts` (one table of protected protocol families), `capability-inventory.ts`, `capability-host.ts`, `declaration-host.ts`, `plugin-contributions.ts`, `plugin-command-contributions.ts`, `command-graph.ts`, `schema-compilation/` |
+| `application/`                                                                                         | Active application slot, handles, model views, privilege policy, command envelopes               | `active-application.ts`, `application-handles.ts`, `application-model-views.ts`, `plugin-privilege-policy.ts`, `framework-application.ts`                                                                                                                                                                                                             |
+| `errors/`                                                                                              | Framework and plugin error classes                                                               | `framework-error.ts` (with the private public-error base), `plugin-error.ts`                                                                                                                                                                                                                                                                          |
+| `runtime/application/`                                                                                 | The `UltimaBase` facade, configured factories, the application request execution capability      | `ultima-base.ts` (kernel and engine in `#private` fields), `configured-application-factory.ts`, `application-request-execution.ts`, `application-operation-transport-planning.ts`                                                                                                                                                                     |
+| `runtime/engine/`                                                                                      | Framework and request engines, Master elevation, terminal context resolution                     | `request-engine.ts` (private state read through one `readRequestEngineInternals` accessor), `framework-engine.ts`, `request-engine-batch.ts`, `application-binding.ts`                                                                                                                                                                                |
+| `runtime/pipeline/`, `runtime/behaviors/`, `runtime/contributions/`                                    | Logical operation pipeline, stage inputs, database execution, behavior composition               | `pipeline/runtime-pipeline.ts`, `pipeline/stage-inputs.ts`, `pipeline/database-execution.ts`, `pipeline/inclusion-projection.ts`, `pipeline/application-bindings.ts` (one bind-once factory for relation filters and virtual fields), `behaviors/composition.ts`, `behaviors/validation-boundaries.ts`                                                |
+| `runtime/enforcement/`, `runtime/validation/`                                                          | Protected policies and constraints, structural and final mutation validation                     | `enforcement/state.ts`, `enforcement/protected-policy.ts`, `validation/runtime-validation.ts` (one compiled-plan cache), `validation/runtime-mutation-validation.ts`, `validation/final-mutation-validation.ts`                                                                                                                                       |
+| `runtime/transactions/`, `runtime/context/`, `runtime/master/`, `runtime/cancellation/`                | Transactions, request context, Master authority, cancellation                                    | `transactions/run-transaction.ts` (identity, callback, lifetime, commit, rollback and post-commit flush in one function), `transactions/pipeline-transaction.ts`, `context/active-framework-context.ts`, `master/master-authority.ts`                                                                                                                 |
+| `runtime/nested-writes/`, `runtime/relations/`, `runtime/relation-filters/`, `runtime/virtual-fields/` | Nested-write execution, relation mutations and inclusions, contextual relation filters, virtuals | `nested-writes/runtime-host.ts`, `relations/relation-mutation.ts`, `relation-filters/execution.ts`, `virtual-fields/execution.ts`                                                                                                                                                                                                                     |
+| `runtime/plugin-operations/`, `runtime/schema-mutations/`, `runtime/commands/`                         | Plugin operations, plugin schema mutations, command bindings and transport projections           | `plugin-operations/request-execution.ts`, `plugin-operations/engine-integration.ts`, `schema-mutations/runtime.ts`, `schema-mutations/request-execution.ts`, `schema-mutations/transport.ts`, `commands/transport-projection.ts`                                                                                                                      |
+| `runtime/database/`, `runtime/persistence/`, `runtime/operations/`                                     | Database adapter contracts, persistence plans, result materialization                            | `database/contracts.ts`, `persistence/plans.ts`, `persistence/execution.ts`, `operations/materialize-result.ts`                                                                                                                                                                                                                                       |
+| `private-storage/`                                                                                     | Owner-private plugin records                                                                     | `runtime.ts` (reads the engine internals instead of its own registration), `registry.ts`, `request.ts`                                                                                                                                                                                                                                                |
 
 Core production went from 63,660 to 58,694 non-blank lines (schema −1,349,
 plugins/application/errors −703, query −690, runtime application domain −916,
@@ -453,30 +442,29 @@ per-domain records are archived at tag `rebuild-archive`.
 
 ### Official packages
 
-| Package                  | Rebuilt layout (under `src/`)                                                                                                                                                                                                                                                                          | Lines before → after |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------: |
-| `shared`                 | Unchanged: every line is public contract                                                                                                                                                                                                                                                               |              74 → 74 |
-| `plugin-kit`             | `plugin-events.ts` (trusted event contracts in a `WeakSet`), `plugin-options.ts`, `schema-patch.ts`, `contextual-fields.ts`                                                                                                                                                                            |            778 → 722 |
-| `typegen`                | Snapshot half: `snapshot.ts`, `snapshot/fields.ts`, `snapshot/virtual-fields.ts`, `snapshot/plugin-graph.ts`; generator half: `generator.ts`, `generator/identifiers.ts`, `generator/filters/{operators,field-filters,declarations}.ts` and the other renderers; `plugin.ts`, `loader.ts`, `writer.ts` |        3,018 → 2,733 |
-| `testing`                | `plugins/runner.ts` (one `UltimaBase.use(...plugins)` per fixture), `plugins/suite.ts`, `plugins/fixture.ts`, `plugins/static-snapshot.ts`, `plugins/typegen-check.ts`, `postgres/worker.ts`                                                                                                           |        1,243 → 1,162 |
-| `hooks-plugin`           | `authoring/declarations.ts` (one declaration boundary), `context/hook-context.ts`, `runtime/dispatcher.ts` (one dispatcher closure), `runtime/lifecycle.ts` (phase table), `runtime/execution-runtime.ts`, `runtime/events.ts`                                                                         |        4,145 → 3,447 |
-| `access-plugin`          | `authoring/declarations.ts`, `authoring/plan.ts` (one operation-slot table), `authoring/compiler.ts` (drafts frozen in place), `runtime/rule-evaluation.ts` (one `AccessScope`), `runtime/dispatcher.ts`                                                                                               |        4,438 → 3,653 |
-| `validation-plugin`      | `operation-validation.ts` (flattened arithmetic projection), `field-validation.ts`, `standard-schema.ts`                                                                                                                                                                                               |            663 → 622 |
-| `soft-delete-plugin`     | `plugin.ts` (kept from the reference for hover parity), `contracts.ts`, `visibility.ts`, `replace-delete.ts`, `explicit.ts`, `administration.ts`                                                                                                                                                       |            710 → 709 |
-| `acl-permissions-plugin` | `acl.ts` (one canonical `ACLJSON` state per `ACL`), `acl-json.ts`, `application-state.ts` (merged state, attribution and operation lookup), `acl-operation-resolution.ts`, `plugin.ts`                                                                                                                 |        3,188 → 2,687 |
-| `roles-plugin`           | `plugin.ts` (wiring and Runtime behavior), `role-member.ts` (one relation-command factory), `role-hierarchy.ts`, `role-resolution.ts` (single schema-root Query bridge), `role-deletion.ts`                                                                                                            |        2,192 → 2,043 |
-| `pg-vector-plugin`       | `index.ts` (public types dominate; unchanged except one local)                                                                                                                                                                                                                                         |            202 → 201 |
-| `postgres-plugin`        | `required.ts` and `naming.ts` (new), `schema/`, `query/` (`jsonb-operand.ts` merges two modules), `drizzle/` (`prepared-operation.ts` merges four modules; one `PostgresStatementContext`), `synchronization/`, `introspection/`                                                                       |        9,307 → 7,966 |
-| `http-plugin`            | `definitions.ts` (shared exact-option checks and definition registry), `application.ts` (one `dispatchPreparedRequest`), `request-boundary.ts`, `browser-policy.ts`, `route-graph.ts`, `endpoints.ts`                                                                                                  |        2,338 → 2,080 |
-| `hono-server-plugin`     | `plugin.ts`, `options.ts`, `provider.ts`, `original-headers.ts`                                                                                                                                                                                                                                        |            431 → 424 |
-| `rest-plugin`            | `errors.ts` (all three error families), `transports.ts` (closures instead of class, `WeakMap` and exported binders), `http-handler.ts`, `reads.ts`, `mutations.ts` (one contract table), `field-values.ts`, `routes.ts`                                                                                |        4,320 → 3,728 |
-| `password-auth-plugin`   | `operation-handlers.ts` (one closure over private state), `credentials.ts` (one compare-and-swap writer), `sessions.ts`, `operations.ts`, `http-cookie-routes.ts` (one `route(key)`), `plugin.ts`                                                                                                      |        3,567 → 3,366 |
-| `graphql-plugin`         | `compile-context.ts` (one `GraphqlCompileContext`), `binding-compiler.ts`, `binding-metadata.ts`, `binding-types.ts`, `root-fields.ts`, `wire-values.ts`, `connection-runtime.ts`, `schema-composition.ts`                                                                                             |        7,620 → 6,661 |
-| `graphql-http`           | `endpoint.ts` (`path` read once)                                                                                                                                                                                                                                                                       |              76 → 72 |
-| `graphql-yoga-plugin`    | `handler.ts` (one ordered Yoga plugin list), `errors.ts` (one failure constructor), `body.ts`, `media.ts`, `options.ts`, `plugin.ts`                                                                                                                                                                   |            731 → 726 |
-| `graphiql-plugin`        | `plugin.ts`, `options.ts`, `page.ts` (HTML and CSP identical)                                                                                                                                                                                                                                          |            188 → 183 |
-| `apollo-sandbox-plugin`  | `plugin.ts`, `options.ts`, `page.ts` (HTML and CSP identical)                                                                                                                                                                                                                                          |            197 → 192 |
-| `create-app`             | `catalog.ts` (one `selectedPluginIds`), `config.ts` (shared plan queries), `prompts.ts`, the three template modules (condition tables), `generate.ts`, `cli.ts`                                                                                                                                        |        1,656 → 1,557 |
+| Package                  | Rebuilt layout (under `src/`)                                                                                                                                                                                                    | Lines before → after |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------: |
+| `shared`                 | Unchanged: every line is public contract                                                                                                                                                                                         |              74 → 74 |
+| `plugin-kit`             | `plugin-events.ts` (trusted event contracts in a `WeakSet`), `plugin-options.ts`, `schema-patch.ts`, `contextual-fields.ts`                                                                                                      |            778 → 722 |
+| `testing`                | `plugins/runner.ts` (one `UltimaBase.use(...plugins)` per fixture), `plugins/suite.ts`, `plugins/fixture.ts`, `plugins/static-snapshot.ts`, `postgres/worker.ts`                                                                 |        1,243 → 1,162 |
+| `hooks-plugin`           | `authoring/declarations.ts` (one declaration boundary), `context/hook-context.ts`, `runtime/dispatcher.ts` (one dispatcher closure), `runtime/lifecycle.ts` (phase table), `runtime/execution-runtime.ts`, `runtime/events.ts`   |        4,145 → 3,447 |
+| `access-plugin`          | `authoring/declarations.ts`, `authoring/plan.ts` (one operation-slot table), `authoring/compiler.ts` (drafts frozen in place), `runtime/rule-evaluation.ts` (one `AccessScope`), `runtime/dispatcher.ts`                         |        4,438 → 3,653 |
+| `validation-plugin`      | `operation-validation.ts` (flattened arithmetic projection), `field-validation.ts`, `standard-schema.ts`                                                                                                                         |            663 → 622 |
+| `soft-delete-plugin`     | `plugin.ts` (kept from the reference for hover parity), `contracts.ts`, `visibility.ts`, `replace-delete.ts`, `explicit.ts`, `administration.ts`                                                                                 |            710 → 709 |
+| `acl-permissions-plugin` | `acl.ts` (one canonical `ACLJSON` state per `ACL`), `acl-json.ts`, `application-state.ts` (merged state, attribution and operation lookup), `acl-operation-resolution.ts`, `plugin.ts`                                           |        3,188 → 2,687 |
+| `roles-plugin`           | `plugin.ts` (wiring and Runtime behavior), `role-member.ts` (one relation-command factory), `role-hierarchy.ts`, `role-resolution.ts` (single schema-root Query bridge), `role-deletion.ts`                                      |        2,192 → 2,043 |
+| `pg-vector-plugin`       | `index.ts` (public types dominate; unchanged except one local)                                                                                                                                                                   |            202 → 201 |
+| `postgres-plugin`        | `required.ts` and `naming.ts` (new), `schema/`, `query/` (`jsonb-operand.ts` merges two modules), `drizzle/` (`prepared-operation.ts` merges four modules; one `PostgresStatementContext`), `synchronization/`, `introspection/` |        9,307 → 7,966 |
+| `http-plugin`            | `definitions.ts` (shared exact-option checks and definition registry), `application.ts` (one `dispatchPreparedRequest`), `request-boundary.ts`, `browser-policy.ts`, `route-graph.ts`, `endpoints.ts`                            |        2,338 → 2,080 |
+| `hono-server-plugin`     | `plugin.ts`, `options.ts`, `provider.ts`, `original-headers.ts`                                                                                                                                                                  |            431 → 424 |
+| `rest-plugin`            | `errors.ts` (all three error families), `transports.ts` (closures instead of class, `WeakMap` and exported binders), `http-handler.ts`, `reads.ts`, `mutations.ts` (one contract table), `field-values.ts`, `routes.ts`          |        4,320 → 3,728 |
+| `password-auth-plugin`   | `operation-handlers.ts` (one closure over private state), `credentials.ts` (one compare-and-swap writer), `sessions.ts`, `operations.ts`, `http-cookie-routes.ts` (one `route(key)`), `plugin.ts`                                |        3,567 → 3,366 |
+| `graphql-plugin`         | `compile-context.ts` (one `GraphqlCompileContext`), `binding-compiler.ts`, `binding-metadata.ts`, `binding-types.ts`, `root-fields.ts`, `wire-values.ts`, `connection-runtime.ts`, `schema-composition.ts`                       |        7,620 → 6,661 |
+| `graphql-http`           | `endpoint.ts` (`path` read once)                                                                                                                                                                                                 |              76 → 72 |
+| `graphql-yoga-plugin`    | `handler.ts` (one ordered Yoga plugin list), `errors.ts` (one failure constructor), `body.ts`, `media.ts`, `options.ts`, `plugin.ts`                                                                                             |            731 → 726 |
+| `graphiql-plugin`        | `plugin.ts`, `options.ts`, `page.ts` (HTML and CSP identical)                                                                                                                                                                    |            188 → 183 |
+| `apollo-sandbox-plugin`  | `plugin.ts`, `options.ts`, `page.ts` (HTML and CSP identical)                                                                                                                                                                    |            197 → 192 |
+| `create-app`             | `catalog.ts` (one `selectedPluginIds`), `config.ts` (shared plan queries), `prompts.ts`, the three template modules (condition tables), `generate.ts`, `cli.ts`                                                                  |        1,656 → 1,557 |
 
 ## Rebuild simplifications
 
@@ -497,8 +485,7 @@ The recurring changes are:
   GraphQL operation and schema-mutation executions follow the same rule.
 - **Tables instead of parallel branches.** Protected capability families
   (`plugins/capability-rules.ts`), `where` operators (`query/filters/primitive.ts`),
-  Hooks phases, Access operation slots, REST mutation contracts, Typegen filter
-  names, PostgreSQL column specifications, and create-app conditions are each
+  Hooks phases, Access operation slots, REST mutation contracts, PostgreSQL column specifications, and create-app conditions are each
   one table read by every consumer, so the consumers cannot drift.
 - **Context records instead of positional parameters.** Examples include
   `AccessScope`, `GraphqlCompileContext`, `PostgresStatementContext`,
@@ -536,12 +523,13 @@ const Application = UltimaBase.use(accessPlugin())
 
 const Post = Application.Schema.define({
 	className: 'Post',
-	access: {
-		read: true,
-	},
 	fields: (field) => ({
 		title: field.string(),
 	}),
+}).with({
+	access: {
+		read: true,
+	},
 })
 
 const application = new Application({ schemas: [Post] })
@@ -565,8 +553,7 @@ to an empty application-local plan without creating a second capability graph.
 Plugin definitions carry structured public source references for their
 developer-authored options. Factory-owned compiler markers remain internal:
 Core retains their validation, ownership, provenance, and plugin requirement
-while configured authoring types omit their names. Only references needed by
-the retained application schema-name graph reach Typegen.
+while configured authoring types omit their names.
 
 Plugins may also contribute new logical field kinds. Structural validation
 plans retain the original immutable field definition by identity; the owning
@@ -649,14 +636,14 @@ tokens. An application may deny privileges globally, by plugin ID, or for an exa
 instance. The application logger (ADR-0313) writes the complete report of
 every plugin and requested power at `debug`, and one `info` startup line names
 critical privileges; one typed diagnostic aggregates denials, logged at
-`error`, before declarations, Typegen, setup, connections, Runtime, or
+`error`, before declarations, setup, connections, Runtime, or
 transports can produce effects.
 
 Plugins are trusted in-process Node.js code. Privileges govern UltimaBase-owned
 facades and make powers inspectable; separate environmental claims describe
 direct filesystem, network, process, or native-code behavior that Core cannot
 verify. Neither mechanism is an operating-system sandbox. Critical privileges
-are private storage and authority elevation. Core exposes no filesystem, network, or Typegen replacement
+are private storage and authority elevation. Core exposes no filesystem or network
 privilege without a corresponding enforceable facade. Master credential
 verification and grant creation remain Core-owned. An explicitly configured
 HTTP plugin may pass one raw key to the exact application authority selected by
@@ -681,15 +668,15 @@ compatibility only; it grants no capability read or lifecycle guarantee.
 
 Each application owns its capability host and private resource store.
 Plugin-scoped views attach the actual owner and instance to every declaration,
-additive patch, middleware, constraint, codec, persistence rewrite, Typegen
-reference, event, and command. Plugin code cannot self-assert a different
+additive patch, middleware, constraint, codec, persistence rewrite, event, and
+command. Plugin code cannot self-assert a different
 owner.
 
 Before application compilation, Core invokes each authorized plugin's
 synchronous static declaration callback in dependency-first order. The public
 host may add schemas, FieldBuilder methods and logical kinds, namespaced schema
 or field options, additive immutable patches, schema-mutation methods,
-application operations, and public Typegen references. Each boundary requires
+and application operations. Each boundary requires
 its exact privilege; destructive patches and generic schema/model operations
 are removed by ADR-0259. Declarations are pure, deterministic, and separated from
 secrets, services, adapters, requests, clocks, and network state.
@@ -809,7 +796,8 @@ atomic `grant`/`revoke` update inputs only when the schema's `clientSharing`
 rule allows that locked row, and never grant a right they do not hold
 (ADR-0321).
 The ACL package reads the Core current principal (ADR-0304) and consumes the
-separate neutral role resolver; it never imports a concrete authentication or
+role resolver protocol of `@ultimabase/plugin-kit` (ADR-0329); it never
+imports a concrete authentication or
 roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.
 

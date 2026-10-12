@@ -261,10 +261,7 @@ Current records (accepted or still active in part):
 - [ADR-0277: Schema specialization has one Core-native boundary](0277-canonical-schema-specialization.md)
 - [ADR-0278: Owner-private storage stays an addressable-record boundary](0278-bounded-owner-private-storage.md)
 - [ADR-0279: Configured applications own source-typed authoring](0279-source-typed-configured-application-authoring.md)
-- [ADR-0280: Complete-schema callbacks use the retained Typegen graph](0280-complete-schema-callbacks-use-typegen-graph.md)
-- [ADR-0281: Retain generated Where contracts for the source-authoring milestone](0281-retain-generated-where-contracts.md)
 - [ADR-0282: Configure plugin lists through variadic use](0282-variadic-configured-plugin-installation.md)
-- [ADR-0283: Exact ACL schema callbacks use the retained Typegen graph](0283-acl-callbacks-use-retained-typegen-graph.md)
 - [ADR-0284: Password User declarations accept the configured schema namespace](0284-configured-password-user-authoring.md)
 - [ADR-0285: Sparse generated mutation surfaces derive class methods](0285-sparse-generated-mutation-surfaces.md)
 - [ADR-0286: Accept Milestone 63 with explicit measured costs](0286-accept-source-authoring-milestone-costs.md)
@@ -350,5 +347,8 @@ Superseded records:
 - [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md), superseded by ADR-0310.
 - [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md), superseded by ADR-0273.
 - [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md), superseded by ADR-0309.
+- [ADR-0280: Complete-schema callbacks use the retained Typegen graph](0280-complete-schema-callbacks-use-typegen-graph.md), superseded by ADR-0297.
+- [ADR-0281: Retain generated Where contracts for the source-authoring milestone](0281-retain-generated-where-contracts.md), superseded by ADR-0297.
+- [ADR-0283: Exact ACL schema callbacks use the retained Typegen graph](0283-acl-callbacks-use-retained-typegen-graph.md), superseded by ADR-0297.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

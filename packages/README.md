@@ -64,9 +64,6 @@ developer reads their exports.
 - `create-app`: standalone interactive project initializer. Its local
   executable generates a base PostgreSQL application; optional plugin
   templates and packaged verification are in progress. It is not published.
-- `typegen`: static application loading, deterministic compact schema
-  declarations, plugin contributions, fingerprints, and atomic output
-  replacement. It emits no generated Runtime client.
 - `plugin-kit`: public immutable plugin-authoring helpers shared by official and
   community plugins without moving ownership or privilege enforcement out of Core.
 - `testing`: application test utilities plus public plugin conformance fixtures

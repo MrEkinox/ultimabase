@@ -104,7 +104,7 @@ const Account = UltimaBase.Schema.define({
 ```
 
 The output callback is captured exactly once during schema declaration. The
-compiled schema and Typegen snapshot retain only immutable output and dependency
+compiled schema retains only immutable output and dependency
 metadata; the resolver remains a Core-private binding and is never serialized.
 
 When a query requests a virtual field, Core keeps that logical selection for
