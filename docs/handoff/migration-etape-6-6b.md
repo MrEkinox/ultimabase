@@ -24,8 +24,8 @@ expliqué, banc forme D TS6/TS7.
 
 ## État
 
-Implémentation, tests ciblés, documentation faits (commits `wip(rest)`).
-Reste : suites complètes, porte finale, audit DX, banc.
+Implémentation, tests, documentation, porte finale, audit DX et banc faits.
+Dernier commit de code : 876e7236. Rien n'est poussé ni fusionné.
 
 ### Core (générique, aucun plugin nommé)
 
@@ -123,8 +123,62 @@ context }`, code d'issue `operation.input`, résultat passé par `toJSON`.
 
 ## Preuves
 
-(à compléter : porte finale)
+Sur 876e7236, `packages/*/dist` et `*.tsbuildinfo` hors `node_modules`
+supprimés :
+
+- `yarn validate:full` → exit 0 : « All matched files use Prettier code
+  style! » ; lint 0 erreur (49 + 17 + 2 avertissements, tous de taille de
+  fichier et déjà présents sur 4a81b6c6 ; fichiers modifiés concernés :
+  `capability-host.ts` 523 → 533, `core/src/plugins/plugin.ts` 437 → 440,
+  `optional-product-public-api.ts` 521 → 528) ; performance « Test Files 3
+  passed (3) / Tests 4 passed (4) » ; couverture « Test Files 734 passed (734)
+  / Tests 3629 passed (3629) / Type Errors no errors », All files 92,5 /
+  86,01 / 96,92 / 93,16 ; site « Test Files 17 passed (17) / Tests 66 passed
+  (66) ». Une première exécution avait échoué au contrôle Prettier (4
+  fichiers), corrigé par 876e7236.
+- `yarn test:e2e:built` → exit 0, « Test Files 135 passed (135) / Tests 591
+  passed (591) » (aucun échec, `create-app-packed` compris).
+- `yarn website:test` → exit 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+
+### Audit DX (base 4a81b6c6 construite, `--only` les 23 paquets, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+454 différences (39 039 / 39 256 enregistrements), toutes lues :
+
+| Groupe             | Nombre | Cause                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------ | -----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `rest-plugin`      |    348 | Options et règles réécrites (`RestMethodRules`, `RestSchemaRule`, `RestRules`, `RestSchemaRules`, `RestCommandName` dont 53 membres de `String`, `RestErrorDetails`, `details` des trois erreurs, `methodNotAllowed`) ; `RestBulkRoutes`/`RestSchemaRoutes`/`RestSchemaRoutesOption` retirés ; source de `RestPlugin` = `schemaRules` seul (fin du gabarit) ; tests de types et d'IntelliSense réécrits ou ajoutés |
+| `core`             |     37 | `PluginOperationPublicDeclaration`, `public` des contributions, `bound`/`public` des descripteurs, `bindings` (planification et exposition, `SchemaMutationTransportExposureOptions` devient une interface), `operations` facultatif, `hasProtectedPolicy`, `path` des transformateurs, noms de morceaux de construction                                                                                           |
+| `plugin-kit`       |     30 | `defineOperation`, `DefineOperationOptions`, `OperationHandlerInput`, `ApplicationOperation`                                                                                                                                                                                                                                                                                                                       |
+| `examples/minimal` |     35 | `hide` au lieu de `operations` et `acknowledgeUnverifiedProtection` pour REST (décalage des index d'identifiants), `public` du plugin de statut, survols `rest` de l'ancienne forme (`RestMethodRules` nommé)                                                                                                                                                                                                      |
+| `tests`            |      6 | Liste des noms retirés de REST dans `optional-product-public-api`                                                                                                                                                                                                                                                                                                                                                  |
+
+### Banc forme D (base 4a81b6c6 contre 876e7236 ; alterné, 3 exécutions, médianes)
+
+L'application du banc n'installe pas REST : aucun gain attendu ni mesuré
+(le gain annoncé par l'ADR concerne les applications qui installent REST).
+
+TypeScript 6.0.3 :
+
+| N   | Arbre   | Charges     | Éd.→diag (s) | Exécutions     | Froid (s) | Schéma (s) | Tas (Mio) | Hover |
+| --- | ------- | ----------- | -----------: | -------------- | --------: | ---------: | --------: | ----: |
+| 50  | base    | 5,5 4,6 4,0 |         1,89 | 1,89/1,91/1,89 |      4,50 |       1,92 |       859 |   199 |
+| 50  | branche | 5,1 4,3 4,0 |         1,90 | 1,90/1,93/1,88 |      4,47 |       1,93 |       855 |   199 |
+| 200 | base    | 3,8 3,6 3,1 |         6,11 | 6,16/6,06/6,11 |     14,95 |       6,06 |     2 250 |   199 |
+| 200 | branche | 3,6 3,3 3,2 |         6,09 | 6,07/6,09/6,11 |     14,81 |       5,99 |     2 242 |   199 |
+
+TypeScript 7.0.2 (`lsp-bench.mjs`, 3 exécutions) : éd.→diag 50 : 634 → 629 ms
+(634/621/637 contre 628/635/629) ; 200 : 2 062 → 2 075 ms ; premier
+diagnostic 709 → 721 ms (50), 2 215 → 2 218 ms (200) ; RSS 718 → 725 Mio
+(50), 1 693 → 1 549 Mio (200). Charges 2,5 à 3,4. Écarts dans le bruit.
+Dossiers `gen/` supprimés, worktree de base retiré.
 
 ## Prochaine action vérifiable
 
-Suites complètes (`yarn test`, e2e PostgreSQL), puis porte finale.
+Relecture du coordinateur, décisions de l'utilisateur sur les points
+ci-dessus, puis fusion `--no-ff` dans `main` ; supprimer ce handoff après la
+fusion. En 6.6c : GraphQL consomme `plan({ transport })` (opérations
+publiques) et les clés `.with({ graphql })`, retirer la liaison GraphQL
+TEMPORAIRE de `plugin-kit/src/define-plugin/commands.ts`, puis
+l'acquittement de Core (`acknowledgeUnverifiedProtection`, avertissement)
+et `passwordAuthOperationList` s'ils n'ont plus d'utilisateur.
