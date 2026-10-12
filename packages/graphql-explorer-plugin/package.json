@@ -1,12 +1,12 @@
 {
-	"name": "@ultimabase/graphiql-plugin",
+	"name": "@ultimabase/graphql-explorer-plugin",
 	"version": "0.0.0",
 	"type": "module",
 	"license": "Apache-2.0",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
-		"directory": "packages/graphiql-plugin"
+		"directory": "packages/graphql-explorer-plugin"
 	},
 	"sideEffects": false,
 	"files": [

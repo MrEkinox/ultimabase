@@ -1,5 +1,4 @@
-import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
-import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
+import { graphqlExplorerPlugin } from '@ultimabase/graphql-explorer-plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
@@ -20,14 +19,16 @@ describe('packed GraphQL explorer composition', () => {
 			databasePlugin(),
 			httpPlugin({ appId: 'collision' }),
 			graphqlHttpProvider(),
-			graphiqlPlugin({ environment: 'development', path: '/explorer' }),
-			apolloSandboxPlugin({
+			graphqlExplorerPlugin({ environment: 'development', path: '/explorer' }),
+			graphqlExplorerPlugin({
 				environment: 'development',
 				path: '/explorer',
+				ui: 'apollo-sandbox',
 			}),
 		))({ logger: false, schemas: [] })
 
-		await expect(ultimabase.start()).rejects.toThrow('HTTP endpoint collision')
+		// One plugin id: two explorers in one application conflict first.
+		await expect(ultimabase.start()).rejects.toThrow()
 		await ultimabase.dispose()
 	})
 
@@ -37,7 +38,7 @@ describe('packed GraphQL explorer composition', () => {
 			databasePlugin(),
 			httpPlugin({ appId: 'first' }),
 			graphqlHttpProvider(),
-			graphiqlPlugin({ environment: 'development' }),
+			graphqlExplorerPlugin({ environment: 'development' }),
 			firstConsumer,
 		))({ logger: false, schemas: [] })
 		const secondConsumer = httpConsumer()
@@ -45,7 +46,10 @@ describe('packed GraphQL explorer composition', () => {
 			databasePlugin(),
 			httpPlugin({ appId: 'second' }),
 			graphqlHttpProvider(),
-			apolloSandboxPlugin({ environment: 'development' }),
+			graphqlExplorerPlugin({
+				environment: 'development',
+				ui: 'apollo-sandbox',
+			}),
 			secondConsumer,
 		))({
 			logger: false,
@@ -80,8 +84,8 @@ describe('packed GraphQL explorer composition', () => {
 	// ADR-0312: an explorer that is served while introspection is off refuses
 	// to start, and the missing capability says what to change (ADR-0313).
 	it.each([
-		['GraphiQL', () => graphiqlPlugin({ environment: 'development' })],
-		['Apollo Sandbox', () => apolloSandboxPlugin()],
+		['GraphiQL', () => graphqlExplorerPlugin({ environment: 'development' })],
+		['Apollo Sandbox', () => graphqlExplorerPlugin({ ui: 'apollo-sandbox' })],
 	])('refuses a served %s without introspection', (_name, explorer) => {
 		for (const provider of [
 			graphqlHttpProvider({ introspection: false }),
@@ -109,7 +113,7 @@ describe('packed GraphQL explorer composition', () => {
 					databasePlugin(),
 					httpPlugin({ appId: 'production-explorer' }),
 					graphqlHttpProvider({ introspection: false }),
-					graphiqlPlugin({ environment: 'production' }),
+					graphqlExplorerPlugin({ environment: 'production' }),
 				))({ logger: false, schemas: [] }),
 		).not.toThrow()
 	})

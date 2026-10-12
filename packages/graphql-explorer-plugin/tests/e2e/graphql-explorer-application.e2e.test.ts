@@ -1,4 +1,4 @@
-import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
+import { graphqlExplorerPlugin } from '@ultimabase/graphql-explorer-plugin'
 import {
 	httpPlugin,
 	dispatchHttpBrowserRequest,
@@ -15,14 +15,14 @@ import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 // Preserve the original public-export scenarios under their contract owner.
-describe('packed GraphiQL plugin', () => {
+describe('packed GraphQL explorer plugin', () => {
 	it('materializes GraphiQL through a provider-neutral endpoint and cleans up', async () => {
 		const consumer = httpConsumer()
 		const ultimabase = new (UltimaBase.use(
 			databasePlugin(),
 			httpPlugin({ appId: 'notes-public-id' }),
 			graphqlHttpProvider(),
-			graphiqlPlugin({ environment: 'development' }),
+			graphqlExplorerPlugin({ environment: 'development' }),
 			consumer,
 		))({ logger: false, schemas: [] })
 		await ultimabase.start()
@@ -43,7 +43,7 @@ describe('packed GraphiQL plugin', () => {
 		expect(html).not.toContain('notes-public-id')
 		expect(html).not.toContain('must-not-leak')
 		expect(http.routeGraph.browserBootstraps[0]?.provenance.owner).toEqual({
-			pluginId: '@ultimabase/graphiql-plugin',
+			pluginId: '@ultimabase/graphql-explorer-plugin',
 		})
 
 		await ultimabase.dispose()
@@ -59,7 +59,7 @@ describe('packed GraphiQL plugin', () => {
 			databasePlugin(),
 			httpPlugin({ appId: 'browser-policy' }),
 			graphqlHttpProvider(),
-			graphiqlPlugin({ environment: 'development' }),
+			graphqlExplorerPlugin({ environment: 'development' }),
 			consumer,
 		))({ logger: false, schemas: [] })
 		await ultimabase.start()
@@ -90,13 +90,43 @@ describe('packed GraphiQL plugin', () => {
 		await ultimabase.dispose()
 	})
 
+	it('serves /graphiql and /apollo-sandbox without an application header (ADR-0325)', async () => {
+		for (const ui of ['graphiql', 'apollo-sandbox'] as const) {
+			const consumer = httpConsumer()
+			const ultimabase = new (UltimaBase.use(
+				databasePlugin(),
+				httpPlugin({ appId: 'single-application' }),
+				graphqlHttpProvider(),
+				graphqlExplorerPlugin({ environment: 'development', ui }),
+				consumer,
+			))({ logger: false, schemas: [] })
+			await ultimabase.start()
+			const http = readHttpApplication(
+				ultimabase.plugin('fixture.explorer-http-consumer'),
+			)
+			// One application: the plain URL, no header (ADR-0323).
+			const plain = await http.fetch({
+				originalHeaders: [],
+				request: new Request(`http://localhost/${ui}`),
+			})
+			expect(plain.status).toBe(200)
+			expect(await plain.text()).toContain('const endpoint="/custom-graphql"')
+			// Several applications: the same page under the application prefix.
+			const prefixed = await http.fetch(
+				browserRequest('single-application', `/${ui}`),
+			)
+			expect(prefixed.status).toBe(200)
+			await ultimabase.dispose()
+		}
+	})
+
 	it('keeps production absent by default', async () => {
 		const disabledConsumer = httpConsumer()
 		const disabled = new (UltimaBase.use(
 			databasePlugin(),
 			httpPlugin({ appId: 'production-disabled' }),
 			graphqlHttpProvider(),
-			graphiqlPlugin({ environment: 'production' }),
+			graphqlExplorerPlugin({ environment: 'production' }),
 			disabledConsumer,
 		))({
 			logger: false,

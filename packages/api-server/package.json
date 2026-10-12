@@ -1,12 +1,12 @@
 {
-	"name": "@ultimabase/apollo-sandbox-plugin",
+	"name": "@ultimabase/api-server",
 	"version": "0.0.0",
 	"type": "module",
 	"license": "Apache-2.0",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
-		"directory": "packages/apollo-sandbox-plugin"
+		"directory": "packages/api-server"
 	},
 	"sideEffects": false,
 	"files": [
@@ -28,10 +28,12 @@
 		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {
-		"@ultimabase/core": "workspace:^",
-		"@ultimabase/graphql-http": "workspace:^",
+		"@ultimabase/graphql-explorer-plugin": "workspace:^",
+		"@ultimabase/graphql-plugin": "workspace:^",
+		"@ultimabase/graphql-yoga-plugin": "workspace:^",
+		"@ultimabase/hono-server-plugin": "workspace:^",
 		"@ultimabase/http-plugin": "workspace:^",
-		"@ultimabase/plugin-kit": "workspace:^"
+		"@ultimabase/rest-plugin": "workspace:^"
 	},
 	"devDependencies": {
 		"tsdown": "^0.22.14",

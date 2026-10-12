@@ -3267,14 +3267,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/apollo-sandbox-plugin@workspace:packages/apollo-sandbox-plugin":
+"@ultimabase/api-server@workspace:packages/api-server":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/apollo-sandbox-plugin@workspace:packages/apollo-sandbox-plugin"
+  resolution: "@ultimabase/api-server@workspace:packages/api-server"
   dependencies:
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/graphql-http": "workspace:^"
+    "@ultimabase/graphql-explorer-plugin": "workspace:^"
+    "@ultimabase/graphql-plugin": "workspace:^"
+    "@ultimabase/graphql-yoga-plugin": "workspace:^"
+    "@ultimabase/hono-server-plugin": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
-    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/rest-plugin": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
@@ -3374,9 +3376,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/graphiql-plugin@workspace:packages/graphiql-plugin":
+"@ultimabase/graphql-explorer-plugin@workspace:^, @ultimabase/graphql-explorer-plugin@workspace:packages/graphql-explorer-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/graphiql-plugin@workspace:packages/graphiql-plugin"
+  resolution: "@ultimabase/graphql-explorer-plugin@workspace:packages/graphql-explorer-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/graphql-http": "workspace:^"
