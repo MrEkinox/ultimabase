@@ -1,10 +1,10 @@
 import {
 	type OperationOptions,
-	type RequestRoleReference,
 	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaResult,
 } from '@ultimabase/core'
+import { type RequestRoleReference } from '@ultimabase/plugin-kit'
 
 import {
 	getRoleReferenceState,

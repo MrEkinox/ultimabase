@@ -3,10 +3,10 @@ import { isDeepStrictEqual } from 'node:util'
 import {
 	applyUpdateExpressionToRecord,
 	type Principal,
-	type RequestRoleReference,
 	type RequestSubjectContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { type RequestRoleReference } from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
 	immutableRecord,

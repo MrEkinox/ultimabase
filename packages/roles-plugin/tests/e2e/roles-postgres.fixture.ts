@@ -2,9 +2,9 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	requestSubjectReferenceCleanupCapability,
-	requestRoleResolverCapability,
 	defineRequestSubjectReferenceCleanup,
 } from '@ultimabase/core'
+import { requestRoleResolverCapability } from '@ultimabase/plugin-kit'
 import { allOf, not, accessPlugin } from '@ultimabase/access-plugin'
 
 import { hooksPlugin } from '@ultimabase/hooks-plugin'

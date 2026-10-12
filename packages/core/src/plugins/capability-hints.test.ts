@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { requestPrincipalResolverCapability } from '../access/subject/contracts.js'
-import { requestRoleResolverCapability } from '../access/subject/contracts.js'
 import { FrameworkApplication } from '../application/framework-application.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import { databaseAdapterCapability } from '../runtime/database/contracts.js'
@@ -112,7 +111,6 @@ describe('capability hints', () => {
 		for (const token of [
 			databaseAdapterCapability,
 			requestPrincipalResolverCapability,
-			requestRoleResolverCapability,
 		]) {
 			expect(token.hint).toEqual(expect.any(String))
 			expect(token.hint).not.toMatch(/@ultimabase\/|-plugin\b|[a-z]+Plugin\(/u)

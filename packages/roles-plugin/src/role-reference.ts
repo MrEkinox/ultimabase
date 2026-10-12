@@ -2,9 +2,9 @@ import {
 	RequestSubjectReference,
 	type DatabaseOperationAst,
 	type ExecutableOperationAst,
-	type RequestRoleReference,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { type RequestRoleReference } from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
 	immutableRecord,

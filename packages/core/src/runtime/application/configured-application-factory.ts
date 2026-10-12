@@ -52,7 +52,7 @@ export type MergeInstalledPluginSources<
 
 /**
  * One configured factory plus the schema factories its plugins add
- * (`App.RoleSchema`, ADR-0322); without any, exactly the factory.
+ * (ADR-0322); without any, exactly the factory.
  */
 export type ConfiguredApplicationFactory<
 	TPlugins extends readonly PluginDefinition[],

@@ -4,14 +4,16 @@ import {
 	getCurrentRequest,
 	getRequestPrincipal,
 	Pointer,
-	requireCurrentRequestRoleResolver,
 	type PolicyPredicate,
-	type RequestRoleReference,
-	type RequestRoleResolver,
 	type RequestSubjectContext,
 	type OperationOptions,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	requireCurrentRequestRoleResolver,
+	type RequestRoleReference,
+	type RequestRoleResolver,
+} from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {

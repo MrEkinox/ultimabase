@@ -2,11 +2,13 @@ import {
 	RequestSubjectReference,
 	FrameworkError,
 	type Principal,
-	type RequestRoleReference,
-	type RequestRoleResolver,
 	type RequestSubjectContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	type RequestRoleReference,
+	type RequestRoleResolver,
+} from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'

@@ -1,9 +1,6 @@
 import { onTestFinished, describe, expect, it, vi, type Mock } from 'vitest'
-import {
-	RequestSubjectReference,
-	requestRoleResolverCapability,
-	UltimaBase,
-} from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
+import { requestRoleResolverCapability } from '@ultimabase/plugin-kit'
 import {
 	plugin,
 	contributeApplication,

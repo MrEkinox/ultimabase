@@ -4,7 +4,6 @@ import {
 	RequestSubjectReference,
 	createRequestPrincipalReference,
 	parseRequestPrincipalReference,
-	resolveRequestRoleReference,
 } from './contracts.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
@@ -76,35 +75,5 @@ describe('Request principal references', () => {
 				new RequestSubjectReference('principal', value),
 			),
 		).toThrow()
-	})
-})
-
-describe('resolveRequestRoleReference', () => {
-	it('accepts direct references only', () => {
-		const reference = new RequestSubjectReference('role', 'editor')
-
-		expect(resolveRequestRoleReference(reference)).toBe(reference)
-	})
-
-	it('rejects value carriers and non-string role identities', () => {
-		// Role results are plain data without a reference method (ADR-0310).
-		expect(() =>
-			resolveRequestRoleReference({
-				toRequestRoleReference: () => new RequestSubjectReference('role', 'x'),
-			} as never),
-		).toThrow(
-			new TypeError(
-				'Request role subject must provide one string role reference',
-			),
-		)
-		expect(() =>
-			resolveRequestRoleReference(
-				new RequestSubjectReference('role', 42) as never,
-			),
-		).toThrow(
-			new TypeError(
-				'Request role subject must provide one string role reference',
-			),
-		)
 	})
 })

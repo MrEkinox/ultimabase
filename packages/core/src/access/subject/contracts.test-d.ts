@@ -3,16 +3,12 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	RequestSubjectReference,
 	requestPrincipalResolverCapability,
-	requestRoleResolverCapability,
 	createRequestPrincipalReference,
 	parseRequestPrincipalReference,
 	getRequestPrincipal,
-	resolveRequestRoleReference,
 	type RequestPrincipalResolver,
 	type RequestPrincipalReference,
 	type RequestPrincipalReferenceIdentity,
-	type RequestRoleReference,
-	type RequestRoleResolver,
 	type RequestSubjectResolver,
 	type RequestSubjectValue,
 	type RequestSubjectValueOf,
@@ -28,7 +24,7 @@ interface FixturePrincipal {
 	readonly organizationId: string
 }
 
-interface FixtureRole {
+interface FixtureGroup {
 	readonly key: string
 	readonly inherited: readonly string[]
 }
@@ -53,7 +49,7 @@ const principal = new RequestContextValue<FixturePrincipal>(
 		})
 	},
 )
-const editor = new RequestSubjectReference('role', 'editor')
+const editor = new RequestSubjectReference('group', 'editor')
 const PrincipalSchema = UltimaBase.Schema.define({
 	className: 'TypedAccessPrincipal',
 	fields: () => ({}),
@@ -64,7 +60,7 @@ const principalResolver: RequestPrincipalResolver<typeof principalPointer> = {
 }
 void principalResolver
 
-const resolver: RequestSubjectResolver<typeof editor, FixtureRole> = {
+const resolver: RequestSubjectResolver<typeof editor, FixtureGroup> = {
 	resolve: ({ context, reference }) => {
 		expectTypeOf(context.getValue(principal)).toEqualTypeOf<
 			FixturePrincipal | undefined
@@ -85,28 +81,11 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 		RequestSubjectValueOf<typeof principal>
 	>().toEqualTypeOf<FixturePrincipal>()
 	expectTypeOf(editor).toEqualTypeOf<
-		RequestSubjectReference<'role', 'editor'>
+		RequestSubjectReference<'group', 'editor'>
 	>()
-	expectTypeOf(editor).toExtend<RequestRoleReference<'editor'>>()
-	expectTypeOf(
-		resolveRequestRoleReference(editor),
-	).toEqualTypeOf<RequestRoleReference>()
-	// Role results carry no reference method (ADR-0310).
-	// @ts-expect-error -- Only a role reference is a role subject.
-	resolveRequestRoleReference({ toRequestRoleReference: () => editor })
 	expectTypeOf<
 		ResolvedRequestSubject<typeof resolver>
-	>().toEqualTypeOf<FixtureRole>()
-	expectTypeOf(requestRoleResolverCapability).toEqualTypeOf<
-		CapabilityToken<
-			RequestRoleResolver,
-			RequestRoleResolver,
-			'ultimabase.request-subject.role-resolver',
-			'1.0.0',
-			'single',
-			'application'
-		>
-	>()
+	>().toEqualTypeOf<FixtureGroup>()
 	expectTypeOf(requestPrincipalResolverCapability).toEqualTypeOf<
 		CapabilityToken<
 			RequestPrincipalResolver,
@@ -126,9 +105,6 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 			createRequestPrincipalReference(principalPointer),
 		),
 	).toEqualTypeOf<Readonly<RequestPrincipalReferenceIdentity>>()
-	expectTypeOf<
-		NonNullable<RequestRoleResolver['resolvePersistentRole']>
-	>().toBeFunction()
 	expectTypeOf(getRequestPrincipal).returns.toEqualTypeOf<
 		Promise<Principal | undefined>
 	>()
@@ -146,8 +122,8 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 
 test('keeps nominal subject references distinct from structural values', () => {
 	// @ts-expect-error -- Plain records cannot forge nominal Access references.
-	const forged: RequestRoleReference<'editor'> = {
-		kind: 'role',
+	const forged: RequestSubjectReference<'group', 'editor'> = {
+		kind: 'group',
 		value: 'editor',
 	}
 	void forged

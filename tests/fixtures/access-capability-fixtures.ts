@@ -1,9 +1,11 @@
 import {
 	requestPrincipalResolverCapability,
-	requestRoleResolverCapability,
 	type RequestPrincipalResolver,
-	type RequestRoleResolver,
 } from '@ultimabase/core'
+import {
+	requestRoleResolverCapability,
+	type RequestRoleResolver,
+} from '@ultimabase/plugin-kit'
 import { provideCapability } from '@ultimabase/core/plugin'
 
 /** Creates one application-local principal resolver for an E2E fixture plugin. */

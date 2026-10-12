@@ -1,8 +1,8 @@
+import { Pointer } from '@ultimabase/core'
 import {
-	Pointer,
 	resolveRequestRoleReference,
 	type RequestRoleSubject,
-} from '@ultimabase/core'
+} from '@ultimabase/plugin-kit'
 import { immutableArray } from '@ultimabase/shared'
 
 import {

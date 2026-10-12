@@ -5,9 +5,9 @@ import {
 	getCurrentRequest,
 	type OperationOptions,
 	type PointerValue,
-	type RequestRoleReference,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { type RequestRoleReference } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { StoredRoleResolver } from './role-access.js'

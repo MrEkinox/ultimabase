@@ -2,12 +2,14 @@ import {
 	RequestSubjectReference,
 	type Principal,
 	type RequestSubjectContext,
-	type RequestRoleReference,
-	type RequestRoleResolver,
 	type DatabaseRowFilterNode,
 	type ExecutableOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	type RequestRoleReference,
+	type RequestRoleResolver,
+} from '@ultimabase/plugin-kit'
 import {
 	immutableArray,
 	immutableRecord,

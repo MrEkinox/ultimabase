@@ -55,3 +55,12 @@ export {
 	readStandardJsonSchema,
 	type StandardJsonSchema,
 } from './standard-json-schema.js'
+export {
+	requestRoleResolverCapability,
+	requireCurrentRequestRoleResolver,
+	resolveRequestRoleReference,
+	type RequestRoleReference,
+	type RequestRoleResolutionInput,
+	type RequestRoleResolver,
+	type RequestRoleSubject,
+} from './request-roles.js'

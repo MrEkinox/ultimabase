@@ -308,7 +308,7 @@ interface PluginApplicationLifecycle {
 	/**
 	 * Runs once every start phase has completed and the application accepts
 	 * queries, before `start()` resolves; a failure fails `start()`. Seeding
-	 * work, such as Roles `ensure` (ADR-0322), belongs here.
+	 * work, such as creating default records, belongs here.
 	 */
 	readonly ready?: (context: PluginStartContext) => MaybePromise<void>
 	readonly stop?: () => MaybePromise<void>

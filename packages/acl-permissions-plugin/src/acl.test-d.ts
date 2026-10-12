@@ -2,8 +2,8 @@ import {
 	RequestSubjectReference,
 	UltimaBase,
 	type Pointer,
-	type RequestRoleReference,
 } from '@ultimabase/core'
+import { type RequestRoleReference } from '@ultimabase/plugin-kit'
 import { expectTypeOf, test } from 'vitest'
 
 import {

@@ -44,7 +44,7 @@ export interface ApplicationHarness<
 	/**
 	 * Empties every table the database adapter manages for the started
 	 * application through its reset capability, keeping the tables, then
-	 * reruns the plugins' `ready` seeding (Roles `ensure`), so the data is
+	 * reruns the plugins' `ready` seeding, so the data is
 	 * as right after `start()`.
 	 *
 	 * @example `await harness.resetDatabase()`

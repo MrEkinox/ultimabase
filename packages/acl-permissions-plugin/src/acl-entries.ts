@@ -2,10 +2,10 @@ import {
 	RequestSubjectReference,
 	Schema,
 	type Pointer,
-	type RequestRoleReference,
 	type SchemaClass,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { type RequestRoleReference } from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { ACLPermission } from './acl-contracts.js'

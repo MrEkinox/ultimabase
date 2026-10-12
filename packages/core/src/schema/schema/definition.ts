@@ -23,10 +23,7 @@ import {
 	FieldBuilderMethodUnavailableError,
 	FieldBuilderTargetUnavailableError,
 } from './runtime-field-builder.js'
-import type {
-	BaseSchemaTypeInfo,
-	SchemaTypeInfo,
-} from '../type-info.js'
+import type { BaseSchemaTypeInfo, SchemaTypeInfo } from '../type-info.js'
 import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
@@ -392,7 +389,7 @@ export const defineOrdinarySchemaModel = <
 	) => Readonly<Record<string, unknown>>,
 ): SchemaReference<TClassName> => {
 	const schema = defineSchemaModel<TClassName, TFields>(options, rules)
-	// Schema factory statics (`TodoRole.role(...)`, ADR-0322) are bound to this class.
+	// Schema factory statics (ADR-0322) are bound to this class.
 	const factoryStatics: unknown =
 		createStatics === undefined ? {} : createStatics(schema)
 	assertPlainObject(

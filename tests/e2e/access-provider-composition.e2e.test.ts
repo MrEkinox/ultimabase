@@ -7,7 +7,6 @@ import {
 import {
 	RequestSubjectReference,
 	UltimaBase,
-	requestRoleResolverCapability,
 	databaseAdapterCapability,
 	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability,
@@ -23,6 +22,7 @@ import {
 	type FrameworkError,
 	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
+import { requestRoleResolverCapability } from '@ultimabase/plugin-kit'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'

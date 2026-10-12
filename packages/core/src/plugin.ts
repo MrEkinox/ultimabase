@@ -31,6 +31,8 @@ export { runAfterCommit } from './runtime/transactions/run-transaction.js'
 export { waitForAfterCommitWork } from './runtime/transactions/after-commit-work.js'
 export type { AfterCommitWork } from './runtime/transactions/after-commit-work.js'
 export type { RequestTransactionHandler } from './runtime/engine/request-engine.js'
+export { readCurrentCapabilityProvider } from './runtime/context/current-capability.js'
+export type { CurrentCapabilityProvider } from './runtime/context/current-capability.js'
 export {
 	anonymous,
 	authorizeMasterKey,
