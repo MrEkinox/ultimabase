@@ -82,11 +82,18 @@ En cours. Fait :
 6. **Reset** : supprime aussi les lignes créées au démarrage par des plugins
    (`ensure` de Roles) ; documenté.
 
-## Observé hors portée
+## Correctif hors ADR (à confirmer)
 
-- Un champ `field.int({ autoIncrement: true })` fait échouer `createOne`
-  (`field.required` sur ce champ, validation finale de mutation), avec ou
-  sans Hooks ; code de validation non touché par cette branche.
+- Un champ `autoIncrement` faisait échouer tout `createOne`
+  (`field.required` sur ce champ) : l'instantané final de la mutation
+  (`snapshotRuntimeMutationOperation`) exigeait la valeur que seule la base
+  attribue. Trouvé en écrivant le test de `reset()` ; l'exemple
+  todo-backend (`sequence`, `largeSequence`) ne pouvait créer aucune tâche.
+  Correctif : l'instantané de création rend ces champs facultatifs
+  (`runtime-validation.ts`) ; test de régression dans
+  `runtime-validation.test.ts` (échoue sans le correctif), et
+  `test-application.postgres.e2e.test.ts` vérifie `sequence = 1` après
+  `reset()`.
 
 ## Prochaine action vérifiable
 

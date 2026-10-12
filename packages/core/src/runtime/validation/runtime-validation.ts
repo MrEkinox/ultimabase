@@ -314,12 +314,18 @@ const normalizeMutationOperation = <
 	return normalized as unknown as TOperation
 }
 
+// The database assigns auto-increment values: a create input never holds them.
+const isDatabaseGenerated = (field: FieldValidationPlan['field']): boolean =>
+	'autoIncrement' in field.options && field.options.autoIncrement === true
+
 const snapshotOutputFieldPlan = (
 	plan: FieldValidationPlan,
 	isProperty: boolean,
+	databaseGenerated: 'required' | 'optional' = 'required',
 ): FieldValidationPlan => {
 	const presence = isProperty
-		? isRequiredOutput(plan.field)
+		? isRequiredOutput(plan.field) &&
+			(databaseGenerated === 'required' || !isDatabaseGenerated(plan.field))
 			? ('required' as const)
 			: ('optional' as const)
 		: plan.presence
@@ -352,6 +358,7 @@ const snapshotOutputFieldPlan = (
 const createOutputValidationPlan = (
 	plan: SchemaValidationPlan,
 	selectedFields?: readonly string[],
+	databaseGenerated: 'required' | 'optional' = 'required',
 ): SchemaValidationPlan => {
 	const selected =
 		selectedFields === undefined ? undefined : new Set(selectedFields)
@@ -359,7 +366,10 @@ const createOutputValidationPlan = (
 
 	for (const [name, fieldPlan] of Object.entries(plan.fields)) {
 		if (selected === undefined || selected.has(name)) {
-			entries.push([name, snapshotOutputFieldPlan(fieldPlan, true)])
+			entries.push([
+				name,
+				snapshotOutputFieldPlan(fieldPlan, true, databaseGenerated),
+			])
 		}
 	}
 
@@ -398,7 +408,7 @@ export const snapshotRuntimeMutationOperation = <
 	normalizeMutationOperation(operation, createStructuralValidationExecution(), {
 		allowDefaults: false,
 		appendGeneratedValues: false,
-		createPlan: createOutputValidationPlan(plans.create),
+		createPlan: createOutputValidationPlan(plans.create, undefined, 'optional'),
 		previousOperation,
 		updatePlan: plans.update,
 	})

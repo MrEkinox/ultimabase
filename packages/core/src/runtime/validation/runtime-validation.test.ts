@@ -640,4 +640,34 @@ describe('runtime validation', () => {
 			},
 		)
 	})
+
+	// Regression (migration 6.7): the final create snapshot required the
+	// auto-increment value that only the database assigns.
+	it('lets a create omit auto-increment fields through final revalidation', async () => {
+		const Counter = UltimaBase.Schema.define({
+			className: 'AutoIncrementValidation',
+			fields: (field) => ({
+				title: field.string({ required: true }),
+				sequence: field.int({ autoIncrement: true }),
+			}),
+		})
+		const operation: CreateOneOperationAst<typeof Counter> = {
+			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
+			schema: new QueryBuilder(Counter).ast.schema,
+			input: { title: 'Counted' },
+		}
+		const normalized = await executeStage(
+			createRuntimeValidationStage(),
+			operation,
+		)
+		const revalidated = revalidateRuntimeMutationOperation(
+			normalized,
+			normalized,
+			compileValidationPlans(Counter),
+		)
+
+		expect(revalidated.input).toMatchObject({ title: 'Counted' })
+		expect(revalidated.input).not.toHaveProperty('sequence')
+	})
 })

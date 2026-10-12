@@ -41,6 +41,7 @@ const Note = App.Schema.define({
 	fields: (field) => ({
 		body: field.string({ required: true }),
 		owner: field.pointer({ target: () => Member }),
+		sequence: field.int({ autoIncrement: true }),
 	}),
 }).with({
 	// Only the owner reads a note; nobody else writes one.
@@ -103,7 +104,9 @@ describe('testApplication', () => {
 	it('reuses the started application from empty tables', async () => {
 		await using t = await testApplication(ultimabase)
 		expect(await countRows(workerSchema)).toBe(0)
-		await seed(t, 'second')
+		const { note } = await seed(t, 'second')
+		// Identity sequences restart with the tables.
+		expect(note.sequence).toBe(1)
 		expect(await countRows(workerSchema)).toBe(1)
 		await t.reset()
 		expect(await countRows(workerSchema)).toBe(0)
