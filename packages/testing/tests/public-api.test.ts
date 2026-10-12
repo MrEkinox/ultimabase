@@ -19,7 +19,6 @@ describe('@ultimabase/testing public API', () => {
 			'definePluginConformanceSuite',
 			'runPluginConformance',
 			'waitForAfterCommit',
-			'withPluginTypegenConformance',
 		])
 	})
 

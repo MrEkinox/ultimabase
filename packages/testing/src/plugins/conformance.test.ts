@@ -191,7 +191,6 @@ describe('plugin conformance suite', () => {
 					execute: ({ input }) => input,
 					operation: inspect,
 				}),
-				contributeDeclarations({}),
 			],
 		})
 		const suite = definePluginConformanceSuite({

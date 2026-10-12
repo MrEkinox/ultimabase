@@ -249,13 +249,11 @@ describe('App.RoleSchema', () => {
 		const CopiedRole = UltimaBase.Schema.define({
 			className: 'CopiedIdentityRole',
 			fields: () => ({}),
-			[roleSchemaIdentityOptionName]: copiedIdentity,
-		} as never)
+		}).with({ [roleSchemaIdentityOptionName]: copiedIdentity } as never)
 		const ForeignRole = UltimaBase.Schema.define({
 			className: 'ForeignIdentityRole',
 			fields: () => ({}),
-			[roleSchemaIdentityOptionName]: identity,
-		} as never)
+		}).with({ [roleSchemaIdentityOptionName]: identity } as never)
 
 		for (const [index, schema] of [CopiedRole, ForeignRole].entries()) {
 			let infrastructureStarted = false
