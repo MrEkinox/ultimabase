@@ -26,6 +26,7 @@ import {
 	authErrorCodes,
 	rejectReauthentication,
 	rejectSession,
+	rejectSignUp,
 } from './errors.js'
 import type { AuthEventEmitter } from './events.js'
 import type {
@@ -49,7 +50,10 @@ import {
 	issueAuthToken,
 } from './tokens.js'
 import { createUserElevated } from './user-creation.js'
-import { PluginError } from '@ultimabase/core'
+import { FrameworkError, PluginError } from '@ultimabase/core'
+
+const isUniqueViolation = (error: unknown): boolean =>
+	error instanceof FrameworkError && error.code === 'UNIQUE_VIOLATION'
 
 /**
  * The state of one plugin instance: the User schema the factory declared and
@@ -141,8 +145,24 @@ export const createAuthServices = (options: {
 		user: () => requireUser(state),
 		sessionPolicy,
 		client: (context) => context.getValue(authClient),
-		createUser: (data, context) =>
-			createUserElevated(requireUser(state), data, context),
+		createUser: async (data, context, options) => {
+			const userId = await createUserElevated(requireUser(state), data, context)
+			if (options?.email !== undefined) {
+				try {
+					await writeUserEmailFields(
+						requireUser(state),
+						userId,
+						{ email: options.email },
+						context,
+					)
+				} catch (error: unknown) {
+					// A taken email is rejected without naming it.
+					if (isUniqueViolation(error)) return rejectSignUp([], error)
+					throw error
+				}
+			}
+			return userId
+		},
 		linkAccount: (userId, account) =>
 			insertLinkedAccount(collections(), userId, account),
 		findLinkedUser: (method, providerUserId) =>

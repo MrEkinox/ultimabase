@@ -1,6 +1,6 @@
 import {
 	defineAuthMethod,
-	type AuthEmailVerificationFields,
+	type AuthEmailFields,
 	type AuthenticationResult,
 	type AuthMethod,
 	type AuthMethodStaticsHKT,
@@ -109,21 +109,30 @@ export type PasswordIdentifierField = StringField<
 >
 
 /**
- * The User fields of a password method: the identifier, and with `email`
- * the foundation's `emailVerified` and `emailVerifiedAt`.
+ * The User fields of a password method: `username`, or with `email` the
+ * foundation's `email`, `emailVerified` and `emailVerifiedAt`, which no
+ * create or update input accepts.
  */
 export type PasswordUserFields<TIdentifier extends PasswordIdentifier> =
-	Readonly<Record<TIdentifier, PasswordIdentifierField>> &
-		(IsEmail<TIdentifier> extends true ? AuthEmailVerificationFields : unknown)
+	IsEmail<TIdentifier> extends true
+		? AuthEmailFields
+		: Readonly<Record<TIdentifier, PasswordIdentifierField>>
 
 /** Login credentials of a password method. */
 export type PasswordCredentials<TIdentifier extends PasswordIdentifier> =
 	Readonly<Record<TIdentifier | 'password', string>>
 
-/** Sign-up data: the User's create fields and the password. */
-export type PasswordSignUpInput<TSchema> = CreateInput<TSchema> & {
-	readonly password: string
-}
+/**
+ * Sign-up data: the User's create fields and the password, plus the email
+ * with `identifier: 'email'` (the email is not a create field).
+ */
+export type PasswordSignUpInput<
+	TSchema,
+	TIdentifier extends PasswordIdentifier = 'username',
+> = CreateInput<TSchema> &
+	(IsEmail<TIdentifier> extends true
+		? { readonly email: string; readonly password: string }
+		: { readonly password: string })
 
 /** Static members a password method adds to the User class. */
 export interface PasswordUserStatics<
@@ -135,7 +144,7 @@ export interface PasswordUserStatics<
 	 * @example `await TodoUser.signUp({ email, password, displayName: 'Ada' })`
 	 */
 	signUp(
-		input: PasswordSignUpInput<TSchema>,
+		input: PasswordSignUpInput<TSchema, TIdentifier>,
 	): Promise<AuthenticationResult<TSchema>>
 	/**
 	 * Checks the credentials and returns the readable User and a new session.
@@ -256,16 +265,20 @@ export const password = <
 	>({
 		name: passwordMethodName,
 		environment: ['environment:native-code'],
-		userFields: () => ({
-			// Only `confirmEmailChange` changes an email: the foundation guards it.
-			[identifier]: stringField({
-				immutable: !ownsEmail,
-				indexed: 'unique',
-				required: true,
-			}),
-		}),
+		// With `email`, the foundation adds and protects the email fields.
+		userFields: () =>
+			ownsEmail
+				? {}
+				: {
+						[identifier]: stringField({
+							immutable: true,
+							indexed: 'unique',
+							required: true,
+						}),
+					},
 		userEmail: ownsEmail,
 		checkUserData: (data) => {
+			if (ownsEmail) return
 			const value = data[identifier]
 			let normalized: string | undefined
 			try {

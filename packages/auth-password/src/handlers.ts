@@ -152,10 +152,17 @@ export const createPasswordHandlers = (
 			operation: passwordOperations.signUp,
 			public: options.publicOperations.signUp,
 			execute: async ({ engine, input }) => {
-				const { password: rawPassword, ...data } = input
+				const { password: rawPassword, ...fields } = input
+				// An email is not a User create field: the foundation sets it.
+				const data =
+					identifier === 'email'
+						? Object.fromEntries(
+								Object.entries(fields).filter(([name]) => name !== 'email'),
+							)
+						: fields
 				const normalizedIdentifier = tryNormalize(
 					normalizeIdentifier,
-					data[identifier],
+					fields[identifier],
 				)
 				const password = tryNormalize(normalizePassword, rawPassword)
 				if (normalizedIdentifier === undefined || password === undefined) {
@@ -171,10 +178,15 @@ export const createPasswordHandlers = (
 					policy,
 				)
 				return engine.transaction(async ({ context }) => {
-					const userId = await services.createUser(
-						{ ...data, [identifier]: normalizedIdentifier },
-						context,
-					)
+					const userId =
+						identifier === 'email'
+							? await services.createUser(data, context, {
+									email: normalizedIdentifier,
+								})
+							: await services.createUser(
+									{ ...data, [identifier]: normalizedIdentifier },
+									context,
+								)
 					try {
 						await store().insert({
 							data: {

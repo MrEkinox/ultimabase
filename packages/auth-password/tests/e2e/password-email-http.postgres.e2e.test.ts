@@ -8,6 +8,7 @@ import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
+import { isPlainRecord } from '@ultimabase/shared'
 import { waitForAfterCommit } from '@ultimabase/testing'
 import type { Pool } from 'pg'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -67,10 +68,13 @@ const createApplication = (
 				? { browser: { credentials: true, origins: [origin] } }
 				: {}),
 		}),
-		restPlugin(),
+		restPlugin({ openapi: true }),
 		graphqlPlugin(),
 	)
-	const EmailUser = App.UserSchema.define({ className: 'EmailUser' }).with({
+	const EmailUser = App.UserSchema.define({
+		className: 'EmailUser',
+		fields: (field) => ({ displayName: field.string() }),
+	}).with({
 		access: {
 			read: ({ principal, where }) =>
 				where.in('id', principal === undefined ? [] : [principal.id]),
@@ -261,7 +265,7 @@ describe(
 					context,
 					document: '{ __type(name: "Mutation") { fields { name } } }',
 				})
-				const names = JSON.stringify(fields)
+				const mutationNames = JSON.stringify(fields)
 				for (const name of [
 					'confirmEmailChange',
 					'requestEmailChange',
@@ -270,8 +274,62 @@ describe(
 					'resetPassword',
 					'verifyEmail',
 				]) {
-					expect(names).toContain(`"${name}"`)
+					expect(mutationNames).toContain(`"${name}"`)
 				}
+				// The email fields are output only: no create or update input lists them.
+				const inputs = (await graphql.execute({
+					context,
+					document:
+						'{ create: __type(name: "EmailUserCreateInput") { inputFields { name } } update: __type(name: "EmailUserUpdateInput") { inputFields { name } } user: __type(name: "EmailUser") { fields { name } } signUp: __type(name: "PasswordSignUpInput") { inputFields { name } } }',
+				})) as unknown
+				const names = (key: string): readonly string[] => {
+					const section: unknown = Reflect.get(
+						Reflect.get(Object(inputs), 'data') ?? {},
+						key,
+					)
+					const list: unknown =
+						Reflect.get(Object(section), 'inputFields') ??
+						Reflect.get(Object(section), 'fields')
+					return Array.isArray(list)
+						? list.map((entry: unknown) =>
+								String(Reflect.get(Object(entry), 'name')),
+							)
+						: []
+				}
+				for (const key of ['create', 'update']) {
+					expect(names(key).length).toBeGreaterThan(0)
+					expect(
+						names(key).filter((name) => name.startsWith('email')),
+					).toStrictEqual([])
+				}
+				expect(names('user')).toEqual(
+					expect.arrayContaining(['email', 'emailVerified', 'emailVerifiedAt']),
+				)
+				expect(names('signUp')).toEqual(
+					expect.arrayContaining(['email', 'password']),
+				)
+				const openapi: unknown = await (
+					await ultimabase
+						.plugin(httpPlugin)
+						.fetch(new Request('https://api.example.test/api/openapi.json'))
+				).json()
+				const schemas: unknown = Reflect.get(
+					Object(Reflect.get(Object(openapi), 'components')),
+					'schemas',
+				)
+				for (const name of ['EmailUserCreateInput', 'EmailUserUpdateInput']) {
+					const component: unknown = Reflect.get(Object(schemas), name)
+					const declared: unknown = Reflect.get(Object(component), 'properties')
+					const properties = Object.keys(
+						isPlainRecord(declared) ? declared : {},
+					)
+					expect(properties).toContain('displayName')
+					expect(
+						properties.filter((property) => property.startsWith('email')),
+					).toStrictEqual([])
+				}
+				expect(JSON.stringify(openapi)).toContain('emailVerified')
+
 				expect(
 					await graphql.execute({
 						context,

@@ -1,4 +1,5 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -56,17 +57,14 @@ beforeAll(async () => {
 	ultimabase = createApplication(fixture.connectionUri)
 	await ultimabase.start()
 
-	const users = await TodoUser.createMany(
-		{
-			data: [
-				{ email: 'ada@admin.test' },
-				{ email: 'bob@team.test' },
-				{ email: 'carol@other.test' },
-			],
-		},
-		master,
-	)
-	for (const user of users) ids.set(user.email, user.id)
+	// Only the authentication flows set a User's email (ADR-0326, 6.4b
+	// amendment): seeding goes through the plugin's administration export.
+	for (const email of ['ada@admin.test', 'bob@team.test', 'carol@other.test']) {
+		ids.set(
+			email,
+			await ultimabase.plugin(authPlugin).createUser({ data: {}, email }),
+		)
+	}
 	const tags = await Tag.createMany(
 		{ data: [{ label: 'team' }, { label: 'admin' }] },
 		master,

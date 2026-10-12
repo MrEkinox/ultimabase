@@ -1,12 +1,22 @@
 import { randomUUID } from 'node:crypto'
 
-import type { ApplicationRequestExecutor } from '@ultimabase/core'
+import {
+	getCurrentRequest,
+	getCurrentUltimaBase,
+	type ApplicationRequestExecutor,
+} from '@ultimabase/core'
 import {
 	requestSources,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
 } from '@ultimabase/core/plugin'
-import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
+import {
+	immutableRecord,
+	isPlainRecord,
+	type MaybePromise,
+} from '@ultimabase/shared'
+
+import { writeUserEmailFields } from './email.js'
 
 import { rejectSession } from './errors.js'
 import {
@@ -22,6 +32,7 @@ import {
 	validateSessionToken,
 	type AuthSessionInfo,
 } from './sessions.js'
+import { createUserElevated } from './user-creation.js'
 
 /** A user given to the server-side exports: an id, a model or a pointer. */
 export type AuthUserTarget = string | Readonly<{ readonly id: string }>
@@ -46,6 +57,22 @@ export interface AuthPluginExports {
 	 * @example `await auth.revokeSessions(user)`
 	 */
 	revokeSessions(user: AuthUserTarget): Promise<void>
+	/**
+	 * Creates one User without a sign-in method, for administration and
+	 * seeding (server only), in one transaction. With an email method, Users
+	 * are otherwise created only by sign-up: `email` (normalized, unverified)
+	 * is then the only way to give such a User its email.
+	 * @example `const id = await auth.createUser({ data: { displayName: 'Ada' }, email: 'ada@example.com' })`
+	 */
+	createUser(input: AuthUserCreation): Promise<string>
+}
+
+/** One User created by `auth.createUser` for administration or seeding. */
+export interface AuthUserCreation {
+	/** The User's create fields. */
+	readonly data: Readonly<Record<string, unknown>>
+	/** The normalized email, when a method signs in by email. */
+	readonly email?: string
 }
 
 const readUserId = (user: unknown): string => {
@@ -118,6 +145,35 @@ export const createAuthPluginExports = (options: {
 					undefined,
 				),
 			),
+		createUser: (input: AuthUserCreation) => {
+			if (
+				!isPlainRecord(input) ||
+				!isPlainRecord(input.data) ||
+				(input.email !== undefined && typeof input.email !== 'string')
+			) {
+				throw new TypeError('auth.createUser takes { data, email? }')
+			}
+			const { data, email } = input
+			return asPlugin(() =>
+				getCurrentUltimaBase().transaction(async () => {
+					const context = getCurrentRequest()
+					const userId = await createUserElevated(
+						requireUser(state),
+						data,
+						context,
+					)
+					if (email !== undefined) {
+						await writeUserEmailFields(
+							requireUser(state),
+							userId,
+							{ email },
+							context,
+						)
+					}
+					return userId
+				}),
+			)
+		},
 		revokeSessions: (user: AuthUserTarget) =>
 			asPlugin(async () => {
 				await advanceUserGeneration(requireCollections(state), readUserId(user))

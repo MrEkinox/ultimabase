@@ -29,8 +29,10 @@ import {
 	type AuthPluginExports,
 } from './application-api.js'
 import {
-	emailVerificationFieldNames,
-	guardProtectedEmailFields,
+	declareEmailFields,
+	emailWriteContribution,
+	extendUserWithEmailWrite,
+	guardUserCreation,
 } from './email.js'
 import { authErrorStatuses } from './errors.js'
 import {
@@ -227,10 +229,8 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 		[...foundationRoutes, ...methods.flatMap((method) => method.routes ?? [])],
 		statuses,
 	)
-	// With a method owning `email`, only the authentication flows write it.
-	const protectedFields = methods.some((method) => method.userEmail === true)
-		? ['email', ...emailVerificationFieldNames]
-		: []
+	// With a method signing in by email, the foundation owns the email fields.
+	const ownsEmail = methods.some((method) => method.userEmail === true)
 	let pluginExports: AuthPluginExports | undefined
 	const userInvariants = provideRuntimeBehavior({
 		contributionId: 'user-invariants',
@@ -249,9 +249,7 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 				for (const data of readCreateInputs(operation)) {
 					for (const method of methods) method.checkUserData?.(data)
 				}
-				if (protectedFields.length > 0) {
-					guardProtectedEmailFields(operation, context, protectedFields)
-				}
+				if (ownsEmail) guardUserCreation(operation, context)
 			}
 			return { value: { guardMutationInput: guard } }
 		},
@@ -300,6 +298,7 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 			...authGraphqlBindings,
 			...transport.bindings,
 			...methodContributions,
+			...(ownsEmail ? [emailWriteContribution] : []),
 			contributeDeclarations({
 				schema: ({ schemas }) => {
 					// The User stays an application schema (its Access, Hooks and
@@ -309,8 +308,10 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 						contributionId: 'auth-user',
 						schema: { [authUserIdentityOptionName]: authUserIdentityOption },
 					})
+					if (ownsEmail) declareEmailFields(schemas)
 					return undefined
 				},
+				...(ownsEmail ? { models: extendUserWithEmailWrite } : {}),
 				privateStorage: ({ privateStorage }) => {
 					for (const collection of prepareCollections(state, methods)) {
 						privateStorage.register(collection)

@@ -4,14 +4,18 @@ export type {
 	AuthPluginFactory,
 	AuthPluginOptions,
 } from './plugin.js'
-export type { AuthPluginExports, AuthUserTarget } from './application-api.js'
+export type {
+	AuthPluginExports,
+	AuthUserCreation,
+	AuthUserTarget,
+} from './application-api.js'
 export type {
 	AuthLinking,
 	AuthMethodInfo,
 	LinkedAccountInput,
 } from './accounts.js'
 export type { AttemptSubject } from './attempts.js'
-export type { AuthEmailVerificationFields, AuthUserRecord } from './email.js'
+export type { AuthEmailFields, AuthUserRecord } from './email.js'
 export {
 	authErrorCodes,
 	authErrorStatuses,

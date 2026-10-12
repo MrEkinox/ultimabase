@@ -137,11 +137,14 @@ export interface AuthServices {
 	client(context: RequestContext): AuthClient | undefined
 	/**
 	 * Creates one User through the ordinary pipeline with the plugin's own
-	 * elevation, naming invalid fields in `AUTH_SIGN_UP_REJECTED`.
+	 * elevation, naming invalid fields in `AUTH_SIGN_UP_REJECTED`. `email`
+	 * sets the foundation-owned email (normalized, unverified); a taken email
+	 * is rejected without naming it. Runs in the current transaction.
 	 */
 	createUser(
 		data: Readonly<Record<string, unknown>>,
 		context: RequestContext,
+		options?: Readonly<{ email?: string }>,
 	): Promise<string>
 	/** Links one method account to a user. */
 	linkAccount(
@@ -279,9 +282,9 @@ export interface AuthMethodImplementation {
 	/** Creates the fields the method adds to the User schema. */
 	readonly userFields?: () => Readonly<Record<string, GenericField>>
 	/**
-	 * Whether the method adds the User `email` field. The foundation then adds
-	 * `emailVerified` and `emailVerifiedAt`, and only the authentication flows
-	 * write the three of them.
+	 * Whether the method signs in by email. The foundation then adds `email`,
+	 * `emailVerified` and `emailVerifiedAt` to the User, without create or
+	 * update input; only the authentication flows write them and create Users.
 	 */
 	readonly userEmail?: boolean
 	/** Checks the User data of every create and update, such as a canonical identifier. */

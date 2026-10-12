@@ -327,7 +327,7 @@ describe('email verification', { concurrent: false }, () => {
 		}
 	})
 
-	it('lets only the authentication flows write the email fields, Master included', async () => {
+	it('lets only the authentication flows write the email fields and create Users', async () => {
 		const { AuthUser, ultimabase } = createApplication()
 		await ultimabase.start()
 		try {
@@ -337,6 +337,7 @@ describe('email verification', { concurrent: false }, () => {
 				password: secret,
 			})
 			const master = { useMasterKey: true } as const
+			// Core refuses forbidden-input fields to every caller, Master included.
 			for (const data of [
 				{ email: 'other@example.test' },
 				{ emailVerified: true },
@@ -348,31 +349,41 @@ describe('email verification', { concurrent: false }, () => {
 						{ data, where: { id: signed.user.id } },
 						master,
 					),
-				).rejects.toMatchObject({
-					code: 'VALIDATION_ERROR',
-					publicDetails: {
-						issues: [expect.objectContaining({ code: 'field.protected' })],
-					},
-				})
+				).rejects.toThrow()
 			}
 			await expect(
 				AuthUser.createOne(
-					{
-						data: {
-							displayName: 'Hal',
-							email: 'hal@example.test',
-							// @ts-expect-error -- The email fields accept no create input.
-							emailVerified: true,
-						},
-					},
+					// @ts-expect-error -- The email is not a create field.
+					{ data: { displayName: 'Hal', email: 'hal@example.test' } },
 					master,
 				),
-			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-			const created = await AuthUser.createOne(
-				{ data: { displayName: 'Ivy', email: 'ivy@example.test' } },
+			).rejects.toThrow()
+			// Only sign-up creates Users: it sets their email.
+			await expect(
+				AuthUser.createOne({ data: { displayName: 'Ivy' } }, master),
+			).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				publicDetails: {
+					issues: [expect.objectContaining({ code: 'auth.user-creation' })],
+				},
+			})
+			// The managed write refuses Master callers outside the flows.
+			const write: unknown = Reflect.get(AuthUser, 'ultimabaseAuthWriteEmail')
+			if (typeof write !== 'function') throw new TypeError('No email write')
+			await expect(
+				Promise.resolve().then((): unknown =>
+					Reflect.apply(write, AuthUser, [
+						{ id: signed.user.id, input: { emailVerified: true } },
+						master,
+					]),
+				),
+			).rejects.toThrow()
+			const unchanged = await AuthUser.findOne(
+				{ where: { id: signed.user.id } },
 				master,
 			)
-			expect(created).toMatchObject({
+			expect(unchanged).toMatchObject({
+				email: 'gus@example.test',
 				emailVerified: false,
 				emailVerifiedAt: null,
 			})

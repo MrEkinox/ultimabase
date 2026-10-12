@@ -93,13 +93,9 @@ const providerMethod = () =>
 						},
 						context,
 						createUser: () =>
-							services.createUser(
-								{
-									displayName: 'Provider user',
-									email: `${input.providerUserId}@provider.test`,
-								},
-								context,
-							),
+							services.createUser({ displayName: 'Provider user' }, context, {
+								email: `${input.providerUserId}@provider.test`,
+							}),
 					}),
 			}),
 		],

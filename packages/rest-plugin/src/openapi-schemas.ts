@@ -1,6 +1,7 @@
 import {
 	getFieldListDepth,
 	getFieldSchemaTarget,
+	readFieldTypegenState,
 	type GenericField,
 	type GenericOutputDescriptor,
 	type SchemaDefinition,
@@ -207,8 +208,12 @@ export const describeSchemaComponents = (
 	schema: SchemaDefinition,
 ): Readonly<Record<string, JsonSchema>> => {
 	const persisted = Object.entries(schema.persistedFields)
+	// Plugin-written fields (forbidden mutation input) accept no client input.
 	const writable = persisted.filter(
-		([name, field]) => !systemFields.has(name) && !isGenerated(field),
+		([name, field]) =>
+			!systemFields.has(name) &&
+			!isGenerated(field) &&
+			readFieldTypegenState(field).create !== 'forbidden',
 	)
 	const createRequired = writable
 		.filter(
@@ -218,7 +223,9 @@ export const describeSchemaComponents = (
 		)
 		.map(([name]) => name)
 	const updatable = writable.filter(
-		([, field]) => readOption(field, 'immutable') !== true,
+		([, field]) =>
+			readOption(field, 'immutable') !== true &&
+			readFieldTypegenState(field).update !== 'forbidden',
 	)
 	return {
 		[schema.className]: {

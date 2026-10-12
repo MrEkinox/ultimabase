@@ -67,7 +67,13 @@ export const createPasswordGraphqlBindings = (
 				graphqlObjectType(
 					'input-object',
 					'PasswordSignUpInput',
-					[graphqlField('password', 'String')],
+					[
+						// The email is not a User create field: sign-up takes it.
+						...(identifier === 'email'
+							? [graphqlField('email', 'String')]
+							: []),
+						graphqlField('password', 'String'),
+					],
 					true,
 				),
 				...authPayloadTypes,

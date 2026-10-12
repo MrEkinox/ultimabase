@@ -2,19 +2,28 @@ import {
 	booleanField,
 	dateTimeField,
 	FrameworkError,
+	stringField,
 	type BooleanField,
 	type DatabaseMutationOperationAst,
 	type DateTimeField,
-	type GenericField,
 	type SchemaReference,
+	type StringField,
 } from '@ultimabase/core'
 import {
+	addSchemaField,
+	contributeSchemaMutation,
+	defineOperationValue,
+	defineSchemaMutation,
 	RequestContextValue,
+	type PluginContribution,
+	type PluginModelContributionContext,
+	type PluginSchemaContributionContext,
 	type RequestContext,
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { readCreateInputs } from './foundation-routes.js'
+import { authUserIdentityOptionName } from './user-identity.js'
 
 /** The typing state of a field only the authentication flows write. */
 interface ManagedFieldState<TNullable extends boolean> {
@@ -26,31 +35,26 @@ interface ManagedFieldState<TNullable extends boolean> {
 }
 
 /**
- * The User fields the foundation adds beside a method's `email` (ADR-0326):
- * whether the current email is verified, and since when. Only the
- * authentication flows write them.
+ * The User fields the foundation owns when a method signs in by email
+ * (ADR-0326, 6.4b amendment): the email, whether it is verified, and since
+ * when. Only the authentication flows write them; no create or update input
+ * accepts them.
  */
-export type AuthEmailVerificationFields = Readonly<{
+export type AuthEmailFields = Readonly<{
+	/** The normalized, unique email the user signs in with. */
+	email: StringField<ManagedFieldState<false>>
 	/** Whether the current `email` is verified. */
 	emailVerified: BooleanField<ManagedFieldState<false>>
 	/** When the current `email` was verified, or `null`. */
 	emailVerifiedAt: DateTimeField<ManagedFieldState<true>>
 }>
 
-/** The User fields only the authentication flows write. */
-export const emailVerificationFieldNames: readonly string[] = [
+/** The names of the email fields the foundation owns. */
+export const emailFieldNames: readonly string[] = [
+	'email',
 	'emailVerified',
 	'emailVerifiedAt',
 ]
-
-/** Creates the verification fields added to a User whose method owns `email`. */
-export const createEmailVerificationFields = (): Readonly<
-	Record<string, GenericField>
-> =>
-	immutableRecord({
-		emailVerified: booleanField({ default: false, required: true }),
-		emailVerifiedAt: dateTimeField(),
-	})
 
 /** A User row as the foundation reads it for application callbacks. */
 export type AuthUserRecord = Readonly<Record<string, unknown>> &
@@ -75,74 +79,138 @@ const managedWriteValue = new RequestContextValue<
 	return managedWrite
 })
 
-const readUpdateExpressionFields = (update: unknown): readonly string[] => {
-	const operations: unknown = isPlainRecord(update)
-		? update.operations
-		: undefined
-	return Array.isArray(operations)
-		? operations.flatMap((operation: unknown) =>
-				isPlainRecord(operation) && typeof operation.field === 'string'
-					? [operation.field]
-					: [],
-			)
-		: []
-}
+/** Marks a context as the authentication flows' own User writes. */
+export const withManagedWrite = (context: RequestContext): RequestContext =>
+	context.withValue(managedWriteValue, managedWrite)
 
-/** Reads the fields every update (and upsert update) of a mutation writes. */
-const readUpdatedFields = (
-	operation: DatabaseMutationOperationAst,
-): readonly string[] => {
-	const value: unknown = operation
-	if (!isPlainRecord(value)) return []
-	switch (operation.kind) {
-		case 'update-one':
-		case 'update-many':
-		case 'upsert-one':
-			return readUpdateExpressionFields(value.update)
-		case 'upsert-many':
-			return Array.isArray(value.items)
-				? value.items.flatMap((item: unknown) =>
-						isPlainRecord(item) ? readUpdateExpressionFields(item.update) : [],
-					)
-				: []
-		default:
-			return []
+/** The values one managed write sets. */
+type EmailWriteInput = Readonly<{
+	email?: string
+	emailVerified?: boolean
+	emailVerifiedAt?: string | null
+}>
+
+const emailWriteInput = defineOperationValue<EmailWriteInput>((value, path) => {
+	if (
+		!isPlainRecord(value) ||
+		(value.email !== undefined && typeof value.email !== 'string') ||
+		(value.emailVerified !== undefined &&
+			typeof value.emailVerified !== 'boolean') ||
+		(value.emailVerifiedAt !== undefined &&
+			value.emailVerifiedAt !== null &&
+			typeof value.emailVerifiedAt !== 'string')
+	) {
+		throw new TypeError(`${path} must be an email write`)
 	}
-}
+	const { email, emailVerified, emailVerifiedAt } = value
+	return immutableRecord({
+		...(typeof email === 'string' ? { email } : {}),
+		...(typeof emailVerified === 'boolean' ? { emailVerified } : {}),
+		...(typeof emailVerifiedAt === 'string' || emailVerifiedAt === null
+			? { emailVerifiedAt }
+			: {}),
+	})
+})
 
-const rejectProtectedField = (field: string): never => {
-	const message = `${field} is written only by the authentication flows`
-	throw new FrameworkError('VALIDATION_ERROR', message, {
-		publicMessage: 'The operation input is invalid.',
-		publicDetails: {
-			issues: [{ code: 'field.protected', message, path: [field] }],
+// Owned schema mutations are the only writers of forbidden-input fields.
+// Master authority keeps it off every transport; the resolver accepts only
+// the flows' marked context, so a Master caller cannot desynchronize the
+// email from the credentials.
+const emailWriteMutation = defineSchemaMutation({
+	authority: 'master',
+	effect: 'update',
+	input: emailWriteInput,
+	name: 'ultimabase.auth.write-email',
+	returning: 'after',
+	version: '1.0.0',
+})
+
+/** The User static through which the flows run the managed write. */
+const emailWriteStatic = 'ultimabaseAuthWriteEmail'
+
+/** The owned schema mutation that writes the email fields. */
+export const emailWriteContribution: PluginContribution =
+	contributeSchemaMutation({
+		mutation: emailWriteMutation,
+		resolve: ({ context, input }) => {
+			if (context.getValue(managedWriteValue) === undefined) {
+				throw new TypeError(
+					'The email fields are written only by the authentication flows',
+				)
+			}
+			return { data: input }
 		},
+	})
+
+const userSelector = immutableRecord({
+	option: immutableRecord({ name: authUserIdentityOptionName }),
+	owner: immutableRecord({ kind: 'application' as const }),
+})
+
+/** Adds the email fields to the User, with no create or update input. */
+export const declareEmailFields = (
+	schemas: PluginSchemaContributionContext['schemas'],
+): void => {
+	schemas.patch({
+		operations: [
+			// Unique; empty only inside the sign-up transaction that sets it.
+			addSchemaField({
+				contributionId: 'email',
+				field: stringField({ indexed: 'unique' }),
+				mutationInput: 'forbidden',
+				name: 'email',
+			}),
+			addSchemaField({
+				contributionId: 'email-verified',
+				field: booleanField({ default: false, required: true }),
+				mutationInput: 'forbidden',
+				name: 'emailVerified',
+			}),
+			addSchemaField({
+				contributionId: 'email-verified-at',
+				field: dateTimeField(),
+				mutationInput: 'forbidden',
+				name: 'emailVerifiedAt',
+			}),
+		],
+		targets: schemas.select(userSelector),
 	})
 }
 
-/**
- * Rejects writes of the protected email fields outside the authentication
- * flows, Master included: a create keeps the defaults, an update never
- * names them. The email stays in step with credentials and linked accounts.
- */
-export const guardProtectedEmailFields = (
+/** Binds the managed write to the User class. */
+export const extendUserWithEmailWrite = ({
+	models,
+}: PluginModelContributionContext): undefined => {
+	models.extend(userSelector, {
+		contributionId: 'email-write',
+		schemaMutations: {
+			[emailWriteStatic]: {
+				mutation: emailWriteMutation,
+				surfaces: ['schema'],
+			},
+		},
+	})
+	return undefined
+}
+
+/** Rejects User creation outside the authentication flows, which set the email. */
+export const guardUserCreation = (
 	operation: DatabaseMutationOperationAst,
 	context: RequestContext,
-	protectedFields: readonly string[],
 ): void => {
-	if (context.getValue(managedWriteValue) !== undefined) return
-	for (const data of readCreateInputs(operation)) {
-		if (data.emailVerified !== undefined && data.emailVerified !== false) {
-			rejectProtectedField('emailVerified')
-		}
-		if (data.emailVerifiedAt !== undefined && data.emailVerifiedAt !== null) {
-			rejectProtectedField('emailVerifiedAt')
-		}
+	if (
+		readCreateInputs(operation).length === 0 ||
+		context.getValue(managedWriteValue) !== undefined
+	) {
+		return
 	}
-	const updated = readUpdatedFields(operation).find((field) =>
-		protectedFields.includes(field),
-	)
-	if (updated !== undefined) rejectProtectedField(updated)
+	const message = 'Users are created through sign-up, which sets their email'
+	throw new FrameworkError('VALIDATION_ERROR', message, {
+		publicMessage: 'The operation input is invalid.',
+		publicDetails: {
+			issues: [{ code: 'auth.user-creation', message, path: [] }],
+		},
+	})
 }
 
 /** Reads one User row with the plugin's elevation, or `undefined`. */
@@ -159,18 +227,19 @@ export const readUserRecord = async (
 	return immutableRecord({ ...record, id: record.id })
 }
 
-/** Writes protected User fields as the authentication flows, with elevation. */
+/** Writes the email fields as the authentication flows, with elevation. */
 export const writeUserEmailFields = async (
 	user: SchemaReference<string>,
 	userId: string,
-	data: Readonly<Record<string, unknown>>,
+	data: EmailWriteInput,
 	context: RequestContext,
 ): Promise<void> => {
-	await user.updateOne(
-		{ data, select: { id: true }, where: { id: userId } },
-		{
-			context: context.withValue(managedWriteValue, managedWrite),
-			useMasterKey: true,
-		},
-	)
+	const write: unknown = Reflect.get(user, emailWriteStatic)
+	if (typeof write !== 'function') {
+		throw new TypeError('The User email write is not installed')
+	}
+	await Reflect.apply(write, user, [
+		{ id: userId, input: data, select: { id: true } },
+		{ context: withManagedWrite(context), useMasterKey: true },
+	])
 }
