@@ -230,3 +230,17 @@ Dossiers `gen/` supprimés, worktree de base retiré.
 Relecture du coordinateur, décisions de l'utilisateur sur les points
 ci-dessus, puis fusion `--no-ff` dans `main` ; supprimer ce handoff après la
 fusion.
+
+### Preuves de l'amendement (porte sur 98737729, dist et tsbuildinfo nettoyés)
+
+- `yarn validate:full` : sortie 0 (737 fichiers / 3 647 tests ; 3 / 4 ;
+  17 / 66).
+- `yarn test:e2e:built` : 135 fichiers / 595 tests, sortie 0.
+- `yarn website:test` : 124 pages générées, 8 fichiers / 59 tests, sortie 0.
+- Audit DX (nouvelle base 0e390039, mêmes `--only`) : 1 037 différences
+  (39 267 / 39 437) contre 1 029. Les 8 nouvelles sont l'export plugin-kit
+  `readStandardJsonSchema` / `StandardJsonSchema` (déclarations, survols,
+  exports, instruction d'export, import de la sonde) ; 4 entrées `core`
+  changent seulement de clé (hachage et alias de morceau de la base
+  reconstruite ; Core inchangé depuis 398fab51). Base supprimée ensuite.
+- Pas de banc : aucun type de Core modifié.
