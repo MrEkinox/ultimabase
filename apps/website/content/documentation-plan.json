@@ -41,7 +41,7 @@
 				{
 					"slug": "data-modeling/relationships",
 					"contentType": "concept",
-					"outcome": "Choose and declare pointers and relations, then use a relation handle to read or change membership."
+					"outcome": "Choose and declare pointers and relations, then read or change membership through includes, filters, and link commands."
 				},
 				{
 					"slug": "data-modeling/schemas",

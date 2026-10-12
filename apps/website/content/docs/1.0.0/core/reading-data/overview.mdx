@@ -43,10 +43,9 @@ export const readPublishedPosts = () =>
 The call returns at most 20 immutable `Post` models, ordered newest first with
 `id` breaking equal-timestamp ties. Each result contains `id`, `createdAt`,
 and `title`; `published` filters the rows but is not returned because the
-selection does not request it. The schema's TypeScript types check fields and
-operators; optional Typegen adds application-wide precision for installed
-plugins. Core still validates JavaScript and untrusted transport input before
-executing a read.
+selection does not request it. The types inferred from the schema check
+fields and operators, with no generation step. Core still validates
+JavaScript and untrusted transport input before executing a read.
 
 ## Read terminals
 
