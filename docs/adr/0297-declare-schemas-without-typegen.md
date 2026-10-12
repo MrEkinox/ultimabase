@@ -191,3 +191,17 @@ again. Three places keep the schema-less registration for causes other than Role
 migration steps (6.7, 6.8): `examples/minimal` (the field-level relation `where` callback of
 `ExampleArticle.reviewers` reads the registry while its schema is typed), the website landing
 harness and the Typegen performance probes (old-form Access rules inside `define`).
+
+Note (2026-10-12, register-cycle spike, accepted by the user): migration step 6.3 also found that
+an unfinished `define(...)` beside finished declarations made `typeof ultimabase` circular in
+`Register` (TS7022/TS2502), unpredictably across TypeScript 6 and 7 and between sources and built
+packages, with or without plugins. Cause: `RegisteredApplication` read `Register` through a
+conditional type that mentions no type parameter, which TypeScript resolves as soon as it reads
+it (for example while measuring variances during the inference of `new UltimaBase(...)`). Core now
+reads the registry through `RegisterFor<TKey>`, generic in the key, so the read stays deferred;
+an unfinished `define(...)` is a usable schema with a required `Register`, as this record states.
+No public type, signature or message changed; one truncated hover lists its members in another
+order. `tests/e2e/register-required.e2e.test.ts` guards it on TypeScript 6; the fix relies on how
+TypeScript defers conditional types, so the TypeScript 6 and 7 reproduction matrix of the spike
+(`docs/handoff/spike-register-cycle.md`, branch `spike/register-cycle`) is rerun at each
+TypeScript upgrade.
