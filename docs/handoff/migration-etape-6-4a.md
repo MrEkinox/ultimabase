@@ -36,8 +36,47 @@ expliqué, banc forme D TS6/TS7.
 
 Implémentation, tests, migration des consommateurs (exemples, create-app,
 tests racine, sondes de performance Typegen) et documentation faits ; porte
-finale verte sur 7eacc64c, audit DX expliqué, banc forme D mesuré. En attente
-de revue par le coordinateur.
+finale verte sur 7eacc64c, audit DX expliqué, banc forme D mesuré. Le
+coordinateur a validé 6.4a et les décisions de sécurité 1 à 5.
+
+Demandes avant fusion :
+
+1. préfixe par défaut `/api/auth` : **bloqué**, voir ci-dessous ;
+2. message Roles périmé (`masterAuthority`) : fait (899891fd), message et
+   dépannage du site parlent du privilège `authority:elevate` ;
+3. données personnelles d'`afterLoginFailed` (identifiant normalisé, adresse) :
+   documentées dans le README du socle, la page du site et la JSDoc (899891fd) ;
+4. fusion de `main` (72bca61b) : faite (139eb4fd), conflit résolu dans
+   `tests/e2e/schema-form-d-types.e2e.test.ts` (structure de `main`, chaîne
+   `selectTypo` d'`exactness.ts` recalculée sur l'arbre fusionné) ;
+5. porte complète : non lancée, en attente du point 1.
+
+### Blocage : `/api/auth` et le montage REST
+
+REST se monte sur `/api` (`httpMount`, qui possède tout le sous-arbre) ; HTTP
+refuse une route sous un montage (README de `http-plugin` : « a route under a
+mount fails »). Sonde (défaut passé à `/api/auth`, paquet reconstruit,
+`authenticated-rest-vertical`) : `TypeError: HTTP endpoint collision between
+route "/api/auth/current" and mount "/api"`. Sonde annulée.
+
+Options, toutes avec un changement de contrat public (ADR-0288) :
+
+- A, `http-plugin` : accepter une route exacte sous le montage d'un autre
+  propriétaire (la répartition choisit déjà la route exacte avant le
+  montage) ; change la règle documentée et le test `/health` sous `/` ; un
+  plugin peut alors masquer un chemin exact d'un autre.
+- B, `rest-plugin` : monter seulement les racines servies (`/api/classes`,
+  `/api/operations`, `/api/openapi.json`, racines des chemins déclarés par
+  les propriétaires), connues à la création des points d'entrée ; un chemin
+  inconnu sous `/api` reçoit le 404 d'HTTP au lieu de celui de REST (assertion
+  publique `tests/exposure.test.ts` : `/api/v1/...` → 404 avec
+  `x-ultimabase-rest-version`).
+- C : REST sert `/api/auth/*` par des chemins déclarés par le socle (prévu par
+  ADR-0324 décision 1) ; perd le cookie, que REST ne sait pas poser, sauf
+  nouveau point d'extension REST.
+
+Recommandation : B (garde l'invariant de propriété des montages d'HTTP,
+changement local à REST).
 
 ## Décisions prises (non fixées par l'ADR, à confirmer)
 
@@ -195,5 +234,6 @@ caractères). Dossiers `gen/` supprimés ; worktree de référence retiré.
 
 ## Prochaine action vérifiable
 
-Revue du diff par le coordinateur et confirmation des décisions de sécurité
-1 à 5 ; puis 6.4b (réinitialisation, vérification et changement d'e-mail).
+Choix de l'option pour `/api/auth` par l'utilisateur ; puis implémentation,
+migration des consommateurs (create-app, exemples, tests, site, READMEs), porte
+complète sur l'arbre fusionné et delta DX contre 72bca61b.
