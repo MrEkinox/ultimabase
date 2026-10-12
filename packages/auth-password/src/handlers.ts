@@ -142,7 +142,7 @@ export const createPasswordHandlers = (
 							error instanceof FrameworkError &&
 							error.code === 'UNIQUE_VIOLATION'
 						) {
-							return rejectSignUp()
+							return rejectSignUp([], error)
 						}
 						throw error
 					}

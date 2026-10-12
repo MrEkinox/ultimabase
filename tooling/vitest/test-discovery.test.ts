@@ -185,7 +185,7 @@ describe('test ownership and discovery', () => {
 			'tests/e2e/package-archives.e2e.test.ts',
 			'packages/core/tests/e2e/core-archive-declarations.e2e.test.ts',
 			'packages/graphql-yoga-plugin/tests/e2e/graphql-yoga-application.e2e.test.ts',
-			'packages/password-auth-plugin/tests/e2e/password-auth-plugin.e2e.test.ts',
+			'packages/auth-password/tests/e2e/auth-password-archive.e2e.test.ts',
 			'packages/acl-permissions-plugin/tests/e2e/acl-direct-option.e2e.test.ts',
 			'packages/core/tests/e2e/core-field-builder.e2e.test.ts',
 			'packages/core/tests/e2e/core-field-option-diagnostics.e2e.test.ts',

@@ -30,12 +30,9 @@ const allowedRuntimeDependencies = {
 		'shared',
 	],
 	'@ultimabase/rest-plugin': ['http-plugin', 'plugin-kit', 'core', 'shared'],
-	'@ultimabase/password-auth-plugin': [
-		'http-plugin',
-		'plugin-kit',
-		'core',
-		'shared',
-	],
+	'@ultimabase/auth-plugin': ['http-plugin', 'plugin-kit', 'core', 'shared'],
+	// A sign-in method depends on the foundation, never on another method.
+	'@ultimabase/auth-password': ['auth-plugin', 'plugin-kit', 'core', 'shared'],
 	'@ultimabase/graphql-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/graphql-http': ['core', 'shared'],
 	'@ultimabase/graphql-yoga-plugin': [

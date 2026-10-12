@@ -20,6 +20,8 @@ const sourcePackageAliasEntries: readonly (readonly [string, string])[] = [
 		'access-plugin',
 		'acl-permissions-plugin',
 		'api-server',
+		'auth-password',
+		'auth-plugin',
 		'core',
 		'graphql-explorer-plugin',
 		'graphql-http',
@@ -28,7 +30,6 @@ const sourcePackageAliasEntries: readonly (readonly [string, string])[] = [
 		'hono-server-plugin',
 		'hooks-plugin',
 		'http-plugin',
-		'password-auth-plugin',
 		'pg-vector-plugin',
 		'plugin-kit',
 		'postgres-plugin',
@@ -100,7 +101,7 @@ const testProjects: TestProjectConfiguration[] = [
 				'packages/graphql-yoga-plugin/tests/e2e/graphql-yoga-application.e2e.test.ts',
 				// This artifact audit reads build-only source maps and remains covered by
 				// the post-build e2e project.
-				'packages/password-auth-plugin/tests/e2e/password-auth-plugin.e2e.test.ts',
+				'packages/auth-password/tests/e2e/auth-password-archive.e2e.test.ts',
 				// These suites read compiled declarations or invoke built exports in child
 				// processes. Source aliases cannot change them; retain their built E2E run.
 				'packages/acl-permissions-plugin/tests/e2e/acl-direct-option.e2e.test.ts',

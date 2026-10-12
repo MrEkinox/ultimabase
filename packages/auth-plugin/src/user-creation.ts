@@ -93,8 +93,10 @@ const readIssueFields = (error: FrameworkError): readonly string[] => {
 		...new Set(
 			issues.flatMap((issue) => {
 				const path: unknown = isPlainRecord(issue) ? issue.path : undefined
-				const [first] = isUnknownArray(path) ? path : []
-				return typeof first === 'string' ? [first] : []
+				// Core prefixes create issues with `input`; the field comes next.
+				const segments = isUnknownArray(path) ? path : []
+				const field = segments[0] === 'input' ? segments[1] : segments[0]
+				return typeof field === 'string' ? [field] : []
 			}),
 		),
 	].sort()
@@ -131,9 +133,9 @@ export const createUserElevated = async (
 	} catch (error: unknown) {
 		if (error instanceof FrameworkError) {
 			if (error.code === 'VALIDATION_ERROR') {
-				return rejectSignUp(readIssueFields(error))
+				return rejectSignUp(readIssueFields(error), error)
 			}
-			if (error.code === 'UNIQUE_VIOLATION') return rejectSignUp()
+			if (error.code === 'UNIQUE_VIOLATION') return rejectSignUp([], error)
 		}
 		throw error
 	}

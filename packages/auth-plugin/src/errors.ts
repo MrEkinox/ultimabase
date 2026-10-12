@@ -40,10 +40,13 @@ const reject = (
 	message: string,
 	publicMessage: string,
 	publicDetails?: FrameworkErrorDetails,
+	cause?: unknown,
 ): never => {
 	throw new PluginError(code, message, {
 		publicMessage,
 		...(publicDetails === undefined ? {} : { publicDetails }),
+		// The transaction recognizes a wrapped operation failure as the same one.
+		...(cause === undefined ? {} : { cause }),
 	})
 }
 
@@ -63,8 +66,14 @@ export const rejectSession = (): never =>
 		'Invalid session.',
 	)
 
-/** Rejects a sign-up; `fields` names the fields the input is missing or invalid. */
-export const rejectSignUp = (fields: readonly string[] = []): never =>
+/**
+ * Rejects a sign-up; `fields` names the fields the input is missing or
+ * invalid, `cause` keeps the failure it replaces.
+ */
+export const rejectSignUp = (
+	fields: readonly string[] = [],
+	cause?: unknown,
+): never =>
 	reject(
 		authErrorCodes.signUpRejected,
 		'Authentication sign-up was rejected.',
@@ -72,6 +81,7 @@ export const rejectSignUp = (fields: readonly string[] = []): never =>
 			? 'Sign-up was rejected.'
 			: `Sign-up was rejected: check ${fields.join(', ')}.`,
 		fields.length === 0 ? undefined : { fields: [...fields] },
+		cause,
 	)
 
 /** Rejects an attempt until the limit expires. */
