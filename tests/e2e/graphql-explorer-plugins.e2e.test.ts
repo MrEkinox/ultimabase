@@ -14,22 +14,21 @@ import { describe, expect, it } from 'vitest'
 
 // Preserve the original public-export scenarios under their contract owner.
 describe('packed GraphQL explorer composition', () => {
-	it('rejects explorer route collisions before any request can dispatch', async () => {
-		const ultimabase = new (UltimaBase.use(
-			databasePlugin(),
-			httpPlugin({ appId: 'collision' }),
-			graphqlHttpProvider(),
-			graphqlExplorerPlugin({ environment: 'development', path: '/explorer' }),
-			graphqlExplorerPlugin({
-				environment: 'development',
-				path: '/explorer',
-				ui: 'apollo-sandbox',
-			}),
-		))({ logger: false, schemas: [] })
-
-		// One plugin id: two explorers in one application conflict first.
-		await expect(ultimabase.start()).rejects.toThrow()
-		await ultimabase.dispose()
+	it('rejects a second explorer in one application before any request can dispatch', () => {
+		// One plugin id: a second explorer is a duplicate plugin (ADR-0325).
+		expect(
+			() =>
+				new (UltimaBase.use(
+					databasePlugin(),
+					httpPlugin({ appId: 'collision' }),
+					graphqlHttpProvider(),
+					graphqlExplorerPlugin({ environment: 'development' }),
+					graphqlExplorerPlugin({
+						environment: 'development',
+						ui: 'apollo-sandbox',
+					}),
+				))({ logger: false, schemas: [] }),
+		).toThrow(expect.objectContaining({ code: 'PLUGIN_DUPLICATE' }))
 	})
 
 	it('rejects foreign explorer routes across sequential applications', async () => {

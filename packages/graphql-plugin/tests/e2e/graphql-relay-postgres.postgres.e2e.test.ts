@@ -22,7 +22,10 @@ import {
 	type PluginIdentity,
 } from '@ultimabase/core/plugin'
 
-const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
+// No policy plugin: the fixture opts into public writes (ADR-0294).
+const GraphqlSchemaApplication = UltimaBase.use(
+	graphqlPlugin({ publicWrites: true }),
+)
 const RelayRecord = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlRelayPostgresRecord',
 	fields: (field) => ({

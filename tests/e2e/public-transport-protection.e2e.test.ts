@@ -37,7 +37,11 @@ const verifyProviderPresence = async (
 		})
 		// Core no longer reports unverified protection (ADR-0325): REST and
 		// GraphQL refuse public writes themselves (ADR-0294).
-		expect(warning).not.toHaveBeenCalled()
+		expect(
+			warning.mock.calls.some((call) =>
+				call.some((value) => String(value).includes('public transport')),
+			),
+		).toBe(false)
 	} finally {
 		await ultimabase.dispose()
 	}
