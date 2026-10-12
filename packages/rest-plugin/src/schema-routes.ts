@@ -14,7 +14,7 @@ import {
 	readRestSchemaRule,
 	type NormalizedRestRule,
 	type RestMethodName,
-} from './options.js'
+} from './rules.js'
 import { isRestOutputKind } from './response-values.js'
 import {
 	createRestRouteFragment,

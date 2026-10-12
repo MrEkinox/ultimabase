@@ -1,13 +1,12 @@
+export type { RestPaginationOptions, RestPluginOptions } from './options.js'
 export type {
 	RestCommandName,
 	RestMethodName,
 	RestMethodRules,
-	RestPaginationOptions,
-	RestPluginOptions,
 	RestRules,
 	RestSchemaRule,
 	RestSchemaRules,
-} from './options.js'
+} from './rules.js'
 export { restPlugin } from './plugin.js'
 export { restFieldCodec } from './field-codecs.js'
 export {

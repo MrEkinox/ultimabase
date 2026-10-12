@@ -27,8 +27,10 @@ export const schemaRef = (name: string): JsonSchema => ({
 	$ref: `#/components/schemas/${name}`,
 })
 
-const readOption = (field: { readonly options: object }, key: string) =>
-	Reflect.get(field.options, key)
+const readOption = (
+	field: { readonly options: object },
+	key: string,
+): unknown => Reflect.get(field.options, key)
 
 // Wire representations of the built-in scalars (README, "HTTP responses").
 const scalarSchemas: Readonly<Record<string, JsonSchema>> = {

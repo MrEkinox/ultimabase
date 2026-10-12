@@ -43,8 +43,8 @@ describe('REST OpenAPI document', () => {
 	it('is a structurally valid OpenAPI 3.1 document', async () => {
 		const document = await readDocument()
 		expect(document).toMatchObject({
+			info: { title: 'UltimaBase REST API', version: '1' },
 			openapi: '3.1.0',
-			info: { title: expect.any(String), version: expect.any(String) },
 			servers: [{ url: '/api' }],
 		})
 		const paths = document.paths

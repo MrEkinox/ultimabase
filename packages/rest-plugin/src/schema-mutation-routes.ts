@@ -11,7 +11,7 @@ import {
 	readRestSchemaRule,
 	restMethodNames,
 	type NormalizedRestRule,
-} from './options.js'
+} from './rules.js'
 import {
 	createRestRouteFragment,
 	createRestRoutePlugin,

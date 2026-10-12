@@ -154,7 +154,7 @@ const jsonInput = defineOperationValue<unknown>((value, path) => {
 	}
 })
 const jsonResult = defineOperationValue<unknown>((value) =>
-	deepFreeze(JSON.parse(JSON.stringify(toJSON(value) ?? null)) as unknown),
+	deepFreeze(JSON.parse(JSON.stringify(toJSON(value))) as unknown),
 )
 
 const deepFreeze = <TValue>(value: TValue): TValue => {

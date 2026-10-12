@@ -16,12 +16,12 @@ import {
 } from './normalization.js'
 import {
 	passwordAuthOperations,
-	passwordAuthPublicOperations,
 	rejectPasswordChange,
 	rejectPasswordCredentials,
 	rejectPasswordSession,
 	rejectPasswordSignUp,
 } from './operations.js'
+import { passwordAuthPublicOperations } from './public-operations.js'
 import {
 	createNormalizedPasswordVerifier,
 	verifyNormalizedPasswordOrDummy,

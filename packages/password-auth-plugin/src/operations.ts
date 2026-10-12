@@ -12,7 +12,6 @@ import {
 	defineTypegenReference,
 	type PluginOperationDefinition,
 	type PluginOperationInput,
-	type PluginOperationPublicDeclaration,
 	type PluginOperationResult,
 	type PluginOperationTransaction,
 	type PluginOperationValueContract,
@@ -347,44 +346,6 @@ export const passwordAuthOperations: Readonly<{
 	logoutEverywhere: logoutEverywhereOperation,
 	refresh: refreshOperation,
 	signUp: signUpOperation,
-})
-
-const stringProperty = immutableRecord({ type: 'string' })
-const objectInput = (first: string, second: string) =>
-	immutableRecord({
-		type: 'object',
-		properties: immutableRecord({
-			[first]: stringProperty,
-			[second]: stringProperty,
-		}),
-		required: immutableArray([first, second]),
-		additionalProperties: false,
-	})
-const nullSchema = immutableRecord({ type: 'null' })
-
-/**
- * Declares all six operations public (ADR-0324): every installed transport
- * exposes them; `restPlugin({ hide: [passwordAuthOperations.refresh] })`
- * hides one.
- */
-export const passwordAuthPublicOperations: Readonly<
-	Record<keyof typeof passwordAuthOperations, PluginOperationPublicDeclaration>
-> = immutableRecord({
-	changePassword: immutableRecord({
-		name: 'changePassword',
-		input: objectInput('currentPassword', 'newPassword'),
-	}),
-	login: immutableRecord({
-		name: 'login',
-		input: objectInput('username', 'password'),
-	}),
-	logout: immutableRecord({ name: 'logout', input: nullSchema }),
-	logoutEverywhere: immutableRecord({
-		name: 'logoutEverywhere',
-		input: nullSchema,
-	}),
-	refresh: immutableRecord({ name: 'refresh', input: nullSchema }),
-	signUp: immutableRecord({ name: 'signUp' }),
 })
 
 /** Lists every Password Auth operation for explicit transport exposure. */
