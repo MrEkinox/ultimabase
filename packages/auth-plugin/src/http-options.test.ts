@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { resolveAuthHttpOptions } from './http-options.js'
 
 describe('authPlugin HTTP options', () => {
-	it('serves Bearer under /auth by default', () => {
+	it('serves Bearer under /api/auth by default', () => {
 		expect(resolveAuthHttpOptions(undefined)).toStrictEqual({
-			basePath: '/auth',
+			basePath: '/api/auth',
 			cookie: undefined,
 		})
 	})

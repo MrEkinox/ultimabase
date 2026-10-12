@@ -140,8 +140,8 @@ for the canonical `ultimabase.rest@1.0.0` protocol, which it names without
 importing this package, so REST and other plugins stay siblings. Its metadata
 contains `errors: { [declaredPublicErrorCode]: httpStatus }`, including an
 empty object when the operation declares no public plugin errors, and an
-optional `path`: `{ errors, path: "/auth/login" }` produces
-`POST /api/auth/login`. The prefix follows the configured `basePath`. Only
+optional `path`: `{ errors, path: "/reports/daily" }` produces
+`POST /api/reports/daily`. The prefix follows the configured `basePath`. Only
 static slash-separated ASCII letters, digits, underscores, and hyphens are
 accepted, with a leading slash and no trailing slash. The `classes` and
 `operations` roots are reserved. Templates, percent encoding, dot segments,

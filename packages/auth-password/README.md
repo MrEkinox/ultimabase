@@ -50,10 +50,10 @@ await auth.runWithSession(session.token, () =>
   `unlinkMethod` for the recent-authentication window.
 
 Login, password change and re-authentication follow the foundation's attempt
-limiting. Over HTTP they are `POST /auth/sign-up`, `/auth/login`,
-`/auth/change-password` and `/auth/reauthenticate`; in GraphQL, `signUp`,
-`login`, `changePassword` and `reauthenticate`. `passwordOperations` names
-them for `hide`.
+limiting. Over HTTP they are `POST /api/auth/sign-up`, `/api/auth/login`,
+`/api/auth/change-password` and `/api/auth/reauthenticate`; in GraphQL,
+`signUp`, `login`, `changePassword` and `reauthenticate`. `passwordOperations`
+names them for `hide`.
 
 ## Password policy
 

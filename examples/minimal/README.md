@@ -12,7 +12,7 @@ GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
 `ExampleArticle` and `ExampleAuthor` soft-delete commands (`rest: true`), the
 public `example.status` operation (`/api/operations/status`). Authentication
-serves its operations under `/auth` and in GraphQL (which hides
+serves its operations under `/api/auth` and in GraphQL (which hides
 `changePassword` and `logoutEverywhere`); REST hides them. `ExampleUser`,
 `ExampleRole` and the internal `ExampleSoftDeleteEvent` audit schema have no
 generated CRUD roots, and credentials and session storage never enter either
@@ -343,15 +343,15 @@ curl http://127.0.0.1:1337/graphql \
 endpoint. Authentication declares its operations public, so GraphQL exposes
 them; the example hides `changePassword` and `logoutEverywhere` with
 `graphqlPlugin({ hide })` and every authentication operation from REST, which
-the `/auth` routes replace (ADR-0325, ADR-0326).
+the `/api/auth` routes replace (ADR-0325, ADR-0326).
 
-The same operations are served under `/auth`. Browser cookie mode is enabled for
+The same operations are served under `/api/auth`. Browser cookie mode is enabled for
 `http://localhost:5173`: a request with that `Origin` gets the session as a
 secure cookie instead of the token, and must send JSON from the configured
 origin as CSRF proof; a client without `Origin` keeps Bearer:
 
 ```sh
-curl http://127.0.0.1:1337/auth/login \
+curl http://127.0.0.1:1337/api/auth/login \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'Origin: http://localhost:5173' \

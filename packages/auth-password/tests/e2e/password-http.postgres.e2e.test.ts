@@ -76,7 +76,7 @@ describe(
 			const { send, ultimabase } = createHttpApplication(pool(), false)
 			await ultimabase.start()
 			try {
-				const signUp = await send('/auth/sign-up', {
+				const signUp = await send('/api/auth/sign-up', {
 					body: { email: 'ada@example.test', password: secret },
 				})
 				expect(signUp.status).toBe(200)
@@ -85,20 +85,20 @@ describe(
 				}
 				expect(result.user.email).toBe('ada@example.test')
 				const bearer = { Authorization: `Bearer ${result.session.token}` }
-				const current = await send('/auth/current', { headers: bearer })
+				const current = await send('/api/auth/current', { headers: bearer })
 				expect(await json(current)).toMatchObject({
 					result: { email: 'ada@example.test' },
 				})
-				const refreshed = await send('/auth/refresh', { headers: bearer })
+				const refreshed = await send('/api/auth/refresh', { headers: bearer })
 				expect(refreshed.status).toBe(200)
 				expect(refreshed.headers.has('Set-Cookie')).toBe(false)
-				const stale = await send('/auth/current', { headers: bearer })
+				const stale = await send('/api/auth/current', { headers: bearer })
 				expect(stale.status).toBe(401)
 				expect(await json(stale)).toMatchObject({
 					error: { code: 'HTTP_APPLICATION_REJECTED' },
 				})
 				const malformed = await ultimabase.plugin(httpPlugin).fetch(
-					new Request('https://api.example.test/auth/login', {
+					new Request('https://api.example.test/api/auth/login', {
 						body: '{',
 						headers: { 'Content-Type': 'application/json' },
 						method: 'POST',
@@ -118,19 +118,19 @@ describe(
 			await ultimabase.start()
 			try {
 				const browser = { Origin: origin }
-				const foreign = await send('/auth/sign-up', {
+				const foreign = await send('/api/auth/sign-up', {
 					body: { email: 'bob@example.test', password: secret },
 					headers: { Origin: 'https://attacker.example' },
 				})
 				expect(foreign.status).toBe(401)
 				// A client without `Origin` is not a browser: it keeps Bearer.
-				const server = await send('/auth/sign-up', {
+				const server = await send('/api/auth/sign-up', {
 					body: { email: 'server@example.test', password: secret },
 				})
 				expect(server.status).toBe(200)
 				expect(server.headers.has('Set-Cookie')).toBe(false)
 				expect(JSON.stringify(await json(server))).toContain('ub_s1.')
-				const signUp = await send('/auth/sign-up', {
+				const signUp = await send('/api/auth/sign-up', {
 					body: { email: 'bob@example.test', password: secret },
 					headers: browser,
 				})
@@ -145,13 +145,13 @@ describe(
 				const body = await json(signUp)
 				expect(JSON.stringify(body)).not.toContain('ub_s1.')
 				const cookie = setCookie.slice(0, setCookie.indexOf(';'))
-				const current = await send('/auth/current', {
+				const current = await send('/api/auth/current', {
 					headers: { ...browser, Cookie: cookie },
 				})
 				expect(await json(current)).toMatchObject({
 					result: { email: 'bob@example.test' },
 				})
-				const ambiguous = await send('/auth/current', {
+				const ambiguous = await send('/api/auth/current', {
 					headers: {
 						...browser,
 						Authorization: `Bearer ${cookie.slice(cookieName.length + 1)}`,
@@ -160,17 +160,17 @@ describe(
 				})
 				expect(ambiguous.status).toBe(401)
 				// A stale cookie never blocks logging in again.
-				const login = await send('/auth/login', {
+				const login = await send('/api/auth/login', {
 					body: { email: 'bob@example.test', password: secret },
 					headers: { ...browser, Cookie: `${cookieName}=stale` },
 				})
 				expect(login.status).toBe(200)
-				const logout = await send('/auth/logout', {
+				const logout = await send('/api/auth/logout', {
 					headers: { ...browser, Cookie: cookie },
 				})
 				expect(logout.status).toBe(200)
 				expect(logout.headers.get('Set-Cookie')).toContain('Max-Age=0')
-				const after = await send('/auth/current', {
+				const after = await send('/api/auth/current', {
 					headers: { ...browser, Cookie: cookie },
 				})
 				expect(after.status).toBe(401)
@@ -189,12 +189,12 @@ describe(
 				address: string,
 				value: string,
 			) =>
-				application.send('/auth/login', {
+				application.send('/api/auth/login', {
 					body: { email: 'carol@example.test', password: value },
 					headers: { 'X-Forwarded-For': address },
 				})
 			try {
-				await first.send('/auth/sign-up', {
+				await first.send('/api/auth/sign-up', {
 					body: { email: 'carol@example.test', password: secret },
 				})
 				for (let attempt = 0; attempt < 6; attempt += 1) {

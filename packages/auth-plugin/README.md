@@ -126,12 +126,14 @@ user links. Methods call the foundation's services for this (see
 ## HTTP
 
 Installing `@ultimabase/http-plugin` serves every operation under one prefix,
-`/auth` by default (`http: { basePath }`): `POST /auth/sign-up`, `/auth/login`,
-`/auth/current`, `/auth/refresh`, `/auth/logout`, `/auth/logout-everywhere`,
-`/auth/list-sessions`, `/auth/revoke-session`, `/auth/list-methods`,
-`/auth/unlink-method`, `/auth/delete-account`, `/auth/change-password`,
-`/auth/reauthenticate`. The JSON body is the operation input; the response is
-`{ "result": … }`. Requests authenticate with `Authorization: Bearer <token>`.
+`/api/auth` by default (`http: { basePath }`): `POST /api/auth/sign-up`,
+`/api/auth/login`, `/api/auth/current`, `/api/auth/refresh`,
+`/api/auth/logout`, `/api/auth/logout-everywhere`, `/api/auth/list-sessions`,
+`/api/auth/revoke-session`, `/api/auth/list-methods`,
+`/api/auth/unlink-method`, `/api/auth/delete-account`,
+`/api/auth/change-password`, `/api/auth/reauthenticate`. They sit beside REST,
+which mounts only its own roots under `/api` (ADR-0324, 6.4a amendment). The
+JSON body is the operation input; the response is `{ "result": … }`. Requests authenticate with `Authorization: Bearer <token>`.
 
 ```ts
 authPlugin({
@@ -154,7 +156,7 @@ Every operation is public (ADR-0324): GraphQL exposes them with typed fields
 (`signUp`, `login`, `current`, …, the payload's `user` being the User type)
 and REST under `/api/operations/<name>`. Hide them per transport, for example
 `restPlugin({ hide: [...Object.values(authOperations), ...Object.values(passwordOperations)] })`
-when the `/auth` routes serve HTTP clients.
+when the `/api/auth` routes serve HTTP clients.
 
 ## Events
 

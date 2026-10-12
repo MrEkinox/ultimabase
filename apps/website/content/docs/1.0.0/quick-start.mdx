@@ -274,7 +274,7 @@ but does not grant Task access; Roles do not grant permission by themselves.
 Selecting Authentication with Access generates a User read rule limited to the current session
 owner, allowing authentication to return the required profile. Other User
 operations remain denied. Access or Object ACLs may intentionally deny Task
-reads. Authentication operations are served under `/auth` and in a selected
+reads. Authentication operations are served under `/api/auth` and in a selected
 GraphQL API; REST hides them. GraphiQL and Apollo
 Sandbox, including the introspection they need, are development-only in the
 generated configuration. Review [Password

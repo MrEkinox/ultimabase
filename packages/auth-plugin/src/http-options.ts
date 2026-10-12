@@ -16,7 +16,7 @@ export interface AuthCookieOptions {
  * `__Host-` cookie that changes only the responses.
  */
 export interface AuthHttpOptions {
-	/** Prefix of every authentication route. @default "/auth" */
+	/** Prefix of every authentication route. @default "/api/auth" */
 	readonly basePath?: string
 	/** Sets the session in a secure cookie instead of returning its token. */
 	readonly cookie?: AuthCookieOptions
@@ -70,7 +70,7 @@ export const resolveAuthHttpOptions = (
 	value: unknown,
 ): ResolvedAuthHttpOptions => {
 	if (value === undefined) {
-		return immutableRecord({ basePath: '/auth', cookie: undefined })
+		return immutableRecord({ basePath: '/api/auth', cookie: undefined })
 	}
 	if (!isPlainRecord(value)) {
 		throw new TypeError('authPlugin http must be a plain object')
@@ -80,10 +80,10 @@ export const resolveAuthHttpOptions = (
 			throw new TypeError(`authPlugin http contains unknown option: ${key}`)
 		}
 	}
-	const basePath = value.basePath ?? '/auth'
+	const basePath = value.basePath ?? '/api/auth'
 	if (typeof basePath !== 'string' || !basePathPattern.test(basePath)) {
 		throw new TypeError(
-			'authPlugin http.basePath must be a lowercase path such as /auth',
+			'authPlugin http.basePath must be a lowercase path such as /api/auth',
 		)
 	}
 	return immutableRecord({ basePath, cookie: resolveCookie(value.cookie) })

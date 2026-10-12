@@ -170,7 +170,7 @@ const capabilityNotes = (plan: InitializerPlan): string[] => {
 		],
 		[
 			has('auth-plugin') && hasDataApi(plan),
-			'Authentication operations are served under /auth and in GraphQL; logins are limited per account and address.',
+			'Authentication operations are served under /api/auth and in GraphQL; logins are limited per account and address.',
 		],
 		[
 			has('graphql-explorer-plugin'),

@@ -369,7 +369,7 @@ describe(
 				),
 			).toEqual({ revoked: true })
 
-			const cookieLogin = await requireClient().fetch('/auth/login', {
+			const cookieLogin = await requireClient().fetch('/api/auth/login', {
 				body: JSON.stringify({ password, username: 'parity-user' }),
 				headers: {
 					'Content-Type': 'application/json',

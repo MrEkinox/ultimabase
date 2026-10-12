@@ -25,8 +25,8 @@ const firstMasterKey = 'authenticated-first-master'
 const password = 'correct horse battery staple'
 const statusPath = '/api/operations/status'
 const notePath = '/api/classes/ExamplePrivateNote'
-// The authentication routes share one prefix, `/auth` (ADR-0326).
-const authPath = (name: string): string => `/auth/${name}`
+// The authentication routes share one prefix, `/api/auth` (ADR-0326).
+const authPath = (name: string): string => `/api/auth/${name}`
 
 let firstFixture: PostgresWorkerFixture | undefined
 let secondFixture: PostgresWorkerFixture | undefined

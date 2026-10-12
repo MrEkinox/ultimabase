@@ -48,7 +48,7 @@ and a managed Hono listener on `127.0.0.1:1337`, through one
 network-independent GraphQL, or the development-only GraphiQL page at
 `/graphiql`. Generated Task routes are read-only by default, and internal
 member and role schemas remain off generated routes. Authentication serves its
-operations under `/auth` (Bearer, or a cookie for browsers once configured);
+operations under `/api/auth` (Bearer, or a cookie for browsers once configured);
 GraphQL exposes the same operations and REST hides them. A valid session still
 grants no Task permission. Browser-origin
 access and HTTP Master keys remain disabled, and REST and GraphQL refuse

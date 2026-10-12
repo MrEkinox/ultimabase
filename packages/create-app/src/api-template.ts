@@ -34,13 +34,13 @@ export const pluginImports = (
 		.map(([id, names]) => [`@ultimabase/${id}`, names] as const)
 
 /**
- * Authentication declares its operations public (ADR-0324): its own `/auth`
+ * Authentication declares its operations public (ADR-0324): its own `/api/auth`
  * routes serve HTTP clients, so REST hides them; GraphQL exposes them all.
  */
 const hiddenAuthOperations = (plan: InitializerPlan, indent: string): string =>
 	has(plan, 'auth-plugin')
 		? `,
-${indent}// Served under /auth by authPlugin (ADR-0326).
+${indent}// Served under /api/auth by authPlugin (ADR-0326).
 ${indent}hide: [...Object.values(authOperations), ...Object.values(passwordOperations)]`
 		: ''
 
@@ -164,7 +164,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasPublishedAuth(plan),
-			'Authentication serves sign-up, login, sessions, password change and account deletion under /auth; GraphQL exposes the same operations and REST hides them. Sessions identify a caller; they do not grant Task access. Logins are limited per account and per account and address; the HTTP plugin can add a global per-address limit.',
+			'Authentication serves sign-up, login, sessions, password change and account deletion under /api/auth; GraphQL exposes the same operations and REST hides them. Sessions identify a caller; they do not grant Task access. Logins are limited per account and per account and address; the HTTP plugin can add a global per-address limit.',
 		],
 		[
 			has(plan, 'graphql-plugin') && !has(plan, 'graphql-yoga-plugin'),

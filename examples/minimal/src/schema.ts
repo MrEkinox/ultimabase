@@ -29,7 +29,7 @@ export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 	.use(rolesPlugin())
 	.use(aclPlugin())
 	.use(
-		// The authentication routes live under `/auth` (ADR-0326); browsers keep
+		// The authentication routes live under `/api/auth` (ADR-0326); browsers keep
 		// the session in a secure cookie instead of reading its token.
 		authPlugin({
 			methods: [password()],
@@ -38,7 +38,7 @@ export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 	)
 	.use(
 		// Public operations are exposed by their owners (ADR-0324): REST keeps
-		// the status operation; authentication is served under `/auth`.
+		// the status operation; authentication is served under `/api/auth`.
 		restPlugin({
 			hide: [
 				...Object.values(authOperations),

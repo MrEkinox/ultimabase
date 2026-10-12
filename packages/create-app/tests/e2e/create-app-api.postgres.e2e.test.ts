@@ -329,7 +329,7 @@ try {
 		try {
 			server = await startServer(project.destination, 'js')
 			// One prefix for every authentication route (ADR-0326).
-			const signUp = await fetch(`${endpoint}/auth/sign-up`, {
+			const signUp = await fetch(`${endpoint}/api/auth/sign-up`, {
 				method: 'POST',
 				headers: { ...applicationHeader, 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -368,7 +368,7 @@ try {
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {
 			server = await startServer(project.destination, 'ts')
-			const signUp = await fetch(`${endpoint}/auth/sign-up`, {
+			const signUp = await fetch(`${endpoint}/api/auth/sign-up`, {
 				method: 'POST',
 				headers: { ...applicationHeader, 'Content-Type': 'application/json' },
 				body: JSON.stringify({

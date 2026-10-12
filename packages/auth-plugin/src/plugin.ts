@@ -146,7 +146,7 @@ export interface AuthPluginOptions<
 export interface AuthPluginFactory {
 	/**
 	 * Installs authentication: adds `App.UserSchema`, sessions, the current
-	 * principal and the `/auth` routes, with the given methods.
+	 * principal and the `/api/auth` routes, with the given methods.
 	 * @example `UltimaBase.use(authPlugin({ methods: [password({ identifier: 'email' })] }))`
 	 */
 	<const TMethods extends readonly AuthMethod[]>(

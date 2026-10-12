@@ -122,7 +122,7 @@ describe('API project templates', () => {
 		)
 	})
 
-	it('serves authentication under /auth and hides it from REST only', () => {
+	it('serves authentication under /api/auth and hides it from REST only', () => {
 		const direct = resolveSelection(
 			{ name: 'direct', plugins: ['auth-plugin'] },
 			'/tmp',
@@ -141,7 +141,7 @@ describe('API project templates', () => {
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
 		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
 		expect(application).not.toContain('authOperations')
-		// The `/auth` routes serve HTTP clients: REST hides every operation,
+		// The `/api/auth` routes serve HTTP clients: REST hides every operation,
 		// GraphQL exposes them (ADR-0324, ADR-0325, ADR-0326).
 		expect(schema.match(/hide: \[/gu)).toHaveLength(1)
 		expect(schema).toContain(
