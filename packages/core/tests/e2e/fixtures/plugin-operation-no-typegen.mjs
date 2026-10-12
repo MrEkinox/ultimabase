@@ -66,10 +66,6 @@ const opaqueDocumentOption = defineSchemaOption({
 		return value
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/javascript-document-plugin',
-		type: 'DocumentOption',
-	},
 	valueKind: 'opaque',
 })
 const protocol = defineOperationTransport({

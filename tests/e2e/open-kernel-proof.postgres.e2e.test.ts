@@ -61,8 +61,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 					}),
 				}),
 			})
+			.decimalLedger({ defaultScale: 2 })
 			.with({
-				decimalLedger: { defaultScale: 2 },
 				postgres: { table: 'open_kernel_ledger_entries' },
 			})
 		const SoftPost = PostgresHookApplication.Schema.define({
@@ -113,8 +113,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 					data: { amount: { scale: -1, units: 'broken' }, label: 'bad' },
 				}),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-			// This Runtime-only fixture has no generated registry; the companion
-			// editor test verifies this exact query with generated WhereInput types.
+			// Form D types a plugin field kind's filter as null checks only; the
+			// portable equality below is a Runtime contract (deferred to 6.8c).
 			const filtered = await LedgerEntry.findMany({
 				where: { amount: { eq: amount } },
 			} as never)

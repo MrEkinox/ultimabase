@@ -85,7 +85,6 @@ describe('plugin manifest source language service', () => {
 			'schema:declare',
 			'storage:private',
 			'transport:expose',
-			'typegen:reference',
 		])
 		expect(readStringCompletions('environment')).toStrictEqual([
 			'environment:filesystem',

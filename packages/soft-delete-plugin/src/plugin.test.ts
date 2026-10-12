@@ -4,10 +4,8 @@ import {
 	compileValidationPlans,
 	readFieldTypeState,
 	type CompiledApplication,
-	type FieldBuilder,
 } from '@ultimabase/core'
 import { contributeApplication, plugin } from '@ultimabase/core/plugin'
-import { generateApplicationTypes } from '@ultimabase/typegen'
 
 import { softDeletePlugin } from './plugin.js'
 import { createSoftDeletePersistenceRewriter } from './replace-delete.js'
@@ -59,7 +57,6 @@ describe('softDeletePlugin', () => {
 			'runtime:constrain',
 			'persistence:rewrite',
 			// No transport binding: transports expose commands by rule (ADR-0325).
-			'typegen:reference',
 		])
 	})
 
@@ -174,8 +171,8 @@ describe('softDeletePlugin', () => {
 		// The stale runtime definition deliberately bypasses source diagnostics.
 		const Document = UltimaBase.Schema.define({
 			className: 'MissingSoftDeletePlugin',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		} as never).softDelete()
+			fields: (field) => ({ title: field.string() }),
+		}).with({ softDelete: {} } as never)
 		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -283,26 +280,6 @@ describe('softDeletePlugin', () => {
 		const Twice = UltimaBase.use(softDeletePlugin(), softDeletePlugin())
 		expect(() => new Twice({ logger: false, schemas: [] })).toThrow(
 			'Plugin "@ultimabase/soft-delete-plugin" was declared more than once.',
-		)
-	})
-
-	it('generates the six commands for Typegen applications', () => {
-		const Document = declare('TypegenSoftDeleteDocument').softDelete().with({})
-		const generated = generateApplicationTypes({
-			ultimabase: new App({ logger: false, schemas: [Document] }),
-			applicationId: 'soft-delete',
-		})
-
-		expect(generated.snapshot.options).toStrictEqual([])
-		expect(
-			generated.snapshot.surfaces[0]?.schemaMutations.map(({ name }) => name),
-		).toEqual(commandNames)
-		expect(generated.contents).toContain('PluginSchemaMutationNoInput as')
-		expect(generated.contents).toContain(
-			'readonly softDeleteMany: Core.ApplicationSchemaMutationManyMethod<',
-		)
-		expect(generated.contents).toContain(
-			'readonly softDeleteOne: Core.ApplicationSchemaMutationMethod<',
 		)
 	})
 })

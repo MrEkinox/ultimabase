@@ -75,7 +75,6 @@ it('conforms to public plugin kernel contracts with the password method', async 
 					'operation:declare',
 					'runtime:intercept',
 					'transport:expose',
-					'typegen:reference',
 					'authority:elevate',
 				],
 				version: '0.0.0',

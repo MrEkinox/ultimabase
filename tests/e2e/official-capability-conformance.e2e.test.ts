@@ -4,7 +4,6 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '@ultimabase/testing/plugins'
 import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import type { PluginDefinition } from '@ultimabase/core/plugin'
@@ -22,24 +21,21 @@ const createMasterAuthority = () =>
 	})
 // Preserve the original public-export scenarios under their contract owner.
 describe('official optional capability composition', () => {
-	// One orchestration table preserves both public provider contracts and proves
-	// that configured source typing replaced their field-option overlays.
+	// One orchestration table preserves both public provider contracts.
 	it.each([
 		{
 			name: 'access',
 			create: accessPlugin,
 			privileges: ['schema:declare', 'runtime:constrain'] as const,
-			removedTypes: ['FieldAccessOption'],
 		},
 		{
 			name: 'hooks',
 			create: hooksPlugin,
 			privileges: ['schema:declare', 'runtime:intercept'] as const,
-			removedTypes: ['FieldHooksOption'],
 		},
 	])(
-		'proves $name manifest and source-owned option contracts',
-		async ({ name, create, privileges, removedTypes }) => {
+		'proves $name manifest and option contracts',
+		async ({ name, create, privileges }) => {
 			const pluginId = `@ultimabase/${name}-plugin`
 			const suite = definePluginConformanceSuite({
 				createFixture: () => {
@@ -57,16 +53,10 @@ describe('official optional capability composition', () => {
 					version: '0.0.0',
 				},
 			})
-			const report = await runPluginConformance(
-				withPluginTypegenConformance(suite, {
-					applicationId: `official-${name}-conformance`,
-					verify: ({ contents }) => {
-						for (const value of removedTypes)
-							expect(contents).not.toContain(value)
-					},
-				}),
+			const report = await runPluginConformance(suite)
+			expect(report.checks.map(({ contract }) => contract)).toContain(
+				'manifest',
 			)
-			expect(report.checks.map(({ contract }) => contract)).toContain('typegen')
 		},
 	)
 

@@ -275,12 +275,6 @@ describe('plugin FieldBuilder methods', () => {
 			},
 		])
 		expect(Object.isFrozen(application.fieldBuilderMethods)).toBe(true)
-		expect(application.pluginFieldTypes).toStrictEqual([
-			expect.objectContaining({
-				fieldKind: 'fixture.alpha',
-				owner: 'fixture.ordered-plugin',
-			}),
-		])
 	})
 
 	it('fails precisely when no configured plugin declares a used method', async () => {
@@ -558,14 +552,9 @@ describe('plugin FieldBuilder methods', () => {
 		)
 	})
 
-	it('snapshots typegen metadata and rejects untrusted definitions', async () => {
-		const typegen = {
-			module: '@fixture/snapshot-plugin',
-			valueType: 'SnapshotValue',
-		}
+	it('snapshots builder metadata and rejects untrusted definitions', async () => {
 		const method = definePluginFieldFamily({
 			fieldKind: 'fixture.alpha',
-			typegen,
 			builder: {
 				name: 'snapshot',
 				contexts: {
@@ -576,7 +565,6 @@ describe('plugin FieldBuilder methods', () => {
 			},
 		})
 
-		typegen.valueType = 'MutatedValue'
 		const application = applicationFixture(
 			await createApplication({
 				plugins: [
@@ -604,12 +592,10 @@ describe('plugin FieldBuilder methods', () => {
 		await application.dispose()
 
 		expect(
-			application.fieldBuilderMethods[0]?.contexts.stored?.typegen.methodType,
-		).toBe('SnapshotFieldBuilderMethod')
+			application.fieldBuilderMethods[0]?.contexts.stored?.fieldKind,
+		).toBe('fixture.alpha')
 		expect(
-			Object.isFrozen(
-				application.fieldBuilderMethods[0]?.contexts.stored?.typegen,
-			),
+			Object.isFrozen(application.fieldBuilderMethods[0]?.contexts.stored),
 		).toBe(true)
 
 		const untrustedPlugin = createPlugin({
@@ -624,7 +610,6 @@ describe('plugin FieldBuilder methods', () => {
 					schema: ({ fields }) => {
 						const untrusted = {
 							fieldKind: 'fixture.alpha',
-							typegen,
 						} as PluginFieldFamilyDefinition
 
 						fields.register(untrusted)

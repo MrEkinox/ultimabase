@@ -1,5 +1,4 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
-import type {} from '../tests/fixtures/options.generated.js'
 import {
 	MasterAuthority,
 	UltimaBase,

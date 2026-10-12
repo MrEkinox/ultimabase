@@ -16,7 +16,6 @@ import {
 	defineOperation,
 	defineOperationValue,
 	plugin,
-	defineTypegenReference,
 	type PluginExports,
 } from '@ultimabase/core/plugin'
 import { expectTypeOf } from 'vitest'
@@ -123,9 +122,6 @@ const RatedArticle = RatingApp.Schema.define({
 expectTypeOf<
 	SchemaItem<typeof RatedArticle>['rating']
 >().toEqualTypeOf<number>()
-expectTypeOf<
-	SchemaItem<typeof RatedArticle>['ratingState']
->().toEqualTypeOf<string>()
 expectTypeOf(RatedArticle.className).toEqualTypeOf<'PluginKitRatedArticle'>()
 
 const workflowPlugin = plugin({
@@ -189,12 +185,6 @@ expectTypeOf(parseStandardOptions({})).toEqualTypeOf<
 
 // @ts-expect-error -- Plugin option schemas must produce an object root.
 definePluginOptionsParser({ name: 'primitive options', schema: z.string() })
-
-const publishInputReference = defineTypegenReference({
-	exportName: 'PublishInput',
-	module: '@example/workflow-plugin',
-})
-expectTypeOf(publishInputReference.exportName).toEqualTypeOf<'PublishInput'>()
 
 expectTypeOf(schemaPatch()).toEqualTypeOf<SchemaPatchBuilder>()
 // @ts-expect-error Portable schema constraints were removed by ADR-0289.

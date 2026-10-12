@@ -128,7 +128,8 @@ const NullableSource = PointerSchemaApplication.Schema.define({
 	}),
 })
 
-const PrivateTarget = PointerSchemaApplication.Schema.define({
+// Access types the `access` rule; the instance installs its configured copy.
+const PrivateTarget = PointerSchemaApplication.use(accessPlugin()).Schema.define({
 	className: 'PointerE2EPrivateTarget',
 	fields: (field) => ({
 		label: field.string({ required: true }),

@@ -9,7 +9,6 @@ import {
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
-	defineSchemaOption,
 	plugin,
 } from '../../src/plugin.js'
 
@@ -18,27 +17,14 @@ const importance = (options: { readonly required: true }) =>
 
 const importanceFamily = definePluginFieldFamily({
 	fieldKind: 'fixture.importance',
-	typegen: {
-		module: '@fixture/importance-plugin',
-		valueType: 'ImportanceValue',
-	},
 	builder: {
 		name: 'importance',
 		contexts: {
 			stored: {
 				factory: importance,
-				methodType: 'ImportanceFieldBuilderMethod',
 			},
 		},
 	},
-})
-
-const workflowOption = defineSchemaOption({
-	normalize: (value): Readonly<{ enabled: boolean }> => ({
-		enabled: value === true,
-	}),
-	protocolVersion: 1,
-	typegen: false,
 })
 
 const inspect = defineOperation({
@@ -55,7 +41,7 @@ const sourcePlugin = plugin({
 	id: 'fixture.source-language-service',
 	permissions: {
 		'operation:declare': 'Declares the inspect operation.',
-		'schema:declare': 'Declares importance fields and workflow options.',
+		'schema:declare': 'Declares importance fields.',
 	},
 	version: '1.0.0',
 	contributions: [
@@ -64,13 +50,7 @@ const sourcePlugin = plugin({
 			operation: inspect,
 		}),
 		contributeDeclarations({
-			schema: ({ fields, schemas }) => [
-				fields.register(importanceFamily),
-				schemas.defineOptions({
-					contributionId: 'workflow-options',
-					schema: { workflow: workflowOption },
-				}),
-			],
+			schema: ({ fields }) => [fields.register(importanceFamily)],
 		}),
 	],
 })
@@ -84,8 +64,6 @@ export const Post = Application.Schema.define({
 		}),
 		title: field.string({ required: true }),
 	}),
-}).with({
-	workflow: { enabled: true },
 })
 
 // ADR-0310: results are frozen plain data; schemas carry every command.

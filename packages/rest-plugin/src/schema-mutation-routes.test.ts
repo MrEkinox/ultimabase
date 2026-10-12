@@ -1,6 +1,7 @@
 import {
 	UltimaBase,
 	type ApplicationSchemaMutationTransportPlan,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	plugin,
@@ -43,7 +44,7 @@ const descriptor = (
 })
 
 const compile = async (
-	schemas: readonly ReturnType<typeof UltimaBase.Schema.define>[],
+	schemas: readonly SchemaDefinition[],
 	mutations: ApplicationSchemaMutationTransportPlan<
 		typeof restProtocol
 	>['mutations'],

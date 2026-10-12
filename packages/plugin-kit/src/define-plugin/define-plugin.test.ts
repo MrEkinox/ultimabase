@@ -64,9 +64,8 @@ describe('definePlugin', () => {
 			'schema:declare',
 			'model:extend',
 			'operation:declare',
-			'persistence:rewrite',
 			// No transport binding: transports expose commands by rule (ADR-0325).
-			'typegen:reference',
+			'persistence:rewrite',
 		])
 		expect(
 			definePlugin({ name: 'community.empty' }).manifest.privileges,

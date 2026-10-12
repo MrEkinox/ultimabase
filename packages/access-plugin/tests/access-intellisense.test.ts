@@ -71,9 +71,8 @@ UltimaBase.Schema.define({
 		expect(messages.join('\n')).toContain("'access' does not exist")
 	})
 
-	it('adds exact Access options from the configured plugin source', () => {
+	it('adds exact Access rules and field options from the configured plugin source', () => {
 		const source = `
-import type {} from './fixtures/options.generated.js'
 import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 const Application = UltimaBase.use(accessPlugin())
@@ -81,16 +80,21 @@ Application.Schema.define({ /* schema-options */ })
 Application.Schema.define({
   className: 'WithAccess',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
-})
+}).with({ /* schema-rules */ })
 `
 		const sourceFile = fixtureFile('source-options')
 		const fixture = createLanguageServiceFixture(sourceFile, source, [
 			'/* schema-options */',
 			'/* field-options */',
+			'/* schema-rules */',
 		])
 
+		// Rules belong to the final `.with` call, not to define (ADR-0297).
 		expect(
 			completionNames(fixture, sourceFile, '/* schema-options */'),
+		).not.toContain('access')
+		expect(
+			completionNames(fixture, sourceFile, '/* schema-rules */'),
 		).toContain('access')
 		expect(
 			completionNames(fixture, sourceFile, '/* field-options */'),

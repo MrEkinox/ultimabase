@@ -17,6 +17,9 @@ import {
 	plugin as createPlugin,
 	requireCapability,
 	withPluginPrivileges,
+	type PluginDeclarationContribution,
+	type PluginSchemaRulesSource,
+	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
 import {
 	createPluginEventDispatcher,
@@ -42,11 +45,12 @@ export interface AlternativeBehaviorOptions {
 	readonly label: string
 }
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
+/** Contributes `alternativeBehavior` to `.with({ ... })` (ADR-0297). */
+export interface AlternativeBehaviorRules extends SchemaRulesHKT {
+	readonly rules: Readonly<{
 		/** Configures the independent behavior fixture when its plugin is installed. */
-		readonly alternativeBehavior?: AlternativeBehaviorOptions
-	}
+		alternativeBehavior?: AlternativeBehaviorOptions
+	}>
 }
 
 export interface AlternativeBehaviorTrace {
@@ -256,6 +260,25 @@ export const createAlternativeBehaviorEngine = (
 			})
 		},
 	})
+	// The rules slot types `.with({ alternativeBehavior })` (ADR-0297).
+	const declarations: PluginDeclarationContribution<
+		readonly [],
+		PluginSchemaRulesSource<AlternativeBehaviorRules>
+	> = contributeDeclarations({
+		schema: ({ schemas }) => {
+			schemas.defineOptions({
+				contributionId: 'alternative-behavior-option',
+				schema: {
+					alternativeBehavior: alternativeBehaviorSchemaOption,
+				},
+			})
+			schemas.add({
+				contributionId: 'audit-schema',
+				schema: Audit,
+				staticOptions: { instanceId: options.instanceId ?? 'default' },
+			})
+		},
+	})
 	const plugin = createPlugin({
 		core: '^0.0.0',
 		id: alternativeBehaviorPluginId,
@@ -268,21 +291,7 @@ export const createAlternativeBehaviorEngine = (
 			withPluginPrivileges(behaviorProvider, ['event:publish']),
 			runtimeState,
 			optionalDiagnostics,
-			contributeDeclarations({
-				schema: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'alternative-behavior-option',
-						schema: {
-							alternativeBehavior: alternativeBehaviorSchemaOption,
-						},
-					})
-					schemas.add({
-						contributionId: 'audit-schema',
-						schema: Audit,
-						staticOptions: { instanceId: options.instanceId ?? 'default' },
-					})
-				},
-			}),
+			declarations,
 			contributeApplication(({ capabilities }) => {
 				const state = capabilities.get(runtimeState)
 				return {

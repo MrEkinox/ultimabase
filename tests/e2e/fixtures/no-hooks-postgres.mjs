@@ -62,7 +62,6 @@ try {
 		where: { id: { eq: created.id } },
 	})
 	const inspection = {
-		options: ultimabase.compile().typegenGraph.options.map(({ name }) => name),
 		plugins: ultimabase.pluginPrivilegeReport.plugins.map(
 			({ identity }) => identity.pluginId,
 		),

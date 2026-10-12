@@ -2,7 +2,6 @@ import { expectTypeOf, test } from 'vitest'
 
 import { definePluginField } from '../schema/fields/plugin.js'
 import { definePluginOutputDescriptor } from '../schema/output/descriptor.js'
-import { booleanField } from '../schema/fields/builtins/boolean.js'
 import type { PluginFieldDefinition } from '../schema/fields/plugin.js'
 import type {
 	FieldOptions,
@@ -14,22 +13,14 @@ import type { Model } from '../schema/schema/registered-schemas.js'
 import { definePluginFieldFamily } from '../schema/schema/field-builder-methods.js'
 import {
 	defineFieldOption,
-	defineSchemaOption,
 	type SchemaOptionRuntimeRequirement,
 } from './schema-option-definitions.js'
 import { contributeDeclarations } from './plugin-contributions.js'
 import { plugin } from './plugin.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
-import { addSchemaField } from './schema-field-patch-operations.js'
-import {
-	contributeOperation,
-	contributeSchemaMutation,
-} from './plugin-command-contributions.js'
-import { defineSchemaMutation } from './plugin-schema-mutations.js'
+import { contributeOperation } from './plugin-command-contributions.js'
 import type { PluginDefinition, PluginSource } from './definition.js'
 import type { PluginSourceFieldValue } from './source-projections.js'
-import type { ResolvePluginSchemaProjection } from './source-projections.js'
-import type { SourceSchemaTypeInfo } from '../schema/schema/source-type-info.js'
 import type { SchemaItem } from '../schema/schema/values.js'
 import type { ConfiguredSchemaNamespace } from '../schema/schema/definition.js'
 
@@ -68,53 +59,23 @@ const ratingOutput = (options: { readonly nullable: false }) =>
 
 const ratingFamily = definePluginFieldFamily({
 	fieldKind: 'fixture.rating',
-	typegen: {
-		module: '@fixture/rating-plugin',
-		valueType: 'RatingValue',
-	},
 	builder: {
 		name: 'rating',
 		contexts: {
 			embedded: {
 				factory: rating,
-				methodType: 'RatingFieldBuilderMethod',
 			},
 			output: {
 				factory: ratingOutput,
-				methodType: 'RatingFieldBuilderMethod',
 			},
 			stored: {
 				factory: rating,
-				methodType: 'RatingFieldBuilderMethod',
 			},
 			virtual: {
 				factory: rating,
-				methodType: 'RatingFieldBuilderMethod',
 			},
 		},
 	},
-})
-
-const workflowOption = defineSchemaOption({
-	normalize: (value): Readonly<{ enabled: boolean }> => ({
-		enabled: value === true,
-	}),
-	protocolVersion: 1,
-	typegen: false,
-})
-
-const archivedField = addSchemaField({
-	contributionId: 'archived-field',
-	field: booleanField({ default: false, required: true }),
-	mutationInput: 'forbidden',
-	name: 'isArchived',
-})
-
-const stringTitleField = addSchemaField({
-	contributionId: 'string-title-field',
-	field: booleanField({ default: false, required: true }),
-	mutationInput: 'forbidden',
-	name: 'hasStringTitle',
 })
 
 const OwnedEvent = Schema.defineSpecialized(
@@ -136,7 +97,6 @@ const transformOption = defineFieldOption<
 			transform?: (value: unknown) => unknown
 		}>,
 	protocolVersion: 1,
-	typegen: false,
 })
 
 const inspect = defineOperation({
@@ -148,22 +108,12 @@ const inspect = defineOperation({
 	version: '1.0.0',
 })
 
-const archive = defineSchemaMutation({
-	authority: 'request',
-	effect: 'update',
-	input: defineOperationValue((value: unknown) => String(value)),
-	name: 'fixture.source.archive',
-	returning: 'after',
-	version: '1.0.0',
-})
-
 const sourcePlugin = plugin({
 	core: '^0.0.0',
 	id: 'fixture.source-projection',
 	permissions: {
-		'model:extend': 'Adds the archive source surface.',
 		'operation:declare': 'Declares the inspect operation.',
-		'schema:declare': 'Declares rating fields and workflow options.',
+		'schema:declare': 'Declares rating fields and transform options.',
 	},
 	version: '1.0.0',
 	contributions: [
@@ -171,57 +121,17 @@ const sourcePlugin = plugin({
 			execute: ({ input }) => Number(input),
 			operation: inspect,
 		}),
-		contributeSchemaMutation({
-			mutation: archive,
-			resolve: () => ({ data: { isArchived: true } }),
-		}),
 		contributeDeclarations({
-			models: ({ models }) =>
-				models.extend(
-					{
-						className: 'SourceProjectionPost',
-						owner: { kind: 'application' },
-					},
-					{
-						contributionId: 'archive-surface',
-						schemaMutations: {
-							archive: {
-								mutation: archive,
-								surfaces: ['schema'],
-							},
-						},
-					},
-				),
 			schema: ({ fields, schemas }) => {
 				const options = schemas.defineOptions({
-					contributionId: 'workflow-options',
+					contributionId: 'transform-options',
 					field: { transform: transformOption },
-					schema: { workflow: workflowOption },
 				})
 				schemas.add({
 					contributionId: 'owned-event',
 					schema: OwnedEvent,
 				})
-				return [
-					fields.register(ratingFamily),
-					options,
-					schemas.patch({
-						operations: [archivedField],
-						targets: schemas.select({
-							option: {
-								equals: true,
-								name: 'workflow',
-								path: ['enabled'],
-							},
-						}),
-					}),
-					schemas.patch({
-						operations: [stringTitleField],
-						targets: schemas.select({
-							field: { kind: 'string', name: 'title' },
-						}),
-					}),
-				]
+				return [fields.register(ratingFamily), options]
 			},
 		}),
 	],
@@ -338,21 +248,9 @@ const Post = Application.Schema.define({
 			transform: (value) => value.trim(),
 		}),
 	}),
-}).with({
-	workflow: { enabled: true },
 })
 
-const LivePost = Application.Schema.define({
-	className: 'SourceProjectionLivePost',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-
-const BooleanTitle = Application.Schema.define({
-	className: 'SourceProjectionBooleanTitle',
-	fields: (field) => ({ title: field.boolean({ required: true }) }),
-})
-
-test('projects exact fields, options, and operations from one static declaration', () => {
+test('projects exact field builders, field options, and operations from one static declaration', () => {
 	expectTypeOf(
 		ratingFamily.builder.contexts.stored.factory,
 	).toExtend<RatingFactory>()
@@ -377,81 +275,12 @@ test('projects exact fields, options, and operations from one static declaration
 	expectTypeOf(Post.className).toEqualTypeOf<'SourceProjectionPost'>()
 	expectTypeOf<Model<typeof Post>['score']>().toEqualTypeOf<number>()
 	expectTypeOf<Model<typeof Post>['title']>().toEqualTypeOf<string>()
-	expectTypeOf<SchemaItem<typeof Post>['isArchived']>().toEqualTypeOf<boolean>()
-	expectTypeOf<
-		SchemaItem<typeof Post>['hasStringTitle']
-	>().toEqualTypeOf<boolean>()
-	expectTypeOf<
-		SchemaItem<typeof LivePost>['hasStringTitle']
-	>().toEqualTypeOf<boolean>()
-	expectTypeOf(LivePost.className).toEqualTypeOf<'SourceProjectionLivePost'>()
-	expectTypeOf(
-		BooleanTitle.className,
-	).toEqualTypeOf<'SourceProjectionBooleanTitle'>()
-	expectTypeOf(Post.archive({ id: 'post-id', input: 'reason' })).toExtend<
-		Promise<object>
-	>()
-	// @ts-expect-error -- The option selector does not leak the patch.
-	type LiveArchived = SchemaItem<typeof LivePost>['isArchived']
-	void (null as unknown as LiveArchived)
-	// @ts-expect-error -- The field-kind selector does not match a boolean title.
-	type BooleanTitleMarker = SchemaItem<typeof BooleanTitle>['hasStringTitle']
-	void (null as unknown as BooleanTitleMarker)
-
 	const application = new Application({ schemas: [Post] })
 	expectTypeOf(
 		application.operation('fixture.source.inspect').execute('1'),
 	).toEqualTypeOf<Promise<number>>()
 
 	type Source = PluginSource<typeof sourcePlugin>
-	type SchemaFieldSources = Extract<
-		Source,
-		Readonly<{ schemaFields: object }>
-	>['schemaFields']
-	expectTypeOf<SchemaFieldSources['selector']>().toEqualTypeOf<
-		| Readonly<{
-				option: Readonly<{
-					equals: true
-					name: 'workflow'
-					path: readonly ['enabled']
-				}>
-		  }>
-		| Readonly<{
-				field: Readonly<{ kind: 'string'; name: 'title' }>
-		  }>
-	>()
-	type PatchProjection = Extract<
-		Source,
-		Readonly<{
-			schemaFields: Readonly<{
-				selector: Readonly<{
-					option: Readonly<{
-						equals: true
-						name: 'workflow'
-						path: readonly ['enabled']
-					}>
-				}>
-			}>
-		}>
-	>
-	expectTypeOf<PatchProjection['schemaFields']['selector']>().toEqualTypeOf<
-		Readonly<{
-			option: Readonly<{
-				equals: true
-				name: 'workflow'
-				path: readonly ['enabled']
-			}>
-		}>
-	>()
-	type ResolvedPatch = ResolvePluginSchemaProjection<
-		PatchProjection['schemaFields'],
-		SourceSchemaTypeInfo<
-			'SourceProjectionPost',
-			Readonly<Record<never, never>>
-		>,
-		Readonly<{ workflow: Readonly<{ enabled: true }> }>
-	>
-	expectTypeOf<ResolvedPatch>().toHaveProperty('isArchived')
 	type ApplicationParameters =
 		InstanceType<typeof Application> extends UltimaBase<
 			infer TSchemas,
@@ -466,32 +295,20 @@ test('projects exact fields, options, and operations from one static declaration
 			? TSource
 			: never
 	expectTypeOf<NamespaceSource>().toEqualTypeOf<ApplicationSource>()
-	type ResolvedApplicationPatch = ResolvePluginSchemaProjection<
-		ApplicationSource['schemaFields'],
-		SourceSchemaTypeInfo<
-			'SourceProjectionPost',
-			Readonly<Record<never, never>>
-		>,
-		Readonly<{ workflow: Readonly<{ enabled: true }> }>
-	>
-	expectTypeOf<ResolvedApplicationPatch>().toHaveProperty('isArchived')
 	expectTypeOf<Source>().toExtend<
 		| Readonly<{ fieldBuilders: object }>
 		| Readonly<{ fieldOptions: object }>
 		| Readonly<{ model: object }>
 		| Readonly<{ operations: object }>
-		| Readonly<{ schemaClass: object }>
-		| Readonly<{ schemaFields: object }>
-		| Readonly<{ schemaOptions: object }>
 	>()
 })
 
-// @ts-expect-error -- An absent plugin contributes no schema option.
 const CoreOnly = UltimaBase.Schema.define({
 	className: 'SourceProjectionCoreOnly',
-	fields: (field) => ({ title: field.string() }),
-}).with({
-	workflow: { enabled: true },
+	fields: (field) => ({
+		// @ts-expect-error -- An absent plugin contributes no field option.
+		title: field.string({ transform: (value: string) => value }),
+	}),
 })
 
 void CoreOnly

@@ -125,11 +125,6 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 					({ identity }) => identity.pluginId,
 				),
 			).not.toContain('@ultimabase/access-plugin')
-			expect(
-				ultimabase
-					.compile()
-					.typegenGraph.options.map(({ name, scope }) => `${scope}:${name}`),
-			).toStrictEqual(['schema:postgres', 'field:postgres'])
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -155,7 +150,6 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			existsAfterDelete: false,
 			found: 'JavaScript create',
 			inspection: {
-				options: ['postgres', 'postgres'],
 				plugins: ['@ultimabase/postgres-plugin'],
 			},
 			rollbackMessage: 'rollback JavaScript transaction',

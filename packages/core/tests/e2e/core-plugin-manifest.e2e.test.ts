@@ -30,7 +30,6 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'schema:declare',
 			'storage:private',
 			'transport:expose',
-			'typegen:reference',
 		])
 		expect(languageFixture.readStringCompletions('environment')).toStrictEqual([
 			'environment:filesystem',

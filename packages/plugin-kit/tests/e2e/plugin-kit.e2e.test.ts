@@ -5,7 +5,6 @@ import {
 	defineOperation,
 	defineOperationValue,
 	plugin,
-	defineTypegenReference,
 } from '@ultimabase/core/plugin'
 import {
 	SchemaPatchBuilder,
@@ -32,10 +31,6 @@ describe('packed @ultimabase/plugin-kit', () => {
 			}),
 		})
 		const standardNormalized = parseStandardOptions({ mode: 'publish' })
-		const echoInput = defineTypegenReference({
-			exportName: 'EchoInput',
-			module: '@fixture/packed-plugin',
-		})
 		const patch = schemaPatch().addField({
 			contributionId: 'state',
 			field: stringField(),
@@ -97,10 +92,6 @@ describe('packed @ultimabase/plugin-kit', () => {
 		expect(Object.isFrozen(standardNormalized)).toBe(true)
 		expect(patch).toBeInstanceOf(SchemaPatchBuilder)
 		expect(Target.definition.fields).toHaveProperty('state')
-		expect(echoInput).toMatchObject({
-			exportName: 'EchoInput',
-			module: '@fixture/packed-plugin',
-		})
 		expect(Object.isFrozen(definition)).toBe(true)
 
 		await application.dispose()

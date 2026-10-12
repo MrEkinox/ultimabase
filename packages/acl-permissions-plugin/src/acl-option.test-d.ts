@@ -110,15 +110,12 @@ test('requires default once .acl() is called and acl only after it', () => {
 		// @ts-expect-error -- `acl` rules need `.acl()` first.
 		acl: { default: new ACL() },
 	})
-	// @ts-expect-error -- The template-based schema option is removed (ADR-0321).
 	Application.Schema.define({
 		className: 'LegacyACLOptionPost',
 		fields: (field) => ({ title: field.string() }),
+		// @ts-expect-error -- Plugin rules left `define` (ADR-0297, ADR-0321).
+		acl: { default: new ACL() },
 	})
-		.acl()
-		.with({
-			acl: { default: new ACL() },
-		})
 })
 
 test('rejects incompatible public ACL configuration', () => {
