@@ -36,7 +36,8 @@ expliqué, banc forme D TS6/TS7.
 
 Implémentation, tests, migration des consommateurs (exemples, create-app,
 tests racine, sondes de performance Typegen) et documentation faits ; porte
-finale à lancer.
+finale verte sur 7eacc64c, audit DX expliqué, banc forme D mesuré. En attente
+de revue par le coordinateur.
 
 ## Décisions prises (non fixées par l'ADR, à confirmer)
 
@@ -143,9 +144,56 @@ environment })` ; les services du socle (`createUser`, `signIn`,
 
 ## Preuves
 
-À compléter par la porte finale.
+Porte sur 7eacc64c, après suppression de `packages/*/dist` et `*.tsbuildinfo` :
+
+- `yarn validate:full` : code 0 ; format « All matched files use Prettier code
+  style! » ; lint 0 erreur (48, 15 et 2 avertissements) ; performance « Test
+  Files 3 passed (3) / Tests 4 passed (4) » ; couverture « Test Files 730
+  passed (730) / Tests 3608 passed (3608) / Type Errors no errors », All files
+  92.5 / 85.83 / 96.81 / 93.2 ; site « Test Files 17 passed (17) / Tests 66
+  passed (66) ».
+- `yarn test:e2e:built` : code 0, « Test Files 132 passed (132) / Tests 580
+  passed (580) ».
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) » (124 pages statiques).
+- Forme D sans TS7022 : TS7 construit 0, TS7 source 0, TS6 construit 0, TS6
+  source 0 diagnostic.
+
+Audit DX contre 48a448e8 construit (`--only` tous les paquets, `tests`,
+`examples/minimal`, `examples/todo-backend`) : 2706 différences (39430 /
+39432 observations). password-auth-plugin 1061 (retiré), auth-plugin 604 et
+auth-password 379 (nouveaux), examples/minimal 292 (migration vers
+`ExampleUser`), examples/schema-form-d 134 (inclus par ses sites d'usage
+malgré l'exclusion ; `TodoUser` migré), tests 205 (fixtures
+`optional-product-public-api` décalées de 2 et nouvelles entrées), create-app
+14 (identifiant de catalogue `auth-plugin`), core 4 (hash de chunk privé ;
+ordre des membres de l'union `QueryRelationshipPredicateNode.operator`, dû à
+la composition du programme), http-plugin 3 (`clientAddress` ; ordre de
+l'union `HttpPreDispatchErrorCode`), graphql-plugin 4, rest-plugin 5 et
+api-server 1 (exemple JSDoc `hide` sur `authOperations` ; ordre de l'union
+`RestResponseErrorCode`).
+
+Banc forme D (base 48a448e8 / branche, alternés, 3 passes, médianes en ms) :
+
+| TS6         | froid | 1re diag. | édition → diag. | schéma | tas MiB | charge  |
+| ----------- | ----- | --------- | --------------- | ------ | ------- | ------- |
+| 50 base     | 4525  | 2074      | 1928            | 1953   | 862     | 4.7–5.8 |
+| 50 branche  | 4524  | 2104      | 1914            | 1944   | 862     | 4.5–5.2 |
+| 200 base    | 14766 | 6350      | 6123            | 6016   | 2222    | 3.2–4.6 |
+| 200 branche | 14881 | 6399      | 6137            | 6045   | 2249    | 3.1–3.9 |
+
+| TS7         | 1re diag. | édition → diag. | toutes | schéma | règle | RSS MiB | charge  |
+| ----------- | --------- | --------------- | ------ | ------ | ----- | ------- | ------- |
+| 50 base     | 718       | 632             | 1272   | 1072   | 448   | 733     | 3.3–3.7 |
+| 50 branche  | 712       | 641             | 1289   | 1061   | 402   | 532     | 3.1–3.7 |
+| 200 base    | 2243      | 2098            | 5640   | 3242   | 1097  | 1620    | 2.3–2.9 |
+| 200 branche | 2233      | 2082            | 5676   | 3185   | 1075  | 1552    | 2.4–2.6 |
+
+Écarts dans le bruit (≤ 2 % en temps) ; le RSS de TS7 varie de 450 à
+1750 MiB d'une passe à l'autre sans tendance. Survols identiques (199
+caractères). Dossiers `gen/` supprimés ; worktree de référence retiré.
 
 ## Prochaine action vérifiable
 
-Porte finale (`yarn validate:full`, `yarn test:e2e:built`, `yarn
-website:test`), audit DX contre 48a448e8, banc forme D TS6/TS7.
+Revue du diff par le coordinateur et confirmation des décisions de sécurité
+1 à 5 ; puis 6.4b (réinitialisation, vérification et changement d'e-mail).
