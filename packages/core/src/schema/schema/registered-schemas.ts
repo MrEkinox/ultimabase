@@ -43,11 +43,16 @@ export interface Register {}
 // example variance measurement) substitute `string` and must stop here.
 type RegisteredApplication<TKey> = string extends TKey
 	? never
-	: TKey extends unknown
-		? Register extends { readonly app: infer TApplication }
-			? TApplication
-			: never
+	: RegisterFor<TKey> extends { readonly app: infer TApplication }
+		? TApplication
 		: never
+
+// The registry seen from one key. Generic in the key, so a conditional type
+// testing it stays deferred until the key is known: a conditional type node
+// that mentions no type parameter is resolved as soon as TypeScript reads it
+// (for example while simplifying a branch during variance measurement), which
+// would read `typeof ultimabase` while the application is being inferred.
+type RegisterFor<TKey> = TKey extends unknown ? Register : never
 
 type RegisteredSchemaUnion<TKey> =
 	RegisteredApplication<TKey> extends {

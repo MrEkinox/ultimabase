@@ -82,3 +82,67 @@ describe('Register is required (ADR-0297 amendment 1)', () => {
 		60_000,
 	)
 })
+
+// Regression (spike register-cycle): an unfinished `define(...)` beside a
+// finished declaration made `typeof ultimabase` circular in `Register`
+// (TS7022 / TS2502), because the registry was read while TypeScript measured
+// variances during the inference of `new UltimaBase(...)`.
+const mixedApplication = (specifier: string): string => `
+import { UltimaBase } from '${specifier}'
+
+export const App = UltimaBase.use()
+export const Unfinished = App.Schema.define({
+  className: 'RegisterUnfinished',
+  fields: (field) => ({ name: field.string() }),
+})
+export const Empty = App.Schema.define({
+  className: 'RegisterEmpty',
+  fields: () => ({}),
+})
+export const Finished = App.Schema.define({
+  className: 'RegisterFinished',
+  fields: (field) => ({ name: field.string() }),
+}).with({})
+export const ultimabase = new App({ schemas: [Unfinished, Empty, Finished] })
+export const unfinishedRows = await Unfinished.findMany()
+
+declare module '${specifier}' {
+  interface Register {
+    readonly app: typeof ultimabase
+  }
+}
+`
+
+describe('Register with unfinished declarations', () => {
+	it.each([
+		['source', sourceSpecifier],
+		['built packages', builtSpecifier],
+	])(
+		'names the application beside unfinished define() calls, from %s',
+		(_label, specifier) => {
+			const fileName = path.join(
+				import.meta.dirname,
+				`register-unfinished-${specifier === builtSpecifier ? 'built' : 'source'}.fixture.ts`,
+			)
+			const source = mixedApplication(specifier)
+			const workspace = createLanguageServiceWorkspace()
+			workspace.addFile(fileName, source)
+			try {
+				const diagnostics = workspace.service
+					.getSemanticDiagnostics(fileName)
+					.map((diagnostic) =>
+						ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+					)
+				expect(diagnostics).toStrictEqual([])
+				const at = source.indexOf('unfinishedRows')
+				const hover = workspace.service.getQuickInfoAtPosition(fileName, at)
+				expect(ts.displayPartsToString(hover?.displayParts)).toBe(
+					'const unfinishedRows: readonly Model<"RegisterUnfinished">[]',
+				)
+			} finally {
+				workspace.service.dispose()
+			}
+		},
+		60_000,
+	)
+})
