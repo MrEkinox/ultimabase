@@ -11,16 +11,20 @@ authPlugin({ methods: [password({ identifier: 'email' })] })
 ```
 
 `identifier` selects the User field users log in with: `'username'` (the
-default) or `'email'`. The method adds it to the User schema as a required,
-unique, immutable string, stored in its normalized form:
+default) or `'email'`. `username` is added to the User schema as a required,
+unique, immutable string; `email` is added by the foundation, with
+`emailVerified` and `emailVerifiedAt`, and no create or update input accepts
+it (sign-up takes it beside the create fields). Both are stored in their
+normalized form:
 
 - a username keeps 3 to 64 letters, digits, `.`, `_` or `-`, NFKC-normalized
   and lowercased;
 - an email is trimmed, NFKC-normalized, lowercased and checked as an address;
   it changes only through `confirmEmailChange`.
 
-Direct User creation must already use the normalized form; sign-up and login
-normalize their input. Passwords are 15 to 256 Unicode code points,
+Direct User creation must already use the normalized username; with an email
+identifier only sign-up (or the foundation's `auth.createUser`) creates Users.
+Sign-up and login normalize their input. Passwords are 15 to 256 Unicode code points,
 NFC-normalized, never trimmed.
 
 ## Members
@@ -97,9 +101,13 @@ await TodoUser.confirmEmailChange({ token })
 - `resetPassword` checks the token, sets the password, revokes every session,
   marks the email verified and resets the login counters. It does not log in.
 - Sign-up sends a verification token when `verification` is configured.
-  `verifyEmail` marks the email verified. With `requireVerifiedEmail`, `login`
-  fails with `AUTH_EMAIL_NOT_VERIFIED` (HTTP 403) after a correct password
-  until the email is verified; sign-up still returns its first session.
+  `verifyEmail` marks the email verified. With `requireVerifiedEmail: true`,
+  no session exists until the email is verified: `signUp` returns
+  `{ user, verificationRequired: true }` (no token, no cookie; typed from the
+  option in TypeScript, GraphQL `PasswordSignUpPendingPayload` and the
+  OpenAPI result), `login` fails with `AUTH_EMAIL_NOT_VERIFIED` (HTTP 403)
+  after a correct password, and `refresh` refuses the user's existing
+  sessions.
 - `requestEmailChange` checks the current password (attempt limited) and sends
   a confirmation token to the new address; `confirmEmailChange` checks that no
   other account uses the address, replaces and verifies the email, moves the

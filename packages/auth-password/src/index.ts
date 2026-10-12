@@ -5,6 +5,7 @@ export type {
 	PasswordMethod,
 	PasswordOptions,
 	PasswordSignUpInput,
+	PasswordSignUpOutcome,
 	PasswordStatics,
 	PasswordUserFields,
 	PasswordUserStatics,

@@ -59,14 +59,17 @@ The User schema belongs to the `authPlugin` instance whose `App` declared it:
 an application installing that User installs that same instance. Applications
 are started one at a time with it.
 
-When a method owns the User's `email` (`password({ identifier: 'email' })`),
-the foundation adds `emailVerified` (`false` by default) and
-`emailVerifiedAt`. Only the authentication flows write these three fields:
-creates keep the defaults, updates never name them, Master included
-(`VALIDATION_ERROR` with the issue code `field.protected`); TypeScript leaves
-them out of create and update input. The email changes only through a
-confirmed email change, so it stays in step with credentials and linked
-accounts.
+When a method signs in by email (`password({ identifier: 'email' })`), the
+foundation adds `email`, `emailVerified` (`false` by default) and
+`emailVerifiedAt` to the User with forbidden mutation input, like Soft
+Delete's fields: no create or update input accepts them, in TypeScript, REST,
+OpenAPI or GraphQL, Master included. Only the authentication flows write them,
+through a Master-only schema mutation owned by the foundation that refuses
+callers outside the flows, so the email stays in step with credentials and
+linked accounts. Users of such an application are created only by sign-up, or
+on the server by `auth.createUser({ data, email })` for administration and
+seeding; any other create fails with `VALIDATION_ERROR` (issue code
+`auth.user-creation`).
 
 Sign-up creates the User through the ordinary pipeline (validation, defaults,
 Hooks) with the plugin's own `authority:elevate` privilege: the User's Access
@@ -101,8 +104,10 @@ token; `revokeSession(id)` ends one, `logoutEverywhere()` all of them. A
 password change revokes the user's other sessions unless
 `revokeOnPasswordChange` is `false`. On the server,
 `ultimabase.plugin(authPlugin)` returns `runWithSession(token, fn)`,
-`listSessions(user)` and `revokeSessions(user)` for administration; they are
-never exposed to clients.
+`listSessions(user)`, `revokeSessions(user)` and `createUser({ data, email })`
+for administration; they are never exposed to clients. With
+`requireVerifiedEmail`, `refresh` refuses users whose email is not verified
+(`AUTH_EMAIL_NOT_VERIFIED`).
 
 `deleteAccount()` and `unlinkMethod(id)` need a recent authentication: a login
 younger than `recentAuthenticationMs`, or a method's re-authentication such as
