@@ -3,6 +3,7 @@ import process from 'node:process'
 import {
 	databaseAdapterCapability,
 	databaseFilterOperatorsCapability,
+	type databaseResetCapability,
 } from '@ultimabase/core'
 import {
 	contributeApplication,
@@ -209,7 +210,7 @@ type PostgresPluginCapabilities = readonly [
 	CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
 	CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
 	CapabilityProviderDeclaration<typeof databaseFilterOperatorsCapability>,
-	ReturnType<typeof providePostgresReset>,
+	CapabilityProviderDeclaration<typeof databaseResetCapability>,
 	typeof connectionRequirement,
 ]
 
