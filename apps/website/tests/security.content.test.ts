@@ -39,7 +39,7 @@ describe('security documentation contracts', () => {
 			'Client `useMasterKey` flags, shaped contexts, metadata,',
 		)
 		expect(documentation).toContain(
-			'A relation `where`, a UI filter, or a transport projection',
+			'A declared relation filter, a UI filter, or a transport projection',
 		)
 		expect(documentation).toContain(
 			'Core structural validation or installed application validation',

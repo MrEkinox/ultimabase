@@ -7,7 +7,7 @@ contentType: concept
 order: 7
 outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
 releaseStatus: pre-release
-reviewedAt: 2026-10-10
+reviewedAt: 2026-10-13
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -23,6 +23,7 @@ sources:
   - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0179-name-based-relationship-targets.md
   - docs/adr/0247-contextual-relation-filters.md
+  - docs/adr/0328-relation-filters-in-with.md
 ---
 
 Use a **pointer** when a record refers to one target. Use a **relation** when it
@@ -223,7 +224,7 @@ export const hasReviewer = (postId: string, reviewerId: string) =>
 	})
 ```
 
-Included relations and relation filters apply the field's declared filter and
+Included relations and relation filters apply the relation's declared filter and
 target policies; their results describe visible membership, which can differ
 from physical membership. Use `where` in the include or in the relation filter
 to narrow it further.
@@ -247,7 +248,7 @@ export const addReviewer = (postId: string, reviewerId: string) =>
 ```
 
 `{ set: [] }` removes every membership visible under the installed policies,
-including members the field's declared `where` hides from reads. Results have no relation
+including members the relation's declared `where` hides from reads. Results have no relation
 handles (ADR-0310); the edge itself is not a result field:
 
 | Method                     | Effect                                                                                    |
@@ -269,8 +270,10 @@ when the relation change must be part of the same atomic root create or update;
 its `set` preserves policy-hidden memberships.
 
 A relation may declare a static or request-contextual `where` to narrow every
-read through that field. It intersects with caller filters and target policies;
-it does not grant access or change membership.
+read through that field, in the final `.with({ relations })` of its schema,
+keyed by the relation field name. It intersects with caller filters and target
+policies; it does not grant access or change membership. See
+[Related Data](/docs/1.0.0/core/reading-data/related-data#declared-relation-filters).
 
 ## Related tasks
 

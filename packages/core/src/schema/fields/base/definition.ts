@@ -231,28 +231,6 @@ export const getRelationWhereDeclaration = (
 ): RelationWhereDeclaration | undefined =>
 	fieldCapabilities.get(field)?.relationWhere
 
-/** @internal Rebinds one relation field with the filter of `.with({ relations })` (ADR-0328). */
-export const attachRelationWhereDeclaration = (
-	field: GenericField,
-	relationWhere: RelationWhereDeclaration,
-): GenericField => {
-	if (field.kind !== 'relation') {
-		throw new TypeError('relation filters apply to relation fields only')
-	}
-
-	return bindFieldCapabilities(
-		field.kind,
-		field.options,
-		immutableRecord({
-			...readFieldCapabilities(
-				field,
-				'relation field must be created by relationField',
-			),
-			relationWhere,
-		}),
-	)
-}
-
 /** Rebuilds immutable field metadata while retaining its private factory capabilities. */
 export const replaceDeclaredFieldOptions = (
 	field: GenericField,
@@ -264,7 +242,11 @@ export const replaceDeclaredFieldOptions = (
 		readFieldCapabilities(field, 'field must be created by a field factory'),
 	)
 
-export const forbidFieldMutationInput = (field: GenericField): GenericField =>
+// Rebinds one factory-created field with additional private capabilities.
+const extendFieldCapabilities = (
+	field: GenericField,
+	capabilities: Partial<FieldCapabilities>,
+): GenericField =>
 	bindFieldCapabilities(
 		field.kind,
 		field.options,
@@ -273,9 +255,18 @@ export const forbidFieldMutationInput = (field: GenericField): GenericField =>
 				field,
 				'field must be created by a field factory',
 			),
-			mutationInputForbidden: true as const,
+			...capabilities,
 		}),
 	)
+
+export const forbidFieldMutationInput = (field: GenericField): GenericField =>
+	extendFieldCapabilities(field, { mutationInputForbidden: true })
+
+/** @internal Attaches the filter of `.with({ relations })` to its relation (ADR-0328). */
+export const attachRelationWhereDeclaration = (
+	field: GenericField,
+	relationWhere: RelationWhereDeclaration,
+): GenericField => extendFieldCapabilities(field, { relationWhere })
 
 export const hasForbiddenMutationInput = (field: GenericField): boolean =>
 	fieldCapabilities.get(field)?.mutationInputForbidden === true

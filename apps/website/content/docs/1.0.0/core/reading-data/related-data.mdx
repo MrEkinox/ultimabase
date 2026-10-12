@@ -7,17 +7,19 @@ contentType: guide
 order: 5
 outcome: Load a pointer and a bounded relation, then choose where a relationship filter applies.
 releaseStatus: pre-release
-reviewedAt: 2026-10-10
+reviewedAt: 2026-10-13
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/src/schema/fields/builtins/relation.ts
+  - packages/core/src/schema/schema/relation-rules.ts
   - docs/adr/0154-unified-eager-relationship-inclusion.md
   - docs/adr/0159-projection-only-pointer-inclusions.md
   - docs/adr/0156-visible-relation-cardinality-filters.md
   - docs/adr/0157-explicit-relation-emptiness-filters.md
   - docs/adr/0158-filtered-relation-cardinality.md
   - docs/adr/0247-contextual-relation-filters.md
+  - docs/adr/0328-relation-filters-in-with.md
 ---
 
 ## Include related models
@@ -79,7 +81,7 @@ collection is empty.
 | ---------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | Return only matching parents       | Root `where` with a relation predicate such as `comments: { some: ... }` | Filters posts; does not load comments.                             |
 | Load only matching targets         | `include.comments.where`                                                 | Filters each returned post's comment array; does not filter posts. |
-| Define the relation's usual subset | `f.relation({ where })`                                                  | Narrows every read through that exact relation field.              |
+| Define the relation's usual subset | `.with({ relations: { comments: { where } } })`                          | Narrows every read through that exact relation field.              |
 
 These conditions intersect when used together. The declared relation filter
 cannot be overridden by a caller and does not replace authorization.
@@ -139,9 +141,11 @@ predicate. Hidden targets are not counted.
 ## Declared relation filters
 
 A relation may declare one static target filter, such as
-`where: { published: { eq: true } }`. Use a synchronous contextual callback
-when that subset depends on the request. Register both schemas below in the
-same application:
+`where: { published: { eq: true } }`, in the final `.with({ relations })` of
+its schema, under the relation field name. Use a synchronous contextual
+callback when that subset depends on the request. `.with` receives the
+complete schemas, so two schemas may filter each other's relations. Register
+both schemas below in the same application:
 
 ```ts title="src/channel.ts"
 import { UltimaBase } from '@ultimabase/core'
@@ -154,12 +158,15 @@ export const Message = UltimaBase.Schema.define({
 export const Channel = UltimaBase.Schema.define({
 	className: 'DocsChannel',
 	fields: (f) => ({
-		messages: f.relation({
-			target: () => Message,
+		messages: f.relation({ target: () => Message }),
+	}),
+}).with({
+	relations: {
+		messages: {
 			where: ({ context, where }) =>
 				context.access.mode === 'master' ? where : where.eq('published', true),
-		}),
-	}),
+		},
+	},
 })
 ```
 

@@ -143,39 +143,34 @@ delete.
 
 ## Contextual relation views
 
-Relations may define one reusable read subset directly on the source field.
+Relations may define one reusable read subset in the final
+`.with({ relations })`, keyed by relation field name (ADR-0328).
 `ExampleArticle.contributors` uses a static target filter, while `reviewers`
 uses the authentication request context:
 
 ```ts
-// A contextual filter is a constant typed by its deferred target, so that
-// `define(...)` never infers it while the schemas are typed (ADR-0297).
-const visibleReviewers: RelationWhereResolver<
-	DeferredSchemaTarget<() => typeof ExampleAuthor>
-> = ({ context, where }) =>
-	context.getValue(authPrincipal) === undefined
-		? where.eq('audience', 'public')
-		: where
-
-contributors: field.relation({
-	target: () => ExampleAuthor,
-	where: { listed: { eq: true } },
-}),
-reviewers: field.relation({
-	target: () => ExampleAuthor,
-	where: visibleReviewers,
-}),
+.with({
+	relations: {
+		contributors: { where: { listed: { eq: true } } },
+		// Anonymous requests see only public reviewers.
+		reviewers: {
+			where: ({ context, where }) =>
+				context.getValue(authPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
+		},
+	},
+})
 ```
 
-The same declaration shapes direct relation handles, nested inclusions, REST
-relationship projections, GraphQL connections, and the visible universe used
-by `some`, `none`, `every`, `count`, `isEmpty`, and `isNotEmpty`. A caller's
-target `where` is added with logical `AND`; ordering, `skip`, and `take` run
-after filtering. `ExampleAuthor.articles` and `contributions` are the inverse
-pointer and inverse relation without a filter of their own: in the declaration
-form, two relations that filter each other's schema would type each schema
-from the other while both are typed. The Article read rule already hides
-unpublished articles from ordinary callers.
+The same declaration shapes nested inclusions, REST relationship projections,
+GraphQL connections, and the visible universe used by `some`, `none`, `every`,
+`count`, `isEmpty`, and `isNotEmpty`. A caller's target `where` is added with
+logical `AND`; ordering, `skip`, and `take` run after filtering.
+`ExampleAuthor.articles` and `contributions` list published articles only,
+while Article filters its `contributors` and `reviewers` through Author: the
+final `.with` receives the complete schemas, so two schemas may filter each
+other's relations.
 
 This is presentation logic, not security. The example's independent Author
 Access filter and ACL can still hide rows that satisfy a relation filter, while

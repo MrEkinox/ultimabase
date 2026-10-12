@@ -279,8 +279,10 @@ same handle and Runtime. Classes retain no application resource, transaction,
 credential, or authority; calls outside the active owner's lifecycle fail
 before effects.
 
-ADR-0247 makes a relation field's static or request-contextual `where` a
-Core-owned private read scope. The exact request context resolves synchronous
+ADR-0247 makes a relation's static or request-contextual `where` a Core-owned
+private read scope; ADR-0328 declares it in the schema's final
+`.with({ relations })`, typed against the complete target, so two schemas may
+filter each other's relations. The exact request context resolves synchronous
 application behavior once per relation definition and root operation; the
 result then combines monotonically with caller predicates, target policy,
 protected constraints, and physical membership. Relation handles, eager

@@ -264,26 +264,33 @@ reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
 join-table or transport names.
 
-An optional `where` narrows the visible target collection for this exact
-relation. It accepts an ordinary target `WhereInput` or one synchronous
+An optional `where`, declared in the final `.with({ relations })` under the
+relation field name (ADR-0328), narrows the visible target collection for this
+exact relation. It accepts an ordinary target `WhereInput` or one synchronous
 contextual resolver:
 
 ```ts
 const ConversationSchema = UltimaBase.Schema.define({
 	className: 'Conversation',
 	fields: (field) => ({
-		activeParticipants: field.relation({
-			target: 'User',
-			where: { suspended: { eq: false } },
-		}),
-		otherParticipants: field.relation({
-			target: 'User',
+		activeParticipants: field.relation({ target: 'User' }),
+		otherParticipants: field.relation({ target: 'User' }),
+	}),
+}).with({
+	relations: {
+		activeParticipants: { where: { suspended: { eq: false } } },
+		otherParticipants: {
 			where: ({ context, where }) =>
 				where.ne('id', String(context.metadata.currentUserId)),
-		}),
-	}),
+		},
+	},
 })
 ```
+
+`.with` receives the complete schemas, so two schemas may filter each other's
+relations. A name that is not a relation field, an unknown rule key or a
+malformed filter fails when `.with` runs, and `relations` does not exist on a
+schema without relation fields.
 
 The resolver receives no source model, engine, adapter, transaction, or mutable
 context. Its builder starts empty, is immutable, and is correlated with the
