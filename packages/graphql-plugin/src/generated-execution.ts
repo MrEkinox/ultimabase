@@ -1,4 +1,8 @@
-import type { Logger } from '@ultimabase/core'
+import {
+	FrameworkError,
+	normalizeReadOperation,
+	type Logger,
+} from '@ultimabase/core'
 import type {
 	ApplicationRequestExecutor,
 	ExposedOperationTransportBinding,
@@ -8,7 +12,10 @@ import type {
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import type { GraphQLFieldResolver } from 'graphql'
 
-import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+import {
+	readGraphqlConnectionCount,
+	type GraphqlConnectionRuntime,
+} from './connection-runtime.js'
 import { createSafeGraphqlError } from './execution-errors.js'
 import {
 	normalizeGraphqlMutation,
@@ -122,8 +129,45 @@ export class GraphqlGeneratedExecution {
 				if (prepared.page === undefined || !isUnknownArray(result)) {
 					throw new TypeError('GraphQL collection execution is malformed')
 				}
-				return this.#connections.page(prepared.page, result)
+				return this.#connections.page(prepared.page, result, {
+					schema,
+					where: prepared.where,
+				})
 			})
+	}
+
+	/**
+	 * Counts the rows of a root connection with its `where`, only when the
+	 * document selects `totalCount` (ADR-0325). Core authorizes the count.
+	 */
+	totalCount(): GeneratedResolver {
+		return (source, _args, contextValue) =>
+			this.#run(contextValue, async (context) => {
+				const count = readGraphqlConnectionCount(source)
+				if (count === undefined) {
+					throw new FrameworkError(
+						'VALIDATION_ERROR',
+						'GraphQL totalCount is available on root connections only.',
+						{
+							publicMessage:
+								'totalCount is available on root connections only, not on relation connections.',
+						},
+					)
+				}
+				return await this.#executor.executeRead(
+					context,
+					normalizeReadOperation(
+						count.schema,
+						'count',
+						count.where === undefined ? {} : { where: count.where },
+					),
+				)
+			})
+	}
+
+	/** Answers the application health without reading any row (ADR-0325). */
+	health(): GeneratedResolver {
+		return async () => await this.#executor.health()
 	}
 
 	mutation(

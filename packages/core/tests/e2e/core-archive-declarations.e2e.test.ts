@@ -445,13 +445,13 @@ describe('@ultimabase/core Runtime declarations', () => {
 		expect(authorityDeclaration).not.toContain('elevate(')
 	})
 
-	it('ships the explicit unverified-transport protection contract', async () => {
+	it('ships no unverified-transport acknowledgement (ADR-0325)', async () => {
 		const declarations = await readCoreArchive('.d.ts')
 
-		expect(declarations).toContain('acknowledgeUnverifiedProtection?: true')
-		expect(declarations).toContain('PublicTransportProtectionWarning')
-		expect(declarations).toContain('UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION')
-		expect(declarations).toContain('readonly coverage: "unverified"')
+		expect(declarations).not.toContain('acknowledgeUnverifiedProtection')
+		expect(declarations).not.toContain('PublicTransportProtectionWarning')
+		expect(declarations).not.toContain('UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION')
+		expect(declarations).not.toContain('reportPublicTransportProtection')
 		expect(declarations).not.toContain('acknowledgeUnprotected')
 		expect(declarations).not.toContain('UnprotectedPublicTransportWarning')
 	})

@@ -246,11 +246,11 @@ const createFixture = async (
 	const application = new (UltimaBase.use(
 		databasePlugin(adapter),
 		createMutationPlugin(trace, decode, options),
+		// Commands are exposed only through the method-name keys; `true`
+		// exposes every method and command (ADR-0325).
 		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
-			...(options.mutations === undefined
-				? {}
-				: { default: { mutations: options.mutations } }),
+			publicWrites: true,
+			...(options.mutations === false ? {} : { default: true }),
 		}),
 	))({
 		masterAuthority: new MasterAuthority({

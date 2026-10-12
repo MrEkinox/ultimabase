@@ -60,7 +60,7 @@ describe('softDeletePlugin', () => {
 			'operation:declare',
 			'runtime:constrain',
 			'persistence:rewrite',
-			'transport:expose',
+			// No transport binding: transports expose commands by rule (ADR-0325).
 			'typegen:reference',
 		])
 	})

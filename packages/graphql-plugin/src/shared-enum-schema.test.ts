@@ -34,15 +34,13 @@ describe('GraphQL shared enums', () => {
 				priority: field.enum({ required: true, values: Priority }),
 				status: field.enum({ values: ['open', 'done'] }),
 			}),
-			graphql: true,
-		})
+		}).with({ graphql: true })
 		const Project = GraphqlEnumApplication.Schema.define({
 			className: 'GraphqlSharedEnumProject',
 			fields: (field) => ({
 				defaultPriority: field.enum({ values: Priority }),
 			}),
-			graphql: true,
-		})
+		}).with({ graphql: true })
 		const application = await createApplication({
 			logger: false,
 			plugins: [graphqlPlugin({ default: true }), graphqlFixtureDatabasePlugin],

@@ -169,14 +169,14 @@ const createOperationPlugin = (
 		id: 'fixture.graphql-operation-owner',
 		permissions: {
 			'operation:declare': 'Declares fixture operations.',
-			...(binding === false
-				? {}
-				: { 'transport:expose': 'Binds the GraphQL fixture.' }),
+			'transport:expose': 'Declares the public GraphQL fixture.',
 		},
 		version: '1.0.0',
 		contributions: [
 			contributeOperation({
 				bindings: binding === false ? [] : [binding],
+				// Every installed transport exposes a public operation (ADR-0325).
+				public: { name: 'echo' },
 				execute: ({ context, input: operationInput }) => {
 					if (operationInput.message === 'reject') {
 						throw new PluginError(
@@ -205,10 +205,7 @@ const createStartedFixture = async () => {
 	const ultimabase = new (UltimaBase.use(
 		databasePlugin,
 		createOperationPlugin(),
-		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
-			operations: [echoOperation],
-		}),
+		graphqlPlugin({ publicWrites: true }),
 	))({ logger: false, schemas: [RecordSchema] })
 	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
@@ -216,7 +213,7 @@ const createStartedFixture = async () => {
 }
 
 describe('GraphQL plugin operations', () => {
-	it('compiles only selected operations and executes through Core codecs', async () => {
+	it('compiles public operations and executes through Core codecs', async () => {
 		const ultimabase = await createStartedFixture()
 		const application = ultimabase.plugin('@ultimabase/graphql-plugin')
 		const schemaText = printSchema(application.schema)
@@ -335,7 +332,7 @@ describe('GraphQL plugin operations', () => {
 				const application = new (UltimaBase.use(
 					databasePlugin,
 					createOperationPlugin(),
-					graphqlPlugin({ operations: [echoOperation] }),
+					graphqlPlugin({ publicWrites: true }),
 				))({
 					pluginPrivileges: {
 						plugins: {
@@ -349,16 +346,44 @@ describe('GraphQL plugin operations', () => {
 				return application
 			}).toThrow('denied 1 active request')
 		}
+		// Without a GraphQL binding, a public operation takes and returns JSON,
+		// validated by its own contract (ADR-0325).
+		const unbound = new (UltimaBase.use(
+			databasePlugin,
+			createOperationPlugin({ binding: false }),
+			graphqlPlugin({ publicWrites: true }),
+		))({
+			logger: false,
+			schemas: [RecordSchema],
+		})
+		onTestFinished(() => unbound.dispose())
+		await unbound.start()
+		const unboundSchema = unbound.plugin('@ultimabase/graphql-plugin').schema
+		expect(printSchema(unboundSchema)).toContain('echo(input: JSON): JSON')
+		const unboundContext = anonymous(unbound, {
+			requestId: 'graphql-operation-unbound',
+			source: 'ultimabase.graphql',
+		}).context
 		await expect(
-			new (UltimaBase.use(
-				databasePlugin,
-				createOperationPlugin({ binding: false }),
-				graphqlPlugin({ operations: [echoOperation] }),
-			))({
-				logger: false,
-				schemas: [RecordSchema],
-			}).start(),
-		).rejects.toThrow('requires one exact binding')
+			graphql({
+				contextValue: { request: unboundContext },
+				schema: unboundSchema,
+				source: 'mutation { echo(input: { message: "json" }) }',
+			}),
+		).resolves.toEqual({
+			data: {
+				echo: { message: 'json', requestId: 'graphql-operation-unbound' },
+			},
+		})
+		const invalid = await graphql({
+			contextValue: { request: unboundContext },
+			schema: unboundSchema,
+			source: 'mutation { echo(input: { other: 1 }) }',
+		})
+		expect(invalid.errors?.[0]?.extensions).toMatchObject({
+			code: 'VALIDATION_ERROR',
+		})
+		await unbound.dispose()
 
 		const ownerWithoutBinding = createOperationPlugin({ binding: false })
 		const foreignBinding = plugin({
@@ -373,7 +398,7 @@ describe('GraphQL plugin operations', () => {
 				databasePlugin,
 				ownerWithoutBinding,
 				foreignBinding,
-				graphqlPlugin({ operations: [echoOperation] }),
+				graphqlPlugin({ publicWrites: true }),
 			))({
 				logger: false,
 				schemas: [RecordSchema],
@@ -398,16 +423,21 @@ describe('GraphQL plugin operations', () => {
 			metadata: echoMetadata,
 			operation: echoOperation,
 		})
-		await expect(
-			new (UltimaBase.use(
-				databasePlugin,
-				createOperationPlugin({ binding: incompatibleBinding }),
-				graphqlPlugin({ operations: [echoOperation] }),
-			))({
-				logger: false,
-				schemas: [RecordSchema],
-			}).start(),
-		).rejects.toThrow('requires one exact binding')
+		// A binding for another protocol version leaves the default form.
+		const incompatible = new (UltimaBase.use(
+			databasePlugin,
+			createOperationPlugin({ binding: incompatibleBinding }),
+			graphqlPlugin({ publicWrites: true }),
+		))({
+			logger: false,
+			schemas: [RecordSchema],
+		})
+		onTestFinished(() => incompatible.dispose())
+		await incompatible.start()
+		expect(
+			printSchema(incompatible.plugin('@ultimabase/graphql-plugin').schema),
+		).toContain('echo(input: JSON): JSON')
+		await incompatible.dispose()
 
 		for (const [metadata, message] of [
 			[{ ...echoMetadata, extra: true }, 'contains unknown key'],
@@ -451,7 +481,7 @@ describe('GraphQL plugin operations', () => {
 				new (UltimaBase.use(
 					databasePlugin,
 					createOperationPlugin({ binding: createBinding(metadata) }),
-					graphqlPlugin({ operations: [echoOperation] }),
+					graphqlPlugin({ publicWrites: true }),
 				))({
 					logger: false,
 					schemas: [RecordSchema],

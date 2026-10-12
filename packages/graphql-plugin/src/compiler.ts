@@ -3,7 +3,13 @@ import type {
 	ApplicationSchemaMutationTransportPlan,
 	CompiledSchemaRegistry,
 } from '@ultimabase/core'
-import { GraphQLObjectType, GraphQLSchema, validateSchema } from 'graphql'
+import {
+	GraphQLEnumType,
+	GraphQLNonNull,
+	GraphQLObjectType,
+	GraphQLSchema,
+	validateSchema,
+} from 'graphql'
 
 import { compileGraphqlBindings } from './binding-compiler.js'
 import {
@@ -15,7 +21,7 @@ import { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
-import type { GraphqlSchemaOperations } from './options.js'
+import type { GraphqlDisabledFieldHints } from './hints.js'
 import type { graphqlProtocol } from './protocol.js'
 import {
 	compileGraphqlMutationFields,
@@ -24,14 +30,32 @@ import {
 	type GraphqlRootCompilers,
 } from './root-fields.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
+import type { NormalizedGraphqlRule } from './rules.js'
 import { graphqlBuiltInTypeNames } from './scalar-types.js'
 import { collectGraphqlSchemaSurfaces } from './surfaces.js'
+
+/** The generated schema and the facts startup checks read from it. */
+export interface GraphqlCompiledSchema {
+	readonly schema: GraphQLSchema
+	/** Names how to enable each field a disabled feature leaves out. */
+	readonly hints: GraphqlDisabledFieldHints
+	/** Whether any schema root or operation is exposed besides `health`. */
+	readonly exposed: boolean
+	/** Root fields that write: generated mutations and plugin commands. */
+	readonly writes: readonly string[]
+}
+
+const healthStatus = new GraphQLEnumType({
+	name: 'HealthStatus',
+	description: 'The application health, as `ultimabase.health()`.',
+	values: { DEGRADED: { value: 'DEGRADED' }, OK: { value: 'OK' } },
+})
 
 /** Compiles one isolated GraphQL structural schema from the final Core graph. */
 export const compileGraphqlSchema = (
 	options: Readonly<{
 		readonly connectionLimits: NormalizedGraphqlExecutionLimits
-		readonly defaultOperations?: boolean | GraphqlSchemaOperations
+		readonly defaultRule: NormalizedGraphqlRule | undefined
 		readonly execution: GraphqlGeneratedExecution
 		readonly operationPlan: ApplicationOperationTransportPlan
 		readonly schemaMutationPlan: ApplicationSchemaMutationTransportPlan<
@@ -40,25 +64,27 @@ export const compileGraphqlSchema = (
 		readonly schemaMutations: GraphqlSchemaMutationExecution
 		readonly schemas: CompiledSchemaRegistry
 	}>,
-): GraphQLSchema => {
+): GraphqlCompiledSchema => {
 	const names = new GraphqlNameRegistry()
-	for (const name of [...graphqlBuiltInTypeNames, 'Mutation', 'Query']) {
+	for (const name of [
+		...graphqlBuiltInTypeNames,
+		healthStatus.name,
+		'Mutation',
+		'Query',
+	]) {
 		names.claimType(name, `reserved GraphQL ${name}`)
 	}
 	const ctx = new GraphqlCompileContext(
 		names,
 		options.schemas,
-		collectGraphqlSchemaSurfaces(
-			options.schemas,
-			options.defaultOperations,
-			names,
-		),
+		collectGraphqlSchemaSurfaces(options.schemas, options.defaultRule, names),
 	)
 	const { execution } = options
 	const fields: GraphqlFieldTypeCompiler = new GraphqlFieldTypeCompiler(ctx, {
 		arguments: (target) => graphqlCollectionArguments(roots, target),
 		resolver: (source, fieldName, target, targetTypeName) =>
 			execution.relation(source, fieldName, target, targetTypeName),
+		totalCount: execution.totalCount(),
 	})
 	const filters = new GraphqlFilterInputCompiler(ctx, fields)
 	const inputs = new GraphqlMutationInputCompiler(ctx, fields)
@@ -87,9 +113,20 @@ export const compileGraphqlSchema = (
 		schemaMutationPlan: options.schemaMutationPlan,
 		schemaMutations: options.schemaMutations,
 	})
-	const queryFields = compileGraphqlQueryFields(roots)
+	const generatedQuery = compileGraphqlQueryFields(roots)
 	const mutationFields = compileGraphqlMutationFields(roots)
-	addBindingRoots(queryFields, mutationFields)
+	const generatedWrites = Object.keys(mutationFields)
+	const bindings = addBindingRoots(generatedQuery, mutationFields)
+	// `health` is always present, so an application without exposed schema
+	// still starts (ADR-0325).
+	const queryFields = {
+		health: {
+			description: 'Answers OK or DEGRADED, as `ultimabase.health()`.',
+			resolve: execution.health(),
+			type: new GraphQLNonNull(healthStatus),
+		},
+		...generatedQuery,
+	}
 	const query = new GraphQLObjectType({ name: 'Query', fields: queryFields })
 	const mutation =
 		Object.keys(mutationFields).length === 0
@@ -107,14 +144,20 @@ export const compileGraphqlSchema = (
 	const schema = new GraphQLSchema({
 		...(mutation === undefined ? {} : { mutation }),
 		query,
-		types: ctx.types,
+		types: [healthStatus, ...ctx.types],
 	})
 	const errors = validateSchema(schema)
-	// An empty query root is reported with its precise reason during composition.
-	if (Object.keys(queryFields).length > 0 && errors.length > 0) {
+	if (errors.length > 0) {
 		throw new TypeError(
 			`Invalid generated GraphQL schema: ${errors[0]?.message ?? 'unknown validation failure'}`,
 		)
 	}
-	return schema
+	return {
+		exposed:
+			Object.keys(generatedQuery).length > 0 ||
+			Object.keys(mutationFields).length > 0,
+		hints: ctx.hints.hints,
+		schema,
+		writes: [...generatedWrites, ...bindings.commands],
+	}
 }

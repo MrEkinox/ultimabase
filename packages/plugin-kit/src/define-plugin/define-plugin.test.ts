@@ -65,7 +65,7 @@ describe('definePlugin', () => {
 			'model:extend',
 			'operation:declare',
 			'persistence:rewrite',
-			'transport:expose',
+			// No transport binding: transports expose commands by rule (ADR-0325).
 			'typegen:reference',
 		])
 		expect(

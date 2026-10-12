@@ -40,8 +40,7 @@ describe('GraphQL read input compilation', () => {
 				tags: field.string({ list: true }),
 				title: field.string(),
 			}),
-			graphql: { operations: { count: true } },
-		})
+		}).with({ graphql: { count: true } })
 		const { application, schema } = await readSchema([Author, Post])
 		const query = schema.getQueryType()?.getFields()
 
@@ -144,8 +143,7 @@ describe('GraphQL read input compilation', () => {
 			fields: (field) => ({
 				children: field.relation({ target: 'ConfiguredReadChild' }),
 			}),
-			graphql: true,
-		})
+		}).with({ graphql: true })
 		const { application, schema } = await readSchema(
 			[Child, Parent],
 			graphqlPlugin({ pagination: { defaultTake: 7, maxTake: 20 } }),
@@ -170,20 +168,21 @@ describe('GraphQL read input compilation', () => {
 		const HiddenReads = GraphqlSchemaApplication.Schema.define({
 			className: 'HiddenReads',
 			fields: (field) => ({ value: field.string() }),
+		}).with({
 			graphql: {
-				operations: {
-					count: true,
-					exists: false,
-					findMany: false,
-					findOne: false,
-					get: false,
-				},
+				count: true,
+				exists: false,
+				findMany: false,
+				findOne: false,
 			},
 		})
 		const { application, schema } = await readSchema([HiddenReads])
 		const query = schema.getQueryType()?.getFields()
 
-		expect(Object.keys(query ?? {})).toStrictEqual(['countHiddenReads'])
+		expect(Object.keys(query ?? {})).toStrictEqual([
+			'health',
+			'countHiddenReads',
+		])
 		expect(schema.getType('HiddenReads')).toBeDefined()
 		await application.dispose()
 	})

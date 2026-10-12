@@ -22,7 +22,7 @@ it('conforms to the public plugin and Typegen contracts', async () => {
 				'operation:declare',
 				'runtime:constrain',
 				'persistence:rewrite',
-				'transport:expose',
+				// No transport binding: transports expose commands by rule (ADR-0325).
 				'typegen:reference',
 			],
 			version: '0.0.0',

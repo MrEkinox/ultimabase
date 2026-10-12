@@ -72,6 +72,8 @@ export interface GraphqlPreparedReadOperation<
 > {
 	readonly operation: GraphqlReadOperationAst<TSchema, TOperation>
 	readonly page?: GraphqlConnectionPagePlan
+	/** The decoded `where` of a collection, which `totalCount` reuses. */
+	readonly where?: unknown
 }
 
 /** Converts the ordered GraphQL representation into Core's object input. */
@@ -214,5 +216,8 @@ export const prepareGraphqlReadOperation = <
 	return immutableRecord({
 		operation: normalized,
 		...(page === undefined ? {} : { page }),
+		...(page === undefined || input.where === undefined
+			? {}
+			: { where: input.where }),
 	})
 }

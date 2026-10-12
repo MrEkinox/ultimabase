@@ -202,8 +202,8 @@ const Application = UltimaBase.use(
 	workflowPlugin,
 	httpPlugin({ appId: 'managed' }),
 	graphqlPlugin({
-		acknowledgeUnverifiedProtection: true,
-		default: { findOne: true, mutations: true },
+		publicWrites: true,
+		default: { findOne: true },
 		schemas: [schema],
 	}),
 	graphqlYogaPlugin(),
@@ -222,8 +222,8 @@ const ManagedVirtual = Application.Schema.define({
 			select: { title: true },
 		}),
 	}),
-	graphql: true,
-})
+	// The command is exposed only when its rule names it (ADR-0325).
+}).with({ graphql: { archive: true } })
 const application = new Application({
 	logger: false,
 	schemas: [ManagedVirtual],

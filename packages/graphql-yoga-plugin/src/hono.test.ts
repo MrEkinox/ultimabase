@@ -43,7 +43,7 @@ const createApplication = (
 		)
 		.use(
 			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
+				publicWrites: true,
 				default: false,
 				schemas: [schemaReturning(value)],
 			}),

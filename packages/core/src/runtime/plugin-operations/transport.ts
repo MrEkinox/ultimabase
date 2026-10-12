@@ -7,39 +7,9 @@ import type { OperationTransportProtocol } from './contracts.js'
 /** Explicitly selects which operation tokens one transport may invoke. */
 export interface OperationTransportExposureOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
-> extends PublicTransportProtectionOptions<TTransport> {
-	readonly operations: readonly (PluginOperationDefinition | string)[]
-}
-
-/** Reports the public-protection state for one transport protocol. */
-export interface PublicTransportProtectionOptions<
-	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
 > {
-	/**
-	 * Confirms that the developer accepts Core cannot prove complete policy
-	 * coverage for this public exposure.
-	 *
-	 * @example `acknowledgeUnverifiedProtection: true`
-	 */
-	readonly acknowledgeUnverifiedProtection?: true
+	readonly operations: readonly (PluginOperationDefinition | string)[]
 	readonly transport: TTransport
-}
-
-/** Describes Core's exact knowledge about one public transport exposure. */
-export interface PublicTransportProtectionWarning {
-	readonly code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION'
-	readonly message: string
-	/** Separates observable provider inventory from unprovable complete coverage. */
-	readonly policy: Readonly<{
-		/** Remains unverified until a future executable coverage contract exists. */
-		readonly coverage: 'unverified'
-		/** Reports only whether Core materialized at least one protected policy. */
-		readonly providerPresence: 'none' | 'present'
-	}>
-	readonly transport: Readonly<{
-		readonly name: string
-		readonly version: string
-	}>
 }
 
 /** Carries untrusted wire input with an application-validated request context. */

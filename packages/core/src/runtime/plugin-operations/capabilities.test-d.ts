@@ -77,16 +77,13 @@ test('infers exact handler and wire boundary contracts', () => {
 		metadata: { errors: { 'fixture.typed.rejected': 409 } } as const,
 		operation,
 	})
-	const acknowledgedExposure: OperationTransportExposureOptions<
-		typeof transport
-	> = {
+	const exposureOptions: OperationTransportExposureOptions<typeof transport> = {
+		// @ts-expect-error -- ADR-0325 removed the acknowledgement.
 		acknowledgeUnverifiedProtection: true,
 		operations: [operation],
 		transport,
 	}
-	expectTypeOf(
-		acknowledgedExposure.acknowledgeUnverifiedProtection,
-	).toEqualTypeOf<true | undefined>()
+	expectTypeOf(exposureOptions.transport).toEqualTypeOf<typeof transport>()
 
 	expectTypeOf<OperationTransportWireInput<typeof binding>>().toEqualTypeOf<
 		Readonly<{ readonly value: string }>

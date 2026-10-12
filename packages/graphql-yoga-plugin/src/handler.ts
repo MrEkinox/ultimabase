@@ -7,7 +7,10 @@ import { httpMount, type HttpMountDefinition } from '@ultimabase/http-plugin'
 import {
 	GraphQLError,
 	NoSchemaIntrospectionCustomRule,
+	validate,
+	type DocumentNode,
 	type ExecutionArgs,
+	type GraphQLSchema,
 	type ExecutionResult,
 } from 'graphql'
 import { createYoga, type Plugin } from 'graphql-yoga'
@@ -69,10 +72,18 @@ export const createGraphqlYogaMountResource = (
 				},
 		},
 		{
-			onValidate: ({ addValidationRule }) => {
-				if (!options.introspection) {
-					addValidationRule(NoSchemaIntrospectionCustomRule)
-				}
+			onValidate: ({ setValidationFn }) => {
+				// The application's rules name how to enable a disabled feature
+				// (ADR-0325); introspection off adds GraphQL's own rule.
+				const rules = options.introspection
+					? application.validationRules
+					: [...application.validationRules, NoSchemaIntrospectionCustomRule]
+				setValidationFn(
+					(
+						schema: GraphQLSchema,
+						document: DocumentNode,
+					): readonly GraphQLError[] => validate(schema, document, rules),
+				)
 				return ({ result, setResult, valid }) => {
 					if (valid) return
 					setResult(

@@ -33,20 +33,13 @@ import type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
 	OperationTransportRequest,
-	PublicTransportProtectionOptions,
-	PublicTransportProtectionWarning,
 } from './transport.js'
 
-const warnedTransports = new WeakMap<
-	FrameworkEngine,
-	WeakSet<OperationTransportProtocol>
->()
-
-/** Validates one closed exposure option record and its optional acknowledgment. */
+/** Validates one closed exposure option record. */
 export const assertTransportExposureOptions = (
 	options: unknown,
 	keys: readonly string[],
-	labels: Readonly<{ invalid: string; exposure: string; ack: string }>,
+	labels: Readonly<{ invalid: string; exposure: string }>,
 ): void => {
 	if (
 		!isPlainRecord(options) ||
@@ -56,15 +49,9 @@ export const assertTransportExposureOptions = (
 	}
 	assertExactEnumerableKeys(
 		options,
-		new Set(['acknowledgeUnverifiedProtection', 'transport', ...keys]),
+		new Set(['transport', ...keys]),
 		`${labels.exposure} contains unknown key: `,
 	)
-	const acknowledgment: unknown = options.acknowledgeUnverifiedProtection
-	if (acknowledgment !== undefined && acknowledgment !== true) {
-		throw new TypeError(
-			`${labels.ack} acknowledgeUnverifiedProtection must be true when provided`,
-		)
-	}
 }
 
 /** Reports whether at least one protected policy contribution is installed. */
@@ -74,56 +61,6 @@ export const hasFrameworkProtectedPolicy = (
 	readApplicationKernelState(framework.application)
 		.capabilityContributions(runtimeConstraintCapability)
 		.some(({ value }) => getProtectedPolicyImplementation(value) !== undefined)
-
-/** Reports Core's exact policy knowledge without claiming complete coverage. */
-export const reportFrameworkPublicTransportProtection = <
-	const TTransport extends OperationTransportProtocol,
->(
-	framework: FrameworkEngine,
-	options: PublicTransportProtectionOptions<TTransport>,
-): void => {
-	assertTransportExposureOptions(options, [], {
-		invalid: 'public transport protection requires a transport protocol',
-		exposure: 'public transport protection',
-		ack: 'public transport',
-	})
-	if (options.acknowledgeUnverifiedProtection === true) return
-
-	let warned = warnedTransports.get(framework)
-	if (warned === undefined) {
-		warned = new WeakSet()
-		warnedTransports.set(framework, warned)
-	}
-	if (warned.has(options.transport)) return
-	warned.add(options.transport)
-
-	const providerPresence = hasFrameworkProtectedPolicy(framework)
-		? ('present' as const)
-		: ('none' as const)
-	const warning: PublicTransportProtectionWarning = immutableRecord({
-		code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION' as const,
-		message:
-			providerPresence === 'none'
-				? 'Public transport protection is unverified because no protected policy contribution is installed.'
-				: 'Public transport protection is unverified because protected policy presence does not prove coverage of exposed operations.',
-		policy: immutableRecord({
-			coverage: 'unverified' as const,
-			providerPresence,
-		}),
-		transport: immutableRecord({
-			name: options.transport.name,
-			version: options.transport.version,
-		}),
-	})
-	// One line naming the transport and the fix (ADR-0313); Core names no plugin.
-	const transport = `${options.transport.name} ${options.transport.version}`
-	readApplicationKernelState(framework.application).log.warn(
-		providerPresence === 'none'
-			? `UltimaBase: public transport ${transport} exposes operations but no protected policy plugin is installed; install one, or acknowledge unverified protection in the transport options when the operations are public on purpose.`
-			: `UltimaBase: public transport ${transport} exposes operations that installed protected policies do not prove to cover; review the policies, or acknowledge unverified protection in the transport options.`,
-		warning,
-	)
-}
 
 /** Runs one wire codec under its binding owner's plugin attribution. */
 const runOwnedCodec = <TResult>(
@@ -168,7 +105,6 @@ export const exposeFrameworkOperations = <
 		invalid:
 			'operation transport exposure requires a protocol and non-empty operation list',
 		exposure: 'operation transport exposure',
-		ack: 'operation transport',
 	})
 	const { application } = framework
 	const graph = readApplicationKernelState(application).commands
@@ -206,13 +142,6 @@ export const exposeFrameworkOperations = <
 		}
 		exposed.set(name, immutableRecord({ binding, compiled }))
 	}
-	reportFrameworkPublicTransportProtection(framework, {
-		...(options.acknowledgeUnverifiedProtection === true
-			? { acknowledgeUnverifiedProtection: true }
-			: {}),
-		transport,
-	})
-
 	return immutableRecord({
 		operations: immutableArray(
 			[...exposed.values()].map(({ binding, compiled }) =>

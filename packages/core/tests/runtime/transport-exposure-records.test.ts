@@ -101,7 +101,6 @@ const createFixture = () => {
 					// The executor is the only public route to schema-mutation exposures.
 					schemaMutationExposures.push(
 						capabilities.get(requestExecution).exposeSchemaMutations({
-							acknowledgeUnverifiedProtection: true,
 							transport: fixtureTransport,
 						}),
 					)
@@ -132,7 +131,6 @@ describe('transport exposure records (reference defect regression)', () => {
 		await ultimabase.start()
 
 		const exposure = ultimabase.exposeOperations({
-			acknowledgeUnverifiedProtection: true,
 			operations: [inspectOperation],
 			transport: fixtureTransport,
 		})

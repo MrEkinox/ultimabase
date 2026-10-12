@@ -161,12 +161,10 @@ describe('plugin operation Runtime', () => {
 			const exposure = ultimabase.exposeOperations({
 				transport: fakeProtocol,
 				operations: [applicationOperation.name],
-				acknowledgeUnverifiedProtection: true,
 			})
 			const repeated = ultimabase.exposeOperations({
 				transport: fakeProtocol,
 				operations: [applicationOperation],
-				acknowledgeUnverifiedProtection: true,
 			})
 			expect(repeated.operations[0]).toBe(exposure.operations[0])
 
@@ -461,7 +459,6 @@ describe('plugin operation Runtime', () => {
 			masterAuthority,
 		})
 		const exposure = fixture.ultimabase.exposeOperations({
-			acknowledgeUnverifiedProtection: true,
 			operations: [applicationOperation],
 			transport: fakeProtocol,
 		})

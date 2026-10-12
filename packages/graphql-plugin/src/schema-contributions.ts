@@ -17,7 +17,7 @@ import {
 } from '@ultimabase/shared'
 import { GraphQLSchema } from 'graphql'
 
-import { assertGraphqlKnownKeys } from './options.js'
+import { assertGraphqlKnownKeys } from './known-keys.js'
 
 /** Composes completed GraphQL schemas in plugin graph and registration order. */
 export type GraphqlSchemaContributionsCapability = CapabilityToken<

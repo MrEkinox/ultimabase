@@ -78,7 +78,7 @@ it('serves GraphQL through a real browser Fetch boundary', async () => {
 			},
 		}),
 		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
+			publicWrites: true,
 			default: false,
 			schemas: [
 				new GraphQLSchema({

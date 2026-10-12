@@ -142,7 +142,7 @@ const masterKey = 'principal-policies-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(
 		identityPlugin,
-		graphqlPlugin({ default: { mutations: true } }),
+		graphqlPlugin(),
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
 	))({
 		masterAuthority: new MasterAuthority({

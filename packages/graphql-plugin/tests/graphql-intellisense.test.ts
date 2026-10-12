@@ -24,44 +24,30 @@ describe('GraphQL option IntelliSense', () => {
 				`graphql-configured-${mode}.fixture.ts`,
 			)
 			const schemaMarker = '/* schema-options */'
-			const exposureMarker = '/* exposure-options */'
-			const operationMarker = '/* operation-options */'
+			const methodMarker = '/* method-options */'
 			const hoverMarker = '/* count-hover */'
 			const sourceWithMarkers = `import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '${moduleName}'
 const App = UltimaBase.use(graphqlPlugin())
 const Post = App.Schema.define({
   className: 'ConfiguredGraphqlPost',
-  graphql: { operations: { ${hoverMarker}count: true } },
   fields: (field) => ({ title: field.string() }),
-})
+}).with({ graphql: { ${hoverMarker}count: true, typeName: 'Article' } })
 App.Schema.define({
-  className: 'GraphqlOperationCompletion',
-  graphql: { operations: { ${operationMarker} } },
+  className: 'GraphqlMethodCompletion',
   fields: () => ({}),
-})
-App.Schema.define({
-  className: 'GraphqlExposureCompletion',
-  graphql: { ${exposureMarker} },
-  fields: () => ({}),
-})
+}).with({ graphql: { ${methodMarker} } })
 App.Schema.define({
   className: 'GraphqlSchemaCompletion',
-  ${schemaMarker}
   fields: () => ({}),
-})
+}).with({ ${schemaMarker} })
 void Post`
 			const schemaPosition = markerPosition(sourceWithMarkers, schemaMarker)
-			const exposurePosition = markerPosition(sourceWithMarkers, exposureMarker)
-			const operationPosition = markerPosition(
-				sourceWithMarkers,
-				operationMarker,
-			)
+			const methodPosition = markerPosition(sourceWithMarkers, methodMarker)
 			const hoverPosition = markerPosition(sourceWithMarkers, hoverMarker)
 			const source = sourceWithMarkers
 				.replace(schemaMarker, ' '.repeat(schemaMarker.length))
-				.replace(exposureMarker, ' '.repeat(exposureMarker.length))
-				.replace(operationMarker, ' '.repeat(operationMarker.length))
+				.replace(methodMarker, ' '.repeat(methodMarker.length))
 				.replace(hoverMarker, ' '.repeat(hoverMarker.length))
 			const service = createLanguageService(fileName, source)
 			const completions = (position: number): readonly string[] =>
@@ -80,26 +66,26 @@ void Post`
 
 			expect(diagnostics).toStrictEqual([])
 			expect(completions(schemaPosition)).toContain('graphql')
-			expect(completions(exposurePosition)).toEqual(
-				expect.arrayContaining(['operations', 'typeName']),
-			)
-			expect(completions(operationPosition)).toEqual(
+			// The keys are the schema method names, as REST (ADR-0325).
+			expect(completions(methodPosition)).toEqual(
 				expect.arrayContaining([
-					'bulk',
 					'count',
-					'create',
-					'delete',
+					'createMany',
+					'createOne',
+					'deleteMany',
+					'deleteOne',
 					'exists',
 					'findMany',
 					'findOne',
-					'get',
-					'mutations',
-					'update',
-					'upsert',
+					'typeName',
+					'updateMany',
+					'updateOne',
+					'upsertMany',
+					'upsertOne',
 				]),
 			)
-			expect(ts.displayPartsToString(hover?.displayParts)).toContain(
-				'count: true',
+			expect(ts.displayPartsToString(hover?.displayParts)).toBe(
+				'(property) GraphqlMethodRules.count?: boolean',
 			)
 			service.dispose()
 		})
@@ -117,8 +103,7 @@ const Other = UltimaBase.use(httpPlugin({ appId: 'unrelated' }))
 Other.Schema.define({
   className: 'GraphqlAbsentPost',
   fields: () => ({}),
-  graphql: { operations: { count: true } },
-})`
+}).with({ graphql: { count: true } })`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)
@@ -139,18 +124,17 @@ import { graphqlPlugin } from '${moduleName}'
 const App = UltimaBase.use(graphqlPlugin())
 App.Schema.define({
   className: 'InvalidGraphqlPost',
-  graphql: { operations: { count: 'yes' } },
   fields: () => ({}),
-})`
+}).with({ graphql: { count: 'yes' } })`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)
 				.map(({ messageText }) =>
 					ts.flattenDiagnosticMessageText(messageText, ' '),
 				)
-			expect(messages).toHaveLength(1)
-			expect(messages[0]).toContain('count: "yes"')
-			expect(messages[0]).toContain('is not assignable')
+			expect(messages).toStrictEqual([
+				"Type 'string' is not assignable to type 'boolean | undefined'.",
+			])
 			service.dispose()
 		})
 	})

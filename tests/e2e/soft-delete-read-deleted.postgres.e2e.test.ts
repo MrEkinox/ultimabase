@@ -77,7 +77,7 @@ const createUltimabase = (database: PostgresWorkerFixture) =>
 		softDeletePlugin(),
 		accessPlugin(),
 		restPlugin(),
-		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+		graphqlPlugin({ publicWrites: true }),
 		httpPlugin({ appId: 'read-deleted' }),
 		capturePlugin,
 		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),

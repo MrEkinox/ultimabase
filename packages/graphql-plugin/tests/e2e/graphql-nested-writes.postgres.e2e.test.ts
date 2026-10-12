@@ -17,7 +17,7 @@ import { anonymous } from '@ultimabase/core/plugin'
 
 const appId = 'graphql-nested-writes'
 const GraphqlSchemaApplication = UltimaBase.use(httpPlugin({ appId })).use(
-	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: true }),
+	graphqlPlugin({ publicWrites: true, default: true }),
 )
 
 const Target = GraphqlSchemaApplication.Schema.define({
@@ -26,8 +26,7 @@ const Target = GraphqlSchemaApplication.Schema.define({
 		name: field.string({ required: true }),
 		score: field.bigint({ default: 0n }),
 	}),
-	graphql: true,
-})
+}).with({ graphql: true })
 
 const Post = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlNestedPost',
@@ -44,8 +43,7 @@ const Post = GraphqlSchemaApplication.Schema.define({
 			select: { title: true },
 		}),
 	}),
-	graphql: true,
-})
+}).with({ graphql: true })
 
 const Node = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlNestedNode',
@@ -53,8 +51,7 @@ const Node = GraphqlSchemaApplication.Schema.define({
 		child: field.pointer({ target: 'GraphqlNestedNode' }),
 		name: field.string({ required: true }),
 	}),
-	graphql: true,
-})
+}).with({ graphql: true })
 
 const schemas = [Target, Post, Node] as const
 const hono = new Hono()

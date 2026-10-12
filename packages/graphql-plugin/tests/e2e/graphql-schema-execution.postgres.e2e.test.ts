@@ -33,7 +33,7 @@ const GraphqlSchemaApplication = UltimaBase.use(hooksPlugin())
 	.use(validationPlugin())
 	.use(accessPlugin({ allowWithoutRule: { all: true } }))
 	.use(aclPlugin())
-	.use(graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: true }))
+	.use(graphqlPlugin({ publicWrites: true, default: true }))
 
 const GraphqlAuthor = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionAuthor',
@@ -44,9 +44,8 @@ const GraphqlAuthor = GraphqlSchemaApplication.Schema.define({
 			target: 'GraphqlExecutionPost',
 		}),
 	}),
-	graphql: true,
 	postgres: { table: 'graphql_execution_authors' },
-})
+}).with({ graphql: true })
 
 const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionPost',
@@ -73,7 +72,6 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 			validation: z.string().min(2),
 		}),
 	}),
-	graphql: true,
 	hooks: {
 		beforeOperation: {
 			create: ({ item }) => {
@@ -100,6 +98,7 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 		acl: {
 			default: publicAcl,
 		},
+		graphql: true,
 	})
 
 const harness: ExecutionHarness = {}

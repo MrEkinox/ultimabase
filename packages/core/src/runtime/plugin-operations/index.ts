@@ -19,6 +19,4 @@ export type {
 	ExposedOperationTransportBinding,
 	OperationTransportExposureOptions,
 	OperationTransportRequest,
-	PublicTransportProtectionOptions,
-	PublicTransportProtectionWarning,
 } from './transport.js'

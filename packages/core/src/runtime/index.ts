@@ -197,8 +197,6 @@ export type {
 	PluginOperationExecutionTarget,
 	PluginOperationHandler,
 	PluginOperationHandlerInput,
-	PublicTransportProtectionOptions,
-	PublicTransportProtectionWarning,
 } from './plugin-operations/index.js'
 export type {
 	DatabasePersistencePlan,

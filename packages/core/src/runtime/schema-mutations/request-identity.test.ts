@@ -151,7 +151,6 @@ describe('canonical mutation request identity', () => {
 				readUltimaBaseEngine(ultimabase),
 				{
 					transport: protocol,
-					acknowledgeUnverifiedProtection: true,
 				},
 			)
 			const binding = exposure.mutations.find(

@@ -18,6 +18,7 @@ import {
 } from 'graphql'
 
 import { GraphqlSchemaCompilationError } from './errors.js'
+import { GraphqlHintCollector } from './hints.js'
 import type { GraphqlSchemaSurface } from './surfaces.js'
 
 const typeNamePattern = /^[A-Z][_0-9A-Za-z]*$/u
@@ -211,6 +212,8 @@ export type GraphqlTypeList = (typeof typeLists)[number]
 
 /** Shares names, schema lookups and ordered type lists between compilers. */
 export class GraphqlCompileContext {
+	/** Names how to enable each field a disabled feature leaves out. */
+	readonly hints: GraphqlHintCollector = new GraphqlHintCollector()
 	readonly names: GraphqlNameRegistry
 	readonly schemas: CompiledSchemaRegistry
 	readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>

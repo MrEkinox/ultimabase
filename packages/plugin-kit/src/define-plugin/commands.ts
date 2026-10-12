@@ -1,9 +1,4 @@
 import {
-	defineOperationTransport,
-	schemaMutationTransportBinding,
-	schemaMutationWireCodec,
-} from '@ultimabase/core'
-import {
 	contributeSchemaMutation,
 	defineOperationValue,
 	defineSchemaMutation,
@@ -168,25 +163,6 @@ const noInput: PluginOperationValueContract<undefined> = defineOperationValue(
 	}),
 )
 
-// TEMPORARY (until sub-step 6.6c): request commands keep the GraphQL fields
-// Soft Delete exposed before the facade. REST discovers commands generically
-// through `.with({ rest })` (ADR-0324); GraphQL will do the same (ADR-0325),
-// and this module then stops naming any protocol.
-const unitInputTransports = [
-	{
-		metadata: { kind: 'graphql-schema-mutation-binding', types: [] },
-		transport: defineOperationTransport({
-			name: 'ultimabase.graphql',
-			version: '1.0.0',
-		}),
-	},
-] as const
-
-const decodeUnitInput = (value: unknown): undefined => {
-	noInput.snapshot(value, 'command input')
-	return undefined
-}
-
 /** Converts a camelCase key into one segment of a namespaced mutation name. */
 const nameSegment = (value: string): string =>
 	value.replace(/([a-z0-9])([A-Z])/gu, '$1-$2').toLowerCase()
@@ -242,26 +218,13 @@ export const createCommand = (
 			? {}
 			: { checkReadable: definition.checkReadable }),
 	})
-	const exposed =
-		definition.authority === 'request' && definition.target === 'one'
 	return immutableRecord({
 		command: name,
+		// Transports expose request commands without a binding (ADR-0324,
+		// ADR-0325): this module names no protocol.
 		contribution: contributeSchemaMutation({
 			mutation,
 			resolve: () => ({ data: definition.data() }),
-			bindings: exposed
-				? unitInputTransports.map(({ metadata, transport }) =>
-						schemaMutationTransportBinding({
-							codec: schemaMutationWireCodec({
-								decode: decodeUnitInput,
-								mutation,
-								transport,
-							}),
-							metadata,
-							mutation,
-						}),
-					)
-				: [],
 		}),
 		method,
 		mutation,

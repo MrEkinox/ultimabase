@@ -16,6 +16,7 @@ import {
 	type GraphQLFieldConfig,
 	type GraphQLFieldConfigArgumentMap,
 	type GraphQLFieldConfigMap,
+	type GraphQLFieldResolver,
 	type GraphQLInputFieldConfigMap,
 	type GraphQLNullableInputType,
 	type GraphQLNullableOutputType,
@@ -51,6 +52,8 @@ export interface GraphqlRelationFields {
 		target: SchemaDefinition,
 	) => GraphQLFieldConfigArgumentMap
 	readonly resolver: GraphqlGeneratedExecution['relation']
+	/** Resolves `totalCount` of a root connection (ADR-0325). */
+	readonly totalCount: GraphQLFieldResolver<unknown, unknown>
 }
 
 /** Requires the GraphQL v1 wire codec of every plugin-owned field kind. */
@@ -102,8 +105,10 @@ export class GraphqlFieldTypeCompiler {
 	constructor(ctx: GraphqlCompileContext, relations: GraphqlRelationFields) {
 		this.#ctx = ctx
 		this.#relations = relations
-		this.#outputs = new GraphqlOutputTypeCompiler(ctx, (schema) =>
-			this.model(schema),
+		this.#outputs = new GraphqlOutputTypeCompiler(
+			ctx,
+			(schema) => this.model(schema),
+			relations.totalCount,
 		)
 	}
 

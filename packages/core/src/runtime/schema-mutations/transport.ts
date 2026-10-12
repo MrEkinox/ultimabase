@@ -16,11 +16,7 @@ import {
 import { assertApplicationRequestExecutionAvailable } from '../engine/application-binding.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
-import {
-	assertTransportExposureOptions,
-	reportFrameworkPublicTransportProtection,
-} from '../plugin-operations/engine-integration.js'
-import type { PublicTransportProtectionOptions } from '../plugin-operations/transport.js'
+import { assertTransportExposureOptions } from '../plugin-operations/engine-integration.js'
 import { executeRequestSchemaMutation } from './request-execution.js'
 import { decodeSchemaMutationInput } from './runtime.js'
 
@@ -50,7 +46,8 @@ export interface ExposedSchemaMutationTransportBinding {
 /** Selects every schema-local binding for one exact transport protocol. */
 export interface SchemaMutationTransportExposureOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,
-> extends PublicTransportProtectionOptions<TTransport> {
+> {
+	readonly transport: TTransport
 	/**
 	 * `'optional'` also exposes request commands on one row that have no
 	 * binding for this transport, with their own input contract (ADR-0324).
@@ -106,7 +103,6 @@ export const exposeFrameworkSchemaMutations = <
 	assertTransportExposureOptions(options, ['bindings'], {
 		invalid: 'schema mutation transport exposure requires a transport protocol',
 		exposure: 'schema mutation transport exposure',
-		ack: 'schema mutation transport',
 	})
 	const { application } = framework
 	const graph = readApplicationKernelState(application).commands
@@ -123,13 +119,6 @@ export const exposeFrameworkSchemaMutations = <
 			return [entry.descriptor, { ...entry, schema }] as const
 		}),
 	)
-	reportFrameworkPublicTransportProtection(framework, {
-		...(options.acknowledgeUnverifiedProtection === true
-			? { acknowledgeUnverifiedProtection: true }
-			: {}),
-		transport: options.transport,
-	})
-
 	return immutableRecord({
 		mutations: immutableArray([...exposed.keys()]),
 		transport: options.transport,

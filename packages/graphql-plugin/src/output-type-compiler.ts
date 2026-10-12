@@ -11,6 +11,7 @@ import {
 	GraphQLObjectType,
 	GraphQLString,
 	type GraphQLFieldConfigMap,
+	type GraphQLFieldResolver,
 	type GraphQLNullableOutputType,
 	type GraphQLOutputType,
 } from 'graphql'
@@ -29,6 +30,7 @@ import {
 } from './compile-context.js'
 import { GraphqlSchemaCompilationError } from './errors.js'
 import { readGraphqlScalarType } from './scalar-types.js'
+import { GraphqlSafeInt } from './scalars.js'
 
 interface NamedOutputType {
 	readonly signature: string
@@ -75,6 +77,7 @@ const describe = (schema: SchemaDefinition, path: readonly string[]): string =>
 export class GraphqlOutputTypeCompiler {
 	readonly #ctx: GraphqlCompileContext
 	readonly #model: (schema: SchemaDefinition) => GraphQLObjectType
+	readonly #totalCount: GraphQLFieldResolver<unknown, unknown>
 	readonly #named = new Map<string, NamedOutputType>()
 	readonly #connections = new Map<SchemaDefinition, GraphQLObjectType>()
 	readonly #edges = new Map<SchemaDefinition, GraphQLObjectType>()
@@ -83,16 +86,25 @@ export class GraphqlOutputTypeCompiler {
 	constructor(
 		ctx: GraphqlCompileContext,
 		model: (schema: SchemaDefinition) => GraphQLObjectType,
+		totalCount: GraphQLFieldResolver<unknown, unknown>,
 	) {
 		this.#ctx = ctx
 		this.#model = model
+		this.#totalCount = totalCount
 	}
 
-	/** Builds the inert Relay connection type of one schema. */
+	/**
+	 * Builds the Relay connection type of one schema; `totalCount` exists only
+	 * when `count` is enabled for it (ADR-0325).
+	 */
 	connection(schema: SchemaDefinition): GraphQLObjectType {
 		return memoize(this.#connections, schema, () => {
 			const name = `${this.#ctx.typeName(schema)}Connection`
 			this.#ctx.claim(name, schema)
+			const surface = this.#ctx.surface(schema)
+			if (!surface.count && surface.owner.kind === 'application') {
+				this.#ctx.hints.add(name, 'totalCount', 'count', schema.className)
+			}
 			return this.#ctx.add(
 				'connections',
 				new GraphQLObjectType({
@@ -105,6 +117,16 @@ export class GraphqlOutputTypeCompiler {
 							type: new GraphQLNonNull(nonNullList(this.#model(schema))),
 						},
 						pageInfo: { type: new GraphQLNonNull(this.#pageInfoType()) },
+						...(surface.count
+							? {
+									totalCount: {
+										description:
+											'Number of rows matching `where`, ignoring `first` and `after`.',
+										resolve: this.#totalCount,
+										type: new GraphQLNonNull(GraphqlSafeInt),
+									},
+								}
+							: {}),
 					}),
 				}),
 			)
