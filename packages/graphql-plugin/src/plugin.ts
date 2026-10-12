@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
+	databaseFilterOperatorsCapability,
 	type ApplicationOperationTransportPlan,
 } from '@ultimabase/core'
 import {
@@ -66,6 +67,11 @@ const graphqlApplicationRequirement = requireCapability(
 )
 const optionalSchemaContributions = optionalCapability(
 	graphqlSchemaContributionsCapability,
+	'^1.0.0',
+)
+// Filter inputs list only the adapter's declared operators (ADR-0325).
+const optionalFilterOperators = optionalCapability(
+	databaseFilterOperatorsCapability,
 	'^1.0.0',
 )
 
@@ -144,10 +150,12 @@ export const graphqlPlugin = (
 					owner,
 					schemaMutations,
 				})
+				const filterOperators = reader.get(optionalFilterOperators)
 				const generated = compileGraphqlSchema({
 					connectionLimits: normalized.limits,
 					defaultRule: normalized.defaultRule,
 					execution,
+					...(filterOperators === undefined ? {} : { filterOperators }),
 					operationPlan,
 					schemaMutationPlan,
 					schemaMutations,
@@ -276,6 +284,7 @@ export const graphqlPlugin = (
 		core: '^0.0.0',
 		contributions: [
 			optionalSchemaContributions,
+			optionalFilterOperators,
 			applicationProvider,
 			requestExecutionRequirement,
 			operationPlanningRequirement,

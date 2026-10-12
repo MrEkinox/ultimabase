@@ -1,5 +1,6 @@
 import type {
 	ApplicationOperationTransportPlan,
+	DatabaseFilterOperatorCapability,
 	ApplicationSchemaMutationTransportPlan,
 	CompiledSchemaRegistry,
 } from '@ultimabase/core'
@@ -56,6 +57,8 @@ export const compileGraphqlSchema = (
 	options: Readonly<{
 		readonly connectionLimits: NormalizedGraphqlExecutionLimits
 		readonly defaultRule: NormalizedGraphqlRule | undefined
+		/** The adapter's static operator declaration (ADR-0325, decision 5). */
+		readonly filterOperators?: DatabaseFilterOperatorCapability
 		readonly execution: GraphqlGeneratedExecution
 		readonly operationPlan: ApplicationOperationTransportPlan
 		readonly schemaMutationPlan: ApplicationSchemaMutationTransportPlan<
@@ -78,6 +81,7 @@ export const compileGraphqlSchema = (
 		names,
 		options.schemas,
 		collectGraphqlSchemaSurfaces(options.schemas, options.defaultRule, names),
+		options.filterOperators,
 	)
 	const { execution } = options
 	const fields: GraphqlFieldTypeCompiler = new GraphqlFieldTypeCompiler(ctx, {

@@ -4,6 +4,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import {
+	defineCapability,
+	type CapabilityToken,
+} from '../../plugins/capabilities.js'
 import type { QueryBuiltInFilterOperator } from '../../query/filters/primitive.js'
 import { hasListOption } from '../../schema/fields/base/options.js'
 import {
@@ -40,6 +44,45 @@ export interface DatabaseFilterOperatorCapability {
 		>
 	>
 }
+
+const isFilterOperatorCapability = (
+	value: unknown,
+): value is DatabaseFilterOperatorCapability =>
+	isPlainRecord(value) &&
+	value.kind === 'filter-operators' &&
+	value.version === databaseFilterOperatorCapabilityVersion &&
+	isPlainRecord(value.families)
+
+/**
+ * Publishes a database adapter's filter operators while plugins declare
+ * themselves, before any connection exists: a transport compiling its schema
+ * reads them during materialization (ADR-0301 decision 5, ADR-0325). A
+ * database plugin provides the same declaration as its adapter's
+ * `capabilities.filterOperators`.
+ *
+ * @example `provideCapability(databaseFilterOperatorsCapability, { contributionId: 'operators', value: declaration })`
+ */
+export const databaseFilterOperatorsCapability: CapabilityToken<
+	DatabaseFilterOperatorCapability,
+	DatabaseFilterOperatorCapability,
+	'ultimabase.database-filter-operators',
+	'1.0.0',
+	'single',
+	'declaration'
+> = defineCapability<DatabaseFilterOperatorCapability>()({
+	capabilityId: 'ultimabase.database-filter-operators',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'declaration',
+	compose: ([declaration]) => {
+		if (!isFilterOperatorCapability(declaration)) {
+			throw new TypeError(
+				'Database filter operator declaration must be a version 1 filter-operators capability',
+			)
+		}
+		return declaration
+	},
+})
 
 /** Selects the partial-index protocol understood by Core (ADR-0303). */
 export const databasePartialIndexCapabilityVersion = 1 as const

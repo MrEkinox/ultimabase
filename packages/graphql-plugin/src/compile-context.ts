@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import type {
 	CompiledSchemaRegistry,
+	DatabaseFilterOperatorCapability,
 	GenericField,
 	SchemaContributionOwner,
 	SchemaDefinition,
@@ -217,6 +218,8 @@ export class GraphqlCompileContext {
 	readonly names: GraphqlNameRegistry
 	readonly schemas: CompiledSchemaRegistry
 	readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
+	/** The adapter's static operator declaration, when one is installed. */
+	readonly filterOperators: DatabaseFilterOperatorCapability | undefined
 	readonly #lists: Readonly<Record<GraphqlTypeList, GraphQLNamedType[]>> = {
 		models: [],
 		connections: [],
@@ -235,10 +238,12 @@ export class GraphqlCompileContext {
 		names: GraphqlNameRegistry,
 		schemas: CompiledSchemaRegistry,
 		surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>,
+		filterOperators?: DatabaseFilterOperatorCapability,
 	) {
 		this.names = names
 		this.schemas = schemas
 		this.surfaces = surfaces
+		this.filterOperators = filterOperators
 	}
 
 	/** Every generated named type in deterministic schema order. */

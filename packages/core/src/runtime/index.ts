@@ -105,6 +105,7 @@ export {
 } from './database/contracts.js'
 export {
 	databaseFilterOperatorCapabilityVersion,
+	databaseFilterOperatorsCapability,
 	databasePartialIndexCapability,
 	databasePartialIndexCapabilityVersion,
 } from './database/adapter-capabilities.js'
