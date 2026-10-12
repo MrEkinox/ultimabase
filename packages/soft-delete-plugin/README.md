@@ -87,9 +87,11 @@ Master context; Master never bypasses Hooks. The Hooks plugin exposes
 command, and its `all` branch runs for each command first with `kind` naming
 it.
 
-The one-row request commands are published by the installed transports:
-`POST /api/v1/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one` in
-REST, `softDeleteOne{Schema}` and `restoreOne{Schema}` in GraphQL. Many-row
+The one-row request commands reach REST when the schema's rule names them,
+`.with({ rest: { softDeleteOne: true, restoreOne: true } })`, as
+`POST /api/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one`
+(ADR-0324). GraphQL still publishes `softDeleteOne{Schema}` and
+`restoreOne{Schema}` through the temporary binding of migration 6.0. Many-row
 commands and purge have no route.
 
 ## Unique values

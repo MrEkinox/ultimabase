@@ -77,9 +77,10 @@ export const archivePlugin = () =>
   `effect: 'delete'` requires `'master'`. `target: 'many'` makes the command
   take `{ where }` and run the one-row rules for each matching row in one
   transaction. `checkReadable: 'before'` suits a command that hides its row.
-- One-row request commands are bound to the REST and GraphQL transports without
-  input (until transports discover commands generically); many-row commands
-  have no binding.
+- REST exposes a one-row request command when the application names it,
+  `.with({ rest: { archiveOne: true } })`, without any binding (ADR-0324).
+  Until GraphQL does the same (migration step 6.6c), one-row request commands
+  stay bound to GraphQL without input; many-row commands have no binding.
 - `rules` validate the entries of `.with({ ... })`; `afterCommit` receives them,
   as `readSchemaRules` from `@ultimabase/core/plugin` returns them to raw
   plugins.
@@ -93,6 +94,45 @@ Keep raw `plugin()` when rules or commands depend on the schema they apply to
 `isolatedDeclarations`, annotate the factory result with
 `DefinedPlugin<Name, Shape, Rules>` and the shape with
 `ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does.
+
+## Declare application operations
+
+`defineOperation({ name, input, output, handler })` declares one application
+operation without writing a plugin (ADR-0324). `input` and `output` are
+Standard Schema validators (Zod, Valibot, ArkType…); install the result with
+`UltimaBase.use(...)`. The operation is public: every installed transport
+exposes it, REST at `POST /api/operations/<name>`.
+
+```ts
+import { defineOperation } from '@ultimabase/plugin-kit'
+import { z } from 'zod'
+
+export const createInvoice = defineOperation({
+	name: 'createInvoice',
+	input: z.object({
+		customer: z.string().min(2),
+		amount: z.number().positive(),
+	}),
+	output: z.object({ invoice: z.string() }),
+	handler: async ({ input, context }) => ({
+		invoice: await bill(input, context),
+	}),
+})
+```
+
+- The handler receives the validated input (the validator's output) and the
+  request `context`; schema reads and writes inside it run with the caller's
+  authority (`getRequestPrincipal(context)` reads the caller).
+- Input the validator rejects is a `VALIDATION_ERROR` whose issues carry
+  `code: 'operation.input'` and paths starting with `input`; a result the
+  output validator rejects is a server error. Throw `PublicError` for an
+  application error the client receives.
+- Wire values are JSON; the result goes through `toJSON` like REST results.
+- A validator implementing Standard JSON Schema (as Zod does) describes the
+  operation in the REST OpenAPI document.
+- `name` is a camelCase identifier; the Core operation is
+  `application.<kebab-case name>`, owned by the `application.operations`
+  plugin with the name as instance.
 
 ## Publish typed post-commit events
 

@@ -25,7 +25,7 @@ export const pluginImports = (
 		.filter(([id]) => has(plan, id))
 		.map(([id, names]) => [`@ultimabase/${id}`, names] as const)
 
-/** Only an exact operation allowlist publishes Password Auth over a selected protocol. */
+/** GraphQL still lists the Password Auth operations it exposes (until ADR-0325). */
 const authOperations = (plan: InitializerPlan): string =>
 	has(plan, 'password-auth-plugin')
 		? `,
@@ -37,8 +37,24 @@ const authOperations = (plan: InitializerPlan): string =>
       ]`
 		: ''
 
-const exposureEntry = (plan: InitializerPlan, factory: string): string =>
-	`${factory}({
+/** Password Auth declares its operations public; the starter hides two (ADR-0324). */
+const hiddenAuthOperations = (plan: InitializerPlan): string =>
+	has(plan, 'password-auth-plugin')
+		? `,
+      hide: [
+        passwordAuthOperations.changePassword,
+        passwordAuthOperations.logoutEverywhere,
+      ]`
+		: ''
+
+// Read-only routes need no protected policy; writes would (ADR-0294).
+const restEntry = (plan: InitializerPlan): string =>
+	`restPlugin({
+      default: { createOne: false, updateOne: false, deleteOne: false }${hiddenAuthOperations(plan)},
+    })`
+
+const graphqlEntry = (plan: InitializerPlan): string =>
+	`graphqlPlugin({
       // Local development only: this acknowledges unverified public policy coverage.
       acknowledgeUnverifiedProtection: true,
       default: { create: false, update: false, delete: false, upsert: false, bulk: false, mutations: false }${authOperations(plan)},
@@ -72,8 +88,8 @@ export const apiSchemaPluginImports = (
 
 export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
 	included([
-		[has(plan, 'rest-plugin'), exposureEntry(plan, 'restPlugin')],
-		[has(plan, 'graphql-plugin'), exposureEntry(plan, 'graphqlPlugin')],
+		[has(plan, 'rest-plugin'), restEntry(plan)],
+		[has(plan, 'graphql-plugin'), graphqlEntry(plan)],
 	])
 
 export const apiPluginEntries = (plan: InitializerPlan): string[] =>
@@ -103,7 +119,7 @@ export const apiNextCommands = (plan: InitializerPlan): string[] => {
 		],
 		[
 			has(plan, 'rest-plugin') && task,
-			"curl -i 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
+			"curl -i 'http://127.0.0.1:1337/api/classes/Task?select=id,title,done'",
 		],
 		[
 			has(plan, 'graphql-yoga-plugin') && task,
@@ -132,7 +148,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasDataApi(plan),
-			'Generated Task API mutations are disabled; the server-side Task write in `main` seeds a record. `acknowledgeUnverifiedProtection` only suppresses a diagnostic and never grants or proves authorization.',
+			'Generated Task API mutations are disabled; the server-side Task write in `main` seeds a record. REST refuses to start with public writes unless a policy plugin such as Access is installed or you pass `restPlugin({ publicWrites: true })`; GraphQL\'s `acknowledgeUnverifiedProtection` only suppresses a diagnostic and never grants or proves authorization.',
 		],
 		[
 			has(plan, 'access-plugin') && hasDataApi(plan),

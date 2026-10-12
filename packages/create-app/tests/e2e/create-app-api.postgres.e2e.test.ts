@@ -141,29 +141,32 @@ describe('generated HTTP and GraphQL applications with PostgreSQL', () => {
 		try {
 			server = await startServer(project.destination, 'js')
 			// ADR-0323: the header is optional, a different one is refused.
-			const unknown = await fetch(`${endpoint}/api/v1/classes/Task`, {
+			const unknown = await fetch(`${endpoint}/api/classes/Task`, {
 				headers: { 'X-UltimaBase-Application-Id': 'other' },
 			})
 			expect(unknown.status).toBe(404)
 			expect(await unknown.text()).toContain('HTTP_APPLICATION_UNKNOWN')
-			const headerless = await fetch(`${endpoint}/api/v1/classes/Task`)
+			const headerless = await fetch(`${endpoint}/api/classes/Task`)
 			expect(headerless.status).toBe(200)
 			const health = await fetch(`${endpoint}/health`)
 			expect(health.status).toBe(200)
 			expect(await health.json()).toStrictEqual({ status: 'OK' })
-			const read = await fetch(`${endpoint}/api/v1/classes/Task`, {
+			const read = await fetch(`${endpoint}/api/classes/Task`, {
 				headers: applicationHeader,
 			})
 			expect(read.status).toBe(200)
 			expect(await read.json()).toMatchObject({
 				results: [{ title: 'Ship the first feature' }],
 			})
-			const create = await fetch(`${endpoint}/api/v1/classes/Task`, {
+			const create = await fetch(`${endpoint}/api/classes/Task`, {
 				method: 'POST',
 				headers: { ...applicationHeader, 'Content-Type': 'application/json' },
 				body: JSON.stringify({ title: 'Not exposed' }),
 			})
-			expect(create.status).toBe(404)
+			// ADR-0324: a disabled method answers 405, with its version header.
+			expect(create.status).toBe(405)
+			expect(create.headers.get('allow')).toBe('GET')
+			expect(read.headers.get('x-ultimabase-rest-version')).toBe('1')
 		} finally {
 			if (server !== undefined) await stopServer(server)
 			await project.dispose()
@@ -300,7 +303,7 @@ try {
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {
 			server = await startServer(project.destination, 'js')
-			const response = await fetch(`${endpoint}/api/v1/classes/Task`, {
+			const response = await fetch(`${endpoint}/api/classes/Task`, {
 				headers: applicationHeader,
 			})
 			expect(response.status).toBe(404)
@@ -325,7 +328,7 @@ try {
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {
 			server = await startServer(project.destination, 'js')
-			const signUp = await fetch(`${endpoint}/api/v1/auth/sign-up`, {
+			const signUp = await fetch(`${endpoint}/api/auth/sign-up`, {
 				method: 'POST',
 				headers: { ...applicationHeader, 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -346,7 +349,7 @@ try {
 				applicationHeader,
 				{ ...applicationHeader, Authorization: `Bearer ${session.token}` },
 			]) {
-				const response = await fetch(`${endpoint}/api/v1/classes/Task`, {
+				const response = await fetch(`${endpoint}/api/classes/Task`, {
 					headers,
 				})
 				expect(response.status).toBe(200)
@@ -366,7 +369,7 @@ try {
 		let server: ChildProcessWithoutNullStreams | undefined
 		try {
 			server = await startServer(project.destination, 'ts')
-			const signUp = await fetch(`${endpoint}/api/v1/auth/sign-up`, {
+			const signUp = await fetch(`${endpoint}/api/auth/sign-up`, {
 				method: 'POST',
 				headers: { ...applicationHeader, 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -402,7 +405,7 @@ try {
 			expect(await refreshed.json()).toMatchObject({
 				data: { refresh: { user: { username: 'alice' } } },
 			})
-			const deniedRest = await fetch(`${endpoint}/api/v1/classes/Task`, {
+			const deniedRest = await fetch(`${endpoint}/api/classes/Task`, {
 				headers: {
 					...applicationHeader,
 					Authorization: `Bearer ${session.token}`,

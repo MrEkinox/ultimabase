@@ -42,9 +42,10 @@ await Post.softDeleteOne({ id: postId })
 await Post.softDeleteMany({ where: { title: { startsWith: 'Draft' } } })
 ```
 
-The one-row request commands are exposed by the transports that already expose
-the schema mutation: `POST /api/v1/classes/Post/{id}/soft-delete-one` and
-`…/restore-one`, `softDeleteOnePost` and `restoreOnePost`. Transport exposure
+The one-row request commands reach REST when the schema's rule names them
+(`.with({ rest: { softDeleteOne: true } })`, ADR-0324):
+`POST /api/classes/Post/{id}/soft-delete-one` and `…/restore-one`; GraphQL
+still exposes `softDeleteOnePost` and `restoreOnePost` by itself until 6.6c. Transport exposure
 grants no authority.
 
 ## Visibility and lifecycle

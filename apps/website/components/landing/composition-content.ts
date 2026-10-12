@@ -27,9 +27,9 @@ export const compositionExamples = [
 		label: 'REST',
 		code: withTransport(
 			"import { restPlugin } from '@ultimabase/rest-plugin'",
-			`    restPlugin({ acknowledgeUnverifiedProtection: true }),`,
+			`    restPlugin({ publicWrites: true }),`,
 		),
-		note: 'HTTP selects the application; Hono listens locally. REST generates /api/v1 routes.',
+		note: 'HTTP selects the application; Hono listens locally. REST generates /api routes.',
 	},
 	{
 		label: 'GraphQL',

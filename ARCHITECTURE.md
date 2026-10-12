@@ -312,9 +312,11 @@ cross-application policy comparison exists. The HTTP plugin owns
 safe failures before route dispatch; REST, GraphQL, and other protocols own
 only failures raised after their handler begins.
 
-ADR-0228 fixes the experimental REST v1 surface under `/api/v1`. Application-owned
-schemas may declare the direct `rest` option, sparse declarations inherit the
-REST plugin default, and plugin-owned schemas remain private from generated CRUD
+ADR-0228 fixes the experimental REST surface, mounted under `/api` without a
+version since ADR-0324 (the `X-UltimaBase-Rest-Version` header carries it).
+Application-owned schemas select their routes with `.with({ rest })` keyed by
+schema method and plugin command names, sparse rules inherit the REST plugin
+default, and plugin-owned schemas remain private from generated CRUD
 routes. Short class paths normalize simple GET parameters or explicit complex
 POST bodies into the existing Query and Operation AST. REST returns stable
 `result`, `results`, `count`, `exists`, and error envelopes, pages with `take`

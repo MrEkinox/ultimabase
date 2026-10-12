@@ -271,18 +271,25 @@ not exposed through REST or GraphQL yet.
 
 ### Enable REST and GraphQL
 
-Soft Delete discovers the installed transports automatically. The one-row
-request commands `softDeleteOne` and `restoreOne` are exposed when the schema
-is exposed by that transport and its plugin-mutation surface is enabled:
+REST exposes a command only when the schema's rule names it, with the
+command's own name, like every schema method (ADR-0324):
 
-- REST: `rest: { mutations: true }` controls the additional schema-mutation
-  routes. `rest: false` or `mutations: false` hides them.
+```ts title="src/schema.ts"
+const Post = Application.Schema.define({ className: 'Post', fields })
+	.softDelete()
+	.with({ rest: { softDeleteOne: true, restoreOne: true } })
+```
+
+- REST: `rest: { softDeleteOne: true }` adds the
+  `POST /classes/Post/{id}/soft-delete-one` route; `rest: true` exposes every
+  method and command, `rest: false` none. The `rest` rule requires
+  `restPlugin()` in the application's `UltimaBase.use(...)`.
 - GraphQL: `graphql: { operations: { mutations: true } }` controls additional
   schema-mutation fields. `graphql: false` or `mutations: false` hides them.
+  GraphQL moves to the same keys in a later release.
 
-Both mutation switches are on by default. They inherit the corresponding
-transport's configured defaults; enabling exposure does not grant permission.
-`purgeOne` and the many-row commands are never exposed.
+Enabling exposure does not grant permission. `purgeOne` and the many-row
+commands are never exposed.
 
 For a local walkthrough of both APIs, install the HTTP, REST, GraphQL, Yoga,
 and Hono packages described in [REST setup](./rest) and
@@ -301,7 +308,7 @@ import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 export const apiPlugins = [
 	httpPlugin({ appId: 'blog' }),
-	restPlugin({ acknowledgeUnverifiedProtection: true }),
+	restPlugin({ publicWrites: true }),
 	graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
 	graphqlYogaPlugin(),
 	honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
@@ -312,9 +319,10 @@ This local example exposes the schema's default read and write operations
 without an authorization policy. Keep it on loopback with disposable data.
 Before public exposure, configure [Access](./access) or [Object ACLs](./acl-permissions)
 and review [public transport protection](/docs/1.0.0/operations/before-exposing-your-application).
-The example explicitly acknowledges unverified protection for this local
-walkthrough. Removing that acknowledgement produces
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`; acknowledging it does not add policy.
+`publicWrites: true` lets every client write for this local walkthrough;
+without it and without a policy plugin, REST refuses to start. GraphQL's
+acknowledgement only silences `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`; neither
+adds a policy.
 
 If your policy requires an authenticated caller, configure
 [Password Authentication](./password-authentication) and send that caller's
@@ -323,14 +331,13 @@ Authentication alone grants no read or soft-delete permission.
 
 ### REST
 
-These requests use the default `/api` prefix and the `blog` application ID
-configured above. Create a fresh record for this walkthrough:
+These requests use the default `/api` prefix; HTTP serves the `blog`
+application without an application header. Create a fresh record for this walkthrough:
 
 ```bash title="create-post.sh"
 curl --request POST \
-  'http://127.0.0.1:1337/api/v1/classes/Post?select=id,title,isDeleted' \
+  'http://127.0.0.1:1337/api/classes/Post?select=id,title,isDeleted' \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: blog' \
   --data '{"title":"Draft announcement"}'
 ```
 
@@ -339,9 +346,8 @@ Expect HTTP `201` with `result.id`, the title, and `isDeleted: false`. Replace
 
 ```bash title="soft-delete-post.sh"
 curl --request POST \
-  http://127.0.0.1:1337/api/v1/classes/Post/POST_ID/soft-delete-one \
+  http://127.0.0.1:1337/api/classes/Post/POST_ID/soft-delete-one \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: blog' \
   --data '{"select":{"title":true,"isDeleted":true}}'
 ```
 
@@ -367,16 +373,16 @@ Now read the same ID through the ordinary get route:
 
 ```bash title="get-deleted-post.sh"
 curl --include \
-  http://127.0.0.1:1337/api/v1/classes/Post/POST_ID \
-  --header 'X-UltimaBase-Application-Id: blog'
+  http://127.0.0.1:1337/api/classes/Post/POST_ID \
 ```
 
 Expect HTTP `404` with `NOT_FOUND`. A repeated soft-delete request also returns
 `404`. `POST …/POST_ID/restore-one` restores the record when your rules allow
 it; there is no purge URL, including for clients with elevated credentials.
 
-A custom REST `basePath` changes the `/api` prefix. Disabling `rest.mutations`
-hides the command routes independently of native `rest.delete`.
+A custom REST `basePath` changes the `/api` prefix. Leaving `softDeleteOne`
+out of the `rest` rule hides its route independently of native `deleteOne`;
+a request to it then answers 405.
 
 ### GraphQL
 

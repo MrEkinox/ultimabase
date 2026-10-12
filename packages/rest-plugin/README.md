@@ -1,8 +1,8 @@
 # `@ultimabase/rest-plugin`
 
-`@ultimabase/rest-plugin` owns the experimental REST v1 route graph, schema
+`@ultimabase/rest-plugin` owns the experimental REST route graph, schema
 request boundary, and Fetch response contract. It generates immutable
-application-local metadata under `/api/v1` by default, contributes an owned
+application-local metadata under `/api` by default, contributes an owned
 mount to `@ultimabase/http-plugin`, decodes accepted reads and mutations into
 Core's existing Query and schema-command contracts, and delegates them through
 Core's narrow application request executor. It does not import Hono, start
@@ -10,44 +10,87 @@ listeners, access an adapter, or retain request data in an AST.
 
 The repository includes a [runnable Hono and PostgreSQL example](../../examples/minimal/README.md)
 with anonymous and Password Auth sessions, role-protected REST, audited Master
-access, and explicitly exposed plugin operations.
+access, and public plugin operations.
 
 ## Installation
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 
-const Application = UltimaBase.use(httpPlugin({ appId: 'blog' })).use(
-	restPlugin({
-		acknowledgeUnverifiedProtection: true,
-		basePath: '/api',
-		bodyLimit: 2_097_152,
-		pagination: { defaultTake: 100, maxTake: 1_000 },
-	}),
-)
+const Application = UltimaBase.use(accessPlugin())
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(
+		restPlugin({
+			basePath: '/api',
+			bodyLimit: 2_097_152,
+			openapi: true,
+			pagination: { defaultTake: 100, maxTake: 1_000 },
+		}),
+	)
 const Post = Application.Schema.define({
 	className: 'Post',
-	rest: { count: true, upsert: true },
 	fields: (field) => ({ title: field.string() }),
-})
+}).with({ rest: { count: true, upsertOne: true } })
 const ultimabase = new Application({
 	schemas: [Post],
 })
 ```
 
-`Application.Schema.define()` sees `rest` only because this factory installed
-`restPlugin()`; no Typegen run is needed for that local option. Defining the
-schema remains inert: only `schemas: [Post]` registers it. Omitted operation
-properties inherit the
-plugin default and then the provenance-aware built-in default. Application
-schemas enable find, get, first, exists, create, update, and delete by default;
-count, upsert, and all bulk routes remain disabled.
+`.with({ rest })` is typed only because this factory installed `restPlugin()`;
+no Typegen run is needed. Its keys are the schema method names (ADR-0324):
+`findMany`, `findOne`, `count`, `exists`, `createOne`, `updateOne`,
+`deleteOne`, `upsertOne`, `createMany`, `updateMany`, `deleteMany`,
+`upsertMany`, and the plugin commands REST can expose on that schema, such as
+`softDeleteOne`. Defining the schema remains inert: only `schemas: [Post]`
+registers it. An omitted method inherits the plugin `default`, then the
+built-in default: `findMany`, `findOne`, `exists`, `createOne`, `updateOne`
+and `deleteOne` are on; `count`, `upsertOne`, the `…Many` methods and every
+plugin command are off. `rest: true` exposes every method and command,
+`rest: false` none. The old-form `define({ rest })` keeps the same keys through
+Typegen until that form is removed.
+
+| Method key   | Route below the base path                               |
+| ------------ | ------------------------------------------------------- |
+| `findMany`   | `GET /classes/{Schema}`, `POST /classes/{Schema}/query` |
+| `findOne`    | `GET /classes/{Schema}/{id}`, `GET\|POST …/first`       |
+| `count`      | `GET\|POST /classes/{Schema}/count`                     |
+| `exists`     | `GET\|POST /classes/{Schema}/exists`                    |
+| `createOne`  | `POST /classes/{Schema}`                                |
+| `updateOne`  | `PATCH /classes/{Schema}/{id}`                          |
+| `deleteOne`  | `DELETE /classes/{Schema}/{id}`                         |
+| `upsertOne`  | `POST /classes/{Schema}/upsert`                         |
+| `createMany` | `POST /classes/{Schema}/bulk/create`                    |
+| `updateMany` | `POST /classes/{Schema}/bulk/update`                    |
+| `deleteMany` | `POST /classes/{Schema}/bulk/delete`                    |
+| `upsertMany` | `POST /classes/{Schema}/bulk/upsert`                    |
 
 Plugin-owned schemas are always private from generated REST CRUD routes. A
 plugin-owned schema that declares `rest` is rejected because storage ownership
 cannot be converted into public exposure.
+
+## Base path and protocol version
+
+The default base path is `/api` (`/api/classes/Todo`, `/api/auth/login`). It
+carries no protocol version: every REST response carries
+`X-UltimaBase-Rest-Version: 1`, and a future wire format would be chosen by an
+option, never by the URL. `basePath` is free, so `/api/v1` versions the
+application's own API. `/` mounts REST at the root. The health route stays at
+HTTP's `/health`.
+
+## Public writes
+
+Generated routes are public exposure, not authorization. REST refuses to
+start when it would expose a write (create, update, delete, upsert, bulk or a
+plugin command) while no protected policy plugin is installed, with a message
+naming both ways forward: install a policy such as `accessPlugin()`, or pass
+`restPlugin({ publicWrites: true })` to let every client write (ADR-0294).
+Access's `allowWithoutRule` openings are explicit policies. Read-only routes
+need neither. REST logs one `warn` line, prefixed with
+`[@ultimabase/rest-plugin]`, when it exposes no schema or operation, and when
+it has routes but no HTTP plugin to serve them.
 
 ## Route metadata
 
@@ -70,76 +113,103 @@ Two explicit instances use `instanceId`. Distinct base paths compose into one
 graph, while matching methods and paths fail with a deterministic collision
 diagnostic.
 
-## Plugin operations
+## Public operations
 
-Operation declarations remain private unless the application selects their
-exact tokens explicitly:
+An operation is public only when its owner declares it (ADR-0324):
+`contributeOperation({ operation, execute, public: { name: 'login' } })`.
+Every installed transport exposes it; an operation not declared public is
+never exposed. The application hides some per instance:
 
 ```ts
-restPlugin({
-	acknowledgeUnverifiedProtection: true,
-	operations: [loginOperation],
-})
+restPlugin({ hide: [passwordAuthOperations.refresh] })
 ```
 
-By default, each selected application operation receives
-`POST /api/v1/operations/{namespacedOperation}` and accepts exactly
-`{ "input": value }`. The owner contributes its logical-to-wire codec and a
-REST v1 binding through Core. It can independently name the canonical
-`ultimabase.rest@1.0.0` protocol without importing this package, which keeps
-REST and Password Auth as siblings.
+A hidden token that is not a public operation of the application fails at
+startup. Each exposed operation receives `POST /api/operations/{public name}`
+and accepts exactly `{ "input": value }`.
 
-The binding metadata contains `errors: { [declaredPublicErrorCode]: httpStatus }`,
-including an empty object when the operation declares no public plugin errors.
-An optional `path` replaces the default operation URL: `{ errors, path:
-"/auth/login" }` produces `POST /api/v1/auth/login`. The prefix follows the
-configured `basePath`; the namespaced operation identity stays internal.
-Only static slash-separated ASCII letters, digits, underscores, and hyphens
-are accepted, with a leading slash and no trailing slash. The `classes` and
+An owner may contribute a REST binding through Core: a logical-to-wire codec
+for the canonical `ultimabase.rest@1.0.0` protocol, which it names without
+importing this package, so REST and Password Auth stay siblings. Its metadata
+contains `errors: { [declaredPublicErrorCode]: httpStatus }`, including an
+empty object when the operation declares no public plugin errors, and an
+optional `path`: `{ errors, path: "/auth/login" }` produces
+`POST /api/auth/login`. The prefix follows the configured `basePath`. Only
+static slash-separated ASCII letters, digits, underscores, and hyphens are
+accepted, with a leading slash and no trailing slash. The `classes` and
 `operations` roots are reserved. Templates, percent encoding, dot segments,
 queries, fragments, and additional metadata keys are rejected. No old-path
 alias is registered, and collisions fail before startup.
+
+Without a REST binding, REST passes the wire input to the operation's own
+input contract (a rejected value is a `VALIDATION_ERROR`) and maps each
+declared public error to `400`.
 
 An operation binding may also declare `inputSchema` naming a schema owned by
 that exact plugin. REST then applies the schema's ordinary nested-create field
 codecs to the input before the owner decodes it. This does not expose schema
 CRUD routes or run validation/defaults outside Runtime.
 
-REST reads these inert bindings through Core's existing transport planner
-during route compilation. It validates the complete mapping before transport
-startup and accepts only integer error statuses from 400 through 599.
-The `RestOperationTransport` setup export then
-executes only its own route objects through Core's existing operation Runtime.
-Operation codecs may return nested plain results from the selected application.
-REST serializes operation outputs with Core's `toJSON` (ADR-0310), including
-bigint and binary values.
-It does not load additional fields or relationships. JSON fields themselves
-remain strict JSON; foreign schema models are rejected.
+REST reads these inert facts through Core's transport planner during route
+compilation. It validates the complete mapping before transport startup and
+accepts only integer error statuses from 400 through 599. The
+`RestOperationTransport` setup export then executes only its own route objects
+through Core's existing operation Runtime. Operation codecs may return nested
+plain results from the selected application. REST serializes operation outputs
+with Core's `toJSON` (ADR-0310), including bigint and binary values. It does
+not load additional fields or relationships. JSON fields themselves remain
+strict JSON; foreign schema models are rejected.
 
 An HTTP success returns `200` with `{ result }`; a declared `PluginError` uses
-the exact configured status from that operation's static binding.
-It preserves anonymous contexts, plugin-owned values, verified Master
-provenance, transactions, middleware, protected constraints, cancellation,
-and application isolation. Wire input cannot select authority, adapters,
-plans, privileges, or another operation.
+the configured status of that operation. It preserves anonymous contexts,
+plugin-owned values, verified Master provenance, transactions, middleware,
+protected constraints, cancellation, and application isolation. Wire input
+cannot select authority, adapters, plans, privileges, or another operation.
 
-Generated routes are public exposure, not authorization. Access, ACL,
-authentication, and Master authority are configured independently. Unless the
-developer passes `acknowledgeUnverifiedProtection: true`, starting an
-application with generated routes uses Core's shared
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic, a `warn` line of the
-application logger (ADR-0313). REST also logs one `warn` line, prefixed with
-`[@ultimabase/rest-plugin]`, when it exposes no schema or operation, and when
-it has routes but no HTTP plugin to serve them.
+## Application operations
+
+`defineOperation` from `@ultimabase/plugin-kit` declares an application
+operation without writing a plugin, with Standard Schema validators:
+
+```ts
+const createInvoice = defineOperation({
+	name: 'createInvoice',
+	input: z.object({
+		customer: z.string().min(2),
+		amount: z.number().positive(),
+	}),
+	output: z.object({ invoice: z.string() }),
+	handler: async ({ input }) => ({ invoice: await bill(input) }),
+})
+const Application = UltimaBase.use(httpPlugin(), restPlugin(), createInvoice)
+```
+
+It is public: REST exposes `POST /api/operations/createInvoice`, derives the
+OpenAPI request and response bodies from the validators, and answers `422`
+`VALIDATION_ERROR` with `details.issues` (paths start with `input`) when the
+input validator rejects a value.
+
+## OpenAPI
+
+`restPlugin({ openapi: true })` serves `GET {basePath}/openapi.json`, an OpenAPI
+3.1 document of the routes this instance exposes: paths, parameters, request
+and response bodies, the `{Schema}`, `{Schema}CreateInput` and
+`{Schema}UpdateInput` components with each field's wire type, and the
+constraints that validators describe as JSON Schema (a Standard JSON Schema
+validator in a field option such as Validation's `validation`, and the
+validators of an application operation). No access rule is revealed. The
+document is built once, on its first request.
 
 ## Plugin-owned schema mutations
 
-An application-owned schema exposes each request-authority mutation that its
-owner explicitly binds to `ultimabase.rest@1.0.0`. REST derives the schema-local
-route from the compiled graph:
+A plugin command REST can expose (request authority, one row named by `id`)
+receives a route only when the schema's rule names it, as
+`.with({ rest: { softDeleteOne: true } })`, or when the rule or the plugin
+default is `true`. REST derives the schema-local route from the compiled
+graph:
 
 ```text
-POST /api/v1/classes/{Schema}/{id}/{command-kebab-case}
+POST /api/classes/{Schema}/{id}/{command-kebab-case}
 ```
 
 The bounded JSON body accepts only optional `input`, `select`, and `include`
@@ -152,18 +222,16 @@ properties. For example, a command named `archivePost` receives:
 }
 ```
 
-The mutation owner supplies its private payload decoder and the complete HTTP
-status mapping for its declared public errors. Core continues to own the target
-ID, schema, context, selection, inclusion, result materialization, transaction,
-policy, Hooks, and persistence plan. REST receives only inert route metadata and
-a late-bound executable allowlist; a mutation cannot be invoked through the
-generic `/operations` endpoint.
-
-`rest: { mutations: false }` disables these routes for one schema, while
-`rest: { mutations: true }` overrides a disabled plugin default. Omission
-inherits `restPlugin({ default })`, then the built-in `true` mutation default.
-Master-only mutations are never generated as REST routes. Success returns
-`200` with `{ result }`, using the schema's existing REST field codecs.
+A command owner may bind its private payload decoder and the complete HTTP
+status mapping of its declared public errors to `ultimabase.rest@1.0.0`;
+without a binding, REST passes `input` to the command's own input contract and
+maps each declared error to `400`. Core continues to own the target ID,
+schema, context, selection, inclusion, result materialization, transaction,
+policy, Hooks, and persistence plan. REST receives only inert route metadata
+and a late-bound executable allowlist; a mutation cannot be invoked through
+the generic `/operations` endpoint. Master-only and many-row commands are
+never generated as REST routes. Success returns `200` with `{ result }`, using
+the schema's existing REST field codecs.
 
 ## Read normalization
 
@@ -171,7 +239,8 @@ Master-only mutations are never generated as REST routes. Success returns
 native read operation and a Fetch `Request`. GET parameters and complex POST
 bodies converge on `normalizeReadOperation()` in Core, so fields, operators,
 relationships, projections, ordering, `take`, `skip`, and `after` retain the
-same AST semantics as the TypeScript API. Collection reads default to
+same AST semantics as the TypeScript API. `where` as JSON is the only filter form: there are no
+per-field URL filters, which would collide with the reserved parameters. Collection reads default to
 `take: 100` and reject a `take` above 1000 with `REST_READ_INVALID_INPUT`;
 `restPlugin({ pagination: { defaultTake, maxTake } })` sets other values, with
 the same option and defaults as `graphqlPlugin({ pagination })`. Server-side
@@ -226,7 +295,7 @@ itself explicitly branches for Master.
 Virtual fields use the same flat `select` syntax as stored result fields:
 
 ```text
-GET /api/v1/classes/Post?select=id,displayTitle
+GET /api/classes/Post?select=id,displayTitle
 ```
 
 REST passes that logical selection to Core unchanged. Core alone loads the
@@ -306,10 +375,11 @@ schema or plugin-operation route exists. HTTP still selects the exact
 application, validates sensitive-header cardinality, resolves credentials, and
 creates the request context before that dispatcher begins. Those earlier
 failures keep the protocol-neutral `HTTP_*` envelope. Once selected, REST owns
-path versioning, route matching, content negotiation, normalization, Runtime,
-field encoding, and its `REST_*` failures.
+route matching, content negotiation, normalization, Runtime, field encoding,
+and its `REST_*` failures.
 
-Every response is JSON with `Content-Type: application/json; charset=utf-8`.
+Every response is JSON with `Content-Type: application/json; charset=utf-8`
+and `X-UltimaBase-Rest-Version: 1`.
 The HTTP application adds the final `X-UltimaBase-Request-Id` and
 `Cache-Control: private, no-store` headers. Errors use
 `{ error: { code, message, retryable, requestId, details? } }`. Only a
@@ -324,20 +394,29 @@ Mutation results obey the row read rules (ADR-0306): a client allowed to write
 a row it cannot read requests the identifier alone, `?select=id` on create,
 update and delete or `"select": { "id": true }` in an upsert or bulk body.
 
-Malformed input and unsupported versions return `400`; permission and Master
-denials return `403`; missing routes and targets return `404`; unacceptable
-representations return `406`; unique, reference and transient transaction
-conflicts (`UNIQUE_VIOLATION`, `REFERENCE_VIOLATION`, `TRANSACTION_CONFLICT`)
-return `409`; oversized bodies return `413`; unsupported media returns `415`;
-validation returns `422`; and unexpected failures return `500`.
-HTTP-owned application or credential rejection remains `401`, while its
-deadline boundary remains `408`.
+A client error locates its cause in `details: { parameter, path, reason }`
+(ADR-0324): `parameter` is the query parameter, `id`, `query` or `body` (or a
+body key such as `where`, `create`, `data`, `input`), `path` the location
+inside it, and `reason` the expected value in words, for example
+`{ "parameter": "where", "path": ["views", "gt"], "reason": "must be a safe integer" }`.
+Value failures that only Core detects name the parameter with Core's message
+and an empty path. The exposed schema is public, so these details reveal
+nothing a client could not read from the OpenAPI document.
+
+Malformed input returns `400`; permission and Master denials return `403`;
+missing routes and targets return `404`; a method a route or an exposed
+schema does not allow returns `405` with an `Allow` header
+(`REST_METHOD_NOT_ALLOWED`); unacceptable representations return `406`;
+unique, reference and transient transaction conflicts (`UNIQUE_VIOLATION`,
+`REFERENCE_VIOLATION`, `TRANSACTION_CONFLICT`) return `409`; oversized bodies
+return `413`; unsupported media returns `415`; validation returns `422`; and
+unexpected failures return `500`. HTTP-owned application or credential
+rejection remains `401`, while its deadline boundary remains `408`. A schema
+without any route answers `404`, so a hidden schema is not revealed.
 
 `Accept` may be absent or select `application/json` through its exact media type
 or a wildcard. An explicit quality of zero rejects the representation with
-`REST_NOT_ACCEPTABLE`. Requests below the configured base path must select the
-literal `v1` segment; another version returns `REST_UNSUPPORTED_VERSION`
-instead of being guessed as a class route.
+`REST_NOT_ACCEPTABLE`.
 
 Schema values are encoded by declared field kind. Temporal, UUID, and decimal
 values remain canonical strings; bigint becomes a base-10 string; binary uses
@@ -353,7 +432,7 @@ selection.
 
 ## Plugin field codecs
 
-A plugin-defined scalar must attach an exact REST v1 codec before a schema that
+A plugin-defined scalar must attach an exact REST codec before a schema that
 contains it can expose a route:
 
 ```ts

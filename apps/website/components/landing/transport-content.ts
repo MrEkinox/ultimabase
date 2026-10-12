@@ -19,7 +19,7 @@ const article = await ExampleArticle.createOne(
 		label: 'REST',
 		lang: 'http',
 		caption: 'Send this JSON request to the local example on port 1337.',
-		code: `POST /api/v1/classes/ExampleArticle HTTP/1.1
+		code: `POST /api/classes/ExampleArticle HTTP/1.1
 Host: localhost:1337
 Content-Type: application/json
 X-UltimaBase-Application-Id: minimal
