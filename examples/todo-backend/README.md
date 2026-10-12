@@ -174,7 +174,8 @@ corepack yarn workspace @ultimabase/example-todo-backend typecheck
 corepack yarn workspace @ultimabase/example-todo-backend test
 ```
 
-`dev` runs the TypeScript sources with Node 24 and restarts on change; REST
+`dev` runs the TypeScript sources with Node 24 and restarts on change, reading
+an optional `.env`; REST
 listens on `http://127.0.0.1:1337/api/classes/Todo`. `test` starts PostgreSQL
 in a container once (Docker), or uses `TEST_DATABASE_URL`.
 

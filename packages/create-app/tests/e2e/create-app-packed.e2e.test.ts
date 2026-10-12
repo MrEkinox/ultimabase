@@ -240,7 +240,11 @@ describe('packed initializer outside the repository', () => {
 			[cliPath, '--name', 'no-docker', '--yes', '--no-install'],
 			{
 				cwd: consumerRoot,
-				env: { ...process.env, PATH: emptyPath, npm_config_user_agent: 'npm/1' },
+				env: {
+					...process.env,
+					PATH: emptyPath,
+					npm_config_user_agent: 'npm/1',
+				},
 			},
 		)
 		expect(stdout).toContain('Docker was not found')
