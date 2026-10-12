@@ -1,13 +1,13 @@
 # ADR-0329: The role resolver protocol leaves Core
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-13
 - Refines: the microkernel rule of AGENTS.md ("Core never knows a plugin"), ADR-0304 (Core
   principal), ADR-0311 and ADR-0316 (plugin-author entry and `definePlugin`), ADR-0321 (ACL),
   ADR-0322 (Roles); applies ADR-0288
 - Approval: listed as a Core leak in the pre-release simplification mandate
   (`docs/handoff/simplification.md`, "Fuites de Core à corriger") and scheduled in migration step
-  6.8b by the user on 2026-10-13; record to be accepted by the user
+  6.8b by the user on 2026-10-13; record accepted by the user on 2026-10-13
 
 ## Context
 

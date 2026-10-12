@@ -316,6 +316,7 @@ Current records (accepted or still active in part):
 - [ADR-0326: Authentication foundation, password method and account lifecycle](0326-auth-foundation-and-password-method.md)
 - [ADR-0327: `testApplication` and the create-app starter](0327-test-application-and-create-app-starter.md)
 - [ADR-0328: Declared relation filters move into `.with({ relations })`](0328-relation-filters-in-with.md)
+- [ADR-0329: The role resolver protocol leaves Core](0329-role-protocol-leaves-core.md)
 
 Proposed records (awaiting user validation):
 

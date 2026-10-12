@@ -65,7 +65,8 @@ ADR-0299 à ADR-0313 (acceptés), revues dans [revue-plugins/](revue-plugins/REA
 - `yarn.lock` désynchronisé après 6.7 (entrée Typegen de l'exemple minimal) ; `yarn install --immutable` échouait, ce que `validate:full` ne vérifie pas. Corrigé dans `main` local (e864067e). Consigne ajoutée aux agents : lancer `yarn install --immutable` dans la porte. Prototype des filtres de relation dans `.with` lancé (`spike/relation-where`, `../ub-spike-relwhere`).
 - 6.8 : découpée le 2026-10-13 (validé) en 6.8a (filtres de relation dans `.with`, ADR-0328 accepté), 6.8b (retrait de l'ancienne forme, de Typegen, du mécanisme des gabarits et des fuites de Core), 6.8c (page TS 7 et job de CI TS 7, passe de documentation, nouvelle mesure et objectifs révisés, durée de la couverture). 6.8a lancée à partir du prototype (`migration/relation-rules`, `../ub-step6-8a`).
 - 6.8a : fusionnée dans `main` local le 2026-10-13 : ADR-0328 (`.with({ relations })`, `where` de champ retiré avec message d'orientation, filtres réciproques sans boucle sous TS 6 et 7, filtres de l'exemple minimal rétablis). `install --immutable`, `validate:full` (3 802), e2e construits (615), site (59) verts ; audit DX (282) ; banc inchangé.
+- 6.8b : ADR-0329 accepté le 2026-10-13 (contrat de rôle déplacé dans plugin-kit) ; lancée (branche `migration/remove-old-form`, `../ub-step6-8b`) : retrait de l'ancienne forme, de Typegen, du mécanisme des gabarits, de `withPluginTypegenConformance` ; tests et docs en forme D.
 
 ## Prochaine action vérifiable
 
-ADR de 6.8b (protocole de rôle de Core) et lancement de 6.8b.
+Rapport de 6.8b ; puis 6.8c.
