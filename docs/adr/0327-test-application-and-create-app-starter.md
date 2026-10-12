@@ -1,6 +1,6 @@
 # ADR-0327: `testApplication` and the create-app starter
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-12
 - Refines: the Testing and create-app records, ADR-0297 (form D), ADR-0312 (`DATABASE_URL` at
   start, environment defaults), ADR-0317 (`allowWithoutRule: 'development'`), ADR-0318
@@ -8,7 +8,7 @@
   (authentication); applies ADR-0288
 - Approval: decisions of the Testing review (`docs/handoff/revue-plugins/testing.md`, decisions 1
   to 6) and of the create-app review (`create-app.md`, decisions 1 to 7), validated by the user on
-  2026-10-09; record to be accepted by the user
+  2026-10-09; record accepted by the user on 2026-10-12
 
 ## Context
 
