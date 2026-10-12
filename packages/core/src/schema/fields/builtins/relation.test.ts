@@ -98,16 +98,20 @@ describe('relationField', () => {
 		expect(Object.isFrozen(field.options)).toBe(true)
 	})
 
-	it('snapshots static where input without exposing it as field metadata', () => {
+	it('snapshots static where input of .with without exposing it as field metadata', () => {
 		const where = { id: { eq: 'initial' } }
-		const field = relationField({
-			target: () => RelationTag,
-			where,
-		})
+		const Source = UltimaBase.Schema.define({
+			className: 'SnapshotRelationWhereSource',
+			fields: (field) => ({
+				tags: field.relation({ target: () => RelationTag }),
+			}),
+		}).with({ relations: { tags: { where } } })
 		where.id.eq = 'mutated'
-		const declaration = getRelationWhereDeclaration(field)
+		const tags = Source.persistedFields.tags
+		if (tags === undefined) throw new TypeError('Expected tags relation field')
+		const declaration = getRelationWhereDeclaration(tags)
 
-		expect(field.options).toStrictEqual({})
+		expect(tags.options).toStrictEqual({})
 		expect(declaration).toStrictEqual({
 			input: { id: { eq: 'initial' } },
 			kind: 'static',
@@ -119,38 +123,23 @@ describe('relationField', () => {
 		).toBe(true)
 	})
 
-	it('retains contextual resolvers privately and rejects malformed declarations', () => {
+	it('retains contextual resolvers of .with privately', () => {
 		const resolver = () => ({ id: { eq: 'visible' } })
-		const field = relationField({
-			target: () => RelationTag,
-			where: resolver,
-		})
-		const declaration = getRelationWhereDeclaration(field)
+		const Source = UltimaBase.Schema.define({
+			className: 'ContextualRelationWhereSource',
+			fields: (field) => ({
+				tags: field.relation({ target: () => RelationTag }),
+			}),
+		}).with({ relations: { tags: { where: resolver } } })
+		const tags = Source.persistedFields.tags
+		if (tags === undefined) throw new TypeError('Expected tags relation field')
+		const declaration = getRelationWhereDeclaration(tags)
 
-		expect(field.options).toStrictEqual({})
+		expect(tags.options).toStrictEqual({})
 		expect(declaration).toMatchObject({ kind: 'contextual' })
 		expect(declaration?.kind === 'contextual' && declaration.resolve).toBe(
 			resolver,
 		)
-		expect(() =>
-			relationField({ target: () => RelationTag, where: null } as never),
-		).toThrow(
-			'relationField where must be a plain object or synchronous resolver',
-		)
-		expect(() =>
-			relationField({ target: () => RelationTag, where: [] } as never),
-		).toThrow(
-			'relationField where must be a plain object or synchronous resolver',
-		)
-		expect(() =>
-			relationField({
-				target: () => RelationTag,
-				where: async () => {
-					await Promise.resolve()
-					return {}
-				},
-			} as never),
-		).toThrow('relationField where resolver must be synchronous')
 	})
 
 	it('normalizes static filters only after the exact target resolves', () => {
@@ -161,12 +150,9 @@ describe('relationField', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'RelationWhereSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'RelationWhereTarget',
-					where: { active: { eq: true } },
-				}),
+				targets: field.relation({ target: 'RelationWhereTarget' }),
 			}),
-		})
+		}).with({ relations: { targets: { where: { active: { eq: true } } } } })
 		const application = new FrameworkApplication({
 			plugins: [],
 			schemas: [Source, Target],
@@ -190,20 +176,16 @@ describe('relationField', () => {
 		const unknownField = UltimaBase.Schema.define({
 			className: 'UnknownRelationWhereSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'InvalidRelationWhereTarget',
-					where: { missing: { eq: true } },
-				}),
+				targets: field.relation({ target: 'InvalidRelationWhereTarget' }),
 			}),
-		})
+		}).with({ relations: { targets: { where: { missing: { eq: true } } } } })
 		const invalidOperator = UltimaBase.Schema.define({
 			className: 'OperatorRelationWhereSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'InvalidRelationWhereTarget',
-					where: { active: { contains: true } },
-				}),
+				targets: field.relation({ target: 'InvalidRelationWhereTarget' }),
 			}),
+		}).with({
+			relations: { targets: { where: { active: { contains: true } } } },
 		})
 
 		expect(() =>
@@ -226,6 +208,8 @@ describe('relationField', () => {
 		['indexed', { indexed: true, target: () => RelationTag }],
 		['list', { list: true, target: () => RelationTag }],
 		['required', { required: true, target: () => RelationTag }],
+		// Relation filters are declared in `.with({ relations })` (ADR-0328).
+		['where', { target: () => RelationTag, where: {} }],
 	])('rejects unsupported %s metadata', (key, options) => {
 		expect(() => {
 			relationField(options as never)

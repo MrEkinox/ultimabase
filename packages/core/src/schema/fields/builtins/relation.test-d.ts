@@ -2,6 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	relationField,
+	type RelationRule,
 	type RelationWhere,
 	type RelationWhereResolver,
 	type SchemaClass,
@@ -43,7 +44,8 @@ test('types static and contextual relation filters from the exact target', () =>
 		score: { gte: 10 },
 	} satisfies RelationWhere<typeof Target>
 
-	relationField({ target: () => Target, where: staticWhere })
+	const staticRule: RelationRule<typeof Target> = { where: staticWhere }
+	void staticRule
 	const resolver: RelationWhereResolver<typeof Target> = ({
 		context,
 		where,
@@ -52,7 +54,10 @@ test('types static and contextual relation filters from the exact target', () =>
 		expectTypeOf(where).toEqualTypeOf<WhereBuilder<typeof Target>>()
 		return where.eq('active', true).gte('score', 10)
 	}
-	relationField({ target: () => Target, where: resolver })
+	const contextualRule: RelationRule<typeof Target> = { where: resolver }
+	void contextualRule
+	// @ts-expect-error -- Relation filters are declared in `.with({ relations })`.
+	relationField({ target: () => Target, where: staticWhere })
 
 	const invalidStatic = {
 		// @ts-expect-error -- Static filters use only exact target fields.

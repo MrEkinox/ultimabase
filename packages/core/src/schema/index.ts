@@ -30,6 +30,7 @@ export type {
 	SchemaPointerTarget,
 } from './fields/builtins/pointer.js'
 export { relationField } from './fields/builtins/relation.js'
+export type { RelationRule } from './schema/relation-rules.js'
 export type {
 	RelationField,
 	RelationFieldTypegenState,

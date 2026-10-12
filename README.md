@@ -79,9 +79,10 @@ the first TypeScript build. JavaScript executes the same graph without Typegen.
 - Singular creates and updates accept the same schema-aware nested pointer and
   relation commands through direct TypeScript, REST, and GraphQL. Core executes
   the complete bounded graph in one automatic transaction.
-- Relation fields may declare one static or request-contextual `where` that
-  shapes direct reads, eager inclusions, REST, and GraphQL consistently without
-  replacing Access, ACL, protected constraints, or physical membership.
+- Relations may declare one static or request-contextual `where` in the
+  schema's final `.with({ relations })` that shapes direct reads, eager
+  inclusions, REST, and GraphQL consistently without replacing Access, ACL,
+  protected constraints, or physical membership.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
 - Hooks, Access, and application field validation are optional official plugin
   capabilities. The Validation plugin owns Standard Schema rules while Core

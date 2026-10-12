@@ -29,14 +29,17 @@ describe('Runtime relation filter isolation', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'IsolatedRuntimeRelationSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'IsolatedRuntimeRelationTarget',
+				targets: field.relation({ target: 'IsolatedRuntimeRelationTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ where }) => {
 						invocations += 1
 						return where.eq('visible', true)
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const firstAdapter = new RecordingDatabaseAdapter([], [])
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
@@ -92,15 +95,18 @@ describe('Runtime relation filter isolation', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'CancelledRuntimeRelationSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'CancelledRuntimeRelationTarget',
+				targets: field.relation({ target: 'CancelledRuntimeRelationTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ where }) => {
 						owner = readApplicationPluginOwner(application)
 						controller.abort()
 						return where.eq('visible', true)
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = applicationFixture(

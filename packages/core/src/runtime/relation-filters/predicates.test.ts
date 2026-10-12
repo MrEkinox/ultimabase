@@ -50,14 +50,17 @@ describe('Runtime relation-filter predicates', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'FilteredPredicateSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'FilteredPredicateTarget',
+				targets: field.relation({ target: 'FilteredPredicateTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ context, where }) => {
 						resolverCalls += 1
 						return where.eq('tenant', context.getValue(tenant) ?? 'public')
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const adapter = new RecordingDatabaseAdapter(
 			[{ status: 'fulfilled', value: [] }],
@@ -130,27 +133,27 @@ describe('Runtime relation-filter predicates', () => {
 		const Target = UltimaBase.Schema.define({
 			className: 'NestedFilteredPredicateTarget',
 			fields: (field) => ({
-				groups: field.relation({
-					target: 'FilteredPredicateGroup',
-					where: { published: { eq: true } },
-				}),
+				groups: field.relation({ target: 'FilteredPredicateGroup' }),
 				owner: field.pointer({ target: 'FilteredPredicateOwner' }),
 				status: field.string(),
 				visible: field.boolean(),
 			}),
-		})
+		}).with({ relations: { groups: { where: { published: { eq: true } } } } })
 		const Source = UltimaBase.Schema.define({
 			className: 'NestedFilteredPredicateSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'NestedFilteredPredicateTarget',
+				targets: field.relation({ target: 'NestedFilteredPredicateTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: {
 						groups: { some: { label: { eq: 'member' } } },
 						owner: { is: { active: { eq: true } } },
 						visible: { eq: true },
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const trace: string[] = []
 		const adapter = new RecordingDatabaseAdapter(
@@ -251,12 +254,9 @@ describe('Runtime relation-filter predicates', () => {
 		const Node = UltimaBase.Schema.define({
 			className: 'CyclicFilteredPredicateNode',
 			fields: (field) => ({
-				children: field.relation({
-					target: 'CyclicFilteredPredicateNode',
-					where: { children: { some: {} } },
-				}),
+				children: field.relation({ target: 'CyclicFilteredPredicateNode' }),
 			}),
-		})
+		}).with({ relations: { children: { where: { children: { some: {} } } } } })
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({
 			plugins: [databasePlugin(adapter)],
@@ -296,8 +296,11 @@ describe('Runtime relation-filter predicates', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'ComplexFilteredPredicateSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'ComplexFilteredPredicateNode',
+				targets: field.relation({ target: 'ComplexFilteredPredicateNode' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ where }) => {
 						let result = where
 
@@ -311,8 +314,8 @@ describe('Runtime relation-filter predicates', () => {
 
 						return result
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({

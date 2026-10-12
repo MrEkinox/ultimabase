@@ -6,12 +6,7 @@ import {
 	authPlugin,
 	authPrincipal,
 } from '@ultimabase/auth-plugin'
-import {
-	UltimaBase,
-	isAuthenticated,
-	type DeferredSchemaTarget,
-	type RelationWhereResolver,
-} from '@ultimabase/core'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
@@ -139,18 +134,6 @@ const recordSoftDeleteEvent = async (
 	})
 }
 
-/**
- * Anonymous requests see only public reviewers. A contextual relation filter
- * is a constant typed by its deferred target, so that `define(...)` never
- * infers it while the schemas are typed (ADR-0297).
- */
-const visibleReviewers: RelationWhereResolver<
-	DeferredSchemaTarget<() => typeof ExampleAuthor>
-> = ({ context, where }) =>
-	context.getValue(authPrincipal) === undefined
-		? where.eq('audience', 'public')
-		: where
-
 /** Authors can be selected and included through both public transports. */
 export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 	className: 'ExampleAuthor',
@@ -212,6 +195,12 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 				},
 			},
 		},
+		// Relation filters are typed against the complete target, so both
+		// schemas filter each other's relations (ADR-0328).
+		relations: {
+			articles: { where: { published: { eq: true } } },
+			contributions: { where: ({ where }) => where.eq('published', true) },
+		},
 		rest: true,
 	})
 
@@ -220,10 +209,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 	className: 'ExampleArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: () => ExampleAuthor }),
-		contributors: field.relation({
-			target: () => ExampleAuthor,
-			where: { listed: { eq: true } },
-		}),
+		contributors: field.relation({ target: () => ExampleAuthor }),
 		presentation: field.object({
 			fields: (embedded) => ({
 				subtitle: embedded.string(),
@@ -231,10 +217,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 			}),
 		}),
 		published: field.boolean({ default: true }),
-		reviewers: field.relation({
-			target: () => ExampleAuthor,
-			where: visibleReviewers,
-		}),
+		reviewers: field.relation({ target: () => ExampleAuthor }),
 		slug: field.string({ indexed: 'unique', required: true }),
 		title: field.string({
 			hooks: { resolveInput: ({ value }) => value.trim() },
@@ -360,6 +343,16 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 						originalItem.id,
 					)
 				},
+			},
+		},
+		relations: {
+			contributors: { where: { listed: { eq: true } } },
+			// Anonymous requests see only public reviewers.
+			reviewers: {
+				where: ({ context, where }) =>
+					context.getValue(authPrincipal) === undefined
+						? where.eq('audience', 'public')
+						: where,
 			},
 		},
 		rest: true,

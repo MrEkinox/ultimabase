@@ -1,9 +1,5 @@
-import { relationField, type RelationWhereResolver } from '../../index.js'
-import {
-	addSchemaField,
-	plugin as createPlugin,
-	contributeDeclarations,
-} from '../../plugin.js'
+import type { RelationWhereResolver } from '../../index.js'
+import { plugin as createPlugin } from '../../plugin.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 
@@ -13,7 +9,6 @@ import { QueryBuilder } from '../../query/query/query.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { createFrameworkEngine } from '../application/create-framework-engine.js'
-import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { RuntimeRelationFilterResolver } from './execution.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
@@ -34,12 +29,9 @@ describe('Runtime relation filters', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'StaticRelationSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'StaticRelationTarget',
-					where: { visible: { eq: true } },
-				}),
+				targets: field.relation({ target: 'StaticRelationTarget' }),
 			}),
-		})
+		}).with({ relations: { targets: { where: { visible: { eq: true } } } } })
 		const adapter = new RecordingDatabaseAdapter(
 			[{ status: 'fulfilled', value: [] }],
 			[],
@@ -84,12 +76,11 @@ describe('Runtime relation filters', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'InvalidRelationSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'InvalidRelationTarget',
-					// The asynchronous result is deliberately invalid for the Runtime guard.
-					where: asyncResolver as never,
-				}),
+				targets: field.relation({ target: 'InvalidRelationTarget' }),
 			}),
+		}).with({
+			// The asynchronous result is deliberately invalid for the Runtime guard.
+			relations: { targets: { where: asyncResolver as never } },
 		})
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({
@@ -137,14 +128,17 @@ describe('Runtime relation filters', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'CachedRelationSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'CachedRelationTarget',
+				targets: field.relation({ target: 'CachedRelationTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ where }) => {
 						invocations += 1
 						return where.eq('label', 'cached')
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({
@@ -178,75 +172,5 @@ describe('Runtime relation filters', () => {
 			'Framework engine requires its initialized active application; received disposed',
 		)
 		expect(invocations).toBe(1)
-	})
-
-	it('attributes a plugin-contributed relation resolver to its exact instance', async () => {
-		const Target = UltimaBase.Schema.define({
-			className: 'AttributedRelationTarget',
-			fields: (field) => ({ visible: field.boolean() }),
-		})
-		const Source = UltimaBase.Schema.define({
-			className: 'AttributedRelationSource',
-			fields: () => ({}),
-		})
-		const adapter = new RecordingDatabaseAdapter(
-			[{ status: 'fulfilled', value: [] }],
-			[],
-		)
-		let observedOwner: unknown
-		const contributor = createPlugin({
-			core: '^0.0.0',
-			instanceId: 'primary',
-			id: 'fixture.relation-filter-contributor',
-			version: '0.0.0',
-			permissions: {
-				'schema:declare': 'Adds the attributed relation field under test.',
-			},
-			contributions: [
-				contributeDeclarations({
-					schema: ({ schemas }) => {
-						schemas.patch({
-							operations: [
-								addSchemaField({
-									contributionId: 'visible-targets',
-									field: relationField({
-										target: () => Target,
-										where: ({ where }) => {
-											observedOwner = readApplicationPluginOwner(application)
-											return where.eq('visible', true)
-										},
-									}),
-									name: 'targets',
-								}),
-							],
-							targets: schemas.select({ className: Source.className }),
-						})
-
-						return undefined
-					},
-				}),
-			],
-		})
-		const application = await createApplication({
-			plugins: [contributor, databasePlugin(adapter)],
-			schemas: [Source, Target],
-		})
-		const framework = createFrameworkEngine(application)
-		const request = framework.anonymous({
-			requestId: 'attributed-relation-filter',
-			source: requestSources.internal,
-		})
-		try {
-			await runWithRequestEngine(request, () =>
-				// The plugin contributes this relation only during Runtime compilation.
-				Source.findMany({ include: { targets: {} } } as never),
-			)
-			expect(observedOwner).toStrictEqual({
-				instanceId: 'primary',
-				pluginId: 'fixture.relation-filter-contributor',
-			})
-		} finally {
-			await application.dispose()
-		}
 	})
 })

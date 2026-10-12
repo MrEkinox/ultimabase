@@ -225,7 +225,7 @@ export const getDeclaredFieldOptionsContract = (
 ): BuiltInFieldOptionsContract | undefined =>
 	fieldCapabilities.get(field)?.optionsContract
 
-/** @internal Returns the exact private declaration attached by `relationField`. */
+/** @internal Returns the filter declared in `.with({ relations })` for one relation field. */
 export const getRelationWhereDeclaration = (
 	field: GenericField,
 ): RelationWhereDeclaration | undefined =>
@@ -242,7 +242,11 @@ export const replaceDeclaredFieldOptions = (
 		readFieldCapabilities(field, 'field must be created by a field factory'),
 	)
 
-export const forbidFieldMutationInput = (field: GenericField): GenericField =>
+// Rebinds one factory-created field with additional private capabilities.
+const extendFieldCapabilities = (
+	field: GenericField,
+	capabilities: Partial<FieldCapabilities>,
+): GenericField =>
 	bindFieldCapabilities(
 		field.kind,
 		field.options,
@@ -251,9 +255,18 @@ export const forbidFieldMutationInput = (field: GenericField): GenericField =>
 				field,
 				'field must be created by a field factory',
 			),
-			mutationInputForbidden: true as const,
+			...capabilities,
 		}),
 	)
+
+export const forbidFieldMutationInput = (field: GenericField): GenericField =>
+	extendFieldCapabilities(field, { mutationInputForbidden: true })
+
+/** @internal Attaches the filter of `.with({ relations })` to its relation (ADR-0328). */
+export const attachRelationWhereDeclaration = (
+	field: GenericField,
+	relationWhere: RelationWhereDeclaration,
+): GenericField => extendFieldCapabilities(field, { relationWhere })
 
 export const hasForbiddenMutationInput = (field: GenericField): boolean =>
 	fieldCapabilities.get(field)?.mutationInputForbidden === true

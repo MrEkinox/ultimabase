@@ -1017,13 +1017,15 @@ one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
 update input, validation values, or an ordinary result without `include`.
 
-A relation may define one target-typed read subset with `where`. The static form
-uses the same portable filter vocabulary as an ordinary target Query:
+A relation may define one target-typed read subset in the final
+`.with({ relations })`, keyed by relation field name (ADR-0328). `.with`
+receives the complete schemas, so two schemas may filter each other's
+relations. The static form uses the same portable filter vocabulary as an
+ordinary target Query:
 
 ```ts
-comments: field.relation({
-	target: 'Comment',
-	where: { published: { eq: true } },
+.with({
+	relations: { comments: { where: { published: { eq: true } } } },
 })
 ```
 
@@ -1032,14 +1034,23 @@ target-typed `WhereBuilder`. It is synchronous and may return either that
 builder or an exact target `WhereInput`:
 
 ```ts
-participants: field.relation({
-	target: 'User',
-	where: ({ context, where }) =>
-		context.access.mode === 'master'
-			? where
-			: where.ne('id', String(context.metadata.currentUserId)),
+.with({
+	relations: {
+		participants: {
+			where: ({ context, where }) =>
+				context.access.mode === 'master'
+					? where
+					: where.ne('id', String(context.metadata.currentUserId)),
+		},
+	},
 })
 ```
+
+`RelationRule<typeof Comment>` types one rule declared as a constant. A name
+that is not a relation field of the schema, an unknown rule key or a malformed
+filter fails when `.with` runs; a schema without relation fields has no
+`relations` key. A plugin that adds a relation with
+`addSchemaField(relationField(...))` cannot filter it.
 
 Relation shaping is always combined with the caller's filter through logical
 `AND`; it never grants access or replaces Access, ACL, or protected constraints.
@@ -1072,7 +1083,7 @@ independently to every parent collection, `after` with the same keyset rules as
 a root `findMany` (the order is completed by `id`; `after` and `skip` are
 exclusive). Installed source-relation field policy runs once
 before loading. Target policy and output resolution still apply through the
-target read pipeline. The field's declared relation `where` narrows that same
+target read pipeline. The relation's declared `where` narrows that same
 target collection before ordering, `skip`, and `take`. Core resolves a contextual
 declaration once per exact field and root operation, even when one inclusion
 hydrates many parents or repeats through a mutation result projection.
@@ -1244,7 +1255,7 @@ integer through `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`,
 or `notBetween`; operands must be non-negative safe integers. Its optional
 target-typed `where` filters the related objects before every comparison, and at
 least one comparison is required. Runtime evaluates every installed target
-policy filter and the relation field's declared `where` into one private adapter
+policy filter and the relation's declared `where` into one private adapter
 scope that behavior cannot inspect or remove. The declaration first defines the
 visible relation universe; the caller's nested predicate then narrows that
 universe for quantifiers or filtered counts. Predicate depth includes nested

@@ -13,6 +13,7 @@ import {
 	type SchemaIndexOptions,
 } from './indexes.js'
 import type { SystemFields } from './system-fields.js'
+import { readRelationRules } from './relation-rules.js'
 import {
 	captureFieldBuilderCallback,
 	FieldBuilderDeclarationExecutionError,
@@ -186,12 +187,19 @@ export interface PreparedSchemaCompilation {
 	readonly schema: SchemaDefinition
 }
 
+/** Core rules of the final `.with(...)`, checked against the captured fields. */
+interface SchemaDeclarationRules {
+	readonly indexes?: readonly SchemaIndexInput[] | undefined
+	/** Unvalidated `relations` rules (ADR-0328). */
+	readonly relations?: unknown
+}
+
 const defineSchemaModel = <
 	const TClassName extends string,
 	const TFields extends SchemaDeclaredFields,
 >(
 	options: SchemaOptions<TClassName, TFields>,
-	ruleIndexes?: readonly SchemaIndexInput[],
+	rules: SchemaDeclarationRules = {},
 ): SchemaReference<TClassName, TFields> => {
 	assertPlainObject(options, 'schema options must be an object')
 
@@ -221,6 +229,8 @@ const defineSchemaModel = <
 		)
 	}
 
+	const relationFilters = readRelationRules(rules.relations, fields)
+
 	// Readers close over the final class; they run only after compilation.
 	const schema: SchemaReference<TClassName, TFields> = createSchemaModelClass<
 		TClassName,
@@ -241,9 +251,10 @@ const defineSchemaModel = <
 			className: options.className,
 			fields,
 			indexes: snapshotSchemaIndexOptions(options.indexes),
-			...(ruleIndexes === undefined
+			...(rules.indexes === undefined
 				? {}
-				: { ruleIndexes: snapshotSchemaIndexOptions(ruleIndexes) }),
+				: { ruleIndexes: snapshotSchemaIndexOptions(rules.indexes) }),
+			...(relationFilters.size === 0 ? {} : { relationFilters }),
 			options: snapshotUnresolvedSchemaOptions(options),
 		}),
 	)
@@ -381,12 +392,12 @@ export const defineOrdinarySchemaModel = <
 	options: SchemaOptions<TClassName, TFields> &
 		ReservedSchemaFieldCollision<NoInfer<TFields>>,
 	declarationStatics: Readonly<Record<string, unknown>> = {},
-	ruleIndexes?: readonly SchemaIndexInput[],
+	rules?: SchemaDeclarationRules,
 	createStatics?: (
 		schema: SchemaDefinition,
 	) => Readonly<Record<string, unknown>>,
 ): SchemaReference<TClassName> => {
-	const schema = defineSchemaModel<TClassName, TFields>(options, ruleIndexes)
+	const schema = defineSchemaModel<TClassName, TFields>(options, rules)
 	// Schema factory statics (`TodoRole.role(...)`, ADR-0322) are bound to this class.
 	const factoryStatics: unknown =
 		createStatics === undefined ? {} : createStatics(schema)

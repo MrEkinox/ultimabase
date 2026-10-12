@@ -39,15 +39,18 @@ export const ConversationSchema = UltimaBase.Schema.define({
 	className: 'Conversation',
 	fields: (field) => ({
 		participants: field.relation({ target: 'User' }),
-		otherParticipants: field.relation({
-			target: 'User',
+		otherParticipants: field.relation({ target: 'User' }),
+	}),
+}).with({
+	relations: {
+		otherParticipants: {
 			where: ({ context, where }) => {
 				const userId = context.getValue(currentUserId)
 
 				return userId === undefined ? where : where.ne('id', userId)
 			},
-		}),
-	}),
+		},
+	},
 })
 
 export type User = InferObject<typeof UserSchema>
@@ -59,7 +62,8 @@ one-to-many relationship, and `UserSchema.posts` is its storage-free inverse.
 An owning `relationField({ target })` plus one inverse `relationField` represents
 many-to-many. Use `pointerField({ indexed: "unique" })` for one-to-one.
 
-`otherParticipants.where` shapes only reads through that exact relation. A
+The `relations` rule of the final `.with` (ADR-0328) shapes only reads through
+`otherParticipants`. A
 static declaration such as `{ active: { eq: true } }` uses the ordinary target
 filter contract. A contextual declaration receives the immutable request
 context and an empty target-typed builder, and must resolve synchronously. Core

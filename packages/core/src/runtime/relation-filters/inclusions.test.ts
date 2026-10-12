@@ -54,8 +54,13 @@ describe('Runtime relation-filter inclusions', () => {
 			className: 'FilteredIncludedRoom',
 			fields: (field) => ({
 				active: field.boolean(),
-				members: field.relation({
-					target: 'FilteredIncludedMember',
+				members: field.relation({ target: 'FilteredIncludedMember' }),
+				name: field.string(),
+				tenant: field.string(),
+			}),
+		}).with({
+			relations: {
+				members: {
 					where: ({ context, where }) => {
 						memberResolverCalls += 1
 						trace.push(`member-filter:${context.requestId}`)
@@ -63,24 +68,25 @@ describe('Runtime relation-filter inclusions', () => {
 							.eq('visible', true)
 							.ne('id', context.getValue(principalId) ?? 'anonymous')
 					},
-				}),
-				name: field.string(),
-				tenant: field.string(),
-			}),
+				},
+			},
 		})
 		const Workspace = UltimaBase.Schema.define({
 			className: 'FilteredIncludedWorkspace',
 			fields: (field) => ({
 				name: field.string(),
-				rooms: field.relation({
-					target: 'FilteredIncludedRoom',
+				rooms: field.relation({ target: 'FilteredIncludedRoom' }),
+			}),
+		}).with({
+			relations: {
+				rooms: {
 					where: ({ context, where }) => {
 						roomResolverCalls += 1
 						trace.push(`room-filter:${context.requestId}`)
 						return where.eq('active', true)
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const firstWorkspace = { id: firstSourceId, name: 'First workspace' }
 		const secondWorkspace = { id: secondSourceId, name: 'Second workspace' }
@@ -296,15 +302,18 @@ describe('Runtime relation-filter inclusions', () => {
 			className: 'PointerIsolationPost',
 			fields: (field) => ({
 				author: field.pointer({ target: 'PointerIsolationUser' }),
-				reviewers: field.relation({
-					target: 'PointerIsolationUser',
+				reviewers: field.relation({ target: 'PointerIsolationUser' }),
+				title: field.string(),
+			}),
+		}).with({
+			relations: {
+				reviewers: {
 					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
 					},
-				}),
-				title: field.string(),
-			}),
+				},
+			},
 		})
 		const author = User.pointer(firstTargetId)
 		const post = {
@@ -385,14 +394,17 @@ describe('Runtime relation-filter inclusions', () => {
 			className: 'MutationIncludedSource',
 			fields: (field) => ({
 				name: field.string({ required: true }),
-				targets: field.relation({
-					target: 'MutationIncludedTarget',
+				targets: field.relation({ target: 'MutationIncludedTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const first = {
 			createdAt: now,
@@ -486,14 +498,17 @@ describe('Runtime relation-filter inclusions', () => {
 			className: 'SingularMutationIncludedSource',
 			fields: (field) => ({
 				name: field.string({ required: true }),
-				targets: field.relation({
-					target: 'SingularMutationIncludedTarget',
+				targets: field.relation({ target: 'SingularMutationIncludedTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
 					},
-				}),
-			}),
+				},
+			},
 		})
 		const current = {
 			createdAt: now,

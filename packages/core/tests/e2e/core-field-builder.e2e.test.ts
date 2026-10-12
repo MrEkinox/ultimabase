@@ -192,11 +192,25 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		).toStrictEqual(['cascade', 'restrict', 'setNull'])
 	})
 
-	it('exports contextual relation filters from the packed declaration', () => {
+	it('offers relation filters in .with({ relations }), not in relation options', () => {
+		const relationOptions = languageFixture
+			.readMemberCompletions('relation-options')
+			.map(({ name }) => name)
+
+		expect(relationOptions).toEqual(
+			expect.arrayContaining(['mappedBy', 'target']),
+		)
+		expect(relationOptions).not.toContain('where')
 		expect(
 			languageFixture
-				.readMemberCompletions('relation-options')
+				.readMemberCompletions('relation-rule-names')
+				.map(({ name }) => name)
+				.sort(),
+		).toStrictEqual(['owners', 'reviewers'])
+		expect(
+			languageFixture
+				.readMemberCompletions('relation-rule-keys')
 				.map(({ name }) => name),
-		).toEqual(expect.arrayContaining(['mappedBy', 'target', 'where']))
+		).toStrictEqual(['where'])
 	})
 })

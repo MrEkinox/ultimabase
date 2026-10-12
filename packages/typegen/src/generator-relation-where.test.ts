@@ -13,12 +13,15 @@ describe('relation where Typegen declarations', () => {
 		const Source = UltimaBase.Schema.define({
 			className: 'TypegenRelationWhereSource',
 			fields: (field) => ({
-				targets: field.relation({
-					target: 'TypegenRelationWhereTarget',
+				targets: field.relation({ target: 'TypegenRelationWhereTarget' }),
+			}),
+		}).with({
+			relations: {
+				targets: {
 					where: ({ where }) =>
 						secretResolverText.length > 0 ? where.eq('visible', true) : where,
-				}),
-			}),
+				},
+			},
 		})
 		const generated = generateApplicationTypes({
 			ultimabase: new UltimaBase({ schemas: [Source, Target] }),

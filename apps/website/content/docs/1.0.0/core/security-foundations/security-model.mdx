@@ -8,13 +8,14 @@ contentType: concept
 order: 1
 outcome: Place each security requirement at the boundary that actually enforces it.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-13
 sources:
   - ARCHITECTURE.md
   - packages/core/docs/access.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0218-master-bypasses-authorization-policies.md
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
+  - docs/adr/0328-relation-filters-in-with.md
 ---
 
 UltimaBase separates concerns that are often collapsed into “auth.” Keeping the
@@ -52,9 +53,9 @@ result sets can only narrow. Access and ACL are separate optional plugins;
 ACL does not depend on the Access package.
 
 <Callout type="warn" title="A filter is not an access rule">
-	A relation `where`, a UI filter, or a transport projection shapes one read
-	path. It does not protect the same object through another query. Use Access,
-	ACL, or another protected policy for authorization.
+	A declared relation filter, a UI filter, or a transport projection shapes one
+	read path. It does not protect the same object through another query. Use
+	Access, ACL, or another protected policy for authorization.
 </Callout>
 
 ## Master remains server-only

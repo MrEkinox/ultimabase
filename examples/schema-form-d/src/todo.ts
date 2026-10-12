@@ -41,4 +41,5 @@ export const Todo = App.Schema.define({
 			},
 		},
 		postgres: { table: 'form_d_todos' },
+		relations: { tags: { where: ({ where }) => where.ne('label', '') } },
 	})

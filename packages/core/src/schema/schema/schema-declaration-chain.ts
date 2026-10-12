@@ -31,6 +31,7 @@ import type {
 } from './indexes.js'
 import type { SchemaIndexWhere } from './index-predicates.js'
 import type { SchemaRulesTarget } from './registered-schemas.js'
+import type { ConfiguredSchemaRelationRules } from './relation-rules.js'
 
 /**
  * Indexes accepted by the final `.with(...)`, typed against the complete
@@ -81,7 +82,8 @@ export interface SchemaRulesMethod<
 			SchemaShapeOf<TOptions>
 		> &
 			ConfiguredSchemaRuleOptions<TSource, TClassName, TFields, TOptions> &
-			ConfiguredSchemaIndexRules<TSource, TClassName, TFields, TOptions>,
+			ConfiguredSchemaIndexRules<TSource, TClassName, TFields, TOptions> &
+			ConfiguredSchemaRelationRules<TFields>,
 	): ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
 }
 
@@ -170,17 +172,23 @@ const defineDeclaredSchema = (
 				if (typeof rules !== 'object' || rules === null) {
 					throw new TypeError('schema rules must be an object')
 				}
-				// Indexes of `.with` may name fields that plugins add (ADR-0303).
-				const { indexes, ...rest }: Readonly<Record<string, unknown>> = {
-					...rules,
-				}
+				// Indexes of `.with` may name fields that plugins add (ADR-0303);
+				// relation filters join their relation field (ADR-0328).
+				const {
+					indexes,
+					relations,
+					...rest
+				}: Readonly<Record<string, unknown>> = { ...rules }
 				if (indexes !== undefined && !Array.isArray(indexes)) {
 					throw new TypeError('indexes must be a list')
 				}
 				return defineOrdinarySchemaModel(
 					{ ...options, ...rest },
 					{},
-					indexes as readonly SchemaIndexInput[] | undefined,
+					{
+						indexes: indexes as readonly SchemaIndexInput[] | undefined,
+						relations,
+					},
 					statics,
 				)
 			}),
