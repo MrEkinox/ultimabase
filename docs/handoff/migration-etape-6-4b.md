@@ -22,7 +22,9 @@ contre d59522ad expliqué ; pas de banc (types de Core inchangés).
 
 ## État
 
-Implémentation, tests et documentation faits ; porte finale : voir « Preuves ».
+Implémentation, tests et documentation faits ; porte finale verte sur
+605ce60f (dernier commit de code), audit DX expliqué ; worktree de référence
+retiré.
 
 ## Décisions (à confirmer par l'utilisateur)
 
@@ -172,9 +174,38 @@ Aucun autre test existant modifié.
 
 ## Preuves
 
-À compléter après la porte finale.
+Porte sur 605ce60f, après suppression de `packages/*/dist` et `*.tsbuildinfo` :
+
+- `yarn validate:full` : code 0 ; « All matched files use Prettier code
+  style! » ; lint 0 erreur (48, 15 et 2 avertissements, comme 6.4a) ;
+  performance « Test Files 3 passed (3) / Tests 4 passed (4) » ; couverture
+  « Test Files 736 passed (736) / Tests 3632 passed (3632) / Type Errors no
+  errors », All files 92.53 / 85.8 / 96.83 / 93.25 ; site « Test Files 17
+  passed (17) / Tests 66 passed (66) ».
+- `yarn test:e2e:built` : code 0, « Test Files 136 passed (136) / Tests 598
+  passed (598) » (`create-app-packed` compris ; un premier passage pendant
+  le développement avait dépassé 120 s sous charge 8–10, vert seul et dans
+  la porte).
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) » (124 pages statiques).
+
+Audit DX contre d59522ad construit (`--only` tous les paquets, `tests`,
+`examples/minimal`, `examples/todo-backend`) : 426 différences (39455 /
+39739). auth-password 328 (nouvelles exportations, déclarations, survols et
+le nouveau `password-email.test-d.ts` ; changés : `PasswordOptions`,
+`PasswordStatics`, `PasswordMethod`, `PasswordUserFields` — le survol montre
+désormais l'intersection conditionnelle `IsEmail<…>` au lieu du type
+aplati —, erreurs de `login`, `passwordErrorCodes`, compteurs « … N more … »
+des survols d'usage du User e-mail), auth-plugin 68 (nouvelles exportations,
+`AuthServices`, `AuthMethodImplementation.userEmail`,
+`AuthHttpRoute.anonymous`, codes d'erreur, JSDoc des événements),
+examples/schema-form-d 27 (le `TodoUser` e-mail gagne `emailVerified`,
+`emailVerifiedAt` et six statiques ; `eq` accepte `boolean`),
+examples/minimal 1 (erreurs de `login` dans `Object.values`), tests 2
+(complétions d'exportations). Core : aucune différence. Pas de banc (types de
+Core inchangés).
 
 ## Prochaine action vérifiable
 
-Porte finale sur le dernier commit de code, audit DX, puis revue par le
-coordinateur.
+Revue du diff par le coordinateur, confirmation des décisions de sécurité 1 à
+8, puis fusion dans `main`.
