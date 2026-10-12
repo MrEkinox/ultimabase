@@ -180,7 +180,10 @@ describe('virtual schema fields', () => {
 		})
 		const displayName = User.virtualFields.displayName
 		if (displayName === undefined) throw new TypeError('Expected displayName')
-		expect(getVirtualFieldResolver(displayName)).toBe(resolver)
+		expect(getVirtualFieldResolver(displayName)).toStrictEqual({
+			kind: 'one',
+			resolve: resolver,
+		})
 		expect(JSON.stringify(User.virtualFields.displayName)).not.toContain(
 			'resolve',
 		)
@@ -281,6 +284,6 @@ describe('virtual schema fields', () => {
 					}),
 				}),
 			),
-		).toContain('virtual.resolve must be a function')
+		).toContain('requires exactly one resolve or resolveMany function')
 	})
 })

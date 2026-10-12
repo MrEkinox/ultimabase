@@ -25,6 +25,7 @@ import { reservedSystemFieldNames, systemFields } from './system-fields.js'
 import {
 	assertVirtualFieldDefinition,
 	getVirtualFieldResolver,
+	isSameVirtualFieldResolver,
 	type GenericVirtualField,
 } from './virtual-field.js'
 import type {
@@ -319,7 +320,10 @@ const assertCompatibleCompilation = (
 			const candidate = prepared.definition.virtualFields[name]
 			return (
 				candidate !== undefined &&
-				getVirtualFieldResolver(candidate) === getVirtualFieldResolver(field)
+				isSameVirtualFieldResolver(
+					getVirtualFieldResolver(candidate),
+					getVirtualFieldResolver(field),
+				)
 			)
 		}) &&
 		areSchemaDeclarationValuesCompatible(

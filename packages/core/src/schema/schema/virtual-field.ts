@@ -64,6 +64,32 @@ export type VirtualFieldResolver<TItem extends object, TValue> = (input: {
 	readonly item: Readonly<TItem>
 }) => MaybePromise<TValue>
 
+/**
+ * Resolves the field for every row of one read at once, returning one value
+ * per item in the same order (ADR-0325): one call per page, or per parent of
+ * an included relation, instead of one per row.
+ */
+export type VirtualFieldManyResolver<TItem extends object, TValue> = (input: {
+	readonly context: RequestContext
+	readonly items: readonly Readonly<TItem>[]
+}) => MaybePromise<readonly TValue[]>
+
+/** Exactly one of `resolve` (per row) or `resolveMany` (per read). */
+export type VirtualFieldResolution<TItem extends object, TValue> =
+	| {
+			/** Resolves the result from the exact private dependency projection. */
+			readonly resolve: VirtualFieldResolver<TItem, TValue>
+			readonly resolveMany?: never
+	  }
+	| {
+			readonly resolve?: never
+			/**
+			 * Resolves every row of one read at once; returns one value per item,
+			 * in order. @example `resolveMany: async ({ items }) => countTags(items)`
+			 */
+			readonly resolveMany: VirtualFieldManyResolver<TItem, TValue>
+	  }
+
 /** Declares one output-only schema field without persistence behavior. */
 export type VirtualFieldOptions<
 	TOutput extends GenericOutputDescriptor,
@@ -80,11 +106,9 @@ export type VirtualFieldOptions<
 		readonly description?: string
 		/** Describes the complete nullable and list-aware result value. */
 		readonly output: (output: TOutputBuilder) => TOutput
-		/** Resolves the result from the exact private dependency projection. */
-		readonly resolve: VirtualFieldResolver<TItem, OutputValue<TOutput>>
 		/** Selects flat persisted dependencies; canonical identity is always retained. */
 		readonly select: TSelection
-	}
+	} & VirtualFieldResolution<TItem, OutputValue<TOutput>>
 
 /** Retains inert virtual metadata while Core keeps resolver identity private. */
 export interface VirtualFieldDefinition<
@@ -103,11 +127,51 @@ export interface VirtualFieldDefinition<
 /** Accepts any genuine Core virtual declaration. */
 export type GenericVirtualField = VirtualFieldDefinition
 
-interface VirtualFieldCapability {
-	readonly resolver: VirtualFieldResolver<object, unknown>
+/** @internal The resolver Core keeps private behind one virtual declaration. */
+export type VirtualFieldResolverBinding =
+	| Readonly<{
+			readonly kind: 'one'
+			readonly resolve: VirtualFieldResolver<object, unknown>
+	  }>
+	| Readonly<{
+			readonly kind: 'many'
+			readonly resolveMany: VirtualFieldManyResolver<object, unknown>
+	  }>
+
+const virtualFieldResolvers = new WeakMap<object, VirtualFieldResolverBinding>()
+
+/** @internal Reads `resolve` or `resolveMany` from untrusted virtual options. */
+export const readVirtualFieldResolverBinding = (
+	resolve: unknown,
+	resolveMany: unknown,
+	path: string,
+): VirtualFieldResolverBinding => {
+	if (typeof resolve === 'function' && resolveMany === undefined) {
+		// The builder types the resolver; Core keeps its identity.
+		return immutableRecord({
+			kind: 'one' as const,
+			resolve: resolve as VirtualFieldResolver<object, unknown>,
+		})
+	}
+	if (typeof resolveMany === 'function' && resolve === undefined) {
+		return immutableRecord({
+			kind: 'many' as const,
+			resolveMany: resolveMany as VirtualFieldManyResolver<object, unknown>,
+		})
+	}
+	throw new TypeError(
+		`${path} requires exactly one resolve or resolveMany function`,
+	)
 }
 
-const virtualFieldCapabilities = new WeakMap<object, VirtualFieldCapability>()
+/** @internal Compares two bindings by resolver identity. */
+export const isSameVirtualFieldResolver = (
+	left: VirtualFieldResolverBinding,
+	right: VirtualFieldResolverBinding,
+): boolean =>
+	left.kind === 'one'
+		? right.kind === 'one' && left.resolve === right.resolve
+		: right.kind === 'many' && left.resolveMany === right.resolveMany
 
 /** Creates one provenance-checked virtual declaration after schema validation. */
 export const createVirtualFieldDefinition = <
@@ -115,13 +179,10 @@ export const createVirtualFieldDefinition = <
 >(
 	output: TOutput,
 	select: readonly string[],
-	resolver: VirtualFieldResolver<object, unknown>,
+	resolver: VirtualFieldResolverBinding,
 	options: Readonly<Record<string, unknown>>,
 ): VirtualFieldDefinition<TOutput> => {
 	assertOutputDescriptor(output, 'virtual.output')
-	if (typeof resolver !== 'function') {
-		throw new TypeError('virtual.resolve must be a function')
-	}
 	assertPlainObject(options, 'virtual options must be a plain object')
 
 	const field = immutableRecord({
@@ -130,7 +191,7 @@ export const createVirtualFieldDefinition = <
 		output,
 		select: immutableArray(select),
 	}) as VirtualFieldDefinition<TOutput>
-	virtualFieldCapabilities.set(field, { resolver })
+	virtualFieldResolvers.set(field, resolver)
 	return field
 }
 
@@ -144,7 +205,7 @@ export function assertVirtualFieldDefinition(
 		value.kind !== 'virtual' ||
 		!isPlainRecord(value.options) ||
 		!Array.isArray(value.select) ||
-		!virtualFieldCapabilities.has(value)
+		!virtualFieldResolvers.has(value)
 	) {
 		throw new TypeError(`${path} must be created by field.virtual`)
 	}
@@ -154,12 +215,12 @@ export function assertVirtualFieldDefinition(
 /** @internal Reads the exact resolver retained behind Core provenance. */
 export const getVirtualFieldResolver = (
 	field: GenericVirtualField,
-): VirtualFieldResolver<object, unknown> => {
-	const capability = virtualFieldCapabilities.get(field)
-	if (capability === undefined) {
+): VirtualFieldResolverBinding => {
+	const resolver = virtualFieldResolvers.get(field)
+	if (resolver === undefined) {
 		throw new TypeError('Invalid virtual field resolver binding')
 	}
-	return capability.resolver
+	return resolver
 }
 
 /** Normalizes one dependency selection against persisted non-relation fields. */

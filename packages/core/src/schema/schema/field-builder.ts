@@ -34,9 +34,9 @@ import { systemFields } from './system-fields.js'
 import {
 	assertVirtualFieldDefinition,
 	createVirtualFieldDefinition,
+	readVirtualFieldResolverBinding,
 	normalizeVirtualFieldSelection,
 	type GenericVirtualField,
-	type VirtualFieldResolver,
 } from './virtual-field.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
@@ -289,10 +289,12 @@ export const resolveCapturedFieldMap = (
 			call.options,
 			`${virtualPath} options must be a plain object`,
 		)
-		const { output, resolve, select, ...options } = call.options
-		if (typeof resolve !== 'function') {
-			throw new TypeError(`${virtualPath}.resolve must be a function`)
-		}
+		const { output, resolve, resolveMany, select, ...options } = call.options
+		const resolver = readVirtualFieldResolverBinding(
+			resolve,
+			resolveMany,
+			virtualPath,
+		)
 		fields.push([
 			name,
 			createVirtualFieldDefinition(
@@ -306,7 +308,7 @@ export const resolveCapturedFieldMap = (
 					persistedFields,
 					`${virtualPath}.select`,
 				),
-				resolve as VirtualFieldResolver<object, unknown>,
+				resolver,
 				immutableRecord(options),
 			),
 		])

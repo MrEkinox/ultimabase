@@ -58,6 +58,7 @@ describe('@ultimabase/core public entry point', () => {
 			'createRuntimeValidationStage',
 			'databaseAdapterCapability',
 			'databaseFilterOperatorCapabilityVersion',
+			'databaseFilterOperatorsCapability',
 			'databaseInclusionCapability',
 			'databaseInclusionCapabilityVersion',
 			'databasePartialIndexCapability',
