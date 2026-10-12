@@ -313,6 +313,7 @@ Current records (accepted or still active in part):
 - [ADR-0323: HTTP foundation defaults and the Hono server](0323-http-foundation-and-hono-server.md)
 - [ADR-0324: REST exposure, application operations and OpenAPI](0324-rest-exposure-operations-and-openapi.md)
 - [ADR-0325: GraphQL options, one explorer plugin and the `api-server` preset](0325-graphql-explorer-and-api-server-preset.md)
+- [ADR-0326: Authentication foundation, password method and account lifecycle](0326-auth-foundation-and-password-method.md)
 
 Proposed records (awaiting user validation):
 

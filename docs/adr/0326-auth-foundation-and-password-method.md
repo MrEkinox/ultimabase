@@ -1,6 +1,6 @@
 # ADR-0326: Authentication foundation, password method and account lifecycle
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-12
 - Refines: the Password Auth records, ADR-0297 (form D, amendment 3 on plugin schema factories),
   ADR-0304 (principal provider), ADR-0316 (`definePlugin`, schema factories of 6.3), ADR-0318
@@ -8,7 +8,7 @@
   applies ADR-0288
 - Approval: decisions of the authentication review (`docs/handoff/revue-plugins/password-auth.md`:
   decisions 1 to 9, the foundation and methods restructuring, account linking, and added
-  features 1 to 6, 8 and 9, validated by the user on 2026-10-09); record to be accepted by the user
+  features 1 to 6, 8 and 9, validated by the user on 2026-10-09); record accepted by the user on 2026-10-12 (OAuth as its own record after the migration; method package `@ultimabase/auth-password`)
 - Already implemented elsewhere: the plugin provides the Core principal (ADR-0304), public
   operations and `hide` (ADR-0324), typed GraphQL for public operations (ADR-0325)
 
