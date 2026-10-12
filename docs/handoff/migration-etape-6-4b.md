@@ -13,43 +13,168 @@ ADR-0326, décisions 6, 7, 8 (changement d'e-mail), 9 et 10 :
 - changement d'e-mail (`requestEmailChange`, `confirmEmailChange`) ;
 - événements `afterPasswordReset`, `afterEmailVerified`, `afterEmailChanged`
   émis ;
-- exposition REST/GraphQL/HTTP, create-app, documentation.
+- exposition HTTP (`/api/auth/*`), REST, GraphQL typé, create-app,
+  documentation (READMEs, page du site).
 
 Critère de fin : porte complète sur le dernier commit de code
 (`yarn validate:full`, `yarn test:e2e:built`, `yarn website:test`), audit DX
-contre d59522ad expliqué ; pas de banc sauf changement des types de Core.
-
-## Conception retenue (à confirmer)
-
-- Le socle définit et protège les champs `emailVerified` (booléen, défaut
-  `false`) et `emailVerifiedAt` ; il les ajoute au User quand une méthode
-  déclare posséder l'e-mail du User (`userEmail: true`, c'est le cas de
-  `password({ identifier: 'email' })`). Types : ni création ni mise à jour
-  (état `forbidden`), l'`email` reste immuable dans les types.
-- Écritures protégées : à l'exécution `email` (identifiant e-mail) devient
-  modifiable, mais la garde finale du socle refuse toute écriture de `email`,
-  `emailVerified` et `emailVerifiedAt` (création : seulement les défauts) sans
-  le marqueur interne de contexte du socle, Master compris
-  (`VALIDATION_ERROR`, code `field.protected`).
-- Jetons : 32 octets aléatoires, préfixes `ub_r1.` (réinitialisation),
-  `ub_v1.` (vérification), `ub_c1.` (changement d'e-mail) ; seul le SHA-256
-  est stocké (collection privée `auth-tokens`) ; le jeton courant de chaque
-  usage est désigné par la ligne d'état du User (compare-and-swap), un
-  nouveau jeton remplace et supprime l'ancien, la consommation est atomique et
-  unique.
-- Les flux vivent dans la méthode mot de passe (identifiant e-mail), avec des
-  groupes d'options : `reset: { sendResetEmail, expiresInMs }`,
-  `verification: { sendVerificationEmail, requireVerifiedEmail, expiresInMs }`,
-  `emailChange: { sendConfirmationEmail, sendNoticeEmail, expiresInMs }`. Les
-  opérations sont toujours installées avec l'identifiant e-mail
-  (`passwordEmailOperations`) ; une demande sans rappel configuré répond
-  `AUTH_NOT_CONFIGURED` (501).
-- Rappels exécutés après commit (`runAfterCommit`), hors de la requête.
+contre d59522ad expliqué ; pas de banc (types de Core inchangés).
 
 ## État
 
-En cours : implémentation.
+Implémentation, tests et documentation faits ; porte finale : voir « Preuves ».
+
+## Décisions (à confirmer par l'utilisateur)
+
+Sécurité :
+
+1. **Jetons** : 32 octets aléatoires (base64url, 43 caractères) avec un
+   préfixe par usage (`ub_r1.` réinitialisation, `ub_v1.` vérification,
+   `ub_c1.` changement d'e-mail) ; seul le SHA-256 est stocké (collection
+   privée `auth-tokens`, index uniques `id` et `digest`, cascade sur le User).
+   Le jeton courant de chaque usage est désigné par la ligne d'état du User
+   (`tokenIds`, compare-and-swap) : un nouveau jeton remplace et supprime
+   l'ancien ; la consommation est atomique (une seule réussit sous
+   concurrence) et supprime la ligne. Un jeton émis pour un e-mail remplacé
+   depuis est refusé (`AUTH_INVALID_TOKEN`, réponse uniforme : inconnu,
+   expiré, utilisé, remplacé ou d'un autre usage).
+2. **Durées** (`expiresInMs`, bornées) : réinitialisation 1 h (5 min à 24 h),
+   vérification 24 h (5 min à 7 jours), changement d'e-mail 1 h (5 min à
+   24 h).
+3. **Réponses identiques** : `requestPasswordReset` et
+   `requestEmailVerification` répondent `{ accepted: true }` (adresse connue,
+   inconnue ou mal formée) ; même limitation (clé = e-mail normalisé, que le
+   compte existe ou non), mêmes lectures (lecture leurre du User par un id
+   aléatoire pour une adresse inconnue), rappel exécuté après commit hors de
+   la requête (sa durée et son échec n'atteignent jamais le client). Écart
+   résiduel : pour un compte existant (non vérifié pour la vérification),
+   l'écriture du jeton (une insertion, une mise à jour d'état, au plus une
+   suppression). Alternative non retenue : plancher de durée de réponse fixe.
+4. **Limitation** (seuils de 6.4a réutilisés, sans événement
+   `afterLoginFailed`) : chaque demande de réinitialisation ou de vérification
+   compte une tentative par (e-mail, adresse) — 5 libres — et par e-mail —
+   20 libres —, puis délais croissants (`AUTH_TOO_MANY_ATTEMPTS`). Les
+   jetons invalides sont comptés par adresse cliente (20 libres), seulement
+   sous HTTP. Une réinitialisation réussie remet à zéro les compteurs de
+   connexion et de demandes de cet e-mail. `requestEmailChange` vérifie le
+   mot de passe sous la limitation de `changePassword` (`user:<id>`).
+5. **`requireVerifiedEmail`** : bloque la **connexion** par mot de passe
+   (`AUTH_EMAIL_NOT_VERIFIED`, 403) après un mot de passe correct, tant que
+   l'e-mail n'est pas vérifié ; un mauvais mot de passe reste
+   `AUTH_INVALID_CREDENTIALS` (l'état de vérification n'est révélé qu'au
+   détenteur du mot de passe). L'inscription renvoie toujours sa première
+   session (comme `preventLoginWithUnverifiedEmail` de Parse) et les
+   sessions existantes continuent ; `refresh` n'est pas bloqué. Justification :
+   la connexion est la porte ; le client peut redemander un e-mail ; un
+   imposteur ayant pris l'adresse d'une victime est évincé par la
+   réinitialisation de la victime (toutes les sessions révoquées).
+   Alternatives : bloquer aussi `refresh`, ou ne pas émettre de session à
+   l'inscription (type de résultat conditionnel).
+6. **Changement d'e-mail** : la demande exige le mot de passe actuel (et
+   marque la session comme authentifiée récemment), n'indique jamais si
+   l'adresse est prise ; la confirmation (jeton seul, sans session) vérifie
+   l'unicité (lecture préalable du credential), puis les index uniques du User
+   (`email`) et du credential (`identifier`) tranchent les confirmations
+   simultanées : la perdante reçoit `AUTH_EMAIL_CHANGE_REJECTED` (testé avec
+   deux confirmations concurrentes). Les sessions sont conservées ; l'ancienne
+   adresse est notifiée après commit ; le nouvel e-mail est vérifié. Une
+   réinitialisation ou un changement de mot de passe annule un changement
+   d'e-mail en attente (sinon le voleur du mot de passe pourrait confirmer
+   après la récupération du compte par la victime).
+7. **Champs protégés** : avec un identifiant e-mail, `email`, `emailVerified`
+   et `emailVerifiedAt` ne sont écrits que par les flux d'authentification,
+   Master compris (garde finale du socle, marqueur interne de contexte ;
+   `VALIDATION_ERROR` code `field.protected`) ; une création garde les
+   défauts. Types : les deux champs de vérification sont hors des entrées de
+   création et de mise à jour, `email` reste immuable dans les types.
+8. **Données personnelles** : les rappels reçoivent la ligne User et les
+   adresses ; `afterEmailVerified` et `afterEmailChanged` portent des e-mails
+   (documenté) ; jamais de jeton ni de mot de passe dans les événements
+   (testé).
+
+Architecture :
+
+9. **Répartition** : le socle définit les champs de vérification
+   (`AuthEmailVerificationFields`, ajoutés quand une méthode déclare
+   `userEmail: true`), les jetons, la protection des champs et les services
+   (`issueToken`, `findToken`, `consumeToken`, `cancelToken`, `readUser`,
+   `markEmailVerified`, `changeEmail`, `completePasswordReset`,
+   `checkAttempt`, `countAttempt`) ; les flux vivent dans la méthode mot de
+   passe, propriétaire de l'e-mail et du credential (identifiant e-mail
+   seulement). Écart assumé avec la lettre d'ADR-0326 décision 7, qui place
+   `sendVerificationEmail` et `verifyEmail` dans le socle : seule une méthode
+   possède aujourd'hui l'e-mail du User ; une future méthode à e-mail (lien
+   magique) réutilisera les mêmes services.
+10. **Options** : `password({ identifier: 'email', reset: { sendResetEmail,
+expiresInMs }, verification: { sendVerificationEmail, requireVerifiedEmail,
+expiresInMs }, emailChange: { sendConfirmationEmail, sendNoticeEmail,
+expiresInMs } })` ; ces groupes sont refusés (types et exécution) pour
+    `identifier: 'username'`.
+11. **Opérations** : `passwordEmailOperations` (`requestPasswordReset`,
+    `resetPassword`, `requestEmailVerification`, `verifyEmail`,
+    `requestEmailChange`, `confirmEmailChange`), toujours installées avec
+    l'identifiant e-mail (listes `hide` stables) ; une demande sans son groupe
+    répond `AUTH_NOT_CONFIGURED` (501). Statiques du User et GraphQL typés
+    conditionnés à `identifier: 'email'`. Routes HTTP
+    `/api/auth/request-password-reset`, `reset-password` (efface le cookie),
+    `request-email-verification`, `verify-email`, `request-email-change`
+    (session requise), `confirm-email-change` ; les routes anonymes ignorent un
+    cookie périmé (`AuthHttpRoute.anonymous`).
+12. **Codes** : socle `AUTH_INVALID_TOKEN` (400), `AUTH_EMAIL_NOT_VERIFIED`
+    (403), `AUTH_NOT_CONFIGURED` (501) ; méthode `AUTH_EMAIL_CHANGE_REJECTED`
+    (400) ; un nouveau mot de passe invalide à la réinitialisation réutilise
+    `AUTH_PASSWORD_CHANGE_REJECTED`. `login` déclare
+    `AUTH_EMAIL_NOT_VERIFIED`.
+13. **Exécution des écritures protégées** : l'`email` d'un identifiant e-mail
+    devient modifiable à l'exécution (le type reste immuable) pour que le
+    socle puisse le changer ; conséquence visible : les entrées de création et
+    de mise à jour générées par GraphQL et REST listent `email`,
+    `emailVerified` et `emailVerifiedAt`, que la garde refuse. Alternative non
+    retenue (changement plus large) : ajouter les champs par patch de schéma
+    avec `mutationInput: 'forbidden'` et les écrire par une mutation de schéma
+    propre au socle, ce qui demanderait de déplacer les champs des méthodes
+    hors de `UserSchema.define` et d'exécuter une mutation Master interne.
+14. **create-app** : REST masque toutes les opérations d'authentification
+    (dont `passwordEmailOperations`) ; GraphQL expose les autres et masque les
+    flux e-mail tant qu'aucun rappel n'est configuré (commentaire généré) ;
+    note du README généré mise à jour.
+
+## Approches rejetées
+
+- Opérations installées seulement avec leur groupe d'options : les listes
+  `hide` (`Object.values(...)`) échoueraient (REST refuse de masquer une
+  opération absente) et les types annonceraient des statiques absentes.
+- Jeton contenant l'id du User (sans collection de jetons) : expose l'id dans
+  les liens.
+- Écriture de `email` par une mise à jour Master ordinaire : le champ
+  immuable est refusé par Core, sans contournement.
+
+## Tests publics modifiés
+
+- `packages/create-app/src/api-template.test.ts` (interne) : l'assertion
+  `hide: [...Object.values(authOperations), ...Object.values(passwordOperations)]`
+  devient la liste multi-ligne avec `...Object.values(passwordEmailOperations)`,
+  plus `hide: Object.values(passwordEmailOperations)` pour GraphQL.
+- `tooling/vitest/auth-public-api.ts` (classification de l'API publique) :
+  noms ajoutés (socle : `AuthUserRecord`, `AuthEmailVerificationFields`,
+  `AuthIssuedToken`, `AuthTokenClaim`, `AuthTokenPurpose`,
+  `rejectNotConfigured`, `rejectToken`, `rejectUnverifiedEmail` ; méthode :
+  types et messages des flux, `passwordEmailOperations`) ; noms privés ajoutés
+  à `removed*`.
+- `examples/minimal/.ultimabase/schema.generated.d.ts` régénéré : erreurs de
+  `ultimabase.auth.password.login` `["AUTH_INVALID_CREDENTIALS",
+"AUTH_TOO_MANY_ATTEMPTS"]` → `["AUTH_EMAIL_NOT_VERIFIED",
+"AUTH_INVALID_CREDENTIALS", "AUTH_TOO_MANY_ATTEMPTS"]`.
+- `packages/auth-password/tests/e2e/password-fixture.ts` : options ajoutées
+  (`email`, `master`), comportement par défaut inchangé.
+
+Aucun autre test existant modifié.
+
+## Preuves
+
+À compléter après la porte finale.
 
 ## Prochaine action vérifiable
 
-Implémenter le socle (jetons, champs, garde, services), puis la méthode.
+Porte finale sur le dernier commit de code, audit DX, puis revue par le
+coordinateur.

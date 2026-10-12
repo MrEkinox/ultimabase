@@ -154,9 +154,9 @@ export const readUserRecord = async (
 		{ where: { id: userId } },
 		{ useMasterKey: true },
 	)
-	return isPlainRecord(record) && typeof record.id === 'string'
-		? (record as AuthUserRecord)
-		: undefined
+	if (!isPlainRecord(record) || typeof record.id !== 'string') return undefined
+	// A frozen copy whose `id` is typed: the row is plain data.
+	return immutableRecord({ ...record, id: record.id })
 }
 
 /** Writes protected User fields as the authentication flows, with elevation. */
