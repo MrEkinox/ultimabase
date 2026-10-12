@@ -91,7 +91,6 @@ const optionalContracts: ReadonlySet<OptionalPluginConformanceContract> =
 		'schema-mutation',
 		'schema-surface',
 		'transport',
-		'typegen',
 	])
 
 const assertExpected = (expected: unknown): void => {

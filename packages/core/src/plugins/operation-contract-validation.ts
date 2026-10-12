@@ -9,14 +9,8 @@ import { isNamespacedName } from '../schema/fields/base/definition.js'
 
 import { assertExactEnumerableKeys } from '../exact-object-validation.js'
 
-import {
-	isTypegenReference,
-	type TypegenReference,
-} from './typegen-contracts.js'
-
 interface OperationValueContractLike {
 	readonly snapshot: (value: unknown, path: string) => unknown
-	readonly typegen?: TypegenReference
 }
 
 /** @internal Validates the shared stable identity of operation-like tokens. */
@@ -45,14 +39,9 @@ export const assertOperationValueContract: (
 
 	assertExactEnumerableKeys(
 		value,
-		new Set(['snapshot', 'typegen']),
+		new Set(['snapshot']),
 		`${path} contains unknown option: `,
 	)
-	if (value.typegen !== undefined && !isTypegenReference(value.typegen)) {
-		throw new TypeError(
-			`${path}.typegen must be created by defineTypegenReference`,
-		)
-	}
 }
 
 /** @internal Detaches the shared public error vocabulary. */

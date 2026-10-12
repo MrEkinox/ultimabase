@@ -6,7 +6,7 @@ import { booleanField } from '../schema/fields/builtins/boolean.js'
 import type { PluginFieldDefinition } from '../schema/fields/plugin.js'
 import type {
 	FieldOptions,
-	ScalarFieldTypegenState,
+	ScalarFieldTypeState,
 } from '../schema/fields/base/contract.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { Schema } from '../schema/schema/definition.js'
@@ -37,7 +37,7 @@ type RatingField = PluginFieldDefinition<
 	'fixture.rating',
 	number,
 	FieldOptions<number>,
-	ScalarFieldTypegenState<true, false, false, false>
+	ScalarFieldTypeState<true, false, false, false>
 >
 
 type RatingFactory = (options: { readonly required: true }) => RatingField

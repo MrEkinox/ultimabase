@@ -64,17 +64,12 @@ export const compileCommandGraph = (
 					: immutableRecord({
 							kind: 'operation' as const,
 							definition: immutableRecord({
-								...source,
-								input: immutableRecord({
-									...(source.input.typegen === undefined
-										? {}
-										: { typegen: source.input.typegen }),
-								}),
-								result: immutableRecord({
-									...(source.result.typegen === undefined
-										? {}
-										: { typegen: source.result.typegen }),
-								}),
+								errors: source.errors,
+								kind: source.kind,
+								name: source.name,
+								target: source.target,
+								transaction: source.transaction,
+								version: source.version,
 							}),
 							owner: owned.owner,
 						})

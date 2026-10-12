@@ -4,7 +4,7 @@ import {
 	binaryField,
 	compileValidationPlans,
 	definePluginField,
-	readFieldTypegenState,
+	readFieldTypeState,
 	objectField,
 	stringField,
 	type FieldDefinition,
@@ -158,7 +158,7 @@ describe('validation plans', () => {
 
 		expect(plans.create.fields.generated?.presence).toBe('optional')
 		expect(plans.update.fields.generated?.presence).toBe('optional')
-		expect(readFieldTypegenState(generated).create).toBe('optional')
+		expect(readFieldTypeState(generated).create).toBe('optional')
 	})
 
 	it('uses create child rules when an update replaces an object list', () => {

@@ -8,7 +8,7 @@ import {
 import {
 	compileValidationPlans,
 	pointerField,
-	readFieldTypegenState,
+	readFieldTypeState,
 	stringField,
 	type FieldBuilder,
 } from '../index.js'
@@ -137,7 +137,7 @@ describe('plugin schema declaration registry', () => {
 		if (managedState === undefined) {
 			throw new TypeError('Expected the plugin-managed field')
 		}
-		expect(readFieldTypegenState(managedState)).toEqual({
+		expect(readFieldTypeState(managedState)).toEqual({
 			create: 'forbidden',
 			list: false,
 			nullable: false,

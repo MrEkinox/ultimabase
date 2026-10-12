@@ -1,7 +1,7 @@
 import {
 	getFieldListDepth,
 	getFieldSchemaTarget,
-	readFieldTypegenState,
+	readFieldTypeState,
 	type GenericField,
 	type GenericOutputDescriptor,
 	type SchemaDefinition,
@@ -213,7 +213,7 @@ export const describeSchemaComponents = (
 		([name, field]) =>
 			!systemFields.has(name) &&
 			!isGenerated(field) &&
-			readFieldTypegenState(field).create !== 'forbidden',
+			readFieldTypeState(field).create !== 'forbidden',
 	)
 	const createRequired = writable
 		.filter(
@@ -225,7 +225,7 @@ export const describeSchemaComponents = (
 	const updatable = writable.filter(
 		([, field]) =>
 			readOption(field, 'immutable') !== true &&
-			readFieldTypegenState(field).update !== 'forbidden',
+			readFieldTypeState(field).update !== 'forbidden',
 	)
 	return {
 		[schema.className]: {

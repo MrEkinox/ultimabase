@@ -1,9 +1,4 @@
-import type {
-	PolicyOperation,
-	Principal,
-	SchemaDefinition,
-	SchemaReference,
-} from '@ultimabase/core'
+import type { PolicyOperation, Principal } from '@ultimabase/core'
 import {
 	defineSchemaOption,
 	type FieldOptionDefinition,
@@ -19,24 +14,11 @@ import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type { AccessContext } from './context.js'
-import type { SchemaAccess } from './authoring/contracts.js'
 import { normalizeSchemaAccessDeclarations } from './authoring/declarations.js'
 import { normalizeFieldAccessDeclarations } from './authoring/field-declarations.js'
 
 type SourceAccessDecision<TInput> =
 	boolean | ((input: TInput) => MaybePromise<boolean>)
-
-type SchemaForOptions<TOptions> =
-	TOptions extends Readonly<{
-		readonly className: infer TClassName extends string
-	}>
-		? SchemaReference<TClassName>
-		: SchemaDefinition
-
-/** Resolves the exact generated schema identity used by one `access` declaration. */
-export type SchemaAccessOption<TOptions> = SchemaAccess<
-	SchemaForOptions<TOptions>
->
 
 // Field rules receive the Core policy context like every Access rule (ADR-0304).
 interface SourceFieldAccessInput {
@@ -94,19 +76,12 @@ type SourceFieldAccessOption = PluginSourceFieldOptionByKind<
 	SourceRelationFieldAccessOption
 >
 
-/** Owns the official schema `access` namespace as an opaque policy artifact. */
+/** Owns the `access` rule of `.with({ access })` as an opaque policy artifact. */
 export const schemaAccessOption: SchemaOptionDefinition<
-	ReturnType<typeof normalizeSchemaAccessDeclarations>,
-	SchemaOptionRuntimeRequirement,
-	never
+	ReturnType<typeof normalizeSchemaAccessDeclarations>
 > = defineSchemaOption({
 	normalize: normalizeSchemaAccessDeclarations,
 	protocolVersion: 1,
-	typegen: {
-		generic: 'self',
-		module: '@ultimabase/access-plugin',
-		type: 'SchemaAccessOption',
-	},
 	valueKind: 'opaque',
 })
 
@@ -119,6 +94,5 @@ export const fieldAccessOption: FieldOptionDefinition<
 	contexts: ['stored', 'embedded', 'virtual'],
 	normalize: normalizeFieldAccessDeclarations,
 	protocolVersion: 1,
-	typegen: false,
 	valueKind: 'opaque',
 })

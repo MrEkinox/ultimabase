@@ -1,7 +1,7 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldListOption,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -28,8 +28,8 @@ export type TimeFieldOptions = TimezoneTemporalFieldOptions
 /**
  * Carries a time-of-day string and exact options through schema inference.
  */
-export type TimeField<TTypegen extends FieldTypegenState = FieldTypegenState> =
-	FieldDefinition<'time', string, TimeFieldOptions, TTypegen>
+export type TimeField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'time', string, TimeFieldOptions, TState>
 
 /** Provides time-specific names for compact auto-now inference. */
 type DefaultedTimeFieldOptions<

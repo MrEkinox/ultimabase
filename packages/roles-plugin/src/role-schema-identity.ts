@@ -7,7 +7,7 @@ const roleSchemaIdentityBrand: unique symbol = Symbol('RoleSchemaIdentity')
 const roleSchemaClassNames = new WeakMap<object, string>()
 
 /**
- * Carries the opaque Typegen contract for RoleSchema's plugin-owned marker.
+ * Carries RoleSchema's plugin-owned marker.
  *
  * Application code cannot construct this nominal value. `App.RoleSchema.define()`
  * creates it so static compilation can require the official Roles plugin.
@@ -58,6 +58,5 @@ export const roleSchemaIdentityOption: SchemaOptionDefinition<RoleSchemaIdentity
 	defineSchemaOption({
 		normalize: normalizeRoleSchemaIdentity,
 		protocolVersion: 1,
-		typegen: false,
 		valueKind: 'opaque',
 	})

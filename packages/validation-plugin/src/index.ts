@@ -10,7 +10,7 @@ export type {
 	FieldValidationIssueCode,
 	ValidationIssue,
 } from './field-validation.js'
-export type { FieldValidatorHKT, SchemaValidationOption } from './options.js'
+export type { FieldValidatorHKT } from './options.js'
 export type {
 	SchemaCheck,
 	SchemaCheckInput,

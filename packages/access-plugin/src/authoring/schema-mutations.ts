@@ -2,7 +2,6 @@ import type {
 	SchemaDefinition,
 	SchemaItem,
 	SchemaResult,
-	UltimaBaseGeneratedSchemaSurfaces,
 	WhereBuilder,
 } from '@ultimabase/core'
 import type {
@@ -86,20 +85,6 @@ export type SchemaMutationAccessDeclaration<
 	| AccessRule<TSchema, SchemaMutationWhereAccessInput<TSchema, TMutation>>
 	| SchemaMutationAccess<TSchema, TMutation>
 
-type GeneratedMutationMap<TSchema extends SchemaDefinition> =
-	TSchema['className'] extends keyof UltimaBaseGeneratedSchemaSurfaces
-		? UltimaBaseGeneratedSchemaSurfaces[TSchema['className']] extends Readonly<{
-				readonly schemaMutations: infer TMutations
-			}>
-			? TMutations
-			: Readonly<Record<never, never>>
-		: Readonly<Record<never, never>>
-
-type SchemaMutationMap<
-	TSchema extends SchemaDefinition,
-	TSource,
-> = GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSource>
-
 /**
  * Projects only request-authority commands present on this schema. `TSource`
  * is the schema whose statics carry the commands (the registered schema of a
@@ -110,10 +95,7 @@ export type SchemaMutationAccessMap<
 	TSource = TSchema,
 > = {
 	readonly [
-		TCommand in keyof SchemaMutationMap<TSchema, TSource> as SchemaMutationMap<
-			TSchema,
-			TSource
-		>[TCommand] extends PluginSchemaMutationDefinition<
+		TCommand in keyof PluginSourceSchemaMutations<TSource> as PluginSourceSchemaMutations<TSource>[TCommand] extends PluginSchemaMutationDefinition<
 			string,
 			string,
 			unknown,
@@ -122,10 +104,7 @@ export type SchemaMutationAccessMap<
 		>
 			? TCommand
 			: never
-	]?: SchemaMutationMap<
-		TSchema,
-		TSource
-	>[TCommand] extends infer TMutation extends PluginSchemaMutationDefinition
+	]?: PluginSourceSchemaMutations<TSource>[TCommand] extends infer TMutation extends PluginSchemaMutationDefinition
 		? SchemaMutationAccessDeclaration<TSchema, TMutation>
 		: never
 }

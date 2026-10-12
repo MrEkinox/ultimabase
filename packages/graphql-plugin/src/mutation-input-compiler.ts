@@ -1,5 +1,5 @@
 import {
-	readFieldTypegenState,
+	readFieldTypeState,
 	type GenericField,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -39,7 +39,7 @@ const isFieldAvailable = (
 ): boolean =>
 	field.kind === 'relation'
 		? relationships
-		: readFieldTypegenState(field)[mode] !== 'forbidden'
+		: readFieldTypeState(field)[mode] !== 'forbidden'
 
 /** Generates recursive singular inputs and separate flat bulk/upsert inputs. */
 export class GraphqlMutationInputCompiler {
@@ -119,7 +119,7 @@ export class GraphqlMutationInputCompiler {
 				() => {
 					const type = this.#fieldTypes.inputType(field, schema, path)
 					const numeric =
-						!readFieldTypegenState(field).list && numericKinds.has(field.kind)
+						!readFieldTypeState(field).list && numericKinds.has(field.kind)
 					return {
 						set: { type },
 						...(numeric ? { increment: { type }, decrement: { type } } : {}),
@@ -199,7 +199,7 @@ export class GraphqlMutationInputCompiler {
 				mapped?.schema.persistedFields[mapped.fieldPath[0] ?? '']
 			// A required inverse pointer cannot be cleared, so members stay attached.
 			const canDisconnect =
-				mappedField === undefined || readFieldTypegenState(mappedField).nullable
+				mappedField === undefined || readFieldTypeState(mappedField).nullable
 			return {
 				...(create === undefined
 					? {}
@@ -242,7 +242,7 @@ export class GraphqlMutationInputCompiler {
 							? this.#fieldTypes.inputType(field, schema, path)
 							: this.#updateWrapper(field, schema, path)
 			const required =
-				mode === 'create' && readFieldTypegenState(field).create === 'required'
+				mode === 'create' && readFieldTypeState(field).create === 'required'
 			compiled.push([
 				fieldName,
 				{

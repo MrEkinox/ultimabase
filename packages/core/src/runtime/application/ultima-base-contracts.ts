@@ -5,12 +5,12 @@ import type { RegisterDeclarationCheck } from './schema-registration-checks.js'
 import type { FrameworkApplicationOptions } from '../../application/framework-application.js'
 import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
-import type { CompiledTypegenGraph } from '../../plugins/typegen-declarations.js'
-import type { SchemaDefinition, SchemaRegistry } from '../../schema/index.js'
 import type {
-	OwnedFieldBuilderMethod,
-	OwnedPluginFieldType,
-} from '../../schema/schema/field-builder-methods.js'
+	CompiledOperationFacts,
+	CompiledSchemaSurfaceFacts,
+} from '../../plugins/application-surface-contracts.js'
+import type { SchemaDefinition, SchemaRegistry } from '../../schema/index.js'
+import type { OwnedFieldBuilderMethod } from '../../schema/schema/field-builder-methods.js'
 import {
 	normalizeCreateFrameworkEngineOptions,
 	type CreateFrameworkEngineOptions,
@@ -71,11 +71,13 @@ export interface CompiledApplication<
 	TSchemas extends readonly SchemaDefinition[] = readonly SchemaDefinition[],
 > {
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
-	readonly pluginFieldTypes: readonly OwnedPluginFieldType[]
+	/** Operations declared by plugins, without their executable parts. */
+	readonly operations: readonly CompiledOperationFacts[]
 	readonly pluginPrivilegeReport: PluginPrivilegeReport
 	readonly privateStorageFingerprint?: string
+	/** Plugin commands added to each schema, without their executable parts. */
+	readonly schemaSurfaces: readonly CompiledSchemaSurfaceFacts[]
 	readonly schemas: SchemaRegistry<TSchemas>
-	readonly typegenGraph: CompiledTypegenGraph
 }
 
 /** Validates the closed application constructor shape before any plugin work. */

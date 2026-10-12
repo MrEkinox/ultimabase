@@ -2,7 +2,6 @@ import type {
 	BaseSchemaTypeInfo,
 	SchemaInputsTypeInfo,
 	SchemaTypeInfo,
-	SchemaTypeInfoByName,
 	SchemaItemType,
 	SchemaTypeInfoCarrier,
 	SchemaTypeInfoFor,
@@ -239,19 +238,16 @@ export interface RegisteredSchemaTypeInfo<
 }
 
 /**
- * Generated entry first, else the name-keyed contract. The registry is read
- * only inside the contract's members (an interface), never when a reference is
- * created, so string targets and declarations stay independent of `Register`;
- * an unregistered name reads the bootstrap contract through the same members.
+ * The name-keyed contract. The registry is read only inside the contract's
+ * members (an interface), never when a reference is created, so string
+ * targets and declarations stay independent of `Register`; an unregistered
+ * name reads the bootstrap contract through the same members.
  */
-export type SchemaTypeInfoByNameOrRegistered<TClassName extends string> = [
-	SchemaTypeInfoByName<TClassName>,
-] extends [never]
-	? string extends TClassName
+export type SchemaTypeInfoByNameOrRegistered<TClassName extends string> =
+	string extends TClassName
 		? // Constraints evaluated during declarations reach here with `string`.
 			BaseSchemaTypeInfo<TClassName>
 		: RegisteredSchemaTypeInfo<TClassName>
-	: SchemaTypeInfoByName<TClassName>
 
 /**
  * Name-keyed reference to one registered schema, given to plugin rules and

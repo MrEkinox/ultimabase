@@ -39,16 +39,9 @@ export const aclFieldName = 'acl' as const
 /** Identifies the adapter-neutral ACL value field handled by official plugins. */
 export const aclFieldKind = 'ultimabase.acl' as const
 
-/** Declares ACL generation types without exposing a schema FieldBuilder method. */
+/** Declares the ACL field kind without exposing a schema FieldBuilder method. */
 export const aclFieldFamily: PluginFieldFamilyDefinition<typeof aclFieldKind> =
-	definePluginFieldFamily({
-		fieldKind: aclFieldKind,
-		typegen: {
-			module: '@ultimabase/acl-permissions-plugin',
-			structuralContainsType: 'ACLContainmentOperand',
-			valueType: 'ACL',
-		},
-	})
+	definePluginFieldFamily({ fieldKind: aclFieldKind })
 
 interface ACLFieldOptions {
 	readonly indexed: true
@@ -321,7 +314,6 @@ export const aclSchemaOption: SchemaOptionDefinition<NormalizedACLSchemaOption> 
 	defineSchemaOption({
 		normalize: normalizeACLSchemaOption,
 		protocolVersion: 1,
-		typegen: false,
 		valueKind: 'opaque',
 	})
 

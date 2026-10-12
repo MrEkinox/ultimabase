@@ -1,7 +1,7 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldListOption,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
@@ -37,8 +37,8 @@ export interface BigintFieldOptions extends FieldOptions<bigint> {
  * Carries an exact bigint value and its options through schema inference.
  */
 export type BigintField<
-	TTypegen extends FieldTypegenState = FieldTypegenState,
-> = FieldDefinition<'bigint', bigint, BigintFieldOptions, TTypegen>
+	TState extends FieldTypeState = FieldTypeState,
+> = FieldDefinition<'bigint', bigint, BigintFieldOptions, TState>
 
 /** Provides bigint-specific names for compact sequence inference. */
 type DefaultedBigintFieldOptions<

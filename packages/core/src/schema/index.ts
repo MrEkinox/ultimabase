@@ -33,7 +33,7 @@ export { relationField } from './fields/builtins/relation.js'
 export type { RelationRule } from './schema/relation-rules.js'
 export type {
 	RelationField,
-	RelationFieldTypegenState,
+	RelationFieldTypeState,
 	RelationFieldMetadataOptions,
 	RelationFieldOptions,
 	RelationMappedFieldName,
@@ -90,7 +90,7 @@ export {
 	getFieldSchemaTarget,
 	isFieldRequiredDeferred,
 	pluginFieldStructuralContainsProtocolVersion,
-	readFieldTypegenState,
+	readFieldTypeState,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
 export {
@@ -118,9 +118,9 @@ export type {
 	CompatibleFieldOptionsExtension,
 	CompatibleFieldOptionsInput,
 	CompatiblePluginSourceFieldOptions,
-	FieldTypegenPresence,
-	FieldTypegenState,
-	FieldTypegenStateOf,
+	FieldTypePresence,
+	FieldTypeState,
+	FieldTypeStateOf,
 	ForbiddenMutationInputField,
 	GenericField,
 	FieldList,
@@ -138,8 +138,8 @@ export type {
 	FieldUpdateInputCarrier,
 	FieldStructuralContainsOperand,
 	FieldValue,
-	ResolveFieldTypegenState,
-	ScalarFieldTypegenState,
+	ResolveFieldTypeState,
+	ScalarFieldTypeState,
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
 export type { FieldValueMode } from './fields/base/value-map.js'
@@ -296,21 +296,16 @@ export type {
 	FieldBuilderMethodContextDefinition,
 	FieldBuilderMethodContexts,
 	FieldBuilderMethodFactory,
-	FieldBuilderMethodTypegen,
 	OwnedFieldBuilderMethod,
-	OwnedPluginFieldType,
 	PluginFieldFamilyBuilder,
 	PluginFieldFamilyContextDefinition,
 	PluginFieldFamilyContexts,
 	PluginFieldFamilyDefinition,
 	PluginFieldFamilyRegistrar,
-	PluginFieldTypegen,
 } from './schema/field-builder-methods.js'
 export type {
 	BaseSchemaTypeInfo,
 	BaseSchemaInputsTypeInfo,
-	SchemaTypeInfoByName,
-	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoFor,
 	SchemaTypeInfo,
 	SchemaTypeInfoCarrier,
@@ -322,29 +317,12 @@ export type {
 	SchemaRelationshipTargetName,
 	SchemaTypeValueKey,
 	SchemaTypeValue,
-	HasUltimaBaseGeneratedRegistry,
-	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
-	UltimaBaseGeneratedEmbeddedFieldOptions,
-	UltimaBaseGeneratedFieldBuilderMethods,
-	UltimaBaseGeneratedFieldOptionCompatibility,
-	UltimaBaseGeneratedFieldOptions,
-	UltimaBaseGeneratedOutputBuilderMethods,
-	UltimaBaseGeneratedOutputOptions,
-	UltimaBaseGeneratedOperations,
-	UltimaBaseGeneratedRegistryState,
-	UltimaBaseGeneratedSchemaOptions,
-	UltimaBaseGeneratedSchemaName,
-	UltimaBaseGeneratedSchemas,
-	UltimaBaseGeneratedSchemaSurfaces,
-	UltimaBaseGeneratedVirtualFieldBuilderMethods,
-	UltimaBaseGeneratedVirtualFieldOptions,
 } from './type-info.js'
 export {
 	fieldDeclarationContexts,
 	assertFieldDeclarationContext,
 } from './schema/field-contexts.js'
 export type { FieldDeclarationContext } from './schema/field-contexts.js'
-export { generatedApplicationContractVersion } from './type-info.js'
 export { isConfiguredSchemaNamespace } from './schema/schema-declaration-chain.js'
 export type {
 	DeclaredSchema,

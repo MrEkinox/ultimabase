@@ -15,7 +15,6 @@
 		{ "path": "../shared" },
 		{ "path": "../core" },
 		{ "path": "../plugin-kit" },
-		{ "path": "../http-plugin" },
-		{ "path": "../typegen" }
+		{ "path": "../http-plugin" }
 	]
 }

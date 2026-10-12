@@ -1,10 +1,6 @@
 import type { JsonDocument } from '../fields/builtins/json.js'
 import type { EnumValue, EnumValues } from '../fields/builtins/enum.js'
 import type { ResolveFieldSourceTemplate } from '../fields/base/contract.js'
-import type {
-	UltimaBaseGeneratedOutputBuilderMethods,
-	UltimaBaseGeneratedOutputOptions,
-} from '../type-info.js'
 
 declare const outputValueMarker: unique symbol
 
@@ -36,7 +32,7 @@ export type OutputKind =
 export interface OutputValueOptions<
 	TNullable extends boolean = boolean,
 	TList extends boolean = boolean,
-> extends UltimaBaseGeneratedOutputOptions {
+> {
 	/** Supplies human-readable output documentation. @example `description: "Display name"` */
 	readonly description?: string
 	/** Wraps the complete value in one homogeneous list. @example `list: true` */
@@ -265,7 +261,7 @@ type ObjectOutputDescriptor<
 
 interface OutputObjectBuilderMethod<
 	TSourceTemplate extends object = EmptyOutputSourceOptions,
-	TPluginMethods extends object = UltimaBaseGeneratedOutputBuilderMethods,
+	TPluginMethods extends object = Readonly<Record<never, never>>,
 > {
 	/** Describes one non-null object whose properties are output descriptors. */
 	<const TFields extends OutputFields>(
@@ -433,5 +429,5 @@ interface OutputCoreBuilderMethods<
 /** Provides value descriptors without exposing persistence or mutation behavior. */
 export type OutputBuilder<
 	TSourceTemplate extends object = EmptyOutputSourceOptions,
-	TPluginMethods extends object = UltimaBaseGeneratedOutputBuilderMethods,
+	TPluginMethods extends object = Readonly<Record<never, never>>,
 > = OutputCoreBuilderMethods<TSourceTemplate, TPluginMethods> & TPluginMethods

@@ -1,5 +1,5 @@
 import type {
-	FieldTypegenStateOf,
+	FieldTypeStateOf,
 	FieldValue,
 	GenericField,
 } from '../fields/base/contract.js'
@@ -67,7 +67,7 @@ type FieldIsPresent<
 	TField,
 	TMode extends 'create' | 'object' | 'update',
 > = TField extends GenericField
-	? FieldTypegenStateOf<TField>[TMode] extends 'forbidden'
+	? FieldTypeStateOf<TField>[TMode] extends 'forbidden'
 		? false
 		: true
 	: false
@@ -127,7 +127,7 @@ type SourceMutationFieldValue<TField extends GenericField, TValue> =
 		? | PointerLinkInput<
 					string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
 			  >
-			| (FieldTypegenStateOf<TField>['nullable'] extends true ? null : never)
+			| (FieldTypeStateOf<TField>['nullable'] extends true ? null : never)
 		: TValue
 
 /** Reuses Core presence rules while projecting pointer writes to `connect` links. */

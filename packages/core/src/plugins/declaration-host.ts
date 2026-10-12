@@ -31,7 +31,6 @@ import {
 	type PluginSchemaDeclarationRegistrar,
 } from './schema-declaration-contracts.js'
 import type { SchemaDeclarationRegistry } from './schema-declaration-registry.js'
-import type { TypegenReferenceRegistrar } from './typegen-declarations.js'
 
 type RequiredCapability<TCapabilities> =
 	NormalizedPluginCapabilityDeclarations<TCapabilities>['requires'][number]
@@ -112,12 +111,6 @@ type PluginOperationDeclarationContext<TPrivileges> =
 		'operations',
 		PluginOperationDeclarationRegistrar
 	>
-type PluginTypegenReferenceContext<TPrivileges> = PrivilegedDeclarationContext<
-	TPrivileges,
-	'typegen:reference',
-	'typegenReferences',
-	TypegenReferenceRegistrar
->
 type PluginPrivateStorageDeclarationContext<TPrivileges> =
 	PrivilegedDeclarationContext<
 		TPrivileges,
@@ -145,7 +138,6 @@ export type PluginDeclarationContext<
 	PluginSchemaDeclarationContext<TPrivileges> &
 	PluginModelDeclarationContext<TPrivileges> &
 	PluginOperationDeclarationContext<TPrivileges> &
-	PluginTypegenReferenceContext<TPrivileges> &
 	PluginPrivateStorageDeclarationContext<TPrivileges>
 
 /** Declares deterministic application metadata before schemas are compiled. */
@@ -180,7 +172,6 @@ const declarationPrivileges: ReadonlySet<PluginPrivilege> = new Set([
 	'operation:declare',
 	'schema:declare',
 	'storage:private',
-	'typegen:reference',
 ])
 
 /** Runs the one transactional static declaration phase for an application. */
@@ -209,7 +200,6 @@ export class PluginDeclarationHost {
 			const canDeclare = active.has('schema:declare')
 			const canExtendModels = active.has('model:extend')
 			const canDeclareOperations = active.has('operation:declare')
-			const canReferenceTypegen = active.has('typegen:reference')
 			const requirements = [...declared.requires, ...declared.optional]
 			const fieldSession = canDeclare
 				? this.fieldBuilderMethods.beginPluginDeclaration(
@@ -218,10 +208,7 @@ export class PluginDeclarationHost {
 				: undefined
 			const schemaOwner = pluginContributionOwner(definition.manifest)
 			const schemaSession =
-				canDeclare ||
-				canExtendModels ||
-				canDeclareOperations ||
-				canReferenceTypegen
+				canDeclare || canExtendModels || canDeclareOperations
 					? this.schemaDeclarations.beginPluginDeclaration(
 							schemaOwner,
 							immutableRecord({
@@ -229,7 +216,6 @@ export class PluginDeclarationHost {
 								modelExtend: canExtendModels,
 								operationDeclare: canDeclareOperations,
 								requirements: immutableArray(requirements),
-								typegenReference: canReferenceTypegen,
 							}),
 						)
 					: undefined
@@ -283,9 +269,6 @@ export class PluginDeclarationHost {
 							...(canExtendModels ? { models: schemaSession.models } : {}),
 							...(canDeclareOperations
 								? { operations: schemaSession.operations }
-								: {}),
-							...(canReferenceTypegen
-								? { typegenReferences: schemaSession.typegenReferences }
 								: {}),
 						}),
 				...(privateStorageSession === undefined

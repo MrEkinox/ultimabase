@@ -46,7 +46,6 @@ const sourcePackageAliasEntries: readonly (readonly [string, string])[] = [
 		'shared',
 		'soft-delete-plugin',
 		'testing',
-		'typegen',
 		'validation-plugin',
 	].map(
 		(packageName) =>

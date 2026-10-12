@@ -73,7 +73,6 @@ export {
 } from '../application/application-handles.js'
 export type {
 	ApplicationContributionOwner,
-	ApplicationOperationHandleForName,
 	ApplicationSchemaHandle,
 	ApplicationSchemaHandleForName,
 	PluginOperationEnvelope,

@@ -3,7 +3,6 @@ import {
 	defineSchemaOption,
 	type FieldOptionDefinition,
 	type SchemaOptionDefinition,
-	type SchemaOptionRuntimeRequirement,
 	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
@@ -66,24 +65,15 @@ const readSingleStringOption = (
 }
 
 /**
- * Owns the schema `postgres` namespace as portable naming metadata. Its static
- * type comes from the `.with` rules slot (`never` keeps it out of the
- * projection templates); Typegen still types the old-form `define({ postgres })`
- * until that form is removed.
+ * Owns the `postgres` rule as portable naming metadata; its static type comes
+ * from the `.with` rules slot (ADR-0320).
  */
-export const postgresSchemaOption: SchemaOptionDefinition<
-	PostgresSchemaOption,
-	SchemaOptionRuntimeRequirement,
-	never
-> = defineSchemaOption({
-	normalize: (value, path): PostgresSchemaOption =>
-		immutableRecord({ table: readSingleStringOption(value, path, 'table') }),
-	protocolVersion: 1,
-	typegen: {
-		module: '@ultimabase/postgres-plugin',
-		type: 'PostgresSchemaOption',
-	},
-})
+export const postgresSchemaOption: SchemaOptionDefinition<PostgresSchemaOption> =
+	defineSchemaOption({
+		normalize: (value, path): PostgresSchemaOption =>
+			immutableRecord({ table: readSingleStringOption(value, path, 'table') }),
+		protocolVersion: 1,
+	})
 
 /** Owns the direct field `postgres` namespace as data-preserving rename metadata. */
 export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =
@@ -94,10 +84,6 @@ export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =
 				renamedFrom: readSingleStringOption(value, path, 'renamedFrom'),
 			}),
 		protocolVersion: 1,
-		typegen: {
-			module: '@ultimabase/postgres-plugin',
-			type: 'PostgresFieldOption',
-		},
 	})
 
 /** Reads one normalized string option without trusting its static type. */

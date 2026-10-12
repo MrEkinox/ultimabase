@@ -1,5 +1,5 @@
 import type {
-	FieldTypegenStateOf,
+	FieldTypeStateOf,
 	GenericField,
 } from '../fields/base/contract.js'
 import type { PointerField } from '../fields/builtins/pointer.js'
@@ -48,7 +48,7 @@ type SourceNestedCreateValue<TField extends GenericField> =
 					TargetNestedCreate<TTarget>,
 					string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
 			  >
-			| (FieldTypegenStateOf<TField>['nullable'] extends true ? null : never)
+			| (FieldTypeStateOf<TField>['nullable'] extends true ? null : never)
 		: TField extends RelationField<infer TTarget, infer TMappedBy>
 			? NestedRelationCreateInput<
 					RelationNestedCreate<TTarget, TMappedBy>,
@@ -58,7 +58,7 @@ type SourceNestedCreateValue<TField extends GenericField> =
 
 /** Atomic operations of a non-list numeric field in nested update data (ADR-0307). */
 type SourceNumericUpdateOperation<TField extends GenericField> =
-	FieldTypegenStateOf<TField>['list'] extends true
+	FieldTypeStateOf<TField>['list'] extends true
 		? never
 		: TField['kind'] extends 'bigint' | 'decimal' | 'float' | 'int'
 			? NumericUpdateOperation<
@@ -71,7 +71,7 @@ type SourceNestedUpdateValue<TField extends GenericField> =
 		? NestedPointerUpdateInput<
 				TargetNestedCreate<TTarget>,
 				TargetNestedUpdate<TTarget>,
-				FieldTypegenStateOf<TField>['nullable'],
+				FieldTypeStateOf<TField>['nullable'],
 				string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
 			>
 		: TField extends RelationField<infer TTarget, infer TMappedBy>
@@ -88,7 +88,7 @@ type SourceNestedCreateRequired<TFields extends SchemaDeclaredFields> = {
 	-readonly [
 		TKey in keyof StoredSourceFields<TFields> as StoredSourceFields<TFields>[TKey] extends RelationField
 			? never
-			: FieldTypegenStateOf<
+			: FieldTypeStateOf<
 						StoredSourceFields<TFields>[TKey]
 				  >['create'] extends 'required'
 				? TKey
@@ -100,7 +100,7 @@ type SourceNestedCreateOptional<TFields extends SchemaDeclaredFields> = {
 	-readonly [
 		TKey in keyof StoredSourceFields<TFields> as StoredSourceFields<TFields>[TKey] extends RelationField
 			? TKey
-			: FieldTypegenStateOf<
+			: FieldTypeStateOf<
 						StoredSourceFields<TFields>[TKey]
 				  >['create'] extends 'optional'
 				? TKey
@@ -116,7 +116,7 @@ export type SourceNestedUpdate<TFields extends SchemaDeclaredFields> = {
 	-readonly [
 		TKey in keyof StoredSourceFields<TFields> as StoredSourceFields<TFields>[TKey] extends RelationField
 			? TKey
-			: FieldTypegenStateOf<
+			: FieldTypeStateOf<
 						StoredSourceFields<TFields>[TKey]
 				  >['update'] extends 'forbidden'
 				? never

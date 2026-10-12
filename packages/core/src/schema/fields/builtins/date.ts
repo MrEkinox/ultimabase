@@ -1,7 +1,7 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldListOption,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -26,8 +26,8 @@ export type DateFieldOptions = TemporalFieldOptions
 /**
  * Carries a calendar-day string and exact options through schema inference.
  */
-export type DateField<TTypegen extends FieldTypegenState = FieldTypegenState> =
-	FieldDefinition<'date', string, DateFieldOptions, TTypegen>
+export type DateField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'date', string, DateFieldOptions, TState>
 
 /** Provides date-specific names for compact auto-now inference. */
 type DefaultedDateFieldOptions<

@@ -144,7 +144,6 @@ const declareSchemas =
 						defineSchemaOption({
 							normalize: normalizeShapeOptions(method, definition.options),
 							protocolVersion: 1,
-							typegen: false,
 							valueKind: 'opaque',
 						}),
 					],
@@ -154,7 +153,6 @@ const declareSchemas =
 					defineSchemaOption({
 						normalize: validate,
 						protocolVersion: 1,
-						typegen: false,
 						valueKind: 'opaque',
 					}),
 				]),

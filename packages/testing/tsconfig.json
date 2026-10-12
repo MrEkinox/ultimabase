@@ -12,7 +12,6 @@
 	],
 	"references": [
 		{ "path": "../shared" },
-		{ "path": "../core" },
-		{ "path": "../typegen" }
+		{ "path": "../core" }
 	]
 }

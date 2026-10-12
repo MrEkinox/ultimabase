@@ -5,7 +5,6 @@ import {
 	ApplicationOperationHandle,
 	ApplicationSchemaHandleBase,
 	registerApplicationOperationExecutor,
-	type ApplicationOperationHandleForName,
 	type ApplicationSchemaHandle,
 	type ApplicationSchemaHandleForName,
 	type PluginOperationEnvelope,
@@ -221,7 +220,7 @@ export class UltimaBase<
 		this.#application.compileSchemas()
 		this.#compiledApplication ??= immutableRecord({
 			fieldBuilderMethods: this.#application.fieldBuilderMethods,
-			pluginFieldTypes: this.#application.pluginFieldTypes,
+			operations: this.#application.operations,
 			pluginPrivilegeReport: this.#application.pluginPrivilegeReport,
 			...(this.#application.privateStorageFingerprint === undefined
 				? {}
@@ -229,8 +228,8 @@ export class UltimaBase<
 						privateStorageFingerprint:
 							this.#application.privateStorageFingerprint,
 					}),
+			schemaSurfaces: this.#application.schemaSurfaces,
 			schemas: this.#application.schemas,
-			typegenGraph: this.#application.typegenGraph,
 		})
 		return this.#compiledApplication
 	}
@@ -257,9 +256,7 @@ export class UltimaBase<
 		Extract<TSource['operations'][TName], PluginOperationDefinition>
 	>
 	/** Resolves one dynamic operation handle by its namespaced JavaScript name. */
-	operation<const TName extends string>(
-		name: TName,
-	): ApplicationOperationHandleForName<TName>
+	operation(name: string): ApplicationOperationHandle
 	operation(
 		tokenOrName: PluginOperationDefinition | string,
 	): ApplicationOperationHandle {
@@ -291,7 +288,7 @@ export class UltimaBase<
 	schema<TSchema extends SchemaDefinition>(
 		schema: TSchema,
 	): ApplicationSchemaHandle<TSchema>
-	/** Resolves one dynamic or generated literal schema name through the same handle. */
+	/** Resolves one schema name through the same handle. */
 	schema<const TClassName extends string>(
 		className: TClassName,
 	): ApplicationSchemaHandleForName<TClassName>

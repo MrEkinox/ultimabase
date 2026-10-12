@@ -147,7 +147,7 @@ describe('@ultimabase/core public entry point', () => {
 			'provideRuntimeConstraint',
 			'provideRuntimeInterceptor',
 			'queryRelationPredicateMaxDepth',
-			'readFieldTypegenState',
+			'readFieldTypeState',
 			'readOperationQueries',
 			'readOperationResultSelection',
 			'readPluginFieldExistingRows',

@@ -8,7 +8,7 @@ import {
 	type DeferredSchemaTarget,
 	type RelationField,
 	type RequestSubjectContext,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 	type SchemaDefinition,
 	type SchemaFields,
 	type SchemaRef,
@@ -44,7 +44,7 @@ import {
 export const rolesPluginId = '@ultimabase/roles-plugin' as const
 
 const createRoleNameField = (): StringField<
-	ScalarFieldTypegenState<true, false, false, false>
+	ScalarFieldTypeState<true, false, false, false>
 > =>
 	stringField({
 		indexed: 'unique',

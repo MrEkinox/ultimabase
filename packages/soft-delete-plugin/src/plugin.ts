@@ -5,7 +5,7 @@ import {
 	provideRuntimeConstraint,
 	type BooleanField,
 	type DateTimeField,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 } from '@ultimabase/core'
 import {
 	command,
@@ -27,9 +27,9 @@ import { createSoftDeleteVisibilityPolicy } from './visibility.js'
 /** Fields `.softDelete()` adds; both are written by the server only. */
 export type SoftDeleteFields = Readonly<{
 	/** True while the row is soft-deleted; the protected filter reads it. */
-	isDeleted: BooleanField<ScalarFieldTypegenState<true, false, false, true>>
+	isDeleted: BooleanField<ScalarFieldTypeState<true, false, false, true>>
 	/** When the row was soft-deleted; `null` once restored. */
-	deletedAt: DateTimeField<ScalarFieldTypegenState<false, false, false, false>>
+	deletedAt: DateTimeField<ScalarFieldTypeState<false, false, false, false>>
 }>
 
 /** Commands `.softDelete()` adds, in both modes. */

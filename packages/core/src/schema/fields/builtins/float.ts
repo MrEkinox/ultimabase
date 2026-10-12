@@ -2,7 +2,7 @@ import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -25,8 +25,8 @@ export type FloatFieldOptions = FieldOptions<number>
 /**
  * Carries a floating-point number and exact options through schema inference.
  */
-export type FloatField<TTypegen extends FieldTypegenState = FieldTypegenState> =
-	FieldDefinition<'float', number, FloatFieldOptions, TTypegen>
+export type FloatField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'float', number, FloatFieldOptions, TState>
 
 type DefaultedFloatFieldOptions<
 	TRequired extends boolean,

@@ -6,7 +6,7 @@ import {
 	type EmbeddedObjectFieldBuilderOptions,
 	type FieldValue,
 	type FieldBuilder,
-	type FieldTypegenStateOf,
+	type FieldTypeStateOf,
 } from '../../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
@@ -161,16 +161,16 @@ test('preserves enum domains, defaults and immutability in both builder contexts
 		readonly ('draft' | 'published')[]
 	>()
 	expectTypeOf<
-		FieldTypegenStateOf<typeof list>['create']
+		FieldTypeStateOf<typeof list>['create']
 	>().toEqualTypeOf<'optional'>()
 	expectTypeOf<
-		FieldTypegenStateOf<typeof list>['update']
+		FieldTypeStateOf<typeof list>['update']
 	>().toEqualTypeOf<'forbidden'>()
 	expectTypeOf<FieldValue<typeof nested>>().toEqualTypeOf<
 		'draft' | 'published'
 	>()
 	expectTypeOf<
-		FieldTypegenStateOf<typeof nested>['create']
+		FieldTypeStateOf<typeof nested>['create']
 	>().toEqualTypeOf<'required'>()
 
 	// @ts-expect-error -- Enum defaults must remain inside the inferred domain.

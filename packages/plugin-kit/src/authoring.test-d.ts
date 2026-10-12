@@ -6,7 +6,7 @@ import {
 	type FieldOptions,
 	type JsonObject,
 	type PluginFieldDefinition,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 	type SchemaItem,
 } from '@ultimabase/core'
 import {
@@ -58,7 +58,7 @@ type RatingField = PluginFieldDefinition<
 	'community.rating',
 	number,
 	FieldOptions<number>,
-	ScalarFieldTypegenState<true, false, false, false>
+	ScalarFieldTypeState<true, false, false, false>
 >
 const ratingField = (): RatingField =>
 	definePluginField(

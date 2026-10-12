@@ -571,7 +571,7 @@ describe('field factory IntelliSense', () => {
 			expect(display).toContain(expectedReturn)
 			expect(display).not.toContain('DefaultedCompactScalarFieldOptions<')
 			expect(display).not.toContain('NonDefaultedCompactScalarFieldOptions<')
-			expect(display).not.toContain('ScalarFieldTypegenState<')
+			expect(display).not.toContain('ScalarFieldTypeState<')
 			expect(display).toContain('(+1 overload)')
 			expect(display).not.toContain('(+2 overloads)')
 			expect(display).not.toContain('runtime-only-hover-marker')

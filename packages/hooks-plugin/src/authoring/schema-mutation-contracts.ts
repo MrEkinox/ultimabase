@@ -3,7 +3,6 @@ import type {
 	SchemaDefinition,
 	SchemaItem,
 	SchemaResult,
-	UltimaBaseGeneratedSchemaSurfaces,
 } from '@ultimabase/core'
 import type {
 	PluginSchemaMutationDefinition,
@@ -82,20 +81,10 @@ export type SchemaMutationAfterHook<
 	input: SchemaMutationAfterHookInput<TSchema, TMutation>,
 ) => MaybePromise<void>
 
-type GeneratedMutationMap<TSchema extends SchemaDefinition> =
-	TSchema['className'] extends keyof UltimaBaseGeneratedSchemaSurfaces
-		? UltimaBaseGeneratedSchemaSurfaces[TSchema['className']] extends Readonly<{
-				readonly schemaMutations: infer TMutations
-			}>
-			? TMutations
-			: Readonly<Record<never, never>>
-		: Readonly<Record<never, never>>
-
 // A registered `SchemaRef<"Todo">` carries no statics: its commands come
 // from the registered schema, read lazily from `.with` rules (ADR-0297).
 type SchemaMutationMap<TSchema extends SchemaDefinition> =
-	GeneratedMutationMap<TSchema> &
-		PluginSourceSchemaMutations<SchemaRulesSource<TSchema>>
+	PluginSourceSchemaMutations<SchemaRulesSource<TSchema>>
 
 /**
  * What an `all` hook receives for one plugin command: the command's input

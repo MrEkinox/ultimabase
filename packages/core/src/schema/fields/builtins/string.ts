@@ -2,7 +2,7 @@ import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -23,8 +23,8 @@ export type StringFieldOptions = FieldOptions<string>
  * Carries the string value type and exact options through later schema inference.
  */
 export type StringField<
-	TTypegen extends FieldTypegenState = FieldTypegenState,
-> = FieldDefinition<'string', string, StringFieldOptions, TTypegen>
+	TState extends FieldTypeState = FieldTypeState,
+> = FieldDefinition<'string', string, StringFieldOptions, TState>
 
 type DefaultedStringFieldOptions<
 	TRequired extends boolean,

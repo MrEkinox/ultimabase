@@ -1,7 +1,7 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldListOption,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
@@ -36,8 +36,8 @@ export interface IntFieldOptions extends FieldOptions<number> {
 /**
  * Carries a safe integer and its exact options through schema inference.
  */
-export type IntField<TTypegen extends FieldTypegenState = FieldTypegenState> =
-	FieldDefinition<'int', number, IntFieldOptions, TTypegen>
+export type IntField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'int', number, IntFieldOptions, TState>
 
 /** Provides integer-specific names for compact sequence inference. */
 type DefaultedIntFieldOptions<

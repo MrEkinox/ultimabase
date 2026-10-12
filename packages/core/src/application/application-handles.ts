@@ -20,10 +20,6 @@ import type {
 } from '../plugins/plugin-operations.js'
 
 import type { PluginLifecycleState } from '../plugins/lifecycle-manager.js'
-import type {
-	UltimaBaseGeneratedOperations,
-	UltimaBaseGeneratedSchemaSurfaces,
-} from '../schema/type-info.js'
 import {
 	snapshotApplicationContributionOwner,
 	type ApplicationContributionOwner,
@@ -111,27 +107,10 @@ export const registerApplicationOperationExecutor = (
 ): void => {
 	applicationOperationExecutors.set(handle, executor)
 }
-type GeneratedOperation<TName extends string> =
-	TName extends keyof UltimaBaseGeneratedOperations
-		? UltimaBaseGeneratedOperations[TName] extends PluginOperationDefinition
-			? UltimaBaseGeneratedOperations[TName]
-			: PluginOperationDefinition
-		: PluginOperationDefinition
-
-type GeneratedSchemaSurface<TSchema extends SchemaDefinition> =
-	TSchema['className'] extends keyof UltimaBaseGeneratedSchemaSurfaces
-		? UltimaBaseGeneratedSchemaSurfaces[TSchema['className']]
-		: never
-
-type SurfacePart<TSchema extends SchemaDefinition, TKey extends PropertyKey> =
-	GeneratedSchemaSurface<TSchema> extends Record<TKey, infer TValue>
-		? TValue
-		: Readonly<Record<never, never>>
-
 /** Represents one schema through an application, without a constructible class. */
 export type ApplicationSchemaHandle<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-> = ApplicationSchemaHandleBase<TSchema> & SurfacePart<TSchema, 'schema'>
+> = ApplicationSchemaHandleBase<TSchema>
 
 /** Owns application-specific schema mutations. */
 export class ApplicationSchemaHandleBase<
@@ -180,10 +159,6 @@ export class ApplicationSchemaHandleBase<
 	}
 }
 
-/** Resolves one exact generated operation from its stable namespaced name. */
-export type ApplicationOperationHandleForName<TName extends string> =
-	ApplicationOperationHandle<GeneratedOperation<TName>>
-
-/** Resolves an exact schema reference from a generated literal name. */
+/** Resolves a schema handle from a literal name registered on the application. */
 export type ApplicationSchemaHandleForName<TClassName extends string> =
 	ApplicationSchemaHandle<SchemaReference<TClassName>>

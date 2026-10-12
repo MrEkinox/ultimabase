@@ -2,7 +2,7 @@ import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -39,8 +39,8 @@ export interface DecimalFieldOptions extends FieldOptions<string> {
  * Carries exact decimal strings and their compact operation state.
  */
 export type DecimalField<
-	TTypegen extends FieldTypegenState = FieldTypegenState,
-> = FieldDefinition<'decimal', string, DecimalFieldOptions, TTypegen>
+	TState extends FieldTypeState = FieldTypeState,
+> = FieldDefinition<'decimal', string, DecimalFieldOptions, TState>
 
 type DefaultedDecimalFieldOptions<
 	TRequired extends boolean,

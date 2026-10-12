@@ -2,7 +2,7 @@ import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -23,8 +23,8 @@ export type BooleanFieldOptions = FieldOptions<boolean>
  * Carries the boolean value type and exact options through schema inference.
  */
 export type BooleanField<
-	TTypegen extends FieldTypegenState = FieldTypegenState,
-> = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TTypegen>
+	TState extends FieldTypeState = FieldTypeState,
+> = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TState>
 
 type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,

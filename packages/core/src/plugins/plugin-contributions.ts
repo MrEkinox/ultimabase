@@ -32,7 +32,6 @@ import type { DerivedPluginPrivilege } from './plugin-permissions.js'
 import type { PluginOperationAuthoringContribution } from './plugin-command-contribution-contracts.js'
 import type { PluginSchemaDeclarationRegistrar } from './schema-declaration-contracts.js'
 import type { PluginSetupContext } from './setup-registries.js'
-import type { TypegenReferenceRegistrar } from './typegen-declarations.js'
 import type {
 	PluginSourceDeclarationResult,
 	PluginSourceProjection,
@@ -79,13 +78,6 @@ export type PluginPrivateStorageContributionContext<
 > = DeclarationCapabilities<TRequirements> &
 	Readonly<{ readonly privateStorage: PrivateStorageDeclarationRegistrar }>
 
-/** Supplies only public Typegen reference registration. */
-export type PluginTypegenContributionContext<
-	TRequirements extends PluginDeclarationRequirements =
-		PluginDeclarationRequirements,
-> = DeclarationCapabilities<TRequirements> &
-	Readonly<{ readonly typegenReferences: TypegenReferenceRegistrar }>
-
 export interface PluginDeclarationContributionOptions<
 	TRequirements extends PluginDeclarationRequirements,
 	TSchemaResult = undefined,
@@ -105,9 +97,6 @@ export interface PluginDeclarationContributionOptions<
 	) => TOperationResult
 	readonly privateStorage?: (
 		context: PluginPrivateStorageContributionContext<TRequirements>,
-	) => undefined
-	readonly typegen?: (
-		context: PluginTypegenContributionContext<TRequirements>,
 	) => undefined
 }
 
@@ -189,7 +178,6 @@ const declarationSurfaces = [
 	['models', 'model:extend', 'Adds plugin commands to application schemas.'],
 	['operations', 'operation:declare', 'Declares plugin operations.'],
 	['privateStorage', 'storage:private', 'Declares owner-private storage.'],
-	['typegen', 'typegen:reference', 'References public Typegen types.'],
 ] as const satisfies readonly (readonly [string, PluginPrivilege, string])[]
 const declarationOptionKeys = new Set([
 	'requires',

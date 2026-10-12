@@ -38,8 +38,8 @@ slot. The ordinary E2E project remains Docker-free for focused package archive
 checks.
 
 `packages/*/tsconfig.test.json` isolates each package's test compiler roots.
-`tests/fixtures/plugin-options.d.ts` explicitly includes application option
-declarations without loading other executable suites.
+`tests/fixtures/register.d.ts` declares the one schema-less `Register` the
+test program shares (ADR-0297).
 
 `tests/tsconfig.json` associates root E2E files with the same strict TypeScript
 settings used by the test runner. Editors should discover this nearby project

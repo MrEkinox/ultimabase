@@ -2,8 +2,6 @@ import type {
 	FieldOptionsValue,
 	PluginSourceFieldOption,
 	PluginSourceFieldOptionConstraint,
-	SchemaDefinition,
-	SchemaReference,
 } from '@ultimabase/core'
 import {
 	defineSchemaOption,
@@ -17,7 +15,6 @@ import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 
 import {
 	normalizeSchemaValidation,
-	type SchemaValidation,
 } from './schema-validation.js'
 import {
 	assertValidator,
@@ -69,34 +66,12 @@ export const fieldValidationOption: FieldOptionDefinition<
 		return value
 	},
 	protocolVersion: 1,
-	typegen: false,
 	valueKind: 'opaque',
 })
 
-type SchemaForOptions<TOptions> =
-	TOptions extends Readonly<{
-		readonly className: infer TClassName extends string
-	}>
-		? SchemaReference<TClassName>
-		: SchemaDefinition
-
-/** Resolves the schema `validation` option of the declaration form (Typegen). */
-export type SchemaValidationOption<TOptions> = SchemaValidation<
-	SchemaForOptions<TOptions>
->
-
 /** Owns the schema `validation` rule (`.with({ validation })`) as an opaque value. */
-export const schemaValidationOption: SchemaOptionDefinition<
-	unknown,
-	SchemaOptionRuntimeRequirement,
-	never
-> = defineSchemaOption({
+export const schemaValidationOption: SchemaOptionDefinition = defineSchemaOption({
 	normalize: normalizeSchemaValidation,
 	protocolVersion: 1,
-	typegen: {
-		generic: 'self',
-		module: '@ultimabase/validation-plugin',
-		type: 'SchemaValidationOption',
-	},
 	valueKind: 'opaque',
 })

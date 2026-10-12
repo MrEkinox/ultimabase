@@ -2,7 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { isFieldNullable } from '../fields/base/options.js'
 import type { GenericField } from '../fields/base/contract.js'
-import { readFieldTypegenState } from '../fields/base/definition.js'
+import { readFieldTypeState } from '../fields/base/definition.js'
 import type { ResolvedSchemaRelationMapping } from '../relations/mapping.js'
 import { Pointer } from '../relations/pointer.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
@@ -268,7 +268,7 @@ class NestedWriteNormalizer {
 		value: unknown,
 	): NestedWritePointerNode | undefined {
 		const { field, inputPath, rootCommand } = site
-		if (readFieldTypegenState(field)[rootCommand] === 'forbidden') {
+		if (readFieldTypeState(field)[rootCommand] === 'forbidden') {
 			failNestedWriteInput(inputPath, `is not available for ${rootCommand}`)
 		}
 

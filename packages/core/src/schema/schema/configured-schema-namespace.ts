@@ -1,33 +1,21 @@
 import type {
 	EmptyPluginSourceState,
 	PluginSourceState,
-	ResolvePluginSchemaProjection,
 } from '../../plugins/source-projections.js'
-import type {
-	PluginSourceSchemaMutationCarrier,
-	PluginSourceSchemaMutations,
-} from '../../plugins/source-schema-templates.js'
 import type {
 	SchemaFieldsFor,
 	SchemaShapeOf,
 	SchemaStaticsFor,
 } from '../../plugins/schema-extensions.js'
-import type { SchemaFactoryShapeBrand } from '../../plugins/schema-factories.js'
-import type {
-	SchemaTypeInfoByNameOrBase,
-	SchemaTypeInfoCarrier,
-	UltimaBaseGeneratedSchemas,
-} from '../type-info.js'
+import type { BaseSchemaTypeInfo } from '../type-info.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import type { DeclaredSchema } from './schema-declaration-chain.js'
-import type { ConfiguredDeclaredOptionValidation } from './declared-option-validation.js'
 import type { ConfiguredFieldBuilder } from './field-builder-contract.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type {
 	Schema,
 	SchemaClass,
 	SchemaDeclaredFields,
-	SchemaDefinition,
 	SchemaFields,
 	SchemaOptions,
 	SchemaReference,
@@ -38,78 +26,16 @@ export type ConfiguredFieldDeclaration<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields,
 > = (
-	field: ConfiguredFieldBuilder<
-		TSource,
-		SchemaTypeInfoByNameOrBase<TClassName>
-	>,
+	field: ConfiguredFieldBuilder<TSource, BaseSchemaTypeInfo<TClassName>>,
 ) => TFields
 
-type SchemaFieldOptionSelector<TProjection> =
-	TProjection extends Readonly<{
-		selector: Readonly<{ option: infer TOption }>
-	}>
-		? TOption
-		: never
-
-type SchemaFieldSelectorOptionName<TSource extends PluginSourceState> =
-	SchemaFieldOptionSelector<
-		TSource['schemaClass'] | TSource['schemaFields']
-	> extends infer TOption
-		? TOption extends Readonly<{ name: infer TName extends PropertyKey }>
-			? TName
-			: never
-		: never
-
-type SchemaFieldEqualityOptionName<TSource extends PluginSourceState> =
-	SchemaFieldOptionSelector<
-		TSource['schemaClass'] | TSource['schemaFields']
-	> extends infer TOption
-		? TOption extends Readonly<{
-				equals: unknown
-				name: infer TName extends PropertyKey
-			}>
-			? TName
-			: never
-		: never
-
-/** Keeps only the declared options that plugin schema selectors read. */
-export type ConfiguredSchemaSelectorOptions<
-	TSource extends PluginSourceState,
-	TOptions extends object,
-> = Readonly<{
-	[
-		TName in Extract<SchemaFieldSelectorOptionName<TSource>, keyof TOptions>
-	]: TName extends SchemaFieldEqualityOptionName<TSource>
-		? TOptions[TName]
-		: unknown
-}>
-
-type ConfiguredSourceFields<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFields extends SchemaDeclaredFields,
-	TOptions extends object,
-> =
-	ResolvePluginSchemaProjection<
-		TSource['schemaFields'],
-		SourceSchemaTypeInfo<TClassName, TFields>,
-		ConfiguredSchemaSelectorOptions<TSource, TOptions>
-	> extends infer TAdded
-		? TAdded extends SchemaDeclaredFields
-			? TAdded
-			: Readonly<Record<never, never>>
-		: Readonly<Record<never, never>>
-
-/** The developer, system and plugin shape fields of one configured schema. */
+/** The developer and plugin shape fields of one configured schema. */
 export type CompleteConfiguredFields<
 	TSource extends PluginSourceState,
-	TClassName extends string,
 	TFields extends SchemaDeclaredFields,
 	TOptions extends object,
 > = Readonly<
-	TFields &
-		ConfiguredSourceFields<TSource, TClassName, TFields, TOptions> &
-		SchemaFieldsFor<TSource['shapeFields'], SchemaShapeOf<TOptions>>
+	TFields & SchemaFieldsFor<TSource['shapeFields'], SchemaShapeOf<TOptions>>
 >
 
 type ConfiguredSchemaContract<
@@ -119,226 +45,41 @@ type ConfiguredSchemaContract<
 	TOptions extends object,
 > = SourceSchemaTypeInfo<
 	TClassName,
-	CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
+	CompleteConfiguredFields<TSource, TFields, TOptions>
 >
 
-type ConfiguredSchemaAuthoringContract<TClassName extends string> =
-	SchemaTypeInfoByNameOrBase<TClassName>
-
-type ConfiguredSchemaClassSurface<
+/** One configured schema: its reference plus the statics of the installed plugins. */
+export type ConfiguredSchemaResult<
 	TSource extends PluginSourceState,
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields,
 	TOptions extends object,
 > = SchemaReference<
 	TClassName,
-	CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
+	CompleteConfiguredFields<TSource, TFields, TOptions>
 > &
-	ResolvePluginSchemaProjection<
-		TSource['schemaClass'],
-		ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
-		ConfiguredSchemaSelectorOptions<TSource, TOptions>
-	> &
-	// Typegen surfaces already type the commands of generated class names
-	// (old form, until step 6.8); evaluating the slots there again would
-	// rebuild a source contract for every command. Schema factory statics
-	// (`TodoRole.role(...)`) have no generated surface, so they still apply.
-	(TClassName extends keyof UltimaBaseGeneratedSchemas
-		? SchemaShapeOf<TOptions> extends SchemaFactoryShapeBrand
-			? SchemaStaticsFor<
-					TSource['schemaStatics'],
-					SchemaShapeOf<TOptions>,
-					SchemaClass<
-						ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
-					>
-				>
-			: unknown
-		: SchemaStaticsFor<
-				TSource['schemaStatics'],
-				SchemaShapeOf<TOptions>,
-				SchemaClass<
-					ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
-				>
-			>)
-
-type ConfiguredSourceSchemaMutations<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFields extends SchemaDeclaredFields,
-	TOptions extends object,
-> = PluginSourceSchemaMutations<
-	ResolvePluginSchemaProjection<
-		TSource['schemaClass'],
-		ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
-		ConfiguredSchemaSelectorOptions<TSource, TOptions>,
-		SchemaDefinition<
-			TClassName,
-			CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
-		>
-	>
->
-
-type ConfiguredSchemaAuthoringSurface<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFields extends SchemaDeclaredFields,
-	TOptions extends object,
-> = SchemaDefinition<
-	TClassName,
-	CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
-> &
-	SchemaTypeInfoCarrier<ConfiguredSchemaAuthoringContract<TClassName>> &
-	PluginSourceSchemaMutationCarrier<
-		ConfiguredSourceSchemaMutations<TSource, TClassName, TFields, TOptions>
+	SchemaStaticsFor<
+		TSource['schemaStatics'],
+		SchemaShapeOf<TOptions>,
+		SchemaClass<ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>>
 	>
 
-export type ConfiguredSchemaResult<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFields extends SchemaDeclaredFields,
-	TOptions extends object,
-> = ConfiguredSchemaClassSurface<TSource, TClassName, TFields, TOptions>
-
-type ConfiguredSourceSchemaOptions<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFields extends SchemaDeclaredFields,
-	TDeclaredOptions extends object,
-> = ResolvePluginSchemaProjection<
-	TSource['schemaOptions'],
-	ConfiguredSchemaAuthoringContract<TClassName>,
-	TDeclaredOptions,
-	ConfiguredSchemaAuthoringSurface<
-		TSource,
-		TClassName,
-		TFields,
-		ConfiguredSchemaSelectorOptions<TSource, TDeclaredOptions>
-	>
->
-
-/**
- * Installed plugin schema options accepted by the final `.with(...)` call,
- * resolved against the complete schema. Options read by schema selectors (for
- * example `softDelete`) change the schema shape, so they belong to shape
- * methods called before `.with` (ADR-0297).
- */
-export type ConfiguredSchemaRuleOptions<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFields extends SchemaDeclaredFields,
-	TOptions extends object,
-> = Omit<
-	ResolvePluginSchemaProjection<
-		TSource['schemaOptions'],
-		ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
-		TOptions
-	>,
-	SchemaFieldSelectorOptionName<TSource>
->
-
-export type ConfiguredSchemaOptionsForDeclaration<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFieldDeclaration extends ConfiguredFieldDeclaration<
-		TSource,
-		TClassName,
-		SchemaDeclaredFields
-	>,
-	TBaseFields extends SchemaDeclaredFields = ReturnType<TFieldDeclaration>,
-> = Omit<
-	SchemaOptions<TClassName, TBaseFields>,
-	| 'fields'
-	| keyof ConfiguredSourceSchemaOptions<
-			TSource,
-			TClassName,
-			TBaseFields,
-			Readonly<Record<never, never>>
-	  >
-> &
-	ConfiguredSourceSchemaOptions<
-		TSource,
-		TClassName,
-		TBaseFields,
-		Readonly<Record<never, never>>
-	> &
-	Readonly<{ fields: TFieldDeclaration }>
-
-// Projections read declared options only through their selectors, so the
-// selector subset resolves the same templates. When it is empty, the shared
-// empty record lets TypeScript reuse the projection already resolved for the
-// declaration options instead of resolving it again for every schema.
-type ConfiguredProjectionOptions<
-	TSource extends PluginSourceState,
-	TOptions extends object,
-> = keyof ConfiguredSchemaSelectorOptions<TSource, TOptions> extends never
-	? Readonly<Record<never, never>>
-	: ConfiguredSchemaSelectorOptions<TSource, TOptions>
-
-type ConfiguredSchemaOptionValidationSource<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFieldDeclaration extends ConfiguredFieldDeclaration<
-		TSource,
-		TClassName,
-		SchemaDeclaredFields
-	>,
-	TDeclaredOptions extends object,
-	TBaseFields extends SchemaDeclaredFields,
-> = TClassName extends keyof UltimaBaseGeneratedSchemas
-	? ConfiguredSchemaOptionsForDeclaration<
-			TSource,
-			TClassName,
-			TFieldDeclaration,
-			TBaseFields
-		>
-	: ConfiguredSourceSchemaOptions<
-			TSource,
-			TClassName,
-			TBaseFields,
-			ConfiguredProjectionOptions<TSource, TDeclaredOptions>
-		>
-
-/** Validates one package-specialized declaration through the configured source graph. */
+/** The options of `App.Schema.define(...)`: data only, rules go to `.with` (ADR-0297). */
 export type ConfiguredSchemaDeclarationOptions<
 	TSource extends PluginSourceState,
 	TClassName extends string,
-	TFieldDeclaration extends ConfiguredFieldDeclaration<
-		TSource,
-		TClassName,
-		SchemaDeclaredFields
-	>,
-	TDeclaredOptions extends object,
-	TBaseFields extends SchemaDeclaredFields = ReturnType<TFieldDeclaration>,
-> = Readonly<{ className: TClassName }> &
-	ConfiguredSchemaOptionsForDeclaration<
-		TSource,
-		TClassName,
-		TFieldDeclaration,
-		TBaseFields
-	> &
-	TDeclaredOptions &
-	ConfiguredDeclaredOptionValidation<
-		TDeclaredOptions,
-		ConfiguredSchemaOptionValidationSource<
-			TSource,
-			TClassName,
-			TFieldDeclaration,
-			TDeclaredOptions,
-			TBaseFields
-		>
-	> &
-	(Exclude<
-		keyof TDeclaredOptions,
-		keyof ConfiguredSchemaOptionsForDeclaration<
-			TSource,
-			TClassName,
-			TFieldDeclaration,
-			TBaseFields
-		>
-	> extends never
-		? unknown
-		: never) &
-	ReservedSchemaFieldCollision<NoInfer<TBaseFields>>
+	TFields extends SchemaFields,
+> = Omit<SchemaOptions<TClassName, TFields>, 'fields'> &
+	Readonly<{
+		/**
+		 * Declares fields by returning one exact map from the canonical factory builder.
+		 * Framework-owned `id`, `createdAt`, and `updatedAt` fields are added automatically.
+		 *
+		 * @example `fields: (field) => ({ title: field.string(), published: field.boolean() })`
+		 */
+		fields: ConfiguredFieldDeclaration<TSource, TClassName, TFields>
+	}> &
+	ReservedSchemaFieldCollision<NoInfer<TFields>>
 
 /** Exposes exact source inference through the one configured application namespace. */
 export type ConfiguredSchemaNamespace<
@@ -347,8 +88,8 @@ export type ConfiguredSchemaNamespace<
 	Readonly<{
 		/**
 		 * Defines one final schema with typed static commands and QueryBuilder access.
-		 * The configured application projects its installed plugin fields and options here.
-		 * Chain plugin shape methods, then end with `.with({ ...rules })` (ADR-0297).
+		 * Chain the shape methods of the installed plugins, then end with
+		 * `.with({ ...rules })` (ADR-0297).
 		 *
 		 * @example
 		 * ```ts
@@ -361,21 +102,12 @@ export type ConfiguredSchemaNamespace<
 		define: <
 			const TClassName extends string,
 			const TFields extends SchemaFields,
-			const TDeclaredOptions extends object,
 		>(
-			options: ConfiguredSchemaDeclarationOptions<
-				TSource,
-				TClassName,
-				ConfiguredFieldDeclaration<TSource, TClassName, TFields>,
-				TDeclaredOptions
-			>,
+			options: ConfiguredSchemaDeclarationOptions<TSource, TClassName, TFields>,
 		) => DeclaredSchema<
 			TSource,
 			TClassName,
 			TFields,
-			ConfiguredSchemaSelectorOptions<
-				TSource,
-				ConfiguredProjectionOptions<TSource, TDeclaredOptions>
-			>
+			Readonly<Record<never, never>>
 		>
 	}>

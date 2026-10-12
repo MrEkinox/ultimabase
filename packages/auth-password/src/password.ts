@@ -10,7 +10,7 @@ import {
 	FrameworkError,
 	stringField,
 	type CreateInput,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 	type SchemaDefinition,
 	type StringField,
 } from '@ultimabase/core'
@@ -110,7 +110,7 @@ type IsEmail<TIdentifier> = [TIdentifier] extends ['email'] ? true : false
 
 /** The identifier field the method adds to the User schema. */
 export type PasswordIdentifierField = StringField<
-	ScalarFieldTypegenState<true, false, true, false>
+	ScalarFieldTypeState<true, false, true, false>
 >
 
 /**

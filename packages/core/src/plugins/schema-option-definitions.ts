@@ -1,5 +1,4 @@
-import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
-import { isTypeScriptIdentifier } from './typegen-contracts.js'
+import { immutableRecord } from '@ultimabase/shared'
 
 import { assertExactPlainObject } from '../exact-object-validation.js'
 
@@ -17,16 +16,7 @@ import {
 	type FieldDeclarationContext,
 } from '../schema/schema/field-contexts.js'
 
-export interface SchemaOptionTypegenDescriptor {
-	/** Applies the exported generic to the generated option interface's polymorphic `this`. */
-	readonly generic?: 'self'
-	/** Applies one plugin-owned type-only compatibility check to exact declared field options. */
-	readonly compatibilityType?: string
-	readonly module: string
-	readonly type: string
-}
-
-declare const schemaOptionSourceType: unique symbol
+declare const fieldOptionSourceType: unique symbol
 
 type RequirementConsumerValue<TRequirement> =
 	TRequirement extends CapabilityRequirement<infer TToken, infer TOptional>
@@ -89,20 +79,12 @@ export interface SchemaOptionDefinition<
 	TValue = unknown,
 	TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
-	TSource = TValue,
 > {
 	readonly normalize: (value: unknown, path: string) => TValue
 	readonly protocolVersion: number
 	readonly runtime?: SchemaOptionRuntimeCompiler<TValue, TRequirement>
-	/**
-	 * Exposes one public generated authoring type, or keeps a factory-owned
-	 * compiler marker out of generated schema and field option completion.
-	 */
-	readonly typegen: SchemaOptionTypegenDescriptor | false
 	/** Keeps executable or nominal option values application-local; selectors only compare portable values. */
 	readonly valueKind?: 'json' | 'opaque'
-	/** @internal Retains the source-authoring value without emitting Runtime data. */
-	readonly [schemaOptionSourceType]?: TSource
 }
 
 /** Defines one direct field option and every semantic context it can execute. */
@@ -111,19 +93,11 @@ export interface FieldOptionDefinition<
 	TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
 	TSource = TValue,
-> extends SchemaOptionDefinition<TValue, TRequirement, TSource> {
+> extends SchemaOptionDefinition<TValue, TRequirement> {
 	readonly contexts: readonly FieldDeclarationContext[]
+	/** @internal Retains the source-authoring value without emitting Runtime data. */
+	readonly [fieldOptionSourceType]?: TSource
 }
-
-/** Reads the exact source-authoring value carried by one option definition. */
-export type SchemaOptionSource<TDefinition> =
-	TDefinition extends SchemaOptionDefinition<
-		unknown,
-		SchemaOptionRuntimeRequirement,
-		infer TSource
-	>
-		? TSource
-		: never
 
 export const schemaOptionDefinitions: WeakSet<object> = new WeakSet<object>()
 export const fieldOptionDefinitions: WeakSet<object> = new WeakSet<object>()
@@ -132,75 +106,15 @@ const optionDefinitionKeys = new Set([
 	'normalize',
 	'protocolVersion',
 	'runtime',
-	'typegen',
 	'valueKind',
 ])
 const fieldOptionDefinitionKeys = new Set([...optionDefinitionKeys, 'contexts'])
-
-const optionTypegenKeys = new Set([
-	'compatibilityType',
-	'generic',
-	'module',
-	'type',
-])
 
 const optionRuntimeKeys = new Set(['compile', 'requirement'])
 
 const isSchemaOptionRuntimeCompile = (
 	value: unknown,
 ): value is (context: unknown) => unknown => typeof value === 'function'
-
-const normalizeTypegenDescriptor = (
-	value: unknown,
-): SchemaOptionTypegenDescriptor | false => {
-	if (value === false) return false
-
-	assertExactPlainObject(
-		value,
-		optionTypegenKeys,
-		'Schema option typegen must be false or a plain object',
-		'Unknown schema option typegen key: ',
-	)
-	assertNonEmptyString(value.module, 'Schema option typegen.module')
-	assertNonEmptyString(value.type, 'Schema option typegen.type')
-
-	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
-		throw new TypeError(
-			'Schema option typegen.module must be a stable module specifier',
-		)
-	}
-
-	if (!isTypeScriptIdentifier(value.type)) {
-		throw new TypeError(
-			'Schema option typegen.type must be a TypeScript export identifier',
-		)
-	}
-
-	if (value.compatibilityType !== undefined) {
-		assertNonEmptyString(
-			value.compatibilityType,
-			'Schema option typegen.compatibilityType',
-		)
-		if (!isTypeScriptIdentifier(value.compatibilityType)) {
-			throw new TypeError(
-				'Schema option typegen.compatibilityType must be a TypeScript export identifier',
-			)
-		}
-	}
-
-	if (value.generic !== undefined && value.generic !== 'self') {
-		throw new TypeError('Schema option typegen.generic must be self')
-	}
-
-	return immutableRecord({
-		...(value.compatibilityType === undefined
-			? {}
-			: { compatibilityType: value.compatibilityType }),
-		...(value.generic === undefined ? {} : { generic: value.generic }),
-		module: value.module,
-		type: value.type,
-	})
-}
 
 const normalizeOptionDefinition = <
 	const TValue,
@@ -209,11 +123,11 @@ const normalizeOptionDefinition = <
 	TSource = TValue,
 >(
 	definition:
-		| SchemaOptionDefinition<TValue, TRequirement, TSource>
+		| SchemaOptionDefinition<TValue, TRequirement>
 		| FieldOptionDefinition<TValue, TRequirement, TSource>,
 	field: boolean,
 ):
-	| SchemaOptionDefinition<TValue, TRequirement, TSource>
+	| SchemaOptionDefinition<TValue, TRequirement>
 	| FieldOptionDefinition<TValue, TRequirement, TSource> => {
 	assertExactPlainObject(
 		definition,
@@ -309,7 +223,6 @@ const normalizeOptionDefinition = <
 						requirement: runtime.requirement,
 					}),
 				}),
-		typegen: normalizeTypegenDescriptor(definition.typegen),
 		valueKind: valueKind ?? 'json',
 	})
 
@@ -324,10 +237,9 @@ export const defineSchemaOption = <
 	const TValue,
 	const TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
-	TSource = TValue,
 >(
-	definition: SchemaOptionDefinition<TValue, TRequirement, TSource>,
-): SchemaOptionDefinition<TValue, TRequirement, TSource> =>
+	definition: SchemaOptionDefinition<TValue, TRequirement>,
+): SchemaOptionDefinition<TValue, TRequirement> =>
 	normalizeOptionDefinition(definition, false)
 
 /** Defines one field-scoped option with an explicit non-empty context set. */

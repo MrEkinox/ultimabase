@@ -1,6 +1,6 @@
 import type { EnumFieldBuilderFactory } from './enum-field-builder.js'
 import type {
-	FieldTypegenStateOf,
+	FieldTypeStateOf,
 	FieldValue,
 	GenericField,
 } from '../fields/base/contract.js'
@@ -43,12 +43,9 @@ import type {
 } from '../output/contracts.js'
 import type { ConfiguredOutputBuilder } from '../output/source-builder-contract.js'
 import type {
+	BaseSchemaTypeInfo,
 	SchemaTypeInfo,
-	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoSource,
-	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
-	UltimaBaseGeneratedFieldBuilderMethods,
-	UltimaBaseGeneratedVirtualFieldBuilderMethods,
 } from '../type-info.js'
 import type { SchemaDeclaredFields } from './definition.js'
 import type {
@@ -122,11 +119,9 @@ export type FieldBuilder<
 	TStoredSourceTemplate extends object = EmptyFieldSourceTemplate,
 	TEmbeddedSourceTemplate extends object = EmptyFieldSourceTemplate,
 	TVirtualSourceTemplate extends object = EmptyFieldSourceTemplate,
-	TStoredPluginMethods extends object = UltimaBaseGeneratedFieldBuilderMethods,
-	TEmbeddedPluginMethods extends object =
-		UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
-	TVirtualPluginMethods extends object =
-		UltimaBaseGeneratedVirtualFieldBuilderMethods,
+	TStoredPluginMethods extends object = Readonly<Record<never, never>>,
+	TEmbeddedPluginMethods extends object = Readonly<Record<never, never>>,
+	TVirtualPluginMethods extends object = Readonly<Record<never, never>>,
 	TOutputBuilder = OutputBuilder,
 > = ScalarFieldBuilderMethods<
 	TStoredSourceTemplate,
@@ -153,8 +148,7 @@ export type FieldBuilder<
 /** Provides only value-field factories accepted inside an embedded object. */
 export type EmbeddedFieldBuilder<
 	TSourceTemplate extends object = EmptyFieldSourceTemplate,
-	TPluginMethods extends object =
-		UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
+	TPluginMethods extends object = Readonly<Record<never, never>>,
 > = TPluginMethods & {
 	/** Declares one embedded UTF-16 string. @example `field.string()` */
 	readonly string: EmbeddedStringFieldFactory<TSourceTemplate>
@@ -193,7 +187,7 @@ export type EmbeddedFieldBuilder<
 export type SchemaFieldBuilderDeclaration<
 	TFields extends SchemaDeclaredFields = SchemaDeclaredFields,
 	TClassName extends string = string,
-> = (field: FieldBuilder<SchemaTypeInfoByNameOrBase<TClassName>>) => TFields
+> = (field: FieldBuilder<BaseSchemaTypeInfo<TClassName>>) => TFields
 
 type SourceFactoryValue<TResult> = TResult extends GenericField
 	? FieldValue<TResult>
@@ -202,7 +196,7 @@ type SourceFactoryValue<TResult> = TResult extends GenericField
 		: never
 
 type SourceFactoryObjectValue<TResult> = TResult extends GenericField
-	? true extends FieldTypegenStateOf<TResult>['nullable']
+	? true extends FieldTypeStateOf<TResult>['nullable']
 		? FieldValue<TResult> | null
 		: FieldValue<TResult>
 	: SourceFactoryValue<TResult>

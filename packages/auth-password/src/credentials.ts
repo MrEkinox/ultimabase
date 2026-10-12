@@ -7,7 +7,7 @@ import {
 	type IntField,
 	type PrivateCollection,
 	type PrivateCollectionRecord,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 	type SchemaDefinition,
 	type StringField,
 	type UuidField,
@@ -15,7 +15,7 @@ import {
 
 import type { ResolvedPasswordHashPolicy } from './password-policy.js'
 
-type RequiredState<TImmutable extends boolean> = ScalarFieldTypegenState<
+type RequiredState<TImmutable extends boolean> = ScalarFieldTypeState<
 	true,
 	false,
 	TImmutable,

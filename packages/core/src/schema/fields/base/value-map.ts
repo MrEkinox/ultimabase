@@ -1,5 +1,5 @@
 import type {
-	FieldTypegenStateOf,
+	FieldTypeStateOf,
 	FieldUpdateInput,
 	FieldList,
 	FieldListValue,
@@ -15,9 +15,9 @@ type Simplify<TValue> = {
 	[TKey in keyof TValue]: TValue[TKey]
 } & {}
 
-type HasNullableValidation<TField> = FieldTypegenStateOf<TField>['nullable']
+type HasNullableValidation<TField> = FieldTypeStateOf<TField>['nullable']
 
-type IsListField<TField> = FieldTypegenStateOf<TField>['list'] extends FieldList
+type IsListField<TField> = FieldTypeStateOf<TField>['list'] extends FieldList
 	? true
 	: false
 
@@ -31,7 +31,7 @@ type ObjectChildMode<
 	: TMode
 
 type IsCreateRequired<TField> =
-	FieldTypegenStateOf<TField>['create'] extends 'required' ? true : false
+	FieldTypeStateOf<TField>['create'] extends 'required' ? true : false
 
 type BaseFieldValue<
 	TField extends GenericField,
@@ -44,7 +44,7 @@ type BaseFieldValue<
 }
 	? FieldListValue<
 			FieldValueMap<TFields, ObjectChildMode<TField, TMode>>,
-			FieldTypegenStateOf<TField>['list']
+			FieldTypeStateOf<TField>['list']
 		>
 	: FieldValue<TField>
 
@@ -59,7 +59,7 @@ type ResolvedFieldValue<
 type IsOmittedField<
 	TField extends GenericField,
 	TMode extends FieldValueMode,
-> = FieldTypegenStateOf<TField>[TMode] extends 'forbidden' ? true : false
+> = FieldTypeStateOf<TField>[TMode] extends 'forbidden' ? true : false
 
 type ObjectRequiredFields<TFields extends SchemaFields> = {
 	readonly [

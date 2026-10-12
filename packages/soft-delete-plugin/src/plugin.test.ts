@@ -2,7 +2,7 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
 	compileValidationPlans,
-	readFieldTypegenState,
+	readFieldTypeState,
 	type CompiledApplication,
 	type FieldBuilder,
 } from '@ultimabase/core'
@@ -224,7 +224,7 @@ describe('softDeletePlugin', () => {
 						pluginId: '@ultimabase/soft-delete-plugin',
 					},
 				})
-				expect(readFieldTypegenState(declared)).toMatchObject({
+				expect(readFieldTypeState(declared)).toMatchObject({
 					create: 'forbidden',
 					update: 'forbidden',
 				})

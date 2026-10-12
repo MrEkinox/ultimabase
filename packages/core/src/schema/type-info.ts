@@ -1,113 +1,19 @@
 import type {
-	ApplicationSchemaMutationManyMethod,
-	ApplicationSchemaMutationMethod,
-} from '../application/application-schema-mutations.js'
-import type { PluginSchemaMutationDefinition } from '../plugins/plugin-schema-mutations.js'
-import type { SchemaClass } from './schema/definition.js'
-import type {
 	DeferredSchemaTarget,
 	ResolveSchemaTarget,
 } from './schema/deferred-targets.js'
 
-/** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 21 as const
-
-/** Minimal identity implemented by every generated persisted item. */
+/** Minimal identity implemented by every persisted item. */
 export interface SchemaItemType {
 	readonly id: string
 }
 
-/** Safe persisted model exposed before an application registry is generated. */
+/** Safe persisted model used when a schema's fields are not known. */
 export type BaseItem = Readonly<
 	SchemaItemType & Readonly<Record<string, unknown>>
 >
 
-/* eslint-disable @typescript-eslint/no-empty-object-type -- These interfaces are intentionally empty declaration-merging targets. */
-/**
- * Application-generated declarations merge their exact schema entries here.
- *
- * The empty Core interface keeps package builds independent from one concrete
- * application while module augmentation gives application code one compact
- * lookup table.
- */
-export interface UltimaBaseGeneratedSchemas {}
-
-/** Application-generated declarations merge configured root builder methods here. */
-export interface UltimaBaseGeneratedFieldBuilderMethods {}
-
-/** Application-generated declarations merge configured embedded builder methods here. */
-export interface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {}
-
-/** Application-generated declarations merge configured virtual builder methods here. */
-export interface UltimaBaseGeneratedVirtualFieldBuilderMethods {}
-
-/** Application-generated declarations merge configured output builder methods here. */
-export interface UltimaBaseGeneratedOutputBuilderMethods {}
-
-/** Application-generated declarations merge accepted plugin field options here. */
-export interface UltimaBaseGeneratedFieldOptions {}
-
-/** Application-generated declarations merge accepted embedded field options here. */
-export interface UltimaBaseGeneratedEmbeddedFieldOptions {}
-
-/** Application-generated declarations merge accepted virtual field options here. */
-export interface UltimaBaseGeneratedVirtualFieldOptions {}
-
-/** Application-generated declarations merge accepted output descriptor options here. */
-export interface UltimaBaseGeneratedOutputOptions {}
-
-declare const generatedFieldOptionCompatibilityType: unique symbol
-
-/** Application-generated declarations merge plugin-owned exact option checks here. */
-export interface UltimaBaseGeneratedFieldOptionCompatibility<
-	TOptions extends object,
-	TValue,
-> {
-	readonly [generatedFieldOptionCompatibilityType]?: Readonly<{
-		readonly options: TOptions
-		readonly value: TValue
-	}>
-}
-
-/** Application-generated declarations merge accepted plugin schema options here. */
-export interface UltimaBaseGeneratedSchemaOptions {}
-
-/** Application-generated declarations merge exact custom operations here. */
-export interface UltimaBaseGeneratedOperations {}
-
-/** Application-generated declarations merge exact application handle surfaces here. */
-export interface UltimaBaseGeneratedSchemaSurfaces {}
-
-/** Derives class methods from the canonical mutation catalog and schema visibility. */
-export type UltimaBaseGeneratedSchemaClassSurface<TClassName extends string> =
-	TClassName extends keyof UltimaBaseGeneratedSchemaSurfaces
-		? UltimaBaseGeneratedSchemaSurfaces[TClassName] extends Readonly<{
-				readonly schema: infer TMethods extends object
-				readonly schemaMutations: infer TMutations extends object
-			}>
-			? {
-					readonly [TName in keyof TMethods]: TName extends keyof TMutations
-						? TMutations[TName] extends PluginSchemaMutationDefinition
-							? TMutations[TName] extends Readonly<{ target: 'many' }>
-								? ApplicationSchemaMutationManyMethod<
-										SchemaClass<SchemaTypeInfoByNameOrBase<TClassName>>,
-										TMutations[TName]
-									>
-								: ApplicationSchemaMutationMethod<
-										SchemaClass<SchemaTypeInfoByNameOrBase<TClassName>>,
-										TMutations[TName]
-									>
-							: never
-						: never
-				}
-			: Readonly<Record<never, never>>
-		: Readonly<Record<never, never>>
-
-/** Marks that one complete generated registry is active in the TypeScript project. */
-export interface UltimaBaseGeneratedRegistryState {}
-/* eslint-enable @typescript-eslint/no-empty-object-type */
-
-/** Groups the public operation inputs generated for one schema. */
+/** Groups the public operation inputs of one schema. */
 export interface SchemaInputsTypeInfo {
 	readonly create: object
 	readonly dependencySelect: object
@@ -120,13 +26,13 @@ export interface SchemaInputsTypeInfo {
 	readonly where: object
 }
 
-/** Describes one generated relationship without retaining a field definition. */
+/** Describes one relationship without retaining a field definition. */
 export interface SchemaRelationshipTypeInfo {
 	readonly kind: 'pointer' | 'relation'
 	readonly target: string
 }
 
-/** Structural boundary implemented by every generated application schema entry. */
+/** Structural boundary implemented by every schema type contract. */
 export interface SchemaTypeInfo {
 	readonly fields: string
 	readonly inputs: SchemaInputsTypeInfo
@@ -141,12 +47,12 @@ export interface SchemaTypeInfo {
 
 declare const schemaTypeInfoType: unique symbol
 
-/** Carries one already-resolved generated contract without another registry lookup. */
+/** Carries one already-resolved contract without another registry lookup. */
 export interface SchemaTypeInfoCarrier<TContract extends SchemaTypeInfo> {
 	readonly [schemaTypeInfoType]?: TContract
 }
 
-/** Supplies either one generated contract or one runtime schema identity. */
+/** Supplies either one contract or one runtime schema identity. */
 export type SchemaTypeInfoSource =
 	SchemaTypeInfo | Readonly<{ readonly className: string }>
 
@@ -159,7 +65,7 @@ export interface SchemaRelationshipSourceCarrier<
 	readonly [schemaRelationshipSourceType]: TSource
 }
 
-/** Minimal operation inputs exposed before code generation has run. */
+/** Minimal operation inputs of a schema whose fields are not known. */
 export interface BaseSchemaInputsTypeInfo {
 	readonly create: Readonly<Record<string, unknown>>
 	readonly dependencySelect: Readonly<Record<string, boolean>> &
@@ -174,7 +80,7 @@ export interface BaseSchemaInputsTypeInfo {
 	readonly where: Readonly<Record<string, unknown>>
 }
 
-/** Minimal safe contract used before code generation has produced an entry. */
+/** Minimal safe contract of a schema whose fields are not known. */
 export interface BaseSchemaTypeInfo<
 	TClassName extends string,
 > extends SchemaTypeInfo {
@@ -189,7 +95,7 @@ export interface BaseSchemaTypeInfo<
 	readonly selectableFields: string
 }
 
-/** Names the public value projections Core reads from generated type information. */
+/** Names the public value projections Core reads from type information. */
 export type SchemaTypeValueKey =
 	| 'Create'
 	| 'Include'
@@ -218,40 +124,6 @@ type SchemaTypeValueFromTypeInfo<
 						: TKey extends 'Update'
 							? TContract['inputs']['update']
 							: TContract['inputs']['where']
-
-/** Reports whether the current TypeScript project loaded a generated registry. */
-export type HasUltimaBaseGeneratedRegistry =
-	'application' extends keyof UltimaBaseGeneratedRegistryState ? true : false
-
-/** Lists exact schema names supplied by the active generated application. */
-export type UltimaBaseGeneratedSchemaName = Extract<
-	keyof UltimaBaseGeneratedSchemas,
-	string
->
-
-/** Suggests generated schema names while keeping first-generation declarations writable. */
-export type SchemaDeclarationTargetName =
-	HasUltimaBaseGeneratedRegistry extends true
-		? UltimaBaseGeneratedSchemaName
-		: string
-
-/** Reads one exact generated entry without widening an unknown schema name. */
-export type SchemaTypeInfoByName<TClassName extends string> =
-	TClassName extends UltimaBaseGeneratedSchemaName
-		? UltimaBaseGeneratedSchemas[TClassName] extends SchemaTypeInfo
-			? UltimaBaseGeneratedSchemas[TClassName]
-			: never
-		: never
-
-/** Resolves one generated contract or the deliberate bootstrap fallback. */
-export type SchemaTypeInfoByNameOrBase<TClassName extends string> = [
-	SchemaTypeInfoByName<TClassName>,
-] extends [never]
-	? BaseSchemaTypeInfo<TClassName>
-	: SchemaTypeInfoByName<TClassName>
-
-type SchemaTypeInfoForLiteral<TClassName extends string> =
-	string extends TClassName ? never : SchemaTypeInfoByName<TClassName>
 
 /**
  * The members `SchemaTypeInfoFor` compares when it reads a contract. The write
@@ -282,7 +154,7 @@ interface ReadSchemaTypeInfo {
 	readonly selectableFields: string
 }
 
-/** Resolves an exact generated entry only for a literal registered class name. */
+/** Resolves the contract carried by a schema, or the base one for a bare name. */
 export type SchemaTypeInfoFor<TSource extends SchemaTypeInfoSource> =
 	TSource extends ReadSchemaTypeInfo
 		? TSource
@@ -296,9 +168,7 @@ export type SchemaTypeInfoFor<TSource extends SchemaTypeInfoSource> =
 				: TSource extends {
 							readonly className: infer TClassName extends string
 					  }
-					? [SchemaTypeInfoForLiteral<TClassName>] extends [never]
-						? BaseSchemaTypeInfo<TClassName>
-						: SchemaTypeInfoForLiteral<TClassName>
+					? BaseSchemaTypeInfo<TClassName>
 					: never
 
 // A deferred target is read only from lazy positions, after its schema is typed.
@@ -309,7 +179,7 @@ type SchemaTypeInfoForDeferred<TTarget> = TTarget extends {
 	? TContract
 	: BaseSchemaTypeInfo<string>
 
-/** Reads an exact generated relationship target without inspecting local callbacks. */
+/** Reads an exact relationship target without inspecting local callbacks. */
 export type SchemaRelationshipTargetName<
 	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends string,
@@ -343,11 +213,11 @@ export type SchemaRelationshipSource<
 			: never
 		: never
 
-/** Reads generated scalar numeric fields that accept atomic deltas. */
+/** Reads scalar numeric fields that accept atomic deltas. */
 export type SchemaNumericFieldName<TSchema extends SchemaTypeInfoSource> =
 	Extract<SchemaTypeInfoFor<TSchema>['numericFields'], string>
 
-/** Selects generated relationship fields by their logical cardinality. */
+/** Selects relationship fields by their logical cardinality. */
 export type SchemaRelationshipFieldName<
 	TSchema extends SchemaTypeInfoSource,
 	TKind extends SchemaRelationshipTypeInfo['kind'],
@@ -369,7 +239,7 @@ export type SchemaRelationshipFieldName<
 					string
 		: never
 
-/** Reads one public value from a schema's generated or base type information. */
+/** Reads one public value from a schema's type information. */
 export type SchemaTypeValue<
 	TSchema extends SchemaTypeInfoSource,
 	TKey extends SchemaTypeValueKey,
