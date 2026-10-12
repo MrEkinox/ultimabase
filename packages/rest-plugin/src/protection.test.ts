@@ -85,21 +85,24 @@ describe('REST public writes', () => {
 			}),
 			[],
 		],
-	] as const)('starts with %s and no protection warning', async (_, rest, policies) => {
-		const warning = vi
-			.spyOn(console, 'warn')
-			.mockImplementation(() => undefined)
-		const Application = UltimaBase.use(rest, databasePlugin, ...policies)
-		const ultimabase = new Application({ schemas: [PublicSchema] })
-		onTestFinished(() => ultimabase.dispose())
+	] as const)(
+		'starts with %s and no protection warning',
+		async (_, rest, policies) => {
+			const warning = vi
+				.spyOn(console, 'warn')
+				.mockImplementation(() => undefined)
+			const Application = UltimaBase.use(rest, databasePlugin, ...policies)
+			const ultimabase = new Application({ schemas: [PublicSchema] })
+			onTestFinished(() => ultimabase.dispose())
 
-		await ultimabase.start()
-		// ADR-0313: the missing HTTP plugin is the only line.
-		expect(warning.mock.calls.map((call): unknown => call[0])).toStrictEqual([
-			noHttpLine,
-		])
-		await ultimabase.dispose()
-	})
+			await ultimabase.start()
+			// ADR-0313: the missing HTTP plugin is the only line.
+			expect(warning.mock.calls.map((call): unknown => call[0])).toStrictEqual([
+				noHttpLine,
+			])
+			await ultimabase.dispose()
+		},
+	)
 
 	it('skips empty graphs with one line', async () => {
 		const warning = vi

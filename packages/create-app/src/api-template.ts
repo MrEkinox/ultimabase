@@ -148,7 +148,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasDataApi(plan),
-			'Generated Task API mutations are disabled; the server-side Task write in `main` seeds a record. REST refuses to start with public writes unless a policy plugin such as Access is installed or you pass `restPlugin({ publicWrites: true })`; GraphQL\'s `acknowledgeUnverifiedProtection` only suppresses a diagnostic and never grants or proves authorization.',
+			"Generated Task API mutations are disabled; the server-side Task write in `main` seeds a record. REST refuses to start with public writes unless a policy plugin such as Access is installed or you pass `restPlugin({ publicWrites: true })`; GraphQL's `acknowledgeUnverifiedProtection` only suppresses a diagnostic and never grants or proves authorization.",
 		],
 		[
 			has(plan, 'access-plugin') && hasDataApi(plan),

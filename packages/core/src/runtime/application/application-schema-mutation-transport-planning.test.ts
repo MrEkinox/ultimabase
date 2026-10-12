@@ -144,10 +144,7 @@ const consumerPlugin = (harness: Harness) =>
 		],
 	})
 
-const runPlanning = (
-	harness: Harness,
-	bindings?: 'optional' | 'required',
-) => {
+const runPlanning = (harness: Harness, bindings?: 'optional' | 'required') => {
 	if (
 		harness.callbacks === undefined ||
 		harness.owner === undefined ||

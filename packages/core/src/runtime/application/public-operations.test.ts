@@ -259,20 +259,18 @@ describe('public operations', () => {
 			message: 'hi',
 		})
 		await expect(execute(bound.name, 'loud')).resolves.toBe('loud')
-		await expect(execute(unbound.name, { text: 'hi' })).rejects.toMatchObject(
-			{
-				code: 'VALIDATION_ERROR',
-				publicDetails: {
-					issues: [
-						{
-							code: 'input.invalid',
-							message: 'input.message must be a string',
-							path: ['input'],
-						},
-					],
-				},
+		await expect(execute(unbound.name, { text: 'hi' })).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			publicDetails: {
+				issues: [
+					{
+						code: 'input.invalid',
+						message: 'input.message must be a string',
+						path: ['input'],
+					},
+				],
 			},
-		)
+		})
 		expect(() =>
 			run(() =>
 				executor.exposeOperations({
@@ -292,7 +290,10 @@ describe('public operations', () => {
 	it.each([
 		[{ name: 'Login' }, 'public.name must be a camelCase identifier'],
 		[{ name: 'log-in' }, 'public.name must be a camelCase identifier'],
-		[{ name: 'login', path: '/x' }, 'Unknown plugin operation contribution public option: path'],
+		[
+			{ name: 'login', path: '/x' },
+			'Unknown plugin operation contribution public option: path',
+		],
 		[{ name: 'login', input: { at: new Date() } }, 'public.input'],
 	])('validates the public declaration %#', (declaration, error) => {
 		expect(() =>
