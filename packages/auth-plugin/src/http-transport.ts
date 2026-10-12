@@ -261,10 +261,9 @@ export const createAuthHttpTransport = (
 			routes: new Set(routes.map(fullPath)),
 			signIn: new Set(routes.filter(isSignInRoute).map(fullPath)),
 		}),
+		// One plugin instance serves each application it is started in, one at
+		// a time (one initialized application per realm): the latest binds.
 		start: (executor: ApplicationRequestExecutor) => {
-			if (transport !== undefined) {
-				throw new TypeError('Auth HTTP operation executor is already bound')
-			}
 			transport = executor.exposeOperations({
 				operations: routes.map(({ operation }) => operation),
 				transport: authHttpProtocol,

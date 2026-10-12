@@ -89,12 +89,15 @@ ${[
 	]).join('\n\n')
 
 /**
- * Role schemas are complete declarations (`.with(...)`), and an application
- * mixing them with unfinished `define(...)` calls cannot name its own type in
- * `Register`. With Roles or ACL, the Task rules therefore go in `.with(...)`.
+ * Role and User schemas are complete declarations (`.with(...)`), and an
+ * application mixing them with unfinished `define(...)` calls cannot name its
+ * own type in `Register` (TS7022). With Roles, ACL or authentication, the Task
+ * rules therefore go in `.with(...)`.
  */
 const finishesTask = (plan: InitializerPlan): boolean =>
-	has(plan, 'roles-plugin') || has(plan, 'acl-permissions-plugin')
+	has(plan, 'roles-plugin') ||
+	has(plan, 'acl-permissions-plugin') ||
+	hasAuth(plan)
 
 const taskAccessRule = [
 	'// Deny ordinary requests; the local demonstration uses audited Master access.',

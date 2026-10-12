@@ -138,7 +138,7 @@ import { AppRole, AppUser, Task } from './src/schema.js'
 await ultimabase.start()
 try {
   const signed = await AppUser.signUp({
-    email: 'alice@example.test', password: 'correct horse battery staple',
+    email: 'acl-alice@example.test', password: 'correct horse battery staple',
   })
   const role = await AppRole.createOne({ data: { name: 'editor' } }, { useMasterKey: true })
   await AppRole.updateOne({ where: { id: { eq: role.id } }, data: { members: { connect: [signed.principal.user.id] } } }, { useMasterKey: true })

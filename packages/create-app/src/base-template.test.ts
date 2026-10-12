@@ -233,6 +233,9 @@ describe('base project templates', () => {
 				".use(authPlugin({ methods: [password({ identifier: 'email' })] }))",
 			)
 			expect(schema).toContain('SchemaApplication.UserSchema.define({')
+			// Regression: an unfinished Task beside the User made `typeof
+			// ultimabase` circular in `Register` (TS7022).
+			expect(schema.match(/\.with\(\{\}\)/gu)).toHaveLength(2)
 			expect(application).toContain('schemas: [Task, AppUser]')
 			expect(application).not.toContain('MasterAuthority')
 			expect(application).not.toContain('cookie:')
