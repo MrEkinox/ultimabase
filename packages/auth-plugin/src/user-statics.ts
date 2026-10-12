@@ -105,7 +105,12 @@ export const createUserStatics = (
 	schema: SchemaReference<string>,
 	pluginId: string,
 ): Readonly<Record<string, unknown>> => {
-	const { execute } = createStaticsServices(schema)
+	const services = createStaticsServices(schema)
+	const execute = <const TOperation extends PluginOperationDefinition>(
+		operation: TOperation,
+		input: PluginOperationInput<TOperation>,
+	): Promise<PluginOperationResult<TOperation>> =>
+		services.execute(operation, input)
 	const withSession = <TResult>(
 		token: string,
 		run: () => Promise<TResult>,

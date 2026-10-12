@@ -35,11 +35,9 @@ describe('App.UserSchema with password()', () => {
 	})
 
 	it('types sign-up from the create fields and results as the User model', () => {
-		expectTypeOf(EmailUser.signUp)
-			.parameter(0)
-			.toEqualTypeOf<
-				CreateInput<typeof EmailUser> & { readonly password: string }
-			>()
+		expectTypeOf<Parameters<typeof EmailUser.signUp>[0]>().toEqualTypeOf<
+			CreateInput<typeof EmailUser> & { readonly password: string }
+		>()
 		expectTypeOf<
 			Awaited<ReturnType<typeof EmailUser.signUp>>['user']
 		>().toEqualTypeOf<Model<typeof EmailUser>>()
@@ -54,29 +52,31 @@ describe('App.UserSchema with password()', () => {
 	})
 
 	it('logs in with the configured identifier only', () => {
-		expectTypeOf(EmailUser.login).parameter(0).toEqualTypeOf<{
-			readonly email: string
-			readonly password: string
-		}>()
+		expectTypeOf<Parameters<typeof EmailUser.login>[0]>().toEqualTypeOf<
+			Readonly<Record<'email' | 'password', string>>
+		>()
 		// @ts-expect-error -- The email method has no username.
 		void EmailUser.login({ password: 'secret', username: 'ada' })
 		void UsernameUser.login({ password: 'secret', username: 'ada' })
 	})
 
 	it('adds the foundation members and plugin exports', () => {
-		expectTypeOf(EmailUser.listSessions).returns.resolves.toHaveProperty(
-			'sessions',
-		)
-		expectTypeOf(EmailUser.deleteAccount).returns.resolves.toEqualTypeOf<{
-			readonly deleted: true
-		}>()
+		expectTypeOf<
+			Awaited<ReturnType<typeof EmailUser.listSessions>>
+		>().toHaveProperty('sessions')
+		expectTypeOf<
+			Awaited<ReturnType<typeof EmailUser.deleteAccount>>
+		>().toEqualTypeOf<{ readonly deleted: true }>()
 		expectTypeOf<
 			PluginExports<ReturnType<typeof authPlugin>>
 		>().toEqualTypeOf<AuthPluginExports>()
 		const ultimabase = new EmailApp({ schemas: [EmailUser] })
 		expectTypeOf(
-			ultimabase.operation(passwordOperations.login).execute,
-		).returns.resolves.toEqualTypeOf<AuthenticationResult>()
+			ultimabase.operation(passwordOperations.login).execute({
+				password: 'secret',
+				username: 'ada',
+			}),
+		).resolves.toEqualTypeOf<AuthenticationResult>()
 	})
 
 	it('adds no factory without authPlugin', () => {

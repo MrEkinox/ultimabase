@@ -85,8 +85,11 @@ const restoreValue = (value: unknown): unknown => {
 }
 
 /** Reads the top-level fields a Core `VALIDATION_ERROR` names. */
-const readIssueFields = (error: FrameworkError): readonly string[] => {
-	const details: unknown = error.publicDetails
+const readIssueFields = (error: unknown): readonly string[] => {
+	const details: unknown =
+		typeof error === 'object' && error !== null
+			? Reflect.get(error, 'publicDetails')
+			: undefined
 	const issues: unknown = isPlainRecord(details) ? details.issues : undefined
 	if (!isUnknownArray(issues)) return []
 	return [

@@ -71,7 +71,15 @@ export const prepareCollections = (
 ): readonly PrivateCollection[] => {
 	const user: SchemaDefinition = requireUser(state)
 	state.collections ??= createAuthCollections(user)
-	const foundation = Object.values(state.collections)
+	const { accounts, attempts, sessions, states, verifiedEmails } =
+		state.collections
+	const foundation: readonly PrivateCollection[] = [
+		accounts,
+		attempts,
+		sessions,
+		states,
+		verifiedEmails,
+	]
 	const own = methods.flatMap((method) => {
 		const existing = state.methodCollections.get(method.name)
 		if (existing !== undefined) return existing

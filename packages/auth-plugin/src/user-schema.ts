@@ -170,10 +170,11 @@ export const createUserSchemaFactory =
 					if (!isPlainRecord(declared)) {
 						throw new TypeError(`${className}.fields must return an object`)
 					}
-					const owned = Object.assign(
-						{},
-						...methods.map((method) => method.userFields?.() ?? {}),
-					) as Readonly<Record<string, unknown>>
+					const owned: Readonly<Record<string, unknown>> = Object.fromEntries(
+						methods.flatMap((method) =>
+							Object.entries(method.userFields?.() ?? {}),
+						),
+					)
 					for (const name of [...Object.keys(owned), 'password']) {
 						if (Object.hasOwn(declared, name)) {
 							throw new TypeError(`Reserved User field: ${name}`)
@@ -195,12 +196,15 @@ export const createUserSchemaFactory =
 						const user = schema as SchemaReference<string>
 						state.user = user
 						const services = createStaticsServices(user)
+						const methodStatics: Readonly<Record<string, unknown>> =
+							Object.fromEntries(
+								methods.flatMap((method) =>
+									Object.entries(method.statics?.(services) ?? {}),
+								),
+							)
 						return Object.freeze({
 							...createUserStatics(user, pluginId),
-							...Object.assign(
-								{},
-								...methods.map((method) => method.statics?.(services) ?? {}),
-							),
+							...methodStatics,
 						})
 					},
 				)

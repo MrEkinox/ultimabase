@@ -42,12 +42,12 @@ const sessionListLimit = 100
 // `lastUsedAt` is written at most once per interval per session.
 const lastUsedIntervalMs = 60_000
 
-const isActive = (record: SessionRecord, now: number): boolean =>
+export const isActive = (record: SessionRecord, now: number): boolean =>
 	record.revokedAt === null &&
 	Date.parse(record.expiresAt) > now &&
 	Date.parse(record.absoluteExpiresAt) > now
 
-const toContextSession = (record: SessionRecord): AuthSession =>
+export const toContextSession = (record: SessionRecord): AuthSession =>
 	createAuthSession(
 		{
 			absoluteExpiresAt: record.absoluteExpiresAt,
@@ -217,7 +217,7 @@ export const validateSessionToken = async (
 }
 
 /** Reads the row of a context session while it is live and unchanged. */
-const findUnchangedSession = async (
+export const findUnchangedSession = async (
 	collections: AuthCollections,
 	session: AuthSession,
 	now: number,
@@ -364,47 +364,4 @@ export const listUserSessions = async (
 				}),
 			),
 	)
-}
-
-/** Rotates one unchanged live session through compare-and-swap. */
-export const rotateSession = async (
-	collections: AuthCollections,
-	session: AuthSession,
-	policy: ResolvedAuthSessionPolicy,
-	now: number = Date.now(),
-): Promise<(IssuedSessionPair & Readonly<{ userId: string }>) | undefined> => {
-	const record = await findUnchangedSession(collections, session, now)
-	if (record === undefined) return undefined
-	const token = createSessionToken()
-	const updated = await privateStore(collections.sessions).compareAndSwap({
-		data: {
-			expiresAt: new Date(
-				Math.min(
-					now + policy.expiresInMs,
-					Date.parse(record.absoluteExpiresAt),
-				),
-			).toISOString(),
-			lastUsedAt: new Date(now).toISOString(),
-			rotationVersion: record.rotationVersion + 1,
-			tokenDigest: token.digest,
-		},
-		expected: {
-			revokedAt: null,
-			rotationVersion: record.rotationVersion,
-			sessionGeneration: record.sessionGeneration,
-			tokenDigest: record.tokenDigest,
-		},
-		where: { id: record.id },
-	})
-	if (updated === null) return undefined
-	return immutableRecord({
-		context: toContextSession(updated),
-		issued: immutableRecord({
-			absoluteExpiresAt: updated.absoluteExpiresAt,
-			expiresAt: updated.expiresAt,
-			id: updated.id,
-			token: token.token,
-		}),
-		userId: updated.userId,
-	})
 }

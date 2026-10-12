@@ -3,14 +3,8 @@ import {
 	getOperationSchema,
 	provideRuntimeBehavior,
 	requestPrincipalResolverCapability,
-	type CreateManyOperationAst,
-	type CreateOneOperationAst,
-	type DatabaseMutationOperationAst,
 	type Pointer,
 	type RuntimeFinalMutationGuardStage,
-	type SchemaDefinition,
-	type UpsertManyOperationAst,
-	type UpsertOneOperationAst,
 } from '@ultimabase/core'
 import {
 	contributeApplication,
@@ -51,10 +45,8 @@ import { authGraphqlBindings } from './graphql.js'
 import { createAuthHandlers } from './handlers.js'
 import { resolveAuthHttpOptions, type AuthHttpOptions } from './http-options.js'
 import { provideAuthHttpResolver } from './http-resolver.js'
-import {
-	createAuthHttpTransport,
-	type AuthHttpRoute,
-} from './http-transport.js'
+import { foundationRoutes, readCreateInputs } from './foundation-routes.js'
+import { createAuthHttpTransport } from './http-transport.js'
 import {
 	readAuthMethodImplementation,
 	type AuthMethod,
@@ -62,7 +54,7 @@ import {
 	type AuthMethodOperation,
 	type AuthMethodUserFields,
 } from './method.js'
-import { authOperations, type AuthFoundationOperation } from './operations.js'
+import type { AuthFoundationOperation } from './operations.js'
 import { defaultUndefinedOptions } from './policy-options.js'
 import { authPrincipal } from './session.js'
 import {
@@ -173,31 +165,6 @@ const parseOptions: (value: unknown) => Readonly<AuthPluginOptions> =
 		normalize: (options) => options as AuthPluginOptions,
 	})
 
-const readCreateInputs = (
-	operation: DatabaseMutationOperationAst,
-): readonly Readonly<Record<string, unknown>>[] => {
-	switch (operation.kind) {
-		case 'create-one':
-			return [
-				(operation as unknown as CreateOneOperationAst<SchemaDefinition>).input,
-			]
-		case 'create-many':
-			return (operation as unknown as CreateManyOperationAst<SchemaDefinition>)
-				.inputs
-		case 'upsert-one':
-			return [
-				(operation as unknown as UpsertOneOperationAst<SchemaDefinition>)
-					.create,
-			]
-		case 'upsert-many':
-			return (
-				operation as unknown as UpsertManyOperationAst<SchemaDefinition>
-			).items.map(({ create }) => create)
-		default:
-			return []
-	}
-}
-
 const readMethods = (value: unknown): readonly AuthMethodImplementation[] => {
 	if (!isUnknownArray(value) || value.length === 0) {
 		throw new TypeError(
@@ -221,63 +188,6 @@ const readLinking = (value: unknown): AuthLinking => {
 	}
 	return value
 }
-
-const foundationRoutes: readonly AuthHttpRoute[] = [
-	{
-		body: 'none',
-		operation: authOperations.current,
-		path: 'current',
-		response: 'result',
-	},
-	{
-		body: 'none',
-		operation: authOperations.refresh,
-		path: 'refresh',
-		response: 'session',
-	},
-	{
-		body: 'none',
-		operation: authOperations.logout,
-		path: 'logout',
-		response: 'clear',
-	},
-	{
-		body: 'none',
-		operation: authOperations.logoutEverywhere,
-		path: 'logout-everywhere',
-		response: 'clear',
-	},
-	{
-		body: 'none',
-		operation: authOperations.listSessions,
-		path: 'list-sessions',
-		response: 'result',
-	},
-	{
-		body: 'json',
-		operation: authOperations.revokeSession,
-		path: 'revoke-session',
-		response: 'result',
-	},
-	{
-		body: 'none',
-		operation: authOperations.listMethods,
-		path: 'list-methods',
-		response: 'result',
-	},
-	{
-		body: 'json',
-		operation: authOperations.unlinkMethod,
-		path: 'unlink-method',
-		response: 'result',
-	},
-	{
-		body: 'none',
-		operation: authOperations.deleteAccount,
-		path: 'delete-account',
-		response: 'clear',
-	},
-]
 
 const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 	options: AuthPluginOptions<TMethods>,

@@ -77,8 +77,8 @@ const errorResponse = (
 	statuses: ReadonlyMap<string, number>,
 ): Response => {
 	const requestId = getCurrentRequest().requestId
-	const status =
-		error instanceof PluginError ? statuses.get(error.code) : undefined
+	const code: unknown = error instanceof PluginError ? error.code : undefined
+	const status = typeof code === 'string' ? statuses.get(code) : undefined
 	if (error instanceof PluginError && status !== undefined) {
 		const payload = error.toJSON()
 		const retryAfter: unknown = isPlainRecord(payload.details)

@@ -70,14 +70,12 @@ export type PasswordIdentifierField = StringField<
 >
 
 /** The User fields of a password method. */
-export type PasswordUserFields<TIdentifier extends PasswordIdentifier> = {
-	readonly [TKey in TIdentifier]: PasswordIdentifierField
-}
+export type PasswordUserFields<TIdentifier extends PasswordIdentifier> =
+	Readonly<Record<TIdentifier, PasswordIdentifierField>>
 
 /** Login credentials of a password method. */
-export type PasswordCredentials<TIdentifier extends PasswordIdentifier> = {
-	readonly [TKey in TIdentifier | 'password']: string
-}
+export type PasswordCredentials<TIdentifier extends PasswordIdentifier> =
+	Readonly<Record<TIdentifier | 'password', string>>
 
 /** Sign-up data: the User's create fields and the password. */
 export type PasswordSignUpInput<TSchema> = CreateInput<TSchema> & {
@@ -355,16 +353,16 @@ export const password = <
 			},
 		],
 		errorStatuses: { [passwordErrorCodes.passwordChangeRejected]: 400 },
-		statics: ({ execute }) =>
+		statics: (services) =>
 			immutableRecord({
 				signUp: (input: PasswordSignUpData) =>
-					execute(passwordOperations.signUp, input),
+					services.execute(passwordOperations.signUp, input),
 				login: (input: PasswordLoginInput) =>
-					execute(passwordOperations.login, input),
+					services.execute(passwordOperations.login, input),
 				changePassword: (input: PasswordChangeInput) =>
-					execute(passwordOperations.changePassword, input),
+					services.execute(passwordOperations.changePassword, input),
 				reauthenticate: (input: PasswordReauthenticateInput) =>
-					execute(passwordOperations.reauthenticate, input),
+					services.execute(passwordOperations.reauthenticate, input),
 			}),
 		unlink: (userId) => deletePasswordCredential(requireCredentials(), userId),
 	})

@@ -21,8 +21,8 @@ import {
 	listUserSessions,
 	revokeCurrentSession,
 	revokeSessionById,
-	rotateSession,
 } from './sessions.js'
+import { rotateSession } from './session-rotation.js'
 
 type Operations = typeof authOperations
 

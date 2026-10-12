@@ -112,7 +112,8 @@ export const resolveAuthEventHandlers = (value: unknown): AuthEventHandlers => {
 			throw new TypeError(`authPlugin events.${name} must be a function`)
 		}
 	}
-	return immutableRecord({ ...value }) as AuthEventHandlers
+	const handlers: AuthEventHandlers = immutableRecord({ ...value })
+	return handlers
 }
 
 /** Queues one event after the current transaction commits. */

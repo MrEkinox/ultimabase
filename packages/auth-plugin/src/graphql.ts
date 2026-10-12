@@ -3,7 +3,6 @@ import {
 	operationTransportBinding,
 	operationWireCodec,
 	type JsonValue,
-	type OperationTransportBindingDefinition,
 } from '@ultimabase/core'
 import {
 	contributeOperationBinding,
@@ -101,7 +100,7 @@ export const authGraphqlBinding = <
 	readonly root: 'mutation' | 'query'
 	readonly types: readonly TypeReference[]
 	readonly encode?: (value: PluginOperationResult<TOperation>) => unknown
-}): PluginOperationBindingContribution<OperationTransportBindingDefinition> =>
+}): PluginOperationBindingContribution =>
 	contributeOperationBinding(
 		operationTransportBinding({
 			codec: operationWireCodec({
@@ -176,7 +175,7 @@ const deleteType = graphqlObjectType('object', 'AuthDeleteAccountPayload', [
 ])
 
 /** The GraphQL fields of the foundation's operations. */
-export const authGraphqlBindings: readonly PluginOperationBindingContribution<OperationTransportBindingDefinition>[] =
+export const authGraphqlBindings: readonly PluginOperationBindingContribution[] =
 	immutableArray([
 		authGraphqlBinding({
 			field: 'current',
