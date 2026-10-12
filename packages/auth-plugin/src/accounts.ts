@@ -61,18 +61,79 @@ export const insertLinkedAccount = async (
 	await updateUserState(collections, userId, (state) => ({
 		accountIds: [...state.accountIds, record.id],
 	}))
-	// The first user to verify an email keeps it for automatic linking. A
-	// failed insert would abort the transaction, so the row is read first.
-	const verifiedEmails = privateStore(collections.verifiedEmails)
-	if (
-		record.emailVerified &&
-		record.email !== null &&
-		(await verifiedEmails.findUnique({ where: { email: record.email } })) ===
-			null
-	) {
-		await verifiedEmails.insert({ data: { email: record.email, userId } })
+	if (record.emailVerified && record.email !== null) {
+		await claimVerifiedEmail(collections, userId, record.email)
 	}
 	return toInfo(record)
+}
+
+/**
+ * The first user to verify an email keeps it for automatic linking. A failed
+ * insert would abort the transaction, so the row is read first.
+ */
+const claimVerifiedEmail = async (
+	collections: AuthCollections,
+	userId: string,
+	email: string,
+): Promise<void> => {
+	const verifiedEmails = privateStore(collections.verifiedEmails)
+	if ((await verifiedEmails.findUnique({ where: { email } })) === null) {
+		await verifiedEmails.insert({ data: { email, userId } })
+	}
+}
+
+/**
+ * Marks the user's linked accounts holding this email verified, and claims
+ * the email for automatic linking when no other user holds it.
+ */
+export const verifyLinkedEmail = async (
+	collections: AuthCollections,
+	userId: string,
+	email: string,
+): Promise<void> => {
+	const store = privateStore(collections.accounts)
+	for (const account of await readUserAccounts(collections, userId)) {
+		if (account.email === email && !account.emailVerified) {
+			await store.update({
+				data: { emailVerified: true },
+				where: { id: account.id },
+			})
+		}
+	}
+	await claimVerifiedEmail(collections, userId, email)
+}
+
+/**
+ * Moves one method's linked account of a user to a new, verified email: the
+ * previous email is released for automatic linking and the new one claimed.
+ */
+export const changeLinkedEmail = async (
+	collections: AuthCollections,
+	options: Readonly<{
+		readonly email: string
+		readonly method: string
+		readonly previousEmail: string
+		readonly userId: string
+	}>,
+): Promise<void> => {
+	const { email, method, previousEmail, userId } = options
+	const store = privateStore(collections.accounts)
+	for (const account of await readUserAccounts(collections, userId)) {
+		if (account.method === method && account.email === previousEmail) {
+			await store.update({
+				data: { email, emailVerified: true },
+				where: { id: account.id },
+			})
+		}
+	}
+	const verifiedEmails = privateStore(collections.verifiedEmails)
+	const held = await verifiedEmails.findUnique({
+		where: { email: previousEmail },
+	})
+	if (held?.userId === userId) {
+		await verifiedEmails.delete({ where: { email: previousEmail } })
+	}
+	await claimVerifiedEmail(collections, userId, email)
 }
 
 /** Finds the user linked to one method account. */

@@ -27,7 +27,7 @@ const userAgentLength = 256
 export interface AuthHttpResolverPaths {
 	/** Every authentication route. */
 	readonly routes: ReadonlySet<string>
-	/** Sign-up and login: a stale cookie never blocks them. */
+	/** Sign-up, login and anonymous routes: a stale cookie never blocks them. */
 	readonly signIn: ReadonlySet<string>
 }
 

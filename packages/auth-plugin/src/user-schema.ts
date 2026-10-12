@@ -16,6 +16,7 @@ import type {
 } from '@ultimabase/core/plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 
+import { createEmailVerificationFields } from './email.js'
 import type { AuthState } from './foundation.js'
 import {
 	authUserIdentityOptionName,
@@ -170,11 +171,15 @@ export const createUserSchemaFactory =
 					if (!isPlainRecord(declared)) {
 						throw new TypeError(`${className}.fields must return an object`)
 					}
-					const owned: Readonly<Record<string, unknown>> = Object.fromEntries(
-						methods.flatMap((method) =>
+					const owned: Readonly<Record<string, unknown>> = Object.fromEntries([
+						...methods.flatMap((method) =>
 							Object.entries(method.userFields?.() ?? {}),
 						),
-					)
+						// A method owning `email` brings the foundation's verification fields.
+						...(methods.some((method) => method.userEmail === true)
+							? Object.entries(createEmailVerificationFields())
+							: []),
+					])
 					for (const name of [...Object.keys(owned), 'password']) {
 						if (Object.hasOwn(declared, name)) {
 							throw new TypeError(`Reserved User field: ${name}`)

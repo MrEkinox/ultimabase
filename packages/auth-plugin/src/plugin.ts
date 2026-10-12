@@ -28,6 +28,10 @@ import {
 	createAuthPluginExports,
 	type AuthPluginExports,
 } from './application-api.js'
+import {
+	emailVerificationFieldNames,
+	guardProtectedEmailFields,
+} from './email.js'
 import { authErrorStatuses } from './errors.js'
 import {
 	createAuthEventEmitter,
@@ -223,6 +227,10 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 		[...foundationRoutes, ...methods.flatMap((method) => method.routes ?? [])],
 		statuses,
 	)
+	// With a method owning `email`, only the authentication flows write it.
+	const protectedFields = methods.some((method) => method.userEmail === true)
+		? ['email', ...emailVerificationFieldNames]
+		: []
 	let pluginExports: AuthPluginExports | undefined
 	const userInvariants = provideRuntimeBehavior({
 		contributionId: 'user-invariants',
@@ -233,10 +241,16 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 				owner,
 				state,
 			})
-			const guard: RuntimeFinalMutationGuardStage = ({ operation }) => {
+			const guard: RuntimeFinalMutationGuardStage = ({
+				context,
+				operation,
+			}) => {
 				if (getOperationSchema(operation) !== state.user) return
 				for (const data of readCreateInputs(operation)) {
 					for (const method of methods) method.checkUserData?.(data)
+				}
+				if (protectedFields.length > 0) {
+					guardProtectedEmailFields(operation, context, protectedFields)
 				}
 			}
 			return { value: { guardMutationInput: guard } }

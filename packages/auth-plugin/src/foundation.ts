@@ -7,9 +7,11 @@ import type { RequestContext } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
 import {
+	changeLinkedEmail,
 	findLinkedUserId,
 	findUserByVerifiedEmail,
 	insertLinkedAccount,
+	verifyLinkedEmail,
 	type AuthLinking,
 } from './accounts.js'
 import {
@@ -19,6 +21,7 @@ import {
 	type AttemptSubject,
 } from './attempts.js'
 import { createAuthCollections, type AuthCollections } from './collections.js'
+import { readUserRecord, writeUserEmailFields } from './email.js'
 import {
 	authErrorCodes,
 	rejectReauthentication,
@@ -34,10 +37,12 @@ import { readAuthenticationResult } from './profile.js'
 import { authClient, authPrincipal, authSession } from './session.js'
 import type { ResolvedAuthSessionPolicy } from './session-policy.js'
 import {
+	advanceUserGeneration,
 	issueSession,
 	markSessionAuthenticated,
 	revokeOtherSessions,
 } from './sessions.js'
+import { consumeAuthToken, findAuthToken, issueAuthToken } from './tokens.js'
 import { createUserElevated } from './user-creation.js'
 import { PluginError } from '@ultimabase/core'
 
@@ -71,13 +76,14 @@ export const prepareCollections = (
 ): readonly PrivateCollection[] => {
 	const user: SchemaDefinition = requireUser(state)
 	state.collections ??= createAuthCollections(user)
-	const { accounts, attempts, sessions, states, verifiedEmails } =
+	const { accounts, attempts, sessions, states, tokens, verifiedEmails } =
 		state.collections
 	const foundation: readonly PrivateCollection[] = [
 		accounts,
 		attempts,
 		sessions,
 		states,
+		tokens,
 		verifiedEmails,
 	]
 	const own = methods.flatMap((method) => {
@@ -241,6 +247,63 @@ export const createAuthServices = (options: {
 			}
 		},
 		resetAttempts: (subject) => resetAttempts(collections().attempts, subject),
+		checkAttempt: (subject) =>
+			assertAttemptAllowed(collections().attempts, subject),
+		countAttempt: (subject) =>
+			recordAttemptFailure(collections().attempts, subject),
+		issueToken: (options) => issueAuthToken(collections(), options),
+		findToken: (purpose, token) => findAuthToken(collections(), purpose, token),
+		consumeToken: (purpose, token) =>
+			consumeAuthToken(collections(), purpose, token),
+		readUser: (userId) => readUserRecord(requireUser(state), userId),
+		markEmailVerified: async ({ context, email, userId }) => {
+			const user = await readUserRecord(requireUser(state), userId)
+			if (user?.email !== email) return false
+			const verified = user.emailVerified === true
+			if (!verified) {
+				await writeUserEmailFields(
+					requireUser(state),
+					userId,
+					{ emailVerified: true, emailVerifiedAt: new Date().toISOString() },
+					context,
+				)
+			}
+			await verifyLinkedEmail(collections(), userId, email)
+			if (verified) return false
+			emit('afterEmailVerified', { email, userId }, context.requestId)
+			return true
+		},
+		changeEmail: async ({ context, email, method, userId }) => {
+			const user = await readUserRecord(requireUser(state), userId)
+			const previousEmail = user?.email
+			if (typeof previousEmail !== 'string') return rejectSession()
+			await writeUserEmailFields(
+				requireUser(state),
+				userId,
+				{
+					email,
+					emailVerified: true,
+					emailVerifiedAt: new Date().toISOString(),
+				},
+				context,
+			)
+			await changeLinkedEmail(collections(), {
+				email,
+				method,
+				previousEmail,
+				userId,
+			})
+			emit(
+				'afterEmailChanged',
+				{ email, previousEmail, userId },
+				context.requestId,
+			)
+			return previousEmail
+		},
+		completePasswordReset: async (userId, context) => {
+			await advanceUserGeneration(collections(), userId)
+			emit('afterPasswordReset', { userId }, context.requestId)
+		},
 		recordFailedAttempt: async (subject, context) => {
 			await recordAttemptFailure(collections().attempts, subject)
 			emit(

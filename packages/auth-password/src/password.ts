@@ -5,6 +5,7 @@ import {
 	graphqlField,
 	graphqlObjectType,
 	toAuthPayload,
+	type AuthEmailVerificationFields,
 	type AuthenticationResult,
 	type AuthMethod,
 	type AuthMethodStaticsHKT,
@@ -25,6 +26,21 @@ import {
 	createCredentialCollection,
 	type CredentialCollection,
 } from './credentials.js'
+import { createPasswordEmailHandlers } from './email-handlers.js'
+import {
+	createPasswordEmailStatics,
+	passwordEmailGraphqlBindings,
+	passwordEmailPublicOperations,
+	passwordEmailRoutes,
+	type PasswordEmailUserStatics,
+} from './email-method.js'
+import type { PasswordEmailOperationDefinition } from './email-operations.js'
+import {
+	resolvePasswordEmailOptions,
+	type PasswordEmailChangeOptions,
+	type PasswordResetOptions,
+	type PasswordVerificationOptions,
+} from './email-options.js'
 import {
 	createPasswordHandlers,
 	deletePasswordCredential,
@@ -62,16 +78,44 @@ export interface PasswordOptions<
 	readonly identifier?: TIdentifier
 	/** Argon2id parameters and their monotonic `policyVersion`. */
 	readonly policy?: PasswordHashPolicyOptions
+	/**
+	 * Enables `requestPasswordReset` and `resetPassword` (identifier `email`).
+	 * @example `reset: { sendResetEmail: ({ email, token }) => mailer.sendReset(email, token) }`
+	 */
+	readonly reset?: EmailOnly<TIdentifier, PasswordResetOptions>
+	/**
+	 * Enables `requestEmailVerification`, `verifyEmail`, the email sent at
+	 * sign-up and `requireVerifiedEmail` (identifier `email`).
+	 * @example `verification: { sendVerificationEmail: ({ email, token }) => mailer.sendVerify(email, token) }`
+	 */
+	readonly verification?: EmailOnly<TIdentifier, PasswordVerificationOptions>
+	/**
+	 * Enables `requestEmailChange` and `confirmEmailChange` (identifier `email`).
+	 * @example `emailChange: { sendConfirmationEmail, sendNoticeEmail }`
+	 */
+	readonly emailChange?: EmailOnly<TIdentifier, PasswordEmailChangeOptions>
 }
+
+/** An option only `identifier: 'email'` accepts. */
+type EmailOnly<TIdentifier, TOptions> = [TIdentifier] extends ['email']
+	? TOptions
+	: never
+
+/** Whether one identifier is the email: it adds the email flows. */
+type IsEmail<TIdentifier> = [TIdentifier] extends ['email'] ? true : false
 
 /** The identifier field the method adds to the User schema. */
 export type PasswordIdentifierField = StringField<
 	ScalarFieldTypegenState<true, false, true, false>
 >
 
-/** The User fields of a password method. */
+/**
+ * The User fields of a password method: the identifier, and with `email`
+ * the foundation's `emailVerified` and `emailVerifiedAt`.
+ */
 export type PasswordUserFields<TIdentifier extends PasswordIdentifier> =
-	Readonly<Record<TIdentifier, PasswordIdentifierField>>
+	Readonly<Record<TIdentifier, PasswordIdentifierField>> &
+		(IsEmail<TIdentifier> extends true ? AuthEmailVerificationFields : unknown)
 
 /** Login credentials of a password method. */
 export type PasswordCredentials<TIdentifier extends PasswordIdentifier> =
@@ -124,7 +168,8 @@ export interface PasswordStatics<
 	readonly statics: PasswordUserStatics<
 		TIdentifier,
 		Extract<this['schema'], SchemaDefinition>
-	>
+	> &
+		(IsEmail<TIdentifier> extends true ? PasswordEmailUserStatics : unknown)
 }
 
 /** One password method. */
@@ -132,13 +177,22 @@ export type PasswordMethod<TIdentifier extends PasswordIdentifier> = AuthMethod<
 	'password',
 	PasswordUserFields<TIdentifier>,
 	PasswordStatics<TIdentifier>,
-	PasswordOperationDefinition
+	| PasswordOperationDefinition
+	| (IsEmail<TIdentifier> extends true
+			? PasswordEmailOperationDefinition
+			: never)
 >
 
 const parseOptions: (value: unknown) => Readonly<PasswordOptions> =
 	definePluginOptionsParser({
 		name: 'password options',
-		keys: ['identifier', 'policy'] as const,
+		keys: [
+			'emailChange',
+			'identifier',
+			'policy',
+			'reset',
+			'verification',
+		] as const,
 		formatUnknownKey: (key) =>
 			`password contains unknown option: ${String(key)}`,
 		// The policy is validated by its own resolver below.
@@ -190,6 +244,13 @@ export const password = <
 	assertPasswordHashEngineAvailable()
 	const identifier = readIdentifier(untrusted.identifier)
 	const policy = resolvePasswordHashPolicy(untrusted.policy)
+	const email = resolvePasswordEmailOptions({
+		emailChange: untrusted.emailChange,
+		identifier,
+		reset: untrusted.reset,
+		verification: untrusted.verification,
+	})
+	const ownsEmail = identifier === 'email'
 	const normalizeIdentifier =
 		identifier === 'email' ? normalizeEmail : normalizeUsername
 	let credentials: CredentialCollection | undefined
@@ -229,12 +290,14 @@ export const password = <
 		name: passwordMethodName,
 		environment: ['environment:native-code'],
 		userFields: () => ({
+			// Only `confirmEmailChange` changes an email: the foundation guards it.
 			[identifier]: stringField({
-				immutable: true,
+				immutable: !ownsEmail,
 				indexed: 'unique',
 				required: true,
 			}),
 		}),
+		userEmail: ownsEmail,
 		checkUserData: (data) => {
 			const value = data[identifier]
 			let normalized: string | undefined
@@ -259,73 +322,88 @@ export const password = <
 			credentials ??= createCredentialCollection(user, policy)
 			return [credentials]
 		},
-		contributions: (services) => [
-			...createPasswordHandlers({
-				credentials: requireCredentials,
-				identifier,
-				normalizeIdentifier,
-				policy,
-				publicOperations,
-				services,
-			}),
-			authGraphqlBinding({
-				encode: toAuthPayload,
-				field: 'signUp',
-				input: 'PasswordSignUpInput',
-				operation: passwordOperations.signUp,
-				result: 'AuthPayload',
-				root: 'mutation',
-				types: [
-					graphqlObjectType(
-						'input-object',
-						'PasswordSignUpInput',
-						[graphqlField('password', 'String')],
-						true,
-					),
-					...authPayloadTypes,
-				],
-			}),
-			authGraphqlBinding({
-				encode: toAuthPayload,
-				field: 'login',
-				input: 'PasswordLoginInput',
-				operation: passwordOperations.login,
-				result: 'AuthPayload',
-				root: 'mutation',
-				types: [loginType, ...authPayloadTypes],
-			}),
-			authGraphqlBinding({
-				field: 'changePassword',
-				input: 'PasswordChangeInput',
-				operation: passwordOperations.changePassword,
-				result: 'PasswordChangePayload',
-				root: 'mutation',
-				types: [
-					graphqlObjectType('input-object', 'PasswordChangeInput', [
-						graphqlField('currentPassword', 'String'),
-						graphqlField('newPassword', 'String'),
-					]),
-					graphqlObjectType('object', 'PasswordChangePayload', [
-						graphqlField('changed', 'Boolean'),
-					]),
-				],
-			}),
-			authGraphqlBinding({
-				field: 'reauthenticate',
-				input: 'PasswordReauthenticateInput',
-				operation: passwordOperations.reauthenticate,
-				result: 'PasswordReauthenticatePayload',
-				root: 'mutation',
-				types: [
-					graphqlObjectType('input-object', 'PasswordReauthenticateInput', [
-						graphqlField('password', 'String'),
-					]),
-					graphqlObjectType('object', 'PasswordReauthenticatePayload', [
-						graphqlField('reauthenticated', 'Boolean'),
-					]),
-				],
-			}),
-		],
+		contributions: (services) => {
+			const emailHandlers = ownsEmail
+				? createPasswordEmailHandlers({
+						credentials: requireCredentials,
+						email,
+						policy,
+						publicOperations: passwordEmailPublicOperations,
+						services,
+					})
+				: undefined
+			return [
+				...createPasswordHandlers({
+					afterSignUp: emailHandlers?.afterSignUp,
+					beforeLogin: emailHandlers?.beforeLogin,
+					credentials: requireCredentials,
+					identifier,
+					normalizeIdentifier,
+					policy,
+					publicOperations,
+					services,
+				}),
+				...(emailHandlers?.contributions ?? []),
+				...(ownsEmail ? passwordEmailGraphqlBindings : []),
+				authGraphqlBinding({
+					encode: toAuthPayload,
+					field: 'signUp',
+					input: 'PasswordSignUpInput',
+					operation: passwordOperations.signUp,
+					result: 'AuthPayload',
+					root: 'mutation',
+					types: [
+						graphqlObjectType(
+							'input-object',
+							'PasswordSignUpInput',
+							[graphqlField('password', 'String')],
+							true,
+						),
+						...authPayloadTypes,
+					],
+				}),
+				authGraphqlBinding({
+					encode: toAuthPayload,
+					field: 'login',
+					input: 'PasswordLoginInput',
+					operation: passwordOperations.login,
+					result: 'AuthPayload',
+					root: 'mutation',
+					types: [loginType, ...authPayloadTypes],
+				}),
+				authGraphqlBinding({
+					field: 'changePassword',
+					input: 'PasswordChangeInput',
+					operation: passwordOperations.changePassword,
+					result: 'PasswordChangePayload',
+					root: 'mutation',
+					types: [
+						graphqlObjectType('input-object', 'PasswordChangeInput', [
+							graphqlField('currentPassword', 'String'),
+							graphqlField('newPassword', 'String'),
+						]),
+						graphqlObjectType('object', 'PasswordChangePayload', [
+							graphqlField('changed', 'Boolean'),
+						]),
+					],
+				}),
+				authGraphqlBinding({
+					field: 'reauthenticate',
+					input: 'PasswordReauthenticateInput',
+					operation: passwordOperations.reauthenticate,
+					result: 'PasswordReauthenticatePayload',
+					root: 'mutation',
+					types: [
+						graphqlObjectType('input-object', 'PasswordReauthenticateInput', [
+							graphqlField('password', 'String'),
+						]),
+						graphqlObjectType('object', 'PasswordReauthenticatePayload', [
+							graphqlField('reauthenticated', 'Boolean'),
+						]),
+					],
+				}),
+			]
+		},
 		routes: [
 			{
 				body: 'json',
@@ -351,10 +429,15 @@ export const password = <
 				path: 'reauthenticate',
 				response: 'result',
 			},
+			...(ownsEmail ? passwordEmailRoutes : []),
 		],
-		errorStatuses: { [passwordErrorCodes.passwordChangeRejected]: 400 },
+		errorStatuses: {
+			[passwordErrorCodes.emailChangeRejected]: 400,
+			[passwordErrorCodes.passwordChangeRejected]: 400,
+		},
 		statics: (services) =>
 			immutableRecord({
+				...(ownsEmail ? createPasswordEmailStatics(services) : {}),
 				signUp: (input: PasswordSignUpData) =>
 					services.execute(passwordOperations.signUp, input),
 				login: (input: PasswordLoginInput) =>

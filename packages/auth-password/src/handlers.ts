@@ -13,7 +13,11 @@ import {
 } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
-import { swapCredential, type CredentialCollection } from './credentials.js'
+import {
+	swapCredential,
+	type CredentialCollection,
+	type CredentialRecord,
+} from './credentials.js'
 import { normalizePassword } from './normalization.js'
 import { passwordOperations, rejectPasswordChange } from './operations.js'
 import {
@@ -39,9 +43,20 @@ interface PasswordHandlerOptions {
 		Record<keyof Operations, PluginOperationPublicDeclaration>
 	>
 	readonly services: AuthServices
+	/** Runs in the sign-up transaction once the User exists, such as verification. */
+	readonly afterSignUp:
+		| ((
+				userId: string,
+				identifier: string,
+				context: RequestContext,
+		  ) => Promise<void>)
+		| undefined
+	/** Runs in the login transaction before the session, such as `requireVerifiedEmail`. */
+	readonly beforeLogin: ((userId: string) => Promise<void>) | undefined
 }
 
-const tryNormalize = (
+/** Normalizes one value, or `undefined` when it is invalid. */
+export const tryNormalize = (
 	normalize: (value: unknown) => string,
 	value: unknown,
 ): string | undefined => {
@@ -52,36 +67,50 @@ const tryNormalize = (
 	}
 }
 
-/** Creates the four handlers of one password method. */
-export const createPasswordHandlers = (
-	options: PasswordHandlerOptions,
-): readonly [
-	PluginOperationContribution<Operations['signUp']>,
-	PluginOperationContribution<Operations['login']>,
-	PluginOperationContribution<Operations['changePassword']>,
-	PluginOperationContribution<Operations['reauthenticate']>,
-] => {
-	const { identifier, normalizeIdentifier, policy, services } = options
-	const store = () => privateStore(options.credentials())
-	const subjectFor = (
-		context: RequestContext,
-		key: string,
-	): AttemptSubject => ({
-		address: services.client(context)?.address,
-		identifier: key,
-		method: passwordMethodName,
-	})
-	/** Verifies the current password of an authenticated user under attempt limits. */
-	const verifyCurrent = async (
-		context: RequestContext,
-		password: string | undefined,
-		transaction: <TResult>(work: () => Promise<TResult>) => Promise<TResult>,
-		reject: () => never,
-	) => {
+/** Runs work in its own short transaction. */
+export type PasswordTransaction = <TResult>(
+	work: () => Promise<TResult>,
+) => Promise<TResult>
+
+/** The attempt subject of one password identifier and the request's client. */
+export const passwordSubject = (
+	services: AuthServices,
+	context: RequestContext,
+	identifier: string,
+	method: string = passwordMethodName,
+): AttemptSubject => ({
+	address: services.client(context)?.address,
+	identifier,
+	method,
+})
+
+/** Checks the authenticated user's current password; `reject` on failure. */
+export type CurrentPasswordVerifier = (
+	context: RequestContext,
+	password: string | undefined,
+	transaction: PasswordTransaction,
+	reject: () => never,
+) => Promise<
+	Readonly<{ credential: CredentialRecord; subject: AttemptSubject }>
+>
+
+/**
+ * Creates the check of the authenticated user's current password, under
+ * attempt limiting: failures are counted, then `reject` is thrown.
+ */
+export const createCurrentPasswordVerifier =
+	(
+		services: AuthServices,
+		credentials: () => CredentialCollection,
+		policy: ResolvedPasswordHashPolicy,
+	): CurrentPasswordVerifier =>
+	async (context, password, transaction, reject) => {
 		const { userId } = services.requireAuthenticated(context)
-		const subject = subjectFor(context, `user:${userId}`)
+		const subject = passwordSubject(services, context, `user:${userId}`)
 		await services.assertAttemptAllowed(subject, context, transaction)
-		const credential = await store().findUnique({ where: { userId } })
+		const credential = await privateStore(credentials()).findUnique({
+			where: { userId },
+		})
 		const verification = await verifyNormalizedPasswordOrDummy(
 			password ?? '',
 			credential === null || password === undefined
@@ -98,6 +127,25 @@ export const createPasswordHandlers = (
 		}
 		return { credential, subject }
 	}
+
+/** Creates the four handlers of one password method. */
+export const createPasswordHandlers = (
+	options: PasswordHandlerOptions,
+): readonly [
+	PluginOperationContribution<Operations['signUp']>,
+	PluginOperationContribution<Operations['login']>,
+	PluginOperationContribution<Operations['changePassword']>,
+	PluginOperationContribution<Operations['reauthenticate']>,
+] => {
+	const { identifier, normalizeIdentifier, policy, services } = options
+	const store = () => privateStore(options.credentials())
+	const subjectFor = (context: RequestContext, key: string): AttemptSubject =>
+		passwordSubject(services, context, key)
+	const verifyCurrent = createCurrentPasswordVerifier(
+		services,
+		options.credentials,
+		policy,
+	)
 	return [
 		// Sign-up: hash first, then create the User, credential and session atomically.
 		contributeOperation({
@@ -151,6 +199,7 @@ export const createPasswordHandlers = (
 						method: passwordMethodName,
 						providerUserId: userId,
 					})
+					await options.afterSignUp?.(userId, normalizedIdentifier, context)
 					return services.signIn({
 						context,
 						method: passwordMethodName,
@@ -198,6 +247,7 @@ export const createPasswordHandlers = (
 						? await createNormalizedPasswordVerifier(password, policy)
 						: undefined
 				return engine.transaction(async ({ context: active }) => {
+					await options.beforeLogin?.(credential.userId)
 					if (
 						upgraded !== undefined &&
 						(await swapCredential(options.credentials(), credential, {

@@ -23,7 +23,7 @@ type RequiredState<TImmutable extends boolean> = ScalarFieldTypegenState<
 >
 
 type CredentialFields = Readonly<{
-	identifier: StringField<RequiredState<true>>
+	identifier: StringField<RequiredState<false>>
 	passwordVerifier: StringField<RequiredState<false>>
 	policyVersion: IntField<RequiredState<false>>
 	userId: UuidField<RequiredState<true>>
@@ -49,7 +49,8 @@ export const createCredentialCollection = (
 	definePrivateCollection({
 		contributionId: 'password-credentials',
 		fields: {
-			identifier: stringField({ immutable: true, required: true }),
+			// An email identifier follows a confirmed email change.
+			identifier: stringField({ required: true }),
 			passwordVerifier: stringField({ required: true }),
 			policyVersion: intField({ required: true }),
 			userId: uuidField({ immutable: true, required: true }),

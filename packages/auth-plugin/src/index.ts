@@ -11,12 +11,16 @@ export type {
 	LinkedAccountInput,
 } from './accounts.js'
 export type { AttemptSubject } from './attempts.js'
+export type { AuthEmailVerificationFields, AuthUserRecord } from './email.js'
 export {
 	authErrorCodes,
 	authErrorStatuses,
 	rejectCredentials,
+	rejectNotConfigured,
 	rejectSession,
 	rejectSignUp,
+	rejectToken,
+	rejectUnverifiedEmail,
 } from './errors.js'
 export type { AuthErrorCode } from './errors.js'
 export type {
@@ -95,3 +99,8 @@ export type {
 	UserSchemaStaticsSlot,
 } from './user-schema.js'
 export type { AuthUserStatics } from './user-statics.js'
+export type {
+	AuthIssuedToken,
+	AuthTokenClaim,
+	AuthTokenPurpose,
+} from './tokens.js'

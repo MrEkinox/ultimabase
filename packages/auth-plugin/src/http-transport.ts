@@ -35,6 +35,11 @@ import type { AuthHttpResolverPaths } from './http-resolver.js'
  * cookie), `'clear'` ends the cookie session, `'result'` returns the result.
  */
 export interface AuthHttpRoute {
+	/**
+	 * The route never reads the session, such as a token redemption: a stale
+	 * session cookie never blocks it.
+	 */
+	readonly anonymous?: true
 	readonly body: 'json' | 'none'
 	readonly operation: PluginOperationDefinition
 	/** The path below the prefix, such as `login`. */
@@ -67,9 +72,13 @@ const sessionCookie = (
 const expiredCookie = (cookie: ResolvedAuthCookieOptions): string =>
 	`${cookie.name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly; Secure; SameSite=${sameSiteAttributes[cookie.sameSite]}`
 
-/** A sign-in route issues a session from a JSON body: sign-up and login. */
+/**
+ * A sign-in route issues a session from a JSON body (sign-up and login); an
+ * anonymous route recovers credentials: neither reads a stale cookie.
+ */
 const isSignInRoute = (route: AuthHttpRoute): boolean =>
-	route.response === 'session' && route.body === 'json'
+	route.anonymous === true ||
+	(route.response === 'session' && route.body === 'json')
 
 /** Maps declared failures to their status and hides every other error. */
 const errorResponse = (
