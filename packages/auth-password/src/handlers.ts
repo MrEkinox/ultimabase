@@ -297,6 +297,8 @@ export const createPasswordHandlers = (
 					await services.resetAttempts(subject)
 					await services.markAuthenticated(active)
 					await services.revokeOtherSessionsOnPasswordChange(active)
+					// A new password also ends a pending email change.
+					await services.cancelToken(credential.userId, 'email-change')
 					return immutableRecord({ changed: true as const })
 				})
 			},

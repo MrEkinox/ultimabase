@@ -221,6 +221,8 @@ export interface AuthServices {
 		purpose: AuthTokenPurpose,
 		token: unknown,
 	): Promise<AuthTokenClaim | undefined>
+	/** Cancels the user's current token of one purpose, if any. */
+	cancelToken(userId: string, purpose: AuthTokenPurpose): Promise<void>
 	/** Uses a valid token exactly once. Runs in the current transaction. */
 	consumeToken(
 		purpose: AuthTokenPurpose,

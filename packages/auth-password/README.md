@@ -106,7 +106,9 @@ await TodoUser.confirmEmailChange({ token })
   login and notifies the previous address. The token expires after one hour by
   default (five minutes to one day). A wrong password, an invalid or
   unchanged address and an address taken at confirmation fail with the same
-  `AUTH_EMAIL_CHANGE_REJECTED`.
+  `AUTH_EMAIL_CHANGE_REJECTED`. A password reset or change cancels a pending
+  email change, so a stolen password cannot keep a way back into a recovered
+  account.
 
 Tokens are single use, replaced by a newer one of the same purpose and stored
 only as their SHA-256 digest; invalid tokens fail with `AUTH_INVALID_TOKEN`

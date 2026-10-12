@@ -184,6 +184,8 @@ export const createPasswordEmailHandlers = (
 								method: namespace,
 							})
 						}
+						// A pending email change could take the recovered account back.
+						await services.cancelToken(claim.userId, 'email-change')
 						await services.completePasswordReset(claim.userId, active)
 						return immutableRecord({ reset: true as const })
 					})

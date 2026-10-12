@@ -191,6 +191,55 @@ describe('email change', { concurrent: false }, () => {
 		}
 	})
 
+	it('cancels a pending change when the password is reset or changed', async () => {
+		const { AuthUser, asUser, outbox, signUp, ultimabase } = createApplication()
+		await ultimabase.start()
+		try {
+			const signed = await signUp('fay@example.test')
+			const request = (newEmail: string) =>
+				asUser(signed.session.token, () =>
+					AuthUser.requestEmailChange({ currentPassword: secret, newEmail }),
+				)
+			// Whoever requested the change keeps its token after the owner's reset.
+			await request('attacker@example.test')
+			await AuthUser.requestPasswordReset({ email: 'fay@example.test' })
+			await waitForAfterCommit()
+			await AuthUser.resetPassword({
+				newPassword: secret,
+				token: outbox.tokenFor('reset', 'fay@example.test'),
+			})
+			await expect(
+				AuthUser.confirmEmailChange({
+					token: outbox.tokenFor('confirmation', 'attacker@example.test'),
+				}),
+			).rejects.toMatchObject({ code: authErrorCodes.invalidToken })
+			const login = await AuthUser.login({
+				email: 'fay@example.test',
+				password: secret,
+			})
+			await asUser(login.session.token, () =>
+				AuthUser.requestEmailChange({
+					currentPassword: secret,
+					newEmail: 'other@example.test',
+				}),
+			)
+			await asUser(login.session.token, () =>
+				AuthUser.changePassword({
+					currentPassword: secret,
+					newPassword: 'another correct horse battery staple',
+				}),
+			)
+			await waitForAfterCommit()
+			await expect(
+				AuthUser.confirmEmailChange({
+					token: outbox.tokenFor('confirmation', 'other@example.test'),
+				}),
+			).rejects.toMatchObject({ code: authErrorCodes.invalidToken })
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('expires confirmation tokens and keeps verification tokens bound to their email', async () => {
 		const { AuthUser, asUser, outbox, signUp, ultimabase } = createApplication()
 		await ultimabase.start()

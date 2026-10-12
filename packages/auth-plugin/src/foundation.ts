@@ -42,7 +42,12 @@ import {
 	markSessionAuthenticated,
 	revokeOtherSessions,
 } from './sessions.js'
-import { consumeAuthToken, findAuthToken, issueAuthToken } from './tokens.js'
+import {
+	cancelAuthToken,
+	consumeAuthToken,
+	findAuthToken,
+	issueAuthToken,
+} from './tokens.js'
 import { createUserElevated } from './user-creation.js'
 import { PluginError } from '@ultimabase/core'
 
@@ -253,6 +258,8 @@ export const createAuthServices = (options: {
 			recordAttemptFailure(collections().attempts, subject),
 		issueToken: (options) => issueAuthToken(collections(), options),
 		findToken: (purpose, token) => findAuthToken(collections(), purpose, token),
+		cancelToken: (userId, purpose) =>
+			cancelAuthToken(collections(), userId, purpose),
 		consumeToken: (purpose, token) =>
 			consumeAuthToken(collections(), purpose, token),
 		readUser: (userId) => readUserRecord(requireUser(state), userId),
