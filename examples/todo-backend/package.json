@@ -4,22 +4,26 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"start": "node src/main.ts",
+		"dev": "node --watch --env-file=.env src/main.ts",
+		"start": "node --env-file=.env src/main.ts",
+		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@ultimabase/access-plugin": "workspace:^",
 		"@ultimabase/acl-permissions-plugin": "workspace:^",
+		"@ultimabase/api-server": "workspace:^",
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/hooks-plugin": "workspace:^",
 		"@ultimabase/postgres-plugin": "workspace:^",
 		"@ultimabase/roles-plugin": "workspace:^",
-		"@ultimabase/typegen": "workspace:^",
 		"@ultimabase/validation-plugin": "workspace:^",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@types/node": "^24.0.0",
-		"typescript": "^6.0.3"
+		"@ultimabase/testing": "workspace:^",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.11"
 	}
 }

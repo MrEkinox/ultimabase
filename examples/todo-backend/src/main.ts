@@ -6,7 +6,7 @@ import { ultimabase } from './application.ts'
 await using app = await ultimabase.start()
 
 process.stdout.write(
-	`Todo backend ${app.state}. Generated types are available in .ultimabase/schema.generated.d.ts.\n`,
+	`Todo backend ${app.state}: REST on http://127.0.0.1:1337/api/classes/Todo\n`,
 )
 
 // Keep framework-owned resources until the development process stops.

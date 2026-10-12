@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import { provideCapability } from '../../plugins/capabilities.js'
+import { contributeApplication } from '../../plugins/plugin-contributions.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { MemoryPrivateAdapter } from '../../private-storage/runtime.test-support.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -19,7 +20,10 @@ const HarnessRecord = UltimaBase.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 
-const createApplication = (reset?: () => Promise<void>) => {
+const createApplication = (
+	reset?: () => Promise<void>,
+	ready: () => void = () => undefined,
+) => {
 	const logger = {
 		debug: vi.fn(),
 		error: vi.fn(),
@@ -31,6 +35,8 @@ const createApplication = (reset?: () => Promise<void>) => {
 		id: 'fixture.harness-database',
 		version: '1.0.0',
 		contributions: [
+			// `ready` is the seeding phase a reset reruns (Roles `ensure`).
+			contributeApplication(() => ({ exports: undefined, ready })),
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: new MemoryPrivateAdapter() }),
@@ -104,13 +110,21 @@ describe('application harness (ADR-0327)', () => {
 		await ultimabase.dispose()
 	})
 
-	it('resets through the database reset capability', async () => {
-		const reset = vi.fn(() => Promise.resolve())
-		const { ultimabase } = createApplication(reset)
+	it('resets through the database reset capability, then seeds again', async () => {
+		const trace: string[] = []
+		const { ultimabase } = createApplication(
+			() => {
+				trace.push('reset')
+				return Promise.resolve()
+			},
+			() => {
+				trace.push('ready')
+			},
+		)
 		const harness = openApplicationHarness(ultimabase)
 		await ultimabase.start()
 		await harness.resetDatabase()
-		expect(reset).toHaveBeenCalledOnce()
+		expect(trace).toStrictEqual(['ready', 'reset', 'ready'])
 		await ultimabase.dispose()
 
 		const without = createApplication().ultimabase

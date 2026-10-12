@@ -158,6 +158,28 @@ export class PluginLifecycleManager {
 		return this.#disposePromise
 	}
 
+	/**
+	 * Runs every plugin's `ready` seeding again on the started application,
+	 * after an application harness emptied its data (ADR-0327).
+	 */
+	seed(): Promise<void> {
+		if (this.#state !== 'started') {
+			return Promise.reject(
+				new TypeError(`Cannot seed an application that is ${this.#state}`),
+			)
+		}
+		return this.#runReady()
+	}
+
+	async #runReady(): Promise<void> {
+		for (const { definition, resource } of this.#initializedPlugins) {
+			const { logger } = this.#registries.forPlugin(
+				definition.manifest.identity,
+			)
+			await this.#runAs(definition, () => resource?.ready?.({ logger }))
+		}
+	}
+
 	/** Returns setup output without weakening the unknown runtime boundary. */
 	getPluginExports(
 		identity: PluginDefinition | PluginIdentity | string,
@@ -233,12 +255,7 @@ export class PluginLifecycleManager {
 
 			this.#state = 'started'
 			// Queries are available from here on; a failing `ready` fails start().
-			for (const { definition, resource } of this.#initializedPlugins) {
-				const { logger } = this.#registries.forPlugin(
-					definition.manifest.identity,
-				)
-				await this.#runAs(definition, () => resource?.ready?.({ logger }))
-			}
+			await this.#runReady()
 		} catch (error: unknown) {
 			if (this.#state === 'disposed') {
 				throw error
