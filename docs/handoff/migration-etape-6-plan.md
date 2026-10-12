@@ -46,3 +46,8 @@ Parallélisme proposé après 6.1 : 6.2 avec 6.5, puis 6.3 avec 6.6, puis 6.4.
 
 Validation de ce plan par l'utilisateur, puis ADR de la façade `definePlugin`
 et des emplacements HKT (6.0).
+
+Ajouts décidés le 2026-10-12 :
+
+- 6.8 : page de documentation « Performances de TypeScript » (TS 6 et TS 7 pris en charge, TS 7 conseillé pour la rapidité des types, chiffres du banc, installation côte à côte de TS 6 pour typescript-eslint et les outils qui ont besoin de l'API de TypeScript) ; job de CI qui vérifie les types et les infobulles sous TS 7.
+- Après la migration : essai borné d'Oxlint avec tsgolint (inventaire des règles d'`eslint.config.ts` couvertes, résultats comparés à ESLint sur le dépôt, temps mesuré) ; réévaluation de typescript-eslint à la sortie de TypeScript 7.1 (API de programmation).
