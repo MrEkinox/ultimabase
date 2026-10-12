@@ -1,4 +1,4 @@
-import { authPlugin } from '@ultimabase/auth-plugin'
+import { authPlugin, type AuthPendingSignUp } from '@ultimabase/auth-plugin'
 import { UltimaBase, type CreateInput, type Model } from '@ultimabase/core'
 import { describe, expectTypeOf, it } from 'vitest'
 
@@ -53,6 +53,35 @@ describe('password({ identifier: "email" }) email flows', () => {
 		expectTypeOf<Model<typeof UsernameUser>>().not.toHaveProperty(
 			'emailVerified',
 		)
+	})
+
+	it('types sign-up without a session when requireVerifiedEmail is on', () => {
+		expectTypeOf<Awaited<ReturnType<typeof EmailUser.signUp>>>().toEqualTypeOf<
+			AuthPendingSignUp<typeof EmailUser>
+		>()
+		const OpenApp = UltimaBase.use(
+			authPlugin({
+				methods: [
+					password({
+						identifier: 'email',
+						verification: { sendVerificationEmail: send },
+					}),
+				],
+			}),
+		)
+		const OpenUser = OpenApp.UserSchema.define({
+			className: 'TypedOpenRecoveryUser',
+		}).with({})
+		expectTypeOf(OpenUser).toHaveProperty('signUp')
+		expectTypeOf<Awaited<ReturnType<typeof OpenUser.signUp>>>().toHaveProperty(
+			'session',
+		)
+		expectTypeOf<Parameters<typeof OpenUser.signUp>[0]>().toEqualTypeOf<
+			CreateInput<typeof OpenUser> & {
+				readonly email: string
+				readonly password: string
+			}
+		>()
 	})
 
 	it('adds the email statics with their results', () => {

@@ -34,8 +34,13 @@ import type {
 	AuthMethodImplementation,
 	AuthServices,
 } from './method.js'
-import { readAuthenticationResult } from './profile.js'
-import { authClient, authPrincipal, authSession } from './session.js'
+import { readAuthenticationResult, readNewUserProfile } from './profile.js'
+import {
+	authClient,
+	authPrincipal,
+	authSession,
+	type AuthPendingSignUp,
+} from './session.js'
 import type { ResolvedAuthSessionPolicy } from './session-policy.js'
 import {
 	advanceUserGeneration,
@@ -222,6 +227,27 @@ export const createAuthServices = (options: {
 				signUp: created,
 				userId,
 			})
+		},
+		signUpPendingVerification: async ({ context, method, userId }) => {
+			emit(
+				'afterSignUp',
+				{
+					address: context.getValue(authClient)?.address ?? null,
+					method,
+					sessionId: null,
+					userId,
+				},
+				context.requestId,
+			)
+			const profile = await readNewUserProfile(
+				requireUser(state),
+				userId,
+				context,
+			)
+			return immutableRecord({
+				user: profile,
+				verificationRequired: true as const,
+			}) as AuthPendingSignUp
 		},
 		requireAuthenticated: (context) => readAuthenticated(state, context),
 		requireRecentAuthentication: (context) => {

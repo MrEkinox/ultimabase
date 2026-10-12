@@ -47,7 +47,9 @@ export interface EmailVerificationMessage {
 }
 
 /** Enables `requestEmailVerification`, `verifyEmail` and sign-up verification. */
-export interface PasswordVerificationOptions {
+export interface PasswordVerificationOptions<
+	TRequireVerifiedEmail extends boolean = boolean,
+> {
 	/**
 	 * Delivers a verification token after sign-up or `requestEmailVerification`,
 	 * after commit and outside the request. UltimaBase sends no email.
@@ -57,11 +59,12 @@ export interface PasswordVerificationOptions {
 		message: EmailVerificationMessage,
 	) => MaybePromise<void>
 	/**
-	 * Refuses `login` with `AUTH_EMAIL_NOT_VERIFIED` until the email is
-	 * verified; sign-up still returns its first session.
+	 * Issues no session until the email is verified: `signUp` returns the
+	 * profile and `verificationRequired: true`, and `login` and `refresh`
+	 * fail with `AUTH_EMAIL_NOT_VERIFIED`.
 	 * @default false
 	 */
-	readonly requireVerifiedEmail?: boolean
+	readonly requireVerifiedEmail?: TRequireVerifiedEmail
 	/**
 	 * How long a verification token is accepted, from five minutes to seven days.
 	 * @default 86400000

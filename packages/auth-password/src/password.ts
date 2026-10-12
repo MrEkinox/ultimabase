@@ -3,6 +3,7 @@ import {
 	type AuthEmailFields,
 	type AuthenticationResult,
 	type AuthMethod,
+	type AuthPendingSignUp,
 	type AuthMethodStaticsHKT,
 } from '@ultimabase/auth-plugin'
 import {
@@ -62,12 +63,13 @@ import { defaultUndefinedOptions } from './policy-options.js'
 import {
 	createPasswordGraphqlBindings,
 	createPasswordPublicOperations,
-	passwordRoutes,
+	createPasswordRoutes,
 } from './password-transports.js'
 
 /** Configures `password()`. */
 export interface PasswordOptions<
 	TIdentifier extends PasswordIdentifier = PasswordIdentifier,
+	TRequireVerifiedEmail extends boolean = boolean,
 > {
 	/**
 	 * The User field users log in with; `email` adds a unique, normalized,
@@ -87,7 +89,10 @@ export interface PasswordOptions<
 	 * sign-up and `requireVerifiedEmail` (identifier `email`).
 	 * @example `verification: { sendVerificationEmail: ({ email, token }) => mailer.sendVerify(email, token) }`
 	 */
-	readonly verification?: EmailOnly<TIdentifier, PasswordVerificationOptions>
+	readonly verification?: EmailOnly<
+		TIdentifier,
+		PasswordVerificationOptions<TRequireVerifiedEmail>
+	>
 	/**
 	 * Enables `requestEmailChange` and `confirmEmailChange` (identifier `email`).
 	 * @example `emailChange: { sendConfirmationEmail, sendNoticeEmail }`
@@ -134,18 +139,31 @@ export type PasswordSignUpInput<
 		? { readonly email: string; readonly password: string }
 		: { readonly password: string })
 
+/**
+ * What `signUp` returns: a session, or with `requireVerifiedEmail` the
+ * profile and `verificationRequired: true` without a session.
+ */
+export type PasswordSignUpOutcome<
+	TSchema extends SchemaDefinition,
+	TRequireVerifiedEmail extends boolean,
+> = TRequireVerifiedEmail extends true
+	? AuthPendingSignUp<TSchema>
+	: AuthenticationResult<TSchema>
+
 /** Static members a password method adds to the User class. */
 export interface PasswordUserStatics<
 	TIdentifier extends PasswordIdentifier,
 	TSchema extends SchemaDefinition,
+	TRequireVerifiedEmail extends boolean = false,
 > {
 	/**
-	 * Creates the User, its credential and a session atomically.
+	 * Creates the User and its credential atomically, with a session; with
+	 * `requireVerifiedEmail`, without a session until the email is verified.
 	 * @example `await TodoUser.signUp({ email, password, displayName: 'Ada' })`
 	 */
 	signUp(
 		input: PasswordSignUpInput<TSchema, TIdentifier>,
-	): Promise<AuthenticationResult<TSchema>>
+	): Promise<PasswordSignUpOutcome<TSchema, TRequireVerifiedEmail>>
 	/**
 	 * Checks the credentials and returns the readable User and a new session.
 	 * @example `await TodoUser.login({ email, password })`
@@ -172,19 +190,24 @@ export interface PasswordUserStatics<
 /** Adds the password members to the User class. */
 export interface PasswordStatics<
 	TIdentifier extends PasswordIdentifier,
+	TRequireVerifiedEmail extends boolean = false,
 > extends AuthMethodStaticsHKT {
 	readonly statics: PasswordUserStatics<
 		TIdentifier,
-		Extract<this['schema'], SchemaDefinition>
+		Extract<this['schema'], SchemaDefinition>,
+		TRequireVerifiedEmail
 	> &
 		(IsEmail<TIdentifier> extends true ? PasswordEmailUserStatics : unknown)
 }
 
 /** One password method. */
-export type PasswordMethod<TIdentifier extends PasswordIdentifier> = AuthMethod<
+export type PasswordMethod<
+	TIdentifier extends PasswordIdentifier,
+	TRequireVerifiedEmail extends boolean = false,
+> = AuthMethod<
 	'password',
 	PasswordUserFields<TIdentifier>,
-	PasswordStatics<TIdentifier>,
+	PasswordStatics<TIdentifier, TRequireVerifiedEmail>,
 	| PasswordOperationDefinition
 	| (IsEmail<TIdentifier> extends true
 			? PasswordEmailOperationDefinition
@@ -232,11 +255,12 @@ const invalidIdentifier = (identifier: string, message: string): never => {
  */
 export const password = <
 	const TIdentifier extends PasswordIdentifier = 'username',
+	const TRequireVerifiedEmail extends boolean = false,
 >(
-	options?: PasswordOptions<TIdentifier>,
+	options?: PasswordOptions<TIdentifier, TRequireVerifiedEmail>,
 	// `NoInfer`: the `methods` list must not infer the identifier from the
 	// method type it expects, which would make it `never`.
-): PasswordMethod<NoInfer<TIdentifier>> => {
+): PasswordMethod<NoInfer<TIdentifier>, NoInfer<TRequireVerifiedEmail>> => {
 	const untrusted = parseOptions(defaultUndefinedOptions(options))
 	assertPasswordHashEngineAvailable()
 	const identifier = readIdentifier(untrusted.identifier)
@@ -248,6 +272,7 @@ export const password = <
 		verification: untrusted.verification,
 	})
 	const ownsEmail = identifier === 'email'
+	const requireVerifiedEmail = email.verification?.requireVerifiedEmail === true
 	const normalizeIdentifier =
 		identifier === 'email' ? normalizeEmail : normalizeUsername
 	let credentials: CredentialCollection | undefined
@@ -260,7 +285,7 @@ export const password = <
 	return defineAuthMethod<
 		'password',
 		PasswordUserFields<TIdentifier>,
-		PasswordStatics<TIdentifier>,
+		PasswordStatics<TIdentifier, TRequireVerifiedEmail>,
 		PasswordOperationDefinition
 	>({
 		name: passwordMethodName,
@@ -277,6 +302,7 @@ export const password = <
 						}),
 					},
 		userEmail: ownsEmail,
+		requireVerifiedEmail,
 		checkUserData: (data) => {
 			if (ownsEmail) return
 			const value = data[identifier]
@@ -320,15 +346,22 @@ export const password = <
 					identifier,
 					normalizeIdentifier,
 					policy,
-					publicOperations: createPasswordPublicOperations(identifier),
+					publicOperations: createPasswordPublicOperations(
+						identifier,
+						requireVerifiedEmail,
+					),
+					requireVerifiedEmail,
 					services,
 				}),
 				...(emailHandlers?.contributions ?? []),
 				...(ownsEmail ? passwordEmailGraphqlBindings : []),
-				...createPasswordGraphqlBindings(identifier),
+				...createPasswordGraphqlBindings(identifier, requireVerifiedEmail),
 			]
 		},
-		routes: [...passwordRoutes, ...(ownsEmail ? passwordEmailRoutes : [])],
+		routes: [
+			...createPasswordRoutes(requireVerifiedEmail),
+			...(ownsEmail ? passwordEmailRoutes : []),
+		],
 		errorStatuses: {
 			[passwordErrorCodes.emailChangeRejected]: 400,
 			[passwordErrorCodes.passwordChangeRejected]: 400,

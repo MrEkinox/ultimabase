@@ -48,6 +48,19 @@ export interface AuthenticationResult<
 	readonly user: Model<TUser>
 }
 
+/**
+ * The result of a sign-up while `requireVerifiedEmail` waits for the email:
+ * the readable profile, no session.
+ */
+export interface AuthPendingSignUp<
+	TUser extends SchemaDefinition = SchemaDefinition,
+> {
+	/** The new user's readable profile. */
+	readonly user: Model<TUser>
+	/** Always `true`: verify the email, then log in. */
+	readonly verificationRequired: true
+}
+
 /** The client of one HTTP request, recorded on the sessions it creates. */
 export interface AuthClient {
 	/** The client address, as the HTTP plugin resolves it. */

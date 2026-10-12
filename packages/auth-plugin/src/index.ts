@@ -83,6 +83,7 @@ export { authClient, authPrincipal, authSession } from './session.js'
 export type {
 	AuthClient,
 	AuthenticationResult,
+	AuthPendingSignUp,
 	AuthSession,
 	IssuedAuthSession,
 } from './session.js'

@@ -19,6 +19,7 @@ export type {
 	PasswordReauthenticateInput,
 	PasswordReauthenticateResult,
 	PasswordSignUpData,
+	PasswordSignUpResult,
 } from './operations.js'
 export { defaultPasswordHashPolicy } from './password-policy.js'
 export type {

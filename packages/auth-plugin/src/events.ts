@@ -13,11 +13,14 @@ export interface AuthEventBase {
 	readonly requestId: string
 }
 
-/** A user signed up through a method; a session was issued. */
+/**
+ * A user signed up through a method; a session was issued, except while
+ * `requireVerifiedEmail` waits for verification (`sessionId: null`).
+ */
 export interface AuthSignUpEvent extends AuthEventBase {
 	readonly address: string | null
 	readonly method: string
-	readonly sessionId: string
+	readonly sessionId: string | null
 	readonly userId: string
 }
 

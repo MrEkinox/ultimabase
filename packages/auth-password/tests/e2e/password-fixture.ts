@@ -17,16 +17,18 @@ export const fastPolicy = {
 } as const
 
 /** The email flows a fixture application enables. */
-export type EmailFlows = Pick<
-	PasswordOptions<'email'>,
+export type EmailFlows<TRequireVerifiedEmail extends boolean = false> = Pick<
+	PasswordOptions<'email', TRequireVerifiedEmail>,
 	'emailChange' | 'reset' | 'verification'
 >
 
 /** Builds one application with an email password User on the given pool. */
-export const createPasswordApplication = (
+export const createPasswordApplication = <
+	const TRequireVerifiedEmail extends boolean = false,
+>(
 	pool: Pool,
 	options: Readonly<{
-		email?: EmailFlows
+		email?: EmailFlows<TRequireVerifiedEmail>
 		events?: AuthEventHandlers
 		/** Configures a Master key for application code (none by default). */
 		master?: boolean
@@ -77,22 +79,26 @@ export interface SentMessage {
 }
 
 /** Records every message the email callbacks receive, in order. */
-export const createOutbox = (
-	options: Readonly<{ requireVerifiedEmail?: boolean }> = {},
+export const createOutbox = <
+	const TRequireVerifiedEmail extends boolean = false,
+>(
+	options: Readonly<{ requireVerifiedEmail?: TRequireVerifiedEmail }> = {},
 ) => {
 	const sent: SentMessage[] = []
 	const record =
 		(kind: SentMessage['kind']) => (message: Readonly<{ email: string }>) => {
 			sent.push({ email: message.email, kind, message: { ...message } })
 		}
-	const flows: EmailFlows = {
+	const flows: EmailFlows<TRequireVerifiedEmail> = {
 		emailChange: {
 			sendConfirmationEmail: record('confirmation'),
 			sendNoticeEmail: record('notice'),
 		},
 		reset: { sendResetEmail: record('reset') },
 		verification: {
-			requireVerifiedEmail: options.requireVerifiedEmail ?? false,
+			...(options.requireVerifiedEmail === undefined
+				? {}
+				: { requireVerifiedEmail: options.requireVerifiedEmail }),
 			sendVerificationEmail: record('verification'),
 		},
 	}

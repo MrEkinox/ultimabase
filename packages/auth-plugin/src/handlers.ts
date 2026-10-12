@@ -5,7 +5,13 @@ import {
 } from '@ultimabase/core/plugin'
 
 import { listLinkedAccounts, removeLinkedAccount } from './accounts.js'
-import { rejectLastMethod, rejectNotFound, rejectSession } from './errors.js'
+import { readUserRecord } from './email.js'
+import {
+	rejectLastMethod,
+	rejectNotFound,
+	rejectSession,
+	rejectUnverifiedEmail,
+} from './errors.js'
 import type { AuthEventEmitter } from './events.js'
 import {
 	readAuthenticated,
@@ -60,7 +66,15 @@ export const createAuthHandlers = (options: {
 			operation: authOperations.refresh,
 			public: authPublicOperations.refresh,
 			execute: async ({ context }) => {
-				const { session } = readAuthenticated(state, context)
+				const { session, userId } = readAuthenticated(state, context)
+				// `requireVerifiedEmail` refuses new tokens to unverified users.
+				if (
+					methods.some((method) => method.requireVerifiedEmail === true) &&
+					(await readUserRecord(requireUser(state), userId))?.emailVerified !==
+						true
+				) {
+					return rejectUnverifiedEmail()
+				}
 				const rotated = await rotateSession(
 					collections(),
 					session,

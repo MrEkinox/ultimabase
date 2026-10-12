@@ -98,8 +98,11 @@ const refreshOperation: AuthOperation<
 	'refresh',
 	null,
 	AuthenticationResult,
-	readonly ['AUTH_INVALID_SESSION']
-> = operation('refresh', 'required', nullInput, authenticationResult, session)
+	readonly ['AUTH_EMAIL_NOT_VERIFIED', 'AUTH_INVALID_SESSION']
+> = operation('refresh', 'required', nullInput, authenticationResult, [
+	authErrorCodes.emailNotVerified,
+	authErrorCodes.invalidSession,
+])
 const logoutOperation: AuthOperation<
 	'logout',
 	null,

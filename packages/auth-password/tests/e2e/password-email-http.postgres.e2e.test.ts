@@ -38,10 +38,13 @@ afterAll(async () => {
 const createApplication = (
 	options: Readonly<{
 		cookie?: boolean
+		requireVerifiedEmail?: boolean
 		sendResetEmail?: (message: Readonly<{ token: string }>) => Promise<void>
 	}> = {},
 ) => {
-	const outbox = createOutbox()
+	const outbox = createOutbox({
+		requireVerifiedEmail: options.requireVerifiedEmail ?? false,
+	})
 	const App = UltimaBase.use(
 		postgresPlugin({ pool: pool(), schemaPolicy: 'override' }),
 		// REST refuses public writes without a protected policy.
@@ -236,6 +239,53 @@ describe(
 				)
 				expect(reset.status).toBe(200)
 				expect(reset.headers.get('Set-Cookie')).toContain('Max-Age=0')
+			} finally {
+				await ultimabase.dispose()
+			}
+		})
+
+		it('signs up without a session or cookie with requireVerifiedEmail, on every transport', async () => {
+			const { send, ultimabase } = createApplication({
+				cookie: true,
+				requireVerifiedEmail: true,
+			})
+			const started = await ultimabase.start()
+			try {
+				const browser = await send(
+					'/api/auth/sign-up',
+					{ email: 'hal@example.test', password: secret },
+					{ Origin: origin },
+				)
+				expect(browser.status).toBe(200)
+				expect(browser.headers.has('Set-Cookie')).toBe(false)
+				const body = await browser.text()
+				expect(body).not.toContain('ub_s1.')
+				expect(JSON.parse(body)).toMatchObject({
+					result: {
+						user: { email: 'hal@example.test', emailVerified: false },
+						verificationRequired: true,
+					},
+				})
+				const graphql = started.plugin('@ultimabase/graphql-plugin')
+				const context = anonymous(started, {
+					requestId: randomUUID(),
+					source: 'internal',
+				}).context
+				expect(
+					JSON.stringify(
+						await graphql.execute({
+							context,
+							document:
+								'{ __type(name: "PasswordSignUpPendingPayload") { fields { name } } }',
+						}),
+					),
+				).toContain('verificationRequired')
+				const openapi = await (
+					await ultimabase
+						.plugin(httpPlugin)
+						.fetch(new Request('https://api.example.test/api/openapi.json'))
+				).text()
+				expect(openapi).toContain('verificationRequired')
 			} finally {
 				await ultimabase.dispose()
 			}

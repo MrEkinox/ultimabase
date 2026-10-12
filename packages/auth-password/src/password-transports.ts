@@ -2,7 +2,9 @@ import {
 	authGraphqlBinding,
 	authPayloadTypes,
 	graphqlField,
+	graphqlNonNull,
 	graphqlObjectType,
+	graphqlUser,
 	toAuthPayload,
 	type AuthHttpRoute,
 } from '@ultimabase/auth-plugin'
@@ -29,9 +31,38 @@ export const objectSchema = (names: readonly string[]): JsonValue =>
 		additionalProperties: false,
 	})
 
-/** The public names and input schemas of the password operations. */
+const userSchema = immutableRecord({ type: 'object' })
+const sessionSignUpSchema: JsonValue = immutableRecord({
+	type: 'object',
+	properties: immutableRecord({
+		session: immutableRecord({
+			type: 'object',
+			properties: immutableRecord({
+				absoluteExpiresAt: stringSchema,
+				expiresAt: stringSchema,
+				id: stringSchema,
+				token: stringSchema,
+			}),
+		}),
+		user: userSchema,
+	}),
+	required: immutableArray(['session', 'user']),
+})
+// With `requireVerifiedEmail`, sign-up issues no session (6.4b amendment).
+const pendingSignUpSchema: JsonValue = immutableRecord({
+	type: 'object',
+	properties: immutableRecord({
+		user: userSchema,
+		verificationRequired: immutableRecord({ const: true }),
+	}),
+	required: immutableArray(['user', 'verificationRequired']),
+	additionalProperties: false,
+})
+
+/** The public names and input and result schemas of the password operations. */
 export const createPasswordPublicOperations = (
 	identifier: PasswordIdentifier,
+	requireVerifiedEmail: boolean,
 ): Readonly<
 	Record<keyof typeof passwordOperations, PluginOperationPublicDeclaration>
 > =>
@@ -48,37 +79,52 @@ export const createPasswordPublicOperations = (
 			name: 'reauthenticate',
 			input: objectSchema(['password']),
 		}),
-		signUp: immutableRecord({ name: 'signUp' }),
+		signUp: immutableRecord({
+			name: 'signUp',
+			output: requireVerifiedEmail ? pendingSignUpSchema : sessionSignUpSchema,
+		}),
 	})
 
 /** The GraphQL mutations of the password operations. */
 export const createPasswordGraphqlBindings = (
 	identifier: PasswordIdentifier,
-): readonly PluginOperationBindingContribution[] =>
-	immutableArray([
-		authGraphqlBinding({
-			encode: toAuthPayload,
-			field: 'signUp',
-			input: 'PasswordSignUpInput',
-			operation: passwordOperations.signUp,
-			result: 'AuthPayload',
-			root: 'mutation',
-			types: [
-				graphqlObjectType(
-					'input-object',
-					'PasswordSignUpInput',
-					[
-						// The email is not a User create field: sign-up takes it.
-						...(identifier === 'email'
-							? [graphqlField('email', 'String')]
-							: []),
-						graphqlField('password', 'String'),
+	requireVerifiedEmail: boolean,
+): readonly PluginOperationBindingContribution[] => {
+	const signUpInput = graphqlObjectType(
+		'input-object',
+		'PasswordSignUpInput',
+		[
+			// The email is not a User create field: sign-up takes it.
+			...(identifier === 'email' ? [graphqlField('email', 'String')] : []),
+			graphqlField('password', 'String'),
+		],
+		true,
+	)
+	return immutableArray([
+		requireVerifiedEmail
+			? authGraphqlBinding({
+					field: 'signUp',
+					input: 'PasswordSignUpInput',
+					operation: passwordOperations.signUp,
+					result: 'PasswordSignUpPendingPayload',
+					root: 'mutation',
+					types: [
+						signUpInput,
+						graphqlObjectType('object', 'PasswordSignUpPendingPayload', [
+							graphqlField('user', graphqlNonNull(graphqlUser)),
+							graphqlField('verificationRequired', 'Boolean'),
+						]),
 					],
-					true,
-				),
-				...authPayloadTypes,
-			],
-		}),
+				})
+			: authGraphqlBinding({
+					encode: toAuthPayload,
+					field: 'signUp',
+					input: 'PasswordSignUpInput',
+					operation: passwordOperations.signUp,
+					result: 'AuthPayload',
+					root: 'mutation',
+					types: [signUpInput, ...authPayloadTypes],
+				}),
 		authGraphqlBinding({
 			encode: toAuthPayload,
 			field: 'login',
@@ -126,31 +172,44 @@ export const createPasswordGraphqlBindings = (
 			],
 		}),
 	])
+}
 
 /** The HTTP routes of the password operations below the foundation's prefix. */
-export const passwordRoutes: readonly AuthHttpRoute[] = immutableArray([
-	{
-		body: 'json',
-		operation: passwordOperations.signUp,
-		path: 'sign-up',
-		response: 'session',
-	},
-	{
-		body: 'json',
-		operation: passwordOperations.login,
-		path: 'login',
-		response: 'session',
-	},
-	{
-		body: 'json',
-		operation: passwordOperations.changePassword,
-		path: 'change-password',
-		response: 'result',
-	},
-	{
-		body: 'json',
-		operation: passwordOperations.reauthenticate,
-		path: 'reauthenticate',
-		response: 'result',
-	},
-] as const)
+export const createPasswordRoutes = (
+	requireVerifiedEmail: boolean,
+): readonly AuthHttpRoute[] =>
+	immutableArray<readonly AuthHttpRoute[]>([
+		requireVerifiedEmail
+			? // No session, so no cookie: the result names the pending verification.
+				{
+					anonymous: true,
+					body: 'json',
+					operation: passwordOperations.signUp,
+					path: 'sign-up',
+					response: 'result',
+				}
+			: {
+					body: 'json',
+					operation: passwordOperations.signUp,
+					path: 'sign-up',
+					response: 'session',
+				},
+		{
+			body: 'json',
+			operation: passwordOperations.login,
+			path: 'login',
+			response: 'session',
+		},
+		{
+			body: 'json',
+			operation: passwordOperations.changePassword,
+			path: 'change-password',
+			response: 'result',
+		},
+		{
+			body: 'json',
+			operation: passwordOperations.reauthenticate,
+			path: 'reauthenticate',
+			response: 'result',
+		},
+	])

@@ -22,6 +22,7 @@ import type { AuthPrincipal } from './principal.js'
 import type {
 	AuthClient,
 	AuthenticationResult,
+	AuthPendingSignUp,
 	AuthSession,
 } from './session.js'
 import type { ResolvedAuthSessionPolicy } from './session-policy.js'
@@ -177,6 +178,16 @@ export interface AuthServices {
 		readonly subject?: AttemptSubject
 		readonly userId: string
 	}): Promise<AuthenticationResult>
+	/**
+	 * Completes a sign-up without a session while the email waits for
+	 * verification: emits `afterSignUp` (`sessionId: null`) and reads the
+	 * profile as the new user. Runs in the current transaction.
+	 */
+	signUpPendingVerification(options: {
+		readonly context: RequestContext
+		readonly method: string
+		readonly userId: string
+	}): Promise<AuthPendingSignUp>
 	/** Reads the authenticated request, else rejects with `AUTH_INVALID_SESSION`. */
 	requireAuthenticated(context: RequestContext): AuthenticatedRequest
 	/** Rejects with `AUTH_REAUTHENTICATION_REQUIRED` unless the login is recent. */
@@ -287,6 +298,11 @@ export interface AuthMethodImplementation {
 	 * update input; only the authentication flows write them and create Users.
 	 */
 	readonly userEmail?: boolean
+	/**
+	 * Refuses sessions to users whose email is not verified: the foundation's
+	 * `refresh` fails with `AUTH_EMAIL_NOT_VERIFIED` for them.
+	 */
+	readonly requireVerifiedEmail?: boolean
 	/** Checks the User data of every create and update, such as a canonical identifier. */
 	readonly checkUserData?: (data: Readonly<Record<string, unknown>>) => void
 	/** Declares the method's private collections once the User schema is known. */
@@ -317,6 +333,7 @@ const implementationKeys = new Set([
 	'environment',
 	'errorStatuses',
 	'name',
+	'requireVerifiedEmail',
 	'routes',
 	'statics',
 	'unlink',

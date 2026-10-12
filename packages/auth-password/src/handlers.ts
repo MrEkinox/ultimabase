@@ -43,6 +43,8 @@ interface PasswordHandlerOptions {
 		Record<keyof Operations, PluginOperationPublicDeclaration>
 	>
 	readonly services: AuthServices
+	/** Sign-up issues no session until the email is verified. */
+	readonly requireVerifiedEmail: boolean
 	/** Runs in the sign-up transaction once the User exists, such as verification. */
 	readonly afterSignUp:
 		| ((
@@ -212,6 +214,13 @@ export const createPasswordHandlers = (
 						providerUserId: userId,
 					})
 					await options.afterSignUp?.(userId, normalizedIdentifier, context)
+					if (options.requireVerifiedEmail) {
+						return services.signUpPendingVerification({
+							context,
+							method: passwordMethodName,
+							userId,
+						})
+					}
 					return services.signIn({
 						context,
 						method: passwordMethodName,

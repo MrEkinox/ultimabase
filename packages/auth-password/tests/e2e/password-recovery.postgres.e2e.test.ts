@@ -50,10 +50,10 @@ const storedRows = async (): Promise<string> => {
 	return rows.join('\n')
 }
 
-const createApplication = (
+const createApplication = <const TRequireVerifiedEmail extends boolean = false>(
 	options: Readonly<{
 		events?: AuthEventHandlers
-		requireVerifiedEmail?: boolean
+		requireVerifiedEmail?: TRequireVerifiedEmail
 	}> = {},
 ) => {
 	const outbox = createOutbox({
@@ -287,41 +287,65 @@ describe('email verification', { concurrent: false }, () => {
 		}
 	})
 
-	it('refuses login until verification with requireVerifiedEmail', async () => {
+	it('issues no session until the email is verified with requireVerifiedEmail', async () => {
+		// A session issued before the requirement: its refresh waits too.
+		const open = createApplication()
+		await open.ultimabase.start()
+		const earlier = await open.AuthUser.signUp({
+			displayName: 'Finn',
+			email: 'finn@example.test',
+			password: secret,
+		})
+			.then(({ session }) => session.token)
+			.finally(() => open.ultimabase.dispose())
 		const { AuthUser, outbox, ultimabase } = createApplication({
 			requireVerifiedEmail: true,
 		})
 		await ultimabase.start()
 		try {
 			const signed = await AuthUser.signUp({
-				displayName: 'Finn',
-				email: 'finn@example.test',
+				displayName: 'Gil',
+				email: 'gil@example.test',
 				password: secret,
 			})
-			// Sign-up keeps its first session.
-			expect(signed.session.token).toMatch(/^ub_s1\./u)
+			expect(Object.keys(signed).sort()).toStrictEqual([
+				'user',
+				'verificationRequired',
+			])
+			expect(signed.verificationRequired).toBe(true)
+			expect(signed.user).toMatchObject({
+				email: 'gil@example.test',
+				emailVerified: false,
+			})
 			await expect(
-				AuthUser.login({ email: 'finn@example.test', password: secret }),
+				AuthUser.login({ email: 'gil@example.test', password: secret }),
 			).rejects.toMatchObject({ code: authErrorCodes.emailNotVerified })
 			// A wrong password never learns the verification state.
 			await expect(
 				AuthUser.login({
-					email: 'finn@example.test',
+					email: 'gil@example.test',
 					password: 'wrong password value',
 				}),
 			).rejects.toMatchObject({ code: authErrorCodes.invalidCredentials })
-			await AuthUser.requestEmailVerification({ email: 'finn@example.test' })
+			await expect(AuthUser.refresh(earlier)).rejects.toMatchObject({
+				code: authErrorCodes.emailNotVerified,
+			})
 			await waitForAfterCommit()
-			const tokens = outbox.sent.filter(({ kind }) => kind === 'verification')
-			expect(tokens).toHaveLength(2)
 			await AuthUser.verifyEmail({
-				token: outbox.tokenFor('verification', 'finn@example.test'),
+				token: outbox.tokenFor('verification', 'gil@example.test'),
 			})
 			const login = await AuthUser.login({
-				email: 'finn@example.test',
+				email: 'gil@example.test',
 				password: secret,
 			})
 			expect(login.user).toMatchObject({ emailVerified: true })
+			await AuthUser.requestEmailVerification({ email: 'finn@example.test' })
+			await waitForAfterCommit()
+			await AuthUser.verifyEmail({
+				token: outbox.tokenFor('verification', 'finn@example.test'),
+			})
+			const refreshed = await AuthUser.refresh(earlier)
+			expect(refreshed.session.token).toMatch(/^ub_s1\./u)
 		} finally {
 			await ultimabase.dispose()
 		}

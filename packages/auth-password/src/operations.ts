@@ -3,8 +3,9 @@ import {
 	authenticationResult,
 	snapshotSignUpInput,
 	type AuthenticationResult,
+	type AuthPendingSignUp,
 } from '@ultimabase/auth-plugin'
-import { PluginError } from '@ultimabase/core'
+import { PluginError, type SchemaDefinition } from '@ultimabase/core'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -177,12 +178,42 @@ export const passwordOperation = <
 		version: '1.0.0',
 	})
 
+/**
+ * The sign-up result: a session, or with `requireVerifiedEmail` the profile
+ * and `verificationRequired: true` without a session.
+ */
+export type PasswordSignUpResult<
+	TUser extends SchemaDefinition = SchemaDefinition,
+> = AuthenticationResult<TUser> | AuthPendingSignUp<TUser>
+
+const signUpResult = defineOperationValue<PasswordSignUpResult>(
+	(value, path) => {
+		if (!isPlainRecord(value) || value.verificationRequired !== true) {
+			return authenticationResult.snapshot(value, path)
+		}
+		if (
+			Object.keys(value).length !== 2 ||
+			!isPlainRecord(value.user) ||
+			!Object.isFrozen(value.user) ||
+			typeof value.user.id !== 'string'
+		) {
+			throw new TypeError(`${path} must be a pending sign-up`)
+		}
+		const pending: AuthPendingSignUp = immutableRecord({
+			user: value.user,
+			verificationRequired: true as const,
+		}) as AuthPendingSignUp
+		return pending
+	},
+	reference('PasswordSignUpResult'),
+)
+
 const signUpOperation: PasswordOperation<
 	'sign-up',
 	PasswordSignUpData,
-	AuthenticationResult,
+	PasswordSignUpResult,
 	readonly ['AUTH_SIGN_UP_REJECTED']
-> = passwordOperation('sign-up', signUpInput, authenticationResult, [
+> = passwordOperation('sign-up', signUpInput, signUpResult, [
 	authErrorCodes.signUpRejected,
 ])
 const loginOperation: PasswordOperation<
