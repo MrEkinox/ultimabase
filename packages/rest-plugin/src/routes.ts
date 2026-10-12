@@ -280,6 +280,29 @@ export const encodeRestPathSegment = (value: string, label: string): string => {
 export const restRoutePath = (basePath: string, suffix: string): string =>
 	`${basePath === '/' ? '' : basePath}${suffix}`
 
+/**
+ * @internal Lists the roots REST mounts below its base path: the first segment
+ * of every compiled route, and the OpenAPI document when served. Other paths
+ * under the base path stay free for other plugins (ADR-0324, 6.4a amendment).
+ */
+export const readRestMountRoots = (
+	basePath: string,
+	routePaths: readonly string[],
+	openapi: boolean,
+): readonly string[] => {
+	const prefixLength = basePath === '/' ? 0 : basePath.length
+	const roots = new Set(
+		routePaths.map((path) =>
+			restRoutePath(
+				basePath,
+				`/${path.slice(prefixLength).split('/')[1] ?? ''}`,
+			),
+		),
+	)
+	if (openapi) roots.add(restRoutePath(basePath, '/openapi.json'))
+	return [...roots].sort()
+}
+
 /** @internal Builds the encoded collection path shared by schema-bound routes. */
 export const restClassPath = (basePath: string, className: string): string =>
 	restRoutePath(

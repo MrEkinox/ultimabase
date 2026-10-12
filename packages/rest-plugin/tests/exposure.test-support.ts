@@ -18,7 +18,7 @@ import {
 	plugin,
 	provideCapability,
 } from '@ultimabase/core/plugin'
-import { httpPlugin } from '@ultimabase/http-plugin'
+import { httpPlugin, httpRoutes } from '@ultimabase/http-plugin'
 import {
 	command,
 	defineOperation,
@@ -182,7 +182,26 @@ export const Hidden = ExposureApplication.Schema.define({
 	fields: (field) => ({ title: field.string() }),
 }).with({ rest: false })
 
-export const startExposure = async (options: RestPluginOptions = {}) => {
+/** Another plugin's routes, to share REST's base path (6.4a amendment). */
+export const neighbourPlugin = (paths: readonly string[]) =>
+	definePlugin({
+		name: '@fixture/rest-neighbour',
+		contributions: [
+			httpRoutes(
+				Object.fromEntries(
+					paths.map((path) => [
+						`POST ${path}`,
+						() => Response.json({ neighbour: path }),
+					]),
+				),
+			),
+		],
+	})
+
+export const startExposure = async (
+	options: RestPluginOptions = {},
+	neighbour: ReturnType<typeof neighbourPlugin> = neighbourPlugin([]),
+) => {
 	const Application = UltimaBase.use(
 		databasePlugin,
 		archivePlugin(),
@@ -191,6 +210,7 @@ export const startExposure = async (options: RestPluginOptions = {}) => {
 		createInvoice,
 		restPlugin({ publicWrites: true, ...options }),
 		httpPlugin(),
+		neighbour,
 	)
 	const ultimabase = new Application({
 		logger: false,

@@ -2,8 +2,8 @@
 
 `@ultimabase/rest-plugin` owns the experimental REST route graph, schema
 request boundary, and Fetch response contract. It generates immutable
-application-local metadata under `/api` by default, contributes an owned
-mount to `@ultimabase/http-plugin`, decodes accepted reads and mutations into
+application-local metadata under `/api` by default, contributes owned
+mounts for the roots it serves to `@ultimabase/http-plugin`, decodes accepted reads and mutations into
 Core's existing Query and schema-command contracts, and delegates them through
 Core's narrow application request executor. It does not import Hono, start
 listeners, access an adapter, or retain request data in an AST.
@@ -73,12 +73,19 @@ cannot be converted into public exposure.
 
 ## Base path and protocol version
 
-The default base path is `/api` (`/api/classes/Todo`, `/api/auth/login`). It
-carries no protocol version: every REST response carries
-`X-UltimaBase-Rest-Version: 1`, and a future wire format would be chosen by an
-option, never by the URL. `basePath` is free, so `/api/v1` versions the
-application's own API. `/` mounts REST at the root. The health route stays at
-HTTP's `/health`.
+The default base path is `/api` (`/api/classes/Todo`). It carries no protocol
+version: every REST response carries `X-UltimaBase-Rest-Version: 1`, and a
+future wire format would be chosen by an option, never by the URL. `basePath`
+is free, so `/api/v1` versions the application's own API, and `/` puts REST's
+roots at the root. The health route stays at HTTP's `/health`.
+
+REST mounts only the roots it serves below the base path: `classes`,
+`operations`, `openapi.json` when enabled, and the first segment of each
+operation path an owner declares (ADR-0324, 6.4a amendment). Other plugins may
+serve other paths under the same base path, such as authentication's
+`/api/auth/*` routes; a plugin route under one of REST's roots still fails at
+startup. A path under the base path outside these roots gets HTTP's
+`HTTP_NOT_FOUND`.
 
 ## Public writes
 
@@ -370,8 +377,9 @@ the selected pre-delete model in `{ result }`.
 
 ## HTTP responses and safe errors
 
-REST contributes one dispatcher at the configured base path when at least one
-schema or plugin-operation route exists. HTTP still selects the exact
+REST contributes one dispatcher, mounted at each root it serves below the
+configured base path, when at least one schema or plugin-operation route
+exists. HTTP still selects the exact
 application, validates sensitive-header cardinality, resolves credentials, and
 creates the request context before that dispatcher begins. Those earlier
 failures keep the protocol-neutral `HTTP_*` envelope. Once selected, REST owns

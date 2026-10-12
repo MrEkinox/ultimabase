@@ -141,8 +141,11 @@ routes.
 ### Routes by method name
 
 The protocol version is not in the URL: every REST response carries
-`X-UltimaBase-Rest-Version: 1`. Under the default `/api` root, an
-application-owned schema exposes:
+`X-UltimaBase-Rest-Version: 1`. REST owns only the roots it serves below its
+base path (`classes`, `operations`, `openapi.json` and the roots of declared
+operation paths), so other plugins share `/api`: authentication serves
+`/api/auth/*`. Any other path under `/api` answers `HTTP_NOT_FOUND`. Under the
+default `/api` root, an application-owned schema exposes:
 
 | Method key   | Method and path below `/api`                        | Built-in default |
 | ------------ | --------------------------------------------------- | ---------------- |

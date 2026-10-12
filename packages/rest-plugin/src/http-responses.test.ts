@@ -239,9 +239,15 @@ const fetchApplication = (
 describe('REST HTTP response boundary', () => {
 	it('dispatches reads with canonical metadata and observable protocol identity', async () => {
 		const fixture = await createFixture()
+		// REST mounts only the roots it serves (ADR-0324, 6.4a amendment),
+		// including the operation path its owner declared.
 		expect(fixture.http.routeGraph.mounts).toMatchObject([
 			{
-				path: '/api',
+				path: '/api/actions',
+				protocol: { name: 'ultimabase.rest', version: '1.0.0' },
+			},
+			{
+				path: '/api/classes',
 				protocol: { name: 'ultimabase.rest', version: '1.0.0' },
 			},
 		])

@@ -244,13 +244,14 @@ const restHttpProtocol = immutableRecord({
  * read per request because setup binds routes only after the mount exists.
  */
 export const createRestHttpMounts = (
-	mountPath: string,
+	basePath: string,
+	mountRoots: readonly string[],
 	bodyLimit: number | undefined,
 	executor: ApplicationRequestExecutor,
 	schemas: CompiledSchemaRegistry,
 	readConfiguration: () => RestHttpConfiguration | undefined,
 ): readonly HttpMountDefinition[] => {
-	const openapiPath = restRoutePath(mountPath, '/openapi.json')
+	const openapiPath = restRoutePath(basePath, '/openapi.json')
 	const handle = async (request: Request): Promise<Response> => {
 		const requestId = getCurrentRequest().requestId
 		const pathname = new URL(request.url).pathname
@@ -312,13 +313,17 @@ export const createRestHttpMounts = (
 			})
 		}
 	}
-	return immutableArray([
-		// An explicit REST bodyLimit replaces the HTTP one for REST (ADR-0323).
-		httpMount({
-			...(bodyLimit === undefined ? {} : { bodyLimit }),
-			handle,
-			path: mountPath,
-			protocol: restHttpProtocol,
-		}),
-	])
+	// REST owns only the roots it serves, so other plugins may route beside it
+	// under the same base path (ADR-0324, 6.4a amendment).
+	return immutableArray(
+		mountRoots.map((path) =>
+			// An explicit REST bodyLimit replaces the HTTP one for REST (ADR-0323).
+			httpMount({
+				...(bodyLimit === undefined ? {} : { bodyLimit }),
+				handle,
+				path,
+				protocol: restHttpProtocol,
+			}),
+		),
+	)
 }

@@ -66,3 +66,16 @@ plugin, and there is no machine-readable description of the API.
 
 A typed client without generation (`createClient<typeof ultimabase>`), multi-schema `/batch`,
 schema commands taking input data.
+
+## 6.4a amendment (2026-10-12)
+
+Decided by the user during migration step 6.4a (ADR-0326). REST no longer mounts the whole
+`basePath`: it mounts only the roots it serves below it, `classes`, `operations`, `openapi.json`
+when enabled, and the first segment of each operation path its owner declares. Other plugins may
+then serve other paths under the same base path; authentication serves `/api/auth/*` by default.
+The HTTP rule is unchanged: a mount owns its whole subtree, and a route under another plugin's
+mount, such as a route under `/api/classes`, still fails at startup. A path under `basePath`
+outside REST's roots (for example `/api/v1/...` with the default base path) answers the HTTP
+foundation's `HTTP_NOT_FOUND` instead of `REST_NOT_FOUND`, without the
+`X-UltimaBase-Rest-Version` header. Decision 1's example `/api/auth/login` is served by the
+authentication foundation, not by REST.
