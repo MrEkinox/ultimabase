@@ -201,8 +201,8 @@ The finished project has this shape:
 
 `schema.ts` owns data declarations, `ultimabase.ts` owns the application graph,
 and `main.ts` owns this process's lifecycle. `.env` supplies the local database
-URL without becoming part of the application graph. You do not need generated
-declarations to run this application.
+URL without becoming part of the application graph. There is no generation
+step: TypeScript types come from the schema declaration itself.
 
 ### Define the Task schema
 
@@ -349,12 +349,6 @@ every optional package at once:
 	</Card>
 	<Card title="Expose GraphQL" href="/docs/1.0.0/plugins/official/graphql">
 		Generate a network-independent schema before choosing an HTTP adapter.
-	</Card>
-	<Card
-		title="Generate TypeScript types"
-		href="/docs/1.0.0/guides/generate-types"
-	>
-		Generate optional editor declarations from this same application graph.
 	</Card>
 	<Card
 		title="Test the application"

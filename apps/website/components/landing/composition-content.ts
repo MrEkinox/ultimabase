@@ -13,15 +13,15 @@ const withTransport = (imports: string, plugins: string) =>
 			`${httpImports}\n${imports}\nimport { Article }`,
 		)
 		.replace(
-			'    typegenPlugin(),',
-			`    typegenPlugin(),\n${httpPlugins}\n${plugins}`,
+			"    postgresPlugin({ schemaPolicy: 'fail' }),",
+			`    postgresPlugin({ schemaPolicy: 'fail' }),\n${httpPlugins}\n${plugins}`,
 		)
 
 export const compositionExamples = [
 	{
 		label: 'TypeScript',
 		code: applicationExample,
-		note: 'PostgreSQL + Typegen. Direct calls, with no HTTP listener.',
+		note: 'PostgreSQL only. Direct calls, with no HTTP listener.',
 	},
 	{
 		label: 'REST',

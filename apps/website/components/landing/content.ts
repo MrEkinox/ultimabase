@@ -29,16 +29,15 @@ export const writeExample = `const article = await Article.createOne(
 
 export const applicationExample = `import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { typegenPlugin } from '@ultimabase/typegen'
 import { Article } from './article.js'
 
 // postgresPlugin() reads DATABASE_URL when the application starts.
 const Application = UltimaBase.use(
     postgresPlugin({ schemaPolicy: 'fail' }),
-    typegenPlugin(),
 )
 const app = new Application({ schemas: [Article] })
 
+// Once per application: name-keyed types, no generation step.
 declare module '@ultimabase/core' {
   interface Register {
     readonly app: typeof app

@@ -1,4 +1,4 @@
-/** Complete schema examples are checked against the compiled application and Typegen. */
+/** Complete schema examples are compiled and typechecked by the landing content tests. */
 export const virtualFieldExample = `import { UltimaBase } from '@ultimabase/core'
 
 export const Profile = UltimaBase.Schema.define({
@@ -98,6 +98,7 @@ export const PublicArticle = Application.Schema.define({
     title: f.string({ required: true }),
     published: f.boolean({ required: true, default: false }),
   }),
+}).with({
   ${accessRuleExample},
 })`
 

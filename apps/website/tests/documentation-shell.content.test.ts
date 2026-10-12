@@ -144,7 +144,6 @@ describe('public documentation content contract', () => {
 			expect.arrayContaining([
 				'/docs/1.0.0',
 				'/docs/1.0.0/core/application',
-				'/docs/1.0.0/guides/generate-types',
 				'/docs/1.0.0/guides/test-an-application',
 				'/docs/1.0.0/core/writing-data/delete',
 				'/docs/1.0.0/plugins/official/soft-delete',
@@ -153,7 +152,7 @@ describe('public documentation content contract', () => {
 				'/docs/1.0.0/plugins/using-plugins',
 				'/docs/1.0.0/plugins/community-plugins',
 				'/docs/1.0.0/plugins/build-a-plugin',
-				'/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen',
+				'/docs/1.0.0/plugins/build-a-plugin/schema-contributions',
 				'/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql',
 				'/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure',
 				'/docs/1.0.0/operations/troubleshooting',
@@ -174,6 +173,8 @@ describe('public documentation content contract', () => {
 				'/docs/1.0.0/reference/core-api/application',
 				'/docs/1.0.0/guides/write-nested-data',
 				'/docs/1.0.0/guides/filter-contextual-relations',
+				'/docs/1.0.0/guides/generate-types',
+				'/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen',
 			]),
 		)
 

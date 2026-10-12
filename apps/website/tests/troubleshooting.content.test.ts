@@ -45,7 +45,7 @@ describe('troubleshooting content', () => {
 		expect(postgres).toContain('## Troubleshooting')
 		expect(application).toContain('## Startup and plugin graph')
 		expect(application).toContain(
-			'/docs/1.0.0/guides/generate-types#troubleshooting-generation',
+			'/docs/1.0.0/core/application#register-the-application',
 		)
 		expect(application).not.toContain('## Typegen')
 		expect(application).toContain('## Report a problem')

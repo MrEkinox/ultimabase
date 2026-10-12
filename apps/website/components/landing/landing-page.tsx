@@ -144,8 +144,8 @@ export function LandingPage() {
 						and authorization come from the plugins you install.
 					</p>
 					<p>
-						PostgreSQL stores your data. Typegen generates your application’s
-						types, without a generated runtime client.
+						PostgreSQL stores your data. TypeScript infers your application’s
+						types from its schemas, with no generation step.
 					</p>
 					<TextLink href={currentDocumentationPath('core/application')}>
 						Configure an application <ArrowUpRight aria-hidden="true" />

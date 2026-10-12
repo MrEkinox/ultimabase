@@ -1,6 +1,6 @@
 import { readExample, schemaExample, writeExample } from './content'
 
-/** The content test checks these field types against actual Typegen declarations. */
+/** The content test checks these field types against the compiler's inferred models. */
 const modelFields = [
 	{ name: 'id', type: 'string' },
 	{ name: 'title', type: 'string' },

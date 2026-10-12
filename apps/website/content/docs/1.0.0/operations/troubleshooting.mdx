@@ -132,8 +132,9 @@ ownership. See [Application boundaries](/docs/1.0.0/core/application#application
   belong with [HTTP troubleshooting](/docs/1.0.0/plugins/official/http#troubleshooting).
 - Password or session failures belong with
   [Password Authentication](/docs/1.0.0/plugins/official/password-authentication#troubleshooting).
-- A missing or stale generated declaration belongs with
-  [Typegen troubleshooting](/docs/1.0.0/guides/generate-types#troubleshooting-generation).
+- Name-keyed types such as `Model<'Task'>` that do not resolve mean the
+  application is not declared once in `Register`; see
+  [Register the application](/docs/1.0.0/core/application#register-the-application).
 
 ## Report a problem
 
@@ -166,7 +167,7 @@ pnpm why @ultimabase/core
 
 Reduce the failure to the smallest schemas, plugins, configuration, and
 command. Run it twice from a clean lifecycle. Keep stable error codes,
-Typegen reasons, HTTP request IDs, and sanitized driver codes. Remove database
+TypeScript diagnostics, HTTP request IDs, and sanitized driver codes. Remove database
 URLs, credentials, cookies, tokens, user data, raw causes, and Master material.
 
 ```md title="Issue report"

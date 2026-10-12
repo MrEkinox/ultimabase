@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { currentDocumentationPath } from '../../lib/docs-versions'
 import { Section, TextLink } from '../primitives'
 
-/** Answers follow the overview, runtime, Typegen, and release-status contracts. */
+/** Answers follow the overview, runtime, schema typing, and release-status contracts. */
 const questions = [
 	{
 		question: 'Is UltimaBase a hosted service?',
@@ -20,11 +20,11 @@ const questions = [
 		label: 'Explore the runtime',
 	},
 	{
-		question: 'Does my application need Typegen to run?',
+		question: 'Do I need a code generation step?',
 		answer:
-			'No. Your schemas and installed plugins define the application at runtime. Typegen produces declarations for precise TypeScript fields and query results; it does not generate an executable client.',
-		href: 'guides/generate-types',
-		label: 'How Typegen works',
+			'No. Your schemas and installed plugins define the application at runtime, and TypeScript infers precise fields and query results from the same declarations. There is no generated client or declaration file.',
+		href: 'core/data-modeling/schemas',
+		label: 'How schemas are typed',
 	},
 	{
 		question: 'How are database schema changes handled?',

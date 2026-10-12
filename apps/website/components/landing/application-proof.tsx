@@ -62,8 +62,8 @@ export function ApplicationProof() {
 			</Tabs>
 			<figcaption id="ub-proof-caption">
 				<span>
-					Direct TypeScript. Requires a started application and generated
-					Typegen declarations.
+					Direct TypeScript. Requires a started application; types come from the
+					schema.
 				</span>
 				<a href="#application-setup">
 					See the setup <ArrowDown aria-hidden="true" />
