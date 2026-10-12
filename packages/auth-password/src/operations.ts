@@ -189,8 +189,13 @@ const loginOperation: PasswordOperation<
 	'login',
 	PasswordLoginInput,
 	AuthenticationResult,
-	readonly ['AUTH_INVALID_CREDENTIALS', 'AUTH_TOO_MANY_ATTEMPTS']
+	readonly [
+		'AUTH_EMAIL_NOT_VERIFIED',
+		'AUTH_INVALID_CREDENTIALS',
+		'AUTH_TOO_MANY_ATTEMPTS',
+	]
 > = passwordOperation('login', loginInput, authenticationResult, [
+	authErrorCodes.emailNotVerified,
 	authErrorCodes.invalidCredentials,
 	authErrorCodes.tooManyAttempts,
 ])
