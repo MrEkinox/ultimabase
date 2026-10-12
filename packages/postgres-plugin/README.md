@@ -127,6 +127,14 @@ server code opens explicit request scopes directly from that facade.
 Transports use Core's narrow application request execution capability; they
 never receive this engine or the PostgreSQL adapter.
 
+The plugin also provides Core's `databaseResetCapability` for test harnesses
+such as `testApplication` (ADR-0327): one `TRUNCATE … RESTART IDENTITY` of
+every table its catalog manages for the application (schema tables, relation
+link tables and private storage), resolved through the connection's
+`search_path`. It uses no `CASCADE`: a foreign table that references a managed
+one makes the reset fail instead of emptying data the application does not
+own. No request path calls it.
+
 The Drizzle client remains inside `@ultimabase/postgres-plugin`; neither plugin exports
 nor public declarations expose it. Pool clients borrowed for
 transactions use the same internal wrapper.
