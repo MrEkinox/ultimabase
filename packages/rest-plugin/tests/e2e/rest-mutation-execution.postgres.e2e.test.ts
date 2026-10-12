@@ -61,7 +61,7 @@ const MutationPost = RestMutationApplication.Schema.define({
 		hooks: {
 			beforeOperation: {
 				create: async ({ item }) => {
-					hookTrace.push(`before:create:${String(item.slug)}`)
+					hookTrace.push(`before:create:${item.slug}`)
 					if (item.slug !== 'deadline') return
 
 					const signal = getCurrentRequest().signal
@@ -84,10 +84,10 @@ const MutationPost = RestMutationApplication.Schema.define({
 					})
 				},
 				delete: ({ originalItem }) => {
-					hookTrace.push(`before:delete:${String(originalItem.slug)}`)
+					hookTrace.push(`before:delete:${originalItem.slug}`)
 				},
 				update: ({ item }) => {
-					hookTrace.push(`before:update:${String(item.slug)}`)
+					hookTrace.push(`before:update:${item.slug}`)
 				},
 			},
 		},

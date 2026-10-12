@@ -107,11 +107,12 @@ export interface PluginSchemaDeclarationRegistrar {
 	): PluginSourceReceipt<
 		Extract<OptionNamespaceSourceProjection<TOptions>, PluginSourceProjection>
 	>
+	/** Applies additive operations; the receipt projects no type (ADR-0297). */
 	patch(options: {
 		readonly operations: readonly SchemaPatchOperation[]
 		readonly staticOptions?: Readonly<Record<string, JsonValue>>
 		readonly targets: SchemaSelection
-	}): undefined
+	}): PluginSourceReceipt<never>
 	select<const TSelector extends SchemaSelectorOptions>(
 		selector: TSelector,
 	): SchemaSelection<TSelector>

@@ -38,7 +38,10 @@ export interface PluginOperationDeclarationRegistrar {
 }
 
 export interface PluginModelSurfaceRegistrar {
-	/** Adds schema-mutation methods to selected schemas and schema handles. */
+	/**
+	 * Adds schema-mutation methods to selected schemas and schema handles; the
+	 * receipt projects no type: a statics slot types the commands (ADR-0316).
+	 */
 	extend(
 		target: SchemaDefinition | SchemaSelectorOptions,
 		options: {
@@ -48,7 +51,7 @@ export interface PluginModelSurfaceRegistrar {
 			>
 			readonly staticOptions?: Readonly<Record<string, JsonValue>>
 		},
-	): undefined
+	): PluginSourceReceipt<never>
 }
 
 type OperationSourceProjection<TOperation> =
@@ -142,7 +145,7 @@ export const createApplicationSurfaceRegistrars = (
 						target: createTarget(target),
 					}),
 				)
-				return undefined
+				return pluginSourceReceipt()
 			},
 		}),
 		operations: immutableRecord({

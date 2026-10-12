@@ -1,7 +1,11 @@
 import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import * as application from '../application/framework-application.js'
-import { stringField, type FieldBuilder } from '../index.js'
+import {
+	stringField,
+	type FieldBuilder,
+	type SchemaDefinition,
+} from '../index.js'
 import {
 	defineCapability,
 	defineFieldOption,
@@ -249,7 +253,7 @@ describe('plugin schema option compilation', () => {
 					runtimeTag: 'field',
 				}),
 			}),
-		} as never).with({
+		}).with({
 			runtimeTag: 'schema',
 		} as never)
 
@@ -348,7 +352,7 @@ describe('plugin schema option compilation', () => {
 		const Post = UltimaBase.Schema.define({
 			className: 'FailingRuntimeOptionPost',
 			fields: () => ({}),
-		} as never).with({
+		}).with({
 			runtimeTag: 'fail',
 		} as never)
 
@@ -395,7 +399,7 @@ describe('plugin schema option compilation', () => {
 					search,
 				}),
 			}),
-		} as never).with({
+		}).with({
 			workflow,
 		} as never)
 
@@ -435,7 +439,7 @@ describe('plugin schema option compilation', () => {
 		const UnknownSchemaOption = UltimaBase.Schema.define({
 			className: 'UnknownSchemaOption',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		} as never).with({
+		}).with({
 			workflow: { enabled: true },
 		} as never)
 		const UnknownFieldOption = UltimaBase.Schema.define({
@@ -523,16 +527,20 @@ describe('plugin schema option compilation', () => {
 		const First = UltimaBase.Schema.define({
 			className: 'ExactOptionOwnerFirst',
 			fields: () => ({}),
-		} as never).with({
+		}).with({
 			shared: 'value',
 		} as never)
 		const Second = UltimaBase.Schema.define({
 			className: 'ExactOptionOwnerSecond',
 			fields: () => ({}),
-		} as never).with({
+		}).with({
 			shared: 'value',
 		} as never)
-		const plugin = (pluginId: string, schema: typeof First, prefix: string) =>
+		const plugin = (
+			pluginId: string,
+			schema: SchemaDefinition,
+			prefix: string,
+		) =>
 			createPlugin({
 				core: '^0.0.0',
 				id: pluginId,

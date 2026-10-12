@@ -129,7 +129,7 @@ describe('plugin schema field transformations', () => {
 		const InvalidAddition = UltimaBase.Schema.define({
 			className: 'AtomicOptionInvalidAddition',
 			fields: () => ({}),
-		} as never).with({
+		}).with({
 			broken: true,
 		} as never)
 		const optionFailurePlugin = createPlugin({
@@ -301,13 +301,13 @@ describe('plugin schema field transformations', () => {
 		const Content = UltimaBase.Schema.define({
 			className: 'WorkflowContent',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		} as never).with({
+		}).with({
 			workflow: { enabled: true, stages: ['draft', 'published'] },
 		} as never)
 		const Audit = UltimaBase.Schema.define({
 			className: 'WorkflowAudit',
 			fields: (field: FieldBuilder) => ({ message: field.string() }),
-		} as never).with({
+		}).with({
 			workflow: { enabled: true, stages: ['draft', 'published'] },
 		} as never)
 		const provider = createPlugin({

@@ -234,7 +234,7 @@ describe('plugin schema declaration registry', () => {
 		const Shared = UltimaBase.Schema.define({
 			className: 'StableReusePost',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		} as never).with({
+		}).with({
 			stable: { enabled: true },
 		} as never)
 		const first = applicationFixture(

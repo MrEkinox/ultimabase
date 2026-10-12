@@ -86,7 +86,7 @@ describe('schema option-presence selection', () => {
 		const Document = UltimaBase.Schema.define({
 			className: 'OpaqueOptionDocument',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		} as never).with({
+		}).with({
 			document: transform,
 		} as never)
 		const Plain = UltimaBase.Schema.define({
@@ -192,13 +192,13 @@ describe('schema option-presence selection', () => {
 		const Disabled = UltimaBase.Schema.define({
 			className: 'AbsentOptionDisabled',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		} as never).with({
+		}).with({
 			mode: false,
 		} as never)
 		const Explicit = UltimaBase.Schema.define({
 			className: 'AbsentOptionExplicit',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		} as never).with({
+		}).with({
 			mode: 'explicit',
 		} as never)
 

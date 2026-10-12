@@ -80,17 +80,17 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 			beforeOperation: {
 				create: ({ item }) => {
 					hookTrace.push(
-						`${getCurrentRequest().requestId}:create:${String(item.slug)}`,
+						`${getCurrentRequest().requestId}:create:${item.slug}`,
 					)
 				},
 				delete: ({ originalItem }) => {
 					hookTrace.push(
-						`${getCurrentRequest().requestId}:delete:${String(originalItem.slug)}`,
+						`${getCurrentRequest().requestId}:delete:${originalItem.slug}`,
 					)
 				},
 				update: ({ item }) => {
 					hookTrace.push(
-						`${getCurrentRequest().requestId}:update:${String(item.slug)}`,
+						`${getCurrentRequest().requestId}:update:${item.slug}`,
 					)
 				},
 			},

@@ -29,7 +29,7 @@ describe('opaque option selection boundary', () => {
 					},
 				}),
 			}),
-		} as never).with({
+		}).with({
 			opaque: { enabled: true, callback },
 			portable: { enabled: true, nested: { tag: 'ready' } },
 		} as never)

@@ -7,7 +7,7 @@ describe('direct community plugin options', () => {
 		const UnknownSchemaOption = UltimaBase.Schema.define({
 			className: 'OpenKernelUnknownDecimalSchemaOption',
 			fields: (field: FieldBuilder) => ({ label: field.string() }),
-		} as never).with({
+		}).with({
 			decimalLedger: { defaultScale: 2 },
 		} as never)
 		const schemaApplication = new UltimaBase({ schemas: [UnknownSchemaOption] })

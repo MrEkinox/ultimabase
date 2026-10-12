@@ -261,7 +261,7 @@ export class SchemaDeclarationRegistry {
 						targets: options.targets,
 					}),
 				)
-				return undefined
+				return pluginSourceReceipt()
 			},
 			select: (selector) => {
 				return createSelection(selector)

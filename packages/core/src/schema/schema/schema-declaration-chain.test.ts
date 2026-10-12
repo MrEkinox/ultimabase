@@ -100,11 +100,11 @@ describe('schema declaration chain (ADR-0297)', () => {
 	it('rejects plugin options passed to define itself', () => {
 		const Application = UltimaBase.use(markPlugin())
 		// `marked` is not a declared option type here; the runtime rule is checked directly.
-		expect(() =>
+		expect(() => {
 			Reflect.apply(Application.Schema.define, Application.Schema, [
 				{ className: 'PreMarkedDocument', fields: () => ({}), marked: true },
-			]),
-		).toThrow(
+			])
+		}).toThrow(
 			'Unknown schema option: marked. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
 		)
 	})
