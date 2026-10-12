@@ -29,7 +29,8 @@ expliqué contre une base 5e719ea2 construite.
 
 ## État
 
-Implémentation, tests et documentation faits ; porte finale à passer.
+Implémentation, tests, documentation, porte et audit DX faits. Dernier commit
+de code : 04ef7c2b. Rien n'est poussé ni fusionné.
 
 - Core : `databaseResetCapability` (neutre, durée de vie `application`,
   exportée par `@ultimabase/core` comme les autres capacités de base de
@@ -189,7 +190,91 @@ sens. Décision à prendre (6.8 ou ADR).
   royaumes `graphql`) ; avec des paquets installés (copie, comme le registre)
   ils passent. Le test e2e du starter installe donc des copies.
 
+## Tests publics modifiés (ancien → nouveau)
+
+- `packages/testing/tests/public-api.test.ts` : la racine exportait 11 noms
+  (conformance, `PostgresTestWorker`, `readVitestPoolId`,
+  `waitForAfterCommit`, `createCapturingLogger`…) → `['testApplication']` ;
+  ajout des listes de `/plugins` (les 10 noms sans `readVitestPoolId`) et de
+  `/vitest` (`ultimabaseTesting`).
+- `packages/core/tests/public-api.test.ts` : + `databaseResetCapability`,
+  `databaseResetCapabilityVersion` (racine), + `openApplicationHarness`
+  (`/plugin`).
+- `apps/website/tests/guides.content.test.ts` : `PostgresTestWorker`,
+  `await worker.reset()`, `await ultimabase.dispose()`,
+  `await worker.dispose()` → `await using t = await testApplication(ultimabase)`,
+  `...ultimabaseTesting()`, `t.asMaster(`, absence de `readVitestPoolId`.
+- `apps/website/tests/documentation-navigation.content.test.ts` :
+  `PostgresTestWorker`, `Task.findOneOrThrow(` → `testApplication`,
+  `t.fetch('/api/classes/Task')`.
+- `apps/website/tests/reference.content.test.ts` : sous-chemins `['.']` sauf
+  Core → Testing a `['.', './plugins', './vitest']`.
+- `packages/testing/tests/e2e/postgres-worker-isolation.postgres.e2e.test.ts` :
+  `readVitestPoolId(process.env.VITEST_POOL_ID)` →
+  `Number(process.env.VITEST_POOL_ID)` (assertions inchangées).
+- `packages/typegen/tests/e2e/typegen-generated-types.e2e.test.ts` : test
+  « keeps the committed Todo declaration aligned with its plugin graph »
+  retiré (todo-backend n'a plus de déclaration générée).
+- `packages/rest-plugin/tests/e2e/rest-application.e2e.test.ts` : test
+  « keeps the generated minimal REST declarations aligned » retiré (minimal
+  n'a plus de déclaration générée).
+- create-app e2e : `create-app-api` (Task lisible en développement avec
+  Access prototype : 403 → 200, `PERMISSION_DENIED` → données) ;
+  `create-app-security` (Access ne refuse plus en développement : l'ACL vide
+  masque la Task) ; `create-app-packed` (`typecheck`/`build`/Typegen → `dev`,
+  `@ultimabase/testing`, `vitest.config.*`, `tests/`, cas Docker absent).
+- Le reste : changements de spécificateur d'import seuls
+  (`@ultimabase/testing` → `@ultimabase/testing/plugins`).
+
+## Preuves
+
+Sur 04ef7c2b, `packages/*/dist` et `*.tsbuildinfo` hors `node_modules`
+supprimés :
+
+- `yarn validate:full` → EXIT 0 : « All matched files use Prettier code
+  style! » ; lint 0 erreur (48 + 15 + 2 avertissements de taille de fichier) ;
+  performance « Test Files 3 passed (3) / Tests 4 passed (4) » ; couverture
+  « Test Files 743 passed (743) / Tests 3796 passed (3796) / Type Errors no
+  errors », All files 92,37 / 85,73 / 96,7 / 93,08 ; site « Test Files 17
+  passed (17) / Tests 66 passed (66) ». Deux exécutions précédentes avaient
+  échoué : Prettier (`create-app-packed.e2e.test.ts` non formaté) puis
+  `reference.content.test.ts` (sous-chemins de Testing), corrigés.
+- `yarn test:e2e:built` → EXIT 0, « Test Files 140 passed (140) / Tests 613
+  passed (613) » (`create-app-packed` compris, sans relance).
+- `yarn website:test` → EXIT 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+- Projets générés (21 TypeScript, 21 JavaScript, toutes les sélections
+  seules, tout, défaut, auth/ACL/Roles) : `tsc -p .` sans erreur sous
+  TypeScript 6.0.3 et 7.0.2 (aucun TS7022) ; exemples minimal et
+  todo-backend sans erreur sous 7.0.2.
+- Unitaires ciblés pendant le travail : Hono `provider-options.test.ts`
+  (arrêt borné) a échoué une fois sous charge pendant une exécution complète
+  et passe seul.
+
+### Audit DX (base 5e719ea2 construite, `--only` les 24 dossiers de paquets, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+1 315 différences (39 812 / 39 785 enregistrements), toutes lues :
+
+| Groupe                  | Nombre | Cause                                                                                                                                                                                                                                                                                              |
+| ----------------------- | -----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `examples/minimal`      |    492 | Exemple réécrit en forme D : survols des constantes de schéma et des appels (`SourceSchemaTypeInfo<"…">` au lieu des noms générés), `Register` réel, fichiers Typegen retirés, `stored-values.ts` ajouté ; complétions aux accès de membres ; diagnostics : présence de fichiers seulement (aucun) |
+| `examples/todo-backend` |    441 | Idem : forme D, `App` unique avec `apiServer`, `create-application.ts` retiré ; `CreateInput<"TodoUser">` au lieu de `TodoUserCreateInput`                                                                                                                                                         |
+| `testing`               |    271 | Entrées : 28 noms passent de la racine à `/plugins` (déclarations, survols, membres re-clés), `readVitestPoolId` retiré, `testApplication`/`TestApplication` ajoutés, `/vitest` (`ultimabaseTesting`, `UltimaBaseTestingConfig`) ; source de la sonde de conformance (import `/plugins`)           |
+| `core`                  |     88 | Ajouts : `databaseResetCapability`, `databaseResetCapabilityVersion`, `DatabaseResetCapability`, `openApplicationHarness`, `ApplicationHarness` (déclarations, survols, membres, 46 complétions d'exports) ; `seed()` de la classe privée `FrameworkApplication` ; noms de morceaux                |
+| `hooks-plugin`          |     12 | `SchemaMutationMap` lit `SchemaRulesSource<TSchema>` : survols des types de Hooks de schéma et de leurs propriétés                                                                                                                                                                                 |
+| `create-app`            |      6 | `InitializerPlan.typegen` retiré, `databaseUrl` ajouté (plan, `SelectionInput`, `ParsedOptions`)                                                                                                                                                                                                   |
+| `postgres-plugin`       |      5 | Fournisseur `databaseResetCapability` dans `PostgresPluginCapabilities` (déclaration, import, trois survols du test de types `provides`)                                                                                                                                                           |
+
+Une première exécution comptait 19 déclarations privées de plus dans
+postgres-plugin (le tuple citait `ReturnType<typeof providePostgresReset>`,
+ce qui tirait `PostgresSchemaCatalog` et des imports `drizzle-orm` dans les
+déclarations publiées) ; corrigé par 04ef7c2b. Base supprimée ensuite.
+
+Pas de banc : aucun type de schéma ou de requête de Core n'a changé (ajouts
+d'exports seulement) ; le seul changement de typage est celui des Hooks.
+
 ## Prochaine action vérifiable
 
-Porte finale sur le dernier commit de code, audit DX contre 5e719ea2, puis
-relecture du coordinateur.
+Relecture du coordinateur, décisions de l'utilisateur sur les points
+ci-dessus, puis fusion `--no-ff` dans `main` ; supprimer ce handoff après la
+fusion.
