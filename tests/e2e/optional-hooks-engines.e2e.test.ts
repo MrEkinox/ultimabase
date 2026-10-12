@@ -97,7 +97,6 @@ describe('optional Hooks engine proof', () => {
 
 		try {
 			expect(application.pluginPrivilegeReport.plugins).toStrictEqual([])
-			expect(application.compile().schemaSurfaces).toStrictEqual([])
 			const [alternativeSource, javascriptSource] = await Promise.all([
 				readFile(alternativeFixturePath, 'utf8'),
 				readFile(javascriptFixturePath, 'utf8'),

@@ -5,10 +5,10 @@ Public authoring helpers for official and community UltimaBase plugins.
 `plugin-kit` is not a plugin and installs no Runtime behavior. Core now owns
 package identity, configured plugin instances, public plugin typing, provenance,
 privilege checks, capability storage, lifecycle, adapters, and Master authority.
-Use Core's `plugin()`, contribution list, and nominal Typegen
-references directly. Plugin Kit is reserved for optional higher-level
+Use Core's `plugin()` and contribution list directly. Plugin Kit is reserved for optional higher-level
 composition such as the `definePlugin` facade, events, option parsing,
-contextual fields, and immutable schema-patch builders. It imports only Core's
+contextual fields, immutable schema-patch builders, and the role protocol
+shared by permission and role providers. It imports only Core's
 public entries, and `@ultimabase/core/plugin` for the authoring contracts.
 
 ## Define a plugin from one object
@@ -293,8 +293,8 @@ without the helper. Destructive replacement, rename, and removal patches are
 not plugin powers; the helper does not reintroduce them. Core still validates
 every patch's target, ownership, and provenance. `mutationInput: 'forbidden'` reserves an added stored
 field for plugin-owned effects while keeping it selectable and physically
-persisted; Core applies the same omission to Runtime validation, Typegen,
-nested writes, and transport inputs.
+persisted; Core applies the same omission to Runtime validation, nested
+writes, and transport inputs.
 
 Presence selection never reads the direct option value, so the same ordinary
 patch builder works for JSON configuration and opaque callback-bearing options.
@@ -303,8 +303,8 @@ Use `{ name, path?, equals }` only when structural JSON equality is required.
 ## Declare contextual fields and options
 
 Plugin-owned field families and direct field options state exactly where they
-work. Core owns the field family because it also owns Runtime and Typegen
-registration; Plugin Kit keeps only the option and output conveniences:
+work. Core owns the field family because it also owns Runtime registration;
+Plugin Kit keeps only the option and output conveniences:
 
 ```ts
 import { definePluginFieldFamily } from '@ultimabase/core'
@@ -315,10 +315,6 @@ import {
 
 const ratingFamily = definePluginFieldFamily({
 	fieldKind: 'community.rating',
-	typegen: {
-		module: '@example/rating-plugin',
-		valueType: 'RatingValue',
-	},
 	builder: {
 		name: 'rating',
 		contexts: {
@@ -334,7 +330,6 @@ const ratingFamily = definePluginFieldFamily({
 							return value
 						},
 					),
-				methodType: 'RatingOutputBuilderMethod',
 			},
 		},
 	},
@@ -344,10 +339,6 @@ const searchableOption = definePluginFieldOption({
 	contexts: ['stored'],
 	normalize: (value) => value === true,
 	protocolVersion: 1,
-	typegen: {
-		module: '@example/rating-plugin',
-		type: 'SearchableFieldOption',
-	},
 })
 ```
 
@@ -355,8 +346,8 @@ The closed contexts are `stored`, `embedded`, `virtual`, and `output`. A method
 may provide a different factory and public callable type in each supported
 context. Return `fields.register(...)` and `schemas.defineOptions(...)` receipts
 from the same Core declaration callback; `UltimaBase.use()` then infers the
-exact application-local methods and options without a Plugin Kit registry or a
-generated plugin-surface copy. A stored representation does not automatically
+exact application-local methods and field options without a Plugin Kit
+registry. A stored representation does not automatically
 grant embedded or output behavior, and Core rejects unsupported use before
 setup even when JavaScript bypasses autocomplete.
 
@@ -452,6 +443,35 @@ Keeping these Core calls visible preserves exact owner attribution, the
 collision checks, and the callback-free compilation boundary without repeating
 the operation registry or capability-provider plumbing.
 
+## Share the role protocol
+
+Permission providers such as ACL and role providers such as Roles meet through
+one capability without importing each other (ADR-0329). The contract lives here,
+not in Core: `requestRoleResolverCapability`, its `RequestRoleResolver` value,
+the `RequestRoleReference` subject (a Core `RequestSubjectReference<'role'>`),
+`resolveRequestRoleReference()` and `requireCurrentRequestRoleResolver()`:
+
+```ts
+import { provideCapability } from '@ultimabase/core/plugin'
+import {
+	requestRoleResolverCapability,
+	requireCurrentRequestRoleResolver,
+} from '@ultimabase/plugin-kit'
+
+// A role provider:
+provideCapability(requestRoleResolverCapability, {
+	contributionId: 'roles',
+	create: () => ({ value: { hasRole: ({ role }) => role.value === 'editor' } }),
+})
+
+// A consumer, during a request; the call keeps the provider's attribution:
+await requireCurrentRequestRoleResolver().hasRole({ context, role })
+```
+
+Without a provider, `requireCurrentRequestRoleResolver()` fails with
+`PLUGIN_CAPABILITY_MISSING` and the capability's hint. It is built on Core's
+generic `readCurrentCapabilityProvider(token)`.
+
 ## Static and Runtime boundaries
 
 | Concern                         | Static declaration                           | Application/Runtime                            |
@@ -460,7 +480,6 @@ the operation registry or capability-provider plumbing.
 | Option fingerprint facts        | plugin-owned normalized safe values          | secrets and resources stay out                 |
 | Schema patches                  | `schemaPatch` + `patchSchemas`               | Core applies owner-attributed operations       |
 | Operations                      | Core-owned operation contribution            | handler materializes and executes through Core |
-| Typegen                         | Core nominal references and structured facts | no executable generated client                 |
 
 ## When to use Core directly
 

@@ -198,20 +198,19 @@ export const inspection = {
 	// Inspection is descriptive even when the source token retains executable validators.
 	callbackFree: ultimabase
 		.compile()
-		.typegenGraph.operations.every(
-			({ operation }) =>
-				!('snapshot' in operation.input) && !('snapshot' in operation.result),
+		.operations.every(
+			({ operation }) => !('input' in operation) && !('result' in operation),
 		),
 	constructorFree: ultimabase
 		.compile()
-		.typegenGraph.schemaSurfaces.every(
+		.schemaSurfaces.every(
 			({ schema }) =>
 				typeof schema === 'object' &&
 				Object.keys(schema).join() === 'className',
 		),
 	operations: ultimabase
 		.compile()
-		.typegenGraph.operations.map(({ operation }) => operation.name),
+		.operations.map(({ operation }) => operation.name),
 	plugins: ultimabase.pluginPrivilegeReport.plugins.map(
 		({ identity }) => identity.pluginId,
 	),

@@ -17,18 +17,19 @@ describe('packed plugin operation execution', () => {
 		(moduleName) => {
 			const fileName = path.resolve(
 				import.meta.dirname,
-				'../../../../tests/e2e/typegen-inspection.fixture.ts',
+				'../../../../tests/e2e/compiled-inspection.fixture.ts',
 			)
 			const source = `
-import type { CompiledTypegenGraph, PluginOperationDefinition } from '${moduleName}'
-declare const graph: CompiledTypegenGraph
+import type { CompiledApplication } from '${moduleName === '@ultimabase/core/plugin' ? '@ultimabase/core' : '../../packages/core/src/index.js'}'
+import type { PluginOperationDefinition } from '${moduleName}'
+declare const graph: CompiledApplication
 const operation = graph.operations[0]!.operation
 const schema = graph.schemaSurfaces[0]!.schema
 const name: string = schema.className
-// @ts-expect-error -- Inspection has no executable input snapshot.
-operation.input.snapshot('input', 'path')
-// @ts-expect-error -- Inspection has no executable result snapshot.
-operation.result.snapshot('result', 'path')
+// @ts-expect-error -- Inspection has no executable input contract.
+void operation.input
+// @ts-expect-error -- Inspection has no executable result contract.
+void operation.result
 // @ts-expect-error -- Inspection is not a nominal executable operation token.
 const token: PluginOperationDefinition = operation
 // @ts-expect-error -- Inspection has no schema constructor.

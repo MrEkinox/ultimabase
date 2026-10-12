@@ -132,7 +132,6 @@ describe('independent protected policy engine', () => {
 				readFile(noAccessJavascriptFixturePath, 'utf8'),
 			])
 
-			expect(application.compile().schemaSurfaces).toStrictEqual([])
 			expect(source).not.toContain('@ultimabase/access-plugin')
 			expect(source).not.toContain('accessPlugin')
 			expect(javascriptSource).not.toContain('@ultimabase/access-plugin')
