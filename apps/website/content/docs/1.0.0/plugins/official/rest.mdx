@@ -240,12 +240,13 @@ selection of an unreadable result fails with `403` and nothing is written.
 ### Public operations
 
 A plugin declares which of its operations are meant for clients, such as
-[Password Auth](./password-authentication)'s `signUp` and `login`; every
+[authentication](./password-authentication)'s `signUp` and `login`; every
 installed transport exposes them, and an operation not declared public is
-never exposed. Hide one with `restPlugin({ hide: [passwordAuthOperations.refresh] })`.
+never exposed. Hide one with `restPlugin({ hide: [authOperations.refresh] })`;
+an application served by authentication's own `/auth` routes may hide them all.
 An operation answers `POST /api/operations/{name}` with exactly
-`{ "input": value }`, unless its owner declares a static path such as
-`/api/auth/login`. The configured `basePath` applies to these routes too.
+`{ "input": value }`, unless its owner declares a static REST path such as
+`/reports/daily`. The configured `basePath` applies to these routes too.
 
 An application operation needs no plugin: `defineOperation` from
 `@ultimabase/plugin-kit` takes Standard Schema validators, and you install it

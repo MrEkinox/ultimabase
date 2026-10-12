@@ -112,7 +112,7 @@ answer and this selector share one selection:
 | Group            | Available choices                                                        |
 | ---------------- | ------------------------------------------------------------------------ |
 | Data & behavior  | PostgreSQL, Hooks, Validation, Soft Delete                               |
-| Security         | Password Auth, Access, Roles, Object ACLs                                |
+| Security         | Authentication, Access, Roles, Object ACLs                               |
 | HTTP & explorers | HTTP, Hono server, REST, GraphQL, GraphQL Yoga, GraphiQL, Apollo Sandbox |
 
 REST includes HTTP and Hono. GraphQL selected as an HTTP API includes
@@ -269,13 +269,13 @@ documented defaults. With `--yes` and no API flags, no HTTP API is selected.
 `--yes` never permits overwriting an existing directory. Repeat
 `--plugin @ultimabase/<id>` for multiple official plugins.
 
-The selector does not invent capabilities. Password Auth identifies callers
+The selector does not invent capabilities. Authentication identifies callers
 but does not grant Task access; Roles do not grant permission by themselves.
-Selecting Password Auth with Access generates a User read policy limited to the current session
+Selecting Authentication with Access generates a User read rule limited to the current session
 owner, allowing authentication to return the required profile. Other User
 operations remain denied. Access or Object ACLs may intentionally deny Task
-reads. Password Auth operations appear over a selected API only through an
-exact allowlist. GraphiQL and Apollo
+reads. Authentication operations are served under `/auth` and in a selected
+GraphQL API; REST hides them. GraphiQL and Apollo
 Sandbox, including the introspection they need, are development-only in the
 generated configuration. Review [Password
 Authentication](/docs/1.0.0/plugins/official/password-authentication),

@@ -469,8 +469,11 @@ to that exact plugin owner; declaring it exposes no CRUD routes.
 A GraphQL supporting input-object can similarly declare `createFieldsFrom`.
 Its fields inherit the schema's create types, requiredness, and codecs. Explicit
 supporting fields may add operation-only values, but cannot replace inherited
-fields. Password Auth uses this for `PasswordAuthSignUpInput`, adding `password`
-to the User create fields. Login retains a separate credentials-only input.
+fields. The password method uses this for `PasswordSignUpInput`, adding
+`password` to the User create fields; a plugin whose schema class name the
+application chooses names it `{ kind: 'owned-schema' }`, the one schema it adds,
+claims or designates with a schema option it defines. Login retains a separate
+credentials-only input.
 Defaults and validation still run once through the ordinary Runtime creation.
 
 ## Verify

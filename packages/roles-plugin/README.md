@@ -103,9 +103,10 @@ await roles.has(Editor, { principal: TodoUser.pointer(userId) })
 await roles.current(TodoRole) // names, inheritance included
 ```
 
-`ensure` creates its roles at `start()` through the application's
-`masterAuthority`, idempotently: a role another instance created concurrently
-counts as present.
+`ensure` creates its roles at `start()` with Roles' own `authority:elevate`
+privilege (audited by the application's `masterAuthority` when one is
+configured, else by its logger), idempotently: a role another instance created
+concurrently counts as present.
 
 The factory injects `name`, `members`, and `includedRoles`. Role names are
 stored as their NFKC-normalized, trimmed, lower-case identity and are unique

@@ -9,7 +9,7 @@ Core's narrow application request executor. It does not import Hono, start
 listeners, access an adapter, or retain request data in an AST.
 
 The repository includes a [runnable Hono and PostgreSQL example](../../examples/minimal/README.md)
-with anonymous and Password Auth sessions, role-protected REST, audited Master
+with anonymous and authenticated sessions, role-protected REST, audited Master
 access, and public plugin operations.
 
 ## Installation
@@ -121,7 +121,7 @@ Every installed transport exposes it; an operation not declared public is
 never exposed. The application hides some per instance:
 
 ```ts
-restPlugin({ hide: [passwordAuthOperations.refresh] })
+restPlugin({ hide: [authOperations.refresh] })
 ```
 
 A hidden token that is not a public operation of the application fails at
@@ -130,7 +130,7 @@ and accepts exactly `{ "input": value }`.
 
 An owner may contribute a REST binding through Core: a logical-to-wire codec
 for the canonical `ultimabase.rest@1.0.0` protocol, which it names without
-importing this package, so REST and Password Auth stay siblings. Its metadata
+importing this package, so REST and other plugins stay siblings. Its metadata
 contains `errors: { [declaredPublicErrorCode]: httpStatus }`, including an
 empty object when the operation declares no public plugin errors, and an
 optional `path`: `{ errors, path: "/auth/login" }` produces

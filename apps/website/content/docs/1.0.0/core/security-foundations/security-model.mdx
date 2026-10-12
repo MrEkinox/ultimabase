@@ -25,7 +25,7 @@ filter from becoming an accidental permission.
 
 | Concern           | Question it answers                                                  | Owner                                             |
 | ----------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
-| Authentication    | Is this credential valid?                                            | Password Auth or another credential plugin        |
+| Authentication    | Is this credential valid?                                            | `authPlugin` and its sign-in methods              |
 | Identity          | Which principal or subject is associated with the request?           | The identity plugin's typed context values        |
 | Authorization     | May that subject perform this operation on these objects and fields? | Access, ACL, or another protected-policy plugin   |
 | Validation        | Is this input structurally and semantically valid?                   | Core structure; optional Validation for app rules |

@@ -35,7 +35,8 @@ alternatives use the same generic public kernel.
 - `graphql-yoga-plugin`
 - `graphql-explorer-plugin` (GraphiQL or Apollo Sandbox)
 - `api-server` (preset returning the API plugins; not a plugin)
-- `password-auth-plugin`
+- `auth-plugin` (users, sessions, linked accounts; ADR-0326)
+- `auth-password` (password sign-in method of `auth-plugin`; not a plugin)
 
 ## Planned plugin packages
 

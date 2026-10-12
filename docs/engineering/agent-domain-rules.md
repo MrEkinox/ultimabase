@@ -83,7 +83,8 @@ other official plugins -> plugin-kit/core/shared
 http-plugin -> plugin-kit/core/shared
 hono-server-plugin -> http-plugin/plugin-kit/core/shared
 rest-plugin -> http-plugin/plugin-kit/core/shared
-password-auth-plugin -> http-plugin/plugin-kit/core/shared
+auth-plugin -> http-plugin/plugin-kit/core/shared
+auth-password -> auth-plugin/plugin-kit/core/shared
 graphql-plugin -> plugin-kit/core/shared
 graphql-http -> core/shared
 graphql-yoga-plugin -> graphql-http/http-plugin/graphql-plugin/plugin-kit/core/shared
