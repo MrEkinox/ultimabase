@@ -32,8 +32,8 @@ expliqué, banc forme D TS6/TS7.
 
 ## État
 
-Implémentation, tests et documentation faits. Porte, audit DX et banc : voir
-« Preuves ». Rien n'est poussé ni fusionné.
+Implémentation, tests, documentation, porte, audit DX et banc faits. Dernier
+commit de code : 398fab51. Rien n'est poussé ni fusionné.
 
 ### GraphQL (`packages/graphql-plugin`)
 
@@ -147,7 +147,65 @@ on Todo` ; seulement pour les schémas de l'application ; une racine
 
 ## Preuves
 
-(complétées après la porte)
+Sur 398fab51, `packages/*/dist` et `*.tsbuildinfo` hors `node_modules`
+supprimés :
+
+- `yarn validate:full` → exit 0 : « All matched files use Prettier code
+  style! » ; lint 0 erreur (49 + 17 + 2 avertissements, tous de taille de
+  fichier et déjà présents sur 0e390039 ; fichiers modifiés concernés :
+  `inclusion-projection.ts` 567 → 568, `password-auth-plugin/src/operations.ts`
+  483 → 468, `optional-product-public-api.ts` 528 → 538) ; performance « Test
+  Files 3 passed (3) / Tests 4 passed (4) » ; couverture « Test Files 735
+  passed (735) / Tests 3642 passed (3642) / Type Errors no errors », All files
+  92,53 / 86,09 / 96,92 / 93,18 ; site « Test Files 17 passed (17) / Tests 66
+  passed (66) ». Une première exécution avait échoué au contrôle Prettier
+  (`plugin-facade.postgres.e2e.test.ts`), corrigé par 398fab51.
+- `yarn test:e2e:built` → exit 0, « Test Files 135 passed (135) / Tests 595
+  passed (595) » (`create-app-packed` compris ; seul aussi : 7/7 en 49 s).
+- `yarn website:test` → exit 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+- Page GraphiQL vérifiée dans un navigateur (serveur local, puis arrêté) :
+  l'éditeur se charge avec les empreintes ; une empreinte falsifiée bloque
+  `react.mjs` (« Failed to find a valid digest ») ; `POST /graphql` sans
+  en-tête répond avec l'indice (400) ; Apollo Sandbox crée son iframe.
+
+### Audit DX (base 0e390039 construite, `--only` les 25 dossiers de paquets des deux arbres, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+1 029 différences (39 265 / 39 431 enregistrements), toutes lues :
+
+| Groupe                    | Nombre | Cause                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------- | -----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `graphql-plugin`          |    269 | Règles par noms de méthodes (`GraphqlMethodRules`, `GraphqlSchemaRule`, `GraphqlRules`, `GraphqlSchemaRules`, `GraphqlCommandName`, `GraphqlTypeNameRule`), anciens types d'exposition retirés, options (`hide`, `publicWrites`, `sdl`), `validationRules`, `GraphqlPlugin` (environnement, source `schemaRules`), tests et fixtures réécrits                         |
+| `api-server`              |    171 | Nouveau paquet (base absente)                                                                                                                                                                                                                                                                                                                                         |
+| `graphql-explorer-plugin` |     90 | Nouveau paquet ; à comparer aux 75 + 75 de `graphiql-plugin` et `apollo-sandbox-plugin` (branche absente) : un plugin, une option `ui`, `GraphqlExplorerUi`                                                                                                                                                                                                           |
+| `graphiql-plugin`         |     75 | Paquet retiré                                                                                                                                                                                                                                                                                                                                                         |
+| `apollo-sandbox-plugin`   |     75 | Paquet retiré                                                                                                                                                                                                                                                                                                                                                         |
+| `core`                    |    101 | Acquittement retiré (`PublicTransportProtectionOptions`/`Warning`, `reportPublicTransportProtection`, clés `acknowledgeUnverifiedProtection`), `databaseFilterOperatorsCapability`, `resolveMany` (`VirtualFieldManyResolver`, `VirtualFieldResolution`), 46 complétions d'exports (2 noms en moins, 1 en plus), noms de morceaux, ordre d'union `"is-not" \| "none"` |
+| `tests`                   |    105 | Liste des API publiques : deux paquets ajoutés, deux retirés (décalage des index de fixtures), noms retirés                                                                                                                                                                                                                                                           |
+| `examples/minimal`        |     57 | `hide` au lieu d'`operations`/acquittement, survols `graphql` de l'ancienne forme typés par Typegen, `GraphqlRules` dans `.with`, ordre d'union `"master" \| "anonymous"` (import retiré du module)                                                                                                                                                                   |
+| `create-app`              |     43 | Catalogue (`graphql-explorer-plugin` au lieu des deux explorateurs) dans `PluginId`, `officialPlugins` et les options                                                                                                                                                                                                                                                 |
+| `password-auth-plugin`    |     38 | `passwordAuthOperationList` retiré (déclaration, export, membres de tableau)                                                                                                                                                                                                                                                                                          |
+| `postgres-plugin`         |      5 | Fournisseur `databaseFilterOperatorsCapability` dans `PostgresPluginCapabilities`                                                                                                                                                                                                                                                                                     |
+
+### Banc forme D (base 0e390039 contre 398fab51 ; alterné, 3 exécutions, médianes)
+
+L'application du banc n'installe pas GraphQL : aucun gain attendu ni mesuré
+(le gain annoncé par l'ADR concerne les applications qui installent GraphQL).
+
+TypeScript 6.0.3 :
+
+| N   | Arbre   | Charges        | Éd.→diag (s) | Exécutions     | Froid (s) | Schéma (s) | Tas (Mio) | Hover |
+| --- | ------- | -------------- | -----------: | -------------- | --------: | ---------: | --------: | ----: |
+| 50  | base    | 2,96 3,73 4,21 |         1,90 | 1,89/1,90/1,93 |      4,52 |       1,94 |       862 |   199 |
+| 50  | branche | 4,04 3,69 4,10 |         1,90 | 1,91/1,90/1,90 |      4,50 |       1,94 |       864 |   199 |
+| 200 | base    | 3,93 3,19 3,37 |         6,11 | 6,11/6,12/6,11 |     14,85 |       6,03 |     2 247 |   199 |
+| 200 | branche | 3,40 3,05 3,58 |         6,11 | 6,11/6,11/6,04 |     14,80 |       6,02 |     2 248 |   199 |
+
+TypeScript 7.0.2 (`lsp-bench.mjs`, 3 exécutions) : éd.→diag 50 : 633 → 640 ms
+(623/633/633 contre 629/640/642) ; 200 : 2 093 → 2 084 ms ; premier
+diagnostic 713 → 710 ms (50), 2 275 → 2 248 ms (200) ; RSS 731 → 556 Mio
+(50), 1 543 → 1 569 Mio (200). Charges 2,4 à 3,3. Écarts dans le bruit.
+Dossiers `gen/` supprimés, worktree de base retiré.
 
 ## Prochaine action vérifiable
 
