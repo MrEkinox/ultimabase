@@ -39,7 +39,7 @@ export interface RestPluginOptions {
 	/**
 	 * Public operations this instance does not expose; every other operation
 	 * its owner declared public is exposed.
-	 * @example `hide: [passwordAuthOperations.refresh]`
+	 * @example `hide: [authOperations.refresh]`
 	 */
 	readonly hide?: readonly PluginOperationDefinition[]
 	/** Distinguishes two explicit REST configurations in one application. */

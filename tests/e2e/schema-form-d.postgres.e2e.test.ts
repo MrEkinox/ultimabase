@@ -7,6 +7,7 @@ import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { auth } from '../../examples/schema-form-d/src/app.ts'
 import { Tag } from '../../examples/schema-form-d/src/tag.ts'
 import { Todo } from '../../examples/schema-form-d/src/todo.ts'
 import { TodoRole } from '../../examples/schema-form-d/src/todo-role.ts'
@@ -28,6 +29,8 @@ const createApplication = (connectionUri: string) =>
 		softDeletePlugin(),
 		aclPlugin(),
 		rolesPlugin(),
+		// The User schema belongs to the auth plugin instance that declared it.
+		auth,
 		postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),
 	))({
 		masterAuthority: new MasterAuthority({

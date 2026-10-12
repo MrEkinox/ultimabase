@@ -17,7 +17,7 @@ sources:
   - packages/core/src/access/subject/principal.ts
   - packages/core/src/runtime/application/policy-query-execution.ts
   - packages/core/src/query/operations/options.ts
-  - packages/password-auth-plugin/README.md
+  - packages/auth-plugin/README.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
@@ -115,9 +115,8 @@ value to make an authorization decision. Core authority still has only
 `anonymous` and `master` modes; an authenticated user normally remains in
 `anonymous` mode.
 
-The optional Password Auth plugin exposes `passwordPrincipal` and
-`passwordSession` tokens after it verifies a session; they read the session
-itself. Policies read the principal from Core instead (next section). The
+The optional authentication plugin exposes `authPrincipal` and `authSession`
+tokens after it verifies a session; they read the session itself. Policies read the principal from Core instead (next section). The
 session context carries safe identifiers and dates, not the raw token,
 password, verifier, Master grant, role, or authorization decision. See
 [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)

@@ -286,7 +286,7 @@ describe(
 			}
 			const baseUrl = `http://127.0.0.1:${String(address.port)}`
 			const password = 'correct horse battery staple'
-			const signUpMutation = `mutation SignUp($input: PasswordAuthSignUpInput!) {
+			const signUpMutation = `mutation SignUp($input: PasswordSignUpInput!) {
 			signUp(input: $input) {
 				user { id }
 				session { token }
@@ -329,13 +329,13 @@ describe(
 
 			const invalidLogin = await graphqlHttp(
 				requireClient(),
-				`mutation Login($input: PasswordAuthCredentialsInput!) {
+				`mutation Login($input: PasswordLoginInput!) {
 				login(input: $input) { user { id } }
 			}`,
 				{ input: { password: 'wrong password', username: 'parity-user' } },
 			)
 			expect(invalidLogin).toMatchObject({
-				errors: [{ extensions: { code: 'PASSWORD_AUTH_INVALID_CREDENTIALS' } }],
+				errors: [{ extensions: { code: 'AUTH_INVALID_CREDENTIALS' } }],
 			})
 			expect(JSON.stringify(invalidLogin)).not.toContain('wrong password')
 
@@ -369,7 +369,7 @@ describe(
 				),
 			).toEqual({ revoked: true })
 
-			const cookieLogin = await requireClient().fetch('/auth/v1/login', {
+			const cookieLogin = await requireClient().fetch('/api/auth/login', {
 				body: JSON.stringify({ password, username: 'parity-user' }),
 				headers: {
 					'Content-Type': 'application/json',
@@ -412,17 +412,18 @@ describe(
 
 			const hiddenTypes = await executeMinimalGraphql(
 				app,
-				'{ user: __type(name: "PasswordUser") { name } role: __type(name: "ExampleRole") { name } query: __type(name: "Query") { fields { name } } mutation: __type(name: "Mutation") { fields { name } } }',
+				'{ user: __type(name: "ExampleUser") { name } role: __type(name: "ExampleRole") { name } query: __type(name: "Query") { fields { name } } mutation: __type(name: "Mutation") { fields { name } } }',
 				'parity-private-schema',
 			)
 			const exposure = readRecord(
 				readRecord(hiddenTypes, 'private schema response').data,
 				'private schema data',
 			)
-			expect(exposure.user).toBeNull()
+			// The User type exists for authentication results, without CRUD roots.
+			expect(exposure.user).toEqual({ name: 'ExampleUser' })
 			expect(exposure.role).toEqual({ name: 'ExampleRole' })
 			expect(JSON.stringify([exposure.query, exposure.mutation])).not.toMatch(
-				/(?:get|find|count|exists|create|update|delete|upsert).*ExampleRole/u,
+				/(?:get|find|count|exists|create|update|delete|upsert).*Example(?:Role|User)/u,
 			)
 
 			// ADR-0323: without the header a request reaches the only application.

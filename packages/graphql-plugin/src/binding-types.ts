@@ -23,6 +23,7 @@ import {
 } from 'graphql'
 
 import {
+	isBindingOwnerSchema,
 	isSameBindingOwner,
 	type GraphqlOperationNullableTypeReference,
 	type GraphqlOperationSupportingTypeDefinition,
@@ -236,12 +237,7 @@ export class GraphqlBindingTypes {
 		) {
 			// Only the binding owner's own schema may lend its create fields.
 			const schema = this.#createFieldsSchema(definition)
-			const schemaOwner = schema?.definition.provenance.schema.owner
-			if (
-				schema === undefined ||
-				schemaOwner?.kind !== 'plugin' ||
-				!isSameBindingOwner(schemaOwner, owner)
-			) {
+			if (schema === undefined || !isBindingOwnerSchema(schema, owner)) {
 				throw new TypeError(
 					`GraphQL binding ${definition.name} cannot use create fields from ${definition.createFieldsFrom}`,
 				)

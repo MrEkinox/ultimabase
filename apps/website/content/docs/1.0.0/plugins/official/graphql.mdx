@@ -272,10 +272,10 @@ underlying mutation behavior.
 The tables cover generated schema operations, not a universal list for every
 application. A plugin-owned schema does not receive generated CRUD fields.
 An operation its owner declared public appears in every installed transport
-(ADR-0324): [Password Authentication](./password-authentication) contributes
-`signUp`, `login`, `refresh`, `logout`, `changePassword` and
-`logoutEverywhere`, with typed GraphQL bindings. `graphqlPlugin({ hide:
-[passwordAuthOperations.refresh] })` hides one; an operation not declared
+(ADR-0324): [authentication](./password-authentication) contributes
+`signUp`, `login`, `current`, `refresh`, `logout`, `changePassword` and the
+account fields, with typed GraphQL bindings whose `user` is the application's
+User type. `graphqlPlugin({ hide: [authOperations.refresh] })` hides one; an operation not declared
 public never appears. A public operation without a GraphQL binding, such as
 one declared with `defineOperation()`, becomes a mutation named after it
 whose types derive from its validators, as REST's OpenAPI document does:

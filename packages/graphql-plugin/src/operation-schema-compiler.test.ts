@@ -476,6 +476,27 @@ describe('GraphQL plugin operations', () => {
 				'conflicts with schema GraphqlOperationRecord',
 			],
 			[{ ...echoMetadata, field: 'createGraphqlOperationRecord' }, 'collides'],
+			// The owner designates no schema: `owned-schema` resolves to none.
+			[
+				{
+					...echoMetadata,
+					result: { kind: 'non-null', ofType: { kind: 'owned-schema' } },
+				},
+				'requires exactly one schema owned by fixture.graphql-operation',
+			],
+			[
+				{
+					...echoMetadata,
+					types: [
+						{
+							...echoMetadata.types[0],
+							createFieldsFrom: { kind: 'owned-schema' },
+						},
+						echoMetadata.types[1],
+					],
+				},
+				'requires exactly one schema owned by fixture.graphql-operation',
+			],
 		] as const) {
 			await expect(
 				new (UltimaBase.use(

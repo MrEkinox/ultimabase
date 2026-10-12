@@ -5,7 +5,6 @@ import {
 } from '@ultimabase/core'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
-import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin, type PostgresPool } from '@ultimabase/postgres-plugin'
 import {
 	honoServerPlugin,
@@ -49,17 +48,7 @@ export const createMinimalApplication = ({
 	},
 	server = honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
 }: MinimalApplicationOptions) => {
-	const Application = MinimalSchemaApplication.use(
-		passwordAuthPlugin({
-			http: {
-				cookie: {
-					name: '__Host-minimal-session',
-					sameSite: 'lax',
-				},
-			},
-		}),
-	)
-		.use(exampleStatusPlugin)
+	const Application = MinimalSchemaApplication.use(exampleStatusPlugin)
 		.use(
 			httpPlugin({
 				appId: applicationId,

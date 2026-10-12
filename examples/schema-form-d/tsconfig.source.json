@@ -8,9 +8,14 @@
 			"@ultimabase/acl-permissions-plugin": [
 				"../../packages/acl-permissions-plugin/src/index.ts"
 			],
+			"@ultimabase/auth-password": [
+				"../../packages/auth-password/src/index.ts"
+			],
+			"@ultimabase/auth-plugin": ["../../packages/auth-plugin/src/index.ts"],
 			"@ultimabase/core": ["../../packages/core/src/index.ts"],
 			"@ultimabase/core/plugin": ["../../packages/core/src/plugin.ts"],
 			"@ultimabase/hooks-plugin": ["../../packages/hooks-plugin/src/index.ts"],
+			"@ultimabase/http-plugin": ["../../packages/http-plugin/src/index.ts"],
 			"@ultimabase/plugin-kit": ["../../packages/plugin-kit/src/index.ts"],
 			"@ultimabase/postgres-plugin": [
 				"../../packages/postgres-plugin/src/index.ts"

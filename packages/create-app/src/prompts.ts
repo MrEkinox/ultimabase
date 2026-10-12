@@ -165,12 +165,12 @@ const capabilityNotes = (plan: InitializerPlan): string[] => {
 	const has = (id: PluginId): boolean => hasPlugin(plan, id)
 	return included([
 		[
-			has('password-auth-plugin'),
-			'Password Auth adds identity and sessions, not CRUD permission.',
+			has('auth-plugin'),
+			'Authentication adds identity and sessions, not CRUD permission.',
 		],
 		[
-			has('password-auth-plugin') && hasDataApi(plan),
-			'REST and GraphQL expose the public Password Auth operations except the hidden ones; add online-attempt defenses before public deployment.',
+			has('auth-plugin') && hasDataApi(plan),
+			'Authentication operations are served under /api/auth and in GraphQL; logins are limited per account and address.',
 		],
 		[
 			has('graphql-explorer-plugin'),

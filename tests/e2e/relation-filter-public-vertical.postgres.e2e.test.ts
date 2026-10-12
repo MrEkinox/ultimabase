@@ -152,8 +152,8 @@ const graphqlNetworkless = async (
 		])
 	if (kind === 'session') {
 		const auth = readObject(
-			await invoke(app(), 'plugin', ['@ultimabase/password-auth-plugin']),
-			'Password Auth application',
+			await invoke(app(), 'plugin', ['@ultimabase/auth-plugin']),
+			'authentication application',
 		)
 		return invoke(auth, 'runWithSession', [sessionToken, execute])
 	}
@@ -239,7 +239,7 @@ beforeAll(async () => {
 		readGraphqlField(
 			await graphqlHttp(
 				'anonymous',
-				`mutation SignUp($input: PasswordAuthSignUpInput!) {
+				`mutation SignUp($input: PasswordSignUpInput!) {
 					signUp(input: $input) { session { token } }
 				}`,
 				{

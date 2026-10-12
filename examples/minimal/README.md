@@ -11,12 +11,14 @@ health (ADR-0323). REST is mounted under `/api` and
 GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
 `ExampleArticle` and `ExampleAuthor` soft-delete commands (`rest: true`), the
-public `example.status` operation (`/api/operations/status`), and four Password
-Auth operations (REST hides `changePassword` and `logoutEverywhere`). `ExampleRole` and the internal
-`ExampleSoftDeleteEvent` audit schema have no generated CRUD roots, and Password
-Auth credentials and session storage never enter either public schema.
+public `example.status` operation (`/api/operations/status`). Authentication
+serves its operations under `/api/auth` and in GraphQL (which hides
+`changePassword` and `logoutEverywhere`); REST hides them. `ExampleUser`,
+`ExampleRole` and the internal `ExampleSoftDeleteEvent` audit schema have no
+generated CRUD roots, and credentials and session storage never enter either
+public schema.
 
-Access, ACL, Hooks, Validation, Roles, Password Auth, REST, GraphQL, Yoga,
+Access, ACL, Hooks, Validation, Roles, authentication, REST, GraphQL, Yoga,
 HTTP, Hono, and PostgreSQL remain explicit independently removable plugins.
 The schema factory installs REST and GraphQL before declaring schemas, so their
 `rest` and `graphql` options are typed from source; the application extends that same flat plugin
@@ -79,7 +81,7 @@ intent with the `.softDelete()` shape method:
 - `ExamplePrivateNote` does not call it, so its deletes stay physical.
 
 An authenticated direct call uses the configured schema class; results have no
-methods (ADR-0310). The example helper validates a real Password Auth session
+methods (ADR-0310). The example helper validates a real authentication session
 before entering the ambient request context:
 
 ```ts
@@ -141,7 +143,7 @@ delete.
 
 Relations may define one reusable read subset directly on the source field.
 `ExampleArticle.contributors` uses a static target filter, while `reviewers`
-uses Password Auth request context:
+uses the authentication request context:
 
 ```ts
 contributors: field.relation({
@@ -151,7 +153,7 @@ contributors: field.relation({
 reviewers: field.relation({
 	target: 'ExampleAuthor',
 	where: ({ context, where }) =>
-		context.getValue(passwordPrincipal) === undefined
+		context.getValue(authPrincipal) === undefined
 			? where.eq('audience', 'public')
 			: where,
 }),
@@ -168,7 +170,7 @@ This is presentation logic, not security. The example's independent Author
 Access filter and ACL can still hide rows that satisfy a relation filter, while
 another relation or root query may expose a row excluded only by shaping.
 Master bypasses Access and ACL but does not automatically bypass relation
-shaping; here a Master request without a Password Auth principal still sees the
+shaping; here a Master request without an authenticated principal still sees the
 public `reviewers` view. The callback is synchronous, request-local, and gets no
 source item, adapter, transport request, or transaction. V1 deliberately omits
 async and source-item-dependent filters and exposes no transport-specific
@@ -201,7 +203,7 @@ const article = await ExampleArticle.findOne({
 Core privately loads only the persisted dependencies declared by each virtual
 field. Those values do not appear in the returned model unless the caller also
 selects them. `viewerLabel` reads the real request context and distinguishes an
-anonymous request, a Password Auth session, and audited Master authority.
+anonymous request, an authenticated session, and audited Master authority.
 `authenticatedTitle` is independently protected by Access and is omitted from
 anonymous output while remaining available to an authenticated request or
 Master.
@@ -321,7 +323,7 @@ curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'X-UltimaBase-Application-Id: minimal' \
-  --data '{"query":"mutation SignUp($input: PasswordAuthSignUpInput!) { signUp(input: $input) { user { id } session { token expiresAt } } }","variables":{"input":{"username":"ada","password":"correct horse battery staple"}}}'
+  --data '{"query":"mutation SignUp($input: PasswordSignUpInput!) { signUp(input: $input) { user { id } session { token expiresAt } } }","variables":{"input":{"username":"ada","password":"correct horse battery staple"}}}'
 ```
 
 The response contains a one-time opaque `ub_s1.*` token. Send it with the
@@ -337,17 +339,19 @@ curl http://127.0.0.1:1337/graphql \
   --data '{"query":"{ status { authority principalId } }"}'
 ```
 
-`login`, `refresh`, and `logout` are mutations on the same `/graphql` endpoint.
-Password Auth declares its operations public, so GraphQL exposes them; the
-example hides `changePassword` and `logoutEverywhere` with
-`graphqlPlugin({ hide })`, as it does for REST (ADR-0325).
+`login`, `refresh`, `logout` and the account fields are on the same `/graphql`
+endpoint. Authentication declares its operations public, so GraphQL exposes
+them; the example hides `changePassword` and `logoutEverywhere` with
+`graphqlPlugin({ hide })` and every authentication operation from REST, which
+the `/api/auth` routes replace (ADR-0325, ADR-0326).
 
-Browser cookie mode is also enabled for `http://localhost:5173`. Cookie-changing
-routes require the configured origin as CSRF proof and never return the raw
-token in JSON:
+The same operations are served under `/api/auth`. Browser cookie mode is enabled for
+`http://localhost:5173`: a request with that `Origin` gets the session as a
+secure cookie instead of the token, and must send JSON from the configured
+origin as CSRF proof; a client without `Origin` keeps Bearer:
 
 ```sh
-curl http://127.0.0.1:1337/auth/v1/login \
+curl http://127.0.0.1:1337/api/auth/login \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'Origin: http://localhost:5173' \

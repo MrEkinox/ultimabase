@@ -1,7 +1,12 @@
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import { secret, startExposure, whisper } from './exposure.test-support.js'
+import {
+	neighbourPlugin,
+	secret,
+	startExposure,
+	whisper,
+} from './exposure.test-support.js'
 
 describe('REST exposure (ADR-0324)', () => {
 	it('mounts under /api without a version and names the protocol in a header', async () => {
@@ -11,10 +16,37 @@ describe('REST exposure (ADR-0324)', () => {
 		expect(response.headers.get('x-ultimabase-rest-version')).toBe('1')
 		expect(body).toStrictEqual({ nextCursor: null, results: [] })
 
+		// REST mounts only the roots it serves (6.4a amendment): any other path
+		// under /api is the HTTP foundation's 404.
 		const versioned = await send('/api/v1/classes/RestExposureNote')
 		expect(versioned.response.status).toBe(404)
 		expect(versioned.response.headers.get('x-ultimabase-rest-version')).toBe(
-			'1',
+			null,
+		)
+		expect(versioned.body).toMatchObject({ error: { code: 'HTTP_NOT_FOUND' } })
+	})
+
+	it('mounts only the roots it serves, beside other plugins under /api', async () => {
+		const { send } = await startExposure(
+			{ openapi: true },
+			neighbourPlugin(['/api/auth/login', '/api/auth/logout']),
+		)
+		const login = await send('/api/auth/login', { json: {} })
+		expect(login.response.status).toBe(200)
+		expect(login.body).toStrictEqual({ neighbour: '/api/auth/login' })
+		const notes = await send('/api/classes/RestExposureNote')
+		expect(notes.response.status).toBe(200)
+		expect((await send('/api/openapi.json')).response.status).toBe(200)
+	})
+
+	it('still refuses another plugin on a root REST serves', async () => {
+		await expect(
+			startExposure(
+				{},
+				neighbourPlugin(['/api/classes/RestExposureNote/export']),
+			),
+		).rejects.toThrow(
+			'HTTP endpoint collision between mount "/api/classes" and route "/api/classes/RestExposureNote/export"',
 		)
 	})
 

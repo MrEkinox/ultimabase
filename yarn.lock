@@ -3283,6 +3283,37 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/auth-password@workspace:^, @ultimabase/auth-password@workspace:packages/auth-password":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/auth-password@workspace:packages/auth-password"
+  dependencies:
+    "@ultimabase/auth-plugin": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    argon2: "npm:0.45.1"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/auth-plugin@workspace:^, @ultimabase/auth-plugin@workspace:packages/auth-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/auth-plugin@workspace:packages/auth-plugin"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/core@workspace:^, @ultimabase/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
@@ -3323,13 +3354,14 @@ __metadata:
     "@types/node": "npm:^24.0.0"
     "@ultimabase/access-plugin": "workspace:^"
     "@ultimabase/acl-permissions-plugin": "workspace:^"
+    "@ultimabase/auth-password": "workspace:^"
+    "@ultimabase/auth-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/graphql-plugin": "workspace:^"
     "@ultimabase/graphql-yoga-plugin": "workspace:^"
     "@ultimabase/hono-server-plugin": "workspace:^"
     "@ultimabase/hooks-plugin": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
-    "@ultimabase/password-auth-plugin": "workspace:^"
     "@ultimabase/postgres-plugin": "workspace:^"
     "@ultimabase/rest-plugin": "workspace:^"
     "@ultimabase/roles-plugin": "workspace:^"
@@ -3348,6 +3380,8 @@ __metadata:
     "@types/node": "npm:^24.0.0"
     "@ultimabase/access-plugin": "workspace:^"
     "@ultimabase/acl-permissions-plugin": "workspace:^"
+    "@ultimabase/auth-password": "workspace:^"
+    "@ultimabase/auth-plugin": "workspace:^"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/hooks-plugin": "workspace:^"
     "@ultimabase/postgres-plugin": "workspace:^"
@@ -3479,24 +3513,6 @@ __metadata:
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.11"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/password-auth-plugin@workspace:^, @ultimabase/password-auth-plugin@workspace:packages/password-auth-plugin":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/password-auth-plugin@workspace:packages/password-auth-plugin"
-  dependencies:
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/http-plugin": "workspace:^"
-    "@ultimabase/pg-vector-plugin": "workspace:^"
-    "@ultimabase/plugin-kit": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
-    "@ultimabase/testing": "workspace:^"
-    "@ultimabase/typegen": "workspace:^"
-    argon2: "npm:0.45.1"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"

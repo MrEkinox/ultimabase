@@ -30,7 +30,7 @@ export interface GraphqlPluginOptions {
 	/**
 	 * Public operations this schema does not expose; every other operation
 	 * its owner declared public is exposed.
-	 * @example `hide: [passwordAuthOperations.refresh]`
+	 * @example `hide: [authOperations.refresh]`
 	 */
 	readonly hide?: readonly PluginOperationDefinition[]
 	/** Bounds document size, depth, aliases, root fields and variables. */

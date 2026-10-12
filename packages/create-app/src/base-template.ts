@@ -19,8 +19,6 @@ import {
 	securityApplicationImports,
 	securityApplicationOption,
 	securityMasterSource,
-	securityPluginEntries,
-	securityPolicySource,
 	securityReadmeNotes,
 	securitySchemaDeclarations,
 	securitySchemaImports,
@@ -38,7 +36,7 @@ export type ProjectFiles = ReadonlyMap<string, string>
 const dependencyOrder: readonly PluginId[] = [
 	'access-plugin',
 	'acl-permissions-plugin',
-	'password-auth-plugin',
+	'auth-plugin',
 	'roles-plugin',
 	'http-plugin',
 	'hono-server-plugin',
@@ -106,9 +104,8 @@ declare module '@ultimabase/core' {
   }
 }`
 
-const applicationSource = (plan: InitializerPlan): string => {
-	const security = securityPluginEntries(plan)
-	return joinSections([
+const applicationSource = (plan: InitializerPlan): string =>
+	joinSections([
 		renderImports([
 			...securityApplicationImports(plan),
 			[
@@ -117,8 +114,7 @@ const applicationSource = (plan: InitializerPlan): string => {
 			],
 		]),
 		securityMasterSource(plan),
-		securityPolicySource(plan),
-		`export const ultimabase = new ${security.length === 0 ? 'SchemaApplication' : `(SchemaApplication${useChain(security)})`}({
+		`export const ultimabase = new SchemaApplication({
 ${[
 	`  schemas: [${applicationSchemaNames(plan).join(', ')}],`,
 	securityApplicationOption(plan),
@@ -128,7 +124,6 @@ ${[
 })`,
 		registerSource(plan),
 	])
-}
 
 const taskSchemaSource = (
 	plan: InitializerPlan,
@@ -296,6 +291,9 @@ export const renderBaseFiles = (
 		dependencies['@ultimabase/api-server'] = '^0.0.0'
 	for (const id of dependencyOrder)
 		if (has(plan, id)) dependencies[`@ultimabase/${id}`] = '^0.0.0'
+	// A sign-in method is a package of its own beside the foundation (ADR-0326).
+	if (has(plan, 'auth-plugin'))
+		dependencies['@ultimabase/auth-password'] = '^0.0.0'
 	if (has(plan, 'validation-plugin') && plan.starter === 'task')
 		dependencies.zod = '^4.4.3'
 	if (plan.typegen) dependencies['@ultimabase/typegen'] = '^0.0.0'

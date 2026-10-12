@@ -1,5 +1,10 @@
+import { randomBytes } from 'node:crypto'
+
 import { isRunningApplicationWork } from '../../application/active-application.js'
-import { readApplicationKernelState } from '../../application/application-kernel-state.js'
+import {
+	readApplicationKernelState,
+	readApplicationLog,
+} from '../../application/application-kernel-state.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
@@ -14,8 +19,8 @@ import {
 	type RequestContext,
 } from '../context/request-context.js'
 import {
+	MasterAuthority,
 	elevateTrustedMasterRequest,
-	type MasterAuthority,
 } from '../master/master-authority.js'
 
 type EngineApplication = FrameworkApplication<
@@ -40,6 +45,30 @@ export const assertApplicationRequestExecutionAvailable = (
 	}
 }
 
+// One keyless authority per application, created only when a plugin holding
+// `authority:elevate` elevates while the application configured no
+// `masterAuthority` (ADR-0326): the privilege is the authorization, the
+// application logger the audit sink. Its key never leaves this module.
+const pluginElevationAuthorities = new WeakMap<object, MasterAuthority>()
+
+const readPluginElevationAuthority = (application: object): MasterAuthority => {
+	const existing = pluginElevationAuthorities.get(application)
+	if (existing !== undefined) return existing
+	const authority = new MasterAuthority({
+		keys: [
+			{ id: 'plugin-elevation', value: randomBytes(32).toString('base64url') },
+		],
+		onUse: (event) => {
+			readApplicationLog(application).debug('Plugin elevated to Master', {
+				reason: event.reason,
+				requestId: event.requestId,
+			})
+		},
+	})
+	pluginElevationAuthorities.set(application, authority)
+	return authority
+}
+
 /** Claims an unbound context or rejects reuse across isolated applications. */
 export const bindRequestContextToApplication = (
 	application: EngineApplication,
@@ -52,7 +81,8 @@ export const bindRequestContextToApplication = (
 		const provenance = getMasterRequestContextProvenance(context)
 		if (
 			provenance?.application !== application ||
-			provenance.authority !== masterAuthority ||
+			(provenance.authority !== masterAuthority &&
+				provenance.authority !== pluginElevationAuthorities.get(application)) ||
 			owner !== application
 		) {
 			throw new FrameworkError(
@@ -129,8 +159,15 @@ export const resolveTerminalContext = async (
 	}
 	if (options.useMasterKey) {
 		assertMasterElevationPrivilege(application)
+		// A plugin's own `authority:elevate` suffices without a configured
+		// authority; application code still requires one.
+		const authority =
+			masterAuthority ??
+			(readApplicationPluginOwner(application) === undefined
+				? requireMasterAuthority(undefined)
+				: readPluginElevationAuthority(application))
 		context = await elevateTrustedMasterRequest(
-			requireMasterAuthority(masterAuthority),
+			authority,
 			context,
 			auditReason(),
 			application,

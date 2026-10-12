@@ -381,9 +381,9 @@ defineOperation({
 ```
 
 ```ts
-import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
+import { authOperations } from '@ultimabase/auth-plugin'
 
-graphqlPlugin({ hide: [passwordAuthOperations.refresh] })
+graphqlPlugin({ hide: [authOperations.refresh] })
 ```
 
 GraphQL validates the complete callback-free binding metadata during startup.
@@ -403,13 +403,18 @@ GraphQL error extensions as generated schema operations.
 A supporting input-object may declare `createFieldsFrom` naming a schema owned
 by the exact operation owner. Its fields reuse ordinary nested-create input
 types and codecs; explicit supporting fields cannot collide with inherited
-fields. This exposes no schema CRUD root and does not replay defaults.
+fields. This exposes no schema CRUD root and does not replay defaults. When the
+application chooses the schema's class name, the owner writes
+`{ kind: 'owned-schema' }`, as a type reference or as `createFieldsFrom`: the
+one schema the plugin adds, claims, or designates with a schema option it
+defines. Zero or several such schemas fail startup.
 
-Password Auth supplies compatible bindings for its six public operations
-without GraphQL importing or identifying that package. Its successful
-payload exposes only `user` and `session`; select `user { id }` for the identity.
-Custom User fields follow the profile's read policies. Passwords, verifiers,
-and private session records are never serialized.
+Authentication (`@ultimabase/auth-plugin` and its methods) supplies compatible
+bindings for its public operations without GraphQL importing or identifying
+those packages. A successful sign-in payload exposes only `user` (the
+application's User type) and `session`. Custom User fields follow the
+profile's read policies. Passwords, verifiers, and private session records are
+never serialized.
 
 ## Relay connections
 

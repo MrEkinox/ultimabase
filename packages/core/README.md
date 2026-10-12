@@ -111,8 +111,8 @@ declare module '@ultimabase/core' {
 
 Both forms coexist during the Core migration: the declaration below, with
 plugin options in `define` and the Typegen graph, keeps working unchanged until
-every consumer is migrated. Roles provides `App.RoleSchema` in the new form;
-`App.PasswordUserSchema` arrives with Password Auth's migration.
+every consumer is migrated. Roles provides `App.RoleSchema` and
+authentication `App.UserSchema` in the new form.
 
 ## Static schema compilation and relationship targets
 
@@ -327,7 +327,7 @@ factory returns the static capabilities only; Core attaches them before freezing
 the same ordinary schema identity. Results are plain data and never gain
 methods (ADR-0310). Static string or private symbol keys are non-enumerable.
 This low-level API
-is for package-owned factories such as Password User or Role schemas. Ordinary
+is for package-owned factories of specialized schemas. Ordinary
 application schemas use `App.Schema.define()`.
 
 The same owner-bound `schemas` facade lets an authorized plugin add stable
@@ -487,7 +487,7 @@ attempt. `@ultimabase/typegen` uses it as the sole application-wide literal
 circular and cross-module relationships. Local Core fields and installed plugin
 builders, options, fields, commands, mutations, and operations remain exact
 from the configured source factory. Typegen retains complete filters and schema
-Access/Hooks/ACL callbacks, exact Password User results, standalone specialized
+Access/Hooks/ACL callbacks, standalone specialized
 builders, and advanced handles whose source receipts are unavailable. These
 consumers share one generated graph; configured local inference does not make
 their descriptors redundant. See the [Typegen contract](../typegen/README.md).
@@ -1464,7 +1464,11 @@ the exact application and authority that issued it; contexts from another
 application remain invalid even when sequential applications reuse one authority
 object. Public grants become bound to their issuing engine or first consuming
 application; obtain a fresh grant for a replacement application. A plugin callback initiating a new elevation must declare the exact
-critical `authority:elevate` privilege. Inheriting a Master context already
+critical `authority:elevate` privilege. That privilege suffices without a
+configured `masterAuthority` (ADR-0326): Core then elevates through an
+application-local authority with no exposed key and records each elevation as
+a `debug` line of the application logger; application code still requires a
+configured authority. Inheriting a Master context already
 selected by trusted server code does not create another elevation or audit.
 
 ## Automatic mutation transactions

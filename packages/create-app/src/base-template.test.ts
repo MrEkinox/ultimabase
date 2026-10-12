@@ -164,7 +164,6 @@ describe('base project templates', () => {
 	it.each([
 		['access-plugin', 'accessPlugin()'],
 		['acl-permissions-plugin', 'aclPlugin()'],
-		['password-auth-plugin', 'passwordAuthPlugin({ user: AppUser })'],
 		['roles-plugin', 'rolesPlugin()'],
 	] as const)(
 		'adds %s without a public route in TypeScript and JavaScript',
@@ -182,8 +181,7 @@ describe('base project templates', () => {
 					readonly dependencies: Record<string, string>
 				}
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
-				const pluginOwner = id === 'password-auth-plugin' ? application : schema
-				expect(pluginOwner).toContain(factory)
+				expect(schema).toContain(factory)
 				expect(application).toContain('new MasterAuthority({')
 				expect(application).toContain('requestId: event.requestId')
 				expect(application).not.toContain('restPlugin(')
@@ -202,12 +200,6 @@ describe('base project templates', () => {
 					expect(schema).toContain('.acl().with({')
 					expect(schema).toContain('  acl: { default: new ACL() },')
 				}
-				if (id === 'password-auth-plugin') {
-					expect(schema).toContain(
-						'PasswordUserSchema.define(SchemaApplication.Schema, {',
-					)
-					expect(application).toContain('schemas: [Task, AppUser]')
-				}
 				if (id === 'roles-plugin') {
 					expect(schema).toContain('SchemaApplication.RoleSchema.define({')
 					expect(schema).toContain(
@@ -222,15 +214,40 @@ describe('base project templates', () => {
 		},
 	)
 
+	// ADR-0326: the User comes from authPlugin; sign-up needs no Master key.
+	it('adds auth-plugin with password() and no Master key in TypeScript and JavaScript', () => {
+		for (const language of ['ts', 'js'] as const) {
+			const plan = resolveSelection(
+				{ name: 'secure-notes', language, plugins: ['auth-plugin'] },
+				'/tmp',
+			)
+			const files = renderBaseFiles(plan)
+			const application = files.get(`src/ultimabase.${language}`) ?? ''
+			const schema = files.get(`src/schema.${language}`) ?? ''
+			const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
+				readonly dependencies: Record<string, string>
+			}
+			expect(manifest.dependencies).toHaveProperty('@ultimabase/auth-plugin')
+			expect(manifest.dependencies).toHaveProperty('@ultimabase/auth-password')
+			expect(schema).toContain(
+				".use(authPlugin({ methods: [password({ identifier: 'email' })] }))",
+			)
+			expect(schema).toContain('SchemaApplication.UserSchema.define({')
+			// Regression: an unfinished Task beside the User made `typeof
+			// ultimabase` circular in `Register` (TS7022).
+			expect(schema.match(/\.with\(\{\}\)/gu)).toHaveLength(2)
+			expect(application).toContain('schemas: [Task, AppUser]')
+			expect(application).not.toContain('MasterAuthority')
+			expect(application).not.toContain('cookie:')
+			expect(files.get('.env.example')).not.toContain('ULTIMABASE_MASTER_KEY')
+		}
+	})
+
 	it('keeps authentication, membership and object policies independent', () => {
 		const plan = resolveSelection(
 			{
 				name: 'secure-notes',
-				plugins: [
-					'password-auth-plugin',
-					'roles-plugin',
-					'acl-permissions-plugin',
-				],
+				plugins: ['auth-plugin', 'roles-plugin', 'acl-permissions-plugin'],
 			},
 			'/tmp',
 		)

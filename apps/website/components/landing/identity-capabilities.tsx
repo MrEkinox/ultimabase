@@ -30,11 +30,12 @@ export function IdentityCapabilities() {
 			<div className="ub-identity-grid">
 				<article className="ub-auth-panel">
 					<KeyRound aria-hidden="true" />
-					<p className="ub-demo-eyebrow">PASSWORD AUTHENTICATION PLUGIN</p>
+					<p className="ub-demo-eyebrow">AUTHENTICATION PLUGIN</p>
 					<h3>Users and sessions.</h3>
 					<p>
-						Username-and-password sign-up and login, with Argon2id password
-						hashing. Use Bearer tokens or opt into secure HttpOnly cookies.
+						Email or username and password sign-up and login, with Argon2id
+						password hashing and attempt limiting. Use Bearer tokens or opt into
+						secure HttpOnly cookies.
 					</p>
 					<ol className="ub-session-lifecycle">
 						<li>

@@ -4,11 +4,13 @@ import { App } from './app.ts'
 import { Todo } from './todo.ts'
 import { TodoRole } from './todo-role.ts'
 
-/** Owns assigned todos; its read rule filters through Todo (User -> Todo). */
-export const TodoUser = App.Schema.define({
+/**
+ * The User of `authPlugin` (ADR-0326): `password({ identifier: 'email' })`
+ * adds `email`. Owns assigned todos; its read rule filters through Todo.
+ */
+export const TodoUser = App.UserSchema.define({
 	className: 'TodoUser',
 	fields: (field) => ({
-		email: field.string({ required: true }),
 		displayName: field.string(),
 		assignedTodos: field.relation({ target: () => Todo, mappedBy: 'assignee' }),
 		roles: field.relation({ target: () => TodoRole, mappedBy: 'members' }),

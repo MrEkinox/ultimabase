@@ -150,7 +150,8 @@ postgres-plugin ──────→ plugin-kit, core, shared
 http-plugin ──────────→ plugin-kit, core, shared
 hono-server-plugin ───→ http-plugin, plugin-kit, core, shared
 rest-plugin ──────────→ http-plugin, plugin-kit, core, shared
-password-auth-plugin ─→ http-plugin, plugin-kit, core, shared
+auth-plugin ──────────→ http-plugin, plugin-kit, core, shared
+auth-password ────────→ auth-plugin, plugin-kit, core, shared
 graphql-plugin ───────→ plugin-kit, core, shared
 graphql-http ─────────→ core, shared
 graphql-yoga-plugin ──→ graphql-http, http-plugin, graphql-plugin, plugin-kit, core, shared
@@ -192,11 +193,13 @@ server lifecycle, bounded shutdown and optional compression. The REST package ow
 deterministic application-local REST v1 route metadata, the direct schema
 option, schema-aware read and mutation normalization, response encoding, route
 dispatch, and logical delegation through Core's narrow application request
-executor. Password Auth owns its typed
-User identity, owner-private credential and session records, authentication
-operations, generation-based account-wide session invalidation, and HTTP
-session integration through the HTTP package's public resolver and endpoint
-capabilities.
+executor. The authentication foundation (`auth-plugin`, ADR-0326) owns the
+`App.UserSchema` factory, owner-private sessions, linked accounts and attempt
+counters, generation-based account-wide session invalidation, the current
+principal, and the authentication routes under one HTTP prefix through the
+HTTP package's public resolver and endpoint capabilities. Sign-in methods such
+as `auth-password` are separate packages that depend on the foundation and
+never on each other.
 
 Package-owned schema classes use Core's sole `Schema.defineSpecialized()`
 boundary when they need immutable static helpers or persisted-result commands.
@@ -289,7 +292,7 @@ Operation transport identities follow the same exact canonical rule. Their
 bindings may carry immutable transport-owned JSON metadata, while Core's
 allowlist facade reveals only inert operation descriptors. REST uses that
 boundary to validate complete public-error status mappings before startup and
-never imports an operation owner such as Password Auth.
+never imports an operation owner such as the authentication plugin.
 ADR-0240 adds a separate Core-owned materialization-time planner for transports
 whose public shape must compile before the application engine exists. It
 returns the same inert descriptors after exact token, protocol, owner, and
@@ -303,8 +306,9 @@ without becoming application schemas. Private collections remain outside
 Query, Typegen, generated transports, Hooks, Access, application validators,
 Runtime observers, and events. The critical `storage:private` privilege grants
 one plugin instance access only to its own declarations and never exposes a raw
-adapter or another authority mode. ADR-0235 applies that boundary to Password
-Auth while keeping its public User as an ordinary typed plugin-owned schema.
+adapter or another authority mode. ADR-0235 applied that boundary to Password
+Auth; ADR-0326 keeps it for the authentication foundation and its methods,
+whose User is an application-declared schema the foundation claims.
 
 ADR-0226 keeps browser preflight outside application selection. One HTTP server
 provider has one effective browser policy. Under ADR-0258, one initialized

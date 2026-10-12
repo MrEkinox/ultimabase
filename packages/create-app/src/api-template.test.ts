@@ -122,35 +122,31 @@ describe('API project templates', () => {
 		)
 	})
 
-	it('hides the same Password Auth operations from every selected protocol', () => {
+	it('serves authentication under /api/auth and hides it from REST only', () => {
 		const direct = resolveSelection(
-			{ name: 'direct', plugins: ['password-auth-plugin'] },
+			{ name: 'direct', plugins: ['auth-plugin'] },
 			'/tmp',
 		)
-		expect(renderBaseFiles(direct).get('src/ultimabase.ts')).not.toContain(
-			'passwordAuthOperations.',
+		expect(renderBaseFiles(direct).get('src/schema.ts')).not.toContain(
+			'authOperations',
 		)
 		const exposed = resolveSelection(
 			{
 				name: 'exposed',
 				apis: ['rest', 'graphql'],
-				plugins: ['password-auth-plugin', 'access-plugin'],
+				plugins: ['auth-plugin', 'access-plugin'],
 			},
 			'/tmp',
 		)
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
 		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
-		expect(application).not.toContain('passwordAuthOperations.')
-		// Every transport exposes the public operations and hides two
-		// (ADR-0324, ADR-0325).
-		expect(schema.match(/hide: \[/gu)).toHaveLength(2)
-		expect(
-			schema.match(/passwordAuthOperations\.changePassword/gu),
-		).toHaveLength(2)
-		expect(
-			schema.match(/passwordAuthOperations\.logoutEverywhere/gu),
-		).toHaveLength(2)
-		expect(schema).not.toContain('passwordAuthOperations.signUp')
+		expect(application).not.toContain('authOperations')
+		// The `/api/auth` routes serve HTTP clients: REST hides every operation,
+		// GraphQL exposes them (ADR-0324, ADR-0325, ADR-0326).
+		expect(schema.match(/hide: \[/gu)).toHaveLength(1)
+		expect(schema).toContain(
+			'hide: [...Object.values(authOperations), ...Object.values(passwordOperations)]',
+		)
 		expect(application).not.toContain('cookie:')
 	})
 

@@ -30,6 +30,7 @@ import { createRestOpenApiDocument } from './openapi.js'
 import { assertPublicWrites, lazyDocument, readKnownPaths } from './exposure.js'
 import { compileRestOperationRouteFragment } from './operation-routes.js'
 import {
+	readRestMountRoots,
 	restProtocol,
 	restRouteGraphCapability,
 	type RestPluginOperationRouteDefinition,
@@ -179,23 +180,21 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		{
 			contributionId: 'official-rest-http-dispatcher',
 			create: ({ capabilities, owner, schemas }) => {
-				const routeCount = compilers.reduce(
-					(count, [, compile]) =>
-						count +
-						compile(owner, schemas, () =>
-							capabilities.get(transportPlanningRequirement),
-						).routes.length,
-					0,
+				const routePaths = compilers.flatMap(([, compile]) =>
+					compile(owner, schemas, () =>
+						capabilities.get(transportPlanningRequirement),
+					).routes.map(({ path }) => path),
 				)
 				const executor = capabilities.get(requestExecutionRequirement)
 				const slot: { configuration?: RestHttpConfiguration } = {}
 				httpSlots.set(executor, slot)
 				return {
 					value:
-						routeCount === 0
+						routePaths.length === 0
 							? immutableArray([])
 							: createRestHttpMounts(
 									basePath,
+									readRestMountRoots(basePath, routePaths, normalized.openapi),
 									normalized.bodyLimit,
 									executor,
 									schemas,

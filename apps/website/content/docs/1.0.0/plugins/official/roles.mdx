@@ -12,7 +12,7 @@ sources:
   - packages/roles-plugin/README.md
   - packages/access-plugin/README.md
   - packages/create-app/src/security-template.ts
-  - packages/password-auth-plugin/src/authentication-result.ts
+  - packages/auth-plugin/src/user-schema.ts
   - packages/roles-plugin/src/role-access.ts
   - packages/roles-plugin/src/role-deletion.ts
   - packages/roles-plugin/src/role-ensure.ts
@@ -67,8 +67,9 @@ Role storage and administration work without Access, and Roles does not
 depend on the Access package: `hasRole()` returns a Core policy predicate that
 Access, ACL and other policy plugins accept. The example below also uses
 [Password Authentication](./password-authentication) to identify the current
-member. Roles' internal
-membership queries need configured, audited
+member. Roles' internal membership queries elevate with the plugin's own
+audited privilege; administrative commands from your server code use
+configured, audited
 [Master Authority](/docs/1.0.0/core/security-foundations/master-authority).
 
 ## Configuration
@@ -76,18 +77,28 @@ membership queries need configured, audited
 Installing `rolesPlugin()` adds `App.RoleSchema` to the configured factory.
 Declare a role schema with the schema of its members, then end with
 `.with({ ... })` like any schema. The current member is the request principal
-resolved by Core when it belongs to the member schema; here the Password
-Authentication principal points to the same `PasswordUser` class, so
-`hasRole()` can evaluate the caller's membership:
+resolved by Core when it belongs to the member schema; here the
+authentication principal points to the `AppUser` class declared through
+`App.UserSchema`, so `hasRole()` can evaluate the caller's membership:
 
 ```ts title="src/roles.ts"
-import { PasswordUser } from '@ultimabase/password-auth-plugin'
 import { hasRole } from '@ultimabase/roles-plugin'
 import { Application } from './application.js'
 
+// The authenticated User reads only its own profile, which sign-up and login
+// return.
+export const AppUser = Application.UserSchema.define({
+	className: 'User',
+}).with({
+	access: {
+		read: ({ principal, where }) =>
+			where.in('id', principal === undefined ? [] : [principal.id]),
+	},
+})
+
 export const AppRole = Application.RoleSchema.define({
 	className: 'Role',
-	members: () => PasswordUser,
+	members: () => AppUser,
 	deletion: 'fail',
 	// Created at start() when missing; existing roles are left unchanged.
 	ensure: ['editor', 'administrator'],
@@ -120,81 +131,33 @@ export const Post = Application.Schema.define({
 other, like relation targets. Declare `Register` with `typeof ultimabase` as
 for any application (ADR-0297); role schemas need no special declaration.
 
-### Permit the session owner to read its profile
-
-Password Authentication must read the newly authenticated User before it can
-issue a session. The built-in User is plugin-owned, so configure its Access
-policy through an attributed contribution rather than adding an inline option.
-This policy keeps the Post and Role reads declared above, narrows User reads
-to the current session owner, and denies reads of any other schema:
-
-```ts title="src/profile-access.ts"
-import {
-	provideAccessContributions,
-	schemaAccess,
-} from '@ultimabase/access-plugin'
-import { plugin } from '@ultimabase/core/plugin'
-import { PasswordUser } from '@ultimabase/password-auth-plugin'
-
-import { AppRole, Post } from './roles.js'
-
-export const profilePolicy = plugin({
-	id: 'app.profile-policy',
-	version: '1.0.0',
-	core: '^0.0.0',
-	contributions: [
-		provideAccessContributions('read-policy', ({ schemas }) =>
-			schemas.values().map((schema) =>
-				schema === PasswordUser
-					? schemaAccess(PasswordUser, {
-							read: ({ principal, where }) =>
-								where.in('id', principal === undefined ? [] : [principal.id]),
-						})
-					: schemaAccess(schema, {
-							read: schema === AppRole || schema === Post,
-						}),
-			),
-		),
-	],
-})
-```
-
-The configuration below opens reads without a schema rule
-(`allowWithoutRule: { read: true }`) and installs this narrowing policy
-together. A compatible provider cannot grant a read that the base Access
-decision denied. Keep both entries: omitting the provider would broaden the
-read opening, while omitting the opening would prevent User profile reads.
-Other native operations stay denied unless the schema grants one explicitly. The Core range matches the current pre-release packages;
-check the installed range when updating.
-
 ### Assemble the application
 
 Install the identity, policy, and role plugins once on the configured factory.
-The User schema is contributed by Password Authentication; `AppRole` and `Post`
-are developer schemas declared from that factory:
+`AppUser`, `AppRole` and `Post` are developer schemas declared from that
+factory; Access denies every operation their rules do not open:
 
 ```ts title="src/application.ts"
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { password } from '@ultimabase/auth-password'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import { UltimaBase } from '@ultimabase/core'
-import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
-import { profilePolicy } from './profile-access.js'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
 export const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
-	.use(passwordAuthPlugin())
-	.use(accessPlugin({ allowWithoutRule: { read: true } }))
-	.use(profilePolicy)
+	.use(authPlugin({ methods: [password({ identifier: 'email' })] }))
+	.use(accessPlugin())
 	.use(rolesPlugin())
 ```
 
 ```ts title="src/ultimabase.ts"
 import { MasterAuthority } from '@ultimabase/core'
 import { Application } from './application.js'
-import { AppRole, Post } from './roles.js'
+import { AppRole, AppUser, Post } from './roles.js'
 
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
 if (!masterKey) throw new Error('ULTIMABASE_MASTER_KEY is required')
@@ -204,7 +167,7 @@ export const ultimabase = new Application({
 		keys: [{ id: 'server', value: masterKey }],
 		onUse: (event) => console.info('Master use', event.reason),
 	}),
-	schemas: [AppRole, Post],
+	schemas: [AppUser, AppRole, Post],
 })
 ```
 
@@ -242,8 +205,7 @@ code with audited Master authority when the role schema denies ordinary
 mutations, as in the configuration above:
 
 ```ts title="src/seed-roles.ts"
-import { PasswordUser } from '@ultimabase/password-auth-plugin'
-import { AppRole } from './roles.js'
+import { AppRole, AppUser } from './roles.js'
 
 const master = { useMasterKey: true } as const
 const editor = await AppRole.findOneOrThrow(
@@ -262,7 +224,7 @@ export const addEditor = (userId: string) =>
 	AppRole.updateOne(
 		{
 			where: { id: editor.id },
-			data: { members: { connect: [PasswordUser.pointer(userId)] } },
+			data: { members: { connect: [AppUser.pointer(userId)] } },
 			select: { id: true },
 		},
 		master,
@@ -293,7 +255,7 @@ the rules:
 ```ts
 const roles = ultimabase.plugin(rolesPlugin)
 await roles.has(EditorRole) // the current request's member, inside a request
-await roles.has(EditorRole, { principal: PasswordUser.pointer(userId) })
+await roles.has(EditorRole, { principal: AppUser.pointer(userId) })
 await roles.current(AppRole) // ['administrator', 'editor']: names, inheritance included
 ```
 
@@ -374,5 +336,6 @@ it exceeds 64 levels or 10,000 visited roles.
 - **Role deletion fails:** inspect direct members, child and parent roles,
   and external references under the schema's deletion policy. For `deleteMany()`,
   each target must satisfy that policy; a failure rolls back the whole batch.
-- **`start()` fails on `ensure`:** creating seed roles is a Master write;
-  configure the application's `masterAuthority`.
+- **`start()` fails on `ensure`:** Roles creates seed roles with its own
+  `authority:elevate` privilege, without a `masterAuthority`; the error's
+  `cause` names the write that failed (validation, a Hook or a constraint).

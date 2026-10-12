@@ -112,7 +112,8 @@ the first TypeScript build. JavaScript executes the same graph without Typegen.
 - An optional HTTP plugin delivers HTTP application identity,
   Fetch-compatible route composition, and request context resolution. Hono
   only provides the server, REST and GraphQL remain sibling transports, and
-  Password Auth adds identity without granting authorization.
+  authentication (`auth-plugin` with methods such as `auth-password`) adds
+  identity without granting authorization.
 - That target enters Runtime through a narrow Core request-execution capability
   rather than giving HTTP the application engine. Cross-origin access is
   explicit and disabled by default. One initialized application owns resources

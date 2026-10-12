@@ -182,3 +182,20 @@ export const shareTodo = (todoId: string, userId: string) =>
 			},
 		},
 	})
+
+// ADR-0326: the User of `authPlugin`, its method fields and typed results.
+export const signUp = (email: string, password: string) =>
+	TodoUser.signUp({ email, password, displayName: 'Ada' })
+export const login = (email: string, password: string) =>
+	TodoUser.login({ email, password })
+export const me = () => TodoUser.current()
+expectTypeOf<Model<'TodoUser'>['email']>().toEqualTypeOf<string>()
+expectTypeOf<Awaited1<ReturnType<typeof signUp>>['user']>().toEqualTypeOf<
+	Model<'TodoUser'>
+>()
+expectTypeOf<
+	Awaited1<ReturnType<typeof login>>['user']['email']
+>().toEqualTypeOf<string>()
+expectTypeOf<Awaited1<ReturnType<typeof me>>>().toEqualTypeOf<
+	Model<'TodoUser'>
+>()

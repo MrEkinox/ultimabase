@@ -15,7 +15,7 @@ sources:
   - packages/postgres-plugin/README.md
   - packages/http-plugin/README.md
   - packages/hono-server-plugin/README.md
-  - packages/password-auth-plugin/README.md
+  - packages/auth-plugin/README.md
   - docs/adr/0312-environment-dependent-plugin-defaults.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
   - docs/adr/0320-postgres-safe-sync-connection-and-debug.md
@@ -88,9 +88,11 @@ database before evaluating a public environment.
 - If configured, keep [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
   server-side and connect its `onUse` callback to an audit sink that meets your
   durability requirements. A successful elevation must complete its audit.
-- If installed, let [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
-  retain password verifiers and session digests in its owner-private storage.
-  Handle raw session tokens only at issuance and credential boundaries.
+- If installed, let [authentication](/docs/1.0.0/plugins/official/password-authentication)
+  retain password verifiers, session digests and attempt counters in its
+  owner-private storage. Handle raw session tokens only at issuance and
+  credential boundaries. Its attempt limiting counts per account and address;
+  add the HTTP plugin's `rateLimit` with `trustProxy` behind a proxy.
 
 ### Exercise lifecycle and ownership
 

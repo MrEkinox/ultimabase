@@ -1,6 +1,7 @@
 import type {
 	ExposedOperationTransportBinding,
 	PluginSchemaContributionOwner,
+	SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	assertNonEmptyString,
@@ -40,7 +41,10 @@ export type GraphqlOperationSupportingTypeDefinition =
 			readonly fields: readonly GraphqlOperationTypeFieldDefinition[]
 			readonly kind: 'input-object'
 			readonly name: string
-			/** Includes ordinary create fields from a schema owned by this binding's plugin. */
+			/**
+			 * Includes ordinary create fields from a schema owned by this
+			 * binding's plugin; an owner may send `{ kind: 'owned-schema' }`.
+			 */
 			readonly createFieldsFrom?: string
 	  }>
 	| Readonly<{
@@ -86,10 +90,30 @@ const readString = (value: unknown, path: string): string => {
 	return value
 }
 
+/**
+ * Resolves `{ kind: 'owned-schema' }`, the one schema the binding's plugin
+ * owns or designates when the application chooses its class name, to that
+ * class name.
+ */
+type OwnedSchemaResolver = (path: string) => string
+
+const unresolvedOwnedSchema: OwnedSchemaResolver = (path) => {
+	throw new TypeError(`${path} cannot reference an owned schema here`)
+}
+
+const isOwnedSchemaReference = (value: unknown): boolean =>
+	isPlainRecord(value) &&
+	value.kind === 'owned-schema' &&
+	Object.keys(value).length === 1
+
 const normalizeNullableReference = (
 	value: Readonly<Record<string, unknown>>,
 	path: string,
+	owned: OwnedSchemaResolver,
 ): GraphqlOperationNullableTypeReference => {
+	if (isOwnedSchemaReference(value)) {
+		return immutableRecord({ className: owned(path), kind: 'schema' })
+	}
 	if (value.kind === 'named') {
 		assertKeys(value, ['kind', 'name'], path)
 		return immutableRecord({
@@ -108,33 +132,39 @@ const normalizeNullableReference = (
 		assertKeys(value, ['kind', 'ofType'], path)
 		return immutableRecord({
 			kind: 'list',
-			ofType: normalizeTypeReference(value.ofType, `${path}.ofType`),
+			ofType: normalizeTypeReference(value.ofType, `${path}.ofType`, owned),
 		})
 	}
-	throw new TypeError(`${path}.kind must be named, schema, list, or non-null`)
+	throw new TypeError(
+		`${path}.kind must be named, schema, owned-schema, list, or non-null`,
+	)
 }
 
 const normalizeTypeReference = (
 	value: unknown,
 	path: string,
+	owned: OwnedSchemaResolver,
 ): GraphqlOperationTypeReference => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a plain type reference`)
 	}
-	if (value.kind !== 'non-null') return normalizeNullableReference(value, path)
+	if (value.kind !== 'non-null') {
+		return normalizeNullableReference(value, path, owned)
+	}
 	assertKeys(value, ['kind', 'ofType'], path)
 	if (!isPlainRecord(value.ofType) || value.ofType.kind === 'non-null') {
 		throw new TypeError(`${path}.ofType must be a nullable type reference`)
 	}
 	return immutableRecord({
 		kind: 'non-null',
-		ofType: normalizeNullableReference(value.ofType, `${path}.ofType`),
+		ofType: normalizeNullableReference(value.ofType, `${path}.ofType`, owned),
 	})
 }
 
 const normalizeFields = (
 	value: unknown,
 	path: string,
+	owned: OwnedSchemaResolver,
 ): readonly GraphqlOperationTypeFieldDefinition[] => {
 	if (!isUnknownArray(value) || value.length === 0) {
 		throw new TypeError(`${path} must be a non-empty field array`)
@@ -148,7 +178,7 @@ const normalizeFields = (
 			assertKeys(field, ['name', 'type'], fieldPath)
 			return immutableRecord({
 				name: readString(field.name, `${fieldPath}.name`),
-				type: normalizeTypeReference(field.type, `${fieldPath}.type`),
+				type: normalizeTypeReference(field.type, `${fieldPath}.type`, owned),
 			})
 		}),
 	)
@@ -157,6 +187,7 @@ const normalizeFields = (
 const normalizeSupportingType = (
 	value: unknown,
 	path: string,
+	owned: OwnedSchemaResolver,
 ): GraphqlOperationSupportingTypeDefinition => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a plain object`)
@@ -189,15 +220,14 @@ const normalizeSupportingType = (
 			path,
 		)
 		return immutableRecord({
-			fields: normalizeFields(value.fields, `${path}.fields`),
+			fields: normalizeFields(value.fields, `${path}.fields`, owned),
 			kind: value.kind,
 			name,
 			...(Object.hasOwn(value, 'createFieldsFrom')
 				? {
-						createFieldsFrom: readString(
-							value.createFieldsFrom,
-							`${path}.createFieldsFrom`,
-						),
+						createFieldsFrom: isOwnedSchemaReference(value.createFieldsFrom)
+							? owned(`${path}.createFieldsFrom`)
+							: readString(value.createFieldsFrom, `${path}.createFieldsFrom`),
 					}
 				: {}),
 		})
@@ -223,17 +253,26 @@ const readBindingEnvelope = (
 const normalizeSupportingTypes = (
 	value: readonly unknown[],
 	path: string,
+	owned: OwnedSchemaResolver,
 ): readonly GraphqlOperationSupportingTypeDefinition[] =>
 	immutableArray(
 		value.map((definition, index) =>
-			normalizeSupportingType(definition, `${path}.types[${String(index)}]`),
+			normalizeSupportingType(
+				definition,
+				`${path}.types[${String(index)}]`,
+				owned,
+			),
 		),
 	)
 
-/** Validates and snapshots one owner-supplied GraphQL binding description. */
+/**
+ * Validates and snapshots one owner-supplied GraphQL binding description;
+ * `owned` resolves `{ kind: 'owned-schema' }` references.
+ */
 export const normalizeGraphqlOperationBindingMetadata = (
 	value: unknown,
 	operation: string,
+	owned: OwnedSchemaResolver = unresolvedOwnedSchema,
 ): GraphqlOperationBindingMetadata => {
 	const path = `GraphQL binding for operation ${operation}`
 	const binding = readBindingEnvelope(
@@ -253,11 +292,13 @@ export const normalizeGraphqlOperationBindingMetadata = (
 		field: readString(binding.field, `${path}.field`),
 		...(binding.input === undefined
 			? {}
-			: { input: normalizeTypeReference(binding.input, `${path}.input`) }),
+			: {
+					input: normalizeTypeReference(binding.input, `${path}.input`, owned),
+				}),
 		kind: 'graphql-operation-binding',
-		result: normalizeTypeReference(binding.result, `${path}.result`),
+		result: normalizeTypeReference(binding.result, `${path}.result`, owned),
 		root,
-		types: normalizeSupportingTypes(binding.types, path),
+		types: normalizeSupportingTypes(binding.types, path, owned),
 	})
 }
 
@@ -279,9 +320,15 @@ export const normalizeGraphqlSchemaMutationBindingMetadata = (
 	return immutableRecord({
 		...(binding.input === undefined
 			? {}
-			: { input: normalizeTypeReference(binding.input, `${path}.input`) }),
+			: {
+					input: normalizeTypeReference(
+						binding.input,
+						`${path}.input`,
+						unresolvedOwnedSchema,
+					),
+				}),
 		kind: 'graphql-schema-mutation-binding',
-		types: normalizeSupportingTypes(binding.types, path),
+		types: normalizeSupportingTypes(binding.types, path, unresolvedOwnedSchema),
 	})
 }
 
@@ -296,6 +343,25 @@ export const bindingOwnerFor = (
 	pluginId: descriptor.owner.pluginId,
 	version: descriptor.owner.version,
 })
+
+/**
+ * Tells whether a schema belongs to a binding's plugin: the plugin added or
+ * claimed it, or designates it with a schema option the plugin defines (a
+ * plugin's schema factory, such as `App.UserSchema`).
+ */
+export const isBindingOwnerSchema = (
+	schema: SchemaDefinition,
+	owner: PluginSchemaContributionOwner,
+): boolean => {
+	const { options, schema: source } = schema.definition.provenance
+	return [
+		source.owner,
+		...Object.values(options).map(({ definition }) => definition.owner),
+	].some(
+		(candidate) =>
+			candidate.kind === 'plugin' && isSameBindingOwner(candidate, owner),
+	)
+}
 
 /** Compares binding owners by plugin identity, instance and version. */
 export const isSameBindingOwner = (

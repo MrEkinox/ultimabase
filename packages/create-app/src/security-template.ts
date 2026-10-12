@@ -2,20 +2,19 @@ import { pluginImports, privateSchemaApiOptions } from './api-template.js'
 import { hasPlugin as has, included, type InitializerPlan } from './config.js'
 import type { NamedImport } from './source.js'
 
+// Sign-up needs no Master key: authPlugin elevates with its own privilege (ADR-0326).
 export const needsMasterKey = (plan: InitializerPlan): boolean =>
 	has(plan, 'access-plugin') ||
 	has(plan, 'acl-permissions-plugin') ||
-	has(plan, 'password-auth-plugin') ||
 	has(plan, 'roles-plugin')
 
-const hasAuth = (plan: InitializerPlan): boolean =>
-	has(plan, 'password-auth-plugin')
+const hasAuth = (plan: InitializerPlan): boolean => has(plan, 'auth-plugin')
 
-/** Access with Password Auth needs an own-profile read policy for its operations. */
+/** Access with authentication gives the User an own-profile read rule. */
 const hasProfilePolicy = (plan: InitializerPlan): boolean =>
 	has(plan, 'access-plugin') && hasAuth(plan)
 
-/** Roles without Password Auth get a local member model. */
+/** Roles without authentication get a local member model. */
 const hasMember = (plan: InitializerPlan): boolean =>
 	has(plan, 'roles-plugin') && !hasAuth(plan)
 
@@ -24,22 +23,24 @@ export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
 	...pluginImports(plan, [
 		['access-plugin', 'accessPlugin'],
 		['acl-permissions-plugin', 'ACL, aclPlugin'],
-		['password-auth-plugin', 'PasswordUserSchema'],
+		['auth-plugin', 'authPlugin'],
 		['roles-plugin', 'rolesPlugin'],
+	]),
+	...included<NamedImport>([
+		[hasAuth(plan), ['@ultimabase/auth-password', 'password']],
 	]),
 ]
 
 /** Installs security plugins once on the schema-owning application factory. */
 export const securitySchemaPluginEntries = (plan: InitializerPlan): string[] =>
 	included([
-		[
-			has(plan, 'access-plugin'),
-			hasAuth(plan)
-				? 'accessPlugin({ allowWithoutRule: { read: true } })'
-				: 'accessPlugin()',
-		],
+		[has(plan, 'access-plugin'), 'accessPlugin()'],
 		[has(plan, 'acl-permissions-plugin'), 'aclPlugin()'],
 		[has(plan, 'roles-plugin'), 'rolesPlugin()'],
+		[
+			hasAuth(plan),
+			"authPlugin({ methods: [password({ identifier: 'email' })] })",
+		],
 	])
 
 // The current member is the request principal resolved by Core (ADR-0304).
@@ -50,11 +51,20 @@ export const securitySchemaDeclarations = (plan: InitializerPlan): string =>
 	included([
 		[
 			hasAuth(plan),
-			`// Password Auth claims this exact application User schema; credentials stay in private storage.
-export const AppUser = PasswordUserSchema.define(SchemaApplication.Schema, {
+			`// The User of authPlugin: password() adds a unique email; credentials and
+// sessions stay in private storage.
+export const AppUser = SchemaApplication.UserSchema.define({
   className: 'User',
   fields: (f) => ({ displayName: f.string() }),
-})`,
+})${withRules([
+				...(hasProfilePolicy(plan)
+					? [
+							'// Each user reads only their own profile.',
+							"access: { read: ({ principal, where }) => where.in('id', principal === undefined ? [] : [principal.id]) },",
+						]
+					: []),
+				...privateSchemaApiOptions(plan).map((line) => line.trim()),
+			])}`,
 		],
 		[
 			hasMember(plan),
@@ -79,12 +89,15 @@ ${[
 	]).join('\n\n')
 
 /**
- * Role schemas are complete declarations (`.with(...)`), and an application
- * mixing them with unfinished `define(...)` calls cannot name its own type in
- * `Register`. With Roles or ACL, the Task rules therefore go in `.with(...)`.
+ * Role and User schemas are complete declarations (`.with(...)`), and an
+ * application mixing them with unfinished `define(...)` calls cannot name its
+ * own type in `Register` (TS7022). With Roles, ACL or authentication, the Task
+ * rules therefore go in `.with(...)`.
  */
 const finishesTask = (plan: InitializerPlan): boolean =>
-	has(plan, 'roles-plugin') || has(plan, 'acl-permissions-plugin')
+	has(plan, 'roles-plugin') ||
+	has(plan, 'acl-permissions-plugin') ||
+	hasAuth(plan)
 
 const taskAccessRule = [
 	'// Deny ordinary requests; the local demonstration uses audited Master access.',
@@ -123,12 +136,6 @@ export const securityApplicationImports = (
 ): NamedImport[] =>
 	included<NamedImport>([
 		[needsMasterKey(plan), ['@ultimabase/core', 'MasterAuthority']],
-		[
-			hasProfilePolicy(plan),
-			['@ultimabase/access-plugin', 'provideAccessContributions, schemaAccess'],
-		],
-		[hasAuth(plan), ['@ultimabase/password-auth-plugin', 'passwordAuthPlugin']],
-		[hasProfilePolicy(plan), ['@ultimabase/core/plugin', 'plugin']],
 	])
 
 export const securitySchemaNames = (plan: InitializerPlan): string[] =>
@@ -137,32 +144,6 @@ export const securitySchemaNames = (plan: InitializerPlan): string[] =>
 		[hasMember(plan), 'Member'],
 		[has(plan, 'roles-plugin'), 'AppRole'],
 	])
-
-export const securityPluginEntries = (plan: InitializerPlan): string[] =>
-	included([
-		[hasProfilePolicy(plan), 'profilePolicy'],
-		[hasAuth(plan), 'passwordAuthPlugin({ user: AppUser })'],
-	])
-
-/** Plugin-owned and claimed schemas use attributed contributions instead of inline Access. */
-export const securityPolicySource = (plan: InitializerPlan): string =>
-	hasProfilePolicy(plan)
-		? `// Allow only the current session's profile; all other schema reads remain denied.
-const profilePolicy = plugin({
-  id: 'app.profile-policy',
-  version: '1.0.0',
-  core: '^0.0.0',
-  peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-  contributions: [provideAccessContributions('own-profile', ({ schemas }) =>
-      schemas.values().map((schema) => schema === AppUser
-        ? schemaAccess(AppUser, {
-            read: ({ principal, where }) =>
-              where.in('id', principal === undefined ? [] : [principal.id]),
-          })
-        : schemaAccess(schema, { read: false })),
-    )],
-})`
-		: ''
 
 export const securityMasterSource = (plan: InitializerPlan): string =>
 	needsMasterKey(plan)
@@ -191,15 +172,15 @@ export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasAuth(plan),
-			'Password Auth claims the configured application User schema and owns private credentials and sessions. A session identifies a caller; it does not grant Task access or publish authentication operations.',
+			'Authentication (`authPlugin` with `password()`) adds the User schema `AppUser` and keeps credentials and sessions in private storage. A session identifies a caller; it does not grant Task access.',
 		],
 		[
 			hasProfilePolicy(plan),
-			'The generated User read policy exposes only the current session owner. Sign-up, login, and refresh require this readable profile; other User operations stay denied unless `allowWithoutRule` opens them.',
+			'The generated User read rule exposes only the current session owner. Sign-up, login, and refresh require this readable profile; other User operations stay denied.',
 		],
 		[
 			has(plan, 'access-plugin'),
-			'Access denies ordinary operations except the explicitly configured own-profile read policy when Password Auth is selected. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.',
+			'Access denies every operation without a rule. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.',
 		],
 		[
 			has(plan, 'acl-permissions-plugin'),

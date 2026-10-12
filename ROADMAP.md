@@ -82,7 +82,7 @@ with business transactions, with at-least-once delivery. Archived issue 711.
 ### More authentication
 
 A Better Auth plugin built only on the public HTTP, operation, schema and
-request-value capabilities, independent of Password Auth and without adding
+request-value capabilities, or a sign-in method of `auth-plugin`, without adding
 authentication to Core. An HTTP Basic plugin for internal or service-to-service
 use is deferred. Archived issues 707 and 748.
 

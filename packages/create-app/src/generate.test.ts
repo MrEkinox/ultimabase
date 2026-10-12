@@ -128,7 +128,8 @@ describe('project generation', () => {
 		const plan = resolveSelection(
 			{
 				name: 'secure-notes',
-				plugins: ['password-auth-plugin'],
+				// Access needs the local Master key; authentication does not (ADR-0326).
+				plugins: ['access-plugin'],
 				database: 'docker',
 				install: true,
 			},

@@ -90,7 +90,8 @@
 			"packages": [
 				"@ultimabase/access-plugin",
 				"@ultimabase/acl-permissions-plugin",
-				"@ultimabase/password-auth-plugin",
+				"@ultimabase/auth-password",
+				"@ultimabase/auth-plugin",
 				"@ultimabase/roles-plugin"
 			],
 			"sections": [

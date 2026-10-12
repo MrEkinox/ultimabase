@@ -57,7 +57,7 @@ all edge mutations, predicates, target Access, hooks, rollback, and cleanup.
 edges remain ordinary schemas with composite uniqueness and transactions.
 `graphql-cross-transport-parity.postgres.e2e.test.ts` runs the public minimal
 application through direct TypeScript, REST, networkless GraphQL, and Yoga. It
-proves shared Runtime semantics plus Password Auth, HTTP session, Master
+proves shared Runtime semantics plus authentication, HTTP session, Master
 provenance, exposure, and safe application-selection boundaries.
 `nested-write-public-vertical.postgres.e2e.test.ts` uses that same public
 application to create, include, update, and disconnect one recursive aggregate

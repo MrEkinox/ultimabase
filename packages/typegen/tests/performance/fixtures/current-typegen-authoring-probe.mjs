@@ -44,7 +44,7 @@ const defineSourceSchema = (index) => {
 	const target = 'User'
 	const definition =
 		index === 0
-			? 'PasswordUserSchema.define(Authoring.Schema, '
+			? 'Authoring.UserSchema.define('
 			: index === 1
 				? 'Authoring.RoleSchema.define('
 				: 'Authoring.Schema.define('
@@ -71,7 +71,8 @@ const applicationSource = `
 import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { PasswordUserSchema, passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
+import { authPlugin } from '@ultimabase/auth-plugin'
+import { password } from '@ultimabase/auth-password'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
@@ -83,11 +84,11 @@ const Authoring = UltimaBase.use(accessPlugin())
   .use(rolesPlugin())
   .use(softDeletePlugin())
   .use(validationPlugin())
+  .use(authPlugin({ methods: [password()] }))
 
 ${Array.from({ length: schemaCount }, (_, index) => defineSourceSchema(index)).join('\n\n')}
 
-const Benchmark = Authoring.use(passwordAuthPlugin({ user: User }))
-export const application = new Benchmark({
+export const application = new Authoring({
   logger: false,
   schemas: [${Array.from({ length: schemaCount }, (_, index) => schemaName(index)).join(', ')}],
 })

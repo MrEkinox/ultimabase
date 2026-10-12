@@ -2,14 +2,14 @@
 
 `@ultimabase/rest-plugin` owns the experimental REST route graph, schema
 request boundary, and Fetch response contract. It generates immutable
-application-local metadata under `/api` by default, contributes an owned
-mount to `@ultimabase/http-plugin`, decodes accepted reads and mutations into
+application-local metadata under `/api` by default, contributes owned
+mounts for the roots it serves to `@ultimabase/http-plugin`, decodes accepted reads and mutations into
 Core's existing Query and schema-command contracts, and delegates them through
 Core's narrow application request executor. It does not import Hono, start
 listeners, access an adapter, or retain request data in an AST.
 
 The repository includes a [runnable Hono and PostgreSQL example](../../examples/minimal/README.md)
-with anonymous and Password Auth sessions, role-protected REST, audited Master
+with anonymous and authenticated sessions, role-protected REST, audited Master
 access, and public plugin operations.
 
 ## Installation
@@ -73,12 +73,19 @@ cannot be converted into public exposure.
 
 ## Base path and protocol version
 
-The default base path is `/api` (`/api/classes/Todo`, `/api/auth/login`). It
-carries no protocol version: every REST response carries
-`X-UltimaBase-Rest-Version: 1`, and a future wire format would be chosen by an
-option, never by the URL. `basePath` is free, so `/api/v1` versions the
-application's own API. `/` mounts REST at the root. The health route stays at
-HTTP's `/health`.
+The default base path is `/api` (`/api/classes/Todo`). It carries no protocol
+version: every REST response carries `X-UltimaBase-Rest-Version: 1`, and a
+future wire format would be chosen by an option, never by the URL. `basePath`
+is free, so `/api/v1` versions the application's own API, and `/` puts REST's
+roots at the root. The health route stays at HTTP's `/health`.
+
+REST mounts only the roots it serves below the base path: `classes`,
+`operations`, `openapi.json` when enabled, and the first segment of each
+operation path an owner declares (ADR-0324, 6.4a amendment). Other plugins may
+serve other paths under the same base path, such as authentication's
+`/api/auth/*` routes; a plugin route under one of REST's roots still fails at
+startup. A path under the base path outside these roots gets HTTP's
+`HTTP_NOT_FOUND`.
 
 ## Public writes
 
@@ -121,7 +128,7 @@ Every installed transport exposes it; an operation not declared public is
 never exposed. The application hides some per instance:
 
 ```ts
-restPlugin({ hide: [passwordAuthOperations.refresh] })
+restPlugin({ hide: [authOperations.refresh] })
 ```
 
 A hidden token that is not a public operation of the application fails at
@@ -130,11 +137,11 @@ and accepts exactly `{ "input": value }`.
 
 An owner may contribute a REST binding through Core: a logical-to-wire codec
 for the canonical `ultimabase.rest@1.0.0` protocol, which it names without
-importing this package, so REST and Password Auth stay siblings. Its metadata
+importing this package, so REST and other plugins stay siblings. Its metadata
 contains `errors: { [declaredPublicErrorCode]: httpStatus }`, including an
 empty object when the operation declares no public plugin errors, and an
-optional `path`: `{ errors, path: "/auth/login" }` produces
-`POST /api/auth/login`. The prefix follows the configured `basePath`. Only
+optional `path`: `{ errors, path: "/reports/daily" }` produces
+`POST /api/reports/daily`. The prefix follows the configured `basePath`. Only
 static slash-separated ASCII letters, digits, underscores, and hyphens are
 accepted, with a leading slash and no trailing slash. The `classes` and
 `operations` roots are reserved. Templates, percent encoding, dot segments,
@@ -370,8 +377,9 @@ the selected pre-delete model in `{ result }`.
 
 ## HTTP responses and safe errors
 
-REST contributes one dispatcher at the configured base path when at least one
-schema or plugin-operation route exists. HTTP still selects the exact
+REST contributes one dispatcher, mounted at each root it serves below the
+configured base path, when at least one schema or plugin-operation route
+exists. HTTP still selects the exact
 application, validates sensitive-header cardinality, resolves credentials, and
 creates the request context before that dispatcher begins. Those earlier
 failures keep the protocol-neutral `HTTP_*` envelope. Once selected, REST owns

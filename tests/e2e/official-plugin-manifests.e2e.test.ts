@@ -6,7 +6,8 @@ import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
-import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
+import { password } from '@ultimabase/auth-password'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import {
 	postgresPlugin,
 	type PostgresPool,
@@ -51,7 +52,7 @@ it('publishes the audited privilege and environment contract for every official 
 		aclPlugin().manifest,
 		rolesPlugin().manifest,
 		pgVectorPlugin().manifest,
-		passwordAuthPlugin().manifest,
+		authPlugin({ methods: [password()] }).manifest,
 		honoServerPlugin().manifest,
 	]
 
@@ -165,7 +166,7 @@ it('publishes the audited privilege and environment contract for every official 
 		},
 		{
 			environment: ['environment:native-code'],
-			pluginId: '@ultimabase/password-auth-plugin',
+			pluginId: '@ultimabase/auth-plugin',
 			privileges: [
 				'schema:declare',
 				'storage:private',

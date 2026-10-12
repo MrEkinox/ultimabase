@@ -17,7 +17,7 @@ sources:
   - packages/access-plugin/src/plugin.ts
   - packages/access-plugin/src/startup.ts
   - packages/access-plugin/src/runtime/denial-log.ts
-  - packages/password-auth-plugin/README.md
+  - packages/auth-plugin/README.md
   - packages/access-plugin/tests/e2e/access-plugin-postgres.postgres.e2e.test.ts
   - examples/minimal/src/schema.ts
   - docs/adr/0204-access-is-one-vertical-plugin.md
@@ -271,7 +271,7 @@ tell the client why.
 
 If you also expose a `find` route for this schema through [REST](./rest),
 verify the boundary with three requests: an anonymous read returns `403`
-`PERMISSION_DENIED`, a valid Password Authentication Bearer session returns
+`PERMISSION_DENIED`, a valid authentication Bearer session returns
 `200` with a `results` collection, and a revoked session returns `401`
 `HTTP_APPLICATION_REJECTED` before Access runs. The Bearer token establishes
 identity; this Access rule grants the read. A successful read does not imply
