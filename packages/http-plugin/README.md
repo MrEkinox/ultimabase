@@ -191,8 +191,10 @@ is the socket peer. Behind proxies, `trustProxy` is the number of proxy hops,
 or their exact addresses: the client is then the nearest untrusted
 `X-Forwarded-For` entry, and `X-Forwarded-Proto` is believed only from a
 trusted peer. Routes add stricter limits with `rateLimit: { perMinute }`, which
-count in addition to the default. Counts live in memory per process; share
-them with a store:
+count in addition to the default. The built-in health route is never limited:
+load balancers and Kubernetes probes often share one address, and a 429 would
+make the service look down. Counts live in memory per process; share them
+with a store:
 
 ```ts
 const store: HttpRateLimitStore = {

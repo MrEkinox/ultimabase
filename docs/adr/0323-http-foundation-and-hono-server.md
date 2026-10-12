@@ -78,3 +78,11 @@ requires a browser-policy owner in existing-application mode, and its package is
 
 The REST, GraphQL, explorer and preset changes (migration 6.6b and 6.6c), servers for Bun, Deno
 and Workers, ETag, OpenTelemetry.
+
+## 6.6a amendment (2026-10-12)
+
+Validated by the user during the 6.6a review. The built-in health route (decision 5) is exempt
+from rate limiting (decision 7), whatever its path: load balancers and Kubernetes probes often come
+from one address, and a 429 would make the service look down. No option re-enables it; the route
+only reads `ultimabase.health()`, whose database check is bounded to two seconds. Tests: the health
+route keeps answering while the default limit refuses another route from the same address.

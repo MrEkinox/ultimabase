@@ -11,6 +11,7 @@ import {
 	normalizeHttpRateLimit,
 	type HttpRateLimit,
 } from './endpoint-limits.js'
+import type { OwnedHttpEndpoint } from './route-graph.js'
 import {
 	readPreparedHeader,
 	type PreparedHttpServerRequest,
@@ -196,6 +197,12 @@ export const isHttpsRequest = (
 	)
 	return proto?.split(',').at(-1)?.trim().toLowerCase() === 'https'
 }
+
+/** @internal Names the endpoint whose own limit counts a request. */
+export const httpRateLimitKey = (endpoint: OwnedHttpEndpoint): string =>
+	endpoint.kind === 'mount'
+		? `mount ${endpoint.path}`
+		: `${endpoint.method} ${endpoint.path}`
 
 /** @internal Counts one request against each applicable limit. */
 export class HttpRateLimiter {

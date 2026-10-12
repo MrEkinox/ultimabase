@@ -1,5 +1,6 @@
 import { assertExactOptions } from './definitions.js'
 import { httpRoute, type HttpRouteDefinition } from './endpoints.js'
+import type { OwnedHttpEndpoint } from './route-graph.js'
 
 /** Moves the built-in health route (ADR-0323). */
 export interface HttpHealthOptions {
@@ -35,3 +36,15 @@ export const createHttpHealthRoute = (
 		path,
 		protocol: { name: `GET ${path}`, version: '1.0.0' },
 	})
+
+/**
+ * @internal Recognizes the HTTP plugin's own health route; probes often share
+ * one address, so rate limits never apply to it (ADR-0323 amendment).
+ */
+export const isHttpHealthRoute = (
+	endpoint: OwnedHttpEndpoint,
+	healthPath: string | undefined,
+): boolean =>
+	endpoint.kind === 'route' &&
+	endpoint.path === healthPath &&
+	endpoint.provenance.contributionId === 'official-http-routes'

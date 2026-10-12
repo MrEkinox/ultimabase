@@ -12,6 +12,7 @@ import {
 } from './application-identity.js'
 
 import { limitHttpBody } from './body-limit.js'
+import { isHttpHealthRoute } from './health.js'
 import type { HttpEndpointLimits } from './endpoint-limits.js'
 
 import {
@@ -43,6 +44,7 @@ import {
 } from './request-boundary.js'
 import {
 	HttpRateLimiter,
+	httpRateLimitKey,
 	isHttpsRequest,
 	resolveHttpClientAddress,
 	type HttpTrustProxy,
@@ -52,7 +54,6 @@ import {
 	compileHttpRouteGraph,
 	selectHttpEndpoint,
 	type HttpRouteGraph,
-	type OwnedHttpEndpoint,
 } from './route-graph.js'
 import {
 	applyHttpSecurityHeaders,
@@ -105,6 +106,7 @@ export interface HttpApplicationSettings {
 	readonly accessLog: boolean
 	readonly appId: string
 	readonly bodyLimit: number
+	readonly healthPath: string | undefined
 	readonly masterEnabled: boolean
 	readonly rateLimit: NormalizedHttpRateLimit
 	readonly requestTimeoutMs: number
@@ -133,11 +135,6 @@ const requireRequestExecution = (
 	}
 	return state.requestExecution
 }
-
-const rateLimitKey = (endpoint: OwnedHttpEndpoint): string =>
-	endpoint.kind === 'mount'
-		? `mount ${endpoint.path}`
-		: `${endpoint.method} ${endpoint.path}`
 
 const dispatchPreparedRequest = async (
 	application: HttpApplication,
@@ -184,12 +181,16 @@ const dispatchPreparedRequest = async (
 	const limits: HttpEndpointLimits =
 		endpoint.kind === 'browser-bootstrap' ? {} : endpoint
 	// Without an applicable limit, no store is consulted and nothing awaits.
-	if (state.rateLimiter.applies(limits.rateLimit)) {
+	// Probes share one address, so the built-in health route is never limited.
+	if (
+		!isHttpHealthRoute(endpoint, state.settings.healthPath) &&
+		state.rateLimiter.applies(limits.rateLimit)
+	) {
 		let retryAfter: number | undefined
 		try {
 			retryAfter = await state.rateLimiter.check(
 				resolveHttpClientAddress(accepted, state.settings.trustProxy),
-				{ key: rateLimitKey(endpoint), limit: limits.rateLimit },
+				{ key: httpRateLimitKey(endpoint), limit: limits.rateLimit },
 			)
 		} catch {
 			return reject(httpPreDispatchErrorCodes.internalError)

@@ -80,8 +80,8 @@ facultatif (exigé au démarrage si CORS est actif), `remoteAddress` transmis.
 5. Le chemin réservé `/__ultimabase/apps/…` sans démarrage possédé tombe en
    404 (`HTTP_NOT_FOUND`) en mode par défaut, 401 en mode strict.
 6. Santé : route ordinaire du graphe (collision avec un montage `/`), `GET`
-   seulement, soumise aux résolveurs et limites comme toute route ; exclue de
-   l'avertissement « routes sans serveur ».
+   seulement, soumise aux résolveurs comme toute route, jamais limitée
+   (amendement) ; exclue de l'avertissement « routes sans serveur ».
 7. Limite de corps : comptage en flux sans pré-contrôle `Content-Length` ; un
    413 du transport est conservé ; REST/GraphQL héritent quand leur option est
    absente.
@@ -95,6 +95,12 @@ frameOptions, hsts }`, HSTS par défaut `max-age=31536000; includeSubDomains`.
     propriété (déstructurable) ; `requestTimeoutMs` exporté est un nombre.
 12. Hono : `compression` aussi en mode application existante (répartiteur
     seul) ; `shutdownTimeoutMs` refusé en mode application existante.
+
+## Amendement 6.6a (2026-10-12, validé par l'utilisateur)
+
+La route de santé intégrée n'est jamais limitée (`isHttpHealthRoute` dans
+`health.ts`, testé dans `request-limits.test.ts`) ; pas d'option pour la
+limiter. Consigné dans ADR-0323, section « 6.6a amendment (2026-10-12) ».
 
 ## Approches rejetées
 

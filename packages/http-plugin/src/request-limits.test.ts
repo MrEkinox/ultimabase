@@ -230,11 +230,12 @@ describe('defaults (ADR-0323 decision 6)', () => {
 
 describe('rate limiting by client address (ADR-0323 decision 7)', () => {
 	const limited = { default: { perMinute: 2 } } as const
+	const ping = { 'GET /ping': () => new Response('pong') } as const
 
 	it('counts each socket address separately and answers 429 with Retry-After', async () => {
-		const http = await start({ rateLimit: limited })
+		const http = await start({ rateLimit: limited, routes: ping })
 		const from = (remoteAddress: string) =>
-			send(http, '/health', { remoteAddress })
+			send(http, '/ping', { remoteAddress })
 		expect((await from('203.0.113.1')).status).toBe(200)
 		expect((await from('203.0.113.1')).status).toBe(200)
 		const third = await from('203.0.113.1')
@@ -246,10 +247,34 @@ describe('rate limiting by client address (ADR-0323 decision 7)', () => {
 		expect((await from('203.0.113.2')).status).toBe(200)
 	})
 
+	// ADR-0323 amendment: probes share one address, so health is never limited.
+	it('never limits the built-in health route, wherever it lives', async () => {
+		const http = await start({
+			health: { path: '/healthz' },
+			rateLimit: { default: { perMinute: 1 } },
+			routes: ping,
+		})
+		const probe = () => send(http, '/healthz', { remoteAddress: '10.0.0.9' })
+		for (let attempt = 0; attempt < 5; attempt += 1) {
+			expect((await probe()).status).toBe(200)
+		}
+		expect(
+			(await send(http, '/ping', { remoteAddress: '10.0.0.9' })).status,
+		).toBe(200)
+		expect(
+			(await send(http, '/ping', { remoteAddress: '10.0.0.9' })).status,
+		).toBe(429)
+		expect((await probe()).status).toBe(200)
+	})
+
 	it('reads the client from X-Forwarded-For behind trusted proxies only', async () => {
-		const hops = await start({ rateLimit: limited, trustProxy: 1 })
+		const hops = await start({
+			rateLimit: limited,
+			routes: ping,
+			trustProxy: 1,
+		})
 		const forwardedFor = (client: string) =>
-			send(hops, '/health', {
+			send(hops, '/ping', {
 				headers: [['X-Forwarded-For', `198.51.100.9, ${client}`]],
 				remoteAddress: '10.0.0.1',
 			})
@@ -260,11 +285,12 @@ describe('rate limiting by client address (ADR-0323 decision 7)', () => {
 
 		const untrusted = await start({
 			rateLimit: limited,
+			routes: ping,
 			trustProxy: ['10.0.0.1'],
 		})
 		// A spoofed header from an untrusted peer does not change the client.
 		const spoofed = (client: string) =>
-			send(untrusted, '/health', {
+			send(untrusted, '/ping', {
 				headers: [['X-Forwarded-For', client]],
 				remoteAddress: '203.0.113.50',
 			})
@@ -305,8 +331,11 @@ describe('rate limiting by client address (ADR-0323 decision 7)', () => {
 				default: { perMinute: 1 },
 				store: { increment: () => Promise.reject(new Error('store down')) },
 			},
+			routes: ping,
 		})
-		expect((await send(http, '/health')).status).toBe(500)
+		expect((await send(http, '/ping')).status).toBe(500)
+		// The health route never consults the store.
+		expect((await send(http, '/health')).status).toBe(200)
 		expect(() => httpPlugin({ rateLimit: { store: {} } as never })).toThrow(
 			'rateLimit store must have an increment(key, expiresAt) method',
 		)
