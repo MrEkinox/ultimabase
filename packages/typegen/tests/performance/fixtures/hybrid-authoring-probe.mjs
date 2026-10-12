@@ -85,7 +85,8 @@ const createSchemaDefinitions = () => `
 import type * as CurrentAccess from '@ultimabase/access-plugin'
 import type * as CurrentCore from '@ultimabase/core'
 import type * as CurrentHooks from '@ultimabase/hooks-plugin'
-import type * as CurrentPassword from '@ultimabase/password-auth-plugin'
+import type * as CurrentAuth from '@ultimabase/auth-plugin'
+import type * as CurrentPassword from '@ultimabase/auth-password'
 import type * as CurrentVector from '@ultimabase/pg-vector-plugin'
 import type * as CurrentRoles from '@ultimabase/roles-plugin'
 import type * as CurrentSoftDelete from '@ultimabase/soft-delete-plugin'
@@ -95,6 +96,7 @@ type CurrentPackageDeclarationBaseline = readonly [
   typeof CurrentAccess,
   typeof CurrentCore,
   typeof CurrentHooks,
+  typeof CurrentAuth,
   typeof CurrentPassword,
   typeof CurrentVector,
   typeof CurrentRoles,

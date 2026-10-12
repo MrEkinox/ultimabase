@@ -1,10 +1,8 @@
 import { accessPlugin } from '../../../../access-plugin/dist/index.js'
+import { password } from '../../../../auth-password/dist/index.js'
+import { authPlugin } from '../../../../auth-plugin/dist/index.js'
 import { UltimaBase } from '../../../../core/dist/index.js'
 import { hooksPlugin } from '../../../../hooks-plugin/dist/index.js'
-import {
-	PasswordUserSchema,
-	passwordAuthPlugin,
-} from '../../../../password-auth-plugin/dist/index.js'
 import { pgVectorPlugin } from '../../../../pg-vector-plugin/dist/index.js'
 import { rolesPlugin } from '../../../../roles-plugin/dist/index.js'
 import { softDeletePlugin } from '../../../../soft-delete-plugin/dist/index.js'
@@ -45,9 +43,10 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 		rolesPlugin(),
 		softDeletePlugin(),
 		validationPlugin(),
+		authPlugin({ methods: [password()] }),
 	)
 	const schemas = []
-	const User = PasswordUserSchema.define(Base.Schema, {
+	const User = Base.UserSchema.define({
 		className: 'User',
 		fields: runtimeFields,
 	})
@@ -61,7 +60,7 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 			}).with({}),
 		)
 	}
-	const Application = Base.use(passwordAuthPlugin({ user: User }))
+	const Application = Base
 	for (let index = 2; index < schemaCount; index += 1) {
 		schemas.push(
 			Application.Schema.define({
