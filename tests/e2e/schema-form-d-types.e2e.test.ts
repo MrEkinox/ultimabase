@@ -141,17 +141,18 @@ describe('schema declaration form without Typegen (ADR-0297)', () => {
 		(configName) => {
 			const typos = readExpectedErrors(configName, 'src/typos.ts')
 			const exactness = readExpectedErrors(configName, 'src/exactness.ts')
+			// The printed key order follows TypeScript's type creation order: the
+			// User from `App.UserSchema` (ADR-0326) changes it in this file.
 			const selectTypo =
-				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; assignee?: boolean; title?: boolean; archived?: boolean; priority?: boolean; parent?: boolean; isDeleted?: boolean; deletedAt?: boolean; }>'. Did you mean to write 'title'?"
-
-			// The printed key order follows TypeScript's type creation order, which
-			// differs between the two checked files once the User comes from
-			// `App.UserSchema` (ADR-0326).
-			const exactnessSelectTypo =
 				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; assignee?: boolean; createdAt?: boolean; updatedAt?: boolean; title?: boolean; archived?: boolean; priority?: boolean; parent?: boolean; isDeleted?: boolean; deletedAt?: boolean; }>'. Did you mean to write 'title'?"
 
-			expect(typos).toContain(`src/typos.ts:76 ${selectTypo}`)
-			expect(exactness).toContain(`src/exactness.ts:27 ${exactnessSelectTypo}`)
+			// Same members as `selectTypo`; the deferred Register read (ADR-0297,
+			// 2026-10-12 note) changes the order TypeScript prints them in here.
+			const typosSelectTypo =
+				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; archived?: boolean; assignee?: boolean; title?: boolean; priority?: boolean; parent?: boolean; isDeleted?: boolean; deletedAt?: boolean; }>'. Did you mean to write 'title'?"
+
+			expect(typos).toContain(`src/typos.ts:76 ${typosSelectTypo}`)
+			expect(exactness).toContain(`src/exactness.ts:27 ${selectTypo}`)
 			expect(exactness).toContain(
 				"src/exactness.ts:29 Object literal may only specify known properties, but 'labl' does not exist in type 'Readonly<{ id?: true; createdAt?: boolean; updatedAt?: boolean; label?: boolean; }>'. Did you mean to write 'label'?",
 			)
