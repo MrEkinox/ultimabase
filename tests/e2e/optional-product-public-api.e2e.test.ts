@@ -4,22 +4,22 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	accessPluginPublicApi,
-	apolloSandboxPluginPublicApi,
+	apiServerPublicApi,
 	getOptionalProductPublicApiNames,
+	graphqlExplorerPluginPublicApi,
 	graphqlPluginPublicApi,
 	graphqlHttpPublicApi,
 	graphqlYogaPluginPublicApi,
-	graphiqlPluginPublicApi,
 	hooksPluginPublicApi,
 	httpPluginPublicApi,
 	passwordAuthPluginPublicApi,
 	removedAccessPluginPublicApiNames,
-	removedApolloSandboxPluginPublicApiNames,
+	removedApiServerPublicApiNames,
+	removedGraphqlExplorerPluginPublicApiNames,
 	removedHooksPluginPublicApiNames,
 	removedGraphqlPluginPublicApiNames,
 	removedGraphqlHttpPublicApiNames,
 	removedGraphqlYogaPluginPublicApiNames,
-	removedGraphiqlPluginPublicApiNames,
 	removedHttpPluginPublicApiNames,
 	removedPasswordAuthPluginPublicApiNames,
 	removedRestPluginPublicApiNames,
@@ -34,12 +34,12 @@ interface OptionalProductFixture {
 	readonly classification: OptionalProductPublicApi
 	readonly moduleSpecifier:
 		| '@ultimabase/access-plugin'
-		| '@ultimabase/apollo-sandbox-plugin'
+		| '@ultimabase/api-server'
+		| '@ultimabase/graphql-explorer-plugin'
 		| '@ultimabase/hooks-plugin'
 		| '@ultimabase/graphql-plugin'
 		| '@ultimabase/graphql-http'
 		| '@ultimabase/graphql-yoga-plugin'
-		| '@ultimabase/graphiql-plugin'
 		| '@ultimabase/http-plugin'
 		| '@ultimabase/password-auth-plugin'
 		| '@ultimabase/rest-plugin'
@@ -55,9 +55,14 @@ const fixtures: readonly OptionalProductFixture[] = [
 		removedNames: removedAccessPluginPublicApiNames,
 	},
 	{
-		classification: apolloSandboxPluginPublicApi,
-		moduleSpecifier: '@ultimabase/apollo-sandbox-plugin',
-		removedNames: removedApolloSandboxPluginPublicApiNames,
+		classification: apiServerPublicApi,
+		moduleSpecifier: '@ultimabase/api-server',
+		removedNames: removedApiServerPublicApiNames,
+	},
+	{
+		classification: graphqlExplorerPluginPublicApi,
+		moduleSpecifier: '@ultimabase/graphql-explorer-plugin',
+		removedNames: removedGraphqlExplorerPluginPublicApiNames,
 	},
 	{
 		classification: hooksPluginPublicApi,
@@ -78,11 +83,6 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: graphqlYogaPluginPublicApi,
 		moduleSpecifier: '@ultimabase/graphql-yoga-plugin',
 		removedNames: removedGraphqlYogaPluginPublicApiNames,
-	},
-	{
-		classification: graphiqlPluginPublicApi,
-		moduleSpecifier: '@ultimabase/graphiql-plugin',
-		removedNames: removedGraphiqlPluginPublicApiNames,
 	},
 	{
 		classification: httpPluginPublicApi,

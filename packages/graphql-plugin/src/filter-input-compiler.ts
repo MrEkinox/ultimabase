@@ -25,6 +25,11 @@ import {
 	type GraphqlCompileContext,
 } from './compile-context.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import {
+	narrowGraphqlOperators,
+	readDeclaredGraphqlOperators,
+	readGraphqlOperatorFamily,
+} from './declared-operators.js'
 import { GraphqlStructuralFilterInputCompiler } from './filter-structural-input-compiler.js'
 import { GraphqlJSON } from './scalars.js'
 import { isGraphqlBuiltInFieldKind } from './scalar-types.js'
@@ -158,7 +163,28 @@ export class GraphqlFilterInputCompiler {
 		})
 	}
 
+	/** The operators the adapter declares for one field, `undefined` for all. */
+	#declared(field: GenericField): ReadonlySet<string> | undefined {
+		return readDeclaredGraphqlOperators(
+			this.#ctx.filterOperators,
+			readGraphqlOperatorFamily(field),
+		)
+	}
+
+	/** Lists only the operators the adapter declares (ADR-0325, decision 5). */
 	#fieldFilterFields(
+		field: GenericField,
+		schema: SchemaDefinition,
+		path: readonly string[],
+		name: string,
+	): GraphQLInputFieldConfigMap {
+		return narrowGraphqlOperators(
+			this.#allFieldFilterFields(field, schema, path, name),
+			this.#declared(field),
+		)
+	}
+
+	#allFieldFilterFields(
 		field: GenericField,
 		schema: SchemaDefinition,
 		path: readonly string[],
@@ -231,7 +257,21 @@ export class GraphqlFilterInputCompiler {
 				hasAllKeys: { type: nonNullList(GraphQLString) },
 				hasAnyKeys: { type: nonNullList(GraphQLString) },
 				hasKey: { type: GraphQLString },
-				at: { type: nonNullList(this.#structural.pathFilter(schema, path)) },
+				at: {
+					type: nonNullList(
+						this.#structural.pathFilter(
+							schema,
+							path,
+							// An unstructured JSON path filters JSON values.
+							field.kind === 'json'
+								? readDeclaredGraphqlOperators(
+										this.#ctx.filterOperators,
+										'json',
+									)
+								: undefined,
+						),
+					),
+				},
 			})
 			if (field.kind === 'object') {
 				// Embedded objects compare against a typed partial instead of JSON.
@@ -258,13 +298,19 @@ export class GraphqlFilterInputCompiler {
 					OR: { type: nonNullList(result) },
 					NOT: { type: result },
 					...Object.fromEntries(
-						Object.entries(schema.persistedFields).map(([fieldName, field]) => {
-							assertSchemaFieldName(schema, [fieldName])
-							return [
-								fieldName,
-								{ type: this.#fieldFilter(field, schema, [fieldName]) },
-							]
-						}),
+						Object.entries(schema.persistedFields).flatMap(
+							([fieldName, field]) => {
+								assertSchemaFieldName(schema, [fieldName])
+								// A field without any declared operator cannot be filtered.
+								if (this.#declared(field)?.size === 0) return []
+								return [
+									[
+										fieldName,
+										{ type: this.#fieldFilter(field, schema, [fieldName]) },
+									],
+								]
+							},
+						),
 					),
 				}),
 			})

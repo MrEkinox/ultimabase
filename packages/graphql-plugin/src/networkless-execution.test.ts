@@ -82,7 +82,7 @@ const customSchema = (): GraphQLSchema =>
 const createFixture = (limits: GraphqlExecutionLimits = {}) => {
 	const application = new (UltimaBase.use(
 		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
+			publicWrites: true,
 			default: false,
 			limits,
 			schemas: [customSchema()],

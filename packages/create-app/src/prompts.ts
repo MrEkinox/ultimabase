@@ -170,10 +170,10 @@ const capabilityNotes = (plan: InitializerPlan): string[] => {
 		],
 		[
 			has('password-auth-plugin') && hasDataApi(plan),
-			'REST exposes the public Password Auth operations except the hidden ones, GraphQL its exact allowlist; add online-attempt defenses before public deployment.',
+			'REST and GraphQL expose the public Password Auth operations except the hidden ones; add online-attempt defenses before public deployment.',
 		],
 		[
-			has('graphiql-plugin') || has('apollo-sandbox-plugin'),
+			has('graphql-explorer-plugin'),
 			'Explorers and introspection are development-only.',
 		],
 		[

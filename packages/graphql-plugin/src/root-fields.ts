@@ -25,7 +25,10 @@ import type { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
 import type { GraphqlMutationOperation } from './mutation-normalization.js'
 import type { GraphqlReadOperation } from './read-normalization.js'
 import { GraphqlSafeInt } from './scalars.js'
-import type { GraphqlSchemaSurface } from './surfaces.js'
+import {
+	graphqlOperationMethods,
+	type GraphqlSchemaSurface,
+} from './surfaces.js'
 
 type RootFields = GraphQLFieldConfigMap<unknown, unknown>
 
@@ -39,14 +42,63 @@ export interface GraphqlRootCompilers {
 	readonly defaultTake: number
 }
 
+const readOperations: readonly GraphqlReadOperation[] = [
+	'get',
+	'findOne',
+	'findMany',
+	'count',
+	'exists',
+]
+const mutationOperations: readonly GraphqlMutationOperation[] = [
+	'create',
+	'update',
+	'delete',
+	'upsert',
+	'bulkCreate',
+	'bulkUpdate',
+	'bulkDelete',
+	'bulkUpsert',
+]
+
+/** Names one generated root field (`createTodo`, `createManyTodo`). */
+const rootFieldName = (
+	operation: GraphqlReadOperation | GraphqlMutationOperation,
+	typeName: string,
+): string =>
+	operation.startsWith('bulk')
+		? `${operation.replace('bulk', '').toLowerCase()}Many${typeName}`
+		: `${operation}${typeName}`
+
+/** A disabled root of an application schema names how to enable it (ADR-0325). */
+const addDisabledRootHints = (
+	ctx: GraphqlCompileContext,
+	surface: GraphqlSchemaSurface,
+): void => {
+	if (surface.owner.kind !== 'application') return
+	for (const [root, operations] of [
+		['Query', readOperations],
+		['Mutation', mutationOperations],
+	] as const) {
+		for (const operation of operations) {
+			if (surface[operation]) continue
+			ctx.hints.add(
+				root,
+				rootFieldName(operation, surface.typeName),
+				graphqlOperationMethods[operation],
+				surface.schema.className,
+			)
+		}
+	}
+}
+
 const addRoot = (
 	fields: RootFields,
 	surface: GraphqlSchemaSurface,
 	operation: GraphqlReadOperation | GraphqlMutationOperation,
-	fieldName: string,
 	config: () => GraphQLFieldConfig<unknown, unknown>,
 ): void => {
 	if (!surface[operation]) return
+	const fieldName = rootFieldName(operation, surface.typeName)
 	assertGraphqlFieldName(
 		fieldName,
 		`generated ${operation} operation for ${surface.schema.className}`,
@@ -76,7 +128,8 @@ export const compileGraphqlQueryFields = (
 	const { ctx, execution, fields: types, filters } = compilers
 	const fields: RootFields = {}
 	for (const surface of ctx.surfaces.values()) {
-		const { schema, typeName } = surface
+		addDisabledRootHints(ctx, surface)
+		const { schema } = surface
 		const where = { where: { type: filters.where(schema) } }
 		const model = types.model(schema)
 		const orderBy = { type: nonNullList(filters.order(schema)) }
@@ -87,7 +140,7 @@ export const compileGraphqlQueryFields = (
 			args: GraphQLFieldConfigArgumentMap,
 			type: GraphQLOutputType,
 		): void => {
-			addRoot(fields, surface, operation, `${operation}${typeName}`, () => ({
+			addRoot(fields, surface, operation, () => ({
 				args,
 				resolve: execution.read(schema, operation),
 				type,
@@ -127,10 +180,7 @@ const surfaceMutationFields = (
 		argument: GraphQLInputObjectType,
 		type: GraphQLOutputType,
 	): void => {
-		const fieldName = operation.startsWith('bulk')
-			? `${operation.replace('bulk', '').toLowerCase()}Many${typeName}`
-			: `${operation}${typeName}`
-		addRoot(fields, surface, operation, fieldName, () => ({
+		addRoot(fields, surface, operation, () => ({
 			args: { input: { type: new GraphQLNonNull(argument) } },
 			resolve: execution.mutation(schema, operation),
 			type,

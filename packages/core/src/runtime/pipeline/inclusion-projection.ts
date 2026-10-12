@@ -531,22 +531,23 @@ export class RuntimeInclusionProjector {
 				)
 			}
 
-			const hydrated: LogicalRecord[] = []
-			for (const [index, record] of result.entries()) {
-				const rawRecord: unknown = rawResult[index]
-				if (!isPlainRecord(record) || !isPlainRecord(rawRecord)) {
-					throw new TypeError('Runtime included source must be a record')
-				}
-				hydrated.push(
-					await this.#hydrateRecord(
+			// Each parent's included targets resolve in parallel (ADR-0325): a
+			// virtual field on them runs once per parent, not in series.
+			const hydrated = await Promise.all(
+				result.map((record, index) => {
+					const rawRecord: unknown = rawResult[index]
+					if (!isPlainRecord(record) || !isPlainRecord(rawRecord)) {
+						throw new TypeError('Runtime included source must be a record')
+					}
+					return this.#hydrateRecord(
 						context,
 						record,
 						rawRecord,
 						inclusions,
 						virtualScheduler,
-					),
-				)
-			}
+					)
+				}),
+			)
 			return restoreResult<TOperation>(immutableArray(hydrated))
 		}
 

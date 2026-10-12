@@ -36,7 +36,7 @@ export const compositionExamples = [
 		code: withTransport(
 			`import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'`,
-			`    graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+			`    graphqlPlugin({ publicWrites: true }),
     graphqlYogaPlugin(),`,
 		),
 		note: 'GraphQL builds the schema; Yoga mounts /graphql. HTTP and Hono handle local requests.',

@@ -12,7 +12,7 @@ import {
 	maximumGraphqlInt,
 	type NormalizedGraphqlExecutionLimits,
 } from './connection-limits.js'
-import { assertGraphqlKnownKeys } from './options.js'
+import { assertGraphqlKnownKeys } from './known-keys.js'
 import { effectiveGraphqlConnectionOrdering } from './read-normalization.js'
 import { decodeGraphqlWhere } from './wire-values.js'
 
@@ -33,6 +33,23 @@ export interface GraphqlConnectionPagePlan {
 
 // Plans are opaque tokens: their state is reachable only through this module.
 const pagePlanStates = new WeakMap<GraphqlConnectionPagePlan, PagePlanState>()
+
+/** The filter a root connection's `totalCount` counts with (ADR-0325). */
+export interface GraphqlConnectionCount {
+	readonly schema: SchemaDefinition
+	readonly where: unknown
+}
+
+// Only root connections carry a count; relation connections never do.
+const connectionCounts = new WeakMap<object, GraphqlConnectionCount>()
+
+/** Reads the count filter of a root connection, `undefined` for a relation one. */
+export const readGraphqlConnectionCount = (
+	connection: unknown,
+): GraphqlConnectionCount | undefined =>
+	typeof connection === 'object' && connection !== null
+		? connectionCounts.get(connection)
+		: undefined
 
 export interface GraphqlPreparedConnection {
 	readonly clauses: Readonly<Record<string, unknown>>
@@ -153,6 +170,7 @@ export class GraphqlConnectionRuntime {
 	page<TNode>(
 		plan: GraphqlConnectionPagePlan,
 		items: readonly TNode[],
+		count?: GraphqlConnectionCount,
 	): GraphqlConnection<TNode> {
 		this.#assertActive()
 		if (!isUnknownArray(items)) {
@@ -174,7 +192,7 @@ export class GraphqlConnectionRuntime {
 				}),
 			),
 		)
-		return immutableRecord({
+		const connection = immutableRecord({
 			edges,
 			nodes,
 			pageInfo: immutableRecord({
@@ -184,6 +202,8 @@ export class GraphqlConnectionRuntime {
 				startCursor: edges[0]?.cursor ?? null,
 			}),
 		})
+		if (count !== undefined) connectionCounts.set(connection, count)
+		return connection
 	}
 
 	dispose(): void {

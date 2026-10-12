@@ -43,13 +43,12 @@ const databasePlugin = plugin({
 
 const Application = UltimaBase.use(
 	databasePlugin,
-	graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+	graphqlPlugin({ publicWrites: true }),
 )
 const Target = Application.Schema.define({
 	className: 'JavaScriptGraphqlTarget',
 	fields: (field) => ({ score: field.bigint() }),
-	graphql: true,
-})
+}).with({ graphql: true })
 
 const Note = Application.Schema.define({
 	className: 'JavaScriptGraphqlNote',
@@ -77,8 +76,7 @@ const Note = Application.Schema.define({
 			select: { title: true },
 		}),
 	}),
-	graphql: true,
-})
+}).with({ graphql: true })
 const ultimabase = new Application({
 	logger: false,
 	schemas: [Target, Note],

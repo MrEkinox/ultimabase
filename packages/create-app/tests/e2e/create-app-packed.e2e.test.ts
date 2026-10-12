@@ -19,8 +19,7 @@ const packageRoot = path.join(repositoryRoot, 'packages/create-app')
 const officialPluginIds = [
 	'access-plugin',
 	'acl-permissions-plugin',
-	'apollo-sandbox-plugin',
-	'graphiql-plugin',
+	'graphql-explorer-plugin',
 	'graphql-plugin',
 	'graphql-yoga-plugin',
 	'hooks-plugin',
@@ -33,6 +32,15 @@ const officialPluginIds = [
 	'soft-delete-plugin',
 	'validation-plugin',
 ] as const
+
+// apiServer() installs these HTTP plugins in generated sources (ADR-0325).
+const apiServerPluginIds: ReadonlySet<string> = new Set([
+	'graphql-explorer-plugin',
+	'graphql-yoga-plugin',
+	'hono-server-plugin',
+	'http-plugin',
+	'rest-plugin',
+])
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -201,7 +209,11 @@ describe('packed initializer outside the repository', () => {
 			)
 			const applicationGraphSource = application + schema
 			expect(manifest).toContain(`"@ultimabase/${id}"`)
-			expect(applicationGraphSource).toContain(`'@ultimabase/${id}'`)
+			expect(applicationGraphSource).toContain(
+				apiServerPluginIds.has(id)
+					? "'@ultimabase/api-server'"
+					: `'@ultimabase/${id}'`,
+			)
 			expect(applicationGraphSource).not.toContain('/src/')
 			await symlink(
 				path.join(repositoryRoot, 'node_modules'),

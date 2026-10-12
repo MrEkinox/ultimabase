@@ -1,6 +1,9 @@
 import process from 'node:process'
 
-import { databaseAdapterCapability } from '@ultimabase/core'
+import {
+	databaseAdapterCapability,
+	databaseFilterOperatorsCapability,
+} from '@ultimabase/core'
 import {
 	contributeApplication,
 	contributeDeclarations,
@@ -38,6 +41,7 @@ import type {
 } from '../connection/settings.js'
 import { postgresPluginName } from '../constants.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
+import { postgresFilterOperatorCapability } from '../drizzle/filter-operators.js'
 import {
 	postgresFieldOption,
 	postgresSchemaOption,
@@ -203,6 +207,7 @@ const postgresPluginEnvironment = ['environment:network'] as const
 type PostgresPluginCapabilities = readonly [
 	CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
 	CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
+	CapabilityProviderDeclaration<typeof databaseFilterOperatorsCapability>,
 	typeof connectionRequirement,
 ]
 
@@ -298,6 +303,14 @@ export const postgresPlugin = (
 			}
 		},
 	})
+	// The adapter's operators, readable before it connects (ADR-0325).
+	const operatorsProvider = provideCapability(
+		databaseFilterOperatorsCapability,
+		{
+			contributionId: 'filter-operators',
+			value: postgresFilterOperatorCapability,
+		},
+	)
 	const adapterProvider = provideCapability(databaseAdapterCapability, {
 		contributionId: 'database-adapter',
 		create: ({ capabilities, schemas }) => {
@@ -373,6 +386,7 @@ export const postgresPlugin = (
 		contributions: [
 			connectionProvider,
 			adapterProvider,
+			operatorsProvider,
 			connectionRequirement,
 			declarations,
 			application,

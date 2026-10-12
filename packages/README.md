@@ -33,8 +33,8 @@ alternatives use the same generic public kernel.
 - `graphql-plugin`
 - `graphql-http` (provider-neutral contract; not a plugin)
 - `graphql-yoga-plugin`
-- `graphiql-plugin`
-- `apollo-sandbox-plugin`
+- `graphql-explorer-plugin` (GraphiQL or Apollo Sandbox)
+- `api-server` (preset returning the API plugins; not a plugin)
 - `password-auth-plugin`
 
 ## Planned plugin packages

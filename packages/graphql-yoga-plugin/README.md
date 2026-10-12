@@ -10,7 +10,8 @@ configured path without importing Yoga or choosing among endpoints.
 The Yoga plugin itself returns no setup value through `ultimabase.plugin()`.
 
 The package does not install GraphQL, HTTP, authentication, or a server. The
-application must configure those sibling plugins explicitly:
+application configures those sibling plugins explicitly, or installs them all
+with `apiServer({ graphql: true })` from `@ultimabase/api-server` (ADR-0325):
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
@@ -20,22 +21,19 @@ import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
-const SchemaApplication = UltimaBase.use(
-	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
+// postgresPlugin() reads DATABASE_URL at start (ADR-0312).
+const Application = UltimaBase.use(
+	graphqlPlugin({ default: false }),
+	postgresPlugin({ schemaPolicy: 'override' }),
+	httpPlugin(),
+	graphqlYogaPlugin(),
+	honoServerPlugin(),
 )
-const Post = SchemaApplication.Schema.define({
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-	graphql: { operations: { get: true, findMany: true } },
-})
+}).with({ graphql: { findOne: true, findMany: true } })
 
-// postgresPlugin() reads DATABASE_URL at start (ADR-0312).
-const Application = SchemaApplication.use(
-	postgresPlugin({ schemaPolicy: 'override' }),
-)
-	.use(httpPlugin({ appId: 'notes' }))
-	.use(graphqlYogaPlugin())
-	.use(honoServerPlugin())
 export const ultimabase = new Application({
 	schemas: [Post],
 })
@@ -43,15 +41,15 @@ export const ultimabase = new Application({
 await using app = await ultimabase.start()
 ```
 
-This local example exposes two reads and needs a disposable PostgreSQL database;
-`override` may create or alter tables. The acknowledgement does not grant access.
+This local example exposes reads only and needs a disposable PostgreSQL
+database; `override` may create or alter tables.
 Configure and review authorization before public deployment. The
 [website GraphQL guide](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
 includes the complete installation and matching HTTP request.
 
 `graphqlYogaPlugin()` mounts `POST /graphql` by default. It accepts only UTF-8
 JSON GraphQL requests, rejects batching, uploads, subscriptions, SSE, and the
-built-in GraphiQL UI, and limits streamed request bodies to 1 MiB. HTTP
+built-in GraphiQL UI (`@ultimabase/graphql-explorer-plugin` serves one), and limits streamed request bodies to 1 MiB. HTTP
 introspection follows `NODE_ENV` (ADR-0312): the plugin reads it when created,
 enabling introspection in development and disabling it when `NODE_ENV` is
 `production`; an explicit `introspection` always wins, and `logLevel: 'debug'`
@@ -74,7 +72,10 @@ graphqlYogaPlugin({
 The HTTP plugin selects the application, resolves its request context and
 credentials, and exchanges an enabled Master key before Yoga runs. Yoga sees
 only that active context and delegates execution to the same narrow GraphQL
-application capability used by networkless execution.
+application capability used by networkless execution. It validates documents
+with the application's `validationRules`, so a field a disabled feature leaves
+out answers `400` with the same `hint: enable graphql: { … } on …` as
+networkless execution (ADR-0325).
 
 Virtual fields require no Yoga-specific resolver or configuration. Their
 selection, request-aware asynchronous resolution, output validation, Access,

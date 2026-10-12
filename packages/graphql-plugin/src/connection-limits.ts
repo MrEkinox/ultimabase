@@ -1,6 +1,6 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { assertGraphqlKnownKeys } from './options.js'
+import { assertGraphqlKnownKeys } from './known-keys.js'
 
 /** The largest value of the GraphQL `Int` scalar. */
 export const maximumGraphqlInt = 2_147_483_647

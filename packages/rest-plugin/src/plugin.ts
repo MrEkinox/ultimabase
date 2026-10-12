@@ -298,20 +298,15 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				startTransports: () => {
 					const executor = capabilities.get(requestExecutionRequirement)
 					assertPublicWrites(ownRoutes, executor, normalized.publicWrites)
-					// REST settles ADR-0294 itself; Core's unverified-protection
-					// warning stays only for GraphQL until migration step 6.6c.
-					const handled = { acknowledgeUnverifiedProtection: true } as const
 					// Core exposes only the exact allowlists compiled into this route graph.
 					operations?.[1](
 						executor.exposeOperations({
-							...handled,
 							operations: operationRoutes.map(({ operation }) => operation),
 							transport: restProtocol,
 						}),
 					)
 					schemaMutations?.[1](
 						executor.exposeSchemaMutations({
-							...handled,
 							bindings: 'optional',
 							transport: restProtocol,
 						}),

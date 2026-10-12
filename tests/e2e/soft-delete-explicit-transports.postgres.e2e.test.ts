@@ -34,6 +34,7 @@ const SchemaApplication = UltimaBase.use(
 	hooksPlugin(),
 	accessPlugin(),
 	restPlugin(),
+	graphqlPlugin(),
 )
 const Explicit = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportExplicit',
@@ -41,8 +42,10 @@ const Explicit = SchemaApplication.Schema.define({
 })
 	.softDelete({ mode: 'command' })
 	.with({
-		// ADR-0324: REST exposes a plugin command only when its rule names it.
+		// ADR-0324, ADR-0325: a transport exposes a plugin command only when
+		// its rule names it.
 		rest: { restoreOne: true, softDeleteOne: true },
+		graphql: { restoreOne: true, softDeleteOne: true },
 		access: {
 			create: true,
 			delete: true,
@@ -75,7 +78,10 @@ const Replace = SchemaApplication.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 	.softDelete()
-	.with({ rest: { restoreOne: true, softDeleteOne: true } })
+	.with({
+		graphql: { restoreOne: true, softDeleteOne: true },
+		rest: { restoreOne: true, softDeleteOne: true },
+	})
 
 const Disabled = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportDisabled',
@@ -108,10 +114,7 @@ const createUltimabase = (database: PostgresWorkerFixture) =>
 		hooksPlugin(),
 		accessPlugin({ allowWithoutRule: { all: true } }),
 		restPlugin(),
-		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
-			default: { mutations: true },
-		}),
+		graphqlPlugin(),
 		graphqlYogaPlugin(),
 		httpPlugin({ appId: 'soft-delete-transports' }),
 		capturePlugin,

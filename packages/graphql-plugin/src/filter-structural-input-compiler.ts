@@ -20,6 +20,7 @@ import {
 	type GraphqlCompileContext,
 } from './compile-context.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import { narrowGraphqlOperators } from './declared-operators.js'
 import { GraphqlJSON } from './scalars.js'
 
 /** Compiles shared read inputs, recursive JSON paths and embedded partials. */
@@ -92,6 +93,7 @@ export class GraphqlStructuralFilterInputCompiler {
 	pathFilter(
 		schema: SchemaDefinition,
 		path: readonly string[],
+		declared?: ReadonlySet<string>,
 	): GraphQLInputObjectType {
 		return memoize(this.#pathFilters, fieldPathKey(schema, path), () => {
 			const name = `${this.#ctx.typeName(schema, path)}PathWhere`
@@ -127,7 +129,10 @@ export class GraphqlStructuralFilterInputCompiler {
 			}
 			return this.#ctx.add(
 				'structural',
-				new GraphQLInputObjectType({ name, fields }),
+				new GraphQLInputObjectType({
+					name,
+					fields: narrowGraphqlOperators(fields, declared),
+				}),
 			)
 		})
 	}

@@ -79,19 +79,30 @@ describe('graphqlPlugin', () => {
 		expect(plugin.manifest.identity).not.toHaveProperty('instanceId')
 	})
 
+	it('claims the filesystem only when it writes the SDL', () => {
+		expect(
+			graphqlPlugin({ sdl: './schema.graphql' }).manifest.environment,
+		).toStrictEqual(['environment:filesystem'])
+	})
+
 	it.each([
-		[{ acknowledgeUnverifiedProtection: false }, 'must be true'],
-		[{ default: { get: 'yes' } }, 'must be a boolean'],
+		[{ acknowledgeUnverifiedProtection: true }, 'Unknown'],
+		[{ default: { count: 'yes' } }, 'must be a boolean'],
+		[{ default: { get: true } }, 'unknown method: get'],
+		[{ default: { softDeleteOne: true } }, 'unknown method'],
+		[{ publicWrites: 'yes' }, 'publicWrites must be a boolean'],
+		[{ sdl: '' }, 'sdl must be a non-empty file path'],
 		[{ limits: null }, 'plain object'],
 		[{ pagination: { maxTake: 0 } }, 'greater than or equal to 1'],
 		[{ pagination: { defaultTake: 10, maxTake: 5 } }, 'must not exceed'],
 		[{ limits: { maxPageSize: 10 } }, 'unknown option'],
 		[{ limits: { unknown: 1 } }, 'unknown option'],
-		[{ operations: null }, 'must be an array'],
-		[{ operations: [{}] }, 'must be an operation token'],
-		[{ operations: [optionOperation, optionOperation] }, 'repeats'],
+		[{ operations: [optionOperation] }, 'Unknown'],
+		[{ hide: null }, 'must be an array'],
+		[{ hide: [{}] }, 'must be an operation token'],
+		[{ hide: [optionOperation, optionOperation] }, 'repeats'],
 		[
-			{ operations: [{ ...optionOperation, target: 'schema' }] },
+			{ hide: [{ ...optionOperation, target: 'schema' }] },
 			'must be an operation token',
 		],
 		[{ schemas: null }, 'must be an array'],
@@ -101,52 +112,44 @@ describe('graphqlPlugin', () => {
 		expect(() => graphqlPlugin(options as never)).toThrow(message)
 	})
 
-	it('shares the Core public-protection diagnostic and honors acknowledgment', async () => {
+	it('refuses public writes without a protected policy unless publicWrites (ADR-0294)', async () => {
 		const PublicRecord = UltimaBase.Schema.define({
 			className: 'GraphqlProtectionRecord',
 			fields: (field) => ({ value: field.string() }),
 		})
+		const refused = new (UltimaBase.use(
+			graphqlPlugin(),
+			protectionDatabasePlugin,
+		))({ logger: false, schemas: [PublicRecord] })
+		await expect(refused.start()).rejects.toThrow(
+			'GraphQL exposes writes (createGraphqlProtectionRecord, updateGraphqlProtectionRecord, deleteGraphqlProtectionRecord) but no protected policy plugin is installed: install one, such as accessPlugin(), or pass graphqlPlugin({ publicWrites: true }) to let every client write.',
+		)
+		await refused.dispose()
+
+		const readOnly = new (UltimaBase.use(
+			graphqlPlugin({
+				default: { createOne: false, deleteOne: false, updateOne: false },
+			}),
+			protectionDatabasePlugin,
+		))({ logger: false, schemas: [PublicRecord] })
+		await readOnly.start()
+		await readOnly.dispose()
+
 		const warning = vi
 			.spyOn(console, 'warn')
 			.mockImplementation(() => undefined)
-		const unacknowledged = new (UltimaBase.use(
-			graphqlPlugin(),
+		const opted = new (UltimaBase.use(
+			graphqlPlugin({ publicWrites: true }),
 			protectionDatabasePlugin,
 		))({ schemas: [PublicRecord] })
-		await unacknowledged.start()
+		await opted.start()
+		// The unverified-protection warning of Core is gone (ADR-0325).
 		expect(
 			warning.mock.calls.some((call) =>
-				call.some(
-					(value) =>
-						typeof value === 'object' &&
-						value !== null &&
-						Reflect.get(value, 'code') ===
-							'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION' &&
-						Reflect.get(Reflect.get(value, 'transport'), 'name') ===
-							'ultimabase.graphql',
-				),
-			),
-		).toBe(true)
-		await unacknowledged.dispose()
-
-		warning.mockClear()
-		const acknowledged = new (UltimaBase.use(
-			graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-			protectionDatabasePlugin,
-		))({ schemas: [PublicRecord] })
-		await acknowledged.start()
-		expect(
-			warning.mock.calls.some((call) =>
-				call.some(
-					(value) =>
-						typeof value === 'object' &&
-						value !== null &&
-						Reflect.get(value, 'code') ===
-							'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
-				),
+				call.some((value) => String(value).includes('unverified')),
 			),
 		).toBe(false)
-		await acknowledged.dispose()
+		await opted.dispose()
 		warning.mockRestore()
 	})
 
@@ -156,7 +159,7 @@ describe('graphqlPlugin', () => {
 			fields: (field) => ({ value: field.string() }),
 		})
 		const application = new (UltimaBase.use(
-			graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+			graphqlPlugin({ publicWrites: true }),
 			protectionDatabasePlugin,
 		))({
 			logger: false,

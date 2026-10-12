@@ -27,11 +27,9 @@ import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js
 const VirtualStatus = defineEnum('VirtualStatus', ['ready'])
 
 const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
-const outputOnly = { graphql: true }
 
 const defineVirtualSchema = () =>
 	GraphqlSchemaApplication.Schema.define({
-		...outputOnly,
 		className: 'GraphqlVirtualShape',
 		fields: (field) => ({
 			title: field.string(),
@@ -129,13 +127,13 @@ const defineVirtualSchema = () =>
 				select: { id: true },
 			}),
 		}),
-	})
+	}).with({ graphql: true })
 
 const customSummaryExtension = () =>
 	new GraphQLSchema({
 		query: new GraphQLObjectType({
 			name: 'Query',
-			fields: { health: { type: GraphQLString } },
+			fields: { ping: { type: GraphQLString } },
 		}),
 		types: [
 			new GraphQLObjectType({
@@ -309,7 +307,7 @@ describe('GraphQL virtual schema compilation', () => {
 		const custom = new GraphQLSchema({
 			query: new GraphQLObjectType({
 				name: 'Query',
-				fields: { health: { type: GraphQLString } },
+				fields: { ping: { type: GraphQLString } },
 			}),
 			types: [
 				new GraphQLObjectType({

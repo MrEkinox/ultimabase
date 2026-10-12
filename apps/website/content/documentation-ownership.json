@@ -67,6 +67,7 @@
 		{
 			"id": "http-and-transports",
 			"packages": [
+				"@ultimabase/api-server",
 				"@ultimabase/graphql-http",
 				"@ultimabase/graphql-plugin",
 				"@ultimabase/graphql-yoga-plugin",
@@ -104,10 +105,7 @@
 		},
 		{
 			"id": "api-explorers",
-			"packages": [
-				"@ultimabase/apollo-sandbox-plugin",
-				"@ultimabase/graphiql-plugin"
-			],
+			"packages": ["@ultimabase/graphql-explorer-plugin"],
 			"sections": ["plugins/official/graphql", "reference"]
 		}
 	]

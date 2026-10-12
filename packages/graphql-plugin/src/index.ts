@@ -7,18 +7,18 @@ export type {
 	GraphqlExecutionLimits,
 	GraphqlPaginationOptions,
 } from './connection-limits.js'
-export type {
-	GraphqlBulkOperations,
-	GraphqlSchemaExposure,
-	GraphqlSchemaExposureOption,
-	GraphqlSchemaOperations,
-} from './options.js'
+export type { GraphqlPluginOptions } from './options.js'
 export { graphqlPlugin } from './plugin.js'
+export type { GraphqlPlugin, GraphqlPluginExports } from './plugin.js'
 export type {
-	GraphqlPlugin,
-	GraphqlPluginExports,
-	GraphqlPluginOptions,
-} from './plugin.js'
+	GraphqlCommandName,
+	GraphqlMethodName,
+	GraphqlMethodRules,
+	GraphqlRules,
+	GraphqlSchemaRule,
+	GraphqlSchemaRules,
+	GraphqlTypeNameRule,
+} from './rules.js'
 export {
 	graphqlSchemaContributionsCapability,
 	provideGraphqlSchemas,

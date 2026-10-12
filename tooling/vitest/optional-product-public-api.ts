@@ -294,24 +294,27 @@ export const graphqlPluginPublicApi = {
 		'GraphqlApplication',
 		'GraphqlBase64',
 		'GraphqlBigInt',
-		'GraphqlBulkOperations',
+		'GraphqlCommandName',
 		'GraphqlDate',
 		'GraphqlDateTime',
 		'GraphqlDecimal',
 		'GraphqlExecutionLimits',
 		'GraphqlExecuteOptions',
 		'GraphqlJSON',
+		'GraphqlMethodName',
+		'GraphqlMethodRules',
 		'GraphqlPaginationOptions',
 		'GraphqlPlugin',
 		'GraphqlPluginExports',
 		'GraphqlPluginOptions',
+		'GraphqlRules',
 		'GraphqlSafeInt',
 		'GraphqlSchemaCompilationError',
 		'GraphqlSchemaCompilationFailureReason',
-		'GraphqlSchemaExposure',
-		'GraphqlSchemaExposureOption',
-		'GraphqlSchemaOperations',
+		'GraphqlSchemaRule',
+		'GraphqlSchemaRules',
 		'GraphqlTime',
+		'GraphqlTypeNameRule',
 		'GraphqlUUID',
 		'graphqlPlugin',
 	],
@@ -353,23 +356,23 @@ export const graphqlHttpPublicApi = {
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
 
-export const graphiqlPluginPublicApi = {
+export const graphqlExplorerPluginPublicApi = {
 	applicationApi: [
-		'GraphiqlEnvironment',
-		'GraphiqlPlugin',
-		'GraphiqlPluginOptions',
-		'graphiqlPlugin',
+		'GraphqlExplorerEnvironment',
+		'GraphqlExplorerPlugin',
+		'GraphqlExplorerPluginOptions',
+		'GraphqlExplorerUi',
+		'graphqlExplorerPlugin',
 	],
 	compatibleProviderContract: [],
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi
-
-export const apolloSandboxPluginPublicApi = {
+export const apiServerPublicApi = {
 	applicationApi: [
-		'ApolloSandboxEnvironment',
-		'ApolloSandboxPlugin',
-		'ApolloSandboxPluginOptions',
-		'apolloSandboxPlugin',
+		'ApiServerGraphqlOptions',
+		'ApiServerOptions',
+		'ApiServerPlugins',
+		'apiServer',
 	],
 	compatibleProviderContract: [],
 	conformanceSupport: [],
@@ -481,11 +484,16 @@ export const removedRestPluginPublicApiNames = [
 
 /** Names GraphQL compilation details deliberately kept out of the root API. */
 export const removedGraphqlPluginPublicApiNames = [
+	// ADR-0325: `.with({ graphql })` keys are the schema method names.
+	'GraphqlBulkOperations',
 	'GraphqlFieldTypeCompiler',
 	// Cursor failures are Core's `after` VALIDATION_ERROR (ADR-0309).
 	'GraphqlInvalidCursorError',
 	'GraphqlOperationExecution',
 	'GraphqlOperationSchemaCompiler',
+	'GraphqlSchemaExposure',
+	'GraphqlSchemaExposureOption',
+	'GraphqlSchemaOperations',
 	'collectGraphqlSchemaSurfaces',
 	'compileGraphqlSchema',
 	'graphqlSchemaOption',
@@ -513,16 +521,18 @@ export const removedGraphqlHttpPublicApiNames = [
 	'assertNormalizedPath',
 ] as const
 
-/** Names GraphiQL browser implementation details kept private. */
-export const removedGraphiqlPluginPublicApiNames = [
-	'GraphiqlPluginExports',
-	'createGraphiqlPageResponse',
-	'normalizeGraphiqlPluginOptions',
+/** Names preset internals kept private (ADR-0325). */
+export const removedApiServerPublicApiNames = [
+	'ApiServerPluginOptions',
+	'asOptions',
 ] as const
 
-/** Names Apollo Sandbox browser implementation details kept private. */
-export const removedApolloSandboxPluginPublicApiNames = [
-	'ApolloSandboxPluginExports',
+/** Names explorer page and normalization details kept private (ADR-0325). */
+export const removedGraphqlExplorerPluginPublicApiNames = [
+	'GraphqlExplorerPluginExports',
 	'createApolloSandboxPageResponse',
-	'normalizeApolloSandboxPluginOptions',
+	'createGraphiqlPageResponse',
+	'graphiqlImports',
+	'graphiqlIntegrity',
+	'normalizeGraphqlExplorerPluginOptions',
 ] as const

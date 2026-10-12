@@ -105,6 +105,7 @@ export {
 } from './database/contracts.js'
 export {
 	databaseFilterOperatorCapabilityVersion,
+	databaseFilterOperatorsCapability,
 	databasePartialIndexCapability,
 	databasePartialIndexCapabilityVersion,
 } from './database/adapter-capabilities.js'
@@ -197,8 +198,6 @@ export type {
 	PluginOperationExecutionTarget,
 	PluginOperationHandler,
 	PluginOperationHandlerInput,
-	PublicTransportProtectionOptions,
-	PublicTransportProtectionWarning,
 } from './plugin-operations/index.js'
 export type {
 	DatabasePersistencePlan,

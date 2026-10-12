@@ -176,7 +176,9 @@ immutability, indexes, generators, validation hooks, relationships, or storage
 metadata. `output.object({ fields })` recursively preserves an exact readonly
 object shape; each property is present, while its own descriptor decides whether
 its value may be `null`. Schema declarations consume these descriptors through
-`field.virtual({ output, select, resolve })`. A virtual field belongs to the
+`field.virtual({ output, select, resolve })`, or `resolveMany({ context, items })`
+returning one value per item to resolve every row of one read in one call
+(ADR-0325). A virtual field belongs to the
 selectable result shape but not to persisted `SchemaItem`, mutation inputs,
 filters, ordering, indexes, migrations, or adapter fields. Its flat `select`
 names the persisted scalar, object, or pointer values required by its synchronous
@@ -187,7 +189,8 @@ receive the exact request context and an immutable dependency item, execute in
 deterministic batches of at most 16, and have their returned value structurally
 validated before exposure. Mutation virtuals resolve before commit, while eager
 pointer and relation targets use the same operation-local scheduler under their
-own target policy. See the
+own target policy; the included targets of several parents resolve in
+parallel. See the
 [virtual-field examples](examples/schema/virtual-fields.md) for primitive,
 object, nullable, list, request-context, and asynchronous declarations.
 
@@ -772,17 +775,13 @@ A schema-mutation provider with no selected schema alias stays dormant
 and contributes no transport descriptor or route. Its presence alone is not an
 unused-binding startup error.
 
-Core cannot prove complete transport coverage from arbitrary policy callbacks.
-Every exposure that has not acknowledged that uncertainty emits one structured
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` warning per transport protocol. Its
-`policy.providerPresence` distinguishes `none` from `present`, while
-`policy.coverage` remains `unverified` in both cases. Official Access, ACL, a
-community engine, an unrelated policy, and a no-op policy therefore never
-silence the warning merely by being installed:
+Core cannot prove complete transport coverage from arbitrary policy callbacks
+and reports nothing about it (ADR-0325): a transport reads
+`hasProtectedPolicy()` and refuses public writes without a policy unless the
+application opts in (ADR-0294). An exposure only selects operations:
 
 ```ts
 const exposed = ultimabase.exposeOperations({
-	acknowledgeUnverifiedProtection: true,
 	operations: [publicStatus],
 	transport: httpProtocol,
 })
@@ -863,21 +862,11 @@ delegates to the same schema-command normalizers as direct class calls. The
 facade therefore cannot execute an arbitrary AST or control transactions, while
 bulk commands retain their ordered itemized all-or-nothing semantics.
 
-Generated schema transports may call
-`reportPublicTransportProtection({ transport })` to share the same
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic as operation exposures;
-REST instead reads `hasProtectedPolicy()` and refuses public writes without a
-policy (ADR-0294), and GraphQL follows in migration step 6.6c.
-Passing `acknowledgeUnverifiedProtection: true` records the developer's explicit
-acceptance without claiming that installed policy providers cover every route.
-Execution is available only after the whole application has started and expires
-on stop or disposal.
-
-The acknowledgement accepts only Core's inability to verify complete coverage.
-It never declares policy coverage, installs behavior, grants authority, or
-relocates or exposes Core Master authority. Core intentionally defines no
-self-asserted complete-coverage boolean; such a protocol requires independently
-specified executable proof semantics.
+REST and GraphQL read `hasProtectedPolicy()` and refuse public writes without
+a policy (ADR-0294, ADR-0325). Execution is available only after the whole
+application has started and expires on stop or disposal. Core intentionally
+defines no self-asserted complete-coverage boolean; such a protocol requires
+independently specified executable proof semantics.
 
 Core preserves stable token input and result precision, stable schema-class
 precision, and safe dynamic JavaScript access. The generated registry adds exact
@@ -2191,7 +2180,10 @@ offers and Core does not emulate it.
   start.
 - **Capabilities (ADR-0301, ADR-0303).** `filterOperators` lists the built-in
   filter discriminants executed per field family (a missing entry means
-  unsupported); `partialIndexes` allows indexes with `where`. Application start
+  unsupported); the database plugin also provides the same declaration through
+  the declaration-lifetime `databaseFilterOperatorsCapability`, so a transport
+  compiling its schema before any connection, such as GraphQL, lists only
+  these operators (ADR-0325). `partialIndexes` allows indexes with `where`. Application start
   fails with `PLUGIN_ADAPTER_CAPABILITY_MISSING` when a partial index, its
   operators, a plugin containment field or a relation field needs a capability
   the adapter lacks.

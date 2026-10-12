@@ -11,8 +11,11 @@ import {
 	graphqlSchemaContributionsCapability,
 	provideGraphqlSchemas,
 	type GraphqlExecuteOptions,
+	type GraphqlMethodRules,
 	type GraphqlPlugin,
 	type GraphqlPluginExports,
+	type GraphqlSchemaRule,
+	type GraphqlTypeNameRule,
 } from './index.js'
 
 const operationValue = defineOperationValue((value: unknown): null => {
@@ -34,25 +37,37 @@ test('preserves plugin and configured schema option types', async () => {
 	const Post = App.Schema.define({
 		className: 'Post',
 		fields: (field) => ({ title: field.string({ required: true }) }),
+	}).with({
+		// The keys are the schema method names (ADR-0325).
 		graphql: {
-			operations: {
-				bulk: { create: true },
-				get: true,
-				mutations: true,
-				upsert: false,
-			},
+			createMany: true,
+			findOne: true,
 			typeName: 'Article',
+			upsertOne: false,
+		},
+	})
+	App.Schema.define({
+		className: 'Hidden',
+		fields: () => ({}),
+	}).with({
+		graphql: {
+			// @ts-expect-error -- `operations` and `get` are gone (ADR-0325).
+			operations: { get: true },
 		},
 	})
 	const limited = graphqlPlugin({
 		limits: { maxDepth: 10 },
 		pagination: { defaultTake: 10, maxTake: 50 },
 	})
-	const withOperation = graphqlPlugin({ operations: [applicationOperation] })
+	const withOperation = graphqlPlugin({
+		hide: [applicationOperation],
+		publicWrites: true,
+		sdl: './schema.graphql',
+	})
 	const customSchema = new GraphQLSchema({
 		query: new GraphQLObjectType({
 			name: 'Query',
-			fields: { health: { type: GraphQLString } },
+			fields: { ping: { type: GraphQLString } },
 		}),
 	})
 	const withSchema = graphqlPlugin({ schemas: [customSchema] })
@@ -77,6 +92,9 @@ test('preserves plugin and configured schema option types', async () => {
 	)
 	expectTypeOf(exports).toExtend<Readonly<GraphqlPluginExports>>()
 	expectTypeOf(exports.schema).toEqualTypeOf<GraphQLSchema>()
+	expectTypeOf<GraphqlSchemaRule>().toEqualTypeOf<
+		boolean | (GraphqlMethodRules & GraphqlTypeNameRule)
+	>()
 	expectTypeOf<
 		Parameters<typeof exports.execute>[0]
 	>().toEqualTypeOf<GraphqlExecuteOptions>()
@@ -111,7 +129,21 @@ test('rejects invalid connection limit types', () => {
 		},
 	})
 	graphqlPlugin({
-		// @ts-expect-error GraphQL custom roots accept application operations only
-		operations: [{ ...applicationOperation, target: 'schema' }],
+		// @ts-expect-error hiding accepts application operations only
+		hide: [{ ...applicationOperation, target: 'schema' }],
+	})
+	graphqlPlugin({
+		// @ts-expect-error owners declare public operations (ADR-0325)
+		operations: [applicationOperation],
+	})
+	graphqlPlugin({
+		// @ts-expect-error ADR-0294 replaced the acknowledgement by publicWrites
+		acknowledgeUnverifiedProtection: true,
+	})
+	graphqlPlugin({
+		default: {
+			// @ts-expect-error the keys are the schema method names (ADR-0325)
+			get: true,
+		},
 	})
 })

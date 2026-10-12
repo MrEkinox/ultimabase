@@ -464,7 +464,9 @@ A partial index declared with `where` (ADR-0303) compiles to
 Its physical name includes a hash of the predicate, so synchronization replaces
 an index whose predicate changed, and introspection records the live
 predicate. The adapter declares the `partialIndexes` capability and every
-built-in filter operator in `filterOperators` (ADR-0301).
+built-in filter operator in `filterOperators` (ADR-0301), and provides the same
+declaration through `databaseFilterOperatorsCapability` before it connects, so
+GraphQL filter inputs list only these operators (ADR-0325).
 If a concurrent insert collides on another unique index, the adapter rechecks
 only the declared target before choosing the update branch. An unrelated
 conflict fails instead of updating a row selected by that other index.

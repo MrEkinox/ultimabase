@@ -10,19 +10,13 @@ import {
 } from './compile-context.js'
 import { GraphqlSchemaCompilationError } from './errors.js'
 import {
-	readGraphqlSchemaExposure,
-	type GraphqlBulkOperations,
-	type GraphqlSchemaExposureOption,
-	type GraphqlSchemaOperations,
-} from './options.js'
+	isGraphqlMethodEnabled,
+	readGraphqlSchemaRule,
+	type GraphqlMethodName,
+	type NormalizedGraphqlRule,
+} from './rules.js'
 
-type GeneratedOperation = Exclude<
-	keyof GraphqlSchemaOperations,
-	'bulk' | 'mutations'
->
-type BulkOperation = keyof GraphqlBulkOperations
-type OperationSelection = boolean | GraphqlSchemaOperations | undefined
-
+/** The generated GraphQL surface of one schema and its enabled roots. */
 export interface GraphqlSchemaSurface {
 	readonly schema: SchemaDefinition
 	readonly typeName: string
@@ -38,84 +32,58 @@ export interface GraphqlSchemaSurface {
 	readonly findMany: boolean
 	readonly findOne: boolean
 	readonly get: boolean
-	readonly schemaMutations: boolean
 	readonly update: boolean
 	readonly upsert: boolean
+	/** Reports whether one plugin command is exposed on this schema. */
+	readonly command: (name: string) => boolean
 }
 
-const builtInOperationDefaults: Readonly<Record<GeneratedOperation, boolean>> =
-	{
-		count: false,
-		create: true,
-		delete: true,
-		exists: true,
-		findMany: true,
-		findOne: true,
-		get: true,
-		update: true,
-		upsert: false,
-	}
+/** One generated root operation of a schema surface. */
+export type GraphqlSurfaceOperation =
+	| 'bulkCreate'
+	| 'bulkDelete'
+	| 'bulkUpdate'
+	| 'bulkUpsert'
+	| 'count'
+	| 'create'
+	| 'delete'
+	| 'exists'
+	| 'findMany'
+	| 'findOne'
+	| 'get'
+	| 'update'
+	| 'upsert'
 
-// A boolean selects every operation; an object answers only what it declares.
-const resolveSelection = (
-	direct: GraphqlSchemaExposureOption | undefined,
-	pluginDefault: OperationSelection,
-	read: (operations: GraphqlSchemaOperations) => boolean | undefined,
-	fallback: boolean,
-): boolean => {
-	const pick = (value: OperationSelection): boolean | undefined =>
-		typeof value === 'boolean' || value === undefined ? value : read(value)
-	return (
-		pick(typeof direct === 'boolean' ? direct : direct?.operations) ??
-		pick(pluginDefault) ??
-		fallback
-	)
+/** The schema method behind each generated root operation (ADR-0325). */
+export const graphqlOperationMethods: Readonly<
+	Record<GraphqlSurfaceOperation, GraphqlMethodName>
+> = {
+	bulkCreate: 'createMany',
+	bulkDelete: 'deleteMany',
+	bulkUpdate: 'updateMany',
+	bulkUpsert: 'upsertMany',
+	count: 'count',
+	create: 'createOne',
+	delete: 'deleteOne',
+	exists: 'exists',
+	findMany: 'findMany',
+	findOne: 'findOne',
+	get: 'findOne',
+	update: 'updateOne',
+	upsert: 'upsertOne',
 }
 
-/** Resolves one operation through schema, plugin, then built-in defaults. */
-export const resolveGraphqlSchemaOperation = (
-	direct: GraphqlSchemaExposureOption | undefined,
-	pluginDefault: OperationSelection,
-	operation: GeneratedOperation,
-): boolean =>
-	resolveSelection(
-		direct,
-		pluginDefault,
-		(operations) => operations[operation],
-		builtInOperationDefaults[operation],
-	)
-
-/** Resolves one bulk operation through schema, plugin, then disabled default. */
-export const resolveGraphqlBulkOperation = (
-	direct: GraphqlSchemaExposureOption | undefined,
-	pluginDefault: OperationSelection,
-	operation: BulkOperation,
-): boolean =>
-	resolveSelection(
-		direct,
-		pluginDefault,
-		({ bulk }) => (typeof bulk === 'boolean' ? bulk : bulk?.[operation]),
-		false,
-	)
-
-/** Resolves whether one application schema exposes its bound schema mutations. */
-export const resolveGraphqlSchemaMutations = (
-	direct: GraphqlSchemaExposureOption | undefined,
-	pluginDefault: OperationSelection,
-): boolean =>
-	resolveSelection(direct, pluginDefault, ({ mutations }) => mutations, true)
-
-/** Resolves GraphQL identities and public get roots from final provenance. */
+/** Resolves GraphQL identities and enabled roots from final provenance. */
 export const collectGraphqlSchemaSurfaces = (
 	schemas: CompiledSchemaRegistry,
-	pluginDefault: OperationSelection,
+	pluginDefault: NormalizedGraphqlRule | undefined,
 	names: GraphqlNameRegistry,
 ): ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface> => {
 	const surfaces = new Map<SchemaDefinition, GraphqlSchemaSurface>()
 	for (const schema of schemas.values()) {
 		const owner = schema.definition.provenance.schema.owner
-		const direct = readGraphqlSchemaExposure(schema)
-		if (owner.kind === 'plugin' && direct !== undefined) {
+		const rule = readGraphqlSchemaRule(schema)
+		if (owner.kind === 'plugin' && rule !== undefined) {
 			throw new GraphqlSchemaCompilationError(
 				'plugin-schema-option',
 				`Plugin-owned schema ${schema.className} cannot declare the direct graphql option`,
@@ -123,21 +91,22 @@ export const collectGraphqlSchemaSurfaces = (
 			)
 		}
 		const typeName =
-			typeof direct === 'object' && direct.typeName !== undefined
-				? direct.typeName
+			typeof rule === 'object' && rule.typeName !== undefined
+				? rule.typeName
 				: schema.className
 		names.claimType(typeName, graphqlSourceDescription(schema), owner)
 		// Plugin-owned schemas are model types only: they never get generated roots.
 		const application = owner.kind === 'application'
-		const operation = (name: GeneratedOperation): boolean =>
-			application && resolveGraphqlSchemaOperation(direct, pluginDefault, name)
-		const bulk = (name: BulkOperation): boolean =>
-			application && resolveGraphqlBulkOperation(direct, pluginDefault, name)
+		const enabled = (key: string): boolean =>
+			application && isGraphqlMethodEnabled(rule, pluginDefault, key)
+		const operation = (name: GraphqlSurfaceOperation): boolean =>
+			enabled(graphqlOperationMethods[name])
 		surfaces.set(schema, {
-			bulkCreate: bulk('create'),
-			bulkDelete: bulk('delete'),
-			bulkUpdate: bulk('update'),
-			bulkUpsert: bulk('upsert'),
+			bulkCreate: operation('bulkCreate'),
+			bulkDelete: operation('bulkDelete'),
+			bulkUpdate: operation('bulkUpdate'),
+			bulkUpsert: operation('bulkUpsert'),
+			command: enabled,
 			count: operation('count'),
 			create: operation('create'),
 			delete: operation('delete'),
@@ -147,8 +116,6 @@ export const collectGraphqlSchemaSurfaces = (
 			get: operation('get'),
 			owner,
 			schema,
-			schemaMutations:
-				application && resolveGraphqlSchemaMutations(direct, pluginDefault),
 			typeName,
 			update: operation('update'),
 			upsert: operation('upsert'),

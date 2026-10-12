@@ -46,17 +46,20 @@ const allowedRuntimeDependencies = {
 		'core',
 		'shared',
 	],
-	'@ultimabase/graphiql-plugin': [
+	'@ultimabase/graphql-explorer-plugin': [
 		'graphql-http',
 		'http-plugin',
 		'plugin-kit',
 		'core',
 	],
-	'@ultimabase/apollo-sandbox-plugin': [
-		'graphql-http',
+	// The preset only returns the plugins it names (ADR-0325).
+	'@ultimabase/api-server': [
+		'graphql-explorer-plugin',
+		'graphql-plugin',
+		'graphql-yoga-plugin',
+		'hono-server-plugin',
 		'http-plugin',
-		'plugin-kit',
-		'core',
+		'rest-plugin',
 	],
 	// The initializer generates projects that install published packages.
 	'@ultimabase/create-app': [],

@@ -197,9 +197,12 @@ validates the complete command nor executes it.
 
 ### Bind an existing operation
 
-For a public GraphQL command, its owner supplies an exact wire codec and inert
-GraphQL metadata, requests `transport:expose`, and the application selects the
-operation in `graphqlPlugin({ operations })`. The owner can name the canonical
+An operation the owner declares public (`public: { name }`) appears in every
+installed transport (ADR-0325). For typed GraphQL fields, the owner also
+supplies an exact wire codec and inert GraphQL metadata and requests
+`transport:expose`; without that binding, GraphQL exposes the operation as a
+mutation whose types derive from `public.input` and `public.output` (JSON
+Schema), with `JSON` for what GraphQL cannot describe. The owner can name the canonical
 protocol through Core without importing the GraphQL package:
 
 ```ts title="src/graphql-binding.ts"
@@ -261,6 +264,7 @@ export const workflowPlugin = () =>
 				bindings: [formatGraphqlBinding],
 				execute: ({ input }) => input.trim(),
 				operation: formatWorkflow,
+				public: { name: 'formatWorkflow' },
 			}),
 		],
 	})
@@ -273,19 +277,19 @@ without weakening exact ownership; a foreign plugin cannot publish the
 operation. The binding still requires `transport:expose`.
 
 The package root should re-export `workflowPlugin` and `formatWorkflow`.
-In the application, install the plugin and explicitly select the operation:
+In the application, install the plugin and GraphQL:
 
 ```ts title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { formatWorkflow, workflowPlugin } from '@your-scope/workflow-plugin'
+import { workflowPlugin } from '@your-scope/workflow-plugin'
 
 import { Task } from './schema.js'
 
 const Application = UltimaBase.use(postgresPlugin())
 	.use(workflowPlugin())
-	.use(graphqlPlugin({ operations: [formatWorkflow] }))
+	.use(graphqlPlugin())
 
 export const ultimabase = new Application({
 	schemas: [Task],
@@ -293,8 +297,8 @@ export const ultimabase = new Application({
 ```
 
 After startup, `printSchema()` should show `formatWorkflow(input: String!):
-String!` under `Query`. An unselected operation stays absent even if its owner
-is installed. GraphQL checks owner, protocol, types, names, and collisions
+String!` under `Query`. `graphqlPlugin({ hide: [formatWorkflow] })` hides it;
+an operation its owner does not declare public stays absent. GraphQL checks owner, protocol, types, names, and collisions
 before serving requests. Its resolver passes a real application-bound request
 context to Core; neither GraphQL variables nor a custom resolver can create
 Master authority.
@@ -368,8 +372,8 @@ handler, optional bindings, and lifecycle. `models.extend({ schemaMutations: { .
 schema surface; results have no methods, so `'schema'` is the only surface
 (ADR-0310). Optional GraphQL exposure adds a
 `schemaMutationWireCodec()` binding to that same contribution. It uses the separate
-canonical `ultimabase.graphql@1.0.0` protocol, is not an application operation,
-and does not enter `graphqlPlugin({ operations })`.
+canonical `ultimabase.graphql@1.0.0` protocol and is not an application
+operation.
 
 GraphQL derives the root field from the installed schema and command. The
 owner may describe only the optional payload's closed input types, not choose
@@ -377,9 +381,9 @@ its own root name, target ID, result type, resolver, or authority. A
 Master-only mutation never enters the public SDL. The official
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
 mutations: REST exposes a one-row request command when the application names
-it in `.with({ rest: { softDeleteOne: true } })`, without any binding, and
-`definePlugin` still binds such commands to GraphQL until GraphQL adopts the
-same keys.
+it in `.with({ rest: { softDeleteOne: true } })`, and GraphQL when it names it
+in `.with({ graphql: { softDeleteOne: true } })`, without any binding: the
+GraphQL field then takes only the row `id`.
 
 ## REST and HTTP are separate choices
 
@@ -448,11 +452,11 @@ A plugin that exposes a browser bootstrap UI can validate a configurable route
 suffix with `normalizeHttpBrowserBootstrapPath(value, label)` and pass the
 result to `httpBrowserBootstrapRoute()`. This keeps absolute-path, reserved
 namespace, decoded-segment, and non-root checks consistent with the official
-GraphiQL and Apollo Sandbox plugins.
+GraphQL explorer plugin.
 
-Transport exposure is not authorization. Check Access, ACL, request identity,
-browser policy, and the `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` startup
-diagnostic for the actual public route. See the official [REST](/docs/1.0.0/plugins/official/rest)
+Transport exposure is not authorization. Check Access, ACL, request identity
+and browser policy for the actual public route; REST and GraphQL refuse to
+start with public writes and no policy plugin unless `publicWrites` opts in. See the official [REST](/docs/1.0.0/plugins/official/rest)
 and [HTTP](/docs/1.0.0/plugins/official/http) guides for complete application configuration.
 
 ## Schema-derived operation inputs

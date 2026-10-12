@@ -138,7 +138,6 @@ describe('open-kernel workflow proof', () => {
 				).toThrow('non-empty operation list')
 				const exposed = new FakePublicOperationTransport(
 					ultimabase.exposeOperations({
-						acknowledgeUnverifiedProtection: true,
 						operations: [inspectWorkflow],
 						transport: workflowFakeTransport,
 					}),

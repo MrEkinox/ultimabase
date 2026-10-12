@@ -78,17 +78,15 @@ Conditional field visibility makes affected GraphQL fields nullable. Dynamic
 Access and ACL enforcement remains in Runtime rather than changing the schema
 per request.
 
-## Public protection warning
+## Public writes
 
-Every public exposure that does not explicitly acknowledge protection
-uncertainty emits `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`. The diagnostic
-reports `policy.providerPresence` as `none` or `present`, but its coverage is
-always `unverified`: installing a policy provider never silences the warning or
-proves that every exposed operation is protected.
-
-An explicit transport acknowledgement accepts only that uncertainty. It does
-not grant access, prove policy coverage, bypass policy, or create Master
-authority. Transports still normalize into the shared Runtime pipeline.
+Core cannot prove that a protected policy covers every exposed operation, and
+no longer reports it (ADR-0325). Instead, REST and GraphQL refuse to start
+when they would expose a write (a generated mutation or a plugin command) and
+no protected policy, such as Access, is installed; `publicWrites: true` in
+their options lets every client write (ADR-0294). Exposure never grants
+access, bypasses policy, or creates Master authority. Transports still
+normalize into the shared Runtime pipeline.
 
 Every public HTTP application request identifies the sole active application. When
 the developer explicitly enables Master transport, the HTTP plugin may exchange

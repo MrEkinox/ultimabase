@@ -169,100 +169,36 @@ describe('public transport protection diagnostics', () => {
 		).toThrow('operation transport binding metadata')
 	})
 
-	it('reports absent providers once per protocol and isolates applications', async () => {
-		const warning = vi
-			.spyOn(console, 'warn')
-			.mockImplementation(() => undefined)
-		const first = await createFixture()
-		try {
-			expose(first, primaryTransport)
-			expose(first, primaryTransport)
-			expose(first, secondaryTransport)
-			expect(warning).toHaveBeenCalledWith(
-				'UltimaBase: public transport fixture.transport-diagnostic.primary 1.0.0 exposes operations but no protected policy plugin is installed; install one, or acknowledge unverified protection in the transport options when the operations are public on purpose.',
-				{
-					code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
-					message:
-						'Public transport protection is unverified because no protected policy contribution is installed.',
-					policy: {
-						coverage: 'unverified',
-						providerPresence: 'none',
-					},
-					transport: {
-						name: primaryTransport.name,
-						version: primaryTransport.version,
-					},
-				},
-			)
-			expect(warning).toHaveBeenCalledTimes(2)
-		} finally {
-			await first.dispose()
-		}
-
-		warning.mockClear()
-		const isolated = await createFixture()
-		try {
-			expose(isolated, primaryTransport)
-			expect(warning).toHaveBeenCalledOnce()
-		} finally {
-			await isolated.dispose()
-		}
-	})
-
-	it.each(['no-op', 'unrelated'] as const)(
-		'reports %s provider presence without claiming coverage',
+	it.each([undefined, 'no-op', 'unrelated'] as const)(
+		'exposes operations without an unverified-protection warning (%s policy, ADR-0325)',
 		async (mode) => {
 			const warning = vi
 				.spyOn(console, 'warn')
 				.mockImplementation(() => undefined)
-			const ultimabase = await createFixture(createPolicyPlugin(mode))
+			const ultimabase = await createFixture(
+				mode === undefined ? undefined : createPolicyPlugin(mode),
+			)
 			try {
 				expose(ultimabase, primaryTransport)
-				expect(warning).toHaveBeenCalledWith(
-					'UltimaBase: public transport fixture.transport-diagnostic.primary 1.0.0 exposes operations that installed protected policies do not prove to cover; review the policies, or acknowledge unverified protection in the transport options.',
-					expect.objectContaining({
-						code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
-						policy: {
-							coverage: 'unverified',
-							providerPresence: 'present',
-						},
-					}),
-				)
+				expose(ultimabase, secondaryTransport)
+				expect(warning).not.toHaveBeenCalled()
 			} finally {
 				await ultimabase.dispose()
 			}
 		},
 	)
 
-	it('requires the exact uncertainty acknowledgement', async () => {
-		const warning = vi
-			.spyOn(console, 'warn')
-			.mockImplementation(() => undefined)
+	it('rejects the removed uncertainty acknowledgement', async () => {
 		const ultimabase = await createFixture()
 		try {
-			ultimabase.exposeOperations({
-				acknowledgeUnverifiedProtection: true,
-				operations: [diagnosticOperation],
-				transport: primaryTransport,
-			})
-			expect(warning).not.toHaveBeenCalled()
 			expect(() =>
 				ultimabase.exposeOperations({
-					acknowledgeUnverifiedProtection: false as never,
-					operations: [diagnosticOperation],
-					transport: primaryTransport,
-				}),
-			).toThrow(
-				'operation transport acknowledgeUnverifiedProtection must be true when provided',
-			)
-			expect(() =>
-				ultimabase.exposeOperations({
-					acknowledgeUnprotected: true,
+					acknowledgeUnverifiedProtection: true,
 					operations: [diagnosticOperation],
 					transport: primaryTransport,
 				} as never),
 			).toThrow(
-				'operation transport exposure contains unknown key: acknowledgeUnprotected',
+				'operation transport exposure contains unknown key: acknowledgeUnverifiedProtection',
 			)
 		} finally {
 			await ultimabase.dispose()

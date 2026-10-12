@@ -81,8 +81,7 @@ const RecordSchema = GraphqlSchemaApplication.Schema.define({
 		portableCode,
 		related: field.relation({ target: 'GraphqlReadAuthor' }),
 	}),
-	graphql: { operations: { count: true } },
-})
+}).with({ graphql: { count: true } })
 
 const fieldOwner = plugin({
 	core: '^0.0.0',

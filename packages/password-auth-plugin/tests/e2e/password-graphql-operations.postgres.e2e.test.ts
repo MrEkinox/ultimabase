@@ -16,7 +16,6 @@ import {
 } from '@ultimabase/graphql-plugin'
 import {
 	PasswordUserSchema,
-	passwordAuthOperationList,
 	passwordAuthPlugin,
 	passwordPrincipal,
 	passwordSession,
@@ -148,10 +147,8 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			passwordPlugin,
 			accessPlugin({ allowWithoutRule: { all: true } }),
 			profilePolicy,
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				operations: passwordAuthOperationList,
-			}),
+			// The six public operations are exposed by their owner (ADR-0325).
+			graphqlPlugin(),
 		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'graphql-sign-up', value: 'server-secret' }],

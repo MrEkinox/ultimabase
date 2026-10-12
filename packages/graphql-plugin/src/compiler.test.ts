@@ -1,4 +1,4 @@
-import { onTestFinished, describe, expect, it } from 'vitest'
+import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
 	definePluginField,
@@ -59,8 +59,7 @@ const defineCompleteSchemas = () => {
 			tags: field.string({ list: true }),
 			title: field.string({ required: true }),
 		}),
-		graphql: true,
-	})
+	}).with({ graphql: true })
 	return { Author, Post }
 }
 
@@ -185,10 +184,12 @@ describe('GraphQL structural schema compilation', () => {
 		) {
 			throw new TypeError('Expected generated Relay connection types')
 		}
+		// `graphql: true` enables count, so connections carry totalCount (ADR-0325).
 		expect(Object.keys(connection.getFields())).toStrictEqual([
 			'edges',
 			'nodes',
 			'pageInfo',
+			'totalCount',
 		])
 		expect(Object.keys(edge.getFields())).toStrictEqual(['cursor', 'node'])
 		expect(Object.keys(pageInfo.getFields()).sort()).toStrictEqual([
@@ -207,16 +208,14 @@ describe('GraphQL structural schema compilation', () => {
 				name: field.string(),
 				posts: field.relation({ mappedBy: 'author', target: 'CircularPost' }),
 			}),
-			graphql: true,
-		})
+		}).with({ graphql: true })
 		const CircularPost = GraphqlSchemaApplication.Schema.define({
 			className: 'CircularPost',
 			fields: (field) => ({
 				author: field.pointer({ required: true, target: 'CircularAuthor' }),
 				title: field.string(),
 			}),
-			graphql: true,
-		})
+		}).with({ graphql: true })
 		const application = await createApplication({
 			logger: false,
 			plugins: [graphqlPlugin()],
@@ -335,8 +334,7 @@ describe('GraphQL structural schema compilation', () => {
 		const Private = GraphqlSchemaApplication.Schema.define({
 			className: 'PrivateRecord',
 			fields: (field) => ({ secret: field.string() }),
-			graphql: false,
-		})
+		}).with({ graphql: false })
 		const provider = plugin({
 			core: '^0.0.0',
 			id: 'fixture.private-schema',
@@ -468,18 +466,27 @@ describe('GraphQL structural schema compilation', () => {
 		await second.dispose()
 	})
 
-	it('rejects a final graph without a query and releases schema state on disposal', async () => {
+	it('starts without exposed schema with a warning and releases schema state on disposal', async () => {
 		const Hidden = GraphqlSchemaApplication.Schema.define({
 			className: 'Hidden',
 			fields: (field) => ({ value: field.string() }),
 		})
-		await expect(
-			createApplication({
-				logger: false,
-				plugins: [graphqlPlugin({ default: false })],
-				schemas: [Hidden],
-			}),
-		).rejects.toThrow('requires at least one public query field')
+		const warn = vi.fn()
+		const hidden = await createApplication({
+			logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn },
+			plugins: [graphqlPlugin({ default: false })],
+			schemas: [Hidden],
+		})
+		// Only the health field remains (ADR-0325).
+		expect(
+			Object.keys(readGraphql(hidden).schema.getQueryType()?.getFields() ?? {}),
+		).toStrictEqual(['health'])
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining(
+				'GraphQL exposes no schema or operation, only its health field',
+			),
+		)
+		await hidden.dispose()
 
 		const Visible = GraphqlSchemaApplication.Schema.define({
 			className: 'Visible',

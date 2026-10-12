@@ -28,13 +28,12 @@ const RecordSchema = GraphqlSchemaApplication.Schema.define({
 		title: field.string(),
 		views: field.int(),
 	}),
-	graphql: true,
-})
+}).with({ graphql: true })
 
 const createFixture = async () => {
 	const application = await createApplication({
 		logger: false,
-		plugins: [graphqlPlugin({ acknowledgeUnverifiedProtection: true })],
+		plugins: [graphqlPlugin({ publicWrites: true })],
 		schemas: [Author, RecordSchema],
 	})
 	const graphqlApplication = application.plugin('@ultimabase/graphql-plugin')

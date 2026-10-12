@@ -1,0 +1,22 @@
+{
+	"extends": "../../tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"lib": ["ES2024", "ESNext.Disposable"],
+		"outDir": "dist",
+		"rootDir": "src"
+	},
+	"include": ["src/**/*.ts"],
+	"exclude": [
+		"src/**/*.test.ts",
+		"src/**/*.test-d.ts",
+		"src/**/*.test-support.ts"
+	],
+	"references": [
+		{ "path": "../http-plugin" },
+		{ "path": "../rest-plugin" },
+		{ "path": "../graphql-plugin" },
+		{ "path": "../graphql-yoga-plugin" },
+		{ "path": "../graphql-explorer-plugin" },
+		{ "path": "../hono-server-plugin" }
+	]
+}

@@ -238,7 +238,6 @@ describe('public operations', () => {
 		const { executor, run, ultimabase } = await start()
 		const exposure = run(() =>
 			executor.exposeOperations({
-				acknowledgeUnverifiedProtection: true,
 				operations: [unbound, bound],
 				transport: protocol,
 			}),

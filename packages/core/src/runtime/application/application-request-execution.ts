@@ -37,14 +37,10 @@ import {
 } from '../engine/application-binding.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
-import {
-	hasFrameworkProtectedPolicy,
-	reportFrameworkPublicTransportProtection,
-} from '../plugin-operations/engine-integration.js'
+import { hasFrameworkProtectedPolicy } from '../plugin-operations/engine-integration.js'
 import type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
-	PublicTransportProtectionOptions,
 } from '../plugin-operations/transport.js'
 import {
 	readApplicationHealth,
@@ -112,12 +108,6 @@ export interface ApplicationRequestExecutor {
 	exposeSchemaMutations<const TTransport extends OperationTransportProtocol>(
 		options: SchemaMutationTransportExposureOptions<TTransport>,
 	): ApplicationSchemaMutationTransport<TTransport>
-	/** Reports or acknowledges Core's shared public-protection uncertainty. */
-	reportPublicTransportProtection<
-		const TTransport extends OperationTransportProtocol,
-	>(
-		options: PublicTransportProtectionOptions<TTransport>,
-	): void
 	/**
 	 * Reports whether a protected policy, such as Access, is installed: the
 	 * generic signal a transport reads to refuse public writes (ADR-0294).
@@ -276,13 +266,6 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 	): ApplicationSchemaMutationTransport<TTransport> {
 		const framework = enterBoundFramework(this, false)
 		return exposeFrameworkSchemaMutations(framework, options)
-	}
-
-	reportPublicTransportProtection<
-		const TTransport extends OperationTransportProtocol,
-	>(options: PublicTransportProtectionOptions<TTransport>): void {
-		const framework = enterBoundFramework(this, false)
-		reportFrameworkPublicTransportProtection(framework, options)
 	}
 
 	hasProtectedPolicy(): boolean {

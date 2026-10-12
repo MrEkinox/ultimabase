@@ -8,19 +8,16 @@ import { anonymous } from '@ultimabase/core/plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const SchemaApplication = UltimaBase.use(
-	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
-)
-const Post = SchemaApplication.Schema.define({
-	className: 'Post',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-	graphql: { operations: { findMany: true } },
-})
-
 // postgresPlugin() reads DATABASE_URL at start (ADR-0312).
-const Application = SchemaApplication.use(
+const Application = UltimaBase.use(
+	graphqlPlugin({ default: false }),
 	postgresPlugin({ schemaPolicy: 'override' }),
 )
+const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+}).with({ graphql: { findMany: true } })
+
 export const application = new Application({
 	schemas: [Post],
 })
@@ -41,13 +38,16 @@ console.log(
 ```
 
 Use a disposable database: `override` may create or alter tables. This example
-exposes one read without authorization; the acknowledgement does not add policy.
-Configure and review protection before public exposure. The [website guide](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
-separates reusable configuration, direct execution, HTTP serving and explorers.
+exposes one read without authorization. Configure and review protection before
+public exposure. The [website guide](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
+separates reusable configuration, direct execution, HTTP serving and the
+explorer. `apiServer({ graphql: true })` from `@ultimabase/api-server` installs
+GraphQL with its HTTP transport (ADR-0325).
 
-Declare schemas through the configured factory: its installed GraphQL plugin
-types `graphql` directly, without a generated GraphQL option declaration.
-Typegen remains responsible for the application-wide named-schema graph.
+Install the plugin on the configured factory before declaring schemas: the
+`.with({ graphql })` rule is then typed from source. The old form
+`define({ graphql })` stays typed by Typegen until it is removed. Typegen
+remains responsible for the application-wide named-schema graph.
 
 The plugin compiles one application-local executable `GraphQLSchema` after the
 complete Core schema graph exists. Importing the package installs no behavior.
@@ -68,7 +68,7 @@ const custom = new GraphQLSchema({
 	query: new GraphQLObjectType({
 		name: 'Query',
 		fields: {
-			health: { type: GraphQLString, resolve: () => 'ok' },
+			version: { type: GraphQLString, resolve: () => '1.0.0' },
 		},
 	}),
 })
@@ -111,7 +111,9 @@ lifecycle control. Custom batching remains resolver-owned and request-local.
 
 ## Networkless execution
 
-The setup export provides `schema`, `execute()`, and `printSchema()`.
+The setup export provides `schema`, `execute()`, `printSchema()` and
+`validationRules`, GraphQL's specified rules with hints for disabled features,
+which HTTP adapters validate with.
 `execute()` accepts a string or parsed `DocumentNode`, optional variables and
 operation name, plus a real context already bound to the same started
 application. Foreign, forged, stale, cancelled, and disposed contexts fail
@@ -128,7 +130,10 @@ other errors are masked as `INTERNAL_SERVER_ERROR` and logged with their stack
 
 `printSchema()` returns a deterministic lexicographically sorted SDL snapshot.
 It contains no resolver code, credentials, private records, or
-provenance internals.
+provenance internals. `graphqlPlugin({ sdl: './schema.graphql' })` writes the
+same SDL to that file each time the application starts, for graphql-codegen or
+gql.tada (ADR-0325); the plugin then declares the `environment:filesystem`
+claim.
 
 Request limits default to 100 KiB of source, 10,000 tokens or parsed AST nodes,
 depth 20, 100 aliases, 20 root response fields, 1 MiB of JSON-compatible
@@ -139,21 +144,58 @@ rejected before Runtime.
 
 ## Schema exposure
 
-Application-owned schemas inherit the safe built-in operation defaults.
-`graphql: false`, `graphql: true`, or an immutable option object overrides the
-surface for one schema. A global sparse default can be supplied through
-`graphqlPlugin({ default })`. Exposure only controls which GraphQL declarations
-exist; it never grants access or bypasses Runtime policy.
+`.with({ graphql })` selects one schema's generated fields by the schema
+method names, the same keys as REST and Access rules (ADR-0325): `findOne`
+(`get<Type>` and `findOne<Type>`), `findMany`, `count`, `exists`, `createOne`,
+`updateOne`, `deleteOne`, `upsertOne`, `createMany`, `updateMany`,
+`deleteMany`, `upsertMany`, a plugin command such as `softDeleteOne`, and
+`typeName`, which renames the generated type. `graphql: false` exposes
+nothing, `graphql: true` every method and command. An omitted method inherits
+`graphqlPlugin({ default })` (`true`, `false` or per method), then its built-in
+default: reads, `exists`, `createOne`, `updateOne` and `deleteOne` on; `count`,
+upserts and the `…Many` methods off. A plugin command is exposed only when a
+rule names it, or when the rule or the default is `true`; a key that names no
+method or exposable command fails startup. Exposure only controls which
+GraphQL declarations exist; it never grants access or bypasses Runtime policy.
+
+```ts
+const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string() }),
+}).with({ graphql: { count: true, typeName: 'Article', softDeleteOne: true } })
+```
+
+A field that a disabled feature leaves out fails validation with a hint
+naming the rule to set, in networkless execution and over HTTP alike:
+
+```text
+Cannot query field "countPost" on type "Query". hint: enable graphql: { count: true } on Post
+```
+
+The `Query` root always has `health: HealthStatus!`, answering `OK` or
+`DEGRADED` as `ultimabase.health()` without detail. An application whose
+GraphQL exposes no schema, operation or custom root therefore starts, with a
+warning naming the remedy.
+
+GraphQL refuses to start when it exposes a write (a generated mutation or a
+plugin command) and no protected policy plugin, such as Access, is installed,
+unless `graphqlPlugin({ publicWrites: true })` lets every client write
+(ADR-0294). Public operations do not count as writes.
 
 GraphQL compilation rejects plugin-owned schemas carrying a direct `graphql`
-option, invalid or colliding names, plugin fields without the canonical
-`ultimabase.graphql.field@1.0.0` JSON codec, and final schemas without a query
-root field. No synthetic health or placeholder query is added.
+option, invalid or colliding names, and plugin fields without the canonical
+`ultimabase.graphql.field@1.0.0` JSON codec.
 
 The generated read surface includes the enabled `get<Type>`, `findOne<Type>`,
 `findMany<Type>`, `count<Type>`, and `exists<Type>` fields. Schema-aware filter
-inputs expose only the operators supported by each Core field capability,
-including portable plugin fields through their canonical GraphQL wire codec.
+inputs expose only the operators supported by each Core field capability and
+declared by the database adapter: the adapter plugin publishes its operators
+through Core's declaration-lifetime `databaseFilterOperatorsCapability`, which
+GraphQL reads while it compiles (ADR-0301 decision 5, ADR-0325). A field
+without any declared operator is absent from its filter input. Without a
+static declaration GraphQL lists every operator, and Core still rejects an
+undeclared one at request time. Portable plugin fields filter through their
+canonical GraphQL wire codec.
 Ordering is an explicit ordered list. Model selections, fragments, directives,
 pointers, and relation selections normalize into Core's immutable Query and
 Operation AST without retaining GraphQL or HTTP objects.
@@ -266,26 +308,20 @@ Unknown failures are masked as `INTERNAL_SERVER_ERROR`; explicitly public Core
 failures retain only their safe message, code, retryability, request ID, and
 optional JSON details.
 
-Every public generated schema reports Core's shared
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic. Applications that have
-reviewed their complete policy coverage may acknowledge it explicitly:
+Plugin-owned schema mutations (commands) follow the same rule keys:
 
 ```ts
-graphqlPlugin({ acknowledgeUnverifiedProtection: true })
-```
-
-Plugin-owned schema mutations use the same schema exposure policy. The
-`operations.mutations` switch defaults to `true`, inherits through the direct
-schema option and `graphqlPlugin({ default })`, and controls declarations only:
-
-```ts
-const Post = SchemaApplication.Schema.define({
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
-	graphql: { operations: { mutations: true } },
 })
+	.softDelete()
+	.with({ graphql: { softDeleteOne: true } })
 ```
 
+A request command on one row needs no GraphQL binding: its field
+`softDeleteOnePost(input: { id })` takes the row ID only and the command's own
+input contract validates it.
 When the mutation owner supplies a canonical `ultimabase.graphql@1.0.0`
 binding, GraphQL derives the root from the command and generated model name.
 For example, the neutral `archive` command becomes:
@@ -315,27 +351,47 @@ Master provenance, and safe-error behavior. This mechanism is separate from
 the explicit application-operation allowlist below; one kind cannot be
 reclassified as the other.
 
-## Explicit plugin operations
+## Public plugin operations
 
-An installed operation stays private. Add its exact application-operation token
-to `graphqlPlugin({ operations })`, and its owner must also contribute a binding
-for the canonical `ultimabase.graphql.operation@1.0.0` protocol while holding
-active `transport:expose` privilege:
+An operation is public only when its owner declares it
+(`contributeOperation({ ..., public: { name } })`, ADR-0324): GraphQL then
+exposes it, like every installed transport, and `graphqlPlugin({ hide: [token] })`
+hides it; a hidden token that is not a public operation fails startup. With a
+binding for the canonical `ultimabase.graphql.operation@1.0.0` protocol, the
+owner describes the field, its input and result types. Without one, the
+operation becomes a mutation named after its public name whose types derive
+from the JSON Schema its owner declared (`public.input`, `public.output`;
+`defineOperation()` reads it from its Standard JSON Schema validators, as
+REST's OpenAPI does): objects become `<Name>Input` input types and
+`<Name>Result` object types, nested objects `<Parent><Property>`, string
+enums enums, plus lists, nullability and the `String`, `SafeInt`, `Float`
+and `Boolean` scalars; any part GraphQL cannot describe (an open record, a
+union) is `JSON`, and an operation without a schema takes and returns `JSON`.
+A `null` input takes no argument. The operation's own contract still
+validates the input (ADR-0325, 6.6c amendment).
 
 ```ts
-import { passwordAuthOperationList } from '@ultimabase/password-auth-plugin'
-
-graphqlPlugin({
-	operations: passwordAuthOperationList,
+defineOperation({
+	name: 'planTrip',
+	input: z.object({ title: z.string(), priority: z.enum(['low', 'high']) }),
+	output: z.object({ id: z.string() }),
+	handler,
 })
+// planTrip(input: PlanTripInput!): PlanTripResult!
+```
+
+```ts
+import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
+
+graphqlPlugin({ hide: [passwordAuthOperations.refresh] })
 ```
 
 GraphQL validates the complete callback-free binding metadata during startup.
 It may describe one `query` or `mutation` field, an optional argument named
 `input`, its result, and closed supporting object, input-object, or enum types.
-Invalid references, unreachable definitions, incompatible protocol versions,
-owner mismatches, duplicate names, and collisions fail startup. Installed but
-unselected operations do not appear in the schema.
+Invalid references, unreachable definitions, owner mismatches, duplicate
+names, and collisions fail startup. A binding for another protocol version
+leaves the default `JSON` form.
 
 Resolvers pass the selected `RequestContext` only to Core's existing operation
 transport. Core owns codec execution, operation input/result validation, exact
@@ -349,18 +405,22 @@ by the exact operation owner. Its fields reuse ordinary nested-create input
 types and codecs; explicit supporting fields cannot collide with inherited
 fields. This exposes no schema CRUD root and does not replay defaults.
 
-Password Auth supplies compatible `signUp`, `login`, `refresh`, and `logout`
-bindings without GraphQL importing or identifying that package. Its successful
+Password Auth supplies compatible bindings for its six public operations
+without GraphQL importing or identifying that package. Its successful
 payload exposes only `user` and `session`; select `user { id }` for the identity.
 Custom User fields follow the profile's read policies. Passwords, verifiers,
 and private session records are never serialized.
 
 ## Relay connections
 
-Root collections and relations expose `edges`, `nodes`, and `pageInfo` without
-`totalCount`. `first` accepts zero, defaults to 100, and is capped at 1000; a
-larger `first` is a GraphQL error. `graphqlPlugin({ pagination })` sets other
-values with the same option and defaults as `restPlugin({ pagination })`:
+Root collections and relations expose `edges`, `nodes`, and `pageInfo`. When
+`count` is enabled for the schema, root connections also expose
+`totalCount`, computed by one count query with the same `where`, only when the
+document selects it; a relation connection has no count, and its `totalCount`
+fails with `VALIDATION_ERROR` (ADR-0325). `first` accepts zero, defaults to
+100, and is capped at 1000; a larger `first` is a GraphQL error.
+`graphqlPlugin({ pagination })` sets other values with the same option and
+defaults as `restPlugin({ pagination })`:
 
 ```ts
 graphqlPlugin({ pagination: { defaultTake: 10, maxTake: 50 } })
@@ -390,6 +450,13 @@ change may move.
 A relation connection inside a node accepts the same `first`, `after`,
 `orderBy`, and `where`: Core reads its position inside the `include`, per
 parent. Its edge cursors are positions of the target schema.
+
+A selection of relations is one SQL statement: GraphQL turns it into a Core
+`include`, and PostgreSQL reads every level in one query. A virtual field on
+included rows resolves once per parent, parents in parallel; a virtual field
+that declares `resolveMany({ context, items })` resolves all the rows of one
+read in one call. Reading relations row by row in application code, such as
+`todo.relation('tags').findMany()` in a loop, stays one query per row.
 
 Yoga is shipped as a separate optional adapter. Compiling this package performs
 no application request; networkless execution, generated fields, and selected

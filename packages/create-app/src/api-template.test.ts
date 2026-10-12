@@ -25,19 +25,9 @@ describe('API project templates', () => {
 		],
 		[{ plugins: ['graphql-plugin'] as const }, ['graphql-plugin']],
 		[
-			{ plugins: ['graphiql-plugin'] as const },
+			{ plugins: ['graphql-explorer-plugin'] as const },
 			[
-				'graphiql-plugin',
-				'graphql-plugin',
-				'graphql-yoga-plugin',
-				'http-plugin',
-				'hono-server-plugin',
-			],
-		],
-		[
-			{ plugins: ['apollo-sandbox-plugin'] as const },
-			[
-				'apollo-sandbox-plugin',
+				'graphql-explorer-plugin',
 				'graphql-plugin',
 				'graphql-yoga-plugin',
 				'http-plugin',
@@ -58,27 +48,37 @@ describe('API project templates', () => {
 				expect(plan.plugins).toContain(id)
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 			}
-			// One plugin list in the schema module (ADR-0312).
+			// One plugin list in the schema module (ADR-0312); apiServer()
+			// installs HTTP, its transports and the server (ADR-0325).
 			const application = files.get(`src/schema.${language}`) ?? ''
-			expect(application.includes('honoServerPlugin(')).toBe(
-				plan.plugins.includes('hono-server-plugin'),
+			expect(application.includes('...apiServer(')).toBe(
+				plan.plugins.includes('http-plugin'),
 			)
-			expect(application.includes('graphqlYogaPlugin(')).toBe(
+			expect('@ultimabase/api-server' in manifest.dependencies).toBe(
+				plan.plugins.includes('http-plugin'),
+			)
+			expect(application.includes('server: false')).toBe(
+				plan.plugins.includes('http-plugin') &&
+					!plan.plugins.includes('hono-server-plugin'),
+			)
+			expect(application.includes('graphql: {')).toBe(
 				plan.plugins.includes('graphql-yoga-plugin'),
 			)
-			if (plan.plugins.includes('http-plugin')) {
-				expect(application).toContain('httpPlugin()')
-				expect(application).not.toContain('master: true')
-				expect(application).not.toContain('browser: {')
-				if (!plan.plugins.includes('hono-server-plugin')) {
-					expect(files.get('README.md')).toContain(
-						'this application opens no listener',
-					)
-				}
+			expect(application.includes("explorer: 'graphiql'")).toBe(
+				plan.plugins.includes('graphql-explorer-plugin'),
+			)
+			expect(application).not.toContain('master: true')
+			expect(application).not.toContain('browser: {')
+			if (
+				plan.plugins.includes('http-plugin') &&
+				!plan.plugins.includes('hono-server-plugin')
+			) {
+				expect(files.get('README.md')).toContain(
+					'this application opens no listener',
+				)
 			}
 			if (plan.plugins.includes('hono-server-plugin')) {
 				// The listen address follows HOST and NODE_ENV (ADR-0312).
-				expect(application).toContain('honoServerPlugin()')
 				expect(files.get(`src/main.${language}`)).toContain(
 					"process.once('SIGTERM'",
 				)
@@ -98,15 +98,17 @@ describe('API project templates', () => {
 		const files = renderBaseFiles(plan)
 		const application = files.get('src/ultimabase.ts') ?? ''
 		const schema = files.get('src/schema.ts') ?? ''
-		expect(schema).toContain('restPlugin({')
-		expect(schema).toContain('graphqlPlugin({')
-		expect(application).not.toContain('restPlugin({')
-		expect(application).not.toContain('graphqlPlugin({')
-		expect(schema).toContain(
-			'default: { createOne: false, updateOne: false, deleteOne: false }',
-		)
-		expect(schema).toContain('create: false, update: false, delete: false')
-		expect(schema).toContain('acknowledgeUnverifiedProtection: true')
+		expect(schema).toContain('...apiServer({')
+		expect(schema).toContain('rest: {')
+		expect(schema).toContain('graphql: {')
+		expect(application).not.toContain('apiServer(')
+		// Both data APIs are read-only with the same keys (ADR-0325).
+		expect(
+			schema.match(
+				/default: \{ createOne: false, updateOne: false, deleteOne: false \}/gu,
+			),
+		).toHaveLength(2)
+		expect(schema).not.toContain('acknowledgeUnverifiedProtection')
 		expect(schema).toMatch(
 			/export const Member = SchemaApplication\.Schema\.define\(\{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
 		)
@@ -120,7 +122,7 @@ describe('API project templates', () => {
 		)
 	})
 
-	it('uses exact Password Auth operation allowlists only for selected protocols', () => {
+	it('hides the same Password Auth operations from every selected protocol', () => {
 		const direct = resolveSelection(
 			{ name: 'direct', plugins: ['password-auth-plugin'] },
 			'/tmp',
@@ -139,35 +141,33 @@ describe('API project templates', () => {
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
 		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
 		expect(application).not.toContain('passwordAuthOperations.')
-		// REST exposes the public operations and hides two (ADR-0324); GraphQL
-		// still lists the four it exposes.
-		expect(schema).toContain('hide: [')
-		expect(schema).toContain('passwordAuthOperations.changePassword')
-		expect(schema.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(1)
-		expect(schema).toContain('passwordAuthOperations.login')
-		expect(schema).toContain('passwordAuthOperations.refresh')
-		expect(schema).toContain('passwordAuthOperations.logout')
+		// Every transport exposes the public operations and hides two
+		// (ADR-0324, ADR-0325).
+		expect(schema.match(/hide: \[/gu)).toHaveLength(2)
+		expect(
+			schema.match(/passwordAuthOperations\.changePassword/gu),
+		).toHaveLength(2)
+		expect(
+			schema.match(/passwordAuthOperations\.logoutEverywhere/gu),
+		).toHaveLength(2)
+		expect(schema).not.toContain('passwordAuthOperations.signUp')
 		expect(application).not.toContain('cookie:')
 	})
 
 	// ADR-0312: introspection and explorers follow NODE_ENV themselves.
 	it('writes no environment expression for introspection or explorers', () => {
 		const plain = resolveSelection({ name: 'plain', apis: ['graphql'] }, '/tmp')
-		expect(renderBaseFiles(plain).get('src/schema.ts')).toContain(
-			'graphqlYogaPlugin()',
-		)
+		expect(renderBaseFiles(plain).get('src/schema.ts')).toContain('graphql: {')
 		const explorer = resolveSelection(
-			{
-				name: 'explorer',
-				plugins: ['graphiql-plugin', 'apollo-sandbox-plugin'],
-			},
+			{ name: 'explorer', plugins: ['graphql-explorer-plugin'] },
 			'/tmp',
 		)
 		const files = renderBaseFiles(explorer)
 		const application = files.get('src/schema.ts') ?? ''
-		expect(application).toContain('graphqlYogaPlugin()')
-		expect(application).toContain('graphiqlPlugin()')
-		expect(application).toContain('apolloSandboxPlugin()')
+		expect(application).toContain("explorer: 'graphiql'")
+		expect(nextCommands(explorer)).toContain(
+			'Open http://127.0.0.1:1337/graphiql in development.',
+		)
 		for (const contents of files.values()) {
 			expect(contents).not.toContain('NODE_ENV ===')
 			expect(contents).not.toContain('NODE_ENV !==')

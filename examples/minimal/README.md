@@ -338,9 +338,9 @@ curl http://127.0.0.1:1337/graphql \
 ```
 
 `login`, `refresh`, and `logout` are mutations on the same `/graphql` endpoint.
-They are available only because their exact operation tokens were selected by
-`graphqlPlugin({ operations })`; installing Password Auth alone publishes
-nothing.
+Password Auth declares its operations public, so GraphQL exposes them; the
+example hides `changePassword` and `logoutEverywhere` with
+`graphqlPlugin({ hide })`, as it does for REST (ADR-0325).
 
 Browser cookie mode is also enabled for `http://localhost:5173`. Cookie-changing
 routes require the configured origin as CSRF proof and never return the raw

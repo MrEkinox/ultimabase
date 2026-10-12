@@ -16,11 +16,7 @@ import {
 	type PluginOperationTransaction,
 	type PluginOperationValueContract,
 } from '@ultimabase/core/plugin'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { isPasswordPrincipal, type PasswordPrincipal } from './principal.js'
 import {
@@ -347,17 +343,6 @@ export const passwordAuthOperations: Readonly<{
 	refresh: refreshOperation,
 	signUp: signUpOperation,
 })
-
-/** Lists every Password Auth operation for explicit transport exposure. */
-export const passwordAuthOperationList: readonly PasswordAuthOperation[] =
-	immutableArray([
-		passwordAuthOperations.signUp,
-		passwordAuthOperations.login,
-		passwordAuthOperations.refresh,
-		passwordAuthOperations.logout,
-		passwordAuthOperations.logoutEverywhere,
-		passwordAuthOperations.changePassword,
-	])
 
 type PasswordAuthOperation =
 	(typeof passwordAuthOperations)[keyof typeof passwordAuthOperations]

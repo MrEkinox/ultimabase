@@ -135,7 +135,7 @@ describe('documentation navigation architecture', () => {
 		expect(hono).toContain('## Troubleshooting')
 		expect(graphql).toContain('## Serve GraphQL over HTTP with Yoga')
 		expect(graphql).toContain('## Choose a development explorer')
-		for (const plugin of ['graphql-yoga', 'graphiql', 'apollo-sandbox']) {
+		for (const plugin of ['graphql-yoga', 'graphql-explorer']) {
 			expect(graphql).toContain(`@ultimabase/${plugin}-plugin`)
 		}
 	})

@@ -133,11 +133,11 @@ describe('GraphQL schema composition', () => {
 				},
 			},
 		})
-		const custom = schemaWithQuery('health', 'ok', [extension])
-		const originalHealth = custom.getQueryType()?.getFields().health
+		const custom = schemaWithQuery('ping', 'ok', [extension])
+		const originalPing = custom.getQueryType()?.getFields().ping
 		const application = new (UltimaBase.use(
 			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
+				publicWrites: true,
 				schemas: [custom],
 			}),
 			graphqlFixtureDatabasePlugin,
@@ -157,15 +157,15 @@ describe('GraphQL schema composition', () => {
 				).getFields(),
 			),
 		).toEqual(expect.arrayContaining(['id', 'summary', 'title']))
-		if (originalHealth !== undefined) originalHealth.resolve = () => 'mutated'
+		if (originalPing !== undefined) originalPing.resolve = () => 'mutated'
 		const result = await graphql.execute({
 			context: anonymous(application, {
 				requestId: 'composition-clone',
 				source: 'test',
 			}).context,
-			document: '{ health }',
+			document: '{ ping }',
 		})
-		expect(result).toEqual({ data: { health: 'ok' } })
+		expect(result).toEqual({ data: { ping: 'ok' } })
 		await application.dispose()
 	})
 
@@ -184,7 +184,7 @@ describe('GraphQL schema composition', () => {
 			first,
 			second,
 			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
+				publicWrites: true,
 				default: false,
 				schemas: [schemaWithQuery('application', 'direct')],
 			}),
@@ -199,7 +199,7 @@ describe('GraphQL schema composition', () => {
 		) as GraphqlApplication
 		expect(
 			Object.keys(graphql.schema.getQueryType()?.getFields() ?? {}),
-		).toEqual(['application', 'first', 'second'])
+		).toEqual(['health', 'application', 'first', 'second'])
 		const result = await graphql.execute({
 			context: anonymous(application, {
 				requestId: 'composition-order',
@@ -273,7 +273,7 @@ describe('GraphQL schema composition', () => {
 			await expect(
 				new (UltimaBase.use(
 					graphqlPlugin({
-						acknowledgeUnverifiedProtection: true,
+						publicWrites: true,
 						default: false,
 						schemas: [left, right],
 					}),
@@ -309,7 +309,7 @@ describe('GraphQL schema composition', () => {
 		const schema = new GraphQLSchema({
 			query: new GraphQLObjectType({
 				name: 'Query',
-				fields: { health: { type: GraphQLString } },
+				fields: { ping: { type: GraphQLString } },
 			}),
 			subscription: new GraphQLObjectType({
 				name: 'Subscription',

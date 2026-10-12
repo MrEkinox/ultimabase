@@ -243,7 +243,6 @@ describe('definePlugin probe plugins on PostgreSQL (ADR-0316)', () => {
 				'model:extend',
 				'operation:declare',
 				'persistence:rewrite',
-				'transport:expose',
 			]),
 		)
 		expect(privileges(healthPlugin())).toEqual(['transport:expose'])

@@ -21,6 +21,7 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'patchSchemas',
 			'providePluginEvent',
 			'readDeploymentEnvironment',
+			'readStandardJsonSchema',
 			'schemaPatch',
 			'shapeMethod',
 		])

@@ -18,6 +18,7 @@ import {
 	type GraphQLSchema,
 	type OperationDefinitionNode,
 	type SelectionSetNode,
+	type ValidationRule,
 } from 'graphql'
 
 import type { NormalizedGraphqlExecutionLimits } from './connection-limits.js'
@@ -25,7 +26,7 @@ import {
 	createCancelledGraphqlError,
 	createSafeGraphqlError,
 } from './execution-errors.js'
-import { assertGraphqlKnownKeys } from './options.js'
+import { assertGraphqlKnownKeys } from './known-keys.js'
 import {
 	RequestContext,
 	type ApplicationCallbackExecutor,
@@ -313,6 +314,7 @@ export class GraphqlNetworklessExecution {
 	readonly #limits: NormalizedGraphqlExecutionLimits
 	readonly #owner: PluginIdentity
 	readonly #schema: GraphQLSchema
+	readonly #validationRules: readonly ValidationRule[]
 
 	constructor(
 		options: Readonly<{
@@ -322,6 +324,7 @@ export class GraphqlNetworklessExecution {
 			readonly limits: NormalizedGraphqlExecutionLimits
 			readonly owner: PluginIdentity
 			readonly schema: GraphQLSchema
+			readonly validationRules: readonly ValidationRule[]
 		}>,
 	) {
 		this.#callbacks = options.callbacks
@@ -330,6 +333,7 @@ export class GraphqlNetworklessExecution {
 		this.#limits = options.limits
 		this.#owner = options.owner
 		this.#schema = options.schema
+		this.#validationRules = options.validationRules
 	}
 
 	async execute(options: GraphqlExecuteOptions): Promise<ExecutionResult> {
@@ -358,7 +362,7 @@ export class GraphqlNetworklessExecution {
 				} catch (error: unknown) {
 					return errorResult(error, context.requestId, this.#logger)
 				}
-				const errors = validate(this.#schema, document)
+				const errors = validate(this.#schema, document, this.#validationRules)
 				if (errors.length > 0) return { errors }
 				try {
 					return await execute({

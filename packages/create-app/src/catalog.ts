@@ -13,16 +13,10 @@ export const officialPlugins = [
 		hint: 'Per-record permissions',
 	},
 	{
-		id: 'apollo-sandbox-plugin',
-		label: 'Apollo Sandbox',
+		id: 'graphql-explorer-plugin',
+		label: 'GraphQL explorer',
 		group: 'HTTP & explorers',
-		hint: 'Development GraphQL explorer',
-	},
-	{
-		id: 'graphiql-plugin',
-		label: 'GraphiQL',
-		group: 'HTTP & explorers',
-		hint: 'Development GraphQL explorer',
+		hint: 'Development GraphiQL page',
 	},
 	{
 		id: 'graphql-plugin',
@@ -124,8 +118,7 @@ const pluginDependencies: Readonly<
 		'http-plugin',
 		'hono-server-plugin',
 	],
-	'graphiql-plugin': ['graphql-yoga-plugin'],
-	'apollo-sandbox-plugin': ['graphql-yoga-plugin'],
+	'graphql-explorer-plugin': ['graphql-yoga-plugin'],
 }
 
 const apiPlugins: Readonly<Record<ApiId, PluginId>> = {

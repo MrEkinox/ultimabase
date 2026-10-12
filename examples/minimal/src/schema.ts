@@ -16,8 +16,6 @@ import { z } from 'zod'
 
 import type {} from '../.ultimabase/schema.generated.js'
 
-import { exampleStatusOperation } from './status-plugin.ts'
-
 const publicArticleACL = new ACL().grantPublic('delete', 'read', 'update')
 
 /** Owns every source-typed schema declaration used by the example. */
@@ -40,14 +38,11 @@ export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 		}),
 	)
 	.use(
+		// The same public operations as REST, hidden the same way (ADR-0325).
 		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
-			operations: [
-				exampleStatusOperation,
-				passwordAuthOperations.signUp,
-				passwordAuthOperations.login,
-				passwordAuthOperations.logout,
-				passwordAuthOperations.refresh,
+			hide: [
+				passwordAuthOperations.changePassword,
+				passwordAuthOperations.logoutEverywhere,
 			],
 		}),
 	)

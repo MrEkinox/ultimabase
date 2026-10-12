@@ -32,7 +32,6 @@ export const passwordAuthPluginPublicApi = {
 		'defaultPasswordHashPolicy',
 		'defaultPasswordSessionPolicy',
 		'passwordAuthErrorCodes',
-		'passwordAuthOperationList',
 		'passwordAuthOperations',
 		'passwordAuthPlugin',
 		'passwordPrincipal',
@@ -45,6 +44,8 @@ export const passwordAuthPluginPublicApi = {
 /** Names credential implementation details deliberately kept owner-private. */
 export const removedPasswordAuthPluginPublicApiNames = [
 	'assertPasswordHashEngineAvailable',
+	// Owners declare public operations; transports list none (ADR-0325).
+	'passwordAuthOperationList',
 	'createPasswordCredentialCollection',
 	'createPasswordPrincipal',
 	'createPasswordVerifier',

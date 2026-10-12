@@ -428,22 +428,19 @@ try {
 		}
 	}, 60_000)
 
-	it('serves both explorers only in development with matching introspection', async () => {
+	it('serves the explorer only in development with matching introspection', async () => {
 		const project = await setupProject('create_app_explorers', {
 			language: 'js',
-			plugins: ['graphiql-plugin', 'apollo-sandbox-plugin'],
+			plugins: ['graphql-explorer-plugin'],
 		})
 		try {
 			for (const environment of ['development', 'production']) {
 				const server = await startServer(project.destination, 'js', environment)
 				try {
-					for (const route of ['graphiql', 'apollo-sandbox']) {
-						const response = await fetch(
-							`${endpoint}/__ultimabase/apps/main/${route}`,
-						)
-						if (environment === 'development') expect(response.status).toBe(200)
-						else expect(response.status).not.toBe(200)
-					}
+					// One application: GraphiQL at /graphiql (ADR-0325).
+					const page = await fetch(`${endpoint}/graphiql`)
+					if (environment === 'development') expect(page.status).toBe(200)
+					else expect(page.status).not.toBe(200)
 					const response = await graphql('{ __schema { queryType { name } } }')
 					const result = await response.text()
 					if (environment === 'development')

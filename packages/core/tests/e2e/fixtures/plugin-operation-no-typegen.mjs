@@ -225,7 +225,6 @@ export const inspection = {
 	selectedFields: Object.keys(StablePost.fields),
 }
 const exposure = ultimabase.exposeOperations({
-	acknowledgeUnverifiedProtection: true,
 	operations: [inspect],
 	transport: protocol,
 })

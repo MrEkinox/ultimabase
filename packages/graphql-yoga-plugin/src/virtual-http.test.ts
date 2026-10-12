@@ -152,7 +152,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 		}),
 		contextPlugin,
-		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+		graphqlPlugin({ publicWrites: true }),
 		graphqlYogaPlugin(),
 		graphqlYogaFixtureHttpConsumer,
 	))({

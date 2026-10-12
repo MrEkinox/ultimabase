@@ -87,16 +87,16 @@ behavior; add its factory to your application graph.
 
 ### HTTP, GraphQL, and explorers
 
-| Package                             | Purpose                                                                                                        |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `@ultimabase/http-plugin`           | [HTTP application identity validation and route composition](/docs/1.0.0/plugins/official/http).               |
-| `@ultimabase/hono-server-plugin`    | Optional [Hono server](/docs/1.0.0/plugins/official/hono-server).                                              |
-| `@ultimabase/rest-plugin`           | [Experimental REST v1 transport](/docs/1.0.0/plugins/official/rest).                                           |
-| `@ultimabase/graphql-plugin`        | Network-independent [GraphQL schema and execution](/docs/1.0.0/plugins/official/graphql).                      |
-| `@ultimabase/graphql-http`          | Provider-neutral GraphQL HTTP contract, **not** a plugin; see [GraphQL](/docs/1.0.0/plugins/official/graphql). |
-| `@ultimabase/graphql-yoga-plugin`   | Optional [Yoga HTTP adapter](/docs/1.0.0/plugins/official/graphql#serve-graphql-over-http-with-yoga).          |
-| `@ultimabase/graphiql-plugin`       | Optional [GraphiQL explorer](/docs/1.0.0/plugins/official/graphql#choose-a-development-explorer).              |
-| `@ultimabase/apollo-sandbox-plugin` | Optional [Apollo Sandbox explorer](/docs/1.0.0/plugins/official/graphql#choose-a-development-explorer).        |
+| Package                               | Purpose                                                                                                                                                         |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@ultimabase/http-plugin`             | [HTTP application identity validation and route composition](/docs/1.0.0/plugins/official/http).                                                                |
+| `@ultimabase/hono-server-plugin`      | Optional [Hono server](/docs/1.0.0/plugins/official/hono-server).                                                                                               |
+| `@ultimabase/rest-plugin`             | [REST transport](/docs/1.0.0/plugins/official/rest).                                                                                                            |
+| `@ultimabase/graphql-plugin`          | Network-independent [GraphQL schema and execution](/docs/1.0.0/plugins/official/graphql).                                                                       |
+| `@ultimabase/graphql-http`            | Provider-neutral GraphQL HTTP contract, **not** a plugin; see [GraphQL](/docs/1.0.0/plugins/official/graphql).                                                  |
+| `@ultimabase/graphql-yoga-plugin`     | Optional [Yoga HTTP adapter](/docs/1.0.0/plugins/official/graphql#serve-graphql-over-http-with-yoga).                                                           |
+| `@ultimabase/graphql-explorer-plugin` | Optional [GraphiQL or Apollo Sandbox explorer](/docs/1.0.0/plugins/official/graphql#choose-a-development-explorer).                                             |
+| `@ultimabase/api-server`              | Preset returning the HTTP, REST, GraphQL, Yoga, explorer and Hono plugins, **not** a plugin; see [GraphQL](/docs/1.0.0/plugins/official/graphql#configuration). |
 
 Every current package exposes its root `.` entry; the initializer also provides
 its `create-app` executable. Package roots provide

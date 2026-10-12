@@ -1,9 +1,7 @@
 import path from 'node:path'
 
 import {
-	apiApplicationImports,
 	apiNextCommands,
-	apiPluginEntries,
 	apiReadmeNotes,
 	apiSchemaPluginEntries,
 	apiSchemaPluginImports,
@@ -47,8 +45,7 @@ const dependencyOrder: readonly PluginId[] = [
 	'rest-plugin',
 	'graphql-plugin',
 	'graphql-yoga-plugin',
-	'graphiql-plugin',
-	'apollo-sandbox-plugin',
+	'graphql-explorer-plugin',
 	'hooks-plugin',
 	'soft-delete-plugin',
 	'validation-plugin',
@@ -162,7 +159,6 @@ const schemaSource = (plan: InitializerPlan): string => {
 		...securitySchemaPluginEntries(plan),
 		...apiSchemaPluginEntries(plan),
 		'postgresPlugin()',
-		...apiPluginEntries(plan),
 	]
 	return joinSections([
 		renderImports([
@@ -177,7 +173,6 @@ const schemaSource = (plan: InitializerPlan): string => {
 			...securitySchemaImports(plan),
 			...apiSchemaPluginImports(plan),
 			['@ultimabase/postgres-plugin', 'postgresPlugin'],
-			...apiApplicationImports(plan),
 		]),
 		`export const SchemaApplication = UltimaBase${useChain(entries)}`,
 		task
@@ -295,6 +290,10 @@ export const renderBaseFiles = (
 		'@ultimabase/core': '^0.0.0',
 		'@ultimabase/postgres-plugin': '^0.0.0',
 	}
+	// apiServer() composes the HTTP plugins (ADR-0325); each stays a direct
+	// dependency so generated types resolve with every package manager.
+	if (has(plan, 'http-plugin'))
+		dependencies['@ultimabase/api-server'] = '^0.0.0'
 	for (const id of dependencyOrder)
 		if (has(plan, id)) dependencies[`@ultimabase/${id}`] = '^0.0.0'
 	if (has(plan, 'validation-plugin') && plan.starter === 'task')

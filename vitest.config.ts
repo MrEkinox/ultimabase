@@ -19,9 +19,9 @@ const sourcePackageAliasEntries: readonly (readonly [string, string])[] = [
 	...[
 		'access-plugin',
 		'acl-permissions-plugin',
-		'apollo-sandbox-plugin',
+		'api-server',
 		'core',
-		'graphiql-plugin',
+		'graphql-explorer-plugin',
 		'graphql-http',
 		'graphql-plugin',
 		'graphql-yoga-plugin',

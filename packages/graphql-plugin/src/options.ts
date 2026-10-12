@@ -1,221 +1,159 @@
-import type { SchemaDefinition } from '@ultimabase/core'
 import {
-	defineSchemaOption,
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
-	type SchemaOptionDefinition,
 } from '@ultimabase/core/plugin'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import { immutableArray, isUnknownArray } from '@ultimabase/shared'
+import { GraphQLSchema } from 'graphql'
+
 import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+	defaultGraphqlExecutionLimits,
+	normalizeGraphqlExecutionLimits,
+	type GraphqlExecutionLimits,
+	type GraphqlPaginationOptions,
+	type NormalizedGraphqlExecutionLimits,
+} from './connection-limits.js'
+import {
+	normalizeGraphqlRule,
+	type GraphqlMethodRules,
+	type NormalizedGraphqlRule,
+} from './rules.js'
 
-/** Selects itemized bulk mutation fields for one generated GraphQL type. */
-export interface GraphqlBulkOperations {
-	/** Generates ordered itemized bulk create mutations. */
-	readonly create?: boolean
-	/** Generates ordered itemized bulk update mutations. */
-	readonly update?: boolean
-	/** Generates ordered itemized bulk delete mutations. */
-	readonly delete?: boolean
-	/** Generates ordered itemized bulk upsert mutations. */
-	readonly upsert?: boolean
+/** Configures deterministic GraphQL v1 schema generation (ADR-0325). */
+export interface GraphqlPluginOptions {
+	/**
+	 * Exposure inherited by every schema method a `.with({ graphql })` rule
+	 * leaves out: `true`, `false`, or per method.
+	 * @example `default: { createOne: false, updateOne: false, deleteOne: false }`
+	 */
+	readonly default?: boolean | GraphqlMethodRules
+	/**
+	 * Public operations this schema does not expose; every other operation
+	 * its owner declared public is exposed.
+	 * @example `hide: [passwordAuthOperations.refresh]`
+	 */
+	readonly hide?: readonly PluginOperationDefinition[]
+	/** Bounds document size, depth, aliases, root fields and variables. */
+	readonly limits?: GraphqlExecutionLimits
+	/**
+	 * Default and largest Relay `first`, as REST `take` (ADR-0309).
+	 *
+	 * @default { defaultTake: 100, maxTake: 1000 }
+	 * @example `graphqlPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
+	 */
+	readonly pagination?: GraphqlPaginationOptions
+	/**
+	 * Starts even when GraphQL exposes writes and no protected policy (such as
+	 * Access) is installed: every client may then write (ADR-0294).
+	 * @default false
+	 */
+	readonly publicWrites?: boolean
+	/** Adds completed application-owned schemas after the generated surface. */
+	readonly schemas?: readonly GraphQLSchema[]
+	/**
+	 * Writes the schema SDL to this file at startup, for graphql-codegen or
+	 * gql.tada; a relative path resolves from the working directory.
+	 * @example `sdl: './schema.graphql'`
+	 */
+	readonly sdl?: string
 }
 
-/** Selects generated GraphQL operations for one application-owned schema. */
-export interface GraphqlSchemaOperations {
-	/** Generates the exact-ID query field. */
-	readonly get?: boolean
-	/** Generates the first-match query field. */
-	readonly findOne?: boolean
-	/** Generates the cursor connection query field. */
-	readonly findMany?: boolean
-	/** Generates the filtered count query field. */
-	readonly count?: boolean
-	/** Generates the filtered existence query field. */
-	readonly exists?: boolean
-	/** Generates the singular create mutation field. */
-	readonly create?: boolean
-	/** Generates the singular update mutation field. */
-	readonly update?: boolean
-	/** Generates the singular delete mutation field. */
-	readonly delete?: boolean
-	/** Generates the singular upsert mutation field. */
-	readonly upsert?: boolean
-	/** Generates explicitly bound plugin-owned schema mutation fields. */
-	readonly mutations?: boolean
-	/** Selects all or individual itemized bulk mutation fields. */
-	readonly bulk?: boolean | GraphqlBulkOperations
-}
-
-/** Configures the generated GraphQL representation of one schema. */
-export interface GraphqlSchemaExposure {
-	/** Overrides the exact GraphQL object name without changing Core identity. */
-	readonly typeName?: string
-	/** Supplies sparse operation overrides inherited ahead of plugin defaults. */
-	readonly operations?: boolean | GraphqlSchemaOperations
-}
-
-export type GraphqlSchemaExposureOption = boolean | GraphqlSchemaExposure
-
-const operationKeys: ReadonlySet<string> = new Set([
-	'bulk',
-	'count',
-	'create',
-	'delete',
-	'exists',
-	'findMany',
-	'findOne',
-	'get',
-	'mutations',
-	'update',
-	'upsert',
-])
-const bulkKeys: ReadonlySet<string> = new Set([
-	'create',
-	'delete',
-	'update',
-	'upsert',
-])
-const exposureKeys = new Set(['operations', 'typeName'])
-
-/** Returns one own key when it is a declared string key, otherwise rejects it. */
-const readGraphqlKnownKey = (
-	key: string | symbol,
-	keys: ReadonlySet<string>,
-	path: string,
-	label = 'unknown option',
-): string => {
-	if (typeof key !== 'string' || !keys.has(key)) {
-		throw new TypeError(`${path} contains ${label}: ${String(key)}`)
+const normalizeCustomSchemas = (value: unknown): readonly GraphQLSchema[] => {
+	if (value === undefined) return immutableArray([])
+	if (!isUnknownArray(value)) {
+		throw new TypeError('GraphQL plugin schemas must be an array')
 	}
-	return key
-}
-
-/** Rejects symbol and undeclared keys, naming the first offending key. */
-export const assertGraphqlKnownKeys = (
-	value: object,
-	keys: ReadonlySet<string>,
-	path: string,
-	label?: string,
-): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		readGraphqlKnownKey(key, keys, path, label)
-	}
-}
-
-const readBoolean = (value: unknown, path: string): boolean => {
-	if (typeof value !== 'boolean') {
-		throw new TypeError(`${path} must be a boolean`)
-	}
-	return value
-}
-
-// Snapshots one closed option object, validating each key before its value.
-const snapshotFlags = <TValue>(
-	value: unknown,
-	path: string,
-	keys: ReadonlySet<string>,
-	read: (option: unknown, key: string) => TValue,
-): Readonly<Record<string, TValue>> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a boolean or plain object`)
-	}
-	const entries: [string, TValue][] = []
-	for (const ownKey of Reflect.ownKeys(value)) {
-		const key = readGraphqlKnownKey(ownKey, keys, path)
-		entries.push([key, read(value[key], key)])
-	}
-	return immutableRecord(Object.fromEntries(entries))
-}
-
-/** Snapshots sparse generated-operation selection without filling inheritance. */
-export const normalizeGraphqlSchemaOperations = (
-	value: unknown,
-	path: string,
-): boolean | GraphqlSchemaOperations =>
-	typeof value === 'boolean'
-		? value
-		: snapshotFlags(value, path, operationKeys, (option, key) =>
-				key === 'bulk' && typeof option !== 'boolean'
-					? snapshotFlags(option, `${path}.bulk`, bulkKeys, (flag, name) =>
-							readBoolean(flag, `${path}.bulk.${name}`),
-						)
-					: readBoolean(option, `${path}.${key}`),
+	const schemas: GraphQLSchema[] = []
+	for (const [index, schema] of value.entries()) {
+		if (!(schema instanceof GraphQLSchema)) {
+			throw new TypeError(
+				`GraphQL plugin schemas[${String(index)}] must be a completed GraphQLSchema`,
 			)
-
-/** Snapshots one direct schema GraphQL option. */
-export const normalizeGraphqlSchemaExposure = (
-	value: unknown,
-	path: string,
-): GraphqlSchemaExposureOption => {
-	if (typeof value === 'boolean') return value
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a boolean or plain object`)
+		}
+		schemas.push(schema)
 	}
-	assertGraphqlKnownKeys(value, exposureKeys, path)
-	const typeName = value.typeName
-	if (
-		typeName !== undefined &&
-		(typeof typeName !== 'string' || typeName === '')
-	) {
-		throw new TypeError(`${path}.typeName must be a non-empty string`)
-	}
-	const operations = value.operations
-	return immutableRecord({
-		...(typeName === undefined ? {} : { typeName }),
-		...(operations === undefined
-			? {}
-			: {
-					operations: normalizeGraphqlSchemaOperations(
-						operations,
-						`${path}.operations`,
-					),
-				}),
-	})
+	return immutableArray(schemas)
 }
 
-/** Owns the direct application schema `graphql` exposure option. */
-export const graphqlSchemaOption: SchemaOptionDefinition<GraphqlSchemaExposureOption> =
-	defineSchemaOption({
-		normalize: normalizeGraphqlSchemaExposure,
-		protocolVersion: 1,
-		// The installed plugin projects this option from source, not Typegen.
-		typegen: false,
-	})
-
-/** Reads the normalized direct option without treating omission as denial. */
-export const readGraphqlSchemaExposure = (
-	schema: SchemaDefinition,
-): GraphqlSchemaExposureOption | undefined =>
-	Object.hasOwn(schema.definition, 'graphql')
-		? (Reflect.get(schema.definition, 'graphql') as
-				GraphqlSchemaExposureOption | undefined)
-		: undefined
-
-/** Validates the exact application operation tokens selected for GraphQL. */
-export const normalizeGraphqlPluginOperations = (
+/** @internal Validates the public operation tokens GraphQL hides. */
+const normalizeGraphqlHide = (
 	value: unknown,
 ): readonly PluginOperationDefinition[] => {
 	if (value === undefined) return immutableArray([])
 	if (!isUnknownArray(value)) {
-		throw new TypeError('GraphQL plugin operations must be an array')
+		throw new TypeError('GraphQL plugin hide must be an array')
 	}
 	const names = new Set<string>()
 	const operations: PluginOperationDefinition[] = []
 	for (const [index, operation] of value.entries()) {
 		if (!isPluginOperationDefinition(operation)) {
 			throw new TypeError(
-				`GraphQL plugin operations[${String(index)}] must be an operation token`,
+				`GraphQL plugin hide[${String(index)}] must be an operation token`,
 			)
 		}
 		if (names.has(operation.name)) {
-			throw new TypeError(`GraphQL plugin operations repeats ${operation.name}`)
+			throw new TypeError(`GraphQL plugin hide repeats ${operation.name}`)
 		}
 		names.add(operation.name)
 		operations.push(operation)
 	}
 	return immutableArray(operations)
 }
+
+const normalizeSdlPath = (value: unknown): string | undefined => {
+	if (value === undefined) return undefined
+	if (typeof value !== 'string' || value.length === 0) {
+		throw new TypeError('GraphQL plugin sdl must be a non-empty file path')
+	}
+	return value
+}
+
+/** @internal The validated configuration one `graphqlPlugin()` call closes over. */
+export interface NormalizedGraphqlPluginOptions {
+	readonly defaultRule: NormalizedGraphqlRule | undefined
+	readonly hide: readonly PluginOperationDefinition[]
+	readonly limits: NormalizedGraphqlExecutionLimits
+	readonly publicWrites: boolean
+	readonly schemas: readonly GraphQLSchema[]
+	readonly sdl: string | undefined
+}
+
+/** @internal Rejects unknown keys and normalizes every plugin factory option. */
+export const parseGraphqlPluginOptions: (
+	options: GraphqlPluginOptions,
+) => NormalizedGraphqlPluginOptions = definePluginOptionsParser({
+	name: 'GraphQL plugin options',
+	keys: [
+		'default',
+		'hide',
+		'limits',
+		'pagination',
+		'publicWrites',
+		'schemas',
+		'sdl',
+	] as const,
+	normalize: (options) => {
+		const { publicWrites } = options
+		if (publicWrites !== undefined && typeof publicWrites !== 'boolean') {
+			throw new TypeError('GraphQL plugin publicWrites must be a boolean')
+		}
+		return {
+			defaultRule:
+				options.default === undefined
+					? undefined
+					: normalizeGraphqlRule(
+							options.default,
+							'GraphQL plugin default',
+							false,
+						),
+			hide: normalizeGraphqlHide(options.hide),
+			limits:
+				options.limits === undefined && options.pagination === undefined
+					? defaultGraphqlExecutionLimits
+					: normalizeGraphqlExecutionLimits(options.limits, options.pagination),
+			publicWrites: publicWrites ?? false,
+			schemas: normalizeCustomSchemas(options.schemas),
+			sdl: normalizeSdlPath(options.sdl),
+		}
+	},
+})

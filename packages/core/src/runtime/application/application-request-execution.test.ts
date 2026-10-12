@@ -150,7 +150,7 @@ describe('applicationRequestExecutionCapability', () => {
 		await ultimabase.dispose()
 	})
 
-	it('shares public-protection diagnostics and delegates explicit operation exposure', async () => {
+	it('delegates explicit operation exposure', async () => {
 		const harness: RequestExecutionHarness = {}
 		const ultimabase = applicationFixture(
 			new (UltimaBase.use(
@@ -162,24 +162,8 @@ describe('applicationRequestExecutionCapability', () => {
 			name: 'fixture.application-request-transport',
 			version: '1.0.0',
 		})
-		const warning = vi
-			.spyOn(console, 'warn')
-			.mockImplementation(() => undefined)
 		await ultimabase.start()
 
-		runAsHarness(harness, (executor) => {
-			executor.reportPublicTransportProtection({ transport: protocol })
-			executor.reportPublicTransportProtection({ transport: protocol })
-			executor.reportPublicTransportProtection({
-				acknowledgeUnverifiedProtection: true,
-				transport: protocol,
-			})
-		})
-		expect(warning).toHaveBeenCalledOnce()
-		expect(warning.mock.calls[0]?.[1]).toMatchObject({
-			code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
-			transport: { name: protocol.name, version: protocol.version },
-		})
 		expect(() =>
 			runAsHarness(harness, (executor) =>
 				executor.exposeOperations({ operations: [], transport: protocol }),
@@ -188,13 +172,12 @@ describe('applicationRequestExecutionCapability', () => {
 
 		await ultimabase.stop()
 		expect(() => {
-			runAsHarness(harness, (executor) => {
-				executor.reportPublicTransportProtection({ transport: protocol })
-			})
+			runAsHarness(harness, (executor) =>
+				executor.exposeOperations({ operations: [], transport: protocol }),
+			)
 		}).toThrow(
 			/Framework engine requires its initialized active application; received stopped/u,
 		)
-		warning.mockRestore()
 		await ultimabase.dispose()
 	})
 

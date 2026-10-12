@@ -66,7 +66,7 @@ const appId = 'checked-links'
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(
 		restPlugin(),
-		graphqlPlugin({ default: { mutations: true } }),
+		graphqlPlugin(),
 		httpPlugin({ appId }),
 		capturePlugin,
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),

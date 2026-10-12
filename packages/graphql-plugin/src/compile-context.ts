@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import type {
 	CompiledSchemaRegistry,
+	DatabaseFilterOperatorCapability,
 	GenericField,
 	SchemaContributionOwner,
 	SchemaDefinition,
@@ -18,6 +19,7 @@ import {
 } from 'graphql'
 
 import { GraphqlSchemaCompilationError } from './errors.js'
+import { GraphqlHintCollector } from './hints.js'
 import type { GraphqlSchemaSurface } from './surfaces.js'
 
 const typeNamePattern = /^[A-Z][_0-9A-Za-z]*$/u
@@ -211,9 +213,13 @@ export type GraphqlTypeList = (typeof typeLists)[number]
 
 /** Shares names, schema lookups and ordered type lists between compilers. */
 export class GraphqlCompileContext {
+	/** Names how to enable each field a disabled feature leaves out. */
+	readonly hints: GraphqlHintCollector = new GraphqlHintCollector()
 	readonly names: GraphqlNameRegistry
 	readonly schemas: CompiledSchemaRegistry
 	readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
+	/** The adapter's static operator declaration, when one is installed. */
+	readonly filterOperators: DatabaseFilterOperatorCapability | undefined
 	readonly #lists: Readonly<Record<GraphqlTypeList, GraphQLNamedType[]>> = {
 		models: [],
 		connections: [],
@@ -232,10 +238,12 @@ export class GraphqlCompileContext {
 		names: GraphqlNameRegistry,
 		schemas: CompiledSchemaRegistry,
 		surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>,
+		filterOperators?: DatabaseFilterOperatorCapability,
 	) {
 		this.names = names
 		this.schemas = schemas
 		this.surfaces = surfaces
+		this.filterOperators = filterOperators
 	}
 
 	/** Every generated named type in deterministic schema order. */

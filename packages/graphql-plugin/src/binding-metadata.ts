@@ -10,7 +10,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertGraphqlKnownKeys } from './options.js'
+import { assertGraphqlKnownKeys } from './known-keys.js'
 
 /** References a v1 built-in or binding-supplied type, or one application schema. */
 export type GraphqlOperationNullableTypeReference =

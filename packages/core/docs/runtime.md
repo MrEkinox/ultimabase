@@ -299,8 +299,11 @@ that superset, removes dependency-only values before public result behaviors,
 then resolves and validates virtual outputs. One operation-local scheduler
 orders occurrences by result item and schema declaration, runs fixed batches of
 at most 16, settles a started batch before reporting its lowest-ordinal failure,
-and starts no later batch after failure or cancellation. Eager target virtuals
-share this scheduler but retain their own target Access evaluation. Mutation
+and starts no later batch after failure or cancellation. A `resolveMany` field
+is one invocation for all the items of one resolution, scheduled after the
+per-row ones. Eager target virtuals share this scheduler but retain their own
+target Access evaluation; the targets of several parents resolve in parallel
+(ADR-0325). Mutation
 resolution remains inside the automatic transaction and precedes commit.
 
 ## Runtime callback context and safety

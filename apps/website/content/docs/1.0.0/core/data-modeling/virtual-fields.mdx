@@ -7,7 +7,7 @@ contentType: concept
 order: 6
 outcome: Define a virtual field and predict its selection, privacy, typing, and failure behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-12
 sources:
   - packages/core/README.md
   - packages/core/examples/schema/virtual-fields.md
@@ -15,6 +15,7 @@ sources:
   - packages/core/src/runtime/virtual-fields/projection.ts
   - packages/core/src/runtime/virtual-fields/execution.ts
   - docs/adr/0244-contextual-fields-and-virtual-results.md
+  - docs/adr/0325-graphql-explorer-and-api-server-preset.md
 ---
 
 A virtual field is a value UltimaBase computes for a result instead of storing
@@ -119,7 +120,34 @@ optional Validation plugin checks mutation inputs, not virtual outputs.
 
 Core resolves requested virtual fields for reads, mutation results, and eager
 pointer or relation targets through the same Runtime path. Collection
-resolvers run in batches of at most 16 invocations. There is no cross-request
+resolvers run in batches of at most 16 invocations. The included targets of
+several parents resolve in parallel, one call per parent and field.
+
+To resolve every row of one read in one call, declare `resolveMany` instead
+of `resolve` (ADR-0325). It receives the immutable dependency `items` in result
+order and returns one value per item, in the same order; a list of another
+length fails the operation:
+
+```ts title="src/tag.ts"
+const Tag = Application.Schema.define({
+	className: 'Tag',
+	fields: (field) => ({
+		name: field.string({ required: true }),
+		usage: field.virtual({
+			output: (output) => output.int({ nullable: false }),
+			select: { name: true },
+			resolveMany: async ({ items }) =>
+				countUsages(items.map(({ name }) => name)),
+		}),
+	}),
+})
+```
+
+A read of 50 tags calls `resolveMany` once; included tags call it once per
+parent. Relations read with `include`, a REST `include` or a GraphQL selection
+are one SQL statement. Reading a relation row by row in application code, such
+as `todo.relation('tags').findMany()` in a loop, stays one query per row:
+include the relation instead. There is no cross-request
 cache, automatic retry, or exactly-once side-effect guarantee; do not use a
 resolver as a Hook or event handler. An exception from `resolve` fails the
 operation; a value that violates `output` produces a result validation error.

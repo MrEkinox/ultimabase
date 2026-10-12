@@ -152,7 +152,7 @@ const createFixture = async (
 		}),
 		sessionResolverPlugin,
 		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
+			publicWrites: true,
 			default: false,
 			schemas: [schema],
 		}),

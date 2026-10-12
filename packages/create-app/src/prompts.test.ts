@@ -90,7 +90,7 @@ describe('selection flow', () => {
 			}),
 		)
 		const choices = selected[0] ?? []
-		expect(choices).toHaveLength(15)
+		expect(choices).toHaveLength(14)
 		expect(
 			choices.filter((choice) => choice.required).map((choice) => choice.id),
 		).toEqual(

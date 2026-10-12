@@ -12,6 +12,7 @@ import {
 	lexicographicSortSchema,
 	printSchema,
 	type ExecutionResult,
+	type ValidationRule,
 } from 'graphql'
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
@@ -31,11 +32,29 @@ export interface GraphqlApplication {
 	execute(options: GraphqlExecuteOptions): Promise<ExecutionResult>
 	/** Prints a deterministic SDL snapshot without executable resolver details. */
 	printSchema(): string
+	/**
+	 * GraphQL's specified validation rules, where an unknown field that a
+	 * disabled feature would add names how to enable it (ADR-0325); network
+	 * adapters validate documents with them.
+	 */
+	readonly validationRules: readonly ValidationRule[]
+}
+
+/** @internal What startup checks read from the compiled schema. */
+export interface GraphqlApplicationFacts {
+	/** Whether any schema root or operation is exposed besides `health`. */
+	readonly exposed: boolean
+	/** The public operations GraphQL exposes, by name. */
+	readonly operations: readonly string[]
+	/** Root fields that write: generated mutations and plugin commands. */
+	readonly writes: readonly string[]
 }
 
 /** @internal Owns every disposable part behind one application facade. */
 export interface GraphqlApplicationState {
 	readonly connections: GraphqlConnectionRuntime
+	readonly facts: GraphqlApplicationFacts
+	readonly validationRules: readonly ValidationRule[]
 	readonly networkless: GraphqlNetworklessExecution
 	readonly operations: GraphqlOperationExecution
 	readonly schemaMutations: GraphqlSchemaMutationExecution
@@ -62,6 +81,10 @@ class GraphqlApplicationResource implements GraphqlApplication {
 
 	get schema(): GraphQLSchema {
 		return liveState(this).schema
+	}
+
+	get validationRules(): readonly ValidationRule[] {
+		return liveState(this).validationRules
 	}
 
 	execute(options: GraphqlExecuteOptions): Promise<ExecutionResult> {
@@ -146,6 +169,11 @@ export const bindGraphqlSchemaMutationTransport = (
 ): void => {
 	liveState(application).schemaMutations.bind(transport)
 }
+
+/** @internal Reads the startup facts of a live application. */
+export const readGraphqlApplicationFacts = (
+	application: GraphqlApplication,
+): GraphqlApplicationFacts => liveState(application).facts
 
 /** @internal Resolves the private cursor owner retained by a live capability. */
 export const readGraphqlConnectionRuntime = (
