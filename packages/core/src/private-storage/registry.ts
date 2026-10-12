@@ -133,7 +133,6 @@ export class PrivateStorageRegistry {
 							contributionId: definition.contributionId,
 							fields,
 							indexes: definition.indexes,
-							lookups: definition.lookups,
 							normalizedStaticOptions: definition.normalizedStaticOptions,
 							owner: immutableRecord(owner),
 							packageVersion,
@@ -216,8 +215,6 @@ export class PrivateStorageRegistry {
 					.map(([name, { create }]) => [name, fieldFingerprint(create.field)]),
 			),
 			indexes: adapter.indexes,
-			// Absent when empty, so existing collections keep their fingerprint.
-			...(adapter.lookups.length === 0 ? {} : { lookups: adapter.lookups }),
 			normalizedStaticOptions: canonicalJson(adapter.normalizedStaticOptions),
 			owner: adapter.owner,
 			packageVersion: adapter.packageVersion,

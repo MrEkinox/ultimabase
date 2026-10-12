@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 import {
 	accessPluginPublicApi,
 	apiServerPublicApi,
+	authPasswordPublicApi,
+	authPluginPublicApi,
 	getOptionalProductPublicApiNames,
 	graphqlExplorerPluginPublicApi,
 	graphqlPluginPublicApi,
@@ -12,7 +14,6 @@ import {
 	graphqlYogaPluginPublicApi,
 	hooksPluginPublicApi,
 	httpPluginPublicApi,
-	passwordAuthPluginPublicApi,
 	removedAccessPluginPublicApiNames,
 	removedApiServerPublicApiNames,
 	removedGraphqlExplorerPluginPublicApiNames,
@@ -21,7 +22,8 @@ import {
 	removedGraphqlHttpPublicApiNames,
 	removedGraphqlYogaPluginPublicApiNames,
 	removedHttpPluginPublicApiNames,
-	removedPasswordAuthPluginPublicApiNames,
+	removedAuthPasswordPublicApiNames,
+	removedAuthPluginPublicApiNames,
 	removedRestPluginPublicApiNames,
 	removedValidationPluginPublicApiNames,
 	restPluginPublicApi,
@@ -35,13 +37,14 @@ interface OptionalProductFixture {
 	readonly moduleSpecifier:
 		| '@ultimabase/access-plugin'
 		| '@ultimabase/api-server'
+		| '@ultimabase/auth-password'
+		| '@ultimabase/auth-plugin'
 		| '@ultimabase/graphql-explorer-plugin'
 		| '@ultimabase/hooks-plugin'
 		| '@ultimabase/graphql-plugin'
 		| '@ultimabase/graphql-http'
 		| '@ultimabase/graphql-yoga-plugin'
 		| '@ultimabase/http-plugin'
-		| '@ultimabase/password-auth-plugin'
 		| '@ultimabase/rest-plugin'
 		| '@ultimabase/soft-delete-plugin'
 		| '@ultimabase/validation-plugin'
@@ -58,6 +61,16 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: apiServerPublicApi,
 		moduleSpecifier: '@ultimabase/api-server',
 		removedNames: removedApiServerPublicApiNames,
+	},
+	{
+		classification: authPasswordPublicApi,
+		moduleSpecifier: '@ultimabase/auth-password',
+		removedNames: removedAuthPasswordPublicApiNames,
+	},
+	{
+		classification: authPluginPublicApi,
+		moduleSpecifier: '@ultimabase/auth-plugin',
+		removedNames: removedAuthPluginPublicApiNames,
 	},
 	{
 		classification: graphqlExplorerPluginPublicApi,
@@ -88,11 +101,6 @@ const fixtures: readonly OptionalProductFixture[] = [
 		classification: httpPluginPublicApi,
 		moduleSpecifier: '@ultimabase/http-plugin',
 		removedNames: removedHttpPluginPublicApiNames,
-	},
-	{
-		classification: passwordAuthPluginPublicApi,
-		moduleSpecifier: '@ultimabase/password-auth-plugin',
-		removedNames: removedPasswordAuthPluginPublicApiNames,
 	},
 	{
 		classification: restPluginPublicApi,

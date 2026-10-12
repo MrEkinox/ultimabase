@@ -166,9 +166,13 @@ export const provideAuthHttpResolver = (options: {
 						token = value
 						usesCookie = true
 					}
+					// Browsers send `Origin`: their authentication requests, and every
+					// unsafe request the cookie authenticates, must come from an
+					// allowed origin. A client without `Origin` uses Bearer.
 					if (
 						browserPolicy !== undefined &&
-						(options.paths.routes.has(path) ||
+						((options.paths.routes.has(path) &&
+							request.headers.has('Origin')) ||
 							(usesCookie && !safeMethods.has(request.method)))
 					) {
 						assertCookieRequestProof(request, browserPolicy)

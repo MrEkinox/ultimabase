@@ -16,13 +16,6 @@ export interface PrivateCollectionUniqueIndex<
 	readonly fields: TNames
 }
 
-/** Describes one non-unique lookup used by `findMany`. */
-export interface PrivateCollectionLookupIndex<
-	TFields extends Readonly<Record<string, GenericField>>,
-> {
-	readonly fields: readonly (keyof TFields & string)[]
-}
-
 /** Links one private UUID field to one exact public application schema. */
 export interface PrivateCollectionReference<
 	TFields extends Readonly<Record<string, GenericField>>,
@@ -45,8 +38,6 @@ export interface DefinePrivateCollectionOptions<
 	readonly fields: TFields
 	/** Declares every exact lookup and uniqueness constraint available to the owner. */
 	readonly indexes: TIndexes
-	/** Declares non-unique indexes that `findMany` may select by. */
-	readonly lookups?: readonly PrivateCollectionLookupIndex<TFields>[]
 	/** Retains deterministic inert options in fingerprints and upgrade metadata. */
 	readonly normalizedStaticOptions?: Readonly<Record<string, JsonValue>>
 	/** Advances only when the private collection protocol changes incompatibly. */
@@ -115,19 +106,6 @@ export interface PrivateCollectionFindUniqueOptions<
 	readonly where: PrivateCollectionUniqueWhere<TCollection>
 }
 
-/**
- * Selects at most `limit` records whose fields equal `where`, which names
- * exactly the fields of one declared unique index or lookup. Order is
- * unspecified.
- */
-export interface PrivateCollectionFindManyOptions<
-	TCollection extends PrivateCollection,
-> {
-	readonly where: Readonly<Partial<PrivateCollectionRecord<TCollection>>>
-	/** From 1 through 1,000. */
-	readonly limit: number
-}
-
 /** Inserts one complete private record after Core structural normalization. */
 export interface PrivateCollectionInsertOptions<
 	TCollection extends PrivateCollection,
@@ -164,9 +142,6 @@ export interface PrivateCollectionHandle<
 	findUnique(
 		options: PrivateCollectionFindUniqueOptions<TCollection>,
 	): Promise<PrivateCollectionRecord<TCollection> | null>
-	findMany(
-		options: PrivateCollectionFindManyOptions<TCollection>,
-	): Promise<readonly PrivateCollectionRecord<TCollection>[]>
 	insert(
 		options: PrivateCollectionInsertOptions<TCollection>,
 	): Promise<PrivateCollectionRecord<TCollection>>

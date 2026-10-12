@@ -61,13 +61,7 @@ export const compilePostgresPrivateCollection = (
 		(columns) => [
 			...compilePostgresIndexBuilders(
 				tableName,
-				[
-					...collection.indexes.map(({ fields }) => ({ fields, unique: true })),
-					...collection.lookups.map(({ fields }) => ({
-						fields,
-						unique: false,
-					})),
-				],
+				collection.indexes.map(({ fields }) => ({ fields, unique: true })),
 				columns,
 				new Map(pending.map(([name, , field]) => [name, field.storage])),
 			),

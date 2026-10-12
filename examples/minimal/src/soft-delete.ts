@@ -1,3 +1,5 @@
+import { authPlugin } from '@ultimabase/auth-plugin'
+
 import type { createMinimalApplication } from './create-application.ts'
 import { ExampleArticle, ExampleAuthor } from './schema.ts'
 
@@ -8,9 +10,7 @@ const runWithSession = <TResult>(
 	sessionToken: string,
 	handler: () => Promise<TResult>,
 ): Promise<TResult> =>
-	app
-		.plugin('@ultimabase/password-auth-plugin')
-		.runWithSession(sessionToken, handler)
+	app.plugin(authPlugin).runWithSession(sessionToken, handler)
 
 /** Runs the plugin command on the class through this exact application. */
 export const softDeleteArticle = (

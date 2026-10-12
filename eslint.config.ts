@@ -87,7 +87,7 @@ export default defineConfig(
 			'tooling/vitest/database-filter-operators.ts',
 			'tooling/vitest/optional-product-public-api.ts',
 			'tooling/vitest/http-plugin-public-api.ts',
-			'tooling/vitest/password-auth-public-api.ts',
+			'tooling/vitest/auth-public-api.ts',
 			'tooling/vitest/prepared-mutation-adapter.ts',
 			'tooling/vitest/typescript-language-service.ts',
 		],

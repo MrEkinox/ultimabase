@@ -20,7 +20,7 @@ import {
 
 import {
 	bindingOwnerFor,
-	isSameBindingOwner,
+	isBindingOwnerSchema,
 	normalizeGraphqlOperationBindingMetadata,
 	normalizeGraphqlSchemaMutationBindingMetadata,
 	type GraphqlSchemaMutationBindingMetadata,
@@ -83,18 +83,15 @@ const assertFreeRoot = (
 	}
 }
 
-/** Reads the class name of the one application schema the owner added or claimed. */
+/** Reads the class name of the one schema the binding's plugin owns or designates. */
 const ownedSchemaClassName = (
 	schemas: CompiledSchemaRegistry,
 	owner: PluginSchemaContributionOwner,
 	path: string,
 ): string => {
-	const owned = schemas.values().filter((schema) => {
-		const schemaOwner = schema.definition.provenance.schema.owner
-		return (
-			schemaOwner.kind === 'plugin' && isSameBindingOwner(schemaOwner, owner)
-		)
-	})
+	const owned = schemas
+		.values()
+		.filter((schema) => isBindingOwnerSchema(schema, owner))
 	const [schema] = owned
 	if (schema === undefined || owned.length !== 1) {
 		throw new TypeError(

@@ -25,7 +25,8 @@ const firstMasterKey = 'authenticated-first-master'
 const password = 'correct horse battery staple'
 const statusPath = '/api/operations/status'
 const notePath = '/api/classes/ExamplePrivateNote'
-const authPath = (name: string): string => `/api/auth/${name}`
+// The authentication routes share one prefix, `/auth` (ADR-0326).
+const authPath = (name: string): string => `/auth/${name}`
 
 let firstFixture: PostgresWorkerFixture | undefined
 let secondFixture: PostgresWorkerFixture | undefined
@@ -226,10 +227,10 @@ afterAll(async () => {
 })
 
 describe('authenticated public REST vertical', { concurrent: false }, () => {
-	it('joins Password Auth, roles, Access, ACL, Hono, and PostgreSQL', async () => {
+	it('joins authentication, roles, Access, ACL, Hono, and PostgreSQL', async () => {
 		const minimal = requireExample()
 		const signUp = await requestJson(firstAppId, authPath('sign-up'), {
-			body: { input: { password, username: 'ada' } },
+			body: { password, username: 'ada' },
 			method: 'POST',
 		})
 		expect(signUp.status).toBe(200)
@@ -237,7 +238,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		expect(firstSession.token).toMatch(/^ub_s1\./u)
 
 		const login = await requestJson(firstAppId, authPath('login'), {
-			body: { input: { password, username: 'ADA' } },
+			body: { password, username: 'ADA' },
 			method: 'POST',
 		})
 		expect(login.status).toBe(200)
@@ -319,7 +320,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		})
 
 		const deniedUser = await requestJson(firstAppId, authPath('sign-up'), {
-			body: { input: { password, username: 'grace' } },
+			body: { password, username: 'grace' },
 			method: 'POST',
 		})
 		const deniedSession = await readAuthentication(deniedUser)
@@ -339,13 +340,11 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		})
 
 		const wrongPassword = await requestJson(firstAppId, authPath('login'), {
-			body: {
-				input: { password: 'incorrect password value', username: 'ada' },
-			},
+			body: { password: 'incorrect password value', username: 'ada' },
 			method: 'POST',
 		})
 		const unknownUser = await requestJson(firstAppId, authPath('login'), {
-			body: { input: { password, username: 'unknown-user' } },
+			body: { password, username: 'unknown-user' },
 			method: 'POST',
 		})
 		const wrongBody = await wrongPassword.text()
@@ -378,7 +377,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		})
 		expect(foreign.status).toBe(401)
 		const isolatedSignUp = await requestJson(secondAppId, authPath('sign-up'), {
-			body: { input: { password, username: 'ada' } },
+			body: { password, username: 'ada' },
 			method: 'POST',
 		})
 		expect(isolatedSignUp.status).toBe(200)
@@ -463,7 +462,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		try {
 			const page = await context.newPage()
 			await page.goto(browserOrigin)
-			const cookieLogin = await browserFetch(page, '/auth/v1/login', {
+			const cookieLogin = await browserFetch(page, authPath('login'), {
 				body: JSON.stringify({ password, username: 'ada' }),
 				credentials: 'include',
 				headers: {

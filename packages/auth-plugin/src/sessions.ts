@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
-import { FrameworkError, privateStore } from '@ultimabase/core'
+import { privateStore } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AuthCollections, SessionRecord } from './collections.js'
+import { readUserState, updateUserState } from './user-state.js'
 import type { ResolvedAuthSessionPolicy } from './session-policy.js'
 import {
 	createAuthSession,
@@ -36,7 +37,8 @@ export interface IssuedSessionPair {
 	readonly issued: IssuedAuthSession
 }
 
-const sessionListLimit = 1000
+// A user keeps at most this many live sessions; the oldest is dropped.
+const sessionListLimit = 100
 // `lastUsedAt` is written at most once per interval per session.
 const lastUsedIntervalMs = 60_000
 
@@ -59,76 +61,60 @@ const toContextSession = (record: SessionRecord): AuthSession =>
 		record.sessionGeneration,
 	)
 
-const isUniqueViolation = (error: unknown): boolean =>
-	error instanceof FrameworkError && error.code === 'UNIQUE_VIOLATION'
-
 /** Reads the current account generation; a user without a state row is at 0. */
 export const readUserGeneration = async (
 	collections: AuthCollections,
 	userId: string,
 ): Promise<number> =>
-	(await privateStore(collections.states).findUnique({ where: { userId } }))
-		?.sessionGeneration ?? 0
+	(await readUserState(collections, userId)).sessionGeneration
 
-/** Creates the state row of a user when missing and returns its generation. */
-const ensureUserState = async (
+/** Reads the live sessions the user's state lists, in list order. */
+const readLiveSessions = async (
 	collections: AuthCollections,
-	userId: string,
-): Promise<number> => {
-	const store = privateStore(collections.states)
-	const existing = await store.findUnique({ where: { userId } })
-	if (existing !== null) return existing.sessionGeneration
-	try {
-		await store.insert({ data: { sessionGeneration: 0, userId } })
-	} catch (error: unknown) {
-		if (!isUniqueViolation(error)) throw error
+	ids: readonly string[],
+	generation: number,
+	now: number,
+): Promise<readonly SessionRecord[]> => {
+	const store = privateStore(collections.sessions)
+	const live: SessionRecord[] = []
+	for (const id of ids) {
+		const record = await store.findUnique({ where: { id } })
+		if (
+			record !== null &&
+			isActive(record, now) &&
+			record.sessionGeneration === generation
+		) {
+			live.push(record)
+		}
 	}
-	return readUserGeneration(collections, userId)
+	return live
+}
+
+/** Deletes the session rows that left the user's list. */
+const deleteSessions = async (
+	collections: AuthCollections,
+	ids: readonly string[],
+): Promise<void> => {
+	const store = privateStore(collections.sessions)
+	for (const id of ids) await store.delete({ where: { id } })
 }
 
 /** Advances the account generation, revoking every session issued before. */
 export const advanceUserGeneration = async (
 	collections: AuthCollections,
 	userId: string,
+	keep?: AuthSession,
 ): Promise<number> => {
-	const store = privateStore(collections.states)
-	for (let attempt = 0; attempt < 3; attempt += 1) {
-		const current = await ensureUserState(collections, userId)
-		const next = current + 1
-		if (
-			(await store.compareAndSwap({
-				data: { sessionGeneration: next },
-				expected: { sessionGeneration: current },
-				where: { userId },
-			})) !== null
-		) {
-			return next
-		}
-	}
-	throw new FrameworkError(
-		'TRANSACTION_CONFLICT',
-		'Concurrent session revocations conflicted.',
-		{ publicMessage: 'The request conflicted; retry it.', retryable: true },
+	const previous = await readUserState(collections, userId)
+	const next = await updateUserState(collections, userId, (state) => ({
+		sessionGeneration: state.sessionGeneration + 1,
+		sessionIds: keep === undefined ? [] : [keep.id],
+	}))
+	await deleteSessions(
+		collections,
+		previous.sessionIds.filter((id) => id !== keep?.id),
 	)
-}
-
-/** Deletes the expired, revoked or stale sessions of one user. */
-const purgeInactiveSessions = async (
-	collections: AuthCollections,
-	userId: string,
-	generation: number,
-	now: number,
-): Promise<void> => {
-	const store = privateStore(collections.sessions)
-	const records = await store.findMany({
-		limit: sessionListLimit,
-		where: { userId },
-	})
-	for (const record of records) {
-		if (!isActive(record, now) || record.sessionGeneration !== generation) {
-			await store.delete({ where: { id: record.id } })
-		}
-	}
+	return next.sessionGeneration
 }
 
 /** Inserts one fresh opaque session and returns its one-time token. */
@@ -143,8 +129,8 @@ export const issueSession = async (
 	now: number = Date.now(),
 ): Promise<IssuedSessionPair> => {
 	const { client, method, policy, userId } = options
-	const generation = await ensureUserState(collections, userId)
-	await purgeInactiveSessions(collections, userId, generation, now)
+	const state = await readUserState(collections, userId)
+	const generation = state.sessionGeneration
 	const createdAt = new Date(now).toISOString()
 	const absoluteExpiresAt = new Date(
 		now + policy.absoluteExpiresInMs,
@@ -169,6 +155,21 @@ export const issueSession = async (
 			userId,
 		},
 	})
+	// The list keeps the live sessions only, newest last, within the limit.
+	const live = await readLiveSessions(
+		collections,
+		state.sessionIds,
+		generation,
+		now,
+	)
+	const kept = live.slice(-(sessionListLimit - 1)).map(({ id }) => id)
+	await updateUserState(collections, userId, () => ({
+		sessionIds: [...kept, record.id],
+	}))
+	await deleteSessions(
+		collections,
+		state.sessionIds.filter((id) => !kept.includes(id)),
+	)
 	return immutableRecord({
 		context: toContextSession(record),
 		issued: immutableRecord({
@@ -300,7 +301,7 @@ export const revokeOtherSessions = async (
 	if ((await findUnchangedSession(collections, session, now)) === undefined) {
 		return false
 	}
-	const generation = await advanceUserGeneration(collections, userId)
+	const generation = await advanceUserGeneration(collections, userId, session)
 	return (
 		(await privateStore(collections.sessions).compareAndSwap({
 			data: { sessionGeneration: generation },
@@ -340,17 +341,15 @@ export const listUserSessions = async (
 	currentId: string | undefined,
 	now: number = Date.now(),
 ): Promise<readonly AuthSessionInfo[]> => {
-	const generation = await readUserGeneration(collections, userId)
-	const records = await privateStore(collections.sessions).findMany({
-		limit: sessionListLimit,
-		where: { userId },
-	})
+	const state = await readUserState(collections, userId)
+	const records = await readLiveSessions(
+		collections,
+		state.sessionIds,
+		state.sessionGeneration,
+		now,
+	)
 	return immutableArray(
-		records
-			.filter(
-				(record) =>
-					isActive(record, now) && record.sessionGeneration === generation,
-			)
+		[...records]
 			.sort((left, right) => right.lastUsedAt.localeCompare(left.lastUsedAt))
 			.map((record) =>
 				immutableRecord({

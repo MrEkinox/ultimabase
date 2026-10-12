@@ -1,6 +1,7 @@
 import type {
 	ExposedOperationTransportBinding,
 	PluginSchemaContributionOwner,
+	SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	assertNonEmptyString,
@@ -90,8 +91,8 @@ const readString = (value: unknown, path: string): string => {
 }
 
 /**
- * Resolves `{ kind: 'owned-schema' }`, the one application schema owned by
- * the binding's plugin when the application chooses its class name, to that
+ * Resolves `{ kind: 'owned-schema' }`, the one schema the binding's plugin
+ * owns or designates when the application chooses its class name, to that
  * class name.
  */
 type OwnedSchemaResolver = (path: string) => string
@@ -342,6 +343,25 @@ export const bindingOwnerFor = (
 	pluginId: descriptor.owner.pluginId,
 	version: descriptor.owner.version,
 })
+
+/**
+ * Tells whether a schema belongs to a binding's plugin: the plugin added or
+ * claimed it, or designates it with a schema option the plugin defines (a
+ * plugin's schema factory, such as `App.UserSchema`).
+ */
+export const isBindingOwnerSchema = (
+	schema: SchemaDefinition,
+	owner: PluginSchemaContributionOwner,
+): boolean => {
+	const { options, schema: source } = schema.definition.provenance
+	return [
+		source.owner,
+		...Object.values(options).map(({ definition }) => definition.owner),
+	].some(
+		(candidate) =>
+			candidate.kind === 'plugin' && isSameBindingOwner(candidate, owner),
+	)
+}
 
 /** Compares binding owners by plugin identity, instance and version. */
 export const isSameBindingOwner = (

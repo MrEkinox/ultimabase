@@ -3,11 +3,13 @@ import {
 	dateTimeField,
 	definePrivateCollection,
 	intField,
+	jsonField,
 	stringField,
 	uuidField,
 	type BooleanField,
 	type DateTimeField,
 	type IntField,
+	type JsonField,
 	type PrivateCollection,
 	type PrivateCollectionRecord,
 	type ScalarFieldTypegenState,
@@ -70,15 +72,23 @@ export type SessionCollection = PrivateCollection<
 export type SessionRecord = PrivateCollectionRecord<SessionCollection>
 
 type UserStateFields = Readonly<{
+	accountIds: JsonField<RequiredState<false>>
 	sessionGeneration: IntField<RequiredState<false>>
+	sessionIds: JsonField<RequiredState<false>>
 	userId: UuidField<RequiredState<true>>
+	version: IntField<RequiredState<false>>
 }>
 
-/** One row per user: advancing its generation revokes every session at once. */
+/**
+ * One row per user: advancing its generation revokes every session at once;
+ * it lists the user's session and linked-account ids, and `version` guards
+ * every change (compare-and-swap).
+ */
 export type UserStateCollection = PrivateCollection<
 	UserStateFields,
 	readonly [Readonly<{ readonly fields: readonly ['userId'] }>]
 >
+export type UserStateRecord = PrivateCollectionRecord<UserStateCollection>
 
 type AccountFields = Readonly<{
 	createdAt: DateTimeField<RequiredState<true>>
@@ -107,6 +117,17 @@ type AttemptFields = Readonly<{
 	updatedAt: DateTimeField<RequiredState<false>>
 }>
 
+type VerifiedEmailFields = Readonly<{
+	email: StringField<RequiredState<true>>
+	userId: UuidField<RequiredState<true>>
+}>
+
+/** The user each verified email belongs to, for automatic linking. */
+export type VerifiedEmailCollection = PrivateCollection<
+	VerifiedEmailFields,
+	readonly [Readonly<{ readonly fields: readonly ['email'] }>]
+>
+
 /** Failed-attempt counters, keyed by a digest of the account and address. */
 export type AttemptCollection = PrivateCollection<
 	AttemptFields,
@@ -120,6 +141,7 @@ export interface AuthCollections {
 	readonly attempts: AttemptCollection
 	readonly sessions: SessionCollection
 	readonly states: UserStateCollection
+	readonly verifiedEmails: VerifiedEmailCollection
 }
 
 const cascade = (user: SchemaDefinition) =>
@@ -145,7 +167,6 @@ export const createAuthCollections = (
 				{ fields: ['id'] },
 				{ fields: ['method', 'providerUserId'] },
 			] as const,
-			lookups: [{ fields: ['userId'] }, { fields: ['email'] }],
 			references: cascade(user),
 		}),
 		attempts: definePrivateCollection({
@@ -162,16 +183,27 @@ export const createAuthCollections = (
 			contributionId: 'sessions',
 			fields: sessionFields(),
 			indexes: [{ fields: ['id'] }, { fields: ['tokenDigest'] }] as const,
-			lookups: [{ fields: ['userId'] }],
 			references: cascade(user),
 		}),
 		states: definePrivateCollection({
 			contributionId: 'user-states',
 			fields: {
+				accountIds: jsonField({ required: true }),
 				sessionGeneration: intField({ required: true }),
+				sessionIds: jsonField({ required: true }),
 				userId: uuidField({ immutable: true, required: true }),
+				version: intField({ required: true }),
 			},
 			indexes: [{ fields: ['userId'] }] as const,
+			references: cascade(user),
+		}),
+		verifiedEmails: definePrivateCollection({
+			contributionId: 'verified-emails',
+			fields: {
+				email: stringField({ immutable: true, required: true }),
+				userId: uuidField({ immutable: true, required: true }),
+			},
+			indexes: [{ fields: ['email'] }] as const,
 			references: cascade(user),
 		}),
 	})

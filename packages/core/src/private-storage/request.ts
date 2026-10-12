@@ -137,14 +137,10 @@ const snapshotPartial = (
 const snapshotWhere = (
 	collection: PrivateStorageAdapterCollection,
 	value: unknown,
-	lookups = false,
 ): Readonly<Record<string, unknown>> => {
 	const where = assertPlainOperationValue(value, 'private storage where')
 	const names = Object.keys(where).sort()
-	const candidates = lookups
-		? [...collection.indexes, ...collection.lookups]
-		: collection.indexes
-	const matches = candidates.some(
+	const matches = collection.indexes.some(
 		(index) =>
 			index.fields.length === names.length &&
 			[...index.fields]
@@ -153,9 +149,7 @@ const snapshotWhere = (
 	)
 	if (!matches) {
 		throw new TypeError(
-			lookups
-				? 'private storage where must match one exact index or lookup'
-				: 'private storage where must match one exact unique index',
+			'private storage where must match one exact unique index',
 		)
 	}
 	return snapshotPartial(collection, where, 'private storage where', true)
@@ -200,7 +194,6 @@ const operationKeys: Readonly<
 	Record<PrivateStorageOperationKind, ReadonlySet<string>>
 > = {
 	'find-unique': new Set(['where']),
-	'find-many': new Set(['limit', 'where']),
 	insert: new Set(['data']),
 	update: new Set(['data', 'where']),
 	delete: new Set(['where']),
@@ -227,25 +220,6 @@ export const normalizePrivateStorageRequest = (
 				kind,
 				where: snapshotWhere(collection, input.where),
 			})
-		case 'find-many': {
-			const { limit } = input
-			if (
-				typeof limit !== 'number' ||
-				!Number.isSafeInteger(limit) ||
-				limit < 1 ||
-				limit > 1000
-			) {
-				throw new TypeError(
-					'private storage limit must be an integer from 1 through 1000',
-				)
-			}
-			return immutableRecord({
-				collection,
-				kind,
-				limit,
-				where: snapshotWhere(collection, input.where, true),
-			})
-		}
 		case 'insert':
 			return immutableRecord({
 				collection,

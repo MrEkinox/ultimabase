@@ -214,7 +214,13 @@ export const createAuthHttpTransport = (
 				operation: route.operation.name,
 				version: route.operation.version,
 			})
-			return respond(route, result, http.cookie)
+			// The cookie answers browsers (they send `Origin`); other clients
+			// keep the token, so Bearer stays usable in cookie mode.
+			return respond(
+				route,
+				result,
+				request.headers.has('Origin') ? http.cookie : undefined,
+			)
 		} catch (error: unknown) {
 			return errorResponse(error, statuses)
 		}

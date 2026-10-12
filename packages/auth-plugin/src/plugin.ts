@@ -71,6 +71,10 @@ import {
 } from './session-policy.js'
 import { validateSessionToken } from './sessions.js'
 import {
+	authUserIdentityOption,
+	authUserIdentityOptionName,
+} from './user-identity.js'
+import {
 	createUserSchemaFactory,
 	type UserSchemaFactories,
 	type UserSchemaStaticsSlot,
@@ -374,10 +378,12 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 			...methodContributions,
 			contributeDeclarations({
 				schema: ({ schemas }) => {
-					schemas.claim({
-						contributionId: 'user',
-						schema: requireUser(state),
-						staticOptions: { identity: 'auth-user' },
+					// The User stays an application schema (its Access, Hooks and
+					// transports are the application's); the marker designates it.
+					requireUser(state)
+					schemas.defineOptions({
+						contributionId: 'auth-user',
+						schema: { [authUserIdentityOptionName]: authUserIdentityOption },
 					})
 					return undefined
 				},

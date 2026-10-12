@@ -23,8 +23,6 @@ export interface PrivateStorageAdapterCollection {
 	readonly contributionId: string
 	readonly fields: Readonly<Record<string, PrivateStorageAdapterField>>
 	readonly indexes: readonly Readonly<{ readonly fields: readonly string[] }>[]
-	/** Non-unique indexes selected by `find-many`. */
-	readonly lookups: readonly Readonly<{ readonly fields: readonly string[] }>[]
 	readonly normalizedStaticOptions: Readonly<Record<string, JsonValue>>
 	readonly owner: PluginIdentity
 	readonly packageVersion: string
@@ -40,12 +38,6 @@ type PrivateStorageOperationRequest =
 	| (PrivateStorageOperationBase &
 			Readonly<{
 				readonly kind: 'find-unique'
-				readonly where: Readonly<Record<string, unknown>>
-			}>)
-	| (PrivateStorageOperationBase &
-			Readonly<{
-				readonly kind: 'find-many'
-				readonly limit: number
 				readonly where: Readonly<Record<string, unknown>>
 			}>)
 	| (PrivateStorageOperationBase &
@@ -78,17 +70,11 @@ export type PrivateStorageOperationKind = PrivateStorageOperationRequest['kind']
 /** Carries one exact Core-validated private request without a public Query AST. */
 export type { PrivateStorageOperationRequest }
 
-/** One record, `null` when none matched, or every record of `find-many`. */
-export type PrivateStorageOperationResult =
-	| Readonly<Record<string, unknown>>
-	| readonly Readonly<Record<string, unknown>>[]
-	| null
-
 /** Executes already validated private records without exposing infrastructure upward. */
 export interface PrivateStorageOperationExecutor {
 	executePrivateStorage(
 		request: PrivateStorageOperationRequest,
-	): Promise<PrivateStorageOperationResult>
+	): Promise<Readonly<Record<string, unknown>> | null>
 }
 
 /** Lets Core compile private descriptors before any setup or connection effect. */

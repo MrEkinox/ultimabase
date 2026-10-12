@@ -15,7 +15,6 @@ import { createPreparedOperationFixture } from '../../tests/runtime/fixtures/rec
 import type {
 	PrivateStorageAdapterCollection,
 	PrivateStorageOperationRequest,
-	PrivateStorageOperationResult,
 } from './adapter.js'
 import { registerPrivateStorageAdapter } from './adapter.js'
 
@@ -43,15 +42,11 @@ const matches = (
 const executeMemoryRequest = (
 	rows: StoredRows,
 	request: PrivateStorageOperationRequest,
-): PrivateStorageOperationResult => {
+): Readonly<Record<string, unknown>> | null => {
 	const records = rows.get(request.collection)
 	if (records === undefined)
 		throw new TypeError('Private collection is not configured')
 	switch (request.kind) {
-		case 'find-many':
-			return records
-				.filter((record) => matches(record, request.where))
-				.slice(0, request.limit)
 		case 'find-unique': {
 			const index = records.findIndex((record) =>
 				matches(record, request.where),

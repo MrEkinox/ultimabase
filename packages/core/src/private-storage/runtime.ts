@@ -1,8 +1,4 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
 import { readApplicationPluginOwner } from '../plugins/callback-execution.js'
@@ -16,11 +12,9 @@ import { throwIfOperationCancelled } from '../runtime/cancellation/operation-can
 import type { PrivateCollection, PrivateCollectionHandle } from './contracts.js'
 import {
 	readRegisteredPrivateStorageAdapter,
-	type PrivateStorageAdapterCollection,
 	type PrivateStorageDatabaseAdapter,
 	type PrivateStorageOperationKind,
 	type PrivateStorageOperationRequest,
-	type PrivateStorageOperationResult,
 } from './adapter.js'
 import type { PrivateStorageRegistry } from './registry.js'
 import {
@@ -36,18 +30,15 @@ const missingAdapter = (
 		internalDetails: { kind },
 	})
 
-const isRead = (request: PrivateStorageOperationRequest): boolean =>
-	request.kind === 'find-unique' || request.kind === 'find-many'
-
 /** Mutations open the automatic transaction; reads use the root adapter. */
 const executeOnRequest = async (
 	engine: RequestEngine,
 	request: PrivateStorageOperationRequest,
-): Promise<PrivateStorageOperationResult> => {
+): Promise<Readonly<Record<string, unknown>> | null> => {
 	const { application, automaticTransaction, lifetime, pipeline } =
 		readRequestEngineInternals(engine)
 	throwIfOperationCancelled(engine.context.signal, { phase: 'private-storage' })
-	if (!isRead(request) && lifetime === undefined) {
+	if (request.kind !== 'find-unique' && lifetime === undefined) {
 		return automaticTransaction(
 			{ operation: `private-storage-${request.kind}` },
 			(transaction) => executeOnRequest(transaction, request),
@@ -77,33 +68,7 @@ const executeOnRequest = async (
 	throwIfOperationCancelled(engine.context.signal, {
 		phase: 'private-storage-result',
 	})
-	if (request.kind === 'find-many') {
-		if (!isUnknownArray(result) || result.length > request.limit) {
-			throw new TypeError(
-				'private storage find-many must return a bounded list',
-			)
-		}
-		return immutableArray(
-			result.map((record) =>
-				snapshotRequiredRecord(request.collection, record),
-			),
-		)
-	}
-	if (isUnknownArray(result)) {
-		throw new TypeError('private storage returned a list for one record')
-	}
 	return snapshotPrivateStorageResult(request.collection, result)
-}
-
-const snapshotRequiredRecord = (
-	collection: PrivateStorageAdapterCollection,
-	record: unknown,
-): Readonly<Record<string, unknown>> => {
-	const snapshot = snapshotPrivateStorageResult(collection, record)
-	if (snapshot === null) {
-		throw new TypeError('private storage find-many returned a null record')
-	}
-	return snapshot
 }
 
 /** @internal Compiles private metadata after capabilities and before plugin setup. */
@@ -193,35 +158,17 @@ export const privateStore = <const TCollection extends PrivateCollection>(
 		)
 	}
 
-	const executeOne = async (
-		kind: PrivateStorageOperationKind,
-		options: unknown,
-	): Promise<Readonly<Record<string, unknown>> | null> => {
-		const result = await execute(kind, options)
-		if (isUnknownArray(result)) {
-			throw new TypeError('private storage returned a list for one record')
-		}
-		return result
-	}
-
 	return immutableRecord({
-		findUnique: (options) => executeOne('find-unique', options),
-		findMany: async (options) => {
-			const result = await execute('find-many', options)
-			if (!isUnknownArray(result)) {
-				throw new TypeError('private storage find-many must return a list')
-			}
-			return result
-		},
+		findUnique: (options) => execute('find-unique', options),
 		insert: async (options) => {
-			const result = await executeOne('insert', options)
+			const result = await execute('insert', options)
 			if (result === null) {
 				throw new TypeError('Private storage insert returned no record')
 			}
 			return result
 		},
-		update: (options) => executeOne('update', options),
-		delete: (options) => executeOne('delete', options),
-		compareAndSwap: (options) => executeOne('compare-and-swap', options),
+		update: (options) => execute('update', options),
+		delete: (options) => execute('delete', options),
+		compareAndSwap: (options) => execute('compare-and-swap', options),
 	}) as PrivateCollectionHandle<TCollection>
 }

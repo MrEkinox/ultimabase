@@ -17,6 +17,10 @@ import type {
 import { isPlainRecord } from '@ultimabase/shared'
 
 import type { AuthState } from './foundation.js'
+import {
+	authUserIdentityOptionName,
+	createAuthUserIdentity,
+} from './user-identity.js'
 import type { AuthMethodImplementation, AuthMethodStatics } from './method.js'
 import {
 	createStaticsServices,
@@ -177,21 +181,28 @@ export const createUserSchemaFactory =
 					}
 					return { ...declared, ...owned }
 				}
-				return define({ className, fields }, (schema) => {
-					if (!Schema.is(schema)) {
-						throw new TypeError('UserSchema declared no schema')
-					}
-					// The final `.with(...)` class comes last: it is the registered one.
-					const user = schema as SchemaReference<string>
-					state.user = user
-					const services = createStaticsServices(user)
-					return Object.freeze({
-						...createUserStatics(user, pluginId),
-						...Object.assign(
-							{},
-							...methods.map((method) => method.statics?.(services) ?? {}),
-						),
-					})
-				})
+				return define(
+					{
+						className,
+						fields,
+						[authUserIdentityOptionName]: createAuthUserIdentity(className),
+					},
+					(schema) => {
+						if (!Schema.is(schema)) {
+							throw new TypeError('UserSchema declared no schema')
+						}
+						// The final `.with(...)` class comes last: it is the registered one.
+						const user = schema as SchemaReference<string>
+						state.user = user
+						const services = createStaticsServices(user)
+						return Object.freeze({
+							...createUserStatics(user, pluginId),
+							...Object.assign(
+								{},
+								...methods.map((method) => method.statics?.(services) ?? {}),
+							),
+						})
+					},
+				)
 			},
 		})

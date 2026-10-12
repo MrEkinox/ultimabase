@@ -3,7 +3,7 @@ export interface MinimalClientOptions {
 	readonly baseUrl?: string
 	/** Trusted integration tests only; never compile a Master key into a browser. */
 	readonly masterKey?: string
-	/** Opaque Password Auth session sent through the standard Bearer scheme. */
+	/** Opaque authentication session sent through the standard Bearer scheme. */
 	readonly sessionToken?: string
 }
 

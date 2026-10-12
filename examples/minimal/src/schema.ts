@@ -1,13 +1,14 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { password, passwordOperations } from '@ultimabase/auth-password'
+import {
+	authOperations,
+	authPlugin,
+	authPrincipal,
+} from '@ultimabase/auth-plugin'
 import { UltimaBase, isAuthenticated } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import {
-	PasswordUser,
-	passwordAuthOperations,
-	passwordPrincipal,
-} from '@ultimabase/password-auth-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
@@ -28,32 +29,50 @@ export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 	.use(rolesPlugin())
 	.use(aclPlugin())
 	.use(
-		// Public operations (status, Password Auth) are exposed by their
-		// owners; the example hides the two it does not use (ADR-0324).
+		// The authentication routes live under `/auth` (ADR-0326); browsers keep
+		// the session in a secure cookie instead of reading its token.
+		authPlugin({
+			methods: [password()],
+			http: { cookie: { name: '__Host-minimal-session', sameSite: 'lax' } },
+		}),
+	)
+	.use(
+		// Public operations are exposed by their owners (ADR-0324): REST keeps
+		// the status operation; authentication is served under `/auth`.
 		restPlugin({
 			hide: [
-				passwordAuthOperations.changePassword,
-				passwordAuthOperations.logoutEverywhere,
+				...Object.values(authOperations),
+				...Object.values(passwordOperations),
 			],
 		}),
 	)
 	.use(
-		// The same public operations as REST, hidden the same way (ADR-0325).
+		// GraphQL exposes the authentication operations except two (ADR-0325).
 		graphqlPlugin({
 			hide: [
-				passwordAuthOperations.changePassword,
-				passwordAuthOperations.logoutEverywhere,
+				passwordOperations.changePassword,
+				authOperations.logoutEverywhere,
 			],
 		}),
 	)
 
-/** The exact User schema contributed by the configured Password Auth plugin. */
-export const ExampleUser = PasswordUser
+/** The User of `authPlugin`; `password()` adds the unique `username`. */
+export const ExampleUser = MinimalSchemaApplication.UserSchema.define({
+	className: 'ExampleUser',
+}).with({
+	// Each user reads only their own profile; no generated User CRUD.
+	access: {
+		read: ({ principal, where }) =>
+			principal === undefined ? false : where.eq('id', principal.id),
+	},
+	graphql: false,
+	rest: false,
+})
 
 /** The current member is the request principal Core resolves (ADR-0304). */
 export const ExampleRole = MinimalSchemaApplication.RoleSchema.define({
 	className: 'ExampleRole',
-	members: () => PasswordUser,
+	members: () => ExampleUser,
 	deletion: 'fail',
 	fields: (field) => ({
 		description: field.string(),
@@ -197,7 +216,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 		reviewers: field.relation({
 			target: 'ExampleAuthor',
 			where: ({ context, where }) =>
-				context.getValue(passwordPrincipal) === undefined
+				context.getValue(authPrincipal) === undefined
 					? where.eq('audience', 'public')
 					: where,
 		}),
@@ -255,7 +274,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 			select: { slug: true },
 			resolve: ({ context, item }) => {
 				if (context.access.mode === 'master') return `master:${item.slug}`
-				return context.getValue(passwordPrincipal) === undefined
+				return context.getValue(authPrincipal) === undefined
 					? `anonymous:${item.slug}`
 					: `authenticated:${item.slug}`
 			},
@@ -350,6 +369,7 @@ export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
 	.with({ acl: { default: editorACL } })
 
 export const minimalSchemas = [
+	ExampleUser,
 	ExampleAuthor,
 	ExampleArticle,
 	ExampleRole,

@@ -48,7 +48,6 @@ const collection = definePrivateCollection({
 		version: stringField({ required: true }),
 	},
 	indexes: [{ fields: ['id'] }, { fields: ['secret'] }],
-	lookups: [{ fields: ['version'] }],
 })
 
 const actionValue = defineOperationValue((value) => {
@@ -158,32 +157,6 @@ const createFixture = async () => {
 					},
 				})
 				throw new Error('atomic rollback')
-			case 'find-many': {
-				for (const [index, secret] of ['m-1', 'm-2', 'm-3'].entries()) {
-					await store.insert({
-						data: {
-							id: `0198c000-0000-7000-8000-00000000010${String(index)}`,
-							secret,
-							version: 'many',
-						},
-					})
-				}
-				const all = await store.findMany({
-					limit: 10,
-					where: { version: 'many' },
-				})
-				const bounded = await store.findMany({
-					limit: 2,
-					where: { version: 'many' },
-				})
-				return `${all
-					.map(({ secret }) => secret)
-					.sort()
-					.join(',')}|${String(bounded.length)}`
-			}
-			case 'find-many-unindexed':
-				await store.findMany({ limit: 1, where: { id: 'x', version: 'y' } })
-				return 'unindexed'
 			case 'capture':
 				retainedStore = store
 				return 'captured'
@@ -305,21 +278,6 @@ describe('owner-private plugin storage', () => {
 				.operation(privateOperation)
 				.execute({ action: 'read-b' }),
 		).toBe('missing')
-		await ultimabase.dispose()
-	})
-
-	it('selects bounded record lists by a declared lookup only', async () => {
-		const { ultimabase } = await createFixture()
-		expect(
-			await ultimabase
-				.operation(privateOperation)
-				.execute({ action: 'find-many' }),
-		).toBe('m-1,m-2,m-3|2')
-		await expect(
-			ultimabase
-				.operation(privateOperation)
-				.execute({ action: 'find-many-unindexed' }),
-		).rejects.toThrow('handler failed')
 		await ultimabase.dispose()
 	})
 

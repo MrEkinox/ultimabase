@@ -1,6 +1,6 @@
 import { FrameworkError } from '@ultimabase/core'
 import type { PrivateStorageOperationRequest } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 import { and, eq, isNull, type SQL } from 'drizzle-orm'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
@@ -46,12 +46,6 @@ const execute = async (
 				.from(collection.table)
 				.where(predicate(collection, request.where))
 				.limit(1)
-		case 'find-many':
-			return client
-				.select(returning)
-				.from(collection.table)
-				.where(predicate(collection, request.where))
-				.limit(request.limit)
 		case 'insert':
 			return client
 				.insert(collection.table)
@@ -90,17 +84,13 @@ export const executePostgresPrivateStorage = async (
 		'describeConstraint' | 'getPrivateCollection'
 	>,
 	request: PrivateStorageOperationRequest,
-): Promise<PrivateRecord | readonly PrivateRecord[] | null> => {
+): Promise<PrivateRecord | null> => {
 	try {
-		const rows = await execute(
+		const [row] = await execute(
 			client,
 			catalog.getPrivateCollection(request.collection),
 			request,
 		)
-		if (request.kind === 'find-many') {
-			return immutableArray(rows.map((row) => immutableRecord(row)))
-		}
-		const [row] = rows
 
 		if (row === undefined && request.kind === 'insert') {
 			throw new TypeError('PostgreSQL private insert returned no row')

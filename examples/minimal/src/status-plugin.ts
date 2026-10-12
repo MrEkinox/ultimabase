@@ -9,7 +9,7 @@ import {
 	plugin,
 	contributeOperation,
 } from '@ultimabase/core/plugin'
-import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
+import { authPrincipal } from '@ultimabase/auth-plugin'
 
 const statusInput = defineOperationValue((value, path): null => {
 	if (value !== null) throw new TypeError(`${path} must be null`)
@@ -140,7 +140,7 @@ export const exampleStatusPlugin = plugin({
 			execute: ({ context }) =>
 				Object.freeze({
 					authority: context.access.mode,
-					principalId: context.getValue(passwordPrincipal)?.user.id ?? null,
+					principalId: context.getValue(authPrincipal)?.user.id ?? null,
 				}),
 			operation: exampleStatusOperation,
 		}),

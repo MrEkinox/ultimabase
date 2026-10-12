@@ -1,8 +1,10 @@
 export { httpPluginPublicApi } from './http-plugin-public-api.js'
 export {
-	passwordAuthPluginPublicApi,
-	removedPasswordAuthPluginPublicApiNames,
-} from './password-auth-public-api.js'
+	authPasswordPublicApi,
+	authPluginPublicApi,
+	removedAuthPasswordPublicApiNames,
+	removedAuthPluginPublicApiNames,
+} from './auth-public-api.js'
 
 /** Classifies every deliberate root export of one optional official product. */
 export interface OptionalProductPublicApi {

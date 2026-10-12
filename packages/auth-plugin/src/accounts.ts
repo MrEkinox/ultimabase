@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
-import { privateStore } from '@ultimabase/core'
+import { FrameworkError, privateStore } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AccountRecord, AuthCollections } from './collections.js'
+import { readUserState, updateUserState } from './user-state.js'
 
 /** Selects how a new method account joins an existing user (ADR-0326). */
 export type AuthLinking = 'manual' | 'verified-email'
@@ -30,8 +31,6 @@ export interface LinkedAccountInput {
 	readonly providerUserId: string
 }
 
-const accountLimit = 1000
-
 const toInfo = (record: AccountRecord): AuthMethodInfo =>
 	immutableRecord({
 		createdAt: record.createdAt,
@@ -41,26 +40,42 @@ const toInfo = (record: AccountRecord): AuthMethodInfo =>
 		method: record.method,
 	})
 
+const isUniqueViolation = (error: unknown): boolean =>
+	error instanceof FrameworkError && error.code === 'UNIQUE_VIOLATION'
+
 /** Links one method account to a user. */
 export const insertLinkedAccount = async (
 	collections: AuthCollections,
 	userId: string,
 	input: LinkedAccountInput,
 	now: number = Date.now(),
-): Promise<AuthMethodInfo> =>
-	toInfo(
-		await privateStore(collections.accounts).insert({
-			data: {
-				createdAt: new Date(now).toISOString(),
-				email: input.email ?? null,
-				emailVerified: input.emailVerified ?? false,
-				id: randomUUID(),
-				method: input.method,
-				providerUserId: input.providerUserId,
-				userId,
-			},
-		}),
-	)
+): Promise<AuthMethodInfo> => {
+	const record = await privateStore(collections.accounts).insert({
+		data: {
+			createdAt: new Date(now).toISOString(),
+			email: input.email ?? null,
+			emailVerified: input.emailVerified ?? false,
+			id: randomUUID(),
+			method: input.method,
+			providerUserId: input.providerUserId,
+			userId,
+		},
+	})
+	await updateUserState(collections, userId, (state) => ({
+		accountIds: [...state.accountIds, record.id],
+	}))
+	if (record.emailVerified && record.email !== null) {
+		// The first user to verify an email keeps it for automatic linking.
+		try {
+			await privateStore(collections.verifiedEmails).insert({
+				data: { email: record.email, userId },
+			})
+		} catch (error: unknown) {
+			if (!isUniqueViolation(error)) throw error
+		}
+	}
+	return toInfo(record)
+}
 
 /** Finds the user linked to one method account. */
 export const findLinkedUserId = async (
@@ -74,47 +89,37 @@ export const findLinkedUserId = async (
 		})
 	)?.userId
 
-/** Reads the linked accounts of one user. */
-const readUserAccounts = (
+/** Reads the linked accounts of one user, oldest first. */
+const readUserAccounts = async (
 	collections: AuthCollections,
 	userId: string,
-): Promise<readonly AccountRecord[]> =>
-	privateStore(collections.accounts).findMany({
-		limit: accountLimit,
-		where: { userId },
-	})
+): Promise<readonly AccountRecord[]> => {
+	const store = privateStore(collections.accounts)
+	const accounts: AccountRecord[] = []
+	for (const id of (await readUserState(collections, userId)).accountIds) {
+		const record = await store.findUnique({ where: { id } })
+		if (record?.userId === userId) accounts.push(record)
+	}
+	return accounts
+}
 
 /** Lists the sign-in methods linked to one user, oldest first. */
 export const listLinkedAccounts = async (
 	collections: AuthCollections,
 	userId: string,
 ): Promise<readonly AuthMethodInfo[]> =>
-	immutableArray(
-		[...(await readUserAccounts(collections, userId))]
-			.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
-			.map(toInfo),
-	)
+	immutableArray((await readUserAccounts(collections, userId)).map(toInfo))
 
-/**
- * Finds the one user whose linked accounts verified this email, for automatic
- * linking. Several users, or none, return `undefined`.
- */
+/** Finds the user who verified this email first, for automatic linking. */
 export const findUserByVerifiedEmail = async (
 	collections: AuthCollections,
 	email: string,
-): Promise<string | undefined> => {
-	const accounts = await privateStore(collections.accounts).findMany({
-		limit: accountLimit,
-		where: { email },
-	})
-	const users = new Set(
-		accounts
-			.filter(({ emailVerified }) => emailVerified)
-			.map(({ userId }) => userId),
-	)
-	const [userId] = users
-	return users.size === 1 ? userId : undefined
-}
+): Promise<string | undefined> =>
+	(
+		await privateStore(collections.verifiedEmails).findUnique({
+			where: { email },
+		})
+	)?.userId
 
 /**
  * Removes one linked account of a user. Resolves `'last'` when it is the
@@ -130,5 +135,8 @@ export const removeLinkedAccount = async (
 	if (account === undefined) return 'missing'
 	if (accounts.length <= 1) return 'last'
 	await privateStore(collections.accounts).delete({ where: { id } })
+	await updateUserState(collections, userId, (state) => ({
+		accountIds: state.accountIds.filter((candidate) => candidate !== id),
+	}))
 	return account
 }
