@@ -167,6 +167,16 @@ Sur 60f45ada, `packages/*/dist` et `*.tsbuildinfo` supprimés :
 n'utilise pas le paquet HTTP. TS7 non mesuré (types de Core inchangés hors
 `health()`). Dossiers `gen/` supprimés, worktree de base retiré.
 
+### Après l'amendement et la fusion de `main` (6.3, 5442027c), commit 86307d8c
+
+Conflit unique : `docs/adr/README.md` (liste des ADR acceptés : 0321, 0322,
+0323 gardés). Aucune référence `server-hono-plugin` apportée par 6.3.
+`yarn validate:full` → exit 0 (couverture 730 fichiers / 3 596 tests, « Type
+Errors no errors », lignes 93,46 % ; performance 3/4 ; site 17/66) ;
+`yarn test:e2e:built` → exit 0 (135 fichiers / 591 tests) ;
+`yarn website:test` → exit 0 (8 / 59). Audit DX contre 5442027c : mêmes 545
+différences, mêmes catégories ; worktree de base retiré.
+
 ## Prochaine action vérifiable
 
 Relecture du coordinateur, décisions de l'utilisateur sur les points
