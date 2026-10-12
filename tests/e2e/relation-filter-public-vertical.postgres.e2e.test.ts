@@ -446,6 +446,27 @@ describe(
 					),
 				).toHaveLength(expected)
 			}
+			// Master bypasses the Article read rule, not the relation filters
+			// declared in ExampleAuthor's `.with({ relations })`: the unpublished
+			// article stays out of both relations.
+			const masterContext = await createContext('master')
+			for (const [field, expected] of [
+				['articles', 0],
+				['contributions', 2],
+			] as const) {
+				expect(
+					readArray(
+						await findRelation(
+							minimal().ExampleAuthor,
+							publicAuthor,
+							field,
+							{},
+							masterContext,
+						),
+						field,
+					),
+				).toHaveLength(expected)
+			}
 
 			recorder().reset()
 			const included = readArray(

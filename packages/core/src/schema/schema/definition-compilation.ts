@@ -7,6 +7,7 @@ import {
 
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
+import type { RelationWhereDeclaration } from '../fields/builtins/relation.js'
 import { snapshotCapturedOptionValue } from './captured-options.js'
 import { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
 import {
@@ -17,6 +18,7 @@ import type { FieldBuilderTargetResolver } from './runtime-field-builder.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import { normalizeSchemaIndexes, type SchemaIndexInput } from './indexes.js'
 import { createInitialSchemaProvenance } from './provenance.js'
+import { applyRelationRules } from './relation-rules.js'
 import {
 	isReservedQueryLogicalFieldName,
 	isReservedSchemaModelFieldName,
@@ -78,6 +80,9 @@ export interface NormalizedSchemaDeclaration {
 	readonly indexes: readonly SchemaIndexInput[] | undefined
 	/** Indexes of the final `.with`, checked against the compiled fields. */
 	readonly ruleIndexes?: readonly SchemaIndexInput[] | undefined
+	/** Relation filters of the final `.with({ relations })` (ADR-0328). */
+	readonly relationFilters?:
+		ReadonlyMap<string, RelationWhereDeclaration> | undefined
 	readonly options: Readonly<Record<string, unknown>>
 }
 
@@ -240,12 +245,15 @@ const resolveDeveloperFields = (
 	resolveTarget: FieldBuilderTargetResolver | undefined,
 ): unknown => {
 	try {
-		return resolveCapturedFieldMap(
-			declaration.fields,
-			`${declaration.className}.fields`,
-			false,
-			fieldMethods,
-			resolveTarget,
+		return applyRelationRules(
+			resolveCapturedFieldMap(
+				declaration.fields,
+				`${declaration.className}.fields`,
+				false,
+				fieldMethods,
+				resolveTarget,
+			),
+			declaration.relationFilters,
 		)
 	} catch (cause: unknown) {
 		const reason =

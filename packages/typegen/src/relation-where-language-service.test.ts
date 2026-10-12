@@ -49,12 +49,15 @@ UltimaBase.Schema.define({
 UltimaBase.Schema.define({
   className: 'SemanticRelationWhereSource',
   fields: (field) => ({
-    targets: field.relation({
-      target: 'SemanticRelationWhereTarget',
-      ${hoverMarker}where: { ${targetFieldsMarker} },
-    }),
-    contextualTargets: field.relation({
-      target: 'SemanticRelationWhereTarget',
+    targets: field.relation({ target: 'SemanticRelationWhereTarget' }),
+    contextualTargets: field.relation({ target: 'SemanticRelationWhereTarget' }),
+    invalidTargets: field.relation({ target: 'SemanticRelationWhereTarget' }),
+    invalidAsyncTargets: field.relation({ target: 'SemanticRelationWhereTarget' }),
+  }),
+}).with({
+  relations: {
+    targets: { ${hoverMarker}where: { ${targetFieldsMarker} } },
+    contextualTargets: {
       where: ({ context, where }) => {
         const requestId: string = context.requestId
         void requestId
@@ -62,23 +65,21 @@ UltimaBase.Schema.define({
           title: { startsWith: 'Ultima' },
         })
       },
-    }),
-    invalidTargets: field.relation({
-      target: 'SemanticRelationWhereTarget',
+    },
+    invalidTargets: {
       where: {
         // @ts-expect-error -- Generated declarations reject unknown target fields.
         missing: { eq: true },
       },
-    }),
-    invalidAsyncTargets: field.relation({
-      target: 'SemanticRelationWhereTarget',
+    },
+    invalidAsyncTargets: {
       // @ts-expect-error -- Contextual relation filters are synchronous.
       where: async () => {
         await Promise.resolve()
         return { status: { eq: 'draft' } }
       },
-    }),
-  }),
+    },
+  },
 })
 `
 const markerPositions = new Map(

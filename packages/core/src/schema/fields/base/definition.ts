@@ -225,11 +225,33 @@ export const getDeclaredFieldOptionsContract = (
 ): BuiltInFieldOptionsContract | undefined =>
 	fieldCapabilities.get(field)?.optionsContract
 
-/** @internal Returns the exact private declaration attached by `relationField`. */
+/** @internal Returns the filter declared in `.with({ relations })` for one relation field. */
 export const getRelationWhereDeclaration = (
 	field: GenericField,
 ): RelationWhereDeclaration | undefined =>
 	fieldCapabilities.get(field)?.relationWhere
+
+/** @internal Rebinds one relation field with the filter of `.with({ relations })` (ADR-0328). */
+export const attachRelationWhereDeclaration = (
+	field: GenericField,
+	relationWhere: RelationWhereDeclaration,
+): GenericField => {
+	if (field.kind !== 'relation') {
+		throw new TypeError('relation filters apply to relation fields only')
+	}
+
+	return bindFieldCapabilities(
+		field.kind,
+		field.options,
+		immutableRecord({
+			...readFieldCapabilities(
+				field,
+				'relation field must be created by relationField',
+			),
+			relationWhere,
+		}),
+	)
+}
 
 /** Rebuilds immutable field metadata while retaining its private factory capabilities. */
 export const replaceDeclaredFieldOptions = (

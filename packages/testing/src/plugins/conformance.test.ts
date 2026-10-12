@@ -366,14 +366,17 @@ describe('plugin conformance suite', () => {
 			const Source = UltimaBase.Schema.define({
 				className: 'ConformanceRelationSource',
 				fields: (field) => ({
-					targets: field.relation({
-						target: 'ConformanceRelationTarget',
+					targets: field.relation({ target: 'ConformanceRelationTarget' }),
+				}),
+			}).with({
+				relations: {
+					targets: {
 						where: ({ where }) => {
 							adapter.whereInvocations += 1
 							return where.eq('visible', true)
 						},
-					}),
-				}),
+					},
+				},
 			})
 			latestAdapter = adapter
 			const plugin = createPlugin({

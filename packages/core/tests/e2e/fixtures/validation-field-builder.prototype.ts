@@ -183,10 +183,7 @@ Application.Schema.define({
 			}),
 			// @ts-expect-error -- Completion intentionally omits the required target.
 			relationOptions: field.relation({/* completion:relation-options */}),
-			filteredTargets: field.relation({
-				target: 'PackedValidatorTarget',
-				where: packedRelationWhere,
-			}),
+			filteredTargets: field.relation({ target: 'PackedValidatorTarget' }),
 			signatureName: field.string(),
 			profile: field.object({
 				fields: (field) => {
@@ -204,7 +201,24 @@ Application.Schema.define({
 			}),
 		}
 	},
-})
+}).with({ relations: { filteredTargets: { where: packedRelationWhere } } })
+
+// Relation rules list the relation fields only, then their rule keys (ADR-0328).
+Application.Schema.define({
+	className: 'PackedRelationRuleNames',
+	fields: (field) => ({
+		label: field.string(),
+		owners: field.relation({ target: 'PackedValidatorTarget' }),
+		reviewers: field.relation({ target: 'PackedValidatorTarget' }),
+	}),
+}).with({ relations: {/* completion:relation-rule-names */} })
+
+Application.Schema.define({
+	className: 'PackedRelationRuleKeys',
+	fields: (field) => ({
+		owners: field.relation({ target: 'PackedValidatorTarget' }),
+	}),
+}).with({ relations: { owners: {/* completion:relation-rule-keys */} } })
 
 Application.Schema.define({
 	className: 'PackedEmbeddedFieldOptions',

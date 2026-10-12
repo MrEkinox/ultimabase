@@ -74,3 +74,58 @@ export const TypoRuleKey = App.Schema.define({
 export const typoQuery = () =>
 	// @ts-expect-error -- `titel` is not a field of Todo.
 	Todo.findMany({ select: { titel: true } })
+
+// Misuses of relation filters (ADR-0328), each reported on its line too.
+
+/** 9. Relation filter on an unknown relation name. */
+export const TypoRelationName = App.Schema.define({
+	className: 'TypoRelationName',
+	fields: (field) => ({
+		label: field.string(),
+		todos: field.relation({ target: () => Todo }),
+	}),
+}).with({
+	relations: {
+		// @ts-expect-error -- `todoz` is not a relation (did you mean `todos`?).
+		todoz: { where: { archived: { eq: false } } },
+	},
+})
+
+/** 10. Relation filter on a field that is not a relation. */
+export const TypoRelationField = App.Schema.define({
+	className: 'TypoRelationField',
+	fields: (field) => ({
+		label: field.string(),
+		todos: field.relation({ target: () => Todo }),
+	}),
+}).with({
+	relations: {
+		// @ts-expect-error -- `label` is not a relation.
+		label: { where: {} },
+	},
+})
+
+/** 11. Target field typo in a static filter; 12. in a resolver. */
+export const TypoRelationWhere = App.Schema.define({
+	className: 'TypoRelationWhere',
+	fields: (field) => ({
+		openTodos: field.relation({ target: () => Todo }),
+		titledTodos: field.relation({ target: () => Todo }),
+	}),
+}).with({
+	relations: {
+		// @ts-expect-error -- `archivd` is not a field of Todo.
+		openTodos: { where: { archivd: { eq: false } } },
+		// @ts-expect-error -- `titel` is not a field of Todo.
+		titledTodos: { where: ({ where }) => where.ne('titel', '') },
+	},
+})
+
+/** 13. Relation filters on a schema without relation fields. */
+export const TypoRelationless = App.Schema.define({
+	className: 'TypoRelationless',
+	fields: (field) => ({ title: field.string() }),
+}).with({
+	// @ts-expect-error -- TypoRelationless declares no relation field.
+	relations: {},
+})

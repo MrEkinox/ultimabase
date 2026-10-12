@@ -164,4 +164,34 @@ describe('schema declaration form without Typegen (ADR-0297)', () => {
 		},
 		120_000,
 	)
+
+	// ADR-0328: relation filters in `.with({ relations })` are typed against
+	// the complete target (Tag and Todo filter each other), and each misuse is
+	// reported on its own line, from source and built packages.
+	it.each(['tsconfig.json', 'tsconfig.source.json'])(
+		'reports relation filter misuses on their line through %s',
+		(configName) => {
+			const typos = readExpectedErrors(configName, 'src/typos.ts')
+			const rules = `'{ readonly todos?: RelationRule<SchemaRef<"Todo">>; }'`
+
+			expect(typos).toEqual(
+				expect.arrayContaining([
+					`src/typos.ts:90 Object literal may only specify known properties, but 'todoz' does not exist in type ${rules}. Did you mean to write 'todos'?`,
+					`src/typos.ts:104 Object literal may only specify known properties, and 'label' does not exist in type ${rules}.`,
+					`src/typos.ts:118 Object literal may only specify known properties, and 'archivd' does not exist in type 'RelationWhere<SchemaRef<"Todo">>'.`,
+					`src/typos.ts:120 Argument of type '"titel"' is not assignable to parameter of type 'WhereBuilderTarget<SchemaRef<"Todo">, "ne">'.`,
+				]),
+			)
+			expect(
+				typos.filter((diagnostic) =>
+					diagnostic.startsWith('src/typos.ts:130 '),
+				),
+			).toEqual([
+				expect.stringContaining(
+					"Object literal may only specify known properties, and 'relations' does not exist in type",
+				),
+			])
+		},
+		120_000,
+	)
 })

@@ -16,22 +16,16 @@ describe('relation where declarations', () => {
 			className: 'CircularRelationWhereLeft',
 			fields: (field) => ({
 				enabled: field.boolean(),
-				rights: field.relation({
-					target: 'CircularRelationWhereRight',
-					where: { enabled: { eq: true } },
-				}),
+				rights: field.relation({ target: 'CircularRelationWhereRight' }),
 			}),
-		})
+		}).with({ relations: { rights: { where: { enabled: { eq: true } } } } })
 		const Right = UltimaBase.Schema.define({
 			className: 'CircularRelationWhereRight',
 			fields: (field) => ({
 				enabled: field.boolean(),
-				lefts: field.relation({
-					target: 'CircularRelationWhereLeft',
-					where: { enabled: { eq: false } },
-				}),
+				lefts: field.relation({ target: 'CircularRelationWhereLeft' }),
 			}),
-		})
+		}).with({ relations: { lefts: { where: { enabled: { eq: false } } } } })
 
 		new FrameworkApplication({
 			plugins: [],
@@ -58,12 +52,9 @@ describe('relation where declarations', () => {
 		const User = UltimaBase.Schema.define({
 			className: 'IsolatedRelationWhereUser',
 			fields: (field) => ({
-				peers: field.relation({
-					target: 'IsolatedRelationWhereUser',
-					where: resolver,
-				}),
+				peers: field.relation({ target: 'IsolatedRelationWhereUser' }),
 			}),
-		})
+		}).with({ relations: { peers: { where: resolver } } })
 		const first = new FrameworkApplication({ plugins: [], schemas: [User] })
 		const second = new FrameworkApplication({ plugins: [], schemas: [User] })
 

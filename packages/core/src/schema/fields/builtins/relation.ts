@@ -119,12 +119,6 @@ export interface RelationFieldOptions<
 	 * @example `target: () => Post`
 	 */
 	readonly target: SchemaTarget<TTarget>
-	/**
-	 * Narrows every read through this relation without replacing caller filters.
-	 * @example `where: { published: { eq: true } }`
-	 * @example `where: ({ where }) => where.ne('id', currentUserId)`
-	 */
-	readonly where?: RelationWhere<NoInfer<TTarget>>
 }
 
 /** Carries one exact relation target without exposing an embedded collection value. */
@@ -181,7 +175,7 @@ export type NamedRelationFieldBuilderMethod = <
 
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'relation',
-	optionKeys: ['description', 'mappedBy', 'target', 'where'],
+	optionKeys: ['description', 'mappedBy', 'target'],
 }
 
 const snapshotRelationValue = (_value: unknown, path: string): never => {
@@ -212,39 +206,35 @@ const normalizeRelationMetadata = <TMappedBy extends string | undefined>(
 	})
 }
 
-const assertSynchronousRelationWhereResolver: (
+// Runtime checks what a resolver returns each time it calls it.
+const isRelationWhereResolver = (
 	value: unknown,
-) => asserts value is RelationWhereResolver = (value) => {
-	if (typeof value !== 'function') {
-		throw new TypeError('relationField where resolver must be a function')
-	}
-	if (Object.prototype.toString.call(value) === '[object AsyncFunction]') {
-		throw new TypeError('relationField where resolver must be synchronous')
-	}
-}
+): value is RelationWhereResolver => typeof value === 'function'
 
-const normalizeRelationWhereDeclaration = (
+/**
+ * @internal Normalizes one filter of `.with({ relations })` (ADR-0328): a
+ * static target filter is snapshotted, a resolver must be synchronous.
+ */
+export const normalizeRelationWhereDeclaration = (
 	value: unknown,
-): RelationWhereDeclaration | undefined => {
-	if (value === undefined) return undefined
+	path: string,
+): RelationWhereDeclaration => {
+	if (isRelationWhereResolver(value)) {
+		if (Object.prototype.toString.call(value) === '[object AsyncFunction]') {
+			throw new TypeError(`${path} resolver must be synchronous`)
+		}
 
-	if (typeof value === 'function') {
-		assertSynchronousRelationWhereResolver(value)
-
-		return immutableRecord({
-			kind: 'contextual' as const,
-			resolve: value,
-		})
+		return immutableRecord({ kind: 'contextual' as const, resolve: value })
 	}
 
 	if (!isPlainRecord(value)) {
 		throw new TypeError(
-			'relationField where must be a plain object or synchronous resolver',
+			`${path} must be a plain object or synchronous resolver`,
 		)
 	}
 
 	const snapshot = snapshotCapturedOptionValue(value)
-	assertPlainObject(snapshot, 'relationField where must be a plain object')
+	assertPlainObject(snapshot, `${path} must be a plain object`)
 
 	return immutableRecord({
 		input: snapshot,
@@ -274,14 +264,13 @@ export const relationField = <
 	assertFieldOptions(options)
 	assertBuiltInFieldOptions(options, relationFieldOptionsContract)
 
-	const { target, where, ...declarationOptions } = options
+	const { target, ...declarationOptions } = options
 
 	if (typeof target !== 'function') {
 		throw new TypeError('relationField target must be a function')
 	}
 
 	const normalizedMetadata = normalizeRelationMetadata(declarationOptions)
-	const relationWhere = normalizeRelationWhereDeclaration(where)
 	const unresolvedOptions = immutableRecord(
 		Object.fromEntries(
 			Object.entries(declarationOptions).filter(
@@ -296,7 +285,6 @@ export const relationField = <
 		snapshotRelationValue,
 		{
 			optionsContract: relationFieldOptionsContract,
-			relationWhere,
 			schemaTarget: target,
 		},
 	)

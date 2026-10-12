@@ -193,8 +193,38 @@ export const captureFieldBuilderCallback = (
 		throw new FieldBuilderDeclarationExecutionError(cause)
 	}
 
-	return readFieldMap(returned, path)
+	const fields = readFieldMap(returned, path)
+	if (!embedded) assertNoFieldRelationWhere(fields, path)
+	return fields
 }
+
+// Relation filters moved to the final `.with` (ADR-0328); point there.
+const assertNoFieldRelationWhere = (
+	fields: Readonly<Record<string, FieldMapEntry>>,
+	path: string,
+): void => {
+	for (const [name, field] of Object.entries(fields)) {
+		if (
+			isCapturedFieldBuilderCall(field) &&
+			field.methodName === 'relation' &&
+			isPlainRecord(field.options) &&
+			Object.hasOwn(field.options, 'where')
+		) {
+			throw new TypeError(
+				`${path}.${name} cannot declare where: declare relation filters in .with({ relations: { ${name}: { where } } })`,
+			)
+		}
+	}
+}
+
+/** Checks that one captured field map entry declares a relation. */
+export const isDeclaredRelationField = (field: unknown): boolean =>
+	isCapturedFieldBuilderCall(field)
+		? field.methodName === 'relation'
+		: typeof field === 'object' &&
+			field !== null &&
+			'kind' in field &&
+			field.kind === 'relation'
 
 /** Replays one captured non-virtual call; `object` recurses into its captured map. */
 const resolveCapturedFieldBuilderCall = (

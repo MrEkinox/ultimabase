@@ -31,15 +31,18 @@ const Post = UltimaBase.Schema.define({
 	className: 'NestedRuntimePost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'NestedRuntimeAuthor' }),
-		tags: field.relation({
-			target: 'NestedRuntimeTag',
+		tags: field.relation({ target: 'NestedRuntimeTag' }),
+		title: field.string({ required: true }),
+	}),
+}).with({
+	relations: {
+		tags: {
 			where: () => {
 				relationWhereInvocations += 1
 				return {}
 			},
-		}),
-		title: field.string({ required: true }),
-	}),
+		},
+	},
 })
 
 const Tag = UltimaBase.Schema.define({

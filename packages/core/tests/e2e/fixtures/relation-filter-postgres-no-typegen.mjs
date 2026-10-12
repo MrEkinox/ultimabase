@@ -38,17 +38,20 @@ const Source = Application.Schema.define({
 	fields: (field) => ({
 		contextualTargets: field.relation({
 			target: 'JavaScriptRelationFilterTarget',
+		}),
+		staticTargets: field.relation({ target: 'JavaScriptRelationFilterTarget' }),
+		label: field.string({ required: true }),
+	}),
+}).with({
+	relations: {
+		contextualTargets: {
 			where: ({ context, where }) =>
 				context.getValue(authenticatedViewer) === true
 					? where
 					: where.eq('audience', 'public'),
-		}),
-		staticTargets: field.relation({
-			target: 'JavaScriptRelationFilterTarget',
-			where: { visible: { eq: true } },
-		}),
-		label: field.string({ required: true }),
-	}),
+		},
+		staticTargets: { where: { visible: { eq: true } } },
+	},
 })
 
 const ultimabase = new Application({
