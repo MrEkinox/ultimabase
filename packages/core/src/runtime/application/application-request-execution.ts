@@ -37,7 +37,10 @@ import {
 } from '../engine/application-binding.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
-import { reportFrameworkPublicTransportProtection } from '../plugin-operations/engine-integration.js'
+import {
+	hasFrameworkProtectedPolicy,
+	reportFrameworkPublicTransportProtection,
+} from '../plugin-operations/engine-integration.js'
 import type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
@@ -115,6 +118,11 @@ export interface ApplicationRequestExecutor {
 	>(
 		options: PublicTransportProtectionOptions<TTransport>,
 	): void
+	/**
+	 * Reports whether a protected policy, such as Access, is installed: the
+	 * generic signal a transport reads to refuse public writes (ADR-0294).
+	 */
+	hasProtectedPolicy(): boolean
 	/**
 	 * Reports the application's health exactly as `ultimabase.health()`:
 	 * `DEGRADED` before binding, after disposal, or when the database fails.
@@ -275,6 +283,10 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 	>(options: PublicTransportProtectionOptions<TTransport>): void {
 		const framework = enterBoundFramework(this, false)
 		reportFrameworkPublicTransportProtection(framework, options)
+	}
+
+	hasProtectedPolicy(): boolean {
+		return hasFrameworkProtectedPolicy(enterBoundFramework(this, false))
 	}
 
 	health(): Promise<ApplicationHealthStatus> {

@@ -166,10 +166,7 @@ const createApplication = (requiredProfile = false) => {
 		policy,
 		accessPlugin({ allowWithoutRule: { all: true } }),
 		httpPlugin({ appId: 'profile', master: true }),
-		restPlugin({
-			acknowledgeUnverifiedProtection: true,
-			operations: Object.values(passwordAuthOperations),
-		}),
+		restPlugin(),
 		capture,
 	))({
 		masterAuthority: new MasterAuthority({
@@ -186,7 +183,7 @@ const createApplication = (requiredProfile = false) => {
 		master = false,
 	) => {
 		const response = await fetchRequest(
-			`/api/v1/auth/${name === 'signUp' ? 'sign-up' : name}`,
+			`/api/auth/${name === 'signUp' ? 'sign-up' : name}`,
 			{
 				method: 'POST',
 				body: JSON.stringify({ input }),
@@ -269,7 +266,7 @@ describe('Password Auth readable profiles', () => {
 			// The short public paths replace the internal operation URLs without aliases.
 			for (const operation of Object.values(passwordAuthOperations)) {
 				const legacy = await app.fetchRequest(
-					`/api/v1/operations/${operation.name}`,
+					`/api/operations/${operation.name}`,
 					{
 						method: 'POST',
 						headers: {
@@ -305,7 +302,7 @@ describe('Password Auth readable profiles', () => {
 			// Returning a supporting User never adds root User CRUD or private data.
 			expect(
 				(
-					await app.fetchRequest('/api/v1/classes/User', {
+					await app.fetchRequest('/api/classes/User', {
 						headers: { 'X-UltimaBase-Application-Id': 'profile' },
 					})
 				).status,

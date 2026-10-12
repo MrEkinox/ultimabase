@@ -23,16 +23,23 @@ import {
 import {
 	createRestCaughtErrorResponse,
 	createRestJsonResponse,
+	createRestJsonText,
+	createRestMethodNotAllowed,
 	createRestResponseFailure,
 	restResponseErrorCodes,
 } from './responses.js'
 import {
-	encodeRestPathSegment,
+	isCanonicalPath,
+	matchRoute,
+	readAllowedMethods,
+	readRestAcceptQuality,
+} from './route-matching.js'
+import {
 	restProtocol,
+	restRoutePath,
 	type RestRouteDefinition,
 	type RestSchemaRouteDefinition,
 } from './routes.js'
-import { reservedSchemaRouteSegments } from './schema-routes.js'
 import type {
 	RestOperationTransport,
 	RestSchemaMutationTransport,
@@ -40,105 +47,16 @@ import type {
 
 /** @internal Setup-owned routes and exposure bound after the HTTP mount exists. */
 export interface RestHttpConfiguration {
+	/** Paths of exposed schemas whose disabled methods answer 405 (ADR-0324). */
+	readonly knownPaths: readonly string[]
 	readonly limits: RestReadLimits
+	/** Serializes the OpenAPI document when `restPlugin({ openapi: true })`. */
+	readonly openapi: (() => string) | undefined
 	/** The plugin logger: masked failures are logged here (ADR-0313). */
 	readonly logger: Logger
 	readonly operationTransport: RestOperationTransport | undefined
 	readonly routes: readonly RestRouteDefinition[]
 	readonly schemaMutationTransport: RestSchemaMutationTransport | undefined
-}
-
-// Rejects aliases (empty, trailing, or non-canonically encoded segments) up front.
-const isCanonicalPath = (pathname: string): boolean => {
-	if (pathname.length > 1 && pathname.endsWith('/')) return false
-	return pathname
-		.slice(1)
-		.split('/')
-		.every((segment) => {
-			try {
-				return (
-					segment.length > 0 &&
-					encodeRestPathSegment(decodeURIComponent(segment), 'REST path') ===
-						segment
-				)
-			} catch {
-				return false
-			}
-		})
-}
-
-// Matches static routes before the one strict `{id}` item placeholder.
-const matchRoute = (
-	routes: readonly RestRouteDefinition[],
-	method: string,
-	pathname: string,
-): Readonly<{ id?: string; route: RestRouteDefinition }> | undefined => {
-	const exact = routes.find(
-		(route) => route.method === method && route.path === pathname,
-	)
-	if (exact !== undefined) return { route: exact }
-	const requestSegments = pathname.slice(1).split('/')
-	for (const route of routes) {
-		if (route.method !== method || !route.path.includes('{id}')) continue
-		const segments = route.path.slice(1).split('/')
-		if (segments.length !== requestSegments.length) continue
-		let id: string | undefined
-		const matches = segments.every((segment, index) => {
-			const requestSegment = requestSegments[index]
-			if (segment !== '{id}') return segment === requestSegment
-			id = requestSegment
-			return true
-		})
-		if (!matches || id === undefined) continue
-		// A disabled collection route such as `/count` is not an item id: it must
-		// answer "route not found", not "invalid id".
-		if (
-			route.kind !== 'rest-plugin-operation-route' &&
-			reservedSchemaRouteSegments.has(id)
-		)
-			continue
-		return { id, route }
-	}
-	return undefined
-}
-
-/** @internal Resolves JSON compatibility using the most specific media range. */
-const readRestAcceptQuality = (value: string | null): number => {
-	if (value === null) return 1
-	let specificity = -1
-	let quality = 0
-	for (const rawRange of value.split(',')) {
-		const [rawMediaType, ...rawParameters] = rawRange.split(';')
-		const current = ['*/*', 'application/*', 'application/json'].indexOf(
-			rawMediaType?.trim().toLowerCase() ?? '',
-		)
-		if (current < 0) continue
-		let currentQuality = 1
-		let valid = true
-		let qualitySeen = false
-		for (const rawParameter of rawParameters) {
-			const parameter = rawParameter.trim().toLowerCase()
-			if (parameter === 'charset=utf-8' || parameter === 'charset="utf-8"') {
-				continue
-			}
-			if (!parameter.startsWith('q=') || qualitySeen) {
-				valid = false
-				continue
-			}
-			qualitySeen = true
-			const parsed = Number(parameter.slice(2))
-			if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) valid = false
-			else currentQuality = parsed
-		}
-		if (!valid) continue
-		if (current > specificity) {
-			specificity = current
-			quality = currentQuality
-		} else if (current === specificity) {
-			quality = Math.max(quality, currentQuality)
-		}
-	}
-	return quality
 }
 
 const invalidResult = (): TypeError => new TypeError('Invalid REST result')
@@ -332,18 +250,24 @@ export const createRestHttpMounts = (
 	schemas: CompiledSchemaRegistry,
 	readConfiguration: () => RestHttpConfiguration | undefined,
 ): readonly HttpMountDefinition[] => {
-	const versionRoot = mountPath === '/' ? '/v1' : `${mountPath}/v1`
+	const openapiPath = restRoutePath(mountPath, '/openapi.json')
 	const handle = async (request: Request): Promise<Response> => {
 		const requestId = getCurrentRequest().requestId
 		const pathname = new URL(request.url).pathname
 		const configuration = readConfiguration()
-		const failure = !isCanonicalPath(pathname)
-			? restResponseErrorCodes.badRequest
-			: pathname !== versionRoot && !pathname.startsWith(`${versionRoot}/`)
-				? restResponseErrorCodes.unsupportedVersion
-				: undefined
-		if (failure !== undefined) {
-			return createRestResponseFailure(failure, requestId)
+		if (!isCanonicalPath(pathname)) {
+			return createRestResponseFailure(
+				restResponseErrorCodes.badRequest,
+				requestId,
+			)
+		}
+		const openapi = configuration?.openapi
+		if (
+			openapi !== undefined &&
+			pathname === openapiPath &&
+			request.method === 'GET'
+		) {
+			return createRestJsonText(openapi(), 200)
 		}
 		const match = matchRoute(
 			configuration?.routes ?? [],
@@ -351,10 +275,10 @@ export const createRestHttpMounts = (
 			pathname,
 		)
 		if (match === undefined) {
-			return createRestResponseFailure(
-				restResponseErrorCodes.notFound,
-				requestId,
-			)
+			const allowed = readAllowedMethods(configuration, pathname)
+			return allowed === undefined
+				? createRestResponseFailure(restResponseErrorCodes.notFound, requestId)
+				: createRestMethodNotAllowed(allowed, requestId)
 		}
 		if (readRestAcceptQuality(request.headers.get('accept')) <= 0) {
 			return createRestResponseFailure(

@@ -29,7 +29,7 @@ import {
 } from '@ultimabase/core/plugin'
 
 const objectId = '01991f00-0000-7000-8000-000000000201'
-const upsertRouteOption = { rest: { upsert: true } }
+const upsertRouteOption = { rest: { upsertOne: true } }
 const viewer = new RequestContextValue<string>(
 	'fixture.rest-virtual-http.viewer',
 	(value) => {
@@ -41,7 +41,6 @@ const viewer = new RequestContextValue<string>(
 
 const RestSchemaApplication = UltimaBase.use(restPlugin())
 const VirtualHttpRecord = RestSchemaApplication.Schema.define({
-	...upsertRouteOption,
 	className: 'RestHttpVirtualRecord',
 	fields: (field) => ({
 		title: field.string({ indexed: 'unique' }),
@@ -66,7 +65,7 @@ const VirtualHttpRecord = RestSchemaApplication.Schema.define({
 			select: { title: true },
 		}),
 	}),
-})
+}).with(upsertRouteOption)
 
 const VirtualFailureRecord = RestSchemaApplication.Schema.define({
 	className: 'RestHttpVirtualFailure',
@@ -199,7 +198,7 @@ const createFixture = async (
 		databasePlugin(adapter),
 		contextPlugin,
 		restPlugin({
-			acknowledgeUnverifiedProtection: true,
+			publicWrites: true,
 			...(limits.rest === undefined ? {} : { bodyLimit: limits.rest }),
 		}),
 		httpPlugin({
@@ -246,7 +245,7 @@ const fetchApplication = (
 describe('REST virtual HTTP boundary', () => {
 	it('resolves values with anonymous, authenticated, and Master context', async () => {
 		const fixture = await createFixture()
-		const path = '/api/v1/classes/RestHttpVirtualRecord?select=id,displayTitle'
+		const path = '/api/classes/RestHttpVirtualRecord?select=id,displayTitle'
 		for (const testCase of [
 			{ authority: 'anonymous', headers: {}, viewer: 'anonymous' },
 			{
@@ -290,7 +289,7 @@ describe('REST virtual HTTP boundary', () => {
 		] as const) {
 			const response = await fetchApplication(
 				fixture.http,
-				`/api/v1/classes/RestHttpVirtualFailure?select=${testCase.field}`,
+				`/api/classes/RestHttpVirtualFailure?select=${testCase.field}`,
 			)
 			const serialized = await response.text()
 			expect(response.status, serialized).toBe(testCase.status)
@@ -304,7 +303,7 @@ describe('REST virtual HTTP boundary', () => {
 		const fixture = await createFixture(10)
 		const response = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpVirtualFailure?select=waiting',
+			'/api/classes/RestHttpVirtualFailure?select=waiting',
 		)
 		expect(response.status).toBe(408)
 		expect(await response.json()).toMatchObject({
@@ -319,12 +318,12 @@ describe('REST virtual HTTP boundary', () => {
 			{
 				body: { displayTitle: 'forged' },
 				method: 'POST',
-				path: '/api/v1/classes/RestHttpVirtualRecord',
+				path: '/api/classes/RestHttpVirtualRecord',
 			},
 			{
 				body: { displayTitle: 'forged' },
 				method: 'PATCH',
-				path: `/api/v1/classes/RestHttpVirtualRecord/${objectId}`,
+				path: `/api/classes/RestHttpVirtualRecord/${objectId}`,
 			},
 			{
 				body: {
@@ -333,7 +332,7 @@ describe('REST virtual HTTP boundary', () => {
 					where: { title: { eq: 'new' } },
 				},
 				method: 'POST',
-				path: '/api/v1/classes/RestHttpVirtualRecord/upsert',
+				path: '/api/classes/RestHttpVirtualRecord/upsert',
 			},
 		] as const) {
 			const response = await fetchApplication(fixture.http, testCase.path, {
@@ -351,7 +350,7 @@ describe('REST virtual HTTP boundary', () => {
 
 		const relationship = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpVirtualRecord?include=displayTitle',
+			'/api/classes/RestHttpVirtualRecord?include=displayTitle',
 		)
 		expect(relationship.status).toBe(400)
 		expect(await relationship.json()).toMatchObject({
@@ -363,7 +362,7 @@ describe('REST virtual HTTP boundary', () => {
 	// ADR-0323: REST inherits the HTTP body limit unless it sets its own.
 	it('inherits the HTTP body limit and lets its own bodyLimit replace it', async () => {
 		const post = (http: HttpApplication) =>
-			fetchApplication(http, '/api/v1/classes/RestHttpVirtualRecord', {
+			fetchApplication(http, '/api/classes/RestHttpVirtualRecord', {
 				body: JSON.stringify({ title: 'x'.repeat(64) }),
 				headers: { 'Content-Type': 'application/json' },
 				method: 'POST',

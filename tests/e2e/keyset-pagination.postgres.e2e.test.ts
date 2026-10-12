@@ -458,7 +458,7 @@ describe('keyset pagination (ADR-0309)', { concurrent: false }, () => {
 				...(typeof cursor === 'string' ? { after: cursor } : {}),
 			})
 			const body = await fetchApplication(
-				`/api/v1/classes/KeysetItem?${query.toString()}`,
+				`/api/classes/KeysetItem?${query.toString()}`,
 			)
 			const results: unknown = read(body, 'results')
 			if (!Array.isArray(results)) throw new TypeError(JSON.stringify(body))
@@ -516,7 +516,7 @@ describe('keyset pagination (ADR-0309)', { concurrent: false }, () => {
 
 	it('rejects a malformed or mismatched cursor in REST and GraphQL alike', async () => {
 		const first = await fetchApplication(
-			'/api/v1/classes/KeysetItem?orderBy=rank&take=1',
+			'/api/classes/KeysetItem?orderBy=rank&take=1',
 		)
 		const cursor = String(read(first, 'nextCursor'))
 		for (const query of [
@@ -524,7 +524,7 @@ describe('keyset pagination (ADR-0309)', { concurrent: false }, () => {
 			`orderBy=-rank&take=1&after=${cursor}`,
 			`take=1&skip=1&after=${cursor}`,
 		]) {
-			const body = await fetchApplication(`/api/v1/classes/KeysetItem?${query}`)
+			const body = await fetchApplication(`/api/classes/KeysetItem?${query}`)
 			expect(read(body, 'error')).toMatchObject({
 				code: 'VALIDATION_ERROR',
 				details: { parameter: 'after' },

@@ -65,7 +65,7 @@ are written.
 
 The generated project uses PostgreSQL `schemaPolicy: 'override'` only for
 disposable local databases. HTTP listeners bind to loopback. The starter's
-unverified-protection acknowledgement does not secure public routes. Use the
+REST refuses to start with public writes and no policy plugin; GraphQL's unverified-protection acknowledgement does not secure public routes. Use the
 generated README and the owning plugin guides before changing these defaults.
 Registry installation and the advertised commands still require package
 publication and a post-publication smoke test.

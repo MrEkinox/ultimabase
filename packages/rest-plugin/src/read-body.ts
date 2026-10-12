@@ -1,4 +1,6 @@
-import type { RestFailure } from './errors.js'
+import { restErrorDetails, type RestFailure } from './errors.js'
+
+const bodyDetails = (reason: string) => restErrorDetails('body', reason)
 
 const isUtf8Charset = (parameter: string | undefined): boolean =>
 	parameter === 'charset=utf-8' || parameter === 'charset="utf-8"'
@@ -10,10 +12,19 @@ const readContentLength = (
 ): number | undefined => {
 	const value = request.headers.get('content-length')
 	if (value === null) return undefined
-	if (!/^(?:0|[1-9]\d*)$/u.test(value)) throw fail()
+	if (
+		!/^(?:0|[1-9]\d*)$/u.test(value) ||
+		!Number.isSafeInteger(Number(value))
+	) {
+		throw fail(undefined, bodyDetails('has an invalid Content-Length header'))
+	}
 	const parsed = Number(value)
-	if (!Number.isSafeInteger(parsed)) throw fail()
-	if (parsed > maximum) throw fail('bodyTooLarge')
+	if (parsed > maximum) {
+		throw fail(
+			'bodyTooLarge',
+			bodyDetails(`must not exceed ${String(maximum)} bytes`),
+		)
+	}
 	return parsed
 }
 
@@ -35,14 +46,22 @@ export const readRestJsonBody = async (
 		parameters.length > 1 ||
 		(parameters.length === 1 && !isUtf8Charset(parameters[0]))
 	) {
-		throw fail('unsupportedMediaType')
+		throw fail(
+			'unsupportedMediaType',
+			bodyDetails(
+				'must be sent as application/json with an optional UTF-8 charset',
+			),
+		)
 	}
 	const declaredLength = readContentLength(request, maximum, fail)
 	if (
 		declaredLength !== undefined &&
 		request.headers.has('transfer-encoding')
 	) {
-		throw fail()
+		throw fail(
+			undefined,
+			bodyDetails('cannot combine Content-Length and Transfer-Encoding'),
+		)
 	}
 
 	const chunks: Uint8Array[] = []
@@ -58,22 +77,36 @@ export const readRestJsonBody = async (
 			length += result.value.byteLength
 			if (length > maximum) {
 				await reader.cancel()
-				throw fail('bodyTooLarge')
+				throw fail(
+					'bodyTooLarge',
+					bodyDetails(`must not exceed ${String(maximum)} bytes`),
+				)
 			}
 			chunks.push(result.value)
 		}
 	}
 	request.signal.throwIfAborted()
-	if (declaredLength !== undefined && declaredLength !== length) throw fail()
+	if (declaredLength !== undefined && declaredLength !== length) {
+		throw fail(
+			undefined,
+			bodyDetails('does not match its Content-Length header'),
+		)
+	}
 
+	let source: string
 	try {
-		const source = new TextDecoder('utf-8', { fatal: true }).decode(
+		source = new TextDecoder('utf-8', { fatal: true }).decode(
 			Buffer.concat(chunks, length),
 		)
-		if (source.length === 0) throw fail()
+	} catch {
+		throw fail(undefined, bodyDetails('must be valid UTF-8'))
+	}
+	if (source.length === 0)
+		throw fail(undefined, bodyDetails('must not be empty'))
+	try {
 		return JSON.parse(source) as unknown
 	} catch {
-		throw fail()
+		throw fail(undefined, bodyDetails('must be valid JSON'))
 	}
 }
 
@@ -88,7 +121,7 @@ export const assertEmptyRestBody = async (
 		request.headers.has('transfer-encoding') ||
 		(contentLength !== null && contentLength !== '0')
 	) {
-		throw fail()
+		throw fail(undefined, bodyDetails('must be empty'))
 	}
 	const reader = request.body?.getReader()
 	if (reader === undefined) return
@@ -100,7 +133,7 @@ export const assertEmptyRestBody = async (
 		request.signal.throwIfAborted()
 		if (result.value.byteLength > 0) {
 			await reader.cancel()
-			throw fail()
+			throw fail(undefined, bodyDetails('must be empty'))
 		}
 	}
 }

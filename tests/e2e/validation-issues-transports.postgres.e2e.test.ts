@@ -68,7 +68,7 @@ const capturePlugin = plugin({
 const appId = 'validation-issues'
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(
-		restPlugin({ default: { mutations: true } }),
+		restPlugin(),
 		graphqlPlugin({ default: { mutations: true } }),
 		httpPlugin({ appId }),
 		capturePlugin,
@@ -120,7 +120,7 @@ describe('validation issues through transports (ADR-0319)', () => {
 		const response = await capture.current.fetch({
 			originalHeaders,
 			request: new Request(
-				`https://example.test/api/v1/classes/${Contact.className}`,
+				`https://example.test/api/classes/${Contact.className}`,
 				{ body: JSON.stringify(invalidContact), headers, method: 'POST' },
 			),
 		})

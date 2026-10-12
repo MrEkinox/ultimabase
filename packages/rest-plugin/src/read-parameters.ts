@@ -1,12 +1,19 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { invalidRestRead } from './errors.js'
+import { invalidRestRead, restErrorDetails } from './errors.js'
+
+const queryFailure = (reason: string): Error =>
+	invalidRestRead(undefined, restErrorDetails('query', reason))
+
+/** A parameter value failure; the caller's parameter name is filled in. */
+const valueFailure = (reason: string): Error =>
+	invalidRestRead(undefined, restErrorDetails('', reason))
 
 const decodeQueryComponent = (value: string): string => {
 	try {
 		return decodeURIComponent(value.replaceAll('+', ' '))
 	} catch {
-		throw invalidRestRead()
+		throw queryFailure('contains invalid percent-encoding')
 	}
 }
 
@@ -18,19 +25,21 @@ export const parseRestQueryEntries = (
 	try {
 		search = new URL(request.url).search
 	} catch {
-		throw invalidRestRead()
+		throw queryFailure('is not a valid URL query')
 	}
 	if (search.length <= 1) return []
 	return search
 		.slice(1)
 		.split('&')
 		.map((entry) => {
-			if (entry.length === 0) throw invalidRestRead()
+			if (entry.length === 0) throw queryFailure('contains an empty parameter')
 			const separator = entry.indexOf('=')
 			const name = decodeQueryComponent(
 				separator === -1 ? entry : entry.slice(0, separator),
 			)
-			if (name.length === 0) throw invalidRestRead()
+			if (name.length === 0) {
+				throw queryFailure('contains a parameter without a name')
+			}
 			const value = separator === -1 ? '' : entry.slice(separator + 1)
 			return [name, decodeQueryComponent(value)] as const
 		})
@@ -40,7 +49,7 @@ export const parseJson = (value: string): unknown => {
 	try {
 		return JSON.parse(value) as unknown
 	} catch {
-		throw invalidRestRead()
+		throw valueFailure('must be valid JSON')
 	}
 }
 
@@ -50,7 +59,9 @@ const parseCommaList = (value: string): readonly string[] => {
 		entries.some((entry) => entry.length === 0 || entry.trim() !== entry) ||
 		new Set(entries).size !== entries.length
 	) {
-		throw invalidRestRead()
+		throw valueFailure(
+			'must be a comma-separated list of distinct names without spaces',
+		)
 	}
 	return entries
 }
@@ -72,7 +83,9 @@ export const parseOrdering = (
 			parseCommaList(value).map((entry) => {
 				const descending = entry.startsWith('-')
 				const field = descending ? entry.slice(1) : entry
-				if (field.length === 0 || fields.has(field)) throw invalidRestRead()
+				if (field.length === 0 || fields.has(field)) {
+					throw valueFailure('must name each field once')
+				}
 				fields.add(field)
 				return [field, descending ? 'desc' : 'asc']
 			}),
@@ -83,7 +96,7 @@ export const parseOrdering = (
 export const parseNonNegativeInteger = (value: string): number => {
 	const parsed = Number(value)
 	if (!/^(?:0|[1-9]\d*)$/u.test(value) || !Number.isSafeInteger(parsed)) {
-		throw invalidRestRead()
+		throw valueFailure('must be a non-negative integer')
 	}
 	return parsed
 }
@@ -109,18 +122,20 @@ const parseIncludePaths = (
 	for (const path of parseCommaList(value)) {
 		const segments = path.split('.')
 		if (segments.some((segment) => segment.length === 0)) {
-			throw invalidRestRead()
+			throw valueFailure(
+				'must contain dotted relation paths without empty names',
+			)
 		}
 		let current = root
 		for (const [index, segment] of segments.entries()) {
 			const existing = current.get(segment)
 			if (index === segments.length - 1) {
-				if (current.has(segment)) throw invalidRestRead()
+				if (current.has(segment)) throw valueFailure('repeats a relation')
 				current.set(segment, undefined)
 				continue
 			}
 			if (current.has(segment) && existing === undefined) {
-				throw invalidRestRead()
+				throw valueFailure('repeats a relation')
 			}
 			const next: IncludeTree =
 				existing ?? new Map<string, IncludeTree | undefined>()

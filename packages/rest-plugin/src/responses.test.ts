@@ -58,12 +58,14 @@ describe('REST response errors', () => {
 
 		for (const [code, status] of [
 			[restResponseErrorCodes.badRequest, 400],
-			[restResponseErrorCodes.unsupportedVersion, 400],
+			[restResponseErrorCodes.methodNotAllowed, 405],
 			[restResponseErrorCodes.notAcceptable, 406],
 			[restResponseErrorCodes.notFound, 404],
 		] as const) {
 			const response = createRestResponseFailure(code, requestId)
 			expect(response.status).toBe(status)
+			// ADR-0324: every REST response names the protocol version.
+			expect(response.headers.get('x-ultimabase-rest-version')).toBe('1')
 			expect(await readError(response)).toMatchObject({
 				error: { code, requestId, retryable: false },
 			})

@@ -102,6 +102,9 @@ describe('API project templates', () => {
 		expect(schema).toContain('graphqlPlugin({')
 		expect(application).not.toContain('restPlugin({')
 		expect(application).not.toContain('graphqlPlugin({')
+		expect(schema).toContain(
+			'default: { createOne: false, updateOne: false, deleteOne: false }',
+		)
 		expect(schema).toContain('create: false, update: false, delete: false')
 		expect(schema).toContain('acknowledgeUnverifiedProtection: true')
 		expect(schema).toMatch(
@@ -112,7 +115,7 @@ describe('API project templates', () => {
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([
-				"curl -i 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
+				"curl -i 'http://127.0.0.1:1337/api/classes/Task?select=id,title,done'",
 			]),
 		)
 	})
@@ -136,7 +139,11 @@ describe('API project templates', () => {
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
 		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
 		expect(application).not.toContain('passwordAuthOperations.')
-		expect(schema.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(2)
+		// REST exposes the public operations and hides two (ADR-0324); GraphQL
+		// still lists the four it exposes.
+		expect(schema).toContain('hide: [')
+		expect(schema).toContain('passwordAuthOperations.changePassword')
+		expect(schema.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(1)
 		expect(schema).toContain('passwordAuthOperations.login')
 		expect(schema).toContain('passwordAuthOperations.refresh')
 		expect(schema).toContain('passwordAuthOperations.logout')

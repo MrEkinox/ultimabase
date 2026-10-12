@@ -66,7 +66,7 @@ const capturePlugin = plugin({
 
 const Application = UltimaBase.use(
 	databasePlugin,
-	restPlugin({ acknowledgeUnverifiedProtection: true }),
+	restPlugin({ publicWrites: true }),
 	httpPlugin({ appId: 'javascript-rest' }),
 	capturePlugin,
 )
@@ -92,7 +92,7 @@ const Note = Application.Schema.define({
 			select: { title: true },
 		}),
 	}),
-	rest: { find: true },
+	rest: { findMany: true },
 })
 const ultimabase = new Application({
 	logger: false,
@@ -108,15 +108,12 @@ const response = await httpApplication.fetch({
 		['X-UltimaBase-Application-Id', 'javascript-rest'],
 		['X-UltimaBase-Request-Id', 'javascript-rest-request'],
 	],
-	request: new Request(
-		'https://example.test/api/v1/classes/JavaScriptRestNote',
-		{
-			headers: {
-				'X-UltimaBase-Application-Id': 'javascript-rest',
-				'X-UltimaBase-Request-Id': 'javascript-rest-request',
-			},
+	request: new Request('https://example.test/api/classes/JavaScriptRestNote', {
+		headers: {
+			'X-UltimaBase-Application-Id': 'javascript-rest',
+			'X-UltimaBase-Request-Id': 'javascript-rest-request',
 		},
-	),
+	}),
 })
 
 process.stdout.write(

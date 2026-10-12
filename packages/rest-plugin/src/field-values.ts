@@ -14,7 +14,12 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { invalidRestRead } from './errors.js'
+import {
+	invalidRestRead,
+	invalidRestValue,
+	readRestErrorDetails,
+	RestReadNormalizationError,
+} from './errors.js'
 import { restFieldProtocol } from './field-codecs.js'
 
 const bigintPattern = /^(?:0|-?[1-9]\d*)$/u
@@ -98,6 +103,22 @@ const decodePointer = (
 	return target.pointer(value.id)
 }
 
+const isString = (value: unknown): boolean => typeof value === 'string'
+
+// JSON types of the built-in scalars REST passes through; Core checks values.
+const jsonScalarChecks: Readonly<Record<string, (value: unknown) => boolean>> =
+	{
+		boolean: (value) => typeof value === 'boolean',
+		date: isString,
+		dateTime: isString,
+		decimal: isString,
+		enum: isString,
+		float: (value) => typeof value === 'number' && Number.isFinite(value),
+		int: (value) => Number.isSafeInteger(value),
+		string: isString,
+		time: isString,
+	}
+
 const decodeScalar = (
 	field: GenericField,
 	value: unknown,
@@ -131,7 +152,12 @@ const decodeScalar = (
 		case 'relation':
 			throw invalid()
 	}
-	if (!field.kind.includes('.')) return value
+	if (!field.kind.includes('.')) {
+		// The wire JSON type is checked here so the failure has a path (ADR-0324).
+		const check = jsonScalarChecks[field.kind]
+		if (check !== undefined && !check(value)) throw invalid()
+		return value
+	}
 	const codec = getPluginFieldWireCodec(field, restFieldProtocol)
 	if (codec === undefined) throw invalid()
 	try {
@@ -239,6 +265,40 @@ const decodeOperand = (
 	return untouchedOperators.has(operator) ? value : decode(value)
 }
 
+const kindReasons: Readonly<Record<string, string>> = {
+	bigint: 'must be a base-10 integer string',
+	boolean: 'must be a boolean',
+	date: 'must be an ISO 8601 date string',
+	dateTime: 'must be an ISO 8601 date-time string',
+	decimal: 'must be a decimal string',
+	enum: 'must be one of the enum values',
+	float: 'must be a finite number',
+	int: 'must be a safe integer',
+	string: 'must be a string',
+	time: 'must be an ISO 8601 time string',
+	binary: 'must be { "type": "binary", "encoding": "base64", "data" }',
+	object: 'must be an object of the declared embedded fields',
+	pointer: 'must be a UUID v7 identifier',
+	uuid: 'must be a UUID string',
+}
+
+/** Says in words what REST expects for one field value (ADR-0324). */
+export const restValueReason = (field: GenericField): string =>
+	getFieldListDepth(field.options) > 0
+		? `must be a list of ${field.kind} values`
+		: (kindReasons[field.kind] ?? `is not a valid ${field.kind} value`)
+
+/** Locates a field value failure at `path`, with the reason for its kind. */
+export const locateRestValueFailure = (
+	error: unknown,
+	field: GenericField,
+	path: readonly (number | string)[],
+): unknown =>
+	readRestErrorDetails(error) === undefined &&
+	error instanceof RestReadNormalizationError
+		? invalidRestValue(restValueReason(field), path)
+		: error
+
 /**
  * Decodes filter field values while leaving operator validity to Core
  * normalization. A pointer's equality shorthand is its target id (ADR-0307),
@@ -251,14 +311,18 @@ export const decodeRestWhere = (
 	transformQueryFilterInput(
 		schema,
 		value,
-		({ field, operator, source, value }) => {
-			if (source === 'shorthand' && field.kind === 'pointer') {
-				if (!isUuidV7(value)) throw invalidRestRead()
-				return value
+		({ field, operator, path, source, value }) => {
+			try {
+				if (source === 'shorthand' && field.kind === 'pointer') {
+					if (!isUuidV7(value)) throw invalidRestRead()
+					return value
+				}
+				return relationshipOperators.has(operator) &&
+					getFieldSchemaTarget(field) === undefined
+					? value
+					: decodeOperand(field, operator, value)
+			} catch (error: unknown) {
+				throw locateRestValueFailure(error, field, path)
 			}
-			return relationshipOperators.has(operator) &&
-				getFieldSchemaTarget(field) === undefined
-				? value
-				: decodeOperand(field, operator, value)
 		},
 	)

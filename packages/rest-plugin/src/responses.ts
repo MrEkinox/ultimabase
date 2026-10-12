@@ -20,15 +20,15 @@ type RestPluginErrorRoute =
 export const restResponseErrorCodes: Readonly<{
 	readonly badRequest: 'REST_BAD_REQUEST'
 	readonly internalError: 'REST_INTERNAL_ERROR'
+	readonly methodNotAllowed: 'REST_METHOD_NOT_ALLOWED'
 	readonly notAcceptable: 'REST_NOT_ACCEPTABLE'
 	readonly notFound: 'REST_NOT_FOUND'
-	readonly unsupportedVersion: 'REST_UNSUPPORTED_VERSION'
 }> = immutableRecord({
 	badRequest: 'REST_BAD_REQUEST',
 	internalError: 'REST_INTERNAL_ERROR',
+	methodNotAllowed: 'REST_METHOD_NOT_ALLOWED',
 	notAcceptable: 'REST_NOT_ACCEPTABLE',
 	notFound: 'REST_NOT_FOUND',
-	unsupportedVersion: 'REST_UNSUPPORTED_VERSION',
 } as const)
 
 export type RestResponseErrorCode =
@@ -60,6 +60,10 @@ const responseContracts: Readonly<
 		message: 'The REST request could not be completed.',
 		status: 500,
 	},
+	REST_METHOD_NOT_ALLOWED: {
+		message: 'The REST route does not allow this method.',
+		status: 405,
+	},
 	REST_NOT_ACCEPTABLE: {
 		message: 'The requested REST response media type is not available.',
 		status: 406,
@@ -67,10 +71,6 @@ const responseContracts: Readonly<
 	REST_NOT_FOUND: {
 		message: 'The requested REST route was not found.',
 		status: 404,
-	},
-	REST_UNSUPPORTED_VERSION: {
-		message: 'The requested REST protocol version is not supported.',
-		status: 400,
 	},
 })
 
@@ -149,7 +149,14 @@ const caughtFailure = (
 	if (isNormalizationError(error)) {
 		const { code, message } = error.issue
 		return publicFailure(
-			{ code, message, retryable: false },
+			{
+				code,
+				message,
+				retryable: false,
+				...(error.details === undefined
+					? {}
+					: { details: { ...error.details } }),
+			},
 			code.endsWith('_BODY_TOO_LARGE')
 				? 413
 				: code.endsWith('_UNSUPPORTED_MEDIA_TYPE')
@@ -175,19 +182,35 @@ const caughtFailure = (
 	return publicFailure(payload, statusFor(operation, payload.code))
 }
 
+/** The REST protocol version every response carries (ADR-0324). */
+export const restProtocolVersionHeader = 'X-UltimaBase-Rest-Version'
+
+/** Creates a JSON response from serialized text, with the protocol version. */
+export const createRestJsonText = (
+	text: string,
+	status: number,
+	headers: Readonly<Record<string, string>> = {},
+): Response =>
+	new Response(text, {
+		headers: {
+			...headers,
+			'Content-Type': 'application/json; charset=utf-8',
+			[restProtocolVersionHeader]: '1',
+		},
+		status,
+	})
+
 /** Creates a canonical JSON response before HTTP adds its request metadata header. */
 export const createRestJsonResponse = (
 	body: unknown,
 	status: number,
-): Response =>
-	new Response(JSON.stringify(body), {
-		headers: { 'Content-Type': 'application/json; charset=utf-8' },
-		status,
-	})
+	headers?: Readonly<Record<string, string>>,
+): Response => createRestJsonText(JSON.stringify(body), status, headers)
 
 const createRestErrorResponse = (
 	failure: RestPublicFailure,
 	requestId: string,
+	headers?: Readonly<Record<string, string>>,
 ): Response => {
 	const body: RestErrorEnvelope = immutableRecord({
 		error: immutableRecord({
@@ -198,8 +221,23 @@ const createRestErrorResponse = (
 			...(failure.details === undefined ? {} : { details: failure.details }),
 		}),
 	})
-	return createRestJsonResponse(body, failure.status)
+	return createRestJsonResponse(body, failure.status, headers)
 }
+
+/** Answers a method a route or exposed schema does not allow, with `Allow`. */
+export const createRestMethodNotAllowed = (
+	allowed: readonly string[],
+	requestId: string,
+): Response =>
+	createRestErrorResponse(
+		immutableRecord({
+			code: restResponseErrorCodes.methodNotAllowed,
+			retryable: false,
+			...responseContracts.REST_METHOD_NOT_ALLOWED,
+		}),
+		requestId,
+		{ Allow: allowed.join(', ') },
+	)
 
 /** Creates one REST-owned static routing or negotiation failure. */
 export const createRestResponseFailure = (

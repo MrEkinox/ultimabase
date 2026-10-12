@@ -1,3 +1,4 @@
+import type { PluginOperationPublicDeclaration } from '../../plugins/plugin-command-contribution-contracts.js'
 import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
 import type { JsonValue } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
@@ -51,6 +52,11 @@ export interface OperationTransportRequest {
 
 /** Describes one exact operation and its inert binding facts after exposure. */
 export interface ExposedOperationTransportBinding {
+	/**
+	 * `true` when the owner bound the operation to this transport; `false` for
+	 * a public operation that keeps its wire value as is (ADR-0324).
+	 */
+	readonly bound: boolean
 	readonly errors: readonly string[]
 	readonly metadata: JsonValue
 	readonly name: string
@@ -59,6 +65,8 @@ export interface ExposedOperationTransportBinding {
 		readonly pluginId: string
 		readonly version: string
 	}>
+	/** The owner's public declaration, when the operation is public (ADR-0324). */
+	readonly public?: PluginOperationPublicDeclaration
 	readonly version: string
 }
 

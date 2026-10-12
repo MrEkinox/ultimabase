@@ -11,24 +11,24 @@ import {
 	restFieldCodec,
 	restPlugin,
 	type RestPluginExports,
-	type RestSchemaRoutesOption,
+	type RestSchemaRule,
 } from './index.js'
 
 const RestSchemaApplication = UltimaBase.use(restPlugin())
-const defineRestSchema = (className: string, rest?: RestSchemaRoutesOption) =>
-	RestSchemaApplication.Schema.define({
+const defineRestSchema = (className: string, rest?: RestSchemaRule) => {
+	const declaration = RestSchemaApplication.Schema.define({
 		className,
-		...(rest === undefined ? {} : { rest }),
 		fields: () => ({}),
 	})
+	return rest === undefined ? declaration : declaration.with({ rest })
+}
 
 // Runtime-negative fixtures bypass only the static option check under test.
 const defineInvalidRestSchema = (className: string, rest: unknown) =>
 	RestSchemaApplication.Schema.define({
 		className,
 		fields: () => ({}),
-		rest,
-	} as never)
+	}).with({ rest } as never)
 
 const readRest = (
 	application: Awaited<ReturnType<typeof createApplication>>,
@@ -77,66 +77,66 @@ describe('REST route metadata', () => {
 			  {
 			    "method": "GET",
 			    "operation": "find",
-			    "path": "/api/v1/classes/Post",
+			    "path": "/api/classes/Post",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "POST",
 			    "operation": "create",
-			    "path": "/api/v1/classes/Post",
+			    "path": "/api/classes/Post",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "POST",
 			    "operation": "find",
-			    "path": "/api/v1/classes/Post/query",
+			    "path": "/api/classes/Post/query",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "GET",
 			    "operation": "first",
-			    "path": "/api/v1/classes/Post/first",
+			    "path": "/api/classes/Post/first",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "POST",
 			    "operation": "first",
-			    "path": "/api/v1/classes/Post/first",
+			    "path": "/api/classes/Post/first",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "GET",
 			    "operation": "exists",
-			    "path": "/api/v1/classes/Post/exists",
+			    "path": "/api/classes/Post/exists",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "POST",
 			    "operation": "exists",
-			    "path": "/api/v1/classes/Post/exists",
+			    "path": "/api/classes/Post/exists",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "GET",
 			    "operation": "get",
-			    "path": "/api/v1/classes/Post/{id}",
+			    "path": "/api/classes/Post/{id}",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "PATCH",
 			    "operation": "update",
-			    "path": "/api/v1/classes/Post/{id}",
+			    "path": "/api/classes/Post/{id}",
 			    "schema": "Post",
 			  },
 			  {
 			    "method": "DELETE",
 			    "operation": "delete",
-			    "path": "/api/v1/classes/Post/{id}",
+			    "path": "/api/classes/Post/{id}",
 			    "schema": "Post",
 			  },
 			]
 		`)
-		expect(rest.basePath).toBe('/api/v1')
+		expect(rest.basePath).toBe('/api')
 		expect(rest.routeGraph.protocol).toMatchObject({
 			kind: 'operation-transport-protocol',
 			name: 'ultimabase.rest',
@@ -168,16 +168,24 @@ describe('REST route metadata', () => {
 
 	it('resolves schema operations over sparse plugin defaults and built-ins', async () => {
 		const Post = defineRestSchema('Configured Post', {
-			bulk: { create: false, update: true },
 			count: true,
-			find: false,
+			createMany: false,
+			findMany: false,
+			updateMany: true,
 		})
 		const application = await createApplication({
 			logger: false,
 			plugins: [
 				restPlugin({
 					basePath: '/public',
-					default: { bulk: true, get: false, upsert: true },
+					default: {
+						createMany: true,
+						deleteMany: true,
+						findOne: false,
+						updateMany: true,
+						upsertMany: true,
+						upsertOne: true,
+					},
 				}),
 			],
 			schemas: [Post],
@@ -185,10 +193,9 @@ describe('REST route metadata', () => {
 		onTestFinished(() => application.dispose())
 		const routes = summarize(readRest(application))
 
+		// `findOne` covers both `/{id}` and `/first` (ADR-0324).
 		expect(routes.map(({ operation }) => operation)).toStrictEqual([
 			'create',
-			'first',
-			'first',
 			'count',
 			'count',
 			'exists',
@@ -200,9 +207,7 @@ describe('REST route metadata', () => {
 			'update',
 			'delete',
 		])
-		expect(routes.every(({ path }) => path.startsWith('/public/v1/'))).toBe(
-			true,
-		)
+		expect(routes.every(({ path }) => path.startsWith('/public/'))).toBe(true)
 		expect(routes[0]?.path).toContain('Configured%20Post')
 
 		await application.dispose()
@@ -231,7 +236,7 @@ describe('REST route metadata', () => {
 
 	it('snapshots plugin and schema configuration without retaining mutable input', async () => {
 		const defaults: { count: boolean } = { count: true }
-		const schemaRoutes: { find: boolean } = { find: false }
+		const schemaRoutes: { findMany: boolean } = { findMany: false }
 		const plugin = restPlugin({ default: defaults })
 		const Post = defineRestSchema('ImmutableRoutes', schemaRoutes)
 
@@ -251,9 +256,12 @@ describe('REST route metadata', () => {
 	})
 
 	it.each([
-		[{ bulk: { arbitrary: true } }, 'rest.bulk contains unknown option'],
 		[{ count: 'yes' }, 'rest.count must be a boolean'],
-		[{ query: true }, 'rest contains unknown option'],
+		[{ 'find-many': true }, 'rest contains unknown method: find-many'],
+		[
+			{ archiveOne: true },
+			'rest.archiveOne on MalformedRestRoutes names no schema method or exposable command',
+		],
 	])('rejects malformed direct schema routes %#', async (rest, message) => {
 		await expect(
 			createApplication({
@@ -390,7 +398,7 @@ describe('REST route metadata', () => {
 				schemas: [Post],
 			}),
 		).rejects.toThrow(
-			'REST route collision for GET "/api/v1/classes/Post" between @ultimabase/rest-plugin#first and @ultimabase/rest-plugin#second',
+			'REST route collision for GET "/api/classes/Post" between @ultimabase/rest-plugin#first and @ultimabase/rest-plugin#second',
 		)
 	})
 
@@ -542,10 +550,10 @@ describe('REST route metadata', () => {
 	it.each([
 		[
 			{ default: { unknown: true } },
-			'REST plugin default contains unknown option',
+			'REST plugin default contains unknown method: unknown',
 		],
 		[{ basePath: 'api' }, 'REST plugin basePath must be an absolute path'],
-		[{ basePath: '/api/v1' }, 'cannot contain dot or protocol-version'],
+		[{ basePath: '/api/../admin' }, 'cannot contain dot segments'],
 		[{ bodyLimit: 0 }, 'bodyLimit must be a positive safe integer'],
 		[
 			{ pagination: { maxTake: 1.5 } },
@@ -562,9 +570,13 @@ describe('REST route metadata', () => {
 		[{ pagination: { size: 1 } }, 'pagination has an unknown option: size'],
 		[{ maxLimit: 10 }, 'Unknown REST plugin options key: maxLimit'],
 		[
-			{ acknowledgeUnverifiedProtection: false },
-			'acknowledgeUnverifiedProtection must be true',
+			{ acknowledgeUnverifiedProtection: true },
+			'Unknown REST plugin options key: acknowledgeUnverifiedProtection',
 		],
+		[{ operations: [] }, 'Unknown REST plugin options key: operations'],
+		[{ hide: ['refresh'] }, 'REST plugin hide[0] must be an operation token'],
+		[{ publicWrites: 'yes' }, 'REST plugin publicWrites must be a boolean'],
+		[{ openapi: 1 }, 'REST plugin openapi must be a boolean'],
 	])('rejects malformed plugin options %#', (options, message) => {
 		expect(() => restPlugin(options as never)).toThrow(message)
 	})

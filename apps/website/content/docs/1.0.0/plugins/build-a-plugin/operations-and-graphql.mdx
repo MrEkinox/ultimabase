@@ -27,6 +27,7 @@ sources:
   - packages/core/src/schema/nested-writes/input-transformation.ts
   - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
   - docs/adr/0256-rest-operation-public-paths.md
+  - docs/adr/0324-rest-exposure-operations-and-openapi.md
 ---
 
 ## Outcome
@@ -375,17 +376,25 @@ owner may describe only the optional payload's closed input types, not choose
 its own root name, target ID, result type, resolver, or authority. A
 Master-only mutation never enters the public SDL. The official
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
-mutations with both REST and GraphQL bindings: `definePlugin` binds every
-one-row request command without input to both transports.
+mutations: REST exposes a one-row request command when the application names
+it in `.with({ rest: { softDeleteOne: true } })`, without any binding, and
+`definePlugin` still binds such commands to GraphQL until GraphQL adopts the
+same keys.
 
 ## REST and HTTP are separate choices
 
-- REST exposes only application operations explicitly selected in
-  `restPlugin({ operations })`. The owner provides a binding for canonical
-  `ultimabase.rest@1.0.0` with a codec and `{ errors: { ... }, path?: string }`
-  metadata. The route is `POST /api/v1/operations/{name}` by default. A static
-  `path: '/auth/login'` replaces it with `POST /api/v1/auth/login`, respecting
-  the configured REST base path. Paths contain slash-separated ASCII letters,
+- An operation is public only when its owner declares it:
+  `contributeOperation({ operation, execute, public: { name: 'login' } })`.
+  Every installed transport then exposes it; REST at
+  `POST /api/operations/{public name}`, unless the application hides it with
+  `restPlugin({ hide: [token] })`. An optional REST binding for canonical
+  `ultimabase.rest@1.0.0` adapts the wire format with a codec and
+  `{ errors: { ... }, path?: string }` metadata; without one, REST passes the
+  wire input to the operation's own input contract and maps each declared
+  public error to `400`. `public.input` and `public.output` may carry JSON
+  Schemas that the OpenAPI document shows. A static `path: '/auth/login'`
+  replaces the route with `POST /api/auth/login`, respecting the configured
+  REST base path. Paths contain slash-separated ASCII letters,
   digits, underscores, or hyphens, start with `/`, and have no trailing slash.
   The `classes` and `operations` roots are reserved. Dynamic or encoded paths
   and unknown metadata keys are rejected; duplicate routes fail before startup.

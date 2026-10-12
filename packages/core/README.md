@@ -733,6 +733,21 @@ requests must still use the separately late-bound
 `ApplicationRequestExecutor.exposeOperations()` facade; the planner cannot
 decode, execute, or authorize anything.
 
+An owner declares an operation meant for clients in its contribution:
+`contributeOperation({ operation, execute, public: { name: 'login' } })`
+(ADR-0324). `name` is a camelCase identifier unique in the application, from
+which transports derive their route or field; optional `input` and `output`
+JSON Schemas document the wire values. `plan({ transport })` without
+`operations` lists every public operation in public-name order, so each
+installed transport exposes the same set without a per-transport list; an
+operation not declared public is never listed. A public operation without a
+binding for the protocol uses Core's default one: the wire value goes to the
+operation's own input contract, whose rejection is a `VALIDATION_ERROR` with
+one issue at `['input']`, and the result is returned as is. Descriptors carry
+`bound` and `public`. `ApplicationRequestExecutor.hasProtectedPolicy()` reports
+whether a protected policy is installed, the generic signal a transport reads
+to refuse public writes (ADR-0294).
+
 Plugin-owned schema mutations use a separate binding family under the same
 canonical transport identity. The mutation owner contributes one nominal
 `schemaMutationWireCodec()` through the mutation contribution's `bindings`
@@ -743,7 +758,11 @@ schema-local descriptors; after startup,
 matching application allowlist. A transport must execute an exact descriptor
 from that allowlist with the route-selected application schema, ID, payload,
 selection, inclusion, and `RequestContext`. Core alone decodes under owner
-attribution and enters the schema-mutation Runtime. Master authority cannot be
+attribution and enters the schema-mutation Runtime. With
+`bindings: 'optional'`, planning and exposure also include the request
+commands on one row that have no binding for the protocol, decoded by their own
+input contract; REST uses it to expose the commands an application names
+(ADR-0324). Master-only and many-row commands never receive a default. Master authority cannot be
 selected from wire input.
 
 Planning and late execution share the exact frozen descriptors derived from the
@@ -844,9 +863,11 @@ delegates to the same schema-command normalizers as direct class calls. The
 facade therefore cannot execute an arbitrary AST or control transactions, while
 bulk commands retain their ordered itemized all-or-nothing semantics.
 
-Generated schema transports call
+Generated schema transports may call
 `reportPublicTransportProtection({ transport })` to share the same
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic as operation exposures.
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` diagnostic as operation exposures;
+REST instead reads `hasProtectedPolicy()` and refuses public writes without a
+policy (ADR-0294), and GraphQL follows in migration step 6.6c.
 Passing `acknowledgeUnverifiedProtection: true` records the developer's explicit
 acceptance without claiming that installed policy providers cover every route.
 Execution is available only after the whole application has started and expires

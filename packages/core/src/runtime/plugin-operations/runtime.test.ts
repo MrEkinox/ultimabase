@@ -467,6 +467,7 @@ describe('plugin operation Runtime', () => {
 		})
 		expect(exposure.operations).toStrictEqual([
 			{
+				bound: true,
 				errors: ['fixture.operations.rejected'],
 				metadata: null,
 				name: applicationOperation.name,

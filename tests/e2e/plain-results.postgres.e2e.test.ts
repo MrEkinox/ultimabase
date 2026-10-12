@@ -214,13 +214,10 @@ describe('plain data results with PostgreSQL', { concurrent: false }, () => {
 			where,
 			include: { author: {}, tags: {} },
 		})
-		const rest = await postApplication(
-			'/api/v1/classes/PlainResultItem/query',
-			{
-				include: { author: {}, tags: {} },
-				where,
-			},
-		)
+		const rest = await postApplication('/api/classes/PlainResultItem/query', {
+			include: { author: {}, tags: {} },
+			where,
+		})
 
 		expect(() => JSON.stringify(direct)).toThrow(TypeError)
 		const json = toJSON(direct)
@@ -235,7 +232,7 @@ describe('plain data results with PostgreSQL', { concurrent: false }, () => {
 
 		const flat = await Item.findOneOrThrow({ where, select: { author: true } })
 		const restFlat = await postApplication(
-			'/api/v1/classes/PlainResultItem/query',
+			'/api/classes/PlainResultItem/query',
 			{ select: { author: true }, where },
 		)
 		expect(restFlat).toMatchObject({ results: [toJSON(flat)] })

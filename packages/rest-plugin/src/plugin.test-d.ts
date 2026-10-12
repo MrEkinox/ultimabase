@@ -12,7 +12,8 @@ import {
 	type RestResponseErrorCode,
 	type RestRouteDefinition,
 	type RestSchemaRouteDefinition,
-	type RestSchemaRoutes,
+	type RestMethodRules,
+	type RestSchemaRule,
 } from './index.js'
 import type {
 	ApplicationRequestExecutor,
@@ -33,19 +34,21 @@ declare const operation: PluginOperationDefinition
 
 test('preserves exact immutable REST public types', () => {
 	const plugin = restPlugin({
-		acknowledgeUnverifiedProtection: true,
 		basePath: '/public',
-		default: { bulk: { create: true }, count: true },
+		default: { count: true, createMany: true },
+		hide: [operation],
 		instanceId: 'public',
-		operations: [operation],
+		openapi: true,
+		publicWrites: true,
 	})
 
 	expectTypeOf(plugin).toEqualTypeOf<RestPlugin>()
 	expectTypeOf<IsAny<typeof plugin>>().toEqualTypeOf<false>()
-	expectTypeOf<RestSchemaRoutes>().toExtend<{
-		readonly find?: boolean
-		readonly mutations?: boolean
+	expectTypeOf<RestMethodRules>().toExtend<{
+		readonly findMany?: boolean
+		readonly upsertOne?: boolean
 	}>()
+	expectTypeOf<RestSchemaRule>().toEqualTypeOf<boolean | RestMethodRules>()
 	expectTypeOf<RestRouteDefinition['method']>().toExtend<string>()
 	expectTypeOf<
 		RestSchemaRouteDefinition['virtualFields'][string]['kind']
@@ -72,18 +75,22 @@ test('preserves exact immutable REST public types', () => {
 	>()
 
 	restPlugin({
-		// @ts-expect-error -- acknowledgement is an exact affirmative literal.
-		acknowledgeUnverifiedProtection: false,
+		// @ts-expect-error -- ADR-0294 replaced the acknowledgement by publicWrites.
+		acknowledgeUnverifiedProtection: true,
 	})
 	restPlugin({
 		default: {
-			// @ts-expect-error -- set-based arbitrary batches are not REST routes.
-			batch: true,
+			// @ts-expect-error -- the keys are the schema method names (ADR-0324).
+			bulk: true,
 		},
 	})
 	restPlugin({
-		// @ts-expect-error -- operation exposure requires exact Core tokens.
-		operations: ['fixture.operation'],
+		// @ts-expect-error -- hiding requires exact Core tokens.
+		hide: ['fixture.operation'],
+	})
+	restPlugin({
+		// @ts-expect-error -- owners declare public operations (ADR-0324).
+		operations: [operation],
 	})
 	restPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })
 	restPlugin({

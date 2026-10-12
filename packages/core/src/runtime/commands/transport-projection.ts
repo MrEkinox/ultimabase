@@ -12,6 +12,10 @@ import type {
 	SchemaMutationTransportImplementation,
 } from './bindings.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
+import {
+	isOwnedCommandTransport,
+	resolveCommandTransport,
+} from './default-transports.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
 import type { ExposedSchemaMutationTransportBinding } from '../schema-mutations/transport.js'
 
@@ -34,16 +38,20 @@ interface ProjectedSchemaMutationTransport {
 
 /** Describes the already validated binding without exposing its private codec. */
 export const describeOperationTransport = (
+	graph: CompiledCommandGraph,
 	command: CompiledOperationCommand,
 	binding: OperationTransportImplementation,
 ): ExposedOperationTransportBinding => {
 	let descriptor = operations.get(binding)
 	if (descriptor === undefined) {
+		const declaration = graph.bindings.publicDeclaration(command)
 		descriptor = immutableRecord({
+			bound: isOwnedCommandTransport(graph, command, binding.binding.transport),
 			errors: command.definition.errors,
 			metadata: binding.binding.metadata,
 			name: command.definition.name,
 			owner: snapshotApplicationContributionOwner(command.owner),
+			...(declaration === undefined ? {} : { public: declaration }),
 			version: command.definition.version,
 		})
 		operations.set(binding, descriptor)
@@ -51,11 +59,34 @@ export const describeOperationTransport = (
 	return descriptor
 }
 
+/** Lists every public operation with its binding for one protocol (ADR-0324). */
+export const projectPublicOperationTransports = (
+	graph: CompiledCommandGraph,
+	protocol: OperationTransportProtocol,
+): readonly ExposedOperationTransportBinding[] =>
+	immutableArray(
+		graph.commands
+			.flatMap((command) => {
+				if (command.kind !== 'operation') return []
+				const binding = resolveCommandTransport(graph, command, protocol)
+				return binding?.kind === 'operation' &&
+					graph.bindings.publicDeclaration(command) !== undefined
+					? [describeOperationTransport(graph, command, binding)]
+					: []
+			})
+			.sort((left, right) =>
+				(left.public?.name ?? left.name).localeCompare(
+					right.public?.name ?? right.name,
+				),
+			),
+	)
+
 /** Projects one selected alias from immutable command facts and its exact binding. */
 const describeMutation = (
 	command: CompiledMutationCommand,
 	surface: CommandSurface,
 	binding: SchemaMutationTransportImplementation,
+	bound: boolean,
 ): ExposedSchemaMutationTransportBinding => {
 	let aliases = mutations.get(binding)
 	if (aliases === undefined) {
@@ -66,6 +97,7 @@ const describeMutation = (
 	if (descriptor === undefined) {
 		descriptor = immutableRecord({
 			authority: command.definition.authority,
+			bound,
 			command: surface.name,
 			effect: command.definition.effect,
 			errors: command.definition.errors,
@@ -81,23 +113,32 @@ const describeMutation = (
 	return descriptor
 }
 
-/** Traverses canonical aliases in the existing schema/name order for both consumers. */
+/**
+ * Traverses canonical aliases in the existing schema/name order for both
+ * consumers. With `bindings: 'optional'`, request commands on one row without
+ * a binding for the protocol use Core's default binding (ADR-0324).
+ */
 export const projectSchemaMutationTransports = (
 	graph: CompiledCommandGraph,
 	protocol: OperationTransportProtocol,
+	bindings: 'optional' | 'required' = 'required',
 ): readonly ProjectedSchemaMutationTransport[] => {
 	const schemaOrder = new Map(
 		graph.schemaNames().map((name, index) => [name, index]),
 	)
 	const entries = graph.commands.flatMap((command) => {
 		if (command.kind !== 'mutation') return []
-		const binding = graph.bindings.transport(command, protocol)
+		const binding =
+			bindings === 'optional'
+				? resolveCommandTransport(graph, command, protocol)
+				: graph.bindings.transport(command, protocol)
 		if (binding?.kind !== 'mutation') return []
+		const bound = isOwnedCommandTransport(graph, command, protocol)
 		return command.surfaces.map((surface) =>
 			immutableRecord({
 				binding,
 				command,
-				descriptor: describeMutation(command, surface, binding),
+				descriptor: describeMutation(command, surface, binding, bound),
 			}),
 		)
 	})

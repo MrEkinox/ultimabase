@@ -170,7 +170,7 @@ const capabilityNotes = (plan: InitializerPlan): string[] => {
 		],
 		[
 			has('password-auth-plugin') && hasDataApi(plan),
-			'Only the exact Password Auth operations are added to the selected API allowlists; add online-attempt defenses before public deployment.',
+			'REST exposes the public Password Auth operations except the hidden ones, GraphQL its exact allowlist; add online-attempt defenses before public deployment.',
 		],
 		[
 			has('graphiql-plugin') || has('apollo-sandbox-plugin'),
@@ -178,7 +178,7 @@ const capabilityNotes = (plan: InitializerPlan): string[] => {
 		],
 		[
 			hasDataApi(plan),
-			'Task API mutations are disabled; acknowledging unverified public protection does not establish authorization.',
+			'Task API mutations are disabled; public writes need a policy plugin or an explicit opt-in.',
 		],
 		[
 			has('hono-server-plugin'),

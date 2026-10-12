@@ -18,7 +18,7 @@ import {
 } from './rest-public-vertical-support.js'
 
 const appId = 'nested-write-public-vertical'
-const articlePath = '/api/v1/classes/ExampleArticle'
+const articlePath = '/api/classes/ExampleArticle'
 const masterKey = 'nested-write-public-master-secret'
 
 let application: MinimalApplication | undefined

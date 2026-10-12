@@ -20,8 +20,8 @@ import {
 
 const appId = 'graphql-cross-transport'
 const masterKey = 'graphql-cross-transport-master-secret'
-const articlePath = '/api/v1/classes/ExampleArticle'
-const operationPath = '/api/v1/operations/example.status'
+const articlePath = '/api/classes/ExampleArticle'
+const operationPath = '/api/operations/status'
 
 let fixture: PostgresWorkerFixture | undefined
 let example: MinimalExampleModule | undefined

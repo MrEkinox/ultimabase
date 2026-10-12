@@ -178,7 +178,7 @@ const createApplication = (connectionUri: string) =>
 		accessPlugin({ allowWithoutRule: { all: true } }),
 		aclPlugin(),
 		restPlugin({
-			acknowledgeUnverifiedProtection: true,
+			publicWrites: true,
 			default: true,
 		}),
 		httpPlugin({

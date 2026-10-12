@@ -87,6 +87,38 @@ describe('transformSchemaMutationDataInput', () => {
 		expect(Object.isFrozen(transformed)).toBe(true)
 	})
 
+	// ADR-0324: transports locate a rejected value in their error details.
+	it('reports the location of each value', () => {
+		const paths: string[] = []
+		transformSchemaMutationDataInput(
+			Article,
+			{
+				author: { create: { name: 'Ada' } },
+				comments: {
+					create: [{ name: 'First' }],
+					update: [{ data: { name: 'Edited' }, id: 'comment-id' }],
+				},
+				title: 'Post',
+			},
+			{
+				mode: 'update',
+				relationships: 'nested',
+				transformField: ({ path, value }) => {
+					paths.push(path.join('.'))
+					return value
+				},
+			},
+		)
+		expect(paths).toStrictEqual([
+			'author',
+			'author.create.name',
+			'comments',
+			'comments.create.0.name',
+			'comments.update.0.data.name',
+			'title',
+		])
+	})
+
 	it('leaves malformed nested structures to the callback', () => {
 		const values: unknown[] = []
 		const transformField = ({ value }: { readonly value: unknown }) => {

@@ -280,7 +280,10 @@ const compilePluginContributions = (
 			'Declares schema mutations that rewrite persistence.',
 		)
 	}
-	if (transports.length > 0) {
+	if (
+		transports.length > 0 ||
+		handlers.some((handler) => handler.public !== undefined)
+	) {
 		derive('transport:expose', 'Binds operations to transports.')
 	}
 

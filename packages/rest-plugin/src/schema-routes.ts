@@ -10,7 +10,11 @@ import type { HttpMethod } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { restFieldProtocol } from './field-codecs.js'
-import { readRestSchemaRoutes, type RestSchemaRoutesOption } from './options.js'
+import {
+	readRestSchemaRule,
+	type NormalizedRestRule,
+	type RestMethodName,
+} from './rules.js'
 import { isRestOutputKind } from './response-values.js'
 import {
 	createRestRouteFragment,
@@ -22,61 +26,65 @@ import {
 	type RestSchemaOperation,
 } from './routes.js'
 
-type RestRouteSelection = RestSchemaOperation | 'mutations'
-
-// Provenance-aware built-in defaults used when neither schema nor plugin decides.
+// Built-in defaults used when neither the schema rule nor the plugin decides.
 const builtInDefaults = immutableRecord({
-	bulkCreate: false,
-	bulkDelete: false,
-	bulkUpdate: false,
-	bulkUpsert: false,
 	count: false,
-	create: true,
-	delete: true,
+	createMany: false,
+	createOne: true,
+	deleteMany: false,
+	deleteOne: true,
 	exists: true,
-	find: true,
-	first: true,
-	get: true,
-	mutations: true,
-	update: true,
-	upsert: false,
-}) satisfies Readonly<Record<RestRouteSelection, boolean>>
+	findMany: true,
+	findOne: true,
+	updateMany: false,
+	updateOne: true,
+	upsertMany: false,
+	upsertOne: false,
+}) satisfies Readonly<Record<RestMethodName, boolean>>
 
-const bulkOptionNames = {
-	bulkCreate: 'create',
-	bulkDelete: 'delete',
-	bulkUpdate: 'update',
-	bulkUpsert: 'upsert',
-} as const
+/** The schema method each REST route operation belongs to (ADR-0324). */
+export const restOperationMethods: Readonly<
+	Record<RestSchemaOperation, RestMethodName>
+> = immutableRecord({
+	bulkCreate: 'createMany',
+	bulkDelete: 'deleteMany',
+	bulkUpdate: 'updateMany',
+	bulkUpsert: 'upsertMany',
+	count: 'count',
+	create: 'createOne',
+	delete: 'deleteOne',
+	exists: 'exists',
+	find: 'findMany',
+	first: 'findOne',
+	get: 'findOne',
+	update: 'updateOne',
+	upsert: 'upsertOne',
+})
 
-const readSelection = (
-	selection: RestSchemaRoutesOption | undefined,
-	operation: RestRouteSelection,
-): boolean | undefined => {
-	if (typeof selection !== 'object') return selection
-	switch (operation) {
-		case 'bulkCreate':
-		case 'bulkDelete':
-		case 'bulkUpdate':
-		case 'bulkUpsert': {
-			const bulk = selection.bulk
-			return typeof bulk === 'object' ? bulk[bulkOptionNames[operation]] : bulk
-		}
-	}
-	return selection[operation]
-}
+const isMethodName = (key: string): key is RestMethodName =>
+	Object.hasOwn(builtInDefaults, key)
 
-/** Resolves one route selection: schema option, then plugin default, then built-in. */
-export const isRestRouteEnabled = (
-	schema: RestSchemaRoutesOption | undefined,
-	defaults: RestSchemaRoutesOption | undefined,
-	operation: RestRouteSelection,
+const readRule = (
+	rule: NormalizedRestRule | undefined,
+	key: string,
+): boolean | undefined => (typeof rule === 'object' ? rule[key] : rule)
+
+/**
+ * Resolves one method or command: schema rule, then plugin default, then
+ * built-in. A plugin command is exposed only when a rule names it, or when
+ * a rule or the default is `true` (ADR-0324).
+ */
+export const isRestMethodEnabled = (
+	schema: NormalizedRestRule | undefined,
+	defaults: NormalizedRestRule | undefined,
+	key: string,
 ): boolean =>
-	readSelection(schema, operation) ??
-	readSelection(defaults, operation) ??
-	builtInDefaults[operation]
+	readRule(schema, key) ??
+	readRule(defaults, key) ??
+	(isMethodName(key) ? builtInDefaults[key] : false)
 
-const routeTemplates: readonly Readonly<{
+/** Path templates of every native route, relative to the class path. */
+export const restRouteTemplates: readonly Readonly<{
 	method: HttpMethod
 	operation: RestSchemaOperation
 	suffix: string
@@ -102,7 +110,7 @@ const routeTemplates: readonly Readonly<{
 
 /** Collection-level segments (`count`, `first`, `bulk`…); never item identifiers. */
 export const reservedSchemaRouteSegments: ReadonlySet<string> = new Set(
-	routeTemplates.flatMap(({ suffix }) => {
+	restRouteTemplates.flatMap(({ suffix }) => {
 		const segment = suffix.split('/')[1]
 		return segment === undefined || segment === '{id}' ? [] : [segment]
 	}),
@@ -189,7 +197,7 @@ export const assertRestSchemaResultCodecs = (
 export const compileRestRouteFragment = (
 	options: Readonly<{
 		basePath: string
-		defaultRoutes: RestSchemaRoutesOption | undefined
+		defaultRule: NormalizedRestRule | undefined
 		owner: PluginIdentity
 		pluginVersion: string
 		schemas: CompiledSchemaRegistry
@@ -198,17 +206,21 @@ export const compileRestRouteFragment = (
 	const plugin = createRestRoutePlugin(options.owner, options.pluginVersion)
 	const routes: RestRouteCandidate[] = []
 	for (const schema of options.schemas.values()) {
-		const configuredRoutes = readRestSchemaRoutes(schema)
+		const rule = readRestSchemaRule(schema)
 		const owner = schema.provenance.schema.owner.kind
 		// Storage ownership can never be converted into public CRUD exposure.
-		if (owner === 'plugin' && configuredRoutes !== undefined) {
+		if (owner === 'plugin' && rule !== undefined) {
 			throw new TypeError(
 				`Plugin-owned schema "${schema.className}" cannot declare REST schema routes`,
 			)
 		}
 		if (owner !== 'application') continue
-		const templates = routeTemplates.filter(({ operation }) =>
-			isRestRouteEnabled(configuredRoutes, options.defaultRoutes, operation),
+		const templates = restRouteTemplates.filter(({ operation }) =>
+			isRestMethodEnabled(
+				rule,
+				options.defaultRule,
+				restOperationMethods[operation],
+			),
 		)
 		if (templates.length > 0) assertRestSchemaResultCodecs(schema)
 		const classPath = restClassPath(options.basePath, schema.className)

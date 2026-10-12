@@ -317,7 +317,7 @@ describe('REST read execution', () => {
 		const harness: RequestHarness = {}
 		const adapter = new EqualityOnlyDatabaseAdapter()
 		const ultimabase = new (UltimaBase.use(
-			restPlugin({ acknowledgeUnverifiedProtection: true }),
+			restPlugin({ publicWrites: true }),
 			createHarnessPlugin(harness),
 			databasePlugin(adapter),
 		))({
@@ -350,7 +350,7 @@ describe('REST read execution', () => {
 		const harness: RequestHarness = {}
 		const adapter = new ReadDatabaseAdapter()
 		const ultimabase = new (UltimaBase.use(
-			restPlugin({ acknowledgeUnverifiedProtection: true }),
+			restPlugin({ publicWrites: true }),
 			createHarnessPlugin(harness),
 			databasePlugin(adapter),
 		))({
@@ -522,7 +522,7 @@ describe('REST read execution', () => {
 		const ultimabase = new (UltimaBase.use(
 			databasePlugin(adapter),
 			createDeadlineRoutePlugin(),
-			restPlugin({ acknowledgeUnverifiedProtection: true }),
+			restPlugin({ publicWrites: true }),
 			httpPlugin({ appId: 'rest-deadline', requestTimeoutMs: 10 }),
 			createHttpCapturePlugin(capture),
 		))({

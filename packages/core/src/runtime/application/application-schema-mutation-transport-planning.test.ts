@@ -144,7 +144,7 @@ const consumerPlugin = (harness: Harness) =>
 		],
 	})
 
-const runPlanning = (harness: Harness) => {
+const runPlanning = (harness: Harness, bindings?: 'optional' | 'required') => {
 	if (
 		harness.callbacks === undefined ||
 		harness.owner === undefined ||
@@ -153,7 +153,10 @@ const runPlanning = (harness: Harness) => {
 		throw new TypeError('Planning harness is unavailable')
 	}
 	return harness.callbacks.runPlugin(harness.owner, () =>
-		harness.planner?.planSchemaMutations({ transport: protocol }),
+		harness.planner?.planSchemaMutations({
+			...(bindings === undefined ? {} : { bindings }),
+			transport: protocol,
+		}),
 	)
 }
 
@@ -169,6 +172,7 @@ describe('application schema mutation transport planning', () => {
 		expect(plan).toStrictEqual({
 			mutations: [
 				{
+					bound: true,
 					authority: 'request',
 					command: 'archive',
 					effect: 'update',
@@ -201,6 +205,27 @@ describe('application schema mutation transport planning', () => {
 		})
 		// A provider factory alone cannot add a route or a second execution registry.
 		expect(runPlanning(harness)?.mutations).toEqual([])
+		await application.dispose()
+	})
+
+	// ADR-0324: REST exposes request commands without a binding of their own.
+	it('plans unbound request commands only with optional bindings', async () => {
+		const harness: Harness = {}
+		const application = await createApplication({
+			logger: false,
+			plugins: [createOwnerPlugin(0), consumerPlugin(harness)],
+			schemas: [Document],
+		})
+		expect(runPlanning(harness)?.mutations).toEqual([])
+		expect(runPlanning(harness, 'optional')?.mutations).toMatchObject([
+			{
+				authority: 'request',
+				bound: false,
+				command: 'archive',
+				metadata: null,
+				mutation: archive.name,
+			},
+		])
 		await application.dispose()
 	})
 

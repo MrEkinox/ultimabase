@@ -45,10 +45,9 @@ const countRouteOption = { rest: { count: true } }
 
 const RestSchemaApplication = UltimaBase.use(restPlugin())
 const HttpRecord = RestSchemaApplication.Schema.define({
-	...countRouteOption,
 	className: 'RestHttpRecord',
 	fields: (field) => ({ title: field.string() }),
-})
+}).with(countRouteOption)
 // Keeps the built-in route defaults, where `count` is disabled.
 const DefaultRoutesRecord = RestSchemaApplication.Schema.define({
 	className: 'RestDefaultRoutesRecord',
@@ -100,6 +99,7 @@ const operationPlugin = plugin({
 	version: '1.0.0',
 	contributions: [
 		contributeOperation({
+			public: { name: 'execute' },
 			bindings: [
 				operationTransportBinding({
 					codec: operationCodec,
@@ -203,10 +203,7 @@ const createFixture = async (
 	const application = new (UltimaBase.use(
 		databasePlugin(adapter),
 		operationPlugin,
-		restPlugin({
-			acknowledgeUnverifiedProtection: true,
-			operations: [httpOperation],
-		}),
+		restPlugin({ publicWrites: true }),
 		httpPlugin({ appId: 'response-app' }),
 		capturePlugin(capture),
 	))({
@@ -251,7 +248,7 @@ describe('REST HTTP response boundary', () => {
 
 		const response = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord',
+			'/api/classes/RestHttpRecord',
 			{
 				headers: {
 					Accept: 'application/json',
@@ -278,7 +275,7 @@ describe('REST HTTP response boundary', () => {
 
 		const count = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord/count',
+			'/api/classes/RestHttpRecord/count',
 		)
 		expect(count.status).toBe(200)
 		expect(await count.json()).toStrictEqual({ count: 2 })
@@ -289,9 +286,8 @@ describe('REST HTTP response boundary', () => {
 		const fixture = await createFixture()
 		const cases = [
 			['/outside', 404, 'HTTP_NOT_FOUND'],
-			['/api/v2/classes/RestHttpRecord', 400, 'REST_UNSUPPORTED_VERSION'],
-			['/api/v1/classes/RestHttpRecord/', 400, 'REST_BAD_REQUEST'],
-			['/api/v1/classes/Missing', 404, 'REST_NOT_FOUND'],
+			['/api/classes/RestHttpRecord/', 400, 'REST_BAD_REQUEST'],
+			['/api/classes/Missing', 404, 'REST_NOT_FOUND'],
 		] as const
 		for (const [path, status, code] of cases) {
 			const response = await fetchApplication(fixture.http, path)
@@ -301,7 +297,7 @@ describe('REST HTTP response boundary', () => {
 
 		const rejected = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord',
+			'/api/classes/RestHttpRecord',
 			{
 				headers: { 'X-UltimaBase-Application-Id': 'wrong-application' },
 			},
@@ -314,20 +310,22 @@ describe('REST HTTP response boundary', () => {
 	})
 
 	// Regression: a disabled collection route fell through to the `{id}` item
-	// route and answered 400 "invalid UUID" instead of 404.
-	it('answers not found for disabled collection routes instead of reading an id', async () => {
+	// route and answered 400 "invalid UUID"; a disabled method answers 405
+	// (ADR-0324).
+	it('answers method not allowed for disabled collection routes instead of reading an id', async () => {
 		const fixture = await createFixture([HttpRecord, DefaultRoutesRecord])
 		const disabled = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestDefaultRoutesRecord/count',
+			'/api/classes/RestDefaultRoutesRecord/count',
 		)
-		expect(disabled.status).toBe(404)
+		expect(disabled.status).toBe(405)
+		expect(disabled.headers.get('allow')).toBe('')
 		expect(await disabled.json()).toMatchObject({
-			error: { code: 'REST_NOT_FOUND' },
+			error: { code: 'REST_METHOD_NOT_ALLOWED' },
 		})
 		const item = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestDefaultRoutesRecord/not-a-uuid',
+			'/api/classes/RestDefaultRoutesRecord/not-a-uuid',
 		)
 		expect(item.status).toBe(400)
 		await fixture.application.dispose()
@@ -335,7 +333,7 @@ describe('REST HTTP response boundary', () => {
 
 	it('encodes plugin-operation success and its declared public failure', async () => {
 		const fixture = await createFixture()
-		const path = '/api/v1/actions/execute'
+		const path = '/api/actions/execute'
 		const success = await fetchApplication(fixture.http, path, {
 			body: JSON.stringify({ input: { text: 'accept' } }),
 			headers: { 'Content-Type': 'application/json' },
@@ -361,7 +359,7 @@ describe('REST HTTP response boundary', () => {
 		const fixture = await createFixture()
 		const unacceptable = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord',
+			'/api/classes/RestHttpRecord',
 			{ headers: { Accept: 'application/json;q=0, */*;q=1' } },
 		)
 		expect(unacceptable.status).toBe(406)
@@ -370,7 +368,7 @@ describe('REST HTTP response boundary', () => {
 		})
 		const unsupportedCharset = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord',
+			'/api/classes/RestHttpRecord',
 			{ headers: { Accept: 'application/json; charset=iso-8859-1' } },
 		)
 		expect(unsupportedCharset.status).toBe(406)
@@ -380,7 +378,7 @@ describe('REST HTTP response boundary', () => {
 
 		const media = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord',
+			'/api/classes/RestHttpRecord',
 			{ body: '{}', method: 'POST' },
 		)
 		expect(media.status).toBe(415)
@@ -393,7 +391,7 @@ describe('REST HTTP response boundary', () => {
 		)
 		const failed = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord',
+			'/api/classes/RestHttpRecord',
 		)
 		const serialized = await failed.text()
 		expect(failed.status).toBe(500)
@@ -407,7 +405,7 @@ describe('REST HTTP response boundary', () => {
 		)
 		const denied = await fetchApplication(
 			fixture.http,
-			'/api/v1/classes/RestHttpRecord',
+			'/api/classes/RestHttpRecord',
 		)
 		expect(denied.status).toBe(403)
 		expect(await denied.json()).toMatchObject({

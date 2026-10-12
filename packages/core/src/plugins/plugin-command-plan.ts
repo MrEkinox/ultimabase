@@ -7,6 +7,7 @@ import type {
 import type { PluginSchemaMutationHandler } from '../runtime/schema-mutations/contracts.js'
 import type { SchemaMutationTransportBindingDefinition } from '../runtime/schema-mutations/transport-contracts.js'
 import type { ApplicationCapabilityFactoryContext } from './capabilities.js'
+import type { PluginOperationPublicDeclaration } from './plugin-command-contribution-contracts.js'
 import type { PluginOperationDefinition } from './plugin-operations.js'
 import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 
@@ -27,6 +28,8 @@ export type PluginCommandHandlerResource =
 
 export interface PluginCommandHandlerPlan {
 	readonly contributionId: string
+	/** The owner's public declaration of an operation (ADR-0324). */
+	readonly public?: PluginOperationPublicDeclaration
 	readonly create: (
 		context: ApplicationCapabilityFactoryContext,
 	) => MaybePromise<PluginCommandHandlerResource>

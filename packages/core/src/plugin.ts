@@ -80,6 +80,7 @@ export type {
 	PluginOperationContribution,
 	PluginOperationContributionOptions,
 	PluginOperationHandlerResource,
+	PluginOperationPublicDeclaration,
 	PluginSchemaMutationContribution,
 	PluginSchemaMutationContributionOptions,
 	PluginSchemaMutationResource,

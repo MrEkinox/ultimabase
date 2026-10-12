@@ -11,6 +11,7 @@ import type {
 	PluginCommandSource,
 	PluginCommandTransportPlan,
 } from '../../plugins/plugin-command-plan.js'
+import type { PluginOperationPublicDeclaration } from '../../plugins/plugin-command-contribution-contracts.js'
 import type { PluginSchemaContributionOwner } from '../../schema/schema/provenance.js'
 import type {
 	OperationTransportBindingDefinition,
@@ -63,8 +64,15 @@ export interface OwnedCommandHandlerPlan extends OwnedImplementation {
 export type OwnedCommandTransportPlan = PluginCommandTransportPlan &
 	Readonly<{ owner: PluginSchemaContributionOwner }>
 
+/** One owner's public declaration of an operation it implements (ADR-0324). */
+export interface OwnedPublicOperationPlan extends OwnedImplementation {
+	readonly declaration: PluginOperationPublicDeclaration
+	readonly source: PluginCommandSource
+}
+
 interface Implementations {
 	readonly handler?: CommandHandler
+	readonly public?: PluginOperationPublicDeclaration
 	readonly transports: ReadonlyMap<
 		OperationTransportProtocol,
 		CommandTransportBinding
@@ -108,6 +116,7 @@ export class CommandBindings {
 	readonly #fromSource: (source: CommandSource) => CompiledCommand | undefined
 	readonly #entries = new Map<CompiledCommand, Implementations>()
 	#handlersBound = false
+	#publicBound = false
 	#transportsBound = false
 	#disposed = false
 
@@ -167,6 +176,52 @@ export class CommandBindings {
 		for (const [command, implementation] of pending)
 			this.#entries.set(command, implementation)
 		this.#transportsBound = true
+	}
+
+	/**
+	 * Publishes every public operation declaration before transports plan
+	 * them; two operations cannot share one public name.
+	 */
+	bindPublic(plans: readonly OwnedPublicOperationPlan[]): void {
+		this.#assertAvailable()
+		if (this.#publicBound)
+			throw new TypeError('Public operations are already bound')
+		const names = new Map<string, string>()
+		const pending = new Map<CompiledCommand, Implementations>()
+		for (const plan of plans) {
+			const command = this.#fromSource(plan.source)
+			if (command?.kind !== 'operation' || !matchesOwner(command, plan.owner)) {
+				throw failure(
+					plan,
+					'operation-public-owner-invalid',
+					`Plugin "${formatPluginIdentity(plan.owner)}" declared an invalid public operation.`,
+				)
+			}
+			const existing = names.get(plan.declaration.name)
+			if (existing !== undefined) {
+				throw failure(
+					plan,
+					'operation-public-name-conflict',
+					`Operations ${existing} and ${plan.source.name} share the public name ${plan.declaration.name}.`,
+					plan.source.name,
+				)
+			}
+			names.set(plan.declaration.name, plan.source.name)
+			const prior: Implementations = this.#entries.get(command) ?? {
+				transports: new Map(),
+			}
+			pending.set(command, { ...prior, public: plan.declaration })
+		}
+		for (const [command, implementation] of pending)
+			this.#entries.set(command, implementation)
+		this.#publicBound = true
+	}
+
+	/** Reads the owner's public declaration of one operation, if any. */
+	publicDeclaration(
+		command: CompiledCommand,
+	): PluginOperationPublicDeclaration | undefined {
+		return this.#read(command)?.public
 	}
 
 	/** Publishes one complete handler batch after every owner check passes. */

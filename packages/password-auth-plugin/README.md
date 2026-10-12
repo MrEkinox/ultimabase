@@ -183,15 +183,18 @@ session's User pointer): Access rules, Hooks, ACL callbacks and Roles receive
 it as `principal` and never import this plugin (ADR-0304). Access and ACL
 plugins remain solely responsible for authorization.
 
-The six operations remain private until explicitly included in a transport.
+The six operations are declared public (ADR-0324): every installed transport
+that supports public operations exposes them, and an application hides one per
+transport.
 For advanced server code, `application.operation('ultimabase.password-auth.login')`
 receives its exact input and result types from the installed plugin source,
 without waiting for Typegen. The User-class methods above remain the ordinary
 path. The returned User model's exact custom fields still require the generated
 application schema graph; Typegen also resolves relationships between schemas.
-For REST v1, pass the exact operation tokens to `restPlugin({ operations })`.
-Password Auth contributes the compatible codecs and maps its four public
-errors to status 400 or 401 without importing REST.
+REST exposes all six; Password Auth contributes the compatible codecs and maps
+its four public errors to status 400 or 401 without importing REST. GraphQL
+still takes the exact tokens in `graphqlPlugin({ operations })` until it adopts
+public operations (ADR-0325).
 
 ```ts
 import {
@@ -199,13 +202,14 @@ import {
 	passwordAuthOperations,
 } from '@ultimabase/password-auth-plugin'
 
-restPlugin({ operations: passwordAuthOperationList }) // Expose all six.
-restPlugin({ operations: [passwordAuthOperations.login] }) // Or a subset.
+restPlugin() // Exposes all six.
+restPlugin({ hide: [passwordAuthOperations.refresh] }) // Or hides one.
+graphqlPlugin({ operations: passwordAuthOperationList })
 ```
 
-The public routes are `POST /api/v1/auth/sign-up`, `/api/v1/auth/login`,
-`/api/v1/auth/refresh`, `/api/v1/auth/logout`,
-`/api/v1/auth/change-password`, and `/api/v1/auth/logout-everywhere`. A custom REST `basePath`
+The public routes are `POST /api/auth/sign-up`, `/api/auth/login`,
+`/api/auth/refresh`, `/api/auth/logout`, `/api/auth/change-password`, and
+`/api/auth/logout-everywhere`. A custom REST `basePath`
 replaces the `/api` prefix. These paths replace the former namespaced
 `/operations/ultimabase.password-auth.*` URLs without aliases. Bodies still
 use `{ "input": { username, password, ...userFields } }` for signup,

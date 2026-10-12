@@ -7,11 +7,12 @@ transports over one HTTP application.
 
 The commands below send `X-UltimaBase-Application-Id: minimal`; without the
 header a request reaches this only application, and `GET /health` reports its
-health (ADR-0323). REST is mounted under `/api/v1` and
+health (ADR-0323). REST is mounted under `/api` and
 GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
-explicit `ExampleArticle` soft-delete mutation, `example.status`, and four
-Password Auth operations. `ExampleRole` and the internal
+`ExampleArticle` and `ExampleAuthor` soft-delete commands (`rest: true`), the
+public `example.status` operation (`/api/operations/status`), and four Password
+Auth operations (REST hides `changePassword` and `logoutEverywhere`). `ExampleRole` and the internal
 `ExampleSoftDeleteEvent` audit schema have no generated CRUD roots, and Password
 Auth credentials and session storage never enter either public schema.
 
@@ -43,7 +44,7 @@ The server listens at `http://127.0.0.1:1337`.
 Create an article through REST:
 
 ```sh
-curl http://127.0.0.1:1337/api/v1/classes/ExampleArticle \
+curl http://127.0.0.1:1337/api/classes/ExampleArticle \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'X-UltimaBase-Application-Id: minimal' \
@@ -91,7 +92,7 @@ The matching REST and GraphQL calls are generated from that same command; they
 are not custom business handlers:
 
 ```sh
-curl "http://127.0.0.1:1337/api/v1/classes/ExampleArticle/ARTICLE_ID/soft-delete-one" \
+curl "http://127.0.0.1:1337/api/classes/ExampleArticle/ARTICLE_ID/soft-delete-one" \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer SESSION_TOKEN' \

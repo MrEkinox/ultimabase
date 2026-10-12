@@ -35,9 +35,11 @@
 	},
 	"devDependencies": {
 		"@ultimabase/typegen": "workspace:^",
+		"@ultimabase/validation-plugin": "workspace:^",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
-		"vitest": "4.1.11"
+		"vitest": "4.1.11",
+		"zod": "^4.4.3"
 	},
 	"engines": {
 		"node": ">=24.0.0"

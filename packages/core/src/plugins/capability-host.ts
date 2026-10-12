@@ -318,6 +318,16 @@ export class ApplicationCapabilityHost {
 					plan.transports.map((transport) => ({ ...transport, owner })),
 				),
 			)
+			graph.bindings.bindPublic(
+				plans.flatMap(({ owner, plan }) =>
+					plan.handlers.flatMap(
+						({ contributionId, public: declaration, source }) =>
+							declaration === undefined
+								? []
+								: [{ contributionId, declaration, owner, source }],
+					),
+				),
+			)
 			this.#commandBindings = graph.bindings
 		}
 

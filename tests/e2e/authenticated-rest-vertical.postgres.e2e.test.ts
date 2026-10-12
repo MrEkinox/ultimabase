@@ -23,9 +23,9 @@ const firstAppId = 'authenticated-rest-first'
 const secondAppId = 'authenticated-rest-second'
 const firstMasterKey = 'authenticated-first-master'
 const password = 'correct horse battery staple'
-const statusPath = '/api/v1/operations/example.status'
-const notePath = '/api/v1/classes/ExamplePrivateNote'
-const authPath = (name: string): string => `/api/v1/auth/${name}`
+const statusPath = '/api/operations/status'
+const notePath = '/api/classes/ExamplePrivateNote'
+const authPath = (name: string): string => `/api/auth/${name}`
 
 let firstFixture: PostgresWorkerFixture | undefined
 let secondFixture: PostgresWorkerFixture | undefined
@@ -402,7 +402,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		const isolatedArticleId = readString(isolatedArticle, 'id')
 		const foreignSoftDelete = await requestJson(
 			secondAppId,
-			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete-one`,
+			`/api/classes/ExampleArticle/${isolatedArticleId}/soft-delete-one`,
 			{
 				body: {},
 				method: 'POST',
@@ -412,7 +412,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		expect(foreignSoftDelete.status).toBe(401)
 		const isolatedSoftDelete = await requestJson(
 			secondAppId,
-			`/api/v1/classes/ExampleArticle/${isolatedArticleId}/soft-delete-one`,
+			`/api/classes/ExampleArticle/${isolatedArticleId}/soft-delete-one`,
 			{
 				body: {},
 				method: 'POST',
@@ -490,7 +490,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 
 			const browserAuthor = await browserFetch(
 				page,
-				'/api/v1/classes/ExampleAuthor',
+				'/api/classes/ExampleAuthor',
 				{
 					body: JSON.stringify({ name: 'Browser author' }),
 					credentials: 'include',
@@ -511,7 +511,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			)
 			const browserArticle = await browserFetch(
 				page,
-				`/api/v1/classes/ExampleArticle?include=${encodeURIComponent(
+				`/api/classes/ExampleArticle?include=${encodeURIComponent(
 					JSON.stringify({ author: { select: { name: true } } }),
 				)}`,
 				{

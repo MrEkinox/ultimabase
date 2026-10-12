@@ -208,7 +208,7 @@ Current records (accepted or still active in part):
 - [ADR-0224: HTTP application, REST, and password authentication boundaries](0224-http-application-rest-and-password-auth-boundaries.md), the required application header superseded by ADR-0323
 - [ADR-0225: Core provides a narrow application request execution capability](0225-core-application-request-execution-capability.md)
 - [ADR-0226: HTTP browser and pre-dispatch boundaries are server-consistent](0226-http-browser-and-predispatch-boundaries.md)
-- [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md), offset-only REST pagination superseded by ADR-0309, the required application header by ADR-0323
+- [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md), offset-only REST pagination superseded by ADR-0309, the required application header by ADR-0323, the `/api/v1` version segment, `acknowledgeUnverifiedProtection` and the 404 for a disabled route by ADR-0324
 - [ADR-0229: Plugin fields own nominal REST wire codecs](0229-field-owned-rest-wire-codecs.md)
 - [ADR-0230: Plugin-field wire protocols have canonical identities](0230-canonical-plugin-field-wire-protocols.md)
 - [ADR-0231: Core request executors accept normalized schema reads](0231-core-application-request-read-execution.md)
@@ -305,6 +305,7 @@ Current records (accepted or still active in part):
 - [ADR-0321: ACL as a shape method, atomic sharing and safe backfill](0321-acl-shape-sharing-and-backfill.md)
 - [ADR-0322: Role schema factory, linked hierarchy and role queries](0322-roles-schema-factory-and-queries.md)
 - [ADR-0323: HTTP foundation defaults and the Hono server](0323-http-foundation-and-hono-server.md)
+- [ADR-0324: REST exposure, application operations and OpenAPI](0324-rest-exposure-operations-and-openapi.md)
 
 Proposed records (awaiting user validation):
 

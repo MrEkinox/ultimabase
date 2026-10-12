@@ -26,9 +26,9 @@ const auditFailureAppId = 'rest-public-audit-failure'
 const disabledMasterAppId = 'rest-public-disabled-master'
 const firstMasterKey = 'first-rest-master-secret'
 const secondMasterKey = 'second-rest-master-secret'
-const articlePath = '/api/v1/classes/ExampleArticle'
-const authorPath = '/api/v1/classes/ExampleAuthor'
-const operationPath = '/api/v1/operations/example.status'
+const articlePath = '/api/classes/ExampleArticle'
+const authorPath = '/api/classes/ExampleAuthor'
+const operationPath = '/api/operations/status'
 // Without `skip`, an empty collection page has no next cursor (ADR-0309).
 const emptyPage = { nextCursor: null, results: [] }
 
