@@ -29,6 +29,11 @@ import {
 export interface HttpContextResolverInput<TSource extends string = string> {
 	/** Carries the exact immutable browser policy owned by this HTTP application. */
 	readonly browserPolicy: HttpBrowserPolicy
+	/**
+	 * The client address: the socket peer, or behind `trustProxy` the nearest
+	 * untrusted `X-Forwarded-For` entry; `'unknown'` without either.
+	 */
+	readonly clientAddress: string
 	readonly context: RequestContext<AnonymousRequestAccess, TSource>
 	readonly request: Request
 }
@@ -239,6 +244,7 @@ const assertDerivedAnonymousContext: <TSource extends string>(
 export const resolveHttpContext = async <TSource extends string>(
 	initial: RequestContext<AnonymousRequestAccess, TSource>,
 	request: Request,
+	clientAddress: string,
 	browserPolicy: HttpBrowserPolicy,
 	resolvers: readonly OwnedHttpContextResolver[],
 	requestExecution: ApplicationRequestExecutor,
@@ -249,7 +255,12 @@ export const resolveHttpContext = async <TSource extends string>(
 	for (const resolver of resolvers) {
 		const resolved = await callbacks.runPlugin(resolver.owner, () =>
 			requestExecution.runWithContext(context, (activeContext) =>
-				resolver.resolve({ browserPolicy, context: activeContext, request }),
+				resolver.resolve({
+					browserPolicy,
+					clientAddress,
+					context: activeContext,
+					request,
+				}),
 			),
 		)
 		assertDerivedAnonymousContext(context, resolved, lineage)

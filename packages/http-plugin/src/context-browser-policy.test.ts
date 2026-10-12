@@ -52,13 +52,15 @@ describe('HTTP resolver browser policy', () => {
 	it('validates at compilation and receives the same policy per request', async () => {
 		const validateBrowserPolicy = vi.fn()
 		let observed: HttpBrowserPolicy | undefined
+		let observedAddress: string | undefined
 		const resolvers = compileHttpContextResolvers(
 			[
 				contribution(
 					httpContextResolver({
 						validateBrowserPolicy,
-						resolve: ({ browserPolicy: effective, context }) => {
+						resolve: ({ browserPolicy: effective, clientAddress, context }) => {
 							observed = effective
+							observedAddress = clientAddress
 							return context
 						},
 					}),
@@ -76,12 +78,14 @@ describe('HTTP resolver browser policy', () => {
 		await resolveHttpContext(
 			initial,
 			new Request('https://api.example/context'),
+			'203.0.113.7',
 			browserPolicy,
 			resolvers,
 			requestExecution,
 			callbacks,
 		)
 		expect(observed).toBe(browserPolicy)
+		expect(observedAddress).toBe('203.0.113.7')
 	})
 
 	it('rejects an incompatible policy before request resolution', () => {

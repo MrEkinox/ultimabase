@@ -247,6 +247,7 @@ const dispatchPreparedRequest = async (
 		const resolved = await resolveHttpContext(
 			anonymous,
 			resolverRequest,
+			resolveHttpClientAddress(accepted, state.settings.trustProxy),
 			state.browserPolicy,
 			state.contextResolvers,
 			requestExecution,

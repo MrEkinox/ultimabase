@@ -1,6 +1,7 @@
 import type {
 	ApplicationOperationTransportPlan,
 	ApplicationSchemaMutationTransportPlan,
+	CompiledSchemaRegistry,
 	ExposedSchemaMutationTransportBinding,
 	PluginSchemaContributionOwner,
 	SchemaDefinition,
@@ -19,6 +20,7 @@ import {
 
 import {
 	bindingOwnerFor,
+	isSameBindingOwner,
 	normalizeGraphqlOperationBindingMetadata,
 	normalizeGraphqlSchemaMutationBindingMetadata,
 	type GraphqlSchemaMutationBindingMetadata,
@@ -81,22 +83,47 @@ const assertFreeRoot = (
 	}
 }
 
+/** Reads the class name of the one application schema the owner added or claimed. */
+const ownedSchemaClassName = (
+	schemas: CompiledSchemaRegistry,
+	owner: PluginSchemaContributionOwner,
+	path: string,
+): string => {
+	const owned = schemas.values().filter((schema) => {
+		const schemaOwner = schema.definition.provenance.schema.owner
+		return (
+			schemaOwner.kind === 'plugin' && isSameBindingOwner(schemaOwner, owner)
+		)
+	})
+	const [schema] = owned
+	if (schema === undefined || owned.length !== 1) {
+		throw new TypeError(
+			`${path} requires exactly one schema owned by ${owner.pluginId}`,
+		)
+	}
+	return schema.className
+}
+
 /** Registers operation and schema-mutation bindings, then closes their type graph. */
 export const compileGraphqlBindings = (
 	compilers: GraphqlBindingCompilers,
 ): GraphqlBindingRoots => {
 	const { ctx, execution } = compilers
 	const types = new GraphqlBindingTypes(ctx, compilers.fields, compilers.inputs)
-	const operations = compilers.operationPlan.operations.map((descriptor) => ({
-		descriptor,
-		metadata: descriptor.bound
-			? normalizeGraphqlOperationBindingMetadata(
-					descriptor.metadata,
-					descriptor.name,
-				)
-			: describeUnboundOperation(descriptor),
-		owner: bindingOwnerFor(descriptor),
-	}))
+	const operations = compilers.operationPlan.operations.map((descriptor) => {
+		const owner = bindingOwnerFor(descriptor)
+		return {
+			descriptor,
+			metadata: descriptor.bound
+				? normalizeGraphqlOperationBindingMetadata(
+						descriptor.metadata,
+						descriptor.name,
+						(path) => ownedSchemaClassName(ctx.schemas, owner, path),
+					)
+				: describeUnboundOperation(descriptor),
+			owner,
+		}
+	})
 	for (const { descriptor, metadata, owner } of operations) {
 		types.register(metadata.types, `operation ${descriptor.name}`, owner, [
 			...(metadata.input === undefined

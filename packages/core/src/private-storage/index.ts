@@ -6,10 +6,12 @@ export type {
 	PrivateCollection,
 	PrivateCollectionCompareAndSwapOptions,
 	PrivateCollectionDeleteOptions,
+	PrivateCollectionFindManyOptions,
 	PrivateCollectionFindUniqueOptions,
 	PrivateCollectionHandle,
 	PrivateCollectionInsert,
 	PrivateCollectionInsertOptions,
+	PrivateCollectionLookupIndex,
 	PrivateCollectionRecord,
 	PrivateCollectionReference,
 	PrivateCollectionUniqueIndex,
@@ -26,4 +28,5 @@ export type {
 	PrivateStorageOperationExecutor,
 	PrivateStorageOperationKind,
 	PrivateStorageOperationRequest,
+	PrivateStorageOperationResult,
 } from './adapter.js'

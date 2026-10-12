@@ -30,6 +30,7 @@ export interface PrivateCollectionDefinition {
 	readonly indexes: readonly PrivateCollectionUniqueIndex<
 		Readonly<Record<string, GenericField>>
 	>[]
+	readonly lookups: readonly Readonly<{ readonly fields: readonly string[] }>[]
 	readonly normalizedStaticOptions: Readonly<Record<string, JsonValue>>
 	readonly protocolVersion: number
 	readonly references: readonly PrivateCollectionReference<
@@ -125,6 +126,46 @@ const normalizeIndexes = <
 	)
 }
 
+const normalizeLookups = <
+	TFields extends Readonly<Record<string, GenericField>>,
+>(
+	fields: TFields,
+	value: unknown,
+	unique: readonly PrivateCollectionUniqueIndex<TFields>[],
+): readonly Readonly<{ readonly fields: readonly string[] }>[] => {
+	if (value === undefined) return immutableArray([])
+	if (!isUnknownArray(value)) {
+		throw new TypeError('private collection lookups must be an array')
+	}
+	const seen = new Set(unique.map(({ fields: names }) => JSON.stringify(names)))
+	return immutableArray(
+		value.map((candidate, index) => {
+			const path = `private collection lookups[${String(index)}]`
+			assertExactPlainObject(
+				candidate,
+				new Set(['fields']),
+				`${path} must be a plain object`,
+				`${path} contains unknown option: `,
+			)
+			if (!isUnknownArray(candidate.fields) || candidate.fields.length === 0) {
+				throw new TypeError(`${path}.fields must be a non-empty array`)
+			}
+			const names = candidate.fields.map((name, fieldIndex) => {
+				assertNonEmptyString(name, `${path}.fields[${String(fieldIndex)}]`)
+				if (fields[name] === undefined)
+					throw new TypeError(`${path} references missing field: ${name}`)
+				return name
+			})
+			const identity = JSON.stringify(names)
+			if (new Set(names).size !== names.length || seen.has(identity)) {
+				throw new TypeError(`${path} duplicates fields or another index`)
+			}
+			seen.add(identity)
+			return immutableRecord({ fields: immutableArray(names) })
+		}),
+	)
+}
+
 const normalizeReferences = <
 	TFields extends Readonly<Record<string, GenericField>>,
 >(
@@ -190,6 +231,7 @@ export const definePrivateCollection = <
 			'contributionId',
 			'fields',
 			'indexes',
+			'lookups',
 			'normalizedStaticOptions',
 			'protocolVersion',
 			'references',
@@ -219,10 +261,12 @@ export const definePrivateCollection = <
 			'private collection protocolVersion must be a positive safe integer',
 		)
 	}
+	const indexes = normalizeIndexes(options.fields, options.indexes)
 	const definition = immutableRecord({
 		contributionId: options.contributionId,
 		fields: immutableRecord(options.fields),
-		indexes: normalizeIndexes(options.fields, options.indexes),
+		indexes,
+		lookups: normalizeLookups(options.fields, options.lookups, indexes),
 		normalizedStaticOptions: snapshotJsonValue(
 			options.normalizedStaticOptions ?? {},
 			'private collection normalizedStaticOptions',
