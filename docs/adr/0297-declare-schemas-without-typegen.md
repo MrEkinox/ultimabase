@@ -200,8 +200,8 @@ conditional type that mentions no type parameter, which TypeScript resolves as s
 it (for example while measuring variances during the inference of `new UltimaBase(...)`). Core now
 reads the registry through `RegisterFor<TKey>`, generic in the key, so the read stays deferred;
 an unfinished `define(...)` is a usable schema with a required `Register`, as this record states.
-No public type, signature or message changed; one truncated hover lists its members in another
-order. `tests/e2e/register-required.e2e.test.ts` guards it on TypeScript 6; the fix relies on how
+No public type or signature changed; one truncated hover and the `select` typo diagnostic of the
+form D example (`typos.ts`) list the same members in another order. `tests/e2e/register-required.e2e.test.ts` guards it on TypeScript 6; the fix relies on how
 TypeScript defers conditional types, so the TypeScript 6 and 7 reproduction matrix of the spike
 (`docs/handoff/spike-register-cycle.md`, branch `spike/register-cycle`) is rerun at each
 TypeScript upgrade.
