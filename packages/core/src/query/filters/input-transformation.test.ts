@@ -101,6 +101,30 @@ describe('transformQueryFilterInput', () => {
 		expect(Object.isFrozen(transformed)).toBe(true)
 	})
 
+	// ADR-0324: transports locate a rejected operand in their error details.
+	it('reports the location of each operand', () => {
+		const paths: string[] = []
+		transformQueryFilterInput(
+			Article,
+			{
+				AND: [{ profile: { at: [{ eq: 1, path: ['contact', 'age'] }] } }],
+				NOT: { author: { is: { name: { eq: 'Ada' } } } },
+				comments: { count: { where: { age: { lt: 20 } } } },
+				title: 'Post',
+			},
+			({ path, value }) => {
+				paths.push(path.join('.'))
+				return value
+			},
+		)
+		expect(paths).toStrictEqual([
+			'AND.0.profile.at.0.eq',
+			'NOT.author.is.name.eq',
+			'comments.count.where.age.lt',
+			'title',
+		])
+	})
+
 	it('preserves malformed structural values for the canonical validator', () => {
 		const transform = () => {
 			throw new Error('operand transformer must not run')

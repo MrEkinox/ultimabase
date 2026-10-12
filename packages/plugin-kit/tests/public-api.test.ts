@@ -7,6 +7,7 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'SchemaPatchBuilder',
 			'command',
 			'createPluginEventDispatcher',
+			'defineOperation',
 			'defineOutputDescriptor',
 			'definePlugin',
 			'definePluginEvent',

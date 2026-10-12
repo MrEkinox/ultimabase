@@ -38,19 +38,16 @@ import { restPlugin } from '${moduleName}'
 const App = UltimaBase.use(restPlugin())
 const Post = App.Schema.define({
   className: 'ConfiguredRestPost',
-  rest: { ${hoverMarker}count: true },
   fields: (field) => ({ title: field.string() }),
-})
+}).with({ rest: { ${hoverMarker}count: true } })
 App.Schema.define({
   className: 'RestRouteCompletion',
-  rest: { ${routeMarker} },
   fields: () => ({}),
-})
+}).with({ rest: { ${routeMarker} } })
 App.Schema.define({
   className: 'RestOptionCompletion',
-  ${schemaMarker}
   fields: () => ({}),
-})
+}).with({ ${schemaMarker} })
 void Post`
 			const schemaPosition = markerPosition(sourceWithMarkers, schemaMarker)
 			const routePosition = markerPosition(sourceWithMarkers, routeMarker)
@@ -78,10 +75,17 @@ void Post`
 			).toStrictEqual([])
 			expect(completions(schemaPosition)).toContain('rest')
 			expect(completions(routePosition)).toEqual(
-				expect.arrayContaining(['bulk', 'count', 'find', 'get', 'mutations']),
+				expect.arrayContaining([
+					'count',
+					'createMany',
+					'findMany',
+					'findOne',
+					'upsertOne',
+				]),
 			)
-			expect(ts.displayPartsToString(hover?.displayParts)).toContain(
-				'count: true',
+			// `.with({ rest })` shows the documented method (ADR-0324).
+			expect(ts.displayPartsToString(hover?.displayParts)).toBe(
+				'(property) RestMethodRules.count?: boolean',
 			)
 			service.dispose()
 		})
@@ -99,8 +103,7 @@ const Other = UltimaBase.use(httpPlugin({ appId: 'unrelated' }))
 Other.Schema.define({
   className: 'RestAbsentPost',
   fields: () => ({}),
-  rest: { count: true },
-})`
+}).with({ rest: { count: true } })`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)
@@ -121,18 +124,17 @@ import { restPlugin } from '${moduleName}'
 const App = UltimaBase.use(restPlugin())
 App.Schema.define({
   className: 'InvalidRestPost',
-  rest: { count: 'yes' },
   fields: () => ({}),
-})`
+}).with({ rest: { count: 'yes' } })`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)
 				.map(({ messageText }) =>
 					ts.flattenDiagnosticMessageText(messageText, ' '),
 				)
-			expect(messages).toHaveLength(1)
-			expect(messages[0]).toContain('count: "yes"')
-			expect(messages[0]).toContain('is not assignable')
+			expect(messages).toStrictEqual([
+				"Type 'string' is not assignable to type 'boolean | undefined'.",
+			])
 			service.dispose()
 		})
 	})
@@ -197,22 +199,24 @@ App.Schema.define({
 		expect(completions(schemaPosition)).toContain('rest')
 		expect(completions(routePosition)).toEqual(
 			expect.arrayContaining([
-				'bulk',
 				'count',
-				'create',
-				'delete',
+				'createMany',
+				'createOne',
+				'deleteMany',
+				'deleteOne',
 				'exists',
-				'find',
-				'first',
-				'get',
-				'update',
-				'upsert',
+				'findMany',
+				'findOne',
+				'updateMany',
+				'updateOne',
+				'upsertMany',
+				'upsertOne',
 			]),
 		)
 		expect(ts.displayPartsToString(hover?.displayParts)).toContain(
 			'count: true',
 		)
-		expect(generated.contents).toContain('RestSchemaRoutesOption')
+		expect(generated.contents).toContain('RestSchemaRule')
 		expect(generated.contents).not.toContain('/api/v1/classes')
 		service.dispose()
 	})

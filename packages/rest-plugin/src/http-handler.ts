@@ -109,16 +109,21 @@ const matchRoute = (
 	return undefined
 }
 
-/** Matches one path template, whose `{id}` segment accepts any value. */
+/**
+ * Matches one path template; its `{id}` segment accepts any value except a
+ * collection segment such as `count`, which is never an item identifier.
+ */
 const matchesTemplate = (template: string, pathname: string): boolean => {
 	const segments = template.slice(1).split('/')
 	const requestSegments = pathname.slice(1).split('/')
 	return (
 		segments.length === requestSegments.length &&
-		segments.every(
-			(segment, index) =>
-				segment === '{id}' || segment === requestSegments[index],
-		)
+		segments.every((segment, index) => {
+			const requestSegment = requestSegments[index] ?? ''
+			return segment === '{id}'
+				? !reservedSchemaRouteSegments.has(requestSegment)
+				: segment === requestSegment
+		})
 	)
 }
 

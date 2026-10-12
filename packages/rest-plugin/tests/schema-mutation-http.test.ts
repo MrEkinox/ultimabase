@@ -37,13 +37,13 @@ import {
 	requireCapability,
 } from '@ultimabase/core/plugin'
 
-const restRoutes = { rest: { mutations: true } }
+// `true` exposes every method and command (ADR-0324): this fixture's
+// command is added by a plugin without static types for `.with`.
 const RestSchemaApplication = UltimaBase.use(restPlugin())
 const WorkflowDocument = RestSchemaApplication.Schema.define({
-	...restRoutes,
 	className: 'RestWorkflowDocument',
 	fields: (field) => ({ title: field.string() }),
-})
+}).with({ rest: true })
 const archiveInput = defineOperationValue((value, path) => {
 	if (!isPlainRecord(value) || typeof value.reason !== 'string') {
 		throw new TypeError(`${path}.reason must be a string`)
@@ -201,7 +201,6 @@ const createFixture = async (
 	options: {
 		readonly bodyLimit?: number
 		readonly metadata?: JsonValue
-		readonly restDefault?: false | Readonly<{ readonly mutations: boolean }>
 	} = {},
 ) => {
 	const trace: string[] = []
@@ -218,13 +217,10 @@ const createFixture = async (
 		databasePlugin(adapter),
 		createMutationPlugin(trace, decode, options.metadata),
 		restPlugin({
-			acknowledgeUnverifiedProtection: true,
+			publicWrites: true,
 			...(options.bodyLimit === undefined
 				? {}
 				: { bodyLimit: options.bodyLimit }),
-			...(options.restDefault === undefined
-				? {}
-				: { default: options.restDefault }),
 		}),
 		httpPlugin({ appId: 'schema-mutation-app', master: true }),
 		capturePlugin(capture),
@@ -271,7 +267,7 @@ const fetchApplication = (
 	})
 }
 
-const archivePath = `/api/v1/classes/${WorkflowDocument.className}/${schemaMutationRestId}/archive-document`
+const archivePath = `/api/classes/${WorkflowDocument.className}/${schemaMutationRestId}/archive-document`
 
 describe('REST schema mutation exposure', () => {
 	it('generates and executes one request-authority route without Typegen', async () => {
@@ -285,7 +281,7 @@ describe('REST schema mutation exposure', () => {
 				command: 'archiveDocument',
 				method: 'POST',
 				mutation: archiveMutation.name,
-				path: `/api/v1/classes/${WorkflowDocument.className}/{id}/archive-document`,
+				path: `/api/classes/${WorkflowDocument.className}/{id}/archive-document`,
 				schema: WorkflowDocument.className,
 			})
 
@@ -320,7 +316,7 @@ describe('REST schema mutation exposure', () => {
 			])
 			const impersonation = await fetchApplication(
 				fixture.http,
-				`/api/v1/operations/${archiveMutation.name}`,
+				`/api/operations/${archiveMutation.name}`,
 				{
 					body: JSON.stringify({
 						id: schemaMutationRestId,

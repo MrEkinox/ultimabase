@@ -103,11 +103,13 @@ export type RestCommandName<TSchema> = {
  *
  * @example `rest: { count: true, softDeleteOne: true }`
  */
-export type RestSchemaRule<TSchema = never> =
-	| boolean
-	| (RestMethodRules & {
-			readonly [TCommand in RestCommandName<TSchema>]?: boolean
-	  })
+export type RestSchemaRule<TSchema = unknown> =
+	boolean | (RestMethodRules & RestCommandRules<TSchema>)
+
+/** The command keys of one schema's rule; none without a schema. */
+type RestCommandRules<TSchema> = unknown extends TSchema
+	? unknown
+	: { readonly [TCommand in RestCommandName<TSchema>]?: boolean }
 
 /** Entry of `.with({ ... })` owned by REST, for one schema (ADR-0324). */
 export interface RestRules<TSchema> {

@@ -27,6 +27,7 @@ const descriptor = (
 	authority: 'master' | 'request' = 'request',
 ) => ({
 	authority,
+	bound: true,
 	command,
 	effect: 'update' as const,
 	errors: [] as const,
@@ -46,7 +47,7 @@ const compile = async (
 	mutations: ApplicationSchemaMutationTransportPlan<
 		typeof restProtocol
 	>['mutations'],
-	defaultRoutes?: false | Readonly<{ readonly mutations: boolean }>,
+	defaultRule?: boolean,
 ) => {
 	const application = await createApplication({
 		logger: false,
@@ -55,8 +56,8 @@ const compile = async (
 	})
 	try {
 		return compileRestSchemaMutationRouteFragment({
-			basePath: '/api/v1',
-			defaultRoutes,
+			basePath: '/api',
+			defaultRule,
 			owner,
 			plan: { mutations, transport: restProtocol },
 			pluginVersion: '0.0.0',
@@ -70,18 +71,16 @@ const compile = async (
 describe('REST schema mutation route compilation', () => {
 	it('applies schema-local enablement and never emits Master routes', async () => {
 		const RestSchemaApplication = UltimaBase.use(restPlugin())
-		const explicitRoutes = { rest: { mutations: true } }
+		// A boolean rule covers commands too; named commands are tested with a
+		// real command in tests/schema-mutation-http.test.ts.
 		const Explicit = RestSchemaApplication.Schema.define({
-			...explicitRoutes,
 			className: 'RestMutationExplicit',
 			fields: () => ({}),
-		})
-		const disabledRoutes = { rest: { mutations: false } }
+		}).with({ rest: true })
 		const Disabled = RestSchemaApplication.Schema.define({
-			...disabledRoutes,
 			className: 'RestMutationDisabled',
 			fields: () => ({}),
-		})
+		}).with({ rest: false })
 		const Inherited = RestSchemaApplication.Schema.define({
 			className: 'RestMutationInherited',
 			fields: () => ({}),
@@ -99,13 +98,18 @@ describe('REST schema mutation route compilation', () => {
 			false,
 		)
 		expect(disabledByDefault.routes.map(({ path }) => path)).toStrictEqual([
-			'/api/v1/classes/RestMutationExplicit/{id}/publish-now',
+			'/api/classes/RestMutationExplicit/{id}/publish-now',
+		])
+		// ADR-0324: a command is exposed only when named, or when everything is.
+		const builtIn = await compile([Explicit, Disabled, Inherited], mutations)
+		expect(builtIn.routes.map(({ path }) => path)).toStrictEqual([
+			'/api/classes/RestMutationExplicit/{id}/publish-now',
 		])
 
 		const enabledByDefault = await compile(
 			[Explicit, Disabled, Inherited],
 			mutations,
-			{ mutations: true },
+			true,
 		)
 		expect(
 			enabledByDefault.routes.map((route) =>
@@ -120,7 +124,7 @@ describe('REST schema mutation route compilation', () => {
 			fields: () => ({}),
 		})
 		await expect(
-			compile([Invalid], [descriptor(Invalid.className, '_private')]),
+			compile([Invalid], [descriptor(Invalid.className, '_private')], true),
 		).rejects.toThrow('has no canonical path segment')
 	})
 
@@ -135,6 +139,7 @@ describe('REST schema mutation route compilation', () => {
 				descriptor(Collision.className, 'softDelete'),
 				descriptor(Collision.className, 'soft_delete'),
 			],
+			true,
 		)
 		expect(fragment.routes[0]?.path).toBe(fragment.routes[1]?.path)
 		const collisionPlugin = plugin({

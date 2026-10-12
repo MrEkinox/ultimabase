@@ -79,6 +79,7 @@ const createOperationPlugin = (options: {
 	readonly decode?: (value: unknown) => Readonly<{ readonly message: string }>
 	readonly metadata?: JsonValue
 	readonly omitBinding?: boolean
+	readonly private?: boolean
 	readonly transport?: OperationTransportProtocol
 }) => {
 	const transport = options.transport ?? compatibleRestProtocol
@@ -118,6 +119,7 @@ const createOperationPlugin = (options: {
 		version: '1.0.0',
 		contributions: [
 			contributeOperation({
+				...(options.private === true ? {} : { public: { name: 'inspect' } }),
 				bindings: options.omitBinding === true ? [] : [binding],
 				execute: ({ context, input }) => {
 					if (input.message === 'reject') {
@@ -173,14 +175,12 @@ const createFixture = async (
 		...(options.transport === undefined
 			? {}
 			: { transport: options.transport }),
+		...(options.expose === false ? { private: true } : {}),
 	})
 	const ultimabase = new (UltimaBase.use(
 		databasePlugin,
 		operationPlugin,
-		restPlugin({
-			acknowledgeUnverifiedProtection: true,
-			...(options.expose === false ? {} : { operations: [inspectOperation] }),
-		}),
+		restPlugin(),
 	))({
 		...(options.masterKey === undefined
 			? {}
@@ -200,7 +200,7 @@ const createFixture = async (
 }
 
 const request = (input: unknown, signal?: AbortSignal): Request =>
-	new Request('https://example.test/api/v1/operations/test', {
+	new Request('https://example.test/api/operations/test', {
 		body: JSON.stringify({ input }),
 		headers: { 'content-type': 'application/json' },
 		method: 'POST',
@@ -208,7 +208,7 @@ const request = (input: unknown, signal?: AbortSignal): Request =>
 	})
 
 describe('REST plugin operation exposure', () => {
-	it('keeps declarations private until explicitly selected', async () => {
+	it('keeps operations private unless their owner declares them public', async () => {
 		const fixture = await createFixture({
 			expose: false,
 			bindingMetadata: {
@@ -244,7 +244,7 @@ describe('REST plugin operation exposure', () => {
 					method: 'POST',
 					operation: inspectOperation.name,
 					operationVersion: inspectOperation.version,
-					path: `/api/v1${path ?? `/operations/${inspectOperation.name}`}`,
+					path: `/api${path ?? '/operations/inspect'}`,
 				})
 				if (transport === undefined || route === undefined) {
 					throw new TypeError('expected REST operation transport')
@@ -316,18 +316,50 @@ describe('REST plugin operation exposure', () => {
 		).rejects.toThrow('has an invalid status')
 	})
 
-	it('rejects missing and incompatible REST bindings before startup', async () => {
-		await expect(createFixture({ omitBinding: true })).rejects.toMatchObject({
-			code: 'PLUGIN_OPERATION_INVALID',
+	// ADR-0324: a public operation needs no REST binding; without one, REST
+	// passes the wire input to the operation's own contract.
+	it.each([
+		{ omitBinding: true },
+		{
+			transport: defineOperationTransport({
+				name: 'ultimabase.rest',
+				version: '2.0.0',
+			}),
+		},
+	])('exposes a public operation without a REST v1 binding', async (options) => {
+		const fixture = await createFixture(options)
+		const transport = fixture.rest.operationTransport
+		const route = transport?.operations[0]
+		if (transport === undefined || route === undefined) {
+			throw new TypeError('expected REST operation transport')
+		}
+		expect(route.path).toBe('/api/operations/inspect')
+		const context = RequestContext.anonymous({
+			requestId: 'unbound',
+			source: 'rest',
 		})
 		await expect(
-			createFixture({
-				transport: defineOperationTransport({
-					name: 'ultimabase.rest',
-					version: '2.0.0',
-				}),
-			}),
-		).rejects.toMatchObject({ code: 'PLUGIN_OPERATION_INVALID' })
+			transport.execute(
+				context,
+				route,
+				request({ message: 'anonymous' }),
+				fixture.rest.readLimits,
+			),
+		).resolves.toStrictEqual({ accepted: true })
+		await expect(
+			transport.execute(
+				context,
+				route,
+				request({ text: 'anonymous' }),
+				fixture.rest.readLimits,
+			),
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+		expect(
+			transport.statusFor(
+				inspectOperation.name,
+				'fixture.rest-operation.rejected',
+			),
+		).toBe(400)
 	})
 
 	it.each([
@@ -345,14 +377,10 @@ describe('REST plugin operation exposure', () => {
 						...(path === undefined ? {} : { path }),
 					},
 				}),
-				restPlugin({
-					instanceId: 'public',
-					operations: [inspectOperation],
-				}),
+				restPlugin({ instanceId: 'public' }),
 				restPlugin({
 					instanceId: 'admin',
 					...(distinct ? { basePath: '/admin' } : {}),
-					operations: [inspectOperation],
 				}),
 			))({ logger: false, schemas: [] })
 			onTestFinished(() => ultimabase.dispose())
@@ -364,8 +392,8 @@ describe('REST plugin operation exposure', () => {
 						instanceId: 'public',
 					})
 					expect(rest.routeGraph.routes.map((route) => route.path)).toEqual([
-						'/api/v1/inspect',
-						'/admin/v1/inspect',
+						'/api/inspect',
+						'/admin/inspect',
 					])
 				} else {
 					await expect(ultimabase.start()).rejects.toThrow(

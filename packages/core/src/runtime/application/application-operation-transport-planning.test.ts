@@ -155,6 +155,7 @@ describe('application operation transport planning', () => {
 		expect(plan).toStrictEqual({
 			operations: [
 				{
+					bound: true,
 					errors: ['FIXTURE_REJECTED'],
 					metadata: { field: 'inspect' },
 					name: operation.name,
