@@ -185,7 +185,9 @@ export const password = <
 	const TIdentifier extends PasswordIdentifier = 'username',
 >(
 	options?: PasswordOptions<TIdentifier>,
-): PasswordMethod<TIdentifier> => {
+	// `NoInfer`: the `methods` list must not infer the identifier from the
+	// method type it expects, which would make it `never`.
+): PasswordMethod<NoInfer<TIdentifier>> => {
 	const untrusted = parseOptions(defaultUndefinedOptions(options))
 	assertPasswordHashEngineAvailable()
 	const identifier = readIdentifier(untrusted.identifier)

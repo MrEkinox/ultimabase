@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { FrameworkError, privateStore } from '@ultimabase/core'
+import { privateStore } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AccountRecord, AuthCollections } from './collections.js'
@@ -40,9 +40,6 @@ const toInfo = (record: AccountRecord): AuthMethodInfo =>
 		method: record.method,
 	})
 
-const isUniqueViolation = (error: unknown): boolean =>
-	error instanceof FrameworkError && error.code === 'UNIQUE_VIOLATION'
-
 /** Links one method account to a user. */
 export const insertLinkedAccount = async (
 	collections: AuthCollections,
@@ -64,15 +61,16 @@ export const insertLinkedAccount = async (
 	await updateUserState(collections, userId, (state) => ({
 		accountIds: [...state.accountIds, record.id],
 	}))
-	if (record.emailVerified && record.email !== null) {
-		// The first user to verify an email keeps it for automatic linking.
-		try {
-			await privateStore(collections.verifiedEmails).insert({
-				data: { email: record.email, userId },
-			})
-		} catch (error: unknown) {
-			if (!isUniqueViolation(error)) throw error
-		}
+	// The first user to verify an email keeps it for automatic linking. A
+	// failed insert would abort the transaction, so the row is read first.
+	const verifiedEmails = privateStore(collections.verifiedEmails)
+	if (
+		record.emailVerified &&
+		record.email !== null &&
+		(await verifiedEmails.findUnique({ where: { email: record.email } })) ===
+			null
+	) {
+		await verifiedEmails.insert({ data: { email: record.email, userId } })
 	}
 	return toInfo(record)
 }
