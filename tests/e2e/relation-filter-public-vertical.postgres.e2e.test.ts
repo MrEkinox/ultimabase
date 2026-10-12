@@ -153,7 +153,7 @@ const graphqlNetworkless = async (
 	if (kind === 'session') {
 		const auth = readObject(
 			await invoke(app(), 'plugin', ['@ultimabase/auth-plugin']),
-			'Password Auth application',
+			'authentication application',
 		)
 		return invoke(auth, 'runWithSession', [sessionToken, execute])
 	}

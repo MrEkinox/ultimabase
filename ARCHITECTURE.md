@@ -292,7 +292,7 @@ Operation transport identities follow the same exact canonical rule. Their
 bindings may carry immutable transport-owned JSON metadata, while Core's
 allowlist facade reveals only inert operation descriptors. REST uses that
 boundary to validate complete public-error status mappings before startup and
-never imports an operation owner such as Password Auth.
+never imports an operation owner such as the authentication plugin.
 ADR-0240 adds a separate Core-owned materialization-time planner for transports
 whose public shape must compile before the application engine exists. It
 returns the same inert descriptors after exact token, protocol, owner, and

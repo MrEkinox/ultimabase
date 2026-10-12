@@ -4,7 +4,7 @@ Transports translate requests and responses. They do not contain SQL or business
 
 The optional HTTP package provides application identity, immutable route
 composition, and the provider-facing Fetch boundary without opening a socket.
-REST, Password Auth, and the first concrete Hono server provider are shipped as
+REST, authentication (`auth-plugin`), and the first concrete Hono server provider are shipped as
 independent optional packages. Network-independent GraphQL, the Yoga adapter,
 and separate GraphiQL and Apollo Sandbox plugins are shipped siblings.
 
@@ -65,7 +65,7 @@ as completed `GraphQLSchema` instances. Non-overlapping fields may extend
 generated types; conflicting fields fail startup with owner provenance.
 
 Plugin operations remain private unless their exact tokens are selected and
-their owners provide canonical GraphQL wire bindings. This lets Password Auth
+their owners provide canonical GraphQL wire bindings. This lets authentication
 expose sign-up, login, refresh, and logout without either package importing the
 other.
 
