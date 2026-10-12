@@ -208,7 +208,7 @@ export interface RoleSchemaFactory<TSource extends PluginSourceState> {
 export interface RoleSchemaFactoryMembers<TSource extends PluginSourceState> {
 	/**
 	 * Declares role schemas (ADR-0322).
-	 * @example `App.RoleSchema.define({ className: 'TodoRole', members: () => TodoUser }).with({})`
+	 * @example `App.RoleSchema.define({ className: 'TodoRole', members: () => TodoUser })`
 	 */
 	readonly RoleSchema: RoleSchemaFactory<TSource>
 }

@@ -28,15 +28,11 @@ test('projects fields and the same commands in both modes without Typegen', () =
 	const Logical = App.Schema.define({
 		className: 'SourceSoftDeleteDocument',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	})
-		.softDelete()
-		.with({})
+	}).softDelete()
 	const Command = App.Schema.define({
 		className: 'SourceSoftDeleteCommandDocument',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	})
-		.softDelete({ mode: 'command' })
-		.with({})
+	}).softDelete({ mode: 'command' })
 
 	void Command.softDeleteOne({ id: 'document-1', select: { isDeleted: true } })
 	void Command.softDeleteMany({ where: { title: { eq: 'old' } } })
@@ -68,7 +64,7 @@ test('adds nothing to schemas that do not call .softDelete()', () => {
 	const Plain = App.Schema.define({
 		className: 'SourcePlainDocument',
 		fields: (field) => ({ title: field.string() }),
-	}).with({})
+	})
 	type PlainCommands = Extract<
 		keyof typeof Plain,
 		'purgeOne' | 'restoreOne' | 'softDeleteOne'

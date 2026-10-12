@@ -61,11 +61,9 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('attaches the same six commands to both modes and none elsewhere', async () => {
-		const Logical = declare('CommandsLogical').softDelete().with({})
-		const Command = declare('CommandsCommand')
-			.softDelete({ mode: 'command' })
-			.with({})
-		const Plain = declare('CommandsPlain').with({})
+		const Logical = declare('CommandsLogical').softDelete()
+		const Command = declare('CommandsCommand').softDelete({ mode: 'command' })
+		const Plain = declare('CommandsPlain')
 		const application = new App({
 			logger: false,
 			schemas: [Logical, Command, Plain],
@@ -107,11 +105,9 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('rewrites native deletes of the default mode only', async () => {
-		const Logical = declare('RewriteLogical').softDelete().with({})
-		const Command = declare('RewriteCommand')
-			.softDelete({ mode: 'command' })
-			.with({})
-		const Plain = declare('RewritePlain').with({})
+		const Logical = declare('RewriteLogical').softDelete()
+		const Command = declare('RewriteCommand').softDelete({ mode: 'command' })
+		const Plain = declare('RewritePlain')
 		const instance = softDeletePlugin()
 		const application = new (UltimaBase.use(instance))({
 			logger: false,
@@ -131,12 +127,10 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('keeps rewrite plans isolated between applications', async () => {
-		const LogicalDocument = declare('IsolatedRewriteDocument')
-			.softDelete()
-			.with({})
-		const CommandDocument = declare('IsolatedRewriteDocument')
-			.softDelete({ mode: 'command' })
-			.with({})
+		const LogicalDocument = declare('IsolatedRewriteDocument').softDelete()
+		const CommandDocument = declare('IsolatedRewriteDocument').softDelete({
+			mode: 'command',
+		})
 		const first = softDeletePlugin()
 		const second = softDeletePlugin()
 		const logicalApplication = new (UltimaBase.use(first))({
@@ -182,11 +176,9 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('adds the server-written fields only to schemas that call .softDelete()', async () => {
-		const Logical = declare('FieldsLogical').softDelete().with({})
-		const Command = declare('FieldsCommand')
-			.softDelete({ mode: 'command' })
-			.with({})
-		const Plain = declare('FieldsPlain').with({})
+		const Logical = declare('FieldsLogical').softDelete()
+		const Command = declare('FieldsCommand').softDelete({ mode: 'command' })
+		const Plain = declare('FieldsPlain')
 		const application = new App({
 			logger: false,
 			schemas: [Logical, Command, Plain],
@@ -237,9 +229,7 @@ describe('softDeletePlugin', () => {
 			fields: (field) => ({
 				deletedAt: field.string(),
 			}),
-		})
-			.softDelete()
-			.with({})
+		}).softDelete()
 		const application = new App({ logger: false, schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -261,9 +251,9 @@ describe('softDeletePlugin', () => {
 				}),
 			],
 		})
-		const Invalid = declare('InvalidSoftDeleteDocument')
-			.softDelete({ mode: 'explicit' } as never)
-			.with({})
+		const Invalid = declare('InvalidSoftDeleteDocument').softDelete({
+			mode: 'explicit',
+		} as never)
 		const application = new (UltimaBase.use(softDeletePlugin(), observer))({
 			logger: false,
 			schemas: [Invalid],

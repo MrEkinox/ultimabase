@@ -351,7 +351,7 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
  * @example
  * ```ts
  * const App = UltimaBase.use(postgresPlugin(), authPlugin({ methods: [password({ identifier: 'email' })] }))
- * export const TodoUser = App.UserSchema.define({ className: 'TodoUser' }).with({})
+ * export const TodoUser = App.UserSchema.define({ className: 'TodoUser' })
  * ```
  */
 export const authPlugin: AuthPluginFactory = Object.assign(createAuthPlugin, {

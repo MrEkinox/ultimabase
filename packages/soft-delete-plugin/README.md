@@ -18,9 +18,7 @@ const Application = UltimaBase.use(softDeletePlugin())
 const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
-})
-	.softDelete()
-	.with({})
+}).softDelete()
 
 const ultimabase = new Application({ schemas: [Post] })
 ```

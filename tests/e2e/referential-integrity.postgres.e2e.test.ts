@@ -20,12 +20,12 @@ let cascadedHooks = 0
 const Parent = App.Schema.define({
 	className: 'IntegrityParent',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({})
+})
 
 const RestrictChild = App.Schema.define({
 	className: 'IntegrityRestrictChild',
 	fields: (field) => ({ parent: field.pointer({ target: () => Parent }) }),
-}).with({})
+})
 
 const CascadeChild = App.Schema.define({
 	className: 'IntegrityCascadeChild',
@@ -47,45 +47,43 @@ const CascadeGrandchild = App.Schema.define({
 	fields: (field) => ({
 		child: field.pointer({ target: () => CascadeChild, onDelete: 'cascade' }),
 	}),
-}).with({})
+})
 
 const SetNullChild = App.Schema.define({
 	className: 'IntegritySetNullChild',
 	fields: (field) => ({
 		parent: field.pointer({ target: () => Parent, onDelete: 'setNull' }),
 	}),
-}).with({})
+})
 
 const ChainRoot = App.Schema.define({
 	className: 'IntegrityChainRoot',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({})
+})
 
 const ChainMiddle = App.Schema.define({
 	className: 'IntegrityChainMiddle',
 	fields: (field) => ({
 		root: field.pointer({ target: () => ChainRoot, onDelete: 'cascade' }),
 	}),
-}).with({})
+})
 
 const ChainLeaf = App.Schema.define({
 	className: 'IntegrityChainLeaf',
 	fields: (field) => ({ middle: field.pointer({ target: () => ChainMiddle }) }),
-}).with({})
+})
 
 const SoftParent = App.Schema.define({
 	className: 'IntegritySoftParent',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-})
-	.softDelete()
-	.with({})
+}).softDelete()
 
 const SoftChild = App.Schema.define({
 	className: 'IntegritySoftChild',
 	fields: (field) => ({
 		parent: field.pointer({ target: () => SoftParent, onDelete: 'cascade' }),
 	}),
-}).with({})
+})
 
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (UltimaBase.use(

@@ -97,7 +97,7 @@ export interface UserSchemaFactoryMembers<
 > {
 	/**
 	 * Declares the User schema (ADR-0326).
-	 * @example `App.UserSchema.define({ className: 'TodoUser' }).with({})`
+	 * @example `App.UserSchema.define({ className: 'TodoUser' })`
 	 */
 	readonly UserSchema: UserSchemaFactory<TSource, TMethodFields>
 }

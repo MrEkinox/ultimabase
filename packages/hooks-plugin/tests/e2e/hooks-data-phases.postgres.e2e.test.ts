@@ -58,17 +58,17 @@ const App = UltimaBase.use(
 const Note = App.Schema.define({
 	className: 'HookDataNote',
 	fields: (field) => ({ body: field.string({ required: true }) }),
-}).with({})
+})
 
 const List = App.Schema.define({
 	className: 'HookDataList',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({})
+})
 
 const Tag = App.Schema.define({
 	className: 'HookDataTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
-}).with({})
+})
 
 const Todo = App.Schema.define({
 	className: 'HookDataTodo',

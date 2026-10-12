@@ -46,7 +46,7 @@ const Contact = App.Schema.define({
 				},
 		}),
 	}),
-}).with({})
+})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

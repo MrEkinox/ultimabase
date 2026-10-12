@@ -35,7 +35,7 @@ const ShareApplication = UltimaBase.use(aclPlugin())
 const ShareUser = ShareApplication.Schema.define({
 	className: 'ACLShareUser',
 	fields: (field) => ({ email: field.string({ required: true }) }),
-}).with({})
+})
 const identityPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',

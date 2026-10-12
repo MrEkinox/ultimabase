@@ -86,7 +86,7 @@ describe('definePlugin', () => {
 		const Plain = App.Schema.define({
 			className: 'FacadePlain',
 			fields: (field) => ({ title: field.string() }),
-		}).with({})
+		})
 		const compiled = new App({
 			logger: false,
 			schemas: [Archived, Plain],
@@ -133,9 +133,7 @@ describe('definePlugin', () => {
 		const BadShape = App.Schema.define({
 			className: 'FacadeBadShape',
 			fields: (field) => ({ title: field.string() }),
-		})
-			.archivable('soon' as never)
-			.with({})
+		}).archivable('soon' as never)
 
 		expect(() =>
 			new App({ logger: false, schemas: [BadRule] }).compile(),
@@ -159,9 +157,7 @@ describe('definePlugin', () => {
 		const Flagged = App.Schema.define({
 			className: 'FacadeFlagged',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		})
-			.flag(...([{ loud: true }] as unknown as []))
-			.with({})
+		}).flag(...([{ loud: true }] as unknown as []))
 
 		expect(() =>
 			new App({ logger: false, schemas: [Flagged] }).compile(),

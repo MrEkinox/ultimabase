@@ -166,7 +166,7 @@ test('accepts partial field rules', () => {
 			email: field.string({ access: { read: { where: false } } }),
 			role: field.string({ access: { write: { clear: false } } }),
 		}),
-	}).with({})
+	})
 })
 
 test('types every allowWithoutRule value', () => {

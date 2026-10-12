@@ -41,7 +41,7 @@ test('types field validators against the field value', () => {
 			// @ts-expect-error -- The validator must accept the field's value.
 			count: field.int({ validation: z.string() }),
 		}),
-	}).with({})
+	})
 })
 
 test('types the schema check on the complete item', () => {

@@ -29,12 +29,12 @@ const EmailApp = UltimaBase.use(
 const EmailUser = EmailApp.UserSchema.define({
 	className: 'TypedRecoveryUser',
 	fields: (field) => ({ displayName: field.string({ required: true }) }),
-}).with({})
+})
 
 const UsernameApp = UltimaBase.use(authPlugin({ methods: [password()] }))
 const UsernameUser = UsernameApp.UserSchema.define({
 	className: 'TypedRecoveryUsernameUser',
-}).with({})
+})
 
 describe('password({ identifier: "email" }) email flows', () => {
 	it('adds the verification fields as read-only output', () => {
@@ -71,7 +71,7 @@ describe('password({ identifier: "email" }) email flows', () => {
 		)
 		const OpenUser = OpenApp.UserSchema.define({
 			className: 'TypedOpenRecoveryUser',
-		}).with({})
+		})
 		expectTypeOf(OpenUser).toHaveProperty('signUp')
 		expectTypeOf<Awaited<ReturnType<typeof OpenUser.signUp>>>().toHaveProperty(
 			'session',

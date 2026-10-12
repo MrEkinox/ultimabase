@@ -54,8 +54,8 @@ describe.each([
 		const source = `import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '${moduleName}'
 const App = UltimaBase.use(softDeletePlugin())
-const Enabled = App.Schema.define({ className: 'EnabledPost', fields: (field) => ({ title: field.string() }) }).softDelete().with({})
-const Plain = App.Schema.define({ className: 'PlainPost', fields: (field) => ({ title: field.string() }) }).with({})
+const Enabled = App.Schema.define({ className: 'EnabledPost', fields: (field) => ({ title: field.string() }) }).softDelete()
+const Plain = App.Schema.define({ className: 'PlainPost', fields: (field) => ({ title: field.string() }) })
 void Enabled.softDeleteOne({ id: 'post-1', select: { isDeleted: true, deletedAt: true } })
 void Enabled.restoreMany({ where: { title: { eq: 'post' } } })
 void Enabled.purgeOne({ id: 'post-1' })

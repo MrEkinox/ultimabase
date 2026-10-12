@@ -22,7 +22,7 @@ const ValidationApplication =
 const Owner = ValidationApplication.Schema.define({
 	className: 'SinglePassValidationOwner',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({})
+})
 
 const labelCalls: string[] = []
 type OwnerReference = SchemaReference<'SinglePassValidationOwner'>
@@ -108,7 +108,7 @@ const Item = ValidationApplication.Schema.define({
 		}),
 		score: field.int({ default: 1, validation: scoreValidator }),
 	}),
-}).with({})
+})
 
 const clearCalls = (): void => {
 	labelCalls.length = 0

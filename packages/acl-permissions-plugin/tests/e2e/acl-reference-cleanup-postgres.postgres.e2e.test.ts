@@ -79,17 +79,17 @@ const FailRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferenceFailRole',
 	members: () => FailPrincipal,
 	deletion: 'fail',
-}).with({})
+})
 const PreserveRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferencePreserveRole',
 	members: () => FailPrincipal,
 	deletion: 'preserve',
-}).with({})
+})
 const CascadeRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferenceCascadeRole',
 	members: () => FailPrincipal,
 	deletion: 'cascade',
-}).with({})
+})
 
 const emptyACL = new ACL()
 const committedACLChanges: ACLChangedEvent[] = []

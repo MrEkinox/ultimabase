@@ -185,7 +185,7 @@ const ACLCompositionApplication = AccessCompositionApplication.use(
 const RoleOnly = ACLCompositionApplication.RoleSchema.define({
 	className: 'AccessCompositionRoleOnly',
 	members: () => Principal,
-}).with({})
+})
 const ACLRole = ACLCompositionApplication.RoleSchema.define({
 	className: 'AccessCompositionACLRole',
 	members: () => Principal,

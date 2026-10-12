@@ -103,7 +103,7 @@ test('projects fields, commands and rules into form D schemas', () => {
 	const Plain = App.Schema.define({
 		className: 'TypedFacadePlain',
 		fields: (field) => ({ title: field.string() }),
-	}).with({})
+	})
 	// @ts-expect-error -- No command without the shape method.
 	void Plain.archiveOne
 })
@@ -120,13 +120,11 @@ test('projects shape-method permissions for rule plugins (ADR-0317)', () => {
 	const Archived = App.Schema.define({
 		className: 'TypedPermissionArchived',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.archivable()
-		.with({})
+	}).archivable()
 	const Plain = App.Schema.define({
 		className: 'TypedPermissionPlain',
 		fields: (field) => ({ title: field.string() }),
-	}).with({})
+	})
 
 	void Archived
 	void Plain

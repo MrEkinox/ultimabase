@@ -379,7 +379,7 @@ const createRolesPlugin = (): RolesPlugin => {
  * @example
  * ```ts
  * const App = UltimaBase.use(accessPlugin(), rolesPlugin())
- * export const TodoRole = App.RoleSchema.define({ className: 'TodoRole', members: () => TodoUser }).with({})
+ * export const TodoRole = App.RoleSchema.define({ className: 'TodoRole', members: () => TodoUser })
  * ```
  */
 export const rolesPlugin: RolesPluginFactory = Object.assign(

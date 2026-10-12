@@ -63,7 +63,7 @@ test('adds the acl field through the fields slot and types its updates', async (
 	const user = Application.Schema.define({
 		className: 'DirectACLTypeUser',
 		fields: () => ({}),
-	}).with({})
+	})
 	const principal: Pointer = user.pointer('user-id')
 	await Post.updateOne({
 		where: { id: 'post-id' },

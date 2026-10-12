@@ -56,7 +56,7 @@ let competingInsert: ((name: string) => Promise<void>) | undefined
 const QueryMember = App.Schema.define({
 	className: 'RoleQueryMember',
 	fields: (field) => ({ email: field.string({ required: true }) }),
-}).with({})
+})
 const QueryRole = App.RoleSchema.define({
 	className: 'RoleQueryRole',
 	members: () => QueryMember,
@@ -75,7 +75,7 @@ const QueryTeam = App.RoleSchema.define({
 	className: 'RoleQueryTeam',
 	members: () => QueryMember,
 	ensure: ['lead'],
-}).with({})
+})
 
 const createApplication = (connectionUri: string) =>
 	new (App.use(identity, postgresPlugin({ url: connectionUri })))({

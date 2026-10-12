@@ -120,7 +120,7 @@ describe('verified-email linking with passwords', { concurrent: false }, () => {
 		const LinkedUser = App.UserSchema.define({
 			className: 'PasswordLinkedUser',
 			fields: (field) => ({ displayName: field.string({ required: true }) }),
-		}).with({})
+		})
 		const ultimabase = new App({ logger: false, schemas: [LinkedUser] })
 		const providerLogin = (providerUserId: string, email: string) =>
 			ultimabase.operation(providerSignIn).execute({ email, providerUserId })

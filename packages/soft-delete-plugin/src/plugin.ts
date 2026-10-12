@@ -57,7 +57,7 @@ export type SoftDeleteShape = Readonly<{
 	 * permission (ordinary reads then see deleted rows). Without options,
 	 * `deleteOne` and `deleteMany` soft-delete too; `{ mode: 'command' }` keeps
 	 * them physical. Call it before `.with(...)`.
-	 * @example `App.Schema.define({ className: 'Todo', fields }).softDelete().with({})`
+	 * @example `App.Schema.define({ className: 'Todo', fields }).softDelete()`
 	 */
 	softDelete: ShapeMethodDefinition<
 		SoftDeleteOptions,
@@ -125,7 +125,7 @@ const shape: SoftDeleteShape = {
  * @example
  * ```ts
  * const App = UltimaBase.use(softDeletePlugin())
- * const Todo = App.Schema.define({ className: 'Todo', fields }).softDelete().with({})
+ * const Todo = App.Schema.define({ className: 'Todo', fields }).softDelete()
  * await Todo.deleteOne({ where: { id } }) // sets isDeleted and deletedAt
  * await Todo.restoreOne({ id })
  * ```

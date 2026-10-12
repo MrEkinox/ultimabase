@@ -18,17 +18,17 @@ const User = Roles.Schema.define({
 	fields: (field) => ({
 		email: field.string({ required: true }),
 	}),
-}).with({})
+})
 const AppRole = Roles.RoleSchema.define({
 	className: 'TypedAppRole',
 	members: () => User,
 	fields: (field) => ({ description: field.string() }),
-}).with({})
+})
 const TeamRole = Roles.RoleSchema.define({
 	className: 'TypedTeamRole',
 	members: () => User,
 	ensure: ['lead'],
-}).with({})
+})
 
 test('keeps role statics available after .with(...)', () => {
 	expectTypeOf(AppRole.role('editor').kind).toEqualTypeOf<'role'>()
