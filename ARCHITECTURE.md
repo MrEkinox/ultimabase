@@ -154,8 +154,9 @@ password-auth-plugin ─→ http-plugin, plugin-kit, core, shared
 graphql-plugin ───────→ plugin-kit, core, shared
 graphql-http ─────────→ core, shared
 graphql-yoga-plugin ──→ graphql-http, http-plugin, graphql-plugin, plugin-kit, core, shared
-graphiql-plugin ──────→ graphql-http, http-plugin, plugin-kit, core
-apollo-sandbox-plugin → graphql-http, http-plugin, plugin-kit, core
+graphql-explorer-plugin → graphql-http, http-plugin, plugin-kit, core
+api-server ───────────→ http-plugin, rest-plugin, graphql-plugin, graphql-yoga-plugin,
+                        graphql-explorer-plugin, hono-server-plugin
 testing ──────────────→ typegen, core, shared
 ```
 
@@ -621,7 +622,7 @@ Plugins form one deterministic flat graph. The immutable configured factory is
 the sole installation path:
 
 ```ts
-const Api = UltimaBase.use(graphqlYogaPlugin()).use(apolloSandboxPlugin())
+const Api = UltimaBase.use(graphqlYogaPlugin()).use(graphqlExplorerPlugin())
 ```
 
 Plugin definitions never contain nested plugins. Dependencies determine setup
@@ -853,10 +854,9 @@ Official-compatible Access providers import public contracts from
 directly and own their protocol identity. Official-compatible Hook providers
 follow the same model with `@ultimabase/hooks-plugin`. Core cannot prove that an
 arbitrary protected policy covers every operation exposed by a public
-transport. Every unacknowledged exposure therefore emits
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`; its structured data distinguishes no
-provider from provider-present-but-unverified without naming a concrete policy
-product.
+transport; REST and GraphQL read only whether one is installed
+(`hasProtectedPolicy()`) and refuse public writes without one unless
+`publicWrites` opts in (ADR-0294, ADR-0325).
 
 ## Database and migrations
 

@@ -191,20 +191,16 @@ receives its exact input and result types from the installed plugin source,
 without waiting for Typegen. The User-class methods above remain the ordinary
 path. The returned User model's exact custom fields still require the generated
 application schema graph; Typegen also resolves relationships between schemas.
-REST exposes all six; Password Auth contributes the compatible codecs and maps
-its four public errors to status 400 or 401 without importing REST. GraphQL
-still takes the exact tokens in `graphqlPlugin({ operations })` until it adopts
-public operations (ADR-0325).
+REST and GraphQL expose all six; Password Auth contributes the compatible
+codecs and maps its four public errors to status 400 or 401 without importing
+REST (ADR-0324, ADR-0325).
 
 ```ts
-import {
-	passwordAuthOperationList,
-	passwordAuthOperations,
-} from '@ultimabase/password-auth-plugin'
+import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
 
 restPlugin() // Exposes all six.
 restPlugin({ hide: [passwordAuthOperations.refresh] }) // Or hides one.
-graphqlPlugin({ operations: passwordAuthOperationList })
+graphqlPlugin({ hide: [passwordAuthOperations.refresh] }) // Same for GraphQL.
 ```
 
 The public routes are `POST /api/auth/sign-up`, `/api/auth/login`,
@@ -217,7 +213,6 @@ use `{ "input": { username, password, ...userFields } }` for signup,
 `{ "input": { currentPassword, newPassword } }` for password change, or
 `{ "input": null }` for refresh, logout, and logout everywhere.
 
-The same explicit tokens may be passed to `graphqlPlugin({ operations })`.
 `PasswordAuthSignUpInput` derives the User create fields and adds `password: String!`.
 `PasswordAuthCredentialsInput` remains the login-only username/password input.
 

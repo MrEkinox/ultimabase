@@ -271,22 +271,26 @@ not exposed through REST or GraphQL yet.
 
 ### Enable REST and GraphQL
 
-REST exposes a command only when the schema's rule names it, with the
-command's own name, like every schema method (ADR-0324):
+REST and GraphQL expose a command only when the schema's rule names it, with
+the command's own name, like every schema method (ADR-0324, ADR-0325):
 
 ```ts title="src/schema.ts"
 const Post = Application.Schema.define({ className: 'Post', fields })
 	.softDelete()
-	.with({ rest: { softDeleteOne: true, restoreOne: true } })
+	.with({
+		graphql: { softDeleteOne: true, restoreOne: true },
+		rest: { softDeleteOne: true, restoreOne: true },
+	})
 ```
 
 - REST: `rest: { softDeleteOne: true }` adds the
   `POST /classes/Post/{id}/soft-delete-one` route; `rest: true` exposes every
   method and command, `rest: false` none. The `rest` rule requires
   `restPlugin()` in the application's `UltimaBase.use(...)`.
-- GraphQL: `graphql: { operations: { mutations: true } }` controls additional
-  schema-mutation fields. `graphql: false` or `mutations: false` hides them.
-  GraphQL moves to the same keys in a later release.
+- GraphQL: `graphql: { softDeleteOne: true }` adds the `softDeleteOnePost`
+  mutation; `graphql: true` exposes every method and command, `graphql: false`
+  none. The `graphql` rule requires `graphqlPlugin()` in the application's
+  `UltimaBase.use(...)`.
 
 Enabling exposure does not grant permission. `purgeOne` and the many-row
 commands are never exposed.
@@ -309,7 +313,7 @@ import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 export const apiPlugins = [
 	httpPlugin({ appId: 'blog' }),
 	restPlugin({ publicWrites: true }),
-	graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+	graphqlPlugin({ publicWrites: true }),
 	graphqlYogaPlugin(),
 	honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
 ] as const
@@ -320,9 +324,8 @@ without an authorization policy. Keep it on loopback with disposable data.
 Before public exposure, configure [Access](./access) or [Object ACLs](./acl-permissions)
 and review [public transport protection](/docs/1.0.0/operations/before-exposing-your-application).
 `publicWrites: true` lets every client write for this local walkthrough;
-without it and without a policy plugin, REST refuses to start. GraphQL's
-acknowledgement only silences `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`; neither
-adds a policy.
+without it and without a policy plugin, REST and GraphQL refuse to start.
+Neither adds a policy.
 
 If your policy requires an authenticated caller, configure
 [Password Authentication](./password-authentication) and send that caller's
@@ -459,8 +462,8 @@ instead produces a GraphQL error with `extensions.code: "NOT_FOUND"`; inspect
 record when your rules allow it; there is no purge field.
 
 GraphQL derives `softDeleteOnePost` from the command and the generated model
-name. Disabling `graphql.operations.mutations` hides these fields independently
-of native `graphql.operations.delete`.
+name. The `softDeleteOne` and `restoreOne` keys expose these fields
+independently of the native `deleteOne` key.
 
 ### Keep native deletes permanent
 

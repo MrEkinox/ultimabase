@@ -83,7 +83,7 @@ describe('initializer flags', () => {
 				'--language',
 				'js',
 				'--plugin',
-				'@ultimabase/graphiql-plugin',
+				'@ultimabase/graphql-explorer-plugin',
 			]),
 			root(),
 		)

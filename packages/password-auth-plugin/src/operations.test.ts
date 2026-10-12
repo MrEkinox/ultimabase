@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	passwordAuthErrorCodes,
-	passwordAuthOperationList,
 	passwordAuthOperations,
 	passwordAuthRestBindings,
 	rejectPasswordCredentials,
@@ -121,15 +120,7 @@ describe('Password Auth operation contracts', () => {
 	})
 
 	it('declares exact names, versions, transactions, and public errors', () => {
-		expect(passwordAuthOperationList).toStrictEqual([
-			passwordAuthOperations.signUp,
-			passwordAuthOperations.login,
-			passwordAuthOperations.refresh,
-			passwordAuthOperations.logout,
-			passwordAuthOperations.logoutEverywhere,
-			passwordAuthOperations.changePassword,
-		])
-		expect(Object.isFrozen(passwordAuthOperationList)).toBe(true)
+		expect(Object.isFrozen(passwordAuthOperations)).toBe(true)
 		expect(passwordAuthOperations.signUp).toMatchObject({
 			errors: [passwordAuthErrorCodes.signUpRejected],
 			name: 'ultimabase.password-auth.sign-up',

@@ -35,22 +35,9 @@ const verifyProviderPresence = async (
 			operations: [publicTransportDiagnosticOperation],
 			transport: publicTransportDiagnosticProtocol,
 		})
-		expect(warning).toHaveBeenCalledWith(
-			`UltimaBase: public transport ${publicTransportDiagnosticProtocol.name} ${publicTransportDiagnosticProtocol.version} exposes operations that installed protected policies do not prove to cover; review the policies, or acknowledge unverified protection in the transport options.`,
-			{
-				code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
-				message:
-					'Public transport protection is unverified because protected policy presence does not prove coverage of exposed operations.',
-				policy: {
-					coverage: 'unverified',
-					providerPresence: 'present',
-				},
-				transport: {
-					name: publicTransportDiagnosticProtocol.name,
-					version: publicTransportDiagnosticProtocol.version,
-				},
-			},
-		)
+		// Core no longer reports unverified protection (ADR-0325): REST and
+		// GraphQL refuse public writes themselves (ADR-0294).
+		expect(warning).not.toHaveBeenCalled()
 	} finally {
 		await ultimabase.dispose()
 	}
@@ -61,7 +48,7 @@ afterEach(() => {
 })
 
 describe('public transport protection through public package exports', () => {
-	it('keeps official Access presence informational', async () => {
+	it('exposes operations without a warning when Access is installed', async () => {
 		await verifyProviderPresence(accessPlugin())
 	})
 
@@ -73,11 +60,11 @@ describe('public transport protection through public package exports', () => {
 		)
 	})
 
-	it('keeps independent ACL presence informational', async () => {
+	it('exposes operations without a warning when ACL is installed', async () => {
 		await verifyProviderPresence(aclPlugin())
 	})
 
-	it('keeps an alternative policy engine presence informational', async () => {
+	it('exposes operations without a warning with an alternative policy engine', async () => {
 		await verifyProviderPresence(
 			createAlternativePolicyEngine({ instanceId: 'transport' }).plugin,
 		)

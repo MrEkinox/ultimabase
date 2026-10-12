@@ -19,8 +19,7 @@ const packageRoot = path.join(repositoryRoot, 'packages/create-app')
 const officialPluginIds = [
 	'access-plugin',
 	'acl-permissions-plugin',
-	'apollo-sandbox-plugin',
-	'graphiql-plugin',
+	'graphql-explorer-plugin',
 	'graphql-plugin',
 	'graphql-yoga-plugin',
 	'hooks-plugin',

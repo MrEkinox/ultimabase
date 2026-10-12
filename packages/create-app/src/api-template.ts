@@ -11,10 +11,18 @@ export const hasHttpListener = (plan: InitializerPlan): boolean =>
 	has(plan, 'hono-server-plugin')
 
 const hasGraphqlExplorer = (plan: InitializerPlan): boolean =>
-	has(plan, 'graphiql-plugin') || has(plan, 'apollo-sandbox-plugin')
+	has(plan, 'graphql-explorer-plugin')
 
 const hasPublishedAuth = (plan: InitializerPlan): boolean =>
 	has(plan, 'password-auth-plugin') && hasDataApi(plan)
+
+// apiServer() installs HTTP and its transports (ADR-0325); GraphQL without
+// its HTTP transport stays a separate network-independent plugin.
+const usesApiServer = (plan: InitializerPlan): boolean =>
+	has(plan, 'http-plugin')
+
+const graphqlOverHttp = (plan: InitializerPlan): boolean =>
+	usesApiServer(plan) && has(plan, 'graphql-yoga-plugin')
 
 /** Imports, in table order, for the selected plugins: [plugin, imported names]. */
 export const pluginImports = (
@@ -25,62 +33,62 @@ export const pluginImports = (
 		.filter(([id]) => has(plan, id))
 		.map(([id, names]) => [`@ultimabase/${id}`, names] as const)
 
-/** GraphQL still lists the Password Auth operations it exposes (until ADR-0325). */
-const authOperations = (plan: InitializerPlan): string =>
+/** Password Auth declares its operations public; the starter hides two (ADR-0324, ADR-0325). */
+const hiddenAuthOperations = (plan: InitializerPlan, indent: string): string =>
 	has(plan, 'password-auth-plugin')
 		? `,
-      operations: [
-        passwordAuthOperations.signUp,
-        passwordAuthOperations.login,
-        passwordAuthOperations.refresh,
-        passwordAuthOperations.logout,
-      ]`
+${indent}hide: [
+${indent}  passwordAuthOperations.changePassword,
+${indent}  passwordAuthOperations.logoutEverywhere,
+${indent}]`
 		: ''
 
-/** Password Auth declares its operations public; the starter hides two (ADR-0324). */
-const hiddenAuthOperations = (plan: InitializerPlan): string =>
-	has(plan, 'password-auth-plugin')
-		? `,
-      hide: [
-        passwordAuthOperations.changePassword,
-        passwordAuthOperations.logoutEverywhere,
-      ]`
-		: ''
+// Read-only data APIs need no protected policy; writes would (ADR-0294).
+const readOnly =
+	'default: { createOne: false, updateOne: false, deleteOne: false }'
 
-// Read-only routes need no protected policy; writes would (ADR-0294).
-const restEntry = (plan: InitializerPlan): string =>
-	`restPlugin({
-      default: { createOne: false, updateOne: false, deleteOne: false }${hiddenAuthOperations(plan)},
-    })`
+const restOptions = (plan: InitializerPlan): string =>
+	`{
+      ${readOnly}${hiddenAuthOperations(plan, '      ')},
+    }`
 
-const graphqlEntry = (plan: InitializerPlan): string =>
-	`graphqlPlugin({
-      // Local development only: this acknowledges unverified public policy coverage.
-      acknowledgeUnverifiedProtection: true,
-      default: { create: false, update: false, delete: false, upsert: false, bulk: false, mutations: false }${authOperations(plan)},
-    })`
+const graphqlOptions = (plan: InitializerPlan, explorer: boolean): string =>
+	`{
+      ${readOnly}${hiddenAuthOperations(plan, '      ')}${
+				explorer
+					? `,
+      // GraphiQL at /graphiql, in development only (ADR-0325).
+      explorer: 'graphiql'`
+					: ''
+			},
+    }`
 
-// Explorers, introspection and the listen address follow NODE_ENV themselves
-// (ADR-0312): the template writes no environment expression.
-const explorerEntry = (factory: string): string => `${factory}()`
-
-export const apiApplicationImports = (plan: InitializerPlan): NamedImport[] =>
-	pluginImports(plan, [
-		['http-plugin', 'httpPlugin'],
-		['hono-server-plugin', 'honoServerPlugin'],
-		['graphql-yoga-plugin', 'graphqlYogaPlugin'],
-		['graphiql-plugin', 'graphiqlPlugin'],
-		['apollo-sandbox-plugin', 'apolloSandboxPlugin'],
+const apiServerEntry = (plan: InitializerPlan): string => {
+	const options = included([
+		[has(plan, 'rest-plugin'), `    rest: ${restOptions(plan)},`],
+		[
+			graphqlOverHttp(plan),
+			`    graphql: ${graphqlOptions(plan, hasGraphqlExplorer(plan))},`,
+		],
+		[!hasHttpListener(plan), '    server: false,'],
 	])
+	return options.length === 0
+		? '...apiServer()'
+		: `...apiServer({
+${options.join('\n')}
+  })`
+}
 
 /** Installs transport options before schema declaration so they are source typed. */
 export const apiSchemaPluginImports = (
 	plan: InitializerPlan,
 ): NamedImport[] => [
-	...pluginImports(plan, [
-		['rest-plugin', 'restPlugin'],
-		['graphql-plugin', 'graphqlPlugin'],
-	]),
+	...(usesApiServer(plan)
+		? [['@ultimabase/api-server', 'apiServer'] as const]
+		: []),
+	...(has(plan, 'graphql-plugin') && !graphqlOverHttp(plan)
+		? [['@ultimabase/graphql-plugin', 'graphqlPlugin'] as const]
+		: []),
 	...(hasPublishedAuth(plan)
 		? [['@ultimabase/password-auth-plugin', 'passwordAuthOperations'] as const]
 		: []),
@@ -88,17 +96,11 @@ export const apiSchemaPluginImports = (
 
 export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
 	included([
-		[has(plan, 'rest-plugin'), restEntry(plan)],
-		[has(plan, 'graphql-plugin'), graphqlEntry(plan)],
-	])
-
-export const apiPluginEntries = (plan: InitializerPlan): string[] =>
-	included([
-		[has(plan, 'http-plugin'), 'httpPlugin()'],
-		[has(plan, 'graphql-yoga-plugin'), 'graphqlYogaPlugin()'],
-		[has(plan, 'graphiql-plugin'), explorerEntry('graphiqlPlugin')],
-		[has(plan, 'apollo-sandbox-plugin'), explorerEntry('apolloSandboxPlugin')],
-		[hasHttpListener(plan), 'honoServerPlugin()'],
+		[usesApiServer(plan), apiServerEntry(plan)],
+		[
+			has(plan, 'graphql-plugin') && !graphqlOverHttp(plan),
+			`graphqlPlugin(${graphqlOptions(plan, false)})`,
+		],
 	])
 
 /** Generated member and role models are never an implicit public CRUD surface. */
@@ -126,12 +128,8 @@ export const apiNextCommands = (plan: InitializerPlan): string[] => {
 			`curl -i -X POST -H 'Content-Type: application/json' --data '{"query":"{ findManyTask(first: 10) { nodes { id title done } } }"}' http://127.0.0.1:1337/graphql`,
 		],
 		[
-			has(plan, 'graphiql-plugin'),
-			'Open http://127.0.0.1:1337/__ultimabase/apps/main/graphiql in development.',
-		],
-		[
-			has(plan, 'apollo-sandbox-plugin'),
-			'Open http://127.0.0.1:1337/__ultimabase/apps/main/apollo-sandbox in development.',
+			hasGraphqlExplorer(plan),
+			'Open http://127.0.0.1:1337/graphiql in development.',
 		],
 	])
 }
@@ -148,7 +146,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasDataApi(plan),
-			"Generated Task API mutations are disabled; the server-side Task write in `main` seeds a record. REST refuses to start with public writes unless a policy plugin such as Access is installed or you pass `restPlugin({ publicWrites: true })`; GraphQL's `acknowledgeUnverifiedProtection` only suppresses a diagnostic and never grants or proves authorization.",
+			'Generated Task API mutations are disabled; the server-side Task write in `main` seeds a record. REST and GraphQL refuse to start with public writes unless a policy plugin such as Access is installed or you pass `publicWrites: true` in their options.',
 		],
 		[
 			has(plan, 'access-plugin') && hasDataApi(plan),
@@ -162,7 +160,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasPublishedAuth(plan),
-			'Password Auth sign-up, login, refresh, and logout are exposed only through the selected transport operation allowlists. Sessions identify a caller; they do not grant Task access. Add online-attempt defenses before any public deployment.',
+			'Password Auth declares sign-up, login, refresh, logout, password change and logout everywhere public; every selected transport exposes them except the two the starter hides. Sessions identify a caller; they do not grant Task access. Add online-attempt defenses before any public deployment.',
 		],
 		[
 			has(plan, 'graphql-plugin') && !has(plan, 'graphql-yoga-plugin'),

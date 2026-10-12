@@ -1,17 +1,19 @@
 ---
 title: GraphQL
 seoTitle: GraphQL API from TypeScript Schemas
-description: Execute the application-local GraphQL schema directly or serve it through Yoga, with optional development explorers.
+description: Execute the application-local GraphQL schema directly or serve it through Yoga, with an optional development explorer.
 audience:
   - application-developer
 contentType: guide
 order: 4
 outcome: Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries.
 releaseStatus: pre-release
-reviewedAt: 2026-10-10
+reviewedAt: 2026-10-12
 sources:
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/options.ts
+  - packages/graphql-plugin/src/rules.ts
+  - packages/graphql-plugin/src/hints.ts
   - packages/graphql-plugin/src/networkless-execution.ts
   - packages/graphql-plugin/src/execution-errors.ts
   - packages/graphql-plugin/src/surfaces.ts
@@ -19,8 +21,8 @@ sources:
   - packages/graphql-yoga-plugin/README.md
   - packages/graphql-yoga-plugin/src/errors.ts
   - packages/graphql-http/README.md
-  - packages/graphiql-plugin/README.md
-  - packages/apollo-sandbox-plugin/README.md
+  - packages/graphql-explorer-plugin/README.md
+  - packages/api-server/README.md
   - docs/adr/0238-graphql-v1-contract.md
   - docs/adr/0309-core-cursor-pagination.md
   - docs/adr/0310-plain-data-results-and-named-types.md
@@ -30,12 +32,15 @@ sources:
   - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0311-application-lifecycle-and-authority-surface.md
   - docs/adr/0312-environment-dependent-plugin-defaults.md
+  - docs/adr/0325-graphql-explorer-and-api-server-preset.md
 ---
 
 ## Overview
 
-`@ultimabase/graphql-plugin` owns the executable schema. Yoga, HTTP, Hono, and
-browser explorers are independent, optional plugins. None installs its siblings.
+`@ultimabase/graphql-plugin` owns the executable schema. Yoga (HTTP), HTTP,
+Hono and the explorer are independent, optional plugins; none installs its
+siblings. `apiServer()` from `@ultimabase/api-server` returns them as one list
+(ADR-0325).
 
 ## Installation
 
@@ -61,85 +66,72 @@ Generated fields still need a database provider such as
 [PostgreSQL](./postgresql), even when execution has no HTTP server. See
 [Manual Installation](/docs/1.0.0/manual-installation) for the initial project.
 
-To serve GraphQL with the official [Hono Server](./hono-server) provider, also
-install these three plugins:
+To serve GraphQL over HTTP with the official [Hono Server](./hono-server)
+provider, install the preset, which brings the GraphQL, Yoga, explorer, HTTP,
+REST and Hono plugins:
 
 ```bash tab="npm" tab-group="package-manager"
-npm install @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/hono-server-plugin
+npm install @ultimabase/api-server
 ```
 
 ```bash tab="yarn"
-yarn add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/hono-server-plugin
+yarn add @ultimabase/api-server
 ```
 
 ```bash tab="pnpm"
-pnpm add @ultimabase/graphql-yoga-plugin @ultimabase/http-plugin @ultimabase/hono-server-plugin
-```
-
-For a development explorer, additionally install the package you choose:
-
-```bash tab="npm" tab-group="package-manager"
-npm install @ultimabase/graphiql-plugin
-# or: npm install @ultimabase/apollo-sandbox-plugin
-```
-
-```bash tab="yarn"
-yarn add @ultimabase/graphiql-plugin
-# or: yarn add @ultimabase/apollo-sandbox-plugin
-```
-
-```bash tab="pnpm"
-pnpm add @ultimabase/graphiql-plugin
-# or: pnpm add @ultimabase/apollo-sandbox-plugin
+pnpm add @ultimabase/api-server
 ```
 
 ## Configuration
 
-Add `graphqlPlugin()` to a database-backed application with at least one
-queryable schema. The final schema must have a query root field; `schemas: []`
-is not a working generated API. This local example exposes only `getPost` and
-`findManyPost`. Use a disposable development database: PostgreSQL's `override`
-policy may create or alter tables.
+`apiServer({ graphql })` installs `graphqlPlugin()`, `graphqlYogaPlugin()`,
+`httpPlugin()` and `honoServerPlugin()`; `graphql: { explorer: 'graphiql' }`
+adds the development explorer. This local example exposes only `getPost`,
+`findOnePost` and `findManyPost`. Use a disposable development database:
+PostgreSQL's `override` policy may create or alter tables.
 
 ```ts title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
-import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
-import { httpPlugin } from '@ultimabase/http-plugin'
+import { apiServer } from '@ultimabase/api-server'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
-
-const SchemaApplication = UltimaBase.use(
-	graphqlPlugin({
-		acknowledgeUnverifiedProtection: true,
-		default: false,
-	}),
-)
-const Post = SchemaApplication.Schema.define({
-	className: 'Post',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-	graphql: { operations: { get: true, findMany: true } },
-})
 
 // postgresPlugin() reads DATABASE_URL at start; Hono listens on
 // 127.0.0.1:1337 outside production.
-const Application = SchemaApplication.use(postgresPlugin())
-	.use(httpPlugin({ appId: 'notes' }))
-	.use(graphqlYogaPlugin())
-	.use(honoServerPlugin())
+const Application = UltimaBase.use(
+	postgresPlugin(),
+	...apiServer({ graphql: { default: false, explorer: 'graphiql' } }),
+)
+const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+}).with({ graphql: { findOne: true, findMany: true } })
 
 export const ultimabase = new Application({
 	schemas: [Post],
 })
 ```
 
+The same application without the preset installs each plugin:
+
+```ts
+UltimaBase.use(
+	postgresPlugin(),
+	httpPlugin(),
+	graphqlPlugin({ default: false }),
+	graphqlYogaPlugin(),
+	graphqlExplorerPlugin(),
+	honoServerPlugin(),
+)
+```
+
 Start this configuration from the [managed listener entry point](./hono-server#start-and-stop-the-managed-listener).
 It serves until Ctrl+C and then awaits disposal. Keep startup out of
 `src/ultimabase.ts` so Typegen and the direct scripts below can load it safely.
 
-`default: false` disables generated operations unless a schema opts in; it also
-disables plugin-defined schema mutations. The acknowledgement lets this
-reviewed local-only API start, but does not authorize requests. The loopback
+`default: false` disables every generated root and plugin command unless a
+schema's rule enables it. Exposing only reads lets this application start
+without a policy plugin; exposing a write without one refuses to start unless
+`graphqlPlugin({ publicWrites: true })` opts in (ADR-0294). The loopback
 listener, read-only exposure, and absence of credentials make this a learning
 example, not a production configuration. Before binding publicly, configure
 identity and [Access](./access) or [ACL](./acl-permissions) rules, then review
@@ -147,15 +139,16 @@ the complete exposed schema. Authentication alone grants no permission. Do
 not use `override` against shared or production data without a reviewed
 schema plan.
 
-Install GraphQL before `SchemaApplication.Schema.define(...)` so the `graphql`
-option is inferred from source without a generated plugin-option declaration.
-Typegen still supplies the application-wide named-schema graph where needed.
+Install GraphQL before `Application.Schema.define(...)` so the
+`.with({ graphql })` rule is typed from source. Typegen still supplies the
+application-wide named-schema graph where needed.
 
-For direct execution only, keep `graphqlPlugin()` and omit HTTP, Yoga, and
-Hono. The plugin also accepts `schemas` for completed custom GraphQL schemas,
-`operations` for exact plugin operations, `limits` for document and execution
-budgets, and `pagination` for the page window. See [PostgreSQL](./postgresql) for physical schema
-preparation and [HTTP](./http) for application identity validation.
+For direct execution only, install `graphqlPlugin()` without HTTP, Yoga and
+Hono. Its options are `default`, `hide` (public operations not to expose),
+`limits` (document and execution budgets), `pagination` (the page window),
+`publicWrites`, `schemas` (completed custom GraphQL schemas) and `sdl` (a
+schema file written at startup). See [PostgreSQL](./postgresql) for physical
+schema preparation and [HTTP](./http) for application identity validation.
 
 ## Behavior and limitations
 
@@ -171,32 +164,47 @@ schema and field path. Every field using the same shared enum from
 `defineEnum('TaskPriority', [...])` uses one `TaskPriority` enum type (ADR-0310);
 a name that collides with another generated type fails schema compilation.
 
-The `src/ultimabase.ts` example above deliberately exposes **only** `getPost` and
-`findManyPost`. The "default" column describes what a schema would expose
-without that example's `default: false` setting. A disabled field is absent
-from the endpoint's schema, even for Master.
+The `src/ultimabase.ts` example above deliberately exposes **only** `getPost`,
+`findOnePost` and `findManyPost`. The "default" column describes what a schema
+would expose without that example's `default: false` setting. A disabled field
+is absent from the endpoint's schema, even for Master; a document that selects
+it fails validation with a hint naming the rule to set, for example
+`Cannot query field "countPost" on type "Query". hint: enable graphql: { count: true } on Post`.
 
+The rule keys are the schema method names, the same as REST and Access rules
+(ADR-0325): `findOne` (`get<Type>` and `findOne<Type>`), `findMany`, `count`,
+`exists`, `createOne`, `updateOne`, `deleteOne`, `upsertOne`, `createMany`,
+`updateMany`, `deleteMany`, `upsertMany`, a plugin command such as
+`softDeleteOne`, and `typeName`, which renames the generated type.
 `graphql: false` removes one schema's generated surface. `graphql: true`
-enables **every** generated operation, including count, upsert, and bulk.
-For a narrower surface, use `graphql: { operations: { ... } }`: omitted
-operations inherit `graphqlPlugin({ default })`, then the built-in defaults.
-Exposure never grants authorization.
+enables **every** generated root and command, including count, upsert, and
+bulk. An object enables or disables each method it names; omitted methods
+inherit `graphqlPlugin({ default })`, then the built-in defaults. A plugin
+command is exposed only when a rule names it, or when the rule or the default
+is `true`. Exposure never grants authorization.
 
 ### Generated queries
 
-| Field          | Arguments                                                                  | What it returns                          | Default |
-| -------------- | -------------------------------------------------------------------------- | ---------------------------------------- | ------- |
-| `getPost`      | `id: ID!`                                                                  | One `Post`; a missing target is an error | On      |
-| `findOnePost`  | `where: PostWhere`, `orderBy: [PostOrder!]`                                | First match or `null`                    | On      |
-| `findManyPost` | `where: PostWhere`, `orderBy: [PostOrder!]`, `first: Int`, `after: String` | A `PostConnection!` page                 | On      |
-| `countPost`    | `where: PostWhere`                                                         | Matching-row count as `SafeInt!`         | Off     |
-| `existsPost`   | `where: PostWhere`                                                         | Whether a match exists as `Boolean!`     | On      |
+| Field          | Rule key   | Arguments                                                                  | What it returns                          | Default |
+| -------------- | ---------- | -------------------------------------------------------------------------- | ---------------------------------------- | ------- |
+| `health`       | (always)   | none                                                                       | `HealthStatus!`: `OK` or `DEGRADED`      | On      |
+| `getPost`      | `findOne`  | `id: ID!`                                                                  | One `Post`; a missing target is an error | On      |
+| `findOnePost`  | `findOne`  | `where: PostWhere`, `orderBy: [PostOrder!]`                                | First match or `null`                    | On      |
+| `findManyPost` | `findMany` | `where: PostWhere`, `orderBy: [PostOrder!]`, `first: Int`, `after: String` | A `PostConnection!` page                 | On      |
+| `countPost`    | `count`    | `where: PostWhere`                                                         | Matching-row count as `SafeInt!`         | Off     |
+| `existsPost`   | `exists`   | `where: PostWhere`                                                         | Whether a match exists as `Boolean!`     | On      |
 
-`findManyPost` returns `nodes`, `edges`, and `pageInfo` with `endCursor` and
-`hasNextPage`; it does not return `totalCount`. Use `countPost` separately
-when enabled. Filters and ordering are generated from the schema's actual
-fields and their supported operators. GraphQL selections choose result
-fields; there is no `select` argument.
+`health` answers `OK` or `DEGRADED`, as `ultimabase.health()`, and never the
+detail; it is always present, so an application without any exposed schema
+starts, with a warning. `findManyPost` returns `nodes`, `edges`, and
+`pageInfo` with `endCursor` and `hasNextPage`. When `count` is enabled for the
+schema, it also returns `totalCount`, computed by one count query only when
+the document selects it; a relation connection has no count (its
+`totalCount` is a `VALIDATION_ERROR`). Filters and ordering are generated from
+the schema's actual fields; each filter lists only the operators the database
+adapter declares (ADR-0301), and a field without any declared operator is
+absent from the filter input. GraphQL selections choose result fields; there
+is no `select` argument.
 
 ```graphql title="src/queries.graphql"
 query FirstPosts {
@@ -218,20 +226,20 @@ This query works with the read-only local configuration above. Pass
 
 ### Generated mutations
 
-| Field            | Required argument             | What it returns                     | Default |
-| ---------------- | ----------------------------- | ----------------------------------- | ------- |
-| `createPost`     | `input: PostCreateInput!`     | Created `Post!`                     | On      |
-| `updatePost`     | `input: PostUpdateOneInput!`  | Updated `Post`                      | On      |
-| `deletePost`     | `input: PostDeleteOneInput!`  | Deleted `Post` preimage             | On      |
-| `upsertPost`     | `input: PostUpsertOneInput!`  | Created or updated `Post!`          | Off     |
-| `createManyPost` | `input: PostCreateManyInput!` | Created `[Post!]!` items            | Off     |
-| `updateManyPost` | `input: PostUpdateManyInput!` | Updated `[Post!]!` items            | Off     |
-| `deleteManyPost` | `input: PostDeleteManyInput!` | Deleted `[Post!]!` preimages        | Off     |
-| `upsertManyPost` | `input: PostUpsertManyInput!` | Created or updated `[Post!]!` items | Off     |
+| Field            | Rule key     | Required argument             | What it returns                     | Default |
+| ---------------- | ------------ | ----------------------------- | ----------------------------------- | ------- |
+| `createPost`     | `createOne`  | `input: PostCreateInput!`     | Created `Post!`                     | On      |
+| `updatePost`     | `updateOne`  | `input: PostUpdateOneInput!`  | Updated `Post`                      | On      |
+| `deletePost`     | `deleteOne`  | `input: PostDeleteOneInput!`  | Deleted `Post` preimage             | On      |
+| `upsertPost`     | `upsertOne`  | `input: PostUpsertOneInput!`  | Created or updated `Post!`          | Off     |
+| `createManyPost` | `createMany` | `input: PostCreateManyInput!` | Created `[Post!]!` items            | Off     |
+| `updateManyPost` | `updateMany` | `input: PostUpdateManyInput!` | Updated `[Post!]!` items            | Off     |
+| `deleteManyPost` | `deleteMany` | `input: PostDeleteManyInput!` | Deleted `[Post!]!` preimages        | Off     |
+| `upsertManyPost` | `upsertMany` | `input: PostUpsertManyInput!` | Created or updated `[Post!]!` items | Off     |
 
 The local example exposes **none** of these mutations. Enable only the
 operations you intend to serve, after configuring authorization. For example,
-with `create: true` on `Post`, a caller can send:
+with `.with({ graphql: { createOne: true } })` on `Post`, a caller can send:
 
 ```graphql title="src/mutations.graphql"
 mutation CreatePost {
@@ -262,12 +270,18 @@ underlying mutation behavior.
 
 The tables cover generated schema operations, not a universal list for every
 application. A plugin-owned schema does not receive generated CRUD fields.
-Exact application operations appear only when selected through
-`graphqlPlugin({ operations })` and bound by their owner. For example,
-[Password Authentication](./password-authentication) can contribute `signUp`,
-`login`, `refresh`, and `logout` mutations when explicitly selected, while
-[Soft Delete](./soft-delete) can contribute schema-specific `softDeleteOnePost`
-and `restoreOnePost` mutations when enabled. Custom GraphQL schemas may add other root fields.
+An operation its owner declared public appears in every installed transport
+(ADR-0324): [Password Authentication](./password-authentication) contributes
+`signUp`, `login`, `refresh`, `logout`, `changePassword` and
+`logoutEverywhere`, with typed GraphQL bindings. `graphqlPlugin({ hide:
+[passwordAuthOperations.refresh] })` hides one; an operation not declared
+public never appears. A public operation without a GraphQL binding, such as
+one declared with `defineOperation()`, becomes a mutation named after it that
+takes and returns `JSON`, validated by the operation's own contract.
+[Soft Delete](./soft-delete) contributes schema-specific `softDeleteOnePost`
+and `restoreOnePost` mutations when the rule names them
+(`graphql: { softDeleteOne: true }`). Custom GraphQL schemas may add other
+root fields.
 
 To inspect what **your** application exposes, run this standalone script
 instead of the server entry point. It starts the same configuration, prints
@@ -279,6 +293,9 @@ import { ultimabase } from './ultimabase.js'
 await using app = await ultimabase.start()
 console.log(app.plugin('@ultimabase/graphql-plugin').printSchema())
 ```
+
+For graphql-codegen or gql.tada, `graphqlPlugin({ sdl: './schema.graphql' })`
+writes the same SDL to that file each time the application starts.
 
 Yoga answers introspection for browser schema discovery outside production
 and refuses it when `NODE_ENV=production`, unless `introspection` is set
@@ -326,14 +343,15 @@ To run a document as a given user, pass `principal` (a pointer, or
 provider's answer for that context, so `graphql.execute({ context, document,
 principal: TodoUser.pointer(userId) })` evaluates every policy as that user.
 
-Generated reads, mutations, nested writes, virtual fields, and explicitly selected
+Generated reads, mutations, nested writes, virtual fields, and public
 plugin operations all delegate through Core's narrow application request executor.
 Custom schema resolvers receive only `{ request: RequestContext }`, never the
 application, executor, adapter, grant, transaction, or lifecycle control.
 
 ### Pagination and protection
 
-Collections use Relay-style `edges`, `nodes`, and `pageInfo` without `totalCount`.
+Collections use Relay-style `edges`, `nodes`, and `pageInfo`, plus
+`totalCount` on root connections when `count` is enabled.
 `first` defaults to 100 and is capped at 1000; a larger `first` is a GraphQL
 error. `graphqlPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })` sets
 other values, with the same option and defaults as REST. A root
@@ -353,10 +371,18 @@ REST returns the same pages as a `{ results, nextCursor }` envelope; the visible
 objects pass through the same Query normalization, policies, Runtime, and
 database capability.
 
-Generated public GraphQL surfaces report
-`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` until you explicitly acknowledge a
-reviewed policy, as REST does. Exposure controls declarations only; it never
-grants access.
+GraphQL, like REST, refuses to start when it exposes a write (a generated
+mutation or a plugin command) and no protected policy such as Access is
+installed, unless `graphqlPlugin({ publicWrites: true })` lets every client
+write (ADR-0294). Exposure controls declarations only; it never grants access.
+
+A selection of relations is one SQL statement: GraphQL turns it into a Core
+`include`, and PostgreSQL reads every level in the same query. A virtual
+field on included rows runs once per parent; declare `resolveMany` to resolve
+all the rows of a read in one call (see
+[Virtual Fields](/docs/1.0.0/core/data-modeling/virtual-fields)). Reading a
+relation row by row in application code, for example
+`todo.relation('tags').findMany()` in a loop, stays one query per row.
 
 ### Serve GraphQL over HTTP with Yoga
 
@@ -381,23 +407,23 @@ graphqlYogaPlugin({
 ```
 
 HTTP selects the application and resolves its request context before Yoga begins.
-Yoga forwards that context to the same GraphQL execution capability as direct
-calls. It does not reimplement policies, virtual fields, contextual relations,
+Yoga validates documents with the application's rules, so a disabled feature
+answers with the same hint, and forwards that context to the same GraphQL
+execution capability as direct calls. It does not reimplement policies, virtual fields, contextual relations,
 transactions, cancellation, or safe errors.
 
-To verify the local setup, send a query with its exact HTTP application ID:
+To verify the local setup, send a query:
 
 ```bash title="terminal"
 curl -i -X POST \
-  -H 'X-UltimaBase-Application-Id: notes' \
   -H 'Content-Type: application/json' \
   --data '{"query":"{ findManyPost(first: 10) { nodes { id title } } }"}' \
   http://127.0.0.1:1337/graphql
 ```
 
 On a fresh database, expect HTTP `200` with an empty `nodes` array inside
-`data.findManyPost`. A missing or incorrect application ID is rejected by
-HTTP before Yoga executes the query. Introspection follows `NODE_ENV`: it
+`data.findManyPost`. An `X-UltimaBase-Application-Id` header that names
+another application is rejected by HTTP before Yoga executes the query. Introspection follows `NODE_ENV`: it
 answers in development and is refused when `NODE_ENV=production`.
 
 A successful HTTP status is not enough to decide whether a GraphQL operation
@@ -409,44 +435,46 @@ public error contract.
 
 ### Choose a development explorer
 
-Explorers are optional, independent plugins. Add one only if you need a browser
-UI; neither installs GraphQL, Yoga, HTTP, or a server. For an application with
-ID `notes`:
+`@ultimabase/graphql-explorer-plugin` serves one browser explorer for the
+installed GraphQL HTTP endpoint (ADR-0325); it installs neither GraphQL, Yoga,
+HTTP nor a server. `apiServer({ graphql: { explorer: 'graphiql' } })` adds it.
 
-| Explorer       | Plugin                              | Route                                     |
-| -------------- | ----------------------------------- | ----------------------------------------- |
-| GraphiQL       | `@ultimabase/graphiql-plugin`       | `/__ultimabase/apps/notes/graphiql`       |
-| Apollo Sandbox | `@ultimabase/apollo-sandbox-plugin` | `/__ultimabase/apps/notes/apollo-sandbox` |
+| Explorer       | Option                                            | Route             |
+| -------------- | ------------------------------------------------- | ----------------- |
+| GraphiQL       | `graphqlExplorerPlugin()` (default)               | `/graphiql`       |
+| Apollo Sandbox | `graphqlExplorerPlugin({ ui: 'apollo-sandbox' })` | `/apollo-sandbox` |
 
 ```ts
-import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
-import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
+import { graphqlExplorerPlugin } from '@ultimabase/graphql-explorer-plugin'
 
-// Choose the explorer you want to add to the application's `.use()` chain.
-const graphiql = graphiqlPlugin()
-const apolloSandbox = apolloSandboxPlugin()
+const explorer = graphqlExplorerPlugin({ ui: 'graphiql' })
 ```
 
-Add the chosen value (`graphiql` or `apolloSandbox`) with another `.use()` in
-`src/ultimabase.ts`. Each explorer derives its environment from `NODE_ENV`
-when created: it serves its route in development and, in production, only
-with `allowInProduction: true`. An explorer that is served while Yoga
-introspection is off refuses to start, naming the option to change.
-Restart the application and open the corresponding URL from the table on
-`http://127.0.0.1:1337`. These bootstrap page URLs work in the browser address
-bar; their GraphQL requests still send the application header.
+The explorer derives its environment from `NODE_ENV` when created: it serves
+its route in development and, in production, only with
+`allowInProduction: true`. An explorer that is served while Yoga
+introspection is off refuses to start, naming the option to change. Open
+`http://127.0.0.1:1337/graphiql`. An application that requires the
+application header (several applications behind one server) serves the same
+page at `/__ultimabase/apps/{appId}/graphiql`, and the page then sends the
+header with its requests.
 
-Each explorer targets the installed GraphQL HTTP endpoint and attaches the
-public application ID. GraphiQL has no application or endpoint switcher.
-Apollo Sandbox fixes the endpoint and disables endpoint editing and cookie
-controls. Neither embeds credentials or authority. Both load remote assets; review
-their network environmental claims before enabling either one.
+GraphiQL has no application or endpoint switcher. Apollo Sandbox fixes the
+endpoint and disables endpoint editing and cookie controls. Neither embeds
+credentials or authority. GraphiQL loads pinned esm.sh modules, each checked
+against its integrity hash, so a changed file blocks the page; its editor
+workers load their own modules without that check. Apollo Sandbox loads an
+unpinned script Apollo publishes without a version, so whatever Apollo serves
+runs in the page: a documented risk, limited by serving explorers in
+development only. Both need network access to their CDN.
 
 ## Troubleshooting
 
-If startup reports no query root field, expose at least one queryable schema
-or supply a valid custom GraphQL schema. An empty `schemas` array creates no
-placeholder query. If direct execution rejects a context, create it from the
+If startup warns that GraphQL exposes no schema or operation, expose at least
+one schema or a public operation; only the `health` field answers meanwhile.
+If startup refuses public writes, install a policy plugin such as Access or
+pass `graphqlPlugin({ publicWrites: true })`. A validation error with a
+`hint:` names the rule that enables the field. If direct execution rejects a context, create it from the
 same started application and do not retain it after cancellation or disposal.
 
 For HTTP selection errors, first check that an
