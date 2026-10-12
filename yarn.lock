@@ -3414,6 +3414,7 @@ __metadata:
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
+    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 

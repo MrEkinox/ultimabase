@@ -137,6 +137,24 @@ on Todo` ; seulement pour les schémas de l'application ; une racine
     besoin de REST et GraphQL pour typer ses règles) : écart à l'ADR, à
     trancher.
 
+## Amendement 6.6c (2026-10-12, validé par l'utilisateur)
+
+Revue REST, décision 7 : les formats dérivent des validateurs de l'opération.
+Une opération publique sans liaison GraphQL reçoit des types dérivés de
+`public.input` / `public.output` (JSON Schema) : objets → `<Opération>Input`
+(entrée) et `<Opération>Result` (sortie), objets imbriqués
+`<Parent><Propriété>`, énumérations de chaînes → enum (sinon `String`),
+listes, nullabilité (`anyOf` avec `null`, propriété facultative), scalaires
+`String`, `SafeInt` (entier), `Float`, `Boolean` ; enregistrement ouvert,
+union ou autre forme → `JSON` pour cette partie seulement ; entrée `null` →
+pas d'argument. La lecture Standard JSON Schema est partagée dans plugin-kit
+(`readStandardJsonSchema`), utilisée par `defineOperation` et par l'OpenAPI de
+REST ; la conversion en types GraphQL est dans
+`graphql-plugin/src/operation-json-types.ts` et produit les mêmes métadonnées
+qu'une liaison (mêmes contrôles de noms et de décodage). Les opérations avec
+liaison GraphQL explicite (Password Auth, statut de l'exemple) la gardent.
+Consigné dans ADR-0325, section « 6.6c amendment (2026-10-12) ».
+
 ## Approches rejetées
 
 - Indices par post-traitement des messages d'erreur dans Yoga : il aurait

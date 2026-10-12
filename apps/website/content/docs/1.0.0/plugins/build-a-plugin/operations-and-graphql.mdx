@@ -201,7 +201,8 @@ An operation the owner declares public (`public: { name }`) appears in every
 installed transport (ADR-0325). For typed GraphQL fields, the owner also
 supplies an exact wire codec and inert GraphQL metadata and requests
 `transport:expose`; without that binding, GraphQL exposes the operation as a
-mutation that takes and returns `JSON`. The owner can name the canonical
+mutation whose types derive from `public.input` and `public.output` (JSON
+Schema), with `JSON` for what GraphQL cannot describe. The owner can name the canonical
 protocol through Core without importing the GraphQL package:
 
 ```ts title="src/graphql-binding.ts"

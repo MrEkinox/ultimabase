@@ -358,9 +358,27 @@ An operation is public only when its owner declares it
 exposes it, like every installed transport, and `graphqlPlugin({ hide: [token] })`
 hides it; a hidden token that is not a public operation fails startup. With a
 binding for the canonical `ultimabase.graphql.operation@1.0.0` protocol, the
-owner describes the field, its input and result types; without one, the
-operation becomes a mutation named after its public name, taking and
-returning `JSON`, validated by its own input contract.
+owner describes the field, its input and result types. Without one, the
+operation becomes a mutation named after its public name whose types derive
+from the JSON Schema its owner declared (`public.input`, `public.output`;
+`defineOperation()` reads it from its Standard JSON Schema validators, as
+REST's OpenAPI does): objects become `<Name>Input` input types and
+`<Name>Result` object types, nested objects `<Parent><Property>`, string
+enums enums, plus lists, nullability and the `String`, `SafeInt`, `Float`
+and `Boolean` scalars; any part GraphQL cannot describe (an open record, a
+union) is `JSON`, and an operation without a schema takes and returns `JSON`.
+A `null` input takes no argument. The operation's own contract still
+validates the input (ADR-0325, 6.6c amendment).
+
+```ts
+defineOperation({
+	name: 'planTrip',
+	input: z.object({ title: z.string(), priority: z.enum(['low', 'high']) }),
+	output: z.object({ id: z.string() }),
+	handler,
+})
+// planTrip(input: PlanTripInput!): PlanTripResult!
+```
 
 ```ts
 import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'

@@ -51,3 +51,7 @@ export {
 	type DefineOperationOptions,
 	type OperationHandlerInput,
 } from './define-operation.js'
+export {
+	readStandardJsonSchema,
+	type StandardJsonSchema,
+} from './standard-json-schema.js'

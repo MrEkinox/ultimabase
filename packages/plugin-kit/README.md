@@ -129,7 +129,10 @@ export const createInvoice = defineOperation({
   application error the client receives.
 - Wire values are JSON; the result goes through `toJSON` like REST results.
 - A validator implementing Standard JSON Schema (as Zod does) describes the
-  operation in the REST OpenAPI document.
+  operation in the REST OpenAPI document and types its GraphQL field
+  (`createInvoice(input: CreateInvoiceInput!): CreateInvoiceResult!`).
+  `readStandardJsonSchema(validator, 'input' | 'output')` is the shared
+  reading both transports use.
 - `name` is a camelCase identifier; the Core operation is
   `application.<kebab-case name>`, owned by the `application.operations`
   plugin with the name as instance.

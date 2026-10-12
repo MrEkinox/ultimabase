@@ -1,7 +1,6 @@
 import type {
 	ApplicationOperationTransportPlan,
 	ApplicationSchemaMutationTransportPlan,
-	ExposedOperationTransportBinding,
 	ExposedSchemaMutationTransportBinding,
 	PluginSchemaContributionOwner,
 	SchemaDefinition,
@@ -22,7 +21,6 @@ import {
 	bindingOwnerFor,
 	normalizeGraphqlOperationBindingMetadata,
 	normalizeGraphqlSchemaMutationBindingMetadata,
-	type GraphqlOperationBindingMetadata,
 	type GraphqlSchemaMutationBindingMetadata,
 } from './binding-metadata.js'
 import { GraphqlBindingTypes } from './binding-types.js'
@@ -35,6 +33,7 @@ import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import type { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
+import { describeUnboundOperation } from './operation-json-types.js'
 import type { graphqlProtocol } from './protocol.js'
 import { graphqlMethodNames, readGraphqlSchemaRule } from './rules.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
@@ -59,23 +58,6 @@ export type GraphqlBindingRoots = (
 	query: RootFields,
 	mutation: RootFields,
 ) => Readonly<{ commands: readonly string[] }>
-
-/**
- * The GraphQL form of a public operation its owner did not bind (ADR-0325):
- * a mutation named after the public name, taking and returning `JSON`, whose
- * input the operation's own contract validates.
- */
-const defaultOperationMetadata = (
-	descriptor: ExposedOperationTransportBinding,
-): GraphqlOperationBindingMetadata =>
-	immutableRecord({
-		field: descriptor.public?.name ?? descriptor.name,
-		input: immutableRecord({ kind: 'named' as const, name: 'JSON' }),
-		kind: 'graphql-operation-binding' as const,
-		result: immutableRecord({ kind: 'named' as const, name: 'JSON' }),
-		root: 'mutation' as const,
-		types: immutableArray([]),
-	})
 
 // A command its owner did not bind takes no data: its input is the row ID.
 const unboundCommandMetadata: GraphqlSchemaMutationBindingMetadata =
@@ -112,7 +94,7 @@ export const compileGraphqlBindings = (
 					descriptor.metadata,
 					descriptor.name,
 				)
-			: defaultOperationMetadata(descriptor),
+			: describeUnboundOperation(descriptor),
 		owner: bindingOwnerFor(descriptor),
 	}))
 	for (const { descriptor, metadata, owner } of operations) {

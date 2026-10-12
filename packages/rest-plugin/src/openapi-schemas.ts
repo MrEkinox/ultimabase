@@ -5,6 +5,7 @@ import {
 	type GenericOutputDescriptor,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { readStandardJsonSchema } from '@ultimabase/plugin-kit'
 import { isPlainRecord } from '@ultimabase/shared'
 
 /** One JSON Schema (draft 2020-12, the OpenAPI 3.1 dialect). */
@@ -71,35 +72,8 @@ const isField = (value: unknown): value is GenericField =>
 /** Reads the constraints a field's Standard JSON Schema validators describe. */
 const readConstraints = (field: GenericField): readonly JsonSchema[] =>
 	Object.values(field.options).flatMap((option): JsonSchema[] => {
-		if (
-			(typeof option !== 'object' && typeof option !== 'function') ||
-			option === null
-		) {
-			return []
-		}
-		const standard: unknown = Reflect.get(option, '~standard')
-		const converter: unknown = isPlainRecord(standard)
-			? standard.jsonSchema
-			: undefined
-		const convert: unknown = isPlainRecord(converter)
-			? converter.input
-			: undefined
-		if (typeof convert !== 'function') return []
-		try {
-			const schema: unknown = Reflect.apply(convert, converter, [
-				{ target: 'draft-2020-12' },
-			])
-			if (!isPlainRecord(schema)) return []
-			// The document declares its own dialect.
-			return [
-				Object.fromEntries(
-					Object.entries(schema).filter(([key]) => key !== '$schema'),
-				),
-			]
-		} catch {
-			// A validator that cannot describe itself stays undocumented.
-			return []
-		}
+		const schema = readStandardJsonSchema(option, 'input')
+		return schema === undefined ? [] : [schema]
 	})
 
 /** Wraps one scalar schema in the field's declared list levels. */

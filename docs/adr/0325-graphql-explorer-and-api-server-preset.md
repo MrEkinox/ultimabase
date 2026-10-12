@@ -78,3 +78,17 @@ at a time, and no SDL file is written for client tooling. Two explorer packages 
 
 Subscriptions (future Realtime plugin), persisted queries, `GET` queries, file uploads, offline
 explorer assets.
+
+## 6.6c amendment (2026-10-12)
+
+Validated by the user before the merge of migration step 6.6c, applying REST review decision 7
+(formats derived from the operation's validators). A public operation without a GraphQL binding
+no longer takes and returns `JSON`: its input and result types derive from the JSON Schema its
+owner declared (`public.input`, `public.output`), which `defineOperation()` reads from its Standard
+JSON Schema validators through the same reading as REST's OpenAPI document
+(`readStandardJsonSchema` in `@ultimabase/plugin-kit`). Objects become `<Operation>Input` input
+types and `<Operation>Result` object types, nested objects `<Parent><Property>`; string enums
+become enums; lists, nullability (`null` unions, omitted properties) and the `String`, `SafeInt`,
+`Float` and `Boolean` scalars follow the schema; any part GraphQL cannot describe falls back to
+`JSON` for that part only; a `null` input takes no argument. Operations with an explicit GraphQL
+binding keep it.

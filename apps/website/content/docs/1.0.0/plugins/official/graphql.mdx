@@ -13,6 +13,7 @@ sources:
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/options.ts
   - packages/graphql-plugin/src/rules.ts
+  - packages/graphql-plugin/src/operation-json-types.ts
   - packages/graphql-plugin/src/hints.ts
   - packages/graphql-plugin/src/networkless-execution.ts
   - packages/graphql-plugin/src/execution-errors.ts
@@ -276,8 +277,12 @@ An operation its owner declared public appears in every installed transport
 `logoutEverywhere`, with typed GraphQL bindings. `graphqlPlugin({ hide:
 [passwordAuthOperations.refresh] })` hides one; an operation not declared
 public never appears. A public operation without a GraphQL binding, such as
-one declared with `defineOperation()`, becomes a mutation named after it that
-takes and returns `JSON`, validated by the operation's own contract.
+one declared with `defineOperation()`, becomes a mutation named after it
+whose types derive from its validators, as REST's OpenAPI document does:
+`planTrip(input: PlanTripInput!): PlanTripResult!`, with nested objects
+named `<Parent><Property>`, string enums as enums, lists and nullability.
+Any part GraphQL cannot describe, such as an open record, is `JSON`; the
+operation's own validator still checks the input.
 [Soft Delete](./soft-delete) contributes schema-specific `softDeleteOnePost`
 and `restoreOnePost` mutations when the rule names them
 (`graphql: { softDeleteOne: true }`). Custom GraphQL schemas may add other

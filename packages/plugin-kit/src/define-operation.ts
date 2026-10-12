@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import { FrameworkError, toJSON, type JsonValue } from '@ultimabase/core'
+import { FrameworkError, toJSON } from '@ultimabase/core'
 import {
 	contributeOperation,
 	defineOperation as defineOperationToken,
@@ -14,6 +14,8 @@ import {
 	isPlainRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
+
+import { readStandardJsonSchema } from './standard-json-schema.js'
 
 /** What an application operation's handler receives. */
 export interface OperationHandlerInput<TInput> {
@@ -90,61 +92,6 @@ const pathSegment = (
 const kebabCase = (value: string): string =>
 	value.replace(/([a-z0-9])([A-Z])/gu, '$1-$2').toLowerCase()
 
-/** Narrows a value produced by a JSON Schema converter to plain JSON. */
-const toJsonValue = (value: unknown): JsonValue | undefined => {
-	if (
-		value === null ||
-		typeof value === 'string' ||
-		typeof value === 'boolean' ||
-		(typeof value === 'number' && Number.isFinite(value))
-	) {
-		return value
-	}
-	if (Array.isArray(value)) {
-		const items: JsonValue[] = []
-		for (const item of value) {
-			const json = toJsonValue(item)
-			if (json === undefined) return undefined
-			items.push(json)
-		}
-		return items
-	}
-	if (!isPlainRecord(value)) return undefined
-	const entries: [string, JsonValue][] = []
-	for (const [key, item] of Object.entries(value)) {
-		const json = toJsonValue(item)
-		if (json === undefined) return undefined
-		entries.push([key, json])
-	}
-	return Object.fromEntries(entries)
-}
-
-/** Describes one validator as JSON Schema when it implements Standard JSON Schema. */
-const describe = (
-	validator: StandardSchemaV1,
-	direction: 'input' | 'output',
-): JsonValue | undefined => {
-	const converter: unknown = Reflect.get(validator['~standard'], 'jsonSchema')
-	if (typeof converter !== 'object' || converter === null) return undefined
-	const convert: unknown = Reflect.get(converter, direction)
-	if (typeof convert !== 'function') return undefined
-	try {
-		const schema: unknown = Reflect.apply(convert, converter, [
-			{ target: 'draft-2020-12' },
-		])
-		if (!isPlainRecord(schema)) return undefined
-		// The OpenAPI document declares its own dialect.
-		return toJsonValue(
-			Object.fromEntries(
-				Object.entries(schema).filter(([key]) => key !== '$schema'),
-			),
-		)
-	} catch {
-		// A validator that cannot describe itself stays undocumented.
-		return undefined
-	}
-}
-
 // Wire values are JSON; results go through `toJSON` like REST results (ADR-0310).
 const jsonInput = defineOperationValue<unknown>((value, path) => {
 	try {
@@ -217,8 +164,8 @@ export const defineOperation = <
 		transaction: 'optional',
 		version: '1.0.0',
 	})
-	const inputSchema = describe(input, 'input')
-	const outputSchema = describe(output, 'output')
+	const inputSchema = readStandardJsonSchema(input, 'input')
+	const outputSchema = readStandardJsonSchema(output, 'output')
 	return plugin({
 		id: applicationOperationPluginId,
 		instanceId: options.name,
