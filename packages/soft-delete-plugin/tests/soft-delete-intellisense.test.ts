@@ -134,7 +134,6 @@ void Invalid
 			generatedDocument?.fields.find((field) => field.name === name),
 		).toMatchObject({
 			name,
-			typegen: { create: 'forbidden', update: 'forbidden' },
 		})
 	}
 	service.dispose()

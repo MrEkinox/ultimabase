@@ -16,6 +16,7 @@ describe('plugin schema option ownership rejection', () => {
 		const Ambiguous = UltimaBase.Schema.define({
 			className: 'AmbiguousOptionOwner',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		} as never).with({
 			workflow: { enabled: true },
 		} as never)
 

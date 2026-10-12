@@ -28,13 +28,16 @@ const currentMemberId = new RequestContextValue<string>(
 		return value
 	},
 )
-const Member = UltimaBase.Schema.define({
-	className: 'ACLRelationshipMember',
-	fields: (field) => ({
-		name: field.string({ required: true }),
-	}),
-	postgres: { table: 'acl_relationship_members' },
-})
+const Member = UltimaBase.use(postgresPlugin())
+	.Schema.define({
+		className: 'ACLRelationshipMember',
+		fields: (field) => ({
+			name: field.string({ required: true }),
+		}),
+	})
+	.with({
+		postgres: { table: 'acl_relationship_members' },
+	})
 const identityPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
@@ -50,16 +53,17 @@ const identityPlugin = plugin({
 	],
 })
 const emptyACL = new ACL()
-const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLSchemaApplication = UltimaBase.use(postgresPlugin()).use(aclPlugin())
 const Author = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
-	postgres: { table: 'acl_relationship_authors' },
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_relationship_authors' },
 		acl: {
 			default: emptyACL,
 		},
@@ -69,10 +73,10 @@ const Tag = ACLSchemaApplication.Schema.define({
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
-	postgres: { table: 'acl_relationship_tags' },
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_relationship_tags' },
 		acl: {
 			default: emptyACL,
 		},
@@ -84,10 +88,10 @@ const Article = ACLSchemaApplication.Schema.define({
 		tags: field.relation({ target: 'ACLRelationshipTag' }),
 		title: field.string({ required: true }),
 	}),
-	postgres: { table: 'acl_relationship_articles' },
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_relationship_articles' },
 		acl: {
 			default: emptyACL,
 		},

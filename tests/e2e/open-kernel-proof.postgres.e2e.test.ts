@@ -52,22 +52,26 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			instanceId: 'primary',
 			targetClassName: 'OpenKernelLedgerEntry',
 		})
-		const LedgerEntry = PostgresHookApplication.use(value).Schema.define({
-			className: 'OpenKernelLedgerEntry',
-			decimalLedger: { defaultScale: 2 },
-			postgres: { table: 'open_kernel_ledger_entries' },
-			fields: (field) => ({
-				label: field.string({
-					decimalLabel: { format: 'accounting' },
+		const LedgerEntry = PostgresHookApplication.use(value)
+			.Schema.define({
+				className: 'OpenKernelLedgerEntry',
+				fields: (field) => ({
+					label: field.string({
+						decimalLabel: { format: 'accounting' },
+					}),
 				}),
-			}),
-		})
+			})
+			.with({
+				decimalLedger: { defaultScale: 2 },
+				postgres: { table: 'open_kernel_ledger_entries' },
+			})
 		const SoftPost = PostgresHookApplication.Schema.define({
 			className: 'OpenKernelSoftPost',
-			postgres: { table: 'open_kernel_soft_posts' },
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
+		}).with({
+			postgres: { table: 'open_kernel_soft_posts' },
 			hooks: {
 				afterOperation: {
 					delete: ({ originalItem }) => {

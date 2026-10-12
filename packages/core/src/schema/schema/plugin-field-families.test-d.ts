@@ -9,16 +9,11 @@ import {
 test('preserves exact family, builder, context, and factory identities', () => {
 	const family = definePluginFieldFamily({
 		fieldKind: 'fixture.text',
-		typegen: {
-			module: '@fixture/text-plugin',
-			valueType: 'TextValue',
-		},
 		builder: {
 			name: 'text',
 			contexts: {
 				stored: {
 					factory: stringField,
-					methodType: 'TextFieldBuilderMethod',
 				},
 			},
 		},
@@ -36,11 +31,9 @@ test('rejects Core and unnamespaced field kinds', () => {
 	definePluginFieldFamily({
 		// @ts-expect-error -- Plugin field kinds remain namespaced.
 		fieldKind: 'secret',
-		typegen: { module: '@fixture/secret-plugin', valueType: 'SecretValue' },
 	})
 	definePluginFieldFamily({
 		// @ts-expect-error -- Core field kinds cannot be redefined by plugins.
 		fieldKind: 'string',
-		typegen: { module: '@fixture/secret-plugin', valueType: 'SecretValue' },
 	})
 })

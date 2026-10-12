@@ -44,9 +44,7 @@ await ultimabase.start()
 const surface = (className) => [
 	...(ultimabase
 		.compile()
-		.typegenGraph.schemaSurfaces.find(
-			({ schema }) => schema.className === className,
-		)
+		.schemaSurfaces.find(({ schema }) => schema.className === className)
 		?.schemaMutations.keys() ?? []),
 ]
 

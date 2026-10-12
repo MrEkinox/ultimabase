@@ -31,7 +31,7 @@ const command = compiled.schemas.get(CommandPost.className)
 const logical = compiled.schemas.get(LogicalPost.className)
 const plain = compiled.schemas.get(PlainPost.className)
 const surface = (className) => [
-	...(compiled.typegenGraph.schemaSurfaces
+	...(compiled.schemaSurfaces
 		.find(({ schema }) => schema.className === className)
 		?.schemaMutations.keys() ?? []),
 ]

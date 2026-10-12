@@ -57,6 +57,7 @@ const second = await compile(
 const MissingPlugin = UltimaBase.Schema.define({
 	className: 'JavaScriptPostgresMissingPlugin',
 	fields: () => ({}),
+}).with({
 	postgres: { table: 'missing_posts' },
 })
 let missingPluginCode

@@ -169,7 +169,10 @@ describe('canonical command graph', () => {
 		)
 		application.compileSchemas()
 		const graph = readApplicationKernelState(application).commands
-		const inspection = application.typegenGraph
+		const inspection = {
+			operations: application.operations,
+			schemaSurfaces: application.schemaSurfaces,
+		}
 		const operation = inspection.operations[0]?.operation
 		expect(operation).toBe(graph.get(owned.operation.name)?.definition)
 		expect(operation).not.toBe(owned.operation)
@@ -195,9 +198,7 @@ describe('canonical command graph', () => {
 		expect(surface).not.toHaveProperty('modelMutations')
 		// An untyped tooling consumer can only mutate its detached lookup indexes.
 		if (surface.schemaMutations instanceof Map) surface.schemaMutations.clear()
-		expect(
-			application.typegenGraph.schemaSurfaces[0]?.schemaMutations.size,
-		).toBe(2)
+		expect(application.schemaSurfaces[0]?.schemaMutations.size).toBe(2)
 		expect(direct?.schemaMutations.size).toBe(2)
 		expect(owned.create).not.toHaveBeenCalled()
 	})

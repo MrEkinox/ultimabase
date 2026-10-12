@@ -25,26 +25,29 @@ type ACLChangeHandlerInput = PluginEventHandlerInput<
 >
 
 let rejectNextUpdate = false
-const ACLChangeApplication = UltimaBase.use(hooksPlugin()).use(aclPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLChangeApplication = UltimaBase.use(postgresPlugin())
+	.use(hooksPlugin())
+	.use(aclPlugin())
 const Post = ACLChangeApplication.Schema.define({
 	className: 'ACLChangeEventPost',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	hooks: {
-		afterOperation: {
-			update: () => {
-				if (!rejectNextUpdate) return
-
-				rejectNextUpdate = false
-				throw new Error('ACL change event rollback fixture')
-			},
-		},
-	},
-	postgres: { table: 'acl_change_event_posts' },
 })
 	.acl()
 	.with({
+		hooks: {
+			afterOperation: {
+				update: () => {
+					if (!rejectNextUpdate) return
+
+					rejectNextUpdate = false
+					throw new Error('ACL change event rollback fixture')
+				},
+			},
+		},
+		postgres: { table: 'acl_change_event_posts' },
 		acl: {
 			default: new ACL().grantPublic('read'),
 		},

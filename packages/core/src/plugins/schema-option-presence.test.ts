@@ -32,10 +32,6 @@ describe('schema option-presence selection', () => {
 				return value as (value: string) => string
 			},
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/document-plugin',
-				type: 'DocumentOption',
-			},
 			valueKind: 'opaque',
 		})
 		const documentPlugin = createPlugin({
@@ -89,8 +85,9 @@ describe('schema option-presence selection', () => {
 		// This Runtime selector fixture supplies the plugin option before installation.
 		const Document = UltimaBase.Schema.define({
 			className: 'OpaqueOptionDocument',
-			document: transform,
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		} as never).with({
+			document: transform,
 		} as never)
 		const Plain = UltimaBase.Schema.define({
 			className: 'OpaqueOptionPlain',
@@ -154,7 +151,6 @@ describe('schema option-presence selection', () => {
 				return value
 			},
 			protocolVersion: 1,
-			typegen: false,
 		})
 		const plugin = createPlugin({
 			core: '^0.0.0',
@@ -196,11 +192,13 @@ describe('schema option-presence selection', () => {
 		const Disabled = UltimaBase.Schema.define({
 			className: 'AbsentOptionDisabled',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		} as never).with({
 			mode: false,
 		} as never)
 		const Explicit = UltimaBase.Schema.define({
 			className: 'AbsentOptionExplicit',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		} as never).with({
 			mode: 'explicit',
 		} as never)
 

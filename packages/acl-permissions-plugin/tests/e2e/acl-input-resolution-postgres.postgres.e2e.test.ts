@@ -33,7 +33,8 @@ let updateResolution: CapturedUpdateResolution | undefined
 let rollbackResolution: CapturedUpdateResolution | undefined
 let resolutionCount = 0
 
-const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLSchemaApplication = UltimaBase.use(postgresPlugin()).use(aclPlugin())
 const publicRead = new ACL().grantPublic('read')
 const ResolutionPost = ACLSchemaApplication.Schema.define({
 	className: 'ACLInputResolutionPost',
@@ -45,10 +46,10 @@ const ResolutionPost = ACLSchemaApplication.Schema.define({
 		title: field.string({ required: true }),
 		views: field.int({ default: 2 }),
 	}),
-	postgres: { table: 'acl_input_resolution_posts' },
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_input_resolution_posts' },
 		acl: {
 			default: emptyACL,
 			// ADR-0321: recomputes the ACL from the row's data on each write

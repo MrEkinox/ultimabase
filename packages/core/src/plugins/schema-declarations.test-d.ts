@@ -264,6 +264,7 @@ test('does not claim issue 1408 direct option augmentation', () => {
 	UltimaBase.Schema.define({
 		className: 'UngeneratedWorkflowSchema',
 		fields: (field) => ({ title: field.string() }),
+	}).with({
 		workflow: { enabled: true },
 	})
 })

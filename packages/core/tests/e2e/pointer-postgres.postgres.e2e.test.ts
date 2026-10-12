@@ -41,6 +41,7 @@ const Post = PointerSchemaApplication.Schema.define({
 		}),
 		title: field.string({ required: true }),
 	}),
+}).with({
 	hooks: {
 		afterOperation: {
 			update: ({ changes }) => {
@@ -132,6 +133,7 @@ const PrivateTarget = PointerSchemaApplication.Schema.define({
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
+}).with({
 	access: {
 		read: false,
 	},

@@ -52,8 +52,9 @@ const BridgeSchemaApplication = UltimaBase.use(
 )
 const BridgeItem = BridgeSchemaApplication.Schema.define({
 	className: 'AdapterBridgeItem',
-	postgres: { table: 'adapter_bridge_items' },
 	fields: () => ({ value: storedValue }),
+}).with({
+	postgres: { table: 'adapter_bridge_items' },
 })
 
 let fixture: PostgresWorkerFixture | undefined

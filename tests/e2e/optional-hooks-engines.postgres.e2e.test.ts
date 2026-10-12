@@ -59,6 +59,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
+		}).with({
 			postgres: { table: 'optional_hooks_typescript_posts' },
 		})
 		const ultimabase = new Application({
@@ -187,10 +188,11 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 		)
 		const Post = Application.Schema.define({
 			className: 'AlternativePostgresPost',
-			alternativeBehavior: alternativeBehavior({ label: 'publishing' }),
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
+		}).with({
+			alternativeBehavior: alternativeBehavior({ label: 'publishing' }),
 			postgres: { table: 'optional_hooks_alternative_posts' },
 		})
 		const ultimabase = new Application({

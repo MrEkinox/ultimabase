@@ -208,11 +208,14 @@ describe('independent protected policy engine', () => {
 		const engine = createAlternativePolicyEngine({
 			onDispose: () => disposed.push('disposed'),
 		})
-		const Document = UltimaBase.use(engine.plugin).Schema.define({
-			className: 'AlternativePolicyIsolationDocument',
-			alternativePolicy: alternativeTenantPolicy({ tenant: 'isolated' }),
-			fields: (field) => ({ tenant: field.string(), title: field.string() }),
-		})
+		const Document = UltimaBase.use(engine.plugin)
+			.Schema.define({
+				className: 'AlternativePolicyIsolationDocument',
+				fields: (field) => ({ tenant: field.string(), title: field.string() }),
+			})
+			.with({
+				alternativePolicy: alternativeTenantPolicy({ tenant: 'isolated' }),
+			})
 		const support = createSupportPlugin(new AlternativeReadAdapter())
 		const first = new (UltimaBase.use(support, engine.plugin))({
 			logger: false,

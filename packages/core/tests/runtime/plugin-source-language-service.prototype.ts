@@ -84,6 +84,7 @@ export const Post = Application.Schema.define({
 		}),
 		title: field.string({ required: true }),
 	}),
+}).with({
 	workflow: { enabled: true },
 })
 

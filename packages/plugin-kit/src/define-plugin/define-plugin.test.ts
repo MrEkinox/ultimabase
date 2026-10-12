@@ -47,7 +47,7 @@ const archivePlugin = () =>
 	})
 
 const surface = (application: CompiledApplication, className: string) =>
-	application.typegenGraph.schemaSurfaces.find(
+	application.schemaSurfaces.find(
 		({ schema }) => schema.className === className,
 	)
 

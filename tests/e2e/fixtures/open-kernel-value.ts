@@ -47,10 +47,6 @@ const decimalLedgerOption = defineSchemaOption<DecimalLedgerOption>({
 		return immutableRecord({ defaultScale: value.defaultScale as number })
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/open-kernel',
-		type: 'DecimalLedgerOption',
-	},
 })
 
 const decimalLabelOption = defineFieldOption<DecimalLabelOption>({
@@ -66,10 +62,6 @@ const decimalLabelOption = defineFieldOption<DecimalLabelOption>({
 		return immutableRecord({ format: value.format })
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/open-kernel',
-		type: 'DecimalLabelOption',
-	},
 })
 
 export const decimalFieldKind = 'fixture.open-kernel.decimal' as const
@@ -121,16 +113,11 @@ const decimalValueType = defineTypegenReference({
 })
 const decimalBuilderMethod = definePluginFieldFamily({
 	fieldKind: decimalFieldKind,
-	typegen: {
-		module: decimalValueType.module,
-		valueType: 'DecimalValue',
-	},
 	builder: {
 		name: 'preciseDecimal',
 		contexts: {
 			stored: {
 				factory: decimalField,
-				methodType: 'DecimalFieldBuilderMethod',
 			},
 		},
 	},
@@ -170,10 +157,6 @@ export const createValuePlugin = (options: ValuePluginOptions) =>
 						}),
 					)
 					return [field, optionsReceipt, patch]
-				},
-				typegen: ({ typegenReferences }) => {
-					// The compiled graph retains its reference without startup generation.
-					typegenReferences.register(decimalValueType)
 				},
 			}),
 		],

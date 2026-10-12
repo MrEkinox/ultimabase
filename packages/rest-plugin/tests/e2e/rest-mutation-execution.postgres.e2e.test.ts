@@ -55,43 +55,42 @@ const MutationPost = RestMutationApplication.Schema.define({
 			validation: z.string().min(2),
 		}),
 	}),
-	hooks: {
-		beforeOperation: {
-			create: async ({ item }) => {
-				hookTrace.push(`before:create:${String(item.slug)}`)
-				if (item.slug !== 'deadline') return
-
-				const signal = getCurrentRequest().signal
-				await new Promise<never>((_resolve, reject) => {
-					const rejectForCancellation = (): void => {
-						const reason: unknown = signal.reason
-						reject(
-							reason instanceof Error
-								? reason
-								: new Error('Mutation deadline reached', { cause: reason }),
-						)
-					}
-					if (signal.aborted) {
-						rejectForCancellation()
-						return
-					}
-					signal.addEventListener('abort', rejectForCancellation, {
-						once: true,
-					})
-				})
-			},
-			delete: ({ originalItem }) => {
-				hookTrace.push(`before:delete:${String(originalItem.slug)}`)
-			},
-			update: ({ item }) => {
-				hookTrace.push(`before:update:${String(item.slug)}`)
-			},
-		},
-	},
-	postgres: { table: 'rest_mutation_execution_posts' },
 })
 	.acl()
 	.with({
+		hooks: {
+			beforeOperation: {
+				create: async ({ item }) => {
+					hookTrace.push(`before:create:${String(item.slug)}`)
+					if (item.slug !== 'deadline') return
+
+					const signal = getCurrentRequest().signal
+					await new Promise<never>((_resolve, reject) => {
+						const rejectForCancellation = (): void => {
+							const reason: unknown = signal.reason
+							reject(
+								reason instanceof Error
+									? reason
+									: new Error('Mutation deadline reached', { cause: reason }),
+							)
+						}
+						if (signal.aborted) {
+							rejectForCancellation()
+							return
+						}
+						signal.addEventListener('abort', rejectForCancellation, {
+							once: true,
+						})
+					})
+				},
+				delete: ({ originalItem }) => {
+					hookTrace.push(`before:delete:${String(originalItem.slug)}`)
+				},
+				update: ({ item }) => {
+					hookTrace.push(`before:update:${String(item.slug)}`)
+				},
+			},
+		},
 		acl: {
 			default: publicAcl,
 		},

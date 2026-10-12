@@ -44,8 +44,9 @@ const GraphqlAuthor = GraphqlSchemaApplication.Schema.define({
 			target: 'GraphqlExecutionPost',
 		}),
 	}),
-	postgres: { table: 'graphql_execution_authors' },
-}).with({ graphql: true })
+}).with({
+	graphql: true,
+})
 
 const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionPost',
@@ -72,29 +73,28 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 			validation: z.string().min(2),
 		}),
 	}),
-	hooks: {
-		beforeOperation: {
-			create: ({ item }) => {
-				hookTrace.push(
-					`${getCurrentRequest().requestId}:create:${String(item.slug)}`,
-				)
-			},
-			delete: ({ originalItem }) => {
-				hookTrace.push(
-					`${getCurrentRequest().requestId}:delete:${String(originalItem.slug)}`,
-				)
-			},
-			update: ({ item }) => {
-				hookTrace.push(
-					`${getCurrentRequest().requestId}:update:${String(item.slug)}`,
-				)
-			},
-		},
-	},
-	postgres: { table: 'graphql_execution_posts' },
 })
 	.acl()
 	.with({
+		hooks: {
+			beforeOperation: {
+				create: ({ item }) => {
+					hookTrace.push(
+						`${getCurrentRequest().requestId}:create:${String(item.slug)}`,
+					)
+				},
+				delete: ({ originalItem }) => {
+					hookTrace.push(
+						`${getCurrentRequest().requestId}:delete:${String(originalItem.slug)}`,
+					)
+				},
+				update: ({ item }) => {
+					hookTrace.push(
+						`${getCurrentRequest().requestId}:update:${String(item.slug)}`,
+					)
+				},
+			},
+		},
 		acl: {
 			default: publicAcl,
 		},

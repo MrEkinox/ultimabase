@@ -21,7 +21,6 @@ const highlighted = definePluginFieldOption({
   contexts: ['stored'],
   normalize: (value) => value === true,
   protocolVersion: 1,
-  typegen: false,
 })
 
 const definition = plugin({

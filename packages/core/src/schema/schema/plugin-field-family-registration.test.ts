@@ -10,18 +10,11 @@ import { createApplication } from '../../application/framework-application.js'
 
 const validDefinition = () => ({
 	fieldKind: 'fixture.secret' as const,
-	typegen: {
-		module: '@fixture/secret-plugin',
-		structuralContainsType: 'SecretContainsOperand',
-		valueType: 'SecretValue',
-	},
 })
 
 describe('plugin field family registration', () => {
-	it('registers a generated value contract without a builder method', async () => {
-		const input = validDefinition()
-		const family = definePluginFieldFamily(input)
-		input.typegen.valueType = 'MutatedValue'
+	it('registers a field kind without a builder method', async () => {
+		const family = definePluginFieldFamily(validDefinition())
 		const application = applicationFixture(
 			await createApplication({
 				plugins: [
@@ -48,14 +41,6 @@ describe('plugin field family registration', () => {
 		await application.dispose()
 
 		expect(application.fieldBuilderMethods).toStrictEqual([])
-		expect(application.pluginFieldTypes).toStrictEqual([
-			{
-				fieldKind: 'fixture.secret',
-				owner: 'fixture.secret-plugin',
-				typegen: validDefinition().typegen,
-			},
-		])
-		expect(Object.isFrozen(application.pluginFieldTypes[0]?.typegen)).toBe(true)
 	})
 
 	it('rejects forged definitions at the owner boundary', async () => {

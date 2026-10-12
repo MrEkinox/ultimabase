@@ -25,9 +25,7 @@ const schemaSurface = (
 ) =>
 	application
 		.compile()
-		.typegenGraph.schemaSurfaces.find(
-			({ schema }) => schema.className === className,
-		)
+		.schemaSurfaces.find(({ schema }) => schema.className === className)
 
 const commandNames = [
 	'purgeMany',
@@ -177,8 +175,7 @@ describe('softDeletePlugin', () => {
 		const Document = UltimaBase.Schema.define({
 			className: 'MissingSoftDeletePlugin',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-			softDelete: {},
-		} as never)
+		} as never).softDelete()
 		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
 

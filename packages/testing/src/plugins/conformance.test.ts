@@ -206,13 +206,7 @@ describe('plugin conformance suite', () => {
 					execute: ({ input }) => input,
 					operation: inspect,
 				}),
-				contributeDeclarations({
-					typegen: ({ typegenReferences }) => {
-						typegenReferences.register(publicState)
-
-						return undefined
-					},
-				}),
+				contributeDeclarations({}),
 			],
 		})
 		const suite = definePluginConformanceSuite({
@@ -311,7 +305,7 @@ describe('plugin conformance suite', () => {
 			await ultimabase.initialize()
 			const surface = ultimabase
 				.compile()
-				.typegenGraph.schemaSurfaces.find(
+				.schemaSurfaces.find(
 					({ schema }) => schema.className === Post.className,
 				)
 

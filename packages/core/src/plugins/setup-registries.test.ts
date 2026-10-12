@@ -10,11 +10,8 @@ describe('PluginSetupRegistries', () => {
 
 		expect(Object.keys(context).sort()).toStrictEqual([
 			'capabilities',
-			'fieldBuilderMethods',
 			'logger',
-			'pluginFieldTypes',
 			'schemas',
-			'typegenGraph',
 		])
 		expect(context).not.toHaveProperty('runtime')
 		expect(context).not.toHaveProperty('events')

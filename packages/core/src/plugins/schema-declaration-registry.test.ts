@@ -209,10 +209,6 @@ describe('plugin schema declaration registry', () => {
 				return snapshotJsonValue(value, path)
 			},
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/stable-option-plugin',
-				type: 'StableOption',
-			},
 		})
 		const plugin = (pluginId: string) =>
 			createPlugin({
@@ -238,6 +234,7 @@ describe('plugin schema declaration registry', () => {
 		const Shared = UltimaBase.Schema.define({
 			className: 'StableReusePost',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		} as never).with({
 			stable: { enabled: true },
 		} as never)
 		const first = applicationFixture(

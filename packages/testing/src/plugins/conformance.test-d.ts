@@ -43,15 +43,17 @@ const subject = plugin({
 const Application = UltimaBaseFactory.use(subject)
 const Post = Application.Schema.define({
 	className: 'ConformancePost',
-	enabled: true,
 	fields: (field) => ({ title: field.string() }),
+}).with({
+	enabled: true,
 })
 
 // @ts-expect-error -- The unconfigured factory cannot author plugin options.
 UltimaBaseFactory.Schema.define({
 	className: 'UnconfiguredConformancePost',
-	enabled: true,
 	fields: (field) => ({ title: field.string() }),
+}).with({
+	enabled: true,
 })
 
 test('preserves exact subject and schema tuples in optional checks', () => {

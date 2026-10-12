@@ -109,6 +109,7 @@ export const AuthorityRecordSchema = RuntimeSchemaApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
+}).with({
 	hooks: {
 		beforeOperation: {
 			create: ({ context, item }) => {
@@ -130,6 +131,7 @@ export const HookPostSchema = RuntimeSchemaApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
+}).with({
 	hooks: {
 		beforeOperation: {
 			create: async ({ item }) => {

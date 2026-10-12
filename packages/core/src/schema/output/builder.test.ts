@@ -32,7 +32,6 @@ describe('OutputBuilder', () => {
 	it('uses only output-context plugin methods and validates their descriptors', () => {
 		const outputMethod = definePluginFieldFamily({
 			fieldKind: 'fixture.slug',
-			typegen: { module: '@fixture/slug-plugin', valueType: 'SlugValue' },
 			builder: {
 				name: 'slug',
 				contexts: {
@@ -48,7 +47,6 @@ describe('OutputBuilder', () => {
 									return value.toLowerCase()
 								},
 							),
-						methodType: 'SlugOutputBuilderMethod',
 					},
 				},
 			},
@@ -77,32 +75,22 @@ describe('OutputBuilder', () => {
 	it('rejects stored factories and forged outputs in the output context', () => {
 		const storedOnly = definePluginFieldFamily({
 			fieldKind: 'fixture.stored-only',
-			typegen: {
-				module: '@fixture/stored-only-plugin',
-				valueType: 'StoredOnlyValue',
-			},
 			builder: {
 				name: 'storedOnly',
 				contexts: {
 					stored: {
 						factory: stringField,
-						methodType: 'StoredOnlyFieldBuilderMethod',
 					},
 				},
 			},
 		})
 		const invalidOutput = definePluginFieldFamily({
 			fieldKind: 'fixture.invalid-output',
-			typegen: {
-				module: '@fixture/invalid-output-plugin',
-				valueType: 'InvalidOutputValue',
-			},
 			builder: {
 				name: 'invalidOutput',
 				contexts: {
 					output: {
 						factory: stringField,
-						methodType: 'InvalidOutputBuilderMethod',
 					},
 				},
 			},

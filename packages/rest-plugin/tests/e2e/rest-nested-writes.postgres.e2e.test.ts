@@ -24,11 +24,12 @@ const RestNestedWriteApplication = UltimaBase.use(accessPlugin())
 
 const Target = RestNestedWriteApplication.Schema.define({
 	className: 'RestNestedTarget',
-	access: { update: false },
 	fields: (field) => ({
 		name: field.string({ required: true }),
 		score: field.bigint({ default: 0n }),
 	}),
+}).with({
+	access: { update: false },
 })
 
 const Post = RestNestedWriteApplication.Schema.define({

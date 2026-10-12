@@ -42,6 +42,7 @@ describe('Hook contribution provenance', () => {
 					hooks: { resolveInput: ({ value }) => value },
 				}),
 			}),
+		}).with({
 			hooks: {
 				beforeOperation: { create: () => undefined },
 			},
@@ -56,6 +57,7 @@ describe('Hook contribution provenance', () => {
 		const Owned = HooksApplication.Schema.define({
 			className: 'PluginOwnedInlineSchemaHooks',
 			fields: (field) => ({ title: field.string() }),
+		}).with({
 			hooks: { beforeOperation: { create: () => undefined } },
 		})
 

@@ -72,13 +72,16 @@ const createBehaviorSupportPlugin = () =>
 
 const createAlternativeFixture = () => {
 	const engine = createAlternativeBehaviorEngine({ instanceId: 'typed' })
-	const Post = UltimaBase.use(engine.plugin).Schema.define({
-		className: 'AlternativeBehaviorPost',
-		alternativeBehavior: alternativeBehavior({ label: 'editorial' }),
-		fields: (field) => ({
-			title: field.string({ required: true }),
-		}),
-	})
+	const Post = UltimaBase.use(engine.plugin)
+		.Schema.define({
+			className: 'AlternativeBehaviorPost',
+			fields: (field) => ({
+				title: field.string({ required: true }),
+			}),
+		})
+		.with({
+			alternativeBehavior: alternativeBehavior({ label: 'editorial' }),
+		})
 	const observer = createAlternativeBehaviorDiagnosticObserver(() => undefined)
 
 	return { engine, observer, Post }
@@ -172,11 +175,14 @@ describe('optional Hooks engine proof', () => {
 		const engine = createAlternativeBehaviorEngine({
 			onDispose: () => disposed.push('disposed'),
 		})
-		const Post = UltimaBase.use(engine.plugin).Schema.define({
-			className: 'AlternativeBehaviorIsolationPost',
-			alternativeBehavior: alternativeBehavior({ label: 'isolated' }),
-			fields: (field) => ({ title: field.string() }),
-		})
+		const Post = UltimaBase.use(engine.plugin)
+			.Schema.define({
+				className: 'AlternativeBehaviorIsolationPost',
+				fields: (field) => ({ title: field.string() }),
+			})
+			.with({
+				alternativeBehavior: alternativeBehavior({ label: 'isolated' }),
+			})
 		const database = createBehaviorSupportPlugin()
 		const first = new (UltimaBase.use(database, engine.plugin))({
 			logger: false,

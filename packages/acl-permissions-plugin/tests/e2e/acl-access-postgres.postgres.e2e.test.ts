@@ -78,17 +78,18 @@ const identityPlugin = plugin({
 	],
 })
 const emptyACL = new ACL()
-const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLSchemaApplication = UltimaBase.use(postgresPlugin()).use(aclPlugin())
 const ProtectedPost = ACLSchemaApplication.Schema.define({
 	className: 'ACLAccessPost',
 	fields: (field) => ({
 		marker: field.string({ default: 'original' }),
 		title: field.string({ required: true }),
 	}),
-	postgres: { table: 'acl_access_posts' },
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_access_posts' },
 		acl: {
 			default: emptyACL,
 		},

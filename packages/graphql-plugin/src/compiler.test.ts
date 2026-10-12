@@ -400,7 +400,6 @@ describe('GraphQL structural schema compilation', () => {
 		})
 		const fieldType = definePluginFieldFamily({
 			fieldKind: 'fixture.missing-codec',
-			typegen: { module: '@fixture/missing-codec', valueType: 'MissingValue' },
 		})
 		const owner = plugin({
 			core: '^0.0.0',

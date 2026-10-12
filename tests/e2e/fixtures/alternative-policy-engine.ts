@@ -104,10 +104,6 @@ const alternativePolicySchemaOption = defineSchemaOption({
 	normalize: (value) =>
 		alternativeTenantPolicy(value as AlternativeTenantPolicyOptions),
 	protocolVersion: 1,
-	typegen: {
-		module: './fixtures/alternative-policy-engine.js',
-		type: 'AlternativeTenantPolicyOptions',
-	},
 	valueKind: 'json',
 })
 

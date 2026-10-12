@@ -136,6 +136,7 @@ export const ProtectedPost = RoleSchemaApplication.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
+}).with({
 	access: {
 		create: false,
 		delete: hasRole(AdministratorReference),
@@ -168,6 +169,7 @@ export const MissingProviderPost =
 		fields: (field) => ({
 			title: field.string({ required: true }),
 		}),
+	}).with({
 		access: {
 			create: true,
 			read: true,

@@ -199,7 +199,7 @@ const completeSuite = suite
 		expect(
 			ultimabase
 				.compile()
-				.typegenGraph.schemaSurfaces.some(
+				.schemaSurfaces.some(
 					({ schema }) => schema.className === 'Post',
 				),
 		).toBe(true)

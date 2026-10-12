@@ -48,7 +48,6 @@ const contextualOption = definePluginFieldOption({
 	contexts: ['stored', 'embedded'],
 	normalize: (value: unknown) => String(value),
 	protocolVersion: 1,
-	typegen: false,
 })
 expectTypeOf(contextualOption.contexts).toEqualTypeOf<
 	readonly ('stored' | 'embedded' | 'virtual' | 'output')[]
@@ -74,14 +73,10 @@ const ratingField = (): RatingField =>
 	)
 const ratingFamily = definePluginFieldFamily({
 	fieldKind: 'community.rating',
-	typegen: {
-		module: '@example/rating-plugin',
-		valueType: 'RatingValue',
-	},
 	builder: {
 		name: 'rating',
 		contexts: {
-			stored: { factory: ratingField, methodType: 'RatingFieldBuilderMethod' },
+			stored: { factory: ratingField },
 		},
 	},
 })
@@ -89,7 +84,6 @@ const highlightedOption = definePluginFieldOption({
 	contexts: ['stored'],
 	normalize: (value) => value === true,
 	protocolVersion: 1,
-	typegen: false,
 })
 const ratingPlugin = plugin({
 	core: '^0.0.0',

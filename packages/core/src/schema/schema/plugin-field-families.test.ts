@@ -4,16 +4,11 @@ import { definePluginFieldFamily, stringField } from '../../index.js'
 
 const validDefinition = () => ({
 	fieldKind: 'fixture.text' as const,
-	typegen: {
-		module: '@fixture/text-plugin',
-		valueType: 'TextValue',
-	},
 	builder: {
 		name: 'text' as const,
 		contexts: {
 			stored: {
 				factory: stringField,
-				methodType: 'TextFieldBuilderMethod',
 			},
 		},
 	},
@@ -23,21 +18,16 @@ describe('definePluginFieldFamily', () => {
 	it('snapshots shared metadata without wrapping its factory', () => {
 		const input = validDefinition()
 		const family = definePluginFieldFamily(input)
-		input.typegen.valueType = 'MutatedValue'
-		input.builder.contexts.stored.methodType = 'MutatedMethod'
+		Reflect.set(input.builder, 'name', 'mutated')
+		Reflect.set(input.builder.contexts.stored, 'fieldKind', 'fixture.mutated')
 
 		expect(family).toStrictEqual({
 			fieldKind: 'fixture.text',
-			typegen: {
-				module: '@fixture/text-plugin',
-				valueType: 'TextValue',
-			},
 			builder: {
 				name: 'text',
 				contexts: {
 					stored: {
 						factory: stringField,
-						methodType: 'TextFieldBuilderMethod',
 					},
 				},
 			},
@@ -46,7 +36,7 @@ describe('definePluginFieldFamily', () => {
 		expect(Object.isFrozen(family.builder.contexts.stored)).toBe(true)
 	})
 
-	it('retains exact per-context kind and Typegen overrides', () => {
+	it('retains exact per-context kind overrides', () => {
 		const family = definePluginFieldFamily({
 			...validDefinition(),
 			builder: {
@@ -55,11 +45,6 @@ describe('definePluginFieldFamily', () => {
 					output: {
 						factory: stringField,
 						fieldKind: 'fixture.output-text',
-						methodType: 'TextOutputBuilderMethod',
-						typegen: {
-							module: '@fixture/output-text-plugin',
-							valueType: 'TextOutputValue',
-						},
 					},
 				},
 			},
@@ -67,11 +52,10 @@ describe('definePluginFieldFamily', () => {
 
 		expect(family.builder.contexts.output).toMatchObject({
 			fieldKind: 'fixture.output-text',
-			methodType: 'TextOutputBuilderMethod',
 		})
 	})
 
-	it('rejects unstable families, builders, and type references', () => {
+	it('rejects unstable families and builders', () => {
 		const defineUntyped = definePluginFieldFamily as (
 			definition: unknown,
 		) => unknown
@@ -120,16 +104,25 @@ describe('definePluginFieldFamily', () => {
 		).toThrow(
 			'Plugin field family builder contexts.stored.factory must be a function',
 		)
+		// Typegen metadata left with Typegen (ADR-0297).
 		expect(() =>
-			definePluginFieldFamily({
+			defineUntyped({
 				...validDefinition(),
-				typegen: {
-					...validDefinition().typegen,
-					module: ' @fixture/text-plugin',
+				typegen: { module: '@fixture/text', valueType: 'TextValue' },
+			}),
+		).toThrow('Unknown Plugin field family definition key: typegen')
+		expect(() =>
+			defineUntyped({
+				...validDefinition(),
+				builder: {
+					...validDefinition().builder,
+					contexts: {
+						stored: { factory: stringField, methodType: 'TextMethod' },
+					},
 				},
 			}),
 		).toThrow(
-			'Plugin field family typegen.module must be a stable module specifier',
+			'Unknown Plugin field family builder contexts.stored key: methodType',
 		)
 		expect(() =>
 			definePluginFieldFamily({
@@ -138,13 +131,5 @@ describe('definePluginFieldFamily', () => {
 				fieldKind: 'text',
 			}),
 		).toThrow('Plugin field family fieldKind must use a namespaced identifier')
-		expect(() =>
-			definePluginFieldFamily({
-				...validDefinition(),
-				typegen: { ...validDefinition().typegen, valueType: 'Text<Value>' },
-			}),
-		).toThrow(
-			'Plugin field family typegen.valueType must be a TypeScript export identifier',
-		)
 	})
 })

@@ -21,8 +21,6 @@ describe('opaque option selection boundary', () => {
 		// this test checks the Runtime selector boundary, not source authorization.
 		const Target = UltimaBase.Schema.define({
 			className: 'OpaqueDirectSelector',
-			opaque: { enabled: true, callback },
-			portable: { enabled: true, nested: { tag: 'ready' } },
 			fields: (field: FieldBuilder) => ({
 				title: field.string({
 					default: () => {
@@ -31,6 +29,9 @@ describe('opaque option selection boundary', () => {
 					},
 				}),
 			}),
+		} as never).with({
+			opaque: { enabled: true, callback },
+			portable: { enabled: true, nested: { tag: 'ready' } },
 		} as never)
 		const selectors: Readonly<Record<string, SchemaSelectorOptions>> = {
 			present: { option: { name: 'opaque' } },
@@ -63,7 +64,6 @@ describe('opaque option selection boundary', () => {
 		const option = defineSchemaOption({
 			normalize: (value) => value,
 			protocolVersion: 1,
-			typegen: false,
 			valueKind: 'opaque',
 		})
 		const plugin = createPlugin({
@@ -123,8 +123,8 @@ describe('opaque option selection boundary', () => {
 		// Preparation inspects the value once; matching must not reopen opaque contents.
 		expect(opaqueReads).toBe(1)
 		// Public command inspection stays inert even when private declarations retain callbacks.
-		expect(JSON.stringify(application.typegenGraph)).not.toContain(
-			'artifactKind',
-		)
+		expect(
+			JSON.stringify([application.operations, application.schemaSurfaces]),
+		).not.toContain('artifactKind')
 	})
 })

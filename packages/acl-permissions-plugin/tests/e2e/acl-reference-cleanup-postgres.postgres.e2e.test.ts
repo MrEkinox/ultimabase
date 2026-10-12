@@ -45,7 +45,10 @@ type ACLChangeHandlerInput = PluginEventHandlerInput<
 	ACLChangedEvent
 >
 
-const ACLReferenceApplication = UltimaBase.use(hooksPlugin()).use(aclPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLReferenceApplication = UltimaBase.use(postgresPlugin())
+	.use(hooksPlugin())
+	.use(aclPlugin())
 
 const FailPrincipal = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferenceFailPrincipal',
@@ -96,10 +99,10 @@ const ProtectedPrimary = ACLReferenceApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	postgres: { table: 'acl_reference_primary' },
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_reference_primary' },
 		acl: {
 			default: emptyACL,
 		},
@@ -109,20 +112,20 @@ const ProtectedSecondary = ACLReferenceApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	postgres: { table: 'acl_reference_secondary' },
-	hooks: {
-		beforeOperation: {
-			update: () => {
-				if (!rejectNextSecondaryCleanup) return
-
-				rejectNextSecondaryCleanup = false
-				throw new Error('ACL reference cleanup rollback fixture')
-			},
-		},
-	},
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_reference_secondary' },
+		hooks: {
+			beforeOperation: {
+				update: () => {
+					if (!rejectNextSecondaryCleanup) return
+
+					rejectNextSecondaryCleanup = false
+					throw new Error('ACL reference cleanup rollback fixture')
+				},
+			},
+		},
 		acl: {
 			default: emptyACL,
 		},

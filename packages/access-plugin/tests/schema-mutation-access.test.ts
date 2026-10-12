@@ -170,6 +170,7 @@ const AccessDocument = AccessMutationApplication.Schema.define({
 		}),
 		title: field.string(),
 	}),
+}).with({
 	access: {
 		archive: {
 			// One rule before loading (ADR-0317): no row, or a row filter.
@@ -209,6 +210,7 @@ const BooleanDefaultDocument = UltimaBase.Schema.define({
 const ProviderDocument = AccessMutationApplication.Schema.define({
 	className: 'AccessSchemaMutationProviderDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
+}).with({
 	access: {
 		archive: ({ input }) => input.reason !== 'developer-deny',
 	},
@@ -620,6 +622,7 @@ describe('schema mutation Access', () => {
 		const StaleDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationStaleDocument',
 			fields: (field) => ({ secret: field.string(), title: field.string() }),
+		}).with({
 			access: { stale: true } as never,
 		})
 		const adapter = new SchemaMutationAdapter()
@@ -642,6 +645,7 @@ describe('schema mutation Access', () => {
 		const MasterOnlyDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationMasterOnlyDocument',
 			fields: (field) => ({ title: field.string() }),
+		}).with({
 			access: { purge: true } as never,
 		})
 		const masterAdapter = new SchemaMutationAdapter()

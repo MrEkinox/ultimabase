@@ -338,6 +338,7 @@ const Post = Application.Schema.define({
 			transform: (value) => value.trim(),
 		}),
 	}),
+}).with({
 	workflow: { enabled: true },
 })
 
@@ -489,6 +490,7 @@ test('projects exact fields, options, and operations from one static declaration
 const CoreOnly = UltimaBase.Schema.define({
 	className: 'SourceProjectionCoreOnly',
 	fields: (field) => ({ title: field.string() }),
+}).with({
 	workflow: { enabled: true },
 })
 

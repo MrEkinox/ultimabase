@@ -243,15 +243,18 @@ describe('open-kernel Typegen proof', () => {
 				instanceId: 'main',
 				targetClassName: 'OpenKernelConformanceLedger',
 			})
-			const Ledger = UltimaBase.use(value).Schema.define({
-				className: 'OpenKernelConformanceLedger',
-				decimalLedger: { defaultScale: 2 },
-				fields: (field) => ({
-					label: field.string({
-						decimalLabel: { format: 'plain' },
+			const Ledger = UltimaBase.use(value)
+				.Schema.define({
+					className: 'OpenKernelConformanceLedger',
+					fields: (field) => ({
+						label: field.string({
+							decimalLabel: { format: 'plain' },
+						}),
 					}),
-				}),
-			})
+				})
+				.with({
+					decimalLedger: { defaultScale: 2 },
+				})
 			return { Ledger, plugin: value }
 		}
 		const valueSuite = definePluginConformanceSuite({
@@ -364,15 +367,18 @@ describe('open-kernel Typegen proof', () => {
 			instanceId: 'typed',
 			targetClassName: 'OpenKernelLanguageServiceLedger',
 		})
-		const Ledger = UltimaBase.use(value).Schema.define({
-			className: 'OpenKernelLanguageServiceLedger',
-			decimalLedger: { defaultScale: 4 },
-			fields: (field) => ({
-				label: field.string({
-					decimalLabel: { format: 'accounting' },
+		const Ledger = UltimaBase.use(value)
+			.Schema.define({
+				className: 'OpenKernelLanguageServiceLedger',
+				fields: (field) => ({
+					label: field.string({
+						decimalLabel: { format: 'accounting' },
+					}),
 				}),
-			}),
-		})
+			})
+			.with({
+				decimalLedger: { defaultScale: 4 },
+			})
 		const Application = UltimaBase.use(hooksPlugin())
 			.use(createKernelSupportPlugin())
 			.use(workflow.plugin)

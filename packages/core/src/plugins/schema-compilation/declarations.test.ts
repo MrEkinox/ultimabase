@@ -74,13 +74,11 @@ describe('direct schema compilation provenance', () => {
 		const workflowOption = defineSchemaOption({
 			normalize: (value) => Boolean(value),
 			protocolVersion: 2,
-			typegen: { module: '@fixture/compiler', type: 'WorkflowOption' },
 		})
 		const searchOption = defineFieldOption({
 			contexts: ['stored'],
 			normalize: (value, path) => snapshotJsonValue(value, path),
 			protocolVersion: 1,
-			typegen: { module: '@fixture/compiler', type: 'SearchOption' },
 		})
 		const batch: SchemaDeclarationBatch = immutableRecord({
 			additions: immutableArray([
@@ -126,9 +124,6 @@ describe('direct schema compilation provenance', () => {
 			surfaces: immutableRecord({
 				modelSurfaces: immutableArray([]),
 				operations: immutableArray([]),
-			}),
-			typegen: immutableRecord({
-				references: immutableArray([]),
 			}),
 		})
 

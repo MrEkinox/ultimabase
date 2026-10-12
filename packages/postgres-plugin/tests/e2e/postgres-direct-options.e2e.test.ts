@@ -79,6 +79,7 @@ it('generates and packs exact PostgreSQL option autocomplete', async () => {
 		fields: (field) => ({
 			title: field.string({ postgres: { renamedFrom: 'headline' } }),
 		}),
+	}).with({
 		postgres: { table: 'generated_posts' },
 	})
 	const ultimabase = new Application({

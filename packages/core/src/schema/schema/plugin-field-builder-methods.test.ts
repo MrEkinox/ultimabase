@@ -48,28 +48,20 @@ const betaField = (options: FixtureFieldOptions = {}) =>
 
 const alphaMethod = definePluginFieldFamily({
 	fieldKind: 'fixture.alpha',
-	typegen: {
-		module: '@fixture/alpha-plugin',
-		valueType: 'AlphaValue',
-	},
 	builder: {
 		name: 'alpha',
 		contexts: {
-			stored: { factory: alphaField, methodType: 'AlphaFieldBuilderMethod' },
+			stored: { factory: alphaField },
 		},
 	},
 })
 
 const betaMethod = definePluginFieldFamily({
 	fieldKind: 'fixture.beta',
-	typegen: {
-		module: '@fixture/beta-plugin',
-		valueType: 'BetaValue',
-	},
 	builder: {
 		name: 'beta',
 		contexts: {
-			stored: { factory: betaField, methodType: 'BetaFieldBuilderMethod' },
+			stored: { factory: betaField },
 		},
 	},
 })
@@ -117,19 +109,15 @@ describe('plugin FieldBuilder methods', () => {
 	it('materializes only the factory declared for the active field context', async () => {
 		const contextualMethod = definePluginFieldFamily({
 			fieldKind: 'fixture.alpha',
-			typegen: alphaMethod.typegen,
 			builder: {
 				name: 'contextual',
 				contexts: {
 					embedded: {
 						factory: betaField,
 						fieldKind: 'fixture.beta',
-						methodType: 'BetaFieldBuilderMethod',
-						typegen: betaMethod.typegen,
 					},
 					stored: {
 						factory: alphaField,
-						methodType: 'AlphaFieldBuilderMethod',
 					},
 				},
 			},
@@ -280,11 +268,6 @@ describe('plugin FieldBuilder methods', () => {
 					stored: {
 						factory: alphaField,
 						fieldKind: 'fixture.alpha',
-						typegen: {
-							methodType: 'AlphaFieldBuilderMethod',
-							module: '@fixture/alpha-plugin',
-							valueType: 'AlphaValue',
-						},
 					},
 				},
 				name: 'alpha',
@@ -296,10 +279,6 @@ describe('plugin FieldBuilder methods', () => {
 			expect.objectContaining({
 				fieldKind: 'fixture.alpha',
 				owner: 'fixture.ordered-plugin',
-				typegen: {
-					module: '@fixture/alpha-plugin',
-					valueType: 'AlphaValue',
-				},
 			}),
 		])
 	})
@@ -439,13 +418,11 @@ describe('plugin FieldBuilder methods', () => {
 		})
 		const override = definePluginFieldFamily({
 			fieldKind: alphaMethod.fieldKind,
-			typegen: alphaMethod.typegen,
 			builder: {
 				name: 'string',
 				contexts: {
 					stored: {
 						factory: alphaField,
-						methodType: 'AlphaFieldBuilderMethod',
 					},
 				},
 			},
@@ -512,13 +489,11 @@ describe('plugin FieldBuilder methods', () => {
 		})
 		const incompatibleMethod = definePluginFieldFamily({
 			fieldKind: 'fixture.alpha',
-			typegen: alphaMethod.typegen,
 			builder: {
 				name: 'alpha',
 				contexts: {
 					stored: {
 						factory: betaField,
-						methodType: 'AlphaFieldBuilderMethod',
 					},
 				},
 			},
@@ -596,7 +571,6 @@ describe('plugin FieldBuilder methods', () => {
 				contexts: {
 					stored: {
 						factory: alphaField,
-						methodType: 'SnapshotFieldBuilderMethod',
 					},
 				},
 			},

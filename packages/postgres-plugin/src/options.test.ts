@@ -59,6 +59,7 @@ describe('direct PostgreSQL options', () => {
 		const schema = PostgresSchemaApplication.Schema.define({
 			className: 'PostgresExactTable',
 			fields: () => ({}),
+		}).with({
 			postgres: { table: name },
 		})
 		const application = new PostgresSchemaApplication({ schemas: [schema] })
@@ -120,6 +121,7 @@ describe('direct PostgreSQL options', () => {
 			const schema = PostgresSchemaApplication.Schema.define({
 				className: 'PostgresMalformed',
 				fields: () => ({}),
+			} as never).with({
 				postgres,
 			} as never)
 
@@ -175,6 +177,7 @@ describe('direct PostgreSQL options', () => {
 		const schema = UltimaBase.Schema.define({
 			className: 'PostgresMissingPlugin',
 			fields: () => ({}),
+		} as never).with({
 			postgres: { table: 'missing_plugin' },
 		} as never)
 

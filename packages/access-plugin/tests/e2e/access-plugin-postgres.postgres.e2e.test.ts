@@ -42,6 +42,7 @@ const AccessArticle = AccessApplication.Schema.define({
 			required: true,
 		}),
 	}),
+}).with({
 	access: {
 		read: ({ where }) => where.eq('published', true).gte('rank', 0),
 		create: false,
@@ -68,6 +69,7 @@ const BulkDocument = AccessApplication.Schema.define({
 		value: field.int({ default: 0 }),
 		visible: field.boolean({ default: false }),
 	}),
+}).with({
 	access: {
 		create: false,
 		delete: ({ where }) => where.eq('visible', true),
@@ -83,6 +85,7 @@ const UpsertDecisionDocument = AccessApplication.Schema.define({
 		key: field.string({ indexed: 'unique', required: true }),
 		score: field.int({ default: 0 }),
 	}),
+}).with({
 	access: {
 		create: false,
 		read: true,

@@ -92,6 +92,7 @@ const Note = Application.Schema.define({
 			select: { title: true },
 		}),
 	}),
+}).with({
 	rest: { findMany: true },
 })
 const ultimabase = new Application({

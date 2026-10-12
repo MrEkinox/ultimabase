@@ -94,10 +94,6 @@ const fieldOwner = plugin({
 				fields.register(
 					definePluginFieldFamily({
 						fieldKind: 'fixture.graphql-code',
-						typegen: {
-							module: '@fixture/graphql-code',
-							valueType: 'PortableCode',
-						},
 					}),
 				)
 

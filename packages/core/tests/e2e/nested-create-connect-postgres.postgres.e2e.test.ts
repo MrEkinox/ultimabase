@@ -31,13 +31,14 @@ const NestedCreateApplication =
 
 const Author = NestedCreateApplication.Schema.define({
 	className: 'NestedCreateAuthor',
-	access: {
-		read: ({ where }) => where.eq('visible', true),
-	},
 	fields: (field) => ({
 		name: field.string({ required: true }),
 		visible: field.boolean({ default: true }),
 	}),
+}).with({
+	access: {
+		read: ({ where }) => where.eq('visible', true),
+	},
 	hooks: {
 		afterOperation: {
 			create: () => {
@@ -54,11 +55,12 @@ const Author = NestedCreateApplication.Schema.define({
 
 const Tag = NestedCreateApplication.Schema.define({
 	className: 'NestedCreateTag',
-	access: { create: () => !denyTagCreate },
 	fields: (field) => ({
 		creator: field.pointer({ target: 'NestedCreateAuthor' }),
 		label: field.string({ required: true }),
 	}),
+}).with({
+	access: { create: () => !denyTagCreate },
 	hooks: {
 		afterOperation: {
 			create: () => {
@@ -79,6 +81,7 @@ const Comment = NestedCreateApplication.Schema.define({
 		body: field.string({ required: true }),
 		post: field.pointer({ required: true, target: 'NestedCreatePost' }),
 	}),
+}).with({
 	hooks: {
 		afterOperation: {
 			create: () => {
@@ -112,6 +115,7 @@ const Post = NestedCreateApplication.Schema.define({
 		}),
 		title: field.string({ required: true }),
 	}),
+}).with({
 	hooks: {
 		afterOperation: {
 			create: () => {

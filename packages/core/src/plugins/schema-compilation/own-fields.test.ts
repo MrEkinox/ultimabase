@@ -85,7 +85,6 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 												contexts: ['stored'],
 												normalize: (value) => Boolean(value),
 												protocolVersion: 1,
-												typegen: false,
 											}),
 										},
 									})

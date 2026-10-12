@@ -122,10 +122,6 @@ const alternativeBehaviorSchemaOption = defineSchemaOption({
 	normalize: (value) =>
 		alternativeBehavior(value as AlternativeBehaviorOptions),
 	protocolVersion: 1,
-	typegen: {
-		module: './fixtures/alternative-behavior-engine.js',
-		type: 'AlternativeBehaviorOptions',
-	},
 	valueKind: 'json',
 })
 

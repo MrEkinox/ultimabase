@@ -73,6 +73,7 @@ export const createOfficialAccessConformanceFixture = (
 			}),
 			visible: field.boolean(),
 		}),
+	}).with({
 		access: {
 			create: {
 				where: true,

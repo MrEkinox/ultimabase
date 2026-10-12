@@ -54,6 +54,7 @@ export const createOfficialHooksConformanceFixture = () => {
 				required: true,
 			}),
 		}),
+	}).with({
 		hooks: {
 			afterOperation: {
 				create: (input) => {

@@ -114,8 +114,11 @@ test('requires default once .acl() is called and acl only after it', () => {
 	Application.Schema.define({
 		className: 'LegacyACLOptionPost',
 		fields: (field) => ({ title: field.string() }),
-		acl: { default: new ACL() },
 	})
+		.acl()
+		.with({
+			acl: { default: new ACL() },
+		})
 })
 
 test('rejects incompatible public ACL configuration', () => {

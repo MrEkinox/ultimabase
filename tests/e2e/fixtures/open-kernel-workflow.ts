@@ -68,10 +68,6 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 		return immutableRecord({ initialState: value.initialState })
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/open-kernel',
-		type: 'WorkflowSchemaOption',
-	},
 })
 
 const transitionInput = defineOperationValue(

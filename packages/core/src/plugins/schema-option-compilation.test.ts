@@ -26,10 +26,6 @@ describe('plugin schema option compilation', () => {
 			contexts: ['output', 'stored'],
 			normalize: (value) => Boolean(value),
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/contextual-option-plugin',
-				type: 'ContextualOption',
-			},
 		})
 		expect(option.contexts).toStrictEqual(['stored', 'output'])
 		expect(Object.isFrozen(option.contexts)).toBe(true)
@@ -38,7 +34,6 @@ describe('plugin schema option compilation', () => {
 				contexts: [],
 				normalize: (value) => value,
 				protocolVersion: 1,
-				typegen: false,
 			}),
 		).toThrow('Field option contexts must be a non-empty list')
 		expect(() =>
@@ -46,7 +41,6 @@ describe('plugin schema option compilation', () => {
 				contexts: ['stored', 'stored'],
 				normalize: (value) => value,
 				protocolVersion: 1,
-				typegen: false,
 			}),
 		).toThrow('Field option contexts contains duplicate context: stored')
 
@@ -55,7 +49,6 @@ describe('plugin schema option compilation', () => {
 			contexts: ['stored'],
 			normalize: (value) => Boolean(value),
 			protocolVersion: 1,
-			typegen: false,
 		})
 		const plugin = createPlugin({
 			core: '^0.0.0',
@@ -103,35 +96,15 @@ describe('plugin schema option compilation', () => {
 		expect(setup).toStrictEqual([])
 	})
 
-	it('validates plugin-owned type-only compatibility references', () => {
-		const option = defineSchemaOption({
-			normalize: (value) => value,
-			protocolVersion: 1,
-			typegen: {
-				compatibilityType: 'FixtureOptionCompatibility',
-				module: '@fixture/schema-option-compatibility',
-				type: 'FixtureOption',
-			},
-		})
-
-		expect(option.typegen).toEqual({
-			compatibilityType: 'FixtureOptionCompatibility',
-			module: '@fixture/schema-option-compatibility',
-			type: 'FixtureOption',
-		})
+	it('rejects the Typegen descriptor removed with Typegen (ADR-0297)', () => {
+		const defineUntyped = defineSchemaOption as (definition: unknown) => unknown
 		expect(() =>
-			defineSchemaOption({
-				normalize: (value) => value,
+			defineUntyped({
+				normalize: (value: unknown) => value,
 				protocolVersion: 1,
-				typegen: {
-					compatibilityType: 'not valid',
-					module: '@fixture/schema-option-compatibility',
-					type: 'FixtureOption',
-				},
+				typegen: false,
 			}),
-		).toThrow(
-			'Schema option typegen.compatibilityType must be a TypeScript export identifier',
-		)
+		).toThrow('Unknown schema option definition key: typegen')
 	})
 
 	it('rejects setup-phase requirements for pre-setup Runtime option compilers', () => {
@@ -154,10 +127,6 @@ describe('plugin schema option compilation', () => {
 					compile: () => undefined,
 					// @ts-expect-error -- The runtime assertion protects JavaScript callers too.
 					requirement,
-				},
-				typegen: {
-					module: '@fixture/schema-option-setup-phase',
-					type: 'SetupPhaseOption',
 				},
 			}),
 		).toThrow(
@@ -199,10 +168,6 @@ describe('plugin schema option compilation', () => {
 					return undefined
 				},
 				requirement,
-			},
-			typegen: {
-				module: '@fixture/schema-option-runtime-plugin',
-				type: 'RuntimeOption',
 			},
 		} as const
 		const runtimeOption = defineSchemaOption(runtimeOptionDefinition)
@@ -284,6 +249,7 @@ describe('plugin schema option compilation', () => {
 					runtimeTag: 'field',
 				}),
 			}),
+		} as never).with({
 			runtimeTag: 'schema',
 		} as never)
 
@@ -329,10 +295,6 @@ describe('plugin schema option compilation', () => {
 					throw new Error('Runtime compilation failed')
 				},
 				requirement,
-			},
-			typegen: {
-				module: '@fixture/failing-schema-option-runtime-plugin',
-				type: 'FailingRuntimeOption',
 			},
 		})
 		const provider = createPlugin({
@@ -386,6 +348,7 @@ describe('plugin schema option compilation', () => {
 		const Post = UltimaBase.Schema.define({
 			className: 'FailingRuntimeOptionPost',
 			fields: () => ({}),
+		} as never).with({
 			runtimeTag: 'fail',
 		} as never)
 
@@ -432,6 +395,7 @@ describe('plugin schema option compilation', () => {
 					search,
 				}),
 			}),
+		} as never).with({
 			workflow,
 		} as never)
 
@@ -471,6 +435,7 @@ describe('plugin schema option compilation', () => {
 		const UnknownSchemaOption = UltimaBase.Schema.define({
 			className: 'UnknownSchemaOption',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		} as never).with({
 			workflow: { enabled: true },
 		} as never)
 		const UnknownFieldOption = UltimaBase.Schema.define({
@@ -509,10 +474,6 @@ describe('plugin schema option compilation', () => {
 				return String(value)
 			},
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/unused-option-plugin',
-				type: 'UnusedOption',
-			},
 		} as const
 		const unusedOption = defineSchemaOption(unusedOptionDefinition)
 		const unusedFieldOption = defineFieldOption({
@@ -562,11 +523,13 @@ describe('plugin schema option compilation', () => {
 		const First = UltimaBase.Schema.define({
 			className: 'ExactOptionOwnerFirst',
 			fields: () => ({}),
+		} as never).with({
 			shared: 'value',
 		} as never)
 		const Second = UltimaBase.Schema.define({
 			className: 'ExactOptionOwnerSecond',
 			fields: () => ({}),
+		} as never).with({
 			shared: 'value',
 		} as never)
 		const plugin = (pluginId: string, schema: typeof First, prefix: string) =>
@@ -584,10 +547,6 @@ describe('plugin schema option compilation', () => {
 									shared: defineSchemaOption({
 										normalize: (value) => `${prefix}:${String(value)}`,
 										protocolVersion: 1,
-										typegen: {
-											module: '@fixture/exact-option-owner',
-											type: 'SharedOption',
-										},
 									}),
 								},
 							})
@@ -653,10 +612,6 @@ describe('plugin schema option compilation', () => {
 										contexts: ['stored'],
 										normalize: (value) => `${prefix}:${String(value)}`,
 										protocolVersion: 1,
-										typegen: {
-											module: '@fixture/exact-field-option-owner',
-											type: 'SharedFieldOption',
-										},
 									}),
 								},
 							})
