@@ -13,11 +13,14 @@ export interface AuthEventBase {
 	readonly requestId: string
 }
 
-/** A user signed up through a method; a session was issued. */
+/**
+ * A user signed up through a method; a session was issued, except while
+ * `requireVerifiedEmail` waits for verification (`sessionId: null`).
+ */
 export interface AuthSignUpEvent extends AuthEventBase {
 	readonly address: string | null
 	readonly method: string
-	readonly sessionId: string
+	readonly sessionId: string | null
 	readonly userId: string
 }
 
@@ -46,20 +49,23 @@ export interface AuthLogoutEvent extends AuthEventBase {
 	readonly userId: string
 }
 
-/** A password was reset (emitted from migration step 6.4b). */
+/** A password was reset through a reset token; every session was revoked. */
 export interface AuthPasswordResetEvent extends AuthEventBase {
 	readonly userId: string
 }
 
-/** An email was verified (emitted from migration step 6.4b). */
+/** The user's email was verified (a verification token or a password reset). */
 export interface AuthEmailVerifiedEvent extends AuthEventBase {
+	/** The verified email (personal data). */
 	readonly email: string
 	readonly userId: string
 }
 
-/** An email changed (emitted from migration step 6.4b). */
+/** The user confirmed a new email, now verified. */
 export interface AuthEmailChangedEvent extends AuthEventBase {
+	/** The new email (personal data). */
 	readonly email: string
+	/** The replaced email (personal data). */
 	readonly previousEmail: string
 	readonly userId: string
 }

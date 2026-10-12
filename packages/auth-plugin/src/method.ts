@@ -16,14 +16,21 @@ import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
 
 import type { AuthMethodInfo, LinkedAccountInput } from './accounts.js'
 import type { AttemptSubject } from './attempts.js'
+import type { AuthUserRecord } from './email.js'
 import type { AuthHttpRoute } from './http-transport.js'
 import type { AuthPrincipal } from './principal.js'
 import type {
 	AuthClient,
 	AuthenticationResult,
+	AuthPendingSignUp,
 	AuthSession,
 } from './session.js'
 import type { ResolvedAuthSessionPolicy } from './session-policy.js'
+import type {
+	AuthIssuedToken,
+	AuthTokenClaim,
+	AuthTokenPurpose,
+} from './tokens.js'
 
 /**
  * Higher-kinded slot through which a method adds static members to the User
@@ -131,11 +138,14 @@ export interface AuthServices {
 	client(context: RequestContext): AuthClient | undefined
 	/**
 	 * Creates one User through the ordinary pipeline with the plugin's own
-	 * elevation, naming invalid fields in `AUTH_SIGN_UP_REJECTED`.
+	 * elevation, naming invalid fields in `AUTH_SIGN_UP_REJECTED`. `email`
+	 * sets the foundation-owned email (normalized, unverified); a taken email
+	 * is rejected without naming it. Runs in the current transaction.
 	 */
 	createUser(
 		data: Readonly<Record<string, unknown>>,
 		context: RequestContext,
+		options?: Readonly<{ email?: string }>,
 	): Promise<string>
 	/** Links one method account to a user. */
 	linkAccount(
@@ -168,6 +178,16 @@ export interface AuthServices {
 		readonly subject?: AttemptSubject
 		readonly userId: string
 	}): Promise<AuthenticationResult>
+	/**
+	 * Completes a sign-up without a session while the email waits for
+	 * verification: emits `afterSignUp` (`sessionId: null`) and reads the
+	 * profile as the new user. Runs in the current transaction.
+	 */
+	signUpPendingVerification(options: {
+		readonly context: RequestContext
+		readonly method: string
+		readonly userId: string
+	}): Promise<AuthPendingSignUp>
 	/** Reads the authenticated request, else rejects with `AUTH_INVALID_SESSION`. */
 	requireAuthenticated(context: RequestContext): AuthenticatedRequest
 	/** Rejects with `AUTH_REAUTHENTICATION_REQUIRED` unless the login is recent. */
@@ -192,6 +212,65 @@ export interface AuthServices {
 	): Promise<void>
 	/** Resets the counters of the subject after a success. */
 	resetAttempts(subject: AttemptSubject): Promise<void>
+	/**
+	 * Rejects with `AUTH_TOO_MANY_ATTEMPTS` while the subject is locked,
+	 * without an event: for requests that are not logins, such as resets.
+	 */
+	checkAttempt(subject: AttemptSubject): Promise<void>
+	/** Counts one attempt of the subject without an event. */
+	countAttempt(subject: AttemptSubject): Promise<void>
+	/**
+	 * Issues one single-use token (32 random bytes, only its SHA-256 digest
+	 * stored); it replaces the user's previous token of the same purpose.
+	 * Runs in the current transaction.
+	 */
+	issueToken(options: {
+		readonly email: string
+		readonly expiresInMs: number
+		readonly purpose: AuthTokenPurpose
+		readonly userId: string
+	}): Promise<AuthIssuedToken>
+	/** Reads the account of a valid token without using it. */
+	findToken(
+		purpose: AuthTokenPurpose,
+		token: unknown,
+	): Promise<AuthTokenClaim | undefined>
+	/** Cancels the user's current token of one purpose, if any. */
+	cancelToken(userId: string, purpose: AuthTokenPurpose): Promise<void>
+	/** Uses a valid token exactly once. Runs in the current transaction. */
+	consumeToken(
+		purpose: AuthTokenPurpose,
+		token: unknown,
+	): Promise<AuthTokenClaim | undefined>
+	/** Reads one User row with the plugin's elevation, for application callbacks. */
+	readUser(userId: string): Promise<AuthUserRecord | undefined>
+	/**
+	 * Marks the user's email verified while it still equals `email`, and its
+	 * linked accounts; emits `afterEmailVerified`. Resolves whether it was
+	 * newly verified. Runs in the current transaction.
+	 */
+	markEmailVerified(options: {
+		readonly context: RequestContext
+		readonly email: string
+		readonly userId: string
+	}): Promise<boolean>
+	/**
+	 * Replaces the user's email with a verified one and moves the method's
+	 * linked account; emits `afterEmailChanged`. Resolves the previous email.
+	 * A taken email fails with Core's `UNIQUE_VIOLATION`. Runs in the current
+	 * transaction.
+	 */
+	changeEmail(options: {
+		readonly context: RequestContext
+		readonly email: string
+		readonly method: string
+		readonly userId: string
+	}): Promise<string>
+	/**
+	 * Revokes every session of the user after a password reset and emits
+	 * `afterPasswordReset`. Runs in the current transaction.
+	 */
+	completePasswordReset(userId: string, context: RequestContext): Promise<void>
 }
 
 /** What a method's static members use to reach the started application. */
@@ -213,6 +292,17 @@ export interface AuthMethodImplementation {
 	readonly environment?: readonly PluginEnvironmentClaim[]
 	/** Creates the fields the method adds to the User schema. */
 	readonly userFields?: () => Readonly<Record<string, GenericField>>
+	/**
+	 * Whether the method signs in by email. The foundation then adds `email`,
+	 * `emailVerified` and `emailVerifiedAt` to the User, without create or
+	 * update input; only the authentication flows write them and create Users.
+	 */
+	readonly userEmail?: boolean
+	/**
+	 * Refuses sessions to users whose email is not verified: the foundation's
+	 * `refresh` fails with `AUTH_EMAIL_NOT_VERIFIED` for them.
+	 */
+	readonly requireVerifiedEmail?: boolean
 	/** Checks the User data of every create and update, such as a canonical identifier. */
 	readonly checkUserData?: (data: Readonly<Record<string, unknown>>) => void
 	/** Declares the method's private collections once the User schema is known. */
@@ -243,9 +333,11 @@ const implementationKeys = new Set([
 	'environment',
 	'errorStatuses',
 	'name',
+	'requireVerifiedEmail',
 	'routes',
 	'statics',
 	'unlink',
+	'userEmail',
 	'userFields',
 ])
 

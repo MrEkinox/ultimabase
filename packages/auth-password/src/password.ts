@@ -1,12 +1,9 @@
 import {
-	authGraphqlBinding,
-	authPayloadTypes,
 	defineAuthMethod,
-	graphqlField,
-	graphqlObjectType,
-	toAuthPayload,
+	type AuthEmailFields,
 	type AuthenticationResult,
 	type AuthMethod,
+	type AuthPendingSignUp,
 	type AuthMethodStaticsHKT,
 } from '@ultimabase/auth-plugin'
 import {
@@ -17,14 +14,28 @@ import {
 	type SchemaDefinition,
 	type StringField,
 } from '@ultimabase/core'
-import type { PluginOperationPublicDeclaration } from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	createCredentialCollection,
 	type CredentialCollection,
 } from './credentials.js'
+import { createPasswordEmailHandlers } from './email-handlers.js'
+import {
+	createPasswordEmailStatics,
+	passwordEmailGraphqlBindings,
+	passwordEmailPublicOperations,
+	passwordEmailRoutes,
+	type PasswordEmailUserStatics,
+} from './email-method.js'
+import type { PasswordEmailOperationDefinition } from './email-operations.js'
+import {
+	resolvePasswordEmailOptions,
+	type PasswordEmailChangeOptions,
+	type PasswordResetOptions,
+	type PasswordVerificationOptions,
+} from './email-options.js'
 import {
 	createPasswordHandlers,
 	deletePasswordCredential,
@@ -49,10 +60,16 @@ import {
 	type PasswordHashPolicyOptions,
 } from './password-policy.js'
 import { defaultUndefinedOptions } from './policy-options.js'
+import {
+	createPasswordGraphqlBindings,
+	createPasswordPublicOperations,
+	createPasswordRoutes,
+} from './password-transports.js'
 
 /** Configures `password()`. */
 export interface PasswordOptions<
 	TIdentifier extends PasswordIdentifier = PasswordIdentifier,
+	TRequireVerifiedEmail extends boolean = boolean,
 > {
 	/**
 	 * The User field users log in with; `email` adds a unique, normalized,
@@ -62,38 +79,91 @@ export interface PasswordOptions<
 	readonly identifier?: TIdentifier
 	/** Argon2id parameters and their monotonic `policyVersion`. */
 	readonly policy?: PasswordHashPolicyOptions
+	/**
+	 * Enables `requestPasswordReset` and `resetPassword` (identifier `email`).
+	 * @example `reset: { sendResetEmail: ({ email, token }) => mailer.sendReset(email, token) }`
+	 */
+	readonly reset?: EmailOnly<TIdentifier, PasswordResetOptions>
+	/**
+	 * Enables `requestEmailVerification`, `verifyEmail`, the email sent at
+	 * sign-up and `requireVerifiedEmail` (identifier `email`).
+	 * @example `verification: { sendVerificationEmail: ({ email, token }) => mailer.sendVerify(email, token) }`
+	 */
+	readonly verification?: EmailOnly<
+		TIdentifier,
+		PasswordVerificationOptions<TRequireVerifiedEmail>
+	>
+	/**
+	 * Enables `requestEmailChange` and `confirmEmailChange` (identifier `email`).
+	 * @example `emailChange: { sendConfirmationEmail, sendNoticeEmail }`
+	 */
+	readonly emailChange?: EmailOnly<TIdentifier, PasswordEmailChangeOptions>
 }
+
+/** An option only `identifier: 'email'` accepts. */
+type EmailOnly<TIdentifier, TOptions> = [TIdentifier] extends ['email']
+	? TOptions
+	: never
+
+/** Whether one identifier is the email: it adds the email flows. */
+type IsEmail<TIdentifier> = [TIdentifier] extends ['email'] ? true : false
 
 /** The identifier field the method adds to the User schema. */
 export type PasswordIdentifierField = StringField<
 	ScalarFieldTypegenState<true, false, true, false>
 >
 
-/** The User fields of a password method. */
+/**
+ * The User fields of a password method: `username`, or with `email` the
+ * foundation's `email`, `emailVerified` and `emailVerifiedAt`, which no
+ * create or update input accepts.
+ */
 export type PasswordUserFields<TIdentifier extends PasswordIdentifier> =
-	Readonly<Record<TIdentifier, PasswordIdentifierField>>
+	IsEmail<TIdentifier> extends true
+		? AuthEmailFields
+		: Readonly<Record<TIdentifier, PasswordIdentifierField>>
 
 /** Login credentials of a password method. */
 export type PasswordCredentials<TIdentifier extends PasswordIdentifier> =
 	Readonly<Record<TIdentifier | 'password', string>>
 
-/** Sign-up data: the User's create fields and the password. */
-export type PasswordSignUpInput<TSchema> = CreateInput<TSchema> & {
-	readonly password: string
-}
+/**
+ * Sign-up data: the User's create fields and the password, plus the email
+ * with `identifier: 'email'` (the email is not a create field).
+ */
+export type PasswordSignUpInput<
+	TSchema,
+	TIdentifier extends PasswordIdentifier = 'username',
+> = CreateInput<TSchema> &
+	(IsEmail<TIdentifier> extends true
+		? { readonly email: string; readonly password: string }
+		: { readonly password: string })
+
+/**
+ * What `signUp` returns: a session, or with `requireVerifiedEmail` the
+ * profile and `verificationRequired: true` without a session.
+ */
+export type PasswordSignUpOutcome<
+	TSchema extends SchemaDefinition,
+	TRequireVerifiedEmail extends boolean,
+> = TRequireVerifiedEmail extends true
+	? AuthPendingSignUp<TSchema>
+	: AuthenticationResult<TSchema>
 
 /** Static members a password method adds to the User class. */
 export interface PasswordUserStatics<
 	TIdentifier extends PasswordIdentifier,
 	TSchema extends SchemaDefinition,
+	TRequireVerifiedEmail extends boolean = false,
 > {
 	/**
-	 * Creates the User, its credential and a session atomically.
+	 * Creates the User and its credential atomically, with a session; with
+	 * `requireVerifiedEmail`, without a session until the email is verified.
 	 * @example `await TodoUser.signUp({ email, password, displayName: 'Ada' })`
 	 */
 	signUp(
-		input: PasswordSignUpInput<TSchema>,
-	): Promise<AuthenticationResult<TSchema>>
+		input: PasswordSignUpInput<TSchema, TIdentifier>,
+	): Promise<PasswordSignUpOutcome<TSchema, TRequireVerifiedEmail>>
 	/**
 	 * Checks the credentials and returns the readable User and a new session.
 	 * @example `await TodoUser.login({ email, password })`
@@ -120,25 +190,40 @@ export interface PasswordUserStatics<
 /** Adds the password members to the User class. */
 export interface PasswordStatics<
 	TIdentifier extends PasswordIdentifier,
+	TRequireVerifiedEmail extends boolean = false,
 > extends AuthMethodStaticsHKT {
 	readonly statics: PasswordUserStatics<
 		TIdentifier,
-		Extract<this['schema'], SchemaDefinition>
-	>
+		Extract<this['schema'], SchemaDefinition>,
+		TRequireVerifiedEmail
+	> &
+		(IsEmail<TIdentifier> extends true ? PasswordEmailUserStatics : unknown)
 }
 
 /** One password method. */
-export type PasswordMethod<TIdentifier extends PasswordIdentifier> = AuthMethod<
+export type PasswordMethod<
+	TIdentifier extends PasswordIdentifier,
+	TRequireVerifiedEmail extends boolean = false,
+> = AuthMethod<
 	'password',
 	PasswordUserFields<TIdentifier>,
-	PasswordStatics<TIdentifier>,
-	PasswordOperationDefinition
+	PasswordStatics<TIdentifier, TRequireVerifiedEmail>,
+	| PasswordOperationDefinition
+	| (IsEmail<TIdentifier> extends true
+			? PasswordEmailOperationDefinition
+			: never)
 >
 
 const parseOptions: (value: unknown) => Readonly<PasswordOptions> =
 	definePluginOptionsParser({
 		name: 'password options',
-		keys: ['identifier', 'policy'] as const,
+		keys: [
+			'emailChange',
+			'identifier',
+			'policy',
+			'reset',
+			'verification',
+		] as const,
 		formatUnknownKey: (key) =>
 			`password contains unknown option: ${String(key)}`,
 		// The policy is validated by its own resolver below.
@@ -152,17 +237,6 @@ const readIdentifier = (value: unknown): PasswordIdentifier => {
 	}
 	return value
 }
-
-const stringSchema = immutableRecord({ type: 'string' })
-const objectSchema = (names: readonly string[]) =>
-	immutableRecord({
-		type: 'object',
-		properties: immutableRecord(
-			Object.fromEntries(names.map((name) => [name, stringSchema])),
-		),
-		required: immutableArray(names),
-		additionalProperties: false,
-	})
 
 const invalidIdentifier = (identifier: string, message: string): never => {
 	throw new FrameworkError('VALIDATION_ERROR', message, {
@@ -181,15 +255,24 @@ const invalidIdentifier = (identifier: string, message: string): never => {
  */
 export const password = <
 	const TIdentifier extends PasswordIdentifier = 'username',
+	const TRequireVerifiedEmail extends boolean = false,
 >(
-	options?: PasswordOptions<TIdentifier>,
+	options?: PasswordOptions<TIdentifier, TRequireVerifiedEmail>,
 	// `NoInfer`: the `methods` list must not infer the identifier from the
 	// method type it expects, which would make it `never`.
-): PasswordMethod<NoInfer<TIdentifier>> => {
+): PasswordMethod<NoInfer<TIdentifier>, NoInfer<TRequireVerifiedEmail>> => {
 	const untrusted = parseOptions(defaultUndefinedOptions(options))
 	assertPasswordHashEngineAvailable()
 	const identifier = readIdentifier(untrusted.identifier)
 	const policy = resolvePasswordHashPolicy(untrusted.policy)
+	const email = resolvePasswordEmailOptions({
+		emailChange: untrusted.emailChange,
+		identifier,
+		reset: untrusted.reset,
+		verification: untrusted.verification,
+	})
+	const ownsEmail = identifier === 'email'
+	const requireVerifiedEmail = email.verification?.requireVerifiedEmail === true
 	const normalizeIdentifier =
 		identifier === 'email' ? normalizeEmail : normalizeUsername
 	let credentials: CredentialCollection | undefined
@@ -199,43 +282,29 @@ export const password = <
 		}
 		return credentials
 	}
-	const publicOperations: Readonly<
-		Record<keyof typeof passwordOperations, PluginOperationPublicDeclaration>
-	> = immutableRecord({
-		changePassword: immutableRecord({
-			name: 'changePassword',
-			input: objectSchema(['currentPassword', 'newPassword']),
-		}),
-		login: immutableRecord({
-			name: 'login',
-			input: objectSchema([identifier, 'password']),
-		}),
-		reauthenticate: immutableRecord({
-			name: 'reauthenticate',
-			input: objectSchema(['password']),
-		}),
-		signUp: immutableRecord({ name: 'signUp' }),
-	})
-	const loginType = graphqlObjectType('input-object', 'PasswordLoginInput', [
-		graphqlField(identifier, 'String'),
-		graphqlField('password', 'String'),
-	])
 	return defineAuthMethod<
 		'password',
 		PasswordUserFields<TIdentifier>,
-		PasswordStatics<TIdentifier>,
+		PasswordStatics<TIdentifier, TRequireVerifiedEmail>,
 		PasswordOperationDefinition
 	>({
 		name: passwordMethodName,
 		environment: ['environment:native-code'],
-		userFields: () => ({
-			[identifier]: stringField({
-				immutable: true,
-				indexed: 'unique',
-				required: true,
-			}),
-		}),
+		// With `email`, the foundation adds and protects the email fields.
+		userFields: () =>
+			ownsEmail
+				? {}
+				: {
+						[identifier]: stringField({
+							immutable: true,
+							indexed: 'unique',
+							required: true,
+						}),
+					},
+		userEmail: ownsEmail,
+		requireVerifiedEmail,
 		checkUserData: (data) => {
+			if (ownsEmail) return
 			const value = data[identifier]
 			let normalized: string | undefined
 			try {
@@ -259,102 +328,47 @@ export const password = <
 			credentials ??= createCredentialCollection(user, policy)
 			return [credentials]
 		},
-		contributions: (services) => [
-			...createPasswordHandlers({
-				credentials: requireCredentials,
-				identifier,
-				normalizeIdentifier,
-				policy,
-				publicOperations,
-				services,
-			}),
-			authGraphqlBinding({
-				encode: toAuthPayload,
-				field: 'signUp',
-				input: 'PasswordSignUpInput',
-				operation: passwordOperations.signUp,
-				result: 'AuthPayload',
-				root: 'mutation',
-				types: [
-					graphqlObjectType(
-						'input-object',
-						'PasswordSignUpInput',
-						[graphqlField('password', 'String')],
-						true,
+		contributions: (services) => {
+			const emailHandlers = ownsEmail
+				? createPasswordEmailHandlers({
+						credentials: requireCredentials,
+						email,
+						policy,
+						publicOperations: passwordEmailPublicOperations,
+						services,
+					})
+				: undefined
+			return [
+				...createPasswordHandlers({
+					afterSignUp: emailHandlers?.afterSignUp,
+					beforeLogin: emailHandlers?.beforeLogin,
+					credentials: requireCredentials,
+					identifier,
+					normalizeIdentifier,
+					policy,
+					publicOperations: createPasswordPublicOperations(
+						identifier,
+						requireVerifiedEmail,
 					),
-					...authPayloadTypes,
-				],
-			}),
-			authGraphqlBinding({
-				encode: toAuthPayload,
-				field: 'login',
-				input: 'PasswordLoginInput',
-				operation: passwordOperations.login,
-				result: 'AuthPayload',
-				root: 'mutation',
-				types: [loginType, ...authPayloadTypes],
-			}),
-			authGraphqlBinding({
-				field: 'changePassword',
-				input: 'PasswordChangeInput',
-				operation: passwordOperations.changePassword,
-				result: 'PasswordChangePayload',
-				root: 'mutation',
-				types: [
-					graphqlObjectType('input-object', 'PasswordChangeInput', [
-						graphqlField('currentPassword', 'String'),
-						graphqlField('newPassword', 'String'),
-					]),
-					graphqlObjectType('object', 'PasswordChangePayload', [
-						graphqlField('changed', 'Boolean'),
-					]),
-				],
-			}),
-			authGraphqlBinding({
-				field: 'reauthenticate',
-				input: 'PasswordReauthenticateInput',
-				operation: passwordOperations.reauthenticate,
-				result: 'PasswordReauthenticatePayload',
-				root: 'mutation',
-				types: [
-					graphqlObjectType('input-object', 'PasswordReauthenticateInput', [
-						graphqlField('password', 'String'),
-					]),
-					graphqlObjectType('object', 'PasswordReauthenticatePayload', [
-						graphqlField('reauthenticated', 'Boolean'),
-					]),
-				],
-			}),
-		],
+					requireVerifiedEmail,
+					services,
+				}),
+				...(emailHandlers?.contributions ?? []),
+				...(ownsEmail ? passwordEmailGraphqlBindings : []),
+				...createPasswordGraphqlBindings(identifier, requireVerifiedEmail),
+			]
+		},
 		routes: [
-			{
-				body: 'json',
-				operation: passwordOperations.signUp,
-				path: 'sign-up',
-				response: 'session',
-			},
-			{
-				body: 'json',
-				operation: passwordOperations.login,
-				path: 'login',
-				response: 'session',
-			},
-			{
-				body: 'json',
-				operation: passwordOperations.changePassword,
-				path: 'change-password',
-				response: 'result',
-			},
-			{
-				body: 'json',
-				operation: passwordOperations.reauthenticate,
-				path: 'reauthenticate',
-				response: 'result',
-			},
+			...createPasswordRoutes(requireVerifiedEmail),
+			...(ownsEmail ? passwordEmailRoutes : []),
 		],
-		errorStatuses: { [passwordErrorCodes.passwordChangeRejected]: 400 },
+		errorStatuses: {
+			[passwordErrorCodes.emailChangeRejected]: 400,
+			[passwordErrorCodes.passwordChangeRejected]: 400,
+		},
 		statics: (services) =>
 			immutableRecord({
+				...(ownsEmail ? createPasswordEmailStatics(services) : {}),
 				signUp: (input: PasswordSignUpData) =>
 					services.execute(passwordOperations.signUp, input),
 				login: (input: PasswordLoginInput) =>

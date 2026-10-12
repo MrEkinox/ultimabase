@@ -7,6 +7,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { withManagedWrite } from './email.js'
 import { rejectSignUp } from './errors.js'
 
 // Byte snapshots stay opaque and immutable across the operation boundary;
@@ -138,7 +139,11 @@ export const createUserElevated = async (
 	try {
 		const created: unknown = await user.createOne(
 			{ data: restoreData(data), select: { id: true } },
-			context.access.mode === 'master' ? undefined : { useMasterKey: true },
+			{
+				// The flows' marker lets the guard accept this User creation.
+				context: withManagedWrite(context),
+				...(context.access.mode === 'master' ? {} : { useMasterKey: true }),
+			},
 		)
 		return readUserId(created)
 	} catch (error: unknown) {

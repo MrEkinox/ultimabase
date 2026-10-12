@@ -3,8 +3,9 @@ import {
 	authenticationResult,
 	snapshotSignUpInput,
 	type AuthenticationResult,
+	type AuthPendingSignUp,
 } from '@ultimabase/auth-plugin'
-import { PluginError } from '@ultimabase/core'
+import { PluginError, type SchemaDefinition } from '@ultimabase/core'
 import {
 	defineOperation,
 	defineOperationValue,
@@ -42,8 +43,10 @@ export interface PasswordReauthenticateResult {
 
 /** The public failures of the password method, beside the foundation's. */
 export const passwordErrorCodes: Readonly<{
+	readonly emailChangeRejected: 'AUTH_EMAIL_CHANGE_REJECTED'
 	readonly passwordChangeRejected: 'AUTH_PASSWORD_CHANGE_REJECTED'
 }> = immutableRecord({
+	emailChangeRejected: 'AUTH_EMAIL_CHANGE_REJECTED',
 	passwordChangeRejected: 'AUTH_PASSWORD_CHANGE_REJECTED',
 } as const)
 
@@ -53,6 +56,21 @@ export const rejectPasswordChange = (): never => {
 		passwordErrorCodes.passwordChangeRejected,
 		'The password change was rejected.',
 		{ publicMessage: 'Password change was rejected.' },
+	)
+}
+
+/**
+ * Rejects an email change without telling which part failed: the password,
+ * the new address, or an address taken at confirmation.
+ */
+export const rejectEmailChange = (cause?: unknown): never => {
+	throw new PluginError(
+		passwordErrorCodes.emailChangeRejected,
+		'The email change was rejected.',
+		{
+			publicMessage: 'Email change was rejected.',
+			...(cause === undefined ? {} : { cause }),
+		},
 	)
 }
 
@@ -78,7 +96,8 @@ const loginInput = defineOperationValue<PasswordLoginInput>((value, path) => {
 	}) as PasswordLoginInput
 }, reference('PasswordLoginInput'))
 
-const exactStrings = <TValue>(
+/** @internal One input with exactly the given string fields. */
+export const exactStrings = <TValue>(
 	names: readonly string[],
 	exportName: string,
 ): PluginOperationValueContract<TValue> =>
@@ -95,7 +114,8 @@ const exactStrings = <TValue>(
 		) as TValue
 	}, reference(exportName))
 
-const acknowledgement = <TValue>(
+/** @internal One acknowledgement such as `{ changed: true }`. */
+export const acknowledgement = <TValue>(
 	key: string,
 	exportName: string,
 ): PluginOperationValueContract<TValue> =>
@@ -120,7 +140,8 @@ const signUpInput = defineOperationValue<PasswordSignUpData>(
 	reference('PasswordSignUpData'),
 )
 
-type PasswordOperation<
+/** @internal One operation of the password method. */
+export type PasswordOperation<
 	TName extends string,
 	TInput,
 	TResult,
@@ -135,7 +156,8 @@ type PasswordOperation<
 >
 
 // Hashing stays outside transactions: each handler opens a short one after.
-const operation = <
+/** @internal Defines one operation of the password method. */
+export const passwordOperation = <
 	const TName extends string,
 	TInput,
 	TResult,
@@ -156,20 +178,55 @@ const operation = <
 		version: '1.0.0',
 	})
 
+/**
+ * The sign-up result: a session, or with `requireVerifiedEmail` the profile
+ * and `verificationRequired: true` without a session.
+ */
+export type PasswordSignUpResult<
+	TUser extends SchemaDefinition = SchemaDefinition,
+> = AuthenticationResult<TUser> | AuthPendingSignUp<TUser>
+
+const signUpResult = defineOperationValue<PasswordSignUpResult>(
+	(value, path) => {
+		if (!isPlainRecord(value) || value.verificationRequired !== true) {
+			return authenticationResult.snapshot(value, path)
+		}
+		if (
+			Object.keys(value).length !== 2 ||
+			!isPlainRecord(value.user) ||
+			!Object.isFrozen(value.user) ||
+			typeof value.user.id !== 'string'
+		) {
+			throw new TypeError(`${path} must be a pending sign-up`)
+		}
+		const pending: AuthPendingSignUp = immutableRecord({
+			user: value.user,
+			verificationRequired: true as const,
+		}) as AuthPendingSignUp
+		return pending
+	},
+	reference('PasswordSignUpResult'),
+)
+
 const signUpOperation: PasswordOperation<
 	'sign-up',
 	PasswordSignUpData,
-	AuthenticationResult,
+	PasswordSignUpResult,
 	readonly ['AUTH_SIGN_UP_REJECTED']
-> = operation('sign-up', signUpInput, authenticationResult, [
+> = passwordOperation('sign-up', signUpInput, signUpResult, [
 	authErrorCodes.signUpRejected,
 ])
 const loginOperation: PasswordOperation<
 	'login',
 	PasswordLoginInput,
 	AuthenticationResult,
-	readonly ['AUTH_INVALID_CREDENTIALS', 'AUTH_TOO_MANY_ATTEMPTS']
-> = operation('login', loginInput, authenticationResult, [
+	readonly [
+		'AUTH_EMAIL_NOT_VERIFIED',
+		'AUTH_INVALID_CREDENTIALS',
+		'AUTH_TOO_MANY_ATTEMPTS',
+	]
+> = passwordOperation('login', loginInput, authenticationResult, [
+	authErrorCodes.emailNotVerified,
 	authErrorCodes.invalidCredentials,
 	authErrorCodes.tooManyAttempts,
 ])
@@ -182,7 +239,7 @@ const changePasswordOperation: PasswordOperation<
 		'AUTH_PASSWORD_CHANGE_REJECTED',
 		'AUTH_TOO_MANY_ATTEMPTS',
 	]
-> = operation(
+> = passwordOperation(
 	'change-password',
 	exactStrings<PasswordChangeInput>(
 		['currentPassword', 'newPassword'],
@@ -204,7 +261,7 @@ const reauthenticateOperation: PasswordOperation<
 		'AUTH_INVALID_SESSION',
 		'AUTH_TOO_MANY_ATTEMPTS',
 	]
-> = operation(
+> = passwordOperation(
 	'reauthenticate',
 	exactStrings<PasswordReauthenticateInput>(
 		['password'],

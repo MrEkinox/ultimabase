@@ -16,6 +16,7 @@ import type {
 } from '@ultimabase/core/plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 
+import { emailFieldNames } from './email.js'
 import type { AuthState } from './foundation.js'
 import {
 	authUserIdentityOptionName,
@@ -175,7 +176,11 @@ export const createUserSchemaFactory =
 							Object.entries(method.userFields?.() ?? {}),
 						),
 					)
-					for (const name of [...Object.keys(owned), 'password']) {
+					// The foundation adds the email fields itself, by schema patch.
+					const reserved = methods.some((method) => method.userEmail === true)
+						? emailFieldNames
+						: []
+					for (const name of [...Object.keys(owned), ...reserved, 'password']) {
 						if (Object.hasOwn(declared, name)) {
 							throw new TypeError(`Reserved User field: ${name}`)
 						}

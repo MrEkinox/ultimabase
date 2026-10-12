@@ -113,6 +113,19 @@ describe('REST OpenAPI document', () => {
 			required: ['title'],
 			additionalProperties: false,
 		})
+		// A plugin-written field (forbidden mutation input) is output only.
+		for (const input of ['CreateInput', 'UpdateInput']) {
+			const schema = resolve(
+				document,
+				`#/components/schemas/RestExposureNote${input}`,
+			)
+			const properties =
+				isPlainRecord(schema) && isPlainRecord(schema.properties)
+					? Object.keys(schema.properties)
+					: []
+			expect(properties).toContain('title')
+			expect(properties).not.toContain('archivedAt')
+		}
 		expect(
 			resolve(document, '#/components/schemas/RestExposureNote'),
 		).toMatchObject({

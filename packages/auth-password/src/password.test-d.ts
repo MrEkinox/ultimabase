@@ -36,7 +36,10 @@ describe('App.UserSchema with password()', () => {
 
 	it('types sign-up from the create fields and results as the User model', () => {
 		expectTypeOf<Parameters<typeof EmailUser.signUp>[0]>().toEqualTypeOf<
-			CreateInput<typeof EmailUser> & { readonly password: string }
+			CreateInput<typeof EmailUser> & {
+				readonly email: string
+				readonly password: string
+			}
 		>()
 		expectTypeOf<
 			Awaited<ReturnType<typeof EmailUser.signUp>>['user']

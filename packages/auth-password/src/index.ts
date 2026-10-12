@@ -5,6 +5,7 @@ export type {
 	PasswordMethod,
 	PasswordOptions,
 	PasswordSignUpInput,
+	PasswordSignUpOutcome,
 	PasswordStatics,
 	PasswordUserFields,
 	PasswordUserStatics,
@@ -19,9 +20,32 @@ export type {
 	PasswordReauthenticateInput,
 	PasswordReauthenticateResult,
 	PasswordSignUpData,
+	PasswordSignUpResult,
 } from './operations.js'
 export { defaultPasswordHashPolicy } from './password-policy.js'
 export type {
 	PasswordHashPolicyOptions,
 	ResolvedPasswordHashPolicy,
 } from './password-policy.js'
+export { passwordEmailOperations } from './email-operations.js'
+export type {
+	EmailChangeConfirmResult,
+	EmailChangeRequestInput,
+	EmailVerifyResult,
+	PasswordEmailInput,
+	PasswordEmailOperationDefinition,
+	PasswordRequestAcceptedResult,
+	PasswordResetInput,
+	PasswordResetResult,
+	PasswordTokenInput,
+} from './email-operations.js'
+export type { PasswordEmailUserStatics } from './email-method.js'
+export type {
+	EmailChangeConfirmationMessage,
+	EmailChangeNoticeMessage,
+	EmailVerificationMessage,
+	PasswordEmailChangeOptions,
+	PasswordResetMessage,
+	PasswordResetOptions,
+	PasswordVerificationOptions,
+} from './email-options.js'

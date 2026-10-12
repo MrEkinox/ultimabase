@@ -4,19 +4,27 @@ export type {
 	AuthPluginFactory,
 	AuthPluginOptions,
 } from './plugin.js'
-export type { AuthPluginExports, AuthUserTarget } from './application-api.js'
+export type {
+	AuthPluginExports,
+	AuthUserCreation,
+	AuthUserTarget,
+} from './application-api.js'
 export type {
 	AuthLinking,
 	AuthMethodInfo,
 	LinkedAccountInput,
 } from './accounts.js'
 export type { AttemptSubject } from './attempts.js'
+export type { AuthEmailFields, AuthUserRecord } from './email.js'
 export {
 	authErrorCodes,
 	authErrorStatuses,
 	rejectCredentials,
+	rejectNotConfigured,
 	rejectSession,
 	rejectSignUp,
+	rejectToken,
+	rejectUnverifiedEmail,
 } from './errors.js'
 export type { AuthErrorCode } from './errors.js'
 export type {
@@ -75,6 +83,7 @@ export { authClient, authPrincipal, authSession } from './session.js'
 export type {
 	AuthClient,
 	AuthenticationResult,
+	AuthPendingSignUp,
 	AuthSession,
 	IssuedAuthSession,
 } from './session.js'
@@ -95,3 +104,8 @@ export type {
 	UserSchemaStaticsSlot,
 } from './user-schema.js'
 export type { AuthUserStatics } from './user-statics.js'
+export type {
+	AuthIssuedToken,
+	AuthTokenClaim,
+	AuthTokenPurpose,
+} from './tokens.js'

@@ -85,3 +85,29 @@ newPassword })` (other sessions revoked); `requestEmailChange({ currentPassword,
 
 OAuth (Google, GitHub, OpenID Connect, mobile ID tokens: its own record after the migration),
 two-factor authentication and passkeys (later methods), sending emails.
+
+## 6.4b amendment (2026-10-12)
+
+Validated by the user on 2026-10-12 after the 6.4b review (options A):
+
+1. **`requireVerifiedEmail` issues no session before verification.** With
+   `password({ identifier: 'email', verification: { requireVerifiedEmail: true } })`,
+   `signUp` creates the user and returns `{ user, verificationRequired: true }`
+   without a session or cookie; `login` and the foundation's `refresh` fail
+   with `AUTH_EMAIL_NOT_VERIFIED` for unverified users. The result type
+   follows the option: TypeScript statics (`PasswordSignUpOutcome`), GraphQL
+   (`PasswordSignUpPendingPayload` instead of `AuthPayload`) and the OpenAPI
+   result of the `signUp` operation. Without the option, sign-up is
+   unchanged.
+2. **The email fields are forbidden mutation input.** With an email method,
+   the foundation, not the method, adds `email`, `emailVerified` and
+   `emailVerifiedAt` to the User by schema patch with `mutationInput:
+'forbidden'` (the mechanism of Soft Delete's fields): no create or update
+   input lists them in TypeScript, REST, OpenAPI or GraphQL. The flows write
+   them through a Master-only schema mutation owned by the foundation, whose
+   resolver refuses callers outside the flows. Consequences: `signUp` takes
+   the email beside the create fields; Users of an email application are
+   created only by sign-up or by the server-side `auth.createUser({ data,
+email })` (administration and seeding); the stored `email` column is
+   nullable and set inside the creating transaction. REST's OpenAPI create and
+   update inputs now honour forbidden mutation input for every plugin field.

@@ -3,17 +3,23 @@ import { immutableRecord } from '@ultimabase/shared'
 
 /** Lists the public failures of the authentication foundation and its methods. */
 export const authErrorCodes: Readonly<{
+	readonly emailNotVerified: 'AUTH_EMAIL_NOT_VERIFIED'
 	readonly invalidCredentials: 'AUTH_INVALID_CREDENTIALS'
 	readonly invalidSession: 'AUTH_INVALID_SESSION'
+	readonly invalidToken: 'AUTH_INVALID_TOKEN'
 	readonly lastMethod: 'AUTH_LAST_METHOD'
+	readonly notConfigured: 'AUTH_NOT_CONFIGURED'
 	readonly notFound: 'AUTH_NOT_FOUND'
 	readonly reauthenticationRequired: 'AUTH_REAUTHENTICATION_REQUIRED'
 	readonly signUpRejected: 'AUTH_SIGN_UP_REJECTED'
 	readonly tooManyAttempts: 'AUTH_TOO_MANY_ATTEMPTS'
 }> = immutableRecord({
+	emailNotVerified: 'AUTH_EMAIL_NOT_VERIFIED',
 	invalidCredentials: 'AUTH_INVALID_CREDENTIALS',
 	invalidSession: 'AUTH_INVALID_SESSION',
+	invalidToken: 'AUTH_INVALID_TOKEN',
 	lastMethod: 'AUTH_LAST_METHOD',
+	notConfigured: 'AUTH_NOT_CONFIGURED',
 	notFound: 'AUTH_NOT_FOUND',
 	reauthenticationRequired: 'AUTH_REAUTHENTICATION_REQUIRED',
 	signUpRejected: 'AUTH_SIGN_UP_REJECTED',
@@ -26,9 +32,12 @@ export type AuthErrorCode = (typeof authErrorCodes)[keyof typeof authErrorCodes]
 /** The HTTP status of each foundation failure, shared by every transport. */
 export const authErrorStatuses: Readonly<Record<AuthErrorCode, number>> =
 	immutableRecord({
+		AUTH_EMAIL_NOT_VERIFIED: 403,
 		AUTH_INVALID_CREDENTIALS: 401,
 		AUTH_INVALID_SESSION: 401,
+		AUTH_INVALID_TOKEN: 400,
 		AUTH_LAST_METHOD: 409,
+		AUTH_NOT_CONFIGURED: 501,
 		AUTH_NOT_FOUND: 404,
 		AUTH_REAUTHENTICATION_REQUIRED: 403,
 		AUTH_SIGN_UP_REJECTED: 400,
@@ -115,4 +124,28 @@ export const rejectNotFound = (): never =>
 		authErrorCodes.notFound,
 		'The authentication record was not found.',
 		'Not found.',
+	)
+
+/** The uniform rejection of an unknown, expired, used or replaced token. */
+export const rejectToken = (): never =>
+	reject(
+		authErrorCodes.invalidToken,
+		'The authentication token was rejected.',
+		'Invalid or expired token.',
+	)
+
+/** Refuses a login while `requireVerifiedEmail` waits for verification. */
+export const rejectUnverifiedEmail = (): never =>
+	reject(
+		authErrorCodes.emailNotVerified,
+		'The account email is not verified.',
+		'Verify your email address first.',
+	)
+
+/** Refuses a flow whose application callback is not configured. */
+export const rejectNotConfigured = (feature: string): never =>
+	reject(
+		authErrorCodes.notConfigured,
+		`${feature} has no email callback configured.`,
+		'This operation is not available.',
 	)

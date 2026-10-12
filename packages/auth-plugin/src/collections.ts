@@ -75,14 +75,15 @@ type UserStateFields = Readonly<{
 	accountIds: JsonField<RequiredState<false>>
 	sessionGeneration: IntField<RequiredState<false>>
 	sessionIds: JsonField<RequiredState<false>>
+	tokenIds: JsonField<RequiredState<false>>
 	userId: UuidField<RequiredState<true>>
 	version: IntField<RequiredState<false>>
 }>
 
 /**
  * One row per user: advancing its generation revokes every session at once;
- * it lists the user's session and linked-account ids, and `version` guards
- * every change (compare-and-swap).
+ * it lists the user's session and linked-account ids and the current token
+ * of each purpose, and `version` guards every change (compare-and-swap).
  */
 export type UserStateCollection = PrivateCollection<
 	UserStateFields,
@@ -128,6 +129,29 @@ export type VerifiedEmailCollection = PrivateCollection<
 	readonly [Readonly<{ readonly fields: readonly ['email'] }>]
 >
 
+type TokenFields = Readonly<{
+	createdAt: DateTimeField<RequiredState<true>>
+	digest: StringField<RequiredState<true>>
+	email: StringField<RequiredState<true>>
+	expiresAt: DateTimeField<RequiredState<true>>
+	id: UuidField<RequiredState<true>>
+	purpose: StringField<RequiredState<true>>
+	userId: UuidField<RequiredState<true>>
+}>
+
+/**
+ * Single-use account tokens (password reset, email verification, email
+ * change): only the SHA-256 digest of each token is stored.
+ */
+export type TokenCollection = PrivateCollection<
+	TokenFields,
+	readonly [
+		Readonly<{ readonly fields: readonly ['id'] }>,
+		Readonly<{ readonly fields: readonly ['digest'] }>,
+	]
+>
+export type TokenRecord = PrivateCollectionRecord<TokenCollection>
+
 /** Failed-attempt counters, keyed by a digest of the account and address. */
 export type AttemptCollection = PrivateCollection<
 	AttemptFields,
@@ -141,6 +165,7 @@ export interface AuthCollections {
 	readonly attempts: AttemptCollection
 	readonly sessions: SessionCollection
 	readonly states: UserStateCollection
+	readonly tokens: TokenCollection
 	readonly verifiedEmails: VerifiedEmailCollection
 }
 
@@ -191,10 +216,25 @@ export const createAuthCollections = (
 				accountIds: jsonField({ required: true }),
 				sessionGeneration: intField({ required: true }),
 				sessionIds: jsonField({ required: true }),
+				tokenIds: jsonField({ required: true }),
 				userId: uuidField({ immutable: true, required: true }),
 				version: intField({ required: true }),
 			},
 			indexes: [{ fields: ['userId'] }] as const,
+			references: cascade(user),
+		}),
+		tokens: definePrivateCollection({
+			contributionId: 'tokens',
+			fields: {
+				createdAt: dateTimeField({ immutable: true, required: true }),
+				digest: stringField({ immutable: true, required: true }),
+				email: stringField({ immutable: true, required: true }),
+				expiresAt: dateTimeField({ immutable: true, required: true }),
+				id: uuidField({ immutable: true, required: true }),
+				purpose: stringField({ immutable: true, required: true }),
+				userId: uuidField({ immutable: true, required: true }),
+			},
+			indexes: [{ fields: ['id'] }, { fields: ['digest'] }] as const,
 			references: cascade(user),
 		}),
 		verifiedEmails: definePrivateCollection({

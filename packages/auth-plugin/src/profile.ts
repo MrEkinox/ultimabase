@@ -58,3 +58,20 @@ export const readAuthenticationResult = async (
 		user: profile,
 	}) as AuthenticationResult
 }
+
+/**
+ * Reads the profile of a new user as that user, without a session, when a
+ * sign-up issues none.
+ */
+export const readNewUserProfile = async (
+	user: SchemaReference<string>,
+	userId: string,
+	request: RequestContext,
+): Promise<object> => {
+	const context = RequestContext.anonymous({
+		requestId: request.requestId,
+		signal: request.signal,
+		source: request.source,
+	}).withValue(authPrincipal, createAuthPrincipal(user.pointer(userId)))
+	return readUserProfile(user, userId, { context })
+}
