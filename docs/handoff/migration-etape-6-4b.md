@@ -141,6 +141,48 @@ expiresInMs } })` ; ces groupes sont refusés (types et exécution) pour
     flux e-mail tant qu'aucun rappel n'est configuré (commentaire généré) ;
     note du README généré mise à jour.
 
+## Amendement 6.4b (2026-10-12, options A validées par l'utilisateur)
+
+1. **`requireVerifiedEmail` sans session** : `signUp` crée l'utilisateur et
+   renvoie `{ user, verificationRequired: true }` sans session ni cookie
+   (`services.signUpPendingVerification`, `afterSignUp` avec
+   `sessionId: null`) ; `login` et `refresh` du socle refusent les
+   utilisateurs non vérifiés (`AUTH_EMAIL_NOT_VERIFIED`,
+   `AuthMethodImplementation.requireVerifiedEmail`). Type conditionnel :
+   `password<TIdentifier, TRequireVerifiedEmail>` → `PasswordSignUpOutcome`
+   (statiques) ; GraphQL `PasswordSignUpPendingPayload` ; OpenAPI : sortie
+   déclarée de l'opération `signUp` (`output`). Le jeton d'opération `signUp`
+   a désormais le résultat union `PasswordSignUpResult`.
+2. **Champs e-mail en entrée interdite** : déplacés hors de
+   `UserSchema.define` ; le socle ajoute `email` (unique, nullable en base,
+   rempli dans la transaction de création), `emailVerified`,
+   `emailVerifiedAt` par patch de schéma `mutationInput: 'forbidden'` ; les
+   flux écrivent par la mutation de schéma Master `ultimabase.auth.write-email`
+   (statique d'exécution `ultimabaseAuthWriteEmail` sur la classe User, typée
+   par Typegen si l'application l'utilise), dont le résolveur exige le
+   marqueur interne. La garde n'accepte plus de création de User hors des flux
+   (`auth.user-creation`) ; administration et amorçage :
+   `auth.createUser({ data, email })`. `signUp` prend `email` à côté des champs
+   de création (types, GraphQL `PasswordSignUpInput`). Correctif REST :
+   l'OpenAPI excluait déjà les champs immuables mais pas l'entrée interdite
+   (bogue préexistant, aussi pour Soft Delete) ; régression testée avec le
+   champ `archivedAt` du plugin de test de REST.
+
+Ce qui a bougé : le champ `email` de `password({ identifier: 'email' })` (de
+la méthode vers le socle, par patch) ; `AuthEmailVerificationFields` devient
+`AuthEmailFields` (avec `email`) ; la garde `field.protected` disparaît (Core
+refuse lui-même l'entrée interdite, `field.forbidden`).
+
+Assertions publiques modifiées par l'amendement :
+`password.test-d.ts` (entrée de `signUp` : `CreateInput & { password }` →
+`CreateInput & { email; password }`) ; `tests/e2e/schema-form-d.postgres.e2e.test.ts`
+(amorçage : `TodoUser.createMany({ data: [{ email }] }, master)` →
+`ultimabase.plugin(authPlugin).createUser({ data: {}, email })`, assertions
+inchangées) ; `packages/rest-plugin/tests/openapi.test.ts` (assertion
+ajoutée : `archivedAt` absent des entrées) ; déclarations générées de
+`examples/minimal` (résultat de `sign-up` `AuthenticationResult` →
+`PasswordSignUpResult` ; erreurs de `refresh` + `AUTH_EMAIL_NOT_VERIFIED`).
+
 ## Approches rejetées
 
 - Opérations installées seulement avec leur groupe d'options : les listes
@@ -204,6 +246,35 @@ examples/schema-form-d 27 (le `TodoUser` e-mail gagne `emailVerified`,
 examples/minimal 1 (erreurs de `login` dans `Object.values`), tests 2
 (complétions d'exportations). Core : aucune différence. Pas de banc (types de
 Core inchangés).
+
+## Preuves après l'amendement (30171fa1, dernier commit de code)
+
+Après suppression de `packages/*/dist` et `*.tsbuildinfo` :
+
+- `yarn validate:full` : code 0 ; « All matched files use Prettier code
+  style! » ; lint 0 erreur (48, 15 et 2 avertissements) ; performance « Test
+  Files 3 passed (3) / Tests 4 passed (4) » ; couverture « Test Files 736
+  passed (736) / Tests 3634 passed (3634) / Type Errors no errors », All files
+  92.54 / 85.86 / 96.86 / 93.25 ; site « Test Files 17 passed (17) / Tests 66
+  passed (66) ».
+- `yarn test:e2e:built` : code 0, « Test Files 136 passed (136) / Tests 599
+  passed (599) ». Un premier passage sous charge 17–20 (autres agents) avait
+  vu `create-app-packed` dépasser 120 s ; vert seul (49 s) puis dans le
+  passage complet suivant.
+- `yarn website:test` : code 0, « Test Files 8 passed (8) / Tests 59 passed
+  (59) ».
+
+Audit DX contre d59522ad (même périmètre) : 569 différences (39459 / 39805).
+auth-password 409, auth-plugin 91, examples/schema-form-d 41, examples/minimal
+23, core 3, tests 2. Delta par rapport à l'audit précédent : `email` vient de
+`AuthEmailFields` (socle) au lieu de `PasswordIdentifierField` ; entrée de
+`signUp` avec `email` ; `PasswordSignUpOutcome`, `PasswordSignUpResult`,
+`AuthPendingSignUp`, `AuthUserCreation`, `createUser` des exportations ;
+second paramètre de type `password<…, TRequireVerifiedEmail>` visible dans
+les survols (`PasswordMethod<"username", false>` dans examples/minimal) ;
+erreurs de `refresh`. Core : seulement les noms de morceaux privés du
+bundler (sources de Core inchangées : `git diff d59522ad -- packages/core`
+vide). Pas de banc. Worktree de référence retiré.
 
 ## Prochaine action vérifiable
 
