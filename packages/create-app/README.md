@@ -21,20 +21,22 @@ repeating a plugin list.
 Hooks, Validation, and Soft Delete can be selected today. The Task example
 configures schema-local Hooks, Validation, and recoverable native deletes when
 selected. PostgreSQL Vector is not offered until it persists vector fields;
-`--plugin @ultimabase/pg-vector-plugin` fails with that reason. Password Auth,
-Access, Roles, and Object ACLs also generate valid application graphs. Password
-Auth declares User through `PasswordUserSchema.define(SchemaApplication.Schema, ...)`,
-matching the configured Role form, and adds sessions without granting Task access. When Access
-is selected too, the generated User read policy exposes only the session owner
-so sign-up, login, and refresh can return their required profile. Other User
-operations retain the deny default. Access denies ordinary Task operations in
+`--plugin @ultimabase/pg-vector-plugin` fails with that reason. Authentication,
+Access, Roles, and Object ACLs also generate valid application graphs.
+Authentication installs `authPlugin({ methods: [password({ identifier: 'email' })] })`
+(`@ultimabase/auth-plugin` and `@ultimabase/auth-password`) and declares the User
+through `SchemaApplication.UserSchema.define(...)`, matching the configured Role
+form; it adds sessions without granting Task access and needs no Master key. When
+Access is selected too, the User's `.with({ access })` read rule exposes only the
+session owner so sign-up, login, and refresh can return their required profile.
+Other User operations retain the deny default. Access denies ordinary Task operations in
 the starter; ACLs start empty and deny ordinary Task reads, updates, and deletes,
 but do not govern creation. Roles
 define membership identities without granting access by themselves.
 TypeScript automatically runs Typegen before typecheck and build; JavaScript
 does not depend on Typegen or TypeScript. The database can be an existing
-disposable instance or a generated local Docker Compose service. Security
-choices configure a development Master audit and require a private key in an
+disposable instance or a generated local Docker Compose service. Access, Roles and
+Object ACLs configure a development Master audit and require a private key in an
 ignored `.env`. Docker mode generates that key locally; existing-database mode
 requires replacing the `.env.example` placeholder. No security plugin adds a
 public route by itself.
@@ -45,9 +47,10 @@ and a managed Hono listener on `127.0.0.1:1337`, through one
 (ADR-0325). Advanced choices can install HTTP without a listener,
 network-independent GraphQL, or the development-only GraphiQL page at
 `/graphiql`. Generated Task routes are read-only by default, and internal
-member and role schemas remain off generated routes. Selecting Password Auth
-together with REST or GraphQL exposes its public operations except the two the
-starter hides; a valid session still grants no Task permission. Browser-origin
+member and role schemas remain off generated routes. Authentication serves its
+operations under `/auth` (Bearer, or a cookie for browsers once configured);
+GraphQL exposes the same operations and REST hides them. A valid session still
+grants no Task permission. Browser-origin
 access and HTTP Master keys remain disabled, and REST and GraphQL refuse
 public writes without a policy plugin. The generated README gives exact local request examples and
 deployment boundaries. Packed-project verification covers the archive shape,

@@ -78,26 +78,23 @@ const runVerification = async (
 
 describe('generated security applications with PostgreSQL', () => {
 	it('limits generated User reads to the session owner in JavaScript', async () => {
-		const project = await generate('js', [
-			'password-auth-plugin',
-			'access-plugin',
-		])
+		const project = await generate('js', ['auth-plugin', 'access-plugin'])
 		try {
 			const output = await runVerification(
 				project.destination,
 				`import assert from 'node:assert/strict'
-import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import { ultimabase } from './src/ultimabase.js'
 import { AppUser } from './src/schema.js'
 
 await ultimabase.start()
 try {
-  const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
-  const signUp = (username) => ultimabase.operation(passwordAuthOperations.signUp).execute({ username, password: 'correct horse battery staple' })
-  const alice = await signUp('profile-alice')
-  const bob = await signUp('profile-bob')
-  assert.equal(alice.user.username, 'profile-alice')
-  assert.equal(bob.user.username, 'profile-bob')
+  const auth = ultimabase.plugin(authPlugin)
+  const signUp = (email) => AppUser.signUp({ email, password: 'correct horse battery staple' })
+  const alice = await signUp('alice@example.test')
+  const bob = await signUp('bob@example.test')
+  assert.equal(alice.user.email, 'alice@example.test')
+  assert.equal(bob.user.email, 'bob@example.test')
   assert.deepEqual(await AppUser.findMany(), [])
   await auth.runWithSession(alice.session.token, async () => {
     const users = await AppUser.findMany()
@@ -120,7 +117,7 @@ try {
 
 	it('keeps password identity separate from role-backed ACL access', async () => {
 		const project = await generate('js', [
-			'password-auth-plugin',
+			'auth-plugin',
 			'roles-plugin',
 			'acl-permissions-plugin',
 		])
@@ -134,14 +131,14 @@ try {
 			const output = await runVerification(
 				project.destination,
 				`import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import { ultimabase } from './src/ultimabase.js'
-import { AppRole, Task } from './src/schema.js'
+import { AppRole, AppUser, Task } from './src/schema.js'
 
 await ultimabase.start()
 try {
-  const signed = await ultimabase.operation(passwordAuthOperations.signUp).execute({
-    username: 'alice', password: 'correct horse battery staple',
+  const signed = await AppUser.signUp({
+    email: 'alice@example.test', password: 'correct horse battery staple',
   })
   const role = await AppRole.createOne({ data: { name: 'editor' } }, { useMasterKey: true })
   await AppRole.updateOne({ where: { id: { eq: role.id } }, data: { members: { connect: [signed.principal.user.id] } } }, { useMasterKey: true })
@@ -152,7 +149,7 @@ try {
   const input = { where: { id: { eq: task.id } }, select: { title: true } }
   const anonymous = await Task.findOne(input)
   if (anonymous !== null) throw new Error('Anonymous read unexpectedly succeeded')
-  const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
+  const auth = ultimabase.plugin(authPlugin)
   const member = await auth.runWithSession(signed.session.token, () => Task.findOne(input))
   if (member?.title !== 'Role-owned task') throw new Error('Role-backed ACL did not grant read')
   console.log('ROLE_ACL_PASS')
@@ -169,7 +166,7 @@ try {
 
 	it('denies ordinary access and audits trusted Master use in TypeScript', async () => {
 		const project = await generate('ts', [
-			'password-auth-plugin',
+			'auth-plugin',
 			'roles-plugin',
 			'acl-permissions-plugin',
 			'access-plugin',

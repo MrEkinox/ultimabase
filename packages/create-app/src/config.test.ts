@@ -92,17 +92,17 @@ describe('initializer flags', () => {
 		expect(plan.typegen).toBe(false)
 	})
 
-	it('keeps direct password authentication independent of HTTP', () => {
+	it('keeps direct authentication independent of HTTP', () => {
 		const plan = resolveSelection(
 			parseOptions([
 				'--name',
 				'identity-notes',
 				'--plugin',
-				'@ultimabase/password-auth-plugin',
+				'@ultimabase/auth-plugin',
 			]),
 			root(),
 		)
-		expect(plan.plugins).toEqual(['password-auth-plugin', 'postgres-plugin'])
+		expect(plan.plugins).toEqual(['auth-plugin', 'postgres-plugin'])
 	})
 
 	it('rejects invalid choices and occupied destinations', () => {

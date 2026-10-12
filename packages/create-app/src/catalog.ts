@@ -13,6 +13,12 @@ export const officialPlugins = [
 		hint: 'Per-record permissions',
 	},
 	{
+		id: 'auth-plugin',
+		label: 'Authentication',
+		group: 'Security',
+		hint: 'Email and password sign-in, sessions; no CRUD permission',
+	},
+	{
 		id: 'graphql-explorer-plugin',
 		label: 'GraphQL explorer',
 		group: 'HTTP & explorers',
@@ -41,12 +47,6 @@ export const officialPlugins = [
 		label: 'HTTP',
 		group: 'HTTP & explorers',
 		hint: 'Application HTTP routing',
-	},
-	{
-		id: 'password-auth-plugin',
-		label: 'Password Auth',
-		group: 'Security',
-		hint: 'Local passwords and sessions; no CRUD permission',
 	},
 	{
 		id: 'postgres-plugin',

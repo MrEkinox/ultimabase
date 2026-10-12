@@ -14,7 +14,7 @@ const hasGraphqlExplorer = (plan: InitializerPlan): boolean =>
 	has(plan, 'graphql-explorer-plugin')
 
 const hasPublishedAuth = (plan: InitializerPlan): boolean =>
-	has(plan, 'password-auth-plugin') && hasDataApi(plan)
+	has(plan, 'auth-plugin') && hasDataApi(plan)
 
 // apiServer() installs HTTP and its transports (ADR-0325); GraphQL without
 // its HTTP transport stays a separate network-independent plugin.
@@ -33,14 +33,15 @@ export const pluginImports = (
 		.filter(([id]) => has(plan, id))
 		.map(([id, names]) => [`@ultimabase/${id}`, names] as const)
 
-/** Password Auth declares its operations public; the starter hides two (ADR-0324, ADR-0325). */
+/**
+ * Authentication declares its operations public (ADR-0324): its own `/auth`
+ * routes serve HTTP clients, so REST hides them; GraphQL exposes them all.
+ */
 const hiddenAuthOperations = (plan: InitializerPlan, indent: string): string =>
-	has(plan, 'password-auth-plugin')
+	has(plan, 'auth-plugin')
 		? `,
-${indent}hide: [
-${indent}  passwordAuthOperations.changePassword,
-${indent}  passwordAuthOperations.logoutEverywhere,
-${indent}]`
+${indent}// Served under /auth by authPlugin (ADR-0326).
+${indent}hide: [...Object.values(authOperations), ...Object.values(passwordOperations)]`
 		: ''
 
 // Read-only data APIs need no protected policy; writes would (ADR-0294).
@@ -52,9 +53,9 @@ const restOptions = (plan: InitializerPlan): string =>
       ${readOnly}${hiddenAuthOperations(plan, '      ')},
     }`
 
-const graphqlOptions = (plan: InitializerPlan, explorer: boolean): string =>
+const graphqlOptions = (explorer: boolean): string =>
 	`{
-      ${readOnly}${hiddenAuthOperations(plan, '      ')}${
+      ${readOnly}${
 				explorer
 					? `,
       // GraphiQL at /graphiql, in development only (ADR-0325).
@@ -68,7 +69,7 @@ const apiServerEntry = (plan: InitializerPlan): string => {
 		[has(plan, 'rest-plugin'), `    rest: ${restOptions(plan)},`],
 		[
 			graphqlOverHttp(plan),
-			`    graphql: ${graphqlOptions(plan, hasGraphqlExplorer(plan))},`,
+			`    graphql: ${graphqlOptions(hasGraphqlExplorer(plan))},`,
 		],
 		[!hasHttpListener(plan), '    server: false,'],
 	])
@@ -89,8 +90,11 @@ export const apiSchemaPluginImports = (
 	...(has(plan, 'graphql-plugin') && !graphqlOverHttp(plan)
 		? [['@ultimabase/graphql-plugin', 'graphqlPlugin'] as const]
 		: []),
-	...(hasPublishedAuth(plan)
-		? [['@ultimabase/password-auth-plugin', 'passwordAuthOperations'] as const]
+	...(hasPublishedAuth(plan) && has(plan, 'rest-plugin')
+		? [
+				['@ultimabase/auth-plugin', 'authOperations'] as const,
+				['@ultimabase/auth-password', 'passwordOperations'] as const,
+			]
 		: []),
 ]
 
@@ -99,7 +103,7 @@ export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
 		[usesApiServer(plan), apiServerEntry(plan)],
 		[
 			has(plan, 'graphql-plugin') && !graphqlOverHttp(plan),
-			`graphqlPlugin(${graphqlOptions(plan, false)})`,
+			`graphqlPlugin(${graphqlOptions(false)})`,
 		],
 	])
 
@@ -160,7 +164,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasPublishedAuth(plan),
-			'Password Auth declares sign-up, login, refresh, logout, password change and logout everywhere public; every selected transport exposes them except the two the starter hides. Sessions identify a caller; they do not grant Task access. Add online-attempt defenses before any public deployment.',
+			'Authentication serves sign-up, login, sessions, password change and account deletion under /auth; GraphQL exposes the same operations and REST hides them. Sessions identify a caller; they do not grant Task access. Logins are limited per account and per account and address; the HTTP plugin can add a global per-address limit.',
 		],
 		[
 			has(plan, 'graphql-plugin') && !has(plan, 'graphql-yoga-plugin'),
