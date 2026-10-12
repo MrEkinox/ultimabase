@@ -84,6 +84,14 @@ const restoreValue = (value: unknown): unknown => {
 	)
 }
 
+/** Restores the native values of a snapshotted create input. */
+const restoreData = (
+	data: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> =>
+	Object.fromEntries(
+		Object.entries(data).map(([key, value]) => [key, restoreValue(value)]),
+	)
+
 /** Reads the top-level fields a Core `VALIDATION_ERROR` names. */
 const readIssueFields = (error: unknown): readonly string[] => {
 	const details: unknown =
@@ -129,7 +137,7 @@ export const createUserElevated = async (
 ): Promise<string> => {
 	try {
 		const created: unknown = await user.createOne(
-			{ data: restoreValue(data) as never, select: { id: true } as never },
+			{ data: restoreData(data), select: { id: true } },
 			context.access.mode === 'master' ? undefined : { useMasterKey: true },
 		)
 		return readUserId(created)
