@@ -23,7 +23,7 @@ const allowedRuntimeDependencies = {
 	'@ultimabase/acl-permissions-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/postgres-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/http-plugin': ['plugin-kit', 'core', 'shared'],
-	'@ultimabase/server-hono-plugin': [
+	'@ultimabase/hono-server-plugin': [
 		'http-plugin',
 		'plugin-kit',
 		'core',

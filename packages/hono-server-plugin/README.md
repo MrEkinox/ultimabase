@@ -1,4 +1,4 @@
-# @ultimabase/server-hono-plugin
+# @ultimabase/hono-server-plugin
 
 Node.js Hono server provider for UltimaBase's shared HTTP application
 capability. Hono and `@hono/node-server` stay confined to this package; Core,
@@ -17,13 +17,13 @@ application stops.
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 const server = honoServerPlugin()
 
 // postgresPlugin() reads DATABASE_URL at start (ADR-0312).
 const Application = UltimaBase.use(postgresPlugin())
-	.use(httpPlugin({ appId: 'blog' }))
+	.use(httpPlugin())
 	.use(server)
 export const application = new Application({
 	schemas: [],
@@ -77,14 +77,11 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 
 const app = new Hono()
-app.get('/health', (context) => context.text('ok'))
+app.get('/ping', (context) => context.text('pong'))
 
-const server = honoServerPlugin({
-	app,
-	browserPolicyOwner: 'ultimabase',
-})
+const server = honoServerPlugin({ app })
 const Application = UltimaBase.use(postgresPlugin())
-	.use(httpPlugin({ appId: 'blog' }))
+	.use(httpPlugin())
 	.use(server)
 const application = new Application({
 	schemas: [],
@@ -94,10 +91,12 @@ await application.start()
 const listener = serve({ fetch: app.fetch, port: 1337 })
 ```
 
-An existing app must name exactly one CORS owner. With
-`browserPolicyOwner: 'ultimabase'`, the provider enforces the `browser` policy
-from `httpPlugin()`. If existing middleware already owns CORS, declare external
-ownership and leave the HTTP browser policy disabled:
+When `httpPlugin({ browser })` enables CORS, an existing app must name exactly
+one CORS owner with `browserPolicyOwner`; without CORS the option may be
+omitted (ADR-0323). With `browserPolicyOwner: 'ultimabase'`, the provider
+enforces the `browser` policy from `httpPlugin()`. If existing middleware
+already owns CORS, declare external ownership and leave the HTTP browser policy
+disabled:
 
 ```ts
 const server = honoServerPlugin({
@@ -106,7 +105,7 @@ const server = honoServerPlugin({
 })
 
 const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
-	.use(httpPlugin({ appId: 'blog' }))
+	.use(httpPlugin())
 	.use(server)
 const application = new Application({
 	schemas: [],
@@ -119,15 +118,30 @@ UltimaBase owns CORS, a downstream response that already contains CORS headers
 fails safely instead of producing contradictory policy.
 
 The Node adapter's ordered `rawHeaders` are passed beside the normalized Fetch
-request. Duplicate application ID, Master key, authorization, cookie, content
-length, or request ID lines therefore fail before application behavior. An
-external app must be served by a Node integration that supplies the standard
-Hono `incoming.rawHeaders` binding; requests without that evidence fail closed.
+request, with the socket peer address used for rate limiting. Duplicate
+application ID, Master key, authorization, cookie, content length, or request
+ID lines therefore fail before application behavior. An external app must be
+served by a Node integration that supplies the standard Hono
+`incoming.rawHeaders` binding; requests without that evidence fail closed with
+a message saying so.
 
 Browser preflight is infrastructure-only and never selects an application.
-Real requests still require `X-UltimaBase-Application-Id` and follow normal
-credential and Runtime handling. CORS is not authentication, authorization,
-CSRF protection, or protection from non-browser clients.
+Real requests follow normal identity, credential and Runtime handling. CORS is
+not authentication, authorization, CSRF protection, or protection from
+non-browser clients.
 
-TLS, proxy trust, compression, rate limiting, REST, GraphQL, and authentication
-are intentionally outside this package.
+## Shutdown and compression
+
+`stop()` refuses new requests, waits for in-flight ones at most
+`shutdownTimeoutMs` (10 seconds by default), then closes the remaining
+connections (ADR-0323). `compression: true` compresses UltimaBase responses
+with gzip or deflate; it is off by default because proxies and CDNs usually
+compress. On an existing app only the UltimaBase routes are compressed.
+
+```ts
+honoServerPlugin({ compression: true, shutdownTimeoutMs: 5_000 })
+```
+
+TLS and HTTP/2 come from the proxy or platform in front of the server. Proxy
+trust, rate limits, security headers and the health route belong to
+`httpPlugin()`; REST, GraphQL and authentication are separate plugins.

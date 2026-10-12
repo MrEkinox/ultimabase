@@ -59,7 +59,7 @@ describe('packed GraphQL explorer composition', () => {
 
 		expect(
 			(await table.fetch(browserRequest('first', '/apollo-sandbox'))).status,
-		).toBe(401)
+		).toBe(404)
 		await first.dispose()
 		await second.start()
 		const secondHttp = readHttpApplication(
@@ -73,7 +73,7 @@ describe('packed GraphQL explorer composition', () => {
 		).toBe(200)
 		expect(
 			(await secondTable.fetch(browserRequest('second', '/graphiql'))).status,
-		).toBe(401)
+		).toBe(404)
 		await Promise.all([first.dispose(), second.dispose()])
 	})
 

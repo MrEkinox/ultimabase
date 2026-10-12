@@ -148,7 +148,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 		databasePlugin,
 		httpPlugin({
 			appId: 'virtual-yoga',
-			master: { enabled: true },
+			master: true,
 			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 		}),
 		contextPlugin,

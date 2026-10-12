@@ -10,11 +10,15 @@ and separate GraphiQL and Apollo Sandbox plugins are shipped siblings.
 
 ## HTTP
 
-`httpPlugin({ appId, master, requestTimeoutMs })` materializes one
+`httpPlugin({ appId, master, routes, browser, ... })` materializes one
 application-local route graph. Route
 owners contribute standard `Request` to `Response` handlers through the public
 HTTP capability. One initialized application owns the server boundary in each
-JavaScript realm; the provider checks its expected identity against the ordered original `X-UltimaBase-Application-Id` header evidence. External and
+JavaScript realm; a request without `X-UltimaBase-Application-Id` reaches it,
+and a different value in the ordered original header evidence is an unknown
+application (ADR-0323). The HTTP plugin also owns the built-in `/health`
+route, the deadline, body limit, security headers, rate limits and access log
+shared by every transport. External and
 framework-owned providers consume the same graph.
 `dispatchHttpApplicationRequest(owner, input)` dispatches to that one optional
 owner. With no owner, it preserves original-header validation, request

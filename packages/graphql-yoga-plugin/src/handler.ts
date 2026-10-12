@@ -45,7 +45,11 @@ export const createGraphqlYogaMountResource = (
 		{
 			onRequestParse: ({ setRequestParser }) => {
 				setRequestParser((request) =>
-					parseGraphqlRequestBody(request, options.bodyLimit),
+					// Without its own limit GraphQL inherits the HTTP one, which HTTP enforces.
+					parseGraphqlRequestBody(
+						request,
+						options.bodyLimit ?? Number.MAX_SAFE_INTEGER,
+					),
 				)
 			},
 		},
@@ -191,6 +195,10 @@ export const createGraphqlYogaMountResource = (
 			await yoga.dispose()
 		},
 		mount: httpMount({
+			// An explicit GraphQL bodyLimit replaces the HTTP one (ADR-0323).
+			...(options.bodyLimit === undefined
+				? {}
+				: { bodyLimit: options.bodyLimit }),
 			handle,
 			path: options.path,
 			protocol: {

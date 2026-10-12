@@ -214,7 +214,7 @@ describe('HTTP Runtime propagation', () => {
 			database,
 			hooks,
 			routeOwner,
-			httpPlugin({ appId: 'runtime-app', master: { enabled: true } }),
+			httpPlugin({ appId: 'runtime-app', master: true }),
 			server,
 		))({
 			masterAuthority: new MasterAuthority({

@@ -78,9 +78,9 @@ const ownEndpoint = (
 		registrationIndex,
 	})
 	const ownerHandle = definition.handle
-	const handle: HttpRequestHandler = async (request) => {
+	const handle: HttpRequestHandler = async (request, input) => {
 		const response = await callbacks.runPlugin(contribution.owner, () =>
-			ownerHandle(request),
+			ownerHandle(request, input),
 		)
 		if (!(response instanceof Response)) {
 			throw new TypeError('HTTP endpoint handlers must return a Response')

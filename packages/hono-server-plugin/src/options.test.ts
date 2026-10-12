@@ -11,8 +11,10 @@ describe('Hono server plugin options', () => {
 		expect(normalizeHonoServerPluginOptions({})).toStrictEqual({
 			app: undefined,
 			browserPolicyOwner: 'ultimabase',
+			compression: false,
 			host: '127.0.0.1',
 			port: 1337,
+			shutdownTimeoutMs: 10_000,
 			sources: { host: 'NODE_ENV is not production', port: 'default' },
 		})
 		vi.unstubAllEnvs()
@@ -103,6 +105,11 @@ describe('Hono server plugin options', () => {
 
 	it('retains an existing Hono app with external ownership', () => {
 		const app = new Hono()
+		// ADR-0323: the CORS owner is named only when CORS needs one.
+		expect(normalizeHonoServerPluginOptions({ app })).toMatchObject({
+			app,
+			browserPolicyOwner: undefined,
+		})
 		expect(
 			normalizeHonoServerPluginOptions({
 				app,
@@ -122,8 +129,11 @@ describe('Hono server plugin options', () => {
 
 	it.each([
 		[{ app: {} } as never, 'Hono application'],
-		[{ app: new Hono() } as never, 'external or ultimabase'],
 		[{ app: new Hono(), port: 1337 } as never, 'external app'],
+		[{ app: new Hono(), shutdownTimeoutMs: 1 } as never, 'external app'],
+		[{ compression: 'gzip' } as never, 'compression must be a boolean'],
+		[{ shutdownTimeoutMs: -1 }, 'non-negative safe integer'],
+		[{ shutdownTimeoutMs: 1.5 }, 'non-negative safe integer'],
 		[{ browserPolicyOwner: 'external' } as never, 'requires an external app'],
 		[
 			{ app: new Hono(), browserPolicyOwner: 'other' } as never,

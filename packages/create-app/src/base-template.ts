@@ -43,7 +43,7 @@ const dependencyOrder: readonly PluginId[] = [
 	'password-auth-plugin',
 	'roles-plugin',
 	'http-plugin',
-	'server-hono-plugin',
+	'hono-server-plugin',
 	'rest-plugin',
 	'graphql-plugin',
 	'graphql-yoga-plugin',

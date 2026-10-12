@@ -74,7 +74,7 @@ describe('HTTP without a server plugin', () => {
 		)
 
 		expect(warn).toHaveBeenCalledExactlyOnceWith(
-			"[@ultimabase/http-plugin] HTTP has 2 routes but no server plugin: install @ultimabase/server-hono-plugin and add honoServerPlugin() to UltimaBase.use(...), or serve the HTTP application's fetch handler yourself.",
+			"[@ultimabase/http-plugin] HTTP has 2 routes but no server plugin: install @ultimabase/hono-server-plugin and add honoServerPlugin() to UltimaBase.use(...), or serve the HTTP application's fetch handler yourself.",
 		)
 	})
 

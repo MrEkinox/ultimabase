@@ -35,3 +35,13 @@ export const readNodeOriginalHeaders = (
 	}
 	return headers
 }
+
+/** @internal Reads the socket peer address Node exposes for the request. */
+export const readNodeRemoteAddress = (
+	environment: unknown,
+): string | undefined => {
+	const incoming = readProperty(environment, 'incoming')
+	const socket = readProperty(incoming, 'socket')
+	const address = readProperty(socket, 'remoteAddress')
+	return typeof address === 'string' && address.length > 0 ? address : undefined
+}

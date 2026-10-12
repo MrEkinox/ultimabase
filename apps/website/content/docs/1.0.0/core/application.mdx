@@ -186,7 +186,8 @@ application cannot restart either.
 database answers within two seconds, and to `'DEGRADED'` otherwise: before
 start, while stopping or stopped, or when the database fails or times out. It
 never throws for an unhealthy database and never returns the cause, which is
-logged on the server only. Use it from a readiness probe.
+logged on the server only. Use it from a readiness probe; the
+[HTTP plugin](/docs/1.0.0/plugins/official/http) serves it at `GET /health`.
 
 This single-file example defines a schema, starts one PostgreSQL-backed
 application, reads directly from TypeScript, and closes it. It assumes the

@@ -226,7 +226,7 @@ const createFixture = async (
 				? {}
 				: { default: options.restDefault }),
 		}),
-		httpPlugin({ appId: 'schema-mutation-app', master: { enabled: true } }),
+		httpPlugin({ appId: 'schema-mutation-app', master: true }),
 		capturePlugin(capture),
 	))({
 		masterAuthority: new MasterAuthority({

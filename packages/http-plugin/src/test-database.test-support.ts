@@ -14,7 +14,11 @@ import {
 
 class EmptyHttpTestDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
+	readonly checkHealth: () => Promise<void>
+
+	constructor(checkHealth: () => Promise<void>) {
+		this.checkHealth = checkHealth
+	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
@@ -29,7 +33,9 @@ class EmptyHttpTestDatabaseAdapter implements DatabaseAdapter {
 }
 
 /** Creates the inert adapter required to start a request-execution test fixture. */
-export const httpTestDatabasePlugin = (): PluginDefinition =>
+export const httpTestDatabasePlugin = (
+	checkHealth: () => Promise<void> = () => Promise.resolve(),
+): PluginDefinition =>
 	plugin({
 		id: 'fixture.http-database',
 		version: '1.0.0',
@@ -37,7 +43,9 @@ export const httpTestDatabasePlugin = (): PluginDefinition =>
 		contributions: [
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'empty-http-test-adapter',
-				create: () => ({ value: new EmptyHttpTestDatabaseAdapter() }),
+				create: () => ({
+					value: new EmptyHttpTestDatabaseAdapter(checkHealth),
+				}),
 			}),
 		],
 	})

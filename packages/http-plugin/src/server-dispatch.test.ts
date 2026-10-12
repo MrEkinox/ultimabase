@@ -22,7 +22,7 @@ describe('single-owner HTTP dispatch', () => {
 				mounts: [],
 				routes: [],
 			},
-			requestTimeoutMs: undefined,
+			requestTimeoutMs: 30_000,
 			fetch,
 		}
 		const input = {

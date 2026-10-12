@@ -227,7 +227,7 @@
 				{
 					"slug": "official/http",
 					"contentType": "guide",
-					"outcome": "Configure the HTTP application boundary, browser policy, and pre-dispatch request handling."
+					"outcome": "Configure the HTTP foundation, its defaults, application routes, CORS, rate limits and pre-dispatch handling."
 				},
 				{
 					"slug": "official/hono-server",

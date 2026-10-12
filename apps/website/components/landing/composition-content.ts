@@ -1,8 +1,8 @@
 import { applicationExample } from './content'
 
 const httpImports = `import { httpPlugin } from '@ultimabase/http-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'`
-const httpPlugins = `    httpPlugin({ appId: 'articles' }),
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'`
+const httpPlugins = `    httpPlugin(),
     honoServerPlugin(),`
 
 /** Both HTTP presets extend the same explicit, statically checked application. */

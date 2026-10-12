@@ -29,7 +29,7 @@ const officialPluginIds = [
 	'postgres-plugin',
 	'rest-plugin',
 	'roles-plugin',
-	'server-hono-plugin',
+	'hono-server-plugin',
 	'soft-delete-plugin',
 	'validation-plugin',
 ] as const

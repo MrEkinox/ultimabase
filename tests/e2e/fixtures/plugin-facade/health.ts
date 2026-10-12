@@ -6,6 +6,7 @@ export const healthPlugin = () =>
 	definePlugin({
 		name: '@community/health',
 		contributions: [
-			httpRoutes({ 'GET /health': () => Response.json({ status: 'ok' }) }),
+			// `/health` is the HTTP plugin's built-in route (ADR-0323).
+			httpRoutes({ 'GET /status': () => Response.json({ status: 'ok' }) }),
 		],
 	})

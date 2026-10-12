@@ -45,7 +45,7 @@ const start = async (
 	const application = new (UltimaBase.use(
 		httpTestDatabasePlugin(),
 		routesPlugin,
-		httpPlugin({ appId: 'routes' }),
+		httpPlugin({ appId: 'routes', health: false }),
 		capture,
 	))({ logger: false, schemas: [] })
 	onTestFinished(() => application.dispose())

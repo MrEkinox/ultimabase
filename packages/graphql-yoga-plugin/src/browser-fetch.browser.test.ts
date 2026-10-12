@@ -2,7 +2,7 @@ import { serve, type ServerType } from '@hono/node-server'
 import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { httpApplicationIdHeader, httpPlugin } from '@ultimabase/http-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { Hono } from 'hono'
 import { createServer, type Server } from 'node:http'
@@ -72,9 +72,7 @@ it('serves GraphQL through a real browser Fetch boundary', async () => {
 		httpPlugin({
 			appId: 'browser-graphql',
 			browser: {
-				allowedHeaders: ['Content-Type', httpApplicationIdHeader],
-				allowedMethods: ['POST'],
-				allowedOrigins: [browserOrigin],
+				origins: [browserOrigin],
 				credentials: false,
 				maxAgeSeconds: 300,
 			},

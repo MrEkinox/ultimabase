@@ -5,8 +5,9 @@ multi-transport vertical. It starts a framework-owned Hono listener on port
 `1337`, stores data in PostgreSQL, and mounts REST and Yoga GraphQL as sibling
 transports over one HTTP application.
 
-Every public request requires
-`X-UltimaBase-Application-Id: minimal`. REST is mounted under `/api/v1` and
+The commands below send `X-UltimaBase-Application-Id: minimal`; without the
+header a request reaches this only application, and `GET /health` reports its
+health (ADR-0323). REST is mounted under `/api/v1` and
 GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
 explicit `ExampleArticle` soft-delete mutation, `example.status`, and four

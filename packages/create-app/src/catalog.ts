@@ -73,7 +73,7 @@ export const officialPlugins = [
 		hint: 'Role identity; no automatic permission',
 	},
 	{
-		id: 'server-hono-plugin',
+		id: 'hono-server-plugin',
 		label: 'Hono server',
 		group: 'HTTP & explorers',
 		hint: 'Managed local HTTP server',
@@ -117,12 +117,12 @@ export const withheldPlugins: ReadonlyMap<string, string> = new Map([
 const pluginDependencies: Readonly<
 	Partial<Record<PluginId, readonly PluginId[]>>
 > = {
-	'server-hono-plugin': ['http-plugin'],
-	'rest-plugin': ['http-plugin', 'server-hono-plugin'],
+	'hono-server-plugin': ['http-plugin'],
+	'rest-plugin': ['http-plugin', 'hono-server-plugin'],
 	'graphql-yoga-plugin': [
 		'graphql-plugin',
 		'http-plugin',
-		'server-hono-plugin',
+		'hono-server-plugin',
 	],
 	'graphiql-plugin': ['graphql-yoga-plugin'],
 	'apollo-sandbox-plugin': ['graphql-yoga-plugin'],

@@ -60,7 +60,7 @@ import type {
 	OperationTransportExposureOptions,
 } from '../plugin-operations/transport.js'
 import { executeRequestSchemaMutation } from '../schema-mutations/request-execution.js'
-import { checkApplicationHealth } from './application-health.js'
+import { readApplicationHealth } from './application-health.js'
 import {
 	assertCanOptions,
 	executePolicyQuery,
@@ -431,16 +431,7 @@ export class UltimaBase<
 	 * @example `const status = await ultimabase.health() // 'OK' | 'DEGRADED'`
 	 */
 	health(): Promise<'OK' | 'DEGRADED'> {
-		const started = this.#application.state === 'started'
-		return checkApplicationHealth(
-			started,
-			started
-				? readApplicationKernelState(this.#application).capability(
-						databaseAdapterCapability,
-					)
-				: undefined,
-			readApplicationKernelState(this.#application).log,
-		)
+		return readApplicationHealth(this.#application)
 	}
 
 	/**

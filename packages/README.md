@@ -28,7 +28,7 @@ alternatives use the same generic public kernel.
 - `validation-plugin`
 - `soft-delete-plugin`
 - `http-plugin`
-- `server-hono-plugin`
+- `hono-server-plugin`
 - `rest-plugin`
 - `graphql-plugin`
 - `graphql-http` (provider-neutral contract; not a plugin)

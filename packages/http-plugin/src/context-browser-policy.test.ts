@@ -33,7 +33,7 @@ const browserPolicy: HttpBrowserPolicy = Object.freeze({
 		'Content-Type',
 	]),
 	allowedMethods: Object.freeze(['POST'] as const),
-	allowedOrigins: Object.freeze(['https://client.example']),
+	origins: Object.freeze(['https://client.example']),
 	credentials: true,
 	enabled: true,
 	maxAgeSeconds: 60,

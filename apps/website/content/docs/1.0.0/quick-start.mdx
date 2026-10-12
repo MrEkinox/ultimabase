@@ -241,8 +241,9 @@ of writing another. The empty starter instead prints
 `UltimaBase is ready` and has no Task to query.
 
 If you selected REST or GraphQL, the application also listens on
-`127.0.0.1:1337` until you stop it. Its README supplies local requests with
-`X-UltimaBase-Application-Id: main`. Generated Task API mutations are
+`127.0.0.1:1337` until you stop it, and `GET /health` reports its health. Its
+README supplies local requests; they need no application header. Generated
+Task API mutations are
 disabled; the seed write is a server-side call. The loopback listener and
 unverified-protection acknowledgement are not a public security policy.
 

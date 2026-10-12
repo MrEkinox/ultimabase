@@ -1,8 +1,12 @@
+import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { ApplicationLog } from '../../application/application-log.js'
-import { isDatabaseAdapter } from '../database/contracts.js'
+import {
+	databaseAdapterCapability,
+	isDatabaseAdapter,
+} from '../database/contracts.js'
 
 /** Reports whether a started application reaches its database (ADR-0303). */
-export type ApplicationHealthStatus = 'DEGRADED' | 'OK'
+export type ApplicationHealthStatus = 'OK' | 'DEGRADED'
 
 /** Bounds one adapter health check so a stalled database reports `DEGRADED`. */
 export const applicationHealthTimeoutMs = 2_000
@@ -53,4 +57,20 @@ export const checkApplicationHealth = async (
 	} finally {
 		clearTimeout(timer)
 	}
+}
+
+/**
+ * Reports one application's health as `ultimabase.health()` does, for the
+ * facade and for transports through the request executor (ADR-0303, ADR-0323).
+ */
+export const readApplicationHealth = (
+	application: Readonly<{ readonly state: string }>,
+): Promise<ApplicationHealthStatus> => {
+	const started = application.state === 'started'
+	const kernel = readApplicationKernelState(application)
+	return checkApplicationHealth(
+		started,
+		started ? kernel.capability(databaseAdapterCapability) : undefined,
+		kernel.log,
+	)
 }

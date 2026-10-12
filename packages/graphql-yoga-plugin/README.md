@@ -18,7 +18,7 @@ import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 
 const SchemaApplication = UltimaBase.use(
 	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
@@ -58,6 +58,10 @@ enabling introspection in development and disabling it when `NODE_ENV` is
 logs the value and its source. While introspection is enabled, the plugin
 publishes the `ultimabase.graphql.introspection` capability that served
 explorers require.
+
+Without `bodyLimit`, GraphQL inherits `httpPlugin({ bodyLimit })` (1 MiB by
+default), enforced while the body streams; `bodyLimit` replaces it for the
+GraphQL endpoint (ADR-0323).
 
 ```ts
 graphqlYogaPlugin({

@@ -130,7 +130,7 @@ describe('documentation navigation architecture', () => {
 
 		expect(http).toContain('[Hono Server](./hono-server)')
 		expect(http).not.toContain('## Run a Node.js server with Hono')
-		expect(hono).toContain('`@ultimabase/server-hono-plugin`')
+		expect(hono).toContain('`@ultimabase/hono-server-plugin`')
 		expect(hono).toContain('## Configuration')
 		expect(hono).toContain('## Troubleshooting')
 		expect(graphql).toContain('## Serve GraphQL over HTTP with Yoga')

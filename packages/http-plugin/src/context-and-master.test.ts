@@ -139,9 +139,7 @@ const startHttpFixture = async (options: StartHttpFixtureOptions) => {
 		routeOwner,
 		httpPlugin({
 			appId: options.appId ?? 'context-app',
-			...(options.masterEnabled === true
-				? { master: { enabled: true as const } }
-				: {}),
+			...(options.masterEnabled === true ? { master: true as const } : {}),
 			...(options.requestTimeoutMs === undefined
 				? {}
 				: { requestTimeoutMs: options.requestTimeoutMs }),

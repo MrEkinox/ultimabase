@@ -6,16 +6,22 @@ import {
 	type HttpBrowserPolicy,
 	type HttpServerOwnership,
 } from '@ultimabase/http-plugin'
-import { Hono } from 'hono'
+import { Hono, type Handler } from 'hono'
+import { compress } from 'hono/compress'
 import type { AddressInfo } from 'node:net'
 
-import { readNodeOriginalHeaders } from './original-headers.js'
+import {
+	readNodeOriginalHeaders,
+	readNodeRemoteAddress,
+} from './original-headers.js'
 
 interface HonoServerProviderOptions {
 	readonly app: Hono | undefined
-	readonly browserPolicyOwner?: 'external' | 'ultimabase'
+	readonly browserPolicyOwner?: 'external' | 'ultimabase' | undefined
+	readonly compression?: boolean
 	readonly host: string | undefined
 	readonly port: number
+	readonly shutdownTimeoutMs?: number
 }
 
 const disabledBrowserPolicy: HttpBrowserPolicy = Object.freeze({
@@ -28,7 +34,7 @@ const assertBrowserPolicyAuthorityCompatibility = (
 ): void => {
 	if (
 		policy.enabled &&
-		policy.allowedOrigins === '*' &&
+		policy.origins === '*' &&
 		application.authority.master.enabled
 	) {
 		throw new TypeError(
@@ -37,13 +43,22 @@ const assertBrowserPolicyAuthorityCompatibility = (
 	}
 }
 
-const closeServer = (server: ServerType): Promise<void> => {
+const closeServer = (
+	server: ServerType,
+	shutdownTimeoutMs = 0,
+): Promise<void> => {
 	if (!server.listening) return Promise.resolve()
 	return new Promise((resolve, reject) => {
+		// In-flight requests may finish within the bound; then connections close.
+		const timer = setTimeout(() => {
+			if ('closeAllConnections' in server) server.closeAllConnections()
+		}, shutdownTimeoutMs)
 		server.close((error?: Error) => {
+			clearTimeout(timer)
 			if (error === undefined) resolve()
 			else reject(error)
 		})
+		if ('closeIdleConnections' in server) server.closeIdleConnections()
 	})
 }
 
@@ -57,10 +72,12 @@ const normalizeServerError = (error: unknown): Error =>
 /** Owns one listener and one HTTP application at a time, with sequential reuse. */
 export class HonoServerProvider {
 	readonly #app: Hono
-	readonly #browserPolicyOwner: 'external' | 'ultimabase'
+	readonly #browserPolicyOwner: 'external' | 'ultimabase' | undefined
+	readonly #compression: boolean
 	readonly #host: string | undefined
 	readonly #ownership: HttpServerOwnership
 	readonly #port: number
+	readonly #shutdownTimeoutMs: number
 	#application: HttpApplication | undefined
 	#acceptingRequests = false
 	#dispatcherMounted = false
@@ -70,10 +87,13 @@ export class HonoServerProvider {
 
 	constructor(options: HonoServerProviderOptions) {
 		this.#app = options.app ?? new Hono()
-		this.#browserPolicyOwner = options.browserPolicyOwner ?? 'ultimabase'
+		this.#browserPolicyOwner =
+			options.app === undefined ? 'ultimabase' : options.browserPolicyOwner
+		this.#compression = options.compression ?? false
 		this.#host = options.host
 		this.#ownership = options.app === undefined ? 'framework' : 'external'
 		this.#port = options.port
+		this.#shutdownTimeoutMs = options.shutdownTimeoutMs ?? 10_000
 	}
 
 	/** Reports the active framework-owned listener address, if any. */
@@ -95,9 +115,10 @@ export class HonoServerProvider {
 
 	#mountDispatcher(): void {
 		if (this.#dispatcherMounted) return
-		this.#app.all('*', (context) => {
+		const dispatcher: Handler = (context) => {
 			const input = {
 				originalHeaders: readNodeOriginalHeaders(context.env),
+				remoteAddress: readNodeRemoteAddress(context.env),
 				request: context.req.raw,
 			}
 			const application = this.#acceptingRequests
@@ -111,7 +132,10 @@ export class HonoServerProvider {
 						input,
 						dispatch,
 					)
-		})
+		}
+		// Compression wraps only UltimaBase responses, never an existing app's own routes.
+		if (this.#compression) this.#app.all('*', compress(), dispatcher)
+		else this.#app.all('*', dispatcher)
 		this.#dispatcherMounted = true
 	}
 
@@ -129,6 +153,12 @@ export class HonoServerProvider {
 		if (this.#browserPolicyOwner === 'external' && browserPolicy.enabled) {
 			throw new TypeError(
 				'Externally owned browser policy requires HTTP browser policy to be disabled',
+			)
+		}
+		// ADR-0323: an existing app names a CORS owner only when CORS is on.
+		if (this.#browserPolicyOwner === undefined && browserPolicy.enabled) {
+			throw new TypeError(
+				"Hono server plugin browserPolicyOwner is required with an existing app when httpPlugin({ browser }) enables CORS: set 'ultimabase' or 'external'",
 			)
 		}
 		this.#mountDispatcher()
@@ -155,7 +185,7 @@ export class HonoServerProvider {
 		this.#acceptingRequests = false
 		this.#browserPolicy = undefined
 		if (this.#ownership === 'framework' && this.#server !== undefined) {
-			await closeServer(this.#server)
+			await closeServer(this.#server, this.#shutdownTimeoutMs)
 			this.#server = undefined
 		}
 		this.#application = undefined

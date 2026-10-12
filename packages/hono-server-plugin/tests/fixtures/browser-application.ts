@@ -40,13 +40,15 @@ export const createBrowserApplication = async (
 		databasePlugin(),
 		httpPlugin({
 			appId: 'browser',
-			master: { enabled: true },
+			// The fixture mounts at "/", which owns the health path too.
+			health: false,
+			master: true,
+			// The boundary checks still exercise the strict application header.
+			requireApplicationId: true,
 			...(policy.enabled
 				? {
 						browser: {
-							allowedOrigins: policy.allowedOrigins,
-							allowedMethods: policy.allowedMethods,
-							allowedHeaders: policy.allowedHeaders,
+							origins: policy.origins,
 							credentials: policy.credentials,
 							maxAgeSeconds: policy.maxAgeSeconds,
 						},

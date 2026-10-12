@@ -3324,13 +3324,13 @@ __metadata:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/graphql-plugin": "workspace:^"
     "@ultimabase/graphql-yoga-plugin": "workspace:^"
+    "@ultimabase/hono-server-plugin": "workspace:^"
     "@ultimabase/hooks-plugin": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
     "@ultimabase/password-auth-plugin": "workspace:^"
     "@ultimabase/postgres-plugin": "workspace:^"
     "@ultimabase/rest-plugin": "workspace:^"
     "@ultimabase/roles-plugin": "workspace:^"
-    "@ultimabase/server-hono-plugin": "workspace:^"
     "@ultimabase/soft-delete-plugin": "workspace:^"
     "@ultimabase/typegen": "workspace:^"
     "@ultimabase/validation-plugin": "workspace:^"
@@ -3423,14 +3423,30 @@ __metadata:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/graphql-http": "workspace:^"
     "@ultimabase/graphql-plugin": "workspace:^"
+    "@ultimabase/hono-server-plugin": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
-    "@ultimabase/server-hono-plugin": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     graphql: "npm:^17.0.2"
     graphql-yoga: "npm:^5.24.4"
     hono: "npm:^4.13.7"
     playwright: "npm:^1.63.0"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/hono-server-plugin@workspace:^, @ultimabase/hono-server-plugin@workspace:packages/hono-server-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/hono-server-plugin@workspace:packages/hono-server-plugin"
+  dependencies:
+    "@hono/node-server": "npm:^2.1.1"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    hono: "npm:^4.13.7"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
@@ -3553,22 +3569,6 @@ __metadata:
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.11"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/server-hono-plugin@workspace:^, @ultimabase/server-hono-plugin@workspace:packages/server-hono-plugin":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/server-hono-plugin@workspace:packages/server-hono-plugin"
-  dependencies:
-    "@hono/node-server": "npm:^2.1.1"
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/http-plugin": "workspace:^"
-    "@ultimabase/plugin-kit": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
-    hono: "npm:^4.13.7"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"

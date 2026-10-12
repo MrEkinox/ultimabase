@@ -8,7 +8,7 @@ describe('API project templates', () => {
 		[{ plugins: ['http-plugin'] as const }, ['http-plugin']],
 		[
 			{ apis: ['rest'] as const },
-			['http-plugin', 'rest-plugin', 'server-hono-plugin'],
+			['http-plugin', 'rest-plugin', 'hono-server-plugin'],
 		],
 		[
 			{ apis: ['graphql'] as const },
@@ -16,12 +16,12 @@ describe('API project templates', () => {
 				'graphql-plugin',
 				'graphql-yoga-plugin',
 				'http-plugin',
-				'server-hono-plugin',
+				'hono-server-plugin',
 			],
 		],
 		[
-			{ plugins: ['server-hono-plugin'] as const },
-			['http-plugin', 'server-hono-plugin'],
+			{ plugins: ['hono-server-plugin'] as const },
+			['http-plugin', 'hono-server-plugin'],
 		],
 		[{ plugins: ['graphql-plugin'] as const }, ['graphql-plugin']],
 		[
@@ -31,7 +31,7 @@ describe('API project templates', () => {
 				'graphql-plugin',
 				'graphql-yoga-plugin',
 				'http-plugin',
-				'server-hono-plugin',
+				'hono-server-plugin',
 			],
 		],
 		[
@@ -41,7 +41,7 @@ describe('API project templates', () => {
 				'graphql-plugin',
 				'graphql-yoga-plugin',
 				'http-plugin',
-				'server-hono-plugin',
+				'hono-server-plugin',
 			],
 		],
 	] as const)('includes the complete graph for %j', (choice, expected) => {
@@ -61,22 +61,22 @@ describe('API project templates', () => {
 			// One plugin list in the schema module (ADR-0312).
 			const application = files.get(`src/schema.${language}`) ?? ''
 			expect(application.includes('honoServerPlugin(')).toBe(
-				plan.plugins.includes('server-hono-plugin'),
+				plan.plugins.includes('hono-server-plugin'),
 			)
 			expect(application.includes('graphqlYogaPlugin(')).toBe(
 				plan.plugins.includes('graphql-yoga-plugin'),
 			)
 			if (plan.plugins.includes('http-plugin')) {
-				expect(application).toContain("httpPlugin({ appId: 'main' })")
-				expect(application).not.toContain('master: { enabled: true }')
+				expect(application).toContain('httpPlugin()')
+				expect(application).not.toContain('master: true')
 				expect(application).not.toContain('browser: {')
-				if (!plan.plugins.includes('server-hono-plugin')) {
+				if (!plan.plugins.includes('hono-server-plugin')) {
 					expect(files.get('README.md')).toContain(
 						'this application opens no listener',
 					)
 				}
 			}
-			if (plan.plugins.includes('server-hono-plugin')) {
+			if (plan.plugins.includes('hono-server-plugin')) {
 				// The listen address follows HOST and NODE_ENV (ADR-0312).
 				expect(application).toContain('honoServerPlugin()')
 				expect(files.get(`src/main.${language}`)).toContain(
@@ -112,7 +112,7 @@ describe('API project templates', () => {
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([
-				"curl -i -H 'X-UltimaBase-Application-Id: main' 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
+				"curl -i 'http://127.0.0.1:1337/api/v1/classes/Task?select=id,title,done'",
 			]),
 		)
 	})

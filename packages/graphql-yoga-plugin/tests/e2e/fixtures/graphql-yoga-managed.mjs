@@ -19,7 +19,7 @@ import {
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpApplicationIdHeader, httpPlugin } from '@ultimabase/http-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { createServer } from 'node:net'
 import process from 'node:process'

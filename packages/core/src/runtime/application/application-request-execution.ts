@@ -44,6 +44,10 @@ import type {
 	PublicTransportProtectionOptions,
 } from '../plugin-operations/transport.js'
 import {
+	readApplicationHealth,
+	type ApplicationHealthStatus,
+} from './application-health.js'
+import {
 	executeApplicationSchemaMutation,
 	type ApplicationSchemaMutationRequest,
 	type ApplicationSchemaMutationResult,
@@ -111,6 +115,11 @@ export interface ApplicationRequestExecutor {
 	>(
 		options: PublicTransportProtectionOptions<TTransport>,
 	): void
+	/**
+	 * Reports the application's health exactly as `ultimabase.health()`:
+	 * `DEGRADED` before binding, after disposal, or when the database fails.
+	 */
+	health(): Promise<ApplicationHealthStatus>
 }
 
 interface ApplicationRequestExecutorState {
@@ -266,6 +275,16 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 	>(options: PublicTransportProtectionOptions<TTransport>): void {
 		const framework = enterBoundFramework(this, false)
 		reportFrameworkPublicTransportProtection(framework, options)
+	}
+
+	health(): Promise<ApplicationHealthStatus> {
+		// Health never throws: an unbound or disposed executor is not healthy.
+		const state = applicationRequestExecutorStates.get(this)
+		return state === undefined ||
+			state.disposed ||
+			state.framework === undefined
+			? Promise.resolve('DEGRADED')
+			: readApplicationHealth(state.framework.application)
 	}
 }
 

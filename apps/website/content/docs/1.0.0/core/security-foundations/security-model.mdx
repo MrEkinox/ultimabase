@@ -35,7 +35,7 @@ filter from becoming an accidental permission.
 Core has exactly two authority modes: `anonymous` and `master`. An authenticated
 principal still uses `anonymous` Core authority: the mode means “not Master,”
 not “no known user.” Authentication establishes identity and grants no
-authorization. The public `X-UltimaBase-Application-Id` header selects an
+authorization. The optional public `X-UltimaBase-Application-Id` header selects an
 application but grants no authority either.
 
 ## Protected policy is a separate choice

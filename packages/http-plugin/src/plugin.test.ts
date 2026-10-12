@@ -51,11 +51,13 @@ describe('httpPlugin', () => {
 			schemas: [],
 		})
 		await application.initialize()
-		expect(application.plugin('@ultimabase/http-plugin')).toStrictEqual({
+		const { fetch, ...settings } = application.plugin('@ultimabase/http-plugin')
+		expect(typeof fetch).toBe('function')
+		expect(settings).toStrictEqual({
 			appId: 'blog',
 			browser: { enabled: false },
 			master: { enabled: false },
-			requestTimeoutMs: undefined,
+			requestTimeoutMs: 30_000,
 		})
 		expect(
 			application.plugin('fixture.http-consumer').application,
@@ -64,27 +66,18 @@ describe('httpPlugin', () => {
 	})
 
 	it.each([
-		[{} as never, 'appId'],
 		[{ appId: '' }, 'non-empty'],
-		[{ appId: 'blog', master: { enabled: false } } as never, 'exactly'],
-		[
-			{ appId: 'blog', master: { enabled: true, extra: true } } as never,
-			'exactly',
-		],
+		[{ appId: 'blog', master: { enabled: true } } as never, 'must be true'],
+		[{ appId: 'blog', master: false } as never, 'must be true'],
 		[{ appId: 'blog', requestTimeoutMs: 0 }, 'positive safe integer'],
 		[{ appId: 'blog', requestTimeoutMs: 1.5 }, 'positive safe integer'],
+		[{ appId: 'blog', browser: { origins: [] } }, 'non-empty array'],
 		[
 			{
 				appId: 'blog',
-				browser: {
-					allowedHeaders: [],
-					allowedMethods: ['GET'],
-					allowedOrigins: ['https://console.example'],
-					credentials: false,
-					maxAgeSeconds: 0,
-				},
+				browser: { allowedOrigins: ['https://console.example'] },
 			} as never,
-			'non-empty array',
+			'unknown option: allowedOrigins',
 		],
 		[{ appId: 'blog', extra: true } as never, 'Unknown'],
 	])('rejects invalid options %#', (options, message) => {
@@ -95,7 +88,7 @@ describe('httpPlugin', () => {
 		const disabled = httpPlugin({ appId: 'disabled' })
 		const enabled = httpPlugin({
 			appId: 'enabled',
-			master: { enabled: true },
+			master: true,
 			requestTimeoutMs: 2_000,
 		})
 

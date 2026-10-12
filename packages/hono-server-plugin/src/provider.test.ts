@@ -22,7 +22,7 @@ const createHttpApplication = (
 	authority: { master: { enabled: false } },
 	protocolVersion: httpApplicationProtocolVersion,
 	originalHeaderMode: httpOriginalHeaderMode,
-	requestTimeoutMs: undefined,
+	requestTimeoutMs: 30_000,
 	routeGraph: { browserBootstraps: [], endpoints: [], mounts: [], routes: [] },
 	fetch: (input) => {
 		const { request } = input
@@ -47,7 +47,7 @@ const browserPolicy = (
 		'X-UltimaBase-Request-Id',
 	],
 	allowedMethods: ['GET', 'POST'],
-	allowedOrigins: origins,
+	origins: origins,
 	credentials: true,
 	enabled: true,
 	maxAgeSeconds: 300,

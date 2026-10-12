@@ -74,7 +74,7 @@ describe('packed GraphiQL plugin', () => {
 			enabled: true,
 			allowedHeaders: ['X-UltimaBase-Application-Id', 'Content-Type'],
 			allowedMethods: ['GET', 'POST'],
-			allowedOrigins: ['https://console.example'],
+			origins: ['https://console.example'],
 			credentials: false,
 			maxAgeSeconds: 600,
 		}
@@ -112,7 +112,7 @@ describe('packed GraphiQL plugin', () => {
 					browserRequest('production-disabled', '/graphiql'),
 				)
 			).status,
-		).toBe(401)
+		).toBe(404)
 		await disabled.dispose()
 	})
 })

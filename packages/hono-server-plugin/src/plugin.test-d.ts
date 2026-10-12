@@ -31,8 +31,12 @@ test('preserves managed and application-specific Hono option types', () => {
 	honoServerPlugin({ app, port: 1337 })
 	// @ts-expect-error -- only Hono applications satisfy the external contract.
 	honoServerPlugin({ app: { fetch: () => new Response() } })
-	// @ts-expect-error -- existing applications require one explicit CORS owner.
+	// ADR-0323: an existing app names a CORS owner only when CORS is enabled.
 	honoServerPlugin({ app })
+	honoServerPlugin({ app, compression: true })
+	honoServerPlugin({ compression: true, shutdownTimeoutMs: 5_000 })
+	// @ts-expect-error -- an external app owns its listener shutdown.
+	honoServerPlugin({ app, shutdownTimeoutMs: 5_000 })
 	// @ts-expect-error -- managed listeners always use UltimaBase browser policy ownership.
 	honoServerPlugin({ browserPolicyOwner: 'external' })
 })

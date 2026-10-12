@@ -1,10 +1,15 @@
-import type { CompiledSchemaRegistry } from '@ultimabase/core'
+import type {
+	AnonymousRequestAccess,
+	CompiledSchemaRegistry,
+	MasterRequestAccess,
+} from '@ultimabase/core'
 import {
 	defineCapability,
 	provideCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 	type PluginCapabilityReader,
+	type RequestContext,
 } from '@ultimabase/core/plugin'
 import {
 	assertNonEmptyString,
@@ -15,6 +20,10 @@ import {
 
 import { isHttpMethod, isReservedHttpPath } from './constants.js'
 import { HttpDefinitionRegistry, assertExactOptions } from './definitions.js'
+import {
+	normalizeHttpEndpointLimits,
+	type HttpEndpointLimits,
+} from './endpoint-limits.js'
 
 /** Names one protocol whose handler owns response and post-dispatch errors. */
 export interface HttpEndpointProtocol<
@@ -29,15 +38,30 @@ export interface HttpEndpointProtocol<
 export type HttpMethod =
 	'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT'
 
-/** Handles one selected Fetch request and returns one Fetch response. */
-export type HttpRequestHandler = (request: Request) => MaybePromise<Response>
+/** Carries what HTTP resolved for one request before its handler runs. */
+export interface HttpRequestHandlerInput {
+	/**
+	 * The request context: anonymous, or Master, with the values added by the
+	 * credential plugins. It is already active, so queries in the handler use it.
+	 */
+	readonly context: RequestContext<AnonymousRequestAccess | MasterRequestAccess>
+}
+
+/**
+ * Handles one selected Fetch request and returns one Fetch response.
+ * @example `(request, { context }) => Response.json({ mode: context.access.mode })`
+ */
+export type HttpRequestHandler = (
+	request: Request,
+	input: HttpRequestHandlerInput,
+) => MaybePromise<Response>
 
 /** Declares one exact method and path owned by a contributing plugin. */
 export interface HttpRouteDefinition<
 	TMethod extends HttpMethod = HttpMethod,
 	TPath extends string = string,
 	TProtocol extends HttpEndpointProtocol = HttpEndpointProtocol,
-> {
+> extends HttpEndpointLimits {
 	readonly kind: 'route'
 	readonly method: TMethod
 	readonly path: TPath
@@ -61,7 +85,7 @@ export interface HttpBrowserBootstrapRouteDefinition<
 export interface HttpMountDefinition<
 	TPath extends string = string,
 	TProtocol extends HttpEndpointProtocol = HttpEndpointProtocol,
-> {
+> extends HttpEndpointLimits {
 	readonly kind: 'mount'
 	readonly path: TPath
 	readonly protocol: TProtocol
@@ -79,7 +103,7 @@ export interface HttpRouteOptions<
 	TMethod extends HttpMethod,
 	TPath extends string,
 	TProtocol extends HttpEndpointProtocol,
-> {
+> extends HttpEndpointLimits {
 	readonly method: TMethod
 	readonly path: TPath
 	readonly protocol: TProtocol
@@ -90,7 +114,7 @@ export interface HttpRouteOptions<
 export interface HttpMountOptions<
 	TPath extends string,
 	TProtocol extends HttpEndpointProtocol,
-> {
+> extends HttpEndpointLimits {
 	readonly path: TPath
 	readonly protocol: TProtocol
 	readonly handle: HttpRequestHandler
@@ -128,8 +152,10 @@ const assertEndpointOptions = (
 	assertExactOptions(
 		options,
 		kind === 'route'
-			? ['handle', 'method', 'path', 'protocol']
-			: ['handle', 'path', 'protocol'],
+			? ['bodyLimit', 'handle', 'method', 'path', 'protocol', 'rateLimit']
+			: kind === 'mount'
+				? ['bodyLimit', 'handle', 'path', 'protocol', 'rateLimit']
+				: ['handle', 'path', 'protocol'],
 		`${label} options`,
 	)
 	if (kind === 'route' && !isHttpMethod(options.method)) {
@@ -193,6 +219,7 @@ export const httpRoute = <
 			path: options.path,
 			protocol: snapshotProtocol(options.protocol),
 			handle: options.handle,
+			...normalizeHttpEndpointLimits(options, 'HTTP route'),
 		}),
 	)
 }
@@ -211,6 +238,7 @@ export const httpMount = <
 			path: options.path,
 			protocol: snapshotProtocol(options.protocol),
 			handle: options.handle,
+			...normalizeHttpEndpointLimits(options, 'HTTP mount'),
 		}),
 	)
 }

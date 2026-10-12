@@ -27,7 +27,7 @@ import {
 	passwordSession,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { Hono } from 'hono'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -121,14 +121,7 @@ const createPasswordHttpApplication = (
 	const browser =
 		options.cookie === true
 			? {
-					allowedHeaders: [
-						httpApplicationIdHeader,
-						'Authorization',
-						'Content-Type',
-						...(options.masterTransport === true ? [httpMasterKeyHeader] : []),
-					],
-					allowedMethods: ['GET', 'POST'] as const,
-					allowedOrigins: [browserOrigin],
+					origins: [browserOrigin],
 					credentials: true,
 					maxAgeSeconds: 60,
 				}
@@ -163,9 +156,7 @@ const createPasswordHttpApplication = (
 		httpPlugin({
 			appId: options.appId,
 			...(browser === undefined ? {} : { browser }),
-			...(options.masterTransport === true
-				? { master: { enabled: true as const } }
-				: {}),
+			...(options.masterTransport === true ? { master: true as const } : {}),
 		}),
 		capture,
 		...(server === undefined ? [] : [server]),
@@ -414,7 +405,7 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 				})
 			}
 			// Regression: valid credentials padded past 1 MiB used to be buffered
-			// whole and accepted; the body is now bounded like malformed input.
+			// whole and accepted; the HTTP body limit now refuses them (ADR-0323).
 			const credentials = JSON.stringify({ password, username: 'cookie-user' })
 			const oversized = await http.fetch(
 				directRequest('password-cookie', '/auth/v1/login', {
@@ -423,7 +414,7 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 					method: 'POST',
 				}),
 			)
-			expect(oversized.status).toBe(401)
+			expect(oversized.status).toBe(413)
 			expect(oversized.headers.has('Set-Cookie')).toBe(false)
 
 			const authenticated = await http.fetch(

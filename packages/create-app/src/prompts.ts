@@ -181,7 +181,7 @@ const capabilityNotes = (plan: InitializerPlan): string[] => {
 			'Task API mutations are disabled; acknowledging unverified public protection does not establish authorization.',
 		],
 		[
-			has('server-hono-plugin'),
+			has('hono-server-plugin'),
 			'HTTP binds to 127.0.0.1; API requests need the exact application ID.',
 		],
 		[

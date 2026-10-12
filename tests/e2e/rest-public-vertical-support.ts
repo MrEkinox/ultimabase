@@ -1,7 +1,7 @@
 import { toJSON, type MasterAccessEvent } from '@ultimabase/core'
 import * as corePlugin from '@ultimabase/core/plugin'
 import type { PostgresPool } from '@ultimabase/postgres-plugin'
-import type { HonoServerPlugin } from '@ultimabase/server-hono-plugin'
+import type { HonoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { vi } from 'vitest'
 
 export interface MinimalApplication {
