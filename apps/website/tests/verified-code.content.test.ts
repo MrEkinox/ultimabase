@@ -20,6 +20,9 @@ const enforcedDocuments = [
 	'apps/website/content/docs/1.0.0/plugins/official/access.mdx',
 	'packages/access-plugin/README.md',
 	'examples/access/README.md',
+	'apps/website/content/docs/1.0.0/plugins/official/hooks.mdx',
+	'packages/hooks-plugin/README.md',
+	'examples/hooks/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({

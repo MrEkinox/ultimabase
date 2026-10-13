@@ -21,6 +21,12 @@ Examples are user-facing, tested applications. They must only import public `@ul
   and `readDeleted`, `allowWithoutRule` openings, denial diagnostics and
   `can()`), tested with `testApplication`. Its `//#region` blocks are the code
   of the Access page and package README (ADR-0330).
+- [`hooks`](hooks/README.md): the Hooks plugin end to end (field Hooks,
+  `resolveInput` on data, readable `changes`, `beforeOperation` and
+  `afterOperation` in the transaction, `afterCommit`, typed events, global
+  Hooks, `all` for a plugin command, a contributed Hook, the depth limit,
+  `PublicError` over REST), tested with `testApplication`. Its `//#region`
+  blocks are the code of the Hooks page and package README (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.

@@ -6,42 +6,123 @@ The package contains both the public authoring contract and its Runtime engine.
 Importing it does not install behavior; add `hooksPlugin()` to the application
 `.use()` chain. Field `hooks` are declared on fields; schema `hooks` live in the
 final `.with({ hooks })` of a schema (ADR-0316) and are typed from the schema,
-without generated files. The `hooks` option of `define` follows the same types
-until the declaration form is retired.
+without generated files; `define` takes no `hooks` option.
+
+Every code block in this README except the conformance sketch is copied from
+the tested [`examples/hooks`](../../examples/hooks/README.md) application by
+`yarn docs:regions` (ADR-0330): edit the example, then run the script. Its
+schema file installs the plugin with global Hooks and an event consumer, then
+declares a `Post` with field and schema Hooks (`Author`, `Tag` and
+`PostTitleChange` are plain schemas declared beside it; `sendMessage` stands
+in for an e-mail or webhook client):
+
+<!-- region ../../examples/hooks/src/schema.ts#factory,post -->
 
 ```ts
+import { apiServer } from '@ultimabase/api-server'
 import { PublicError, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const App = UltimaBase.use(hooksPlugin())
+import { sendMessage } from './effects.ts'
+import { announcePost, postPublished } from './events.ts'
+
+/**
+ * The configured factory types `.with({ hooks })` and field `hooks` from the
+ * plugin declaration. `postgresPlugin()` reads `DATABASE_URL` at start.
+ */
+export const App = UltimaBase.use(
+	hooksPlugin({
+		// Runs for every schema, before the schema's own Hooks.
+		global: {
+			afterCommit: {
+				all: ({ schema, kind }) =>
+					sendMessage({ to: 'audit', subject: `${schema}.${kind}` }),
+			},
+		},
+		// Consumers of typed events, run after the commit.
+		events: [announcePost],
+	}),
+	softDeletePlugin(),
+	// Hooks are not an authorization layer: every client may write here.
+	// Install Access before exposing an application.
+	...apiServer({ http: { appId: 'blog' }, rest: { publicWrites: true } }),
+	postgresPlugin(),
+)
+
+const slugify = (title: string) => title.toLowerCase().replace(/\s+/gu, '-')
 
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
+		// A field Hook receives one present, non-null value.
 		title: field.string({
 			required: true,
 			hooks: { resolveInput: ({ value }) => value.trim() },
 		}),
+		summary: field.string({
+			hooks: { resolveInput: ({ value }) => value.trim() },
+		}),
 		slug: field.string(),
+		published: field.boolean({ default: false, required: true }),
+		views: field.int({ default: 0 }),
+		author: field.pointer({ target: () => Author }),
+		tags: field.relation({ target: () => Tag }),
 	}),
 }).with({
+	indexes: [{ fields: ['slug'], unique: true }],
 	hooks: {
+		// Plain data in, plain data out; `undefined` keeps the input.
 		resolveInput: {
 			create: ({ data }) => ({ ...data, slug: slugify(data.title) }),
+			update: ({ changes }) =>
+				changes.title === undefined
+					? undefined
+					: { ...changes, slug: slugify(changes.title) },
+			upsert: ({ mode, data, changes }) =>
+				mode === 'create'
+					? { data: { ...data, slug: slugify(data.title) }, changes }
+					: undefined,
 		},
 		beforeOperation: {
-			update: ({ changes, originalItem }) => {
-				if (changes.title !== undefined && originalItem.slug === 'home') {
-					throw new PublicError('The home post keeps its title.')
+			update: ({ originalItem, item }) => {
+				if (originalItem.published && item.title !== originalItem.title) {
+					throw new PublicError('A published post keeps its title.', {
+						code: 'post.published-title',
+					})
 				}
 			},
 		},
+		// Inside the transaction: these writes and events commit with the post.
+		afterOperation: {
+			update: async ({ changes, context, originalItem, item }) => {
+				if (changes.title !== undefined) {
+					await PostTitleChange.createOne({
+						data: {
+							post: { connect: item.id },
+							previousTitle: originalItem.title,
+							title: item.title,
+						},
+					})
+				}
+				if (changes.published === true) {
+					context.emit(postPublished, { postId: item.id, title: item.title })
+				}
+			},
+		},
+		// After the commit, outside it: external effects belong here.
 		afterCommit: {
-			create: ({ item }) => sendWelcomeEmail(item.title),
+			create: ({ item }) =>
+				sendMessage({ to: 'editors', subject: `New draft: ${item.title}` }),
+			update: ({ changes, item }) =>
+				sendMessage({ to: 'webhook', subject: item.id, body: changes }),
 		},
 	},
 })
 ```
+
+<!-- endregion -->
 
 ## Phases (ADR-0318)
 
@@ -92,18 +173,31 @@ next Hooks. Delivery is best effort within the process. Tests await it with
 
 ## Typed events
 
+The example's event and its consumer, installed by the factory above and
+emitted by Post's `afterOperation.update`:
+
+<!-- region ../../examples/hooks/src/events.ts#event -->
+
 ```ts
-import { defineEvent, hooksPlugin, onEvent } from '@ultimabase/hooks-plugin'
+import { defineEvent, onEvent } from '@ultimabase/hooks-plugin'
 
-export const postCreated = defineEvent<{ postId: string }>('post.created')
+import { sendMessage } from './effects.ts'
 
-const App = UltimaBase.use(
-	hooksPlugin({
-		events: [onEvent(postCreated, ({ event }) => notify(event.payload.postId))],
+/** Emitted by a Hook when a post goes live; bound by value, not by name. */
+export const postPublished = defineEvent<{ postId: string; title: string }>(
+	'post.published',
+)
+
+/** Runs after the commit, without delaying the response. */
+export const announcePost = onEvent(postPublished, ({ event }) =>
+	sendMessage({
+		to: 'subscribers',
+		subject: `New post: ${event.payload.title}`,
 	}),
 )
-// In a schema Hook: context.emit(postCreated, { postId: item.id })
 ```
+
+<!-- endregion -->
 
 `defineEvent<TPayload>(name)` creates an event bound by value;
 `context.emit(event, payload)` queues it inside the transaction; consumers are
@@ -188,34 +282,89 @@ suites.
 Every installed schema mutation (Soft Delete's `softDeleteOne`, `restoreOne`,
 `purgeOne`, …) adds its own branch to `beforeOperation`, `afterOperation` and
 `afterCommit`. Both request and Master-only commands are present because
-trusted maintenance operations still retain business Hooks:
+trusted maintenance operations still retain business Hooks. The example's
+`Comment` uses Soft Delete in command mode; its `afterCommit.all` narrows on
+`kind`, and its reply cascade shows the depth limit of [Recursion](#recursion):
+
+<!-- region ../../examples/hooks/src/schema.ts#factory,comment -->
 
 ```ts
-import { UltimaBase } from '@ultimabase/core'
+import { apiServer } from '@ultimabase/api-server'
+import { PublicError, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const App = UltimaBase.use(hooksPlugin(), softDeletePlugin())
-export const Post = App.Schema.define({
-	className: 'Post',
-	fields: (field) => ({ title: field.string() }),
+import { sendMessage } from './effects.ts'
+import { announcePost, postPublished } from './events.ts'
+
+/**
+ * The configured factory types `.with({ hooks })` and field `hooks` from the
+ * plugin declaration. `postgresPlugin()` reads `DATABASE_URL` at start.
+ */
+export const App = UltimaBase.use(
+	hooksPlugin({
+		// Runs for every schema, before the schema's own Hooks.
+		global: {
+			afterCommit: {
+				all: ({ schema, kind }) =>
+					sendMessage({ to: 'audit', subject: `${schema}.${kind}` }),
+			},
+		},
+		// Consumers of typed events, run after the commit.
+		events: [announcePost],
+	}),
+	softDeletePlugin(),
+	// Hooks are not an authorization layer: every client may write here.
+	// Install Access before exposing an application.
+	...apiServer({ http: { appId: 'blog' }, rest: { publicWrites: true } }),
+	postgresPlugin(),
+)
+
+/**
+ * A thread whose comments count their replies at every level: updating a
+ * parent re-enters the same Hook one level up, until the root.
+ */
+export const Comment = App.Schema.define({
+	className: 'Comment',
+	fields: (field) => ({
+		body: field.string({ required: true }),
+		parent: field.pointer({ target: () => Comment }),
+		replies: field.int({ default: 0 }),
+	}),
 })
-	.softDelete()
+	.softDelete({ mode: 'command' })
 	.with({
 		hooks: {
-			beforeOperation: {
-				softDeleteOne: ({ context, input, item, originalItem, target }) => {
-					console.log(context.requestId, input, target.id, originalItem, item)
-				},
+			afterOperation: {
+				create: ({ item }) => countReply(item.parent),
+				update: ({ changes, item }) =>
+					changes.replies === undefined ? undefined : countReply(item.parent),
 			},
 			afterCommit: {
-				softDeleteOne: ({ item, mutation }) => {
-					console.log(mutation.name, item)
+				// `all` also runs for Soft Delete's commands; `kind` names them.
+				all: async (input) => {
+					if (input.kind === 'softDeleteOne') {
+						await sendMessage({
+							to: 'moderators',
+							subject: `Hidden: ${input.originalItem.body}`,
+						})
+					}
 				},
 			},
 		},
 	})
+
+const countReply = async (parent: { readonly id: string } | null) => {
+	if (parent === null) return
+	await Comment.updateOne({
+		where: { id: { eq: parent.id } },
+		data: { replies: { increment: 1 } },
+	})
+}
 ```
+
+<!-- endregion -->
 
 Before Hooks receive the validated payload, locked preimage, and owner-resolved
 candidate. After Hooks receive the adapter-validated persisted pair before
@@ -239,24 +388,66 @@ plugin then runs as the last step before storage. Hooks providers do not
 register or own either validation boundary.
 
 A provider declares Hooks as a peer rather than a lifecycle dependency,
-because the Hooks engine consumes the provider's contribution capability:
+because the Hooks engine consumes the provider's contribution capability. Core
+derives `runtime:intercept` from the contribution (`permissions` gives its
+reason), and the peer range must accept the installed Hooks version, or the
+application fails with `PLUGIN_PROTOCOL_INCOMPATIBLE`. The example installs
+this plugin with `App.use(postRulesPlugin)` once `Post` exists; the return
+annotation of the factory keeps the plugin's type out of the `Register` cycle:
+
+<!-- region ../../examples/hooks/src/post-rules-plugin.ts#post-rules-plugin -->
 
 ```ts
-plugin({
-	id: 'community.workflow-hooks',
+import { PublicError } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
+import {
+	provideHookContributions,
+	schemaHooks,
+	type SchemaHookContributionDefinition,
+} from '@ultimabase/hooks-plugin'
+
+import { Post } from './schema.ts'
+
+/** A compatible plugin contributing one Post rule to the Hooks engine. */
+export const postRulesPlugin = plugin({
+	id: 'example.post-rules',
 	version: '1.0.0',
 	core: '^0.0.0',
 	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-	contributions: [provideHookContributions(/* ... */)],
+	permissions: {
+		'runtime:intercept': 'Keeps published posts from being deleted.',
+	},
+	contributions: [
+		provideHookContributions(
+			'published-post-rule',
+			// The return type keeps this plugin's type out of the Register cycle.
+			(): SchemaHookContributionDefinition =>
+				schemaHooks(Post, {
+					beforeOperation: {
+						delete: ({ originalItem }) => {
+							if (originalItem.published) {
+								throw new PublicError('Unpublish the post first.', {
+									code: 'post.published-delete',
+								})
+							}
+						},
+					},
+				}),
+		),
+	],
 })
 ```
+
+<!-- endregion -->
 
 ## Compatible-provider conformance
 
 Providers can exercise the public engine without a deep import by making their
-plugin the conformance subject and installing `hooksPlugin()` as support:
+plugin the conformance subject and installing `hooksPlugin()` as support. This
+sketch is not run: adapt the subject, the schemas and the support plugins your
+check needs, such as a database provider:
 
-```ts
+```ts unverified
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	createPluginConformanceFixture,
