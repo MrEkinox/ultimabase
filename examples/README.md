@@ -15,6 +15,12 @@ Examples are user-facing, tested applications. They must only import public `@ul
   reads, a partial unique index, REST), tested with `testApplication`. Its
   `//#region` blocks are the code of the Soft Delete page and package README
   (ADR-0330).
+- [`access`](access/README.md): the Access plugin end to end (fail-closed
+  rules, read granularity, `{ where, item }` mutation rules, principal and
+  Roles predicates, partial field rules, combinators, Soft Delete command keys
+  and `readDeleted`, `allowWithoutRule` openings, denial diagnostics and
+  `can()`), tested with `testApplication`. Its `//#region` blocks are the code
+  of the Access page and package README (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
