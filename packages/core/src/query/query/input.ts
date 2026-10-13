@@ -35,7 +35,7 @@ import {
 	completeQueryOrdering,
 	createInvalidPositionError,
 	createQueryPositionFilter,
-	readQueryPosition,
+	readRequestedQueryPosition,
 } from '../clauses/position.js'
 import {
 	normalizeQueryOrdering,
@@ -263,7 +263,7 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 					filter,
 					createQueryPositionFilter(
 						schema,
-						readQueryPosition(schema, ordering, input.after),
+						readRequestedQueryPosition(schema, ordering, input.after),
 					),
 				)
 	const where: QueryWhereNode<QueryFilterNode<TSchema>> | undefined =

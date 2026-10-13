@@ -16,6 +16,7 @@ import {
 	completeQueryOrdering,
 	createInvalidPositionError,
 	readQueryPosition,
+	readRequestedQueryPosition,
 } from './position.js'
 
 /** The `orderBy` of the `findMany` whose rows a cursor positions. */
@@ -178,7 +179,8 @@ export const decodeQueryCursor = (
 	cursor: unknown,
 ): QueryPosition => {
 	const definition = assertCursorSchema(schema)
-	const ordering = wireOrdering(readOrdering(definition, orderBy))
+	const orderingNode = readOrdering(definition, orderBy)
+	const ordering = wireOrdering(orderingNode)
 	const payload = parseCursor(cursor)
 	const { o, p, s, v } = payload
 
@@ -209,6 +211,10 @@ export const decodeQueryCursor = (
 	if (typeof id !== 'string') {
 		throw createInvalidPositionError('cursor holds an invalid id')
 	}
+
+	// An unsigned cursor is client input: its values are checked against the
+	// ordered fields now, so a forged value never reaches the database.
+	readRequestedQueryPosition(definition, orderingNode, position)
 
 	return immutableRecord({ ...position, id })
 }

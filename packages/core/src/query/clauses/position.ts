@@ -26,6 +26,7 @@ import {
 	type QueryFilterNode,
 } from '../filters/logical.js'
 import { readPersistedQueryFields } from '../ast/schema.js'
+import { validateScalarFieldShape } from '../../schema/plans/scalar-shape-validation.js'
 
 /**
  * Built-in kinds Core orders and compares in a keyset predicate (ADR-0309):
@@ -163,6 +164,33 @@ export const readQueryPosition = <TFieldName extends string>(
 			}
 		}),
 	)
+}
+
+/**
+ * Reads an `after` position received from a caller or a transport cursor.
+ * Shape rules (UUID syntax, decimal precision) bind it too: the adapter
+ * compares these values, so a forged one must never reach the database.
+ */
+export const readRequestedQueryPosition = <TFieldName extends string>(
+	schema: SchemaDefinition,
+	ordering: QueryOrderingNode<TFieldName>,
+	position: unknown,
+): readonly QueryPositionValue<TFieldName>[] => {
+	const values = readQueryPosition(schema, ordering, position)
+	const fields = readPersistedQueryFields(schema)
+
+	for (const { field: fieldName, value } of values) {
+		const field = fields[fieldName]
+		if (field === undefined || value === null) continue
+
+		const [issue] = validateScalarFieldShape(field, value, [fieldName])
+
+		if (issue !== undefined) {
+			throw createInvalidPositionError(`${fieldName}: ${issue.message}`)
+		}
+	}
+
+	return values
 }
 
 const leaf = (

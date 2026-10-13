@@ -97,6 +97,31 @@ export const emptyQuerySelection: QuerySelectionNode<never> = immutableRecord({
 	fields: immutableArray([]),
 })
 
+const isRelationFieldName = (
+	schema: SchemaDefinition,
+	fieldName: string,
+): boolean => schema.fields[fieldName]?.kind === 'relation'
+
+/**
+ * Returns a field name a projection may select. Relations hold no stored
+ * value: they are read through `include`, as source typing already requires.
+ */
+const parseSelectableFieldName = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	fieldName: unknown,
+	path: string,
+): QueryFieldName<TSchema> => {
+	const field = parseQueryFieldName(schema, fieldName, path)
+
+	if (isRelationFieldName(schema, field)) {
+		throw new TypeError(
+			`${path} must not reference a relation; read relations through include`,
+		)
+	}
+
+	return field
+}
+
 /** Builds one immutable AST selection from already correlated field names. */
 export const normalizeQuerySelectedFields = <
 	const TSchema extends SchemaDefinition,
@@ -112,7 +137,7 @@ export const normalizeQuerySelectedFields = <
 	const knownFieldNames = new Set<string>()
 
 	for (const [index, fieldName] of fields.entries()) {
-		const selectedFieldName = parseQueryFieldName(
+		const selectedFieldName = parseSelectableFieldName(
 			schema,
 			fieldName,
 			`selection.fields[${String(index)}]`,
@@ -162,7 +187,7 @@ export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 	const excluded = new Set<string>()
 
 	for (const [fieldName, selected] of Object.entries(untrustedSelection)) {
-		const field = parseQueryFieldName(
+		const field = parseSelectableFieldName(
 			schema,
 			fieldName,
 			`selection.${fieldName}`,
@@ -184,12 +209,15 @@ export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 		return normalizeQuerySelectedFields(schema, included)
 	}
 
-	// Exclusion mode starts from every schema field and omits the named ones.
+	// Exclusion mode starts from every selectable field and omits the named ones.
 	const selectedFields = Object.keys(schema.fields)
 		.map((fieldName, index) =>
 			parseQueryFieldName(schema, fieldName, `schema.fields[${String(index)}]`),
 		)
-		.filter((fieldName) => !excluded.has(fieldName))
+		.filter(
+			(fieldName) =>
+				!excluded.has(fieldName) && !isRelationFieldName(schema, fieldName),
+		)
 
 	if (selectedFields.length === 0) {
 		throw new TypeError('query selection must retain at least one field')
