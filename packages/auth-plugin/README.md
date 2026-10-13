@@ -205,14 +205,15 @@ for administration; they are never exposed to clients. With
 
 `deleteAccount()` and `unlinkMethod(id)` need a recent authentication: a login
 younger than `recentAuthenticationMs`, or a method's re-authentication such as
-`reauthenticate({ password })`, which applies to the session's next
+`reauthenticate({ password })`, which applies at once: to the calls that
+follow in the same request or `runWithSession` scope, and to the session's next
 requests. Otherwise they fail with `AUTH_REAUTHENTICATION_REQUIRED`:
 
 <!-- region ../../examples/auth/tests/account.test.ts#delete-account -->
 
 ```ts
-// Proves the password again: the session's next requests may run
-// sensitive operations for five minutes.
+// Proves the password again: the calls that follow through this session
+// may run sensitive operations for five minutes.
 await auth.runWithSession(session.token, () =>
 	Member.reauthenticate({ password: 'correct horse battery staple' }),
 )

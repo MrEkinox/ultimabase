@@ -26,8 +26,8 @@ import { openTestDatabase, type TestDatabase } from './test-database.js'
  */
 export interface TestApplication extends AsyncDisposable {
 	/**
-	 * Empties every table of the application, keeping the tables; rows plugins
-	 * created at start (Roles `ensure`) are removed too.
+	 * Empties every table of the application, keeping the tables, then reruns
+	 * the plugins' start seeding: Roles `ensure` rows come back.
 	 *
 	 * @example `await t.reset()`
 	 */

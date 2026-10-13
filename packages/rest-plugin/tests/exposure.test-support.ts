@@ -4,6 +4,9 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+	databasePointerCapability,
+	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	dateTimeField,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -38,6 +41,9 @@ class EmptyDatabase implements DatabaseAdapter {
 	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
+		pointers: databasePointerCapability,
+		relationPredicates: databaseRelationPredicateCapability,
+		relations: databaseRelationCapability,
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
@@ -177,6 +183,17 @@ export const Draft = ExposureApplication.Schema.define({
 })
 	.archivable()
 	.with({ rest: { findMany: true } })
+// Relationship fields, to compare the OpenAPI inputs with the REST decoder.
+export const Shelf = ExposureApplication.Schema.define({
+	className: 'RestExposureShelf',
+	fields: (field) => ({
+		label: field.string(),
+		count: field.int(),
+		note: field.pointer({ target: () => Note }),
+		pinned: field.pointer({ target: () => Note, required: true }),
+		drafts: field.relation({ target: () => Draft }),
+	}),
+}).with({ rest: { createMany: true, upsertOne: true } })
 export const Hidden = ExposureApplication.Schema.define({
 	className: 'RestExposureHidden',
 	fields: (field) => ({ title: field.string() }),
@@ -214,7 +231,7 @@ export const startExposure = async (
 	)
 	const ultimabase = new Application({
 		logger: false,
-		schemas: [Note, Draft, Hidden],
+		schemas: [Note, Draft, Shelf, Hidden],
 	})
 	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()

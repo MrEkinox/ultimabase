@@ -29,6 +29,72 @@ export const schemaRef = (name: string): JsonSchema => ({
 	$ref: `#/components/schemas/${name}`,
 })
 
+/** Where a field value is described: a result, or a create or update input. */
+type DescriptionMode = 'create' | 'output' | 'update'
+
+const identity: JsonSchema = { type: 'string', format: 'uuid' }
+const identities: JsonSchema = { type: 'array', items: identity }
+
+/** An object with exactly the one command `name`. */
+const linkCommand = (name: string, schema: JsonSchema): JsonSchema => ({
+	type: 'object',
+	properties: { [name]: schema },
+	required: [name],
+	additionalProperties: false,
+})
+
+// The link commands of the REST decoder (ADR-0308): one pointer command, or
+// relation commands whose payload Core validates against the target.
+const describeLinks = (
+	field: GenericField,
+	mode: 'create' | 'update',
+): JsonSchema => {
+	const target = getFieldSchemaTarget(field)?.()
+	const data = (input: 'CreateInput' | 'UpdateInput'): JsonSchema =>
+		target === undefined ? {} : schemaRef(`${target.className}${input}`)
+	if (field.kind === 'pointer') {
+		return {
+			oneOf: [
+				linkCommand('connect', identity),
+				linkCommand('create', data('CreateInput')),
+				...(mode === 'update'
+					? [linkCommand('update', data('UpdateInput'))]
+					: []),
+			],
+		}
+	}
+	return {
+		type: 'object',
+		properties: {
+			create: { type: 'array', items: data('CreateInput') },
+			connect: identities,
+			...(mode === 'update'
+				? {
+						update: {
+							type: 'array',
+							items: {
+								type: 'object',
+								properties: { id: identity, data: data('UpdateInput') },
+								required: ['id', 'data'],
+								additionalProperties: false,
+							},
+						},
+						disconnect: identities,
+						set: identities,
+					}
+				: {}),
+		},
+		minProperties: 1,
+		additionalProperties: false,
+		...(mode === 'update'
+			? { description: '`set` replaces every link and stands alone.' }
+			: {}),
+	}
+}
+
+const isLink = (field: GenericField): boolean =>
+	field.kind === 'pointer' || field.kind === 'relation'
+
 const readOption = (
 	field: { readonly options: object },
 	key: string,
@@ -83,8 +149,9 @@ const wrapList = (schema: JsonSchema, depth: number): JsonSchema =>
 
 const describeField = (
 	field: GenericField,
-	mode: 'input' | 'output',
+	mode: DescriptionMode,
 ): JsonSchema => {
+	if (mode !== 'output' && isLink(field)) return describeLinks(field, mode)
 	const target = getFieldSchemaTarget(field)?.()
 	let scalar: JsonSchema
 	switch (field.kind) {
@@ -103,39 +170,30 @@ const describeField = (
 			scalar = {
 				type: 'object',
 				properties: Object.fromEntries(
-					children.map(([name, child]) => [name, describeValue(child, mode)]),
+					children.map(([name, child]) => [
+						name,
+						// Embedded values have no update operators.
+						describeValue(child, mode === 'output' ? 'output' : 'create'),
+					]),
 				),
 				additionalProperties: false,
 			}
 			break
 		}
 		case 'pointer':
-			scalar =
-				mode === 'input'
-					? {
-							type: 'object',
-							description:
-								'`{ "connect": id }` or `{ "create": data }`, and `{ "update": data }` in an update.',
-						}
-					: {
-							oneOf: [
-								schemaRef('Pointer'),
-								...(target === undefined ? [] : [schemaRef(target.className)]),
-							],
-						}
+			scalar = {
+				oneOf: [
+					schemaRef('Pointer'),
+					...(target === undefined ? [] : [schemaRef(target.className)]),
+				],
+			}
 			break
 		case 'relation':
-			return mode === 'input'
-				? {
-						type: 'object',
-						description:
-							'Link commands: `create`, `connect`, and in an update `update`, `disconnect`, `set`.',
-					}
-				: {
-						type: 'array',
-						description: 'Present when included.',
-						items: target === undefined ? {} : schemaRef(target.className),
-					}
+			return {
+				type: 'array',
+				description: 'Present when included.',
+				items: target === undefined ? {} : schemaRef(target.className),
+			}
 		default:
 			scalar = scalarSchemas[field.kind] ?? {
 				description: `Plugin value of kind ${field.kind}.`,
@@ -153,10 +211,10 @@ const isNullable = (field: GenericField): boolean =>
 /** Describes one field value as its wire JSON Schema, constraints included. */
 const describeValue = (
 	field: GenericField,
-	mode: 'input' | 'output',
+	mode: DescriptionMode,
 ): JsonSchema => {
 	const base = describeField(field, mode)
-	const constraints = mode === 'input' ? readConstraints(field) : []
+	const constraints = mode === 'output' ? [] : readConstraints(field)
 	const constrained =
 		constraints.length === 0 ? base : { allOf: [base, ...constraints] }
 	const described: unknown = readOption(field, 'description')
@@ -203,30 +261,80 @@ const isGenerated = (field: GenericField): boolean =>
 	readOption(field, 'autoIncrement') === true ||
 	Object.hasOwn(field.options, 'generatedOn')
 
+// Relations accept link commands although no scalar value is writable.
+const acceptsInput = (
+	field: GenericField,
+	mode: 'create' | 'update',
+): boolean =>
+	field.kind === 'relation' || readFieldTypeState(field)[mode] !== 'forbidden'
+
+/** The fields a create and an update input accept. */
+const readInputFields = (schema: SchemaDefinition) => {
+	// Plugin-written fields (forbidden mutation input) accept no client input.
+	const create = Object.entries(schema.persistedFields).filter(
+		([name, field]) =>
+			!systemFields.has(name) &&
+			!isGenerated(field) &&
+			acceptsInput(field, 'create'),
+	)
+	const update = create.filter(
+		([, field]) =>
+			readOption(field, 'immutable') !== true && acceptsInput(field, 'update'),
+	)
+	return { create, update }
+}
+
+/** An atomic numeric update names exactly one operator (ADR-0307). */
+const describeNumericOperation = (field: GenericField): JsonSchema => {
+	const operand = describeField(field, 'update')
+	return {
+		type: 'object',
+		properties: { increment: operand, decrement: operand },
+		minProperties: 1,
+		maxProperties: 1,
+		additionalProperties: false,
+	}
+}
+
+/**
+ * References a create or update input in a body that cannot link
+ * relationships (upsert and bulk, ADR-0243): its link fields are refused.
+ */
+export const describeUnlinkedInput = (
+	schema: SchemaDefinition,
+	input: 'CreateInput' | 'UpdateInput',
+): JsonSchema => {
+	const fields =
+		readInputFields(schema)[input === 'CreateInput' ? 'create' : 'update']
+	const links = fields.filter(([, field]) => isLink(field))
+	const reference = schemaRef(`${schema.className}${input}`)
+	return links.length === 0
+		? reference
+		: {
+				allOf: [
+					reference,
+					{
+						properties: Object.fromEntries(
+							links.map(([name]) => [name, false]),
+						),
+					},
+				],
+			}
+}
+
 /** Describes the result model, create input and update input of one schema. */
 export const describeSchemaComponents = (
 	schema: SchemaDefinition,
 ): Readonly<Record<string, JsonSchema>> => {
 	const persisted = Object.entries(schema.persistedFields)
-	// Plugin-written fields (forbidden mutation input) accept no client input.
-	const writable = persisted.filter(
-		([name, field]) =>
-			!systemFields.has(name) &&
-			!isGenerated(field) &&
-			readFieldTypeState(field).create !== 'forbidden',
-	)
-	const createRequired = writable
+	const { create, update } = readInputFields(schema)
+	const createRequired = create
 		.filter(
 			([, field]) =>
 				readOption(field, 'required') === true &&
 				!Object.hasOwn(field.options, 'default'),
 		)
 		.map(([name]) => name)
-	const updatable = writable.filter(
-		([, field]) =>
-			readOption(field, 'immutable') !== true &&
-			readFieldTypeState(field).update !== 'forbidden',
-	)
 	return {
 		[schema.className]: {
 			type: 'object',
@@ -245,7 +353,7 @@ export const describeSchemaComponents = (
 		[`${schema.className}CreateInput`]: {
 			type: 'object',
 			properties: Object.fromEntries(
-				writable.map(([name, field]) => [name, describeValue(field, 'input')]),
+				create.map(([name, field]) => [name, describeValue(field, 'create')]),
 			),
 			...(createRequired.length === 0 ? {} : { required: createRequired }),
 			additionalProperties: false,
@@ -253,24 +361,13 @@ export const describeSchemaComponents = (
 		[`${schema.className}UpdateInput`]: {
 			type: 'object',
 			properties: Object.fromEntries(
-				updatable.map(([name, field]) => {
-					const value = describeValue(field, 'input')
+				update.map(([name, field]) => {
+					const value = describeValue(field, 'update')
 					return [
 						name,
 						numericKinds.has(field.kind) &&
 						getFieldListDepth(field.options) === 0
-							? {
-									anyOf: [
-										value,
-										{
-											type: 'object',
-											description:
-												'`{ "increment": n }` or `{ "decrement": n }`.',
-											minProperties: 1,
-											maxProperties: 1,
-										},
-									],
-								}
+							? { anyOf: [value, describeNumericOperation(field)] }
 							: value,
 					]
 				}),

@@ -271,7 +271,9 @@ input validator rejects a value.
 `restPlugin({ openapi: true })` serves `GET {basePath}/openapi.json`, an OpenAPI
 3.1 document of the routes this instance exposes: paths, parameters, request
 and response bodies, the `{Schema}`, `{Schema}CreateInput` and
-`{Schema}UpdateInput` components with each field's wire type, and the
+`{Schema}UpdateInput` components with each field's wire type (pointer and
+relation fields as their link commands, which upsert and bulk bodies refuse;
+numeric fields' `increment` and `decrement` in an update), and the
 constraints that validators describe as JSON Schema (a Standard JSON Schema
 validator in a field option such as Validation's `validation`, and the
 validators of an application operation). No access rule is revealed. The
