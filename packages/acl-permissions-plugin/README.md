@@ -20,29 +20,62 @@ privilege through ACL. `aclPlugin()` returns no application setup value.
 
 ## Declaring ACL
 
+Every TypeScript block below is copied from the
+[ACL example](../../examples/acl/README.md), a small application whose tests
+prove each behavior described here (ADR-0330).
+
 `.acl()` adds one reserved, required, indexed `acl` field through Core's
 fields slot; `.with({ acl })` configures it, and its `default` is required
 once `.acl()` is called, because an empty ACL hides a row from everyone but
-Master:
+Master. The example also installs Access, which decides who may create, and
+Roles, which supplies role membership:
+
+<!-- region ../../examples/acl/src/schema.ts#factory,note -->
 
 ```ts
-const Application = UltimaBase.use(aclPlugin())
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 
-export const Note = Application.Schema.define({
+/**
+ * ACL stores the rights of each row with the row. Access decides which
+ * operations run at all, creation included; Roles tells ACL the caller's
+ * roles. `postgresPlugin()` reads `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	aclPlugin(),
+	accessPlugin(),
+	rolesPlugin(),
+	postgresPlugin(),
+)
+
+/**
+ * Private notes. Access lets members create them and lets every operation
+ * run; each note's ACL then decides who may read, update or delete it.
+ */
+export const Note = App.Schema.define({
 	className: 'Note',
-	fields: (field) => ({
-		title: field.string({ required: true }),
-		visibility: field.string(),
-	}),
+	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 	.acl()
 	.with({
+		access: { read: true, create: isAuthenticated, update: true, delete: true },
 		acl: {
-			// The creator may read and write; anonymous creators get an empty ACL.
+			// The creator may read, update and delete; nobody else sees the note.
 			default: ({ principal }) => new ACL(principal),
+			// Whoever may update a note may share it.
+			clientSharing: ({ principal, currentAcl }) =>
+				principal !== undefined &&
+				currentAcl.hasPrincipalPermission(principal, 'update'),
+			// The owner and two other members at most.
+			limits: { maxPrincipals: 3 },
 		},
 	})
 ```
+
+<!-- endregion -->
 
 The rule (`ACLRule`) accepts:
 
@@ -53,32 +86,69 @@ The rule (`ACLRule`) accepts:
   each singular update that carries no explicit ACL. On update it receives
   the locked `currentAcl`, `currentData`, the proposed `data` and the
   normalized non-ACL `update` operations; `undefined` keeps the default or the
-  current ACL. A schema with `resolveInput` refuses set-based `updateMany`,
-  which cannot recompute each row.
+  current ACL. Each `updateMany` item is recomputed like an `updateOne`.
 - `clientSharing`: lets clients share rows (below).
 - `existingRows`: the ACL rows already in a table receive when `.acl()` is
   added and `default` is a function (below).
 - `limits`: overrides the plugin limits for this schema.
 
-Master may write a complete ACL in create and update data; it is written as
-is, without `resolveInput`. Clients can never read, filter, order by, or
-replace it. Replacing an ACL through `upsertOne()`, `upsertMany()`, or a
-set-based update stays refused, even for Master.
+Master may write a complete ACL in create, update and `updateMany` item data;
+it is written as is, without `resolveInput`. Clients never filter, order by,
+or replace it, and read it only where `clientSharing` allows. Replacing an ACL
+through `upsertOne()` or `upsertMany()` stays refused, even for Master:
+
+<!-- region ../../examples/acl/src/admin.ts#master-acl -->
+
+```ts
+/** Imports a note with a complete ACL: Master writes it as is. */
+export const importNote = (title: string, ownerId: string) =>
+	Note.createOne(
+		{
+			data: {
+				title,
+				acl: new ACL(Member.pointer(ownerId)).grantPublic('read'),
+			},
+		},
+		{ useMasterKey: true },
+	)
+
+/** Hides a note from everyone but Master, whoever it was shared with. */
+export const hideNote = (noteId: string) =>
+	Note.updateOne(
+		{ where: { id: noteId }, data: { acl: new ACL() } },
+		{ useMasterKey: true },
+	)
+
+/** Master may filter on the ACL itself; clients never can. */
+export const listPublicNotes = () =>
+	Note.findMany(
+		{
+			where: { acl: { contains: { public: ['read'] } } },
+			select: { title: true },
+		},
+		{ useMasterKey: true },
+	)
+```
+
+<!-- endregion -->
 
 ## The ACL value
+
+<!-- region ../../examples/acl/tests/values.test.ts#acl-value -->
 
 ```ts
 const value = new ACL()
 	.grantPublic('read')
-	.grantPrincipal(User.pointer(aliceId), 'read', 'write')
-	.grantRole(Editor, 'read', 'update')
+	.grantPrincipal(ada, 'read', 'write')
+	.grantRole(Editors, 'read', 'update')
 
-const updated = value.revokePrincipal(User.pointer(aliceId), 'write')
-updated.permissionsForRole(Editor)
+const updated = value.revokePrincipal(ada, 'write')
 
 const document = updated.toJSON()
 const restored = ACL.fromJSON(JSON.parse(JSON.stringify(document)))
 ```
+
+<!-- endregion -->
 
 `new ACL(owner)` grants `read` and `write` to `owner`, like
 `new Parse.ACL(user)`; `new ACL(undefined)` is empty. The group `'write'`
@@ -97,35 +167,84 @@ combined by union, then serialized in canonical order.
 first. They apply to the locked row inside the update's transaction, so
 concurrent shares never overwrite each other:
 
+<!-- region ../../examples/acl/src/sharing.ts#share -->
+
 ```ts
-await Note.updateOne({
-	where: { id },
-	data: {
-		acl: { grant: { principal: User.pointer(bobId), permissions: ['read'] } },
-	},
-})
-await Note.updateOne({
-	where: { id },
-	data: { acl: { revoke: { principal: User.pointer(bobId) } } },
-})
+/** Lets one member read the note, without reading its ACL first. */
+export const shareNote = (noteId: string, memberId: string) =>
+	Note.updateOne({
+		where: { id: noteId },
+		data: {
+			acl: {
+				grant: { principal: Member.pointer(memberId), permissions: ['read'] },
+			},
+		},
+	})
+
+/** Removes every right the member holds on the note. */
+export const unshareNote = (noteId: string, memberId: string) =>
+	Note.updateOne({
+		where: { id: noteId },
+		data: { acl: { revoke: { principal: Member.pointer(memberId) } } },
+	})
 ```
+
+<!-- endregion -->
 
 `revoke` removes every right of the principal, or only the listed
 `permissions`. Master may share any row. A client may share a row it can read
 only when `clientSharing` allows it, instead of the `update` right, and never
 grants a right it does not hold itself on that row:
 
+<!-- region ../../examples/acl/src/schema.ts#client-sharing -->
+
 ```ts
-acl: {
-	default: ({ principal }) => new ACL(principal),
-	clientSharing: ({ principal, currentAcl }) =>
-		principal !== undefined &&
-		currentAcl.hasPrincipalPermission(principal, 'update'),
-},
+// Whoever may update a note may share it.
+clientSharing: ({ principal, currentAcl }) =>
+	principal !== undefined &&
+	currentAcl.hasPrincipalPermission(principal, 'update'),
 ```
+
+<!-- endregion -->
 
 `select: { acl: true }` is accepted for Master and, with `clientSharing`, on
 the rows it allows; any other row fails the read with `PERMISSION_DENIED`.
+`acl.entries()` lists the subjects; Roles' `resolveRoleReference()` reads a
+role entry's row, untyped because a stored reference does not name its role
+schema:
+
+<!-- region ../../examples/acl/src/admin.ts#entries -->
+
+```ts
+/** Lists who holds which rights on an announcement, roles by name. */
+export const describeAnnouncementACL = async (announcementId: string) => {
+	const { acl } = await Announcement.findOneOrThrow(
+		{ where: { id: announcementId }, select: { acl: true } },
+		{ useMasterKey: true },
+	)
+	return Promise.all(
+		acl.entries().map(async (entry) => {
+			const rights = entry.permissions.join(', ')
+			switch (entry.kind) {
+				case 'principal':
+					return `member ${entry.principal.id}: ${rights}`
+				case 'role': {
+					// A stored reference does not name its role schema, so the
+					// resolved row is untyped: check the name before using it.
+					const { name } = await resolveRoleReference(entry.role, {
+						useMasterKey: true,
+					})
+					return `role ${typeof name === 'string' ? name : entry.role.value}: ${rights}`
+				}
+				default:
+					return `${entry.kind}: ${rights}`
+			}
+		}),
+	)
+}
+```
+
+<!-- endregion -->
 
 ## Enabling and disabling ACL on existing tables
 
@@ -148,14 +267,12 @@ and the index is dropped.
 
 `aclPlugin()` bounds persisted ACL size. Limits count canonical principal and
 role entries, so repeated grants for one subject count once while public and
-authenticated rights count toward neither limit:
-
-```ts
-aclPlugin({ limits: { maxPrincipals: 100, maxRoles: 50 } })
-```
+authenticated rights count toward neither limit. Set them for the application
+with `aclPlugin({ limits: { maxPrincipals: 100, maxRoles: 50 } })`.
 
 The zero-option defaults are 100 principals and 50 roles; `acl.limits`
-overrides either value for one schema. Master bypasses ACL authorization,
+overrides either value for one schema, as `maxPrincipals: 3` does on the
+example's notes. Master bypasses ACL authorization,
 never size validation or the singular replacement requirement.
 
 ## Subjects, references and events
@@ -181,16 +298,22 @@ singular updates, bulk creates, and cascade cleanup share the same event.
 Rollback discards queued changes, and assigning an equivalent ACL emits
 nothing.
 
+<!-- region ../../examples/acl/src/acl-audit-plugin.ts#acl-audit-plugin -->
+
 ```ts
 import {
-	aclChangedEvent,
 	onACLChange,
 	provideACLChangeObserver,
+	type ACLChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
 import { plugin } from '@ultimabase/core/plugin'
 
-const aclAuditPlugin = plugin({
-	id: 'app.acl-audit',
+/** Every committed ACL change, in order: a stand-in for a durable audit log. */
+export const aclAuditLog: ACLChangedEvent[] = []
+
+/** Records who changed which rights on which row, after each commit. */
+export const aclAuditPlugin = plugin({
+	id: 'example.acl-audit',
 	version: '1.0.0',
 	core: '^0.0.0',
 	peers: [
@@ -203,17 +326,14 @@ const aclAuditPlugin = plugin({
 		provideACLChangeObserver(
 			'record-acl-change',
 			onACLChange(({ event }) => {
-				console.log(
-					event.name === aclChangedEvent,
-					event.payload.actor,
-					event.payload.target,
-					event.payload.diff,
-				)
+				aclAuditLog.push(event.payload)
 			}),
 		),
 	],
 })
 ```
+
+<!-- endregion -->
 
 The payload groups added and removed `read`, `update`, and `delete` rights by
 public, authenticated, exact-principal, or role subject. `payload.operation`
@@ -227,11 +347,7 @@ atomic row mutation. Filters use the field's `contains` operator:
 `where: { acl: { contains: { public: ['read'] } } }`. Adapters that do not
 advertise structural containment fail before database execution instead of
 silently ignoring ACL enforcement. With PostgreSQL, install only the ACL and
-database plugins:
-
-```ts
-const Application = UltimaBase.use(aclPlugin(), postgresPlugin())
-```
+database plugins: `UltimaBase.use(aclPlugin(), postgresPlugin())`.
 
 The strictly validated ACL JSON is attached to the canonical
 `ultimabase.rest@1.0.0` and `ultimabase.graphql.field@1.0.0` field-wire

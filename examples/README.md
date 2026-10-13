@@ -33,6 +33,13 @@ Examples are user-facing, tested applications. They must only import public `@ul
   `VALIDATION_ERROR` for every issue, `updateMany` index paths, `check()`,
   the REST `422` answer), tested with `testApplication`. Its `//#region`
   blocks are the code of the Validation page and package README (ADR-0330).
+- [`acl`](acl/README.md): the ACL plugin end to end (`.acl()` and its
+  required `default`, atomic `grant` and `revoke` sharing, `clientSharing`,
+  `select: { acl: true }` and `entries()`, limits, public and role entries,
+  `resolveInput`, complete ACLs written by Master, ACL with Access and Roles,
+  ACL values and change events), tested with `testApplication`. Its
+  `//#region` blocks are the code of the ACL page and package README
+  (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
