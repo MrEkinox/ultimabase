@@ -1,10 +1,10 @@
 # ADR-0334: An unknown client address is absent, not "unknown"
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-13
 - Refines: ADR-0303 (HTTP plugin), the HTTP rate limit and `trustProxy` records, the
   authentication attempt-limiting record; applies ADR-0288
-- Approval: the post-documentation fix pass decided by the user on 2026-10-13
+- Approval: the post-documentation fix pass decided by the user on 2026-10-13; record accepted by the user on 2026-10-13
 
 ## Context
 

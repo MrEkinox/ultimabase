@@ -1,10 +1,10 @@
 # ADR-0333: GraphQL hidden schemas stay hidden
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-13
 - Refines: the GraphQL plugin records on generated operations and `.with({ graphql })` method
   keys; applies ADR-0288
-- Approval: the post-documentation fix pass decided by the user on 2026-10-13
+- Approval: the post-documentation fix pass decided by the user on 2026-10-13; record accepted by the user on 2026-10-13
 
 ## Context
 

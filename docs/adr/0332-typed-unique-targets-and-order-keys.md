@@ -1,10 +1,10 @@
 # ADR-0332: Typed unique targets and order keys
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-13
 - Refines: ADR-0297 (form D declaration and named types), ADR-0301 (Prisma-like queries);
   applies ADR-0288
-- Approval: the post-documentation fix pass decided by the user on 2026-10-13
+- Approval: the post-documentation fix pass decided by the user on 2026-10-13; record accepted by the user on 2026-10-13
 
 ## Context
 
