@@ -94,8 +94,10 @@ The rule (`ACLRule`) accepts:
 
 Master may write a complete ACL in create, update and `updateMany` item data;
 it is written as is, without `resolveInput`. Clients never filter, order by,
-or replace it, and read it only where `clientSharing` allows. Replacing an ACL
-through `upsertOne()` or `upsertMany()` stays refused, even for Master:
+or replace it, and read it only where `clientSharing` allows: a client `where`
+naming `acl`, also inside `AND`, `OR`, `NOT` or a relation filter, fails with
+`PERMISSION_DENIED`, and an `include` filtered on it reads as absent. Replacing
+an ACL through `upsertOne()` or `upsertMany()` stays refused, even for Master:
 
 <!-- region ../../examples/acl/src/admin.ts#master-acl -->
 

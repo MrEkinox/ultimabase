@@ -136,13 +136,15 @@ const linusReads = () =>
 const noteId = () => required(note, 'note').id
 
 /** The denial keeps its reason server-side and a generic public message. */
-const filterDenied = {
-	code: 'PERMISSION_DENIED',
-	message: expect.stringContaining(
+const expectFilterDenied = async (operation: Promise<unknown>) => {
+	await expect(operation).rejects.toMatchObject({
+		code: 'PERMISSION_DENIED',
+		publicMessage: 'The operation is not permitted.',
+	} satisfies Partial<FrameworkError>)
+	await expect(operation).rejects.toThrow(
 		'where: { acl } on ACLFilterNote requires useMasterKey: true',
-	),
-	publicMessage: 'The operation is not permitted.',
-} satisfies Partial<FrameworkError> & { readonly message: unknown }
+	)
+}
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
@@ -200,16 +202,16 @@ describe('ACL filters with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			FilterNote.findMany({ select: { acl: true } }, asGrace),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-		await expect(
+		await expectFilterDenied(
 			FilterNote.findMany({ where: { acl: linusReads() } }, asGrace),
-		).rejects.toMatchObject(filterDenied)
+		)
 		// Anonymous callers cannot probe public rights either.
-		await expect(
+		await expectFilterDenied(
 			FilterNote.findMany(
 				{ where: { acl: { contains: { public: ['read'] } } } },
 				anonymous('anonymous-probes'),
 			),
-		).rejects.toMatchObject(filterDenied)
+		)
 	})
 
 	it('refuses acl filters inside AND, OR and NOT', async () => {
@@ -222,9 +224,7 @@ describe('ACL filters with PostgreSQL', { concurrent: false }, () => {
 			{ NOT: { acl: linusReads() } },
 			{ OR: [titled, { AND: [titled, { NOT: { acl: linusReads() } }] }] },
 		]) {
-			await expect(
-				FilterNote.findMany({ where }, asGrace),
-			).rejects.toMatchObject(filterDenied)
+			await expectFilterDenied(FilterNote.findMany({ where }, asGrace))
 		}
 	})
 
@@ -236,19 +236,28 @@ describe('ACL filters with PostgreSQL', { concurrent: false }, () => {
 			() => FilterNote.findOneOrThrow({ where }, asGrace),
 			() => FilterNote.count({ where }, asGrace),
 			() => FilterNote.exists({ where }, asGrace),
-			() =>
-				FilterNote.updateOne({ where, data: { title: 'Mine' } }, asGrace),
-			() =>
-				FilterNote.updateMany({ where, data: { title: 'Mine' } }, asGrace),
-			() => FilterNote.deleteOne({ where }, asGrace),
-			() => FilterNote.deleteMany({ where }, asGrace),
 			// Plugin commands carrying a query are filtered like native reads.
 			() => FilterNote.softDeleteMany({ where }, asGrace),
 			() => FilterNote.restoreMany({ where }, asGrace),
 		]
 
 		for (const operation of operations) {
-			await expect(operation()).rejects.toMatchObject(filterDenied)
+			await expectFilterDenied(operation())
+		}
+		// Native mutations target rows by unique equality only: no acl filter.
+		for (const operation of [
+			() => FilterNote.updateOne({ where, data: { title: 'Mine' } }, asGrace),
+			() => FilterNote.deleteOne({ where }, asGrace),
+			() =>
+				FilterNote.updateMany(
+					{ data: [{ where, data: { title: 'Mine' } }] },
+					asGrace,
+				),
+			() => FilterNote.deleteMany({ where: [where] }, asGrace),
+		]) {
+			await expect(async () => operation()).rejects.toThrow(
+				'where must contain distinct non-null equality filters',
+			)
 		}
 		await expect(
 			FilterNote.findOneOrThrow({ where: { id: noteId() } }, master),
@@ -265,9 +274,9 @@ describe('ACL filters with PostgreSQL', { concurrent: false }, () => {
 			),
 		).resolves.toMatchObject({ id: noteId() })
 		// ...but clientSharing opens select and grant/revoke, never filters.
-		await expect(
+		await expectFilterDenied(
 			FilterNote.findMany({ where: { acl: linusReads() } }, asAda),
-		).rejects.toMatchObject(filterDenied)
+		)
 	})
 
 	it('refuses acl filters reached through a relation from another schema', async () => {
@@ -283,44 +292,47 @@ describe('ACL filters with PostgreSQL', { concurrent: false }, () => {
 			{ notes: { count: { gte: 1, where: { acl: linusReads() } } } },
 			{ pinned: { is: { acl: linusReads() } } },
 			{ pinned: { isNot: { acl: linusReads() } } },
-			{ OR: [{ label: { eq: 'Shared' } }, { pinned: { is: { NOT: { acl: linusReads() } } } }] },
+			{
+				OR: [
+					{ label: { eq: 'Shared' } },
+					{ pinned: { is: { NOT: { acl: linusReads() } } } },
+				],
+			},
 		]) {
-			await expect(
-				FilterFolder.findMany({ where }, asGrace),
-			).rejects.toMatchObject(filterDenied)
+			await expectFilterDenied(FilterFolder.findMany({ where }, asGrace))
 		}
 	})
 
 	it('hides an included target filtered by acl whether or not it matches', async () => {
 		const asGrace = as(grace, 'grace-includes')
-		const include = (members: readonly Member[]) =>
+		const includeNotes = (where: { readonly acl?: unknown }) =>
 			FilterFolder.findOneOrThrow(
-				{
-					where: { label: { eq: 'Shared' } },
-					include: {
-						notes: {
-							where: {
-								acl: {
-									contains: {
-										principals: [
-											{
-												className: FilterMember.className,
-												id: required(members[0], 'member').id,
-											},
-										],
-									},
-								},
-							},
-						},
-					},
-				},
+				{ where: { label: { eq: 'Shared' } }, include: { notes: { where } } },
 				asGrace,
 			)
+		const holding = (member: Member | undefined) => ({
+			acl: {
+				contains: {
+					principals: [
+						{
+							className: FilterMember.className,
+							id: required(member, 'member').id,
+						},
+					],
+				},
+			},
+		})
 
-		await expect(include([required(linus, 'linus')])).resolves.toMatchObject({
+		// Grace sees the included note when she does not filter by its ACL.
+		await expect(includeNotes({})).resolves.toMatchObject({
+			notes: [{ id: noteId() }],
+		})
+		// A denied inclusion reads as absent, so matching and not matching
+		// filters look the same.
+		await expect(includeNotes(holding(linus))).resolves.toMatchObject({
 			notes: [],
 		})
-		await expect(include([required(ada, 'ada')])).resolves.toMatchObject({
+		await expect(includeNotes(holding(grace))).resolves.toMatchObject({
 			notes: [],
 		})
 	})
@@ -330,7 +342,7 @@ describe('ACL filters with PostgreSQL', { concurrent: false }, () => {
 		// the ACL; the field policy has no ordering to refuse.
 		for (const options of [as(grace, 'grace-orders'), master]) {
 			await expect(async () =>
-				FilterNote.findMany({ orderBy: { acl: 'asc' } as never }, options),
+				FilterNote.findMany({ orderBy: { acl: 'asc' } }, options),
 			).rejects.toThrow('must name a non-list scalar or enum field')
 		}
 	})
