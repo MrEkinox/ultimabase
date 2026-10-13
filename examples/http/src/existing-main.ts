@@ -1,7 +1,7 @@
+//#region serve
 import { once } from 'node:events'
 import process from 'node:process'
 
-//#region serve
 import { serve } from '@hono/node-server'
 
 import { admin, app } from './existing-app.ts'

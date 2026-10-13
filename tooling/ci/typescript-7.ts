@@ -42,6 +42,7 @@ const checks: readonly (readonly string[])[] = [
 	['--project', 'examples/acl/tsconfig.json'],
 	['--project', 'examples/roles/tsconfig.json'],
 	['--project', 'examples/auth/tsconfig.json'],
+	['--project', 'examples/http/tsconfig.json'],
 	['--project', 'examples/schema-form-d/tsconfig.json'],
 	['--project', 'examples/schema-form-d/tsconfig.source.json'],
 	...registerCycleProjects.map((project) => ['--project', project]),

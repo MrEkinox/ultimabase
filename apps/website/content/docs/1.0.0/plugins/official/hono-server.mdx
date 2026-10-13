@@ -8,8 +8,16 @@ contentType: guide
 order: 3
 outcome: Run an UltimaBase HTTP application on a managed or existing Hono server without mixing listener and browser-policy ownership.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
+  - examples/http/README.md
+  - examples/http/src/schema.ts
+  - examples/http/src/ultimabase.ts
+  - examples/http/src/main.ts
+  - examples/http/src/existing-app.ts
+  - examples/http/src/existing-main.ts
+  - examples/http/tests/network.test.ts
+  - examples/http/tests/existing-app.test.ts
   - packages/hono-server-plugin/README.md
   - packages/hono-server-plugin/src/options.ts
   - packages/hono-server-plugin/src/plugin.ts
@@ -29,6 +37,10 @@ Hono on Node.js. It can own a listener or mount onto an existing Hono app. The
 browser policy; Hono supplies the server. Neither plugin creates REST or
 GraphQL routes. Install a [REST](./rest) or [GraphQL](./graphql) transport when
 you need one.
+
+The code on this page comes from the tested
+[HTTP example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/http),
+whose tests run both listener modes over real sockets.
 
 ## Installation
 
@@ -72,137 +84,80 @@ Start from the database setup in [Manual Installation](/docs/1.0.0/manual-instal
 the examples below use PostgreSQL and `DATABASE_URL`.
 
 Choose one listener owner. With no `app`, UltimaBase creates and starts a Node
-listener after the application graph validates:
+listener after the application graph validates. The `apiServer()` preset passes
+its `server` options to `honoServerPlugin(server)`:
 
-```ts title="src/ultimabase.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { httpPlugin } from '@ultimabase/http-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/http/src/schema.ts#factory
+</include>
 
-const server = honoServerPlugin()
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/http/src/ultimabase.ts#application
+</include>
 
-const Application = UltimaBase.use(postgresPlugin())
-	.use(httpPlugin())
-	.use(server)
-
-export const ultimabase = new Application({
-	schemas: [],
-})
-
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
-
-This serves the HTTP foundation and its `/health` route. Add a transport plugin
-to serve REST or GraphQL. Without `port`, the managed listener uses the `PORT` environment variable that
+This serves `/health`, the application and plugin routes, and REST; the
+server plugin itself adds no REST or GraphQL route. Without `port`, the managed listener uses the `PORT` environment variable that
 most hosting platforms set, then `1337`. Without `host`, it uses the `HOST`
 environment variable, then `127.0.0.1` in development and every interface
 when `NODE_ENV=production`; the plugin reads these when it is created and an
 explicit option always wins. `logLevel: 'debug'` logs the derived address and
 its source. Port `0` lets the operating system choose
-an ephemeral port for tests. Once started, read the bound address through the
+an ephemeral port for tests; the `ultimabaseTesting()` Vitest preset sets
+`PORT=0`. Once started, read the bound address through the
 plugin exports; it is `undefined` before start, after stop, and when you pass
 your own `app`:
 
-```ts
-await ultimabase.start()
-const address = ultimabase.plugin('@ultimabase/hono-server-plugin').address()
-console.log(`Listening on port ${String(address?.port)}`)
-```
+<include cwd meta='title="src/main.ts"'>
+	../../examples/http/src/main.ts#address
+</include>
 
 ### Start and stop the managed listener
 
 Keep the exported configuration free of startup effects so other modules can
-import it.
-The REST and GraphQL examples use the same `ultimabase` export and entry point:
+import it. The entry point starts the application, waits for a stop signal and
+awaits disposal:
 
-```ts title="src/main.ts"
-import { once } from 'node:events'
-import { ultimabase } from './ultimabase.js'
-
-// Register before startup so Ctrl+C during startup is also observed.
-const interrupted = once(process, 'SIGINT')
-try {
-	await ultimabase.start()
-	await interrupted
-} finally {
-	await ultimabase.dispose()
-}
-```
+<include cwd meta='title="src/main.ts"'>
+	../../examples/http/src/main.ts#main
+</include>
 
 Run the project's typecheck, build and start scripts after configuring
 `DATABASE_URL` when using PostgreSQL. The process keeps serving until Ctrl+C;
 then it awaits application cleanup, including the managed listener and database.
-For deployment, wire the host's shutdown mechanism (often SIGTERM) to the same
-awaited disposal. Do not start another application before that cleanup completes.
+The same disposal runs on SIGTERM, the signal most hosts send before stopping
+a process. Do not start another application before that cleanup completes.
 
 `stop()` and `dispose()` refuse new requests, wait at most `shutdownTimeoutMs`
-(10 seconds by default) for in-flight ones, then close the remaining
-connections. `compression: true` compresses responses with gzip or deflate; it
-is off by default because proxies and CDNs usually compress:
-
-```ts
-honoServerPlugin({ compression: true, shutdownTimeoutMs: 5_000 })
-```
+(10 seconds by default; 5 in the example) for in-flight ones, then close the
+remaining connections. `compression: true` compresses responses with gzip or
+deflate; it is off by default because proxies and CDNs usually compress.
 
 ### Join an existing Hono listener
 
 To join an existing Hono app instead, pass that `app`. You start and stop the
-listener yourself:
+listener yourself. The example's second application installs the plugins one
+by one:
 
-```ts title="src/server.ts"
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
-import { UltimaBase } from '@ultimabase/core'
-import { httpPlugin } from '@ultimabase/http-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
+<include cwd meta='title="src/existing-app.ts"'>
+	../../examples/http/src/existing-app.ts#existing-app
+</include>
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-const app = new Hono()
-app.get('/ping', (context) => context.text('pong'))
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
-	.use(httpPlugin())
-	.use(honoServerPlugin({ app }))
-
-const application = new Application({
-	schemas: [],
-})
-
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof application
-	}
-}
-
-await application.start()
-const listener = serve({ fetch: app.fetch, port: 1337 })
-```
+<include cwd meta='title="src/existing-main.ts"'>
+	../../examples/http/src/existing-main.ts#serve
+</include>
 
 Here `/ping` is an ordinary Hono route; UltimaBase serves `/health` and the
 routes of its transport plugins. In existing-app mode, `host`, `port` and
 `shutdownTimeoutMs` are not Hono plugin options; configure them on your own
 listener.
 
-To stop only UltimaBase, await `application.dispose()`; `/ping` and the
+To stop only UltimaBase, await `admin.dispose()`; `/ping` and the
 externally owned listener stay available. When the whole process shuts down,
 also close your listener from the same entry point:
 
-```ts
-try {
-	await application.dispose()
-} finally {
-	await new Promise<void>((resolve, reject) => {
-		listener.close((error) => (error ? reject(error) : resolve()))
-	})
-}
-```
+<include cwd meta='title="src/existing-main.ts"'>
+	../../examples/http/src/existing-main.ts#close
+</include>
 
 ## Behavior and limitations
 

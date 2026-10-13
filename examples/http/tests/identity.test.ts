@@ -65,13 +65,17 @@ it('elevates a request with the Master key header', async () => {
 	const audit = vi.spyOn(console, 'info').mockImplementation(() => undefined)
 
 	//#region master-request
-	const response = await t.fetch(
-		'/api/classes/Link',
-		postJson(
-			{ url: 'https://ultimabase.dev', title: 'UltimaBase' },
-			{ 'X-UltimaBase-Master-Key': masterKey },
-		),
-	)
+	const response = await t.fetch('/api/classes/Link', {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			'X-UltimaBase-Master-Key': masterKey,
+		},
+		body: JSON.stringify({
+			url: 'https://ultimabase.dev',
+			title: 'UltimaBase',
+		}),
+	})
 	//#endregion master-request
 
 	expect(response.status).toBe(201)

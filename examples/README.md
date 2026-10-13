@@ -57,6 +57,16 @@ Examples are user-facing, tested applications. They must only import public `@ul
   tested with `testApplication`. Its `//#region` blocks are the code of the
   Password Authentication page and the `auth-plugin` and `auth-password`
   READMEs (ADR-0330).
+- [`http`](http/README.md): the HTTP layer end to end (the `httpPlugin`
+  options: optional application header, CORS origins, body limits, rate
+  limits behind a trusted proxy with a shared store and `/health` exempt,
+  security headers, Master, the access log; application routes and the
+  `PublicError` envelope; a request context resolver; a plugin route and
+  mount; the `apiServer` preset with the managed Hono listener, compression
+  and graceful shutdown; an existing Hono app with its own listener), tested
+  with `testApplication` and over real sockets. Its `//#region` blocks are
+  the code of the HTTP and Hono Server pages and the `http-plugin`,
+  `hono-server-plugin` and `api-server` READMEs (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
