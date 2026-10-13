@@ -110,9 +110,9 @@ schema's Access rules and REST exposure; `Moderator` is the role declared in
 	../../examples/soft-delete/src/schema.ts#post
 </include>
 
-This example lets every caller write, delete, and restore posts to keep the
-walkthrough short; give restoration the same rule as `delete` in your own
-application. Create the application with an audited Master authority, which
+This example opens writing, deletion, and restoration to every caller to keep
+the walkthrough short; in your application, give `restoreOne` and
+`restoreMany` the same rule as `delete`. Create the application with an audited Master authority, which
 the private purge step uses later; soft deletion and restoration do not
 require it:
 
@@ -217,7 +217,8 @@ refused row rolls the whole command back.
 
 Each resolves to one result per written row, in identifier order. A many-row
 command sees only the rows it may target: `softDeleteMany` sees visible rows,
-`restoreMany` and `purgeMany` see tombstones. Access rules use the command's
+`restoreMany` and `purgeMany` see tombstones, which is why the posts are
+soft-deleted again before `purgeMany`. Access rules use the command's
 own name (`access.softDeleteMany`, `access.restoreMany`). Many-row commands are
 not exposed through REST or GraphQL yet.
 
@@ -456,8 +457,8 @@ Trusted server code makes a member a moderator:
 	../../examples/soft-delete/src/admin.ts#add-moderator
 </include>
 
-The same query then returns the trash to a moderator and nothing to anyone
-else:
+This query then returns the trash to a moderator and nothing to anyone else;
+the test runs it anonymously, as a member, and as a moderator:
 
 <include cwd meta='title="tests/trash.test.ts"'>
 	../../examples/soft-delete/tests/trash.test.ts#read-deleted
