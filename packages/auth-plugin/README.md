@@ -7,40 +7,110 @@ under one HTTP prefix. Sign-in methods are separate packages, such as
 [`@ultimabase/auth-password`](../auth-password/README.md); they depend on the
 foundation and never on each other.
 
+Every code block in this README is copied from the tested
+[`examples/auth`](../../examples/auth/README.md) application by
+`yarn docs:regions` (ADR-0330): edit the example, then run the script. Its
+schema file installs the foundation with the password method, declares the
+User and opens each member's own profile through Access:
+
+<!-- region ../../examples/auth/src/schema.ts#factory,member -->
+
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { password } from '@ultimabase/auth-password'
-import { authPlugin } from '@ultimabase/auth-plugin'
-import { UltimaBase } from '@ultimabase/core'
+import { apiServer } from '@ultimabase/api-server'
+import {
+	password,
+	passwordEmailOperations,
+	passwordOperations,
+} from '@ultimabase/auth-password'
+import { authOperations, authPlugin } from '@ultimabase/auth-plugin'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
+import { emailChange, reset, verification } from './email-flows.ts'
+import { authEvents } from './events.ts'
+
+const day = 24 * 60 * 60_000
+
+/**
+ * `authPlugin` adds `App.UserSchema`, sessions and the `/api/auth` routes;
+ * `password()` signs members in by email. Authentication grants no
+ * permission: the Access rules below decide what a signed-in member may do.
+ * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
+ */
 export const App = UltimaBase.use(
-	postgresPlugin(),
 	accessPlugin(),
-	authPlugin({ methods: [password({ identifier: 'email' })] }),
+	authPlugin({
+		methods: [
+			password({ identifier: 'email', reset, verification, emailChange }),
+		],
+		session: {
+			expiresInMs: day, // Ends a day after login or the last refresh.
+			absoluteExpiresInMs: 30 * day, // The default ceiling.
+			revokeOnPasswordChange: true, // The default.
+			recentAuthenticationMs: 5 * 60_000, // The default.
+		},
+		// Browsers keep the session in this cookie instead of reading a token.
+		http: { cookie: { name: '__Host-notes-session', sameSite: 'lax' } },
+		events: authEvents,
+	}),
+	...apiServer({
+		http: {
+			appId: 'notes',
+			// One reverse proxy in front: `X-Forwarded-For` names the client.
+			trustProxy: 1,
+			browser: { origins: ['https://notes.example.com'], credentials: true },
+		},
+		// Clients use the `/api/auth` routes; REST serves only the schemas.
+		rest: {
+			hide: [
+				...Object.values(authOperations),
+				...Object.values(passwordOperations),
+				...Object.values(passwordEmailOperations),
+			],
+		},
+	}),
+	postgresPlugin(),
 )
 
-// One User schema per authPlugin instance; any class name.
-export const TodoUser = App.UserSchema.define({
-	className: 'TodoUser',
-	fields: (field) => ({ displayName: field.string({ required: true }) }),
+/**
+ * The User: `password({ identifier: 'email' })` adds `email`,
+ * `emailVerified` and `emailVerifiedAt`, which no create or update input
+ * accepts. Sign-up creates members without any `create` rule.
+ */
+export const Member = App.UserSchema.define({
+	className: 'Member',
+	fields: (field) => ({
+		displayName: field.string({ required: true }),
+		bio: field.string(),
+	}),
 }).with({
 	access: {
+		// Members read and edit only their own profile.
 		read: ({ principal, where }) =>
-			where.in('id', principal === undefined ? [] : [principal.id]),
+			principal === undefined ? false : where.eq('id', principal.id),
+		update: ({ principal, where }) =>
+			principal === undefined ? false : where.eq('id', principal.id),
 	},
 })
+```
 
-export const ultimabase = new App({ schemas: [TodoUser] })
-await ultimabase.start()
+<!-- endregion -->
 
-const { user, session } = await TodoUser.signUp({
+A member signs up without any Master key; `user` is `Model<'Member'>` and
+`session.token` is returned exactly once:
+
+<!-- region ../../examples/auth/tests/sign-up.test.ts#sign-up -->
+
+```ts
+const { user, session } = await Member.signUp({
 	displayName: 'Ada',
 	email: 'ada@example.com',
 	password: 'correct horse battery staple',
 })
-// `user` is `Model<'TodoUser'>`; `session.token` is returned exactly once.
 ```
+
+<!-- endregion -->
 
 ## The User schema
 
@@ -80,28 +150,52 @@ invalid fields; a duplicate unique value is rejected without naming it.
 ## Sessions and the current principal
 
 Session tokens are 32 random bytes with the `ub_s1.` prefix; only their
-SHA-256 digest is stored. Sessions roll for seven days within a thirty-day
-ceiling. `authPlugin` provides Core's current principal (ADR-0304): Access
+SHA-256 digest is stored. A session expires `expiresInMs` (seven days by
+default) after it is issued or last refreshed: using it does not extend it,
+`refresh(token)` rotates its token and does. No refresh extends it beyond
+`absoluteExpiresInMs` (thirty days by default) after its login. The factory
+above sets one day. `authPlugin` provides Core's current principal (ADR-0304): Access
 rules, Hooks, ACL and Roles receive the User pointer as `principal`; the
 request values `authPrincipal`, `authSession` and `authClient` read the
 session itself.
 
+On the server, `runWithSession(token, fn)` runs `fn` as the session's user,
+and the Access rules of the example's `Note` receive that member:
+
+<!-- region ../../examples/auth/tests/sessions.test.ts#current,principal -->
+
 ```ts
-authPlugin({
-	methods: [password()],
-	session: {
-		expiresInMs: 24 * 60 * 60_000,
-		absoluteExpiresInMs: 30 * 24 * 60 * 60_000,
-		revokeOnPasswordChange: true, // The default.
-		recentAuthenticationMs: 5 * 60_000, // The default.
-	},
+const auth = ultimabase.plugin(authPlugin)
+const me = await auth.runWithSession(session.token, () => Member.current())
+
+const notes = await auth.runWithSession(session.token, async () => {
+	await Note.createOne({ data: { author: user.id, body: 'Call Grace' } })
+	return Note.findMany()
 })
 ```
 
+<!-- endregion -->
+
 `listSessions()` reports each live session's id, method, creation, last use
 (updated at most once a minute), expiry, address and `User-Agent`, never its
-token; `revokeSession(id)` ends one, `logoutEverywhere()` all of them. A
-password change revokes the user's other sessions unless
+token; `revokeSession(id)` ends one, `logoutEverywhere()` all of them:
+
+<!-- region ../../examples/auth/tests/sessions.test.ts#list-sessions,revoke-session,refresh-logout -->
+
+```ts
+const { sessions } = await auth.runWithSession(laptop.token, () =>
+	Member.listSessions(),
+)
+
+await auth.runWithSession(laptop.token, () => Member.revokeSession(phone.id))
+
+const rotated = await Member.refresh(laptop.token)
+await Member.logout(rotated.session.token)
+```
+
+<!-- endregion -->
+
+A password change revokes the user's other sessions unless
 `revokeOnPasswordChange` is `false`. On the server,
 `ultimabase.plugin(authPlugin)` returns `runWithSession(token, fn)`,
 `listSessions(user)`, `revokeSessions(user)` and `createUser({ data, email })`
@@ -111,8 +205,25 @@ for administration; they are never exposed to clients. With
 
 `deleteAccount()` and `unlinkMethod(id)` need a recent authentication: a login
 younger than `recentAuthenticationMs`, or a method's re-authentication such as
-`reauthenticate({ password })`. Otherwise they fail with
-`AUTH_REAUTHENTICATION_REQUIRED`. Deleting the account deletes the User with
+`reauthenticate({ password })`, which applies to the session's next
+requests. Otherwise they fail with `AUTH_REAUTHENTICATION_REQUIRED`:
+
+<!-- region ../../examples/auth/tests/account.test.ts#delete-account -->
+
+```ts
+// Proves the password again: the session's next requests may run
+// sensitive operations for five minutes.
+await auth.runWithSession(session.token, () =>
+	Member.reauthenticate({ password: 'correct horse battery staple' }),
+)
+const deleted = await auth.runWithSession(session.token, () =>
+	Member.deleteAccount(),
+)
+```
+
+<!-- endregion -->
+
+Deleting the account deletes the User with
 the plugin's elevation; its sessions, linked accounts and method secrets
 follow by cascade.
 
@@ -166,13 +277,28 @@ that redeem or request tokens ignore a stale session cookie; a reset clears
 it. They sit beside REST,
 which mounts only its own roots under `/api` (ADR-0324, 6.4a amendment). The
 JSON body is the operation input; the response is `{ "result": … }`. Requests authenticate with `Authorization: Bearer <token>`.
+The example's tests send them in memory with `t.fetch`, as a client would:
+
+<!-- region ../../examples/auth/tests/http.test.ts#http-login,http-bearer -->
 
 ```ts
-authPlugin({
-	methods: [password()],
-	http: { cookie: { name: '__Host-todo-session', sameSite: 'lax' } },
+const login = await t.fetch('/api/auth/login', {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({
+		email: 'ada@example.com',
+		password: 'correct horse battery staple',
+	}),
+})
+
+const notes = await t.fetch('/api/classes/Note', {
+	headers: { authorization: `Bearer ${token}` },
 })
 ```
+
+<!-- endregion -->
+
+The example's factory sets `http: { cookie: { name: '__Host-notes-session', sameSite: 'lax' } }`.
 
 With a cookie, the same routes answer browsers (requests with `Origin`) with a
 `Secure`, `HttpOnly`, host-only `__Host-` cookie instead of the token; clients
@@ -192,15 +318,34 @@ when the `/api/auth` routes serve HTTP clients.
 
 ## Events
 
+The example's factory passes these handlers as `events`:
+
+<!-- region ../../examples/auth/src/events.ts#events -->
+
 ```ts
-authPlugin({
-	methods: [password()],
-	events: {
-		afterLogin: (event) => audit(event),
-		afterLoginFailed: (event) => alert(event),
+/** Run after the transaction commits, best effort: a failure never fails the call. */
+export const authEvents: AuthEventHandlers = {
+	afterSignUp: ({ userId, address }) => {
+		securityLog.push({ event: 'sign-up', userId, address })
 	},
-})
+	afterLogin: ({ userId, address }) => {
+		securityLog.push({ event: 'login', userId, address })
+	},
+	// `identifier` is the normalized email tried, even for an unknown account.
+	afterLoginFailed: ({ identifier, address, limited }) => {
+		securityLog.push({
+			event: limited ? 'login-locked' : 'login-failed',
+			identifier,
+			address,
+		})
+	},
+	afterPasswordReset: ({ userId }) => {
+		securityLog.push({ event: 'password-reset', userId, address: null })
+	},
+}
 ```
+
+<!-- endregion -->
 
 `afterSignUp`, `afterLogin`, `afterLoginFailed`, `afterLogout`,
 `afterPasswordReset`, `afterEmailVerified` and `afterEmailChanged` run after

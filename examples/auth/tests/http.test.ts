@@ -109,16 +109,21 @@ it('maps authentication failures to HTTP statuses', async () => {
 		return { body, status: response.status }
 	}
 
+	// A body missing the credentials is malformed; the details of a rejected
+	// sign-up name the missing or invalid fields.
 	expect(
-		await send(
-			post('/api/auth/sign-up', {
-				displayName: 'Ada',
-				email: 'ada@example.com',
-				password: 'too short',
-			}),
-		),
+		await send(post('/api/auth/sign-up', { email: 'ada@example.com' })),
 	).toMatchObject({
-		body: { error: { code: 'AUTH_SIGN_UP_REJECTED' } },
+		body: { error: { code: 'AUTH_INVALID_REQUEST' } },
+		status: 400,
+	})
+	expect(await send(post('/api/auth/sign-up', ada))).toMatchObject({
+		body: {
+			error: {
+				code: 'AUTH_SIGN_UP_REJECTED',
+				details: { fields: ['displayName'] },
+			},
+		},
 		status: 400,
 	})
 	expect(await send(post('/api/auth/login', ada))).toMatchObject({

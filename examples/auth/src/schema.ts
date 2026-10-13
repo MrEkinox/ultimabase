@@ -28,7 +28,7 @@ export const App = UltimaBase.use(
 			password({ identifier: 'email', reset, verification, emailChange }),
 		],
 		session: {
-			expiresInMs: day, // Rolling: a day without use ends the session.
+			expiresInMs: day, // Ends a day after login or the last refresh.
 			absoluteExpiresInMs: 30 * day, // The default ceiling.
 			revokeOnPasswordChange: true, // The default.
 			recentAuthenticationMs: 5 * 60_000, // The default.
