@@ -12,7 +12,7 @@ import {
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/soft-delete-postgres-no-typegen.mjs',
+	'fixtures/soft-delete-postgres-javascript.mjs',
 )
 let fixture: PostgresWorkerFixture | undefined
 
@@ -26,7 +26,7 @@ afterAll(async () => {
 	await fixture?.dispose()
 })
 
-it('runs the packed JavaScript plugin against PostgreSQL without Typegen', async () => {
+it('runs the packed JavaScript plugin against PostgreSQL', async () => {
 	if (fixture === undefined) throw new TypeError('PostgreSQL is unavailable')
 	const { stdout } = await executeFile(process.execPath, [fixturePath], {
 		env: {

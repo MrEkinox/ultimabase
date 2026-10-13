@@ -275,7 +275,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		)
 	}, 10_000)
 
-	it('infers exact source result fields and exposes QueryBuilder without Typegen', () => {
+	it('infers exact source result fields and exposes QueryBuilder', () => {
 		const draft = readFixtureQuickInfo('packedDraft = () =>')
 		const query = readFixtureQuickInfo(
 			'packedQuery = new QueryBuilder(PostSchema)',
@@ -328,7 +328,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		)
 	})
 
-	it('keeps source-typed mutation hovers exact without Typegen', () => {
+	it('keeps source-typed mutation hovers exact', () => {
 		const created = readFixtureQuickInfo('created = await PostSchema')
 		const selected = readFixtureQuickInfo('selectedCreate = await PostSchema')
 		const deleted = readFixtureQuickInfo('deleted = await PostSchema')

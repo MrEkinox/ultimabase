@@ -7,10 +7,10 @@ import { expect, it } from 'vitest'
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/acl-direct-option-no-typegen.mjs',
+	'fixtures/acl-direct-option-javascript.mjs',
 )
 
-it('compiles the .acl() shape method from JavaScript without Typegen', async () => {
+it('compiles the .acl() shape method from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 

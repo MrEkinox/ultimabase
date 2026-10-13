@@ -18,7 +18,7 @@ describe('GraphQL option IntelliSense', () => {
 		['source', '../src/index.js'],
 		['packed', '@ultimabase/graphql-plugin'],
 	] as const)('%s configured factory', (mode, moduleName) => {
-		it('types exposure from the installed plugin without Typegen', () => {
+		it('types exposure from the installed plugin', () => {
 			const fileName = path.join(
 				import.meta.dirname,
 				`graphql-configured-${mode}.fixture.ts`,

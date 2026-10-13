@@ -33,10 +33,11 @@ const readExampleProgram = (): ts.Program => {
 	return ts.createProgram(parsed.fileNames, parsed.options)
 }
 
-/** Reads the QuickInfo of one exported name of `src/hovers.ts`. */
-const readExampleHover = (configName: string, name: string): string => {
+// One language service per configuration serves every hover of a test: each
+// new service would type-check the whole example again.
+const createExampleService = (configName: string): ts.LanguageService => {
 	const parsed = readExampleConfig(configName)
-	const service = ts.createLanguageService({
+	return ts.createLanguageService({
 		directoryExists: (directory) => ts.sys.directoryExists(directory),
 		fileExists: (file) => ts.sys.fileExists(file),
 		getCompilationSettings: () => parsed.options,
@@ -54,17 +55,20 @@ const readExampleHover = (configName: string, name: string): string => {
 		readDirectory: (...input) => ts.sys.readDirectory(...input),
 		readFile: (file) => ts.sys.readFile(file),
 	})
-	try {
-		const file = path.join(exampleDirectory, 'src/hovers.ts')
-		const source = ts.sys.readFile(file) ?? ''
-		const quickInfo = service.getQuickInfoAtPosition(
-			file,
-			source.indexOf(`const ${name}`) + 'const '.length,
-		)
-		return ts.displayPartsToString(quickInfo?.displayParts)
-	} finally {
-		service.dispose()
-	}
+}
+
+/** Reads the QuickInfo of one exported name of `src/hovers.ts`. */
+const readExampleHover = (
+	service: ts.LanguageService,
+	name: string,
+): string => {
+	const file = path.join(exampleDirectory, 'src/hovers.ts')
+	const source = ts.sys.readFile(file) ?? ''
+	const quickInfo = service.getQuickInfoAtPosition(
+		file,
+		source.indexOf(`const ${name}`) + 'const '.length,
+	)
+	return ts.displayPartsToString(quickInfo?.displayParts)
 }
 
 const formatDiagnostic = (diagnostic: ts.Diagnostic): string => {
@@ -78,11 +82,29 @@ const formatDiagnostic = (diagnostic: ts.Diagnostic): string => {
 	return `${path.relative(exampleDirectory, diagnostic.file.fileName)}:${String(line + 1)} ${message}`
 }
 
+const expectedErrors = new Map<string, readonly string[]>()
+
 /**
  * Reads the diagnostics of one example file with its `@ts-expect-error`
- * directives removed, so the expected errors become visible.
+ * directives removed, so the expected errors become visible. Each file and
+ * configuration is checked once; several tests read the same result.
  */
-const readExpectedErrors = (configName: string, fileName: string): string[] => {
+const readExpectedErrors = (
+	configName: string,
+	fileName: string,
+): readonly string[] => {
+	const key = `${configName}:${fileName}`
+	const cached = expectedErrors.get(key)
+	if (cached !== undefined) return cached
+	const errors = checkExpectedErrors(configName, fileName)
+	expectedErrors.set(key, errors)
+	return errors
+}
+
+const checkExpectedErrors = (
+	configName: string,
+	fileName: string,
+): readonly string[] => {
 	const parsed = readExampleConfig(configName)
 	const file = path.join(exampleDirectory, fileName)
 	const source = (ts.sys.readFile(file) ?? '').replaceAll(
@@ -101,7 +123,7 @@ const readExpectedErrors = (configName: string, fileName: string): string[] => {
 		.map(formatDiagnostic)
 }
 
-describe('schema declaration form without Typegen (ADR-0297)', () => {
+describe('schema declaration form (ADR-0297)', () => {
 	it('type-checks the example, its assertions and its typo cases from the built packages', () => {
 		const program = readExampleProgram()
 		const fileNames = program
@@ -118,17 +140,22 @@ describe('schema declaration form without Typegen (ADR-0297)', () => {
 	it.each(['tsconfig.json', 'tsconfig.source.json'])(
 		'prints results and inputs by name (Model, CreateInput, UpdateInput) through %s',
 		(configName) => {
-			const oneTodo = readExampleHover(configName, 'oneTodo')
-			expect(oneTodo).toContain('Model<"Todo"> | null')
-			expect(readExampleHover(configName, 'allTodos')).toContain(
-				'readonly Model<"Todo">[]',
-			)
-			expect(readExampleHover(configName, 'namedCreate')).toContain(
-				'CreateInput<"Todo">',
-			)
-			expect(readExampleHover(configName, 'namedUpdate')).toContain(
-				'UpdateInput<"Todo">',
-			)
+			const service = createExampleService(configName)
+			try {
+				const oneTodo = readExampleHover(service, 'oneTodo')
+				expect(oneTodo).toContain('Model<"Todo"> | null')
+				expect(readExampleHover(service, 'allTodos')).toContain(
+					'readonly Model<"Todo">[]',
+				)
+				expect(readExampleHover(service, 'namedCreate')).toContain(
+					'CreateInput<"Todo">',
+				)
+				expect(readExampleHover(service, 'namedUpdate')).toContain(
+					'UpdateInput<"Todo">',
+				)
+			} finally {
+				service.dispose()
+			}
 		},
 		120_000,
 	)

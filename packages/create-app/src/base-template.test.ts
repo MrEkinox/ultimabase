@@ -29,7 +29,7 @@ describe('base project templates', () => {
 	)
 
 	// ADR-0327 decisions 5 and 7: Node runs the sources, Vitest the first test.
-	it('writes dev, test and build scripts and the first test without Typegen', () => {
+	it('writes dev, test and build scripts and the first test', () => {
 		const plan = resolveSelection(
 			{ name: 'notes', install: false, apis: ['rest'] },
 			'/tmp',

@@ -12,7 +12,7 @@ import {
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/relation-filter-postgres-no-typegen.mjs',
+	'fixtures/relation-filter-postgres-javascript.mjs',
 )
 let fixture: PostgresWorkerFixture | undefined
 
@@ -26,7 +26,7 @@ afterAll(async () => {
 	await fixture?.dispose()
 })
 
-it('runs source relation filters from packed JavaScript without Typegen', async () => {
+it('runs source relation filters from packed JavaScript', async () => {
 	if (fixture === undefined) throw new TypeError('PostgreSQL is unavailable')
 	const { stdout } = await executeFile(process.execPath, [fixturePath], {
 		env: {

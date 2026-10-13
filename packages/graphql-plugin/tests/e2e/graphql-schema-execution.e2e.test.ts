@@ -7,10 +7,10 @@ import { expect, it } from 'vitest'
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/graphql-execution-no-typegen.mjs',
+	'fixtures/graphql-execution-javascript.mjs',
 )
 
-it('executes packed GraphQL from JavaScript without Typegen', async () => {
+it('executes packed GraphQL from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 

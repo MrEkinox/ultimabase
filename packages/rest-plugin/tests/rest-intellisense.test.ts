@@ -17,7 +17,7 @@ describe('REST option IntelliSense', () => {
 		['source', '../src/index.js'],
 		['packed', '@ultimabase/rest-plugin'],
 	] as const)('%s configured factory', (mode, moduleName) => {
-		it('types REST routes from the installed plugin without Typegen', () => {
+		it('types REST routes from the installed plugin', () => {
 			const fileName = path.join(
 				import.meta.dirname,
 				`rest-configured-${mode}.fixture.ts`,

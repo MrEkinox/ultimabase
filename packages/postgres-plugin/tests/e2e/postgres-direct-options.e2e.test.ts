@@ -171,7 +171,7 @@ it('compiles PostgreSQL rules and options from JavaScript', async () => {
 	const executeFile = promisify(execFile)
 	const fixture = path.join(
 		import.meta.dirname,
-		'fixtures/postgres-direct-options-no-typegen.mjs',
+		'fixtures/postgres-direct-options-javascript.mjs',
 	)
 	const { stdout } = await executeFile(process.execPath, [fixture])
 	const output: unknown = JSON.parse(stdout)

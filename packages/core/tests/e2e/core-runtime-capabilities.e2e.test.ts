@@ -9,11 +9,11 @@ const repositoryRoot = path.resolve(import.meta.dirname, '../../../..')
 const executeFile = promisify(execFile)
 const javascriptFixtureFile = path.join(
 	import.meta.dirname,
-	'fixtures/runtime-mutation-guard-no-typegen.mjs',
+	'fixtures/runtime-mutation-guard-javascript.mjs',
 )
 const requestExecutorJavascriptFixtureFile = path.join(
 	import.meta.dirname,
-	'fixtures/application-request-executor-no-typegen.mjs',
+	'fixtures/application-request-executor-javascript.mjs',
 )
 const sourceFixtureFile = path.join(
 	repositoryRoot,
@@ -39,7 +39,7 @@ describe('packed @ultimabase/core Runtime capabilities', () => {
 		).toContain('interface ApplicationOperationTransportPlanner')
 	})
 
-	it('executes a final mutation guard from JavaScript without Typegen', async () => {
+	it('executes a final mutation guard from JavaScript', async () => {
 		const { stdout } = await executeFile(process.execPath, [
 			javascriptFixtureFile,
 		])
@@ -51,7 +51,7 @@ describe('packed @ultimabase/core Runtime capabilities', () => {
 		})
 	})
 
-	it('executes an attributed application request from JavaScript without Typegen', async () => {
+	it('executes an attributed application request from JavaScript', async () => {
 		const { stdout } = await executeFile(process.execPath, [
 			requestExecutorJavascriptFixtureFile,
 		])
@@ -64,11 +64,11 @@ describe('packed @ultimabase/core Runtime capabilities', () => {
 			source: 'fixture-http',
 		})
 	})
-	it('keeps real JavaScript worker lifetimes independent without Typegen', async () => {
+	it('keeps real JavaScript worker lifetimes independent', async () => {
 		const { stdout } = await executeFile(process.execPath, [
 			path.join(
 				import.meta.dirname,
-				'fixtures/single-active-workers-no-typegen.mjs',
+				'fixtures/single-active-workers-javascript.mjs',
 			),
 		])
 		const output: unknown = JSON.parse(stdout)

@@ -7,10 +7,10 @@ import { expect, it } from 'vitest'
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/http-application-no-typegen.mjs',
+	'fixtures/http-application-javascript.mjs',
 )
 
-it('runs the packed HTTP application from JavaScript without Typegen', async () => {
+it('runs the packed HTTP application from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 

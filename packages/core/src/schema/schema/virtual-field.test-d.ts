@@ -7,7 +7,7 @@ import {
 } from '../../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-test('types bootstrap virtual declarations without executable Typegen', () => {
+test('types bootstrap virtual declarations', () => {
 	const Virtual = UltimaBase.Schema.define({
 		className: 'BootstrapVirtualType',
 		fields: (field) => ({
