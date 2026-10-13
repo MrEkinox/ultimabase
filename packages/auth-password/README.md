@@ -75,8 +75,8 @@ export const App = UltimaBase.use(
 default) or `'email'`. `username` is added to the User schema as a required,
 unique, immutable string; `email` is added by the foundation, with
 `emailVerified` and `emailVerifiedAt`, and no create or update input accepts
-it (sign-up takes it beside the create fields). Both are stored in their
-normalized form:
+it (sign-up takes it beside the create fields). Both are unique targets of
+`updateOne` and `deleteOne`, and both are stored in their normalized form:
 
 - a username keeps 3 to 64 letters, digits, `.`, `_` or `-`, NFKC-normalized
   and lowercased;

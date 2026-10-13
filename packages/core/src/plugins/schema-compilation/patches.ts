@@ -2,6 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
 import {
+	createFieldIndex,
 	normalizePatchSchemaIndex,
 	readFieldIndexValue,
 } from '../../schema/schema/indexes.js'
@@ -118,14 +119,7 @@ export const applySchemaPatchOperation = (
 			)
 			const indexes = immutableArray([
 				...definition.indexes,
-				...(indexed === false
-					? []
-					: [
-							immutableRecord({
-								fields: immutableArray([name]),
-								unique: indexed === 'unique',
-							}),
-						]),
+				...(indexed === false ? [] : [createFieldIndex(name, indexed)]),
 			])
 			provenance = immutableRecord({
 				...provenance,

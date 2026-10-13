@@ -320,8 +320,9 @@ one unique predicate per item; this API intentionally has no implicit
 
 `updateOne`, `deleteOne` and `upsertOne` take their target only through
 `where` (ADR-0307); `where: { id }` is the equality shorthand of
-`{ id: { eq: id } }`. They require an exact unique target: `id`, one unique field, or all fields of one declared unique composite
-index. This keeps singular cardinality independent from ordering, pagination,
+`{ id: { eq: id } }`. They require an exact unique target: `id`, one unique field, or all fields of one unique index declared in
+`define` without `where` (ADR-0332); unique indexes of `.with`, partial ones
+and those a plugin patch adds are storage indexes only. This keeps singular cardinality independent from ordering, pagination,
 or adapter-specific behavior. A schema-root `updateOne` or `deleteOne` returns
 `null` when no target matches and does not invoke optional item behavior.
 

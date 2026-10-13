@@ -113,6 +113,32 @@ export interface SchemaIndexDefinition<TFieldName extends string = string> {
 	readonly where?: readonly SchemaIndexCondition[]
 }
 
+/**
+ * The indexes that are unique targets (ADR-0332 amendment): the unique index
+ * of a field declared `indexed: 'unique'` and each unique index of `define`
+ * without `where`. Unique indexes of `.with`, partial ones and those a plugin
+ * patch adds stay storage indexes. Tracked by identity, so the index shape
+ * adapters read is unchanged.
+ */
+const uniqueTargetIndexes = new WeakSet<SchemaIndexDefinition>()
+
+/** Whether one normalized index identifies a row for unique commands. */
+export const isUniqueTargetIndex = (index: SchemaIndexDefinition): boolean =>
+	uniqueTargetIndexes.has(index)
+
+/** @internal Creates the index of one field declared `indexed`. */
+export const createFieldIndex = (
+	fieldName: string,
+	indexed: true | 'unique',
+): SchemaIndexDefinition => {
+	const index: SchemaIndexDefinition = immutableRecord({
+		fields: immutableArray([fieldName]),
+		unique: indexed === 'unique',
+	})
+	if (indexed === 'unique') uniqueTargetIndexes.add(index)
+	return index
+}
+
 function assertSchemaIndexes(
 	indexes: unknown,
 ): asserts indexes is readonly SchemaIndexInput[] | undefined {
@@ -274,12 +300,7 @@ export const normalizeSchemaIndexes = (
 		const indexed = readFieldIndexValue(Reflect.get(field.options, 'indexed'))
 
 		if (indexed !== false) {
-			definitions.push(
-				immutableRecord({
-					fields: immutableArray([fieldName]),
-					unique: indexed === 'unique',
-				}),
-			)
+			definitions.push(createFieldIndex(fieldName, indexed))
 		}
 	}
 	const fieldLevel = definitions.length
@@ -303,6 +324,9 @@ export const normalizeSchemaIndexes = (
 			throw new TypeError(
 				`Index duplicates the field-level index of ${definition.fields[0]}`,
 			)
+		}
+		if (!pending && definition.unique && definition.where === undefined) {
+			uniqueTargetIndexes.add(definition)
 		}
 		definitions.push(definition)
 	}

@@ -34,6 +34,7 @@ sources:
   - packages/core/docs/runtime.md
   - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0303-core-partial-indexes-and-health.md
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
   - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0316-plugin-facade-and-projection-slots.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
@@ -392,6 +393,11 @@ automatically):
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/soft-delete/src/schema.ts#article
 </include>
+
+A partial unique index declared in `.with` is a storage index, not a
+[unique target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target):
+`updateOne`, `deleteOne`, and `upsertOne` cannot target a row by this `slug`,
+so they target it by `id` (ADR-0332).
 
 If another row took the slug meanwhile, restoring the tombstone fails with
 `UNIQUE_VIOLATION` and a message naming the command, row and field:

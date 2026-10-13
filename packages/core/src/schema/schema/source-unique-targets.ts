@@ -18,7 +18,8 @@ export type UniqueIndexFields = readonly [string, ...string[]]
 
 /**
  * Reads the field lists of the unique indexes declared in
- * `define({ indexes })`: each one is a unique target (ADR-0332).
+ * `define({ indexes })` without `where`: each one is a unique target
+ * (ADR-0332). A partial unique index identifies no row in general.
  */
 export type DeclaredUniqueIndexFields<TIndexes> =
 	TIndexes extends readonly (infer TIndex)[]
@@ -26,7 +27,9 @@ export type DeclaredUniqueIndexFields<TIndexes> =
 				readonly fields: infer TFields extends UniqueIndexFields
 				readonly unique: true
 			}
-			? TFields
+			? TIndex extends { readonly where: object }
+				? never
+				: TFields
 			: never
 		: never
 

@@ -45,7 +45,8 @@ export const deletePost = (postId: string) =>
 
 `where: { id: postId }` is the equality shorthand of
 `where: { id: { eq: postId } }`. You may instead target one field declared
-`indexed: 'unique'` or every field of one unique index. A filter that could
+`indexed: 'unique'` or every field of one unique index of `define` without
+`where`. A filter that could
 match several rows is not a valid `deleteOne` target and fails to compile
 (`UniqueWhereInput<'Post'>`, see
 [Choose a valid target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target)).

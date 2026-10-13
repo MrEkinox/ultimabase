@@ -1694,12 +1694,16 @@ on the schema; there is no mutable `save()`.
 Their `where`, and the item `where` of `updateMany`, `deleteMany` and
 `upsertMany`, is typed `UniqueWhereInput<T>` (ADR-0332): a union with one
 member per target Runtime accepts, `{ id }`, each field declared
-`indexed: 'unique'` and each unique index of `define({ indexes })` with all of
-its fields. Each value is a shorthand or `{ eq }`, never `null`, and a member
-names no other unique key. A non-unique field, a partial composite index or an
-extra filter fails to compile; Runtime still checks the target, since untyped
-transports reach it. Unique indexes declared in the final `.with` are not typed
-targets (the declaration form types the schema without reading `.with`).
+`indexed: 'unique'` and each unique index of `define({ indexes })` without
+`where`, with all of its fields. Each value is a shorthand or `{ eq }`, never
+`null`, and a member names no other unique key. A non-unique field, a partial
+composite index or an extra filter fails to compile; Runtime still checks the
+target, since untyped transports reach it, and accepts the same targets.
+Unique indexes declared in the final `.with` (the declaration form types the
+schema without reading `.with`), partial unique indexes and unique indexes a
+plugin adds with `addSchemaIndex` are storage indexes, not targets: an untyped
+call that targets one fails with `… must match id, a unique field or one
+non-partial unique index of define`.
 `orderBy` keys are limited the same way to non-list scalar and enum fields of
 Core's kinds; an untyped caller ordering by another field fails with
 `query.orderBy.<field> must name a non-list scalar or enum field`. A plugin

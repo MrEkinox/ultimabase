@@ -43,6 +43,12 @@ const Article = UltimaBase.Schema.define({
 
 new SchemaRegistry([Tag, Article]).resolveSchemaTargets()
 
+// ADR-0332 amendment: a unique index of `.with` is a storage index only.
+const RuledPost = UltimaBase.Schema.define({
+	className: 'SchemaCommandRuledPost',
+	fields: (field) => ({ slug: field.string(), title: field.string() }),
+}).with({ indexes: [{ fields: ['slug'], unique: true }] })
+
 describe('schema command execution boundaries', () => {
 	it('requires an explicit non-empty predicate for mutations', () => {
 		expect(() =>
@@ -80,7 +86,7 @@ describe('schema command execution boundaries', () => {
 			}),
 		).toThrow(
 			new TypeError(
-				'schema updateOne where must match id or one declared unique index',
+				'schema updateOne where must match id, a unique field or one non-partial unique index of define',
 			),
 		)
 		expect(() =>
@@ -89,9 +95,40 @@ describe('schema command execution boundaries', () => {
 			}),
 		).toThrow(
 			new TypeError(
-				'schema deleteOne where must match id or one declared unique index',
+				'schema deleteOne where must match id, a unique field or one non-partial unique index of define',
 			),
 		)
+	})
+
+	it('refuses a unique index of .with as the target of every command', () => {
+		const refusal = (path: string) =>
+			new TypeError(
+				`${path} must match id, a unique field or one non-partial unique index of define`,
+			)
+		const where = { slug: { eq: 'hello' } }
+		const write = { create: { slug: 'hello' }, update: { title: 'Hello' } }
+
+		// The execution boundary keeps the full filter, as untyped transports send it.
+		expect(() =>
+			updateSchemaRecord(RuledPost, { where, data: { title: 'Hello' } }),
+		).toThrow(refusal('schema updateOne where'))
+		expect(() => deleteSchemaRecord(RuledPost, { where })).toThrow(
+			refusal('schema deleteOne where'),
+		)
+		expect(() => upsertSchemaRecord(RuledPost, { where, ...write })).toThrow(
+			refusal('upsert target'),
+		)
+		expect(() =>
+			updateSchemaRecords(RuledPost, {
+				data: [{ where, data: { title: 'Hello' } }],
+			}),
+		).toThrow(refusal('schema batch item where'))
+		expect(() => deleteSchemaRecords(RuledPost, { where: [where] })).toThrow(
+			refusal('schema batch item where'),
+		)
+		expect(() =>
+			upsertSchemaRecords(RuledPost, { data: [{ where, ...write }] }),
+		).toThrow(refusal('schema upsertMany data[0].where'))
 	})
 
 	it('validates command wrappers before resolving execution context', () => {
