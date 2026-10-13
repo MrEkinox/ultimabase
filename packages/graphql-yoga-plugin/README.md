@@ -84,8 +84,10 @@ enabling introspection in development and disabling it when `NODE_ENV` is
 `production`; an explicit `introspection` always wins, and `logLevel: 'debug'`
 logs the value and its source. While introspection is enabled, the plugin
 publishes the `ultimabase.graphql.introspection` capability that served
-explorers require. With introspection disabled, validation errors carry no
-"Did you mean …" suggestions, which would name fields (ADR-0333).
+explorers require. With introspection disabled, no error carries a "Did you
+mean …" suggestion, which would name a field, argument or enum value: neither
+validation errors nor `BAD_USER_INPUT` errors for a variable's value
+(ADR-0333).
 
 Without `bodyLimit`, GraphQL inherits `httpPlugin({ bodyLimit })` (1 MiB by
 default), enforced while the body streams; `bodyLimit` replaces it for the

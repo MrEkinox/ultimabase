@@ -26,6 +26,10 @@ import {
 	createCancelledGraphqlError,
 	createSafeGraphqlError,
 } from './execution-errors.js'
+import {
+	graphqlHideSuggestionsKey,
+	readGraphqlHideSuggestions,
+} from './hidden-suggestions.js'
 import { assertGraphqlKnownKeys } from './known-keys.js'
 import {
 	RequestContext,
@@ -48,12 +52,13 @@ export interface GraphqlExecuteOptions {
 	readonly variables?: Readonly<Record<string, unknown>>
 }
 
-const optionKeys = new Set([
+const optionKeys = new Set<string | symbol>([
 	'context',
 	'document',
 	'operationName',
 	'principal',
 	'variables',
+	graphqlHideSuggestionsKey,
 ])
 
 const assertOptions: (
@@ -338,6 +343,8 @@ export class GraphqlNetworklessExecution {
 
 	async execute(options: GraphqlExecuteOptions): Promise<ExecutionResult> {
 		assertOptions(options)
+		// Variables are coerced during execution, so both steps hide them.
+		const hideSuggestions = readGraphqlHideSuggestions(options)
 		// An explicit principal, even `undefined`, replaces the provider's answer.
 		const requestContext =
 			'principal' in options
@@ -362,13 +369,16 @@ export class GraphqlNetworklessExecution {
 				} catch (error: unknown) {
 					return errorResult(error, context.requestId, this.#logger)
 				}
-				const errors = validate(this.#schema, document, this.#validationRules)
+				const errors = validate(this.#schema, document, this.#validationRules, {
+					hideSuggestions,
+				})
 				if (errors.length > 0) return { errors }
 				try {
 					return await execute({
 						schema: this.#schema,
 						document,
 						contextValue: Object.freeze({ request: context }),
+						hideSuggestions,
 						operationName: options.operationName,
 						variableValues: variables,
 						abortSignal: context.signal,
