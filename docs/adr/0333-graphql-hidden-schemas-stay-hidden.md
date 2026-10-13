@@ -36,3 +36,25 @@ and names nothing.
 - The GraphQL page and the README of `@ultimabase/graphql-plugin` describe the rule, and
   `examples/graphql` proves it.
 - Documentation impact: both.
+
+## Amendment (2026-10-13)
+
+Decision 4 named validation errors only, but GraphQL also suggests names while it executes:
+coercing a variable's value reports an unknown input object field (`unknown field "nam". Did you
+mean "name"?`) or an unknown enum value (`Did you mean the enum value "DRAFT"?`), at any depth of
+the value, with code `BAD_USER_INPUT`. Unknown argument names and literal values are validation
+errors and were already covered.
+
+Decision 4 now reads: when introspection is disabled, no error the GraphQL layer returns carries
+field-name, argument-name, input-field or enum-value suggestions, whether it comes from validation
+or from execution (variable coercion included). With introspection enabled, suggestions remain.
+
+- The setting stays the transport's: the Yoga plugin asks the application's execution to hide
+  suggestions through an internal channel between the two GraphQL packages, and execution passes
+  GraphQL's own `hideSuggestions` execution argument. No public option is added to
+  `GraphqlExecuteOptions` or elsewhere.
+- `GraphqlApplication.execute()` called directly is server-side code with no introspection
+  setting; it keeps GraphQL's suggestions.
+- Tests: with introspection off, a misspelled input field and a misspelled enum value in a
+  variable, nested in a list, carry no suggestion over Yoga; with introspection on they do.
+- Approval: amendment decided and approved by the user on 2026-10-13.
