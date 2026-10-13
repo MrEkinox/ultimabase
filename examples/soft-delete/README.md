@@ -15,16 +15,17 @@ says.
 
 ## Files
 
-| File                                                 | What it shows                                                                                                                                                    |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/schema.ts`](src/schema.ts)                     | the factory; `Post` in the default mode with its Access rules, `readDeleted` and REST exposure; `Comment` in command mode; `Article` with a partial unique index |
-| [`src/ultimabase.ts`](src/ultimabase.ts)             | the application, its audited Master authority and the `Register` declaration                                                                                     |
-| [`src/admin.ts`](src/admin.ts)                       | trusted server code: making a moderator, Master reads of the trash, emptying the trash with `purgeMany`                                                          |
-| [`src/main.ts`](src/main.ts)                         | the development entry point                                                                                                                                      |
-| [`tests/lifecycle.test.ts`](tests/lifecycle.test.ts) | soft delete, restore and purge of one row and of many rows                                                                                                       |
-| [`tests/trash.test.ts`](tests/trash.test.ts)         | `readDeleted` through Access and Roles, Master reads, the retention job                                                                                          |
-| [`tests/modes.test.ts`](tests/modes.test.ts)         | command mode and the partial unique index                                                                                                                        |
-| [`tests/rest.test.ts`](tests/rest.test.ts)           | the REST routes the documentation calls with `curl`, sent in memory with `t.fetch`                                                                               |
+| File                                                 | What it shows                                                                                                                                                                |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/schema.ts`](src/schema.ts)                     | the factory; `Post` in the default mode with its Access rules, `readDeleted` and REST and GraphQL exposure; `Comment` in command mode; `Article` with a partial unique index |
+| [`src/ultimabase.ts`](src/ultimabase.ts)             | the application, its audited Master authority and the `Register` declaration                                                                                                 |
+| [`src/admin.ts`](src/admin.ts)                       | trusted server code: making a moderator, Master reads of the trash, emptying the trash with `purgeMany`                                                                      |
+| [`src/main.ts`](src/main.ts)                         | the development entry point                                                                                                                                                  |
+| [`tests/lifecycle.test.ts`](tests/lifecycle.test.ts) | soft delete, restore and purge of one row and of many rows                                                                                                                   |
+| [`tests/trash.test.ts`](tests/trash.test.ts)         | `readDeleted` through Access and Roles, Master reads, the retention job                                                                                                      |
+| [`tests/modes.test.ts`](tests/modes.test.ts)         | command mode and the partial unique index                                                                                                                                    |
+| [`tests/rest.test.ts`](tests/rest.test.ts)           | the REST routes the documentation calls with `curl`, sent in memory with `t.fetch`                                                                                           |
+| [`tests/graphql.test.ts`](tests/graphql.test.ts)     | the GraphQL documents of the documentation, `NOT_FOUND` on a repeated soft deletion, restore, and the fields that are not exposed                                            |
 
 Region names are stable identifiers: renaming one breaks the page or README
 that includes it, and the website content tests report the missing region.
@@ -44,6 +45,7 @@ ULTIMABASE_MASTER_KEY=development-only-secret \
 
 `test` starts PostgreSQL in a container once (Docker), or uses
 `TEST_DATABASE_URL`. `start` serves REST on
-`http://127.0.0.1:1337/api/classes/Post`. The PostgreSQL `override` schema
+`http://127.0.0.1:1337/api/classes/Post` and GraphQL on
+`POST http://127.0.0.1:1337/graphql`. The PostgreSQL `override` schema
 policy (the default outside production) is convenient for this development
 example and is not a production migration strategy.

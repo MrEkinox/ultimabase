@@ -33,7 +33,7 @@ export const App = UltimaBase.use(
 	softDeletePlugin(),
 	accessPlugin(),
 	rolesPlugin(),
-	...apiServer({ http: { appId: 'blog' }, rest: true }),
+	...apiServer({ http: { appId: 'blog' }, rest: true, graphql: true }),
 	postgresPlugin(),
 )
 
@@ -71,8 +71,9 @@ export const Post = App.Schema.define({
 			// Only moderators see tombstones in ordinary reads.
 			readDeleted: hasRole(Moderator),
 		},
-		// A command reaches REST only when the rule names it.
+		// A command reaches REST or GraphQL only when the rule names it.
 		rest: { softDeleteOne: true, restoreOne: true },
+		graphql: { softDeleteOne: true, restoreOne: true },
 	})
 ```
 
@@ -165,12 +166,12 @@ Master context; Master never bypasses Hooks. The Hooks plugin exposes
 command, and its `all` branch runs for each command first with `kind` naming
 it.
 
-The one-row request commands reach REST when the schema's rule names them,
-`.with({ rest: { softDeleteOne: true, restoreOne: true } })`, as
-`POST /api/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one`
-(ADR-0324). GraphQL still publishes `softDeleteOne{Schema}` and
-`restoreOne{Schema}` through the temporary binding of migration 6.0. Many-row
-commands and purge have no route.
+The one-row request commands reach REST and GraphQL when the schema's rule
+names them, `.with({ rest: { softDeleteOne: true, restoreOne: true } })` and
+`.with({ graphql: { softDeleteOne: true, restoreOne: true } })`, as
+`POST /api/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one`, and as
+the `softDeleteOne{Schema}` and `restoreOne{Schema}` mutations (ADR-0324,
+ADR-0325). Many-row commands and purge have no route or field.
 
 ## Unique values
 

@@ -35,7 +35,7 @@ const examples = [
 // Quoted repository paths let the CI planner select this suite when they change.
 const testedExamples = [
 	['examples/todo-backend', 4],
-	['examples/soft-delete', 11],
+	['examples/soft-delete', 13],
 	['examples/access', 19],
 	['examples/hooks', 14],
 	['examples/validation', 12],

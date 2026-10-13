@@ -18,6 +18,7 @@ sources:
   - examples/soft-delete/tests/trash.test.ts
   - examples/soft-delete/tests/modes.test.ts
   - examples/soft-delete/tests/rest.test.ts
+  - examples/soft-delete/tests/graphql.test.ts
   - packages/soft-delete-plugin/README.md
   - packages/soft-delete-plugin/src/plugin.ts
   - packages/soft-delete-plugin/src/options.ts
@@ -226,8 +227,8 @@ not exposed through REST or GraphQL yet.
 
 REST and GraphQL expose a command only when the schema's rule names it, with
 the command's own name, like every schema method (ADR-0324, ADR-0325). The
-example's `Post` declares `rest: { softDeleteOne: true, restoreOne: true }`;
-the GraphQL rule has the same shape,
+example's `Post` declares `rest: { softDeleteOne: true, restoreOne: true }`
+and the GraphQL rule of the same shape,
 `graphql: { softDeleteOne: true, restoreOne: true }`.
 
 - REST: `rest: { softDeleteOne: true }` adds the
@@ -236,13 +237,14 @@ the GraphQL rule has the same shape,
   `restPlugin()`, installed here by `apiServer({ rest: true })`.
 - GraphQL: `graphql: { softDeleteOne: true }` adds the `softDeleteOnePost`
   mutation; `graphql: true` exposes every method and command, `graphql: false`
-  none. The `graphql` rule requires `graphqlPlugin()`, installed by
+  none. The `graphql` rule requires `graphqlPlugin()`, installed here by
   `apiServer({ graphql: true })`.
 
 Enabling exposure does not grant permission. `purgeOne` and the many-row
 commands are never exposed.
 
-The factory above serves REST through `apiServer`, with HTTP, REST, and a
+The factory above serves REST and GraphQL through `apiServer`, with HTTP,
+REST, GraphQL, Yoga, and a
 [Hono server](./hono-server#start-and-stop-the-managed-listener) on
 `127.0.0.1:1337` while the application runs. Access decides what each
 request may do; without a policy plugin, REST and GraphQL refuse to start
@@ -313,79 +315,54 @@ a request to it then answers 405.
 
 ### GraphQL
 
-The example does not install GraphQL. Add `graphql: true` to its `apiServer`
-options and the `graphql` rule above, then use
-`POST http://127.0.0.1:1337/graphql` with these headers:
+`apiServer({ graphql: true })` installs GraphQL and its Yoga transport on
+`POST http://127.0.0.1:1337/graphql`, and the `graphql` rule above exposes the
+two commands. The example's `tests/graphql.test.ts` sends these requests in
+memory. In an HTTP client, place each document in `query` and its variables in
+`variables`; in a GraphQL explorer, paste them into the corresponding panes.
+Create a Post:
 
-```json title="graphql-headers.json"
-{
-	"Content-Type": "application/json",
-	"X-UltimaBase-Application-Id": "blog"
-}
-```
+<include cwd meta='title="tests/graphql.test.ts"'>
+	../../examples/soft-delete/tests/graphql.test.ts#graphql-create
+</include>
 
-In an HTTP client, place each document in `query` and its variables in
-`variables`. In a GraphQL explorer, paste them into the corresponding panes.
-Create a separate Post so this example does not reuse the REST tombstone:
+Read the new ID from `data.createPost.id`; `isDeleted` is initially `false`:
 
-```graphql title="create-post.graphql"
-mutation CreatePost {
-	createPost(input: { title: "Draft announcement" }) {
-		id
-		title
-		isDeleted
-	}
-}
-```
+<include cwd meta='title="tests/graphql.test.ts"'>
+	../../examples/soft-delete/tests/graphql.test.ts#graphql-create-answer
+</include>
 
-Read the new ID from `data.createPost.id`; `isDeleted` is initially `false`.
-Use that ID in the following variables:
+Soft-delete it, passing that ID as the `id` variable:
 
-```json title="post.variables.json"
-{ "id": "POST_ID" }
-```
-
-```graphql title="soft-delete-post.graphql"
-mutation SoftDeletePost($id: ID!) {
-	softDeleteOnePost(input: { id: $id }) {
-		id
-		title
-		isDeleted
-	}
-}
-```
+<include cwd meta='title="tests/graphql.test.ts"'>
+	../../examples/soft-delete/tests/graphql.test.ts#graphql-soft-delete
+</include>
 
 The generated field accepts `input: SoftDeleteOnePostInput!`, containing only
 `id: ID!`. There is no `data` or `isDeleted` input. Select the fields you need
 from the **post-delete** record:
 
-```json title="soft-delete.graphql.response.json"
-{
-	"data": {
-		"softDeleteOnePost": {
-			"id": "POST_ID",
-			"title": "Draft announcement",
-			"isDeleted": true
-		}
-	}
-}
-```
+<include cwd meta='title="tests/graphql.test.ts"'>
+	../../examples/soft-delete/tests/graphql.test.ts#graphql-soft-delete-answer
+</include>
 
 Verify visibility with the same variables:
 
-```graphql title="find-deleted-post.graphql"
-query FindDeletedPost($id: ID!) {
-	findOnePost(where: { id: { eq: $id } }) {
-		id
-		title
-	}
-}
-```
+<include cwd meta='title="tests/graphql.test.ts"'>
+	../../examples/soft-delete/tests/graphql.test.ts#graphql-find-deleted
+</include>
 
-Expect `{ "data": { "findOnePost": null } }`. Repeating the soft-delete mutation
-instead produces a GraphQL error with `extensions.code: "NOT_FOUND"`; inspect
-`errors`, even if the HTTP status is `200`. `restoreOnePost` restores the
-record when your rules allow it; there is no purge field.
+The ordinary read finds nothing:
+
+<include cwd meta='title="tests/graphql.test.ts"'>
+	../../examples/soft-delete/tests/graphql.test.ts#graphql-find-deleted-answer
+</include>
+
+Repeating the soft-delete mutation instead answers
+`data: { softDeleteOnePost: null }` with a GraphQL error whose
+`extensions.code` is `NOT_FOUND`; inspect `errors`, even though the HTTP status
+is `200`. `restoreOnePost` restores the record when your rules allow it; there
+is no purge field.
 
 GraphQL derives `softDeleteOnePost` from the command and the generated model
 name. The `softDeleteOne` and `restoreOne` keys expose these fields
