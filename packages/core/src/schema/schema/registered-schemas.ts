@@ -295,7 +295,19 @@ export interface SchemaRef<TClassName extends string> extends SchemaClass<
 > {
 	/** Registered class name of the referenced schema. */
 	readonly className: TClassName
+	/** Type-only marker: no runtime value carries it. */
+	readonly [schemaRefMarker]?: TClassName
 }
+
+// Distinguishes a name-keyed `SchemaRef` from a schema constant by a key, not
+// by structure: comparing structures would read `Register`, and a plugin that
+// targets a registered schema is typed while the application is (TS7022).
+declare const schemaRefMarker: unique symbol
+
+/** Reports whether one schema type is a name-keyed `SchemaRef`, without reading `Register`. */
+export type IsSchemaRef<TSchema> = typeof schemaRefMarker extends keyof TSchema
+	? true
+	: false
 
 /**
  * The schema reference given to plugin rules and relationship builders:
