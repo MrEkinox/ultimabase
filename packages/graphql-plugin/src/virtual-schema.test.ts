@@ -18,7 +18,7 @@ import {
 } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
-import { graphqlPlugin, type GraphqlApplication } from './index.js'
+import { graphqlPlugin } from './index.js'
 import { readGraphqlConnectionRuntime } from './application.js'
 import { normalizeGraphqlReadOperation } from './read-normalization.test-support.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
@@ -154,9 +154,7 @@ describe('GraphQL virtual schema compilation', () => {
 			],
 			schemas: [Virtual],
 		})
-		const graphql = application.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
 		const model = graphql.schema.getType('GraphqlVirtualShape')
 		const create = graphql.schema.getType('GraphqlVirtualShapeCreateInput')
 		const update = graphql.schema.getType('GraphqlVirtualShapeUpdateInput')
@@ -261,9 +259,7 @@ describe('GraphQL virtual schema compilation', () => {
 			plugins: [graphqlPlugin(), graphqlFixtureDatabasePlugin],
 			schemas: [Virtual],
 		})
-		const graphqlApplication = application.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphqlApplication = application.plugin('@ultimabase/graphql-plugin')
 		const root = graphqlApplication.schema
 			.getQueryType()
 			?.getFields().findOneGraphqlVirtualShape

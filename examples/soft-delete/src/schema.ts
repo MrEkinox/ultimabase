@@ -15,7 +15,7 @@ export const App = UltimaBase.use(
 	softDeletePlugin(),
 	accessPlugin(),
 	rolesPlugin(),
-	...apiServer({ http: { appId: 'blog' }, rest: true }),
+	...apiServer({ http: { appId: 'blog' }, rest: true, graphql: true }),
 	postgresPlugin(),
 )
 //#endregion factory
@@ -57,8 +57,9 @@ export const Post = App.Schema.define({
 			// Only moderators see tombstones in ordinary reads.
 			readDeleted: hasRole(Moderator),
 		},
-		// A command reaches REST only when the rule names it.
+		// A command reaches REST or GraphQL only when the rule names it.
 		rest: { softDeleteOne: true, restoreOne: true },
+		graphql: { softDeleteOne: true, restoreOne: true },
 	})
 //#endregion post
 

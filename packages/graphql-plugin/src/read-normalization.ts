@@ -1,4 +1,5 @@
 import {
+	FrameworkError,
 	normalizeReadOperation,
 	type ReadOperationAstForKind,
 	type SchemaDefinition,
@@ -95,7 +96,15 @@ const normalizeGraphqlOrdering = (
 			)
 		}
 		if (order.has(item.field)) {
-			throw new TypeError(`GraphQL orderBy repeats field ${item.field}`)
+			// The schema types every item; only a repeated field is a client error.
+			throw new FrameworkError(
+				'VALIDATION_ERROR',
+				`GraphQL orderBy repeats field ${item.field}`,
+				{
+					publicMessage: `The orderBy argument repeats the field ${item.field}.`,
+					publicDetails: { parameter: 'orderBy' },
+				},
+			)
 		}
 		order.set(item.field, item.direction)
 	}

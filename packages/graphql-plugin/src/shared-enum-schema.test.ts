@@ -46,9 +46,7 @@ describe('GraphQL shared enums', () => {
 			plugins: [graphqlPlugin({ default: true }), graphqlFixtureDatabasePlugin],
 			schemas: [Task, Project],
 		})
-		const graphql = application.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
 
 		const shared = graphql.schema.getType('TaskPriority')
 		expect(isEnumType(shared)).toBe(true)

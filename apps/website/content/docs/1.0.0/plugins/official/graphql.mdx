@@ -257,7 +257,9 @@ starts, with a warning. Send a document as JSON with `POST /graphql`:
 `findManyPost` returns `nodes`, `edges`, and `pageInfo` with `endCursor` and
 `hasNextPage`. When `count` is enabled for the schema, it also returns
 `totalCount`, computed by one count query only when the document selects it.
-`orderBy` is an ordered list of `{ field, direction }`. The answer is:
+`orderBy` is an ordered list of `{ field, direction }`; naming a field twice
+fails with `VALIDATION_ERROR` and `details: { parameter: "orderBy" }`. The
+answer is:
 
 <include cwd meta='title="tests/queries.test.ts"'>
 	../../examples/graphql/tests/queries.test.ts#first-page-answer
@@ -450,7 +452,8 @@ application, executor, adapter, grant, transaction, or lifecycle control.
 Collections use Relay-style `edges`, `nodes`, and `pageInfo`, plus
 `totalCount` on root connections when `count` is enabled; a relation
 connection has no count. `first` defaults to 100 and is capped at 1000, 20 and
-100 in the example; a larger `first` is a GraphQL error.
+100 in the example; a `first` outside that window fails with
+`VALIDATION_ERROR`, shown below.
 `graphqlPlugin({ pagination: { defaultTake: 20, maxTake: 100 } })` sets other
 values, with the same option and defaults as REST. A root collection maps
 `first` and `after` to Core's `take` and `after`: each edge cursor is the
@@ -473,6 +476,18 @@ malformed cursor, or one for another type or ordering, fails with
 
 <include cwd meta='title="tests/errors.test.ts"'>
 	../../examples/graphql/tests/errors.test.ts#bad-cursor
+</include>
+
+A negative `first`, or one above `maxTake`, fails the same way at the root
+and on a relation connection, as REST rejects a `take` above `maxTake`. The
+message gives the accepted window:
+
+<include cwd meta='title="tests/errors.test.ts"'>
+	../../examples/graphql/tests/errors.test.ts#first-too-large
+</include>
+
+<include cwd meta='title="tests/errors.test.ts"'>
+	../../examples/graphql/tests/errors.test.ts#first-too-large-answer
 </include>
 
 A relation connection inside a node accepts the same `first`, `after`,

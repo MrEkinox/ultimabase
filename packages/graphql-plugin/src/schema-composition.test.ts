@@ -146,9 +146,7 @@ describe('GraphQL schema composition', () => {
 			schemas: [Post],
 		})
 		await application.start()
-		const graphql = application.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
 
 		expect(
 			Object.keys(

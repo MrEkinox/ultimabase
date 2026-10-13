@@ -123,6 +123,73 @@ it('rejects a cursor that does not match the read', async () => {
 	})
 })
 
+it('rejects a first outside the page window and a repeated order', async () => {
+	await using t = await testApplication(ultimabase)
+
+	//#region first-too-large
+	const response = await t.fetch('/graphql', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			query: '{ findManyPost(first: 500) { nodes { id } } }',
+		}),
+	})
+	//#endregion first-too-large
+
+	expect(response.status).toBe(200)
+	//#region first-too-large-answer
+	expect(await response.json()).toStrictEqual({
+		data: null,
+		errors: [
+			{
+				message: 'The first argument must be an integer from 0 to 100.',
+				locations: [{ line: 1, column: 3 }],
+				path: ['findManyPost'],
+				extensions: {
+					code: 'VALIDATION_ERROR',
+					details: { parameter: 'first' },
+					requestId,
+					retryable: false,
+				},
+			},
+		],
+	})
+	//#endregion first-too-large-answer
+
+	// A negative `first`, here inside a relation connection, fails the same way.
+	const negative = await postQuery(
+		t,
+		'{ findManyPost { nodes { comments(first: -1) { nodes { id } } } } }',
+	)
+	expect(await negative.json()).toMatchObject({
+		errors: [
+			{
+				message: 'The first argument must be an integer from 0 to 100.',
+				extensions: {
+					code: 'VALIDATION_ERROR',
+					details: { parameter: 'first' },
+				},
+			},
+		],
+	})
+	// An `orderBy` naming one field twice fails before any read.
+	const repeated = await postQuery(
+		t,
+		'{ findManyPost(orderBy: [{ field: views, direction: ASC }, { field: views, direction: DESC }]) { nodes { id } } }',
+	)
+	expect(await repeated.json()).toMatchObject({
+		errors: [
+			{
+				message: 'The orderBy argument repeats the field views.',
+				extensions: {
+					code: 'VALIDATION_ERROR',
+					details: { parameter: 'orderBy' },
+				},
+			},
+		],
+	})
+})
+
 it('keeps the HTTP envelope for failures before GraphQL', async () => {
 	await using t = await testApplication(ultimabase)
 

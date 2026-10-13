@@ -35,7 +35,7 @@ const examples = [
 // Quoted repository paths let the CI planner select this suite when they change.
 const testedExamples = [
 	['examples/todo-backend', 4],
-	['examples/soft-delete', 11],
+	['examples/soft-delete', 13],
 	['examples/access', 19],
 	['examples/hooks', 14],
 	['examples/validation', 12],
@@ -45,7 +45,7 @@ const testedExamples = [
 	['examples/postgres', 30],
 	['examples/http', 23],
 	['examples/rest', 18],
-	['examples/graphql', 23],
+	['examples/graphql', 24],
 ] as const
 
 const compile = (example: string): readonly string[] => {
