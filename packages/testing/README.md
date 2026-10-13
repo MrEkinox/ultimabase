@@ -79,9 +79,14 @@ export default defineConfig({ test: { ...ultimabaseTesting() } })
 `ultimabaseTesting()` returns a global setup that starts PostgreSQL once per
 run unless `TEST_DATABASE_URL` is set, a setup file that stops each file's
 application and drops its schema, `PORT=0` (a server plugin listens on a free
-port, so workers never compete for the development port) and 30-second test
-and hook timeouts. Spread it first so your own values win; merge your own
-`setupFiles` or `env` with its values.
+port, so workers never compete for the development port), the workers'
+`--no-experimental-require-module` flag and 30-second test and hook timeouts.
+The flag makes Node.js resolve packages with the same conditions as Vite: a
+package shipping both ESM and CommonJS builds, such as `graphql`, then loads
+once whether a test file or a dependency imports it, instead of failing with
+`Cannot use GraphQLSchema from another module or realm`. Spread it first so
+your own values win; merge your own `setupFiles`, `env` or `execArgv` with its
+values.
 
 With another runner, `testApplication` works the same way without the global
 setup: without `TEST_DATABASE_URL` it starts one container per process. Call
