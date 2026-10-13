@@ -3,7 +3,7 @@ import { expect, it } from 'vitest'
 
 import { readingService } from '../src/reading-service.ts'
 import { ultimabase } from '../src/ultimabase.ts'
-import { anyString, seedBlog, stringAt } from './support.ts'
+import { anyString, postQuery, seedBlog, stringAt } from './support.ts'
 
 // Queries POSTed in memory with `t.fetch`, as a client would send them.
 
@@ -217,6 +217,15 @@ it('reads relations and virtual fields in one request', async () => {
 		data: {
 			getPost: { id: hello.id, title: 'Hello', author: { id: ada.id } },
 		},
+	})
+	// A missing target is a NOT_FOUND error beside `getPost: null`.
+	const missing = await postQuery(
+		t,
+		'{ getPost(id: "0199b4f0-5a31-7000-8000-000000000001") { id } }',
+	)
+	expect(await missing.json()).toMatchObject({
+		data: { getPost: null },
+		errors: [{ extensions: { code: 'NOT_FOUND' }, path: ['getPost'] }],
 	})
 })
 

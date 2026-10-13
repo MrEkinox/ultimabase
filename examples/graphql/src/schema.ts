@@ -94,7 +94,7 @@ export const Feedback = App.Schema.define({
 //#endregion feedback
 
 //#region audit
-/** Server-side records: no GraphQL type, field or input mentions them. */
+/** Server-side records: no root field or mutation reads or writes them. */
 export const AuditEntry = App.Schema.define({
 	className: 'AuditEntry',
 	fields: (field) => ({ action: field.string({ required: true }) }),
