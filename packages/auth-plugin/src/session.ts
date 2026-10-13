@@ -66,8 +66,12 @@ export interface AuthPendingSignUp<
 
 /** The client of one HTTP request, recorded on the sessions it creates. */
 export interface AuthClient {
-	/** The client address, as the HTTP plugin resolves it. */
-	readonly address: string
+	/**
+	 * The client address, as the HTTP plugin resolves it; `undefined` when
+	 * unknown. Sessions and events then record `null`, and attempt limiting
+	 * applies only the per-account limit.
+	 */
+	readonly address: string | undefined
 	/** The `User-Agent` header, at most 256 characters. */
 	readonly userAgent: string | null
 }
@@ -109,7 +113,7 @@ export const authClient: RequestContextValue<
 	(value) => {
 		if (
 			!isPlainRecord(value) ||
-			typeof value.address !== 'string' ||
+			(value.address !== undefined && typeof value.address !== 'string') ||
 			(value.userAgent !== null && typeof value.userAgent !== 'string')
 		) {
 			throw new TypeError('Auth client must carry an address and user agent')

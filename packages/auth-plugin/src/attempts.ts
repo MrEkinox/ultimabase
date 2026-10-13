@@ -34,7 +34,10 @@ const accountLimit: AttemptLimit = {
 
 /** One attempt subject: the account identifier and the client address. */
 export interface AttemptSubject {
-	/** The client address; `undefined` outside HTTP (only the account limit applies). */
+	/**
+	 * The client address; `undefined` outside HTTP or when the HTTP plugin
+	 * knows none (only the account limit applies, ADR-0334).
+	 */
 	readonly address: string | undefined
 	/** The method and the identifier the attempt targets, such as an email. */
 	readonly identifier: string

@@ -18,6 +18,7 @@ export interface AuthEventBase {
  * `requireVerifiedEmail` waits for verification (`sessionId: null`).
  */
 export interface AuthSignUpEvent extends AuthEventBase {
+	/** The client address (personal data), or `null` when unknown. */
 	readonly address: string | null
 	readonly method: string
 	readonly sessionId: string | null
@@ -26,6 +27,7 @@ export interface AuthSignUpEvent extends AuthEventBase {
 
 /** A user logged in through a method; a session was issued. */
 export interface AuthLoginEvent extends AuthEventBase {
+	/** The client address (personal data), or `null` when unknown. */
 	readonly address: string | null
 	readonly method: string
 	readonly sessionId: string

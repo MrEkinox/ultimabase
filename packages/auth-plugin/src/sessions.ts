@@ -19,6 +19,7 @@ import {
 
 /** A session as `listSessions` reports it; never its token. */
 export interface AuthSessionInfo {
+	/** The client address that created the session (personal data), or `null` when unknown. */
 	readonly address: string | null
 	readonly createdAt: string
 	/** Whether this is the session of the request that lists them. */
