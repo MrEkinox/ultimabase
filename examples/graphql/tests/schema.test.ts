@@ -37,8 +37,11 @@ it('prints the schema the application serves', async () => {
 	expect(sdl).toContain('version: String')
 	// Disabled methods and `graphql: false` have no root field or mutation.
 	expect(sdl).not.toMatch(/^\s+\w+(?:Author|Comment)\(input/mu)
-	expect(sdl).not.toMatch(/^\s+\w+AuditEntry\(/mu)
 	expect(sdl).not.toMatch(/^\s+countComment\(/mu)
+	//#region hidden-schema
+	// No exposed type reaches AuditEntry: no type, input or field names it.
+	expect(sdl).not.toContain('AuditEntry')
+	//#endregion hidden-schema
 	await t.afterCommit()
 })
 
@@ -78,6 +81,12 @@ it('answers introspection and serves GraphiQL in development', async () => {
 	expect(await introspection.json()).toStrictEqual({
 		data: { __type: { name: 'PostStatus' } },
 	})
+	const hidden = await t.fetch('/graphql', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ query: '{ __type(name: "AuditEntry") { name } }' }),
+	})
+	expect(await hidden.json()).toStrictEqual({ data: { __type: null } })
 
 	//#region explorer
 	const page = await t.fetch('/graphiql')

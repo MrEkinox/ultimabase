@@ -7,7 +7,11 @@ import {
 	databaseAdapterCapability,
 	databaseFilterOperatorCapabilityVersion,
 	databaseFilterOperatorsCapability,
+	databaseInclusionCapability,
 	databasePersistencePlanCapability,
+	databasePointerCapability,
+	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	type DatabaseAdapter,
 	type DatabaseFilterOperatorCapability,
 	type DatabaseOperationAst,
@@ -34,7 +38,11 @@ const rowId = '01991f00-0000-7000-8000-000000000801'
 class SurfaceDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly capabilities = {
+		inclusions: databaseInclusionCapability,
 		persistencePlans: databasePersistencePlanCapability,
+		pointers: databasePointerCapability,
+		relationPredicates: databaseRelationPredicateCapability,
+		relations: databaseRelationCapability,
 	}
 	readonly operations: string[] = []
 	healthy = true
@@ -148,12 +156,42 @@ const Note = App.Schema.define({
 	className: 'SurfaceNote',
 	fields: (field) => ({ body: field.string() }),
 })
+// ADR-0333: hidden schemas, one reached through an exposed relation.
+const Audit = App.Schema.define({
+	className: 'SurfaceAudit',
+	fields: (field) => ({ secretAction: field.string() }),
+}).with({ graphql: false })
+const Keeper = App.Schema.define({
+	className: 'SurfaceKeeper',
+	fields: (field) => ({ name: field.string() }),
+}).with({ graphql: false })
+const Book = App.Schema.define({
+	className: 'SurfaceBook',
+	fields: (field) => ({
+		keeper: field.pointer({ target: () => Keeper }),
+		title: field.string(),
+	}),
+}).with({ graphql: false })
+const Shelf = App.Schema.define({
+	className: 'SurfaceShelf',
+	fields: (field) => ({
+		books: field.relation({ target: () => Book }),
+		label: field.string(),
+	}),
+})
 
 const start = async (
 	options: GraphqlPluginOptions = {},
 	extra: {
 		readonly operators?: DatabaseFilterOperatorCapability
-		readonly schemas?: readonly (typeof Post | typeof Note)[]
+		readonly schemas?: readonly (
+			| typeof Audit
+			| typeof Book
+			| typeof Keeper
+			| typeof Note
+			| typeof Post
+			| typeof Shelf
+		)[]
 		readonly warn?: (message: string) => void
 	} = {},
 ) => {
@@ -358,5 +396,71 @@ describe('GraphQL surface (ADR-0325)', () => {
 		await expect(application.start()).rejects.toThrow(
 			'graphqlPlugin({ hide }) lists fixture.graphql-surface.ping, which is not a public operation of this application',
 		)
+	})
+})
+
+const typeNames = (schema: GraphQLSchema): string[] =>
+	Object.keys(schema.getTypeMap())
+
+describe('Hidden schemas (ADR-0333)', () => {
+	it('leaves out a hidden schema that no exposed schema reaches', async () => {
+		const { graphql, execute } = await start({}, { schemas: [Post, Audit] })
+
+		expect(
+			typeNames(graphql.schema).filter((name) => /Audit/u.test(name)),
+		).toStrictEqual([])
+		const sdl = graphql.printSchema()
+		expect(sdl).not.toContain('SurfaceAudit')
+		expect(sdl).not.toContain('secretAction')
+		expect(await execute('{ __type(name: "SurfaceAudit") { name } }')).toEqual({
+			data: { __type: null },
+		})
+		const introspected = await execute('{ __schema { types { name } } }')
+		expect(JSON.stringify(introspected)).not.toContain('SurfaceAudit')
+	})
+
+	it('keeps only the types an exposed relation needs', async () => {
+		const { graphql } = await start({}, { schemas: [Shelf, Book, Keeper] })
+		const names = typeNames(graphql.schema)
+
+		// Reached through `books` and its nested writes, then `keeper`.
+		expect(names).toEqual(
+			expect.arrayContaining([
+				'SurfaceBook',
+				'SurfaceBookConnection',
+				'SurfaceBookCreateInput',
+				'SurfaceBookWhere',
+				'SurfaceKeeper',
+				'SurfaceKeeperCreateInput',
+			]),
+		)
+		// No relation lists keepers, and neither hidden schema has a root.
+		expect(names).not.toContain('SurfaceKeeperConnection')
+		expect(names).not.toContain('SurfaceKeeperEdge')
+		const roots = [
+			...fieldNames(graphql.schema, 'Query'),
+			...fieldNames(graphql.schema, 'Mutation'),
+		]
+		expect(roots.filter((name) => /Book|Keeper/u.test(name))).toStrictEqual([])
+	})
+
+	it('names disabled features outside production only', async () => {
+		vi.stubEnv('NODE_ENV', 'production')
+		onTestFinished(() => {
+			vi.unstubAllEnvs()
+		})
+		const { execute } = await start({}, { schemas: [Post, Note, Audit] })
+
+		for (const document of [
+			`{ getArticle(id: "${rowId}") { id } }`,
+			'{ findManySurfaceNote { totalCount } }',
+			'{ findManySurfaceAudit { nodes { id } } }',
+		]) {
+			const result = await execute(document)
+			const message = result.errors?.[0]?.message ?? ''
+			expect(message).toMatch(/^Cannot query field "\w+" on type "\w+"\./u)
+			expect(message).not.toContain('hint:')
+			expect(message).not.toContain('SurfaceAudit')
+		}
 	})
 })

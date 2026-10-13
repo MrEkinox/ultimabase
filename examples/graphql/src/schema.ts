@@ -94,9 +94,16 @@ export const Feedback = App.Schema.define({
 //#endregion feedback
 
 //#region audit
-/** Server-side records: no root field or mutation reads or writes them. */
+/**
+ * Server-side records: no root field or mutation reads or writes them. The
+ * link to a post lives here, so no exposed type reaches AuditEntry and GraphQL
+ * leaves it out entirely.
+ */
 export const AuditEntry = App.Schema.define({
 	className: 'AuditEntry',
-	fields: (field) => ({ action: field.string({ required: true }) }),
+	fields: (field) => ({
+		action: field.string({ required: true }),
+		post: field.pointer({ target: () => Post }),
+	}),
 }).with({ graphql: false })
 //#endregion audit

@@ -5,14 +5,19 @@ import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { testApplication } from '@ultimabase/testing'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 // The explorer and Yoga introspection read `NODE_ENV` when created; explicit
-// options stand in for `NODE_ENV=production` here.
+// options stand in for `NODE_ENV=production` here. GraphQL has no option for
+// its hints, so `NODE_ENV` is set only while it is created: testApplication
+// refuses to start in production.
 const application = (environment: 'development' | 'production') => {
+	vi.stubEnv('NODE_ENV', environment)
+	const graphql = graphqlPlugin()
+	vi.unstubAllEnvs()
 	const Production = UltimaBase.use(
 		httpPlugin(),
-		graphqlPlugin(),
+		graphql,
 		graphqlYogaPlugin({ introspection: false }),
 		graphqlExplorerPlugin({ environment }),
 		postgresPlugin(),
@@ -65,5 +70,27 @@ it('serves neither the explorer nor introspection in production', async () => {
 	})
 	expect(await query.json()).toStrictEqual({
 		data: { findManyPage: { nodes: [] } },
+	})
+})
+
+it('names neither a disabled feature nor a field in production', async () => {
+	await using t = await testApplication(application('production'))
+	const post = async (query: string) =>
+		await t.fetch('/graphql', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ query }),
+		})
+
+	// `count` is off: the hint naming the rule exists only outside production.
+	const disabled = await post('{ countPage }')
+	expect(disabled.status).toBe(400)
+	expect(await disabled.json()).toMatchObject({
+		errors: [{ message: 'Cannot query field "countPage" on type "Query".' }],
+	})
+	// Introspection is off: no "Did you mean" suggests `title`.
+	const misspelled = await post('{ findManyPage { nodes { titel } } }')
+	expect(await misspelled.json()).toMatchObject({
+		errors: [{ message: 'Cannot query field "titel" on type "Page".' }],
 	})
 })
