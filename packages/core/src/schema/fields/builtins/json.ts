@@ -1,10 +1,12 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldListOption,
-	FieldTypeState,
 	FieldOptions,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -38,24 +40,30 @@ type DefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
 	JsonDocument,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type NonDefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
 	JsonDocument,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type ResolvedJsonField<
@@ -92,10 +100,11 @@ export interface JsonFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
+			DefaultedJsonFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			JsonDocument,
 			ResolvedFieldSourceOptions<
@@ -105,15 +114,19 @@ export interface JsonFieldFactory<
 				TRequired
 			>
 		>,
-	): DefaultedJsonField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedJsonField<TRequired, TList, TImmutable>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
+			NonDefaultedJsonFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			JsonDocument,
 			ResolvedFieldSourceOptions<
@@ -123,7 +136,10 @@ export interface JsonFieldFactory<
 				TRequired
 			>
 		>,
-	): NonDefaultedJsonField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedJsonField<TRequired, TList, TImmutable>
+	>
 }
 
 /** Copies one root JSON document while reserving scalar nullability for field metadata. */

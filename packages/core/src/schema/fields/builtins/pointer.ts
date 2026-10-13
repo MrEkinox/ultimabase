@@ -17,10 +17,12 @@ import type {
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldTypeState,
 	FieldOptionsBase,
 	ResolveFieldSourceTemplate,
 	ScalarFieldTypeState,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import { createFieldDefinition } from '../base/definition.js'
 import {
@@ -185,6 +187,7 @@ export type NamedPointerFieldBuilderMethod<
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
+	const TIndexed extends FieldIndexOption = false,
 	const TExtensionOptions extends object = object,
 >(
 	options: CompatibleFieldOptionsExtension<
@@ -209,8 +212,12 @@ export type NamedPointerFieldBuilderMethod<
 			required?: TRequired
 			immutable?: TImmutable
 			onDelete?: TOnDelete
+			indexed?: TIndexed
 		}>,
-) => ResolvedPointerField<DeclaredSchemaTarget<TTarget>, TRequired, TImmutable>
+) => UniqueIndexedField<
+	TIndexed,
+	ResolvedPointerField<DeclaredSchemaTarget<TTarget>, TRequired, TImmutable>
+>
 
 interface PointerFieldMetadataInput extends FieldOptionsBase<false, Pointer> {
 	readonly onDelete?: PointerReferentialAction
@@ -283,6 +290,7 @@ export function pointerField<
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
+	const TIndexed extends FieldIndexOption = false,
 	const TExtensionOptions extends object = object,
 >(
 	options: CompatibleFieldOptionsExtension<
@@ -294,8 +302,12 @@ export function pointerField<
 		>,
 		TExtensionOptions,
 		Pointer<TTarget>
-	>,
-): ResolvedPointerField<TTarget, TRequired, TImmutable>
+	> &
+		Readonly<{ indexed?: TIndexed }>,
+): UniqueIndexedField<
+	TIndexed,
+	ResolvedPointerField<TTarget, TRequired, TImmutable>
+>
 
 export function pointerField<const TTarget extends SchemaDefinition>(
 	options: PointerFieldOptions<TTarget>,

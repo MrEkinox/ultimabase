@@ -71,6 +71,20 @@ const readExampleHover = (
 	return ts.displayPartsToString(quickInfo?.displayParts)
 }
 
+/** Reads the QuickInfo of `src/hovers.ts` at the end of one marker. */
+const readMarkerHover = (
+	service: ts.LanguageService,
+	marker: string,
+): string => {
+	const file = path.join(exampleDirectory, 'src/hovers.ts')
+	const source = ts.sys.readFile(file) ?? ''
+	const quickInfo = service.getQuickInfoAtPosition(
+		file,
+		source.indexOf(marker) + marker.length - 1,
+	)
+	return ts.displayPartsToString(quickInfo?.displayParts)
+}
+
 const formatDiagnostic = (diagnostic: ts.Diagnostic): string => {
 	const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
 	if (diagnostic.file === undefined || diagnostic.start === undefined) {
@@ -156,6 +170,37 @@ describe('schema declaration form (ADR-0297)', () => {
 			} finally {
 				service.dispose()
 			}
+		},
+		120_000,
+	)
+
+	// ADR-0332: a unique target prints by name, and wrong targets and order
+	// keys are reported on their line, from source and built packages.
+	it.each(['tsconfig.json', 'tsconfig.source.json'])(
+		'types unique targets and order keys through %s',
+		(configName) => {
+			const service = createExampleService(configName)
+			try {
+				expect(readMarkerHover(service, '/* hover:unique-where */ where')).toBe(
+					'(property) where: UniqueWhereInput<"TodoRole">',
+				)
+				expect(readExampleHover(service, 'namedTarget')).toBe(
+					'const namedTarget: UniqueWhereInput<"TodoRole">',
+				)
+			} finally {
+				service.dispose()
+			}
+			const target = `'{ readonly id: string | { readonly eq: string; }; }'`
+			expect(readExpectedErrors(configName, 'src/typos.ts')).toEqual(
+				expect.arrayContaining([
+					`src/typos.ts:138 Object literal may only specify known properties, and 'title' does not exist in type ${target}.`,
+					`src/typos.ts:144 Object literal may only specify known properties, and 'archived' does not exist in type ${target}.`,
+					"src/typos.ts:150 Type 'null' is not assignable to type 'string | { readonly eq: string; }'.",
+					expect.stringContaining(
+						'src/typos.ts:155 Object literal may only specify known properties, and \'acl\' does not exist in type \'Readonly<{ readonly title?: "asc" | "desc" | null;',
+					),
+				]),
+			)
 		},
 		120_000,
 	)

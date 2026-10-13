@@ -13,6 +13,7 @@ import {
 	type ScalarFieldTypeState,
 	type SchemaDefinition,
 	type StringField,
+	type UniqueFieldCarrier,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
@@ -108,10 +109,14 @@ type EmailOnly<TIdentifier, TOptions> = [TIdentifier] extends ['email']
 /** Whether one identifier is the email: it adds the email flows. */
 type IsEmail<TIdentifier> = [TIdentifier] extends ['email'] ? true : false
 
-/** The identifier field the method adds to the User schema. */
+/**
+ * The identifier field the method adds to the User schema; unique, so a
+ * unique target of `updateOne` and `deleteOne` (ADR-0332).
+ */
 export type PasswordIdentifierField = StringField<
 	ScalarFieldTypeState<true, false, true, false>
->
+> &
+	UniqueFieldCarrier
 
 /**
  * The User fields of a password method: `username`, or with `email` the

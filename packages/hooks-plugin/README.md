@@ -70,8 +70,9 @@ export const Post = App.Schema.define({
 		author: field.pointer({ target: () => Author }),
 		tags: field.relation({ target: () => Tag }),
 	}),
-}).with({
+	// A unique index of `define` is a unique target of `upsertOne`.
 	indexes: [{ fields: ['slug'], unique: true }],
+}).with({
 	hooks: {
 		// Plain data in, plain data out; `undefined` keeps the input.
 		resolveInput: {

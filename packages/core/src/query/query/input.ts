@@ -12,7 +12,10 @@ import type {
 	QueryWhereNode,
 } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
-import { parsePersistedQueryFieldName as parseQueryFieldName } from '../ast/schema.js'
+import {
+	parsePersistedQueryFieldName as parseQueryFieldName,
+	readPersistedQueryFields,
+} from '../ast/schema.js'
 import type { QuerySelection } from '../clauses/selection.js'
 import {
 	normalizeQuerySelectedFields,
@@ -35,6 +38,7 @@ import {
 	completeQueryOrdering,
 	createInvalidPositionError,
 	createQueryPositionFilter,
+	isOrderableQueryField,
 	readRequestedQueryPosition,
 } from '../clauses/position.js'
 import {
@@ -153,6 +157,22 @@ const assertQueryInput: (
 	)
 }
 
+/** Names the caller's `orderBy` key when it cannot be ordered. */
+const assertOrderableInputField = (
+	schema: SchemaDefinition,
+	fieldName: string,
+): void => {
+	const path = `query.orderBy.${fieldName}`
+	const field =
+		readPersistedQueryFields(schema)[
+			parseQueryFieldName(schema, fieldName, path)
+		]
+
+	if (field !== undefined && !isOrderableQueryField(field)) {
+		throw new TypeError(`${path} must name a non-list scalar or enum field`)
+	}
+}
+
 /** @internal Normalizes one `orderBy` object; also used by the cursor encoder. */
 export const normalizeInputOrdering = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -167,6 +187,7 @@ export const normalizeInputOrdering = <const TSchema extends SchemaDefinition>(
 			// Null directions are ignored, but still name a real schema field.
 			parseQueryFieldName(schema, fieldName, `query.orderBy.${fieldName}`)
 		} else if (direction === 'asc' || direction === 'desc') {
+			assertOrderableInputField(schema, fieldName)
 			orders.push({
 				direction: direction === 'asc' ? 'ascending' : 'descending',
 				field: fieldName,

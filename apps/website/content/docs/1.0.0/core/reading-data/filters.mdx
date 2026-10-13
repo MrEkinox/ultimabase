@@ -69,6 +69,9 @@ export const readDrafts = (authorId: string) =>
 
 This is exactly `{ author: { eq: authorId }, published: { eq: false },
 summary: { isNull: true } }`; Core normalizes both forms to the same filter.
+An operand of a `uuid` field, or a pointer's target id, must be a UUID: a
+malformed one fails before the database with a validation error naming its
+path (`where.id.eq must be a valid UUID`).
 List, `json`, `object`, and relation fields keep explicit operators, because a
 value there can look like an operator object (`{ tags: { eq: ['a'] } }`,
 `{ metadata: { eq: { a: 1 } } }`). GraphQL filter inputs keep `{ eq }`, since a

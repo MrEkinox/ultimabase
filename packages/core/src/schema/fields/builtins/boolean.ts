@@ -1,10 +1,12 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldListOption,
-	FieldTypeState,
 	FieldOptions,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -29,24 +31,30 @@ type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type NonDefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type ResolvedBooleanField<
@@ -83,28 +91,36 @@ export interface BooleanFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+			DefaultedBooleanFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			boolean,
 			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList, TRequired>
 		>,
-	): DefaultedBooleanField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedBooleanField<TRequired, TList, TImmutable>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+			NonDefaultedBooleanFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			boolean,
 			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList, TRequired>
 		>,
-	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedBooleanField<TRequired, TList, TImmutable>
+	>
 }
 
 /**

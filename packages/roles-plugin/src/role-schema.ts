@@ -13,6 +13,7 @@ import {
 	type SchemaFields,
 	type SchemaRef,
 	type StringField,
+	type UniqueFieldCarrier,
 } from '@ultimabase/core'
 import type {
 	DeclaredSchemaShape,
@@ -43,9 +44,11 @@ import {
 /** Identifies the option-light official provider owning role schema behavior. */
 export const rolesPluginId = '@ultimabase/roles-plugin' as const
 
+// The unique name is a unique target of `updateOne` and `deleteOne` (ADR-0332).
 const createRoleNameField = (): StringField<
 	ScalarFieldTypeState<true, false, false, false>
-> =>
+> &
+	UniqueFieldCarrier =>
 	stringField({
 		indexed: 'unique',
 		required: true,

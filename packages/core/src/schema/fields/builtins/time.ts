@@ -1,9 +1,11 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypeState,
+	FieldIndexOption,
 	FieldListOption,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -37,13 +39,15 @@ type DefaultedTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TIndexed
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
@@ -52,13 +56,15 @@ type NonDefaultedTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TIndexed
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
@@ -101,29 +107,49 @@ export interface TimeFieldFactory<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			DefaultedTimeFieldOptions<
+				TRequired,
+				TList,
+				TImmutable,
+				TAutoNow,
+				TIndexed
+			>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): DefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			NonDefaultedTimeFieldOptions<
+				TRequired,
+				TList,
+				TImmutable,
+				TAutoNow,
+				TIndexed
+			>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): NonDefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
+	>
 }
 
 const localTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}$/u

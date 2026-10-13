@@ -236,6 +236,16 @@ Current measurements (2026-10-13, `main` after migration step 6.8b, medians of
 three alternating runs on the reference machine): TypeScript 7 0.54 s at 50 and
 1.89 s at 200 schemas; TypeScript 6 1.85 s at 50 and 5.57 s at 200 schemas.
 
+Note (2026-10-13, ADR-0332): `UniqueWhereInput<"Todo">` joins the name-keyed
+types. It is the `where` of `updateOne`, `deleteOne` and `upsertOne` and of
+the items of their bulk forms, a union with one member per unique target:
+`{ id }`, each field declared `indexed: 'unique'` (the field type carries
+`UniqueFieldCarrier`), and each unique index of `define({ indexes })`, which
+`define` now captures through a third constant type parameter. Indexes of the
+final `.with` stay out of the types, since this form types the schema without
+reading `.with`. A schema with one target prints that member, not the name.
+BENCH_PLACEHOLDER
+
 ## Migration step 6.8c (2026-10-13)
 
 ADR-0177, ADR-0184, ADR-0185, ADR-0198, ADR-0217, ADR-0265 and ADR-0285 are

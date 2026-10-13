@@ -20,6 +20,7 @@ sources:
   - docs/adr/0243-bounded-singular-nested-writes.md
   - packages/postgres-plugin/src/drizzle/operation-executor.ts
   - packages/postgres-plugin/src/drizzle/prepared-operation.ts
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
 ---
 
 Use `Post.upsertOne()` when the same unique key should create a record if absent
@@ -64,10 +65,36 @@ update commands: the upsert owns the atomic unique-key decision.
 ## Choose a valid target
 
 `where` must contain non-null equality for exactly one unique target: the
-framework `id`, one field declared unique, or every field of one declared
-composite unique index. Extra conditions, partial composite keys, ranges, and
-multi-match filters are invalid. See [Schemas](/docs/1.0.0/core/data-modeling/schemas)
-for index declarations.
+framework `id`, one field declared `indexed: 'unique'`, or every field of one
+unique index declared in `define({ indexes })`. Extra conditions, partial
+composite keys, ranges, and multi-match filters are invalid. See
+[Schemas](/docs/1.0.0/core/data-modeling/schemas) for index declarations.
+
+The type of `where` is `UniqueWhereInput<'TenantArticle'>`: a union with one
+member per target, each value as a shorthand or `{ eq }`, never `null`. A wrong
+target fails to compile. The `Contribution` schema of the PostgreSQL example
+declares `indexes: [{ fields: ['article', 'member'], unique: true }]`:
+
+```ts twoslash title="Unique targets"
+// @errors: 2322
+import { Contribution } from '../../examples/postgres/src/schema.ts'
+
+declare const article: string
+declare const member: string
+// ---cut---
+type Target = Parameters<typeof Contribution.deleteOne>[0]['where']
+//   ^?
+
+await Contribution.deleteOne({ where: { article, member } })
+// `member` alone is part of a target, not a target.
+await Contribution.deleteOne({ where: { member } })
+```
+
+The same input types `updateOne`, `deleteOne`, and the items of
+`updateMany`, `deleteMany`, and `upsertMany`. Runtime checks the target again,
+because untyped transports reach it too. A unique index declared in the final
+`.with` (a partial index, or one on a plugin field) is not a typed target:
+declare a unique index in `define` when a command targets it.
 
 If the proposed create values collide with a different unique key but no row
 matches the chosen `where` target, the upsert fails. It never redirects the

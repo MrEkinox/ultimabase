@@ -126,8 +126,8 @@ test('rejects targets Runtime refuses', () => {
 			},
 		],
 	})
-	// @ts-expect-error -- Upserts keep the unique target.
 	void Post.upsertOne({
+		// @ts-expect-error -- Upserts keep the unique target.
 		where: { slug: 'hello' },
 		create: { slug: 'hello' },
 		update: { title: 'Hello' },

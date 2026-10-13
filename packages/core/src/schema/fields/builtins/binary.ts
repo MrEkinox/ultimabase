@@ -1,10 +1,12 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldListOption,
-	FieldTypeState,
 	FieldOptions,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -28,24 +30,30 @@ type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	BinaryFieldOptions,
 	Uint8Array,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type NonDefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	BinaryFieldOptions,
 	Uint8Array,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type ResolvedBinaryField<
@@ -82,28 +90,36 @@ export interface BinaryFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
+			DefaultedBinaryFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			Uint8Array,
 			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList, TRequired>
 		>,
-	): DefaultedBinaryField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedBinaryField<TRequired, TList, TImmutable>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
+			NonDefaultedBinaryFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			Uint8Array,
 			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList, TRequired>
 		>,
-	): NonDefaultedBinaryField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedBinaryField<TRequired, TList, TImmutable>
+	>
 }
 
 /**

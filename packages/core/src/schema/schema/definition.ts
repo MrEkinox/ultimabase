@@ -28,6 +28,7 @@ import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
+import type { UniqueIndexFields } from './source-unique-targets.js'
 import type { SchemaTypeInfoByNameOrRegistered } from './registered-schemas.js'
 import {
 	assertDeclarationOptionKeys,
@@ -141,18 +142,23 @@ export interface SchemaClass<
 type SchemaReferenceTypeInfo<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields | undefined,
+	TUniqueIndexes extends UniqueIndexFields,
 > = TFields extends SchemaDeclaredFields
 	? string extends keyof TFields
 		? BaseSchemaTypeInfo<TClassName>
-		: SourceSchemaTypeInfo<TClassName, TFields>
+		: SourceSchemaTypeInfo<TClassName, TFields, TUniqueIndexes>
 	: // A name alone resolves through the application `Register` (ADR-0297).
 		SchemaTypeInfoByNameOrRegistered<TClassName>
 
-/** Resolves one public schema class from its fields, its registered name, or the bootstrap contract. */
+/**
+ * Resolves one public schema class from its fields (and the field lists of
+ * its unique indexes), its registered name, or the bootstrap contract.
+ */
 export type SchemaReference<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields | undefined = undefined,
-> = SchemaClass<SchemaReferenceTypeInfo<TClassName, TFields>>
+	TUniqueIndexes extends UniqueIndexFields = never,
+> = SchemaClass<SchemaReferenceTypeInfo<TClassName, TFields, TUniqueIndexes>>
 
 /** Collects additional static capabilities owned by a schema specialization. */
 export type SchemaStaticCapabilities = object

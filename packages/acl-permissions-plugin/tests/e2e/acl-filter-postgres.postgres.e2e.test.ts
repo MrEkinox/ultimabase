@@ -342,7 +342,11 @@ describe('ACL filters with PostgreSQL', { concurrent: false }, () => {
 		// the ACL; the field policy has no ordering to refuse.
 		for (const options of [as(grace, 'grace-orders'), master]) {
 			await expect(async () =>
-				FilterNote.findMany({ orderBy: { acl: 'asc' } }, options),
+				FilterNote.findMany(
+					// @ts-expect-error -- `orderBy` keys exclude plugin field kinds (ADR-0332).
+					{ orderBy: { acl: 'asc' } },
+					options,
+				),
 			).rejects.toThrow('must name a non-list scalar or enum field')
 		}
 	})

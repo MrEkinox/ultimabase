@@ -10,9 +10,11 @@ import {
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldTypeState,
 	FieldListOption,
 	FieldOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	isSharedEnum,
@@ -87,12 +89,15 @@ type DefaultedEnumFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
 	EnumValue<TValues>,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 > &
 	CompatibleEnumFieldOptions<TValues>
 
@@ -101,12 +106,15 @@ type NonDefaultedEnumFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
 	EnumValue<TValues>,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 > &
 	CompatibleEnumFieldOptions<TValues>
 
@@ -172,28 +180,42 @@ export function enumField<
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
+	const TIndexed extends FieldIndexOption = false,
 	const TExtensionOptions extends object = object,
 >(
 	options: CompatibleFieldOptionsExtension<
-		DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
+		DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable, TIndexed>,
 		TExtensionOptions,
 		EnumValue<TValues>
 	>,
-): DefaultedEnumField<TValues, TRequired, TList, TImmutable>
+): UniqueIndexedField<
+	TIndexed,
+	DefaultedEnumField<TValues, TRequired, TList, TImmutable>
+>
 
 export function enumField<
 	const TValues extends EnumValues,
 	const TRequired extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
+	const TIndexed extends FieldIndexOption = false,
 	const TExtensionOptions extends object = object,
 >(
 	options: CompatibleFieldOptionsExtension<
-		NonDefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
+		NonDefaultedEnumFieldOptions<
+			TValues,
+			TRequired,
+			TList,
+			TImmutable,
+			TIndexed
+		>,
 		TExtensionOptions,
 		EnumValue<TValues>
 	>,
-): NonDefaultedEnumField<TValues, TRequired, TList, TImmutable>
+): UniqueIndexedField<
+	TIndexed,
+	NonDefaultedEnumField<TValues, TRequired, TList, TImmutable>
+>
 
 export function enumField(options: EnumFieldOptions): EnumField {
 	assertFieldOptions(options)

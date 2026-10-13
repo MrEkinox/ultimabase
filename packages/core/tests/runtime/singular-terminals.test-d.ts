@@ -9,7 +9,7 @@ import { QueryBuilder, type RequestContext } from '../../src/plugin.js'
 const articleSchema = UltimaBase.Schema.define({
 	className: 'TypedTerminalArticle',
 	fields: (field) => ({
-		title: field.string({ required: true }),
+		title: field.string({ indexed: 'unique', required: true }),
 		views: field.int(),
 	}),
 })

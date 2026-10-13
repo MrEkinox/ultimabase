@@ -62,7 +62,7 @@ export const Post = Application.Schema.define({
 		important: field./* completion:plugin-field */ importance({
 			required: true,
 		}),
-		title: field.string({ required: true }),
+		title: field.string({ indexed: 'unique', required: true }),
 	}),
 })
 

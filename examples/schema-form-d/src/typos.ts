@@ -129,3 +129,27 @@ export const TypoRelationless = App.Schema.define({
 	// @ts-expect-error -- TypoRelationless declares no relation field.
 	relations: {},
 })
+
+// Unique targets and order keys (ADR-0332), each reported on its line.
+
+/** 14. A non-unique field as a unique target. */
+export const typoTarget = () =>
+	// @ts-expect-error -- `title` is not unique; `updateOne` needs `id`.
+	Todo.updateOne({ where: { title: 'x' }, data: { archived: true } })
+
+/** 15. A filter beside a unique target. */
+export const typoTargetFilter = () =>
+	Todo.deleteOne({
+		// @ts-expect-error -- `archived` is not part of a unique target.
+		where: { id: 'x', archived: false },
+	})
+
+/** 16. A null unique target. */
+export const typoTargetNull = () =>
+	// @ts-expect-error -- a unique target is never null.
+	Todo.deleteOne({ where: { id: null } })
+
+/** 17. Ordering by a plugin field kind. */
+export const typoOrderBy = () =>
+	// @ts-expect-error -- `acl` is a plugin field kind, which Core does not order.
+	Todo.findMany({ orderBy: { acl: 'asc' } })

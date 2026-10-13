@@ -17,6 +17,7 @@ sources:
   - docs/adr/0174-object-ordering-inputs.md
   - docs/adr/0302-neutral-storage-errors-and-semantics.md
   - docs/adr/0309-core-cursor-pagination.md
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
 ---
 
 ## Outcome
@@ -67,7 +68,11 @@ fails with `VALIDATION_ERROR` naming the fields, with
 `publicDetails: { parameter: 'after' }`.
 
 `orderBy` accepts `asc`, `desc`, or `null` for each non-list scalar or enum
-field; `null` skips that field. The first non-null property has highest
+field; `null` skips that field. Any other key fails to compile: pointers,
+relations, lists, `json`, `object`, and plugin field kinds (such as the ACL
+field) have no order every adapter shares. An untyped caller that orders by
+one fails with `query.orderBy.<field> must name a non-list scalar or enum
+field`. The first non-null property has highest
 priority. Core completes every collection order with `id` ascending unless `id`
 is already ordered, so the order is total; without `orderBy` rows come in `id`
 order. Every database adapter sorts `null` last, in ascending and descending

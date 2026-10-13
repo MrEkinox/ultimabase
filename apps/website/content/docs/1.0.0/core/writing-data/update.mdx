@@ -18,6 +18,7 @@ sources:
   - docs/adr/0162-strict-object-target-commands.md
   - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
 ---
 
 Use `Post.updateOne()` to change one persisted record. The `data` object names
@@ -44,7 +45,9 @@ export const renamePost = (postId: string, title: string) =>
 `where` is the only target of `updateOne`, `deleteOne`, and `upsertOne`;
 `{ id: postId }` is the equality shorthand of `{ id: { eq: postId } }`. To
 target a declared unique slug instead, use `where: { slug }`; an arbitrary
-multi-match filter is not a valid `updateOne` target.
+multi-match filter is not a valid `updateOne` target. Its type is
+`UniqueWhereInput<'Post'>`, so a wrong target fails to compile; see
+[Choose a valid target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target).
 
 ## Verify the result
 

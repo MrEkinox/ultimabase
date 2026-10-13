@@ -3,6 +3,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldListOption,
 	FieldListValue,
 	FieldOptions,
@@ -27,23 +28,40 @@ type CompactScalarFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = Omit<TOptions, 'immutable' | 'list' | 'required'> & {
+	TIndexed extends FieldIndexOption,
+> = Omit<TOptions, 'immutable' | 'indexed' | 'list' | 'required'> &
+	// Embedded fields have no `indexed` option.
+	('indexed' extends keyof TOptions
+		? IndexedFieldOption<TIndexed>
+		: unknown) & {
+		/**
+		 * Requires a non-null persisted value and requires create input unless a
+		 * default or generator supplies it.
+		 * @example `required: true`
+		 */
+		readonly required?: TRequired
+		/**
+		 * Wraps the scalar in one homogeneous list when enabled.
+		 * @example `list: true`
+		 */
+		readonly list?: TList
+		/**
+		 * Prevents the field from appearing in update inputs after creation.
+		 * @example `immutable: true`
+		 */
+		readonly immutable?: TImmutable
+	}
+
+/** The exact `indexed` option of a stored field, inferred for unique targets. */
+export interface IndexedFieldOption<TIndexed extends FieldIndexOption> {
 	/**
-	 * Requires a non-null persisted value and requires create input unless a
-	 * default or generator supplies it.
-	 * @example `required: true`
+	 * Requests a regular index with `true`, a unique index with `"unique"`, or
+	 * no index with `false`. A unique field alone identifies one row in
+	 * `updateOne`, `deleteOne` and `upsertOne` (ADR-0332).
+	 *
+	 * @example `indexed: "unique"`
 	 */
-	readonly required?: TRequired
-	/**
-	 * Wraps the scalar in one homogeneous list when enabled.
-	 * @example `list: true`
-	 */
-	readonly list?: TList
-	/**
-	 * Prevents the field from appearing in update inputs after creation.
-	 * @example `immutable: true`
-	 */
-	readonly immutable?: TImmutable
+	readonly indexed?: TIndexed
 }
 
 /** Names the complete input so editor hovers do not expand its intersections. */
@@ -54,7 +72,14 @@ export type DefaultedCompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
-> = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
+	TIndexed extends FieldIndexOption = FieldIndexOption,
+> = CompactScalarFieldOptions<
+	TOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	TIndexed
+> &
 	TInferredOptions & {
 		readonly default: FieldDefault<FieldListValue<TValue, TList>>
 	}
@@ -67,7 +92,14 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
-> = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
+	TIndexed extends FieldIndexOption = FieldIndexOption,
+> = CompactScalarFieldOptions<
+	TOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	TIndexed
+> &
 	TInferredOptions & { readonly default?: never }
 
 /** Resolves one scalar field's compact state for field-specific editor aliases. */

@@ -72,7 +72,7 @@ test('names results and inputs by schema type', async () => {
 		views: { increment: 1 },
 	}
 	void LifecycleModel.updateOne({
-		where: { title: { eq: 'Linked' } },
+		where: { id: '0198f090-2a50-7000-8000-000000000002' },
 		data: patch,
 	})
 	// `CreateInput` and `UpdateInput` are exactly the `data` of `createOne` and

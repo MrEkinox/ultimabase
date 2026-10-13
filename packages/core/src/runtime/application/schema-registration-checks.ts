@@ -19,7 +19,7 @@ export interface SchemaRegistrationError<TMessage extends string> {
 // Declared fields live in the source contract; `fields` itself is widened.
 type FieldsOf<TSchema> =
 	TSchema extends SchemaTypeInfoCarrier<
-		SourceSchemaTypeInfo<string, infer TFields>
+		SourceSchemaTypeInfo<string, infer TFields, infer _TUniqueIndexes>
 	>
 		? TFields
 		: never

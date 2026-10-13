@@ -30,6 +30,7 @@ import type {
 import type { SchemaIndexWhere } from './index-predicates.js'
 import type { SchemaRulesTarget } from './registered-schemas.js'
 import type { ConfiguredSchemaRelationRules } from './relation-rules.js'
+import type { UniqueIndexFields } from './source-unique-targets.js'
 
 /**
  * Indexes accepted by the final `.with(...)`, typed against the complete
@@ -57,6 +58,7 @@ export interface SchemaRulesMethod<
 	TClassName extends string,
 	TFields extends SchemaFields,
 	TOptions extends object,
+	TUniqueIndexes extends UniqueIndexFields = never,
 > {
 	/**
 	 * Adds the rules of the installed plugins (`access`, `hooks`, ...), typed
@@ -70,13 +72,25 @@ export interface SchemaRulesMethod<
 		rules: SchemaRulesFor<
 			TSource['schemaRules'],
 			SchemaRulesTarget<
-				ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
+				ConfiguredSchemaResult<
+					TSource,
+					TClassName,
+					TFields,
+					TOptions,
+					TUniqueIndexes
+				>
 			>,
 			SchemaShapeOf<TOptions>
 		> &
 			ConfiguredSchemaIndexRules<TSource, TFields, TOptions> &
 			ConfiguredSchemaRelationRules<TFields>,
-	): ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
+	): ConfiguredSchemaResult<
+		TSource,
+		TClassName,
+		TFields,
+		TOptions,
+		TUniqueIndexes
+	>
 }
 
 // A shape method is unavailable once called.
@@ -97,6 +111,7 @@ export type SchemaShapeMethods<
 	TFields extends SchemaFields,
 	TOptions extends object,
 	TUsed extends PropertyKey,
+	TUniqueIndexes extends UniqueIndexFields = never,
 > = {
 	readonly [
 		TName in AvailableShapeMethodName<TSource['shapeMethods'], TUsed>
@@ -113,7 +128,8 @@ export type SchemaShapeMethods<
 		DeclaredSchemaShape<
 			SchemaShapeOf<TOptions> & Readonly<Record<TName, TArguments>>
 		>,
-		TUsed | TName
+		TUsed | TName,
+		TUniqueIndexes
 	>
 }
 
@@ -124,9 +140,23 @@ export type DeclaredSchema<
 	TFields extends SchemaFields,
 	TOptions extends object,
 	TUsed extends PropertyKey = never,
-> = ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions> &
-	SchemaShapeMethods<TSource, TClassName, TFields, TOptions, TUsed> &
-	SchemaRulesMethod<TSource, TClassName, TFields, TOptions>
+	TUniqueIndexes extends UniqueIndexFields = never,
+> = ConfiguredSchemaResult<
+	TSource,
+	TClassName,
+	TFields,
+	TOptions,
+	TUniqueIndexes
+> &
+	SchemaShapeMethods<
+		TSource,
+		TClassName,
+		TFields,
+		TOptions,
+		TUsed,
+		TUniqueIndexes
+	> &
+	SchemaRulesMethod<TSource, TClassName, TFields, TOptions, TUniqueIndexes>
 
 type DeclarationOptions = SchemaOptions<string, SchemaFields> &
 	Readonly<Record<string, unknown>>

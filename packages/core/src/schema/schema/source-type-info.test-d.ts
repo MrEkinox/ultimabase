@@ -39,7 +39,7 @@ const SourceContract = UltimaBase.Schema.define({
 		details: field.json(),
 		displayName: field.string({ required: true }),
 		duration: field.time(),
-		externalId: field.uuid({ immutable: true }),
+		externalId: field.uuid({ immutable: true, indexed: 'unique' }),
 		labels: field.string({ list: true }),
 		largeCount: field.bigint(),
 		price: field.decimal(),
@@ -132,7 +132,7 @@ test('drives operation inputs, projections, and results from the source contract
 
 	void SourceContract.updateOne({
 		data: { active: true, profile: { nickname: 'Ada' } },
-		where: { displayName: { eq: 'Ada' } },
+		where: { externalId: { eq: 'profile-1' } },
 	})
 	void SourceContract.createMany({
 		data: [{ displayName: 'Ada' }, { displayName: 'Grace' }],
@@ -216,7 +216,7 @@ test('keeps direct relationship targets exact without a generated registry', () 
 			author: { update: { name: 'Grace' } },
 			reviewers: { create: [{ name: 'Katherine' }] },
 		},
-		where: { author: { is: { name: { eq: 'Ada' } } } },
+		where: { id: 'article-1' },
 	})
 	void SourceArticle.findMany({
 		where: { reviewers: { some: { name: { startsWith: 'A' } } } },

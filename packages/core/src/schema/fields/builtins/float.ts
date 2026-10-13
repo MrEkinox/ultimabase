@@ -1,10 +1,12 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldListOption,
-	FieldTypeState,
 	FieldOptions,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -32,24 +34,30 @@ type DefaultedFloatFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
 	number,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type NonDefaultedFloatFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
 	number,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type ResolvedFloatField<
@@ -86,28 +94,36 @@ export interface FloatFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
+			DefaultedFloatFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			number,
 			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
-	): DefaultedFloatField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedFloatField<TRequired, TList, TImmutable>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
+			NonDefaultedFloatFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			number,
 			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
-	): NonDefaultedFloatField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedFloatField<TRequired, TList, TImmutable>
+	>
 }
 
 /**

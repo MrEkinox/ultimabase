@@ -19,6 +19,7 @@ sources:
   - docs/adr/0243-bounded-singular-nested-writes.md
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0308-one-checked-link-vocabulary.md
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
 ---
 
 Bulk commands execute an ordered list of singular record operations in one
@@ -71,7 +72,8 @@ export const renamePostBatch = (
 
 `updateMany` entries and the `deleteMany` target list use `where`, like the
 singular commands; `where: { id }` is the equality shorthand of an ID target.
-Each `where` must identify one unique target, not a broad filter.
+Each `where` must identify one unique target, not a broad filter; it is typed
+by `UniqueWhereInput`, so a broad filter fails to compile.
 
 ## Upsert and delete records
 

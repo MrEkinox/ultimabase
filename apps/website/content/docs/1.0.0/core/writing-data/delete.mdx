@@ -20,6 +20,7 @@ sources:
   - docs/adr/0162-strict-object-target-commands.md
   - docs/adr/0182-singular-id-target-aliases.md
   - docs/adr/0306-readable-mutation-results.md
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
 ---
 
 Use `Post.deleteOne()` to delete one visible record. It returns an immutable
@@ -42,10 +43,12 @@ export const deletePost = (postId: string) =>
 	Post.deleteOne({ where: { id: postId }, select: { slug: true, title: true } })
 ```
 
-`id` is shorthand for `where: { id: { eq: postId } }`. You may instead pass a
-`where` predicate using one declared unique field or unique composite index.
-Pass exactly one of `id` and `where`; a filter that could match several rows
-is not a valid `deleteOne` target.
+`where: { id: postId }` is the equality shorthand of
+`where: { id: { eq: postId } }`. You may instead target one field declared
+`indexed: 'unique'` or every field of one unique index. A filter that could
+match several rows is not a valid `deleteOne` target and fails to compile
+(`UniqueWhereInput<'Post'>`, see
+[Choose a valid target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target)).
 
 ## Verify the result
 
