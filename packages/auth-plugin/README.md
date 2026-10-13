@@ -312,9 +312,10 @@ or login.
 
 Every operation is public (ADR-0324): GraphQL exposes them with typed fields
 (`signUp`, `login`, `current`, …, the payload's `user` being the User type)
-and REST under `/api/operations/<name>`. Hide them per transport, for example
-`restPlugin({ hide: [...Object.values(authOperations), ...Object.values(passwordOperations)] })`
-when the `/api/auth` routes serve HTTP clients.
+and REST under `/api/operations/<name>`. Hide them per transport when the
+`/api/auth` routes serve HTTP clients: the example's factory passes
+`authOperations`, `passwordOperations` and `passwordEmailOperations` to
+`rest: { hide }`, and `/api/operations/login` then answers 404.
 
 ## Events
 
