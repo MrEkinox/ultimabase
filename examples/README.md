@@ -33,6 +33,13 @@ Examples are user-facing, tested applications. They must only import public `@ul
   `VALIDATION_ERROR` for every issue, `updateMany` index paths, `check()`,
   the REST `422` answer), tested with `testApplication`. Its `//#region`
   blocks are the code of the Validation page and package README (ADR-0330).
+- [`roles`](roles/README.md): the Roles plugin end to end (role schemas with
+  `ensure` seed roles, members and included roles through `connect`, cycle
+  rejection, `hasRole()` in Access rules, `has()` and `current()`, name and
+  UUID references, the request membership cache, Master-only and rule-based
+  role management, the `fail` and `cascade` deletion policies, role events,
+  REST), tested with `testApplication`. Its `//#region` blocks are the code of
+  the Roles page and package README (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
