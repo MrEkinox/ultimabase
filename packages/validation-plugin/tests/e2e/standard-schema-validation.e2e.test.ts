@@ -7,10 +7,10 @@ import { expect, it } from 'vitest'
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/standard-schema-validation-no-typegen.mjs',
+	'fixtures/standard-schema-validation-javascript.mjs',
 )
 
-it('executes real Standard Schema validators from JavaScript without Typegen', async () => {
+it('executes real Standard Schema validators from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 

@@ -234,7 +234,7 @@ test('keeps direct relationship targets exact without a generated registry', () 
 	})
 })
 
-test('retains distinct root, nested and list filter capabilities before Typegen', () => {
+test('retains distinct root, nested and list filter capabilities', () => {
 	void SourceContract.findMany({
 		where: {
 			birthday: { between: { lower: '2000-01-01', upper: '2020-01-01' } },

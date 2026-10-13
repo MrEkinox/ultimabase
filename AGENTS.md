@@ -73,9 +73,7 @@ Proposed directions live in [ROADMAP.md](ROADMAP.md).
   `skipHooks`.
 - Do not restore [removed powers](docs/engineering/agent-domain-rules.md#removed-extension-and-migration-powers)
   without an ADR.
-- Typegen currently provides the named-schema graph; read the
-  [retained typing boundaries](docs/current-architecture.md#retained-typing-boundaries)
-  before inference work. Replacing it requires an accepted ADR.
+- Schemas use only the declaration form of [ADR-0297](docs/adr/0297-declare-schemas-without-typegen.md): `define({ className, fields, indexes })`, shape methods, a final `.with(...)` and the `Register` line. Read the [retained typing boundaries](docs/current-architecture.md#retained-typing-boundaries) before inference work, and measure editor cost with the form D bench (`examples/schema-form-d`) on TypeScript 6 and 7.
 
 ## Code quality
 

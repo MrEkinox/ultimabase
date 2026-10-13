@@ -25,6 +25,10 @@ ordinary local Yarn commands.
 - Tests cover diff boundaries, missing history, deleted suites, reverse
   dependencies, fixture chains, command routing, and full Vitest discovery parity.
 
+- `typescript-7.ts` type-checks packages, tests, examples and the `Register`
+  cycle cases with the pinned TypeScript 7 compiler for the `TypeScript 7` job,
+  scheduled with the build ([test guide](../../tests/README.md#typescript-7)).
+
 Run the guards with `yarn vitest run --project unit tooling/ci`.
 For a local read-only simulation, set `CI_BASE_SHA` to a full commit SHA and
 `CI_CHANGED_FILES` to the action's JSON array of changed paths, then run

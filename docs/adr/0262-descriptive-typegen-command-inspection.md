@@ -1,6 +1,7 @@
 # ADR-0262: Descriptive Typegen command inspection
 
 - Status: accepted
+- Partially superseded by: ADR-0297 for the `CompiledTypegenGraph` and `typegenGraph` names (Typegen removed in migration step 6.8b, 2026-10-13); the descriptive rule applies to `compile().operations` and `compile().schemaSurfaces`
 - Date: 2026-09-20
 - Refines: ADR-0259 and ADR-0261
 - Implementation: issue 3011

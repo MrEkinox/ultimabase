@@ -114,7 +114,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				}),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			// Form D types a plugin field kind's filter as null checks only; the
-			// portable equality below is a Runtime contract (deferred to 6.8c).
+			// portable equality below is a Runtime contract (retained typing
+			// boundary in docs/current-architecture.md).
 			const filtered = await LedgerEntry.findMany({
 				where: { amount: { eq: amount } },
 			} as never)

@@ -96,7 +96,11 @@ const canonicalNavigation = {
 		'runtime-and-infrastructure',
 	],
 	'1.0.0/guides': ['test-an-application'],
-	'1.0.0/operations': ['before-exposing-your-application', 'troubleshooting'],
+	'1.0.0/operations': [
+		'before-exposing-your-application',
+		'troubleshooting',
+		'typescript-7',
+	],
 	'1.0.0/reference': ['package-index'],
 	'1.0.0/project': ['release-status', 'roadmap', 'contributing'],
 } as const satisfies Readonly<Record<string, readonly string[]>>

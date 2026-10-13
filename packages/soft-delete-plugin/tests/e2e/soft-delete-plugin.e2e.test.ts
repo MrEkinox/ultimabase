@@ -10,10 +10,10 @@ import { createLanguageService } from '../../../../tooling/vitest/typescript-lan
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/soft-delete-option-no-typegen.mjs',
+	'fixtures/soft-delete-option-javascript.mjs',
 )
 
-it('compiles the packed shape method from JavaScript without Typegen', async () => {
+it('compiles the packed shape method from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 	const commands = [

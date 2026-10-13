@@ -44,7 +44,7 @@ const compile = (example: string): readonly string[] => {
 describe.each(examples)('examples/%s', (example) => {
 	const directory = path.join(repositoryRoot, 'examples', example)
 
-	it('compiles without Typegen or a schema-less Register', () => {
+	it('compiles without a schema-less Register', () => {
 		expect(compile(example)).toStrictEqual([])
 		const manifest = readFileSync(path.join(directory, 'package.json'), 'utf8')
 		expect(manifest).not.toContain('@ultimabase/typegen')

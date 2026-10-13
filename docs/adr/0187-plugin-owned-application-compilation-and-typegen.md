@@ -1,6 +1,7 @@
 # ADR-0187: Plugin-owned application compilation and Typegen contributions
 
 - Status: accepted
+- Partially superseded by: ADR-0297 for Typegen descriptors, contributors and privileges (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-08-11
 - Refines: ADR-0002, ADR-0029, ADR-0051, ADR-0130, ADR-0173, ADR-0175, ADR-0177, ADR-0184
 - Depends on: ADR-0186

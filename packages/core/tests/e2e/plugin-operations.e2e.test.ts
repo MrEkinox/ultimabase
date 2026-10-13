@@ -8,7 +8,7 @@ import { createLanguageService } from '../../../../tooling/vitest/typescript-lan
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/plugin-operation-no-typegen.mjs',
+	'fixtures/plugin-operation-javascript.mjs',
 )
 
 describe('packed plugin operation execution', () => {
@@ -43,7 +43,7 @@ void token
 		},
 	)
 
-	it('executes direct and fake-transport calls from JavaScript without Typegen', async () => {
+	it('executes direct and fake-transport calls from JavaScript', async () => {
 		const { stdout } = await executeFile(process.execPath, [fixturePath])
 		const output: unknown = JSON.parse(stdout)
 

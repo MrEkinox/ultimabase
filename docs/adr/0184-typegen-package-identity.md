@@ -1,6 +1,7 @@
 # ADR-0184: Type generation uses an explicit package identity
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0297 (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-08-10
 - Refines: ADR-0173, ADR-0175, ADR-0177
 

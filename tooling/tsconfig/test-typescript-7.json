@@ -1,0 +1,13 @@
+{
+	"extends": "./test.json",
+	// TypeScript 7 reports "No overload matches this call" on the offending
+	// property instead of the call, so these multi-line `@ts-expect-error`
+	// cases fail there while the expected error still exists. TypeScript 6
+	// checks them in `yarn typecheck`.
+	"exclude": [
+		"../../packages/core/src/schema/fields/base/defaults.test-d.ts",
+		"../../packages/core/src/schema/fields/builtins/enum.test.ts",
+		"../../packages/core/src/schema/fields/builtins/object.test-d.ts",
+		"../../packages/core/src/schema/fields/builtins/object.test.ts"
+	]
+}

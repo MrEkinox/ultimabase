@@ -7,14 +7,14 @@ import { expect, it } from 'vitest'
 const executeFile = promisify(execFile)
 const fixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/rest-application-no-typegen.mjs',
+	'fixtures/rest-application-javascript.mjs',
 )
 const nestedFixturePath = path.join(
 	import.meta.dirname,
-	'fixtures/rest-nested-normalization-no-typegen.mjs',
+	'fixtures/rest-nested-normalization-javascript.mjs',
 )
 
-it('runs packed REST v1 from JavaScript without Typegen', async () => {
+it('runs packed REST v1 from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 
@@ -41,7 +41,7 @@ it('runs packed REST v1 from JavaScript without Typegen', async () => {
 	})
 })
 
-it('decodes packed nested writes from JavaScript without Typegen', async () => {
+it('decodes packed nested writes from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [nestedFixturePath])
 	const output: unknown = JSON.parse(stdout)
 

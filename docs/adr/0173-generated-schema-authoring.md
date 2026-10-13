@@ -1,6 +1,7 @@
 # ADR-0173: Generated schema authoring and static compilation
 
 - Status: accepted
+- Partially superseded by: ADR-0297 for the generated application registry and contracts (the Typegen typing authority) (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-08-09
 - Refines: ADR-0002, ADR-0022, ADR-0029, ADR-0048, ADR-0050, ADR-0088, ADR-0109, ADR-0130
 - Refined by: ADR-0175, ADR-0177, ADR-0184, ADR-0187, ADR-0192

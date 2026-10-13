@@ -144,7 +144,7 @@ describe.each([
 	['source', '../../src/index.js'],
 	['packed', '@ultimabase/pg-vector-plugin'],
 ] as const)('%s configured vector builder', (mode, moduleName) => {
-	it('requires this factory to install the plugin without Typegen', () => {
+	it('requires this factory to install the plugin', () => {
 		const fixtureFile = path.join(
 			import.meta.dirname,
 			`vector-configured.${mode}.fixture.ts`,

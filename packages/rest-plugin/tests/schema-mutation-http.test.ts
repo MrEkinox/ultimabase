@@ -270,7 +270,7 @@ const fetchApplication = (
 const archivePath = `/api/classes/${WorkflowDocument.className}/${schemaMutationRestId}/archive-document`
 
 describe('REST schema mutation exposure', () => {
-	it('generates and executes one request-authority route without Typegen', async () => {
+	it('generates and executes one request-authority route', async () => {
 		const fixture = await createFixture()
 		try {
 			const mutationRoutes = fixture.rest.routeGraph.routes.filter(

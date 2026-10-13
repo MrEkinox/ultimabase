@@ -24,7 +24,7 @@ test('types only the accepted shape-method options', () => {
 	softDeletePlugin({ defaultMode: 'disabled' })
 })
 
-test('projects fields and the same commands in both modes without Typegen', () => {
+test('projects fields and the same commands in both modes', () => {
 	const Logical = App.Schema.define({
 		className: 'SourceSoftDeleteDocument',
 		fields: (field) => ({ title: field.string({ required: true }) }),

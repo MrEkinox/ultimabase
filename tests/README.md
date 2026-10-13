@@ -8,6 +8,9 @@ follow their modules and must not lose an assertion when they move.
 - `e2e`: complete application behavior across multiple packages.
 - `fixtures`: schemas and application configurations shared by tests.
 - `performance`: guarded performance regression suites.
+- `register-cycle`: compile-only reproduction cases of the `Register` cycle
+  (ADR-0297, register-cycle note), one program per case, each checked from
+  package sources (`tsconfig.json`) and built packages (`tsconfig.dist.json`).
 
 Focused package unit and compile-time tests live beside their source. A package's
 `tests` directory owns public-export and cross-domain behavior. Its `tests/e2e`
@@ -108,6 +111,7 @@ Docker.
   its native override also changes serial projects' resolved worker limit.
 - `yarn test:types`: run compile-time type tests only.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.
+- `yarn typecheck:typescript-7`: type-check with TypeScript 7 (see below).
 
 ## Package commands
 
@@ -146,6 +150,26 @@ manual workflow dispatch also runs the complete coverage gate. A targeted run do
 not measure or enforce global coverage. Local commands above keep their existing
 behavior. See [ADR-0251](../docs/adr/0251-affected-github-validation.md) and
 [the CI tooling guide](../tooling/ci/README.md).
+
+## TypeScript 7
+
+TypeScript 6 (`typescript`) runs every suite. The TypeScript 7.0.2 native
+compiler is pinned beside it as the `typescript-7` alias, and
+`yarn typecheck:typescript-7` ([script](../tooling/ci/typescript-7.ts)) checks
+with it, in order: the packages (`--build tsconfig.json`, which emits their
+declarations), the test program without the TypeScript JS API
+(`tooling/tsconfig/test-typescript-7.json`: every unit, type and E2E file,
+including `*.test-d.ts` assertions), the `minimal`, `todo-backend` and
+`schema-form-d` examples (sources and built packages), and the `register-cycle`
+cases. Language-service suites, typescript-eslint and declaration bundling
+need the TypeScript JS API and stay on TypeScript 6.
+
+`test-typescript-7.json` leaves out four Core field tests whose
+`@ts-expect-error` precedes a multi-line call: TypeScript 7 reports the same
+"No overload matches this call" error on the offending property, one or more
+lines below the directive. The GitHub `TypeScript 7` job runs the same command
+whenever the build is selected; it takes about 20 seconds locally (10-minute
+job limit).
 
 ## Load-sensitive suites
 

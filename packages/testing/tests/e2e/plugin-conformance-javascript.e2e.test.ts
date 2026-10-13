@@ -8,7 +8,7 @@ const execute = promisify(execFile)
 const workspaceRoot = path.resolve(import.meta.dirname, '../../../..')
 
 describe('packed JavaScript plugin conformance', () => {
-	it('runs the same public suite without Typegen or TypeScript execution', async () => {
+	it('runs the same public suite without TypeScript execution', async () => {
 		const source = `
 import { plugin } from '@ultimabase/core/plugin'
 import {

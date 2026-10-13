@@ -301,6 +301,11 @@
 					"slug": "troubleshooting",
 					"contentType": "troubleshooting",
 					"outcome": "Identify the failed startup boundary and repair it without bypassing a safety check."
+				},
+				{
+					"slug": "typescript-7",
+					"contentType": "guide",
+					"outcome": "Type-check your application with TypeScript 7 and keep TypeScript 6 for tools that need its JavaScript API."
 				}
 			]
 		},

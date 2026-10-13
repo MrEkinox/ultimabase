@@ -256,7 +256,9 @@ const sessions = definePrivateCollection({
 export const sessionPlugin = plugin({
 	contributions: [
 		contributeDeclarations({
-			privateStorage: ({ privateStorage }) => privateStorage.register(sessions),
+			privateStorage: ({ privateStorage }) => {
+				privateStorage.register(sessions)
+			},
 		}),
 	],
 	core: '^1.0.0',
