@@ -2,7 +2,9 @@ import {
 	collectOperationFieldInputs,
 	FrameworkError,
 	protectedPolicy,
+	readOperationQueries,
 	readOperationResultSelection,
+	traverseQueryExpression,
 	type Principal,
 	type ProtectedPolicyDefinition,
 	type RuntimeLogicalOperationAst,
@@ -79,6 +81,28 @@ const selectsACL = (operation: RuntimeLogicalOperationAst): boolean =>
 	)
 
 /**
+ * Whether the caller's `where` tests the ACL. Relation leaves are skipped:
+ * Core evaluates their target schema's policies with the nested filter.
+ */
+const filtersACL = (operation: RuntimeLogicalOperationAst): boolean => {
+	let found = false
+	for (const { where } of readOperationQueries(operation)) {
+		if (where === undefined) continue
+		traverseQueryExpression(where.expression, (candidate) => {
+			if (
+				candidate.kind === 'relation-predicate' ||
+				candidate.kind === 'relation-count'
+			) {
+				return 'skip'
+			}
+			if (candidate.field === aclFieldName) found = true
+			return 'continue'
+		})
+	}
+	return found
+}
+
+/**
  * Creates ACL's deny-only Core policy for the `acl` field: clients never
  * read, filter or write it, except `select: { acl: true }` and
  * `grant`/`revoke` on the rows `acl.clientSharing` allows (ADR-0321).
@@ -90,6 +114,14 @@ export const createACLFieldPolicy = (
 		evaluate: ({ operation }) => {
 			const option = state.protectedOption(operation)
 			if (option === undefined) return undefined
+			// `clientSharing` opens select and grant/revoke, never filters: a
+			// filter would reveal who else holds rights on a row.
+			if (filtersACL(operation)) {
+				return immutableRecord({
+					allowed: false,
+					reason: `where: { acl } on ${option.schema.className} requires useMasterKey: true`,
+				})
+			}
 
 			const selected = selectsACL(operation)
 			if (selected && option.config.clientSharing === undefined) {

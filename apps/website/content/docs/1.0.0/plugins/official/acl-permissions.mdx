@@ -210,7 +210,9 @@ accepted for Master and, when the schema declares `clientSharing`, on the rows
 </include>
 
 Any other row makes the read fail with `PERMISSION_DENIED`. Clients never
-filter or order by `acl`.
+filter or order by `acl`, even with `clientSharing`: a `where` naming it, also
+inside `AND`, `OR`, `NOT` or a relation filter, fails with `PERMISSION_DENIED`,
+and an `include` filtered on it reads as absent.
 
 `acl.entries()` lists who holds which rights: `public` and `authenticated`
 when they hold any, users as Pointers, and roles as references whose name
