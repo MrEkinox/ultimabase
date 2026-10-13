@@ -42,13 +42,13 @@ it('creates a Task', async () => {
 
 The handle `t` provides:
 
-| Member                 | Effect                                                                                                                                                                                                                                 |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `t.reset()`            | Empties every table the database plugin manages (`TRUNCATE`, identities restarted), keeping the tables, then reruns the plugins' `ready` seeding, such as Roles `ensure`. The adapter capability is neutral; PostgreSQL implements it. |
-| `t.fetch(path, init?)` | Sends one in-memory request through the HTTP plugin, without a port, as a client would: authentication comes from its headers.                                                                                                         |
-| `t.as(principal, fn)`  | Runs `fn` as `principal` (a pointer such as `User.pointer(id)`, or `undefined` for anonymous): rules and hooks see that principal.                                                                                                     |
-| `t.asMaster(fn)`       | Runs `fn` with Master authority without a configured key; Master bypasses authorization, never validation or hooks.                                                                                                                    |
-| `t.afterCommit()`      | Resolves once pending after-commit work (`afterCommit` hooks, event consumers) has run, including the work it started.                                                                                                                 |
+| Member                           | Effect                                                                                                                                                                                                                                 |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `t.reset()`                      | Empties every table the database plugin manages (`TRUNCATE`, identities restarted), keeping the tables, then reruns the plugins' `ready` seeding, such as Roles `ensure`. The adapter capability is neutral; PostgreSQL implements it. |
+| `t.fetch(path, init?, options?)` | Sends one in-memory request through the HTTP plugin, without a port, as a client would: authentication comes from its headers, and the request comes from the local peer `127.0.0.1`.                                                  |
+| `t.as(principal, fn)`            | Runs `fn` as `principal` (a pointer such as `User.pointer(id)`, or `undefined` for anonymous): rules and hooks see that principal.                                                                                                     |
+| `t.asMaster(fn)`                 | Runs `fn` with Master authority without a configured key; Master bypasses authorization, never validation or hooks.                                                                                                                    |
+| `t.afterCommit()`                | Resolves once pending after-commit work (`afterCommit` hooks, event consumers) has run, including the work it started.                                                                                                                 |
 
 ```ts
 await using t = await testApplication(ultimabase)
@@ -57,6 +57,14 @@ const mine = await t.as(User.pointer(user.id), () => Note.findMany())
 const response = await t.fetch('/api/classes/Note')
 await t.afterCommit()
 ```
+
+`t.fetch` behaves like a local server: the HTTP plugin sees the socket peer
+`127.0.0.1`, so rate limits and authentication record that address unless a
+trusted `X-Forwarded-For` names another client. `t.fetch(path, init,
+{ remoteAddress: '203.0.113.7' })` sends from another peer, and
+`{ remoteAddress: undefined }` sends none, to test an unknown client address
+as behind a fetch handler
+([ADR-0334](../../docs/adr/0334-unknown-client-address.md)).
 
 `t.as` and `t.asMaster` apply to the calls made inside `fn`. They exist only
 on a handle: `testApplication` opens Core's application harness

@@ -24,7 +24,7 @@ const requirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 })
 
 const missingAddressWarning =
-	'[@ultimabase/http-plugin] An HTTP request has no client address: every such request shares one rate-limit bucket and authentication records no address. Pass the socket peer as remoteAddress from your server provider, or set trustProxy when a proxy names the client in X-Forwarded-For.'
+	'[@ultimabase/http-plugin] An HTTP request has no client address: every such request shares one rate-limit bucket and authentication records no address. Pass the socket peer as remoteAddress from your server provider or to fetch(request, { remoteAddress }), or set trustProxy when a proxy names the client in X-Forwarded-For.'
 
 // Starts one application, recording what resolvers see and what is logged.
 const start = async (options: HttpPluginOptions) => {
@@ -101,6 +101,44 @@ describe('a request with a client address', () => {
 		expect(proxied.seen).toStrictEqual(['198.51.100.7'])
 		expect(proxied.warnings()).toStrictEqual([])
 	})
+
+	it('takes the peer from the port-free fetch like a server provider', async () => {
+		const limited = await start({ rateLimit: { default: { perMinute: 1 } } })
+		const { fetch } = limited.application.plugin(httpPlugin)
+		const ping = () => new Request('http://localhost/ping')
+		const from = (remoteAddress: string) => fetch(ping(), { remoteAddress })
+		expect((await from('::ffff:203.0.113.9')).status).toBe(200)
+		expect((await from('203.0.113.9')).status).toBe(429)
+		expect((await from('203.0.113.10')).status).toBe(200)
+		expect(limited.seen).toStrictEqual(['203.0.113.9', '203.0.113.10'])
+		// Like a non-Request, a malformed option is a caller error.
+		const notAString: unknown = Reflect.apply(fetch, undefined, [
+			ping(),
+			{ remoteAddress: 7 },
+		])
+		await expect(notAString).rejects.toThrow(
+			'HTTP plugin fetch remoteAddress must be a string',
+		)
+		const notAnObject: unknown = Reflect.apply(fetch, undefined, [
+			ping(),
+			'203.0.113.9',
+		])
+		await expect(notAnObject).rejects.toThrow(
+			'HTTP plugin fetch options must be an object',
+		)
+		await limited.application.dispose()
+
+		// trustProxy applies to it as to a socket peer.
+		const proxied = await start({ trustProxy: 1 })
+		const forwarded = new Request('http://localhost/ping', {
+			headers: { 'X-Forwarded-For': '198.51.100.8' },
+		})
+		await proxied.application
+			.plugin(httpPlugin)
+			.fetch(forwarded, { remoteAddress: '10.0.0.1' })
+		expect(proxied.seen).toStrictEqual(['198.51.100.8'])
+		expect(proxied.warnings()).toStrictEqual([])
+	})
 })
 
 describe('a request without a client address', () => {
@@ -131,6 +169,16 @@ describe('a request without a client address', () => {
 		])
 		// The process already warned.
 		expect([...bare.warnings(), ...hops.warnings()]).toStrictEqual([])
+	})
+
+	it('treats a port-free fetch without remoteAddress as having no peer', async () => {
+		const { application, seen } = await start({})
+		const { fetch } = application.plugin(httpPlugin)
+		await fetch(new Request('http://localhost/ping'), {})
+		await fetch(new Request('http://localhost/ping'), {
+			remoteAddress: undefined,
+		})
+		expect(seen).toStrictEqual([undefined, undefined])
 	})
 
 	it('shares one rate-limit bucket per limit, apart from known clients', async () => {

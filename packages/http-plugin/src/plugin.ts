@@ -11,7 +11,11 @@ import {
 	type PluginIdentity,
 	type PluginInstance,
 } from '@ultimabase/core/plugin'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import {
 	createHttpApplicationResource,
@@ -58,6 +62,17 @@ const optionalServers = optionalCapability(httpServerCapability, '^1.0.0', {
 	phase: 'setup',
 })
 
+/** Options of one port-free `fetch` request. */
+export interface HttpFetchOptions {
+	/**
+	 * The client's address, as a server provider passes the socket peer:
+	 * `trustProxy` applies to it. Without it the request has no peer, and its
+	 * address is unknown unless a trusted `X-Forwarded-For` names it (ADR-0334).
+	 * @example "203.0.113.7"
+	 */
+	readonly remoteAddress?: string | undefined
+}
+
 /** Exposes the safe immutable HTTP configuration and port-free requests. */
 export interface HttpPluginExports {
 	readonly appId: string
@@ -67,16 +82,22 @@ export interface HttpPluginExports {
 	readonly requestTimeoutMs: number
 	/**
 	 * Runs one request through the same path as a network request, CORS
-	 * included, without a server or a port (ADR-0323).
+	 * included, without a server or a port (ADR-0323). A fetch handler that
+	 * knows the client address from its platform passes it as `remoteAddress`.
 	 *
 	 * @example
 	 * ```ts
 	 * const response = await ultimabase
 	 *   .plugin(httpPlugin)
-	 *   .fetch(new Request('http://localhost/health'))
+	 *   .fetch(new Request('http://localhost/health'), {
+	 *     remoteAddress: '203.0.113.7',
+	 *   })
 	 * ```
 	 */
-	readonly fetch: (request: Request) => Promise<Response>
+	readonly fetch: (
+		request: Request,
+		options?: HttpFetchOptions,
+	) => Promise<Response>
 }
 
 const pluginId = '@ultimabase/http-plugin' as const
@@ -104,17 +125,29 @@ const masterPermissions = {
 	'authority:elevate': 'Verifies explicitly enabled HTTP Master credentials.',
 } as const
 
-// A test request has no connection; its Fetch headers stand in for the
-// network evidence, with the Host a connection always carries.
-const readFetchRequest = (request: unknown): HttpServerRequest => {
+// A port-free request has no connection; its Fetch headers stand in for the
+// network evidence, with the Host a connection always carries, and the
+// caller names the peer a socket would have given (ADR-0334 amendment).
+const readFetchRequest = (
+	request: unknown,
+	options: unknown,
+): HttpServerRequest => {
 	if (!(request instanceof Request)) {
 		throw new TypeError('HTTP plugin fetch expects a Fetch Request')
+	}
+	if (options !== undefined && !isPlainRecord(options)) {
+		throw new TypeError('HTTP plugin fetch options must be an object')
+	}
+	const remoteAddress = options?.remoteAddress
+	if (remoteAddress !== undefined && typeof remoteAddress !== 'string') {
+		throw new TypeError('HTTP plugin fetch remoteAddress must be a string')
 	}
 	const headers = [...request.headers]
 	return {
 		originalHeaders: headers.some(([name]) => name === 'host')
 			? headers
 			: [['Host', new URL(request.url).host], ...headers],
+		remoteAddress,
 		request,
 	}
 }
@@ -193,8 +226,11 @@ const createHttpPlugin = (options: HttpPluginOptions = {}): HttpPlugin => {
 			}
 		},
 	})
-	const fetch = async (request: Request): Promise<Response> => {
-		const input = readFetchRequest(request)
+	const fetch = async (
+		request: Request,
+		options?: HttpFetchOptions,
+	): Promise<Response> => {
+		const input = readFetchRequest(request, options)
 		const current = active
 		return current === undefined
 			? dispatchHttpApplicationRequest(undefined, input)

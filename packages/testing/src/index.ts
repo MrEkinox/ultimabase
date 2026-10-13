@@ -4,4 +4,5 @@
 export {
 	testApplication,
 	type TestApplication,
+	type TestFetchOptions,
 } from './application/test-application.js'

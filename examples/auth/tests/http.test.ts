@@ -196,10 +196,15 @@ it('limits failed logins per account and client address', async () => {
 
 it('records no address and limits only the account when the client is unknown', async () => {
 	await using t = await testApplication(ultimabase)
-	// Without the proxy's `X-Forwarded-For` (and no socket peer in memory),
-	// nothing names the client.
+	// Without the proxy's `X-Forwarded-For` and without a socket peer
+	// (`t.fetch` sends from 127.0.0.1 unless asked for none), nothing names
+	// the client.
 	const send = (path: string, body: unknown) =>
-		t.fetch(path, { body: JSON.stringify(body), headers: json, method: 'POST' })
+		t.fetch(
+			path,
+			{ body: JSON.stringify(body), headers: json, method: 'POST' },
+			{ remoteAddress: undefined },
+		)
 	await send('/api/auth/sign-up', { ...ada, displayName: 'Ada' })
 	// Six failures lock an account and address pair; an unknown client has
 	// none, so only the account limit (20 free failures) counts.
