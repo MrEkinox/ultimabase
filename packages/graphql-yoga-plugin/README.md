@@ -84,7 +84,8 @@ enabling introspection in development and disabling it when `NODE_ENV` is
 `production`; an explicit `introspection` always wins, and `logLevel: 'debug'`
 logs the value and its source. While introspection is enabled, the plugin
 publishes the `ultimabase.graphql.introspection` capability that served
-explorers require.
+explorers require. With introspection disabled, validation errors carry no
+"Did you mean …" suggestions, which would name fields (ADR-0333).
 
 Without `bodyLimit`, GraphQL inherits `httpPlugin({ bodyLimit })` (1 MiB by
 default), enforced while the body streams; `bodyLimit` replaces it for the
@@ -100,7 +101,7 @@ only that active context and delegates execution to the same narrow GraphQL
 application capability used by networkless execution. It validates documents
 with the application's `validationRules`, so a field a disabled feature leaves
 out answers `400` with the same `hint: enable graphql: { … } on …` as
-networkless execution (ADR-0325).
+networkless execution (ADR-0325), outside production only (ADR-0333).
 
 Virtual fields require no Yoga-specific resolver or configuration. Their
 selection, request-aware asynchronous resolution, output validation, Access,

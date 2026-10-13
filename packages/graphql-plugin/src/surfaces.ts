@@ -36,6 +36,12 @@ export interface GraphqlSchemaSurface {
 	readonly upsert: boolean
 	/** Reports whether one plugin command is exposed on this schema. */
 	readonly command: (name: string) => boolean
+	/**
+	 * Whether a generated root or a plugin command of this schema is exposed.
+	 * A schema without one contributes types only where an exposed type
+	 * reaches it (ADR-0333).
+	 */
+	readonly exposed: boolean
 }
 
 /** One generated root operation of a schema surface. */
@@ -73,11 +79,16 @@ export const graphqlOperationMethods: Readonly<
 	upsert: 'upsertOne',
 }
 
-/** Resolves GraphQL identities and enabled roots from final provenance. */
+/**
+ * Resolves GraphQL identities and enabled roots from final provenance.
+ * `commands` lists, per schema class name, the request commands GraphQL
+ * may expose.
+ */
 export const collectGraphqlSchemaSurfaces = (
 	schemas: CompiledSchemaRegistry,
 	pluginDefault: NormalizedGraphqlRule | undefined,
 	names: GraphqlNameRegistry,
+	commands: ReadonlyMap<string, readonly string[]>,
 ): ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface> => {
 	const surfaces = new Map<SchemaDefinition, GraphqlSchemaSurface>()
 	for (const schema of schemas.values()) {
@@ -95,12 +106,16 @@ export const collectGraphqlSchemaSurfaces = (
 				? rule.typeName
 				: schema.className
 		names.claimType(typeName, graphqlSourceDescription(schema), owner)
-		// Plugin-owned schemas are model types only: they never get generated roots.
+		// Plugin-owned schemas never get generated roots: their types appear only
+		// where an exposed type or a public operation reaches them (ADR-0333).
 		const application = owner.kind === 'application'
 		const enabled = (key: string): boolean =>
 			application && isGraphqlMethodEnabled(rule, pluginDefault, key)
 		const operation = (name: GraphqlSurfaceOperation): boolean =>
 			enabled(graphqlOperationMethods[name])
+		const exposed =
+			Object.values(graphqlOperationMethods).some(enabled) ||
+			(commands.get(schema.className) ?? []).some(enabled)
 		surfaces.set(schema, {
 			bulkCreate: operation('bulkCreate'),
 			bulkDelete: operation('bulkDelete'),
@@ -111,6 +126,7 @@ export const collectGraphqlSchemaSurfaces = (
 			create: operation('create'),
 			delete: operation('delete'),
 			exists: operation('exists'),
+			exposed,
 			findMany: operation('findMany'),
 			findOne: operation('findOne'),
 			get: operation('get'),

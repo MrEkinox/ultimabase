@@ -52,6 +52,19 @@ const healthStatus = new GraphQLEnumType({
 	values: { DEGRADED: { value: 'DEGRADED' }, OK: { value: 'OK' } },
 })
 
+/** Lists the request commands of each schema, which GraphQL may expose. */
+const requestCommands = (
+	plan: ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>,
+): ReadonlyMap<string, readonly string[]> => {
+	const commands = new Map<string, readonly string[]>()
+	for (const { authority, command, schema } of plan.mutations) {
+		// Master-only commands are never exposed (see the binding compiler).
+		if (authority !== 'request') continue
+		commands.set(schema, [...(commands.get(schema) ?? []), command])
+	}
+	return commands
+}
+
 /** Compiles one isolated GraphQL structural schema from the final Core graph. */
 export const compileGraphqlSchema = (
 	options: Readonly<{
@@ -80,7 +93,12 @@ export const compileGraphqlSchema = (
 	const ctx = new GraphqlCompileContext(
 		names,
 		options.schemas,
-		collectGraphqlSchemaSurfaces(options.schemas, options.defaultRule, names),
+		collectGraphqlSchemaSurfaces(
+			options.schemas,
+			options.defaultRule,
+			names,
+			requestCommands(options.schemaMutationPlan),
+		),
 		options.filterOperators,
 	)
 	const { execution } = options
@@ -101,7 +119,10 @@ export const compileGraphqlSchema = (
 		inputs,
 	}
 	// Models and application inputs come first so their type order is stable.
+	// A hidden schema gets types only where an exposed type reaches it, so
+	// nothing names a schema no client can reach (ADR-0333).
 	for (const surface of ctx.surfaces.values()) {
+		if (!surface.exposed) continue
 		fields.model(surface.schema)
 		if (surface.owner.kind === 'application') {
 			inputs.createInput(surface.schema)

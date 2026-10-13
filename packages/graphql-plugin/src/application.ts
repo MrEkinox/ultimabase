@@ -34,8 +34,8 @@ export interface GraphqlApplication {
 	printSchema(): string
 	/**
 	 * GraphQL's specified validation rules, where an unknown field that a
-	 * disabled feature would add names how to enable it (ADR-0325); network
-	 * adapters validate documents with them.
+	 * disabled feature would add names how to enable it outside production
+	 * (ADR-0325, ADR-0333); network adapters validate documents with them.
 	 */
 	readonly validationRules: readonly ValidationRule[]
 }

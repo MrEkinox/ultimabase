@@ -407,7 +407,7 @@ describe('Hidden schemas (ADR-0333)', () => {
 		const { graphql, execute } = await start({}, { schemas: [Post, Audit] })
 
 		expect(
-			typeNames(graphql.schema).filter((name) => /Audit/u.test(name)),
+			typeNames(graphql.schema).filter((name) => name.includes('Audit')),
 		).toStrictEqual([])
 		const sdl = graphql.printSchema()
 		expect(sdl).not.toContain('SurfaceAudit')
@@ -460,7 +460,7 @@ describe('Hidden schemas (ADR-0333)', () => {
 			const message = result.errors?.[0]?.message ?? ''
 			expect(message).toMatch(/^Cannot query field "\w+" on type "\w+"\./u)
 			expect(message).not.toContain('hint:')
-			expect(message).not.toContain('SurfaceAudit')
+			expect(message).not.toContain('enable graphql')
 		}
 	})
 })
