@@ -10,11 +10,8 @@ import type { PointerField } from '../fields/builtins/pointer.js'
 import type { PointerTarget } from '../relations/pointer.js'
 import type { SchemaTypeInfoFor } from '../type-info.js'
 import type { SchemaDeclaredFields } from './definition.js'
-import type {
-	SourceFieldObjectValue,
-	SourceListItem,
-	StoredSourceFields,
-} from './source-fields.js'
+import type { SourceFieldObjectValue, SourceListItem } from './source-fields.js'
+import type { SystemFields } from './system-fields.js'
 
 /** The field list of one unique index, in declaration order. */
 export type UniqueIndexFields = readonly [string, ...string[]]
@@ -51,16 +48,17 @@ type UniqueTargetValue<TField> =
 					: { readonly eq: NonNullable<SourceFieldObjectValue<TField>> }
 			: never
 
-type UniqueFieldName<TFields extends SchemaDeclaredFields> = Extract<
-	{
-		[TKey in keyof StoredSourceFields<TFields>]: IsUniqueField<
-			StoredSourceFields<TFields>[TKey]
-		> extends true
-			? TKey
-			: never
-	}[keyof StoredSourceFields<TFields>],
-	string
+type UniqueFieldName<TFields extends SchemaDeclaredFields> = UniqueFieldKey<
+	TFields,
+	keyof TFields
 >
+
+// Distributes over the declared names; system fields are never `unique`.
+type UniqueFieldKey<TFields, TKey> = TKey extends keyof TFields & string
+	? IsUniqueField<TFields[TKey]> extends true
+		? TKey
+		: never
+	: never
 
 /** Every key set Runtime accepts: `id`, each unique field, each unique index. */
 type UniqueKeySet<
@@ -85,6 +83,18 @@ type UniqueTargetLabel<TKeys extends readonly string[]> =
 			? `${THead}, ${UniqueTargetLabel<TRest>}`
 			: never
 
+// `id` and the other system fields are read without building the stored map.
+type UniqueKeyValue<
+	TFields extends SchemaDeclaredFields,
+	TKey extends string,
+> = TKey extends 'id'
+	? string | { readonly eq: string }
+	: TKey extends keyof TFields
+		? UniqueTargetValue<TFields[TKey]>
+		: TKey extends keyof SystemFields
+			? UniqueTargetValue<SystemFields[TKey]>
+			: never
+
 /**
  * One target: every field of its key set, and no other unique key, since
  * Runtime refuses a target naming two key sets. The flattened object sits in
@@ -95,9 +105,7 @@ type UniqueTarget<
 	TKeys extends string,
 	TAllKeys extends string,
 > = {
-	readonly [TKey in TKeys]: TKey extends keyof StoredSourceFields<TFields>
-		? UniqueTargetValue<StoredSourceFields<TFields>[TKey]>
-		: never
+	readonly [TKey in TKeys]: UniqueKeyValue<TFields, TKey>
 } & {
 	readonly [TKey in Exclude<TAllKeys, TKeys>]?: never
 } extends infer TTarget
@@ -111,12 +119,15 @@ type UniqueTarget<
 export type SourceUniqueTargets<
 	TFields extends SchemaDeclaredFields,
 	TUniqueIndexes extends UniqueIndexFields,
+> = UniqueTargetsOf<TFields, UniqueKeySet<TFields, TUniqueIndexes>>
+
+type UniqueTargetsOf<
+	TFields extends SchemaDeclaredFields,
+	TKeySets extends readonly string[],
 > = {
-	readonly [
-		TKeys in UniqueKeySet<TFields, TUniqueIndexes> as UniqueTargetLabel<TKeys>
-	]: UniqueTarget<
+	readonly [TKeys in TKeySets as UniqueTargetLabel<TKeys>]: UniqueTarget<
 		TFields,
 		TKeys[number],
-		UniqueKeySet<TFields, TUniqueIndexes>[number]
+		TKeySets[number]
 	>
 }
