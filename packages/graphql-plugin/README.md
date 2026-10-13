@@ -519,7 +519,10 @@ Root collections and relations expose `edges`, `nodes`, and `pageInfo`. When
 `totalCount`, computed by one count query with the same `where`, only when the
 document selects it; a relation connection has no count, and its `totalCount`
 fails with `VALIDATION_ERROR` (ADR-0325). `first` accepts zero, defaults to
-100, and is capped at 1000; a larger `first` is a GraphQL error.
+100, and is capped at 1000; a negative `first`, or one above the cap, fails
+with `VALIDATION_ERROR` (`extensions.details: { parameter: "first" }`), at the
+root and on relations. An `orderBy` naming a field twice fails with
+`VALIDATION_ERROR` (`extensions.details: { parameter: "orderBy" }`).
 `graphqlPlugin({ pagination })` sets other values with the same option and
 defaults as `restPlugin({ pagination })`; the example sets
 `pagination: { defaultTake: 20, maxTake: 100 }`.

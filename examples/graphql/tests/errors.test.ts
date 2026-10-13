@@ -123,7 +123,7 @@ it('rejects a cursor that does not match the read', async () => {
 	})
 })
 
-it('rejects a first outside the page window', async () => {
+it('rejects a first outside the page window and a repeated order', async () => {
 	await using t = await testApplication(ultimabase)
 
 	//#region first-too-large
@@ -168,6 +168,22 @@ it('rejects a first outside the page window', async () => {
 				extensions: {
 					code: 'VALIDATION_ERROR',
 					details: { parameter: 'first' },
+				},
+			},
+		],
+	})
+	// An `orderBy` naming one field twice fails before any read.
+	const repeated = await postQuery(
+		t,
+		'{ findManyPost(orderBy: [{ field: views, direction: ASC }, { field: views, direction: DESC }]) { nodes { id } } }',
+	)
+	expect(await repeated.json()).toMatchObject({
+		errors: [
+			{
+				message: 'The orderBy argument repeats the field views.',
+				extensions: {
+					code: 'VALIDATION_ERROR',
+					details: { parameter: 'orderBy' },
 				},
 			},
 		],

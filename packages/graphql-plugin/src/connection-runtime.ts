@@ -1,4 +1,8 @@
-import { normalizeReadOperation, type SchemaDefinition } from '@ultimabase/core'
+import {
+	FrameworkError,
+	normalizeReadOperation,
+	type SchemaDefinition,
+} from '@ultimabase/core'
 import { decodeQueryCursor, encodeQueryCursor } from '@ultimabase/core/plugin'
 import {
 	immutableArray,
@@ -131,8 +135,15 @@ export class GraphqlConnectionRuntime {
 			first > maximumGraphqlInt ||
 			first > this.#limits.maxTake
 		) {
-			throw new RangeError(
-				`GraphQL first must be an integer from 0 to ${String(this.#limits.maxTake)}`,
+			// Client input: a VALIDATION_ERROR like REST's `take`, never a server failure.
+			const range = `an integer from 0 to ${String(this.#limits.maxTake)}`
+			throw new FrameworkError(
+				'VALIDATION_ERROR',
+				`GraphQL first must be ${range}`,
+				{
+					publicMessage: `The first argument must be ${range}.`,
+					publicDetails: { parameter: 'first' },
+				},
 			)
 		}
 		const order = effectiveGraphqlConnectionOrdering(args.orderBy)
