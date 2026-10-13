@@ -122,6 +122,42 @@ describe('query cursors', () => {
 		}
 	})
 
+	it('validates the decoded values against the ordered fields', () => {
+		const encode = (payload: object): string =>
+			Buffer.from(JSON.stringify(payload)).toString('base64url')
+		const rank = { rank: 'asc' } as const
+		const o = [
+			['rank', 'a'],
+			['id', 'a'],
+		]
+
+		for (const [orderBy, cursor] of [
+			// An id that is not a UUID.
+			[
+				undefined,
+				encode({ o: [['id', 'a']], p: ['abc'], s: 'CursorItem', v: 1 }),
+			],
+			// An ordered scalar of the wrong type.
+			[rank, encode({ o, p: ['many', id], s: 'CursorItem', v: 1 })],
+			// A missing key.
+			[rank, encode({ o, s: 'CursorItem', v: 1 })],
+			// An extra key.
+			[rank, encode({ o, p: [1, id], s: 'CursorItem', v: 1, x: 0 })],
+		] as const) {
+			expect(
+				cursorError(() => decodeQueryCursor(Item, orderBy, cursor)),
+			).toMatchObject(invalid)
+		}
+		// The same values with the right types decode.
+		expect(
+			decodeQueryCursor(
+				Item,
+				rank,
+				encode({ o, p: [1, id], s: 'CursorItem', v: 1 }),
+			),
+		).toStrictEqual({ id, rank: 1 })
+	})
+
 	it('rejects a cursor of another schema or ordering', () => {
 		const cursor = encodeQueryCursor(Item, { title: 'asc' }, row)
 

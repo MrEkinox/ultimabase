@@ -11,6 +11,7 @@ import {
 	upsertSchemaRecord,
 	upsertSchemaRecords,
 } from './schema-command-execution.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const Post = UltimaBase.Schema.define({
@@ -26,6 +27,21 @@ const ForeignPost = UltimaBase.Schema.define({
 	className: 'ForeignSchemaCommandPost',
 	fields: (field) => ({ title: field.string() }),
 })
+
+const Tag = UltimaBase.Schema.define({
+	className: 'SchemaCommandTag',
+	fields: (field) => ({ name: field.string() }),
+})
+
+const Article = UltimaBase.Schema.define({
+	className: 'SchemaCommandArticle',
+	fields: (field) => ({
+		title: field.string(),
+		tags: field.relation({ target: () => Tag }),
+	}),
+})
+
+new SchemaRegistry([Tag, Article]).resolveSchemaTargets()
 
 describe('schema command execution boundaries', () => {
 	it('requires an explicit non-empty predicate for mutations', () => {
@@ -237,5 +253,43 @@ describe('schema command execution boundaries', () => {
 		).toThrow(
 			new TypeError('schema upsertMany data[0] must contain key: where'),
 		)
+	})
+
+	it('rejects a relation in a mutation result selection before execution', () => {
+		const relation = new TypeError(
+			'selection.tags must not reference a relation; read relations through include',
+		)
+		const id = '0199325a-0c00-7000-8000-000000000001'
+		const where = { id: { eq: id } }
+		// Untyped transports can send a relation name that source typing rejects.
+		const select = { title: true, tags: true } as never
+
+		for (const command of [
+			() => createSchemaRecord(Article, { data: { title: 'A' }, select }),
+			() => createSchemaRecords(Article, { data: [{ title: 'A' }], select }),
+			() =>
+				updateSchemaRecord(Article, { where, data: { title: 'B' }, select }),
+			() =>
+				updateSchemaRecords(Article, {
+					data: [{ where, data: { title: 'B' } }],
+					select,
+				}),
+			() => deleteSchemaRecord(Article, { where, select }),
+			() => deleteSchemaRecords(Article, { where: [where], select }),
+			() =>
+				upsertSchemaRecord(Article, {
+					where,
+					create: { title: 'A' },
+					update: { title: 'B' },
+					select,
+				}),
+			() =>
+				upsertSchemaRecords(Article, {
+					data: [{ where, create: { title: 'A' }, update: { title: 'B' } }],
+					select,
+				}),
+		]) {
+			expect(command).toThrow(relation)
+		}
 	})
 })

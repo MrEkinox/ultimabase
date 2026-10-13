@@ -36,7 +36,14 @@ const Feed = UltimaBase.Schema.define({
 	}),
 })
 
-new SchemaRegistry([Author, Post, Feed]).resolveSchemaTargets()
+const Subscription = UltimaBase.Schema.define({
+	className: 'ReadInputSubscription',
+	fields: (field) => ({
+		feed: field.pointer({ target: 'ReadInputFeed' }),
+	}),
+})
+
+new SchemaRegistry([Author, Post, Feed, Subscription]).resolveSchemaTargets()
 
 describe('canonical read inputs', () => {
 	it('normalizes one complete object directly into an immutable Query AST', () => {
@@ -248,5 +255,34 @@ describe('canonical read inputs', () => {
 				cursor: true,
 			} as never),
 		).toThrow('find-many input contains an unknown clause: cursor')
+	})
+
+	it('rejects a relation in every read selection before execution', () => {
+		const relation = new TypeError(
+			'selection.posts must not reference a relation; read relations through include',
+		)
+
+		for (const read of [
+			() =>
+				queryFromFindOneInput(Feed, {
+					select: { name: true, posts: true } as never,
+				}),
+			() => queryFromFindManyInput(Feed, { select: { posts: true } as never }),
+			() =>
+				queryFromFindOneInput(Subscription, {
+					include: { feed: { select: { posts: true } as never } },
+				}),
+		]) {
+			expect(read).toThrow(relation)
+		}
+		// Exclusion mode leaves the relation out instead of selecting it.
+		expect(
+			queryFromFindOneInput(Feed, { select: { name: false } }).ast.selection
+				.fields,
+		).toStrictEqual([
+			{ field: 'id', kind: 'selected-field' },
+			{ field: 'createdAt', kind: 'selected-field' },
+			{ field: 'updatedAt', kind: 'selected-field' },
+		])
 	})
 })
