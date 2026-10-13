@@ -303,6 +303,7 @@ Current records (accepted or still active in part):
 - [ADR-0329: The role resolver protocol leaves Core](0329-role-protocol-leaves-core.md)
 - [ADR-0330: Verified documentation from tested examples](0330-verified-documentation-from-tested-examples.md)
 - [ADR-0331: Testing workers resolve dual packages like Vite](0331-testing-workers-resolve-like-vite.md)
+- [ADR-0333: GraphQL hidden schemas stay hidden](0333-graphql-hidden-schemas-stay-hidden.md)
 - [ADR-0334: An unknown client address is absent, not "unknown"](0334-unknown-client-address.md)
 
 Proposed records (awaiting user validation):
