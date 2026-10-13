@@ -3597,6 +3597,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-access@workspace:examples/access":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-access@workspace:examples/access"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/api-server": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
+    "@ultimabase/soft-delete-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-minimal@workspace:examples/minimal":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-minimal@workspace:examples/minimal"
