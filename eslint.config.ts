@@ -82,7 +82,7 @@ export default defineConfig(
 			'tooling/architecture/**/*.ts',
 			'tooling/ci/**/*.ts',
 			'tooling/vitest/**/*.test.ts',
-			'tooling/documentation/**/*.test.ts',
+			'tooling/documentation/**/*.ts',
 			'tooling/eslint/**/*.test.ts',
 			'tooling/vitest/database-filter-operators.ts',
 			'tooling/vitest/optional-product-public-api.ts',

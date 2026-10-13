@@ -1,6 +1,7 @@
 import * as FileComponents from 'fumadocs-ui/components/files'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import * as TabsComponents from 'fumadocs-ui/components/tabs'
+import * as Twoslash from 'fumadocs-twoslash/ui'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import type { MDXComponents } from 'mdx/types'
 import type { ComponentProps } from 'react'
@@ -24,6 +25,7 @@ export function getMdxComponents(components?: MDXComponents): MDXComponents {
 		...defaultMdxComponents,
 		...FileComponents,
 		...TabsComponents,
+		...Twoslash,
 		Step,
 		Steps,
 		Mermaid,

@@ -82,6 +82,11 @@ describe('GitHub affected checks', () => {
 			website: false,
 		})
 	})
+	it('checks the documentation that includes a changed example region', () => {
+		expect(select(['examples/soft-delete/src/schema.ts']).documentation).toBe(
+			true,
+		)
+	})
 	it('uses Yarn-selected dependants without expanding test-only consumers', () => {
 		const plan = selectCi({
 			files,

@@ -88,6 +88,30 @@ the authored English page.
 
 ## Code samples
 
+Every TypeScript or JavaScript block is verified or marked (ADR-0330):
+
+- **Included region.** Prefer showing code from a tested example under
+  `examples/<feature>/`: mark it with `//#region <name>` and
+  `//#endregion <name>`, then include it with
+  `<include cwd meta='title="src/file.ts"'>../../examples/<feature>/src/file.ts#<name></include>`
+  (`cwd` resolves from `apps/website`). Fumadocs dedents the region and drops
+  nested markers. The example's tests check what the page says about the
+  result.
+- **Compiled snippet.** Flag a fence `twoslash` when hover types teach the
+  point. Hidden context goes before `// ---cut---` and may import an example's
+  sources (`'../../examples/<feature>/src/schema.ts'`); `^?` prints a type. The
+  site build and `compiled-snippets.content.test.ts` compile it against the
+  built packages, and any undeclared error fails them.
+- **Unverified.** Flag a fence `unverified` only for partial pseudo-code,
+  third-party configuration, or a shape the reader adapts. These blocks are
+  counted.
+
+`verified-code.content.test.ts` classifies every block of the site and the
+READMEs, rejects unmarked blocks on the pages listed in `enforcedDocuments`,
+and prints the counts for the rest. Package READMEs copy example regions
+between `<!-- region <path>#<names> -->` and `<!-- endregion -->` markers;
+run `yarn docs:regions` after changing a region.
+
 - Show `npm`, `yarn`, and `pnpm` install commands in synchronized tabs when the
   command is part of the public package experience. Repository contributor
   commands use the pinned Yarn version only.

@@ -56,6 +56,14 @@ yarn website:validate
 yarn website:test
 ```
 
+`website:validate` also classifies the documentation code blocks (ADR-0330):
+included example regions, `twoslash` snippets compiled against the built
+packages, and blocks flagged `unverified`. The rule and the region syntax are
+in the [editorial contract](docs/editorial-contract.md#code-samples). Twoslash
+uses `fumadocs-twoslash` 3.3.1 with TypeScript 6; version 4 requires the
+TypeScript 7 package under the name `typescript`, which Yarn 4.9.2 cannot
+patch.
+
 The production build creates `.next`, and Fumadocs generates `.source` before
 the focused checks. Both are ignored by Git, ESLint, and Prettier. Website
 validation covers the application, public content, and browser behavior; Core

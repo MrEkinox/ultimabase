@@ -9,19 +9,74 @@ only active rows, and six commands: `softDeleteOne`, `softDeleteMany`,
 native `deleteOne` and `deleteMany` write tombstones; with
 `{ mode: 'command' }` they stay physical deletes.
 
+Every code block in this README is copied from the tested
+[`examples/soft-delete`](../../examples/soft-delete/README.md) application by
+`yarn docs:regions` (ADR-0330): edit the example, then run the script. Its
+schema file installs the plugin and opts a `Post` in:
+
+<!-- region ../../examples/soft-delete/src/schema.ts#factory,moderators,post -->
+
 ```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
 import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const Application = UltimaBase.use(softDeletePlugin())
+/**
+ * The configured factory types `.softDelete()`, its commands and its fields.
+ * Access and Roles only decide who may read the trash; Soft Delete needs
+ * neither. `postgresPlugin()` reads `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	softDeletePlugin(),
+	accessPlugin(),
+	rolesPlugin(),
+	...apiServer({ http: { appId: 'blog' }, rest: true }),
+	postgresPlugin(),
+)
 
-const Post = Application.Schema.define({
+/** The people who use the blog; a request principal points to a Member. */
+export const Member = App.Schema.define({
+	className: 'Member',
+	fields: (field) => ({ name: field.string({ required: true }) }),
+})
+
+/** Created at start when missing, so the `moderator` role always exists. */
+export const StaffRole = App.RoleSchema.define({
+	className: 'StaffRole',
+	members: () => Member,
+	ensure: ['moderator'],
+})
+
+export const Moderator = StaffRole.role('moderator')
+
+/** Default mode: `deleteOne` and `deleteMany` write tombstones. */
+export const Post = App.Schema.define({
 	className: 'Post',
-	fields: (field) => ({ title: field.string() }),
-}).softDelete()
-
-const ultimabase = new Application({ schemas: [Post] })
+	fields: (field) => ({ title: field.string({ required: true }) }),
+})
+	.softDelete()
+	.with({
+		access: {
+			// Every caller may write, delete and restore posts in this example.
+			read: true,
+			create: true,
+			delete: true,
+			softDeleteOne: true,
+			softDeleteMany: true,
+			restoreOne: true,
+			restoreMany: true,
+			// Only moderators see tombstones in ordinary reads.
+			readDeleted: hasRole(Moderator),
+		},
+		// A command reaches REST only when the rule names it.
+		rest: { softDeleteOne: true, restoreOne: true },
+	})
 ```
+
+<!-- endregion -->
 
 Importing the package has no effect, and the factory takes no options: each
 schema decides in its own declaration (ADR-0316, review decisions 1 and 2).
@@ -30,9 +85,9 @@ plugin declaration; no generated declarations are needed. The plugin is written
 with `definePlugin` from `@ultimabase/plugin-kit` and is the proving plugin of
 ADR-0316.
 
-The runnable [`examples/minimal`](../../examples/minimal/README.md) application
-proves both modes, authenticated REST and GraphQL execution, transactional Hook
-evidence, and private Master purge against PostgreSQL.
+The [`examples/minimal`](../../examples/minimal/README.md) application also
+proves both modes with authenticated REST and GraphQL execution and
+transactional Hook evidence.
 
 ## Modes
 
@@ -41,6 +96,20 @@ evidence, and private Master purge against PostgreSQL.
 | `.softDelete()`                    | tombstone                  | the six commands                     |
 | `.softDelete({ mode: 'command' })` | hard delete                | the six commands                     |
 | no `.softDelete()`                 | hard delete                | none, and no `isDeleted`/`deletedAt` |
+
+The example's `Comment` keeps native deletes permanent:
+
+<!-- region ../../examples/soft-delete/src/schema.ts#comment -->
+
+```ts
+/** Command mode: `deleteOne` stays permanent; `softDeleteOne` hides a row. */
+export const Comment = App.Schema.define({
+	className: 'Comment',
+	fields: (field) => ({ body: field.string({ required: true }) }),
+}).softDelete({ mode: 'command' })
+```
+
+<!-- endregion -->
 
 In the default mode the logical delete keeps its Access, Hooks, audit, result
 and transaction semantics; only the physical persistence plan becomes one
@@ -52,17 +121,28 @@ target in one transaction, and one rejected item rolls back the batch.
 
 ## Commands
 
+The many-row commands target every row matching a `where`:
+
+<!-- region ../../examples/soft-delete/tests/lifecycle.test.ts#many -->
+
 ```ts
-const deleted = await Post.softDeleteOne({
-	id: postId,
-	select: { isDeleted: true, deletedAt: true },
+const hidden = await Post.softDeleteMany({
+	where: { title: { startsWith: 'Draft' } },
+	select: { deletedAt: true },
 })
-const restored = await Post.restoreOne({ id: postId })
+
+const back = await Post.restoreMany({
+	where: { title: { startsWith: 'Draft' } },
+})
+
+await Post.softDeleteMany({ where: { title: { startsWith: 'Draft' } } })
 const removed = await Post.purgeMany(
 	{ where: { title: { startsWith: 'Draft' } } },
 	{ useMasterKey: true },
 )
 ```
+
+<!-- endregion -->
 
 | Command                            | Authority | Rows seen  | Writes                                |
 | ---------------------------------- | --------- | ---------- | ------------------------------------- |
@@ -98,8 +178,11 @@ A tombstone keeps its data and its unique values, unless the application
 declares a partial unique index in the final `.with` (ADR-0303); the plugin
 never adds one:
 
+<!-- region ../../examples/soft-delete/src/schema.ts#article -->
+
 ```ts
-App.Schema.define({
+/** A partial unique index lets a tombstone release its slug. */
+export const Article = App.Schema.define({
 	className: 'Article',
 	fields: (field) => ({ slug: field.string({ required: true }) }),
 })
@@ -108,6 +191,8 @@ App.Schema.define({
 		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
 	})
 ```
+
+<!-- endregion -->
 
 Restoring a tombstone whose slug another row took meanwhile fails with
 `UNIQUE_VIOLATION` and the message
@@ -139,14 +224,22 @@ tombstones and can filter and sort them (`where: { isDeleted: { eq: true } }`,
 and commands never reach tombstones through it. With Access, grant it by a rule
 of the same name or by its own `allowWithoutRule` key (`all`, `read` and
 `write` never include it); a caller without it never sees tombstones, whatever
-its `where`:
+its `where`. The example grants it to moderators
+(`readDeleted: hasRole(Moderator)` above), so this query returns the trash to a
+moderator and nothing to anyone else:
+
+<!-- region ../../examples/soft-delete/tests/trash.test.ts#read-deleted -->
 
 ```ts
-const App = UltimaBase.use(softDeletePlugin(), accessPlugin())
-App.Schema.define({ className: 'Post', fields })
-	.softDelete()
-	.with({ access: { read: true, readDeleted: hasRole(Auditor) } })
+const readTrash = () =>
+	Post.findMany({
+		orderBy: { deletedAt: 'desc' },
+		select: { title: true },
+		where: { isDeleted: { eq: true } },
+	})
 ```
+
+<!-- endregion -->
 
 Master holds every permission, but its reads keep the trash filter by default
 (ADR-0317, 6.1 amendment): a server job using `useMasterKey` never includes
@@ -155,14 +248,33 @@ Master read returns tombstones only when its own `where` constrains
 `isDeleted`: any condition on this schema's `isDeleted`, at any depth of `AND`,
 `OR` and `NOT` (a condition inside a relation predicate does not count):
 
+<!-- region ../../examples/soft-delete/src/admin.ts#master-reads -->
+
 ```ts
-await Post.findMany(undefined, { useMasterKey: true }) // live rows only
-await Post.findMany({ where: { isDeleted: true } }, { useMasterKey: true }) // the trash
-await Post.count(
-	{ where: { isDeleted: { in: [true, false] } } },
-	{ useMasterKey: true },
-) // every row
+/** Master reads keep the trash filter: live posts only. */
+export const listLivePosts = () =>
+	Post.findMany({ select: { title: true } }, { useMasterKey: true })
+
+/** A Master read whose own `where` names `isDeleted` sees tombstones. */
+export const listTrash = () =>
+	Post.findMany(
+		{
+			orderBy: { deletedAt: 'desc' },
+			select: { title: true, deletedAt: true },
+			where: { isDeleted: true },
+		},
+		{ useMasterKey: true },
+	)
+
+/** Every row, live or deleted. */
+export const countAllPosts = () =>
+	Post.count(
+		{ where: { isDeleted: { in: [true, false] } } },
+		{ useMasterKey: true },
+	)
 ```
+
+<!-- endregion -->
 
 This holds for `findMany`, `findOne`, `findOneOrThrow`, `count`, `exists`,
 inclusions (with the inclusion's own `where`), REST and GraphQL. Restore and

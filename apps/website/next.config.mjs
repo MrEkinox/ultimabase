@@ -9,6 +9,8 @@ export default withMDX({
 		globalNotFound: true,
 	},
 	reactStrictMode: true,
+	// Twoslash runs the TypeScript compiler while pages are rendered.
+	serverExternalPackages: ['typescript', 'twoslash'],
 	async rewrites() {
 		return [
 			{
