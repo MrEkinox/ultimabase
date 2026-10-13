@@ -64,7 +64,7 @@ describe('aclPlugin prepared input resolution', () => {
 		const updateOperation = {
 			kind: 'update-one',
 			query: new QueryBuilder(ProtectedPost).where({
-				id: { eq: 'master-limit-post' },
+				id: { eq: '00000000-0000-7000-8000-000000000001' },
 			}).ast,
 			update: {
 				kind: 'update-expression',

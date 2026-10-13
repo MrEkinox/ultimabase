@@ -71,40 +71,52 @@ describe('PostgreSQL contextual relation predicate compilation', () => {
 	it('applies private scopes to owning, inverse, and inverse-pointer predicates', () => {
 		const owning = renderScoped(
 			new QueryBuilder(PostgresRelationArticle).where({
-				tags: { every: { id: { ne: 'caller-owning' } } },
+				tags: { every: { id: { ne: '00000000-0000-7000-8000-0000000000c1' } } },
 			}),
-			'scope-owning',
+			'00000000-0000-7000-8000-0000000000a1',
 		)
 		const inverse = renderScoped(
 			new QueryBuilder(PostgresRelationTag).where({
-				articles: { some: { id: { eq: 'caller-inverse' } } },
+				articles: {
+					some: { id: { eq: '00000000-0000-7000-8000-0000000000c2' } },
+				},
 			}),
-			'scope-inverse',
+			'00000000-0000-7000-8000-0000000000a2',
 		)
 		const inversePointer = renderScoped(
 			new QueryBuilder(PostgresRelationAuthor).where({
 				posts: {
 					count: {
-						where: { id: { ne: 'caller-pointer' } },
+						where: { id: { ne: '00000000-0000-7000-8000-0000000000c3' } },
 						gte: 2,
 					},
 				},
 			}),
-			'scope-pointer',
+			'00000000-0000-7000-8000-0000000000a3',
 		)
 
 		expect(owning.sql.toLowerCase()).toContain('not (exists')
 		expect(owning.params).toEqual(
-			expect.arrayContaining(['scope-owning', 'caller-owning']),
+			expect.arrayContaining([
+				'00000000-0000-7000-8000-0000000000a1',
+				'00000000-0000-7000-8000-0000000000c1',
+			]),
 		)
 		expect(inverse.sql.toLowerCase()).toContain('exists')
 		expect(inverse.params).toEqual(
-			expect.arrayContaining(['scope-inverse', 'caller-inverse']),
+			expect.arrayContaining([
+				'00000000-0000-7000-8000-0000000000a2',
+				'00000000-0000-7000-8000-0000000000c2',
+			]),
 		)
 		expect(inversePointer.sql).toContain('select count(*)')
 		expect(inversePointer.sql).not.toContain('inner join')
 		expect(inversePointer.params).toEqual(
-			expect.arrayContaining(['scope-pointer', 'caller-pointer', 2]),
+			expect.arrayContaining([
+				'00000000-0000-7000-8000-0000000000a3',
+				'00000000-0000-7000-8000-0000000000c3',
+				2,
+			]),
 		)
 	})
 })

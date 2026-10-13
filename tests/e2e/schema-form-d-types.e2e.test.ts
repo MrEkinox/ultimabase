@@ -197,7 +197,8 @@ describe('schema declaration form (ADR-0297)', () => {
 					`src/typos.ts:144 Object literal may only specify known properties, and 'archived' does not exist in type ${target}.`,
 					"src/typos.ts:150 Type 'null' is not assignable to type 'string | { readonly eq: string; }'.",
 					expect.stringContaining(
-						'src/typos.ts:155 Object literal may only specify known properties, and \'acl\' does not exist in type \'Readonly<{ readonly title?: "asc" | "desc" | null;',
+						// The printed key order follows type creation order.
+						"src/typos.ts:155 Object literal may only specify known properties, and 'acl' does not exist in type 'Readonly<{ readonly ",
 					),
 				]),
 			)
