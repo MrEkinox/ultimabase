@@ -52,17 +52,21 @@ export const Session = UltimaBase.Schema.define({
 	fields: (f) => ({
 		account: f.pointer({
 			required: true,
-			target: 'DocsAccount',
+			target: () => Account,
 		}),
 		expiresAt: f.dateTime({ required: true }),
 	}),
 })
 ```
 
-Register both schemas in the same application. During compilation, UltimaBase
-resolves `target: 'DocsAccount'` to the exact registered `Account` schema;
-an unknown target fails before database setup. Typegen can then expose the
-exact target type for `Session.account`.
+Register both schemas in the same application. The target is a function that
+returns the schema, so TypeScript types `Session.account` from `Account`
+directly, and schemas in separate files, or a schema and itself, may reference
+each other. During compilation, UltimaBase resolves the function to the
+registered `Account` schema; an unregistered target fails before database
+setup. A target may also name the registered `className`
+(`target: 'DocsAccount'`), which the application's `Register` declaration
+types.
 
 Link a session to an existing account with `{ connect: accountId }` in create
 or update data; `connect` also accepts a `Pointer` of the declared target
@@ -153,7 +157,7 @@ export const Author = UltimaBase.Schema.define({
 	className: 'DocsAuthor',
 	fields: (f) => ({
 		name: f.string({ required: true }),
-		posts: f.relation({ mappedBy: 'author', target: 'DocsPost' }),
+		posts: f.relation({ mappedBy: 'author', target: () => Post }),
 	}),
 })
 
@@ -162,9 +166,9 @@ export const Post = UltimaBase.Schema.define({
 	fields: (f) => ({
 		author: f.pointer({
 			required: true,
-			target: 'DocsAuthor',
+			target: () => Author,
 		}),
-		reviewers: f.relation({ target: 'DocsAuthor' }),
+		reviewers: f.relation({ target: () => Author }),
 		title: f.string({ required: true }),
 	}),
 })
@@ -174,13 +178,13 @@ export const Post = UltimaBase.Schema.define({
 
 `Post.reviewers` owns an independent membership set. `Author.posts` is inverse:
 `mappedBy: 'author'` derives its members from `Post.author` instead of storing
-a second edge. Static compilation resolves target names and verifies that the
+a second edge. Static compilation resolves targets and verifies that the
 inverse points to a compatible field. A one-to-one relationship uses a unique
 pointer, not a one-item relation.
 
 Relations do not appear as arrays in ordinary results unless they are
 included, and create or update data changes them only through link commands.
-Results have no relation handles (ADR-0310). Use an explicit
+Results are plain data with no relation methods (ADR-0310). Use an explicit
 relationship schema with pointers when the edge itself needs fields such as
 role, position, status, or creation time.
 

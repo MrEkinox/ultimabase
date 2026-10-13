@@ -91,11 +91,11 @@ const canonicalNavigation = {
 	],
 	'1.0.0/plugins/build-a-plugin': [
 		'index',
-		'schemas-and-typegen',
+		'schema-contributions',
 		'operations-and-graphql',
 		'runtime-and-infrastructure',
 	],
-	'1.0.0/guides': ['generate-types', 'test-an-application'],
+	'1.0.0/guides': ['test-an-application'],
 	'1.0.0/operations': ['before-exposing-your-application', 'troubleshooting'],
 	'1.0.0/reference': ['package-index'],
 	'1.0.0/project': ['release-status', 'roadmap', 'contributing'],

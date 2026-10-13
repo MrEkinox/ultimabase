@@ -34,7 +34,7 @@ content evidence.
 | Introduction             | Root README, `examples/minimal`, Core and PostgreSQL exports       | Partial   | Keep the manual path runnable; mark automatic setup unavailable      |
 | Core                     | Schema examples, Core source and guides, Runtime and security ADRs | Ready     | Own native modeling, reads, writes, Runtime, and authority           |
 | Plugins                  | Official package READMEs, plugin-kit, testing, and capability ADRs | Ready     | Keep optional setup and limitations with the owning plugin           |
-| Guides                   | Typegen and testing READMEs, Manual Installation, maintained tests | Partial   | Teach concrete application tasks without repeating package reference |
+| Guides                   | Testing README, Manual Installation, maintained tests              | Partial   | Teach concrete application tasks without repeating package reference |
 | Operate Your Application | Provider READMEs, example configuration, release guide             | Partial   | Give a pre-exposure checklist and symptom-led startup diagnostics    |
 | Reference                | Package READMEs and public export barrels                          | Ready     | Keep package and compatibility lookup outside task pages             |
 | Project                  | Root status, changesets, release guide, contribution guide         | Partial   | Separate shipped, pre-release, and planned behavior explicitly       |

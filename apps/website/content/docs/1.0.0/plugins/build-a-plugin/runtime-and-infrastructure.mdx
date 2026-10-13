@@ -238,8 +238,7 @@ automatically dropping unmatched plugin or private storage.
 
 Use an ordinary application schema when developers should query or expose
 records. Use `storage:private` only for plugin-owned verifier-like state that
-must never become a model, Query surface, generated REST/GraphQL route, or
-Typegen schema:
+must never become a model, Query surface, or generated REST/GraphQL route:
 
 ```ts title="src/private-sessions.ts"
 import { definePrivateCollection, stringField } from '@ultimabase/core'
@@ -308,7 +307,6 @@ explicit reason. A dependency's privilege never transfers to your plugin.
 | `schema:declare`      | Schema, field, option, additive patch, or index declarations.      |
 | `model:extend`        | Schema-mutation methods on application-owned schema/model handles. |
 | `operation:declare`   | Namespaced operation or schema-mutation tokens.                    |
-| `typegen:reference`   | Registered public package type references.                         |
 | `runtime:observe`     | Product event consumers and diagnostics.                           |
 | `runtime:intercept`   | Mutable request behavior at an allowed stage.                      |
 | `runtime:constrain`   | Deny-only or narrowing protected constraints.                      |
@@ -321,7 +319,7 @@ explicit reason. A dependency's privilege never transfers to your plugin.
 The direct environment claims are `environment:filesystem`,
 `environment:network`, `environment:process`, and
 `environment:native-code`. They are separate from the enforceable table.
-There is no wildcard privilege or current `typegen:replace` power. A requested
+There is no wildcard privilege. A requested
 but unused critical power still makes a package harder to review; remove it.
 
 ## Verify before publishing
@@ -337,8 +335,8 @@ Extend it with focused `operation`, `schema-surface`, `schema-mutation`,
 
 Then verify the behavior beyond conformance:
 
-1. Typecheck the public package export and any generated Typegen contract;
-   run one JavaScript application without generated files.
+1. Typecheck the public package export from a consumer application; run one
+   JavaScript application with the same plugin.
 2. Verify rejection of a competing application before resource effects, then
    dispose the first application and exercise a fresh replacement. Use isolated
    workers for parallel applications. If supported, also exercise two explicit
@@ -355,8 +353,8 @@ Then verify the behavior beyond conformance:
 
 ## Next steps
 
-Return to [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen) for declaration and
-generated-type details, or [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)
+Return to [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions) for declarations
+and their source types, or [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)
 for public command exposure. After a tested release exists, the
 [Community Plugins](/docs/1.0.0/plugins/community-plugins#propose-a-plugin) page explains how
 to propose a listing. Being listed does not transfer maintenance, security

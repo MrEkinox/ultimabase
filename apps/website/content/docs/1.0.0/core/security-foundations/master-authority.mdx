@@ -69,6 +69,12 @@ export const ultimabase = new Application({
 	schemas: [Post],
 })
 
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+
 export const createMaintenancePost = (title: string) =>
 	Post.createOne({ data: { title } }, { useMasterKey: true })
 ```

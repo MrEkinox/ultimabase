@@ -40,8 +40,9 @@ UltimaBase knowledge is required.
 
 Your schema and the plugins you install form one compiled application graph.
 Core owns the schema, immutable data commands, structural validation, and the
-Runtime pipeline. The PostgreSQL plugin supplies persistence. Generated types
-can improve editor support later, but they are not executable application code.
+Runtime pipeline. The PostgreSQL plugin supplies persistence. TypeScript types
+come from the same declarations, with no generation step, and never decide
+what runs.
 
 ## Boundaries
 

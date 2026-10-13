@@ -154,7 +154,7 @@ operation; a value that violates `output` produces a result validation error.
 On a mutation, either failure happens before commit and rolls back the
 transaction.
 
-## Persisted data and generated types
+## Persisted data and types
 
 A virtual field is top-level output only: it cannot be a child of
 `f.object()`. It is absent from stored records, create and update data,
@@ -163,10 +163,9 @@ resolver or output declaration does not change the database schema. REST and
 GraphQL represent the selected value but do not execute the resolver
 themselves.
 
-The optional [Typegen guide](/docs/1.0.0/guides/generate-types) explains how
-to generate application-specific declarations. They distinguish the persisted
-item, which excludes virtual fields, from the selectable result, which includes
-them. UltimaBase executes the same compiled graph without generated types.
+The types inferred from the schema declaration distinguish the persisted item,
+which excludes virtual fields, from the selectable result, which includes them.
+JavaScript applications execute the same compiled graph.
 
 ## Related tasks
 

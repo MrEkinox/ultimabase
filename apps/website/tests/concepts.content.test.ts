@@ -90,12 +90,8 @@ describe('cross-cutting concept documentation', () => {
 		]).toEqual(expect.arrayContaining([...pages]))
 	})
 
-	it('states the non-negotiable Runtime and Typegen boundaries', async () => {
+	it('states the non-negotiable Runtime and type boundaries', async () => {
 		const application = await readPage('core/application')
-		const typegen = await readFile(
-			path.join(contentRoot, 'guides/generate-types.mdx'),
-			'utf8',
-		)
 		const runtime = await readPage('core/runtime/runtime-pipeline')
 		const persistence = await readPage(
 			'core/runtime/logical-operations-and-persistence',
@@ -107,7 +103,11 @@ describe('cross-cutting concept documentation', () => {
 			/request labels or plugin values cannot manufacture\s+Master access/u,
 		)
 		expect(persistence).toMatch(/do not enter the\s+replaceable plan/u)
-		expect(typegen).toContain('not what UltimaBase executes')
+		// ADR-0297: types come from source declarations and never decide behavior.
+		expect(application).toMatch(
+			/TypeScript types are inferred\s+from the same source declarations/u,
+		)
+		expect(application).toMatch(/do not decide\s+what runs/u)
 		expect(application).not.toContain('## Optional Typegen')
 	})
 })

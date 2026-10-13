@@ -59,7 +59,7 @@ Input and result snapshotters validate untrusted values; declaring an error
 code makes only that `PluginError` safe to publish. Unknown exceptions remain
 internal diagnostics.
 
-Pure schema compilation and Typegen do not call a resource-backed handler's
+Pure schema compilation does not call a resource-backed handler's
 `create` factory. It runs once during application initialization under the exact
 plugin owner; transport bindings themselves remain inert declarations. Core
 rejects duplicate active handlers or protocol bindings and foreign ownership
@@ -119,11 +119,10 @@ export const workflowPlugin = () =>
 Export both `workflowPlugin` and `formatWorkflow` from the package root. In a
 started application that installs the plugin,
 `await ultimabase.operation(formatWorkflow).execute('  ready  ')` returns
-`'ready'`. The same application without the plugin rejects that token. Generic
-The installed operation's source definition gives TypeScript its input and
-result types without a generated plugin declaration. Public type references
-remain available when the retained named-schema graph needs them. The
-operation remains private from every network transport at this point.
+`'ready'`. The same application without the plugin rejects that token. The
+installed operation's source definition gives TypeScript its input and result
+types without a generated plugin declaration. The operation remains private
+from every network transport at this point.
 
 ## Reuse queries and mutate one item
 
@@ -133,10 +132,12 @@ registrar or privilege.
 
 Use a [schema mutation](#expose-a-schema-mutation) when a command updates or
 deletes one item and needs Core's locked target, policy checks, and transaction.
-`models.extend()` attaches its `schemaMutations` to selected schema and model
-surfaces. A configured `App.Schema.define(...)` projects those methods from
-the plugin source; JavaScript uses the same compiled surfaces without
-generated files.
+`models.extend()` attaches its `schemaMutations` to the selected schemas at
+Runtime; it does not type them. A statics slot types the methods on the
+schemas that call your shape method, as
+[Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#add-commands-to-the-schema-class)
+explains, and `definePlugin` writes it for you. JavaScript uses the same
+compiled surfaces.
 
 A mutation handler or transport binding with no selected schema/model alias
 stays dormant. It contributes no method or route and does not cause an
@@ -490,6 +491,6 @@ representation and safe errors.
 ## Next steps
 
 If the command needs durable state or policy, continue with
-[Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure). If its public
-TypeScript shape is not inferred from the compiled operation, continue with
-[Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen#contribute-to-typegen).
+[Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure). If it adds
+fields, rules, or commands to schemas, continue with
+[Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions).

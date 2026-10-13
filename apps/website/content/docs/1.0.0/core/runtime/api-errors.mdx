@@ -222,7 +222,7 @@ filter operator reports `details: { field, operator }`. Check that
 `details.issues` exists before treating an error as a form-field failure. The exact public envelope after REST or GraphQL dispatch
 still belongs to that transport.
 
-HTTP, REST, GraphQL, PostgreSQL, Typegen, and authentication each own their
+HTTP, REST, GraphQL, PostgreSQL, and authentication each own their
 additional error codes and public representations. Use the relevant
 [HTTP](/docs/1.0.0/plugins/official/http),
 [REST](/docs/1.0.0/plugins/official/rest),
@@ -230,9 +230,7 @@ additional error codes and public representations. Use the relevant
 [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
 page for that capability's failures; use
 [Troubleshooting](/docs/1.0.0/operations/troubleshooting)
-for startup and plugin-graph diagnostics. See
-[Generate TypeScript Declarations](/docs/1.0.0/guides/generate-types#troubleshooting-generation)
-for Typegen failures.
+for startup and plugin-graph diagnostics.
 
 ## Handle a failure safely
 

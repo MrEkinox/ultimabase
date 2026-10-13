@@ -1,10 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import {
-	generateApplicationTypes,
-	loadTypegenApplication,
-} from '@ultimabase/typegen'
-import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -15,25 +9,43 @@ import {
 	writeExample,
 } from '../components/landing/content'
 import { demoExamples } from '../components/landing/demo-content'
+import {
+	compileLandingApplication,
+	compileLandingSample,
+	formatLandingDiagnostics,
+	withLandingDirectory,
+} from './landing-check'
 
-const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
+// The application excerpt imports Article from its own file; one module holds both here.
+const applicationModule = applicationExample
+	.replace("import { Article } from './article.js'", '')
+	.replace("import { UltimaBase } from '@ultimabase/core'", '')
 
 describe('landing page examples', () => {
 	it('compiles the displayed application and preserves selected result types', async () => {
-		const directory = await mkdtemp(
-			path.join(repositoryRoot, '.landing-check-'),
-		)
-		try {
-			const filename = path.join(directory, 'landing-example.ts')
+		await withLandingDirectory(async (directory) => {
+			// Core validates the displayed declarations without opening storage.
+			const compiled = await compileLandingApplication(
+				path.join(directory, 'application.ts'),
+				schemaExample +
+					'\n' +
+					applicationModule
+						.replace('const app =', 'export const app =')
+						.replace('await app.start()', ''),
+			)
+			expect(compiled.schemas.has('Article')).toBe(true)
+
 			// Compile the displayed excerpts themselves, so copy cannot drift from the API.
-			const source = [
-				schemaExample,
-				applicationExample
-					.replace("import { Article } from './article.js'", '')
-					.replace("import { UltimaBase } from '@ultimabase/core'", ''),
-				readExample,
-				writeExample,
-				`const title: string = article.title
+			// The types come from the schema and the Register declaration alone.
+			const filename = path.join(directory, 'landing-example.ts')
+			const program = await compileLandingSample(
+				filename,
+				[
+					schemaExample,
+					applicationModule,
+					readExample,
+					writeExample,
+					`const title: string = article.title
 const selectedTitle: string | undefined = articles[0]?.title
 // @ts-expect-error A field excluded by select must not leak into the result type.
 articles[0]?.published
@@ -41,67 +53,15 @@ articles[0]?.published
 const invalid: number = article.title
 void title; void selectedTitle; void invalid;
 await app.dispose()`,
-			].join('\n\n')
-			// Generate the real declaration without starting the application or connecting storage.
-			const applicationPath = path.join(directory, 'application.ts')
-			await writeFile(
-				applicationPath,
-				schemaExample +
-					'\n' +
-					applicationExample
-						.replace("import { Article } from './article.js'", '')
-						.replace("import { UltimaBase } from '@ultimabase/core'", '')
-						.replace('const app =', 'export const app =')
-						.replace(
-							'process.env.DATABASE_URL',
-							"'postgres://localhost/landing_typecheck'",
-						)
-						.replace('await app.start()', ''),
+				].join('\n\n'),
+				{ noUncheckedIndexedAccess: true },
 			)
-			const application = await loadTypegenApplication({
-				sourcePath: applicationPath,
-				exportName: 'app',
-			})
-			const generated = generateApplicationTypes({
-				ultimabase: application,
-				applicationId: 'main',
-			})
-			const declarationPath = path.join(directory, 'schema.generated.d.ts')
-			await writeFile(declarationPath, generated.contents)
-			const options: ts.CompilerOptions = {
-				module: ts.ModuleKind.NodeNext,
-				moduleResolution: ts.ModuleResolutionKind.NodeNext,
-				noEmit: true,
-				noUncheckedIndexedAccess: true,
-				skipLibCheck: true,
-				strict: true,
-				target: ts.ScriptTarget.ES2024,
-				types: ['node'],
-			}
-			const host = ts.createCompilerHost(options)
-			const readSource = host.getSourceFile.bind(host)
-			host.getSourceFile = (name, languageVersion, onError, shouldCreate) =>
-				name === filename
-					? ts.createSourceFile(name, source, languageVersion, true)
-					: readSource(name, languageVersion, onError, shouldCreate)
-			const program = ts.createProgram(
-				[filename, declarationPath],
-				options,
-				host,
-			)
-			const diagnostics = ts.getPreEmitDiagnostics(program)
-			expect(
-				ts.formatDiagnosticsWithColorAndContext(diagnostics, {
-					getCanonicalFileName: (name) => name,
-					getCurrentDirectory: () => repositoryRoot,
-					getNewLine: () => '\n',
-				}),
-			).toBe('')
+			expect(formatLandingDiagnostics(program)).toBe('')
 			// Read the compiler's inferred model properties, not handwritten substitute types.
 			const checker = program.getTypeChecker()
-			const compiled = program.getSourceFile(filename)
-			if (!compiled) throw new Error('Landing sample was not compiled')
-			const declarations = compiled.statements.flatMap((statement) =>
+			const compiledSample = program.getSourceFile(filename)
+			if (!compiledSample) throw new Error('Landing sample was not compiled')
+			const declarations = compiledSample.statements.flatMap((statement) =>
 				ts.isVariableStatement(statement)
 					? [...statement.declarationList.declarations]
 					: [],
@@ -109,7 +69,7 @@ await app.dispose()`,
 			for (const example of demoExamples) {
 				const name = example.label === 'Read' ? 'articles' : 'article'
 				const declaration = declarations.find(
-					(item) => item.name.getText(compiled) === name,
+					(item) => item.name.getText(compiledSample) === name,
 				)
 				if (!declaration) throw new Error(`Missing sample variable: ${name}`)
 				const inferred = checker.getTypeAtLocation(declaration.name)
@@ -130,8 +90,6 @@ await app.dispose()`,
 				if (example.label === 'Read')
 					expect(model.getProperty('published')).toBeUndefined()
 			}
-		} finally {
-			await rm(directory, { recursive: true, force: true })
-		}
+		})
 	}, 20_000)
 })

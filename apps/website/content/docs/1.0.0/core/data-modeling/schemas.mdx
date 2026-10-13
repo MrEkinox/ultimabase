@@ -24,7 +24,6 @@ sources:
   - packages/core/src/schema/schema/schema-declaration-chain.ts
   - packages/core/src/schema/schema/index-predicates.ts
   - docs/adr/0303-core-partial-indexes-and-health.md
-  - packages/typegen/README.md
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
@@ -57,13 +56,14 @@ export const Article = UltimaBase.Schema.define({
 | `fields(f)` | Yes      | Synchronous callback that returns its stored, relationship, and virtual field declarations. See [Fields](./fields). |
 | `indexes`   | No       | Composite indexes over top-level fields.                                                                            |
 
-Installed plugins may add direct schema options, such as `access`, `hooks`,
-`rest`, `graphql`, or `postgres`. Those are not Core defaults: an option must
-have one exact installed plugin owner, and each plugin documents its own
-configuration. Use that configured factory's `App.Schema.define()` to obtain
-its local plugin options and builders; the examples above use the portable
-zero-plugin root. Importing a plugin package alone does not install it. See
-[Using Plugins](/docs/1.0.0/plugins/using-plugins).
+`define()` accepts no other option: plugin rules such as `access`, `hooks`,
+`rest`, `graphql`, or `postgres` are rejected there and go in a final
+`.with({ ... })` instead, as [Plugin methods and rules](#plugin-methods-and-rules)
+shows. Field-level plugin options, such as a field's `validation`, stay on the
+field. Use the configured factory's `App.Schema.define()` to obtain the
+methods, rules, and field options of the installed plugins; the examples above
+use the portable zero-plugin root. Importing a plugin package alone does not
+install it. See [Using Plugins](/docs/1.0.0/plugins/using-plugins).
 
 ## Indexes
 
@@ -125,9 +125,9 @@ child, relation, or virtual result.
 ### Index part of the rows
 
 A `where` predicate restricts an index to the rows it matches; with `unique`,
-values must be distinct only among those rows. With the generation-free form,
-declare `indexes` in the final `.with`, which sees every field, including
-fields added by shape methods such as `.softDelete()`:
+values must be distinct only among those rows. Declare such `indexes` in the
+final `.with`, which sees every field, including fields added by shape methods
+such as `.softDelete()`:
 
 ```ts title="src/article.ts"
 import { App } from './app.js'
@@ -185,9 +185,9 @@ do not need an entry in the application's `schemas` array.
 
 ## Schema classes and application handles
 
-`UltimaBase.Schema.define()` returns the final schema class. Its local fields,
-Core operation inputs, selections, and results infer from source before
-Typegen; complete filters still use the generated contract. Core-only declarations resolve their metadata
+`UltimaBase.Schema.define()` returns the final schema class. Its fields, Core
+operation inputs, filters, selections, and results infer from the source
+declaration; no generation step is involved. Core-only declarations resolve their metadata
 immediately; configured plugin builder calls resolve when a compatible
 application compiles them. Ordinary schema commands execute against an owning
 application. Use
@@ -201,8 +201,8 @@ for an example and [Models](./models) for plain data results.
 
 ## Schema identity
 
-`className` is the stable logical identity used by relations, generated types,
-and adapters. Treat it like a persistent API name: changing it describes a
+`className` is the stable logical identity used by relations, name-keyed types
+such as `Model<'Article'>`, and adapters. Treat it like a persistent API name: changing it describes a
 different schema, not a cosmetic rename.
 
 ## System fields
@@ -226,15 +226,14 @@ Core-only declarations resolve field-dependent metadata immediately. A
 declaration that captured configured plugin builder calls throws
 `SchemaCompilationError` if code reads unresolved Runtime metadata before a
 compatible application compiles it. Compilation also rejects duplicate or
-reserved field names, unresolved relationship targets, and plugin options
+reserved field names, unresolved relationship targets, and plugin rules
 without one exact installed owner. These failures occur before plugin setup or
 database connection, not on the first request. See
 [Relationships](./relationships) for target declarations and
 [Using Plugins](/docs/1.0.0/plugins/using-plugins) for installation and ownership.
 
-## Declare without Typegen
+## Plugin methods and rules
 
-UltimaBase is moving to a declaration form that needs no generated file.
 `define` holds the data, relation targets are functions that return the target
 schema, plugins add methods such as `.softDelete()`, and a final `.with` holds
 the plugin rules:
@@ -254,6 +253,12 @@ export const Todo = App.Schema.define({
 	})
 ```
 
+`.with` must be the last call and is optional: a schema without plugin rules
+ends with `define(...)` or its last shape method. A plugin option passed to
+`define` fails with
+`Unknown schema option: access. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)`
+and is a TypeScript error.
+
 Declare the application once for short, name-keyed editor types such as
 `Model<'Todo'>`:
 
@@ -267,20 +272,18 @@ declare module '@ultimabase/core' {
 }
 ```
 
-Both forms work side by side while the official plugins migrate: the form
-shown above this section, with plugin options in `define` and generated types,
-stays supported until the migration ends. Role and Password User schemas keep
-their current form for now.
+Schemas in separate files may reference each other, including circular
+pointers and relations, because each target is a function. Role and User
+schemas use the same chain from `App.RoleSchema.define(...)` and
+`App.UserSchema.define(...)`.
 
-## Optional generated types
+## Types follow the declaration
 
-The compiled schema graph is Runtime truth. Local Core schema contracts infer
-from source, as do locally decidable plugin surfaces on configured factories.
-Typegen retains named pointers/relations and circular schemas, every complete
-filter, complete schema Access/Hooks/ACL callbacks, exact Password User results,
-and the supported standalone/advanced consumers. It does not change what the
-application executes. See
-[Generate TypeScript Types](/docs/1.0.0/guides/generate-types) for setup.
+The compiled schema graph is Runtime truth, and TypeScript types come from the
+same source declarations: fields, complete filters, relationships, plugin
+methods, rules, and their callbacks. There is no generated declaration file and
+no generation step. Types never change what the application executes; a
+JavaScript application runs the same compiled graph.
 
 Continue with [Fields](./fields) for field kinds, [Models](./models) for
 immutable instances, and [Relationships](./relationships) for schema targets.
