@@ -155,6 +155,29 @@ describe('health route (ADR-0323 decision 5)', () => {
 		expect(body).not.toContain('secret')
 	})
 
+	// ADR-0303: probes send no application header, even in strict mode.
+	it('answers without the application header under requireApplicationId', async () => {
+		const strict = await start({ requireApplicationId: true, routes })
+		const probe = await strict.fetch(get('/health'))
+		expect(probe.status).toBe(200)
+		expect(await probe.json()).toStrictEqual({ status: 'OK' })
+		expect((await strict.fetch(get('/mode'))).status).toBe(401)
+		expect((await strict.fetch(get('/missing'))).status).toBe(401)
+		const other = await strict.fetch(
+			get('/health', { 'X-UltimaBase-Application-Id': 'shop' }),
+		)
+		expect(other.status).toBe(404)
+	})
+
+	it('exempts only the built-in health route at its own path', async () => {
+		const moved = await start({
+			health: { path: '/healthz' },
+			requireApplicationId: true,
+		})
+		expect((await moved.fetch(get('/healthz'))).status).toBe(200)
+		expect((await moved.fetch(get('/health'))).status).toBe(401)
+	})
+
 	it('moves with health.path and disappears with health: false', async () => {
 		const moved = await start({ health: { path: '/healthz' } })
 		expect((await moved.fetch(get('/healthz'))).status).toBe(200)

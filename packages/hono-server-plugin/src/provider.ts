@@ -62,6 +62,18 @@ const closeServer = (
 	})
 }
 
+// close() ends only the connections idle at that moment: a keep-alive
+// connection whose response finishes later would stay open until its idle
+// timeout, so each response ending after close() closes idle connections.
+const closeConnectionsIdleAfterClose = (server: ServerType): void => {
+	if (!('closeIdleConnections' in server)) return
+	server.on('request', (_request, response) => {
+		response.once('finish', () => {
+			if (!server.listening) server.closeIdleConnections()
+		})
+	})
+}
+
 const normalizeServerError = (error: unknown): Error =>
 	error instanceof Error
 		? error
@@ -231,6 +243,7 @@ export class HonoServerProvider {
 					},
 				)
 				server.once('error', fail)
+				closeConnectionsIdleAfterClose(server)
 			} catch (error: unknown) {
 				reject(normalizeServerError(error))
 			}

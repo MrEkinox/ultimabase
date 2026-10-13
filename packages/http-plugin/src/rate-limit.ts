@@ -166,12 +166,17 @@ export const resolveHttpClientAddress = (
 			? undefined
 			: normalizeAddress(prepared.remoteAddress)
 	if (!isTrustedPeer(trustProxy, peer)) return peer ?? 'unknown'
-	const chain = [...readForwardedList(prepared, 'x-forwarded-for')]
-	if (peer !== undefined) chain.push(peer)
-	if (chain.length === 0) return 'unknown'
+	const forwarded = readForwardedList(prepared, 'x-forwarded-for')
 	if (typeof trustProxy === 'number') {
-		return chain[Math.max(0, chain.length - 1 - trustProxy)] ?? 'unknown'
+		// Each trusted proxy appends the address it received the request from,
+		// so the client is the hop-count-th entry from the end. The socket peer,
+		// absent behind a fetch handler, is the nearest proxy and never counts.
+		return (
+			forwarded[Math.max(0, forwarded.length - trustProxy)] ?? peer ?? 'unknown'
+		)
 	}
+	// Listed proxies are trusted only from a socket peer that is one of them.
+	const chain = peer === undefined ? forwarded : [...forwarded, peer]
 	const trusted = trustProxy ?? []
 	for (let index = chain.length - 1; index >= 0; index -= 1) {
 		const address = chain[index]
