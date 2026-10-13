@@ -27,7 +27,7 @@ const examples = [
 const testedExamples = [
 	['examples/todo-backend', 4],
 	['examples/soft-delete', 11],
-	['examples/validation', 11],
+	['examples/validation', 12],
 ] as const
 
 const compile = (example: string): readonly string[] => {

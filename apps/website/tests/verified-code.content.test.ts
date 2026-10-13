@@ -17,6 +17,9 @@ const enforcedDocuments = [
 	'apps/website/content/docs/1.0.0/plugins/official/soft-delete.mdx',
 	'packages/soft-delete-plugin/README.md',
 	'examples/soft-delete/README.md',
+	'apps/website/content/docs/1.0.0/plugins/official/validation.mdx',
+	'packages/validation-plugin/README.md',
+	'examples/validation/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({

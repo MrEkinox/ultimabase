@@ -6,18 +6,28 @@ audience:
 contentType: concept
 outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
+  - examples/validation/README.md
+  - examples/validation/src/schema.ts
+  - examples/validation/src/rooms.ts
+  - examples/validation/src/ultimabase.ts
+  - examples/validation/src/main.ts
+  - examples/validation/tests/fields.test.ts
+  - examples/validation/tests/updates.test.ts
+  - examples/validation/tests/schema-checks.test.ts
+  - examples/validation/tests/check.test.ts
+  - examples/validation/tests/rest.test.ts
   - packages/validation-plugin/README.md
   - packages/validation-plugin/src/field-validation.ts
   - packages/validation-plugin/src/operation-validation.ts
   - packages/validation-plugin/src/schema-validation.ts
   - packages/validation-plugin/src/check.ts
   - packages/validation-plugin/src/field-validation.test.ts
+  - packages/validation-plugin/tests/validation-intellisense.test.ts
   - packages/validation-plugin/tests/e2e/validation-rules.postgres.e2e.test.ts
   - docs/adr/0223-optional-field-validation-plugin.md
   - docs/adr/0319-validation-transforms-schema-checks-and-issues.md
-  - examples/minimal/src/schema.ts
 ---
 
 ## Overview
@@ -28,6 +38,10 @@ validate data without writing. Core always enforces requiredness, nullability,
 canonical value shapes, defaults, immutable fields, and database integrity;
 this plugin adds application rules on top. Importing the package alone does
 not install them in an application.
+
+Every TypeScript block on this page is copied from the
+[validation example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/validation),
+a small events backend whose tests check each result described here.
 
 ## Installation
 
@@ -49,59 +63,33 @@ pnpm add @ultimabase/validation-plugin zod
 
 ## Configuration
 
+Install the plugin on the application factory. The example also installs
+Access and REST, which open the REST writes it demonstrates; Validation needs
+neither:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/validation/src/schema.ts#factory
+</include>
+
 A field validator is a Standard Schema validator (Zod, Valibot, ArkType…) or
-a function. A schema check sees the complete item:
+a function. A schema check, in the final `.with()`, sees the complete item:
 
-```ts title="src/application.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/validation/src/schema.ts#event
+</include>
 
-export const Application = UltimaBase.use(postgresPlugin(), validationPlugin())
-```
+The `room` validator calls `isRoomOpen()`, an asynchronous stand-in for a
+booking service in `src/rooms.ts`; in the example, the `Basement` room is
+closed. Register the schemas in the application that installs the plugin, and
+start it from a separate entry point:
 
-```ts title="src/event.ts"
-import { z } from 'zod'
-import { Application } from './application.js'
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/validation/src/ultimabase.ts#application
+</include>
 
-export const Event = Application.Schema.define({
-	className: 'Event',
-	fields: (f) => ({
-		// The output is stored: the title is trimmed, then checked.
-		title: f.string({ required: true, validation: z.string().trim().max(200) }),
-		code: f.string({
-			validation: (code) =>
-				/^[A-Z]{3}$/u.test(code) || {
-					code: 'event.code',
-					message: 'Three capital letters',
-				},
-		}),
-		startsAt: f.int({ required: true }),
-		endsAt: f.int({ required: true }),
-	}),
-}).with({
-	validation: ({ item }) =>
-		item.endsAt >= item.startsAt || {
-			path: ['endsAt'],
-			message: 'An event cannot end before it starts',
-		},
-})
-```
-
-Register the schema in the application that installs the plugin:
-
-```ts title="src/ultimabase.ts"
-import { Application } from './application.js'
-import { Event } from './event.js'
-
-export const ultimabase = new Application({ schemas: [Event] })
-
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
+<include cwd meta='title="src/main.ts"'>
+	../../examples/validation/src/main.ts#start
+</include>
 
 `validationPlugin()` takes no options. Types come from the schema itself,
 without generated files. `define` takes no `validation` option: the schema
@@ -110,7 +98,7 @@ rule belongs in the final `.with()`, and field rules stay on their fields.
 A Standard Schema validator must accept the field's value (its input may also
 accept `null`, so a form schema can be reused) and return a value the field
 can store. A mismatch is reported on the option, for example
-`validation must accept string, got number`, and the option's hover reads
+`validation must accept string, got number`, and the option's hover names
 `FieldValidator<string>`. A function validator receives the value and returns
 `true`, a message, or `{ message, code }`; the `code` reaches the client. Both
 may be `async`. Relation fields, virtual fields, and output descriptors do not
@@ -122,42 +110,206 @@ expose the option.
 
 Validation is the last step before storage: defaults, generators, Hooks
 `resolveInput` and Core's structural validation run first. A create validates
-every present field; an update validates only the fields it changes; the
-schema check always sees the complete item as it would be stored. A field
-validator never runs for `null`, and an object validator does not run when one
-of its properties failed. An update that increments a validated number checks
-the projected value while keeping the database operation atomic.
+every present field. A Standard Schema validator's output is what gets
+stored, so `z.string().trim()` trims the title:
 
-A Standard Schema validator's output is what gets stored, so
-`z.string().trim()` trims the value. Formatting a value belongs in the
-validator; deriving or cross-checking business data belongs in Hooks
-`resolveInput`. Core checks the output structurally again before storing it.
+<include cwd meta='title="tests/fields.test.ts"'>
+	../../examples/validation/tests/fields.test.ts#transform
+</include>
+
+`event.title` is `'Autumn meetup'`, and so is the stored row. Formatting a
+value belongs in the validator; deriving or cross-checking business data
+belongs in Hooks `resolveInput`. Core checks the output structurally again
+before storing it.
+
+A field validator never runs for `null`. `summary` requires at least ten
+characters, yet clearing it succeeds:
+
+<include cwd meta='title="tests/fields.test.ts"'>
+	../../examples/validation/tests/fields.test.ts#null-input
+</include>
+
+`cleared.summary` is `null`. Embedded object properties may have validators
+too; an object's own validator does not run when one of its properties failed.
+
+An update validates only the fields it writes, while the schema check always
+sees the complete item as it would be stored:
+
+<include cwd meta='title="tests/updates.test.ts"'>
+	../../examples/validation/tests/updates.test.ts#changed-fields
+</include>
+
+The rename succeeds although `Hall B` has closed since the event was created;
+`moved` rejects with `Hall B is closed` at `['update', 0, 'room', 'value']`.
+Changing only `startsOn` still runs the schema check against the stored
+`endsOn`:
+
+<include cwd meta='title="tests/updates.test.ts"'>
+	../../examples/validation/tests/updates.test.ts#update-check
+</include>
+
+`postponed` rejects with the `event.dates` issue at `['endsOn']`. An update
+that increments or decrements a validated number checks the projected value
+while keeping the database operation atomic:
+
+<include cwd meta='title="tests/updates.test.ts"'>
+	../../examples/validation/tests/updates.test.ts#book-seat
+</include>
+
+The first booking leaves `seatsLeft: 0`; the second rejects with `event.full`
+at `['update', 0, 'seatsLeft', 'value']`, and the count stays `0`.
 
 Validators may be `async`, but they run inside the transaction: a slow call
 holds its locks. Uniqueness belongs to a unique index, not to a validator.
 Master mutations take the same validation path; Master bypasses
 authorization, not validation.
 
+### Schema checks
+
+A schema check is a function on the complete item, as in `Event`, returning
+`true`, a message, an issue `{ path, message, code? }`, or a list of issues.
+It may also be a Standard Schema object validator, whose output is not
+stored:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/validation/src/schema.ts#ticket-tier
+</include>
+
+<include cwd meta='title="tests/schema-checks.test.ts"'>
+	../../examples/validation/tests/schema-checks.test.ts#ticket-tier-check
+</include>
+
+`tier` keeps every field, and `inverted` rejects with
+`The maximum cannot be below the minimum` at `['maxPerOrder']`, coded
+`schema.validation`.
+
 ### One response for every issue
 
 Core's structural issues (a missing required field, a wrong type) and every
-validator issue are collected into one `VALIDATION_ERROR`, each issue as
-`{ path, message, code }`: `field.validation` for a field validator,
-`schema.validation` for a schema check, or the `code` a function returned. A
-field path starts with the operation part (`['input', 'title']` for a create,
-`['update', 0, 'title', 'value']` for an update); a schema check's path is
-relative to the item. `updateMany` and the other bulk calls prefix each path
-with the item's index. REST answers `422` with the list in `details.issues`;
-GraphQL reports it in `extensions.details.issues`.
+validator issue are collected into one `VALIDATION_ERROR`. This create breaks
+three field rules and the schema check:
+
+<include cwd meta='title="tests/fields.test.ts"'>
+	../../examples/validation/tests/fields.test.ts#all-issues
+</include>
+
+`attempt` rejects with a `FrameworkError` whose `publicDetails.issues` lists
+the four issues, and nothing is written:
+
+```json title="issues.json"
+[
+	{
+		"code": "event.code",
+		"message": "Use three capital letters",
+		"path": ["input", "code"]
+	},
+	{
+		"code": "field.validation",
+		"message": "Basement is closed",
+		"path": ["input", "room"]
+	},
+	{
+		"code": "field.validation",
+		"message": "Too small: expected string to have >=10 characters",
+		"path": ["input", "summary"]
+	},
+	{
+		"code": "event.dates",
+		"message": "An event cannot end before it starts",
+		"path": ["endsOn"]
+	}
+]
+```
+
+Each issue is `{ path, message, code }`: `field.validation` for a field
+validator, `schema.validation` for a schema check, or the `code` a function
+returned. A field path starts with the operation part (`['input', 'code']`
+for a create, `['update', 0, 'room', 'value']` for an update); a schema
+check's path is relative to the item. When Core finds a structural issue, the
+field validators still run on the other fields, but the schema check waits
+for a structurally valid item.
+
+`updateMany` and the other bulk calls prefix each path with the item's index:
+
+<include cwd meta='title="tests/updates.test.ts"'>
+	../../examples/validation/tests/updates.test.ts#update-many
+</include>
+
+`updates` rejects with `event.code` at `[1, 'update', 0, 'code', 'value']`,
+and the whole call fails: the first event keeps its code.
+
+REST answers `422` with the list in `details.issues`; GraphQL reports it in
+`extensions.details.issues`. With the example running, send an event without
+its required title and with a bad code:
+
+```bash title="create-event.sh"
+curl --request POST \
+  http://127.0.0.1:1337/api/classes/Event \
+  --header 'Content-Type: application/json' \
+  --data '{"code":"meetup","startsOn":"2026-11-02","endsOn":"2026-11-03","seatsLeft":40}'
+```
+
+Expect HTTP `422` with Core's issue and the validator's together:
+
+```json title="create-event.response.json"
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "The operation input is invalid.",
+		"retryable": false,
+		"requestId": "REQUEST_ID",
+		"details": {
+			"issues": [
+				{
+					"code": "field.required",
+					"message": "Field is required",
+					"path": ["input", "title"]
+				},
+				{
+					"code": "event.code",
+					"message": "Use three capital letters",
+					"path": ["input", "code"]
+				}
+			]
+		}
+	}
+}
+```
 
 ### Validating without writing
 
 `check()` runs the field validators and the schema check of a create, without
 a write or a transaction, for forms, imports and tests:
 
-```ts
+<include cwd meta='title="tests/check.test.ts"'>
+	../../examples/validation/tests/check.test.ts#check
+</include>
+
+`accepted` is `{ valid: true }`; `rejected` is `{ valid: false, issues }`
+with the `event.code` and `event.dates` issues, at the paths `createOne`
+reports. Nothing is written. Narrow the result on `valid`; hover a name to see
+its type:
+
+```ts twoslash title="Check result"
+import { validationPlugin } from '@ultimabase/validation-plugin'
+
+import { Event } from '../../examples/validation/src/schema.ts'
+import { ultimabase } from '../../examples/validation/src/ultimabase.ts'
+
+const data = {
+	title: 'Autumn meetup',
+	startsOn: '2026-11-02',
+	endsOn: '2026-11-03',
+	seatsLeft: 40,
+}
+// ---cut---
 const result = await ultimabase.plugin(validationPlugin).check(Event, { data })
-if (!result.valid) console.log(result.issues)
+type Result = typeof result
+//   ^?
+if (!result.valid) {
+	const [first] = result.issues
+	//     ^?
+}
 ```
 
 It reports the plugin's issues only: Core's structural checks run when the
