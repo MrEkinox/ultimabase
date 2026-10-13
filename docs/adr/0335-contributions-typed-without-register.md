@@ -1,9 +1,9 @@
 # ADR-0335: Plugin contributions are typed without Register
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-13
 - Refines: ADR-0297 (form D and its Register-cycle note), ADR-0329; applies ADR-0288
-- Approval: the post-documentation fix pass decided by the user on 2026-10-13
+- Approval: the post-documentation fix pass decided by the user on 2026-10-13; record accepted by the user on 2026-10-13
 
 ## Context
 
