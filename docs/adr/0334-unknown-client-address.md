@@ -37,3 +37,28 @@ plugin then treats that string as a real address:
 - The HTTP and Password Authentication pages and their READMEs explain the behaviour, and
   `examples/http` and `examples/auth` prove it.
 - Documentation impact: both.
+
+## Amendment (2026-10-13)
+
+- Approval: decided by the user on 2026-10-13, after every test file using `t.fetch` printed the
+  warning of decision 3.
+
+`testApplication`'s `t.fetch` sent no socket peer, so every test suite using it, in this
+repository and in every user's project, logged the warning once and recorded no address.
+
+1. The HTTP plugin's port-free `fetch` takes an optional second argument,
+   `fetch(request, options?: HttpFetchOptions)` with `{ readonly remoteAddress?: string | undefined }`.
+   The address is the socket peer exactly as a server provider passes it: the same validation and
+   normalization, and `trustProxy` applies to it. Without it nothing changes. It also serves
+   fetch-handler deployments (edge and serverless platforms) that know the client address from
+   their platform.
+2. `t.fetch(path, init?, options?: TestFetchOptions)` behaves like a local server: it passes the
+   loopback peer `127.0.0.1` by default. `{ remoteAddress: '203.0.113.7' }` chooses another peer,
+   and `{ remoteAddress: undefined }` sends none, which reproduces the address-less behaviour of
+   this record.
+3. The warning of decision 3 also names `fetch(request, { remoteAddress })`.
+
+Consequences: the HTTP and Testing exports gain one option interface each (DX audit for both
+packages); tests and examples that exercise the address-less case request it explicitly, and
+addresses recorded through `t.fetch` without `X-Forwarded-For` become `127.0.0.1`. The HTTP and
+Testing pages and READMEs document both options. Documentation impact: both.

@@ -173,3 +173,101 @@ record did not announce; the user accepted both:
 2. **Property order** changes in a few result and input hovers of the old
    declaration form (same properties, different truncation); the old form is
    removed at the end of the migration.
+
+## Step 4 conflict accepted (2026-10-11)
+
+Requiring `Register` (amendment 1) creates TS7022/TS2502 cycles when an old-form schema reads the
+registry while it is typed: `RoleSchema.define` (create-app with Roles, examples `minimal` and
+`todo-backend`) and old-form Access rules inside `define` (website landing harness, Typegen
+performance probes). Those places register a schema-less application
+(`readonly app: UltimaBase<readonly []>`, with a comment) and keep their Typegen-provided types.
+The user accepted this workaround on 2026-10-11 until migration step 6 moves Roles, create-app
+and the examples to form D (`App.RoleSchema`, amendment 3) and removes the old form.
+
+Note (migration step 6.3, 2026-10-11): ADR-0322 removed this workaround where Roles caused it.
+Role schemas come from `App.RoleSchema.define`, proven on TypeScript 6 and 7 without TS7022, and
+create-app with Roles, `examples/todo-backend` and the form D example register `typeof ultimabase`
+again. Three places keep the schema-less registration for causes other than Roles, until their
+migration steps (6.7, 6.8): `examples/minimal` (the field-level relation `where` callback of
+`ExampleArticle.reviewers` reads the registry while its schema is typed), the website landing
+harness and the Typegen performance probes (old-form Access rules inside `define`).
+
+Note (2026-10-12, register-cycle spike, accepted by the user): migration step 6.3 also found that
+an unfinished `define(...)` beside finished declarations made `typeof ultimabase` circular in
+`Register` (TS7022/TS2502), unpredictably across TypeScript 6 and 7 and between sources and built
+packages, with or without plugins. Cause: `RegisteredApplication` read `Register` through a
+conditional type that mentions no type parameter, which TypeScript resolves as soon as it reads
+it (for example while measuring variances during the inference of `new UltimaBase(...)`). Core now
+reads the registry through `RegisterFor<TKey>`, generic in the key, so the read stays deferred;
+an unfinished `define(...)` is a usable schema with a required `Register`, as this record states.
+No public type or signature changed; one truncated hover and the `select` typo diagnostic of the
+form D example (`typos.ts`) list the same members in another order. `tests/e2e/register-required.e2e.test.ts` guards it on TypeScript 6; the fix relies on how
+TypeScript defers conditional types, so the TypeScript 6 and 7 reproduction matrix of the spike
+(`docs/handoff/spike-register-cycle.md`, branch `spike/register-cycle`) is rerun at each
+TypeScript upgrade.
+
+## Migration step 6.8b (2026-10-13)
+
+Typegen (package, plugin, generated files, Core contracts, performance budgets)
+and the old declaration form (plugin options inside `define`) were removed once
+every consumer was migrated, as decided above. `define(...)` now accepts only
+`className`, `fields` and `indexes`, at runtime as in the editor. ADR-0280,
+ADR-0281 and ADR-0283 are superseded by this record. Handoff:
+`docs/handoff/migration-etape-6-8b.md`.
+
+## Revised editor-speed thresholds (2026-10-13)
+
+Decided by the user after migration step 6.8b. TypeScript 7 is the editor-speed
+reference and TypeScript 6 a regression guard. On the form D bench
+(`examples/schema-form-d`: `tools/bench.mjs` on TypeScript 6,
+`tools/lsp-bench.mjs` on TypeScript 7), the time from an edit to its
+diagnostics must stay within:
+
+| Compiler     | 50 schemas | 200 schemas |
+| ------------ | ---------: | ----------: |
+| TypeScript 7 |    ≤ 0.6 s |       ≤ 2 s |
+| TypeScript 6 |      ≤ 2 s |       ≤ 6 s |
+
+Exceeding one threshold is a regression. The targets of amendment 2
+(TypeScript 6 within 1 s at 50 and 3 s at 200 schemas, TypeScript 7 within
+0.5 s at 50 schemas) are withdrawn.
+
+Current measurements (2026-10-13, `main` after migration step 6.8b, medians of
+three alternating runs on the reference machine): TypeScript 7 0.54 s at 50 and
+1.89 s at 200 schemas; TypeScript 6 1.85 s at 50 and 5.57 s at 200 schemas.
+
+Note (2026-10-13, ADR-0332): `UniqueWhereInput<"Todo">` joins the name-keyed
+types. It is the `where` of `updateOne`, `deleteOne` and `upsertOne` and of
+the items of their bulk forms, a union with one member per unique target:
+`{ id }`, each field declared `indexed: 'unique'` (the field type carries
+`UniqueFieldCarrier`), and each unique index of `define({ indexes })`, which
+`define` now captures through a third constant type parameter. Indexes of the
+final `.with` stay out of the types, since this form types the schema without
+reading `.with`. A schema with one target prints that member, not the name.
+Measured on the form D bench against `main` (medians of three interleaved
+runs, 1-minute load below 4): edit to diagnostics on TypeScript 7 0.58 s at 50
+and 1.91 s at 200 schemas (`main` 0.55 s and 1.84 s), on TypeScript 6 1.95 s
+and 5.77 s (`main` 1.85 s and 5.56 s), within the revised thresholds above
+with little margin at 50 schemas.
+
+Note (2026-10-14, ADR-0335): `SchemaRulesSource<T>` reads the registry only for
+a name-keyed `SchemaRef`, which carries an optional type-only marker; a schema
+constant supplies its own statics. A plugin that contributes Hooks or Access
+rules to a registered schema therefore never reads `Register`, and its factory
+needs no return annotation. The case `tests/register-cycle/contribution`
+guards it on TypeScript 6 and 7, from sources and built packages, in every
+root-file order. Checker instantiations grow by 0.01% or less. Measured on the
+form D bench against `main` (medians of three interleaved runs, 1-minute load
+below 4): edit to diagnostics on TypeScript 7 0.56 s at 50 and 1.90 s at 200
+schemas (`main` 0.56 s and 1.89 s), on TypeScript 6 1.95 s and 5.76 s (`main`
+1.95 s and 5.75 s).
+
+## Migration step 6.8c (2026-10-13)
+
+ADR-0177, ADR-0184, ADR-0185, ADR-0198, ADR-0217, ADR-0265 and ADR-0285 are
+superseded by this record. ADR-0173, ADR-0175, ADR-0187, ADR-0193 and ADR-0262
+are superseded only for their Typegen parts: static compilation, map-returning
+fields, the plugin declaration phase, operation handles and descriptive
+inspection remain in force. The CI job `TypeScript 7` type-checks packages,
+tests, examples and the `Register` cycle reproduction cases of the
+register-cycle note (`tests/register-cycle`) with TypeScript 7.0.2.
