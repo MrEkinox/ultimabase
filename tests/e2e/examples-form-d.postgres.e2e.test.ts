@@ -14,8 +14,7 @@ import { postgresConnectionUriContextKey } from '../fixtures/postgres-context.js
 // ADR-0327 decision 10: the examples use the declaration form only (no
 // Typegen, no schema-less `Register`), compile against the built packages,
 // and the examples with tests pass them with `testApplication`. ADR-0330: the
-// soft-delete, access and hooks examples are the tested sources of their
-// plugin's documentation.
+// feature examples are the tested source of their plugin's documentation.
 const execFileAsync = promisify(execFile)
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 const examples = [
@@ -24,6 +23,7 @@ const examples = [
 	'soft-delete',
 	'access',
 	'hooks',
+	'validation',
 ] as const
 // Quoted repository paths let the CI planner select this suite when they change.
 const testedExamples = [
@@ -31,6 +31,7 @@ const testedExamples = [
 	['examples/soft-delete', 11],
 	['examples/access', 19],
 	['examples/hooks', 14],
+	['examples/validation', 12],
 ] as const
 
 const compile = (example: string): readonly string[] => {
