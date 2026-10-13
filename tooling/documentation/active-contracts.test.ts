@@ -183,7 +183,7 @@ describe('active documentation contracts', () => {
 				if (/^\s*hooks\s*:/mu.test(fence)) {
 					if (
 						!fence.includes("from '@ultimabase/hooks-plugin'") ||
-						!fence.includes('hooksPlugin()')
+						!fence.includes('hooksPlugin(')
 					) {
 						violations.push(`${document}: Hooks option without hooksPlugin()`)
 					}

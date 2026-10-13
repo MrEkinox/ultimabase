@@ -1,0 +1,24 @@
+{
+	"name": "@ultimabase/example-hooks",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "node --env-file-if-exists=.env src/main.ts",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@ultimabase/api-server": "workspace:^",
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/hooks-plugin": "workspace:^",
+		"@ultimabase/postgres-plugin": "workspace:^",
+		"@ultimabase/soft-delete-plugin": "workspace:^"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"@ultimabase/testing": "workspace:^",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.11"
+	}
+}
