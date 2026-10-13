@@ -11,12 +11,18 @@ import { inject } from 'vitest'
 
 import { postgresConnectionUriContextKey } from '../fixtures/postgres-context.js'
 
-// ADR-0327 decision 10: both examples use the declaration form only (no
+// ADR-0327 decision 10: the examples use the declaration form only (no
 // Typegen, no schema-less `Register`), compile against the built packages,
-// and the reference application's own tests pass with `testApplication`.
+// and the examples with tests pass them with `testApplication`. ADR-0330: the
+// soft-delete example is the tested source of the Soft Delete documentation.
 const execFileAsync = promisify(execFile)
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
-const examples = ['minimal', 'todo-backend'] as const
+const examples = ['minimal', 'todo-backend', 'soft-delete'] as const
+// Quoted repository paths let the CI planner select this suite when they change.
+const testedExamples = [
+	['examples/todo-backend', 4],
+	['examples/soft-delete', 11],
+] as const
 
 const compile = (example: string): readonly string[] => {
 	const directory = path.join(repositoryRoot, 'examples', example)
@@ -59,9 +65,9 @@ describe.each(examples)('examples/%s', (example) => {
 	}, 60_000)
 })
 
-describe('examples/todo-backend tests', () => {
+describe.each(testedExamples)('%s tests', (example, testCount) => {
 	const containerUrl = inject(postgresConnectionUriContextKey)
-	const databaseName = `todo_backend_${String(process.env.VITEST_POOL_ID)}`
+	const databaseName = `${path.basename(example).replace('-', '_')}_${String(process.env.VITEST_POOL_ID)}`
 	const admin = new Pool({ connectionString: containerUrl, max: 1 })
 	const url = new URL(containerUrl)
 	url.pathname = `/${databaseName}`
@@ -80,7 +86,7 @@ describe('examples/todo-backend tests', () => {
 	})
 
 	it('pass with testApplication on their own database', async () => {
-		const project = path.join(repositoryRoot, 'examples/todo-backend')
+		const project = path.join(repositoryRoot, example)
 		// The nested run chooses its own worker slots.
 		const environment = Object.fromEntries(
 			Object.entries(process.env).filter(([name]) => name !== 'VITEST_POOL_ID'),
@@ -94,6 +100,6 @@ describe('examples/todo-backend tests', () => {
 				maxBuffer: 8 * 1024 * 1024,
 			},
 		)
-		expect(stdout).toContain('4 passed')
+		expect(stdout).toContain(`${String(testCount)} passed`)
 	}, 120_000)
 })

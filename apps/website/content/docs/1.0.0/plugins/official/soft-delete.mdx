@@ -7,8 +7,17 @@ contentType: guide
 order: 8
 outcome: Soft-delete a record, verify that ordinary reads hide it, restore it, and purge it from trusted server code.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
+  - examples/soft-delete/README.md
+  - examples/soft-delete/src/schema.ts
+  - examples/soft-delete/src/ultimabase.ts
+  - examples/soft-delete/src/main.ts
+  - examples/soft-delete/src/admin.ts
+  - examples/soft-delete/tests/lifecycle.test.ts
+  - examples/soft-delete/tests/trash.test.ts
+  - examples/soft-delete/tests/modes.test.ts
+  - examples/soft-delete/tests/rest.test.ts
   - packages/soft-delete-plugin/README.md
   - packages/soft-delete-plugin/src/plugin.ts
   - packages/soft-delete-plugin/src/options.ts
@@ -21,8 +30,6 @@ sources:
   - packages/graphql-plugin/README.md
   - tests/e2e/soft-delete-explicit-transports.postgres.e2e.test.ts
   - tests/e2e/soft-delete-public-vertical.postgres.e2e.test.ts
-  - examples/minimal/src/soft-delete.ts
-  - examples/minimal/README.md
   - packages/core/docs/runtime.md
   - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0303-core-partial-indexes-and-health.md
@@ -52,6 +59,10 @@ This guide follows one `Post` schema in the default mode. Follow the
 server-side flow, then use [REST](#rest) or [GraphQL](#graphql).
 [Command mode](#keep-native-deletes-permanent) shows how to keep native deletes
 permanent instead.
+
+Every TypeScript block on this page is copied from the
+[soft-delete example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/soft-delete),
+a complete application whose tests check each result described here.
 
 ## Installation
 
@@ -83,62 +94,35 @@ application.
 
 ## Configuration
 
-Install the plugin on the application factory, then opt a Post in:
+Install the plugin on the application factory. The example also installs
+Access and Roles, which decide who may read deleted posts; Soft Delete needs
+neither:
 
-```ts title="src/application.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/soft-delete/src/schema.ts#factory
+</include>
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
+Then opt a schema in with `.softDelete()`. The final `.with(...)` holds the
+schema's Access rules and REST exposure; `Moderator` is the role declared in
+[Reading deleted rows](#reading-deleted-rows-readdeleted):
 
-export const Application = UltimaBase.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-	softDeletePlugin(),
-)
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/soft-delete/src/schema.ts#post
+</include>
 
-```ts title="src/schemas.ts"
-import { Application } from './application.js'
+This example lets every caller write, delete, and restore posts to keep the
+walkthrough short; give restoration the same rule as `delete` in your own
+application. Create the application with an audited Master authority, which
+the private purge step uses later; soft deletion and restoration do not
+require it:
 
-export const Post = Application.Schema.define({
-	className: 'Post',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-}).softDelete()
-```
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/soft-delete/src/ultimabase.ts#application
+</include>
 
-This example uses a **disposable development database**: PostgreSQL's
-`override` policy can create or alter application tables. Master authority is
-configured for the private purge step later; soft deletion and restoration do
-not require it.
-
-```ts title="src/ultimabase.ts"
-import { MasterAuthority } from '@ultimabase/core'
-import { Application } from './application.js'
-import { Post } from './schemas.js'
-
-const masterKey = process.env.ULTIMABASE_MASTER_KEY
-if (!masterKey) throw new Error('ULTIMABASE_MASTER_KEY is required')
-
-export const ultimabase = new Application({
-	masterAuthority: new MasterAuthority({
-		keys: [{ id: 'server', value: masterKey }],
-		onUse: (event) => {
-			// Replace this development sink with your production audit sink.
-			console.info('Master use', event.reason)
-		},
-	}),
-	schemas: [Post],
-})
-
-// One declaration per application gives name-keyed editor types.
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
+`postgresPlugin()` reads `DATABASE_URL` when the application starts. Use a
+**disposable development database**: outside production, PostgreSQL's
+`override` policy can create or alter application tables.
 
 Keep `ULTIMABASE_MASTER_KEY` server-side. A client must never choose
 `useMasterKey` or receive that key. See [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
@@ -146,11 +130,9 @@ for audit configuration.
 
 Start the exported application from a separate entry point:
 
-```ts title="src/main.ts"
-import { ultimabase } from './ultimabase.js'
-
-await ultimabase.start()
-```
+<include cwd meta='title="src/main.ts"'>
+	../../examples/soft-delete/src/main.ts#start
+</include>
 
 ## Behavior and limitations
 
@@ -158,23 +140,12 @@ await ultimabase.start()
 
 In server code, call the schema class directly after `ultimabase.start()`.
 Outside an active request, the class resolves the sole active application.
+The example's tests run each step below with
+[`testApplication`](/docs/1.0.0/guides/test-an-application) and check its result:
 
-```ts title="src/soft-delete-flow.ts"
-import { Post } from './schemas.js'
-
-const post = await Post.createOne({
-	data: { title: 'Draft announcement' },
-})
-
-const deleted = await Post.deleteOne({
-	where: { id: post.id },
-	select: { title: true, isDeleted: true, deletedAt: true },
-})
-
-const visible = await Post.findOne({
-	where: { id: { eq: post.id } },
-})
-```
+<include cwd meta='title="tests/lifecycle.test.ts"'>
+	../../examples/soft-delete/tests/lifecycle.test.ts#soft-delete
+</include>
 
 In the default mode `deleteOne()` writes the tombstone, so `deleted` is the
 record **after** soft deletion: `isDeleted: true` and `deletedAt` set by the
@@ -191,12 +162,9 @@ does not make a tombstone visible or allow you to soft-delete it twice.
 
 `restoreOne` brings a tombstone back and clears `deletedAt`:
 
-```ts title="src/soft-delete-flow.ts (continued)"
-const restored = await Post.restoreOne({
-	id: post.id,
-	select: { title: true, isDeleted: true, deletedAt: true },
-})
-```
+<include cwd meta='title="tests/lifecycle.test.ts"'>
+	../../examples/soft-delete/tests/lifecycle.test.ts#restore
+</include>
 
 `restored.isDeleted` is `false` and `restored.deletedAt` is `null`. Restore
 preserves the ID, stored fields, pointers, and relation memberships; it only
@@ -205,31 +173,18 @@ sees tombstones, so an active or missing ID fails with `NOT_FOUND`.
 Restoration is a request command: with [Access](./access) installed it needs an
 `access.restoreOne` rule, and is closed when the rule is absent and no
 `allowWithoutRule` key opens it. Without Access, any caller that reaches the command may run
-it, like every other request operation. To keep restoration server-side, deny
-it and run it with Master, which bypasses Access:
-
-```ts title="src/schemas.ts (restore stays server-side)"
-export const Post = Application.Schema.define({
-	className: 'Post',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-})
-	.softDelete()
-	.with({ access: { restoreOne: false, restoreMany: false } })
-```
+it, like every other request operation. To keep restoration server-side, set
+`restoreOne: false` and `restoreMany: false` in the `access` rules and run it
+with Master, which bypasses Access.
 
 ### Purge from server code
 
 `purgeOne` permanently removes one tombstone. It requires configured, audited
 Master authority; never forward a client-selected `useMasterKey` flag.
 
-```ts title="src/soft-delete-flow.ts (continued)"
-await Post.deleteOne({ where: { id: post.id } })
-
-const purged = await Post.purgeOne(
-	{ id: post.id, select: { title: true, isDeleted: true } },
-	{ useMasterKey: true },
-)
-```
+<include cwd meta='title="tests/lifecycle.test.ts"'>
+	../../examples/soft-delete/tests/lifecycle.test.ts#purge
+</include>
 
 `purged` is the record **before** physical deletion, with `isDeleted: true`.
 The row is now gone; `restoreOne()` cannot recover it. Purge follows the
@@ -243,23 +198,9 @@ targets all produce the same `NOT_FOUND`.
 rule, Hooks, readable-result check, and visibility as the one-row command; one
 refused row rolls the whole command back.
 
-```ts title="src/soft-delete-many.ts"
-import { Post } from './schemas.js'
-
-const hidden = await Post.softDeleteMany({
-	where: { title: { startsWith: 'Draft' } },
-	select: { deletedAt: true },
-})
-
-const back = await Post.restoreMany({
-	where: { title: { startsWith: 'Draft' } },
-})
-
-const removed = await Post.purgeMany(
-	{ where: { title: { startsWith: 'Draft' } } },
-	{ useMasterKey: true },
-)
-```
+<include cwd meta='title="tests/lifecycle.test.ts"'>
+	../../examples/soft-delete/tests/lifecycle.test.ts#many
+</include>
 
 Each resolves to one result per written row, in identifier order. A many-row
 command sees only the rows it may target: `softDeleteMany` sees visible rows,
@@ -270,60 +211,29 @@ not exposed through REST or GraphQL yet.
 ### Enable REST and GraphQL
 
 REST and GraphQL expose a command only when the schema's rule names it, with
-the command's own name, like every schema method (ADR-0324, ADR-0325):
-
-```ts title="src/schema.ts"
-const Post = Application.Schema.define({ className: 'Post', fields })
-	.softDelete()
-	.with({
-		graphql: { softDeleteOne: true, restoreOne: true },
-		rest: { softDeleteOne: true, restoreOne: true },
-	})
-```
+the command's own name, like every schema method (ADR-0324, ADR-0325). The
+example's `Post` declares `rest: { softDeleteOne: true, restoreOne: true }`;
+the GraphQL rule has the same shape,
+`graphql: { softDeleteOne: true, restoreOne: true }`.
 
 - REST: `rest: { softDeleteOne: true }` adds the
   `POST /classes/Post/{id}/soft-delete-one` route; `rest: true` exposes every
   method and command, `rest: false` none. The `rest` rule requires
-  `restPlugin()` in the application's `UltimaBase.use(...)`.
+  `restPlugin()`, installed here by `apiServer({ rest: true })`.
 - GraphQL: `graphql: { softDeleteOne: true }` adds the `softDeleteOnePost`
   mutation; `graphql: true` exposes every method and command, `graphql: false`
-  none. The `graphql` rule requires `graphqlPlugin()` in the application's
-  `UltimaBase.use(...)`.
+  none. The `graphql` rule requires `graphqlPlugin()`, installed by
+  `apiServer({ graphql: true })`.
 
 Enabling exposure does not grant permission. `purgeOne` and the many-row
 commands are never exposed.
 
-For a local walkthrough of both APIs, install the HTTP, REST, GraphQL, Yoga,
-and Hono packages described in [REST setup](./rest) and
-[GraphQL with Yoga](./graphql#serve-graphql-over-http-with-yoga). Add the following
-plugins to the existing application with `...apiPlugins` before starting it;
-import `apiPlugins` from `./api-plugins.js` in `ultimabase.ts`. Use
-[Hono's server entry point](./hono-server#start-and-stop-the-managed-listener)
-so the API keeps serving between the requests below.
-
-```ts title="src/api-plugins.ts"
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
-import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
-import { httpPlugin } from '@ultimabase/http-plugin'
-import { restPlugin } from '@ultimabase/rest-plugin'
-import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
-
-export const apiPlugins = [
-	httpPlugin({ appId: 'blog' }),
-	restPlugin({ publicWrites: true }),
-	graphqlPlugin({ publicWrites: true }),
-	graphqlYogaPlugin(),
-	honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
-] as const
-```
-
-This local example exposes the schema's default read and write operations
-without an authorization policy. Keep it on loopback with disposable data.
-Before public exposure, configure [Access](./access) or [Object ACLs](./acl-permissions)
-and review [public transport protection](/docs/1.0.0/operations/before-exposing-your-application).
-`publicWrites: true` lets every client write for this local walkthrough;
-without it and without a policy plugin, REST and GraphQL refuse to start.
-Neither adds a policy.
+The factory above serves REST through `apiServer`, with HTTP, REST, and a
+[Hono server](./hono-server#start-and-stop-the-managed-listener) on
+`127.0.0.1:1337` while the application runs. Access decides what each
+request may do; without a policy plugin, REST and GraphQL refuse to start
+unless you pass `publicWrites: true`. Before public exposure, review
+[public transport protection](/docs/1.0.0/operations/before-exposing-your-application).
 
 If your policy requires an authenticated caller, configure
 [Password Authentication](./password-authentication) and send that caller's
@@ -333,7 +243,9 @@ Authentication alone grants no read or soft-delete permission.
 ### REST
 
 These requests use the default `/api` prefix; HTTP serves the `blog`
-application without an application header. Create a fresh record for this walkthrough:
+application without an application header. The example's
+`tests/rest.test.ts` sends the same requests in memory. Create a fresh record
+for this walkthrough:
 
 ```bash title="create-post.sh"
 curl --request POST \
@@ -387,7 +299,9 @@ a request to it then answers 405.
 
 ### GraphQL
 
-Use `POST http://127.0.0.1:1337/graphql` with these headers:
+The example does not install GraphQL. Add `graphql: true` to its `apiServer`
+options and the `graphql` rule above, then use
+`POST http://127.0.0.1:1337/graphql` with these headers:
 
 ```json title="graphql-headers.json"
 {
@@ -465,17 +379,14 @@ independently of the native `deleteOne` key.
 
 ### Keep native deletes permanent
 
-Declare `.softDelete({ mode: 'command' })` instead and restart with the new
-compiled application:
+Declare `.softDelete({ mode: 'command' })` instead. The example's `Comment`
+uses this mode:
 
-```ts title="src/schemas.ts (command mode)"
-export const Post = Application.Schema.define({
-	className: 'Post',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-}).softDelete({ mode: 'command' })
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/soft-delete/src/schema.ts#comment
+</include>
 
-`Post.deleteOne()`, REST `DELETE`, and GraphQL `deletePost` now delete the
+`Comment.deleteOne()`, REST `DELETE`, and GraphQL `deleteComment` delete the
 record permanently, and restore cannot recover it. `softDeleteOne` and
 `softDeleteMany` are the only way to write a tombstone; the restore and purge
 commands are the same as in the default mode.
@@ -487,16 +398,9 @@ unique index is partial. To let a deleted record release its slug, declare a
 partial unique index in the final `.with` (the plugin never adds one
 automatically):
 
-```ts title="src/article.ts"
-export const Article = Application.Schema.define({
-	className: 'Article',
-	fields: (f) => ({ slug: f.string({ required: true }) }),
-})
-	.softDelete()
-	.with({
-		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
-	})
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/soft-delete/src/schema.ts#article
+</include>
 
 If another row took the slug meanwhile, restoring the tombstone fails with
 `UNIQUE_VIOLATION` and a message naming the command, row and field:
@@ -525,16 +429,26 @@ included, and can filter and sort them (`where: { isDeleted: { eq: true } }`,
 `orderBy: { deletedAt: 'desc' }`); without it the private filter applies.
 Updates, deletes and request commands never reach tombstones through it.
 With [Access](./access), grant it with a rule of the same name or with its own
-`allowWithoutRule` key (`all`, `read` and `write` never include it):
+`allowWithoutRule` key (`all`, `read` and `write` never include it). The
+example's `Post` grants it to moderators, `readDeleted: hasRole(Moderator)`,
+with a role from [Roles](./roles):
 
-```ts title="src/schemas.ts (an audit trash)"
-export const Post = Application.Schema.define({
-	className: 'Post',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-})
-	.softDelete()
-	.with({ access: { read: true, readDeleted: hasRole(Auditor) } })
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/soft-delete/src/schema.ts#moderators
+</include>
+
+Trusted server code makes a member a moderator:
+
+<include cwd meta='title="src/admin.ts"'>
+	../../examples/soft-delete/src/admin.ts#add-moderator
+</include>
+
+The same query then returns the trash to a moderator and nothing to anyone
+else:
+
+<include cwd meta='title="tests/trash.test.ts"'>
+	../../examples/soft-delete/tests/trash.test.ts#read-deleted
+</include>
 
 A caller without the permission never sees tombstones, whatever its `where`.
 Master holds every permission, but its reads keep the trash filter by default,
@@ -544,14 +458,9 @@ tombstones only when its own `where` constrains `isDeleted`: any condition on
 the schema's `isDeleted`, at any depth of `AND`, `OR` and `NOT` (a condition
 inside a relation predicate does not count; an inclusion uses its own `where`):
 
-```ts title="src/server-jobs.ts"
-await Post.findMany(undefined, { useMasterKey: true }) // live rows only
-await Post.findMany({ where: { isDeleted: true } }, { useMasterKey: true }) // the trash
-await Post.count(
-	{ where: { isDeleted: { in: [true, false] } } },
-	{ useMasterKey: true },
-) // every row
-```
+<include cwd meta='title="src/admin.ts"'>
+	../../examples/soft-delete/src/admin.ts#master-reads
+</include>
 
 The rule applies to `findMany`, `findOne`, `findOneOrThrow`, `count`, `exists`,
 inclusions, REST and GraphQL. Restore and purge keep reaching tombstones for
@@ -571,7 +480,12 @@ pointer to a tombstone keeps its value, and including it returns `null` until a
 purge physically deletes the row.
 
 There is no deleter identity, reason, retention job, automatic purge, or
-nested soft delete yet.
+nested soft delete yet. A scheduled server job can empty the trash with
+`purgeMany`:
+
+<include cwd meta='title="src/admin.ts"'>
+	../../examples/soft-delete/src/admin.ts#empty-trash
+</include>
 
 ## Troubleshooting
 

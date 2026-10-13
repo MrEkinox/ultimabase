@@ -35,6 +35,7 @@ const checks: readonly (readonly string[])[] = [
 	['--project', 'tooling/tsconfig/test-typescript-7.json'],
 	['--project', 'examples/minimal/tsconfig.json'],
 	['--project', 'examples/todo-backend/tsconfig.json'],
+	['--project', 'examples/soft-delete/tsconfig.json'],
 	['--project', 'examples/schema-form-d/tsconfig.json'],
 	['--project', 'examples/schema-form-d/tsconfig.source.json'],
 	...registerCycleProjects.map((project) => ['--project', project]),

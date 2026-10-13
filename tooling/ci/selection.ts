@@ -184,6 +184,8 @@ export const selectCi = (input: SelectionInput): CiPlan => {
 				(file) =>
 					isDocumentation(file) ||
 					file.startsWith('packages/') ||
+					// Example regions are the code of pages and READMEs (ADR-0330).
+					file.startsWith('examples/') ||
 					file.startsWith('apps/website/'),
 			),
 		website,

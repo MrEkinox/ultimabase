@@ -16,6 +16,7 @@
 	"scripts": {
 		"build": "yarn workspaces foreach --all --topological --parallel --no-private run build",
 		"changeset": "changeset",
+		"docs:regions": "node tooling/documentation/sync-readme-regions.ts",
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
 		"lint": "yarn lint:core && yarn lint:packages && yarn lint:workspace",
