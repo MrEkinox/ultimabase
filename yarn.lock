@@ -71,6 +71,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@babel/runtime@npm:^7.29.7 || ^8.0.0":
+  version: 8.0.7
+  resolution: "@babel/runtime@npm:8.0.7"
+  checksum: 10c0/7ff1ca2d452a3359dc63bd36b25ff219ef04dfefbf7186900f1c296e55ade2ccc7f88dd2eb9d58ed253e3bde58fae97b9e40d80220ebfe510c99f7cf54837603
+  languageName: node
+  linkType: hard
+
 "@babel/runtime@npm:^7.5.5":
   version: 7.29.7
   resolution: "@babel/runtime@npm:7.29.7"
@@ -92,6 +99,51 @@ __metadata:
   version: 1.0.2
   resolution: "@balena/dockerignore@npm:1.0.2"
   checksum: 10c0/0bcb067e86f6734ab943ce4ce9a7c8611f2e983a70bccebf9d2309db57695c09dded7faf5be49c929c4c9e9a9174ae55fc625626de0fb9958823c37423d12f4e
+  languageName: node
+  linkType: hard
+
+"@base-ui/react@npm:^1.7.0":
+  version: 1.9.0
+  resolution: "@base-ui/react@npm:1.9.0"
+  dependencies:
+    "@babel/runtime": "npm:^7.29.7 || ^8.0.0"
+    "@base-ui/utils": "npm:0.5.0"
+    "@floating-ui/react-dom": "npm:^2.1.9"
+    "@floating-ui/utils": "npm:^0.2.12"
+    use-sync-external-store: "npm:^1.7.0"
+  peerDependencies:
+    "@date-fns/tz": ^1.2.0
+    "@types/react": ^17 || ^18 || ^19
+    date-fns: ^4.0.0
+    react: ^17 || ^18 || ^19
+    react-dom: ^17 || ^18 || ^19
+  peerDependenciesMeta:
+    "@date-fns/tz":
+      optional: true
+    "@types/react":
+      optional: true
+    date-fns:
+      optional: true
+  checksum: 10c0/0495ec9026ad2f5f04580865a1b40c2899b2475d77472d3dcb8b688b1a2a949e14493cc50adb4dd7d33970caef7845ef4a0b93184a8299ed78bda7ff7c288847
+  languageName: node
+  linkType: hard
+
+"@base-ui/utils@npm:0.5.0":
+  version: 0.5.0
+  resolution: "@base-ui/utils@npm:0.5.0"
+  dependencies:
+    "@babel/runtime": "npm:^7.29.7 || ^8.0.0"
+    "@floating-ui/utils": "npm:^0.2.12"
+    reselect: "npm:^5.3.0"
+    use-sync-external-store: "npm:^1.7.0"
+  peerDependencies:
+    "@types/react": ^17 || ^18 || ^19
+    react: ^17 || ^18 || ^19
+    react-dom: ^17 || ^18 || ^19
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10c0/864b572ea60ea557bfdc63ff056026ed585cce4f35e4996c63e86503944befa3d9bc41e8f1da847e1273d8ac0b2f55210eecff936c3cfb1e0ea7ba9bfc5c5b5b
   languageName: node
   linkType: hard
 
@@ -803,7 +855,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@floating-ui/react-dom@npm:^2.0.0":
+"@floating-ui/react-dom@npm:^2.0.0, @floating-ui/react-dom@npm:^2.1.9":
   version: 2.1.9
   resolution: "@floating-ui/react-dom@npm:2.1.9"
   dependencies:
@@ -2585,6 +2637,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@shikijs/core@npm:4.5.0":
+  version: 4.5.0
+  resolution: "@shikijs/core@npm:4.5.0"
+  dependencies:
+    "@shikijs/primitive": "npm:4.5.0"
+    "@shikijs/types": "npm:4.5.0"
+    "@shikijs/vscode-textmate": "npm:^10.0.2"
+    "@types/hast": "npm:^3.0.5"
+    hast-util-to-html: "npm:^9.0.5"
+  checksum: 10c0/67319596a078d314c1f336693661787cd0d226748b0a0e3267461cb99adf7328afe9c6d8a0ae2c114827751bf0a81f6f41e19d14b7b8711774e35cb0547e6a26
+  languageName: node
+  linkType: hard
+
 "@shikijs/engine-javascript@npm:4.4.3":
   version: 4.4.3
   resolution: "@shikijs/engine-javascript@npm:4.4.3"
@@ -2626,12 +2691,36 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@shikijs/primitive@npm:4.5.0":
+  version: 4.5.0
+  resolution: "@shikijs/primitive@npm:4.5.0"
+  dependencies:
+    "@shikijs/types": "npm:4.5.0"
+    "@shikijs/vscode-textmate": "npm:^10.0.2"
+    "@types/hast": "npm:^3.0.5"
+  checksum: 10c0/69db5b348ce778c22413800876a91e4209fc8139e40328e9446f790d4e4c72ea06230cfc9f3ee617cf1bb847d5a75d34d2c8efef50f8ecd1d2efd37ca45b771f
+  languageName: node
+  linkType: hard
+
 "@shikijs/themes@npm:4.4.3":
   version: 4.4.3
   resolution: "@shikijs/themes@npm:4.4.3"
   dependencies:
     "@shikijs/types": "npm:4.4.3"
   checksum: 10c0/69b8e1f1125d493854361e9b31e89b6d7fa14df65600b07e41b581a20e2d24b5291fea4ca4ee4186186c99e8bd3d67cc4569bbf517e6372c9329d556e36ed004
+  languageName: node
+  linkType: hard
+
+"@shikijs/twoslash@npm:^4.4.3":
+  version: 4.5.0
+  resolution: "@shikijs/twoslash@npm:4.5.0"
+  dependencies:
+    "@shikijs/core": "npm:4.5.0"
+    "@shikijs/types": "npm:4.5.0"
+    twoslash: "npm:^0.3.9"
+  peerDependencies:
+    typescript: ">=5.5.0"
+  checksum: 10c0/6e67b0258c31b0c836b2872184f1b5877a2e4a501344fd667a777bfd9acb3999fa0b06df30f8c4e2c2440a2984ad07cc42baacc6b15e943062fc4140a3613e26
   languageName: node
   linkType: hard
 
@@ -2642,6 +2731,16 @@ __metadata:
     "@shikijs/vscode-textmate": "npm:^10.0.2"
     "@types/hast": "npm:^3.0.5"
   checksum: 10c0/ba8f0f38332d9bf44298e47acc5bf8229025464ed2dce38deddd1198d5d69a195792b29a6800bf2dfb89db67ae6d70720a48340b5ed5a4c33afebd364cca8ab7
+  languageName: node
+  linkType: hard
+
+"@shikijs/types@npm:4.5.0":
+  version: 4.5.0
+  resolution: "@shikijs/types@npm:4.5.0"
+  dependencies:
+    "@shikijs/vscode-textmate": "npm:^10.0.2"
+    "@types/hast": "npm:^3.0.5"
+  checksum: 10c0/139acc1740e97df84e20a45ae171b470569d3f10f0183afa36845506a7a6ea5d54e5dee7b0d1f177213f4ce26ee0f0e250cc0942c3cb07176f916584f1ee2376
   languageName: node
   linkType: hard
 
@@ -3378,6 +3477,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@typescript/vfs@npm:^1.6.4":
+  version: 1.6.5
+  resolution: "@typescript/vfs@npm:1.6.5"
+  dependencies:
+    debug: "npm:^4.4.3"
+  peerDependencies:
+    typescript: "*"
+  checksum: 10c0/c8631a2a28984d43026898d22f41d50301e1c7d1485c00d4cf32c1470cba6cd8f37a766815c6799e3a62c583b48dec076c3307b5c34542f7ab08481941bb244b
+  languageName: node
+  linkType: hard
+
 "@ultimabase/access-plugin@workspace:^, @ultimabase/access-plugin@workspace:packages/access-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/access-plugin@workspace:packages/access-plugin"
@@ -3826,6 +3936,7 @@ __metadata:
     beautiful-mermaid: "npm:1.1.3"
     fumadocs-core: "npm:16.15.12"
     fumadocs-mdx: "npm:15.4.3"
+    fumadocs-twoslash: "npm:3.3.1"
     fumadocs-ui: "npm:16.15.12"
     github-slugger: "npm:2.0.0"
     lucide-react: "npm:1.47.0"
@@ -3834,7 +3945,10 @@ __metadata:
     playwright-core: "npm:1.63.0"
     react: "npm:19.3.0"
     react-dom: "npm:19.3.0"
+    shiki: "npm:4.4.3"
     tailwindcss: "npm:4.3.3"
+    twoslash: "npm:0.3.9"
+    typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
     zod: "npm:4.6.5"
   languageName: unknown
@@ -4870,6 +4984,15 @@ __metadata:
   version: 2.1.1
   resolution: "clsx@npm:2.1.1"
   checksum: 10c0/c4c8eb865f8c82baab07e71bfa8897c73454881c4f99d6bc81585aecd7c441746c1399d08363dc096c550cceaf97bd4ce1e8854e1771e9998d9f94c4fe075839
+  languageName: node
+  linkType: hard
+
+"cn@npm:^0.2.4":
+  version: 0.2.6
+  resolution: "cn@npm:0.2.6"
+  bin:
+    cn: bin/cn.mjs
+  checksum: 10c0/7d5744771e897061e210d5aa49563d254518e7e032ec372991d8e1ebb1d61057b4ec538810de31ac267153e610c141ec54b0befd006c0220e772a652824b9830
   languageName: node
   linkType: hard
 
@@ -6154,6 +6277,32 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fumadocs-twoslash@npm:3.3.1":
+  version: 3.3.1
+  resolution: "fumadocs-twoslash@npm:3.3.1"
+  dependencies:
+    "@base-ui/react": "npm:^1.7.0"
+    "@shikijs/twoslash": "npm:^4.4.3"
+    cn: "npm:^0.2.4"
+    mdast-util-from-markdown: "npm:^2.0.3"
+    mdast-util-gfm: "npm:^3.1.0"
+    mdast-util-to-hast: "npm:^13.2.1"
+    twoslash: "npm:^0.3.9"
+    typescript: "npm:^6.0.3"
+  peerDependencies:
+    "@types/react": "*"
+    fumadocs-core: ^16.7.16
+    fumadocs-ui: ^16.7.16
+    react: ^19.2.0
+    react-dom: ^19.2.0
+    shiki: 4.x.x
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10c0/261f6b3bebcd642ad795975bbea24f0c864e39469683c4569a9aa80ce1ff53bce30e6dcb2d9d8f47631bcb0b0f80c3ac4d21e130e7f4712d19eb6c223700eb3e
+  languageName: node
+  linkType: hard
+
 "fumadocs-ui@npm:16.15.12":
   version: 16.15.12
   resolution: "fumadocs-ui@npm:16.15.12"
@@ -7249,6 +7398,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mdast-util-from-markdown@npm:^2.0.3":
+  version: 2.1.0
+  resolution: "mdast-util-from-markdown@npm:2.1.0"
+  dependencies:
+    "@types/mdast": "npm:^4.0.0"
+    "@types/unist": "npm:^3.0.0"
+    decode-named-character-reference: "npm:^1.0.0"
+    devlop: "npm:^1.0.0"
+    mdast-util-to-string: "npm:^4.0.0"
+    micromark: "npm:^4.0.0"
+    micromark-util-decode-numeric-character-reference: "npm:^2.0.0"
+    micromark-util-decode-string: "npm:^2.0.0"
+    micromark-util-normalize-identifier: "npm:^2.0.0"
+    micromark-util-symbol: "npm:^2.0.0"
+    micromark-util-types: "npm:^2.0.0"
+    unist-util-stringify-position: "npm:^4.0.0"
+  checksum: 10c0/63cf2c77a3b731536eb29d777bfe134c829221a07597e83c696f1e65c7893b94d617c886ec277e5f95de7b4055b11c5253c5eca01ca7549f5f47b4dc133e571c
+  languageName: node
+  linkType: hard
+
 "mdast-util-gfm-autolink-literal@npm:^2.0.0":
   version: 2.0.1
   resolution: "mdast-util-gfm-autolink-literal@npm:2.0.1"
@@ -7311,7 +7480,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mdast-util-gfm@npm:^3.0.0":
+"mdast-util-gfm@npm:^3.0.0, mdast-util-gfm@npm:^3.1.0":
   version: 3.1.0
   resolution: "mdast-util-gfm@npm:3.1.0"
   dependencies:
@@ -7397,7 +7566,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mdast-util-to-hast@npm:^13.0.0":
+"mdast-util-to-hast@npm:^13.0.0, mdast-util-to-hast@npm:^13.2.1":
   version: 13.2.1
   resolution: "mdast-util-to-hast@npm:13.2.1"
   dependencies:
@@ -9032,6 +9201,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"reselect@npm:^5.3.0":
+  version: 5.3.0
+  resolution: "reselect@npm:5.3.0"
+  checksum: 10c0/c79728e4f315152bfb2d82456d35075b705392d9e72c485d7d9b1061bd80af628416216d80f02a42f24dbb24d738aec7fec45806930aaa1d17c32e9875fa1bd6
+  languageName: node
+  linkType: hard
+
 "resolve-from@npm:^5.0.0":
   version: 5.0.0
   resolution: "resolve-from@npm:5.0.0"
@@ -9375,7 +9551,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"shiki@npm:^4.4.3":
+"shiki@npm:4.4.3, shiki@npm:^4.4.3":
   version: 4.4.3
   resolution: "shiki@npm:4.4.3"
   dependencies:
@@ -9931,6 +10107,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"twoslash-protocol@npm:0.3.9":
+  version: 0.3.9
+  resolution: "twoslash-protocol@npm:0.3.9"
+  checksum: 10c0/e56d32c408cba896b0d913a092c52de027e91f777a7a356b220d2f2403bd22d78306dfbdc98c6231710971d26f1402ab43506e895c461970f3bb59049f857eaf
+  languageName: node
+  linkType: hard
+
+"twoslash@npm:0.3.9, twoslash@npm:^0.3.9":
+  version: 0.3.9
+  resolution: "twoslash@npm:0.3.9"
+  dependencies:
+    "@typescript/vfs": "npm:^1.6.4"
+    twoslash-protocol: "npm:0.3.9"
+  peerDependencies:
+    typescript: ^5.5.0 || ^6.0.0
+  checksum: 10c0/7dd13c87d1508dafbd342896c304b9a51a0f3301fe6f3661b183a6f76a608feade8edb6388f3df82999cb478ea3f944a43559d450790f8645c05860367e36c73
+  languageName: node
+  linkType: hard
+
 "type-check@npm:^0.4.0, type-check@npm:~0.4.0":
   version: 0.4.0
   resolution: "type-check@npm:0.4.0"
@@ -10263,6 +10458,15 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10c0/161599bf921cfaa41c85d2b01c871975ee99260f3e874c2d41c05890d41170297bdcf314bc5185e7a700de2034ac5b888e3efc8e9f35724f4918f53538d717c9
+  languageName: node
+  linkType: hard
+
+"use-sync-external-store@npm:^1.7.0":
+  version: 1.7.0
+  resolution: "use-sync-external-store@npm:1.7.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10c0/6bae7cb778ce611131ec830c4e469fbc2872acefc25d2e4cf1c28b8628690689770742a9f2f0642c95134f9c77041fee60f0352f81ca43f96643b0ed01774726
   languageName: node
   linkType: hard
 

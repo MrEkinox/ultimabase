@@ -103,7 +103,7 @@ switch (process.argv[2]) {
 			// The complete tooling selection below already includes the documentation guards.
 			if (!plan.tooling && !plan.coverage)
 				run(['vitest', 'run', '--project', 'unit', 'tooling/documentation/'])
-			// Landing example compilation depends on built exports, not documentation prose.
+			// Landing examples and Twoslash snippets compile against built exports.
 			run(
 				plan.build
 					? ['website:validate']
@@ -113,6 +113,8 @@ switch (process.argv[2]) {
 							'**/landing-samples.content.test.ts',
 							'--exclude',
 							'**/landing-stacks.content.test.ts',
+							'--exclude',
+							'**/compiled-snippets.content.test.ts',
 						],
 			)
 		}

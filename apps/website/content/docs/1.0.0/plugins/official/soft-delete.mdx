@@ -156,7 +156,20 @@ Repeating the deletion for that ID returns `null` (`deleteOne`) or fails with
 `NOT_FOUND` (`softDeleteOne`), just as it does for an absent target.
 
 Results are frozen plain data without methods (ADR-0310); a retained result
-does not make a tombstone visible or allow you to soft-delete it twice.
+does not make a tombstone visible or allow you to soft-delete it twice. The
+selection also narrows the result type; hover a name to see its type:
+
+```ts twoslash title="Result types"
+import '../../examples/soft-delete/src/ultimabase.ts'
+import { Post } from '../../examples/soft-delete/src/schema.ts'
+// ---cut---
+const deleted = await Post.deleteOne({
+	where: { id: 'POST_ID' },
+	select: { title: true, isDeleted: true, deletedAt: true },
+})
+type Deleted = typeof deleted
+//   ^?
+```
 
 ### Restore
 

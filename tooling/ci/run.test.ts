@@ -197,6 +197,8 @@ describe('GitHub selected command execution', () => {
 					'**/landing-samples.content.test.ts',
 					'--exclude',
 					'**/landing-stacks.content.test.ts',
+					'--exclude',
+					'**/compiled-snippets.content.test.ts',
 				],
 			},
 		])

@@ -19,6 +19,8 @@ export interface CodeBlock {
 	readonly kind: CodeBlockKind
 	/** 1-based line of the fence or `<include>` in its document. */
 	readonly line: number
+	/** The lines of a fenced block; absent for an `<include>`. */
+	readonly code?: readonly string[]
 	/** For an included region: the resolved source file and region name. */
 	readonly region?: { readonly file: string; readonly name: string }
 }
@@ -70,22 +72,26 @@ export const classifyCodeBlocks = (
 		if (!isScriptFile(region.file) && !/\blang=/u.test(attributes)) continue
 		blocks.push({ kind: 'included', line: lineOf(source, match.index), region })
 	}
-	let open: { readonly fence: string; readonly info: string } | undefined
+	let open: { readonly fence: string; readonly code?: string[] } | undefined
 	let readmeRegion = false
 	source.split('\n').forEach((text, index) => {
 		const fence = fencePattern.exec(text)?.groups
 		if (open !== undefined) {
 			if (fence?.fence?.startsWith(open.fence) && fence.info?.trim() === '')
 				open = undefined
+			else open.code?.push(text)
 			return
 		}
 		if (readmeRegionPattern.test(text)) readmeRegion = true
 		if (text === '<!-- endregion -->') readmeRegion = false
 		if (fence?.fence === undefined) return
-		const info = (fence.info ?? '').trim()
-		open = { fence: fence.fence, info }
-		const [language = '', ...meta] = info.split(/\s+/u)
-		if (!scriptLanguage.test(language)) return
+		const [language = '', ...meta] = (fence.info ?? '').trim().split(/\s+/u)
+		if (!scriptLanguage.test(language)) {
+			open = { fence: fence.fence }
+			return
+		}
+		const code: string[] = []
+		open = { code, fence: fence.fence }
 		const kind: CodeBlockKind = readmeRegion
 			? 'included'
 			: meta.includes(compiledFlag)
@@ -93,7 +99,7 @@ export const classifyCodeBlocks = (
 				: meta.includes(unverifiedFlag)
 					? 'unverified'
 					: 'unmarked'
-		blocks.push({ kind, line: index + 1 })
+		blocks.push({ code, kind, line: index + 1 })
 	})
 	return blocks.sort((left, right) => left.line - right.line)
 }
