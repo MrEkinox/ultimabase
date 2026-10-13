@@ -1,7 +1,7 @@
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
-import { Article, Subscriber } from '../src/articles.ts'
+import { Article, Subscriber } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 // Each `//#region` below is shown on the Access documentation page; the

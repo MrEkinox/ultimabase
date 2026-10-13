@@ -10,28 +10,51 @@ properties, and the enclosing virtual field. It never appears on properties
 inside an output descriptor: Access protects the virtual field as one logical
 selectable result.
 
-```ts
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
+Every TypeScript block below is copied from the
+[access example](../../examples/access/README.md), a small application whose
+tests prove each behavior described here (ADR-0330). This one permits reads
+of published articles, hides `internalNote`, and denies every mutation to
+ordinary callers:
 
-const Application = UltimaBase.use(accessPlugin())
-const Post = Application.Schema.define({
-	className: 'Post',
+<!-- region ../../examples/access/src/schema.ts#factory,article -->
+
+```ts
+import { accessPlugin, allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+
+/**
+ * Access denies every operation that has no schema rule. Roles supplies the
+ * `hasRole()` facts and Soft Delete the commands and permission ruled on
+ * `Comment`; Access imports neither. `postgresPlugin()` reads
+ * `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	accessPlugin(),
+	rolesPlugin(),
+	softDeletePlugin(),
+	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
+	postgresPlugin(),
+)
+
+/** Readers see published articles only; `internalNote` never leaves the server. */
+export const Article = App.Schema.define({
+	className: 'Article',
 	fields: (field) => ({
+		internalNote: field.string({ access: { read: false, write: false } }),
 		published: field.boolean({ default: false }),
-		secret: field.string({ access: { read: false } }),
-		title: field.string(),
+		title: field.string({ required: true }),
 	}),
 }).with({
-	access: {
-		read: ({ where }) => where.eq('published', true),
-	},
-})
-
-const ultimabase = new Application({
-	schemas: [Post],
+	// No create, update, upsert or delete rule: they stay denied.
+	access: { read: ({ where }) => where.eq('published', true) },
 })
 ```
+
+<!-- endregion -->
 
 ## Rules in `.with` (ADR-0297)
 
@@ -40,22 +63,6 @@ With the declaration form of
 go in the final `.with` call, typed by `AccessRules` and contributed through
 `AccessSchemaRules`. Filters may cross thunk targets in both directions;
 `define` rejects an `access` option.
-
-```ts
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
-
-const App = UltimaBase.use(accessPlugin())
-export const Post = App.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		published: field.boolean({ default: false }),
-		author: field.pointer({ target: () => Author }),
-	}),
-}).with({
-	access: { read: ({ where }) => where.eq('published', true) },
-})
-```
 
 ## Public surface
 
@@ -91,22 +98,9 @@ factory without the
 plugin exposes neither contract, and Runtime compilation still rejects untyped
 JavaScript declarations that try to use them.
 
-JavaScript uses the same compiled graph. This
-application intentionally has no Access engine, so direct CRUD has no official
-Access policy stage:
-
-```js
-import { UltimaBase } from '@ultimabase/core'
-
-const Post = UltimaBase.Schema.define({
-	className: 'Post',
-	fields: (field) => ({ title: field.string() }),
-})
-
-const ultimabase = new UltimaBase({ schemas: [Post] })
-await ultimabase.start()
-await Post.findMany(undefined)
-```
+JavaScript uses the same compiled graph. An application without
+`accessPlugin()` has no official Access policy stage: its direct CRUD runs
+without Access rules.
 
 Core validation, transactions, protected constraints, and anonymous or
 audited-master authority remain active. Importing this package alone installs
@@ -135,21 +129,77 @@ Roles' `hasRole()`, is accepted wherever a rule returns a decision without a
 filter. A predicate that throws rejects the operation; throw a `PublicError`
 to tell the client why.
 
-```ts
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
-import { accessPlugin } from '@ultimabase/access-plugin'
+Notes below are private to their author; `Admin` is a Roles role:
 
-const App = UltimaBase.use(accessPlugin())
+<!-- region ../../examples/access/src/schema.ts#factory,members,note -->
+
+```ts
+import { accessPlugin, allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+
+/**
+ * Access denies every operation that has no schema rule. Roles supplies the
+ * `hasRole()` facts and Soft Delete the commands and permission ruled on
+ * `Comment`; Access imports neither. `postgresPlugin()` reads
+ * `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	accessPlugin(),
+	rolesPlugin(),
+	softDeletePlugin(),
+	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
+	postgresPlugin(),
+)
+
+/** The people who use the newsroom; a request principal points to a Member. */
+export const Member = App.Schema.define({
+	className: 'Member',
+	fields: (field) => ({ name: field.string({ required: true }) }),
+})
+
+/** Created at start when missing. Only trusted server code changes members. */
+export const StaffRole = App.RoleSchema.define({
+	className: 'StaffRole',
+	members: () => Member,
+	ensure: ['editor', 'admin', 'muted'],
+})
+
+export const Editor = StaffRole.role('editor')
+export const Admin = StaffRole.role('admin')
+export const Muted = StaffRole.role('muted')
+
+/** Private notes: members write their own, and only their author reads them. */
 export const Note = App.Schema.define({
 	className: 'Note',
-	fields: (field) => ({ author: field.string(), body: field.string() }),
+	fields: (field) => ({
+		author: field.string({ required: true }),
+		body: field.string({ required: true }),
+	}),
 }).with({
 	access: {
-		create: isAuthenticated,
-		update: ({ principal, where }) => where.eq('author', principal?.id ?? ''),
+		read: ({ principal, where }) =>
+			principal === undefined ? false : where.eq('author', principal.id),
+		create: {
+			// Nothing is loaded before a create: `where` is a decision.
+			where: isAuthenticated,
+			item: ({ item, principal }) => item.author === principal?.id,
+		},
+		update: {
+			where: ({ principal }) => principal !== undefined,
+			item: ({ item, originalItem, principal }) =>
+				originalItem.author === principal?.id &&
+				item.author === originalItem.author,
+		},
+		delete: hasRole(Admin),
 	},
 })
 ```
+
+<!-- endregion -->
 
 Every `connect` and `set` target, in singular, nested and collection commands,
 must be visible to the caller as a `one` read under every installed policy;
@@ -167,34 +217,8 @@ selection (`readPolicyQuery()` marks it).
 
 Each operation has at most one schema rule, evaluated before any row is
 loaded: `true` (every row), `false` (no row), or a function returning one of
-them or a row filter. A function that may return nothing is a type error.
-
-```ts
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
-
-const App = UltimaBase.use(accessPlugin(), rolesPlugin())
-export const Post = App.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		author: field.string(),
-		published: field.boolean(),
-	}),
-}).with({
-	access: {
-		read: ({ where }) => where.eq('published', true),
-		create: isAuthenticated,
-		update: {
-			where: ({ principal }) => principal !== undefined,
-			item: ({ originalItem, item, principal }) =>
-				originalItem.author === principal?.id &&
-				item.author === originalItem.author,
-		},
-		delete: hasRole(Admin),
-	},
-})
-```
+them or a row filter. A function that may return nothing is a type error. The
+`Note` above uses each form.
 
 - `read` covers `one`, `many`, `count` and `exists`, or takes
   `{ one, many, count, exists }` with each member optional.
@@ -215,13 +239,27 @@ export const Post = App.Schema.define({
 Without a schema rule an operation is denied, unless `allowWithoutRule` opens
 it. It replaces the former `default` option.
 
+The example's tests start an application with each of these configurations:
+
+<!-- region ../../examples/access/src/openings.ts#openings -->
+
 ```ts
-accessPlugin({ allowWithoutRule: { all: true, write: false } })
-accessPlugin({
-	allowWithoutRule: { read: true, count: false, write: isAuthenticated },
-})
-accessPlugin({ allowWithoutRule: { all: 'development' } })
+/** Reads open, production included; native writes and commands stay denied. */
+export const readOnlyAccess = () =>
+	accessPlugin({ allowWithoutRule: { all: true, write: false } })
+
+/** Reads open except counts; authenticated callers may write. */
+export const memberWritesAccess = () =>
+	accessPlugin({
+		allowWithoutRule: { read: true, count: false, write: isAuthenticated },
+	})
+
+/** Everything open outside production; in production, `start()` fails. */
+export const developmentAccess = () =>
+	accessPlugin({ allowWithoutRule: { all: 'development' } })
 ```
+
+<!-- endregion -->
 
 - Keys: `all`; the groups `read` (`one`, `many`, `count`, `exists`) and `write`
   (`create`, `update`, `upsert`, `delete` and request plugin commands); each
@@ -259,12 +297,83 @@ permission's own `allowWithoutRule` key, else a refusal. Core holds the
 permission when one policy grants it and none refuses it, and Master always
 holds it. Access never imports the declaring plugin.
 
+Soft Delete's `readDeleted` is one; the example grants it to editors, beside
+the rules of Soft Delete's commands:
+
+<!-- region ../../examples/access/src/schema.ts#factory,members,comment -->
+
 ```ts
-const App = UltimaBase.use(accessPlugin(), softDeletePlugin())
-App.Schema.define({ className: 'Post', fields })
+import { accessPlugin, allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+
+/**
+ * Access denies every operation that has no schema rule. Roles supplies the
+ * `hasRole()` facts and Soft Delete the commands and permission ruled on
+ * `Comment`; Access imports neither. `postgresPlugin()` reads
+ * `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	accessPlugin(),
+	rolesPlugin(),
+	softDeletePlugin(),
+	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
+	postgresPlugin(),
+)
+
+/** The people who use the newsroom; a request principal points to a Member. */
+export const Member = App.Schema.define({
+	className: 'Member',
+	fields: (field) => ({ name: field.string({ required: true }) }),
+})
+
+/** Created at start when missing. Only trusted server code changes members. */
+export const StaffRole = App.RoleSchema.define({
+	className: 'StaffRole',
+	members: () => Member,
+	ensure: ['editor', 'admin', 'muted'],
+})
+
+export const Editor = StaffRole.role('editor')
+export const Admin = StaffRole.role('admin')
+export const Muted = StaffRole.role('muted')
+
+/**
+ * `.softDelete()` adds request commands (`softDeleteOne`, `restoreOne`…) and
+ * the `readDeleted` permission. Each has its own Access key: `update` and
+ * `delete` grant none of them.
+ */
+export const Comment = App.Schema.define({
+	className: 'Comment',
+	fields: (field) => ({
+		author: field.string({ required: true }),
+		body: field.string({ required: true }),
+		pinned: field.boolean({ default: false }),
+	}),
+})
 	.softDelete()
-	.with({ access: { read: true, readDeleted: hasRole(Admin) } })
+	.with({
+		access: {
+			read: true,
+			// Authenticated members may comment unless they are muted.
+			create: allOf(isAuthenticated, not(hasRole(Muted))),
+			// Authors hide their own comments, except pinned ones.
+			softDeleteOne: {
+				where: ({ principal, where }) =>
+					principal === undefined ? false : where.eq('author', principal.id),
+				item: ({ originalItem }) => !originalItem.pinned,
+			},
+			restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
+			// Editors also see hidden comments in ordinary reads.
+			readDeleted: hasRole(Editor),
+		},
+	})
 ```
+
+<!-- endregion -->
 
 ## Plugin-owned schema mutations
 
@@ -272,44 +381,15 @@ The `access` rule gains one key for each plugin command the schema's statics
 carry (`SchemaCommands`) whose authority is `request`. The key is the exact
 application command name, and its callbacks receive the mutation's payload and
 immutable logical identity. The mutation declaration and Runtime handler still
-have one source owner:
+have one source owner. In the `Comment` above, `softDeleteOne` is authorized
+as its own logical operation: its `where` filter keeps other authors' comments
+out of reach and its `item` check keeps pinned ones.
 
-```ts
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
-
-const Application = UltimaBase.use(accessPlugin())
-const Post = Application.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		published: field.boolean(),
-		title: field.string(),
-	}),
-}).with({
-	access: {
-		archive: {
-			where: ({ input, mutation, where }) =>
-				input.reason.length > 0 &&
-				mutation.name === 'community.workflow.archive' &&
-				where.eq('published', true),
-			item: ({ item, originalItem }) =>
-				item.published === false && originalItem.published === true,
-		},
-		update: false,
-		delete: false,
-	},
-})
-
-const ultimabase = new Application({
-	schemas: [Post],
-})
-```
-
-`archive` is authorized as its own logical operation. Its physical update does
-not invoke or inherit `access.update`, and an update or delete rule cannot grant
-it. `where` runs before target loading and returns `true`, `false` or the
-target filter, and `item` observes the locked original plus the
-owner-resolved candidate. Without a rule, its own `allowWithoutRule` key, then
+A command's physical update or delete does
+not invoke or inherit `access.update` or `access.delete`, and an update or
+delete rule cannot grant it. `where` runs before target loading and returns
+`true`, `false` or the target filter, and `item` observes the locked original
+plus the owner-resolved candidate. Without a rule, its own `allowWithoutRule` key, then
 `write`, then `all` decide. Ordinary
 field output restrictions still shape the final selected result. Compatible
 providers may add the same exact branch through `schemaAccess()`; those rules
@@ -326,7 +406,7 @@ A plugin that intentionally contributes official Access declarations uses the
 public contribution helpers and declares a non-ordering peer. The provider may
 appear before or after the engine in plugin configuration.
 
-```ts
+```ts unverified
 import {
 	provideAccessContributions,
 	schemaAccess,
@@ -377,7 +457,7 @@ An official-compatible provider can test its declarations through package-root
 exports by making itself the conformance subject, installing `accessPlugin()`
 as support, and attaching a product-owned `persistence` check:
 
-```ts
+```ts unverified
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	createPluginConformanceFixture,

@@ -1,10 +1,17 @@
 //#region application
-import { Article, Story, Subscriber } from './articles.ts'
-import { Comment } from './comments.ts'
-import { AuditEntry, Note } from './notes.ts'
 import { Draft } from './openings.ts'
-import { Profile } from './profiles.ts'
-import { App, Member, StaffRole } from './schema.ts'
+import {
+	App,
+	Article,
+	AuditEntry,
+	Comment,
+	Member,
+	Note,
+	Profile,
+	StaffRole,
+	Story,
+	Subscriber,
+} from './schema.ts'
 
 export const ultimabase = new App({
 	schemas: [

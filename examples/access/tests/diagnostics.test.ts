@@ -1,9 +1,7 @@
 import { testApplication } from '@ultimabase/testing'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { Story } from '../src/articles.ts'
-import { Note } from '../src/notes.ts'
-import { Member } from '../src/schema.ts'
+import { Member, Note, Story } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 // Access writes through the application logger, the console by default.
@@ -35,16 +33,17 @@ it('explains a denial on the server only', async () => {
 	)
 	const info = vi.spyOn(console, 'info')
 
-	const renaming = Story.updateOne({
-		data: { title: 'Renamed' },
-		where: { id: story.id },
-	})
-
 	// The client receives the usual PERMISSION_DENIED; the server log names
 	// the schema, operation, step and rule (at debug in production).
-	await expect(renaming).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+	await expect(
+		Story.updateOne({ data: { title: 'Renamed' }, where: { id: story.id } }),
+	).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+	await expect(
+		Story.createOne({ data: { title: 'New' } }),
+	).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	expect(accessLines(info)).toStrictEqual([
 		'[@ultimabase/access-plugin] denied update on Story at the item step (Story.access.update.item).',
+		'[@ultimabase/access-plugin] denied create on Story at the operation step (no rule for create, and allowWithoutRule does not open it).',
 	])
 })
 

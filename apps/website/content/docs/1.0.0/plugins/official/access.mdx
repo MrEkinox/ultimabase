@@ -8,18 +8,30 @@ contentType: guide
 order: 4
 outcome: Define fail-closed authorization that can only narrow as policies compose.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
+  - examples/access/README.md
+  - examples/access/src/schema.ts
+  - examples/access/src/openings.ts
+  - examples/access/src/ultimabase.ts
+  - examples/access/src/main.ts
+  - examples/access/tests/reads.test.ts
+  - examples/access/tests/mutations.test.ts
+  - examples/access/tests/fields.test.ts
+  - examples/access/tests/plugin-rules.test.ts
+  - examples/access/tests/openings.test.ts
+  - examples/access/tests/diagnostics.test.ts
+  - examples/access/tests/rest.test.ts
   - packages/access-plugin/README.md
   - packages/access-plugin/src/authoring/contracts.ts
   - packages/access-plugin/src/authoring/allow-without-rule.ts
   - packages/access-plugin/src/authoring/field-declarations.ts
+  - packages/access-plugin/src/authoring/utilities.ts
   - packages/access-plugin/src/plugin.ts
   - packages/access-plugin/src/startup.ts
   - packages/access-plugin/src/runtime/denial-log.ts
   - packages/auth-plugin/README.md
   - packages/access-plugin/tests/e2e/access-plugin-postgres.postgres.e2e.test.ts
-  - examples/minimal/src/schema.ts
   - docs/adr/0204-access-is-one-vertical-plugin.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
@@ -43,6 +55,10 @@ can provide an identity, and [Roles](./roles) can resolve membership, but
 neither grants access on its own. [Object ACLs](./acl-permissions) are a separate,
 persisted per-object policy that works with or without this plugin.
 
+Every TypeScript block on this page is copied from the
+[access example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/access),
+a small newsroom application whose tests check each result described here.
+
 ## Installation
 
 Start with an UltimaBase application and a database provider. Install the
@@ -62,69 +78,48 @@ pnpm add @ultimabase/access-plugin
 
 ## Configuration
 
-Declare a policy on the schema it protects. This example permits reads of
+Install the plugin on the application factory. The example also installs
+[Roles](./roles), whose `hasRole()` predicates its rules use, and
+[Soft Delete](./soft-delete), whose commands have their own Access keys:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#factory
+</include>
+
+Declare a policy on the schema it protects. This one permits reads of
 published articles, hides `internalNote`, and denies every mutation to ordinary
 callers:
 
-```ts title="src/application.ts"
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#article
+</include>
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
+Register the schemas in the application:
 
-export const Application = UltimaBase.use(
-	postgresPlugin({ url: databaseUrl }),
-).use(accessPlugin())
-```
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/access/src/ultimabase.ts#application
+</include>
 
-```ts title="src/article.ts"
-import { Application } from './application.js'
+Start it from a separate entry point; leaving the `await using` scope awaits
+`dispose()` when the process finishes:
 
-export const Article = Application.Schema.define({
-	className: 'Article',
-	fields: (f) => ({
-		internalNote: f.string({
-			access: { read: false, write: false },
-		}),
-		published: f.boolean({ default: false }),
-		title: f.string({ required: true }),
-	}),
-}).with({
-	access: {
-		read: ({ where }) => where.eq('published', true),
-	},
-})
-```
+<include cwd meta='title="src/main.ts"'>
+	../../examples/access/src/main.ts#start
+</include>
 
-Install the plugin alongside the database provider and register the schema:
+The installed engine denies every operation that has no schema rule. Here, the
+`read` rule covers all four read operations and returns a private row filter
+that limits them to published rows, so an ordinary caller reads only the
+published article:
 
-```ts title="src/ultimabase.ts"
-import { Application } from './application.js'
-import { Article } from './article.js'
+<include cwd meta='title="tests/reads.test.ts"'>
+	../../examples/access/tests/reads.test.ts#read-articles
+</include>
 
-export const ultimabase = new Application({
-	schemas: [Article],
-})
-
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
-
-Keep startup in the existing entry point from
-[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
-`ultimabase.start()` there and always await `dispose()` when the process finishes.
-
-The installed engine denies every operation that has no schema rule. In this
-example, the `read` rule covers all four read operations and returns a private
-row filter that limits them to published rows. Create, update, upsert, and
-delete have no rule, so they remain denied. A normal result omits `internalNote`, while
-an explicit selection, filter, or sort using it is rejected. Audited Master
-requests bypass these Access restrictions.
+The result omits `internalNote`, while an explicit selection, filter, or sort
+using it is rejected with `PERMISSION_DENIED`. Create, update, upsert, and
+delete have no rule, so they remain denied. Audited Master requests bypass
+these Access restrictions: the example's tests write the articles as Master.
 
 Field `access` stays on the field; schema rules go in the final
 `.with({ access })`, never in `define`. Both are typed from the source
@@ -154,32 +149,23 @@ never open every row.
 `read` takes one rule for its four operations, or an object whose members
 `one`, `many`, `count` and `exists` are each optional:
 
-```ts title="src/count-only-article.ts"
-import { Application } from './application.js'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#subscriber
+</include>
 
-export const CountOnlyArticle = Application.Schema.define({
-	className: 'CountOnlyArticle',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-}).with({
-	access: { read: { count: true } },
-})
-```
-
-With plain `accessPlugin()`, `count` is allowed while `one`, `many`, and
-`exists` stay denied: an omitted member has no schema rule.
+With plain `accessPlugin()`, `Subscriber.count()` is allowed while `one`,
+`many`, and `exists` stay denied: an omitted member has no schema rule.
 
 ### Operations without a rule: `allowWithoutRule`
 
 Without a schema rule an operation is denied, unless the plugin's
-`allowWithoutRule` option opens it for every schema that has no rule for it:
+`allowWithoutRule` option opens it for every schema that has no rule for it.
+The example's application keeps plain `accessPlugin()`; its tests start a
+small application with each of these configurations:
 
-```ts
-accessPlugin({ allowWithoutRule: { all: true, write: false } })
-accessPlugin({
-	allowWithoutRule: { read: true, count: false, write: isAuthenticated },
-})
-accessPlugin({ allowWithoutRule: { all: 'development' } })
-```
+<include cwd meta='title="src/openings.ts"'>
+	../../examples/access/src/openings.ts#openings
+</include>
 
 - **Keys:** `all`; the groups `read` (`one`, `many`, `count`, `exists`) and
   `write` (`create`, `update`, `upsert`, `delete` and request plugin commands);
@@ -194,17 +180,25 @@ accessPlugin({ allowWithoutRule: { all: 'development' } })
   row filter, since it applies to every schema); `false` or an absent key
   keeps the operation denied.
 
-After `start()`, Access logs one `warn` line per opening, production
-included, naming predicates, and one `info` line listing the schemas that have
-no Access rule at all (they are fully denied unless an opening applies). An
-opening of `write` is an explicit policy: Access is installed, so public
+So `readOnlyAccess()` lets anyone read and count a schema without rules but
+denies its creates, and `memberWritesAccess()` refuses `count()` and lets
+only an authenticated caller create.
+
+After `start()`, Access logs one `warn` line per opening (a `false` key opens
+nothing), production included, naming predicates, and one `info` line listing
+the schemas that have no Access rule at all (they are fully denied unless an
+opening applies). In the example's application, whose members and roles only
+server code manages, that line is
+`schemas without an Access rule, denied unless allowWithoutRule opens them: Member, StaffRole, Draft.`
+An opening of `write` is an explicit policy: Access is installed, so public
 transports never ask for a separate acknowledgment of public writes.
 
 ### Detailed mutations: `where` and `item`
 
-A mutation can also take `{ where, item }`. `where` is the same operation
-rule (for `create`, a boolean decision, since nothing is loaded); `item` runs
-on stable, prepared values and returns a boolean:
+A mutation can also take `{ where, item }`, and both members are required.
+`where` is the same operation rule (for `create`, a boolean decision, since
+nothing is loaded); `item` runs on stable, prepared values and returns a
+boolean:
 
 | Member  | Available on                             | Checks                                                                           |
 | ------- | ---------------------------------------- | -------------------------------------------------------------------------------- |
@@ -212,28 +206,20 @@ on stable, prepared values and returns a boolean:
 | `item`  | Create, update, upsert, delete, commands | A prepared draft, locked original, or final candidate according to the operation |
 
 For example, an update can reach only unlocked rows and can keep a published
-article's title unchanged:
+story's title unchanged:
 
-```ts title="src/editable-article.ts"
-import { Application } from './application.js'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#story
+</include>
 
-export const EditableArticle = Application.Schema.define({
-	className: 'EditableArticle',
-	fields: (f) => ({
-		locked: f.boolean({ default: false }),
-		published: f.boolean({ default: false }),
-		title: f.string({ required: true }),
-	}),
-}).with({
-	access: {
-		update: {
-			where: ({ where }) => where.eq('locked', false),
-			item: ({ item, originalItem }) =>
-				!originalItem.published || item.title === originalItem.title,
-		},
-	},
-})
-```
+<include cwd meta='title="tests/mutations.test.ts"'>
+	../../examples/access/tests/mutations.test.ts#update-story
+</include>
+
+The draft is retitled. Retitling a published story fails with
+`PERMISSION_DENIED` at the `item` step, while locking it, which keeps its
+title, succeeds. A locked story is outside the `where` filter: updating it
+returns `null`, as for a missing row.
 
 A filter object takes the same equality shorthand as a query
 (`({ where }) => where.eq('locked', false)` or `() => ({ locked: false })`).
@@ -249,34 +235,34 @@ pointer to the authenticated identity, `undefined` when anonymous), the policy
 `operation` key, the `schema` class name and the request `context`. Because a
 rule receives that policy context, a Core
 [`PolicyPredicate`](/docs/1.0.0/core/security-foundations/request-identity#policy-predicates)
-such as `isAuthenticated` is accepted wherever a rule returns a decision:
+such as `isAuthenticated`, or Roles' `hasRole()`, is accepted wherever a rule
+returns a decision:
 
-```ts title="src/private-note.ts"
-import { isAuthenticated } from '@ultimabase/core'
-import { Application } from './application.js'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#note
+</include>
 
-export const PrivateNote = Application.Schema.define({
-	className: 'PrivateNote',
-	fields: (f) => ({
-		author: f.string({ required: true }),
-		body: f.string({ required: true }),
-	}),
-}).with({
-	access: {
-		create: isAuthenticated,
-		read: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('author', principal.id),
-	},
-})
-```
+The `read` rule denies anonymous callers and makes notes private to their
+author. `isAuthenticated` alone allows any authenticated caller to create;
+the `item` check then refuses a note written in another member's name. The
+test runs each call as a member with `t.as()`:
 
-`isAuthenticated` alone allows any authenticated caller; the `read` rule
-denies anonymous callers and makes notes private to their author. A rule never imports the authentication
-plugin: the [Password Authentication](./password-authentication) page explains
-how a session becomes the principal, and [Roles](./roles) documents the
-`hasRole()` predicate. A rule or predicate that throws rejects the operation;
-throw a [`PublicError`](/docs/1.0.0/core/runtime/api-errors#publicerror) to
-tell the client why.
+<include cwd meta='title="tests/mutations.test.ts"'>
+	../../examples/access/tests/mutations.test.ts#write-note
+</include>
+
+`mine` holds Ada's note and `theirs` is empty, while an anonymous
+`Note.findMany()` fails with `PERMISSION_DENIED`. Only an admin deletes a
+note; because the deleted note obeys the admin's own `read` rule, an admin
+deleting another member's note asks for `select: { id: true }` (see
+[Mutation results obey read rules](#mutation-results-obey-read-rules)).
+
+A rule never imports the authentication plugin: the
+[Password Authentication](./password-authentication) page explains how a
+session becomes the principal, and [Roles](./roles) documents the `hasRole()`
+predicate. A rule or predicate that throws rejects the operation; throw a
+[`PublicError`](/docs/1.0.0/core/runtime/api-errors#publicerror) to tell the
+client why.
 
 If you also expose a `find` route for this schema through [REST](./rest),
 verify the boundary with three requests: an anonymous read returns `403`
@@ -284,7 +270,8 @@ verify the boundary with three requests: an anonymous read returns `403`
 `200` with a `results` collection, and a revoked session returns `401`
 `HTTP_APPLICATION_REJECTED` before Access runs. The Bearer token establishes
 identity; this Access rule grants the read. A successful read does not imply
-per-user row isolation.
+per-user row isolation. The example's `tests/rest.test.ts` checks the
+anonymous request.
 
 ### Field read and write rules
 
@@ -303,9 +290,20 @@ whole, not individual properties inside its output descriptor.
 For example, `read: { where: false, orderBy: false }` permits displaying a
 field but not using it to infer information through filtering or ordering.
 `write: { replace: false, clear: false }` permits its first non-null value but
-prevents later replacement or clearing. Field callbacks
-receive the request `principal` and `context`; value-aware callbacks receive
-the relevant `value` or `originalValue`.
+prevents later replacement or clearing:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#profile
+</include>
+
+<include cwd meta='title="tests/fields.test.ts"'>
+	../../examples/access/tests/fields.test.ts#set-handle
+</include>
+
+The first handle is stored; a later update that replaces it or sets it to
+`null` fails with `PERMISSION_DENIED`, while `bio` stays writable. Field
+callbacks receive the request `principal` and `context`; value-aware callbacks
+receive the relevant `value` or `originalValue`.
 
 A denied output field is omitted from ordinary results. Explicitly selecting
 it fails with `PERMISSION_DENIED`, as does an unauthorized filter, order, or
@@ -322,15 +320,34 @@ A plugin-owned request command, such as [Soft Delete](./soft-delete)'s
 `update`; its `input` is available to the rule. It does not inherit `update`
 or `delete` permission merely because its physical effect is an update or
 delete. Without a rule, its own `allowWithoutRule` key, then `write`, then
-`all` decide. Master-only commands have no Access key and never become public.
+`all` decide. Master-only commands such as `purgeOne` have no Access key and
+never become public.
 
 A plugin can also declare a named schema permission, such as Soft Delete's
 `readDeleted`. Access grants it through a rule of the same name (`true`,
-`false` or a predicate: `readDeleted: hasRole(Admin)`) or through its own
-`allowWithoutRule` key; `all`, `read` and `write` never include it. Core asks
-every installed policy, holds the permission only when one grants it and none
-refuses it, and Master always holds it. Neither Access nor the declaring
-plugin imports the other.
+`false` or a predicate) or through its own `allowWithoutRule` key; `all`,
+`read` and `write` never include it. Core asks every installed policy, holds
+the permission only when one grants it and none refuses it, and Master always
+holds it. Neither Access nor the declaring plugin imports the other.
+
+`allOf`, `anyOf` and `not` combine decisions (booleans and predicates such as
+`isAuthenticated` or `hasRole()`) inside one rule; they never combine row
+filters. The example's `Comment` uses all three:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#comment
+</include>
+
+<include cwd meta='title="tests/plugin-rules.test.ts"'>
+	../../examples/access/tests/plugin-rules.test.ts#hide-comment
+</include>
+
+Ada hides her comment, but not her pinned one (`item`), and nobody else's
+(`where`, which answers `NOT_FOUND` like a missing row). Native `deleteOne`
+keeps its own `delete` key, which this schema leaves without a rule, so it
+stays denied. An editor restores the comment, `restoreMany` has no rule and
+is denied, a muted member cannot comment, and only editors see hidden comments
+in ordinary reads.
 
 Compatible provider contributions join schema decisions through logical
 `AND`; private row filters also join through `AND`, and field restrictions
@@ -347,16 +364,17 @@ checks each resulting row (the locked pre-image for a delete) against every
 installed read policy. When a row is not readable and the call selects
 anything beyond `id` (no `select`, another field, or any `include`), it fails
 with `PERMISSION_DENIED` and nothing is written. `select: { id: true }` is
-always allowed, so a write-only client (for example `read: false`) asks for
-the identifier alone:
+always allowed, so a write-only client asks for the identifier alone:
 
-```ts title="src/audit.ts"
-await AuditEntry.createOne({
-	data: { action: 'login' },
-	select: { id: true },
-})
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#audit-entry
+</include>
 
+<include cwd meta='title="tests/mutations.test.ts"'>
+	../../examples/access/tests/mutations.test.ts#audit
+</include>
+
+`entry` is `{ id }`. The same call without `select` fails and writes nothing.
 Collection commands are atomic, Master skips the check, and field rules keep
 their behavior.
 
@@ -368,8 +386,7 @@ single-row (`one`) read under every installed policy, and `disconnect` names
 only visible linked targets. A hidden target fails with the same `NOT_FOUND`
 as a missing one, naming the field and target schema, so a link never reveals
 that a row exists (ADR-0308). Master skips visibility but still fails on a
-missing target. Use `ultimabase.can({ operation, schema, item })` to ask
-whether an operation would be permitted without executing it.
+missing target.
 
 Access checks run around Core's prepared mutation pipeline, including a
 reevaluation after input resolution. A Hook cannot remove accumulated Access
@@ -378,15 +395,32 @@ Access policy, including field rules and compatible-provider callbacks; it
 still runs validation, Hooks, transactions, database constraints, and integrity
 work. Never expose Master as a substitute for a public policy.
 
+### Ask before acting: `can()`
+
+`ultimabase.can({ principal, operation, schema, item })` asks whether an
+operation would be permitted without executing it, for example to show or
+hide an edit button:
+
+<include cwd meta='title="tests/diagnostics.test.ts"'>
+	../../examples/access/tests/diagnostics.test.ts#can
+</include>
+
+`adaMayEdit` is `true`. `graceMayEdit` is `false`: with `item`, `can()` reads
+the named row as that principal, and a hidden or missing row answers `false`.
+It evaluates every installed policy as at execution time, runs no hook or
+write, and skips field rules; `principal` defaults to the current request's
+principal.
+
 ### Denial diagnostics
 
 When Access denies a request, the server logs one line naming the schema, the
 operation, the step (`operation`, `row filter`, `item` or `field`) and the
 rule that denied, for example
-`denied update on Article at the item step (Article.access.update.item)`. The
-line is `info` outside production and `debug` in production; clients receive
-the same `PERMISSION_DENIED` as before. `ultimabase.can()` answers are not
-logged.
+`denied update on Story at the item step (Story.access.update.item)`, or
+`(no rule for create, and allowWithoutRule does not open it)` when no rule
+exists. The line is `info` outside production and `debug` in production;
+clients receive the same `PERMISSION_DENIED` as before. `ultimabase.can()`
+answers are not logged.
 
 ## Troubleshooting
 
@@ -403,6 +437,9 @@ logged.
 - **A row cannot be found or updated:** check the caller's query together with
   the private `where` restrictions on the relevant operation. Check `item`
   separately if a prepared target is rejected.
+- **A write fails with `PERMISSION_DENIED` although its rule allows it:** the
+  result may be unreadable under the `read` rule. Select `{ id: true }` alone,
+  or widen the `read` rule.
 - **A field is missing or a query fails with `PERMISSION_DENIED`:** check the
   declared read channels (`output`, `where`, `orderBy`) and the write
   transition that the operation performs. Explicit selection of a denied field fails;

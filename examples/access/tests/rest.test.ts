@@ -1,7 +1,7 @@
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
-import { Article } from '../src/articles.ts'
+import { Article } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 // REST enters the same Runtime: the rules decide, never the transport.

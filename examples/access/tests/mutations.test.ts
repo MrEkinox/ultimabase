@@ -1,9 +1,7 @@
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
-import { Story } from '../src/articles.ts'
-import { AuditEntry, Note } from '../src/notes.ts'
-import { Member, StaffRole } from '../src/schema.ts'
+import { AuditEntry, Member, Note, StaffRole, Story } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 const denied = { code: 'PERMISSION_DENIED' }
