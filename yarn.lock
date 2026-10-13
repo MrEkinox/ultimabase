@@ -3663,6 +3663,27 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-http@workspace:examples/http":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-http@workspace:examples/http"
+  dependencies:
+    "@hono/node-server": "npm:^2.1.1"
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/api-server": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/hono-server-plugin": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/rest-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    hono: "npm:^4.13.7"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-minimal@workspace:examples/minimal":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-minimal@workspace:examples/minimal"
