@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.dist.json",
+	"compilerOptions": {
+		"paths": {
+			"@ultimabase/core": ["../../packages/core/src/index.ts"],
+			"@ultimabase/core/plugin": ["../../packages/core/src/plugin.ts"],
+			"@ultimabase/plugin-kit": ["../../packages/plugin-kit/src/index.ts"],
+			"@ultimabase/roles-plugin": ["../../packages/roles-plugin/src/index.ts"],
+			"@ultimabase/shared": ["../../packages/shared/src/index.ts"]
+		}
+	}
+}

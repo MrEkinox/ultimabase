@@ -187,9 +187,33 @@ jobs:
       - run: yarn playwright install --with-deps chromium
       - run: yarn website:test
 
+  typescript-7:
+    name: TypeScript 7
+    needs: select
+    # Same trigger as the build: any change that can affect compiled types.
+    if: needs.select.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      # Packages, tests that need no TypeScript JS API, examples and the
+      # Register cycle cases, with the pinned native compiler (`typescript-7`).
+      - run: yarn typecheck:typescript-7
+
   quality:
     name: Quality
-    needs: [select, repository, build, packages, transversal, coverage, website]
+    needs:
+      [
+        select,
+        repository,
+        build,
+        packages,
+        transversal,
+        coverage,
+        website,
+        typescript-7,
+      ]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 1
