@@ -27,7 +27,19 @@ construite. Assertions des tests publics inchangées (titres seulement).
 - [x] 2. Job TS7 : script `tooling/ci/typescript-7.ts`, `yarn typecheck:typescript-7`,
       `tooling/tsconfig/test-typescript-7.json`, cas `tests/register-cycle/`, job
       `typescript-7` dans `ci.yml`, `tests/README.md`.
-- [ ] 1, 3, 4, 5, 6, 7.
+- [x] 1. Page `operations/typescript-7` (navigation, plan, propriété
+      `project-initializer`, test de navigation mis à jour).
+- [x] 3. Amendement d'ADR-0297 et note 6.8c.
+- [x] 4. ADR : 0177, 0184, 0185, 0198, 0217, 0265, 0285 remplacés ; 0173,
+      0175, 0187, 0193, 0262 remplacés en partie (parties Typegen) ;
+      `DIFFERENCES.md` ; échantillon `private-sessions.ts` (vérifié TS6 et TS7).
+      Fixtures et titres : à faire après la mesure de couverture.
+- [ ] 4 bis. Filtre du champ de plugin (`open-kernel-proof.postgres`) :
+      bloqué, demande un changement de type public (voir Décisions).
+- [x] 5. `AGENTS.md`, `CLAUDE.md`, `current-architecture.md`.
+- [ ] 6. Couverture : mesure « avant » en cours.
+- [x] 7. Passations fusionnées supprimées (dont `simplification.md` et
+      `api-challenge-plan.md`, plus référencés que par des ADR comme preuve).
 
 ## Décisions
 
@@ -45,6 +57,13 @@ construite. Assertions des tests publics inchangées (titres seulement).
   avec sondes de solidité, `roles`) ; `empty-fields` reproduit le cycle
   (TS2502/TS7022) en TS6 et TS7 depuis les sources quand on remet l'ancien
   `RegisteredApplication` (vérifié puis annulé).
+
+- Filtre d'un type de champ de plugin : le Runtime accepte `eq`/`in` sur un
+  champ de plugin qui a un `storageCodec` ; le type du champ ne porte pas
+  cette information (pg-vector n'a pas de codec). Typer l'égalité exige un
+  marqueur de type public (porteur à la `FieldContainsInputCarrier`, ou
+  paramètre de `PluginFieldDefinition`) : changement de contrat public, donc
+  ADR (ADR-0288). Non fait ; le cast reste, commentaire mis à jour.
 
 ## Preuves
 
