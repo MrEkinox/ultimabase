@@ -7,12 +7,13 @@ contentType: guide
 order: 2
 outcome: Verify application behavior through the production application itself, from empty tables in every test, without sharing database state between test workers.
 releaseStatus: pre-release
-reviewedAt: 2026-10-12
+reviewedAt: 2026-10-13
 sources:
   - docs/adr/0327-test-application-and-create-app-starter.md
   - packages/testing/README.md
   - packages/testing/src/application/test-application.ts
   - packages/testing/src/vitest.ts
+  - packages/testing/tests/vitest-module-realm.test.ts
   - tests/e2e/test-application.postgres.e2e.test.ts
   - tests/e2e/test-application-vitest.postgres.e2e.test.ts
   - apps/website/content/docs/1.0.0/manual-installation.mdx
@@ -66,7 +67,10 @@ Add a `test` script to `package.json`:
 
 `ultimabaseTesting()` starts PostgreSQL once per run (unless
 `TEST_DATABASE_URL` is set), gives each worker its own schema and drops it
-after each test file:
+after each test file. It also starts the workers with
+`--no-experimental-require-module`, so Node.js resolves packages as Vite does
+and a package with both ESM and CommonJS builds, such as `graphql`, loads only
+once:
 
 ```ts title="vitest.config.ts"
 import { ultimabaseTesting } from '@ultimabase/testing/vitest'

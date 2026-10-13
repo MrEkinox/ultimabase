@@ -302,6 +302,7 @@ Current records (accepted or still active in part):
 - [ADR-0328: Declared relation filters move into `.with({ relations })`](0328-relation-filters-in-with.md)
 - [ADR-0329: The role resolver protocol leaves Core](0329-role-protocol-leaves-core.md)
 - [ADR-0330: Verified documentation from tested examples](0330-verified-documentation-from-tested-examples.md)
+- [ADR-0331: Testing workers resolve dual packages like Vite](0331-testing-workers-resolve-like-vite.md)
 
 Proposed records (awaiting user validation):
 

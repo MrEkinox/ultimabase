@@ -48,6 +48,12 @@ const enforcedDocuments = [
 	'apps/website/content/docs/1.0.0/plugins/official/rest.mdx',
 	'packages/rest-plugin/README.md',
 	'examples/rest/README.md',
+	'apps/website/content/docs/1.0.0/plugins/official/graphql.mdx',
+	'packages/graphql-plugin/README.md',
+	'packages/graphql-yoga-plugin/README.md',
+	'packages/graphql-http/README.md',
+	'packages/graphql-explorer-plugin/README.md',
+	'examples/graphql/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({

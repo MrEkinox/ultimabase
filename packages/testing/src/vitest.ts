@@ -15,6 +15,13 @@ export interface UltimaBaseTestingConfig {
 	 * compete for the development port.
 	 */
 	readonly env: Record<string, string>
+	/**
+	 * `--no-experimental-require-module`: Node.js then resolves packages
+	 * with the same conditions as Vite (without `module-sync`), so a package
+	 * shipping both ESM and CommonJS builds, such as `graphql`, loads once
+	 * whether a test file or a dependency imports it.
+	 */
+	readonly execArgv: string[]
 	/** Starting an application includes synchronizing its tables. */
 	readonly testTimeout: number
 	readonly hookTimeout: number
@@ -42,6 +49,9 @@ export const ultimabaseTesting = (): UltimaBaseTestingConfig => ({
 	globalSetup: [resolveModule('vitest-global-setup')],
 	setupFiles: [resolveModule('vitest-setup-file')],
 	env: { PORT: '0' },
+	// Vite resolves without `module-sync`; the workers must resolve alike, or
+	// a dual package has two instances and `instanceof` fails across them.
+	execArgv: ['--no-experimental-require-module'],
 	testTimeout: 30_000,
 	hookTimeout: 30_000,
 })

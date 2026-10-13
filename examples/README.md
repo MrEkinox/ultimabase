@@ -85,6 +85,18 @@ Examples are user-facing, tested applications. They must only import public `@ul
   OpenAPI document, `publicWrites`), tested with `testApplication`. Its
   `//#region` blocks are the code of the REST page and package README
   (ADR-0330).
+- [`graphql`](graphql/README.md): GraphQL end to end (the `apiServer()`
+  preset with Yoga and GraphiQL, `.with({ graphql })` method keys and
+  `graphql: false`, declared filter operators, ordering, relations, a
+  `resolveMany` virtual field, cursor pagination with `totalCount`, nested
+  create, update and delete, `{ id }` for an unreadable row, validation hints,
+  `PERMISSION_DENIED`, `VALIDATION_ERROR` and a `PublicError`, an operation
+  typed from its validators, a custom `GraphQLSchema`, direct `execute()`,
+  `publicWrites`, and a second application installing each plugin with Yoga
+  options and Apollo Sandbox), tested with `testApplication`. Its `//#region`
+  blocks are the code of the GraphQL page and the `graphql-plugin`,
+  `graphql-yoga-plugin`, `graphql-http` and `graphql-explorer-plugin` READMEs
+  (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.

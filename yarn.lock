@@ -3647,6 +3647,29 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-graphql@workspace:examples/graphql":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-graphql@workspace:examples/graphql"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/api-server": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/graphql-explorer-plugin": "workspace:^"
+    "@ultimabase/graphql-plugin": "workspace:^"
+    "@ultimabase/graphql-yoga-plugin": "workspace:^"
+    "@ultimabase/hono-server-plugin": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    graphql: "npm:^17.0.2"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+    zod: "npm:^4.4.3"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-hooks@workspace:examples/hooks":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-hooks@workspace:examples/hooks"
