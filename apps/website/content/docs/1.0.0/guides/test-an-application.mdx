@@ -7,14 +7,16 @@ contentType: guide
 order: 2
 outcome: Verify application behavior through the production application itself, from empty tables in every test, without sharing database state between test workers.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-14
 sources:
   - docs/adr/0327-test-application-and-create-app-starter.md
+  - docs/adr/0334-unknown-client-address.md
   - packages/testing/README.md
   - packages/testing/src/application/test-application.ts
   - packages/testing/src/vitest.ts
   - packages/testing/tests/vitest-module-realm.test.ts
   - tests/e2e/test-application.postgres.e2e.test.ts
+  - tests/e2e/test-application-fetch.postgres.e2e.test.ts
   - tests/e2e/test-application-vitest.postgres.e2e.test.ts
   - apps/website/content/docs/1.0.0/manual-installation.mdx
 ---
@@ -109,13 +111,13 @@ dropped.
 
 ### Use the handle
 
-| Member                 | Use it to                                                                                                |
-| ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| `t.fetch(path, init?)` | Send an in-memory HTTP request through the HTTP plugin, without a port, authenticated by its headers.    |
-| `t.as(principal, fn)`  | Run direct calls as one user: `t.as(User.pointer(id), () => Task.findMany())`; rules see that principal. |
-| `t.asMaster(fn)`       | Seed or inspect data with Master authority, without a configured key; validation and hooks still run.    |
-| `t.reset()`            | Empty every table within a test; plugins' start seeding, such as Roles `ensure`, runs again.             |
-| `t.afterCommit()`      | Wait for `afterCommit` hooks and event consumers before asserting their effects.                         |
+| Member                           | Use it to                                                                                                                              |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `t.fetch(path, init?, options?)` | Send an in-memory HTTP request through the HTTP plugin, without a port, authenticated by its headers, from the local peer `127.0.0.1`. |
+| `t.as(principal, fn)`            | Run direct calls as one user: `t.as(User.pointer(id), () => Task.findMany())`; rules see that principal.                               |
+| `t.asMaster(fn)`                 | Seed or inspect data with Master authority, without a configured key; validation and hooks still run.                                  |
+| `t.reset()`                      | Empty every table within a test; plugins' start seeding, such as Roles `ensure`, runs again.                                           |
+| `t.afterCommit()`                | Wait for `afterCommit` hooks and event consumers before asserting their effects.                                                       |
 
 ```ts title="tests/rest.test.ts"
 it('lists Tasks over REST', async () => {
@@ -127,6 +129,14 @@ it('lists Tasks over REST', async () => {
 	expect(await response.json()).toMatchObject({ results: [{ id: task.id }] })
 })
 ```
+
+`t.fetch` behaves like a local server: requests come from the socket peer
+`127.0.0.1`, the address rate limits count and authentication records unless a
+trusted `X-Forwarded-For` names another client. Pass
+`{ remoteAddress: '203.0.113.7' }` as the third argument to send from another
+peer, or `{ remoteAddress: undefined }` to send none and test an unknown client
+address, as behind a fetch handler on an edge or serverless platform (see
+[HTTP](/docs/1.0.0/plugins/official/http)).
 
 `t.as` and `t.asMaster` exist only on a handle from `testApplication`, which
 opens the application harness before the application starts. An application

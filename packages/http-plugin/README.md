@@ -316,10 +316,11 @@ trusted peer. Entries a client writes before the ones your proxies append
 never change the address that is counted. Behind a fetch handler without a
 socket peer, as on edge and serverless platforms, the platform in front counts
 as one hop; exact addresses are checked against the socket peer, so they need
-one. When neither names the client, as with the in-memory `fetch`, its address
-is unknown: every such request shares one bucket per limit (failing closed is
-safer than skipping the limit), and the first one of a process logs one
-warning pointing to `trustProxy` and the server provider's `remoteAddress`
+one. When neither names the client, as with the in-memory `fetch` without
+`remoteAddress`, its address is unknown: every such request shares one bucket
+per limit (failing closed is safer than skipping the limit), and the first one
+of a process logs one warning pointing to `trustProxy` and to `remoteAddress`,
+from the server provider or the in-memory `fetch`
 ([ADR-0334](../../docs/adr/0334-unknown-client-address.md)). Routes add stricter limits with `rateLimit: { perMinute }`, which count
 in addition to the default. The built-in health route is never limited: load
 balancers and Kubernetes probes often share one address, and a 429 would make
@@ -368,7 +369,23 @@ const response = await ultimabase
 
 The application must be started first; `testApplication()` from
 `@ultimabase/testing` starts it, and its `t.fetch(path, init)` sends the same
-requests.
+requests from the local peer `127.0.0.1`, as a local server would.
+
+Without a server the request has no socket peer. A fetch handler that knows
+the client address from its platform, as on edge and serverless platforms,
+passes it as `remoteAddress`; it is then the socket peer, so `trustProxy`
+applies to it:
+
+<!-- region ../../examples/http/tests/client-address.test.ts#remote-address -->
+
+```ts
+// The platform in front of the fetch handler names the client.
+const response = await ultimabase
+	.plugin(httpPlugin)
+	.fetch(request, { remoteAddress: '203.0.113.7' })
+```
+
+<!-- endregion -->
 
 On the network path, servers pass the ordered original headers next to the
 Fetch request so duplicated sensitive headers are refused. A request that

@@ -186,7 +186,7 @@ export const resolveHttpClientAddress = (
 }
 
 const missingClientAddressWarning =
-	'An HTTP request has no client address: every such request shares one rate-limit bucket and authentication records no address. Pass the socket peer as remoteAddress from your server provider, or set trustProxy when a proxy names the client in X-Forwarded-For.'
+	'An HTTP request has no client address: every such request shares one rate-limit bucket and authentication records no address. Pass the socket peer as remoteAddress from your server provider or to fetch(request, { remoteAddress }), or set trustProxy when a proxy names the client in X-Forwarded-For.'
 // ADR-0334: a deployment without addresses warns once per process, not per
 // request or per application.
 let warnedMissingClientAddress = false

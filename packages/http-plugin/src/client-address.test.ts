@@ -111,16 +111,14 @@ describe('a request with a client address', () => {
 		expect((await from('203.0.113.9')).status).toBe(429)
 		expect((await from('203.0.113.10')).status).toBe(200)
 		expect(limited.seen).toStrictEqual(['203.0.113.9', '203.0.113.10'])
-		// The same validation as a provider's input: a non-string is refused.
-		const invalid: unknown = await Reflect.apply(fetch, undefined, [
+		// Like a non-Request, a malformed option is a caller error.
+		const notAString: unknown = Reflect.apply(fetch, undefined, [
 			ping(),
 			{ remoteAddress: 7 },
 		])
-		if (!(invalid instanceof Response)) throw new TypeError('No Response')
-		expect(invalid.status).toBe(400)
-		expect(await invalid.json()).toMatchObject({
-			error: { code: 'HTTP_BAD_REQUEST' },
-		})
+		await expect(notAString).rejects.toThrow(
+			'HTTP plugin fetch remoteAddress must be a string',
+		)
 		const notAnObject: unknown = Reflect.apply(fetch, undefined, [
 			ping(),
 			'203.0.113.9',

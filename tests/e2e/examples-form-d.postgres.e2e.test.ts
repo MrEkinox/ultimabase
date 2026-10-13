@@ -43,7 +43,7 @@ const testedExamples = [
 	['examples/roles', 14],
 	['examples/auth', 22],
 	['examples/postgres', 30],
-	['examples/http', 23],
+	['examples/http', 24],
 	['examples/rest', 18],
 	['examples/graphql', 25],
 ] as const

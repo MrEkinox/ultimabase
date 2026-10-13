@@ -8,7 +8,7 @@ contentType: guide
 order: 2
 outcome: Configure the HTTP foundation, its defaults, application routes, CORS, rate limits and pre-dispatch handling.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-14
 sources:
   - examples/http/README.md
   - examples/http/src/http.ts
@@ -215,11 +215,12 @@ serverless platforms, the platform in front counts as one hop; exact addresses
 are checked against the socket peer, so they need one.
 
 When neither a socket peer nor a trusted `X-Forwarded-For` entry names the
-client, as with the in-memory `fetch` or a fetch handler without `trustProxy`,
-its address is unknown. Every such request then shares one bucket per limit:
-failing closed is safer than skipping the limit. The first such request of a
-process logs one warning that points to `trustProxy` and the server provider's
-`remoteAddress`. Context resolvers receive `clientAddress: undefined`, and
+client, as with the in-memory `fetch` without `remoteAddress` or a fetch
+handler without `trustProxy`, its address is unknown. Every such request then
+shares one bucket per limit: failing closed is safer than skipping the limit.
+The first such request of a process logs one warning that points to
+`trustProxy` and to `remoteAddress`, from the server provider or the in-memory
+`fetch`. Context resolvers receive `clientAddress: undefined`, and
 [Password Authentication](./password-authentication) records `null`.
 
 Counts live in memory per process; pass a `store` with an
@@ -309,7 +310,17 @@ sessions.
 
 The request takes the same path as a network request, CORS included, without
 a server or a port. The application must be started; `testApplication()`
-starts it, and its `t.fetch(path, init)` sends the same requests.
+starts it, and its `t.fetch(path, init)` sends the same requests from the
+local peer `127.0.0.1`, as a local server would.
+
+Without a server the request has no socket peer. A fetch handler that knows
+the client address from its platform, as on edge and serverless platforms,
+passes it as `remoteAddress`; it is then the socket peer, so `trustProxy`
+applies to it:
+
+<include cwd meta='title="tests/client-address.test.ts"'>
+	../../examples/http/tests/client-address.test.ts#remote-address
+</include>
 
 ### Connect a server and a transport
 

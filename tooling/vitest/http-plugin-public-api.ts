@@ -16,6 +16,7 @@ export const httpPluginPublicApi = {
 		'HttpEndpointDefinition',
 		'HttpEndpointLimits',
 		'HttpEndpointProtocol',
+		'HttpFetchOptions',
 		'HttpHealthOptions',
 		'HttpMethod',
 		'HttpMountDefinition',

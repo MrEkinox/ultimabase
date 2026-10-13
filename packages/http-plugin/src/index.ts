@@ -91,6 +91,7 @@ export {
 export { dispatchHttpApplicationRequest } from './server-dispatch.js'
 export { httpPlugin } from './plugin.js'
 export type {
+	HttpFetchOptions,
 	HttpPlugin,
 	HttpPluginExports,
 	HttpPluginFactory,

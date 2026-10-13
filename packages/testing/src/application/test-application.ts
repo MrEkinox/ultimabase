@@ -19,6 +19,19 @@ import {
 
 import { openTestDatabase, type TestDatabase } from './test-database.js'
 
+/** Options of one `t.fetch` request. */
+export interface TestFetchOptions {
+	/**
+	 * The socket peer the request comes from; `t.fetch` behaves like a local
+	 * server, so it is `'127.0.0.1'` when omitted. `undefined` sends no peer,
+	 * as a fetch handler without one: the client address is then unknown
+	 * unless a trusted `X-Forwarded-For` names it (ADR-0334).
+	 *
+	 * @example `await t.fetch('/status', undefined, { remoteAddress: undefined })`
+	 */
+	readonly remoteAddress?: string | undefined
+}
+
 /**
  * One test's handle on an application started by `testApplication` (ADR-0327).
  * Leaving its `await using` scope waits for after-commit work; the
@@ -34,11 +47,17 @@ export interface TestApplication extends AsyncDisposable {
 	reset(): Promise<void>
 	/**
 	 * Sends one in-memory request through the HTTP plugin, without a port,
-	 * as a client would: authentication comes from its headers.
+	 * as a client would: authentication comes from its headers. The request
+	 * comes from the local peer `127.0.0.1` unless `options` names another
+	 * or none.
 	 *
 	 * @example `const response = await t.fetch('/api/classes/Task')`
 	 */
-	fetch(path: string, init?: RequestInit): Promise<Response>
+	fetch(
+		path: string,
+		init?: RequestInit,
+		options?: TestFetchOptions,
+	): Promise<Response>
 	/**
 	 * Runs `fn` as `principal`: schema and operation calls inside it see that
 	 * principal in rules and hooks; `undefined` runs it anonymously.
@@ -83,10 +102,12 @@ interface RunningApplication {
 let running: RunningApplication | undefined
 
 const httpPluginId = '@ultimabase/http-plugin'
+// The socket peer of a request to a local server.
+const loopbackAddress = '127.0.0.1'
 
 const readFetch = (
 	ultimabase: AnyApplication,
-): ((request: Request) => Promise<Response>) => {
+): ((request: Request, options: TestFetchOptions) => Promise<Response>) => {
 	let exports: unknown
 	try {
 		exports = ultimabase.plugin(httpPluginId)
@@ -103,8 +124,11 @@ const readFetch = (
 	if (typeof fetch !== 'function') {
 		throw new TypeError('The HTTP plugin of this application exports no fetch')
 	}
-	return async (request) => {
-		const response: unknown = await Reflect.apply(fetch, exports, [request])
+	return async (request, options) => {
+		const response: unknown = await Reflect.apply(fetch, exports, [
+			request,
+			options,
+		])
 		if (!(response instanceof Response)) {
 			throw new TypeError('The HTTP plugin fetch did not return a Response')
 		}
@@ -186,10 +210,16 @@ const createHandle = (current: RunningApplication): TestApplication => {
 			await waitForAfterCommitWork()
 			await harness.resetDatabase()
 		},
-		fetch: (path: string, init?: RequestInit) => {
+		fetch: (path: string, init?: RequestInit, options?: TestFetchOptions) => {
 			assertOpen()
+			// An explicit `remoteAddress: undefined` asks for no peer.
+			const remoteAddress =
+				options !== undefined && 'remoteAddress' in options
+					? options.remoteAddress
+					: loopbackAddress
 			return readFetch(ultimabase)(
 				new Request(new URL(path, 'http://localhost'), init),
+				{ remoteAddress },
 			)
 		},
 		as: <TResult>(
