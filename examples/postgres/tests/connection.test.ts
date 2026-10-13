@@ -62,6 +62,28 @@ it('opens the pool at start and closes it on dispose', async () => {
 	expect(afterDispose).toBe('closed')
 })
 
+it('logs the connection source and schema policy at debug', async () => {
+	const { logger, messages } = recordingLogger()
+	const Application = UltimaBase.use(postgresPlugin({ url: schema.url }))
+	const application = new Application({
+		schemas: [],
+		logger,
+		logLevel: 'debug',
+	})
+
+	await application.start()
+	await application.dispose()
+
+	// Where the connection comes from, never the URL itself.
+	expect(messages('debug')).toEqual(
+		expect.arrayContaining([
+			'[@ultimabase/postgres-plugin] connection from the url option',
+			'[@ultimabase/postgres-plugin] schemaPolicy override (NODE_ENV is not production)',
+		]),
+	)
+	expect(messages('debug').join('\n')).not.toContain(schema.url)
+})
+
 it('leaves an injected pool to its owner', async () => {
 	const connectionString = schema.url
 	//#region own-pool

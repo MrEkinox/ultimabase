@@ -27,6 +27,10 @@ descriptors have no independent physical column identity, so the field option
 is absent in those contexts and Core rejects stale or untyped declarations
 before connection setup. `define` rejects a `postgres` option (ADR-0297).
 
+Every TypeScript block in this README is copied from the tested
+[`examples/postgres`](../../examples/postgres/README.md) application by
+`yarn docs:regions` (ADR-0330): edit the example, then run the script.
+
 ## Connection lifecycle
 
 The plugin accepts a connection URL, an existing `pg`-compatible pool, or
@@ -40,38 +44,45 @@ verifies the connection and immediately returns the borrowed client to the
 pool. `logLevel: 'debug'` logs where the connection comes from and the derived
 `schemaPolicy` with its source, never the URL.
 
+The example's tests start applications with an explicit `url`:
+
+<!-- region ../../examples/postgres/tests/connection.test.ts#lifecycle -->
+
 ```ts
-import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
-import { UltimaBase } from '@ultimabase/core'
+const Application = UltimaBase.use(postgresPlugin({ url }))
+const application = new Application({ schemas: [] })
 
-const Application = UltimaBase.use(postgresPlugin())
-const ultimabase = new Application({
-	schemas: [],
-})
+await application.start()
+const { connection } = application.plugin(postgresPluginName)
+const whileStarted = connection.state
 
-await ultimabase.start()
-const connection = ultimabase.plugin(postgresPluginName).connection
-console.log(connection.state) // 'connected'
-await ultimabase.dispose()
-console.log(connection.state) // 'closed'
+await application.dispose()
+const afterDispose = connection.state
 ```
+
+<!-- endregion -->
+
+`whileStarted` is `'connected'` and `afterDispose` is `'closed'`.
 
 A pool created from `url` belongs to the application and is closed during
 shutdown. An injected pool remains owned by the developer:
 
+<!-- region ../../examples/postgres/tests/connection.test.ts#own-pool -->
+
 ```ts
-import { Pool } from 'pg'
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const pool = new Pool({ connectionString, max: 5 })
 const Application = UltimaBase.use(postgresPlugin({ pool }))
-const ultimabase = new Application({
-	schemas: [],
-})
+const application = new Application({ schemas: [] })
 
-await ultimabase.start()
-await ultimabase.dispose()
+await application.start()
+await application.dispose()
+
+// The application did not close your pool: you still own it.
+const { rows } = await pool.query('SELECT 1 AS ready')
 await pool.end()
 ```
+
+<!-- endregion -->
 
 Connection URLs, driver messages, and raw pools are excluded from plugin
 metadata and framework errors. Drizzle and concrete `pg` runtime objects are
@@ -82,17 +93,39 @@ not re-exported by this package.
 With `url` or `DATABASE_URL`, `connection` tunes the pool the plugin creates
 (ADR-0320); an injected `pool` keeps its own settings and rejects `connection`.
 
+<!-- region ../../examples/postgres/src/database.ts#database -->
+
 ```ts
-postgresPlugin({
+import process from 'node:process'
+
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+/**
+ * The plugin creates and owns its pool from `DATABASE_URL`, read when the
+ * application starts. Without `schemaPolicy`, `NODE_ENV=production` selects
+ * `fail` and any other value `override`.
+ */
+export const database = postgresPlugin({
 	connection: {
-		max: 20, // pooled connections, default 10
-		ssl: { ca: process.env.DATABASE_CA }, // or true; sslmode in the URL wins
-		statementTimeoutMs: 5000, // cancels longer statements, default none
-		idleTimeoutMs: 30_000, // closes idle connections, 0 keeps them, default 10 s
-		connectRetries: 5, // first connection only, default 0
+		max: 20,
+		// TLS with the provider's certificate authority, when one is set.
+		ssl:
+			process.env.DATABASE_CA === undefined
+				? false
+				: { ca: process.env.DATABASE_CA },
+		statementTimeoutMs: 5000,
+		idleTimeoutMs: 30_000,
+		// A database that is still starting, as in Docker Compose.
+		connectRetries: 5,
 	},
+	// One `warn` line per slow statement, without its values.
+	debug: { slowQueryMs: 500 },
 })
 ```
+
+<!-- endregion -->
+
+The example's factory installs this plugin: `UltimaBase.use(database)`.
 
 `connectRetries` retries the verification of `start()` with growing delays
 (0.5 s, 1 s, 2 s, 4 s, then 8 s), for a database that is still starting in
@@ -101,11 +134,10 @@ code only. A cancelled statement fails with the driver code `57014`.
 
 ### Debugging
 
-`debug` logs statements through the plugin logger, never their values:
-
-```ts
-postgresPlugin({ debug: { logQueries: true, slowQueryMs: 500 } })
-```
+`debug` logs statements through the plugin logger, never their values. The
+example above keeps only `slowQueryMs`; during development, add
+`logQueries: true`, as in
+`postgresPlugin({ debug: { logQueries: true, slowQueryMs: 500 } })`.
 
 `logQueries` writes one `info` line per statement with its duration and its
 text with `$n` placeholders (`query 1.2 ms: select "id", "title" from "posts"
@@ -211,15 +243,85 @@ lifetime. Every query issued in the callback uses that client; successful
 callbacks commit, rejected callbacks roll back, and the client is always
 returned or destroyed before the transaction completes:
 
+<!-- region ../../examples/postgres/src/newsroom.ts#publish -->
+
 ```ts
-const post = await ultimabase.transaction(() =>
-	PostSchema.createOne({ data: { title: 'Atomic post' } }),
-)
+/**
+ * Publishes an article and records its editor in one explicit transaction:
+ * both writes commit together, or neither does.
+ */
+export const publishWithEditor = (articleId: string, editorId: string) =>
+	ultimabase.transaction(async () => {
+		const article = await Article.updateOne({
+			where: { id: articleId },
+			data: { status: 'published', publishedAt: new Date().toISOString() },
+		})
+		if (article === null) throw new Error('Article not found')
+
+		await Contribution.createOne({
+			data: {
+				article: { connect: article.id },
+				member: { connect: editorId },
+				role: 'editor',
+			},
+		})
+		return article
+	})
 ```
 
+<!-- endregion -->
+
+When the second write fails, the status update made before it in the same
+transaction is rolled back too:
+
+<!-- region ../../examples/postgres/tests/transactions.test.ts#rollback -->
+
+```ts
+// Grace already contributed: the second write fails, so the status
+// update made before it in the same transaction is rolled back too.
+const failure = publishWithEditor(draft.id, grace.id)
+```
+
+<!-- endregion -->
+
 Nested explicit transactions remain unsupported because the portable Runtime
-contract does not imply PostgreSQL savepoints. Core owns one automatic
-transaction for every mutation and its nested database work.
+contract does not imply PostgreSQL savepoints; one fails with
+`TRANSACTION_ERROR`. Core owns one automatic transaction for every mutation and
+its nested database work, so a batch whose second row repeats a unique value
+keeps no row:
+
+<!-- region ../../examples/postgres/tests/transactions.test.ts#atomic-batch -->
+
+```ts
+// The second row repeats a unique slug: no row of the batch is kept.
+const batch = Article.createMany({
+	data: [
+		{ slug: 'first', title: 'First', author: { connect: ada.id } },
+		{ slug: 'first', title: 'Again', author: { connect: ada.id } },
+	],
+})
+```
+
+<!-- endregion -->
+
+A unique violation (23505) is reported in logical names:
+
+<!-- region ../../examples/postgres/tests/integrity.test.ts#unique-violation -->
+
+```ts
+await StaffMember.createOne({
+	data: { name: 'Ada', email: 'ada@example.com' },
+})
+
+const duplicate = StaffMember.createOne({
+	data: { name: 'Ada Lovelace', email: 'ada@example.com' },
+})
+```
+
+<!-- endregion -->
+
+`duplicate` rejects with `UNIQUE_VIOLATION` and
+`publicDetails: { schema: 'StaffMember', fields: ['email'] }`.
 
 Transactions run at `READ COMMITTED`. A serialization failure or deadlock
 (SQLSTATE 40001 or 40P01, also when `COMMIT` reports it) becomes the retryable
@@ -254,47 +356,12 @@ not expose that path.
 When installed, the official Hooks plugin runs schema, field, and contributed
 behavior on the same borrowed PostgreSQL client as the primary mutation. A
 handler may therefore start another typed query without receiving a pool,
-Drizzle client, or explicit transaction:
+Drizzle client, or explicit transaction; the
+[`examples/hooks`](../../examples/hooks/README.md) application writes a
+`PostTitleChange` row from an `afterOperation` Hook this way.
 
-```ts
-import { UltimaBase } from '@ultimabase/core'
-import { defineEvent, hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-
-const auditCreated = defineEvent<{ title: string }>('audit.created')
-const Application = UltimaBase.use(hooksPlugin()).use(postgresPlugin())
-const AuditSchema = Application.Schema.define({
-	className: 'Audit',
-	fields: (field) => ({
-		action: field.string({ required: true }),
-	}),
-})
-
-const ArticleSchema = Application.Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string({ required: true }),
-	}),
-}).with({
-	hooks: {
-		beforeOperation: {
-			create: async ({ context, item }) => {
-				await AuditSchema.createOne({
-					data: { action: `create:${item.title}` },
-				})
-				context.emit(auditCreated, { title: item.title })
-			},
-		},
-	},
-})
-
-const ultimabase = new Application({
-	schemas: [ArticleSchema, AuditSchema],
-})
-```
-
-If a later business handler fails, PostgreSQL rolls back the audit row and primary
-row together. Named events are released only after a successful outer commit.
+If a later business handler fails, PostgreSQL rolls back the Hook's row and
+the primary row together. Named events are released only after a successful outer commit.
 The Docker-backed
 [`hooks-plugin-postgres.postgres.e2e.test.ts`](../hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts)
 public-package suite verifies this behavior alongside plugin ordering, opaque
@@ -307,31 +374,39 @@ After `ultimabase.start()` prepares the static schemas, Query handles reads and
 the schema class handles writes without SQL or Drizzle in developer code.
 Direct class commands resolve the sole active application:
 
+<!-- region ../../examples/postgres/tests/queries.test.ts#crud -->
+
 ```ts
-const created = await ArticleSchema.createOne({
-	data: { title: 'Runtime to PostgreSQL' },
-	select: { id: true, title: true },
+const created = await Article.createOne({
+	data: {
+		slug: 'crud',
+		title: 'Runtime to PostgreSQL',
+		author: { connect: ada.id },
+	},
+	select: { title: true },
 })
 
-const found = await ultimabase
-	.query(ArticleSchema)
-	.where({ id: { eq: created.id } })
-	.select({ id: true, title: true })
-	.findOne()
-
-const updated = await ArticleSchema.updateOne({
+const found = await Article.findOne({
 	where: { id: { eq: created.id } },
+	select: { title: true, status: true },
+})
+
+const updated = await Article.updateOne({
+	where: { id: created.id },
 	data: { title: 'Updated' },
+	select: { title: true },
 })
 
-const deleted = await ArticleSchema.deleteOne({
-	where: { id: { eq: created.id } },
-	select: { id: true, title: true },
+const deleted = await Article.deleteOne({
+	where: { id: created.id },
+	select: { title: true },
 })
 ```
 
-Inclusive `between(field, lower, upper)` and inverse `notBetween(...)` Query
-nodes compile to PostgreSQL range predicates with both bounds retained as
+<!-- endregion -->
+
+Inclusive `between: { lower, upper }` and inverse `notBetween` filters
+compile to PostgreSQL range predicates with both bounds retained as
 driver parameters.
 
 Runtime generates UUID v7 identifiers and automatic timestamps once; the
@@ -359,19 +434,34 @@ one relationship projection query. A non-empty collection shares one grouped
 order afterward. Without `include`, no projection query is added. Target-lock
 reads required by item-oriented updates remain separate from that projection.
 
+<!-- region ../../examples/postgres/tests/queries.test.ts#bulk -->
+
 ```ts
-const imported = await ArticleSchema.createMany({
-	data: rows,
-	select: { id: true, title: true },
+const imported = await Article.createMany({
+	data: [
+		{ slug: 'one', title: 'One', author: { connect: ada.id } },
+		{ slug: 'two', title: 'Two', author: { connect: ada.id } },
+	],
+	select: { slug: true },
 })
 
-const article = await ArticleSchema.upsertOne({
-	where: { slug: { eq: 'runtime-postgres' } },
-	create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
-	update: { title: 'Runtime + PostgreSQL' },
-	select: { id: true, title: true },
-})
+// `slug` is unique: the upsert updates the row it identifies, or creates it.
+const upsert = () =>
+	Article.upsertOne({
+		where: { slug: { eq: 'runtime-postgres' } },
+		create: {
+			slug: 'runtime-postgres',
+			title: 'Draft',
+			author: { connect: ada.id },
+		},
+		update: { title: 'Runtime + PostgreSQL' },
+		select: { title: true },
+	})
+const created = await upsert()
+const updated = await upsert()
 ```
+
+<!-- endregion -->
 
 ## Primitive schema compilation
 
@@ -381,33 +471,78 @@ objects, JSON values, and one-dimensional field lists use JSONB. Static defaults
 column metadata, while developer functions and framework timestamps remain
 Runtime-owned and are never executed by the compiler.
 
+The example's `Article` declares one field of each common kind; the comments
+name the column each one compiles to. The `postgres` rule and option, the
+indexes and the relation are described in the sections below:
+
+<!-- region ../../examples/postgres/src/schema.ts#article -->
+
 ```ts
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-
-const EventSchema = UltimaBase.Schema.define({
-	className: 'Event',
+/** Each field kind maps to one PostgreSQL column type. */
+export const Article = App.Schema.define({
+	className: 'Article',
 	fields: (field) => ({
-		title: field.string({ required: true }),
-		attendees: field.bigint({ list: true }),
-		metadata: field.object({
-			fields: (field) => ({
-				publishedAt: field.dateTime(),
-			}),
+		slug: field.string({ required: true, indexed: 'unique' }), // text
+		// Release 2 renamed `headline`: remove `renamedFrom` once every
+		// database has applied the rename.
+		title: field.string({
+			required: true,
+			postgres: { renamedFrom: 'headline' },
 		}),
+		status: field.enum({ values: ['draft', 'published'], default: 'draft' }), // text
+		wordCount: field.int(), // bigint
+		rating: field.float(), // double precision
+		price: field.decimal({ precision: 8, scale: 2 }), // numeric(8, 2)
+		publishedAt: field.dateTime(), // timestamp(3) with time zone
+		keywords: field.string({ list: true }), // jsonb
+		metadata: field.json(), // jsonb
+		// A uuid column with a named foreign key.
+		author: field.pointer({
+			target: () => StaffMember,
+			required: true,
+			onDelete: 'cascade',
+		}),
+		// A hidden join table with one row per (article, tag) pair.
+		tags: field.relation({ target: () => Tag }),
 	}),
+}).with({
+	postgres: { table: 'newsroom_articles' },
+	indexes: [
+		{ fields: ['author', 'createdAt'] },
+		// A partial index: only published rows are indexed.
+		{ fields: ['publishedAt'], where: { status: 'published' } },
+	],
 })
-
-const Application = UltimaBase.use(postgresPlugin())
-const application = await new Application({
-	schemas: [EventSchema],
-}).initialize()
 ```
 
-This Core example deliberately runs setup without
-opening the URL connection. Regular applications use `new Application(...)` and
-let `start()` compile, prepare, and connect through one lifecycle; developers
-never write Drizzle or SQL themselves.
+<!-- endregion -->
+
+`int` and `bigint` both use a `bigint` column, so every safe integer fits. Developers never
+write Drizzle or SQL themselves: `start()` compiles the schemas, prepares the
+tables, and connects through one lifecycle. Reads return application values:
+
+<!-- region ../../examples/postgres/tests/storage.test.ts#kinds -->
+
+```ts
+const article = await Article.createOne({
+	data: {
+		slug: 'postgres-kinds',
+		title: 'Field kinds in PostgreSQL',
+		wordCount: 1200,
+		rating: 4.5,
+		price: '19.90',
+		publishedAt: '2026-10-13T08:30:00.000Z',
+		keywords: ['postgres', 'storage'],
+		metadata: { visibility: 'public', featured: true },
+		author: { connect: ada.id },
+	},
+})
+```
+
+<!-- endregion -->
+
+`article.price` is the string `'19.90'`, `article.keywords` the array, and
+`article.author` an unloaded reference with its `id`.
 
 Portable enums currently use `text` plus explicit enum metadata. Runtime owns
 membership validation, which keeps enum-value changes independent from native
@@ -444,21 +579,35 @@ or domain-specific operator is inferred from JSONB storage.
 
 ## Index compilation
 
-Field and composite indexes use the storage-neutral Schema API:
+Field and composite indexes use the storage-neutral Schema API, as
+`indexed: 'unique'` and the `indexes` of `Article` do above. An edge with its
+own data declares a composite unique index:
+
+<!-- region ../../examples/postgres/src/schema.ts#contribution -->
 
 ```ts
-const ArticleSchema = UltimaBase.Schema.define({
-	className: 'Article',
+/** An edge with its own data: two pointers and a composite unique index. */
+export const Contribution = App.Schema.define({
+	className: 'Contribution',
 	fields: (field) => ({
-		authorId: field.string(),
-		slug: field.string({ indexed: 'unique' }),
+		article: field.pointer({
+			target: () => Article,
+			required: true,
+			onDelete: 'cascade',
+		}),
+		// `restrict` (the default) refuses to delete a member who contributed.
+		member: field.pointer({
+			target: () => StaffMember,
+			required: true,
+			onDelete: 'restrict',
+		}),
+		role: field.enum({ values: ['writer', 'editor'], required: true }),
 	}),
-	indexes: [
-		{ fields: ['authorId', 'createdAt'] },
-		{ fields: ['authorId', 'slug'], unique: true },
-	],
+	indexes: [{ fields: ['article', 'member'], unique: true }],
 })
 ```
+
+<!-- endregion -->
 
 PostgreSQL compiles these declarations into ordinary or unique Drizzle index
 metadata during `UltimaBase.compile()`. Physical names are deterministic,
@@ -503,20 +652,43 @@ application never alters its schema implicitly, and any other value selects
 `override` ([ADR-0292](../../docs/adr/0292-environment-aware-postgres-schema-policy.md)).
 An explicit `schemaPolicy` always wins. The `override` policy
 creates missing tables and transactionally applies supported column, primary
-key, default, identity, nullability, and index changes:
+key, default, identity, nullability, and index changes.
+
+The example's schema policy tests start an older release of the newsroom
+with an explicit policy, then the current application on the same database:
+
+<!-- region ../../examples/postgres/tests/releases.ts#release-one -->
 
 ```ts
-const Application = UltimaBase.use(
-	postgresPlugin({
-		schemaPolicy: 'override',
-	}),
-)
-const ultimabase = new Application({
-	schemas: [ArticleSchema],
-})
+/** Release 1 of the newsroom: an article still had a `headline`. */
+export const releaseOne = ({ url, schemaPolicy, logger }: ReleaseOptions) => {
+	const Release = UltimaBase.use(postgresPlugin({ url, schemaPolicy }))
+	const StaffMember = Release.Schema.define({
+		className: 'StaffMember',
+		fields: (field) => ({
+			name: field.string({ required: true }),
+			email: field.string({ required: true, indexed: 'unique' }),
+		}),
+	})
+	const Article = Release.Schema.define({
+		className: 'Article',
+		fields: (field) => ({
+			slug: field.string({ required: true, indexed: 'unique' }),
+			headline: field.string({ required: true }),
+			author: field.pointer({
+				target: () => StaffMember,
+				required: true,
+				onDelete: 'cascade',
+			}),
+		}),
+	}).with({ postgres: { table: 'newsroom_articles' } })
 
-await ultimabase.start()
+	const application = new Release({ schemas: [StaffMember, Article], logger })
+	return { application, Article, StaffMember }
+}
 ```
+
+<!-- endregion -->
 
 The desired physical state is normalized from the same private Drizzle tables
 used for query execution. UltimaBase adds only explicit transition metadata,
@@ -552,7 +724,11 @@ outside the current application catalog and unmatched columns inside managed
 tables because it has no migration history with which to prove ownership.
 Physical removal therefore requires an explicit migration; deleting an
 application field or uninstalling its contributing plugin never infers a
-destructive `DROP COLUMN`. Unsupported structures on a managed table stop
+destructive `DROP COLUMN`. Indexes are different: on a managed table,
+`override` drops an index or unique constraint that no schema declares, such
+as one created by hand or by a newer release (the example's `releaseOne`
+reports the indexes of the current release as `drop index` drift under
+`fail`). Unsupported structures on a managed table stop
 `override` before its transaction rather than being approximated.
 
 Renames are explicit direct field options and preserve existing column data.
@@ -560,20 +736,12 @@ Renames are explicit direct field options and preserve existing column data.
 camelCase column from a database created before column names became
 `snake_case` (`renamedFrom: 'publishedAt'` on `publishedAt`, now stored as
 `published_at`). It stays until a migrations plugin exists; remove it once the
-rename has been applied to every database:
-
-```ts
-import { Application } from './application.js'
-
-const ArticleSchema = Application.Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string({
-			postgres: { renamedFrom: 'headline' },
-		}),
-	}),
-})
-```
+rename has been applied to every database. The `Article` schema above
+declares `postgres: { renamedFrom: 'headline' }` on `title`; started on the
+database of `releaseOne`, it logs
+`schema change applied: rename column "newsroom_articles"."headline" to "title"`
+and keeps the stored titles. Without `renamedFrom`, the same start refuses and
+names the forgotten rename.
 
 The former `postgresSchemaPreparationCapability` marker and its type are
 removed by ADR-0266. Direct preparation always follows `schemaPolicy`; use
@@ -592,42 +760,43 @@ contract (ADR-0299) inside the deleting transaction: a referencing insert that
 races a deletion waits on the foreign-key row lock and fails with
 `REFERENCE_VIOLATION`, or commits first and receives the deletion's action.
 
+`Article.author` above is such a pointer. Writing it connects an ID; reading
+it can filter through the target and include it:
+
+<!-- region ../../examples/postgres/tests/relations.test.ts#pointer -->
+
 ```ts
-import { UltimaBase } from '@ultimabase/core'
-
-const User = UltimaBase.Schema.define({
-	className: 'User',
-	fields: (field) => ({
-		name: field.string(),
-	}),
+const engines = await Article.createOne({
+	data: { slug: 'engines', title: 'Engines', author: { connect: ada.id } },
 })
 
-const Post = UltimaBase.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		author: field.pointer({
-			target: () => User,
-			required: true,
-			indexed: true,
-			onDelete: 'cascade',
-		}),
-	}),
-})
-
-const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
-const created = await Post.createOne({
-	data: { author: { connect: author.id } },
-})
-const found = await Post.findOne({
-	where: {
-		author: {
-			eq: author.id,
-			is: { name: { startsWith: 'A' } },
-		},
-	},
-	include: { author: { select: { id: true, name: true } } },
+const found = await Article.findOne({
+	where: { author: { is: { name: { startsWith: 'A' } } } },
+	select: { title: true },
+	include: { author: { select: { name: true } } },
 })
 ```
+
+<!-- endregion -->
+
+`Contribution.member` restricts deletion while `Article.author` and
+`Contribution.article` cascade:
+
+<!-- region ../../examples/postgres/tests/integrity.test.ts#restrict,cascade -->
+
+```ts
+// `Contribution.member` restricts: Grace's contribution keeps her.
+const restricted = StaffMember.deleteOne({ where: { id: grace.id } })
+
+// `Article.author` cascades: deleting Ada deletes her article, and
+// `Contribution.article` cascades to its contributions.
+await StaffMember.deleteOne({ where: { id: ada.id } })
+```
+
+<!-- endregion -->
+
+`restricted` rejects with `REFERENCE_VIOLATION`; deleting Ada deletes her
+article and its contributions.
 
 Identity predicates send only the target UUID as a parameter. `is` and `isNot`
 compile through the generated Drizzle `one` relation with target Access inside
@@ -659,51 +828,33 @@ deleting the related object. An inverse relation reuses that same table with
 the orientation reversed, or queries its declared `mappedBy` pointer column;
 it never creates duplicate storage.
 
+<!-- region ../../examples/postgres/tests/relations.test.ts#relation -->
+
 ```ts
 await Article.updateOne({
-	where: { id: articleId },
-	data: { tags: { connect: [firstTagId, secondTagId] } },
+	where: { id: article.id },
+	data: { tags: { connect: [postgres.id, typescript.id] } },
 })
 
-const { tags: selected } = await Article.findOneOrThrow({
-	where: { id: articleId },
+const { tags } = await Article.findOneOrThrow({
+	where: { id: article.id },
 	select: { id: true },
 	include: {
-		tags: {
-			select: { id: true, label: true },
-			orderBy: { label: 'asc' },
-			take: 20,
-		},
+		tags: { select: { label: true }, orderBy: { label: 'asc' }, take: 20 },
 	},
 })
 
+// `set` replaces the members; `set: []` removes them all.
 await Article.updateOne({
-	where: { id: articleId },
-	data: { tags: { set: [featuredTagId] } },
-})
-await Article.updateOne({
-	where: { id: articleId },
-	data: { tags: { set: [] } },
+	where: { id: article.id },
+	data: { tags: { set: [featured.id] } },
 })
 ```
+
+<!-- endregion -->
 
 The same generated Drizzle relation graph supports collection inclusion on a
-source read:
-
-```ts
-const articles = await Article.findMany({
-	select: { id: true, title: true },
-	include: {
-		tags: {
-			where: { label: { ne: 'archived' } },
-			orderBy: { label: 'asc' },
-			skip: 10,
-			take: 20,
-			select: { id: true, label: true },
-		},
-	},
-})
-```
+source read, with its own `where`, `orderBy`, `skip`, and `take`.
 
 PostgreSQL compiles pointer, owning-relation, inverse-relation, and nested
 inclusion branches into one Drizzle RQB `with` tree. Core prepares target policy
@@ -729,13 +880,32 @@ filter. Grouped eager inclusions remain one relational `SELECT` rather than one
 query per parent.
 
 Source relation quantifiers compile to correlated `EXISTS` expressions without
-loading target rows:
+loading target rows, and `count` to a correlated aggregate:
+
+<!-- region ../../examples/postgres/tests/relations.test.ts#relation-filters -->
 
 ```ts
-const articles = await Article.findMany({
-	where: { tags: { some: { label: { eq: 'typescript' } } } },
+// EXISTS: at least one member matches.
+const aboutPostgres = await Article.findMany({
+	where: { tags: { some: { label: { eq: 'postgres' } } } },
+	select: { slug: true },
+})
+
+// A correlated count of the matching members.
+const wellTagged = await Article.findMany({
+	where: { tags: { count: { gte: 2 } } },
+	select: { slug: true },
+})
+
+// `every` is also true for an empty relation.
+const onlyTypescript = await Article.findMany({
+	where: { tags: { every: { label: { eq: 'typescript' } } } },
+	orderBy: { slug: 'asc' },
+	select: { slug: true },
 })
 ```
+
+<!-- endregion -->
 
 Owning joins, inverse joins, and inverse pointers share the same compiler.
 `none` negates a matching `EXISTS`; `every` rejects a visible related row that
@@ -751,22 +921,9 @@ Relation emptiness uses `isEmpty: true` and non-emptiness uses
 compilation. To-many relations have no nullable row column, so `isNull` and
 `isNotNull` are not part of their filter contract.
 
-Visible relation cardinality uses a correlated aggregate in the same parent
-statement:
-
-```ts
-const establishedArticles = await Article.findMany({
-	where: {
-		tags: {
-			count: {
-				where: { label: { eq: 'typescript' } },
-				gte: 3,
-				lt: 100,
-			},
-		},
-	},
-})
-```
+Visible relation cardinality, `count` above, uses a correlated aggregate in
+the same parent statement, with an optional target `where` and comparisons
+such as `gte` and `lt`.
 
 Drizzle RQB v2 has no relation cardinality comparator, so PostgreSQL uses
 Drizzle Core's aliased `QueryBuilder`, `count()`, joins, and parameterized
@@ -777,28 +934,8 @@ counted. All comparisons share one aggregate scan and compile through `HAVING`.
 Owning joins, inverse joins, and inverse pointers still execute as one SQL
 statement without loading related rows or issuing per-parent queries.
 
-Relationships with business data remain ordinary schemas. For example, two
-required pointers plus a composite unique index model a membership edge:
-
-```ts
-const Membership = UltimaBase.Schema.define({
-	className: 'Membership',
-	fields: (field) => ({
-		member: field.pointer({
-			onDelete: 'cascade',
-			target: () => Member,
-			required: true,
-		}),
-		project: field.pointer({
-			onDelete: 'cascade',
-			target: () => Project,
-			required: true,
-		}),
-		role: field.string({ required: true }),
-	}),
-	indexes: [{ fields: ['project', 'member'], unique: true }],
-})
-```
+Relationships with business data remain ordinary schemas: `Contribution`
+above uses two required pointers plus a composite unique index.
 
 PostgreSQL compiles this into an ordinary edge table, two named foreign keys,
 and one composite unique index. Direct edge queries, Access, hooks, and explicit
@@ -811,25 +948,30 @@ the edge has no independent data or lifecycle.
 The internal adapter compiles the normalized `Query` filter tree through
 Drizzle. Equality, ordered comparisons, membership, string matching, regular
 expressions, existence, and nested `and`/`or`/`not` expressions share the same
-parameterized boundary. The examples use the builder plugin code constructs
-from `@ultimabase/core/plugin` (ADR-0311); applications pass the same
-canonical `where` objects to `findMany`:
+parameterized boundary. Applications pass canonical `where` objects:
+
+<!-- region ../../examples/postgres/tests/queries.test.ts#filters -->
 
 ```ts
-import { QueryBuilder } from '@ultimabase/core/plugin'
+// `%` and `_` are literal characters here, not SQL wildcards.
+const literal = await Article.findMany({
+	where: { title: { contains: 'Ultima_100%' } },
+	select: { slug: true },
+})
 
-const query = new QueryBuilder(ArticleSchema).where({
-	status: { eq: 'published' },
-	views: { gt: 1_000 },
-	title: { contains: 'Ultima_100%' },
-	slug: {
-		matches: {
-			flags: ['case-insensitive'],
-			source: '^release-[0-9]+$',
+const matching = await Article.findMany({
+	where: {
+		slug: {
+			matches: { source: '^release-[0-9]+$', flags: ['case-insensitive'] },
 		},
+		keywords: { has: 'postgres' },
+		metadata: { contains: { visibility: 'public' } },
 	},
+	select: { slug: true },
 })
 ```
+
+<!-- endregion -->
 
 Developer values and regex sources never become SQL text. `contains`,
 `startsWith`, and `endsWith` escape PostgreSQL `LIKE` wildcards (`%`, `_`) and
@@ -843,21 +985,10 @@ preserve the same logical-to-driver mapping as persisted list values. Exact
 element equality deliberately avoids JSONB containment's partial-object
 semantics.
 
-For `jsonField` and `objectField`, the same `contains` builder means structural
-containment. PostgreSQL compiles the shared structured AST to JSONB operators;
-typed object partials pass through child codecs before serialization:
-
-```ts
-import { fieldPath } from '@ultimabase/core'
-
-const query = new QueryBuilder(ArticleSchema).where(
-	(where) =>
-		where
-			.contains('metadata', { visibility: 'public' }) // @>
-			.hasAnyKeys('metadata', ['visibility', 'featured']) // ?|
-			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com'), // #>
-)
-```
+For `json` and `object` fields, `contains` means structural containment, as
+`metadata` above shows. PostgreSQL compiles the shared structured AST to JSONB
+operators (`@>` for `contains`, `?|` for `hasAnyKeys`, `#>` for an `at` path);
+typed object partials pass through child codecs before serialization.
 
 Containment documents, keys, key arrays, and path segment arrays are parameters.
 The compiler uses `#>>` only for typed string matching and `#>` for JSONB value
@@ -875,7 +1006,8 @@ ordering comparisons use the database column's configured collation. See the
 for the underlying ARE syntax.
 
 The compiler remains internal; developers build every scalar and relation
-filter only through canonical `where` objects or `QueryBuilder.where`.
+filter only through canonical `where` objects, and plugin code through
+`QueryBuilder.where` from `@ultimabase/core/plugin` (ADR-0311).
 
 ## Query selection and pagination compilation
 
@@ -885,14 +1017,19 @@ preserves the ordering it receives and uses explicit null placement (`NULLS
 LAST` in both directions); Core, not the adapter, completes a collection read
 with its `id` tie-breaker:
 
-```ts
-const orderedPage = new QueryBuilder(ArticleSchema)
-	.select({ id: true, title: true, createdAt: true })
-	.descending('createdAt')
-	.take(25)
+<!-- region ../../examples/postgres/tests/queries.test.ts#skip -->
 
-const skippedPage = orderedPage.skip(50)
+```ts
+// Offset pagination: simpler, but it shifts when rows are inserted.
+const skipped = await Article.findMany({
+	orderBy: { publishedAt: 'desc' },
+	select: { title: true },
+	skip: 2,
+	take: 2,
+})
 ```
+
+<!-- endregion -->
 
 When a logical selection contains a Core virtual field, PostgreSQL receives
 only Core's derived persisted returning selection. Overlapping dependencies are
@@ -907,7 +1044,7 @@ constraint, introspection entry, synchronization change, or migration drift.
 Filtering and ordering remain limited to persisted fields and fail during Core
 normalization before PostgreSQL compiles SQL.
 
-`.skip()` selects offset pagination. A `findMany({ after })` position reaches
+`skip` selects offset pagination. A `findMany({ after })` position reaches
 PostgreSQL as an ordinary keyset predicate in the `where` filter (strictly
 greater or lower ordered values, `IS NULL` for the null-last tail, `id` as the
 last term) with no `OFFSET` (ADR-0309). An included relation's `after` compiles
@@ -917,8 +1054,46 @@ and `uuid` families as well; public filters still refuse ranges on those
 kinds. Transport cursors are decoded by Core's shared encoder before PostgreSQL
 receives the ordinary Query AST.
 
-The builder remains a non-executing utility. Schema-root read commands normalize
-their canonical objects to the same AST before this compiler runs.
+<!-- region ../../examples/postgres/src/newsroom.ts#page -->
+
+```ts
+const PAGE_SIZE = 2
+
+/**
+ * Keyset pagination: each page starts strictly after the last row of the
+ * previous one, with no `OFFSET`.
+ */
+export const readPublishedPage = async (after?: {
+	readonly id: string
+	readonly publishedAt: string | null
+}) => {
+	const rows = await Article.findMany({
+		where: { status: 'published' },
+		orderBy: { publishedAt: 'desc' },
+		select: { id: true, publishedAt: true, title: true },
+		take: PAGE_SIZE + 1,
+		...(after === undefined ? {} : { after }),
+	})
+	return { hasMore: rows.length > PAGE_SIZE, rows: rows.slice(0, PAGE_SIZE) }
+}
+```
+
+<!-- endregion -->
+
+Each call passes the last row of the previous page as `after`:
+
+<!-- region ../../examples/postgres/tests/queries.test.ts#read-pages -->
+
+```ts
+const first = await readPublishedPage()
+const second = await readPublishedPage(first.rows.at(-1))
+const third = await readPublishedPage(second.rows.at(-1))
+```
+
+<!-- endregion -->
+
+Schema-root read commands normalize their canonical objects to the same AST
+before this compiler runs.
 
 ## Table and column names
 
@@ -937,19 +1112,9 @@ fail compilation. Index and foreign-key names are derived from the physical
 columns. Queries, results, errors, and logs keep the logical field names.
 
 Use the `postgres` rule when the database needs an exact table identifier:
-
-```ts
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-
-const Application = UltimaBase.use(postgresPlugin())
-const ArticleSchema = Application.Schema.define({
-	className: 'Article',
-	fields: (field) => ({
-		title: field.string(),
-	}),
-}).with({ postgres: { table: 'ContentItems-v2' } })
-```
+`Article` above is stored in `newsroom_articles` through
+`.with({ postgres: { table: 'newsroom_articles' } })`, while `StaffMember`
+keeps the derived `staff_members`.
 
 The explicit name is preserved verbatim. It is passed to Drizzle as an
 identifier and escaped there, never interpolated into raw SQL. The rule is
@@ -972,6 +1137,7 @@ UltimaBase, or declare `renamedFrom` on developer fields.
   rule applies there.
 - To keep the tables in a dedicated PostgreSQL schema, set `search_path` in the
   URL: `postgres://app@db/main?options=-c%20search_path%3Dmy_app`.
-  Synchronization and introspection follow `current_schema()`.
+  Synchronization and introspection follow `current_schema()`; the example's
+  tests build such URLs for the applications they start themselves.
 - `url` or `pool`, the three policies, and no destructive drop stay as
   described above.

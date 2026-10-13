@@ -9,8 +9,19 @@ contentType: guide
 order: 3
 outcome: Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
+  - examples/postgres/README.md
+  - examples/postgres/src/database.ts
+  - examples/postgres/src/schema.ts
+  - examples/postgres/src/ultimabase.ts
+  - examples/postgres/src/main.ts
+  - examples/postgres/tests/connection.test.ts
+  - examples/postgres/tests/schema-sync.test.ts
+  - examples/postgres/tests/releases.ts
+  - examples/postgres/tests/storage.test.ts
+  - examples/postgres/tests/integrity.test.ts
+  - examples/postgres/tests/support.ts
   - docs/adr/0266-defer-migration-only-protocols.md
   - docs/adr/0292-environment-aware-postgres-schema-policy.md
   - packages/postgres-plugin/README.md
@@ -46,6 +57,10 @@ The plugin can prepare a database schema directly at startup. It does **not**
 ship a migration runner. Importing the package alone does not install the
 provider; add `postgresPlugin()` to the application's `.use()` chain.
 
+Every TypeScript block on this page is copied from the
+[postgres example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/postgres),
+a small newsroom backend whose tests check each result described here.
+
 ## Installation
 
 You need Node.js 24+, a reachable PostgreSQL database, and an UltimaBase
@@ -78,33 +93,26 @@ not when the plugin is created: schemas and the application import and
 type-check without environment. A missing or empty variable fails `start()`
 with a message naming `DATABASE_URL` and the `url` option, never the value.
 The example uses a disposable development database and lets the plugin own
-its connection pool; keep `DATABASE_URL` out of source control.
+its connection pool; keep `DATABASE_URL` out of source control. Install the
+plugin on the application factory; `database` is the configured
+`postgresPlugin()` shown in [Connection settings](#connection-settings):
 
-```ts title="src/main.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/postgres/src/schema.ts#factory
+</include>
 
-const Application = UltimaBase.use(postgresPlugin({ schemaPolicy: 'override' }))
-const Task = Application.Schema.define({
-	className: 'Task',
-	fields: (f) => ({
-		title: f.string({ required: true }),
-	}),
-})
-export const ultimabase = new Application({
-	schemas: [Task],
-})
+Register the schemas, then start the application from its entry point:
 
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/postgres/src/ultimabase.ts#application
+</include>
 
-await using app = await ultimabase.start()
-const connection = app.plugin(postgresPluginName).connection
-console.log(connection.state) // 'connected'
-```
+<include cwd meta='title="src/main.ts"'>
+	../../examples/postgres/src/main.ts#start
+</include>
+
+The example does not set `schemaPolicy`, so outside production it uses
+`override` and creates its tables on the first start.
 
 <Callout type="warn" title="Use override only on a reviewed database">
 	`override` can create or alter physical structures. Use this example with a
@@ -122,25 +130,28 @@ console.log(connection.state) // 'connected'
 
 Do not pass both `url` and `pool`. Creating `UltimaBase` does not contact the
 database. `start()` verifies a connection, returns the borrowed client to its
-pool, and then runs schema preparation. `dispose()` closes only a pool that
-the plugin created.
+pool, and then runs schema preparation. With `url`, the plugin owns the pool
+and `dispose()` closes it:
+
+<include cwd meta='title="tests/connection.test.ts"'>
+	../../examples/postgres/tests/connection.test.ts#lifecycle
+</include>
+
+`whileStarted` is `'connected'` and `afterDispose` is `'closed'`. An injected
+`pool` stays yours: `dispose()` leaves it open, and you close it:
+
+<include cwd meta='title="tests/connection.test.ts"'>
+	../../examples/postgres/tests/connection.test.ts#own-pool
+</include>
 
 ### Connection settings
 
 With `url` or `DATABASE_URL`, `connection` tunes the pool that the plugin
 creates. An injected `pool` keeps its own settings and rejects `connection`.
 
-```ts
-postgresPlugin({
-	connection: {
-		max: 20,
-		ssl: true,
-		statementTimeoutMs: 5000,
-		idleTimeoutMs: 30_000,
-		connectRetries: 5,
-	},
-})
-```
+<include cwd meta='title="src/database.ts"'>
+	../../examples/postgres/src/database.ts#database
+</include>
 
 | Setting              | Effect                                                                                                         |
 | -------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -156,11 +167,10 @@ driver code.
 
 ### Debugging queries
 
-`debug` logs statements through the plugin logger, never their values:
-
-```ts
-postgresPlugin({ debug: { logQueries: true, slowQueryMs: 500 } })
-```
+`debug` logs statements through the plugin logger, never their values. The
+example above keeps only `slowQueryMs`; during development, add
+`logQueries: true`, as in
+`postgresPlugin({ debug: { logQueries: true, slowQueryMs: 500 } })`.
 
 `logQueries` writes one `info` line per statement, with its duration and its
 text with `$1` placeholders. `slowQueryMs` writes one `warn` line per statement
@@ -170,25 +180,26 @@ production.
 ### Table and column names
 
 PostgreSQL derives a plural `snake_case` table name from `className`
-(`BlogPost` → `blog_posts`) and a `snake_case` column from each field
+(`StaffMember` → `staff_members`) and a `snake_case` column from each field
 (`createdAt` → `created_at`). Queries, results, and errors keep the field
 names. The `postgres` rule of `.with` chooses an exact table identifier, and
 the stored-field `postgres.renamedFrom` names the previous column for a
 data-preserving rename:
 
-```ts
-const Article = Application.Schema.define({
-	className: 'Article',
-	fields: (f) => ({
-		title: f.string({ postgres: { renamedFrom: 'headline' } }),
-	}),
-}).with({ postgres: { table: 'articles' } })
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/postgres/src/schema.ts#article
+</include>
+
+The comments name the column type of each field kind: `int` and `bigint` use
+`bigint`, `decimal` uses `numeric` with its precision and scale, `dateTime`
+uses `timestamp(3) with time zone`, and lists, `json`, and `object` fields
+use `jsonb`. A pointer is a `uuid` column with a named foreign key; a relation
+is a hidden join table.
 
 Use `renamedFrom` only when an existing managed column is actually being
 renamed, and remove it once every database has applied the rename. The
-configured `Application` above types both from the installed plugin; a factory
-without the plugin rejects them. Field-level `postgres` is limited to stored fields.
+configured `App` types both from the installed plugin; a factory without the
+plugin rejects them. Field-level `postgres` is limited to stored fields.
 
 ## Behavior and limitations
 
@@ -208,8 +219,11 @@ on startup must write `schemaPolicy: 'override'` deliberately.
 
 `override` can create missing tables and apply supported column type,
 nullability, default, identity, primary-key, foreign-key, and index changes.
-It does not infer that unmatched tables or columns should be dropped. Removed
-fields and plugin-owned storage need an explicit migration plan. Unsupported
+It does not infer that unmatched tables or columns should be dropped. Indexes
+are different: on a managed table, `override` drops an index that no schema
+declares, such as one created by hand or by a newer release of the
+application. Removed fields and plugin-owned storage need an explicit
+migration plan. Unsupported
 structures on a managed table stop direct preparation rather than being
 approximated. No official migration runner is shipped yet.
 
@@ -240,9 +254,16 @@ under `override`, as shown above.
 
 Declare single-field and composite indexes through Core's
 [Schemas](/docs/1.0.0/core/data-modeling/schemas#indexes) API, not through
-Drizzle or SQL. PostgreSQL generates deterministic physical names and
-preserves the declared field order. A unique index is also the exact conflict
-target used by [Unique Upserts](/docs/1.0.0/core/writing-data/upserts).
+Drizzle or SQL, as `Article` does above. An edge with its own data is an
+ordinary schema with a composite unique index:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/postgres/src/schema.ts#contribution
+</include>
+
+PostgreSQL generates deterministic physical names and preserves the declared
+field order. A unique index is also the exact conflict target used by
+[Unique Upserts](/docs/1.0.0/core/writing-data/upserts).
 
 A declaration does not prove that an existing database already has the index.
 `override` applies supported changes; `fail` reports drift; `ignore` does
@@ -265,6 +286,15 @@ mutation transactions. Other data and integrity errors stay
 `VALIDATION_ERROR`. Each statement runs at `READ COMMITTED`, and mutation
 targets are locked with `SELECT ... FOR UPDATE` until commit.
 
+<include cwd meta='title="tests/integrity.test.ts"'>
+	../../examples/postgres/tests/integrity.test.ts#unique-violation
+</include>
+
+`duplicate` rejects with `UNIQUE_VIOLATION`, `publicDetails`
+`{ schema: 'StaffMember', fields: ['email'] }`, and the public message
+`A StaffMember with the same email already exists.`; the value itself is
+never reported.
+
 The adapter declares every built-in filter operator and partial indexes, and
 answers `ultimabase.health()` with a trivial query on its pool. No `ping()`
 helper is exported.
@@ -285,7 +315,12 @@ UltimaBase runs no manual SQL: a raw statement would bypass Access, ACL, Soft
 Delete, and hooks. For reports, query the database with your own pool outside
 UltimaBase, ideally on a read-only account; no UltimaBase rule applies there.
 To keep the tables in a dedicated PostgreSQL schema, set `search_path` in the
-connection URL, for example `?options=-c%20search_path%3Dmy_app`.
+connection URL, for example `?options=-c%20search_path%3Dmy_app`. The
+example's tests build such a URL for the applications they start themselves:
+
+<include cwd meta='title="tests/support.ts"'>
+	../../examples/postgres/tests/support.ts#search-path
+</include>
 
 ## Troubleshooting
 
