@@ -126,8 +126,8 @@ await auth.runWithSession(session.token, () =>
 <!-- region ../../examples/auth/tests/account.test.ts#delete-account -->
 
 ```ts
-// Proves the password again: the session's next requests may run
-// sensitive operations for five minutes.
+// Proves the password again: the calls that follow through this session
+// may run sensitive operations for five minutes.
 await auth.runWithSession(session.token, () =>
 	Member.reauthenticate({ password: 'correct horse battery staple' }),
 )
@@ -146,7 +146,7 @@ const deleted = await auth.runWithSession(session.token, () =>
 - `changePassword` checks the current password, keeps the current session and,
   with `revokeOnPasswordChange`, revokes the others.
 - `reauthenticate` proves the password again, allowing `deleteAccount` and
-  `unlinkMethod` in the session's next requests for the
+  `unlinkMethod` through the session, from the next call on, for the
   recent-authentication window.
 
 Login, password change and re-authentication follow the foundation's attempt

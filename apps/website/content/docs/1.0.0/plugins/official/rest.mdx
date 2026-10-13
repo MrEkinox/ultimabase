@@ -393,7 +393,10 @@ bodies, fields and their wire types.
 
 In the example, the document has `findManyAuthor` but no write on
 `/classes/Author`, `countPost`, nothing for `Tag`, and the `readingTime`
-input with `minLength: 1` on `text`. Constraints come from validators that
+input with `minLength: 1` on `text`. `PostCreateInput` and `PostUpdateInput`
+describe `author` and `tags` with the link commands REST accepts (`connect`
+and `create`, plus `update`, `disconnect` and `set` in an update); upsert and
+bulk bodies refuse them. Constraints come from validators that
 can describe themselves as JSON Schema (Standard JSON Schema, as Zod does): a
 field's `validation` and an application operation's `input` and `output`.
 The document never describes an access rule.

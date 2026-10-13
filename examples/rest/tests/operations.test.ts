@@ -86,7 +86,37 @@ it('describes the exposed routes in OpenAPI', async () => {
 		},
 		components: {
 			schemas: {
-				PostCreateInput: { required: ['title', 'slug'] },
+				PostCreateInput: {
+					required: ['title', 'slug'],
+					additionalProperties: false,
+					// Relationship fields take the link commands REST accepts.
+					properties: {
+						author: {
+							anyOf: [
+								{
+									oneOf: [{ required: ['connect'] }, { required: ['create'] }],
+								},
+								{ type: 'null' },
+							],
+						},
+						tags: {
+							properties: {
+								connect: { type: 'array' },
+								create: { type: 'array' },
+							},
+						},
+					},
+				},
+				PostUpdateInput: {
+					properties: {
+						tags: {
+							properties: {
+								disconnect: { type: 'array' },
+								set: { type: 'array' },
+							},
+						},
+					},
+				},
 			},
 		},
 	})

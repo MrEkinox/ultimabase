@@ -39,6 +39,8 @@ import {
 	authClient,
 	authPrincipal,
 	authSession,
+	readSessionAuthenticatedAt,
+	recordSessionAuthentication,
 	type AuthPendingSignUp,
 } from './session.js'
 import type { ResolvedAuthSessionPolicy } from './session-policy.js'
@@ -253,7 +255,7 @@ export const createAuthServices = (options: {
 		requireRecentAuthentication: (context) => {
 			const { session } = readAuthenticated(state, context)
 			if (
-				Date.now() - Date.parse(session.authenticatedAt) >
+				Date.now() - readSessionAuthenticatedAt(session) >
 				sessionPolicy.recentAuthenticationMs
 			) {
 				rejectReauthentication()
@@ -261,9 +263,12 @@ export const createAuthServices = (options: {
 		},
 		markAuthenticated: async (context) => {
 			const { session } = readAuthenticated(state, context)
-			if (!(await markSessionAuthenticated(collections(), session))) {
+			const now = Date.now()
+			if (!(await markSessionAuthenticated(collections(), session, now))) {
 				rejectSession()
 			}
+			// Later calls of the same scope share this session value.
+			recordSessionAuthentication(session, now)
 		},
 		revokeOtherSessionsOnPasswordChange: async (context) => {
 			if (!sessionPolicy.revokeOnPasswordChange) return

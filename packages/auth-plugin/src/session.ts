@@ -17,7 +17,10 @@ const rawTokenPattern = /^ub_s1\.[A-Za-z0-9_-]{43}$/u
 export interface AuthSession {
 	readonly [authSessionBrand]: true
 	readonly absoluteExpiresAt: string
-	/** When the session's user last proved a credential (login or `reauthenticate`). */
+	/**
+	 * When the session's user last proved a credential (login or
+	 * `reauthenticate`), as read when the request began.
+	 */
 	readonly authenticatedAt: string
 	readonly createdAt: string
 	readonly expiresAt: string
@@ -147,6 +150,29 @@ export const createAuthSession = (
 
 const isAuthSession = (value: unknown): value is AuthSession =>
 	isPlainRecord(value) && authSessionGenerations.has(value)
+
+// Credential proofs made through each context session during its scope: the
+// session value is immutable, so a scope that reauthenticates sees its new
+// proof here (and its next scopes in the stored session).
+const authSessionProofs = new WeakMap<AuthSession, number>()
+
+/** Records a credential proof already stored on this context session. */
+export const recordSessionAuthentication = (
+	session: AuthSession,
+	at: number,
+): void => {
+	authSessionProofs.set(
+		session,
+		Math.max(at, authSessionProofs.get(session) ?? at),
+	)
+}
+
+/** When the user last proved a credential through this context session. */
+export const readSessionAuthenticatedAt = (session: AuthSession): number =>
+	Math.max(
+		Date.parse(session.authenticatedAt),
+		authSessionProofs.get(session) ?? Number.NEGATIVE_INFINITY,
+	)
 
 /** Reads the private account generation of one nominal session. */
 export const readSessionGeneration = (session: AuthSession): number => {

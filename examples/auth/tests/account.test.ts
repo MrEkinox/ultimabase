@@ -73,8 +73,8 @@ it('deletes an account only after a recent authentication', async () => {
 	).rejects.toMatchObject({ code: 'AUTH_REAUTHENTICATION_REQUIRED' })
 
 	//#region delete-account
-	// Proves the password again: the session's next requests may run
-	// sensitive operations for five minutes.
+	// Proves the password again: the calls that follow through this session
+	// may run sensitive operations for five minutes.
 	await auth.runWithSession(session.token, () =>
 		Member.reauthenticate({ password: 'correct horse battery staple' }),
 	)

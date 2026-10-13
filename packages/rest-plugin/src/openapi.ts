@@ -2,10 +2,12 @@ import {
 	getFieldSchemaTarget,
 	type CompiledSchemaRegistry,
 	type ExposedOperationTransportBinding,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 
 import {
 	describeSchemaComponents,
+	describeUnlinkedInput,
 	schemaRef,
 	type JsonSchema,
 } from './openapi-schemas.js'
@@ -96,11 +98,19 @@ const readBody: JsonSchema = {
 
 const describeSchemaRoute = (
 	route: RestSchemaRouteDefinition,
+	schema: SchemaDefinition | undefined,
 ): OpenApiOperation => {
 	const className = route.schema
 	const model = schemaRef(className)
 	const create = schemaRef(`${className}CreateInput`)
 	const update = schemaRef(`${className}UpdateInput`)
+	// Upsert and bulk bodies take the same data without relationship links.
+	const unlinked = (input: 'CreateInput' | 'UpdateInput'): JsonSchema =>
+		schema === undefined
+			? schemaRef(`${className}${input}`)
+			: describeUnlinkedInput(schema, input)
+	const flatCreate = unlinked('CreateInput')
+	const flatUpdate = unlinked('UpdateInput')
 	const byBody = route.method === 'POST' && route.operation in readParameters
 	const operationId = `${route.operation === 'first' ? 'findFirst' : restOperationMethods[route.operation]}${className}${byBody ? 'ByBody' : ''}`
 	const common = { operationId, tags: [className] }
@@ -180,7 +190,12 @@ const describeSchemaRoute = (
 				...common,
 				requestBody: body({
 					type: 'object',
-					properties: { where: {}, create, update, select: {} },
+					properties: {
+						where: {},
+						create: flatCreate,
+						update: flatUpdate,
+						select: {},
+					},
 					required: ['where', 'create', 'update'],
 				}),
 				responses: success('200', result(model)),
@@ -190,12 +205,15 @@ const describeSchemaRoute = (
 		case 'bulkDelete':
 		case 'bulkUpsert': {
 			const items: Readonly<Record<string, JsonSchema>> = {
-				bulkCreate: { data: { type: 'array', items: create } },
+				bulkCreate: { data: { type: 'array', items: flatCreate } },
 				bulkDelete: { where: { type: 'array', items: {} } },
 				bulkUpdate: {
 					data: {
 						type: 'array',
-						items: { type: 'object', properties: { where: {}, data: update } },
+						items: {
+							type: 'object',
+							properties: { where: {}, data: flatUpdate },
+						},
 					},
 				},
 				bulkUpsert: {
@@ -203,7 +221,7 @@ const describeSchemaRoute = (
 						type: 'array',
 						items: {
 							type: 'object',
-							properties: { where: {}, create, update },
+							properties: { where: {}, create: flatCreate, update: flatUpdate },
 						},
 					},
 				},
@@ -299,7 +317,7 @@ export const createRestOpenApiDocument = (options: {
 		exposedSchemas.add(route.schema)
 		item[method] =
 			route.kind === 'rest-schema-route'
-				? describeSchemaRoute(route)
+				? describeSchemaRoute(route, options.schemas.get(route.schema))
 				: describeCommandRoute(route)
 	}
 	const schemas: Record<string, JsonSchema> = {

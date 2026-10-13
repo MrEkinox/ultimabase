@@ -11,9 +11,17 @@ const day = 24 * 60 * minute
 
 /** Configures session lifetimes, revocation and recent authentication. */
 export interface AuthSessionOptions {
-	/** Rolling lifetime, from five minutes through thirty days. @default 7 days */
+	/**
+	 * Lifetime from issue or `refresh()`, from five minutes through thirty
+	 * days. Using a session does not extend it; only `refresh()` does, never
+	 * past `absoluteExpiresInMs`.
+	 * @default 7 days
+	 */
 	readonly expiresInMs?: number
-	/** Absolute lifetime, from one through 365 days. @default 30 days */
+	/**
+	 * Lifetime from login that no refresh extends, from one through 365 days.
+	 * @default 30 days
+	 */
 	readonly absoluteExpiresInMs?: number
 	/**
 	 * Revokes every other session of the user when a password changes.
@@ -36,7 +44,7 @@ export interface ResolvedAuthSessionPolicy {
 	readonly revokeOnPasswordChange: boolean
 }
 
-/** Seven rolling days, a thirty-day ceiling and five minutes of recent authentication. */
+/** Seven days per issue or refresh, a thirty-day ceiling and five minutes of recent authentication. */
 export const defaultAuthSessionPolicy: ResolvedAuthSessionPolicy =
 	immutableRecord({
 		absoluteExpiresInMs: 30 * day,
