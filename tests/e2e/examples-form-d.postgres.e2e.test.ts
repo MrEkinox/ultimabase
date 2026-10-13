@@ -26,6 +26,7 @@ const examples = [
 	'validation',
 	'acl',
 	'roles',
+	'auth',
 ] as const
 // Quoted repository paths let the CI planner select this suite when they change.
 const testedExamples = [
@@ -36,6 +37,7 @@ const testedExamples = [
 	['examples/validation', 12],
 	['examples/acl', 16],
 	['examples/roles', 14],
+	['examples/auth', 21],
 ] as const
 
 const compile = (example: string): readonly string[] => {

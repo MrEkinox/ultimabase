@@ -47,6 +47,16 @@ Examples are user-facing, tested applications. They must only import public `@ul
   role management, the `fail` and `cascade` deletion policies, role events,
   REST), tested with `testApplication`. Its `//#region` blocks are the code of
   the Roles page and package README (ADR-0330).
+- [`auth`](auth/README.md): Password Authentication end to end (a User
+  schema with its own fields, sign-up and login by email, the session's
+  member in Access rules, listing, revoking, refreshing and ending sessions,
+  the session lifetimes, recent authentication and account deletion,
+  password reset, email verification and email change through a test email
+  sender, events, attempt limiting, the `/api/auth` routes with Bearer and
+  cookie sessions, and a stricter application requiring verified emails),
+  tested with `testApplication`. Its `//#region` blocks are the code of the
+  Password Authentication page and the `auth-plugin` and `auth-password`
+  READMEs (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.

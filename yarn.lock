@@ -3630,6 +3630,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-auth@workspace:examples/auth":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-auth@workspace:examples/auth"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/api-server": "workspace:^"
+    "@ultimabase/auth-password": "workspace:^"
+    "@ultimabase/auth-plugin": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-hooks@workspace:examples/hooks":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-hooks@workspace:examples/hooks"
