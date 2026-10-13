@@ -121,8 +121,9 @@ awaits disposal:
 	../../examples/http/src/main.ts#main
 </include>
 
-Run the project's typecheck, build and start scripts after configuring
-`DATABASE_URL` when using PostgreSQL. The process keeps serving until Ctrl+C;
+The REST and GraphQL guides start from the same kind of entry point. Run the
+project's typecheck, build and start scripts after configuring `DATABASE_URL`
+and the example's secrets. The process keeps serving until Ctrl+C;
 then it awaits application cleanup, including the managed listener and database.
 The same disposal runs on SIGTERM, the signal most hosts send before stopping
 a process. Do not start another application before that cleanup completes.
