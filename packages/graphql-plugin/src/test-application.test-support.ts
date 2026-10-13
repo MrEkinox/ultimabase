@@ -1,6 +1,10 @@
 import {
 	databaseAdapterCapability,
+	databaseInclusionCapability,
 	databasePersistencePlanCapability,
+	databasePointerCapability,
+	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -16,8 +20,13 @@ import {
 class GraphqlFixtureDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly checkHealth = (): Promise<void> => Promise.resolve()
+	// Relations let request validation reach relation connections; no query runs.
 	readonly capabilities = {
+		inclusions: databaseInclusionCapability,
 		persistencePlans: databasePersistencePlanCapability,
+		pointers: databasePointerCapability,
+		relations: databaseRelationCapability,
+		relationPredicates: databaseRelationPredicateCapability,
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
