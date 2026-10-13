@@ -11,11 +11,7 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-import {
-	plugin,
-	provideCapability,
-	type PluginDefinition,
-} from '@ultimabase/core/plugin'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 
 class GraphqlFixtureDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
@@ -41,7 +37,7 @@ class GraphqlFixtureDatabase implements DatabaseAdapter {
 	}
 }
 
-export const graphqlFixtureDatabasePlugin: PluginDefinition = plugin({
+export const graphqlFixtureDatabasePlugin = plugin({
 	core: '^0.0.0',
 	id: 'fixture.graphql-database',
 	version: '1.0.0',

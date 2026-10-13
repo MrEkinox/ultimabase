@@ -2,7 +2,6 @@ import { UltimaBase } from '@ultimabase/core'
 import { anonymous } from '@ultimabase/core/plugin'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
-import type { GraphqlApplication } from './application.js'
 import { graphqlPlugin } from './plugin.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
 
@@ -21,20 +20,18 @@ const Book = UltimaBase.Schema.define({
 const start = async () => {
 	const error = vi.fn()
 	const application = new (UltimaBase.use(
+		graphqlFixtureDatabasePlugin,
 		graphqlPlugin({
 			pagination: { defaultTake: 2, maxTake: 3 },
 			publicWrites: true,
 		}),
-		graphqlFixtureDatabasePlugin,
 	))({
 		logger: { debug: vi.fn(), error, info: vi.fn(), warn: vi.fn() },
 		schemas: [Shelf, Book],
 	})
 	onTestFinished(() => application.dispose())
 	await application.start()
-	const graphql = application.plugin(
-		'@ultimabase/graphql-plugin',
-	) as GraphqlApplication
+	const graphql = application.plugin('@ultimabase/graphql-plugin')
 	const execute = (
 		document: string,
 		variables?: Readonly<Record<string, unknown>>,

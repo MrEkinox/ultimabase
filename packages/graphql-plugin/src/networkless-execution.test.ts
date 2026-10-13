@@ -11,7 +11,6 @@ import { describe, expect, it } from 'vitest'
 
 import { graphqlPlugin } from './plugin.js'
 import type { GraphqlExecutionLimits } from './connection-limits.js'
-import type { GraphqlApplication } from './application.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
 import { RequestContext, anonymous } from '@ultimabase/core/plugin'
 
@@ -109,9 +108,7 @@ describe('GraphQL networkless execution', () => {
 		async (source, message) => {
 			const application = createFixture()
 			await application.start()
-			const graphql = application.plugin(
-				'@ultimabase/graphql-plugin',
-			) as GraphqlApplication
+			const graphql = application.plugin('@ultimabase/graphql-plugin')
 			const context = anonymous(application, {
 				requestId: 'invalid-collection',
 				source: 'test',
@@ -136,9 +133,7 @@ describe('GraphQL networkless execution', () => {
 	it('executes string and parsed documents in one exact request scope', async () => {
 		const application = createFixture()
 		await application.start()
-		const graphql = application.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
 		const context = anonymous(application, {
 			requestId: 'networkless-context',
 			source: 'test',
@@ -170,9 +165,7 @@ describe('GraphQL networkless execution', () => {
 		}).context
 		await second.dispose()
 		await first.start()
-		const graphql = first.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphql = first.plugin('@ultimabase/graphql-plugin')
 		await expect(
 			graphql.execute({ context: foreign, document: '{ context }' }),
 		).rejects.toThrow()
@@ -211,9 +204,7 @@ describe('GraphQL networkless execution', () => {
 	it('preserves public failures and masks unknown resolver details', async () => {
 		const application = createFixture()
 		await application.start()
-		const graphql = application.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
 		const context = anonymous(application, {
 			requestId: 'safe-custom-errors',
 			source: 'test',
@@ -272,9 +263,7 @@ describe('GraphQL networkless execution', () => {
 		async (limits, document, variables, message) => {
 			const application = createFixture(limits)
 			await application.start()
-			const graphql = application.plugin(
-				'@ultimabase/graphql-plugin',
-			) as GraphqlApplication
+			const graphql = application.plugin('@ultimabase/graphql-plugin')
 			const result = await graphql.execute({
 				context: anonymous(application, {
 					requestId: 'networkless-limit',
@@ -292,9 +281,7 @@ describe('GraphQL networkless execution', () => {
 	it('rejects cyclic variables, unsupported directives, and subscriptions', async () => {
 		const application = createFixture()
 		await application.start()
-		const graphql = application.plugin(
-			'@ultimabase/graphql-plugin',
-		) as GraphqlApplication
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
 		const context = anonymous(application, {
 			requestId: 'networkless-invalid',
 			source: 'test',
