@@ -75,7 +75,7 @@ export const compileLandingApplication = async (
 ): Promise<CompiledLandingApplication> => {
 	await writeFile(filename, source)
 	const loaded: unknown = await import(pathToFileURL(filename).href)
-	const application =
+	const application: unknown =
 		typeof loaded === 'object' && loaded !== null
 			? Reflect.get(loaded, 'app')
 			: undefined

@@ -386,7 +386,8 @@ describe('website visual system', () => {
 				.getByRole('heading', { level: 2, name: 'Next steps' })
 				.locator('xpath=following-sibling::div[1]')
 				.locator('a[data-card]')
-			expect(await gettingStartedCards.count()).toBe(8)
+			// The Generate TypeScript types card left with Typegen (ADR-0297).
+			expect(await gettingStartedCards.count()).toBe(7)
 			expect(
 				await gettingStartedCards
 					.filter({ hasText: 'Test the application' })
