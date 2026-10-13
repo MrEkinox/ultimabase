@@ -116,6 +116,32 @@ Site en cours (agent). Porte finale, audit DX et banc à faire.
    Typegen (« retained typing boundaries », budget `hybrid-authoring`) ; à
    corriger par l'utilisateur.
 
+## Audit DX (base 5a3f0047 construite, `--only` tous les paquets des deux arbres, `tests`, `examples/minimal`, `examples/todo-backend`)
+
+`node tooling/dx-audit/run.mjs ../ub-step6-8b-baseline . --only …` :
+10583 différences (39948 enregistrements base / 35404 candidat), sortie 0.
+Classement par cause (script de tri hors dépôt) :
+
+- 3917 : paquet `@ultimabase/typegen` retiré ;
+- 3000 : machinerie des gabarits retirée (4ᵉ argument de `DeclaredSchema`
+  `Readonly<{}>` → `Readonly<Record<never, never>>`, surface de classe
+  `ConfiguredSchemaResult` → `SchemaReference`, `Readonly<...> &` en moins,
+  compteurs `... N more ...` décalés, `operations`/`schemaSurfaces`) ;
+- 1280 : noms et contrats Typegen retirés (`UltimaBaseGenerated*`,
+  `TypegenReference`, clés `typegen`) ;
+- 1181 : sites d'usage réécrits dans cette branche (forme D, tests retirés) ;
+- 305 : signature de `define()` sans options de plugin (ancienne forme) ;
+- 310 environ : noms d'état de champ renommés (`Typegen` → `Type`), comptés
+  dans les catégories ci-dessus quand le survol change aussi ;
+- 171 : contrat de rôle déplacé vers plugin-kit (ADR-0329) ;
+- 70 : types d'option de l'ancienne forme retirés ;
+- 659 lus à la main : mêmes causes sous d'autres textes (survols plus
+  développés car plus courts, ordre d'union `"draft" | "published"` inversé
+  dans un prototype, déclarations privées de `dist`).
+- Complétions : les seules entrées perdues sont les noms retirés (Typegen,
+  protocole de rôle sorti de Core, `readFieldTypegenState` renommé) et
+  `access`/`hooks` dans `define({...})`, désormais proposés dans `.with`.
+
 ## Prochaine action vérifiable
 
 Fusionner la branche du site, puis porte complète, audit DX et banc.
