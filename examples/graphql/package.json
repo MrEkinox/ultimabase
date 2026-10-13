@@ -1,0 +1,31 @@
+{
+	"name": "@ultimabase/example-graphql",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "node --env-file-if-exists=.env src/main.ts",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@ultimabase/access-plugin": "workspace:^",
+		"@ultimabase/api-server": "workspace:^",
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/graphql-explorer-plugin": "workspace:^",
+		"@ultimabase/graphql-plugin": "workspace:^",
+		"@ultimabase/graphql-yoga-plugin": "workspace:^",
+		"@ultimabase/hono-server-plugin": "workspace:^",
+		"@ultimabase/http-plugin": "workspace:^",
+		"@ultimabase/plugin-kit": "workspace:^",
+		"@ultimabase/postgres-plugin": "workspace:^",
+		"graphql": "^17.0.2",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"@ultimabase/testing": "workspace:^",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.11"
+	}
+}
