@@ -533,6 +533,10 @@ field-level declarations appear in field order, followed by schema-level
 declarations in configuration order (those of `define`, then those of the
 final `.with`). Each entry contains a non-empty `fields` tuple, an explicit
 boolean `unique` value and, for a partial index, its `where` conjunction.
+Only field-level unique indexes and the unique indexes of `define` without
+`where` are unique targets of `updateOne`, `deleteOne` and `upsertOne`
+(ADR-0332); Core records which entries they are by identity, so the shape
+adapters read is unchanged.
 
 A partial index (ADR-0303) adds a static, portable `where`: equality (a literal
 or `eq`), `gt`, `gte`, `lt`, `lte` on scalar non-list fields, null tests and

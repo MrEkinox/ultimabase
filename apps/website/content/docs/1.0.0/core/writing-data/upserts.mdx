@@ -66,7 +66,7 @@ update commands: the upsert owns the atomic unique-key decision.
 
 `where` must contain non-null equality for exactly one unique target: the
 framework `id`, one field declared `indexed: 'unique'`, or every field of one
-unique index declared in `define({ indexes })`. Extra conditions, partial
+unique index declared in `define({ indexes })` without `where`. Extra conditions, partial
 composite keys, ranges, and multi-match filters are invalid. See
 [Schemas](/docs/1.0.0/core/data-modeling/schemas) for index declarations.
 
@@ -92,9 +92,14 @@ await Contribution.deleteOne({ where: { article, member } })
 
 The same input types `updateOne`, `deleteOne`, and the items of
 `updateMany`, `deleteMany`, and `upsertMany`. Runtime checks the target again,
-because untyped transports reach it too. A unique index declared in the final
-`.with` (a partial index, or one on a plugin field) is not a typed target:
-declare a unique index in `define` when a command targets it.
+because untyped transports reach it too, and accepts the same targets. A unique
+index declared in the final `.with`, a partial unique index (with `where`), and
+a unique index a plugin adds with `addSchemaIndex` are storage indexes, not
+targets: they enforce uniqueness, and an untyped call that targets one fails
+with `… must match id, a unique field or one non-partial unique index of
+define`. A partial unique index identifies one row only among the rows its
+`where` matches. Declare a unique index in `define`, without `where`, when a
+command targets it.
 
 If the proposed create values collide with a different unique key but no row
 matches the chosen `where` target, the upsert fails. It never redirects the

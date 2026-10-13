@@ -2,6 +2,7 @@ import type {
 	SchemaDefinition,
 	SchemaStoredCreateData,
 } from '../../schema/index.js'
+import { isUniqueTargetIndex } from '../../schema/schema/indexes.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -180,11 +181,15 @@ export const normalizeUniqueUpsertTarget = <
 	const fields = hasSameFields(targetFields, idTargetFields)
 		? idTargetFields
 		: schema.indexes.find(
-				(index) => index.unique && hasSameFields(targetFields, index.fields),
+				(index) =>
+					isUniqueTargetIndex(index) &&
+					hasSameFields(targetFields, index.fields),
 			)?.fields
 
 	if (fields === undefined) {
-		throw new TypeError(`${path} must match id or one declared unique index`)
+		throw new TypeError(
+			`${path} must match id, a unique field or one non-partial unique index of define`,
+		)
 	}
 
 	// The matching above proves every retained name belongs to the exact schema key.

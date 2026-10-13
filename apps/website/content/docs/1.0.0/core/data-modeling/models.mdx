@@ -105,7 +105,7 @@ export const draft: CreateInput<typeof Product> = {
 `CreateInput<T>` is the `data` of `createOne`, nested writes included.
 `UniqueWhereInput<T>` is the `where` of `updateOne`, `deleteOne`, and
 `upsertOne`: `{ id }`, each unique field, or each unique index of `define`
-with all of its fields.
+without `where`, with all of its fields.
 
 ## Serialize with toJSON
 

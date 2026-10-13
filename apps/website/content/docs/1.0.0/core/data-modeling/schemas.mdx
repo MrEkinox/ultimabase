@@ -24,6 +24,7 @@ sources:
   - packages/core/src/schema/schema/schema-declaration-chain.ts
   - packages/core/src/schema/schema/index-predicates.ts
   - docs/adr/0303-core-partial-indexes-and-health.md
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
@@ -151,7 +152,10 @@ database adapter must support partial indexes and the predicate's operators;
 otherwise the application refuses to start with
 `PLUGIN_ADAPTER_CAPABILITY_MISSING`.
 
-Every unique declaration can be an exact [upsert target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target).
+A field declared `indexed: 'unique'` and a unique index of `define` without
+`where` are exact [unique targets](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target)
+of `updateOne`, `deleteOne`, and `upsertOne`. A partial unique index or one
+declared in `.with` only enforces uniqueness: it is not a target.
 The database plugin creates and enforces physical indexes; Core records
 portable intent and does not expose SQL or index names. See
 [PostgreSQL index preparation](/docs/1.0.0/plugins/official/postgresql#index-preparation)

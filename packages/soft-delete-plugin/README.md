@@ -195,6 +195,10 @@ export const Article = App.Schema.define({
 
 <!-- endregion -->
 
+A partial unique index declared in `.with` is a storage index, not a unique
+target: `updateOne`, `deleteOne` and `upsertOne` cannot target a row by this
+`slug`, so they target it by `id` (ADR-0332).
+
 Restoring a tombstone whose slug another row took meanwhile fails with
 `UNIQUE_VIOLATION` and the message
 `Cannot run restoreOne on Article <id>: slug is now used by another row.`; the
