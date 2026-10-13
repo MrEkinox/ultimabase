@@ -68,6 +68,14 @@ ADR-0299 à ADR-0313 (acceptés), revues dans [revue-plugins/](revue-plugins/REA
 - 6.8b : fusionnée dans `main` local le 2026-10-13 : ancienne forme, `@ultimabase/typegen`, contrats Typegen de Core et mécanisme des gabarits retirés ; `define()` limité à `className`, `fields`, `indexes` ; ADR-0329 (contrat de rôle dans plugin-kit, `readCurrentCapabilityProvider` générique dans Core). `install --immutable`, `validate:full` (3 731), e2e construits (607), site (59) verts ; audit DX (10 583, classées). Banc : TS6 édition 50 schémas 1,94 → 1,85 s, 200 : 6,14 → 5,57 s ; TS7 50 : 0,65 → 0,54 s, 200 : 2,12 → 1,89 s. Objectifs d'ADR-0297 non atteints (TS6 1 s/3 s, TS7 0,5 s) : révision proposée en 6.8c (TS 7 référence, TS 6 garde-fou).
 - 6.8c : plan validé le 2026-10-13 (page TS 7 et job de CI TS 7 ; seuils révisés en amendement d'ADR-0297 : TS7 ≤ 0,6 s à 50 et ≤ 2 s à 200, TS6 ≤ 2 s à 50 et ≤ 6 s à 200, dépassement = régression ; restes Typegen et ADR de l'époque passés en « remplacés » ; durée de la couverture ; suppression des passations d'étapes fusionnées ; textes `AGENTS.md`/`CLAUDE.md` validés tels que proposés). Lancée (branche `migration/finish`, `../ub-step6-8c`).
 
+## Après la migration (décidé le 2026-10-13)
+
+1. Clore la migration : fusion de 6.8c, ménage des worktrees et branches locales, bilan, premier passage du job TS 7 sur GitHub.
+2. **Étape 7 : documentation vérifiée** (décision 15 de `api-ideale-decisions.md`, différée jusqu'à la stabilité de l'API) : ADR fixant la règle (tout extrait vient d'un exemple testé ou est compilé, sinon marqué, la CI refuse le reste) ; prototype sur une fonctionnalité (`examples/<fonction>/` testé avec `testApplication`, régions incluses par `<include>` de Fumadocs, essai de Twoslash sous TS 6 et TS 7 et coût de build) ; puis un exemple focalisé par fonctionnalité, README des paquets recopiés depuis les exemples ; plus tard `create-app --example`. L'utilisateur s'en servira pour revoir la DX et faire ses retours.
+3. En parallèle : plugin de migrations de base (besoin du projet de l'utilisateur), puis fichiers et temps réel.
+4. Préparation de la publication : revue de sécurité de l'authentification, projet de l'utilisateur, mécanique npm.
+5. Ensuite : OAuth (ADR), pg-vector, essai d'Oxlint et réévaluation de typescript-eslint à TypeScript 7.1 ; plus tard sur besoin réel le reste.
+
 ## Prochaine action vérifiable
 
 Rapport de 6.8c ; fusion ; ménage des worktrees et branches locales terminées ; bilan de fin de migration.
