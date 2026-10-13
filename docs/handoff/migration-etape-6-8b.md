@@ -24,8 +24,8 @@ banc forme D TS6 (50, 200) et TS7.
 
 ## État
 
-Code, tests, documentation du dépôt faits (commits `wip(remove-old-form)`).
-Site en cours (agent). Porte finale, audit DX et banc à faire.
+Code, tests, documentation du dépôt et site faits (branche du site fusionnée
+en 3542e656). Porte finale verte sur a063b857 (voir Preuves). Audit DX fait.
 
 ## Inventaire
 
@@ -116,6 +116,20 @@ Site en cours (agent). Porte finale, audit DX et banc à faire.
    Typegen (« retained typing boundaries », budget `hybrid-authoring`) ; à
    corriger par l'utilisateur.
 
+## Preuves (dernier commit de code a063b857)
+
+- `YARN_CACHE_FOLDER=…/ultimadatabase/.yarn/cache yarn install --immutable` → 0.
+- `packages/*/dist` et `*.tsbuildinfo` (hors `node_modules`) supprimés, puis
+  `yarn validate:full` → 0 : format, typecheck, lint (0 erreur ; avertissements
+  de taille de fichier seulement), build, performance (1 fichier, 2 tests),
+  couverture 715 fichiers / 3731 tests, sans erreur de type, constraints,
+  website:validate 17 fichiers / 66 tests. Un premier passage avait échoué au
+  seul `format:check` (50 fichiers édités par script) : corrigé par Prettier
+  en a063b857.
+- `yarn test:e2e:built` → 0 : 139 fichiers / 607 tests (`create-app-packed`
+  compris, sans relance).
+- `yarn website:test` → 0 : 8 fichiers / 59 tests.
+
 ## Audit DX (base 5a3f0047 construite, `--only` tous les paquets des deux arbres, `tests`, `examples/minimal`, `examples/todo-backend`)
 
 `node tooling/dx-audit/run.mjs ../ub-step6-8b-baseline . --only …` :
@@ -142,6 +156,48 @@ Classement par cause (script de tri hors dépôt) :
   protocole de rôle sorti de Core, `readFieldTypegenState` renommé) et
   `access`/`hooks` dans `define({...})`, désormais proposés dans `.with`.
 
+## Banc forme D (`examples/schema-form-d`, base 5a3f0047 contre a063b857)
+
+Alternance base/branche, 3 passages, médianes en ms ; charge sur 1 minute
+2,7 à 3,7 (12 cœurs ; machine pas entièrement calme, mêmes conditions pour
+les deux arbres). TS6 : `tools/bench.mjs`, TS7 : `tools/lsp-bench.mjs`.
+
+| Mesure                      | Base 50 | Branche 50 | Base 200 | Branche 200 |
+| --------------------------- | ------: | ---------: | -------: | ----------: |
+| TS6 froid                   |    4722 |       4468 |    16541 |       15498 |
+| TS6 édition → diagnostic    |    1940 |       1852 |     6139 |        5567 |
+| TS6 édition → tous fichiers |    3748 |       3576 |    16591 |       15772 |
+| TS6 édition de schéma       |    2120 |       1997 |     6173 |        5552 |
+| TS6 tas max (Mio)           |     907 |        855 |     2110 |        1793 |
+| TS7 premier diagnostic      |     736 |        625 |     2303 |        2025 |
+| TS7 édition → diagnostic    |     651 |        541 |     2123 |        1894 |
+| TS7 édition de schéma       |     822 |        713 |     2340 |        2128 |
+| TS7 édition de règle        |     426 |        319 |     1144 |         934 |
+
+Cibles ADR-0297 (amendement 2) : TS6 ≤ 1 s à 50 (1,85 s : non atteinte),
+TS6 ≤ 3 s à 200 (5,57 s : non atteinte), TS7 ≤ 0,5 s à 50 (0,54 s : non
+atteinte de peu). La branche gagne 5 à 17 % sur la base partout ; les cibles
+restent un travail de migration (coût des types source de Core). Dossiers
+`gen/` supprimés après le banc.
+
+## Reporté en 6.8c
+
+- Renommer les fixtures `*-no-typegen.mjs` et les titres de test « without
+  Typegen » qui ne décrivent plus une alternative.
+- Classer les ADR de l'ère Typegen encore « accepted » (0173, 0175, 0177,
+  0184, 0185, 0187, 0193, 0198, 0217, 0262, 0265, 0285) : remplacés ou non.
+- `AGENTS.md`/`CLAUDE.md` : mentions de Typegen et du budget
+  `hybrid-authoring` (à modifier par l'utilisateur).
+- Typage d'un filtre sur un type de champ de plugin en forme D
+  (`open-kernel-proof.postgres`, `as never` commenté).
+- `docs/rebuild/DIFFERENCES.md` mentionne encore Typegen.
+- Échantillon `private-sessions.ts` de `runtime-and-infrastructure.mdx` déjà
+  en erreur de type sur la base (rappel de l'agent du site).
+- Cibles de performance ADR-0297 non atteintes (tableau ci-dessus).
+
 ## Prochaine action vérifiable
 
-Fusionner la branche du site, puis porte complète, audit DX et banc.
+Revue du coordinateur, puis fusion `--no-ff` dans `main` après
+`yarn validate:full` sur le résultat de fusion ; supprimer ce handoff et le
+worktree `../ub-step6-8b-website` (branche `migration/remove-old-form-website`,
+déjà fusionnée) une fois fusionné.
