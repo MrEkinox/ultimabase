@@ -72,14 +72,15 @@ const start = async (options: HttpPluginOptions) => {
 	const send = (
 		headers: readonly (readonly [string, string])[] = [],
 		remoteAddress?: string,
-	) =>
-		current.fetch({
+	) => {
+		const fetchHeaders = new Headers({ Host: 'localhost' })
+		for (const [name, value] of headers) fetchHeaders.append(name, value)
+		return current.fetch({
 			originalHeaders: [['Host', 'localhost'], ...headers],
 			remoteAddress,
-			request: new Request('http://localhost/ping', {
-				headers: new Headers([['Host', 'localhost'], ...headers]),
-			}),
+			request: new Request('http://localhost/ping', { headers: fetchHeaders }),
 		})
+	}
 	const warnings = () =>
 		warn.mock.calls.filter(([message]) => message === missingAddressWarning)
 	return { application, seen, send, warnings }

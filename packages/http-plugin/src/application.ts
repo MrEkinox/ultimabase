@@ -4,13 +4,14 @@ import {
 	type ApplicationRequestExecutor,
 	type MasterRequestAccess,
 } from '@ultimabase/core'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	acceptHttpApplicationRequest,
 	lacksNetworkHeaders,
 } from './application-identity.js'
 
+import { logHttpAccess } from './access-log.js'
 import { limitHttpBody } from './body-limit.js'
 import { isHttpHealthRoute } from './health.js'
 import type { HttpEndpointLimits } from './endpoint-limits.js'
@@ -46,7 +47,7 @@ import {
 	HttpRateLimiter,
 	httpRateLimitKey,
 	isHttpsRequest,
-	resolveHttpClientAddress,
+	resolveHttpClientAddressOrWarn,
 	type HttpTrustProxy,
 	type NormalizedHttpRateLimit,
 } from './rate-limit.js'
@@ -177,6 +178,11 @@ const dispatchPreparedRequest = async (
 		return reject(httpPreDispatchErrorCodes.applicationRejected)
 	}
 
+	const clientAddress = resolveHttpClientAddressOrWarn(
+		accepted,
+		state.settings.trustProxy,
+		state.logger,
+	)
 	// Browser bootstraps are pages: they keep the application-wide limits.
 	const limits: HttpEndpointLimits =
 		endpoint.kind === 'browser-bootstrap' ? {} : endpoint
@@ -188,10 +194,10 @@ const dispatchPreparedRequest = async (
 	) {
 		let retryAfter: number | undefined
 		try {
-			retryAfter = await state.rateLimiter.check(
-				resolveHttpClientAddress(accepted, state.settings.trustProxy),
-				{ key: httpRateLimitKey(endpoint), limit: limits.rateLimit },
-			)
+			retryAfter = await state.rateLimiter.check(clientAddress, {
+				key: httpRateLimitKey(endpoint),
+				limit: limits.rateLimit,
+			})
 		} catch {
 			return reject(httpPreDispatchErrorCodes.internalError)
 		}
@@ -247,7 +253,7 @@ const dispatchPreparedRequest = async (
 		const resolved = await resolveHttpContext(
 			anonymous,
 			resolverRequest,
-			resolveHttpClientAddress(accepted, state.settings.trustProxy),
+			clientAddress,
 			state.browserPolicy,
 			state.contextResolvers,
 			requestExecution,
@@ -298,27 +304,6 @@ const dispatchPreparedRequest = async (
 		}
 		throw error
 	}
-}
-
-// Logs one line per request: never bodies, queries, headers or credentials.
-const logAccess = (
-	logger: Logger,
-	input: HttpServerRequest,
-	status: number,
-	startedAt: number,
-	requestId: string | null,
-): void => {
-	const request: unknown = isPlainRecord(input) ? input.request : undefined
-	const method = request instanceof Request ? request.method : 'UNKNOWN'
-	const path = request instanceof Request ? new URL(request.url).pathname : ''
-	const durationMs = Math.round(performance.now() - startedAt)
-	logger.info(`${method} ${path} ${String(status)} ${String(durationMs)}ms`, {
-		durationMs,
-		method,
-		path,
-		requestId,
-		status,
-	})
 }
 
 /** @internal Materializes one application graph while keeping Core execution private. */
@@ -385,7 +370,7 @@ export const createHttpApplicationResource = (
 				return response
 			} finally {
 				if (settings.accessLog) {
-					logAccess(state.logger, input, status, startedAt, requestId)
+					logHttpAccess(state.logger, input, status, startedAt, requestId)
 				}
 			}
 		},

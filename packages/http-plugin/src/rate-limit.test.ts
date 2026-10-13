@@ -27,7 +27,7 @@ const clientOf = (
 	trustProxy: HttpTrustProxy | undefined,
 	forwardedFor: string | undefined,
 	peer?: string,
-): string =>
+): string | undefined =>
 	resolveHttpClientAddress(
 		prepared(
 			forwardedFor === undefined ? [] : [['X-Forwarded-For', forwardedFor]],
