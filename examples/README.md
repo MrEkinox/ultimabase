@@ -57,6 +57,15 @@ Examples are user-facing, tested applications. They must only import public `@ul
   tested with `testApplication`. Its `//#region` blocks are the code of the
   Password Authentication page and the `auth-plugin` and `auth-password`
   READMEs (ADR-0330).
+- [`postgres`](postgres/README.md): the PostgreSQL plugin end to end (the
+  pool from `DATABASE_URL` and its connection settings, `url` and injected
+  `pool`, table and column names with the `postgres` rule and `renamedFrom`,
+  the column type of each field kind, field, composite and partial indexes,
+  `UNIQUE_VIOLATION` and `REFERENCE_VIOLATION`, pointer and relation storage,
+  automatic and explicit transactions, keyset pagination, the `override`,
+  `fail` and `ignore` schema policies across two releases), tested with
+  `testApplication`. Its `//#region` blocks are the code of the PostgreSQL
+  page and package README (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
