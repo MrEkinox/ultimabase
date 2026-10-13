@@ -2,9 +2,10 @@
 
 Network-independent GraphQL schema generation for UltimaBase applications.
 
-Every code block in this README is copied from the tested
-[`examples/graphql`](../../examples/graphql/README.md) application by
-`yarn docs:regions` (ADR-0330): edit the example, then run the script.
+The TypeScript blocks of this README, except one sketch for plugin authors,
+are copied from the tested [`examples/graphql`](../../examples/graphql/README.md)
+application by `yarn docs:regions` (ADR-0330): edit the example, then run the
+script.
 
 `apiServer({ graphql })` from `@ultimabase/api-server` installs GraphQL with
 its Yoga transport, the HTTP foundation and the Hono listener (ADR-0325). The
