@@ -17,7 +17,7 @@ const articleSchema = UltimaBase.Schema.define({
 const deleteOperation = {
 	kind: 'delete-one',
 	query: new QueryBuilder(articleSchema).where((where) =>
-		where.eq('id', 'article-1'),
+		where.eq('id', '00000000-0000-7000-8000-000000000001'),
 	).ast,
 } satisfies DeleteOneOperationAst<typeof articleSchema>
 
@@ -36,7 +36,10 @@ const prepareDelete = async (result: QueuedAdapterResult, trace: string[]) => {
 describe('RecordingDatabaseAdapter mutation fixtures', () => {
 	it('exposes delete snapshots and executes one retained result exactly once', async () => {
 		const trace: string[] = []
-		const deleted = Object.freeze({ id: 'article-1', title: 'Deleted' })
+		const deleted = Object.freeze({
+			id: '00000000-0000-7000-8000-000000000001',
+			title: 'Deleted',
+		})
 		const { adapter, prepared, transaction } = await prepareDelete(
 			{
 				target: deleted,
@@ -73,7 +76,10 @@ describe('RecordingDatabaseAdapter mutation fixtures', () => {
 	it('consumes a prepared handle after its first rejected execution', async () => {
 		const trace: string[] = []
 		const deletionError = new Error('delete failed')
-		const deleted = Object.freeze({ id: 'article-1', title: 'Retained' })
+		const deleted = Object.freeze({
+			id: '00000000-0000-7000-8000-000000000001',
+			title: 'Retained',
+		})
 		const { prepared } = await prepareDelete(
 			{
 				target: deleted,

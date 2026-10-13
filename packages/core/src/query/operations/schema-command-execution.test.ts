@@ -58,7 +58,10 @@ describe('schema command execution boundaries', () => {
 	})
 
 	it('rejects predicates created for another schema', () => {
-		const foreignWhere = new WhereBuilder(ForeignPost).eq('id', 'foreign-1')
+		const foreignWhere = new WhereBuilder(ForeignPost).eq(
+			'id',
+			'00000000-0000-7000-8000-00000000f001',
+		)
 
 		expect(() =>
 			updateSchemaRecord(Post, {
@@ -93,7 +96,7 @@ describe('schema command execution boundaries', () => {
 
 	it('validates command wrappers before resolving execution context', () => {
 		const malformedInput: unknown = {
-			where: { id: { eq: 'post-1' } },
+			where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
 			data: { title: 'Updated' },
 			extra: true,
 		}
@@ -116,27 +119,29 @@ describe('schema command execution boundaries', () => {
 		// ADR-0307 removed the top-level id alias: `where` is the only target.
 		expect(() =>
 			updateSchemaRecord(Post, {
-				id: 'post-1',
-				where: { id: { eq: 'post-1' } },
+				id: '00000000-0000-7000-8000-000000000001',
+				where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
 				data: { title: 'Updated' },
 			} as never),
 		).toThrow(new TypeError('schema updateOne input contains unknown key: id'))
 		expect(() =>
 			updateSchemaRecord(Post, {
-				id: 'post-1',
+				id: '00000000-0000-7000-8000-000000000001',
 				data: { title: 'Updated' },
 			} as never),
 		).toThrow(new TypeError('schema updateOne input contains unknown key: id'))
 		expect(() => deleteSchemaRecord(Post, {} as never)).toThrow(
 			new TypeError('schema deleteOne input must contain key: where'),
 		)
-		expect(() => deleteSchemaRecord(Post, { id: 'post-1' } as never)).toThrow(
-			new TypeError('schema deleteOne input contains unknown key: id'),
-		)
+		expect(() =>
+			deleteSchemaRecord(Post, {
+				id: '00000000-0000-7000-8000-000000000001',
+			} as never),
+		).toThrow(new TypeError('schema deleteOne input contains unknown key: id'))
 
 		expect(() =>
 			updateSchemaRecord(Post, {
-				where: { id: { eq: 'post-1' } },
+				where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
 				data: { title: 'Updated' },
 				// This assertion models an untyped transport returning an unknown field.
 				// @ts-expect-error -- Source typing also rejects the unknown selection.
@@ -160,7 +165,7 @@ describe('schema command execution boundaries', () => {
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>
 			deleteSchemaRecord(Post, {
-				where: { id: { eq: 'post-1' } },
+				where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
 				// This assertion models an untyped transport returning an unknown field.
 				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
@@ -168,7 +173,12 @@ describe('schema command execution boundaries', () => {
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>
 			updateSchemaRecords(Post, {
-				data: [{ where: { id: { eq: 'post-1' } }, data: { title: 'Updated' } }],
+				data: [
+					{
+						where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
+						data: { title: 'Updated' },
+					},
+				],
 				// This assertion models an untyped transport returning an unknown field.
 				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
@@ -176,7 +186,7 @@ describe('schema command execution boundaries', () => {
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>
 			deleteSchemaRecords(Post, {
-				where: [{ id: { eq: 'post-1' } }],
+				where: [{ id: { eq: '00000000-0000-7000-8000-000000000001' } }],
 				// This assertion models an untyped transport returning an unknown field.
 				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
@@ -191,7 +201,7 @@ describe('schema command execution boundaries', () => {
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>
 			upsertSchemaRecord(Post, {
-				where: { id: { eq: 'post-1' } },
+				where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
 				create: { title: 'Created' },
 				update: { title: 'Updated' },
 				// @ts-expect-error -- Runtime still rejects selections from untyped callers.
@@ -202,7 +212,7 @@ describe('schema command execution boundaries', () => {
 			upsertSchemaRecords(Post, {
 				data: [
 					{
-						where: { id: { eq: 'post-1' } },
+						where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
 						create: { title: 'Created' },
 						update: { title: 'Updated' },
 					},
@@ -231,7 +241,7 @@ describe('schema command execution boundaries', () => {
 			upsertSchemaRecords(Post, {
 				data: [
 					{
-						where: { id: { eq: 'post-1' } },
+						where: { id: { eq: '00000000-0000-7000-8000-000000000001' } },
 						create: { title: 'Created' },
 						update: { title: 'Updated' },
 						extra: true,

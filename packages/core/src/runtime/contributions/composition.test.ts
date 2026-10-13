@@ -37,7 +37,7 @@ const context = RequestContext.anonymous({
 const updateOperation: UpdateOneOperationAst<typeof articleSchema> = {
 	kind: 'update-one',
 	query: new QueryBuilder(articleSchema).where((where) =>
-		where.eq('id', 'article-1'),
+		where.eq('id', '00000000-0000-7000-8000-000000000001'),
 	).ast,
 	update: {
 		kind: 'update-expression',
@@ -47,7 +47,7 @@ const updateOperation: UpdateOneOperationAst<typeof articleSchema> = {
 
 const updateTarget = Object.freeze({
 	createdAt: '2026-08-01T00:00:00.000Z',
-	id: 'article-1',
+	id: '00000000-0000-7000-8000-000000000001',
 	title: 'stored',
 	updatedAt: '2026-08-01T00:00:00.000Z',
 })
@@ -221,7 +221,7 @@ describe('composeRuntimeContributionBehavior', () => {
 			{
 				...updateOperation,
 				query: new QueryBuilder(articleSchema).where((where) =>
-					where.eq('id', 'article-2'),
+					where.eq('id', '00000000-0000-7000-8000-000000000002'),
 				).ast,
 			},
 			{

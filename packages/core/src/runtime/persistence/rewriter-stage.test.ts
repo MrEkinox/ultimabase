@@ -30,7 +30,7 @@ const articleSchema = UltimaBase.Schema.define({
 const deleteOperation = {
 	kind: 'delete-one',
 	query: new QueryBuilder(articleSchema).where((where) =>
-		where.eq('id', 'article-1'),
+		where.eq('id', '00000000-0000-7000-8000-000000000001'),
 	).ast,
 } as const
 const definition = persistencePlanRewriter({
@@ -201,7 +201,7 @@ describe('persistence plan rewriter capability', () => {
 			const otherDelete = {
 				kind: 'delete-one',
 				query: new QueryBuilder(otherSchema).where((where) =>
-					where.eq('id', 'other-1'),
+					where.eq('id', '00000000-0000-7000-8000-000000000003'),
 				).ast,
 			} as const
 			const untouched = createDatabasePersistencePlan(otherDelete)

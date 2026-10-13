@@ -30,7 +30,7 @@ const updateInput = { visits: { increment: 1 } } as const
 describe('unique upsert targets', () => {
 	it('normalizes id, unique fields, and composite indexes in declaration order', () => {
 		const id = new QueryBuilder(accountSchema).where((where) =>
-			where.eq('id', 'account-1'),
+			where.eq('id', '00000000-0000-7000-8000-000000000001'),
 		).ast
 		const email = new QueryBuilder(accountSchema).where((where) =>
 			where.eq('email', 'dev@ultimabase.dev'),
