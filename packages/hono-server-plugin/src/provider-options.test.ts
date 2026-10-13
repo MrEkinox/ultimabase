@@ -6,6 +6,7 @@ import {
 	type HttpServerRequest,
 } from '@ultimabase/http-plugin'
 import { Hono } from 'hono'
+import { Agent, request as nodeRequest } from 'node:http'
 import { describe, expect, it, vi } from 'vitest'
 
 import { HonoServerProvider } from './provider.js'
@@ -47,6 +48,22 @@ const url = (provider: HonoServerProvider, path: string): string => {
 	return `http://127.0.0.1:${String(address.port)}${path}`
 }
 
+// Sends one GET through a keep-alive agent and resolves with the body.
+const keepAliveGet = (target: string, agent: Agent): Promise<string> =>
+	new Promise((resolve, reject) => {
+		const request = nodeRequest(target, { agent }, (response) => {
+			const chunks: Buffer[] = []
+			response.on('data', (chunk: Buffer) => {
+				chunks.push(chunk)
+			})
+			response.on('end', () => {
+				resolve(Buffer.concat(chunks).toString('utf8'))
+			})
+		})
+		request.once('error', reject)
+		request.end()
+	})
+
 describe('Hono server options (ADR-0323)', () => {
 	it('bounds shutdown, then closes connections still in flight', async () => {
 		const provider = managed({ shutdownTimeoutMs: 50 })
@@ -64,6 +81,33 @@ describe('Hono server options (ADR-0323)', () => {
 		expect(performance.now() - startedAt).toBeLessThan(5_000)
 		expect(await pending).toBeInstanceOf(Error)
 		expect(provider.address).toBeUndefined()
+	})
+
+	it('closes a keep-alive connection once its in-flight response is sent', async () => {
+		const provider = managed({ shutdownTimeoutMs: 30_000 })
+		const entered = Promise.withResolvers<undefined>()
+		const release = Promise.withResolvers<Response>()
+		const http = application(() => {
+			entered.resolve(undefined)
+			return release.promise
+		})
+		await provider.start(http)
+		// The client keeps idle sockets open until the server closes them.
+		const agent = new Agent({ keepAlive: true })
+		try {
+			const body = keepAliveGet(url(provider, '/slow'), agent)
+			await entered.promise
+			const stopped = provider.stop(http)
+			release.resolve(new Response('complete'))
+			expect(await body).toBe('complete')
+			const startedAt = performance.now()
+			await stopped
+			// Node keeps an idle keep-alive connection for 5 seconds by default.
+			expect(performance.now() - startedAt).toBeLessThan(2_500)
+			expect(provider.address).toBeUndefined()
+		} finally {
+			agent.destroy()
+		}
 	})
 
 	it('compresses UltimaBase responses only when enabled', async () => {

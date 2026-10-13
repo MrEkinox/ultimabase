@@ -299,6 +299,26 @@ describe('rate limiting by client address (ADR-0323 decision 7)', () => {
 		expect((await spoofed('192.0.2.3')).status).toBe(429)
 	})
 
+	// Fetch-handler deployments (edge, serverless, `fetch()`) have no socket peer.
+	it('ignores spoofed X-Forwarded-For prefixes without a socket peer', async () => {
+		const http = await start({
+			rateLimit: limited,
+			routes: ping,
+			trustProxy: 1,
+		})
+		const spoofed = (prefix: string) =>
+			send(http, '/ping', {
+				headers: [['X-Forwarded-For', `${prefix}, 198.51.100.50`]],
+			})
+		expect((await spoofed('192.0.2.1')).status).toBe(200)
+		expect((await spoofed('192.0.2.2')).status).toBe(200)
+		expect((await spoofed('192.0.2.3')).status).toBe(429)
+		const other = await send(http, '/ping', {
+			headers: [['X-Forwarded-For', '198.51.100.51']],
+		})
+		expect(other.status).toBe(200)
+	})
+
 	it('uses a replaceable store and stricter route limits', async () => {
 		const counts = new Map<string, number>()
 		const increment = vi.fn((key: string) => {
