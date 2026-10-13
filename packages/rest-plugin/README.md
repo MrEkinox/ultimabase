@@ -8,36 +8,69 @@ Core's existing Query and schema-command contracts, and delegates them through
 Core's narrow application request executor. It does not import Hono, start
 listeners, access an adapter, or retain request data in an AST.
 
-The repository includes a [runnable Hono and PostgreSQL example](../../examples/minimal/README.md)
-with anonymous and authenticated sessions, role-protected REST, audited Master
-access, and public plugin operations.
+Every code block in this README is copied from the tested
+[`examples/rest`](../../examples/rest/README.md) application by
+`yarn docs:regions` (ADR-0330): edit the example, then run the script. The
+[runnable Hono and PostgreSQL example](../../examples/minimal/README.md) adds
+authenticated sessions, role-protected REST, audited Master access, and public
+plugin operations.
 
 ## Installation
 
+REST needs the HTTP foundation, a server provider and a database provider
+beside it. The example installs Access to decide what clients may do, and
+exposes `Post` with the built-in routes plus `count` and the bulk create:
+
+<!-- region ../../examples/rest/src/schema.ts#factory,post -->
+
 ```ts
-import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 
-const Application = UltimaBase.use(accessPlugin())
-	.use(httpPlugin({ appId: 'blog' }))
-	.use(
-		restPlugin({
-			basePath: '/api',
-			bodyLimit: 2_097_152,
-			openapi: true,
-			pagination: { defaultTake: 100, maxTake: 1_000 },
-		}),
-	)
-const Post = Application.Schema.define({
+import { readingTime } from './operations.ts'
+
+/**
+ * REST serves `/api` through the HTTP foundation and the Hono listener.
+ * Access decides what clients may do: an exposed route grants nothing.
+ * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	accessPlugin(),
+	httpPlugin({ appId: 'blog' }),
+	restPlugin({
+		openapi: true, // GET /api/openapi.json
+		pagination: { defaultTake: 20, maxTake: 100 },
+	}),
+	honoServerPlugin(), // listens on PORT, 1337 by default
+	postgresPlugin(),
+	readingTime, // POST /api/operations/readingTime
+)
+
+/** Every client may read and write posts: this example has no sign-in. */
+export const Post = App.Schema.define({
 	className: 'Post',
-	fields: (field) => ({ title: field.string() }),
-}).with({ rest: { count: true, upsertOne: true } })
-const ultimabase = new Application({
-	schemas: [Post],
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		slug: field.string({ required: true }),
+		views: field.int({ default: 0 }),
+		author: field.pointer({ target: () => Author }),
+		tags: field.relation({ target: () => Tag }),
+		// A moderation note no client may read, filter, sort or write.
+		reviewNote: field.string({ access: { read: false, write: false } }),
+	}),
+}).with({
+	indexes: [{ fields: ['slug'], unique: true }],
+	access: { read: true, create: true, update: true, delete: true },
+	// The built-in routes, plus count and the atomic bulk create.
+	rest: { count: true, createMany: true },
 })
 ```
+
+<!-- endregion -->
 
 `.with({ rest })` is typed only because this factory installed `restPlugin()`.
 Its keys are the schema method names (ADR-0324):
@@ -92,7 +125,36 @@ Generated routes are public exposure, not authorization. REST refuses to
 start when it would expose a write (create, update, delete, upsert, bulk or a
 plugin command) while no protected policy plugin is installed, with a message
 naming both ways forward: install a policy such as `accessPlugin()`, or pass
-`restPlugin({ publicWrites: true })` to let every client write (ADR-0294).
+`restPlugin({ publicWrites: true })` to let every client write (ADR-0294):
+
+<!-- region ../../examples/rest/src/guestbook.ts#public-writes -->
+
+```ts
+import { UltimaBase } from '@ultimabase/core'
+import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { restPlugin } from '@ultimabase/rest-plugin'
+
+/**
+ * A second application without any policy plugin. REST exposes writes, so
+ * it starts only because `publicWrites` says every client may write.
+ */
+const Guestbook = UltimaBase.use(
+	httpPlugin({ appId: 'guestbook' }),
+	restPlugin({ publicWrites: true }),
+	postgresPlugin(),
+)
+
+export const Entry = Guestbook.Schema.define({
+	className: 'Entry',
+	fields: (field) => ({ message: field.string({ required: true }) }),
+})
+
+export const guestbook = new Guestbook({ schemas: [Entry] })
+```
+
+<!-- endregion -->
+
 Access's `allowWithoutRule` openings are explicit policies. Read-only routes
 need neither. REST logs one `warn` line, prefixed with
 `[@ultimabase/rest-plugin]`, when it exposes no schema or operation, and when
@@ -124,13 +186,8 @@ diagnostic.
 An operation is public only when its owner declares it (ADR-0324):
 `contributeOperation({ operation, execute, public: { name: 'login' } })`.
 Every installed transport exposes it; an operation not declared public is
-never exposed. The application hides some per instance:
-
-```ts
-restPlugin({ hide: [authOperations.refresh] })
-```
-
-A hidden token that is not a public operation of the application fails at
+never exposed. The application hides some per instance with
+`restPlugin({ hide: [authOperations.refresh] })`. A hidden token that is not a public operation of the application fails at
 startup. Each exposed operation receives `POST /api/operations/{public name}`
 and accepts exactly `{ "input": value }`.
 
@@ -175,22 +232,36 @@ cannot select authority, adapters, plans, privileges, or another operation.
 ## Application operations
 
 `defineOperation` from `@ultimabase/plugin-kit` declares an application
-operation without writing a plugin, with Standard Schema validators:
+operation without writing a plugin, with Standard Schema validators, and
+`UltimaBase.use(...)` installs it, as the factory above does:
+
+<!-- region ../../examples/rest/src/operations.ts#operation -->
 
 ```ts
-const createInvoice = defineOperation({
-	name: 'createInvoice',
+import { defineOperation } from '@ultimabase/plugin-kit'
+import { z } from 'zod'
+
+/**
+ * An application operation without a plugin: REST validates the input with
+ * `input`, the result with `output`, and describes both in OpenAPI.
+ */
+export const readingTime = defineOperation({
+	name: 'readingTime',
 	input: z.object({
-		customer: z.string().min(2),
-		amount: z.number().positive(),
+		text: z.string().min(1),
+		wordsPerMinute: z.number().int().positive().default(200),
 	}),
-	output: z.object({ invoice: z.string() }),
-	handler: async ({ input }) => ({ invoice: await bill(input) }),
+	output: z.object({ minutes: z.number().int().positive() }),
+	handler: ({ input }) => {
+		const words = input.text.trim().split(/\s+/u).length
+		return { minutes: Math.ceil(words / input.wordsPerMinute) }
+	},
 })
-const Application = UltimaBase.use(httpPlugin(), restPlugin(), createInvoice)
 ```
 
-It is public: REST exposes `POST /api/operations/createInvoice`, derives the
+<!-- endregion -->
+
+It is public: REST exposes `POST /api/operations/readingTime`, derives the
 OpenAPI request and response bodies from the validators, and answers `422`
 `VALIDATION_ERROR` with `details.issues` (paths start with `input`) when the
 input validator rejects a value.
@@ -264,7 +335,7 @@ enforcement boundary. Without `bodyLimit`, REST inherits `httpPlugin({ bodyLimit
 Malformed requests throw `RestReadNormalizationError` with a stable safe code;
 raw parser or Core diagnostics are not retained. An invalid `after` (malformed
 cursor, another schema or ordering, or combined with `skip`) keeps Core's
-public `VALIDATION_ERROR` with `details: { parameter: 'after' }`.
+public `VALIDATION_ERROR` (`422`) with `details: { parameter: 'after' }`.
 
 ## Read execution
 
@@ -440,9 +511,10 @@ selection.
 ## Plugin field codecs
 
 A plugin-defined scalar must attach an exact REST codec before a schema that
-contains it can expose a route:
+contains it can expose a route. In this sketch, the plugin owns the named
+helpers:
 
-```ts
+```ts unverified
 const color = definePluginField(
 	'colors.value',
 	{},

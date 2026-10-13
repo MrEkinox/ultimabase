@@ -36,6 +36,9 @@ const enforcedDocuments = [
 	'packages/auth-plugin/README.md',
 	'packages/auth-password/README.md',
 	'examples/auth/README.md',
+	'apps/website/content/docs/1.0.0/plugins/official/rest.mdx',
+	'packages/rest-plugin/README.md',
+	'examples/rest/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({

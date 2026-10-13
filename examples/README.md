@@ -57,6 +57,15 @@ Examples are user-facing, tested applications. They must only import public `@ul
   tested with `testApplication`. Its `//#region` blocks are the code of the
   Password Authentication page and the `auth-plugin` and `auth-password`
   READMEs (ADR-0330).
+- [`rest`](rest/README.md): the REST plugin end to end (the `/api` mount,
+  `.with({ rest })` method keys exposing or hiding routes per schema, list
+  reads with `where`, `select`, `orderBy`, `include` and cursor pagination,
+  single reads, `first`, `count` and `exists`, create, update and delete with
+  relation links, an atomic bulk create, `?select=id` for an unreadable row,
+  the error envelope and its statuses, a `defineOperation` operation, the
+  OpenAPI document, `publicWrites`), tested with `testApplication`. Its
+  `//#region` blocks are the code of the REST page and package README
+  (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.

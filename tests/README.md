@@ -160,7 +160,7 @@ with it, in order: the packages (`--build tsconfig.json`, which emits their
 declarations), the test program without the TypeScript JS API
 (`tooling/tsconfig/test-typescript-7.json`: every unit, type and E2E file,
 including `*.test-d.ts` assertions), the `minimal`, `todo-backend`,
-`soft-delete`, `access`, `hooks`, `validation`, `acl`, `roles`, `auth` and `schema-form-d` examples (sources and built packages), and the `register-cycle`
+`soft-delete`, `access`, `hooks`, `validation`, `acl`, `roles`, `auth`, `rest` and `schema-form-d` examples (sources and built packages), and the `register-cycle`
 cases. Language-service suites, typescript-eslint and declaration bundling
 need the TypeScript JS API and stay on TypeScript 6.
 
