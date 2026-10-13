@@ -28,6 +28,7 @@ const examples = [
 	'roles',
 	'auth',
 	'postgres',
+	'http',
 ] as const
 // Quoted repository paths let the CI planner select this suite when they change.
 const testedExamples = [
@@ -40,6 +41,7 @@ const testedExamples = [
 	['examples/roles', 14],
 	['examples/auth', 21],
 	['examples/postgres', 30],
+	['examples/http', 22],
 ] as const
 
 const compile = (example: string): readonly string[] => {

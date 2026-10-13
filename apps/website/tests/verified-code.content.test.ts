@@ -39,6 +39,12 @@ const enforcedDocuments = [
 	'apps/website/content/docs/1.0.0/plugins/official/postgresql.mdx',
 	'packages/postgres-plugin/README.md',
 	'examples/postgres/README.md',
+	'apps/website/content/docs/1.0.0/plugins/official/http.mdx',
+	'apps/website/content/docs/1.0.0/plugins/official/hono-server.mdx',
+	'packages/http-plugin/README.md',
+	'packages/hono-server-plugin/README.md',
+	'packages/api-server/README.md',
+	'examples/http/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({

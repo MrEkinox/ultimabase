@@ -8,9 +8,22 @@ contentType: guide
 order: 2
 outcome: Configure the HTTP foundation, its defaults, application routes, CORS, rate limits and pre-dispatch handling.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
+  - examples/http/README.md
+  - examples/http/src/http.ts
+  - examples/http/src/routes.ts
+  - examples/http/src/counters.ts
+  - examples/http/src/partners.ts
+  - examples/http/src/schema.ts
+  - examples/http/src/ultimabase.ts
+  - examples/http/tests/routes.test.ts
+  - examples/http/tests/identity.test.ts
+  - examples/http/tests/browser.test.ts
+  - examples/http/tests/limits.test.ts
+  - examples/http/tests/network.test.ts
   - packages/http-plugin/README.md
+  - packages/http-plugin/src/options.ts
   - packages/http-plugin/src/request-boundary.ts
   - packages/auth-plugin/src/http-resolver.ts
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
@@ -27,6 +40,10 @@ transport shares. It does not open a socket: a server plugin such as
 built-in health route, application routes, CORS, the request deadline, the
 body limit, security headers, rate limits, the access log and port-free
 testing (ADR-0323).
+
+The code on this page comes from the tested
+[HTTP example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/http),
+a small links API whose tests prove what the page describes.
 
 ## Installation
 
@@ -48,29 +65,24 @@ yarn add @ultimabase/http-plugin
 pnpm add @ultimabase/http-plugin
 ```
 
-REST and GraphQL routes need their own transport plugins.
+REST and GraphQL routes need their own transport plugins. The
+[`@ultimabase/api-server`](/docs/1.0.0/reference/package-index) preset installs
+HTTP, REST, GraphQL and the Hono server together.
 
 ## Configuration
 
-`httpPlugin()` needs no option. Every option below is optional:
+`httpPlugin()` needs no option. The example's API sets most of them:
 
-```ts
-import { UltimaBase } from '@ultimabase/core'
-import { httpPlugin } from '@ultimabase/http-plugin'
+<include cwd meta='title="src/http.ts"'>
+	../../examples/http/src/http.ts#http-options
+</include>
 
-export const Application = UltimaBase.use(
-	httpPlugin({
-		browser: { origins: ['https://console.example'] },
-		routes: {
-			'GET /status': (request, { context }) =>
-				Response.json({ mode: context.access.mode }),
-		},
-		trustProxy: 1,
-		rateLimit: { default: { perMinute: 300 } },
-		accessLog: true,
-	}),
-)
-```
+`apiServer({ http })` installs `httpPlugin(http)` beside REST and the
+managed Hono server; `UltimaBase.use(httpPlugin(http))` installs it alone:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/http/src/schema.ts#factory
+</include>
 
 | Option                 | Default                                                    |
 | ---------------------- | ---------------------------------------------------------- |
@@ -90,26 +102,68 @@ export const Application = UltimaBase.use(
 `requestTimeoutMs` is a whole number of milliseconds from 1 through
 2147483647, the largest delay a JavaScript timer honors.
 
-`master: true` enables the canonical `X-UltimaBase-Master-Key` header, only
-with a configured `MasterAuthority`. Do not expose a raw Master key to browser
-code.
-
 ## Behavior and limitations
 
 ### Application identity
 
 The public `appId` grants no authority. A request without
 `X-UltimaBase-Application-Id` reaches the only application of the process; a
-different value is refused with `HTTP_APPLICATION_UNKNOWN`. With several
-applications behind one proxy, `requireApplicationId: true` makes the header
-mandatory again.
+different value is refused:
+
+<include cwd meta='title="tests/identity.test.ts"'>
+	../../examples/http/tests/identity.test.ts#unknown-application
+</include>
+
+```json title="404 response"
+{
+	"error": {
+		"code": "HTTP_APPLICATION_UNKNOWN",
+		"message": "The HTTP application is unknown.",
+		"requestId": "3f0c8f9e-1d1b-4d6c-9d43-6f2f3b9b8c11",
+		"retryable": false
+	}
+}
+```
+
+With several applications behind one proxy, `requireApplicationId: true`
+makes the header mandatory again.
 
 ### Application routes and health
 
 `routes` takes the same record as the plugin helper `httpRoutes`: keys are
 `"<METHOD> /<path>"`, values a handler `(request, { context }) => Response` or
 `{ handle, bodyLimit?, rateLimit? }`. No plugin is needed for an application
-route.
+route. The handler runs with the request context already active:
+
+<include cwd meta='title="src/routes.ts"'>
+	../../examples/http/src/routes.ts#routes
+</include>
+
+<include cwd meta='title="tests/routes.test.ts"'>
+	../../examples/http/tests/routes.test.ts#status
+</include>
+
+An anonymous request reads `{ "mode": "anonymous", "partner": null }`. A
+`PublicError` thrown by a handler answers 400 with its code, message and
+details, in the same envelope as the HTTP errors:
+
+<include cwd meta='title="tests/routes.test.ts"'>
+	../../examples/http/tests/routes.test.ts#contact-invalid
+</include>
+
+```json title="400 response"
+{
+	"error": {
+		"code": "CONTACT_INVALID",
+		"message": "Give an email address to reply to.",
+		"details": { "field": "email" },
+		"requestId": "8d5ab1e5-c43f-49d8-95f6-1f6e7c64ddc6",
+		"retryable": false
+	}
+}
+```
+
+Any other handler failure propagates to the server plugin.
 
 `GET /health` answers 200 `{ "status": "OK" }` or 503
 `{ "status": "DEGRADED" }` from `ultimabase.health()`, without application
@@ -120,7 +174,7 @@ header or credential, whichever transports are installed. Move it with
 
 Request bodies are limited to 1 MiB for every route, counted while the body
 streams; a larger one is answered `HTTP_PAYLOAD_TOO_LARGE`. A route sets its
-own `bodyLimit`, and `restPlugin({ bodyLimit })` or
+own `bodyLimit`, as the contact route does, and `restPlugin({ bodyLimit })` or
 `graphqlYogaPlugin({ bodyLimit })` replaces it for that transport.
 
 Responses carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY`,
@@ -128,16 +182,40 @@ plus `Strict-Transport-Security` on HTTPS. Each is configurable under
 `securityHeaders`, and `securityHeaders: false` removes them. TLS and HTTP/2
 come from the proxy or platform in front of the server.
 
+<include cwd meta='title="src/http.ts"'>
+	../../examples/http/src/http.ts#security-headers
+</include>
+
 ### Rate limits and proxies
 
 `rateLimit: { default: { perMinute } }` limits requests per client address and
-minute; a refused request gets `HTTP_RATE_LIMITED` with `Retry-After`. Routes
-may add stricter limits. The built-in health route is never limited, since
-probes often share one address. Behind proxies, set `trustProxy` to the number of
-proxy hops or their exact addresses: only then are `X-Forwarded-For` and
-`X-Forwarded-Proto` believed. Counts live in memory per process; pass a
-`store` with an `increment(key, expiresAt)` method to share them, for example
-in Redis. A failing store refuses requests rather than letting them through.
+minute:
+
+<include cwd meta='title="src/http.ts"'>
+	../../examples/http/src/http.ts#rate-limit
+</include>
+
+<include cwd meta='title="tests/limits.test.ts"'>
+	../../examples/http/tests/limits.test.ts#rate-limited
+</include>
+
+The 301st request of a minute from that address gets `HTTP_RATE_LIMITED`
+(429) with `Retry-After`. Routes may add stricter limits, counted in addition
+to the default. The built-in health route is never limited, since probes often
+share one address.
+
+Behind proxies, set `trustProxy` to the number of proxy hops or their exact
+addresses: only then are `X-Forwarded-For` and `X-Forwarded-Proto` believed.
+The client is the nearest `X-Forwarded-For` entry your proxies did not add;
+what a client writes before it never changes the address that is counted.
+
+Counts live in memory per process; pass a `store` with an
+`increment(key, expiresAt)` method to share them, for example in Redis. A
+failing store refuses requests rather than letting them through.
+
+<include cwd meta='title="src/counters.ts"'>
+	../../examples/http/src/counters.ts#store
+</include>
 
 ### Access log
 
@@ -149,27 +227,76 @@ credentials.
 
 Browser-origin behavior is disabled by default.
 `browser: { origins, credentials? }` enables it
-for exact origins. Allowed methods come from the mounted routes and allowed
-headers from the installed plugins: `Content-Type`, the application and
-request ID headers, `Authorization` with an authentication plugin, and the
-Master header only with `master: true`. Without a policy, a browser preflight
-is refused with `CORS is not enabled: configure browser.origins`.
+for exact origins:
+
+<include cwd meta='title="src/http.ts"'>
+	../../examples/http/src/http.ts#browser
+</include>
+
+Allowed methods come from the mounted routes and allowed headers from the
+installed plugins: `Content-Type`, the application and request ID headers,
+`Authorization` with a plugin that resolves credentials (such as
+[Password Authentication](./password-authentication)), and the Master header
+only with `master: true`. The plugin exports the effective policy:
+
+<include cwd meta='title="tests/browser.test.ts"'>
+	../../examples/http/tests/browser.test.ts#effective-policy
+</include>
+
+Without a policy, a browser preflight is refused with
+`CORS is not enabled: configure browser.origins`.
 
 CORS controls browser responses; it is not authentication, authorization, CSRF
-protection, or protection from non-browser clients. A wildcard origin is
-incompatible with credentials and Master transport.
+protection, or protection from non-browser clients: a request from another
+origin is still answered, only without the CORS headers its browser needs. A
+wildcard origin is incompatible with credentials and Master transport.
+
+### Master
+
+`master: true` enables the canonical `X-UltimaBase-Master-Key` header, only
+with a configured `MasterAuthority`, which verifies and audits it:
+
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/http/src/ultimabase.ts#application
+</include>
+
+<include cwd meta='title="tests/identity.test.ts"'>
+	../../examples/http/tests/identity.test.ts#master-request
+</include>
+
+A wrong key is refused with `HTTP_APPLICATION_REJECTED`; without the header
+the request stays anonymous, and the example's Access rules let it only read.
+Do not expose a raw Master key to browser code.
+
+### Credentials from requests
+
+A plugin turns request credentials into request context values with a
+resolver; it never grants Master authority. The example resolves a partner
+from a Bearer token, and an unknown token is refused with
+`HTTP_APPLICATION_REJECTED` before any route runs:
+
+<include cwd meta='title="src/partners.ts"'>
+	../../examples/http/src/partners.ts#partner-credentials
+</include>
+
+<include cwd meta='title="tests/identity.test.ts"'>
+	../../examples/http/tests/identity.test.ts#partner-request
+</include>
+
+`/status` then reads `{ "mode": "anonymous", "partner": "acme" }`. Route
+handlers never see the `Authorization` or `Cookie` headers, only the values
+resolvers derived. Password Authentication uses the same mechanism for its
+sessions.
 
 ### Test without a server
 
-```ts
-await ultimabase.start()
-const response = await ultimabase
-	.plugin(httpPlugin)
-	.fetch(new Request('http://localhost/health'))
-```
+<include cwd meta='title="tests/routes.test.ts"'>
+	../../examples/http/tests/routes.test.ts#fetch
+</include>
 
 The request takes the same path as a network request, CORS included, without
-a server or a port.
+a server or a port. The application must be started; `testApplication()`
+starts it, and its `t.fetch(path, init)` sends the same requests.
 
 ### Connect a server and a transport
 
@@ -216,10 +343,12 @@ Reproduce without credentials first:
 curl -i http://127.0.0.1:1337/health
 ```
 
-Record status, stable error code, and request ID. Confirm the public `appId`,
-mount, method, and route. Never combine Bearer and cookie credentials. Do not
-copy Authorization, Cookie, Master values, or request bodies into logs or
-reports.
+Record status, stable error code, and request ID. A client may send its own
+`X-UltimaBase-Request-Id` (letters, digits, `.`, `_`, `:` and `-`, at most 128)
+to correlate its logs; another value is refused with `HTTP_BAD_REQUEST`.
+Confirm the public `appId`, mount, method, and route. Never combine Bearer and
+cookie credentials. Do not copy Authorization, Cookie, Master values, or
+request bodies into logs or reports.
 
 If the boundary still rejects the request, follow
 [Reporting a problem](/docs/1.0.0/operations/troubleshooting#report-a-problem)

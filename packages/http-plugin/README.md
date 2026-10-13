@@ -7,28 +7,40 @@ original-header evidence, and the application graph consumed by server
 providers. It does not open a socket or depend on Hono, REST, GraphQL,
 authentication, or a database.
 
+Every code block in this README, except the server provider sketch, is copied
+from the tested [`examples/http`](../../examples/http/README.md) application by
+`yarn docs:regions` (ADR-0330): edit the example, then run the script.
+
 ## Install the HTTP foundation
 
-```ts
-import { UltimaBase } from '@ultimabase/core'
-import { httpPlugin } from '@ultimabase/http-plugin'
+`httpPlugin()` needs no option (ADR-0323). The example's API sets most of them:
 
-const Application = UltimaBase.use(
-	httpPlugin({
-		browser: { origins: ['https://console.example'], credentials: true },
-		master: true,
-		routes: {
-			'GET /status': (request, { context }) =>
-				Response.json({ mode: context.access.mode }),
-		},
-	}),
-)
-const ultimabase = new Application({
-	schemas: [],
-})
+<!-- region ../../examples/http/src/http.ts#http-options -->
+
+```ts
+/** Every option of the HTTP foundation is optional; these are this API's. */
+export const http = {
+	appId: 'links',
+	browser,
+	// One reverse proxy in front: it appends the client to `X-Forwarded-For`
+	// and tells the protocol in `X-Forwarded-Proto`.
+	trustProxy: 1,
+	rateLimit,
+	bodyLimit: 262_144, // 256 KiB for every route without its own limit.
+	requestTimeoutMs: 10_000,
+	securityHeaders,
+	// Operators send the Master key header; MasterAuthority verifies it.
+	master: true,
+	routes,
+	accessLog: true,
+} satisfies HttpPluginOptions
 ```
 
-`httpPlugin()` needs no option (ADR-0323). Its defaults:
+<!-- endregion -->
+
+`apiServer({ http })` from `@ultimabase/api-server` installs
+`httpPlugin(http)` with REST and the Hono server;
+`UltimaBase.use(httpPlugin(http))` installs it alone. The defaults:
 
 | Option                 | Default                                                    |
 | ---------------------- | ---------------------------------------------------------- |
@@ -40,6 +52,7 @@ const ultimabase = new Application({
 | `securityHeaders`      | `nosniff`, `X-Frame-Options: DENY`, HSTS on HTTPS          |
 | `browser`              | CORS disabled                                              |
 | `master`               | Master header refused                                      |
+| `routes`               | none                                                       |
 | `rateLimit`            | none; `trustProxy` unset, so the socket peer is the client |
 | `accessLog`            | `false`                                                    |
 
@@ -48,9 +61,21 @@ const ultimabase = new Application({
 `appId` is public and grants no authority. A request without
 `X-UltimaBase-Application-Id` reaches the only application of the process, so
 existing Parse-style clients and plain `curl` work. A request whose header
-names a different application is refused with `HTTP_APPLICATION_UNKNOWN`
-(404). Several applications behind one proxy set `requireApplicationId: true`:
-a missing header is then refused with `HTTP_APPLICATION_REJECTED` (401).
+names a different application is refused:
+
+<!-- region ../../examples/http/tests/identity.test.ts#unknown-application -->
+
+```ts
+const response = await t.fetch('/status', {
+	headers: { 'X-UltimaBase-Application-Id': 'billing' },
+})
+```
+
+<!-- endregion -->
+
+The answer is `HTTP_APPLICATION_UNKNOWN` (404). Several applications behind one
+proxy set `requireApplicationId: true`: a missing header is then refused with
+`HTTP_APPLICATION_REJECTED` (401).
 
 A browser page that cannot send headers may still open an exact `GET` route
 created with `httpBrowserBootstrapRoute()` at
@@ -74,19 +99,34 @@ vocabulary): keys are `"<METHOD> /<path>"`, values are handlers or
 the resolved request context, already active, so queries in the handler run
 with it:
 
+<!-- region ../../examples/http/src/routes.ts#routes -->
+
 ```ts
-httpPlugin({
-	routes: {
-		'GET /me': (request, { context }) =>
-			Response.json({ mode: context.access.mode }),
-		'POST /upload': {
-			bodyLimit: 10_485_760,
-			rateLimit: { perMinute: 10 },
-			handle: async (request) => new Response(await request.text()),
+/**
+ * Application routes need no plugin. Each handler receives the Fetch request
+ * and the request context, already active.
+ */
+export const routes = {
+	'GET /status': (_request, { context }) =>
+		Response.json({
+			mode: context.access.mode,
+			partner: context.getValue(partner)?.name ?? null,
+		}),
+	// A public form: small bodies, and five messages a minute per client.
+	'POST /contact': {
+		bodyLimit: 8_192,
+		rateLimit: { perMinute: 5 },
+		handle: async (request) => {
+			// A PublicError answers 400 with its code, message and details.
+			const contact = readContactMessage(await request.json())
+			inbox.push(contact)
+			return Response.json({ received: true }, { status: 202 })
 		},
 	},
-})
+} satisfies HttpRouteRecord
 ```
+
+<!-- endregion -->
 
 A malformed key or handler fails when the plugin is created. Application
 routes run under the HTTP plugin's identity, after the same identity,
@@ -121,36 +161,100 @@ and `Strict-Transport-Security: max-age=31536000; includeSubDomains` on HTTPS
 requests. A handler's own value wins. Configure them one by one, or remove
 them all with `securityHeaders: false`:
 
+<!-- region ../../examples/http/src/http.ts#security-headers -->
+
 ```ts
-httpPlugin({
-	securityHeaders: {
-		frameOptions: 'SAMEORIGIN',
-		hsts: { maxAgeSeconds: 15_552_000, includeSubDomains: false },
-	},
-})
+/** The web application frames its own pages; HSTS keeps its defaults. */
+export const securityHeaders = {
+	frameOptions: 'SAMEORIGIN',
+} satisfies HttpSecurityHeadersOptions
 ```
 
-TLS and HTTP/2 come from the proxy or platform in front of the server; HTTPS is
-recognized from the request URL or, behind `trustProxy`, from
-`X-Forwarded-Proto`.
+<!-- endregion -->
+
+`hsts: { maxAgeSeconds, includeSubDomains }` tunes Strict-Transport-Security,
+and `false` removes one header. TLS and HTTP/2 come from the proxy or platform
+in front of the server; HTTPS is recognized from the request URL or, behind
+`trustProxy`, from `X-Forwarded-Proto`.
 
 ## Master
 
 `master: true` enables only the canonical `X-UltimaBase-Master-Key` header.
 The plugin then requests `authority:elevate`, passes that raw value directly to
 the selected application's configured `MasterAuthority`, and continues only
-after its audit succeeds. A missing header remains anonymous. Invalid,
-duplicate, disabled, foreign, unaudited, or authority-less Master attempts fail
-before route behavior. Query parameters, body fields, alternative headers,
-grants, contexts, privileges, and `useMasterKey` never select Master.
+after its audit succeeds:
+
+<!-- region ../../examples/http/src/ultimabase.ts#application -->
+
+```ts
+import { MasterAuthority } from '@ultimabase/core'
+
+import { readSecret } from './env.ts'
+import { App, Link } from './schema.ts'
+
+export const ultimabase = new App({
+	// `httpPlugin({ master: true })` hands the header to this authority.
+	masterAuthority: new MasterAuthority({
+		keys: [{ id: 'operations', value: readSecret('ULTIMABASE_MASTER_KEY') }],
+		onUse: (event) => {
+			// Replace this console record with a durable audit sink in production.
+			console.info('Master authority used', event.reason)
+		},
+	}),
+	schemas: [Link],
+})
+
+// One declaration per application gives name-keyed editor types (ADR-0297).
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/http/tests/identity.test.ts#master-request -->
+
+```ts
+const response = await t.fetch('/api/classes/Link', {
+	method: 'POST',
+	headers: {
+		'content-type': 'application/json',
+		'X-UltimaBase-Master-Key': masterKey,
+	},
+	body: JSON.stringify({
+		url: 'https://ultimabase.dev',
+		title: 'UltimaBase',
+	}),
+})
+```
+
+<!-- endregion -->
+
+A missing header remains anonymous. Invalid, disabled, foreign, unaudited, or
+authority-less Master attempts fail with `HTTP_APPLICATION_REJECTED`, and a
+duplicated header with `HTTP_BAD_REQUEST`, before route behavior. Query parameters, body
+fields, alternative headers, grants, contexts, privileges, and `useMasterKey`
+never select Master. Never send the Master key from browser code.
 
 ## Configure browser origins (CORS)
 
+<!-- region ../../examples/http/src/http.ts#browser -->
+
 ```ts
-httpPlugin({
-	browser: { origins: ['https://app.example.com'], credentials: true },
-})
+/**
+ * Pages of the web application call the API from this origin, with
+ * cookies (CORS). Allowed methods and headers come from the installed
+ * routes and plugins.
+ */
+export const browser = {
+	origins: ['https://links.example.com'],
+	credentials: true,
+} satisfies HttpBrowserPolicyOptions
 ```
+
+<!-- endregion -->
 
 CORS is off unless `browser.origins` lists exact serialized origins, or `'*'`
 without credentials. Allowed methods come from the mounted routes (every
@@ -158,8 +262,16 @@ method when a mount exists) and allowed headers from the installed plugins:
 `Content-Type`, `X-UltimaBase-Application-Id` and `X-UltimaBase-Request-Id`
 always, `Authorization` when a credential plugin is installed (never with
 `'*'`), and `X-UltimaBase-Master-Key` only with `master: true`.
-`maxAgeSeconds` (600 by default) sets the browser preflight cache.
-`ultimabase.plugin(httpPlugin).browser` exposes the effective policy.
+`maxAgeSeconds` (600 by default) sets the browser preflight cache. The plugin
+exports the effective policy:
+
+<!-- region ../../examples/http/tests/browser.test.ts#effective-policy -->
+
+```ts
+const policy = ultimabase.plugin(httpPlugin).browser
+```
+
+<!-- endregion -->
 
 An accepted browser preflight is answered without application identity
 validation, context resolution, credential verification, Master audit, route
@@ -174,38 +286,55 @@ must own all CORS headers. A route response that also emits CORS while
 UltimaBase owns the browser policy fails safely.
 
 CORS is a browser response policy. It is not authentication, authorization,
-CSRF protection, or a defense against non-browser clients.
+CSRF protection, or a defense against non-browser clients: a request from
+another origin is still answered, only without the CORS headers its browser
+needs.
 
 ## Rate limiting and proxies
 
+<!-- region ../../examples/http/src/http.ts#rate-limit -->
+
 ```ts
-httpPlugin({
-	trustProxy: 1,
-	rateLimit: { default: { perMinute: 300 } },
-})
+/**
+ * 300 requests a minute per client address, counted in a shared store;
+ * the health route is never limited.
+ */
+export const rateLimit = {
+	default: { perMinute: 300 },
+	store,
+} satisfies HttpRateLimitOptions
 ```
+
+<!-- endregion -->
 
 Limits count requests per client address and minute; a refused request gets
 `HTTP_RATE_LIMITED` (429) with `Retry-After`. Without `trustProxy` the client
 is the socket peer. Behind proxies, `trustProxy` is the number of proxy hops,
 or their exact addresses: the client is then the nearest untrusted
 `X-Forwarded-For` entry, and `X-Forwarded-Proto` is believed only from a
-trusted peer. Routes add stricter limits with `rateLimit: { perMinute }`, which
-count in addition to the default. The built-in health route is never limited:
-load balancers and Kubernetes probes often share one address, and a 429 would
-make the service look down. Counts live in memory per process; share them
-with a store:
+trusted peer. Entries a client writes before the ones your proxies append
+never change the address that is counted. Routes add stricter limits with
+`rateLimit: { perMinute }`, which count in addition to the default. The
+built-in health route is never limited: load balancers and Kubernetes probes
+often share one address, and a 429 would make the service look down.
+
+Counts live in memory per process; share them with a store, such as Redis
+`INCR` and `PEXPIREAT`:
+
+<!-- region ../../examples/http/src/counters.ts#store -->
 
 ```ts
-const store: HttpRateLimitStore = {
+/** Counts requests in Redis: every process shares the same limits. */
+export const store: HttpRateLimitStore = {
 	increment: async (key, expiresAt) => {
 		const count = await redis.incr(key)
 		await redis.pexpireat(key, expiresAt)
 		return count
 	},
 }
-httpPlugin({ rateLimit: { default: { perMinute: 300 }, store } })
 ```
+
+<!-- endregion -->
 
 A failing store answers `HTTP_INTERNAL_ERROR`: limits never fail open.
 
@@ -220,12 +349,19 @@ headers and credentials are never logged.
 `ultimabase.plugin(httpPlugin).fetch(request)` runs a request through the same
 path as a network request, CORS included, without a server or a port:
 
+<!-- region ../../examples/http/tests/routes.test.ts#fetch -->
+
 ```ts
-await ultimabase.start()
 const response = await ultimabase
 	.plugin(httpPlugin)
 	.fetch(new Request('http://localhost/health'))
 ```
+
+<!-- endregion -->
+
+The application must be started first; `testApplication()` from
+`@ultimabase/testing` starts it, and its `t.fetch(path, init)` sends the same
+requests.
 
 On the network path, servers pass the ordered original headers next to the
 Fetch request so duplicated sensitive headers are refused. A request that
@@ -236,122 +372,169 @@ naming both fixes.
 ## Contribute request context
 
 Credential plugins contribute ordered resolvers without introducing a new Core
-authority mode. A resolver receives the current anonymous context and a
-credential-only request view, then returns an immutable derivative made with
-`withValue()`:
+authority mode. A resolver receives the current anonymous context, the client
+address, the effective browser policy and a credential-only request view, then
+returns an immutable derivative made with `withValue()`; a resolver that
+throws refuses the request with `HTTP_APPLICATION_REJECTED`:
+
+<!-- region ../../examples/http/src/partners.ts#partner-credentials -->
 
 ```ts
-import { RequestContextValue } from '@ultimabase/core'
-import { plugin } from '@ultimabase/core/plugin'
+import { createHash, timingSafeEqual } from 'node:crypto'
+
+import { RequestContextValue, plugin } from '@ultimabase/core/plugin'
 import {
 	httpContextResolver,
 	provideHttpContextResolvers,
 } from '@ultimabase/http-plugin'
 
-const principal = new RequestContextValue('example.principal', (value) => {
-	if (typeof value !== 'object' || value === null) {
-		throw new TypeError('Principal must be an object')
-	}
-	return Object.freeze(value)
-})
+/** The partner a request authenticated as, read by route handlers. */
+export const partner = new RequestContextValue<Readonly<{ name: string }>>(
+	'example.partner',
+	(value) => {
+		const name: unknown =
+			typeof value === 'object' && value !== null
+				? Reflect.get(value, 'name')
+				: undefined
+		if (typeof name !== 'string') throw new TypeError('Partner needs a name')
+		return Object.freeze({ name })
+	},
+)
 
-const credentials = plugin({
-	id: 'example.credentials',
-	version: '1.0.0',
-	core: '^0.0.0',
-	contributions: [
-		provideHttpContextResolvers({
-			contributionId: 'bearer',
-			create: () =>
-				httpContextResolver({
-					resolve: async ({ context, request }) => {
-						const value = await verifyBearer(
-							request.headers.get('Authorization'),
-						)
-						return context.withValue(principal, value)
-					},
-				}),
-		}),
-	],
-})
+const digest = (token: string): Buffer =>
+	createHash('sha256').update(token).digest()
+
+/**
+ * Signs partner integrations in with `Authorization: Bearer <token>`. A
+ * request without the header stays anonymous; an unknown token is refused
+ * with `HTTP_APPLICATION_REJECTED` before any route runs.
+ */
+export const partnerCredentials = (
+	tokens: Readonly<Record<string, string>>,
+) => {
+	const partners = Object.entries(tokens).map(([name, token]) => ({
+		name,
+		digest: digest(token),
+	}))
+	return plugin({
+		id: 'example.partner-credentials',
+		version: '1.0.0',
+		core: '^0.0.0',
+		contributions: [
+			provideHttpContextResolvers({
+				contributionId: 'partner-bearer',
+				create: () =>
+					httpContextResolver({
+						// Checked once, before the application serves a request.
+						validateBrowserPolicy: (policy) => {
+							if (policy.enabled && policy.origins === '*') {
+								throw new TypeError('Partner tokens need exact browser origins')
+							}
+						},
+						resolve: ({ context, request }) => {
+							const header = request.headers.get('Authorization')
+							if (header === null) return context
+							const presented = digest(header.replace(/^Bearer /u, ''))
+							const match = partners.find((candidate) =>
+								timingSafeEqual(candidate.digest, presented),
+							)
+							if (match === undefined) throw new TypeError('Unknown partner')
+							return context.withValue(partner, { name: match.name })
+						},
+					}),
+			}),
+		],
+	})
+}
 ```
+
+<!-- endregion -->
 
 Resolvers run in plugin graph and registration order under their exact owners.
 They may add their own validated values, but cannot replace request identity,
 source, signal, metadata, capabilities, application lineage, or anonymous Core
 authority. Master verification runs after resolvers so a valid Master context
 retains those safe derived values. Master credentials are hidden from resolvers;
-all credential headers are hidden from route handlers.
+all credential headers are hidden from route handlers, which read the values
+the resolvers derived instead:
 
-The resolver input also carries the exact immutable effective `browserPolicy`,
-derived methods and headers included.
-A resolver with browser-specific safety requirements can validate that policy
-once, before the HTTP application is materialized, and use the same value for
-request proofs:
+<!-- region ../../examples/http/tests/identity.test.ts#partner-request -->
 
 ```ts
-httpContextResolver({
-	validateBrowserPolicy: (policy) => {
-		if (!policy.enabled || policy.origins === '*') {
-			throw new TypeError('Exact browser origins are required')
-		}
-	},
-	resolve: ({ browserPolicy, context, request }) => {
-		// Check concrete credential proofs against browserPolicy, then derive context.
-		return context
-	},
+const response = await t.fetch('/status', {
+	headers: { Authorization: `Bearer ${partnerToken}` },
 })
 ```
 
-This keeps the effective HTTP policy as the only source of truth. A credential
-plugin does not require the browser-policy capability back from HTTP and cannot
-create a capability cycle.
+<!-- endregion -->
+
+`/status` answers `{ "mode": "anonymous", "partner": "acme" }`.
+
+`browserPolicy` is the exact immutable effective policy, derived methods and
+headers included. `validateBrowserPolicy` checks it once, before the HTTP
+application is materialized, and `resolve` can use the same value for request
+proofs. This keeps the effective HTTP policy as the only source of truth. A
+credential plugin does not require the browser-policy capability back from
+HTTP and cannot create a capability cycle.
 
 ## Contribute routes and mounts
 
 Protocol plugins provide endpoints through the versioned application
 capability. Every provider requests `transport:expose`; Core retains its exact
-plugin and optional instance identity:
+plugin and optional instance identity. `httpRoutes` takes the record of
+`httpPlugin({ routes })`, each route's protocol identity being its key, and
+`provideHttpEndpoints` contributes `httpRoute()` and `httpMount()` definitions;
+both fit `definePlugin`'s `contributions` as well as a raw `plugin()` list
+(ADR-0316):
+
+<!-- region ../../examples/http/src/api-info-plugin.ts#api-info-plugin -->
 
 ```ts
-import { plugin } from '@ultimabase/core/plugin'
 import {
 	httpMount,
-	httpRoute,
+	httpRoutes,
 	provideHttpEndpoints,
 } from '@ultimabase/http-plugin'
+import { definePlugin } from '@ultimabase/plugin-kit'
 
-const routes = provideHttpEndpoints({
-	contributionId: 'status-routes',
-	create: () => [
-		httpRoute({
-			method: 'GET',
-			path: '/status',
-			protocol: { name: 'example.status', version: '1' },
-			handle: () => Response.json({ ready: true }),
-		}),
-		httpMount({
-			path: '/custom',
-			protocol: { name: 'example.custom', version: '1' },
-			handle: (request) => new Response(request.url),
-		}),
-	],
-})
-
-const statusPlugin = plugin({
-	id: 'example.status',
-	version: '1.0.0',
-	core: '^0.0.0',
-	contributions: [routes],
-})
+/**
+ * A plugin contributes routes like an application does, and mounts that own
+ * a whole path subtree. Both run under this plugin's identity.
+ */
+export const apiInfoPlugin = () =>
+	definePlugin({
+		name: '@example/api-info',
+		contributions: [
+			// The same record as `httpPlugin({ routes })`.
+			httpRoutes({ 'GET /version': () => Response.json({ api: '2' }) }),
+			// Every path below `/v1` answers that the first API is retired.
+			provideHttpEndpoints({
+				contributionId: 'retired-v1',
+				create: () => [
+					httpMount({
+						path: '/v1',
+						protocol: { name: 'example.retired-v1', version: '1' },
+						handle: () =>
+							Response.json(
+								{ error: { code: 'API_RETIRED', message: 'Use /api.' } },
+								{ status: 410 },
+							),
+					}),
+				],
+			}),
+		],
+	})
 ```
+
+<!-- endregion -->
 
 Routes use one exact uppercase method and absolute path. Mounts own a complete
 path subtree. Both accept `bodyLimit` and `rateLimit` (ADR-0323), and every
-handler receives `(request, { context })`. A route identity collision, overlapping mounts, or a route under
-a mount fails while the application capability is materialized, before a
-server can mutate listener state. Contributions remain ordered by plugin graph
-and registration order.
+handler receives `(request, { context })`. A malformed key or a missing handler
+fails when the plugin is defined. A route identity collision, overlapping
+mounts, or a route under a mount fails while the application capability is
+materialized, before a server can mutate listener state. Contributions remain
+ordered by plugin graph and registration order.
 
 Handlers receive a standard `Request` and return a standard `Response`. The
 HTTP application re-enters every handler under the contribution's exact owner;
@@ -363,29 +546,6 @@ only applies the final correlation and privacy metadata: it replaces
 `Cache-Control: private, no-store`. A configured deadline that expires before
 completion still replaces the handler outcome with the protocol-neutral
 `HTTP_REQUEST_TIMEOUT` response.
-
-### Routes for `definePlugin`
-
-`httpRoutes` contributes the routes of the calling plugin from one object,
-keyed by `"<METHOD> /<path>"`; each route's protocol identity is its key. It
-returns an ordinary provider, so it fits `definePlugin`'s `contributions` as
-well as a raw `plugin()` list (ADR-0316):
-
-```ts
-import { httpRoutes } from '@ultimabase/http-plugin'
-import { definePlugin } from '@ultimabase/plugin-kit'
-
-export const statusPlugin = () =>
-	definePlugin({
-		name: '@community/status',
-		contributions: [
-			httpRoutes({ 'GET /status': () => Response.json({ status: 'ok' }) }),
-		],
-	})
-```
-
-A malformed key or a missing handler fails when the plugin is defined.
-Applications pass the same record to `httpPlugin({ routes })`.
 
 ## Implement a server provider
 
@@ -409,9 +569,12 @@ validates its protocol version and ordered original-header contract before
 server setup. A competing application is rejected before listener effects;
 complete disposal allows a later application to reuse the provider.
 
-Use the shared safe dispatcher, including when no application is available:
+Use the shared safe dispatcher, including when no application is available.
+This sketch is not run: `httpApplication` comes from the provider's
+capability and `socket` from its listener; the official
+[Hono server plugin](../hono-server-plugin/README.md) is a complete provider:
 
-```ts
+```ts unverified
 import {
 	dispatchHttpApplicationRequest,
 	type HttpApplication,
@@ -421,6 +584,7 @@ let activeApplication: HttpApplication | undefined = httpApplication
 const response = await dispatchHttpApplicationRequest(activeApplication, {
 	request: new Request('http://localhost/status'),
 	originalHeaders: [['X-UltimaBase-Application-Id', 'blog']],
+	remoteAddress: socket.remoteAddress,
 })
 
 // Close admission before teardown; an external listener may stay open.
@@ -428,11 +592,13 @@ activeApplication = undefined
 ```
 
 Before constructing Fetch `Headers`, the provider captures ordered original
-header pairs, and passes the socket peer as `remoteAddress` for rate limiting. With an owner, dispatch enters its `fetch()` boundary. Without
-one, requests still validate those pairs and request IDs before receiving the
-same safe rejection envelope. Providers retain their exact listener ownership:
-framework-owned listeners drain and close, while external listeners remain
-under the developer's control. `HttpServerOwnership` names those two modes.
+header pairs, and passes the socket peer as `remoteAddress` for rate limiting.
+With an owner, dispatch enters its `fetch()` boundary. Without one, requests
+still validate those pairs and request IDs before receiving the same safe
+rejection envelope (`HTTP_APPLICATION_REJECTED`). Providers retain their exact
+listener ownership: framework-owned listeners drain and close, while external
+listeners remain under the developer's control. `HttpServerOwnership` names
+those two modes.
 
 A normalized `Headers` object alone cannot prove that a sensitive header did
 not occur twice. Duplicate application ID, Master, Authorization, Cookie,
@@ -443,7 +609,8 @@ rejected credentials, return `HTTP_APPLICATION_REJECTED`; unknown routes return
 `HTTP_NOT_FOUND`; oversized bodies `HTTP_PAYLOAD_TOO_LARGE`; rate limits
 `HTTP_RATE_LIMITED`; deadlines `HTTP_REQUEST_TIMEOUT`; a preflight without
 CORS `HTTP_CORS_DISABLED`; and other pre-dispatch failures
-`HTTP_INTERNAL_ERROR`. Every early response uses the stable JSON envelope,
+`HTTP_INTERNAL_ERROR`. Every early response uses the stable JSON envelope
+`{ "error": { "code", "message", "requestId", "retryable": false } }`,
 `Cache-Control: private, no-store`, and a validated or generated
 `X-UltimaBase-Request-Id`.
 
