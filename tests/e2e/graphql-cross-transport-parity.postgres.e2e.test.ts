@@ -421,7 +421,8 @@ describe(
 			)
 			// The User type exists for authentication results, without CRUD roots.
 			expect(exposure.user).toEqual({ name: 'ExampleUser' })
-			expect(exposure.role).toEqual({ name: 'ExampleRole' })
+			// No exposed type reaches the hidden Role schema (ADR-0333).
+			expect(exposure.role).toBeNull()
 			expect(JSON.stringify([exposure.query, exposure.mutation])).not.toMatch(
 				/(?:get|find|count|exists|create|update|delete|upsert).*Example(?:Role|User)/u,
 			)

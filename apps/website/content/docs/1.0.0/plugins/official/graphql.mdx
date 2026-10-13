@@ -51,6 +51,7 @@ sources:
   - docs/adr/0311-application-lifecycle-and-authority-surface.md
   - docs/adr/0312-environment-dependent-plugin-defaults.md
   - docs/adr/0325-graphql-explorer-and-api-server-preset.md
+  - docs/adr/0333-graphql-hidden-schemas-stay-hidden.md
 ---
 
 ## Overview
@@ -208,18 +209,37 @@ authors, and write comments through their post:
 	../../examples/graphql/src/schema.ts#comment
 </include>
 
-`graphql: false` removes one schema's root fields and mutations. Its type and
-inputs stay in the schema, reachable through the pointers and relations of
-exposed schemas, where Access still decides, as REST's `rest: false` keeps
-links and includes:
+`graphql: false` removes one schema's root fields and mutations (ADR-0333).
+A schema without any exposed root or command contributes types only where an
+exposed schema reaches it: through a pointer or relation field of an exposed
+type, or a nested write input, transitively. `AuditEntry` holds its link to a
+post itself, so nothing exposed reaches it:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/graphql/src/schema.ts#audit
 </include>
 
+No type, input or field name of `AuditEntry` appears in the printed schema,
+and introspection answers `null` for `__type(name: "AuditEntry")`:
+
+<include cwd meta='title="tests/schema.test.ts"'>
+	../../examples/graphql/tests/schema.test.ts#hidden-schema
+</include>
+
+A hidden schema that an exposed relation or pointer does reach keeps only the
+types those fields need (its object type, plus the connection, filters and
+nested write inputs they use), and Access still decides every read and nested
+write through them, as REST's `rest: false` keeps links and includes. To keep
+such a link out of GraphQL, declare it on the hidden schema, as
+`AuditEntry.post` does. An Access field rule such as
+`access: { read: false, write: false }` denies the field, like
+`Post.reviewNote`, but leaves it in the schema.
+
 A disabled field is absent from the endpoint's schema, even for Master; a
-document that selects it fails validation with `400` and a hint naming the
-rule to set:
+document that selects it fails validation with `400`. Outside production the
+error carries a hint naming the rule to set; GraphQL reads `NODE_ENV` when
+created, as Access's `'development'` openings do, and in production the
+error is GraphQL's own, naming no schema or rule:
 
 <include cwd meta='title="tests/errors.test.ts"'>
 	../../examples/graphql/tests/errors.test.ts#disabled-field
@@ -528,9 +548,11 @@ answers `application/graphql-response+json`, and limits streamed bodies to
 the HTTP plugin's `bodyLimit` (1 MiB). It rejects other methods with `405`,
 batching, uploads, subscriptions, SSE, and its built-in GraphiQL UI. HTTP
 introspection is on in development and off when `NODE_ENV=production`; an
-explicit `introspection` value always wins. The `notes` application above
-sets `path: '/api/graphql'`, a 512 KiB `bodyLimit` (a larger body answers
-`413` `HTTP_PAYLOAD_TOO_LARGE`) and explicit introspection:
+explicit `introspection` value always wins. With introspection off,
+validation errors carry no "Did you mean …" suggestions, which would name
+fields. The `notes` application above sets `path: '/api/graphql'`, a 512 KiB
+`bodyLimit` (a larger body answers `413` `HTTP_PAYLOAD_TOO_LARGE`) and
+explicit introspection:
 
 <include cwd meta='title="tests/notes.test.ts"'>
 	../../examples/graphql/tests/notes.test.ts#notes-query
@@ -542,8 +564,8 @@ begins: here `requireApplicationId` makes a request without the header answer
 `X-UltimaBase-Application-Id` header that names another application answers
 `404` `HTTP_APPLICATION_UNKNOWN`, both with the HTTP envelope. Yoga validates
 documents with the application's rules, so a disabled feature answers with the
-same hint, and forwards that context to the same GraphQL execution capability
-as direct calls. It does not reimplement policies, virtual fields, contextual
+same hint outside production, and forwards that context to the same GraphQL
+execution capability as direct calls. It does not reimplement policies, virtual fields, contextual
 relations, transactions, cancellation, or safe errors.
 
 A successful HTTP status is not enough to decide whether a GraphQL operation
@@ -608,9 +630,12 @@ development only. Both need network access to their CDN.
 If startup warns that GraphQL exposes no schema or operation, expose at least
 one schema or a public operation; only the `health` field answers meanwhile.
 If startup refuses public writes, install a policy plugin such as Access or
-pass `graphqlPlugin({ publicWrites: true })`. A validation error with a
-`hint:` names the rule that enables the field. If direct execution rejects a context, create it from the
-same started application and do not retain it after cancellation or disposal.
+pass `graphqlPlugin({ publicWrites: true })`. Outside production, a
+validation error with a `hint:` names the rule that enables the field. If a
+type you expected is missing from the schema, check that an exposed root,
+command, pointer or relation reaches its schema. If direct execution rejects
+a context, create it from the same started application and do not retain it
+after cancellation or disposal.
 
 For HTTP selection errors, first check that an
 `X-UltimaBase-Application-Id` header, when sent, matches the configured

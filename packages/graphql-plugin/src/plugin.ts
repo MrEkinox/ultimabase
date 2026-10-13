@@ -20,6 +20,7 @@ import {
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
 } from '@ultimabase/core/plugin'
+import { readDeploymentEnvironment } from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -34,7 +35,10 @@ import { compileGraphqlSchema } from './compiler.js'
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { assertGraphqlPublicWrites } from './exposure.js'
 import { GraphqlGeneratedExecution } from './generated-execution.js'
-import { graphqlValidationRules } from './hints.js'
+import {
+	graphqlValidationRules,
+	type GraphqlDisabledFieldHints,
+} from './hints.js'
 import { GraphqlNetworklessExecution } from './networkless-execution.js'
 import { GraphqlOperationExecution } from './operation-execution.js'
 import {
@@ -91,6 +95,8 @@ export type GraphqlPlugin = PluginInstance<{
 	readonly source: PluginSchemaRulesSource<GraphqlSchemaRules>
 }>
 
+const noHints: GraphqlDisabledFieldHints = new Map()
+
 type OperationPlan = ApplicationOperationTransportPlan<
 	typeof graphqlOperationProtocol
 >
@@ -122,6 +128,10 @@ export const graphqlPlugin = (
 	options: GraphqlPluginOptions = {},
 ): GraphqlPlugin => {
 	const normalized = parseGraphqlPluginOptions(options)
+	// Hints name schemas and methods a client cannot use, so they are given
+	// outside production only, like Access's 'development' openings
+	// (ADR-0312, ADR-0333).
+	const hinted = readDeploymentEnvironment() !== 'production'
 	const applicationProvider = provideCapability(graphqlApplicationCapability, {
 		contributionId: 'official-graphql-application',
 		create: ({ callbacks, capabilities: reader, logger, owner, schemas }) => {
@@ -190,7 +200,9 @@ export const graphqlPlugin = (
 						),
 					],
 				})
-				const validationRules = graphqlValidationRules(generated.hints)
+				const validationRules = graphqlValidationRules(
+					hinted ? generated.hints : noHints,
+				)
 				const networkless = new GraphqlNetworklessExecution({
 					callbacks,
 					executor: reader.get(requestExecutionRequirement),

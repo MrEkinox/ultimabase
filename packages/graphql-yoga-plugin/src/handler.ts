@@ -74,15 +74,18 @@ export const createGraphqlYogaMountResource = (
 		{
 			onValidate: ({ setValidationFn }) => {
 				// The application's rules name how to enable a disabled feature
-				// (ADR-0325); introspection off adds GraphQL's own rule.
+				// (ADR-0325); introspection off adds GraphQL's own rule and drops
+				// the "Did you mean" suggestions, which name fields (ADR-0333).
 				const rules = options.introspection
 					? application.validationRules
 					: [...application.validationRules, NoSchemaIntrospectionCustomRule]
+				const hideSuggestions = !options.introspection
 				setValidationFn(
 					(
 						schema: GraphQLSchema,
 						document: DocumentNode,
-					): readonly GraphQLError[] => validate(schema, document, rules),
+					): readonly GraphQLError[] =>
+						validate(schema, document, rules, { hideSuggestions }),
 				)
 				return ({ result, setResult, valid }) => {
 					if (valid) return

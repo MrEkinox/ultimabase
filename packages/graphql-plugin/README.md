@@ -160,8 +160,8 @@ lifecycle control. Custom batching remains resolver-owned and request-local.
 ## Networkless execution
 
 The setup export provides `schema`, `execute()`, `printSchema()` and
-`validationRules`, GraphQL's specified rules with hints for disabled features,
-which HTTP adapters validate with.
+`validationRules`, GraphQL's specified rules with hints for disabled features
+outside production, which HTTP adapters validate with.
 `execute()` accepts a string or parsed `DocumentNode`, optional variables and
 operation name, plus a real context already bound to the same started
 application. Foreign, forged, stale, cancelled, and disposed contexts fail
@@ -223,29 +223,48 @@ rule names it, or when the rule or the default is `true`; a key that names no
 method or exposable command fails startup. Exposure only controls which
 GraphQL declarations exist; it never grants access or bypasses Runtime policy.
 
-`graphql: false` removes the schema's root fields and mutations; its type
-and inputs stay in the schema, reachable through the pointers and relations of
-exposed schemas, where policies still decide:
+`graphql: false` removes the schema's root fields and mutations (ADR-0333).
+A schema without any exposed root or command contributes types only where an
+exposed schema reaches it: through a pointer or relation field of an exposed
+type, or a nested write input, transitively. A schema nothing reaches is
+absent from the schema, `printSchema()` and introspection. A reached one keeps
+only the types those fields need, and Access still decides every read and
+nested write through them. To keep such a link out of GraphQL, declare it on
+the hidden schema, as `AuditEntry.post` does: a pointer from a hidden schema
+to an exposed one reaches nothing. An Access field rule such as
+`access: { read: false, write: false }` denies a field but leaves it in the
+schema.
 
 <!-- region ../../examples/graphql/src/schema.ts#audit -->
 
 ```ts
-/** Server-side records: no root field or mutation reads or writes them. */
+/**
+ * Server-side records: no root field or mutation reads or writes them. The
+ * link to a post lives here, so no exposed type reaches AuditEntry and GraphQL
+ * leaves it out entirely.
+ */
 export const AuditEntry = App.Schema.define({
 	className: 'AuditEntry',
-	fields: (field) => ({ action: field.string({ required: true }) }),
+	fields: (field) => ({
+		action: field.string({ required: true }),
+		post: field.pointer({ target: () => Post }),
+	}),
 }).with({ graphql: false })
 ```
 
 <!-- endregion -->
 
-A field that a disabled feature leaves out fails validation with a hint
-naming the rule to set, in networkless execution and over HTTP alike (`400`
-over HTTP):
+Outside production, a field that a disabled feature leaves out fails
+validation with a hint naming the rule to set, in networkless execution and
+over HTTP alike (`400` over HTTP):
 
 ```text
 Cannot query field "createAuthor" on type "Mutation". hint: enable graphql: { createOne: true } on Author
 ```
+
+The plugin reads `NODE_ENV` when created, as Access's `'development'`
+openings do (ADR-0312): when it is `production`, the error is GraphQL's own
+and names no schema or rule (ADR-0333).
 
 The `Query` root always has `health: HealthStatus!`, answering `OK` or
 `DEGRADED` as `ultimabase.health()` without detail. An application whose

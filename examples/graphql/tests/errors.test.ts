@@ -41,7 +41,8 @@ it('names the rule that enables a missing field', async () => {
 	})
 	//#endregion disabled-field-answer
 
-	// `graphql: false`: no root field or mutation for AuditEntry.
+	// `graphql: false`: no root field or mutation for AuditEntry. Outside
+	// production the hint names it; production omits every hint.
 	const audit = await postQuery(t, '{ findManyAuditEntry { nodes { id } } }')
 	expect(audit.status).toBe(400)
 	expect(await audit.json()).toMatchObject({

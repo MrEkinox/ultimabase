@@ -121,7 +121,10 @@ export const graphqlCollectionArguments = (
 	where: { type: compilers.filters.where(schema) },
 })
 
-/** Generates read roots; their argument types exist for every schema surface. */
+/**
+ * Generates read roots; their argument types exist for every exposed schema
+ * surface, and a hidden one only names how to enable its roots (ADR-0333).
+ */
 export const compileGraphqlQueryFields = (
 	compilers: GraphqlRootCompilers,
 ): RootFields => {
@@ -129,6 +132,7 @@ export const compileGraphqlQueryFields = (
 	const fields: RootFields = {}
 	for (const surface of ctx.surfaces.values()) {
 		addDisabledRootHints(ctx, surface)
+		if (!surface.exposed) continue
 		const { schema } = surface
 		const where = { where: { type: filters.where(schema) } }
 		const model = types.model(schema)
@@ -262,13 +266,13 @@ const surfaceMutationFields = (
 	}
 }
 
-/** Generates exact schema-command roots for application-owned schemas only. */
+/** Generates exact schema-command roots for exposed application schemas only. */
 export const compileGraphqlMutationFields = (
 	compilers: GraphqlRootCompilers,
 ): RootFields => {
 	const fields: RootFields = {}
 	for (const surface of compilers.ctx.surfaces.values()) {
-		if (surface.owner.kind === 'application') {
+		if (surface.owner.kind === 'application' && surface.exposed) {
 			surfaceMutationFields(compilers, fields, surface)
 		}
 	}
