@@ -194,6 +194,34 @@ it('limits failed logins per account and client address', async () => {
 	})
 })
 
+it('records no address and limits only the account when the client is unknown', async () => {
+	await using t = await testApplication(ultimabase)
+	// Without the proxy's `X-Forwarded-For` (and no socket peer in memory),
+	// nothing names the client.
+	const send = (path: string, body: unknown) =>
+		t.fetch(path, { body: JSON.stringify(body), headers: json, method: 'POST' })
+	await send('/api/auth/sign-up', { ...ada, displayName: 'Ada' })
+	// Six failures lock an account and address pair; an unknown client has
+	// none, so only the account limit (20 free failures) counts.
+	for (let failure = 1; failure <= 6; failure += 1) {
+		await send('/api/auth/login', { ...ada, password: 'wrong horse battery' })
+	}
+	const login = await send('/api/auth/login', ada)
+	expect(login.status).toBe(200)
+	const sessions = await t.fetch('/api/auth/list-sessions', {
+		headers: { authorization: `Bearer ${await sessionTokenOf(login)}` },
+		method: 'POST',
+	})
+	expect(await sessions.json()).toMatchObject({
+		result: { sessions: [{ address: null }, { address: null }] },
+	})
+
+	await t.afterCommit()
+	expect(securityLog.map(({ address }) => address)).toStrictEqual(
+		Array.from({ length: 8 }, () => null),
+	)
+})
+
 it('clears the login counters with a password reset', async () => {
 	await using t = await testApplication(ultimabase)
 	const client = { ...json, 'x-forwarded-for': '198.51.100.7' }

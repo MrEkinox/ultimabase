@@ -41,9 +41,9 @@ const testedExamples = [
 	['examples/validation', 12],
 	['examples/acl', 16],
 	['examples/roles', 14],
-	['examples/auth', 21],
+	['examples/auth', 22],
 	['examples/postgres', 30],
-	['examples/http', 22],
+	['examples/http', 23],
 	['examples/rest', 18],
 	['examples/graphql', 23],
 ] as const
