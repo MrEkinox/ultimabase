@@ -1,5 +1,10 @@
 import { authPlugin, type AuthPendingSignUp } from '@ultimabase/auth-plugin'
-import { UltimaBase, type CreateInput, type Model } from '@ultimabase/core'
+import {
+	UltimaBase,
+	type CreateInput,
+	type Model,
+	type UniqueWhereInput,
+} from '@ultimabase/core'
 import { describe, expectTypeOf, it } from 'vitest'
 
 import {
@@ -82,6 +87,19 @@ describe('password({ identifier: "email" }) email flows', () => {
 				readonly password: string
 			}
 		>()
+	})
+
+	it('targets one user by the unique email (ADR-0332)', () => {
+		void EmailUser.updateOne({
+			where: { email: 'ada@example.test' },
+			data: { displayName: 'Ada' },
+		})
+		void EmailUser.deleteOne({ where: { email: { eq: 'ada@example.test' } } })
+		expectTypeOf<{ readonly email: string }>().toExtend<
+			UniqueWhereInput<typeof EmailUser>
+		>()
+		// @ts-expect-error -- `emailVerified` is not unique.
+		void EmailUser.deleteOne({ where: { emailVerified: true } })
 	})
 
 	it('adds the email statics with their results', () => {
