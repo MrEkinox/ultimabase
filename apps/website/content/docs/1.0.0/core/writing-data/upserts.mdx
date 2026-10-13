@@ -76,7 +76,6 @@ target fails to compile. The `Contribution` schema of the PostgreSQL example
 declares `indexes: [{ fields: ['article', 'member'], unique: true }]`:
 
 ```ts twoslash title="Unique targets"
-// @errors: 2322
 import { Contribution } from '../../examples/postgres/src/schema.ts'
 
 declare const article: string
@@ -86,9 +85,10 @@ type Target = Parameters<typeof Contribution.deleteOne>[0]['where']
 //   ^?
 
 await Contribution.deleteOne({ where: { article, member } })
-// `member` alone is part of a target, not a target.
-await Contribution.deleteOne({ where: { member } })
 ```
+
+`{ member }` alone fails to compile: `article` is missing from the
+`{ article, member }` target.
 
 The same input types `updateOne`, `deleteOne`, and the items of
 `updateMany`, `deleteMany`, and `upsertMany`. Runtime checks the target again,
