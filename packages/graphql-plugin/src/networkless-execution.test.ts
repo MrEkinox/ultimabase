@@ -1,6 +1,8 @@
 import { onTestFinished } from 'vitest'
 import { FrameworkError, UltimaBase, getCurrentRequest } from '@ultimabase/core'
 import {
+	GraphQLEnumType,
+	GraphQLNonNull,
 	GraphQLObjectType,
 	GraphQLScalarType,
 	GraphQLSchema,
@@ -303,5 +305,49 @@ describe('GraphQL networkless execution', () => {
 			expect(result.errors).toHaveLength(1)
 		}
 		await application.dispose()
+	})
+
+	// ADR-0333 amendment: only a transport with introspection off hides them.
+	it('keeps GraphQL suggestions for direct server-side execution', async () => {
+		const Status = new GraphQLEnumType({
+			name: 'NetworklessStatus',
+			values: { DRAFT: {}, PUBLISHED: {} },
+		})
+		const application = new (UltimaBase.use(
+			graphqlPlugin({
+				default: false,
+				schemas: [
+					new GraphQLSchema({
+						query: new GraphQLObjectType({
+							name: 'Query',
+							fields: {
+								byStatus: {
+									type: GraphQLString,
+									args: { status: { type: new GraphQLNonNull(Status) } },
+									resolve: () => 'notes',
+								},
+							},
+						}),
+					}),
+				],
+			}),
+			graphqlFixtureDatabasePlugin,
+		))({ logger: false, schemas: [] })
+		onTestFinished(() => application.dispose())
+		await application.start()
+		const result = await application
+			.plugin('@ultimabase/graphql-plugin')
+			.execute({
+				context: anonymous(application, {
+					requestId: 'networkless-suggestions',
+					source: 'test',
+				}).context,
+				document:
+					'query ($status: NetworklessStatus!) { byStatus(status: $status) }',
+				variables: { status: 'DRAF' },
+			})
+		expect(result.errors?.map(({ message }) => message)).toStrictEqual([
+			'Variable "$status" has invalid value: Value "DRAF" does not exist in "NetworklessStatus" enum. Did you mean the enum value "DRAFT"?',
+		])
 	})
 })
