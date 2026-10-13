@@ -3724,6 +3724,25 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-rest@workspace:examples/rest":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-rest@workspace:examples/rest"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/hono-server-plugin": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/rest-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+    zod: "npm:^4.4.3"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-roles@workspace:examples/roles":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-roles@workspace:examples/roles"
