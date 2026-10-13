@@ -86,8 +86,9 @@ authority on the class.
 the same installation entry point to fixed or dynamic plugin lists through
 `UltimaBase.use(...plugins)`, without a second constructor plugin option.
 
-ADR-0297 supersedes the Typegen-based records (ADR-0280, ADR-0281, ADR-0283)
-where they retained the generated graph: complete-schema callbacks and filters
+ADR-0297 supersedes the Typegen-based records (ADR-0280, ADR-0281, ADR-0283
+and, entirely or for their Typegen parts, the earlier generated-registry
+records listed in the ADR catalog): complete-schema callbacks and filters
 are typed from the declarations through `.with` rules slots and `Register`.
 
 ```text

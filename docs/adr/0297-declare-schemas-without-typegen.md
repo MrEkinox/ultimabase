@@ -214,3 +214,34 @@ every consumer was migrated, as decided above. `define(...)` now accepts only
 `className`, `fields` and `indexes`, at runtime as in the editor. ADR-0280,
 ADR-0281 and ADR-0283 are superseded by this record. Handoff:
 `docs/handoff/migration-etape-6-8b.md`.
+
+## Revised editor-speed thresholds (2026-10-13)
+
+Decided by the user after migration step 6.8b. TypeScript 7 is the editor-speed
+reference and TypeScript 6 a regression guard. On the form D bench
+(`examples/schema-form-d`: `tools/bench.mjs` on TypeScript 6,
+`tools/lsp-bench.mjs` on TypeScript 7), the time from an edit to its
+diagnostics must stay within:
+
+| Compiler     | 50 schemas | 200 schemas |
+| ------------ | ---------: | ----------: |
+| TypeScript 7 |    ≤ 0.6 s |       ≤ 2 s |
+| TypeScript 6 |      ≤ 2 s |       ≤ 6 s |
+
+Exceeding one threshold is a regression. The targets of amendment 2
+(TypeScript 6 within 1 s at 50 and 3 s at 200 schemas, TypeScript 7 within
+0.5 s at 50 schemas) are withdrawn.
+
+Current measurements (2026-10-13, `main` after migration step 6.8b, medians of
+three alternating runs on the reference machine): TypeScript 7 0.54 s at 50 and
+1.89 s at 200 schemas; TypeScript 6 1.85 s at 50 and 5.57 s at 200 schemas.
+
+## Migration step 6.8c (2026-10-13)
+
+ADR-0177, ADR-0184, ADR-0185, ADR-0198, ADR-0217, ADR-0265 and ADR-0285 are
+superseded by this record. ADR-0173, ADR-0175, ADR-0187, ADR-0193 and ADR-0262
+are superseded only for their Typegen parts: static compilation, map-returning
+fields, the plugin declaration phase, operation handles and descriptive
+inspection remain in force. The CI job `TypeScript 7` type-checks packages,
+tests, examples and the `Register` cycle reproduction cases of the
+register-cycle note (`tests/register-cycle`) with TypeScript 7.0.2.

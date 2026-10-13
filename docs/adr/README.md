@@ -157,31 +157,27 @@ Current records (accepted or still active in part):
 - [ADR-0170: Read and write field Access](0170-read-write-field-access.md)
 - [ADR-0171: Field Access authorizes value transitions](0171-field-access-value-transitions.md)
 - [ADR-0172: Focus schema hook results on persisted items](0172-focused-schema-hook-results.md)
-- [ADR-0173: Generated schema authoring and static compilation](0173-generated-schema-authoring.md)
+- [ADR-0173: Generated schema authoring and static compilation](0173-generated-schema-authoring.md), the generated application registry and contracts (the Typegen typing authority) superseded by ADR-0297
 - [ADR-0174: Object-shaped ordering inputs](0174-object-ordering-inputs.md)
-- [ADR-0175: Map-returning schema fields and generated typing authority](0175-map-returning-schema-fields.md)
+- [ADR-0175: Map-returning schema fields and generated typing authority](0175-map-returning-schema-fields.md), the generated typing authority and its bootstrap typing superseded by ADR-0297
 - [ADR-0176: One-dimensional field lists and generated array filters](0176-one-dimensional-field-lists.md)
-- [ADR-0177: Flat generated schema registry](0177-flat-generated-schema-registry.md)
 - [ADR-0178: Object-only schema mutation predicates](0178-object-only-mutation-where-inputs.md)
 - [ADR-0179: Name-based application relationship targets](0179-name-based-relationship-targets.md)
 - [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md), root-row read rules superseded by ADR-0306
 - [ADR-0181: Every model projection exposes its identifier](0181-implicit-result-identifiers.md)
 - [ADR-0183: Bootstrap model identifiers are strings](0183-bootstrap-model-string-identifiers.md)
-- [ADR-0184: Type generation uses an explicit package identity](0184-typegen-package-identity.md)
-- [ADR-0185: Generated schema aliases expose canonical values only](0185-canonical-generated-schema-aliases.md)
 - [ADR-0186: Trusted open plugin kernel and declared privileges](0186-trusted-open-plugin-kernel.md)
-- [ADR-0187: Plugin-owned application compilation and Typegen contributions](0187-plugin-owned-application-compilation-and-typegen.md)
+- [ADR-0187: Plugin-owned application compilation and Typegen contributions](0187-plugin-owned-application-compilation-and-typegen.md), Typegen descriptors, contributors and privileges superseded by ADR-0297
 - [ADR-0188: Plugin operations and rewritable persistence plans](0188-plugin-operations-and-persistence-plans.md)
 - [ADR-0189: Hooks and Access become optional official plugins](0189-optional-hooks-and-access-plugins.md)
 - [ADR-0190: Capability host lifecycle and legacy convergence](0190-capability-host-lifecycle-and-legacy-convergence.md)
 - [ADR-0191: Plugin privilege taxonomy, reporting, and diagnostics](0191-plugin-privilege-taxonomy-and-diagnostics.md), the default complete privilege report and `pluginPrivileges.logger` superseded by ADR-0313
 - [ADR-0192: Schema transformations, model surfaces, and plugin upgrades](0192-schema-transformations-model-surfaces-and-upgrades.md), the `model` instance surface superseded by ADR-0310
-- [ADR-0193: Plugin operation, transport, adapter, and Typegen bridges](0193-plugin-operation-transport-and-adapter-bridges.md)
+- [ADR-0193: Plugin operation, transport, adapter, and Typegen bridges](0193-plugin-operation-transport-and-adapter-bridges.md), the Typegen bridge (literal narrowing through Typegen and inert Typegen output) superseded by ADR-0297
 - [ADR-0194: Optional engine contract packages and unprotected transports](0194-optional-engine-contract-packages.md)
 - [ADR-0195: Setup-phase capability requirements support peer composition](0195-setup-phase-capability-requirements.md)
 - [ADR-0196: Complete schema compilation uses a callback-free public IR](0196-callback-free-schema-compiler-ir.md)
 - [ADR-0197: Schema handle surfaces are application-local](0197-application-local-schema-handle-surfaces.md)
-- [ADR-0198: Plugin Typegen contracts are structured and application-local](0198-structured-plugin-typegen-contracts.md)
 - [ADR-0199: Runtime capabilities execute behind a Core-owned request shell](0199-runtime-capability-assembly.md)
 - [ADR-0200: Persistence rewrites are physical and constraints remain Core-owned](0200-protected-rewritable-persistence-plans.md)
 - [ADR-0202: Hooks is one vertical plugin](0202-hooks-are-one-vertical-plugin.md)
@@ -198,7 +194,6 @@ Current records (accepted or still active in part):
 - [ADR-0213: Direct plugin options replace schema and field extensions](0213-direct-plugin-options-replace-schema-field-extensions.md)
 - [ADR-0215: Patched field options materialize implicit indexes](0215-patched-field-options-materialize-implicit-indexes.md)
 - [ADR-0216: Direct plugin options may be compiler-only](0216-compiler-only-direct-plugin-options.md)
-- [ADR-0217: Generated registries do not reject schema class declarations](0217-generated-registries-do-not-reject-schema-class-declarations.md)
 - [ADR-0218: Master bypasses authorization policies](0218-master-bypasses-authorization-policies.md)
 - [ADR-0219: Field constraints use Standard Schema](0219-standard-schema-field-validation.md)
 - [ADR-0220: Field validation follows input resolution](0220-post-resolution-field-validation.md)
@@ -242,11 +237,10 @@ Current records (accepted or still active in part):
 - [ADR-0259: Smaller plugin kernel and canonical commands](0259-smaller-plugin-kernel-and-canonical-commands.md)
 - [ADR-0260: Single-owner HTTP dispatch](0260-single-owner-http-dispatch.md)
 - [ADR-0261: Command compilation and binding phases](0261-command-compilation-and-binding-phases.md)
-- [ADR-0262: Descriptive Typegen command inspection](0262-descriptive-typegen-command-inspection.md)
+- [ADR-0262: Descriptive Typegen command inspection](0262-descriptive-typegen-command-inspection.md), the `CompiledTypegenGraph` and `typegenGraph` names superseded by ADR-0297
 - [ADR-0263: Direct private schema compilation](0263-direct-private-schema-compilation.md)
 
 - [ADR-0264: Remove unused Runtime stage contributions](0264-remove-unused-runtime-stage-contributions.md)
-- [ADR-0265: Remove the Typegen emitter marker](0265-remove-typegen-emitter-marker.md)
 - [ADR-0266: Defer migration-only protocols until a migration product exists](0266-defer-migration-only-protocols.md)
 - [ADR-0267: Flat plugin configuration and uniform access](0267-flat-plugin-configuration-and-uniform-access.md)
 - [ADR-0268: Password account methods and generation-based session revocation](0268-password-account-session-management.md)
@@ -263,7 +257,6 @@ Current records (accepted or still active in part):
 - [ADR-0279: Configured applications own source-typed authoring](0279-source-typed-configured-application-authoring.md)
 - [ADR-0282: Configure plugin lists through variadic use](0282-variadic-configured-plugin-installation.md)
 - [ADR-0284: Password User declarations accept the configured schema namespace](0284-configured-password-user-authoring.md)
-- [ADR-0285: Sparse generated mutation surfaces derive class methods](0285-sparse-generated-mutation-surfaces.md)
 - [ADR-0286: Accept Milestone 63 with explicit measured costs](0286-accept-source-authoring-milestone-costs.md)
 - [ADR-0287: GraphQL Tools owns standard type rewiring](0287-graphql-tools-type-rewiring.md)
 - [ADR-0288: Simplify public contracts before the first release](0288-pre-release-simplification.md)
@@ -343,12 +336,19 @@ Superseded records:
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.
 - [ADR-0150: Instance command result selections](0150-instance-command-result-selections.md), superseded by ADR-0310.
 - [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md), superseded by ADR-0310.
+- [ADR-0177: Flat generated schema registry](0177-flat-generated-schema-registry.md), superseded by ADR-0297.
 - [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md), superseded by ADR-0307.
+- [ADR-0184: Type generation uses an explicit package identity](0184-typegen-package-identity.md), superseded by ADR-0297.
+- [ADR-0185: Generated schema aliases expose canonical values only](0185-canonical-generated-schema-aliases.md), superseded by ADR-0297.
+- [ADR-0198: Plugin Typegen contracts are structured and application-local](0198-structured-plugin-typegen-contracts.md), superseded by ADR-0297.
 - [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md), superseded by ADR-0310.
 - [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md), superseded by ADR-0273.
+- [ADR-0217: Generated registries do not reject schema class declarations](0217-generated-registries-do-not-reject-schema-class-declarations.md), superseded by ADR-0297.
 - [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md), superseded by ADR-0309.
+- [ADR-0265: Remove the Typegen emitter marker](0265-remove-typegen-emitter-marker.md), superseded by ADR-0297.
 - [ADR-0280: Complete-schema callbacks use the retained Typegen graph](0280-complete-schema-callbacks-use-typegen-graph.md), superseded by ADR-0297.
 - [ADR-0281: Retain generated Where contracts for the source-authoring milestone](0281-retain-generated-where-contracts.md), superseded by ADR-0297.
 - [ADR-0283: Exact ACL schema callbacks use the retained Typegen graph](0283-acl-callbacks-use-retained-typegen-graph.md), superseded by ADR-0297.
+- [ADR-0285: Sparse generated mutation surfaces derive class methods](0285-sparse-generated-mutation-surfaces.md), superseded by ADR-0297.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

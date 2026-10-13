@@ -1,6 +1,7 @@
 # ADR-0285: Sparse generated mutation surfaces derive class methods
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0297 (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-10-01
 - Refines: ADR-0279 and ADR-0197
 - Approval: user approved the bounded generated-surface cleanup

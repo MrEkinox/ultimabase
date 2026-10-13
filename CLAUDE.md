@@ -60,13 +60,14 @@ regressions that every suite missed:
   pass.
 - Copies of user-controlled keys use `Object.fromEntries` or `Map`, never
   `object[key] = value` (several reference defects came from `__proto__` keys).
+- `yarn install --immutable`: `validate:full` does not check that `yarn.lock` matches the manifests, and CI fails when it does not.
+- `yarn website:test` (browser and accessibility suite) when a change touches `apps/website`: `validate:full` does not run it, and CI does.
 
 ## Known load-sensitive tests
 
 Validate on a calm machine before concluding anything from these failures:
 `create-app-packed` (120 s timeout), `core-archive-declarations` (10 s),
-the Typegen `hybrid-authoring` performance budget, and postgres-e2e cascades
-after a timeout ([load-sensitive suites](tests/README.md#load-sensitive-suites)). In GitHub CI the
+and postgres-e2e cascades after a timeout ([load-sensitive suites](tests/README.md#load-sensitive-suites)). In GitHub CI the
 `Complete coverage` job excludes performance suites, which run uninstrumented
 in the package and transversal jobs instead.
 

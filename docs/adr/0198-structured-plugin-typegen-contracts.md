@@ -1,6 +1,7 @@
 # ADR-0198: Plugin Typegen contracts are structured and application-local
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0297 (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-08-12
 - Refines: ADR-0187, ADR-0192, ADR-0193, ADR-0197
 - Depends on: ADR-0187, ADR-0191, ADR-0193, ADR-0197

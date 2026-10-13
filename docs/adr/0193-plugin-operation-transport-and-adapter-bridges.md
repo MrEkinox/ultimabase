@@ -1,6 +1,7 @@
 # ADR-0193: Plugin operation, transport, adapter, and Typegen bridges
 
 - Status: accepted
+- Partially superseded by: ADR-0297 for the Typegen bridge (literal narrowing through Typegen and inert Typegen output) (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-08-11
 - Refines: ADR-0031, ADR-0042, ADR-0063, ADR-0124, ADR-0187, ADR-0188, ADR-0190, ADR-0191, ADR-0192
 - Depends on: ADR-0188, ADR-0190, ADR-0191, ADR-0192

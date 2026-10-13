@@ -1,6 +1,7 @@
 # ADR-0265: Remove the Typegen emitter marker
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0297 (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-09-21
 - Decision issue: 3107 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md`), RC-05
 - Implementation: 3109 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3109-remove-unread-typegen-emitter-marker.md`)

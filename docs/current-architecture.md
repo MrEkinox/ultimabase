@@ -57,14 +57,20 @@ These are accepted limits, not fresh experiments to repeat on each task.
 form: `define({ className, fields, indexes })`, thunk relation targets, shape
 methods, a final `.with(...)` for plugin rules, and one required `Register`
 declaration for name-keyed types. Typegen and the old form (plugin options
-inside `define`) were removed in migration step 6.8b; ADR-0280, ADR-0281 and
-ADR-0283 are superseded where they retained the generated graph.
+inside `define`) were removed in migration step 6.8b; the Typegen-era records
+are superseded by ADR-0297, entirely or for their Typegen parts (see the ADR
+catalog).
 
 - `mappedBy` of a thunk target is checked when the application is constructed,
   not on its line; `.with` must stay the last call (ADR-0297).
 - The fix of the `Register` cycle relies on how TypeScript defers conditional
-  types; its TypeScript 6 and 7 reproduction matrix is rerun at each TypeScript
-  upgrade (ADR-0297, register-cycle note).
+  types (ADR-0297, register-cycle note). Its reproduction cases
+  (`tests/register-cycle`) run in the TypeScript 7 CI job from sources and
+  built packages, and `register-required.e2e.test.ts` guards it on
+  TypeScript 6; rerun the cases on TypeScript 6 at each TypeScript upgrade.
+- Editor speed follows the revised thresholds of ADR-0297 (2026-10-13),
+  measured with the form D bench: TypeScript 7 is the reference and
+  TypeScript 6 a regression guard.
 - A plugin field kind's filter is typed as null checks only; its portable
   equality is a Runtime contract.
 - Nested plugin-option JSDoc hover can be missing while completion, diagnostics

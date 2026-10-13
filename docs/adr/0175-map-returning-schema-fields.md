@@ -1,6 +1,7 @@
 # ADR-0175: Map-returning schema fields and generated typing authority
 
 - Status: accepted
+- Partially superseded by: ADR-0297 for the generated typing authority and its bootstrap typing (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-08-09
 - Refines: ADR-0173
 - Refined by: ADR-0177, ADR-0217
