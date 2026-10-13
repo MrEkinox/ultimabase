@@ -2,11 +2,18 @@
 	"extends": "./tsconfig.dist.json",
 	"compilerOptions": {
 		"paths": {
+			"@ultimabase/access-plugin": [
+				"../../packages/access-plugin/src/index.ts"
+			],
 			"@ultimabase/core": ["../../packages/core/src/index.ts"],
 			"@ultimabase/core/plugin": ["../../packages/core/src/plugin.ts"],
+			"@ultimabase/hooks-plugin": ["../../packages/hooks-plugin/src/index.ts"],
 			"@ultimabase/plugin-kit": ["../../packages/plugin-kit/src/index.ts"],
 			"@ultimabase/roles-plugin": ["../../packages/roles-plugin/src/index.ts"],
-			"@ultimabase/shared": ["../../packages/shared/src/index.ts"]
+			"@ultimabase/shared": ["../../packages/shared/src/index.ts"],
+			"@ultimabase/soft-delete-plugin": [
+				"../../packages/soft-delete-plugin/src/index.ts"
+			]
 		}
 	}
 }

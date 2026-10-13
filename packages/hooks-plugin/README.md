@@ -393,19 +393,14 @@ because the Hooks engine consumes the provider's contribution capability. Core
 derives `runtime:intercept` from the contribution (`permissions` gives its
 reason), and the peer range must accept the installed Hooks version, or the
 application fails with `PLUGIN_PROTOCOL_INCOMPATIBLE`. The example installs
-this plugin with `App.use(postRulesPlugin)` once `Post` exists; the return
-annotation of the factory keeps the plugin's type out of the `Register` cycle:
+this plugin with `App.use(postRulesPlugin)` once `Post` exists:
 
 <!-- region ../../examples/hooks/src/post-rules-plugin.ts#post-rules-plugin -->
 
 ```ts
 import { PublicError } from '@ultimabase/core'
 import { plugin } from '@ultimabase/core/plugin'
-import {
-	provideHookContributions,
-	schemaHooks,
-	type SchemaHookContributionDefinition,
-} from '@ultimabase/hooks-plugin'
+import { provideHookContributions, schemaHooks } from '@ultimabase/hooks-plugin'
 
 import { Post } from './schema.ts'
 
@@ -419,21 +414,18 @@ export const postRulesPlugin = plugin({
 		'runtime:intercept': 'Keeps published posts from being deleted.',
 	},
 	contributions: [
-		provideHookContributions(
-			'published-post-rule',
-			// The return type keeps this plugin's type out of the Register cycle.
-			(): SchemaHookContributionDefinition =>
-				schemaHooks(Post, {
-					beforeOperation: {
-						delete: ({ originalItem }) => {
-							if (originalItem.published) {
-								throw new PublicError('Unpublish the post first.', {
-									code: 'post.published-delete',
-								})
-							}
-						},
+		provideHookContributions('published-post-rule', () =>
+			schemaHooks(Post, {
+				beforeOperation: {
+					delete: ({ originalItem }) => {
+						if (originalItem.published) {
+							throw new PublicError('Unpublish the post first.', {
+								code: 'post.published-delete',
+							})
+						}
 					},
-				}),
+				},
+			}),
 		),
 	],
 })

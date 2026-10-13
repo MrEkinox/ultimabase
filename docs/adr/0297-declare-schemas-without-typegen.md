@@ -250,6 +250,18 @@ and 1.91 s at 200 schemas (`main` 0.55 s and 1.84 s), on TypeScript 6 1.95 s
 and 5.77 s (`main` 1.85 s and 5.56 s), within the revised thresholds above
 with little margin at 50 schemas.
 
+Note (2026-10-14, ADR-0335): `SchemaRulesSource<T>` reads the registry only for
+a name-keyed `SchemaRef`, which carries an optional type-only marker; a schema
+constant supplies its own statics. A plugin that contributes Hooks or Access
+rules to a registered schema therefore never reads `Register`, and its factory
+needs no return annotation. The case `tests/register-cycle/contribution`
+guards it on TypeScript 6 and 7, from sources and built packages, in every
+root-file order. Checker instantiations grow by 0.01% or less. Measured on the
+form D bench against `main` (medians of three interleaved runs, 1-minute load
+below 4): edit to diagnostics on TypeScript 7 0.56 s at 50 and 1.90 s at 200
+schemas (`main` 0.56 s and 1.89 s), on TypeScript 6 1.95 s and 5.76 s (`main`
+1.95 s and 5.75 s).
+
 ## Migration step 6.8c (2026-10-13)
 
 ADR-0177, ADR-0184, ADR-0185, ADR-0198, ADR-0217, ADR-0265 and ADR-0285 are

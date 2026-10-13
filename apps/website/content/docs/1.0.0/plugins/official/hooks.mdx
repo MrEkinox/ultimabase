@@ -332,13 +332,12 @@ peer, with a range that accepts the installed version:
 	../../examples/hooks/src/post-rules-plugin.ts#post-rules-plugin
 </include>
 
-The return annotation of the contribution factory keeps the plugin's type
-independent of `Post`'s Hooks: the application that installs the plugin
-declares `Register`, and without the annotation TypeScript reports the plugin
-as referenced in its own initializer. Since the plugin targets `Post`, the
-application installs it with `App.use(postRulesPlugin)` once `Post` exists,
-as shown in [Configuration](#configuration). Deleting a published post then
-fails with `post.published-delete`.
+The handlers of `schemaHooks(Post, …)` are typed from `Post` itself, so the
+contribution factory needs no return type, even though the application that
+installs the plugin declares `Register`. Since the plugin targets `Post`, the
+application installs it with `App.use(postRulesPlugin)` once `Post` exists, as
+shown in [Configuration](#configuration). Deleting a published post then fails
+with `post.published-delete`.
 
 ### Ordering, context, and recursion
 
@@ -381,9 +380,6 @@ rolls back, and the message shows the chain of schemas and operations
 - **A write rolls back:** inspect the first thrown Hook or nested operation.
   `RUNTIME_CALLBACK_RECURSION` names the chain of more than 16 nested
   Hook-issued operations.
-- **A contributing plugin is referenced in its own initializer:** annotate the
-  return type of its contribution factory, as in
-  [Contributed Hooks](#contributed-hooks).
 - **The application refuses a contributing plugin with
   `PLUGIN_PROTOCOL_INCOMPATIBLE`:** its `peers` range must accept the
   installed Hooks plugin version.
