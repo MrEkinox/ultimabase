@@ -244,7 +244,11 @@ the items of their bulk forms, a union with one member per unique target:
 `define` now captures through a third constant type parameter. Indexes of the
 final `.with` stay out of the types, since this form types the schema without
 reading `.with`. A schema with one target prints that member, not the name.
-BENCH_PLACEHOLDER
+Measured on the form D bench against `main` (medians of three interleaved
+runs, 1-minute load below 4): edit to diagnostics on TypeScript 7 0.58 s at 50
+and 1.91 s at 200 schemas (`main` 0.55 s and 1.84 s), on TypeScript 6 1.95 s
+and 5.77 s (`main` 1.85 s and 5.56 s), within the revised thresholds above
+with little margin at 50 schemas.
 
 ## Migration step 6.8c (2026-10-13)
 
