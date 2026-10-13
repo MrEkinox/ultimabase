@@ -79,4 +79,4 @@ ADR-0299 à ADR-0313 (acceptés), revues dans [revue-plugins/](revue-plugins/REA
 
 ## Prochaine action vérifiable
 
-Étape 7 : ADR-0330 accepté le 2026-10-13 ; prototype Soft Delete lancé (branche `docs/verified-soft-delete`, `../ub-step7`) : exemple `examples/soft-delete`, régions incluses dans la page, README recopié, test du site classant les blocs, essai de Twoslash ; relecture par l'utilisateur avant les autres fonctionnalités.
+Étape 7 : prototype Soft Delete fusionné dans `main` local (ec366ced), validé par l'utilisateur sur le site lancé en local. Généralisation par lots de trois (un agent par plugin, worktrees `../ub-ex-<plugin>`, branches `docs/verified-<plugin>`) : lot A Access, Hooks, Validation (lancé) ; lot B ACL, Roles, authentification ; lot C PostgreSQL, HTTP et Hono, REST ; lot D correction des deux copies de `graphql` dans `@ultimabase/testing/vitest`, GraphQL et explorateur ; pg-vector après sa finition ; puis pages de Core, démarrage rapide et guides, enfin application de la règle à tout le site. Fusion de chaque lot par le coordinateur (listes partagées et `yarn.lock` à réconcilier), porte complète sur le résultat.
