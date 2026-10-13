@@ -7,12 +7,26 @@ contentType: guide
 order: 6
 outcome: Protect individual objects with public, principal, and role permissions.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
+  - examples/acl/README.md
+  - examples/acl/src/schema.ts
+  - examples/acl/src/ultimabase.ts
+  - examples/acl/src/main.ts
+  - examples/acl/src/sharing.ts
+  - examples/acl/src/admin.ts
+  - examples/acl/src/acl-audit-plugin.ts
+  - examples/acl/tests/notes.test.ts
+  - examples/acl/tests/announcements.test.ts
+  - examples/acl/tests/pages.test.ts
+  - examples/acl/tests/master.test.ts
+  - examples/acl/tests/values.test.ts
+  - examples/acl/tests/events.test.ts
   - packages/acl-permissions-plugin/README.md
   - packages/acl-permissions-plugin/src/acl-access.ts
   - packages/acl-permissions-plugin/src/acl-change.ts
   - packages/acl-permissions-plugin/src/acl-entries.ts
+  - packages/acl-permissions-plugin/src/acl-events.ts
   - packages/acl-permissions-plugin/src/acl-field-policy.ts
   - packages/acl-permissions-plugin/src/acl-option.ts
   - packages/acl-permissions-plugin/src/acl.ts
@@ -48,6 +62,10 @@ Access. Authentication identifies a caller and [Roles](./roles) can supply
 role membership; neither grants an ACL right unless the stored ACL names that
 subject.
 
+Every TypeScript block on this page is copied from the
+[ACL example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/acl),
+a small notebook application whose tests check each result described here.
+
 ## Installation
 
 Start with an UltimaBase application and a database provider that supports
@@ -68,40 +86,49 @@ pnpm add @ultimabase/acl-permissions-plugin
 
 ## Configuration
 
+Install the plugin on the application factory. The example also installs
+[Access](./access), which decides who may create a record and which
+operations run at all, and [Roles](./roles), which tells ACL the caller's
+roles:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/acl/src/schema.ts#factory
+</include>
+
 Call `.acl()` before `.with(...)`: it adds the reserved, required `acl` field.
 `.with({ acl })` then configures it, and its `default` is required, because an
 empty ACL would hide each new row from everyone but Master:
 
-```ts title="src/application.ts"
-import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/acl/src/schema.ts#note
+</include>
 
-export const Application = UltimaBase.use(postgresPlugin(), aclPlugin())
-```
+Register the schemas in the application. Its audited Master authority runs the
+administration helpers shown below, and the audit plugin records ACL changes
+(see [Change events](#change-events)):
 
-```ts title="src/note.ts"
-import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { Application } from './application.js'
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/acl/src/ultimabase.ts#application
+</include>
 
-export const Note = Application.Schema.define({
-	className: 'Note',
-	fields: (f) => ({
-		title: f.string({ required: true }),
-		visibility: f.string(),
-	}),
-})
-	.acl()
-	.with({
-		acl: {
-			// The creator may read, update and delete; anonymous creators get an empty ACL.
-			default: ({ principal }) => new ACL(principal),
-		},
-	})
-```
+Start it from a separate entry point; leaving the `await using` scope awaits
+`dispose()` when the process finishes:
 
-`new ACL(principal)` grants `read` and `write` to its owner, like
-`new Parse.ACL(user)`. The group `'write'` means `update` and `delete`, as in
+<include cwd meta='title="src/main.ts"'>
+	../../examples/acl/src/main.ts#start
+</include>
+
+A member who creates a note is the only one to see it:
+
+<include cwd meta='title="tests/notes.test.ts"'>
+	../../examples/acl/tests/notes.test.ts#create-note
+</include>
+
+`mine` holds the note and `theirs` is empty: the ACL narrows the read in the
+database, without an error. For Grace, an update or a delete of that note
+finds no row and returns `null`. `new ACL(principal)` grants `read` and
+`write` to its owner, like `new Parse.ACL(user)`, and an anonymous principal
+gives an empty ACL. The group `'write'` means `update` and `delete`, as in
 Access: `new ACL().grantPublic('read', 'write')`.
 
 `default` may also be one fixed ACL, or a function of the created values
@@ -116,12 +143,35 @@ rule also accepts:
   `.acl()` is added (see below).
 - `limits`: overrides `aclPlugin({ limits: { maxPrincipals, maxRoles } })`
   (100 principals and 50 roles by default) for this schema. Public and
-  authenticated grants do not count.
+  authenticated grants do not count, and a repeated grant for one subject
+  counts once. The limit binds Master too: a fourth member shared on a note
+  fails with `VALIDATION_ERROR`.
 
-Master may write a complete ACL in `createOne` and `updateOne` data; it is
-written as is, without `resolveInput`. `upsert` updates and set-based
-`updateMany` cannot replace an ACL, and a schema with `resolveInput` refuses
-set-based updates, which cannot recompute each row.
+Here `resolveInput` lets every signed-in member read a published page:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/acl/src/schema.ts#page
+</include>
+
+<include cwd meta='title="tests/pages.test.ts"'>
+	../../examples/acl/tests/pages.test.ts#publish-page
+</include>
+
+`forMembers` holds the published page; `forAnonymous` is empty, because
+`grantAuthenticated()` applies only when a principal is resolved. Unpublishing
+the page recomputes its ACL again. Each item of an `updateMany` is recomputed
+like an `updateOne`.
+
+Master may write a complete ACL in `createOne`, `updateOne`, and `updateMany`
+item data; it is written as is, without `resolveInput`. Master may also filter
+on the ACL itself:
+
+<include cwd meta='title="src/admin.ts"'>
+	../../examples/acl/src/admin.ts#master-acl
+</include>
+
+An `upsert` update cannot replace an ACL, even for Master, and fails with
+`VALIDATION_ERROR`.
 
 ## Behavior and limitations
 
@@ -131,62 +181,73 @@ Share or unshare a row without reading its ACL first. The change applies to
 the locked row inside the update's transaction, so two concurrent shares never
 overwrite each other:
 
-```ts title="src/share.ts"
-await Note.updateOne({
-	where: { id: noteId },
-	data: {
-		acl: {
-			grant: { principal: User.pointer(bobId), permissions: ['read'] },
-		},
-	},
-})
-await Note.updateOne({
-	where: { id: noteId },
-	data: { acl: { revoke: { principal: User.pointer(bobId) } } },
-})
-```
+<include cwd meta='title="src/sharing.ts"'>
+	../../examples/acl/src/sharing.ts#share
+</include>
 
 `revoke` removes every right of the principal, or only the `permissions` it
 lists. Master may share any row. A client may share only when the schema
-allows it:
+allows it, as the note's rule does:
 
-```ts
-.with({
-	acl: {
-		default: ({ principal }) => new ACL(principal),
-		// Whoever may update a note may share it.
-		clientSharing: ({ principal, currentAcl }) =>
-			principal !== undefined &&
-			currentAcl.hasPrincipalPermission(principal, 'update'),
-	},
-})
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/acl/src/schema.ts#client-sharing
+</include>
 
 On a row a client can read, `clientSharing` decides instead of the `update`
-right. A client never grants a right it does not hold itself on that row;
-replacing the complete ACL stays reserved to Master.
+right: a member who only reads the note is refused with `PERMISSION_DENIED`,
+and a member who cannot read it finds no row (`null`). A client never grants
+a right it does not hold itself on that row; replacing the complete ACL stays
+reserved to Master.
 
 ### Reading an ACL
 
 The `acl` field is not part of ordinary results. `select: { acl: true }` is
 accepted for Master and, when the schema declares `clientSharing`, on the rows
-`clientSharing` allows; any other row makes the read fail with
-`PERMISSION_DENIED`. Clients never filter or order by `acl`.
+`clientSharing` allows:
+
+<include cwd meta='title="tests/notes.test.ts"'>
+	../../examples/acl/tests/notes.test.ts#select-acl
+</include>
+
+Any other row makes the read fail with `PERMISSION_DENIED`. Clients never
+filter or order by `acl`.
 
 `acl.entries()` lists who holds which rights: `public` and `authenticated`
 when they hold any, users as Pointers, and roles as references whose name
-Roles' `resolveRoleReference(entry.role)` reads:
+Roles' `resolveRoleReference(entry.role)` reads. The resolved role row is
+untyped, because a stored reference does not name its role schema:
 
-```ts
-const note = await Note.findOneOrThrow(
-	{ where: { id }, select: { acl: true } },
-	{ useMasterKey: true },
-)
-for (const entry of note.acl.entries()) {
-	if (entry.kind === 'principal')
-		console.log(entry.principal.id, entry.permissions)
-}
-```
+<include cwd meta='title="src/admin.ts"'>
+	../../examples/acl/src/admin.ts#entries
+</include>
+
+For an announcement, the result is `['public: read', 'role editors: update, delete']`.
+
+### ACL with Access and roles
+
+Access and ACL compose: each narrows what the other allows. Announcements
+carry one fixed ACL that everyone reads and that the `editors` role changes,
+while Access hides drafts and lets only editors create:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/acl/src/schema.ts#members
+</include>
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/acl/src/schema.ts#announcement
+</include>
+
+<include cwd meta='title="tests/announcements.test.ts"'>
+	../../examples/acl/tests/announcements.test.ts#announce
+</include>
+
+An anonymous caller reads the published announcement through the public
+entry, and the editor updates it through the role entry. For a member
+without the role, Access lets the update run but the ACL keeps the row out of
+reach (`null`), and Access refuses the create. The public entry covers drafts
+too, yet Access still hides them from every caller but Master. A static
+default with role grants needs a role provider such as Roles at startup, and
+role names resolve to stable role IDs before an ACL is stored.
 
 ### Adding or removing ACL on a table with rows
 
@@ -206,17 +267,37 @@ ACL, and drops the index.
 ### Values and enforcement
 
 `ACL` is immutable: each grant, revoke, or replacement returns a new value.
-`grantPublic()` applies to everyone; `grantAuthenticated()` applies only when
-a principal is resolved. `grantPrincipal()` uses one exact Pointer and
-`grantRole()` a role reference a compatible role provider resolves. The
-closed rights are `read`, `update`, and `delete`. `toJSON()` produces
-detached, versioned data, and `ACL.fromJSON()` strictly validates it.
+
+<include cwd meta='title="tests/values.test.ts"'>
+	../../examples/acl/tests/values.test.ts#acl-value
+</include>
+
+`value` still grants Ada `read`, `update`, and `delete`; `updated` grants her
+`read` only. `grantPublic()` applies to everyone; `grantAuthenticated()`
+applies only when a principal is resolved. `grantPrincipal()` uses one exact
+Pointer and `grantRole()` a role reference a compatible role provider
+resolves. The closed rights are `read`, `update`, and `delete`. `toJSON()`
+produces detached, versioned data, and `ACL.fromJSON()` strictly validates it:
+unknown keys, versions, or rights are rejected.
 
 PostgreSQL stores the ACL as indexed JSONB on the same row, written
 atomically with its object. Master bypasses ACL authorization, but not size
-validation, reference integrity, events, or transactions. Role names are
-resolved to stable role IDs before an ACL is stored. Each ACL change emits an
-optional notification after commit; a rollback publishes nothing.
+validation, reference integrity, events, or transactions.
+
+### Change events
+
+Each ACL change emits an optional notification after commit; a rollback
+publishes nothing, and assigning an equivalent ACL emits nothing. A plugin
+observes them:
+
+<include cwd meta='title="src/acl-audit-plugin.ts"'>
+	../../examples/acl/src/acl-audit-plugin.ts#acl-audit-plugin
+</include>
+
+The payload names the `actor`, the `target` row, the `operation` (`create`,
+`update`, or `upsert`), and a `diff` of the `read`, `update`, and `delete`
+rights added and removed per public, authenticated, principal, or role
+subject.
 
 ## Troubleshooting
 
