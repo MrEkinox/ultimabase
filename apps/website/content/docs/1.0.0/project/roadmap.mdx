@@ -8,7 +8,7 @@ audience:
 contentType: reference
 outcome: Identify upcoming priorities and proposed capabilities without mistaking plans for shipped behavior or release commitments.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-13
 sources:
   - README.md
   - ROADMAP.md
@@ -50,6 +50,16 @@ below show proposed product directions after the simplification work.
 ## Next priorities
 
 <Cards>
+	<Card
+		title="PostgreSQL migrations"
+		description="Evolve a production database between development and release."
+		icon={<GitBranch />}
+		className="border-fd-primary/40 bg-fd-primary/5 [&_.prose-no-margin]:text-fd-foreground [&_h3]:text-fd-foreground [&_p]:text-fd-foreground"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#postgresql-migrations"
+	>
+		A separate migration plugin is planned for versioned snapshots,
+		deterministic SQL plans, and drift-aware application.
+	</Card>
 	<Card
 		title="File fields"
 		description="Attach files to a schema through a typed field."
@@ -118,27 +128,18 @@ on earlier work or still need design review.
 	</Card>
 	<Card
 		title="More authentication"
-		description="An optional Better Auth integration."
+		description="OAuth, then two-factor authentication and passkeys."
 		icon={<KeyRound />}
 		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#more-authentication"
 	>
-		A sign-in method beside the password method, linked to the same users by the
-		authentication foundation.
+		Sign-in methods beside the password method (Google, GitHub, OpenID Connect),
+		linked to the same users by the authentication foundation.
 	</Card>
 </Cards>
 
 ### APIs and developer tools
 
 <Cards>
-	<Card
-		title="OpenAPI"
-		description="An API description generated from schema and REST metadata."
-		icon={<FileCode2 />}
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#openapi"
-	>
-		API tooling should describe the installed application, without a second API
-		definition to maintain.
-	</Card>
 	<Card
 		title="TypeScript SDK"
 		description="A typed client generated from application schemas."
@@ -165,28 +166,28 @@ on earlier work or still need design review.
 		Generated services would translate framework errors into gRPC status codes.
 	</Card>
 	<Card
-		title="Developer CLI"
-		description="Commands for generation, development, and diagnostics."
+		title="Developer CLI and configuration"
+		description="A configuration file and an ultimabase dev command."
 		icon={<Terminal />}
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#developer-cli"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#developer-cli-and-configuration"
 	>
-		The general CLI is planned; manual generation and watch commands are
-		currently deferred.
+		An ultimabase.config.ts file shared by the application and its tests, and a
+		development command. On hold until the design is decided.
+	</Card>
+	<Card
+		title="Unregistered schema warning"
+		description="Catch a schema defined but not registered."
+		icon={<FileCode2 />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#unregistered-schema-warning"
+	>
+		A development warning when a schema is missing from the application's
+		schemas list.
 	</Card>
 </Cards>
 
 ### Shipping and operations
 
 <Cards>
-	<Card
-		title="PostgreSQL migrations"
-		description="Review schema changes before applying them."
-		icon={<GitBranch />}
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#postgresql-migrations"
-	>
-		A separate migration plugin is planned for versioned snapshots,
-		deterministic SQL plans, and drift-aware application.
-	</Card>
 	<Card
 		title="Durable audit"
 		description="Record who changed what, and why."
@@ -206,13 +207,13 @@ on earlier work or still need design review.
 		and pipeline stages.
 	</Card>
 	<Card
-		title="Health and readiness"
-		description="Check lifecycle and dependency availability."
+		title="Readiness"
+		description="A readiness signal beside the existing health route."
 		icon={<HeartPulse />}
-		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#health-and-readiness"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#readiness"
 	>
-		A proposed plugin would keep HTTP exposure optional and hide sensitive
-		dependency details.
+		The health check and the /health route exist; a separate readiness signal
+		would check dependencies without exposing sensitive details.
 	</Card>
 	<Card
 		title="Administration"

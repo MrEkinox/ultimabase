@@ -23,6 +23,10 @@ archived issue number for that context.
   the first version bump so manifests and packages cannot drift.
 - **Publication decision.** Product name, npm scope ownership, documentation
   hosting and the release procedure in [docs/RELEASING.md](docs/RELEASING.md).
+- **Verified documentation.** One focused, tested example per feature under
+  `examples/`; documentation pages include regions of those examples (or
+  compiled snippets), package READMEs are copied from them, and CI refuses
+  unverified snippets. `create-app --example` may later copy them.
 
 ## Hardening
 
@@ -41,6 +45,14 @@ materialized dependency object, without TypeScript pretending the Runtime
 loaded values it did not request. Archived issue 439.
 
 ## Next priorities
+
+### PostgreSQL migrations
+
+A separate migration plugin with versioned normalized snapshots and applied
+history, deterministic SQL plans from schema differences, startup application
+with locking and drift detection, and generate, apply, status and repair CLI
+commands, so a production database evolves between `override` in development
+and `fail` in production. Archived issues 513–515 and 717.
 
 ### File fields
 
@@ -81,17 +93,15 @@ with business transactions, with at-least-once delivery. Archived issue 711.
 
 ### More authentication
 
-A Better Auth plugin built only on the public HTTP, operation, schema and
+OAuth as an `auth-plugin` method (Google, GitHub and generic OpenID Connect
+presets, web redirect with PKCE and mobile ID-token sign-in, accounts linked to
+the same user), then two-factor authentication and passkeys as methods. Also a
+Better Auth plugin built only on the public HTTP, operation, schema and
 request-value capabilities, or a sign-in method of `auth-plugin`, without adding
 authentication to Core. An HTTP Basic plugin for internal or service-to-service
 use is deferred. Archived issues 707 and 748.
 
 ## APIs and developer tools
-
-### OpenAPI
-
-An OpenAPI description generated from schema and REST metadata, never a second
-API definition to maintain. Archived issue 715.
 
 ### TypeScript SDK
 
@@ -108,26 +118,30 @@ React as an optional dependency. Archived issue 720.
 Generated gRPC services that normalize into the same operation pipeline and
 map framework errors to gRPC status codes. Archived issue 714.
 
-### Developer CLI
+### Developer CLI and configuration
 
-Manual commands for deterministic schema generation, watch mode and CI
-verification without starting the application (deferred), followed by the
-general application CLI. Archived issues 808 and 716.
+An `ultimabase.config.ts` declared with `defineConfig` (application, schemas,
+overridable environment values), imported by tests, and an `ultimabase dev`
+command; on hold until the design is decided. Archived issue 716.
+
+### Unregistered schema warning
+
+A development warning when a schema is defined but not registered in the
+application's `schemas` list.
 
 ## Data and storage
-
-### PostgreSQL migrations
-
-A separate migration plugin with versioned normalized snapshots and applied
-history, deterministic SQL plans from schema differences, startup application
-with locking and drift detection, and generate, apply, status and repair CLI
-commands. Archived issues 513–515 and 717.
 
 ### Column-backed object fields
 
 An explicit PostgreSQL-specific alternative to JSONB storage that compiles
 nested object fields into prefixed columns while keeping one logical field and
 the portable `objectField` contract. Archived issue 704.
+
+### Vector search
+
+Finish pg-vector as a plugin that brings its field, its `nearest` ordering and
+`within` filter and its storage without Core knowing it, then split it into a
+neutral `vector` plugin with one implementation per database adapter.
 
 ### Advanced field plugins
 
@@ -146,10 +160,11 @@ Master use, redacting sensitive values. Archived issue 721.
 Vendor-neutral tracing contracts and an optional OpenTelemetry plugin covering
 transports, hooks, adapters and pipeline stages. Archived issue 722.
 
-### Health and readiness
+### Readiness
 
-Lifecycle-aware liveness and dependency readiness with optional HTTP exposure
-that hides sensitive dependency details. Archived issue 726.
+`ultimabase.health()` and the HTTP `/health` route exist; next is a separate
+lifecycle-aware readiness signal with dependency checks that hide sensitive
+details. Archived issue 726.
 
 ### Administration
 
