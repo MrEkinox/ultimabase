@@ -96,16 +96,16 @@ export type VirtualFieldOptions<
 	TOutputBuilder = OutputBuilder,
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > = Extract<
-		ResolveFieldSourceTemplate<TSourceTemplate, OutputValue<TOutput>>,
-		object
-	> & {
-		/** Supplies human-readable schema documentation. */
-		readonly description?: string
-		/** Describes the complete nullable and list-aware result value. */
-		readonly output: (output: TOutputBuilder) => TOutput
-		/** Selects flat persisted dependencies; canonical identity is always retained. */
-		readonly select: TSelection
-	} & VirtualFieldResolution<TItem, OutputValue<TOutput>>
+	ResolveFieldSourceTemplate<TSourceTemplate, OutputValue<TOutput>>,
+	object
+> & {
+	/** Supplies human-readable schema documentation. */
+	readonly description?: string
+	/** Describes the complete nullable and list-aware result value. */
+	readonly output: (output: TOutputBuilder) => TOutput
+	/** Selects flat persisted dependencies; canonical identity is always retained. */
+	readonly select: TSelection
+} & VirtualFieldResolution<TItem, OutputValue<TOutput>>
 
 /** Retains inert virtual metadata while Core keeps resolver identity private. */
 export interface VirtualFieldDefinition<

@@ -61,7 +61,9 @@ export type ConfiguredSchemaResult<
 	SchemaStaticsFor<
 		TSource['schemaStatics'],
 		SchemaShapeOf<TOptions>,
-		SchemaClass<ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>>
+		SchemaClass<
+			ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>
+		>
 	>
 
 /** The options of `App.Schema.define(...)`: data only, rules go to `.with` (ADR-0297). */

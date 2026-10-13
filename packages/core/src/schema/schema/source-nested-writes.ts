@@ -1,7 +1,4 @@
-import type {
-	FieldTypeStateOf,
-	GenericField,
-} from '../fields/base/contract.js'
+import type { FieldTypeStateOf, GenericField } from '../fields/base/contract.js'
 import type { PointerField } from '../fields/builtins/pointer.js'
 import type { RelationField } from '../fields/builtins/relation.js'
 import type {

@@ -104,7 +104,8 @@ export type SchemaMutationAccessMap<
 		>
 			? TCommand
 			: never
-	]?: PluginSourceSchemaMutations<TSource>[TCommand] extends infer TMutation extends PluginSchemaMutationDefinition
+	]?: PluginSourceSchemaMutations<TSource>[TCommand] extends infer TMutation extends
+		PluginSchemaMutationDefinition
 		? SchemaMutationAccessDeclaration<TSchema, TMutation>
 		: never
 }

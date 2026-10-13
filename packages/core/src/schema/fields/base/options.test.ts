@@ -10,9 +10,7 @@ import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 
 describe('readFieldTypeState', () => {
 	it('describes required, defaulted, immutable, and listed scalar fields', () => {
-		expect(
-			readFieldTypeState(stringField({ required: true })),
-		).toStrictEqual({
+		expect(readFieldTypeState(stringField({ required: true }))).toStrictEqual({
 			create: 'required',
 			list: false,
 			nullable: false,
@@ -43,13 +41,13 @@ describe('readFieldTypeState', () => {
 			fields: () => ({}),
 		})
 
-		expect(
-			readFieldTypeState(intField({ autoIncrement: true })),
-		).toMatchObject({
-			create: 'optional',
-			nullable: false,
-			update: 'optional',
-		})
+		expect(readFieldTypeState(intField({ autoIncrement: true }))).toMatchObject(
+			{
+				create: 'optional',
+				nullable: false,
+				update: 'optional',
+			},
+		)
 		expect(
 			readFieldTypeState(relationField({ target: () => Target })),
 		).toStrictEqual({

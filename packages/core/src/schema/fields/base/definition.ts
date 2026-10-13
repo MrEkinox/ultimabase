@@ -379,9 +379,7 @@ export const snapshotDeclaredFieldValue = (
 export const isFieldRequiredDeferred = (field: GenericField): boolean =>
 	fieldCapabilities.get(field)?.deferRequiredUntilResolveInput === true
 
-export const readFieldTypeState = (
-	field: GenericField,
-): FieldTypeState => {
+export const readFieldTypeState = (field: GenericField): FieldTypeState => {
 	const relation = field.kind === 'relation'
 	// Relations, Runtime-forbidden fields and generated values never accept input.
 	const inputForbidden =

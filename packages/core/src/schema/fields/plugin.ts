@@ -47,13 +47,7 @@ export type PluginFieldDefinition<
 	TOptions extends object = FieldOptions<TValue>,
 	TState extends FieldTypeState = ResolveFieldTypeState<TOptions>,
 	TStructuralContainsOperand = never,
-> = FieldDefinition<
-	TKind,
-	TValue,
-	TOptions,
-	TState,
-	TStructuralContainsOperand
->
+> = FieldDefinition<TKind, TValue, TOptions, TState, TStructuralContainsOperand>
 
 type DeferredPluginFieldTypeState<TOptions extends object> = Omit<
 	ResolveFieldTypeState<TOptions>,

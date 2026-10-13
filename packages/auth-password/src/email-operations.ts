@@ -54,12 +54,9 @@ export interface EmailChangeConfirmResult {
 	readonly confirmed: true
 }
 
-const emailInput = exactStrings<PasswordEmailInput>(
-	['email'])
-const tokenInput = exactStrings<PasswordTokenInput>(
-	['token'])
-const accepted = acknowledgement<PasswordRequestAcceptedResult>(
-	'accepted')
+const emailInput = exactStrings<PasswordEmailInput>(['email'])
+const tokenInput = exactStrings<PasswordTokenInput>(['token'])
+const accepted = acknowledgement<PasswordRequestAcceptedResult>('accepted')
 
 const requestPasswordResetOperation: PasswordOperation<
 	'request-password-reset',
@@ -81,8 +78,7 @@ const resetPasswordOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'reset-password',
-	exactStrings<PasswordResetInput>(
-		['newPassword', 'token']),
+	exactStrings<PasswordResetInput>(['newPassword', 'token']),
 	acknowledgement<PasswordResetResult>('reset'),
 	[
 		authErrorCodes.invalidToken,
@@ -122,8 +118,7 @@ const requestEmailChangeOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'request-email-change',
-	exactStrings<EmailChangeRequestInput>(
-		['currentPassword', 'newEmail']),
+	exactStrings<EmailChangeRequestInput>(['currentPassword', 'newEmail']),
 	accepted,
 	[
 		passwordErrorCodes.emailChangeRejected,
@@ -144,8 +139,7 @@ const confirmEmailChangeOperation: PasswordOperation<
 > = passwordOperation(
 	'confirm-email-change',
 	tokenInput,
-	acknowledgement<EmailChangeConfirmResult>(
-		'confirmed'),
+	acknowledgement<EmailChangeConfirmResult>('confirmed'),
 	[
 		passwordErrorCodes.emailChangeRejected,
 		authErrorCodes.invalidToken,

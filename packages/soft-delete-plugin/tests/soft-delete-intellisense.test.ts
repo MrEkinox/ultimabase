@@ -113,8 +113,7 @@ void Invalid
 				expect.objectContaining({
 					authority: 'request',
 					effect: 'update',
-					mutation:
-						'ultimabase.soft-delete-plugin.soft-delete.soft-delete-one',
+					mutation: 'ultimabase.soft-delete-plugin.soft-delete.soft-delete-one',
 					name: 'softDeleteOne',
 					returning: 'after',
 				}),

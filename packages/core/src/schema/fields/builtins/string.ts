@@ -22,9 +22,8 @@ export type StringFieldOptions = FieldOptions<string>
 /**
  * Carries the string value type and exact options through later schema inference.
  */
-export type StringField<
-	TState extends FieldTypeState = FieldTypeState,
-> = FieldDefinition<'string', string, StringFieldOptions, TState>
+export type StringField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'string', string, StringFieldOptions, TState>
 
 type DefaultedStringFieldOptions<
 	TRequired extends boolean,

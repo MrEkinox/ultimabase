@@ -591,9 +591,9 @@ describe('plugin FieldBuilder methods', () => {
 		)
 		await application.dispose()
 
-		expect(
-			application.fieldBuilderMethods[0]?.contexts.stored?.fieldKind,
-		).toBe('fixture.alpha')
+		expect(application.fieldBuilderMethods[0]?.contexts.stored?.fieldKind).toBe(
+			'fixture.alpha',
+		)
 		expect(
 			Object.isFrozen(application.fieldBuilderMethods[0]?.contexts.stored),
 		).toBe(true)

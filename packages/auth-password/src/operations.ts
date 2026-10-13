@@ -233,8 +233,7 @@ const changePasswordOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'change-password',
-	exactStrings<PasswordChangeInput>(
-		['currentPassword', 'newPassword']),
+	exactStrings<PasswordChangeInput>(['currentPassword', 'newPassword']),
 	acknowledgement<PasswordChangeResult>('changed'),
 	[
 		authErrorCodes.invalidSession,
@@ -253,10 +252,8 @@ const reauthenticateOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'reauthenticate',
-	exactStrings<PasswordReauthenticateInput>(
-		['password']),
-	acknowledgement<PasswordReauthenticateResult>(
-		'reauthenticated'),
+	exactStrings<PasswordReauthenticateInput>(['password']),
+	acknowledgement<PasswordReauthenticateResult>('reauthenticated'),
 	[
 		authErrorCodes.invalidCredentials,
 		authErrorCodes.invalidSession,

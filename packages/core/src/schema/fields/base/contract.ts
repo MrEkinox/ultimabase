@@ -146,9 +146,7 @@ export interface FieldOptionsBase<
 	TList extends FieldListOption = FieldListOption,
 	TValue = unknown,
 >
-	extends
-		FieldMetadataOptions,
-		FieldOptionValueCarrier<TValue> {
+	extends FieldMetadataOptions, FieldOptionValueCarrier<TValue> {
 	/**
 	 * Wraps the scalar in one homogeneous list when enabled.
 	 *

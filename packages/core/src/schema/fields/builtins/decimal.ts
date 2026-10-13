@@ -38,9 +38,8 @@ export interface DecimalFieldOptions extends FieldOptions<string> {
 /**
  * Carries exact decimal strings and their compact operation state.
  */
-export type DecimalField<
-	TState extends FieldTypeState = FieldTypeState,
-> = FieldDefinition<'decimal', string, DecimalFieldOptions, TState>
+export type DecimalField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'decimal', string, DecimalFieldOptions, TState>
 
 type DefaultedDecimalFieldOptions<
 	TRequired extends boolean,

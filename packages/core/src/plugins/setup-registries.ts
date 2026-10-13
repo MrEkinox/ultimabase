@@ -1,8 +1,5 @@
 import type { Logger } from '../application/application-log.js'
-import type {
-	CompiledSchemaRegistry,
-	SchemaRegistry,
-} from '../schema/index.js'
+import type { CompiledSchemaRegistry, SchemaRegistry } from '../schema/index.js'
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import type { PluginCapabilityReader } from './capabilities.js'

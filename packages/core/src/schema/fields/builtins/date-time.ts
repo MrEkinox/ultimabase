@@ -28,9 +28,8 @@ export type DateTimeFieldOptions = TimezoneTemporalFieldOptions
 /**
  * Carries a date-time string and exact options through schema inference.
  */
-export type DateTimeField<
-	TState extends FieldTypeState = FieldTypeState,
-> = FieldDefinition<'dateTime', string, DateTimeFieldOptions, TState>
+export type DateTimeField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'dateTime', string, DateTimeFieldOptions, TState>
 
 /** Provides date-time-specific names for compact auto-now inference. */
 type DefaultedDateTimeFieldOptions<

@@ -97,9 +97,7 @@ type SourceNumericFieldName<TFields extends SchemaDeclaredFields> = {
 		TKey in keyof StoredSourceFields<TFields>
 	]: StoredSourceFields<TFields>[TKey]['kind'] extends
 		'bigint' | 'decimal' | 'float' | 'int'
-		? FieldTypeStateOf<
-				StoredSourceFields<TFields>[TKey]
-			>['list'] extends true
+		? FieldTypeStateOf<StoredSourceFields<TFields>[TKey]>['list'] extends true
 			? never
 			: TKey
 		: never

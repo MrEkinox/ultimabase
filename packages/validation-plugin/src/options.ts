@@ -13,9 +13,7 @@ import {
 } from '@ultimabase/core/plugin'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 
-import {
-	normalizeSchemaValidation,
-} from './schema-validation.js'
+import { normalizeSchemaValidation } from './schema-validation.js'
 import {
 	assertValidator,
 	type FieldStandardSchema,
@@ -70,8 +68,9 @@ export const fieldValidationOption: FieldOptionDefinition<
 })
 
 /** Owns the schema `validation` rule (`.with({ validation })`) as an opaque value. */
-export const schemaValidationOption: SchemaOptionDefinition = defineSchemaOption({
-	normalize: normalizeSchemaValidation,
-	protocolVersion: 1,
-	valueKind: 'opaque',
-})
+export const schemaValidationOption: SchemaOptionDefinition =
+	defineSchemaOption({
+		normalize: normalizeSchemaValidation,
+		protocolVersion: 1,
+		valueKind: 'opaque',
+	})

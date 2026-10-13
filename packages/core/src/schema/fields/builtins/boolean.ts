@@ -22,9 +22,8 @@ export type BooleanFieldOptions = FieldOptions<boolean>
 /**
  * Carries the boolean value type and exact options through schema inference.
  */
-export type BooleanField<
-	TState extends FieldTypeState = FieldTypeState,
-> = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TState>
+export type BooleanField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'boolean', boolean, BooleanFieldOptions, TState>
 
 type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,

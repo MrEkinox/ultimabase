@@ -18,20 +18,18 @@ export const nullInput: PluginOperationValueContract<null> =
 export const stringFieldsInput = <const TName extends string>(
 	names: readonly TName[],
 ): PluginOperationValueContract<Readonly<Record<TName, string>>> =>
-	defineOperationValue<Readonly<Record<TName, string>>>(
-		(value, path) => {
-			if (
-				!isPlainRecord(value) ||
-				Object.keys(value).length !== names.length ||
-				names.some((name) => typeof value[name] !== 'string')
-			) {
-				throw new TypeError(`${path} must contain exactly ${names.join(', ')}`)
-			}
-			return immutableRecord(
-				Object.fromEntries(names.map((name) => [name, value[name]])),
-			) as Readonly<Record<TName, string>>
-		},
-	)
+	defineOperationValue<Readonly<Record<TName, string>>>((value, path) => {
+		if (
+			!isPlainRecord(value) ||
+			Object.keys(value).length !== names.length ||
+			names.some((name) => typeof value[name] !== 'string')
+		) {
+			throw new TypeError(`${path} must contain exactly ${names.join(', ')}`)
+		}
+		return immutableRecord(
+			Object.fromEntries(names.map((name) => [name, value[name]])),
+		) as Readonly<Record<TName, string>>
+	})
 
 /** The input naming one record by id. */
 export const idInput: PluginOperationValueContract<

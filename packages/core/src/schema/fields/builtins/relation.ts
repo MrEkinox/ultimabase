@@ -24,9 +24,7 @@ import type { DeclaredSchemaTarget } from '../../schema/deferred-targets.js'
 import { snapshotCapturedOptionValue } from '../../schema/captured-options.js'
 import type { RequestContext } from '../../../runtime/context/request-context.js'
 import type { WhereBuilder, WhereInput } from '../../../query/filters/where.js'
-import type {
-	SchemaRelationshipFieldName,
-} from '../../type-info.js'
+import type { SchemaRelationshipFieldName } from '../../type-info.js'
 import { assertPlainObject } from '../../../exact-object-validation.js'
 
 declare const relationTargetMarker: unique symbol

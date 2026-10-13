@@ -21,9 +21,8 @@ export type BinaryFieldOptions = FieldOptions<Uint8Array>
 /**
  * Carries native bytes and exact options through schema inference.
  */
-export type BinaryField<
-	TState extends FieldTypeState = FieldTypeState,
-> = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TState>
+export type BinaryField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TState>
 
 type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,
