@@ -163,12 +163,15 @@ the page recomputes its ACL again. Each item of an `updateMany` is recomputed
 like an `updateOne`.
 
 Master may write a complete ACL in `createOne`, `updateOne`, and `updateMany`
-item data; it is written as is, without `resolveInput`. An `upsert` update
-cannot replace an ACL, even for Master, and fails with `VALIDATION_ERROR`:
+item data; it is written as is, without `resolveInput`. Master may also filter
+on the ACL itself:
 
 <include cwd meta='title="src/admin.ts"'>
 	../../examples/acl/src/admin.ts#master-acl
 </include>
+
+An `upsert` update cannot replace an ACL, even for Master, and fails with
+`VALIDATION_ERROR`.
 
 ## Behavior and limitations
 
