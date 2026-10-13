@@ -22,6 +22,7 @@ sources:
   - examples/http/tests/browser.test.ts
   - examples/http/tests/limits.test.ts
   - examples/http/tests/network.test.ts
+  - examples/http/tests/client-address.test.ts
   - packages/http-plugin/README.md
   - packages/http-plugin/src/options.ts
   - packages/http-plugin/src/request-boundary.ts
@@ -30,6 +31,7 @@ sources:
   - docs/adr/0258-single-active-application-lifecycle.md
   - docs/adr/0260-single-owner-http-dispatch.md
   - docs/adr/0323-http-foundation-and-hono-server.md
+  - docs/adr/0334-unknown-client-address.md
 ---
 
 ## Overview
@@ -212,6 +214,14 @@ counted. Behind a fetch handler without a socket peer, as on edge and
 serverless platforms, the platform in front counts as one hop; exact addresses
 are checked against the socket peer, so they need one.
 
+When neither a socket peer nor a trusted `X-Forwarded-For` entry names the
+client, as with the in-memory `fetch` or a fetch handler without `trustProxy`,
+its address is unknown. Every such request then shares one bucket per limit:
+failing closed is safer than skipping the limit. The first such request of a
+process logs one warning that points to `trustProxy` and the server provider's
+`remoteAddress`. Context resolvers receive `clientAddress: undefined`, and
+[Password Authentication](./password-authentication) records `null`.
+
 Counts live in memory per process; pass a `store` with an
 `increment(key, expiresAt)` method to share them, for example in Redis. A
 failing store refuses requests rather than letting them through.
@@ -312,7 +322,8 @@ same foundation.
 A custom server consumes `httpApplicationCapability` and
 `httpBrowserPolicyCapability`. Keep one optional HTTP application and pass it,
 with the original header pairs and the socket peer `remoteAddress`, to
-`dispatchHttpApplicationRequest(application, input)`. Clear the owner before
+`dispatchHttpApplicationRequest(application, input)`. Without `remoteAddress`
+the client address is unknown unless `trustProxy` names it. Clear the owner before
 teardown. When no owner remains, the helper still validates header cardinality
 and correlation, then returns the safe HTTP rejection envelope.
 

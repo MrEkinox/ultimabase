@@ -278,9 +278,9 @@ await Member.confirmEmailChange({ token })
 
 Tokens are single use, replaced by a newer one of the same purpose and stored
 only as their SHA-256 digest; invalid tokens fail with `AUTH_INVALID_TOKEN`
-and are counted per client address. Callbacks receive the User row and the
-email: both are personal data. Never log the token; put it in a link to your
-application, which calls the redeeming operation.
+and are counted per client address, when one is known. Callbacks receive the
+User row and the email: both are personal data. Never log the token; put it in
+a link to your application, which calls the redeeming operation.
 
 Over HTTP the operations are `POST /api/auth/request-password-reset`,
 `/api/auth/reset-password`, `/api/auth/request-email-verification`,

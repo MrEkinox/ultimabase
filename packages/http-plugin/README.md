@@ -316,7 +316,11 @@ trusted peer. Entries a client writes before the ones your proxies append
 never change the address that is counted. Behind a fetch handler without a
 socket peer, as on edge and serverless platforms, the platform in front counts
 as one hop; exact addresses are checked against the socket peer, so they need
-one. Routes add stricter limits with `rateLimit: { perMinute }`, which count
+one. When neither names the client, as with the in-memory `fetch`, its address
+is unknown: every such request shares one bucket per limit (failing closed is
+safer than skipping the limit), and the first one of a process logs one
+warning pointing to `trustProxy` and the server provider's `remoteAddress`
+([ADR-0334](../../docs/adr/0334-unknown-client-address.md)). Routes add stricter limits with `rateLimit: { perMinute }`, which count
 in addition to the default. The built-in health route is never limited: load
 balancers and Kubernetes probes often share one address, and a 429 would make
 the service look down.
@@ -376,7 +380,7 @@ naming both fixes.
 
 Credential plugins contribute ordered resolvers without introducing a new Core
 authority mode. A resolver receives the current anonymous context, the client
-address, the effective browser policy and a credential-only request view, then
+address (`undefined` when unknown), the effective browser policy and a credential-only request view, then
 returns an immutable derivative made with `withValue()`; a resolver that
 throws refuses the request with `HTTP_APPLICATION_REJECTED`:
 
@@ -595,7 +599,8 @@ activeApplication = undefined
 ```
 
 Before constructing Fetch `Headers`, the provider captures ordered original
-header pairs, and passes the socket peer as `remoteAddress` for rate limiting.
+header pairs, and passes the socket peer as `remoteAddress` for rate limiting;
+without it, and without `trustProxy`, the client address is unknown.
 With an owner, dispatch enters its `fetch()` boundary. Without one, requests
 still validate those pairs and request IDs before receiving the same safe
 rejection envelope (`HTTP_APPLICATION_REJECTED`). Providers retain their exact

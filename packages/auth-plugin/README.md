@@ -177,8 +177,9 @@ const notes = await auth.runWithSession(session.token, async () => {
 <!-- endregion -->
 
 `listSessions()` reports each live session's id, method, creation, last use
-(updated at most once a minute), expiry, address and `User-Agent`, never its
-token; `revokeSession(id)` ends one, `logoutEverywhere()` all of them:
+(updated at most once a minute), expiry, address (`null` when unknown) and
+`User-Agent`, never its token; `revokeSession(id)` ends one,
+`logoutEverywhere()` all of them:
 
 <!-- region ../../examples/auth/tests/sessions.test.ts#list-sessions,revoke-session,refresh-logout -->
 
@@ -236,7 +237,9 @@ further one locks that pair for one second, doubled per failure up to fifteen
 minutes; per account, twenty failures are free with the same growth. A
 success resets both counters. A locked attempt fails with
 `AUTH_TOO_MANY_ATTEMPTS` (HTTP 429 with `Retry-After`) before any password
-work. The HTTP plugin's per-address `rateLimit` adds a global limit.
+work. Outside HTTP, or when the HTTP plugin knows no client address, only the
+account limit applies. The HTTP plugin's per-address `rateLimit` adds a global
+limit.
 
 ## Account tokens
 
@@ -353,13 +356,14 @@ export const authEvents: AuthEventHandlers = {
 `afterPasswordReset`, `afterEmailVerified` and `afterEmailChanged` run after
 the transaction that caused them commits, outside the request, best effort
 (ADR-0318); a failure is logged and never fails the call. Payloads carry ids,
-the method, the client address and the attempted identifier, never a password
-or token. The client address and `afterLoginFailed`'s normalized identifier
-(an email or username, even for an unknown account) are personal data: store,
-retain and forward them under the application's privacy policy, like the
-emails of `afterEmailVerified` and `afterEmailChanged`. `afterPasswordReset`
-follows a reset (every session revoked), `afterEmailVerified` a verification
-or a reset that verified the email, `afterEmailChanged` a confirmed change.
+the method, the client address (`null` outside HTTP or when unknown) and the
+attempted identifier, never a password or token. The client address and
+`afterLoginFailed`'s normalized identifier (an email or username, even for an
+unknown account) are personal data: store, retain and forward them under the
+application's privacy policy, like the emails of `afterEmailVerified` and
+`afterEmailChanged`. `afterPasswordReset` follows a reset (every session
+revoked), `afterEmailVerified` a verification or a reset that verified the
+email, `afterEmailChanged` a confirmed change.
 UltimaBase sends no email: messages go through application callbacks.
 
 ## Writing a method
