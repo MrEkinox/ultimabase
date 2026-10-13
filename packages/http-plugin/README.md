@@ -313,10 +313,13 @@ is the socket peer. Behind proxies, `trustProxy` is the number of proxy hops,
 or their exact addresses: the client is then the nearest untrusted
 `X-Forwarded-For` entry, and `X-Forwarded-Proto` is believed only from a
 trusted peer. Entries a client writes before the ones your proxies append
-never change the address that is counted. Routes add stricter limits with
-`rateLimit: { perMinute }`, which count in addition to the default. The
-built-in health route is never limited: load balancers and Kubernetes probes
-often share one address, and a 429 would make the service look down.
+never change the address that is counted. Behind a fetch handler without a
+socket peer, as on edge and serverless platforms, the platform in front counts
+as one hop; exact addresses are checked against the socket peer, so they need
+one. Routes add stricter limits with `rateLimit: { perMinute }`, which count
+in addition to the default. The built-in health route is never limited: load
+balancers and Kubernetes probes often share one address, and a 429 would make
+the service look down.
 
 Counts live in memory per process; share them with a store, such as Redis
 `INCR` and `PEXPIREAT`:
