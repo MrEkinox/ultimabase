@@ -3614,6 +3614,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-acl@workspace:examples/acl":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-acl@workspace:examples/acl"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/acl-permissions-plugin": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-hooks@workspace:examples/hooks":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-hooks@workspace:examples/hooks"
