@@ -6,8 +6,6 @@ import { Administrator, Editor, Member, StaffRole } from '../src/schema.ts'
 import { addStaffMember, includeAdministratorsInEditors } from '../src/staff.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
-const master = { useMasterKey: true } as const
-
 /** Ada is an editor, Grace an administrator, so an editor too. */
 const createStaff = async (t: TestApplication) => {
 	const [ada, grace] = await t.asMaster(() =>
@@ -89,7 +87,7 @@ it('keeps a UUID reference across a rename', async () => {
 
 	await StaffRole.updateOne(
 		{ where: { id: editor.id }, data: { name: 'Copy Editor' } },
-		master,
+		{ useMasterKey: true },
 	)
 	//#endregion references
 
