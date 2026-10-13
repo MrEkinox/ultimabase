@@ -29,6 +29,9 @@ const enforcedDocuments = [
 	'apps/website/content/docs/1.0.0/plugins/official/acl-permissions.mdx',
 	'packages/acl-permissions-plugin/README.md',
 	'examples/acl/README.md',
+	'apps/website/content/docs/1.0.0/plugins/official/roles.mdx',
+	'packages/roles-plugin/README.md',
+	'examples/roles/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({

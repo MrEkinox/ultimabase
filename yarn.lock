@@ -3671,6 +3671,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-roles@workspace:examples/roles":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-roles@workspace:examples/roles"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/api-server": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-schema-form-d@workspace:examples/schema-form-d":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-schema-form-d@workspace:examples/schema-form-d"
