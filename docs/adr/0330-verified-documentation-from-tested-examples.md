@@ -1,13 +1,13 @@
 # ADR-0330: Verified documentation from tested examples
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-13
 - Refines: the website documentation contract (page `sources`, `documentation-ownership.json`),
   the example records (ADR-0249 for create-app templates), ADR-0327 (`testApplication`); applies
   ADR-0288
 - Approval: decision 15 of `docs/handoff/api-ideale-decisions.md` ("documentation vérifiée",
   deferred until the API was stable) and the post-migration plan decided by the user on
-  2026-10-13; record to be accepted by the user
+  2026-10-13; record accepted by the user on 2026-10-13
 
 ## Context
 

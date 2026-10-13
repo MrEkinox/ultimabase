@@ -79,4 +79,4 @@ ADR-0299 à ADR-0313 (acceptés), revues dans [revue-plugins/](revue-plugins/REA
 
 ## Prochaine action vérifiable
 
-Push de `main` (6.8c) sur confirmation ; premier passage du job TS 7 sur GitHub ; étape 7 (documentation vérifiée) : ADR puis prototype sur une fonctionnalité.
+Étape 7 : ADR-0330 accepté le 2026-10-13 ; prototype Soft Delete lancé (branche `docs/verified-soft-delete`, `../ub-step7`) : exemple `examples/soft-delete`, régions incluses dans la page, README recopié, test du site classant les blocs, essai de Twoslash ; relecture par l'utilisateur avant les autres fonctionnalités.
