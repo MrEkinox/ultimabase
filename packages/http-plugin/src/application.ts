@@ -159,7 +159,7 @@ const dispatchPreparedRequest = async (
 	try {
 		accepted = acceptHttpApplicationRequest(
 			application,
-			state.settings.requireApplicationId,
+			state.settings,
 			prepared,
 		)
 	} catch {

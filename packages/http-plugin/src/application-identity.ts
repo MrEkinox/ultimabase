@@ -1,10 +1,11 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { HttpApplication } from './application.js'
+import type { HttpApplication, HttpApplicationSettings } from './application.js'
 import {
 	httpApplicationIdHeader,
 	httpBrowserBootstrapPathPrefix,
 } from './constants.js'
+import { isHttpHealthRoute } from './health.js'
 import {
 	httpPreDispatchErrorCodes,
 	readPreparedHeader,
@@ -12,6 +13,7 @@ import {
 	type HttpPreDispatchErrorCode,
 	type PreparedHttpServerRequest,
 } from './request-boundary.js'
+import { selectHttpEndpoint } from './route-graph.js'
 
 // Reads `/__ultimabase/apps/{encoded appId}{routePath}` from one GET request.
 const readBrowserBootstrapSelection = (
@@ -65,13 +67,17 @@ const rewriteBrowserBootstrap = (
 
 /**
  * @internal Accepts the request for this application (ADR-0323): a matching header, no
- * header at all unless `requireApplicationId`, or path identity only for an
- * exact owned browser bootstrap. An explicit header never falls back to the
- * path, even when empty, and a different one is an unknown application.
+ * header at all unless `requireApplicationId` (the built-in health route
+ * excepted, ADR-0303), or path identity only for an exact owned browser
+ * bootstrap. An explicit header never falls back to the path, even when
+ * empty, and a different one is an unknown application.
  */
 export const acceptHttpApplicationRequest = (
 	application: HttpApplication,
-	requireApplicationId: boolean,
+	settings: Pick<
+		HttpApplicationSettings,
+		'healthPath' | 'requireApplicationId'
+	>,
 	prepared: PreparedHttpServerRequest,
 ): PreparedHttpServerRequest | HttpPreDispatchErrorCode => {
 	const appId = readPreparedHeader(
@@ -92,9 +98,16 @@ export const acceptHttpApplicationRequest = (
 	) {
 		return rewriteBrowserBootstrap(prepared, selection)
 	}
-	return requireApplicationId
-		? httpPreDispatchErrorCodes.applicationRejected
-		: prepared
+	if (!settings.requireApplicationId) return prepared
+	// Load balancers and probes send no application header (ADR-0303).
+	const endpoint = selectHttpEndpoint(
+		application.routeGraph,
+		prepared.input.request,
+	)
+	return endpoint !== undefined &&
+		isHttpHealthRoute(endpoint, settings.healthPath)
+		? prepared
+		: httpPreDispatchErrorCodes.applicationRejected
 }
 
 /**

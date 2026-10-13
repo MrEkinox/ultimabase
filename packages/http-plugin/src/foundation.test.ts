@@ -167,6 +167,9 @@ describe('health route (ADR-0323 decision 5)', () => {
 			get('/health', { 'X-UltimaBase-Application-Id': 'shop' }),
 		)
 		expect(other.status).toBe(404)
+	})
+
+	it('exempts only the built-in health route at its own path', async () => {
 		const moved = await start({
 			health: { path: '/healthz' },
 			requireApplicationId: true,
