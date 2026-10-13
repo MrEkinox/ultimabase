@@ -201,6 +201,16 @@ describe('schema declaration form (ADR-0297)', () => {
 					),
 				]),
 			)
+			// A schema with a unique index keeps its `mappedBy` check.
+			expect(
+				readExpectedErrors(configName, 'src/typos.ts').filter((diagnostic) =>
+					diagnostic.startsWith('src/typos.ts:168 '),
+				),
+			).toEqual([
+				expect.stringContaining(
+					"TypoMappedByIndexed.todos: mappedBy 'asignee' is not a field of Todo",
+				),
+			])
 		},
 		120_000,
 	)

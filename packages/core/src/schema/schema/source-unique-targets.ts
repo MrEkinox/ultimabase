@@ -106,9 +106,9 @@ type UniqueTarget<
 	TAllKeys extends string,
 > = {
 	readonly [TKey in TKeys]: UniqueKeyValue<TFields, TKey>
-} & {
-	readonly [TKey in Exclude<TAllKeys, TKeys>]?: never
-} extends infer TTarget
+} & Readonly<
+	Partial<Record<Exclude<TAllKeys, TKeys>, never>>
+> extends infer TTarget
 	? { readonly [TKey in keyof TTarget]: TTarget[TKey] }
 	: never
 

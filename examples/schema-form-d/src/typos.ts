@@ -153,3 +153,17 @@ export const typoTargetNull = () =>
 export const typoOrderBy = () =>
 	// @ts-expect-error -- `acl` is a plugin field kind, which Core does not order.
 	Todo.findMany({ orderBy: { acl: 'asc' } })
+
+/** 18. `mappedBy` typo on a schema with a unique index, still checked at registration. */
+export const TypoMappedByIndexed = App.Schema.define({
+	className: 'TypoMappedByIndexed',
+	fields: (field) => ({
+		code: field.string({ required: true }),
+		todos: field.relation({ target: () => Todo, mappedBy: 'asignee' }),
+	}),
+	indexes: [{ fields: ['code', 'createdAt'], unique: true }],
+})
+export const typoIndexedApplication = new App({
+	// @ts-expect-error -- TypoMappedByIndexed.todos: mappedBy 'asignee' is not a field of Todo.
+	schemas: [TypoMappedByIndexed, Todo, TodoUser, Tag],
+})
