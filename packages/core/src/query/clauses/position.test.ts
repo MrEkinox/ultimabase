@@ -239,6 +239,22 @@ describe('after positions', () => {
 		}
 	})
 
+	it('validates the shape of every position value before the adapter', () => {
+		// A string that is not a UUID would otherwise reach the database.
+		for (const input of [
+			{ after: { id: 'not-a-uuid' } },
+			{ after: { id: 'not-a-uuid', title: 'a' }, orderBy: { title: 'asc' } },
+		] as const) {
+			expect(
+				positionError(() => queryFromFindManyInput(Task, input)),
+			).toMatchObject({
+				code: 'VALIDATION_ERROR',
+				publicDetails: { parameter: 'after' },
+				publicMessage: 'The after position is invalid.',
+			})
+		}
+	})
+
 	it('refuses skip combined with after', () => {
 		expect(
 			positionError(() =>

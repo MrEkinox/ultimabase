@@ -56,9 +56,16 @@ const createManyFixture = async (options: {
 	readonly results: readonly QueuedAdapterResult[]
 }) => {
 	fixtureIndex += 1
+	const Label = UltimaBase.Schema.define({
+		className: `ManyRowLabel${String(fixtureIndex)}`,
+		fields: (field) => ({ name: field.string() }),
+	})
 	const Post = UltimaBase.Schema.define({
 		className: `ManyRowPost${String(fixtureIndex)}`,
-		fields: (field) => ({ title: field.string() }),
+		fields: (field) => ({
+			labels: field.relation({ target: () => Label }),
+			title: field.string(),
+		}),
 	})
 	const shoutMany = defineSchemaMutation({
 		authority: 'request',
@@ -151,7 +158,10 @@ const createManyFixture = async (options: {
 		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 	const ultimabase = applicationFixture(
-		new (UltimaBase.use(database, owner))({ logger: false, schemas: [Post] }),
+		new (UltimaBase.use(database, owner))({
+			logger: false,
+			schemas: [Post, Label],
+		}),
 	)
 	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
@@ -250,6 +260,19 @@ describe('many-row plugin schema mutations (ADR-0316)', () => {
 		await expect(fixture.shout({})).rejects.toThrow('requires where')
 		await expect(fixture.shout({ where: { nope: { eq: 1 } } })).rejects.toThrow(
 			TypeError,
+		)
+		expect(fixture.trace).toStrictEqual([])
+	})
+
+	it('rejects a relation in the result selection before the transaction', async () => {
+		const fixture = await createManyFixture({ results: [] })
+
+		await expect(
+			fixture.shout({ where: {}, select: { labels: true } }),
+		).rejects.toThrow(
+			new TypeError(
+				'selection.labels must not reference a relation; read relations through include',
+			),
 		)
 		expect(fixture.trace).toStrictEqual([])
 	})

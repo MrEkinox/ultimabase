@@ -1,6 +1,9 @@
+import { Buffer } from 'node:buffer'
+
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
+import { Post } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 import { anyString, seedBlog, stringAt } from './support.ts'
 
@@ -75,6 +78,62 @@ it('never reveals a field the caller may not read', async () => {
 		expect(denied.status).toBe(403)
 		expect(await denied.json()).toMatchObject({
 			error: { code: 'PERMISSION_DENIED' },
+		})
+	}
+})
+
+it('rejects a relation in select and a forged cursor as client input', async () => {
+	await using t = await testApplication(ultimabase)
+	const { hello } = await t.asMaster(seedBlog)
+	const reason =
+		'selection.tags must not reference a relation; read relations through include'
+
+	// Relations are read through `include`, never `select`, Master included.
+	const selected = await t.fetch(
+		`/api/classes/Post/${hello.id}?select=title,tags`,
+	)
+	expect(selected.status).toBe(400)
+	expect(await selected.json()).toMatchObject({
+		error: {
+			code: 'REST_READ_INVALID_INPUT',
+			details: { parameter: 'select', reason },
+		},
+	})
+	await expect(
+		t.asMaster(() =>
+			Post.findOne({
+				where: { id: hello.id },
+				select: { title: true, tags: true } as never,
+			}),
+		),
+	).rejects.toThrow(new TypeError(reason))
+
+	// A cursor is opaque, not signed: Core checks every value it carries.
+	const forge = (payload: object) =>
+		Buffer.from(JSON.stringify({ v: 1, s: 'Post', ...payload })).toString(
+			'base64url',
+		)
+	for (const [orderBy, after] of [
+		['', forge({ o: [['id', 'a']], p: ['not-a-uuid'] })],
+		[
+			'&orderBy=-views',
+			forge({
+				o: [
+					['views', 'd'],
+					['id', 'a'],
+				],
+				p: ['many', hello.id],
+			}),
+		],
+	] as const) {
+		const page = await t.fetch(`/api/classes/Post?after=${after}${orderBy}`)
+		expect(page.status).toBe(422)
+		expect(await page.json()).toMatchObject({
+			error: {
+				code: 'VALIDATION_ERROR',
+				message: 'The after position is invalid.',
+				details: { parameter: 'after' },
+			},
 		})
 	}
 })

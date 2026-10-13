@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { normalizeQuerySelection } from './selection.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const postSchema = UltimaBase.Schema.define({
@@ -10,6 +11,21 @@ const postSchema = UltimaBase.Schema.define({
 		published: field.boolean({ default: false }),
 	}),
 })
+
+const Tag = UltimaBase.Schema.define({
+	className: 'SelectionTag',
+	fields: (field) => ({ name: field.string() }),
+})
+
+const Article = UltimaBase.Schema.define({
+	className: 'SelectionArticle',
+	fields: (field) => ({
+		title: field.string(),
+		tags: field.relation({ target: () => Tag }),
+	}),
+})
+
+new SchemaRegistry([Tag, Article]).resolveSchemaTargets()
 
 describe('normalizeQuerySelection', () => {
 	it('uses inclusion mode when at least one field is true', () => {
@@ -87,5 +103,28 @@ describe('normalizeQuerySelection', () => {
 				updatedAt: false,
 			}).fields,
 		).toStrictEqual([{ kind: 'selected-field', field: 'id' }])
+	})
+
+	it('rejects relations, which are read through include', () => {
+		const relation = new TypeError(
+			'selection.tags must not reference a relation; read relations through include',
+		)
+
+		expect(() =>
+			// @ts-expect-error -- Source typing rejects relations in select.
+			normalizeQuerySelection(Article, { title: true, tags: true }),
+		).toThrow(relation)
+		expect(() =>
+			// @ts-expect-error -- Runtime rejects an excluded relation as well.
+			normalizeQuerySelection(Article, { tags: false }),
+		).toThrow(relation)
+		// Exclusion mode starts from the selectable fields only.
+		expect(
+			normalizeQuerySelection(Article, { title: false }).fields,
+		).toStrictEqual([
+			{ kind: 'selected-field', field: 'id' },
+			{ kind: 'selected-field', field: 'createdAt' },
+			{ kind: 'selected-field', field: 'updatedAt' },
+		])
 	})
 })
