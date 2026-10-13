@@ -4,11 +4,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { extractCodeRegion, listCodeRegions } from './code-regions.ts'
-import {
-	findRegionMarkers,
-	listRegionDocuments,
-	renderRegionMarkers,
-} from './readme-regions.ts'
+import { listRegionDocuments, renderRegionMarkers } from './readme-regions.ts'
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 
@@ -67,9 +63,6 @@ describe('code regions (ADR-0330)', () => {
 				'',
 			].join('\n'),
 		)
-		expect(findRegionMarkers(readme, '/docs/README.md')).toStrictEqual([
-			{ file: '/docs/code.ts', regions: ['inner', 'outer'] },
-		])
 	})
 
 	it('keeps every package and example README in sync with its regions', () => {

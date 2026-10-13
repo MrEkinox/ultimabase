@@ -17,27 +17,10 @@ import path from 'node:path'
 import { extractCodeRegion } from './code-regions.ts'
 
 /** Markdown files that may hold region markers, relative to the repository. */
-export const regionDocumentRoots = ['packages', 'examples'] as const
+const regionDocumentRoots = ['packages', 'examples'] as const
 
 const markerPattern =
 	/^<!-- region (?<target>\S+)#(?<names>[\w,-]+) -->\n[\s\S]*?^<!-- endregion -->$/gmu
-
-/** One region marker found in a Markdown document. */
-export interface RegionMarker {
-	/** Source file, resolved against the Markdown file's directory. */
-	readonly file: string
-	readonly regions: readonly string[]
-}
-
-/** Lists the region markers of one Markdown document. */
-export const findRegionMarkers = (
-	markdown: string,
-	documentPath: string,
-): readonly RegionMarker[] =>
-	[...markdown.matchAll(markerPattern)].map(({ groups }) => ({
-		file: path.resolve(path.dirname(documentPath), groups?.target ?? ''),
-		regions: (groups?.names ?? '').split(','),
-	}))
 
 const languageOf = (file: string): string =>
 	path
