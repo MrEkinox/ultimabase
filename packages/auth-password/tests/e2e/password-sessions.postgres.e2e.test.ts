@@ -281,6 +281,53 @@ describe('password sign-up, login and sessions', { concurrent: false }, () => {
 		}
 	})
 
+	// Regression: the check read the session snapshot taken when the scope
+	// began, so a reauthentication inside the same scope was ignored.
+	it('counts a reauthentication within the same session scope', async () => {
+		const { AuthUser, ultimabase } = createPasswordApplication(pool())
+		await ultimabase.start()
+		const now = Date.now()
+		try {
+			const signed = await AuthUser.signUp({
+				displayName: 'Mia',
+				email: 'mia@example.test',
+				password: secret,
+			})
+			const auth = ultimabase.plugin(authPlugin)
+			const reauthenticationRequired = {
+				code: authErrorCodes.reauthenticationRequired,
+			}
+			vi.useFakeTimers({ toFake: ['Date'] })
+			vi.setSystemTime(now + 2 * 60_000)
+			const deleted = await auth.runWithSession(
+				signed.session.token,
+				async () => {
+					// A failed proof records nothing.
+					await expect(
+						AuthUser.reauthenticate({ password: 'wrong password value' }),
+					).rejects.toMatchObject({
+						code: authErrorCodes.invalidCredentials,
+					})
+					await expect(AuthUser.deleteAccount()).rejects.toMatchObject(
+						reauthenticationRequired,
+					)
+					// A proof lasts the window, then expires within the scope too.
+					await AuthUser.reauthenticate({ password: secret })
+					vi.setSystemTime(Date.now() + 2 * 60_000)
+					await expect(AuthUser.deleteAccount()).rejects.toMatchObject(
+						reauthenticationRequired,
+					)
+					await AuthUser.reauthenticate({ password: secret })
+					return AuthUser.deleteAccount()
+				},
+			)
+			expect(deleted).toStrictEqual({ deleted: true })
+		} finally {
+			vi.useRealTimers()
+			await ultimabase.dispose()
+		}
+	})
+
 	it('emits typed events after commit, without secrets', async () => {
 		const events: unknown[] = []
 		const record = (name: string) => (event: object) => {

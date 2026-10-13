@@ -138,6 +138,141 @@ describe('REST OpenAPI document', () => {
 		})
 	})
 
+	// Regression: relations were missing from both inputs while
+	// `additionalProperties: false` declared the accepted links invalid.
+	it('describes the relationship and numeric inputs the REST decoder accepts', async () => {
+		const document = await readDocument()
+		const component = (name: string): Readonly<Record<string, unknown>> => {
+			const schema = resolve(document, `#/components/schemas/${name}`)
+			if (!isPlainRecord(schema) || !isPlainRecord(schema.properties)) {
+				throw new TypeError(`${name} has no properties`)
+			}
+			return schema.properties
+		}
+		const id = { type: 'string', format: 'uuid' }
+		const ids = { type: 'array', items: id }
+		const command = (name: string, schema: unknown) => ({
+			type: 'object',
+			properties: { [name]: schema },
+			required: [name],
+			additionalProperties: false,
+		})
+		const noteRef = (input: string) => ({
+			$ref: `#/components/schemas/RestExposureNote${input}`,
+		})
+		const draftRef = (input: string) => ({
+			$ref: `#/components/schemas/RestExposureDraft${input}`,
+		})
+		const pointerCreate = {
+			oneOf: [
+				command('connect', id),
+				command('create', noteRef('CreateInput')),
+			],
+		}
+		const pointerUpdate = {
+			oneOf: [
+				command('connect', id),
+				command('create', noteRef('CreateInput')),
+				command('update', noteRef('UpdateInput')),
+			],
+		}
+		const create = component('RestExposureShelfCreateInput')
+		expect(create.note).toStrictEqual({
+			anyOf: [pointerCreate, { type: 'null' }],
+		})
+		expect(create.pinned).toStrictEqual(pointerCreate)
+		expect(create.drafts).toStrictEqual({
+			type: 'object',
+			properties: {
+				create: { type: 'array', items: draftRef('CreateInput') },
+				connect: ids,
+			},
+			minProperties: 1,
+			additionalProperties: false,
+		})
+		const update = component('RestExposureShelfUpdateInput')
+		expect(update.note).toStrictEqual({
+			anyOf: [pointerUpdate, { type: 'null' }],
+		})
+		expect(update.pinned).toStrictEqual(pointerUpdate)
+		expect(update.drafts).toMatchObject({
+			type: 'object',
+			properties: {
+				create: { type: 'array', items: draftRef('CreateInput') },
+				connect: ids,
+				update: {
+					type: 'array',
+					items: {
+						type: 'object',
+						properties: { id, data: draftRef('UpdateInput') },
+						required: ['id', 'data'],
+						additionalProperties: false,
+					},
+				},
+				disconnect: ids,
+				set: ids,
+			},
+			minProperties: 1,
+			additionalProperties: false,
+		})
+		// An atomic operation names exactly one operator and a non-null operand.
+		expect(update.count).toStrictEqual({
+			anyOf: [
+				{ anyOf: [{ type: 'integer' }, { type: 'null' }] },
+				{
+					type: 'object',
+					properties: {
+						increment: { type: 'integer' },
+						decrement: { type: 'integer' },
+					},
+					minProperties: 1,
+					maxProperties: 1,
+					additionalProperties: false,
+				},
+			],
+		})
+
+		// Upsert and bulk bodies cannot link relationships (ADR-0243).
+		const unlinked = (input: string) => ({
+			allOf: [
+				{ $ref: `#/components/schemas/RestExposureShelf${input}` },
+				{ properties: { note: false, pinned: false, drafts: false } },
+			],
+		})
+		const paths = isPlainRecord(document.paths) ? document.paths : {}
+		expect(paths['/classes/RestExposureShelf/bulk/create']).toMatchObject({
+			post: {
+				requestBody: {
+					content: {
+						'application/json': {
+							schema: {
+								properties: {
+									data: { type: 'array', items: unlinked('CreateInput') },
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+		expect(paths['/classes/RestExposureShelf/upsert']).toMatchObject({
+			post: {
+				requestBody: {
+					content: {
+						'application/json': {
+							schema: {
+								properties: {
+									create: unlinked('CreateInput'),
+									update: unlinked('UpdateInput'),
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	})
+
 	it('documents application operations from their validators', async () => {
 		const document = await readDocument()
 		const paths = isPlainRecord(document.paths) ? document.paths : {}
