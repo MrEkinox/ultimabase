@@ -3,7 +3,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { securityLog } from '../src/events.ts'
 import { ultimabase } from '../src/ultimabase.ts'
-import { adaPassword, sessionTokenOf } from './support.ts'
+import {
+	adaPassword,
+	newPassword,
+	sessionTokenOf,
+	tokenSentTo,
+} from './support.ts'
 
 // The `/api/auth` routes, sent in memory with `t.fetch` as a client would.
 // The proxy in front of the application names the client in
@@ -182,6 +187,37 @@ it('limits failed logins per account and client address', async () => {
 		event: 'login-failed',
 		identifier: 'ada@example.com',
 	})
+})
+
+it('clears the login counters with a password reset', async () => {
+	await using t = await testApplication(ultimabase)
+	const client = { ...json, 'x-forwarded-for': '198.51.100.7' }
+	const send = (path: string, body: unknown) =>
+		t.fetch(path, {
+			body: JSON.stringify(body),
+			headers: client,
+			method: 'POST',
+		})
+	await send('/api/auth/sign-up', { ...ada, displayName: 'Ada' })
+	for (let failure = 1; failure <= 6; failure += 1) {
+		await send('/api/auth/login', { ...ada, password: 'wrong horse battery' })
+	}
+	expect((await send('/api/auth/login', ada)).status).toBe(429)
+
+	expect(
+		await (
+			await send('/api/auth/request-password-reset', { email: ada.email })
+		).json(),
+	).toStrictEqual({ result: { accepted: true } })
+	await t.afterCommit()
+	const reset = await send('/api/auth/reset-password', {
+		newPassword,
+		token: tokenSentTo(ada.email, 'Reset your password'),
+	})
+	expect(await reset.json()).toStrictEqual({ result: { reset: true } })
+	// No waiting: the reset cleared the lock.
+	const login = await send('/api/auth/login', { ...ada, password: newPassword })
+	expect(login.status).toBe(200)
 })
 
 it('keeps browser sessions in a secure cookie', async () => {
