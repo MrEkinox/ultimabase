@@ -1,7 +1,9 @@
 import type {
 	CompatibleFieldOptionsExtension,
+	FieldIndexOption,
 	FieldListOption,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../fields/base/contract.js'
 import type {
 	CompactScalarFieldDefinition,
@@ -33,12 +35,15 @@ type DefaultedEnumFieldBuilderOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TContext extends EnumBuilderContext,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	EnumBuilderOptions<TValues, TContext>,
 	EnumValue<TValues>,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 > &
 	CompatibleEnumFieldOptions<TValues>
 
@@ -48,12 +53,15 @@ type NonDefaultedEnumFieldBuilderOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TContext extends EnumBuilderContext,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	EnumBuilderOptions<TValues, TContext>,
 	EnumValue<TValues>,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 > &
 	CompatibleEnumFieldOptions<TValues>
 
@@ -67,6 +75,7 @@ export interface EnumFieldBuilderFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
@@ -75,7 +84,8 @@ export interface EnumFieldBuilderFactory<
 				TRequired,
 				TList,
 				TImmutable,
-				TContext
+				TContext,
+				TIndexed
 			>,
 			TExtensionOptions,
 			EnumValue<TValues>,
@@ -87,14 +97,17 @@ export interface EnumFieldBuilderFactory<
 			>
 		>,
 	): TContext extends 'stored'
-		? CompactScalarFieldDefinition<
-				'enum',
-				EnumValue<TValues>,
-				EnumFieldOptions<TValues> & TExtensionOptions,
-				TRequired,
-				TList,
-				TImmutable,
-				true
+		? UniqueIndexedField<
+				TIndexed,
+				CompactScalarFieldDefinition<
+					'enum',
+					EnumValue<TValues>,
+					EnumFieldOptions<TValues> & TExtensionOptions,
+					TRequired,
+					TList,
+					TImmutable,
+					true
+				>
 			>
 		: CompactScalarFieldDefinition<
 				'enum',
@@ -110,6 +123,7 @@ export interface EnumFieldBuilderFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
@@ -118,7 +132,8 @@ export interface EnumFieldBuilderFactory<
 				TRequired,
 				TList,
 				TImmutable,
-				TContext
+				TContext,
+				TIndexed
 			>,
 			TExtensionOptions,
 			EnumValue<TValues>,
@@ -130,14 +145,17 @@ export interface EnumFieldBuilderFactory<
 			>
 		>,
 	): TContext extends 'stored'
-		? CompactScalarFieldDefinition<
-				'enum',
-				EnumValue<TValues>,
-				EnumFieldOptions<TValues> & TExtensionOptions,
-				TRequired,
-				TList,
-				TImmutable,
-				false
+		? UniqueIndexedField<
+				TIndexed,
+				CompactScalarFieldDefinition<
+					'enum',
+					EnumValue<TValues>,
+					EnumFieldOptions<TValues> & TExtensionOptions,
+					TRequired,
+					TList,
+					TImmutable,
+					false
+				>
 			>
 		: CompactScalarFieldDefinition<
 				'enum',

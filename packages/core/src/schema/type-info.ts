@@ -22,6 +22,8 @@ export interface SchemaInputsTypeInfo {
 	readonly nestedUpdate: object
 	readonly orderBy: object
 	readonly select: object
+	/** The unique targets of `updateOne`, `deleteOne` and `upsertOne`, by field list (ADR-0332). */
+	readonly uniqueTargets: object
 	readonly update: object
 	readonly where: object
 }
@@ -76,6 +78,9 @@ export interface BaseSchemaInputsTypeInfo {
 	readonly orderBy: Readonly<Record<string, 'asc' | 'desc' | null>>
 	readonly select: Readonly<Record<string, boolean>> &
 		Readonly<{ readonly id?: true }>
+	readonly uniqueTargets: Readonly<
+		Record<string, Readonly<Record<string, unknown>>>
+	>
 	readonly update: Readonly<Record<string, unknown>>
 	readonly where: Readonly<Record<string, unknown>>
 }
@@ -142,6 +147,7 @@ interface ReadSchemaTypeInfo {
 		readonly nestedUpdate: object
 		readonly orderBy: object
 		readonly select: object
+		readonly uniqueTargets: object
 		readonly update: unknown
 		readonly where: object
 	}>

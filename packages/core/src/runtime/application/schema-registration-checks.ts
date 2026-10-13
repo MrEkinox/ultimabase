@@ -17,11 +17,15 @@ export interface SchemaRegistrationError<TMessage extends string> {
 }
 
 // Declared fields live in the source contract; `fields` itself is widened.
+// The unique indexes are inferred too (a fixed argument would not match), and
+// any of them is accepted.
 type FieldsOf<TSchema> =
 	TSchema extends SchemaTypeInfoCarrier<
-		SourceSchemaTypeInfo<string, infer TFields>
+		SourceSchemaTypeInfo<string, infer TFields, infer TUniqueIndexes>
 	>
-		? TFields
+		? [TUniqueIndexes] extends [unknown]
+			? TFields
+			: never
 		: never
 
 type RegistrationClassNameOf<TSchema> = TSchema extends {

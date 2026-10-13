@@ -23,6 +23,10 @@ import type {
 } from './source-fields.js'
 import type { SourceWhere } from './source-filters.js'
 import type {
+	SourceUniqueTargets,
+	UniqueIndexFields,
+} from './source-unique-targets.js'
+import type {
 	SourceNestedCreate,
 	SourceNestedUpdate,
 } from './source-nested-writes.js'
@@ -105,6 +109,7 @@ type SourceNumericFieldName<TFields extends SchemaDeclaredFields> = {
 
 interface SourceSchemaInputs<
 	TFields extends SchemaDeclaredFields,
+	TUniqueIndexes extends UniqueIndexFields,
 > extends SchemaInputsTypeInfo {
 	readonly create: SourceFieldValueMap<TFields, 'create'>
 	readonly dependencySelect: SourceDependencySelect<TFields>
@@ -113,14 +118,19 @@ interface SourceSchemaInputs<
 	readonly nestedUpdate: SourceNestedUpdate<TFields>
 	readonly orderBy: SourceOrderBy<TFields>
 	readonly select: SourceSelect<TFields>
+	readonly uniqueTargets: SourceUniqueTargets<TFields, TUniqueIndexes>
 	readonly update: SourceFieldValueMap<TFields, 'update'>
 	readonly where: SourceWhere<TFields>
 }
 
-/** Derives every local schema contract from one captured source field map. */
+/**
+ * Derives every local schema contract from one captured source field map and
+ * the field lists of its unique `define({ indexes })` (ADR-0332).
+ */
 export interface SourceSchemaTypeInfo<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields,
+	TUniqueIndexes extends UniqueIndexFields = never,
 > extends SchemaTypeInfo {
 	readonly fieldKinds: Readonly<{
 		[TName in keyof TFields]: TFields[TName]['kind']
@@ -129,7 +139,7 @@ export interface SourceSchemaTypeInfo<
 		keyof StoredSourceFields<TFields> | keyof VirtualSourceFields<TFields>,
 		string
 	>
-	readonly inputs: SourceSchemaInputs<TFields>
+	readonly inputs: SourceSchemaInputs<TFields, TUniqueIndexes>
 	readonly item: SourceItem<TFields>
 	readonly key: TClassName
 	readonly numericFields: Extract<SourceNumericFieldName<TFields>, string>

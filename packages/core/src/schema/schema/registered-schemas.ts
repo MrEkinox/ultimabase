@@ -157,6 +157,40 @@ export type UpdateInput<TSchema> = RequireOneField<
 	NestedUpdateDataFields<NameOrSchemaContract<TSchema>>
 >
 
+type NameOrSchemaUniqueTargets<TSchema> =
+	NameOrSchemaInputs<TSchema>['uniqueTargets']
+
+/**
+ * Unique target of one schema: exactly the `where` of `updateOne`,
+ * `deleteOne` and `upsertOne` and of the items of their bulk forms. One
+ * member per target Runtime accepts: `{ id }`, each field declared
+ * `indexed: 'unique'` and each unique index of `define({ indexes })` with all
+ * of its fields, each value as a shorthand or `{ eq }`, never `null`
+ * (ADR-0332).
+ * @example `const where: UniqueWhereInput<'Todo'> = { id: todoId }`
+ */
+export type UniqueWhereInput<TSchema> =
+	NameOrSchemaUniqueTargets<TSchema>[keyof NameOrSchemaUniqueTargets<TSchema>]
+
+/**
+ * The unique target a command takes, printed by name for a registered schema
+ * (`UniqueWhereInput<"Todo">`) and structurally otherwise.
+ */
+export type SchemaUniqueWhere<
+	TContract extends Readonly<{
+		readonly inputs: Readonly<{ readonly uniqueTargets: object }>
+		readonly key: string
+	}>,
+> = UniqueWhereByName<TContract['key'], TContract['inputs']['uniqueTargets']>
+
+// One alias over the name and the targets, so two contracts of one class
+// name compare their targets only.
+type UniqueWhereByName<TClassName extends string, TTargets> = [
+	RegisteredSchema<TClassName>,
+] extends [never]
+	? TTargets[keyof TTargets]
+	: UniqueWhereInput<TClassName>
+
 /** Flat create values of one registered schema, as bulk commands take them. */
 type CreateFields<TClassName extends string> = {
 	readonly [
@@ -212,6 +246,7 @@ export interface RegisteredSchemaInputs<
 	readonly nestedUpdate: SourceInputs<TClassName>['nestedUpdate']
 	readonly orderBy: SourceInputs<TClassName>['orderBy']
 	readonly select: Select<TClassName>
+	readonly uniqueTargets: SourceInputs<TClassName>['uniqueTargets']
 	readonly update: UpdateFields<TClassName>
 	readonly where: Where<TClassName>
 }

@@ -16,7 +16,7 @@ const articleSchema = UltimaBase.Schema.define({
 const deleteOperation = {
 	kind: 'delete-one',
 	query: new QueryBuilder(articleSchema).where((where) =>
-		where.eq('id', 'article-1'),
+		where.eq('id', '00000000-0000-7000-8000-000000000001'),
 	).ast,
 } as const
 const tombstone = normalizeUpdateExpression(articleSchema, { deleted: true })

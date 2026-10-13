@@ -24,6 +24,7 @@ declare const fieldStructuralContainsOperandMarker: unique symbol
 declare const fieldContainsInputMarker: unique symbol
 declare const fieldUpdateInputMarker: unique symbol
 declare const fieldOptionsValueType: unique symbol
+declare const fieldUniqueMarker: unique symbol
 /** Resolves one source option template against the scalar or list field value. */
 export type ResolvedFieldSourceOptions<
 	TTemplate,
@@ -45,6 +46,27 @@ export type ResolvedFieldSourceOptions<
 export interface FieldOptionValueCarrier<TValue> {
 	readonly [fieldOptionsValueType]?: TValue
 }
+
+/** The `indexed` option of a stored field: none, regular or unique. */
+export type FieldIndexOption = boolean | 'unique'
+
+/**
+ * Marks a field declared with `indexed: 'unique'`: its equality alone is a
+ * unique target of `updateOne`, `deleteOne` and `upsertOne` (ADR-0332). The
+ * marker exists only in types; the field value never carries it.
+ */
+export interface UniqueFieldCarrier {
+	readonly [fieldUniqueMarker]?: true
+}
+
+/** Tells whether a field type carries the unique-target marker. */
+export type IsUniqueField<TField> =
+	typeof fieldUniqueMarker extends keyof TField ? true : false
+
+/** Adds the unique-target marker to a field declared with `indexed: 'unique'`. */
+export type UniqueIndexedField<TIndexed, TField> = [TIndexed] extends ['unique']
+	? TField & UniqueFieldCarrier
+	: TField
 
 /** Describes one homogeneous list wrapper around a field value. */
 export type FieldList = true
@@ -437,7 +459,9 @@ export type ForbiddenMutationInputField<TField extends GenericField> =
 				Omit<TState, 'create' | 'update'> &
 					Readonly<{ create: 'forbidden'; update: 'forbidden' }>,
 				TStructuralContainsOperand
-			>
+			> &
+				// A unique field stays a unique target (ADR-0332).
+				(IsUniqueField<TField> extends true ? UniqueFieldCarrier : unknown)
 		: TField
 
 /** Extracts the complete value carried by a field and its list metadata. */

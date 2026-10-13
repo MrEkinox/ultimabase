@@ -1,9 +1,11 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypeState,
+	FieldIndexOption,
 	FieldListOption,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -37,13 +39,15 @@ type DefaultedDateTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TIndexed
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
@@ -52,13 +56,15 @@ type NonDefaultedDateTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
+	GeneratedScalarOption<'autoNow', TAutoNow>,
+	TIndexed
 > &
 	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
@@ -101,29 +107,49 @@ export interface DateTimeFieldFactory<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedDateTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			DefaultedDateTimeFieldOptions<
+				TRequired,
+				TList,
+				TImmutable,
+				TAutoNow,
+				TIndexed
+			>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedDateTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
+			NonDefaultedDateTimeFieldOptions<
+				TRequired,
+				TList,
+				TImmutable,
+				TAutoNow,
+				TIndexed
+			>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): NonDefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
+	>
 }
 
 const localDateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u

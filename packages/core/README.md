@@ -1066,7 +1066,10 @@ a non-list scalar, enum or pointer field means `eq`, and `null` means
 `isNull: true`: `where: { id }`, `where: { completed: false }`. List, `json`,
 `object` and relation fields keep explicit operators, and normalization
 produces the same canonical filter, so serialization and adapters are
-unchanged; GraphQL filter inputs keep `{ eq }`. `findOneOrThrow` takes the
+unchanged; GraphQL filter inputs keep `{ eq }`. An operand of a `uuid` field,
+or a pointer's target id, must be a UUID: a malformed one never reaches the
+database and fails as malformed input naming its path
+(`where.id.eq must be a valid UUID`). `findOneOrThrow` takes the
 input of `findOne` and fails with `NOT_FOUND`, also for a hidden row, where
 `findOne` returns `null`. In update data, a numeric field takes
 `{ increment: n }` or `{ decrement: n }` with an operand of its value type, and
@@ -1095,8 +1098,8 @@ them into an ordinary caller filter combined with `where` by `AND`: policies
 see every ordered field as filtered, and a hand-written position grants nothing
 a filter could not. A row missing an ordered field fails with
 `VALIDATION_ERROR` and `publicDetails: { parameter: 'after' }`. Ordered fields
-must be non-list scalar or enum fields, and `null` sorts last in both
-directions. `skip` skips rows instead and cannot be combined with `after`.
+must be non-list scalar or enum fields (other `orderBy` keys fail to compile,
+ADR-0332), and `null` sorts last in both directions. `skip` skips rows instead and cannot be combined with `after`.
 
 Server-side reads have no default `take`: without `take`, `findMany` returns
 every matching row. The transport limits
@@ -1673,8 +1676,9 @@ only the fields visible in it and cannot recover omitted data. Every result
 exposes `id`, even when the selection did not name it.
 
 `Model<T>`, `CreateInput<T>` and `UpdateInput<T>` name the result of `findOne`
-and the write data of one schema, where `T` is a registered schema name
-(`Model<'Post'>`) or a schema type (`Model<typeof PostSchema>`).
+and the write data of one schema, and `UniqueWhereInput<T>` its unique target,
+where `T` is a registered schema name (`Model<'Post'>`) or a schema type
+(`Model<typeof PostSchema>`).
 `toJSON(value)` serializes a result, a list of results or any value inside them
 exactly as REST responses do: `bigint` as a decimal string, binary as
 `{ type: 'binary', encoding: 'base64', data }`, a `Pointer` as its pointer JSON,
@@ -1686,6 +1690,25 @@ Schema `updateOne`, `deleteOne` and `upsertOne` take their target only through
 conditional mutations and skip installed item lifecycle behavior when no row
 matches; use `findOneOrThrow` for a required read. Every read and write lives
 on the schema; there is no mutable `save()`.
+
+Their `where`, and the item `where` of `updateMany`, `deleteMany` and
+`upsertMany`, is typed `UniqueWhereInput<T>` (ADR-0332): a union with one
+member per target Runtime accepts, `{ id }`, each field declared
+`indexed: 'unique'` and each unique index of `define({ indexes })` with all of
+its fields. Each value is a shorthand or `{ eq }`, never `null`, and a member
+names no other unique key. A non-unique field, a partial composite index or an
+extra filter fails to compile; Runtime still checks the target, since untyped
+transports reach it. Unique indexes declared in the final `.with` are not typed
+targets (the declaration form types the schema without reading `.with`).
+`orderBy` keys are limited the same way to non-list scalar and enum fields of
+Core's kinds; an untyped caller ordering by another field fails with
+`query.orderBy.<field> must name a non-list scalar or enum field`. A plugin
+field declared unique carries `UniqueFieldCarrier` in its type to be a target.
+
+```ts
+const target: UniqueWhereInput<'Post'> = { id: postId }
+await PostSchema.deleteOne({ where: target })
+```
 
 ## Optional Hooks and Access engines
 

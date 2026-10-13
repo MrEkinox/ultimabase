@@ -84,7 +84,7 @@ describe('collection ordering', () => {
 				queryFromFindManyInput(Task, { orderBy: { [field]: 'asc' } } as never),
 			).toThrow(
 				new TypeError(
-					'query.orders[0].field must name a non-list scalar or enum field',
+					`query.orderBy.${field} must name a non-list scalar or enum field`,
 				),
 			)
 			expect(() => new QueryBuilder(Task).ascending(field as never)).toThrow(

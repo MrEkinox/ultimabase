@@ -1,10 +1,12 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypeState,
+	FieldIndexOption,
 	FieldListOption,
 	FieldOptions,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -45,13 +47,15 @@ type DefaultedIntFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
+	TIndexed
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -66,13 +70,15 @@ type NonDefaultedIntFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
+	TIndexed
 > &
 	CompatibleGeneratedScalarOptions<
 		'autoIncrement',
@@ -121,29 +127,49 @@ export interface IntFieldFactory<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
+			DefaultedIntFieldOptions<
+				TRequired,
+				TList,
+				TImmutable,
+				TAutoIncrement,
+				TIndexed
+			>,
 			TExtensionOptions,
 			number,
 			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
-	): DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
+			NonDefaultedIntFieldOptions<
+				TRequired,
+				TList,
+				TImmutable,
+				TAutoIncrement,
+				TIndexed
+			>,
 			TExtensionOptions,
 			number,
 			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
-	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
+	>
 }
 
 /**

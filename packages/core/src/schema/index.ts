@@ -140,6 +140,7 @@ export type {
 	FieldValue,
 	ResolveFieldTypeState,
 	ScalarFieldTypeState,
+	UniqueFieldCarrier,
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
 export type { FieldValueMode } from './fields/base/value-map.js'
@@ -342,6 +343,7 @@ export type {
 	SchemaRef,
 	SchemaRulesTarget,
 	Select,
+	UniqueWhereInput,
 	UpdateInput,
 	Where,
 } from './schema/registered-schemas.js'

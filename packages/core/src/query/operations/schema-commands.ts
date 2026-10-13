@@ -13,6 +13,7 @@ import type {
 	LiteralQuerySelection,
 	QuerySelection,
 } from '../clauses/selection.js'
+import type { SchemaUniqueWhere } from '../../schema/schema/registered-schemas.js'
 import type { WhereBuilder, WhereInput } from '../filters/where.js'
 import type {
 	NestedUpdateExpressionInput,
@@ -34,6 +35,15 @@ export type SchemaWhere<TSchema extends SchemaDefinition> =
  */
 export type SchemaWhereInput<TSchema extends SchemaTypeInfoSource> =
 	WhereInput<TSchema>
+
+/**
+ * Selects exactly one row: `id`, one unique field or one complete unique
+ * index, as `UniqueWhereInput` names it (ADR-0332).
+ *
+ * @example `{ id: postId }`
+ */
+export type SchemaUniqueWhereInput<TSchema extends SchemaTypeInfoSource> =
+	SchemaUniqueWhere<SchemaTypeInfoFor<TSchema>>
 
 interface SchemaCreateOneFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies the schema-derived values for the new row. */
@@ -125,6 +135,12 @@ type SchemaSingularTarget<TSchema extends SchemaTypeInfoSource> = Readonly<{
 	 *
 	 * @example `{ id: postId }`
 	 */
+	readonly where: SchemaUniqueWhereInput<TSchema>
+}>
+
+// The execution boundary keeps the full filter: Runtime checks the target
+// again, since untyped transports reach it too (ADR-0332).
+type SchemaExecutionTarget<TSchema extends SchemaTypeInfoSource> = Readonly<{
 	readonly where: SchemaWhereInput<TSchema>
 }>
 
@@ -156,7 +172,8 @@ export type SchemaUpdateOneInput<
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaUpdateOneExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
-> = SchemaUpdateOneFields<TSchema> &
+> = SchemaNestedUpdateFields<TSchema> &
+	SchemaExecutionTarget<TSchema> &
 	Readonly<{
 		include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
 		select?: QuerySelection<TSchema>
@@ -167,12 +184,19 @@ export type SchemaUpdateManyItemInput<TSchema extends SchemaTypeInfoSource> =
 	SchemaUpdateFields<TSchema> &
 		Readonly<{
 			/** Selects one exact unique target inside the batch. */
-			readonly where: SchemaWhereInput<TSchema>
+			readonly where: SchemaUniqueWhereInput<TSchema>
 		}>
 
 interface SchemaUpdateManyFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies uniquely targeted updates in deterministic declaration order. */
 	readonly data: readonly SchemaUpdateManyItemInput<TSchema>[]
+}
+
+interface SchemaUpdateManyExecutionFields<
+	TSchema extends SchemaTypeInfoSource,
+> {
+	readonly data: readonly (SchemaUpdateFields<TSchema> &
+		SchemaExecutionTarget<TSchema>)[]
 }
 
 /** Updates uniquely targeted rows in order and returns their selected values. */
@@ -186,7 +210,7 @@ export type SchemaUpdateManyInput<
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaUpdateManyExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
-> = SchemaUpdateManyFields<TSchema> &
+> = SchemaUpdateManyExecutionFields<TSchema> &
 	Readonly<{
 		include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
 		select?: QuerySelection<TSchema>
@@ -204,12 +228,12 @@ export type SchemaDeleteOneInput<
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaDeleteOneExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
-> = SchemaDeleteOneFields<TSchema> &
+> = SchemaExecutionTarget<TSchema> &
 	Readonly<{ select?: QuerySelection<TSchema> }>
 
 interface SchemaDeleteManyFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies unique targets in deterministic declaration order. */
-	readonly where: readonly SchemaWhereInput<TSchema>[]
+	readonly where: readonly SchemaUniqueWhereInput<TSchema>[]
 }
 
 /** Deletes uniquely targeted rows in order and returns their selected values. */
@@ -221,17 +245,23 @@ export type SchemaDeleteManyInput<
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaDeleteManyExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
-> = SchemaDeleteManyFields<TSchema> &
+> = Readonly<{ readonly where: readonly SchemaWhereInput<TSchema>[] }> &
 	Readonly<{ select?: QuerySelection<TSchema> }>
 
 interface SchemaUpsertOneFields<TSchema extends SchemaTypeInfoSource> {
-	/** Selects the conflict target through `id` or one complete unique index. */
-	readonly where: SchemaWhereInput<TSchema>
+	/** Selects the conflict target through `id`, one unique field or one complete unique index. */
+	readonly where: SchemaUniqueWhereInput<TSchema>
 	/** Supplies the complete create branch when no target exists. */
 	readonly create: SchemaCreateData<TSchema>
 	/** Applies typed atomic operations when the target already exists. */
 	readonly update: UpdateExpressionInput<TSchema> & {}
 }
+
+type SchemaUpsertExecutionItem<TSchema extends SchemaTypeInfoSource> = Omit<
+	SchemaUpsertOneFields<TSchema>,
+	'where'
+> &
+	SchemaExecutionTarget<TSchema>
 
 /** Creates one row or updates its unique target with an optional result projection. */
 export type SchemaUpsertOneInput<
@@ -242,7 +272,7 @@ export type SchemaUpsertOneInput<
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaUpsertOneExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
-> = SchemaUpsertOneFields<TSchema> &
+> = SchemaUpsertExecutionItem<TSchema> &
 	Readonly<{ select?: QuerySelection<TSchema> }>
 
 /** Describes one independently targeted item inside an ordered bulk upsert. */
@@ -263,5 +293,7 @@ export type SchemaUpsertManyInput<
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaUpsertManyExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
-> = SchemaUpsertManyFields<TSchema> &
+> = Readonly<{
+	readonly data: readonly SchemaUpsertExecutionItem<TSchema>[]
+}> &
 	Readonly<{ select?: QuerySelection<TSchema> }>

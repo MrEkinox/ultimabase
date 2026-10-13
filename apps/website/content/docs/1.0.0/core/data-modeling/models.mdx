@@ -19,6 +19,7 @@ sources:
   - packages/core/src/query/clauses/selection.ts
   - docs/adr/0181-implicit-result-identifiers.md
   - docs/adr/0310-plain-data-results-and-named-types.md
+  - docs/adr/0332-typed-unique-targets-and-order-keys.md
 ---
 
 `App.Schema.define()` returns a schema: a value that carries every command
@@ -82,8 +83,8 @@ exclusion rules.
 
 ## Named types
 
-`Model<T>`, `CreateInput<T>` and `UpdateInput<T>` name the result and the write
-data of one schema. `T` is a registered schema name, such as `Model<'Product'>`,
+`Model<T>`, `CreateInput<T>`, `UpdateInput<T>` and `UniqueWhereInput<T>` name
+the result, the write data and the unique target of one schema. `T` is a registered schema name, such as `Model<'Product'>`,
 or a schema type, such as `Model<typeof Product>`.
 
 ```ts title="src/product-types.ts"
@@ -102,6 +103,9 @@ export const draft: CreateInput<typeof Product> = {
 
 `Model<T>` is the result of `findOne` without `select` or `include`.
 `CreateInput<T>` is the `data` of `createOne`, nested writes included.
+`UniqueWhereInput<T>` is the `where` of `updateOne`, `deleteOne`, and
+`upsertOne`: `{ id }`, each unique field, or each unique index of `define`
+with all of its fields.
 
 ## Serialize with toJSON
 

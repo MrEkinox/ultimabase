@@ -288,7 +288,7 @@ describe('read terminals and singular schema commands', () => {
 			await expect(articleSchema.findOne(readInput)).resolves.toBeNull()
 			await expect(
 				articleSchema.findOneOrThrow({
-					where: { id: 'missing' },
+					where: { id: '00000000-0000-7000-8000-00000000dead' },
 					select: readInput.select,
 				}),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
@@ -382,7 +382,7 @@ describe('read terminals and singular schema commands', () => {
 					expression: {
 						field: 'id',
 						kind: 'equal',
-						value: 'missing',
+						value: '00000000-0000-7000-8000-00000000dead',
 					},
 				},
 			},

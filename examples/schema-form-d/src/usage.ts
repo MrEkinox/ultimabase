@@ -135,8 +135,8 @@ export const createFromInputs = () =>
 	])
 export const updateFromInputs = () =>
 	Promise.all([
-		Todo.updateOne({ where: { title: { eq: 'x' } }, data: namedUpdate }),
-		Todo.updateOne({ where: { title: { eq: 'x' } }, data: schemaUpdate }),
+		Todo.updateOne({ where: { id: 'x' }, data: namedUpdate }),
+		Todo.updateOne({ where: { id: 'x' }, data: schemaUpdate }),
 	])
 expectTypeOf<CreateInput<'Todo'>>().toEqualTypeOf<
 	Parameters<typeof Todo.createOne>[0]['data']

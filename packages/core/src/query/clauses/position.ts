@@ -27,30 +27,13 @@ import {
 } from '../filters/logical.js'
 import { readPersistedQueryFields } from '../ast/schema.js'
 import { validateScalarFieldShape } from '../../schema/plans/scalar-shape-validation.js'
+import { orderableFieldKinds } from '../../schema/fields/base/filter-kinds.js'
 
-/**
- * Built-in kinds Core orders and compares in a keyset predicate (ADR-0309):
- * non-list scalars and enums. Pointers, relations, JSON, objects and plugin
- * fields have no total order shared by every adapter.
- */
-const orderableFieldKinds: ReadonlySet<string> = new Set([
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
-	'enum',
-	'float',
-	'int',
-	'string',
-	'time',
-	'uuid',
-])
+const orderableKinds: ReadonlySet<string> = new Set(orderableFieldKinds)
 
 /** Tells whether one persisted field may appear in `orderBy`. */
 export const isOrderableQueryField = (field: GenericField): boolean =>
-	orderableFieldKinds.has(field.kind) && !hasListOption(field.options)
+	orderableKinds.has(field.kind) && !hasListOption(field.options)
 
 /** One ordered field of a position with its validated value. */
 export interface QueryPositionValue<TFieldName extends string = string> {

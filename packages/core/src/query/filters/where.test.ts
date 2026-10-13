@@ -109,7 +109,7 @@ describe('WhereInput', () => {
 			.gte('views', 0)
 			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
 			.count('tags', { between: { lower: 1, upper: 3 } })
-			.eq('author', 'author-id')
+			.eq('author', '00000000-0000-7000-8000-00000000a001')
 			.is('author', { archived: { eq: false } })
 			.isNot('author', (author) => author.eq('label', 'blocked'))
 		candidates.push(20)
@@ -131,14 +131,17 @@ describe('WhereInput', () => {
 	it('normalizes pointer IDs separately from target traversal predicates', () => {
 		const query = new QueryBuilder(Post).where({
 			author: {
-				eq: 'author-id',
-				in: ['author-id', 'reviewer-id'],
+				eq: '00000000-0000-7000-8000-00000000a001',
+				in: [
+					'00000000-0000-7000-8000-00000000a001',
+					'00000000-0000-7000-8000-00000000a002',
+				],
 				is: { archived: { eq: false } },
 				isNot: { label: { eq: 'blocked' } },
 			},
 		})
 		const serialized = new WhereBuilder(Post)
-			.eq('author', 'author-id')
+			.eq('author', '00000000-0000-7000-8000-00000000a001')
 			.is('author', { archived: { eq: false } })
 			.build()
 		const expression = query.ast.where?.expression
@@ -146,7 +149,7 @@ describe('WhereInput', () => {
 		expect(JSON.stringify(expression)).toContain('relation-predicate')
 		expect(serialized).toStrictEqual({
 			AND: [
-				{ author: { eq: 'author-id' } },
+				{ author: { eq: '00000000-0000-7000-8000-00000000a001' } },
 				{ author: { is: { archived: { eq: false } } } },
 			],
 		})
@@ -154,7 +157,7 @@ describe('WhereInput', () => {
 			normalizeWhereInput(Post, {
 				author: {
 					// @ts-expect-error -- The source filter accepts a target id, not a pointer object.
-					eq: Tag.pointer('author-id'),
+					eq: Tag.pointer('00000000-0000-7000-8000-00000000a001'),
 				},
 			}),
 		).toThrow('must be a target object id')

@@ -4,6 +4,7 @@ import type {
 	GenericField,
 } from '../fields/base/contract.js'
 import type { FieldValueMap } from '../fields/base/value-map.js'
+import type { OrderableFieldKind } from '../fields/base/filter-kinds.js'
 import type { OutputValue } from '../output/contracts.js'
 import type { PointerField } from '../fields/builtins/pointer.js'
 import type { PointerLinkInput } from '../nested-writes/inputs.js'
@@ -100,8 +101,23 @@ export type SourceDependencySelect<TFields extends SchemaDeclaredFields> =
 		]?: TKey extends 'id' ? true : boolean
 	}>
 
+/** Non-list fields of Core's orderable kinds: what Runtime orders (ADR-0332). */
+type IsOrderableSourceField<TField> = TField extends GenericField
+	? TField['kind'] extends OrderableFieldKind
+		? FieldTypeStateOf<TField>['list'] extends true
+			? false
+			: true
+		: false
+	: false
+
 export type SourceOrderBy<TFields extends SchemaDeclaredFields> = Readonly<{
-	[TKey in keyof StoredSourceFields<TFields>]?: 'asc' | 'desc' | null
+	[
+		TKey in keyof StoredSourceFields<TFields> as IsOrderableSourceField<
+			StoredSourceFields<TFields>[TKey]
+		> extends true
+			? TKey
+			: never
+	]?: 'asc' | 'desc' | null
 }>
 
 export type SourceFieldObjectValue<TField extends GenericField> =

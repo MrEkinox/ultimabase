@@ -1,10 +1,12 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldListOption,
-	FieldTypeState,
 	FieldOptions,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -45,24 +47,30 @@ type DefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	DecimalFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type NonDefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	DecimalFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type ResolvedDecimalField<
@@ -99,28 +107,36 @@ export interface DecimalFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
+			DefaultedDecimalFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): DefaultedDecimalField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedDecimalField<TRequired, TList, TImmutable>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
+			NonDefaultedDecimalFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): NonDefaultedDecimalField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedDecimalField<TRequired, TList, TImmutable>
+	>
 }
 
 interface ParsedDecimal {

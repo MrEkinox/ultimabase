@@ -1,10 +1,12 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
+	FieldIndexOption,
 	FieldListOption,
-	FieldTypeState,
 	FieldOptions,
+	FieldTypeState,
 	ResolvedFieldSourceOptions,
+	UniqueIndexedField,
 } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
@@ -29,24 +31,30 @@ type DefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type NonDefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TIndexed extends FieldIndexOption,
 > = NonDefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
 	TRequired,
 	TList,
-	TImmutable
+	TImmutable,
+	object,
+	TIndexed
 >
 
 type ResolvedUuidField<
@@ -83,28 +91,36 @@ export interface UuidFieldFactory<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
+			DefaultedUuidFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): DefaultedUuidField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		DefaultedUuidField<TRequired, TList, TImmutable>
+	>
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
+		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options?: CompatibleFieldOptionsExtension<
-			NonDefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
+			NonDefaultedUuidFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			string,
 			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
-	): NonDefaultedUuidField<TRequired, TList, TImmutable>
+	): UniqueIndexedField<
+		TIndexed,
+		NonDefaultedUuidField<TRequired, TList, TImmutable>
+	>
 }
 
 /**

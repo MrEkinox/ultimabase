@@ -93,8 +93,9 @@ const Todo = App.Schema.define({
 		children: field.relation({ target: () => Todo, mappedBy: 'parent' }),
 		tags: field.relation({ target: () => Tag }),
 	}),
-}).with({
+	// A unique index of `define` is a unique target of `upsertOne` (ADR-0332).
 	indexes: [{ fields: ['slug'], unique: true }],
+}).with({
 	hooks: {
 		resolveInput: {
 			all: ({ kind }) => {

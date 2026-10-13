@@ -1,7 +1,10 @@
 import type {
+	GenericField,
 	SchemaDefinition,
 	SchemaRelationFieldName,
 } from '../../schema/index.js'
+import { validateScalarFieldShape } from '../../schema/plans/scalar-shape-validation.js'
+import { systemFields } from '../../schema/schema/system-fields.js'
 import {
 	immutableRecord,
 	isPlainRecord,
@@ -91,6 +94,46 @@ const assertRootWhereTarget: <TSchema extends SchemaDefinition>(
 	}
 }
 
+/**
+ * The UUID field whose syntax binds the operands of one root target: a `uuid`
+ * field, or the target `id` of a pointer. A malformed UUID can never match and
+ * fails in the database as a data-constraint error, so it is refused as
+ * malformed input. Decimal precision and scale bound stored values only and
+ * stay out: `price: { gt: '0.001' }` remains a valid comparison.
+ */
+const readUuidOperandField = (
+	schema: SchemaDefinition,
+	target: string | QueryFieldPath,
+): GenericField | undefined => {
+	if (typeof target !== 'string') return undefined
+
+	const field = schema.persistedFields[target]
+
+	if (field?.kind === 'uuid') return field
+
+	return field?.kind === 'pointer' ? systemFields.id : undefined
+}
+
+/** Refuses a malformed UUID operand, or element of a list operand, by its path. */
+const assertUuidOperand = (
+	field: GenericField | undefined,
+	operand: unknown,
+	path: string,
+): void => {
+	if (field === undefined || operand === null) return
+
+	if (isUnknownArray(operand)) {
+		for (const [index, item] of operand.entries()) {
+			assertUuidOperand(field, item, `${path}[${String(index)}]`)
+		}
+		return
+	}
+
+	if (validateScalarFieldShape(field, operand, []).length > 0) {
+		throw new TypeError(`${path} must be a valid UUID`)
+	}
+}
+
 /** Converts one canonical operator entry into its portable primitive leaf. */
 const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -105,10 +148,12 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 	}
 
 	const kind = readWhereOperatorKind(operator)
+	const uuidField = readUuidOperandField(schema, target)
 
 	switch (kind) {
 		case 'equal':
 		case 'not-equal':
+			assertUuidOperand(uuidField, operand, path)
 			return createQueryValueFilter(
 				schema,
 				kind,
@@ -147,6 +192,7 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 		case 'in':
 		case 'not-in':
 			assertWhereArray(operand, path)
+			assertUuidOperand(uuidField, operand, path)
 			return createQueryMembershipFilter(
 				schema,
 				kind,
@@ -161,10 +207,12 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 				),
 			)
 		case 'list-has':
+			assertUuidOperand(uuidField, operand, path)
 			return createQueryListFilter(schema, kind, target, operand)
 		case 'list-has-some':
 		case 'list-has-every':
 			assertWhereArray(operand, path)
+			assertUuidOperand(uuidField, operand, path)
 			return createQueryListFilter(schema, kind, target, operand)
 		case 'list-empty':
 			assertEnabledWhereFlag(operand, path)
