@@ -248,22 +248,20 @@ export type SchemaDeleteManyExecutionInput<
 > = Readonly<{ readonly where: readonly SchemaWhereInput<TSchema>[] }> &
 	Readonly<{ select?: QuerySelection<TSchema> }>
 
-interface SchemaUpsertBranches<TSchema extends SchemaTypeInfoSource> {
+interface SchemaUpsertOneFields<TSchema extends SchemaTypeInfoSource> {
+	/** Selects the conflict target through `id`, one unique field or one complete unique index. */
+	readonly where: SchemaUniqueWhereInput<TSchema>
 	/** Supplies the complete create branch when no target exists. */
 	readonly create: SchemaCreateData<TSchema>
 	/** Applies typed atomic operations when the target already exists. */
 	readonly update: UpdateExpressionInput<TSchema> & {}
 }
 
-interface SchemaUpsertOneFields<
-	TSchema extends SchemaTypeInfoSource,
-> extends SchemaUpsertBranches<TSchema> {
-	/** Selects the conflict target through `id`, one unique field or one complete unique index. */
-	readonly where: SchemaUniqueWhereInput<TSchema>
-}
-
-type SchemaUpsertExecutionItem<TSchema extends SchemaTypeInfoSource> =
-	SchemaUpsertBranches<TSchema> & SchemaExecutionTarget<TSchema>
+type SchemaUpsertExecutionItem<TSchema extends SchemaTypeInfoSource> = Omit<
+	SchemaUpsertOneFields<TSchema>,
+	'where'
+> &
+	SchemaExecutionTarget<TSchema>
 
 /** Creates one row or updates its unique target with an optional result projection. */
 export type SchemaUpsertOneInput<
