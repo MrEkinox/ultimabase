@@ -11,6 +11,7 @@ import {
 } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
+import { graphqlHideSuggestionsKey } from './hidden-suggestions.js'
 import { graphqlPlugin } from './plugin.js'
 import type { GraphqlExecutionLimits } from './connection-limits.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
@@ -307,8 +308,9 @@ describe('GraphQL networkless execution', () => {
 		await application.dispose()
 	})
 
-	// ADR-0333 amendment: only a transport with introspection off hides them.
-	it('keeps GraphQL suggestions for direct server-side execution', async () => {
+	// ADR-0333 amendment: direct execution keeps GraphQL's suggestions; only
+	// the internal channel a transport with introspection off uses hides them.
+	it('hides suggestions only through the internal adapter channel', async () => {
 		const Status = new GraphQLEnumType({
 			name: 'NetworklessStatus',
 			values: { DRAFT: {}, PUBLISHED: {} },
@@ -335,19 +337,39 @@ describe('GraphQL networkless execution', () => {
 		))({ logger: false, schemas: [] })
 		onTestFinished(() => application.dispose())
 		await application.start()
-		const result = await application
-			.plugin('@ultimabase/graphql-plugin')
-			.execute({
-				context: anonymous(application, {
-					requestId: 'networkless-suggestions',
-					source: 'test',
-				}).context,
-				document:
-					'query ($status: NetworklessStatus!) { byStatus(status: $status) }',
-				variables: { status: 'DRAF' },
-			})
-		expect(result.errors?.map(({ message }) => message)).toStrictEqual([
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
+		const context = anonymous(application, {
+			requestId: 'networkless-suggestions',
+			source: 'test',
+		}).context
+		const coercion = {
+			context,
+			document:
+				'query ($status: NetworklessStatus!) { byStatus(status: $status) }',
+			variables: { status: 'DRAF' },
+		}
+		const messages = async (
+			options: Parameters<typeof graphql.execute>[0],
+		): Promise<readonly string[] | undefined> =>
+			(await graphql.execute(options)).errors?.map(({ message }) => message)
+
+		expect(await messages(coercion)).toStrictEqual([
 			'Variable "$status" has invalid value: Value "DRAF" does not exist in "NetworklessStatus" enum. Did you mean the enum value "DRAFT"?',
 		])
+		expect(
+			await messages({ ...coercion, [graphqlHideSuggestionsKey]: true }),
+		).toStrictEqual([
+			'Variable "$status" has invalid value: Value "DRAF" does not exist in "NetworklessStatus" enum.',
+		])
+		expect(
+			await messages({
+				context,
+				document: '{ byStatu }',
+				[graphqlHideSuggestionsKey]: true,
+			}),
+		).toStrictEqual(['Cannot query field "byStatu" on type "Query".'])
+		await expect(
+			graphql.execute({ ...coercion, [graphqlHideSuggestionsKey]: 'yes' }),
+		).rejects.toThrow('GraphQL execute suggestion option must be a boolean')
 	})
 })

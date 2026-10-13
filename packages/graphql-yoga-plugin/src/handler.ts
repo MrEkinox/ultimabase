@@ -34,6 +34,13 @@ type YogaPlugin = Plugin<
 	Record<string, unknown>
 >
 
+// The graphql-plugin's internal execution channel that hides "Did you mean"
+// suggestions (ADR-0333 amendment): the same versioned global symbol, so no
+// public export or declared option of GraphqlExecuteOptions carries it.
+const hideSuggestionsKey: symbol = Symbol.for(
+	'@ultimabase/graphql-plugin/hide-suggestions/v1',
+)
+
 interface GraphqlYogaMountResource {
 	readonly dispose: () => Promise<void>
 	readonly mount: HttpMountDefinition
@@ -116,6 +123,8 @@ export const createGraphqlYogaMountResource = (
 						...(args.variableValues == null
 							? {}
 							: { variables: args.variableValues }),
+						// Variable coercion runs during execution and suggests too.
+						...(options.introspection ? {} : { [hideSuggestionsKey]: true }),
 					})
 				})
 			},

@@ -75,11 +75,11 @@ it('serves neither the explorer nor introspection in production', async () => {
 
 it('names neither a disabled feature nor a field in production', async () => {
 	await using t = await testApplication(application('production'))
-	const post = async (query: string) =>
+	const post = async (query: string, variables?: Record<string, unknown>) =>
 		await t.fetch('/graphql', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ query }),
+			body: JSON.stringify({ query, variables }),
 		})
 
 	// `count` is off: the hint naming the rule exists only outside production.
@@ -92,5 +92,19 @@ it('names neither a disabled feature nor a field in production', async () => {
 	const misspelled = await post('{ findManyPage { nodes { titel } } }')
 	expect(await misspelled.json()).toMatchObject({
 		errors: [{ message: 'Cannot query field "titel" on type "Page".' }],
+	})
+	// Nor inside a variable, whose value is checked while the query runs.
+	const variable = await post(
+		'query ($where: PageWhere) { findManyPage(where: $where) { nodes { title } } }',
+		{ where: { titel: { eq: 'Home' } } },
+	)
+	expect(await variable.json()).toMatchObject({
+		errors: [
+			{
+				message:
+					'Variable "$where" has invalid value: Expected value of type "PageWhere" not to include unknown field "titel", found: { titel: { eq: "Home" } }.',
+				extensions: { code: 'BAD_USER_INPUT' },
+			},
+		],
 	})
 })

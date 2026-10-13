@@ -548,9 +548,11 @@ answers `application/graphql-response+json`, and limits streamed bodies to
 the HTTP plugin's `bodyLimit` (1 MiB). It rejects other methods with `405`,
 batching, uploads, subscriptions, SSE, and its built-in GraphiQL UI. HTTP
 introspection is on in development and off when `NODE_ENV=production`; an
-explicit `introspection` value always wins. With introspection off,
-validation errors carry no "Did you mean …" suggestions, which would name
-fields. The `notes` application above sets `path: '/api/graphql'`, a 512 KiB
+explicit `introspection` value always wins. With introspection off, no
+error carries a "Did you mean …" suggestion, which would name a field,
+argument or enum value: neither validation errors nor `BAD_USER_INPUT`
+errors for a variable's value. A direct server-side `execute()` call keeps
+them. The `notes` application above sets `path: '/api/graphql'`, a 512 KiB
 `bodyLimit` (a larger body answers `413` `HTTP_PAYLOAD_TOO_LARGE`) and
 explicit introspection:
 
