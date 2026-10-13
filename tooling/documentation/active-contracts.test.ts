@@ -255,7 +255,7 @@ describe('active documentation contracts', () => {
 			'packages/hooks-plugin/README.md':
 				'packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
 			'packages/pg-vector-plugin/README.md':
-				'packages/typegen/src/generator-language-service.test.ts',
+				'packages/pg-vector-plugin/tests/field-builder-autocomplete.test.ts',
 			'packages/postgres-plugin/README.md':
 				'packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
 		} as const

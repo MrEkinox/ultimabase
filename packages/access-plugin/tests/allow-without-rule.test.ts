@@ -48,9 +48,7 @@ const Member = App.Schema.define({
 const Document = App.Schema.define({
 	className: 'OpeningDocument',
 	fields: (field) => ({ title: field.string() }),
-})
-	.archivable()
-	.with({})
+}).archivable()
 const Ruled = App.Schema.define({
 	className: 'OpeningRuled',
 	fields: (field) => ({ title: field.string() }),

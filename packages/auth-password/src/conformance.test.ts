@@ -56,9 +56,9 @@ it('conforms to public plugin kernel contracts with the password method', async 
 			createFixture: () => {
 				const subject = authPlugin({ methods: [password()] })
 				// The subject owns the User its factory declares (ADR-0326).
-				const User = UltimaBase.use(subject)
-					.UserSchema.define({ className: 'ConformanceUser' })
-					.with({})
+				const User = UltimaBase.use(subject).UserSchema.define({
+					className: 'ConformanceUser',
+				})
 				return createPluginConformanceFixture({
 					schemas: [User],
 					subject,
@@ -75,7 +75,6 @@ it('conforms to public plugin kernel contracts with the password method', async 
 					'operation:declare',
 					'runtime:intercept',
 					'transport:expose',
-					'typegen:reference',
 					'authority:elevate',
 				],
 				version: '0.0.0',

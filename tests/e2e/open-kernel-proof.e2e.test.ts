@@ -1,5 +1,3 @@
-import path from 'node:path'
-
 import {
 	FrameworkError,
 	UltimaBase,
@@ -18,10 +16,7 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '@ultimabase/testing/plugins'
-import { generateApplicationTypes } from '@ultimabase/typegen'
-import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
@@ -93,7 +88,6 @@ describe('open-kernel workflow proof', () => {
 					'runtime:observe',
 					'runtime:intercept',
 					'transport:expose',
-					'typegen:reference',
 				],
 				version: '1.0.0',
 			},
@@ -116,7 +110,7 @@ describe('open-kernel workflow proof', () => {
 				expect(
 					application.schemas.values().map(({ className }) => className),
 				).toStrictEqual(['OpenKernelWorkflowPost', 'WorkflowAuditeditorial'])
-				expect(application.typegenGraph.schemaSurfaces).toHaveLength(2)
+				expect(application.schemaSurfaces).toHaveLength(2)
 			})
 			.check('transport', async ({ createUltimaBase }) => {
 				const { ultimabase } = createUltimaBase()
@@ -147,22 +141,9 @@ describe('open-kernel workflow proof', () => {
 					result: { schema: 'application', state: 'application' },
 				})
 			})
-		const report = await runPluginConformance(
-			withPluginTypegenConformance(suite, {
-				applicationId: 'open-kernel-workflow',
-				verify: ({ contents }) => {
-					expect(contents).toContain('WorkflowTransitionInput')
-					expect(contents).toContain('WorkflowAuditeditorial')
-				},
-			}),
-		)
+		const report = await runPluginConformance(suite)
 		expect(report.checks.map(({ contract }) => contract)).toEqual(
-			expect.arrayContaining([
-				'operation',
-				'schema-surface',
-				'transport',
-				'typegen',
-			]),
+			expect.arrayContaining(['operation', 'schema-surface', 'transport']),
 		)
 	}, 20_000)
 
@@ -173,7 +154,6 @@ describe('open-kernel workflow proof', () => {
 			'transport:expose',
 			'runtime:intercept',
 			'runtime:observe',
-			'typegen:reference',
 		]
 		for (const privilege of privileges) {
 			const { Stable, workflow } = createWorkflowFixture()
@@ -236,22 +216,23 @@ describe('open-kernel workflow proof', () => {
 	})
 })
 
-describe('open-kernel Typegen proof', () => {
+describe('open-kernel value and soft-delete proof', () => {
 	it('runs the value and soft-delete fixtures through public conformance', async () => {
 		const createValueFixture = () => {
 			const value = createValuePlugin({
 				instanceId: 'main',
 				targetClassName: 'OpenKernelConformanceLedger',
 			})
-			const Ledger = UltimaBase.use(value).Schema.define({
-				className: 'OpenKernelConformanceLedger',
-				decimalLedger: { defaultScale: 2 },
-				fields: (field) => ({
-					label: field.string({
-						decimalLabel: { format: 'plain' },
+			const Ledger = UltimaBase.use(value)
+				.Schema.define({
+					className: 'OpenKernelConformanceLedger',
+					fields: (field) => ({
+						label: field.string({
+							decimalLabel: { format: 'plain' },
+						}),
 					}),
-				}),
-			})
+				})
+				.decimalLedger({ defaultScale: 2 })
 			return { Ledger, plugin: value }
 		}
 		const valueSuite = definePluginConformanceSuite({
@@ -266,7 +247,7 @@ describe('open-kernel Typegen proof', () => {
 			expected: {
 				core: '^0.0.0',
 				pluginId: 'fixture.open-kernel-value',
-				privileges: ['schema:declare', 'typegen:reference'],
+				privileges: ['schema:declare'],
 				version: '1.0.0',
 			},
 		}).check('codec', ({ createUltimaBase }) => {
@@ -295,19 +276,7 @@ describe('open-kernel Typegen proof', () => {
 				units: '1200',
 			})
 		})
-		const valueReport = await runPluginConformance(
-			withPluginTypegenConformance(valueSuite, {
-				applicationId: 'open-kernel-value',
-				verify: ({ contents }) => {
-					expect(contents).toContain('readonly amount: Plugin0_DecimalValue')
-					expect(contents).toContain('readonly decimalLabel?:')
-					expect(contents).toContain('readonly decimalLedger?:')
-					expect(contents).toContain(
-						'readonly amount?: PortableEqualityFilter<Plugin0_DecimalValue>',
-					)
-				},
-			}),
-		)
+		const valueReport = await runPluginConformance(valueSuite)
 		expect(valueReport.checks).toContainEqual({
 			contract: 'codec',
 			status: 'passed',
@@ -349,7 +318,7 @@ describe('open-kernel Typegen proof', () => {
 			if (schema === undefined)
 				throw new TypeError('Missing soft-delete fixture schema')
 			expect(schema.definition.fields).toHaveProperty('isDeleted')
-			expect(application.typegenGraph.operations).toStrictEqual([])
+			expect(application.operations).toStrictEqual([])
 		})
 		const softReport = await runPluginConformance(softSuite)
 		expect(softReport.checks).toContainEqual({
@@ -357,92 +326,4 @@ describe('open-kernel Typegen proof', () => {
 			status: 'passed',
 		})
 	}, 20_000)
-
-	it('keeps exact generated types valid through built public exports', () => {
-		const { Stable, workflow } = createWorkflowFixture()
-		const value = createValuePlugin({
-			instanceId: 'typed',
-			targetClassName: 'OpenKernelLanguageServiceLedger',
-		})
-		const Ledger = UltimaBase.use(value).Schema.define({
-			className: 'OpenKernelLanguageServiceLedger',
-			decimalLedger: { defaultScale: 4 },
-			fields: (field) => ({
-				label: field.string({
-					decimalLabel: { format: 'accounting' },
-				}),
-			}),
-		})
-		const Application = UltimaBase.use(hooksPlugin())
-			.use(createKernelSupportPlugin())
-			.use(workflow.plugin)
-			.use(value)
-		const application = new Application({
-			schemas: [Stable, Ledger],
-		})
-		const generated = generateApplicationTypes({
-			ultimabase: application,
-			applicationId: 'open-kernel-language-service',
-		}).contents
-		const repository = path.resolve(import.meta.dirname, '../..')
-		const fileName = path.join(
-			import.meta.dirname,
-			'open-kernel-language-service.fixture.ts',
-		)
-		const source = `${generated}
-import { UltimaBase } from '@ultimabase/core'
-import { createValuePlugin } from './fixtures/open-kernel-value.js'
-const app = undefined as unknown as Core.UltimaBase<readonly []>
-const operation = app.operation('fixture.workflow.inspect')
-operation.prepare({ reason: 'typed' })
-const result: Promise<Plugin0_WorkflowTransitionResult> = operation.execute({ reason: 'typed' })
-const valuePlugin = createValuePlugin({ instanceId: 'typed', targetClassName: 'OpenKernelLanguageServiceLedger' })
-const ConfiguredLedger = UltimaBase.use(valuePlugin).Schema.define({
-  className: 'OpenKernelLanguageServiceLedger',
-  decimalLedger: { defaultScale: 4 },
-  fields: (field) => ({ label: field.string({ decimalLabel: { format: 'accounting' } }) }),
-})
-ConfiguredLedger.findMany({ where: { amount: { eq: { scale: 2, units: '100' } } } })
-// @ts-expect-error -- Generated portable equality retains the exact logical value.
-ConfiguredLedger.findMany({ where: { amount: { eq: { scale: '2', units: '100' } } } })
-const validWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: 2, units: '100' }, notIn: [{ scale: 0, units: '0' }] } }
-// @ts-expect-error -- Portable equality retains the plugin's exact logical value.
-const invalidWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: '2', units: '100' } } }
-void result
-void validWhere
-void invalidWhere
-`
-		const host: ts.LanguageServiceHost = {
-			fileExists: (requested) => ts.sys.fileExists(requested),
-			getCompilationSettings: () => ({
-				baseUrl: repository,
-				module: ts.ModuleKind.NodeNext,
-				moduleResolution: ts.ModuleResolutionKind.NodeNext,
-				paths: {
-					'@fixture/open-kernel': ['tests/e2e/fixtures/open-kernel-types.ts'],
-					'@ultimabase/core': ['packages/core/dist/index.d.ts'],
-					'@ultimabase/core/plugin': ['packages/core/dist/plugin.d.ts'],
-					'@ultimabase/shared': ['packages/shared/dist/index.d.ts'],
-				},
-				strict: true,
-				target: ts.ScriptTarget.ESNext,
-			}),
-			getCurrentDirectory: () => repository,
-			getDefaultLibFileName: ts.getDefaultLibFilePath,
-			getScriptFileNames: () => [fileName],
-			getScriptSnapshot: (requested) => {
-				const value =
-					requested === fileName ? source : ts.sys.readFile(requested)
-				return value === undefined
-					? undefined
-					: ts.ScriptSnapshot.fromString(value)
-			},
-			getScriptVersion: () => '0',
-			readFile: (requested) => ts.sys.readFile(requested),
-		}
-		const diagnostics = ts
-			.createLanguageService(host)
-			.getSemanticDiagnostics(fileName)
-		expect(diagnostics).toStrictEqual([])
-	})
 })

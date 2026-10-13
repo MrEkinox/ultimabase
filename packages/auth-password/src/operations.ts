@@ -9,7 +9,6 @@ import { PluginError, type SchemaDefinition } from '@ultimabase/core'
 import {
 	defineOperation,
 	defineOperationValue,
-	defineTypegenReference,
 	type PluginOperationDefinition,
 	type PluginOperationValueContract,
 } from '@ultimabase/core/plugin'
@@ -74,9 +73,6 @@ export const rejectEmailChange = (cause?: unknown): never => {
 	)
 }
 
-const reference = (exportName: string) =>
-	defineTypegenReference({ exportName, module: '@ultimabase/auth-password' })
-
 const loginInput = defineOperationValue<PasswordLoginInput>((value, path) => {
 	const identifier =
 		isPlainRecord(value) && Object.hasOwn(value, 'email') ? 'email' : 'username'
@@ -94,12 +90,11 @@ const loginInput = defineOperationValue<PasswordLoginInput>((value, path) => {
 		[identifier]: value[identifier],
 		password: value.password,
 	}) as PasswordLoginInput
-}, reference('PasswordLoginInput'))
+})
 
 /** @internal One input with exactly the given string fields. */
 export const exactStrings = <TValue>(
 	names: readonly string[],
-	exportName: string,
 ): PluginOperationValueContract<TValue> =>
 	defineOperationValue<TValue>((value, path) => {
 		if (
@@ -112,12 +107,11 @@ export const exactStrings = <TValue>(
 		return immutableRecord(
 			Object.fromEntries(names.map((name) => [name, value[name]])),
 		) as TValue
-	}, reference(exportName))
+	})
 
 /** @internal One acknowledgement such as `{ changed: true }`. */
 export const acknowledgement = <TValue>(
 	key: string,
-	exportName: string,
 ): PluginOperationValueContract<TValue> =>
 	defineOperationValue<TValue>((value, path) => {
 		if (
@@ -128,7 +122,7 @@ export const acknowledgement = <TValue>(
 			throw new TypeError(`${path} must be { ${key}: true }`)
 		}
 		return immutableRecord({ [key]: true }) as TValue
-	}, reference(exportName))
+	})
 
 /** The sign-up input: the User's create fields, the identifier and `password`. */
 export type PasswordSignUpData = Readonly<Record<string, unknown>> &
@@ -137,7 +131,6 @@ export type PasswordSignUpData = Readonly<Record<string, unknown>> &
 const signUpInput = defineOperationValue<PasswordSignUpData>(
 	(value, path) =>
 		snapshotSignUpInput(value, path, ['password']) as PasswordSignUpData,
-	reference('PasswordSignUpData'),
 )
 
 /** @internal One operation of the password method. */
@@ -205,7 +198,6 @@ const signUpResult = defineOperationValue<PasswordSignUpResult>(
 		}) as AuthPendingSignUp
 		return pending
 	},
-	reference('PasswordSignUpResult'),
 )
 
 const signUpOperation: PasswordOperation<
@@ -241,11 +233,8 @@ const changePasswordOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'change-password',
-	exactStrings<PasswordChangeInput>(
-		['currentPassword', 'newPassword'],
-		'PasswordChangeInput',
-	),
-	acknowledgement<PasswordChangeResult>('changed', 'PasswordChangeResult'),
+	exactStrings<PasswordChangeInput>(['currentPassword', 'newPassword']),
+	acknowledgement<PasswordChangeResult>('changed'),
 	[
 		authErrorCodes.invalidSession,
 		passwordErrorCodes.passwordChangeRejected,
@@ -263,14 +252,8 @@ const reauthenticateOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'reauthenticate',
-	exactStrings<PasswordReauthenticateInput>(
-		['password'],
-		'PasswordReauthenticateInput',
-	),
-	acknowledgement<PasswordReauthenticateResult>(
-		'reauthenticated',
-		'PasswordReauthenticateResult',
-	),
+	exactStrings<PasswordReauthenticateInput>(['password']),
+	acknowledgement<PasswordReauthenticateResult>('reauthenticated'),
 	[
 		authErrorCodes.invalidCredentials,
 		authErrorCodes.invalidSession,

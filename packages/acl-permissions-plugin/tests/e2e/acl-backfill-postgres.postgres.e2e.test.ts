@@ -29,7 +29,7 @@ const plain = (className: string) =>
 	ACLApplication.Schema.define({
 		className,
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	}).with({})
+	})
 
 /** Declares the same schema once `.acl()` is added. */
 const withACL = (className: string, rule: Readonly<{ acl: ACLRule }>) =>

@@ -36,10 +36,7 @@ import {
 } from '../plugins/manifest.js'
 import { PluginSetupRegistries } from '../plugins/setup-registries.js'
 import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-method-registry.js'
-import type {
-	OwnedFieldBuilderMethod,
-	OwnedPluginFieldType,
-} from '../schema/schema/field-builder-methods.js'
+import type { OwnedFieldBuilderMethod } from '../schema/schema/field-builder-methods.js'
 import type {
 	ConfiguredPluginExports,
 	ConfiguredPluginId,
@@ -60,9 +57,10 @@ import {
 import { formatStartupSummary } from './startup-summary.js'
 import type {
 	CompiledApplicationSchemaSurface,
+	CompiledOperationFacts,
 	CompiledPluginOperation,
+	CompiledSchemaSurfaceFacts,
 } from '../plugins/application-surface-contracts.js'
-import type { CompiledTypegenGraph } from '../plugins/typegen-declarations.js'
 import { PrivateStorageRegistry } from '../private-storage/registry.js'
 import { configureApplicationPrivateStorage } from '../private-storage/runtime.js'
 import { compileStaticRelationWhereDeclarations } from '../query/filters/relation-where-declaration.js'
@@ -190,8 +188,6 @@ export class FrameworkApplication<
 		}
 		const setupRegistries = new PluginSetupRegistries(
 			this.schemas,
-			() => this.fieldBuilderMethods,
-			() => this.pluginFieldTypes,
 			(owner) => {
 				const host = capabilityHostReference.current
 				if (host === undefined) {
@@ -199,7 +195,6 @@ export class FrameworkApplication<
 				}
 				return host.forPlugin(owner)
 			},
-			() => this.#schemaDeclarations.typegenGraph(),
 			(owner) => this.#log.forPlugin(owner),
 		)
 		const capabilityHost = new ApplicationCapabilityHost(
@@ -251,11 +246,6 @@ export class FrameworkApplication<
 		return this.#fieldBuilderMethods.values()
 	}
 
-	/** Reads plugin field value contracts without implying a public builder method. */
-	get pluginFieldTypes(): readonly OwnedPluginFieldType[] {
-		return this.#fieldBuilderMethods.fieldTypes()
-	}
-
 	/** Checks exact schema identity so Runtime engines cannot cross applications. */
 	ownsSchema(schema: unknown): schema is TSchemas[number] {
 		if (!Schema.is(schema)) {
@@ -281,10 +271,16 @@ export class FrameworkApplication<
 		return this.#schemaDeclarations.commandGraph().operation(name)
 	}
 
-	/** Reads the complete callback-free graph used by declaration tooling. */
-	get typegenGraph(): CompiledTypegenGraph {
+	/** Reads the callback-free operations of the compiled application. */
+	get operations(): readonly CompiledOperationFacts[] {
 		this.compileSchemas()
-		return this.#schemaDeclarations.typegenGraph()
+		return this.#schemaDeclarations.operationFacts()
+	}
+
+	/** Reads the callback-free schema surfaces of the compiled application. */
+	get schemaSurfaces(): readonly CompiledSchemaSurfaceFacts[] {
+		this.compileSchemas()
+		return this.#schemaDeclarations.commandGraph().schemaSurfaces()
 	}
 
 	/** Adds private storage identity to fingerprints without exposing descriptors. */

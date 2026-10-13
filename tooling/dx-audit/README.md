@@ -59,8 +59,7 @@ Usage sites, read from each root:
   spells as a string are blanked like the repository helpers do.
 - type tests: every `*.test-d.ts`, one program per package with its
   `tsconfig.test.json`.
-- examples: every file of `examples/*/src`, with the example `tsconfig.json`
-  (including the committed generated declarations).
+- examples: every file of `examples/*/src`, with the example `tsconfig.json`.
 
 ## Normalization (only what users cannot see)
 
@@ -77,8 +76,6 @@ Alias names, type text, JSDoc and diagnostic text are never normalized.
 - Member hovers are taken at the member declaration, which shows the declaring
   type (`(property) Base<T>.name: T`); the checker type is recorded too. A use
   site may show an instantiated variant of the same text.
-- Fixture sources computed at test run time (generated typegen output,
-  `.join()` of arrays, function parameters) are only partially reproduced; the
-  summary lists each such substitution.
-- Generator output of `@ultimabase/typegen` is not compared here (the examples
-  use their committed generated declarations).
+- Fixture sources computed at test run time (`.join()` of arrays, function
+  parameters) are only partially reproduced; the summary lists each such
+  substitution.

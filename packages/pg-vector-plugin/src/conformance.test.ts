@@ -2,13 +2,12 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '@ultimabase/testing/plugins'
 import { expect, it } from 'vitest'
 
 import { pgVectorPlugin } from './index.js'
 
-it('conforms to the public plugin and Typegen contracts', async () => {
+it('conforms to the public plugin contracts', async () => {
 	const suite = definePluginConformanceSuite({
 		createFixture: () =>
 			createPluginConformanceFixture({
@@ -22,7 +21,7 @@ it('conforms to the public plugin and Typegen contracts', async () => {
 			version: '0.0.0',
 		},
 	})
-	const report = await runPluginConformance(withPluginTypegenConformance(suite))
+	const report = await runPluginConformance(suite)
 
-	expect(report.checks.map(({ contract }) => contract)).toContain('typegen')
+	expect(report.checks.map(({ contract }) => contract)).toContain('manifest')
 })

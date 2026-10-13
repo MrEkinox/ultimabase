@@ -4,7 +4,7 @@ import {
 	UltimaBase,
 	type BooleanField,
 	type ForbiddenMutationInputField,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 	type StringField,
 } from '../index.js'
 import {
@@ -24,8 +24,8 @@ import type { PluginSource } from './definition.js'
 
 // ADR-0316 decision 1: plugins add fields, statics and rules through
 // higher-kinded slots that Core evaluates against the called shape methods.
-type Flagged = BooleanField<ScalarFieldTypegenState<true, false, false, true>>
-type Note = StringField<ScalarFieldTypegenState<false, false, false, false>>
+type Flagged = BooleanField<ScalarFieldTypeState<true, false, false, true>>
+type Note = StringField<ScalarFieldTypeState<false, false, false, false>>
 type Archive = PluginSchemaMutationDefinition<
 	'fixture.slots.archive',
 	'1.0.0',

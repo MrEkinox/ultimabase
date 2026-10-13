@@ -86,7 +86,7 @@ const Replace = SchemaApplication.Schema.define({
 const Disabled = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportDisabled',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({})
+})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

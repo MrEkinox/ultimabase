@@ -18,9 +18,6 @@ const NestedUpdateApplication =
 
 const Child = NestedUpdateApplication.Schema.define({
 	className: 'NestedUpdateChild',
-	access: {
-		read: ({ where }) => where.eq('visible', true),
-	},
 	fields: (field) => ({
 		name: field.string({ required: true }),
 		parents: field.relation({
@@ -29,6 +26,10 @@ const Child = NestedUpdateApplication.Schema.define({
 		}),
 		visible: field.boolean({ default: true }),
 	}),
+}).with({
+	access: {
+		read: ({ where }) => where.eq('visible', true),
+	},
 	hooks: {
 		afterOperation: {
 			create: () => {
@@ -68,6 +69,7 @@ const Parent = NestedUpdateApplication.Schema.define({
 			target: 'NestedUpdateNote',
 		}),
 	}),
+}).with({
 	hooks: {
 		afterOperation: {
 			update: () => {

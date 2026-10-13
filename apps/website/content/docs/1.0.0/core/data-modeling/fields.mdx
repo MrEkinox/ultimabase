@@ -67,25 +67,25 @@ The `fields` callback receives a field builder, named `f` in these examples.
 Each method returns an immutable declaration; it does not create or load a
 record. Choose by the value your application uses, not by a database column type.
 
-| Builder        | Application value           | Builder-specific options or behavior                                                                                    |
-| -------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `f.string()`   | `string`                    | Text; application formats such as email need the optional Validation plugin.                                            |
-| `f.boolean()`  | `boolean`                   | No builder-specific options.                                                                                            |
-| `f.int()`      | Safe integer `number`       | `autoIncrement` requests adapter-backed generation.                                                                     |
-| `f.bigint()`   | Native JavaScript `bigint`  | `autoIncrement` requests adapter-backed generation; transports need an explicit codec.                                  |
-| `f.float()`    | `number`                    | Use `decimal` for exact base-10 values.                                                                                 |
-| `f.decimal()`  | Exact decimal `string`      | `precision` limits total digits; `scale` limits fractional digits.                                                      |
-| `f.uuid()`     | UUID `string`               | UUID syntax is always checked; `default` can supply a generated value.                                                  |
-| `f.date()`     | `YYYY-MM-DD` string         | `autoNow` can generate a calendar day.                                                                                  |
-| `f.time()`     | Canonical time string       | `timezone` defaults to `false`; `autoNow` can generate a time.                                                          |
-| `f.dateTime()` | Canonical date-time string  | `timezone` defaults to `true`; `autoNow` can generate a timestamp.                                                      |
-| `f.binary()`   | `Uint8Array`                | Wire encoding belongs to the transport.                                                                                 |
-| `f.json()`     | JSON object or array        | Optional fields may also be `null`; root scalars are rejected.                                                          |
-| `f.enum()`     | Declared string union       | `values` is a string array or a shared enum from `defineEnum`; see [Enums](#enums).                                     |
-| `f.object()`   | Typed nested value          | Declare child `fields`; see [Embedded Objects](./embedded-objects).                                                     |
-| `f.pointer()`  | One target reference        | `target` is required; `onDelete` defaults to `restrict`. See [Relationships](./relationships).                          |
-| `f.relation()` | To-many relation handle     | `target` is required; `mappedBy` and `where` shape an inverse or scoped relation. See [Relationships](./relationships). |
-| `f.virtual()`  | Selected, output-only value | Declare `output`, `select`, and `resolve`; see [Virtual Fields](./virtual-fields).                                      |
+| Builder        | Application value           | Builder-specific options or behavior                                                                                          |
+| -------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `f.string()`   | `string`                    | Text; application formats such as email need the optional Validation plugin.                                                  |
+| `f.boolean()`  | `boolean`                   | No builder-specific options.                                                                                                  |
+| `f.int()`      | Safe integer `number`       | `autoIncrement` requests adapter-backed generation.                                                                           |
+| `f.bigint()`   | Native JavaScript `bigint`  | `autoIncrement` requests adapter-backed generation; transports need an explicit codec.                                        |
+| `f.float()`    | `number`                    | Use `decimal` for exact base-10 values.                                                                                       |
+| `f.decimal()`  | Exact decimal `string`      | `precision` limits total digits; `scale` limits fractional digits.                                                            |
+| `f.uuid()`     | UUID `string`               | UUID syntax is always checked; `default` can supply a generated value.                                                        |
+| `f.date()`     | `YYYY-MM-DD` string         | `autoNow` can generate a calendar day.                                                                                        |
+| `f.time()`     | Canonical time string       | `timezone` defaults to `false`; `autoNow` can generate a time.                                                                |
+| `f.dateTime()` | Canonical date-time string  | `timezone` defaults to `true`; `autoNow` can generate a timestamp.                                                            |
+| `f.binary()`   | `Uint8Array`                | Wire encoding belongs to the transport.                                                                                       |
+| `f.json()`     | JSON object or array        | Optional fields may also be `null`; root scalars are rejected.                                                                |
+| `f.enum()`     | Declared string union       | `values` is a string array or a shared enum from `defineEnum`; see [Enums](#enums).                                           |
+| `f.object()`   | Typed nested value          | Declare child `fields`; see [Embedded Objects](./embedded-objects).                                                           |
+| `f.pointer()`  | One target reference        | `target` is required; `onDelete` defaults to `restrict`. See [Relationships](./relationships).                                |
+| `f.relation()` | To-many target membership   | `target` is required; `mappedBy` declares an inverse; `.with({ relations })` scopes it. See [Relationships](./relationships). |
+| `f.virtual()`  | Selected, output-only value | Declare `output`, `select`, and `resolve`; see [Virtual Fields](./virtual-fields).                                            |
 
 `int` and `float` use JavaScript `number`; `bigint` uses native `bigint`, and
 `decimal` uses a string so its base-10 value stays exact. Stored value fields
@@ -158,8 +158,8 @@ export const Task = UltimaBase.Schema.define({
 })
 ```
 
-A string array declares a local enum: generators such as GraphQL and Typegen
-name its type from the schema and field path. A shared enum from
+A string array declares a local enum: transports such as GraphQL name its type
+from the schema and field path. A shared enum from
 `defineEnum(name, values)` is an immutable value used only to share one named
 type: `priority` and `allowedPriorities` both use the `TaskPriority` type. Two
 different shared enums with the same name fail when the application is
@@ -179,7 +179,6 @@ dependencies, output typing, request context, and failure behavior.
 
 Importing a plugin package alone does not add its field method. Install the
 owning plugin in the application; compilation then adds the method only in the
-contexts that plugin supports. Optional Typegen can generate the matching
-application-specific TypeScript declarations. See
-[Using Plugins](/docs/1.0.0/plugins/using-plugins) and
-[Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
+contexts that plugin supports. TypeScript offers the method on the configured
+factory's `App.Schema.define()` builder, with no generation step. See
+[Using Plugins](/docs/1.0.0/plugins/using-plugins).

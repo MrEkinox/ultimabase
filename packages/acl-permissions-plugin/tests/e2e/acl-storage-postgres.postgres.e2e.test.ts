@@ -23,16 +23,17 @@ const initialACL = new ACL()
 	.grantPublic('read')
 	.grantPrincipal(PrincipalA.pointer(sharedId), 'read', 'update')
 	.grantPrincipal(PrincipalB.pointer(sharedId), 'delete')
-const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLSchemaApplication = UltimaBase.use(postgresPlugin()).use(aclPlugin())
 const StoredPost = ACLSchemaApplication.Schema.define({
 	className: 'ACLStoragePost',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	postgres: { table: 'acl_storage_posts' },
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_storage_posts' },
 		acl: {
 			default: initialACL,
 		},

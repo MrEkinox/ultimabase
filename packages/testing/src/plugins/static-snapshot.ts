@@ -22,7 +22,7 @@ const snapshotOwner = (owner: PublicOwner): object => ({
 
 type PublicSchemaSurface = CompiledApplication<
 	readonly SchemaDefinition[]
->['typegenGraph']['schemaSurfaces'][number]
+>['schemaSurfaces'][number]
 
 // Both projections retain the same mutation identity and provenance.
 const snapshotMutations = (
@@ -44,34 +44,26 @@ export const createPluginStaticConformanceSnapshot = (
 	>,
 ): object => {
 	const application = ultimabase.compile()
-	const graph = application.typegenGraph
 
 	return {
 		fieldBuilderMethods: application.fieldBuilderMethods.map((method) => ({
 			contexts: Object.fromEntries(
 				Object.entries(method.contexts).map(([context, implementation]) => [
 					context,
-					{
-						fieldKind: implementation.fieldKind,
-						typegen: implementation.typegen,
-					},
+					{ fieldKind: implementation.fieldKind },
 				]),
 			),
 			name: method.name,
 			owner: method.owner,
 		})),
-		operations: graph.operations.map(({ operation, owner }) => ({
+		operations: application.operations.map(({ operation, owner }) => ({
 			errors: operation.errors,
-			input: operation.input.typegen,
 			name: operation.name,
 			owner: snapshotOwner(owner),
-			result: operation.result.typegen,
 			target: operation.target,
 			transaction: operation.transaction,
 			version: operation.version,
 		})),
-		pluginDeclarations: graph.declarations,
-		pluginOptions: graph.options,
 		privilegeReport: application.pluginPrivilegeReport,
 		schemas: [...application.schemas.values()].map((schema) => ({
 			className: schema.className,
@@ -81,7 +73,7 @@ export const createPluginStaticConformanceSnapshot = (
 			indexes: schema.definition.indexes,
 			provenance: schema.definition.provenance,
 		})),
-		surfaces: graph.schemaSurfaces.map((surface) => ({
+		surfaces: application.schemaSurfaces.map((surface) => ({
 			className: surface.schema.className,
 			schemaMutations: snapshotMutations(surface.schemaMutations),
 		})),
@@ -140,12 +132,5 @@ export const assertPublicPluginProvenance = (
 			assertOwner(provenance.owner)
 		}
 	}
-	for (const { owner } of application.typegenGraph.operations)
-		assertOwner(owner)
-	for (const option of application.typegenGraph.options)
-		assertOwner(option.owner)
-	for (const declarations of application.typegenGraph.declarations) {
-		for (const reference of declarations.references)
-			assertOwner(reference.owner)
-	}
+	for (const { owner } of application.operations) assertOwner(owner)
 }

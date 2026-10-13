@@ -42,14 +42,15 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 		)
 		const Document = Application.Schema.define({
 			className: 'AlternativePolicyPostgresDocument',
-			alternativePolicy: alternativeTenantPolicy({
-				hiddenFields: ['secret'],
-				tenant: 'community',
-			}),
 			fields: (field) => ({
 				secret: field.string({ required: true }),
 				tenant: field.string({ required: true }),
 				title: field.string({ required: true }),
+			}),
+		}).with({
+			alternativePolicy: alternativeTenantPolicy({
+				hiddenFields: ['secret'],
+				tenant: 'community',
 			}),
 			postgres: { table: 'alternative_policy_documents' },
 		})

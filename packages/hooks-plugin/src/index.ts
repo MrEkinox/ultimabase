@@ -6,7 +6,6 @@ export type {
 	HooksPluginOptions,
 	HooksRules,
 	HooksSchemaRules,
-	SchemaHooksOption,
 } from './plugin.js'
 
 export type {

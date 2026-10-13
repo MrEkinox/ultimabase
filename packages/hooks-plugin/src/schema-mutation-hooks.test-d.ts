@@ -3,6 +3,7 @@ import {
 	defineOperationValue,
 	defineSchemaMutation,
 	type PluginSchemaMutationDefinition,
+	type SchemaCommands,
 } from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
@@ -46,23 +47,18 @@ const purge: PluginSchemaMutationDefinition<
 	version: '1.0.0',
 })
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaSurfaces {
-		readonly HookSchemaMutationTypeDocument: {
-			readonly schemaMutations: {
-				readonly archive: typeof archive
-				readonly purge: typeof purge
-			}
-		}
-	}
-}
-
 test('types exact request and Master schema mutation Hook branches', () => {
-	const Document = UltimaBase.Schema.define({
+	const Base = UltimaBase.Schema.define({
 		className: 'HookSchemaMutationTypeDocument',
 		fields: (field) => ({ title: field.string() }),
 	})
-	const hooks: SchemaHooks<typeof Document> = {
+	// A plugin statics slot types the commands of a configured schema (ADR-0316).
+	type Document = typeof Base &
+		SchemaCommands<
+			typeof Base,
+			{ readonly archive: typeof archive; readonly purge: typeof purge }
+		>
+	const hooks: SchemaHooks<Document> = {
 		afterOperation: {
 			archive: ({ input, item, mutation, originalItem, target }) => {
 				expectTypeOf(input.reason).toEqualTypeOf<string>()
@@ -85,7 +81,7 @@ test('types exact request and Master schema mutation Hook branches', () => {
 				void input.reason
 				void item.title
 				void originalItem.title
-				expectTypeOf(target.schema).toEqualTypeOf<typeof Document>()
+				expectTypeOf(target.schema).toEqualTypeOf<Document>()
 			},
 			purge: ({ item }) => {
 				expectTypeOf(item).toEqualTypeOf<null>()
@@ -93,16 +89,16 @@ test('types exact request and Master schema mutation Hook branches', () => {
 		},
 	}
 
-	const stale: SchemaHooks<typeof Document> = {
+	const stale: SchemaHooks<Document> = {
 		beforeOperation: {
-			// @ts-expect-error -- Hooks accept only exact generated mutation keys.
+			// @ts-expect-error -- Hooks accept only the schema's command keys.
 			stale: () => undefined,
 		},
 	}
 
 	void stale
 	void hooks
-	void Document
+	void Base
 	void archive
 	void purge
 })

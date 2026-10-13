@@ -32,7 +32,7 @@ const createApplication = (linking: AuthLinking) => {
 		postgresPlugin({ pool: pool(), schemaPolicy: 'override' }),
 		authPlugin({ linking, methods: [fakeMethod()] }),
 	)
-	const LinkedUser = App.UserSchema.define({ className: 'LinkedUser' }).with({})
+	const LinkedUser = App.UserSchema.define({ className: 'LinkedUser' })
 	const ultimabase = new App({ logger: false, schemas: [LinkedUser] })
 	const signIn = (
 		providerUserId: string,

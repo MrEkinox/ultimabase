@@ -31,16 +31,11 @@ describe('direct canonical schema compilation', () => {
 				return snapshotJsonValue(value, path)
 			},
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/canonical-schema-compiler',
-				type: 'PortableOption',
-			},
 		})
 		const portableFieldOption = defineFieldOption({
 			contexts: ['stored'],
 			normalize: portableOption.normalize,
 			protocolVersion: 1,
-			typegen: portableOption.typegen,
 		})
 		const Existing = UltimaBase.Schema.define({
 			className: 'CanonicalCompilerExisting',
@@ -116,9 +111,6 @@ describe('direct canonical schema compilation', () => {
 			surfaces: immutableRecord({
 				modelSurfaces: immutableArray([]),
 				operations: immutableArray([]),
-			}),
-			typegen: immutableRecord({
-				references: immutableArray([]),
 			}),
 		})
 		const prepared = immutableArray([

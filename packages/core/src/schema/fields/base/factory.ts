@@ -7,7 +7,7 @@ import type {
 	FieldListValue,
 	FieldOptions,
 	ResolveFieldSourceTemplate,
-	ScalarFieldTypegenState,
+	ScalarFieldTypeState,
 } from './contract.js'
 import type { FieldDefault } from './defaults.js'
 import {
@@ -84,7 +84,7 @@ export type CompactScalarFieldDefinition<
 	TKind,
 	TValue,
 	TOptions,
-	ScalarFieldTypegenState<
+	ScalarFieldTypeState<
 		TRequired,
 		TList,
 		TImmutable,
@@ -237,7 +237,7 @@ export interface CompactScalarFieldFactory<
 		TKind,
 		TValue,
 		TOptions & TExtensionOptions,
-		ScalarFieldTypegenState<TRequired, TList, TImmutable, true>
+		ScalarFieldTypeState<TRequired, TList, TImmutable, true>
 	>
 	<
 		const TRequired extends boolean = false,
@@ -270,7 +270,7 @@ export interface CompactScalarFieldFactory<
 		TKind,
 		TValue,
 		TOptions & TExtensionOptions,
-		ScalarFieldTypegenState<TRequired, TList, TImmutable, false>
+		ScalarFieldTypeState<TRequired, TList, TImmutable, false>
 	>
 }
 

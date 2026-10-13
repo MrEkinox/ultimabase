@@ -1,7 +1,4 @@
-import type {
-	SchemaDefinition,
-	UltimaBaseGeneratedSchemaSurfaces,
-} from '@ultimabase/core'
+import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	defineSchemaOption,
 	type PluginSchemaMutationDefinition,
@@ -10,7 +7,6 @@ import {
 	type PluginSchemaMutationReturning,
 	type PluginSourceSchemaMutations,
 	type SchemaOptionDefinition,
-	type SchemaOptionRuntimeRequirement,
 	type SchemaRulesHKT,
 	type SchemaRulesSource,
 } from '@ultimabase/core/plugin'
@@ -55,19 +51,9 @@ export interface RestMethodRules {
 /** One native schema method REST can expose. */
 export type RestMethodName = keyof RestMethodRules
 
-type GeneratedMutations<TSchema> =
-	TSchema extends Readonly<{
-		className: infer TClassName extends keyof UltimaBaseGeneratedSchemaSurfaces
-	}>
-		? UltimaBaseGeneratedSchemaSurfaces[TClassName] extends Readonly<{
-				readonly schemaMutations: infer TMutations
-			}>
-			? TMutations
-			: Readonly<Record<never, never>>
-		: Readonly<Record<never, never>>
-
-type SchemaMutations<TSchema> = GeneratedMutations<TSchema> &
-	PluginSourceSchemaMutations<SchemaRulesSource<TSchema>>
+type SchemaMutations<TSchema> = PluginSourceSchemaMutations<
+	SchemaRulesSource<TSchema>
+>
 
 /** A command REST can expose: request authority, one row named by `id`. */
 type ExposableCommand = PluginSchemaMutationDefinition<
@@ -170,24 +156,13 @@ export const normalizeRule = (
 	return immutableRecord(Object.fromEntries(entries))
 }
 
-/**
- * Owns the schema `rest` namespace. Its static type comes from the `.with`
- * rules slot (`never` keeps it out of the projection templates); Typegen
- * still types the old-form `define({ rest })` until that form is removed.
- */
-export const restSchemaOption: SchemaOptionDefinition<
-	NormalizedRestRule,
-	SchemaOptionRuntimeRequirement,
-	never
-> = defineSchemaOption({
-	normalize: (value, path): NormalizedRestRule =>
-		normalizeRule(value, path, true),
-	protocolVersion: 1,
-	typegen: {
-		module: '@ultimabase/rest-plugin',
-		type: 'RestSchemaRule',
-	},
-})
+/** Owns the `rest` rule; its static type comes from the `.with` rules slot. */
+export const restSchemaOption: SchemaOptionDefinition<NormalizedRestRule> =
+	defineSchemaOption({
+		normalize: (value, path): NormalizedRestRule =>
+			normalizeRule(value, path, true),
+		protocolVersion: 1,
+	})
 
 const isNormalizedRule = (value: unknown): value is NormalizedRestRule =>
 	typeof value === 'boolean' ||

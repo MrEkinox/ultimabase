@@ -2,8 +2,8 @@ import {
 	RequestSubjectReference,
 	UltimaBase,
 	type RequestSubjectContext,
-	type RequestRoleResolver,
 } from '@ultimabase/core'
+import { type RequestRoleResolver } from '@ultimabase/plugin-kit'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ACL } from './acl.js'

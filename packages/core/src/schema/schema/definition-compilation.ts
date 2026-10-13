@@ -219,6 +219,20 @@ const assertDeveloperFields = (
 
 const coreSchemaOptionKeys = new Set(['className', 'fields', 'indexes'])
 
+/**
+ * Rejects plugin options passed to `define(...)` itself: plugin rules belong
+ * to the final `.with(...)` and plugin shape to its shape method (ADR-0297).
+ */
+export const assertDeclarationOptionKeys = (options: object): void => {
+	for (const key of Reflect.ownKeys(options)) {
+		if (typeof key !== 'string' || !coreSchemaOptionKeys.has(key)) {
+			throw new TypeError(
+				`Unknown schema option: ${String(key)}. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)`,
+			)
+		}
+	}
+}
+
 /** Detaches direct plugin options while leaving their validation to the application graph. */
 export const snapshotUnresolvedSchemaOptions = (
 	options: Readonly<Record<string, unknown>>,

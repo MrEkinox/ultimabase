@@ -38,8 +38,8 @@ slot. The ordinary E2E project remains Docker-free for focused package archive
 checks.
 
 `packages/*/tsconfig.test.json` isolates each package's test compiler roots.
-`tests/fixtures/plugin-options.d.ts` explicitly includes application option
-declarations without loading other executable suites.
+`tests/fixtures/register.d.ts` declares the one schema-less `Register` the
+test program shares (ADR-0297).
 
 `tests/tsconfig.json` associates root E2E files with the same strict TypeScript
 settings used by the test runner. Editors should discover this nearby project
@@ -122,9 +122,7 @@ yarn workspace @ultimabase/rest-plugin typecheck:tests
 yarn workspace @ultimabase/rest-plugin test:e2e:built
 ```
 
-`test` includes unit and type tests; Typegen also includes its package-owned
-editor performance suite. Run it independently with
-`yarn workspace @ultimabase/typegen test:performance`. `test:types` runs the package's type
+`test` includes unit and type tests. `test:types` runs the package's type
 assertions and checks its local test program; `typecheck:tests` checks that
 program directly with TypeScript. `test:e2e:built` selects both ordinary and
 PostgreSQL E2E, starting Docker infrastructure only when PostgreSQL files match.
@@ -158,7 +156,6 @@ concluding anything from a failure:
   dominated by building 16 generated projects);
 - packed archive audits such as `core-archive-declarations` (10 s and 20 s
   timeouts);
-- the Typegen `hybrid-authoring` performance budget;
 - PostgreSQL E2E suites (20 s timeout): one test that still times out can
   leave its application active and cascade "Another UltimaBase application is
   active" failures;

@@ -54,18 +54,9 @@ export interface EmailChangeConfirmResult {
 	readonly confirmed: true
 }
 
-const emailInput = exactStrings<PasswordEmailInput>(
-	['email'],
-	'PasswordEmailInput',
-)
-const tokenInput = exactStrings<PasswordTokenInput>(
-	['token'],
-	'PasswordTokenInput',
-)
-const accepted = acknowledgement<PasswordRequestAcceptedResult>(
-	'accepted',
-	'PasswordRequestAcceptedResult',
-)
+const emailInput = exactStrings<PasswordEmailInput>(['email'])
+const tokenInput = exactStrings<PasswordTokenInput>(['token'])
+const accepted = acknowledgement<PasswordRequestAcceptedResult>('accepted')
 
 const requestPasswordResetOperation: PasswordOperation<
 	'request-password-reset',
@@ -87,11 +78,8 @@ const resetPasswordOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'reset-password',
-	exactStrings<PasswordResetInput>(
-		['newPassword', 'token'],
-		'PasswordResetInput',
-	),
-	acknowledgement<PasswordResetResult>('reset', 'PasswordResetResult'),
+	exactStrings<PasswordResetInput>(['newPassword', 'token']),
+	acknowledgement<PasswordResetResult>('reset'),
 	[
 		authErrorCodes.invalidToken,
 		passwordErrorCodes.passwordChangeRejected,
@@ -115,7 +103,7 @@ const verifyEmailOperation: PasswordOperation<
 > = passwordOperation(
 	'verify-email',
 	tokenInput,
-	acknowledgement<EmailVerifyResult>('verified', 'EmailVerifyResult'),
+	acknowledgement<EmailVerifyResult>('verified'),
 	[authErrorCodes.invalidToken, authErrorCodes.tooManyAttempts],
 )
 const requestEmailChangeOperation: PasswordOperation<
@@ -130,10 +118,7 @@ const requestEmailChangeOperation: PasswordOperation<
 	]
 > = passwordOperation(
 	'request-email-change',
-	exactStrings<EmailChangeRequestInput>(
-		['currentPassword', 'newEmail'],
-		'EmailChangeRequestInput',
-	),
+	exactStrings<EmailChangeRequestInput>(['currentPassword', 'newEmail']),
 	accepted,
 	[
 		passwordErrorCodes.emailChangeRejected,
@@ -154,10 +139,7 @@ const confirmEmailChangeOperation: PasswordOperation<
 > = passwordOperation(
 	'confirm-email-change',
 	tokenInput,
-	acknowledgement<EmailChangeConfirmResult>(
-		'confirmed',
-		'EmailChangeConfirmResult',
-	),
+	acknowledgement<EmailChangeConfirmResult>('confirmed'),
 	[
 		passwordErrorCodes.emailChangeRejected,
 		authErrorCodes.invalidToken,

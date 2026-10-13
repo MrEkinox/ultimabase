@@ -6,8 +6,9 @@ describe('direct community plugin options', () => {
 		// JavaScript callers can still present an option with no installed owner.
 		const UnknownSchemaOption = UltimaBase.Schema.define({
 			className: 'OpenKernelUnknownDecimalSchemaOption',
-			decimalLedger: { defaultScale: 2 },
 			fields: (field: FieldBuilder) => ({ label: field.string() }),
+		}).with({
+			decimalLedger: { defaultScale: 2 },
 		} as never)
 		const schemaApplication = new UltimaBase({ schemas: [UnknownSchemaOption] })
 		expect(() => schemaApplication.compile()).toThrow(

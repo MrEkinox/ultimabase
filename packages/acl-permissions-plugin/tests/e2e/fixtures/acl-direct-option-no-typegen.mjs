@@ -19,6 +19,7 @@ const compiled = application.compile().schemas.get('JavaScriptDirectACLPost')
 const MissingPluginPost = UltimaBase.Schema.define({
 	className: 'JavaScriptMissingACLPluginPost',
 	fields: (field) => ({ title: field.string() }),
+}).with({
 	acl: {},
 })
 let missingPluginCode

@@ -1,26 +1,11 @@
 import type { Logger } from '../application/application-log.js'
-import type {
-	CompiledSchemaRegistry,
-	OwnedFieldBuilderMethod,
-	OwnedPluginFieldType,
-	SchemaRegistry,
-} from '../schema/index.js'
-import {
-	assertNonEmptyString,
-	immutableArray,
-	immutableRecord,
-} from '@ultimabase/shared'
+import type { CompiledSchemaRegistry, SchemaRegistry } from '../schema/index.js'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import type { PluginCapabilityReader } from './capabilities.js'
 import { snapshotPluginIdentity, type PluginIdentity } from './manifest.js'
 import { PluginIdentityMap } from './plugin-identity-map.js'
-import type { CompiledTypegenGraph } from './typegen-declarations.js'
 
-const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
-	immutableArray([])
-const emptyPluginFieldTypes: readonly OwnedPluginFieldType[] = immutableArray(
-	[],
-)
 const emptyCapabilityReader: PluginCapabilityReader = immutableRecord({
 	contributions: () => {
 		throw new TypeError('No capability graph is configured')
@@ -28,12 +13,6 @@ const emptyCapabilityReader: PluginCapabilityReader = immutableRecord({
 	get: () => {
 		throw new TypeError('No capability graph is configured')
 	},
-})
-const emptyTypegenGraph: CompiledTypegenGraph = immutableRecord({
-	declarations: immutableArray([]),
-	operations: immutableArray([]),
-	options: immutableArray([]),
-	schemaSurfaces: immutableArray([]),
 })
 
 const toPluginIdentity = (owner: PluginIdentity | string): PluginIdentity => {
@@ -71,12 +50,6 @@ export const ownPluginContribution = (
 /** Supplies one plugin with application state and owner-bound contribution views. */
 export interface PluginSetupContext {
 	readonly schemas: CompiledSchemaRegistry
-	/** Exposes the compiled application-local FieldBuilder method graph to tooling plugins. */
-	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
-	/** Exposes generated plugin value contracts independently from builder methods. */
-	readonly pluginFieldTypes: readonly OwnedPluginFieldType[]
-	/** Exposes the callback-free final application graph to declaration tooling. */
-	readonly typegenGraph: CompiledTypegenGraph
 	/** Reads only exact capability requirements declared by this plugin. */
 	readonly capabilities: PluginCapabilityReader
 	/**
@@ -101,14 +74,9 @@ export class PluginSetupRegistries {
 
 	constructor(
 		readonly schemas: SchemaRegistry,
-		readonly fieldBuilderMethods: () => readonly OwnedFieldBuilderMethod[] = () =>
-			emptyFieldBuilderMethods,
-		readonly pluginFieldTypes: () => readonly OwnedPluginFieldType[] = () =>
-			emptyPluginFieldTypes,
 		readonly capabilitiesForPlugin: (
 			owner: PluginIdentity,
 		) => PluginCapabilityReader = () => emptyCapabilityReader,
-		readonly typegenGraph: () => CompiledTypegenGraph = () => emptyTypegenGraph,
 		readonly loggerForPlugin: (owner: PluginIdentity) => Logger = () =>
 			silentLogger,
 	) {}
@@ -120,9 +88,6 @@ export class PluginSetupRegistries {
 			const capabilities = this.capabilitiesForPlugin(owner)
 			return immutableRecord({
 				schemas: this.schemas,
-				fieldBuilderMethods: this.fieldBuilderMethods(),
-				pluginFieldTypes: this.pluginFieldTypes(),
-				typegenGraph: this.typegenGraph(),
 				capabilities,
 				logger: this.loggerForPlugin(owner),
 			})

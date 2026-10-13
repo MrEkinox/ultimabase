@@ -14,7 +14,6 @@ import {
 	defineOperation,
 	defineOperationValue,
 	defineSchemaOption,
-	defineTypegenReference,
 	plugin as createPlugin,
 } from '@ultimabase/core/plugin'
 import {
@@ -49,14 +48,6 @@ export const workflowCommittedEvent = defineEvent<WorkflowCommittedPayload>(
 	'fixture.workflow.committed',
 )
 
-const transitionInputReference = defineTypegenReference({
-	exportName: 'WorkflowTransitionInput',
-	module: '@fixture/open-kernel',
-})
-const transitionResultReference = defineTypegenReference({
-	exportName: 'WorkflowTransitionResult',
-	module: '@fixture/open-kernel',
-})
 const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 	normalize: (value, path) => {
 		if (
@@ -68,10 +59,6 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 		return immutableRecord({ initialState: value.initialState })
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/open-kernel',
-		type: 'WorkflowSchemaOption',
-	},
 })
 
 const transitionInput = defineOperationValue(
@@ -81,7 +68,6 @@ const transitionInput = defineOperationValue(
 		}
 		return immutableRecord({ reason: value.reason })
 	},
-	transitionInputReference,
 )
 const transitionResult = defineOperationValue(
 	(value, path): WorkflowTransitionResult => {
@@ -94,7 +80,6 @@ const transitionResult = defineOperationValue(
 		}
 		return immutableRecord({ schema: value.schema, state: value.state })
 	},
-	transitionResultReference,
 )
 
 export const inspectWorkflow = defineOperation({
@@ -218,7 +203,6 @@ export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 			'transport:expose': 'Binds the explicit fake transport.',
 			'runtime:intercept': 'Contributes the workflow audit lifecycle.',
 			'runtime:observe': 'Consumes committed workflow events.',
-			'typegen:reference': 'References workflow public types.',
 		},
 	})
 

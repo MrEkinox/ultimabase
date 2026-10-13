@@ -27,7 +27,7 @@ const SoftDeleteAdministrationApplication = UltimaBase.use(
 const AdministrationLog = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationLog',
 	fields: (field) => ({ message: field.string({ required: true }) }),
-}).with({})
+})
 
 const Document = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationDocument',
@@ -82,12 +82,12 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 const Author = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({})
+})
 
 const Tag = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
-}).with({})
+})
 
 const Article = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationArticle',
@@ -96,14 +96,12 @@ const Article = SoftDeleteAdministrationApplication.Schema.define({
 		tags: field.relation({ target: () => Tag }),
 		title: field.string({ required: true }),
 	}),
-})
-	.softDelete()
-	.with({})
+}).softDelete()
 
 const Plain = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationPlain',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({})
+})
 
 const schemas = [
 	AdministrationLog,

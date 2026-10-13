@@ -2,30 +2,16 @@ import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { UltimaBase } from '@ultimabase/core'
-import {
-	postgresPlugin,
-	type PostgresPool,
-	type PostgresPoolClient,
-} from '@ultimabase/postgres-plugin'
-import { generateApplicationTypes } from '@ultimabase/typegen'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
 
-const pool: PostgresPool = {
-	connect: (): Promise<PostgresPoolClient> =>
-		Promise.reject(new TypeError('Static Typegen fixture does not connect')),
-	end: () => Promise.resolve(),
-	query: () => Promise.resolve({ rows: [] }),
-}
-
 describe.each([
 	['source', '../../src/index.js'],
 	['packed', '@ultimabase/postgres-plugin'],
 ] as const)('%s configured PostgreSQL options', (_mode, moduleName) => {
-	it('projects exact schema and stored-field options without Typegen', () => {
+	it('projects exact schema rules and stored-field options', () => {
 		const fileName = path.join(
 			import.meta.dirname,
 			`postgres-source-options.${_mode}.fixture.ts`,
@@ -61,8 +47,7 @@ const Other = UltimaBase.use(pgVectorPlugin())
 Other.Schema.define({
   className: 'PostgresAbsentOptionPost',
   fields: () => ({}),
-  postgres: { table: 'posts' },
-})`
+}).with({ postgres: { table: 'posts' } })`
 		const messages = createLanguageService(fileName, source)
 			.getSemanticDiagnostics(fileName)
 			.map(({ messageText }) =>
@@ -72,46 +57,34 @@ Other.Schema.define({
 	})
 })
 
-it('generates and packs exact PostgreSQL option autocomplete', async () => {
-	const Application = UltimaBase.use(postgresPlugin({ pool }))
-	const Post = Application.Schema.define({
-		className: 'GeneratedPostgresOptionPost',
-		fields: (field) => ({
-			title: field.string({ postgres: { renamedFrom: 'headline' } }),
-		}),
-		postgres: { table: 'generated_posts' },
-	})
-	const ultimabase = new Application({
-		logger: false,
-		schemas: [Post],
-	})
-	const generated = generateApplicationTypes({
-		ultimabase,
-		applicationId: 'fixture.postgres-options',
-	})
+it('packs exact PostgreSQL rule and option autocomplete', () => {
 	const fileName = path.join(
 		import.meta.dirname,
 		'postgres-direct-options.packed.fixture.ts',
 	)
 	const schemaMarker = '/* postgres-schema */'
 	const fieldMarker = '/* postgres-field */'
-	const sourceWithMarkers = `${generated.contents}
-import { UltimaBase } from '@ultimabase/core'
+	const sourceWithMarkers = `import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
+import type {
+  PostgresFieldOption,
+  PostgresPluginExports,
+  PostgresSchemaOption,
+} from '@ultimabase/postgres-plugin'
 // @ts-expect-error Migration (ADR-0266) and physical (ADR-0289) adapter metadata were removed.
 void (undefined as unknown as PostgresPluginExports).adapterMetadata
-declare const postgresField: Plugin0_PostgresFieldOption
-declare const postgresSchema: Plugin0_PostgresSchemaOption
+declare const postgresField: PostgresFieldOption
+declare const postgresSchema: PostgresSchemaOption
 const App = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture' }))
-const GeneratedPost = App.Schema.define({
-  className: 'GeneratedPostgresOptionPost',
+const PackedPost = App.Schema.define({
+  className: 'PackedPostgresOptionPost',
   fields: (field) => ({
     title: field.string({ postgres: { ${fieldMarker}...postgresField } }),
   }),
+}).with({
   postgres: { ${schemaMarker}...postgresSchema },
 })
-void GeneratedPost
+void PackedPost
 `
 	const positions = new Map(
 		[schemaMarker, fieldMarker].map((marker) => [
@@ -138,7 +111,6 @@ void GeneratedPost
 		)
 	}
 
-	expect(generated.contents).toContain('from "@ultimabase/postgres-plugin"')
 	expect(completions(schemaMarker)).toContain('table')
 	expect(completions(fieldMarker)).toContain('renamedFrom')
 	expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
@@ -174,11 +146,9 @@ void GeneratedPost
 			removedDiagnostics.some((message) => message.includes(removed)),
 		).toBe(true)
 	}
-
-	await ultimabase.dispose()
 }, 20_000)
 
-it('keeps PostgreSQL options unknown without generated plugin declarations', () => {
+it('keeps PostgreSQL options unknown without the PostgreSQL plugin', () => {
 	const fileName = path.join(
 		import.meta.dirname,
 		'postgres-direct-options.missing-plugin.fixture.ts',
@@ -189,8 +159,7 @@ UltimaBase.Schema.define({
   fields: (field) => ({
     title: field.string({ postgres: { renamedFrom: 'headline' } }),
   }),
-  postgres: { table: 'missing_posts' },
-})`
+}).with({ postgres: { table: 'missing_posts' } })`
 	const messages = createLanguageService(fileName, source)
 		.getSemanticDiagnostics(fileName)
 		.map(({ messageText }) => ts.flattenDiagnosticMessageText(messageText, ' '))
@@ -198,7 +167,7 @@ UltimaBase.Schema.define({
 	expect(messages.some((message) => message.includes('postgres'))).toBe(true)
 })
 
-it('compiles direct PostgreSQL options from JavaScript without Typegen', async () => {
+it('compiles PostgreSQL rules and options from JavaScript', async () => {
 	const executeFile = promisify(execFile)
 	const fixture = path.join(
 		import.meta.dirname,
@@ -223,19 +192,8 @@ it('compiles direct PostgreSQL options from JavaScript without Typegen', async (
 			},
 		},
 		missingPluginCode: 'PLUGIN_DECLARATION_INVALID',
-		second: {
-			field: { renamedFrom: 'headline' },
-			fieldOwner: {
-				kind: 'plugin',
-				pluginId: '@ultimabase/postgres-plugin',
-				version: '0.0.0',
-			},
-			schema: { table: 'second_posts' },
-			schemaOwner: {
-				kind: 'plugin',
-				pluginId: '@ultimabase/postgres-plugin',
-				version: '0.0.0',
-			},
-		},
+		// The old `define({ postgres })` form is rejected (ADR-0297).
+		oldFormMessage:
+			'Unknown schema option: postgres. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
 	})
 })

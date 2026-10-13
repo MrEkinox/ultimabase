@@ -31,11 +31,6 @@ export {
 	type PluginConformanceExpected,
 	type PluginConformanceReport,
 } from './plugins/contracts.js'
-// TEMPORARY: leaves with Typegen in migration step 6.8 (ADR-0327 decision 4).
-export {
-	withPluginTypegenConformance,
-	type PluginTypegenConformanceOptions,
-} from './plugins/typegen-check.js'
 export { waitForAfterCommit } from './after-commit/wait.js'
 export {
 	createCapturingLogger,

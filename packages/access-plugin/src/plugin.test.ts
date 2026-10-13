@@ -1,5 +1,4 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
-import type {} from '../tests/fixtures/options.generated.js'
 import {
 	MasterAuthority,
 	UltimaBase,
@@ -62,6 +61,7 @@ const SecretDocument = AccessApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string(),
 	}),
+}).with({
 	access: { read: true },
 })
 
@@ -73,12 +73,14 @@ const PlainDocument = AccessApplication.Schema.define({
 const ObservedDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginObservedDocument',
 	fields: (field) => ({ title: field.string() }),
+}).with({
 	access: { read: () => true },
 })
 
 const CountOnlyDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginCountOnlyDocument',
 	fields: (field) => ({ title: field.string() }),
+}).with({
 	access: { read: { count: true } },
 })
 
@@ -88,6 +90,7 @@ const MasterBypassDocument = AccessApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string(),
 	}),
+}).with({
 	access: { read: false },
 })
 
@@ -107,6 +110,7 @@ const VirtualDocument = AccessApplication.Schema.define({
 		}),
 		title: field.string(),
 	}),
+}).with({
 	access: { read: true },
 })
 

@@ -19,7 +19,9 @@ import {
 	type PluginSourceState,
 } from '@ultimabase/core/plugin'
 
-const ACLCompositionApplication = UltimaBase.use(accessPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLCompositionApplication = UltimaBase.use(postgresPlugin())
+	.use(accessPlugin())
 	.use(hooksPlugin())
 	.use(aclPlugin())
 
@@ -85,17 +87,17 @@ const Document = ACLCompositionApplication.Schema.define({
 			required: true,
 		}),
 	}),
-	postgres: { table: 'acl_composition_documents' },
-	access: {
-		create: true,
-		delete: ({ where }) => where.eq('nativeScope', 'allowed'),
-		read: ({ where }) =>
-			where.eq('nativeScope', 'allowed').eq('hookScope', 'allowed'),
-		update: ({ where }) => where.eq('nativeScope', 'allowed'),
-	},
 })
 	.acl()
 	.with({
+		postgres: { table: 'acl_composition_documents' },
+		access: {
+			create: true,
+			delete: ({ where }) => where.eq('nativeScope', 'allowed'),
+			read: ({ where }) =>
+				where.eq('nativeScope', 'allowed').eq('hookScope', 'allowed'),
+			update: ({ where }) => where.eq('nativeScope', 'allowed'),
+		},
 		acl: {
 			default: ({ data, principal }) => {
 				const initial =

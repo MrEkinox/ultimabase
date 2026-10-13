@@ -4,15 +4,12 @@ import type {
 	SchemaShapeOf,
 	SchemaShapeMethodArguments,
 	SchemaShapeMethodRuntime,
-	SchemaShapeMethodOptions,
 } from '../../plugins/schema-extensions.js'
 import type { PluginSourceState } from '../../plugins/source-projections.js'
 import type {
 	CompleteConfiguredFields,
 	ConfiguredSchemaNamespace,
 	ConfiguredSchemaResult,
-	ConfiguredSchemaRuleOptions,
-	ConfiguredSchemaSelectorOptions,
 } from './configured-schema-namespace.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 import {
@@ -24,6 +21,7 @@ import {
 	type SchemaOptions,
 } from './definition.js'
 import { markSchemaDeclarationMethod } from './declaration-methods.js'
+import { assertDeclarationOptionKeys } from './definition-compilation.js'
 import type {
 	SchemaFieldName,
 	SchemaIndexInput,
@@ -39,7 +37,6 @@ import type { ConfiguredSchemaRelationRules } from './relation-rules.js'
  */
 export type ConfiguredSchemaIndexRules<
 	TSource extends PluginSourceState,
-	TClassName extends string,
 	TFields extends SchemaDeclaredFields,
 	TOptions extends object,
 > = Readonly<{
@@ -49,12 +46,8 @@ export type ConfiguredSchemaIndexRules<
 	 * @example `indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }]`
 	 */
 	readonly indexes?: readonly SchemaRuleIndexOptions<
-		SchemaFieldName<
-			CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
-		>,
-		SchemaIndexWhere<
-			CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
-		>
+		SchemaFieldName<CompleteConfiguredFields<TSource, TFields, TOptions>>,
+		SchemaIndexWhere<CompleteConfiguredFields<TSource, TFields, TOptions>>
 	>[]
 }>
 
@@ -81,30 +74,16 @@ export interface SchemaRulesMethod<
 			>,
 			SchemaShapeOf<TOptions>
 		> &
-			ConfiguredSchemaRuleOptions<TSource, TClassName, TFields, TOptions> &
-			ConfiguredSchemaIndexRules<TSource, TClassName, TFields, TOptions> &
+			ConfiguredSchemaIndexRules<TSource, TFields, TOptions> &
 			ConfiguredSchemaRelationRules<TFields>,
 	): ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
 }
 
-// A shape method is unavailable once called, or when the declaration already
-// sets the options it would set (`define({ acl: { … } })` for `.acl()`).
-type AvailableShapeMethodName<
-	TMethods,
-	TOptions extends object,
-	TUsed extends PropertyKey,
-> = {
-	[TName in keyof TMethods]: TName extends TUsed
-		? never
-		: [
-					Extract<
-						keyof SchemaShapeMethodOptions<TMethods[TName]>,
-						keyof TOptions
-					>,
-			  ] extends [never]
-			? TName
-			: never
-}[keyof TMethods] &
+// A shape method is unavailable once called.
+type AvailableShapeMethodName<TMethods, TUsed extends PropertyKey> = Exclude<
+	keyof TMethods,
+	TUsed
+> &
 	string
 
 /**
@@ -120,7 +99,7 @@ export type SchemaShapeMethods<
 	TUsed extends PropertyKey,
 > = {
 	readonly [
-		TName in AvailableShapeMethodName<TSource['shapeMethods'], TOptions, TUsed>
+		TName in AvailableShapeMethodName<TSource['shapeMethods'], TUsed>
 	]: <
 		const TArguments extends SchemaShapeMethodArguments<
 			TSource['shapeMethods'][TName]
@@ -131,13 +110,9 @@ export type SchemaShapeMethods<
 		TSource,
 		TClassName,
 		TFields,
-		ConfiguredSchemaSelectorOptions<
-			TSource,
-			TOptions & SchemaShapeMethodOptions<TSource['shapeMethods'][TName]>
-		> &
-			DeclaredSchemaShape<
-				SchemaShapeOf<TOptions> & Readonly<Record<TName, TArguments>>
-			>,
+		DeclaredSchemaShape<
+			SchemaShapeOf<TOptions> & Readonly<Record<TName, TArguments>>
+		>,
 		TUsed | TName
 	>
 }
@@ -195,8 +170,6 @@ const defineDeclaredSchema = (
 		],
 	]
 	for (const [name, method] of shapes) {
-		// Same rule as the static type: no method for options already declared.
-		if (method.sets.some((key) => Object.hasOwn(options, key))) continue
 		const remaining = new Map(shapes)
 		remaining.delete(name)
 		chain.push([
@@ -251,12 +224,15 @@ export const createConfiguredSchemaNamespace = (
 	shapes: ReadonlyMap<string, SchemaShapeMethodRuntime>,
 ): ConfiguredSchemaNamespace => {
 	const namespace = Object.freeze({
-		define: (options: DeclarationOptions) =>
-			defineDeclaredSchema(options, shapes),
+		define: (options: DeclarationOptions) => {
+			assertPlainObject(options, 'schema options must be an object')
+			assertDeclarationOptionKeys(options)
+			return defineDeclaredSchema(options, shapes)
+		},
 		defineSpecialized: Schema.defineSpecialized.bind(Schema),
 		is: Schema.is.bind(Schema),
 	})
 	configuredSchemaNamespaces.add(namespace)
-	// The runtime accepts every declaration; the static type comes from the factory's plugins.
+	// The static type of the chain comes from the factory's plugins.
 	return namespace as unknown as ConfiguredSchemaNamespace
 }

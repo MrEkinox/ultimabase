@@ -58,10 +58,6 @@ defineSchemaOption({
 		// @ts-expect-error -- Runtime option compilers accept materialization requirements only.
 		requirement: setupRequirement,
 	},
-	typegen: {
-		module: '@fixture/runtime-option-plugin',
-		type: 'RuntimeOption',
-	},
 })
 const policyPlugin = createPlugin({
 	id: 'fixture.policy-language-service',

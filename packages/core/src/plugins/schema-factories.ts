@@ -5,7 +5,7 @@ import type { PluginDefinition, PluginSource } from './definition.js'
 
 /**
  * Higher-kinded slot through which one plugin adds schema factories to the
- * configured application, such as `App.RoleSchema` (ADR-0297, ADR-0322). Core
+ * configured application, such as `App.AuditSchema` (ADR-0297, ADR-0322). Core
  * substitutes `source`, the plugin source state of the configured factory, and
  * reads `factories`; it never names a plugin.
  *
@@ -37,24 +37,16 @@ export type SchemaFactoriesFor<TSlots, TSource> = TSlots extends readonly [
 	? ApplySchemaFactories<TFirst, TSource> & SchemaFactoriesFor<TRest, TSource>
 	: unknown
 
-declare const schemaFactoryShapeType: unique symbol
-
-/** Marks the shape record of a declaration started by a schema factory. */
-export interface SchemaFactoryShapeBrand {
-	readonly [schemaFactoryShapeType]: true
-}
-
 /**
  * The shape record a schema factory starts its declarations with, so the
- * factory's statics slot recognizes them (`'RoleSchema' extends keyof
- * this['shape']`), Typegen-named schemas included.
+ * factory's statics slot recognizes them (`'AuditSchema' extends keyof
+ * this['shape']`).
  *
- * @example `DeclaredSchemaShape<SchemaFactoryShape<'RoleSchema'>>`
+ * @example `DeclaredSchemaShape<SchemaFactoryShape<'AuditSchema'>>`
  */
 export type SchemaFactoryShape<TName extends string> = Readonly<
 	Record<TName, readonly []>
-> &
-	SchemaFactoryShapeBrand
+>
 
 /** Given to one schema factory when Core attaches it to a configured application. */
 export interface SchemaFactoryContext {
@@ -65,7 +57,7 @@ export interface SchemaFactoryContext {
 	 * chain, the final `.with(...)` result included, and returns the static
 	 * members that class gains.
 	 *
-	 * @example `define(options, (schema) => ({ role: (name: string) => createReference(schema, name) }))`
+	 * @example `define(options, (schema) => ({ entry: (name: string) => createReference(schema, name) }))`
 	 */
 	readonly define: (
 		options: object,

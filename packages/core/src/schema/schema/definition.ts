@@ -23,20 +23,14 @@ import {
 	FieldBuilderMethodUnavailableError,
 	FieldBuilderTargetUnavailableError,
 } from './runtime-field-builder.js'
-import type {
-	BaseSchemaTypeInfo,
-	SchemaTypeInfo,
-	SchemaTypeInfoByName,
-	SchemaTypeInfoByNameOrBase,
-	UltimaBaseGeneratedSchemaClassSurface,
-	UltimaBaseGeneratedSchemaOptions,
-} from '../type-info.js'
+import type { BaseSchemaTypeInfo, SchemaTypeInfo } from '../type-info.js'
 import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import type { SchemaTypeInfoByNameOrRegistered } from './registered-schemas.js'
 import {
+	assertDeclarationOptionKeys,
 	prepareSchemaCompilation,
 	readCompiledSchemaRecord,
 	schemaDefinitionMarker,
@@ -78,7 +72,7 @@ export type SchemaVirtualFields = Readonly<Record<string, GenericVirtualField>>
 export interface SchemaOptions<
 	TClassName extends string = string,
 	TFields extends SchemaDeclaredFields = SchemaDeclaredFields,
-> extends UltimaBaseGeneratedSchemaOptions {
+> {
 	/**
 	 * Declares the stable logical name used by queries, transports, and adapters.
 	 *
@@ -144,26 +138,21 @@ export interface SchemaClass<
 	pointer(id: string): Pointer<this>
 }
 
-// Existing registries retain plugin-owned additions until issue 6313 reduces
-// them to the name graph; otherwise the configured source map owns Core types.
 type SchemaReferenceTypeInfo<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields | undefined,
 > = TFields extends SchemaDeclaredFields
-	? [SchemaTypeInfoByName<TClassName>] extends [never]
-		? string extends keyof TFields
-			? SchemaTypeInfoByNameOrBase<TClassName>
-			: SourceSchemaTypeInfo<TClassName, TFields>
-		: SchemaTypeInfoByName<TClassName>
-	: // A name alone also resolves through the application `Register` (ADR-0297).
+	? string extends keyof TFields
+		? BaseSchemaTypeInfo<TClassName>
+		: SourceSchemaTypeInfo<TClassName, TFields>
+	: // A name alone resolves through the application `Register` (ADR-0297).
 		SchemaTypeInfoByNameOrRegistered<TClassName>
 
-/** Resolves one public schema class from source, Typegen, or the bootstrap contract. */
+/** Resolves one public schema class from its fields, its registered name, or the bootstrap contract. */
 export type SchemaReference<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields | undefined = undefined,
-> = SchemaClass<SchemaReferenceTypeInfo<TClassName, TFields>> &
-	UltimaBaseGeneratedSchemaClassSurface<TClassName>
+> = SchemaClass<SchemaReferenceTypeInfo<TClassName, TFields>>
 
 /** Collects additional static capabilities owned by a schema specialization. */
 export type SchemaStaticCapabilities = object
@@ -349,6 +338,8 @@ export class Schema {
 		if (typeof createStatics !== 'function') {
 			throw new TypeError('createStatics must be a function')
 		}
+		assertPlainObject(options, 'schema options must be an object')
+		assertDeclarationOptionKeys(options)
 
 		const schema = defineSchemaModel<TClassName, TFields>(options)
 		const staticCapabilities: unknown = createStatics(schema)
@@ -398,7 +389,7 @@ export const defineOrdinarySchemaModel = <
 	) => Readonly<Record<string, unknown>>,
 ): SchemaReference<TClassName> => {
 	const schema = defineSchemaModel<TClassName, TFields>(options, rules)
-	// Schema factory statics (`TodoRole.role(...)`, ADR-0322) are bound to this class.
+	// Schema factory statics (ADR-0322) are bound to this class.
 	const factoryStatics: unknown =
 		createStatics === undefined ? {} : createStatics(schema)
 	assertPlainObject(

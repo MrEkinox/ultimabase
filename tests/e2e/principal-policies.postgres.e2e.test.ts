@@ -81,7 +81,7 @@ export const PrincipalRole = App.RoleSchema.define({
 	className: 'PrincipalRole',
 	members: () => PrincipalMember,
 	deletion: 'fail',
-}).with({})
+})
 
 let failPredicate: 'error' | 'public' | undefined
 const explode: PolicyPredicate = function explode() {

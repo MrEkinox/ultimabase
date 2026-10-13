@@ -7,19 +7,15 @@ const Application = UltimaBase.use(softDeletePlugin())
 const CommandPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteCommandPost',
 	fields: (field) => ({ title: field.string() }),
-})
-	.softDelete({ mode: 'command' })
-	.with({})
+}).softDelete({ mode: 'command' })
 const LogicalPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteLogicalPost',
 	fields: (field) => ({ title: field.string() }),
-})
-	.softDelete()
-	.with({})
+}).softDelete()
 const PlainPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeletePlainPost',
 	fields: (field) => ({ title: field.string() }),
-}).with({})
+})
 const application = new Application({
 	logger: false,
 	schemas: [CommandPost, LogicalPost, PlainPost],
@@ -31,7 +27,7 @@ const command = compiled.schemas.get(CommandPost.className)
 const logical = compiled.schemas.get(LogicalPost.className)
 const plain = compiled.schemas.get(PlainPost.className)
 const surface = (className) => [
-	...(compiled.typegenGraph.schemaSurfaces
+	...(compiled.schemaSurfaces
 		.find(({ schema }) => schema.className === className)
 		?.schemaMutations.keys() ?? []),
 ]

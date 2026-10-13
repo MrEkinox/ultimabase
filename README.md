@@ -15,15 +15,12 @@ explicitly. This example uses a disposable development PostgreSQL database;
 adds REST, GraphQL, authentication and policies to the same authoring path.
 
 ```ts
-import { typegenPlugin } from '@ultimabase/typegen'
 import { UltimaBase, toJSON } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 // postgresPlugin() reads DATABASE_URL when the application starts.
-const Blog = UltimaBase.use(typegenPlugin())
-	.use(postgresPlugin())
-	.use(softDeletePlugin())
+const Blog = UltimaBase.use(postgresPlugin()).use(softDeletePlugin())
 
 // Each schema opts in to plugin behavior; nothing is registered automatically.
 export const Post = Blog.Schema.define({
@@ -60,10 +57,10 @@ const posts = await Post.findMany({
 console.log(toJSON(posts), app.state)
 ```
 
-Local plugin fields, options and commands infer from the configured factory.
-[Typegen](packages/typegen/README.md) still supplies named relationships,
-complete filters and the other retained graph contracts; run generation before
-the first TypeScript build. JavaScript executes the same graph without Typegen.
+Every type infers from the declarations themselves, with no generation step
+(ADR-0297): plugin fields, rules and commands come from the configured
+factory, and relations name their target with a thunk (`() => Author`).
+JavaScript executes the same graph.
 
 ## Principles
 
@@ -93,8 +90,8 @@ the first TypeScript build. JavaScript executes the same graph without Typegen.
   trusted master authority; master bypasses authorization without bypassing
   structural or installed application validation, hooks, transactions, or
   integrity constraints.
-- Typegen may include plugin-owned contracts but generates declarations only;
-  JavaScript applications run without Typegen or a generated client.
+- Types come from the declarations, without code generation; JavaScript
+  applications run the same graph without a generated client.
 - Stable plugin operations and application-specific schema surfaces execute
   through application-owned handles. Plugin schema mutations can also be
   called directly on a frozen configured schema class; the class resolves the
@@ -106,7 +103,7 @@ the first TypeScript build. JavaScript executes the same graph without Typegen.
   authorized by Access, while audited `purgeOne`/`purgeMany` remain private to
   trusted server code.
 - Owner-private plugin records retain typed transactional persistence and
-  versioned physical provenance without becoming application schemas, Query or Typegen
+  versioned physical provenance without becoming application schemas, Query
   surfaces, generated transport routes, or application behavior inputs.
 - PostgreSQL synchronization is available today. Migration support is not shipped;
   a future migration product would own reviewed DDL and history separately.

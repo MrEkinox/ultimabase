@@ -67,7 +67,7 @@ describe('application-owned schema mutations', () => {
 		})
 		const surface = ultimabase
 			.compile()
-			.typegenGraph.schemaSurfaces.find(
+			.schemaSurfaces.find(
 				({ schema }) => schema.className === WorkflowPost.className,
 			)
 		const command = surface?.schemaMutations.get('archive')
@@ -83,7 +83,7 @@ describe('application-owned schema mutations', () => {
 			select: { workflowState: true },
 			version: '1.0.0',
 		})
-		expect(command?.mutation.input).not.toHaveProperty('snapshot')
+		expect(command?.mutation).not.toHaveProperty('input')
 		expect(JSON.stringify(command?.mutation)).not.toContain('snapshot')
 
 		const schemaHandle = ultimabase.schema(WorkflowPost)
@@ -152,7 +152,7 @@ describe('application-owned schema mutations', () => {
 		expect(
 			ultimabase
 				.compile()
-				.typegenGraph.schemaSurfaces.find(
+				.schemaSurfaces.find(
 					({ schema }) => schema.className === Document.className,
 				)
 				?.schemaMutations.has('mutate'),
@@ -372,7 +372,7 @@ describe('application-owned schema mutations', () => {
 		})
 		const surface = application
 			.compile()
-			.typegenGraph.schemaSurfaces.find(
+			.schemaSurfaces.find(
 				({ schema }) => schema.className === WorkflowPost.className,
 			)
 

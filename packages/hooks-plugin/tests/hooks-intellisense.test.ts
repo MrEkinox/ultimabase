@@ -72,9 +72,8 @@ UltimaBase.Schema.define({
 		expect(messages.join('\n')).toContain("'hooks' does not exist")
 	})
 
-	it('adds exact Hooks options from the configured plugin source', () => {
+	it('adds exact Hooks rules and field options from the configured plugin source', () => {
 		const source = `
-import type {} from './fixtures/options.generated.js'
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 const Application = UltimaBase.use(hooksPlugin())
@@ -82,16 +81,21 @@ Application.Schema.define({ /* schema-options */ })
 Application.Schema.define({
   className: 'WithHooks',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
-})
+}).with({ /* schema-rules */ })
 `
 		const sourceFile = fixtureFile('source-options')
 		const fixture = createLanguageServiceFixture(sourceFile, source, [
 			'/* schema-options */',
 			'/* field-options */',
+			'/* schema-rules */',
 		])
 
+		// Rules belong to the final `.with` call, not to define (ADR-0297).
 		expect(
 			completionNames(fixture, sourceFile, '/* schema-options */'),
+		).not.toContain('hooks')
+		expect(
+			completionNames(fixture, sourceFile, '/* schema-rules */'),
 		).toContain('hooks')
 		expect(
 			completionNames(fixture, sourceFile, '/* field-options */'),
@@ -100,13 +104,13 @@ Application.Schema.define({
 
 	it('gives schema hooks plain data, without the internal operation tree', () => {
 		const source = `
-import type {} from './fixtures/options.generated.js'
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 const Application = UltimaBase.use(hooksPlugin())
 Application.Schema.define({
   className: 'NestedHookInput',
   fields: (field) => ({ title: field.string() }),
+}).with({
   hooks: { afterOperation: { create: (input) => input./* hook-input */ } },
 })
 `

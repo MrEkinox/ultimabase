@@ -22,6 +22,7 @@ const Post = Application.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string(),
 	}),
+}).with({
 	access: {
 		read: ({ where }) => where.eq('published', true),
 	},
@@ -34,12 +35,11 @@ const ultimabase = new Application({
 
 ## Rules in `.with` (ADR-0297)
 
-With the generation-free declaration form of
+With the declaration form of
 [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md), schema rules
-move to the final `.with` call, typed by `AccessRules` and contributed through
-`AccessSchemaRules`. Filters may cross thunk targets in both directions without
-Typegen. The `access` option of `define` above keeps working during the
-migration.
+go in the final `.with` call, typed by `AccessRules` and contributed through
+`AccessSchemaRules`. Filters may cross thunk targets in both directions;
+`define` rejects an `access` option.
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -85,13 +85,13 @@ intentionally unavailable from the package root. Importing the package still
 performs no registration or Runtime work.
 
 The configured factory exposes field `access` immediately after
-`accessPlugin()` is installed. Schema `access` callbacks use the retained
-Typegen descriptor because their items, row filters, relationships, and plugin
-mutation keys depend on the complete application graph. A factory without the
+`accessPlugin()` is installed. Schema `access` rules in `.with` are typed against
+the complete schema, its relations and the plugin commands its statics carry. A
+factory without the
 plugin exposes neither contract, and Runtime compilation still rejects untyped
 JavaScript declarations that try to use them.
 
-JavaScript uses the same compiled graph without generated declarations. This
+JavaScript uses the same compiled graph. This
 application intentionally has no Access engine, so direct CRUD has no official
 Access policy stage:
 
@@ -268,11 +268,11 @@ App.Schema.define({ className: 'Post', fields })
 
 ## Plugin-owned schema mutations
 
-Typegen adds one Access key for each schema mutation in the compiled graph whose
-authority is `request`. The key is the exact application command name, and its
-callbacks receive the mutation's payload and immutable logical identity. The
-mutation declaration and Runtime handler still have one source owner; Typegen
-projects only their inert application-local type:
+The `access` rule gains one key for each plugin command the schema's statics
+carry (`SchemaCommands`) whose authority is `request`. The key is the exact
+application command name, and its callbacks receive the mutation's payload and
+immutable logical identity. The mutation declaration and Runtime handler still
+have one source owner:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -285,6 +285,7 @@ const Post = Application.Schema.define({
 		published: field.boolean(),
 		title: field.string(),
 	}),
+}).with({
 	access: {
 		archive: {
 			where: ({ input, mutation, where }) =>

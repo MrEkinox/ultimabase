@@ -15,12 +15,12 @@ const EmailApp = UltimaBase.use(
 const EmailUser = EmailApp.UserSchema.define({
 	className: 'TypedEmailUser',
 	fields: (field) => ({ displayName: field.string({ required: true }) }),
-}).with({})
+})
 
 const UsernameApp = UltimaBase.use(authPlugin({ methods: [password()] }))
 const UsernameUser = UsernameApp.UserSchema.define({
 	className: 'TypedUsernameUser',
-}).with({})
+})
 
 describe('App.UserSchema with password()', () => {
 	it('adds the identifier field the method selects', () => {

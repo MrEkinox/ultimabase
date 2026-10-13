@@ -262,7 +262,7 @@ describe('test ownership and discovery', () => {
 			)
 			expect(foreignSuites, manifest).toEqual([])
 			expect(config.fileNames).toContain(
-				path.join(repositoryRoot, 'tests/fixtures/plugin-options.d.ts'),
+				path.join(repositoryRoot, 'tests/fixtures/register.d.ts'),
 			)
 		}
 	})

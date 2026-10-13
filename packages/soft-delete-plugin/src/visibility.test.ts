@@ -81,9 +81,9 @@ const activeRow = {
 
 describe('soft-delete visibility', () => {
 	it('keeps the active-row predicate private from contradictory developer filters', async () => {
-		const Document = declareDocument('SoftDeleteVisibleDocument')
-			.softDelete({ mode: 'command' })
-			.with({})
+		const Document = declareDocument('SoftDeleteVisibleDocument').softDelete({
+			mode: 'command',
+		})
 		const adapter = new VisibilityReadAdapter([])
 		const ultimabase = new (VisibilitySchemaApplication.use(
 			databasePlugin(adapter),
@@ -115,10 +115,8 @@ describe('soft-delete visibility', () => {
 	})
 
 	it('keeps the filter for Master unless its where names isDeleted, and leaves disabled schemas untouched', async () => {
-		const Enabled = declareDocument('SoftDeleteMasterDocument')
-			.softDelete()
-			.with({})
-		const Disabled = declareDocument('SoftDeletePlainDocument').with({})
+		const Enabled = declareDocument('SoftDeleteMasterDocument').softDelete()
+		const Disabled = declareDocument('SoftDeletePlainDocument')
 		const enabledAdapter = new VisibilityReadAdapter([activeRow])
 		const enabled = new (VisibilitySchemaApplication.use(
 			databasePlugin(enabledAdapter),

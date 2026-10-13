@@ -41,6 +41,7 @@ const Post = PointerSchemaApplication.Schema.define({
 		}),
 		title: field.string({ required: true }),
 	}),
+}).with({
 	hooks: {
 		afterOperation: {
 			update: ({ changes }) => {
@@ -127,15 +128,19 @@ const NullableSource = PointerSchemaApplication.Schema.define({
 	}),
 })
 
-const PrivateTarget = PointerSchemaApplication.Schema.define({
-	className: 'PointerE2EPrivateTarget',
-	fields: (field) => ({
-		label: field.string({ required: true }),
-	}),
-	access: {
-		read: false,
-	},
-})
+// Access types the `access` rule; the instance installs its configured copy.
+const PrivateTarget = PointerSchemaApplication.use(accessPlugin())
+	.Schema.define({
+		className: 'PointerE2EPrivateTarget',
+		fields: (field) => ({
+			label: field.string({ required: true }),
+		}),
+	})
+	.with({
+		access: {
+			read: false,
+		},
+	})
 const PrivateSource = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EPrivateSource',
 	fields: (field) => ({

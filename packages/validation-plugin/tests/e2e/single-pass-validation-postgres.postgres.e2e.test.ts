@@ -22,7 +22,6 @@ const ValidationApplication =
 const Owner = ValidationApplication.Schema.define({
 	className: 'SinglePassValidationOwner',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-	postgres: { table: 'single_pass_validation_owners' },
 })
 
 const labelCalls: string[] = []
@@ -109,7 +108,6 @@ const Item = ValidationApplication.Schema.define({
 		}),
 		score: field.int({ default: 1, validation: scoreValidator }),
 	}),
-	postgres: { table: 'single_pass_validation_items' },
 })
 
 const clearCalls = (): void => {

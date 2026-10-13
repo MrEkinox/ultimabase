@@ -66,10 +66,6 @@ const opaqueDocumentOption = defineSchemaOption({
 		return value
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/javascript-document-plugin',
-		type: 'DocumentOption',
-	},
 	valueKind: 'opaque',
 })
 const protocol = defineOperationTransport({
@@ -169,8 +165,9 @@ const Application = UltimaBase.use(
 )
 const StablePost = Application.Schema.define({
 	className: 'JavaScriptStablePost',
-	document: (value) => value,
 	fields: (field) => ({ title: field.string() }),
+}).with({
+	document: (value) => value,
 })
 const DynamicPost = Application.Schema.define({
 	className: 'JavaScriptDynamicPost',
@@ -201,20 +198,19 @@ export const inspection = {
 	// Inspection is descriptive even when the source token retains executable validators.
 	callbackFree: ultimabase
 		.compile()
-		.typegenGraph.operations.every(
-			({ operation }) =>
-				!('snapshot' in operation.input) && !('snapshot' in operation.result),
+		.operations.every(
+			({ operation }) => !('input' in operation) && !('result' in operation),
 		),
 	constructorFree: ultimabase
 		.compile()
-		.typegenGraph.schemaSurfaces.every(
+		.schemaSurfaces.every(
 			({ schema }) =>
 				typeof schema === 'object' &&
 				Object.keys(schema).join() === 'className',
 		),
 	operations: ultimabase
 		.compile()
-		.typegenGraph.operations.map(({ operation }) => operation.name),
+		.operations.map(({ operation }) => operation.name),
 	plugins: ultimabase.pluginPrivilegeReport.plugins.map(
 		({ identity }) => identity.pluginId,
 	),

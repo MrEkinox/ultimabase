@@ -40,7 +40,7 @@ const createHttpApplication = (database: Pool, cookie: boolean) => {
 			...(cookie ? { browser: { origins: [origin], credentials: true } } : {}),
 		}),
 	)
-	const HttpUser = App.UserSchema.define({ className: 'HttpUser' }).with({})
+	const HttpUser = App.UserSchema.define({ className: 'HttpUser' })
 	const ultimabase = new App({ logger: false, schemas: [HttpUser] })
 	const send = (
 		path: string,

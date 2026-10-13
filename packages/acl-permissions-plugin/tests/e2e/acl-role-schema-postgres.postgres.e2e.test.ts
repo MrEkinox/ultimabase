@@ -29,12 +29,16 @@ const currentMemberId = new RequestContextValue<string>(
 		return value
 	},
 )
-const ACLRoleSchemaApplication = UltimaBase.use(rolesPlugin()).use(aclPlugin())
+// PostgreSQL types the `postgres` table rules of `.with` (ADR-0320).
+const ACLRoleSchemaApplication = UltimaBase.use(postgresPlugin())
+	.use(rolesPlugin())
+	.use(aclPlugin())
 const Member = ACLRoleSchemaApplication.Schema.define({
 	className: 'ACLRoleSchemaMember',
 	fields: (field) => ({
 		email: field.string({ required: true }),
 	}),
+}).with({
 	postgres: { table: 'acl_role_schema_members' },
 })
 const identityPlugin = plugin({

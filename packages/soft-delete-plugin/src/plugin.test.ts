@@ -2,12 +2,10 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
 	compileValidationPlans,
-	readFieldTypegenState,
+	readFieldTypeState,
 	type CompiledApplication,
-	type FieldBuilder,
 } from '@ultimabase/core'
 import { contributeApplication, plugin } from '@ultimabase/core/plugin'
-import { generateApplicationTypes } from '@ultimabase/typegen'
 
 import { softDeletePlugin } from './plugin.js'
 import { createSoftDeletePersistenceRewriter } from './replace-delete.js'
@@ -25,9 +23,7 @@ const schemaSurface = (
 ) =>
 	application
 		.compile()
-		.typegenGraph.schemaSurfaces.find(
-			({ schema }) => schema.className === className,
-		)
+		.schemaSurfaces.find(({ schema }) => schema.className === className)
 
 const commandNames = [
 	'purgeMany',
@@ -61,16 +57,13 @@ describe('softDeletePlugin', () => {
 			'runtime:constrain',
 			'persistence:rewrite',
 			// No transport binding: transports expose commands by rule (ADR-0325).
-			'typegen:reference',
 		])
 	})
 
 	it('attaches the same six commands to both modes and none elsewhere', async () => {
-		const Logical = declare('CommandsLogical').softDelete().with({})
-		const Command = declare('CommandsCommand')
-			.softDelete({ mode: 'command' })
-			.with({})
-		const Plain = declare('CommandsPlain').with({})
+		const Logical = declare('CommandsLogical').softDelete()
+		const Command = declare('CommandsCommand').softDelete({ mode: 'command' })
+		const Plain = declare('CommandsPlain')
 		const application = new App({
 			logger: false,
 			schemas: [Logical, Command, Plain],
@@ -112,11 +105,9 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('rewrites native deletes of the default mode only', async () => {
-		const Logical = declare('RewriteLogical').softDelete().with({})
-		const Command = declare('RewriteCommand')
-			.softDelete({ mode: 'command' })
-			.with({})
-		const Plain = declare('RewritePlain').with({})
+		const Logical = declare('RewriteLogical').softDelete()
+		const Command = declare('RewriteCommand').softDelete({ mode: 'command' })
+		const Plain = declare('RewritePlain')
 		const instance = softDeletePlugin()
 		const application = new (UltimaBase.use(instance))({
 			logger: false,
@@ -136,12 +127,10 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('keeps rewrite plans isolated between applications', async () => {
-		const LogicalDocument = declare('IsolatedRewriteDocument')
-			.softDelete()
-			.with({})
-		const CommandDocument = declare('IsolatedRewriteDocument')
-			.softDelete({ mode: 'command' })
-			.with({})
+		const LogicalDocument = declare('IsolatedRewriteDocument').softDelete()
+		const CommandDocument = declare('IsolatedRewriteDocument').softDelete({
+			mode: 'command',
+		})
 		const first = softDeletePlugin()
 		const second = softDeletePlugin()
 		const logicalApplication = new (UltimaBase.use(first))({
@@ -176,9 +165,8 @@ describe('softDeletePlugin', () => {
 		// The stale runtime definition deliberately bypasses source diagnostics.
 		const Document = UltimaBase.Schema.define({
 			className: 'MissingSoftDeletePlugin',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-			softDelete: {},
-		} as never)
+			fields: (field) => ({ title: field.string() }),
+		}).with({ softDelete: {} } as never)
 		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -188,11 +176,9 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('adds the server-written fields only to schemas that call .softDelete()', async () => {
-		const Logical = declare('FieldsLogical').softDelete().with({})
-		const Command = declare('FieldsCommand')
-			.softDelete({ mode: 'command' })
-			.with({})
-		const Plain = declare('FieldsPlain').with({})
+		const Logical = declare('FieldsLogical').softDelete()
+		const Command = declare('FieldsCommand').softDelete({ mode: 'command' })
+		const Plain = declare('FieldsPlain')
 		const application = new App({
 			logger: false,
 			schemas: [Logical, Command, Plain],
@@ -224,7 +210,7 @@ describe('softDeletePlugin', () => {
 						pluginId: '@ultimabase/soft-delete-plugin',
 					},
 				})
-				expect(readFieldTypegenState(declared)).toMatchObject({
+				expect(readFieldTypeState(declared)).toMatchObject({
 					create: 'forbidden',
 					update: 'forbidden',
 				})
@@ -243,9 +229,7 @@ describe('softDeletePlugin', () => {
 			fields: (field) => ({
 				deletedAt: field.string(),
 			}),
-		})
-			.softDelete()
-			.with({})
+		}).softDelete()
 		const application = new App({ logger: false, schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -267,9 +251,9 @@ describe('softDeletePlugin', () => {
 				}),
 			],
 		})
-		const Invalid = declare('InvalidSoftDeleteDocument')
-			.softDelete({ mode: 'explicit' } as never)
-			.with({})
+		const Invalid = declare('InvalidSoftDeleteDocument').softDelete({
+			mode: 'explicit',
+		} as never)
 		const application = new (UltimaBase.use(softDeletePlugin(), observer))({
 			logger: false,
 			schemas: [Invalid],
@@ -286,26 +270,6 @@ describe('softDeletePlugin', () => {
 		const Twice = UltimaBase.use(softDeletePlugin(), softDeletePlugin())
 		expect(() => new Twice({ logger: false, schemas: [] })).toThrow(
 			'Plugin "@ultimabase/soft-delete-plugin" was declared more than once.',
-		)
-	})
-
-	it('generates the six commands for Typegen applications', () => {
-		const Document = declare('TypegenSoftDeleteDocument').softDelete().with({})
-		const generated = generateApplicationTypes({
-			ultimabase: new App({ logger: false, schemas: [Document] }),
-			applicationId: 'soft-delete',
-		})
-
-		expect(generated.snapshot.options).toStrictEqual([])
-		expect(
-			generated.snapshot.surfaces[0]?.schemaMutations.map(({ name }) => name),
-		).toEqual(commandNames)
-		expect(generated.contents).toContain('PluginSchemaMutationNoInput as')
-		expect(generated.contents).toContain(
-			'readonly softDeleteMany: Core.ApplicationSchemaMutationManyMethod<',
-		)
-		expect(generated.contents).toContain(
-			'readonly softDeleteOne: Core.ApplicationSchemaMutationMethod<',
 		)
 	})
 })

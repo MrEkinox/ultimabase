@@ -9,7 +9,6 @@ import {
 import type { SchemaTarget } from '../../schema/targets.js'
 import type { DeclaredSchemaTarget } from '../../schema/deferred-targets.js'
 import type {
-	SchemaDeclarationTargetName,
 	SchemaRelationshipFieldName,
 	SchemaRelationshipSource,
 	SchemaRelationshipTargetName,
@@ -18,10 +17,10 @@ import type {
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptionsBase,
 	ResolveFieldSourceTemplate,
-	ScalarFieldTypegenState,
+	ScalarFieldTypeState,
 } from '../base/contract.js'
 import { createFieldDefinition } from '../base/definition.js'
 import {
@@ -71,12 +70,12 @@ export interface PointerFieldOptions<
 /** Carries one exact target schema through every operation-specific model. */
 export type PointerField<
 	TTarget extends SchemaDefinition = SchemaDefinition,
-	TTypegen extends FieldTypegenState = FieldTypegenState,
+	TState extends FieldTypeState = FieldTypeState,
 > = FieldDefinition<
 	'pointer',
 	Pointer<TTarget>,
 	PointerFieldMetadataOptions,
-	TTypegen
+	TState
 >
 
 const pointerFieldOptionsContract: BuiltInFieldOptionsContract = {
@@ -104,7 +103,7 @@ type ResolvedPointerField<
 	TImmutable extends boolean,
 > = PointerField<
 	TTarget,
-	ScalarFieldTypegenState<TRequired, false, TImmutable, false>
+	ScalarFieldTypeState<TRequired, false, TImmutable, false>
 >
 
 type CompactPointerFieldOptions<
@@ -152,7 +151,7 @@ type CompatibleCompactPointerFieldOptions<
 	CompatiblePointerOptions<TRequired, TOnDelete>
 
 /** Accepts a target thunk (`() => User`) or a generated registry name. */
-export type PointerTargetDeclaration = SchemaDeclarationTargetName | object
+export type PointerTargetDeclaration = string | object
 
 type NamedCompactPointerFieldOptions<
 	TTarget extends PointerTargetDeclaration,

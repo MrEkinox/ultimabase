@@ -13,7 +13,7 @@ import {
 	relationField,
 	stringField,
 	type FieldDefinition,
-	type FieldTypegenState,
+	type FieldTypeState,
 	type FieldListValue,
 	type FieldValue,
 	type JsonDocument,
@@ -37,23 +37,23 @@ test('infers one-dimensional list values', () => {
 	const payloads = jsonField({ list: true })
 
 	expectTypeOf(strings).toExtend<
-		FieldDefinition<'string', string, object, FieldTypegenState>
+		FieldDefinition<'string', string, object, FieldTypeState>
 	>()
 	expectTypeOf(numbers).toExtend<
-		FieldDefinition<'int', number, object, FieldTypegenState>
+		FieldDefinition<'int', number, object, FieldTypeState>
 	>()
 	expectTypeOf<FieldValue<typeof strings>>().toEqualTypeOf<readonly string[]>()
 	expectTypeOf(scalar).toExtend<
-		FieldDefinition<'boolean', boolean, object, FieldTypegenState>
+		FieldDefinition<'boolean', boolean, object, FieldTypeState>
 	>()
 	expectTypeOf(dates).toExtend<
-		FieldDefinition<'date', string, object, FieldTypegenState>
+		FieldDefinition<'date', string, object, FieldTypeState>
 	>()
 	expectTypeOf(statuses).toExtend<
-		FieldDefinition<'enum', 'draft' | 'published', object, FieldTypegenState>
+		FieldDefinition<'enum', 'draft' | 'published', object, FieldTypeState>
 	>()
 	expectTypeOf(payloads).toExtend<
-		FieldDefinition<'json', JsonDocument, object, FieldTypegenState>
+		FieldDefinition<'json', JsonDocument, object, FieldTypeState>
 	>()
 	expectTypeOf<FieldValue<typeof numbers>>().toEqualTypeOf<readonly number[]>()
 	expectTypeOf<FieldValue<typeof scalar>>().toEqualTypeOf<boolean>()
@@ -104,7 +104,7 @@ test('infers object list values from reusable fields', () => {
 			'object',
 			Readonly<Record<string, unknown>>,
 			ObjectField['options'],
-			FieldTypegenState
+			FieldTypeState
 		>
 	>()
 })

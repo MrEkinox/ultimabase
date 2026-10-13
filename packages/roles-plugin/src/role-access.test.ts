@@ -1,9 +1,6 @@
 import { onTestFinished, describe, expect, it, vi, type Mock } from 'vitest'
-import {
-	RequestSubjectReference,
-	requestRoleResolverCapability,
-	UltimaBase,
-} from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
+import { requestRoleResolverCapability } from '@ultimabase/plugin-kit'
 import {
 	plugin,
 	contributeApplication,
@@ -48,11 +45,11 @@ const Roles = UltimaBase.use(rolesPlugin())
 const AppRole = Roles.RoleSchema.define({
 	className: 'AccessAppRole',
 	members: () => Member,
-}).with({})
+})
 const OtherRole = Roles.RoleSchema.define({
 	className: 'AccessOtherRole',
 	members: () => Member,
-}).with({})
+})
 const editorId = '123e4567-e89b-42d3-a456-426614174001'
 const administratorId = '123e4567-e89b-42d3-a456-426614174002'
 

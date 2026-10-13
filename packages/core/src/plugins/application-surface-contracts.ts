@@ -9,9 +9,12 @@ import type { CompiledPluginSchemaMutationDefinition } from './plugin-schema-mut
 export type OperationCommandFacts = Omit<
 	PluginOperationDefinition,
 	'input' | 'result'
-> & {
-	readonly input: Omit<PluginOperationDefinition['input'], 'snapshot'>
-	readonly result: Omit<PluginOperationDefinition['result'], 'snapshot'>
+>
+
+/** Callback-free facts of one compiled operation and the plugin that declared it. */
+export interface CompiledOperationFacts {
+	readonly operation: OperationCommandFacts
+	readonly owner: PluginSchemaContributionOwner
 }
 
 /** Records one operation together with the exact plugin that declared it. */

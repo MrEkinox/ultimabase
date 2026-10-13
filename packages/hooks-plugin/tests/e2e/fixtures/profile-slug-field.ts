@@ -17,16 +17,11 @@ const profileSlugField = (options: FieldOptions<string>) =>
 
 const profileSlugFamily = definePluginFieldFamily({
 	fieldKind: 'fixture.profile-slug',
-	typegen: {
-		module: '@ultimabase/hooks-plugin',
-		valueType: 'ProfileSlugFixtureValue',
-	},
 	builder: {
 		name: 'profileSlug',
 		contexts: {
 			embedded: {
 				factory: profileSlugField,
-				methodType: 'ProfileSlugFixtureFieldBuilderMethod',
 			},
 		},
 	},

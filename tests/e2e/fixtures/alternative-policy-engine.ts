@@ -15,6 +15,9 @@ import {
 	provideCapability,
 	plugin as createPlugin,
 	requireCapability,
+	type PluginDeclarationContribution,
+	type PluginSchemaRulesSource,
+	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
 import {
 	immutableArray,
@@ -34,11 +37,12 @@ export interface AlternativeTenantPolicyOptions {
 	readonly tenant: string
 }
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
+/** Contributes `alternativePolicy` to `.with({ ... })` (ADR-0297). */
+export interface AlternativePolicyRules extends SchemaRulesHKT {
+	readonly rules: Readonly<{
 		/** Configures the independent tenant policy fixture when its plugin is installed. */
-		readonly alternativePolicy?: AlternativeTenantPolicyOptions
-	}
+		alternativePolicy?: AlternativeTenantPolicyOptions
+	}>
 }
 
 export interface AlternativePolicyDiagnostic {
@@ -104,10 +108,6 @@ const alternativePolicySchemaOption = defineSchemaOption({
 	normalize: (value) =>
 		alternativeTenantPolicy(value as AlternativeTenantPolicyOptions),
 	protocolVersion: 1,
-	typegen: {
-		module: './fixtures/alternative-policy-engine.js',
-		type: 'AlternativeTenantPolicyOptions',
-	},
 	valueKind: 'json',
 })
 
@@ -214,6 +214,18 @@ export const createAlternativePolicyEngine = (
 			}
 		},
 	})
+	// The rules slot types `.with({ alternativePolicy })` (ADR-0297).
+	const declarations: PluginDeclarationContribution<
+		readonly [],
+		PluginSchemaRulesSource<AlternativePolicyRules>
+	> = contributeDeclarations({
+		schema: ({ schemas }) => {
+			schemas.defineOptions({
+				contributionId: 'alternative-policy-option',
+				schema: { alternativePolicy: alternativePolicySchemaOption },
+			})
+		},
+	})
 	const plugin = createPlugin({
 		...(options.instanceId === undefined
 			? {}
@@ -222,14 +234,7 @@ export const createAlternativePolicyEngine = (
 			stateProvider,
 			policyProvider,
 			alternativePolicyEngine,
-			contributeDeclarations({
-				schema: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'alternative-policy-option',
-						schema: { alternativePolicy: alternativePolicySchemaOption },
-					})
-				},
-			}),
+			declarations,
 			contributeApplication(({ capabilities }) => {
 				const state = capabilities.get(alternativePolicyEngine)
 				return {

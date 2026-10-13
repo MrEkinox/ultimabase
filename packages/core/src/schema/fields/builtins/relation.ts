@@ -13,7 +13,7 @@ import {
 import type {
 	FieldDefinition,
 	FieldOptionValueCarrier,
-	FieldTypegenState,
+	FieldTypeState,
 } from '../base/contract.js'
 import type {
 	SchemaDefinition,
@@ -24,17 +24,13 @@ import type { DeclaredSchemaTarget } from '../../schema/deferred-targets.js'
 import { snapshotCapturedOptionValue } from '../../schema/captured-options.js'
 import type { RequestContext } from '../../../runtime/context/request-context.js'
 import type { WhereBuilder, WhereInput } from '../../../query/filters/where.js'
-import type {
-	SchemaDeclarationTargetName,
-	SchemaRelationshipFieldName,
-	UltimaBaseGeneratedFieldOptions,
-} from '../../type-info.js'
+import type { SchemaRelationshipFieldName } from '../../type-info.js'
 import { assertPlainObject } from '../../../exact-object-validation.js'
 
 declare const relationTargetMarker: unique symbol
 
 /** Omits relation collections from ordinary row values and mutation inputs. */
-export interface RelationFieldTypegenState extends FieldTypegenState {
+export interface RelationFieldTypeState extends FieldTypeState {
 	readonly create: 'forbidden'
 	readonly object: 'forbidden'
 	readonly update: 'forbidden'
@@ -112,8 +108,7 @@ export interface RelationFieldOptions<
 >
 	extends
 		RelationFieldMetadataOptions<TMappedBy>,
-		FieldOptionValueCarrier<never>,
-		UltimaBaseGeneratedFieldOptions {
+		FieldOptionValueCarrier<never> {
 	/**
 	 * Lazily returns the exact target schema after module declarations exist.
 	 * @example `target: () => Post`
@@ -129,13 +124,13 @@ export interface RelationField<
 	'relation',
 	never,
 	RelationFieldMetadataOptions<TMappedBy>,
-	RelationFieldTypegenState
+	RelationFieldTypeState
 > {
 	readonly [relationTargetMarker]?: TTarget
 }
 
-/** Accepts a target thunk (`() => Post`) or a generated registry name. */
-export type RelationTargetDeclaration = SchemaDeclarationTargetName | object
+/** Accepts a target thunk (`() => Post`) or a schema class name. */
+export type RelationTargetDeclaration = string | object
 
 /**
  * Names the inverse field accepted by `mappedBy`. A thunk target is never read

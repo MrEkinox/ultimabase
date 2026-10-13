@@ -7,6 +7,9 @@ import {
 	contributeApplication,
 	contributeDeclarations,
 	defineSchemaOption,
+	type PluginDeclarationContribution,
+	type PluginSchemaRulesSource,
+	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
 import { expectTypeOf, test } from 'vitest'
 
@@ -20,19 +23,26 @@ import {
 const sourceOption = defineSchemaOption({
 	normalize: (value) => value === true,
 	protocolVersion: 1,
-	typegen: false,
+})
+interface EnabledRules extends SchemaRulesHKT {
+	readonly rules: Readonly<{ enabled?: boolean }>
+}
+// The rules slot types `.with({ enabled })` (ADR-0297).
+const declarations: PluginDeclarationContribution<
+	readonly [],
+	PluginSchemaRulesSource<EnabledRules>
+> = contributeDeclarations({
+	schema: ({ schemas }) =>
+		schemas.defineOptions({
+			contributionId: 'source-option',
+			schema: { enabled: sourceOption },
+		}),
 })
 const subject = plugin({
 	core: '^0.0.0',
 	id: 'fixture.typed-conformance',
 	contributions: [
-		contributeDeclarations({
-			schema: ({ schemas }) =>
-				schemas.defineOptions({
-					contributionId: 'source-option',
-					schema: { enabled: sourceOption },
-				}),
-		}),
+		declarations,
 		contributeApplication(() => ({
 			exports: { marker: 'typed' as const },
 		})),
@@ -43,15 +53,17 @@ const subject = plugin({
 const Application = UltimaBaseFactory.use(subject)
 const Post = Application.Schema.define({
 	className: 'ConformancePost',
-	enabled: true,
 	fields: (field) => ({ title: field.string() }),
+}).with({
+	enabled: true,
 })
 
-// @ts-expect-error -- The unconfigured factory cannot author plugin options.
 UltimaBaseFactory.Schema.define({
 	className: 'UnconfiguredConformancePost',
-	enabled: true,
 	fields: (field) => ({ title: field.string() }),
+}).with({
+	// @ts-expect-error -- The unconfigured factory cannot author plugin rules.
+	enabled: true,
 })
 
 test('preserves exact subject and schema tuples in optional checks', () => {

@@ -1,12 +1,12 @@
-// Sequential benchmark campaign of form D on the real packages against the real
-// Typegen baseline, with the method of ub-typing-spike/forms/BENCH.md: one
+// Sequential benchmark campaign of form D on the real packages, with the method of ub-typing-spike/forms/BENCH.md: one
 // process at a time, fresh process per run, waits while the 1-min load is > 4.
 // Per N and run: TypeScript 6 `tsc --extendedDiagnostics` (under /usr/bin/time),
 // TypeScript 7 `tsc` (parallel and --singleThreaded), the TS6 language-service
-// bench (cold, edits, hover, heap) and rule edit, the TS7 LSP bench. Typegen:
-// the real-baseline editor probe (TS6) and its program written to disk for tsc.
+// bench (cold, edits, hover, heap) and rule edit, the TS7 LSP bench. The
+// Typegen rows of results/campaign.jsonl are historical: Typegen was removed in
+// migration step 6.8b.
 // Usage: node tools/campaign.mjs [--sizes "10 50 200"] [--runs 3] [labels...]
-//   labels: form-d, form-d-noreg, typegen   -> results/campaign.jsonl
+//   labels: form-d, form-d-noreg   -> results/campaign.jsonl
 import process from 'node:process'
 import console from 'node:console'
 import { URL } from 'node:url'
@@ -33,21 +33,13 @@ const sizes = option('--sizes', '10 50 200')
 	.filter(Boolean)
 	.map(Number)
 const runs = Number(option('--runs', '3'))
-const scratch = option(
-	'--scratch',
-	path.join(os.tmpdir(), 'schema-form-d-campaign'),
-)
-const labels = argv.length > 0 ? argv : ['form-d', 'form-d-noreg', 'typegen']
+const labels = argv.length > 0 ? argv : ['form-d', 'form-d-noreg']
 const out = path.join(exampleDir, 'results/campaign.jsonl')
 const tsc6 = createRequire(import.meta.url).resolve('typescript/bin/tsc')
-// The TypeScript 7 binary, the Typegen baseline and `ub-small` (a checkout of
-// `main` for Typegen) come from local probe workspaces outside this repository.
-const tsc6Main =
-	'/Users/mrekinox/Desktop/ub-small/node_modules/typescript/bin/tsc'
+// The TypeScript 7 binary comes from a local probe workspace outside this
+// repository.
 const tsc7 =
 	'/Users/mrekinox/Desktop/ub-typing-spike/ts7/node_modules/@typescript/typescript-darwin-x64/lib/tsc'
-const realBaseline =
-	'/Users/mrekinox/Desktop/ub-typing-spike/tools/real-baseline'
 const TIMEOUT = 1_800_000
 
 const append = (row) =>
@@ -119,52 +111,7 @@ const waitCalm = async (what) => {
 for (const n of sizes) {
 	for (const label of labels) {
 		const load = await waitCalm(`${label}-${n}`)
-		if (label === 'typegen') {
-			const dumpDir = path.join(scratch, `typegen-${n}`)
-			const dumped = nodeJson([
-				path.join(exampleDir, 'tools/typegen-dump.mjs'),
-				String(n),
-				dumpDir,
-			])
-			for (let run = 1; run <= runs; run += 1) {
-				const config = path.join(dumpDir, 'tsconfig.json')
-				append({
-					label,
-					n,
-					run,
-					...load,
-					kind: 'probe-ts6',
-					...nodeJson(['probe.mjs', String(n)], realBaseline),
-				})
-				append({
-					label,
-					n,
-					run,
-					kind: 'tsc6',
-					...timed('node', [tsc6Main, '-p', config, '--extendedDiagnostics']),
-				})
-				append({
-					label,
-					n,
-					run,
-					kind: 'tsc7',
-					...timed(tsc7, ['-p', config, '--extendedDiagnostics']),
-				})
-				append({
-					label,
-					n,
-					run,
-					kind: 'tsc7-single',
-					...timed(tsc7, [
-						'-p',
-						config,
-						'--extendedDiagnostics',
-						'--singleThreaded',
-					]),
-				})
-			}
-			append({ label, n, kind: 'dump', ...dumped })
-		} else {
+		{
 			const dir = generate(n, { register: label === 'form-d' })
 			const config = path.join(dir, 'tsconfig.json')
 			for (let run = 1; run <= runs; run += 1) {

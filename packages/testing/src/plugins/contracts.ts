@@ -25,7 +25,6 @@ export type PluginConformanceContract =
 	| 'schema-surface'
 	| 'static-determinism'
 	| 'transport'
-	| 'typegen'
 
 /** Names checks supplied by a plugin author in addition to the common kernel suite. */
 export type OptionalPluginConformanceContract = Exclude<

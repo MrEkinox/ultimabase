@@ -11,9 +11,9 @@ const pool = {
 	query: async () => ({ rows: [] }),
 }
 
-// The first schema uses the `.with` rule (ADR-0320); the second the old
-// `define({ postgres })` form, accepted at runtime until it is removed.
-const compile = async (className, table, form) => {
+// Schemas take the `postgres` rule in their final `.with` (ADR-0320); the old
+// `define({ postgres })` form is rejected (ADR-0297).
+const compile = async (className, table) => {
 	const Application = UltimaBase.use(postgresPlugin({ pool }))
 	const options = {
 		className,
@@ -21,10 +21,7 @@ const compile = async (className, table, form) => {
 			title: field.string({ postgres: { renamedFrom: 'headline' } }),
 		}),
 	}
-	const Post =
-		form === 'rule'
-			? Application.Schema.define(options).with({ postgres: { table } })
-			: Application.Schema.define({ ...options, postgres: { table } })
+	const Post = Application.Schema.define(options).with({ postgres: { table } })
 	const application = new Application({
 		logger: false,
 		schemas: [Post],
@@ -48,15 +45,21 @@ const compile = async (className, table, form) => {
 	return result
 }
 
-const first = await compile('JavaScriptPostgresFirst', 'first_posts', 'rule')
-const second = await compile(
-	'JavaScriptPostgresSecond',
-	'second_posts',
-	'option',
-)
+const first = await compile('JavaScriptPostgresFirst', 'first_posts')
+let oldFormMessage
+try {
+	UltimaBase.use(postgresPlugin({ pool })).Schema.define({
+		className: 'JavaScriptPostgresOldForm',
+		fields: () => ({}),
+		postgres: { table: 'old_posts' },
+	})
+} catch (error) {
+	oldFormMessage = error?.message
+}
 const MissingPlugin = UltimaBase.Schema.define({
 	className: 'JavaScriptPostgresMissingPlugin',
 	fields: () => ({}),
+}).with({
 	postgres: { table: 'missing_posts' },
 })
 let missingPluginCode
@@ -70,4 +73,6 @@ try {
 	missingPluginCode = error?.code
 }
 
-stdout.write(`${JSON.stringify({ first, missingPluginCode, second })}\n`)
+stdout.write(
+	`${JSON.stringify({ first, missingPluginCode, oldFormMessage })}\n`,
+)

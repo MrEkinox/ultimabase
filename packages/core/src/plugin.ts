@@ -3,7 +3,7 @@
  * ADR-0311 and ADR-0316). Applications import `@ultimabase/core`; plugins,
  * transports and the plugin kit import the authoring contracts from here:
  * `plugin()`, contributions, capabilities, schema declarations, schema
- * mutations, operations, projection slots and Typegen references.
+ * mutations, operations and projection slots.
  */
 export {
 	decodeQueryCursor,
@@ -31,6 +31,8 @@ export { runAfterCommit } from './runtime/transactions/run-transaction.js'
 export { waitForAfterCommitWork } from './runtime/transactions/after-commit-work.js'
 export type { AfterCommitWork } from './runtime/transactions/after-commit-work.js'
 export type { RequestTransactionHandler } from './runtime/engine/request-engine.js'
+export { readCurrentCapabilityProvider } from './runtime/context/current-capability.js'
+export type { CurrentCapabilityProvider } from './runtime/context/current-capability.js'
 export {
 	anonymous,
 	authorizeMasterKey,
@@ -66,7 +68,6 @@ export type {
 	PluginPrivilegedContribution,
 	PluginStartContext,
 	PluginSchemaContributionContext,
-	PluginTypegenContributionContext,
 } from './plugins/plugin-contributions.js'
 export type { PluginPermissionReasons } from './plugins/plugin-permissions.js'
 export {
@@ -123,7 +124,6 @@ export type {
 } from './plugins/plugin-operations.js'
 export type {
 	PluginModelSurfaceRegistrar,
-	PluginModelSurfaceSource,
 	PluginOperationDeclarationRegistrar,
 } from './plugins/application-surface-declarations.js'
 export type {
@@ -187,7 +187,6 @@ export type {
 	SchemaFactoryImplementations,
 	SchemaFactoryImplementationsOf,
 	SchemaFactoryShape,
-	SchemaFactoryShapeBrand,
 } from './plugins/schema-factories.js'
 export { readSchemaRules } from './plugins/schema-rule-values.js'
 export type {
@@ -210,7 +209,6 @@ export type {
 export type {
 	SchemaCommands,
 	SchemaPermissions,
-	PluginSourceSchemaFieldValues,
 	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaMutations,
 	PluginSourceSchemaPermissions,
@@ -231,18 +229,6 @@ export type {
 	PluginDeclarationContext,
 } from './plugins/declaration-host.js'
 export {
-	defineTypegenReference,
-	isTypegenReference,
-} from './plugins/typegen-contracts.js'
-export type { TypegenReference } from './plugins/typegen-contracts.js'
-export type {
-	CompiledTypegenGraph,
-	CompiledTypegenOption,
-	OwnedTypegenReference,
-	TypegenDeclarations,
-	TypegenReferenceRegistrar,
-} from './plugins/typegen-declarations.js'
-export {
 	addSchemaField,
 	addSchemaIndex,
 	setSchemaFieldOption,
@@ -255,7 +241,6 @@ export {
 export type {
 	PluginSchemaDeclarationRegistrar,
 	PluginSchemaOptionSource,
-	PluginSchemaPatchSource,
 } from './plugins/schema-declaration-contracts.js'
 export type {
 	FieldOptionDefinition,
@@ -263,7 +248,6 @@ export type {
 	SchemaOptionRuntimeCompilationContext,
 	SchemaOptionRuntimeCompiler,
 	SchemaOptionRuntimeRequirement,
-	SchemaOptionTypegenDescriptor,
 } from './plugins/schema-option-definitions.js'
 export type {
 	AddSchemaFieldOperation,

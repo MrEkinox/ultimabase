@@ -9,18 +9,12 @@ export type { RequestSubjectContext } from './request/context.js'
 export {
 	RequestSubjectReference,
 	requestPrincipalResolverCapability,
-	requestRoleResolverCapability,
 	createRequestPrincipalReference,
 	parseRequestPrincipalReference,
-	resolveRequestRoleReference,
 } from './subject/contracts.js'
 export type {
-	RequestRoleReference,
 	RequestPrincipalReference,
 	RequestPrincipalReferenceIdentity,
-	RequestRoleResolutionInput,
-	RequestRoleResolver,
-	RequestRoleSubject,
 	RequestSubjectResolutionInput,
 	RequestSubjectResolver,
 	RequestSubjectValue,

@@ -19,8 +19,6 @@ import type {
 	SchemaTypeInfo,
 	SchemaTypeInfoSource,
 	SchemaTypeInfoFor,
-	UltimaBaseGeneratedVirtualFieldBuilderMethods,
-	UltimaBaseGeneratedVirtualFieldOptions,
 } from '../type-info.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
@@ -97,29 +95,26 @@ export type VirtualFieldOptions<
 	TItem extends object,
 	TOutputBuilder = OutputBuilder,
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
-> = UltimaBaseGeneratedVirtualFieldOptions &
-	Extract<
-		ResolveFieldSourceTemplate<TSourceTemplate, OutputValue<TOutput>>,
-		object
-	> & {
-		/** Supplies human-readable schema documentation. */
-		readonly description?: string
-		/** Describes the complete nullable and list-aware result value. */
-		readonly output: (output: TOutputBuilder) => TOutput
-		/** Selects flat persisted dependencies; canonical identity is always retained. */
-		readonly select: TSelection
-	} & VirtualFieldResolution<TItem, OutputValue<TOutput>>
+> = Extract<
+	ResolveFieldSourceTemplate<TSourceTemplate, OutputValue<TOutput>>,
+	object
+> & {
+	/** Supplies human-readable schema documentation. */
+	readonly description?: string
+	/** Describes the complete nullable and list-aware result value. */
+	readonly output: (output: TOutputBuilder) => TOutput
+	/** Selects flat persisted dependencies; canonical identity is always retained. */
+	readonly select: TSelection
+} & VirtualFieldResolution<TItem, OutputValue<TOutput>>
 
 /** Retains inert virtual metadata while Core keeps resolver identity private. */
 export interface VirtualFieldDefinition<
 	TOutput extends GenericOutputDescriptor = GenericOutputDescriptor,
 > {
 	readonly kind: 'virtual'
-	readonly options: Readonly<
-		UltimaBaseGeneratedVirtualFieldOptions & {
-			readonly description?: string
-		}
-	>
+	readonly options: Readonly<{
+		readonly description?: string
+	}>
 	readonly output: TOutput
 	readonly select: readonly string[]
 }
@@ -284,6 +279,6 @@ export type VirtualFieldBuilderMethod<
 	TSchema extends SchemaTypeInfoSource = SchemaTypeInfo,
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 	TOutputBuilder = OutputBuilder,
-	TPluginMethods extends object = UltimaBaseGeneratedVirtualFieldBuilderMethods,
+	TPluginMethods extends object = Readonly<Record<never, never>>,
 > = CoreVirtualFieldBuilderMethod<TSchema, TSourceTemplate, TOutputBuilder> &
 	TPluginMethods

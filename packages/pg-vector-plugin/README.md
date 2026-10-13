@@ -58,12 +58,11 @@ application.compile()
 ```
 
 The configured factory infers `VectorFieldBuilderMethod` from the installed
-plugin without Typegen. Core deliberately does not expose `vector` when the
+plugin. Core deliberately does not expose `vector` when the
 plugin is absent. The plugin registers the runtime method before static schema
 compilation. No PostgreSQL column compiler is shipped for this field:
 the plugin currently provides the logical value contract and GraphQL codec only.
 It contains no Drizzle or SQL dependency and cannot persist vector fields yet.
 The plugin has no setup output. Value checks use Core's scalar snapshot boundary.
-The combined generated Hooks, Access, and vector editor contract is exercised
-by
-[`generator-language-service.test.ts`](../typegen/src/generator-language-service.test.ts).
+The builder's editor contract is exercised by
+[`field-builder-autocomplete.test.ts`](tests/field-builder-autocomplete.test.ts).

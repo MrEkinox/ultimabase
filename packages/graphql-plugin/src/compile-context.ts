@@ -115,7 +115,7 @@ export const assertSchemaFieldName = (
 	)
 }
 
-/** Produces the stable child-name segment shared with Typegen conventions. */
+/** Produces the stable PascalCase child-name segment of nested GraphQL types. */
 export const graphqlFieldTypeSegment = (name: string): string =>
 	`${name[0]?.toUpperCase() ?? ''}${name.slice(1)}`
 

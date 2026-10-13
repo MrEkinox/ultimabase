@@ -5,7 +5,9 @@ import {
 	databaseAdapterCapability,
 	stringField,
 	type DatabaseAdapter,
+	type ScalarFieldTypeState,
 	type SchemaDefinition,
+	type StringField,
 } from '@ultimabase/core'
 import {
 	addSchemaField,
@@ -15,9 +17,15 @@ import {
 	plugin,
 	defineSchemaMutation,
 	provideCapability,
+	type PluginContribution,
 	type PluginDefinition,
+	type PluginSchemaFieldsSource,
+	type PluginSchemaStaticsSource,
 	type PluginSourceState,
 	type PluginSchemaMutationDefinition,
+	type SchemaCommands,
+	type SchemaFieldsHKT,
+	type SchemaStaticsHKT,
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -81,18 +89,38 @@ const operationInputs: unknown[] = []
 const filterInputs: unknown[] = []
 const itemInputs: unknown[] = []
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaSurfaces {
-		readonly AccessSchemaMutationDocument: {
-			readonly schemaMutations: { readonly archive: typeof archive }
-		}
-		readonly AccessSchemaMutationProviderDocument: {
-			readonly schemaMutations: { readonly archive: typeof archive }
-		}
-	}
+// The fields and statics slots (ADR-0316) type the patched field and the
+// archive command of every schema the fixture application declares.
+interface ArchiveFields extends SchemaFieldsHKT {
+	readonly fields: Readonly<{
+		workflowState: StringField<ScalarFieldTypeState<false, false, false, false>>
+	}>
 }
 
-const mutationSourcePlugin = plugin({
+interface ArchiveStatics extends SchemaStaticsHKT {
+	readonly statics: SchemaCommands<
+		this['schema'],
+		{ readonly archive: typeof archive }
+	>
+}
+
+type ArchiveSource =
+	| PluginSchemaFieldsSource<ArchiveFields>
+	| PluginSchemaStaticsSource<ArchiveStatics>
+
+const mutationSourcePlugin = plugin<
+	'fixture.access-schema-mutation-source',
+	undefined,
+	'1.0.0',
+	'^0.0.0',
+	undefined,
+	undefined,
+	undefined,
+	undefined,
+	undefined,
+	readonly PluginContribution[],
+	ArchiveSource
+>({
 	contributions: [
 		contributeSchemaMutation({
 			mutation: archive,
@@ -170,6 +198,7 @@ const AccessDocument = AccessMutationApplication.Schema.define({
 		}),
 		title: field.string(),
 	}),
+}).with({
 	access: {
 		archive: {
 			// One rule before loading (ADR-0317): no row, or a row filter.
@@ -209,6 +238,7 @@ const BooleanDefaultDocument = UltimaBase.Schema.define({
 const ProviderDocument = AccessMutationApplication.Schema.define({
 	className: 'AccessSchemaMutationProviderDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
+}).with({
 	access: {
 		archive: ({ input }) => input.reason !== 'developer-deny',
 	},
@@ -620,6 +650,7 @@ describe('schema mutation Access', () => {
 		const StaleDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationStaleDocument',
 			fields: (field) => ({ secret: field.string(), title: field.string() }),
+		}).with({
 			access: { stale: true } as never,
 		})
 		const adapter = new SchemaMutationAdapter()
@@ -642,6 +673,7 @@ describe('schema mutation Access', () => {
 		const MasterOnlyDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationMasterOnlyDocument',
 			fields: (field) => ({ title: field.string() }),
+		}).with({
 			access: { purge: true } as never,
 		})
 		const masterAdapter = new SchemaMutationAdapter()

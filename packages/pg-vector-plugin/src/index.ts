@@ -176,18 +176,9 @@ export const isVectorFieldValidationPlan = (
 
 const vectorFieldFamily = definePluginFieldFamily({
 	fieldKind: vectorFieldKind,
-	typegen: {
-		module: '@ultimabase/pg-vector-plugin',
-		valueType: 'VectorValue',
-	},
 	builder: {
 		name: 'vector',
-		contexts: {
-			stored: {
-				factory: vectorField,
-				methodType: 'VectorFieldBuilderMethod',
-			},
-		},
+		contexts: { stored: { factory: vectorField } },
 	},
 })
 

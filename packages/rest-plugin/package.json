@@ -34,7 +34,6 @@
 		"@ultimabase/shared": "workspace:^"
 	},
 	"devDependencies": {
-		"@ultimabase/typegen": "workspace:^",
 		"@ultimabase/validation-plugin": "workspace:^",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",

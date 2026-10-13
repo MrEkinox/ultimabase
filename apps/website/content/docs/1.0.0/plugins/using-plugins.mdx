@@ -15,7 +15,6 @@ sources:
   - packages/hooks-plugin/README.md
   - packages/validation-plugin/README.md
   - packages/postgres-plugin/README.md
-  - packages/typegen/README.md
   - examples/minimal/src/schema.ts
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
@@ -36,13 +35,9 @@ the application that installs these plugins.
 
 - Complete Manual Installation with its disposable PostgreSQL database and
   `src/schema.ts`, `src/ultimabase.ts`, and `src/main.ts` files.
-- Set up [Generate TypeScript Types](/docs/1.0.0/guides/generate-types), including
-  `typegenPlugin()`, the generated declaration in `tsconfig.json`, and the
-  [pre-build generator](/docs/1.0.0/guides/generate-types#generate-before-building).
-  The `typecheck` and `build` scripts there regenerate the retained relationship
-  and complete-schema callback graph. Field Hooks and Validation are inferred
-  directly from the configured source factory. JavaScript Runtime does not
-  require Typegen.
+- Field Hooks and Validation options are typed directly from the configured
+  application factory: no generation step or generated declaration is needed,
+  and JavaScript applications run the same plugins.
 
 ## Steps
 
@@ -79,19 +74,16 @@ pnpm add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 ### Configure the application with plugins
 
 Build one immutable schema application factory by passing schema-authoring
-plugins to `.use()`. The `typegenPlugin()` setup comes from
-the Typegen prerequisite. Define Task from that factory so field Hooks and
+plugins to `.use()`. Define Task from that factory so field Hooks and
 Validation are available directly from the installed plugin set:
 
 ```ts title="src/schema.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 export const SchemaApplication = UltimaBase.use(
-	typegenPlugin(),
 	hooksPlugin(),
 	validationPlugin(),
 )
@@ -141,6 +133,13 @@ const Application = SchemaApplication.use(
 export const ultimabase = new Application({
 	schemas: [Task],
 })
+
+// Once per application: it gives name-keyed editor types.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 The Hook may normalize input, but Validation only accepts or rejects the
@@ -184,9 +183,8 @@ try {
 }
 ```
 
-Run the updated scripts. Typecheck and build regenerate Typegen after the
-plugin and schema changes to refresh retained graph contracts. The configured
-factory already supplies the new local field options:
+Run the updated scripts. The configured factory already supplies the new
+field options, so there is nothing to regenerate:
 
 ```bash tab="npm" tab-group="package-manager"
 npm run typecheck
@@ -209,8 +207,7 @@ pnpm start
 Expect the trimmed title and then `VALIDATION_ERROR`. The second write is
 rejected before persistence. If TypeScript does not recognize `hooks` or
 `validation`, check that Task uses the factory on which Hooks and Validation
-were installed, not the zero-plugin `UltimaBase.Schema`. Regenerate Typegen for
-complete filters, named relationships and complete schema callbacks. If startup fails instead, inspect the default
+were installed, not the zero-plugin `UltimaBase.Schema`. If startup fails instead, inspect the default
 plugin report and compatibility diagnostics before changing privileges or
 infrastructure settings.
 
@@ -225,6 +222,8 @@ Use one replacement for each removed form; these are migrations, not compatibili
 | Ordinary CRUD through `application.schema(name)`         | Call the declared schema class directly, such as `Post.findMany()`.                                                |
 | Explicit application selector on ordinary class commands | Call the class after its owning application starts; it resolves and verifies the sole active application.          |
 | Generated `Application*Builder` aliases                  | Infer callback parameters, or annotate low-level consumers with Core's contextual builder types.                   |
+| Plugin options inside `define({ access, hooks, … })`     | `define({ className, fields, indexes })`, shape methods such as `.softDelete()`, then rules in a final `.with()`.  |
+| Generated declarations and `typegenPlugin()`             | None: types come from the source declarations and the application's one `Register` declaration.                    |
 
 No schema is registered by being declared: keep `new App({ schemas: [...] })`.
 Advanced dynamically named handles remain for capabilities that need them; they
@@ -236,8 +235,9 @@ for the User. No additional plugin installation is required per schema.
 
 ## Next steps
 
-When removing a plugin, remove its factory and plugin-owned schema options or
-commands, regenerate Typegen, and verify startup and stored-data compatibility.
+When removing a plugin, remove its factory, its shape methods, its `.with()`
+rules and its commands, then verify typechecking, startup and stored-data
+compatibility.
 Removing a plugin does not automatically migrate its data. Core checks
 required providers, protocol compatibility, privileges, and duplicate
 identities during application assembly; it cannot replace your review of a

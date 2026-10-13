@@ -15,10 +15,7 @@ import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '@ultimabase/testing/plugins'
-import { generateApplicationTypes } from '@ultimabase/typegen'
-import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -72,20 +69,23 @@ const createBehaviorSupportPlugin = () =>
 
 const createAlternativeFixture = () => {
 	const engine = createAlternativeBehaviorEngine({ instanceId: 'typed' })
-	const Post = UltimaBase.use(engine.plugin).Schema.define({
-		className: 'AlternativeBehaviorPost',
-		alternativeBehavior: alternativeBehavior({ label: 'editorial' }),
-		fields: (field) => ({
-			title: field.string({ required: true }),
-		}),
-	})
+	const Post = UltimaBase.use(engine.plugin)
+		.Schema.define({
+			className: 'AlternativeBehaviorPost',
+			fields: (field) => ({
+				title: field.string({ required: true }),
+			}),
+		})
+		.with({
+			alternativeBehavior: alternativeBehavior({ label: 'editorial' }),
+		})
 	const observer = createAlternativeBehaviorDiagnosticObserver(() => undefined)
 
 	return { engine, observer, Post }
 }
 
 describe('optional Hooks engine proof', () => {
-	it('keeps no-Hooks inspection and generated contracts free of official vocabulary', async () => {
+	it('keeps no-Hooks inspection free of official vocabulary', async () => {
 		const Plain = UltimaBase.Schema.define({
 			className: 'NoHooksGeneratedPost',
 			fields: (field) => ({ title: field.string() }),
@@ -96,16 +96,7 @@ describe('optional Hooks engine proof', () => {
 		})
 
 		try {
-			const generated = generateApplicationTypes({
-				ultimabase: application,
-				applicationId: 'no-hooks-proof',
-			})
-
 			expect(application.pluginPrivilegeReport.plugins).toStrictEqual([])
-			expect(application.compile().typegenGraph.options).toStrictEqual([])
-			expect(generated.contents).not.toContain('@ultimabase/hooks-plugin')
-			expect(generated.contents).not.toContain('SchemaHooksOption')
-			expect(generated.contents).not.toContain('FieldHooksOption')
 			const [alternativeSource, javascriptSource] = await Promise.all([
 				readFile(alternativeFixturePath, 'utf8'),
 				readFile(javascriptFixturePath, 'utf8'),
@@ -117,7 +108,7 @@ describe('optional Hooks engine proof', () => {
 		}
 	})
 
-	it('runs the independent engine through conformance, middleware, and Typegen', async () => {
+	it('runs the independent engine through conformance and middleware', async () => {
 		const suite = definePluginConformanceSuite({
 			createFixture: () => {
 				const { engine, observer, Post } = createAlternativeFixture()
@@ -147,22 +138,13 @@ describe('optional Hooks engine proof', () => {
 				},
 			])
 		})
-		const report = await runPluginConformance(
-			withPluginTypegenConformance(suite, {
-				applicationId: 'alternative-behavior-conformance',
-				verify: ({ contents }) => {
-					expect(contents).toContain('AlternativeBehaviorAudittyped')
-					expect(contents).not.toContain('@ultimabase/hooks-plugin')
-				},
-			}),
-		)
+		const report = await runPluginConformance(suite)
 
 		expect(report.checks.map(({ contract }) => contract)).toEqual(
 			expect.arrayContaining([
 				'application-isolation',
 				'lifecycle-cleanup',
 				'middleware',
-				'typegen',
 			]),
 		)
 	}, 20_000)
@@ -172,11 +154,14 @@ describe('optional Hooks engine proof', () => {
 		const engine = createAlternativeBehaviorEngine({
 			onDispose: () => disposed.push('disposed'),
 		})
-		const Post = UltimaBase.use(engine.plugin).Schema.define({
-			className: 'AlternativeBehaviorIsolationPost',
-			alternativeBehavior: alternativeBehavior({ label: 'isolated' }),
-			fields: (field) => ({ title: field.string() }),
-		})
+		const Post = UltimaBase.use(engine.plugin)
+			.Schema.define({
+				className: 'AlternativeBehaviorIsolationPost',
+				fields: (field) => ({ title: field.string() }),
+			})
+			.with({
+				alternativeBehavior: alternativeBehavior({ label: 'isolated' }),
+			})
 		const database = createBehaviorSupportPlugin()
 		const first = new (UltimaBase.use(database, engine.plugin))({
 			logger: false,
@@ -235,59 +220,6 @@ describe('optional Hooks engine proof', () => {
 		} finally {
 			await Promise.all([official.dispose(), alternative.dispose()])
 		}
-	})
-
-	it('keeps generated alternative contracts valid through compiled exports', () => {
-		const { engine, observer, Post } = createAlternativeFixture()
-		const application = new (UltimaBase.use(
-			observer,
-			createBehaviorSupportPlugin(),
-			engine.plugin,
-		))({
-			logger: false,
-			schemas: [Post],
-		})
-		const generated = generateApplicationTypes({
-			ultimabase: application,
-			applicationId: 'alternative-behavior-language-service',
-		}).contents
-		const repository = path.resolve(import.meta.dirname, '../..')
-		const fileName = path.join(
-			import.meta.dirname,
-			'alternative-behavior-language-service.fixture.ts',
-		)
-		const source = `import type {} from '@ultimabase/core'\n${generated}\nconst valid: AlternativeBehaviorAudittypedCreateInput = { action: 'create-one', label: 'editorial', schema: 'Post' }\n// @ts-expect-error -- The generated audit contract keeps exact field values.\nconst invalid: AlternativeBehaviorAudittypedCreateInput = { action: 1, label: 'editorial', schema: 'Post' }\nvoid valid\nvoid invalid\n`
-		const host: ts.LanguageServiceHost = {
-			fileExists: (requested) => ts.sys.fileExists(requested),
-			getCompilationSettings: () => ({
-				baseUrl: repository,
-				module: ts.ModuleKind.NodeNext,
-				moduleResolution: ts.ModuleResolutionKind.NodeNext,
-				paths: {
-					'@ultimabase/core': ['packages/core/dist/index.d.ts'],
-					'@ultimabase/core/plugin': ['packages/core/dist/plugin.d.ts'],
-					'@ultimabase/shared': ['packages/shared/dist/index.d.ts'],
-				},
-				strict: true,
-				target: ts.ScriptTarget.ESNext,
-			}),
-			getCurrentDirectory: () => repository,
-			getDefaultLibFileName: ts.getDefaultLibFilePath,
-			getScriptFileNames: () => [fileName],
-			getScriptSnapshot: (requested) => {
-				const value =
-					requested === fileName ? source : ts.sys.readFile(requested)
-				return value === undefined
-					? undefined
-					: ts.ScriptSnapshot.fromString(value)
-			},
-			getScriptVersion: () => '0',
-			readFile: (requested) => ts.sys.readFile(requested),
-		}
-
-		expect(
-			ts.createLanguageService(host).getSemanticDiagnostics(fileName),
-		).toStrictEqual([])
 	})
 
 	it('composes shared low-level middleware without either lifecycle engine', async () => {

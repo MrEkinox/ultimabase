@@ -30,7 +30,7 @@ const expectedConcepts = [
 	'Virtual fields and contextual relations',
 	'HTTP, REST, and GraphQL transport boundary',
 	'Authentication, sessions and sign-in methods',
-	'Typegen and generated declarations',
+	'Schema declaration form and editor types',
 	'Validation, tests, and CI',
 ] as const
 

@@ -15,7 +15,7 @@ const App = UltimaBase.use(accessPlugin())
 const Bare = App.Schema.define({
 	className: 'DeniedBare',
 	fields: (field) => ({ title: field.string() }),
-}).with({})
+})
 const Ruled = App.Schema.define({
 	className: 'DeniedRuled',
 	fields: (field) => ({

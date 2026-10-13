@@ -51,6 +51,5 @@ export const authUserIdentityOption: SchemaOptionDefinition<AuthUserIdentityOpti
 			return value
 		},
 		protocolVersion: 1,
-		typegen: false,
 		valueKind: 'opaque',
 	})

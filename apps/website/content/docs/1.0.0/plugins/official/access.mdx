@@ -91,6 +91,7 @@ export const Article = Application.Schema.define({
 		published: f.boolean({ default: false }),
 		title: f.string({ required: true }),
 	}),
+}).with({
 	access: {
 		read: ({ where }) => where.eq('published', true),
 	},
@@ -106,12 +107,17 @@ import { Article } from './article.js'
 export const ultimabase = new Application({
 	schemas: [Article],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 Keep startup in the existing entry point from
 [Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
 `ultimabase.start()` there and always await `dispose()` when the process finishes.
-This configuration module stays safe to load for static Typegen generation.
 
 The installed engine denies every operation that has no schema rule. In this
 example, the `read` rule covers all four read operations and returns a private
@@ -120,11 +126,11 @@ delete have no rule, so they remain denied. A normal result omits `internalNote`
 an explicit selection, filter, or sort using it is rejected. Audited Master
 requests bypass these Access restrictions.
 
-The configured factory exposes field `access` directly from source. Schema
-`access` callbacks use the retained Typegen graph so items, row filters,
-relationships, and plugin mutation keys stay exact; regenerate after changing
-that application graph. JavaScript uses the same compiled policy without
-loading generated declarations.
+Field `access` stays on the field; schema rules go in the final
+`.with({ access })`, never in `define`. Both are typed from the source
+declaration: items, row filters, relationships, and the command keys of shape
+methods such as `.softDelete()` stay exact without a generation step.
+JavaScript uses the same compiled policy.
 
 ## Behavior and limitations
 
@@ -154,6 +160,7 @@ import { Application } from './application.js'
 export const CountOnlyArticle = Application.Schema.define({
 	className: 'CountOnlyArticle',
 	fields: (f) => ({ title: f.string({ required: true }) }),
+}).with({
 	access: { read: { count: true } },
 })
 ```
@@ -217,6 +224,7 @@ export const EditableArticle = Application.Schema.define({
 		published: f.boolean({ default: false }),
 		title: f.string({ required: true }),
 	}),
+}).with({
 	access: {
 		update: {
 			where: ({ where }) => where.eq('locked', false),
@@ -253,6 +261,7 @@ export const PrivateNote = Application.Schema.define({
 		author: f.string({ required: true }),
 		body: f.string({ required: true }),
 	}),
+}).with({
 	access: {
 		create: isAuthenticated,
 		read: ({ principal, where }) =>

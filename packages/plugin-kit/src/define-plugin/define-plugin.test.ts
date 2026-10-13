@@ -47,7 +47,7 @@ const archivePlugin = () =>
 	})
 
 const surface = (application: CompiledApplication, className: string) =>
-	application.typegenGraph.schemaSurfaces.find(
+	application.schemaSurfaces.find(
 		({ schema }) => schema.className === className,
 	)
 
@@ -64,9 +64,8 @@ describe('definePlugin', () => {
 			'schema:declare',
 			'model:extend',
 			'operation:declare',
-			'persistence:rewrite',
 			// No transport binding: transports expose commands by rule (ADR-0325).
-			'typegen:reference',
+			'persistence:rewrite',
 		])
 		expect(
 			definePlugin({ name: 'community.empty' }).manifest.privileges,
@@ -87,7 +86,7 @@ describe('definePlugin', () => {
 		const Plain = App.Schema.define({
 			className: 'FacadePlain',
 			fields: (field) => ({ title: field.string() }),
-		}).with({})
+		})
 		const compiled = new App({
 			logger: false,
 			schemas: [Archived, Plain],
@@ -134,9 +133,7 @@ describe('definePlugin', () => {
 		const BadShape = App.Schema.define({
 			className: 'FacadeBadShape',
 			fields: (field) => ({ title: field.string() }),
-		})
-			.archivable('soon' as never)
-			.with({})
+		}).archivable('soon' as never)
 
 		expect(() =>
 			new App({ logger: false, schemas: [BadRule] }).compile(),
@@ -160,9 +157,7 @@ describe('definePlugin', () => {
 		const Flagged = App.Schema.define({
 			className: 'FacadeFlagged',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		})
-			.flag(...([{ loud: true }] as unknown as []))
-			.with({})
+		}).flag(...([{ loud: true }] as unknown as []))
 
 		expect(() =>
 			new App({ logger: false, schemas: [Flagged] }).compile(),

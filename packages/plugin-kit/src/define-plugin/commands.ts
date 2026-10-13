@@ -2,7 +2,6 @@ import {
 	contributeSchemaMutation,
 	defineOperationValue,
 	defineSchemaMutation,
-	defineTypegenReference,
 	type PluginContribution,
 	type PluginOperationValueContract,
 	type PluginSchemaMutationDefinition,
@@ -150,17 +149,12 @@ export type CommandMutation<TCommand> =
 			>
 		: never
 
-// One no-input contract for every facade command; Typegen renders Core's
-// payload-free input for it.
+// One no-input contract for every facade command.
 const noInput: PluginOperationValueContract<undefined> = defineOperationValue(
 	(value, path): undefined => {
 		if (value !== undefined) throw new TypeError(`${path} must be undefined`)
 		return undefined
 	},
-	defineTypegenReference({
-		exportName: 'PluginSchemaMutationNoInput',
-		module: '@ultimabase/core/plugin',
-	}),
 )
 
 /** Converts a camelCase key into one segment of a namespaced mutation name. */

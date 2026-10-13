@@ -24,7 +24,7 @@ const App = UltimaBase.use(authPlugin({ methods: [password({ identifier: 'email'
 const AppUser = App.UserSchema.define({
   className: 'EditorUser',
   fields: (field) => ({ displayName: field.string({ required: true }) }),
-}).with({})
+})
 const credentials = { email: 'ada@example.test', password: 'correct horse battery staple' }
 AppUser./* methods */signUp({ ...credentials, displayName: 'Ada Lovelace' })
 // @ts-expect-error -- The editor fixture requests completions in an unfinished input.

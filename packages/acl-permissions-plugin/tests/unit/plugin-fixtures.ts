@@ -1,14 +1,12 @@
 import {
 	RequestSubjectReference,
 	requestPrincipalResolverCapability,
-	requestRoleResolverCapability,
 	databaseAdapterCapability,
 	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability as planCapability,
 	UltimaBase,
 	type DatabaseAdapter,
 	type RequestPrincipalResolver,
-	type RequestRoleResolver,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -17,6 +15,10 @@ import {
 	type PreparedDatabaseOperation,
 	type RequestSubjectContext,
 } from '@ultimabase/core'
+import {
+	requestRoleResolverCapability,
+	type RequestRoleResolver,
+} from '@ultimabase/plugin-kit'
 
 import { ACL } from '../../src/acl.js'
 

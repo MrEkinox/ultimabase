@@ -18,16 +18,8 @@ import type { JsonDocument, JsonFieldOptions } from '../fields/builtins/json.js'
 import type { StringFieldOptions } from '../fields/builtins/string.js'
 import type { TimeFieldOptions } from '../fields/builtins/time.js'
 import type { UuidFieldOptions } from '../fields/builtins/uuid.js'
-import type {
-	UltimaBaseGeneratedEmbeddedFieldOptions,
-	UltimaBaseGeneratedFieldOptions,
-} from '../type-info.js'
 
-type EmbeddedValueOptions<TOptions> = Omit<
-	Omit<TOptions, 'indexed'>,
-	keyof UltimaBaseGeneratedFieldOptions
-> &
-	UltimaBaseGeneratedEmbeddedFieldOptions
+type EmbeddedValueOptions<TOptions> = Omit<TOptions, 'indexed'>
 
 /** Describes string behavior available at one embedded object property. */
 export type EmbeddedStringFieldOptions =
@@ -56,16 +48,14 @@ export type EmbeddedBinaryFieldOptions =
 export type EmbeddedJsonFieldOptions = EmbeddedValueOptions<JsonFieldOptions>
 /** Describes integer behavior without a dedicated embedded sequence. */
 export type EmbeddedIntFieldOptions = Omit<
-	Omit<IntFieldOptions, 'autoIncrement' | 'indexed'>,
-	keyof UltimaBaseGeneratedFieldOptions
-> &
-	UltimaBaseGeneratedEmbeddedFieldOptions
+	IntFieldOptions,
+	'autoIncrement' | 'indexed'
+>
 /** Describes bigint behavior without a dedicated embedded sequence. */
 export type EmbeddedBigintFieldOptions = Omit<
-	Omit<BigintFieldOptions, 'autoIncrement' | 'indexed'>,
-	keyof UltimaBaseGeneratedFieldOptions
-> &
-	UltimaBaseGeneratedEmbeddedFieldOptions
+	BigintFieldOptions,
+	'autoIncrement' | 'indexed'
+>
 
 export type EmbeddedStringFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

@@ -9,13 +9,20 @@ import {
 	contributeDeclarations,
 	defineFieldOption,
 	defineSchemaOption,
-	defineTypegenReference,
 	plugin,
+	provideSchemaShapeMethods,
+	type PluginDeclarationContribution,
+	type PluginDeclarationSource,
+	type PluginInstance,
+	type PluginSchemaFieldsSource,
+	type PluginSchemaShapeSource,
+	type SchemaFieldsHKT,
+	type SchemaShapeMethod,
 } from '@ultimabase/core/plugin'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-/** Exact logical decimal representation used by Runtime, Typegen, and adapters. */
+/** Exact logical decimal representation used by Runtime and adapters. */
 export interface DecimalValue {
 	readonly scale: number
 	readonly units: string
@@ -47,10 +54,6 @@ const decimalLedgerOption = defineSchemaOption<DecimalLedgerOption>({
 		return immutableRecord({ defaultScale: value.defaultScale as number })
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/open-kernel',
-		type: 'DecimalLedgerOption',
-	},
 })
 
 const decimalLabelOption = defineFieldOption<DecimalLabelOption>({
@@ -66,10 +69,6 @@ const decimalLabelOption = defineFieldOption<DecimalLabelOption>({
 		return immutableRecord({ format: value.format })
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/open-kernel',
-		type: 'DecimalLabelOption',
-	},
 })
 
 export const decimalFieldKind = 'fixture.open-kernel.decimal' as const
@@ -112,25 +111,16 @@ export const decimalField = (): DecimalField =>
 		},
 	)
 
-/** Generated FieldBuilder contract for the logical decimal field. */
+/** FieldBuilder contract of the logical decimal field. */
 export type DecimalFieldBuilderMethod = () => DecimalField
 
-const decimalValueType = defineTypegenReference({
-	exportName: 'DecimalValue',
-	module: '@fixture/open-kernel',
-})
 const decimalBuilderMethod = definePluginFieldFamily({
 	fieldKind: decimalFieldKind,
-	typegen: {
-		module: decimalValueType.module,
-		valueType: 'DecimalValue',
-	},
 	builder: {
 		name: 'preciseDecimal',
 		contexts: {
 			stored: {
 				factory: decimalField,
-				methodType: 'DecimalFieldBuilderMethod',
 			},
 		},
 	},
@@ -141,45 +131,79 @@ export interface ValuePluginOptions {
 	readonly targetClassName: string
 }
 
-/** Adds one portable logical value and its source-typed schema surface. */
-export const createValuePlugin = (options: ValuePluginOptions) =>
-	plugin({
-		core: '^0.0.0',
-		id: 'fixture.open-kernel-value',
-		version: '1.0.0',
-		contributions: [
-			contributeDeclarations({
-				schema: ({ fields, schemas }) => {
-					const field = fields.register(decimalBuilderMethod)
-					const optionsReceipt = schemas.defineOptions({
-						contributionId: 'decimal-options',
-						field: { decimalLabel: decimalLabelOption },
-						schema: { decimalLedger: decimalLedgerOption },
-					})
-					const patch = schemas.patch(
-						patchSchemas({
-							patch: schemaPatch().addField({
-								contributionId: 'decimal-amount',
-								field: decimalField(),
-								name: 'amount',
-							}),
-							targets: schemas.select({
-								className: options.targetClassName,
-								option: { name: 'decimalLedger' },
-							}),
-						}),
-					)
-					return [field, optionsReceipt, patch]
-				},
-				typegen: ({ typegenReferences }) => {
-					// The compiled graph retains its reference without startup generation.
-					typegenReferences.register(decimalValueType)
-				},
-			}),
-		],
-		instanceId: options.instanceId,
-		permissions: {
-			'schema:declare': 'Adds the decimal field and builder.',
-			'typegen:reference': 'References the exact public decimal value.',
+// Form D (ADR-0297): `.decimalLedger({ defaultScale })` is a shape method; the
+// fields slot adds the `amount` field the patch below stores (ADR-0316).
+interface DecimalLedgerFields extends SchemaFieldsHKT {
+	readonly fields: 'decimalLedger' extends keyof this['shape']
+		? Readonly<{ amount: DecimalField }>
+		: unknown
+}
+
+const createDeclarations = (options: ValuePluginOptions) =>
+	contributeDeclarations({
+		schema: ({ fields, schemas }) => {
+			const field = fields.register(decimalBuilderMethod)
+			const optionsReceipt = schemas.defineOptions({
+				contributionId: 'decimal-options',
+				field: { decimalLabel: decimalLabelOption },
+				schema: { decimalLedger: decimalLedgerOption },
+			})
+			schemas.patch(
+				patchSchemas({
+					patch: schemaPatch().addField({
+						contributionId: 'decimal-amount',
+						field: decimalField(),
+						name: 'amount',
+					}),
+					targets: schemas.select({
+						className: options.targetClassName,
+						option: { name: 'decimalLedger' },
+					}),
+				}),
+			)
+			return [field, optionsReceipt]
 		},
 	})
+
+type ValueSource =
+	| PluginDeclarationSource<ReturnType<typeof createDeclarations>>
+	| PluginSchemaShapeSource<{
+			decimalLedger: SchemaShapeMethod<
+				readonly [options: DecimalLedgerOption],
+				Readonly<{ decimalLedger: DecimalLedgerOption }>
+			>
+	  }>
+	| PluginSchemaFieldsSource<DecimalLedgerFields>
+
+/** The community value plugin, with its form D source. */
+export type ValuePlugin = PluginInstance<{
+	readonly id: 'fixture.open-kernel-value'
+	readonly instanceId: string
+	readonly version: '1.0.0'
+	readonly core: '^0.0.0'
+	readonly source: ValueSource
+}>
+
+/** Adds one portable logical value and its source-typed schema surface. */
+export const createValuePlugin = (options: ValuePluginOptions): ValuePlugin => {
+	const declarations: PluginDeclarationContribution<readonly [], ValueSource> =
+		createDeclarations(options)
+	return provideSchemaShapeMethods<ValuePlugin>(
+		plugin({
+			core: '^0.0.0',
+			id: 'fixture.open-kernel-value',
+			version: '1.0.0',
+			contributions: [declarations],
+			instanceId: options.instanceId,
+			permissions: {
+				'schema:declare': 'Adds the decimal field and builder.',
+			},
+		}),
+		{
+			decimalLedger: {
+				sets: ['decimalLedger'],
+				apply: (ledger: DecimalLedgerOption) => ({ decimalLedger: ledger }),
+			},
+		},
+	)
+}

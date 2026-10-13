@@ -45,8 +45,9 @@ project setup, follow [Manual Installation](/docs/1.0.0/manual-installation).
 
 Schemas, configured plugins, and static options form the application graph.
 Importing a package alone installs nothing; behavior comes from the definitions
-in this application's one flat `.use()` chain. Generated
-TypeScript declarations describe this graph but do not decide what runs.
+in this application's one flat `.use()` chain. TypeScript types are inferred
+from the same source declarations; they describe this graph but do not decide
+what runs.
 
 <Mermaid
 	description="Schemas, plugins, and options pass validation before producing an immutable application graph and its installed capabilities."
@@ -285,7 +286,7 @@ For tests, see [Test an Application](/docs/1.0.0/guides/test-an-application)
 for `beforeAll` / `afterAll` and separate database schemas per worker.
 A schema class may be reused across sequential applications only when its
 separately compiled definition is structurally identical. Pure compilation
-and Typegen do not activate an application.
+does not activate an application.
 
 ## Next steps
 
@@ -300,10 +301,10 @@ and Typegen do not activate an application.
 		Choose optional capabilities deliberately and inspect their privileges.
 	</Card>
 	<Card
-		title="Generate TypeScript types"
-		href="/docs/1.0.0/guides/generate-types"
+		title="Test the application"
+		href="/docs/1.0.0/guides/test-an-application"
 	>
-		Add optional editor declarations without changing Runtime behavior.
+		Verify behavior in an isolated application and disposable database.
 	</Card>
 	<Card title="Expose HTTP" href="/docs/1.0.0/plugins/official/http">
 		Select one application before REST or GraphQL enters Runtime.

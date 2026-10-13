@@ -1,4 +1,4 @@
-// Application API: plugin installation, generated schema-option contracts,
+// Application API: plugin installation, schema rule contracts,
 // callback authoring types, and policy combinators.
 export { accessPlugin } from './plugin.js'
 export type {
@@ -11,7 +11,6 @@ export type {
 	AllowWithoutRule,
 	AllowWithoutRuleValue,
 } from './authoring/allow-without-rule.js'
-export type { SchemaAccessOption } from './options.js'
 export type { AccessContext } from './context.js'
 export type {
 	AccessDecisionRule,

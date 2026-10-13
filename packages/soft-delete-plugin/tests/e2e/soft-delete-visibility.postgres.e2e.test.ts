@@ -25,14 +25,12 @@ const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
 const VisibleRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibleRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete({ mode: 'command' })
-	.with({})
+}).softDelete({ mode: 'command' })
 
 const PlainRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeletePlainRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({})
+})
 
 const replaceDeleteTrace: string[] = []
 let rejectedDeleteTitle: string | undefined
@@ -144,16 +142,12 @@ const staleTombstoneWriter = plugin({
 const Author = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-})
-	.softDelete({ mode: 'command' })
-	.with({})
+}).softDelete({ mode: 'command' })
 
 const Tag = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
-})
-	.softDelete({ mode: 'command' })
-	.with({})
+}).softDelete({ mode: 'command' })
 
 const Article = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityArticle',
@@ -162,9 +156,7 @@ const Article = SoftDeleteSchemaApplication.Schema.define({
 		tags: field.relation({ target: () => Tag }),
 		title: field.string({ required: true }),
 	}),
-})
-	.softDelete({ mode: 'command' })
-	.with({})
+}).softDelete({ mode: 'command' })
 
 const schemas = [
 	VisibleRecord,

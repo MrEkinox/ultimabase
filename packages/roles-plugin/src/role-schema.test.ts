@@ -34,7 +34,7 @@ describe('App.RoleSchema', () => {
 			className: 'ConfiguredRole',
 			members: () => User,
 			fields: (field) => ({ description: field.string() }),
-		}).with({})
+		})
 
 		expect(ConfiguredRole.fields).toHaveProperty('description')
 		// ADR-0310: role schemas are not constructible and carry no role methods.
@@ -70,7 +70,7 @@ describe('App.RoleSchema', () => {
 				description: field.string(),
 				priority: field.int({ default: 0 }),
 			}),
-		}).with({})
+		})
 		const application = new Roles({
 			schemas: [User, BuilderRole],
 		})
@@ -132,7 +132,7 @@ describe('App.RoleSchema', () => {
 			className: 'CascadingRole',
 			members: () => User,
 			deletion: 'cascade',
-		}).with({})
+		})
 
 		expect(getRoleSchemaDeclaration(CascadingRole)?.deletionPolicy).toBe(
 			'cascade',
@@ -153,7 +153,7 @@ describe('App.RoleSchema', () => {
 			className: 'SeededRole',
 			members: () => User,
 			ensure: ['Admin', ' admin ', 'Editor'],
-		}).with({})
+		})
 
 		expect(getRoleSchemaDeclaration(SeededRole)?.ensure).toStrictEqual([
 			'admin',
@@ -209,7 +209,7 @@ describe('App.RoleSchema', () => {
 		const AppRole = Roles.RoleSchema.define({
 			className: 'OwnedRole',
 			members: () => User,
-		}).with({})
+		})
 		let infrastructureStarted = false
 		const infrastructure = plugin({
 			core: '^0.0.0',
@@ -237,7 +237,7 @@ describe('App.RoleSchema', () => {
 		const OwnedRole = Roles.RoleSchema.define({
 			className: 'IdentityOwnerRole',
 			members: () => User,
-		}).with({})
+		})
 		const identity: unknown = Reflect.get(
 			OwnedRole.definition,
 			roleSchemaIdentityOptionName,
@@ -249,13 +249,11 @@ describe('App.RoleSchema', () => {
 		const CopiedRole = UltimaBase.Schema.define({
 			className: 'CopiedIdentityRole',
 			fields: () => ({}),
-			[roleSchemaIdentityOptionName]: copiedIdentity,
-		} as never)
+		}).with({ [roleSchemaIdentityOptionName]: copiedIdentity } as never)
 		const ForeignRole = UltimaBase.Schema.define({
 			className: 'ForeignIdentityRole',
 			fields: () => ({}),
-			[roleSchemaIdentityOptionName]: identity,
-		} as never)
+		}).with({ [roleSchemaIdentityOptionName]: identity } as never)
 
 		for (const [index, schema] of [CopiedRole, ForeignRole].entries()) {
 			let infrastructureStarted = false
@@ -300,11 +298,11 @@ describe('App.RoleSchema', () => {
 		const FirstRole = Roles.RoleSchema.define({
 			className: 'DuplicateRoleDomain',
 			members: () => User,
-		}).with({})
+		})
 		const SecondRole = Roles.RoleSchema.define({
 			className: 'DuplicateRoleDomain',
 			members: () => User,
-		}).with({})
+		})
 		let infrastructureStarted = false
 		const infrastructure = plugin({
 			core: '^0.0.0',
@@ -336,11 +334,11 @@ describe('App.RoleSchema', () => {
 		const FirstRole = Roles.RoleSchema.define({
 			className: 'FirstRoleDomain',
 			members: () => User,
-		}).with({})
+		})
 		const SecondRole = Roles.RoleSchema.define({
 			className: 'SecondRoleDomain',
 			members: () => SecondUser,
-		}).with({})
+		})
 		const firstPlugin = rolesPlugin()
 		const secondPlugin = rolesPlugin()
 		const first = new (UltimaBase.use(firstPlugin))({
@@ -367,11 +365,11 @@ describe('App.RoleSchema', () => {
 		const TeamRole = Roles.RoleSchema.define({
 			className: 'SeveralTeamRole',
 			members: () => User,
-		}).with({})
+		})
 		const ProjectRole = Roles.RoleSchema.define({
 			className: 'SeveralProjectRole',
 			members: () => User,
-		}).with({})
+		})
 		const application = new Roles({
 			schemas: [User, TeamRole, ProjectRole],
 		})

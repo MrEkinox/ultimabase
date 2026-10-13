@@ -17,7 +17,6 @@ import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
-import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { expect, it } from 'vitest'
 
@@ -33,7 +32,6 @@ const pool: PostgresPool = {
 
 it('publishes the audited privilege and environment contract for every official plugin', () => {
 	const manifests = [
-		typegenPlugin().manifest,
 		postgresPlugin({ pool }).manifest,
 		accessPlugin().manifest,
 		hooksPlugin().manifest,
@@ -66,11 +64,6 @@ it('publishes the audited privilege and environment contract for every official 
 		})),
 	).toStrictEqual([
 		{
-			environment: ['environment:filesystem'],
-			pluginId: '@ultimabase/typegen',
-			privileges: [],
-		},
-		{
 			environment: ['environment:network'],
 			pluginId: '@ultimabase/postgres-plugin',
 			privileges: ['schema:declare'],
@@ -99,7 +92,6 @@ it('publishes the audited privilege and environment contract for every official 
 				'operation:declare',
 				'runtime:constrain',
 				'persistence:rewrite',
-				'typegen:reference',
 			],
 		},
 		{
@@ -173,7 +165,6 @@ it('publishes the audited privilege and environment contract for every official 
 				'operation:declare',
 				'runtime:intercept',
 				'transport:expose',
-				'typegen:reference',
 				'authority:elevate',
 			],
 		},

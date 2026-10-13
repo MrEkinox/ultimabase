@@ -2,7 +2,7 @@ import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -21,9 +21,8 @@ export type BinaryFieldOptions = FieldOptions<Uint8Array>
 /**
  * Carries native bytes and exact options through schema inference.
  */
-export type BinaryField<
-	TTypegen extends FieldTypegenState = FieldTypegenState,
-> = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TTypegen>
+export type BinaryField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TState>
 
 type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,

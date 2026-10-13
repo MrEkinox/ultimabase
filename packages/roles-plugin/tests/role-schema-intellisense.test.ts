@@ -18,7 +18,7 @@ import { UltimaBase } from '@ultimabase/core'
 import { hasRole, rolesPlugin } from '../src/index.js'
 
 const RoleApplication = UltimaBase.use(accessPlugin()).use(rolesPlugin())
-const User = RoleApplication.Schema.define({ className: 'User', fields: () => ({}) }).with({})
+const User = RoleApplication.Schema.define({ className: 'User', fields: () => ({}) })
 const AppRole = RoleApplication.RoleSchema.define({
   className: 'Role',
   members: () => User,

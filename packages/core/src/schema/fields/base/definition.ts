@@ -15,7 +15,7 @@ import {
 } from './options.js'
 import type {
 	FieldScalarValue,
-	FieldTypegenState,
+	FieldTypeState,
 	GenericField,
 } from './contract.js'
 import { snapshotJsonValue } from './portable-json.js'
@@ -379,9 +379,7 @@ export const snapshotDeclaredFieldValue = (
 export const isFieldRequiredDeferred = (field: GenericField): boolean =>
 	fieldCapabilities.get(field)?.deferRequiredUntilResolveInput === true
 
-export const readFieldTypegenState = (
-	field: GenericField,
-): FieldTypegenState => {
+export const readFieldTypeState = (field: GenericField): FieldTypeState => {
 	const relation = field.kind === 'relation'
 	// Relations, Runtime-forbidden fields and generated values never accept input.
 	const inputForbidden =

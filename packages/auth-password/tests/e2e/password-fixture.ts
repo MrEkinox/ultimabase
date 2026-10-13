@@ -55,7 +55,7 @@ export const createPasswordApplication = <
 	const AuthUser = App.UserSchema.define({
 		className: 'AuthUser',
 		fields: (field) => ({ displayName: field.string({ required: true }) }),
-	}).with({})
+	})
 	const ultimabase = new App({
 		logger: false,
 		...(options.master === true

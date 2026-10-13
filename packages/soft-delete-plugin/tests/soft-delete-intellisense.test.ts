@@ -1,7 +1,6 @@
 import path from 'node:path'
 
 import { UltimaBase } from '@ultimabase/core'
-import { generateApplicationTypes } from '@ultimabase/typegen'
 import { expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
@@ -9,38 +8,32 @@ import { softDeletePlugin } from '../src/index.js'
 
 const marker = '/* soft-delete-method */'
 
-it('offers the shape method and types its commands with and without Typegen', () => {
+it('offers the shape method and types its commands', async () => {
 	const SoftDeleteApplication = UltimaBase.use(softDeletePlugin())
 	const Document = SoftDeleteApplication.Schema.define({
 		className: 'SoftDeleteIntellisenseDocument',
 		fields: (field) => ({ title: field.string() }),
+	}).softDelete({ mode: 'command' })
+	const application = new SoftDeleteApplication({
+		logger: false,
+		schemas: [Document],
 	})
-		.softDelete({ mode: 'command' })
-		.with({})
-	const generated = generateApplicationTypes({
-		ultimabase: new SoftDeleteApplication({
-			logger: false,
-			schemas: [Document],
-		}),
-		applicationId: 'fixture.soft-delete-intellisense',
-	})
-	const sourceWithMarker = `${generated.contents}
-import { UltimaBase } from '@ultimabase/core'
+	const sourceWithMarker = `import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 const SourceApplication = UltimaBase.use(softDeletePlugin())
 const Completion = SourceApplication.Schema.define({
   className: 'SoftDeleteCompletion',
   fields: (field) => ({ title: field.string() }),
-}).${marker}softDelete().with({})
+}).${marker}softDelete()
 const Command = SourceApplication.Schema.define({
   className: 'SoftDeleteCommand',
   fields: (field) => ({ title: field.string() }),
-}).softDelete({ mode: 'command' }).with({})
+}).softDelete({ mode: 'command' })
 const Installed = SourceApplication.Schema.define({
   className: 'SoftDeleteIntellisenseDocument',
   fields: (field) => ({ title: field.string() }),
-}).softDelete({ mode: 'command' }).with({})
+}).softDelete({ mode: 'command' })
 const deleted = Installed.softDeleteOne({ id: 'document-1', select: { isDeleted: true } })
 const restored = Installed.restoreMany({ where: { title: { eq: 'x' } } })
 const purged = Command.purgeOne({ id: 'document-1' })
@@ -66,76 +59,72 @@ void Invalid
 			.getCompletionsAtPosition(fileName, position, {})
 			?.entries.map(({ name }) => name) ?? []
 
-	expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
-	expect(completions).toContain('softDelete')
-	expect(generated.contents).toContain(
-		'PluginSchemaMutationNoInput as Plugin0_PluginSchemaMutationNoInput',
-	)
-	expect(generated.snapshot.options).toStrictEqual([])
-	expect(generated.snapshot.surfaces[0]?.schemaMutations).toEqual([
-		expect.objectContaining({
-			authority: 'master',
-			effect: 'delete',
-			mutation: 'ultimabase.soft-delete-plugin.soft-delete.purge-many',
-			name: 'purgeMany',
-			returning: 'before',
-			target: 'many',
-		}),
-		expect.objectContaining({
-			authority: 'master',
-			effect: 'delete',
-			mutation: 'ultimabase.soft-delete-plugin.soft-delete.purge-one',
-			name: 'purgeOne',
-			returning: 'before',
-			target: 'one',
-		}),
-		expect.objectContaining({
-			authority: 'request',
-			effect: 'update',
-			mutation: 'ultimabase.soft-delete-plugin.soft-delete.restore-many',
-			name: 'restoreMany',
-			target: 'many',
-		}),
-		expect.objectContaining({
-			authority: 'request',
-			effect: 'update',
-			mutation: 'ultimabase.soft-delete-plugin.soft-delete.restore-one',
-			name: 'restoreOne',
-			returning: 'after',
-			target: 'one',
-		}),
-		expect.objectContaining({
-			name: 'softDeleteMany',
-			target: 'many',
-		}),
-		expect.objectContaining({
-			authority: 'request',
-			effect: 'update',
-			mutation: 'ultimabase.soft-delete-plugin.soft-delete.soft-delete-one',
-			name: 'softDeleteOne',
-			returning: 'after',
-		}),
-	])
-	expect(generated.contents).toContain(
-		'readonly softDeleteOne: Core.ApplicationSchemaMutationMethod',
-	)
-	expect(generated.contents).toContain(
-		'readonly restoreMany: Core.ApplicationSchemaMutationManyMethod',
-	)
-	// ADR-0310: no model surface; soft delete is a schema method only.
-	expect(generated.contents).not.toContain(
-		'ApplicationModelSchemaMutationMethod',
-	)
-	const generatedDocument = generated.snapshot.schemas.find(
-		({ className }) => className === Document.className,
-	)
-	for (const name of ['isDeleted', 'deletedAt']) {
+	try {
+		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+		expect(completions).toContain('softDelete')
+		const compiled = application.compile()
+		const mutations = compiled.schemaSurfaces[0]?.schemaMutations
 		expect(
-			generatedDocument?.fields.find((field) => field.name === name),
-		).toMatchObject({
-			name,
-			typegen: { create: 'forbidden', update: 'forbidden' },
-		})
+			[...(mutations?.entries() ?? [])].map(([name, { mutation }]) => ({
+				authority: mutation.authority,
+				effect: mutation.effect,
+				mutation: mutation.name,
+				name,
+				returning: mutation.returning,
+				target: mutation.target,
+			})),
+		).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					authority: 'master',
+					effect: 'delete',
+					mutation: 'ultimabase.soft-delete-plugin.soft-delete.purge-many',
+					name: 'purgeMany',
+					returning: 'before',
+					target: 'many',
+				}),
+				expect.objectContaining({
+					authority: 'master',
+					effect: 'delete',
+					mutation: 'ultimabase.soft-delete-plugin.soft-delete.purge-one',
+					name: 'purgeOne',
+					returning: 'before',
+					target: 'one',
+				}),
+				expect.objectContaining({
+					authority: 'request',
+					effect: 'update',
+					mutation: 'ultimabase.soft-delete-plugin.soft-delete.restore-many',
+					name: 'restoreMany',
+					target: 'many',
+				}),
+				expect.objectContaining({
+					authority: 'request',
+					effect: 'update',
+					mutation: 'ultimabase.soft-delete-plugin.soft-delete.restore-one',
+					name: 'restoreOne',
+					returning: 'after',
+					target: 'one',
+				}),
+				expect.objectContaining({
+					name: 'softDeleteMany',
+					target: 'many',
+				}),
+				expect.objectContaining({
+					authority: 'request',
+					effect: 'update',
+					mutation: 'ultimabase.soft-delete-plugin.soft-delete.soft-delete-one',
+					name: 'softDeleteOne',
+					returning: 'after',
+				}),
+			]),
+		)
+		expect(mutations?.size).toBe(6)
+		const fields = compiled.schemas.get(Document.className)?.fields
+		expect(fields).toHaveProperty('isDeleted')
+		expect(fields).toHaveProperty('deletedAt')
+	} finally {
+		service.dispose()
+		await application.dispose()
 	}
-	service.dispose()
 })

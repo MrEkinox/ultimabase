@@ -10,7 +10,7 @@ import {
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldListOption,
 	FieldOptions,
 } from '../base/contract.js'
@@ -61,12 +61,12 @@ export interface EnumFieldOptions<TValues extends EnumValues = EnumValues>
  */
 export type EnumField<
 	TValues extends EnumValues = EnumValues,
-	TTypegen extends FieldTypegenState = FieldTypegenState,
+	TState extends FieldTypeState = FieldTypeState,
 > = FieldDefinition<
 	'enum',
 	EnumValue<TValues>,
 	EnumFieldOptions<TValues>,
-	TTypegen
+	TState
 >
 
 const enumFieldOptionsContract: BuiltInFieldOptionsContract = {

@@ -1,17 +1,9 @@
 import path from 'node:path'
 import ts from 'typescript'
 
-import { UltimaBase } from '@ultimabase/core'
-import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
-import { restPlugin } from '../src/index.js'
-
-const fixtureFile = path.join(
-	import.meta.dirname,
-	'rest-intellisense.fixture.ts',
-)
 
 const markerPosition = (source: string, marker: string): number => {
 	const position = source.indexOf(marker)
@@ -137,87 +129,5 @@ App.Schema.define({
 			])
 			service.dispose()
 		})
-	})
-
-	it('contributes only inert exact option declarations to Typegen', () => {
-		const App = UltimaBase.use(restPlugin())
-		const Post = App.Schema.define({
-			className: 'RestTypegenPost',
-			fields: (field) => ({ title: field.string() }),
-		})
-		const generated = generateApplicationTypes({
-			ultimabase: new (UltimaBase.use(restPlugin()))({
-				logger: false,
-				schemas: [Post],
-			}),
-			applicationId: 'fixture.rest-options',
-		})
-		const schemaMarker = '/* schema-options */'
-		const routeMarker = '/* route-options */'
-		const hoverMarker = '/* count-hover */'
-		const sourceWithMarkers = `${generated.contents.replaceAll(
-			'"@ultimabase/rest-plugin"',
-			'"../src/index.js"',
-		)}
-import { UltimaBase } from '@ultimabase/core'
-import { restPlugin } from '../src/index.js'
-const App = UltimaBase.use(restPlugin())
-App.Schema.define({
-  className: 'RestCompletion',
-  rest: { ${hoverMarker}count: true },
-  fields: () => ({}),
-})
-App.Schema.define({
-  className: 'RestRouteCompletion',
-  rest: { ${routeMarker} },
-  fields: () => ({}),
-})
-App.Schema.define({
-  className: 'RestSchemaCompletion',
-  ${schemaMarker}
-  fields: () => ({}),
-})
-`
-		const schemaPosition = markerPosition(sourceWithMarkers, schemaMarker)
-		const routePosition = markerPosition(sourceWithMarkers, routeMarker)
-		const hoverPosition = markerPosition(sourceWithMarkers, hoverMarker)
-		const source = sourceWithMarkers
-			.replace(schemaMarker, ' '.repeat(schemaMarker.length))
-			.replace(routeMarker, ' '.repeat(routeMarker.length))
-			.replace(hoverMarker, ' '.repeat(hoverMarker.length))
-		const service = createLanguageService(fixtureFile, source)
-		const completions = (position: number): readonly string[] =>
-			service
-				.getCompletionsAtPosition(fixtureFile, position, {})
-				?.entries.map(({ name }) => name) ?? []
-		const hover = service.getQuickInfoAtPosition(
-			fixtureFile,
-			hoverPosition + hoverMarker.length,
-		)
-
-		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
-		expect(completions(schemaPosition)).toContain('rest')
-		expect(completions(routePosition)).toEqual(
-			expect.arrayContaining([
-				'count',
-				'createMany',
-				'createOne',
-				'deleteMany',
-				'deleteOne',
-				'exists',
-				'findMany',
-				'findOne',
-				'updateMany',
-				'updateOne',
-				'upsertMany',
-				'upsertOne',
-			]),
-		)
-		expect(ts.displayPartsToString(hover?.displayParts)).toContain(
-			'count: true',
-		)
-		expect(generated.contents).toContain('RestSchemaRule')
-		expect(generated.contents).not.toContain('/api/v1/classes')
-		service.dispose()
 	})
 })

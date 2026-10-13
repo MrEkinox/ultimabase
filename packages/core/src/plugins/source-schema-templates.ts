@@ -2,31 +2,12 @@ import type {
 	ApplicationSchemaMutationManyMethod,
 	ApplicationSchemaMutationMethod,
 } from '../application/application-schema-mutations.js'
-import type {
-	FieldSourceOpaque,
-	FieldSourceValue,
-	GenericField,
-} from '../schema/fields/base/contract.js'
-import type {
-	SchemaClass,
-	SchemaDefinition,
-} from '../schema/schema/definition.js'
-import type { SchemaItem } from '../schema/schema/values.js'
+import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { RegisteredSchema } from '../schema/schema/registered-schemas.js'
-import type { SchemaTypeInfo } from '../schema/type-info.js'
 import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 
-declare const pluginSourceMutationMethodType: unique symbol
 declare const pluginSourceSchemaMutationType: unique symbol
-declare const pluginSourceSchemaFieldValuesType: unique symbol
 declare const pluginSourceSchemaPermissionType: unique symbol
-
-/** Marks persisted developer-field values without Core system fields. */
-export interface PluginSourceSchemaFieldValues<
-	TExcluded extends string = never,
-> {
-	readonly [pluginSourceSchemaFieldValuesType]: TExcluded
-}
 
 /** Carries exact source-declared schema mutations without adding a runtime property. */
 export interface PluginSourceSchemaMutationCarrier<
@@ -102,91 +83,3 @@ export type SchemaCommands<
 				TCommands[TName]
 			>
 } & PluginSourceSchemaMutationCarrier<TCommands>
-
-/** Defers one mutation method until the configured schema contract is known. */
-export interface PluginSourceMutationMethod<
-	TMutation extends PluginSchemaMutationDefinition,
-> {
-	readonly [pluginSourceMutationMethodType]: Readonly<{
-		readonly mutation: TMutation
-	}>
-}
-
-/** Resolves one plugin template against an exact configured schema contract. */
-export type ResolveSourceSchemaTemplate<
-	TTemplate,
-	TContract extends SchemaTypeInfo,
-	TSchema extends SchemaDefinition,
-> = TTemplate extends GenericField
-	? TTemplate
-	: TTemplate extends FieldSourceOpaque<infer TValue>
-		? TValue
-		: TTemplate extends PluginSourceSchemaFieldValues<infer TExcluded>
-			? Readonly<
-					Pick<
-						SchemaItem<TSchema>,
-						Extract<
-							Exclude<
-								TContract['persistedFields'],
-								'id' | 'createdAt' | 'updatedAt' | TExcluded
-							>,
-							keyof SchemaItem<TSchema>
-						>
-					>
-				>
-			: TTemplate extends FieldSourceValue
-				? never
-				: TTemplate extends PluginSourceMutationMethod<infer TMutation>
-					? ApplicationSchemaMutationMethod<SchemaClass<TContract>, TMutation>
-					: TTemplate extends (...arguments_: infer TArguments) => infer TResult
-						? (
-								...arguments_: {
-									[TIndex in keyof TArguments]: ResolveSourceSchemaTemplate<
-										TArguments[TIndex],
-										TContract,
-										TSchema
-									>
-								}
-							) => ResolveSourceSchemaTemplate<TResult, TContract, TSchema>
-						: TTemplate extends Promise<infer TResult>
-							? Promise<
-									ResolveSourceSchemaTemplate<TResult, TContract, TSchema>
-								>
-							: TTemplate extends PromiseLike<infer TResult>
-								? PromiseLike<
-										ResolveSourceSchemaTemplate<TResult, TContract, TSchema>
-									>
-								: TTemplate extends readonly (infer TEntry)[]
-									? readonly ResolveSourceSchemaTemplate<
-											TEntry,
-											TContract,
-											TSchema
-										>[]
-									: TTemplate extends object
-										? ResolveSourceSchemaObject<TTemplate, TContract, TSchema>
-										: TTemplate
-
-/**
- * Resolves one object template member by member. Declared outside the
- * conditional above on purpose: a mapped type written inside conditional
- * branches captures their unresolved `infer` parameters, which makes every
- * schema type containing it look generic. TypeScript then re-instantiates whole
- * schemas when a relationship target thunk is resolved (TS2589 on self relations).
- * The `infer` here only rebinds the template itself, so nothing else is
- * captured, and a resolved conditional carries no alias: editors print the
- * resolved object instead of `ResolveSourceSchemaObject<…>` with whole schema
- * arguments (about 0.1 s of checking, measured in migration step 5).
- */
-type ResolveSourceSchemaObject<
-	TTemplate,
-	TContract extends SchemaTypeInfo,
-	TSchema extends SchemaDefinition,
-> = TTemplate extends infer TObject
-	? {
-			readonly [TKey in keyof TObject]: ResolveSourceSchemaTemplate<
-				TObject[TKey],
-				TContract,
-				TSchema
-			>
-		}
-	: never

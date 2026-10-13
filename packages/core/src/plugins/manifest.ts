@@ -49,7 +49,6 @@ export type PluginPrivilegeFacade =
 	| 'runtime'
 	| 'schema'
 	| 'transport'
-	| 'typegen'
 
 /** Describes the stable reporting and enforcement owner for one privilege. */
 export interface PluginPrivilegeMetadata {
@@ -82,7 +81,6 @@ export type PluginPrivilege =
 	| 'schema:declare'
 	| 'storage:private'
 	| 'transport:expose'
-	| 'typegen:reference'
 
 /**
  * Documents the severity and Core-owned facade for every concrete privilege.
@@ -101,7 +99,6 @@ export const pluginPrivilegeMetadata: Readonly<
 	'persistence:rewrite': privilegeMetadata('persistence', 'sensitive'),
 	'transport:expose': privilegeMetadata('transport', 'sensitive'),
 	'event:publish': privilegeMetadata('event', 'standard'),
-	'typegen:reference': privilegeMetadata('typegen', 'standard'),
 	'authority:elevate': privilegeMetadata('authority', 'critical'),
 })
 

@@ -54,16 +54,10 @@ import {
 } from './application-surface-declarations.js'
 import { compileCommandGraph } from './application-surface-registry.js'
 import type { CompiledCommandGraph } from './command-graph.js'
+import type { CompiledOperationFacts } from './application-surface-contracts.js'
 import { compileSchemaDeclarations } from './compiled-schema-declarations.js'
 import { executeRuntimeCompilations } from './schema-runtime-options.js'
 import { normalizeSelector } from './schema-selectors.js'
-import {
-	type CompiledTypegenGraph,
-	createCompiledTypegenGraph,
-	createTypegenReferenceRegistrar,
-	snapshotTypegenDeclarations,
-	type TypegenReferenceRegistrar,
-} from './typegen-declarations.js'
 import { pluginSourceReceipt } from './source-projections.js'
 import { assertPlainObject } from '../exact-object-validation.js'
 
@@ -85,7 +79,6 @@ export class SchemaDeclarationRegistry {
 			modelExtend: boolean
 			operationDeclare: boolean
 			requirements: readonly CapabilityRequirement[]
-			typegenReference: boolean
 		}>,
 	): Readonly<{
 		close(): void
@@ -93,7 +86,6 @@ export class SchemaDeclarationRegistry {
 		models: PluginModelSurfaceRegistrar
 		operations: PluginOperationDeclarationRegistrar
 		registrar: PluginSchemaDeclarationRegistrar
-		typegenReferences: TypegenReferenceRegistrar
 	}> {
 		if (this.#closed) {
 			throw new TypeError('Schema declaration registry is already closed')
@@ -109,9 +101,6 @@ export class SchemaDeclarationRegistry {
 			surfaces: {
 				modelSurfaces: [],
 				operations: [],
-			},
-			typegen: {
-				references: [],
 			},
 		}
 		let open = true
@@ -145,25 +134,6 @@ export class SchemaDeclarationRegistry {
 			batch.surfaces,
 			createSelection,
 		)
-		const typegen = createTypegenReferenceRegistrar(
-			owner,
-			batch.typegen,
-			assertOpen,
-		)
-		const operations: PluginOperationDeclarationRegistrar = immutableRecord({
-			declare: (operation) => {
-				const receipt = surfaces.operations.declare(operation)
-				if (!privileges.typegenReference) return receipt
-				const references =
-					operation.kind === 'plugin-operation'
-						? [operation.input.typegen, operation.result.typegen]
-						: [operation.input.typegen]
-				for (const reference of references) {
-					if (reference !== undefined) typegen.registerReachable(reference)
-				}
-				return receipt
-			},
-		})
 		type SchemaSourceOptions = Parameters<
 			PluginSchemaDeclarationRegistrar['add']
 		>[0]
@@ -312,14 +282,12 @@ export class SchemaDeclarationRegistry {
 						options: immutableArray(batch.options),
 						patches: immutableArray(batch.patches),
 						surfaces: snapshotApplicationSurfaceDeclarations(batch.surfaces),
-						typegen: snapshotTypegenDeclarations(batch.typegen),
 					}),
 				)
 			},
 			models: surfaces.models,
-			operations,
+			operations: surfaces.operations,
 			registrar,
-			typegenReferences: typegen,
 		})
 	}
 
@@ -394,15 +362,20 @@ export class SchemaDeclarationRegistry {
 		return this.#commands
 	}
 
-	/** Reads the complete immutable graph after successful compilation. */
-	typegenGraph(): CompiledTypegenGraph {
-		if (this.#commands === undefined) {
-			throw new TypeError('Typegen declarations require compiled schemas')
-		}
-		return createCompiledTypegenGraph({
-			batches: this.#batches,
-			commands: this.#commands,
-		})
+	/** Reads the callback-free operations after successful compilation. */
+	operationFacts(): readonly CompiledOperationFacts[] {
+		return immutableArray(
+			this.commandGraph().commands.flatMap((command) =>
+				command.kind === 'operation'
+					? [
+							immutableRecord({
+								operation: command.definition,
+								owner: command.owner,
+							}),
+						]
+					: [],
+			),
+		)
 	}
 
 	diagnoseFailure(error: unknown): PluginDeclarationFailureDiagnostic {

@@ -68,7 +68,7 @@ export const requestPrincipalResolverCapability: CapabilityToken<
  * The kind belongs to the permission provider while the value may be a stable
  * key, an object identifier, or another immutable application reference.
  *
- * @example `new RequestSubjectReference('role', 'editor')`
+ * @example `new RequestSubjectReference('group', 'editors')`
  */
 export class RequestSubjectReference<
 	const TKind extends string,
@@ -177,42 +177,6 @@ export const parseRequestPrincipalReference = (
 	return immutableRecord({ className: value[2], id: value[3] })
 }
 
-/** Describes the neutral reference shape consumed by role-aware policies. */
-export type RequestRoleReference<TValue extends string | number = string> =
-	RequestSubjectReference<'role', TValue>
-
-/**
- * The role subject accepted by role-aware policies: a reference created by
- * the role provider (results carry no methods, ADR-0310).
- */
-export type RequestRoleSubject = RequestRoleReference
-
-const isRequestRoleReference = (
-	value: unknown,
-): value is RequestRoleReference =>
-	value instanceof RequestSubjectReference &&
-	value.kind === 'role' &&
-	typeof value.value === 'string'
-
-/**
- * Normalizes one role subject without identifying its provider package.
- *
- * The returned reference remains the only value consumed by Access providers.
- */
-export const resolveRequestRoleReference = (
-	subject: RequestRoleSubject,
-): RequestRoleReference => {
-	const reference: unknown = subject
-
-	if (!isRequestRoleReference(reference)) {
-		throw new TypeError(
-			'Request role subject must provide one string role reference',
-		)
-	}
-
-	return reference
-}
-
 /** Supplies one request-local subject lookup to a provider-owned resolver. */
 export interface RequestSubjectResolutionInput<TReference> {
 	readonly context: RequestSubjectContext
@@ -220,7 +184,7 @@ export interface RequestSubjectResolutionInput<TReference> {
 }
 
 /**
- * Resolves a neutral policy reference without exposing auth or role plugins.
+ * Resolves a neutral policy reference without exposing its provider plugin.
  *
  * `undefined` is the fail-closed result for unavailable dynamic identity data.
  */
@@ -229,57 +193,6 @@ export interface RequestSubjectResolver<TReference, TSubject> {
 		input: RequestSubjectResolutionInput<TReference>,
 	): MaybePromise<TSubject | undefined>
 }
-
-/** Supplies one role membership lookup without exposing a role plugin identity. */
-export interface RequestRoleResolutionInput {
-	readonly context: RequestSubjectContext
-	readonly role: RequestRoleReference
-}
-
-/** Allows official or community providers to resolve request-local role membership. */
-export interface RequestRoleResolver {
-	hasRole(input: RequestRoleResolutionInput): MaybePromise<boolean>
-	/**
-	 * Converts a logical role selector into its stable schema-qualified storage identity.
-	 *
-	 * Persisted policy providers require this optional capability only when their
-	 * value contains role references. `undefined` rejects an unknown role.
-	 */
-	resolvePersistentRole?(
-		input: RequestRoleResolutionInput,
-	): MaybePromise<RequestRoleReference | undefined>
-	/**
-	 * Lists stable role references held by the current request principal.
-	 *
-	 * Row-level providers use this optional capability when candidate role
-	 * references live inside persisted rows and are therefore unknown before SQL.
-	 */
-	resolveCurrentRoles?(
-		input: RequestPrincipalResolutionInput,
-	): MaybePromise<readonly RequestRoleReference[] | undefined>
-}
-
-/**
- * Identifies the optional neutral role resolver shared by permission providers.
- *
- * A persisted row-policy plugin requires this capability only when its
- * configured policy contains a role subject.
- */
-export const requestRoleResolverCapability: CapabilityToken<
-	RequestRoleResolver,
-	RequestRoleResolver,
-	'ultimabase.request-subject.role-resolver',
-	'1.0.0',
-	'single',
-	'application'
-> = defineCapability<RequestRoleResolver>()({
-	capabilityId: 'ultimabase.request-subject.role-resolver',
-	version: '1.0.0',
-	cardinality: 'single',
-	lifetime: 'application',
-	compose: ([provider]) => provider,
-	hint: 'Add a plugin that resolves request roles to UltimaBase.use(...).',
-})
 
 /** Extracts the exact resolved value supplied by one neutral resolver. */
 export type ResolvedRequestSubject<TResolver> =

@@ -8,7 +8,7 @@ import {
 import type {
 	FieldList,
 	FieldScalarValue,
-	FieldTypegenStateOf,
+	FieldTypeStateOf,
 	GenericField,
 } from '../fields/base/contract.js'
 import { hasListOption } from '../fields/base/options.js'
@@ -67,7 +67,7 @@ type OrderedKind =
 type NullTest = Readonly<{ isNull?: true; isNotNull?: true }>
 
 type IndexFieldCondition<TField> = TField extends GenericField
-	? FieldTypegenStateOf<TField>['list'] extends FieldList
+	? FieldTypeStateOf<TField>['list'] extends FieldList
 		? never
 		: TField['kind'] extends ComparableKind
 			? | NonNullable<FieldScalarValue<TField>>

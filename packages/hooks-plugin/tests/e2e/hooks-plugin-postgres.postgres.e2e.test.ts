@@ -116,6 +116,7 @@ const HookArticleSchema = HookApplication.Schema.define({
 		published: field.boolean({ default: false }),
 		revision: field.int({ default: 0 }),
 	}),
+}).with({
 	access: {
 		read: ({ where }) => where.eq('published', true),
 	},

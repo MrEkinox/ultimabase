@@ -12,10 +12,7 @@ import {
 	type SchemaIndexCondition,
 	type SchemaIndexWhere,
 } from './index-predicates.js'
-import type {
-	FieldTypegenStateOf,
-	GenericField,
-} from '../fields/base/contract.js'
+import type { FieldTypeStateOf, GenericField } from '../fields/base/contract.js'
 import { systemFields, type ReservedSystemFieldName } from './system-fields.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
@@ -29,9 +26,7 @@ type IndexableDeclaredFieldName<TFields extends object> =
 				[
 					TFieldName in keyof TFields & string
 				]: TFields[TFieldName] extends GenericField
-					? FieldTypegenStateOf<
-							TFields[TFieldName]
-						>['object'] extends 'forbidden'
+					? FieldTypeStateOf<TFields[TFieldName]>['object'] extends 'forbidden'
 						? never
 						: TFieldName
 					: never

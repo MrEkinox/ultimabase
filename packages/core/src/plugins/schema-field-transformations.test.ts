@@ -120,10 +120,6 @@ describe('plugin schema field transformations', () => {
 				throw new TypeError('Invalid fixture option')
 			},
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/atomic-option-plugin',
-				type: 'AtomicOption',
-			},
 		})
 		const ValidAddition = UltimaBase.Schema.define({
 			className: 'AtomicOptionValidAddition',
@@ -131,9 +127,10 @@ describe('plugin schema field transformations', () => {
 		})
 		// The invalid plugin option must reach the Runtime rollback check.
 		const InvalidAddition = UltimaBase.Schema.define({
-			broken: true,
 			className: 'AtomicOptionInvalidAddition',
 			fields: () => ({}),
+		}).with({
+			broken: true,
 		} as never)
 		const optionFailurePlugin = createPlugin({
 			core: '^0.0.0',
@@ -304,11 +301,13 @@ describe('plugin schema field transformations', () => {
 		const Content = UltimaBase.Schema.define({
 			className: 'WorkflowContent',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		}).with({
 			workflow: { enabled: true, stages: ['draft', 'published'] },
 		} as never)
 		const Audit = UltimaBase.Schema.define({
 			className: 'WorkflowAudit',
 			fields: (field: FieldBuilder) => ({ message: field.string() }),
+		}).with({
 			workflow: { enabled: true, stages: ['draft', 'published'] },
 		} as never)
 		const provider = createPlugin({

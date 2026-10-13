@@ -19,9 +19,9 @@ import {
 import { getFieldListDepth, normalizeFieldOptions } from './base/options.js'
 import type {
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
-	ResolveFieldTypegenState,
+	ResolveFieldTypeState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
 import type {
@@ -45,29 +45,23 @@ export type PluginFieldDefinition<
 	TKind extends string = string,
 	TValue = unknown,
 	TOptions extends object = FieldOptions<TValue>,
-	TTypegen extends FieldTypegenState = ResolveFieldTypegenState<TOptions>,
+	TState extends FieldTypeState = ResolveFieldTypeState<TOptions>,
 	TStructuralContainsOperand = never,
-> = FieldDefinition<
-	TKind,
-	TValue,
-	TOptions,
-	TTypegen,
-	TStructuralContainsOperand
->
+> = FieldDefinition<TKind, TValue, TOptions, TState, TStructuralContainsOperand>
 
-type DeferredPluginFieldTypegen<TOptions extends object> = Omit<
-	ResolveFieldTypegenState<TOptions>,
+type DeferredPluginFieldTypeState<TOptions extends object> = Omit<
+	ResolveFieldTypeState<TOptions>,
 	'create'
 > & {
 	readonly create: 'optional'
 }
 
-type PluginFieldTypegen<
+type PluginFieldTypeState<
 	TOptions extends object,
 	TDeferred extends boolean,
 > = TDeferred extends true
-	? DeferredPluginFieldTypegen<TOptions>
-	: ResolveFieldTypegenState<TOptions>
+	? DeferredPluginFieldTypeState<TOptions>
+	: ResolveFieldTypeState<TOptions>
 
 type PluginFieldContainmentOperand<TCapability> = TCapability extends {
 	readonly snapshotOperand: (value: unknown, path: string) => infer TOperand
@@ -253,7 +247,7 @@ export const definePluginField = <
 	TKind,
 	TValue,
 	PluginFieldMetadata<TOptions>,
-	PluginFieldTypegen<PluginFieldMetadata<TOptions>, TDeferred>,
+	PluginFieldTypeState<PluginFieldMetadata<TOptions>, TDeferred>,
 	PluginFieldContainmentOperand<TStructuralContains>
 > => {
 	assertPluginFieldKind(kind, 'Plugin field kind')

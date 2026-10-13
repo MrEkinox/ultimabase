@@ -1,6 +1,7 @@
 # ADR-0280: Complete-schema callbacks use the retained Typegen graph
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0297 (Typegen removed in migration step 6.8b, 2026-10-13)
 - Date: 2026-09-29
 - Supersedes: ADR-0279 only where it assigned every plugin option to source projection
 - Approval: user approved retaining Typegen when exact schema callback typing cannot be expressed safely from source

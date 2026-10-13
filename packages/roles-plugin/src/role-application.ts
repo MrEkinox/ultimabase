@@ -1,9 +1,9 @@
 import {
-	requestRoleResolverCapability,
 	type CompiledSchemaRegistry,
 	type Logger,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { requestRoleResolverCapability } from '@ultimabase/plugin-kit'
 import {
 	provideCapability,
 	type CapabilityProviderDeclaration,

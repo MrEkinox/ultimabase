@@ -131,13 +131,12 @@ behavior lives below `Plugins > Official Plugins` or `Plugins > Community
 Plugins`. Every official guide is a direct child of `Official Plugins`, with
 no category folders. HTTP and its optional Hono server have separate guides;
 GraphQL includes Yoga and optional explorers on one page. Each plugin keeps
-its own configuration and ownership. Application-level guides cover Typegen
-and testing. Plugin-specific setup, reference, and troubleshooting stay as
+its own configuration and ownership. Application-level guides cover testing. Plugin-specific setup, reference, and troubleshooting stay as
 headings on the relevant page instead of repeated sidebar entries.
 `Core > Application` is one concept page: its graph, lifecycle, direct
 TypeScript, configuration, and application-scope sections appear in `On this
-page` rather than as separate child routes. Optional Typegen setup lives in the independent
-`Guides > Generate TypeScript Types` task page.
+page` rather than as separate child routes. There is no type generation guide:
+schema types come from the declarations themselves (ADR-0297).
 `Core > Data Modeling > Virtual Fields` owns the output-only field concept;
 the former Guides page is not served.
 `Core > Data Modeling > Fields` also owns the built-in builder lookup; there is
@@ -165,7 +164,7 @@ versioned docs; the landing page is the only separately authored site page.
 
 `Plugin System` explains composition, `Using Plugins` owns consumption and
 compatibility, and `Build a Plugin` owns the author journey. Its short entry
-page leads to focused schema/Typegen, operation/GraphQL, and
+page leads to focused schema-contribution, operation/GraphQL, and
 Runtime/infrastructure chapters; those subjects are nested only for authors
 who need them. Community listings remain visibly community-maintained even
 when their documentation is curated on this site.
@@ -200,8 +199,8 @@ the provisional geometric mark used by marketing navigation and the generated fa
 The landing page is the only custom content layout. Its blue introduction
 identifies UltimaBase as a TypeScript backend framework, then offers Schema,
 Read, and Write tabs with illustrative examples and their model field types.
-The precise result types assume generated Typegen declarations;
-the example application uses PostgreSQL's
+The precise result types come from the schema and the application's `Register`
+declaration, with no generation step; the example application uses PostgreSQL's
 `fail` schema policy and directs first-time readers to Manual Installation.
 Plugin composition offers TypeScript, REST, and GraphQL application presets.
 Each preset is compiled and its static plugin graph is checked without opening
@@ -221,7 +220,7 @@ Identity coverage describes local password authentication, session rotation and
 revocation, operation/row/field policies, object ACLs, and roles. Soft deletion
 keeps its private Master-only restore/purge boundary visible. Plugin authoring
 covers custom operations, fields, schema/model mutations, middleware, and
-application-specific Typegen declarations. Every capability links to its
+source-typed shape methods and rules. Every capability links to its
 existing owning documentation; these guides remain the detailed contract.
 Compact section links lead to the detailed capability examples, whose labels
 identify Core and plugin ownership. Complete application configurations and virtual-field schemas remain visible
@@ -250,7 +249,7 @@ Apache-2.0 license are explicit; no initializer or npm publication is implied.
 The marketing header offers Documentation, Plugins, and Fumadocs’ native
 GitHub icon through `githubUrl`, with a native Project
 menu for Release Status, Roadmap, and Contributing. There is no marketing footer.
-Six native FAQ disclosures cover hosting, framework scope, Typegen, database
+Six native FAQ disclosures cover hosting, framework scope, code generation, database
 schema policies, deployment responsibilities, and the pre-release contract. The existing Manual Installation entry point is unchanged.
 
 The marketing route generates a local 1200×630 Open Graph image through Next.js
@@ -266,11 +265,11 @@ Shared marketing surfaces live under `components/`:
 - `primitives.tsx` provides buttons, links, sections, and callouts.
 
 The content suite compiles the displayed landing examples against public package
-exports and real Typegen declarations. The TypeScript checker verifies every
+exports, without any generation step, and loads each displayed application to
+compile its graph. The TypeScript checker verifies every
 displayed field type; negative checks protect
 excluded fields and incorrect assignments. Virtual-field selection and the
-displayed Zod rule and Access policy also compile against real generated
-application declarations.
+displayed Zod rule and Access policy also compile in a registered application.
 On a fresh checkout, run the root
 `yarn typecheck` first to emit workspace exports (as CI already does). The sample
 check compiles the static application only; it never starts a database connection.

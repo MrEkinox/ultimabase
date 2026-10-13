@@ -8,7 +8,7 @@ import {
 import {
 	compileValidationPlans,
 	pointerField,
-	readFieldTypegenState,
+	readFieldTypeState,
 	stringField,
 	type FieldBuilder,
 } from '../index.js'
@@ -137,7 +137,7 @@ describe('plugin schema declaration registry', () => {
 		if (managedState === undefined) {
 			throw new TypeError('Expected the plugin-managed field')
 		}
-		expect(readFieldTypegenState(managedState)).toEqual({
+		expect(readFieldTypeState(managedState)).toEqual({
 			create: 'forbidden',
 			list: false,
 			nullable: false,
@@ -209,10 +209,6 @@ describe('plugin schema declaration registry', () => {
 				return snapshotJsonValue(value, path)
 			},
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/stable-option-plugin',
-				type: 'StableOption',
-			},
 		})
 		const plugin = (pluginId: string) =>
 			createPlugin({
@@ -238,6 +234,7 @@ describe('plugin schema declaration registry', () => {
 		const Shared = UltimaBase.Schema.define({
 			className: 'StableReusePost',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		}).with({
 			stable: { enabled: true },
 		} as never)
 		const first = applicationFixture(

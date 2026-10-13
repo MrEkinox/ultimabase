@@ -1,15 +1,11 @@
 import {
 	defineOperationValue,
-	defineTypegenReference,
 	type PluginOperationValueContract,
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { isAuthPrincipal } from './principal.js'
 import { isSessionToken, type AuthenticationResult } from './session.js'
-
-const reference = (exportName: string) =>
-	defineTypegenReference({ exportName, module: '@ultimabase/auth-plugin' })
 
 /** The `null` input of operations that read only the session. */
 export const nullInput: PluginOperationValueContract<null> =
@@ -21,33 +17,28 @@ export const nullInput: PluginOperationValueContract<null> =
 /** One input with exactly the given string fields. */
 export const stringFieldsInput = <const TName extends string>(
 	names: readonly TName[],
-	exportName?: string,
 ): PluginOperationValueContract<Readonly<Record<TName, string>>> =>
-	defineOperationValue<Readonly<Record<TName, string>>>(
-		(value, path) => {
-			if (
-				!isPlainRecord(value) ||
-				Object.keys(value).length !== names.length ||
-				names.some((name) => typeof value[name] !== 'string')
-			) {
-				throw new TypeError(`${path} must contain exactly ${names.join(', ')}`)
-			}
-			return immutableRecord(
-				Object.fromEntries(names.map((name) => [name, value[name]])),
-			) as Readonly<Record<TName, string>>
-		},
-		...(exportName === undefined ? [] : [reference(exportName)]),
-	)
+	defineOperationValue<Readonly<Record<TName, string>>>((value, path) => {
+		if (
+			!isPlainRecord(value) ||
+			Object.keys(value).length !== names.length ||
+			names.some((name) => typeof value[name] !== 'string')
+		) {
+			throw new TypeError(`${path} must contain exactly ${names.join(', ')}`)
+		}
+		return immutableRecord(
+			Object.fromEntries(names.map((name) => [name, value[name]])),
+		) as Readonly<Record<TName, string>>
+	})
 
 /** The input naming one record by id. */
 export const idInput: PluginOperationValueContract<
 	Readonly<Record<'id', string>>
-> = stringFieldsInput(['id'], 'AuthIdInput')
+> = stringFieldsInput(['id'])
 
 /** Accepts one acknowledgement such as `{ revoked: true }`. */
 export const acknowledgement = <const TKey extends string>(
 	key: TKey,
-	exportName: string,
 ): PluginOperationValueContract<Readonly<Record<TKey, true>>> =>
 	defineOperationValue<Readonly<Record<TKey, true>>>((value, path) => {
 		if (
@@ -58,7 +49,7 @@ export const acknowledgement = <const TKey extends string>(
 			throw new TypeError(`${path} must be { ${key}: true }`)
 		}
 		return immutableRecord({ [key]: true }) as Readonly<Record<TKey, true>>
-	}, reference(exportName))
+	})
 
 /** A readable User profile: frozen plain data (ADR-0310). */
 export const profileResult: PluginOperationValueContract<
@@ -103,12 +94,11 @@ export const authenticationResult: PluginOperationValueContract<AuthenticationRe
 			}),
 			user: value.user,
 		}) as AuthenticationResult
-	}, reference('AuthenticationResult'))
+	})
 
 /** Accepts one list result such as `{ sessions: [...] }` of frozen records. */
 export const listResult = <const TKey extends string, TItem>(
 	key: TKey,
-	exportName: string,
 ): PluginOperationValueContract<Readonly<Record<TKey, readonly TItem[]>>> =>
 	defineOperationValue<Readonly<Record<TKey, readonly TItem[]>>>(
 		(value, path) => {
@@ -126,5 +116,4 @@ export const listResult = <const TKey extends string, TItem>(
 				immutableRecord({ [key]: items })
 			return result as Readonly<Record<TKey, readonly TItem[]>>
 		},
-		reference(exportName),
 	)

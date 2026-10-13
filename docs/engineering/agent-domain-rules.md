@@ -15,7 +15,8 @@ plugin behavior and internal performance measurements, and keeps one private
 command graph with application operations and schema mutations. Issues
 3004/3005 remove generic decoration/replacement, compiler/Runtime substitution,
 the Core observer protocol, Query extensions, destructive patches, arbitrary
-schema/model operations, and manual Typegen declarations/extra outputs.
+schema/model operations, and manual Typegen declarations/extra outputs (Typegen
+itself left in migration step 6.8b, ADR-0297).
 Their used product counterparts remain intact. Do not add substitute public
 APIs or remove another capability without following the architecture stop rule.
 
@@ -44,8 +45,8 @@ consumer and a new ADR.
 
 - UltimaBase is a modern TypeScript backend framework inspired by Parse Server DX, not a compatible clone.
 - Developer TypeScript declarations plus authorized deterministic plugin
-  contributions form the authoritative compiled application graph. Generated
-  Typegen files are replaceable declarations, never Runtime truth.
+  contributions form the authoritative compiled application graph. Editor types
+  come from the declarations without a generation step (ADR-0297).
 - The developer never writes Drizzle directly.
 - Concrete capabilities are plugins. The Core must not depend on PostgreSQL, Drizzle, Hono, GraphQL, Yoga, authentication providers, Redis, or job systems.
 - Plugin identity is structured as a stable plugin ID plus an optional explicit
@@ -144,7 +145,7 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
   Only the critical `authority:elevate` and `storage:private` privileges
   require an explicit author reason (ADR-0290).
 - Every requested privilege from ADR-0191's closed vocabulary is validated and
-  reported before any plugin static declaration, Typegen, setup, connection,
+  reported before any plugin static declaration, setup, connection,
   Runtime, or transport effect.
 - Privileges are denied globally, by plugin ID, or by exact instance. Unknown
   policy targets are configuration errors. The application logger
@@ -173,14 +174,14 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
 - Dependencies and configuration order determine deterministic plugin and hook ordering.
 - Duplicate plugin IDs without explicit distinct instances are errors.
 - Authorized plugins may contribute schemas, field kinds, namespaced options,
-  immutable patches, schema surfaces, operations, Typegen declarations, Runtime
+  immutable patches, schema surfaces, operations, Runtime
   middleware, protected constraints, and persistence-plan rewrites. Static
   contributions remain pure, synchronous, deterministic, and infrastructure-free.
 - Product-owned Runtime observation and filesystem claims
   retain their exact privilege or claim boundaries; broader neighboring powers
   never imply them. Query extension registrars and destructive schema patches
-  are removed. Typegen derives declarations from the graph and registered public
-  type references; plugins cannot append manual declarations or extra outputs.
+  are removed. Plugins type their contributions through Core's projection
+  slots (ADR-0316); they cannot append declarations or output files.
 - `@ultimabase/plugin-kit` contains reusable authoring helpers only. Official
   plugins use it when suitable, and its helpers must not bypass ownership,
   privilege, validation, or provenance checks enforced by Core.
@@ -192,9 +193,8 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
   are reached through application-owned handles. A plugin may claim exact
   ownership of a developer schema already listed at the application root, but
   plugins never mutate an exported schema class or prototype.
-- Typegen may consume the compiled graph and owner-scoped plugin contributions,
-  but may emit only declarations and deterministic inert metadata. JavaScript
-  applications execute the same graph without Typegen or a generated client.
+- JavaScript applications execute the same compiled graph without a generated
+  client.
 - Hooks and Access are optional official plugins. Their ordering, typing,
   transactional, and monotonic security semantics remain requirements, while
   community alternatives may expose a different developer experience through
@@ -261,9 +261,9 @@ Runtime; an absent policy plugin contributes nothing.
 
 ## Retained typing boundaries
 
-Source types own locally decidable plugin contributions. Typegen remains the sole
-application-local named graph; do not add a parallel registry or revive the removed
-`SchemaReference` bridge. Read the [retained boundary and failed proofs](../current-architecture.md#retained-typing-boundaries)
+Source types own every typing contract (ADR-0297): relation thunks, projection
+slots and the `Register` declaration. Do not add a parallel registry, a
+generation step, or revive the removed `SchemaReference` bridge. Read the [retained boundary and failed proofs](../current-architecture.md#retained-typing-boundaries)
 before changing schema inference, callback context, generated output, or editor DX.
 A new proof must include actual source and packed consumers, cross-file relations,
 exact diagnostics and readable hovers, not only a synthetic benchmark. Previously

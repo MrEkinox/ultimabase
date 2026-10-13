@@ -51,16 +51,11 @@ describe('virtual schema fields', () => {
 		type SlugOutputMethod = typeof slugOutput
 		const method = definePluginFieldFamily({
 			fieldKind: 'fixture.virtual-slug',
-			typegen: {
-				module: '@fixture/virtual-slug-plugin',
-				valueType: 'VirtualSlugValue',
-			},
 			builder: {
 				name: 'virtualSlug',
 				contexts: {
 					output: {
 						factory: slugOutput,
-						methodType: 'VirtualSlugOutputBuilderMethod',
 					},
 				},
 			},

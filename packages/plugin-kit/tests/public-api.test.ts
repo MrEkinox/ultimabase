@@ -22,6 +22,9 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'providePluginEvent',
 			'readDeploymentEnvironment',
 			'readStandardJsonSchema',
+			'requestRoleResolverCapability',
+			'requireCurrentRequestRoleResolver',
+			'resolveRequestRoleReference',
 			'schemaPatch',
 			'shapeMethod',
 		])

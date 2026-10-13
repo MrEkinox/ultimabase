@@ -49,9 +49,7 @@ pnpm add @ultimabase/pg-vector-plugin
 ```
 
 The configured factory adds `f.vector()` to TypeScript directly from the
-installed plugin; this local builder needs no Typegen regeneration. Keep
-[Typegen](/docs/1.0.0/guides/generate-types) for the application-wide named
-schema and relationship graph.
+installed plugin, with no generation step.
 
 ## Configuration
 
@@ -72,6 +70,12 @@ const Document = Application.Schema.define({
 const application = new Application({
 	schemas: [Document],
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof application
+	}
+}
 
 application.compile()
 ```

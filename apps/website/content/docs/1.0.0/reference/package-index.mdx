@@ -32,7 +32,7 @@ application; the linked plugin pages own their setup, options, and limitations.
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Runtime              | Node.js 24 or newer                                                                                                         |
 | Modules              | ESM                                                                                                                         |
-| Application examples | TypeScript; generated types are not needed at Runtime                                                                       |
+| Application examples | TypeScript, typed from the schema declarations with no generation step                                                      |
 | Persistence          | Core is database-independent; PostgreSQL requires the optional [PostgreSQL plugin](/docs/1.0.0/plugins/official/postgresql) |
 
 This site currently has one documentation line, `1.0.0`. Its URL identifies
@@ -72,7 +72,6 @@ graph.
 | `@ultimabase/shared`     | Foundation contracts used by packages; most applications do not need a direct import.                                                                                                                                                                  |
 | `@ultimabase/plugin-kit` | Optional composition helpers for events, options, contextual fields, and schema patches. Start plugin authoring with [Core](/docs/1.0.0/plugins/build-a-plugin).                                                                                       |
 | `@ultimabase/create-app` | Unpublished [project initializer](/docs/1.0.0/quick-start); its packed local executable generates TypeScript or JavaScript applications with the official plugin choices described there.                                                              |
-| `@ultimabase/typegen`    | Optional [generated TypeScript declarations](/docs/1.0.0/guides/generate-types), not a Runtime client.                                                                                                                                                 |
 | `@ultimabase/testing`    | `testApplication` for application tests, plugin conformance under `/plugins` and the Vitest configuration under `/vitest`; see [Test an Application](/docs/1.0.0/guides/test-an-application) and [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin). |
 
 ### Data, validation, and security
@@ -105,8 +104,8 @@ graph.
 
 Every current package exposes its root `.` entry; the initializer also provides
 its `create-app` executable. Package roots provide
-public exports; generated Typegen declarations augment editor types but never
-replace the compiled application as Runtime truth. A deep import may fail
+public exports; their TypeScript types describe the compiled application but
+never replace it as Runtime truth. A deep import may fail
 package resolution, and a missing plugin or capability fails application
 compilation or startup rather than silently enabling substitute behavior.
 

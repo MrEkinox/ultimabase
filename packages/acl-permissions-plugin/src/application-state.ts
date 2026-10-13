@@ -6,15 +6,17 @@ import {
 	getCurrentRequest,
 	getOperationSchema,
 	getRequestPrincipal,
-	requestRoleResolverCapability,
 	Schema,
 	type DatabaseMutationMaterializationSource,
 	type Principal,
-	type RequestRoleResolver,
 	type RequestSubjectContext,
 	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	requestRoleResolverCapability,
+	type RequestRoleResolver,
+} from '@ultimabase/plugin-kit'
 import {
 	optionalCapability,
 	type ApplicationCapabilityFactoryContext,

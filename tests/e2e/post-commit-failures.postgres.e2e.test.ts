@@ -133,7 +133,7 @@ const App = UltimaBase.use(
 const Note = App.Schema.define({
 	className: 'PostCommitFailureNote',
 	fields: (field) => ({ body: field.string({ required: true }) }),
-}).with({})
+})
 
 const logger = createCapturingLogger()
 let fixture: PostgresWorkerFixture | undefined

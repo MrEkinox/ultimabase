@@ -21,7 +21,6 @@ import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineSchemaMutation,
-	defineTypegenReference,
 	provideCapability,
 	withPluginPrivileges,
 } from '@ultimabase/core/plugin'
@@ -32,7 +31,6 @@ import {
 	definePluginConformanceSuite,
 	PluginConformanceError,
 	runPluginConformance,
-	withPluginTypegenConformance,
 } from '../plugins.js'
 import { testDatabaseFilterOperators } from '../../../../tooling/vitest/database-filter-operators.js'
 
@@ -47,7 +45,6 @@ const expectedContracts = [
 	'privilege-denial',
 	'provenance',
 	'static-determinism',
-	'typegen',
 ] as const
 const optionalContracts = [
 	'adapter-failure',
@@ -61,7 +58,6 @@ const optionalContracts = [
 	'schema-mutation',
 	'schema-surface',
 	'transport',
-	'typegen',
 ] as const
 
 describe('plugin conformance suite', () => {
@@ -151,13 +147,7 @@ describe('plugin conformance suite', () => {
 			expect(ultimabase.state).toBe('ready')
 		})
 
-		const report = await runPluginConformance(
-			withPluginTypegenConformance(suite, {
-				verify: ({ contents }) => {
-					expect(contents).toContain('UltimaBaseGeneratedRegistryState')
-				},
-			}),
-		)
+		const report = await runPluginConformance(suite)
 
 		expect(report.pluginId).toBe('fixture.conformance')
 		expect(report.checks.map(({ contract }) => contract).sort()).toStrictEqual(
@@ -171,7 +161,7 @@ describe('plugin conformance suite', () => {
 		expect(Object.isFrozen(report.checks)).toBe(true)
 	})
 
-	it('snapshots public operations and type references through conformance', async () => {
+	it('snapshots public operations through conformance', async () => {
 		const text = defineOperationValue((value, path): string => {
 			if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
 			return value
@@ -184,10 +174,6 @@ describe('plugin conformance suite', () => {
 			transaction: 'forbidden',
 			version: '1.0.0',
 		})
-		const publicState = defineTypegenReference({
-			exportName: 'PublicState',
-			module: '@fixture/snapshot-surfaces',
-		})
 		const Post = UltimaBase.Schema.define({
 			className: 'ConformanceSurfacePost',
 			fields: (field) => ({ title: field.string() }),
@@ -198,20 +184,12 @@ describe('plugin conformance suite', () => {
 			id: 'fixture.snapshot-surfaces',
 			permissions: {
 				'operation:declare': 'Declares public operations.',
-				'typegen:reference': 'References one public type.',
 			},
 			version: '1.0.0',
 			contributions: [
 				contributeOperation({
 					execute: ({ input }) => input,
 					operation: inspect,
-				}),
-				contributeDeclarations({
-					typegen: ({ typegenReferences }) => {
-						typegenReferences.register(publicState)
-
-						return undefined
-					},
 				}),
 			],
 		})
@@ -221,7 +199,7 @@ describe('plugin conformance suite', () => {
 			expected: {
 				core: '^0.0.0',
 				pluginId: 'fixture.snapshot-surfaces',
-				privileges: ['operation:declare', 'typegen:reference'],
+				privileges: ['operation:declare'],
 				version: '1.0.0',
 			},
 		})
@@ -311,7 +289,7 @@ describe('plugin conformance suite', () => {
 			await ultimabase.initialize()
 			const surface = ultimabase
 				.compile()
-				.typegenGraph.schemaSurfaces.find(
+				.schemaSurfaces.find(
 					({ schema }) => schema.className === Post.className,
 				)
 

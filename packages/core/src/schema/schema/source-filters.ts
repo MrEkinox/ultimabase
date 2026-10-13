@@ -2,7 +2,7 @@ import type {
 	FieldContainsInput,
 	FieldList,
 	FieldStructuralContainsOperand,
-	FieldTypegenStateOf,
+	FieldTypeStateOf,
 	FieldValue,
 	GenericField,
 } from '../fields/base/contract.js'
@@ -85,7 +85,7 @@ interface ArrayFilter<TValue> extends NullFilter {
 }
 
 type SourceScalarFilter<TField extends GenericField> =
-	FieldTypegenStateOf<TField>['list'] extends FieldList
+	FieldTypeStateOf<TField>['list'] extends FieldList
 		? ArrayFilter<SourceListItem<TField>>
 		: TField['kind'] extends 'string'
 			? StringFilter
@@ -118,7 +118,7 @@ type SourcePluginContainmentFilter<TField extends GenericField> = [
 			NullFilter
 
 type SourcePathScalarFilter<TField extends GenericField> =
-	FieldTypegenStateOf<TField>['list'] extends FieldList
+	FieldTypeStateOf<TField>['list'] extends FieldList
 		? ArrayFilter<SourceListItem<TField>>
 		: TField['kind'] extends 'string'
 			? Omit<StringFilter, keyof OrderedFilter<string | null>>
@@ -143,7 +143,7 @@ type SourceObjectPath<
 	[TKey in Extract<keyof TFields, string>]:
 		| (Readonly<{ readonly path: readonly [...TParent, TKey] }> &
 				SourcePathScalarFilter<TFields[TKey]>)
-		| (FieldTypegenStateOf<TFields[TKey]>['list'] extends true
+		| (FieldTypeStateOf<TFields[TKey]>['list'] extends true
 				? never
 				: TFields[TKey] extends {
 							readonly kind: 'object'
@@ -153,7 +153,7 @@ type SourceObjectPath<
 					  }
 					? SourceObjectPath<TChildren, readonly [...TParent, TKey]>
 					: never)
-		| (FieldTypegenStateOf<TFields[TKey]>['list'] extends true
+		| (FieldTypeStateOf<TFields[TKey]>['list'] extends true
 				? never
 				: TFields[TKey]['kind'] extends 'json'
 					? Readonly<{
@@ -178,7 +178,7 @@ type SourceObjectFilter<TField extends GenericField> = TField extends {
  * means `eq` and `null` means `isNull`.
  */
 type SourceEqualityShorthand<TField extends GenericField> =
-	FieldTypegenStateOf<TField>['list'] extends FieldList
+	FieldTypeStateOf<TField>['list'] extends FieldList
 		? never
 		: TField['kind'] extends Exclude<EqualityFieldKind, 'json' | 'pointer'>
 			? FieldValue<TField> | null
@@ -216,7 +216,7 @@ type SourceFieldFilter<TField extends GenericField> =
 		? SourcePointerFilter<TTarget> | SourcePointerShorthand<TTarget>
 		: TField extends RelationField<infer TTarget>
 			? SourceRelationFilter<TTarget>
-			: FieldTypegenStateOf<TField>['list'] extends FieldList
+			: FieldTypeStateOf<TField>['list'] extends FieldList
 				? ArrayFilter<SourceListItem<TField>>
 				: TField['kind'] extends 'json'
 					? StructuralFilter<JsonDocument | null> &

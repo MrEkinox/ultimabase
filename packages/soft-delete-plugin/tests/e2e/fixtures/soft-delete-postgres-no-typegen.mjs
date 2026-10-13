@@ -16,19 +16,15 @@ const Application = UltimaBase.use(
 const Command = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteCommand',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete({ mode: 'command' })
-	.with({})
+}).softDelete({ mode: 'command' })
 const Logical = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteLogical',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete()
-	.with({})
+}).softDelete()
 const Plain = Application.Schema.define({
 	className: 'JavaScriptSoftDeletePlain',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({})
+})
 const audits = []
 const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
@@ -44,9 +40,7 @@ await ultimabase.start()
 const surface = (className) => [
 	...(ultimabase
 		.compile()
-		.typegenGraph.schemaSurfaces.find(
-			({ schema }) => schema.className === className,
-		)
+		.schemaSurfaces.find(({ schema }) => schema.className === className)
 		?.schemaMutations.keys() ?? []),
 ]
 

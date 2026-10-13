@@ -28,10 +28,6 @@ const workflowOption = defineSchemaOption({
 		return { enabled: value.enabled }
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@example/workflow-plugin',
-		type: 'WorkflowSchemaOption',
-	},
 })
 
 const AuditLog = UltimaBase.Schema.define({
@@ -107,7 +103,7 @@ one by registration order. Installing an unused descriptor has no effect.
 An option may declare a Runtime compiler when its behavior belongs to a
 versioned application capability. Core records used normalized occurrences
 during static compilation, but does not invoke them from
-`ultimabase.compile()` or Typegen. Real application initialization
+`ultimabase.compile()`. Real application initialization
 materializes capabilities, invokes these compilers with a frozen context such as
 the class name, field name, option name, value, and provenance, and only then
 runs plugin setup. The compiler returns `undefined` and registers through its
@@ -115,8 +111,8 @@ exact owner-bound capability; Core does not retain a generic Runtime result.
 
 The final `schema.definition.provenance` snapshot records the source of schemas,
 fields, options, indexes, portable constraints, and patches. It is
-inert logical metadata: Typegen may render its declarations and migration
-plugins may later compare persisted snapshots, but Core does not infer renames
+inert logical metadata: tooling may read it and migration plugins may later
+compare persisted snapshots, but Core does not infer renames
 or destructive cleanup.
 
 Every declaration registry belongs to one application. Reusing a stable schema
@@ -124,10 +120,9 @@ class in another application succeeds only when its complete compiled graph is
 compatible. An incompatible plugin set fails without mutating, rebinding, or
 silently cleaning the class compiled by the first application.
 
-Typegen will provide application-specific autocomplete for direct plugin options.
-Until that generated declaration is present, a TypeScript application may model
-the same direct property through an explicit local intersection; JavaScript uses
-the identical runtime validation without generated artifacts.
+A plugin types its schema option in the final `.with(...)` through a rules slot
+(`SchemaRulesHKT`, ADR-0297); JavaScript uses the identical runtime
+validation.
 
 ## Dynamic schemas and application handles
 
@@ -154,7 +149,7 @@ command map on schema/model handles.
 Core owns the canonical compiler. It applies ordered declarations, frozen
 selectors, and additive patches, then validates the complete graph before
 publication. Plugins cannot replace the compiler. Opaque artifacts retain exact
-identity and ownership; Typegen reads the resulting inert facts without running
+identity and ownership; tooling reads the resulting inert facts without running
 application callbacks.
 
 ## Portable and opaque option selection

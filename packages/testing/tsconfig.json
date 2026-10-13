@@ -10,9 +10,5 @@
 		"src/**/*.test-d.ts",
 		"src/**/*.test-support.ts"
 	],
-	"references": [
-		{ "path": "../shared" },
-		{ "path": "../core" },
-		{ "path": "../typegen" }
-	]
+	"references": [{ "path": "../shared" }, { "path": "../core" }]
 }

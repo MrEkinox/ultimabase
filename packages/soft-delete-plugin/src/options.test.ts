@@ -35,11 +35,9 @@ describe('soft-delete options', () => {
 	})
 
 	it('reads each compiled schema mode for this plugin instance only', () => {
-		const Logical = declare('LogicalMode').softDelete().with({})
-		const Command = declare('CommandMode')
-			.softDelete({ mode: 'command' })
-			.with({})
-		const Plain = declare('PlainMode').with({})
+		const Logical = declare('LogicalMode').softDelete()
+		const Command = declare('CommandMode').softDelete({ mode: 'command' })
+		const Plain = declare('PlainMode')
 		const { schemas } = new App({
 			logger: false,
 			schemas: [Logical, Command, Plain],
@@ -60,7 +58,6 @@ describe('soft-delete options', () => {
 		const Invalid = declare('InvalidMode')
 			// @ts-expect-error -- Only `mode: 'command'` exists.
 			.softDelete({ mode: 'replace-delete' })
-			.with({})
 		expect(() =>
 			new App({ logger: false, schemas: [Invalid] }).compile(),
 		).toThrow(

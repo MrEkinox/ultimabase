@@ -30,7 +30,6 @@ describe('plugin manifests', () => {
 			'persistence:rewrite',
 			'transport:expose',
 			'event:publish',
-			'typegen:reference',
 			'authority:elevate',
 		])
 		expect(
@@ -51,6 +50,7 @@ describe('plugin manifests', () => {
 		'query:extend',
 		'typegen:contribute',
 		'typegen:emit',
+		'typegen:reference',
 	])('rejects the retired %s privilege before declaration', (name) => {
 		let declared = false
 		expect(() =>

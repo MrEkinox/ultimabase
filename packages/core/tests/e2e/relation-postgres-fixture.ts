@@ -44,6 +44,7 @@ export const articleFields = (field: RelationFieldBuilder) => ({
 export const Article = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EArticle',
 	fields: articleFields,
+}).with({
 	hooks: {
 		afterOperation: {
 			update: () => {
@@ -71,6 +72,7 @@ export const tagFields = (field: RelationFieldBuilder) => ({
 export const Tag = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2ETag',
 	fields: tagFields,
+}).with({
 	access: {
 		read: ({ where }) => where.eq('visible', true),
 	},
@@ -89,6 +91,7 @@ export const authorFields = (field: RelationFieldBuilder) => ({
 export const Author = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EAuthor',
 	fields: authorFields,
+}).with({
 	access: {
 		read: ({ where }) => where.eq('visible', true),
 	},
@@ -116,6 +119,7 @@ export const privateArticleFields = (field: RelationFieldBuilder) => ({
 export const PrivateArticle = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EPrivateArticle',
 	fields: privateArticleFields,
+}).with({
 	access: {
 		read: ({ where }) => where.some('tags', { visible: { eq: true } }),
 	},

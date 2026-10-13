@@ -40,7 +40,7 @@ tsconfig.build.json`) and `start` (the compiled `dist/main.js`); JavaScript
 - **Declaration form.** Generated schemas use the declaration form only
   (ADR-0297): data in `define(...)`, shape methods such as `.softDelete()` and
   `.acl()`, then rules in a final `.with(...)` only when a schema has rules.
-  There is no Typegen, no generation script and no generated file; the
+  There is no generation script and no generated file; the
   application declares itself once in `Register`.
 - **Style.** create-app's tests check every representative generated project
   with Prettier (single quotes, no semicolons) and the recommended ESLint and

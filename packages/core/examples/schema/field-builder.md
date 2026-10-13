@@ -92,7 +92,7 @@ application.compile()
 
 The method belongs to this configured factory's plugin graph. A factory
 without `pgVectorPlugin()` has no `field.vector()` in TypeScript or at Runtime.
-The method is inferred from the plugin source without Typegen. The plugin
+The method is inferred from the plugin source. The plugin
 declares `stored` explicitly;
 its storage and wire codecs do not silently make `vector()` valid inside an
 embedded object or an output descriptor.
@@ -102,8 +102,7 @@ Plugin methods may implement any non-empty subset of the closed `stored`,
 its own exact factory and source type. Direct field options follow
 the same rule through `defineFieldOption({ contexts, ... })`. Core's unaugmented
 base types remain neutral, and stale or untyped use in an unsupported context
-fails during application compilation before setup. Typegen remains responsible
-for the application-wide named schema graph, not this local builder.
+fails during application compilation before setup.
 
 The same map-returning declaration is used by applications, tests, and
 framework-owned schemas. Core now derives the local model, Query, mutation,

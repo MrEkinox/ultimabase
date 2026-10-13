@@ -73,7 +73,6 @@ export {
 } from '../application/application-handles.js'
 export type {
 	ApplicationContributionOwner,
-	ApplicationOperationHandleForName,
 	ApplicationSchemaHandle,
 	ApplicationSchemaHandleForName,
 	PluginOperationEnvelope,
@@ -86,7 +85,6 @@ export type {
 	PluginSchemaMutationResult,
 	PluginSchemaMutationSchemaInput,
 } from '../application/application-schema-mutations.js'
-export { requireCurrentRequestRoleResolver } from './context/subject-capabilities.js'
 export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
 // Database plugins implement this neutral boundary without leaking their query builders.
 export {

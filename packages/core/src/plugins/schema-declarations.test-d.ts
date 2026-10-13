@@ -13,7 +13,6 @@ import {
 	type PluginSchemaOptionSource,
 	type SchemaOptionAbsenceSelector,
 	type SchemaOptionDefinition,
-	type SchemaOptionRuntimeRequirement,
 	type SchemaSelection,
 } from '../plugin.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
@@ -32,24 +31,19 @@ const workflowOption = defineSchemaOption({
 		return { enabled: value.enabled } as const
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@fixture/workflow-plugin',
-		type: 'WorkflowSchemaOption',
-	},
 })
 
-test('types compiler-only direct options as one closed authoring choice', () => {
+test('rejects the Typegen descriptor removed with Typegen (ADR-0297)', () => {
 	defineSchemaOption({
 		normalize: (value) => String(value),
 		protocolVersion: 1,
-		typegen: false,
 	})
 
 	defineSchemaOption({
 		normalize: (value) => String(value),
 		protocolVersion: 1,
-		// @ts-expect-error -- Only false or a structured public reference is accepted.
-		typegen: true,
+		// @ts-expect-error -- Option definitions no longer name generated types.
+		typegen: false,
 	})
 })
 
@@ -79,10 +73,6 @@ test('types Runtime option compilation from the exact capability requirement', (
 			},
 			requirement,
 		},
-		typegen: {
-			module: '@fixture/typed-runtime-option-plugin',
-			type: 'TypedRuntimeOption',
-		},
 	})
 
 	const setupRequirement = requireCapability(token, '^1.0.0', {
@@ -95,10 +85,6 @@ test('types Runtime option compilation from the exact capability requirement', (
 			compile: () => undefined,
 			// @ts-expect-error -- Runtime option compilation happens before plugin setup.
 			requirement: setupRequirement,
-		},
-		typegen: {
-			module: '@fixture/typed-runtime-option-plugin',
-			type: 'InvalidSetupOption',
 		},
 	})
 })
@@ -260,10 +246,11 @@ test('does not claim issue 1408 direct option augmentation', () => {
 			}),
 		}),
 	})
-	// @ts-expect-error -- No installed plugin contributes this schema option.
 	UltimaBase.Schema.define({
 		className: 'UngeneratedWorkflowSchema',
 		fields: (field) => ({ title: field.string() }),
+	}).with({
+		// @ts-expect-error -- No installed plugin contributes this schema rule.
 		workflow: { enabled: true },
 	})
 })
@@ -275,32 +262,13 @@ test('accepts only inert Core receipts from static declarations', () => {
 	})
 })
 
-test('projects no schema-option template for options typed elsewhere (ADR-0320)', () => {
-	type RuleOnly = SchemaOptionDefinition<
-		Readonly<{ table: string }>,
-		SchemaOptionRuntimeRequirement,
-		never
-	>
-	type Templated = SchemaOptionDefinition<Readonly<{ table: string }>>
+test('projects no schema-option template: rules are typed by `.with` (ADR-0297)', () => {
+	type Storage = SchemaOptionDefinition<Readonly<{ table: string }>>
 
 	expectTypeOf<
 		PluginSchemaOptionSource<{
 			readonly contributionId: 'rule-only'
-			readonly schema: Readonly<{ storage: RuleOnly }>
+			readonly schema: Readonly<{ storage: Storage }>
 		}>
 	>().toBeNever()
-	expectTypeOf<
-		PluginSchemaOptionSource<{
-			readonly contributionId: 'templated'
-			readonly schema: Readonly<{ storage: Templated }>
-		}>
-	>().toEqualTypeOf<
-		Readonly<{
-			schemaOptions: Readonly<{
-				template: {
-					readonly storage?: Readonly<{ table: string }>
-				}
-			}>
-		}>
-	>()
 })

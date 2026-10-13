@@ -1,0 +1,365 @@
+---
+title: Schema Contributions
+description: Add plugin-owned shape methods, rules, fields, and schema factories that applications type directly from source.
+audience:
+  - plugin-author
+contentType: guide
+outcome: Choose a schema contribution and type its fields, rules, and commands from the plugin source.
+releaseStatus: pre-release
+reviewedAt: 2026-10-13
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/plugin-kit/src/define-plugin/define-plugin.ts
+  - packages/core/src/plugin.ts
+  - packages/core/src/plugins/projection-slots.test-d.ts
+  - packages/core/src/plugins/schema-extensions.ts
+  - packages/core/src/plugins/schema-factories.ts
+  - packages/core/src/plugins/schema-rule-values.ts
+  - packages/core/src/schema/schema/schema-declaration-chain.ts
+  - packages/core/src/plugins/schema-compilation/opaque-selectors.test.ts
+  - packages/acl-permissions-plugin/src/plugin.ts
+  - packages/postgres-plugin/src/options.ts
+  - docs/concepts/open-plugin-authoring.md
+  - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+  - docs/adr/0263-direct-private-schema-compilation.md
+  - docs/adr/0277-canonical-schema-specialization.md
+  - docs/adr/0297-declare-schemas-without-typegen.md
+  - docs/adr/0316-plugin-facade-and-projection-slots.md
+  - docs/adr/0321-acl-shape-sharing-and-backfill.md
+  - docs/adr/0322-roles-schema-factory-and-queries.md
+---
+
+## Outcome
+
+Extend a schema without changing Core or patching an exported schema class.
+An application declares each schema in one chain: data in
+`App.Schema.define({ className, fields, indexes })`, then the shape methods of
+the installed plugins, such as `.softDelete()`, then one optional final
+`.with({ ... })` holding their rules (ADR-0297). Your plugin types every part
+of that chain from its own source through Core's projection slots (ADR-0316).
+There is no generation step and no generated file, and the same declarations
+compile at Runtime, so JavaScript applications get the same behavior.
+
+## Prerequisites
+
+- Complete [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin) and know its stable plugin identity.
+- Read [Schemas](/docs/1.0.0/core/data-modeling/schemas#plugin-methods-and-rules)
+  and [Fields](/docs/1.0.0/core/data-modeling/fields) for the declaration
+  chain your plugin extends.
+
+## Choose the schema contribution
+
+| Requirement                                        | Public declaration boundary                                                       | Typed for the application by                    |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------- |
+| A shape method with fields and commands, or a rule | `definePlugin()` with `shapeMethod()` and `rules`                                 | `definePlugin`, from the same object            |
+| A `.with` rule in a raw plugin                     | `schemas.defineOptions()` with `defineSchemaOption()`                             | A rules slot: `SchemaRulesHKT`                  |
+| A shape method in a raw plugin                     | `provideSchemaShapeMethods()`, plus `schemas.select()` and `schemas.patch()`      | `PluginSchemaShapeSource` and `SchemaFieldsHKT` |
+| Commands added to the schema class                 | `defineSchemaMutation()` and `contributeSchemaMutation()`                         | A statics slot: `SchemaStaticsHKT`              |
+| A field option                                     | `schemas.defineOptions()` with `definePluginFieldOption()` or `defineFieldOption` | The installed option definition                 |
+| A field kind or contextual builder method          | `definePluginField()`, `definePluginFieldFamily()` and `fields.register()`        | The registered family                           |
+| A schema factory such as `App.RoleSchema`          | `provideSchemaFactories()`                                                        | `SchemaFactoriesHKT`                            |
+| An application-local schema, or an owned one       | `schemas.add()`, `schemas.claim()`                                                | The schema's own declaration                    |
+| A field, index, or option value on selected rows   | `schemas.select()` and `schemas.patch()`                                          | Nothing: patches change the Runtime schema only |
+
+Schema declarations need the `schema:declare` privilege, and schema commands
+`operation:declare` and `model:extend`; Core derives each one from the
+contribution that uses it. Every contribution needs a stable owner-local
+`contributionId`; Core checks collisions and records provenance in the final
+graph. Patches are additive: they cannot replace, rename, or remove existing
+facts, and an option setter rejects an already present value. A patch or a
+`models.extend()` selection changes the compiled schema at Runtime but adds
+nothing to the application's types: when developers should see a field or a
+command, offer it through a shape method. Plugin-owned schemas are not
+automatically public REST or GraphQL schemas.
+
+Use `schemas.claim({ contributionId, schema })` when the developer owns the
+class declaration and lists it in the root `schemas` array, but your plugin
+must retain provenance and transport-visibility ownership. A claim never adds a
+missing class implicitly and cannot duplicate the plugin's own `schemas.add()`.
+
+## Start with `definePlugin`
+
+Most schema contributions are a shape method that adds server-written fields
+and commands, or a rule read after commit. `definePlugin` from
+`@ultimabase/plugin-kit` declares both from one object and writes every slot
+below for you; [Start Here](/docs/1.0.0/plugins/build-a-plugin#or-declare-it-with-defineplugin)
+shows the `archivePlugin` it builds. An application then writes:
+
+```ts title="src/post.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { archivePlugin } from '@your-scope/archive-plugin'
+
+const App = UltimaBase.use(archivePlugin())
+
+export const Post = App.Schema.define({
+	className: 'Post',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+}).archivable()
+```
+
+`Post` gains `archivedAt` in its results, which create and update input
+reject, and the `Post.archiveOne({ id })` command; a schema without
+`.archivable()` gains neither. Add `.with({ audit: true })` after the shape
+method when the plugin also declares an `audit` rule. Keep a raw `plugin()`
+when a rule or a command depends on the schema it applies to, or when a
+command takes input.
+
+## Type a rule with a rules slot
+
+A rule is a schema option that the application writes in `.with({ ... })`.
+Core rejects it in `define` with
+`Unknown schema option: <name>. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)`.
+Declare the option once with `schemas.defineOptions()`, then type it through
+a rules slot: an interface extending `SchemaRulesHKT` whose `rules` member is
+the `.with` entry. The slot reads `this['schema']`, the configured schema, so
+a rule may be typed against its fields (as Access, Hooks and Validation do),
+and `this['shape']`, the shape methods already called, so a rule may appear
+or become required only after its method (ACL's `acl.default`, ADR-0321).
+
+This raw plugin adds a `.flaggable()` shape method that gives a schema a
+server-written `flagged` field, and a `flagReason` rule offered only after it:
+
+```ts title="src/flag-plugin.ts"
+import {
+	booleanField,
+	type ForbiddenMutationInputField,
+} from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	defineSchemaOption,
+	plugin,
+	provideSchemaShapeMethods,
+	type PluginInstance,
+	type PluginSchemaFieldsSource,
+	type PluginSchemaRulesSource,
+	type PluginSchemaShapeSource,
+	type SchemaFieldsHKT,
+	type SchemaRulesHKT,
+	type SchemaShapeMethod,
+} from '@ultimabase/core/plugin'
+import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
+
+const flaggedField = booleanField({ default: false, required: true })
+
+/** Set by `.flaggable()`: selects the schemas that receive `flagged`. */
+const flaggableOption = defineSchemaOption({
+	normalize: (value, path): object => {
+		if (typeof value !== 'object' || value === null)
+			throw new TypeError(`${path} must be an object`)
+		return {}
+	},
+	protocolVersion: 1,
+})
+
+/** The `flagReason` entry of `.with({ ... })`. */
+const flagReasonOption = defineSchemaOption({
+	normalize: (value, path) => {
+		if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
+		return value
+	},
+	protocolVersion: 1,
+})
+
+type FlagShape = PluginSchemaShapeSource<{
+	/** Adds a server-written `flagged` field. */
+	readonly flaggable: SchemaShapeMethod<
+		readonly [],
+		Readonly<{ flaggable: object }>
+	>
+}>
+
+/** Reads only the called shape methods, never the schema, so it adds no cycle. */
+interface FlagFields extends SchemaFieldsHKT {
+	readonly fields: 'flaggable' extends keyof this['shape']
+		? Readonly<{ flagged: ForbiddenMutationInputField<typeof flaggedField> }>
+		: unknown
+}
+
+/** Offers `flagReason` once `.flaggable()` is called. */
+interface FlagRules extends SchemaRulesHKT {
+	readonly rules: 'flaggable' extends keyof this['shape']
+		? Readonly<{ flagReason?: string }>
+		: Readonly<Record<never, never>>
+}
+
+export type FlagPlugin = PluginInstance<{
+	readonly id: 'community.flag'
+	readonly version: '1.0.0'
+	readonly core: '^1.0.0'
+	readonly source:
+		| FlagShape
+		| PluginSchemaFieldsSource<FlagFields>
+		| PluginSchemaRulesSource<FlagRules>
+}>
+
+export const flagPlugin = (): FlagPlugin => {
+	const instance: FlagPlugin = plugin({
+		id: 'community.flag',
+		version: '1.0.0',
+		core: '^1.0.0',
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'flag-options',
+						schema: {
+							flaggable: flaggableOption,
+							flagReason: flagReasonOption,
+						},
+					})
+					schemas.patch(
+						patchSchemas({
+							targets: schemas.select({ option: { name: 'flaggable' } }),
+							patch: schemaPatch().addField({
+								contributionId: 'flagged-field',
+								name: 'flagged',
+								field: flaggedField,
+								mutationInput: 'forbidden',
+							}),
+						}),
+					)
+					return undefined
+				},
+			}),
+		],
+	})
+	return provideSchemaShapeMethods<FlagPlugin, FlagShape>(instance, {
+		flaggable: { sets: ['flaggable'], apply: () => ({ flaggable: {} }) },
+	})
+}
+```
+
+The application uses the method and the rule like any official plugin's:
+
+```ts title="src/comment.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { flagPlugin } from './flag-plugin.js'
+
+const App = UltimaBase.use(flagPlugin())
+
+export const Comment = App.Schema.define({
+	className: 'Comment',
+	fields: (f) => ({ body: f.string({ required: true }) }),
+})
+	.flaggable()
+	.with({ flagReason: 'Reported by a reader' })
+
+export const ultimabase = new App({ schemas: [Comment] })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+```
+
+`Comment` results carry `flagged`; create and update input reject it, because
+`mutationInput: 'forbidden'` reserves the field for the plugin's own effects
+while keeping it readable and persisted. It is not a permission rule for
+reading the field. `.with({ flagReason })` without `.flaggable()` is a type
+error, and the shape method is unavailable once called. At Runtime the plugin
+reads a schema's rules with `readSchemaRules(schema, owner)` from
+`@ultimabase/core/plugin`, which returns only the options that plugin declared.
+
+The selector matches the presence of `flaggable`. Use
+`{ option: { name, path, equals } }` to match portable JSON structurally;
+object key order does not matter, array order does.
+`{ option: { name, present: false } }` matches an omitted option. An option
+containing a callback or another nonportable value supports presence and
+absence, but equality and path selectors never invoke the callback or expose
+an internal marker. Each plugin's selection targets are frozen before its own
+additions and patches; later contributions cannot make that selection grow.
+
+### Add commands to the schema class
+
+A statics slot types the commands a shape method adds: an interface
+extending `SchemaStaticsHKT` whose `statics` member uses
+`SchemaCommands<this['schema'], { archiveOne: typeof archive }>`, so each
+command's `select` and result follow the configured schema. Declare the
+command itself with `defineSchemaMutation()` and `contributeSchemaMutation()`,
+and select its schemas with `models.extend()`, as
+[Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql#expose-a-schema-mutation)
+shows. Without the statics slot the command still runs, but TypeScript does
+not offer it. `definePlugin` writes this slot for every `command()`.
+
+## Add field options and field kinds
+
+A field option stays on the field, such as PostgreSQL's
+`f.string({ postgres: { renamedFrom: 'headline' } })`. Declare it with
+`definePluginFieldOption({ contexts, normalize, protocolVersion })` from
+`@ultimabase/plugin-kit` and install it with
+`schemas.defineOptions({ contributionId, field: { postgres: option } })`; the
+configured factory then types the option from that definition.
+
+Field value representation, builder availability, storage, and wire encoding
+are independent decisions:
+
+| Concern           | Owner decision                                                                                            |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| Logical value     | `definePluginField()` snapshots and validates one field kind.                                             |
+| Builder placement | `definePluginFieldFamily()` names only supported `stored`, `embedded`, `virtual`, or `output` contexts.   |
+| Direct option     | `definePluginFieldOption()` declares the exact contexts and normalization.                                |
+| Persistence       | A portable JSON storage codec or an explicit adapter integration.                                         |
+| Query predicates  | Portable codec grants complete-value equality/inclusion only; structural `contains` is a separate opt-in. |
+| Transport value   | An exact protocol-specific wire codec; storage encoding is not automatically a wire format.               |
+
+Register a family with `fields.register(family)` in the same `schema`
+declaration callback; `UltimaBase.use()` then offers the builder method, such
+as `f.vector()`, only in the contexts the family names. A stored field method
+does not automatically work as a virtual output, and Core rejects unsupported
+usage even when JavaScript bypasses autocomplete. See the concrete
+[plugin field families](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/README.md#static-schema-compilation-and-relationship-targets)
+and the [plugin scalar example](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/examples/schema/plugin-field-containment.md)
+for the full field and codec contracts.
+
+## Add a schema factory
+
+A plugin that owns a kind of schema, such as Roles with `App.RoleSchema` or
+authentication with `App.UserSchema`, adds a schema factory to the configured
+application through `provideSchemaFactories()`, typed by a
+`SchemaFactoriesHKT` slot (ADR-0322). A factory receives
+`define(options, statics)`: the same declaration chain as `App.Schema.define`,
+with `statics` bound to every class it creates, so its declarations take the
+same shape methods and final `.with` as any schema.
+
+If the package must instead expose one final schema class of its own, use the
+low-level Core boundary `Schema.defineSpecialized(options, createStatics)`.
+The factory returns the static capabilities only; Core attaches them before
+freezing the exact schema class. Results stay frozen plain data and never gain
+methods (ADR-0310). A specialization does not receive an application, adapter,
+authority, or mutable prototype, and it does not register its class
+automatically.
+
+## Inspect the compiled contracts
+
+Tools can read `application.compile().operations` for the operations plugins
+declared and `application.compile().schemaSurfaces` for the plugin commands
+each schema gained. Both are descriptions without their executable parts:
+operation entries omit the `input` and `result` contracts, and each surface
+names its schema by `className`, not by constructor. Keep the original
+operation or schema declaration for work that needs to execute it.
+
+## Verify
+
+Compile the application graph with and without your plugin. With the plugin,
+confirm the field or option appears only on the schemas that call the shape
+method and that its provenance names your contribution. Typecheck a consumer
+of the packed package: the shape method, the `.with` rule, the added fields,
+and the commands must offer the same completions, hovers, signatures, and
+diagnostics as from source. Check the misuses too: a rule passed to `define`,
+a rule written before its shape method, and a rule whose plugin is not
+installed must each fail.
+
+Run the `@ultimabase/testing/plugins` conformance suite for the generic
+repeatability check, then add a focused assertion for the field, rule, or
+command your plugin promises. Finally start a JavaScript application: the
+plugin's Runtime behavior must not depend on TypeScript.
+
+## Next steps
+
+Use [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql) when the field needs a
+command or a public GraphQL surface. Use
+[Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure) when it needs an
+adapter, policy, or persistence-plan integration. Types describe those
+compiled behaviors; they never create them.

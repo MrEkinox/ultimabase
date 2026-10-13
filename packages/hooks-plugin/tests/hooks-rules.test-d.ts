@@ -33,7 +33,7 @@ const App = UltimaBase.use(
 const Tag = App.Schema.define({
 	className: 'TypedHookTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
-}).with({})
+})
 
 // ADR-0318: hooks see plain data, readable atomic operations and link changes.
 test('types every phase on plain data in .with', () => {

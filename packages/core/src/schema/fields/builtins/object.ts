@@ -16,13 +16,13 @@ import {
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldListOption,
 	FieldListValue,
 	FieldOptions,
 	FieldOptionsBase,
 	GenericField,
-	ScalarFieldTypegenState,
+	ScalarFieldTypeState,
 } from '../base/contract.js'
 import type { FieldDefault } from '../base/defaults.js'
 import type { FieldValueMap } from '../base/value-map.js'
@@ -101,12 +101,12 @@ export interface ObjectFieldOptions<
  */
 export type ObjectField<
 	TFields extends ObjectFields = ObjectFields,
-	TTypegen extends FieldTypegenState = FieldTypegenState,
+	TState extends FieldTypeState = FieldTypeState,
 > = FieldDefinition<
 	'object',
 	ObjectFieldValue<TFields>,
 	ObjectFieldOptions<TFields>,
-	TTypegen
+	TState
 >
 
 const objectFieldOptionsContract: BuiltInFieldOptionsContract = {
@@ -168,7 +168,7 @@ type ResolvedObjectField<
 	'object',
 	ObjectFieldValue<TFields>,
 	ObjectFieldOptions<TFields>,
-	ScalarFieldTypegenState<TRequired, TList, TImmutable, THasDefault>
+	ScalarFieldTypeState<TRequired, TList, TImmutable, THasDefault>
 >
 
 export type DefaultedObjectField<

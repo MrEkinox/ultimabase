@@ -41,7 +41,7 @@
 				{
 					"slug": "data-modeling/relationships",
 					"contentType": "concept",
-					"outcome": "Choose and declare pointers and relations, then use a relation handle to read or change membership."
+					"outcome": "Choose and declare pointers and relations, then read or change membership through includes, filters, and link commands."
 				},
 				{
 					"slug": "data-modeling/schemas",
@@ -165,9 +165,9 @@
 					"outcome": "Export a reusable plugin factory and verify its application-local setup result."
 				},
 				{
-					"slug": "build-a-plugin/schemas-and-typegen",
+					"slug": "build-a-plugin/schema-contributions",
 					"contentType": "guide",
-					"outcome": "Choose a schema contribution and publish its correct application-specific TypeScript types."
+					"outcome": "Choose a schema contribution and type its fields, rules, and commands from the plugin source."
 				},
 				{
 					"slug": "build-a-plugin/operations-and-graphql",
@@ -269,16 +269,10 @@
 			"sources": [
 				"examples/minimal/README.md",
 				"packages/core/README.md",
-				"packages/testing/README.md",
-				"packages/typegen/README.md"
+				"packages/testing/README.md"
 			],
 			"releaseStatus": "pre-release",
 			"pages": [
-				{
-					"slug": "generate-types",
-					"contentType": "guide",
-					"outcome": "Generate and verify replaceable declarations for one configured UltimaBase application."
-				},
 				{
 					"slug": "test-an-application",
 					"contentType": "guide",
@@ -293,7 +287,6 @@
 			"sourceStatus": "partial",
 			"sources": [
 				"packages/core/README.md",
-				"packages/typegen/README.md",
 				"examples/minimal/README.md",
 				"docs/RELEASING.md"
 			],

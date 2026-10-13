@@ -1,4 +1,4 @@
-import type { FieldTypegenStateOf } from '../fields/base/contract.js'
+import type { FieldTypeStateOf } from '../fields/base/contract.js'
 import type { PointerField } from '../fields/builtins/pointer.js'
 import type { RelationField } from '../fields/builtins/relation.js'
 import type {
@@ -97,9 +97,7 @@ type SourceNumericFieldName<TFields extends SchemaDeclaredFields> = {
 		TKey in keyof StoredSourceFields<TFields>
 	]: StoredSourceFields<TFields>[TKey]['kind'] extends
 		'bigint' | 'decimal' | 'float' | 'int'
-		? FieldTypegenStateOf<
-				StoredSourceFields<TFields>[TKey]
-			>['list'] extends true
+		? FieldTypeStateOf<StoredSourceFields<TFields>[TKey]>['list'] extends true
 			? never
 			: TKey
 		: never

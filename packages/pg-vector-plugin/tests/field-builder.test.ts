@@ -58,11 +58,6 @@ describe('pg-vector FieldBuilder method', () => {
 				contexts: {
 					stored: {
 						fieldKind: vectorFieldKind,
-						typegen: {
-							methodType: 'VectorFieldBuilderMethod',
-							module: '@ultimabase/pg-vector-plugin',
-							valueType: 'VectorValue',
-						},
 					},
 				},
 				name: 'vector',

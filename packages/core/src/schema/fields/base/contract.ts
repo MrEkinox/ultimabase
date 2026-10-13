@@ -1,9 +1,3 @@
-import type {
-	UltimaBaseGeneratedFieldOptionCompatibility,
-	UltimaBaseGeneratedFieldOptions,
-	UltimaBaseGeneratedEmbeddedFieldOptions,
-	UltimaBaseGeneratedVirtualFieldOptions,
-} from '../../type-info.js'
 import type { DefaultFactory, FieldDefault } from './defaults.js'
 import type {
 	CompatiblePluginSourceFieldOptions,
@@ -25,7 +19,7 @@ export type {
 } from './source-options.js'
 
 declare const fieldValueMarker: unique symbol
-declare const fieldTypegenMarker: unique symbol
+declare const fieldTypeStateMarker: unique symbol
 declare const fieldStructuralContainsOperandMarker: unique symbol
 declare const fieldContainsInputMarker: unique symbol
 declare const fieldUpdateInputMarker: unique symbol
@@ -57,22 +51,22 @@ export type FieldList = true
 export type FieldListOption = boolean
 
 /** Describes whether one operation exposes a declared field property. */
-export type FieldTypegenPresence = 'forbidden' | 'optional' | 'required'
+export type FieldTypePresence = 'forbidden' | 'optional' | 'required'
 
 /**
  * Carries only the normalized facts that affect operation-specific inference.
  * Runtime options remain available on the field without retaining their literals.
  */
-export interface FieldTypegenState {
-	readonly create: FieldTypegenPresence
-	readonly object: FieldTypegenPresence
-	readonly update: Exclude<FieldTypegenPresence, 'required'>
+export interface FieldTypeState {
+	readonly create: FieldTypePresence
+	readonly object: FieldTypePresence
+	readonly update: Exclude<FieldTypePresence, 'required'>
 	readonly nullable: boolean
 	readonly list: FieldListOption
 }
 
 /** Builds the compact state shared by scalar fields without automatic generation. */
-export interface ScalarFieldTypegenState<
+export interface ScalarFieldTypeState<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
@@ -152,10 +146,7 @@ export interface FieldOptionsBase<
 	TList extends FieldListOption = FieldListOption,
 	TValue = unknown,
 >
-	extends
-		FieldMetadataOptions,
-		FieldOptionValueCarrier<TValue>,
-		UltimaBaseGeneratedFieldOptions {
+	extends FieldMetadataOptions, FieldOptionValueCarrier<TValue> {
 	/**
 	 * Wraps the scalar in one homogeneous list when enabled.
 	 *
@@ -202,85 +193,17 @@ type GeneratedValueIsCompatible<TOptions> = TOptions extends {
 			: true
 	: true
 
-type GeneratedFieldOptionCompatibility<
-	TOptions extends object,
-	TValue,
-> = UltimaBaseGeneratedFieldOptionCompatibility<
-	TOptions,
-	TValue
->[keyof UltimaBaseGeneratedFieldOptionCompatibility<TOptions, TValue>]
-
-type GeneratedFieldOptionsAreCompatible<TOptions extends object, TValue> =
-	false extends GeneratedFieldOptionCompatibility<TOptions, TValue>
-		? false
-		: true
-
-type GeneratedCompatibilityOptionKeys<
-	TOptions extends object,
-	TValue,
-> = Extract<
-	keyof UltimaBaseGeneratedFieldOptionCompatibility<TOptions, TValue>,
-	keyof UltimaBaseGeneratedFieldOptions
->
-
-type GeneratedNonCompatibilityOptionKeys<
-	TExtensionOptions extends object,
-	TOptions extends object,
-	TValue,
-> = Exclude<
-	Extract<
-		keyof TExtensionOptions,
-		keyof (UltimaBaseGeneratedFieldOptions &
-			UltimaBaseGeneratedEmbeddedFieldOptions &
-			UltimaBaseGeneratedVirtualFieldOptions)
-	>,
-	GeneratedCompatibilityOptionKeys<TOptions, TValue>
->
-
-type OptionObjectKeysAreCompatible<TDeclared, TAllowed> =
-	NonNullable<TDeclared> extends object
-		? NonNullable<TAllowed> extends object
-			? Exclude<
-					keyof NonNullable<TDeclared>,
-					keyof NonNullable<TAllowed>
-				> extends never
-				? true
-				: false
-			: false
-		: true
-
 type SourceOptionKeys<TSourceOptions extends object> = keyof TSourceOptions
 
-type GeneratedNonCompatibilityOptionsAreExact<
-	TExtensionOptions extends object,
-	TOptions extends object,
-	TValue,
-> = false extends {
-	readonly [
-		TKey in GeneratedNonCompatibilityOptionKeys<
-			TExtensionOptions,
-			TOptions,
-			TValue
-		>
-	]: OptionObjectKeysAreCompatible<
-		TExtensionOptions[TKey],
-		TKey extends keyof TOptions ? TOptions[TKey] : never
-	>
-}[GeneratedNonCompatibilityOptionKeys<TExtensionOptions, TOptions, TValue>]
-	? false
-	: true
-
 /**
- * Validates a factory's exact options against its scalar value and generated checks.
+ * Validates a factory's exact options against its scalar value.
  */
 type FieldOptionsAreCompatible<TOptions extends object, TValue> =
 	DefaultIsCompatible<
 		TOptions,
 		FieldOptionsValue<TValue, TOptions>
 	> extends true
-		? GeneratedValueIsCompatible<TOptions> extends true
-			? GeneratedFieldOptionsAreCompatible<TOptions, TValue>
-			: false
+		? GeneratedValueIsCompatible<TOptions>
 		: false
 
 export type ValidatedFieldOptions<TOptions extends object, TValue> =
@@ -307,33 +230,14 @@ export type CompatibleFieldOptionsInput<
 		: never) &
 	CompatibleFieldOptions<TOptions, TValue>
 
-/** Infers exact plugin-option values while rejecting keys absent from the generated contract. */
+/** Infers exact plugin-option values while rejecting keys no installed plugin declares. */
 export type CompatibleFieldOptionsExtension<
 	TBaseOptions extends object,
 	TExtensionOptions extends object,
 	TValue,
 	TSourceOptions extends object = Readonly<Record<never, never>>,
 > = [SourceOptionKeys<TSourceOptions>] extends [never]
-	? [GeneratedCompatibilityOptionKeys<TBaseOptions, TValue>] extends [never]
-		? TBaseOptions
-		: TBaseOptions &
-				TExtensionOptions &
-				(Exclude<keyof TExtensionOptions, keyof TBaseOptions> extends never
-					? unknown
-					: never) &
-				(GeneratedNonCompatibilityOptionsAreExact<
-					TExtensionOptions,
-					TBaseOptions,
-					TValue
-				> extends true
-					? unknown
-					: never) &
-				(GeneratedFieldOptionsAreCompatible<
-					TBaseOptions & TExtensionOptions,
-					TValue
-				> extends true
-					? Readonly<Record<never, never>>
-					: never)
+	? TBaseOptions
 	: Omit<TBaseOptions, keyof TSourceOptions> &
 			TSourceOptions &
 			TExtensionOptions &
@@ -425,7 +329,7 @@ type ResolveUpdatePresence<TOptions> =
 			: 'optional'
 
 /** Converts exact field options into the compact field inference contract. */
-export interface ResolveFieldTypegenState<TOptions extends object> {
+export interface ResolveFieldTypeState<TOptions extends object> {
 	readonly create: ResolveCreatePresence<TOptions>
 	readonly object: ResolveObjectPresence
 	readonly update: ResolveUpdatePresence<TOptions>
@@ -442,13 +346,13 @@ export interface FieldDefinition<
 	TKind extends string,
 	TValue,
 	TOptions extends object = FieldOptions<TValue>,
-	TTypegen extends FieldTypegenState = ResolveFieldTypegenState<TOptions>,
+	TState extends FieldTypeState = ResolveFieldTypeState<TOptions>,
 	TStructuralContainsOperand = never,
 > {
 	readonly kind: TKind
 	readonly options: Readonly<TOptions>
 	readonly [fieldValueMarker]?: TValue
-	readonly [fieldTypegenMarker]?: TTypegen
+	readonly [fieldTypeStateMarker]?: TState
 	readonly [fieldStructuralContainsOperandMarker]?: TStructuralContainsOperand
 }
 
@@ -511,10 +415,10 @@ export type FieldContainsInput<TField> = TField extends {
 	: never
 
 /** Extracts the compact operation state carried by a declared field. */
-export type FieldTypegenStateOf<TField> = TField extends {
-	readonly [fieldTypegenMarker]?: infer TTypegen extends FieldTypegenState
+export type FieldTypeStateOf<TField> = TField extends {
+	readonly [fieldTypeStateMarker]?: infer TState extends FieldTypeState
 }
-	? TTypegen
+	? TState
 	: never
 
 /** Mirrors a Runtime-owned mutation-input prohibition in source inference. */
@@ -523,14 +427,14 @@ export type ForbiddenMutationInputField<TField extends GenericField> =
 		infer TKind,
 		infer TValue,
 		infer TOptions,
-		infer TTypegen,
+		infer TState,
 		infer TStructuralContainsOperand
 	>
 		? FieldDefinition<
 				TKind,
 				TValue,
 				TOptions,
-				Omit<TTypegen, 'create' | 'update'> &
+				Omit<TState, 'create' | 'update'> &
 					Readonly<{ create: 'forbidden'; update: 'forbidden' }>,
 				TStructuralContainsOperand
 			>
@@ -539,5 +443,5 @@ export type ForbiddenMutationInputField<TField extends GenericField> =
 /** Extracts the complete value carried by a field and its list metadata. */
 export type FieldValue<TField> = FieldListValue<
 	FieldScalarValue<TField>,
-	FieldTypegenStateOf<TField>['list']
+	FieldTypeStateOf<TField>['list']
 >

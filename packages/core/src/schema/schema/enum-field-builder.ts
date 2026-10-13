@@ -14,18 +14,10 @@ import type {
 	EnumValue,
 	EnumValues,
 } from '../fields/builtins/enum.js'
-import type {
-	UltimaBaseGeneratedEmbeddedFieldOptions,
-	UltimaBaseGeneratedFieldOptions,
-} from '../type-info.js'
 
 /** Describes enum behavior available at one embedded object property. */
 export type EmbeddedEnumFieldOptions<TValues extends EnumValues = EnumValues> =
-	Omit<
-		Omit<EnumFieldOptions<TValues>, 'indexed'>,
-		keyof UltimaBaseGeneratedFieldOptions
-	> &
-		UltimaBaseGeneratedEmbeddedFieldOptions
+	Omit<EnumFieldOptions<TValues>, 'indexed'>
 
 type EnumBuilderContext = 'stored' | 'embedded'
 type EnumBuilderOptions<

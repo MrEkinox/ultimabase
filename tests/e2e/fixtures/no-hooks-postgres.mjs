@@ -14,10 +14,11 @@ const Application = UltimaBase.use(
 )
 const Post = Application.Schema.define({
 	className: 'JavaScriptNoEnginePost',
-	postgres: { table: 'optional_hooks_javascript_posts' },
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
+}).with({
+	postgres: { table: 'optional_hooks_javascript_posts' },
 })
 const ultimabase = new Application({
 	logger: false,
@@ -61,7 +62,6 @@ try {
 		where: { id: { eq: created.id } },
 	})
 	const inspection = {
-		options: ultimabase.compile().typegenGraph.options.map(({ name }) => name),
 		plugins: ultimabase.pluginPrivilegeReport.plugins.map(
 			({ identity }) => identity.pluginId,
 		),

@@ -5,7 +5,7 @@ import {
 	provideRuntimeConstraint,
 	type BooleanField,
 	type DateTimeField,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 } from '@ultimabase/core'
 import {
 	command,
@@ -27,9 +27,9 @@ import { createSoftDeleteVisibilityPolicy } from './visibility.js'
 /** Fields `.softDelete()` adds; both are written by the server only. */
 export type SoftDeleteFields = Readonly<{
 	/** True while the row is soft-deleted; the protected filter reads it. */
-	isDeleted: BooleanField<ScalarFieldTypegenState<true, false, false, true>>
+	isDeleted: BooleanField<ScalarFieldTypeState<true, false, false, true>>
 	/** When the row was soft-deleted; `null` once restored. */
-	deletedAt: DateTimeField<ScalarFieldTypegenState<false, false, false, false>>
+	deletedAt: DateTimeField<ScalarFieldTypeState<false, false, false, false>>
 }>
 
 /** Commands `.softDelete()` adds, in both modes. */
@@ -57,7 +57,7 @@ export type SoftDeleteShape = Readonly<{
 	 * permission (ordinary reads then see deleted rows). Without options,
 	 * `deleteOne` and `deleteMany` soft-delete too; `{ mode: 'command' }` keeps
 	 * them physical. Call it before `.with(...)`.
-	 * @example `App.Schema.define({ className: 'Todo', fields }).softDelete().with({})`
+	 * @example `App.Schema.define({ className: 'Todo', fields }).softDelete()`
 	 */
 	softDelete: ShapeMethodDefinition<
 		SoftDeleteOptions,
@@ -125,7 +125,7 @@ const shape: SoftDeleteShape = {
  * @example
  * ```ts
  * const App = UltimaBase.use(softDeletePlugin())
- * const Todo = App.Schema.define({ className: 'Todo', fields }).softDelete().with({})
+ * const Todo = App.Schema.define({ className: 'Todo', fields }).softDelete()
  * await Todo.deleteOne({ where: { id } }) // sets isDeleted and deletedAt
  * await Todo.restoreOne({ id })
  * ```

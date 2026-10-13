@@ -2,7 +2,7 @@
 	"title": "Build a Plugin",
 	"pages": [
 		"index",
-		"schemas-and-typegen",
+		"schema-contributions",
 		"operations-and-graphql",
 		"runtime-and-infrastructure"
 	]

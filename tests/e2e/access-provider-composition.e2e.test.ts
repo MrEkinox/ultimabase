@@ -7,7 +7,6 @@ import {
 import {
 	RequestSubjectReference,
 	UltimaBase,
-	requestRoleResolverCapability,
 	databaseAdapterCapability,
 	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability,
@@ -23,6 +22,7 @@ import {
 	type FrameworkError,
 	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
+import { requestRoleResolverCapability } from '@ultimabase/plugin-kit'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
@@ -169,6 +169,7 @@ const NativeDocument = AccessCompositionApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string({ required: true }),
 	}),
+}).with({
 	access: { read: true },
 })
 
@@ -184,7 +185,7 @@ const ACLCompositionApplication = AccessCompositionApplication.use(
 const RoleOnly = ACLCompositionApplication.RoleSchema.define({
 	className: 'AccessCompositionRoleOnly',
 	members: () => Principal,
-}).with({})
+})
 const ACLRole = ACLCompositionApplication.RoleSchema.define({
 	className: 'AccessCompositionACLRole',
 	members: () => Principal,
@@ -212,17 +213,19 @@ const CombinedPost = ACLCompositionApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string({ required: true }),
 	}),
-	access: {
-		read: async (input) =>
-			(await isEditor(input)) &&
-			input.where
-				.eq('nativeScope', 'native-allowed')
-				.eq('businessScope', 'business-allowed'),
-	},
 })
 	.acl()
 	// A callback defers role discovery so this fixture can prove runtime composition.
-	.with({ acl: { default: () => roleACL } })
+	.with({
+		access: {
+			read: async (input) =>
+				(await isEditor(input)) &&
+				input.where
+					.eq('nativeScope', 'native-allowed')
+					.eq('businessScope', 'business-allowed'),
+		},
+		acl: { default: () => roleACL },
+	})
 
 const createRoleProvider = (allowed: boolean) =>
 	plugin({
@@ -337,18 +340,20 @@ const MissingRolePost = ACLCompositionApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-	hooks: {
-		beforeOperation: {
-			create: ({ item }) => {
-				roleAwareBusinessHooks += 1
-				void item
-			},
-		},
-	},
 })
 	.acl()
 	// Dynamic grants validate the absent provider before business or storage hooks.
-	.with({ acl: { default: () => roleACL } })
+	.with({
+		hooks: {
+			beforeOperation: {
+				create: ({ item }) => {
+					roleAwareBusinessHooks += 1
+					void item
+				},
+			},
+		},
+		acl: { default: () => roleACL },
+	})
 
 describe('Access provider composition', () => {
 	it('keeps native field Access complete without ACL or roles', async () => {

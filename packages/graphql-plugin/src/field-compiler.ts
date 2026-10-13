@@ -1,7 +1,7 @@
 import {
 	getFieldListDepth,
 	getPluginFieldWireCodec,
-	readFieldTypegenState,
+	readFieldTypeState,
 	type GenericField,
 	type PluginFieldWireCodec,
 	type SchemaDeclaredFields,
@@ -357,7 +357,7 @@ export class GraphqlFieldTypeCompiler {
 	): GraphQLInputFieldConfigMap {
 		const compiled: [string, GraphQLInputFieldConfigMap[string]][] = []
 		for (const [name, field] of Object.entries(fields)) {
-			const state = readFieldTypegenState(field)
+			const state = readFieldTypeState(field)
 			if (state.create === 'forbidden') continue
 			const path = [...parentPath, name]
 			assertSchemaFieldName(schema, path)

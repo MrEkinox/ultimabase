@@ -22,27 +22,25 @@ reads, and Runtime results are `UserSchema` instances whose direct properties
 and `toJSON()` contain only visible fields.
 
 Static schema declarations own runtime metadata. The configured application
-factory infers local fields, items, inputs, and plugin surfaces from source;
-Typegen retains the application-wide named-schema graph, complete `WhereInput`,
-and callbacks that require the complete schema graph. Plugins
-add namespaced direct schema options, plugin-defined fields, immutable patches,
+factory infers fields, items, inputs, filters and plugin surfaces from source,
+without generation (ADR-0297): relation targets are thunks, plugin rules go in
+the final `.with(...)`, and one `Register` declaration gives name-keyed types.
+Plugins add namespaced direct schema options, plugin-defined fields, immutable patches,
 or application capabilities while Core remains independent from their
 implementations. An option is accepted only when its plugin registers the
 corresponding contract.
 
-System fields are reserved and excluded from create/update inputs. Generated
-output, create-input, and update-input contracts remain separate:
+System fields are reserved and excluded from create/update inputs. Output,
+create-input, and update-input contracts remain separate:
 
 ```ts
-type User = Schemas.User.Item
-type CreateUserInput = Schemas.User.Inputs['create']
-type UpdateUserInput = Schemas.User.Inputs['update']
+type User = Item<'User'>
+type CreateUserInput = CreateInput<'User'>
+type UpdateUserInput = UpdateInput<'User'>
 ```
 
-Before code generation, models intentionally expose only `BaseItem`: a stable
-string identifier plus unknown application fields. Core does not infer the
-field map as a fallback. Runtime-oriented tests must narrow those unknown
-values; generated-contract tests prove the exact replacement separately.
+A schema referenced only by a name the application does not register exposes
+`BaseItem`: a stable string identifier plus unknown fields.
 
 Persisted outputs contain required, defaulted, auto-incremented, and generated
 values. Create inputs require only values that cannot be supplied by the
@@ -62,8 +60,8 @@ derive deterministic names from the schema and field path. Schema validates
 only that an explicit name is non-empty. GraphQL and other generators own their
 syntax, derived suffixes, and collision detection.
 
-Direct schema options configure plugin behavior without altering generated
-object, create-input, or update-input shapes. Plugins that introduce a distinct
+Direct schema options configure plugin behavior without altering the object,
+create-input, or update-input shapes. Plugins that introduce a distinct
 logical value expose a plugin-defined field with that value type instead.
 
 Validation-only formats stay native fields. Email addresses, URLs, slugs,
@@ -76,7 +74,7 @@ relationship behavior, or adapter contract; validation syntax alone is not
 enough.
 
 Built-in field factories retain only the normalized booleans and list state
-needed by runtime metadata and code generation. Runtime constraints and literal defaults remain
+needed by runtime metadata and editor types. Runtime constraints and literal defaults remain
 available in immutable field options without being repeated in editor hovers;
 enum domains and object child maps stay exact because they define value shapes.
 
@@ -93,7 +91,7 @@ The builder callback is synchronous and executes once per accepted application
 compilation. Before compilation, only schema identity is available; model
 construction and field-dependent metadata fail explicitly. Internal tests,
 framework-owned schemas, and application declarations all use the same builder
-shape. Exact application field types still come only from the generated registry.
+shape.
 
 Duplicate `className` values fail with `DuplicateSchemaError`; a failed
 registration never replaces the previously registered definition.

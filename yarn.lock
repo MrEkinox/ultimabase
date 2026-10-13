@@ -3520,7 +3520,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/pg-vector-plugin@workspace:^, @ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin":
+"@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin"
   dependencies:
@@ -3573,7 +3573,6 @@ __metadata:
     "@ultimabase/http-plugin": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
-    "@ultimabase/typegen": "workspace:^"
     "@ultimabase/validation-plugin": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -3615,7 +3614,6 @@ __metadata:
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"
-    "@ultimabase/typegen": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
@@ -3630,7 +3628,6 @@ __metadata:
     "@types/pg": "npm:^8.15.5"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/shared": "workspace:^"
-    "@ultimabase/typegen": "workspace:^"
     pg: "npm:^8.16.3"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -3640,25 +3637,6 @@ __metadata:
   peerDependenciesMeta:
     vitest:
       optional: true
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/typegen@workspace:^, @ultimabase/typegen@workspace:packages/typegen":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/typegen@workspace:packages/typegen"
-  dependencies:
-    "@ultimabase/acl-permissions-plugin": "workspace:^"
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/pg-vector-plugin": "workspace:^"
-    "@ultimabase/roles-plugin": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
-    "@ultimabase/validation-plugin": "workspace:^"
-    jiti: "npm:^2.6.1"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    valibot: "npm:^1.4.2"
-    vitest: "npm:4.1.11"
-    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 

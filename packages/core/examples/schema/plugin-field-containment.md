@@ -76,19 +76,9 @@ export type SearchDocumentFieldBuilderMethod = typeof searchDocumentField
 
 const family = definePluginFieldFamily({
 	fieldKind: 'community.search.document',
-	typegen: {
-		module: '@community/search-document-plugin',
-		structuralContainsType: 'SearchContainsOperand',
-		valueType: 'SearchDocument',
-	},
 	builder: {
 		name: 'searchDocument',
-		contexts: {
-			stored: {
-				factory: searchDocumentField,
-				methodType: 'SearchDocumentFieldBuilderMethod',
-			},
-		},
+		contexts: { stored: { factory: searchDocumentField } },
 	},
 })
 
@@ -108,13 +98,10 @@ export const searchDocumentPlugin = () =>
 	})
 ```
 
-Once Typegen has emitted the application declaration, developers receive the
-exact partial operand on the ordinary Query surface:
-
-Before generation, configured source typing only exposes that `contains` is
-available; it does not treat the snapshot callback's normalized return value
-as the accepted developer input. The generated `WhereInput` uses the field
-family's public `structuralContainsType` reference for the exact input shape.
+Developers write the partial operand on the ordinary Query surface. Configured
+source typing exposes that `contains` is available; it does not treat the
+snapshot callback's normalized return value as the accepted developer input,
+which the snapshot validates at Runtime:
 
 ```ts
 await PostSchema.findMany({

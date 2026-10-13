@@ -2,7 +2,7 @@ import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -22,8 +22,8 @@ export type UuidFieldOptions = FieldOptions<string>
 /**
  * Carries the UUID value and exact options through schema inference.
  */
-export type UuidField<TTypegen extends FieldTypegenState = FieldTypegenState> =
-	FieldDefinition<'uuid', string, UuidFieldOptions, TTypegen>
+export type UuidField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'uuid', string, UuidFieldOptions, TState>
 
 type DefaultedUuidFieldOptions<
 	TRequired extends boolean,

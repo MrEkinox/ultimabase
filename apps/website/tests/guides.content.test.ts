@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const contentRoot = fileURLToPath(
 	new URL('../content/docs/1.0.0/guides/', import.meta.url),
 )
-const pages = ['generate-types', 'test-an-application'] as const
+const pages = ['test-an-application'] as const
 
 describe('focused guide contracts', () => {
 	it('keeps every guide task-shaped and complete', async () => {
@@ -41,28 +41,17 @@ describe('focused guide contracts', () => {
 		)
 	})
 
-	it('teaches complete Typegen output before TypeScript checks', async () => {
-		const typegen = await readFile(
-			path.join(contentRoot, 'generate-types.mdx'),
-			'utf8',
-		)
+	it('types plugin options from source without a generation step', async () => {
 		const usingPlugins = await readFile(
 			path.join(contentRoot, '../plugins/using-plugins.mdx'),
 			'utf8',
 		)
 
-		expect(typegen).toContain('writeGeneratedTypeFiles([')
-		expect(typegen).toContain('contents: generated.contents')
-		expect(typegen).not.toContain('generated.outputs')
-		expect(typegen).toContain(
-			'"typecheck": "node --env-file=.env scripts/generate-types.mjs && tsc --noEmit"',
-		)
-		expect(typegen).toContain(
-			'"build": "node --env-file=.env scripts/generate-types.mjs && tsc"',
-		)
-		expect(usingPlugins).toContain(
-			'/docs/1.0.0/guides/generate-types#generate-before-building',
-		)
+		// ADR-0297: no Typegen; the application is declared once in Register.
+		expect(usingPlugins).not.toContain("from '@ultimabase/typegen'")
+		expect(usingPlugins).not.toContain('/docs/1.0.0/guides/generate-types')
+		expect(usingPlugins).toContain("declare module '@ultimabase/core'")
+		expect(usingPlugins).toContain('readonly app: typeof ultimabase')
 	})
 
 	it('tests application behavior in an isolated disposable database', async () => {

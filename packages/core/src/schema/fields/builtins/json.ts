@@ -2,7 +2,7 @@ import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
-	FieldTypegenState,
+	FieldTypeState,
 	FieldOptions,
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
@@ -31,8 +31,8 @@ export type JsonFieldOptions = FieldOptions<JsonDocument>
 /**
  * Carries the portable root JSON document contract through schema inference.
  */
-export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
-	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TTypegen>
+export type JsonField<TState extends FieldTypeState = FieldTypeState> =
+	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TState>
 
 type DefaultedJsonFieldOptions<
 	TRequired extends boolean,

@@ -1,4 +1,5 @@
-import { type Model, type RequestRoleResolver } from '@ultimabase/core'
+import { type Model } from '@ultimabase/core'
+import { type RequestRoleResolver } from '@ultimabase/plugin-kit'
 import type { RoleReference } from '@ultimabase/roles-plugin'
 
 import type { RoleMember } from './roles-postgres.fixture.js'

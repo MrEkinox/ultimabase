@@ -8,8 +8,8 @@ import {
 	type EnumFieldOptions,
 	type EnumValue,
 	type FieldDefinition,
-	type FieldTypegenState,
-	type FieldTypegenStateOf,
+	type FieldTypeState,
+	type FieldTypeStateOf,
 } from '../../index.js'
 
 enum NativeStatus {
@@ -36,7 +36,7 @@ test('infers a literal union from an inline list without as const', () => {
 			'enum',
 			'draft' | 'published' | 'archived',
 			EnumFieldOptions<readonly ['draft', 'published', 'archived']>,
-			FieldTypegenState
+			FieldTypeState
 		>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'enum'>()
@@ -44,7 +44,7 @@ test('infers a literal union from an inline list without as const', () => {
 		readonly ['draft', 'published', 'archived']
 	>()
 	expectTypeOf<
-		FieldTypegenStateOf<typeof field>['object']
+		FieldTypeStateOf<typeof field>['object']
 	>().toEqualTypeOf<'required'>()
 })
 
@@ -60,7 +60,7 @@ test('infers persisted values from a shared enum', () => {
 			'enum',
 			'draft' | 'published',
 			EnumFieldOptions<typeof Status>,
-			FieldTypegenState
+			FieldTypeState
 		>
 	>()
 	expectTypeOf<EnumValue<typeof Status>>().toEqualTypeOf<
@@ -101,6 +101,6 @@ test('rejects invalid enum sources and metadata', () => {
 		FieldDefinition<'enum', string>['options']
 	>()
 	expectTypeOf<EnumField>().toExtend<
-		FieldDefinition<'enum', string, EnumFieldOptions, FieldTypegenState>
+		FieldDefinition<'enum', string, EnumFieldOptions, FieldTypeState>
 	>()
 })

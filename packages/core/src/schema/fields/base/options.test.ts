@@ -2,17 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	intField,
-	readFieldTypegenState,
+	readFieldTypeState,
 	relationField,
 	stringField,
 } from '../../../index.js'
 import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 
-describe('readFieldTypegenState', () => {
+describe('readFieldTypeState', () => {
 	it('describes required, defaulted, immutable, and listed scalar fields', () => {
-		expect(
-			readFieldTypegenState(stringField({ required: true })),
-		).toStrictEqual({
+		expect(readFieldTypeState(stringField({ required: true }))).toStrictEqual({
 			create: 'required',
 			list: false,
 			nullable: false,
@@ -20,7 +18,7 @@ describe('readFieldTypegenState', () => {
 			update: 'optional',
 		})
 		expect(
-			readFieldTypegenState(
+			readFieldTypeState(
 				stringField({
 					default: ['draft'] as const,
 					immutable: true,
@@ -43,15 +41,15 @@ describe('readFieldTypegenState', () => {
 			fields: () => ({}),
 		})
 
+		expect(readFieldTypeState(intField({ autoIncrement: true }))).toMatchObject(
+			{
+				create: 'optional',
+				nullable: false,
+				update: 'optional',
+			},
+		)
 		expect(
-			readFieldTypegenState(intField({ autoIncrement: true })),
-		).toMatchObject({
-			create: 'optional',
-			nullable: false,
-			update: 'optional',
-		})
-		expect(
-			readFieldTypegenState(relationField({ target: () => Target })),
+			readFieldTypeState(relationField({ target: () => Target })),
 		).toStrictEqual({
 			create: 'forbidden',
 			list: false,

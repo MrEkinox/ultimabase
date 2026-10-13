@@ -39,7 +39,7 @@ const Author = App.Schema.define({
 		name: field.string({ required: true }),
 		posts: field.relation({ mappedBy: 'author', target: 'CountPost' }),
 	}),
-}).with({})
+})
 
 const Post = App.Schema.define({
 	className: 'CountPost',
@@ -63,7 +63,7 @@ const Tag = App.Schema.define({
 			},
 		}),
 	}),
-}).with({})
+})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

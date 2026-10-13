@@ -57,7 +57,7 @@ const requestSubjectReferenceCleanups = new WeakSet<object>()
  *   create: () => ({ value: {
  *     name: 'documents.subject-references',
  *     cleanup: defineRequestSubjectReferenceCleanup({
- *       kind: 'role',
+ *       kind: 'group',
  *       hasReferences: ({ reference }) => referenceStore.has(reference.value),
  *       cleanup: ({ reference }) => referenceStore.remove(reference.value),
  *     }),

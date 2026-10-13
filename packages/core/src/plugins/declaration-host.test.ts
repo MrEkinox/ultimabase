@@ -17,22 +17,20 @@ import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-metho
 
 const alphaMethod = definePluginFieldFamily({
 	fieldKind: 'fixture.alpha',
-	typegen: { module: '@fixture/alpha-plugin', valueType: 'AlphaValue' },
 	builder: {
 		name: 'alpha',
 		contexts: {
-			stored: { factory: stringField, methodType: 'AlphaFieldBuilderMethod' },
+			stored: { factory: stringField },
 		},
 	},
 })
 
 const betaMethod = definePluginFieldFamily({
 	fieldKind: 'fixture.beta',
-	typegen: { module: '@fixture/beta-plugin', valueType: 'BetaValue' },
 	builder: {
 		name: 'beta',
 		contexts: {
-			stored: { factory: stringField, methodType: 'BetaFieldBuilderMethod' },
+			stored: { factory: stringField },
 		},
 	},
 })
@@ -138,7 +136,6 @@ describe('PluginDeclarationHost', () => {
 			'models',
 			'operations',
 			'privateStorage',
-			'typegenReferences',
 		] as const
 		const observed: boolean[] = []
 		const observe =
@@ -159,7 +156,6 @@ describe('PluginDeclarationHost', () => {
 					operations: observe('operations'),
 					privateStorage: observe('privateStorage'),
 					schema: observe('fields'),
-					typegen: observe('typegenReferences'),
 				}),
 			],
 		})

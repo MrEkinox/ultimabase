@@ -12,20 +12,20 @@ import {
 	type JsonField,
 	type PrivateCollection,
 	type PrivateCollectionRecord,
-	type ScalarFieldTypegenState,
+	type ScalarFieldTypeState,
 	type SchemaDefinition,
 	type StringField,
 	type UuidField,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
-type RequiredState<TImmutable extends boolean> = ScalarFieldTypegenState<
+type RequiredState<TImmutable extends boolean> = ScalarFieldTypeState<
 	true,
 	false,
 	TImmutable,
 	false
 >
-type Optional = ScalarFieldTypegenState<false, false, false, false>
+type Optional = ScalarFieldTypeState<false, false, false, false>
 
 type SessionFields = Readonly<{
 	absoluteExpiresAt: DateTimeField<RequiredState<true>>

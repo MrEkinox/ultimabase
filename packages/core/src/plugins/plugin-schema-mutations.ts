@@ -11,7 +11,6 @@ import {
 	snapshotOperationErrors,
 } from './operation-contract-validation.js'
 import type { PluginOperationValueContract } from './plugin-operations.js'
-import type { TypegenReference } from './typegen-contracts.js'
 
 /** Selects which request authority may enter one schema mutation. */
 export type PluginSchemaMutationAuthority = 'request' | 'master'
@@ -28,7 +27,7 @@ export type PluginSchemaMutationReturning = 'before' | 'after'
  */
 export type PluginSchemaMutationTarget = 'one' | 'many'
 
-/** Reuses one public Typegen reference for mutations with no custom payload. */
+/** Marks a schema mutation that takes no custom payload. */
 export type PluginSchemaMutationNoInput = undefined
 
 /** Names flat persisted values privately loaded for the owner effect resolver. */
@@ -121,7 +120,7 @@ export interface PluginSchemaMutationDefinition<
 	}>
 }
 
-/** Carries the callback-free facts safe for compilation and Typegen. */
+/** Carries the callback-free facts safe for compilation and inspection. */
 export interface CompiledPluginSchemaMutationDefinition<
 	TName extends string = string,
 	TVersion extends string = string,
@@ -130,7 +129,6 @@ export interface CompiledPluginSchemaMutationDefinition<
 	readonly authority: PluginSchemaMutationAuthority
 	readonly effect: PluginSchemaMutationEffect
 	readonly errors: TErrors
-	readonly input: Readonly<{ readonly typegen?: TypegenReference }>
 	readonly kind: 'plugin-schema-mutation'
 	readonly name: TName
 	readonly returning: PluginSchemaMutationReturning
@@ -310,11 +308,6 @@ export const compilePluginSchemaMutationDefinition = (
 		authority: definition.authority,
 		effect: definition.effect,
 		errors: definition.errors,
-		input: immutableRecord({
-			...(definition.input.typegen === undefined
-				? {}
-				: { typegen: definition.input.typegen }),
-		}),
 		kind: definition.kind,
 		name: definition.name,
 		returning: definition.returning,

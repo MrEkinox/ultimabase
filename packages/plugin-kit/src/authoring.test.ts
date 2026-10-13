@@ -6,8 +6,10 @@ import {
 	defineOperationValue,
 	plugin,
 	defineSchemaOption,
-	defineTypegenReference,
+	type PluginDeclarationContribution,
+	type PluginSchemaRulesSource,
 	type ResourcePluginOperationContributionOptions,
+	type SchemaRulesHKT,
 } from '@ultimabase/core/plugin'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it } from 'vitest'
@@ -32,7 +34,6 @@ describe('plugin authoring helpers', () => {
 			contexts: ['stored'],
 			normalize: (value) => String(value),
 			protocolVersion: 1,
-			typegen: false,
 		})
 		const definition = plugin({
 			id: 'fixture.plugin-kit',
@@ -228,27 +229,6 @@ describe('plugin authoring helpers', () => {
 		).toThrow('Unknown plugin options parser definition option: keys')
 	})
 
-	it('groups exact nominal Typegen references under one module', () => {
-		const input = defineTypegenReference({
-			exportName: 'PublishInput',
-			module: '@fixture/workflow-plugin',
-		})
-		const result = defineTypegenReference({
-			exportName: 'PublishResult',
-			module: '@fixture/workflow-plugin',
-		})
-
-		expect(input).toMatchObject({
-			exportName: 'PublishInput',
-			module: '@fixture/workflow-plugin',
-		})
-		expect(result).toMatchObject({
-			exportName: 'PublishResult',
-			module: '@fixture/workflow-plugin',
-		})
-		expect(Object.isFrozen(input)).toBe(true)
-	})
-
 	it('builds immutable additive schema patches accepted by Core', () => {
 		const workflowOption = defineSchemaOption<(value: string) => string>({
 			normalize: (value, path) => {
@@ -258,10 +238,6 @@ describe('plugin authoring helpers', () => {
 				return value as (value: string) => string
 			},
 			protocolVersion: 1,
-			typegen: {
-				module: '@fixture/plugin-kit',
-				type: 'WorkflowOption',
-			},
 			valueKind: 'opaque',
 		})
 		const empty = schemaPatch()
@@ -296,38 +272,44 @@ describe('plugin authoring helpers', () => {
 		])
 		expect(Object.isFrozen(patch)).toBe(true)
 
+		interface WorkflowRules extends SchemaRulesHKT {
+			readonly rules: Readonly<{ workflow?: (value: string) => string }>
+		}
+		// The rules slot types `.with({ workflow })` (ADR-0297).
+		const declarations: PluginDeclarationContribution<
+			readonly [],
+			PluginSchemaRulesSource<WorkflowRules>
+		> = contributeDeclarations({
+			schema: ({ schemas }) => {
+				const options = schemas.defineOptions({
+					contributionId: 'workflow-options',
+					schema: { workflow: workflowOption },
+				})
+				const patch = schemas.patch(
+					patchSchemas({
+						patch: schemaPatch()
+							.addField({
+								contributionId: 'state',
+								field: stringField(),
+								name: 'state',
+							})
+							.addIndex({
+								contributionId: 'state-index',
+								fields: ['state', 'createdAt'],
+							}),
+						targets: schemas.select({
+							option: { name: 'workflow' },
+						}),
+					}),
+				)
+				return [options, patch]
+			},
+		})
 		const definition = plugin({
 			id: 'fixture.plugin-kit',
 			version: '1.2.3',
 			core: '^0.0.0',
-			contributions: [
-				contributeDeclarations({
-					schema: ({ schemas }) => {
-						const options = schemas.defineOptions({
-							contributionId: 'workflow-options',
-							schema: { workflow: workflowOption },
-						})
-						const patch = schemas.patch(
-							patchSchemas({
-								patch: schemaPatch()
-									.addField({
-										contributionId: 'state',
-										field: stringField(),
-										name: 'state',
-									})
-									.addIndex({
-										contributionId: 'state-index',
-										fields: ['state', 'createdAt'],
-									}),
-								targets: schemas.select({
-									option: { name: 'workflow' },
-								}),
-							}),
-						)
-						return [options, patch]
-					},
-				}),
-			],
+			contributions: [declarations],
 			permissions: {
 				'schema:declare': 'Adds fixture schema metadata.',
 			},
@@ -336,6 +318,7 @@ describe('plugin authoring helpers', () => {
 		const Target = Application.Schema.define({
 			className: 'PluginKitPatchTarget',
 			fields: (field) => ({ title: field.string() }),
+		}).with({
 			workflow: (value: string) => value,
 		})
 		const application = new Application({

@@ -264,16 +264,6 @@ const compilePluginContributions = (
 	if (commandSources.length > 0) {
 		derive('operation:declare', 'Declares plugin operations.')
 	}
-	if (
-		commandSources.some(
-			(source) =>
-				source.input.typegen !== undefined ||
-				(source.kind === 'plugin-operation' &&
-					source.result.typegen !== undefined),
-		)
-	) {
-		derive('typegen:reference', 'References Typegen types in operations.')
-	}
 	if (handlers.some(({ source }) => source.kind === 'plugin-schema-mutation')) {
 		derive(
 			'persistence:rewrite',

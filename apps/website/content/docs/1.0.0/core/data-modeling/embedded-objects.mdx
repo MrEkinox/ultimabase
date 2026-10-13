@@ -54,9 +54,9 @@ export const Customer = UltimaBase.Schema.define({
 
 The reusable `addressFields` callback declares the same child shape in both
 places. `list: true` wraps that shape in one list; it does not give each address
-its own record ID. If you install Typegen, `typeName` supplies a stable base
-name for generated object types. It does not create a separate schema or change
-Runtime behavior.
+its own record ID. `typeName` supplies a stable base name for the object types
+that schema generators such as GraphQL derive. It does not create a separate
+schema or change Runtime behavior.
 
 ## Create and read values
 

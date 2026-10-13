@@ -10,27 +10,17 @@ fixture.
 ## Declare the contract
 
 Operations carry their input, result, target, transaction, name, and version as
-one immutable token. `defineOperationValue` validates untrusted values, while a
-Typegen reference names the public TypeScript type without copying executable
-code into generated output:
+one immutable token. `defineOperationValue` validates untrusted values; the
+validator's return type is the operation's TypeScript contract:
 
 ```ts
-const transitionInputReference = defineTypegenReference({
-	exportName: 'WorkflowTransitionInput',
-	module: '@community/workflow-plugin',
-})
-const transitionResultReference = defineTypegenReference({
-	exportName: 'WorkflowTransitionResult',
-	module: '@community/workflow-plugin',
-})
-
 const transitionInput = defineOperationValue(
-	(value, path) => validateTransitionInput(value, path),
-	transitionInputReference,
+	(value, path): WorkflowTransitionInput =>
+		validateTransitionInput(value, path),
 )
 const transitionResult = defineOperationValue(
-	(value, path) => validateTransitionResult(value, path),
-	transitionResultReference,
+	(value, path): WorkflowTransitionResult =>
+		validateTransitionResult(value, path),
 )
 
 export const publishPost = defineOperation({
@@ -69,10 +59,6 @@ registrars use explicit contribution IDs and retain plugin provenance:
 const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 	normalize: (value, path) => normalizeWorkflowOption(value, path),
 	protocolVersion: 1,
-	typegen: {
-		module: '@community/workflow-plugin',
-		type: 'WorkflowSchemaOption',
-	},
 })
 
 declare: ({ schemas }) => {
@@ -84,7 +70,7 @@ declare: ({ schemas }) => {
 	const targets = schemas.select({
 		option: { name: 'workflow' },
 	})
-	const patch = schemas.patch(
+	schemas.patch(
 		patchSchemas({
 			patch: schemaPatch().addField({
 				contributionId: 'workflow-state',
@@ -95,7 +81,7 @@ declare: ({ schemas }) => {
 		}),
 	)
 
-	return [options, patch]
+	return options
 }
 ```
 
@@ -103,12 +89,15 @@ declare: ({ schemas }) => {
 `schemas.select` are the registrars used here. `schemas.claim` assigns plugin
 ownership to an exact class already listed
 at the application root without implicitly registering it. Patches are additive
-and require `schema:declare`. Returning the registrar receipts projects those
-same options and selected fields onto `UltimaBase.use(plugin()).Schema`; the
-receipts carry no Runtime state and do not create a second registry. Core
-derives operation declarations and reachable Typegen references from owned contributions; these still require
-`operation:declare` and `typegen:reference`. Typegen derives declarations from
-the graph, without a manual output registry.
+and require `schema:declare`. Returning a field-option receipt projects those
+field options onto `UltimaBase.use(plugin()).Schema`; schema-level options and
+patched fields project nothing (ADR-0297). A plugin types its `.with` entry
+through a rules slot (`SchemaRulesHKT`), the fields it adds through a shape
+method and a fields slot (`SchemaFieldsHKT`), and its commands through a
+statics slot (`SchemaStaticsHKT`); `definePlugin` from `@ultimabase/plugin-kit`
+writes these slots for the common cases. The receipts carry no Runtime state
+and do not create a second registry. Core derives operation declarations from
+owned contributions; these still require `operation:declare`.
 
 For item-oriented updates or deletes, declare a `defineSchemaMutation` token
 and attach its `schemaMutations` with `models.extend` under `model:extend`.
@@ -192,7 +181,7 @@ const ultimabase = new Application({
 
 Startup reports identity, version, derived privileges, author or generated
 reasons, severity, claims, and policy result. A denied privilege prevents
-every later declaration, Typegen, setup, connection, Runtime, or transport
+every later declaration, setup, connection, Runtime, or transport
 effect. The application logger (ADR-0313) writes the complete report at
 `debug` and denials at `error`; `logger: false` silences it, and the detached
 report remains available through `ultimabase.pluginPrivilegeReport`. Plugins
@@ -202,8 +191,7 @@ context, start phases and capability factories.
 ## Use the installed surface
 
 The installed operation token carries its exact input and result from source.
-Typegen retains its owned public references for dynamically named handles whose
-source receipts are unavailable. Execute the token through the application:
+Execute the token through the application:
 
 ```ts
 await ultimabase
@@ -212,7 +200,7 @@ await ultimabase
 ```
 
 Schema mutations separately expose their declared schema/model methods.
-JavaScript executes the same graph without Typegen; names, payloads, results,
+JavaScript executes the same graph; names, payloads, results,
 ownership, capability versions, and application lifetime are validated at Runtime.
 
 ## Adapter, transport, and community helpers

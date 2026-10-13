@@ -19,7 +19,7 @@ export const WorkflowRecord = Schema.defineSpecialized(
 `WorkflowRecord.workflowKind` is a non-enumerable immutable static capability.
 Results stay frozen plain data: a specialization cannot add result methods
 (ADR-0310). The factory may use a package-private symbol as a nominal static marker; Core
-retains symbol keys without exposing them through enumeration or Typegen.
+retains symbol keys without exposing them through enumeration.
 
 The specialization receives no application, adapter, authority, or mutable
 prototype. It does not register the schema automatically: the application or

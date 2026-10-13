@@ -21,7 +21,7 @@ afterAll(async () => {
 })
 
 describe('single application page', () => {
-	it('keeps the application concept focused and links to the Typegen guide', async () => {
+	it('keeps the application concept focused and links to the testing guide', async () => {
 		const context = await browser?.newContext()
 		if (context === undefined) throw new Error('Browser did not start')
 
@@ -55,12 +55,18 @@ describe('single application page', () => {
 			).toBe(0)
 			await page.goto(`${origin}/docs/1.0.0/manual-installation`)
 			await page
-				.locator('a[data-card][href="/docs/1.0.0/guides/generate-types"]')
+				.locator('a[data-card][href="/docs/1.0.0/guides/test-an-application"]')
 				.click()
-			await page.waitForURL(`${origin}/docs/1.0.0/guides/generate-types`)
+			await page.waitForURL(`${origin}/docs/1.0.0/guides/test-an-application`)
 			await page
-				.getByRole('heading', { level: 1, name: 'Generate TypeScript Types' })
+				.getByRole('heading', { level: 1, name: 'Test an Application' })
 				.waitFor()
+			// ADR-0297 removed Typegen and its generation guide.
+			const removedGuide = await page.request.get(
+				`${origin}/docs/1.0.0/guides/generate-types`,
+				{ maxRedirects: 0 },
+			)
+			expect(removedGuide.status()).toBe(404)
 		} finally {
 			await context.close()
 		}

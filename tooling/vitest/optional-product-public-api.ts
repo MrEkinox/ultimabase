@@ -67,7 +67,6 @@ export const hooksPluginPublicApi = {
 		'SchemaBeforeUpdateHookInput',
 		'SchemaBeforeUpsertHookInput',
 		'SchemaHooks',
-		'SchemaHooksOption',
 		'SchemaMutationAfterHook',
 		'SchemaMutationAfterHookInput',
 		'SchemaMutationAllHookInput',
@@ -159,7 +158,6 @@ export const accessPluginPublicApi = {
 		'RelationFieldAccess',
 		'RelationFieldWriteAccessInput',
 		'SchemaAccess',
-		'SchemaAccessOption',
 		'SchemaCreateAccess',
 		'SchemaDeleteAccess',
 		'SchemaItemAccessInput',
@@ -221,7 +219,6 @@ export const validationPluginPublicApi = {
 		'SchemaCheckIssue',
 		'SchemaCheckResult',
 		'SchemaValidation',
-		'SchemaValidationOption',
 		'ValidationCheckResult',
 		'ValidationIssue',
 		'ValidationPlugin',
@@ -402,11 +399,15 @@ export const removedHooksPluginPublicApiNames = [
 	'normalizeSchemaHookDeclarations',
 	'schemaExtensionHooks',
 	'schemaHooksOption',
+	// Removed with Typegen (ADR-0297): rules are typed by `.with`.
+	'SchemaHooksOption',
 ] as const
 
 /** Names Access implementation details deliberately removed from the root API. */
 export const removedAccessPluginPublicApiNames = [
 	'AccessContributionMasterMode',
+	// Removed with Typegen (ADR-0297): rules are typed by `.with`.
+	'SchemaAccessOption',
 	// Removed by ADR-0317: helpers, defaults and the separate allow/where steps.
 	'AccessWhereRule',
 	'AllMutationAccess',
@@ -444,6 +445,8 @@ export const removedAccessPluginPublicApiNames = [
 export const removedValidationPluginPublicApiNames = [
 	'FieldValidationCompatibility',
 	'FieldValidationOption',
+	// Removed with Typegen (ADR-0297): rules are typed by `.with`.
+	'SchemaValidationOption',
 	'createValidationPlanCache',
 	'fieldValidationOption',
 	'requiresValidationTargets',

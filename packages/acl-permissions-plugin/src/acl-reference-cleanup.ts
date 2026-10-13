@@ -7,11 +7,11 @@ import {
 	Schema,
 	type RequestPrincipalReference,
 	type RequestSubjectReferenceCleanup,
-	type RequestRoleReference,
 	type DatabaseRowFilterNode,
 	type SchemaDefinition,
 	type WhereInput,
 } from '@ultimabase/core'
+import { type RequestRoleReference } from '@ultimabase/plugin-kit'
 import {
 	assertNonEmptyString,
 	immutableArray,

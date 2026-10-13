@@ -117,24 +117,23 @@ describe('schema field maps keyed by developer names', () => {
 				value: { enabled: true },
 				writable: true,
 			})
-		const SchemaOption = UltimaBase.Schema.define(
-			ownProto({
-				className: 'OwnFieldKeysSchemaOption',
-				fields: (field: FieldBuilder) => ({ title: field.string() }),
-			}),
-		)
+		// `define` takes only Core options (ADR-0297): the key fails at once.
+		expect(() =>
+			UltimaBase.Schema.define(
+				ownProto({
+					className: 'OwnFieldKeysSchemaOption',
+					fields: (field: FieldBuilder) => ({ title: field.string() }),
+				}),
+			),
+		).toThrow(`Unknown schema option: ${protoField}`)
 		const FieldOption = UltimaBase.Schema.define({
 			className: 'OwnFieldKeysFieldOption',
 			fields: (field) => ({ title: field.string(ownProto({})) }),
 		})
-
-		for (const [schema, message] of [
-			[SchemaOption, `Unknown schema option: ${protoField}`],
-			[FieldOption, `Unknown string field option: ${protoField}`],
-		] as const) {
-			const application = new UltimaBase({ schemas: [schema] })
-			expect(() => application.compile()).toThrow(message)
-			await application.dispose()
-		}
+		const application = new UltimaBase({ schemas: [FieldOption] })
+		expect(() => application.compile()).toThrow(
+			`Unknown string field option: ${protoField}`,
+		)
+		await application.dispose()
 	})
 })

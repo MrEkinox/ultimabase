@@ -27,6 +27,7 @@ const Author = MutationIncludeApplication.Schema.define({
 			target: 'MutationIncludePost',
 		}),
 	}),
+}).with({
 	access: {
 		read: () => {
 			if (authorReadsBeforeRejection === 0) throw projectionAccessError

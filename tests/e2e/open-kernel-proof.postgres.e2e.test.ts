@@ -52,22 +52,26 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			instanceId: 'primary',
 			targetClassName: 'OpenKernelLedgerEntry',
 		})
-		const LedgerEntry = PostgresHookApplication.use(value).Schema.define({
-			className: 'OpenKernelLedgerEntry',
-			decimalLedger: { defaultScale: 2 },
-			postgres: { table: 'open_kernel_ledger_entries' },
-			fields: (field) => ({
-				label: field.string({
-					decimalLabel: { format: 'accounting' },
+		const LedgerEntry = PostgresHookApplication.use(value)
+			.Schema.define({
+				className: 'OpenKernelLedgerEntry',
+				fields: (field) => ({
+					label: field.string({
+						decimalLabel: { format: 'accounting' },
+					}),
 				}),
-			}),
-		})
+			})
+			.decimalLedger({ defaultScale: 2 })
+			.with({
+				postgres: { table: 'open_kernel_ledger_entries' },
+			})
 		const SoftPost = PostgresHookApplication.Schema.define({
 			className: 'OpenKernelSoftPost',
-			postgres: { table: 'open_kernel_soft_posts' },
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
+		}).with({
+			postgres: { table: 'open_kernel_soft_posts' },
 			hooks: {
 				afterOperation: {
 					delete: ({ originalItem }) => {
@@ -109,8 +113,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 					data: { amount: { scale: -1, units: 'broken' }, label: 'bad' },
 				}),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-			// This Runtime-only fixture has no generated registry; the companion
-			// editor test verifies this exact query with generated WhereInput types.
+			// Form D types a plugin field kind's filter as null checks only; the
+			// portable equality below is a Runtime contract (deferred to 6.8c).
 			const filtered = await LedgerEntry.findMany({
 				where: { amount: { eq: amount } },
 			} as never)

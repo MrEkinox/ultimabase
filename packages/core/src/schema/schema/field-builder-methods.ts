@@ -4,7 +4,6 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
-import { isTypeScriptIdentifier } from '../../plugins/typegen-contracts.js'
 
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericOutputDescriptor } from '../output/contracts.js'
@@ -16,29 +15,13 @@ import {
 } from './field-contexts.js'
 import type { PluginSourceReceipt } from '../../plugins/source-projections.js'
 
-const familyKeys = new Set(['builder', 'fieldKind', 'typegen'])
+const familyKeys = new Set(['builder', 'fieldKind'])
 const builderKeys = new Set(['contexts', 'name'])
-const contextKeys = new Set(['factory', 'fieldKind', 'methodType', 'typegen'])
-const typegenKeys = new Set(['module', 'structuralContainsType', 'valueType'])
+const contextKeys = new Set(['factory', 'fieldKind'])
+const propertyIdentifierPattern = /^[$A-Z_a-z][$\w]*$/u
 const declaredPluginFieldFamilies = new WeakSet<object>()
 
 type NamespacedPluginFieldKind = `${string}.${string}`
-
-/** Describes the named public types associated with one plugin field kind. */
-export interface PluginFieldTypegen {
-	/** Bare package export that owns every referenced type. */
-	readonly module: string
-	/** Exported partial operand accepted by structural containment when enabled. */
-	readonly structuralContainsType?: string
-	/** Exported logical value type used by generated models and operations. */
-	readonly valueType: string
-}
-
-/** Describes the named public types referenced by one generated builder method. */
-export interface FieldBuilderMethodTypegen extends PluginFieldTypegen {
-	/** Exported callable type used to add the method to generated builders. */
-	readonly methodType: string
-}
 
 /** Accepts an existing field factory without erasing its public overloads. */
 export type FieldBuilderMethodFactory = (
@@ -52,7 +35,6 @@ export interface FieldBuilderMethodContextDefinition<
 > {
 	readonly factory: TFactory
 	readonly fieldKind: TFieldKind
-	readonly typegen: FieldBuilderMethodTypegen
 }
 
 /** Maps only the resolved builder contexts implemented by one public method. */
@@ -81,8 +63,6 @@ export interface PluginFieldFamilyContextDefinition<
 > {
 	readonly factory: TFactory
 	readonly fieldKind?: TFieldKind
-	readonly methodType: string
-	readonly typegen?: PluginFieldTypegen
 }
 
 /** Maps only the builder contexts implemented by one plugin field family. */
@@ -108,18 +88,10 @@ export type PluginFieldFamilyDefinition<
 		PluginFieldFamilyBuilder | undefined,
 > = Readonly<{
 	readonly fieldKind: TFieldKind
-	readonly typegen: PluginFieldTypegen
 }> &
 	(TBuilder extends PluginFieldFamilyBuilder
 		? Readonly<{ readonly builder: TBuilder }>
 		: Readonly<{ readonly builder?: undefined }>)
-
-/** Adds the application-injected owner to one generated value contract. */
-export interface OwnedPluginFieldType {
-	readonly fieldKind: string
-	readonly owner: string
-	readonly typegen: PluginFieldTypegen
-}
 
 /** Supplies resolved plugin methods to one application schema compilation. */
 export interface FieldBuilderMethodResolver {
@@ -175,35 +147,6 @@ const assertDeclarationRecord: (
 	)
 }
 
-const assertTypeExportName = (value: unknown, path: string): string => {
-	assertNonEmptyString(value, path)
-	if (!isTypeScriptIdentifier(value)) {
-		throw new TypeError(`${path} must be a TypeScript export identifier`)
-	}
-	return value
-}
-
-const normalizeTypegen = (value: unknown, path: string): PluginFieldTypegen => {
-	assertDeclarationRecord(value, typegenKeys, path)
-	assertNonEmptyString(value.module, `${path}.module`)
-	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
-		throw new TypeError(`${path}.module must be a stable module specifier`)
-	}
-
-	return immutableRecord({
-		module: value.module,
-		...(value.structuralContainsType === undefined
-			? {}
-			: {
-					structuralContainsType: assertTypeExportName(
-						value.structuralContainsType,
-						`${path}.structuralContainsType`,
-					),
-				}),
-		valueType: assertTypeExportName(value.valueType, `${path}.valueType`),
-	})
-}
-
 const normalizeContext = (
 	value: unknown,
 	context: FieldDeclarationContext,
@@ -224,17 +167,13 @@ const normalizeContext = (
 						`${path}.fieldKind`,
 					) as NamespacedPluginFieldKind,
 				}),
-		methodType: assertTypeExportName(value.methodType, `${path}.methodType`),
-		...(value.typegen === undefined
-			? {}
-			: { typegen: normalizeTypegen(value.typegen, `${path}.typegen`) }),
 	})
 }
 
 const normalizeBuilder = (value: unknown): PluginFieldFamilyBuilder => {
 	assertDeclarationRecord(value, builderKeys, 'Plugin field family builder')
 	assertNonEmptyString(value.name, 'Plugin field family builder name')
-	if (!isTypeScriptIdentifier(value.name)) {
+	if (!propertyIdentifierPattern.test(value.name)) {
 		throw new TypeError(
 			'Plugin field family builder name must be a TypeScript property identifier',
 		)
@@ -268,8 +207,8 @@ const normalizeBuilder = (value: unknown): PluginFieldFamilyBuilder => {
 /**
  * Defines one plugin field family, with an optional contextual builder method.
  *
- * Shared kind and Typegen metadata are declared once. A context may override
- * them when one public method intentionally represents different field kinds.
+ * The kind is declared once. A context may override it when one public
+ * method intentionally represents different field kinds.
  */
 export function definePluginFieldFamily<
 	const TFieldKind extends NamespacedPluginFieldKind,
@@ -303,17 +242,12 @@ export function definePluginFieldFamily(
 		definition.fieldKind,
 		'Plugin field family fieldKind',
 	) as NamespacedPluginFieldKind
-	const typegen = normalizeTypegen(
-		definition.typegen,
-		'Plugin field family typegen',
-	)
 	const snapshot: PluginFieldFamilyDefinition =
 		definition.builder === undefined
-			? immutableRecord({ fieldKind, typegen })
+			? immutableRecord({ fieldKind })
 			: immutableRecord({
 					builder: normalizeBuilder(definition.builder),
 					fieldKind,
-					typegen,
 				})
 
 	declaredPluginFieldFamilies.add(snapshot)
@@ -340,10 +274,8 @@ export const resolvePluginFieldFamilyContext = (
 			'Plugin field family context factory must be a function',
 		)
 	}
-	const typegen = context.typegen ?? family.typegen
 	return immutableRecord({
 		factory: context.factory as FieldBuilderMethodFactory,
 		fieldKind: context.fieldKind ?? family.fieldKind,
-		typegen: immutableRecord({ methodType: context.methodType, ...typegen }),
 	})
 }

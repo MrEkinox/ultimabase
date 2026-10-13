@@ -112,7 +112,7 @@ const logoutOperation: AuthOperation<
 	'logout',
 	'required',
 	nullInput,
-	acknowledgement('revoked', 'AuthLogoutResult'),
+	acknowledgement('revoked'),
 	session,
 )
 const logoutEverywhereOperation: AuthOperation<
@@ -124,7 +124,7 @@ const logoutEverywhereOperation: AuthOperation<
 	'logout-everywhere',
 	'required',
 	nullInput,
-	acknowledgement('revoked', 'AuthLogoutResult'),
+	acknowledgement('revoked'),
 	session,
 )
 const listSessionsOperation: AuthOperation<
@@ -136,7 +136,7 @@ const listSessionsOperation: AuthOperation<
 	'list-sessions',
 	'optional',
 	nullInput,
-	listResult<'sessions', AuthSessionInfo>('sessions', 'AuthSessionList'),
+	listResult<'sessions', AuthSessionInfo>('sessions'),
 	session,
 )
 const revokeSessionOperation: AuthOperation<
@@ -148,7 +148,7 @@ const revokeSessionOperation: AuthOperation<
 	'revoke-session',
 	'required',
 	idInput,
-	acknowledgement('revoked', 'AuthLogoutResult'),
+	acknowledgement('revoked'),
 	[authErrorCodes.invalidSession, authErrorCodes.notFound],
 )
 const listMethodsOperation: AuthOperation<
@@ -160,7 +160,7 @@ const listMethodsOperation: AuthOperation<
 	'list-methods',
 	'optional',
 	nullInput,
-	listResult<'methods', AuthMethodInfo>('methods', 'AuthMethodList'),
+	listResult<'methods', AuthMethodInfo>('methods'),
 	session,
 )
 const unlinkMethodOperation: AuthOperation<
@@ -177,7 +177,7 @@ const unlinkMethodOperation: AuthOperation<
 	'unlink-method',
 	'required',
 	idInput,
-	acknowledgement('unlinked', 'AuthUnlinkResult'),
+	acknowledgement('unlinked'),
 	[
 		authErrorCodes.invalidSession,
 		authErrorCodes.lastMethod,
@@ -194,7 +194,7 @@ const deleteAccountOperation: AuthOperation<
 	'delete-account',
 	'required',
 	nullInput,
-	acknowledgement('deleted', 'AuthDeleteAccountResult'),
+	acknowledgement('deleted'),
 	[authErrorCodes.invalidSession, authErrorCodes.reauthenticationRequired],
 )
 

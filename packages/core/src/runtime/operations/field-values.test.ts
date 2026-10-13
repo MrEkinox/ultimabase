@@ -254,7 +254,6 @@ it('collects plugin schema mutation effect fields through the logical operation'
 			authority: 'request',
 			effect: 'update',
 			errors: [],
-			input: {},
 			kind: 'plugin-schema-mutation',
 			name: 'fixture.workflow.archive',
 			returning: 'after',
