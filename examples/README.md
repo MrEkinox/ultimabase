@@ -15,6 +15,12 @@ Examples are user-facing, tested applications. They must only import public `@ul
   reads, a partial unique index, REST), tested with `testApplication`. Its
   `//#region` blocks are the code of the Soft Delete page and package README
   (ADR-0330).
+- [`validation`](validation/README.md): the Validation plugin end to end
+  (Standard Schema transforms, function and async validators with codes,
+  schema checks, changed-fields-only updates, `null` inputs, one
+  `VALIDATION_ERROR` for every issue, `updateMany` index paths, `check()`,
+  the REST `422` answer), tested with `testApplication`. Its `//#region`
+  blocks are the code of the Validation page and package README (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
