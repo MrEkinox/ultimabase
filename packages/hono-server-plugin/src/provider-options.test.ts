@@ -67,7 +67,11 @@ const keepAliveGet = (target: string, agent: Agent): Promise<string> =>
 describe('Hono server options (ADR-0323)', () => {
 	it('bounds shutdown, then closes connections still in flight', async () => {
 		const provider = managed({ shutdownTimeoutMs: 50 })
-		const http = application(() => new Promise<Response>(() => undefined))
+		const entered = Promise.withResolvers<undefined>()
+		const http = application(() => {
+			entered.resolve(undefined)
+			return new Promise<Response>(() => undefined)
+		})
 		await provider.start(http)
 		const pending = fetch(url(provider, '/stuck')).catch(
 			(error: unknown) => error,
@@ -75,7 +79,8 @@ describe('Hono server options (ADR-0323)', () => {
 		await vi.waitFor(() => {
 			expect(provider.address).toBeDefined()
 		})
-		await new Promise((resolve) => setTimeout(resolve, 20))
+		// Stopping before the request reaches the application would answer 401.
+		await entered.promise
 		const startedAt = performance.now()
 		await provider.stop(http)
 		expect(performance.now() - startedAt).toBeLessThan(5_000)
