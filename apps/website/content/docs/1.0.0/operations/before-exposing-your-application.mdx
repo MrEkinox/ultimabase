@@ -8,7 +8,7 @@ contentType: guide
 order: 1
 outcome: Identify the checks your application and deployment must pass before public exposure.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-13
 sources:
   - README.md
   - packages/core/README.md
@@ -91,8 +91,9 @@ database before evaluating a public environment.
 - If installed, let [authentication](/docs/1.0.0/plugins/official/password-authentication)
   retain password verifiers, session digests and attempt counters in its
   owner-private storage. Handle raw session tokens only at issuance and
-  credential boundaries. Its attempt limiting counts per account and address;
-  add the HTTP plugin's `rateLimit` with `trustProxy` behind a proxy.
+  credential boundaries. Its attempt limiting counts per account and address,
+  or per account alone when the address is unknown; add the HTTP plugin's
+  `rateLimit` with `trustProxy` behind a proxy.
 
 ### Exercise lifecycle and ownership
 

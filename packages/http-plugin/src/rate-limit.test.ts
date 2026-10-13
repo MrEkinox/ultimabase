@@ -27,7 +27,7 @@ const clientOf = (
 	trustProxy: HttpTrustProxy | undefined,
 	forwardedFor: string | undefined,
 	peer?: string,
-): string =>
+): string | undefined =>
 	resolveHttpClientAddress(
 		prepared(
 			forwardedFor === undefined ? [] : [['X-Forwarded-For', forwardedFor]],
@@ -65,10 +65,10 @@ describe('client address behind a hop count', () => {
 		expect(resolveHttpClientAddress(request, 1)).toBe('198.51.100.50')
 	})
 
-	it('falls back to the socket peer, then unknown, without forwarded entries', () => {
+	it('falls back to the socket peer, then undefined, without forwarded entries', () => {
 		expect(clientOf(1, undefined, '::ffff:10.0.0.1')).toBe('10.0.0.1')
-		expect(clientOf(1, undefined)).toBe('unknown')
-		expect(clientOf(1, ' , ')).toBe('unknown')
+		expect(clientOf(1, undefined)).toBeUndefined()
+		expect(clientOf(1, ' , ')).toBeUndefined()
 	})
 
 	it('keeps the farthest entry when there are fewer entries than hops', () => {
@@ -95,7 +95,7 @@ describe('client address behind listed proxies', () => {
 	it('ignores X-Forwarded-For from an unlisted or unknown peer', () => {
 		expect(clientOf(proxies, '192.0.2.66', '203.0.113.50')).toBe('203.0.113.50')
 		// Without a socket peer nothing proves a listed proxy sent the header.
-		expect(clientOf(proxies, '192.0.2.66, 198.51.100.50')).toBe('unknown')
+		expect(clientOf(proxies, '192.0.2.66, 198.51.100.50')).toBeUndefined()
 	})
 })
 
@@ -104,7 +104,7 @@ describe('client address without trustProxy', () => {
 		expect(clientOf(undefined, '192.0.2.66', '203.0.113.50')).toBe(
 			'203.0.113.50',
 		)
-		expect(clientOf(undefined, '192.0.2.66')).toBe('unknown')
+		expect(clientOf(undefined, '192.0.2.66')).toBeUndefined()
 	})
 })
 

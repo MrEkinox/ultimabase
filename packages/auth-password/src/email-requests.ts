@@ -68,7 +68,10 @@ export const createEmailRequests = (
 	services: AuthServices,
 	credentials: () => CredentialCollection,
 ): EmailRequests => {
-	/** Failed token redemptions are counted per client address. */
+	/**
+	 * Failed token redemptions are counted per client address; without one,
+	 * as outside HTTP, nothing is counted: tokens carry 256 random bits.
+	 */
 	const tokenSubject = (
 		context: RequestContext,
 	): AttemptSubject | undefined => {

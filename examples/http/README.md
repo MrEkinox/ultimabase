@@ -23,25 +23,26 @@ says.
 
 ## Files
 
-| File                                                       | What it shows                                                                                                             |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [`src/http.ts`](src/http.ts)                               | the `httpPlugin` options: browser origins, rate limit, security headers, and all of them together                         |
-| [`src/routes.ts`](src/routes.ts)                           | application routes: a status route reading the request context, a contact form with its own body and rate limits          |
-| [`src/counters.ts`](src/counters.ts)                       | the shared rate limit store over a stand-in for a Redis client                                                            |
-| [`src/partners.ts`](src/partners.ts)                       | a credential plugin: a request context resolver for partner Bearer tokens, with a browser policy check                    |
-| [`src/api-info-plugin.ts`](src/api-info-plugin.ts)         | a `definePlugin` plugin contributing a route with `httpRoutes` and a mount with `provideHttpEndpoints`                    |
-| [`src/schema.ts`](src/schema.ts)                           | the factory with `apiServer` (HTTP, REST, the managed Hono server) and the `Link` schema                                  |
-| [`src/ultimabase.ts`](src/ultimabase.ts)                   | the application, its `MasterAuthority` and its `Register` declaration                                                     |
-| [`src/main.ts`](src/main.ts)                               | the entry point: start, listening address, awaited shutdown on SIGINT or SIGTERM                                          |
-| [`src/existing-app.ts`](src/existing-app.ts)               | a second application installing the plugins one by one on an existing Hono app                                            |
-| [`src/existing-main.ts`](src/existing-main.ts)             | its entry point: a listener you own, closed after UltimaBase stops                                                        |
-| [`src/env.ts`](src/env.ts)                                 | secrets read from the environment                                                                                         |
-| [`tests/routes.test.ts`](tests/routes.test.ts)             | requests without a server, application and plugin routes, the `PublicError` envelope, body limits, request IDs            |
-| [`tests/identity.test.ts`](tests/identity.test.ts)         | the optional application header, the partner resolver, the Master header                                                  |
-| [`tests/browser.test.ts`](tests/browser.test.ts)           | the effective browser policy, preflights, CORS as a browser policy rather than access control                             |
-| [`tests/limits.test.ts`](tests/limits.test.ts)             | rate limits per client address, route limits, a failing store, security headers, the access log                           |
-| [`tests/network.test.ts`](tests/network.test.ts)           | the managed listener over a real socket: proxy trust, duplicated headers, compression, in-flight requests during shutdown |
-| [`tests/existing-app.test.ts`](tests/existing-app.test.ts) | the existing Hono app: its own routes, UltimaBase's, a refused preflight, missing raw headers, and routes after a stop    |
+| File                                                           | What it shows                                                                                                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [`src/http.ts`](src/http.ts)                                   | the `httpPlugin` options: browser origins, rate limit, security headers, and all of them together                         |
+| [`src/routes.ts`](src/routes.ts)                               | application routes: a status route reading the request context, a contact form with its own body and rate limits          |
+| [`src/counters.ts`](src/counters.ts)                           | the shared rate limit store over a stand-in for a Redis client                                                            |
+| [`src/partners.ts`](src/partners.ts)                           | a credential plugin: a request context resolver for partner Bearer tokens, with a browser policy check                    |
+| [`src/api-info-plugin.ts`](src/api-info-plugin.ts)             | a `definePlugin` plugin contributing a route with `httpRoutes` and a mount with `provideHttpEndpoints`                    |
+| [`src/schema.ts`](src/schema.ts)                               | the factory with `apiServer` (HTTP, REST, the managed Hono server) and the `Link` schema                                  |
+| [`src/ultimabase.ts`](src/ultimabase.ts)                       | the application, its `MasterAuthority` and its `Register` declaration                                                     |
+| [`src/main.ts`](src/main.ts)                                   | the entry point: start, listening address, awaited shutdown on SIGINT or SIGTERM                                          |
+| [`src/existing-app.ts`](src/existing-app.ts)                   | a second application installing the plugins one by one on an existing Hono app                                            |
+| [`src/existing-main.ts`](src/existing-main.ts)                 | its entry point: a listener you own, closed after UltimaBase stops                                                        |
+| [`src/env.ts`](src/env.ts)                                     | secrets read from the environment                                                                                         |
+| [`tests/routes.test.ts`](tests/routes.test.ts)                 | requests without a server, application and plugin routes, the `PublicError` envelope, body limits, request IDs            |
+| [`tests/identity.test.ts`](tests/identity.test.ts)             | the optional application header, the partner resolver, the Master header                                                  |
+| [`tests/browser.test.ts`](tests/browser.test.ts)               | the effective browser policy, preflights, CORS as a browser policy rather than access control                             |
+| [`tests/limits.test.ts`](tests/limits.test.ts)                 | rate limits per client address, route limits, a failing store, security headers, the access log                           |
+| [`tests/client-address.test.ts`](tests/client-address.test.ts) | requests without a client address: one shared rate-limit bucket and one warning per process                               |
+| [`tests/network.test.ts`](tests/network.test.ts)               | the managed listener over a real socket: proxy trust, duplicated headers, compression, in-flight requests during shutdown |
+| [`tests/existing-app.test.ts`](tests/existing-app.test.ts)     | the existing Hono app: its own routes, UltimaBase's, a refused preflight, missing raw headers, and routes after a stop    |
 
 Test secrets are fixed fake values set in [`vitest.config.ts`](vitest.config.ts).
 Region names are stable identifiers: renaming one breaks the page or README

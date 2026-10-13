@@ -31,9 +31,10 @@ export interface HttpContextResolverInput<TSource extends string = string> {
 	readonly browserPolicy: HttpBrowserPolicy
 	/**
 	 * The client address: the socket peer, or behind `trustProxy` the nearest
-	 * untrusted `X-Forwarded-For` entry; `'unknown'` without either.
+	 * untrusted `X-Forwarded-For` entry; `undefined` when neither names the
+	 * client, as behind a fetch handler without `trustProxy`.
 	 */
-	readonly clientAddress: string
+	readonly clientAddress: string | undefined
 	readonly context: RequestContext<AnonymousRequestAccess, TSource>
 	readonly request: Request
 }
@@ -244,7 +245,7 @@ const assertDerivedAnonymousContext: <TSource extends string>(
 export const resolveHttpContext = async <TSource extends string>(
 	initial: RequestContext<AnonymousRequestAccess, TSource>,
 	request: Request,
-	clientAddress: string,
+	clientAddress: string | undefined,
 	browserPolicy: HttpBrowserPolicy,
 	resolvers: readonly OwnedHttpContextResolver[],
 	requestExecution: ApplicationRequestExecutor,

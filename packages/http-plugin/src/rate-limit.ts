@@ -1,3 +1,4 @@
+import type { Logger } from '@ultimabase/core'
 import {
 	immutableArray,
 	immutableRecord,
@@ -155,25 +156,24 @@ const isTrustedPeer = (
 
 /**
  * @internal Resolves the client address: the socket peer, or behind trusted
- * proxies the nearest untrusted `X-Forwarded-For` entry.
+ * proxies the nearest untrusted `X-Forwarded-For` entry; `undefined` when
+ * nothing names the client (ADR-0334).
  */
 export const resolveHttpClientAddress = (
 	prepared: PreparedHttpServerRequest,
 	trustProxy: HttpTrustProxy | undefined,
-): string => {
+): string | undefined => {
 	const peer =
 		prepared.remoteAddress === undefined
 			? undefined
 			: normalizeAddress(prepared.remoteAddress)
-	if (!isTrustedPeer(trustProxy, peer)) return peer ?? 'unknown'
+	if (!isTrustedPeer(trustProxy, peer)) return peer
 	const forwarded = readForwardedList(prepared, 'x-forwarded-for')
 	if (typeof trustProxy === 'number') {
 		// Each trusted proxy appends the address it received the request from,
 		// so the client is the hop-count-th entry from the end. The socket peer,
 		// absent behind a fetch handler, is the nearest proxy and never counts.
-		return (
-			forwarded[Math.max(0, forwarded.length - trustProxy)] ?? peer ?? 'unknown'
-		)
+		return forwarded[Math.max(0, forwarded.length - trustProxy)] ?? peer
 	}
 	// Listed proxies are trusted only from a socket peer that is one of them.
 	const chain = peer === undefined ? forwarded : [...forwarded, peer]
@@ -182,7 +182,30 @@ export const resolveHttpClientAddress = (
 		const address = chain[index]
 		if (address !== undefined && !trusted.includes(address)) return address
 	}
-	return chain[0] ?? 'unknown'
+	return chain[0]
+}
+
+const missingClientAddressWarning =
+	'An HTTP request has no client address: every such request shares one rate-limit bucket and authentication records no address. Pass the socket peer as remoteAddress from your server provider, or set trustProxy when a proxy names the client in X-Forwarded-For.'
+// ADR-0334: a deployment without addresses warns once per process, not per
+// request or per application.
+let warnedMissingClientAddress = false
+
+/**
+ * @internal Resolves the client address and warns the first time this
+ * process sees a request without one.
+ */
+export const resolveHttpClientAddressOrWarn = (
+	prepared: PreparedHttpServerRequest,
+	trustProxy: HttpTrustProxy | undefined,
+	logger: Pick<Logger, 'warn'>,
+): string | undefined => {
+	const address = resolveHttpClientAddress(prepared, trustProxy)
+	if (address === undefined && !warnedMissingClientAddress) {
+		warnedMissingClientAddress = true
+		logger.warn(missingClientAddressWarning)
+	}
+	return address
 }
 
 /** @internal Tells whether the client reached the edge over HTTPS. */
@@ -227,9 +250,11 @@ export class HttpRateLimiter {
 	/**
 	 * Returns the seconds to wait when a limit is exceeded, else `undefined`.
 	 * Every applicable limit counts the request, so a retry cannot skip one.
+	 * Clients without an address share one bucket per limit: failing closed
+	 * is safer than skipping the limit (ADR-0334).
 	 */
 	async check(
-		client: string,
+		client: string | undefined,
 		endpoint: Readonly<{
 			readonly key: string
 			readonly limit: HttpRateLimit | undefined
@@ -246,8 +271,9 @@ export class HttpRateLimiter {
 		const expiresAt = (window + 1) * windowMs
 		let exceeded = false
 		for (const [scope, limit] of limits) {
+			// An unknown client is `null` in the key, apart from every address.
 			const count = await this.#store.increment(
-				JSON.stringify([scope, client, window]),
+				JSON.stringify([scope, client ?? null, window]),
 				expiresAt,
 			)
 			if (typeof count !== 'number' || !Number.isFinite(count)) {
