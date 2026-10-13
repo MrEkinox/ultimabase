@@ -9,7 +9,12 @@
 		{
 			"id": "project-initializer",
 			"packages": ["@ultimabase/create-app"],
-			"sections": ["quick-start", "reference", "project/release-status"]
+			"sections": [
+				"quick-start",
+				"reference",
+				"project/release-status",
+				"operations/typescript-7"
+			]
 		},
 		{
 			"id": "plugin-authoring-and-tooling",
