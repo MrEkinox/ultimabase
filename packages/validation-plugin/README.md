@@ -117,31 +117,7 @@ may be omitted or set to `null`, and it never runs for `null`.
 `.with({ validation })` takes a function on the complete final item,
 `({ item }) => true | 'message' | { path, message, code? } | readonly issues[]`,
 as `Event` does above, or a Standard Schema object validator run on the item
-(its output is not stored):
-
-<!-- region ../../examples/validation/src/schema.ts#ticket-tier -->
-
-```ts
-/** A Standard Schema object validator checks the item; its output is not stored. */
-export const TicketTier = App.Schema.define({
-	className: 'TicketTier',
-	fields: (field) => ({
-		name: field.string({ required: true }),
-		minPerOrder: field.int({ required: true }),
-		maxPerOrder: field.int({ required: true }),
-	}),
-}).with({
-	access: { read: true, create: true },
-	validation: z
-		.object({ minPerOrder: z.number().min(1), maxPerOrder: z.number() })
-		.refine(({ maxPerOrder, minPerOrder }) => maxPerOrder >= minPerOrder, {
-			message: 'The maximum cannot be below the minimum',
-			path: ['maxPerOrder'],
-		}),
-})
-```
-
-<!-- endregion -->
+(its output is not stored), as the example's `TicketTier` does.
 
 ## Runtime semantics
 
