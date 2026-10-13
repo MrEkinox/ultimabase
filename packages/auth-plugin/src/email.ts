@@ -8,6 +8,7 @@ import {
 	type DateTimeField,
 	type SchemaReference,
 	type StringField,
+	type UniqueFieldCarrier,
 } from '@ultimabase/core'
 import {
 	addSchemaField,
@@ -41,8 +42,12 @@ interface ManagedFieldState<TNullable extends boolean> {
  * accepts them.
  */
 export type AuthEmailFields = Readonly<{
-	/** The normalized, unique email the user signs in with. */
-	email: StringField<ManagedFieldState<false>>
+	/**
+	 * The normalized, unique email the user signs in with; declared
+	 * `indexed: 'unique'`, so a unique target of `updateOne` and `deleteOne`
+	 * (ADR-0332).
+	 */
+	email: StringField<ManagedFieldState<false>> & UniqueFieldCarrier
 	/** Whether the current `email` is verified. */
 	emailVerified: BooleanField<ManagedFieldState<false>>
 	/** When the current `email` was verified, or `null`. */
