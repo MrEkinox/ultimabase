@@ -97,6 +97,18 @@ Examples are user-facing, tested applications. They must only import public `@ul
   blocks are the code of the GraphQL page and the `graphql-plugin`,
   `graphql-yoga-plugin`, `graphql-http` and `graphql-explorer-plugin` READMEs
   (ADR-0330).
+- [`queries`](queries/README.md): Core reading and writing end to end
+  (every documented filter operator with the equality shorthand, UUID
+  operands, JSON and object paths, pointer and relation predicates;
+  selections, inclusions, ordering and keyset pagination; read terminals;
+  create, update with atomic increments, delete, unique and composite
+  upserts, bulk commands, nested writes; automatic and explicit transactions;
+  `FrameworkError`, validation issues and `PublicError`; audited Master
+  authority; request values, cancellation, the current principal, policy
+  predicates and `can()`), tested with `testApplication`. Its `//#region`
+  blocks are the code of the Reading Data, Writing Data, API Error
+  Boundaries, Master Authority and Request Identity pages and of the Core
+  README (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
