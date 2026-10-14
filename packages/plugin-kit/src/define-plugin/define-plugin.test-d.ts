@@ -11,6 +11,7 @@ import {
 	shapeMethod,
 	type CommandDefinition,
 	type CommandMutation,
+	type DefinedPlugin,
 	type ShapeMethodArguments,
 } from '../index.js'
 
@@ -132,4 +133,38 @@ test('projects shape-method permissions for rule plugins (ADR-0317)', () => {
 		PluginSourceSchemaPermissions<typeof Archived>
 	>().toEqualTypeOf<'readArchived'>()
 	expectTypeOf<PluginSourceSchemaPermissions<typeof Plain>>().toBeNever()
+})
+
+test('infers rule values from unannotated validators', () => {
+	const audit = definePlugin({
+		name: '@community/typed-rules',
+		rules: {
+			audit: (value, path) => {
+				expectTypeOf(value).toBeUnknown()
+				expectTypeOf(path).toBeString()
+				if (typeof value !== 'boolean') throw new TypeError(path)
+				return value
+			},
+		},
+		afterCommit: ({ rules }) => {
+			expectTypeOf(rules).toEqualTypeOf<{ readonly audit?: unknown }>()
+		},
+	})
+
+	// The plain rule type a return annotation would name (no reverse mapped
+	// type: a registered application failed with TS2589 on it).
+	expectTypeOf(audit).toEqualTypeOf<
+		DefinedPlugin<
+			'@community/typed-rules',
+			Readonly<Record<never, never>>,
+			{ audit: boolean }
+		>
+	>()
+	expectTypeOf(definePlugin({ name: '@community/no-rules' })).toEqualTypeOf<
+		DefinedPlugin<
+			'@community/no-rules',
+			Readonly<Record<never, never>>,
+			Readonly<Record<never, never>>
+		>
+	>()
 })

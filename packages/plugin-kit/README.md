@@ -58,19 +58,10 @@ export const archivePlugin = () =>
 <!-- region ../../examples/plugin-authoring/src/audit-plugin.ts#audit-plugin -->
 
 ```ts
-import { definePlugin, type DefinedPlugin } from '@ultimabase/plugin-kit'
+import { definePlugin } from '@ultimabase/plugin-kit'
 
-/**
- * `.with({ audit: true })` logs each committed write of the schema. The
- * return annotation names the rule's type: with an inferred one, an
- * application declared in `Register` fails with TS2589 as soon as a schema
- * calls `.with(...)`.
- */
-export const auditPlugin = (): DefinedPlugin<
-	'@example/audit-plugin',
-	Readonly<Record<never, never>>,
-	{ audit: boolean }
-> =>
+/** `.with({ audit: true })` logs each committed write of the schema. */
+export const auditPlugin = () =>
 	definePlugin({
 		name: '@example/audit-plugin',
 		rules: {
@@ -153,10 +144,7 @@ Keep raw `plugin()` when rules or commands depend on the schema they apply to
 (Access, Hooks, ACL) or when a command takes input. With
 `isolatedDeclarations`, annotate the factory result with
 `DefinedPlugin<Name, Shape, Rules>` and the shape with
-`ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does. A
-plugin with `rules` needs the `DefinedPlugin` annotation in any case for now,
-as `auditPlugin` shows: with an inferred rule type, an application declared
-in `Register` fails with TS2589 as soon as a schema calls `.with(...)`.
+`ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does.
 
 ## Declare application operations
 

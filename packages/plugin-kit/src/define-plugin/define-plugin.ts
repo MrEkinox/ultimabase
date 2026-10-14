@@ -29,7 +29,9 @@ import type { ShapeMethodDefinition, Validator } from './shape.js'
 import type {
 	DefinedPlugin,
 	DefinedPluginSource,
+	RuleValidators,
 	RuleValues,
+	RuleValuesOf,
 	ShapeMethods,
 } from './types.js'
 
@@ -52,7 +54,7 @@ export interface CommitInput<TRules extends RuleValues> {
 export interface DefinePluginOptions<
 	TName extends string,
 	TShape extends ShapeMethods,
-	TRules extends RuleValues,
+	TValidators extends RuleValidators,
 > {
 	/** The npm package name: plugin identity, log prefix and command namespace. */
 	readonly name: TName
@@ -64,9 +66,11 @@ export interface DefinePluginOptions<
 	/** Shape methods chained before `.with(...)`, made with `shapeMethod(...)`. */
 	readonly shape?: TShape
 	/** Entries accepted by `.with({ ... })`, each with its validator. */
-	readonly rules?: { readonly [TKey in keyof TRules]: Validator<TRules[TKey]> }
+	readonly rules?: TValidators
 	/** Runs after each committed write, outside the transaction. */
-	readonly afterCommit?: (input: CommitInput<TRules>) => void | Promise<void>
+	readonly afterCommit?: (
+		input: CommitInput<RuleValuesOf<TValidators>>,
+	) => void | Promise<void>
 	/** Raw Core contributions, or a transport plugin's helper such as `httpRoutes(...)`. */
 	readonly contributions?: readonly PluginContribution[]
 }
@@ -305,10 +309,12 @@ type RuntimeShapeSource = PluginSchemaShapeSource<
 export const definePlugin = <
 	const TName extends string,
 	const TShape extends ShapeMethods = Readonly<Record<never, never>>,
-	const TRules extends RuleValues = Readonly<Record<never, never>>,
+	// The constraint as default: a narrower one would hide the validators'
+	// contextual parameter types.
+	const TValidators extends RuleValidators = RuleValidators,
 >(
-	definition: DefinePluginOptions<TName, TShape, TRules>,
-): DefinedPlugin<TName, TShape, TRules> => {
+	definition: DefinePluginOptions<TName, TShape, TValidators>,
+): DefinedPlugin<TName, TShape, RuleValuesOf<TValidators>> => {
 	assertDefinition(definition)
 	const shape = Object.entries<ShapeMethodDefinition>(definition.shape ?? {})
 	const rules = Object.entries<Validator<unknown>>(definition.rules ?? {})
@@ -339,7 +345,7 @@ export const definePlugin = <
 		undefined,
 		undefined,
 		readonly PluginContribution[],
-		DefinedPluginSource<TShape, TRules>
+		DefinedPluginSource<TShape, RuleValuesOf<TValidators>>
 	>({
 		id: definition.name,
 		version: definition.version ?? '0.0.0',
