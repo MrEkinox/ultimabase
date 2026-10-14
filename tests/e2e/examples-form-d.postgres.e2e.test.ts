@@ -47,7 +47,7 @@ const testedExamples = [
 	['examples/http', 24],
 	['examples/rest', 18],
 	['examples/graphql', 25],
-	['examples/modeling', 25],
+	['examples/modeling', 26],
 ] as const
 
 const compile = (example: string): readonly string[] => {

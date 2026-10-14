@@ -1,11 +1,5 @@
-import { defineEnum } from '@ultimabase/core'
-
 import { App } from './app.ts'
-
-//#region genre
-/** A shared enum: every field that uses it has the same `Genre` type. */
-export const Genre = defineEnum('Genre', ['fiction', 'essay', 'poetry'])
-//#endregion genre
+import { Genre } from './genre.ts'
 
 //#region author
 export const Author = App.Schema.define({

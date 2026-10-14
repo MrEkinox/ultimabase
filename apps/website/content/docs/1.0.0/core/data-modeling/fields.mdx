@@ -13,6 +13,7 @@ reviewedAt: 2026-10-14
 sources:
   - examples/modeling/README.md
   - examples/modeling/src/catalog.ts
+  - examples/modeling/src/genre.ts
   - examples/modeling/src/customers.ts
   - examples/modeling/src/orders.ts
   - examples/modeling/tests/fields.test.ts
@@ -152,8 +153,8 @@ persisted-value details, see [Defaults and Nullability](./defaults).
 `f.enum({ values })` declares a closed string union. `values` takes one of two
 forms (ADR-0310). A shared enum comes from `defineEnum(name, values)`:
 
-<include cwd meta='title="src/catalog.ts"'>
-	../../examples/modeling/src/catalog.ts#genre
+<include cwd meta='title="src/genre.ts"'>
+	../../examples/modeling/src/genre.ts#genre
 </include>
 
 `Book.format` passes a string array, a local enum: transports such as GraphQL

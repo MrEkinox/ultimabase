@@ -23,24 +23,27 @@ here, and the tests prove what the documentation says.
 
 ## Files
 
-| File                                                         | What it shows                                                                                                           |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| [`src/app.ts`](src/app.ts)                                   | the configured factory                                                                                                  |
-| [`src/catalog.ts`](src/catalog.ts)                           | the shared `Genre` enum; `Author` with a virtual field and an inverse relation; `Book` with each value kind and indexes |
-| [`src/customers.ts`](src/customers.ts)                       | a reusable embedded shape; `Customer` with embedded objects, an enum list, a filtered relation and `resolveMany`        |
-| [`src/loyalty.ts`](src/loyalty.ts)                           | the stand-in remote service that `resolveMany` calls once per read                                                      |
-| [`src/orders.ts`](src/orders.ts)                             | `Order` with a cascading pointer, defaults, a factory, generated and automatic temporal values                          |
-| [`src/ultimabase.ts`](src/ultimabase.ts)                     | the application, its Core `validation` options and the `Register` declaration                                           |
-| [`src/books.ts`](src/books.ts)                               | helpers typed with `Model`, `CreateInput`, `UpdateInput` and `UniqueWhereInput`                                         |
-| [`src/main.ts`](src/main.ts)                                 | the development entry point                                                                                             |
-| [`tests/application.test.ts`](tests/application.test.ts)     | the startup line, `state` and `health()`, the application timezone, one application per realm                           |
-| [`tests/schemas.test.ts`](tests/schemas.test.ts)             | `UNIQUE_VIOLATION`, unique targets, system fields                                                                       |
-| [`tests/fields.test.ts`](tests/fields.test.ts)               | the value of each kind, structural validation, enums                                                                    |
-| [`tests/defaults.test.ts`](tests/defaults.test.ts)           | omitted input, explicit `null`, updates                                                                                 |
-| [`tests/models.test.ts`](tests/models.test.ts)               | frozen plain results, pointers, `toJSON`, the named types                                                               |
-| [`tests/embedded.test.ts`](tests/embedded.test.ts)           | embedded objects on create and update                                                                                   |
-| [`tests/virtual.test.ts`](tests/virtual.test.ts)             | private dependencies, `resolveMany` called once                                                                         |
-| [`tests/relationships.test.ts`](tests/relationships.test.ts) | pointer reads and includes, deletion behavior, inverse and filtered relations, link commands                            |
+| File                                                         | What it shows                                                                                  |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| [`src/app.ts`](src/app.ts)                                   | the configured factory                                                                         |
+| [`src/genre.ts`](src/genre.ts)                               | the shared `Genre` enum                                                                        |
+| [`src/catalog.ts`](src/catalog.ts)                           | `Author` with a virtual field and an inverse relation; `Book` with each value kind and indexes |
+| [`src/address.ts`](src/address.ts)                           | a reusable embedded shape                                                                      |
+| [`src/customers.ts`](src/customers.ts)                       | `Customer` with embedded objects, an enum list, a filtered relation and `resolveMany`          |
+| [`src/loyalty.ts`](src/loyalty.ts)                           | the stand-in remote service that `resolveMany` calls once per read                             |
+| [`src/orders.ts`](src/orders.ts)                             | `Order` with a cascading pointer, defaults, a factory, generated and automatic temporal values |
+| [`src/ultimabase.ts`](src/ultimabase.ts)                     | the application, its Core `validation` options and the `Register` declaration                  |
+| [`src/books.ts`](src/books.ts)                               | helpers typed with `Model`, `CreateInput`, `UpdateInput` and `UniqueWhereInput`                |
+| [`src/main.ts`](src/main.ts)                                 | the development entry point                                                                    |
+| [`tests/application.test.ts`](tests/application.test.ts)     | the startup line, `state` and `health()`, the application timezone, one application per realm  |
+| [`tests/compile.test.ts`](tests/compile.test.ts)             | pure compilation of the schema graph                                                           |
+| [`tests/schemas.test.ts`](tests/schemas.test.ts)             | `UNIQUE_VIOLATION`, unique targets, system fields                                              |
+| [`tests/fields.test.ts`](tests/fields.test.ts)               | the value of each kind, structural validation, enums                                           |
+| [`tests/defaults.test.ts`](tests/defaults.test.ts)           | omitted input, explicit `null`, updates                                                        |
+| [`tests/models.test.ts`](tests/models.test.ts)               | frozen plain results, pointers, `toJSON`, the named types                                      |
+| [`tests/embedded.test.ts`](tests/embedded.test.ts)           | embedded objects on create and update                                                          |
+| [`tests/virtual.test.ts`](tests/virtual.test.ts)             | private dependencies, `resolveMany` called once                                                |
+| [`tests/relationships.test.ts`](tests/relationships.test.ts) | pointer reads and includes, deletion behavior, inverse and filtered relations, link commands   |
 
 Region names are stable identifiers: renaming one breaks the page or README
 that includes it, and the website content tests report the missing region.

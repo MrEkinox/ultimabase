@@ -1,18 +1,8 @@
-import type { EmbeddedFieldBuilder } from '@ultimabase/core'
-
+import { addressFields } from './address.ts'
 import { App } from './app.ts'
-import { Book, Genre } from './catalog.ts'
+import { Book } from './catalog.ts'
+import { Genre } from './genre.ts'
 import { loyaltyService } from './loyalty.ts'
-
-//#region address
-/** One reusable child shape for every address of a customer. */
-const addressFields = (field: EmbeddedFieldBuilder) => ({
-	line1: field.string({ required: true }),
-	line2: field.string(),
-	city: field.string({ required: true }),
-	countryCode: field.string({ required: true }),
-})
-//#endregion address
 
 //#region customer
 export const Customer = App.Schema.define({

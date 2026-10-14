@@ -10,6 +10,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-14
 sources:
   - examples/modeling/README.md
+  - examples/modeling/src/address.ts
   - examples/modeling/src/customers.ts
   - examples/modeling/tests/embedded.test.ts
   - packages/core/README.md
@@ -30,8 +31,8 @@ The `Customer` schema of the
 [modeling example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/modeling)
 declares one reusable child shape:
 
-<include cwd meta='title="src/customers.ts"'>
-	../../examples/modeling/src/customers.ts#address
+<include cwd meta='title="src/address.ts"'>
+	../../examples/modeling/src/address.ts#address
 </include>
 
 and uses it twice, for one address and for a list of addresses:

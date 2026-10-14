@@ -40,46 +40,190 @@ Detailed guides remain focused by domain:
 only declaration form; no type generation step exists. Data goes in `define`
 (`className`, `fields`, `indexes` only), relation targets
 are thunks, plugins add callback-free shape methods, and a final non-generic
-`.with` carries the rules of the installed plugins:
+`.with` carries the rules of the installed plugins. The tested
+[modeling example](../../examples/modeling/README.md), a bookshop, shows the
+form; its only plugin is the database:
+
+<!-- region ../../examples/modeling/src/app.ts#factory -->
 
 ```ts
-// src/app.ts
-import { accessPlugin } from '@ultimabase/access-plugin'
 import { UltimaBase } from '@ultimabase/core'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const App = UltimaBase.use(
-	accessPlugin(),
-	hooksPlugin(),
-	softDeletePlugin(),
-)
+/**
+ * The configured factory declares every schema of the bookshop. Data modeling
+ * is Core: the only plugin is the database, and `postgresPlugin()` reads
+ * `DATABASE_URL` when the application starts, not when it is imported.
+ */
+export const App = UltimaBase.use(postgresPlugin())
+```
 
-// src/todo.ts
-export const Todo = App.Schema.define({
-	className: 'Todo',
+<!-- endregion -->
+
+A shared enum names one type for several fields:
+
+<!-- region ../../examples/modeling/src/genre.ts#genre -->
+
+```ts
+import { defineEnum } from '@ultimabase/core'
+
+/** A shared enum: every field that uses it has the same `Genre` type. */
+export const Genre = defineEnum('Genre', ['fiction', 'essay', 'poetry'])
+```
+
+<!-- endregion -->
+
+Schemas reference each other through thunks, here an inverse relation and the
+pointer it maps:
+
+<!-- region ../../examples/modeling/src/catalog.ts#author,book -->
+
+```ts
+export const Author = App.Schema.define({
+	className: 'Author',
 	fields: (field) => ({
-		title: field.string({ required: true }),
-		archived: field.boolean({ default: false }),
-		assignee: field.pointer({ target: () => TodoUser }),
-		parent: field.pointer({ target: () => Todo }),
+		firstName: field.string({ required: true }),
+		lastName: field.string({ required: true }),
+		// Computed for each result that selects it, never stored. Inside
+		// `fields`, dependency values are typed `unknown`: convert them.
+		displayName: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			select: { firstName: true, lastName: true },
+			resolve: ({ item }) =>
+				`${String(item.firstName)} ${String(item.lastName)}`,
+		}),
+		// Inverse side: the books whose `author` pointer targets this author.
+		books: field.relation({ target: () => Book, mappedBy: 'author' }),
 	}),
 })
-	.softDelete()
-	.with({
-		access: { read: ({ where }) => where.eq('archived', false) },
-		hooks: { beforeOperation: { update: ({ item }) => {} } },
-	})
 
-// src/ultimabase.ts
-export const ultimabase = new App({ schemas: [TodoUser, Todo] })
+/** One field of each built-in value kind, and two composite indexes. */
+export const Book = App.Schema.define({
+	className: 'Book',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		isbn: field.string({
+			description: 'ISBN-13 without hyphens',
+			immutable: true,
+			indexed: 'unique',
+			required: true,
+		}),
+		author: field.pointer({ target: () => Author, required: true }),
+		price: field.decimal({ precision: 10, scale: 2, required: true }),
+		genre: field.enum({ values: Genre, required: true }),
+		format: field.enum({
+			values: ['paperback', 'hardcover', 'ebook'],
+			default: 'paperback',
+		}),
+		tags: field.string({ list: true }),
+		pages: field.int(),
+		weightKg: field.float(),
+		publishedOn: field.date(),
+		published: field.boolean({ default: false }),
+		cover: field.binary(),
+		details: field.json(),
+	}),
+	indexes: [
+		// An author never has two books with the same title.
+		{ fields: ['author', 'title'], unique: true },
+		// Serves "the latest books of a genre".
+		{ fields: ['genre', 'createdAt'] },
+	],
+})
+```
 
+<!-- endregion -->
+
+A final `.with` carries the rules; `relations` is a Core rule that filters
+reads through a relation (ADR-0328). A plugin shape method, such as
+`.softDelete()` in the [Soft Delete example](../../examples/soft-delete/README.md),
+goes between `define(...)` and `.with(...)`. `Customer` reuses one embedded
+shape twice:
+
+<!-- region ../../examples/modeling/src/address.ts#address -->
+
+```ts
+import type { EmbeddedFieldBuilder } from '@ultimabase/core'
+
+/** One reusable child shape for every address of a customer. */
+export const addressFields = (field: EmbeddedFieldBuilder) => ({
+	line1: field.string({ required: true }),
+	line2: field.string(),
+	city: field.string({ required: true }),
+	countryCode: field.string({ required: true }),
+})
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/modeling/src/customers.ts#customer -->
+
+```ts
+export const Customer = App.Schema.define({
+	className: 'Customer',
+	fields: (field) => ({
+		name: field.string({ required: true }),
+		email: field.string({ required: true, indexed: 'unique' }),
+		// Embedded objects belong to the customer: no id, no own lifecycle.
+		shippingAddress: field.object({
+			fields: addressFields,
+			required: true,
+			typeName: 'Address',
+		}),
+		previousAddresses: field.object({
+			fields: addressFields,
+			list: true,
+			default: [],
+			typeName: 'PreviousAddress',
+		}),
+		favoriteGenres: field.enum({ values: Genre, list: true }),
+		// Owning side: the customer stores which books it wishes for.
+		wishlist: field.relation({ target: () => Book }),
+		// One call to the loyalty service resolves every customer of a read.
+		loyaltyTier: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			select: { email: true },
+			resolveMany: ({ items }) =>
+				loyaltyService.tiers(items.map(({ email }) => String(email))),
+		}),
+	}),
+}).with({
+	// Reads through `wishlist` only show published books.
+	relations: { wishlist: { where: { published: { eq: true } } } },
+})
+```
+
+<!-- endregion -->
+
+The application lists its schemas and declares itself once in `Register`:
+
+<!-- region ../../examples/modeling/src/ultimabase.ts#application -->
+
+```ts
+import { App } from './app.ts'
+import { Author, Book } from './catalog.ts'
+import { Customer } from './customers.ts'
+import { Order } from './orders.ts'
+
+export const ultimabase = new App({
+	schemas: [Author, Book, Customer, Order],
+	validation: {
+		// Calendar values generated by `autoNow` follow the shop's timezone.
+		timezone: 'Europe/Paris',
+		// Bounds one nested create or update.
+		nestedWrites: { maxDepth: 3, maxOperations: 50 },
+	},
+})
+
+// One declaration per application gives name-keyed editor types (ADR-0297).
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase
 	}
 }
 ```
+
+<!-- endregion -->
 
 - `field.pointer` and `field.relation` accept `target: () => Schema`; Core
   captures the thunk type without resolving it, so schemas in separate files
@@ -132,26 +276,20 @@ The complete candidate graph is validated before canonical metadata is published
 Publication retains compatible compiled records without repeating their validation;
 an incompatible reused schema prevents publication of every new candidate.
 
+Compilation alone is pure; the example's tests compile the application above
+before anything starts:
+
+<!-- region ../../examples/modeling/tests/compile.test.ts#compile -->
+
 ```ts
-const PostSchema = UltimaBase.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		title: field.string({ required: true }),
-		published: field.boolean({ default: false }),
-		metadata: field.object({
-			fields: (field) => ({
-				source: field.string(),
-			}),
-		}),
-	}),
-})
-
-const ultimabase = new UltimaBase({
-	schemas: [PostSchema],
-})
-
-const application = ultimabase.compile()
+// Pure: no plugin setup, no connection, no active-application slot.
+const compiled = ultimabase.compile()
 ```
+
+<!-- endregion -->
+
+`compiled.schemas` is the read-only registry (`compiled.schemas.get('Book')` is
+`Book`), and the application stays `idle`.
 
 Core-only declarations resolve their Runtime metadata immediately, so their
 metadata is available without an application. A
@@ -241,9 +379,11 @@ no general application-facing `field.custom()`.
 
 A plugin declares one application-local field family without making Core know
 its semantics. The kind is written once; an optional builder names only the
-supported contexts:
+supported contexts. In this sketch for plugin authors, `vectorField` is the
+plugin's own field factory; the [pg-vector plugin](../pg-vector-plugin/README.md)
+is a complete implementation:
 
-```ts
+```ts unverified
 const vectorFamily = definePluginFieldFamily({
 	fieldKind: 'pg-vector.vector',
 	builder: {
@@ -288,9 +428,10 @@ registry or effect. Calling a missing or context-incompatible method through
 untyped or stale code still fails during static schema compilation before setup.
 
 A plugin that contributes a reserved field through a schema patch can declare
-its field kind without exposing a misleading builder method:
+its field kind without exposing a misleading builder method, as in this
+sketch of its `declare` callback:
 
-```ts
+```ts unverified
 const secretFamily = definePluginFieldFamily({ fieldKind: 'fixture.secret' })
 
 declare({ fields, schemas }) {
@@ -1886,18 +2027,17 @@ options. The zero-plugin root follows the same path. `compile()` validates and
 snapshots deterministic schema and plugin declarations without claiming the
 active-application slot. `initialize()` additionally materializes application
 capabilities and runs setup, while `start()` continues through infrastructure
-and transports:
+and transports. The application of [Declare schemas](#declare-schemas) starts
+from its entry point:
+
+<!-- region ../../examples/modeling/src/main.ts#start -->
 
 ```ts
-const Application = UltimaBase.use(databasePlugin(), serverPlugin())
-
-const application = new Application({
-	schemas: [UserSchema],
-})
-
-// start() resolves to the application (ADR-0311).
-await using app = await application.start()
+// start() resolves to the application; leaving this scope disposes it.
+await using app = await ultimabase.start()
 ```
+
+<!-- endregion -->
 
 Every application owns its schema registry, materialized capabilities, exact
 Core contribution stores, plugin exports, and lifecycle state. One private
@@ -1941,16 +2081,9 @@ async scope exits. Guides document only `start()`, `await using` and
 `dispose()`; `compile()`, `initialize()` and `stop()` are for advanced cases.
 
 Each program declares its application once in `Register` (ADR-0297
-amendment 1). Constructing an application without it is a type error whose
-message shows the declaration to add:
-
-```ts
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
+amendment 1), as the application of [Declare schemas](#declare-schemas) does.
+Constructing an application without it is a type error whose message shows
+the declaration to add.
 
 ## Application logger
 
