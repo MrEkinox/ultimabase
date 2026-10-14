@@ -8,7 +8,7 @@ contentType: tutorial
 order: 1
 outcome: Understand the generated project's first-run path and use manual installation until packages are published.
 releaseStatus: pre-release
-reviewedAt: 2026-10-12
+reviewedAt: 2026-10-14
 sources:
   - docs/adr/0249-interactive-project-initializer.md
   - docs/adr/0327-test-application-and-create-app-starter.md
@@ -23,6 +23,7 @@ sources:
   - packages/create-app/src/test-template.ts
   - packages/create-app/tests/e2e/create-app-packed.e2e.test.ts
   - packages/create-app/tests/e2e/create-app-starter.postgres.e2e.test.ts
+  - apps/website/tests/create-app-output.content.test.ts
 ---
 
 <Callout type="warn" title="The initializer is not published">
@@ -154,10 +155,15 @@ The default choices create:
 the declaration form: data in `define(...)`, rules in a final `.with(...)`
 when a schema has any. `ultimabase.ts` creates the application and declares
 it once in `Register` for name-keyed editor types; there is no generation
-step. `main.ts` starts the application and seeds a Task. The Access line of
-`schema.ts` is the prototype opening:
+step. `main.ts` starts the application and seeds a Task. The default choices
+generate this `schema.ts`; its Access line is the prototype opening:
 
-```ts title="src/schema.ts"
+```ts twoslash title="src/schema.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
 export const SchemaApplication = UltimaBase.use(
 	// Prototype: operations without an Access rule are open outside production.
 	// Production refuses to start until you write .with({ access }) rules and
@@ -166,6 +172,17 @@ export const SchemaApplication = UltimaBase.use(
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+
+// The same declaration drives TypeScript inference and Runtime validation.
+export const Task = SchemaApplication.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		title: f.string({
+			required: true,
+		}),
+		done: f.boolean({ default: false }),
+	}),
+})
 ```
 
 Its scripts are:

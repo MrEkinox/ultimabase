@@ -6,8 +6,17 @@ audience:
 contentType: guide
 outcome: Declare executable plugin behavior and choose its exact public transport surface.
 releaseStatus: pre-release
-reviewedAt: 2026-09-26
+reviewedAt: 2026-10-14
 sources:
+  - examples/plugin-authoring/README.md
+  - examples/plugin-authoring/src/workflow/operations.ts
+  - examples/plugin-authoring/src/workflow/graphql-binding.ts
+  - examples/plugin-authoring/src/workflow/plugin.ts
+  - examples/plugin-authoring/src/ultimabase.ts
+  - examples/plugin-authoring/src/graphql-addon.ts
+  - examples/plugin-authoring/src/status-route.ts
+  - examples/plugin-authoring/tests/operations.test.ts
+  - examples/plugin-authoring/tests/schema-contributions.test.ts
   - packages/core/README.md
   - packages/plugin-kit/README.md
   - packages/graphql-plugin/README.md
@@ -73,39 +82,27 @@ Here is one complete, intentionally simple app-wide operation. It has no
 database work, so it forbids a transaction. The token stays independently
 exportable; its Core contribution correlates declaration and execution:
 
-```ts title="src/operations.ts"
-import { defineOperation, defineOperationValue } from '@ultimabase/core/plugin'
-
-const text = defineOperationValue((value, path): string => {
-	if (typeof value !== 'string') {
-		throw new TypeError(`${path} must be text`)
-	}
-	return value
-})
-
-export const formatWorkflow = defineOperation({
-	input: text,
-	name: 'community.workflow.format',
-	result: text,
-	target: 'application',
-	transaction: 'forbidden',
-	version: '1.0.0',
-})
-```
+<include cwd meta='title="src/workflow/operations.ts"'>
+	../../examples/plugin-authoring/src/workflow/operations.ts#operations
+</include>
 
 Install the token and its handler under one plugin owner. The contribution is
 the single source for the static declaration, executable handler, owner-local
 identifier, optional wire bindings, and lifecycle resource boundary:
 
-```ts title="src/plugin.ts"
+```ts twoslash title="src/workflow/plugin.ts"
+// @filename: operations.ts
+export { formatWorkflow } from '../../examples/plugin-authoring/src/workflow/operations.ts'
+// @filename: plugin.ts
+// ---cut---
 import { contributeOperation, plugin } from '@ultimabase/core/plugin'
 
-import { formatWorkflow } from './operations.js'
+import { formatWorkflow } from './operations.ts'
 
 export const workflowPlugin = () =>
 	plugin({
 		id: 'community.workflow',
-		core: '^1.0.0',
+		core: '^0.0.0',
 		version: '1.0.0',
 		contributions: [
 			contributeOperation({
@@ -116,10 +113,15 @@ export const workflowPlugin = () =>
 	})
 ```
 
-Export both `workflowPlugin` and `formatWorkflow` from the package root. In a
-started application that installs the plugin,
-`await ultimabase.operation(formatWorkflow).execute('  ready  ')` returns
-`'ready'`. The same application without the plugin rejects that token. The
+Export both `workflowPlugin` and `formatWorkflow` from the package root. A
+started application that installs the plugin executes the token directly:
+
+<include cwd meta='title="tests/operations.test.ts"'>
+	../../examples/plugin-authoring/tests/operations.test.ts#execute-operation
+</include>
+
+`result` is `'ready'`. The same application without the plugin rejects that
+token. The
 installed operation's source definition gives TypeScript its input and result
 types without a generated plugin declaration. The operation remains private
 from every network transport at this point.
@@ -151,9 +153,19 @@ The plan contains no codec or handler and cannot authorize a request.
 ### Decode a Core-shaped filter without rebuilding its traversal
 
 If a transport exposes Core's `where` shape but uses different wire values, use
-`transformQueryFilterInput()` before canonical read normalization:
+`transformQueryFilterInput()` before canonical read normalization. Here
+`wireWhere` and `decodeTransportOperand` stand for the transport's own input
+and scalar decoder:
 
-```ts
+```ts twoslash
+import type { QueryFilterOperandInput } from '@ultimabase/core'
+import { Post } from '../../examples/plugin-authoring/src/schema.ts'
+const schema = Post
+declare const wireWhere: unknown
+declare const decodeTransportOperand: (
+	operand: Omit<QueryFilterOperandInput, 'path'>,
+) => unknown
+// ---cut---
 import {
 	normalizeReadOperation,
 	transformQueryFilterInput,
@@ -180,7 +192,18 @@ normalizer and application request executor.
 For mutation data, the matching helper avoids rebuilding schema and nested-write
 recursion:
 
-```ts
+```ts twoslash
+import {
+	transformSchemaMutationDataInput,
+	type SchemaMutationDataFieldInput,
+} from '@ultimabase/core'
+import { Post } from '../../examples/plugin-authoring/src/schema.ts'
+const schema = Post
+declare const wireData: unknown
+declare const decodeMutationField: (
+	input: SchemaMutationDataFieldInput,
+) => unknown
+// ---cut---
 const data = transformSchemaMutationDataInput(schema, wireData, {
 	mode: 'create',
 	relationships: 'nested',
@@ -206,70 +229,16 @@ mutation whose types derive from `public.input` and `public.output` (JSON
 Schema), with `JSON` for what GraphQL cannot describe. The owner can name the canonical
 protocol through Core without importing the GraphQL package:
 
-```ts title="src/graphql-binding.ts"
-import {
-	defineOperationTransport,
-	operationTransportBinding,
-	operationWireCodec,
-} from '@ultimabase/core'
-
-import { formatWorkflow } from './operations.js'
-
-const graphqlOperations = defineOperationTransport({
-	name: 'ultimabase.graphql.operation',
-	version: '1.0.0',
-})
-
-export const formatGraphqlBinding = operationTransportBinding({
-	codec: operationWireCodec({
-		decode: (value: unknown) =>
-			formatWorkflow.input.snapshot(value, 'formatWorkflow input'),
-		encode: (value) => value,
-		operation: formatWorkflow,
-		transport: graphqlOperations,
-	}),
-	metadata: {
-		field: 'formatWorkflow',
-		input: {
-			kind: 'non-null',
-			ofType: { kind: 'named', name: 'String' },
-		},
-		kind: 'graphql-operation-binding',
-		result: {
-			kind: 'non-null',
-			ofType: { kind: 'named', name: 'String' },
-		},
-		root: 'query',
-		types: [],
-	},
-	operation: formatWorkflow,
-})
-```
+<include cwd meta='title="src/workflow/graphql-binding.ts"'>
+	../../examples/plugin-authoring/src/workflow/graphql-binding.ts#graphql-binding
+</include>
 
 Replace the previous plugin definition with the version that installs both
 providers under the same owner and requests the additional privilege:
 
-```ts title="src/plugin.ts"
-import { contributeOperation, plugin } from '@ultimabase/core/plugin'
-
-import { formatGraphqlBinding } from './graphql-binding.js'
-import { formatWorkflow } from './operations.js'
-
-export const workflowPlugin = () =>
-	plugin({
-		id: 'community.workflow',
-		core: '^1.0.0',
-		version: '1.0.0',
-		contributions: [
-			contributeOperation({
-				bindings: [formatGraphqlBinding],
-				execute: ({ input }) => input.trim(),
-				operation: formatWorkflow,
-				public: { name: 'formatWorkflow' },
-			}),
-		],
-	})
-```
+<include cwd meta='title="src/workflow/plugin.ts"'>
+	../../examples/plugin-authoring/src/workflow/plugin.ts#workflow-plugin
+</include>
 
 The operation owner can instead add
 `contributeOperationBinding(formatGraphqlBinding)` separately to the same
@@ -278,27 +247,17 @@ without weakening exact ownership; a foreign plugin cannot publish the
 operation. The binding still requires `transport:expose`.
 
 The package root should re-export `workflowPlugin` and `formatWorkflow`.
-In the application, install the plugin and GraphQL:
+In the application, install GraphQL (here through `apiServer({ graphql })` in
+the [schema factory](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#start-with-defineplugin))
+and the plugin:
 
-```ts title="src/ultimabase.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { workflowPlugin } from '@your-scope/workflow-plugin'
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/plugin-authoring/src/ultimabase.ts#application
+</include>
 
-import { Task } from './schema.js'
-
-const Application = UltimaBase.use(postgresPlugin())
-	.use(workflowPlugin())
-	.use(graphqlPlugin())
-
-export const ultimabase = new Application({
-	schemas: [Task],
-})
-```
-
-After startup, `printSchema()` should show `formatWorkflow(input: String!):
-String!` under `Query`. `graphqlPlugin({ hide: [formatWorkflow] })` hides it;
+After startup, `ultimabase.plugin('@ultimabase/graphql-plugin').printSchema()`
+shows `formatWorkflow(input: String!): String!` under `Query`, and the public
+name also exposes `POST /api/operations/formatWorkflow` over REST. `graphqlPlugin({ hide: [formatWorkflow] })` hides it;
 an operation its owner does not declare public stays absent. GraphQL checks owner, protocol, types, names, and collisions
 before serving requests. Its resolver passes a real application-bound request
 context to Core; neither GraphQL variables nor a custom resolver can create
@@ -323,37 +282,9 @@ yarn add graphql @ultimabase/graphql-plugin
 pnpm add graphql @ultimabase/graphql-plugin
 ```
 
-```ts title="src/graphql-addon.ts"
-import { plugin } from '@ultimabase/core/plugin'
-import { provideGraphqlSchemas } from '@ultimabase/graphql-plugin'
-import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
-
-const health = new GraphQLSchema({
-	query: new GraphQLObjectType({
-		fields: {
-			workflowHealth: {
-				resolve: () => 'ok',
-				type: GraphQLString,
-			},
-		},
-		name: 'Query',
-	}),
-})
-
-export const workflowGraphqlAddon = () =>
-	plugin({
-		contributions: [
-			provideGraphqlSchemas({
-				contributionId: 'workflow-health',
-				create: () => health,
-			}),
-		],
-		core: '^1.0.0',
-		peers: [{ pluginId: '@ultimabase/graphql-plugin', version: '^1.0.0' }],
-		id: 'community.workflow-graphql',
-		version: '1.0.0',
-	})
-```
+<include cwd meta='title="src/graphql-addon.ts"'>
+	../../examples/plugin-authoring/src/graphql-addon.ts#graphql-addon
+</include>
 
 This provider contributes one schema to the installed GraphQL plugin; it does
 not install GraphQL, Yoga, HTTP, or a listener. A custom resolver receives only
@@ -384,7 +315,16 @@ Master-only mutation never enters the public SDL. The official
 mutations: REST exposes a one-row request command when the application names
 it in `.with({ rest: { softDeleteOne: true } })`, and GraphQL when it names it
 in `.with({ graphql: { softDeleteOne: true } })`, without any binding: the
-GraphQL field then takes only the row `id`.
+GraphQL field then takes only the row `id`. The `archivePlugin` of
+[Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#start-with-defineplugin)
+works the same way once `Post` names `archiveOne` for both transports:
+
+<include cwd meta='title="tests/schema-contributions.test.ts"'>
+	../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-over-http
+</include>
+
+REST answers `200` with the archived row in `result`, GraphQL with
+`{ archiveOnePost: { id } }`; `archiveMany` stays off both transports.
 
 ## REST and HTTP are separate choices
 
@@ -416,30 +356,9 @@ For a standalone Fetch route, provide the HTTP endpoint capability. This
 example reads no application data; it still belongs to the selected HTTP
 application and requires its identity header:
 
-```ts title="src/status-route.ts"
-import { plugin } from '@ultimabase/core/plugin'
-import { httpRoute, provideHttpEndpoints } from '@ultimabase/http-plugin'
-
-export const statusRoutePlugin = () =>
-	plugin({
-		contributions: [
-			provideHttpEndpoints({
-				contributionId: 'status-route',
-				create: () => [
-					httpRoute({
-						method: 'GET',
-						path: '/status',
-						protocol: { name: 'community.status', version: '1' },
-						handle: () => Response.json({ ready: true }),
-					}),
-				],
-			}),
-		],
-		core: '^1.0.0',
-		id: 'community.status-route',
-		version: '1.0.0',
-	})
-```
+<include cwd meta='title="src/status-route.ts"'>
+	../../examples/plugin-authoring/src/status-route.ts#status-route
+</include>
 
 The application must also install the HTTP plugin and a server provider to
 listen on a socket. Route collisions fail during application materialization.

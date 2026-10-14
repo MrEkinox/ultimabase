@@ -10,21 +10,27 @@ Applications import `@ultimabase/testing`; plugin authors import
 
 `testApplication(ultimabase)` starts the production application itself (same
 plugins, same rules) on the test worker's own PostgreSQL schema. Leaving the
-`await using` scope closes the handle:
+`await using` scope closes the handle. From the
+[plugin authoring example](../../examples/plugin-authoring/README.md):
+
+<!-- region ../../examples/plugin-authoring/tests/first.test.ts#first-test -->
 
 ```ts
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
-import { Task } from '../src/schema.ts'
+import { Post } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
-it('creates a Task', async () => {
+it('creates a Post', async () => {
 	await using t = await testApplication(ultimabase)
-	const task = await Task.createOne({ data: { title: 'Ship' } })
-	expect(task.done).toBe(false)
+	const post = await Post.createOne({ data: { title: 'Ship' } })
+	expect(post.archivedAt).toBeNull()
+	await t.afterCommit()
 })
 ```
+
+<!-- endregion -->
 
 - **Database.** The connection comes from `TEST_DATABASE_URL`, otherwise
   from a PostgreSQL container (Testcontainers, Docker required) started once.
@@ -50,13 +56,37 @@ The handle `t` provides:
 | `t.asMaster(fn)`                 | Runs `fn` with Master authority without a configured key; Master bypasses authorization, never validation or hooks.                                                                                                                    |
 | `t.afterCommit()`                | Resolves once pending after-commit work (`afterCommit` hooks, event consumers) has run, including the work it started.                                                                                                                 |
 
+The plugin authoring example seeds with Master authority, reads over HTTP and
+empties the tables:
+
+<!-- region ../../examples/plugin-authoring/tests/test-application.test.ts#handle,reset -->
+
 ```ts
-await using t = await testApplication(ultimabase)
-const user = await t.asMaster(() => User.createOne({ data: { name: 'Ada' } }))
-const mine = await t.as(User.pointer(user.id), () => Note.findMany())
-const response = await t.fetch('/api/classes/Note')
+const post = await t.asMaster(() =>
+	Post.createOne({ data: { title: 'Seeded' } }),
+)
+const response = await t.fetch('/api/classes/Post')
 await t.afterCommit()
+
+await t.reset()
 ```
+
+<!-- endregion -->
+
+The [Access example](../../examples/access/README.md) writes and reads as two
+members, `asAda` being `Member.pointer(ada.id)`:
+
+<!-- region ../../examples/access/tests/mutations.test.ts#write-note -->
+
+```ts
+const note = await t.as(asAda, () =>
+	Note.createOne({ data: { author: ada.id, body: 'Call the printer' } }),
+)
+const mine = await t.as(asAda, () => Note.findMany())
+const theirs = await t.as(Member.pointer(grace.id), () => Note.findMany())
+```
+
+<!-- endregion -->
 
 `t.fetch` behaves like a local server: the HTTP plugin sees the socket peer
 `127.0.0.1`, so rate limits and authentication record that address unless a
@@ -76,13 +106,17 @@ opens one. Each harness elevation is logged at `debug`.
 
 ## Vitest configuration
 
+<!-- region ../../examples/plugin-authoring/vitest.config.ts#vitest-config -->
+
 ```ts
-// vitest.config.ts
 import { ultimabaseTesting } from '@ultimabase/testing/vitest'
 import { defineConfig } from 'vitest/config'
 
+// PostgreSQL from TEST_DATABASE_URL, or a container started once (Docker).
 export default defineConfig({ test: { ...ultimabaseTesting() } })
 ```
+
+<!-- endregion -->
 
 `ultimabaseTesting()` returns a global setup that starts PostgreSQL once per
 run unless `TEST_DATABASE_URL` is set, a setup file that stops each file's
@@ -108,9 +142,12 @@ schema tuples inferred from a fresh fixture. `runPluginConformance()` is
 runner-agnostic: use it from Vitest, another test runner, or a plain JavaScript
 script. The runner installs each fresh fixture through Core's
 `UltimaBase.use()` installation path, not the removed constructor `plugins` option or a
-test-only registry.
+test-only registry. The example's starter plugin is tested like this:
+
+<!-- region ../../examples/plugin-authoring/tests/starter.test.ts#starter-test -->
 
 ```ts
+import { UltimaBase } from '@ultimabase/core'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
@@ -118,24 +155,42 @@ import {
 } from '@ultimabase/testing/plugins'
 import { expect, it } from 'vitest'
 
+// A package's own tests import its root export, as an application does.
+import { starterPlugin } from '../src/starter-plugin.ts'
+
+it('exposes setup only through its installed application', async () => {
+	const Application = UltimaBase.use(starterPlugin())
+	const application = await new Application({
+		schemas: [],
+	}).initialize()
+
+	try {
+		expect(application.plugin('community.starter')).toStrictEqual({
+			ready: true,
+		})
+	} finally {
+		await application.dispose()
+	}
+})
+
 const suite = definePluginConformanceSuite({
 	createFixture: () =>
-		createPluginConformanceFixture({
-			subject: workflowPlugin(),
-			schemas: [Post],
-		}),
+		createPluginConformanceFixture({ subject: starterPlugin() }),
 	expected: {
-		pluginId: 'community.workflow',
+		core: '^0.0.0',
+		pluginId: 'community.starter',
 		version: '1.0.0',
-		core: '^1.0.0',
 	},
 })
 
-it('conforms to the public kernel', async () => {
+it('conforms to the public plugin kernel', async () => {
+	// A failed contract throws a PluginConformanceError that names it.
 	const report = await runPluginConformance(suite)
-	expect(report.checks.every(({ status }) => status === 'passed')).toBe(true)
+	expect(report.checks.map(({ contract }) => contract)).toContain('manifest')
 })
 ```
+
+<!-- endregion -->
 
 The common suite always verifies the manifest, immutable capability contract,
 static declaration determinism, public provenance, setup/application-capability
@@ -158,7 +213,41 @@ inside `createFixture`: define the schema through the same ordered
 `UltimaBase.use(support).use(subject).Schema.define(...)` chain used by the
 fixture (omit `.use(support)` when none is required), then pass the subject and
 schema to `createPluginConformanceFixture`. Test the same fixture against
-package-root exports for packed editor behavior.
+package-root exports for packed editor behavior. This suite also adds the
+optional `schema-surface` check described below:
+
+<!-- region ../../examples/plugin-authoring/tests/conformance.test.ts#schema-suite -->
+
+```ts
+const suite = definePluginConformanceSuite({
+	// The subject and the schemas that call its shape method, together.
+	createFixture: () => {
+		const subject = archivePlugin()
+		const Post = UltimaBase.use(subject)
+			.Schema.define({
+				className: 'Post',
+				fields: (f) => ({ title: f.string({ required: true }) }),
+			})
+			.archivable()
+		return createPluginConformanceFixture({ subject, schemas: [Post] })
+	},
+	expected: {
+		pluginId: '@example/archive-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+	},
+}).check('schema-surface', (context) => {
+	const { ultimabase } = context.createUltimaBase()
+	const [surface] = ultimabase.compile().schemaSurfaces
+	expect(surface?.schema.className).toBe('Post')
+	expect([...(surface?.schemaMutations.keys() ?? [])]).toStrictEqual([
+		'archiveOne',
+		'archiveMany',
+	])
+})
+```
+
+<!-- endregion -->
 
 Official plugins list `expected.environment` even when it is `[]`. This makes a
 deliberate absence of direct filesystem, network, process, and native-code
@@ -168,58 +257,83 @@ behavior as testable as a declared claim.
 
 Support plugins are ordinary public definitions and precede the subject in the
 application graph. They make named dependencies and capability requirements
-visible instead of introducing a test-only bypass:
+visible instead of introducing a test-only bypass. `instances` checks two
+explicit instances of one factory, and a support plugin provides the
+capability a consumer requires:
+
+<!-- region ../../examples/plugin-authoring/tests/conformance.test.ts#instances-suite -->
 
 ```ts
 const suite = definePluginConformanceSuite({
 	createFixture: () =>
 		createPluginConformanceFixture({
-			subject: auditPlugin({ instanceId: 'default' }),
-			supportPlugins: [storagePlugin()],
-			schemas: [],
+			subject: starterPlugin('default'),
 		}),
 	expected: {
-		pluginId: 'community.audit',
+		pluginId: 'community.starter',
 		version: '1.0.0',
-		core: '^1.0.0',
+		core: '^0.0.0',
 	},
 	instances: {
 		instanceIds: ['primary', 'archive'],
-		create: (instanceId) => auditPlugin({ instanceId }),
+		create: (instanceId) => starterPlugin(instanceId),
 	},
 })
 ```
+
+<!-- endregion -->
+
+<!-- region ../../examples/plugin-authoring/tests/conformance.test.ts#support-suite -->
+
+```ts
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({
+			subject: formatConsumer,
+			supportPlugins: [formatProvider],
+		}),
+	expected: {
+		pluginId: 'community.workflow-consumer',
+		version: '1.0.0',
+		core: '^0.0.0',
+	},
+})
+```
+
+<!-- endregion -->
 
 ### Optional domain checks
 
 Use immutable `.check(contract, verifier)` calls for behavior specific to the
 plugin. Every verifier gets a fresh application built through public Core
 factories; every created value is disposed automatically, including
-after a failed assertion.
+after a failed assertion. Executing a request needs a database adapter: a
+logical-only fixture can start, but `ultimabase.operation(token).execute(...)`
+throws `UltimaBase must be started before request execution` until a support
+plugin provides one. Without one, check the compiled declaration:
+
+<!-- region ../../examples/plugin-authoring/tests/conformance.test.ts#operation-check -->
 
 ```ts
-const completeSuite = suite
-	.check('operation', async (context) => {
-		const { ultimabase } = context.createUltimaBase()
-		await ultimabase.start()
-		const result = await ultimabase.operation(runWorkflow).execute(input)
-		expect(result).toStrictEqual(expectedResult)
-	})
-	.check('schema-surface', (context) => {
-		const { ultimabase } = context.createUltimaBase()
-		expect(
-			ultimabase
-				.compile()
-				.schemaSurfaces.some(({ schema }) => schema.className === 'Post'),
-		).toBe(true)
-	})
-	.check('middleware', async (context) => {
-		// Execute a request and assert the contributed interceptor/observer trace.
-	})
-	.check('persistence', async (context) => {
-		// Capture the public adapter request and assert the rewritten physical plan.
-	})
+const suite = definePluginConformanceSuite({
+	createFixture: () =>
+		createPluginConformanceFixture({ subject: workflowPlugin() }),
+	expected: {
+		pluginId: 'community.workflow',
+		version: '1.0.0',
+		core: '^0.0.0',
+	},
+}).check('operation', (context) => {
+	// Executing a request would need a database adapter among the support
+	// plugins; the compiled application already lists the declaration.
+	const { ultimabase } = context.createUltimaBase()
+	expect(
+		ultimabase.compile().operations.map(({ operation }) => operation.name),
+	).toStrictEqual([formatWorkflow.name])
+})
 ```
+
+<!-- endregion -->
 
 The optional contract names are `javascript-operation`, `operation`,
 `relation-read`, `schema-mutation`, `schema-surface`, `transport`, `middleware`,
@@ -230,7 +344,9 @@ policy product. A `schema-mutation` verifier should
 execute one neutral application-owned schema command and assert
 its logical identity and physical effect without installing Access, Hooks, or a
 product plugin. This keeps the report precise while leaving each
-plugin-specific assertion readable. The `typegen` contract and
+plugin-specific assertion readable. A failed check throws a
+`PluginConformanceError` that names its contract; the report lists the
+contracts that passed. The `typegen` contract and
 `withPluginTypegenConformance()` left with Typegen in migration step 6.8b
 (ADR-0297, ADR-0327 decision 4).
 
@@ -262,19 +378,19 @@ their own applications instead of starting one with `testApplication`.
 ### PostgreSQL worker isolation
 
 `PostgresTestWorker` gives every test worker a deterministic PostgreSQL schema
-without depending on a driver:
+without depending on a driver. `testApplication` already uses the default
+prefix for the worker, so a plugin's own tests choose another:
+
+<!-- region ../../examples/plugin-authoring/tests/postgres-worker.test.ts#postgres-worker -->
 
 ```ts
-import process from 'node:process'
-
-import { PostgresTestWorker } from '@ultimabase/testing/plugins'
-import { Pool } from 'pg'
-
 const adminPool = new Pool({ connectionString: databaseUrl })
 const worker = new PostgresTestWorker({
 	query: async (statement) => {
 		await adminPool.query(statement)
 	},
+	// testApplication uses the default prefix: keep the schemas apart.
+	prefix: 'plugin_test',
 	workerId: Number(process.env.VITEST_POOL_ID),
 })
 
@@ -285,6 +401,8 @@ const pool = new Pool({
 	options: worker.connectionOptions,
 })
 ```
+
+<!-- endregion -->
 
 `reset()` drops and recreates only `worker.schemaName`. `connectionOptions`
 sets that schema as the pool's `search_path`. Close the worker pool before
@@ -297,16 +415,18 @@ uses it for each worker.
 `createCapturingLogger()` returns an application logger (ADR-0313) that
 records lines instead of printing them, for `new App({ logger })`:
 
-```ts
-import { createCapturingLogger } from '@ultimabase/testing/plugins'
+<!-- region ../../examples/plugin-authoring/tests/logger.test.ts#capturing-logger -->
 
+```ts
 const logger = createCapturingLogger()
-const app = new App({ schemas: [Todo], logger, logLevel: 'debug' })
+const app = new App({ schemas: [], logger, logLevel: 'debug' })
 await app.start()
 
 expect(logger.messages('warn')).toEqual([])
 expect(logger.lines.at(-1)?.message).toMatch(/^UltimaBase started:/u)
 ```
+
+<!-- endregion -->
 
 `lines` keeps every `{ level, message, details }` record in arrival order,
 `messages(level?)` lists messages, and `clear()` forgets them.
@@ -315,15 +435,17 @@ expect(logger.lines.at(-1)?.message).toMatch(/^UltimaBase started:/u)
 
 `waitForAfterCommit()` resolves once the active application's pending
 after-commit work has run, like `t.afterCommit()`, for an application a test
-started itself:
+started itself. Import it from `@ultimabase/testing/plugins`:
+
+<!-- region ../../examples/plugin-authoring/tests/test-application.test.ts#wait-for-after-commit -->
 
 ```ts
-import { waitForAfterCommit } from '@ultimabase/testing/plugins'
-
-await Todo.createOne({ data: { title: 'Ship' } })
+await Post.createOne({ data: { title: 'Ship' } })
 await waitForAfterCommit()
-expect(sentEmails).toHaveLength(1)
+expect(info).toHaveBeenCalledWith('[audit] Post create-one')
 ```
+
+<!-- endregion -->
 
 ### Fake public operation transport
 

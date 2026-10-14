@@ -7,8 +7,14 @@ contentType: guide
 order: 4
 outcome: Export a reusable plugin factory and verify its application-local setup result.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-14
 sources:
+  - examples/plugin-authoring/README.md
+  - examples/plugin-authoring/src/starter-plugin.ts
+  - examples/plugin-authoring/src/archive-plugin.ts
+  - examples/plugin-authoring/src/audit-plugin.ts
+  - examples/plugin-authoring/tests/starter.test.ts
+  - examples/plugin-authoring/tests/schema-contributions.test.ts
   - packages/core/README.md
   - packages/plugin-kit/README.md
   - packages/plugin-kit/src/define-plugin/define-plugin.ts
@@ -40,8 +46,10 @@ plugin does not add schema fields, operations, or Runtime behavior yet.
 - Have a Node.js 24+, ESM TypeScript library package with a build and a
   package-root export. Name publishable plugins with the `-plugin` suffix,
   such as `@your-scope/workflow-plugin`.
-- Use the Core compatibility range you actually test. The snippets target
-  this `1.0.0` documentation line; packages are still pre-release.
+- Declare the Core range you actually test. The pre-release packages are
+  version `0.0.0`, so the examples on these pages declare `core: '^0.0.0'`.
+  Dependency and peer ranges are checked against the installed plugin
+  versions, so they must accept `0.0.0` too.
 
 ## Steps
 
@@ -69,31 +77,17 @@ alternate plugin-registration path.
 
 ### Export a static factory
 
-Export the factory at the package root so consumers never need a `src/`
-deep import:
+Export the factory from the package root so consumers never need a `src/`
+deep import. The code on these pages comes from the tested
+[plugin authoring example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/plugin-authoring/README.md):
 
-```ts title="src/index.ts"
-import { contributeApplication, plugin } from '@ultimabase/core/plugin'
-
-export const workflowPlugin = (instanceId?: string) =>
-	plugin({
-		id: 'community.workflow',
-		core: '^1.0.0',
-		version: '1.0.0',
-		...(instanceId === undefined ? {} : { instanceId }),
-		contributions: [
-			contributeApplication(() => ({
-				exports: { ready: true as const },
-			})),
-		],
-	})
-
-export type WorkflowPlugin = ReturnType<typeof workflowPlugin>
-```
+<include cwd meta='title="src/starter-plugin.ts"'>
+	../../examples/plugin-authoring/src/starter-plugin.ts#starter-plugin
+</include>
 
 The factory returns an inert, typed definition. Constructing it must not
 connect to a database, read files, or start a listener. Its `ready` export is
-only a learning example, not workflow functionality. Importing a plugin
+only a learning example, not real functionality. Importing a plugin
 package or calling its factory does not install behavior: the definition must
 enter one application's `.use()` chain.
 
@@ -115,33 +109,9 @@ callback, or a route. `definePlugin` from `@ultimabase/plugin-kit` writes the
 identifiers and static types come from one declarative object, and Core still
 derives the privileges.
 
-```ts title="src/archive.ts"
-import { dateTimeField } from '@ultimabase/core'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
-
-export const archivePlugin = () =>
-	definePlugin({
-		name: '@your-scope/archive-plugin',
-		shape: {
-			archivable: shapeMethod({
-				fields: { archivedAt: dateTimeField() },
-				commands: {
-					archiveOne: command({
-						authority: 'request',
-						effect: 'update',
-						data: () => ({ archivedAt: new Date().toISOString() }),
-					}),
-					archiveMany: command({
-						authority: 'request',
-						effect: 'update',
-						data: () => ({ archivedAt: new Date().toISOString() }),
-						target: 'many',
-					}),
-				},
-			}),
-		},
-	})
-```
+<include cwd meta='title="src/archive-plugin.ts"'>
+	../../examples/plugin-authoring/src/archive-plugin.ts#archive-plugin
+</include>
 
 An application then declares `App.Schema.define({ ... }).archivable()`
 and calls `Post.archiveOne({ id })` or `Post.archiveMany({ where })`. The
@@ -154,25 +124,16 @@ Master always holds it, and the plugin asks for it during a request with
 `@ultimabase/core/plugin` (ADR-0317).
 Rules and post-commit callbacks read the schema's `.with` values:
 
-```ts title="src/audit.ts"
-import { definePlugin } from '@ultimabase/plugin-kit'
+<include cwd meta='title="src/audit-plugin.ts"'>
+	../../examples/plugin-authoring/src/audit-plugin.ts#audit-plugin
+</include>
 
-export const auditPlugin = () =>
-	definePlugin({
-		name: '@your-scope/audit-plugin',
-		rules: {
-			audit: (value, path) => {
-				if (typeof value !== 'boolean')
-					throw new TypeError(`${path} must be a boolean`)
-				return value
-			},
-		},
-		afterCommit: ({ className, operation, rules }) => {
-			if (rules.audit === true)
-				console.info(`[audit] ${className} ${operation}`)
-		},
-	})
-```
+A schema declared with `.with({ audit: true })` logs `[audit] Post create-one`
+once the write has committed; a schema without the rule logs nothing. Name
+the rule types in the factory's return type with
+`DefinedPlugin<Name, Shape, Rules>`: an inferred rule type currently fails
+with TS2589 (excessively deep instantiation) in an application declared in
+`Register` as soon as a schema calls `.with(...)`.
 
 A transport supplies its own helper for `contributions`, such as
 `httpRoutes({ 'GET /status': () => Response.json({ status: 'ok' }) })` from
@@ -198,49 +159,12 @@ pnpm add --save-dev @ultimabase/testing vitest typescript
 ## Verify
 
 Build your package so its root export resolves, then test the same public
-import an application will use. This plugin needs no database:
+import an application will use; the example imports its source file instead.
+This plugin needs no database:
 
-```ts title="tests/workflow-plugin.test.ts"
-import { UltimaBase } from '@ultimabase/core'
-import {
-	createPluginConformanceFixture,
-	definePluginConformanceSuite,
-	runPluginConformance,
-} from '@ultimabase/testing/plugins'
-import { expect, it } from 'vitest'
-
-import { workflowPlugin } from '@your-scope/workflow-plugin'
-
-it('exposes setup only through its installed application', async () => {
-	const Application = UltimaBase.use(workflowPlugin())
-	const application = await new Application({
-		schemas: [],
-	}).initialize()
-
-	try {
-		expect(application.plugin('community.workflow')).toStrictEqual({
-			ready: true,
-		})
-	} finally {
-		await application.dispose()
-	}
-})
-
-const suite = definePluginConformanceSuite({
-	createFixture: () =>
-		createPluginConformanceFixture({ subject: workflowPlugin() }),
-	expected: {
-		core: '^1.0.0',
-		pluginId: 'community.workflow',
-		version: '1.0.0',
-	},
-})
-
-it('conforms to the public plugin kernel', async () => {
-	const report = await runPluginConformance(suite)
-	expect(report.checks.every(({ status }) => status === 'passed')).toBe(true)
-})
-```
+<include cwd meta='title="tests/starter.test.ts"'>
+	../../examples/plugin-authoring/tests/starter.test.ts#starter-test
+</include>
 
 `initialize()` compiles the graph, materializes application
 capabilities, and runs setup. This particular plugin opens no resources. Only

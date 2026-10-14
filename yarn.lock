@@ -3581,7 +3581,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/create-app@workspace:packages/create-app":
+"@ultimabase/create-app@workspace:^, @ultimabase/create-app@workspace:packages/create-app":
   version: 0.0.0-use.local
   resolution: "@ultimabase/create-app@workspace:packages/create-app"
   dependencies:
@@ -3742,6 +3742,27 @@ __metadata:
     "@ultimabase/testing": "workspace:^"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/example-plugin-authoring@workspace:examples/plugin-authoring":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-plugin-authoring@workspace:examples/plugin-authoring"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@types/pg": "npm:^8.15.5"
+    "@ultimabase/api-server": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/graphql-plugin": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/testing": "workspace:^"
+    graphql: "npm:^17.0.2"
+    pg: "npm:^8.16.3"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.11"
+    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -4137,6 +4158,7 @@ __metadata:
     "@types/mdx": "npm:2.0.14"
     "@types/react": "npm:19.3.0"
     "@types/react-dom": "npm:19.3.0"
+    "@ultimabase/create-app": "workspace:^"
     beautiful-mermaid: "npm:1.1.3"
     fumadocs-core: "npm:16.15.12"
     fumadocs-mdx: "npm:15.4.3"

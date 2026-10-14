@@ -18,15 +18,20 @@ declarative object: shape methods with their fields and commands, `.with({ ... }
 rules, a post-commit callback, and raw contributions. It writes the option
 definitions, schema selectors, patches with server-written fields, schema
 mutations, model extensions, Runtime behavior and static source types; Core
-still derives the privileges.
+still derives the privileges. The
+[plugin authoring example](../../examples/plugin-authoring/README.md) declares
+a shape method in one plugin and a rule in another:
+
+<!-- region ../../examples/plugin-authoring/src/archive-plugin.ts#archive-plugin -->
 
 ```ts
 import { dateTimeField } from '@ultimabase/core'
 import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
 
+/** `.archivable()` adds a server-written `archivedAt` and two commands. */
 export const archivePlugin = () =>
 	definePlugin({
-		name: '@community/archive',
+		name: '@example/archive-plugin',
 		shape: {
 			archivable: shapeMethod({
 				fields: { archivedAt: dateTimeField() },
@@ -45,6 +50,29 @@ export const archivePlugin = () =>
 				},
 			}),
 		},
+	})
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/plugin-authoring/src/audit-plugin.ts#audit-plugin -->
+
+```ts
+import { definePlugin, type DefinedPlugin } from '@ultimabase/plugin-kit'
+
+/**
+ * `.with({ audit: true })` logs each committed write of the schema. The
+ * return annotation names the rule's type: with an inferred one, an
+ * application declared in `Register` fails with TS2589 as soon as a schema
+ * calls `.with(...)`.
+ */
+export const auditPlugin = (): DefinedPlugin<
+	'@example/audit-plugin',
+	Readonly<Record<never, never>>,
+	{ audit: boolean }
+> =>
+	definePlugin({
+		name: '@example/audit-plugin',
 		rules: {
 			audit: (value, path) => {
 				if (typeof value !== 'boolean')
@@ -57,10 +85,41 @@ export const archivePlugin = () =>
 				console.info(`[audit] ${className} ${operation}`)
 		},
 	})
-
-// App.Schema.define({ className: 'Post', fields }).archivable().with({ audit: true })
-// await Post.archiveOne({ id }) / await Post.archiveMany({ where })
 ```
+
+<!-- endregion -->
+
+A schema of an application that installs both calls the method and sets the
+rule, and may expose a one-row command over REST and GraphQL:
+
+<!-- region ../../examples/plugin-authoring/src/schema.ts#post -->
+
+```ts
+export const Post = App.Schema.define({
+	className: 'Post',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+})
+	.archivable()
+	.with({
+		audit: true,
+		rest: { archiveOne: true },
+		graphql: { archiveOne: true },
+	})
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one,archive-many -->
+
+```ts
+const archived = await Post.archiveOne({ id: post.id })
+
+const archivedPosts = await Post.archiveMany({
+	where: { title: { in: ['Old'] } },
+})
+```
+
+<!-- endregion -->
 
 - `shapeMethod({ options?, fields?, commands?, permissions? })` declares one
   method chained before `.with(...)`. The method takes one optional options
@@ -77,23 +136,27 @@ export const archivePlugin = () =>
   `effect: 'delete'` requires `'master'`. `target: 'many'` makes the command
   take `{ where }` and run the one-row rules for each matching row in one
   transaction. `checkReadable: 'before'` suits a command that hides its row.
-- REST exposes a one-row request command when the application names it,
-  `.with({ rest: { archiveOne: true } })`, without any binding (ADR-0324).
-  Until GraphQL does the same (migration step 6.6c), one-row request commands
-  stay bound to GraphQL without input; many-row commands have no binding.
+- REST and GraphQL expose a one-row request command only when the schema
+  names it, `.with({ rest: { archiveOne: true }, graphql: { archiveOne: true } })`,
+  without any binding (ADR-0324): `POST /api/classes/Post/{id}/archive-one`
+  and the `archiveOnePost(input: { id })` mutation. Many-row commands stay
+  off both transports.
 - `rules` validate the entries of `.with({ ... })`; `afterCommit` receives them,
   as `readSchemaRules` from `@ultimabase/core/plugin` returns them to raw
   plugins.
 - `contributions` take raw Core contributions or a transport helper such as
   `httpRoutes` from `@ultimabase/http-plugin`.
 - Mutation names are derived from the package name, the method and the command
-  (`community.archive.archivable.archive-one`).
+  (`example.archive-plugin.archivable.archive-one` for `@example/archive-plugin`).
 
 Keep raw `plugin()` when rules or commands depend on the schema they apply to
 (Access, Hooks, ACL) or when a command takes input. With
 `isolatedDeclarations`, annotate the factory result with
 `DefinedPlugin<Name, Shape, Rules>` and the shape with
-`ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does.
+`ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does. A
+plugin with `rules` needs the `DefinedPlugin` annotation in any case for now,
+as `auditPlugin` shows: with an inferred rule type, an application declared
+in `Register` fails with TS2589 as soon as a schema calls `.with(...)`.
 
 ## Declare application operations
 
@@ -101,24 +164,34 @@ Keep raw `plugin()` when rules or commands depend on the schema they apply to
 operation without writing a plugin (ADR-0324). `input` and `output` are
 Standard Schema validators (Zod, Valibot, ArkType…); install the result with
 `UltimaBase.use(...)`. The operation is public: every installed transport
-exposes it, REST at `POST /api/operations/<name>`.
+exposes it, REST at `POST /api/operations/<name>`. From the
+[REST example](../../examples/rest/README.md):
+
+<!-- region ../../examples/rest/src/operations.ts#operation -->
 
 ```ts
 import { defineOperation } from '@ultimabase/plugin-kit'
 import { z } from 'zod'
 
-export const createInvoice = defineOperation({
-	name: 'createInvoice',
+/**
+ * An application operation without a plugin: REST validates the input with
+ * `input`, the result with `output`, and describes both in OpenAPI.
+ */
+export const readingTime = defineOperation({
+	name: 'readingTime',
 	input: z.object({
-		customer: z.string().min(2),
-		amount: z.number().positive(),
+		text: z.string().min(1),
+		wordsPerMinute: z.number().int().positive().default(200),
 	}),
-	output: z.object({ invoice: z.string() }),
-	handler: async ({ input, context }) => ({
-		invoice: await bill(input, context),
-	}),
+	output: z.object({ minutes: z.number().int().positive() }),
+	handler: ({ input }) => {
+		const words = input.text.trim().split(/\s+/u).length
+		return { minutes: Math.ceil(words / input.wordsPerMinute) }
+	},
 })
 ```
+
+<!-- endregion -->
 
 - The handler receives the validated input (the validator's output) and the
   request `context`; schema reads and writes inside it run with the caller's
@@ -129,8 +202,9 @@ export const createInvoice = defineOperation({
   application error the client receives.
 - Wire values are JSON; the result goes through `toJSON` like REST results.
 - A validator implementing Standard JSON Schema (as Zod does) describes the
-  operation in the REST OpenAPI document and types its GraphQL field
-  (`createInvoice(input: CreateInvoiceInput!): CreateInvoiceResult!`).
+  operation in the REST OpenAPI document and types its GraphQL field (the
+  [GraphQL example](../../examples/graphql/README.md)'s operation of the same
+  name gives `readingTime(input: ReadingTimeInput!): ReadingTimeResult!`).
   `readStandardJsonSchema(validator, 'input' | 'output')` is the shared
   reading both transports use.
 - `name` is a camelCase identifier; the Core operation is
@@ -142,9 +216,10 @@ export const createInvoice = defineOperation({
 The event helpers remove the repeated contract, observer capability, and
 transaction-journal plumbing shared by independent plugins. A producer defines
 one versioned channel and consumes its optional requirement; observers retain
-their own `runtime:observe` privilege and provenance:
+their own `runtime:observe` privilege and provenance. This sketch leaves out
+the payload type and the audit sink:
 
-```ts
+```ts unverified
 const published = definePluginEvent<PublishedEvent>()('workflow.published', {
 	delivery: 'optional',
 })
@@ -175,10 +250,9 @@ library owns input validation, defaults, transformations, and unknown-key
 behavior while Plugin Kit preserves the inferred input/output types and freezes
 the normalized root:
 
-```ts
-import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
-import { z } from 'zod'
+<!-- region ../../examples/plugin-authoring/tests/options.test.ts#schema-parser -->
 
+```ts
 const parseOptions = definePluginOptionsParser({
 	name: 'workflow plugin options',
 	schema: z.strictObject({
@@ -187,6 +261,8 @@ const parseOptions = definePluginOptionsParser({
 	}),
 })
 ```
+
+<!-- endregion -->
 
 Use the strict-object facility from the selected schema library when unknown
 keys must fail. A stripping or passthrough schema keeps its own behavior.
@@ -200,6 +276,8 @@ Plugins without a schema dependency can keep using the original strict manual
 contract. It rejects undeclared string or symbol keys and gives the normalizer
 only declared values as `unknown`:
 
+<!-- region ../../examples/plugin-authoring/tests/options.test.ts#manual-parser -->
+
 ```ts
 const parseOptions = definePluginOptionsParser({
 	name: 'workflow plugin options',
@@ -210,6 +288,8 @@ const parseOptions = definePluginOptionsParser({
 	}),
 })
 ```
+
+<!-- endregion -->
 
 `formatUnknownKey` may preserve an established plugin-specific diagnostic when
 migrating an existing manual parser; new plugins normally use the default
@@ -223,31 +303,42 @@ factory, never per request; Core never reads it (ADR-0312). The helpers keep
 that rule in one place: `production` means production, any other value or
 none means development, and an explicit option always wins.
 
+<!-- region ../../examples/plugin-authoring/src/trace-plugin.ts#trace-plugin -->
+
 ```ts
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 import {
 	deriveEnvironmentDefault,
 	describeEnvironmentSource,
 } from '@ultimabase/plugin-kit'
 
-export const auditPlugin = (options: { verbose?: boolean } = {}) => {
+/** Verbose in development, quiet in production, unless an option decides. */
+export const tracePlugin = (options: { verbose?: boolean } = {}) => {
+	// Read once in the factory, never per request.
 	const verbose = deriveEnvironmentDefault(options.verbose, {
 		development: true,
 		production: false,
 	})
 	return plugin({
-		// …
+		id: 'community.trace',
+		core: '^0.0.0',
+		version: '1.0.0',
 		contributions: [
 			contributeApplication(({ logger }) => {
 				logger.debug(
 					`verbose ${String(verbose.value)} (${describeEnvironmentSource(verbose.source)})`,
 				)
-				return { exports: undefined }
+				return { exports: { verbose: verbose.value } }
 			}),
 		],
 	})
 }
 ```
 
+<!-- endregion -->
+
+Under Vitest (`NODE_ENV=test`) the plugin logs
+`[community.trace] verbose true (NODE_ENV is not production)`.
 `readDeploymentEnvironment()` returns `'development'` or `'production'`
 directly. Log the derived value and its source at debug level through the
 plugin logger (ADR-0313), never an option value or secret.
@@ -255,35 +346,32 @@ plugin logger (ADR-0313), never an option value or secret.
 ## Build common additive schema patches
 
 `SchemaPatchBuilder` is immutable. Each call delegates to Core's nominal patch
-factory and returns a new builder:
+factory and returns a new builder. The example's flag plugin adds a field and
+an index to the schemas that call `.flaggable()`, inside its `schema`
+declaration callback:
+
+<!-- region ../../examples/plugin-authoring/src/flag-plugin.ts#flag-patch -->
 
 ```ts
-import { stringField } from '@ultimabase/core'
-import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
-
-declare: ({ schemas }) => {
-	const targets = schemas.select({
-		option: { name: 'workflow' },
-	})
-
-	return schemas.patch(
-		patchSchemas({
-			targets,
-			patch: schemaPatch()
-				.addField({
-					contributionId: 'workflow-state',
-					name: 'workflowState',
-					field: stringField({ default: 'pending', required: true }),
-					mutationInput: 'forbidden',
-				})
-				.addIndex({
-					contributionId: 'workflow-state-index',
-					fields: ['workflowState', 'createdAt'],
-				}),
-		}),
-	)
-}
+schemas.patch(
+	patchSchemas({
+		targets: schemas.select({ option: { name: 'flaggable' } }),
+		patch: schemaPatch()
+			.addField({
+				contributionId: 'flagged-field',
+				name: 'flagged',
+				field: flaggedField,
+				mutationInput: 'forbidden',
+			})
+			.addIndex({
+				contributionId: 'flagged-index',
+				fields: ['flagged', 'createdAt'],
+			}),
+	}),
+)
 ```
+
+<!-- endregion -->
 
 The builder covers additive fields, indexes, and plugin-owned schema or field
 option values. ADR-0289 removed `addConstraint()` with Core's portable schema
@@ -306,13 +394,17 @@ Plugin-owned field families and direct field options state exactly where they
 work. Core owns the field family because it also owns Runtime registration;
 Plugin Kit keeps only the option and output conveniences:
 
+<!-- region ../../examples/plugin-authoring/src/rating-plugin.ts#rating-plugin -->
+
 ```ts
 import { definePluginFieldFamily } from '@ultimabase/core'
+import { contributeDeclarations, plugin } from '@ultimabase/core/plugin'
 import {
 	defineOutputDescriptor,
 	definePluginFieldOption,
 } from '@ultimabase/plugin-kit'
 
+/** `output.rating()`: a virtual field's numeric result, in the output context only. */
 const ratingFamily = definePluginFieldFamily({
 	fieldKind: 'community.rating',
 	builder: {
@@ -335,17 +427,62 @@ const ratingFamily = definePluginFieldFamily({
 	},
 })
 
+/** `searchable: true` on a stored field, normalized to a boolean. */
 const searchableOption = definePluginFieldOption({
 	contexts: ['stored'],
 	normalize: (value) => value === true,
 	protocolVersion: 1,
 })
+
+export const ratingPlugin = () =>
+	plugin({
+		id: 'community.rating',
+		core: '^0.0.0',
+		version: '1.0.0',
+		contributions: [
+			contributeDeclarations({
+				// Returning the receipts types the builder method and the option.
+				schema: ({ fields, schemas }) => [
+					fields.register(ratingFamily),
+					schemas.defineOptions({
+						contributionId: 'rating-options',
+						field: { searchable: searchableOption },
+					}),
+				],
+			}),
+		],
+	})
 ```
+
+<!-- endregion -->
+
+An application that installs `ratingPlugin()` gets `output.rating()` in a
+virtual field and the `searchable` option on stored fields:
+
+<!-- region ../../examples/plugin-authoring/tests/field-kinds.test.ts#review -->
+
+```ts
+const Review = App.Schema.define({
+	className: 'Review',
+	fields: (f) => ({
+		body: f.string({ required: true, searchable: true }),
+		stars: f.int({ required: true }),
+		score: f.virtual({
+			output: (output) => output.rating(),
+			select: { stars: true },
+			resolve: ({ item }) =>
+				typeof item.stars === 'number' ? item.stars * 20 : 0,
+		}),
+	}),
+})
+```
+
+<!-- endregion -->
 
 The closed contexts are `stored`, `embedded`, `virtual`, and `output`. A method
 may provide a different factory and public callable type in each supported
-context. Return `fields.register(...)` and `schemas.defineOptions(...)` receipts
-from the same Core declaration callback; `UltimaBase.use()` then infers the
+context. Return the `fields.register(...)` and `schemas.defineOptions(...)`
+receipts from the same Core declaration callback; `UltimaBase.use()` then infers the
 exact application-local methods and field options without a Plugin Kit
 registry. A stored representation does not automatically
 grant embedded or output behavior, and Core rejects unsupported use before
@@ -357,36 +494,61 @@ Operation authoring is foundational and no longer requires Plugin Kit. Core's
 `contributeOperation()` correlates the token, handler, optional resource
 cleanup, and optional wire bindings in one definition:
 
+<!-- region ../../examples/plugin-authoring/src/workflow/operations.ts#operations -->
+
 ```ts
-import {
-	contributeOperation,
-	defineOperation,
-	defineOperationValue,
-} from '@ultimabase/core/plugin'
+import { defineOperation, defineOperationValue } from '@ultimabase/core/plugin'
 
 const text = defineOperationValue((value, path): string => {
-	if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
+	if (typeof value !== 'string') {
+		throw new TypeError(`${path} must be text`)
+	}
 	return value
 })
 
-export const publish = defineOperation({
-	name: 'community.workflow.publish',
-	version: '1.0.0',
-	target: 'application',
-	transaction: 'required',
+/** An app-wide command with no database work: it forbids a transaction. */
+export const formatWorkflow = defineOperation({
 	input: text,
+	name: 'community.workflow.format',
 	result: text,
-})
-
-const publishContribution = contributeOperation({
-	operation: publish,
-	execute: ({ input }) => input,
+	target: 'application',
+	transaction: 'forbidden',
+	version: '1.0.0',
 })
 ```
 
-Add the contribution to the Core plugin definition's `contributions` list and
-request `operation:declare`. Core derives the static declaration, application
-provider, and owner-local identifier. The contribution also accepts
+<!-- endregion -->
+
+<!-- region ../../examples/plugin-authoring/src/workflow/plugin.ts#workflow-plugin -->
+
+```ts
+import { contributeOperation, plugin } from '@ultimabase/core/plugin'
+
+import { formatGraphqlBinding } from './graphql-binding.ts'
+import { formatWorkflow } from './operations.ts'
+
+/** One owner declares, executes and publishes the operation. */
+export const workflowPlugin = () =>
+	plugin({
+		id: 'community.workflow',
+		core: '^0.0.0',
+		version: '1.0.0',
+		contributions: [
+			contributeOperation({
+				bindings: [formatGraphqlBinding],
+				execute: ({ input }) => input.trim(),
+				operation: formatWorkflow,
+				public: { name: 'formatWorkflow' },
+			}),
+		],
+	})
+```
+
+<!-- endregion -->
+
+Core derives the `operation:declare` privilege, the static declaration,
+application provider, and owner-local identifier from the contribution, and
+`transport:expose` from its binding. The contribution also accepts
 `create(context) => ({ execute, dispose? })` when the handler needs application
 capabilities or a resource.
 
@@ -394,18 +556,22 @@ When an operation declares `transaction: 'required'`, Core supplies the
 transactional request engine; the handler must not open a redundant nested
 transaction.
 
-Transport publication remains explicit: a binding inside the contribution
-still requires `transport:expose`, and application configuration must select
-the operation. `contributeOperationBinding()` keeps a binding separate from its
-handler under the same exact operation owner; foreign binding owners remain
-invalid.
+Transport publication remains explicit: the owner declares the operation
+public with `public: { name }`, then every installed transport exposes it
+(here the `formatWorkflow` GraphQL query field and
+`POST /api/operations/formatWorkflow`), and a binding inside the contribution
+requires `transport:expose`. `contributeOperationBinding()` keeps a binding
+separate from its handler under the same exact operation owner; foreign
+binding owners remain invalid.
 
 ## Declare schema mutations without another wrapper
 
 Use Core's `defineSchemaMutation()` and `contributeSchemaMutation()` directly.
-Core derives the mutation declaration and handler provider from one contribution:
+Core derives the mutation declaration and handler provider from one
+contribution. In this sketch, `snapshotArchiveInput` validates the command's
+input and `Post` is the schema the plugin extends:
 
-```ts
+```ts unverified
 const archive = defineSchemaMutation({
 	authority: 'request',
 	effect: 'update',
@@ -449,9 +615,11 @@ Permission providers such as ACL and role providers such as Roles meet through
 one capability without importing each other (ADR-0329). The contract lives here,
 not in Core: `requestRoleResolverCapability`, its `RequestRoleResolver` value,
 the `RequestRoleReference` subject (a Core `RequestSubjectReference<'role'>`),
-`resolveRequestRoleReference()` and `requireCurrentRequestRoleResolver()`:
+`resolveRequestRoleReference()` and `requireCurrentRequestRoleResolver()`.
+This sketch shows a provider and a consumer side by side; `context` and `role`
+come from the request being decided:
 
-```ts
+```ts unverified
 import { provideCapability } from '@ultimabase/core/plugin'
 import {
 	requestRoleResolverCapability,

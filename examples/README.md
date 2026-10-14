@@ -118,6 +118,19 @@ Examples are user-facing, tested applications. They must only import public `@ul
   blocks are the code of the Reading Data, Writing Data, API Error
   Boundaries, Master Authority and Request Identity pages and of the Core
   README (ADR-0330).
+- [`plugin-authoring`](plugin-authoring/README.md): plugin authoring end to
+  end (an inert factory with a typed setup export, `definePlugin` shape
+  methods with server-written fields, commands exposed over REST and GraphQL
+  by `.with` method keys, a rule read after commit, a raw plugin typing its
+  shape method, field and rule through Core's slots with an additive patch, a
+  field kind and a field option, a capability between two plugins, a
+  lifecycle-only resource, owner-private storage, cooperative cancellation, an
+  operation with a typed GraphQL binding and a REST route, an independent
+  GraphQL schema with a `peers` range, an HTTP route, an environment-dependent
+  default, option parsers, and the plugin conformance suites), tested with
+  `testApplication`. Its `//#region` blocks are the code of the Build a Plugin
+  pages, the Test an Application page and the `plugin-kit` and `testing`
+  READMEs (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
