@@ -37,7 +37,7 @@ it('completes embedded objects on create', async () => {
 	})
 })
 
-it('replaces an object and a whole list', async () => {
+it('patches an object and replaces a whole list', async () => {
 	await testApplication(ultimabase)
 	const customer = await Customer.createOne({
 		data: {
@@ -59,12 +59,9 @@ it('replaces an object and a whole list', async () => {
 	const updated = await Customer.updateOne({
 		where: { id: customer.id },
 		data: {
-			shippingAddress: {
-				line1: '8 Rue Exemple',
-				line2: 'Suite 2',
-				city: 'Lyon',
-				countryCode: 'FR',
-			},
+			// A deep patch: `line1` and `countryCode` keep their stored values.
+			shippingAddress: { line2: 'Suite 2', city: 'Lyon' },
+			// A replacement: each item includes its required children.
 			previousAddresses: [
 				{ line1: '12 Rue Exemple', city: 'Paris', countryCode: 'FR' },
 			],
@@ -86,7 +83,7 @@ it('replaces an object and a whole list', async () => {
 		shippingAddress: {
 			city: 'Lyon',
 			countryCode: 'FR',
-			line1: '8 Rue Exemple',
+			line1: '12 Rue Exemple',
 			line2: 'Suite 2',
 		},
 	})

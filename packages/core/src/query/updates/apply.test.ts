@@ -15,6 +15,37 @@ const Account = UltimaBase.Schema.define({
 	}),
 })
 
+const Profiled = UltimaBase.Schema.define({
+	className: 'AppliedUpdateProfile',
+	fields: (field) => ({
+		history: field.object({
+			fields: (child) => ({
+				city: child.string({ required: true }),
+				line1: child.string({ required: true }),
+				zip: child.string(),
+			}),
+			list: true,
+		}),
+		metadata: field.json(),
+		profile: field.object({
+			fields: (child) => ({
+				address: child.object({
+					fields: (grandchild) => ({
+						city: grandchild.string({ required: true }),
+						line1: grandchild.string({ required: true }),
+						zip: grandchild.string(),
+					}),
+				}),
+				nickname: child.string(),
+				settings: child.object({
+					fields: (grandchild) => ({ theme: grandchild.string() }),
+				}),
+				tags: child.string({ list: true }),
+			}),
+		}),
+	}),
+})
+
 describe('applyUpdateExpressionToRecord', () => {
 	it('applies every portable scalar operation to a detached snapshot', () => {
 		const current = Object.freeze({
@@ -63,6 +94,65 @@ describe('applyUpdateExpressionToRecord', () => {
 				update,
 			),
 		).toStrictEqual({ balance: null, labels: [], sequence: 1n })
+	})
+
+	it('deep-patches a single object field at every depth (ADR-0032)', () => {
+		const current = Object.freeze({
+			profile: Object.freeze({
+				address: Object.freeze({ city: 'Paris', line1: '1 Rue', zip: '75001' }),
+				nickname: 'Ada',
+				settings: Object.freeze({ theme: 'dark' }),
+				tags: Object.freeze(['a', 'b']),
+			}),
+		})
+		const update = normalizeUpdateExpression(Profiled, {
+			profile: { address: { city: 'Lyon' }, settings: null, tags: ['c'] },
+		})
+
+		const candidate = applyUpdateExpressionToRecord(Profiled, current, update)
+
+		expect(candidate).toStrictEqual({
+			profile: {
+				address: { city: 'Lyon', line1: '1 Rue', zip: '75001' },
+				nickname: 'Ada',
+				settings: null,
+				tags: ['c'],
+			},
+		})
+		expect(Object.isFrozen(candidate.profile)).toBe(true)
+		expect(Object.isFrozen(candidate.profile.address)).toBe(true)
+		expect(current.profile.address.city).toBe('Paris')
+	})
+
+	it('replaces object lists, JSON values, and null objects', () => {
+		const update = normalizeUpdateExpression(Profiled, {
+			history: [{ city: 'Nice', line1: '2 Rue' }],
+			metadata: { kept: false },
+			profile: { nickname: 'Grace' },
+		})
+
+		expect(
+			applyUpdateExpressionToRecord(
+				Profiled,
+				{
+					history: [{ city: 'Lille', line1: '3 Rue', zip: '59000' }],
+					metadata: { dropped: true, kept: true },
+					profile: null,
+				},
+				update,
+			),
+		).toStrictEqual({
+			history: [{ city: 'Nice', line1: '2 Rue' }],
+			metadata: { kept: false },
+			profile: { nickname: 'Grace' },
+		})
+		expect(
+			applyUpdateExpressionToRecord(
+				Profiled,
+				{ profile: { nickname: 'Ada' } },
+				normalizeUpdateExpression(Profiled, { profile: null }),
+			),
+		).toStrictEqual({ profile: null })
 	})
 
 	it('rejects malformed and unsupported normalized operations', () => {
