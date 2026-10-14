@@ -307,6 +307,7 @@ Current records (accepted or still active in part):
 - [ADR-0333: GraphQL hidden schemas stay hidden](0333-graphql-hidden-schemas-stay-hidden.md)
 - [ADR-0334: An unknown client address is absent, not "unknown"](0334-unknown-client-address.md)
 - [ADR-0335: Plugin contributions are typed without Register](0335-contributions-typed-without-register.md)
+- [ADR-0337: definePlugin infers rule validators](0337-define-plugin-infers-validators.md)
 
 Proposed records (awaiting user validation):
 
