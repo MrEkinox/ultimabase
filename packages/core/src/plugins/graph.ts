@@ -15,6 +15,7 @@ import {
 	type NormalizedPlugin,
 } from './normalization.js'
 import { CapabilityInventory } from './capability-inventory.js'
+import { assertCoreRangeSatisfied } from './core-version.js'
 import type { CapabilityToken } from './capabilities.js'
 
 interface GraphNode {
@@ -210,6 +211,8 @@ const connectDependency = (node: GraphNode, dependency: GraphNode): void => {
 const connectGraphNodes = (graph: GraphNodes): void => {
 	for (const node of graph.all) {
 		const identity = node.plugin.definition.manifest.identity
+		// The installed Core is checked like an installed peer (ADR-0338).
+		assertCoreRangeSatisfied(node.plugin.definition.manifest)
 
 		const conflictId = node.plugin.definition.conflicts?.find((pluginId) =>
 			graph.byPluginId.has(pluginId),

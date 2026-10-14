@@ -18,7 +18,11 @@ import { restPlugin } from '@ultimabase/rest-plugin'
 import { honoServerPlugin } from '@ultimabase/hono-server-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
+import { defineOperation, definePlugin } from '@ultimabase/plugin-kit'
+import { readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { expect, it } from 'vitest'
+import { z } from 'zod'
 
 const pool: PostgresPool = {
 	connect: (): Promise<PostgresPoolClient> =>
@@ -176,5 +180,124 @@ it('publishes the audited privilege and environment contract for every official 
 	])
 	expect(manifests.map(({ identity }) => identity.pluginId)).not.toContain(
 		'ultimabase.acl-postgres',
+	)
+})
+
+const packagesDirectory = path.resolve(import.meta.dirname, '../../packages')
+
+/** Reads one field of an untrusted package manifest. */
+const readField = (value: unknown, key: string): unknown =>
+	typeof value === 'object' && value !== null
+		? Reflect.get(value, key)
+		: undefined
+
+/** Reads one string-keyed map from an untrusted package manifest. */
+const readRecord = (
+	value: unknown,
+	key: string,
+): Readonly<Record<string, unknown>> => {
+	const entry = readField(value, key)
+	return typeof entry === 'object' && entry !== null
+		? Object.fromEntries(Object.entries(entry))
+		: {}
+}
+
+const packageManifests = readdirSync(packagesDirectory, { withFileTypes: true })
+	.filter((entry) => entry.isDirectory())
+	.map((entry): unknown =>
+		JSON.parse(
+			readFileSync(
+				path.join(packagesDirectory, entry.name, 'package.json'),
+				'utf8',
+			),
+		),
+	)
+
+const packageName = (manifest: unknown): unknown => readField(manifest, 'name')
+
+const coreVersion = readField(
+	packageManifests.find(
+		(manifest) => packageName(manifest) === '@ultimabase/core',
+	),
+	'version',
+)
+
+/**
+ * The Core range a package publishes: its `@ultimabase/core` peer, else its
+ * dependency, with Yarn's `workspace:` protocol replaced as `yarn npm publish`
+ * replaces it.
+ */
+const publishedCoreRange = (name: string): unknown => {
+	const manifest = packageManifests.find(
+		(candidate) => packageName(candidate) === name,
+	)
+	const range =
+		readRecord(manifest, 'peerDependencies')['@ultimabase/core'] ??
+		readRecord(manifest, 'dependencies')['@ultimabase/core']
+	if (typeof range !== 'string' || !range.startsWith('workspace:')) return range
+	const specifier = range.slice('workspace:'.length)
+	if (specifier === '*') return coreVersion
+	if (specifier === '^' || specifier === '~') {
+		return `${specifier}${String(coreVersion)}`
+	}
+	return specifier
+}
+
+it('declares the Core range each official plugin package publishes (ADR-0338)', () => {
+	const declared = [
+		['@ultimabase/postgres-plugin', postgresPlugin({ pool }).manifest.core],
+		['@ultimabase/access-plugin', accessPlugin().manifest.core],
+		['@ultimabase/hooks-plugin', hooksPlugin().manifest.core],
+		['@ultimabase/validation-plugin', validationPlugin().manifest.core],
+		['@ultimabase/soft-delete-plugin', softDeletePlugin().manifest.core],
+		[
+			'@ultimabase/http-plugin',
+			httpPlugin({ appId: 'manifest-fixture' }).manifest.core,
+		],
+		['@ultimabase/rest-plugin', restPlugin().manifest.core],
+		['@ultimabase/graphql-plugin', graphqlPlugin().manifest.core],
+		['@ultimabase/graphql-yoga-plugin', graphqlYogaPlugin().manifest.core],
+		[
+			'@ultimabase/graphql-explorer-plugin',
+			graphqlExplorerPlugin({ environment: 'development' }).manifest.core,
+		],
+		['@ultimabase/acl-permissions-plugin', aclPlugin().manifest.core],
+		['@ultimabase/roles-plugin', rolesPlugin().manifest.core],
+		['@ultimabase/pg-vector-plugin', pgVectorPlugin().manifest.core],
+		[
+			'@ultimabase/auth-plugin',
+			authPlugin({ methods: [password()] }).manifest.core,
+		],
+		['@ultimabase/hono-server-plugin', honoServerPlugin().manifest.core],
+		[
+			'@ultimabase/plugin-kit',
+			definePlugin({ name: '@fixture/core-range' }).manifest.core,
+		],
+		[
+			'@ultimabase/plugin-kit',
+			defineOperation({
+				name: 'coreRange',
+				input: z.object({}),
+				output: z.object({}),
+				handler: () => ({}),
+			}).manifest.core,
+		],
+	] as const
+
+	// Every package that makes plugins is listed: `*-plugin` packages and Plugin Kit.
+	expect(new Set(declared.map(([name]) => name))).toStrictEqual(
+		new Set(
+			packageManifests
+				.map(packageName)
+				.filter(
+					(name) =>
+						typeof name === 'string' &&
+						(name.endsWith('-plugin') || name === '@ultimabase/plugin-kit'),
+				),
+		),
+	)
+	// A Core release moves the published range: the manifests must move with it.
+	expect(declared.map(([name, core]) => ({ name, core }))).toStrictEqual(
+		declared.map(([name]) => ({ name, core: publishedCoreRange(name) })),
 	)
 })

@@ -229,7 +229,7 @@ export class PluginConformanceSuite<
  * @example
  * ```ts
  * const suite = definePluginConformanceSuite({
- *   expected: { pluginId: 'community.workflow', version: '1.0.0', core: '^1.0.0' },
+ *   expected: { pluginId: 'community.workflow', version: '1.0.0', core: '^0.0.0' },
  *   createFixture: () => createPluginConformanceFixture({ subject: workflowPlugin() }),
  * })
  * ```

@@ -172,7 +172,7 @@ export interface PluginManifest<
 	readonly identity: PluginIdentity<TPluginId, TInstanceId>
 	/** Records the plugin package's canonical semantic version. */
 	readonly version: TVersion
-	/** Records the supported `@ultimabase/core` semantic-version range. */
+	/** Records the supported `@ultimabase/core` semantic-version range, which the installed Core must satisfy. */
 	readonly core: TCoreRange
 	/** Lists the exact enforceable powers requested by the plugin. */
 	readonly privileges: TPrivileges

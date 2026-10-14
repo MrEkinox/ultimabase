@@ -143,7 +143,7 @@ export interface PluginOptions<
 	readonly id: TPluginId
 	/** Exact package version recorded in plugin provenance. @example "1.2.0" */
 	readonly version: TVersion
-	/** Supported Core semantic-version range. @example "^1.0.0" */
+	/** Supported Core semantic-version range, checked against the installed Core like a peer range. @example "^0.0.0" */
 	readonly core: TCoreRange
 	/** Explicit identity when this plugin is configured more than once. */
 	readonly instanceId?: TInstanceId
