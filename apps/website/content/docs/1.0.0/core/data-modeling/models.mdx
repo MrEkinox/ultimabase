@@ -8,8 +8,11 @@ contentType: concept
 order: 3
 outcome: Use frozen plain results, the Model and CreateInput types, and toJSON.
 releaseStatus: pre-release
-reviewedAt: 2026-10-10
+reviewedAt: 2026-10-14
 sources:
+  - examples/modeling/README.md
+  - examples/modeling/src/books.ts
+  - examples/modeling/tests/models.test.ts
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/src/schema/schema/model-class.ts
@@ -29,30 +32,16 @@ an open database connection, or an object with methods.
 
 ## Results are data
 
-The example uses the `Product` schema from [Fields](./fields). Its application
-must be started with a persistence plugin, as in
-[Manual Installation](/docs/1.0.0/manual-installation).
+The example uses the `Book` schema from [Fields](./fields), in the started
+application of the [modeling example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/modeling):
 
-```ts title="src/product-model.ts"
-import { toJSON } from '@ultimabase/core'
+<include cwd meta='title="tests/models.test.ts"'>
+	../../examples/modeling/tests/models.test.ts#results
+</include>
 
-import { Product } from './product.js'
-
-const created = await Product.createOne({
-	data: { name: 'Notebook', price: '19.90', tags: ['typescript'] },
-	select: { name: true },
-})
-const updated = await Product.updateOne({
-	where: { id: { eq: created.id } },
-	data: { price: '24.90' },
-	select: { name: true, price: true },
-})
-
-console.log(toJSON(updated))
-```
-
-`created` contains `name` and the implicitly selected `id`, but not `price` or
-`tags`. Each result is a separate frozen object whose prototype is
+`created` is `{ id, title: 'Notes' }`: the implicitly selected `id` and
+`title`, but not `price` or `tags`. `updated` adds the new `price` and the
+`author` pointer. Each result is a separate frozen object whose prototype is
 `Object.prototype`: property reads, enumeration, spreading, and structural
 comparison work as for any plain object, and no property can be reassigned.
 The earlier `created` value keeps its earlier values; read again when you need
@@ -65,12 +54,12 @@ A result holds:
 - a plain object or `null` for an included pointer;
 - an array of plain objects for an included relation.
 
-Schemas are not constructible: `new Product(data)` throws, and a result has no
-`create()`, `update()`, `fetch()`, `delete()`, `toPointer()`, or `relation()`.
-Write through the schema
-(`Product.updateOne({ where: { id: { eq: product.id } }, data })`), read related
+Schemas are not constructible: TypeScript rejects `new Book(data)`, and it
+throws `Book is not constructible`. A result has no `create()`, `update()`,
+`fetch()`, `delete()`, `toPointer()`, or `relation()`. Write through the schema
+(`Book.updateOne({ where: { id: book.id }, data })`), read related
 rows with `include` or a relation filter, and link rows with nested writes such
-as `{ tags: { connect: [tagId] } }`. A `Pointer` keeps `id`, `schema`,
+as `{ wishlist: { connect: [bookId] } }`. A `Pointer` keeps `id`, `schema`,
 `equals()` and `toJSON()`; read its target with the target schema.
 
 ## Visible fields and identity
@@ -84,28 +73,31 @@ exclusion rules.
 ## Named types
 
 `Model<T>`, `CreateInput<T>`, `UpdateInput<T>` and `UniqueWhereInput<T>` name
-the result, the write data and the unique target of one schema. `T` is a registered schema name, such as `Model<'Product'>`,
-or a schema type, such as `Model<typeof Product>`.
+the result, the write data and the unique target of one schema. `T` is a
+registered schema name, such as `Model<'Book'>`, or a schema type, such as
+`Model<typeof Book>`. The example names the
+parameters of three helpers:
 
-```ts title="src/product-types.ts"
-import type { CreateInput, Model } from '@ultimabase/core'
-
-import { Product } from './product.js'
-
-export const describe = (product: Model<typeof Product>): string =>
-	`${product.name}: ${product.price}`
-
-export const draft: CreateInput<typeof Product> = {
-	name: 'Notebook',
-	price: '19.90',
-}
-```
+<include cwd meta='title="src/books.ts"'>
+	../../examples/modeling/src/books.ts#named-types
+</include>
 
 `Model<T>` is the result of `findOne` without `select` or `include`.
 `CreateInput<T>` is the `data` of `createOne`, nested writes included.
+`UpdateInput<T>` is the `data` of `updateOne`, with at least one field.
 `UniqueWhereInput<T>` is the `where` of `updateOne`, `deleteOne`, and
 `upsertOne`: `{ id }`, each unique field, or each unique index of `define`
-without `where`, with all of its fields.
+without `where`, with all of its fields. Hover `editBook` to see the types
+it takes for `Book`:
+
+```ts twoslash title="Named types"
+import '../../examples/modeling/src/ultimabase.ts'
+import { editBook } from '../../examples/modeling/src/books.ts'
+// ---cut---
+await editBook({ isbn: '9780000000055' }, { title: 'More tales' })
+await editBook({ author: 'AUTHOR_ID', title: 'Tales' }, { pages: 120 })
+//    ^?
+```
 
 ## Serialize with toJSON
 
@@ -114,8 +106,16 @@ serializes a result, a list of results, or any value inside them exactly as REST
 responses do: `bigint` as a decimal string, binary as
 `{ type: 'binary', encoding: 'base64', data }`, a `Pointer` as
 `{ type: 'pointer', className, id }`, and included rows and embedded objects
-recursively. Its return type, `JsonOf<T>`, describes that JSON shape. Use it in
-custom routes, logs, and responses: `Response.json(toJSON(product))`.
+recursively:
+
+<include cwd meta='title="tests/models.test.ts"'>
+	../../examples/modeling/tests/models.test.ts#to-json
+</include>
+
+`json` is `{ book: { id, author: { type: 'pointer', className: 'Author', id },
+cover: { type: 'binary', encoding: 'base64', data: 'AQID' } }, order: { id,
+number: '1' } }`. Its return type, `JsonOf<T>`, describes that JSON shape. Use it in
+custom routes, logs, and responses: `Response.json(toJSON(book))`.
 
 `toJSON` is strict: it throws on `undefined`, non-finite numbers, circular
 values, and objects it cannot represent.

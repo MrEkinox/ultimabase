@@ -7,8 +7,13 @@ contentType: concept
 order: 6
 outcome: Define a virtual field and predict its selection, privacy, typing, and failure behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-10-12
+reviewedAt: 2026-10-14
 sources:
+  - examples/modeling/README.md
+  - examples/modeling/src/catalog.ts
+  - examples/modeling/src/customers.ts
+  - examples/modeling/src/loyalty.ts
+  - examples/modeling/tests/virtual.test.ts
   - packages/core/README.md
   - packages/core/examples/schema/virtual-fields.md
   - packages/core/src/schema/output/descriptor.ts
@@ -26,29 +31,21 @@ but never becomes mutation input or a database column.
 ## Declare a virtual field
 
 Declare the result shape, the persisted values the resolver needs, and the
-resolver itself:
+resolver itself. The `Author` schema of the
+[modeling example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/modeling)
+computes `displayName` from two stored fields:
 
-```ts title="src/profile.ts"
-import { UltimaBase } from '@ultimabase/core'
-
-export const Profile = UltimaBase.Schema.define({
-	className: 'DocsProfile',
-	fields: (f) => ({
-		firstName: f.string({ required: true }),
-		lastName: f.string({ required: true }),
-		displayName: f.virtual({
-			output: (output) => output.string({ nullable: false }),
-			select: { firstName: true, lastName: true },
-			resolve: ({ item }) => `${item.firstName} ${item.lastName}`,
-		}),
-	}),
-})
-```
+<include cwd meta='title="src/catalog.ts"'>
+	../../examples/modeling/src/catalog.ts#author
+</include>
 
 `output` defines the complete returned value. Outputs are nullable by default;
 `nullable: false` requires a string here rather than `null`. `undefined` is
 invalid even for a nullable output. The `output` callback describes the value
 once at schema compilation; `resolve` computes it for each selected result.
+Inside the `fields` callback, the schema's own types do not exist yet, so the
+dependency values of `item` are typed `unknown`: convert or narrow them, as
+`String(...)` does here. The result type of `displayName` is still `string`.
 
 Output descriptors can also describe one-dimensional lists and typed objects
 through `output.object({ fields })`. A list's container may be nullable, but
@@ -59,30 +56,33 @@ fields or schema relationships.
 
 ## Select the result
 
-After registering `Profile` in a started application with a persistence plugin,
-read only the computed field:
+In the started application of the example, read only the computed field:
 
-```ts title="src/read-profile.ts"
-import { Profile } from './profile.js'
+<include cwd meta='title="tests/virtual.test.ts"'>
+	../../examples/modeling/tests/virtual.test.ts#select-virtual
+</include>
 
-export const readDisplayName = async (id: string) => {
-	const profile = await Profile.findOneOrThrow({
-		where: { id },
-		select: { displayName: true },
-	})
+The returned object is `{ id, displayName: 'Ada Lovelace' }`; it does not
+contain `firstName` or `lastName`. The selection narrows its type; hover the
+name:
 
-	return profile
-}
+```ts twoslash title="Selected type"
+import '../../examples/modeling/src/ultimabase.ts'
+import { Author } from '../../examples/modeling/src/catalog.ts'
+// ---cut---
+const author = await Author.findOneOrThrow({
+	where: { id: { eq: 'AUTHOR_ID' } },
+	select: { displayName: true },
+})
+type Selected = typeof author
+//   ^?
 ```
 
-For an existing profile, the returned object contains `id` and `displayName`;
-it does not contain `firstName` or `lastName`. `id` is included in every
-persisted result even when the selection omits it. The frozen result does not
+`id` is included in every persisted result even when the selection omits it. The frozen result does not
 keep hidden dependencies. If the ID does not identify
 a visible record, `findOneOrThrow()` reports `NOT_FOUND`. See
 [Selections](/docs/1.0.0/core/reading-data/selections) for the broader result
-contract and [Manual Installation](/docs/1.0.0/manual-installation) for
-application setup.
+contract.
 
 ## Selection and private dependencies
 
@@ -126,27 +126,28 @@ several parents resolve in parallel, one call per parent and field.
 To resolve every row of one read in one call, declare `resolveMany` instead
 of `resolve` (ADR-0325). It receives the immutable dependency `items` in result
 order and returns one value per item, in the same order; a list of another
-length fails the operation:
+length fails the operation. The example's loyalty service answers for many
+customers in one request:
 
-```ts title="src/tag.ts"
-const Tag = Application.Schema.define({
-	className: 'Tag',
-	fields: (field) => ({
-		name: field.string({ required: true }),
-		usage: field.virtual({
-			output: (output) => output.int({ nullable: false }),
-			select: { name: true },
-			resolveMany: async ({ items }) =>
-				countUsages(items.map(({ name }) => name)),
-		}),
-	}),
-})
-```
+<include cwd meta='title="src/loyalty.ts"'>
+	../../examples/modeling/src/loyalty.ts#loyalty
+</include>
 
-A read of 50 tags calls `resolveMany` once; included tags call it once per
-parent. Relations read with `include`, a REST `include` or a GraphQL selection
-are one SQL statement. Reading a relation row by row in application code, such
-as `todo.relation('tags').findMany()` in a loop, stays one query per row:
+`Customer.loyaltyTier` calls it once per read:
+
+<include cwd meta='title="src/customers.ts"'>
+	../../examples/modeling/src/customers.ts#customer
+</include>
+
+<include cwd meta='title="tests/virtual.test.ts"'>
+	../../examples/modeling/tests/virtual.test.ts#resolve-many
+</include>
+
+This read of three customers calls `loyaltyService.tiers` once; included rows
+call it once per parent. A selection that excludes `loyaltyTier`, such as
+`select: { loyaltyTier: false }`, does not call it. Relations read with `include`, a REST `include` or a GraphQL selection
+are one SQL statement. Reading related rows one parent at a time in application code,
+such as one `Book.findMany()` per author in a loop, stays one query per parent:
 include the relation instead. There is no cross-request
 cache, automatic retry, or exactly-once side-effect guarantee; do not use a
 resolver as a Hook or event handler. An exception from `resolve` fails the

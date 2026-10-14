@@ -8,8 +8,13 @@ contentType: concept
 order: 1
 outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-14
 sources:
+  - examples/modeling/README.md
+  - examples/modeling/src/catalog.ts
+  - examples/modeling/src/ultimabase.ts
+  - examples/modeling/tests/schemas.test.ts
+  - examples/soft-delete/src/schema.ts
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/src/schema/schema/definition.ts
@@ -28,24 +33,19 @@ sources:
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
-fields that records of that kind can contain. `UltimaBase.Schema.define()`
-returns the inert schema class immediately and derives its local TypeScript
-contracts from the field declaration. Registration remains explicit when an
-application lists that class in `schemas`.
+fields that records of that kind can contain. `App.Schema.define()` returns the
+inert schema class immediately and derives its local TypeScript contracts from
+the field declaration. Registration remains explicit when an application lists
+that class in `schemas`.
 
-```ts title="src/article.ts"
-import { UltimaBase } from '@ultimabase/core'
+The [modeling example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/modeling)
+is a small bookshop. Its `Book` schema declares one field of each built-in
+value kind and two composite indexes; `App` is the configured factory of
+[Application](/docs/1.0.0/core/application#configure-the-application):
 
-export const Article = UltimaBase.Schema.define({
-	className: 'DocsArticle',
-	fields: (f) => ({
-		published: f.boolean({ default: false }),
-		slug: f.string({ indexed: 'unique', required: true }),
-		title: f.string({ required: true }),
-	}),
-	indexes: [{ fields: ['published', 'createdAt'] }],
-})
-```
+<include cwd meta='title="src/catalog.ts"'>
+	../../examples/modeling/src/catalog.ts#book
+</include>
 
 ## Declaration options
 
@@ -62,9 +62,9 @@ export const Article = UltimaBase.Schema.define({
 `.with({ ... })` instead, as [Plugin methods and rules](#plugin-methods-and-rules)
 shows. Field-level plugin options, such as a field's `validation`, stay on the
 field. Use the configured factory's `App.Schema.define()` to obtain the
-methods, rules, and field options of the installed plugins; the examples above
-use the portable zero-plugin root. Importing a plugin package alone does not
-install it. See [Using Plugins](/docs/1.0.0/plugins/using-plugins).
+methods, rules, and field options of the installed plugins; the zero-plugin
+root `UltimaBase.Schema.define()` declares portable Core-only schemas. Importing
+a plugin package alone does not install it. See [Using Plugins](/docs/1.0.0/plugins/using-plugins).
 
 ## Indexes
 
@@ -78,46 +78,34 @@ queries or uniqueness requirements you actually have.
 
 Set `indexed: true` on a stored field for an ordinary index, or
 `indexed: 'unique'` when stored values must be distinct. Omit `indexed` or
-use `indexed: false` when no index is needed. The `slug` field in the first
-example is unique across all `DocsArticle` records; `published` is not unique.
+use `indexed: false` when no index is needed. The `isbn` field of `Book` is
+unique across all books.
 An index does not make a field required: `required` and uniqueness are separate
 decisions. If absence must be forbidden, also set `required: true`. A row with
 `null` in an indexed field never conflicts: several rows may hold `null` in a
 unique field. A duplicate fails with `UNIQUE_VIOLATION`, whose public details
-list the schema and the index fields, never the values.
+list the schema and the index fields, never the values:
+
+<include cwd meta='title="tests/schemas.test.ts"'>
+	../../examples/modeling/tests/schemas.test.ts#unique-violation
+</include>
+
+Here `failure` is a `FrameworkError` with `code: 'UNIQUE_VIOLATION'` and
+`publicDetails: { schema: 'Book', fields: ['isbn'] }`.
 
 ### Index a combination
 
 Use the schema-level `indexes` array when the index covers several distinct
-top-level fields or needs a `where` predicate. The first example indexes `published` together with
-the framework-owned `createdAt` field. The order in `fields` is preserved;
+top-level fields or needs a `where` predicate. `Book` declares two such
+indexes. The order in `fields` is preserved;
 put the columns in the order that serves your common query pattern, then check
 the database's query plan when performance matters. The database planner, not
 Core, decides whether an ordinary index is used for a particular query.
 
-For a slug that is unique only within one tenant, declare the pair as unique
-instead of making `slug` globally unique:
-
-```ts title="src/tenant-article.ts"
-import { UltimaBase } from '@ultimabase/core'
-
-export const TenantArticle = UltimaBase.Schema.define({
-	className: 'TenantArticle',
-	fields: (f) => ({
-		slug: f.string({ required: true }),
-		tenantId: f.string({ required: true }),
-		title: f.string({ required: true }),
-	}),
-	indexes: [
-		{ fields: ['tenantId', 'slug'], unique: true },
-		{ fields: ['tenantId', 'createdAt'] },
-	],
-})
-```
-
-The first index forbids two articles with the same `tenantId` **and** `slug`,
-but permits the same slug in different tenants. The second is an ordinary
-index for tenant-scoped chronological reads; it permits duplicates. `unique`
+The first index forbids two books with the same `author` **and** `title`, but
+permits the same title for different authors. The second, over `genre` and the
+framework-owned `createdAt` field, is an ordinary index for the latest books
+of a genre; it permits duplicates. `unique`
 defaults to `false`. Core rejects repeated or unknown fields, an empty `fields`
 list, and an entry identical to a field-level `indexed` declaration. Index only
 top-level stored fields or framework-owned system fields, not an embedded
@@ -128,20 +116,12 @@ child, relation, or virtual result.
 A `where` predicate restricts an index to the rows it matches; with `unique`,
 values must be distinct only among those rows. Declare such `indexes` in the
 final `.with`, which sees every field, including fields added by shape methods
-such as `.softDelete()`:
+such as `.softDelete()`. The [Soft Delete example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/soft-delete)
+declares one:
 
-```ts title="src/article.ts"
-import { App } from './app.js'
-
-export const Article = App.Schema.define({
-	className: 'Article',
-	fields: (f) => ({ slug: f.string({ required: true }) }),
-})
-	.softDelete()
-	.with({
-		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
-	})
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/soft-delete/src/schema.ts#article
+</include>
 
 A deleted article no longer reserves its slug. The predicate is static and
 portable: equality (a literal or `eq`), `gt`, `gte`, `lt` and `lte` on scalar
@@ -155,7 +135,14 @@ otherwise the application refuses to start with
 A field declared `indexed: 'unique'` and a unique index of `define` without
 `where` are exact [unique targets](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target)
 of `updateOne`, `deleteOne`, and `upsertOne`. A partial unique index or one
-declared in `.with` only enforces uniqueness: it is not a target.
+declared in `.with` only enforces uniqueness: it is not a target. `Book` has
+three targets, `{ id }`, `{ isbn }`, and `{ author, title }`:
+
+<include cwd meta='title="tests/schemas.test.ts"'>
+	../../examples/modeling/tests/schemas.test.ts#unique-targets
+</include>
+
+Both calls update the same book. A pointer in a target takes the target's ID.
 The database plugin creates and enforces physical indexes; Core records
 portable intent and does not expose SQL or index names. See
 [PostgreSQL index preparation](/docs/1.0.0/plugins/official/postgresql#index-preparation)
@@ -163,24 +150,20 @@ before relying on a new index in an existing database.
 
 ## Register and compile
 
-Register schemas you define directly in the application's `schemas` array:
+Register schemas you define directly in the application's `schemas` array,
+and declare the application once in `Register` for short, name-keyed editor
+types such as `Model<'Book'>`:
 
-```ts title="src/ultimabase.ts"
-import { UltimaBase } from '@ultimabase/core'
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/modeling/src/ultimabase.ts#application
+</include>
 
-import { Article } from './article.js'
-
-export const ultimabase = new UltimaBase({
-	schemas: [Article],
-})
-```
-
-This example only registers the schema; it installs no database adapter. For
-a working application, add a persistence plugin and call `start()` as shown in
-[Manual Installation](/docs/1.0.0/manual-installation). At startup, UltimaBase
-runs installed plugins' static declarations, then compiles the complete schema
-graph before plugin setup or database connections. The `fields` callback runs
-once when `article.ts` is imported to capture inert builder calls. That capture
+Its factory installs PostgreSQL; call `start()` as shown in
+[Application](/docs/1.0.0/core/application#start-and-dispose). At startup,
+UltimaBase runs installed plugins' static declarations, then compiles the
+complete schema graph before plugin setup or database connections. The
+`fields` callback runs once when `catalog.ts` is imported to capture inert
+builder calls. That capture
 does not register the schema, connect infrastructure, or depend on application
 lifecycle state.
 
@@ -189,13 +172,13 @@ do not need an entry in the application's `schemas` array.
 
 ## Schema classes and application handles
 
-`UltimaBase.Schema.define()` returns the final schema class. Its fields, Core
+`App.Schema.define()` returns the final schema class. Its fields, Core
 operation inputs, filters, selections, and results infer from the source
 declaration; no generation step is involved. Core-only declarations resolve their metadata
 immediately; configured plugin builder calls resolve when a compatible
 application compiles them. Ordinary schema commands execute against an owning
 application. Use
-`ultimabase.schema(Article)` only for application-specific mutation handles. Ordinary CRUD uses `Article` directly. The handle also accepts
+`ultimabase.schema(Book)` only for application-specific mutation handles. Ordinary CRUD uses `Book` directly. The handle also accepts
 the registered name of a plugin-contributed schema; its `.schema` is the
 runtime class and can run ordinary commands. A plugin schema mutation can also
 be declared directly on the frozen configured class before startup; execution
@@ -206,7 +189,7 @@ for an example and [Models](./models) for plain data results.
 ## Schema identity
 
 `className` is the stable logical identity used by relations, name-keyed types
-such as `Model<'Article'>`, and adapters. Treat it like a persistent API name: changing it describes a
+such as `Model<'Book'>`, and adapters. Treat it like a persistent API name: changing it describes a
 different schema, not a cosmetic rename.
 
 ## System fields
@@ -239,42 +222,21 @@ database connection, not on the first request. See
 ## Plugin methods and rules
 
 `define` holds the data, relation targets are functions that return the target
-schema, plugins add methods such as `.softDelete()`, and a final `.with` holds
-the plugin rules:
+schema (as `author` of `Book` shows), plugins add methods such as
+`.softDelete()`, and a final `.with` holds the plugin rules. The Soft Delete
+example's `Post`:
 
-```ts title="src/todo.ts"
-export const Todo = App.Schema.define({
-	className: 'Todo',
-	fields: (field) => ({
-		title: field.string({ required: true }),
-		archived: field.boolean({ default: false }),
-		assignee: field.pointer({ target: () => TodoUser }),
-	}),
-})
-	.softDelete()
-	.with({
-		access: { read: ({ where }) => where.eq('archived', false) },
-	})
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/soft-delete/src/schema.ts#post
+</include>
 
 `.with` must be the last call and is optional: a schema without plugin rules
 ends with `define(...)` or its last shape method. A plugin option passed to
 `define` fails with
 `Unknown schema option: access. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)`
-and is a TypeScript error.
-
-Declare the application once for short, name-keyed editor types such as
-`Model<'Todo'>`:
-
-```ts title="src/ultimabase.ts"
-export const ultimabase = new App({ schemas: [TodoUser, Todo] })
-
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
+and is a TypeScript error. Core owns two `.with` rules itself: the partial
+`indexes` above, and `relations`, which filters reads through a relation (see
+[Relationships](./relationships#change-relation-membership)).
 
 Schemas in separate files may reference each other, including circular
 pointers and relations, because each target is a function. Role and User

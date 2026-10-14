@@ -97,6 +97,15 @@ Examples are user-facing, tested applications. They must only import public `@ul
   blocks are the code of the GraphQL page and the `graphql-plugin`,
   `graphql-yoga-plugin`, `graphql-http` and `graphql-explorer-plugin` READMEs
   (ADR-0330).
+- [`modeling`](modeling/README.md): Core data modeling end to end (the
+  configured factory, the application with its `validation` options and
+  `Register`, a field of each built-in kind with its options, shared and local
+  enums, composite indexes and unique targets, embedded objects, virtual
+  fields with `resolve` and `resolveMany`, pointers with `restrict` and
+  `cascade` deletion, owning, inverse and filtered relations, frozen plain
+  results, `toJSON` and the named types), tested with `testApplication`. Its
+  `//#region` blocks are the code of the Application and Data Modeling pages
+  and the Core README (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.

@@ -269,8 +269,10 @@ describe('documentation navigation architecture', () => {
 		]) {
 			expect(page).toContain(heading)
 		}
-		expect(page).toContain("import { Product } from './product.js'")
-		expect(page).toContain("name: 'Notebook'")
+		expect(page).toContain(
+			'../../examples/modeling/tests/models.test.ts#results',
+		)
+		expect(page).toContain('../../examples/modeling/src/books.ts#named-types')
 		await expect(
 			readFile(
 				path.join(contentRoot, '1.0.0/reference/core-api/models.mdx'),

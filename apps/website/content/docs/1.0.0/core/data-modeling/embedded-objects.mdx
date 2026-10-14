@@ -7,8 +7,12 @@ contentType: concept
 order: 5
 outcome: Define a typed embedded value, update it safely, and know when to use a separate schema.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-14
 sources:
+  - examples/modeling/README.md
+  - examples/modeling/src/address.ts
+  - examples/modeling/src/customers.ts
+  - examples/modeling/tests/embedded.test.ts
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/examples/schema/objects-and-lists.md
@@ -23,66 +27,40 @@ when the nested data has a known shape but no independent identity or lifecycle.
 
 ## Define the shape
 
-```ts title="src/customer.ts"
-import { UltimaBase, type EmbeddedFieldBuilder } from '@ultimabase/core'
+The `Customer` schema of the
+[modeling example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/modeling)
+declares one reusable child shape:
 
-const addressFields = (f: EmbeddedFieldBuilder) => ({
-	city: f.string({ required: true }),
-	countryCode: f.string({ required: true }),
-	line1: f.string({ required: true }),
-	line2: f.string(),
-})
+<include cwd meta='title="src/address.ts"'>
+	../../examples/modeling/src/address.ts#address
+</include>
 
-export const Customer = UltimaBase.Schema.define({
-	className: 'DocsCustomer',
-	fields: (f) => ({
-		name: f.string({ required: true }),
-		shippingAddress: f.object({
-			fields: addressFields,
-			required: true,
-			typeName: 'DocsAddress',
-		}),
-		previousAddresses: f.object({
-			default: [],
-			fields: addressFields,
-			list: true,
-			typeName: 'DocsPreviousAddress',
-		}),
-	}),
-})
-```
+and uses it twice, for one address and for a list of addresses:
+
+<include cwd meta='title="src/customers.ts"'>
+	../../examples/modeling/src/customers.ts#customer
+</include>
 
 The reusable `addressFields` callback declares the same child shape in both
-places. `list: true` wraps that shape in one list; it does not give each address
-its own record ID. `typeName` supplies a stable base name for the object types
-that schema generators such as GraphQL derive. It does not create a separate
-schema or change Runtime behavior.
+places; `EmbeddedFieldBuilder` types its builder, which has no pointer,
+relation, or index options. `list: true` wraps that shape in one list; it does
+not give each address its own record ID. `typeName` supplies a stable base
+name for the object types that schema generators such as GraphQL derive. It
+does not create a separate schema or change Runtime behavior. The other fields
+of `Customer` appear in [Virtual Fields](./virtual-fields) and
+[Relationships](./relationships).
 
 ## Create and read values
 
-Register `Customer` in a started application with a persistence plugin before
-running this code; [Manual Installation](/docs/1.0.0/manual-installation) shows
-that setup.
+In the started application of the example, create a customer with only its
+required address children:
 
-```ts title="src/customer-values.ts"
-import { Customer } from './customer.js'
+<include cwd meta='title="tests/embedded.test.ts"'>
+	../../examples/modeling/tests/embedded.test.ts#create-customer
+</include>
 
-const created = await Customer.createOne({
-	data: {
-		name: 'Ada',
-		shippingAddress: {
-			city: 'Paris',
-			countryCode: 'FR',
-			line1: '12 Rue Exemple',
-		},
-	},
-})
-
-console.log(created.shippingAddress)
-```
-
-In the complete result, `shippingAddress.line2` is `null` because it was
-omitted, and `previousAddresses` is `[]` because of its default. A missing
+In the result, `shippingAddress.line2` is `null` because it was omitted, and
+`previousAddresses` is `[]` because of its default. A missing
 required child such as `city`, an unknown child name, or a `null` list item is
 rejected. The parent field's `required: true` makes the whole address non-null;
 each child has its own requiredness. Without that parent option, an omitted
@@ -97,27 +75,18 @@ keep their stored values. By contrast, updating an object list **replaces the
 entire list**: each supplied item must include its required children. There is
 no index-based patch of one list entry.
 
-```ts title="src/customer-values.ts"
-const updated = await created.update({
-	data: {
-		shippingAddress: { line2: 'Suite 2' },
-		previousAddresses: [
-			{
-				city: 'Lyon',
-				countryCode: 'FR',
-				line1: '8 Rue Exemple',
-			},
-		],
-	},
-})
-```
+This update supplies every child of `shippingAddress` and a new list, so each
+list item includes its required children:
 
-The patch keeps the existing `shippingAddress.city`, `countryCode`, and
-`line1`. The new list contains only the supplied Lyon address. The returned
-`updated` model is a new immutable snapshot; `created` is unchanged. Setting
-an optional object or list to `null` clears the whole value, while `[]` means
-an empty list. See [Update Records](/docs/1.0.0/core/writing-data/update) for
-the general mutation contract.
+<include cwd meta='title="tests/embedded.test.ts"'>
+	../../examples/modeling/tests/embedded.test.ts#update-addresses
+</include>
+
+The new list contains only the supplied Paris address, with `line2: null`. The
+returned `updated` result is a new frozen snapshot; `customer` is unchanged.
+Setting an optional object or list to `null` clears the whole value, while
+`[]` means an empty list. See [Update Records](/docs/1.0.0/core/writing-data/update)
+for the general mutation contract.
 
 ## Boundaries
 

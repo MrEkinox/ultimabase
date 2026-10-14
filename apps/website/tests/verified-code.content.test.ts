@@ -54,6 +54,15 @@ const enforcedDocuments = [
 	'packages/graphql-http/README.md',
 	'packages/graphql-explorer-plugin/README.md',
 	'examples/graphql/README.md',
+	'apps/website/content/docs/1.0.0/core/application.mdx',
+	'apps/website/content/docs/1.0.0/core/data-modeling/schemas.mdx',
+	'apps/website/content/docs/1.0.0/core/data-modeling/fields.mdx',
+	'apps/website/content/docs/1.0.0/core/data-modeling/models.mdx',
+	'apps/website/content/docs/1.0.0/core/data-modeling/defaults.mdx',
+	'apps/website/content/docs/1.0.0/core/data-modeling/embedded-objects.mdx',
+	'apps/website/content/docs/1.0.0/core/data-modeling/virtual-fields.mdx',
+	'apps/website/content/docs/1.0.0/core/data-modeling/relationships.mdx',
+	'examples/modeling/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({
