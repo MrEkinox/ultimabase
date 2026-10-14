@@ -2258,6 +2258,12 @@ includes only its code, retryability, `publicMessage`, and `publicDetails`.
 Transports map that payload to their protocol-specific error formats without
 adding transport metadata to Core.
 
+Asynchronous operations report every failure through the promise they return:
+schema reads and commands, plugin schema mutations, `start()`, `stop()`,
+`dispose()`, `transaction()` and `can()` never throw from the call itself, also
+for malformed input (a `TypeError`) or a missing application
+(`MISSING_EXECUTION_CONTEXT`).
+
 Application code refuses an operation with a client-visible message by
 throwing `PublicError` (ADR-0305), here from an Access rule of the queries
 example:

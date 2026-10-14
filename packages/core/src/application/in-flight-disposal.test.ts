@@ -65,7 +65,7 @@ describe('disposal of framework-owned work', () => {
 		try {
 			await Promise.resolve(undefined)
 			expect(trace).not.toContain('dispose')
-			expect(() => Post.findMany(undefined)).toThrow(
+			await expect(Post.findMany(undefined)).rejects.toThrow(
 				'initialized active application',
 			)
 			result.resolve([row])

@@ -218,18 +218,18 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		expect(removed?.displayName).toBe('Grace Hopper')
 	})
 
-	it('rejects virtual predicates and ordering before PostgreSQL execution', () => {
+	it('rejects virtual predicates and ordering before PostgreSQL execution', async () => {
 		const { pool: recorder } = getApplication()
 
 		recorder.reset()
-		expect(() =>
+		await expect(
 			Person.findMany({ where: { displayName: { eq: 'Ada Byron' } } } as never),
-		).toThrow(TypeError)
+		).rejects.toThrow(TypeError)
 		expect(recorder.statements).toStrictEqual([])
 
-		expect(() =>
+		await expect(
 			Person.findMany({ orderBy: { displayName: 'asc' } } as never),
-		).toThrow(TypeError)
+		).rejects.toThrow(TypeError)
 		expect(recorder.statements).toStrictEqual([])
 	})
 

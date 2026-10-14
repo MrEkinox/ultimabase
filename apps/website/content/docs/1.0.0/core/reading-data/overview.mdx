@@ -121,12 +121,12 @@ input.
 
 Core rejects unknown fields, invalid operators, negative pagination, and
 invalid relation predicates before database work. Input it cannot build a
-query from, such as a malformed UUID operand, throws as soon as the read is
-called; `await` the read inside `try` (or inside an `async` function) to handle
-both kinds of failure in one place. An adapter can also reject
-a query capability it does not support. Installed policy may hide a target,
-so `findOneOrThrow()` can report `NOT_FOUND` even when the record exists
-physically.
+query from, such as a malformed UUID operand, rejects the read with a
+`TypeError`. A read never throws from the call itself: every failure rejects
+the promise it returns, so `.catch()` or `await` inside `try` handles them all.
+An adapter can also reject a query capability it does not support. Installed
+policy may hide a target, so `findOneOrThrow()` can report `NOT_FOUND` even
+when the record exists physically.
 See [API Error Boundaries](/docs/1.0.0/core/runtime/api-errors) for safe error
 handling.
 

@@ -364,10 +364,10 @@ describe('FrameworkEngine', () => {
 			}),
 		).resolves.toBe('completed')
 
-		expect(() =>
+		await expect(
 			// @ts-expect-error -- Runtime validation protects JavaScript callbacks.
 			request.transaction(undefined),
-		).toThrow(
+		).rejects.toThrow(
 			new TypeError('Request engine transaction handler must be a function'),
 		)
 	})

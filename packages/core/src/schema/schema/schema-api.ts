@@ -46,7 +46,12 @@ type SchemaReadResult<
 	QueryIncludedFieldFromInput<TContract, SchemaProjection<TSelection, TInclude>>
 >
 
-/** Resolves one mutation result while preserving operation-specific defaults. */
+/**
+ * Resolves one mutation result like a read with the same projection. Without
+ * `select`, a command keeps the default projection (`never`: every field, as
+ * `find*` returns) and `include` only adds related values; batch updates and
+ * deletes narrow that default to `TDefaultField` plus the included fields.
+ */
 type SchemaMutationResult<
 	TContract extends SchemaTypeInfo,
 	TSchema extends SchemaDefinition,
@@ -57,11 +62,10 @@ type SchemaMutationResult<
 	TSchema,
 	Extract<
 		[TSelection] extends [undefined]
-			? | TDefaultField
-				| Extract<keyof NonNullable<TInclude>, QueryFieldName<TContract>>
-				| ([TInclude] extends [undefined]
-						? never
-						: Extract<'id', QueryFieldName<TContract>>)
+			? [TDefaultField] extends [never]
+				? never
+				: | TDefaultField
+					| Extract<keyof NonNullable<TInclude>, QueryFieldName<TContract>>
 			: QuerySelectedFieldFromInput<
 					TContract,
 					SchemaProjection<TSelection, TInclude>

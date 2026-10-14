@@ -102,14 +102,19 @@ const definitionKeys = [
 	'virtualFields',
 ] as const
 
-/** Binds the canonical class-level query and command surface to one schema. */
+/**
+ * Binds the canonical class-level query and command surface to one schema.
+ * Every command is `async`, so a failure while normalizing its input or
+ * selecting its application rejects the returned promise instead of throwing
+ * from the call.
+ */
 const createStaticCommands = (schema: SchemaDefinition) => ({
-	findMany: (
+	findMany: async (
 		input: FindManyInput<SchemaDefinition> = {},
 		options?: OperationOptions,
 	): Promise<readonly object[]> =>
 		executeQueryFindMany(queryFromFindManyInput(schema, input), options),
-	findOne: (
+	findOne: async (
 		input: FindOneInput<SchemaDefinition> = {},
 		options?: OperationOptions,
 	): Promise<object | null> =>
@@ -121,45 +126,45 @@ const createStaticCommands = (schema: SchemaDefinition) => ({
 		requireFoundRow(
 			await executeQueryFindOne(queryFromFindOneInput(schema, input), options),
 		),
-	count: (
+	count: async (
 		input: CountInput<SchemaDefinition> = {},
 		options?: OperationOptions,
 	): Promise<number> =>
 		executeQueryCount(queryFromCountInput(schema, input), options),
-	exists: (
+	exists: async (
 		input: ExistsInput<SchemaDefinition> = {},
 		options?: OperationOptions,
 	): Promise<boolean> =>
 		executeQueryExists(queryFromExistsInput(schema, input), options),
-	createOne: (
+	createOne: async (
 		input: SchemaCreateOneExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<object> => createSchemaRecord(schema, input, options),
-	createMany: (
+	createMany: async (
 		input: SchemaCreateManyExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<unknown> => createSchemaRecords(schema, input, options),
-	updateOne: (
+	updateOne: async (
 		input: SchemaUpdateOneExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<object | null> => updateSchemaRecord(schema, input, options),
-	updateMany: (
+	updateMany: async (
 		input: SchemaUpdateManyExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<readonly object[]> => updateSchemaRecords(schema, input, options),
-	upsertOne: (
+	upsertOne: async (
 		input: SchemaUpsertOneExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<object> => upsertSchemaRecord(schema, input, options),
-	upsertMany: (
+	upsertMany: async (
 		input: SchemaUpsertManyExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<unknown> => upsertSchemaRecords(schema, input, options),
-	deleteOne: (
+	deleteOne: async (
 		input: SchemaDeleteOneExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<object | null> => deleteSchemaRecord(schema, input, options),
-	deleteMany: (
+	deleteMany: async (
 		input: SchemaDeleteManyExecutionInput<SchemaDefinition>,
 		options?: OperationOptions,
 	): Promise<readonly object[]> => deleteSchemaRecords(schema, input, options),

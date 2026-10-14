@@ -120,13 +120,13 @@ describe('atomic update objects (ADR-0307)', { concurrent: false }, () => {
 				data: { label: { increment: 1 } },
 			}),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-		expect(() =>
+		await expect(
 			Counter.updateOne({
 				where,
 				// @ts-expect-error -- One operation key is allowed.
 				data: { views: { increment: 1, decrement: 1 } },
 			}),
-		).toThrow(
+		).rejects.toThrow(
 			'update field views must contain exactly one of increment or decrement',
 		)
 		await expect(

@@ -161,8 +161,8 @@ describe('ultimabase.transaction(fn) (ADR-0311)', () => {
 		expect(request.source).toBe('internal')
 	})
 
-	it('rejects a callback that is not a function', () => {
-		expect(() => application().transaction('nope' as never)).toThrow(
+	it('rejects a callback that is not a function', async () => {
+		await expect(application().transaction('nope' as never)).rejects.toThrow(
 			'UltimaBase transaction callback must be a function',
 		)
 	})
@@ -204,9 +204,9 @@ describe('useMasterKey: boolean (ADR-0311)', () => {
 		})
 	})
 
-	it('rejects any other value before execution', () => {
-		expect(() =>
+	it('rejects any other value before execution', async () => {
+		await expect(
 			LifecycleTodo.findMany(undefined, { useMasterKey: 'true' as never }),
-		).toThrow('operation useMasterKey must be a boolean when present')
+		).rejects.toThrow('operation useMasterKey must be a boolean when present')
 	})
 })

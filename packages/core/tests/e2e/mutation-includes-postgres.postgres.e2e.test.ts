@@ -321,4 +321,30 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			Post.count({ where: { title: { startsWith: 'Rollback' } } }),
 		).resolves.toBe(0)
 	})
+
+	it('keeps the default fields beside included values without select', async () => {
+		const tag = await Tag.createOne({ data: { label: 'Default tag' } })
+		const include = { tags: { select: { label: true } } } as const
+		const created = await Article.createOne({
+			data: { title: 'Default article', tags: { connect: [tag.id] } },
+			include,
+		})
+		const [batched] = await Article.createMany({
+			data: [{ title: 'Default batch article' }],
+			include,
+		})
+		const updated = await Article.updateOne({
+			where: { id: created.id },
+			data: { title: 'Updated default article' },
+			include,
+		})
+
+		// Reading `title` needs no cast: the result types keep the default fields.
+		expect(created.title).toBe('Default article')
+		expect(batched?.title).toBe('Default batch article')
+		expect(updated?.title).toBe('Updated default article')
+		expect(updated).toStrictEqual(
+			await Article.findOneOrThrow({ where: { id: created.id }, include }),
+		)
+	})
 })
