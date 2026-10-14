@@ -6,8 +6,13 @@ audience:
 contentType: guide
 outcome: Choose a schema contribution and type its fields, rules, and commands from the plugin source.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-14
 sources:
+  - examples/plugin-authoring/README.md
+  - examples/plugin-authoring/src/schema.ts
+  - examples/plugin-authoring/src/flag-plugin.ts
+  - examples/plugin-authoring/tests/schema-contributions.test.ts
+  - examples/plugin-authoring/tests/schema-misuse.test.ts
   - packages/core/README.md
   - packages/plugin-kit/README.md
   - packages/plugin-kit/src/define-plugin/define-plugin.ts
@@ -84,26 +89,32 @@ Most schema contributions are a shape method that adds server-written fields
 and commands, or a rule read after commit. `definePlugin` from
 `@ultimabase/plugin-kit` declares both from one object and writes every slot
 below for you; [Start Here](/docs/1.0.0/plugins/build-a-plugin#or-declare-it-with-defineplugin)
-shows the `archivePlugin` it builds. An application then writes:
+shows the `archivePlugin` it builds. An application installs it once in its
+factory, here with the `auditPlugin` of the same page and the raw
+`flagPlugin` below:
 
-```ts title="src/post.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { archivePlugin } from '@your-scope/archive-plugin'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/plugin-authoring/src/schema.ts#factory
+</include>
 
-const App = UltimaBase.use(archivePlugin())
+A schema then calls the shape method, and sets the `audit` rule in its final
+`.with(...)`:
 
-export const Post = App.Schema.define({
-	className: 'Post',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-}).archivable()
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/plugin-authoring/src/schema.ts#post
+</include>
 
 `Post` gains `archivedAt` in its results, which create and update input
-reject, and the `Post.archiveOne({ id })` command; a schema without
-`.archivable()` gains neither. Add `.with({ audit: true })` after the shape
-method when the plugin also declares an `audit` rule. Keep a raw `plugin()`
-when a rule or a command depends on the schema it applies to, or when a
-command takes input.
+reject, and the `archiveOne` and `archiveMany` commands; a schema without
+`.archivable()` gains neither:
+
+<include cwd meta='title="tests/schema-contributions.test.ts"'>
+	../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one
+</include>
+
+`archived.archivedAt` is the time of the command. Keep a raw `plugin()` when a
+rule or a command depends on the schema it applies to, or when a command takes
+input.
 
 ## Type a rule with a rules slot
 
@@ -120,141 +131,19 @@ or become required only after its method (ACL's `acl.default`, ADR-0321).
 This raw plugin adds a `.flaggable()` shape method that gives a schema a
 server-written `flagged` field, and a `flagReason` rule offered only after it:
 
-```ts title="src/flag-plugin.ts"
-import {
-	booleanField,
-	type ForbiddenMutationInputField,
-} from '@ultimabase/core'
-import {
-	contributeDeclarations,
-	defineSchemaOption,
-	plugin,
-	provideSchemaShapeMethods,
-	type PluginInstance,
-	type PluginSchemaFieldsSource,
-	type PluginSchemaRulesSource,
-	type PluginSchemaShapeSource,
-	type SchemaFieldsHKT,
-	type SchemaRulesHKT,
-	type SchemaShapeMethod,
-} from '@ultimabase/core/plugin'
-import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
+<include cwd meta='title="src/flag-plugin.ts"'>
+	../../examples/plugin-authoring/src/flag-plugin.ts#flag-plugin
+</include>
 
-const flaggedField = booleanField({ default: false, required: true })
+The application uses the method and the rule like any official plugin's,
+with `flagPlugin()` in the factory shown above:
 
-/** Set by `.flaggable()`: selects the schemas that receive `flagged`. */
-const flaggableOption = defineSchemaOption({
-	normalize: (value, path): object => {
-		if (typeof value !== 'object' || value === null)
-			throw new TypeError(`${path} must be an object`)
-		return {}
-	},
-	protocolVersion: 1,
-})
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/plugin-authoring/src/schema.ts#comment
+</include>
 
-/** The `flagReason` entry of `.with({ ... })`. */
-const flagReasonOption = defineSchemaOption({
-	normalize: (value, path) => {
-		if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
-		return value
-	},
-	protocolVersion: 1,
-})
-
-type FlagShape = PluginSchemaShapeSource<{
-	/** Adds a server-written `flagged` field. */
-	readonly flaggable: SchemaShapeMethod<
-		readonly [],
-		Readonly<{ flaggable: object }>
-	>
-}>
-
-/** Reads only the called shape methods, never the schema, so it adds no cycle. */
-interface FlagFields extends SchemaFieldsHKT {
-	readonly fields: 'flaggable' extends keyof this['shape']
-		? Readonly<{ flagged: ForbiddenMutationInputField<typeof flaggedField> }>
-		: unknown
-}
-
-/** Offers `flagReason` once `.flaggable()` is called. */
-interface FlagRules extends SchemaRulesHKT {
-	readonly rules: 'flaggable' extends keyof this['shape']
-		? Readonly<{ flagReason?: string }>
-		: Readonly<Record<never, never>>
-}
-
-export type FlagPlugin = PluginInstance<{
-	readonly id: 'community.flag'
-	readonly version: '1.0.0'
-	readonly core: '^1.0.0'
-	readonly source:
-		| FlagShape
-		| PluginSchemaFieldsSource<FlagFields>
-		| PluginSchemaRulesSource<FlagRules>
-}>
-
-export const flagPlugin = (): FlagPlugin => {
-	const instance: FlagPlugin = plugin({
-		id: 'community.flag',
-		version: '1.0.0',
-		core: '^1.0.0',
-		contributions: [
-			contributeDeclarations({
-				schema: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'flag-options',
-						schema: {
-							flaggable: flaggableOption,
-							flagReason: flagReasonOption,
-						},
-					})
-					schemas.patch(
-						patchSchemas({
-							targets: schemas.select({ option: { name: 'flaggable' } }),
-							patch: schemaPatch().addField({
-								contributionId: 'flagged-field',
-								name: 'flagged',
-								field: flaggedField,
-								mutationInput: 'forbidden',
-							}),
-						}),
-					)
-					return undefined
-				},
-			}),
-		],
-	})
-	return provideSchemaShapeMethods<FlagPlugin, FlagShape>(instance, {
-		flaggable: { sets: ['flaggable'], apply: () => ({ flaggable: {} }) },
-	})
-}
-```
-
-The application uses the method and the rule like any official plugin's:
-
-```ts title="src/comment.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { flagPlugin } from './flag-plugin.js'
-
-const App = UltimaBase.use(flagPlugin())
-
-export const Comment = App.Schema.define({
-	className: 'Comment',
-	fields: (f) => ({ body: f.string({ required: true }) }),
-})
-	.flaggable()
-	.with({ flagReason: 'Reported by a reader' })
-
-export const ultimabase = new App({ schemas: [Comment] })
-
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
-
-`Comment` results carry `flagged`; create and update input reject it, because
+`Comment` results carry `flagged`, `false` by default, and the patch also
+indexes `flagged` with `createdAt`; create and update input reject it, because
 `mutationInput: 'forbidden'` reserves the field for the plugin's own effects
 while keeping it readable and persisted. It is not a permission rule for
 reading the field. `.with({ flagReason })` without `.flaggable()` is a type

@@ -6,8 +6,14 @@ audience:
 contentType: guide
 outcome: Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-14
 sources:
+  - examples/plugin-authoring/README.md
+  - examples/plugin-authoring/src/format-capability.ts
+  - examples/plugin-authoring/src/client-plugin.ts
+  - examples/plugin-authoring/src/run-plugin-callback.ts
+  - examples/plugin-authoring/src/sessions-plugin.ts
+  - examples/plugin-authoring/tests/runtime.test.ts
   - packages/core/README.md
   - packages/core/src/runtime/cancellation/operation-cancellation.ts
   - packages/core/src/runtime/operations/field-values.ts
@@ -48,52 +54,13 @@ to another plugin or makes an arbitrary public endpoint safe.
 
 A nominal capability has a namespaced ID, exact semantic protocol version,
 cardinality, lifetime, and composition rule. The provider and consumer agree
-on this token rather than looking up a global service by string:
+on this token rather than looking up a global service by string. With both
+plugins installed, `ultimabase.plugin('community.workflow-consumer')` returns
+`{ format: 'compact' }`:
 
-```ts title="src/format-capability.ts"
-import {
-	contributeApplication,
-	defineCapability,
-	plugin,
-	provideCapability,
-	requireCapability,
-} from '@ultimabase/core/plugin'
-
-export const formatCapability = defineCapability<{
-	readonly format: 'compact'
-}>()({
-	capabilityId: 'community.workflow-format',
-	cardinality: 'single',
-	compose: ([provider]) => provider,
-	lifetime: 'declaration',
-	version: '1.0.0',
-})
-
-const format = requireCapability(formatCapability, '^1.0.0')
-
-export const formatProvider = plugin({
-	contributions: [
-		provideCapability(formatCapability, {
-			value: { format: 'compact' },
-		}),
-	],
-	core: '^1.0.0',
-	id: 'community.workflow-format',
-	version: '1.0.0',
-})
-
-export const formatConsumer = plugin({
-	contributions: [
-		format,
-		contributeApplication(({ capabilities }) => ({
-			exports: { format: capabilities.get(format).format },
-		})),
-	],
-	core: '^1.0.0',
-	id: 'community.workflow-consumer',
-	version: '1.0.0',
-})
-```
+<include cwd meta='title="src/format-capability.ts"'>
+	../../examples/plugin-authoring/src/format-capability.ts#format-capability
+</include>
 
 `single` allows one provider; `multiple` retains ordered independent values;
 `pipeline` composes ordered handlers. Every provider retains its exact owner;
@@ -112,12 +79,9 @@ per application and disposes it after that application's lifecycle.
 `contributeApplication()` owns one application-local resource. Add `exports`
 only when consumers need a typed API; a lifecycle-only resource can omit it:
 
-```ts
-contributeApplication(() => ({
-	connect: () => connectClient(),
-	dispose: () => disconnectClient(),
-}))
-```
+<include cwd meta='title="src/client-plugin.ts"'>
+	../../examples/plugin-authoring/src/client-plugin.ts#lifecycle
+</include>
 
 Core exposes `undefined` for that plugin, stores the resource directly, and
 invokes its callbacks in the normal dependency order.
@@ -187,18 +151,9 @@ of `runtime:constrain` without importing Access.
 A callback or plugin engine that performs bounded work should pass the provided
 `AbortSignal` to cancellable dependencies and check it only at safe boundaries:
 
-```ts title="src/run-plugin-callback.ts"
-import { throwIfOperationCancelled } from '@ultimabase/core'
-
-export const runPluginCallback = async (
-	signal: AbortSignal,
-	callback: () => Promise<void>,
-) => {
-	throwIfOperationCancelled(signal, { phase: 'before-callback' })
-	await callback()
-	throwIfOperationCancelled(signal, { phase: 'after-callback' })
-}
-```
+<include cwd meta='title="src/run-plugin-callback.ts"'>
+	../../examples/plugin-authoring/src/run-plugin-callback.ts#run-plugin-callback
+</include>
 
 An active signal returns normally. An aborted signal throws Core's stable
 `OPERATION_CANCELLED` error and retains only a normalized internal reason:
@@ -240,37 +195,12 @@ Use an ordinary application schema when developers should query or expose
 records. Use `storage:private` only for plugin-owned verifier-like state that
 must never become a model, Query surface, or generated REST/GraphQL route:
 
-```ts title="src/private-sessions.ts"
-import { definePrivateCollection, stringField } from '@ultimabase/core'
-import { contributeDeclarations, plugin } from '@ultimabase/core/plugin'
+<include cwd meta='title="src/sessions-plugin.ts"'>
+	../../examples/plugin-authoring/src/sessions-plugin.ts#private-sessions
+</include>
 
-const sessions = definePrivateCollection({
-	contributionId: 'sessions',
-	fields: {
-		secret: stringField({ immutable: true, required: true }),
-		version: stringField({ required: true }),
-	},
-	indexes: [{ fields: ['secret'] }] as const,
-})
-
-export const sessionPlugin = plugin({
-	contributions: [
-		contributeDeclarations({
-			privateStorage: ({ privateStorage }) => {
-				privateStorage.register(sessions)
-			},
-		}),
-	],
-	core: '^1.0.0',
-	id: 'community.sessions',
-	// Critical privileges are the only ones that need an explicit reason.
-	permissions: { 'storage:private': 'Stores revocable session verifiers.' },
-	version: '1.0.0',
-})
-```
-
-Only an attributed callback from the same exact plugin instance may use
-`privateStore(sessions)`. It exposes bounded `findUnique`, `insert`, `update`,
+Only an attributed callback from the same exact plugin instance, here the
+plugin's own operation handler, may use `privateStore(sessions)`. It exposes bounded `findUnique`, `insert`, `update`,
 `delete`, and `compareAndSwap` methods, not an adapter or generic SQL handle.
 Writes join the active request transaction or open an automatic one. Removal
 of the plugin does not silently authorize dropping physical data.

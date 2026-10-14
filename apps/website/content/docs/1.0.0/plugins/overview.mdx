@@ -9,7 +9,7 @@ contentType: concept
 order: 1
 outcome: Decide whether a feature belongs in the application plugin chain and know what Core validates.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-14
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -32,7 +32,7 @@ Importing a plugin package never installs it. Its factory returns an inert
 definition. Add that definition to an immutable application factory with
 `.use()` to opt in:
 
-```ts title="src/application.ts"
+```ts twoslash title="src/application.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 

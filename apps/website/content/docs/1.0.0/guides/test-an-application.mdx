@@ -74,40 +74,86 @@ after each test file. It also starts the workers with
 and a package with both ESM and CommonJS builds, such as `graphql`, loads only
 once:
 
-```ts title="vitest.config.ts"
+```ts twoslash title="vitest.config.ts"
 import { ultimabaseTesting } from '@ultimabase/testing/vitest'
 import { defineConfig } from 'vitest/config'
 
+// PostgreSQL from TEST_DATABASE_URL, or a container started once (Docker).
 export default defineConfig({ test: { ...ultimabaseTesting() } })
 ```
 
 ### Write the test
 
-```ts title="tests/task.test.ts"
+This is the first test the initializer generates for its default choices. It
+imports the `Task` schema and the application of the
+[Quick Start](/docs/1.0.0/quick-start) project, whose REST API answers
+`/api/classes/Task`:
+
+```ts twoslash title="tests/task.test.ts"
+// @filename: src/schema.ts
+import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+export const SchemaApplication = UltimaBase.use(
+	accessPlugin({ allowWithoutRule: { all: 'development' } }),
+	...apiServer({ rest: true }),
+	postgresPlugin(),
+)
+
+export const Task = SchemaApplication.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		title: f.string({ required: true }),
+		done: f.boolean({ default: false }),
+	}),
+})
+// @filename: src/ultimabase.ts
+import { SchemaApplication, Task } from './schema.ts'
+
+export const ultimabase = new SchemaApplication({ schemas: [Task] })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+// @filename: tests/task.test.ts
+// ---cut---
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
 import { Task } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
+// testApplication starts the real application on this worker's own schema;
+// each call starts from empty tables.
 it('creates a Task with its defaults', async () => {
 	await using t = await testApplication(ultimabase)
-	const task = await Task.createOne({ data: { title: 'Test the application' } })
-	expect(task).toMatchObject({ done: false, title: 'Test the application' })
+	const task = await Task.createOne({ data: { title: 'Write the first test' } })
+	expect(task).toMatchObject({ done: false, title: 'Write the first test' })
+	// Hooks' afterCommit work runs after the response: wait for it.
 	await t.afterCommit()
 })
 
-it('starts each test from empty tables', async () => {
+it('lists Tasks over REST', async () => {
 	await using t = await testApplication(ultimabase)
-	expect(await Task.count()).toBe(0)
-	await t.afterCommit()
+	const task = await Task.createOne({ data: { title: 'Listed over REST' } })
+	const response = await t.fetch('/api/classes/Task')
+	expect(response.status).toBe(200)
+	expect(await response.json()).toMatchObject({
+		results: [{ id: task.id }],
+	})
 })
 ```
 
-The first call starts the application; a later call in the same file reuses
-it after emptying its tables. Leaving the `await using` scope waits for
-after-commit work. The application stops after the file and its schema is
-dropped.
+Each test opens its handle with
+`await using t = await testApplication(ultimabase)`. The first call starts
+the application; a later call in the same file reuses it after emptying its
+tables, so the REST list holds only the Task of its own test. Leaving the
+`await using` scope waits for after-commit work. The application stops after
+the file and its schema is dropped.
 
 ### Use the handle
 
@@ -118,17 +164,6 @@ dropped.
 | `t.asMaster(fn)`                 | Seed or inspect data with Master authority, without a configured key; validation and hooks still run.                                  |
 | `t.reset()`                      | Empty every table within a test; plugins' start seeding, such as Roles `ensure`, runs again.                                           |
 | `t.afterCommit()`                | Wait for `afterCommit` hooks and event consumers before asserting their effects.                                                       |
-
-```ts title="tests/rest.test.ts"
-it('lists Tasks over REST', async () => {
-	await using t = await testApplication(ultimabase)
-	const task = await t.asMaster(() =>
-		Task.createOne({ data: { title: 'Listed' } }),
-	)
-	const response = await t.fetch('/api/classes/Task')
-	expect(await response.json()).toMatchObject({ results: [{ id: task.id }] })
-})
-```
 
 `t.fetch` behaves like a local server: requests come from the socket peer
 `127.0.0.1`, the address rate limits count and authentication records unless a

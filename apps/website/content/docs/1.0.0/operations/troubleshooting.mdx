@@ -9,7 +9,7 @@ contentType: troubleshooting
 order: 2
 outcome: Identify the failed startup boundary and repair it without bypassing a safety check.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-14
 sources:
   - packages/core/src/errors/framework-error.ts
   - packages/core/README.md
@@ -60,7 +60,7 @@ At the boundary that constructs or starts your application, report only safe
 diagnostic identity. This helper does not print a connection string, raw
 driver cause, or secret:
 
-```ts title="src/report-startup-failure.ts"
+```ts twoslash title="src/report-startup-failure.ts"
 import { FrameworkError } from '@ultimabase/core'
 
 export const reportStartupFailure = (error: unknown): void => {
@@ -115,9 +115,11 @@ a previous application still owns this JavaScript realm. It occurs before the
 new application materializes resources. Await the previous application's
 `dispose()` before initializing a replacement; `stop()` alone keeps ownership.
 
-For test suites, await `start()` in `beforeAll` and `dispose()` in `afterAll`,
-as in [Test an Application](/docs/1.0.0/guides/test-an-application). Separate
-workers may run their own applications. Do not dispose from an active request
+In tests, `testApplication` starts the application once per file and
+disposes it after the file, as in
+[Test an Application](/docs/1.0.0/guides/test-an-application); with another
+runner, await `dispose()` after the suite. Separate workers may run their own
+applications. Do not dispose from an active request
 callback: shutdown would wait for the work that is asking it to shut down.
 
 If disposal failed, resolve that cleanup failure before retrying in a fresh

@@ -8,7 +8,7 @@ contentType: guide
 order: 2
 outcome: Add the smallest compatible plugin set and verify its application-local behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-10-01
+reviewedAt: 2026-10-14
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -77,7 +77,7 @@ Build one immutable schema application factory by passing schema-authoring
 plugins to `.use()`. Define Task from that factory so field Hooks and
 Validation are available directly from the installed plugin set:
 
-```ts title="src/schema.ts"
+```ts twoslash title="src/schema.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
@@ -114,21 +114,41 @@ versioned capability when several providers can supply the required behavior.
 
 ### Add the database provider
 
-Extend the same factory in `ultimabase.ts`; do not repeat Hooks or Validation.
-The Hook runs before the final field validator, so Zod receives the trimmed
-title:
+Extend the same factory in `ultimabase.ts` with the PostgreSQL provider from
+Manual Installation; do not repeat Hooks or Validation. `postgresPlugin()`
+still reads `DATABASE_URL` when the application starts. The Hook runs before
+the final field validator, so Zod receives the trimmed title:
 
-```ts title="src/ultimabase.ts"
+```ts twoslash title="src/ultimabase.ts"
+// @filename: schema.ts
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+import { z } from 'zod'
+
+export const SchemaApplication = UltimaBase.use(
+	hooksPlugin(),
+	validationPlugin(),
+)
+
+export const Task = SchemaApplication.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({
+			required: true,
+			hooks: { resolveInput: ({ value }) => value.trim() },
+			validation: z.string().min(1),
+		}),
+	}),
+})
+// @filename: ultimabase.ts
+// ---cut---
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 import { SchemaApplication, Task } from './schema.js'
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
-const Application = SchemaApplication.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-)
+const Application = SchemaApplication.use(postgresPlugin())
 
 export const ultimabase = new Application({
 	schemas: [Task],
@@ -151,7 +171,48 @@ presence and field structure even if Validation is absent.
 Replace the manual tutorial's `main.ts` with one successful and one rejected
 write:
 
-```ts title="src/main.ts"
+```ts twoslash title="src/main.ts"
+// @filename: schema.ts
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+import { z } from 'zod'
+
+export const SchemaApplication = UltimaBase.use(
+	hooksPlugin(),
+	validationPlugin(),
+)
+
+export const Task = SchemaApplication.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({
+			required: true,
+			hooks: { resolveInput: ({ value }) => value.trim() },
+			validation: z.string().min(1),
+		}),
+	}),
+})
+// @filename: ultimabase.ts
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+import { SchemaApplication, Task } from './schema.js'
+
+const Application = SchemaApplication.use(postgresPlugin())
+
+export const ultimabase = new Application({
+	schemas: [Task],
+})
+
+// Once per application: it gives name-keyed editor types.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+// @filename: main.ts
+// ---cut---
 import { FrameworkError } from '@ultimabase/core'
 
 import { Task } from './schema.js'

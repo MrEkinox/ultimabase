@@ -8,7 +8,7 @@ contentType: tutorial
 order: 2
 outcome: Start and verify a minimal schema-backed PostgreSQL application from a manually configured project.
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-10-14
 sources:
   - README.md
   - package.json
@@ -209,7 +209,7 @@ step: TypeScript types come from the schema declaration itself.
 Define the data model. Field factories preserve the exact TypeScript shape and
 Core validates the same structure at Runtime.
 
-```ts title="src/schema.ts"
+```ts twoslash title="src/schema.ts"
 import { UltimaBase } from '@ultimabase/core'
 
 export const Task = UltimaBase.Schema.define({
@@ -230,7 +230,19 @@ database, it creates missing structures and applies supported changes, but it
 is not a replacement for reviewed production migrations. `NODE_ENV=production`
 selects `fail`.
 
-```ts title="src/ultimabase.ts"
+```ts twoslash title="src/ultimabase.ts"
+// @filename: schema.ts
+import { UltimaBase } from '@ultimabase/core'
+
+export const Task = UltimaBase.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({ required: true }),
+	}),
+})
+// @filename: ultimabase.ts
+// ---cut---
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -260,7 +272,37 @@ Start the application, create one record through the shared Runtime, and always
 release resources. `start()` resolves to the application, so `await using`
 disposes it when the scope exits, even after a failure:
 
-```ts title="src/main.ts"
+```ts twoslash title="src/main.ts"
+// @filename: schema.ts
+import { UltimaBase } from '@ultimabase/core'
+
+export const Task = UltimaBase.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({ required: true }),
+	}),
+})
+// @filename: ultimabase.ts
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+import { Task } from './schema.js'
+
+const Application = UltimaBase.use(postgresPlugin())
+
+export const ultimabase = new Application({
+	schemas: [Task],
+})
+
+// Required once per application: it gives name-keyed editor types.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+// @filename: main.ts
+// ---cut---
 import { toJSON } from '@ultimabase/core'
 
 import { Task } from './schema.js'
@@ -302,8 +344,8 @@ pnpm start
 
 The default logger first prints one line naming the schemas, the installed
 plugin, and any critical privilege (`logLevel: 'debug'` prints the complete
-privilege report). The process then prints a JavaScript object like this (the
-generated ID and timestamps vary):
+privilege report). The process then prints the created record and the
+application state, like this (the generated ID and timestamps vary):
 
 ```text
 {
@@ -312,7 +354,7 @@ generated ID and timestamps vary):
   id: 'generated-id',
   createdAt: 'generated-timestamp',
   updatedAt: 'generated-timestamp'
-}
+} started
 ```
 
 `done` is `false` because the schema supplies that default. The successful
