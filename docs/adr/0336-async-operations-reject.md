@@ -1,9 +1,9 @@
 # ADR-0336: Asynchronous operations report failures through their promise
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-14
 - Refines: ADR-0301 (Prisma-like queries), ADR-0297 (named types); applies ADR-0288
-- Approval: the verified Core documentation (ADR-0330) found the gaps on 2026-10-14
+- Approval: the verified Core documentation (ADR-0330) found the gaps on 2026-10-14; record accepted by the user on 2026-10-14
 
 ## Context
 
