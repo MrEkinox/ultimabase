@@ -7,8 +7,11 @@ contentType: guide
 order: 3
 outcome: Choose an inclusion or exclusion projection and predict the returned model shape.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/reads.ts
+  - examples/queries/tests/reads.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/docs/schema.md
@@ -26,8 +29,8 @@ field from other callers.
 
 ## Prerequisites
 
-Start with [Query Overview](./overview). The examples assume a started
-application and a `Post` schema with `title`, `published`, and `internalNote`
+Start with [Query Overview](./overview). The examples use the `Post` schema of
+the queries example, with `title`, `published`, and `internalNote` among its
 fields, in addition to the built-in `id`, `createdAt`, and `updatedAt` fields.
 
 ## Steps
@@ -35,20 +38,9 @@ fields, in addition to the built-in `id`, `createdAt`, and `updatedAt` fields.
 For a stable card shape, include the fields the caller needs. Exclusion is
 convenient when the caller genuinely needs every other field:
 
-```ts title="src/post-results.ts"
-import { Post } from './schemas.js'
-
-const cardFields = { createdAt: true, title: true } as const
-
-export const readPostCard = (id: string) =>
-	Post.findOneOrThrow({ where: { id }, select: cardFields })
-
-export const readPostsWithoutNotes = () =>
-	Post.findMany({
-		select: { internalNote: false },
-		where: { published: { eq: true } },
-	})
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#selections
+</include>
 
 The first call returns a model with `id`, `createdAt`, and `title` when the
 record exists. `id` is added automatically to an ordinary model projection.
@@ -82,7 +74,17 @@ selectable too. Omitting `select` can therefore run their resolvers; see
 ## Verify
 
 Hover the resolved result of `readPostCard()`: its type includes `id`,
-`createdAt`, and `title`, but not `internalNote` or `published`. At runtime,
+`createdAt`, and `title`, but not `internalNote` or `published`.
+
+```ts twoslash title="Result type"
+import '../../examples/queries/src/ultimabase.ts'
+import { readPostCard } from '../../examples/queries/src/reads.ts'
+// ---cut---
+const card = await readPostCard('POST_ID')
+//    ^?
+```
+
+At runtime,
 direct properties, `get(field)`, enumeration, inspection, and `toJSON()` expose
 the same selected snapshot. An omitted field cannot be recovered from that
 model; run another read if it is needed.

@@ -7,8 +7,11 @@ contentType: concept
 order: 6
 outcome: Create and update a related graph while respecting command, visibility, and size limits.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/nested-writes.ts
+  - examples/queries/tests/nested-writes.test.ts
   - packages/core/README.md
   - packages/core/examples/schema/nested-writes.md
   - packages/core/docs/runtime.md
@@ -21,40 +24,18 @@ related records. `createOne` and `updateOne` accept relationship commands
 inside `data`. The root and every child run in
 one transaction; a failure rolls back the whole graph.
 
-The examples assume a started application with a persistence plugin. `Post`
-has required `slug` and `title` fields, an `author` pointer to a schema with
-`displayName` and `email`, and an owning `comments` relation to a schema with
-`body`. See [Relationships](/docs/1.0.0/core/data-modeling/relationships) for
-how to declare those fields and [Manual Installation](/docs/1.0.0/manual-installation)
-for application setup.
+The examples use the schemas of the
+[queries example](/docs/1.0.0/core/reading-data/overview): `Post` has required
+`slug` and `title` fields, an optional `author` pointer to an `Author` with
+`displayName` and `email`, and an owning `comments` relation to a `Comment`
+with `body`. See [Relationships](/docs/1.0.0/core/data-modeling/relationships)
+for how to declare those fields.
 
 ## Create a post and its related records
 
-```ts title="src/create-post-graph.ts"
-import { Post } from './schemas.js'
-
-export const createPostGraph = (existingCommentId: string) =>
-	Post.createOne({
-		data: {
-			author: {
-				create: {
-					displayName: 'Ada',
-					email: 'ada@example.com',
-				},
-			},
-			comments: {
-				create: [{ body: 'First' }, { body: 'Second' }],
-				connect: [existingCommentId],
-			},
-			slug: 'nested-post',
-			title: 'Nested post',
-		},
-		include: {
-			author: { select: { displayName: true } },
-			comments: { select: { body: true } },
-		},
-	})
-```
+<include cwd meta='title="src/nested-writes.ts"'>
+	../../examples/queries/src/nested-writes.ts#create-graph
+</include>
 
 `author.create` creates an author and stores its pointer on the post.
 `comments.create` creates two comments and connects them; `comments.connect`
@@ -66,26 +47,9 @@ policy may omit some included targets.
 
 ## Update the related graph
 
-```ts title="src/revise-post-graph.ts"
-import { Post } from './schemas.js'
-
-export const revisePostGraph = (
-	postId: string,
-	commentId: string,
-	oldCommentId: string,
-) =>
-	Post.updateOne({
-		data: {
-			author: { update: { displayName: 'Ada Lovelace' } },
-			comments: {
-				create: [{ body: 'Third' }],
-				update: [{ data: { body: 'Edited' }, id: commentId }],
-				disconnect: [oldCommentId],
-			},
-		},
-		where: { id: postId },
-	})
-```
+<include cwd meta='title="src/nested-writes.ts"'>
+	../../examples/queries/src/nested-writes.ts#revise-graph
+</include>
 
 `author.update` changes the currently linked, visible author; it needs no
 author ID. `comments.update` requires an ID that is currently in this post's
@@ -118,8 +82,15 @@ completed graph, and `select` / `include` project the final result.
 
 `set` must be the sole command in its relation object. `set: []` removes every
 visible membership; `set` can also replace them with specified visible
-targets. It never deletes targets or removes policy-hidden memberships. A
-relation mapped by a required inverse pointer cannot use `disconnect` or
+targets:
+
+<include cwd meta='title="src/nested-writes.ts"'>
+	../../examples/queries/src/nested-writes.ts#replace-links
+</include>
+
+The result has a `null` author and only the kept comments; the unlinked author
+and comments still exist. `set` never deletes targets or removes policy-hidden
+memberships. A relation mapped by a required inverse pointer cannot use `disconnect` or
 `set`, because that would clear a required field. See
 [Relationships](/docs/1.0.0/core/data-modeling/relationships) for owning and
 inverse relations.
@@ -160,9 +131,11 @@ accept pointer links (`{ connect: target }` or `null`), checked like any other
 link, but no nested `create`, `update`, or relation command. Use a singular
 root command when you need this graph behavior.
 
-To verify atomicity, make a child fail validation in a disposable test
-database. After the command rejects, read the root, child, and relation
-membership: none of that command's changes should remain.
+To verify atomicity, make one part of the graph fail in a disposable test
+database. The example's tests call `createPostGraph()` with a comment ID that
+does not exist: the command rejects with `NOT_FOUND` naming
+`{ field: 'comments', schema: 'Comment' }`, and neither the post, its new
+author, nor its new comments remain.
 
 ## Next steps
 

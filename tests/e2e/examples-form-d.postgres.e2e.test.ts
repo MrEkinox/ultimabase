@@ -32,6 +32,7 @@ const examples = [
 	'rest',
 	'graphql',
 	'modeling',
+	'queries',
 ] as const
 // Quoted repository paths let the CI planner select this suite when they change.
 const testedExamples = [
@@ -48,6 +49,7 @@ const testedExamples = [
 	['examples/rest', 18],
 	['examples/graphql', 25],
 	['examples/modeling', 26],
+	['examples/queries', 53],
 ] as const
 
 const compile = (example: string): readonly string[] => {

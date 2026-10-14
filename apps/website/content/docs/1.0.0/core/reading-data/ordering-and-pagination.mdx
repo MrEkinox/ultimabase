@@ -7,8 +7,10 @@ contentType: guide
 order: 4
 outcome: Read a collection page by page with take and after, in a total order completed by id.
 releaseStatus: pre-release
-reviewedAt: 2026-10-10
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/reads.ts
+  - examples/queries/tests/pagination.test.ts
   - packages/core/docs/query.md
   - packages/core/src/query/query/input.ts
   - packages/core/src/query/clauses/ordering.ts
@@ -29,36 +31,18 @@ calls.
 
 ## Prerequisites
 
-Start with [Query Overview](./overview) and a started application. The example
-assumes `Post` declares `title` and has the built-in `createdAt` field.
+Start with [Query Overview](./overview). The examples use the `Post` and
+`Comment` schemas of the queries example; `Post` declares `title` and has the
+built-in `createdAt` field.
 
 ## Steps
 
 Pass the last row of a page as `after` to read the next one. Request one row
 more than the page size to know whether another page exists:
 
-```ts title="src/post-page.ts"
-import { Post } from './schemas.js'
-
-const PAGE_SIZE = 25
-
-export const readPostPage = async (after?: {
-	readonly id: string
-	readonly createdAt: string
-}) => {
-	const rows = await Post.findMany({
-		orderBy: { createdAt: 'desc' },
-		select: { id: true, createdAt: true, title: true },
-		take: PAGE_SIZE + 1,
-		...(after === undefined ? {} : { after }),
-	})
-
-	return {
-		hasMore: rows.length > PAGE_SIZE,
-		rows: rows.slice(0, PAGE_SIZE),
-	}
-}
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#post-page
+</include>
 
 `take` is the maximum number of rows returned and must be a positive safe
 integer. `after` is a row received from a read of the same shape: Core reads
@@ -86,18 +70,11 @@ filter would.
 Server-side reads have no default `take`: without `take`, `findMany` returns
 every matching row. The REST and GraphQL limits
 (`pagination: { defaultTake, maxTake }`, 100 and 1,000 by default) apply only to
-their clients. Read a large table in batches with `after`:
+their clients. Read a large table in batches with `after`, here every comment:
 
-```ts title="src/process-tasks.ts"
-import { Task } from './schemas.js'
-
-let after: Awaited<ReturnType<typeof Task.findMany>>[number] | undefined
-do {
-	const page = await Task.findMany({ take: 500, ...(after ? { after } : {}) })
-	// Process the page.
-	after = page.at(-1)
-} while (after)
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#batches
+</include>
 
 `skip` skips a number of rows instead. It cannot be combined with `after`
 (`VALIDATION_ERROR`); prefer `after`, because an offset shifts when rows are

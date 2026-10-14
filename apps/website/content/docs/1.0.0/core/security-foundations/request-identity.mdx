@@ -8,8 +8,13 @@ contentType: concept
 order: 3
 outcome: Pass a request context, derive typed request values, and keep identity separate from authorization.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/request-identity.ts
+  - examples/queries/src/jobs.ts
+  - examples/queries/src/ultimabase.ts
+  - examples/queries/src/schema.ts
+  - examples/queries/tests/identity.test.ts
   - packages/core/README.md
   - packages/core/docs/access.md
   - packages/core/src/runtime/context/request-context.ts
@@ -35,36 +40,16 @@ Request contexts are plugin-author machinery: `RequestContext`,
 `anonymous(app, options)`, `withContext(app, context)` and
 `authorizeMasterKey(app, rawKey)` come from `@ultimabase/core/plugin`.
 Application code needs none of them: it uses `useMasterKey` for trusted
-elevation and `ultimabase.transaction(fn)` to group writes.
+elevation and `ultimabase.transaction(fn)` to group writes. The blocks on this
+page come from the
+[queries example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/queries),
+whose tests check each result described here.
 
 ## Derive a typed context
 
-```ts title="src/request-identity.ts"
-import {
-	RequestContext,
-	RequestContextValue,
-	requestSources,
-} from '@ultimabase/core/plugin'
-
-export const tenantId = new RequestContextValue<string>(
-	'acme.identity.tenant-id',
-	(value: unknown) => {
-		if (typeof value !== 'string' || value.length === 0) {
-			throw new TypeError('Tenant id must be a non-empty string')
-		}
-		return value
-	},
-)
-
-const anonymous = RequestContext.anonymous({
-	requestId: 'request-123',
-	source: requestSources.internal,
-})
-
-export const scoped = anonymous.withValue(tenantId, 'tenant-42')
-export const currentTenant = scoped.getValue(tenantId) // string | undefined
-export const authorityMode = scoped.access.mode // 'anonymous'
-```
+<include cwd meta='title="src/request-identity.ts"'>
+	../../examples/queries/src/request-identity.ts#tenant-context
+</include>
 
 `withValue()` validates and snapshots the value, then returns a new context.
 `anonymous` remains unchanged. If the original context belongs to an
@@ -79,26 +64,14 @@ Outside an active request, pass the trusted context together with the started
 application in the final operation options. This also lets a background job
 carry its own cancellation signal:
 
-```ts title="src/read-posts.ts"
-import { RequestContext, requestSources } from '@ultimabase/core/plugin'
-
-import { Post } from './post.js'
-
-export const readPostsForJob = (requestId: string, signal: AbortSignal) => {
-	const context = RequestContext.anonymous({
-		requestId,
-		source: requestSources.internal,
-		signal,
-		metadata: { job: 'daily-report' },
-	})
-
-	return Post.findMany({ take: 20 }, { context })
-}
-```
+<include cwd meta='title="src/jobs.ts"'>
+	../../examples/queries/src/jobs.ts#read-for-job
+</include>
 
 The result contains only records visible to this anonymous request. The caller
 can pass an `AbortController`'s signal and call `abort()` while the job is in
-progress.
+progress; a read started with an aborted signal rejects with
+`OPERATION_CANCELLED`.
 Core checks the signal at execution boundaries and reports
 `OPERATION_CANCELLED`; this does not promise that an adapter can interrupt SQL
 already in progress. `metadata` carries safe request-local information, not a
@@ -136,16 +109,20 @@ not identity. Server code outside a request has no principal.
 Access rules and predicates, the Hooks `context.principal`, ACL callbacks,
 Roles and `ultimabase.can()` receive it as `principal`; plugins read it with
 `getRequestPrincipal(context)`. Name the identity
-schema once in `Register` to type it by name:
+schema once in `Register` to type it by name; in the example, requests run on
+behalf of an `Author`:
 
-```ts title="src/ultimabase.ts"
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-		readonly principal: 'TodoUser'
-	}
-}
-// principal: Pointer<"TodoUser"> | undefined
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/queries/src/ultimabase.ts#register
+</include>
+
+```ts twoslash title="Principal type"
+import type { PolicyPredicate } from '@ultimabase/core'
+
+import '../../examples/queries/src/ultimabase.ts'
+// ---cut---
+type Principal = Parameters<PolicyPredicate>[0]['principal']
+//   ^?
 ```
 
 Without it, `principal` is typed as `PointerValue`. Server code that runs on
@@ -156,16 +133,16 @@ a context with that principal, `withPrincipal(undefined)` an anonymous one.
 
 A `PolicyPredicate` is a boolean decision that needs no row filter. It
 receives `{ principal, operation, schema }` and is accepted wherever a policy
-rule returns a decision, for example in Access rules:
+rule returns a decision, for example in Access rules. The example's `isEditor`
+reads the principal's `Author` row:
 
-```ts title="src/policies.ts"
-import { isAuthenticated, type PolicyPredicate } from '@ultimabase/core'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/queries/src/schema.ts#policies
+</include>
 
-export const isStaff: PolicyPredicate = function isStaff({ principal }) {
-	return principal !== undefined && staff.has(principal.id)
-}
-// access: { create: isAuthenticated, delete: isStaff }
-```
+The `Announcement` schema uses Core's `isAuthenticated` for `create` and
+`isEditor` for `update` and `delete`; see
+[PublicError](/docs/1.0.0/core/runtime/api-errors#publicerror) for its rules.
 
 Write predicates as named, side-effect-free functions: Core may call them
 several times (retried transactions, `can()`). A predicate that throws
@@ -179,13 +156,12 @@ operation would be permitted, combining every installed policy as at
 execution time, without executing it: no hook, input resolution, validation,
 write or event runs.
 
-```ts title="src/can-edit.ts"
-const canEdit = await ultimabase.can({
-	operation: 'update',
-	schema: Todo,
-	item: { id: todoId },
-})
-```
+<include cwd meta='title="tests/identity.test.ts"'>
+	../../examples/queries/tests/identity.test.ts#can
+</include>
+
+`canEdit` is `true` for an editor and `false` for the announcement's author who
+is not an editor, or for an anonymous caller.
 
 `principal` defaults to the current request's principal; pass one (or
 `undefined` for an anonymous caller) to ask about another identity. Without

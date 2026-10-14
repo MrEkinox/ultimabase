@@ -7,8 +7,11 @@ contentType: reference
 order: 2
 outcome: Choose the right scalar, list, structured, pointer, or relation predicate for a where input.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/reads.ts
+  - examples/queries/tests/filters.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/src/query/filters
@@ -26,26 +29,13 @@ operators follow the schema. Fields and operators at the same level combine with
 enum, or pointer field means equality, as in Prisma: `where: { id }` or
 `where: { published: true }`.
 
-This example assumes `Post` declares `published` as a boolean, `title` as a
-string, `views` as an integer, and `tags` as a string list. It also assumes a
-started application exported as `ultimabase`.
+The examples use the `Post` schema of the
+[queries example](./overview): `published` is a boolean, `title` a string,
+`views` an integer, and `tags` a string list.
 
-```ts title="src/discover-posts.ts"
-import { Post } from './schemas.js'
-
-export const readDiscoverablePosts = () =>
-	Post.findMany({
-		where: {
-			published: true,
-			views: { between: { lower: 100, upper: 10_000 } },
-			OR: [
-				{ title: { contains: 'TypeScript' } },
-				{ tags: { has: 'featured' } },
-			],
-			NOT: { title: { startsWith: 'Archive' } },
-		},
-	})
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#discover
+</include>
 
 Every returned post is published, has 100–10,000 views inclusive, matches at
 least one `OR` branch, and does not have a title starting with `Archive`. An
@@ -58,20 +48,16 @@ access to otherwise hidden records.
 On a non-list scalar, enum, or pointer field, a value that is not a plain
 object means `eq`, and `null` means `isNull: true`:
 
-```ts title="src/find-drafts.ts"
-import { Post } from './schemas.js'
-
-export const readDrafts = (authorId: string) =>
-	Post.findMany({
-		where: { author: authorId, published: false, summary: null },
-	})
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#drafts
+</include>
 
 This is exactly `{ author: { eq: authorId }, published: { eq: false },
 summary: { isNull: true } }`; Core normalizes both forms to the same filter.
 An operand of a `uuid` field, or a pointer's target id, must be a UUID: a
-malformed one fails before the database with a validation error naming its
-path (`where.id.eq must be a valid UUID`).
+malformed one throws a `TypeError` naming its path as soon as the read is
+called, before any database work (`where.id must be a valid UUID` for the
+shorthand, `where.id.eq must be a valid UUID` for the explicit form).
 List, `json`, `object`, and relation fields keep explicit operators, because a
 value there can look like an operator object (`{ tags: { eq: ['a'] } }`,
 `{ metadata: { eq: { a: 1 } } }`). GraphQL filter inputs keep `{ eq }`, since a
@@ -90,6 +76,10 @@ Autocomplete shows only operators supported by the chosen field kind.
 | String                | `contains`, `startsWith`, `endsWith`, `matches`     | Text; `matches` takes `{ source, flags }`, not a `RegExp` instance.                                                          |
 | Nullable stored field | `isNull`, `isNotNull`                               | Only the literal `true`.                                                                                                     |
 | One-dimensional list  | `eq`, `ne`, `has`, `hasSome`, `hasEvery`, `isEmpty` | `eq`/`ne` compare the whole list; `has` checks one element; `hasSome`/`hasEvery` take arrays; `isEmpty: true` excludes null. |
+
+<include cwd meta='title="tests/filters.test.ts"'>
+	../../examples/queries/tests/filters.test.ts#operators
+</include>
 
 Several operators on one field also combine with `AND`: `{ views: { gte: 100,
 lt: 1_000 } }` includes 100 but excludes 1,000. `notBetween` matches values
@@ -116,23 +106,14 @@ every operator on this page.
 
 ## Structured values
 
-`f.json()` and `f.object()` support structural `contains`, key checks
-(`hasKey`, `hasAnyKeys`, `hasAllKeys`), and `at` path predicates. Here `metadata` is a JSON field and `profile` is a typed embedded
-object with `contact.email`:
+`field.json()` and `field.object()` support structural `contains`, key checks
+(`hasKey`, `hasAnyKeys`, `hasAllKeys`), and `at` path predicates. Here
+`Post.metadata` is a JSON field and `Author.profile` is a typed embedded object
+with `contact.email`:
 
-```ts title="src/filter-profiles.ts"
-import { Post } from './schemas.js'
-
-export const readPublicProfiles = () =>
-	Post.findMany({
-		where: {
-			metadata: { contains: { visibility: 'public' } },
-			profile: {
-				at: [{ path: ['contact', 'email'], eq: 'ada@example.com' }],
-			},
-		},
-	})
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#structured
+</include>
 
 Each `at` path is an array of segments, not a dotted string. Typed object
 paths and operands follow the declared shape; JSON paths are dynamic. See [Embedded Objects](/docs/1.0.0/core/data-modeling/embedded-objects) for
@@ -147,22 +128,12 @@ principal }`); a `Pointer` of another schema is a type error and a
 `VALIDATION_ERROR`. `is` and `isNot` instead test a nested filter against the
 visible target:
 
-```ts title="src/filter-memberships.ts"
-import { Membership } from './schemas.js'
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#pointer-filter
+</include>
 
-export const readActiveMemberships = (projectId: string) =>
-	Membership.findMany({
-		where: {
-			project: {
-				eq: projectId,
-				is: { archived: false },
-			},
-		},
-	})
-```
-
-This assumes `Membership.project` points to a `Project` with an `archived`
-boolean. `eq` checks stored identity without reading the target. `is` and
+`Post.author` is an optional pointer to an `Author` with a `verified` boolean.
+`eq` checks stored identity without reading the target. `is` and
 `isNot` apply target visibility and policy. `isNot` also matches a null pointer
 or a target hidden by policy; add `isNotNull: true` if a null pointer must not
 match. Use `null` or `isNull: true` to find null pointers, not `eq: null`.
@@ -180,20 +151,9 @@ relation-filter examples and visibility rules.
 When application code chooses operands at runtime, build the `where` object
 itself. Fields listed together combine with `AND`:
 
-```ts title="src/visible-posts.ts"
-import type { Where } from '@ultimabase/core'
-
-import { Post } from './schemas.js'
-
-export const readVisiblePosts = (minimumViews: number) => {
-	const where: Where<typeof Post> = {
-		published: true,
-		views: { gte: minimumViews },
-	}
-
-	return Post.findMany({ where })
-}
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#dynamic-filter
+</include>
 
 The object does not execute a query; `Post.findMany()` does. A `WhereBuilder`
 reaches application code only where Core passes one, in Access rules and

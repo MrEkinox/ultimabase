@@ -7,8 +7,11 @@ contentType: guide
 order: 1
 outcome: Create one record with a default, a pointer connection, and a selected result.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/writes.ts
+  - examples/queries/tests/writes.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/docs/schema.md
@@ -22,31 +25,23 @@ sources:
 Use `Post.createOne()` to persist one record. `data` describes the new record;
 `select` and `include` shape the returned model, not the data being written.
 
-This example assumes `Post` declares required `slug` and `title` fields, a
-`published` boolean with `default: false`, and an `author` pointer to a schema
-with `displayName`. Register the schemas in a started application with a
-persistence plugin, as in [Manual Installation](/docs/1.0.0/manual-installation).
-Pass the ID of an existing target that the operation may connect.
+The examples of the Writing Data pages come from the
+[queries example](/docs/1.0.0/core/reading-data/overview), a tested blog
+application. Its `Post` declares required `slug` and `title` fields, a
+`published` boolean with `default: false`, and an optional `author` pointer to
+an `Author` with `displayName`. Pass the ID of an existing author that the
+operation may connect.
 
 ## Create one record
 
-```ts title="src/create-post.ts"
-import { Post } from './schemas.js'
-
-export const createPost = (authorId: string, slug: string, title: string) =>
-	Post.createOne({
-		data: {
-			author: { connect: authorId },
-			slug,
-			title,
-		},
-		include: { author: { select: { displayName: true } } },
-		select: { published: true, slug: true, title: true },
-	})
-```
+<include cwd meta='title="src/writes.ts"'>
+	../../examples/queries/src/writes.ts#create-post
+</include>
 
 `connect` links the new post to an existing author; it does not create the
-author. Core checks the target before the first write. To create an author in
+author. Core checks the target before the first write: a missing or hidden
+author fails with `NOT_FOUND` and public details
+`{ field: 'author', schema: 'Author' }`, and no post is written. To create an author in
 the same command, use `author: { create: ... }` as described in
 [Nested Writes](./nested-writes).
 

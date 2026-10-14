@@ -7,8 +7,11 @@ contentType: guide
 order: 5
 outcome: Upsert a record by unique slug and understand both possible branches.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/writes.ts
+  - examples/queries/tests/upserts.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/docs/runtime.md
@@ -27,24 +30,15 @@ Use `Post.upsertOne()` when the same unique key should create a record if absent
 or update it if present. Pass separate `create` and `update` data; UltimaBase
 executes only the branch selected by the unique target.
 
-This example assumes `Post` declares a required `title` and a required `slug`
-with `indexed: 'unique'`, and no other required fields. Register it in a
-started application with a persistence plugin, as in
-[Manual Installation](/docs/1.0.0/manual-installation).
+The `Post` of the [queries example](/docs/1.0.0/core/reading-data/overview)
+declares a required `title` and a required `slug` with `indexed: 'unique'`,
+and no other required fields.
 
 ## Upsert by unique slug
 
-```ts title="src/upsert-post.ts"
-import { Post } from './schemas.js'
-
-export const savePost = (slug: string, title: string) =>
-	Post.upsertOne({
-		where: { slug: { eq: slug } },
-		create: { slug, title },
-		update: { title },
-		select: { slug: true, title: true },
-	})
-```
+<include cwd meta='title="src/writes.ts"'>
+	../../examples/queries/src/writes.ts#save-post
+</include>
 
 ## Verify the result
 
@@ -57,9 +51,10 @@ model.
 
 For the create branch, Core treats the unique equality in `where` as the
 authoritative identity. It supplies missing target values to the create
-candidate before required-value validation. The explicit `slug` in this
-example must match `where`; a mismatch fails validation rather than creating
-a record under another key. Do not read first and choose separate create or
+candidate before required-value validation, for an untyped caller such as a
+transport; in TypeScript the create data lists every required field. The
+explicit `slug` in this example must match `where`; a mismatch fails with
+`VALIDATION_ERROR` rather than creating a record under another key. Do not read first and choose separate create or
 update commands: the upsert owns the atomic unique-key decision.
 
 ## Choose a valid target
@@ -70,25 +65,26 @@ unique index declared in `define({ indexes })` without `where`. Extra conditions
 composite keys, ranges, and multi-match filters are invalid. See
 [Schemas](/docs/1.0.0/core/data-modeling/schemas) for index declarations.
 
-The type of `where` is `UniqueWhereInput<'TenantArticle'>`: a union with one
+The type of `where` is `UniqueWhereInput<'Translation'>`: a union with one
 member per target, each value as a shorthand or `{ eq }`, never `null`. A wrong
-target fails to compile. The `Contribution` schema of the PostgreSQL example
-declares `indexes: [{ fields: ['article', 'member'], unique: true }]`:
+target fails to compile. The `Translation` schema of the queries example
+declares `indexes: [{ fields: ['post', 'locale'], unique: true }]`:
 
 ```ts twoslash title="Unique targets"
-import { Contribution } from '../../examples/postgres/src/schema.ts'
+import '../../examples/queries/src/ultimabase.ts'
+import { Translation } from '../../examples/queries/src/schema.ts'
 
-declare const article: string
-declare const member: string
+declare const post: string
+declare const locale: string
 // ---cut---
-type Target = Parameters<typeof Contribution.deleteOne>[0]['where']
+type Target = Parameters<typeof Translation.deleteOne>[0]['where']
 //   ^?
 
-await Contribution.deleteOne({ where: { article, member } })
+await Translation.deleteOne({ where: { post, locale } })
 ```
 
-`{ member }` alone fails to compile: `article` is missing from the
-`{ article, member }` target.
+`{ locale }` alone fails to compile: `post` is missing from the
+`{ post, locale }` target.
 
 The same input types `updateOne`, `deleteOne`, and the items of
 `updateMany`, `deleteMany`, and `upsertMany`. Runtime checks the target again,
@@ -102,32 +98,23 @@ define`. A partial unique index identifies one row only among the rows its
 command targets it.
 
 If the proposed create values collide with a different unique key but no row
-matches the chosen `where` target, the upsert fails. It never redirects the
-update to a row selected by that other key.
+matches the chosen `where` target, the upsert fails; PostgreSQL reports a
+`VALIDATION_ERROR` whose public message is
+`The operation violates a data constraint.` It never redirects the update to a
+row selected by that other key.
 
-For the `TenantArticle` schema in [Indexes](/docs/1.0.0/core/data-modeling/schemas#indexes),
-the pair is the target. Both values must be present; `slug` alone is not
-unique:
+For `Translation`, the pair is the target. Both values must be present;
+`locale` alone is not unique:
 
-```ts title="src/upsert-tenant-article.ts"
-import { TenantArticle } from './tenant-article.js'
+<include cwd meta='title="src/writes.ts"'>
+	../../examples/queries/src/writes.ts#save-translation
+</include>
 
-export const saveTenantArticle = (
-	tenantId: string,
-	slug: string,
-	title: string,
-) =>
-	TenantArticle.upsertOne({
-		where: { tenantId: { eq: tenantId }, slug: { eq: slug } },
-		create: { title },
-		update: { title },
-		select: { slug: true, title: true },
-	})
-```
-
-Core supplies the two target values to the create branch before validating
-required fields. Register `TenantArticle` in the same started application and
-ensure its physical unique index has been prepared before this command runs.
+The create branch repeats the two target values, as TypeScript requires; they
+must match `where`. Calling `saveTranslation()` twice with the same post and
+locale creates one translation, then updates its `title`. The physical unique
+index must exist before the command runs; PostgreSQL creates it at startup
+outside production.
 
 A root upsert runs in an automatic transaction and reuses an active explicit
 transaction. Core structural validation always applies; optional Validation,

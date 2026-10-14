@@ -7,8 +7,11 @@ contentType: guide
 order: 2
 outcome: Update one record by ID or unique predicate and inspect the returned result.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/writes.ts
+  - examples/queries/tests/writes.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/src/query/updates/normalize.ts
@@ -24,23 +27,15 @@ sources:
 Use `Post.updateOne()` to change one persisted record. The `data` object names
 only the fields you want to change; omitted fields keep their stored values.
 
-This page continues with a `Post` like the one in [Create Records](./create).
-The examples also assume a unique `slug`, an optional `summary`, and an integer
-`editCount` initialized to `0`. Start the application with a persistence plugin
-before running them.
+This page continues with the `Post` of [Create Records](./create). It also
+declares a unique `slug`, an optional `summary`, and an integer `editCount`
+with `default: 0`.
 
 ## Update by ID
 
-```ts title="src/update-post.ts"
-import { Post } from './schemas.js'
-
-export const renamePost = (postId: string, title: string) =>
-	Post.updateOne({
-		where: { id: postId },
-		data: { title },
-		select: { title: true },
-	})
-```
+<include cwd meta='title="src/writes.ts"'>
+	../../examples/queries/src/writes.ts#rename-post
+</include>
 
 `where` is the only target of `updateOne`, `deleteOne`, and `upsertOne`;
 `{ id: postId }` is the equality shorthand of `{ id: { eq: postId } }`. To
@@ -67,17 +62,9 @@ Direct values replace stored values, and `null` clears an optional field. On a
 numeric field, `{ increment: n }` and `{ decrement: n }` apply an atomic delta
 without a separate read-and-write cycle, as in Prisma.
 
-```ts title="src/update-post.ts"
-import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
-
-export const clearSummary = (postId: string) =>
-	Post.updateOne({
-		where: { id: postId },
-		data: { summary: null, editCount: { increment: 1 } },
-		select: { summary: true, editCount: true },
-	})
-```
+<include cwd meta='title="src/writes.ts"'>
+	../../examples/queries/src/writes.ts#clear-summary
+</include>
 
 This clears `summary` to `null` and increases `editCount` by one. Core checks
 the complete projected numeric value against the field's rules while the

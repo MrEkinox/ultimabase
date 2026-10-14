@@ -7,8 +7,10 @@ contentType: concept
 order: 4
 outcome: Choose the right batch input and interpret its ordered results and failures.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/bulk.ts
+  - examples/queries/tests/bulk.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/docs/runtime.md
@@ -27,10 +29,9 @@ transaction. They are not set-based shortcuts: each item crosses Core's
 structural validation and, when installed, the relevant policy and Hook
 lifecycles.
 
-The examples assume a started application with a persistence plugin and a
-`Post` schema with required `slug` and `title` fields, no other required
-fields, and a unique `slug`. See [Manual Installation](/docs/1.0.0/manual-installation)
-for the application setup.
+The examples use the `Post` of the
+[queries example](/docs/1.0.0/core/reading-data/overview), with required `slug`
+and `title` fields, no other required fields, and a unique `slug`.
 
 ## Choose a batch command
 
@@ -47,28 +48,9 @@ accept `include`; upsert and delete batches do not.
 
 ## Create and update records
 
-```ts title="src/bulk-posts.ts"
-import { Post } from './schemas.js'
-
-export const createPostBatch = (
-	posts: readonly { readonly slug: string; readonly title: string }[],
-) =>
-	Post.createMany({
-		data: posts.map(({ slug, title }) => ({ slug, title })),
-		select: { slug: true, title: true },
-	})
-
-export const renamePostBatch = (
-	updates: readonly { readonly id: string; readonly title: string }[],
-) =>
-	Post.updateMany({
-		data: updates.map(({ id, title }) => ({
-			data: { title },
-			where: { id: { eq: id } },
-		})),
-		select: { title: true },
-	})
-```
+<include cwd meta='title="src/bulk.ts"'>
+	../../examples/queries/src/bulk.ts#create-and-update
+</include>
 
 `updateMany` entries and the `deleteMany` target list use `where`, like the
 singular commands; `where: { id }` is the equality shorthand of an ID target.
@@ -77,27 +59,9 @@ by `UniqueWhereInput`, so a broad filter fails to compile.
 
 ## Upsert and delete records
 
-```ts title="src/bulk-import-and-delete.ts"
-import { Post } from './schemas.js'
-
-export const upsertPostBatch = (
-	posts: readonly { readonly slug: string; readonly title: string }[],
-) =>
-	Post.upsertMany({
-		data: posts.map(({ slug, title }) => ({
-			where: { slug: { eq: slug } },
-			create: { slug, title },
-			update: { title },
-		})),
-		select: { slug: true, title: true },
-	})
-
-export const deletePostBatch = (postIds: readonly string[]) =>
-	Post.deleteMany({
-		where: postIds.map((id) => ({ id: { eq: id } })),
-		select: { slug: true, title: true },
-	})
-```
+<include cwd meta='title="src/bulk.ts"'>
+	../../examples/queries/src/bulk.ts#upsert-and-delete
+</include>
 
 Upsert entries create a missing unique target or update an existing one. By
 contrast, every `updateMany` or `deleteMany` entry must match one visible

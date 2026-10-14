@@ -8,8 +8,11 @@ contentType: reference
 order: 6
 outcome: Read a safe error response and find the contract owned by the rejecting layer.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/errors.ts
+  - examples/queries/tests/errors.test.ts
   - packages/core/src/errors/framework-error.ts
   - packages/core/src/errors/public-error.ts
   - packages/core/src/runtime/cancellation/operation-cancellation.ts
@@ -89,16 +92,18 @@ and optional JSON details. Unknown failures are masked as
 Application code tells a client why an operation was refused by throwing
 `PublicError` from `@ultimabase/core`: a hook, an Access rule or policy
 predicate, an ACL callback, a virtual field, a custom operation or an HTTP
-route handler.
+route handler. In the
+[queries example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/queries),
+an Access rule refuses an announcement whose title contains a link:
 
-```ts title="src/schemas/todo.ts"
-import { PublicError } from '@ultimabase/core'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/queries/src/schema.ts#announcement
+</include>
 
-throw new PublicError('A title cannot contain a link.', {
-	code: 'todo.title-link',
-	details: { field: 'title' },
-})
-```
+A signed-in author who creates `{ title: 'See https://example.com' }` gets this
+`PublicError`, whose `toJSON()` is
+`{ code: 'announcement.title-link', retryable: false, message, details: { field: 'title' } }`,
+and nothing is written.
 
 The message is shown to clients. `code` is a constant identifier or a
 dot-namespaced code and defaults to `APPLICATION_ERROR`; framework codes such
@@ -121,16 +126,9 @@ on an HTTP response shape. Its constructor takes a declared
 `FrameworkErrorCode`, a non-empty diagnostic message, and optional `cause`,
 `publicMessage`, `publicDetails`, `internalDetails`, and `retryable` values:
 
-```ts title="src/handle-missing-post.ts"
-import { FrameworkError } from '@ultimabase/core'
-
-const error = new FrameworkError('NOT_FOUND', 'Trusted diagnostic', {
-	publicMessage: 'The requested post was not found.',
-	publicDetails: { resource: 'Post' },
-})
-
-const safePayload = error.toJSON()
-```
+<include cwd meta='title="tests/errors.test.ts"'>
+	../../examples/queries/tests/errors.test.ts#framework-error
+</include>
 
 `safePayload` contains `code`, `retryable: false`, and the explicitly public
 `message` and `details`. It never includes the diagnostic message, stack,
@@ -161,23 +159,9 @@ already-aborted signal and does not terminate or detach running JavaScript.
 
 When you need to handle an absent direct-read target, check the stable code:
 
-```ts title="src/find-post.ts"
-import { FrameworkError } from '@ultimabase/core'
-
-import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
-
-export const findPostOrNull = async (postId: string) => {
-	try {
-		return await Post.findOneOrThrow({ where: { id: postId } })
-	} catch (error: unknown) {
-		if (error instanceof FrameworkError && error.code === 'NOT_FOUND') {
-			return null
-		}
-		throw error
-	}
-}
-```
+<include cwd meta='title="src/errors.ts"'>
+	../../examples/queries/src/errors.ts#find-post-or-null
+</include>
 
 ### Read validation issues when present
 
@@ -210,6 +194,16 @@ an invalid code reports:
 	}
 }
 ```
+
+A direct call reads the same payload from the error's `toJSON()`:
+
+<include cwd meta='title="tests/errors.test.ts"'>
+	../../examples/queries/tests/errors.test.ts#validation-issues
+</include>
+
+Here the second post's `views` is not an integer: `payload.details.issues`
+holds one issue with code `int.type` and path `[1, 'input', 'views']`, and
+neither post is written.
 
 Use the path to associate an issue with an input field and the code for
 programmatic handling. Do not parse the message to identify the failure. In a
