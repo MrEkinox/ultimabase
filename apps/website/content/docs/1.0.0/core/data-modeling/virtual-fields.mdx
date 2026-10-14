@@ -63,8 +63,22 @@ In the started application of the example, read only the computed field:
 </include>
 
 The returned object is `{ id, displayName: 'Ada Lovelace' }`; it does not
-contain `firstName` or `lastName`. `id` is included in every
-persisted result even when the selection omits it. The frozen result does not
+contain `firstName` or `lastName`. The selection narrows its type; hover the
+name:
+
+```ts twoslash title="Selected type"
+import '../../examples/modeling/src/ultimabase.ts'
+import { Author } from '../../examples/modeling/src/catalog.ts'
+// ---cut---
+const author = await Author.findOneOrThrow({
+	where: { id: { eq: 'AUTHOR_ID' } },
+	select: { displayName: true },
+})
+type Selected = typeof author
+//   ^?
+```
+
+`id` is included in every persisted result even when the selection omits it. The frozen result does not
 keep hidden dependencies. If the ID does not identify
 a visible record, `findOneOrThrow()` reports `NOT_FOUND`. See
 [Selections](/docs/1.0.0/core/reading-data/selections) for the broader result

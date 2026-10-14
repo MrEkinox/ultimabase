@@ -75,7 +75,7 @@ exclusion rules.
 `Model<T>`, `CreateInput<T>`, `UpdateInput<T>` and `UniqueWhereInput<T>` name
 the result, the write data and the unique target of one schema. `T` is a
 registered schema name, such as `Model<'Book'>`, or a schema type, such as
-`Model<typeof Book>`; editors print both by name. The example names the
+`Model<typeof Book>`. The example names the
 parameters of three helpers:
 
 <include cwd meta='title="src/books.ts"'>
@@ -87,7 +87,8 @@ parameters of three helpers:
 `UpdateInput<T>` is the `data` of `updateOne`, with at least one field.
 `UniqueWhereInput<T>` is the `where` of `updateOne`, `deleteOne`, and
 `upsertOne`: `{ id }`, each unique field, or each unique index of `define`
-without `where`, with all of its fields. For `Book`, hover the parameters:
+without `where`, with all of its fields. Hover `editBook` to see the types
+it takes for `Book`:
 
 ```ts twoslash title="Named types"
 import '../../examples/modeling/src/ultimabase.ts'

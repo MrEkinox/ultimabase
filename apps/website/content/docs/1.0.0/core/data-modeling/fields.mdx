@@ -167,8 +167,22 @@ value used only to share one named type: `Book.genre` and the list
 </include>
 
 The book gets the default format `'paperback'`, and the customer's
-`favoriteGenres` is `['poetry', 'essay']`. Two
-different shared enums with the same name fail when the application is
+`favoriteGenres` is `['poetry', 'essay']`. Both forms type the field as a
+string union; hover the names:
+
+```ts twoslash title="Enum types"
+import '../../examples/modeling/src/ultimabase.ts'
+import type { Model } from '@ultimabase/core'
+// ---cut---
+type Genre = Model<'Book'>['genre']
+//   ^?
+type Format = Model<'Book'>['format']
+//   ^?
+type FavoriteGenres = Model<'Customer'>['favoriteGenres']
+//   ^?
+```
+
+Two different shared enums with the same name fail when the application is
 constructed. The object-mapping form, TypeScript `enum` objects, and the
 `typeName` option are not accepted.
 
