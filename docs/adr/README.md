@@ -324,6 +324,8 @@ Current records (accepted or still active in part):
 - [ADR-0334: An unknown client address is absent, not "unknown"](0334-unknown-client-address.md)
 - [ADR-0335: Plugin contributions are typed without Register](0335-contributions-typed-without-register.md)
 - [ADR-0336: Asynchronous operations report failures through their promise](0336-async-operations-reject.md)
+- [ADR-0337: definePlugin infers rule validators](0337-define-plugin-infers-validators.md)
+- [ADR-0338: A plugin's Core range is checked](0338-core-range-is-checked.md)
 
 Proposed records (awaiting user validation):
 
