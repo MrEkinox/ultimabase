@@ -20,7 +20,93 @@ const updateSchemaDefinition = UltimaBase.Schema.define({
 const updateSchema = compilePostgresSchema(updateSchemaDefinition)
 const dialect = new PgDialect()
 
+const embeddedSchemaDefinition = UltimaBase.Schema.define({
+	className: 'EmbeddedUpdateFixture',
+	fields: (field) => ({
+		box: field.object({
+			fields: (child) => ({
+				count: child.bigint(),
+				inner: child.object({
+					fields: (grandchild) => ({ label: grandchild.string() }),
+				}),
+				tags: child.string({ list: true }),
+			}),
+		}),
+		history: field.object({
+			fields: (child) => ({ label: child.string() }),
+			list: true,
+		}),
+		metadata: field.json(),
+	}),
+})
+const embeddedSchema = compilePostgresSchema(embeddedSchemaDefinition)
+
+const toQuery = (value: unknown) => {
+	if (!(value instanceof SQL)) {
+		throw new TypeError('An object patch must compile to a SQL expression')
+	}
+
+	return dialect.sqlToQuery(value)
+}
+
 describe('PostgreSQL update compiler', () => {
+	it('compiles a single object update into an atomic deep JSONB patch', () => {
+		const compiled = compilePostgresUpdate(
+			embeddedSchema,
+			normalizeUpdateExpression(embeddedSchemaDefinition, {
+				box: { count: 2n, inner: { label: null }, tags: ['a'] },
+			}),
+		)
+		const column = '"embedded_update_fixtures"."box"'
+		const inner = (index: number) => `(${column} -> $${String(index)}::text)`
+
+		expect(toQuery(compiled.box)).toMatchObject({
+			params: [
+				'count',
+				'"2"',
+				'inner',
+				'inner',
+				'inner',
+				'label',
+				'null',
+				'tags',
+				'["a"]',
+			],
+			sql:
+				`((case when jsonb_typeof(${column}) = 'object' then ${column} else '{}'::jsonb end)` +
+				` || jsonb_build_object($1::text, $2::jsonb)` +
+				` || jsonb_build_object($3::text,` +
+				` ((case when jsonb_typeof(${inner(4)}) = 'object' then ${inner(5)} else '{}'::jsonb end)` +
+				` || jsonb_build_object($6::text, $7::jsonb)))` +
+				` || jsonb_build_object($8::text, $9::jsonb))`,
+		})
+	})
+
+	it('replaces object lists, JSON values, null objects, and empty patches', () => {
+		const compiled = compilePostgresUpdate(
+			embeddedSchema,
+			normalizeUpdateExpression(embeddedSchemaDefinition, {
+				box: null,
+				history: [{ label: 'kept whole' }],
+				metadata: { replaced: true },
+			}),
+		)
+
+		expect(compiled).toStrictEqual({
+			box: null,
+			history: [{ label: 'kept whole' }],
+			metadata: { replaced: true },
+		})
+		expect(
+			toQuery(
+				compilePostgresUpdate(
+					embeddedSchema,
+					normalizeUpdateExpression(embeddedSchemaDefinition, { box: {} }),
+				).box,
+			).sql,
+		).toBe('"embedded_update_fixtures"."box"')
+	})
+
 	it('leaves pointer replacements logical for Drizzle column mapping', () => {
 		const { catalog, Post, userPointer } = createPostgresPointerFixture()
 		const pointer = userPointer('018f0f8c-7b5a-7cc9-98db-123456789abc')
