@@ -2894,6 +2894,14 @@ network behavior is reported only through `environment:filesystem` and
 `environment:network`: Core has no enforceable host-I/O facade or corresponding
 privilege. The `typegen:reference` privilege left with Typegen (ADR-0297).
 
+The Core range is checked like a peer range (ADR-0338): when an application is
+constructed, a plugin whose `core` range the installed Core version does not
+satisfy fails with `PLUGIN_PROTOCOL_INCOMPATIBLE`, for example
+`Plugin "community.workflow" requires @ultimabase/core version "^1.0.0", but version "0.0.0" is installed.`
+Prerelease versions follow the same SemVer `satisfies` rule as peers. Official
+plugins declare the range their package publishes for `@ultimabase/core`, so
+each Core release moves them together.
+
 Manifest literals and application exports retain their exact types for plugin lookup.
 Application resources and declaration callbacks do not run during manifest
 inspection. Required dependencies, optional dependencies, conflicts, and

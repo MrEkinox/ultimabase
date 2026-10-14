@@ -19,7 +19,7 @@ import {
 export const definition = plugin({
   id: 'community.workflow',
   version: '1.0.0',
-  core: '^1.0.0',
+  core: '^0.0.0',
   instanceId: 'editorial',
   peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
   contributions: [

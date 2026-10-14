@@ -19,7 +19,7 @@ const Article = UltimaBase.Schema.define({
 const subject = plugin({
   id: 'community.search',
   version: '1.0.0',
-  core: '^1.0.0',
+  core: '^0.0.0',
   contributions: [],
 })
 const suite = definePluginConformanceSuite({
@@ -30,7 +30,7 @@ const suite = definePluginConformanceSuite({
   expected: {
     pluginId: 'community.search',
     version: '1.0.0',
-    core: '^1.0.0',
+    core: '^0.0.0',
   },
 })
 

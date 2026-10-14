@@ -15,6 +15,33 @@ A bump to one member bumps the pair to the same version. Schema, Query, Access,
 application, and Runtime changes are all recorded against Core. Official
 plugins remain independently versioned.
 
+## Core releases move plugin Core ranges
+
+Core rejects a plugin whose `core` range the installed Core does not satisfy
+(ADR-0338). Core knows its version from `coreVersion` in
+`packages/core/src/plugins/core-version.ts`, and every official plugin (each
+`*-plugin` package, plus Plugin Kit's `definePlugin` and `defineOperation`)
+declares in its manifest the range its package publishes for
+`@ultimabase/core`: `workspace:^` is published as `^<Core version>`.
+Changesets updates neither, so after `yarn changeset version` bumps Core:
+
+1. Set `coreVersion` to the new Core version;
+   `packages/core/src/plugins/core-version.test.ts` fails until it matches
+   `packages/core/package.json`.
+2. Replace the `core` range of every official plugin manifest, in its value and
+   its declared type, with `^<new version>`;
+   `tests/e2e/official-plugin-manifests.e2e.test.ts` fails until each one
+   matches. When the new version leaves the previous range (any `0.x` release
+   or a new major), also replace that range in the examples, tests, templates
+   and documentation: the graph check fails every plugin left behind.
+3. Commit these changes to the `Release packages` pull request before merging
+   it.
+
+When the new Core version leaves the previous range, Changesets also releases
+every official plugin with at least a patch bump
+(`updateInternalDependencies: "patch"`), so the updated manifests ship with
+the Core they accept.
+
 ## One-time GitHub setup
 
 Allow GitHub Actions to create pull requests with a writable `GITHUB_TOKEN`. Create an `npm` environment, add required reviewers for publication approval, and restrict it to release branches.

@@ -185,15 +185,18 @@ it('publishes the audited privilege and environment contract for every official 
 
 const packagesDirectory = path.resolve(import.meta.dirname, '../../packages')
 
+/** Reads one field of an untrusted package manifest. */
+const readField = (value: unknown, key: string): unknown =>
+	typeof value === 'object' && value !== null
+		? Reflect.get(value, key)
+		: undefined
+
 /** Reads one string-keyed map from an untrusted package manifest. */
 const readRecord = (
 	value: unknown,
 	key: string,
 ): Readonly<Record<string, unknown>> => {
-	const entry: unknown =
-		typeof value === 'object' && value !== null
-			? Reflect.get(value, key)
-			: undefined
+	const entry = readField(value, key)
 	return typeof entry === 'object' && entry !== null
 		? Object.fromEntries(Object.entries(entry))
 		: {}
@@ -210,18 +213,14 @@ const packageManifests = readdirSync(packagesDirectory, { withFileTypes: true })
 		),
 	)
 
-const packageName = (manifest: unknown): unknown =>
-	typeof manifest === 'object' && manifest !== null
-		? Reflect.get(manifest, 'name')
-		: undefined
+const packageName = (manifest: unknown): unknown => readField(manifest, 'name')
 
-const coreVersion = packageManifests
-	.filter((manifest) => packageName(manifest) === '@ultimabase/core')
-	.map((manifest) =>
-		typeof manifest === 'object' && manifest !== null
-			? Reflect.get(manifest, 'version')
-			: undefined,
-	)[0]
+const coreVersion = readField(
+	packageManifests.find(
+		(manifest) => packageName(manifest) === '@ultimabase/core',
+	),
+	'version',
+)
 
 /**
  * The Core range a package publishes: its `@ultimabase/core` peer, else its

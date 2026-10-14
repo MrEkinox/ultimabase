@@ -26,7 +26,7 @@ const highlighted = definePluginFieldOption({
 const definition = plugin({
   id: 'community.packed',
   version: '1.0.0',
-  core: '^1.0.0',
+  core: '^0.0.0',
   instanceId: 'editorial',
   peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
   permissions: { 'schema:declare': 'Declares the packed field option.' },

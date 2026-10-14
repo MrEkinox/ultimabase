@@ -139,6 +139,11 @@ const archivedPosts = await Post.archiveMany({
   `httpRoutes` from `@ultimabase/http-plugin`.
 - Mutation names are derived from the package name, the method and the command
   (`example.archive-plugin.archivable.archive-one` for `@example/archive-plugin`).
+- The plugin declares the Core range of the installed Plugin Kit (`^0.0.0` for
+  the pre-release packages), which moves with Core at every release. Core
+  checks it against the installed Core like a peer range and rejects a mismatch
+  with `PLUGIN_PROTOCOL_INCOMPATIBLE` (ADR-0338); `defineOperation` does the
+  same.
 
 Keep raw `plugin()` when rules or commands depend on the schema they apply to
 (Access, Hooks, ACL) or when a command takes input. With

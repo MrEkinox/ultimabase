@@ -15,6 +15,7 @@ sources:
   - examples/plugin-authoring/src/audit-plugin.ts
   - examples/plugin-authoring/tests/starter.test.ts
   - examples/plugin-authoring/tests/schema-contributions.test.ts
+  - examples/plugin-authoring/tests/schema-misuse.test.ts
   - packages/core/README.md
   - packages/plugin-kit/README.md
   - packages/plugin-kit/src/define-plugin/define-plugin.ts
@@ -29,6 +30,7 @@ sources:
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
   - docs/adr/0269-core-native-plugin-authoring.md
   - docs/adr/0271-native-contribution-plugin-plan.md
+  - docs/adr/0338-core-range-is-checked.md
 ---
 
 ## Outcome
@@ -48,8 +50,9 @@ plugin does not add schema fields, operations, or Runtime behavior yet.
   such as `@your-scope/workflow-plugin`.
 - Declare the Core range you actually test. The pre-release packages are
   version `0.0.0`, so the examples on these pages declare `core: '^0.0.0'`.
-  Dependency and peer ranges are checked against the installed plugin
-  versions, so they must accept `0.0.0` too.
+  The Core range is checked against the installed Core, and dependency and
+  peer ranges against the installed plugin versions, so they must all accept
+  `0.0.0` (ADR-0338).
 
 ## Steps
 
@@ -201,6 +204,15 @@ A declared dependency supplies provider-first ordering. Configuration order
 only breaks ties between otherwise ready plugins. A `peer` checks presence
 and version without promising lifecycle order. A required capability is
 preferable to naming a concrete provider when implementations can vary.
+
+Core checks the `core` range against its own installed version the way it
+checks a peer range against the installed peer. A plugin built for another
+Core fails when the application is constructed, before any effect, with
+`PLUGIN_PROTOCOL_INCOMPATIBLE`:
+
+<include cwd meta='title="tests/schema-misuse.test.ts"'>
+	../../examples/plugin-authoring/tests/schema-misuse.test.ts#core-range
+</include>
 
 ## Next steps
 

@@ -41,7 +41,7 @@ here, and the tests prove what the documentation says.
 | [`src/main.ts`](src/main.ts)                                               | the development entry point                                                                      |
 | [`tests/starter.test.ts`](tests/starter.test.ts)                           | the setup export and the common conformance suite                                                |
 | [`tests/schema-contributions.test.ts`](tests/schema-contributions.test.ts) | the shape methods, commands over TypeScript, REST and GraphQL, the rule after commit             |
-| [`tests/schema-misuse.test.ts`](tests/schema-misuse.test.ts)               | a rule in `define`, before its shape method, without its plugin; a peer range                    |
+| [`tests/schema-misuse.test.ts`](tests/schema-misuse.test.ts)               | a rule in `define`, before its shape method, without its plugin; a peer range; a Core range      |
 | [`tests/field-kinds.test.ts`](tests/field-kinds.test.ts)                   | the field kind and the field option in a second application                                      |
 | [`tests/runtime.test.ts`](tests/runtime.test.ts)                           | the capability, the lifecycle resource, cancellation and private storage                         |
 | [`tests/operations.test.ts`](tests/operations.test.ts)                     | the operation in TypeScript, GraphQL and REST, the GraphQL schema and the HTTP route             |
@@ -56,8 +56,9 @@ Region names are stable identifiers: renaming one breaks the page or README
 that includes it, and the website content tests report the missing region.
 
 The plugins declare `core: '^0.0.0'` and `peers` ranges of `^0.0.0` because
-the pre-release packages are version `0.0.0`; a peer range is checked against
-the installed plugin's version.
+the pre-release packages are version `0.0.0`; the Core range is checked against
+the installed Core's version and a peer range against the installed plugin's
+version (ADR-0338).
 
 ## Run and verify it
 
