@@ -61,6 +61,34 @@ it('updates by id and returns null for an absent target', async () => {
 	).toStrictEqual({ id: post.id, views: 10 })
 })
 
+it('rejects an increment whose result is not a safe integer', async () => {
+	await testApplication(ultimabase)
+	const post = await Post.createOne({
+		data: { slug: 'viral', title: 'Viral', views: Number.MAX_SAFE_INTEGER },
+	})
+
+	//#region unsafe-increment
+	const failure = await Post.updateOne({
+		where: { id: post.id },
+		data: { views: { increment: 1 } },
+	}).catch((error: unknown) => error)
+	//#endregion unsafe-increment
+
+	expect(failure).toMatchObject({
+		code: 'VALIDATION_ERROR',
+		publicDetails: {
+			issues: [{ code: 'int.type', path: ['update', 0, 'views', 'value'] }],
+		},
+	})
+	// The update rolled back: the stored value is unchanged.
+	expect(
+		await Post.findOneOrThrow({
+			where: { id: post.id },
+			select: { views: true },
+		}),
+	).toStrictEqual({ id: post.id, views: Number.MAX_SAFE_INTEGER })
+})
+
 it('returns frozen plain results that serialize like REST', async () => {
 	await testApplication(ultimabase)
 

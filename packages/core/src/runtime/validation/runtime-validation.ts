@@ -355,7 +355,8 @@ const snapshotOutputFieldPlan = (
 	}
 }
 
-const createOutputValidationPlan = (
+/** Describes complete stored values: required outputs must be present. */
+export const createOutputValidationPlan = (
 	plan: SchemaValidationPlan,
 	selectedFields?: readonly string[],
 	databaseGenerated: 'required' | 'optional' = 'required',
@@ -383,7 +384,8 @@ const unavailableGeneratedValue = (): never => {
 	throw new TypeError('Structural revalidation cannot generate field values')
 }
 
-const createStructuralValidationExecution = (): ValidationExecution => ({
+/** Collects issues of values that are validated but never defaulted or generated. */
+export const createStructuralValidationExecution = (): ValidationExecution => ({
 	issues: [],
 	// These values are deliberately unusable: structural boundaries never resolve omissions.
 	temporal: immutableRecord({

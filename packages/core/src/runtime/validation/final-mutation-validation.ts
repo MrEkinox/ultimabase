@@ -6,6 +6,7 @@ import {
 	readRuntimeValidationPlans,
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
+import { throwProjectedUpdateIssues } from './projected-update-validation.js'
 
 /** Creates the mandatory post-resolution validation stage for one application. */
 export const createFinalMutationValidationStage =
@@ -19,9 +20,20 @@ export const createFinalMutationValidationStage =
 			)
 		}
 
-		return revalidateRuntimeMutationOperation(
+		const plans = readRuntimeValidationPlans(schema)
+		const operation = revalidateRuntimeMutationOperation(
 			input.previousOperation,
 			input.operation,
-			readRuntimeValidationPlans(schema),
+			plans,
 		)
+
+		throwProjectedUpdateIssues(
+			schema,
+			plans,
+			operation,
+			input.target,
+			input.targets,
+		)
+
+		return operation
 	}

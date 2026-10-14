@@ -54,6 +54,12 @@ const Profile = App.Schema.define({
 				}),
 			}),
 		}),
+		location: field.object({
+			fields: (child) => ({
+				lat: child.float({ required: true }),
+				lng: child.float({ required: true }),
+			}),
+		}),
 		history: field.object({
 			list: true,
 			fields: (child) => ({
@@ -242,6 +248,57 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 
 		expect(cleared?.box).toBeNull()
 		expect(patched?.box).toStrictEqual({ a: '9', b: null })
+	})
+
+	it('requires every required child when the stored object is null', async () => {
+		const created = await createProfile()
+		const missing = (path: readonly (number | string)[]) => ({
+			code: 'VALIDATION_ERROR',
+			publicDetails: {
+				issues: [{ code: 'field.required', path: ['update', 0, ...path] }],
+			},
+		})
+
+		// A top-level optional object has nothing to keep yet.
+		await expect(
+			Profile.updateOne({
+				where: { id: created.id },
+				data: { location: { lat: 1 } },
+			}),
+		).rejects.toMatchObject(missing(['location', 'value', 'lng']))
+		expect((await read(created.id)).location).toBeNull()
+		await expect(
+			Profile.updateOne({
+				where: { id: created.id },
+				data: { location: { lat: 1, lng: 2 } },
+				select: { location: true },
+			}),
+		).resolves.toMatchObject({ location: { lat: 1, lng: 2 } })
+
+		// So has a nested optional object stored as null.
+		await Profile.updateOne({
+			where: { id: created.id },
+			data: { address: { geo: null } },
+		})
+		await expect(
+			Profile.updateOne({
+				where: { id: created.id },
+				data: { address: { city: 'Lyon', geo: { lat: 1 } } },
+			}),
+		).rejects.toMatchObject(missing(['address', 'value', 'geo', 'lng']))
+		expect((await read(created.id)).address).toStrictEqual({
+			...storedAddress,
+			geo: null,
+		})
+		await expect(
+			Profile.updateOne({
+				where: { id: created.id },
+				data: { address: { geo: { lat: 1, lng: 2 } } },
+				select: { address: true },
+			}),
+		).resolves.toMatchObject({
+			address: { ...storedAddress, geo: { lat: 1, lng: 2, label: null } },
+		})
 	})
 
 	it('replaces object lists and JSON values whole', async () => {
