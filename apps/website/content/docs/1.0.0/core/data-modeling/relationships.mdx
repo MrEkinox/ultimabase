@@ -7,8 +7,13 @@ contentType: concept
 order: 7
 outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-14
 sources:
+  - examples/modeling/README.md
+  - examples/modeling/src/catalog.ts
+  - examples/modeling/src/customers.ts
+  - examples/modeling/src/orders.ts
+  - examples/modeling/tests/relationships.test.ts
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/src/schema/relations/pointer.ts
@@ -37,50 +42,37 @@ A pointer stores one immutable logical reference: the exact target schema plus
 one record ID. It does not load the target and does not expose a mutable target
 object.
 
-```ts title="src/session.ts"
-import { UltimaBase } from '@ultimabase/core'
+The `Order` schema of the
+[modeling example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/modeling)
+points to its customer, and `Book` points to its author the same way
+(`author: field.pointer({ target: () => Author, required: true })`):
 
-export const Account = UltimaBase.Schema.define({
-	className: 'DocsAccount',
-	fields: (f) => ({
-		email: f.string({ required: true }),
-	}),
-})
-
-export const Session = UltimaBase.Schema.define({
-	className: 'DocsSession',
-	fields: (f) => ({
-		account: f.pointer({
-			required: true,
-			target: () => Account,
-		}),
-		expiresAt: f.dateTime({ required: true }),
-	}),
-})
-```
+<include cwd meta='title="src/orders.ts"'>
+	../../examples/modeling/src/orders.ts#order
+</include>
 
 Register both schemas in the same application. The target is a function that
-returns the schema, so TypeScript types `Session.account` from `Account`
+returns the schema, so TypeScript types `Order.customer` from `Customer`
 directly, and schemas in separate files, or a schema and itself, may reference
 each other. During compilation, UltimaBase resolves the function to the
-registered `Account` schema; an unregistered target fails before database
+registered `Customer` schema; an unregistered target fails before database
 setup. A target may also name the registered `className`
-(`target: 'DocsAccount'`), which the application's `Register` declaration
+(`target: 'Customer'`), which the application's `Register` declaration
 types.
 
-Link a session to an existing account with `{ connect: accountId }` in create
+Link an order to an existing customer with `{ connect: customerId }` in create
 or update data; `connect` also accepts a `Pointer` of the declared target
-already in hand, such as `{ connect: session.account }`. The target must be
+already in hand, such as `{ connect: order.customer }`. The target must be
 visible to the caller (see [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes#every-link-checks-visibility)),
 and a `Pointer` or ID assigned directly to the field is rejected.
-`Account.pointer(id)` is the only way to create a pointer value, for filters,
+`Customer.pointer(id)` is the only way to create a pointer value, for filters,
 comparisons, and ACL entries: `new Pointer(...)` is not public, and the
 exported `Pointer` serves type annotations and `instanceof Pointer` checks.
 Creating a pointer performs no I/O and does not prove that the target exists. Its ordinary value is a `Pointer`, not
-an `Account` row, and it does not read its target: use `Account.findOne` with
+a `Customer` row, and it does not read its target: use `Customer.findOne` with
 the pointer's `id`. `pointer.equals(other)` compares exact schema identity and
 ID, while `pointer.toJSON()` returns the immutable logical shape
-`{ type: 'pointer', className: 'DocsAccount', id }`.
+`{ type: 'pointer', className: 'Customer', id }`.
 
 A required pointer cannot be `null`. An optional pointer can be `null` in a
 complete record, and `null` in update data unlinks it; pointers cannot be lists or have defaults. Use
@@ -88,37 +80,32 @@ complete record, and `null` in update data unlinks it; pointers cannot be lists 
 
 ### Read a pointer's target
 
-After registering both schemas and starting the application with a persistence
-plugin, read a persisted session without including its account. Its selected
-`account` field is still a `Pointer`, not a loaded `Account` row. A pointer does
-not read its target (ADR-0310); read it through the target schema:
+In the started application of the example, read a book without including its
+author. Its selected `author` field is still a `Pointer`, not a loaded `Author`
+row. A pointer does not read its target (ADR-0310); read it through the target
+schema:
 
-```ts title="src/read-account.ts"
-import { Account, Session } from './session.js'
+<include cwd meta='title="tests/relationships.test.ts"'>
+	../../examples/modeling/tests/relationships.test.ts#read-pointer
+</include>
 
-export const readSessionAccount = async (sessionId: string) => {
-	const session = await Session.findOneOrThrow({
-		where: { id: sessionId },
-		select: { account: true },
-	})
-
-	return Account.findOne({
-		where: { id: session.account.id },
-		select: { email: true },
-	})
-}
-```
-
-`Account.findOne()` returns the selected row or `null` if the target is missing
-or excluded by a row filter; `Account.exists()` answers with a boolean.
+`Author.findOne()` returns the selected row, here `{ id, lastName: 'Lovelace' }`,
+or `null` if the target is missing or excluded by a row filter;
+`Author.exists()` answers with a boolean.
 Explicit read-policy denials reject both operations and abort an active
 transaction, just like other read errors. Neither changes the stored pointer or
 grants access to its target.
 
-If you already know that you need the account when reading the session, use
-`include: { account: { select: { email: true } } }` on `Session.findOneOrThrow()`
-instead. See [Related Data](/docs/1.0.0/core/reading-data/related-data) for
-inclusion behavior.
+If you already know that you need the author when reading the book, include it
+instead:
+
+<include cwd meta='title="tests/relationships.test.ts"'>
+	../../examples/modeling/tests/relationships.test.ts#include-pointer
+</include>
+
+`withAuthor.author` is the plain object `{ id, lastName: 'Lovelace' }`. See
+[Related Data](/docs/1.0.0/core/reading-data/related-data) for inclusion
+behavior.
 
 ### Pointer deletion behavior
 
@@ -129,6 +116,16 @@ inclusion behavior.
 - `cascade` deletes the referencing record in the same transaction,
   transitively; a `restrict` anywhere in the chain fails the whole deletion;
 - `setNull` clears the pointer and therefore requires an optional field.
+
+`Book.author` keeps the default and `Order.customer` declares `cascade`:
+
+<include cwd meta='title="tests/relationships.test.ts"'>
+	../../examples/modeling/tests/relationships.test.ts#delete-target
+</include>
+
+`refused` is a `FrameworkError` with `code: 'REFERENCE_VIOLATION'` and
+`publicDetails: { schema: 'Author' }`; the customer's orders are deleted with
+it.
 
 The database adapter enforces these actions inside the deletion's
 transaction. Cascades are physical: deleted or cleared referencing records run
@@ -150,35 +147,25 @@ A relation declares a typed to-many edge between two schemas. The source record
 does not contain a target array. The database adapter stores membership, while
 Runtime provides explicit reads and mutations through the relationship.
 
-```ts title="src/post.ts"
-import { UltimaBase } from '@ultimabase/core'
+The example declares both kinds. `Author.books` is the inverse of the
+`Book.author` pointer:
 
-export const Author = UltimaBase.Schema.define({
-	className: 'DocsAuthor',
-	fields: (f) => ({
-		name: f.string({ required: true }),
-		posts: f.relation({ mappedBy: 'author', target: () => Post }),
-	}),
-})
+<include cwd meta='title="src/catalog.ts"'>
+	../../examples/modeling/src/catalog.ts#author
+</include>
 
-export const Post = UltimaBase.Schema.define({
-	className: 'DocsPost',
-	fields: (f) => ({
-		author: f.pointer({
-			required: true,
-			target: () => Author,
-		}),
-		reviewers: f.relation({ target: () => Author }),
-		title: f.string({ required: true }),
-	}),
-})
-```
+`Customer.wishlist` owns its membership, and its final `.with` declares a
+filter for every read through it:
+
+<include cwd meta='title="src/customers.ts"'>
+	../../examples/modeling/src/customers.ts#customer
+</include>
 
 ### Owning and inverse sides
 
-`Post.reviewers` owns an independent membership set. `Author.posts` is inverse:
-`mappedBy: 'author'` derives its members from `Post.author` instead of storing
-a second edge. Static compilation resolves targets and verifies that the
+`Customer.wishlist` owns an independent membership set. `Author.books` is
+inverse: `mappedBy: 'author'` derives its members from `Book.author` instead of
+storing a second edge. Static compilation resolves targets and verifies that the
 inverse points to a compatible field. A one-to-one relationship uses a unique
 pointer, not a one-item relation.
 
@@ -197,86 +184,64 @@ role, position, status, or creation time.
 
 Use `include` to load pointer and relation targets with a parent result;
 [Related Data](/docs/1.0.0/core/reading-data/related-data) owns the full
-example, selection rules, and filtering behavior. The following examples assume
-registered `Author` and `Post` schemas in a started application with a
-persistence plugin.
+example, selection rules, and filtering behavior. In the started application of
+the example:
 
-```ts title="src/read-reviewers.ts"
-import { Post } from './post.js'
+<include cwd meta='title="tests/relationships.test.ts"'>
+	../../examples/modeling/tests/relationships.test.ts#include-inverse
+</include>
 
-export const readReviewers = async (postId: string) => {
-	const post = await Post.findOneOrThrow({
-		where: { id: postId },
-		select: { id: true },
-		include: { reviewers: { take: 10, select: { name: true } } },
-	})
+`author.books` holds the author's two books, each `{ id, title }`, ordered by
+title. To ask a question about membership without loading the collection,
+filter the parent through the relation. For example, check whether a customer
+wishes for a particular book:
 
-	return post.reviewers
-}
-```
+<include cwd meta='title="tests/relationships.test.ts"'>
+	../../examples/modeling/tests/relationships.test.ts#relation-filter
+</include>
 
-To ask a question about membership without loading the collection, filter the
-parent through the relation. For example, check whether a post has a particular
-visible reviewer:
-
-```ts title="src/read-reviewers.ts"
-import { Post } from './post.js'
-
-export const hasReviewer = (postId: string, reviewerId: string) =>
-	Post.exists({
-		where: { id: postId, reviewers: { some: { id: reviewerId } } },
-	})
-```
-
-Included relations and relation filters apply the relation's declared filter and
-target policies; their results describe visible membership, which can differ
+`wishesNotes` is `true`. The same question about an unpublished book in the
+wishlist answers `false`: included relations and relation filters apply the
+relation's declared filter and target policies; their results describe visible membership, which can differ
 from physical membership. Use `where` in the include or in the relation filter
 to narrow it further.
 
 ## Change relation membership
 
 Change membership through the relation field of `updateOne` data, with the
-same `connect`, `disconnect`, and `set` commands as any link (see
+same link commands as any nested write (see
 [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes)). For example,
-add one reviewer and return the visible membership:
+add two books to a wishlist and return the visible membership:
 
-```ts title="src/add-reviewer.ts"
-import { Post } from './post.js'
+<include cwd meta='title="tests/relationships.test.ts"'>
+	../../examples/modeling/tests/relationships.test.ts#connect-wishlist
+</include>
 
-export const addReviewer = (postId: string, reviewerId: string) =>
-	Post.updateOne({
-		where: { id: postId },
-		data: { reviewers: { connect: [reviewerId] } },
-		include: { reviewers: { select: { name: true } } },
-	})
-```
+Both books are members, but `updated.wishlist` lists only the published one:
+the declared filter of `.with({ relations })` hides the draft from every read,
+`exists` included. Results have no relation handles (ADR-0310); the edge itself
+is not a result field. A relation field takes these commands:
 
-`{ set: [] }` removes every membership visible under the installed policies,
-including members the relation's declared `where` hides from reads. Results have no relation
-handles (ADR-0310); the edge itself is not a result field:
+| Command      | Effect                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------- |
+| `connect`    | Add a non-empty list of targets, by ID or `Pointer`, without removing existing members.     |
+| `disconnect` | Remove a non-empty list of members without deleting the targets.                            |
+| `set`        | Replace the membership with the supplied list, alone in its object; `[]` removes every one. |
+| `create`     | Create a non-empty list of targets and link them.                                           |
+| `update`     | Update linked targets, each given as `{ id, data }`.                                        |
 
-| Method                     | Effect                                                                                    |
-| -------------------------- | ----------------------------------------------------------------------------------------- |
-| `connect(id, options?)`    | Add one target without removing existing edges; it also accepts a non-empty tuple of IDs. |
-| `disconnect(id, options?)` | Remove one edge without deleting its target; it also accepts a non-empty tuple of IDs.    |
-| `set(ids, options?)`       | Replace membership with the supplied IDs; `[]` is allowed.                                |
-| `clear(options?)`          | Remove membership without supplying an empty array.                                       |
-
-Each call has one automatic or inherited transaction and runs installed
-source-field policy, target visibility checks, and mutation behavior. Missing
-or inaccessible targets both report `NOT_FOUND`; duplicate IDs within one
-call are rejected before the transaction. On an owning relation, direct-handle
-`set` and `clear` change the complete physical edge set, not only the subset a
-read currently shows. An inverse pointer relation instead updates its visible
-targets through ordinary pointer mutations; an operation that would clear a
-required inverse pointer fails. Use [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes)
-when the relation change must be part of the same atomic root create or update;
-its `set` preserves policy-hidden memberships.
+`connect`, `disconnect`, `create`, and `update` combine in one object; `set`
+stands alone. A missing or inaccessible target reports `NOT_FOUND` and rolls
+the update back. `{ set: [] }` removes every membership visible under the
+installed policies, including members the relation's declared `where` hides
+from reads. On an inverse relation whose pointer is required, such as
+`Author.books`, `disconnect` and `set` are not offered: unlinking a book would
+clear its required `author`.
 
 A relation may declare a static or request-contextual `where` to narrow every
 read through that field, in the final `.with({ relations })` of its schema,
-keyed by the relation field name. It intersects with caller filters and target
-policies; it does not grant access or change membership. See
+keyed by the relation field name, as `Customer` does. It intersects with caller
+filters and target policies; it does not grant access or change membership. See
 [Related Data](/docs/1.0.0/core/reading-data/related-data#declared-relation-filters).
 
 ## Related tasks

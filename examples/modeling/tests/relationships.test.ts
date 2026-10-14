@@ -133,6 +133,16 @@ it('changes and reads a filtered relation', async () => {
 		}),
 	).toBe(false)
 
+	// A missing target is not found, and the update rolls back.
+	await expect(
+		Customer.updateOne({
+			where: { id: customer.id },
+			data: {
+				wishlist: { connect: ['0190b7f0-0000-7000-8000-000000000000'] },
+			},
+		}),
+	).rejects.toMatchObject({ code: 'NOT_FOUND' })
+
 	// `set: []` also removes the members the filter hides.
 	await Customer.updateOne({
 		where: { id: customer.id },

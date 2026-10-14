@@ -13,10 +13,16 @@ import { createCustomer } from './fixtures.ts'
 
 afterEach(() => {
 	vi.useRealTimers()
+	vi.restoreAllMocks()
 })
 
 it('is started and healthy once testApplication has started it', async () => {
+	// The first test of the file starts the application and logs its summary.
+	const info = vi.spyOn(console, 'info')
 	await testApplication(ultimabase)
+	expect(info).toHaveBeenCalledWith(
+		"UltimaBase started: 4 schemas, 1 plugin (@ultimabase/postgres-plugin); no critical privileges. Use logLevel 'debug' for the privilege report.",
+	)
 	//#region health
 	const state = ultimabase.state
 	const health = await ultimabase.health()
