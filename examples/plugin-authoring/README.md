@@ -41,7 +41,7 @@ here, and the tests prove what the documentation says.
 | [`src/main.ts`](src/main.ts)                                               | the development entry point                                                                      |
 | [`tests/starter.test.ts`](tests/starter.test.ts)                           | the setup export and the common conformance suite                                                |
 | [`tests/schema-contributions.test.ts`](tests/schema-contributions.test.ts) | the shape methods, commands over TypeScript, REST and GraphQL, the rule after commit             |
-| [`tests/schema-misuse.test.ts`](tests/schema-misuse.test.ts)               | a rule in `define`, before its shape method, and without its plugin                              |
+| [`tests/schema-misuse.test.ts`](tests/schema-misuse.test.ts)               | a rule in `define`, before its shape method, without its plugin; a peer range                    |
 | [`tests/field-kinds.test.ts`](tests/field-kinds.test.ts)                   | the field kind and the field option in a second application                                      |
 | [`tests/runtime.test.ts`](tests/runtime.test.ts)                           | the capability, the lifecycle resource, cancellation and private storage                         |
 | [`tests/operations.test.ts`](tests/operations.test.ts)                     | the operation in TypeScript, GraphQL and REST, the GraphQL schema and the HTTP route             |

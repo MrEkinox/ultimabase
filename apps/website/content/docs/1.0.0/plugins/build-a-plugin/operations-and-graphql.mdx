@@ -16,6 +16,7 @@ sources:
   - examples/plugin-authoring/src/graphql-addon.ts
   - examples/plugin-authoring/src/status-route.ts
   - examples/plugin-authoring/tests/operations.test.ts
+  - examples/plugin-authoring/tests/schema-contributions.test.ts
   - packages/core/README.md
   - packages/plugin-kit/README.md
   - packages/graphql-plugin/README.md
@@ -314,7 +315,16 @@ Master-only mutation never enters the public SDL. The official
 mutations: REST exposes a one-row request command when the application names
 it in `.with({ rest: { softDeleteOne: true } })`, and GraphQL when it names it
 in `.with({ graphql: { softDeleteOne: true } })`, without any binding: the
-GraphQL field then takes only the row `id`.
+GraphQL field then takes only the row `id`. The `archivePlugin` of
+[Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#start-with-defineplugin)
+works the same way once `Post` names `archiveOne` for both transports:
+
+<include cwd meta='title="tests/schema-contributions.test.ts"'>
+	../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-over-http
+</include>
+
+REST answers `200` with the archived row in `result`, GraphQL with
+`{ archiveOnePost: { id } }`; `archiveMany` stays off both transports.
 
 ## REST and HTTP are separate choices
 

@@ -97,8 +97,8 @@ factory, here with the `auditPlugin` of the same page and the raw
 	../../examples/plugin-authoring/src/schema.ts#factory
 </include>
 
-A schema then calls the shape method, and sets the `audit` rule in its final
-`.with(...)`:
+A schema then calls the shape method, and sets in its final `.with(...)` the
+`audit` rule and the REST and GraphQL method keys that expose `archiveOne`:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/plugin-authoring/src/schema.ts#post
@@ -238,7 +238,8 @@ of the packed package: the shape method, the `.with` rule, the added fields,
 and the commands must offer the same completions, hovers, signatures, and
 diagnostics as from source. Check the misuses too: a rule passed to `define`,
 a rule written before its shape method, and a rule whose plugin is not
-installed must each fail.
+installed must each fail, as the example's `tests/schema-misuse.test.ts`
+checks.
 
 Run the `@ultimabase/testing/plugins` conformance suite for the generic
 repeatability check, then add a focused assertion for the field, rule, or
