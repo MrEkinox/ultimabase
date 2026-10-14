@@ -56,3 +56,19 @@ it('checks a peer range against the installed plugin version', () => {
 		'Plugin "community.too-new" requires @ultimabase/graphql-plugin version "^1.0.0", but version "0.0.0" is installed.',
 	)
 })
+
+it('checks the Core range against the installed Core version', () => {
+	//#region core-range
+	// The pre-release Core is 0.0.0: a `^1.0.0` Core range cannot install.
+	const forCore1 = plugin({
+		id: 'community.for-core-1',
+		core: '^1.0.0',
+		version: '1.0.0',
+		contributions: [],
+	})
+	const Application = UltimaBase.use(forCore1)
+	expect(() => new Application({ schemas: [] })).toThrow(
+		'Plugin "community.for-core-1" requires @ultimabase/core version "^1.0.0", but version "0.0.0" is installed.',
+	)
+	//#endregion core-range
+})
