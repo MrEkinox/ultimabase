@@ -262,6 +262,15 @@ below 4): edit to diagnostics on TypeScript 7 0.56 s at 50 and 1.90 s at 200
 schemas (`main` 0.56 s and 1.89 s), on TypeScript 6 1.95 s and 5.76 s (`main`
 1.95 s and 5.75 s).
 
+Note (2026-10-14, ADR-0336 and the second fix pass): mutation results with
+`include` are typed like reads, `definePlugin` infers rule validators
+(ADR-0337), and plugins' Core ranges are checked (ADR-0338). Measured on the form
+D bench (medians of three interleaved runs, 1-minute load below 4) against
+`main` before ADR-0336 (736e0d16): edit to diagnostics on TypeScript 7 0.56 s at
+50 and 1.90 s at 200 schemas (before: 0.56 s and 1.86 s), on TypeScript 6 1.96 s
+and 5.81 s (before: 1.92 s and 5.76 s). Within the thresholds; TypeScript 6 has
+little margin, and one single TypeScript 6 run at 200 schemas took 6.12 s.
+
 ## Migration step 6.8c (2026-10-13)
 
 ADR-0177, ADR-0184, ADR-0185, ADR-0198, ADR-0217, ADR-0265 and ADR-0285 are
