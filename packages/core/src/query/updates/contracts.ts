@@ -140,7 +140,11 @@ interface UpdateFieldOperationNode<
 	readonly field: TFieldName
 }
 
-/** Replaces one mutable field with an exact schema-derived update value. */
+/**
+ * Replaces one mutable field with an exact schema-derived update value. On a
+ * single object field the value is a deep patch: omitted children keep their
+ * stored values (ADR-0032).
+ */
 export type SetUpdateOperationNode<
 	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends UpdateFieldName<TSchema> = UpdateFieldName<TSchema>,

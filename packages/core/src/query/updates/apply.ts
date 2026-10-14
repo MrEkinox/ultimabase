@@ -1,6 +1,10 @@
-import type { SchemaDefinition } from '../../schema/index.js'
+import type {
+	FieldValidationPlan,
+	SchemaDefinition,
+} from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
 import { applyDecimalDelta } from '../../schema/fields/builtins/decimal.js'
+import { compileFieldValidationPlan } from '../../schema/plans/compiler.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { UpdateExpressionNode } from './contracts.js'
@@ -46,6 +50,44 @@ const applyNumericOperation = (
 }
 
 /**
+ * Merges one object patch into its stored value (ADR-0032): omitted children
+ * keep their stored values and nested objects merge recursively, while lists,
+ * JSON values and `null` replace. Without a stored object the patch is the value.
+ */
+const applyObjectPatch = (
+	plan: FieldValidationPlan,
+	current: unknown,
+	patch: unknown,
+): unknown => {
+	if (
+		plan.kind !== 'object' ||
+		!isPlainRecord(patch) ||
+		!isPlainRecord(current)
+	) {
+		return patch
+	}
+
+	const patched = Object.entries(patch).map(
+		([name, value]): [string, unknown] => {
+			const child = Object.hasOwn(plan.fields, name)
+				? plan.fields[name]
+				: undefined
+			const stored = Object.hasOwn(current, name) ? current[name] : undefined
+
+			return [
+				name,
+				child === undefined ? value : applyObjectPatch(child, stored, value),
+			]
+		},
+	)
+
+	// Later entries win, and `Object.fromEntries` never invokes `__proto__` setters.
+	return immutableRecord(
+		Object.fromEntries([...Object.entries(current), ...patched]),
+	)
+}
+
+/**
  * Applies one normalized update expression to an immutable logical snapshot.
  *
  * The helper is adapter-neutral and is intended for transaction-bound plugin
@@ -87,7 +129,11 @@ export const applyUpdateExpressionToRecord = <
 					throw new TypeError('Set update application requires a value')
 				}
 
-				candidate[operation.field] = operation.value
+				candidate[operation.field] = applyObjectPatch(
+					compileFieldValidationPlan(field, 'update'),
+					candidate[operation.field],
+					operation.value,
+				)
 				break
 			case 'decrement':
 			case 'increment':
