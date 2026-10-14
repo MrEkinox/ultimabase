@@ -71,18 +71,21 @@ output policy can still omit fields from the returned snapshot. See
 ## Update an object or list
 
 An update to a single embedded object is a **deep patch**. Omitted children
-keep their stored values. By contrast, updating an object list **replaces the
-entire list**: each supplied item must include its required children. There is
-no index-based patch of one list entry.
+keep their stored values, required ones included; a supplied nested object is
+patched the same way, while a supplied list or `null` replaces that child. By
+contrast, updating an object list **replaces the entire list**: each supplied
+item must include its required children. There is no index-based patch of one
+list entry.
 
-This update supplies every child of `shippingAddress` and a new list, so each
-list item includes its required children:
+This update supplies only two children of `shippingAddress` and a new list,
+so each list item includes its required children:
 
 <include cwd meta='title="tests/embedded.test.ts"'>
 	../../examples/modeling/tests/embedded.test.ts#update-addresses
 </include>
 
-The new list contains only the supplied Paris address, with `line2: null`. The
+`shippingAddress` keeps its stored `line1` and `countryCode`. The new list
+contains only the supplied Paris address, with `line2: null`. The
 returned `updated` result is a new frozen snapshot; `customer` is unchanged.
 Setting an optional object or list to `null` clears the whole value, while
 `[]` means an empty list. See [Update Records](/docs/1.0.0/core/writing-data/update)
