@@ -107,7 +107,8 @@ export const normalizeCollectionLinks = <TData>(
 
 /**
  * Reports a link failure as a rejected promise, like the `VALIDATION_ERROR`
- * of a singular nested write; shape errors of the command stay synchronous.
+ * of a singular nested write. Shape errors of the command throw here; the
+ * `async` public entry points report them as rejections too.
  */
 export const rejectLinkFailures = <TResult>(
 	execute: () => Promise<TResult>,

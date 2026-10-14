@@ -1,6 +1,6 @@
 import {
 	acquireApplication,
-	assertOutsideApplicationWork,
+	applicationWorkCloseError,
 	closeApplicationExecution,
 	drainApplicationWork,
 	releaseApplication,
@@ -378,7 +378,8 @@ export class FrameworkApplication<
 
 	/** Stops active infrastructure without releasing setup-owned state. */
 	stop(): Promise<void> {
-		assertOutsideApplicationWork(this)
+		const insideWork = applicationWorkCloseError(this)
+		if (insideWork !== undefined) return Promise.reject(insideWork)
 		if (this.#disposePromise !== undefined) return this.#disposePromise
 		if (this.#startPromise === undefined) return Promise.resolve()
 		closeApplicationExecution(this)
@@ -389,7 +390,8 @@ export class FrameworkApplication<
 
 	/** Drains admitted work and releases ownership only after successful resource cleanup. */
 	dispose(): Promise<void> {
-		assertOutsideApplicationWork(this)
+		const insideWork = applicationWorkCloseError(this)
+		if (insideWork !== undefined) return Promise.reject(insideWork)
 		if (this.#disposePromise !== undefined) return this.#disposePromise
 		closeApplicationExecution(this)
 		this.#closing = 'disposing'

@@ -270,9 +270,11 @@ describe('RequestEngine transactions', () => {
 				internalDetails: { reason: 'transaction-engine-closed' },
 			}),
 		)
-		expect(() =>
+		await expect(
 			escapedQuery === undefined ? undefined : articleSchema.findMany(),
-		).toThrow(expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }))
+		).rejects.toThrow(
+			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
+		)
 		expect(trace).toStrictEqual(['adapter:begin', 'adapter:commit'])
 	})
 

@@ -140,10 +140,12 @@ describe('single active application ownership', () => {
 		const work = runWithRequestEngine(request, async () => {
 			await resume.promise
 			// Even repeated teardown must reject self-waiting while outside disposal drains us.
-			expect(() => first.dispose()).toThrow(
+			await expect(first.dispose()).rejects.toThrow(
 				'outside its active request callback',
 			)
-			expect(() => first.stop()).toThrow('outside its active request callback')
+			await expect(first.stop()).rejects.toThrow(
+				'outside its active request callback',
+			)
 			return runWithRequestEngine(request, () => {
 				finished = true
 				return 42

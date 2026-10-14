@@ -31,16 +31,16 @@ class RecordingDispatcher implements QueryExecutionDispatcher {
 }
 
 describe('contextual operation execution', () => {
-	it('fails clearly when neither an ambient request nor an app is available', () => {
-		expect(() => PostSchema.findMany()).toThrow(
+	it('fails clearly when neither an ambient request nor an app is available', async () => {
+		await expect(PostSchema.findMany()).rejects.toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
 				internalDetails: { reason: 'operation-owner-missing' },
 			}),
 		)
-		expect(() =>
+		await expect(
 			PostSchema.findMany(undefined, { context: {} as never }),
-		).toThrow(
+		).rejects.toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
 				internalDetails: { reason: 'operation-owner-missing' },
@@ -100,9 +100,9 @@ describe('contextual operation execution', () => {
 		const active = new RecordingDispatcher(new Error('unused execution'))
 
 		await runWithQueryExecution({}, active, async () => {
-			expect(() => PostSchema.findMany(undefined, removedOptions)).toThrow(
-				'operation options contain unknown key: ultimabase',
-			)
+			await expect(
+				PostSchema.findMany(undefined, removedOptions),
+			).rejects.toThrow('operation options contain unknown key: ultimabase')
 			await expect(
 				executeStaticSchemaMutation(
 					PostSchema,

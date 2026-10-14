@@ -390,8 +390,11 @@ export class RequestEngine<
 		)
 	}
 
-	/** Opens one adapter transaction while preserving this context and application. */
-	transaction<TResult>(
+	/**
+	 * Opens one adapter transaction while preserving this context and
+	 * application; a refused transaction rejects the returned promise.
+	 */
+	async transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
 		return this.#openTransaction(handler, undefined)

@@ -349,7 +349,8 @@ const bindExecutionResult = async <TResult>(
 
 /**
  * Runs one dispatch on the active executor, or on a fresh root executor of the
- * ambient application. Selection failures stay synchronous, like dispatch ones.
+ * ambient application. Public entry points are `async`, so selection and
+ * dispatch failures reach their callers as rejections.
  */
 const executeWithAmbientExecutor = <TResult>(
 	dispatch: (executor: QueryExecutionDispatcher) => Promise<unknown>,

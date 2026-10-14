@@ -69,11 +69,11 @@ it('reads the equality shorthand like its explicit form', async () => {
 it('rejects a malformed UUID operand before the database', async () => {
 	await testApplication(ultimabase)
 
-	// The read throws while it builds its query, before any database work.
-	await expect(async () =>
-		Post.findMany({ where: { id: 'post-1' } }),
-	).rejects.toThrow(new TypeError('where.id must be a valid UUID'))
-	await expect(async () =>
+	// The read rejects while it builds its query, before any database work.
+	await expect(Post.findMany({ where: { id: 'post-1' } })).rejects.toThrow(
+		new TypeError('where.id must be a valid UUID'),
+	)
+	await expect(
 		Post.findMany({ where: { id: { eq: 'post-1' } } }),
 	).rejects.toThrow(new TypeError('where.id.eq must be a valid UUID'))
 })
@@ -113,7 +113,7 @@ it('filters scalar, text and list fields', async () => {
 	// `isEmpty` excludes a null list; `isNull` finds it.
 	expect(titles(emptyTags)).toStrictEqual(['Other'])
 	expect(titles(noTags)).toStrictEqual(['Untagged'])
-	await expect(async () =>
+	await expect(
 		Post.findMany({
 			where: { title: { matches: { source: '(?<=a)b', flags: [] } } },
 		}),

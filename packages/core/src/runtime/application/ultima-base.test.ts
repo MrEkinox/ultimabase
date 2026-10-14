@@ -177,7 +177,7 @@ describe('UltimaBase', () => {
 		).toThrow(
 			new TypeError('UltimaBase must be started before request execution'),
 		)
-		expect(() => articleSchema.findMany()).toThrow(
+		await expect(articleSchema.findMany()).rejects.toThrow(
 			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 		)
 
@@ -209,12 +209,12 @@ describe('UltimaBase', () => {
 		await ultimabase.stop()
 		expect(ultimabase.state).toBe('stopped')
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop'])
-		expect(() => articleSchema.findMany({})).toThrow(
+		await expect(articleSchema.findMany({})).rejects.toThrow(
 			new TypeError(
 				'Framework engine requires its initialized active application; received stopped',
 			),
 		)
-		expect(() => ultimabase.start()).toThrow(
+		await expect(ultimabase.start()).rejects.toThrow(
 			new TypeError('Cannot start UltimaBase while application is stopped'),
 		)
 

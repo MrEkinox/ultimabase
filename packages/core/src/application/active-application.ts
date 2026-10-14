@@ -60,12 +60,19 @@ export const assertApplicationExecution = (owner: ApplicationOwner): void => {
 
 /** Avoids waiting for a callback that is itself awaiting its own teardown. */
 export const assertOutsideApplicationWork = (owner: ApplicationOwner): void => {
-	if (active?.owner === owner && hasActiveScope(active)) {
-		throw new TypeError(
-			'Stop or dispose the application outside its active request callback',
-		)
-	}
+	const error = applicationWorkCloseError(owner)
+	if (error !== undefined) throw error
 }
+
+/** Reports a stop or dispose requested from inside the application's own work. */
+export const applicationWorkCloseError = (
+	owner: ApplicationOwner,
+): TypeError | undefined =>
+	active?.owner === owner && hasActiveScope(active)
+		? new TypeError(
+				'Stop or dispose the application outside its active request callback',
+			)
+		: undefined
 
 /** Tracks both synchronous callbacks and their returned promises without changing types. */
 export const runApplicationWork = <TResult>(

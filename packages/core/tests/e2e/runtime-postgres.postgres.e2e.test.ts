@@ -445,9 +445,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			await expect(PostSchema.count(undefined)).resolves.toBe(0)
 			await expect(PostSchema.exists(undefined)).resolves.toBe(false)
 			// A malformed UUID is malformed input, never a database constraint error.
-			expect(() =>
+			await expect(
 				PostSchema.findMany({ where: { id: { eq: 'abc' } } }),
-			).toThrow(new TypeError('where.id.eq must be a valid UUID'))
+			).rejects.toThrow(new TypeError('where.id.eq must be a valid UUID'))
 		} finally {
 			await ultimabase.dispose()
 		}

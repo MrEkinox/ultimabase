@@ -373,8 +373,8 @@ export class UltimaBase<
 			state === 'disposing' ||
 			state === 'disposed'
 		) {
-			throw new TypeError(
-				`Cannot start UltimaBase while application is ${state}`,
+			return Promise.reject(
+				new TypeError(`Cannot start UltimaBase while application is ${state}`),
 			)
 		}
 
@@ -411,7 +411,7 @@ export class UltimaBase<
 	 * })
 	 * ```
 	 */
-	transaction<TResult>(
+	async transaction<TResult>(
 		fn: () => TResult | PromiseLike<TResult>,
 	): Promise<TResult> {
 		if (typeof fn !== 'function') {
@@ -439,7 +439,7 @@ export class UltimaBase<
 	 *
 	 * @example `await ultimabase.can({ operation: 'update', schema: Todo, item: { id } })`
 	 */
-	can(options: CanOptions<TSchemas[number]>): Promise<boolean> {
+	async can(options: CanOptions<TSchemas[number]>): Promise<boolean> {
 		assertCanOptions(options)
 		const current = this.#requestEngine()
 		const engine = Object.hasOwn(options, 'principal')

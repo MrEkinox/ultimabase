@@ -208,7 +208,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		return runWithRequestEngine(request, () => callback(context))
 	}
 
-	executeRead<const TOperation extends OperationAstNode>(
+	async executeRead<const TOperation extends OperationAstNode>(
 		context: RequestContext,
 		operation: TOperation &
 			(TOperation['kind'] extends ReadOperationKind ? unknown : never),
@@ -223,7 +223,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		)
 	}
 
-	executeMutation<
+	async executeMutation<
 		const TSchema extends SchemaDefinition,
 		const TRequest extends ApplicationSchemaMutationRequest<TSchema>,
 	>(

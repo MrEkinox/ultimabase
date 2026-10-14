@@ -83,14 +83,14 @@ describe('application request schema mutation execution', () => {
 			}),
 		)
 		controller.abort('request closed')
-		expect(() =>
+		await expect(
 			runAsRequestExecutionHarness(harness, (executor) =>
 				executor.executeMutation(cancelled, MutationRecord, {
 					kind: 'create-one',
 					input: { data: { title: 'Cancelled' } },
 				}),
 			),
-		).toThrow(/cancelled/u)
+		).rejects.toThrow(/cancelled/u)
 		expect(adapter.transactions).toHaveLength(2)
 		await ultimabase.dispose()
 	})
