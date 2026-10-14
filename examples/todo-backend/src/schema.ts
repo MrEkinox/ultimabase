@@ -1,3 +1,4 @@
+//#region factory
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
@@ -8,13 +9,6 @@ import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
-const serverManagedAccess = {
-	read: true,
-	create: false,
-	update: false,
-	upsert: false,
-	delete: false,
-}
 /**
  * One plugin list types every schema and builds the application (ADR-0297).
  * Every schema rules every operation, so Access opens nothing by default.
@@ -31,6 +25,15 @@ export const App = UltimaBase.use(
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+//#endregion factory
+
+const serverManagedAccess = {
+	read: true,
+	create: false,
+	update: false,
+	upsert: false,
+	delete: false,
+}
 
 /** Owns tasks assigned to one person and demonstrates inverse relations. */
 export const TodoUser = App.Schema.define({
@@ -92,6 +95,7 @@ export const TodoPriority = defineEnum('TodoPriority', [
 export const Todo = App.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
+		//#region todo-title
 		title: field.string({
 			description: 'Short task summary shown in todo lists.',
 			hooks: { resolveInput: ({ value }) => value.trim() },
@@ -99,6 +103,7 @@ export const Todo = App.Schema.define({
 			required: true,
 			validation: z.string().max(200),
 		}),
+		//#endregion todo-title
 		description: field.string({
 			description: 'Optional details needed to complete the task.',
 		}),
@@ -243,6 +248,7 @@ export const Todo = App.Schema.define({
 	}),
 	indexes: [{ fields: ['completed', 'dueAt'] }],
 })
+	//#region todo-rules
 	.acl()
 	.with({
 		access: {
@@ -268,3 +274,4 @@ export const Todo = App.Schema.define({
 		},
 		postgres: { table: 'todos' },
 	})
+//#endregion todo-rules

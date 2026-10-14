@@ -461,7 +461,16 @@ stable `contributionId`; Core injects the exact plugin ID, optional instance ID,
 package version, protocol version, and normalized static options into the final
 schema provenance:
 
-```ts
+```ts twoslash
+import { stringField } from '@ultimabase/core'
+import {
+	addSchemaField,
+	addSchemaIndex,
+	contributeDeclarations,
+	defineSchemaOption,
+	plugin,
+} from '@ultimabase/core/plugin'
+
 const workflowOption = defineSchemaOption({
 	normalize(value, path) {
 		if (
@@ -478,7 +487,7 @@ const workflowOption = defineSchemaOption({
 	protocolVersion: 1,
 })
 
-const workflowPlugin = plugin({
+export const workflowPlugin = plugin({
 	id: '@example/workflow-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
@@ -644,32 +653,63 @@ selects one application's compiled surface. `ultimabase.schema(nameOrClass)` res
 cached handle from the final application graph. Stable classes preserve their
 ordinary package-owned methods, while configuration-dependent schemas remain
 available by runtime name in JavaScript. Native CRUD runs on the schema class,
-including the class obtained from a dynamic handle's `.schema` property:
+including the class obtained from a dynamic handle's `.schema` property. The
+same handle is returned for a class and for its name:
+
+<!-- region ../../examples/plugin-authoring/tests/handles.test.ts#schema-handles -->
 
 ```ts
-const Posts = ultimabase.schema(PostSchema)
-const AuditEntries = ultimabase.schema('WorkflowAuditEntry')
+const Posts = ultimabase.schema(Post)
+const Comments = ultimabase.schema('Comment')
 
-Posts.schema === PostSchema
-AuditEntries.schema.className === 'WorkflowAuditEntry'
-await AuditEntries.schema.findMany()
+const samePost = Posts.schema === Post
+const commentClass = Comments.schema.className
+const comments = await Comments.schema.findMany()
 ```
+
+<!-- endregion -->
 
 Custom operations are immutable namespaced SemVer tokens. Their input and
 result contracts validate and detach untrusted values, while target and
 transaction metadata stay transport-neutral:
 
+<!-- region ../../examples/plugin-authoring/src/workflow/operations.ts#operations -->
+
 ```ts
-const publishPost = defineOperation({
-	errors: ['community.workflow.publish-rejected'],
-	name: 'community.workflow.publish-post',
-	version: '1.0.0',
-	target: 'application',
-	transaction: 'required',
-	input: defineOperationValue(snapshotPublishInput),
-	result: defineOperationValue(snapshotPublishResult),
+import { defineOperation, defineOperationValue } from '@ultimabase/core/plugin'
+
+const text = defineOperationValue((value, path): string => {
+	if (typeof value !== 'string') {
+		throw new TypeError(`${path} must be text`)
+	}
+	return value
 })
 
+/** An app-wide command with no database work: it forbids a transaction. */
+export const formatWorkflow = defineOperation({
+	input: text,
+	name: 'community.workflow.format',
+	result: text,
+	target: 'application',
+	transaction: 'forbidden',
+	version: '1.0.0',
+})
+```
+
+<!-- endregion -->
+
+The owner contributes the token with its handler, its optional wire bindings
+and its optional public declaration:
+
+<!-- region ../../examples/plugin-authoring/src/workflow/plugin.ts#workflow-plugin -->
+
+```ts
+import { contributeOperation, plugin } from '@ultimabase/core/plugin'
+
+import { formatGraphqlBinding } from './graphql-binding.ts'
+import { formatWorkflow } from './operations.ts'
+
+/** One owner declares, executes and publishes the operation. */
 export const workflowPlugin = () =>
 	plugin({
 		id: 'community.workflow',
@@ -677,19 +717,23 @@ export const workflowPlugin = () =>
 		version: '1.0.0',
 		contributions: [
 			contributeOperation({
-				execute: ({ input }) => publish(input),
-				operation: publishPost,
+				bindings: [formatGraphqlBinding],
+				execute: ({ input }) => input.trim(),
+				operation: formatWorkflow,
+				public: { name: 'formatWorkflow' },
 			}),
 		],
 	})
 ```
+
+<!-- endregion -->
 
 `contributeOperation()` correlates the token, direct or resource-backed handler,
 and optional wire bindings. Core derives the static registrar call, nominal
 command plan, owner-local identifiers, and deterministic cleanup. Authors do
 not register a separate handler or transport provider.
 Core derives `operation:declare` and reports it with a generated reason. Then call
-`ultimabase.operation(publishPost).execute(input)`. Generic operations target
+`ultimabase.operation(formatWorkflow).execute(input)`. Generic operations target
 the application. Item-specific commands use the schema-mutation contract below.
 
 Trusted server helpers can use `getCurrentUltimaBase()` to retrieve the facade
@@ -719,12 +763,43 @@ authority requirement, an update or delete effect family, a fixed before/after
 result phase, and only the persisted dependencies needed by their future owner
 resolver:
 
-```ts
+```ts twoslash
+import { UltimaBase } from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	contributeSchemaMutation,
+	defineOperationValue,
+	defineSchemaMutation,
+	plugin,
+} from '@ultimabase/core/plugin'
+
+const PostSchema = UltimaBase.Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		workflowState: field.string(),
+	}),
+})
+
+const snapshotArchiveInput = defineOperationValue(
+	(value, path): { readonly reason: string } => {
+		if (
+			typeof value !== 'object' ||
+			value === null ||
+			!('reason' in value) ||
+			typeof value.reason !== 'string'
+		) {
+			throw new TypeError(`${path}.reason must be text`)
+		}
+		return { reason: value.reason }
+	},
+)
+
 const archive = defineSchemaMutation({
 	authority: 'request',
 	effect: 'update',
 	errors: ['community.workflow.archive-rejected'],
-	input: defineOperationValue(snapshotArchiveInput),
+	input: snapshotArchiveInput,
 	name: 'community.workflow.archive',
 	returning: 'after',
 	select: { workflowState: true },
@@ -736,10 +811,10 @@ const archiveContribution = contributeSchemaMutation({
 	resolve: () => ({ data: { workflowState: 'archived' } }),
 })
 
-const workflowPlugin = plugin({
+export const workflowPlugin = plugin({
 	id: 'community.workflow',
 	version: '1.0.0',
-	core: '^1.0.0',
+	core: '^0.0.0',
 	contributions: [
 		archiveContribution,
 		contributeDeclarations({
@@ -757,11 +832,18 @@ const workflowPlugin = plugin({
 
 These declarations compile to callback-free descriptors and direct
 application-owned methods. An installed schema mutation is also callable from
-the frozen schema class through the sole active application:
+the frozen schema class through the sole active application. The
+plugin-authoring example declares its `archiveOne` command with `definePlugin`
+from `@ultimabase/plugin-kit`, which builds these declarations, and calls it on
+the class:
+
+<!-- region ../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one -->
 
 ```ts
-await PostSchema.archive({ id: postId, input: { reason: 'superseded' } })
+const archived = await Post.archiveOne({ id: post.id })
 ```
+
+<!-- endregion -->
 
 The class only dispatches to the selected application's compiled surface; a
 same-class application without that mutation rejects the call. The owner's
@@ -890,12 +972,16 @@ and reports nothing about it (ADR-0325): a transport reads
 `hasProtectedPolicy()` and refuses public writes without a policy unless the
 application opts in (ADR-0294). An exposure only selects operations:
 
+<!-- region ../../examples/plugin-authoring/tests/handles.test.ts#expose-operations -->
+
 ```ts
 const exposed = ultimabase.exposeOperations({
-	operations: [publicStatus],
-	transport: httpProtocol,
+	operations: [formatWorkflow],
+	transport: graphqlOperationProtocol,
 })
 ```
+
+<!-- endregion -->
 
 ### Enter application requests from a transport plugin
 
@@ -906,31 +992,60 @@ after engine construction. A factory retains its exact owner and callback
 executor so later asynchronous route callbacks cannot inherit another plugin's
 authority:
 
-```ts
+```ts twoslash
+import { applicationRequestExecutionCapability } from '@ultimabase/core'
+import {
+	defineCapability,
+	plugin,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core/plugin'
+
+/** The transport's own application-local API, read by its server adapter. */
+const httpApplicationCapability = defineCapability<{
+	readonly handle: (requestId: string) => Promise<string>
+}>()({
+	capabilityId: 'community.http-application',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})
+
 const requestExecution = requireCapability(
 	applicationRequestExecutionCapability,
 	'^1.0.0',
 )
 
-provideCapability(httpApplicationCapability, {
-	contributionId: 'http-application',
-	create: ({ callbacks, capabilities, owner }) => {
-		const requests = capabilities.get(requestExecution)
+declare const routeApplicationRequest: () => Promise<string>
 
-		return {
-			value: {
-				handle: (requestId: string) =>
-					callbacks.runPlugin(owner, () => {
-						const context = requests.createAnonymousContext({
-							requestId,
-							source: 'community-http',
-						})
+export const httpPlugin = plugin({
+	id: 'community.http',
+	version: '1.0.0',
+	core: '^0.0.0',
+	contributions: [
+		requestExecution,
+		provideCapability(httpApplicationCapability, {
+			contributionId: 'http-application',
+			create: ({ callbacks, capabilities, owner }) => {
+				const requests = capabilities.get(requestExecution)
 
-						return requests.runWithContext(context, routeApplicationRequest)
-					}),
+				return {
+					value: {
+						handle: (requestId: string) =>
+							callbacks.runPlugin(owner, () => {
+								const context = requests.createAnonymousContext({
+									requestId,
+									source: 'community-http',
+								})
+
+								return requests.runWithContext(context, routeApplicationRequest)
+							}),
+					},
+				}
 			},
-		}
-	},
+		}),
+	],
 })
 ```
 
@@ -981,42 +1096,33 @@ independently specified executable proof semantics.
 Core preserves stable token input and result precision, stable schema-class
 precision, and safe dynamic JavaScript access.
 
-Pointer and relation declarations name their target schema without referencing
-another module-level constant. Static compilation resolves those names after
+Pointer and relation declarations name their target lazily, with a thunk
+(`target: () => Author`) or a registered class name, so schemas may reference
+each other in any order. Static compilation resolves those targets after
 every schema has been registered, then publishes one immutable graph owned by
-the application:
-
-```ts
-const ultimabase = new UltimaBase({
-	schemas: [UserSchema, PostSchema],
-})
-
-ultimabase.compile().schemas.values()
-```
+the application, listed by `ultimabase.compile().schemas`.
 
 `field.pointer()` declares one object reference while preserving the exact
-target class in every model:
+target class in every model, like `Book.author` above. A read returns the
+pointer, never its target:
+
+<!-- region ../../examples/modeling/tests/relationships.test.ts#read-pointer -->
 
 ```ts
-const PostSchema = UltimaBase.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		author: field.pointer({
-			target: 'User',
-			required: true,
-		}),
-	}),
+const book = await Book.findOneOrThrow({
+	where: { id: { eq: id } },
+	select: { author: true },
 })
-
-const authorId = '0198f090-2a50-7000-8000-000000000034'
-const post = await PostSchema.createOne({
-	data: { author: { connect: authorId } },
+const author = await Author.findOne({
+	where: { id: { eq: book.author.id } },
+	select: { lastName: true },
 })
-const author = UserSchema.pointer(authorId)
 ```
 
+<!-- endregion -->
+
 `Pointer<TSchema>` contains only immutable logical schema identity and an object
-ID. It never loads the target. `UserSchema.pointer(id)` is the only way to
+ID. It never loads the target. `Author.pointer(id)` is the only way to
 create one (ADR-0314): the constructor is not public, and `new Pointer(...)`
 throws a `TypeError` pointing to `Schema.pointer(id)`. `Pointer` stays exported
 for annotations, including `Pointer<"User">` for a registered class name, and
@@ -1055,7 +1161,7 @@ export const readPostsOfVerifiedAuthor = (authorId: string) =>
 of the visible target and therefore apply installed target policies. Pointer
 nullability uses `null` (the shorthand of `isNull: true`) or `isNull` and
 `isNotNull`. A pointer does not read its target (ADR-0310): read it with
-`UserSchema.findOne({ where: { id: pointer.id } })`, which returns `null` for a
+`Author.findOne({ where: { id: pointer.id } })`, which returns `null` for a
 missing or row-filtered target; explicit policy denials, callback errors, and
 adapter errors still fail the operation. Meanwhile,
 bounded single-target inclusion is selection-aware:
@@ -1123,19 +1229,31 @@ must advertise the exported versioned
 An inverse names one exact pointer or owning relation on its target through
 `mappedBy`:
 
+<!-- region ../../examples/modeling/src/catalog.ts#author -->
+
 ```ts
-const UserSchema = UltimaBase.Schema.define({
-	className: 'User',
+export const Author = App.Schema.define({
+	className: 'Author',
 	fields: (field) => ({
-		posts: field.relation({
-			target: 'Post',
-			mappedBy: 'author',
+		firstName: field.string({ required: true }),
+		lastName: field.string({ required: true }),
+		// Computed for each result that selects it, never stored. Inside
+		// `fields`, dependency values are typed `unknown`: convert them.
+		displayName: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			select: { firstName: true, lastName: true },
+			resolve: ({ item }) =>
+				`${String(item.firstName)} ${String(item.lastName)}`,
 		}),
+		// Inverse side: the books whose `author` pointer targets this author.
+		books: field.relation({ target: () => Book, mappedBy: 'author' }),
 	}),
 })
 ```
 
-The example represents one-to-many storage through `PostSchema.author`. An
+<!-- endregion -->
+
+`Author.books` represents one-to-many storage through `Book.author`. An
 owning relation plus one inverse relation represents many-to-many storage, while
 one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
@@ -1145,30 +1263,27 @@ A relation may define one target-typed read subset in the final
 `.with({ relations })`, keyed by relation field name (ADR-0328). `.with`
 receives the complete schemas, so two schemas may filter each other's
 relations. The static form uses the same portable filter vocabulary as an
-ordinary target Query:
+ordinary target Query. The contextual form receives only the immutable request
+context and an empty, target-typed `WhereBuilder`; it is synchronous and may
+return either that builder or an exact target `WhereInput`. The `relations`
+rule of the minimal example's `ExampleArticle` uses both:
+
+<!-- region ../../examples/minimal/src/schema.ts#relation-views -->
 
 ```ts
-.with({
-	relations: { comments: { where: { published: { eq: true } } } },
-})
-```
-
-The contextual form receives only the immutable request context and an empty,
-target-typed `WhereBuilder`. It is synchronous and may return either that
-builder or an exact target `WhereInput`:
-
-```ts
-.with({
-	relations: {
-		participants: {
-			where: ({ context, where }) =>
-				context.access.mode === 'master'
-					? where
-					: where.ne('id', String(context.metadata.currentUserId)),
-		},
+relations: {
+	contributors: { where: { listed: { eq: true } } },
+	// Anonymous requests see only public reviewers.
+	reviewers: {
+		where: ({ context, where }) =>
+			context.getValue(authPrincipal) === undefined
+				? where.eq('audience', 'public')
+				: where,
 	},
-})
+},
 ```
+
+<!-- endregion -->
 
 `RelationRule<typeof Comment>` types one rule declared as a constant. A name
 that is not a relation field of the schema, an unknown rule key or a malformed
@@ -1465,22 +1580,25 @@ agree on the same request-local visible targets before inclusion pagination.
 When an edge owns application data, model it as an ordinary schema with two
 pointer fields instead of hiding metadata behind `relationField`:
 
-```ts
-const Membership = UltimaBase.Schema.define({
+```ts twoslash
+import { UltimaBase } from '@ultimabase/core'
+
+const Member = UltimaBase.Schema.define({
+	className: 'Member',
+	fields: (field) => ({ name: field.string({ required: true }) }),
+})
+
+const Project = UltimaBase.Schema.define({
+	className: 'Project',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+})
+
+export const Membership = UltimaBase.Schema.define({
 	className: 'Membership',
 	fields: (field) => ({
-		member: field.pointer({
-			target: 'Member',
-			required: true,
-		}),
-		project: field.pointer({
-			target: 'Project',
-			required: true,
-		}),
-		role: field.enum({
-			values: ['editor', 'viewer'] as const,
-			required: true,
-		}),
+		member: field.pointer({ target: () => Member, required: true }),
+		project: field.pointer({ target: () => Project, required: true }),
+		role: field.enum({ values: ['editor', 'viewer'], required: true }),
 	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 })
@@ -1989,16 +2107,30 @@ Core exposes product-neutral Runtime behavior and protected-policy contracts.
 The official authoring vocabularies live in their vertical packages and are
 enabled only by configuring their plugin definitions:
 
-```ts
-import { UltimaBase } from '@ultimabase/core'
+```ts twoslash
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const Application = UltimaBase.use(accessPlugin()).use(hooksPlugin())
+const Application = UltimaBase.use(accessPlugin(), hooksPlugin())
 
-const ultimabase = new Application({
-	schemas: [Post],
-})
+const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		title: field.string({
+			required: true,
+			hooks: { resolveInput: ({ value }) => value.trim() },
+		}),
+	}),
+}).with({ access: { read: true } })
+
+export const ultimabase = new Application({ schemas: [Post] })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 Importing either package installs nothing. Without `hooksPlugin()`, the `hooks`
@@ -2007,9 +2139,11 @@ options are unknown and direct CRUD has no Access policy stage. Core still
 applies structural validation, transactions, protected constraints, anonymous
 or audited-master authority, and every behavior contributed by other plugins.
 
-JavaScript applications use the same compiled graph:
+JavaScript applications use the same compiled graph. This block is plain
+JavaScript, which cannot declare `Register`, so the documentation tests do not
+type-check it:
 
-```js
+```js unverified
 import { UltimaBase } from '@ultimabase/core'
 
 const Note = UltimaBase.Schema.define({
@@ -2059,8 +2193,23 @@ names to Runtime: `guard()` and `protectedPolicy()`. Definitions are
 materialized through the exact privilege-scoped `provideRuntimeConstraint()`
 capability facade:
 
-```ts
-const publishedOnlyPlugin = () =>
+```ts twoslash
+import {
+	UltimaBase,
+	protectedPolicy,
+	provideRuntimeConstraint,
+} from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
+
+const PostSchema = UltimaBase.Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		published: field.boolean({ default: false }),
+	}),
+})
+
+export const publishedOnlyPlugin = () =>
 	plugin({
 		id: 'example.published-only',
 		version: '1.0.0',
@@ -2108,8 +2257,17 @@ A plugin can declare a named schema permission and ask, during a request,
 whether the caller holds it (ADR-0317). Soft Delete declares `readDeleted`
 this way; Core never names it:
 
-```ts
-provideSchemaPermissions({
+```ts twoslash
+import type { SchemaDefinition } from '@ultimabase/core'
+import {
+	holdsSchemaPermission,
+	provideSchemaPermissions,
+	type RequestContext,
+} from '@ultimabase/core/plugin'
+
+declare const isArchivable: (schema: SchemaDefinition) => boolean
+
+export const archivePermissions = provideSchemaPermissions({
 	contributionId: 'permissions',
 	create: ({ schemas }) => ({
 		value: schemas
@@ -2120,11 +2278,10 @@ provideSchemaPermissions({
 })
 
 // Inside the declaring plugin's own policy or behavior:
-const seesArchived = await holdsSchemaPermission(
-	context,
-	schema,
-	'readArchived',
-)
+export const seesArchived = (
+	context: RequestContext,
+	schema: SchemaDefinition,
+) => holdsSchemaPermission(context, schema, 'readArchived')
 ```
 
 Both come from `@ultimabase/core/plugin`. Master always holds every declared
@@ -2370,14 +2527,14 @@ checkpoint belongs.
 Core owns one package-level authoring entry point. A package factory returns one
 direct `plugin()` call with stable facts and one ordered contribution list:
 
-```ts
+```ts twoslash
 import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 
 export const workflowPlugin = (instanceId?: string) =>
 	plugin({
 		id: 'community.workflow',
 		version: '1.0.0',
-		core: '^1.0.0',
+		core: '^0.0.0',
 		...(instanceId === undefined ? {} : { instanceId }),
 		contributions: [
 			contributeApplication(() => ({
@@ -2403,12 +2560,21 @@ the power next to the code that consumes it.
 
 An application resource that only owns lifecycle work may omit `exports`:
 
+<!-- region ../../examples/plugin-authoring/src/client-plugin.ts#lifecycle -->
+
 ```ts
+// A lifecycle-only resource: no exports; Core calls each phase in order.
 contributeApplication(() => ({
-	connect: () => connectClient(),
-	dispose: () => disconnectClient(),
-}))
+	connect: () => {
+		client.connect()
+	},
+	dispose: () => {
+		client.disconnect()
+	},
+})),
 ```
+
+<!-- endregion -->
 
 Core exposes `undefined` for that plugin and keeps the same resource for every
 lifecycle callback. If the plugin exposes an application-local API, add
@@ -2419,7 +2585,13 @@ subpath `@ultimabase/core/plugin` (ADR-0311, ADR-0316): `plugin()`, the
 contribution factories, capabilities, schema declaration registrars and patch
 operations, option definitions, operations, schema mutations, projection
 slots, plugin identities and the plugin graph. The main
-entry keeps what applications use.
+entry keeps what applications use, and still exports the lower-level Runtime
+and transport contracts that some plugins consume: the Runtime providers
+(`provideRuntimeBehavior()`, `provideRuntimeConstraint()`,
+`provideRuntimeInterceptor()`, `protectedPolicy()`, `guard()`), private
+storage (`definePrivateCollection()`, `privateStore()`), plugin field codecs
+(`definePluginField()`), the request execution and subject capabilities, and
+the transport helpers such as `transformQueryFilterInput()`.
 
 `plugin()` infers the plugin's static source from its contributions; a facade
 that knows it better passes it as the last type argument instead of re-typing
@@ -2427,8 +2599,15 @@ the result. `readSchemaRules(schema, owner)` returns the values a compiled
 schema gave to the options one plugin declared, `.with` rules and shape-method
 arguments alike, and nothing of other plugins:
 
-```ts
-provideRuntimeBehavior({
+```ts twoslash
+import {
+	Schema,
+	getOperationSchema,
+	provideRuntimeBehavior,
+} from '@ultimabase/core'
+import { readSchemaRules } from '@ultimabase/core/plugin'
+
+export const auditBehavior = provideRuntimeBehavior({
 	contributionId: 'audit',
 	create: ({ owner }) => ({
 		value: {
@@ -2574,7 +2753,22 @@ Plugins that persist verifier-like records without creating application models
 request the critical `storage:private` privilege and declare nominal,
 callback-free collections during static compilation:
 
+<!-- region ../../examples/plugin-authoring/src/sessions-plugin.ts#private-sessions -->
+
 ```ts
+import {
+	definePrivateCollection,
+	privateStore,
+	stringField,
+} from '@ultimabase/core'
+import {
+	contributeDeclarations,
+	contributeOperation,
+	defineOperation,
+	defineOperationValue,
+	plugin,
+} from '@ultimabase/core/plugin'
+
 const sessions = definePrivateCollection({
 	contributionId: 'sessions',
 	fields: {
@@ -2584,22 +2778,49 @@ const sessions = definePrivateCollection({
 	indexes: [{ fields: ['secret'] }] as const,
 })
 
-plugin({
-	id: 'example.sessions',
+const text = defineOperationValue((value, path): string => {
+	if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
+	return value
+})
+
+/** Reports the stored verifier's version, or `none`. */
+export const sessionVersion = defineOperation({
+	input: text,
+	name: 'community.sessions.version',
+	result: text,
+	target: 'application',
+	transaction: 'required',
 	version: '1.0.0',
-	core: '^1.0.0',
-	permissions: {
-		'storage:private': 'Stores revocable session verifiers.',
-	},
+})
+
+export const sessionPlugin = plugin({
 	contributions: [
 		contributeDeclarations({
 			privateStorage: ({ privateStorage }) => {
 				privateStorage.register(sessions)
 			},
 		}),
+		contributeOperation({
+			operation: sessionVersion,
+			// Only this plugin's own callbacks may open its private store.
+			execute: async ({ input }) => {
+				const store = privateStore(sessions)
+				const found = await store.findUnique({ where: { secret: input } })
+				if (found !== null) return found.version
+				await store.insert({ data: { secret: input, version: '1' } })
+				return 'none'
+			},
+		}),
 	],
+	core: '^0.0.0',
+	id: 'community.sessions',
+	// Critical privileges are the only ones that need an explicit reason.
+	permissions: { 'storage:private': 'Stores revocable session verifiers.' },
+	version: '1.0.0',
 })
 ```
+
+<!-- endregion -->
 
 Inside an attributed callback owned by that exact plugin instance,
 `privateStore(sessions)` exposes only `findUnique`, `insert`, `update`, `delete`,
@@ -2626,7 +2847,14 @@ no declaration perform no private adapter configuration.
 `plugin(options)` creates immutable metadata from one ordered contribution list
 without executing application resources:
 
-```ts
+```ts twoslash
+import {
+	contributeApplication,
+	defineCapability,
+	plugin,
+	provideCapability,
+} from '@ultimabase/core/plugin'
+
 const dialectCapability = defineCapability<{
 	readonly dialect: 'postgres'
 }>()({
@@ -2686,10 +2914,26 @@ is checked against the installed plugin version, and `instanceId` targets one
 exact configuration when the same plugin is installed more than once. Prefer a
 capability requirement when several packages can provide the same behavior:
 
-```ts
+```ts twoslash
+import {
+	defineCapability,
+	optionalCapability,
+	plugin,
+} from '@ultimabase/core/plugin'
+
+const auditSinkCapability = defineCapability<{
+	readonly write: (line: string) => void
+}>()({
+	capabilityId: 'fixture.audit-sink',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})
+
 const auditRequirement = optionalCapability(auditSinkCapability, '^1.0.0')
 
-const consumer = plugin({
+export const consumer = plugin({
 	id: 'fixture.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
@@ -2722,29 +2966,73 @@ manifest retains the normalized `provides`, `requires`, and `optional` groups.
 Plugins read only the exact `requireCapability(...)` or
 `optionalCapability(...)` objects listed in their manifest:
 
-```ts
-const auditRequirement = requireCapability(auditCapability, '^1.0.0')
+<!-- region ../../examples/plugin-authoring/src/format-capability.ts#format-capability -->
 
-plugin({
-	id: 'fixture.audit-consumer',
+```ts
+import {
+	contributeApplication,
+	defineCapability,
+	plugin,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core/plugin'
+
+/** The token both plugins agree on, instead of a service looked up by name. */
+export const formatCapability = defineCapability<{
+	readonly format: 'compact'
+}>()({
+	capabilityId: 'community.workflow-format',
+	cardinality: 'single',
+	compose: ([provider]) => provider,
+	lifetime: 'declaration',
 	version: '1.0.0',
-	core: '^0.0.0',
+})
+
+const format = requireCapability(formatCapability, '^1.0.0')
+
+export const formatProvider = plugin({
 	contributions: [
-		auditRequirement,
+		provideCapability(formatCapability, {
+			value: { format: 'compact' },
+		}),
+	],
+	core: '^0.0.0',
+	id: 'community.workflow-format',
+	version: '1.0.0',
+})
+
+export const formatConsumer = plugin({
+	contributions: [
+		format,
 		contributeApplication(({ capabilities }) => ({
-			exports: { audit: capabilities.get(auditRequirement) },
+			exports: { format: capabilities.get(format).format },
 		})),
 	],
+	core: '^0.0.0',
+	id: 'community.workflow-consumer',
+	version: '1.0.0',
 })
 ```
+
+<!-- endregion -->
 
 Structurally recreated or undeclared requirements fail without probing the
 installed graph. The default `materialization` phase establishes provider-first
 factory and lifecycle order. Peer plugins that only need each other's values in
 `setup` may opt out of that graph edge explicitly:
 
-```ts
-const peerRequirement = optionalCapability(peerCapability, '^1.0.0', {
+```ts twoslash
+import { defineCapability, optionalCapability } from '@ultimabase/core/plugin'
+
+const peerCapability = defineCapability<{ readonly ready: boolean }>()({
+	capabilityId: 'fixture.peer',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})
+
+export const peerRequirement = optionalCapability(peerCapability, '^1.0.0', {
 	phase: 'setup',
 })
 ```
@@ -2771,15 +3059,42 @@ privileges to a contributor.
 When a plugin only requires another plugin's compatible public protocol, use a
 non-ordering peer instead of a dependency:
 
+<!-- region ../../examples/plugin-authoring/src/graphql-addon.ts#graphql-addon -->
+
 ```ts
-plugin({
-	id: 'community.workflow-addon',
-	version: '1.0.0',
-	core: '^1.0.0',
-	peers: [{ pluginId: 'community.workflow-engine', version: '^2.0.0' }],
-	contributions: [],
+import { plugin } from '@ultimabase/core/plugin'
+import { provideGraphqlSchemas } from '@ultimabase/graphql-plugin'
+import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
+
+const health = new GraphQLSchema({
+	query: new GraphQLObjectType({
+		fields: {
+			workflowHealth: {
+				resolve: () => 'ok',
+				type: GraphQLString,
+			},
+		},
+		name: 'Query',
+	}),
 })
+
+export const workflowGraphqlAddon = () =>
+	plugin({
+		contributions: [
+			provideGraphqlSchemas({
+				contributionId: 'workflow-health',
+				create: () => health,
+			}),
+		],
+		core: '^0.0.0',
+		// Checked against the installed GraphQL plugin, without ordering.
+		peers: [{ pluginId: '@ultimabase/graphql-plugin', version: '^0.0.0' }],
+		id: 'community.workflow-graphql',
+		version: '1.0.0',
+	})
 ```
+
+<!-- endregion -->
 
 Peers are required, versioned, and instance-aware, but add no graph or
 lifecycle edge. They do not grant setup exports or capability reads. Use
@@ -2793,12 +3108,29 @@ different plugins may provide.
 schema compilation, setup, or infrastructure work. Core-controlled
 privileges and informational environment claims stay visibly separate:
 
-```ts
-const WorkflowApplication = UltimaBase.use(
-	workflowPlugin({ instanceId: 'editorial' }),
-)
+```ts twoslash
+import { UltimaBase } from '@ultimabase/core'
+import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 
-const ultimabase = new WorkflowApplication({
+const workflowPlugin = (instanceId?: string) =>
+	plugin({
+		id: 'community.workflow',
+		version: '1.0.0',
+		core: '^0.0.0',
+		...(instanceId === undefined ? {} : { instanceId }),
+		contributions: [
+			contributeApplication(() => ({ exports: { ready: true } })),
+		],
+	})
+
+const WorkflowApplication = UltimaBase.use(workflowPlugin('editorial'))
+
+const PostSchema = WorkflowApplication.Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+})
+
+export const ultimabase = new WorkflowApplication({
 	schemas: [PostSchema],
 	pluginPrivileges: {
 		deny: ['authority:elevate'],
@@ -2815,6 +3147,12 @@ const ultimabase = new WorkflowApplication({
 		},
 	},
 })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
 ```
 
 `deny` prevents a derived request for an enforceable Core facade.
@@ -2846,7 +3184,23 @@ dependencies, capability availability and nominal identity, semantic versions,
 explicit conflicts, duplicate entries, and cycles. It exposes
 the deterministic dependency-first order through `graph.plugins` and iteration:
 
-```ts
+```ts twoslash
+import {
+	PluginGraph,
+	contributeApplication,
+	normalizePlugins,
+	plugin,
+} from '@ultimabase/core/plugin'
+
+const configuredPlugins = [
+	plugin({
+		id: 'fixture.config',
+		version: '1.0.0',
+		core: '^0.0.0',
+		contributions: [contributeApplication(() => ({ exports: {} }))],
+	}),
+] as const
+
 const graph = new PluginGraph(normalizePlugins(configuredPlugins))
 
 for (const plugin of graph) {
@@ -2920,20 +3274,34 @@ the callback is not invoked and no rewrite provenance is appended.
 Independent subject consumers provide deletion participation without importing
 the provider that resolves that subject:
 
-```ts
-provideCapability(requestSubjectReferenceCleanupCapability, {
-	contributionId: 'documents.subject-references',
-	create: () => ({
-		value: {
-			name: 'documents.subject-references',
-			cleanup: defineRequestSubjectReferenceCleanup({
-				kind: 'group',
-				hasReferences: ({ reference }) => referenceStore.has(reference.value),
-				cleanup: ({ reference }) => referenceStore.remove(reference.value),
-			}),
-		},
-	}),
-})
+```ts twoslash
+import {
+	defineRequestSubjectReferenceCleanup,
+	requestSubjectReferenceCleanupCapability,
+} from '@ultimabase/core'
+import { provideCapability } from '@ultimabase/core/plugin'
+
+declare const referenceStore: {
+	has(reference: string | number): Promise<boolean>
+	remove(reference: string | number): Promise<void>
+}
+
+export const documentsCleanup = provideCapability(
+	requestSubjectReferenceCleanupCapability,
+	{
+		contributionId: 'documents.subject-references',
+		create: () => ({
+			value: {
+				name: 'documents.subject-references',
+				cleanup: defineRequestSubjectReferenceCleanup({
+					kind: 'group',
+					hasReferences: ({ reference }) => referenceStore.has(reference.value),
+					cleanup: ({ reference }) => referenceStore.remove(reference.value),
+				}),
+			},
+		}),
+	},
+)
 ```
 
 Both callbacks execute only when the subject provider explicitly discovers the
@@ -2943,9 +3311,22 @@ Core does not name a concrete reference store or policy product.
 Principal owners can encode an exact Pointer without sharing their schema with
 the cleanup provider:
 
-```ts
-const reference = createAccessPrincipalReference(User.pointer(userId))
-const identity = parseAccessPrincipalReference(reference)
+```ts twoslash
+import {
+	UltimaBase,
+	createRequestPrincipalReference,
+	parseRequestPrincipalReference,
+} from '@ultimabase/core'
+
+const User = UltimaBase.Schema.define({
+	className: 'User',
+	fields: (field) => ({ name: field.string() }),
+})
+declare const userId: string
+
+const reference = createRequestPrincipalReference(User.pointer(userId))
+const identity = parseRequestPrincipalReference(reference)
+export { identity }
 ```
 
 The versioned neutral value preserves only `className` and `id`. Parsing
@@ -3022,18 +3403,13 @@ namespace and its target vocabulary from the compiled application graph.
 
 ## Plugin lifecycle
 
-`PluginLifecycleManager` executes the resolved graph without merging declaration
-and infrastructure work:
-
-```ts
-const lifecycle = new PluginLifecycleManager(graph, setupRegistries)
-
-await lifecycle.setup()
-// Application validation can run here before any connection is opened.
-await lifecycle.start()
-await lifecycle.stop()
-await lifecycle.dispose()
-```
+Each application executes its resolved plugin graph through an internal
+lifecycle manager, which Core does not export, without merging declaration and
+infrastructure work: `ultimabase.start()` runs every plugin setup, validates
+the application before any connection is opened, then runs the forward
+phases; `stop()` and `dispose()` on the started application run the reverse
+ones. A plugin takes part through the phase callbacks of its application
+resource (see `contributeApplication()` above).
 
 Setup and forward phases use dependency order. The forward sequence is
 `connect`, `prepareSchema`, `startRuntime`, then `startTransports`; `ready`

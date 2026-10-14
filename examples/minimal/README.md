@@ -86,11 +86,31 @@ An authenticated direct call uses the configured schema class; results have no
 methods (ADR-0310). The example helper validates a real authentication session
 before entering the ambient request context:
 
-```ts
-import { softDeleteArticle } from './src/soft-delete.ts'
+<!-- region src/soft-delete.ts#soft-delete-article -->
 
-await softDeleteArticle(ultimabase, articleId, sessionToken)
+```ts
+const runWithSession = <TResult>(
+	app: MinimalApplication,
+	sessionToken: string,
+	handler: () => Promise<TResult>,
+): Promise<TResult> =>
+	app.plugin(authPlugin).runWithSession(sessionToken, handler)
+
+/** Runs the plugin command on the class through this exact application. */
+export const softDeleteArticle = (
+	app: MinimalApplication,
+	id: string,
+	sessionToken: string,
+) =>
+	runWithSession(app, sessionToken, () =>
+		ExampleArticle.softDeleteOne({
+			id,
+			select: { id: true, isDeleted: true, title: true },
+		}),
+	)
 ```
+
+<!-- endregion -->
 
 The matching REST and GraphQL calls are generated from that same command; they
 are not custom business handlers:
@@ -127,12 +147,25 @@ Restoration stays server-side here: both schemas deny `access.restoreOne` and
 `restoreOne…` field refuse every client, and the helpers run with Master.
 Purge is Master-only:
 
-```ts
-import { purgeArticle, restoreArticle } from './src/soft-delete.ts'
+<!-- region src/soft-delete.ts#restore-and-purge -->
 
-await restoreArticle(articleId)
-await purgeArticle(obsoleteArticleId)
+```ts
+/** Restores one hidden article through trusted server authority. */
+export const restoreArticle = (id: string) =>
+	ExampleArticle.restoreOne(
+		{ id, select: { id: true, isDeleted: true, title: true } },
+		{ useMasterKey: true },
+	)
+
+/** Permanently removes one already hidden article. */
+export const purgeArticle = (id: string) =>
+	ExampleArticle.purgeOne(
+		{ id, select: { id: true, isDeleted: true, title: true } },
+		{ useMasterKey: true },
+	)
 ```
+
+<!-- endregion -->
 
 Purge and the many-row commands are absent from REST and GraphQL. Tombstones
 stay hidden from ordinary callers here: no Access rule grants `readDeleted`,
@@ -148,20 +181,22 @@ Relations may define one reusable read subset in the final
 `ExampleArticle.contributors` uses a static target filter, while `reviewers`
 uses the authentication request context:
 
+<!-- region src/schema.ts#relation-views -->
+
 ```ts
-.with({
-	relations: {
-		contributors: { where: { listed: { eq: true } } },
-		// Anonymous requests see only public reviewers.
-		reviewers: {
-			where: ({ context, where }) =>
-				context.getValue(authPrincipal) === undefined
-					? where.eq('audience', 'public')
-					: where,
-		},
+relations: {
+	contributors: { where: { listed: { eq: true } } },
+	// Anonymous requests see only public reviewers.
+	reviewers: {
+		where: ({ context, where }) =>
+			context.getValue(authPrincipal) === undefined
+				? where.eq('audience', 'public')
+				: where,
 	},
-})
+},
 ```
+
+<!-- endregion -->
 
 The same declaration shapes nested inclusions, REST relationship projections,
 GraphQL connections, and the visible universe used by `some`, `none`, `every`,
@@ -191,7 +226,10 @@ it; only the read projection omits that contributor.
 `ExampleArticle` also demonstrates output-only values computed by Core. Its
 stored `presentation` object uses the restricted embedded builder, while its
 virtual fields cover primitive, nullable, list, structured, asynchronous, and
-request-aware results:
+request-aware results. [`src/articles.ts`](src/articles.ts) holds this read and
+the writes below as typed helpers:
+
+<!-- region src/articles.ts#virtual-fields -->
 
 ```ts
 const article = await ExampleArticle.findOne({
@@ -202,9 +240,11 @@ const article = await ExampleArticle.findOne({
 		summary: true,
 		viewerLabel: true,
 	},
-	where: { slug: { eq: 'hello-rest' } },
+	where: { slug: { eq: slug } },
 })
 ```
+
+<!-- endregion -->
 
 Core privately loads only the persisted dependencies declared by each virtual
 field. Those values do not appear in the returned model unless the caller also
@@ -226,6 +266,8 @@ One singular mutation can connect an existing pointer, create relation targets,
 connect existing relation targets, and return the final included graph. The
 field already identifies `ExampleAuthor`, so relationship commands need only
 canonical object IDs:
+
+<!-- region src/articles.ts#nested-writes -->
 
 ```ts
 const article = await ExampleArticle.createOne({
@@ -269,6 +311,8 @@ const updated = await ExampleArticle.updateOne({
 })
 ```
 
+<!-- endregion -->
+
 REST sends the same command object as its concise JSON body. GraphQL uses the
 generated source-field-specific nested inputs; scalar values inside a nested
 update retain GraphQL's existing update wrappers:
@@ -300,16 +344,16 @@ any late failure rolls the entire graph back.
 Trusted server code can execute the identical GraphQL application without
 Yoga or HTTP:
 
-```ts
-import { anonymous } from '@ultimabase/core/plugin'
+<!-- region src/articles.ts#graphql-execute -->
 
+```ts
 const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
 const context = anonymous(ultimabase, {
 	requestId: crypto.randomUUID(),
 	source: 'internal',
 }).context
 
-await graphql.execute({
+const result = await graphql.execute({
 	context,
 	document: `{
 		findManyExampleArticle(first: 10) {
@@ -319,6 +363,8 @@ await graphql.execute({
 	}`,
 })
 ```
+
+<!-- endregion -->
 
 ## Session flow
 

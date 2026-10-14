@@ -5,6 +5,7 @@ import { ExampleArticle, ExampleAuthor } from './schema.ts'
 
 type MinimalApplication = ReturnType<typeof createMinimalApplication>
 
+//#region soft-delete-article
 const runWithSession = <TResult>(
 	app: MinimalApplication,
 	sessionToken: string,
@@ -24,7 +25,9 @@ export const softDeleteArticle = (
 			select: { id: true, isDeleted: true, title: true },
 		}),
 	)
+//#endregion soft-delete-article
 
+//#region restore-and-purge
 /** Restores one hidden article through trusted server authority. */
 export const restoreArticle = (id: string) =>
 	ExampleArticle.restoreOne(
@@ -38,6 +41,7 @@ export const purgeArticle = (id: string) =>
 		{ id, select: { id: true, isDeleted: true, title: true } },
 		{ useMasterKey: true },
 	)
+//#endregion restore-and-purge
 
 /** Keeps native delete syntax while replace mode writes an author tombstone. */
 export const softDeleteAuthor = (id: string) =>

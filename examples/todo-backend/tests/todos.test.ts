@@ -34,6 +34,7 @@ it('refuses to reopen a completed task', async () => {
 	).rejects.toThrow()
 })
 
+//#region editor-update
 it('lets an editor update a task through its role and the ACL', async () => {
 	await using t = await testApplication(ultimabase)
 	const todo = await createTodo({ title: 'Review' })
@@ -57,6 +58,7 @@ it('lets an editor update a task through its role and the ACL', async () => {
 		description: 'Reviewed',
 	})
 })
+//#endregion editor-update
 
 it('serves tasks over REST without their server-only notes', async () => {
 	await using t = await testApplication(ultimabase)

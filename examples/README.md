@@ -7,9 +7,12 @@ Examples are user-facing, tested applications. They must only import public `@ul
   Auth Bearer and cookie sessions, role-protected data, audited Master requests,
   both official soft-delete modes with private restoration and purge, atomic
   nested pointer and relation writes, and explicitly exposed plugin operations.
+  Its README regions are compiled by the example typecheck; the repository
+  end-to-end suites run the application.
 - [`todo-backend`](todo-backend/README.md): the reference Todo application
   with Access, ACL, Hooks, Roles, Validation, PostgreSQL and REST in the
-  declaration form, and its tests with `testApplication`.
+  declaration form, and its tests with `testApplication`. Its `//#region`
+  blocks are the code of its own README.
 - [`soft-delete`](soft-delete/README.md): the Soft Delete plugin end to end
   (both modes, restore, purge, `readDeleted` through Access and Roles, Master
   reads, a partial unique index, REST), tested with `testApplication`. Its
@@ -129,8 +132,8 @@ Examples are user-facing, tested applications. They must only import public `@ul
   GraphQL schema with a `peers` range, an HTTP route, an environment-dependent
   default, option parsers, and the plugin conformance suites), tested with
   `testApplication`. Its `//#region` blocks are the code of the Build a Plugin
-  pages, the Test an Application page and the `plugin-kit` and `testing`
-  READMEs (ADR-0330).
+  pages, the Test an Application page and the `plugin-kit`, `testing` and
+  Core READMEs (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
@@ -149,8 +152,10 @@ its documentation page and package README:
    a call whose result the test then asserts. Keep test scaffolding outside
    the region.
 3. Include the regions in the page with `<include cwd …>`, and in the package
-   README with `<!-- region … -->` markers filled by `yarn docs:regions`. Add
-   the page and READMEs to `enforcedDocuments` in
-   `apps/website/tests/verified-code.content.test.ts`.
+   README with `<!-- region … -->` markers filled by `yarn docs:regions`.
+   Every page and every root, package and example README follows the rule
+   "every code block is verified or marked" (ADR-0330):
+   `apps/website/tests/verified-code.content.test.ts` discovers them all and
+   fails on an unmarked block, except in its commented exemption list.
 4. Add the example to `tests/e2e/examples-form-d.postgres.e2e.test.ts` (compile
    list and test count) and to `tooling/ci/typescript-7.ts`.

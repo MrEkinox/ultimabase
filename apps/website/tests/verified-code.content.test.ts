@@ -1,3 +1,4 @@
+import { globSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -9,106 +10,99 @@ import {
 	type CodeBlockKind,
 } from './code-blocks'
 
-// ADR-0330: every TypeScript or JavaScript block is an included example
-// region, a compiled snippet (`twoslash`), or marked `unverified`. A feature
-// joins this list once its page and READMEs follow the rule; the other
-// documents are only counted until they migrate.
-const enforcedDocuments = [
-	'apps/website/content/docs/1.0.0/plugins/official/soft-delete.mdx',
-	'packages/soft-delete-plugin/README.md',
-	'examples/soft-delete/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/access.mdx',
-	'packages/access-plugin/README.md',
-	'examples/access/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/hooks.mdx',
-	'packages/hooks-plugin/README.md',
-	'examples/hooks/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/validation.mdx',
-	'packages/validation-plugin/README.md',
-	'examples/validation/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/acl-permissions.mdx',
-	'packages/acl-permissions-plugin/README.md',
-	'examples/acl/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/roles.mdx',
-	'packages/roles-plugin/README.md',
-	'examples/roles/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/password-authentication.mdx',
-	'packages/auth-plugin/README.md',
-	'packages/auth-password/README.md',
-	'examples/auth/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/postgresql.mdx',
-	'packages/postgres-plugin/README.md',
-	'examples/postgres/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/http.mdx',
-	'apps/website/content/docs/1.0.0/plugins/official/hono-server.mdx',
-	'packages/http-plugin/README.md',
-	'packages/hono-server-plugin/README.md',
-	'packages/api-server/README.md',
-	'examples/http/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/rest.mdx',
-	'packages/rest-plugin/README.md',
-	'examples/rest/README.md',
-	'apps/website/content/docs/1.0.0/plugins/official/graphql.mdx',
-	'packages/graphql-plugin/README.md',
-	'packages/graphql-yoga-plugin/README.md',
-	'packages/graphql-http/README.md',
-	'packages/graphql-explorer-plugin/README.md',
-	'examples/graphql/README.md',
-	'apps/website/content/docs/1.0.0/core/application.mdx',
-	'apps/website/content/docs/1.0.0/core/data-modeling/schemas.mdx',
-	'apps/website/content/docs/1.0.0/core/data-modeling/fields.mdx',
-	'apps/website/content/docs/1.0.0/core/data-modeling/models.mdx',
-	'apps/website/content/docs/1.0.0/core/data-modeling/defaults.mdx',
-	'apps/website/content/docs/1.0.0/core/data-modeling/embedded-objects.mdx',
-	'apps/website/content/docs/1.0.0/core/data-modeling/virtual-fields.mdx',
-	'apps/website/content/docs/1.0.0/core/data-modeling/relationships.mdx',
-	'examples/modeling/README.md',
-	'apps/website/content/docs/1.0.0/core/reading-data/overview.mdx',
-	'apps/website/content/docs/1.0.0/core/reading-data/filters.mdx',
-	'apps/website/content/docs/1.0.0/core/reading-data/selections.mdx',
-	'apps/website/content/docs/1.0.0/core/reading-data/ordering-and-pagination.mdx',
-	'apps/website/content/docs/1.0.0/core/reading-data/related-data.mdx',
-	'apps/website/content/docs/1.0.0/core/writing-data/create.mdx',
-	'apps/website/content/docs/1.0.0/core/writing-data/update.mdx',
-	'apps/website/content/docs/1.0.0/core/writing-data/delete.mdx',
-	'apps/website/content/docs/1.0.0/core/writing-data/upserts.mdx',
-	'apps/website/content/docs/1.0.0/core/writing-data/bulk-operations.mdx',
-	'apps/website/content/docs/1.0.0/core/writing-data/nested-writes.mdx',
-	'apps/website/content/docs/1.0.0/core/writing-data/transactions.mdx',
-	'apps/website/content/docs/1.0.0/core/runtime/api-errors.mdx',
-	'apps/website/content/docs/1.0.0/core/security-foundations/master-authority.mdx',
-	'apps/website/content/docs/1.0.0/core/security-foundations/request-identity.mdx',
-	'examples/queries/README.md',
-	'apps/website/content/docs/1.0.0/quick-start.mdx',
-	'apps/website/content/docs/1.0.0/manual-installation.mdx',
-	'apps/website/content/docs/1.0.0/guides/test-an-application.mdx',
-	'apps/website/content/docs/1.0.0/operations/troubleshooting.mdx',
-	'apps/website/content/docs/1.0.0/operations/typescript-7.mdx',
-	'apps/website/content/docs/1.0.0/plugins/overview.mdx',
-	'apps/website/content/docs/1.0.0/plugins/using-plugins.mdx',
-	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/index.mdx',
-	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/schema-contributions.mdx',
-	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure.mdx',
-	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql.mdx',
-	'packages/plugin-kit/README.md',
-	'packages/testing/README.md',
-	'examples/plugin-authoring/README.md',
-] as const
+// ADR-0330: every TypeScript or JavaScript block of every website page and
+// of the root, package and example READMEs is an included example region, a
+// compiled snippet (`twoslash`), or marked `unverified`. A document escapes
+// the rule only here, with its reason; the test fails once it complies.
+const exemptDocuments = new Map<string, string>([
+	[
+		'apps/website/content/docs/1.0.0/plugins/official/postgresql-vector.mdx',
+		'pg-vector is unfinished: its page waits for the plugin (ADR-0330)',
+	],
+	[
+		'packages/pg-vector-plugin/README.md',
+		'pg-vector is unfinished: its README waits for the plugin (ADR-0330)',
+	],
+])
 
 const documents = listDocumentationFiles().map((file) => ({
 	blocks: classifyCodeBlocks(file),
 	name: path.relative(repositoryRoot, file),
 }))
 
+/** The `file:line` of each unmarked block of one scanned document. */
+const unmarkedLines = (name: string) => {
+	const document = documents.find((candidate) => candidate.name === name)
+	if (document === undefined) throw new Error(`${name} is not scanned`)
+	return document.blocks
+		.filter(({ kind }) => kind === 'unmarked')
+		.map(({ line }) => `${name}:${String(line)}`)
+}
+
+/** The sets the rule covers, found by glob independently of the scanner. */
+const documentSets: Readonly<Record<string, readonly string[]>> = {
+	pages: globSync('apps/website/content/docs/**/*.mdx', {
+		cwd: repositoryRoot,
+	}),
+	'root README': ['README.md'],
+	'package READMEs': globSync('packages/*/README.md', { cwd: repositoryRoot }),
+	'example READMEs': globSync('examples/*/README.md', { cwd: repositoryRoot }),
+}
+
 describe('verified documentation code (ADR-0330)', () => {
-	it.each(enforcedDocuments)('%s has no unmarked code block', (name) => {
-		const document = documents.find((candidate) => candidate.name === name)
-		if (document === undefined) throw new Error(`${name} is not scanned`)
+	it.each(
+		documents
+			.map(({ name }) => name)
+			.filter((name) => !exemptDocuments.has(name)),
+	)('%s has no unmarked code block', (name) => {
+		expect(unmarkedLines(name)).toStrictEqual([])
+	})
+
+	it.each([...exemptDocuments])(
+		'%s stays exempt only while it has unmarked blocks (%s)',
+		(name) => {
+			expect(unmarkedLines(name)).not.toStrictEqual([])
+		},
+	)
+
+	it('scans every page and every root, package and example README', () => {
+		const scanned = new Set(documents.map(({ name }) => name))
+		for (const [set, files] of Object.entries(documentSets)) {
+			expect(files.length, set).toBeGreaterThan(0)
+			expect(
+				files.filter((file) => !scanned.has(file)),
+				set,
+			).toStrictEqual([])
+		}
+		expect(scanned.size).toBe(Object.values(documentSets).flat().length)
+	})
+
+	it('flags an unmarked block in a README as in a page', () => {
+		const readme = [
+			'# Package',
+			'',
+			'```ts',
+			'const unmarked = 1',
+			'```',
+			'',
+			'- A list item:',
+			'',
+			'  ```js',
+			'  const nested = 1',
+			'  ```',
+			'',
+			'```sh',
+			'yarn',
+			'```',
+		].join('\n')
 		expect(
-			document.blocks
-				.filter(({ kind }) => kind === 'unmarked')
-				.map(({ line }) => `${name}:${String(line)}`),
-		).toStrictEqual([])
+			classifyCodeBlocks('/repository/README.md', readme).map(
+				({ kind, line }) => [kind, line],
+			),
+		).toStrictEqual([
+			['unmarked', 3],
+			['unmarked', 9],
+		])
 	})
 
 	it('classifies includes, README regions and fence flags', () => {
@@ -168,23 +162,27 @@ describe('verified documentation code (ADR-0330)', () => {
 			'unverified',
 			'unmarked',
 		]
-		const count = (scope: typeof documents) =>
-			Object.fromEntries(
-				kinds.map((kind) => [
+		const totals = Object.fromEntries(
+			Object.entries(documentSets).map(([set, files]) => {
+				const blocks = documents
+					.filter(({ name }) => files.includes(name))
+					.flatMap((document) => document.blocks)
+				const counts = kinds.map((kind) => [
 					kind,
-					scope.flatMap(({ blocks }) => blocks.filter((b) => b.kind === kind))
-						.length,
-				]),
-			)
-		const pages = documents.filter(({ name }) => name.endsWith('.mdx'))
-		const readmes = documents.filter(({ name }) => name.endsWith('.md'))
-		const totals = { pages: count(pages), readmes: count(readmes) }
+					blocks.filter((block) => block.kind === kind).length,
+				])
+				return [set, Object.fromEntries(counts)]
+			}),
+		)
 		console.info('Documentation code blocks by kind (ADR-0330)')
 		console.table(totals)
+		console.info(`Exempt: ${[...exemptDocuments.keys()].join(', ')}`)
 		// The scan must see the site; an empty count would hide a broken path.
-		expect(pages.length).toBeGreaterThan(50)
+		expect(documentSets.pages?.length).toBeGreaterThan(50)
 		expect(
-			Object.values(totals.pages).reduce((a, b) => a + b, 0),
+			documents
+				.filter(({ name }) => name.endsWith('.mdx'))
+				.flatMap(({ blocks }) => blocks).length,
 		).toBeGreaterThan(100)
 	})
 })
