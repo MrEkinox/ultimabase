@@ -7,8 +7,10 @@ contentType: concept
 order: 7
 outcome: Group related writes, handle failures, and place external effects after commit.
 releaseStatus: pre-release
-reviewedAt: 2026-10-11
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/transactions.ts
+  - examples/queries/tests/transactions.test.ts
   - packages/core/README.md
   - packages/core/docs/runtime.md
   - packages/hooks-plugin/README.md
@@ -30,38 +32,16 @@ to bulk and [nested writes](./nested-writes). Root reads do not open a
 transaction, but reads inside an explicit transaction share its scope.
 
 Use `ultimabase.transaction(fn)` when several root commands must commit or
-roll back together. The example assumes a started application with a database
-plugin, a `Post` schema with required `slug` and `title` and an `author`
-pointer, and an `Account` schema with `displayName`. Pass the ID of an existing
-author visible to the request.
+roll back together. The example uses the schemas of the
+[queries example](/docs/1.0.0/core/reading-data/overview): a `Post` with
+required `slug` and `title` and an `author` pointer, and an `Author` with
+`displayName`. Pass the ID of an existing author visible to the request.
 
 ## Group two commands
 
-```ts title="src/publish.ts"
-import { Account, Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
-
-export const createPostAndRenameAuthor = (
-	authorId: string,
-	slug: string,
-	title: string,
-) =>
-	ultimabase.transaction(async () => {
-		const post = await Post.createOne({
-			data: { author: { connect: authorId }, slug, title },
-		})
-
-		const updatedAuthor = await Account.updateOne({
-			data: { displayName: 'Published author' },
-			where: { id: authorId },
-		})
-		if (updatedAuthor === null) {
-			throw new Error('Author is no longer available for update')
-		}
-
-		return post
-	})
-```
+<include cwd meta='title="src/transactions.ts"'>
+	../../examples/queries/src/transactions.ts#publish
+</include>
 
 `transaction(fn)` resolves to the callback's result. Called inside a request
 (an HTTP handler, a Hook, an operation), it keeps that request's principal,
@@ -70,12 +50,12 @@ request. The callback receives no argument.
 Both commands use its one transaction, even though the schema methods do not
 receive a transaction parameter. `Post.createOne()` returns a post in that
 scope; the outer `createPostAndRenameAuthor()` call succeeds only after the
-transaction finishes. If the account update returns `null`, throwing ensures
+transaction finishes. If the author update returns `null`, throwing ensures
 the new post is not committed alone. An installed policy or Hook can also
 reject either command and abort both writes.
 
 To verify, call the function with a fresh slug, then read the post by that
-slug and the account by ID in a new request. Both changes should be present.
+slug and the author by ID in a new request. Both changes should be present.
 If the callback fails, the fresh slug should not resolve to a post.
 
 ## How the transaction scope propagates
@@ -113,6 +93,13 @@ Validation, installed policy, and database work started by an operation Hook
 all belong to the active transaction. A failure before commit rolls back its
 database writes and discards buffered events. A commit failure triggers a
 rollback attempt; if rollback also fails, UltimaBase reports both failures.
+A callback that throws rolls back every command it ran:
+
+<include cwd meta='title="tests/transactions.test.ts"'>
+	../../examples/queries/tests/transactions.test.ts#rollback
+</include>
+
+`attempt` rejects with the callback's error and neither post exists.
 Even if your code catches a failed operation inside the callback, that
 transaction remains rollback-only. Do not start a nested explicit transaction:
 savepoints are not supported, and the call fails with `TRANSACTION_ERROR`.
@@ -158,25 +145,9 @@ emails, queue messages or HTTP calls from `afterCommit` Hooks or events.
 whether your callback is safe to run twice. It rejects with
 `TRANSACTION_CONFLICT`; retry the whole callback yourself when it is safe:
 
-```ts title="src/transfer-with-retry.ts"
-import { FrameworkError } from '@ultimabase/core'
-
-import { ultimabase } from './ultimabase.js'
-
-export const runWithRetry = async <TResult>(
-	work: () => Promise<TResult>,
-): Promise<TResult> => {
-	for (let attempt = 1; ; attempt += 1) {
-		try {
-			return await ultimabase.transaction(work)
-		} catch (error: unknown) {
-			const conflict =
-				error instanceof FrameworkError && error.code === 'TRANSACTION_CONFLICT'
-			if (!conflict || attempt === 3) throw error
-		}
-	}
-}
-```
+<include cwd meta='title="src/transactions.ts"'>
+	../../examples/queries/src/transactions.ts#retry
+</include>
 
 Isolation is at least read-committed: each statement sees committed data and
 its own transaction's writes, the target of an update, delete or upsert stays

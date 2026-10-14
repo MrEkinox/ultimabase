@@ -7,8 +7,11 @@ contentType: guide
 order: 3
 outcome: Delete one record by ID and handle its pre-delete result or an absent target.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/writes.ts
+  - examples/queries/tests/writes.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/docs/schema.md
@@ -32,16 +35,13 @@ that Soft Delete rewrites into a tombstone is checked the same way but returns
 the row as written, with `isDeleted: true`.
 
 The example uses the `Post` schema from [Create Records](./create), with `slug`
-and `title` fields, in a started application with a persistence plugin.
+and `title` fields.
 
 ## Delete by ID
 
-```ts title="src/delete-post.ts"
-import { Post } from './schemas.js'
-
-export const deletePost = (postId: string) =>
-	Post.deleteOne({ where: { id: postId }, select: { slug: true, title: true } })
-```
+<include cwd meta='title="src/writes.ts"'>
+	../../examples/queries/src/writes.ts#delete-post
+</include>
 
 `where: { id: postId }` is the equality shorthand of
 `where: { id: { eq: postId } }`. You may instead target one field declared
@@ -74,14 +74,9 @@ shaping.
 Results have no `delete()` method (ADR-0310). When you already have a loaded
 `Post`, pass its `id` as the target:
 
-```ts title="src/delete-loaded-post.ts"
-import { Post } from './schemas.js'
-
-export const deleteLoadedPost = async (postId: string) => {
-	const post = await Post.findOneOrThrow({ where: { id: postId } })
-	return Post.deleteOne({ where: { id: post.id }, select: { title: true } })
-}
-```
+<include cwd meta='title="src/writes.ts"'>
+	../../examples/queries/src/writes.ts#delete-loaded-post
+</include>
 
 `findOneOrThrow()` throws `NOT_FOUND` if the record is already absent or
 inaccessible; `deleteOne()` returns `null` if it disappears before deletion.
@@ -93,8 +88,16 @@ Core runs a root delete in an automatic transaction and reuses an explicit
 transaction when one is active. For physical deletion, pointers to the target
 default to `onDelete: 'restrict'`; an explicitly configured `cascade` or
 optional-pointer `setNull` changes that behavior. A referenced target fails
-with `REFERENCE_VIOLATION`; an integrity failure, or an installed policy or
-Hook rejection, rolls back the deletion. Cascaded deletions are physical and
+with `REFERENCE_VIOLATION`, whose public details name only the schema of the
+deleted row; here an author who still has posts:
+
+<include cwd meta='title="tests/writes.test.ts"'>
+	../../examples/queries/tests/writes.test.ts#restrict
+</include>
+
+`attempt` rejects with `REFERENCE_VIOLATION` and `{ schema: 'Author' }`, and
+the author remains. An integrity failure, or an installed policy or Hook
+rejection, rolls back the deletion. Cascaded deletions are physical and
 run no Hooks or policy on the referencing records. There is no
 general option to skip installed Hooks. See [Relationships](/docs/1.0.0/core/data-modeling/relationships)
 before deleting records that other schemas reference.

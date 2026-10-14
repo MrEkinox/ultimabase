@@ -8,8 +8,14 @@ contentType: guide
 order: 7
 outcome: Run and verify one audited Master command without exposing a client-side bypass.
 releaseStatus: pre-release
-reviewedAt: 2026-10-12
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/ultimabase.ts
+  - examples/queries/src/maintenance.ts
+  - examples/queries/src/run-maintenance.ts
+  - examples/queries/tests/master.test.ts
+  - examples/queries/tests/master-audit.test.ts
   - packages/core/README.md
   - packages/core/docs/runtime.md
   - packages/access-plugin/README.md
@@ -29,69 +35,37 @@ transport flag, or substitute for an ordinary application policy.
 
 ## Configure a trusted server command
 
-The example assumes `DATABASE_URL` and `ULTIMABASE_MASTER_KEY` are supplied by
-the server environment. It uses PostgreSQL for persistence and the optional
-Access plugin with its default-deny policy; an ordinary anonymous create would
-be denied. Keep the code on the server, never in a browser bundle.
+The example is the
+[queries example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/queries),
+whose tests check each result described here. `DATABASE_URL` and
+`ULTIMABASE_MASTER_KEY` are supplied by the server environment. It uses
+PostgreSQL for persistence and the optional Access plugin, and its
+`Announcement` schema lets only signed-in authors create: an ordinary
+anonymous create is denied with `PERMISSION_DENIED`. Keep the code on the
+server, never in a browser bundle.
 
-```ts title="src/maintenance.ts"
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { MasterAuthority, UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+The application owns its `MasterAuthority`:
 
-const masterKey = process.env.ULTIMABASE_MASTER_KEY
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/queries/src/ultimabase.ts#application
+</include>
 
-if (!masterKey) {
-	throw new TypeError('ULTIMABASE_MASTER_KEY is required')
-}
+A trusted server command requests Master for one call:
 
-const Post = UltimaBase.Schema.define({
-	className: 'Post',
-	fields: (f) => ({ title: f.string({ required: true }) }),
-})
-
-const masterAuthority = new MasterAuthority({
-	keys: [{ id: 'maintenance', value: masterKey }],
-	onUse: (event) => {
-		console.info('Master use', {
-			keyId: event.keyId,
-			reason: event.reason,
-			requestId: event.requestId,
-		})
-	},
-})
-
-// postgresPlugin() reads DATABASE_URL when the application starts.
-const Application = UltimaBase.use(accessPlugin()).use(postgresPlugin())
-
-export const ultimabase = new Application({
-	masterAuthority,
-	schemas: [Post],
-})
-
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-
-export const createMaintenancePost = (title: string) =>
-	Post.createOne({ data: { title } }, { useMasterKey: true })
-```
+<include cwd meta='title="src/maintenance.ts"'>
+	../../examples/queries/src/maintenance.ts#maintenance
+</include>
 
 Run that command from an entry point that owns startup and cleanup:
 
-```ts title="src/run-maintenance.ts"
-import { createMaintenancePost, ultimabase } from './maintenance.js'
+<include cwd meta='title="src/run-maintenance.ts"'>
+	../../examples/queries/src/run-maintenance.ts#run-maintenance
+</include>
 
-await using app = await ultimabase.start()
-await createMaintenancePost('Rebuild complete')
-console.log(app.state)
-```
-
-Calling `createMaintenancePost('Rebuild complete')` from trusted server code
-returns the created model and emits one audit event before the write. If the
-audit callback throws, elevation fails and no post is written. `console.info`
+Calling `createMaintenanceAnnouncement('Rebuild complete')` from trusted
+server code returns the created announcement and emits one audit event, with
+the key ID `maintenance`, before the write. If the audit callback throws,
+elevation fails and no announcement is written. `console.info`
 is only a local demonstration; use an audit sink with appropriate durability,
 access controls, and failure handling for production.
 
@@ -101,11 +75,12 @@ access controls, and failure handling for production.
 first configured key ID for the audit and does not verify a raw key at that
 call. The option is a boolean, so a conditional elevation stays one call:
 
-```ts
-await Report.createOne({ data }, { useMasterKey: isScheduledJob })
-```
+<include cwd meta='title="tests/master.test.ts"'>
+	../../examples/queries/tests/master.test.ts#conditional
+</include>
 
-`false` is identical to omitting the option: it inherits the current
+With `isScheduledJob` false, `attempt` rejects with `PERMISSION_DENIED`:
+`false` is identical to omitting the option. It inherits the current
 authority and never downgrades a Master request. Any other value is rejected
 before execution. Derive the value from server-side state only, never from
 request input such as the body, query string, or headers. Plugin-initiated

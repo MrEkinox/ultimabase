@@ -7,8 +7,12 @@ contentType: guide
 order: 5
 outcome: Load a pointer and a bounded relation, then choose where a relationship filter applies.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/src/schema.ts
+  - examples/queries/src/reads.ts
+  - examples/queries/tests/relations.test.ts
+  - examples/queries/tests/filters.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/src/schema/fields/builtins/relation.ts
@@ -28,30 +32,16 @@ Use `include` to load related records with their own selections. A root
 `select` chooses fields on each `Post`; it does not load an author or comments
 on its own.
 
-Start with [Relationships](/docs/1.0.0/core/data-modeling/relationships) and
-register the schemas in a started application. The example assumes `Post` has
-an `author` pointer to a schema with `name`, and a `comments` relation to a
-schema with `body` and `published`.
+Start with [Relationships](/docs/1.0.0/core/data-modeling/relationships). In
+the queries example, `Post` has an optional `author` pointer to an `Author`
+with `displayName`, and a `comments` relation to a `Comment` with `body` and
+`published`.
 
 Include a to-one author and a filtered, ordered, bounded comment collection:
 
-```ts title="src/post-context.ts"
-import { Post } from './schemas.js'
-
-export const readPostsWithContext = () =>
-	Post.findMany({
-		include: {
-			author: { select: { name: true } },
-			comments: {
-				take: 3,
-				orderBy: { createdAt: 'desc', id: 'asc' },
-				select: { body: true },
-				where: { published: { eq: true } },
-			},
-		},
-		select: { title: true },
-	})
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#post-context
+</include>
 
 Pointer and relation cardinality deliberately expose different nested clauses:
 
@@ -83,6 +73,10 @@ collection is empty.
 | Load only matching targets         | `include.comments.where`                                                 | Filters each returned post's comment array; does not filter posts. |
 | Define the relation's usual subset | `.with({ relations: { comments: { where } } })`                          | Narrows every read through that exact relation field.              |
 
+<include cwd meta='title="tests/relations.test.ts"'>
+	../../examples/queries/tests/relations.test.ts#where-applies
+</include>
+
 These conditions intersect when used together. The declared relation filter
 cannot be overridden by a caller and does not replace authorization.
 Results are plain data with no relation methods (ADR-0310): to test membership without
@@ -92,7 +86,7 @@ loading the collection, filter the parent through the relation; see
 ## Verify
 
 The inferred root model contains `id`, `title`, included `author`, and included
-`comments`. When present, the author contains `id` and `name`; each included
+`comments`. When present, the author contains `id` and `displayName`; each included
 comment contains `id` and `body`. Unselected fields are absent from those
 nested model types. Installed output policies can narrow the runtime result
 further.
@@ -107,22 +101,12 @@ relation's declared shaping filter.
 ## Relation predicates
 
 Relation predicates match source records without loading the related
-collection. This example assumes `Author.posts` is a to-many relation and
-`Post` declares `published` and `score`:
+collection. `Author.posts` is the to-many inverse of `Post.author`, and `Post`
+declares `published` and `views`:
 
-```ts title="src/relation-filters.ts"
-import { Author } from './schemas.js'
-
-export const readEstablishedAuthors = () =>
-	Author.findMany({
-		where: {
-			posts: {
-				count: { gte: 3, where: { published: { eq: true } } },
-				some: { published: { eq: true }, score: { gte: 80 } },
-			},
-		},
-	})
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#relation-filters
+</include>
 
 The result contains authors, not their posts. `some` requires a visible match,
 `none` requires no visible match, and `every` requires no visible violation.
@@ -131,8 +115,7 @@ least one target is required. Use `isEmpty: true` or `isNotEmpty: true` for
 simple existence checks. `count` needs at least one comparison with a
 non-negative safe-integer operand; its optional target `where` filters the
 counted posts before the comparison. Here each returned author has at least
-three visible published posts, including at least one with a score of 80 or
-more.
+three visible published posts, including at least one with 80 views or more.
 
 Every predicate observes the same visible universe: physical membership, the
 field's declared filter, target policies and constraints, then the caller's
@@ -144,31 +127,12 @@ A relation may declare one static target filter, such as
 `where: { published: { eq: true } }`, in the final `.with({ relations })` of
 its schema, under the relation field name. Use a synchronous contextual
 callback when that subset depends on the request. `.with` receives the
-complete schemas, so two schemas may filter each other's relations. Register
-both schemas below in the same application:
+complete schemas, so two schemas may filter each other's relations. Here
+`Author.posts` shows readers only published posts:
 
-```ts title="src/channel.ts"
-import { UltimaBase } from '@ultimabase/core'
-
-export const Message = UltimaBase.Schema.define({
-	className: 'DocsMessage',
-	fields: (f) => ({ published: f.boolean({ required: true }) }),
-})
-
-export const Channel = UltimaBase.Schema.define({
-	className: 'DocsChannel',
-	fields: (f) => ({
-		messages: f.relation({ target: () => Message }),
-	}),
-}).with({
-	relations: {
-		messages: {
-			where: ({ context, where }) =>
-				context.access.mode === 'master' ? where : where.eq('published', true),
-		},
-	},
-})
-```
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/queries/src/schema.ts#author
+</include>
 
 The immutable `WhereBuilder` starts empty and targets the exact related schema.
 The callback receives request context but no source item, adapter, transaction,
@@ -177,7 +141,15 @@ builder synchronously; an empty builder adds no restriction.
 
 Master does not automatically bypass a declared relation filter. This example
 deliberately returns the empty builder for Master; other requests see only
-published messages. The filter intersects with caller filters, authorization
+published posts:
+
+<include cwd meta='title="tests/relations.test.ts"'>
+	../../examples/queries/tests/relations.test.ts#declared-filter
+</include>
+
+`forReaders.posts` lists only the published post; `forMaster.posts` lists both,
+and relation predicates such as `posts: { some: { published: false } }` match
+nothing for a reader. The filter intersects with caller filters, authorization
 row filters, and protected constraints. It shapes reads but does not authorize
 them, modify physical membership, or change `connect`, `disconnect`, or
 `set`.

@@ -54,6 +54,22 @@ const enforcedDocuments = [
 	'packages/graphql-http/README.md',
 	'packages/graphql-explorer-plugin/README.md',
 	'examples/graphql/README.md',
+	'apps/website/content/docs/1.0.0/core/reading-data/overview.mdx',
+	'apps/website/content/docs/1.0.0/core/reading-data/filters.mdx',
+	'apps/website/content/docs/1.0.0/core/reading-data/selections.mdx',
+	'apps/website/content/docs/1.0.0/core/reading-data/ordering-and-pagination.mdx',
+	'apps/website/content/docs/1.0.0/core/reading-data/related-data.mdx',
+	'apps/website/content/docs/1.0.0/core/writing-data/create.mdx',
+	'apps/website/content/docs/1.0.0/core/writing-data/update.mdx',
+	'apps/website/content/docs/1.0.0/core/writing-data/delete.mdx',
+	'apps/website/content/docs/1.0.0/core/writing-data/upserts.mdx',
+	'apps/website/content/docs/1.0.0/core/writing-data/bulk-operations.mdx',
+	'apps/website/content/docs/1.0.0/core/writing-data/nested-writes.mdx',
+	'apps/website/content/docs/1.0.0/core/writing-data/transactions.mdx',
+	'apps/website/content/docs/1.0.0/core/runtime/api-errors.mdx',
+	'apps/website/content/docs/1.0.0/core/security-foundations/master-authority.mdx',
+	'apps/website/content/docs/1.0.0/core/security-foundations/request-identity.mdx',
+	'examples/queries/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({

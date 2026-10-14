@@ -8,8 +8,12 @@ contentType: concept
 order: 1
 outcome: Choose a read terminal, build its input, and execute it in the correct application context.
 releaseStatus: pre-release
-reviewedAt: 2026-10-10
+reviewedAt: 2026-10-14
 sources:
+  - examples/queries/README.md
+  - examples/queries/src/schema.ts
+  - examples/queries/src/reads.ts
+  - examples/queries/tests/reads.test.ts
   - packages/core/README.md
   - packages/core/docs/query.md
   - packages/core/src/query/query/input.ts
@@ -24,23 +28,23 @@ Read from the schema class returned by `App.Schema.define()`. `findMany` accepts
 object for filtering, selection, related data, ordering, and pagination.
 Execution options are a separate final argument, not part of that read input.
 
-The example assumes `Post` declares `published` and `title`, and that its
-application is started with a persistence plugin. See
-[Manual Installation](/docs/1.0.0/manual-installation) for that setup.
+Every TypeScript block of the Reading Data and Writing Data pages is copied
+from the
+[queries example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/queries),
+a small blog application whose tests check each result described here. Its
+`Post` schema declares `published` and `title`, and the application is
+started with PostgreSQL; see [Manual Installation](/docs/1.0.0/manual-installation)
+for that setup.
 
-```ts title="src/read-posts.ts"
-import { Post } from './schemas.js'
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/queries/src/schema.ts#post
+</include>
 
-export const readPublishedPosts = () =>
-	Post.findMany({
-		take: 20,
-		orderBy: { createdAt: 'desc', id: 'asc' },
-		select: { createdAt: true, title: true },
-		where: { published: true },
-	})
-```
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#published-posts
+</include>
 
-The call returns at most 20 immutable `Post` models, ordered newest first with
+The call returns at most 20 frozen `Post` results, ordered newest first with
 `id` breaking equal-timestamp ties. Each result contains `id`, `createdAt`,
 and `title`; `published` filters the rows but is not returned because the
 selection does not request it. The types inferred from the schema check
@@ -67,13 +71,20 @@ filter may legitimately match nothing. If several records may match, add
 treats both as its `one` read. `count` and `exists` accept `where`, not
 selection, ordering, or pagination clauses.
 
+<include cwd meta='title="tests/reads.test.ts"'>
+	../../examples/queries/tests/reads.test.ts#terminals
+</include>
+
+Here `many` is `[]`, `one` is `null`, `total` is `1`, `any` is `true`, and
+`required` rejects with `NOT_FOUND`.
+
 ## Execution context
 
 Inside an active request, hook, or transaction, a read can omit the final
 argument and inherit the exact application, request context, cancellation
 signal, authority, and any active transaction. A read does not start a
-transaction by itself. In a root script, worker, or test, pass the started
-application explicitly as the final argument, as the first example does.
+transaction by itself. In a root script, worker, or test, a read runs on the
+sole started application, as the first example does.
 Execution options can also supply a trusted context when needed; they are
 never serialized as query input by a transport. See
 [Request Identity](/docs/1.0.0/core/security-foundations/request-identity#use-a-context-in-a-direct-operation)
@@ -84,22 +95,15 @@ for an explicit context and cancellation example.
 Object input is the API. Compose reusable parts as typed objects and spread
 them into one read:
 
-```ts title="src/recent-posts.ts"
-import type { Select, Where } from '@ultimabase/core'
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#reusable-parts
+</include>
 
-import { Post } from './schemas.js'
-
-const published: Where<typeof Post> = { published: true }
-const summary: Select<typeof Post> = { createdAt: true, title: true }
-
-export const readRecentPublishedPosts = () =>
-	Post.findMany({
-		orderBy: { createdAt: 'desc' },
-		select: summary,
-		take: 25,
-		where: published,
-	})
-```
+A `Where<typeof Post>` object can be annotated directly. A selection must stay
+literal, so that the result type lists exactly its fields: declare it
+`as const` and check it with `satisfies Select<typeof Post>`. A variable
+annotated `Select<typeof Post>` is rejected by a read, because its flags are
+`boolean` and cannot type an exact result.
 
 These objects perform no I/O and retain no application or authority; the
 read executes them. A root `findMany` always completes its order with `id`
@@ -116,7 +120,10 @@ input.
 ## Read failures
 
 Core rejects unknown fields, invalid operators, negative pagination, and
-invalid relation predicates before database work. An adapter can also reject
+invalid relation predicates before database work. Input it cannot build a
+query from, such as a malformed UUID operand, throws as soon as the read is
+called; `await` the read inside `try` (or inside an `async` function) to handle
+both kinds of failure in one place. An adapter can also reject
 a query capability it does not support. Installed policy may hide a target,
 so `findOneOrThrow()` can report `NOT_FOUND` even when the record exists
 physically.
