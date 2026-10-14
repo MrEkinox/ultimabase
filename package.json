@@ -22,7 +22,7 @@
 		"lint": "yarn lint:core && yarn lint:packages && yarn lint:workspace",
 		"lint:core": "eslint packages/core",
 		"lint:packages": "eslint packages --ignore-pattern 'packages/core/**'",
-		"lint:workspace": "eslint apps examples tests tooling eslint.config.ts tsdown.config.ts vitest.config.ts yarn.config.cjs --no-error-on-unmatched-pattern",
+		"lint:workspace": "NODE_OPTIONS=--max-old-space-size=6144 eslint apps examples tests tooling eslint.config.ts tsdown.config.ts vitest.config.ts yarn.config.cjs --no-error-on-unmatched-pattern",
 		"measure:size": "node tooling/measure-size.mjs",
 		"measure:runtime-baseline": "tsc --ignoreConfig --module nodenext --moduleResolution nodenext --target es2023 --types node --skipLibCheck --strict --outDir node_modules/.cache/ultimabase-architecture tooling/architecture/measure-runtime-baseline.ts tests/performance/fixtures/deterministic-database.ts && node --expose-gc node_modules/.cache/ultimabase-architecture/tooling/architecture/measure-runtime-baseline.js",
 		"release:publish": "yarn test:all && changeset publish",
