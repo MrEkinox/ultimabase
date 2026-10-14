@@ -3,8 +3,9 @@ import { definePlugin, type DefinedPlugin } from '@ultimabase/plugin-kit'
 
 /**
  * `.with({ audit: true })` logs each committed write of the schema. The
- * return annotation names the rule's type: without it, a registered
- * application that calls `.with(...)` fails with TS2589 (reported).
+ * return annotation names the rule's type: with an inferred one, an
+ * application declared in `Register` fails with TS2589 as soon as a schema
+ * calls `.with(...)`.
  */
 export const auditPlugin = (): DefinedPlugin<
 	'@example/audit-plugin',

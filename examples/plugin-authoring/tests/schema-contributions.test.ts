@@ -26,10 +26,12 @@ it('archives every matching row with archiveMany', async () => {
 	await Post.createMany({ data: [{ title: 'Old' }, { title: 'Older' }] })
 
 	//#region archive-many
-	const archived = await Post.archiveMany({ where: { title: { in: ['Old'] } } })
+	const archivedPosts = await Post.archiveMany({
+		where: { title: { in: ['Old'] } },
+	})
 	//#endregion archive-many
 
-	expect(archived).toHaveLength(1)
+	expect(archivedPosts).toHaveLength(1)
 	expect(await Post.count({ where: { archivedAt: { isNotNull: true } } })).toBe(
 		1,
 	)
@@ -73,16 +75,20 @@ it('gives flaggable schemas a readable, server-written flagged field', async () 
 })
 
 it('adds the commands only to the schemas that call the shape method', () => {
-	const surfaces = ultimabase
-		.compile()
-		.schemaSurfaces.map(({ schema, schemaMutations }) => [
+	const surfaces = ultimabase.compile().schemaSurfaces
+	expect(
+		surfaces.map(({ schema, schemaMutations }) => [
 			schema.className,
 			[...schemaMutations.keys()],
-		])
-	expect(surfaces).toStrictEqual([
+		]),
+	).toStrictEqual([
 		['Post', ['archiveOne', 'archiveMany']],
 		['Comment', []],
 	])
+	// Mutation names come from the package name, the method and the command.
+	expect(surfaces[0]?.schemaMutations.get('archiveOne')?.mutation.name).toBe(
+		'example.archive-plugin.archivable.archive-one',
+	)
 })
 
 it('exposes a one-row command where the schema names it', async () => {

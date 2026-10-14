@@ -19,6 +19,10 @@ sources:
   - tests/e2e/test-application-fetch.postgres.e2e.test.ts
   - tests/e2e/test-application-vitest.postgres.e2e.test.ts
   - apps/website/content/docs/1.0.0/manual-installation.mdx
+  - packages/create-app/src/test-template.ts
+  - packages/create-app/tests/e2e/create-app-starter.postgres.e2e.test.ts
+  - apps/website/tests/create-app-output.content.test.ts
+  - examples/plugin-authoring/tests/test-application.test.ts
 ---
 
 Test the application your code actually runs: `testApplication` starts the
@@ -164,6 +168,17 @@ the file and its schema is dropped.
 | `t.asMaster(fn)`                 | Seed or inspect data with Master authority, without a configured key; validation and hooks still run.                                  |
 | `t.reset()`                      | Empty every table within a test; plugins' start seeding, such as Roles `ensure`, runs again.                                           |
 | `t.afterCommit()`                | Wait for `afterCommit` hooks and event consumers before asserting their effects.                                                       |
+
+The [plugin authoring example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/plugin-authoring/README.md)
+seeds a post with Master authority, lists it over REST and waits for its
+after-commit work:
+
+<include cwd meta='title="tests/test-application.test.ts"'>
+	../../examples/plugin-authoring/tests/test-application.test.ts#handle
+</include>
+
+The response lists exactly that post: the table was empty when the test
+started.
 
 `t.fetch` behaves like a local server: requests come from the socket peer
 `127.0.0.1`, the address rate limits count and authentication records unless a

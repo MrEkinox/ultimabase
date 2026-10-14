@@ -54,6 +54,20 @@ const enforcedDocuments = [
 	'packages/graphql-http/README.md',
 	'packages/graphql-explorer-plugin/README.md',
 	'examples/graphql/README.md',
+	'apps/website/content/docs/1.0.0/quick-start.mdx',
+	'apps/website/content/docs/1.0.0/manual-installation.mdx',
+	'apps/website/content/docs/1.0.0/guides/test-an-application.mdx',
+	'apps/website/content/docs/1.0.0/operations/troubleshooting.mdx',
+	'apps/website/content/docs/1.0.0/operations/typescript-7.mdx',
+	'apps/website/content/docs/1.0.0/plugins/overview.mdx',
+	'apps/website/content/docs/1.0.0/plugins/using-plugins.mdx',
+	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/index.mdx',
+	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/schema-contributions.mdx',
+	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure.mdx',
+	'apps/website/content/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql.mdx',
+	'packages/plugin-kit/README.md',
+	'packages/testing/README.md',
+	'examples/plugin-authoring/README.md',
 ] as const
 
 const documents = listDocumentationFiles().map((file) => ({
