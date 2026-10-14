@@ -137,8 +137,10 @@ const testProjects: TestProjectConfiguration[] = [
 				'packages/*/tests/e2e/**/*.e2e.test.ts',
 			],
 			name: 'coverage-e2e',
-			// Source instrumentation needs headroom on resource-constrained hosted runners.
-			testTimeout: 20_000,
+			// Source instrumentation needs headroom on resource-constrained hosted runners:
+			// the instrumented language-service checks took 10 to 21 s on CI runners, so
+			// they get the same 30 s budget as the unit project's fixtures.
+			testTimeout: 30_000,
 		},
 	},
 	{
