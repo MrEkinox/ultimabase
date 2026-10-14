@@ -183,7 +183,11 @@ type ProjectionIdentity<TSelection, TInclude> = Readonly<
 		([TInclude] extends [undefined] ? object : { readonly include: TInclude })
 >
 
-/** Resolves the exact selected and included result of one schema mutation. */
+/**
+ * Resolves the exact selected and included result of one schema mutation, like
+ * a read with the same projection: without `select`, every default field plus
+ * the included values.
+ */
 export type PluginSchemaMutationResult<
 	TSchema extends SchemaDefinition,
 	TSelection extends QuerySelection<TSchema> | undefined,
@@ -191,15 +195,10 @@ export type PluginSchemaMutationResult<
 > = QueryResult<
 	TSchema,
 	Extract<
-		[TSelection] extends [undefined]
-			? | Extract<keyof NonNullable<TInclude>, QueryFieldName<TSchema>>
-				| ([TInclude] extends [undefined]
-						? never
-						: Extract<'id', QueryFieldName<TSchema>>)
-			: QuerySelectedFieldFromInput<
-					SchemaTypeInfoFor<TSchema>,
-					ProjectionIdentity<TSelection, TInclude>
-				>,
+		QuerySelectedFieldFromInput<
+			SchemaTypeInfoFor<TSchema>,
+			ProjectionIdentity<TSelection, TInclude>
+		>,
 		QueryFieldName<TSchema>
 	>,
 	QueryIncludedFieldFromInput<
