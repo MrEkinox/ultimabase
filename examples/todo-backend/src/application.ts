@@ -13,6 +13,7 @@ if (masterKey === undefined || masterKey === '') {
  * The Todo application. Administrative code (`admin.ts`, `todos.ts`) runs
  * with `useMasterKey`; `start()` connects PostgreSQL from `DATABASE_URL`.
  */
+//#region application
 export const ultimabase = new App({
 	masterAuthority: new MasterAuthority({
 		keys: [{ id: 'todo-backend', value: masterKey }],
@@ -34,3 +35,4 @@ declare module '@ultimabase/core' {
 		readonly app: typeof ultimabase
 	}
 }
+//#endregion application

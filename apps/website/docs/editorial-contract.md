@@ -103,14 +103,20 @@ Every TypeScript or JavaScript block is verified or marked (ADR-0330):
   site build and `compiled-snippets.content.test.ts` compile it against the
   built packages, and any undeclared error fails them.
 - **Unverified.** Flag a fence `unverified` only for partial pseudo-code,
-  third-party configuration, or a shape the reader adapts. These blocks are
-  counted.
+  third-party configuration, or a shape the reader adapts, and say so in the
+  prose. These blocks are counted.
 
-`verified-code.content.test.ts` classifies every block of the site and the
-READMEs, rejects unmarked blocks on the pages listed in `enforcedDocuments`,
-and prints the counts for the rest. Package READMEs copy example regions
-between `<!-- region <path>#<names> -->` and `<!-- endregion -->` markers;
-run `yarn docs:regions` after changing a region.
+The rule applies to every page under `content/docs` (every version folder)
+and to the root, package and example READMEs, found by glob:
+`verified-code.content.test.ts` fails on any unmarked block in any of them.
+The only escape is its `exemptDocuments` list, where each document carries
+its reason (today the unfinished pg-vector page and README); an exemption
+fails as soon as its document complies, so the list cannot go stale. The test
+prints the counts of each kind per document set. Package and example READMEs
+copy example regions between `<!-- region <path>#<names> -->` and
+`<!-- endregion -->` markers; run `yarn docs:regions` after changing a region.
+A README cannot hide Twoslash context, so a compiled README snippet is
+self-contained: it shows its imports and declarations.
 
 - Show `npm`, `yarn`, and `pnpm` install commands in synchronized tabs when the
   command is part of the public package experience. Repository contributor

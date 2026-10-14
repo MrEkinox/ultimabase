@@ -345,6 +345,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 				},
 			},
 		},
+		//#region relation-views
 		relations: {
 			contributors: { where: { listed: { eq: true } } },
 			// Anonymous requests see only public reviewers.
@@ -355,6 +356,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 						: where,
 			},
 		},
+		//#endregion relation-views
 		rest: true,
 	})
 

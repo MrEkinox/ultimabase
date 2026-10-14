@@ -14,7 +14,7 @@ explicitly. This example uses a disposable development PostgreSQL database;
 `override` may change its physical schema. The [minimal application](examples/minimal/README.md)
 adds REST, GraphQL, authentication and policies to the same authoring path.
 
-```ts
+```ts twoslash
 import { UltimaBase, toJSON } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
