@@ -129,11 +129,7 @@ Rules and post-commit callbacks read the schema's `.with` values:
 </include>
 
 A schema declared with `.with({ audit: true })` logs `[audit] Post create-one`
-once the write has committed; a schema without the rule logs nothing. Name
-the rule types in the factory's return type with
-`DefinedPlugin<Name, Shape, Rules>`: an inferred rule type currently fails
-with TS2589 (excessively deep instantiation) in an application declared in
-`Register` as soon as a schema calls `.with(...)`.
+once the write has committed; a schema without the rule logs nothing.
 
 A transport supplies its own helper for `contributions`, such as
 `httpRoutes({ 'GET /status': () => Response.json({ status: 'ok' }) })` from

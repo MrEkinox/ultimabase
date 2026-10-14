@@ -22,6 +22,7 @@ import type {
 	ShapeMethodMember,
 	ShapeMethodOptionsOf,
 	ShapeMethodPermissionNames,
+	Validator,
 } from './shape.js'
 
 /** Shape methods of one plugin, keyed by method name. */
@@ -29,6 +30,22 @@ export type ShapeMethods = Readonly<Record<string, ShapeMethodDefinition>>
 
 /** Rule values of one plugin, keyed by `.with({ ... })` entry. */
 export type RuleValues = Readonly<Record<string, unknown>>
+
+/** Validators of one plugin's `.with({ ... })` entries, keyed by entry. */
+export type RuleValidators = Readonly<Record<string, Validator<unknown>>>
+
+/**
+ * Rule values returned by one plugin's validators; none when the plugin
+ * declares no rules. `definePlugin` infers the validators themselves:
+ * inferring the values through a mapped type would give a reverse mapped
+ * type, which TypeScript instantiates again inside every enclosing type and
+ * which exceeds the instantiation depth (TS2589) once a registered
+ * application reads it.
+ */
+export type RuleValuesOf<TValidators extends RuleValidators> =
+	string extends keyof TValidators
+		? Readonly<Record<never, never>>
+		: { -readonly [TKey in keyof TValidators]: ReturnType<TValidators[TKey]> }
 
 type UnionToIntersection<TValue> = (
 	TValue extends unknown ? (value: TValue) => void : never
