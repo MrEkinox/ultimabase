@@ -311,6 +311,10 @@ await Post.updateOne({
 fields, take exactly one key, and preserve the field's exact type: numbers for
 integer and float fields, strings for decimals, and bigint values for bigint
 fields. A numeric field has no other object value, so the form is unambiguous.
+Runtime validates the projected result on the locked target before the write:
+an integer delta that would leave the safe integer range, or a decimal delta
+beyond the declared precision, fails with `VALIDATION_ERROR` at
+`['update', index, field, 'value']` and the update rolls back.
 `null` is accepted only by optional fields, so required fields cannot be
 cleared.
 

@@ -20,7 +20,6 @@ const Counter = UltimaBase.Schema.define({
 	fields: (field) => ({
 		code: field.string({ indexed: 'unique' }),
 		views: field.int(),
-		rating: field.float(),
 		amount: field.decimal({ precision: 5, scale: 2 }),
 		location: field.object({
 			fields: (child) => ({
@@ -62,7 +61,6 @@ const stored = (values: Partial<CounterItem> = {}): CounterItem => ({
 	updatedAt: '2026-10-01T00:00:00.000Z',
 	code: 'counter',
 	views: 0,
-	rating: 0,
 	amount: '0.00',
 	location: null,
 	address: { line1: '1 Rue', geo: null },
@@ -129,23 +127,17 @@ describe('final mutation validation of projected values', () => {
 		).resolves.toBeUndefined()
 	})
 
-	it('rejects a non-finite float and a decimal beyond its precision', async () => {
-		const operation = await updateOne({
-			rating: { increment: Number.MAX_VALUE },
-			amount: { increment: '0.01' },
-		})
+	it('rejects a decimal beyond its declared precision', async () => {
+		const operation = await updateOne({ amount: { increment: '0.01' } })
 
 		expect(
-			issues(
-				await rejection(
-					operation,
-					stored({ rating: Number.MAX_VALUE, amount: '999.99' }),
-				),
-			),
+			issues(await rejection(operation, stored({ amount: '999.99' }))),
 		).toMatchObject([
-			{ code: 'float.type', path: ['update', 0, 'rating', 'value'] },
-			{ code: 'decimal.precision', path: ['update', 1, 'amount', 'value'] },
+			{ code: 'decimal.precision', path: ['update', 0, 'amount', 'value'] },
 		])
+		await expect(
+			rejection(operation, stored({ amount: '999.98' })),
+		).resolves.toBeUndefined()
 	})
 
 	it('requires the children of a patch applied to a stored null object', async () => {

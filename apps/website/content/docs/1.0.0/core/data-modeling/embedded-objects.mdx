@@ -17,6 +17,7 @@ sources:
   - packages/core/docs/schema.md
   - packages/core/examples/schema/objects-and-lists.md
   - packages/core/src/schema/plans/compiler.ts
+  - packages/core/src/runtime/validation/projected-update-validation.ts
   - docs/adr/0032-object-list-update-replacement.md
   - docs/adr/0133-canonical-null-for-optional-fields.md
   - docs/adr/0165-embedded-object-field-contract.md
@@ -76,6 +77,13 @@ patched the same way, while a supplied list or `null` replaces that child. By
 contrast, updating an object list **replaces the entire list**: each supplied
 item must include its required children. There is no index-based patch of one
 list entry.
+
+A patch keeps only what is stored. When an optional object, or an optional
+object nested inside one, is stored as `null`, the patch becomes its whole
+value and must supply every required child. Otherwise the update fails with a
+`VALIDATION_ERROR` whose `field.required` issue names the missing child under
+the operation value, for example `['update', 0, 'location', 'value', 'lng']`,
+and nothing is written.
 
 This update supplies only two children of `shippingAddress` and a new list,
 so each list item includes its required children:

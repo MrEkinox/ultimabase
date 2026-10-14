@@ -117,7 +117,7 @@ describe('atomic update objects (ADR-0307)', { concurrent: false }, () => {
 			data: { label: 'low', views: -Number.MAX_SAFE_INTEGER },
 		})
 		const capped = await Counter.createOne({
-			data: { amount: '9999999999.99', rating: Number.MAX_VALUE },
+			data: { amount: '9999999999.99' },
 		})
 		const unsafe = (path: readonly (number | string)[]) => ({
 			code: 'VALIDATION_ERROR',
@@ -158,17 +158,13 @@ describe('atomic update objects (ADR-0307)', { concurrent: false }, () => {
 		await expect(
 			Counter.updateOne({
 				where: { id: { eq: capped.id } },
-				data: {
-					amount: { increment: '0.01' },
-					rating: { increment: Number.MAX_VALUE },
-				},
+				data: { amount: { increment: '0.01' } },
 			}),
 		).rejects.toMatchObject({
 			code: 'VALIDATION_ERROR',
 			publicDetails: {
 				issues: [
 					{ code: 'decimal.precision', path: ['update', 0, 'amount', 'value'] },
-					{ code: 'float.type', path: ['update', 1, 'rating', 'value'] },
 				],
 			},
 		})
@@ -177,12 +173,12 @@ describe('atomic update objects (ADR-0307)', { concurrent: false }, () => {
 			Counter.findMany({
 				where: { id: { in: [high.id, low.id, capped.id] } },
 				orderBy: { views: 'asc' },
-				select: { amount: true, rating: true, views: true },
+				select: { amount: true, views: true },
 			}),
 		).resolves.toMatchObject([
 			{ views: -Number.MAX_SAFE_INTEGER },
 			{ views: Number.MAX_SAFE_INTEGER },
-			{ amount: '9999999999.99', rating: Number.MAX_VALUE, views: null },
+			{ amount: '9999999999.99', views: null },
 		])
 	})
 

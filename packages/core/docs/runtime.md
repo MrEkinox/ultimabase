@@ -641,7 +641,11 @@ The fixed order performs initial Core structural validation, applies initial
 enforcement, locks mutation targets, and runs every input transformer. Every
 mutation then crosses the mandatory `finalMutationValidation` stage, which
 repeats structural snapshots before optional rejection-only mutation guards and
-value-dependent enforcement. Prepared adapters receive the final operation and
+value-dependent enforcement. On each prepared target it also projects the
+values the database computes from the stored one, numeric deltas and object
+patches, and rejects an invalid stored result as a `VALIDATION_ERROR` naming
+the update operation's value (for example an unsafe integer, a decimal beyond
+its precision, or a patch of a `null` object without its required children). Prepared adapters receive the final operation and
 plan for the write, while the prepared target keeps its protected row filter. A guard may inspect the complete value
 projected from a prepared locked target while retaining the original atomic
 delta for adapter execution.

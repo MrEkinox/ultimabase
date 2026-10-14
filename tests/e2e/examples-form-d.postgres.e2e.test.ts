@@ -50,7 +50,7 @@ const testedExamples = [
 	['examples/rest', 18],
 	['examples/graphql', 25],
 	['examples/modeling', 26],
-	['examples/queries', 53],
+	['examples/queries', 54],
 	['examples/plugin-authoring', 35],
 ] as const
 

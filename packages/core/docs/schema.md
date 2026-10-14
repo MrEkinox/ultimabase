@@ -585,7 +585,9 @@ Create plans require only fields without a default or generated value. Update
 plans make mutable fields optional and mark generated or immutable fields as
 forbidden. List items are always required, non-null values rather than optional
 properties. Direct object updates are deep patches, so their mutable children
-remain optional. Updating a list replaces its complete value, so object items
+remain optional. A patch applied to a stored `null` object, at the top level or
+nested, has no stored children to keep: final mutation validation then requires
+its required children in the patch. Updating a list replaces its complete value, so object items
 inside the replacement use create-input rules and require every child declared
 as required without a default.
 
