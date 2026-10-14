@@ -1,3 +1,4 @@
+import type { UniqueWhereInput } from '@ultimabase/core'
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
@@ -40,6 +41,22 @@ it('upserts through a composite unique index', async () => {
 	})
 	expect(again).toStrictEqual({ id: french.id, locale: 'fr', title: 'Salut' })
 	expect(await Translation.count()).toBe(2)
+})
+
+it('types a unique target', async () => {
+	await testApplication(ultimabase)
+	await savePost('hello', 'Hello')
+
+	//#region unique-target
+	const target: UniqueWhereInput<'Post'> = { slug: 'hello' }
+	const deleted = await Post.deleteOne({
+		where: target,
+		select: { slug: true },
+	})
+	//#endregion unique-target
+
+	expect(deleted).toMatchObject({ slug: 'hello' })
+	expect(await Post.count()).toBe(0)
 })
 
 it('keeps the target as the identity of the create branch', async () => {

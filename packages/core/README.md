@@ -894,16 +894,21 @@ equality shorthand (`where: { author: authorId }`) also accepts a `Pointer` of
 the declared target (ADR-0307). Ordered and string comparisons are rejected.
 Target traversal stays explicit and target-typed:
 
+<!-- region ../../examples/queries/src/reads.ts#pointer-filter -->
+
 ```ts
-const memberships = await Membership.findMany({
-	where: {
-		project: {
-			eq: projectId,
-			is: { archived: false },
+export const readPostsOfVerifiedAuthor = (authorId: string) =>
+	Post.findMany({
+		where: {
+			author: {
+				eq: authorId,
+				is: { verified: true },
+			},
 		},
-	},
-})
+	})
 ```
+
+<!-- endregion -->
 
 `eq` compares only the stored pointer identity. `is` and `isNot` query fields
 of the visible target and therefore apply installed target policies. Pointer
@@ -914,14 +919,25 @@ missing or row-filtered target; explicit policy denials, callback errors, and
 adapter errors still fail the operation. Meanwhile,
 bounded single-target inclusion is selection-aware:
 
-```ts
-const posts = await PostSchema.findMany({
-	select: { id: true, title: true },
-	include: { author: { select: { id: true, name: true } } },
-})
+<!-- region ../../examples/queries/src/reads.ts#post-context -->
 
-// `author` is the selected User row, or null when missing or inaccessible.
+```ts
+export const readPostsWithContext = () =>
+	Post.findMany({
+		include: {
+			author: { select: { displayName: true } },
+			comments: {
+				take: 3,
+				orderBy: { createdAt: 'desc', id: 'asc' },
+				select: { body: true },
+				where: { published: { eq: true } },
+			},
+		},
+		select: { title: true },
+	})
 ```
+
+<!-- endregion -->
 
 An included pointer accepts only `select` and nested `include`: the pointer
 already identifies at most one target, so inclusion cannot conditionally filter
@@ -1028,21 +1044,28 @@ enters adapter requests or transport metadata.
 Reads may explicitly include the collection with an independently shaped target
 query:
 
+<!-- region ../../examples/queries/tests/relations.test.ts#included-page -->
+
 ```ts
-const users = await UserSchema.findMany({
-	select: { id: true },
+// Each post's comments are paged on their own, like a root `findMany`.
+const post = await Post.findOneOrThrow({
+	where: { id },
+	include: { comments: { orderBy: { body: 'asc' }, take: 2 } },
+})
+const last = post.comments.at(-1)
+const next = await Post.findOneOrThrow({
+	where: { id },
 	include: {
-		posts: {
-			orderBy: { createdAt: 'desc' },
-			skip: 10,
-			take: 10,
-			select: { id: true },
+		comments: {
+			orderBy: { body: 'asc' },
+			take: 2,
+			...(last === undefined ? {} : { after: last }),
 		},
 	},
 })
-
-// `users[0].posts` is a readonly array of selected Post models.
 ```
+
+<!-- endregion -->
 
 Unlike a pointer, an included relation supports `where`, `orderBy`, `skip`,
 `take`, `after`, `select`, and nested `include`. Its `skip` and `after` apply
@@ -1079,19 +1102,25 @@ Collection reads page with `take` and `after` (ADR-0309). Core completes
 every `findMany` order with `id` ascending unless `id` is already ordered, and
 `after` is the last row received from a read of the same shape:
 
+<!-- region ../../examples/queries/tests/pagination.test.ts#after -->
+
 ```ts
 const page = await Post.findMany({
-	orderBy: { createdAt: 'desc' },
-	select: { id: true, createdAt: true, title: true },
-	take: 20,
+	orderBy: { title: 'desc' },
+	select: { id: true, title: true },
+	take: 2,
 })
+// `after` is the last row received; there is none after an empty page.
+const last = page.at(-1)
 const next = await Post.findMany({
-	orderBy: { createdAt: 'desc' },
-	select: { id: true, createdAt: true, title: true },
-	take: 20,
-	after: page.at(-1),
+	orderBy: { title: 'desc' },
+	select: { id: true, title: true },
+	take: 2,
+	...(last === undefined ? {} : { after: last }),
 })
 ```
+
+<!-- endregion -->
 
 Core reads the ordered fields and `id` from that row, validates them, and turns
 them into an ordinary caller filter combined with `where` by `AND`: policies
@@ -1106,33 +1135,57 @@ every matching row. The transport limits
 (`pagination: { defaultTake, maxTake }` of the REST and GraphQL plugins) apply
 only to their clients. Read a large table in batches with `after`:
 
+<!-- region ../../examples/queries/src/reads.ts#batches -->
+
 ```ts
-let after: Awaited<ReturnType<typeof Task.findMany>>[number] | undefined
-do {
-	const page = await Task.findMany({ take: 500, ...(after ? { after } : {}) })
-	// Process the page.
-	after = page.at(-1)
-} while (after)
+/** Reads every comment, 500 at a time, in `id` order. */
+export const countCommentWords = async () => {
+	let words = 0
+	let after: Awaited<ReturnType<typeof Comment.findMany>>[number] | undefined
+	do {
+		const page = await Comment.findMany({
+			take: 500,
+			...(after ? { after } : {}),
+		})
+		for (const comment of page) words += comment.body.split(/\s+/u).length
+		after = page.at(-1)
+	} while (after)
+	return words
+}
 ```
+
+<!-- endregion -->
 
 Ordered scalar filters include explicit inclusive ranges. `between` keeps
 values inside the interval, while `notBetween` keeps values strictly outside
 it. Both remain first-class
 transport-neutral AST nodes rather than expanding into logical branches.
 
-One-dimensional field lists expose exact element-aware filters:
+One-dimensional field lists expose exact element-aware filters, shown here
+beside a range, its complement and a portable regular expression:
+
+<!-- region ../../examples/queries/tests/filters.test.ts#operators -->
 
 ```ts
+const ranged = await Post.findMany({
+	where: { views: { gte: 100, lt: 1_000 } },
+})
+const outside = await Post.findMany({
+	where: { views: { notBetween: { lower: 100, upper: 999 } } },
+})
 const matching = await Post.findMany({
 	where: {
-		tags: {
-			has: 'typescript',
-			hasEvery: ['backend', 'typescript'],
-			isEmpty: true,
-		},
+		title: { matches: { source: '^ultima', flags: ['case-insensitive'] } },
 	},
 })
+const tagged = await Post.findMany({
+	where: { tags: { hasEvery: ['backend', 'typescript'] } },
+})
+const emptyTags = await Post.findMany({ where: { tags: { isEmpty: true } } })
+const noTags = await Post.findMany({ where: { tags: { isNull: true } } })
 ```
+
+<!-- endregion -->
 
 `eq` and `ne` compare the complete list, `has` tests one element, and
 `hasSome`/`hasEvery` test candidate sets. `isEmpty: true` applies only to a
@@ -1144,24 +1197,21 @@ Structured filters use the same flat vocabulary for dynamic JSON and typed
 objects. Object containment accepts recursive partial values, and object keys
 and paths retain exact autocomplete:
 
+<!-- region ../../examples/queries/src/reads.ts#structured -->
+
 ```ts
-const visible = await Post.findMany({
-	where: {
-		metadata: {
-			contains: { visibility: 'public' },
-			hasAllKeys: ['visibility', 'category'],
-		},
-		profile: {
-			at: [
-				{
-					path: ['contact', 'email'],
-					eq: 'ada@example.com',
-				},
-			],
-		},
-	},
-})
+export const readPublicPosts = () =>
+	Post.findMany({
+		where: { metadata: { contains: { visibility: 'public' } } },
+	})
+
+export const readAuthorsByContact = (email: string) =>
+	Author.findMany({
+		where: { profile: { at: [{ path: ['contact', 'email'], eq: email }] } },
+	})
 ```
+
+<!-- endregion -->
 
 `at` keeps segments separate in the Query AST, so dots inside declared field
 names are never parsed as paths. A `jsonField` accepts dynamic string
@@ -1184,13 +1234,37 @@ accepts only the portable regular-expression subset of ADR-0302.
 Relation membership changes through link commands in `updateOne` data, without
 join-row commands (ADR-0308):
 
+<!-- region ../../examples/queries/src/nested-writes.ts#revise-graph,replace-links -->
+
 ```ts
-await Post.updateOne({
-	where: { id: postId },
-	data: { tags: { connect: [tagId], disconnect: [oldTagId] } },
-})
-await Post.updateOne({ where: { id: postId }, data: { tags: { set: [] } } })
+export const revisePostGraph = (
+	postId: string,
+	commentId: string,
+	oldCommentId: string,
+) =>
+	Post.updateOne({
+		data: {
+			author: { update: { displayName: 'Ada Lovelace' } },
+			comments: {
+				create: [{ body: 'Third' }],
+				update: [{ data: { body: 'Edited' }, id: commentId }],
+				disconnect: [oldCommentId],
+			},
+		},
+		where: { id: postId },
+	})
+
+/** Replaces the visible comments and unlinks the optional author. */
+export const detachPost = (postId: string, keptCommentIds: readonly string[]) =>
+	Post.updateOne({
+		where: { id: postId },
+		data: { author: null, comments: { set: [...keptCommentIds] } },
+		select: { author: true },
+		include: { comments: { select: { body: true } } },
+	})
 ```
+
+<!-- endregion -->
 
 Each update uses the source schema's update Access and hook lifecycle, validates
 target visibility, and joins the active or automatic transaction. Inverse
@@ -1201,23 +1275,21 @@ still fail closed.
 
 Source Queries filter to-many relationships through the exact target schema:
 
+<!-- region ../../examples/queries/src/reads.ts#relation-filters -->
+
 ```ts
-const visiblePosts = await UserSchema.findMany({
-	where: {
-		posts: {
-			count: {
-				where: { published: { eq: true } },
-				gte: 3,
-				lt: 100,
-			},
-			some: {
-				published: { eq: true },
-				tags: { some: { label: { eq: 'typescript' } } },
+export const readEstablishedAuthors = () =>
+	Author.findMany({
+		where: {
+			posts: {
+				count: { gte: 3, where: { published: { eq: true } } },
+				some: { published: { eq: true }, views: { gte: 80 } },
 			},
 		},
-	},
-})
+	})
 ```
+
+<!-- endregion -->
 
 `some`, `none`, and `every` create immutable portable Query AST nodes from exact
 nested `WhereInput` values. `count` compares a visible relation as a non-null
@@ -1289,6 +1361,8 @@ Core has no User schema, session resolver, or authenticated-user authority
 mode. Applications work with anonymous and audited master authority until an
 optional plugin derives typed values on an immutable request context:
 
+<!-- region ../../examples/queries/src/request-identity.ts#tenant-context -->
+
 ```ts
 import {
 	RequestContext,
@@ -1296,34 +1370,27 @@ import {
 	requestSources,
 } from '@ultimabase/core/plugin'
 
-interface AuthenticatedPrincipal {
-	readonly id: string
-}
-
-const authenticatedPrincipal = new RequestContextValue<AuthenticatedPrincipal>(
-	'auth.principal',
-	(value: unknown): AuthenticatedPrincipal => {
-		if (
-			typeof value !== 'object' ||
-			value === null ||
-			!('id' in value) ||
-			typeof value.id !== 'string'
-		) {
-			throw new TypeError('Invalid authenticated principal')
+export const tenantId = new RequestContextValue<string>(
+	'acme.identity.tenant-id',
+	(value: unknown) => {
+		if (typeof value !== 'string' || value.length === 0) {
+			throw new TypeError('Tenant id must be a non-empty string')
 		}
-
-		return Object.freeze({ id: value.id })
+		return value
 	},
 )
 
-const request = RequestContext.anonymous({
-	requestId: 'request-01',
+const anonymous = RequestContext.anonymous({
+	requestId: 'request-123',
 	source: requestSources.internal,
-}).withValue(authenticatedPrincipal, { id: 'user-1' })
+})
 
-request.access.mode // 'anonymous'
-request.getValue(authenticatedPrincipal)?.id // string | undefined
+export const scoped = anonymous.withValue(tenantId, 'tenant-42')
+export const currentTenant = scoped.getValue(tenantId) // string | undefined
+export const authorityMode = scoped.access.mode // 'anonymous'
 ```
+
+<!-- endregion -->
 
 The token owns validation and snapshotting. Matching token names do not share
 identity, adding the same token twice fails, and neither context derivation nor
@@ -1336,7 +1403,7 @@ importing a concrete authentication plugin. Dynamic principals use
 nominal `RequestContextValue<T>` identities. An authentication provider may
 publish one exact current principal without becoming a Core dependency:
 
-```ts
+```ts unverified
 provideCapability(requestPrincipalResolverCapability, {
 	contributionId: 'authenticated-principal',
 	create: () => ({
@@ -1358,14 +1425,20 @@ authority. `context.withPrincipal(pointer)` names the principal of a context
 explicitly (server-side only), and `Register` types it by name
 (ADR-0304):
 
+<!-- region ../../examples/queries/src/ultimabase.ts#register -->
+
 ```ts
+// One declaration per application gives name-keyed editor types (ADR-0297);
+// `principal` names the schema a request principal points to.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase
-		readonly principal: 'TodoUser' // principal: Pointer<"TodoUser">
+		readonly principal: 'Author'
 	}
 }
 ```
+
+<!-- endregion -->
 
 Consumers receive it as `principal` and never import the provider: Access
 rules, the Hooks `context.principal`, ACL callbacks, Roles and GraphQL
@@ -1401,28 +1474,46 @@ active request, transaction, or hook it inherits that exact engine. Root jobs
 resolve the sole initialized application, while an authentication or tenant
 plugin may supply an already-derived context:
 
+<!-- region ../../examples/queries/src/jobs.ts#read-for-job -->
+
 ```ts
-const inherited = await PostSchema.findMany()
-const root = await PostSchema.findMany()
-const authenticated = await PostSchema.findMany(undefined, {
-	context: contextCreatedByAuthPlugin,
-})
+import { RequestContext, requestSources } from '@ultimabase/core/plugin'
+
+import { Post } from './schema.ts'
+
+export const readPostsForJob = (requestId: string, signal: AbortSignal) => {
+	const context = RequestContext.anonymous({
+		requestId,
+		source: requestSources.internal,
+		signal,
+		metadata: { job: 'daily-report' },
+	})
+
+	return Post.findMany({ take: 20 }, { context })
+}
 ```
+
+<!-- endregion -->
 
 Trusted backend code may request audited master authority in the same final
 option position. Combining both elevates the supplied context and preserves its
 typed values:
 
+<!-- region ../../examples/queries/tests/master.test.ts#context-and-master -->
+
 ```ts
-const allPosts = await PostSchema.findMany(undefined, { useMasterKey: true })
-const imported = await PostSchema.createMany(
-	{ data: rows },
-	{
-		context: contextCreatedByAuthPlugin,
-		useMasterKey: true,
-	},
+const context = RequestContext.anonymous({
+	requestId: 'import-1',
+	source: requestSources.internal,
+}).withValue(tenantId, 'tenant-42')
+
+const imported = await Announcement.createMany(
+	{ data: [{ title: 'Imported one' }, { title: 'Imported two' }] },
+	{ context, useMasterKey: true },
 )
 ```
+
+<!-- endregion -->
 
 Every read and mutation accepts the same `OperationOptions` authority boundary.
 `useMasterKey` is a boolean (ADR-0311): `false` is identical to omitting it,
@@ -1431,9 +1522,16 @@ conditional elevation stays one call. Any other value is rejected before
 execution. The value must come from server-side state, never from request
 input:
 
+<!-- region ../../examples/queries/tests/master.test.ts#conditional -->
+
 ```ts
-await ReportSchema.createOne({ data }, { useMasterKey: isScheduledJob })
+const attempt = Announcement.createOne(
+	{ data: { title: 'Nightly report' } },
+	{ useMasterKey: isScheduledJob },
+)
 ```
+
+<!-- endregion -->
 
 The application-owned `MasterAuthority` audits the operation before it runs;
 the first configured key ID labels trusted operation elevations. Contexts and
@@ -1460,11 +1558,22 @@ Every root create, update, upsert, and delete operation automatically uses the
 configured database adapter's transaction lifecycle. Developer code keeps the
 same concise API:
 
+<!-- region ../../examples/queries/src/writes.ts#create-post -->
+
 ```ts
-const post = await PostSchema.createOne({
-	data: { title: 'Atomic by default' },
-})
+export const createPost = (authorId: string, slug: string, title: string) =>
+	Post.createOne({
+		data: {
+			author: { connect: authorId },
+			slug,
+			title,
+		},
+		include: { author: { select: { displayName: true } } },
+		select: { published: true, slug: true, title: true },
+	})
 ```
+
+<!-- endregion -->
 
 The complete current Runtime mutation pipeline and database work started inside
 it commit or roll back together. Configured schema, field, and plugin behavior executes
@@ -1478,12 +1587,30 @@ non-transactional. Collection mutations are ordered singular item
 operations inside one transaction: any missing target, input, persistence,
 business-hook, or finalization failure rolls back the complete batch.
 
+<!-- region ../../examples/queries/src/bulk.ts#create-and-update -->
+
 ```ts
-const imported = await PostSchema.createMany({
-	data: rows,
-	select: { id: true, title: true },
-})
+export const createPostBatch = (
+	posts: readonly { readonly slug: string; readonly title: string }[],
+) =>
+	Post.createMany({
+		data: posts.map(({ slug, title }) => ({ slug, title })),
+		select: { slug: true, title: true },
+	})
+
+export const renamePostBatch = (
+	updates: readonly { readonly id: string; readonly title: string }[],
+) =>
+	Post.updateMany({
+		data: updates.map(({ id, title }) => ({
+			data: { title },
+			where: { id: { eq: id } },
+		})),
+		select: { title: true },
+	})
 ```
+
+<!-- endregion -->
 
 When the adapter reports a transient `TRANSACTION_CONFLICT` (ADR-0300), Core
 replays an automatic mutation transaction — one schema mutation, collection
@@ -1522,39 +1649,32 @@ ID into one read and restore declaration order independently from database
 order. These internal reads do not replay root mutation policies or lifecycle
 behavior, and they are omitted entirely when no relationship is requested:
 
+<!-- region ../../examples/queries/src/writes.ts#create-post,rename-post,delete-post -->
+
 ```ts
-const created = await PostSchema.createOne({
-	data: { author: { connect: authorId }, title: 'Created' },
-	select: { title: true },
-	include: { author: { select: { name: true } } },
-})
+export const createPost = (authorId: string, slug: string, title: string) =>
+	Post.createOne({
+		data: {
+			author: { connect: authorId },
+			slug,
+			title,
+		},
+		include: { author: { select: { displayName: true } } },
+		select: { published: true, slug: true, title: true },
+	})
 
-const updated = await PostSchema.updateOne({
-	where: { id: postId },
-	data: { title: 'Updated' },
-	select: { title: true },
-	include: { author: { select: { name: true } } },
-})
+export const renamePost = (postId: string, title: string) =>
+	Post.updateOne({
+		where: { id: postId },
+		data: { title },
+		select: { title: true },
+	})
 
-const deleted = await PostSchema.deleteOne({
-	where: { id: postId },
-	select: { id: true, title: true },
-})
-
-// Itemized batches return only identifiers unless a projection is requested.
-const published = await PostSchema.updateMany({
-	data: postIds.map((id) => ({
-		where: { id: { eq: id } },
-		data: { published: true },
-	})),
-	select: { id: true, published: true },
-	include: { author: { select: { id: true, name: true } } },
-})
-
-// Explicitly included targets are materialized with their nested projection.
-const authorName = updated?.author?.name
-const publishedAuthorNames = published.map((post) => post.author?.name)
+export const deletePost = (postId: string) =>
+	Post.deleteOne({ where: { id: postId }, select: { slug: true, title: true } })
 ```
+
+<!-- endregion -->
 
 Singular creates and updates accept schema-aware nested pointer and relation
 commands inside `data` (ADR-0308): a pointer takes `connect`, `create`,
@@ -1565,18 +1685,33 @@ exclusive, while relation `create`, `connect`, `update`, and `disconnect`
 commands may compose in that fixed order. `connect`, `disconnect` and `set`
 targets are IDs or `Pointer`s of the declared target:
 
+<!-- region ../../examples/queries/src/nested-writes.ts#create-graph -->
+
 ```ts
-await PostSchema.createOne({
-	data: {
-		author: { connect: authorId },
-		comments: {
-			create: [{ body: 'First' }],
-			connect: [existingCommentId],
+export const createPostGraph = (existingCommentId: string) =>
+	Post.createOne({
+		data: {
+			author: {
+				create: {
+					displayName: 'Ada',
+					email: 'ada@example.com',
+				},
+			},
+			comments: {
+				create: [{ body: 'First' }, { body: 'Second' }],
+				connect: [existingCommentId],
+			},
+			slug: 'nested-post',
+			title: 'Nested post',
 		},
-		title: 'Nested',
-	},
-})
+		include: {
+			author: { select: { displayName: true } },
+			comments: { select: { body: true } },
+		},
+	})
 ```
+
+<!-- endregion -->
 
 Core separates scalar candidates from relationship commands in one immutable,
 application-owned graph before effects. The default ceiling is five nested
@@ -1633,40 +1768,26 @@ The handler cannot change the query, target, fields, operators, schema, or
 terminal kind. Public collection commands are already itemized before this
 boundary, so each update entry uses the same singular lifecycle.
 
+Results are frozen plain data, and `toJSON()` serializes them as REST does:
+
+<!-- region ../../examples/queries/tests/writes.test.ts#round-trip -->
+
 ```ts
-import { UltimaBase, toJSON } from '@ultimabase/core'
-
-const PostSchema = UltimaBase.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		title: field.string({ required: true }),
-		published: field.boolean({ default: false }),
-	}),
+const created = await Post.createOne({
+	data: { slug: 'preview', title: 'Preview', tags: ['draft'] },
+	select: { title: true, tags: true },
 })
-
-const Application = UltimaBase.use(databasePlugin())
-
-const ultimabase = new Application({
-	schemas: [PostSchema],
-})
-
-const selectedPosts = await PostSchema.findMany({
-	select: { id: true, title: true },
-})
-
-const created = await PostSchema.createOne({
-	data: { title: 'Preview' },
-	select: { id: true, title: true },
-})
-const updated = await PostSchema.updateOne({
+const updated = await Post.updateOne({
 	where: { id: created.id },
 	data: { title: 'Published' },
-	select: { id: true, title: true },
+	select: { title: true },
 })
 
-console.log(toJSON(updated))
-await PostSchema.deleteOne({ where: { id: created.id }, select: { id: true } })
+const json = toJSON(updated)
+await Post.deleteOne({ where: { id: created.id }, select: { id: true } })
 ```
+
+<!-- endregion -->
 
 Every read and mutation returns frozen plain objects (ADR-0310): field values,
 a `Pointer` for an unincluded pointer, a plain object or `null` for an included
@@ -1709,10 +1830,17 @@ Core's kinds; an untyped caller ordering by another field fails with
 `query.orderBy.<field> must name a non-list scalar or enum field`. A plugin
 field declared unique carries `UniqueFieldCarrier` in its type to be a target.
 
+<!-- region ../../examples/queries/tests/upserts.test.ts#unique-target -->
+
 ```ts
-const target: UniqueWhereInput<'Post'> = { id: postId }
-await PostSchema.deleteOne({ where: target })
+const target: UniqueWhereInput<'Post'> = { slug: 'hello' }
+const deleted = await Post.deleteOne({
+	where: target,
+	select: { slug: true },
+})
 ```
+
+<!-- endregion -->
 
 ## Optional Hooks and Access engines
 
@@ -1977,14 +2105,19 @@ lines for transports exposing nothing or routes nothing serves.
 `FrameworkError` carries one stable framework code while separating trusted
 diagnostics from transport-safe metadata:
 
+<!-- region ../../examples/queries/tests/errors.test.ts#framework-error -->
+
 ```ts
-const error = new FrameworkError('NOT_FOUND', 'User row was absent', {
-	cause: databaseError,
-	publicMessage: 'The requested user was not found.',
-	publicDetails: { resource: 'User', id: userId },
-	internalDetails: { table: 'users' },
+const error = new FrameworkError('NOT_FOUND', 'Trusted diagnostic', {
+	publicMessage: 'The requested post was not found.',
+	publicDetails: { resource: 'Post' },
+	internalDetails: { table: 'posts' },
 })
+
+const safePayload = error.toJSON()
 ```
+
+<!-- endregion -->
 
 The regular error message, stack, cause, and `internalDetails` remain diagnostic
 state. `JSON.stringify(error)` uses the error's immutable public payload and
@@ -1993,14 +2126,65 @@ Transports map that payload to their protocol-specific error formats without
 adding transport metadata to Core.
 
 Application code refuses an operation with a client-visible message by
-throwing `PublicError` (ADR-0305):
+throwing `PublicError` (ADR-0305), here from an Access rule of the queries
+example:
+
+<!-- region ../../examples/queries/src/schema.ts#factory,policies,announcement -->
 
 ```ts
-throw new PublicError('A title cannot contain a link.', {
-	code: 'todo.title-link',
-	details: { field: 'title' },
+import { accessPlugin } from '@ultimabase/access-plugin'
+import {
+	PublicError,
+	UltimaBase,
+	isAuthenticated,
+	type PolicyPredicate,
+} from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+/**
+ * Access opens every operation of a schema that declares no rule, so the blog
+ * data stays public in this example; `Announcement` declares its own rules.
+ * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
+ */
+export const App = UltimaBase.use(
+	accessPlugin({ allowWithoutRule: { all: true } }),
+	postgresPlugin(),
+)
+
+/** Editors are Authors flagged `editor`; anonymous callers never are. */
+export const isEditor: PolicyPredicate = async function isEditor({
+	principal,
+}) {
+	if (principal === undefined) return false
+	return Author.exists({ where: { id: principal.id, editor: true } })
+}
+
+/** Signed-in authors announce; editors change; anonymous callers only read. */
+export const Announcement = App.Schema.define({
+	className: 'Announcement',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+}).with({
+	access: {
+		read: true,
+		create: {
+			where: isAuthenticated,
+			item: ({ item }) => {
+				if (/https?:\/\//u.test(item.title)) {
+					throw new PublicError('An announcement cannot contain a link.', {
+						code: 'announcement.title-link',
+						details: { field: 'title' },
+					})
+				}
+				return true
+			},
+		},
+		update: isEditor,
+		delete: isEditor,
+	},
 })
 ```
+
+<!-- endregion -->
 
 `code` defaults to `APPLICATION_ERROR` and rejects framework codes; `cause` is
 never serialized. Thrown from a hook, a policy rule or predicate, an ACL
@@ -2021,11 +2205,20 @@ written row, and the retryable `TRANSACTION_CONFLICT`. Other rejections stay
 Plugin engines that observe an `AbortSignal` at a safe cooperative boundary can
 use the same cancellation failure as Core Runtime:
 
-```ts
-import { throwIfOperationCancelled } from '@ultimabase/core'
+<!-- region ../../examples/queries/tests/identity.test.ts#cancellation -->
 
-throwIfOperationCancelled(context.signal, { phase: 'before-callback' })
+```ts
+const controller = new AbortController()
+// Returns while the signal is active.
+throwIfOperationCancelled(controller.signal, { phase: 'before-callback' })
+
+controller.abort(new Error('Private reason'))
+const check = () => {
+	throwIfOperationCancelled(controller.signal, { phase: 'before-callback' })
+}
 ```
+
+<!-- endregion -->
 
 The helper returns while the signal is active. Once aborted, it throws
 `OPERATION_CANCELLED` and records only `request-aborted` or

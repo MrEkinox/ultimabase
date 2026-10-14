@@ -56,18 +56,23 @@ it('includes a pointer and a bounded, filtered relation', async () => {
 
 it('pages an included relation with after', async () => {
 	await testApplication(ultimabase)
-	const post = await Post.createOne({
+	const { id } = await Post.createOne({
 		data: {
 			slug: 'paged',
 			title: 'Paged',
 			comments: { create: [{ body: 'A' }, { body: 'B' }, { body: 'C' }] },
 		},
-		include: { comments: { orderBy: { body: 'asc' }, take: 2 } },
 	})
 
+	//#region included-page
+	// Each post's comments are paged on their own, like a root `findMany`.
+	const post = await Post.findOneOrThrow({
+		where: { id },
+		include: { comments: { orderBy: { body: 'asc' }, take: 2 } },
+	})
 	const last = post.comments.at(-1)
 	const next = await Post.findOneOrThrow({
-		where: { id: post.id },
+		where: { id },
 		include: {
 			comments: {
 				orderBy: { body: 'asc' },
@@ -76,6 +81,7 @@ it('pages an included relation with after', async () => {
 			},
 		},
 	})
+	//#endregion included-page
 
 	expect(post.comments.map(({ body }) => body)).toStrictEqual(['A', 'B'])
 	expect(next.comments.map(({ body }) => body)).toStrictEqual(['C'])

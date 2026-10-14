@@ -1,3 +1,4 @@
+import { throwIfOperationCancelled } from '@ultimabase/core'
 import { RequestContext, requestSources } from '@ultimabase/core/plugin'
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
@@ -40,6 +41,28 @@ it('reads with a job context and its cancellation signal', async () => {
 	await expect(
 		readPostsForJob('job-2', controller.signal),
 	).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
+})
+
+it('reports a cancelled signal at a safe boundary', () => {
+	//#region cancellation
+	const controller = new AbortController()
+	// Returns while the signal is active.
+	throwIfOperationCancelled(controller.signal, { phase: 'before-callback' })
+
+	controller.abort(new Error('Private reason'))
+	const check = () => {
+		throwIfOperationCancelled(controller.signal, { phase: 'before-callback' })
+	}
+	//#endregion cancellation
+
+	expect(check).toThrow(
+		expect.objectContaining({ code: 'OPERATION_CANCELLED' }),
+	)
+	try {
+		check()
+	} catch (error) {
+		expect(JSON.stringify(error)).not.toContain('Private reason')
+	}
 })
 
 it('gives policies the current principal', async () => {

@@ -1,3 +1,4 @@
+import { toJSON } from '@ultimabase/core'
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
@@ -58,6 +59,34 @@ it('updates by id and returns null for an absent target', async () => {
 			select: { views: true },
 		}),
 	).toStrictEqual({ id: post.id, views: 10 })
+})
+
+it('returns frozen plain results that serialize like REST', async () => {
+	await testApplication(ultimabase)
+
+	//#region round-trip
+	const created = await Post.createOne({
+		data: { slug: 'preview', title: 'Preview', tags: ['draft'] },
+		select: { title: true, tags: true },
+	})
+	const updated = await Post.updateOne({
+		where: { id: created.id },
+		data: { title: 'Published' },
+		select: { title: true },
+	})
+
+	const json = toJSON(updated)
+	await Post.deleteOne({ where: { id: created.id }, select: { id: true } })
+	//#endregion round-trip
+
+	expect(created).toStrictEqual({
+		id: created.id,
+		title: 'Preview',
+		tags: ['draft'],
+	})
+	expect(Object.isFrozen(created)).toBe(true)
+	expect(json).toStrictEqual({ id: created.id, title: 'Published' })
+	expect(await Post.count()).toBe(0)
 })
 
 it('deletes and returns the row as it was', async () => {

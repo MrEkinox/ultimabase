@@ -16,6 +16,7 @@ it('separates diagnostics from the public payload', () => {
 	const error = new FrameworkError('NOT_FOUND', 'Trusted diagnostic', {
 		publicMessage: 'The requested post was not found.',
 		publicDetails: { resource: 'Post' },
+		internalDetails: { table: 'posts' },
 	})
 
 	const safePayload = error.toJSON()
@@ -28,6 +29,7 @@ it('separates diagnostics from the public payload', () => {
 		details: { resource: 'Post' },
 	})
 	expect(JSON.stringify(error)).not.toContain('Trusted diagnostic')
+	expect(JSON.stringify(error)).not.toContain('posts')
 	expect(frameworkErrorCodes).toContain('VALIDATION_ERROR')
 })
 
