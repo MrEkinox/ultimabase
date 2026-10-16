@@ -12,8 +12,8 @@ production, `PERMISSION_DENIED`, `VALIDATION_ERROR` and a `PublicError`; an
 application operation typed from its Zod validators; a custom
 `GraphQLSchema`; direct execution without HTTP; and a second application
 installing each plugin by hand, with Yoga options and Apollo Sandbox. Access
-decides what clients may do; an exposed field grants nothing. It uses the declaration form (ADR-0297) without generated files and
-is tested with `testApplication` (ADR-0327).
+decides what clients may do; an exposed field grants nothing. It uses the declaration form without generated files and
+is tested with `testApplication`.
 
 The [GraphQL page](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
 and the READMEs of [`graphql-plugin`](../../packages/graphql-plugin/README.md),
@@ -22,7 +22,7 @@ and the READMEs of [`graphql-plugin`](../../packages/graphql-plugin/README.md),
 [`graphql-explorer-plugin`](../../packages/graphql-explorer-plugin/README.md)
 show this application's code: each block is a `//#region <name>` of these
 files, included by the page and copied into the READMEs by
-`yarn docs:regions` (ADR-0330). Change the code here, and the tests prove what
+`yarn docs:regions`. Change the code here, and the tests prove what
 the documentation says.
 
 ## Files

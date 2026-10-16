@@ -39,7 +39,6 @@ export const App = UltimaBase.use(
 	}),
 	...apiServer({
 		http: {
-			appId: 'notes',
 			// One reverse proxy in front: `X-Forwarded-For` names the client.
 			trustProxy: 1,
 			browser: { origins: ['https://notes.example.com'], credentials: true },

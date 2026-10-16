@@ -14,7 +14,7 @@ it('rejects a rule passed to define', () => {
 			flagReason: 'Spam',
 		}),
 	).toThrow(
-		'Unknown schema option: flagReason. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
+		'Unknown schema option: flagReason. define() takes className, fields and indexes; plugin rules go in the final .with(...)',
 	)
 })
 
@@ -40,7 +40,7 @@ it('rejects a rule whose plugin is not installed', () => {
 			// @ts-expect-error -- no installed plugin declares `audit`.
 			audit: true,
 		})
-	// `.with` takes the rules the installed plugins declare (ADR-0339).
+	// `.with` takes the rules the installed plugins declare.
 	expect(declare).toThrow('audit is not a rule of an installed plugin')
 })
 

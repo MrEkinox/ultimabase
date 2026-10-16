@@ -13,23 +13,20 @@ describe('@ultimabase/plugin-kit dependency boundaries', () => {
 		)
 		const parsed: unknown = JSON.parse(manifestSource)
 
+		// Core is a peer: plugins share the application's single Core instance.
 		expect(parsed).toMatchObject({
 			dependencies: {
-				'@ultimabase/core': 'workspace:^',
 				'@ultimabase/shared': 'workspace:^',
 				'@standard-schema/spec': '^1.1.0',
 			},
+			peerDependencies: { '@ultimabase/core': 'workspace:^' },
 		})
 		expect(
 			Object.keys(
 				(parsed as Readonly<{ dependencies: Readonly<Record<string, string>> }>)
 					.dependencies,
 			).sort(),
-		).toStrictEqual([
-			'@standard-schema/spec',
-			'@ultimabase/core',
-			'@ultimabase/shared',
-		])
+		).toStrictEqual(['@standard-schema/spec', '@ultimabase/shared'])
 	})
 
 	it('is never imported by Core', async () => {

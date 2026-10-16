@@ -56,11 +56,10 @@ a listing is not a compatibility guarantee.
 
 Import only the package root. A path into a package's `src/` directory is not
 part of its public contract. Three subpaths are public too:
-`@ultimabase/core/plugin`, Core's plugin-author subpath (ADR-0311), which
-transports import for the shared pagination cursor encoder (ADR-0309), and
+`@ultimabase/core/plugin`, Core's plugin-author subpath, which
+transports import for the shared pagination cursor encoder, and
 `@ultimabase/testing/plugins` (plugin conformance) and
-`@ultimabase/testing/vitest` (the Vitest configuration of `testApplication`,
-ADR-0327). Applications import neither plugin subpath. Importing a plugin
+`@ultimabase/testing/vitest` (the Vitest configuration of `testApplication`). Applications import neither plugin subpath. Importing a plugin
 package does not install its behavior; add its factory to your application
 graph.
 

@@ -2,8 +2,8 @@
 
 The reference UltimaBase application: a Todo backend that combines ordinary
 schemas and queries with the official Access, ACL, Hooks, Roles, Validation,
-PostgreSQL and REST plugins, written in the declaration form (ADR-0297)
-without generated files, and tested with `testApplication` (ADR-0327).
+PostgreSQL and REST plugins, written in the declaration form
+without generated files, and tested with `testApplication`.
 
 ## What the developer writes
 
@@ -23,7 +23,7 @@ import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 
 /**
- * One plugin list types every schema and builds the application (ADR-0297).
+ * One plugin list types every schema and builds the application.
  * Every schema rules every operation, so Access opens nothing by default.
  * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
  */
@@ -33,7 +33,7 @@ export const App = UltimaBase.use(
 	validationPlugin(),
 	rolesPlugin(),
 	aclPlugin(),
-	// REST over HTTP and a local Hono listener (ADR-0325); Access decides
+	// REST over HTTP and a local Hono listener; Access decides
 	// what each request may do.
 	...apiServer({ rest: true }),
 	postgresPlugin(),
@@ -45,13 +45,13 @@ export const App = UltimaBase.use(
 [`src/schema.ts`](src/schema.ts) declares the schemas from `App`. The block
 below shows its imports, the `title` field of `Todo`, whose behavior sits on the field,
 and the end of `Todo`: its `indexes` and the `acl: true` feature key in
-`define`, then the schema rules in `.with({ ... })` (ADR-0339):
+`define`, then the schema rules in `.with({ ... })`:
 
 <!-- region src/schema.ts#imports,todo-title,todo-rules -->
 
 ```ts
 import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { defineEnum } from '@ultimabase/core'
+import { PublicError, defineEnum } from '@ultimabase/core'
 import { z } from 'zod'
 
 import { App } from './app.ts'
@@ -83,7 +83,11 @@ title: field.string({
 		beforeOperation: {
 			update: ({ item, originalItem }) => {
 				if (originalItem.completed && !item.completed) {
-					throw new TypeError('Completed todos cannot be reopened')
+					// A PublicError reaches REST and GraphQL clients; any other
+					// error is masked as an internal error.
+					throw new PublicError('Completed todos cannot be reopened.', {
+						code: 'todo.reopen',
+					})
 				}
 			},
 		},
@@ -133,7 +137,7 @@ export const ultimabase = new App({
 	schemas: [TodoUser, TodoRole, Todo],
 })
 
-// One declaration per application gives name-keyed editor types (ADR-0297).
+// One declaration per application gives name-keyed editor types.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase

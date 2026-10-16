@@ -141,8 +141,7 @@ at the next run.
 schema tuples inferred from a fresh fixture. `runPluginConformance()` is
 runner-agnostic: use it from Vitest, another test runner, or a plain JavaScript
 script. The runner installs each fresh fixture through Core's
-`UltimaBase.use()` installation path, not the removed constructor `plugins` option or a
-test-only registry. The example's starter plugin is tested like this:
+`UltimaBase.use()` installation path, not a test-only registry. The example's starter plugin is tested like this:
 
 <!-- region ../../examples/plugin-authoring/tests/starter.test.ts#starter-test -->
 
@@ -345,9 +344,7 @@ its logical identity and physical effect without installing Access, Hooks, or a
 product plugin. This keeps the report precise while leaving each
 plugin-specific assertion readable. A failed check throws a
 `PluginConformanceError` that names its contract; the report lists the
-contracts that passed. The `typegen` contract and
-`withPluginTypegenConformance()` left with Typegen in migration step 6.8b
-(ADR-0297, ADR-0327 decision 4).
+contracts that passed.
 
 For JavaScript, import the same helpers and select `javascript-operation`. Transport checks can use
 `FakePublicOperationTransport`; adapter checks can deliberately install a
@@ -459,9 +456,8 @@ rejects foreign, forged, stale, and wrong-authority Master contexts before the
 operation codec or handler runs. The fake never parses credentials or creates
 authority from wire-shaped input.
 
-## Retired migration testing helper
+## Migration checks
 
-ADR-0266 removes `FakeAdapterMigrationHistory` and its `snapshots`, `plan` and
-`accept` surfaces together with Core's migration-only planner. Tests can still
-run real database checks; there is no replacement planning helper. The generic `migration`
-conformance category remains available for an explicit plugin-owned verifier.
+There is no migration planning helper: tests run real database checks. The
+generic `migration` conformance category is available for an explicit
+plugin-owned verifier.

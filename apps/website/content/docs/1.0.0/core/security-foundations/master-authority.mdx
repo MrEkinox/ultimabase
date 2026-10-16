@@ -85,7 +85,7 @@ authority and never downgrades a Master request. Any other value is rejected
 before execution. Derive the value from server-side state only, never from
 request input such as the body, query string, or headers. Plugin-initiated
 elevation still requires the plugin's `authority:elevate` privilege. That
-privilege suffices without a configured `masterAuthority` (ADR-0326): sign-up
+privilege suffices without a configured `masterAuthority`: sign-up
 in [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
 creates its User that way, each elevation being recorded as a `debug` line of
 the application logger. Your own server code still needs a configured

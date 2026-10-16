@@ -243,14 +243,13 @@ approximated. No official migration runner is shipped yet.
   the same type appears at the same time, the message suggests the forgotten
   `renamedFrom`.
 
-A database created before columns became `snake_case` is not converted: the
-check above reports its camelCase columns. Rename them outside UltimaBase
+A database with camelCase columns is not converted: the check above reports
+them. Rename them outside UltimaBase
 before starting.
 
 Preparation always follows the configured `schemaPolicy`. Select `ignore`
-explicitly when external tooling manages schema changes. The former
-`postgresSchemaPreparationCapability` marker is removed; it cannot suppress
-direct synchronization. `renamedFrom` still applies explicit column renames
+explicitly when external tooling manages schema changes. `renamedFrom` applies
+explicit column renames
 under `override`, as shown above.
 
 ### Index preparation

@@ -163,7 +163,7 @@ hides it, and field rules still mask the returned fields. `visible` is `null`.
 Repeating the deletion for that ID returns `null` (`deleteOne`) or fails with
 `NOT_FOUND` (`softDeleteOne`), just as it does for an absent target.
 
-Results are frozen plain data without methods (ADR-0310); a retained result
+Results are frozen plain data without methods; a retained result
 does not make a tombstone visible or allow you to soft-delete it twice. The
 selection also narrows the result type; hover a name to see its type:
 
@@ -233,7 +233,7 @@ not exposed through REST or GraphQL yet.
 ### Enable REST and GraphQL
 
 REST and GraphQL expose a command only when the schema's rule names it, with
-the command's own name, like every schema method (ADR-0324, ADR-0325). The
+the command's own name, like every schema method. The
 example's `Post` declares `.with({ rest: { softDeleteOne: true, restoreOne: true } })`
 and the GraphQL rule of the same shape,
 `.with({ graphql: { softDeleteOne: true, restoreOne: true } })`.
@@ -403,7 +403,7 @@ never adds one automatically):
 A partial unique index is a storage index, not a
 [unique target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target):
 `updateOne`, `deleteOne`, and `upsertOne` cannot target a row by this `slug`,
-so they target it by `id` (ADR-0332).
+so they target it by `id`.
 
 If another row took the slug meanwhile, restoring the tombstone fails with
 `UNIQUE_VIOLATION` and a message naming the command, row and field:
@@ -426,7 +426,7 @@ Direct database queries do not apply these application rules.
 
 ### Reading deleted rows: `readDeleted`
 
-`softDelete` declares the schema permission `readDeleted` (ADR-0317). A
+`softDelete` declares the schema permission `readDeleted`. A
 caller who holds it sees tombstones in ordinary reads, REST and GraphQL
 included, and can filter and sort them (`where: { isDeleted: { eq: true } }`,
 `orderBy: { deletedAt: 'desc' }`); without it the private filter applies.
@@ -493,8 +493,9 @@ nested soft delete yet. A scheduled server job can empty the trash with
 ## Troubleshooting
 
 - **The soft-delete route or field is missing:** check plugin installation,
-  the `softDelete` key in that schema's `define`, schema exposure, and the transport's
-  `mutations` switch. Many-row commands and purge are never exposed.
+  the `softDelete` key in that schema's `define`, and that its `rest` or
+  `graphql` rule names the command (`softDeleteOne: true`). Many-row commands
+  and purge are never exposed.
 - **Soft deletion returns `NOT_FOUND`:** the ID may be absent, already deleted,
   or hidden by a policy. Repeating soft deletion does not succeed again.
 - **A deleted record remains visible:** check the selected application, the

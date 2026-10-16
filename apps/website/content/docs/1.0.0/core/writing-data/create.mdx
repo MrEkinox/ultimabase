@@ -47,11 +47,11 @@ the same command, use `author: { create: ... }` as described in
 
 ## Verify the result
 
-The returned immutable `Post` contains its generated `id`, the supplied
+The returned frozen `Post` result contains its generated `id`, the supplied
 `slug` and `title`, and `published: false` from the declared default. Its
 included `author` contains `id` and `displayName` when that target is visible;
 target read policy may instead make the inclusion `null`. Unselected post
-fields are absent from `toJSON()` and from the selected TypeScript result
+fields are absent from the result, from `toJSON(post)`, and from the selected TypeScript result
 shape. See [Selections](/docs/1.0.0/core/reading-data/selections) for the
 projection rules.
 
@@ -71,7 +71,7 @@ the check.
 
 ## Other create paths
 
-Schemas are not constructible and results are frozen plain data (ADR-0310):
+Schemas are not constructible and results are frozen plain data:
 assemble create data as a plain object, typed with `CreateInput<typeof Post>`
 when it is built separately, and pass it to `createOne`. See
 [Models](/docs/1.0.0/core/data-modeling/models) for the result contract.

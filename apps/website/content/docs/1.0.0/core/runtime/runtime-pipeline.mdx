@@ -24,9 +24,7 @@ not run its own database or authorization pipeline. Core fixes the execution
 order, while installed plugins contribute behavior at declared boundaries.
 Core owns normalization and transaction commit. Plugin authors can contribute
 logical before/after-operation behavior and prepared-target transforms;
-`runtimePipelineStage()` and its normalization/commit contribution types are
-no longer exposed. Hook `beforeCommit`/`afterCommit` callbacks and post-commit
-events keep their existing behavior.
+normalization and commit are not contribution points.
 
 The shared policy, before/after behavior, result, and commit contracts use the
 closed `RuntimeLogicalOperationAst` union. It contains native database

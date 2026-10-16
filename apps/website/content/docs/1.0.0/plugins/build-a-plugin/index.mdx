@@ -1,11 +1,11 @@
 ---
 title: Start Here
-description: Create, install, and verify a plugin, then choose the extension boundary for its behavior.
+description: Declare a plugin with definePlugin, test it with testApplication, then choose the extension boundary for its behavior.
 audience:
   - plugin-author
 contentType: guide
 order: 4
-outcome: Export a reusable plugin factory and verify its application-local setup result.
+outcome: Declare a plugin with definePlugin, test it in an application, and choose the extension boundary for its behavior.
 releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
@@ -14,6 +14,9 @@ sources:
   - examples/plugin-authoring/src/archive-plugin.ts
   - examples/plugin-authoring/src/audit-plugin.ts
   - examples/plugin-authoring/tests/starter.test.ts
+  - examples/plugin-authoring/tests/first.test.ts
+  - examples/plugin-authoring/src/app.ts
+  - examples/plugin-authoring/src/schema.ts
   - examples/plugin-authoring/tests/schema-contributions.test.ts
   - examples/plugin-authoring/tests/schema-misuse.test.ts
   - packages/core/README.md
@@ -36,10 +39,10 @@ sources:
 
 ## Outcome
 
-Build a plugin with one public factory and a typed setup result. Verify that
-the result belongs to the application that installs it. Then choose the
-specific extension boundary for the behavior you want to add. The starter
-plugin does not add schema fields, operations, or Runtime behavior yet.
+Declare a plugin with `definePlugin`, install it in an application, and test
+it with `testApplication`. Then choose the extension boundary for the behavior
+you want to add, and write a raw `plugin()` factory only when `definePlugin`
+does not cover it.
 
 ## Prerequisites
 
@@ -53,99 +56,28 @@ plugin does not add schema fields, operations, or Runtime behavior yet.
   version `0.0.0`, so the examples on these pages declare `core: '^0.0.0'`.
   The Core range is checked against the installed Core, and dependency and
   peer ranges against the installed plugin versions, so they must all accept
-  `0.0.0` (ADR-0338).
+  `0.0.0`.
 
 ## Steps
 
-### Install Core
+### Install the packages
 
-Install Core in your plugin package:
+Install Core and Plugin Kit, which provides `definePlugin`, in your plugin
+package:
 
 ```bash tab="npm" tab-group="package-manager"
-npm install @ultimabase/core
+npm install @ultimabase/core @ultimabase/plugin-kit
 ```
 
 ```bash tab="yarn"
-yarn add @ultimabase/core
+yarn add @ultimabase/core @ultimabase/plugin-kit
 ```
 
 ```bash tab="pnpm"
-pnpm add @ultimabase/core
+pnpm add @ultimabase/core @ultimabase/plugin-kit
 ```
 
-Plugin Kit is optional. Install it later only when an event, option parser,
-contextual-field helper, or immutable patch builder helps the plugin. Package
-identity and configured plugin definitions belong directly to Core.
-It provides no generic registry, service locator, privilege shortcut, or
-alternate plugin-registration path.
-
-### Export a static factory
-
-Export the factory from the package root so consumers never need a `src/`
-deep import. The code on these pages comes from the tested
-[plugin authoring example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/plugin-authoring/README.md):
-
-<include cwd meta='title="src/starter-plugin.ts"'>
-	../../examples/plugin-authoring/src/starter-plugin.ts#starter-plugin
-</include>
-
-The factory returns an inert, typed definition. Constructing it must not
-connect to a database, read files, or start a listener. Its `ready` export is
-only a learning example, not real functionality. Importing a plugin
-package or calling its factory does not install behavior: the definition must
-enter one application's `.use()` chain.
-
-Every capability, operation, static declaration, and application resource goes
-into `contributions`. Core compiles that list once into its native plugin plan
-and derives every privilege the plugin needs. The startup report shows each
-one with a description generated from the contribution that needs it, so most
-plugins need no `permissions` at all. Only the critical `authority:elevate` and
-`storage:private` privileges require an explicit reason; a missing critical
-reason, or a reason for a privilege the plugin does not use, fails while the
-definition is still inert. There is no separate setup/hooks authoring model
-behind this API.
-
-### Or declare it with `definePlugin`
-
-Most plugins add a feature key of `define`, a `.with` rule, a post-commit
-callback, or a route. `definePlugin` from `@ultimabase/plugin-kit` writes the
-`plugin()` call for you: the selectors, patches, schema mutations, contribution
-identifiers and static types come from one declarative object, and Core still
-derives the privileges.
-
-<include cwd meta='title="src/archive-plugin.ts"'>
-	../../examples/plugin-authoring/src/archive-plugin.ts#archive-plugin
-</include>
-
-An application then declares `App.Schema.define({ ..., archivable: true })`
-and calls `Post.archiveOne({ id })` or `Post.archiveMany({ where })`. The
-added fields are written by the server only; `authority: 'request'` commands
-are ruled by Access under their own name, `'master'` commands need Master.
-A feature can also declare schema permissions, such as
-`permissions: ['readArchived']`: Access grants one by a rule of the same name,
-Master always holds it, and the plugin asks for it during a request with
-`holdsSchemaPermission(context, schema, 'readArchived')` from
-`@ultimabase/core/plugin` (ADR-0317).
-A rule is a key of the schema's `.with({ ... })`; post-commit callbacks read
-its value:
-
-<include cwd meta='title="src/audit-plugin.ts"'>
-	../../examples/plugin-authoring/src/audit-plugin.ts#audit-plugin
-</include>
-
-A schema declared with `.with({ audit: true })` logs
-`[audit] Post create-one` once the write has committed; a schema without the
-rule logs nothing. [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules)
-explains which of the two an option should be.
-
-A transport supplies its own helper for `contributions`, such as
-`httpRoutes({ 'GET /status': () => Response.json({ status: 'ok' }) })` from
-`@ultimabase/http-plugin`. Keep raw `plugin()` for rules or commands that
-depend on the schema they apply to, as Access, Hooks and ACL do.
-
-### Install test tooling
-
-Add the conformance harness and Vitest as development dependencies:
+Add the test harness and Vitest as development dependencies:
 
 ```bash tab="npm" tab-group="package-manager"
 npm install --save-dev @ultimabase/testing vitest typescript
@@ -159,11 +91,110 @@ yarn add --dev @ultimabase/testing vitest typescript
 pnpm add --save-dev @ultimabase/testing vitest typescript
 ```
 
+Plugin Kit is optional. A raw `plugin()` factory needs only Core. Package
+identity and configured plugin definitions belong directly to Core. Plugin Kit
+provides no generic registry, service locator, privilege shortcut, or
+alternate plugin-registration path.
+
+### Declare the plugin with `definePlugin`
+
+Most plugins add a feature key of `define`, a `.with` rule, a post-commit
+callback, or a route. `definePlugin` writes the `plugin()` call for you: the
+selectors, patches, schema mutations, contribution identifiers and static
+types come from one declarative object, and Core derives the privileges. The
+code on these pages comes from the tested
+[plugin authoring example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/plugin-authoring/README.md):
+
+<include cwd meta='title="src/archive-plugin.ts"'>
+	../../examples/plugin-authoring/src/archive-plugin.ts#archive-plugin
+</include>
+
+Export the factory from the package root so consumers never need a `src/`
+deep import. The factory returns an inert, typed definition: calling it does
+not connect to a database, read files, or start a listener, and importing the
+package installs nothing.
+
+A rule is a key of the schema's `.with({ ... })`; post-commit callbacks read
+its value:
+
+<include cwd meta='title="src/audit-plugin.ts"'>
+	../../examples/plugin-authoring/src/audit-plugin.ts#audit-plugin
+</include>
+
+[Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules)
+explains which of the two an option should be.
+
+### Install it in an application
+
+The definition enters one application's `.use()` chain. A schema then sets
+the feature in `define` and the rule in `.with`:
+
+<include cwd meta='title="src/app.ts"'>
+	../../examples/plugin-authoring/src/app.ts#factory
+</include>
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/plugin-authoring/src/schema.ts#post
+</include>
+
+`Post` gains a server-written `archivedAt` and the `archiveOne` and
+`archiveMany` commands; `authority: 'request'` commands are ruled by Access
+under their own name, `'master'` commands need Master. A feature can also
+declare schema permissions, such as `permissions: ['readArchived']`: Access
+grants one by a rule of the same name, Master always holds it, and the plugin
+asks for it during a request with
+`holdsSchemaPermission(context, schema, 'readArchived')` from
+`@ultimabase/core/plugin`.
+
+### Test it with `testApplication`
+
+`testApplication` starts the real application on this test worker's own
+PostgreSQL schema (see [Test an Application](/docs/1.0.0/guides/test-an-application)):
+
+<include cwd meta='title="tests/first.test.ts"'>
+	../../examples/plugin-authoring/tests/first.test.ts#first-test
+</include>
+
+The feature added `archivedAt`, `null` until the post is archived. Its command
+runs like any schema method:
+
+<include cwd meta='title="tests/schema-contributions.test.ts"'>
+	../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one
+</include>
+
+`archived.archivedAt` holds the archive time. The `Post` with
+`.with({ audit: true })` also logs `[audit] Post create-one` once each write
+has committed; a schema without the rule logs nothing.
+
+### Write a raw `plugin()` factory
+
+Keep raw `plugin()` for rules or commands that depend on the schema they apply
+to, as Access, Hooks and ACL do. A transport supplies its own helper for
+`contributions`, such as
+`httpRoutes({ 'GET /status': () => Response.json({ status: 'ok' }) })` from
+`@ultimabase/http-plugin`. A raw factory has one public factory and a typed
+setup result:
+
+<include cwd meta='title="src/starter-plugin.ts"'>
+	../../examples/plugin-authoring/src/starter-plugin.ts#starter-plugin
+</include>
+
+Its `ready` export is only a learning example, not real functionality. Every
+capability, operation, static declaration, and application resource goes into
+`contributions`. Core compiles that list once into its native plugin plan and
+derives every privilege the plugin needs. The startup report shows each one
+with a description generated from the contribution that needs it, so most
+plugins need no `permissions` at all. Only the critical `authority:elevate`
+and `storage:private` privileges require an explicit reason; a missing
+critical reason, or a reason for a privilege the plugin does not use, fails
+while the definition is still inert. There is no separate setup/hooks
+authoring model behind this API.
+
 ## Verify
 
 Build your package so its root export resolves, then test the same public
 import an application will use; the example imports its source file instead.
-This plugin needs no database:
+The conformance harness checks a raw factory without a database:
 
 <include cwd meta='title="tests/starter.test.ts"'>
 	../../examples/plugin-authoring/tests/starter.test.ts#starter-test
@@ -173,7 +204,7 @@ This plugin needs no database:
 capabilities, and runs setup. This particular plugin opens no resources. Only
 one application may initialize per JavaScript realm; these tests run
 sequentially and dispose their applications even after an assertion failure.
-Run your Vitest command and confirm that both tests pass. Conformance covers
+Run your Vitest command and confirm that the tests pass. Conformance covers
 static determinism, provenance, lifecycle cleanup, and application isolation;
 it does not prove the domain behavior you will add next.
 
@@ -183,14 +214,14 @@ Start with the reader-visible behavior, then use the smallest owning contract.
 One feature may cross several boundaries; none is automatic merely because its
 neighbor exists.
 
-| You want to add                                                                 | Start with                                                                                                                            | Exact additional power                       |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| A feature with fields and commands, a `.with` rule, or a post-commit callback   | [`definePlugin`](#or-declare-it-with-defineplugin), after [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules) | Derived from what it declares                |
-| A raw rule, feature, field, field option, schema factory, or additive patch     | [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions)                                                       | `schema:declare`                             |
-| An app-wide operation or item-oriented schema mutation                          | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)                                                   | `operation:declare`, often `model:extend`    |
-| A GraphQL field or selected operation                                           | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql#expose-behavior-through-graphql)                   | `transport:expose` for an owner contribution |
-| A shared protocol, lifecycle resource, observer, policy, or persistence rewrite | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure)                                           | Depends on the exact Core facade             |
-| A database adapter or owner-private record                                      | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#data-and-infrastructure-boundaries)        | `storage:private` for owner-private records  |
+| You want to add                                                                 | Start with                                                                                                                                 | Exact additional power                       |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| A feature with fields and commands, a `.with` rule, or a post-commit callback   | [`definePlugin`](#declare-the-plugin-with-defineplugin), after [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules) | Derived from what it declares                |
+| A raw rule, feature, field, field option, schema factory, or additive patch     | [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions)                                                            | `schema:declare`                             |
+| An app-wide operation or item-oriented schema mutation                          | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)                                                        | `operation:declare`, often `model:extend`    |
+| A GraphQL field or selected operation                                           | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql#expose-behavior-through-graphql)                        | `transport:expose` for an owner contribution |
+| A shared protocol, lifecycle resource, observer, policy, or persistence rewrite | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure)                                                | Depends on the exact Core facade             |
+| A database adapter or owner-private record                                      | [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#data-and-infrastructure-boundaries)             | `storage:private` for owner-private records  |
 
 The full current privilege and environment-claim map is in
 [Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure#privilege-and-claim-reference).

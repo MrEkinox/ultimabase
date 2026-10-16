@@ -168,7 +168,8 @@ const restored = ACL.fromJSON(JSON.parse(JSON.stringify(document)))
 
 `new ACL(owner)` grants `read` and `write` to `owner`, like
 `new Parse.ACL(user)`; `new ACL(undefined)` is empty. The group `'write'`
-means `update` and `delete`, as in Access. `acl.entries()` lists who holds
+means `update` and `delete`; unlike Access `write`, it does not cover create,
+since a row's ACL exists only once the row does. `acl.entries()` lists who holds
 which rights: `public` and `authenticated` when they hold any, users as
 Pointers, and roles as references whose name Roles' `resolveRoleReference()`
 reads; `grantPrincipal`/`grantRole` accept them back.

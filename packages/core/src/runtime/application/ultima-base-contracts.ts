@@ -17,7 +17,6 @@ import {
 } from './create-framework-engine.js'
 
 const ultimaBaseOptionKeys = new Set([
-	'access',
 	'logLevel',
 	'logger',
 	'masterAuthority',

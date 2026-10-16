@@ -45,7 +45,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	roleAuditPlugin,
-	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
+	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```

@@ -194,6 +194,6 @@ it('compiles PostgreSQL rules and options from JavaScript', async () => {
 			'JavaScriptPostgresMissingRule.with({ postgres }): postgres is not a rule of an installed plugin; .with accepts relations',
 		// The old `define({ postgres })` form is rejected (ADR-0297).
 		oldFormMessage:
-			'Unknown schema option: postgres. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
+			'Unknown schema option: postgres. define() takes className, fields and indexes; plugin rules go in the final .with(...)',
 	})
 })

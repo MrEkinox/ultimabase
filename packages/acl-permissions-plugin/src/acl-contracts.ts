@@ -5,8 +5,9 @@ import { immutableArray } from '@ultimabase/shared'
 export type ACLPermission = 'delete' | 'read' | 'update'
 
 /**
- * A right or the group `'write'`, which means `update` and `delete` as in
- * Access (ADR-0321).
+ * A right or the group `'write'`, which means `update` and `delete`. Unlike
+ * Access `write`, it does not cover create: a row's ACL exists only once the
+ * row does.
  * @example `acl.grantPublic('read', 'write')`
  */
 export type ACLPermissionInput = ACLPermission | 'write'

@@ -15,7 +15,7 @@ export const App = UltimaBase.use(
 	softDeletePlugin(),
 	accessPlugin(),
 	rolesPlugin(),
-	...apiServer({ http: { appId: 'blog' }, rest: true, graphql: true }),
+	...apiServer({ rest: true, graphql: true }),
 	postgresPlugin(),
 )
 //#endregion factory

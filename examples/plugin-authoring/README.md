@@ -8,15 +8,15 @@ rule, a feature that requires its rule, a raw plugin typing its feature,
 field and rule through Core's slots, a field kind and a field option, two plugins meeting through a
 capability, a lifecycle-only resource, owner-private storage, an operation
 bound to GraphQL and REST, an independent GraphQL schema, an HTTP route, and
-an environment-dependent default. It uses the declaration form (ADR-0297, ADR-0339)
+an environment-dependent default. It uses the declaration form
 without generated files and is tested with `testApplication` and the plugin
-conformance suite of `@ultimabase/testing` (ADR-0327).
+conformance suite of `@ultimabase/testing`.
 
 The Build a Plugin pages, the Test an Application page, and the
 [Plugin Kit](../../packages/plugin-kit/README.md) and
 [Testing](../../packages/testing/README.md) READMEs show this example's code:
 each block is a `//#region <name>` of these files, included by the pages and
-copied into the READMEs by `yarn docs:regions` (ADR-0330). Change the code
+copied into the READMEs by `yarn docs:regions`. Change the code
 here, and the tests prove what the documentation says.
 
 ## Files
@@ -61,7 +61,7 @@ that includes it, and the website content tests report the missing region.
 The plugins declare `core: '^0.0.0'` and `peers` ranges of `^0.0.0` because
 the pre-release packages are version `0.0.0`; the Core range is checked against
 the installed Core's version and a peer range against the installed plugin's
-version (ADR-0338).
+version.
 
 ## Run and verify it
 

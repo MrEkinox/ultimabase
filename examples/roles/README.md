@@ -7,14 +7,14 @@ rejection, `hasRole()` predicates in Access rules, `has()` and `current()`
 outside rules, name and UUID references, the request-local membership cache,
 role management by Master or by callers under a schema's rules, the `fail`
 and `cascade` deletion policies, and an observer of the committed role
-events. It uses the declaration form (ADR-0297) without generated files and is
-tested with `testApplication` (ADR-0327).
+events. It uses the declaration form without generated files and is
+tested with `testApplication`.
 
 The [Roles page](../../apps/website/content/docs/1.0.0/plugins/official/roles.mdx)
 and the [package README](../../packages/roles-plugin/README.md) show this
 application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

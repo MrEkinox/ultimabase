@@ -454,8 +454,7 @@ schemas.patch(
 <!-- endregion -->
 
 The builder covers additive fields, indexes, and plugin-owned schema or field
-option values. ADR-0289 removed `addConstraint()` with Core's portable schema
-constraints, which no production plugin consumed. These operations require the same
+option values. These operations require the same
 `schema:declare` privilege that Core would require
 without the helper. Destructive replacement, rename, and removal patches are
 not plugin powers; the helper does not reintroduce them. Core still validates
@@ -570,7 +569,7 @@ setup even when JavaScript bypasses autocomplete.
 
 ## Contribute operations through Core
 
-Operation authoring is foundational and no longer requires Plugin Kit. Core's
+Operation authoring does not require Plugin Kit. Core's
 `contributeOperation()` correlates the token, handler, optional resource
 cleanup, and optional wire bindings in one definition:
 

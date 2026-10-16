@@ -59,7 +59,7 @@ const combineDecisions = <TInput extends AccessDecisionInput>(
  * This combines alternatives inside one rule. Separate native or plugin Access
  * contributions are still combined monotonically through AND by Runtime.
  *
- * @example `update: anyOf(isOwner("author"), hasRole(Editor))`
+ * @example `update: anyOf(hasRole(Editor), hasRole(Admin))`
  */
 export const anyOf = <TInput extends AccessDecisionInput>(
 	...decisions: readonly [

@@ -101,6 +101,12 @@ authors; Core must never import it. Official Hooks and Access contracts live in
 their respective plugin packages; importing either package installs no
 behavior. Independent behavior and policy engines own their contracts.
 
+An application has one Core instance, so every published package that uses
+Core, directly or through another package (`api-server` only forwards it),
+declares `@ultimabase/core` as a peer with a matching development dependency,
+never as a dependency; applications and examples list Core themselves.
+`yarn constraints` enforces both.
+
 Key prohibitions:
 
 - `core` must not import a concrete plugin or infrastructure library.

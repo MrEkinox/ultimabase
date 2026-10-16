@@ -36,7 +36,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	softDeletePlugin(),
-	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
+	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```
@@ -83,9 +83,8 @@ The root export has three deliberate groups:
 
 - **Application API:** `accessPlugin`, its options (`AllowWithoutRule`),
   `AccessContext`, schema and field rule types, exact plugin command and
-  permission rule types, and the `anyOf`, `allOf` and `not` authoring helpers
-  (`allowAll`, `denyAll`, `allOperations` and `allMutations` were removed by
-  ADR-0317: `true`, `false` and `allowWithoutRule` replace them).
+  permission rule types, and the `anyOf`, `allOf` and `not` authoring helpers.
+  A rule that allows or denies everything is `true` or `false`.
 - **Compatible-provider contract:** `accessContributionsCapability`,
   `provideAccessContributions`, the direct and field-kind contribution
   factories, `defineFieldKindAccessTarget`, and their input or definition
@@ -164,7 +163,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	softDeletePlugin(),
-	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
+	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```
@@ -261,7 +260,7 @@ them or a row filter. A function that may return nothing is a type error. The
 ## Operations without a rule: `allowWithoutRule`
 
 Without a schema rule an operation is denied, unless `allowWithoutRule` opens
-it. It replaces the former `default` option.
+it.
 
 The example's tests start an application with each of these configurations:
 
@@ -344,7 +343,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	softDeletePlugin(),
-	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
+	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```

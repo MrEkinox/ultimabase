@@ -135,7 +135,7 @@ JavaScript uses the same compiled policy.
 ### One rule per operation
 
 Each operation has at most one schema rule, evaluated before any row is
-loaded (ADR-0317). It is `true` (every row), `false` (no row), or a function
+loaded. It is `true` (every row), `false` (no row), or a function
 that returns one of them or a row filter built with the typed `where` builder.
 A function that may return nothing is a type error, so a forgotten branch can
 never open every row.
@@ -388,7 +388,7 @@ singular, nested or collection command, must be visible to the caller as a
 single-row (`one`) read under every installed policy, and `disconnect` names
 only visible linked targets. A hidden target fails with the same `NOT_FOUND`
 as a missing one, naming the field and target schema, so a link never reveals
-that a row exists (ADR-0308). Master skips visibility but still fails on a
+that a row exists. Master skips visibility but still fails on a
 missing target.
 
 Access checks run around Core's prepared mutation pipeline, including a

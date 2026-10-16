@@ -12,7 +12,6 @@ const postGraphql = (query: string, variables?: Readonly<{ id: string }>) =>
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json',
-			'x-ultimabase-application-id': 'blog',
 		},
 		body: JSON.stringify({ query, variables }),
 	}) satisfies RequestInit
@@ -37,7 +36,6 @@ it('soft-deletes and restores a post over GraphQL', async () => {
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json',
-			'x-ultimabase-application-id': 'blog',
 		},
 		body: JSON.stringify({
 			query: /* GraphQL */ `
@@ -73,7 +71,6 @@ it('soft-deletes and restores a post over GraphQL', async () => {
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json',
-			'x-ultimabase-application-id': 'blog',
 		},
 		body: JSON.stringify({
 			query: /* GraphQL */ `
@@ -108,7 +105,6 @@ it('soft-deletes and restores a post over GraphQL', async () => {
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json',
-			'x-ultimabase-application-id': 'blog',
 		},
 		body: JSON.stringify({
 			query: /* GraphQL */ `

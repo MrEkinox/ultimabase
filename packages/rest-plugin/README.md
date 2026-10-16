@@ -417,7 +417,7 @@ optional pointer. A relation accepts `create` and `connect` during create and
 additionally `update`, `disconnect`, or `set` during update, where `set: []`
 removes every visible member. A hidden `connect`, `set` or `disconnect` target
 answers 404 exactly like a missing one. Field-bound identities are UUID v7
-strings, so mutation input no longer accepts the former tagged
+strings; mutation input does not accept the tagged
 `{ type: "pointer", className, id }` representation. Bulk and upsert inputs stay
 flat and cannot carry relationship fields in this version.
 

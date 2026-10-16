@@ -134,8 +134,9 @@ A member who creates a note is the only one to see it:
 database, without an error. For Grace, an update or a delete of that note
 finds no row and returns `null`. `new ACL(principal)` grants `read` and
 `write` to its owner, like `new Parse.ACL(user)`, and an anonymous principal
-gives an empty ACL. The group `'write'` means `update` and `delete`, as in
-Access: `new ACL().grantPublic('read', 'write')`.
+gives an empty ACL. The group `'write'` means `update` and `delete`:
+`new ACL().grantPublic('read', 'write')`. Unlike Access `write`, it does not
+cover create, since a row's ACL exists only once the row does.
 
 `default` may also be one fixed ACL, or a function of the created values
 (`data`, typed from the schema's fields) and the request `principal`. The

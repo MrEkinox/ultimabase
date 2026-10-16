@@ -222,7 +222,7 @@ validates the complete command nor executes it.
 ### Bind an existing operation
 
 An operation the owner declares public (`public: { name }`) appears in every
-installed transport (ADR-0325). For typed GraphQL fields, the owner also
+installed transport. For typed GraphQL fields, the owner also
 supplies an exact wire codec and inert GraphQL metadata and requests
 `transport:expose`; without that binding, GraphQL exposes the operation as a
 mutation whose types derive from `public.input` and `public.output` (JSON
@@ -301,8 +301,8 @@ item and should participate in Core's locked-target, policy, hook, and
 transaction semantics. The owner adds one `contributeSchemaMutation()` entry
 to the plugin's `contributions` list; that one entry owns the token declaration,
 handler, optional bindings, and lifecycle. `models.extend({ schemaMutations: { ... } })` selects the
-schema surface; results have no methods, so `'schema'` is the only surface
-(ADR-0310). Optional GraphQL exposure adds a
+schema surface; results have no methods, so `'schema'` is the only surface.
+Optional GraphQL exposure adds a
 `schemaMutationWireCodec()` binding to that same contribution. It uses the separate
 canonical `ultimabase.graphql@1.0.0` protocol and is not an application
 operation.

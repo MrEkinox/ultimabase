@@ -37,17 +37,18 @@
 	},
 	"dependencies": {
 		"@testcontainers/postgresql": "^12.0.4",
-		"@ultimabase/core": "workspace:^",
 		"@ultimabase/shared": "workspace:^",
 		"pg": "^8.16.3"
 	},
 	"devDependencies": {
 		"@types/pg": "^8.15.5",
+		"@ultimabase/core": "workspace:^",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
 		"vitest": "4.1.11"
 	},
 	"peerDependencies": {
+		"@ultimabase/core": "workspace:^",
 		"vitest": "^4.1.11"
 	},
 	"peerDependenciesMeta": {

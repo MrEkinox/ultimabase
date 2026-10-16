@@ -1,6 +1,6 @@
 //#region imports
 import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { defineEnum } from '@ultimabase/core'
+import { PublicError, defineEnum } from '@ultimabase/core'
 import { z } from 'zod'
 
 import { App } from './app.ts'
@@ -36,7 +36,7 @@ export const TodoUser = App.Schema.define({
 	rest: false,
 })
 
-/** Stores application roles with ordinary schema fields (ADR-0322). */
+/** Stores application roles with ordinary schema fields. */
 export const TodoRole = App.RoleSchema.define({
 	className: 'TodoRole',
 	members: () => TodoUser,
@@ -55,7 +55,7 @@ export const TodoRole = App.RoleSchema.define({
 }).with({
 	roles: {
 		deletion: 'fail',
-		// The Todo ACL default grants this role: it must exist (ADR-0322).
+		// The Todo ACL default grants this role: it must exist.
 		ensure: ['editor'],
 	},
 	access: serverManagedAccess,
@@ -92,7 +92,7 @@ export const Todo = App.Schema.define({
 			description:
 				'Immutable external name used to demonstrate update omission.',
 			hooks: {
-				// Field hooks run only for a non-null value (ADR-0318).
+				// Field hooks run only for a non-null value.
 				resolveInput: ({ value }) =>
 					value.trim().toLowerCase().replace(/\s+/gu, '-'),
 			},
@@ -247,7 +247,11 @@ export const Todo = App.Schema.define({
 		beforeOperation: {
 			update: ({ item, originalItem }) => {
 				if (originalItem.completed && !item.completed) {
-					throw new TypeError('Completed todos cannot be reopened')
+					// A PublicError reaches REST and GraphQL clients; any other
+					// error is masked as an internal error.
+					throw new PublicError('Completed todos cannot be reopened.', {
+						code: 'todo.reopen',
+					})
 				}
 			},
 		},

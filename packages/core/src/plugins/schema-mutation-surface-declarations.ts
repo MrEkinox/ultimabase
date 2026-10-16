@@ -69,7 +69,7 @@ export const snapshotSchemaMutationMap = (
 		for (const surface of untrustedSurfaces) {
 			if (surface !== 'schema') {
 				throw new TypeError(
-					`schema mutation ${name} surface must be schema: results have no model methods (ADR-0310)`,
+					`schema mutation ${name} surface must be schema: results have no model methods`,
 				)
 			}
 			if (surfaces.has(surface)) {

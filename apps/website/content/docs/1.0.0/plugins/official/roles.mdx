@@ -128,7 +128,7 @@ trusted server code with audited Master authority:
 	../../examples/roles/src/ultimabase.ts#application
 </include>
 
-Declare `Register` with `typeof ultimabase` as for any application (ADR-0297);
+Declare `Register` with `typeof ultimabase` as for any application;
 role schemas need no special declaration. Start the application from a
 separate entry point. `start()` creates the `ensure` roles; the hierarchy is
 ordinary data, which server code links once the application has started:
@@ -181,13 +181,13 @@ even an administrator, is refused with `PERMISSION_DENIED`:
 </include>
 
 Members and included roles change through the ordinary relation commands of
-`createOne` and `updateOne` (ADR-0308): `members: { connect: [...] }`,
+`createOne` and `updateOne`: `members: { connect: [...] }`,
 `disconnect`, or `set`, with IDs or Pointers of the member schema.
 `includedRoles` changes hierarchy: the members of an included role are members
 of the role that includes it. Connecting Administrator to Editor's
 `includedRoles` makes every administrator an editor; the opposite link would
 make every editor an administrator. Role results are plain data without
-commands (ADR-0310): these relation writes are the only way to change
+commands: these relation writes are the only way to change
 membership and hierarchy.
 
 <include cwd meta='title="tests/membership.test.ts"'>

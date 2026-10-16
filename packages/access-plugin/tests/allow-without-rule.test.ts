@@ -223,7 +223,7 @@ describe('allowWithoutRule (ADR-0317)', () => {
 			"Access allowWithoutRule.read must be true, false, 'development' or a predicate",
 		)
 		expect(() => accessPlugin({ default: true } as never)).toThrow(
-			'Unknown Access plugin option: default (replaced by allowWithoutRule, ADR-0317)',
+			'Unknown Access plugin option: default (replaced by allowWithoutRule)',
 		)
 		const ultimabase = new (UltimaBase.use(
 			accessPlugin({ allowWithoutRule: { archiveAll: true } }),

@@ -162,7 +162,7 @@
 				{
 					"slug": "build-a-plugin",
 					"contentType": "guide",
-					"outcome": "Export a reusable plugin factory and verify its application-local setup result."
+					"outcome": "Declare a plugin with definePlugin, test it in an application, and choose the extension boundary for its behavior."
 				},
 				{
 					"slug": "build-a-plugin/features-and-rules",
