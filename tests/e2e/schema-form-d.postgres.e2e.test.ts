@@ -19,7 +19,7 @@ import {
 } from '../fixtures/postgres-worker-fixture.js'
 
 // Vertical slice of ADR-0297: schemas declared with `define(...).with(...)`
-// (thunk targets, `.softDelete()`, `.acl()`) register, synchronize, and run
+// (thunk targets, `softDelete`, `acl`) register, synchronize, and run
 // their Access filters, hooks, soft delete and ACL on PostgreSQL.
 const master = { useMasterKey: true } as const
 

@@ -45,7 +45,7 @@ export interface ValidationRules<TSchema> {
 	/**
 	 * Checks the complete item of every create and update, after field
 	 * validation (ADR-0319): a function or a Standard Schema object validator.
-	 * @example `validation: ({ item }) => item.endsAt > item.startsAt || 'Ends before it starts'`
+	 * @example `.with((plugins) => plugins.validation(({ item }) => item.endsAt > item.startsAt || 'Ends before it starts'))`
 	 */
 	readonly validation?: SchemaValidation<Extract<TSchema, SchemaDefinition>>
 }

@@ -8,7 +8,7 @@ import { defineSchemaOption } from '../schema-option-definitions.js'
 import { addSchemaField } from '../schema-field-patch-operations.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
 import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
-import { UltimaBase } from '../../runtime/application/ultima-base.js'
+import { defineWithRawRules } from '../../schema/schema/raw-schema-rules.test-support.js'
 
 describe('opaque option selection boundary', () => {
 	it('preserves presence while rejecting marker and opaque-content matching', () => {
@@ -19,20 +19,23 @@ describe('opaque option selection boundary', () => {
 		}
 		// Opaque options deliberately enter before their plugin declaration;
 		// this test checks the Runtime selector boundary, not source authorization.
-		const Target = UltimaBase.Schema.define({
-			className: 'OpaqueDirectSelector',
-			fields: (field: FieldBuilder) => ({
-				title: field.string({
-					default: () => {
-						callbacks += 1
-						return 'default'
-					},
+		const Target = defineWithRawRules(
+			{
+				className: 'OpaqueDirectSelector',
+				fields: (field: FieldBuilder) => ({
+					title: field.string({
+						default: () => {
+							callbacks += 1
+							return 'default'
+						},
+					}),
 				}),
-			}),
-		}).with({
-			opaque: { enabled: true, callback },
-			portable: { enabled: true, nested: { tag: 'ready' } },
-		} as never)
+			},
+			{
+				opaque: { enabled: true, callback },
+				portable: { enabled: true, nested: { tag: 'ready' } },
+			},
+		)
 		const selectors: Readonly<Record<string, SchemaSelectorOptions>> = {
 			present: { option: { name: 'opaque' } },
 			absent: { option: { name: 'opaque', present: false } },

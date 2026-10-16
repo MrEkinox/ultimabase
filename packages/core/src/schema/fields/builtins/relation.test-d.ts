@@ -56,7 +56,7 @@ test('types static and contextual relation filters from the exact target', () =>
 	}
 	const contextualRule: RelationRule<typeof Target> = { where: resolver }
 	void contextualRule
-	// @ts-expect-error -- Relation filters are declared in `.with({ relations })`.
+	// @ts-expect-error -- Relation filters are declared in `plugins.relations(…)`.
 	relationField({ target: () => Target, where: staticWhere })
 
 	const invalidStatic = {

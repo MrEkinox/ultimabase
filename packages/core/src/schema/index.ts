@@ -328,7 +328,6 @@ export { isConfiguredSchemaNamespace } from './schema/schema-declaration-chain.j
 export type {
 	DeclaredSchema,
 	SchemaRulesMethod,
-	SchemaShapeMethods,
 } from './schema/schema-declaration-chain.js'
 export type {
 	CompleteSchemaRules,

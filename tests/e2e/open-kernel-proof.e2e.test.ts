@@ -223,16 +223,15 @@ describe('open-kernel value and soft-delete proof', () => {
 				instanceId: 'main',
 				targetClassName: 'OpenKernelConformanceLedger',
 			})
-			const Ledger = UltimaBase.use(value)
-				.Schema.define({
-					className: 'OpenKernelConformanceLedger',
-					fields: (field) => ({
-						label: field.string({
-							decimalLabel: { format: 'plain' },
-						}),
+			const Ledger = UltimaBase.use(value).Schema.define({
+				className: 'OpenKernelConformanceLedger',
+				fields: (field) => ({
+					label: field.string({
+						decimalLabel: { format: 'plain' },
 					}),
-				})
-				.decimalLedger({ defaultScale: 2 })
+				}),
+				decimalLedger: { defaultScale: 2 },
+			})
 			return { Ledger, plugin: value }
 		}
 		const valueSuite = definePluginConformanceSuite({

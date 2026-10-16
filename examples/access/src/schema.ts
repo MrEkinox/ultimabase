@@ -142,7 +142,7 @@ export const Profile = App.Schema.define({
 
 //#region comment
 /**
- * `.softDelete()` adds request commands (`softDeleteOne`, `restoreOne`…) and
+ * `softDelete: true` adds request commands (`softDeleteOne`, `restoreOne`…) and
  * the `readDeleted` permission. Each has its own Access key: `update` and
  * `delete` grant none of them.
  */

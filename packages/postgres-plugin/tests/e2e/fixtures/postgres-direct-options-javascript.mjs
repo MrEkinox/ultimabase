@@ -58,12 +58,23 @@ try {
 } catch (error) {
 	oldFormMessage = error?.message
 }
-const MissingPlugin = UltimaBase.Schema.define({
-	className: 'JavaScriptPostgresMissingPlugin',
-	fields: () => ({}),
-}).with({
-	postgres: { table: 'missing_posts' },
-})
+// Without the plugin, `plugins` has no `postgres` method (ADR-0339).
+let missingRuleMessage
+try {
+	UltimaBase.Schema.define({
+		className: 'JavaScriptPostgresMissingRule',
+		fields: () => ({}),
+	}).with((plugins) => plugins.postgres({ table: 'missing_posts' }))
+} catch (error) {
+	missingRuleMessage = error?.message
+}
+// Declared where PostgreSQL is installed, registered where it is not.
+const MissingPlugin = UltimaBase.use(postgresPlugin({ pool }))
+	.Schema.define({
+		className: 'JavaScriptPostgresMissingPlugin',
+		fields: () => ({}),
+	})
+	.with((plugins) => plugins.postgres({ table: 'missing_posts' }))
 let missingPluginCode
 
 try {
@@ -76,5 +87,5 @@ try {
 }
 
 stdout.write(
-	`${JSON.stringify({ first, missingPluginCode, oldFormMessage })}\n`,
+	`${JSON.stringify({ first, missingPluginCode, missingRuleMessage, oldFormMessage })}\n`,
 )

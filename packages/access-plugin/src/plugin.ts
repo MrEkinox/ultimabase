@@ -104,7 +104,7 @@ export interface AccessRules<TSchema> {
 	/**
 	 * Declares schema rules; an operation without a rule is denied unless
 	 * `allowWithoutRule` opens it.
-	 * @example `access: { read: ({ where }) => where.eq('archived', false) }`
+	 * @example `.with((plugins) => plugins.access({ read: ({ where }) => where.eq('archived', false) }))`
 	 */
 	readonly access?: SchemaAccess<
 		Extract<TSchema, SchemaDefinition>,

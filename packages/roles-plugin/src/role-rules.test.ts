@@ -4,8 +4,12 @@ import { describe, expect, it } from 'vitest'
 import { rolesPlugin } from './plugin.js'
 import { readRoleSchemaDeclaration } from './role-schema.js'
 
-// ADR-0339: role behaviour moves to `.with((plugins) => plugins.roles({ … }))`;
-// the define options keep working until the old forms are removed.
+// ADR-0339: role behaviour is configured by `.with((plugins) => plugins.roles({ … }))`.
+/** What `plugins` offers at runtime, beyond what its type allows here. */
+interface UntypedRules {
+	readonly roles: (rule: object) => never
+}
+
 const Roles = UltimaBase.use(rolesPlugin())
 const Member = Roles.Schema.define({
 	className: 'RuleRoleMember',
@@ -52,39 +56,45 @@ describe('plugins.roles (ADR-0339)', () => {
 		})
 	})
 
-	it('keeps the define options and rejects one set in both places', () => {
-		const Legacy = Roles.RoleSchema.define({
-			className: 'RuleLegacyRole',
+	it('normalizes ensure names and keeps the defaults without the rule', () => {
+		const Seeded = Roles.RoleSchema.define({
+			className: 'RuleSeededRole',
 			members: () => Member,
-			ensure: ['admin'],
+		}).with((plugins) =>
+			plugins.roles({ ensure: ['Admin', ' admin ', 'Editor'] }),
+		)
+		const Plain = Roles.RoleSchema.define({
+			className: 'RulePlainRole',
+			members: () => Member,
 		}).with((plugins) => plugins)
-		const Repeated = Roles.RoleSchema.define({
-			className: 'RuleRepeatedRole',
-			members: () => Member,
-			deletion: 'fail',
-		}).with((plugins) => plugins.roles({ deletion: 'preserve' }))
+		const plain = readRoleSchemaDeclaration(
+			compiledRole(Plain, 'RulePlainRole'),
+		)
 
 		expect(
-			readRoleSchemaDeclaration(compiledRole(Legacy, 'RuleLegacyRole'))?.ensure,
-		).toStrictEqual(['admin'])
-		expect(() =>
-			readRoleSchemaDeclaration(compiledRole(Repeated, 'RuleRepeatedRole')),
-		).toThrow(
-			new TypeError(
-				'RuleRepeatedRole sets deletion both in define() and in plugins.roles({ … }); keep it in .with((plugins) => plugins.roles({ … }))',
-			),
-		)
+			readRoleSchemaDeclaration(compiledRole(Seeded, 'RuleSeededRole'))?.ensure,
+		).toStrictEqual(['admin', 'editor'])
+		expect(plain?.ensure).toStrictEqual([])
+		expect(plain?.deletionPolicy).toBe('fail')
+		expect(plain?.resolveCurrent).toBeUndefined()
 	})
 
 	it('validates the rule and applies it to role schemas only', () => {
-		const Invalid = Roles.RoleSchema.define({
-			className: 'RuleInvalidRole',
-			members: () => Member,
-		}).with((plugins) => plugins.roles({ deletion: 'remove' } as never))
+		const invalid = (className: string, rule: unknown) =>
+			Roles.RoleSchema.define({
+				className,
+				members: () => Member,
+			}).with((plugins) => plugins.roles(rule as never))
+		const Invalid = invalid('RuleInvalidRole', { deletion: 'remove' })
 		const NotRole = Roles.Schema.define({
 			className: 'RuleNotRole',
 			fields: (field) => ({ title: field.string() }),
-		}).with({ roles: { ensure: ['x'] } } as never)
+		}).with((plugins) => {
+			// @ts-expect-error -- `roles` is a rule of role schemas only.
+			void plugins.roles
+			// At runtime `plugins` offers every installed rule, as JavaScript sees it.
+			return (plugins as unknown as UntypedRules).roles({ ensure: ['x'] })
+		})
 
 		// The application wraps option errors; the rule's message is a cause.
 		const messagesOf = (run: () => unknown): readonly string[] => {
@@ -110,5 +120,29 @@ describe('plugins.roles (ADR-0339)', () => {
 		expect(messagesOf(() => compiledRole(NotRole, 'RuleNotRole'))).toContain(
 			'RuleNotRole.roles applies only to schemas declared by App.RoleSchema.define',
 		)
+		expect(
+			messagesOf(() =>
+				compiledRole(
+					invalid('RuleEmptyNameRole', { ensure: [' '] }),
+					'RuleEmptyNameRole',
+				),
+			),
+		).toContain('role name must not be empty')
+		expect(
+			messagesOf(() =>
+				compiledRole(
+					invalid('RuleEnsureListRole', { ensure: 'admin' }),
+					'RuleEnsureListRole',
+				),
+			),
+		).toContain('ensure must be a list of role names')
+		expect(
+			messagesOf(() =>
+				compiledRole(
+					invalid('RuleResolverRole', { resolveCurrent: 'self' }),
+					'RuleResolverRole',
+				),
+			),
+		).toContain('RuleResolverRole.roles.resolveCurrent must be a function')
 	})
 })

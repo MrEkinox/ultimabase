@@ -14,7 +14,6 @@ import type { UniqueIndexFields } from './source-unique-targets.js'
 import type {
 	CompleteDefineFields,
 	DefineFeatureCheck,
-	DefineFeatureNames,
 	DefineFeatureOptions,
 	DefineFeatures,
 	DefineFeaturesNotInferred,
@@ -45,7 +44,7 @@ export type ConfiguredFieldDeclaration<
 	field: ConfiguredFieldBuilder<TSource, BaseSchemaTypeInfo<TClassName>>,
 ) => TFields
 
-/** The developer and plugin shape fields of one configured schema. */
+/** The developer fields and the feature fields of one configured schema. */
 export type CompleteConfiguredFields<
 	TSource extends PluginSourceState,
 	TFields extends SchemaDeclaredFields,
@@ -179,7 +178,6 @@ export type ConfiguredSchemaNamespace<
 			TClassName,
 			TFields,
 			DefineFeatureOptions<TSource, TFeatures>,
-			DefineFeatureNames<TSource, TFeatures>,
 			DefineUniqueIndexFields<TFeatures>
 		>
 	}>

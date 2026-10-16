@@ -173,11 +173,12 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('does not install the option through import side effects', async () => {
-		// The stale runtime definition deliberately bypasses source diagnostics.
-		const Document = UltimaBase.Schema.define({
+		// Declared where Soft Delete is installed, registered where it is not.
+		const Document = App.Schema.define({
 			className: 'MissingSoftDeletePlugin',
 			fields: (field) => ({ title: field.string() }),
-		}).with({ softDelete: {} } as never)
+			softDelete: true,
+		})
 		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -186,7 +187,7 @@ describe('softDeletePlugin', () => {
 		)
 	})
 
-	it('adds the server-written fields only to schemas that call .softDelete()', async () => {
+	it('adds the server-written fields only to schemas that set softDelete', async () => {
 		const Logical = declareLogical('FieldsLogical')
 		const Command = declareCommand('FieldsCommand')
 		const Plain = declare('FieldsPlain')

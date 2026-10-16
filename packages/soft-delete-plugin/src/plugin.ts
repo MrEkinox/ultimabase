@@ -49,7 +49,7 @@ export type SoftDeleteCommands = Readonly<{
 }>
 
 /** The `softDelete` feature, a key of `define` (ADR-0339). */
-export type SoftDeleteShape = Readonly<{
+export type SoftDeleteFeatures = Readonly<{
 	/**
 	 * Soft-deletes this schema's rows: adds `isDeleted` and `deletedAt`, hides
 	 * deleted rows from every read and write, and adds the `softDeleteOne/Many`,
@@ -70,7 +70,7 @@ export type SoftDeleteShape = Readonly<{
 /** The configured Soft Delete plugin. */
 export type SoftDeletePlugin = DefinedPlugin<
 	'@ultimabase/soft-delete-plugin',
-	SoftDeleteShape,
+	SoftDeleteFeatures,
 	Readonly<Record<never, never>>
 >
 
@@ -109,7 +109,7 @@ const commands: SoftDeleteCommands = {
 	purgeMany: command({ authority: 'master', effect: 'delete', target: 'many' }),
 }
 
-const features: SoftDeleteShape = {
+const features: SoftDeleteFeatures = {
 	softDelete: feature({
 		options: parseSoftDeleteOptions,
 		fields,

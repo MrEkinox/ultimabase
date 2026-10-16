@@ -138,7 +138,7 @@ const targetOn = (
 }
 
 describe('feature keys of define (ADR-0339)', () => {
-	it('applies a feature set in define and removes its shape method', () => {
+	it('applies a feature set in define, never as a schema member', () => {
 		const declared = App.Schema.define({
 			className: 'FeatureFlagged',
 			fields: (field) => ({ title: field.string() }),
@@ -231,6 +231,17 @@ describe('feature keys of define (ADR-0339)', () => {
 		expect(() =>
 			new App({ logger: false, schemas: [Unknown] }).compile(),
 		).toThrow('Unknown index field: FeatureUnknownIndex.missing')
+		// So is a partial index's `where` (formerly `.with` indexes, ADR-0303).
+		const UnknownWhere = App.Schema.define({
+			className: 'FeatureUnknownWhere',
+			fields: (field) => ({ slug: field.string() }),
+			flagged: true,
+			// @ts-expect-error -- `isPublished` is neither declared nor contributed.
+			indexes: [{ fields: ['slug'], where: { isPublished: true } }],
+		}).with((plugins) => plugins.audit(false))
+		expect(() =>
+			new App({ logger: false, schemas: [UnknownWhere] }).compile(),
+		).toThrow('Unknown index field: isPublished')
 	})
 })
 

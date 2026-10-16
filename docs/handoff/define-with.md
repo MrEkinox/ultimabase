@@ -16,10 +16,12 @@ Toutes les phases de la migration s'y succèdent ; ne pas fusionner avant la der
    tests et JSDoc des plugins.
 3. **Phase 3 (terminée)** — codemod AST sur packages, tests, exemples (~420 `.with`, ~100 méthodes de forme,
    31 `.with({ indexes })`), puis passe manuelle.
-4. Documentation (site, README, guide « features vs rules »).
-5. Retrait des anciennes formes : objet `.with({ … })`, méthodes de forme, `.with({ indexes })`,
-   options `ensure`/`deletion`/`resolveCurrent` de `RoleSchema.define`, alias `shape`,
-   `shapeMethod`, `provideSchemaShapeMethods`, `SchemaShapeMethod` (renommer en `SchemaFeature`).
+4. Documentation (site, README, guide « features vs rules ») : branche
+   `feat/define-with-docs`, en parallèle de la phase 5.
+5. **Phase 5 (terminée sur `feat/define-with-cleanup`)** — retrait des anciennes formes :
+   objet `.with({ … })`, méthodes de forme, `.with({ indexes })`, options
+   `ensure`/`deletion`/`resolveCurrent` de `RoleSchema.define`, alias `shape`, `shapeMethod`,
+   `provideSchemaShapeMethods`, noms `SchemaShapeMethod*` ; codemod supprimé du dépôt.
 
 ## État de la phase 1
 
@@ -190,6 +192,119 @@ et 3 »).
 - `.prettierignore` ignore `examples/schema-form-d/gen/` (projets de banc générés, déjà
   ignorés par Git).
 
+## État de la phase 5 (retrait)
+
+Branche `feat/define-with-cleanup` (depuis `feat/define-with` 6678d974), en parallèle de la
+phase 4 (`feat/define-with-docs`, prose du site et des README, guide plugin,
+`examples/plugin-authoring`) : cette branche ne touche ni `apps/website/content`, ni la
+prose des README, ni `examples/plugin-authoring` ; seuls les blocs de région des README
+sont régénérés par `yarn docs:regions` (commentaires d'exemples modifiés).
+
+### API retirées et renommées
+
+- Core : `.with` n'accepte que `(plugins) => plugins…` (objet refusé à l'exécution :
+  `Post.with() takes a callback: .with((plugins) => plugins.access({ … }))`) ; méthodes de
+  forme et chaîne générique supprimées (`SchemaShapeMethods`, paramètre `TUsed` de
+  `DeclaredSchema`, `DefineFeatureNames`, marqueur `DefinedFeatureForm`, union transitoire) ;
+  `.with({ indexes })` supprimé (`ConfiguredSchemaIndexRules`, `ruleIndexes` de la
+  compilation) : tout index est dans `define`, un index complet unique est une cible, un
+  index partiel n'impose que l'unicité ; `provideSchemaShapeMethods` supprimé.
+  Renommages : `SchemaShapeMethod` → `SchemaFeature` (l'interface elle-même),
+  `SchemaShapeMethodImplementation(s)` → `SchemaFeatureImplementation(s)`,
+  `PluginSchemaShapeSource` supprimé (seul `PluginSchemaFeatureSource`), clé d'état source
+  `shapeMethods` → `features` ; internes : `SchemaFeatureArguments`, `SchemaFeatureOptions`,
+  `SchemaFeatureRuntime`, `readSchemaFeatures`. Gardés (ils nomment l'enregistrement de
+  forme, toujours lu par les emplacements `this['shape']`) : `DeclaredSchemaShape`,
+  `SchemaShapeOf`, `SchemaFactoryShape`, membre `shape` des HKT, `shapeFields`. Gardé aussi :
+  `SchemaRuleIndexOptions` (JSDoc corrigée : index de `define`).
+- plugin-kit : option `shape` et `shapeMethod` supprimés ; `shape.ts` → `feature.ts` ;
+  `ShapeMethodDefinition` → `FeatureDefinition` (interface), `ShapeMethodFields` →
+  `FeatureFields`, `ShapeMethodCommands` → `FeatureCommands`, `ShapeMethods` →
+  `FeatureDefinitions`, `ShapeMethodArguments` → `FeatureArguments`,
+  `DefinedShapeFields`/`DefinedShapeCommands` → `DefinedFeatureFields`/`DefinedFeatureCommands` ;
+  messages : `Invalid feature name`, `Rule x is also a feature`, `Unknown feature option`,
+  `feature … must …`, et `Post.flag: flag takes only true`.
+- Soft Delete : `SoftDeleteShape` → `SoftDeleteFeatures`. ACL : `ACLShapeSource` →
+  `ACLFeatureSource`, `ACLShapeFields` → `ACLFeatureFields`. Roles : options `ensure`,
+  `deletion`, `resolveCurrent` retirées de `RoleSchema.define` (`Unknown RoleSchema option`),
+  plus de conflit entre emplacements. Auth : `DefineFeatureNames` retiré de la signature.
+- JSDoc : exemples des règles en forme constructeur (Access, Hooks, REST, GraphQL,
+  PostgreSQL, Validation, `relations`, `isAuthenticated`).
+
+### Appel JavaScript d'une règle absente
+
+Sans `Proxy`, le constructeur n'a que les méthodes déclarées. `collectSchemaRules` exécute le
+rappel dans un `try` : une `TypeError` qui ne vient pas du constructeur est relancée avec
+`cause` et le contexte : `plugins.audit is not a function in Note.with((plugins) => …):
+plugins offers relations, access; a rule needs the plugin that declares it`. Le message du
+moteur reste en tête (le test de `examples/plugin-authoring` qui cherche
+`plugins.audit is not a function` passe toujours). Les autres erreurs passent telles quelles.
+
+### Tests des anciennes formes
+
+Supprimés ou convertis (aucune assertion d'un comportement existant perdue) :
+
+- Méthodes de forme / chaîne : `schema-declaration-chain.test.ts` (chaîne → clés de
+  `define`, plus aucune méthode `mark` ; refus de l'objet `.with` ajouté),
+  `define-features.test.ts` (titre), `projection-slots.test-d.ts` (`.flag()` → `flag: …` ;
+  « méthode unique » → « une fonctionnalité n'est pas membre du schéma »),
+  `schema-factories.test-d.ts` (`.tagged()` → `tagged: true`, règle requise via le 3e
+  paramètre de `SchemaFeature`), `schema-factories.test.ts` (fabriques héritées : la
+  fonctionnalité du fils est appliquée, pas celle du parent), plugin-kit
+  `define-plugin.test(-d).ts` (`shape`/`shapeMethod` → `features`/`feature` ; « alias
+  `shape` » → `Unknown definePlugin option: shape` ; option invalide d'une fonctionnalité :
+  refus de `define` pour une valeur non objet, validation à la compilation gardée par
+  `flag: { loud: true }`), `open-kernel-proof.e2e` (`.decimalLedger()`).
+- `.with({ indexes })` : `unique-target-origins.test.ts`, `unique-targets.test-d.ts`
+  (l'index partiel passe dans `define` ; l'assertion « index complet de `.with` refusé comme
+  cible » supprimée : ce cas n'existe plus, l'index d'un plugin reste couvert),
+  `schema-command-execution.test.ts` (index partiel de `define` refusé par chaque commande),
+  `partial-indexes.test-d.ts` (chaque `where` non portable dans `define`),
+  `partial-indexes.test.ts` (vérification différée à la compilation déplacée dans
+  `define-features.test.ts` avec une fonctionnalité).
+- Options Role : `role-schema.test.ts` (normalisation `deletion`/`ensure` → refus des clés
+  retirées et valeurs par défaut), `role-rules.test.ts` (conflit supprimé ; normalisation
+  `ensure`, noms vides, liste, `resolveCurrent` passées par `plugins.roles`).
+- Options brutes (`as never`, plugin absent) :
+  - Core interne : aide de test `packages/core/src/schema/schema/raw-schema-rules.test-support.ts`
+    (`defineWithRawRules`, exclue du build, non exportée) qui déclare comme `.with` après
+    lecture des règles : `opaque-selectors`, `schema-declaration-registry`,
+    `schema-field-transformations` (3), `schema-option-compilation` (6),
+    `schema-option-ownership`, `schema-option-presence` (3) ;
+  - par le constructeur avec valeur mal formée : `relation-rules.test.ts` (2), plugin-kit
+    `BadRule`, `role-rules` (`roles` sur un schéma non Role : `void plugins.roles` sous
+    `@ts-expect-error` puis appel JavaScript) ;
+  - « propriétaire absent » = schéma déclaré là où le plugin est installé puis enregistré
+    dans une application sans lui : `direct-community-options.e2e` (plugin de fixture avec
+    `provideSchemaRules`), Soft Delete `plugin.test.ts`, PostgreSQL `options.test.ts` et
+    fixture JS (+ message JavaScript d'une règle absente), fixture JS ACL (+ refus de la
+    forme objet) ;
+  - `alternative-policy-engine.e2e` : branche ACL déclarée avec ACL installé (typée, sans
+    cast) ;
+  - Roles « marqueur d'identité copié » : forgé par une fabrique de schéma de plugin
+    (`provideSchemaFactories`), seule voie restante, qui passe ses options à `define` telles
+    quelles.
+- Inventaires d'exports : Core `./plugin` (sans `provideSchemaShapeMethods`), plugin-kit
+  (sans `shapeMethod`), Soft Delete (`SoftDeleteFeatures` ; `SoftDeleteShape` en noms
+  retirés).
+
+### Codemod et générateur
+
+- Le codemod `tooling/codemods/define-with/` est supprimé (UltimaBase n'est pas publié :
+  aucune migration utilisateur), avec son branchement Vitest, `tooling/tsconfig/test.json`,
+  ESLint et `tooling/README.md` ; dernière exécution avant suppression : 0 fichier à
+  convertir sur `packages tests examples tooling apps/website`.
+- `examples/schema-form-d/tools/gen.mjs` génère seulement la nouvelle forme (sortie
+  `gen/form-d[-noreg]-<N>`, inchangée pour `campaign.mjs`) ; `gen-define-with.mjs` supprimé ;
+  `tools/probe.json` vise `.with((`. Le README de l'exemple (prose, phase 4) cite encore
+  `gen-define-with.mjs` et les anciennes formes.
+
+### Restes hors périmètre (phase 4)
+
+Commentaires et titres de `examples/plugin-authoring` (`.with({ audit: true })`,
+`.archivable()`, « shape method ») ; prose du site, de `ARCHITECTURE.md` et des README ;
+`examples/schema-form-d/README.md`.
+
 ## Limites connues
 
 - Une faute dans `define` (clé, option, index) fait échouer l'appel générique ; TypeScript
@@ -197,20 +312,17 @@ et 3 »).
   fichiers qui lisent les champs typés du schéma voient `unknown` (cascade). Identique à
   `main` pour une faute dans `define` (vérifié sur la ligne de base). La déclaration elle-même
   ne donne qu'un diagnostic, sur sa ligne.
-- Forme union (déclarations sans clé de fonctionnalité) : un rappel qui ne renvoie rien est
-  accepté par les types (l'objet tout-optionnel l'absorbe) et refusé à l'exécution ;
-  disparaît avec la forme objet.
+- (Résolu en phase 5) La forme union disparue, un rappel `.with` qui ne renvoie pas le
+  constructeur est refusé par les types comme à l'exécution.
+- Depuis JavaScript, appeler une règle qu'aucun plugin installé ne déclare reste la
+  `TypeError` du moteur (`plugins.audit is not a function`), relancée avec le contexte (voir
+  phase 5) ; pas de `Proxy` (choix de l'ADR).
 
 ## Prochaine action vérifiable
 
-Phase 4 (documentation) : réécrire la prose qui cite encore les anciennes formes (site
-`apps/website/content/docs`, README, `ARCHITECTURE.md`, `README.md` racine, JSDoc restante de
-Core qui décrit la forme objet ou les méthodes de forme), ajouter le tableau « Where does it
-go? » de la page Schemas et la page « features vs rules » du guide plugin ; preuve :
-`yarn vitest run --project website-content` et `yarn docs:regions --check`. Puis phase 5
-(retrait) : `node tooling/codemods/define-with/run.ts packages tests examples tooling apps/website`
-ne doit plus rien signaler hors des tests listés dans « Anciennes formes restantes », qui sont
-alors supprimés ou portés.
+Fusionner `feat/define-with-cleanup` (phase 5) et `feat/define-with-docs` (phase 4) dans
+`feat/define-with`, relancer `yarn docs:regions` (blocs README régénérés des deux côtés)
+puis la porte complète ; supprimer ce handoff à la fusion dans `main`.
 
 ## Preuves
 
@@ -288,3 +400,69 @@ versionnés). Porte sur 79c28f9f (seul ce paragraphe de preuves a été ajouté 
 
 Non exécuté dans ces phases : l'audit DX (`tooling/dx-audit`) et le banc forme D ; à refaire
 avant la fusion (les JSDoc des règles et les messages ACL / `relations` ont changé).
+
+## Preuves de la phase 5
+
+Journaux : `/private/tmp/claude-501/…/scratchpad/define-with-p5/` (session de l'agent, non
+versionnés). Ligne de base : arbre détaché de `main` 41cae632 construit dans le scratchpad
+(`yarn install --immutable`, `yarn build`), supprimé après le banc et l'audit.
+
+- Banc forme D (`tools/editbench.mjs 3 50,200`, 3 exécutions entrelacées, chacune lancée sous
+  une charge 1 min < 4 : charges relevées 2,29–3,28), secondes édition → diagnostics,
+  médianes ; `main` en forme actuelle de `main`, branche en nouvelle forme
+  (`tools/gen.mjs`) :
+
+  | Variante | TS 7, 50 | TS 7, 200 | TS 6, 50 | TS 6, 200 |
+  | -------- | -------: | --------: | -------: | --------: |
+  | `main`   |     0.56 |      1.89 |     1.95 |      5.80 |
+  | branche  |     0.54 |      1.82 |     1.91 |      5.57 |
+
+  Seuils ADR-0297 (TS 7 ≤ 0,6 / ≤ 2 s, TS 6 ≤ 2 / ≤ 6 s) respectés ; branche ≤ `main`
+  partout. Instanciations (une mesure, TS 6 / TS 7) : 50 schémas `main` 1 932 345 /
+  4 286 929, branche 1 974 631 / 4 342 291 ; 200 schémas `main` 8 922 135 / 19 220 889,
+  branche 9 449 011 / 20 153 863 (types : 524 415 contre 546 235 sur TS 6 ; la phase 1
+  mesurait 9 725 729 en nouvelle forme avec l'union transitoire).
+
+- Audit DX (`node tooling/dx-audit/run.mjs <main construit> . --only core,plugin-kit,
+soft-delete-plugin,acl-permissions-plugin,roles-plugin,auth-plugin,access-plugin,
+hooks-plugin,validation-plugin,rest-plugin,graphql-plugin,postgres-plugin`, après
+  suppression de `dist/` et `yarn build`) : 3 882 différences, cumul des phases 1 à 5, toutes
+  expliquées :
+  - exports (47) : ajouts des phases 1–2 (`SchemaRulesBuilder`, `CompleteSchemaRules`,
+    `provideSchemaFeatures`, `provideSchemaRules`, `DefineFeature*`, `ConfiguredSchemaIndex`,
+    `RoleRules`, `RoleSchemaRules`, `feature`…) et renommages/retraits de la phase 5
+    (`SchemaShapeMethod*`, `PluginSchemaShapeSource`, `provideSchemaShapeMethods`,
+    `SchemaShapeMethods`, `shapeMethod`, `ShapeMethod*`, `DefinedShape*`, `SoftDeleteShape`,
+    `ACLShape*` → noms de fonctionnalité) ;
+  - déclarations, survols d'export et de membres : mêmes types, JSDoc réécrite (ADR-0339,
+    exemples `plugins.x(…)`), `.with` à rappel seul, `RoleSchemaOptions` sans options de
+    comportement, `UserSchemaFactory`/`RoleSchemaFactory` sans `DefineFeatureNames` ;
+  - survols d'usage (3 320) : `DeclaredSchema` a un argument de type de moins (`TUsed`
+    retiré) et la clé d'état source `shapeMethods` devient `features` (≈ 1 630, plus les
+    troncatures qui en découlent : un type plus court s'imprime plus loin) ; signature
+    survolée de `define` (objet capturé `TFeatures`) et clé `fields` (phase 1, 174) ;
+    fichiers de test convertis aux phases 3 et 5 (≈ 830, plus 385 sites ajoutés et 67
+    retirés) ; documentation seule (79) ;
+  - complétions et diagnostics d'usage (68) : fixtures IntelliSense converties (phase 3),
+    `indexes` n'est plus proposé dans `.with`, message de clé inconnue de `define`,
+    impressions de `DeclaredSchema` raccourcies.
+- Porte sur 818f979e (seul ce paragraphe de preuves a été ajouté ensuite),
+  `YARN_CACHE_FOLDER` du dépôt principal, `packages/*/dist`, `*.tsbuildinfo` et
+  `examples/schema-form-d/gen/` supprimés avant :
+  - `yarn install --immutable` 0 ;
+  - `yarn validate:full` 1 : `format:check`, `typecheck`, `lint` (0 erreur), `build`,
+    `test:performance` passent ; couverture 738/739 fichiers, 3 946/3 947 tests, types sans
+    erreur ; seul échec `tooling/documentation/active-contracts.test.ts` « typechecks the
+    complete root journey » : le bloc de code du `README.md` racine utilise encore
+    `.softDelete({ mode: 'command' })` (prose, corrigée sur `feat/define-with-docs`) ;
+    étapes suivantes lancées à part : `yarn constraints` 0, `yarn website:validate` 1 avec
+    le même bloc (`compiled-snippets` « README.md:17 », 212/213) ;
+  - `yarn test:e2e:built` 1 : seul `create-app-packed` « writes a valid graph for each
+    official plugin selected alone » dépasse 120 s (charge 1 min ≈ 15, deux agents) ;
+    relancé seul (charge 3,35) : 8/8 en 34,4 s ; les 700 autres tests passent ;
+  - `yarn website:test` 0 (8 fichiers, 59 tests) ; `yarn typecheck:typescript-7` 0 ;
+    `yarn docs:regions --check` 0.
+- Recherches finales (`.with({`, `.softDelete(`, `.acl()`, `shapeMethod`,
+  `provideSchemaShapeMethods` dans le code de `packages tests examples tooling apps`) : seuls
+  deux commentaires de `examples/plugin-authoring` (phase 4) ; les résultats historiques
+  `examples/schema-form-d/results/*.json` citent encore `shapeMethods`.

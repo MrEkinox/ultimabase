@@ -18,7 +18,7 @@ export type CommandEffect = 'delete' | 'update'
 /** Which rows a command targets: one row by `id`, or the rows matching a `where`. */
 export type CommandTarget = 'many' | 'one'
 
-/** Declares one schema command added by a shape method (see {@link command}). */
+/** Declares one schema command added by a feature (see {@link command}). */
 export interface CommandOptions<
 	TAuthority extends CommandAuthority = CommandAuthority,
 	TEffect extends CommandEffect = CommandEffect,
@@ -78,7 +78,7 @@ export type CommandOptionsTarget<TOptions> =
 	TOptions extends Readonly<{ target: 'many' }> ? 'many' : 'one'
 
 /**
- * Declares one schema command without input, for a shape method's `commands`.
+ * Declares one schema command without input, for a feature's `commands`.
  *
  * @example
  * ```ts
@@ -169,18 +169,19 @@ const mutationNamespace = (pluginName: string): string =>
 export interface GeneratedCommand {
 	readonly command: string
 	readonly contribution: PluginContribution
-	readonly method: string
+	/** The feature that adds the command. */
+	readonly feature: string
 	readonly mutation: PluginSchemaMutationDefinition
 }
 
 /** @internal Creates the schema mutation and contribution of one command. */
 export const createCommand = (
 	pluginName: string,
-	method: string,
+	feature: string,
 	name: string,
 	definition: CommandDefinition,
 ): GeneratedCommand => {
-	const mutationName = `${mutationNamespace(pluginName)}.${nameSegment(method)}.${nameSegment(name)}`
+	const mutationName = `${mutationNamespace(pluginName)}.${nameSegment(feature)}.${nameSegment(name)}`
 	const common = {
 		authority: definition.authority,
 		input: noInput,
@@ -200,7 +201,7 @@ export const createCommand = (
 				mutation,
 				resolve: (): undefined => undefined,
 			}),
-			method,
+			feature,
 			mutation,
 		})
 	}
@@ -220,7 +221,7 @@ export const createCommand = (
 			mutation,
 			resolve: () => ({ data: definition.data() }),
 		}),
-		method,
+		feature,
 		mutation,
 	})
 }

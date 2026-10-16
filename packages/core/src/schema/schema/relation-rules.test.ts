@@ -86,7 +86,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 			UltimaBase.Schema.define({
 				className: 'RuleBuiltSource',
 				fields: () => ({ targets: relationField({ target: () => Target }) }),
-			}).with({ relations } as never)
+			}).with((plugins) => plugins.relations(relations as never))
 
 		const empty = declare({ targets: {} }).persistedFields.targets
 		const filtered = declare({ targets: { where: { visible: { eq: true } } } })
@@ -109,7 +109,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				}),
 			})
 		const withRules = (relations: unknown) => () =>
-			declare().with({ relations } as never)
+			declare().with((plugins) => plugins.relations(relations as never))
 
 		expect(withRules({ missing: { where: {} } })).toThrow(
 			'relations.missing must name a relation field of this schema',

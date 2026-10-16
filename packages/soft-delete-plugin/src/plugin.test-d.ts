@@ -6,7 +6,7 @@ import { softDeletePlugin, type SoftDeleteOptions } from './index.js'
 
 const App = UltimaBase.use(softDeletePlugin())
 
-test('types only the accepted shape-method options', () => {
+test('types only the accepted feature options', () => {
 	expectTypeOf<SoftDeleteOptions>().toEqualTypeOf<{
 		readonly mode?: 'command'
 	}>()
@@ -64,7 +64,7 @@ test('projects fields and the same commands in both modes', () => {
 	void Logical.updateOne({ where: { id: 'x' }, data: { deletedAt: null } })
 })
 
-test('adds nothing to schemas that do not call .softDelete()', () => {
+test('adds nothing to schemas that do not set softDelete', () => {
 	const Plain = App.Schema.define({
 		className: 'SourcePlainDocument',
 		fields: (field) => ({ title: field.string() }),
@@ -74,7 +74,7 @@ test('adds nothing to schemas that do not call .softDelete()', () => {
 		'purgeOne' | 'restoreOne' | 'softDeleteOne'
 	>
 	expectTypeOf<PlainCommands>().toEqualTypeOf<never>()
-	// @ts-expect-error -- No `isDeleted` without `.softDelete()`.
+	// @ts-expect-error -- No `isDeleted` without `softDelete`.
 	void Plain.findMany({ where: { isDeleted: { eq: false } } })
 })
 

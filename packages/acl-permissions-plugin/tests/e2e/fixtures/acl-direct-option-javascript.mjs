@@ -15,13 +15,24 @@ const application = new Application({
 })
 const compiled = application.compile().schemas.get('JavaScriptDirectACLPost')
 
-// A raw option without its plugin, as stale JavaScript may still pass it.
-const MissingPluginPost = UltimaBase.Schema.define({
+// The object form of `.with` is gone (ADR-0339); JavaScript gets a TypeError.
+let objectFormMessage
+try {
+	const declared = UltimaBase.Schema.define({
+		className: 'JavaScriptObjectFormACLPost',
+		fields: (field) => ({ title: field.string() }),
+	})
+	Reflect.apply(declared.with, declared, [{ acl: {} }])
+} catch (error) {
+	objectFormMessage = error?.message
+}
+
+// A schema declared with ACL, registered where ACL is not installed.
+const MissingPluginPost = Application.Schema.define({
 	className: 'JavaScriptMissingACLPluginPost',
 	fields: (field) => ({ title: field.string() }),
-}).with({
-	acl: {},
-})
+	acl: true,
+}).with((plugins) => plugins.acl({ default: new ACL() }))
 let missingPluginCode
 try {
 	new UltimaBase({
@@ -36,6 +47,7 @@ stdout.write(
 	`${JSON.stringify({
 		fieldKind: compiled.fields.acl.kind,
 		missingPluginCode,
+		objectFormMessage,
 		optionPresent: Object.hasOwn(compiled.definition, 'acl'),
 		owner: compiled.provenance.fields.acl.owner,
 	})}\n`,

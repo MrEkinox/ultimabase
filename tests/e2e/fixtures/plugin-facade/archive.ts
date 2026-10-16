@@ -1,4 +1,4 @@
-// Command plugin: `.archivable()` adds `archivedAt`, `archiveOne`, `archiveMany`
+// Command plugin: `archivable: true` adds `archivedAt`, `archiveOne`, `archiveMany`
 // and `unarchiveOne` (ADR-0316).
 import { dateTimeField } from '@ultimabase/core'
 import { command, definePlugin, feature } from '@ultimabase/plugin-kit'

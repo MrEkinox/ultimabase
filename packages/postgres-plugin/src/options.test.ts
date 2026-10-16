@@ -170,12 +170,11 @@ describe('direct PostgreSQL options', () => {
 	)
 
 	it('rejects a direct option when the PostgreSQL plugin is missing', async () => {
-		const schema = UltimaBase.Schema.define({
+		// Declared where PostgreSQL is installed, registered where it is not.
+		const schema = PostgresSchemaApplication.Schema.define({
 			className: 'PostgresMissingPlugin',
 			fields: () => ({}),
-		}).with({
-			postgres: { table: 'missing_plugin' },
-		} as never)
+		}).with((plugins) => plugins.postgres({ table: 'missing_plugin' }))
 
 		await expect(
 			new UltimaBase({ schemas: [schema] }).initialize(),

@@ -50,7 +50,7 @@ describe('Access rule keys of registered schemas (ADR-0317)', () => {
 		'/* keys:note */',
 	])
 
-	it('accepts command and permission keys where the shape method is called', () => {
+	it('accepts command and permission keys where the feature is set', () => {
 		expect(
 			fixture.service
 				.getSemanticDiagnostics(fixtureFile)

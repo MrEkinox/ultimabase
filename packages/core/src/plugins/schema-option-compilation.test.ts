@@ -23,6 +23,7 @@ import {
 	optionPlugin,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
+import { defineWithRawRules } from '../schema/schema/raw-schema-rules.test-support.js'
 const { createApplication, FrameworkApplication } = application
 describe('plugin schema option compilation', () => {
 	it('normalizes closed field contexts and rejects contextual reuse before setup', async () => {
@@ -245,17 +246,20 @@ describe('plugin schema option compilation', () => {
 				),
 			],
 		})
-		const Post = UltimaBase.Schema.define({
-			className: 'RuntimeOptionPost',
-			fields: (field: FieldBuilder) => ({
-				title: field.string({
-					// @ts-expect-error -- Typegen owns the installed direct option type.
-					runtimeTag: 'field',
+		const Post = defineWithRawRules(
+			{
+				className: 'RuntimeOptionPost',
+				fields: (field: FieldBuilder) => ({
+					title: field.string({
+						// @ts-expect-error -- Typegen owns the installed direct option type.
+						runtimeTag: 'field',
+					}),
 				}),
-			}),
-		}).with({
-			runtimeTag: 'schema',
-		} as never)
+			},
+			{
+				runtimeTag: 'schema',
+			},
+		)
 
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -349,12 +353,15 @@ describe('plugin schema option compilation', () => {
 				}),
 			],
 		})
-		const Post = UltimaBase.Schema.define({
-			className: 'FailingRuntimeOptionPost',
-			fields: () => ({}),
-		}).with({
-			runtimeTag: 'fail',
-		} as never)
+		const Post = defineWithRawRules(
+			{
+				className: 'FailingRuntimeOptionPost',
+				fields: () => ({}),
+			},
+			{
+				runtimeTag: 'fail',
+			},
+		)
 
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -391,17 +398,20 @@ describe('plugin schema option compilation', () => {
 	it('resolves direct schema and field options through their exact installed owner', async () => {
 		const workflow = { enabled: true }
 		const search = { weight: 10 }
-		const Post = UltimaBase.Schema.define({
-			className: 'OwnedOptionPost',
-			fields: (field: FieldBuilder) => ({
-				title: field.string({
-					// @ts-expect-error -- Typegen owns the installed direct option type.
-					search,
+		const Post = defineWithRawRules(
+			{
+				className: 'OwnedOptionPost',
+				fields: (field: FieldBuilder) => ({
+					title: field.string({
+						// @ts-expect-error -- Typegen owns the installed direct option type.
+						search,
+					}),
 				}),
-			}),
-		}).with({
-			workflow,
-		} as never)
+			},
+			{
+				workflow,
+			},
+		)
 
 		applicationFixture(
 			await createApplication({ plugins: [optionPlugin()], schemas: [Post] }),
@@ -436,12 +446,15 @@ describe('plugin schema option compilation', () => {
 	})
 
 	it('keeps the existing unknown-option failures when no plugin owns a used key', async () => {
-		const UnknownSchemaOption = UltimaBase.Schema.define({
-			className: 'UnknownSchemaOption',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).with({
-			workflow: { enabled: true },
-		} as never)
+		const UnknownSchemaOption = defineWithRawRules(
+			{
+				className: 'UnknownSchemaOption',
+				fields: (field: FieldBuilder) => ({ title: field.string() }),
+			},
+			{
+				workflow: { enabled: true },
+			},
+		)
 		const UnknownFieldOption = UltimaBase.Schema.define({
 			className: 'UnknownFieldOption',
 			fields: (field) => ({
@@ -524,18 +537,24 @@ describe('plugin schema option compilation', () => {
 	})
 
 	it('uses the exact contributing owner when duplicate option names are plugin-owned', async () => {
-		const First = UltimaBase.Schema.define({
-			className: 'ExactOptionOwnerFirst',
-			fields: () => ({}),
-		}).with({
-			shared: 'value',
-		} as never)
-		const Second = UltimaBase.Schema.define({
-			className: 'ExactOptionOwnerSecond',
-			fields: () => ({}),
-		}).with({
-			shared: 'value',
-		} as never)
+		const First = defineWithRawRules(
+			{
+				className: 'ExactOptionOwnerFirst',
+				fields: () => ({}),
+			},
+			{
+				shared: 'value',
+			},
+		)
+		const Second = defineWithRawRules(
+			{
+				className: 'ExactOptionOwnerSecond',
+				fields: () => ({}),
+			},
+			{
+				shared: 'value',
+			},
+		)
 		const plugin = (
 			pluginId: string,
 			schema: SchemaDefinition,

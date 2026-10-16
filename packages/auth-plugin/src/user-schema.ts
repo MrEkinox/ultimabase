@@ -10,7 +10,6 @@ import type {
 	CompleteDefineFields,
 	ConfiguredSchemaIndex,
 	DefineFeatureCheck,
-	DefineFeatureNames,
 	DefineFeatureOptions,
 	DefineFeatures,
 	DefineFeaturesNotInferred,
@@ -117,7 +116,6 @@ export interface UserSchemaFactory<
 		TClassName,
 		UserSchemaFields<TFields, TMethodFields>,
 		DefineFeatureOptions<TSource, TFeatures, SchemaFactoryShape<'UserSchema'>>,
-		DefineFeatureNames<TSource, TFeatures>,
 		DefineUniqueIndexFields<TFeatures>
 	>
 }

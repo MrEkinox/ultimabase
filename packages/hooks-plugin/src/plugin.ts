@@ -211,7 +211,7 @@ const hooksDeclarations: PluginDeclarationContribution<
 export interface HooksRules<TSchema> {
 	/**
 	 * Declares schema-owned business behavior run around each operation.
-	 * @example `hooks: { beforeOperation: { update: ({ item }) => {} } }`
+	 * @example `.with((plugins) => plugins.hooks({ beforeOperation: { update: ({ item }) => {} } }))`
 	 */
 	readonly hooks?: SchemaHooks<Extract<TSchema, SchemaDefinition>>
 }

@@ -73,7 +73,7 @@ export type PolicyPredicate = (
 /**
  * Allows any authenticated caller: `principal !== undefined`.
  *
- * @example `access: { create: isAuthenticated }`
+ * @example `.with((plugins) => plugins.access({ create: isAuthenticated }))`
  */
 export const isAuthenticated: PolicyPredicate = function isAuthenticated({
 	principal,

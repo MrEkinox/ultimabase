@@ -3,6 +3,6 @@ export type {
 	SoftDeleteCommands,
 	SoftDeleteFields,
 	SoftDeletePlugin,
-	SoftDeleteShape,
+	SoftDeleteFeatures,
 } from './plugin.js'
 export type { SoftDeleteOptions, SoftDeleteSchemaMode } from './options.js'

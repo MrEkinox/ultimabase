@@ -225,7 +225,6 @@ describe('@ultimabase/core public entry point', () => {
 			'provideSchemaFeatures',
 			'provideSchemaPermissions',
 			'provideSchemaRules',
-			'provideSchemaShapeMethods',
 			'readCurrentCapabilityProvider',
 			'readSchemaRules',
 			'requestSources',

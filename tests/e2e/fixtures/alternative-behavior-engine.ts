@@ -261,7 +261,7 @@ export const createAlternativeBehaviorEngine = (
 			})
 		},
 	})
-	// The rules slot types `.with({ alternativeBehavior })` (ADR-0297).
+	// The rules slot types `plugins.alternativeBehavior(…)` (ADR-0297).
 	const declarations: PluginDeclarationContribution<
 		readonly [],
 		PluginSchemaRulesSource<AlternativeBehaviorRules>

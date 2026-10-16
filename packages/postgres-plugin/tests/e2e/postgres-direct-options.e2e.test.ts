@@ -192,6 +192,8 @@ it('compiles PostgreSQL rules and options from JavaScript', async () => {
 			},
 		},
 		missingPluginCode: 'PLUGIN_DECLARATION_INVALID',
+		missingRuleMessage:
+			'plugins.postgres is not a function in JavaScriptPostgresMissingRule.with((plugins) => …): plugins offers relations; a rule needs the plugin that declares it',
 		// The old `define({ postgres })` form is rejected (ADR-0297).
 		oldFormMessage:
 			'Unknown schema option: postgres. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',

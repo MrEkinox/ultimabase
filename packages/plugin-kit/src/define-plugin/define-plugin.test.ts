@@ -7,7 +7,7 @@ import {
 import { readSchemaRules } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
-import { command, definePlugin, feature, shapeMethod } from '../index.js'
+import { command, definePlugin, feature } from '../index.js'
 
 const isBoolean = (value: unknown, path: string): boolean => {
 	if (typeof value !== 'boolean')
@@ -19,8 +19,8 @@ const archivePlugin = () =>
 	definePlugin({
 		name: '@community/archive',
 		version: '1.2.0',
-		shape: {
-			archivable: shapeMethod({
+		features: {
+			archivable: feature({
 				options: (value, path) => {
 					if (typeof value !== 'object' || value === null) {
 						throw new TypeError(`${path} must be an object`)
@@ -80,9 +80,8 @@ describe('definePlugin', () => {
 		const Archived = App.Schema.define({
 			className: 'FacadeArchived',
 			fields: (field) => ({ title: field.string() }),
-		})
-			.archivable({ reason: true })
-			.with({ audit: true })
+			archivable: { reason: true },
+		}).with((plugins) => plugins.audit(true))
 		const Plain = App.Schema.define({
 			className: 'FacadePlain',
 			fields: (field) => ({ title: field.string() }),
@@ -124,40 +123,45 @@ describe('definePlugin', () => {
 		).not.toHaveProperty('archivedAt')
 	})
 
-	it('validates shape options and rules when the application compiles', () => {
+	it('validates feature options and rules', () => {
 		const App = UltimaBase.use(archivePlugin())
 		const BadRule = App.Schema.define({
 			className: 'FacadeBadRule',
 			fields: (field) => ({ title: field.string() }),
-		}).with({ audit: 'yes' } as never)
-		const BadShape = App.Schema.define({
-			className: 'FacadeBadShape',
-			fields: (field) => ({ title: field.string() }),
-		}).archivable('soon' as never)
+		}).with((plugins) => plugins.audit('yes' as never))
 
 		expect(() =>
 			new App({ logger: false, schemas: [BadRule] }).compile(),
 		).toThrow(
 			'FacadeBadRule.audit is invalid for option owner @community/archive',
 		)
+		// A feature key takes `true` or an options object, checked by define.
 		expect(() =>
-			new App({ logger: false, schemas: [BadShape] }).compile(),
+			App.Schema.define({
+				className: 'FacadeBadShape',
+				fields: (field) => ({ title: field.string() }),
+				archivable: 'soon' as never,
+			}),
 		).toThrow(
-			'FacadeBadShape.archivable is invalid for option owner @community/archive',
+			new TypeError(
+				'define() feature archivable takes true or an options object',
+			),
 		)
 	})
 
-	it('rejects arguments to a shape method declared without options', () => {
+	it('rejects options given to a feature declared without options', () => {
 		const App = UltimaBase.use(
 			definePlugin({
 				name: '@community/flag',
-				shape: { flag: shapeMethod({}) },
+				features: { flag: feature({}) },
 			}),
 		)
 		const Flagged = App.Schema.define({
 			className: 'FacadeFlagged',
 			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).flag(...([{ loud: true }] as unknown as []))
+			// @ts-expect-error -- The feature takes only `true`; checked at compile.
+			flag: { loud: true },
+		})
 
 		expect(() =>
 			new App({ logger: false, schemas: [Flagged] }).compile(),
@@ -169,33 +173,33 @@ describe('definePlugin', () => {
 			definePlugin({ name: 'community.bad', extra: 1 } as never),
 		).toThrow('Unknown definePlugin option: extra')
 		expect(() =>
-			definePlugin({ name: 'community.bad', shape: { with: shapeMethod({}) } }),
-		).toThrow('Invalid shape method name: with')
+			definePlugin({ name: 'community.bad', features: { with: feature({}) } }),
+		).toThrow('Invalid feature name: with')
 		expect(() =>
 			definePlugin({
 				name: 'community.bad',
-				shape: { audit: shapeMethod({}) },
+				features: { audit: feature({}) },
 				rules: { audit: isBoolean },
 			}),
-		).toThrow('Rule audit is also a shape method')
+		).toThrow('Rule audit is also a feature')
 		expect(() =>
 			definePlugin({ name: 'community.bad', contributions: {} as never }),
 		).toThrow('definePlugin contributions must be an array')
-		expect(() => shapeMethod({ fields: [] } as never)).toThrow(
-			'shape method fields must be a plain object',
+		expect(() => feature({ fields: [] } as never)).toThrow(
+			'feature fields must be a plain object',
 		)
-		expect(() => shapeMethod({ apply: () => ({}) } as never)).toThrow(
-			'Unknown shape method option: apply',
+		expect(() => feature({ apply: () => ({}) } as never)).toThrow(
+			'Unknown feature option: apply',
 		)
-		expect(() => shapeMethod({ permissions: ['read archived'] })).toThrow(
-			'shape method permissions must list identifiers',
+		expect(() => feature({ permissions: ['read archived'] })).toThrow(
+			'feature permissions must list identifiers',
 		)
 	})
 
-	it('declares shape-method permissions through one Core provider (ADR-0317)', () => {
+	it('declares feature permissions through one Core provider (ADR-0317)', () => {
 		const withPermission = definePlugin({
 			name: '@community/archive-permission',
-			shape: { archivable: shapeMethod({ permissions: ['readArchived'] }) },
+			features: { archivable: feature({ permissions: ['readArchived'] }) },
 		})
 		expect(withPermission.manifest.capabilities.provides).toEqual([
 			expect.objectContaining({ contributionId: 'permissions' }),
@@ -225,8 +229,8 @@ describe('definePlugin', () => {
 		expect(() =>
 			definePlugin({
 				name: 'community.bad',
-				shape: {
-					erase: shapeMethod({
+				features: {
+					erase: feature({
 						commands: {
 							eraseOne: command({ authority: 'request', effect: 'delete' }),
 						},
@@ -307,29 +311,22 @@ describe('definePlugin features and rules (ADR-0339)', () => {
 		).toThrow(message)
 	})
 
-	it('accepts shape as a deprecated alias of features, not both', () => {
-		const viaShape = definePlugin({
-			name: '@community/legacy-shape',
-			shape: { archivable: shapeMethod({}) },
+	it('takes features only, never as schema members', () => {
+		const archive = definePlugin({
+			name: '@community/feature-only',
+			features: { archivable: feature({}) },
 		})
-		const Declared = UltimaBase.use(viaShape).Schema.define({
-			className: 'FeatureLegacyShape',
+		const Declared = UltimaBase.use(archive).Schema.define({
+			className: 'FeatureOnly',
 			fields: (field) => ({ title: field.string() }),
 			archivable: true,
 		})
 
 		expect(Reflect.has(Declared, 'archivable')).toBe(false)
+		// ADR-0339: `shape`, the former name of `features`, is removed.
 		expect(() =>
-			definePlugin({
-				name: '@community/both',
-				features: {},
-				shape: {},
-			}),
-		).toThrow(
-			new TypeError(
-				'definePlugin takes features or its deprecated alias shape, not both',
-			),
-		)
+			definePlugin({ name: '@community/shape', shape: {} } as never),
+		).toThrow(new TypeError('Unknown definePlugin option: shape'))
 		expect(() =>
 			definePlugin({
 				name: '@community/unknown-rule',

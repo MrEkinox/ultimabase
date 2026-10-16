@@ -15,6 +15,7 @@ import {
 } from '../plugin.js'
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
+import { defineWithRawRules } from '../schema/schema/raw-schema-rules.test-support.js'
 
 describe('schema option-presence selection', () => {
 	it('applies isolated field and index patches without executing opaque values', async () => {
@@ -83,12 +84,15 @@ describe('schema option-presence selection', () => {
 			],
 		})
 		// This Runtime selector fixture supplies the plugin option before installation.
-		const Document = UltimaBase.Schema.define({
-			className: 'OpaqueOptionDocument',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).with({
-			document: transform,
-		} as never)
+		const Document = defineWithRawRules(
+			{
+				className: 'OpaqueOptionDocument',
+				fields: (field: FieldBuilder) => ({ title: field.string() }),
+			},
+			{
+				document: transform,
+			},
+		)
 		const Plain = UltimaBase.Schema.define({
 			className: 'OpaqueOptionPlain',
 			fields: (field) => ({ title: field.string() }),
@@ -189,18 +193,24 @@ describe('schema option-presence selection', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		// Presence checks exercise untrusted option values at Runtime.
-		const Disabled = UltimaBase.Schema.define({
-			className: 'AbsentOptionDisabled',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).with({
-			mode: false,
-		} as never)
-		const Explicit = UltimaBase.Schema.define({
-			className: 'AbsentOptionExplicit',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).with({
-			mode: 'explicit',
-		} as never)
+		const Disabled = defineWithRawRules(
+			{
+				className: 'AbsentOptionDisabled',
+				fields: (field: FieldBuilder) => ({ title: field.string() }),
+			},
+			{
+				mode: false,
+			},
+		)
+		const Explicit = defineWithRawRules(
+			{
+				className: 'AbsentOptionExplicit',
+				fields: (field: FieldBuilder) => ({ title: field.string() }),
+			},
+			{
+				mode: 'explicit',
+			},
+		)
 
 		await (
 			await createApplication({

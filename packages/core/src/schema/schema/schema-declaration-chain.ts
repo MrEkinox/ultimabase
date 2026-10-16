@@ -1,13 +1,10 @@
 import type {
-	DeclaredSchemaShape,
+	SchemaFeatureRuntime,
 	SchemaRulesFor,
 	SchemaShapeOf,
-	SchemaShapeMethodArguments,
-	SchemaShapeMethodRuntime,
 } from '../../plugins/schema-extensions.js'
 import type { PluginSourceState } from '../../plugins/source-projections.js'
 import type {
-	CompleteConfiguredFields,
 	ConfiguredSchemaNamespace,
 	ConfiguredSchemaResult,
 } from './configured-schema-namespace.js'
@@ -16,49 +13,19 @@ import {
 	defineOrdinarySchemaModel,
 	Schema,
 	type SchemaDefinition,
-	type SchemaDeclaredFields,
 	type SchemaFields,
 	type SchemaOptions,
 } from './definition.js'
 import { markSchemaDeclarationMethod } from './declaration-methods.js'
 import { assertDeclarationOptionKeys } from './definition-compilation.js'
-import type {
-	SchemaFieldName,
-	SchemaIndexInput,
-	SchemaRuleIndexOptions,
-} from './indexes.js'
-import type { SchemaIndexWhere } from './index-predicates.js'
 import type { SchemaRulesTarget } from './registered-schemas.js'
 import type { ConfiguredSchemaRelationRules } from './relation-rules.js'
 import type { UniqueIndexFields } from './source-unique-targets.js'
-import type {
-	DefinedFeatureForm,
-	RequiredSchemaRuleName,
-} from './define-features.js'
+import type { RequiredSchemaRuleName } from './define-features.js'
 import {
 	collectSchemaRules,
 	type SchemaRulesCallback,
 } from './schema-rules-builder.js'
-
-/**
- * Indexes accepted by the final `.with(...)`, typed against the complete
- * schema shape, plugin shape fields such as `isDeleted` included (ADR-0303).
- */
-export type ConfiguredSchemaIndexRules<
-	TSource extends PluginSourceState,
-	TFields extends SchemaDeclaredFields,
-	TOptions extends object,
-> = Readonly<{
-	/**
-	 * Declares schema-level indexes, optionally partial.
-	 *
-	 * @example `indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }]`
-	 */
-	readonly indexes?: readonly SchemaRuleIndexOptions<
-		SchemaFieldName<CompleteConfiguredFields<TSource, TFields, TOptions>>,
-		SchemaIndexWhere<CompleteConfiguredFields<TSource, TFields, TOptions>>
-	>[]
-}>
 
 declare const requiredSchemaRules: unique symbol
 
@@ -79,63 +46,28 @@ export interface SchemaRulesMethod<
 	 * the complete schema: `(plugins) => plugins.access({ … }).hooks({ … })`,
 	 * one method per rule, each callable once. One non-generic call that must
 	 * stay last: TypeScript types the schema constant without reading these
-	 * callbacks, so schemas may filter each other in both directions. The
-	 * object form `.with({ access: { … } })` is accepted until its removal,
-	 * except after a `define` that sets feature keys.
+	 * callbacks, so schemas may filter each other in both directions.
 	 *
 	 * @example `.with((plugins) => plugins.access({ read: ({ where }) => where.eq('archived', false) }))`
 	 */
 	with(
-		rules: TOptions extends DefinedFeatureForm
-			? SchemaRulesCallback<
-					SchemaRulesFor<
-						TSource['schemaRules'],
-						SchemaRulesTarget<
-							ConfiguredSchemaResult<
-								TSource,
-								TClassName,
-								TFields,
-								TOptions,
-								TUniqueIndexes
-							>
-						>,
-						SchemaShapeOf<TOptions>
-					> &
-						ConfiguredSchemaRelationRules<TFields>,
-					RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
-				>
-			: | (SchemaRulesFor<
-						TSource['schemaRules'],
-						SchemaRulesTarget<
-							ConfiguredSchemaResult<
-								TSource,
-								TClassName,
-								TFields,
-								TOptions,
-								TUniqueIndexes
-							>
-						>,
-						SchemaShapeOf<TOptions>
-				  > &
-						ConfiguredSchemaIndexRules<TSource, TFields, TOptions> &
-						ConfiguredSchemaRelationRules<TFields>)
-				| SchemaRulesCallback<
-						SchemaRulesFor<
-							TSource['schemaRules'],
-							SchemaRulesTarget<
-								ConfiguredSchemaResult<
-									TSource,
-									TClassName,
-									TFields,
-									TOptions,
-									TUniqueIndexes
-								>
-							>,
-							SchemaShapeOf<TOptions>
-						> &
-							ConfiguredSchemaRelationRules<TFields>,
-						RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
-				  >,
+		rules: SchemaRulesCallback<
+			SchemaRulesFor<
+				TSource['schemaRules'],
+				SchemaRulesTarget<
+					ConfiguredSchemaResult<
+						TSource,
+						TClassName,
+						TFields,
+						TOptions,
+						TUniqueIndexes
+					>
+				>,
+				SchemaShapeOf<TOptions>
+			> &
+				ConfiguredSchemaRelationRules<TFields>,
+			RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
+		>,
 	): ConfiguredSchemaResult<
 		TSource,
 		TClassName,
@@ -172,53 +104,12 @@ export type SchemaRequiredRuleMessages<TSchema> = TSchema extends {
 		: never
 	: never
 
-// A shape method is unavailable once called.
-type AvailableShapeMethodName<TMethods, TUsed extends PropertyKey> = Exclude<
-	keyof TMethods,
-	TUsed
-> &
-	string
-
-/**
- * Shape methods not called yet. Each one is generic over its arguments, which
- * the chain records in the declaration's shape record for the field and
- * statics slots (ADR-0316); a method never sees the schema, so no cycle.
- */
-export type SchemaShapeMethods<
-	TSource extends PluginSourceState,
-	TClassName extends string,
-	TFields extends SchemaFields,
-	TOptions extends object,
-	TUsed extends PropertyKey,
-	TUniqueIndexes extends UniqueIndexFields = never,
-> = {
-	readonly [
-		TName in AvailableShapeMethodName<TSource['shapeMethods'], TUsed>
-	]: <
-		const TArguments extends SchemaShapeMethodArguments<
-			TSource['shapeMethods'][TName]
-		>,
-	>(
-		...arguments_: TArguments
-	) => DeclaredSchema<
-		TSource,
-		TClassName,
-		TFields,
-		DeclaredSchemaShape<
-			SchemaShapeOf<TOptions> & Readonly<Record<TName, TArguments>>
-		>,
-		TUsed | TName,
-		TUniqueIndexes
-	>
-}
-
-/** Value of `App.Schema.define(...)` and of each shape method: a usable schema plus its chain. */
+/** Value of `App.Schema.define(...)`: a usable schema plus its final `.with`. */
 export type DeclaredSchema<
 	TSource extends PluginSourceState,
 	TClassName extends string,
 	TFields extends SchemaFields,
 	TOptions extends object,
-	TUsed extends PropertyKey = never,
 	TUniqueIndexes extends UniqueIndexFields = never,
 > = ConfiguredSchemaResult<
 	TSource,
@@ -227,14 +118,6 @@ export type DeclaredSchema<
 	TOptions,
 	TUniqueIndexes
 > &
-	SchemaShapeMethods<
-		TSource,
-		TClassName,
-		TFields,
-		TOptions,
-		TUsed,
-		TUniqueIndexes
-	> &
 	SchemaRulesMethod<TSource, TClassName, TFields, TOptions, TUniqueIndexes>
 
 type DeclarationOptions = SchemaOptions<string, SchemaFields> &
@@ -246,8 +129,8 @@ type DeclarationStatics = (
 
 /** The features and rules of one configured factory, read when it is configured. */
 export interface SchemaDeclarationExtensions {
-	/** Features by name: `define` keys and, until removed, shape methods. */
-	readonly features: ReadonlyMap<string, SchemaShapeMethodRuntime>
+	/** Features by name: the keys installed plugins add to `define`. */
+	readonly features: ReadonlyMap<string, SchemaFeatureRuntime>
 	/** Rule names of the installed plugins: the `.with` builder methods. */
 	readonly rules: readonly string[]
 }
@@ -255,11 +138,9 @@ export interface SchemaDeclarationExtensions {
 /** One declaration in progress: its options and what `define` set. */
 interface DeclarationState {
 	readonly options: DeclarationOptions
-	/** Shape methods still available on the chain. */
-	readonly methods: ReadonlyMap<string, SchemaShapeMethodRuntime>
 	/** `[feature, rule]` pairs the `define` features require. */
 	readonly requiredRules: readonly (readonly [string, string])[]
-	/** Whether `define` set feature keys (callback-only `.with`). */
+	/** Whether `define` set feature keys, so its indexes may name their fields. */
 	readonly definedFeatures: boolean
 }
 
@@ -272,19 +153,16 @@ const readRules = (
 	state: DeclarationState,
 	className: string,
 ): Readonly<Record<string, unknown>> => {
-	if (
-		typeof input !== 'function' &&
-		(typeof input !== 'object' || input === null)
-	) {
-		throw new TypeError('schema rules must be an object')
+	if (typeof input !== 'function') {
+		throw new TypeError(
+			`${className}.with() takes a callback: .with((plugins) => plugins.access({ … }))`,
+		)
 	}
-	const rules =
-		typeof input === 'function'
-			? collectSchemaRules(
-					(plugins) => Reflect.apply(input, undefined, [plugins]),
-					[...coreRuleNames, ...ruleNames],
-				)
-			: (input as Readonly<Record<string, unknown>>)
+	const rules = collectSchemaRules(
+		(plugins) => Reflect.apply(input, undefined, [plugins]),
+		[...coreRuleNames, ...ruleNames],
+		className,
+	)
 	const missing = state.requiredRules.find(
 		([, rule]) => !Object.hasOwn(rules, rule),
 	)
@@ -303,55 +181,21 @@ const defineDeclaredSchema = (
 	statics?: DeclarationStatics,
 ): unknown => {
 	const { options } = state
-	const chain: [string, unknown][] = [
-		[
-			'with',
-			markSchemaDeclarationMethod((input: unknown) => {
-				const rules = readRules(input, ruleNames, state, options.className)
-				// Indexes of `.with` may name fields that plugins add (ADR-0303);
-				// relation filters join their relation field (ADR-0328).
-				const {
-					indexes,
-					relations,
-					...rest
-				}: Readonly<Record<string, unknown>> = { ...rules }
-				if (indexes !== undefined && !Array.isArray(indexes)) {
-					throw new TypeError('indexes must be a list')
-				}
-				return defineOrdinarySchemaModel(
-					{ ...options, ...rest },
-					{},
-					{
-						indexes: indexes as readonly SchemaIndexInput[] | undefined,
-						relations,
-						featureIndexes: state.definedFeatures,
-					},
-					statics,
-				)
-			}),
-		],
-	]
-	for (const [name, method] of state.methods) {
-		const remaining = new Map(state.methods)
-		remaining.delete(name)
-		chain.push([
-			name,
-			markSchemaDeclarationMethod((...arguments_: readonly unknown[]) =>
-				defineDeclaredSchema(
-					{
-						...state,
-						options: { ...options, ...method.apply(...arguments_) },
-						methods: remaining,
-					},
-					ruleNames,
-					statics,
-				),
-			),
-		])
-	}
+	const configure = markSchemaDeclarationMethod((input: unknown) => {
+		// Relation filters join their relation field (ADR-0328).
+		const { relations, ...rest }: Readonly<Record<string, unknown>> = {
+			...readRules(input, ruleNames, state, options.className),
+		}
+		return defineOrdinarySchemaModel(
+			{ ...options, ...rest },
+			{},
+			{ relations, featureIndexes: state.definedFeatures },
+			statics,
+		)
+	})
 	return defineOrdinarySchemaModel(
 		options,
-		Object.fromEntries(chain),
+		{ with: configure },
 		{
 			featureIndexes: state.definedFeatures,
 			missingRules: state.requiredRules,
@@ -365,17 +209,15 @@ const isCoreDefineKey = (key: string): boolean =>
 
 /**
  * Applies the feature keys of one `define` call (`softDelete: { mode }`,
- * `acl: true`, ADR-0339): each one applies the feature of the same name,
- * whose shape method then leaves the chain. Other keys stay declaration
- * options, checked by the caller.
+ * `acl: true`, ADR-0339): each one adds the options of the feature of the
+ * same name. Other keys stay declaration options, checked by the caller.
  */
 const applyDefineFeatures = (
 	options: Readonly<Record<string, unknown>>,
-	features: ReadonlyMap<string, SchemaShapeMethodRuntime>,
+	features: ReadonlyMap<string, SchemaFeatureRuntime>,
 ): DeclarationState => {
 	const declaration: [string, unknown][] = []
 	const patches: [string, unknown][] = []
-	const methods = new Map(features)
 	const requiredRules: (readonly [string, string])[] = []
 	let definedFeatures = false
 	for (const [key, value] of Object.entries(options)) {
@@ -394,7 +236,6 @@ const applyDefineFeatures = (
 				value === true ? feature.apply() : feature.apply(value),
 			),
 		)
-		methods.delete(key)
 		requiredRules.push(...feature.requires.map((rule) => [key, rule] as const))
 		definedFeatures = true
 	}
@@ -404,7 +245,6 @@ const applyDefineFeatures = (
 			...declaration,
 			...patches,
 		]) as DeclarationOptions,
-		methods,
 		requiredRules,
 		definedFeatures,
 	}
@@ -414,7 +254,7 @@ const configuredSchemaNamespaces = new WeakSet<object>()
 
 /**
  * Checks that one value is a Schema namespace of an UltimaBase factory: the
- * root one, or the one of a factory whose plugins add shape methods.
+ * root one, or the one of a factory whose plugins add features.
  */
 export const isConfiguredSchemaNamespace = (value: unknown): boolean =>
 	typeof value === 'object' &&

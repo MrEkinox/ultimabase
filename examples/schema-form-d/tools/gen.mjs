@@ -1,9 +1,10 @@
 // Generates N schemas in form D on the real packages, with the graph and density
-// of the prototype benchmark (ub-typing-spike/tools/gen.mjs): 6 scalars, ring
-// pointer `next`, inverse `prevs` (mappedBy 'next'), a self pointer one schema in
-// five, `.softDelete().acl()`, then one `.with({ access (local + cross filter),
-// hooks, acl, postgres })`; one file per schema, one findMany per schema in
-// usage.ts, and the one-time Register line (unless --no-register).
+// of the prototype benchmark (ub-typing-spike/tools/gen.mjs), in the declaration
+// form of ADR-0339: 6 scalars, ring pointer `next`, inverse `prevs` (mappedBy
+// 'next'), a self pointer one schema in five, `softDelete: true, acl: true` in
+// `define`, then one `.with((plugins) => plugins.access(…).hooks(…).acl(…)
+// .postgres(…))` (local + cross filter); one file per schema, one findMany per
+// schema in usage.ts, and the one-time Register line (unless --no-register).
 // Usage: node tools/gen.mjs <N> [--no-register]  -> gen/form-d[-noreg]-<N>/
 import process from 'node:process'
 import console from 'node:console'
@@ -77,25 +78,25 @@ export const ${name(i)} = App.Schema.define({
 				: ''
 		}
 	}),
-})
-	.softDelete()
-	.acl()
-	.with({
-		access: {
+	softDelete: true,
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.access({
 			read: ({ where }) => where.eq('f2', false),
 			update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
 			create: true,
-		},
-		hooks: {
+		})
+		.hooks({
 			beforeOperation: {
 				update: ({ item }) => {
 					if (item.f0.length === 0) throw new TypeError('f0')
 				},
 			},
-		},
-		acl: { default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) },
-		postgres: { table: 's${i}' },
-	})
+		})
+		.acl({ default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) })
+		.postgres({ table: 's${i}' }),
+)
 `,
 		)
 	}

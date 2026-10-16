@@ -112,7 +112,7 @@ test('rules each read operation on its own, members optional', () => {
 	)
 })
 
-test('adds plugin command and permission keys only where the shape method is called', () => {
+test('adds plugin command and permission keys only where the feature is set', () => {
 	App.Schema.define({
 		className: 'RuleFormsArchived',
 		fields: (field) => ({ title: field.string() }),
@@ -150,7 +150,7 @@ test('adds plugin command and permission keys only where the shape method is cal
 		fields: (field) => ({ title: field.string() }),
 	}).with((plugins) =>
 		plugins
-			// @ts-expect-error -- Without `.archivable()` there is no `readArchived`.
+			// @ts-expect-error -- Without `archivable` there is no `readArchived`.
 			.access({ readArchived: true }),
 	)
 	void Plain
