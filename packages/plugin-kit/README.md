@@ -421,7 +421,7 @@ plugin logger (ADR-0313), never an option value or secret.
 
 `SchemaPatchBuilder` is immutable. Each call delegates to Core's nominal patch
 factory and returns a new builder. The example's flag plugin adds a field and
-an index to the schemas that call `.flaggable()`, inside its `schema`
+an index to the schemas that set `flaggable: true`, inside its `schema`
 declaration callback:
 
 <!-- region ../../examples/plugin-authoring/src/flag-plugin.ts#flag-patch -->

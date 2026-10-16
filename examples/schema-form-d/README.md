@@ -18,9 +18,7 @@ plus the `Register` declaration for name-keyed types. No generation step runs.
   package sources.
 - `tools/` and `results/` hold the editor probes and the 10/50/200-schema
   measurements recorded for the ADR (TypeScript 6.0.3 and 7.0.2); `tools/gen.mjs`
-  writes generated benchmark projects to the ignored `gen/` directory, in the
-  previous declaration form (shape methods and a `.with({ … })` object) kept
-  for the comparison of ADR-0339. The
+  writes generated benchmark projects to the ignored `gen/` directory. The
   campaign also needs local probe workspaces outside this repository (the
   TypeScript 7 binary and the TypeScript 7 LSP client); their paths are
   constants at the top of `tools/campaign.mjs`, `tools/probe.mjs` and

@@ -93,8 +93,9 @@ never validation or hooks, and is never accepted from transport input.
 The same file also declares:
 
 - `TodoUser`, the assignee, with an inverse `assignedTodos` relation;
-- `TodoRole`, from `App.RoleSchema.define()` with custom fields, an index, and
-  `ensure: ['editor']`, since the Todo ACL default grants that role;
+- `TodoRole`, from `App.RoleSchema.define()` with custom fields and an index,
+  and `plugins.roles({ ensure: ['editor'] })` in its `.with`, since the Todo
+  ACL default grants that role;
 - an enum shared by two fields, nested typed objects, JSON paths and a
   composite index.
 

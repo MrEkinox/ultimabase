@@ -16,7 +16,7 @@ Toutes les phases de la migration s'y succèdent ; ne pas fusionner avant la der
    tests et JSDoc des plugins.
 3. **Phase 3 (terminée)** — codemod AST sur packages, tests, exemples (~420 `.with`, ~100 méthodes de forme,
    31 `.with({ indexes })`), puis passe manuelle.
-4. Documentation (site, README, guide « features vs rules »).
+4. **Phase 4 (terminée)** — documentation (site, README, guide « features vs rules »).
 5. Retrait des anciennes formes : objet `.with({ … })`, méthodes de forme, `.with({ indexes })`,
    options `ensure`/`deletion`/`resolveCurrent` de `RoleSchema.define`, alias `shape`,
    `shapeMethod`, `provideSchemaShapeMethods`, `SchemaShapeMethod` (renommer en `SchemaFeature`).
@@ -201,16 +201,88 @@ et 3 »).
   accepté par les types (l'objet tout-optionnel l'absorbe) et refusé à l'exécution ;
   disparaît avec la forme objet.
 
+## État de la phase 4 (documentation)
+
+Branche `feat/define-with-docs` (depuis 6678d974), commits `docs(define-with): …`.
+
+- **Site** : 24 pages `.mdx` (23 modifiées, 1 nouvelle), `reviewedAt: 2026-10-17`,
+  ADR-0339 ajoutée aux `sources` des pages qui expliquent la forme. Page Schemas :
+  section « Plugin features and rules » (deux blocs, pourquoi deux blocs sans
+  jargon TypeScript, Role/User) et tableau « Where each declaration goes » (titre
+  sans « ? » : la règle de titres du site refuse la ponctuation finale ; la
+  question « Where does it go? » ouvre le paragraphe). Lien vers le tableau
+  depuis using-plugins et les sections de configuration des pages Access, ACL,
+  GraphQL, Hooks, Password Authentication, PostgreSQL, REST, Roles, Soft Delete,
+  Validation (HTTP, Hono et pg-vector n'ont pas d'option de schéma).
+- **Nouvelle page** `plugins/build-a-plugin/features-and-rules.mdx` (concept) :
+  feature vs rule, `requires`, contrats Core bruts (`provideSchemaFeatures`,
+  `provideSchemaRules`, `SchemaRulesHKT`, `this['shape']`), noms réservés,
+  conseils de nommage, liste de décision. Ajoutée à `meta.json`, au plan
+  (`documentation-plan.json`) et à la navigation canonique du test
+  `apps/website/tests/documentation-navigation.content.test.ts` (seul test du
+  site modifié, pour la nouvelle page). Propriétaire : la section
+  `plugins/build-a-plugin` couvre déjà la page (`documentation-ownership.json`
+  inchangé).
+- **Exemple** `examples/plugin-authoring` : `src/review-plugin.ts` (feature
+  `reviewable` qui exige la règle `review`, `afterCommit`) et
+  `tests/features-and-rules.test.ts` (4 tests : champ, commande et journal après
+  commit sur PostgreSQL ; règles lues par `readSchemaRules` ; règle requise
+  absente : `@ts-expect-error` sur le rappel et `TypeError` à `.with` et à la
+  compilation ; règle dans `define`, feature appelée sur `plugins`). Régions
+  `review-plugin`, `reviewed-story`, `approve-story`, `missing-rule`.
+- **Régions** : `examples/minimal#relation-views` couvre maintenant
+  l'expression `plugins.relations({ … })` (appel `.relations` placé en tête de la
+  chaîne, ordre sans effet, et un commentaire avant `.relations` pour que
+  Prettier garde la chaîne dépliée dans les README) ; `todo-backend#todo-rules`
+  commence à `indexes` dans `define` et montre les deux blocs.
+  `acl#client-sharing` et `todo-backend#todo-title` restent des propriétés
+  (inchangées par la migration).
+- **README** : 15 README de paquets, `packages/core/docs/schema.md`, 8 README
+  d'exemples, README racine (bloc twoslash converti), section « Features and
+  rules » de plugin-kit (remplace l'ébauche de la phase 1, régions de
+  l'exemple review).
+- **Commentaires d'exemples** (`src` seulement, plus trois commentaires de
+  tests de plugin-authoring) mis à jour. Laissés à la phase 5 : titres de tests
+  de plugin-authoring (« with .archivable() », « call the shape method ») et
+  `tests/schema-misuse.test.ts` (message `plugin rules go in the final .with(...)`).
+- **AGENTS.md** (ligne de la forme de déclaration), `ARCHITECTURE.md`,
+  `docs/current-architecture.md` (ADR-0339 dans la ligne « Schema declaration
+  form ») : mises à jour factuelles.
+- **Pas de section de migration ni de mention du codemod** (consigne du
+  coordinateur : pré-version, le codemod est supprimé en phase 5). Une ligne
+  pré-existante du tableau « Migrate pre-release authoring » de using-plugins
+  décrit désormais la forme actuelle.
+- Sources de pages pointant vers des fichiers que la phase 5 pourrait
+  supprimer : `packages/core/src/schema/schema/schema-declaration-chain.ts`
+  (Schemas, Schema Contributions, `docs/current-architecture.md`),
+  `packages/plugin-kit/src/define-plugin/shape.ts` (Features and Rules) ; à
+  corriger si la phase 5 les renomme.
+
+### Preuves de la phase 4
+
+Journaux : `/private/tmp/claude-501/…/scratchpad/define-with-p4/` (non versionnés).
+`yarn build` préalable (0).
+
+- `yarn vitest run --project website-content` 0 (20 fichiers, 214 tests) ;
+- `yarn docs:regions --check` 0 ;
+- `yarn website:test` 0 (8 fichiers, 59 tests) ;
+- Prettier `--check` sur tous les fichiers touchés : 0 ;
+- `typecheck` des exemples minimal, todo-backend, plugin-authoring,
+  soft-delete, access, hooks, validation, schema-form-d : 0 ;
+- `yarn workspace @ultimabase/example-plugin-authoring test` 0 (14 fichiers,
+  42 tests) ; `tests/e2e/relation-filter-public-vertical.postgres.e2e.test.ts`
+  0 (8 tests, exemple minimal réordonné).
+- Recherche finale des anciennes formes (site, README, docs Core,
+  ARCHITECTURE, AGENTS) : ne restent que les ADR et ce handoff.
+
 ## Prochaine action vérifiable
 
-Phase 4 (documentation) : réécrire la prose qui cite encore les anciennes formes (site
-`apps/website/content/docs`, README, `ARCHITECTURE.md`, `README.md` racine, JSDoc restante de
-Core qui décrit la forme objet ou les méthodes de forme), ajouter le tableau « Where does it
-go? » de la page Schemas et la page « features vs rules » du guide plugin ; preuve :
-`yarn vitest run --project website-content` et `yarn docs:regions --check`. Puis phase 5
-(retrait) : `node tooling/codemods/define-with/run.ts packages tests examples tooling apps/website`
-ne doit plus rien signaler hors des tests listés dans « Anciennes formes restantes », qui sont
-alors supprimés ou portés.
+Phase 5 (retrait, agent parallèle) puis fusion de `feat/define-with-docs` dans
+`feat/define-with` ; après la fusion, relancer `yarn vitest run --project
+website-content` et `yarn docs:regions --check` (les messages et sources
+changés par la phase 5 peuvent toucher les pages). Avant la fusion dans
+`main` : audit DX et banc forme D (non exécutés depuis la phase 1), puis
+`yarn validate:full`.
 
 ## Preuves
 

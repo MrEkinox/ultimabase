@@ -74,9 +74,13 @@ immutable configured application factory, `App.Schema.define()` projects its
 exact source-owned plugin surface, and `new App({ schemas: [...] })` remains the
 explicit Runtime registration root.
 [ADR-0297](docs/adr/0297-declare-schemas-without-typegen.md) completes it
-without generation: schemas declare data in `define`, relation targets as
-thunks, plugin shape through shape methods and plugin rules in a final
-`.with(...)`; one `Register` declaration gives name-keyed types. Typegen and
+without generation, and [ADR-0339](docs/adr/0339-define-describes-with-configures.md)
+splits each declaration in two blocks: `define` describes what the schema is
+(`className`, `fields`, `indexes` and the static feature keys of installed
+plugins, such as `softDelete: true`), relation targets are thunks, and a final
+non-generic `.with((plugins) => ...)` configures how each plugin treats the
+schema, one method per plugin rule; one `Register` declaration gives
+name-keyed types. Typegen and
 the old declaration form (plugin options inside `define`) were removed in
 migration step 6.8b. Direct schema class commands
 resolve and verify the sole active application without storing resources or
@@ -276,8 +280,8 @@ credential, or authority; calls outside the active owner's lifecycle fail
 before effects.
 
 ADR-0247 makes a relation's static or request-contextual `where` a Core-owned
-private read scope; ADR-0328 declares it in the schema's final
-`.with({ relations })`, typed against the complete target, so two schemas may
+private read scope; ADR-0328 declares it with `plugins.relations(...)` in the
+schema's `.with` (ADR-0339), typed against the complete target, so two schemas may
 filter each other's relations. The exact request context resolves synchronous
 application behavior once per relation definition and root operation; the
 result then combines monotonically with caller predicates, target policy,
@@ -317,7 +321,7 @@ only failures raised after their handler begins.
 
 ADR-0228 fixes the experimental REST surface, mounted under `/api` without a
 version since ADR-0324 (the `X-UltimaBase-Rest-Version` header carries it).
-Application-owned schemas select their routes with `.with({ rest })` keyed by
+Application-owned schemas select their routes with `plugins.rest(...)` keyed by
 schema method and plugin command names, sparse rules inherit the REST plugin
 default, and plugin-owned schemas remain private from generated CRUD
 routes. Short class paths normalize simple GET parameters or explicit complex
@@ -351,7 +355,7 @@ parse Standard Schema contracts, including Plugin Kit and the optional Validatio
 plugin. Core has no direct dependency on it.
 
 Editor types need no generation step (ADR-0297): relation targets are thunks
-whose type Core captures, plugin builders, field options, shape methods,
+whose type Core captures, plugin builders, field options, `define` features,
 `.with` rules, commands and operations project from the installed plugin source
 definitions on configured factories, and one `Register` declaration gives
 name-keyed types. JavaScript applications execute the same compiled graph.
@@ -388,12 +392,13 @@ final projections repeat only Core structural snapshots. An application without
 the plugin has no application field validator or placeholder Runtime behavior.
 
 The official `@ultimabase/soft-delete-plugin` is written with `definePlugin`
-(ADR-0316). A schema opts in with the `.softDelete()` shape method, which adds
+(ADR-0316). A schema opts in with the `softDelete` feature key of `define`
+(ADR-0339), which adds
 the server-written `isDeleted` and `deletedAt` fields and the `softDeleteOne`,
 `softDeleteMany`, `restoreOne`, `restoreMany`, `purgeOne` and `purgeMany`
-commands. Without options, the native logical delete is kept while a protected
-plan rewrite performs the physical tombstone update; `{ mode: 'command' }`
-keeps hard delete. Both use the same generic Runtime transaction, protected
+commands. With `softDelete: true`, the native logical delete is kept while a
+protected plan rewrite performs the physical tombstone update;
+`softDelete: { mode: 'command' }` keeps hard delete. Both use the same generic Runtime transaction, protected
 constraints, and persistence boundary. Optional Access and Hooks engines derive
 independent logical operation keys; REST and GraphQL expose the one-row
 request commands on otherwise eligible schemas. Purge is audited Master-only.
@@ -527,11 +532,7 @@ const Post = Application.Schema.define({
 	fields: (field) => ({
 		title: field.string(),
 	}),
-}).with({
-	access: {
-		read: true,
-	},
-})
+}).with((plugins) => plugins.access({ read: true }))
 
 const application = new Application({ schemas: [Post] })
 ```
@@ -802,8 +803,9 @@ imports a concrete authentication or
 roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.
 
-The `.acl()` shape method adds the field through Core's fields slot, and the
-`acl` rule of `.with(...)` owns row-aware defaults and input recomputation
+The `acl: true` feature key adds the field through Core's fields slot, and the
+`plugins.acl(...)` rule of `.with`, which that feature requires, owns
+row-aware defaults and input recomputation
 through public capability middleware. The field declares, through neutral
 plugin-field metadata, the value existing rows receive when storage adds it
 (`existingRows`) and its storage default; PostgreSQL synchronization applies

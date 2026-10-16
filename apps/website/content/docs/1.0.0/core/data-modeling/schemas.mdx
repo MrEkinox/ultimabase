@@ -32,7 +32,6 @@ sources:
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
   - docs/adr/0339-define-describes-with-configures.md
   - examples/access/src/openings.ts
-  - tooling/codemods/define-with/README.md
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
@@ -286,34 +285,6 @@ declare:
 
 Each plugin page lists its feature keys, `.with` method, and field options in
 its configuration section.
-
-## Migrating from the previous form
-
-Earlier pre-release versions chained plugin methods after `define` and passed
-an object to `.with`. Each previous form has one replacement:
-
-| Previous form                                                | Current form                                                              |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| `define({ … }).softDelete({ mode: 'command' })`              | `define({ …, softDelete: { mode: 'command' } })`                          |
-| `define({ … }).acl()`                                        | `define({ …, acl: true })`                                                |
-| `.with({ access: a, hooks: h })`                             | `.with((plugins) => plugins.access(a).hooks(h))`                          |
-| `.with({ indexes: [i] })`                                    | `define({ …, indexes: [i] })`                                             |
-| `.with({ relations: r })`                                    | `.with((plugins) => plugins.relations(r))`                                |
-| `RoleSchema.define({ …, ensure, deletion, resolveCurrent })` | `.with((plugins) => plugins.roles({ ensure, deletion, resolveCurrent }))` |
-
-The UltimaBase repository ships a codemod that applies this table to your
-source files and to the TypeScript blocks of Markdown files. Run it from a
-checkout of the repository, first without `--write` to list the changes and
-the sites it leaves for you, then with `--write`, and format the changed files:
-
-```sh
-node tooling/codemods/define-with/run.ts --write path/to/your/src
-```
-
-The codemod never guesses: a `.with(rules)` whose object is not written at the
-call, or a community plugin method it does not know, is reported as
-`file:line kind: code` and left unchanged. `--feature <name>` converts a
-community method such as `.archivable()` into `archivable: true`.
 
 ## Types follow the declaration
 
