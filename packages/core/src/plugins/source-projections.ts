@@ -67,7 +67,7 @@ export interface PluginSourceProjection {
 		Partial<Record<FieldDeclarationContext, object>>
 	>
 	readonly operations?: Readonly<Record<string, PluginOperationDefinition>>
-	/** Rule entries accepted by the final `.with((plugins) => …)` (ADR-0297). */
+	/** Rule entries accepted by the final `.with({ … })` (ADR-0297). */
 	readonly schemaRules?: SchemaRulesHKT
 	/** Static keys added to `define`, such as `softDelete: true` (ADR-0339). */
 	readonly features?: Readonly<

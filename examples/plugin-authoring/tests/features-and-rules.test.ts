@@ -62,13 +62,13 @@ it('reports a feature set without the rule it requires', () => {
 		reviewable: true,
 	})
 	//#region missing-rule
-	// `reviewable: true` without `plugins.review(...)`: a TypeScript error on
-	// the callback, and a TypeError when `.with` runs.
+	// `reviewable: true` without `review` in `.with`: a TypeScript error on the
+	// object, and a TypeError when `.with` runs.
 	expect(() =>
 		// @ts-expect-error -- the feature requires the `review` rule.
 		Draft.with({}),
 	).toThrow(
-		'Draft sets reviewable in define(), which requires .with({ review: { … } })',
+		'Draft sets reviewable in define(), which requires .with({ review: … })',
 	)
 	//#endregion missing-rule
 	// Without `.with`, the application refuses the schema when it compiles.
@@ -82,7 +82,7 @@ it('rejects a rule in define and a feature in .with', () => {
 		App.Schema.define({
 			className: 'Note',
 			fields: (f) => ({ body: f.string() }),
-			// @ts-expect-error -- a rule is a method of `plugins` in `.with`.
+			// @ts-expect-error -- a rule is a key of `.with`, not of `define`.
 			review: 'editors',
 		}),
 	).toThrow('Unknown schema option: review')

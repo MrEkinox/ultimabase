@@ -9,7 +9,7 @@ import { sendMessage } from './effects.ts'
 import { announcePost, postPublished } from './events.ts'
 
 /**
- * The configured factory types `plugins.hooks(...)` and field `hooks` from the
+ * The configured factory types `.with({ hooks: … })` and field `hooks` from the
  * plugin declaration. `postgresPlugin()` reads `DATABASE_URL` at start.
  */
 export const App = UltimaBase.use(

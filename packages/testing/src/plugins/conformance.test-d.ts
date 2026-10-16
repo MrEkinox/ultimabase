@@ -27,7 +27,7 @@ const sourceOption = defineSchemaOption({
 interface EnabledRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{ enabled?: boolean }>
 }
-// The rules slot types `plugins.enabled(…)` in `.with` (ADR-0297).
+// The rules slot types `enabled` in `.with` (ADR-0297).
 const declarations: PluginDeclarationContribution<
 	readonly [],
 	PluginSchemaRulesSource<EnabledRules>

@@ -31,7 +31,7 @@ const flaggableOption = defineSchemaOption({
 	protocolVersion: 1,
 })
 
-/** The `flagReason` rule of `.with((plugins) => …)`. */
+/** The `flagReason` rule of `.with({ … })`. */
 const flagReasonOption = defineSchemaOption({
 	normalize: (value, path) => {
 		if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
@@ -110,7 +110,7 @@ export const flagPlugin = (): FlagPlugin => {
 			}),
 		],
 	})
-	// The rule names become the `plugins.flagReason(...)` method of `.with`.
+	// The rule names become the keys `.with` accepts, here `flagReason`.
 	return provideSchemaRules<FlagPlugin>(
 		provideSchemaFeatures<FlagPlugin, FlagFeatures>(instance, {
 			flaggable: { sets: ['flaggable'], apply: () => ({ flaggable: {} }) },

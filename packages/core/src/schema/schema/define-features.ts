@@ -291,7 +291,7 @@ export type CompleteDefineFields<
 
 /**
  * Rules the features of one shape record require (`acl` once `acl: true`):
- * `.with((plugins) => …)` must set them. A failed `define` requires none.
+ * `.with({ … })` must set them. A failed `define` requires none.
  */
 export type RequiredSchemaRuleName<
 	TSource extends PluginSourceState,

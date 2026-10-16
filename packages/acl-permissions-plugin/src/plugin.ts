@@ -118,17 +118,17 @@ type ACLRuleData<TSchema> = TSchema extends SchemaDefinition
 		>
 	: Readonly<Record<string, unknown>>
 
-/** Rule of `.with((plugins) => …)` owned by ACL, required once `acl: true`. */
+/** Rule of `.with({ … })` owned by ACL, required once `acl: true`. */
 export interface ACLRules<TSchema> {
 	/**
 	 * Configures the `acl` field that `acl: true` adds; `default` is required.
-	 * @example `.with((plugins) => plugins.acl({ default: ({ principal }) => new ACL(principal) }))`
+	 * @example `.with({ acl: { default: ({ principal }) => new ACL(principal) } })`
 	 */
 	readonly acl: ACLRule<ACLRuleData<TSchema>>
 }
 
 /**
- * Contributes `acl` to `.with((plugins) => …)` through Core's rules slot,
+ * Contributes `acl` to `.with({ … })` through Core's rules slot,
  * required once `define` sets `acl: true` (ADR-0321, ADR-0339).
  */
 export interface ACLSchemaRules extends SchemaRulesHKT {
@@ -148,8 +148,8 @@ export interface ACLFeatureFields extends SchemaFieldsHKT {
 export type ACLFeatureSource = PluginSchemaFeatureSource<{
 	/**
 	 * Adds the ACL field: per-row rights stored with each row (ADR-0321).
-	 * Requires `.with((plugins) => plugins.acl({ default }))`.
-	 * @example `App.Schema.define({ className: 'Todo', fields, acl: true }).with((plugins) => plugins.acl({ default: ({ principal }) => new ACL(principal) }))`
+	 * Requires `.with({ acl: { default } })`.
+	 * @example `App.Schema.define({ className: 'Todo', fields, acl: true }).with({ acl: { default: ({ principal }) => new ACL(principal) } })`
 	 */
 	readonly acl: SchemaFeature<readonly [], Readonly<{ acl: object }>, 'acl'>
 }>
@@ -523,7 +523,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			aclDeclarations,
 		],
 	})
-	// `acl: true` in define requires `plugins.acl({ default })` (ADR-0339).
+	// `acl: true` in define requires `.with({ acl: { default } })` (ADR-0339).
 	return provideSchemaRules<ACLPlugin>(
 		provideSchemaFeatures<ACLPlugin, ACLFeatureSource>(instance, {
 			acl: {

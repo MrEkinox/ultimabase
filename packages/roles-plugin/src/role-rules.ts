@@ -18,7 +18,7 @@ import type {
 
 /**
  * How Roles treats one role schema, set in
- * `.with((plugins) => plugins.roles({ … }))` (ADR-0339).
+ * `.with({ roles: { … } })` (ADR-0339).
  */
 export interface RoleRules {
 	/**
@@ -48,7 +48,7 @@ export interface RoleRules {
 }
 
 /**
- * Contributes `roles` to `.with((plugins) => …)` of the schemas declared by
+ * Contributes `roles` to `.with({ … })` of the schemas declared by
  * `App.RoleSchema.define` (ADR-0339).
  */
 export interface RoleSchemaRules extends SchemaRulesHKT {
@@ -57,7 +57,7 @@ export interface RoleSchemaRules extends SchemaRulesHKT {
 				/**
 				 * Configures the role schema: roles created at start, the
 				 * deletion policy of foreign references, the current member.
-				 * @example `.with((plugins) => plugins.roles({ ensure: ['admin'] }))`
+				 * @example `.with({ roles: { ensure: ['admin'] } })`
 				 */
 				roles?: RoleRules
 			}>
@@ -150,7 +150,7 @@ const normalizeRoleRules = (
 	})
 }
 
-/** Owns the `roles` rule of `.with((plugins) => plugins.roles({ … }))`. */
+/** Owns the `roles` rule of `.with({ roles: { … } })`. */
 export const roleRulesOption: SchemaOptionDefinition<NormalizedRoleRules> =
 	defineSchemaOption({
 		normalize: normalizeRoleRules,

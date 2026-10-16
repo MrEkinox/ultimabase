@@ -216,7 +216,7 @@ type PostgresPluginCapabilities = readonly [
 ]
 
 // Keep the projection tied to the two option definitions installed below. The
-// schema option projects nothing: `plugins.postgres(…)` types it (ADR-0320).
+// schema option projects nothing: `.with({ postgres: … })` types it (ADR-0320).
 type PostgresOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'postgres-options'
 	readonly field: Readonly<{ postgres: typeof postgresFieldOption }>
@@ -382,7 +382,7 @@ export const postgresPlugin = (
 		},
 	)
 
-	// `.with((plugins) => plugins.postgres({ … }))` (ADR-0339).
+	// `.with({ postgres: { … } })` (ADR-0339).
 	return provideSchemaRules<PostgresPlugin>(
 		plugin({
 			id: postgresPluginName,

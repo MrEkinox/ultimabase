@@ -298,7 +298,7 @@ describe('definePlugin features and rules (ADR-0339)', () => {
 			flaggable: true,
 		})
 		const message =
-			'FeatureMissingReason sets flaggable in define(), which requires .with({ flagReason: { … } })'
+			'FeatureMissingReason sets flaggable in define(), which requires .with({ flagReason: … })'
 
 		const withMethod: unknown = Reflect.get(Missing, 'with')
 		expect(() => {

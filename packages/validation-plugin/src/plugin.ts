@@ -40,17 +40,17 @@ const validationDeclarations: PluginDeclarationContribution<
 		}),
 })
 
-/** Entry of `.with((plugins) => …)` owned by Validation, for one schema. */
+/** Entry of `.with({ … })` owned by Validation, for one schema. */
 export interface ValidationRules<TSchema> {
 	/**
 	 * Checks the complete item of every create and update, after field
 	 * validation (ADR-0319): a function or a Standard Schema object validator.
-	 * @example `.with((plugins) => plugins.validation(({ item }) => item.endsAt > item.startsAt || 'Ends before it starts'))`
+	 * @example `.with({ validation: ({ item }) => item.endsAt > item.startsAt || 'Ends before it starts' })`
 	 */
 	readonly validation?: SchemaValidation<Extract<TSchema, SchemaDefinition>>
 }
 
-/** Contributes `validation` to `.with((plugins) => …)` through Core's rules slot. */
+/** Contributes `validation` to `.with({ … })` through Core's rules slot. */
 export interface ValidationSchemaRules extends SchemaRulesHKT {
 	readonly rules: ValidationRules<this['schema']>
 }
@@ -94,7 +94,7 @@ const createValidationPlugin = (): ValidationPlugin => {
 		},
 	})
 
-	// `.with((plugins) => plugins.validation({ … }))` (ADR-0339).
+	// `.with({ validation: { … } })` (ADR-0339).
 	return provideSchemaRules<ValidationPlugin>(
 		plugin({
 			id: '@ultimabase/validation-plugin',

@@ -171,7 +171,7 @@ export interface RoleSchemaFactory<TSource extends PluginSourceState> {
 	/**
 	 * Declares one role schema, with `indexes` and the feature keys of the
 	 * installed plugins (ADR-0339); end with `.with(...)` like any schema,
-	 * where `plugins.roles({ … })` configures it. Several role schemas may
+	 * where `.with({ roles: { … } })` configures it. Several role schemas may
 	 * live in one application.
 	 *
 	 * @example
@@ -179,7 +179,7 @@ export interface RoleSchemaFactory<TSource extends PluginSourceState> {
 	 * export const TodoRole = App.RoleSchema.define({
 	 *   className: 'TodoRole',
 	 *   members: () => TodoUser,
-	 * }).with((plugins) => plugins.roles({ ensure: ['admin'] }).access({ read: true }))
+	 * }).with({ roles: { ensure: ['admin'] }, access: { read: true } })
 	 * ```
 	 */
 	define<
@@ -272,7 +272,7 @@ const configuredDeclarations = new WeakMap<object, RoleSchemaDeclaration>()
 
 /**
  * Reads the declaration of one compiled role schema with its
- * `.with((plugins) => plugins.roles({ … }))` rule applied (ADR-0339).
+ * `.with({ roles: { … } })` rule applied (ADR-0339).
  */
 export const readRoleSchemaDeclaration = (
 	schema: SchemaDefinition,
@@ -377,7 +377,7 @@ export const createRoleSchemaFactory = ({
 			}
 			const customFields = readCustomFields(options.fields)
 			recordRoleClassName(className)
-			// `plugins.roles({ … })` replaces these defaults when compiled.
+			// `.with({ roles: { … } })` replaces these defaults when compiled.
 			const declaration: RoleSchemaDeclaration = Object.freeze({
 				deletionPolicy: 'fail',
 				ensure: Object.freeze([]),

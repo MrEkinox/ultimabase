@@ -329,7 +329,10 @@ export type {
 	DeclaredSchema,
 	SchemaRulesMethod,
 } from './schema/schema-declaration-chain.js'
-export type { SchemaRulesObject } from './schema/schema-rules-object.js'
+export type {
+	NoSchemaRules,
+	SchemaRulesObject,
+} from './schema/schema-rules-object.js'
 export type {
 	CreateInput,
 	IsRegisteredSchema,

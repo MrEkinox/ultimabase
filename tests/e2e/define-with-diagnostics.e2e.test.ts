@@ -15,7 +15,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { createLanguageServiceWorkspace } from '../../tooling/vitest/typescript-language-service.js'
 
 // ADR-0339 acceptance criteria: each misuse of `define` and of
-// `.with({ … })` (spike/with-object) gives one diagnostic on its own line, with a
+// `.with({ … })` gives one diagnostic on its own line, with a
 // readable message, on TypeScript 6 (language service) and TypeScript 7
 // (compiler), from sources and from built packages. The cases edit the
 // `tests/register-cycle/define-with` example, which compiles cleanly.
@@ -390,7 +390,7 @@ describe.each(['tsconfig.json', 'tsconfig.dist.json'])(
 				/^ {2}Property 'acl' is missing in type '.*' but required in type 'ACLRules<SchemaRef<"Post">>'\.$/u,
 			)
 			expect(missingWith?.message).toContain(
-				'Draft needs .with({ acl: { … } }): a feature set in its define() requires that rule',
+				'Draft needs .with({ acl: … }): a feature set in its define() requires that rule',
 			)
 		}, 120_000)
 	},

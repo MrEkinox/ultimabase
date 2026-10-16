@@ -43,7 +43,7 @@ export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
  * outside production; `start()` refuses production until rules replace it.
  */
 const prototypeAccess = `// Prototype: operations without an Access rule are open outside production.
-// Production refuses to start until you write plugins.access(...) rules and
+// Production refuses to start until you write .with({ access }) rules and
 // remove this opening.
 accessPlugin({ allowWithoutRule: { all: 'development' } })`
 
@@ -78,15 +78,15 @@ export const AppUser = SchemaApplication.UserSchema.define({
 							{
 								comment:
 									'Each user reads only their own profile; writes stay with authPlugin.',
-								call: [
-									'access({',
+								entry: [
+									'access: {',
 									'  read: ({ principal, where }) =>',
 									"    where.in('id', principal === undefined ? [] : [principal.id]),",
 									'  create: false,',
 									'  update: false,',
 									'  upsert: false,',
 									'  delete: false,',
-									'})',
+									'}',
 								].join('\n'),
 							},
 						]
@@ -111,53 +111,50 @@ ${[
 	`  members: () => ${roleMembers(plan)},`,
 	'  fields: (f) => ({ description: f.string() }),',
 ].join('\n')}
-})${withRules([{ call: "roles({ deletion: 'fail' })" }, ...privateRules(plan)])}`,
+})${withRules([{ entry: "roles: { deletion: 'fail' }" }, ...privateRules(plan)])}`,
 		],
 	]).join('\n\n')
 
-/** One call of `.with((plugins) => …)`, such as `rest(false)`. */
-interface RuleCall {
-	/** A comment line written above the call. */
+/** One entry of `.with({ … })`, such as `rest: false`. */
+interface RuleEntry {
+	/** A comment line written above the entry. */
 	readonly comment?: string
-	readonly call: string
+	/** `key: value`, possibly over several lines. */
+	readonly entry: string
 }
 
-const privateRules = (plan: InitializerPlan): RuleCall[] =>
-	privateSchemaApiOptions(plan).map((call) => ({ call }))
+const privateRules = (plan: InitializerPlan): RuleEntry[] =>
+	privateSchemaApiOptions(plan).map((entry) => ({ entry }))
 
 /**
- * Renders the final `.with((plugins) => …)` of a declaration closed by `})`
- * as Prettier prints it; a declaration without rules stays an unfinished
+ * Renders the final `.with({ … })` of a declaration closed by `})` as
+ * Prettier prints it; a declaration without rules stays an unfinished
  * `define(...)` (ADR-0297, ADR-0339).
  */
-const withRules = (calls: readonly RuleCall[]): string => {
-	if (calls.length === 0) return ''
-	const chain = calls.map(({ call }) => `.${call}`).join('')
+const withRules = (entries: readonly RuleEntry[]): string => {
+	if (entries.length === 0) return ''
 	if (
-		calls.every(
-			({ call, comment }) => comment === undefined && !call.includes('\n'),
+		entries.every(
+			({ comment, entry }) => comment === undefined && !entry.includes('\n'),
 		)
 	) {
-		const compact = `.with((plugins) => plugins${chain})`
+		const compact = `.with({ ${entries.map(({ entry }) => entry).join(', ')} })`
 		if (`})${compact}`.length <= 80) return compact
-		if (`  plugins${chain},`.length <= 80) {
-			return `.with((plugins) =>\n  plugins${chain},\n)`
-		}
 	}
-	const lines = calls.map(
-		({ call, comment }) =>
-			`${comment === undefined ? '' : `\n    // ${comment}`}\n    .${indentRest(call, 4)}`,
+	const lines = entries.map(
+		({ comment, entry }) =>
+			`${comment === undefined ? '' : `  // ${comment}\n`}  ${indentRest(entry, 2)},`,
 	)
-	return `.with((plugins) =>\n  plugins${lines.join('')},\n)`
+	return `.with({\n${lines.join('\n')}\n})`
 }
 
-/** `acl: true` in `define` requires `plugins.acl({ default })` (ADR-0339). */
+/** `acl: true` in `define` requires `.with({ acl: { default } })` (ADR-0339). */
 export const taskRulesChain = (plan: InitializerPlan): string =>
 	has(plan, 'acl-permissions-plugin')
 		? withRules([
 				{
 					comment: 'An empty ACL grants no read, update, or delete rights.',
-					call: 'acl({ default: new ACL() })',
+					entry: 'acl: { default: new ACL() }',
 				},
 			])
 		: ''
@@ -215,7 +212,7 @@ export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			has(plan, 'access-plugin'),
-			"Access starts as a prototype: `allowWithoutRule: { all: 'development' }` opens every operation without a rule outside production, with a warning at start. With `NODE_ENV=production` the application refuses to start until you write `.with((plugins) => plugins.access({ … }))` rules for your schemas and remove that opening. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.",
+			"Access starts as a prototype: `allowWithoutRule: { all: 'development' }` opens every operation without a rule outside production, with a warning at start. With `NODE_ENV=production` the application refuses to start until you write `.with({ access: { … } })` rules for your schemas and remove that opening. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.",
 		],
 		[
 			has(plan, 'acl-permissions-plugin'),

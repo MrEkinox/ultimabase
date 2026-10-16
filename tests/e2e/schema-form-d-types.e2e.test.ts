@@ -193,19 +193,19 @@ describe('schema declaration form (ADR-0297)', () => {
 			const target = `'{ readonly id: string | { readonly eq: string; }; }'`
 			expect(readExpectedErrors(configName, 'src/typos.ts')).toEqual(
 				expect.arrayContaining([
-					`src/typos.ts:139 Object literal may only specify known properties, and 'title' does not exist in type ${target}.`,
-					`src/typos.ts:145 Object literal may only specify known properties, and 'archived' does not exist in type ${target}.`,
-					"src/typos.ts:151 Type 'null' is not assignable to type 'string | { readonly eq: string; }'.",
+					`src/typos.ts:137 Object literal may only specify known properties, and 'title' does not exist in type ${target}.`,
+					`src/typos.ts:143 Object literal may only specify known properties, and 'archived' does not exist in type ${target}.`,
+					"src/typos.ts:149 Type 'null' is not assignable to type 'string | { readonly eq: string; }'.",
 					expect.stringContaining(
 						// The printed key order follows type creation order.
-						"src/typos.ts:156 Object literal may only specify known properties, and 'acl' does not exist in type 'Readonly<{ readonly ",
+						"src/typos.ts:154 Object literal may only specify known properties, and 'acl' does not exist in type 'Readonly<{ readonly ",
 					),
 				]),
 			)
 			// A schema with a unique index keeps its `mappedBy` check.
 			expect(
 				readExpectedErrors(configName, 'src/typos.ts').filter((diagnostic) =>
-					diagnostic.startsWith('src/typos.ts:169 '),
+					diagnostic.startsWith('src/typos.ts:167 '),
 				),
 			).toEqual([
 				expect.stringContaining(
@@ -236,7 +236,7 @@ describe('schema declaration form (ADR-0297)', () => {
 			const typosSelectTypo =
 				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; archived?: boolean; assignee?: boolean; isDeleted?: boolean; deletedAt?: boolean; title?: boolean; priority?: boolean; parent?: boolean; }>'. Did you mean to write 'title'?"
 
-			expect(typos).toContain(`src/typos.ts:76 ${typosSelectTypo}`)
+			expect(typos).toContain(`src/typos.ts:75 ${typosSelectTypo}`)
 			expect(exactness).toContain(`src/exactness.ts:27 ${selectTypo}`)
 			expect(exactness).toContain(
 				"src/exactness.ts:29 Object literal may only specify known properties, but 'labl' does not exist in type 'Readonly<{ id?: true; createdAt?: boolean; updatedAt?: boolean; label?: boolean; }>'. Did you mean to write 'label'?",
@@ -250,7 +250,7 @@ describe('schema declaration form (ADR-0297)', () => {
 		120_000,
 	)
 
-	// ADR-0328: relation filters in `plugins.relations(...)` are typed against
+	// ADR-0328: relation filters in `.with({ relations: … })` are typed against
 	// the complete target (Tag and Todo filter each other), and each misuse is
 	// reported on its own line, from source and built packages.
 	it.each(['tsconfig.json', 'tsconfig.source.json'])(
@@ -261,20 +261,20 @@ describe('schema declaration form (ADR-0297)', () => {
 
 			expect(typos).toEqual(
 				expect.arrayContaining([
-					`src/typos.ts:90 Object literal may only specify known properties, but 'todoz' does not exist in type ${rules}. Did you mean to write 'todos'?`,
-					`src/typos.ts:104 Object literal may only specify known properties, and 'label' does not exist in type ${rules}.`,
-					`src/typos.ts:118 Object literal may only specify known properties, and 'archivd' does not exist in type 'RelationWhere<SchemaRef<"Todo">>'.`,
-					`src/typos.ts:120 Argument of type '"titel"' is not assignable to parameter of type 'WhereBuilderTarget<SchemaRef<"Todo">, "ne">'.`,
+					`src/typos.ts:89 Object literal may only specify known properties, but 'todoz' does not exist in type ${rules}. Did you mean to write 'todos'?`,
+					`src/typos.ts:103 Object literal may only specify known properties, and 'label' does not exist in type ${rules}.`,
+					`src/typos.ts:117 Object literal may only specify known properties, and 'archivd' does not exist in type 'RelationWhere<SchemaRef<"Todo">>'.`,
+					`src/typos.ts:119 Argument of type '"titel"' is not assignable to parameter of type 'WhereBuilderTarget<SchemaRef<"Todo">, "ne">'.`,
 				]),
 			)
 			expect(
 				typos.filter((diagnostic) =>
-					diagnostic.startsWith('src/typos.ts:131 '),
+					diagnostic.startsWith('src/typos.ts:129 '),
 				),
 			).toEqual([
-				// The builder offers `relations` only to a schema with relation fields (ADR-0339).
+				// `relations` is a key of `.with` only on a schema with relation fields (ADR-0339).
 				expect.stringContaining(
-					"Property 'relations' does not exist on type 'SchemaRulesBuilder<",
+					"Object literal may only specify known properties, and 'relations' does not exist in type 'AccessRules<",
 				),
 			])
 		},

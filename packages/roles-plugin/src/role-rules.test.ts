@@ -25,7 +25,7 @@ const compiledRole = (
 	return schema
 }
 
-describe('plugins.roles (ADR-0339)', () => {
+describe('the roles rule of .with (ADR-0339)', () => {
 	it('configures ensure, deletion and resolveCurrent in .with', () => {
 		const resolveCurrent = () => undefined
 		const Role = Roles.RoleSchema.define({

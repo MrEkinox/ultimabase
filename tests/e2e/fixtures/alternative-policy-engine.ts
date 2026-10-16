@@ -38,7 +38,7 @@ export interface AlternativeTenantPolicyOptions {
 	readonly tenant: string
 }
 
-/** Contributes `alternativePolicy` to `.with((plugins) => …)` (ADR-0297). */
+/** Contributes `alternativePolicy` to `.with({ … })` (ADR-0297). */
 export interface AlternativePolicyRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{
 		/** Configures the independent tenant policy fixture when its plugin is installed. */
@@ -215,7 +215,7 @@ export const createAlternativePolicyEngine = (
 			}
 		},
 	})
-	// The rules slot types `plugins.alternativePolicy(…)` (ADR-0297).
+	// The rules slot types `.with({ alternativePolicy: … })` (ADR-0297).
 	const declarations: PluginDeclarationContribution<
 		readonly [],
 		PluginSchemaRulesSource<AlternativePolicyRules>
@@ -253,7 +253,7 @@ export const createAlternativePolicyEngine = (
 		version: '1.0.0',
 	})
 
-	// `plugins.alternativePolicy(...)` of `.with` (ADR-0339).
+	// `alternativePolicy` key of `.with` (ADR-0339).
 	return immutableRecord({
 		plugin: provideSchemaRules(plugin, ['alternativePolicy']),
 	})

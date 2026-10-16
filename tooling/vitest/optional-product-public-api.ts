@@ -489,7 +489,7 @@ export const removedRestPluginPublicApiNames = [
 
 /** Names GraphQL compilation details deliberately kept out of the root API. */
 export const removedGraphqlPluginPublicApiNames = [
-	// ADR-0325: `plugins.graphql(…)` keys are the schema method names.
+	// ADR-0325: `.with({ graphql: … })` keys are the schema method names.
 	'GraphqlBulkOperations',
 	'GraphqlFieldTypeCompiler',
 	// Cursor failures are Core's `after` VALIDATION_ERROR (ADR-0309).

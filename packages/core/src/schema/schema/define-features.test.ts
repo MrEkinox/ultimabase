@@ -24,7 +24,7 @@ import { stringField } from '../fields/builtins/string.js'
 import type { SchemaDefinition } from './definition.js'
 
 // ADR-0339: features are keys of `define`; rules are the methods of
-// `.with((plugins) => …)`. The fixture's `flagged` feature adds `flagCode`
+// `.with({ … })`. The fixture's `flagged` feature adds `flagCode`
 // and requires its `audit` rule.
 interface AuditRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{ audit?: boolean }>
@@ -176,7 +176,7 @@ describe('feature keys of define (ADR-0339)', () => {
 
 	it('requires the rules of a feature, in .with and when .with is missing', () => {
 		const message =
-			'FeatureMissingRule sets flagged in define(), which requires .with({ audit: { … } })'
+			'FeatureMissingRule sets flagged in define(), which requires .with({ audit: … })'
 		const declared = App.Schema.define({
 			className: 'FeatureMissingRule',
 			fields: (field) => ({ title: field.string() }),

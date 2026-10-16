@@ -141,7 +141,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 		expect(withRules({ targets: { where: {} } })).not.toThrow()
 	})
 
-	it('points a field-level where to plugins.relations(...)', () => {
+	it('points a field-level where to .with({ relations })', () => {
 		expect(() =>
 			UltimaBase.Schema.define({
 				className: 'RuleFieldWhere',

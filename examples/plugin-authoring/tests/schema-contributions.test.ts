@@ -55,7 +55,7 @@ it('runs afterCommit with the schema rules after each committed write', async ()
 	await Post.createOne({ data: { title: 'Audited' } })
 	await Comment.createOne({ data: { body: 'Not audited' } })
 	await t.afterCommit()
-	// Post calls `plugins.audit(true)`; Comment has no `audit` rule.
+	// Post calls `.with({ audit: true })`; Comment has no `audit` rule.
 	expect(info.mock.calls).toStrictEqual([['[audit] Post create-one']])
 })
 

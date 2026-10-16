@@ -29,10 +29,10 @@ import type {
 /** Features of one plugin, keyed by `define` key. */
 export type FeatureDefinitions = Readonly<Record<string, FeatureDefinition>>
 
-/** Rule values of one plugin, keyed by `.with((plugins) => …)` entry. */
+/** Rule values of one plugin, keyed by `.with({ … })` entry. */
 export type RuleValues = Readonly<Record<string, unknown>>
 
-/** Validators of one plugin's `.with((plugins) => …)` entries, keyed by entry. */
+/** Validators of one plugin's `.with({ … })` entries, keyed by entry. */
 export type RuleValidators = Readonly<Record<string, Validator<unknown>>>
 
 /**
@@ -111,7 +111,7 @@ export interface DefinedFeatureCommands<
 		SchemaPermissions<SetPermissions<TFeatures, keyof this['shape']>>
 }
 
-/** Rules slot of a plugin made by `definePlugin`: its `.with((plugins) => …)` entries. */
+/** Rules slot of a plugin made by `definePlugin`: its `.with({ … })` entries. */
 export interface DefinedRules<
 	TRules extends RuleValues,
 > extends SchemaRulesHKT {

@@ -78,7 +78,7 @@ export interface NormalizedSchemaDeclaration {
 	readonly className: string
 	readonly fields: Readonly<Record<string, unknown>>
 	readonly indexes: readonly SchemaIndexInput[] | undefined
-	/** Relation filters of the final `plugins.relations(…)` (ADR-0328). */
+	/** Relation filters of the final `.with({ relations: … })` (ADR-0328). */
 	readonly relationFilters?:
 		ReadonlyMap<string, RelationWhereDeclaration> | undefined
 	/**
@@ -127,7 +127,7 @@ export const assertDeclaredRulesComplete = (schema: SchemaDefinition): void => {
 	if (missing === undefined) return
 	const [feature, rule] = missing
 	throw new TypeError(
-		`${schema.className} sets ${feature} in define(), which requires .with({ ${rule}: { … } })`,
+		`${schema.className} sets ${feature} in define(), which requires .with({ ${rule}: … })`,
 	)
 }
 

@@ -3,7 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 import { readSchemaRulesObject } from './schema-rules-object.js'
 
-// spike/with-object: `.with({ … })` accepts the rule names declared when the
+// ADR-0339: `.with({ … })` accepts the rule names declared when the
 // factory was configured (no Proxy), plus Core's `relations`.
 describe('the .with rules object', () => {
 	const names = ['relations', 'access', 'audit']

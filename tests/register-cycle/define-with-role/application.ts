@@ -16,7 +16,7 @@ export const Member = App.Schema.define({
 
 // A role schema takes feature keys and indexes over its own fields, the
 // factory's fields and the feature fields; its behaviour goes to
-// `plugins.roles({ … })` (ADR-0339).
+// `.with({ roles: { … } })` (ADR-0339).
 export const TeamRole = App.RoleSchema.define({
 	className: 'TeamRole',
 	members: () => Member,

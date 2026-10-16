@@ -82,7 +82,7 @@ export interface SchemaRulesMethod<
 	readonly [requiredSchemaRules]?: {
 		readonly [
 			TRule in RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>> & string
-		]: `${TClassName} needs .with({ ${TRule}: { … } }): a feature set in its define() requires that rule`
+		]: `${TClassName} needs .with({ ${TRule}: … }): a feature set in its define() requires that rule`
 	}
 }
 
@@ -168,7 +168,7 @@ const readRules = (
 	if (missing !== undefined) {
 		const [feature, rule] = missing
 		throw new TypeError(
-			`${className} sets ${feature} in define(), which requires .with({ ${rule}: { … } })`,
+			`${className} sets ${feature} in define(), which requires .with({ ${rule}: … })`,
 		)
 	}
 	return rules

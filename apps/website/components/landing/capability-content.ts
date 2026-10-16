@@ -83,10 +83,10 @@ export const writeCapabilities = [
 ] as const
 
 // The policy excerpt is also compiled in its complete schema below.
-export const accessRuleExample = `plugins.access({
+export const accessRuleExample = `access: {
   read: ({ where }) =>
     where.eq('published', true),
-})`
+}`
 
 export const accessSchemaExample = `import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -98,9 +98,9 @@ export const PublicArticle = Application.Schema.define({
     title: f.string({ required: true }),
     published: f.boolean({ required: true, default: false }),
   }),
-}).with((plugins) =>
-  ${accessRuleExample},
-)`
+}).with({
+  ${accessRuleExample.replaceAll('\n', '\n  ')},
+})`
 
 export const accessCapabilities = [
 	{

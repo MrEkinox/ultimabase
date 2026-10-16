@@ -276,7 +276,7 @@ describe('plugin authoring helpers', () => {
 		interface WorkflowRules extends SchemaRulesHKT {
 			readonly rules: Readonly<{ workflow?: (value: string) => string }>
 		}
-		// The rules slot types `plugins.workflow(...)` (ADR-0297, ADR-0339).
+		// The rules slot types `.with({ workflow: … })` (ADR-0297, ADR-0339).
 		const declarations: PluginDeclarationContribution<
 			readonly [],
 			PluginSchemaRulesSource<WorkflowRules>

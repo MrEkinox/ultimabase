@@ -2,13 +2,10 @@
 // of the prototype benchmark (ub-typing-spike/tools/gen.mjs), in the declaration
 // form of ADR-0339: 6 scalars, ring pointer `next`, inverse `prevs` (mappedBy
 // 'next'), a self pointer one schema in five, `softDelete: true, acl: true` in
-// `define`, then one `.with((plugins) => plugins.access(…).hooks(…).acl(…)
-// .postgres(…))` (local + cross filter); one file per schema, one findMany per
-// schema in usage.ts, and the one-time Register line (unless --no-register).
-// `--object` writes the same rules as one object, `.with({ access, hooks, acl,
-// postgres })` (spike/with-object).
-// Usage: node tools/gen.mjs <N> [--no-register] [--object]
-//   -> gen/form-d[-object][-noreg]-<N>/
+// `define`, then one `.with({ access, hooks, acl, postgres })` (local + cross
+// filter); one file per schema, one findMany per schema in usage.ts, and the
+// one-time Register line (unless --no-register).
+// Usage: node tools/gen.mjs <N> [--no-register]  -> gen/form-d[-noreg]-<N>/
 import process from 'node:process'
 import console from 'node:console'
 import { URL } from 'node:url'
@@ -20,48 +17,12 @@ const exampleDir = path.resolve(
 	'..',
 )
 
-const builderRules = (i) => `.with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('f2', false),
-			update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
-			create: true,
-		})
-		.hooks({
-			beforeOperation: {
-				update: ({ item }) => {
-					if (item.f0.length === 0) throw new TypeError('f0')
-				},
-			},
-		})
-		.acl({ default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) })
-		.postgres({ table: 's${i}' }),
-)`
-
-const objectRules = (i) => `.with({
-	access: {
-		read: ({ where }) => where.eq('f2', false),
-		update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
-		create: true,
-	},
-	hooks: {
-		beforeOperation: {
-			update: ({ item }) => {
-				if (item.f0.length === 0) throw new TypeError('f0')
-			},
-		},
-	},
-	acl: { default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) },
-	postgres: { table: 's${i}' },
-})`
-
-export const generate = (count, { register = true, object = false } = {}) => {
+export const generate = (count, { register = true } = {}) => {
 	const dir = path.join(
 		exampleDir,
 		'gen',
-		`form-d${object ? '-object' : ''}${register ? '' : '-noreg'}-${count}`,
+		`form-d${register ? '' : '-noreg'}-${count}`,
 	)
-	const rules = object ? objectRules : builderRules
 	fs.rmSync(dir, { recursive: true, force: true })
 	fs.mkdirSync(path.join(dir, 'src'), { recursive: true })
 	fs.writeFileSync(
@@ -119,7 +80,22 @@ export const ${name(i)} = App.Schema.define({
 	}),
 	softDelete: true,
 	acl: true,
-})${rules(i)}
+}).with({
+	access: {
+		read: ({ where }) => where.eq('f2', false),
+		update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
+		create: true,
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item }) => {
+				if (item.f0.length === 0) throw new TypeError('f0')
+			},
+		},
+	},
+	acl: { default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) },
+	postgres: { table: 's${i}' },
+})
 `,
 		)
 	}
@@ -169,7 +145,6 @@ if (
 	console.log(
 		generate(Number.parseInt(process.argv[2], 10), {
 			register: !process.argv.includes('--no-register'),
-			object: process.argv.includes('--object'),
 		}),
 	)
 }

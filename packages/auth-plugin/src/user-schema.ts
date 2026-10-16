@@ -84,7 +84,7 @@ export interface UserSchemaFactory<
 	 * export const TodoUser = App.UserSchema.define({
 	 *   className: 'TodoUser',
 	 *   fields: (field) => ({ displayName: field.string() }),
-	 * }).with((plugins) => plugins.access({ read: isAuthenticated }))
+	 * }).with({ access: { read: isAuthenticated } })
 	 * ```
 	 */
 	define<

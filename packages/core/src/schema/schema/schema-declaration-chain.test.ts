@@ -47,7 +47,7 @@ describe('schema declaration chain (ADR-0297)', () => {
 		expect(Reflect.has(configured, 'with')).toBe(false)
 		expect(Object.keys(declared)).not.toContain('with')
 		const withMethod: unknown = Reflect.get(declared, 'with')
-		// spike/with-object: the object form is accepted again; a non-object
+		// ADR-0339: `.with` takes an object of rules; a non-object
 		// and a key no installed plugin declares are refused.
 		const call = (rules: unknown): unknown =>
 			typeof withMethod === 'function'

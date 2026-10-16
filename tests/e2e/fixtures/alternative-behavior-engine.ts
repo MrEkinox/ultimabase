@@ -46,7 +46,7 @@ export interface AlternativeBehaviorOptions {
 	readonly label: string
 }
 
-/** Contributes `alternativeBehavior` to `.with((plugins) => …)` (ADR-0297). */
+/** Contributes `alternativeBehavior` to `.with({ … })` (ADR-0297). */
 export interface AlternativeBehaviorRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{
 		/** Configures the independent behavior fixture when its plugin is installed. */
@@ -261,7 +261,7 @@ export const createAlternativeBehaviorEngine = (
 			})
 		},
 	})
-	// The rules slot types `plugins.alternativeBehavior(…)` (ADR-0297).
+	// The rules slot types `.with({ alternativeBehavior: … })` (ADR-0297).
 	const declarations: PluginDeclarationContribution<
 		readonly [],
 		PluginSchemaRulesSource<AlternativeBehaviorRules>
@@ -309,7 +309,7 @@ export const createAlternativeBehaviorEngine = (
 		},
 	})
 
-	// `plugins.alternativeBehavior(...)` of `.with` (ADR-0339).
+	// `alternativeBehavior` key of `.with` (ADR-0339).
 	return immutableRecord({
 		Audit,
 		plugin: provideSchemaRules(plugin, ['alternativeBehavior']),

@@ -58,8 +58,8 @@ const ruleNamesByPlugin = new WeakMap<PluginDefinition, readonly string[]>()
 
 /**
  * Declares, when the plugin is created, the rules its rules slot adds to
- * `.with((plugins) => …)` (ADR-0339): Core builds one builder method per name
- * without reading any schema. Returns the same plugin instance.
+ * `.with({ … })` (ADR-0339): `.with` accepts these keys, checked without
+ * reading any schema. Returns the same plugin instance.
  *
  * @example `provideSchemaRules(instance, ['audit'])`
  */

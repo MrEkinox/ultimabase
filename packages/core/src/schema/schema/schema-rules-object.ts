@@ -1,6 +1,16 @@
-// `.with({ access: { … }, rest: { … } })` (spike/with-object): one entry per
+// `.with({ access: { … }, rest: { … } })` (ADR-0339): one entry per
 // rules key of the installed plugins plus Core's `relations`, checked against
 // the rule names declared when each plugin was created, without naming one.
+
+declare const noInstalledRules: unique symbol
+
+/**
+ * The `.with({ … })` parameter of a schema whose factory installs no plugin
+ * with rules and that declares no relation: every key is refused, by name.
+ */
+export interface NoSchemaRules {
+	readonly [noInstalledRules]?: never
+}
 
 /**
  * The parameter of `.with({ … })`: one entry per rule, typed against the
@@ -10,8 +20,7 @@
 export type SchemaRulesObject<TRules, TRequired extends PropertyKey> = [
 	keyof TRules,
 ] extends [never]
-	? // No rule at all: an empty type would accept any key.
-		Readonly<Record<string, never>>
+	? NoSchemaRules
 	: [TRequired] extends [never]
 		? TRules
 		: TRules & {

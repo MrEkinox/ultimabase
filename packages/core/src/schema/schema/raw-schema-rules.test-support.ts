@@ -1,9 +1,9 @@
-// Test-only (ADR-0339): `.with((plugins) => …)` offers one typed method per
-// installed rule, so it cannot pass a raw value or the option of a plugin
-// the factory does not install. Runtime checks of such options (ownership,
-// normalization, selectors) still guard plugin schema patches and untyped
-// callers; this helper declares a schema exactly as `.with` does once it has
-// read its rules, without the builder.
+// Test-only (ADR-0339): `.with({ … })` accepts only the rules of installed
+// plugins, so it cannot pass the option of a plugin the factory does not
+// install. Runtime checks of such options (ownership, normalization,
+// selectors) still guard plugin schema patches and untyped callers; this
+// helper declares a schema exactly as `.with` does once it has read its
+// rules.
 import {
 	defineOrdinarySchemaModel,
 	type SchemaFields,

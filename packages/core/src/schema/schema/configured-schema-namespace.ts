@@ -145,7 +145,7 @@ export type ConfiguredSchemaNamespace<
 		 * Defines one final schema with typed static commands and QueryBuilder access.
 		 * `define` describes what the schema is (`className`, `fields`,
 		 * `indexes` and the feature keys of the installed plugins, such as
-		 * `softDelete: true`); end with `.with((plugins) => …)` to configure
+		 * `softDelete: true`); end with `.with({ … })` to configure
 		 * how each plugin treats it (ADR-0339).
 		 *
 		 * @example

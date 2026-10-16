@@ -229,8 +229,8 @@ describe('base project templates', () => {
 					expect(schema).not.toContain('access: {')
 				}
 				if (id === 'acl-permissions-plugin') {
-					expect(schema).toContain('  acl: true,\n}).with((plugins) =>')
-					expect(schema).toContain('    .acl({ default: new ACL() }),')
+					expect(schema).toContain('  acl: true,\n}).with({')
+					expect(schema).toContain('  acl: { default: new ACL() },')
 				}
 				if (id === 'roles-plugin') {
 					expect(schema).toContain('SchemaApplication.RoleSchema.define({')
@@ -240,7 +240,7 @@ describe('base project templates', () => {
 					expect(application).toContain('schemas: [Task, Member, AppRole]')
 					// The Register cycle is fixed in Core (ADR-0297 note of
 					// 2026-10-12): no empty `.with` only to finish a declaration.
-					expect(schema).not.toContain('.with((plugins) => plugins)')
+					expect(schema).not.toContain('.with({})')
 				}
 			}
 		},
@@ -266,7 +266,7 @@ describe('base project templates', () => {
 			)
 			expect(schema).toContain('SchemaApplication.UserSchema.define({')
 			// The Register cycle is fixed in Core: no empty `.with` is needed.
-			expect(schema).not.toContain('.with((plugins) => plugins)')
+			expect(schema).not.toContain('.with({})')
 			expect(application).toContain('schemas: [Task, AppUser]')
 			expect(application).not.toContain('MasterAuthority')
 			expect(application).not.toContain('cookie:')

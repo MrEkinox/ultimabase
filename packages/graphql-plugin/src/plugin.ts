@@ -80,7 +80,7 @@ const optionalFilterOperators = optionalCapability(
 	'^1.0.0',
 )
 
-// The schema option projects nothing: `plugins.graphql(…)` types it (ADR-0325).
+// The schema option projects nothing: `.with({ graphql: … })` types it (ADR-0325).
 type GraphqlOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-graphql-schema-option'
 	readonly schema: Readonly<{ graphql: typeof graphqlSchemaOption }>
@@ -291,7 +291,7 @@ export const graphqlPlugin = (
 			},
 		}
 	})
-	// `.with((plugins) => plugins.graphql({ … }))` (ADR-0339).
+	// `.with({ graphql: { … } })` (ADR-0339).
 	return provideSchemaRules<GraphqlPlugin>(
 		plugin({
 			id: '@ultimabase/graphql-plugin',

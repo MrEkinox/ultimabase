@@ -11,7 +11,7 @@ import {
 // ADR-0339 on PostgreSQL: a feature key in `define` adds its fields and
 // commands, `indexes` name those fields, a complete unique index is a unique
 // target and a partial one only enforces uniqueness, and the rules come from
-// `.with((plugins) => …)`.
+// `.with({ … })`.
 const App = UltimaBase.use(
 	softDeletePlugin(),
 	postgresPlugin({ url: 'postgres://declaration.invalid/ultimabase' }),

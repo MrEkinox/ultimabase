@@ -208,7 +208,7 @@ describe('relationField', () => {
 		['indexed', { indexed: true, target: () => RelationTag }],
 		['list', { list: true, target: () => RelationTag }],
 		['required', { required: true, target: () => RelationTag }],
-		// Relation filters are declared in `plugins.relations(…)` (ADR-0328).
+		// Relation filters are declared in `.with({ relations: … })` (ADR-0328).
 		['where', { target: () => RelationTag, where: {} }],
 	])('rejects unsupported %s metadata', (key, options) => {
 		expect(() => {

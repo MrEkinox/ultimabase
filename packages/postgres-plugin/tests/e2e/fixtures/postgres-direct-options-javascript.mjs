@@ -56,7 +56,7 @@ try {
 } catch (error) {
 	oldFormMessage = error?.message
 }
-// Without the plugin, `plugins` has no `postgres` method (ADR-0339).
+// Without the plugin, `.with` has no `postgres` rule (ADR-0339).
 let missingRuleMessage
 try {
 	UltimaBase.Schema.define({

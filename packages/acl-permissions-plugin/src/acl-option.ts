@@ -186,7 +186,7 @@ export type ACLClientSharing = (
 /** Overrides application ACL entry limits for one schema. */
 export type ACLSchemaLimits = ACLEntryLimits
 
-/** The `acl` rule of `.with((plugins) => …)`, required once `acl: true` (ADR-0321). */
+/** The `acl` rule of `.with({ … })`, required once `acl: true` (ADR-0321). */
 export interface ACLRule<
 	TData extends Readonly<Record<string, unknown>> = Readonly<
 		Record<string, unknown>
@@ -247,7 +247,7 @@ const aclRuleKeys = new Set([
 // Only options produced here are trusted; the map also restores their exact type.
 const normalizedOptions = new WeakMap<object, NormalizedACLSchemaOption>()
 
-/** The option `acl: true` sets until `plugins.acl({ … })` replaces it. */
+/** The option `acl: true` sets until `.with({ acl: { … } })` replaces it. */
 export const aclFeatureDeclared: Readonly<Record<never, never>> = Object.freeze(
 	{},
 )
@@ -309,7 +309,7 @@ export const normalizeACLSchemaOption = (
 	return normalized
 }
 
-/** The `acl` option: set by `acl: true`, configured by `plugins.acl({ … })`. */
+/** The `acl` option: set by `acl: true`, configured by `.with({ acl: { … } })`. */
 export const aclSchemaOption: SchemaOptionDefinition<NormalizedACLSchemaOption> =
 	defineSchemaOption({
 		normalize: normalizeACLSchemaOption,
