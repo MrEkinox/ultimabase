@@ -211,7 +211,7 @@ const assertNoFieldRelationWhere = (
 			Object.hasOwn(field.options, 'where')
 		) {
 			throw new TypeError(
-				`${path}.${name} cannot declare where: declare relation filters in .with((plugins) => plugins.relations({ ${name}: { where } }))`,
+				`${path}.${name} cannot declare where: declare relation filters in .with({ relations: { ${name}: { where } } })`,
 			)
 		}
 	}

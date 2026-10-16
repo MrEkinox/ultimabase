@@ -120,14 +120,14 @@ export const storeSchemaDeclaration = (
 
 /**
  * Rejects a schema registered without the `.with` its `define` features
- * require (ADR-0339): `acl: true` without `plugins.acl({ … })`.
+ * require (ADR-0339): `acl: true` without `.with({ acl: { … } })`.
  */
 export const assertDeclaredRulesComplete = (schema: SchemaDefinition): void => {
 	const [missing] = schemaDeclarations.get(schema)?.missingRules ?? []
 	if (missing === undefined) return
 	const [feature, rule] = missing
 	throw new TypeError(
-		`${schema.className} sets ${feature} in define(), which requires .with((plugins) => plugins.${rule}({ … }))`,
+		`${schema.className} sets ${feature} in define(), which requires .with({ ${rule}: { … } })`,
 	)
 }
 

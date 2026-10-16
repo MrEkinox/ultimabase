@@ -23,11 +23,9 @@ import type { ConfiguredSchemaRelationRules } from './relation-rules.js'
 import type { UniqueIndexFields } from './source-unique-targets.js'
 import type { RequiredSchemaRuleName } from './define-features.js'
 import {
-	collectSchemaRules,
 	readSchemaRulesObject,
-	type SchemaRulesCallback,
 	type SchemaRulesObject,
-} from './schema-rules-builder.js'
+} from './schema-rules-object.js'
 
 declare const requiredSchemaRules: unique symbol
 
@@ -45,49 +43,31 @@ export interface SchemaRulesMethod<
 > {
 	/**
 	 * Configures how each installed plugin treats the schema, typed against
-	 * the complete schema: `(plugins) => plugins.access({ … }).hooks({ … })`,
-	 * one method per rule, each callable once. One non-generic call that must
-	 * stay last: TypeScript types the schema constant without reading these
-	 * callbacks, so schemas may filter each other in both directions.
+	 * the complete schema: `{ access: { … }, hooks: { … } }`, one entry per
+	 * rule. One non-generic call that must stay last: TypeScript types the
+	 * schema constant without reading these callbacks, so schemas may filter
+	 * each other in both directions.
 	 *
-	 * @example `.with((plugins) => plugins.access({ read: ({ where }) => where.eq('archived', false) }))`
+	 * @example `.with({ access: { read: ({ where }) => where.eq('archived', false) } })`
 	 */
 	with(
-		rules:
-			| SchemaRulesCallback<
-					SchemaRulesFor<
-						TSource['schemaRules'],
-						SchemaRulesTarget<
-							ConfiguredSchemaResult<
-								TSource,
-								TClassName,
-								TFields,
-								TOptions,
-								TUniqueIndexes
-							>
-						>,
-						SchemaShapeOf<TOptions>
-					> &
-						ConfiguredSchemaRelationRules<TFields>,
-					RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
-			  >
-			| SchemaRulesObject<
-					SchemaRulesFor<
-						TSource['schemaRules'],
-						SchemaRulesTarget<
-							ConfiguredSchemaResult<
-								TSource,
-								TClassName,
-								TFields,
-								TOptions,
-								TUniqueIndexes
-							>
-						>,
-						SchemaShapeOf<TOptions>
-					> &
-						ConfiguredSchemaRelationRules<TFields>,
-					RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
-			  >,
+		rules: SchemaRulesObject<
+			SchemaRulesFor<
+				TSource['schemaRules'],
+				SchemaRulesTarget<
+					ConfiguredSchemaResult<
+						TSource,
+						TClassName,
+						TFields,
+						TOptions,
+						TUniqueIndexes
+					>
+				>,
+				SchemaShapeOf<TOptions>
+			> &
+				ConfiguredSchemaRelationRules<TFields>,
+			RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
+		>,
 	): ConfiguredSchemaResult<
 		TSource,
 		TClassName,
@@ -102,7 +82,7 @@ export interface SchemaRulesMethod<
 	readonly [requiredSchemaRules]?: {
 		readonly [
 			TRule in RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>> & string
-		]: `${TClassName} needs .with((plugins) => plugins.${TRule}({ … })): a feature set in its define() requires that rule`
+		]: `${TClassName} needs .with({ ${TRule}: { … } }): a feature set in its define() requires that rule`
 	}
 }
 
@@ -151,7 +131,7 @@ type DeclarationStatics = (
 export interface SchemaDeclarationExtensions {
 	/** Features by name: the keys installed plugins add to `define`. */
 	readonly features: ReadonlyMap<string, SchemaFeatureRuntime>
-	/** Rule names of the installed plugins: the `.with` builder methods. */
+	/** Rule names of the installed plugins: the `.with` object keys. */
 	readonly rules: readonly string[]
 }
 
@@ -164,7 +144,7 @@ interface DeclarationState {
 	readonly definedFeatures: boolean
 }
 
-// Core's builder method beside the plugins' rules (ADR-0328, ADR-0339).
+// Core's rule beside the plugins' rules (ADR-0328, ADR-0339).
 const coreRuleNames: readonly string[] = ['relations']
 
 const readRules = (
@@ -173,28 +153,22 @@ const readRules = (
 	state: DeclarationState,
 	className: string,
 ): Readonly<Record<string, unknown>> => {
-	const names = [...coreRuleNames, ...ruleNames]
-	let rules: Readonly<Record<string, unknown>>
-	if (typeof input === 'function') {
-		rules = collectSchemaRules(
-			(plugins) => Reflect.apply(input, undefined, [plugins]),
-			names,
-			className,
-		)
-	} else {
-		assertPlainObject(
-			input,
-			`${className}.with() takes an object of rules: .with({ access: { … } })`,
-		)
-		rules = readSchemaRulesObject(input, names, className)
-	}
+	assertPlainObject(
+		input,
+		`${className}.with() takes an object of rules: .with({ access: { … } })`,
+	)
+	const rules = readSchemaRulesObject(
+		input,
+		[...coreRuleNames, ...ruleNames],
+		className,
+	)
 	const missing = state.requiredRules.find(
 		([, rule]) => !Object.hasOwn(rules, rule),
 	)
 	if (missing !== undefined) {
 		const [feature, rule] = missing
 		throw new TypeError(
-			`${className} sets ${feature} in define(), which requires .with((plugins) => plugins.${rule}({ … }))`,
+			`${className} sets ${feature} in define(), which requires .with({ ${rule}: { … } })`,
 		)
 	}
 	return rules

@@ -259,7 +259,7 @@ export const normalizeACLSchemaOption = (
 ): NormalizedACLSchemaOption => {
 	if (value === aclFeatureDeclared) {
 		throw new TypeError(
-			`${path}: the acl feature needs .with((plugins) => plugins.acl({ default })); an empty ACL would hide every row from everyone but Master`,
+			`${path}: the acl feature needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master`,
 		)
 	}
 	if (!isPlainRecord(value)) {
@@ -351,7 +351,7 @@ const readExistingRows = (
 		(rule?.default instanceof ACL ? rule.default : undefined)
 	return fixed === undefined
 		? immutableRecord({
-				missing: `${schema.className} has rows and its acl.default is a function, so they need a fixed ACL: add existingRows to .with((plugins) => plugins.acl({ default, existingRows })), or empty the table, then start again.`,
+				missing: `${schema.className} has rows and its acl.default is a function, so they need a fixed ACL: add existingRows to .with({ acl: { default, existingRows } }), or empty the table, then start again.`,
 			})
 		: immutableRecord({ value: fixed })
 }
