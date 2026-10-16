@@ -654,6 +654,16 @@ describe('UltimaBase', () => {
 				}),
 			),
 		).toThrow(new TypeError('UltimaBase contains unknown option: unknown'))
+		// Access is a plugin: the root accepts no access configuration.
+		expect(() =>
+			applicationFixture(
+				new UltimaBase({
+					schemas: [],
+					// @ts-expect-error -- Runtime validation protects unknown options.
+					access: {},
+				}),
+			),
+		).toThrow(new TypeError('UltimaBase contains unknown option: access'))
 		expect(() =>
 			applicationFixture(
 				new UltimaBase({ schemas: [], validation: { timezone: '' } }),

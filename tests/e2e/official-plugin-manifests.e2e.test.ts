@@ -223,17 +223,15 @@ const coreVersion = readField(
 )
 
 /**
- * The Core range a package publishes: its `@ultimabase/core` peer, else its
- * dependency, with Yarn's `workspace:` protocol replaced as `yarn npm publish`
- * replaces it.
+ * The Core range a package publishes: its `@ultimabase/core` peer (a plugin
+ * shares the application's Core instance), with Yarn's `workspace:` protocol
+ * replaced as `yarn npm publish` replaces it.
  */
 const publishedCoreRange = (name: string): unknown => {
 	const manifest = packageManifests.find(
 		(candidate) => packageName(candidate) === name,
 	)
-	const range =
-		readRecord(manifest, 'peerDependencies')['@ultimabase/core'] ??
-		readRecord(manifest, 'dependencies')['@ultimabase/core']
+	const range = readRecord(manifest, 'peerDependencies')['@ultimabase/core']
 	if (typeof range !== 'string' || !range.startsWith('workspace:')) return range
 	const specifier = range.slice('workspace:'.length)
 	if (specifier === '*') return coreVersion
