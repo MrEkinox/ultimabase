@@ -33,7 +33,7 @@ const Member = App.Schema.define({
 		name: field.string({ required: true }),
 		visible: field.boolean({ default: true }),
 	}),
-}).with({ access: { read: () => ({ visible: true }) } })
+}).with((plugins) => plugins.access({ read: () => ({ visible: true }) }))
 
 const Team = App.Schema.define({
 	className: 'LinkTeam',

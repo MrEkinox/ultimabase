@@ -10,14 +10,14 @@ import {
 	defineFieldOption,
 	defineSchemaOption,
 	plugin,
-	provideSchemaShapeMethods,
+	provideSchemaFeatures,
 	type PluginDeclarationContribution,
 	type PluginDeclarationSource,
 	type PluginInstance,
 	type PluginSchemaFieldsSource,
-	type PluginSchemaShapeSource,
+	type PluginSchemaFeatureSource,
 	type SchemaFieldsHKT,
-	type SchemaShapeMethod,
+	type SchemaFeature,
 } from '@ultimabase/core/plugin'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -131,7 +131,7 @@ export interface ValuePluginOptions {
 	readonly targetClassName: string
 }
 
-// Form D (ADR-0297): `.decimalLedger({ defaultScale })` is a shape method; the
+// Form D (ADR-0297): `decimalLedger: { defaultScale }` is a define feature; the
 // fields slot adds the `amount` field the patch below stores (ADR-0316).
 interface DecimalLedgerFields extends SchemaFieldsHKT {
 	readonly fields: 'decimalLedger' extends keyof this['shape']
@@ -167,8 +167,8 @@ const createDeclarations = (options: ValuePluginOptions) =>
 
 type ValueSource =
 	| PluginDeclarationSource<ReturnType<typeof createDeclarations>>
-	| PluginSchemaShapeSource<{
-			decimalLedger: SchemaShapeMethod<
+	| PluginSchemaFeatureSource<{
+			decimalLedger: SchemaFeature<
 				readonly [options: DecimalLedgerOption],
 				Readonly<{ decimalLedger: DecimalLedgerOption }>
 			>
@@ -188,7 +188,7 @@ export type ValuePlugin = PluginInstance<{
 export const createValuePlugin = (options: ValuePluginOptions): ValuePlugin => {
 	const declarations: PluginDeclarationContribution<readonly [], ValueSource> =
 		createDeclarations(options)
-	return provideSchemaShapeMethods<ValuePlugin>(
+	return provideSchemaFeatures<ValuePlugin>(
 		plugin({
 			core: '^0.0.0',
 			id: 'fixture.open-kernel-value',

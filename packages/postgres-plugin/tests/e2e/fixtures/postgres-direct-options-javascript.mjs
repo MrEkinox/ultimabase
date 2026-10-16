@@ -21,7 +21,9 @@ const compile = async (className, table) => {
 			title: field.string({ postgres: { renamedFrom: 'headline' } }),
 		}),
 	}
-	const Post = Application.Schema.define(options).with({ postgres: { table } })
+	const Post = Application.Schema.define(options).with((plugins) =>
+		plugins.postgres({ table }),
+	)
 	const application = new Application({
 		logger: false,
 		schemas: [Post],

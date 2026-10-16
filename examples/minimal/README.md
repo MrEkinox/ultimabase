@@ -184,7 +184,7 @@ uses the authentication request context:
 <!-- region src/schema.ts#relation-views -->
 
 ```ts
-relations: {
+.relations({
 	contributors: { where: { listed: { eq: true } } },
 	// Anonymous requests see only public reviewers.
 	reviewers: {
@@ -193,7 +193,7 @@ relations: {
 				? where.eq('audience', 'public')
 				: where,
 	},
-},
+})
 ```
 
 <!-- endregion -->

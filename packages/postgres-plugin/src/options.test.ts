@@ -59,9 +59,7 @@ describe('direct PostgreSQL options', () => {
 		const schema = PostgresSchemaApplication.Schema.define({
 			className: 'PostgresExactTable',
 			fields: () => ({}),
-		}).with({
-			postgres: { table: name },
-		})
+		}).with((plugins) => plugins.postgres({ table: name }))
 		const application = new PostgresSchemaApplication({ schemas: [schema] })
 		await application.initialize()
 		const table = pgTable(resolvePostgresTableName(schema), { id: text('id') })
@@ -121,9 +119,7 @@ describe('direct PostgreSQL options', () => {
 			const schema = PostgresSchemaApplication.Schema.define({
 				className: 'PostgresMalformed',
 				fields: () => ({}),
-			}).with({
-				postgres,
-			} as never)
+			}).with((plugins) => plugins.postgres(postgres as never))
 
 			await expect(
 				new PostgresSchemaApplication({

@@ -38,9 +38,7 @@ const Member = ACLRoleSchemaApplication.Schema.define({
 	fields: (field) => ({
 		email: field.string({ required: true }),
 	}),
-}).with({
-	postgres: { table: 'acl_role_schema_members' },
-})
+}).with((plugins) => plugins.postgres({ table: 'acl_role_schema_members' }))
 const identityPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
@@ -58,18 +56,23 @@ const identityPlugin = plugin({
 const emptyACL = new ACL()
 const AppRole = ACLRoleSchemaApplication.RoleSchema.define({
 	className: 'ACLProtectedAppRole',
-	deletion: 'fail',
 	fields: (field) => ({ description: field.string() }),
 	members: () => Member,
-	resolveCurrent: ({ context }) => {
-		const id = context.getValue(currentMemberId)
-
-		return id === undefined ? undefined : Member.pointer(id)
-	},
+	acl: true,
 })
-	.acl()
 	// The default table name is `acl_protected_app_roles`.
-	.with({ acl: { default: emptyACL } })
+	.with((plugins) =>
+		plugins
+			.roles({
+				deletion: 'fail',
+				resolveCurrent: ({ context }) => {
+					const id = context.getValue(currentMemberId)
+
+					return id === undefined ? undefined : Member.pointer(id)
+				},
+			})
+			.acl({ default: emptyACL }),
+	)
 
 type PersistedMember = Model<typeof Member>
 type PersistedRole = Model<typeof AppRole>

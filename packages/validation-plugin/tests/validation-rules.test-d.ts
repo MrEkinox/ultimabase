@@ -51,8 +51,8 @@ test('types the schema check on the complete item', () => {
 			startsAt: field.int({ required: true }),
 			endsAt: field.int({ required: true }),
 		}),
-	}).with({
-		validation: ({ item }) => {
+	}).with((plugins) =>
+		plugins.validation(({ item }) => {
 			expectTypeOf(item.startsAt).toEqualTypeOf<number>()
 			return (
 				item.endsAt >= item.startsAt || {
@@ -60,23 +60,25 @@ test('types the schema check on the complete item', () => {
 					path: ['endsAt'],
 				}
 			)
-		},
-	})
+		}),
+	)
 
 	App.Schema.define({
 		className: 'TypedSchemaValidator',
 		fields: (field) => ({ low: field.int({ required: true }) }),
-	}).with({
-		validation: z.object({ low: z.number() }) satisfies StandardSchemaV1,
-	})
+	}).with((plugins) =>
+		plugins.validation(
+			z.object({ low: z.number() }) satisfies StandardSchemaV1,
+		),
+	)
 
 	App.Schema.define({
 		className: 'TypedSchemaIssues',
 		fields: (field) => ({ low: field.int({ required: true }) }),
-	}).with({
-		validation: () => [
+	}).with((plugins) =>
+		plugins.validation(() => [
 			{ message: 'First' },
 			{ message: 'Second', path: ['low'] },
-		],
-	})
+		]),
+	)
 })

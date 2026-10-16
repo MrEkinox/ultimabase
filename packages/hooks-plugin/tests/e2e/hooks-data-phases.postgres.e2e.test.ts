@@ -95,8 +95,8 @@ const Todo = App.Schema.define({
 	}),
 	// A unique index of `define` is a unique target of `upsertOne` (ADR-0332).
 	indexes: [{ fields: ['slug'], unique: true }],
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		resolveInput: {
 			all: ({ kind }) => {
 				trace.push(`resolve:all:${kind}`)
@@ -150,14 +150,14 @@ const Todo = App.Schema.define({
 				if (item.title === 'fail commit') throw new Error('afterCommit failed')
 			},
 		},
-	},
-})
+	}),
+)
 
 const Counter = App.Schema.define({
 	className: 'HookDataCounter',
 	fields: (field) => ({ n: field.int({ default: 0 }) }),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		afterOperation: {
 			// Unbounded self-recursion: the depth limit stops it.
 			update: async ({ item }) => {
@@ -167,8 +167,8 @@ const Counter = App.Schema.define({
 				})
 			},
 		},
-	},
-})
+	}),
+)
 
 const logger = createCapturingLogger()
 let fixture: PostgresWorkerFixture | undefined

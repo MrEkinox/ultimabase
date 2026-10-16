@@ -346,16 +346,16 @@ describe('plugin conformance suite', () => {
 				fields: (field) => ({
 					targets: field.relation({ target: 'ConformanceRelationTarget' }),
 				}),
-			}).with({
-				relations: {
+			}).with((plugins) =>
+				plugins.relations({
 					targets: {
 						where: ({ where }) => {
 							adapter.whereInvocations += 1
 							return where.eq('visible', true)
 						},
 					},
-				},
-			})
+				}),
+			)
 			latestAdapter = adapter
 			const plugin = createPlugin({
 				core: '^0.0.0',

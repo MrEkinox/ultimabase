@@ -17,7 +17,7 @@ import {
 	plugin,
 	provideCapability,
 } from '@ultimabase/core/plugin'
-import { definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { definePlugin, feature } from '@ultimabase/plugin-kit'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -64,8 +64,8 @@ const database = plugin({
 const answers: boolean[] = []
 const archivePlugin = definePlugin({
 	name: '@fixture/archive-permissions',
-	shape: {
-		archivable: shapeMethod({ permissions: ['readArchived'] }),
+	features: {
+		archivable: feature({ permissions: ['readArchived'] }),
 	},
 	contributions: [
 		provideRuntimeConstraint({
@@ -99,15 +99,13 @@ const declareArchived = (
 	App.Schema.define({
 		className: 'PermissionArchived',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.archivable()
-		.with({ access: { read: true, ...access } })
+		archivable: true,
+	}).with((plugins) => plugins.access({ read: true, ...access }))
 const Archived = App.Schema.define({
 	className: 'PermissionArchived',
 	fields: (field) => ({ title: field.string() }),
-})
-	.archivable()
-	.with({ access: { read: true } })
+	archivable: true,
+}).with((plugins) => plugins.access({ read: true }))
 
 const readOnce = async (
 	schema: typeof Archived,
@@ -191,14 +189,13 @@ describe('plugin permissions through Access (ADR-0317)', () => {
 		const Detailed = App.Schema.define({
 			className: 'PermissionArchived',
 			fields: (field) => ({ title: field.string() }),
-		})
-			.archivable()
-			.with({
-				access: {
-					read: true,
-					readArchived: { where: true, item: () => true } as never,
-				},
-			})
+			archivable: true,
+		}).with((plugins) =>
+			plugins.access({
+				read: true,
+				readArchived: { where: true, item: () => true } as never,
+			}),
+		)
 		await expect(readOnce(Detailed)).rejects.toThrow(
 			'access.readArchived is a permission: use true, false or a predicate',
 		)

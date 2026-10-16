@@ -66,11 +66,12 @@ export const Post = App.Schema.define({
 				),
 		}),
 	}),
-}).with({
-	access: { read: true, create: true, update: true, delete: true },
-	// The default fields, plus countPost and totalCount on connections.
-	graphql: { count: true },
-})
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: true, update: true, delete: true })
+		// The default fields, plus countPost and totalCount on connections.
+		.graphql({ count: true }),
+)
 ```
 
 <!-- endregion -->
@@ -249,7 +250,7 @@ export const AuditEntry = App.Schema.define({
 		action: field.string({ required: true }),
 		post: field.pointer({ target: () => Post }),
 	}),
-}).with({ graphql: false })
+}).with((plugins) => plugins.graphql(false))
 ```
 
 <!-- endregion -->

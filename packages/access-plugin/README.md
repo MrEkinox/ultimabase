@@ -48,10 +48,11 @@ export const Article = App.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
-}).with({
-	// No create, update, upsert or delete rule: they stay denied.
-	access: { read: ({ where }) => where.eq('published', true) },
-})
+}).with((plugins) =>
+	plugins
+		// No create, update, upsert or delete rule: they stay denied.
+		.access({ read: ({ where }) => where.eq('published', true) }),
+)
 ```
 
 <!-- endregion -->
@@ -165,8 +166,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-	ensure: ['editor', 'admin', 'muted'],
-})
+}).with((plugins) => plugins.roles({ ensure: ['editor', 'admin', 'muted'] }))
 
 export const Editor = StaffRole.role('editor')
 export const Admin = StaffRole.role('admin')
@@ -179,8 +179,8 @@ export const Note = App.Schema.define({
 		author: field.string({ required: true }),
 		body: field.string({ required: true }),
 	}),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.access({
 		read: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('author', principal.id),
 		create: {
@@ -195,8 +195,8 @@ export const Note = App.Schema.define({
 				item.author === originalItem.author,
 		},
 		delete: hasRole(Admin),
-	},
-})
+	}),
+)
 ```
 
 <!-- endregion -->
@@ -334,8 +334,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-	ensure: ['editor', 'admin', 'muted'],
-})
+}).with((plugins) => plugins.roles({ ensure: ['editor', 'admin', 'muted'] }))
 
 export const Editor = StaffRole.role('editor')
 export const Admin = StaffRole.role('admin')
@@ -353,24 +352,23 @@ export const Comment = App.Schema.define({
 		body: field.string({ required: true }),
 		pinned: field.boolean({ default: false }),
 	}),
-})
-	.softDelete()
-	.with({
-		access: {
-			read: true,
-			// Authenticated members may comment unless they are muted.
-			create: allOf(isAuthenticated, not(hasRole(Muted))),
-			// Authors hide their own comments, except pinned ones.
-			softDeleteOne: {
-				where: ({ principal, where }) =>
-					principal === undefined ? false : where.eq('author', principal.id),
-				item: ({ originalItem }) => !originalItem.pinned,
-			},
-			restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
-			// Editors also see hidden comments in ordinary reads.
-			readDeleted: hasRole(Editor),
+	softDelete: true,
+}).with((plugins) =>
+	plugins.access({
+		read: true,
+		// Authenticated members may comment unless they are muted.
+		create: allOf(isAuthenticated, not(hasRole(Muted))),
+		// Authors hide their own comments, except pinned ones.
+		softDeleteOne: {
+			where: ({ principal, where }) =>
+				principal === undefined ? false : where.eq('author', principal.id),
+			item: ({ originalItem }) => !originalItem.pinned,
 		},
-	})
+		restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
+		// Editors also see hidden comments in ordinary reads.
+		readDeleted: hasRole(Editor),
+	}),
+)
 ```
 
 <!-- endregion -->

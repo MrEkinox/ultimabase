@@ -48,7 +48,7 @@ const Post = App.Schema.define({
 		tags: field.relation({ target: 'CountTag' }),
 		title: field.string({ required: true }),
 	}),
-}).with({ graphql: { count: true } })
+}).with((plugins) => plugins.graphql({ count: true }))
 
 const Tag = App.Schema.define({
 	className: 'CountTag',

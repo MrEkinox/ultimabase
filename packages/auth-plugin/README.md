@@ -84,15 +84,15 @@ export const Member = App.UserSchema.define({
 		displayName: field.string({ required: true }),
 		bio: field.string(),
 	}),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.access({
 		// Members read and edit only their own profile.
 		read: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('id', principal.id),
 		update: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('id', principal.id),
-	},
-})
+	}),
+)
 ```
 
 <!-- endregion -->

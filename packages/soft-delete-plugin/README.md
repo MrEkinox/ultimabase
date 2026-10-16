@@ -47,8 +47,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-	ensure: ['moderator'],
-})
+}).with((plugins) => plugins.roles({ ensure: ['moderator'] }))
 
 export const Moderator = StaffRole.role('moderator')
 
@@ -56,10 +55,10 @@ export const Moderator = StaffRole.role('moderator')
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete()
-	.with({
-		access: {
+	softDelete: true,
+}).with((plugins) =>
+	plugins
+		.access({
 			// Every caller may write, delete and restore posts in this example.
 			read: true,
 			create: true,
@@ -70,11 +69,11 @@ export const Post = App.Schema.define({
 			restoreMany: true,
 			// Only moderators see tombstones in ordinary reads.
 			readDeleted: hasRole(Moderator),
-		},
+		})
 		// A command reaches REST or GraphQL only when the rule names it.
-		rest: { softDeleteOne: true, restoreOne: true },
-		graphql: { softDeleteOne: true, restoreOne: true },
-	})
+		.rest({ softDeleteOne: true, restoreOne: true })
+		.graphql({ softDeleteOne: true, restoreOne: true }),
+)
 ```
 
 <!-- endregion -->
@@ -107,7 +106,8 @@ The example's `Comment` keeps native deletes permanent:
 export const Comment = App.Schema.define({
 	className: 'Comment',
 	fields: (field) => ({ body: field.string({ required: true }) }),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 ```
 
 <!-- endregion -->
@@ -186,11 +186,9 @@ never adds one:
 export const Article = App.Schema.define({
 	className: 'Article',
 	fields: (field) => ({ slug: field.string({ required: true }) }),
+	indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	softDelete: true,
 })
-	.softDelete()
-	.with({
-		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
-	})
 ```
 
 <!-- endregion -->

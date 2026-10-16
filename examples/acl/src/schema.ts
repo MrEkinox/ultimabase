@@ -29,9 +29,12 @@ export const Member = App.Schema.define({
 export const Team = App.RoleSchema.define({
 	className: 'Team',
 	members: () => Member,
-	// The Announcement default grants this role, so it must exist.
-	ensure: ['editors'],
-})
+}).with((plugins) =>
+	plugins.roles({
+		// The Announcement default grants this role, so it must exist.
+		ensure: ['editors'],
+	}),
+)
 
 export const Editors = Team.role('editors')
 //#endregion members
@@ -44,11 +47,11 @@ export const Editors = Team.role('editors')
 export const Note = App.Schema.define({
 	className: 'Note',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.acl()
-	.with({
-		access: { read: true, create: isAuthenticated, update: true, delete: true },
-		acl: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: isAuthenticated, update: true, delete: true })
+		.acl({
 			// The creator may read, update and delete; nobody else sees the note.
 			default: ({ principal }) => new ACL(principal),
 			//#region client-sharing
@@ -59,8 +62,8 @@ export const Note = App.Schema.define({
 			//#endregion client-sharing
 			// The owner and two other members at most.
 			limits: { maxPrincipals: 3 },
-		},
-	})
+		}),
+)
 //#endregion note
 
 //#region announcement
@@ -74,20 +77,20 @@ export const Announcement = App.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
-})
-	.acl()
-	.with({
-		access: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.access({
 			read: ({ where }) => where.eq('published', true),
 			create: hasRole(Editors),
 			update: true,
 			delete: true,
-		},
-		acl: {
+		})
+		.acl({
 			// One fixed ACL for every row; `'write'` means update and delete.
 			default: new ACL().grantPublic('read').grantRole(Editors, 'write'),
-		},
-	})
+		}),
+)
 //#endregion announcement
 
 //#region page
@@ -98,11 +101,11 @@ export const Page = App.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
-})
-	.acl()
-	.with({
-		access: { read: true, create: isAuthenticated, update: true, delete: true },
-		acl: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: isAuthenticated, update: true, delete: true })
+		.acl({
 			default: ({ principal }) => new ACL(principal),
 			// Recomputed on each create and singular update without an explicit ACL.
 			resolveInput: ({ currentAcl, data, principal }) => {
@@ -111,6 +114,6 @@ export const Page = App.Schema.define({
 					? acl.grantAuthenticated('read')
 					: acl.revokeAuthenticated('read')
 			},
-		},
-	})
+		}),
+)
 //#endregion page

@@ -38,49 +38,48 @@ const Application = UltimaBase.use(
 const Document = Application.Schema.define({
 	className: 'SoftDeleteAllHooksDocument',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete({ mode: 'command' })
-	.with({
-		hooks: {
-			beforeOperation: {
-				all: ({ kind }) => {
-					// `kind` names the native operations and every Soft Delete command.
-					expectTypeOf(kind).toEqualTypeOf<
-						| 'create'
-						| 'delete'
-						| 'purgeMany'
-						| 'purgeOne'
-						| 'restoreMany'
-						| 'restoreOne'
-						| 'softDeleteMany'
-						| 'softDeleteOne'
-						| 'update'
-						| 'upsert'
-					>()
-					audit.push(`beforeOperation:all:${kind}`)
-				},
-				softDeleteOne: ({ originalItem }) => {
-					audit.push(`beforeOperation:softDeleteOne:${originalItem.title}`)
-				},
+	softDelete: { mode: 'command' },
+}).with((plugins) =>
+	plugins.hooks({
+		beforeOperation: {
+			all: ({ kind }) => {
+				// `kind` names the native operations and every Soft Delete command.
+				expectTypeOf(kind).toEqualTypeOf<
+					| 'create'
+					| 'delete'
+					| 'purgeMany'
+					| 'purgeOne'
+					| 'restoreMany'
+					| 'restoreOne'
+					| 'softDeleteMany'
+					| 'softDeleteOne'
+					| 'update'
+					| 'upsert'
+				>()
+				audit.push(`beforeOperation:all:${kind}`)
 			},
-			afterOperation: {
-				all: (input) => {
-					if (input.kind === 'restoreOne') {
-						audit.push(
-							`afterOperation:all:restoreOne:${String(input.item.isDeleted)}`,
-						)
-						return
-					}
-					audit.push(`afterOperation:all:${input.kind}`)
-				},
-			},
-			afterCommit: {
-				all: ({ kind }) => {
-					audit.push(`afterCommit:all:${kind}`)
-				},
+			softDeleteOne: ({ originalItem }) => {
+				audit.push(`beforeOperation:softDeleteOne:${originalItem.title}`)
 			},
 		},
-	})
+		afterOperation: {
+			all: (input) => {
+				if (input.kind === 'restoreOne') {
+					audit.push(
+						`afterOperation:all:restoreOne:${String(input.item.isDeleted)}`,
+					)
+					return
+				}
+				audit.push(`afterOperation:all:${input.kind}`)
+			},
+		},
+		afterCommit: {
+			all: ({ kind }) => {
+				audit.push(`afterCommit:all:${kind}`)
+			},
+		},
+	}),
+)
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: { dispose(): Promise<void> } | undefined

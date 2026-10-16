@@ -27,7 +27,7 @@ export const App = UltimaBase.use(
 export const Member = App.Schema.define({
 	className: 'Member',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({ access: { read: true } })
+}).with((plugins) => plugins.access({ read: true }))
 
 /**
  * Staff roles, created at start when missing. Everyone may read them; no
@@ -36,11 +36,16 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-	// The default: refuse to delete a role that still has members or links.
-	deletion: 'fail',
-	ensure: ['editor', 'administrator'],
 	fields: (field) => ({ description: field.string() }),
-}).with({ access: { read: true } })
+}).with((plugins) =>
+	plugins
+		.roles({
+			// The default: refuse to delete a role that still has members or links.
+			deletion: 'fail',
+			ensure: ['editor', 'administrator'],
+		})
+		.access({ read: true }),
+)
 
 export const Editor = StaffRole.role('editor')
 export const Administrator = StaffRole.role('administrator')
@@ -55,15 +60,14 @@ export const Administrator = StaffRole.role('administrator')
 export const Team = App.RoleSchema.define({
 	className: 'Team',
 	members: () => Member,
-	deletion: 'cascade',
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.roles({ deletion: 'cascade' }).access({
 		read: true,
 		create: hasRole(Administrator),
 		update: hasRole(Administrator),
 		delete: hasRole(Administrator),
-	},
-})
+	}),
+)
 //#endregion team
 
 //#region post
@@ -71,12 +75,12 @@ export const Team = App.RoleSchema.define({
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.access({
 		read: true,
 		create: hasRole(Editor),
 		update: hasRole(Editor),
 		delete: hasRole(Administrator),
-	},
-})
+	}),
+)
 //#endregion post

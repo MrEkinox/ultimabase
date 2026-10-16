@@ -25,7 +25,7 @@ it('offers a rule only after its shape method', () => {
 			fields: (f) => ({ body: f.string() }),
 		})
 			// @ts-expect-error -- `flagReason` needs `.flaggable()` first.
-			.with({ flagReason: 'Spam' })
+			.with((plugins) => plugins.flagReason('Spam'))
 	// The rules slot is a type: the option itself accepts the text.
 	expect(declare).not.toThrow()
 })
@@ -36,7 +36,7 @@ it('rejects a rule whose plugin is not installed', () => {
 		fields: (f) => ({ body: f.string() }),
 	})
 		// @ts-expect-error -- no installed plugin declares `audit`.
-		.with({ audit: true })
+		.with((plugins) => plugins.audit(true))
 	// The application that would use it refuses to compile.
 	expect(() => new UltimaBase({ schemas: [Note] }).compile()).toThrow('audit')
 })

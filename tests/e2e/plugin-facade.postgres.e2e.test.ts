@@ -44,10 +44,10 @@ const Post = App.Schema.define({
 		owner: field.string({ required: true }),
 		title: field.string({ required: true }),
 	}),
-})
-	.archivable()
-	.with({
-		access: {
+	archivable: true,
+}).with((plugins) =>
+	plugins
+		.access({
 			read: true,
 			create: true,
 			delete: true,
@@ -59,9 +59,9 @@ const Post = App.Schema.define({
 				where: () => ({ owner: { eq: 'ada' } }),
 				item: ({ originalItem }) => originalItem.title !== 'locked',
 			},
-		},
-		audit: true,
-		hooks: {
+		})
+		.audit(true)
+		.hooks({
 			beforeOperation: {
 				archiveMany: ({ originalItem }) => {
 					hookTrace.push(`archiveMany:${originalItem.title}`)
@@ -70,13 +70,13 @@ const Post = App.Schema.define({
 					}
 				},
 			},
-		},
-	})
+		}),
+)
 
 const Note = App.Schema.define({
 	className: 'FacadeNote',
 	fields: (field) => ({ body: field.string() }),
-}).with({ access: { read: true, create: true } })
+}).with((plugins) => plugins.access({ read: true, create: true }))
 
 // Compile-time proofs (never run): shape fields, commands and rules are typed.
 export const typeProofs = (): void => {
@@ -87,10 +87,11 @@ export const typeProofs = (): void => {
 	App.Schema.define({
 		className: 'FacadeBadRule',
 		fields: (field) => ({ title: field.string() }),
-	}).with({
-		// @ts-expect-error -- `.with` checks the rule value against its validator.
-		audit: 'yes',
-	})
+	}).with((plugins) =>
+		plugins
+			// @ts-expect-error -- `.with` checks the rule value against its validator.
+			.audit('yes'),
+	)
 	// @ts-expect-error -- `archivedAt` is written by the server only.
 	void Post.createOne({ data: { owner: 'ada', title: 't', archivedAt: null } })
 }

@@ -13,7 +13,8 @@ it('offers the shape method and types its commands', async () => {
 	const Document = SoftDeleteApplication.Schema.define({
 		className: 'SoftDeleteIntellisenseDocument',
 		fields: (field) => ({ title: field.string() }),
-	}).softDelete({ mode: 'command' })
+		softDelete: { mode: 'command' },
+	})
 	const application = new SoftDeleteApplication({
 		logger: false,
 		schemas: [Document],
@@ -25,15 +26,18 @@ const SourceApplication = UltimaBase.use(softDeletePlugin())
 const Completion = SourceApplication.Schema.define({
   className: 'SoftDeleteCompletion',
   fields: (field) => ({ title: field.string() }),
-}).${marker}softDelete()
+  ${marker}softDelete: true,
+})
 const Command = SourceApplication.Schema.define({
   className: 'SoftDeleteCommand',
   fields: (field) => ({ title: field.string() }),
-}).softDelete({ mode: 'command' })
+  softDelete: { mode: 'command' },
+})
 const Installed = SourceApplication.Schema.define({
   className: 'SoftDeleteIntellisenseDocument',
   fields: (field) => ({ title: field.string() }),
-}).softDelete({ mode: 'command' })
+  softDelete: { mode: 'command' },
+})
 const deleted = Installed.softDeleteOne({ id: 'document-1', select: { isDeleted: true } })
 const restored = Installed.restoreMany({ where: { title: { eq: 'x' } } })
 const purged = Command.purgeOne({ id: 'document-1' })
@@ -42,8 +46,9 @@ Installed.softDeleteOne({ missing: 'document-1' })
 const Invalid = SourceApplication.Schema.define({
   className: 'SoftDeleteInvalid',
   fields: (field) => ({ title: field.string() }),
-// @ts-expect-error -- The only mode is 'command'; the default needs no option.
-}).softDelete({ mode: 'replace-delete' })
+  // @ts-expect-error -- The only mode is 'command'; the default needs no option.
+  softDelete: { mode: 'replace-delete' },
+})
 void Completion
 void deleted
 void restored

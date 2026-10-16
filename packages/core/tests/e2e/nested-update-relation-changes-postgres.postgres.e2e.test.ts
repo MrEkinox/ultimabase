@@ -26,29 +26,30 @@ const Child = NestedUpdateApplication.Schema.define({
 		}),
 		visible: field.boolean({ default: true }),
 	}),
-}).with({
-	access: {
-		read: ({ where }) => where.eq('visible', true),
-	},
-	hooks: {
-		afterOperation: {
-			create: () => {
-				trace.push('child:create:after')
+}).with((plugins) =>
+	plugins
+		.access({
+			read: ({ where }) => where.eq('visible', true),
+		})
+		.hooks({
+			afterOperation: {
+				create: () => {
+					trace.push('child:create:after')
+				},
+				update: () => {
+					trace.push('child:update:after')
+				},
 			},
-			update: () => {
-				trace.push('child:update:after')
+			beforeOperation: {
+				create: () => {
+					trace.push('child:create:before')
+				},
+				update: () => {
+					trace.push('child:update:before')
+				},
 			},
-		},
-		beforeOperation: {
-			create: () => {
-				trace.push('child:create:before')
-			},
-			update: () => {
-				trace.push('child:update:before')
-			},
-		},
-	},
-})
+		}),
+)
 
 const Parent = NestedUpdateApplication.Schema.define({
 	className: 'NestedUpdateParent',
@@ -69,8 +70,8 @@ const Parent = NestedUpdateApplication.Schema.define({
 			target: 'NestedUpdateNote',
 		}),
 	}),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		afterOperation: {
 			update: () => {
 				trace.push('parent:update:after')
@@ -82,8 +83,8 @@ const Parent = NestedUpdateApplication.Schema.define({
 				trace.push('parent:update:before')
 			},
 		},
-	},
-})
+	}),
+)
 
 const Note = NestedUpdateApplication.Schema.define({
 	className: 'NestedUpdateNote',

@@ -31,11 +31,12 @@ export const App = UltimaBase.use(
 export const Author = App.Schema.define({
 	className: 'Author',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({
-	access: { read: true },
-	// These methods get no route: POST /api/classes/Author answers 405.
-	rest: { createOne: false, updateOne: false, deleteOne: false },
-})
+}).with((plugins) =>
+	plugins
+		.access({ read: true })
+		// These methods get no route: POST /api/classes/Author answers 405.
+		.rest({ createOne: false, updateOne: false, deleteOne: false }),
+)
 //#endregion author
 
 //#region tag
@@ -43,7 +44,7 @@ export const Author = App.Schema.define({
 export const Tag = App.Schema.define({
 	className: 'Tag',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({ access: { read: true }, rest: false })
+}).with((plugins) => plugins.access({ read: true }).rest(false))
 //#endregion tag
 
 //#region post
@@ -59,12 +60,13 @@ export const Post = App.Schema.define({
 		// A moderation note no client may read, filter, sort or write.
 		reviewNote: field.string({ access: { read: false, write: false } }),
 	}),
-}).with({
 	indexes: [{ fields: ['slug'], unique: true }],
-	access: { read: true, create: true, update: true, delete: true },
-	// The built-in routes, plus count and the atomic bulk create.
-	rest: { count: true, createMany: true },
-})
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: true, update: true, delete: true })
+		// The built-in routes, plus count and the atomic bulk create.
+		.rest({ count: true, createMany: true }),
+)
 //#endregion post
 
 //#region feedback
@@ -72,5 +74,5 @@ export const Post = App.Schema.define({
 export const Feedback = App.Schema.define({
 	className: 'Feedback',
 	fields: (field) => ({ message: field.string({ required: true }) }),
-}).with({ access: { create: true } })
+}).with((plugins) => plugins.access({ create: true }))
 //#endregion feedback

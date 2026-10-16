@@ -26,7 +26,7 @@ const Target = GraphqlSchemaApplication.Schema.define({
 		name: field.string({ required: true }),
 		score: field.bigint({ default: 0n }),
 	}),
-}).with({ graphql: true })
+}).with((plugins) => plugins.graphql(true))
 
 const Post = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlNestedPost',
@@ -43,7 +43,7 @@ const Post = GraphqlSchemaApplication.Schema.define({
 			select: { title: true },
 		}),
 	}),
-}).with({ graphql: true })
+}).with((plugins) => plugins.graphql(true))
 
 const Node = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlNestedNode',
@@ -51,7 +51,7 @@ const Node = GraphqlSchemaApplication.Schema.define({
 		child: field.pointer({ target: 'GraphqlNestedNode' }),
 		name: field.string({ required: true }),
 	}),
-}).with({ graphql: true })
+}).with((plugins) => plugins.graphql(true))
 
 const schemas = [Target, Post, Node] as const
 const hono = new Hono()

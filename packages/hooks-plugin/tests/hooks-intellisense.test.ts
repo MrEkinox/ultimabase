@@ -81,7 +81,7 @@ Application.Schema.define({ /* schema-options */ })
 Application.Schema.define({
   className: 'WithHooks',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
-}).with({ /* schema-rules */ })
+}).with((plugins) => plugins./* schema-rules */)
 `
 		const sourceFile = fixtureFile('source-options')
 		const fixture = createLanguageServiceFixture(sourceFile, source, [
@@ -110,9 +110,9 @@ const Application = UltimaBase.use(hooksPlugin())
 Application.Schema.define({
   className: 'NestedHookInput',
   fields: (field) => ({ title: field.string() }),
-}).with({
-  hooks: { afterOperation: { create: (input) => input./* hook-input */ } },
-})
+}).with((plugins) =>
+  plugins.hooks({ afterOperation: { create: (input) => input./* hook-input */ } }),
+)
 `
 		const nestedFile = fixtureFile('nested-hook-input')
 		const fixture = createLanguageServiceFixture(nestedFile, source, [

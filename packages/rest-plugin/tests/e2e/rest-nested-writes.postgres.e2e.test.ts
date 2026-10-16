@@ -28,9 +28,7 @@ const Target = RestNestedWriteApplication.Schema.define({
 		name: field.string({ required: true }),
 		score: field.bigint({ default: 0n }),
 	}),
-}).with({
-	access: { update: false },
-})
+}).with((plugins) => plugins.access({ update: false }))
 
 const Post = RestNestedWriteApplication.Schema.define({
 	className: 'RestNestedPost',

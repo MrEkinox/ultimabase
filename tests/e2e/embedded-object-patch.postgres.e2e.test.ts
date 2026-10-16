@@ -69,34 +69,35 @@ const Profile = App.Schema.define({
 		}),
 		metadata: field.json(),
 	}),
-}).with({
-	// The schema check sees the complete item as it would be stored.
-	validation: ({ item }) => {
-		const { box } = item
-		return (
-			box === null ||
-			box.a !== box.b || {
-				code: 'box.distinct',
-				message: 'a and b must differ',
-				path: ['box'],
-			}
-		)
-	},
-	hooks: {
-		beforeOperation: {
-			update: ({ changes: { address, box }, item, originalItem }) => {
-				const changes = { address, box }
-				observed.push({ changes, item, originalItem, phase: 'before' })
+}).with((plugins) =>
+	plugins
+		// The schema check sees the complete item as it would be stored.
+		.validation(({ item }) => {
+			const { box } = item
+			return (
+				box === null ||
+				box.a !== box.b || {
+					code: 'box.distinct',
+					message: 'a and b must differ',
+					path: ['box'],
+				}
+			)
+		})
+		.hooks({
+			beforeOperation: {
+				update: ({ changes: { address, box }, item, originalItem }) => {
+					const changes = { address, box }
+					observed.push({ changes, item, originalItem, phase: 'before' })
+				},
 			},
-		},
-		afterOperation: {
-			update: ({ changes: { address, box }, item, originalItem }) => {
-				const changes = { address, box }
-				observed.push({ changes, item, originalItem, phase: 'after' })
+			afterOperation: {
+				update: ({ changes: { address, box }, item, originalItem }) => {
+					const changes = { address, box }
+					observed.push({ changes, item, originalItem, phase: 'after' })
+				},
 			},
-		},
-	},
-})
+		}),
+)
 
 const Owner = App.Schema.define({
 	className: 'PatchOwner',

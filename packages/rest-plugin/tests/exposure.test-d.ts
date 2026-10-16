@@ -1,13 +1,13 @@
 import { UltimaBase, dateTimeField } from '@ultimabase/core'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 import { expectTypeOf, test } from 'vitest'
 
 import { restPlugin, type RestSchemaRule } from '../src/index.js'
 
 const archivePlugin = definePlugin({
 	name: '@fixture/rest-archive-types',
-	shape: {
-		archivable: shapeMethod({
+	features: {
+		archivable: feature({
 			fields: { archivedAt: dateTimeField() },
 			commands: {
 				archiveOne: command({ authority: 'request', effect: 'update' }),
@@ -27,27 +27,37 @@ const define = () =>
 		className: 'RestRuleTypes',
 		fields: (field) => ({ title: field.string() }),
 	})
+const defineArchivable = () =>
+	App.Schema.define({
+		className: 'RestRuleTypes',
+		fields: (field) => ({ title: field.string() }),
+		archivable: true,
+	})
 
 // ADR-0324 decision 2: one vocabulary, the schema method names.
 test('keys `.with({ rest })` by method and exposable command names', () => {
-	define()
-		.archivable()
-		.with({ rest: { archiveOne: true, findMany: false } })
-	define().with({ rest: true })
-	define().with({ rest: { count: true, upsertMany: true } })
+	defineArchivable().with((plugins) =>
+		plugins.rest({ archiveOne: true, findMany: false }),
+	)
+	define().with((plugins) => plugins.rest(true))
+	define().with((plugins) => plugins.rest({ count: true, upsertMany: true }))
 
-	define()
-		.archivable()
+	defineArchivable().with((plugins) =>
 		// @ts-expect-error -- a command on many rows takes input REST cannot send.
-		.with({ rest: { archiveMany: true } })
-	define()
-		.archivable()
+		plugins.rest({ archiveMany: true }),
+	)
+	defineArchivable().with((plugins) =>
 		// @ts-expect-error -- Master commands are never public routes.
-		.with({ rest: { purgeOne: true } })
-	// @ts-expect-error -- the command exists only after `.archivable()`.
-	define().with({ rest: { archiveOne: true } })
-	// @ts-expect-error -- the former REST-only keys are gone.
-	define().with({ rest: { find: true } })
+		plugins.rest({ purgeOne: true }),
+	)
+	define().with((plugins) =>
+		// @ts-expect-error -- the command exists only after `archivable: true`.
+		plugins.rest({ archiveOne: true }),
+	)
+	define().with((plugins) =>
+		// @ts-expect-error -- the former REST-only keys are gone.
+		plugins.rest({ find: true }),
+	)
 
 	expectTypeOf<RestSchemaRule>().toExtend<
 		boolean | Readonly<{ findOne?: boolean; deleteMany?: boolean }>

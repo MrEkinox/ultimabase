@@ -187,10 +187,11 @@ export const Customer = App.Schema.define({
 				loyaltyService.tiers(items.map(({ email }) => String(email))),
 		}),
 	}),
-}).with({
-	// Reads through `wishlist` only show published books.
-	relations: { wishlist: { where: { published: { eq: true } } } },
-})
+}).with((plugins) =>
+	plugins
+		// Reads through `wishlist` only show published books.
+		.relations({ wishlist: { where: { published: { eq: true } } } }),
+)
 ```
 
 <!-- endregion -->
@@ -1271,7 +1272,7 @@ rule of the minimal example's `ExampleArticle` uses both:
 <!-- region ../../examples/minimal/src/schema.ts#relation-views -->
 
 ```ts
-relations: {
+.relations({
 	contributors: { where: { listed: { eq: true } } },
 	// Anonymous requests see only public reviewers.
 	reviewers: {
@@ -1280,7 +1281,7 @@ relations: {
 				? where.eq('audience', 'public')
 				: where,
 	},
-},
+})
 ```
 
 <!-- endregion -->
@@ -2122,7 +2123,7 @@ const Post = Application.Schema.define({
 			hooks: { resolveInput: ({ value }) => value.trim() },
 		}),
 	}),
-}).with({ access: { read: true } })
+}).with((plugins) => plugins.access({ read: true }))
 
 export const ultimabase = new Application({ schemas: [Post] })
 
@@ -2459,8 +2460,8 @@ export const isEditor: PolicyPredicate = async function isEditor({
 export const Announcement = App.Schema.define({
 	className: 'Announcement',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.access({
 		read: true,
 		create: {
 			where: isAuthenticated,
@@ -2476,8 +2477,8 @@ export const Announcement = App.Schema.define({
 		},
 		update: isEditor,
 		delete: isEditor,
-	},
-})
+	}),
+)
 ```
 
 <!-- endregion -->

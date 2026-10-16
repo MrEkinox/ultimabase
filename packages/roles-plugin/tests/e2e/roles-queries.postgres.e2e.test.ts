@@ -60,22 +60,20 @@ const QueryMember = App.Schema.define({
 const QueryRole = App.RoleSchema.define({
 	className: 'RoleQueryRole',
 	members: () => QueryMember,
-	ensure: ['Admin', 'editor'],
 	fields: (field) => ({ description: field.string() }),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.roles({ ensure: ['Admin', 'editor'] }).hooks({
 		beforeOperation: {
 			create: async ({ item }) => {
 				await competingInsert?.(item.name)
 			},
 		},
-	},
-})
+	}),
+)
 const QueryTeam = App.RoleSchema.define({
 	className: 'RoleQueryTeam',
 	members: () => QueryMember,
-	ensure: ['lead'],
-})
+}).with((plugins) => plugins.roles({ ensure: ['lead'] }))
 
 const createApplication = (connectionUri: string) =>
 	new (App.use(identity, postgresPlugin({ url: connectionUri })))({

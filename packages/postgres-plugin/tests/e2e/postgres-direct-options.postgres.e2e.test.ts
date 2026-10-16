@@ -37,7 +37,7 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		fields: (field) => ({
 			headline: field.string({ required: true }),
 		}),
-	}).with({ postgres: { table: 'direct_option_articles' } })
+	}).with((plugins) => plugins.postgres({ table: 'direct_option_articles' }))
 	const legacy = new LegacyApplication({
 		logger: false,
 		schemas: [LegacyArticle],
@@ -62,7 +62,7 @@ it('preserves data while applying a direct field rename to an explicit table', a
 				required: true,
 			}),
 		}),
-	}).with({ postgres: { table: 'direct_option_articles' } })
+	}).with((plugins) => plugins.postgres({ table: 'direct_option_articles' }))
 	const renamed = new RenamedApplication({
 		logger: false,
 		schemas: [Article],

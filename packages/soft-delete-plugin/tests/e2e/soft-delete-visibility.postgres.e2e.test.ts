@@ -25,7 +25,8 @@ const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
 const VisibleRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibleRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 
 const PlainRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeletePlainRecord',
@@ -38,16 +39,16 @@ let rejectedDeleteTitle: string | undefined
 const ReplaceRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteReplaceRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete()
-	.with({
-		access: {
+	softDelete: true,
+}).with((plugins) =>
+	plugins
+		.access({
 			create: true,
 			delete: true,
 			read: true,
 			update: false,
-		},
-		hooks: {
+		})
+		.hooks({
 			afterOperation: {
 				delete: ({ originalItem }) => {
 					replaceDeleteTrace.push(`after:delete:${originalItem.title}`)
@@ -68,8 +69,8 @@ const ReplaceRecord = SoftDeleteSchemaApplication.Schema.define({
 					replaceDeleteTrace.push('before:update')
 				},
 			},
-		},
-	})
+		}),
+)
 
 const replaceDeleteObserver = plugin({
 	core: '^0.0.0',
@@ -142,12 +143,14 @@ const staleTombstoneWriter = plugin({
 const Author = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 
 const Tag = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 
 const Article = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityArticle',
@@ -156,7 +159,8 @@ const Article = SoftDeleteSchemaApplication.Schema.define({
 		tags: field.relation({ target: () => Tag }),
 		title: field.string({ required: true }),
 	}),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 
 const schemas = [
 	VisibleRecord,

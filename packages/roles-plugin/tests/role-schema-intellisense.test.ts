@@ -24,7 +24,7 @@ const AppRole = RoleApplication.RoleSchema.define({
   members: () => User,
   fields: (field) => ({ description: field.string() }),
   /* deletion-hover */deletion: 'fail',
-}).with({ access: { read: true } })
+}).with((plugins) => plugins.access({ read: true }))
 
 RoleApplication.RoleSchema.define({
   className: 'CompletedRole',

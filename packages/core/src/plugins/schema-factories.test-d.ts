@@ -107,7 +107,9 @@ declare const fixture: ReturnType<
 const App = UltimaBase.use(fixture)
 
 test('adds factories only to applications that install them', () => {
-	const Note = App.NoteSchema.define({ className: 'TypedNote' }).with({})
+	const Note = App.NoteSchema.define({ className: 'TypedNote' }).with(
+		(plugins) => plugins,
+	)
 	expectTypeOf(Note.describe()).toEqualTypeOf<string>()
 	expectTypeOf(Note).toExtend<SchemaDefinition>()
 	// @ts-expect-error -- The root factory has no NoteSchema.
@@ -115,7 +117,7 @@ test('adds factories only to applications that install them', () => {
 	const Plain = App.Schema.define({
 		className: 'PlainNote',
 		fields: () => ({}),
-	}).with({})
+	}).with((plugins) => plugins)
 	// @ts-expect-error -- Ordinary declarations get no factory statics.
 	void Plain.describe
 })
@@ -128,10 +130,12 @@ test('passes the called shape methods to rules slots', () => {
 		.tagged()
 		// @ts-expect-error -- `tag` is required once `.tagged()` is called.
 		.with({})
-	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with({
-		// @ts-expect-error -- `tag` needs `.tagged()`.
-		tag: { initial: 'a' },
-	})
+	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with(
+		(plugins) =>
+			plugins
+				// @ts-expect-error -- `tag` needs `.tagged()`.
+				.tag({ initial: 'a' }),
+	)
 })
 
 test('accepts a field update input in update data only', async () => {

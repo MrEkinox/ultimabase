@@ -28,24 +28,26 @@ test('types the PostgreSQL table rule and field option exactly', () => {
 				postgres: { renamedFrom: 'headline' },
 			}),
 		}),
-	}).with({ postgres: { table: 'content_posts' } })
+	}).with((plugins) => plugins.postgres({ table: 'content_posts' }))
 
 	expectTypeOf(Post.className).toEqualTypeOf<'PostgresDirectOptionTypePost'>()
 
 	App.Schema.define({
 		className: 'PostgresInvalidSchemaOption',
 		fields: () => ({}),
-	}).with({
-		// @ts-expect-error -- The table rule requires one table name.
-		postgres: {},
-	})
+	}).with((plugins) =>
+		plugins
+			// @ts-expect-error -- The table rule requires one table name.
+			.postgres({}),
+	)
 	App.Schema.define({
 		className: 'PostgresUnknownSchemaOption',
 		fields: () => ({}),
-	}).with({
-		// @ts-expect-error -- Unknown PostgreSQL rule keys are rejected.
-		postgres: { namespace: 'public', table: 'posts' },
-	})
+	}).with((plugins) =>
+		plugins
+			// @ts-expect-error -- Unknown PostgreSQL rule keys are rejected.
+			.postgres({ namespace: 'public', table: 'posts' }),
+	)
 	App.Schema.define({
 		className: 'PostgresInvalidFieldOption',
 		fields: (field) => ({
@@ -63,8 +65,9 @@ test('types the PostgreSQL table rule and field option exactly', () => {
 	UltimaBase.Schema.define({
 		className: 'PostgresRuleWithoutPlugin',
 		fields: () => ({}),
-	}).with({
-		// @ts-expect-error -- The rule exists only with postgresPlugin().
-		postgres: { table: 'posts' },
-	})
+	}).with((plugins) =>
+		plugins
+			// @ts-expect-error -- The rule exists only with postgresPlugin().
+			.postgres({ table: 'posts' }),
+	)
 })

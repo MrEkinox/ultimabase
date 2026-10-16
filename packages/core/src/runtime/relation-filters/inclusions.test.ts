@@ -58,8 +58,8 @@ describe('Runtime relation-filter inclusions', () => {
 				name: field.string(),
 				tenant: field.string(),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				members: {
 					where: ({ context, where }) => {
 						memberResolverCalls += 1
@@ -69,16 +69,16 @@ describe('Runtime relation-filter inclusions', () => {
 							.ne('id', context.getValue(principalId) ?? 'anonymous')
 					},
 				},
-			},
-		})
+			}),
+		)
 		const Workspace = UltimaBase.Schema.define({
 			className: 'FilteredIncludedWorkspace',
 			fields: (field) => ({
 				name: field.string(),
 				rooms: field.relation({ target: 'FilteredIncludedRoom' }),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				rooms: {
 					where: ({ context, where }) => {
 						roomResolverCalls += 1
@@ -86,8 +86,8 @@ describe('Runtime relation-filter inclusions', () => {
 						return where.eq('active', true)
 					},
 				},
-			},
-		})
+			}),
+		)
 		const firstWorkspace = { id: firstSourceId, name: 'First workspace' }
 		const secondWorkspace = { id: secondSourceId, name: 'Second workspace' }
 		const firstRoom = { id: firstTargetId, name: 'First room' }
@@ -305,16 +305,16 @@ describe('Runtime relation-filter inclusions', () => {
 				reviewers: field.relation({ target: 'PointerIsolationUser' }),
 				title: field.string(),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				reviewers: {
 					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
 					},
 				},
-			},
-		})
+			}),
+		)
 		const author = User.pointer(firstTargetId)
 		const post = {
 			author,
@@ -396,16 +396,16 @@ describe('Runtime relation-filter inclusions', () => {
 				name: field.string({ required: true }),
 				targets: field.relation({ target: 'MutationIncludedTarget' }),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				targets: {
 					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
 					},
 				},
-			},
-		})
+			}),
+		)
 		const first = {
 			createdAt: now,
 			id: firstSourceId,
@@ -500,16 +500,16 @@ describe('Runtime relation-filter inclusions', () => {
 				name: field.string({ required: true }),
 				targets: field.relation({ target: 'SingularMutationIncludedTarget' }),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				targets: {
 					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
 					},
 				},
-			},
-		})
+			}),
+		)
 		const current = {
 			createdAt: now,
 			id: firstSourceId,

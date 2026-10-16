@@ -86,14 +86,12 @@ const ProtectedPost = ACLSchemaApplication.Schema.define({
 		marker: field.string({ default: 'original' }),
 		title: field.string({ required: true }),
 	}),
-})
-	.acl()
-	.with({
-		postgres: { table: 'acl_access_posts' },
-		acl: {
-			default: emptyACL,
-		},
-	})
+	acl: true,
+}).with((plugins) =>
+	plugins.postgres({ table: 'acl_access_posts' }).acl({
+		default: emptyACL,
+	}),
+)
 const aliceId = '0198a43e-2431-7000-8000-000000000070'
 const bobId = '0198a43e-2431-7000-8000-000000000071'
 const editorRoleId = 'fixture-role-editor-stable-id'

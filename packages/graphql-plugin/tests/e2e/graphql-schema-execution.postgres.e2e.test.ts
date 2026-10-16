@@ -44,9 +44,7 @@ const GraphqlAuthor = GraphqlSchemaApplication.Schema.define({
 			target: 'GraphqlExecutionPost',
 		}),
 	}),
-}).with({
-	graphql: true,
-})
+}).with((plugins) => plugins.graphql(true))
 
 const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionPost',
@@ -73,10 +71,10 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 			validation: z.string().min(2),
 		}),
 	}),
-})
-	.acl()
-	.with({
-		hooks: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.hooks({
 			beforeOperation: {
 				create: ({ item }) => {
 					hookTrace.push(`${getCurrentRequest().requestId}:create:${item.slug}`)
@@ -90,12 +88,12 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 					hookTrace.push(`${getCurrentRequest().requestId}:update:${item.slug}`)
 				},
 			},
-		},
-		acl: {
+		})
+		.acl({
 			default: publicAcl,
-		},
-		graphql: true,
-	})
+		})
+		.graphql(true),
+)
 
 const harness: ExecutionHarness = {}
 let fixture: PostgresWorkerFixture | undefined

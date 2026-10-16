@@ -37,16 +37,16 @@ const RestAuthor = RestReadApplication.Schema.define({
 		name: field.string({ required: true }),
 		visible: field.boolean({ default: true }),
 	}),
-})
-	.acl()
-	.with({
-		access: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.access({
 			read: ({ where }) => where.eq('visible', true),
-		},
-		acl: {
+		})
+		.acl({
 			default: privateAcl,
-		},
-	})
+		}),
+)
 
 const RestPost = RestReadApplication.Schema.define({
 	className: 'RestReadExecutionPost',
@@ -66,16 +66,16 @@ const RestPost = RestReadApplication.Schema.define({
 			select: { title: true },
 		}),
 	}),
-})
-	.acl()
-	.with({
-		access: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.access({
 			read: ({ where }) => where.eq('published', true),
-		},
-		acl: {
+		})
+		.acl({
 			default: privateAcl,
-		},
-	})
+		}),
+)
 
 interface ExecutionHarness {
 	callbacks?: ApplicationCallbackExecutor

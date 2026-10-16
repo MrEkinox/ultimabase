@@ -22,7 +22,8 @@ const Item = App.Schema.define({
 		tags: field.string({ list: true }),
 		amount: field.decimal({ precision: 30, scale: 10 }),
 	}),
-}).with({ indexes: [{ fields: ['group', 'rank'], unique: true }] })
+	indexes: [{ fields: ['group', 'rank'], unique: true }],
+})
 
 /** Barrier making both first attempts hold their first row before the second. */
 let arrivals = 0
@@ -47,8 +48,8 @@ const Left = App.Schema.define({
 		touchPartner: field.boolean({ required: true, default: false }),
 		value: field.int({ required: true, default: 0 }),
 	}),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		afterOperation: {
 			update: async ({ item }) => {
 				if (!item.touchPartner) return
@@ -60,8 +61,8 @@ const Left = App.Schema.define({
 				})
 			},
 		},
-	},
-})
+	}),
+)
 
 const Right = App.Schema.define({
 	className: 'SemanticsRight',
@@ -69,8 +70,8 @@ const Right = App.Schema.define({
 		touchPartner: field.boolean({ required: true, default: false }),
 		value: field.int({ required: true, default: 0 }),
 	}),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		afterOperation: {
 			update: async ({ item }) => {
 				if (!item.touchPartner) return
@@ -82,8 +83,8 @@ const Right = App.Schema.define({
 				})
 			},
 		},
-	},
-})
+	}),
+)
 
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (UltimaBase.use(

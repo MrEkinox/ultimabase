@@ -29,7 +29,7 @@ const Notes = UltimaBase.use(
 export const Note = Notes.Schema.define({
 	className: 'Note',
 	fields: (field) => ({ text: field.string({ required: true }) }),
-}).with({ graphql: { findOne: true, findMany: true } })
+}).with((plugins) => plugins.graphql({ findOne: true, findMany: true }))
 
 export const notes = new Notes({ schemas: [Note] })
 //#endregion notes

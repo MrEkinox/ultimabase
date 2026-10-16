@@ -59,7 +59,7 @@ const defineCompleteSchemas = () => {
 			tags: field.string({ list: true }),
 			title: field.string({ required: true }),
 		}),
-	}).with({ graphql: true })
+	}).with((plugins) => plugins.graphql(true))
 	return { Author, Post }
 }
 
@@ -208,14 +208,14 @@ describe('GraphQL structural schema compilation', () => {
 				name: field.string(),
 				posts: field.relation({ mappedBy: 'author', target: 'CircularPost' }),
 			}),
-		}).with({ graphql: true })
+		}).with((plugins) => plugins.graphql(true))
 		const CircularPost = GraphqlSchemaApplication.Schema.define({
 			className: 'CircularPost',
 			fields: (field) => ({
 				author: field.pointer({ required: true, target: 'CircularAuthor' }),
 				title: field.string(),
 			}),
-		}).with({ graphql: true })
+		}).with((plugins) => plugins.graphql(true))
 		const application = await createApplication({
 			logger: false,
 			plugins: [graphqlPlugin()],
@@ -334,7 +334,7 @@ describe('GraphQL structural schema compilation', () => {
 		const Private = GraphqlSchemaApplication.Schema.define({
 			className: 'PrivateRecord',
 			fields: (field) => ({ secret: field.string() }),
-		}).with({ graphql: false })
+		}).with((plugins) => plugins.graphql(false))
 		const provider = plugin({
 			core: '^0.0.0',
 			id: 'fixture.private-schema',

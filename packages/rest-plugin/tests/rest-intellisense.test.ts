@@ -31,15 +31,15 @@ const App = UltimaBase.use(restPlugin())
 const Post = App.Schema.define({
   className: 'ConfiguredRestPost',
   fields: (field) => ({ title: field.string() }),
-}).with({ rest: { ${hoverMarker}count: true } })
+}).with((plugins) => plugins.rest({ ${hoverMarker}count: true }))
 App.Schema.define({
   className: 'RestRouteCompletion',
   fields: () => ({}),
-}).with({ rest: { ${routeMarker} } })
+}).with((plugins) => plugins.rest({ ${routeMarker} }))
 App.Schema.define({
   className: 'RestOptionCompletion',
   fields: () => ({}),
-}).with({ ${schemaMarker} })
+}).with((plugins) => plugins.${schemaMarker})
 void Post`
 			const schemaPosition = markerPosition(sourceWithMarkers, schemaMarker)
 			const routePosition = markerPosition(sourceWithMarkers, routeMarker)
@@ -75,7 +75,7 @@ void Post`
 					'upsertOne',
 				]),
 			)
-			// `.with({ rest })` shows the documented method (ADR-0324).
+			// `plugins.rest(...)` shows the documented method (ADR-0324).
 			expect(ts.displayPartsToString(hover?.displayParts)).toBe(
 				'(property) RestMethodRules.count?: boolean',
 			)
@@ -95,7 +95,7 @@ const Other = UltimaBase.use(httpPlugin({ appId: 'unrelated' }))
 Other.Schema.define({
   className: 'RestAbsentPost',
   fields: () => ({}),
-}).with({ rest: { count: true } })`
+}).with((plugins) => plugins.rest({ count: true }))`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)
@@ -117,7 +117,7 @@ const App = UltimaBase.use(restPlugin())
 App.Schema.define({
   className: 'InvalidRestPost',
   fields: () => ({}),
-}).with({ rest: { count: 'yes' } })`
+}).with((plugins) => plugins.rest({ count: 'yes' }))`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)

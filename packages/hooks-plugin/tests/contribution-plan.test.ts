@@ -42,11 +42,11 @@ describe('Hook contribution provenance', () => {
 					hooks: { resolveInput: ({ value }) => value },
 				}),
 			}),
-		}).with({
-			hooks: {
+		}).with((plugins) =>
+			plugins.hooks({
 				beforeOperation: { create: () => undefined },
-			},
-		})
+			}),
+		)
 		const application = new (UltimaBase.use(hooksPlugin()))({ schemas: [Post] })
 		await application.initialize()
 
@@ -57,9 +57,9 @@ describe('Hook contribution provenance', () => {
 		const Owned = HooksApplication.Schema.define({
 			className: 'PluginOwnedInlineSchemaHooks',
 			fields: (field) => ({ title: field.string() }),
-		}).with({
-			hooks: { beforeOperation: { create: () => undefined } },
-		})
+		}).with((plugins) =>
+			plugins.hooks({ beforeOperation: { create: () => undefined } }),
+		)
 
 		await expect(
 			new (UltimaBase.use(createSchemaProvider(Owned), hooksPlugin()))({

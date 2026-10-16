@@ -12,7 +12,6 @@ describe('partial indexes (ADR-0303)', () => {
 				rank: field.int(),
 				owner: field.uuid(),
 			}),
-		}).with({
 			indexes: [
 				{
 					fields: ['slug'],

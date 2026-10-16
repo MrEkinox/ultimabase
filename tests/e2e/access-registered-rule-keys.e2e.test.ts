@@ -21,21 +21,20 @@ const App = UltimaBase.use(accessPlugin(), softDeletePlugin())
 export const Note = App.Schema.define({
   className: 'Note',
   fields: (field) => ({ title: field.string() }),
-})
-  .softDelete()
-  .with({
-    access: {
-      read: true,
-      softDeleteOne: isAuthenticated,
-      readDeleted: isAuthenticated,
-      /* keys:note */
-    },
-  })
+  softDelete: true,
+}).with((plugins) =>
+  plugins.access({
+    read: true,
+    softDeleteOne: isAuthenticated,
+    readDeleted: isAuthenticated,
+    /* keys:note */
+  }),
+)
 
 export const Tag = App.Schema.define({
   className: 'Tag',
   fields: (field) => ({ label: field.string() }),
-}).with({ access: { read: true, readDeleted: true } })
+}).with((plugins) => plugins.access({ read: true, readDeleted: true }))
 
 export const ultimabase = new App({ schemas: [Note, Tag] })
 

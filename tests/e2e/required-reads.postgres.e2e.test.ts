@@ -18,19 +18,20 @@ const Doc = App.Schema.define({
 		title: field.string({ required: true }),
 		visible: field.boolean({ default: true }),
 	}),
-}).with({
-	// An Access rule object takes the same equality shorthand (ADR-0307).
-	access: { read: () => ({ visible: true }) },
-})
+}).with((plugins) =>
+	plugins
+		// An Access rule object takes the same equality shorthand (ADR-0307).
+		.access({ read: () => ({ visible: true }) }),
+)
 
 const OneOnly = App.Schema.define({
 	className: 'RequiredReadOneOnly',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.access({
 		read: { count: false, exists: false, many: false, one: true },
-	},
-})
+	}),
+)
 
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(

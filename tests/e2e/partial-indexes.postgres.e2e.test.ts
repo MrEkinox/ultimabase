@@ -18,29 +18,23 @@ const App = UltimaBase.use(
 const UniqueActiveSlug = App.Schema.define({
 	className: 'PartialIndexArticle',
 	fields: (field) => ({ slug: field.string({ required: true }) }),
-})
-	.softDelete()
-	.with({
-		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
-		postgres: { table: 'partial_index_articles' },
-	})
+	indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	softDelete: true,
+}).with((plugins) => plugins.postgres({ table: 'partial_index_articles' }))
 
 // The same table with another predicate, as after a declaration change.
 const UniqueActiveLongSlug = App.Schema.define({
 	className: 'PartialIndexArticle',
 	fields: (field) => ({ slug: field.string({ required: true }) }),
-})
-	.softDelete()
-	.with({
-		indexes: [
-			{
-				fields: ['slug'],
-				unique: true,
-				where: { isDeleted: false, slug: { gt: 'm' } },
-			},
-		],
-		postgres: { table: 'partial_index_articles' },
-	})
+	indexes: [
+		{
+			fields: ['slug'],
+			unique: true,
+			where: { isDeleted: false, slug: { gt: 'm' } },
+		},
+	],
+	softDelete: true,
+}).with((plugins) => plugins.postgres({ table: 'partial_index_articles' }))
 
 let fixture: PostgresWorkerFixture | undefined
 

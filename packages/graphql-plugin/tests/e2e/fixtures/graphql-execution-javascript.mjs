@@ -48,7 +48,7 @@ const Application = UltimaBase.use(
 const Target = Application.Schema.define({
 	className: 'JavaScriptGraphqlTarget',
 	fields: (field) => ({ score: field.bigint() }),
-}).with({ graphql: true })
+}).with((plugins) => plugins.graphql(true))
 
 const Note = Application.Schema.define({
 	className: 'JavaScriptGraphqlNote',
@@ -76,7 +76,7 @@ const Note = Application.Schema.define({
 			select: { title: true },
 		}),
 	}),
-}).with({ graphql: true })
+}).with((plugins) => plugins.graphql(true))
 const ultimabase = new Application({
 	logger: false,
 	schemas: [Target, Note],

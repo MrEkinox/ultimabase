@@ -70,17 +70,20 @@ export const Event = App.Schema.define({
 				seats >= 0 || { code: 'event.full', message: 'No seats left' },
 		}),
 	}),
-}).with({
-	// Every caller may read, create and update events in this example.
-	access: { read: true, create: true, update: true },
-	// The schema check sees the complete event as it would be stored.
-	validation: ({ item }) =>
-		item.endsOn >= item.startsOn || {
-			code: 'event.dates',
-			message: 'An event cannot end before it starts',
-			path: ['endsOn'],
-		},
-})
+}).with((plugins) =>
+	plugins
+		// Every caller may read, create and update events in this example.
+		.access({ read: true, create: true, update: true })
+		// The schema check sees the complete event as it would be stored.
+		.validation(
+			({ item }) =>
+				item.endsOn >= item.startsOn || {
+					code: 'event.dates',
+					message: 'An event cannot end before it starts',
+					path: ['endsOn'],
+				},
+		),
+)
 ```
 
 <!-- endregion -->

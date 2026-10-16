@@ -52,16 +52,16 @@ describe('Runtime relation-filter predicates', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'FilteredPredicateTarget' }),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				targets: {
 					where: ({ context, where }) => {
 						resolverCalls += 1
 						return where.eq('tenant', context.getValue(tenant) ?? 'public')
 					},
 				},
-			},
-		})
+			}),
+		)
 		const adapter = new RecordingDatabaseAdapter(
 			[{ status: 'fulfilled', value: [] }],
 			[],
@@ -138,14 +138,16 @@ describe('Runtime relation-filter predicates', () => {
 				status: field.string(),
 				visible: field.boolean(),
 			}),
-		}).with({ relations: { groups: { where: { published: { eq: true } } } } })
+		}).with((plugins) =>
+			plugins.relations({ groups: { where: { published: { eq: true } } } }),
+		)
 		const Source = UltimaBase.Schema.define({
 			className: 'NestedFilteredPredicateSource',
 			fields: (field) => ({
 				targets: field.relation({ target: 'NestedFilteredPredicateTarget' }),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				targets: {
 					where: {
 						groups: { some: { label: { eq: 'member' } } },
@@ -153,8 +155,8 @@ describe('Runtime relation-filter predicates', () => {
 						visible: { eq: true },
 					},
 				},
-			},
-		})
+			}),
+		)
 		const trace: string[] = []
 		const adapter = new RecordingDatabaseAdapter(
 			[
@@ -256,7 +258,9 @@ describe('Runtime relation-filter predicates', () => {
 			fields: (field) => ({
 				children: field.relation({ target: 'CyclicFilteredPredicateNode' }),
 			}),
-		}).with({ relations: { children: { where: { children: { some: {} } } } } })
+		}).with((plugins) =>
+			plugins.relations({ children: { where: { children: { some: {} } } } }),
+		)
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({
 			plugins: [databasePlugin(adapter)],
@@ -298,8 +302,8 @@ describe('Runtime relation-filter predicates', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'ComplexFilteredPredicateNode' }),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				targets: {
 					where: ({ where }) => {
 						let result = where
@@ -315,8 +319,8 @@ describe('Runtime relation-filter predicates', () => {
 						return result
 					},
 				},
-			},
-		})
+			}),
+		)
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({
 			plugins: [databasePlugin(adapter)],

@@ -7,11 +7,13 @@ const Application = UltimaBase.use(softDeletePlugin())
 const CommandPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteCommandPost',
 	fields: (field) => ({ title: field.string() }),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 const LogicalPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteLogicalPost',
 	fields: (field) => ({ title: field.string() }),
-}).softDelete()
+	softDelete: true,
+})
 const PlainPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeletePlainPost',
 	fields: (field) => ({ title: field.string() }),

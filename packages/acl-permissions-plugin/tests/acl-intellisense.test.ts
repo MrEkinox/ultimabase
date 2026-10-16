@@ -28,7 +28,7 @@ const /* json-hover */document = acl.toJSON()
 void ({} as ACLRule/* option-hover */)
 const directACL: Partial<ACLRule> = { /* options-complete */ }
 void directACL
-Application.Schema.define({ className: 'Completed', fields: () => ({}) }).acl().with({ /* schema-option-complete */ })
+Application.Schema.define({ className: 'Completed', fields: () => ({}), acl: true }).with((plugins) => plugins./* schema-option-complete */)
 void aclPlugin/* plugin-hover */
 aclPlugin({ /* plugin-options-complete */ })
 aclPlugin({ limits: { /* plugin-limits-complete */ } })
@@ -45,10 +45,9 @@ const ContextualPost = Application.Schema.define({
 		title: field.string({ required: true }),
 		visibility: field.string(),
 	}),
-})
-	.acl()
-	.with({
-		acl: {
+	acl: true,
+}).with((plugins) =>
+	plugins.acl({
 			default: ({ data }) => {
 				data./* schema-data-complete */
 				const /* schema-title-hover */title = data.title
@@ -62,8 +61,8 @@ const ContextualPost = Application.Schema.define({
 				return input.currentAcl
 			},
 			limits: { /* schema-limits-complete */ },
-		},
-	})
+		}),
+)
 
 void ContextualPost
 `

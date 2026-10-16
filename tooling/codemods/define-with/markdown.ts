@@ -1,4 +1,5 @@
-// Applies the codemod to the TypeScript code blocks of a Markdown or MDX
+// Applies the codemod to the TypeScript and JavaScript code blocks of a
+// Markdown or MDX
 // document. Blocks between `<!-- region … -->` and `<!-- endregion -->` are
 // copies of example regions (ADR-0330): `yarn docs:regions` regenerates them
 // from the converted examples, so they are left alone.
@@ -11,7 +12,17 @@ import {
 } from './transform.ts'
 
 const fenceOpen = /^(?<indent>[\t ]*)(?<fence>`{3,}|~{3,})(?<language>[\w-]*)/u
-const languages = new Set(['ts', 'tsx', 'typescript', 'mts', 'cts'])
+const languages = new Map([
+	['ts', 'block.ts'],
+	['typescript', 'block.ts'],
+	['mts', 'block.ts'],
+	['cts', 'block.ts'],
+	['tsx', 'block.tsx'],
+	['js', 'block.js'],
+	['javascript', 'block.js'],
+	['mjs', 'block.js'],
+	['jsx', 'block.jsx'],
+])
 const regionStart = /^<!-- region \S+ -->$/u
 const regionEnd = /^<!-- endregion -->$/u
 
@@ -27,7 +38,7 @@ const dedent = (lines: readonly string[], indent: string): string[] =>
 	)
 
 /**
- * Converts the `ts`/`tsx` blocks of one document, outside region-synced
+ * Converts the `ts`/`tsx`/`js`/`jsx` blocks of one document, outside region-synced
  * blocks. Flag lines are lines of the document.
  *
  * @example `transformMarkdown(readFileSync('README.md', 'utf8')).text`
@@ -68,7 +79,7 @@ export const transformMarkdown = (
 			const code = dedent(body, indent).join('\n')
 			const result = transformSource(
 				code,
-				language === 'tsx' ? 'block.tsx' : 'block.ts',
+				languages.get(language) ?? 'block.ts',
 				options,
 			)
 			addCounts(counts, result.counts)

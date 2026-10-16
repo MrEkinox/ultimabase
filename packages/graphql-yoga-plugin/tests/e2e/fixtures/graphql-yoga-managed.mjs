@@ -223,7 +223,7 @@ const ManagedVirtual = Application.Schema.define({
 		}),
 	}),
 	// The command is exposed only when its rule names it (ADR-0325).
-}).with({ graphql: { archive: true } })
+}).with((plugins) => plugins.graphql({ archive: true }))
 const application = new Application({
 	logger: false,
 	schemas: [ManagedVirtual],

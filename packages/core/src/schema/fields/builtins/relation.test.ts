@@ -105,7 +105,7 @@ describe('relationField', () => {
 			fields: (field) => ({
 				tags: field.relation({ target: () => RelationTag }),
 			}),
-		}).with({ relations: { tags: { where } } })
+		}).with((plugins) => plugins.relations({ tags: { where } }))
 		where.id.eq = 'mutated'
 		const tags = Source.persistedFields.tags
 		if (tags === undefined) throw new TypeError('Expected tags relation field')
@@ -130,7 +130,7 @@ describe('relationField', () => {
 			fields: (field) => ({
 				tags: field.relation({ target: () => RelationTag }),
 			}),
-		}).with({ relations: { tags: { where: resolver } } })
+		}).with((plugins) => plugins.relations({ tags: { where: resolver } }))
 		const tags = Source.persistedFields.tags
 		if (tags === undefined) throw new TypeError('Expected tags relation field')
 		const declaration = getRelationWhereDeclaration(tags)
@@ -152,7 +152,9 @@ describe('relationField', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'RelationWhereTarget' }),
 			}),
-		}).with({ relations: { targets: { where: { active: { eq: true } } } } })
+		}).with((plugins) =>
+			plugins.relations({ targets: { where: { active: { eq: true } } } }),
+		)
 		const application = new FrameworkApplication({
 			plugins: [],
 			schemas: [Source, Target],
@@ -178,15 +180,17 @@ describe('relationField', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'InvalidRelationWhereTarget' }),
 			}),
-		}).with({ relations: { targets: { where: { missing: { eq: true } } } } })
+		}).with((plugins) =>
+			plugins.relations({ targets: { where: { missing: { eq: true } } } }),
+		)
 		const invalidOperator = UltimaBase.Schema.define({
 			className: 'OperatorRelationWhereSource',
 			fields: (field) => ({
 				targets: field.relation({ target: 'InvalidRelationWhereTarget' }),
 			}),
-		}).with({
-			relations: { targets: { where: { active: { contains: true } } } },
-		})
+		}).with((plugins) =>
+			plugins.relations({ targets: { where: { active: { contains: true } } } }),
+		)
 
 		expect(() =>
 			new FrameworkApplication({

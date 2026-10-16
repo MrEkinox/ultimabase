@@ -101,8 +101,15 @@ const emptyCounts = (): CodemodCounts => ({
 	roleOptions: 0,
 })
 
+const scriptKinds: readonly (readonly [RegExp, ts.ScriptKind])[] = [
+	[/\.tsx$/u, ts.ScriptKind.TSX],
+	[/\.jsx$/u, ts.ScriptKind.JSX],
+	[/\.[cm]?js$/u, ts.ScriptKind.JS],
+]
+
 const scriptKindOf = (fileName: string): ts.ScriptKind =>
-	fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+	scriptKinds.find(([pattern]) => pattern.test(fileName))?.[1] ??
+	ts.ScriptKind.TS
 
 type ChainOutcome = ChainConversion | FlagKind | undefined
 

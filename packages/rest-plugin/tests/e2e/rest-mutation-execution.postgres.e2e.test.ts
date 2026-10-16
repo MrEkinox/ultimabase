@@ -55,10 +55,10 @@ const MutationPost = RestMutationApplication.Schema.define({
 			validation: z.string().min(2),
 		}),
 	}),
-})
-	.acl()
-	.with({
-		hooks: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.hooks({
 			beforeOperation: {
 				create: async ({ item }) => {
 					hookTrace.push(`before:create:${item.slug}`)
@@ -90,11 +90,11 @@ const MutationPost = RestMutationApplication.Schema.define({
 					hookTrace.push(`before:update:${item.slug}`)
 				},
 			},
-		},
-		acl: {
+		})
+		.acl({
 			default: publicAcl,
-		},
-	})
+		}),
+)
 
 const httpApplicationRequirement = requireCapability(
 	httpApplicationCapability,

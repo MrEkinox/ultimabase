@@ -29,20 +29,16 @@ export const App = UltimaBase.use(
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
-})
-	.archivable()
-	.with({
-		audit: true,
-		rest: { archiveOne: true },
-		graphql: { archiveOne: true },
-	})
+	archivable: true,
+}).with((plugins) =>
+	plugins.audit(true).rest({ archiveOne: true }).graphql({ archiveOne: true }),
+)
 //#endregion post
 
 //#region comment
 export const Comment = App.Schema.define({
 	className: 'Comment',
 	fields: (f) => ({ body: f.string({ required: true }) }),
-})
-	.flaggable()
-	.with({ flagReason: 'Reported by a reader' })
+	flaggable: true,
+}).with((plugins) => plugins.flagReason('Reported by a reader'))
 //#endregion comment

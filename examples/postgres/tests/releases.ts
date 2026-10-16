@@ -33,7 +33,7 @@ export const releaseOne = ({ url, schemaPolicy, logger }: ReleaseOptions) => {
 				onDelete: 'cascade',
 			}),
 		}),
-	}).with({ postgres: { table: 'newsroom_articles' } })
+	}).with((plugins) => plugins.postgres({ table: 'newsroom_articles' }))
 
 	const application = new Release({ schemas: [StaffMember, Article], logger })
 	return { application, Article, StaffMember }
@@ -65,7 +65,7 @@ export const forgottenRename = ({
 				onDelete: 'cascade',
 			}),
 		}),
-	}).with({ postgres: { table: 'newsroom_articles' } })
+	}).with((plugins) => plugins.postgres({ table: 'newsroom_articles' }))
 
 	return new Release({ schemas: [StaffMember, Article], logger })
 }

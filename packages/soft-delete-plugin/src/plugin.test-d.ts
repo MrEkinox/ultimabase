@@ -14,12 +14,14 @@ test('types only the accepted shape-method options', () => {
 	App.Schema.define({
 		className: 'TypedSoftDeleteModes',
 		fields: (field) => ({ title: field.string() }),
-	}).softDelete({ mode: 'command' })
+		softDelete: { mode: 'command' },
+	})
 	App.Schema.define({
 		className: 'TypedSoftDeleteBadMode',
 		fields: (field) => ({ title: field.string() }),
 		// @ts-expect-error -- Only `mode: 'command'` exists.
-	}).softDelete({ mode: 'replace-delete' })
+		softDelete: { mode: 'replace-delete' },
+	})
 	// @ts-expect-error -- The plugin factory takes no options (review decisions 1-2).
 	softDeletePlugin({ defaultMode: 'disabled' })
 })
@@ -28,11 +30,13 @@ test('projects fields and the same commands in both modes', () => {
 	const Logical = App.Schema.define({
 		className: 'SourceSoftDeleteDocument',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	}).softDelete()
+		softDelete: true,
+	})
 	const Command = App.Schema.define({
 		className: 'SourceSoftDeleteCommandDocument',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	}).softDelete({ mode: 'command' })
+		softDelete: { mode: 'command' },
+	})
 
 	void Command.softDeleteOne({ id: 'document-1', select: { isDeleted: true } })
 	void Command.softDeleteMany({ where: { title: { eq: 'old' } } })
@@ -79,24 +83,23 @@ test('lets Access rule the request commands by name', () => {
 	Guarded.Schema.define({
 		className: 'SourceGuardedDocument',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.softDelete()
-		.with({
-			access: {
-				read: true,
-				softDeleteOne: true,
-				softDeleteMany: true,
-				restoreOne: false,
-				restoreMany: false,
-			},
-		})
+		softDelete: true,
+	}).with((plugins) =>
+		plugins.access({
+			read: true,
+			softDeleteOne: true,
+			softDeleteMany: true,
+			restoreOne: false,
+			restoreMany: false,
+		}),
+	)
 	Guarded.Schema.define({
 		className: 'SourceGuardedPurgeDocument',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.softDelete()
-		.with({
+		softDelete: true,
+	}).with((plugins) =>
+		plugins
 			// @ts-expect-error -- Purge is Master-only, so Access has no rule for it.
-			access: { purgeOne: true },
-		})
+			.access({ purgeOne: true }),
+	)
 })

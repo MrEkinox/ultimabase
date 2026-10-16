@@ -116,73 +116,74 @@ const HookArticleSchema = HookApplication.Schema.define({
 		published: field.boolean({ default: false }),
 		revision: field.int({ default: 0 }),
 	}),
-}).with({
-	access: {
-		read: ({ where }) => where.eq('published', true),
-	},
-	hooks: {
-		afterOperation: {
-			create: (input) => {
-				trace('schema:developer:afterCreate')
-				trace(
-					`schema:developer:afterCreate:item:${readItemString(input.item, 'title')}`,
-				)
-				if (input.item.title === 'Rollback after persistence') {
-					throw rollbackHookError
-				}
+}).with((plugins) =>
+	plugins
+		.access({
+			read: ({ where }) => where.eq('published', true),
+		})
+		.hooks({
+			afterOperation: {
+				create: (input) => {
+					trace('schema:developer:afterCreate')
+					trace(
+						`schema:developer:afterCreate:item:${readItemString(input.item, 'title')}`,
+					)
+					if (input.item.title === 'Rollback after persistence') {
+						throw rollbackHookError
+					}
+				},
+				delete: (input) => {
+					trace('schema:developer:afterDelete')
+					trace(
+						`schema:developer:afterDelete:original:${readItemString(input.originalItem, 'title')}`,
+					)
+				},
+				update: (input) => {
+					trace('schema:developer:afterUpdate')
+					trace(
+						`schema:developer:afterUpdate:pair:${readItemString(input.originalItem, 'title')}->${readItemString(input.item, 'title')}`,
+					)
+				},
 			},
-			delete: (input) => {
-				trace('schema:developer:afterDelete')
-				trace(
-					`schema:developer:afterDelete:original:${readItemString(input.originalItem, 'title')}`,
-				)
-			},
-			update: (input) => {
-				trace('schema:developer:afterUpdate')
-				trace(
-					`schema:developer:afterUpdate:pair:${readItemString(input.originalItem, 'title')}->${readItemString(input.item, 'title')}`,
-				)
-			},
-		},
-		beforeOperation: {
-			create: async (input) => {
-				const { context } = input
-				const scopeId = input.item.scopeId
-				const title = input.item.title
+			beforeOperation: {
+				create: async (input) => {
+					const { context } = input
+					const scopeId = input.item.scopeId
+					const title = input.item.title
 
-				if (typeof scopeId !== 'string' || typeof title !== 'string') {
-					throw new TypeError('Prepared hook item must contain string fields')
-				}
+					if (typeof scopeId !== 'string' || typeof title !== 'string') {
+						throw new TypeError('Prepared hook item must contain string fields')
+					}
 
-				trace('schema:developer:beforeCreate')
-				trace(`schema:developer:beforeCreate:item:${title}`)
-				await HookAuditSchema.createOne({
-					data: {
-						action: `create:${title}`,
-						scopeId,
-					},
-				})
-				context.emit(articleCreated, { scopeId, title })
+					trace('schema:developer:beforeCreate')
+					trace(`schema:developer:beforeCreate:item:${title}`)
+					await HookAuditSchema.createOne({
+						data: {
+							action: `create:${title}`,
+							scopeId,
+						},
+					})
+					context.emit(articleCreated, { scopeId, title })
+				},
+				delete: (input) => {
+					trace('schema:developer:beforeDelete')
+					trace(
+						`schema:developer:beforeDelete:original:${readItemString(input.originalItem, 'title')}`,
+					)
+				},
+				update: (input) => {
+					trace('schema:developer:beforeUpdate')
+					trace(
+						`schema:developer:beforeUpdate:pair:${readItemString(input.originalItem, 'title')}->${readItemString(input.item, 'title')}`,
+					)
+				},
 			},
-			delete: (input) => {
-				trace('schema:developer:beforeDelete')
-				trace(
-					`schema:developer:beforeDelete:original:${readItemString(input.originalItem, 'title')}`,
-				)
+			resolveInput: () => {
+				trace('schema:developer:resolveInput')
+				return undefined
 			},
-			update: (input) => {
-				trace('schema:developer:beforeUpdate')
-				trace(
-					`schema:developer:beforeUpdate:pair:${readItemString(input.originalItem, 'title')}->${readItemString(input.item, 'title')}`,
-				)
-			},
-		},
-		resolveInput: () => {
-			trace('schema:developer:resolveInput')
-			return undefined
-		},
-	},
-})
+		}),
+)
 
 const fixtureOutputFields: ReadonlySet<string> = new Set([
 	'id',

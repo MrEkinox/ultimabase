@@ -27,8 +27,9 @@ yarn prettier --write <changed files>
 ```
 
 - Without `--write` the command only reports what it would change.
-- `.ts`, `.tsx`, `.mts` and `.cts` files are converted whole. In `.md` and
-  `.mdx` files, `ts`/`tsx` code blocks are converted, except blocks between
+- TypeScript and JavaScript files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`,
+  `.jsx`, `.mjs`, `.cjs`) are converted whole. In `.md` and `.mdx` files,
+  `ts`/`tsx`/`js`/`jsx` code blocks are converted, except blocks between
   `<!-- region … -->` and `<!-- endregion -->`: `yarn docs:regions` regenerates
   those from the converted example sources.
 - `--feature archivable` also converts a community shape method

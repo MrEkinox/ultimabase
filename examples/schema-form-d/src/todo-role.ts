@@ -5,13 +5,11 @@ import { TodoUser } from './todo-user.ts'
 export const TodoRole = App.RoleSchema.define({
 	className: 'TodoRole',
 	members: () => TodoUser,
-	deletion: 'fail',
-	ensure: ['admin'],
 	fields: (field) => ({ description: field.string() }),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.roles({ deletion: 'fail', ensure: ['admin'] }).access({
 		read: ({ where }) =>
 			where.some('members', (user) => user.endsWith('email', '@team.test')),
 		create: false,
-	},
-})
+	}),
+)

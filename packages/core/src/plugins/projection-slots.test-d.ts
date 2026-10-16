@@ -127,7 +127,7 @@ test('adds fields from the called shape methods and their arguments', () => {
 	const Plain = App.Schema.define({
 		className: 'SlotPlain',
 		fields: (field) => ({ title: field.string() }),
-	}).with({})
+	}).with((plugins) => plugins)
 
 	expectTypeOf(
 		Flagged.findOne({ select: { flagged: true, note: true } }),
@@ -179,10 +179,11 @@ test('types the rules of `.with` and keeps shape methods single-use', () => {
 	App.Schema.define({
 		className: 'SlotBadRules',
 		fields: (field) => ({ title: field.string() }),
-	}).with({
-		// @ts-expect-error -- The rule value is a string.
-		flagNote: 1,
-	})
+	}).with((plugins) =>
+		plugins
+			// @ts-expect-error -- The rule value is a string.
+			.flagNote(1),
+	)
 	const Once = App.Schema.define({
 		className: 'SlotOnce',
 		fields: (field) => ({ title: field.string() }),

@@ -34,16 +34,16 @@ const Post = UltimaBase.Schema.define({
 		tags: field.relation({ target: 'NestedRuntimeTag' }),
 		title: field.string({ required: true }),
 	}),
-}).with({
-	relations: {
+}).with((plugins) =>
+	plugins.relations({
 		tags: {
 			where: () => {
 				relationWhereInvocations += 1
 				return {}
 			},
 		},
-	},
-})
+	}),
+)
 
 const Tag = UltimaBase.Schema.define({
 	className: 'NestedRuntimeTag',

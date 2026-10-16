@@ -41,8 +41,8 @@ const Post = PointerSchemaApplication.Schema.define({
 		}),
 		title: field.string({ required: true }),
 	}),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		afterOperation: {
 			update: ({ changes }) => {
 				pointerTrace.push('post:afterUpdate')
@@ -58,8 +58,8 @@ const Post = PointerSchemaApplication.Schema.define({
 				pointerTrace.push('post:beforeUpdate')
 			},
 		},
-	},
-})
+	}),
+)
 
 const UniqueTarget = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EUniqueTarget',
@@ -136,11 +136,11 @@ const PrivateTarget = PointerSchemaApplication.use(accessPlugin())
 			label: field.string({ required: true }),
 		}),
 	})
-	.with({
-		access: {
+	.with((plugins) =>
+		plugins.access({
 			read: false,
-		},
-	})
+		}),
+	)
 const PrivateSource = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EPrivateSource',
 	fields: (field) => ({

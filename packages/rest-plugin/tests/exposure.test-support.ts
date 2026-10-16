@@ -26,7 +26,7 @@ import {
 	command,
 	defineOperation,
 	definePlugin,
-	shapeMethod,
+	feature,
 } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { validationPlugin } from '@ultimabase/validation-plugin'
@@ -81,8 +81,8 @@ const databasePlugin = plugin({
 const archivePlugin = () =>
 	definePlugin({
 		name: '@fixture/rest-archive',
-		shape: {
-			archivable: shapeMethod({
+		features: {
+			archivable: feature({
 				fields: { archivedAt: dateTimeField() },
 				commands: {
 					archiveOne: command({
@@ -174,15 +174,15 @@ export const Note = ExposureApplication.Schema.define({
 		}),
 		views: field.int(),
 	}),
-})
-	.archivable()
-	.with({ rest: { archiveOne: true, count: true, deleteOne: false } })
+	archivable: true,
+}).with((plugins) =>
+	plugins.rest({ archiveOne: true, count: true, deleteOne: false }),
+)
 export const Draft = ExposureApplication.Schema.define({
 	className: 'RestExposureDraft',
 	fields: (field) => ({ title: field.string() }),
-})
-	.archivable()
-	.with({ rest: { findMany: true } })
+	archivable: true,
+}).with((plugins) => plugins.rest({ findMany: true }))
 // Relationship fields, to compare the OpenAPI inputs with the REST decoder.
 export const Shelf = ExposureApplication.Schema.define({
 	className: 'RestExposureShelf',
@@ -193,11 +193,11 @@ export const Shelf = ExposureApplication.Schema.define({
 		pinned: field.pointer({ target: () => Note, required: true }),
 		drafts: field.relation({ target: () => Draft }),
 	}),
-}).with({ rest: { createMany: true, upsertOne: true } })
+}).with((plugins) => plugins.rest({ createMany: true, upsertOne: true }))
 export const Hidden = ExposureApplication.Schema.define({
 	className: 'RestExposureHidden',
 	fields: (field) => ({ title: field.string() }),
-}).with({ rest: false })
+}).with((plugins) => plugins.rest(false))
 
 /** Another plugin's routes, to share REST's base path (6.4a amendment). */
 export const neighbourPlugin = (paths: readonly string[]) =>

@@ -25,14 +25,14 @@ const application = (environment: 'development' | 'production') => {
 	const Page = Production.Schema.define({
 		className: 'Page',
 		fields: (field) => ({ title: field.string() }),
-	}).with({
-		graphql: {
+	}).with((plugins) =>
+		plugins.graphql({
 			findMany: true,
 			createOne: false,
 			updateOne: false,
 			deleteOne: false,
-		},
-	})
+		}),
+	)
 	return new Production({ schemas: [Page] })
 }
 

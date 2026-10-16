@@ -100,7 +100,8 @@ describe('App.RoleSchema', () => {
 				description: field.string(),
 				priority: field.int({ default: 0 }),
 			}),
-		}).with({ indexes: [{ fields: ['priority', 'createdAt'] }] })
+			indexes: [{ fields: ['priority', 'createdAt'] }],
+		})
 
 		expect(Schema.is(AppRole)).toBe(true)
 		expect(AppRole.fields).toHaveProperty('name')
@@ -132,8 +133,7 @@ describe('App.RoleSchema', () => {
 		const CascadingRole = Roles.RoleSchema.define({
 			className: 'CascadingRole',
 			members: () => User,
-			deletion: 'cascade',
-		})
+		}).with((plugins) => plugins.roles({ deletion: 'cascade' }))
 
 		expect(getRoleSchemaDeclaration(CascadingRole)?.deletionPolicy).toBe(
 			'cascade',
@@ -142,8 +142,9 @@ describe('App.RoleSchema', () => {
 			Roles.RoleSchema.define({
 				className: 'InvalidDeletionRole',
 				members: () => User,
-				deletion: 'remove' as unknown as 'fail',
-			}),
+			}).with((plugins) =>
+				plugins.roles({ deletion: 'remove' as unknown as 'fail' }),
+			),
 		).toThrow(
 			new TypeError('deletion must be "fail", "preserve", or "cascade"'),
 		)
@@ -153,8 +154,9 @@ describe('App.RoleSchema', () => {
 		const SeededRole = Roles.RoleSchema.define({
 			className: 'SeededRole',
 			members: () => User,
-			ensure: ['Admin', ' admin ', 'Editor'],
-		})
+		}).with((plugins) =>
+			plugins.roles({ ensure: ['Admin', ' admin ', 'Editor'] }),
+		)
 
 		expect(getRoleSchemaDeclaration(SeededRole)?.ensure).toStrictEqual([
 			'admin',
@@ -164,15 +166,15 @@ describe('App.RoleSchema', () => {
 			Roles.RoleSchema.define({
 				className: 'InvalidEnsureRole',
 				members: () => User,
-				ensure: [' '],
-			}),
+			}).with((plugins) => plugins.roles({ ensure: [' '] })),
 		).toThrow(new TypeError('role name must not be empty'))
 		expect(() =>
 			Roles.RoleSchema.define({
 				className: 'InvalidEnsureListRole',
 				members: () => User,
-				ensure: 'admin' as unknown as readonly string[],
-			}),
+			}).with((plugins) =>
+				plugins.roles({ ensure: 'admin' as unknown as readonly string[] }),
+			),
 		).toThrow(new TypeError('ensure must be a list of role names'))
 	})
 

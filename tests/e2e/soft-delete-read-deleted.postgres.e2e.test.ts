@@ -39,21 +39,20 @@ const SchemaApplication = UltimaBase.use(softDeletePlugin(), accessPlugin())
 const Note = SchemaApplication.Schema.define({
 	className: 'ReadDeletedNote',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete()
-	.with({
-		access: {
-			read: true,
-			create: true,
-			delete: true,
-			readDeleted: isAuditing,
-			restoreOne: isAuditing,
-		},
-	})
+	softDelete: true,
+}).with((plugins) =>
+	plugins.access({
+		read: true,
+		create: true,
+		delete: true,
+		readDeleted: isAuditing,
+		restoreOne: isAuditing,
+	}),
+)
 const Ref = SchemaApplication.Schema.define({
 	className: 'ReadDeletedRef',
 	fields: (field) => ({ note: field.pointer({ target: () => Note }) }),
-}).with({ access: { read: true, create: true } })
+}).with((plugins) => plugins.access({ read: true, create: true }))
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

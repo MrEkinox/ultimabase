@@ -3,11 +3,12 @@
 //   node tooling/codemods/define-with/run.ts [--write] [--report <file.json>]
 //     [--skip <path>]... [--feature <name>]... <path>...
 //
-// Without `--write` it only reports. TypeScript files (`.ts`, `.tsx`, `.mts`,
-// `.cts`, not `.d.ts`) are converted whole; Markdown and MDX files have their
-// TypeScript blocks converted, except region-synced README blocks. `--feature`
-// names a community shape method to convert besides `acl` and `softDelete`.
-// Format the written files afterwards (`prettier --write`).
+// Without `--write` it only reports. TypeScript and JavaScript files (`.ts`,
+// `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, not `.d.ts`) are
+// converted whole; Markdown and MDX files have their TypeScript and
+// JavaScript blocks converted, except region-synced README blocks.
+// `--feature` names a community shape method to convert besides `acl` and
+// `softDelete`. Format the written files afterwards (`prettier --write`).
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -28,7 +29,7 @@ const skippedDirectories = new Set([
 	'gen',
 	'node_modules',
 ])
-const sourcePattern = /\.(?:[cm]?ts|tsx)$/u
+const sourcePattern = /\.(?:[cm]?[jt]s|[jt]sx)$/u
 const documentPattern = /\.mdx?$/u
 
 interface FileReport {

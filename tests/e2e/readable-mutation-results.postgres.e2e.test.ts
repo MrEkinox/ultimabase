@@ -38,14 +38,14 @@ const Note = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		parent: field.pointer({ target: () => Note }),
 	}),
-}).with({
-	access: { read: ({ where }) => where.eq('visible', true) },
-})
+}).with((plugins) =>
+	plugins.access({ read: ({ where }) => where.eq('visible', true) }),
+)
 
 const Secret = App.Schema.define({
 	className: 'ReadableSecret',
 	fields: (field) => ({ body: field.string({ required: true }) }),
-}).with({ access: { read: false } })
+}).with((plugins) => plugins.access({ read: false }))
 
 const Archived = App.Schema.define({
 	className: 'ReadableArchived',
@@ -54,11 +54,10 @@ const Archived = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		secret: field.string({ access: { read: false } }),
 	}),
-})
-	.softDelete()
-	.with({
-		access: { read: ({ where }) => where.eq('visible', true) },
-	})
+	softDelete: true,
+}).with((plugins) =>
+	plugins.access({ read: ({ where }) => where.eq('visible', true) }),
+)
 
 const Explicit = App.Schema.define({
 	className: 'ReadableExplicit',
@@ -67,11 +66,10 @@ const Explicit = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		secret: field.string({ access: { read: false } }),
 	}),
-})
-	.softDelete({ mode: 'command' })
-	.with({
-		access: { read: ({ where }) => where.eq('visible', true) },
-	})
+	softDelete: { mode: 'command' },
+}).with((plugins) =>
+	plugins.access({ read: ({ where }) => where.eq('visible', true) }),
+)
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

@@ -32,15 +32,15 @@ const App = UltimaBase.use(graphqlPlugin())
 const Post = App.Schema.define({
   className: 'ConfiguredGraphqlPost',
   fields: (field) => ({ title: field.string() }),
-}).with({ graphql: { ${hoverMarker}count: true, typeName: 'Article' } })
+}).with((plugins) => plugins.graphql({ ${hoverMarker}count: true, typeName: 'Article' }))
 App.Schema.define({
   className: 'GraphqlMethodCompletion',
   fields: () => ({}),
-}).with({ graphql: { ${methodMarker} } })
+}).with((plugins) => plugins.graphql({ ${methodMarker} }))
 App.Schema.define({
   className: 'GraphqlSchemaCompletion',
   fields: () => ({}),
-}).with({ ${schemaMarker} })
+}).with((plugins) => plugins.${schemaMarker})
 void Post`
 			const schemaPosition = markerPosition(sourceWithMarkers, schemaMarker)
 			const methodPosition = markerPosition(sourceWithMarkers, methodMarker)
@@ -103,7 +103,7 @@ const Other = UltimaBase.use(httpPlugin({ appId: 'unrelated' }))
 Other.Schema.define({
   className: 'GraphqlAbsentPost',
   fields: () => ({}),
-}).with({ graphql: { count: true } })`
+}).with((plugins) => plugins.graphql({ count: true }))`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)
@@ -125,7 +125,7 @@ const App = UltimaBase.use(graphqlPlugin())
 App.Schema.define({
   className: 'InvalidGraphqlPost',
   fields: () => ({}),
-}).with({ graphql: { count: 'yes' } })`
+}).with((plugins) => plugins.graphql({ count: 'yes' }))`
 			const service = createLanguageService(fileName, source)
 			const messages = service
 				.getSemanticDiagnostics(fileName)

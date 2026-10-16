@@ -14,6 +14,7 @@ import {
 	defineCapability,
 	defineSchemaOption,
 	provideCapability,
+	provideSchemaRules,
 	plugin as createPlugin,
 	requireCapability,
 	withPluginPrivileges,
@@ -45,7 +46,7 @@ export interface AlternativeBehaviorOptions {
 	readonly label: string
 }
 
-/** Contributes `alternativeBehavior` to `.with({ ... })` (ADR-0297). */
+/** Contributes `alternativeBehavior` to `.with((plugins) => …)` (ADR-0297). */
 export interface AlternativeBehaviorRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{
 		/** Configures the independent behavior fixture when its plugin is installed. */
@@ -308,7 +309,11 @@ export const createAlternativeBehaviorEngine = (
 		},
 	})
 
-	return immutableRecord({ Audit, plugin })
+	// `plugins.alternativeBehavior(...)` of `.with` (ADR-0339).
+	return immutableRecord({
+		Audit,
+		plugin: provideSchemaRules(plugin, ['alternativeBehavior']),
+	})
 }
 
 /** Provides a compatible observer without creating a dependency on official Hooks. */

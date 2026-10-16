@@ -102,7 +102,7 @@ export const Empty = App.Schema.define({
 export const Finished = App.Schema.define({
   className: 'RegisterFinished',
   fields: (field) => ({ name: field.string() }),
-}).with({})
+}).with((plugins) => plugins)
 export const ultimabase = new App({ schemas: [Unfinished, Empty, Finished] })
 export const unfinishedRows = await Unfinished.findMany()
 

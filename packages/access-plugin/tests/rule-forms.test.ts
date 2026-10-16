@@ -16,19 +16,19 @@ const Post = App.Schema.define({
 		secret: field.string({ access: { write: { clear: false } } }),
 		title: field.string({ access: { read: { where: false } } }),
 	}),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.access({
 		read: ({ where }) => where.eq('secret', 'hidden'),
 		update: {
 			where: ({ where }) => where.eq('secret', 'hidden'),
 			item: ({ item }) => item.title !== 'blocked',
 		},
-	},
-})
+	}),
+)
 const Counted = App.Schema.define({
 	className: 'RuleFormCounted',
 	fields: (field) => ({ title: field.string() }),
-}).with({ access: { read: { many: true, exists: false } } })
+}).with((plugins) => plugins.access({ read: { many: true, exists: false } }))
 
 const run = async <TResult>(
 	schema: SchemaDefinition,
@@ -138,12 +138,12 @@ describe('Access rule forms at runtime (ADR-0317)', () => {
 		const Untyped = App.Schema.define({
 			className: 'RuleFormUntyped',
 			fields: (field) => ({ title: field.string() }),
-		}).with({
-			access: {
+		}).with((plugins) =>
+			plugins.access({
 				read: (() => undefined) as never,
 				create: (() => ({ title: 'x' })) as never,
-			},
-		})
+			}),
+		)
 		await run(Untyped, async () => {
 			await expect(Untyped.findMany()).rejects.toThrow(
 				'Access rule RuleFormUntyped.access.read must return true, false, a WhereInput or a WhereBuilder',

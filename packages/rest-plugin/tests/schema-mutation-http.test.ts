@@ -43,7 +43,7 @@ const RestSchemaApplication = UltimaBase.use(restPlugin())
 const WorkflowDocument = RestSchemaApplication.Schema.define({
 	className: 'RestWorkflowDocument',
 	fields: (field) => ({ title: field.string() }),
-}).with({ rest: true })
+}).with((plugins) => plugins.rest(true))
 const archiveInput = defineOperationValue((value, path) => {
 	if (!isPlainRecord(value) || typeof value.reason !== 'string') {
 		throw new TypeError(`${path}.reason must be a string`)

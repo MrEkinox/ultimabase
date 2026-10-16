@@ -54,17 +54,20 @@ export const Event = App.Schema.define({
 				seats >= 0 || { code: 'event.full', message: 'No seats left' },
 		}),
 	}),
-}).with({
-	// Every caller may read, create and update events in this example.
-	access: { read: true, create: true, update: true },
-	// The schema check sees the complete event as it would be stored.
-	validation: ({ item }) =>
-		item.endsOn >= item.startsOn || {
-			code: 'event.dates',
-			message: 'An event cannot end before it starts',
-			path: ['endsOn'],
-		},
-})
+}).with((plugins) =>
+	plugins
+		// Every caller may read, create and update events in this example.
+		.access({ read: true, create: true, update: true })
+		// The schema check sees the complete event as it would be stored.
+		.validation(
+			({ item }) =>
+				item.endsOn >= item.startsOn || {
+					code: 'event.dates',
+					message: 'An event cannot end before it starts',
+					path: ['endsOn'],
+				},
+		),
+)
 //#endregion event
 
 //#region ticket-tier
@@ -76,13 +79,14 @@ export const TicketTier = App.Schema.define({
 		minPerOrder: field.int({ required: true }),
 		maxPerOrder: field.int({ required: true }),
 	}),
-}).with({
-	access: { read: true, create: true },
-	validation: z
-		.object({ minPerOrder: z.number().min(1), maxPerOrder: z.number() })
-		.refine(({ maxPerOrder, minPerOrder }) => maxPerOrder >= minPerOrder, {
-			message: 'The maximum cannot be below the minimum',
-			path: ['maxPerOrder'],
-		}),
-})
+}).with((plugins) =>
+	plugins.access({ read: true, create: true }).validation(
+		z
+			.object({ minPerOrder: z.number().min(1), maxPerOrder: z.number() })
+			.refine(({ maxPerOrder, minPerOrder }) => maxPerOrder >= minPerOrder, {
+				message: 'The maximum cannot be below the minimum',
+				path: ['maxPerOrder'],
+			}),
+	),
+)
 //#endregion ticket-tier

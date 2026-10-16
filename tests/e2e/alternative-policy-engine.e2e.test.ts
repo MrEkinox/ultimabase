@@ -100,7 +100,7 @@ const createAlternativeFixture = (withAcl = false) => {
 				acl: { default: publicRead },
 				alternativePolicy,
 			} as never)
-		: Declared.with({ alternativePolicy })
+		: Declared.with((plugins) => plugins.alternativePolicy(alternativePolicy))
 	const adapter = new AlternativeReadAdapter([
 		{
 			...(withAcl ? { acl: publicRead } : {}),
@@ -199,9 +199,11 @@ describe('independent protected policy engine', () => {
 				className: 'AlternativePolicyIsolationDocument',
 				fields: (field) => ({ tenant: field.string(), title: field.string() }),
 			})
-			.with({
-				alternativePolicy: alternativeTenantPolicy({ tenant: 'isolated' }),
-			})
+			.with((plugins) =>
+				plugins.alternativePolicy(
+					alternativeTenantPolicy({ tenant: 'isolated' }),
+				),
+			)
 		const support = createSupportPlugin(new AlternativeReadAdapter())
 		const first = new (UltimaBase.use(support, engine.plugin))({
 			logger: false,

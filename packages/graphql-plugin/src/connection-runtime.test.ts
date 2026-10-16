@@ -17,7 +17,7 @@ const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 const ConnectionRecord = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlConnectionRecord',
 	fields: (field) => ({ group: field.string(), rank: field.int() }),
-}).with({ graphql: true })
+}).with((plugins) => plugins.graphql(true))
 
 const ids = ['a', 'b', 'c', 'd'].map(
 	(suffix) => `0198f090-2a50-7000-8000-00000000000${suffix}`,

@@ -34,11 +34,12 @@ export const App = UltimaBase.use(
 export const Author = App.Schema.define({
 	className: 'Author',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({
-	access: { read: true },
-	// No createAuthor, updateAuthor or deleteAuthor mutation.
-	graphql: { createOne: false, updateOne: false, deleteOne: false },
-})
+}).with((plugins) =>
+	plugins
+		.access({ read: true })
+		// No createAuthor, updateAuthor or deleteAuthor mutation.
+		.graphql({ createOne: false, updateOne: false, deleteOne: false }),
+)
 //#endregion author
 
 //#region comment
@@ -46,10 +47,11 @@ export const Author = App.Schema.define({
 export const Comment = App.Schema.define({
 	className: 'Comment',
 	fields: (field) => ({ body: field.string({ required: true }) }),
-}).with({
-	access: { read: true, create: true },
-	graphql: { createOne: false, updateOne: false, deleteOne: false },
-})
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: true })
+		.graphql({ createOne: false, updateOne: false, deleteOne: false }),
+)
 //#endregion comment
 
 //#region post
@@ -75,11 +77,12 @@ export const Post = App.Schema.define({
 				),
 		}),
 	}),
-}).with({
-	access: { read: true, create: true, update: true, delete: true },
-	// The default fields, plus countPost and totalCount on connections.
-	graphql: { count: true },
-})
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: true, update: true, delete: true })
+		// The default fields, plus countPost and totalCount on connections.
+		.graphql({ count: true }),
+)
 //#endregion post
 
 //#region feedback
@@ -90,7 +93,7 @@ export const Post = App.Schema.define({
 export const Feedback = App.Schema.define({
 	className: 'Feedback',
 	fields: (field) => ({ message: field.string({ required: true }) }),
-}).with({ access: { create: true } })
+}).with((plugins) => plugins.access({ create: true }))
 //#endregion feedback
 
 //#region audit
@@ -105,5 +108,5 @@ export const AuditEntry = App.Schema.define({
 		action: field.string({ required: true }),
 		post: field.pointer({ target: () => Post }),
 	}),
-}).with({ graphql: false })
+}).with((plugins) => plugins.graphql(false))
 //#endregion audit

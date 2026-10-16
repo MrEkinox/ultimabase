@@ -44,14 +44,16 @@ const Event = App.Schema.define({
 		startsAt: field.int({ required: true }),
 		endsAt: field.int({ required: true }),
 	}),
-}).with({
-	validation: ({ item }) =>
-		item.endsAt >= item.startsAt || {
-			code: 'event.range',
-			message: 'Ends before it starts',
-			path: ['endsAt'],
-		},
-})
+}).with((plugins) =>
+	plugins.validation(
+		({ item }) =>
+			item.endsAt >= item.startsAt || {
+				code: 'event.range',
+				message: 'Ends before it starts',
+				path: ['endsAt'],
+			},
+	),
+)
 
 const Range = App.Schema.define({
 	className: 'ValidationRulesRange',
@@ -59,14 +61,16 @@ const Range = App.Schema.define({
 		low: field.int({ required: true }),
 		high: field.int({ required: true }),
 	}),
-}).with({
-	validation: z
-		.object({ low: z.number(), high: z.number() })
-		.refine(({ high, low }) => high > low, {
-			message: 'high must exceed low',
-			path: ['high'],
-		}),
-})
+}).with((plugins) =>
+	plugins.validation(
+		z
+			.object({ low: z.number(), high: z.number() })
+			.refine(({ high, low }) => high > low, {
+				message: 'high must exceed low',
+				path: ['high'],
+			}),
+	),
+)
 
 const createApplication = (database: PostgresWorkerFixture) =>
 	new (App.use(

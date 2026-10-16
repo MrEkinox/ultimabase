@@ -32,15 +32,15 @@ const CascadeChild = App.Schema.define({
 	fields: (field) => ({
 		parent: field.pointer({ target: () => Parent, onDelete: 'cascade' }),
 	}),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		beforeOperation: {
 			delete: () => {
 				cascadedHooks += 1
 			},
 		},
-	},
-})
+	}),
+)
 
 const CascadeGrandchild = App.Schema.define({
 	className: 'IntegrityCascadeGrandchild',
@@ -76,7 +76,8 @@ const ChainLeaf = App.Schema.define({
 const SoftParent = App.Schema.define({
 	className: 'IntegritySoftParent',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).softDelete()
+	softDelete: true,
+})
 
 const SoftChild = App.Schema.define({
 	className: 'IntegritySoftChild',

@@ -30,9 +30,9 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				}),
 				listed: field.boolean(),
 			}),
-		}).with({
-			relations: { articles: { where: { published: { eq: true } } } },
-		})
+		}).with((plugins) =>
+			plugins.relations({ articles: { where: { published: { eq: true } } } }),
+		)
 		const Article = UltimaBase.Schema.define({
 			className: 'RuleArticle',
 			fields: (field) => ({
@@ -40,11 +40,11 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				contributors: field.relation({ target: () => Author }),
 				published: field.boolean(),
 			}),
-		}).with({
-			relations: {
+		}).with((plugins) =>
+			plugins.relations({
 				contributors: { where: ({ where }) => where.eq('listed', true) },
-			},
-		})
+			}),
+		)
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{ status: 'fulfilled', value: [] },
@@ -143,7 +143,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 		expect(withRules({ targets: { where: {} } })).not.toThrow()
 	})
 
-	it('points a field-level where to .with({ relations })', () => {
+	it('points a field-level where to plugins.relations(...)', () => {
 		expect(() =>
 			UltimaBase.Schema.define({
 				className: 'RuleFieldWhere',
@@ -155,7 +155,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				}),
 			}),
 		).toThrow(
-			'RuleFieldWhere.fields.targets cannot declare where: declare relation filters in .with({ relations: { targets: { where } } })',
+			'RuleFieldWhere.fields.targets cannot declare where: declare relation filters in .with((plugins) => plugins.relations({ targets: { where } }))',
 		)
 	})
 })

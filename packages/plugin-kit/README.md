@@ -26,14 +26,14 @@ a shape method in one plugin and a rule in another:
 
 ```ts
 import { dateTimeField } from '@ultimabase/core'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 
 /** `.archivable()` adds a server-written `archivedAt` and two commands. */
 export const archivePlugin = () =>
 	definePlugin({
 		name: '@example/archive-plugin',
-		shape: {
-			archivable: shapeMethod({
+		features: {
+			archivable: feature({
 				fields: { archivedAt: dateTimeField() },
 				commands: {
 					archiveOne: command({
@@ -89,13 +89,10 @@ rule, and may expose a one-row command over REST and GraphQL:
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
-})
-	.archivable()
-	.with({
-		audit: true,
-		rest: { archiveOne: true },
-		graphql: { archiveOne: true },
-	})
+	archivable: true,
+}).with((plugins) =>
+	plugins.audit(true).rest({ archiveOne: true }).graphql({ archiveOne: true }),
+)
 ```
 
 <!-- endregion -->

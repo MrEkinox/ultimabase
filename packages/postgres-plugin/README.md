@@ -505,14 +505,12 @@ export const Article = App.Schema.define({
 		// A hidden join table with one row per (article, tag) pair.
 		tags: field.relation({ target: () => Tag }),
 	}),
-}).with({
-	postgres: { table: 'newsroom_articles' },
 	indexes: [
 		{ fields: ['author', 'createdAt'] },
 		// A partial index: only published rows are indexed.
 		{ fields: ['publishedAt'], where: { status: 'published' } },
 	],
-})
+}).with((plugins) => plugins.postgres({ table: 'newsroom_articles' }))
 ```
 
 <!-- endregion -->
@@ -681,7 +679,7 @@ export const releaseOne = ({ url, schemaPolicy, logger }: ReleaseOptions) => {
 				onDelete: 'cascade',
 			}),
 		}),
-	}).with({ postgres: { table: 'newsroom_articles' } })
+	}).with((plugins) => plugins.postgres({ table: 'newsroom_articles' }))
 
 	const application = new Release({ schemas: [StaffMember, Article], logger })
 	return { application, Article, StaffMember }

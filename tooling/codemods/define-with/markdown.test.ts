@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { transformMarkdown } from './markdown.ts'
 
 describe('define-with codemod: Markdown', () => {
-	it('converts TypeScript blocks, indented ones included', () => {
+	it('converts TypeScript and JavaScript blocks, indented ones included', () => {
 		const markdown = [
 			'# Title',
 			'',
@@ -12,7 +12,7 @@ describe('define-with codemod: Markdown', () => {
 			'```',
 			'',
 			'<Tab>',
-			'  ```tsx',
+			'  ```jsx',
 			"  App.Schema.define({ className: 'B', fields }).softDelete()",
 			'  ```',
 			'</Tab>',
@@ -28,7 +28,7 @@ describe('define-with codemod: Markdown', () => {
 				'```',
 				'',
 				'<Tab>',
-				'  ```tsx',
+				'  ```jsx',
 				"  App.Schema.define({ className: 'B', fields, softDelete: true })",
 				'  ```',
 				'</Tab>',
@@ -48,7 +48,7 @@ describe('define-with codemod: Markdown', () => {
 			'',
 			'<!-- endregion -->',
 			'',
-			'```js',
+			'```text',
 			"App.Schema.define({ className: 'A', fields }).acl()",
 			'```',
 		].join('\n')

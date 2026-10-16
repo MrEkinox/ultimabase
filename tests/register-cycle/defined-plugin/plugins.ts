@@ -1,5 +1,5 @@
 import { dateTimeField } from '@ultimabase/core'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 
 // Unannotated `definePlugin` factories installed in the registered
 // application: typing their rules, fields and commands must not read
@@ -7,8 +7,8 @@ import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
 export const archivePlugin = () =>
 	definePlugin({
 		name: '@register-cycle/archive',
-		shape: {
-			archivable: shapeMethod({
+		features: {
+			archivable: feature({
 				fields: { archivedAt: dateTimeField() },
 				commands: {
 					archiveOne: command({ authority: 'request', effect: 'update' }),

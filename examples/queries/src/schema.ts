@@ -40,15 +40,15 @@ export const Author = App.Schema.define({
 		// The inverse side of `Post.author`: no storage of its own.
 		posts: field.relation({ target: () => Post, mappedBy: 'author' }),
 	}),
-}).with({
-	relations: {
+}).with((plugins) =>
+	plugins.relations({
 		// Readers see published posts through this relation; Master sees all.
 		posts: {
 			where: ({ context, where }) =>
 				context.access.mode === 'master' ? where : where.eq('published', true),
 		},
-	},
-})
+	}),
+)
 //#endregion author
 
 //#region post
@@ -113,8 +113,8 @@ export const isEditor: PolicyPredicate = async function isEditor({
 export const Announcement = App.Schema.define({
 	className: 'Announcement',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({
-	access: {
+}).with((plugins) =>
+	plugins.access({
 		read: true,
 		create: {
 			where: isAuthenticated,
@@ -130,6 +130,6 @@ export const Announcement = App.Schema.define({
 		},
 		update: isEditor,
 		delete: isEditor,
-	},
-})
+	}),
+)
 //#endregion announcement

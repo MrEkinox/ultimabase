@@ -77,12 +77,12 @@ const createApplication = (
 	const EmailUser = App.UserSchema.define({
 		className: 'EmailUser',
 		fields: (field) => ({ displayName: field.string() }),
-	}).with({
-		access: {
+	}).with((plugins) =>
+		plugins.access({
 			read: ({ principal, where }) =>
 				where.in('id', principal === undefined ? [] : [principal.id]),
-		},
-	})
+		}),
+	)
 	const ultimabase = new App({ logger: false, schemas: [EmailUser] })
 	const send = (
 		path: string,

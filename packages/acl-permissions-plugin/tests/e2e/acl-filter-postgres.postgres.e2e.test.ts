@@ -55,17 +55,16 @@ const identityPlugin = plugin({
 const FilterNote = FilterApplication.Schema.define({
 	className: 'ACLFilterNote',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.acl()
-	.softDelete({ mode: 'command' })
-	.with({
-		acl: {
-			default: ({ principal }) => new ACL(principal),
-			clientSharing: ({ principal, currentAcl }) =>
-				principal !== undefined &&
-				currentAcl.hasPrincipalPermission(principal, 'update'),
-		},
-	})
+	acl: true,
+	softDelete: { mode: 'command' },
+}).with((plugins) =>
+	plugins.acl({
+		default: ({ principal }) => new ACL(principal),
+		clientSharing: ({ principal, currentAcl }) =>
+			principal !== undefined &&
+			currentAcl.hasPrincipalPermission(principal, 'update'),
+	}),
+)
 /** A schema without ACL that reaches notes through a pointer and a relation. */
 const FilterFolder = FilterApplication.Schema.define({
 	className: 'ACLFilterFolder',

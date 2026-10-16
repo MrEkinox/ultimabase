@@ -22,7 +22,7 @@ const App = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture
 const Post = App.Schema.define({
   className: 'PostgresSourceOptionPost',
   fields: (field) => ({ title: field.string({ postgres: { renamedFrom: 'headline' } }) }),
-}).with({ postgres: { table: 'posts' } })
+}).with((plugins) => plugins.postgres({ table: 'posts' }))
 void Post`
 		const service = createLanguageService(fileName, source)
 		expect(
@@ -47,7 +47,7 @@ const Other = UltimaBase.use(pgVectorPlugin())
 Other.Schema.define({
   className: 'PostgresAbsentOptionPost',
   fields: () => ({}),
-}).with({ postgres: { table: 'posts' } })`
+}).with((plugins) => plugins.postgres({ table: 'posts' }))`
 		const messages = createLanguageService(fileName, source)
 			.getSemanticDiagnostics(fileName)
 			.map(({ messageText }) =>
@@ -81,9 +81,9 @@ const PackedPost = App.Schema.define({
   fields: (field) => ({
     title: field.string({ postgres: { ${fieldMarker}...postgresField } }),
   }),
-}).with({
-  postgres: { ${schemaMarker}...postgresSchema },
-})
+}).with((plugins) =>
+  plugins.postgres({ ${schemaMarker}...postgresSchema }),
+)
 void PackedPost
 `
 	const positions = new Map(
@@ -159,7 +159,7 @@ UltimaBase.Schema.define({
   fields: (field) => ({
     title: field.string({ postgres: { renamedFrom: 'headline' } }),
   }),
-}).with({ postgres: { table: 'missing_posts' } })`
+}).with((plugins) => plugins.postgres({ table: 'missing_posts' }))`
 	const messages = createLanguageService(fileName, source)
 		.getSemanticDiagnostics(fileName)
 		.map(({ messageText }) => ts.flattenDiagnosticMessageText(messageText, ' '))

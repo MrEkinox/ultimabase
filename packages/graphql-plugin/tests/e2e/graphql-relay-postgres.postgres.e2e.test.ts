@@ -32,7 +32,7 @@ const RelayRecord = GraphqlSchemaApplication.Schema.define({
 		label: field.string({ required: true }),
 		rank: field.int({ required: true }),
 	}),
-}).with({ graphql: true })
+}).with((plugins) => plugins.graphql(true))
 
 interface ExecutionHarness {
 	callbacks?: ApplicationCallbackExecutor

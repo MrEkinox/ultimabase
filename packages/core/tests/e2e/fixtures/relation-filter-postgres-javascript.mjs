@@ -42,8 +42,8 @@ const Source = Application.Schema.define({
 		staticTargets: field.relation({ target: 'JavaScriptRelationFilterTarget' }),
 		label: field.string({ required: true }),
 	}),
-}).with({
-	relations: {
+}).with((plugins) =>
+	plugins.relations({
 		contextualTargets: {
 			where: ({ context, where }) =>
 				context.getValue(authenticatedViewer) === true
@@ -51,8 +51,8 @@ const Source = Application.Schema.define({
 					: where.eq('audience', 'public'),
 		},
 		staticTargets: { where: { visible: { eq: true } } },
-	},
-})
+	}),
+)
 
 const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({

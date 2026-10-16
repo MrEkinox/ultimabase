@@ -58,7 +58,7 @@ const createSlowApplication = (
 	const Post = App.Schema.define({
 		className: 'SettingsSlowPost',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	}).with({ postgres: { table } })
+	}).with((plugins) => plugins.postgres({ table }))
 	return { Post, application: new App({ logger, schemas: [Post] }) }
 }
 
@@ -250,7 +250,7 @@ describe('PostgreSQL query logs (ADR-0320)', { concurrent: false }, () => {
 		const Post = App.Schema.define({
 			className: 'SettingsLoggedPost',
 			fields: (field) => ({ title: field.string({ required: true }) }),
-		}).with({ postgres: { table: 'settings_logged_posts' } })
+		}).with((plugins) => plugins.postgres({ table: 'settings_logged_posts' }))
 		const application = new App({ logger, schemas: [Post] })
 		await application.start()
 

@@ -18,12 +18,11 @@ it('runs the common suite with the schemas a shape method types', async () => {
 		// The subject and the schemas that call its shape method, together.
 		createFixture: () => {
 			const subject = archivePlugin()
-			const Post = UltimaBase.use(subject)
-				.Schema.define({
-					className: 'Post',
-					fields: (f) => ({ title: f.string({ required: true }) }),
-				})
-				.archivable()
+			const Post = UltimaBase.use(subject).Schema.define({
+				className: 'Post',
+				fields: (f) => ({ title: f.string({ required: true }) }),
+				archivable: true,
+			})
 			return createPluginConformanceFixture({ subject, schemas: [Post] })
 		},
 		expected: {

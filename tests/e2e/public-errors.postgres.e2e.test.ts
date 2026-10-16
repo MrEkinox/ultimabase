@@ -49,8 +49,8 @@ let failAfterCommit = false
 const ErrorTodo = App.Schema.define({
 	className: 'PublicErrorTodo',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		beforeOperation: {
 			create: ({ item }) => {
 				attempts += 1
@@ -67,8 +67,8 @@ const ErrorTodo = App.Schema.define({
 				}
 			},
 		},
-	},
-})
+	}),
+)
 
 const postCommitPlugin = plugin({
 	core: '^0.0.0',

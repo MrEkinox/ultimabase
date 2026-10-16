@@ -58,11 +58,11 @@ export const App = UltimaBase.use(
 export const Note = App.Schema.define({
 	className: 'Note',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.acl()
-	.with({
-		access: { read: true, create: isAuthenticated, update: true, delete: true },
-		acl: {
+	acl: true,
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: isAuthenticated, update: true, delete: true })
+		.acl({
 			// The creator may read, update and delete; nobody else sees the note.
 			default: ({ principal }) => new ACL(principal),
 			// Whoever may update a note may share it.
@@ -71,8 +71,8 @@ export const Note = App.Schema.define({
 				currentAcl.hasPrincipalPermission(principal, 'update'),
 			// The owner and two other members at most.
 			limits: { maxPrincipals: 3 },
-		},
-	})
+		}),
+)
 ```
 
 <!-- endregion -->

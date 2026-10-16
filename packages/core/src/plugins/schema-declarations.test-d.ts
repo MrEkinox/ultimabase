@@ -249,10 +249,11 @@ test('does not claim issue 1408 direct option augmentation', () => {
 	UltimaBase.Schema.define({
 		className: 'UngeneratedWorkflowSchema',
 		fields: (field) => ({ title: field.string() }),
-	}).with({
-		// @ts-expect-error -- No installed plugin contributes this schema rule.
-		workflow: { enabled: true },
-	})
+	}).with((plugins) =>
+		plugins
+			// @ts-expect-error -- No installed plugin contributes this schema rule.
+			.workflow({ enabled: true }),
+	)
 })
 
 test('accepts only inert Core receipts from static declarations', () => {

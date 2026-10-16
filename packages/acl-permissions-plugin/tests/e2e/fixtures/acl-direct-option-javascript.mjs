@@ -7,15 +7,15 @@ const Application = UltimaBase.use(aclPlugin())
 const ProtectedPost = Application.Schema.define({
 	className: 'JavaScriptDirectACLPost',
 	fields: (field) => ({ title: field.string() }),
-})
-	.acl()
-	.with({ acl: { default: new ACL().grantPublic('read') } })
+	acl: true,
+}).with((plugins) => plugins.acl({ default: new ACL().grantPublic('read') }))
 const application = new Application({
 	logger: false,
 	schemas: [ProtectedPost],
 })
 const compiled = application.compile().schemas.get('JavaScriptDirectACLPost')
 
+// A raw option without its plugin, as stale JavaScript may still pass it.
 const MissingPluginPost = UltimaBase.Schema.define({
 	className: 'JavaScriptMissingACLPluginPost',
 	fields: (field) => ({ title: field.string() }),

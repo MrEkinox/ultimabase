@@ -20,36 +20,35 @@ const Post = Application.Schema.define({
 		title: field.string({ required: true }),
 		visibility: field.string(),
 	}),
-})
-	.acl()
-	.with({
-		acl: {
-			default: ({ data, principal, context }) => {
-				// ADR-0321: sibling fields are typed without Typegen.
-				expectTypeOf(data.title).toEqualTypeOf<string>()
-				expectTypeOf(data.visibility).toEqualTypeOf<string | null>()
-				expectTypeOf(principal).toEqualTypeOf<Principal | undefined>()
-				expectTypeOf(context.requestId).toBeString()
-				return new ACL(principal)
-			},
-			existingRows: new ACL().grantAuthenticated('read'),
-			resolveInput: (input) => {
-				expectTypeOf(input.data.title).toEqualTypeOf<string>()
-				if (input.operation === 'create') {
-					expectTypeOf(input.currentData).toEqualTypeOf<undefined>()
-					expectTypeOf(input.update).toEqualTypeOf<undefined>()
-					return undefined
-				}
-
-				expectTypeOf(input.currentData.title).toEqualTypeOf<string>()
-				expectTypeOf(input.update.kind).toEqualTypeOf<'update-expression'>()
-				return input.currentAcl
-			},
-			clientSharing: ({ principal, currentAcl }) =>
-				principal !== undefined &&
-				currentAcl.hasPrincipalPermission(principal, 'delete'),
+	acl: true,
+}).with((plugins) =>
+	plugins.acl({
+		default: ({ data, principal, context }) => {
+			// ADR-0321: sibling fields are typed without Typegen.
+			expectTypeOf(data.title).toEqualTypeOf<string>()
+			expectTypeOf(data.visibility).toEqualTypeOf<string | null>()
+			expectTypeOf(principal).toEqualTypeOf<Principal | undefined>()
+			expectTypeOf(context.requestId).toBeString()
+			return new ACL(principal)
 		},
-	})
+		existingRows: new ACL().grantAuthenticated('read'),
+		resolveInput: (input) => {
+			expectTypeOf(input.data.title).toEqualTypeOf<string>()
+			if (input.operation === 'create') {
+				expectTypeOf(input.currentData).toEqualTypeOf<undefined>()
+				expectTypeOf(input.update).toEqualTypeOf<undefined>()
+				return undefined
+			}
+
+			expectTypeOf(input.currentData.title).toEqualTypeOf<string>()
+			expectTypeOf(input.update.kind).toEqualTypeOf<'update-expression'>()
+			return input.currentAcl
+		},
+		clientSharing: ({ principal, currentAcl }) =>
+			principal !== undefined &&
+			currentAcl.hasPrincipalPermission(principal, 'delete'),
+	}),
+)
 
 test('adds the acl field through the fields slot and types its updates', async () => {
 	const post = await Post.findOne(
@@ -92,24 +91,25 @@ test('requires default once .acl() is called and acl only after it', () => {
 	Application.Schema.define({
 		className: 'MissingACLRulePost',
 		fields: (field) => ({ title: field.string() }),
+		acl: true,
 	})
-		.acl()
 		// @ts-expect-error -- `acl.default` is required once `.acl()` is called.
-		.with({})
+		.with((plugins) => plugins)
 	Application.Schema.define({
 		className: 'MissingACLDefaultPost',
 		fields: (field) => ({ title: field.string() }),
+		acl: true,
 	})
-		.acl()
 		// @ts-expect-error -- An empty ACL would hide every row from everyone but Master.
-		.with({ acl: { resolveInput: () => undefined } })
+		.with((plugins) => plugins.acl({ resolveInput: () => undefined }))
 	Application.Schema.define({
 		className: 'ACLWithoutShapePost',
 		fields: (field) => ({ title: field.string() }),
-	}).with({
-		// @ts-expect-error -- `acl` rules need `.acl()` first.
-		acl: { default: new ACL() },
-	})
+	}).with((plugins) =>
+		plugins
+			// @ts-expect-error -- `acl` rules need `.acl()` first.
+			.acl({ default: new ACL() }),
+	)
 	Application.Schema.define({
 		className: 'LegacyACLOptionPost',
 		fields: (field) => ({ title: field.string() }),
@@ -123,21 +123,22 @@ test('rejects incompatible public ACL configuration', () => {
 		Application.Schema.define({
 			className,
 			fields: (field) => ({ title: field.string() }),
-		}).acl()
-	declare('InvalidDirectACLTypePost').with({
+			acl: true,
+		})
+	declare('InvalidDirectACLTypePost').with((plugins) =>
 		// @ts-expect-error -- Static defaults must be immutable ACL values.
-		acl: { default: { public: ['read'] } },
-	})
-	declare('InvalidDirectACLResolverPost').with({
+		plugins.acl({ default: { public: ['read'] } }),
+	)
+	declare('InvalidDirectACLResolverPost').with((plugins) =>
 		// @ts-expect-error -- Input resolution must return an ACL or undefined.
-		acl: { default: new ACL(), resolveInput: () => true },
-	})
-	declare('InvalidDirectACLLimitsPost').with({
+		plugins.acl({ default: new ACL(), resolveInput: () => true }),
+	)
+	declare('InvalidDirectACLLimitsPost').with((plugins) =>
 		// @ts-expect-error -- Schema limits accept only documented keys.
-		acl: { default: new ACL(), limits: { maximum: 10 } },
-	})
-	declare('InvalidExistingRowsPost').with({
+		plugins.acl({ default: new ACL(), limits: { maximum: 10 } }),
+	)
+	declare('InvalidExistingRowsPost').with((plugins) =>
 		// @ts-expect-error -- Existing rows receive one fixed ACL.
-		acl: { default: new ACL(), existingRows: () => new ACL() },
-	})
+		plugins.acl({ default: new ACL(), existingRows: () => new ACL() }),
+	)
 })

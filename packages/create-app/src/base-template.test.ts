@@ -162,7 +162,7 @@ describe('base project templates', () => {
 		expect(schema).toContain('hooksPlugin()')
 		expect(schema).toContain('softDeletePlugin()')
 		expect(schema).toContain('validationPlugin()')
-		expect(schema).toContain('}).softDelete()')
+		expect(schema).toContain('  softDelete: true,\n})')
 		expect(schema).toContain('resolveInput:')
 		expect(schema).toContain('validation: z.string().min(1).max(200)')
 	})
@@ -229,8 +229,8 @@ describe('base project templates', () => {
 					expect(schema).not.toContain('access: {')
 				}
 				if (id === 'acl-permissions-plugin') {
-					expect(schema).toContain('  .acl()\n  .with({')
-					expect(schema).toContain('    acl: { default: new ACL() },')
+					expect(schema).toContain('  acl: true,\n}).with((plugins) =>')
+					expect(schema).toContain('    .acl({ default: new ACL() }),')
 				}
 				if (id === 'roles-plugin') {
 					expect(schema).toContain('SchemaApplication.RoleSchema.define({')
@@ -239,8 +239,8 @@ describe('base project templates', () => {
 					)
 					expect(application).toContain('schemas: [Task, Member, AppRole]')
 					// The Register cycle is fixed in Core (ADR-0297 note of
-					// 2026-10-12): no `.with({})` only to finish a declaration.
-					expect(schema).not.toContain('.with({})')
+					// 2026-10-12): no empty `.with` only to finish a declaration.
+					expect(schema).not.toContain('.with((plugins) => plugins)')
 				}
 			}
 		},
@@ -265,8 +265,8 @@ describe('base project templates', () => {
 				"authPlugin({ methods: [password({ identifier: 'email' })] })",
 			)
 			expect(schema).toContain('SchemaApplication.UserSchema.define({')
-			// The Register cycle is fixed in Core: no `.with({})` is needed.
-			expect(schema).not.toContain('.with({})')
+			// The Register cycle is fixed in Core: no empty `.with` is needed.
+			expect(schema).not.toContain('.with((plugins) => plugins)')
 			expect(application).toContain('schemas: [Task, AppUser]')
 			expect(application).not.toContain('MasterAuthority')
 			expect(application).not.toContain('cookie:')
@@ -288,7 +288,7 @@ describe('base project templates', () => {
 		expect(schema).toContain('members: () => AppUser')
 		// Roles reads the Core principal: rules no longer import the session token.
 		expect(schema).not.toContain('passwordPrincipal')
-		expect(schema).toContain('.acl()')
+		expect(schema).toContain('  acl: true,')
 		expect(schema).not.toContain('resolveInput')
 		expect(application).toContain('schemas: [Task, AppUser, AppRole]')
 		expect(schema).not.toContain('accessPlugin(')

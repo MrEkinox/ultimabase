@@ -169,9 +169,7 @@ const NativeDocument = AccessCompositionApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string({ required: true }),
 	}),
-}).with({
-	access: { read: true },
-})
+}).with((plugins) => plugins.access({ read: true }))
 
 const Principal = AccessCompositionApplication.Schema.define({
 	className: 'AccessCompositionPrincipal',
@@ -189,9 +187,8 @@ const RoleOnly = ACLCompositionApplication.RoleSchema.define({
 const ACLRole = ACLCompositionApplication.RoleSchema.define({
 	className: 'AccessCompositionACLRole',
 	members: () => Principal,
-})
-	.acl()
-	.with({ acl: { default: new ACL() } })
+	acl: true,
+}).with((plugins) => plugins.acl({ default: new ACL() }))
 
 const publicACL = new ACL().grantPublic('read')
 const PublicACLPost = ACLCompositionApplication.Schema.define({
@@ -199,9 +196,8 @@ const PublicACLPost = ACLCompositionApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-})
-	.acl()
-	.with({ acl: { default: publicACL } })
+	acl: true,
+}).with((plugins) => plugins.acl({ default: publicACL }))
 
 const roleACL = new ACL().grantRole(editor, 'read')
 const CombinedPost = ACLCompositionApplication.Schema.define({
@@ -213,19 +209,20 @@ const CombinedPost = ACLCompositionApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string({ required: true }),
 	}),
+	acl: true,
 })
-	.acl()
 	// A callback defers role discovery so this fixture can prove runtime composition.
-	.with({
-		access: {
-			read: async (input) =>
-				(await isEditor(input)) &&
-				input.where
-					.eq('nativeScope', 'native-allowed')
-					.eq('businessScope', 'business-allowed'),
-		},
-		acl: { default: () => roleACL },
-	})
+	.with((plugins) =>
+		plugins
+			.access({
+				read: async (input) =>
+					(await isEditor(input)) &&
+					input.where
+						.eq('nativeScope', 'native-allowed')
+						.eq('businessScope', 'business-allowed'),
+			})
+			.acl({ default: () => roleACL }),
+	)
 
 const createRoleProvider = (allowed: boolean) =>
 	plugin({
@@ -340,20 +337,21 @@ const MissingRolePost = ACLCompositionApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
+	acl: true,
 })
-	.acl()
 	// Dynamic grants validate the absent provider before business or storage hooks.
-	.with({
-		hooks: {
-			beforeOperation: {
-				create: ({ item }) => {
-					roleAwareBusinessHooks += 1
-					void item
+	.with((plugins) =>
+		plugins
+			.hooks({
+				beforeOperation: {
+					create: ({ item }) => {
+						roleAwareBusinessHooks += 1
+						void item
+					},
 				},
-			},
-		},
-		acl: { default: () => roleACL },
-	})
+			})
+			.acl({ default: () => roleACL }),
+	)
 
 describe('Access provider composition', () => {
 	it('keeps native field Access complete without ACL or roles', async () => {

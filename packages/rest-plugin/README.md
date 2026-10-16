@@ -62,12 +62,13 @@ export const Post = App.Schema.define({
 		// A moderation note no client may read, filter, sort or write.
 		reviewNote: field.string({ access: { read: false, write: false } }),
 	}),
-}).with({
 	indexes: [{ fields: ['slug'], unique: true }],
-	access: { read: true, create: true, update: true, delete: true },
-	// The built-in routes, plus count and the atomic bulk create.
-	rest: { count: true, createMany: true },
-})
+}).with((plugins) =>
+	plugins
+		.access({ read: true, create: true, update: true, delete: true })
+		// The built-in routes, plus count and the atomic bulk create.
+		.rest({ count: true, createMany: true }),
+)
 ```
 
 <!-- endregion -->
