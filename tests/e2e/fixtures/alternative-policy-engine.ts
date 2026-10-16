@@ -215,7 +215,7 @@ export const createAlternativePolicyEngine = (
 			}
 		},
 	})
-	// The rules slot types `.with({ alternativePolicy })` (ADR-0297).
+	// The rules slot types `plugins.alternativePolicy(…)` (ADR-0297).
 	const declarations: PluginDeclarationContribution<
 		readonly [],
 		PluginSchemaRulesSource<AlternativePolicyRules>

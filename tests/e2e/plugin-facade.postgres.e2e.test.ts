@@ -82,7 +82,7 @@ const Note = App.Schema.define({
 export const typeProofs = (): void => {
 	expectTypeOf(Post.archiveOne).parameter(0).toHaveProperty('id')
 	expectTypeOf(Post.archiveMany).parameter(0).toHaveProperty('where')
-	// @ts-expect-error -- A schema without `.archivable()` has no archive command.
+	// @ts-expect-error -- A schema without `archivable` has no archive command.
 	void Note.archiveOne
 	App.Schema.define({
 		className: 'FacadeBadRule',

@@ -8,7 +8,7 @@ import { softDeletePlugin } from '../src/index.js'
 
 const marker = '/* soft-delete-method */'
 
-it('offers the shape method and types its commands', async () => {
+it('offers the softDelete feature and types its commands', async () => {
 	const SoftDeleteApplication = UltimaBase.use(softDeletePlugin())
 	const Document = SoftDeleteApplication.Schema.define({
 		className: 'SoftDeleteIntellisenseDocument',

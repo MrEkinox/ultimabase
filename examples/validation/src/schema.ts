@@ -10,7 +10,7 @@ import { isRoomOpen } from './rooms.ts'
 
 /**
  * The configured factory types the `validation` field option and the schema
- * check of `.with({ validation })`. Access opens the REST writes of this
+ * check of `plugins.validation(…)` in `.with`. Access opens the REST writes of this
  * example; Validation needs neither Access nor REST.
  */
 export const App = UltimaBase.use(

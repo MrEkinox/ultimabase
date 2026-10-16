@@ -447,7 +447,7 @@ describe(
 				).toHaveLength(expected)
 			}
 			// Master bypasses the Article read rule, not the relation filters
-			// declared in ExampleAuthor's `.with({ relations })`: the unpublished
+			// declared in ExampleAuthor's `plugins.relations(…)`: the unpublished
 			// article stays out of both relations.
 			const masterContext = await createContext('master')
 			for (const [field, expected] of [

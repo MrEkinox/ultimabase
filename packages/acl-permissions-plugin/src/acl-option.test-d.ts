@@ -93,7 +93,7 @@ test('requires default once acl: true is set and the acl rule only after it', ()
 		fields: (field) => ({ title: field.string() }),
 		acl: true,
 	})
-		// @ts-expect-error -- `acl.default` is required once `.acl()` is called.
+		// @ts-expect-error -- `acl.default` is required once `acl: true` is set.
 		.with((plugins) => plugins)
 	Application.Schema.define({
 		className: 'MissingACLDefaultPost',

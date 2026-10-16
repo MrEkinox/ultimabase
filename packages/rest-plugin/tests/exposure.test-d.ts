@@ -35,7 +35,7 @@ const defineArchivable = () =>
 	})
 
 // ADR-0324 decision 2: one vocabulary, the schema method names.
-test('keys `.with({ rest })` by method and exposable command names', () => {
+test('keys `plugins.rest(…)` by method and exposable command names', () => {
 	defineArchivable().with((plugins) =>
 		plugins.rest({ archiveOne: true, findMany: false }),
 	)

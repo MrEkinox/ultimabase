@@ -18,10 +18,11 @@ const compiled = application.compile().schemas.get('JavaScriptDirectACLPost')
 // The object form of `.with` is gone (ADR-0339); JavaScript gets a TypeError.
 let objectFormMessage
 try {
-	UltimaBase.Schema.define({
+	const declared = UltimaBase.Schema.define({
 		className: 'JavaScriptObjectFormACLPost',
 		fields: (field) => ({ title: field.string() }),
-	}).with({ acl: {} })
+	})
+	Reflect.apply(declared.with, declared, [{ acl: {} }])
 } catch (error) {
 	objectFormMessage = error?.message
 }

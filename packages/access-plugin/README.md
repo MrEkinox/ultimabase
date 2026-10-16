@@ -341,7 +341,7 @@ export const Admin = StaffRole.role('admin')
 export const Muted = StaffRole.role('muted')
 
 /**
- * `.softDelete()` adds request commands (`softDeleteOne`, `restoreOne`…) and
+ * `softDelete: true` adds request commands (`softDeleteOne`, `restoreOne`…) and
  * the `readDeleted` permission. Each has its own Access key: `update` and
  * `delete` grant none of them.
  */
