@@ -34,6 +34,7 @@ it('counts replies at every level through the same Hook', async () => {
 		{ body: 'Answer', replies: 1 },
 		{ body: 'Thanks', replies: 0 },
 	])
+	await t.afterCommit()
 })
 
 it('stops a chain deeper than 16 Hook-issued operations and rolls it back', async () => {
@@ -58,4 +59,5 @@ it('stops a chain deeper than 16 Hook-issued operations and rolls it back', asyn
 	expect(
 		await Comment.findOneOrThrow({ where: { body: { eq: 'Level 0' } } }),
 	).toMatchObject({ replies: 16 })
+	await t.afterCommit()
 })

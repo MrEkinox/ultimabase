@@ -23,6 +23,7 @@ it('resolves one cached handle per schema of the application', async () => {
 	expect(ultimabase.schema(Post)).toBe(Posts)
 	expect(commentClass).toBe('Comment')
 	expect(comments).toStrictEqual([])
+	await t.afterCommit()
 })
 
 it('selects the operations one transport may execute', async () => {
@@ -48,4 +49,5 @@ it('selects the operations one transport may execute', async () => {
 			publicName: 'formatWorkflow',
 		},
 	])
+	await t.afterCommit()
 })

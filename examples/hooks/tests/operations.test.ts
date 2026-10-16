@@ -23,6 +23,7 @@ it('records a title change in the same transaction', async () => {
 	expect(changes).toMatchObject([
 		{ previousTitle: 'Draft title', title: 'Final title' },
 	])
+	await t.afterCommit()
 })
 
 it('rejects a published title change with a public error', async () => {
@@ -107,4 +108,5 @@ it('runs the Hooks a compatible plugin contributes', async () => {
 	expect(await Post.deleteOne({ where: { id: post.id } })).toMatchObject({
 		title: 'Live',
 	})
+	await t.afterCommit()
 })

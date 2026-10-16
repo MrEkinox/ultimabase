@@ -36,6 +36,7 @@ it('adds the feature fields and commands, and reads the rule after commit', asyn
 	expect(story.reviewedAt).toBeNull()
 	expect(approved.reviewedAt).toEqual(expect.any(String))
 	info.mockRestore()
+	await t.afterCommit()
 })
 
 it('sets the feature in define and its rule in .with', () => {
