@@ -492,8 +492,9 @@ nested soft delete yet. A scheduled server job can empty the trash with
 ## Troubleshooting
 
 - **The soft-delete route or field is missing:** check plugin installation,
-  the `softDelete` key in that schema's `define`, schema exposure, and the transport's
-  `mutations` switch. Many-row commands and purge are never exposed.
+  the `softDelete` key in that schema's `define`, and that its `rest` or
+  `graphql` rule names the command (`softDeleteOne: true`). Many-row commands
+  and purge are never exposed.
 - **Soft deletion returns `NOT_FOUND`:** the ID may be absent, already deleted,
   or hidden by a policy. Repeating soft deletion does not succeed again.
 - **A deleted record remains visible:** check the selected application, the
