@@ -35,7 +35,7 @@ import { isRoomOpen } from './rooms.ts'
 export const App = UltimaBase.use(
 	validationPlugin(),
 	accessPlugin(),
-	...apiServer({ http: { appId: 'events' }, rest: true }),
+	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
 
