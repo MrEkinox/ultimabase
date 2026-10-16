@@ -299,6 +299,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 }).with((plugins) =>
 	//#region relation-views
 	plugins
+		// Narrows every read through these relation fields (ADR-0328).
 		.relations({
 			contributors: { where: { listed: { eq: true } } },
 			// Anonymous requests see only public reviewers.

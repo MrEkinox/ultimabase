@@ -1288,16 +1288,18 @@ rule of the minimal example's `ExampleArticle` uses both:
 <!-- region ../../examples/minimal/src/schema.ts#relation-views -->
 
 ```ts
-plugins.relations({
-	contributors: { where: { listed: { eq: true } } },
-	// Anonymous requests see only public reviewers.
-	reviewers: {
-		where: ({ context, where }) =>
-			context.getValue(authPrincipal) === undefined
-				? where.eq('audience', 'public')
-				: where,
-	},
-})
+plugins
+	// Narrows every read through these relation fields (ADR-0328).
+	.relations({
+		contributors: { where: { listed: { eq: true } } },
+		// Anonymous requests see only public reviewers.
+		reviewers: {
+			where: ({ context, where }) =>
+				context.getValue(authPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
+		},
+	})
 ```
 
 <!-- endregion -->

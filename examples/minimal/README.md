@@ -186,6 +186,7 @@ authentication request context:
 
 ```ts
 plugins
+	// Narrows every read through these relation fields (ADR-0328).
 	.relations({
 		contributors: { where: { listed: { eq: true } } },
 		// Anonymous requests see only public reviewers.
