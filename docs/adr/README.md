@@ -326,6 +326,7 @@ Current records (accepted or still active in part):
 - [ADR-0336: Asynchronous operations report failures through their promise](0336-async-operations-reject.md)
 - [ADR-0337: definePlugin infers rule validators](0337-define-plugin-infers-validators.md)
 - [ADR-0338: A plugin's Core range is checked](0338-core-range-is-checked.md)
+- [ADR-0339: `define` describes the schema, `.with` configures each plugin](0339-define-describes-with-configures.md)
 
 Proposed records (awaiting user validation):
 
