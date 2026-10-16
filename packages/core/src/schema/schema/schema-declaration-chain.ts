@@ -431,10 +431,7 @@ export const defineFactorySchema = (
 		throw new TypeError('schema factory statics must be a function')
 	}
 	return defineDeclaredSchema(
-		applyDefineFeatures(
-			options as Readonly<Record<string, unknown>>,
-			extensions.features,
-		),
+		applyDefineFeatures(options, extensions.features),
 		extensions.rules,
 		statics,
 	)

@@ -296,9 +296,12 @@ describe('definePlugin features and rules (ADR-0339)', () => {
 		const message =
 			'FeatureMissingReason sets flaggable in define(), which requires .with((plugins) => plugins.flagReason({ … }))'
 
-		expect(() =>
-			Reflect.apply(Missing.with, Missing, [(plugins: unknown) => plugins]),
-		).toThrow(new TypeError(message))
+		const withMethod: unknown = Reflect.get(Missing, 'with')
+		expect(() => {
+			if (typeof withMethod === 'function') {
+				Reflect.apply(withMethod, Missing, [(plugins: unknown) => plugins])
+			}
+		}).toThrow(new TypeError(message))
 		expect(() =>
 			new App({ logger: false, schemas: [Missing] as never }).compile(),
 		).toThrow(message)

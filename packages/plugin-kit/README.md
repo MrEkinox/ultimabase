@@ -151,6 +151,26 @@ Keep raw `plugin()` when rules or commands depend on the schema they apply to
 `DefinedPlugin<Name, Shape, Rules>` and the shape with
 `ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does.
 
+### Features and rules
+
+ADR-0339 splits what a plugin contributes to a schema in two (the full guide
+comes with the documentation phase of the migration):
+
+- **Features** describe what the schema is. They are keys of `define`, with
+  static values only (`true` or an options object), and may add fields,
+  commands and permissions. Declare them with `features` and `feature(...)`;
+  `shape` and `shapeMethod(...)` are the former names, kept until the shape
+  methods are removed. A feature may list the rules it requires
+  (`requires: ['flagReason']`); Core then reports a declaration that sets the
+  feature without them.
+- **Rules** configure how the plugin treats a schema. They are the methods of
+  `.with((plugins) => plugins.flagReason('Spam'))`, typed against the
+  completed schema, so they may hold callbacks. `definePlugin` declares their
+  names when the plugin is created; a raw `plugin()` does it with
+  `provideSchemaRules(instance, names)` from `@ultimabase/core/plugin`.
+- `className`, `fields`, `indexes`, `relations` and `with` are reserved by
+  Core: a feature or rule with one of these names is rejected.
+
 ## Declare application operations
 
 `defineOperation({ name, input, output, handler })` declares one application

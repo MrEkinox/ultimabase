@@ -184,7 +184,7 @@ export const feature = <const TDefinition extends ShapeMethodDefinition>(
 /**
  * Declares one shape method chained before `.with(...)`.
  *
- * @deprecated Use {@link feature} (ADR-0339); this name is removed with the
+ * Superseded by {@link feature} (ADR-0339); this name is removed with the
  * shape methods.
  * @example `archivable: shapeMethod({ fields: { archivedAt: dateTimeField() } })`
  */

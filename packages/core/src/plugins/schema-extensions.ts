@@ -345,7 +345,7 @@ export const provideSchemaFeatures = <
  * Attaches the runtime of the shape methods one plugin declares in its source
  * type. Returns the same frozen plugin instance.
  *
- * @deprecated Use {@link provideSchemaFeatures} (ADR-0339); this name is
+ * Superseded by {@link provideSchemaFeatures} (ADR-0339); this name is
  * removed with the shape methods.
  * @example `provideSchemaShapeMethods(instance, { archivable: { sets: ['archivable'], apply: (options = {}) => ({ archivable: options }) } })`
  */

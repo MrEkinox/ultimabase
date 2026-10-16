@@ -207,9 +207,10 @@ export interface DefinedFeatureForm {
 	readonly [definedFeatureForm]: true
 }
 
-type EveryFeatureShape<TSource extends PluginSourceState> = {
-	readonly [TKey in FeatureName<TSource['shapeMethods']>]: readonly []
-} & FailedDefineShape
+type EveryFeatureShape<TSource extends PluginSourceState> = Readonly<
+	Record<FeatureName<TSource['shapeMethods']>, readonly []>
+> &
+	FailedDefineShape
 
 // `define` failed: TypeScript left the object uninferred, or it names an
 // unknown key (a misspelled feature must not remove the feature's fields).

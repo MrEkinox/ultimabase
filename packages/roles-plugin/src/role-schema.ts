@@ -158,7 +158,7 @@ export interface RoleSchemaOptions<
 	 * role is deleted: `fail` (the default) refuses the deletion, `preserve`
 	 * leaves them inert, `cascade` asks their owners to remove them in the
 	 * same transaction (Master only).
-	 * @deprecated Set it in `.with((plugins) => plugins.roles({ deletion }))`
+	 * Superseded by `.with((plugins) => plugins.roles({ deletion }))`
 	 * (ADR-0339); this option is removed with the old forms.
 	 * @default "fail"
 	 * @example `deletion: 'cascade'`
@@ -179,7 +179,7 @@ export interface RoleSchemaOptions<
 	/**
 	 * Role names created at `start()` when missing; existing roles are left
 	 * unchanged.
-	 * @deprecated Set it in `.with((plugins) => plugins.roles({ ensure }))`
+	 * Superseded by `.with((plugins) => plugins.roles({ ensure }))`
 	 * (ADR-0339); this option is removed with the old forms.
 	 * @example `ensure: ['admin', 'editor']`
 	 */
@@ -188,7 +188,7 @@ export interface RoleSchemaOptions<
 	 * Replaces the current member for special cases. Omitted, the current
 	 * member is the request principal when it belongs to the member schema
 	 * (ADR-0304).
-	 * @deprecated Set it in `.with((plugins) => plugins.roles({ resolveCurrent }))`
+	 * Superseded by `.with((plugins) => plugins.roles({ resolveCurrent }))`
 	 * (ADR-0339); this option is removed with the old forms.
 	 * @example `resolveCurrent: ({ context }) => readDelegate(context)`
 	 */

@@ -72,8 +72,8 @@ export interface DefinePluginOptions<
 	 */
 	readonly features?: TShape
 	/**
-	 * Shape methods chained before `.with(...)`.
-	 * @deprecated Use `features` (ADR-0339); removed with the shape methods.
+	 * Shape methods chained before `.with(...)`. Superseded by `features`
+	 * (ADR-0339); removed with the shape methods.
 	 */
 	readonly shape?: TShape
 	/**

@@ -5,22 +5,22 @@ import { collectSchemaRules } from './schema-rules-builder.js'
 
 // ADR-0339: `.with((plugins) => plugins…)` records one rule per call, with
 // the rule names declared when the factory was configured (no Proxy).
+/** Calls one builder method by name, as JavaScript callers do. */
+const call = (builder: unknown, name: string, rule: unknown): unknown => {
+	const method: unknown =
+		typeof builder === 'object' && builder !== null
+			? Reflect.get(builder, name)
+			: undefined
+	if (typeof method !== 'function') throw new TypeError(`No method ${name}`)
+	return Reflect.apply(method, undefined, [rule])
+}
+
 describe('the .with rules builder', () => {
 	const names = ['relations', 'access', 'audit']
 
 	it('records each called rule once, in order', () => {
 		const rules = collectSchemaRules(
-			(plugins) =>
-				Reflect.apply(
-					Reflect.get(
-						Reflect.apply(Reflect.get(plugins as object, 'audit'), plugins, [
-							true,
-						]) as object,
-						'access',
-					),
-					undefined,
-					[{ read: true }],
-				),
+			(plugins) => call(call(plugins, 'audit', true), 'access', { read: true }),
 			names,
 		)
 
@@ -30,11 +30,11 @@ describe('the .with rules builder', () => {
 
 	it('offers only the declared rule names', () => {
 		const builder = collectSchemaRules((plugins) => {
-			expect(Object.keys(plugins as object).sort()).toStrictEqual([
-				'access',
-				'audit',
-				'relations',
-			])
+			expect(
+				Object.keys(
+					typeof plugins === 'object' && plugins !== null ? plugins : {},
+				).sort(),
+			).toStrictEqual(['access', 'audit', 'relations'])
 			expect(Object.isFrozen(plugins)).toBe(true)
 			return plugins
 		}, names)
@@ -44,14 +44,10 @@ describe('the .with rules builder', () => {
 
 	it('rejects a rule set twice', () => {
 		expect(() =>
-			collectSchemaRules((plugins) => {
-				const once = Reflect.apply(
-					Reflect.get(plugins as object, 'audit'),
-					undefined,
-					[true],
-				) as object
-				return Reflect.apply(Reflect.get(once, 'audit'), undefined, [false])
-			}, names),
+			collectSchemaRules(
+				(plugins) => call(call(plugins, 'audit', true), 'audit', false),
+				names,
+			),
 		).toThrow(
 			new TypeError(
 				'.with((plugins) => …) sets each rule once: plugins.audit(…) is called twice',

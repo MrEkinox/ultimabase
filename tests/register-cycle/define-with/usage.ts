@@ -12,5 +12,5 @@ export const updated = await Post.updateOne({
 	data: { title: 't' },
 })
 export const deleted = await Post.softDeleteOne({ id: 'x' })
-export const title: string = posts[0]!.title
-export const acl = posts[0]!.acl
+export const title: string | undefined = posts[0]?.title
+export const acl = posts[0]?.acl

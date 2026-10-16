@@ -11,8 +11,10 @@ import {
 	readSchemaRules,
 	type PluginInstance,
 	type PluginSchemaFeatureSource,
+	type PluginSchemaFieldsSource,
 	type PluginSchemaRulesSource,
 	type SchemaFeature,
+	type SchemaFieldsHKT,
 	type SchemaRulesHKT,
 } from '../../plugin.js'
 import { createQueryAst } from '../../query/ast/factory.js'
@@ -28,7 +30,16 @@ interface AuditRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{ audit?: boolean }>
 }
 
+const flagCode = stringField()
+
+interface FlagFields extends SchemaFieldsHKT {
+	readonly fields: 'flagged' extends keyof this['shape']
+		? Readonly<{ flagCode: typeof flagCode }>
+		: unknown
+}
+
 type FlagSource =
+	| PluginSchemaFieldsSource<FlagFields>
 	| PluginSchemaFeatureSource<{
 			readonly flagged: SchemaFeature<
 				readonly [],
@@ -77,7 +88,7 @@ const flagPlugin = (): FlagPlugin => {
 						operations: [
 							addSchemaField({
 								contributionId: 'flag-code',
-								field: stringField(),
+								field: flagCode,
 								name: 'flagCode',
 							}),
 						],
@@ -147,18 +158,18 @@ describe('feature keys of define (ADR-0339)', () => {
 	})
 
 	it('takes true or an options object and keeps the unknown-key message', () => {
-		expect(() =>
+		expect(() => {
 			Reflect.apply(App.Schema.define, App.Schema, [
 				{ className: 'FeatureBadValue', fields: () => ({}), flagged: 'yes' },
-			]),
-		).toThrow(
+			])
+		}).toThrow(
 			new TypeError('define() feature flagged takes true or an options object'),
 		)
-		expect(() =>
+		expect(() => {
 			Reflect.apply(App.Schema.define, App.Schema, [
 				{ className: 'FeatureUnknownKey', fields: () => ({}), flaged: true },
-			]),
-		).toThrow(
+			])
+		}).toThrow(
 			'Unknown schema option: flaged. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
 		)
 	})
@@ -172,11 +183,12 @@ describe('feature keys of define (ADR-0339)', () => {
 			flagged: true,
 		})
 
-		expect(() =>
-			Reflect.apply(declared.with, declared, [
-				(plugins: Readonly<Record<string, unknown>>) => plugins,
-			]),
-		).toThrow(new TypeError(message))
+		const withMethod: unknown = Reflect.get(declared, 'with')
+		expect(() => {
+			if (typeof withMethod === 'function') {
+				Reflect.apply(withMethod, declared, [(plugins: unknown) => plugins])
+			}
+		}).toThrow(new TypeError(message))
 		// The application reports it with its other declaration errors.
 		expect(() =>
 			new App({ logger: false, schemas: [declared] as never }).compile(),

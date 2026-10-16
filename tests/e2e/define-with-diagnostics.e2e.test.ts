@@ -305,7 +305,7 @@ const expected: Readonly<
 const failedDefineCascade: Diagnostic = {
 	file: 'usage.ts',
 	line: 15,
-	message: "Type 'unknown' is not assignable to type 'string'.",
+	message: "Type 'unknown' is not assignable to type 'string | undefined'.",
 }
 const failedDefineCases = new Set([
 	'define-key-typo',

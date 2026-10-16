@@ -1,3 +1,4 @@
+import type { ACL } from '@ultimabase/acl-permissions-plugin'
 import { App } from './app.ts'
 import { Post } from './post.ts'
 
@@ -30,4 +31,4 @@ export const Author = App.Schema.define({
 		}),
 )
 
-declare function defaultAcl(): import('@ultimabase/acl-permissions-plugin').ACL
+declare function defaultAcl(): ACL
