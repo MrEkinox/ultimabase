@@ -137,6 +137,8 @@ it('creates a Task with its defaults', async () => {
 	await using t = await testApplication(ultimabase)
 	const task = await Task.createOne({ data: { title: 'Write the first test' } })
 	expect(task).toMatchObject({ done: false, title: 'Write the first test' })
+	// Hooks' afterCommit work runs after the response: wait for it.
+	await t.afterCommit()
 })
 
 it('lists Tasks over REST', async () => {
@@ -154,8 +156,7 @@ Each test opens its handle with
 `await using t = await testApplication(ultimabase)`. The first call starts
 the application; a later call in the same file reuses it after emptying its
 tables, so the REST list holds only the Task of its own test. Leaving the
-`await using` scope waits for after-commit work, so a test calls
-`t.afterCommit()` only before asserting that work's effects. The application stops after
+`await using` scope waits for after-commit work. The application stops after
 the file and its schema is dropped.
 
 ### Use the handle
