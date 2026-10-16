@@ -15,20 +15,26 @@ export type ShapeMethodCommands = Readonly<Record<string, CommandDefinition>>
 /** Permission names a shape method declares, such as `['readDeleted']`. */
 export type ShapeMethodPermissions = readonly string[]
 
+/** Rule names a feature requires in `.with((plugins) => …)`, such as `['audit']`. */
+export type FeatureRequiredRules = readonly string[]
+
 /**
- * Declares one shape method chained before `.with(...)` (see {@link shapeMethod}).
- * `TOptions` is `never` when the method takes no argument.
+ * Declares one feature: a key of `define` (`archivable: true`, ADR-0339)
+ * and, until their removal, the shape method of the same name chained before
+ * `.with(...)` (see {@link feature}). `TOptions` is `never` when the feature
+ * takes no options object.
  */
 export interface ShapeMethodDefinition<
 	TOptions extends object = object,
 	TFields extends ShapeMethodFields = ShapeMethodFields,
 	TCommands extends ShapeMethodCommands = ShapeMethodCommands,
 	TPermissions extends ShapeMethodPermissions = ShapeMethodPermissions,
+	TRequires extends FeatureRequiredRules = FeatureRequiredRules,
 > {
 	/**
-	 * Validates the method's optional options object, such as
-	 * `.softDelete({ mode: 'command' })`; an omitted object is validated as
-	 * `{}`. Without a validator the method takes no argument.
+	 * Validates the feature's options object, such as
+	 * `softDelete: { mode: 'command' }`; `true` is validated as `{}`.
+	 * Without a validator the feature takes only `true`.
 	 */
 	readonly options?: Validator<TOptions>
 	/** Server-written fields the method adds; create and update inputs reject them. */
@@ -40,13 +46,29 @@ export interface ShapeMethodDefinition<
 	 * Access grant them by name; the plugin asks with `holdsSchemaPermission`.
 	 */
 	readonly permissions?: TPermissions
+	/**
+	 * Rules of this plugin a declaration setting the feature must give in
+	 * `.with((plugins) => …)` (ADR-0339).
+	 * @example `requires: ['archiveReason']`
+	 */
+	readonly requires?: TRequires
 }
+
+/** Declares one feature (see {@link feature}); the same contract under its new name. */
+export type FeatureDefinition<
+	TOptions extends object = object,
+	TFields extends ShapeMethodFields = ShapeMethodFields,
+	TCommands extends ShapeMethodCommands = ShapeMethodCommands,
+	TPermissions extends ShapeMethodPermissions = ShapeMethodPermissions,
+	TRequires extends FeatureRequiredRules = FeatureRequiredRules,
+> = ShapeMethodDefinition<TOptions, TFields, TCommands, TPermissions, TRequires>
 
 const shapeMethodKeys = new Set([
 	'commands',
 	'fields',
 	'options',
 	'permissions',
+	'requires',
 ])
 const permissionNamePattern = /^[A-Za-z_$][\w$]*$/u
 
@@ -69,6 +91,17 @@ export type ShapeMethodMember<
 	? Exclude<TDefinition[TKey], undefined>
 	: Readonly<Record<never, never>>
 
+/** Reads the rule names one feature requires (`never` when omitted). */
+export type FeatureRequiredRuleNames<TDefinition> =
+	'requires' extends keyof TDefinition
+		? Exclude<
+				TDefinition['requires' & keyof TDefinition],
+				undefined
+			> extends readonly (infer TName extends string)[]
+			? TName
+			: never
+		: never
+
 /** Reads the permission names of one shape method (`never` when omitted). */
 export type ShapeMethodPermissionNames<TDefinition> =
 	'permissions' extends keyof TDefinition
@@ -81,12 +114,13 @@ export type ShapeMethodPermissionNames<TDefinition> =
 		: never
 
 /**
- * Declares one shape method: the fields and commands a schema gains when its
- * declaration calls the method before `.with(...)`.
+ * Declares one feature: the fields and commands a schema gains when its
+ * `define` sets the key (`archivable: true`, ADR-0339) or, until its
+ * removal, when its declaration calls the shape method of the same name.
  *
  * @example
  * ```ts
- * archivable: shapeMethod({
+ * archivable: feature({
  *   fields: { archivedAt: dateTimeField() },
  *   commands: {
  *     archiveOne: command({ authority: 'request', effect: 'update', data: () => ({ archivedAt: new Date() }) }),
@@ -94,7 +128,7 @@ export type ShapeMethodPermissionNames<TDefinition> =
  * })
  * ```
  */
-export const shapeMethod = <const TDefinition extends ShapeMethodDefinition>(
+export const feature = <const TDefinition extends ShapeMethodDefinition>(
 	definition: TDefinition,
 ): Readonly<TDefinition> => {
 	const untrusted: unknown = definition
@@ -128,5 +162,24 @@ export const shapeMethod = <const TDefinition extends ShapeMethodDefinition>(
 	) {
 		throw new TypeError('shape method permissions must list identifiers')
 	}
+	const requires: unknown = definition.requires
+	if (
+		requires !== undefined &&
+		(!Array.isArray(requires) ||
+			requires.some(
+				(name) => typeof name !== 'string' || !permissionNamePattern.test(name),
+			))
+	) {
+		throw new TypeError('feature requires must list rule names')
+	}
 	return immutableRecord({ ...definition })
 }
+
+/**
+ * Declares one shape method chained before `.with(...)`.
+ *
+ * @deprecated Use {@link feature} (ADR-0339); this name is removed with the
+ * shape methods.
+ * @example `archivable: shapeMethod({ fields: { archivedAt: dateTimeField() } })`
+ */
+export const shapeMethod: typeof feature = feature

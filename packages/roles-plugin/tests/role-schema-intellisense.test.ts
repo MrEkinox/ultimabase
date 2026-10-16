@@ -117,9 +117,9 @@ describe('RoleSchema IntelliSense', () => {
 				'resolveCurrent',
 			]),
 		)
-		// Rules and indexes go in the final `.with(...)` (ADR-0322).
+		// Rules go in the final `.with(...)` (ADR-0322); indexes in define (ADR-0339).
 		expect(names).not.toContain('access')
-		expect(names).not.toContain('indexes')
+		expect(names).toContain('indexes')
 		expect(names).not.toContain('extensions')
 		expect(names).not.toContain('ultimabase.roles.identity')
 	})

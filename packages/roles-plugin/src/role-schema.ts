@@ -15,23 +15,26 @@ import {
 	type StringField,
 	type UniqueFieldCarrier,
 } from '@ultimabase/core'
+import { readSchemaRules } from '@ultimabase/core/plugin'
 import type {
-	DeclaredSchemaShape,
+	CompleteDefineFields,
+	ConfiguredSchemaIndex,
+	DefineFeatureCheck,
+	DefineFeatureNames,
+	DefineFeatureOptions,
+	DefineFeatures,
+	DefineFeaturesNotInferred,
+	DefineUniqueIndexFields,
 	PluginSourceState,
 	SchemaFactoriesHKT,
 	SchemaFactoryContext,
 	SchemaFactoryShape,
 	SchemaStaticsHKT,
 } from '@ultimabase/core/plugin'
-import {
-	immutableArray,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { isPlainRecord } from '@ultimabase/shared'
 
 import {
 	createRoleReference,
-	normalizeRoleName,
 	type RoleIdSelector,
 	type RoleNameSelector,
 	type RoleReference,
@@ -40,6 +43,13 @@ import {
 	createRoleSchemaIdentity,
 	roleSchemaIdentityOptionName,
 } from './role-schema-identity.js'
+import {
+	readDeletionPolicy,
+	readEnsure,
+	recordRoleClassName,
+	roleRulesOptionName,
+	type NormalizedRoleRules,
+} from './role-rules.js'
 
 /** Identifies the option-light official provider owning role schema behavior. */
 export const rolesPluginId = '@ultimabase/roles-plugin' as const
@@ -127,12 +137,13 @@ export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
 	): RoleReference<TSchema, RoleIdSelector<TId>>
 }
 
-/** Options of `App.RoleSchema.define(...)` (ADR-0322). */
+/** Options of `App.RoleSchema.define(...)` (ADR-0322, ADR-0339). */
 export interface RoleSchemaOptions<
 	TSource extends PluginSourceState,
 	TClassName extends string,
 	TMembers extends object,
 	TFields extends SchemaFields,
+	TIndexes = readonly ConfiguredSchemaIndex<SchemaFields>[],
 > {
 	/** Declares the stable logical name used by queries and adapters. */
 	readonly className: TClassName
@@ -147,6 +158,8 @@ export interface RoleSchemaOptions<
 	 * role is deleted: `fail` (the default) refuses the deletion, `preserve`
 	 * leaves them inert, `cascade` asks their owners to remove them in the
 	 * same transaction (Master only).
+	 * @deprecated Set it in `.with((plugins) => plugins.roles({ deletion }))`
+	 * (ADR-0339); this option is removed with the old forms.
 	 * @default "fail"
 	 * @example `deletion: 'cascade'`
 	 */
@@ -157,8 +170,17 @@ export interface RoleSchemaOptions<
 	 */
 	readonly fields?: ConfiguredFieldDeclaration<TSource, TClassName, TFields>
 	/**
+	 * Declares indexes over the complete role fields: its own, `name`,
+	 * `members`, `includedRoles` and those of the features set beside it
+	 * (ADR-0339).
+	 * @example `indexes: [{ fields: ['name', 'description'] }]`
+	 */
+	readonly indexes?: TIndexes
+	/**
 	 * Role names created at `start()` when missing; existing roles are left
 	 * unchanged.
+	 * @deprecated Set it in `.with((plugins) => plugins.roles({ ensure }))`
+	 * (ADR-0339); this option is removed with the old forms.
 	 * @example `ensure: ['admin', 'editor']`
 	 */
 	readonly ensure?: readonly string[]
@@ -166,6 +188,8 @@ export interface RoleSchemaOptions<
 	 * Replaces the current member for special cases. Omitted, the current
 	 * member is the request principal when it belongs to the member schema
 	 * (ADR-0304).
+	 * @deprecated Set it in `.with((plugins) => plugins.roles({ resolveCurrent }))`
+	 * (ADR-0339); this option is removed with the old forms.
 	 * @example `resolveCurrent: ({ context }) => readDelegate(context)`
 	 */
 	readonly resolveCurrent?: (
@@ -173,37 +197,67 @@ export interface RoleSchemaOptions<
 	) => Pointer | undefined | Promise<Pointer | undefined>
 }
 
-/** Marks a declaration made by `App.RoleSchema.define` for the statics slot. */
-type RoleSchemaDeclarationOptions = DeclaredSchemaShape<
-	SchemaFactoryShape<'RoleSchema'>
->
+/** The options of `App.RoleSchema.define` that are the factory's own. */
+type RoleOwnOptionKey = 'deletion' | 'ensure' | 'members' | 'resolveCurrent'
 
 /** The `App.RoleSchema` factory of an application that installs Roles. */
 export interface RoleSchemaFactory<TSource extends PluginSourceState> {
 	/**
-	 * Declares one role schema; end with `.with({ ... })` like any schema.
-	 * Several role schemas may live in one application.
+	 * Declares one role schema, with `indexes` and the feature keys of the
+	 * installed plugins (ADR-0339); end with `.with(...)` like any schema,
+	 * where `plugins.roles({ … })` configures it. Several role schemas may
+	 * live in one application.
 	 *
 	 * @example
 	 * ```ts
 	 * export const TodoRole = App.RoleSchema.define({
 	 *   className: 'TodoRole',
 	 *   members: () => TodoUser,
-	 *   ensure: ['admin'],
-	 * }).with({ access: { read: true } })
+	 * }).with((plugins) => plugins.roles({ ensure: ['admin'] }).access({ read: true }))
 	 * ```
 	 */
 	define<
 		const TClassName extends string,
 		const TMembers extends object,
 		const TFields extends SchemaFields = Readonly<Record<never, never>>,
+		// The whole options object, captured once (ADR-0339).
+		const TFeatures extends DefineFeatureCheck<
+			TSource,
+			RoleSchemaFields<TClassName, TMembers, TFields>,
+			TFeatures,
+			Pick<
+				RoleSchemaOptions<TSource, TClassName, TMembers, TFields>,
+				RoleOwnOptionKey
+			>
+		> = DefineFeaturesNotInferred,
 	>(
-		options: RoleSchemaOptions<TSource, TClassName, TMembers, TFields>,
+		options: RoleSchemaOptions<
+			TSource,
+			TClassName,
+			TMembers,
+			TFields,
+			readonly ConfiguredSchemaIndex<
+				CompleteDefineFields<
+					TSource,
+					RoleSchemaFields<TClassName, TMembers, TFields>,
+					TFeatures
+				>
+			>[]
+		> &
+			DefineFeatures<TSource> &
+			TFeatures,
 	): DeclaredSchema<
 		TSource,
 		TClassName,
 		RoleSchemaFields<TClassName, TMembers, TFields>,
-		RoleSchemaDeclarationOptions
+		DefineFeatureOptions<
+			TSource,
+			TFeatures,
+			SchemaFactoryShape<'RoleSchema'>,
+			RoleOwnOptionKey
+		>,
+		DefineFeatureNames<TSource, TFeatures, RoleOwnOptionKey>,
+		DefineUniqueIndexFields<TFeatures>
 	>
 }
 
@@ -232,6 +286,8 @@ export interface RoleSchemaStaticsSlot extends SchemaStaticsHKT {
 
 /** Retains package-private declaration state without polluting schema metadata. */
 export interface RoleSchemaDeclaration {
+	/** The role options `define` set itself, which `plugins.roles` must not repeat. */
+	readonly declared: ReadonlySet<keyof NormalizedRoleRules>
 	readonly deletionPolicy: RoleReferenceDeletionPolicy
 	/** Role names created at start when missing. */
 	readonly ensure: readonly string[]
@@ -249,7 +305,46 @@ export const getRoleSchemaDeclaration = (
 	schema: SchemaDefinition,
 ): RoleSchemaDeclaration | undefined => roleSchemaDeclarations.get(schema)
 
-const roleOptionKeys = new Set([
+const configuredDeclarations = new WeakMap<object, RoleSchemaDeclaration>()
+
+/**
+ * Reads the declaration of one compiled role schema with its
+ * `.with((plugins) => plugins.roles({ … }))` rule applied (ADR-0339). An
+ * option set both in `define` and in the rule is rejected.
+ */
+export const readRoleSchemaDeclaration = (
+	schema: SchemaDefinition,
+): RoleSchemaDeclaration | undefined => {
+	const declaration = roleSchemaDeclarations.get(schema)
+	if (declaration === undefined) return undefined
+	const cached = configuredDeclarations.get(schema)
+	if (cached !== undefined) return cached
+	const rules = readSchemaRules(schema, { pluginId: rolesPluginId })[
+		roleRulesOptionName
+	] as NormalizedRoleRules | undefined
+	const repeated = (['ensure', 'deletion', 'resolveCurrent'] as const).find(
+		(key) => rules?.[key] !== undefined && declaration.declared.has(key),
+	)
+	if (repeated !== undefined) {
+		throw new TypeError(
+			`${schema.className} sets ${repeated} both in define() and in plugins.roles({ … }); keep it in .with((plugins) => plugins.roles({ … }))`,
+		)
+	}
+	const configured: RoleSchemaDeclaration =
+		rules === undefined
+			? declaration
+			: Object.freeze({
+					...declaration,
+					deletionPolicy: rules.deletion ?? declaration.deletionPolicy,
+					ensure: rules.ensure ?? declaration.ensure,
+					resolveCurrent: rules.resolveCurrent ?? declaration.resolveCurrent,
+				})
+	configuredDeclarations.set(schema, configured)
+	return configured
+}
+
+// The factory's own options; `indexes` and feature keys go to Core's define.
+const roleOwnKeys: ReadonlySet<string> = new Set([
 	'className',
 	'deletion',
 	'ensure',
@@ -257,32 +352,6 @@ const roleOptionKeys = new Set([
 	'members',
 	'resolveCurrent',
 ])
-
-const readDeletionPolicy = (value: unknown): RoleReferenceDeletionPolicy => {
-	if (value === undefined) return 'fail'
-	if (value !== 'fail' && value !== 'preserve' && value !== 'cascade') {
-		throw new TypeError('deletion must be "fail", "preserve", or "cascade"')
-	}
-	return value
-}
-
-const readEnsure = (value: unknown): readonly string[] => {
-	if (value === undefined) return immutableArray([])
-	if (!isUnknownArray(value)) {
-		throw new TypeError('ensure must be a list of role names')
-	}
-	// Names are stored in their canonical form, so duplicates collapse here.
-	return immutableArray([
-		...new Set(
-			value.map((name) => {
-				if (typeof name !== 'string') {
-					throw new TypeError('ensure must be a list of role names')
-				}
-				return normalizeRoleName(name)
-			}),
-		),
-	])
-}
 
 type CustomFieldDeclaration = (field: unknown) => unknown
 
@@ -326,19 +395,26 @@ const createRoleStatic =
  */
 export const createRoleSchemaFactory = ({
 	define,
+	features,
 }: SchemaFactoryContext): Readonly<{ define: (options: unknown) => unknown }> =>
 	Object.freeze({
 		define: (options: unknown): unknown => {
 			if (!isPlainRecord(options)) {
 				throw new TypeError('RoleSchema options must be a plain object')
 			}
+			// Feature keys (`softDelete: true`) and `indexes` go to Core's define.
 			const unknownKey = Object.keys(options).find(
-				(key) => !roleOptionKeys.has(key),
+				(key) =>
+					!roleOwnKeys.has(key) && key !== 'indexes' && !features.has(key),
 			)
 			if (unknownKey !== undefined) {
 				throw new TypeError(`Unknown RoleSchema option: ${unknownKey}`)
 			}
-			const { className, members, resolveCurrent } = options
+			const { className, members, resolveCurrent, deletion, ensure } = options
+			// `indexes` and feature keys, copied as entries (`__proto__` included).
+			const declarationOptions = Object.fromEntries(
+				Object.entries(options).filter(([key]) => !roleOwnKeys.has(key)),
+			)
 			if (typeof className !== 'string' || className.length === 0) {
 				throw new TypeError('className must be a non-empty string')
 			}
@@ -355,9 +431,19 @@ export const createRoleSchemaFactory = ({
 				throw new TypeError('resolveCurrent must be a function')
 			}
 			const customFields = readCustomFields(options.fields)
+			recordRoleClassName(className)
 			const declaration: RoleSchemaDeclaration = Object.freeze({
-				deletionPolicy: readDeletionPolicy(options.deletion),
-				ensure: readEnsure(options.ensure),
+				declared: new Set(
+					(
+						[
+							['deletion', deletion],
+							['ensure', ensure],
+							['resolveCurrent', resolveCurrent],
+						] as const
+					).flatMap(([key, value]) => (value === undefined ? [] : [key])),
+				),
+				deletionPolicy: readDeletionPolicy(deletion),
+				ensure: readEnsure(ensure),
 				memberSchema: readMemberSchema(
 					() => Reflect.apply(members, undefined, []),
 					className,
@@ -393,6 +479,7 @@ export const createRoleSchemaFactory = ({
 			}
 			return define(
 				{
+					...declarationOptions,
 					className,
 					fields,
 					[roleSchemaIdentityOptionName]: createRoleSchemaIdentity(className),

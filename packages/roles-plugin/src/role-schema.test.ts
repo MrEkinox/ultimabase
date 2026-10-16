@@ -57,9 +57,10 @@ describe('App.RoleSchema', () => {
 			Roles.RoleSchema.define({
 				className: 'UnknownOptionRole',
 				members: () => User,
-				indexes: [],
+				// ADR-0339: `indexes` is a RoleSchema option now; `extensions` is not.
+				extensions: [],
 			} as never),
-		).toThrow(new TypeError('Unknown RoleSchema option: indexes'))
+		).toThrow(new TypeError('Unknown RoleSchema option: extensions'))
 	})
 
 	it('compiles canonical FieldBuilder declarations before adding role fields', async () => {

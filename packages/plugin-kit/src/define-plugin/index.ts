@@ -13,7 +13,10 @@ export {
 	type DefinePluginOptions,
 } from './define-plugin.js'
 export {
+	feature,
 	shapeMethod,
+	type FeatureDefinition,
+	type FeatureRequiredRules,
 	type ShapeMethodCommands,
 	type ShapeMethodDefinition,
 	type ShapeMethodFields,

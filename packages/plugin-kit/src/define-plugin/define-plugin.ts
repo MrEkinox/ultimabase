@@ -12,14 +12,17 @@ import {
 	contributeDeclarations,
 	defineSchemaOption,
 	plugin,
+	provideSchemaFeatures,
 	provideSchemaPermissions,
-	provideSchemaShapeMethods,
+	provideSchemaRules,
 	readSchemaRules,
 	type PluginContribution,
 	type PluginModelContributionContext,
 	type PluginSchemaContributionContext,
+	type PluginSchemaRulesSource,
 	type PluginSchemaShapeSource,
 	type SchemaOptionDefinition,
+	type SchemaRulesHKT,
 	type SchemaShapeMethod,
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -63,9 +66,21 @@ export interface DefinePluginOptions<
 	 * @default "0.0.0"
 	 */
 	readonly version?: string
-	/** Shape methods chained before `.with(...)`, made with `shapeMethod(...)`. */
+	/**
+	 * Features, made with `feature(...)`: keys of `define` (static, they may
+	 * add fields and commands), such as `archivable: true` (ADR-0339).
+	 */
+	readonly features?: TShape
+	/**
+	 * Shape methods chained before `.with(...)`.
+	 * @deprecated Use `features` (ADR-0339); removed with the shape methods.
+	 */
 	readonly shape?: TShape
-	/** Entries accepted by `.with({ ... })`, each with its validator. */
+	/**
+	 * Rules, each with its validator: the methods of
+	 * `.with((plugins) => plugins.audit(true))`, which may hold callbacks
+	 * typed against the completed schema (ADR-0339).
+	 */
 	readonly rules?: TValidators
 	/** Runs after each committed write, outside the transaction. */
 	readonly afterCommit?: (
@@ -78,6 +93,7 @@ export interface DefinePluginOptions<
 const definitionKeys = new Set([
 	'afterCommit',
 	'contributions',
+	'features',
 	'name',
 	'rules',
 	'shape',
@@ -102,7 +118,12 @@ const assertDefinition = (definition: unknown): void => {
 	if (unknownKey !== undefined) {
 		throw new TypeError(`Unknown definePlugin option: ${unknownKey}`)
 	}
-	for (const key of ['shape', 'rules'] as const) {
+	if (definition.features !== undefined && definition.shape !== undefined) {
+		throw new TypeError(
+			'definePlugin takes features or its deprecated alias shape, not both',
+		)
+	}
+	for (const key of ['features', 'shape', 'rules'] as const) {
 		const value = definition[key]
 		if (value !== undefined && !isPlainRecord(value)) {
 			throw new TypeError(`definePlugin ${key} must be a plain object`)
@@ -283,16 +304,25 @@ type RuntimeShapeSource = PluginSchemaShapeSource<
 			string,
 			SchemaShapeMethod<
 				readonly [options?: unknown],
-				Readonly<Record<string, object>>
+				Readonly<Record<string, object>>,
+				string
 			>
 		>
 	>
 >
 
+// Rule names are declared under one wide source; their typed rules come from
+// the plugin's static source.
+type RuntimeRulesSource = PluginSchemaRulesSource<WideRules>
+
+interface WideRules extends SchemaRulesHKT {
+	readonly rules: Readonly<Record<string, unknown>>
+}
+
 /**
- * Defines one plugin from a declarative object: shape methods with their
- * fields and commands, `.with({ ... })` rules, a post-commit callback and raw
- * contributions. Core derives the privileges.
+ * Defines one plugin from a declarative object: features (`define` keys)
+ * with their fields and commands, rules (`.with((plugins) => …)` methods), a
+ * post-commit callback and raw contributions. Core derives the privileges.
  *
  * @example
  * ```ts
@@ -316,11 +346,23 @@ export const definePlugin = <
 	definition: DefinePluginOptions<TName, TShape, TValidators>,
 ): DefinedPlugin<TName, TShape, RuleValuesOf<TValidators>> => {
 	assertDefinition(definition)
-	const shape = Object.entries<ShapeMethodDefinition>(definition.shape ?? {})
+	const shape = Object.entries<ShapeMethodDefinition>(
+		definition.features ?? definition.shape ?? {},
+	)
 	const rules = Object.entries<Validator<unknown>>(definition.rules ?? {})
 	for (const [method] of shape) {
 		if (!methodNamePattern.test(method) || method === 'with') {
 			throw new TypeError(`Invalid shape method name: ${method}`)
+		}
+	}
+	for (const [method, { requires = [] }] of shape) {
+		const unknownRule = requires.find(
+			(name) => !rules.some(([rule]) => rule === name),
+		)
+		if (unknownRule !== undefined) {
+			throw new TypeError(
+				`Feature ${method} requires ${unknownRule}, which is not a rule of this plugin`,
+			)
 		}
 	}
 	const duplicate = rules.find(([name]) =>
@@ -367,16 +409,25 @@ export const definePlugin = <
 			...(definition.contributions ?? []),
 		],
 	})
-	if (shape.length === 0) return instance
-	return provideSchemaShapeMethods<typeof instance, RuntimeShapeSource>(
-		instance,
+	// `.with((plugins) => plugins.audit(…))`: the rule names, known now (ADR-0339).
+	const withRules =
+		rules.length === 0
+			? instance
+			: provideSchemaRules<typeof instance, RuntimeRulesSource>(
+					instance,
+					rules.map(([name]) => name),
+				)
+	if (shape.length === 0) return withRules
+	return provideSchemaFeatures<typeof instance, RuntimeShapeSource>(
+		withRules,
 		Object.fromEntries(
-			shape.map(([method]) => [
+			shape.map(([method, { requires = [] }]) => [
 				method,
 				{
 					sets: [method],
 					apply: (options?: unknown) =>
 						Object.fromEntries([[method, options ?? {}]]),
+					requires,
 				},
 			]),
 		),

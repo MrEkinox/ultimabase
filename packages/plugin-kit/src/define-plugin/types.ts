@@ -18,6 +18,7 @@ import type {
 
 import type { CommandMutation } from './commands.js'
 import type {
+	FeatureRequiredRuleNames,
 	ShapeMethodDefinition,
 	ShapeMethodMember,
 	ShapeMethodOptionsOf,
@@ -131,7 +132,8 @@ type DefinedShapeSource<TShape extends ShapeMethods> = [keyof TShape] extends [
 	: | PluginSchemaShapeSource<{
 				readonly [TName in keyof TShape]: SchemaShapeMethod<
 					ShapeMethodArguments<TShape[TName]>,
-					Readonly<Record<TName, object>>
+					Readonly<Record<TName, object>>,
+					FeatureRequiredRuleNames<TShape[TName]>
 				>
 		  }>
 		| PluginSchemaFieldsSource<DefinedShapeFields<TShape>>

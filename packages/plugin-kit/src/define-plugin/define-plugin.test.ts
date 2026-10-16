@@ -7,7 +7,7 @@ import {
 import { readSchemaRules } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
-import { command, definePlugin, shapeMethod } from '../index.js'
+import { command, definePlugin, feature, shapeMethod } from '../index.js'
 
 const isBoolean = (value: unknown, path: string): boolean => {
 	if (typeof value !== 'boolean')
@@ -234,5 +234,111 @@ describe('definePlugin', () => {
 				},
 			}),
 		).toThrow('delete schema mutations must require master authority')
+	})
+})
+
+describe('definePlugin features and rules (ADR-0339)', () => {
+	const flagPlugin = () =>
+		definePlugin({
+			name: '@community/flag',
+			features: {
+				flaggable: feature({
+					fields: { flaggedAt: dateTimeField() },
+					commands: {
+						flagOne: command({ authority: 'request', effect: 'update' }),
+					},
+					requires: ['flagReason'],
+				}),
+			},
+			rules: {
+				flagReason: (value, path) => {
+					if (typeof value !== 'string') {
+						throw new TypeError(`${path} must be a string`)
+					}
+					return value
+				},
+			},
+		})
+
+	it('sets a feature in define and its rule in the .with builder', () => {
+		const App = UltimaBase.use(flagPlugin())
+		const Flagged = App.Schema.define({
+			className: 'FeatureFlaggedPost',
+			fields: (field) => ({ title: field.string() }),
+			flaggable: true,
+			indexes: [{ fields: ['flaggedAt', 'title'], unique: true }],
+		}).with((plugins) => plugins.flagReason('Spam'))
+		const compiled = new App({ logger: false, schemas: [Flagged] }).compile()
+		const schema = compiled.schemas.get(Flagged.className)
+		if (schema === undefined) throw new TypeError('Missing schema')
+
+		expect(schema.persistedFields.flaggedAt).toMatchObject({
+			kind: 'dateTime',
+		})
+		expect(readSchemaRules(schema, { pluginId: '@community/flag' })).toEqual({
+			flaggable: {},
+			flagReason: 'Spam',
+		})
+		expect(
+			[...(surface(compiled, Flagged.className)?.schemaMutations ?? [])].map(
+				([name]) => name,
+			),
+		).toEqual(['flagOne'])
+	})
+
+	it('requires the rules a feature names, in .with and at compile', () => {
+		const App = UltimaBase.use(flagPlugin())
+		const Missing = App.Schema.define({
+			className: 'FeatureMissingReason',
+			fields: (field) => ({ title: field.string() }),
+			flaggable: true,
+		})
+		const message =
+			'FeatureMissingReason sets flaggable in define(), which requires .with((plugins) => plugins.flagReason({ … }))'
+
+		expect(() =>
+			Reflect.apply(Missing.with, Missing, [(plugins: unknown) => plugins]),
+		).toThrow(new TypeError(message))
+		expect(() =>
+			new App({ logger: false, schemas: [Missing] as never }).compile(),
+		).toThrow(message)
+	})
+
+	it('accepts shape as a deprecated alias of features, not both', () => {
+		const viaShape = definePlugin({
+			name: '@community/legacy-shape',
+			shape: { archivable: shapeMethod({}) },
+		})
+		const Declared = UltimaBase.use(viaShape).Schema.define({
+			className: 'FeatureLegacyShape',
+			fields: (field) => ({ title: field.string() }),
+			archivable: true,
+		})
+
+		expect(Reflect.has(Declared, 'archivable')).toBe(false)
+		expect(() =>
+			definePlugin({
+				name: '@community/both',
+				features: {},
+				shape: {},
+			}),
+		).toThrow(
+			new TypeError(
+				'definePlugin takes features or its deprecated alias shape, not both',
+			),
+		)
+		expect(() =>
+			definePlugin({
+				name: '@community/unknown-rule',
+				features: { flaggable: feature({ requires: ['flagReason'] }) },
+			}),
+		).toThrow(
+			new TypeError(
+				'Feature flaggable requires flagReason, which is not a rule of this plugin',
+			),
+		)
+		expect(() => feature({ requires: ['flag reason'] })).toThrow(
+			new TypeError('feature requires must list rule names'),
+		)
 	})
 })

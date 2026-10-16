@@ -32,7 +32,7 @@ import {
 	RoleReferenceResolutionError,
 } from './role-resolution.js'
 import {
-	getRoleSchemaDeclaration,
+	readRoleSchemaDeclaration,
 	type RoleSchemaDeclaration,
 } from './role-schema.js'
 
@@ -180,7 +180,7 @@ export const createStoredRoleResolver = (
 		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 	): RoleDomainRequestCache | undefined => {
-		const declaration = getRoleSchemaDeclaration(schema)
+		const declaration = readRoleSchemaDeclaration(schema)
 
 		if (declaration === undefined) return undefined
 

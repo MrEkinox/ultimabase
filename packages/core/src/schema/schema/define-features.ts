@@ -124,43 +124,51 @@ export type CompleteDefineIndexes<TFields extends object, TIndexes> = {
 		: CompleteDefineIndex<TFields> & KnownIndexOptionsOnly
 }
 
-// The value checked for one key of the captured object. Core keys other
-// than `indexes` are typed by the declared options; a factory's own options
-// (`members`) by the factory.
+// The value checked for one key of the captured object. `className` and
+// `fields` are typed by the declared options; a factory's own options
+// (`members`, `deletion`) by the factory, here too, so an invalid value fails
+// this check rather than reducing the declared options to `never`.
 type DefineKeyCheck<
 	TSource extends PluginSourceState,
 	TFields extends SchemaDeclaredFields,
 	TFeatures,
 	TKey,
-	TOwnKeys extends string,
+	TOwnOptions,
 > = TKey extends 'indexes'
 	? CompleteDefineIndexes<
 			CompleteDefineFields<TSource, TFields, TFeatures>,
 			TFeatures[TKey & keyof TFeatures]
 		>
-	: TKey extends CoreDefineKey | TOwnKeys | typeof defineFeaturesNotInferred
-		? unknown
-		: TKey extends FeatureName<TSource['shapeMethods']>
-			? DefineFeatures<TSource>[TKey]
-			: UnknownDefineKey<TKey, FeatureName<TSource['shapeMethods']>, TOwnKeys>
+	: TKey extends keyof TOwnOptions
+		? TOwnOptions[TKey]
+		: TKey extends CoreDefineKey | typeof defineFeaturesNotInferred
+			? unknown
+			: TKey extends FeatureName<TSource['shapeMethods']>
+				? DefineFeatures<TSource>[TKey]
+				: UnknownDefineKey<
+						TKey,
+						FeatureName<TSource['shapeMethods']>,
+						keyof TOwnOptions & string
+					>
 
 /**
  * Exactness check of the captured `define` object: Core keys pass, `indexes`
  * is typed against the complete fields, feature keys take their plugin's
- * value, and any other key is replaced by a message naming the valid keys.
+ * value, a factory's own options (`TOwnOptions`) their declared type, and any
+ * other key is replaced by a message naming the valid keys.
  */
 export type DefineFeatureCheck<
 	TSource extends PluginSourceState,
 	TFields extends SchemaDeclaredFields,
 	TFeatures,
-	TOwnKeys extends string = never,
+	TOwnOptions = Readonly<Record<never, never>>,
 > = {
 	readonly [TKey in keyof TFeatures]: DefineKeyCheck<
 		TSource,
 		TFields,
 		TFeatures,
 		TKey,
-		TOwnKeys
+		TOwnOptions
 	>
 }
 
@@ -277,18 +285,25 @@ export type DefineUniqueIndexFields<TFeatures> = TFeatures extends {
 	? DeclaredUniqueIndexFields<TIndexes>
 	: never
 
-/** The declared and feature fields one `define` call types its indexes against. */
+/**
+ * The declared and feature fields one `define` call types its indexes
+ * against. While the options object is not inferred yet (TypeScript's first
+ * pass skips the `fields` callback, and a factory's `fields` then has its
+ * default) any field name passes: the inferred object is checked exactly.
+ */
 export type CompleteDefineFields<
 	TSource extends PluginSourceState,
 	TFields extends SchemaDeclaredFields,
 	TFeatures,
-> = NoInfer<
-	CompleteConfiguredFields<
-		TSource,
-		TFields,
-		DeclaredSchemaShape<DefineFeatureShape<TSource, TFeatures>>
-	>
->
+> = typeof defineFeaturesNotInferred extends keyof TFeatures
+	? SchemaDeclaredFields
+	: NoInfer<
+			CompleteConfiguredFields<
+				TSource,
+				TFields,
+				DeclaredSchemaShape<DefineFeatureShape<TSource, TFeatures>>
+			>
+		>
 
 /**
  * Rules the features of one shape record require (`acl` once `acl: true`):
