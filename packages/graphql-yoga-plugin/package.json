@@ -28,7 +28,6 @@
 		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {
-		"@ultimabase/core": "workspace:^",
 		"@ultimabase/graphql-http": "workspace:^",
 		"@ultimabase/graphql-plugin": "workspace:^",
 		"@ultimabase/http-plugin": "workspace:^",
@@ -39,12 +38,16 @@
 	},
 	"devDependencies": {
 		"@hono/node-server": "^2.1.1",
+		"@ultimabase/core": "workspace:^",
 		"@ultimabase/hono-server-plugin": "workspace:^",
 		"hono": "^4.13.7",
 		"playwright": "^1.63.0",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
 		"vitest": "4.1.11"
+	},
+	"peerDependencies": {
+		"@ultimabase/core": "workspace:^"
 	},
 	"engines": {
 		"node": ">=24.0.0"

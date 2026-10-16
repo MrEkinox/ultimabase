@@ -15,14 +15,24 @@ A bump to one member bumps the pair to the same version. Schema, Query, Access,
 application, and Runtime changes are all recorded against Core. Official
 plugins remain independently versioned.
 
+## Core is a peer
+
+An application has exactly one Core instance. Every package that shares it
+(each official plugin, Plugin Kit, Testing, GraphQL HTTP and the API server
+preset) declares `@ultimabase/core` as a peer dependency, with the same
+`workspace:^` development dependency for the repository, never as a
+dependency; `yarn constraints` enforces it and requires every application
+workspace to list Core itself. Shared holds no state and stays a regular
+dependency.
+
 ## Core releases move plugin Core ranges
 
 Core rejects a plugin whose `core` range the installed Core does not satisfy
 (ADR-0338). Core knows its version from `coreVersion` in
 `packages/core/src/plugins/core-version.ts`, and every official plugin (each
 `*-plugin` package, plus Plugin Kit's `definePlugin` and `defineOperation`)
-declares in its manifest the range its package publishes for
-`@ultimabase/core`: `workspace:^` is published as `^<Core version>`.
+declares in its manifest the range of its `@ultimabase/core` peer:
+`workspace:^` is published as `^<Core version>`.
 Changesets updates neither, so after `yarn changeset version` bumps Core:
 
 1. Set `coreVersion` to the new Core version;
@@ -38,9 +48,12 @@ Changesets updates neither, so after `yarn changeset version` bumps Core:
    it.
 
 When the new Core version leaves the previous range, Changesets also releases
-every official plugin with at least a patch bump
-(`updateInternalDependencies: "patch"`), so the updated manifests ship with
-the Core they accept.
+every package that peers on Core, so the updated manifests ship with the Core
+they accept. A Core patch releases them as patches
+(`updateInternalDependencies: "patch"`), but a Core minor or major releases
+them as **majors**, because Changesets treats a moved peer range as breaking:
+before 1.0 a Core minor would version every plugin `1.0.0`. Check these
+versions in the `Release packages` pull request before merging it.
 
 ## One-time GitHub setup
 

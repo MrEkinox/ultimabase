@@ -28,16 +28,19 @@
 		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {
-		"@ultimabase/core": "workspace:^",
 		"@ultimabase/http-plugin": "workspace:^",
 		"@ultimabase/plugin-kit": "workspace:^",
 		"@ultimabase/shared": "workspace:^"
 	},
 	"devDependencies": {
+		"@ultimabase/core": "workspace:^",
 		"@ultimabase/testing": "workspace:^",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
 		"vitest": "4.1.11"
+	},
+	"peerDependencies": {
+		"@ultimabase/core": "workspace:^"
 	},
 	"engines": {
 		"node": ">=24.0.0"
