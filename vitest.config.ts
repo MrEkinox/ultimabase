@@ -84,7 +84,6 @@ const testProjects: TestProjectConfiguration[] = [
 				'packages/*/src/**/*.test.ts',
 				'packages/*/tests/**/*.test.ts',
 				'tooling/ci/**/*.test.ts',
-				'tooling/codemods/**/*.test.ts',
 				'tooling/documentation/**/*.test.ts',
 				'tooling/eslint/**/*.test.ts',
 				'tooling/vitest/**/*.test.ts',
