@@ -33,5 +33,4 @@ it('offers the plugin builder method and field option', async () => {
 		select: { score: true },
 	})
 	expect(review).toStrictEqual({ id: review.id, score: 80 })
-	await t.afterCommit()
 })

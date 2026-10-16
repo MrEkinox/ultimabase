@@ -18,7 +18,6 @@ it('creates, lists and completes a task', async () => {
 
 	await completeTodo(todo.id)
 	expect(await listPendingTodos()).toStrictEqual([])
-	await t.afterCommit()
 })
 
 it('refuses to reopen a completed task', async () => {

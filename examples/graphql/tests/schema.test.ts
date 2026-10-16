@@ -42,7 +42,6 @@ it('prints the schema the application serves', async () => {
 	// No exposed type reaches AuditEntry: no type, input or field names it.
 	expect(sdl).not.toContain('AuditEntry')
 	//#endregion hidden-schema
-	await t.afterCommit()
 })
 
 it('executes a document without HTTP', async () => {

@@ -9,6 +9,5 @@ it('creates a Post', async () => {
 	await using t = await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Ship' } })
 	expect(post.archivedAt).toBeNull()
-	await t.afterCommit()
 })
 //#endregion first-test

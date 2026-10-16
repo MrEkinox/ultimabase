@@ -27,7 +27,6 @@ it('resolves the data of a create, field Hooks first', async () => {
 		data: { title: 'Second', summary: '  Short ' },
 	})
 	expect(trimmed.summary).toBe('Short')
-	await t.afterCommit()
 })
 
 it('gives an update only its changes, in readable form', async () => {
@@ -84,7 +83,6 @@ it('renames the slug with the title', async () => {
 	})
 
 	expect(renamed).toMatchObject({ slug: 'second-title' })
-	await t.afterCommit()
 })
 
 it('knows whether an upsert creates or updates', async () => {
@@ -104,5 +102,4 @@ it('knows whether an upsert creates or updates', async () => {
 	expect(created).toMatchObject({ slug: 'imported-post', views: 0 })
 	expect(updated).toMatchObject({ id: created.id, views: 1 })
 	expect(await Post.count()).toBe(1)
-	await t.afterCommit()
 })

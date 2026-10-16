@@ -19,7 +19,6 @@ it('executes the operation from TypeScript', async () => {
 	//#endregion execute-operation
 
 	expect(result).toBe('ready')
-	await t.afterCommit()
 })
 
 it('binds the operation to a typed GraphQL query field', async () => {
