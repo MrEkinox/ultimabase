@@ -5,6 +5,11 @@ import { rolesPlugin } from './plugin.js'
 import { readRoleSchemaDeclaration } from './role-schema.js'
 
 // ADR-0339: role behaviour is configured by `.with((plugins) => plugins.roles({ … }))`.
+/** What `plugins` offers at runtime, beyond what its type allows here. */
+interface UntypedRules {
+	readonly roles: (rule: object) => never
+}
+
 const Roles = UltimaBase.use(rolesPlugin())
 const Member = Roles.Schema.define({
 	className: 'RuleRoleMember',
@@ -84,11 +89,12 @@ describe('plugins.roles (ADR-0339)', () => {
 		const NotRole = Roles.Schema.define({
 			className: 'RuleNotRole',
 			fields: (field) => ({ title: field.string() }),
-		}).with((plugins) =>
-			plugins
-				// @ts-expect-error -- `roles` is a rule of role schemas only.
-				.roles({ ensure: ['x'] }),
-		)
+		}).with((plugins) => {
+			// @ts-expect-error -- `roles` is a rule of role schemas only.
+			void plugins.roles
+			// At runtime `plugins` offers every installed rule, as JavaScript sees it.
+			return (plugins as unknown as UntypedRules).roles({ ensure: ['x'] })
+		})
 
 		// The application wraps option errors; the rule's message is a cause.
 		const messagesOf = (run: () => unknown): readonly string[] => {

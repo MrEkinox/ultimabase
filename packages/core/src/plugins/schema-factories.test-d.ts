@@ -139,10 +139,11 @@ test('passes the features set in define to rules slots', () => {
 			plugins,
 	)
 	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with(
-		(plugins) =>
-			plugins
-				// @ts-expect-error -- `tag` needs `tagged: true`.
-				.tag({ initial: 'a' }),
+		(plugins) => {
+			// @ts-expect-error -- `tag` needs `tagged: true`.
+			void plugins.tag
+			return plugins
+		},
 	)
 })
 
