@@ -225,14 +225,16 @@ describe('schema declaration form (ADR-0297)', () => {
 			const typos = readExpectedErrors(configName, 'src/typos.ts')
 			const exactness = readExpectedErrors(configName, 'src/exactness.ts')
 			// The printed key order follows TypeScript's type creation order: the
-			// User from `App.UserSchema` (ADR-0326) changes it in this file.
+			// User from `App.UserSchema` (ADR-0326) changes it in this file, and
+			// `define` reads the installed features since ADR-0339, which
+			// creates the Soft Delete fields earlier.
 			const selectTypo =
-				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; assignee?: boolean; createdAt?: boolean; updatedAt?: boolean; title?: boolean; archived?: boolean; priority?: boolean; parent?: boolean; isDeleted?: boolean; deletedAt?: boolean; }>'. Did you mean to write 'title'?"
+				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; assignee?: boolean; createdAt?: boolean; updatedAt?: boolean; isDeleted?: boolean; deletedAt?: boolean; title?: boolean; archived?: boolean; priority?: boolean; parent?: boolean; }>'. Did you mean to write 'title'?"
 
 			// Same members as `selectTypo`; the deferred Register read (ADR-0297,
 			// 2026-10-12 note) changes the order TypeScript prints them in here.
 			const typosSelectTypo =
-				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; archived?: boolean; assignee?: boolean; title?: boolean; priority?: boolean; parent?: boolean; isDeleted?: boolean; deletedAt?: boolean; }>'. Did you mean to write 'title'?"
+				"Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ id?: true; acl?: boolean; createdAt?: boolean; updatedAt?: boolean; archived?: boolean; assignee?: boolean; isDeleted?: boolean; deletedAt?: boolean; title?: boolean; priority?: boolean; parent?: boolean; }>'. Did you mean to write 'title'?"
 
 			expect(typos).toContain(`src/typos.ts:76 ${typosSelectTypo}`)
 			expect(exactness).toContain(`src/exactness.ts:27 ${selectTypo}`)

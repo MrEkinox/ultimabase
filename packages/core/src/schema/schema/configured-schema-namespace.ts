@@ -108,6 +108,7 @@ export type ConfiguredSchemaDeclarationOptions<
 	TClassName extends string,
 	TFields extends SchemaFields,
 	TIndexes = readonly SchemaIndexOptions<SchemaFieldName<TFields>>[],
+	TFeatures = unknown,
 > = Omit<SchemaOptions<TClassName, TFields>, 'fields' | 'indexes'> &
 	Readonly<{
 		/**
@@ -132,7 +133,9 @@ export type ConfiguredSchemaDeclarationOptions<
 		fields: ConfiguredFieldDeclaration<TSource, TClassName, TFields>
 	}> &
 	DefineFeatures<TSource> &
-	ReservedSchemaFieldCollision<NoInfer<TFields>>
+	ReservedSchemaFieldCollision<NoInfer<TFields>> &
+	// The whole options object `define` captures (ADR-0339).
+	TFeatures
 
 /** Exposes exact source inference through the one configured application namespace. */
 export type ConfiguredSchemaNamespace<
@@ -168,9 +171,9 @@ export type ConfiguredSchemaNamespace<
 				TFields,
 				readonly ConfiguredSchemaIndex<
 					CompleteDefineFields<TSource, TFields, TFeatures>
-				>[]
-			> &
-				TFeatures,
+				>[],
+				TFeatures
+			>,
 		) => DeclaredSchema<
 			TSource,
 			TClassName,
