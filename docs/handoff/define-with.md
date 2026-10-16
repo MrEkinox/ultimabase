@@ -22,8 +22,8 @@ Toutes les phases de la migration s'y succèdent ; ne pas fusionner avant la der
    objet `.with({ … })`, méthodes de forme, `.with({ indexes })`, options
    `ensure`/`deletion`/`resolveCurrent` de `RoleSchema.define`, alias `shape`, `shapeMethod`,
    `provideSchemaShapeMethods`, noms `SchemaShapeMethod*` ; codemod supprimé du dépôt.
-4. **Phase 4 (terminée)** — documentation (site, README, guide « features vs rules »).
-5. Retrait des anciennes formes : objet `.with({ … })`, méthodes de forme, `.with({ indexes })`,
+6. **Phase 4 (terminée)** — documentation (site, README, guide « features vs rules »).
+7. Retrait des anciennes formes : objet `.with({ … })`, méthodes de forme, `.with({ indexes })`,
    options `ensure`/`deletion`/`resolveCurrent` de `RoleSchema.define`, alias `shape`,
    `shapeMethod`, `provideSchemaShapeMethods`, `SchemaShapeMethod` (renommer en `SchemaFeature`).
 
