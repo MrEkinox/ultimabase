@@ -107,8 +107,7 @@ Core never guesses it from options.
 
 Core constructs the Runtime directly. Plugins contribute behavior, policies,
 and persistence rewrites through these supported boundaries. Normalization and
-transaction commit stay owned by Core; the former `runtimePipelineStage()`
-factory and its types are removed. To observe or transform an operation, use
+transaction commit stay owned by Core. To observe or transform an operation, use
 Runtime behavior stages such as `beforeOperation` and `transformResult` with
 `provideRuntimeBehavior()`. To resolve an update against its locked current
 value, use `preparedOperation` with `provideRuntimeInterceptor()`. Both require
@@ -179,15 +178,11 @@ the required `checkHealth(signal)`, and declares the filter operators it runs
 per field family in `capabilities.filterOperators` and `partialIndexes` when it
 supports partial indexes. Core rejects undeclared operators before calling the
 adapter and refuses to start when a schema needs a missing capability.
-Adapter support tokens, attributed physical-schema contributions, raw adapter
-leases, database constraint compilers and the `adapter:consume` privilege had
-no production consumer and were removed before the first release.
 
-Migration intent, Core migration planning, the `migration:contribute` privilege
-and `FakeAdapterMigrationHistory` are removed. PostgreSQL preparation follows
-its explicit `schemaPolicy`; use existing `ignore` when external tooling manages
-the schema. Direct synchronization and `renamedFrom` remain available, without
-automatically dropping unmatched plugin or private storage.
+Core does not plan migrations. PostgreSQL preparation follows its explicit
+`schemaPolicy`; use `ignore` when external tooling manages the schema. Direct
+synchronization and `renamedFrom` never drop unmatched plugin or private
+storage automatically.
 
 ### Owner-private records
 

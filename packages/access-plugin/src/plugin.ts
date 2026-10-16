@@ -73,7 +73,7 @@ const parseOptions = definePluginOptionsParser({
 	keys: ['allowWithoutRule'] as const,
 	formatUnknownKey: (key) =>
 		key === 'default'
-			? 'Unknown Access plugin option: default (replaced by allowWithoutRule, ADR-0317)'
+			? 'Unknown Access plugin option: default (replaced by allowWithoutRule)'
 			: `Unknown Access plugin option: ${String(key)}`,
 	normalize: ({ allowWithoutRule }): AllowWithoutRulePlan =>
 		normalizeAllowWithoutRule(allowWithoutRule),

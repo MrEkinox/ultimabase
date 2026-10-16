@@ -20,7 +20,7 @@ const Application = App.use(
 
 export const ultimabase = new Application({ schemas: [Post, Comment] })
 
-// One declaration per application gives name-keyed editor types (ADR-0297).
+// One declaration per application gives name-keyed editor types.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase

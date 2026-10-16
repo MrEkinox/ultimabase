@@ -2,7 +2,7 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase, defineEnum } from '@ultimabase/core'
+import { PublicError, UltimaBase, defineEnum } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
@@ -10,7 +10,7 @@ import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 /**
- * One plugin list types every schema and builds the application (ADR-0297).
+ * One plugin list types every schema and builds the application.
  * Every schema rules every operation, so Access opens nothing by default.
  * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
  */
@@ -20,7 +20,7 @@ export const App = UltimaBase.use(
 	validationPlugin(),
 	rolesPlugin(),
 	aclPlugin(),
-	// REST over HTTP and a local Hono listener (ADR-0325); Access decides
+	// REST over HTTP and a local Hono listener; Access decides
 	// what each request may do.
 	...apiServer({ rest: true }),
 	postgresPlugin(),
@@ -57,7 +57,7 @@ export const TodoUser = App.Schema.define({
 	rest: false,
 })
 
-/** Stores application roles with ordinary schema fields (ADR-0322). */
+/** Stores application roles with ordinary schema fields. */
 export const TodoRole = App.RoleSchema.define({
 	className: 'TodoRole',
 	members: () => TodoUser,
@@ -76,7 +76,7 @@ export const TodoRole = App.RoleSchema.define({
 }).with({
 	roles: {
 		deletion: 'fail',
-		// The Todo ACL default grants this role: it must exist (ADR-0322).
+		// The Todo ACL default grants this role: it must exist.
 		ensure: ['editor'],
 	},
 	access: serverManagedAccess,
@@ -113,7 +113,7 @@ export const Todo = App.Schema.define({
 			description:
 				'Immutable external name used to demonstrate update omission.',
 			hooks: {
-				// Field hooks run only for a non-null value (ADR-0318).
+				// Field hooks run only for a non-null value.
 				resolveInput: ({ value }) =>
 					value.trim().toLowerCase().replace(/\s+/gu, '-'),
 			},
@@ -268,7 +268,11 @@ export const Todo = App.Schema.define({
 		beforeOperation: {
 			update: ({ item, originalItem }) => {
 				if (originalItem.completed && !item.completed) {
-					throw new TypeError('Completed todos cannot be reopened')
+					// A PublicError reaches REST and GraphQL clients; any other
+					// error is masked as an internal error.
+					throw new PublicError('Completed todos cannot be reopened.', {
+						code: 'todo.reopen',
+					})
 				}
 			},
 		},

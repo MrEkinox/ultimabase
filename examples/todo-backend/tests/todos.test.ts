@@ -1,3 +1,4 @@
+import { PublicError } from '@ultimabase/core'
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
@@ -24,14 +25,25 @@ it('refuses to reopen a completed task', async () => {
 	await using t = await testApplication(ultimabase)
 	const todo = await createTodo({ title: 'Ship' })
 	await completeTodo(todo.id)
-	await expect(
-		t.asMaster(() =>
+	const failure = await t
+		.asMaster(() =>
 			Todo.updateOne({
 				data: { completed: false },
 				where: { id: { eq: todo.id } },
 			}),
-		),
-	).rejects.toThrow()
+		)
+		.catch((error: unknown) => error)
+
+	// The payload REST and GraphQL clients receive.
+	expect(failure).toBeInstanceOf(PublicError)
+	expect(
+		failure instanceof PublicError ? failure.toJSON() : undefined,
+	).toStrictEqual({
+		code: 'todo.reopen',
+		message: 'Completed todos cannot be reopened.',
+		retryable: false,
+	})
+	expect(await listPendingTodos()).toStrictEqual([])
 })
 
 //#region editor-update

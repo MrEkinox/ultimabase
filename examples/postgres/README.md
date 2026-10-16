@@ -8,14 +8,13 @@ kind, field, composite and partial indexes, unique and foreign-key violations
 as Core errors, pointer and relation storage, automatic and explicit
 transactions, keyset pagination, and the direct schema policies followed
 across two releases of the same database. It uses the declaration form
-(ADR-0297) without generated files and is tested with `testApplication`
-(ADR-0327).
+without generated files and is tested with `testApplication`.
 
 The [PostgreSQL page](../../apps/website/content/docs/1.0.0/plugins/official/postgresql.mdx)
 and the [package README](../../packages/postgres-plugin/README.md) show this
 application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

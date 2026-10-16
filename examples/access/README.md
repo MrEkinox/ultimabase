@@ -6,14 +6,13 @@ mutation rules, rules that use the request principal and Roles predicates,
 partial field rules, `anyOf`, `allOf` and `not`, the Access keys of Soft
 Delete's commands and `readDeleted` permission, `allowWithoutRule` openings,
 denial diagnostics and `ultimabase.can()`. It uses the declaration form
-(ADR-0297) without generated files and is tested with `testApplication`
-(ADR-0327).
+without generated files and is tested with `testApplication`.
 
 The [Access page](../../apps/website/content/docs/1.0.0/plugins/official/access.mdx)
 and the [package README](../../packages/access-plugin/README.md) show this
 application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

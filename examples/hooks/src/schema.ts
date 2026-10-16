@@ -27,7 +27,7 @@ export const App = UltimaBase.use(
 	softDeletePlugin(),
 	// Hooks are not an authorization layer: every client may write here.
 	// Install Access before exposing an application.
-	...apiServer({ http: { appId: 'blog' }, rest: { publicWrites: true } }),
+	...apiServer({ rest: { publicWrites: true } }),
 	postgresPlugin(),
 )
 //#endregion factory

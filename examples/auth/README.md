@@ -8,15 +8,15 @@ authentication before account deletion, password reset, email verification
 and email change through a test email sender, authentication events,
 attempt limiting, and the `/api/auth` routes with Bearer and cookie sessions.
 A second, stricter application requires a verified email before any session
-and raises the Argon2id parameters. It uses the declaration form (ADR-0297)
-without generated files and is tested with `testApplication` (ADR-0327).
+and raises the Argon2id parameters. It uses the declaration form
+without generated files and is tested with `testApplication`.
 
 The [Password Authentication page](../../apps/website/content/docs/1.0.0/plugins/official/password-authentication.mdx),
 the [`auth-plugin` README](../../packages/auth-plugin/README.md) and the
 [`auth-password` README](../../packages/auth-password/README.md) show this
 application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the READMEs by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the READMEs by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

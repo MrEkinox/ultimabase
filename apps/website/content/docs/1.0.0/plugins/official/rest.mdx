@@ -146,7 +146,7 @@ policy, the default outside production, can alter tables.
 **REST refuses to start when it would expose a write** (create, update,
 delete, upsert, bulk or a plugin command) and no protected policy plugin is
 installed. Install one, such as [Access](./access), as the example does, or
-pass `publicWrites: true` to let every client write on purpose (ADR-0294).
+pass `publicWrites: true` to let every client write on purpose.
 This second application has no policy plugin:
 
 <include cwd meta='title="src/guestbook.ts"'>

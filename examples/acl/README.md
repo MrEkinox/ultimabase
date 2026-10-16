@@ -7,14 +7,13 @@ guard, `select: { acl: true }` and `acl.entries()`, schema `limits`, a fixed
 ACL with public and role entries, `resolveInput`, complete ACLs written by
 Master, ACL combined with Access rules and Roles, immutable ACL values and
 their JSON, and committed ACL change events. It uses the declaration form
-(ADR-0297, ADR-0339) without generated files and is tested with `testApplication`
-(ADR-0327).
+without generated files and is tested with `testApplication`.
 
 The [ACL page](../../apps/website/content/docs/1.0.0/plugins/official/acl-permissions.mdx)
 and the [package README](../../packages/acl-permissions-plugin/README.md) show
 this application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

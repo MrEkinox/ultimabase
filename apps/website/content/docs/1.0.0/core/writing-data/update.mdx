@@ -54,7 +54,7 @@ from storage. Without `select`, the command returns the complete visible row.
 
 If no visible post matches, `updateOne()` returns `null`. Handle that case
 before reading the result. Results have no `update()` method: to update a row
-you loaded, pass its `id` as the target (ADR-0310). See
+you loaded, pass its `id` as the target. See
 [Models](/docs/1.0.0/core/data-modeling/models) for the result contract.
 
 ## Replace, clear, or increment fields

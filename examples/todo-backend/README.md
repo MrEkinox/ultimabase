@@ -2,8 +2,8 @@
 
 The reference UltimaBase application: a Todo backend that combines ordinary
 schemas and queries with the official Access, ACL, Hooks, Roles, Validation,
-PostgreSQL and REST plugins, written in the declaration form (ADR-0297)
-without generated files, and tested with `testApplication` (ADR-0327).
+PostgreSQL and REST plugins, written in the declaration form
+without generated files, and tested with `testApplication`.
 
 ## What the developer writes
 
@@ -11,7 +11,7 @@ without generated files, and tested with `testApplication` (ADR-0327).
 schemas. The block below shows the plugin list, then the `title` field of
 `Todo`, whose behavior sits on the field, and the end of `Todo`: its
 `indexes` and the `acl: true` feature key in `define`, then the schema rules
-in `.with({ ... })` (ADR-0339):
+in `.with({ ... })`:
 
 <!-- region src/schema.ts#factory,todo-title,todo-rules -->
 
@@ -19,7 +19,7 @@ in `.with({ ... })` (ADR-0339):
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase, defineEnum } from '@ultimabase/core'
+import { PublicError, UltimaBase, defineEnum } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
@@ -27,7 +27,7 @@ import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 /**
- * One plugin list types every schema and builds the application (ADR-0297).
+ * One plugin list types every schema and builds the application.
  * Every schema rules every operation, so Access opens nothing by default.
  * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
  */
@@ -37,7 +37,7 @@ export const App = UltimaBase.use(
 	validationPlugin(),
 	rolesPlugin(),
 	aclPlugin(),
-	// REST over HTTP and a local Hono listener (ADR-0325); Access decides
+	// REST over HTTP and a local Hono listener; Access decides
 	// what each request may do.
 	...apiServer({ rest: true }),
 	postgresPlugin(),
@@ -70,7 +70,11 @@ title: field.string({
 		beforeOperation: {
 			update: ({ item, originalItem }) => {
 				if (originalItem.completed && !item.completed) {
-					throw new TypeError('Completed todos cannot be reopened')
+					// A PublicError reaches REST and GraphQL clients; any other
+					// error is masked as an internal error.
+					throw new PublicError('Completed todos cannot be reopened.', {
+						code: 'todo.reopen',
+					})
 				}
 			},
 		},
@@ -120,7 +124,7 @@ export const ultimabase = new App({
 	schemas: [TodoUser, TodoRole, Todo],
 })
 
-// One declaration per application gives name-keyed editor types (ADR-0297).
+// One declaration per application gives name-keyed editor types.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase

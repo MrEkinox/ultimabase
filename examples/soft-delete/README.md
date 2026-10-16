@@ -3,14 +3,14 @@
 A small blog backend that shows the official Soft Delete plugin end to end:
 posts go to a trash instead of disappearing, moderators can read the trash,
 anyone who may delete a post may restore it, and only trusted server code
-purges it for good. It uses the declaration form (ADR-0297) without generated
-files and is tested with `testApplication` (ADR-0327).
+purges it for good. It uses the declaration form without generated
+files and is tested with `testApplication`.
 
 The [Soft Delete page](../../apps/website/content/docs/1.0.0/plugins/official/soft-delete.mdx)
 and the [package README](../../packages/soft-delete-plugin/README.md) show
 this application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

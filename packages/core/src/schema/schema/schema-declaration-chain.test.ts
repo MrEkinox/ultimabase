@@ -116,7 +116,7 @@ describe('schema declaration chain (ADR-0297)', () => {
 				{ className: 'PreMarkedDocument', fields: () => ({}), marked: true },
 			])
 		}).toThrow(
-			'Unknown schema option: marked. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
+			'Unknown schema option: marked. define() takes className, fields and indexes; plugin rules go in the final .with(...)',
 		)
 	})
 })

@@ -43,8 +43,8 @@ An application declares each schema in two blocks: what the schema is in
 `App.Schema.define({ className, fields, indexes, ... })`, including the
 feature keys of the installed plugins such as `softDelete: true`, then how
 each plugin treats it in one optional `.with({ ... })` holding their
-rules (ADR-0297, ADR-0339). Your plugin types both blocks from its own source
-through Core's projection slots (ADR-0316).
+rules. Your plugin types both blocks from its own source
+through Core's projection slots.
 There is no generation step and no generated file, and the same declarations
 compile at Runtime, so JavaScript applications get the same behavior.
 
@@ -91,7 +91,7 @@ missing class implicitly and cannot duplicate the plugin's own `schemas.add()`.
 Most schema contributions are a feature that adds server-written fields
 and commands, or a rule read after commit. `definePlugin` from
 `@ultimabase/plugin-kit` declares both from one object and writes every slot
-below for you; [Start Here](/docs/1.0.0/plugins/build-a-plugin#or-declare-it-with-defineplugin)
+below for you; [Start Here](/docs/1.0.0/plugins/build-a-plugin#declare-the-plugin-with-defineplugin)
 shows the `archivePlugin` it builds. An application installs it once in its
 factory, here with the `auditPlugin` of the same page and the raw
 `flagPlugin` below:
@@ -132,7 +132,7 @@ type it through a rules slot: an interface extending `SchemaRulesHKT` whose
 configured schema, so a rule may be typed against its fields (as Access, Hooks
 and Validation do), and `this['shape']`, the features `define` sets, so a rule
 may appear only with its feature. A feature that needs a rule declares it as
-required, as ACL's `acl: true` requires `.with({ acl: { default } })` (ADR-0321);
+required, as ACL's `acl: true` requires `.with({ acl: { default } })`;
 see [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules#a-feature-may-require-a-rule).
 
 This raw plugin adds a `flaggable` feature that gives a schema a
@@ -214,7 +214,7 @@ for the full field and codec contracts.
 A plugin that owns a kind of schema, such as Roles with `App.RoleSchema` or
 authentication with `App.UserSchema`, adds a schema factory to the configured
 application through `provideSchemaFactories()`, typed by a
-`SchemaFactoriesHKT` slot (ADR-0322). A factory receives
+`SchemaFactoriesHKT` slot. A factory receives
 `define(options, statics)`: the same declaration as `App.Schema.define`,
 with `statics` bound to every class it creates, so its declarations take the
 same `indexes`, feature keys and `.with` rules as any schema. The factory's
@@ -224,7 +224,7 @@ If the package must instead expose one final schema class of its own, use the
 low-level Core boundary `Schema.defineSpecialized(options, createStatics)`.
 The factory returns the static capabilities only; Core attaches them before
 freezing the exact schema class. Results stay frozen plain data and never gain
-methods (ADR-0310). A specialization does not receive an application, adapter,
+methods. A specialization does not receive an application, adapter,
 authority, or mutable prototype, and it does not register its class
 automatically.
 

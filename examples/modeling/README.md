@@ -11,14 +11,14 @@ object lists, virtual fields with `resolve` and `resolveMany`, pointers with
 `relations` in `.with` and an inverse `mappedBy` relation, frozen plain
 results, `toJSON`, and the named types `Model`, `CreateInput`, `UpdateInput`
 and `UniqueWhereInput`. Its only plugin is PostgreSQL: data modeling is Core.
-It uses the declaration form (ADR-0297) without generated files and is tested
-with `testApplication` (ADR-0327).
+It uses the declaration form without generated files and is tested
+with `testApplication`.
 
 The [Application page](../../apps/website/content/docs/1.0.0/core/application.mdx),
 the [Data Modeling pages](../../apps/website/content/docs/1.0.0/core/data-modeling/)
 and the [Core README](../../packages/core/README.md) show this application's
 code: each block is a `//#region <name>` of these files, included by the pages
-and copied into the README by `yarn docs:regions` (ADR-0330). Change the code
+and copied into the README by `yarn docs:regions`. Change the code
 here, and the tests prove what the documentation says.
 
 ## Files

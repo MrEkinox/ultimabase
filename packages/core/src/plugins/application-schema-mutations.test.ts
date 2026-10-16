@@ -316,7 +316,7 @@ describe('application-owned schema mutations', () => {
 				schemas: [WorkflowPost],
 			}).schema(WorkflowPost),
 		).toThrow(
-			'schema mutation archive surface must be schema: results have no model methods (ADR-0310)',
+			'schema mutation archive surface must be schema: results have no model methods',
 		)
 	})
 

@@ -72,7 +72,7 @@ export interface TestApplication extends AsyncDisposable {
 	 * Runs `fn` with Master authority, without a configured key: calls inside
 	 * it bypass authorization, never validation or hooks.
 	 *
-	 * @example `await t.asMaster(() => Task.deleteMany({ where: {} }))`
+	 * @example `await t.asMaster(() => Task.createOne({ data: { title: 'Ship' } }))`
 	 */
 	asMaster<TResult>(
 		fn: () => TResult | PromiseLike<TResult>,
