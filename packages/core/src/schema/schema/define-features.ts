@@ -253,7 +253,9 @@ export type DefineFeatureShape<
 
 /**
  * The declaration options carrying the shape record of one `define` call;
- * a call that sets feature keys is marked for the callback-only `.with`.
+ * a call that sets feature keys is marked for the callback-only `.with`. A
+ * call without features and without a factory record keeps the empty options
+ * of the declaration chain, so its types are those of a plain declaration.
  */
 export type DefineFeatureOptions<
 	TSource extends PluginSourceState,
@@ -261,9 +263,15 @@ export type DefineFeatureOptions<
 	TFactoryShape extends object = Readonly<Record<never, never>>,
 	TOwnKeys extends string = never,
 > = [SetFeatureName<TSource, TFeatures>] extends [never]
-	? DeclaredSchemaShape<
-			DefineFeatureShape<TSource, TFeatures, TFactoryShape, TOwnKeys>
-		>
+	? [keyof TFactoryShape] extends [never]
+		? IsFailedDefine<TSource, TFeatures, TOwnKeys> extends true
+			? DeclaredSchemaShape<
+					DefineFeatureShape<TSource, TFeatures, TFactoryShape, TOwnKeys>
+				>
+			: Readonly<Record<never, never>>
+		: DeclaredSchemaShape<
+				DefineFeatureShape<TSource, TFeatures, TFactoryShape, TOwnKeys>
+			>
 	: DeclaredSchemaShape<
 			DefineFeatureShape<TSource, TFeatures, TFactoryShape, TOwnKeys>
 		> &

@@ -374,9 +374,10 @@ const applyDefineFeatures = (
 	features: ReadonlyMap<string, SchemaShapeMethodRuntime>,
 ): DeclarationState => {
 	const declaration: [string, unknown][] = []
-	const patches: object[] = []
+	const patches: [string, unknown][] = []
 	const methods = new Map(features)
 	const requiredRules: (readonly [string, string])[] = []
+	let definedFeatures = false
 	for (const [key, value] of Object.entries(options)) {
 		const feature = isCoreDefineKey(key) ? undefined : features.get(key)
 		if (feature === undefined) {
@@ -388,19 +389,24 @@ const applyDefineFeatures = (
 				`define() feature ${key} takes true or an options object`,
 			)
 		}
-		patches.push(value === true ? feature.apply() : feature.apply(value))
+		patches.push(
+			...Object.entries(
+				value === true ? feature.apply() : feature.apply(value),
+			),
+		)
 		methods.delete(key)
 		requiredRules.push(...feature.requires.map((rule) => [key, rule] as const))
+		definedFeatures = true
 	}
 	return {
-		// Option keys come from Core, the factory or a plugin feature.
-		options: Object.assign(
-			Object.fromEntries(declaration),
+		// Keys are copied as entries, `__proto__` included (user-controlled).
+		options: Object.fromEntries([
+			...declaration,
 			...patches,
-		) as DeclarationOptions,
+		]) as DeclarationOptions,
 		methods,
 		requiredRules,
-		definedFeatures: patches.length > 0,
+		definedFeatures,
 	}
 }
 
@@ -445,10 +451,13 @@ export const createConfiguredSchemaNamespace = (
 		define: (options: DeclarationOptions) => {
 			assertPlainObject(options, 'schema options must be an object')
 			const state = applyDefineFeatures(options, extensions.features)
+			// Every other key, symbols included, is checked as before.
 			assertDeclarationOptionKeys(
 				Object.fromEntries(
-					Object.keys(options)
-						.filter((key) => !extensions.features.has(key))
+					Reflect.ownKeys(options)
+						.filter(
+							(key) => typeof key !== 'string' || !extensions.features.has(key),
+						)
 						.map((key) => [key, true]),
 				),
 			)

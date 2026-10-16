@@ -23,3 +23,9 @@ plus the `Register` declaration for name-keyed types. No generation step runs.
   constants at the top of `tools/campaign.mjs`, `tools/probe.mjs` and
   `tools/lsp-bench.mjs`. The Typegen rows of `results/` are historical (Typegen
   was removed in migration step 6.8b).
+- `tools/gen-define-with.mjs` writes the same benchmark in the declaration form
+  of ADR-0339 (`gen/define-with-<N>/`); `tools/editbench.mjs` interleaves the
+  edit-to-diagnostics runs of several generated projects (TypeScript 6 and 7,
+  each run gated on a 1-minute load below 4), `tools/measure.mjs` records their
+  checker instantiations, and `tools/summarize-editbench.mjs` prints the
+  medians.
