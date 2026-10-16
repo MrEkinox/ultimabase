@@ -8,7 +8,7 @@ import { ultimabase } from '../src/ultimabase.ts'
 import { seedBlog } from './support.ts'
 
 it('prints the schema the application serves', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 
 	const sdl = ultimabase.plugin('@ultimabase/graphql-plugin').printSchema()
 	// The operation's types derive from its validators.
@@ -42,7 +42,6 @@ it('prints the schema the application serves', async () => {
 	// No exposed type reaches AuditEntry: no type, input or field names it.
 	expect(sdl).not.toContain('AuditEntry')
 	//#endregion hidden-schema
-	await t.afterCommit()
 })
 
 it('executes a document without HTTP', async () => {

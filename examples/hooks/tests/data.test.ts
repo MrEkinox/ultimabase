@@ -9,7 +9,7 @@ import { ultimabase } from '../src/ultimabase.ts'
 // assertions after it prove what the page says about the result.
 
 it('resolves the data of a create, field Hooks first', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	//#region create
 	const post = await Post.createOne({
 		data: { title: '  Hello Hooks ', summary: null },
@@ -27,7 +27,6 @@ it('resolves the data of a create, field Hooks first', async () => {
 		data: { title: 'Second', summary: '  Short ' },
 	})
 	expect(trimmed.summary).toBe('Short')
-	await t.afterCommit()
 })
 
 it('gives an update only its changes, in readable form', async () => {
@@ -75,7 +74,7 @@ it('gives an update only its changes, in readable form', async () => {
 })
 
 it('renames the slug with the title', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'First title' } })
 
 	const renamed = await Post.updateOne({
@@ -84,11 +83,10 @@ it('renames the slug with the title', async () => {
 	})
 
 	expect(renamed).toMatchObject({ slug: 'second-title' })
-	await t.afterCommit()
 })
 
 it('knows whether an upsert creates or updates', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	//#region upsert
 	const importPost = () =>
 		Post.upsertOne({
@@ -104,5 +102,4 @@ it('knows whether an upsert creates or updates', async () => {
 	expect(created).toMatchObject({ slug: 'imported-post', views: 0 })
 	expect(updated).toMatchObject({ id: created.id, views: 1 })
 	expect(await Post.count()).toBe(1)
-	await t.afterCommit()
 })

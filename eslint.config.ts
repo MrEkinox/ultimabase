@@ -64,6 +64,11 @@ export default defineConfig(
 			'@typescript-eslint/consistent-type-imports': 'error',
 			'@typescript-eslint/no-explicit-any': 'error',
 			'@typescript-eslint/no-misused-promises': 'error',
+			// `await using t = ...` is used by its disposal at the end of scope.
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ ignoreUsingDeclarations: true },
+			],
 			'@typescript-eslint/no-unnecessary-condition': 'error',
 			'@typescript-eslint/prefer-readonly': 'error',
 			'max-lines': ['warn', { max: 400 }],

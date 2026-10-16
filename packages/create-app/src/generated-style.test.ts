@@ -22,6 +22,14 @@ const linter = new ESLint({
 			languageOptions: {
 				globals: { console: 'readonly', process: 'readonly' },
 			},
+			// A test's `await using t` is used by its disposal, which waits for
+			// after-commit work: the repository enables the same option.
+			rules: {
+				'@typescript-eslint/no-unused-vars': [
+					'error',
+					{ ignoreUsingDeclarations: true },
+				],
+			},
 		},
 	],
 })

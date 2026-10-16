@@ -91,13 +91,12 @@ import { Task } from '${sourceModule(plan, 'schemas/task')}'
 import { ultimabase } from '${sourceModule(plan, 'ultimabase')}'
 
 // testApplication starts the real application on this worker's own schema;
-// each call starts from empty tables.
+// each call starts from empty tables. Leaving the scope disposes the handle
+// and waits for after-commit work${hiddenByAcl(plan) ? '' : '; `_t` is never read'}.
 it('creates a Task with its defaults', async () => {
-  await using t = await testApplication(ultimabase)
+  await using ${hiddenByAcl(plan) ? 't' : '_t'} = await testApplication(ultimabase)
   ${createTask(plan, 'Write the first test')}
   expect(task).toMatchObject({ done: false, title: 'Write the first test' })
-  // Hooks' afterCommit work runs after the response: wait for it.
-  await t.afterCommit()
 })${http && has(plan, 'rest-plugin') ? restTest(plan) : ''}${
 		http && !has(plan, 'rest-plugin') && has(plan, 'graphql-yoga-plugin')
 			? graphqlTest(plan)
