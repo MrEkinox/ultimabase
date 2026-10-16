@@ -14,4 +14,4 @@ export const A = App.Schema.define({
 export const B = App.Schema.define({
 	className: 'B',
 	fields: (field) => ({ name: field.string() }),
-}).with((plugins) => plugins)
+}).with({})

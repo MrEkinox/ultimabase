@@ -40,37 +40,36 @@ const ReplaceRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteReplaceRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			create: true,
-			delete: true,
-			read: true,
-			update: false,
-		})
-		.hooks({
-			afterOperation: {
-				delete: ({ originalItem }) => {
-					replaceDeleteTrace.push(`after:delete:${originalItem.title}`)
-				},
-				update: () => {
-					replaceDeleteTrace.push('after:update')
-				},
+}).with({
+	access: {
+		create: true,
+		delete: true,
+		read: true,
+		update: false,
+	},
+	hooks: {
+		afterOperation: {
+			delete: ({ originalItem }) => {
+				replaceDeleteTrace.push(`after:delete:${originalItem.title}`)
 			},
-			beforeOperation: {
-				delete: ({ originalItem }) => {
-					const title = originalItem.title
-					replaceDeleteTrace.push(`before:delete:${title}`)
-					if (title === rejectedDeleteTitle) {
-						throw new Error('replace-delete batch rejected')
-					}
-				},
-				update: () => {
-					replaceDeleteTrace.push('before:update')
-				},
+			update: () => {
+				replaceDeleteTrace.push('after:update')
 			},
-		}),
-)
+		},
+		beforeOperation: {
+			delete: ({ originalItem }) => {
+				const title = originalItem.title
+				replaceDeleteTrace.push(`before:delete:${title}`)
+				if (title === rejectedDeleteTitle) {
+					throw new Error('replace-delete batch rejected')
+				}
+			},
+			update: () => {
+				replaceDeleteTrace.push('before:update')
+			},
+		},
+	},
+})
 
 const replaceDeleteObserver = plugin({
 	core: '^0.0.0',

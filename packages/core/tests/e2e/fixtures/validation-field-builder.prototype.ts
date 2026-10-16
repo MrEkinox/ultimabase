@@ -201,9 +201,7 @@ Application.Schema.define({
 			}),
 		}
 	},
-}).with((plugins) =>
-	plugins.relations({ filteredTargets: { where: packedRelationWhere } }),
-)
+}).with({ relations: { filteredTargets: { where: packedRelationWhere } } })
 
 // Relation rules list the relation fields only, then their rule keys (ADR-0328).
 Application.Schema.define({
@@ -213,16 +211,14 @@ Application.Schema.define({
 		owners: field.relation({ target: 'PackedValidatorTarget' }),
 		reviewers: field.relation({ target: 'PackedValidatorTarget' }),
 	}),
-}).with((plugins) => plugins.relations({/* completion:relation-rule-names */}))
+}).with({ relations: {/* completion:relation-rule-names */} })
 
 Application.Schema.define({
 	className: 'PackedRelationRuleKeys',
 	fields: (field) => ({
 		owners: field.relation({ target: 'PackedValidatorTarget' }),
 	}),
-}).with((plugins) =>
-	plugins.relations({ owners: {/* completion:relation-rule-keys */} }),
-)
+}).with({ relations: { owners: {/* completion:relation-rule-keys */} } })
 
 Application.Schema.define({
 	className: 'PackedEmbeddedFieldOptions',

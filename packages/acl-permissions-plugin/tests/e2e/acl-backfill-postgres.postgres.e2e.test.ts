@@ -37,7 +37,7 @@ const withACL = (className: string, rule: Readonly<{ acl: ACLRule }>) =>
 		className,
 		fields: (field) => ({ title: field.string({ required: true }) }),
 		acl: true,
-	}).with((plugins) => plugins.acl(rule.acl))
+	}).with({ acl: rule.acl })
 
 let fixture: PostgresWorkerFixture | undefined
 

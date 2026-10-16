@@ -4,7 +4,7 @@ import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 
 /**
  * `reviewable: true` in `define` adds `reviewedAt` and `approveOne`; it
- * requires `plugins.review('editors')` in `.with`, which names the reviewers.
+ * requires `review: 'editors'` in `.with`, which names the reviewers.
  */
 export const reviewPlugin = () =>
 	definePlugin({
@@ -23,7 +23,7 @@ export const reviewPlugin = () =>
 				requires: ['review'],
 			}),
 		},
-		// Rules: how the plugin treats a schema. Methods of `plugins` in `.with`.
+		// Rules: how the plugin treats a schema. Keys of `.with`.
 		rules: {
 			review: (value, path) => {
 				if (typeof value !== 'string' || value === '')

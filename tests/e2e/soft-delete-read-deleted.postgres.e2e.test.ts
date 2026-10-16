@@ -40,19 +40,19 @@ const Note = SchemaApplication.Schema.define({
 	className: 'ReadDeletedNote',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: true,
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		create: true,
 		delete: true,
 		readDeleted: isAuditing,
 		restoreOne: isAuditing,
-	}),
-)
+	},
+})
 const Ref = SchemaApplication.Schema.define({
 	className: 'ReadDeletedRef',
 	fields: (field) => ({ note: field.pointer({ target: () => Note }) }),
-}).with((plugins) => plugins.access({ read: true, create: true }))
+}).with({ access: { read: true, create: true } })
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

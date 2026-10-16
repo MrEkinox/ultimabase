@@ -33,9 +33,8 @@ export const Customer = App.Schema.define({
 				loyaltyService.tiers(items.map(({ email }) => String(email))),
 		}),
 	}),
-}).with((plugins) =>
-	plugins
-		// Reads through `wishlist` only show published books.
-		.relations({ wishlist: { where: { published: { eq: true } } } }),
-)
+}).with({
+	// Reads through `wishlist` only show published books.
+	relations: { wishlist: { where: { published: { eq: true } } } },
+})
 //#endregion customer

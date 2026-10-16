@@ -45,38 +45,37 @@ const Post = App.Schema.define({
 		title: field.string({ required: true }),
 	}),
 	archivable: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			read: true,
-			create: true,
-			delete: true,
-			archiveOne: true,
-			unarchiveOne: true,
-			// Many-row commands keep the one-row rules: a filter narrows the
-			// targeted rows, an item rule refuses one row and rolls all back.
-			archiveMany: {
-				where: () => ({ owner: { eq: 'ada' } }),
-				item: ({ originalItem }) => originalItem.title !== 'locked',
+}).with({
+	access: {
+		read: true,
+		create: true,
+		delete: true,
+		archiveOne: true,
+		unarchiveOne: true,
+		// Many-row commands keep the one-row rules: a filter narrows the
+		// targeted rows, an item rule refuses one row and rolls all back.
+		archiveMany: {
+			where: () => ({ owner: { eq: 'ada' } }),
+			item: ({ originalItem }) => originalItem.title !== 'locked',
+		},
+	},
+	audit: true,
+	hooks: {
+		beforeOperation: {
+			archiveMany: ({ originalItem }) => {
+				hookTrace.push(`archiveMany:${originalItem.title}`)
+				if (originalItem.title === refusedTitle) {
+					throw new TypeError('archive refused by hook')
+				}
 			},
-		})
-		.audit(true)
-		.hooks({
-			beforeOperation: {
-				archiveMany: ({ originalItem }) => {
-					hookTrace.push(`archiveMany:${originalItem.title}`)
-					if (originalItem.title === refusedTitle) {
-						throw new TypeError('archive refused by hook')
-					}
-				},
-			},
-		}),
-)
+		},
+	},
+})
 
 const Note = App.Schema.define({
 	className: 'FacadeNote',
 	fields: (field) => ({ body: field.string() }),
-}).with((plugins) => plugins.access({ read: true, create: true }))
+}).with({ access: { read: true, create: true } })
 
 // Compile-time proofs (never run): shape fields, commands and rules are typed.
 export const typeProofs = (): void => {
@@ -87,11 +86,10 @@ export const typeProofs = (): void => {
 	App.Schema.define({
 		className: 'FacadeBadRule',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) =>
-		plugins
-			// @ts-expect-error -- `.with` checks the rule value against its validator.
-			.audit('yes'),
-	)
+	}).with({
+		// @ts-expect-error -- `.with` checks the rule value against its validator.
+		audit: 'yes',
+	})
 	// @ts-expect-error -- `archivedAt` is written by the server only.
 	void Post.createOne({ data: { owner: 'ada', title: 't', archivedAt: null } })
 }

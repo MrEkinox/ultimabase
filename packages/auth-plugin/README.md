@@ -84,15 +84,15 @@ export const Member = App.UserSchema.define({
 		displayName: field.string({ required: true }),
 		bio: field.string(),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		// Members read and edit only their own profile.
 		read: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('id', principal.id),
 		update: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('id', principal.id),
-	}),
-)
+	},
+})
 ```
 
 <!-- endregion -->
@@ -116,7 +116,7 @@ const { user, session } = await Member.signUp({
 
 `App.UserSchema.define({ className, fields })` declares the application's
 User like any form D schema: `define` also accepts `indexes` and feature keys,
-it ends with `.with((plugins) => plugins.access(…).hooks(…))`, and its
+it ends with `.with({ access: …, hooks: … })`, and its
 Access, Hooks and transport rules are the application's. The installed methods
 add their fields (`password({ identifier: 'email' })` adds a unique `email`);
 `password` and the methods' fields are reserved. The class gains static

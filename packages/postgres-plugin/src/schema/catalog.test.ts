@@ -17,7 +17,7 @@ describe('PostgreSQL schema catalog', () => {
 		const audit = PostgresSchemaApplication.Schema.define({
 			className: 'Audit',
 			fields: () => ({}),
-		}).with((plugins) => plugins.postgres({ table: 'Exact-Audit' }))
+		}).with({ postgres: { table: 'Exact-Audit' } })
 		const catalog = new PostgresSchemaCatalog([article, audit])
 		const names = catalog.tableNames()
 

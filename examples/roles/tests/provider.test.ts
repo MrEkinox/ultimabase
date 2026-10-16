@@ -13,7 +13,7 @@ const WithoutRoles = UltimaBase.use(accessPlugin(), postgresPlugin())
 const Notice = WithoutRoles.Schema.define({
 	className: 'Notice',
 	fields: (field) => ({ text: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: hasRole(Editor) }))
+}).with({ access: { read: hasRole(Editor) } })
 
 it('fails when no role provider is installed', async () => {
 	await using t = await testApplication(new WithoutRoles({ schemas: [Notice] }))

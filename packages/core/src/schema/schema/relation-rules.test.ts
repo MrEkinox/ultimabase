@@ -30,9 +30,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				}),
 				listed: field.boolean(),
 			}),
-		}).with((plugins) =>
-			plugins.relations({ articles: { where: { published: { eq: true } } } }),
-		)
+		}).with({ relations: { articles: { where: { published: { eq: true } } } } })
 		const Article = UltimaBase.Schema.define({
 			className: 'RuleArticle',
 			fields: (field) => ({
@@ -40,11 +38,11 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				contributors: field.relation({ target: () => Author }),
 				published: field.boolean(),
 			}),
-		}).with((plugins) =>
-			plugins.relations({
+		}).with({
+			relations: {
 				contributors: { where: ({ where }) => where.eq('listed', true) },
-			}),
-		)
+			},
+		})
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{ status: 'fulfilled', value: [] },
@@ -86,7 +84,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 			UltimaBase.Schema.define({
 				className: 'RuleBuiltSource',
 				fields: () => ({ targets: relationField({ target: () => Target }) }),
-			}).with((plugins) => plugins.relations(relations as never))
+			}).with({ relations: relations as never })
 
 		const empty = declare({ targets: {} }).persistedFields.targets
 		const filtered = declare({ targets: { where: { visible: { eq: true } } } })
@@ -109,7 +107,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				}),
 			})
 		const withRules = (relations: unknown) => () =>
-			declare().with((plugins) => plugins.relations(relations as never))
+			declare().with({ relations: relations as never })
 
 		expect(withRules({ missing: { where: {} } })).toThrow(
 			'relations.missing must name a relation field of this schema',
@@ -143,7 +141,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 		expect(withRules({ targets: { where: {} } })).not.toThrow()
 	})
 
-	it('points a field-level where to plugins.relations(...)', () => {
+	it('points a field-level where to .with({ relations })', () => {
 		expect(() =>
 			UltimaBase.Schema.define({
 				className: 'RuleFieldWhere',
@@ -155,7 +153,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				}),
 			}),
 		).toThrow(
-			'RuleFieldWhere.fields.targets cannot declare where: declare relation filters in .with((plugins) => plugins.relations({ targets: { where } }))',
+			'RuleFieldWhere.fields.targets cannot declare where: declare relation filters in .with({ relations: { targets: { where } } })',
 		)
 	})
 })

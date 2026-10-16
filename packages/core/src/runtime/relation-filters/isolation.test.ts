@@ -31,16 +31,16 @@ describe('Runtime relation filter isolation', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'IsolatedRuntimeRelationTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins.relations({
+		}).with({
+			relations: {
 				targets: {
 					where: ({ where }) => {
 						invocations += 1
 						return where.eq('visible', true)
 					},
 				},
-			}),
-		)
+			},
+		})
 		const firstAdapter = new RecordingDatabaseAdapter([], [])
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
 		const first = applicationFixture(
@@ -97,8 +97,8 @@ describe('Runtime relation filter isolation', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'CancelledRuntimeRelationTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins.relations({
+		}).with({
+			relations: {
 				targets: {
 					where: ({ where }) => {
 						owner = readApplicationPluginOwner(application)
@@ -106,8 +106,8 @@ describe('Runtime relation filter isolation', () => {
 						return where.eq('visible', true)
 					},
 				},
-			}),
-		)
+			},
+		})
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = applicationFixture(
 			await createApplication({

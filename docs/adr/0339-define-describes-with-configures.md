@@ -101,3 +101,35 @@ These hold before merge:
   - The plugin-authoring guide gets a page on features against rules.
   - Every page and README follows the verified-code rule.
 - **Documentation impact:** both.
+
+## Amendment (2026-10-17): `.with` takes an object
+
+Chosen by the user after a third spike (`spike/with-object`). The spike kept every other decision of this record and
+wrote `.with` as an object again. The result:
+
+- Capabilities are the same, and there is no cycle on TypeScript 6 and 7, from sources and built packages, in every
+  root-file order.
+- The form D bench is at the builder's level, within noise: TS7 0.55/1.82 s and TS6 1.92/5.61 s at 50/200 schemas.
+  The builder measured 0.53/1.80 and 1.90/5.60 s, `main` 0.56/1.88 and 1.96/5.77 s.
+- It uses about 0.3% fewer instantiations than the builder.
+
+Decision 3 becomes:
+
+3. **`.with({ … })` configures how each plugin behaves.**
+   - It is the only form, and the last call. It stays non-generic.
+   - Its keys are the rule names declared by the installed plugins, plus Core's `relations`. Each key is typed exactly
+     like the plugin's rule.
+   - A rule required by a feature (ACL's `default` once `acl: true`) is a required property.
+   - Unknown keys are refused by TypeScript and at runtime. At runtime, the runtime also refuses `__proto__` and symbol
+     keys and treats an `undefined` entry as absent.
+   - The callback builder `.with((plugins) => …)` is removed.
+
+Consequences of the amendment:
+
+- **Error messages.** A typo in a rule key gives "Did you mean" and no cascade. TypeScript flags a duplicate key. A
+  JavaScript caller gets "k is not a rule of an installed plugin; .with accepts …".
+- **What the object form costs.**
+  - The missing-required-rule message is TypeScript's "Property 'acl' is missing …", which is longer than the
+    builder's custom message.
+  - In plain JavaScript, a duplicate key keeps its last value.
+- **Exports.** `SchemaRulesBuilder` and `CompleteSchemaRules` are replaced by `SchemaRulesObject`, plus `NoSchemaRules`: the parameter of `.with` when no installed plugin declares a rule and the schema has no relation, so an unexpected key is named in the error ("'rest' does not exist in type 'NoSchemaRules'"). Required-rule messages read `.with({ rule: … })`, since some rules take a non-object value.

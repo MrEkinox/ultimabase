@@ -23,14 +23,14 @@ const Ruled = App.Schema.define({
 		secret: field.string({ access: { read: { orderBy: false } } }),
 		title: field.string(),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		create: false,
 		update: { where: true, item: () => false },
 		delete: { where: () => false, item: () => true },
-	}),
-)
+	},
+})
 
 const start = async () => {
 	const logger = createCapturingLogger()

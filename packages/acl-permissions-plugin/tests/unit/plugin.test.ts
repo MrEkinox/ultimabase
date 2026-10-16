@@ -173,14 +173,14 @@ describe('aclPlugin create input resolution', () => {
 			className: 'ACLStaticRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
 			acl: true,
-		}).with((plugins) =>
-			plugins.acl({
+		}).with({
+			acl: {
 				default: new ACL().grantRole(
 					new RequestSubjectReference('role', 'fixture-static-role'),
 					'read',
 				),
-			}),
-		)
+			},
+		})
 		let infrastructureStarted = false
 		const infrastructure = plugin({
 			version: '0.0.0',
@@ -237,11 +237,11 @@ describe('aclPlugin create input resolution', () => {
 			className: 'ACLDynamicRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
 			acl: true,
-		}).with((plugins) =>
-			plugins.acl({
+		}).with({
+			acl: {
 				default: () => new ACL().grantRole(dynamicRole, 'read'),
-			}),
-		)
+			},
+		})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = plugin({
 			version: '0.0.0',
@@ -387,8 +387,8 @@ describe('aclPlugin create input resolution', () => {
 				title: field.string({ required: true }),
 			}),
 			acl: true,
-		}).with((plugins) =>
-			plugins.acl({
+		}).with({
+			acl: {
 				default: ({ data }) => {
 					const value = new ACL().grantPrincipal(
 						Principal.pointer('first'),
@@ -398,20 +398,20 @@ describe('aclPlugin create input resolution', () => {
 						? value.grantPrincipal(Principal.pointer('second'), 'read')
 						: value
 				},
-			}),
-		)
+			},
+		})
 		const OverridePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLSchemaLimitOverridePost',
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
 			acl: true,
-		}).with((plugins) =>
-			plugins.acl({
+		}).with({
+			acl: {
 				default: twoPrincipals,
 				limits: { maxPrincipals: 2 },
-			}),
-		)
+			},
+		})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = plugin({
 			version: '0.0.0',

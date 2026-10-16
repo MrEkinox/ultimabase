@@ -148,7 +148,7 @@ describe('acl schema option', () => {
 			normalizeACLSchemaOption(aclFeatureDeclared, 'Post.acl'),
 		).toThrow(
 			new TypeError(
-				'Post.acl: the acl feature needs .with((plugins) => plugins.acl({ default })); an empty ACL would hide every row from everyone but Master',
+				'Post.acl: the acl feature needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master',
 			),
 		)
 	})

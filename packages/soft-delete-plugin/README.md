@@ -49,7 +49,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-}).with((plugins) => plugins.roles({ ensure: ['moderator'] }))
+}).with({ roles: { ensure: ['moderator'] } })
 
 export const Moderator = StaffRole.role('moderator')
 
@@ -58,24 +58,23 @@ export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			// Every caller may write, delete and restore posts in this example.
-			read: true,
-			create: true,
-			delete: true,
-			softDeleteOne: true,
-			softDeleteMany: true,
-			restoreOne: true,
-			restoreMany: true,
-			// Only moderators see tombstones in ordinary reads.
-			readDeleted: hasRole(Moderator),
-		})
-		// A command reaches REST or GraphQL only when the rule names it.
-		.rest({ softDeleteOne: true, restoreOne: true })
-		.graphql({ softDeleteOne: true, restoreOne: true }),
-)
+}).with({
+	access: {
+		// Every caller may write, delete and restore posts in this example.
+		read: true,
+		create: true,
+		delete: true,
+		softDeleteOne: true,
+		softDeleteMany: true,
+		restoreOne: true,
+		restoreMany: true,
+		// Only moderators see tombstones in ordinary reads.
+		readDeleted: hasRole(Moderator),
+	},
+	// A command reaches REST or GraphQL only when the rule names it.
+	rest: { softDeleteOne: true, restoreOne: true },
+	graphql: { softDeleteOne: true, restoreOne: true },
+})
 ```
 
 <!-- endregion -->
@@ -169,8 +168,8 @@ command, and its `all` branch runs for each command first with `kind` naming
 it.
 
 The one-row request commands reach REST and GraphQL when the schema's rule
-names them, `plugins.rest({ softDeleteOne: true, restoreOne: true })` and
-`plugins.graphql({ softDeleteOne: true, restoreOne: true })`, as
+names them, `.with({ rest: { softDeleteOne: true, restoreOne: true } })` and
+`.with({ graphql: { softDeleteOne: true, restoreOne: true } })`, as
 `POST /api/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one`, and as
 the `softDeleteOne{Schema}` and `restoreOne{Schema}` mutations (ADR-0324,
 ADR-0325). Many-row commands and purge have no route or field.

@@ -146,7 +146,7 @@ ${[
 		registerSource(plan),
 	])
 
-// ADR-0339: features in `define`, then rules in `.with((plugins) => …)`.
+// ADR-0339: features in `define`, then rules in `.with({ … })`.
 const taskSchemaSource = (
 	plan: InitializerPlan,
 ): string => `// The same declaration drives TypeScript inference and Runtime validation.

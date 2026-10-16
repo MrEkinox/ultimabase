@@ -69,15 +69,15 @@ export const Member = App.UserSchema.define({
 		displayName: field.string({ required: true }),
 		bio: field.string(),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		// Members read and edit only their own profile.
 		read: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('id', principal.id),
 		update: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('id', principal.id),
-	}),
-)
+	},
+})
 //#endregion member
 
 //#region note
@@ -88,14 +88,14 @@ export const Note = App.Schema.define({
 		author: field.string({ required: true }),
 		body: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('author', principal.id),
 		create: {
 			where: isAuthenticated,
 			item: ({ item, principal }) => item.author === principal?.id,
 		},
-	}),
-)
+	},
+})
 //#endregion note

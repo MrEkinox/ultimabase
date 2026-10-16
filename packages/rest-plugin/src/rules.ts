@@ -81,7 +81,7 @@ export type RestCommandName<TSchema> = {
  * every method and command, an object each method or command by name.
  * A plugin command (`softDeleteOne`) is exposed only when named.
  *
- * @example `plugins.rest({ count: true, softDeleteOne: true })`
+ * @example `.with({ rest: { count: true, softDeleteOne: true } })`
  */
 export type RestSchemaRule<TSchema = unknown> =
 	boolean | (RestMethodRules & RestCommandRules<TSchema>)
@@ -91,17 +91,17 @@ type RestCommandRules<TSchema> = unknown extends TSchema
 	? unknown
 	: Partial<Readonly<Record<RestCommandName<TSchema>, boolean>>>
 
-/** Entry of `.with((plugins) => …)` owned by REST, for one schema (ADR-0324). */
+/** Entry of `.with({ … })` owned by REST, for one schema (ADR-0324). */
 export interface RestRules<TSchema> {
 	/**
 	 * Selects the REST routes of this schema by method name; omitted methods
 	 * inherit `restPlugin({ default })`.
-	 * @example `.with((plugins) => plugins.rest({ count: true, deleteOne: false }))`
+	 * @example `.with({ rest: { count: true, deleteOne: false } })`
 	 */
 	readonly rest?: RestSchemaRule<TSchema>
 }
 
-/** Contributes `rest` to `.with((plugins) => …)` through Core's rules slot (ADR-0324). */
+/** Contributes `rest` to `.with({ … })` through Core's rules slot (ADR-0324). */
 export interface RestSchemaRules extends SchemaRulesHKT {
 	readonly rules: RestRules<this['schema']>
 }

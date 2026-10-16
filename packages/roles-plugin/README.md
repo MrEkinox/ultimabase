@@ -14,8 +14,8 @@ policy consumer receives this privilege from Roles.
 
 Installing `rolesPlugin()` adds `App.RoleSchema` to the configured factory
 (ADR-0322). Declare each role schema with the schema of its members, then end
-with `.with((plugins) => ...)` like any schema; `plugins.roles({ … })` sets
-the role behaviour (ADR-0339). An application may declare several role
+with `.with({ ... })` like any schema; its `roles` key sets the role behaviour
+(ADR-0339). An application may declare several role
 schemas.
 
 Every code block in this README is copied from the tested
@@ -53,7 +53,7 @@ export const App = UltimaBase.use(
 export const Member = App.Schema.define({
 	className: 'Member',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 /**
  * Staff roles, created at start when missing. Everyone may read them; no
@@ -63,15 +63,14 @@ export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
 	fields: (field) => ({ description: field.string() }),
-}).with((plugins) =>
-	plugins
-		.roles({
-			// The default: refuse to delete a role that still has members or links.
-			deletion: 'fail',
-			ensure: ['editor', 'administrator'],
-		})
-		.access({ read: true }),
-)
+}).with({
+	roles: {
+		// The default: refuse to delete a role that still has members or links.
+		deletion: 'fail',
+		ensure: ['editor', 'administrator'],
+	},
+	access: { read: true },
+})
 
 export const Editor = StaffRole.role('editor')
 export const Administrator = StaffRole.role('administrator')
@@ -80,14 +79,14 @@ export const Administrator = StaffRole.role('administrator')
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		create: hasRole(Editor),
 		update: hasRole(Editor),
 		delete: hasRole(Administrator),
-	}),
-)
+	},
+})
 ```
 
 <!-- endregion -->
@@ -220,7 +219,7 @@ and nominal value type never appear in authoring options or autocomplete. Applic
 Role schemas are application schemas. Trusted server code can use schema-root
 reads such as `StaffRole.findMany()`, and the REST and GraphQL transports
 expose them like any other application schema, under their Access rules;
-`plugins.rest(false)` in `.with` keeps one off REST.
+`rest: false` in `.with` keeps one off REST.
 
 A `members` link change delegates to the normal relation lifecycle, inherits
 ambient execution or ordinary operation options, and emits

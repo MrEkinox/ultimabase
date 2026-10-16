@@ -35,23 +35,22 @@ const Post = ACLChangeApplication.Schema.define({
 		title: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.hooks({
-			afterOperation: {
-				update: () => {
-					if (!rejectNextUpdate) return
+}).with({
+	hooks: {
+		afterOperation: {
+			update: () => {
+				if (!rejectNextUpdate) return
 
-					rejectNextUpdate = false
-					throw new Error('ACL change event rollback fixture')
-				},
+				rejectNextUpdate = false
+				throw new Error('ACL change event rollback fixture')
 			},
-		})
-		.postgres({ table: 'acl_change_event_posts' })
-		.acl({
-			default: new ACL().grantPublic('read'),
-		}),
-)
+		},
+	},
+	postgres: { table: 'acl_change_event_posts' },
+	acl: {
+		default: new ACL().grantPublic('read'),
+	},
+})
 
 const committedChanges: ACLChangedEvent[] = []
 const committedRows: string[] = []

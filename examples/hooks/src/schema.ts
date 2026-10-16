@@ -9,7 +9,7 @@ import { sendMessage } from './effects.ts'
 import { announcePost, postPublished } from './events.ts'
 
 /**
- * The configured factory types `plugins.hooks(...)` and field `hooks` from the
+ * The configured factory types `.with({ hooks: … })` and field `hooks` from the
  * plugin declaration. `postgresPlugin()` reads `DATABASE_URL` at start.
  */
 export const App = UltimaBase.use(
@@ -66,8 +66,8 @@ export const Post = App.Schema.define({
 	}),
 	// A unique index of `define` is a unique target of `upsertOne`.
 	indexes: [{ fields: ['slug'], unique: true }],
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		// Plain data in, plain data out; `undefined` keeps the input.
 		resolveInput: {
 			create: ({ data }) => ({ ...data, slug: slugify(data.title) }),
@@ -113,8 +113,8 @@ export const Post = App.Schema.define({
 			update: ({ changes, item }) =>
 				sendMessage({ to: 'webhook', subject: item.id, body: changes }),
 		},
-	}),
-)
+	},
+})
 //#endregion post
 
 //#region title-change
@@ -142,8 +142,8 @@ export const Comment = App.Schema.define({
 		replies: field.int({ default: 0 }),
 	}),
 	softDelete: { mode: 'command' },
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			create: ({ item }) => countReply(item.parent),
 			update: ({ changes, item }) =>
@@ -160,8 +160,8 @@ export const Comment = App.Schema.define({
 				}
 			},
 		},
-	}),
-)
+	},
+})
 
 const countReply = async (parent: { readonly id: string } | null) => {
 	if (parent === null) return

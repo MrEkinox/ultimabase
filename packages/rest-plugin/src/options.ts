@@ -31,7 +31,7 @@ export interface RestPluginOptions {
 	 */
 	readonly bodyLimit?: number
 	/**
-	 * Exposure inherited by every schema method a `plugins.rest(…)` rule
+	 * Exposure inherited by every schema method a `.with({ rest: … })` rule
 	 * leaves out: `true`, `false`, or per method.
 	 * @example `default: { createOne: false, updateOne: false, deleteOne: false }`
 	 */

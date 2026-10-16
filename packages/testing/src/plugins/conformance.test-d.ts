@@ -27,7 +27,7 @@ const sourceOption = defineSchemaOption({
 interface EnabledRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{ enabled?: boolean }>
 }
-// The rules slot types `plugins.enabled(…)` in `.with` (ADR-0297).
+// The rules slot types `enabled` in `.with` (ADR-0297).
 const declarations: PluginDeclarationContribution<
 	readonly [],
 	PluginSchemaRulesSource<EnabledRules>
@@ -54,15 +54,14 @@ const Application = UltimaBaseFactory.use(subject)
 const Post = Application.Schema.define({
 	className: 'ConformancePost',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => plugins.enabled(true))
+}).with({ enabled: true })
 
 UltimaBaseFactory.Schema.define({
 	className: 'UnconfiguredConformancePost',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => {
+}).with({
 	// @ts-expect-error -- The unconfigured factory cannot author plugin rules.
-	void plugins.enabled
-	return plugins
+	enabled: true,
 })
 
 test('preserves exact subject and schema tuples in optional checks', () => {

@@ -77,11 +77,11 @@ describe('REST schema mutation route compilation', () => {
 		const Explicit = RestSchemaApplication.Schema.define({
 			className: 'RestMutationExplicit',
 			fields: () => ({}),
-		}).with((plugins) => plugins.rest(true))
+		}).with({ rest: true })
 		const Disabled = RestSchemaApplication.Schema.define({
 			className: 'RestMutationDisabled',
 			fields: () => ({}),
-		}).with((plugins) => plugins.rest(false))
+		}).with({ rest: false })
 		const Inherited = RestSchemaApplication.Schema.define({
 			className: 'RestMutationInherited',
 			fields: () => ({}),

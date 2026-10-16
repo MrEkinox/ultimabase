@@ -19,27 +19,26 @@ const App = UltimaBase.use(accessPlugin(), hooksPlugin(), aclPlugin())
 export const TodoUser = App.Schema.define({
   className: 'TodoUser',
   fields: (field) => ({ name: field.string() }),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 export const Todo = App.Schema.define({
   className: 'Todo',
   fields: (field) => ({ title: field.string({ required: true }) }),
   acl: true,
-}).with((plugins) =>
-  plugins
-    .access({
-      create: isAuthenticated,
-      update: ({ /* hover:access */principal }) => principal !== undefined,
-    })
-    .acl({ default: ({ /* hover:acl */principal }) => new ACL(principal) })
-    .hooks({
-      beforeOperation: {
-        create: ({ context }) => {
-          void context./* hover:hooks */principal
-        },
+}).with({
+  access: {
+    create: isAuthenticated,
+    update: ({ /* hover:access */principal }) => principal !== undefined,
+  },
+  acl: { default: ({ /* hover:acl */principal }) => new ACL(principal) },
+  hooks: {
+    beforeOperation: {
+      create: ({ context }) => {
+        void context./* hover:hooks */principal
       },
-    }),
-)
+    },
+  },
+})
 
 export const ultimabase = new App({ schemas: [TodoUser, Todo] })
 

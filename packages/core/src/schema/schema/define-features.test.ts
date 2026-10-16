@@ -24,7 +24,7 @@ import { stringField } from '../fields/builtins/string.js'
 import type { SchemaDefinition } from './definition.js'
 
 // ADR-0339: features are keys of `define`; rules are the methods of
-// `.with((plugins) => …)`. The fixture's `flagged` feature adds `flagCode`
+// `.with({ … })`. The fixture's `flagged` feature adds `flagCode`
 // and requires its `audit` rule.
 interface AuditRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{ audit?: boolean }>
@@ -144,7 +144,7 @@ describe('feature keys of define (ADR-0339)', () => {
 			fields: (field) => ({ title: field.string() }),
 			flagged: true,
 		})
-		const Flagged = declared.with((plugins) => plugins.audit(true))
+		const Flagged = declared.with({ audit: true })
 		const compiled = new App({ logger: false, schemas: [Flagged] }).compile()
 		const schema = compiled.schemas.get('FeatureFlagged')
 
@@ -176,7 +176,7 @@ describe('feature keys of define (ADR-0339)', () => {
 
 	it('requires the rules of a feature, in .with and when .with is missing', () => {
 		const message =
-			'FeatureMissingRule sets flagged in define(), which requires .with((plugins) => plugins.audit({ … }))'
+			'FeatureMissingRule sets flagged in define(), which requires .with({ audit: … })'
 		const declared = App.Schema.define({
 			className: 'FeatureMissingRule',
 			fields: (field) => ({ title: field.string() }),
@@ -186,7 +186,7 @@ describe('feature keys of define (ADR-0339)', () => {
 		const withMethod: unknown = Reflect.get(declared, 'with')
 		expect(() => {
 			if (typeof withMethod === 'function') {
-				Reflect.apply(withMethod, declared, [(plugins: unknown) => plugins])
+				Reflect.apply(withMethod, declared, [{}])
 			}
 		}).toThrow(new TypeError(message))
 		// The application reports it with its other declaration errors.
@@ -204,7 +204,7 @@ describe('feature keys of define (ADR-0339)', () => {
 				{ fields: ['flagCode'], unique: true },
 				{ fields: ['title'], unique: true, where: { flagCode: 'a' } },
 			],
-		}).with((plugins) => plugins.audit(false))
+		}).with({ audit: false })
 		new App({ logger: false, schemas: [Indexed] }).compile()
 
 		// A complete unique index of define is a unique target, even on a
@@ -227,7 +227,7 @@ describe('feature keys of define (ADR-0339)', () => {
 			flagged: true,
 			// @ts-expect-error -- neither declared nor added by `flagged`.
 			indexes: [{ fields: ['missing'] }],
-		}).with((plugins) => plugins.audit(false))
+		}).with({ audit: false })
 		expect(() =>
 			new App({ logger: false, schemas: [Unknown] }).compile(),
 		).toThrow('Unknown index field: FeatureUnknownIndex.missing')
@@ -238,7 +238,7 @@ describe('feature keys of define (ADR-0339)', () => {
 			flagged: true,
 			// @ts-expect-error -- `isPublished` is neither declared nor contributed.
 			indexes: [{ fields: ['slug'], where: { isPublished: true } }],
-		}).with((plugins) => plugins.audit(false))
+		}).with({ audit: false })
 		expect(() =>
 			new App({ logger: false, schemas: [UnknownWhere] }).compile(),
 		).toThrow('Unknown index field: isPublished')

@@ -97,23 +97,23 @@ type GraphqlCommandRules<TSchema> = unknown extends TSchema
  * name, plus an optional `typeName`. A plugin command (`softDeleteOne`) is
  * exposed only when named, or when the rule or the plugin default is `true`.
  *
- * @example `plugins.graphql({ count: true, typeName: 'Task', softDeleteOne: true })`
+ * @example `.with({ graphql: { count: true, typeName: 'Task', softDeleteOne: true } })`
  */
 export type GraphqlSchemaRule<TSchema = unknown> =
 	| boolean
 	| (GraphqlMethodRules & GraphqlTypeNameRule & GraphqlCommandRules<TSchema>)
 
-/** Entry of `.with((plugins) => …)` owned by GraphQL, for one schema (ADR-0325). */
+/** Entry of `.with({ … })` owned by GraphQL, for one schema (ADR-0325). */
 export interface GraphqlRules<TSchema> {
 	/**
 	 * Selects the GraphQL fields of this schema by method name; omitted
 	 * methods inherit `graphqlPlugin({ default })`.
-	 * @example `.with((plugins) => plugins.graphql({ count: true, typeName: 'Task' }))`
+	 * @example `.with({ graphql: { count: true, typeName: 'Task' } })`
 	 */
 	readonly graphql?: GraphqlSchemaRule<TSchema>
 }
 
-/** Contributes `graphql` to `.with((plugins) => …)` through Core's rules slot. */
+/** Contributes `graphql` to `.with({ … })` through Core's rules slot. */
 export interface GraphqlSchemaRules extends SchemaRulesHKT {
 	readonly rules: GraphqlRules<this['schema']>
 }

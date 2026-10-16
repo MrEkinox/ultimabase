@@ -106,7 +106,7 @@ neither:
 </include>
 
 Then opt a schema in with `softDelete: true` in `define`. Soft Delete has no
-`.with` method of its own: the schema's `.with((plugins) => ...)` holds its
+`.with` rule of its own: the schema's `.with({ ... })` holds its
 Access rules and REST and GraphQL exposure, which name the added commands, and
 `indexes` may name `isDeleted` (see
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)).
@@ -233,17 +233,17 @@ not exposed through REST or GraphQL yet.
 
 REST and GraphQL expose a command only when the schema's rule names it, with
 the command's own name, like every schema method (ADR-0324, ADR-0325). The
-example's `Post` declares `plugins.rest({ softDeleteOne: true, restoreOne: true })`
+example's `Post` declares `.with({ rest: { softDeleteOne: true, restoreOne: true } })`
 and the GraphQL rule of the same shape,
-`plugins.graphql({ softDeleteOne: true, restoreOne: true })`.
+`.with({ graphql: { softDeleteOne: true, restoreOne: true } })`.
 
-- REST: `plugins.rest({ softDeleteOne: true })` adds the
-  `POST /classes/Post/{id}/soft-delete-one` route; `plugins.rest(true)` exposes
-  every method and command, `plugins.rest(false)` none. The `rest` rule requires
+- REST: `.with({ rest: { softDeleteOne: true } })` adds the
+  `POST /classes/Post/{id}/soft-delete-one` route; `.with({ rest: true })` exposes
+  every method and command, `.with({ rest: false })` none. The `rest` rule requires
   `restPlugin()`, installed here by `apiServer({ rest: true })`.
-- GraphQL: `plugins.graphql({ softDeleteOne: true })` adds the
-  `softDeleteOnePost` mutation; `plugins.graphql(true)` exposes every method
-  and command, `plugins.graphql(false)` none. The `graphql` rule requires `graphqlPlugin()`, installed here by
+- GraphQL: `.with({ graphql: { softDeleteOne: true } })` adds the
+  `softDeleteOnePost` mutation; `.with({ graphql: true })` exposes every method
+  and command, `.with({ graphql: false })` none. The `graphql` rule requires `graphqlPlugin()`, installed here by
   `apiServer({ graphql: true })`.
 
 Enabling exposure does not grant permission. `purgeOne` and the many-row

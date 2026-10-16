@@ -59,16 +59,15 @@ export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
 /** The User of `authPlugin`; `password()` adds the unique `username`. */
 export const ExampleUser = MinimalSchemaApplication.UserSchema.define({
 	className: 'ExampleUser',
-}).with((plugins) =>
-	plugins
-		// Each user reads only their own profile; no generated User CRUD.
-		.access({
-			read: ({ principal, where }) =>
-				principal === undefined ? false : where.eq('id', principal.id),
-		})
-		.graphql(false)
-		.rest(false),
-)
+}).with({
+	// Each user reads only their own profile; no generated User CRUD.
+	access: {
+		read: ({ principal, where }) =>
+			principal === undefined ? false : where.eq('id', principal.id),
+	},
+	graphql: false,
+	rest: false,
+})
 
 /** The current member is the request principal Core resolves (ADR-0304). */
 export const ExampleRole = MinimalSchemaApplication.RoleSchema.define({
@@ -77,17 +76,16 @@ export const ExampleRole = MinimalSchemaApplication.RoleSchema.define({
 	fields: (field) => ({
 		description: field.string(),
 	}),
-}).with((plugins) =>
-	plugins
-		.roles({ deletion: 'fail' })
-		.access({
-			create: false,
-			delete: false,
-			read: true,
-			update: false,
-		})
-		.graphql(false),
-)
+}).with({
+	roles: { deletion: 'fail' },
+	access: {
+		create: false,
+		delete: false,
+		read: true,
+		update: false,
+	},
+	graphql: false,
+})
 
 export const ExampleEditorRole = ExampleRole.role('editor')
 const editorAccess = hasRole(ExampleEditorRole)
@@ -110,18 +108,17 @@ export const ExampleSoftDeleteEvent = MinimalSchemaApplication.Schema.define({
 		schemaName: field.string({ required: true }),
 		targetId: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins
-		.access({
-			create: true,
-			delete: false,
-			read: false,
-			update: false,
-			upsert: false,
-		})
-		.graphql(false)
-		.rest(false),
-)
+}).with({
+	access: {
+		create: true,
+		delete: false,
+		read: false,
+		update: false,
+		upsert: false,
+	},
+	graphql: false,
+	rest: false,
+})
 
 const recordSoftDeleteEvent = async (
 	logicalOperation: 'delete' | 'purgeOne' | 'restoreOne' | 'softDeleteOne',
@@ -160,52 +157,51 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 	// `deleteOne` hides the author instead of deleting the row.
 	softDelete: true,
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('readable', true),
-			// Restoring stays server-side: Master bypasses Access.
-			restoreOne: false,
-			restoreMany: false,
-		})
-		.acl({ default: publicArticleACL })
-		.graphql(true)
-		.hooks({
-			afterOperation: {
-				delete: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'delete',
-						'update',
-						'ExampleAuthor',
-						originalItem.id,
-					)
-				},
-				purgeOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'purgeOne',
-						'delete',
-						'ExampleAuthor',
-						originalItem.id,
-					)
-				},
-				restoreOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'restoreOne',
-						'update',
-						'ExampleAuthor',
-						originalItem.id,
-					)
-				},
+}).with({
+	access: {
+		read: ({ where }) => where.eq('readable', true),
+		// Restoring stays server-side: Master bypasses Access.
+		restoreOne: false,
+		restoreMany: false,
+	},
+	acl: { default: publicArticleACL },
+	graphql: true,
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
 			},
-		})
-		// Relation filters are typed against the complete target, so both
-		// schemas filter each other's relations (ADR-0328).
-		.relations({
-			articles: { where: { published: { eq: true } } },
-			contributions: { where: ({ where }) => where.eq('published', true) },
-		})
-		.rest(true),
-)
+			purgeOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purgeOne',
+					'delete',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+			restoreOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restoreOne',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+		},
+	},
+	// Relation filters are typed against the complete target, so both
+	// schemas filter each other's relations (ADR-0328).
+	relations: {
+		articles: { where: { published: { eq: true } } },
+		contributions: { where: ({ where }) => where.eq('published', true) },
+	},
+	rest: true,
+})
 
 /** Articles demonstrate policy, lifecycle, validation, and relationships. */
 export const ExampleArticle = MinimalSchemaApplication.Schema.define({
@@ -296,73 +292,72 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 	// `deleteOne` stays physical; `softDeleteOne` hides the article.
 	softDelete: { mode: 'command' },
 	acl: true,
-}).with((plugins) =>
+}).with({
 	//#region relation-views
-	plugins
-		// Narrows every read through these relation fields (ADR-0328).
-		.relations({
-			contributors: { where: { listed: { eq: true } } },
-			// Anonymous requests see only public reviewers.
-			reviewers: {
-				where: ({ context, where }) =>
-					context.getValue(authPrincipal) === undefined
-						? where.eq('audience', 'public')
-						: where,
+	// Narrows every read through these relation fields (ADR-0328).
+	relations: {
+		contributors: { where: { listed: { eq: true } } },
+		// Anonymous requests see only public reviewers.
+		reviewers: {
+			where: ({ context, where }) =>
+				context.getValue(authPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
+		},
+	},
+	//#endregion relation-views
+	access: {
+		create: true,
+		delete: true,
+		read: ({ where }) => where.eq('published', true),
+		update: true,
+		upsert: true,
+		softDeleteOne: isAuthenticated,
+		// Restoring stays server-side: Master bypasses Access.
+		restoreOne: false,
+		restoreMany: false,
+		softDeleteMany: false,
+	},
+	acl: { default: publicArticleACL },
+	graphql: true,
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
 			},
-		})
-		//#endregion relation-views
-		.access({
-			create: true,
-			delete: true,
-			read: ({ where }) => where.eq('published', true),
-			update: true,
-			upsert: true,
-			softDeleteOne: isAuthenticated,
-			// Restoring stays server-side: Master bypasses Access.
-			restoreOne: false,
-			restoreMany: false,
-			softDeleteMany: false,
-		})
-		.acl({ default: publicArticleACL })
-		.graphql(true)
-		.hooks({
-			afterOperation: {
-				delete: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'delete',
-						'delete',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
-				purgeOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'purgeOne',
-						'delete',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
-				restoreOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'restoreOne',
-						'update',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
-				softDeleteOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'softDeleteOne',
-						'update',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
+			purgeOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purgeOne',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
 			},
-		})
-		.rest(true),
-)
+			restoreOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restoreOne',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			softDeleteOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'softDeleteOne',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+		},
+	},
+	rest: true,
+})
 
 /** Notes prove authenticated role-based Access and ACL through public CRUD. */
 export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
@@ -371,18 +366,17 @@ export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
 		body: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			create: editorAccess,
-			delete: editorAccess,
-			read: editorAccess,
-			update: editorAccess,
-		})
-		.acl({ default: editorACL })
-		.graphql(true)
-		.rest(true),
-)
+}).with({
+	access: {
+		create: editorAccess,
+		delete: editorAccess,
+		read: editorAccess,
+		update: editorAccess,
+	},
+	acl: { default: editorACL },
+	graphql: true,
+	rest: true,
+})
 
 export const minimalSchemas = [
 	ExampleUser,

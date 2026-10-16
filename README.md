@@ -78,7 +78,7 @@ JavaScript executes the same graph.
   relation commands through direct TypeScript, REST, and GraphQL. Core executes
   the complete bounded graph in one automatic transaction.
 - Relations may declare one static or request-contextual `where` with
-  `plugins.relations(...)` in the schema's `.with` that shapes direct reads, eager
+  `relations` in the schema's `.with` that shapes direct reads, eager
   inclusions, REST, and GraphQL consistently without replacing Access, ACL,
   protected constraints, or physical membership.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.

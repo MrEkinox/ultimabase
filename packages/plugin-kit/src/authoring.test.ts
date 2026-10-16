@@ -276,7 +276,7 @@ describe('plugin authoring helpers', () => {
 		interface WorkflowRules extends SchemaRulesHKT {
 			readonly rules: Readonly<{ workflow?: (value: string) => string }>
 		}
-		// The rules slot types `plugins.workflow(...)` (ADR-0297, ADR-0339).
+		// The rules slot types `.with({ workflow: … })` (ADR-0297, ADR-0339).
 		const declarations: PluginDeclarationContribution<
 			readonly [],
 			PluginSchemaRulesSource<WorkflowRules>
@@ -322,7 +322,7 @@ describe('plugin authoring helpers', () => {
 		const Target = Application.Schema.define({
 			className: 'PluginKitPatchTarget',
 			fields: (field) => ({ title: field.string() }),
-		}).with((plugins) => plugins.workflow((value: string) => value))
+		}).with({ workflow: (value: string) => value })
 		const application = new Application({
 			logger: false,
 			schemas: [Target],

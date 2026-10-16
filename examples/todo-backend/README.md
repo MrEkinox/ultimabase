@@ -11,7 +11,7 @@ without generated files, and tested with `testApplication` (ADR-0327).
 schemas. The block below shows the plugin list, then the `title` field of
 `Todo`, whose behavior sits on the field, and the end of `Todo`: its
 `indexes` and the `acl: true` feature key in `define`, then the schema rules
-in `.with((plugins) => ...)` (ADR-0339):
+in `.with({ ... })` (ADR-0339):
 
 <!-- region src/schema.ts#factory,todo-title,todo-rules -->
 
@@ -53,31 +53,30 @@ title: field.string({
 
 	indexes: [{ fields: ['completed', 'dueAt'] }],
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('archived', false),
-			create: false,
-			update: true,
-			upsert: false,
-			delete: false,
-		})
-		.acl({
-			default: new ACL()
-				.grantPublic('read')
-				.grantRole(TodoEditorRole, 'read', 'update'),
-		})
-		.hooks({
-			beforeOperation: {
-				update: ({ item, originalItem }) => {
-					if (originalItem.completed && !item.completed) {
-						throw new TypeError('Completed todos cannot be reopened')
-					}
-				},
+}).with({
+	access: {
+		read: ({ where }) => where.eq('archived', false),
+		create: false,
+		update: true,
+		upsert: false,
+		delete: false,
+	},
+	acl: {
+		default: new ACL()
+			.grantPublic('read')
+			.grantRole(TodoEditorRole, 'read', 'update'),
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item, originalItem }) => {
+				if (originalItem.completed && !item.completed) {
+					throw new TypeError('Completed todos cannot be reopened')
+				}
 			},
-		})
-		.postgres({ table: 'todos' }),
-)
+		},
+	},
+	postgres: { table: 'todos' },
+})
 ```
 
 <!-- endregion -->
@@ -94,7 +93,7 @@ The same file also declares:
 
 - `TodoUser`, the assignee, with an inverse `assignedTodos` relation;
 - `TodoRole`, from `App.RoleSchema.define()` with custom fields and an index,
-  and `plugins.roles({ ensure: ['editor'] })` in its `.with`, since the Todo
+  and `roles: { ensure: ['editor'] }` in its `.with`, since the Todo
   ACL default grants that role;
 - an enum shared by two fields, nested typed objects, JSON paths and a
   composite index.

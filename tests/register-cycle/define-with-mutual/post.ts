@@ -12,30 +12,29 @@ export const Post = App.Schema.define({
 		comments: field.relation({ target: () => Comment, mappedBy: 'post' }),
 	}),
 	softDelete: true,
-}).with((plugins) =>
-	plugins
-		.relations({
-			fans: {
-				where: ({ where }) =>
-					where.some('posts', (post) => post.eq('published', true)),
+}).with({
+	relations: {
+		fans: {
+			where: ({ where }) =>
+				where.some('posts', (post) => post.eq('published', true)),
+		},
+		comments: { where: { body: { eq: 'x' } } },
+	},
+	access: {
+		read: ({ where }) => where.eq('published', true),
+		update: ({ where }) =>
+			where.is('author', (author) => author.endsWith('email', '@admin.test')),
+		softDeleteOne: true,
+		restoreOne: ({ where }) =>
+			where.some('comments', (comment) => comment.eq('body', 'ok')),
+	},
+	hooks: {
+		beforeOperation: {
+			update: async ({ item }) => {
+				const author = await Author.findOne({ where: { id: { eq: 'a' } } })
+				if (item.isDeleted || author?.name === '') throw new TypeError('x')
 			},
-			comments: { where: { body: { eq: 'x' } } },
-		})
-		.access({
-			read: ({ where }) => where.eq('published', true),
-			update: ({ where }) =>
-				where.is('author', (author) => author.endsWith('email', '@admin.test')),
-			softDeleteOne: true,
-			restoreOne: ({ where }) =>
-				where.some('comments', (comment) => comment.eq('body', 'ok')),
-		})
-		.hooks({
-			beforeOperation: {
-				update: async ({ item }) => {
-					const author = await Author.findOne({ where: { id: { eq: 'a' } } })
-					if (item.isDeleted || author?.name === '') throw new TypeError('x')
-				},
-			},
-		})
-		.rest({ softDeleteOne: true, restoreOne: true }),
-)
+		},
+	},
+	rest: { softDeleteOne: true, restoreOne: true },
+})

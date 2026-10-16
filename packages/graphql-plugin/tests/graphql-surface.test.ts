@@ -144,14 +144,14 @@ const Post = App.Schema.define({
 		tags: field.string({ list: true }),
 		title: field.string(),
 	}),
-}).with((plugins) =>
-	plugins.graphql({
+}).with({
+	graphql: {
 		count: true,
 		createMany: true,
 		findOne: false,
 		typeName: 'Article',
-	}),
-)
+	},
+})
 const Note = App.Schema.define({
 	className: 'SurfaceNote',
 	fields: (field) => ({ body: field.string() }),
@@ -160,18 +160,18 @@ const Note = App.Schema.define({
 const Audit = App.Schema.define({
 	className: 'SurfaceAudit',
 	fields: (field) => ({ secretAction: field.string() }),
-}).with((plugins) => plugins.graphql(false))
+}).with({ graphql: false })
 const Keeper = App.Schema.define({
 	className: 'SurfaceKeeper',
 	fields: (field) => ({ name: field.string() }),
-}).with((plugins) => plugins.graphql(false))
+}).with({ graphql: false })
 const Book = App.Schema.define({
 	className: 'SurfaceBook',
 	fields: (field) => ({
 		keeper: field.pointer({ target: () => Keeper }),
 		title: field.string(),
 	}),
-}).with((plugins) => plugins.graphql(false))
+}).with({ graphql: false })
 const Shelf = App.Schema.define({
 	className: 'SurfaceShelf',
 	fields: (field) => ({
@@ -259,7 +259,7 @@ describe('GraphQL surface (ADR-0325)', () => {
 			className: 'SurfaceBogus',
 			fields: (field) => ({ title: field.string() }),
 			// @ts-expect-error -- the type also refuses an unknown command.
-		}).with((plugins) => plugins.graphql({ archiveOne: true }))
+		}).with({ graphql: { archiveOne: true } })
 		const application = new (UltimaBase.use(
 			databasePlugin(new SurfaceDatabase()),
 			graphqlPlugin({ publicWrites: true }),

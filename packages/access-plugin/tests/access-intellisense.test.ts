@@ -80,7 +80,7 @@ Application.Schema.define({ /* schema-options */ })
 Application.Schema.define({
   className: 'WithAccess',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
-}).with((plugins) => plugins./* schema-rules */)
+}).with({ /* schema-rules */ })
 `
 		const sourceFile = fixtureFile('source-options')
 		const fixture = createLanguageServiceFixture(sourceFile, source, [

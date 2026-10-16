@@ -22,7 +22,7 @@ const App = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture
 const Post = App.Schema.define({
   className: 'PostgresSourceOptionPost',
   fields: (field) => ({ title: field.string({ postgres: { renamedFrom: 'headline' } }) }),
-}).with((plugins) => plugins.postgres({ table: 'posts' }))
+}).with({ postgres: { table: 'posts' } })
 void Post`
 		const service = createLanguageService(fileName, source)
 		expect(
@@ -47,7 +47,7 @@ const Other = UltimaBase.use(pgVectorPlugin())
 Other.Schema.define({
   className: 'PostgresAbsentOptionPost',
   fields: () => ({}),
-}).with((plugins) => plugins.postgres({ table: 'posts' }))`
+}).with({ postgres: { table: 'posts' } })`
 		const messages = createLanguageService(fileName, source)
 			.getSemanticDiagnostics(fileName)
 			.map(({ messageText }) =>
@@ -81,9 +81,7 @@ const PackedPost = App.Schema.define({
   fields: (field) => ({
     title: field.string({ postgres: { ${fieldMarker}...postgresField } }),
   }),
-}).with((plugins) =>
-  plugins.postgres({ ${schemaMarker}...postgresSchema }),
-)
+}).with({ postgres: { ${schemaMarker}...postgresSchema } })
 void PackedPost
 `
 	const positions = new Map(
@@ -159,7 +157,7 @@ UltimaBase.Schema.define({
   fields: (field) => ({
     title: field.string({ postgres: { renamedFrom: 'headline' } }),
   }),
-}).with((plugins) => plugins.postgres({ table: 'missing_posts' }))`
+}).with({ postgres: { table: 'missing_posts' } })`
 	const messages = createLanguageService(fileName, source)
 		.getSemanticDiagnostics(fileName)
 		.map(({ messageText }) => ts.flattenDiagnosticMessageText(messageText, ' '))
@@ -193,7 +191,7 @@ it('compiles PostgreSQL rules and options from JavaScript', async () => {
 		},
 		missingPluginCode: 'PLUGIN_DECLARATION_INVALID',
 		missingRuleMessage:
-			'plugins.postgres is not a function in JavaScriptPostgresMissingRule.with((plugins) => …): plugins offers relations; a rule needs the plugin that declares it',
+			'JavaScriptPostgresMissingRule.with({ postgres }): postgres is not a rule of an installed plugin; .with accepts relations',
 		// The old `define({ postgres })` form is rejected (ADR-0297).
 		oldFormMessage:
 			'Unknown schema option: postgres. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',

@@ -4,17 +4,13 @@ import { describe, expect, it } from 'vitest'
 import { rolesPlugin } from './plugin.js'
 import { readRoleSchemaDeclaration } from './role-schema.js'
 
-// ADR-0339: role behaviour is configured by `.with((plugins) => plugins.roles({ … }))`.
-/** What `plugins` offers at runtime, beyond what its type allows here. */
-interface UntypedRules {
-	readonly roles: (rule: object) => never
-}
+// ADR-0339: role behaviour is configured by `.with({ roles: { … } })`.
 
 const Roles = UltimaBase.use(rolesPlugin())
 const Member = Roles.Schema.define({
 	className: 'RuleRoleMember',
 	fields: (field) => ({ email: field.string({ required: true }) }),
-}).with((plugins) => plugins)
+}).with({})
 
 const compiledRole = (
 	role: SchemaDefinition,
@@ -29,20 +25,20 @@ const compiledRole = (
 	return schema
 }
 
-describe('plugins.roles (ADR-0339)', () => {
+describe('the roles rule of .with (ADR-0339)', () => {
 	it('configures ensure, deletion and resolveCurrent in .with', () => {
 		const resolveCurrent = () => undefined
 		const Role = Roles.RoleSchema.define({
 			className: 'RuleConfiguredRole',
 			members: () => Member,
 			indexes: [{ fields: ['name', 'createdAt'] }],
-		}).with((plugins) =>
-			plugins.roles({
+		}).with({
+			roles: {
 				ensure: ['Lead', ' lead '],
 				deletion: 'cascade',
 				resolveCurrent,
-			}),
-		)
+			},
+		})
 		const declaration = readRoleSchemaDeclaration(
 			compiledRole(Role, 'RuleConfiguredRole'),
 		)
@@ -60,13 +56,11 @@ describe('plugins.roles (ADR-0339)', () => {
 		const Seeded = Roles.RoleSchema.define({
 			className: 'RuleSeededRole',
 			members: () => Member,
-		}).with((plugins) =>
-			plugins.roles({ ensure: ['Admin', ' admin ', 'Editor'] }),
-		)
+		}).with({ roles: { ensure: ['Admin', ' admin ', 'Editor'] } })
 		const Plain = Roles.RoleSchema.define({
 			className: 'RulePlainRole',
 			members: () => Member,
-		}).with((plugins) => plugins)
+		}).with({})
 		const plain = readRoleSchemaDeclaration(
 			compiledRole(Plain, 'RulePlainRole'),
 		)
@@ -84,16 +78,14 @@ describe('plugins.roles (ADR-0339)', () => {
 			Roles.RoleSchema.define({
 				className,
 				members: () => Member,
-			}).with((plugins) => plugins.roles(rule as never))
+			}).with({ roles: rule as never })
 		const Invalid = invalid('RuleInvalidRole', { deletion: 'remove' })
 		const NotRole = Roles.Schema.define({
 			className: 'RuleNotRole',
 			fields: (field) => ({ title: field.string() }),
-		}).with((plugins) => {
+		}).with({
 			// @ts-expect-error -- `roles` is a rule of role schemas only.
-			void plugins.roles
-			// At runtime `plugins` offers every installed rule, as JavaScript sees it.
-			return (plugins as unknown as UntypedRules).roles({ ensure: ['x'] })
+			roles: { ensure: ['x'] },
 		})
 
 		// The application wraps option errors; the rule's message is a cause.

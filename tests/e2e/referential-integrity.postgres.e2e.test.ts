@@ -32,15 +32,15 @@ const CascadeChild = App.Schema.define({
 	fields: (field) => ({
 		parent: field.pointer({ target: () => Parent, onDelete: 'cascade' }),
 	}),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		beforeOperation: {
 			delete: () => {
 				cascadedHooks += 1
 			},
 		},
-	}),
-)
+	},
+})
 
 const CascadeGrandchild = App.Schema.define({
 	className: 'IntegrityCascadeGrandchild',

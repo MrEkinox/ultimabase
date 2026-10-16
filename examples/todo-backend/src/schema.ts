@@ -51,12 +51,11 @@ export const TodoUser = App.Schema.define({
 			target: () => Todo,
 		}),
 	}),
-}).with((plugins) =>
-	plugins
-		.access(serverManagedAccess)
-		.postgres({ table: 'todo_users' })
-		.rest(false),
-)
+}).with({
+	access: serverManagedAccess,
+	postgres: { table: 'todo_users' },
+	rest: false,
+})
 
 /** Stores application roles with ordinary schema fields (ADR-0322). */
 export const TodoRole = App.RoleSchema.define({
@@ -74,16 +73,15 @@ export const TodoRole = App.RoleSchema.define({
 	}),
 	// Stored in the default table, `todo_roles`.
 	indexes: [{ fields: ['priority', 'createdAt'] }],
-}).with((plugins) =>
-	plugins
-		.roles({
-			deletion: 'fail',
-			// The Todo ACL default grants this role: it must exist (ADR-0322).
-			ensure: ['editor'],
-		})
-		.access(serverManagedAccess)
-		.rest(false),
-)
+}).with({
+	roles: {
+		deletion: 'fail',
+		// The Todo ACL default grants this role: it must exist (ADR-0322).
+		ensure: ['editor'],
+	},
+	access: serverManagedAccess,
+	rest: false,
+})
 
 /** Stable role reference used by ACL defaults without loading role storage. */
 export const TodoEditorRole = TodoRole.role('editor')
@@ -253,29 +251,28 @@ export const Todo = App.Schema.define({
 	//#region todo-rules
 	indexes: [{ fields: ['completed', 'dueAt'] }],
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('archived', false),
-			create: false,
-			update: true,
-			upsert: false,
-			delete: false,
-		})
-		.acl({
-			default: new ACL()
-				.grantPublic('read')
-				.grantRole(TodoEditorRole, 'read', 'update'),
-		})
-		.hooks({
-			beforeOperation: {
-				update: ({ item, originalItem }) => {
-					if (originalItem.completed && !item.completed) {
-						throw new TypeError('Completed todos cannot be reopened')
-					}
-				},
+}).with({
+	access: {
+		read: ({ where }) => where.eq('archived', false),
+		create: false,
+		update: true,
+		upsert: false,
+		delete: false,
+	},
+	acl: {
+		default: new ACL()
+			.grantPublic('read')
+			.grantRole(TodoEditorRole, 'read', 'update'),
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item, originalItem }) => {
+				if (originalItem.completed && !item.completed) {
+					throw new TypeError('Completed todos cannot be reopened')
+				}
 			},
-		})
-		.postgres({ table: 'todos' }),
-)
+		},
+	},
+	postgres: { table: 'todos' },
+})
 //#endregion todo-rules

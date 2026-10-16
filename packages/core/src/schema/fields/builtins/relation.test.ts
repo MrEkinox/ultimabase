@@ -105,7 +105,7 @@ describe('relationField', () => {
 			fields: (field) => ({
 				tags: field.relation({ target: () => RelationTag }),
 			}),
-		}).with((plugins) => plugins.relations({ tags: { where } }))
+		}).with({ relations: { tags: { where } } })
 		where.id.eq = 'mutated'
 		const tags = Source.persistedFields.tags
 		if (tags === undefined) throw new TypeError('Expected tags relation field')
@@ -130,7 +130,7 @@ describe('relationField', () => {
 			fields: (field) => ({
 				tags: field.relation({ target: () => RelationTag }),
 			}),
-		}).with((plugins) => plugins.relations({ tags: { where: resolver } }))
+		}).with({ relations: { tags: { where: resolver } } })
 		const tags = Source.persistedFields.tags
 		if (tags === undefined) throw new TypeError('Expected tags relation field')
 		const declaration = getRelationWhereDeclaration(tags)
@@ -152,9 +152,7 @@ describe('relationField', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'RelationWhereTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins.relations({ targets: { where: { active: { eq: true } } } }),
-		)
+		}).with({ relations: { targets: { where: { active: { eq: true } } } } })
 		const application = new FrameworkApplication({
 			plugins: [],
 			schemas: [Source, Target],
@@ -180,17 +178,15 @@ describe('relationField', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'InvalidRelationWhereTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins.relations({ targets: { where: { missing: { eq: true } } } }),
-		)
+		}).with({ relations: { targets: { where: { missing: { eq: true } } } } })
 		const invalidOperator = UltimaBase.Schema.define({
 			className: 'OperatorRelationWhereSource',
 			fields: (field) => ({
 				targets: field.relation({ target: 'InvalidRelationWhereTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins.relations({ targets: { where: { active: { contains: true } } } }),
-		)
+		}).with({
+			relations: { targets: { where: { active: { contains: true } } } },
+		})
 
 		expect(() =>
 			new FrameworkApplication({
@@ -212,7 +208,7 @@ describe('relationField', () => {
 		['indexed', { indexed: true, target: () => RelationTag }],
 		['list', { list: true, target: () => RelationTag }],
 		['required', { required: true, target: () => RelationTag }],
-		// Relation filters are declared in `plugins.relations(…)` (ADR-0328).
+		// Relation filters are declared in `.with({ relations: … })` (ADR-0328).
 		['where', { target: () => RelationTag, where: {} }],
 	])('rejects unsupported %s metadata', (key, options) => {
 		expect(() => {

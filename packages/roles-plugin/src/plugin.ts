@@ -331,7 +331,7 @@ const createRolesPlugin = (): RolesPlugin => {
 				contributionId: 'role-schema-identity',
 				schema: {
 					[roleSchemaIdentityOptionName]: roleSchemaIdentityOption,
-					// `.with((plugins) => plugins.roles({ … }))` (ADR-0339).
+					// `.with({ roles: { … } })` (ADR-0339).
 					[roleRulesOptionName]: roleRulesOption,
 				},
 			})

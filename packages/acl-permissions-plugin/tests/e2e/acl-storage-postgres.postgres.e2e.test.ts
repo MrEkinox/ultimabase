@@ -31,11 +31,12 @@ const StoredPost = ACLSchemaApplication.Schema.define({
 		title: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins.postgres({ table: 'acl_storage_posts' }).acl({
+}).with({
+	postgres: { table: 'acl_storage_posts' },
+	acl: {
 		default: initialACL,
-	}),
-)
+	},
+})
 
 let fixture: PostgresWorkerFixture | undefined
 

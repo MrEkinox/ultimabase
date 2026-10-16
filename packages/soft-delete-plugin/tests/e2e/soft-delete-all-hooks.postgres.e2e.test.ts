@@ -39,8 +39,8 @@ const Document = Application.Schema.define({
 	className: 'SoftDeleteAllHooksDocument',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: { mode: 'command' },
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		beforeOperation: {
 			all: ({ kind }) => {
 				// `kind` names the native operations and every Soft Delete command.
@@ -78,8 +78,8 @@ const Document = Application.Schema.define({
 				audit.push(`afterCommit:all:${kind}`)
 			},
 		},
-	}),
-)
+	},
+})
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: { dispose(): Promise<void> } | undefined

@@ -42,17 +42,14 @@ test('keeps every plugin projection on the configured factory', () => {
 	App.Schema.define({
 		className: 'PresetTask',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) =>
-		plugins.graphql({ count: true, typeName: 'Task' }).rest({ count: true }),
-	)
+	}).with({ graphql: { count: true, typeName: 'Task' }, rest: { count: true } })
 	App.Schema.define({
 		className: 'PresetInvalid',
 		fields: () => ({}),
-	}).with((plugins) =>
-		plugins
-			// @ts-expect-error -- the keys are the schema method names.
-			.graphql({ get: true }),
-	)
+	}).with({
+		// @ts-expect-error -- the keys are the schema method names.
+		graphql: { get: true },
+	})
 	apiServer({
 		rest: {
 			// @ts-expect-error -- each option object keeps its plugin's type.

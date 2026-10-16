@@ -27,8 +27,8 @@ const Author = MutationIncludeApplication.Schema.define({
 			target: 'MutationIncludePost',
 		}),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: () => {
 			if (authorReadsBeforeRejection === 0) throw projectionAccessError
 			if (authorReadsBeforeRejection !== undefined) {
@@ -37,8 +37,8 @@ const Author = MutationIncludeApplication.Schema.define({
 
 			return true
 		},
-	}),
-)
+	},
+})
 
 const Post = MutationIncludeApplication.Schema.define({
 	className: 'MutationIncludePost',

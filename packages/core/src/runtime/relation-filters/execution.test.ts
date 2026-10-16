@@ -31,9 +31,7 @@ describe('Runtime relation filters', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'StaticRelationTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins.relations({ targets: { where: { visible: { eq: true } } } }),
-		)
+		}).with({ relations: { targets: { where: { visible: { eq: true } } } } })
 		const adapter = new RecordingDatabaseAdapter(
 			[{ status: 'fulfilled', value: [] }],
 			[],
@@ -80,11 +78,10 @@ describe('Runtime relation filters', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'InvalidRelationTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins
-				// The asynchronous result is deliberately invalid for the Runtime guard.
-				.relations({ targets: { where: asyncResolver as never } }),
-		)
+		}).with({
+			// The asynchronous result is deliberately invalid for the Runtime guard.
+			relations: { targets: { where: asyncResolver as never } },
+		})
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({
 			plugins: [databasePlugin(adapter)],
@@ -133,16 +130,16 @@ describe('Runtime relation filters', () => {
 			fields: (field) => ({
 				targets: field.relation({ target: 'CachedRelationTarget' }),
 			}),
-		}).with((plugins) =>
-			plugins.relations({
+		}).with({
+			relations: {
 				targets: {
 					where: ({ where }) => {
 						invocations += 1
 						return where.eq('label', 'cached')
 					},
 				},
-			}),
-		)
+			},
+		})
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const application = await createApplication({
 			plugins: [databasePlugin(adapter)],

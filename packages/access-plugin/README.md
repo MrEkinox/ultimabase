@@ -48,11 +48,10 @@ export const Article = App.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins
-		// No create, update, upsert or delete rule: they stay denied.
-		.access({ read: ({ where }) => where.eq('published', true) }),
-)
+}).with({
+	// No create, update, upsert or delete rule: they stay denied.
+	access: { read: ({ where }) => where.eq('published', true) },
+})
 ```
 
 <!-- endregion -->
@@ -62,7 +61,7 @@ export const Article = App.Schema.define({
 With the declaration form of
 [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) and
 [ADR-0339](../../docs/adr/0339-define-describes-with-configures.md), schema
-rules go in `.with((plugins) => plugins.access({ … }))`, typed by
+rules go in `.with({ access: { … } })`, typed by
 `AccessRules` and contributed through `AccessSchemaRules`. Filters may cross thunk targets in both directions;
 `define` rejects an `access` option.
 
@@ -167,7 +166,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-}).with((plugins) => plugins.roles({ ensure: ['editor', 'admin', 'muted'] }))
+}).with({ roles: { ensure: ['editor', 'admin', 'muted'] } })
 
 export const Editor = StaffRole.role('editor')
 export const Admin = StaffRole.role('admin')
@@ -180,8 +179,8 @@ export const Note = App.Schema.define({
 		author: field.string({ required: true }),
 		body: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('author', principal.id),
 		create: {
@@ -196,8 +195,8 @@ export const Note = App.Schema.define({
 				item.author === originalItem.author,
 		},
 		delete: hasRole(Admin),
-	}),
-)
+	},
+})
 ```
 
 <!-- endregion -->
@@ -335,7 +334,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-}).with((plugins) => plugins.roles({ ensure: ['editor', 'admin', 'muted'] }))
+}).with({ roles: { ensure: ['editor', 'admin', 'muted'] } })
 
 export const Editor = StaffRole.role('editor')
 export const Admin = StaffRole.role('admin')
@@ -354,8 +353,8 @@ export const Comment = App.Schema.define({
 		pinned: field.boolean({ default: false }),
 	}),
 	softDelete: true,
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		// Authenticated members may comment unless they are muted.
 		create: allOf(isAuthenticated, not(hasRole(Muted))),
@@ -368,8 +367,8 @@ export const Comment = App.Schema.define({
 		restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
 		// Editors also see hidden comments in ordinary reads.
 		readDeleted: hasRole(Editor),
-	}),
-)
+	},
+})
 ```
 
 <!-- endregion -->

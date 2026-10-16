@@ -60,11 +60,9 @@ describe('schema factories', () => {
 		expect(Schema.is(declared)).toBe(true)
 		// The chain keeps the statics through `.with(...)`.
 		const final: unknown = Reflect.apply(
-			Reflect.get(declared as object, 'with') as (
-				rules: (plugins: unknown) => unknown,
-			) => unknown,
+			Reflect.get(declared as object, 'with') as (rules: object) => unknown,
 			declared,
-			[(plugins: unknown) => plugins],
+			[{}],
 		)
 		expect(Schema.is(final)).toBe(true)
 		expect(

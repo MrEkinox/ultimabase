@@ -80,7 +80,7 @@ const codec = operationWireCodec({
 	transport: protocol,
 })
 const binding = operationTransportBinding({ codec, operation: inspect })
-// `document` is the `plugins.document(...)` rule of `.with` (ADR-0339).
+// `document` is a rule of `.with` (ADR-0339).
 const createOperationPlugin = () =>
 	provideSchemaRules(createOperationPluginInstance(), ['document'])
 const createOperationPluginInstance = () =>
@@ -170,7 +170,7 @@ const Application = UltimaBase.use(
 const StablePost = Application.Schema.define({
 	className: 'JavaScriptStablePost',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => plugins.document((value) => value))
+}).with({ document: (value) => value })
 const DynamicPost = Application.Schema.define({
 	className: 'JavaScriptDynamicPost',
 	fields: (field) => ({ title: field.string() }),

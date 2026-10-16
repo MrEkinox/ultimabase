@@ -32,7 +32,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-}).with((plugins) => plugins.roles({ ensure: ['editor', 'admin', 'muted'] }))
+}).with({ roles: { ensure: ['editor', 'admin', 'muted'] } })
 
 export const Editor = StaffRole.role('editor')
 export const Admin = StaffRole.role('admin')
@@ -48,11 +48,10 @@ export const Article = App.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins
-		// No create, update, upsert or delete rule: they stay denied.
-		.access({ read: ({ where }) => where.eq('published', true) }),
-)
+}).with({
+	// No create, update, upsert or delete rule: they stay denied.
+	access: { read: ({ where }) => where.eq('published', true) },
+})
 //#endregion article
 
 //#region subscriber
@@ -60,7 +59,7 @@ export const Article = App.Schema.define({
 export const Subscriber = App.Schema.define({
 	className: 'Subscriber',
 	fields: (field) => ({ email: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: { count: true } }))
+}).with({ access: { read: { count: true } } })
 //#endregion subscriber
 
 //#region story
@@ -72,8 +71,8 @@ export const Story = App.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		update: {
 			// Before loading: a private filter on the rows an update may reach.
@@ -82,8 +81,8 @@ export const Story = App.Schema.define({
 			item: ({ item, originalItem }) =>
 				!originalItem.published || item.title === originalItem.title,
 		},
-	}),
-)
+	},
+})
 //#endregion story
 
 //#region note
@@ -94,8 +93,8 @@ export const Note = App.Schema.define({
 		author: field.string({ required: true }),
 		body: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ principal, where }) =>
 			principal === undefined ? false : where.eq('author', principal.id),
 		create: {
@@ -110,8 +109,8 @@ export const Note = App.Schema.define({
 				item.author === originalItem.author,
 		},
 		delete: hasRole(Admin),
-	}),
-)
+	},
+})
 //#endregion note
 
 //#region audit-entry
@@ -119,7 +118,7 @@ export const Note = App.Schema.define({
 export const AuditEntry = App.Schema.define({
 	className: 'AuditEntry',
 	fields: (field) => ({ action: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ create: true, read: false }))
+}).with({ access: { create: true, read: false } })
 //#endregion audit-entry
 
 //#region profile
@@ -137,7 +136,7 @@ export const Profile = App.Schema.define({
 		}),
 		bio: field.string(),
 	}),
-}).with((plugins) => plugins.access({ read: true, create: true, update: true }))
+}).with({ access: { read: true, create: true, update: true } })
 //#endregion profile
 
 //#region comment
@@ -154,8 +153,8 @@ export const Comment = App.Schema.define({
 		pinned: field.boolean({ default: false }),
 	}),
 	softDelete: true,
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		// Authenticated members may comment unless they are muted.
 		create: allOf(isAuthenticated, not(hasRole(Muted))),
@@ -168,6 +167,6 @@ export const Comment = App.Schema.define({
 		restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
 		// Editors also see hidden comments in ordinary reads.
 		readDeleted: hasRole(Editor),
-	}),
-)
+	},
+})
 //#endregion comment

@@ -92,8 +92,7 @@ how a client sees a Hook's error:
 `sendMessage` is the example's stand-in for an e-mail or webhook client
 (`src/effects.ts`): like a real one, it answers after a network round trip.
 
-Declare schema Hooks with `plugins.hooks({ … })` in the `.with` callback of a
-schema and field Hooks on the field (see
+Declare schema Hooks with `hooks` in the `.with({ … })` of a schema and field Hooks on the field (see
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). The example's `Post` trims titles, derives a slug from the data,
 prevents changes to a published title, records title changes in the same
 transaction, and sends messages once the transaction has committed. Its
@@ -129,7 +128,7 @@ disposes it after pending after-commit work:
 </include>
 
 Hook types come from the schema itself, without generated files. `define`
-takes no `hooks` option: schema Hooks belong in `.with((plugins) => plugins.hooks({ … }))`.
+takes no `hooks` option: schema Hooks belong in `.with({ hooks: { … } })`.
 
 ## Behavior and limitations
 

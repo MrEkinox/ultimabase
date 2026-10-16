@@ -97,7 +97,7 @@ roles:
 </include>
 
 Set `acl: true` in `define`: this feature key adds the reserved, required
-`acl` field. `plugins.acl({ default, … })` in `.with` then configures it, and
+`acl` field. `acl: { default, … }` in `.with` then configures it, and
 its `default` is required, because an empty ACL would hide each new row from
 everyone but Master. A declaration that sets `acl: true` without that rule is
 a TypeScript error, and fails at runtime when `.with` runs or the application
@@ -311,7 +311,7 @@ subject.
 - **`acl` is missing from the completions of `define`:** declare the schema
   from the configured factory that installs `aclPlugin()`.
 - **`acl.default` is required:** a schema that sets `acl: true` needs
-  `.with((plugins) => plugins.acl({ default }))`.
+  `.with({ acl: { default } })`.
 - **A record is unexpectedly invisible:** inspect its ACL with Master. An
   empty ACL denies ordinary object rights.
 - **A share is denied:** the schema needs `clientSharing`, it must allow the

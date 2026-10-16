@@ -23,14 +23,12 @@ const AppRole = RoleApplication.RoleSchema.define({
   className: 'Role',
   members: () => User,
   fields: (field) => ({ description: field.string() }),
-}).with((plugins) =>
-  plugins.roles({ /* deletion-hover */deletion: 'fail' }).access({ read: true }),
-)
+}).with({ roles: { /* deletion-hover */deletion: 'fail' }, access: { read: true } })
 
 RoleApplication.RoleSchema.define({
   className: 'CompletedRole',
   members: () => User,
-}).with((plugins) => plugins.roles({ deletion: '/* deletion-complete */' }))
+}).with({ roles: { deletion: '/* deletion-complete */' } })
 
 AppRole./* role-hover */role('editor')
 void /* access-hover */hasRole(AppRole.role('editor'))
@@ -111,7 +109,7 @@ describe('RoleSchema IntelliSense', () => {
 			expect.arrayContaining(['className', 'fields', 'members']),
 		)
 		// Rules go in the final `.with(...)` (ADR-0322); role behaviour is
-		// `plugins.roles(…)` and indexes are in define (ADR-0339).
+		// `.with({ roles: … })` and indexes are in define (ADR-0339).
 		for (const rule of ['access', 'deletion', 'ensure', 'resolveCurrent']) {
 			expect(names).not.toContain(rule)
 		}

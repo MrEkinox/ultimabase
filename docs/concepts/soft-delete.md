@@ -42,9 +42,9 @@ await Post.softDeleteMany({ where: { title: { startsWith: 'Draft' } } })
 ```
 
 The one-row request commands reach a transport only when the schema's rule
-names them (ADR-0324, ADR-0325): `plugins.rest({ softDeleteOne: true })` adds
+names them (ADR-0324, ADR-0325): `.with({ rest: { softDeleteOne: true } })` adds
 `POST /api/classes/Post/{id}/soft-delete-one` (and `…/restore-one` for
-`restoreOne`), `plugins.graphql({ softDeleteOne: true })` adds the
+`restoreOne`), `.with({ graphql: { softDeleteOne: true } })` adds the
 `softDeleteOnePost` mutation. Transport exposure grants no authority.
 
 ## Visibility and lifecycle

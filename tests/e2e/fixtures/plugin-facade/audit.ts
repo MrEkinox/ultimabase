@@ -1,4 +1,4 @@
-// Rule plugin: `plugins.audit(true)` reports committed writes (ADR-0316).
+// Rule plugin: `.with({ audit: true })` reports committed writes (ADR-0316).
 import { definePlugin } from '@ultimabase/plugin-kit'
 
 export const auditPlugin = (log: (line: string) => void) =>

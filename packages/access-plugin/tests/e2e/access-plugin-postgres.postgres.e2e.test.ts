@@ -42,26 +42,25 @@ const AccessArticle = AccessApplication.Schema.define({
 			required: true,
 		}),
 	}),
-}).with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('published', true).gte('rank', 0),
-			create: false,
-			update: {
-				where: ({ where }) => where.eq('published', true),
-				item: ({ originalItem }) => !originalItem.locked,
+}).with({
+	access: {
+		read: ({ where }) => where.eq('published', true).gte('rank', 0),
+		create: false,
+		update: {
+			where: ({ where }) => where.eq('published', true),
+			item: ({ originalItem }) => !originalItem.locked,
+		},
+		delete: ({ where }) => where.eq('published', true),
+		upsert: ({ where }) => where.eq('published', true),
+	},
+	hooks: {
+		beforeOperation: {
+			update: async ({ kind }) => {
+				await AccessAudit.createOne({ data: { action: `update:${kind}` } })
 			},
-			delete: ({ where }) => where.eq('published', true),
-			upsert: ({ where }) => where.eq('published', true),
-		})
-		.hooks({
-			beforeOperation: {
-				update: async ({ kind }) => {
-					await AccessAudit.createOne({ data: { action: `update:${kind}` } })
-				},
-			},
-		}),
-)
+		},
+	},
+})
 
 const BulkDocument = AccessApplication.Schema.define({
 	className: 'NativeAccessBulkE2E',
@@ -70,15 +69,15 @@ const BulkDocument = AccessApplication.Schema.define({
 		value: field.int({ default: 0 }),
 		visible: field.boolean({ default: false }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		create: false,
 		delete: ({ where }) => where.eq('visible', true),
 		read: ({ where }) => where.eq('visible', true),
 		update: ({ where }) => where.eq('visible', true),
 		upsert: ({ where }) => where.eq('visible', true),
-	}),
-)
+	},
+})
 
 const UpsertDecisionDocument = AccessApplication.Schema.define({
 	className: 'NativeAccessUpsertDecisionE2E',
@@ -86,16 +85,16 @@ const UpsertDecisionDocument = AccessApplication.Schema.define({
 		key: field.string({ indexed: 'unique', required: true }),
 		score: field.int({ default: 0 }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		create: false,
 		read: true,
 		upsert: {
 			where: true,
 			item: ({ item }) => typeof item.score === 'number' && item.score < 5,
 		},
-	}),
-)
+	},
+})
 
 const pluginVisibility = plugin({
 	version: '0.0.0',

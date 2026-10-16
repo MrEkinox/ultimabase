@@ -5,12 +5,6 @@ import { expect, it } from 'vitest'
 
 import { App } from '../src/schema.ts'
 
-// What `plugins` offers at runtime, beyond the methods its type allows here.
-interface UntypedRules {
-	readonly audit: (enabled: boolean) => never
-	readonly flagReason: (reason: string) => never
-}
-
 it('rejects a rule passed to define', () => {
 	expect(() =>
 		App.Schema.define({
@@ -29,10 +23,9 @@ it('offers a rule only after its feature', () => {
 		App.Schema.define({
 			className: 'Note',
 			fields: (f) => ({ body: f.string() }),
-		}).with((plugins) => {
+		}).with({
 			// @ts-expect-error -- `flagReason` needs `flaggable: true` first.
-			void plugins.flagReason
-			return (plugins as unknown as UntypedRules).flagReason('Spam')
+			flagReason: 'Spam',
 		})
 	// The rules slot is a type: the option itself accepts the text.
 	expect(declare).not.toThrow()
@@ -43,13 +36,12 @@ it('rejects a rule whose plugin is not installed', () => {
 		UltimaBase.Schema.define({
 			className: 'Note',
 			fields: (f) => ({ body: f.string() }),
-		}).with((plugins) => {
+		}).with({
 			// @ts-expect-error -- no installed plugin declares `audit`.
-			void plugins.audit
-			return (plugins as unknown as UntypedRules).audit(true)
+			audit: true,
 		})
-	// `plugins` has one method per installed rule (ADR-0339).
-	expect(declare).toThrow('plugins.audit is not a function')
+	// `.with` takes the rules the installed plugins declare (ADR-0339).
+	expect(declare).toThrow('audit is not a rule of an installed plugin')
 })
 
 it('checks a peer range against the installed plugin version', () => {

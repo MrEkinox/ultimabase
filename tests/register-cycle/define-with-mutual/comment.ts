@@ -13,16 +13,15 @@ export const Comment = App.Schema.define({
 	indexes: [
 		{ fields: ['post', 'body'], unique: true, where: { isDeleted: false } },
 	],
-}).with((plugins) =>
-	plugins
-		.relations({
-			replies: {
-				where: ({ where }) =>
-					where.is('post', (post) => post.eq('published', true)),
-			},
-		})
-		.access({
-			read: ({ where }) =>
-				where.is('parent', (parent) => parent.eq('body', 'root')),
-		}),
-)
+}).with({
+	relations: {
+		replies: {
+			where: ({ where }) =>
+				where.is('post', (post) => post.eq('published', true)),
+		},
+	},
+	access: {
+		read: ({ where }) =>
+			where.is('parent', (parent) => parent.eq('body', 'root')),
+	},
+})

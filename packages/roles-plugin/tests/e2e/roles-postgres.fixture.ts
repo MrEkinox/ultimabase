@@ -76,53 +76,50 @@ export const AppRole = RoleSchemaApplication.RoleSchema.define({
 		priority: field.int({ default: 0 }),
 	}),
 	indexes: [{ fields: ['priority', 'createdAt'] }],
-}).with((plugins) =>
-	plugins
-		.roles({
-			resolveCurrent: ({ context }) => {
-				roleResolutionTrace.push('resolve-current')
-				const memberId = context.getValue(currentRoleMemberId)
+}).with({
+	roles: {
+		resolveCurrent: ({ context }) => {
+			roleResolutionTrace.push('resolve-current')
+			const memberId = context.getValue(currentRoleMemberId)
 
-				return memberId === undefined ? undefined : RoleMember.pointer(memberId)
+			return memberId === undefined ? undefined : RoleMember.pointer(memberId)
+		},
+		deletion: 'fail',
+	},
+	access: protectedRoleOperations,
+	hooks: {
+		beforeOperation: {
+			update: ({ kind }) => {
+				roleDeveloperHookTrace.push(kind)
 			},
-			deletion: 'fail',
-		})
-		.access(protectedRoleOperations)
-		.hooks({
-			beforeOperation: {
-				update: ({ kind }) => {
-					roleDeveloperHookTrace.push(kind)
-				},
-			},
-		}),
-)
+		},
+	},
+})
 
 export const FailRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EFailRole',
 	members: () => RoleMember,
-}).with((plugins) =>
-	plugins.roles({ deletion: 'fail' }).access(protectedRoleOperations),
-)
+}).with({ roles: { deletion: 'fail' }, access: protectedRoleOperations })
 
 export const PreserveRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EPreserveRole',
 	members: () => RoleMember,
-}).with((plugins) =>
-	plugins
-		.roles({ deletion: 'preserve' })
-		.access({ ...protectedRoleOperations, delete: true }),
-)
+}).with({
+	roles: { deletion: 'preserve' },
+	access: { ...protectedRoleOperations, delete: true },
+})
 
 export const CascadeRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2ECascadeRole',
 	members: () => RoleMember,
-}).with((plugins) =>
-	plugins.roles({ deletion: 'cascade' }).access({
+}).with({
+	roles: { deletion: 'cascade' },
+	access: {
 		// Native Access permits deletion so the plugin's master-only cascade guard is exercised.
 		...protectedRoleOperations,
 		delete: true,
-	}),
-)
+	},
+})
 
 export const EditorReference = AppRole.role('editor')
 export const AdministratorReference = AppRole.role('administrator')
@@ -142,8 +139,8 @@ export const ProtectedPost = RoleSchemaApplication.Schema.define({
 		published: field.boolean({ default: false }),
 		title: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		create: false,
 		delete: hasRole(AdministratorReference),
 		read: ({ where }) => where.eq('published', true),
@@ -152,8 +149,8 @@ export const ProtectedPost = RoleSchemaApplication.Schema.define({
 			hasRole(AdministratorReference),
 			not(false),
 		),
-	}),
-)
+	},
+})
 
 /** Exposes neutral external references used to verify all deletion policies. */
 export const ExternalRoleReference = RoleSchemaApplication.Schema.define({
@@ -175,21 +172,20 @@ export const MissingProviderPost =
 		fields: (field) => ({
 			title: field.string({ required: true }),
 		}),
-	}).with((plugins) =>
-		plugins
-			.access({
-				create: true,
-				read: true,
-				update: hasRole(EditorReference),
-			})
-			.hooks({
-				beforeOperation: {
-					update: () => {
-						missingProviderHookCalls += 1
-					},
+	}).with({
+		access: {
+			create: true,
+			read: true,
+			update: hasRole(EditorReference),
+		},
+		hooks: {
+			beforeOperation: {
+				update: () => {
+					missingProviderHookCalls += 1
 				},
-			}),
-	)
+			},
+		},
+	})
 
 export const committedRoleEvents: string[] = []
 /** Records every trusted terminal elevation used by the role application. */

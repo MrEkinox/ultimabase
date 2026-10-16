@@ -161,8 +161,8 @@ const SecuredApplication = UltimaBase.use(accessPlugin())
 const SecuredPost = SecuredApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		archive: {
 			where: ({ input, where }) =>
 				input.reason.length > 0 && where.eq('workflowState', 'published'),
@@ -170,8 +170,8 @@ const SecuredPost = SecuredApplication.Schema.define({
 		},
 		update: false,
 		delete: false,
-	}),
-)
+	},
+})
 
 const securedApplication = new SecuredApplication({
 	schemas: [SecuredPost],
@@ -188,8 +188,8 @@ const ObservedApplication = UltimaBase.use(hooksPlugin())
 const ObservedPost = ObservedApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		beforeOperation: {
 			archive: ({ input, originalItem, item }) => {
 				console.log(input.reason, originalItem, item)
@@ -200,8 +200,8 @@ const ObservedPost = ObservedApplication.Schema.define({
 				context.emit('post.archived', { id: item.id })
 			},
 		},
-	}),
-)
+	},
+})
 
 const observedApplication = new ObservedApplication({
 	schemas: [ObservedPost],

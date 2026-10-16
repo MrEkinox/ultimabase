@@ -75,7 +75,7 @@ test('projects fields, commands and rules into form D schemas', () => {
 		fields: (field) => ({ title: field.string() }),
 		archivable: true,
 		labelled: { label: 'x' },
-	}).with((plugins) => plugins.audit(true))
+	}).with({ audit: true })
 
 	expectTypeOf(
 		Post.archiveOne({ id: 'post-1', select: { archivedAt: true } }),
@@ -99,11 +99,10 @@ test('projects fields, commands and rules into form D schemas', () => {
 		// @ts-expect-error -- The options object is checked against the validator.
 		labelled: { label: 1 },
 	})
-	App.Schema.define({ className: 'C', fields: () => ({}) }).with((plugins) =>
-		plugins
-			// @ts-expect-error -- `.with` checks the rule value.
-			.audit('yes'),
-	)
+	App.Schema.define({ className: 'C', fields: () => ({}) }).with({
+		// @ts-expect-error -- `.with` checks the rule value.
+		audit: 'yes',
+	})
 	// @ts-expect-error -- Server-written fields are rejected in create input.
 	void Post.createOne({ data: { archivedAt: null } })
 	const Plain = App.Schema.define({

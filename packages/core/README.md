@@ -39,11 +39,16 @@ Detailed guides remain focused by domain:
 [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) defines the
 only declaration form; no type generation step exists, and
 [ADR-0339](../../docs/adr/0339-define-describes-with-configures.md) splits it
-in two blocks. `define` describes what the schema is, with static values only:
-`className`, `fields`, `indexes`, and the feature keys of the installed
-plugins (`softDelete: true`, `acl: true`). Relation targets are thunks. A
-final non-generic `.with((plugins) => ...)` configures how each plugin treats
-the schema: `plugins` offers one method per installed rule, callable once. The tested
+in two blocks. `define` describes the data model, with static values only:
+the fields, their constraints and indexes, which Core owns, plus the features
+that add something to the schema (fields, commands), such as
+`softDelete: true` or `acl: true`. Relation targets are thunks. A final
+non-generic `.with({ … })` describes how each plugin treats that schema: one
+key per installed rule. Indexes are in `define` because a unique index decides
+which fields identify a row, so it types `updateOne` and `upsertOne` targets,
+and every adapter enforces indexes as Core data constraints, like `required`
+or `indexed: 'unique'`. A plugin storage setting such as `postgres: { table }`
+is in `.with`: it changes nothing your code can write. The tested
 [modeling example](../../examples/modeling/README.md), a bookshop, shows the
 form; its only plugin is the database:
 
@@ -137,7 +142,7 @@ export const Book = App.Schema.define({
 
 <!-- endregion -->
 
-`.with` carries the rules; `plugins.relations(...)` is a Core rule that
+`.with` carries the rules; `.with({ relations: … })` is a Core rule that
 filters reads through a relation (ADR-0328). A plugin feature, such as
 `softDelete: true` in the [Soft Delete example](../../examples/soft-delete/README.md),
 is a key of `define`, and the `indexes` of `define` may name the fields it
@@ -190,11 +195,10 @@ export const Customer = App.Schema.define({
 				loyaltyService.tiers(items.map(({ email }) => String(email))),
 		}),
 	}),
-}).with((plugins) =>
-	plugins
-		// Reads through `wishlist` only show published books.
-		.relations({ wishlist: { where: { published: { eq: true } } } }),
-)
+}).with({
+	// Reads through `wishlist` only show published books.
+	relations: { wishlist: { where: { published: { eq: true } } } },
+})
 ```
 
 <!-- endregion -->
@@ -234,10 +238,10 @@ declare module '@ultimabase/core' {
   may reference each other. `mappedBy` of a thunk target is checked when the
   application is constructed.
 - Plugins contribute features (keys of `define`) through
-  `provideSchemaFeatures` and `PluginSchemaFeatureSource`, and rules (methods
+  `provideSchemaFeatures` and `PluginSchemaFeatureSource`, and rules (keys
   of `.with`) through `provideSchemaRules` and `PluginSchemaRulesSource`; Core
-  generates the `plugins` methods from the declared rule names, plus its own
-  `relations`, and never names a plugin. `className`, `fields`, `indexes`,
+  accepts the declared rule names, plus its own `relations`, and never names a
+  plugin. A rule a feature requires is a required key. `className`, `fields`, `indexes`,
   `relations` and `with` are reserved. `.with` must be the last call.
   `define` returns a `DeclaredSchema`.
 - `define` records the features it sets (`this['shape']`). Plugins type what a
@@ -245,11 +249,11 @@ declare module '@ultimabase/core' {
   record (ADR-0316): `SchemaFieldsHKT` returns the added fields (never reading
   the schema, so no cycle), `SchemaStaticsHKT` the added statics, typed with
   `SchemaCommands<this['schema'], { … }>`, and `SchemaRulesHKT` the `.with`
-  methods, typed against the completed schema. A rules slot also reads
+  keys, typed against the completed schema. A rules slot also reads
   `this['shape']`, so a rule may be offered only with its feature, and a
   feature declares the rules it requires (`SchemaFeature<…, 'acl'>` and
-  `requires: ['acl']`): ACL's `acl: true` requires `plugins.acl({ default })`
-  (ADR-0321), checked on what the `.with` callback returns, at
+  `requires: ['acl']`): ACL's `acl: true` requires `.with({ acl: { default } })`
+  (ADR-0321), checked as a required key of `.with`, at
   `new App({ schemas })` for a declaration without `.with`, and when the
   application compiles. Schema-level plugin options project no type of their
   own. `definePlugin` from `@ultimabase/plugin-kit` writes these slots for the
@@ -542,7 +546,7 @@ Because the option adds a field, the application sets it as a feature key of
 `provideSchemaFeatures`; the plugin types the field the patch adds through a
 fields slot (`SchemaFieldsHKT`). An option that only configures behaviour is a
 rule instead: `provideSchemaRules(instance, ['workflow'])` offers
-`plugins.workflow(...)` in `.with`, typed through a rules slot
+`workflow` in `.with`, typed through a rules slot
 (`SchemaRulesHKT`). Patches and schema-level option definitions project no
 type of their own (ADR-0297, ADR-0339).
 
@@ -1276,7 +1280,7 @@ one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
 update input, validation values, or an ordinary result without `include`.
 
-A relation may define one target-typed read subset with `plugins.relations(...)`
+A relation may define one target-typed read subset with `.with({ relations: … })`
 in `.with`, keyed by relation field name (ADR-0328). `.with`
 receives the complete schemas, so two schemas may filter each other's
 relations. The static form uses the same portable filter vocabulary as an
@@ -1288,18 +1292,17 @@ rule of the minimal example's `ExampleArticle` uses both:
 <!-- region ../../examples/minimal/src/schema.ts#relation-views -->
 
 ```ts
-plugins
-	// Narrows every read through these relation fields (ADR-0328).
-	.relations({
-		contributors: { where: { listed: { eq: true } } },
-		// Anonymous requests see only public reviewers.
-		reviewers: {
-			where: ({ context, where }) =>
-				context.getValue(authPrincipal) === undefined
-					? where.eq('audience', 'public')
-					: where,
-		},
-	})
+// Narrows every read through these relation fields (ADR-0328).
+relations: {
+	contributors: { where: { listed: { eq: true } } },
+	// Anonymous requests see only public reviewers.
+	reviewers: {
+		where: ({ context, where }) =>
+			context.getValue(authPrincipal) === undefined
+				? where.eq('audience', 'public')
+				: where,
+	},
+},
 ```
 
 <!-- endregion -->
@@ -2141,7 +2144,7 @@ const Post = Application.Schema.define({
 			hooks: { resolveInput: ({ value }) => value.trim() },
 		}),
 	}),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 export const ultimabase = new Application({ schemas: [Post] })
 
@@ -2478,8 +2481,8 @@ export const isEditor: PolicyPredicate = async function isEditor({
 export const Announcement = App.Schema.define({
 	className: 'Announcement',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		create: {
 			where: isAuthenticated,
@@ -2495,8 +2498,8 @@ export const Announcement = App.Schema.define({
 		},
 		update: isEditor,
 		delete: isEditor,
-	}),
-)
+	},
+})
 ```
 
 <!-- endregion -->

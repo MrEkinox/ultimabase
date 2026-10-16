@@ -11,24 +11,23 @@ export const Author = App.Schema.define({
 		favorite: field.pointer({ target: () => Post }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.acl({
-			default: ({ data }) =>
-				data.name === '' ? defaultAcl() : defaultAcl().grantPublic('read'),
-		})
-		.access({
-			read: ({ where }) =>
-				where.some('posts', (post) => post.eq('published', true)),
-			update: ({ where }) =>
-				where.is('favorite', (post) => post.eq('isDeleted', false)),
-		})
-		.relations({
-			posts: {
-				where: ({ where }) =>
-					where.is('author', (author) => author.eq('name', 'x')),
-			},
-		}),
-)
+}).with({
+	acl: {
+		default: ({ data }) =>
+			data.name === '' ? defaultAcl() : defaultAcl().grantPublic('read'),
+	},
+	access: {
+		read: ({ where }) =>
+			where.some('posts', (post) => post.eq('published', true)),
+		update: ({ where }) =>
+			where.is('favorite', (post) => post.eq('isDeleted', false)),
+	},
+	relations: {
+		posts: {
+			where: ({ where }) =>
+				where.is('author', (author) => author.eq('name', 'x')),
+		},
+	},
+})
 
 declare function defaultAcl(): ACL

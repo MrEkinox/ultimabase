@@ -90,9 +90,7 @@ const createArchiveParts = (trace: string[], hooks?: unknown) => {
 	const Document = HookSchemaApplication.Schema.define({
 		className: `SchemaMutationHookDocument${String(id)}`,
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) =>
-		hooks === undefined ? plugins : plugins.hooks(hooks as never),
-	)
+	}).with(hooks === undefined ? {} : { hooks: hooks as never })
 	const owner = plugin({
 		id: `fixture.schema-mutation-hook-owner-${String(id)}`,
 		core: '^0.0.0',

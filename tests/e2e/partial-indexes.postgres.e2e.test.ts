@@ -20,7 +20,7 @@ const UniqueActiveSlug = App.Schema.define({
 	fields: (field) => ({ slug: field.string({ required: true }) }),
 	indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
 	softDelete: true,
-}).with((plugins) => plugins.postgres({ table: 'partial_index_articles' }))
+}).with({ postgres: { table: 'partial_index_articles' } })
 
 // The same table with another predicate, as after a declaration change.
 const UniqueActiveLongSlug = App.Schema.define({
@@ -34,7 +34,7 @@ const UniqueActiveLongSlug = App.Schema.define({
 		},
 	],
 	softDelete: true,
-}).with((plugins) => plugins.postgres({ table: 'partial_index_articles' }))
+}).with({ postgres: { table: 'partial_index_articles' } })
 
 let fixture: PostgresWorkerFixture | undefined
 

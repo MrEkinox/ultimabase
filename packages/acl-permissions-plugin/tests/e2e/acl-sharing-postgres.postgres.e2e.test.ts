@@ -53,22 +53,20 @@ const SharedNote = ShareApplication.Schema.define({
 	className: 'ACLSharedNote',
 	fields: (field) => ({ body: field.string({ required: true }) }),
 	acl: true,
-}).with((plugins) =>
-	plugins.acl({
+}).with({
+	acl: {
 		default: ({ principal }) => new ACL(principal),
 		// Whoever may update a note may share it.
 		clientSharing: ({ principal, currentAcl }) =>
 			principal !== undefined &&
 			currentAcl.hasPrincipalPermission(principal, 'update'),
-	}),
-)
+	},
+})
 const PrivateNote = ShareApplication.Schema.define({
 	className: 'ACLPrivateNote',
 	fields: (field) => ({ body: field.string({ required: true }) }),
 	acl: true,
-}).with((plugins) =>
-	plugins.acl({ default: ({ principal }) => new ACL(principal) }),
-)
+}).with({ acl: { default: ({ principal }) => new ACL(principal) } })
 
 type User = Model<typeof ShareUser>
 

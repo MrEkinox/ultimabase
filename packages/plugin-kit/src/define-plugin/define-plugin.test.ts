@@ -81,7 +81,7 @@ describe('definePlugin', () => {
 			className: 'FacadeArchived',
 			fields: (field) => ({ title: field.string() }),
 			archivable: { reason: true },
-		}).with((plugins) => plugins.audit(true))
+		}).with({ audit: true })
 		const Plain = App.Schema.define({
 			className: 'FacadePlain',
 			fields: (field) => ({ title: field.string() }),
@@ -128,7 +128,7 @@ describe('definePlugin', () => {
 		const BadRule = App.Schema.define({
 			className: 'FacadeBadRule',
 			fields: (field) => ({ title: field.string() }),
-		}).with((plugins) => plugins.audit('yes' as never))
+		}).with({ audit: 'yes' as never })
 
 		expect(() =>
 			new App({ logger: false, schemas: [BadRule] }).compile(),
@@ -271,7 +271,7 @@ describe('definePlugin features and rules (ADR-0339)', () => {
 			fields: (field) => ({ title: field.string() }),
 			flaggable: true,
 			indexes: [{ fields: ['flaggedAt', 'title'], unique: true }],
-		}).with((plugins) => plugins.flagReason('Spam'))
+		}).with({ flagReason: 'Spam' })
 		const compiled = new App({ logger: false, schemas: [Flagged] }).compile()
 		const schema = compiled.schemas.get(Flagged.className)
 		if (schema === undefined) throw new TypeError('Missing schema')
@@ -298,12 +298,12 @@ describe('definePlugin features and rules (ADR-0339)', () => {
 			flaggable: true,
 		})
 		const message =
-			'FeatureMissingReason sets flaggable in define(), which requires .with((plugins) => plugins.flagReason({ … }))'
+			'FeatureMissingReason sets flaggable in define(), which requires .with({ flagReason: … })'
 
 		const withMethod: unknown = Reflect.get(Missing, 'with')
 		expect(() => {
 			if (typeof withMethod === 'function') {
-				Reflect.apply(withMethod, Missing, [(plugins: unknown) => plugins])
+				Reflect.apply(withMethod, Missing, [{}])
 			}
 		}).toThrow(new TypeError(message))
 		expect(() =>

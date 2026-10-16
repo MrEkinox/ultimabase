@@ -186,7 +186,7 @@ export type ACLClientSharing = (
 /** Overrides application ACL entry limits for one schema. */
 export type ACLSchemaLimits = ACLEntryLimits
 
-/** The `acl` rule of `.with((plugins) => …)`, required once `acl: true` (ADR-0321). */
+/** The `acl` rule of `.with({ … })`, required once `acl: true` (ADR-0321). */
 export interface ACLRule<
 	TData extends Readonly<Record<string, unknown>> = Readonly<
 		Record<string, unknown>
@@ -247,7 +247,7 @@ const aclRuleKeys = new Set([
 // Only options produced here are trusted; the map also restores their exact type.
 const normalizedOptions = new WeakMap<object, NormalizedACLSchemaOption>()
 
-/** The option `acl: true` sets until `plugins.acl({ … })` replaces it. */
+/** The option `acl: true` sets until `.with({ acl: { … } })` replaces it. */
 export const aclFeatureDeclared: Readonly<Record<never, never>> = Object.freeze(
 	{},
 )
@@ -259,7 +259,7 @@ export const normalizeACLSchemaOption = (
 ): NormalizedACLSchemaOption => {
 	if (value === aclFeatureDeclared) {
 		throw new TypeError(
-			`${path}: the acl feature needs .with((plugins) => plugins.acl({ default })); an empty ACL would hide every row from everyone but Master`,
+			`${path}: the acl feature needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master`,
 		)
 	}
 	if (!isPlainRecord(value)) {
@@ -309,7 +309,7 @@ export const normalizeACLSchemaOption = (
 	return normalized
 }
 
-/** The `acl` option: set by `acl: true`, configured by `plugins.acl({ … })`. */
+/** The `acl` option: set by `acl: true`, configured by `.with({ acl: { … } })`. */
 export const aclSchemaOption: SchemaOptionDefinition<NormalizedACLSchemaOption> =
 	defineSchemaOption({
 		normalize: normalizeACLSchemaOption,
@@ -351,7 +351,7 @@ const readExistingRows = (
 		(rule?.default instanceof ACL ? rule.default : undefined)
 	return fixed === undefined
 		? immutableRecord({
-				missing: `${schema.className} has rows and its acl.default is a function, so they need a fixed ACL: add existingRows to .with((plugins) => plugins.acl({ default, existingRows })), or empty the table, then start again.`,
+				missing: `${schema.className} has rows and its acl.default is a function, so they need a fixed ACL: add existingRows to .with({ acl: { default, existingRows } }), or empty the table, then start again.`,
 			})
 		: immutableRecord({ value: fixed })
 }

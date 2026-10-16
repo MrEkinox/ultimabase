@@ -183,7 +183,7 @@ production.
 PostgreSQL derives a plural `snake_case` table name from `className`
 (`StaffMember` → `staff_members`) and a `snake_case` column from each field
 (`createdAt` → `created_at`). Queries, results, and errors keep the field
-names. The `plugins.postgres({ table })` rule of `.with` chooses an exact
+names. The `postgres: { table }` rule of `.with` chooses an exact
 table identifier, and the stored-field `postgres.renamedFrom` names the
 previous column for a data-preserving rename (the schema's `indexes` stay in
 `define`, see [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)):

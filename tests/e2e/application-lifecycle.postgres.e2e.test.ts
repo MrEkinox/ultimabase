@@ -29,9 +29,7 @@ const App = UltimaBase.use(accessPlugin({ allowWithoutRule: { all: true } }))
 const LifecycleTodo = App.Schema.define({
 	className: 'LifecycleTodo',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with((plugins) =>
-	plugins.access({ read: isAuthenticated, create: true, delete: true }),
-)
+}).with({ access: { read: isAuthenticated, create: true, delete: true } })
 
 const masterKey = 'application-lifecycle-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>

@@ -84,7 +84,7 @@ type MappedByIssues<TSchema> =
 			: never
 
 // A declaration registered without the `.with` its `define` features
-// require (`acl: true` without `plugins.acl({ … })`, ADR-0339).
+// require (`acl: true` without `.with({ acl: { … } })`, ADR-0339).
 type RegistrationIssues<TSchema> =
 	MappedByIssues<TSchema> | SchemaRequiredRuleMessages<TSchema>
 

@@ -75,12 +75,12 @@ const isTodoAuthor: PolicyPredicate = function isTodoAuthor({
 export const PrincipalMember = App.Schema.define({
 	className: 'PrincipalMember',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: true, create: true }))
+}).with({ access: { read: true, create: true } })
 
 export const PrincipalRole = App.RoleSchema.define({
 	className: 'PrincipalRole',
 	members: () => PrincipalMember,
-}).with((plugins) => plugins.roles({ deletion: 'fail' }))
+}).with({ roles: { deletion: 'fail' } })
 
 let failPredicate: 'error' | 'public' | undefined
 const explode: PolicyPredicate = function explode() {
@@ -99,42 +99,42 @@ export const PrincipalTodo = App.Schema.define({
 		owner: field.string(),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			create: isAuthenticated,
-			read: true,
-			update: hasRole(PrincipalRole.role('editor')),
-			upsert: {
-				where: isTodoAuthor,
-				item: ({ principal, item }) => item.owner === principal?.id,
+}).with({
+	access: {
+		create: isAuthenticated,
+		read: true,
+		update: hasRole(PrincipalRole.role('editor')),
+		upsert: {
+			where: isTodoAuthor,
+			item: ({ principal, item }) => item.owner === principal?.id,
+		},
+		delete: explode,
+	},
+	acl: { default: ({ principal }) => new ACL(principal) },
+	hooks: {
+		beforeOperation: {
+			create: async ({ context }) => {
+				hookPrincipals.push(context.principal?.id)
+				// A hook-issued Master operation keeps the request principal.
+				await PrincipalMember.count({}, { useMasterKey: true })
 			},
-			delete: explode,
-		})
-		.acl({ default: ({ principal }) => new ACL(principal) })
-		.hooks({
-			beforeOperation: {
-				create: async ({ context }) => {
-					hookPrincipals.push(context.principal?.id)
-					// A hook-issued Master operation keeps the request principal.
-					await PrincipalMember.count({}, { useMasterKey: true })
-				},
-			},
-		}),
-)
+		},
+	},
+})
 
 export const PrincipalAudit = App.Schema.define({
 	className: 'PrincipalAudit',
 	fields: (field) => ({ note: field.string() }),
-}).with((plugins) =>
-	plugins.access({ read: true, create: true }).hooks({
+}).with({
+	access: { read: true, create: true },
+	hooks: {
 		beforeOperation: {
 			create: ({ context }) => {
 				hookPrincipals.push(`master:${String(context.principal?.id)}`)
 			},
 		},
-	}),
-)
+	},
+})
 
 const masterKey = 'principal-policies-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>

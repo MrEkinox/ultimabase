@@ -73,8 +73,8 @@ export const createOfficialAccessConformanceFixture = (
 			}),
 			visible: field.boolean(),
 		}),
-	}).with((plugins) =>
-		plugins.access({
+	}).with({
+		access: {
 			create: {
 				where: true,
 				item: ({ item }) => item.title !== 'denied-item',
@@ -90,8 +90,8 @@ export const createOfficialAccessConformanceFixture = (
 				item: ({ item, originalItem }) =>
 					originalItem.visible === true && item.title !== 'denied-item',
 			},
-		}),
-	)
+		},
+	})
 	const database = new OfficialConformanceDatabase(
 		new Map([
 			[

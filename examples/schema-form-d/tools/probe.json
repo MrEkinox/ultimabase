@@ -39,7 +39,7 @@
 		{
 			"name": "rules entry .with(",
 			"file": "src/todo.ts",
-			"find": ".with((",
+			"find": ".with({",
 			"offset": 1
 		},
 		{

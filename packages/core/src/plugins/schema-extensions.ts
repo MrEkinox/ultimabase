@@ -5,7 +5,7 @@ import { assertUnreservedSchemaKey } from './schema-rule-names.js'
 
 /**
  * Higher-kinded slot through which one plugin contributes rule entries to the
- * final `.with((plugins) => …)` call of a schema declaration. Core substitutes the
+ * final `.with({ … })` call of a schema declaration. Core substitutes the
  * schema reference into `schema` and the features its `define` sets into
  * `shape` (`{ acl: readonly [] }`, so a rule can depend on a feature), and
  * reads `rules`; it never names a plugin.
@@ -23,7 +23,7 @@ export interface SchemaRulesHKT {
 	readonly rules: object
 }
 
-/** Source projection carrying one plugin's rule entries for `.with((plugins) => …)`. */
+/** Source projection carrying one plugin's rule entries for `.with({ … })`. */
 export type PluginSchemaRulesSource<TRules extends SchemaRulesHKT> = Readonly<{
 	schemaRules: TRules
 }>
@@ -129,7 +129,7 @@ declare const featureRequiredRulesType: unique symbol
  * selectors, storage). `TArguments` is `readonly []` for a feature set with
  * `true`, `readonly [options?: TValue]` for one that also takes an options
  * object. `TRequiredRules` names the rules a declaration setting the feature
- * must give in `.with((plugins) => …)`.
+ * must give in `.with({ … })`.
  *
  * @example `SchemaFeature<readonly [], Readonly<{ acl: object }>, 'acl'>`
  */
@@ -223,7 +223,7 @@ export interface SchemaFeatureImplementation<
 	readonly apply: (...arguments_: TArguments) => TOptions
 	/**
 	 * Rules a declaration setting the feature in `define` must give in
-	 * `.with((plugins) => …)`, as its source type declares them (ADR-0339).
+	 * `.with({ … })`, as its source type declares them (ADR-0339).
 	 * @example `requires: ['acl']`
 	 */
 	readonly requires?: readonly TRequiredRules[]

@@ -66,7 +66,7 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 			title: field.string(),
 			workflowState: field.string(),
 		}),
-	}).with((plugins) => plugins.hooks(inlineHooks as never))
+	}).with({ hooks: inlineHooks as never })
 	const owner = plugin({
 		core: '^0.0.0',
 		id: 'fixture.schema-mutation-purge-owner',

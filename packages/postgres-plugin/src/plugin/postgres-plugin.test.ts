@@ -234,7 +234,7 @@ describe('postgresPlugin', () => {
 		const schema = Application.Schema.define({
 			className: 'Article',
 			fields: (field) => ({ title: field.string() }),
-		}).with((plugins) => plugins.postgres({ table: 'content.Articles' }))
+		}).with({ postgres: { table: 'content.Articles' } })
 		const application = new Application({ schemas: [schema] })
 		await application.initialize()
 

@@ -15,7 +15,7 @@ export type FeatureCommands = Readonly<Record<string, CommandDefinition>>
 /** Permission names a feature declares, such as `['readDeleted']`. */
 export type FeaturePermissions = readonly string[]
 
-/** Rule names a feature requires in `.with((plugins) => …)`, such as `['audit']`. */
+/** Rule names a feature requires in `.with({ … })`, such as `['audit']`. */
 export type FeatureRequiredRules = readonly string[]
 
 /**
@@ -47,7 +47,7 @@ export interface FeatureDefinition<
 	readonly permissions?: TPermissions
 	/**
 	 * Rules of this plugin a declaration setting the feature must give in
-	 * `.with((plugins) => …)` (ADR-0339).
+	 * `.with({ … })` (ADR-0339).
 	 * @example `requires: ['archiveReason']`
 	 */
 	readonly requires?: TRequires

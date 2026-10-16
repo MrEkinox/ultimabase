@@ -76,9 +76,7 @@ const createAlternativeFixture = () => {
 				title: field.string({ required: true }),
 			}),
 		})
-		.with((plugins) =>
-			plugins.alternativeBehavior(alternativeBehavior({ label: 'editorial' })),
-		)
+		.with({ alternativeBehavior: alternativeBehavior({ label: 'editorial' }) })
 	const observer = createAlternativeBehaviorDiagnosticObserver(() => undefined)
 
 	return { engine, observer, Post }
@@ -159,9 +157,7 @@ describe('optional Hooks engine proof', () => {
 				className: 'AlternativeBehaviorIsolationPost',
 				fields: (field) => ({ title: field.string() }),
 			})
-			.with((plugins) =>
-				plugins.alternativeBehavior(alternativeBehavior({ label: 'isolated' })),
-			)
+			.with({ alternativeBehavior: alternativeBehavior({ label: 'isolated' }) })
 		const database = createBehaviorSupportPlugin()
 		const first = new (UltimaBase.use(database, engine.plugin))({
 			logger: false,

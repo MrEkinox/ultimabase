@@ -123,7 +123,7 @@ delete have no rule, so they remain denied. Audited Master requests bypass
 these Access restrictions: the example's tests write the articles as Master.
 
 Field `access` stays on the field; schema rules go in
-`.with((plugins) => plugins.access({ … }))`, never in `define` (see
+`.with({ access: { … } })`, never in `define` (see
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). Both are typed from the source
 declaration: items, row filters, relationships, and the command keys that
 features such as `softDelete: true` add stay exact without a generation step.

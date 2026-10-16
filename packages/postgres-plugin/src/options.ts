@@ -19,17 +19,17 @@ export interface PostgresSchemaOption {
 	readonly table: string
 }
 
-/** Entry of `.with((plugins) => …)` owned by PostgreSQL, for one schema (ADR-0320). */
+/** Entry of `.with({ … })` owned by PostgreSQL, for one schema (ADR-0320). */
 export interface PostgresRules {
 	/**
 	 * Names the exact PostgreSQL table instead of the plural `snake_case`
 	 * class name.
-	 * @example `.with((plugins) => plugins.postgres({ table: 'content_items' }))`
+	 * @example `.with({ postgres: { table: 'content_items' } })`
 	 */
 	readonly postgres?: PostgresSchemaOption
 }
 
-/** Contributes `postgres` to `.with((plugins) => …)` through Core's rules slot (ADR-0320). */
+/** Contributes `postgres` to `.with({ … })` through Core's rules slot (ADR-0320). */
 export interface PostgresSchemaRules extends SchemaRulesHKT {
 	readonly rules: PostgresRules
 }

@@ -17,13 +17,13 @@ it('compiles the acl feature from JavaScript', async () => {
 	expect(output).toStrictEqual({
 		fieldKind: 'ultimabase.acl',
 		missingPluginCode: 'PLUGIN_DECLARATION_INVALID',
-		objectFormMessage:
-			'JavaScriptObjectFormACLPost.with() takes a callback: .with((plugins) => plugins.access({ … }))',
 		optionPresent: true,
 		owner: {
 			kind: 'plugin',
 			pluginId: '@ultimabase/acl-permissions-plugin',
 			version: '0.0.0',
 		},
+		unknownRuleMessage:
+			'JavaScriptUnknownRuleACLPost.with({ acl }): acl is not a rule of an installed plugin; .with accepts relations',
 	})
 })

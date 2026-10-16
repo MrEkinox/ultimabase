@@ -78,7 +78,7 @@ export interface NormalizedSchemaDeclaration {
 	readonly className: string
 	readonly fields: Readonly<Record<string, unknown>>
 	readonly indexes: readonly SchemaIndexInput[] | undefined
-	/** Relation filters of the final `plugins.relations(…)` (ADR-0328). */
+	/** Relation filters of the final `.with({ relations: … })` (ADR-0328). */
 	readonly relationFilters?:
 		ReadonlyMap<string, RelationWhereDeclaration> | undefined
 	/**
@@ -120,14 +120,14 @@ export const storeSchemaDeclaration = (
 
 /**
  * Rejects a schema registered without the `.with` its `define` features
- * require (ADR-0339): `acl: true` without `plugins.acl({ … })`.
+ * require (ADR-0339): `acl: true` without `.with({ acl: { … } })`.
  */
 export const assertDeclaredRulesComplete = (schema: SchemaDefinition): void => {
 	const [missing] = schemaDeclarations.get(schema)?.missingRules ?? []
 	if (missing === undefined) return
 	const [feature, rule] = missing
 	throw new TypeError(
-		`${schema.className} sets ${feature} in define(), which requires .with((plugins) => plugins.${rule}({ … }))`,
+		`${schema.className} sets ${feature} in define(), which requires .with({ ${rule}: … })`,
 	)
 }
 

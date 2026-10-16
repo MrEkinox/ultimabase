@@ -54,8 +54,8 @@ export const createOfficialHooksConformanceFixture = () => {
 				required: true,
 			}),
 		}),
-	}).with((plugins) =>
-		plugins.hooks({
+	}).with({
+		hooks: {
 			afterOperation: {
 				create: (input) => {
 					assertImmutable(input, 'after input')
@@ -76,8 +76,8 @@ export const createOfficialHooksConformanceFixture = () => {
 					input.context.emit(articleCreated, { title: input.item.title })
 				},
 			},
-		}),
-	)
+		},
+	})
 	const compatibleProvider = plugin({
 		contributions: [
 			provideHookContributions('article-lifecycle', () =>

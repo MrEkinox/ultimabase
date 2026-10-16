@@ -100,12 +100,12 @@ const declareArchived = (
 		className: 'PermissionArchived',
 		fields: (field) => ({ title: field.string() }),
 		archivable: true,
-	}).with((plugins) => plugins.access({ read: true, ...access }))
+	}).with({ access: { read: true, ...access } })
 const Archived = App.Schema.define({
 	className: 'PermissionArchived',
 	fields: (field) => ({ title: field.string() }),
 	archivable: true,
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 const readOnce = async (
 	schema: typeof Archived,
@@ -190,12 +190,12 @@ describe('plugin permissions through Access (ADR-0317)', () => {
 			className: 'PermissionArchived',
 			fields: (field) => ({ title: field.string() }),
 			archivable: true,
-		}).with((plugins) =>
-			plugins.access({
+		}).with({
+			access: {
 				read: true,
 				readArchived: { where: true, item: () => true } as never,
-			}),
-		)
+			},
+		})
 		await expect(readOnce(Detailed)).rejects.toThrow(
 			'access.readArchived is a permission: use true, false or a predicate',
 		)

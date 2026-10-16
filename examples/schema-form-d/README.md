@@ -4,7 +4,7 @@ Fixture of [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md):
 three cyclic schemas in separate files (`TodoUser`, `Todo`, `Tag`) declared with
 `define({ className, fields })`, thunk relation targets, the `softDelete: true`
 and `acl: true` feature keys of `define` (ADR-0339) and a
-`.with((plugins) => plugins.access(…).acl(…).hooks(…).postgres(…))` callback,
+final `.with({ access: …, acl: …, hooks: …, postgres: … })`,
 plus the `Register` declaration for name-keyed types. No generation step runs.
 
 - `src/usage.ts` asserts the inferred query results, inputs and filters;

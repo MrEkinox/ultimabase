@@ -61,7 +61,7 @@ export const Article = App.Schema.define({
 		// A partial index: only published rows are indexed.
 		{ fields: ['publishedAt'], where: { status: 'published' } },
 	],
-}).with((plugins) => plugins.postgres({ table: 'newsroom_articles' }))
+}).with({ postgres: { table: 'newsroom_articles' } })
 //#endregion article
 
 //#region contribution

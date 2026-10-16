@@ -37,25 +37,24 @@ test('preserves plugin and configured schema option types', async () => {
 	const Post = App.Schema.define({
 		className: 'Post',
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	}).with((plugins) =>
-		plugins
-			// The keys are the schema method names (ADR-0325).
-			.graphql({
-				createMany: true,
-				findOne: true,
-				typeName: 'Article',
-				upsertOne: false,
-			}),
-	)
+	}).with({
+		// The keys are the schema method names (ADR-0325).
+		graphql: {
+			createMany: true,
+			findOne: true,
+			typeName: 'Article',
+			upsertOne: false,
+		},
+	})
 	App.Schema.define({
 		className: 'Hidden',
 		fields: () => ({}),
-	}).with((plugins) =>
-		plugins.graphql({
+	}).with({
+		graphql: {
 			// @ts-expect-error -- `operations` and `get` are gone (ADR-0325).
 			operations: { get: true },
-		}),
-	)
+		},
+	})
 	const limited = graphqlPlugin({
 		limits: { maxDepth: 10 },
 		pagination: { defaultTake: 10, maxTake: 50 },

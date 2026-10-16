@@ -75,7 +75,7 @@ describe(
 					publishedAt: field.dateTime(),
 					readingMinutes: field.int({ required: true }),
 				}),
-			}).with((plugins) => plugins.postgres({ table: 'safe_sync_articles' }))
+			}).with({ postgres: { table: 'safe_sync_articles' } })
 			const logger = createCapturingLogger()
 			const application = new App({ logger, schemas: [Article] })
 
@@ -121,7 +121,7 @@ describe(
 			const LegacyNote = Legacy.Schema.define({
 				className: 'SafeSyncNote',
 				fields: (field) => ({ headline: field.string({ required: true }) }),
-			}).with((plugins) => plugins.postgres({ table: 'safe_sync_notes' }))
+			}).with({ postgres: { table: 'safe_sync_notes' } })
 			const legacy = new Legacy({ logger: false, schemas: [LegacyNote] })
 			await legacy.start()
 			const created = await LegacyNote.createOne({
@@ -133,7 +133,7 @@ describe(
 			const ForgottenNote = Forgotten.Schema.define({
 				className: 'SafeSyncNote',
 				fields: (field) => ({ title: field.string({ required: true }) }),
-			}).with((plugins) => plugins.postgres({ table: 'safe_sync_notes' }))
+			}).with({ postgres: { table: 'safe_sync_notes' } })
 			const failure = await startFailure(
 				new Forgotten({ logger: false, schemas: [ForgottenNote] }),
 			)
@@ -160,7 +160,7 @@ describe(
 						required: true,
 					}),
 				}),
-			}).with((plugins) => plugins.postgres({ table: 'safe_sync_notes' }))
+			}).with({ postgres: { table: 'safe_sync_notes' } })
 			const logger = createCapturingLogger()
 			const renamed = new Renamed({ logger, schemas: [Note] })
 			await renamed.start()
@@ -208,7 +208,7 @@ describe(
 					amount: field.decimal({ precision: 10, scale: 2 }),
 					ratio: field.float(),
 				}),
-			}).with((plugins) => plugins.postgres({ table: 'safe_sync_metrics' }))
+			}).with({ postgres: { table: 'safe_sync_metrics' } })
 			const before = new Before({ logger: false, schemas: [BeforeMetric] })
 			await before.start()
 			await BeforeMetric.createOne({ data: { amount: '12.50', ratio: 0.5 } })
@@ -221,7 +221,7 @@ describe(
 					amount: field.decimal({ precision: 10, scale: 2 }),
 					ratio: field.string(),
 				}),
-			}).with((plugins) => plugins.postgres({ table: 'safe_sync_metrics' }))
+			}).with({ postgres: { table: 'safe_sync_metrics' } })
 			const refused = await startFailure(
 				new Narrowing({ logger: false, schemas: [StringMetric] }),
 			)
@@ -239,7 +239,7 @@ describe(
 					amount: field.decimal({ precision: 14, scale: 4 }),
 					ratio: field.float(),
 				}),
-			}).with((plugins) => plugins.postgres({ table: 'safe_sync_metrics' }))
+			}).with({ postgres: { table: 'safe_sync_metrics' } })
 			const logger = createCapturingLogger()
 			const widening = new Widening({ logger, schemas: [Metric] })
 			await widening.start()

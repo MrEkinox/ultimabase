@@ -57,7 +57,7 @@ let refuseUpdates: 'error' | 'public' | undefined
 const CanUser = App.Schema.define({
 	className: 'CanUser',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: true, create: true }))
+}).with({ access: { read: true, create: true } })
 
 const CanTodo = App.Schema.define({
 	className: 'CanTodo',
@@ -67,46 +67,43 @@ const CanTodo = App.Schema.define({
 	}),
 	softDelete: true,
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			create: {
-				where: isAuthenticated,
-				item: ({ item }) => item.title !== 'forbidden',
+}).with({
+	access: {
+		create: {
+			where: isAuthenticated,
+			item: ({ item }) => item.title !== 'forbidden',
+		},
+		update: {
+			where: function notRefused() {
+				if (refuseUpdates === 'public') {
+					throw new PublicError('Updates are paused.')
+				}
+				if (refuseUpdates === 'error') throw new Error('policy store down')
+				return true
 			},
-			update: {
-				where: function notRefused() {
-					if (refuseUpdates === 'public') {
-						throw new PublicError('Updates are paused.')
-					}
-					if (refuseUpdates === 'error') throw new Error('policy store down')
-					return true
-				},
-				item: ({ originalItem, principal }) =>
-					originalItem.owner === principal?.id,
+			item: ({ originalItem, principal }) =>
+				originalItem.owner === principal?.id,
+		},
+		delete: isAuthenticated,
+	},
+	acl: { default: ({ principal }) => new ACL(principal) },
+	hooks: {
+		beforeOperation: {
+			create: () => {
+				hookCalls += 1
 			},
-			delete: isAuthenticated,
-		})
-		.acl({ default: ({ principal }) => new ACL(principal) })
-		.hooks({
-			beforeOperation: {
-				create: () => {
-					hookCalls += 1
-				},
-				update: () => {
-					hookCalls += 1
-				},
+			update: () => {
+				hookCalls += 1
 			},
-		}),
-)
+		},
+	},
+})
 
 const CanExplicit = App.Schema.define({
 	className: 'CanExplicit',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: { mode: 'command' },
-}).with((plugins) =>
-	plugins.access({ softDeleteOne: isAuthenticated, restoreOne: false }),
-)
+}).with({ access: { softDeleteOne: isAuthenticated, restoreOne: false } })
 
 const masterKey = 'policy-can-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>

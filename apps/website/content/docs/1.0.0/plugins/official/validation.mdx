@@ -34,7 +34,7 @@ sources:
 ## Overview
 
 `@ultimabase/validation-plugin` adds application validation: a `validation`
-option on fields, a schema check in `.with((plugins) => plugins.validation(...))`, and `check()` to
+option on fields, a schema check in `.with({ validation: … })`, and `check()` to
 validate data without writing. Core always enforces requiredness, nullability,
 canonical value shapes, defaults, immutable fields, and database integrity;
 this plugin adds application rules on top. Importing the package alone does
@@ -73,7 +73,7 @@ neither:
 </include>
 
 A field validator is a Standard Schema validator (Zod, Valibot, ArkType…) or
-a function. A schema check, `plugins.validation(...)` in `.with`, sees the
+a function. A schema check, `validation` in `.with`, sees the
 complete item:
 
 <include cwd meta='title="src/schema.ts"'>
@@ -95,7 +95,7 @@ start it from a separate entry point:
 
 `validationPlugin()` takes no options. Types come from the schema itself,
 without generated files. `define` takes no `validation` option: the schema
-rule belongs in `.with((plugins) => plugins.validation(...))`, and field rules
+rule belongs in `.with({ validation: … })`, and field rules
 stay on their fields (see [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)).
 
 A Standard Schema validator must accept the field's value (its input may also

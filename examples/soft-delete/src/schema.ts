@@ -31,7 +31,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-}).with((plugins) => plugins.roles({ ensure: ['moderator'] }))
+}).with({ roles: { ensure: ['moderator'] } })
 
 export const Moderator = StaffRole.role('moderator')
 //#endregion moderators
@@ -42,24 +42,23 @@ export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			// Every caller may write, delete and restore posts in this example.
-			read: true,
-			create: true,
-			delete: true,
-			softDeleteOne: true,
-			softDeleteMany: true,
-			restoreOne: true,
-			restoreMany: true,
-			// Only moderators see tombstones in ordinary reads.
-			readDeleted: hasRole(Moderator),
-		})
-		// A command reaches REST or GraphQL only when the rule names it.
-		.rest({ softDeleteOne: true, restoreOne: true })
-		.graphql({ softDeleteOne: true, restoreOne: true }),
-)
+}).with({
+	access: {
+		// Every caller may write, delete and restore posts in this example.
+		read: true,
+		create: true,
+		delete: true,
+		softDeleteOne: true,
+		softDeleteMany: true,
+		restoreOne: true,
+		restoreMany: true,
+		// Only moderators see tombstones in ordinary reads.
+		readDeleted: hasRole(Moderator),
+	},
+	// A command reaches REST or GraphQL only when the rule names it.
+	rest: { softDeleteOne: true, restoreOne: true },
+	graphql: { softDeleteOne: true, restoreOne: true },
+})
 //#endregion post
 
 //#region comment

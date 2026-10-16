@@ -47,7 +47,7 @@ export interface CommitInput<TRules extends RuleValues> {
 	/** The request identifier, for correlation in logs. */
 	readonly requestId: string
 	/**
-	 * This plugin's `.with((plugins) => …)` entries on the written schema, as their
+	 * This plugin's `.with({ … })` entries on the written schema, as their
 	 * validators returned them when the application compiled.
 	 */
 	readonly rules: { readonly [TKey in keyof TRules]?: unknown }
@@ -73,7 +73,7 @@ export interface DefinePluginOptions<
 	readonly features?: TFeatures
 	/**
 	 * Rules, each with its validator: the methods of
-	 * `.with((plugins) => plugins.audit(true))`, which may hold callbacks
+	 * `.with({ audit: true })`, which may hold callbacks
 	 * typed against the completed schema (ADR-0339).
 	 */
 	readonly rules?: TValidators
@@ -310,7 +310,7 @@ interface WideRules extends SchemaRulesHKT {
 
 /**
  * Defines one plugin from a declarative object: features (`define` keys)
- * with their fields and commands, rules (`.with((plugins) => …)` methods), a
+ * with their fields and commands, rules (`.with({ … })` keys), a
  * post-commit callback and raw contributions. Core derives the privileges.
  *
  * @example
@@ -396,7 +396,7 @@ export const definePlugin = <
 			...(definition.contributions ?? []),
 		],
 	})
-	// `.with((plugins) => plugins.audit(…))`: the rule names, known now (ADR-0339).
+	// The keys `.with({ audit: … })` accepts, known now (ADR-0339).
 	const withRules =
 		rules.length === 0
 			? instance

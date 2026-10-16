@@ -35,7 +35,7 @@ const Member = UltimaBase.use(postgresPlugin())
 			name: field.string({ required: true }),
 		}),
 	})
-	.with((plugins) => plugins.postgres({ table: 'acl_relationship_members' }))
+	.with({ postgres: { table: 'acl_relationship_members' } })
 const identityPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
@@ -59,22 +59,24 @@ const Author = ACLSchemaApplication.Schema.define({
 		name: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins.postgres({ table: 'acl_relationship_authors' }).acl({
+}).with({
+	postgres: { table: 'acl_relationship_authors' },
+	acl: {
 		default: emptyACL,
-	}),
-)
+	},
+})
 const Tag = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipTag',
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins.postgres({ table: 'acl_relationship_tags' }).acl({
+}).with({
+	postgres: { table: 'acl_relationship_tags' },
+	acl: {
 		default: emptyACL,
-	}),
-)
+	},
+})
 const Article = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipArticle',
 	fields: (field) => ({
@@ -83,11 +85,12 @@ const Article = ACLSchemaApplication.Schema.define({
 		title: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins.postgres({ table: 'acl_relationship_articles' }).acl({
+}).with({
+	postgres: { table: 'acl_relationship_articles' },
+	acl: {
 		default: emptyACL,
-	}),
-)
+	},
+})
 
 type PersistedMember = Model<typeof Member>
 type PersistedAuthor = Model<typeof Author>
