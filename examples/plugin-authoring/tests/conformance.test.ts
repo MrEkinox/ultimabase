@@ -15,7 +15,7 @@ import { workflowPlugin } from '../src/workflow/plugin.ts'
 it('runs the common suite with the schemas a shape method types', async () => {
 	//#region schema-suite
 	const suite = definePluginConformanceSuite({
-		// The subject and the schemas that call its shape method, together.
+		// The subject and the schemas that set its feature, together.
 		createFixture: () => {
 			const subject = archivePlugin()
 			const Post = UltimaBase.use(subject).Schema.define({

@@ -9,8 +9,9 @@ without generated files, and tested with `testApplication` (ADR-0327).
 
 [`src/schema.ts`](src/schema.ts) installs every plugin once and declares the
 schemas. The block below shows the plugin list, then the `title` field of
-`Todo`, whose behavior sits on the field, and the end of `Todo`: the `.acl()`
-shape method and the schema rules in a final `.with(...)`:
+`Todo`, whose behavior sits on the field, and the end of `Todo`: its
+`indexes` and the `acl: true` feature key in `define`, then the schema rules
+in `.with((plugins) => ...)` (ADR-0339):
 
 <!-- region src/schema.ts#factory,todo-title,todo-rules -->
 
@@ -50,7 +51,9 @@ title: field.string({
 	validation: z.string().max(200),
 }),
 
-.with((plugins) =>
+	indexes: [{ fields: ['completed', 'dueAt'] }],
+	acl: true,
+}).with((plugins) =>
 	plugins
 		.access({
 			read: ({ where }) => where.eq('archived', false),

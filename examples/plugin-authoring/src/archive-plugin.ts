@@ -2,7 +2,7 @@
 import { dateTimeField } from '@ultimabase/core'
 import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 
-/** `.archivable()` adds a server-written `archivedAt` and two commands. */
+/** `archivable: true` adds a server-written `archivedAt` and two commands. */
 export const archivePlugin = () =>
 	definePlugin({
 		name: '@example/archive-plugin',

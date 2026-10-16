@@ -2,12 +2,14 @@
 
 Official soft-delete support for UltimaBase application schemas.
 
-A schema opts in with the `.softDelete()` shape method. It gains the
-server-written `isDeleted` and `deletedAt` fields, ordinary operations see
-only active rows, and six commands: `softDeleteOne`, `softDeleteMany`,
-`restoreOne`, `restoreMany`, `purgeOne` and `purgeMany`. Without options,
-native `deleteOne` and `deleteMany` write tombstones; with
-`{ mode: 'command' }` they stay physical deletes.
+A schema opts in with the `softDelete` feature key of `define` (ADR-0339). It
+gains the server-written `isDeleted` and `deletedAt` fields, ordinary
+operations see only active rows, and six commands: `softDeleteOne`,
+`softDeleteMany`, `restoreOne`, `restoreMany`, `purgeOne` and `purgeMany`.
+With `softDelete: true`, native `deleteOne` and `deleteMany` write tombstones;
+with `softDelete: { mode: 'command' }` they stay physical deletes. The plugin
+has no `.with` rule of its own: the schema's Access, REST and GraphQL rules
+name its commands.
 
 Every code block in this README is copied from the tested
 [`examples/soft-delete`](../../examples/soft-delete/README.md) application by
@@ -25,7 +27,7 @@ import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 /**
- * The configured factory types `.softDelete()`, its commands and its fields.
+ * The configured factory types the `softDelete` key, its commands and fields.
  * Access and Roles only decide who may read the trash; Soft Delete needs
  * neither. `postgresPlugin()` reads `DATABASE_URL` when the application starts.
  */
@@ -91,11 +93,11 @@ transactional Hook evidence.
 
 ## Modes
 
-| Declaration                        | `deleteOne` / `deleteMany` | Commands                             |
-| ---------------------------------- | -------------------------- | ------------------------------------ |
-| `.softDelete()`                    | tombstone                  | the six commands                     |
-| `.softDelete({ mode: 'command' })` | hard delete                | the six commands                     |
-| no `.softDelete()`                 | hard delete                | none, and no `isDeleted`/`deletedAt` |
+| Declaration                       | `deleteOne` / `deleteMany` | Commands                             |
+| --------------------------------- | -------------------------- | ------------------------------------ |
+| `softDelete: true`                | tombstone                  | the six commands                     |
+| `softDelete: { mode: 'command' }` | hard delete                | the six commands                     |
+| no `softDelete` key               | hard delete                | none, and no `isDeleted`/`deletedAt` |
 
 The example's `Comment` keeps native deletes permanent:
 
@@ -167,8 +169,8 @@ command, and its `all` branch runs for each command first with `kind` naming
 it.
 
 The one-row request commands reach REST and GraphQL when the schema's rule
-names them, `.with({ rest: { softDeleteOne: true, restoreOne: true } })` and
-`.with({ graphql: { softDeleteOne: true, restoreOne: true } })`, as
+names them, `plugins.rest({ softDeleteOne: true, restoreOne: true })` and
+`plugins.graphql({ softDeleteOne: true, restoreOne: true })`, as
 `POST /api/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one`, and as
 the `softDeleteOne{Schema}` and `restoreOne{Schema}` mutations (ADR-0324,
 ADR-0325). Many-row commands and purge have no route or field.
@@ -176,8 +178,8 @@ ADR-0325). Many-row commands and purge have no route or field.
 ## Unique values
 
 A tombstone keeps its data and its unique values, unless the application
-declares a partial unique index in the final `.with` (ADR-0303); the plugin
-never adds one:
+declares a partial unique index on `isDeleted` in the `indexes` of `define`
+(ADR-0303, ADR-0339); the plugin never adds one:
 
 <!-- region ../../examples/soft-delete/src/schema.ts#article -->
 
@@ -220,7 +222,7 @@ returns nothing to a caller without `readDeleted`.
 
 ## Reading deleted rows: `readDeleted`
 
-`.softDelete()` declares the schema permission `readDeleted` through Core
+`softDelete` declares the schema permission `readDeleted` through Core
 (ADR-0317). Reads by a caller who holds it skip the protected filter: they see
 tombstones and can filter and sort them (`where: { isDeleted: { eq: true } }`,
 `orderBy: { deletedAt: 'desc' }`), REST and GraphQL included. Updates, deletes

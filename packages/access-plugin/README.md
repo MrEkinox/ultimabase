@@ -57,12 +57,13 @@ export const Article = App.Schema.define({
 
 <!-- endregion -->
 
-## Rules in `.with` (ADR-0297)
+## Rules in `.with` (ADR-0297, ADR-0339)
 
 With the declaration form of
-[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md), schema rules
-go in the final `.with` call, typed by `AccessRules` and contributed through
-`AccessSchemaRules`. Filters may cross thunk targets in both directions;
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) and
+[ADR-0339](../../docs/adr/0339-define-describes-with-configures.md), schema
+rules go in `.with((plugins) => plugins.access({ … }))`, typed by
+`AccessRules` and contributed through `AccessSchemaRules`. Filters may cross thunk targets in both directions;
 `define` rejects an `access` option.
 
 ## Public surface
@@ -341,7 +342,7 @@ export const Admin = StaffRole.role('admin')
 export const Muted = StaffRole.role('muted')
 
 /**
- * `.softDelete()` adds request commands (`softDeleteOne`, `restoreOne`…) and
+ * `softDelete: true` adds request commands (`softDeleteOne`, `restoreOne`…) and
  * the `readDeleted` permission. Each has its own Access key: `update` and
  * `delete` grant none of them.
  */

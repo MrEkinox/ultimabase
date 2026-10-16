@@ -10,7 +10,7 @@ header a request reaches this only application, and `GET /health` reports its
 health (ADR-0323). REST is mounted under `/api` and
 GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
-`ExampleArticle` and `ExampleAuthor` soft-delete commands (`rest: true`), the
+`ExampleArticle` and `ExampleAuthor` soft-delete commands (`plugins.rest(true)`), the
 public `example.status` operation (`/api/operations/status`). Authentication
 serves its operations under `/api/auth` and in GraphQL (which hides
 `changePassword` and `logoutEverywhere`); REST hides them. `ExampleUser`,
@@ -72,15 +72,15 @@ same automatic mutation transaction.
 ## Official soft delete
 
 The application installs `softDeletePlugin()`, and each schema states its own
-intent with the `.softDelete()` shape method:
+intent with the `softDelete` feature key of `define` (ADR-0339):
 
-- `ExampleAuthor` calls `.softDelete()`, so its ordinary `deleteOne`, REST
+- `ExampleAuthor` sets `softDelete: true`, so its ordinary `deleteOne`, REST
   `DELETE`, and GraphQL delete mutation keep the logical delete contract while
   PostgreSQL writes a tombstone and stamps `deletedAt`.
-- `ExampleArticle` calls `.softDelete({ mode: 'command' })`, so native delete
+- `ExampleArticle` sets `softDelete: { mode: 'command' }`, so native delete
   remains a hard delete and the separately authorized `softDeleteOne` command
   hides a row.
-- `ExamplePrivateNote` does not call it, so its deletes stay physical.
+- `ExamplePrivateNote` does not set it, so its deletes stay physical.
 
 An authenticated direct call uses the configured schema class; results have no
 methods (ADR-0310). The example helper validates a real authentication session
@@ -176,24 +176,26 @@ delete.
 
 ## Contextual relation views
 
-Relations may define one reusable read subset in the final
-`.with({ relations })`, keyed by relation field name (ADR-0328).
-`ExampleArticle.contributors` uses a static target filter, while `reviewers`
-uses the authentication request context:
+Relations may define one reusable read subset with `plugins.relations(...)`
+in the schema's `.with` callback, keyed by relation field name (ADR-0328,
+ADR-0339). The callback of `ExampleArticle` starts with it:
+`contributors` uses a static target filter, while `reviewers` uses the
+authentication request context:
 
 <!-- region src/schema.ts#relation-views -->
 
 ```ts
-.relations({
-	contributors: { where: { listed: { eq: true } } },
-	// Anonymous requests see only public reviewers.
-	reviewers: {
-		where: ({ context, where }) =>
-			context.getValue(authPrincipal) === undefined
-				? where.eq('audience', 'public')
-				: where,
-	},
-})
+plugins
+	.relations({
+		contributors: { where: { listed: { eq: true } } },
+		// Anonymous requests see only public reviewers.
+		reviewers: {
+			where: ({ context, where }) =>
+				context.getValue(authPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
+		},
+	})
 ```
 
 <!-- endregion -->
@@ -204,7 +206,7 @@ GraphQL connections, and the visible universe used by `some`, `none`, `every`,
 logical `AND`; ordering, `skip`, and `take` run after filtering.
 `ExampleAuthor.articles` and `contributions` list published articles only,
 while Article filters its `contributors` and `reviewers` through Author: the
-final `.with` receives the complete schemas, so two schemas may filter each
+`.with` callback receives the complete schemas, so two schemas may filter each
 other's relations.
 
 This is presentation logic, not security. The example's independent Author
@@ -446,10 +448,10 @@ hooks, transactions, constraints, or integrity maintenance.
 
 ## Declaration form and current boundary
 
-Every schema uses the declaration form (ADR-0297): relation targets are
-thunks such as `target: () => ExampleAuthor`, shape methods such as
-`.softDelete()` and `.acl()` follow `define(...)`, and Access, ACL, Hooks,
-REST and GraphQL rules sit in the final `.with(...)`. The application
+Every schema uses the declaration form (ADR-0297, ADR-0339): relation targets
+are thunks such as `target: () => ExampleAuthor`, feature keys such as
+`softDelete: true` and `acl: true` sit in `define(...)`, and Access, ACL,
+Hooks, REST and GraphQL rules sit in `.with((plugins) => ...)`. The application
 declares itself once in `Register`
 (`readonly app: ReturnType<typeof createMinimalApplication>`), which gives
 name-keyed types such as `WhereBuilder<SchemaRef<"ExampleArticle">>`. There is

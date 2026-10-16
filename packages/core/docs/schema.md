@@ -262,7 +262,7 @@ reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
 join-table or transport names.
 
-An optional `where`, declared in the final `.with({ relations })` under the
+An optional `where`, declared with `plugins.relations(...)` in `.with` under the
 relation field name (ADR-0328), narrows the visible target collection for this
 exact relation. It accepts an ordinary target `WhereInput` or one synchronous
 contextual resolver:
@@ -530,19 +530,19 @@ const PostSchema = UltimaBase.Schema.define({
 Developer and reserved system-field names are checked statically and at
 runtime. Every schema exposes one immutable normalized `indexes` list:
 field-level declarations appear in field order, followed by schema-level
-declarations in configuration order (those of `define`, then those of the
-final `.with`). Each entry contains a non-empty `fields` tuple, an explicit
+declarations in configuration order. Each entry contains a non-empty `fields` tuple, an explicit
 boolean `unique` value and, for a partial index, its `where` conjunction.
 Only field-level unique indexes and the unique indexes of `define` without
-`where` are unique targets of `updateOne`, `deleteOne` and `upsertOne`
+`where`, including those that name a field a feature adds, are unique targets
+of `updateOne`, `deleteOne` and `upsertOne`
 (ADR-0332); Core records which entries they are by identity, so the shape
 adapters read is unchanged.
 
 A partial index (ADR-0303) adds a static, portable `where`: equality (a literal
 or `eq`), `gt`, `gte`, `lt`, `lte` on scalar non-list fields, null tests and
-conjunction. Declare partial indexes in the final `.with`, whose type sees
-fields added by shape methods (the `indexes` of `define` keep their previous
-type); those indexes are checked against the compiled fields when the
+conjunction. The `indexes` of `define` are typed against the complete fields,
+declared and added by features such as `softDelete: true` (ADR-0339); with
+feature keys, they are checked against the compiled fields when the
 application compiles:
 
 ```ts

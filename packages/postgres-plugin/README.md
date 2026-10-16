@@ -19,8 +19,8 @@ It requests `schema:declare` to own the `postgres` schema rule and field
 option. Both are recognized only when `postgresPlugin()` is installed; unknown keys
 and empty identifiers fail static application compilation.
 
-The table name is a rule of the final `.with({ postgres: { table } })` call,
-typed through Core's rules slot (ADR-0320), and the stored-field
+The table name is the `plugins.postgres({ table })` rule of `.with`,
+typed through Core's rules slot (ADR-0320, ADR-0339), and the stored-field
 `postgres.renamedFrom` option is projected directly from the installed plugin,
 both from source. Embedded properties, virtual wrappers, and output
 descriptors have no independent physical column identity, so the field option
@@ -1111,7 +1111,7 @@ columns. Queries, results, errors, and logs keep the logical field names.
 
 Use the `postgres` rule when the database needs an exact table identifier:
 `Article` above is stored in `newsroom_articles` through
-`.with({ postgres: { table: 'newsroom_articles' } })`, while `StaffMember`
+`.with((plugins) => plugins.postgres({ table: 'newsroom_articles' }))`, while `StaffMember`
 keeps the derived `staff_members`.
 
 The explicit name is preserved verbatim. It is passed to Drizzle as an

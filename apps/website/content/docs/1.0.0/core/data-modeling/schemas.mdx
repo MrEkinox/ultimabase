@@ -1,14 +1,14 @@
 ---
 title: Schemas
 seoTitle: Define Data Schemas in TypeScript
-description: Define, register, and compile schemas, including their fields, indexes, and application-owned handles.
+description: Define, register, and compile schemas, including their fields, indexes, plugin features and rules, and application-owned handles.
 audience:
   - application-developer
 contentType: concept
 order: 1
-outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
+outcome: Define and register a schema, choose where each declaration goes, and understand when its fields and application handle become available.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/modeling/README.md
   - examples/modeling/src/catalog.ts
@@ -30,6 +30,9 @@ sources:
   - packages/core/src/schema/schema/index-predicates.ts
   - docs/adr/0303-core-partial-indexes-and-health.md
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
+  - docs/adr/0339-define-describes-with-configures.md
+  - examples/access/src/openings.ts
+  - tooling/codemods/define-with/README.md
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
@@ -55,16 +58,20 @@ value kind and two composite indexes; `App` is the configured factory of
 | ----------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
 | `className` | Yes      | Stable logical name for the schema.                                                                                 |
 | `fields(f)` | Yes      | Synchronous callback that returns its stored, relationship, and virtual field declarations. See [Fields](./fields). |
-| `indexes`   | No       | Composite indexes over top-level fields.                                                                            |
+| `indexes`   | No       | Composite and partial indexes over top-level fields. See [Indexes](#indexes).                                       |
 
-`define()` accepts no other option: plugin rules such as `access`, `hooks`,
-`rest`, `graphql`, or `postgres` are rejected there and go in a final
-`.with({ ... })` instead, as [Plugin methods and rules](#plugin-methods-and-rules)
-shows. Field-level plugin options, such as a field's `validation`, stay on the
-field. Use the configured factory's `App.Schema.define()` to obtain the
-methods, rules, and field options of the installed plugins; the zero-plugin
-root `UltimaBase.Schema.define()` declares portable Core-only schemas. Importing
-a plugin package alone does not install it. See [Using Plugins](/docs/1.0.0/plugins/using-plugins).
+`define()` describes what the schema is, with static values only. Installed
+plugins add their feature keys to it, such as `softDelete: { mode: 'command' }`
+from Soft Delete or `acl: true` from ACL Permissions. Everything about how a
+plugin treats the schema, such as Access rules, Hooks, or REST routes, goes in
+`.with((plugins) => ...)` instead, as
+[Plugin features and rules](#plugin-features-and-rules) shows. Options about
+one field, such as a field's `validation`, stay on the field;
+[Where each declaration goes](#where-each-declaration-goes) lists every case. Use the configured
+factory's `App.Schema.define()` to obtain the features, rules, and field
+options of the installed plugins; the zero-plugin root
+`UltimaBase.Schema.define()` declares portable Core-only schemas. Importing a
+plugin package alone does not install it. See [Using Plugins](/docs/1.0.0/plugins/using-plugins).
 
 ## Indexes
 
@@ -95,8 +102,8 @@ Here `failure` is a `FrameworkError` with `code: 'UNIQUE_VIOLATION'` and
 
 ### Index a combination
 
-Use the schema-level `indexes` array when the index covers several distinct
-top-level fields or needs a `where` predicate. `Book` declares two such
+Use the schema-level `indexes` array of `define` when the index covers several
+distinct top-level fields or needs a `where` predicate. `Book` declares two such
 indexes. The order in `fields` is preserved;
 put the columns in the order that serves your common query pattern, then check
 the database's query plan when performance matters. The database planner, not
@@ -108,15 +115,16 @@ framework-owned `createdAt` field, is an ordinary index for the latest books
 of a genre; it permits duplicates. `unique`
 defaults to `false`. Core rejects repeated or unknown fields, an empty `fields`
 list, and an entry identical to a field-level `indexed` declaration. Index only
-top-level stored fields or framework-owned system fields, not an embedded
-child, relation, or virtual result.
+top-level stored fields, framework-owned system fields, or fields that a plugin
+feature adds, not an embedded child, relation, or virtual result.
 
 ### Index part of the rows
 
 A `where` predicate restricts an index to the rows it matches; with `unique`,
-values must be distinct only among those rows. Declare such `indexes` in the
-final `.with`, which sees every field, including fields added by shape methods
-such as `.softDelete()`. The [Soft Delete example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/soft-delete)
+values must be distinct only among those rows. The `indexes` of `define` see
+every field, including fields added by a plugin feature such as
+`softDelete: true`, which adds `isDeleted`. The
+[Soft Delete example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/soft-delete)
 declares one:
 
 <include cwd meta='title="src/schema.ts"'>
@@ -132,10 +140,11 @@ database adapter must support partial indexes and the predicate's operators;
 otherwise the application refuses to start with
 `PLUGIN_ADAPTER_CAPABILITY_MISSING`.
 
-A field declared `indexed: 'unique'` and a unique index of `define` without
-`where` are exact [unique targets](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target)
-of `updateOne`, `deleteOne`, and `upsertOne`. A partial unique index or one
-declared in `.with` only enforces uniqueness: it is not a target. `Book` has
+A field declared `indexed: 'unique'` and a unique index without `where` are
+exact [unique targets](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target)
+of `updateOne`, `deleteOne`, and `upsertOne`, including when the index names a
+field a feature adds. A partial unique index only enforces uniqueness: it is
+not a target. `Book` has
 three targets, `{ id }`, `{ isbn }`, and `{ author, title }`:
 
 <include cwd meta='title="tests/schemas.test.ts"'>
@@ -219,35 +228,98 @@ database connection, not on the first request. See
 [Relationships](./relationships) for target declarations and
 [Using Plugins](/docs/1.0.0/plugins/using-plugins) for installation and ownership.
 
-## Plugin methods and rules
+## Plugin features and rules
 
-`define` holds the data, relation targets are functions that return the target
-schema (as `author` of `Book` shows), plugins add methods such as
-`.softDelete()`, and a final `.with` holds the plugin rules. The Soft Delete
+A declaration has two blocks. `define` describes what the schema is: its
+`className`, `fields`, `indexes`, and the feature keys of installed plugins,
+such as `softDelete: true`. Relation targets are functions that return the
+target schema, as `author` of `Book` shows. `.with((plugins) => ...)` then
+configures how each plugin treats the schema: `plugins` offers one method per
+installed plugin rule, and you chain the methods you need. The Soft Delete
 example's `Post`:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/soft-delete/src/schema.ts#post
 </include>
 
-`.with` must be the last call and is optional: a schema without plugin rules
-ends with `define(...)` or its last shape method. A plugin option passed to
-`define` fails with
-`Unknown schema option: access. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)`
-and is a TypeScript error. Core owns two `.with` rules itself: the partial
-`indexes` above, and `relations`, which filters reads through a relation (see
-[Relationships](./relationships#change-relation-membership)).
+`softDelete: true` adds the `isDeleted` and `deletedAt` fields and commands
+such as `softDeleteOne` and `restoreOne`, so the Access, REST, and GraphQL
+rules in `.with` can name them. A feature key takes `true` or a static options
+object. Each `plugins` method can be called once, and `.with` must be the last
+call. It is optional: a schema without plugin rules ends with `define(...)`,
+unless a feature it sets requires a rule, as `acl: true` requires
+`plugins.acl({ default })`. An unknown or misspelled key of `define`, or a rule
+in `define`, is a TypeScript error; at runtime, `define` rejects it with
+`Unknown schema option: <name>`.
 
-Schemas in separate files may reference each other, including circular
-pointers and relations, because each target is a function. Role and User
-schemas use the same chain from `App.RoleSchema.define(...)` and
-`App.UserSchema.define(...)`.
+Why two blocks? The type of the schema, with every field including those its
+features add, is built by `define`. The rules of `.with` read that finished
+type: an Access `read` filter or a Hook is checked against the exact fields
+and commands of the schema. Callbacks therefore live only in the last call,
+where the schema they read is already complete. This is also what lets schemas
+in separate files reference each other, including circular pointers and
+relations, while the editor stays fast and exact.
+
+Role and User schemas follow the same two blocks from
+`App.RoleSchema.define(...)` and `App.UserSchema.define(...)`. Role behaviour
+(`ensure`, `deletion`, `resolveCurrent`) is a rule:
+`.with((plugins) => plugins.roles({ ensure: ['moderator'] }))`.
+
+## Where each declaration goes
+
+Where does it go? Each declaration has one place. Start from what you want to
+declare:
+
+| You declare                                                                  | It goes                                                           | For example                                                       |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| A field and its Core options                                                 | `fields` of `define`                                              | `title: field.string({ required: true })`                         |
+| A plugin option about one field: `validation`, `access`, `hooks`, `postgres` | On the field                                                      | `field.string({ validation: z.string().max(200) })`               |
+| An index on one field                                                        | `indexed` on the field                                            | `field.string({ indexed: 'unique' })`                             |
+| A composite index, unique or not                                             | `indexes` of `define`; a complete unique index is a unique target | `{ fields: ['author', 'title'], unique: true }`                   |
+| A partial index                                                              | `indexes` of `define`, with `where`; unique, it is not a target   | `{ fields: ['slug'], unique: true, where: { isDeleted: false } }` |
+| An index on a field a plugin feature adds                                    | `indexes` of `define`, like any other field                       | `{ fields: ['isDeleted', 'createdAt'] }`                          |
+| A plugin feature that adds fields, commands, or permissions                  | Its key in `define`, with `true` or static options                | `softDelete: { mode: 'command' }`, `acl: true`                    |
+| How a plugin treats this schema, callbacks included                          | Its method in `.with((plugins) => ...)`                           | `plugins.access({ read: true }).rest(true)`                       |
+| A filter on the reads through a relation                                     | `plugins.relations` in `.with`                                    | `plugins.relations({ reviewers: { where: ... } })`                |
+| Role behaviour: `ensure`, `deletion`, `resolveCurrent`                       | `plugins.roles` in the `.with` of a Role schema                   | `plugins.roles({ ensure: ['moderator'] })`                        |
+| A plugin option for the whole application                                    | The plugin factory, in `UltimaBase.use(...)`                      | `accessPlugin({ allowWithoutRule: { all: true, write: false } })` |
+
+Each plugin page lists its feature keys, `.with` method, and field options in
+its configuration section.
+
+## Migrating from the previous form
+
+Earlier pre-release versions chained plugin methods after `define` and passed
+an object to `.with`. Each previous form has one replacement:
+
+| Previous form                                                | Current form                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `define({ … }).softDelete({ mode: 'command' })`              | `define({ …, softDelete: { mode: 'command' } })`                          |
+| `define({ … }).acl()`                                        | `define({ …, acl: true })`                                                |
+| `.with({ access: a, hooks: h })`                             | `.with((plugins) => plugins.access(a).hooks(h))`                          |
+| `.with({ indexes: [i] })`                                    | `define({ …, indexes: [i] })`                                             |
+| `.with({ relations: r })`                                    | `.with((plugins) => plugins.relations(r))`                                |
+| `RoleSchema.define({ …, ensure, deletion, resolveCurrent })` | `.with((plugins) => plugins.roles({ ensure, deletion, resolveCurrent }))` |
+
+The UltimaBase repository ships a codemod that applies this table to your
+source files and to the TypeScript blocks of Markdown files. Run it from a
+checkout of the repository, first without `--write` to list the changes and
+the sites it leaves for you, then with `--write`, and format the changed files:
+
+```sh
+node tooling/codemods/define-with/run.ts --write path/to/your/src
+```
+
+The codemod never guesses: a `.with(rules)` whose object is not written at the
+call, or a community plugin method it does not know, is reported as
+`file:line kind: code` and left unchanged. `--feature <name>` converts a
+community method such as `.archivable()` into `archivable: true`.
 
 ## Types follow the declaration
 
 The compiled schema graph is Runtime truth, and TypeScript types come from the
 same source declarations: fields, complete filters, relationships, plugin
-methods, rules, and their callbacks. There is no generated declaration file and
+features, rules, and their callbacks. There is no generated declaration file and
 no generation step. Types never change what the application executes; a
 JavaScript application runs the same compiled graph.
 

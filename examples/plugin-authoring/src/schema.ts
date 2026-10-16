@@ -8,7 +8,7 @@ import { auditPlugin } from './audit-plugin.ts'
 import { flagPlugin } from './flag-plugin.ts'
 
 /**
- * The schema plugins type `.archivable()`, `.flaggable()` and their rules
+ * The schema plugins type `archivable`, `flaggable` and their rules
  * from their own source: no generation step. REST and GraphQL accept every
  * client's writes to keep the example short; install Access before exposing
  * an application.

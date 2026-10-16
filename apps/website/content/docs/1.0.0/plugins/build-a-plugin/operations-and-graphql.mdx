@@ -6,7 +6,7 @@ audience:
 contentType: guide
 outcome: Declare executable plugin behavior and choose its exact public transport surface.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/plugin-authoring/README.md
   - examples/plugin-authoring/src/workflow/operations.ts
@@ -136,7 +136,7 @@ Use a [schema mutation](#expose-a-schema-mutation) when a command updates or
 deletes one item and needs Core's locked target, policy checks, and transaction.
 `models.extend()` attaches its `schemaMutations` to the selected schemas at
 Runtime; it does not type them. A statics slot types the methods on the
-schemas that call your shape method, as
+schemas that set your feature, as
 [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#add-commands-to-the-schema-class)
 explains, and `definePlugin` writes it for you. JavaScript uses the same
 compiled surfaces.
@@ -313,8 +313,8 @@ its own root name, target ID, result type, resolver, or authority. A
 Master-only mutation never enters the public SDL. The official
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
 mutations: REST exposes a one-row request command when the application names
-it in `.with({ rest: { softDeleteOne: true } })`, and GraphQL when it names it
-in `.with({ graphql: { softDeleteOne: true } })`, without any binding: the
+it with `plugins.rest({ softDeleteOne: true })` in `.with`, and GraphQL when it
+names it with `plugins.graphql({ softDeleteOne: true })`, without any binding: the
 GraphQL field then takes only the row `id`. The `archivePlugin` of
 [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#start-with-defineplugin)
 works the same way once `Post` names `archiveOne` for both transports:

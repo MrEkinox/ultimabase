@@ -83,8 +83,8 @@ separates reusable configuration, direct execution, HTTP serving and the
 explorer.
 
 Install the plugin on the configured factory before declaring schemas: the
-`.with({ graphql })` rule is then typed from source; `define` rejects a
-`graphql` option (ADR-0297).
+`plugins.graphql(...)` rule of `.with` is then typed from source; `define`
+rejects a `graphql` key (ADR-0297, ADR-0339).
 
 The plugin compiles one application-local executable `GraphQLSchema` after the
 complete Core schema graph exists. Importing the package installs no behavior.
@@ -210,13 +210,13 @@ rejected before Runtime.
 
 ## Schema exposure
 
-`.with({ graphql })` selects one schema's generated fields by the schema
+`plugins.graphql(...)` selects one schema's generated fields by the schema
 method names, the same keys as REST and Access rules (ADR-0325): `findOne`
 (`get<Type>` and `findOne<Type>`), `findMany`, `count`, `exists`, `createOne`,
 `updateOne`, `deleteOne`, `upsertOne`, `createMany`, `updateMany`,
 `deleteMany`, `upsertMany`, a plugin command such as `softDeleteOne`, and
-`typeName`, which renames the generated type. `graphql: false` exposes
-nothing, `graphql: true` every method and command. An omitted method inherits
+`typeName`, which renames the generated type. `plugins.graphql(false)`
+exposes nothing, `plugins.graphql(true)` every method and command. An omitted method inherits
 `graphqlPlugin({ default })` (`true`, `false` or per method), then its built-in
 default: reads, `exists`, `createOne`, `updateOne` and `deleteOne` on; `count`,
 upserts and the `…Many` methods off. A plugin command is exposed only when a
@@ -224,7 +224,7 @@ rule names it, or when the rule or the default is `true`; a key that names no
 method or exposable command fails startup. Exposure only controls which
 GraphQL declarations exist; it never grants access or bypasses Runtime policy.
 
-`graphql: false` removes the schema's root fields and mutations (ADR-0333).
+`plugins.graphql(false)` removes the schema's root fields and mutations (ADR-0333).
 A schema without any exposed root or command contributes types only where an
 exposed schema reaches it: through a pointer or relation field of an exposed
 type, or a nested write input, transitively. A schema nothing reaches is
@@ -400,8 +400,9 @@ optional JSON details.
 
 Plugin-owned schema mutations (commands) follow the same rule keys:
 
-`.softDelete().with({ graphql: { softDeleteOne: true } })` on `Post`, with the
-Soft Delete plugin installed, adds `softDeleteOnePost`.
+`softDelete: true` in `define` and
+`.with((plugins) => plugins.graphql({ softDeleteOne: true }))` on `Post`, with
+the Soft Delete plugin installed, add `softDeleteOnePost`.
 
 A request command on one row needs no GraphQL binding: its field
 `softDeleteOnePost(input: { id })` takes the row ID only and the command's own

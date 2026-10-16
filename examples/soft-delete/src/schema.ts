@@ -7,7 +7,7 @@ import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 /**
- * The configured factory types `.softDelete()`, its commands and its fields.
+ * The configured factory types the `softDelete` key, its commands and fields.
  * Access and Roles only decide who may read the trash; Soft Delete needs
  * neither. `postgresPlugin()` reads `DATABASE_URL` when the application starts.
  */

@@ -3,12 +3,12 @@
 A small blog backend that installs the plugins the
 [Build a Plugin](../../apps/website/content/docs/1.0.0/plugins/build-a-plugin/index.mdx)
 pages teach, each one in its own short file: a starter plugin with a typed
-setup export, `definePlugin` plugins with a shape method, commands and a
-`.with` rule, a raw plugin typing its shape method, field and rule through
-Core's slots, a field kind and a field option, two plugins meeting through a
+setup export, `definePlugin` plugins with a feature, commands and a `.with`
+rule, a feature that requires its rule, a raw plugin typing its feature,
+field and rule through Core's slots, a field kind and a field option, two plugins meeting through a
 capability, a lifecycle-only resource, owner-private storage, an operation
 bound to GraphQL and REST, an independent GraphQL schema, an HTTP route, and
-an environment-dependent default. It uses the declaration form (ADR-0297)
+an environment-dependent default. It uses the declaration form (ADR-0297, ADR-0339)
 without generated files and is tested with `testApplication` and the plugin
 conformance suite of `@ultimabase/testing` (ADR-0327).
 
@@ -24,9 +24,10 @@ here, and the tests prove what the documentation says.
 | File                                                                       | What it shows                                                                                    |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | [`src/starter-plugin.ts`](src/starter-plugin.ts)                           | an inert factory with an optional `instanceId` and a typed setup export                          |
-| [`src/archive-plugin.ts`](src/archive-plugin.ts)                           | `definePlugin` with the `.archivable()` shape method, a server-written field and two commands    |
+| [`src/archive-plugin.ts`](src/archive-plugin.ts)                           | `definePlugin` with the `archivable` feature, a server-written field and two commands            |
 | [`src/audit-plugin.ts`](src/audit-plugin.ts)                               | `definePlugin` with an `audit` rule read by `afterCommit`                                        |
-| [`src/flag-plugin.ts`](src/flag-plugin.ts)                                 | a raw plugin: `.flaggable()`, a field and a rule typed through Core's slots, an additive patch   |
+| [`src/review-plugin.ts`](src/review-plugin.ts)                             | `definePlugin` with a `reviewable` feature that requires its `review` rule                       |
+| [`src/flag-plugin.ts`](src/flag-plugin.ts)                                 | a raw plugin: `flaggable`, a field and a rule typed through Core's slots, an additive patch      |
 | [`src/rating-plugin.ts`](src/rating-plugin.ts)                             | a field family for virtual outputs and a field option for stored fields                          |
 | [`src/format-capability.ts`](src/format-capability.ts)                     | a capability token, its provider and a consumer reading it                                       |
 | [`src/client-plugin.ts`](src/client-plugin.ts)                             | a lifecycle-only application resource                                                            |
@@ -40,8 +41,9 @@ here, and the tests prove what the documentation says.
 | [`src/ultimabase.ts`](src/ultimabase.ts)                                   | the application with the other plugins and the `Register` declaration                            |
 | [`src/main.ts`](src/main.ts)                                               | the development entry point                                                                      |
 | [`tests/starter.test.ts`](tests/starter.test.ts)                           | the setup export and the common conformance suite                                                |
-| [`tests/schema-contributions.test.ts`](tests/schema-contributions.test.ts) | the shape methods, commands over TypeScript, REST and GraphQL, the rule after commit             |
-| [`tests/schema-misuse.test.ts`](tests/schema-misuse.test.ts)               | a rule in `define`, before its shape method, without its plugin; a peer range; a Core range      |
+| [`tests/schema-contributions.test.ts`](tests/schema-contributions.test.ts) | the features, commands over TypeScript, REST and GraphQL, the rule after commit                  |
+| [`tests/features-and-rules.test.ts`](tests/features-and-rules.test.ts)     | a feature in `define`, its required rule in `.with`, the missing rule, a rule in `define`        |
+| [`tests/schema-misuse.test.ts`](tests/schema-misuse.test.ts)               | a rule in `define`, without its feature, without its plugin; a peer range; a Core range          |
 | [`tests/field-kinds.test.ts`](tests/field-kinds.test.ts)                   | the field kind and the field option in a second application                                      |
 | [`tests/runtime.test.ts`](tests/runtime.test.ts)                           | the capability, the lifecycle resource, cancellation and private storage                         |
 | [`tests/operations.test.ts`](tests/operations.test.ts)                     | the operation in TypeScript, GraphQL and REST, the GraphQL schema and the HTTP route             |

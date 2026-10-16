@@ -25,7 +25,7 @@ tsconfig.build.json`) and `start` (the compiled `dist/main.js`); JavaScript
 - **Prototype Access.** With Access, the starter installs
   `accessPlugin({ allowWithoutRule: { all: 'development' } })`: every
   operation without a rule works in development, with a warning at start, and
-  `NODE_ENV=production` refuses to start until `.with({ access })` rules
+  `NODE_ENV=production` refuses to start until `plugins.access(...)` rules
   replace the opening. REST and GraphQL then expose Task writes, which Access
   decides. Without Access, the data APIs stay read-only.
 - **First test.** `tests/task.test.ts` starts the application with
@@ -38,8 +38,8 @@ tsconfig.build.json`) and `start` (the compiled `dist/main.js`); JavaScript
   existing database; the prompt then offers its URL, written to the ignored
   `.env` (`--database-url` in flags).
 - **Declaration form.** Generated schemas use the declaration form only
-  (ADR-0297): data in `define(...)`, shape methods such as `.softDelete()` and
-  `.acl()`, then rules in a final `.with(...)` only when a schema has rules.
+  (ADR-0297, ADR-0339): what the schema is in `define(...)`, then how each
+  plugin treats it in `.with((plugins) => ...)` only when a schema has rules.
   There is no generation script and no generated file; the
   application declares itself once in `Register`.
 - **Style.** create-app's tests check every representative generated project
@@ -62,7 +62,7 @@ Authentication installs `authPlugin({ methods: [password({ identifier: 'email' }
 (`@ultimabase/auth-plugin` and `@ultimabase/auth-password`) and declares the
 User through `SchemaApplication.UserSchema.define(...)`, matching the
 configured Role form; it adds sessions without granting Task access and needs
-no Master key. When Access is selected too, the User's `.with({ access })`
+no Master key. When Access is selected too, the User's `plugins.access(...)`
 rules expose only the session owner, so sign-up, login, and refresh can
 return their required profile, and deny direct User writes. Object ACLs start
 empty and deny ordinary Task reads, updates, and deletes, but do not govern

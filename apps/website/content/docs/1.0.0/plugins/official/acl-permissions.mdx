@@ -7,7 +7,7 @@ contentType: guide
 order: 6
 outcome: Protect individual objects with public, principal, and role permissions.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/acl/README.md
   - examples/acl/src/schema.ts
@@ -40,12 +40,13 @@ sources:
   - docs/adr/0218-master-bypasses-authorization-policies.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0321-acl-shape-sharing-and-backfill.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
 
 `@ultimabase/acl-permissions-plugin` stores an access-control list on each
-row of the schemas that call `.acl()`. An ACL grants object-level `read`,
+row of the schemas that set `acl: true` in `define`. An ACL grants object-level `read`,
 `update`, and `delete` rights to public, authenticated, exact-principal, or
 role subjects. The plugin enforces those rights through Core protected
 constraints and database filtering, not by loading every row and filtering
@@ -95,9 +96,13 @@ roles:
 	../../examples/acl/src/schema.ts#factory
 </include>
 
-Call `.acl()` before `.with(...)`: it adds the reserved, required `acl` field.
-`.with({ acl })` then configures it, and its `default` is required, because an
-empty ACL would hide each new row from everyone but Master:
+Set `acl: true` in `define`: this feature key adds the reserved, required
+`acl` field. `plugins.acl({ default, … })` in `.with` then configures it, and
+its `default` is required, because an empty ACL would hide each new row from
+everyone but Master. A declaration that sets `acl: true` without that rule is
+a TypeScript error, and fails at runtime when `.with` runs or the application
+compiles (see
+[Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)):
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/acl/src/schema.ts#note
@@ -140,7 +145,7 @@ rule also accepts:
   the default or the current ACL.
 - `clientSharing`: lets clients share rows (see below).
 - `existingRows`: the ACL that rows already in the table receive when
-  `.acl()` is added (see below).
+  `acl: true` is added (see below).
 - `limits`: overrides `aclPlugin({ limits: { maxPrincipals, maxRoles } })`
   (100 principals and 50 roles by default) for this schema. Public and
   authenticated grants do not count, and a repeated grant for one subject
@@ -262,7 +267,7 @@ When PostgreSQL synchronization adds the `acl` column to a table:
   to follow: declare `existingRows`, or empty the table first.
 
 Under `schemaPolicy: 'fail'` nothing changes and the drift message names the
-value existing rows would receive. The column is `NOT NULL`. Removing `.acl()`
+value existing rows would receive. The column is `NOT NULL`. Removing `acl: true`
 later keeps the column and its data, gives rows written afterward an empty
 ACL, and drops the index.
 
@@ -303,10 +308,10 @@ subject.
 
 ## Troubleshooting
 
-- **`.acl()` is missing from autocomplete:** declare the schema from the
-  configured factory that installs `aclPlugin()`.
-- **`acl.default` is required:** `.with({ acl: { default } })` must follow
-  `.acl()`.
+- **`acl` is missing from the completions of `define`:** declare the schema
+  from the configured factory that installs `aclPlugin()`.
+- **`acl.default` is required:** a schema that sets `acl: true` needs
+  `.with((plugins) => plugins.acl({ default }))`.
 - **A record is unexpectedly invisible:** inspect its ACL with Master. An
   empty ACL denies ordinary object rights.
 - **A share is denied:** the schema needs `clientSharing`, it must allow the

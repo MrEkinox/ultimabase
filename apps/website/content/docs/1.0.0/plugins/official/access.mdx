@@ -8,7 +8,7 @@ contentType: guide
 order: 4
 outcome: Define fail-closed authorization that can only narrow as policies compose.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/access/README.md
   - examples/access/src/schema.ts
@@ -40,6 +40,7 @@ sources:
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
@@ -121,10 +122,11 @@ using it is rejected with `PERMISSION_DENIED`. Create, update, upsert, and
 delete have no rule, so they remain denied. Audited Master requests bypass
 these Access restrictions: the example's tests write the articles as Master.
 
-Field `access` stays on the field; schema rules go in the final
-`.with({ access })`, never in `define`. Both are typed from the source
-declaration: items, row filters, relationships, and the command keys of shape
-methods such as `.softDelete()` stay exact without a generation step.
+Field `access` stays on the field; schema rules go in
+`.with((plugins) => plugins.access({ … }))`, never in `define` (see
+[Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). Both are typed from the source
+declaration: items, row filters, relationships, and the command keys that
+features such as `softDelete: true` add stay exact without a generation step.
 JavaScript uses the same compiled policy.
 
 ## Behavior and limitations
