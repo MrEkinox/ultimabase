@@ -165,8 +165,8 @@ const UserSchema = Application.Schema.define({
 			},
 		}),
 	}),
-}).with({
-	hooks: {
+}).with((plugins) =>
+	plugins.hooks({
 		resolveInput: {
 			update: ({ operation }) => operation,
 		},
@@ -178,8 +178,8 @@ const UserSchema = Application.Schema.define({
 		afterOperation: {
 			create: ({ item }) => auditCreation(item),
 		},
-	},
-})
+	}),
+)
 
 const ultimabase = new Application({
 	schemas: [UserSchema],

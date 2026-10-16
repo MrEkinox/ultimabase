@@ -282,19 +282,7 @@ were installed, not the zero-plugin `UltimaBase.Schema`. If startup fails instea
 plugin report and compatibility diagnostics before changing privileges or
 infrastructure settings.
 
-## Migrate pre-release authoring
-
-Use one replacement for each removed form; these are migrations, not compatibility aliases:
-
-| Removed form                                             | Current form                                                                                                        |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Constructor `plugins` option                             | Install once with chained `UltimaBase.use()` calls; a plugin list can use the same `.use(...plugins)` entry point.  |
-| Standalone ordinary `Schema.define(options)`             | `App.Schema.define(options)`; portable Core-only schemas use `UltimaBase.Schema.define(options)`.                   |
-| Ordinary CRUD through `application.schema(name)`         | Call the declared schema class directly, such as `Post.findMany()`.                                                 |
-| Explicit application selector on ordinary class commands | Call the class after its owning application starts; it resolves and verifies the sole active application.           |
-| Generated `Application*Builder` aliases                  | Infer callback parameters, or annotate low-level consumers with Core's contextual builder types.                    |
-| Plugin options inside `define({ access, hooks, … })`     | Rules in `.with((plugins) => plugins.access(...).hooks(...))`; feature keys such as `softDelete: true` in `define`. |
-| Generated declarations and `typegenPlugin()`             | None: types come from the source declarations and the application's one `Register` declaration.                     |
+## Register schemas
 
 No schema is registered by being declared: keep `new App({ schemas: [...] })`.
 Advanced dynamically named handles remain for capabilities that need them; they

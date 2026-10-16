@@ -36,8 +36,8 @@ Examples are user-facing, tested applications. They must only import public `@ul
   `VALIDATION_ERROR` for every issue, `updateMany` index paths, `check()`,
   the REST `422` answer), tested with `testApplication`. Its `//#region`
   blocks are the code of the Validation page and package README (ADR-0330).
-- [`acl`](acl/README.md): the ACL plugin end to end (`.acl()` and its
-  required `default`, atomic `grant` and `revoke` sharing, `clientSharing`,
+- [`acl`](acl/README.md): the ACL plugin end to end (`acl: true` in
+  `define` and the required `default` of its rule, atomic `grant` and `revoke` sharing, `clientSharing`,
   `select: { acl: true }` and `entries()`, limits, public and role entries,
   `resolveInput`, complete ACLs written by Master, ACL with Access and Roles,
   ACL values and change events), tested with `testApplication`. Its
@@ -80,7 +80,7 @@ Examples are user-facing, tested applications. They must only import public `@ul
   the code of the HTTP and Hono Server pages and the `http-plugin`,
   `hono-server-plugin` and `api-server` READMEs (ADR-0330).
 - [`rest`](rest/README.md): the REST plugin end to end (the `/api` mount,
-  `.with({ rest })` method keys exposing or hiding routes per schema, list
+  `plugins.rest({ … })` method keys exposing or hiding routes per schema, list
   reads with `where`, `select`, `orderBy`, `include` and cursor pagination,
   single reads, `first`, `count` and `exists`, create, update and delete with
   relation links, an atomic bulk create, `?select=id` for an unreadable row,
@@ -89,8 +89,8 @@ Examples are user-facing, tested applications. They must only import public `@ul
   `//#region` blocks are the code of the REST page and package README
   (ADR-0330).
 - [`graphql`](graphql/README.md): GraphQL end to end (the `apiServer()`
-  preset with Yoga and GraphiQL, `.with({ graphql })` method keys and
-  `graphql: false`, declared filter operators, ordering, relations, a
+  preset with Yoga and GraphiQL, `plugins.graphql({ … })` method keys
+  and `plugins.graphql(false)`, declared filter operators, ordering, relations, a
   `resolveMany` virtual field, cursor pagination with `totalCount`, nested
   create, update and delete, `{ id }` for an unreadable row, validation hints,
   `PERMISSION_DENIED`, `VALIDATION_ERROR` and a `PublicError`, an operation
@@ -122,10 +122,10 @@ Examples are user-facing, tested applications. They must only import public `@ul
   Boundaries, Master Authority and Request Identity pages and of the Core
   README (ADR-0330).
 - [`plugin-authoring`](plugin-authoring/README.md): plugin authoring end to
-  end (an inert factory with a typed setup export, `definePlugin` shape
-  methods with server-written fields, commands exposed over REST and GraphQL
+  end (an inert factory with a typed setup export, `definePlugin`
+  features with server-written fields, commands exposed over REST and GraphQL
   by `.with` method keys, a rule read after commit, a raw plugin typing its
-  shape method, field and rule through Core's slots with an additive patch, a
+  feature, field and rule through Core's slots with an additive patch, a
   field kind and a field option, a capability between two plugins, a
   lifecycle-only resource, owner-private storage, cooperative cancellation, an
   operation with a typed GraphQL binding and a REST route, an independent

@@ -12,7 +12,7 @@ import { starterPlugin } from '../src/starter-plugin.ts'
 import { formatWorkflow } from '../src/workflow/operations.ts'
 import { workflowPlugin } from '../src/workflow/plugin.ts'
 
-it('runs the common suite with the schemas a shape method types', async () => {
+it('runs the common suite with the schemas a feature types', async () => {
 	//#region schema-suite
 	const suite = definePluginConformanceSuite({
 		// The subject and the schemas that set its feature, together.

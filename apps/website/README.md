@@ -228,7 +228,7 @@ Identity coverage describes local password authentication, session rotation and
 revocation, operation/row/field policies, object ACLs, and roles. Soft deletion
 keeps its private Master-only restore/purge boundary visible. Plugin authoring
 covers custom operations, fields, schema/model mutations, middleware, and
-source-typed shape methods and rules. Every capability links to its
+source-typed features and rules. Every capability links to its
 existing owning documentation; these guides remain the detailed contract.
 Compact section links lead to the detailed capability examples, whose labels
 identify Core and plugin ownership. Complete application configurations and virtual-field schemas remain visible

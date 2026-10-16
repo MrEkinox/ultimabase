@@ -8,7 +8,7 @@ afterEach(() => {
 	vi.restoreAllMocks()
 })
 
-it('adds a server-written field and its commands with .archivable()', async () => {
+it('adds a server-written field and its commands with archivable: true', async () => {
 	await using t = await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Draft' } })
 	expect(post.archivedAt).toBeNull()
@@ -74,7 +74,7 @@ it('gives flaggable schemas a readable, server-written flagged field', async () 
 	await t.afterCommit()
 })
 
-it('adds the commands only to the schemas that call the shape method', () => {
+it('adds the commands only to the schemas that set the feature', () => {
 	const surfaces = ultimabase.compile().schemaSurfaces
 	expect(
 		surfaces.map(({ schema, schemaMutations }) => [

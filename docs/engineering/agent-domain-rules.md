@@ -16,7 +16,7 @@ command graph with application operations and schema mutations. Issues
 3004/3005 remove generic decoration/replacement, compiler/Runtime substitution,
 the Core observer protocol, Query extensions, destructive patches, arbitrary
 schema/model operations, and manual Typegen declarations/extra outputs (Typegen
-itself left in migration step 6.8b, ADR-0297).
+itself was later removed, ADR-0297).
 Their used product counterparts remain intact. Do not add substitute public
 APIs or remove another capability without following the architecture stop rule.
 
