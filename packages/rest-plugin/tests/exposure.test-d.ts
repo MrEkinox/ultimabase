@@ -36,28 +36,26 @@ const defineArchivable = () =>
 
 // ADR-0324 decision 2: one vocabulary, the schema method names.
 test('keys `plugins.rest(…)` by method and exposable command names', () => {
-	defineArchivable().with((plugins) =>
-		plugins.rest({ archiveOne: true, findMany: false }),
-	)
-	define().with((plugins) => plugins.rest(true))
-	define().with((plugins) => plugins.rest({ count: true, upsertMany: true }))
+	defineArchivable().with({ rest: { archiveOne: true, findMany: false } })
+	define().with({ rest: true })
+	define().with({ rest: { count: true, upsertMany: true } })
 
-	defineArchivable().with((plugins) =>
+	defineArchivable().with({
 		// @ts-expect-error -- a command on many rows takes input REST cannot send.
-		plugins.rest({ archiveMany: true }),
-	)
-	defineArchivable().with((plugins) =>
+		rest: { archiveMany: true },
+	})
+	defineArchivable().with({
 		// @ts-expect-error -- Master commands are never public routes.
-		plugins.rest({ purgeOne: true }),
-	)
-	define().with((plugins) =>
+		rest: { purgeOne: true },
+	})
+	define().with({
 		// @ts-expect-error -- the command exists only after `archivable: true`.
-		plugins.rest({ archiveOne: true }),
-	)
-	define().with((plugins) =>
+		rest: { archiveOne: true },
+	})
+	define().with({
 		// @ts-expect-error -- the former REST-only keys are gone.
-		plugins.rest({ find: true }),
-	)
+		rest: { find: true },
+	})
 
 	expectTypeOf<RestSchemaRule>().toExtend<
 		boolean | Readonly<{ findOne?: boolean; deleteMany?: boolean }>

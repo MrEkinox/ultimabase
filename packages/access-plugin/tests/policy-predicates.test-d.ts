@@ -51,14 +51,14 @@ test('gives every rule input the principal, operation and schema', () => {
 const Document = App.Schema.define({
 	className: 'PolicyPredicateDocument',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		create: isAuthenticated,
 		read: { many: isAuthenticated, one: isOwner },
 		update: { where: anyOf(isAuthenticated, isOwner), item: isOwner },
 		delete: allOf(isAuthenticated, not(isOwner)),
-	}),
-)
+	},
+})
 
 void Document
 
@@ -66,10 +66,10 @@ test('rejects a rule that is not a decision', () => {
 	App.Schema.define({
 		className: 'PolicyPredicateInvalid',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) =>
-		plugins.access({
+	}).with({
+		access: {
 			// @ts-expect-error -- A predicate returns a boolean, not a filter.
 			create: ({ principal }: { readonly principal: unknown }) => principal,
-		}),
-	)
+		},
+	})
 })

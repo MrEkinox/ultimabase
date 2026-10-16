@@ -59,9 +59,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-		}).with((plugins) =>
-			plugins.postgres({ table: 'optional_hooks_typescript_posts' }),
-		)
+		}).with({ postgres: { table: 'optional_hooks_typescript_posts' } })
 		const ultimabase = new Application({
 			logger: false,
 			schemas: [Post],
@@ -185,11 +183,10 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-		}).with((plugins) =>
-			plugins
-				.alternativeBehavior(alternativeBehavior({ label: 'publishing' }))
-				.postgres({ table: 'optional_hooks_alternative_posts' }),
-		)
+		}).with({
+			alternativeBehavior: alternativeBehavior({ label: 'publishing' }),
+			postgres: { table: 'optional_hooks_alternative_posts' },
+		})
 		const ultimabase = new Application({
 			logger: false,
 			schemas: [Post],

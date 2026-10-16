@@ -40,48 +40,46 @@ const Explicit = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportExplicit',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: { mode: 'command' },
-}).with((plugins) =>
-	plugins
-		// ADR-0324, ADR-0325: a transport exposes a plugin command only when
-		// its rule names it.
-		.rest({ restoreOne: true, softDeleteOne: true })
-		.graphql({ restoreOne: true, softDeleteOne: true })
-		.access({
-			create: true,
-			delete: true,
-			read: true,
-			softDeleteOne: true,
-			update: false,
-		})
-		.hooks({
-			afterOperation: {
-				softDeleteOne: ({ item }) => {
-					explicitSoftDeleteTrace.push(`after:softDeleteOne:${item.title}`)
-				},
+}).with({
+	// ADR-0324, ADR-0325: a transport exposes a plugin command only when
+	// its rule names it.
+	rest: { restoreOne: true, softDeleteOne: true },
+	graphql: { restoreOne: true, softDeleteOne: true },
+	access: {
+		create: true,
+		delete: true,
+		read: true,
+		softDeleteOne: true,
+		update: false,
+	},
+	hooks: {
+		afterOperation: {
+			softDeleteOne: ({ item }) => {
+				explicitSoftDeleteTrace.push(`after:softDeleteOne:${item.title}`)
 			},
-			beforeOperation: {
-				softDeleteOne: ({ item, originalItem }) => {
-					const title = originalItem.title
-					explicitSoftDeleteTrace.push(
-						`before:softDeleteOne:${title}:${String(item.isDeleted)}`,
-					)
-					if (title === rejectedSoftDeleteTitle) {
-						throw new Error('explicit soft delete rejected')
-					}
-				},
+		},
+		beforeOperation: {
+			softDeleteOne: ({ item, originalItem }) => {
+				const title = originalItem.title
+				explicitSoftDeleteTrace.push(
+					`before:softDeleteOne:${title}:${String(item.isDeleted)}`,
+				)
+				if (title === rejectedSoftDeleteTitle) {
+					throw new Error('explicit soft delete rejected')
+				}
 			},
-		}),
-)
+		},
+	},
+})
 
 const Replace = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportReplace',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: true,
-}).with((plugins) =>
-	plugins
-		.graphql({ restoreOne: true, softDeleteOne: true })
-		.rest({ restoreOne: true, softDeleteOne: true }),
-)
+}).with({
+	graphql: { restoreOne: true, softDeleteOne: true },
+	rest: { restoreOne: true, softDeleteOne: true },
+})
 
 const Disabled = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportDisabled',

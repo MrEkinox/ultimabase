@@ -322,7 +322,7 @@ describe('plugin authoring helpers', () => {
 		const Target = Application.Schema.define({
 			className: 'PluginKitPatchTarget',
 			fields: (field) => ({ title: field.string() }),
-		}).with((plugins) => plugins.workflow((value: string) => value))
+		}).with({ workflow: (value: string) => value })
 		const application = new Application({
 			logger: false,
 			schemas: [Target],

@@ -48,8 +48,8 @@ const Left = App.Schema.define({
 		touchPartner: field.boolean({ required: true, default: false }),
 		value: field.int({ required: true, default: 0 }),
 	}),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			update: async ({ item }) => {
 				if (!item.touchPartner) return
@@ -61,8 +61,8 @@ const Left = App.Schema.define({
 				})
 			},
 		},
-	}),
-)
+	},
+})
 
 const Right = App.Schema.define({
 	className: 'SemanticsRight',
@@ -70,8 +70,8 @@ const Right = App.Schema.define({
 		touchPartner: field.boolean({ required: true, default: false }),
 		value: field.int({ required: true, default: 0 }),
 	}),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			update: async ({ item }) => {
 				if (!item.touchPartner) return
@@ -83,8 +83,8 @@ const Right = App.Schema.define({
 				})
 			},
 		},
-	}),
-)
+	},
+})
 
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (UltimaBase.use(

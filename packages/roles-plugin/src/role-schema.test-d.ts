@@ -27,7 +27,7 @@ const AppRole = Roles.RoleSchema.define({
 const TeamRole = Roles.RoleSchema.define({
 	className: 'TypedTeamRole',
 	members: () => User,
-}).with((plugins) => plugins.roles({ ensure: ['lead'] }))
+}).with({ roles: { ensure: ['lead'] } })
 
 test('keeps role statics available after .with(...)', () => {
 	expectTypeOf(AppRole.role('editor').kind).toEqualTypeOf<'role'>()
@@ -65,12 +65,12 @@ test('rejects invalid deletion policies and unknown options', () => {
 	Roles.RoleSchema.define({
 		className: 'TypedInvalidDeletionRole',
 		members: () => User,
-	}).with((plugins) =>
-		plugins.roles({
+	}).with({
+		roles: {
 			// @ts-expect-error -- Deletion behavior is one closed schema-owned policy.
 			deletion: 'remove',
-		}),
-	)
+		},
+	})
 
 	Roles.RoleSchema.define({
 		className: 'TypedLegacyMembersRole',

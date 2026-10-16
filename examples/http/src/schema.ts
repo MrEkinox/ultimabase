@@ -40,5 +40,5 @@ export const Link = App.Schema.define({
 		url: field.string({ required: true }),
 		title: field.string(),
 	}),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 //#endregion link

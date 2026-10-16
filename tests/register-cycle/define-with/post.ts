@@ -16,27 +16,26 @@ export const Post = App.Schema.define({
 		{ fields: ['author', 'slug'], unique: true },
 		{ fields: ['slug'], unique: true, where: { isDeleted: false } },
 	],
-}).with((plugins) =>
-	plugins
-		.acl({
-			default: ({ principal }) => new ACL(principal),
-			limits: { maxPrincipals: 3 },
-		})
-		.access({
-			read: ({ where }) => where.eq('published', true),
-			// Post -> Author filter (pointer)
-			update: ({ where }) =>
-				where.is('author', (author) => author.endsWith('email', '@admin.test')),
-			softDeleteOne: true,
-		})
-		.hooks({
-			beforeOperation: {
-				update: ({ item }) => {
-					if (item.isDeleted) throw new TypeError('Deleted posts are read-only')
-				},
+}).with({
+	acl: {
+		default: ({ principal }) => new ACL(principal),
+		limits: { maxPrincipals: 3 },
+	},
+	access: {
+		read: ({ where }) => where.eq('published', true),
+		// Post -> Author filter (pointer)
+		update: ({ where }) =>
+			where.is('author', (author) => author.endsWith('email', '@admin.test')),
+		softDeleteOne: true,
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item }) => {
+				if (item.isDeleted) throw new TypeError('Deleted posts are read-only')
 			},
-		})
-		.rest({ softDeleteOne: true })
-		.graphql({ softDeleteOne: true })
-		.postgres({ table: 'spike_posts' }),
-)
+		},
+	},
+	rest: { softDeleteOne: true },
+	graphql: { softDeleteOne: true },
+	postgres: { table: 'spike_posts' },
+})

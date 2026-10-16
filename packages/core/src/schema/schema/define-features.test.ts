@@ -144,7 +144,7 @@ describe('feature keys of define (ADR-0339)', () => {
 			fields: (field) => ({ title: field.string() }),
 			flagged: true,
 		})
-		const Flagged = declared.with((plugins) => plugins.audit(true))
+		const Flagged = declared.with({ audit: true })
 		const compiled = new App({ logger: false, schemas: [Flagged] }).compile()
 		const schema = compiled.schemas.get('FeatureFlagged')
 
@@ -204,7 +204,7 @@ describe('feature keys of define (ADR-0339)', () => {
 				{ fields: ['flagCode'], unique: true },
 				{ fields: ['title'], unique: true, where: { flagCode: 'a' } },
 			],
-		}).with((plugins) => plugins.audit(false))
+		}).with({ audit: false })
 		new App({ logger: false, schemas: [Indexed] }).compile()
 
 		// A complete unique index of define is a unique target, even on a
@@ -227,7 +227,7 @@ describe('feature keys of define (ADR-0339)', () => {
 			flagged: true,
 			// @ts-expect-error -- neither declared nor added by `flagged`.
 			indexes: [{ fields: ['missing'] }],
-		}).with((plugins) => plugins.audit(false))
+		}).with({ audit: false })
 		expect(() =>
 			new App({ logger: false, schemas: [Unknown] }).compile(),
 		).toThrow('Unknown index field: FeatureUnknownIndex.missing')
@@ -238,7 +238,7 @@ describe('feature keys of define (ADR-0339)', () => {
 			flagged: true,
 			// @ts-expect-error -- `isPublished` is neither declared nor contributed.
 			indexes: [{ fields: ['slug'], where: { isPublished: true } }],
-		}).with((plugins) => plugins.audit(false))
+		}).with({ audit: false })
 		expect(() =>
 			new App({ logger: false, schemas: [UnknownWhere] }).compile(),
 		).toThrow('Unknown index field: isPublished')

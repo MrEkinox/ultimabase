@@ -35,24 +35,23 @@ const Author = NestedCreateApplication.Schema.define({
 		name: field.string({ required: true }),
 		visible: field.boolean({ default: true }),
 	}),
-}).with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('visible', true),
-		})
-		.hooks({
-			afterOperation: {
-				create: () => {
-					trace.push('author:after')
-				},
+}).with({
+	access: {
+		read: ({ where }) => where.eq('visible', true),
+	},
+	hooks: {
+		afterOperation: {
+			create: () => {
+				trace.push('author:after')
 			},
-			beforeOperation: {
-				create: () => {
-					trace.push('author:before')
-				},
+		},
+		beforeOperation: {
+			create: () => {
+				trace.push('author:before')
 			},
-		}),
-)
+		},
+	},
+})
 
 const Tag = NestedCreateApplication.Schema.define({
 	className: 'NestedCreateTag',
@@ -60,8 +59,9 @@ const Tag = NestedCreateApplication.Schema.define({
 		creator: field.pointer({ target: 'NestedCreateAuthor' }),
 		label: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.access({ create: () => !denyTagCreate }).hooks({
+}).with({
+	access: { create: () => !denyTagCreate },
+	hooks: {
 		afterOperation: {
 			create: () => {
 				trace.push('tag:after')
@@ -72,8 +72,8 @@ const Tag = NestedCreateApplication.Schema.define({
 				trace.push('tag:before')
 			},
 		},
-	}),
-)
+	},
+})
 
 const Comment = NestedCreateApplication.Schema.define({
 	className: 'NestedCreateComment',
@@ -81,8 +81,8 @@ const Comment = NestedCreateApplication.Schema.define({
 		body: field.string({ required: true }),
 		post: field.pointer({ required: true, target: 'NestedCreatePost' }),
 	}),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			create: () => {
 				trace.push('comment:after')
@@ -93,8 +93,8 @@ const Comment = NestedCreateApplication.Schema.define({
 				trace.push('comment:before')
 			},
 		},
-	}),
-)
+	},
+})
 
 const Post = NestedCreateApplication.Schema.define({
 	className: 'NestedCreatePost',
@@ -115,8 +115,8 @@ const Post = NestedCreateApplication.Schema.define({
 		}),
 		title: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			create: () => {
 				trace.push('post:after')
@@ -127,8 +127,8 @@ const Post = NestedCreateApplication.Schema.define({
 				trace.push('post:before')
 			},
 		},
-	}),
-)
+	},
+})
 
 // ADR-0318: the nested-write graph reaches hooks contributed by plugins only.
 const graphObserver = plugin({

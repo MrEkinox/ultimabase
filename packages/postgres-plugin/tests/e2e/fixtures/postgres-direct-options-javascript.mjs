@@ -21,9 +21,7 @@ const compile = async (className, table) => {
 			title: field.string({ postgres: { renamedFrom: 'headline' } }),
 		}),
 	}
-	const Post = Application.Schema.define(options).with((plugins) =>
-		plugins.postgres({ table }),
-	)
+	const Post = Application.Schema.define(options).with({ postgres: { table } })
 	const application = new Application({
 		logger: false,
 		schemas: [Post],
@@ -64,7 +62,7 @@ try {
 	UltimaBase.Schema.define({
 		className: 'JavaScriptPostgresMissingRule',
 		fields: () => ({}),
-	}).with((plugins) => plugins.postgres({ table: 'missing_posts' }))
+	}).with({ postgres: { table: 'missing_posts' } })
 } catch (error) {
 	missingRuleMessage = error?.message
 }
@@ -74,7 +72,7 @@ const MissingPlugin = UltimaBase.use(postgresPlugin({ pool }))
 		className: 'JavaScriptPostgresMissingPlugin',
 		fields: () => ({}),
 	})
-	.with((plugins) => plugins.postgres({ table: 'missing_posts' }))
+	.with({ postgres: { table: 'missing_posts' } })
 let missingPluginCode
 
 try {

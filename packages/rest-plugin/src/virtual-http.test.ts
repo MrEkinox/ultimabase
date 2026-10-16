@@ -65,7 +65,7 @@ const VirtualHttpRecord = RestSchemaApplication.Schema.define({
 			select: { title: true },
 		}),
 	}),
-}).with((plugins) => plugins.rest(upsertRouteOption.rest))
+}).with({ rest: upsertRouteOption.rest })
 
 const VirtualFailureRecord = RestSchemaApplication.Schema.define({
 	className: 'RestHttpVirtualFailure',

@@ -38,7 +38,7 @@ describe('schema declaration chain (ADR-0297)', () => {
 			className: 'ChainDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const configured = declared.with((plugins) => plugins)
+		const configured = declared.with({})
 
 		expect(Schema.is(declared)).toBe(true)
 		expect(Schema.is(configured)).toBe(true)

@@ -21,8 +21,8 @@ const Post = Application.Schema.define({
 		visibility: field.string(),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins.acl({
+}).with({
+	acl: {
 		default: ({ data, principal, context }) => {
 			// ADR-0321: sibling fields are typed without Typegen.
 			expectTypeOf(data.title).toEqualTypeOf<string>()
@@ -47,8 +47,8 @@ const Post = Application.Schema.define({
 		clientSharing: ({ principal, currentAcl }) =>
 			principal !== undefined &&
 			currentAcl.hasPrincipalPermission(principal, 'delete'),
-	}),
-)
+	},
+})
 
 test('adds the acl field through the fields slot and types its updates', async () => {
 	const post = await Post.findOne(
@@ -94,21 +94,20 @@ test('requires default once acl: true is set and the acl rule only after it', ()
 		acl: true,
 	})
 		// @ts-expect-error -- `acl.default` is required once `acl: true` is set.
-		.with((plugins) => plugins)
+		.with({})
 	Application.Schema.define({
 		className: 'MissingACLDefaultPost',
 		fields: (field) => ({ title: field.string() }),
 		acl: true,
 	})
 		// @ts-expect-error -- An empty ACL would hide every row from everyone but Master.
-		.with((plugins) => plugins.acl({ resolveInput: () => undefined }))
+		.with({ acl: { resolveInput: () => undefined } })
 	Application.Schema.define({
 		className: 'ACLWithoutShapePost',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) => {
-		// @ts-expect-error -- `plugins.acl` needs `acl: true` first.
-		void plugins.acl
-		return plugins
+	}).with({
+		// @ts-expect-error -- `acl` needs `acl: true` first.
+		acl: {},
 	})
 	Application.Schema.define({
 		className: 'LegacyACLOptionPost',
@@ -125,20 +124,20 @@ test('rejects incompatible public ACL configuration', () => {
 			fields: (field) => ({ title: field.string() }),
 			acl: true,
 		})
-	declare('InvalidDirectACLTypePost').with((plugins) =>
+	declare('InvalidDirectACLTypePost').with({
 		// @ts-expect-error -- Static defaults must be immutable ACL values.
-		plugins.acl({ default: { public: ['read'] } }),
-	)
-	declare('InvalidDirectACLResolverPost').with((plugins) =>
+		acl: { default: { public: ['read'] } },
+	})
+	declare('InvalidDirectACLResolverPost').with({
 		// @ts-expect-error -- Input resolution must return an ACL or undefined.
-		plugins.acl({ default: new ACL(), resolveInput: () => true }),
-	)
-	declare('InvalidDirectACLLimitsPost').with((plugins) =>
+		acl: { default: new ACL(), resolveInput: () => true },
+	})
+	declare('InvalidDirectACLLimitsPost').with({
 		// @ts-expect-error -- Schema limits accept only documented keys.
-		plugins.acl({ default: new ACL(), limits: { maximum: 10 } }),
-	)
-	declare('InvalidExistingRowsPost').with((plugins) =>
+		acl: { default: new ACL(), limits: { maximum: 10 } },
+	})
+	declare('InvalidExistingRowsPost').with({
 		// @ts-expect-error -- Existing rows receive one fixed ACL.
-		plugins.acl({ default: new ACL(), existingRows: () => new ACL() }),
-	)
+		acl: { default: new ACL(), existingRows: () => new ACL() },
+	})
 })

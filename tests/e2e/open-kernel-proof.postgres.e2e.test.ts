@@ -62,16 +62,15 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				}),
 				decimalLedger: { defaultScale: 2 },
 			})
-			.with((plugins) =>
-				plugins.postgres({ table: 'open_kernel_ledger_entries' }),
-			)
+			.with({ postgres: { table: 'open_kernel_ledger_entries' } })
 		const SoftPost = PostgresHookApplication.Schema.define({
 			className: 'OpenKernelSoftPost',
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-		}).with((plugins) =>
-			plugins.postgres({ table: 'open_kernel_soft_posts' }).hooks({
+		}).with({
+			postgres: { table: 'open_kernel_soft_posts' },
+			hooks: {
 				afterOperation: {
 					delete: ({ originalItem }) => {
 						deleteTrace.push(`delete:${originalItem.id}`)
@@ -81,8 +80,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 						deleteTrace.push('update')
 					},
 				},
-			}),
-		)
+			},
+		})
 		const workflow = createWorkflowPlugin({
 			instanceId: 'postgres',
 			onCommitted: (payload) => committed.push(payload),

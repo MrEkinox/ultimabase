@@ -47,16 +47,13 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 				tenant: field.string({ required: true }),
 				title: field.string({ required: true }),
 			}),
-		}).with((plugins) =>
-			plugins
-				.alternativePolicy(
-					alternativeTenantPolicy({
-						hiddenFields: ['secret'],
-						tenant: 'community',
-					}),
-				)
-				.postgres({ table: 'alternative_policy_documents' }),
-		)
+		}).with({
+			alternativePolicy: alternativeTenantPolicy({
+				hiddenFields: ['secret'],
+				tenant: 'community',
+			}),
+			postgres: { table: 'alternative_policy_documents' },
+		})
 		const ultimabase = new Application({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'postgres-master', value: 'unused-by-terminal' }],

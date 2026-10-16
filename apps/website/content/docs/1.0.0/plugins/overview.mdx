@@ -41,13 +41,13 @@ const Application = UltimaBase.use(hooksPlugin())
 const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string() }),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		beforeOperation: {
 			create: ({ item }) => console.log(item.title),
 		},
-	}),
-)
+	},
+})
 
 export const application = new Application({
 	schemas: [Post],

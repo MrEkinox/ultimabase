@@ -109,8 +109,8 @@ export const AuthorityRecordSchema = RuntimeSchemaApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		beforeOperation: {
 			create: ({ context, item }) => {
 				// Snapshot revocable hook capabilities before the callback completes.
@@ -122,8 +122,8 @@ export const AuthorityRecordSchema = RuntimeSchemaApplication.Schema.define({
 				void item
 			},
 		},
-	}),
-)
+	},
+})
 
 export const hookRollbackError = new Error('rollback HookContext nested write')
 export const HookPostSchema = RuntimeSchemaApplication.Schema.define({
@@ -131,8 +131,8 @@ export const HookPostSchema = RuntimeSchemaApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		beforeOperation: {
 			create: async ({ item }) => {
 				const title = item.title
@@ -150,8 +150,8 @@ export const HookPostSchema = RuntimeSchemaApplication.Schema.define({
 				}
 			},
 		},
-	}),
-)
+	},
+})
 
 export const createInstant = '2026-08-01T08:00:00.000Z'
 export const updateInstant = '2026-08-01T09:30:00.000Z'

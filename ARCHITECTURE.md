@@ -532,7 +532,7 @@ const Post = Application.Schema.define({
 	fields: (field) => ({
 		title: field.string(),
 	}),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 const application = new Application({ schemas: [Post] })
 ```

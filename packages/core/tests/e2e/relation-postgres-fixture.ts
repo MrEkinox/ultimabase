@@ -44,8 +44,8 @@ export const articleFields = (field: RelationFieldBuilder) => ({
 export const Article = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EArticle',
 	fields: articleFields,
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			update: () => {
 				// Relation links change through nested writes (ADR-0310), which run
@@ -57,8 +57,8 @@ export const Article = RelationSchemaApplication.Schema.define({
 				}
 			},
 		},
-	}),
-)
+	},
+})
 
 export const tagFields = (field: RelationFieldBuilder) => ({
 	articles: field.relation({
@@ -72,11 +72,11 @@ export const tagFields = (field: RelationFieldBuilder) => ({
 export const Tag = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2ETag',
 	fields: tagFields,
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ where }) => where.eq('visible', true),
-	}),
-)
+	},
+})
 
 export const authorNameField = stringField({ required: true })
 export const authorVisibleField = booleanField({ default: true })
@@ -91,11 +91,11 @@ export const authorFields = (field: RelationFieldBuilder) => ({
 export const Author = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EAuthor',
 	fields: authorFields,
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ where }) => where.eq('visible', true),
-	}),
-)
+	},
+})
 
 export const Post = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EPost',
@@ -119,11 +119,11 @@ export const privateArticleFields = (field: RelationFieldBuilder) => ({
 export const PrivateArticle = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EPrivateArticle',
 	fields: privateArticleFields,
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ where }) => where.some('tags', { visible: { eq: true } }),
-	}),
-)
+	},
+})
 
 export const PrivatePointerPost = RelationSchemaApplication.Schema.define({
 	className: 'RelationE2EPrivatePointerPost',

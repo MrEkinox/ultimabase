@@ -61,8 +61,8 @@ test('types every phase on plain data in .with', () => {
 			views: field.int({ default: 0, required: true }),
 			tags: field.relation({ target: () => Tag }),
 		}),
-	}).with((plugins) =>
-		plugins.hooks({
+	}).with({
+		hooks: {
 			resolveInput: {
 				create: ({ data }) => {
 					expectTypeOf(data.title).toEqualTypeOf<string>()
@@ -113,18 +113,18 @@ test('types every phase on plain data in .with', () => {
 					expectTypeOf(originalItem.id).toEqualTypeOf<string>()
 				},
 			},
-		}),
-	)
+		},
+	})
 })
 
 test('rejects unknown phases and string events', () => {
 	App.Schema.define({
 		className: 'TypedHookTypos',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) =>
-		plugins.hooks({
+	}).with({
+		hooks: {
 			// @ts-expect-error -- Read hooks do not exist (ADR-0318).
 			beforeFind: () => undefined,
-		}),
-	)
+		},
+	})
 })

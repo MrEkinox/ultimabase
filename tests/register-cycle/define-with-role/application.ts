@@ -12,7 +12,7 @@ export const App = UltimaBase.use(
 export const Member = App.Schema.define({
 	className: 'Member',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 // A role schema takes feature keys and indexes over its own fields, the
 // factory's fields and the feature fields; its behaviour goes to
@@ -26,16 +26,15 @@ export const TeamRole = App.RoleSchema.define({
 		{ fields: ['team', 'name'], unique: true },
 		{ fields: ['team'], where: { isDeleted: false } },
 	],
-}).with((plugins) =>
-	plugins
-		.roles({
-			ensure: ['lead'],
-			deletion: 'cascade',
-			resolveCurrent: ({ context }) =>
-				context.requestId === '' ? undefined : Member.pointer('member-id'),
-		})
-		.access({ read: true }),
-)
+}).with({
+	roles: {
+		ensure: ['lead'],
+		deletion: 'cascade',
+		resolveCurrent: ({ context }) =>
+			context.requestId === '' ? undefined : Member.pointer('member-id'),
+	},
+	access: { read: true },
+})
 
 export const ultimabase = new App({ schemas: [Member, TeamRole] })
 

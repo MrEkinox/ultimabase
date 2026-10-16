@@ -47,8 +47,9 @@ const ResolutionPost = ACLSchemaApplication.Schema.define({
 		views: field.int({ default: 2 }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins.postgres({ table: 'acl_input_resolution_posts' }).acl({
+}).with({
+	postgres: { table: 'acl_input_resolution_posts' },
+	acl: {
 		default: emptyACL,
 		// ADR-0321: recomputes the ACL from the row's data on each write
 		// that carries no explicit ACL.
@@ -80,8 +81,8 @@ const ResolutionPost = ACLSchemaApplication.Schema.define({
 
 			return input.data.title === 'resolved-candidate' ? publicRead : undefined
 		},
-	}),
-)
+	},
+})
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:

@@ -17,7 +17,7 @@ const Story = App.Schema.define({
 	reviewable: true,
 	// `indexes` may name a field the feature adds.
 	indexes: [{ fields: ['reviewedAt', 'title'] }],
-}).with((plugins) => plugins.review('editors'))
+}).with({ review: 'editors' })
 //#endregion reviewed-story
 
 const stories = new App({ logger: false, schemas: [Story] })
@@ -66,9 +66,9 @@ it('reports a feature set without the rule it requires', () => {
 	// the callback, and a TypeError when `.with` runs.
 	expect(() =>
 		// @ts-expect-error -- the feature requires the `review` rule.
-		Draft.with((plugins) => plugins),
+		Draft.with({}),
 	).toThrow(
-		'Draft sets reviewable in define(), which requires .with((plugins) => plugins.review({ … }))',
+		'Draft sets reviewable in define(), which requires .with({ review: { … } })',
 	)
 	//#endregion missing-rule
 	// Without `.with`, the application refuses the schema when it compiles.
@@ -91,10 +91,9 @@ it('rejects a rule in define and a feature in .with', () => {
 		fields: (f) => ({ body: f.string() }),
 	})
 	expect(() =>
-		Note.with((plugins) => {
+		Note.with({
 			// @ts-expect-error -- a feature is a key of `define`, not a rule.
-			void plugins.reviewable
-			return plugins
+			reviewable: true,
 		}),
-	).not.toThrow()
+	).toThrow('Note.with({ reviewable }): reviewable is not a rule')
 })

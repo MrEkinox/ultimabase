@@ -123,11 +123,11 @@ test('adds fields from the features set in define and their options', () => {
 		className: 'SlotFlagged',
 		fields: (field) => ({ title: field.string() }),
 		flag: { note: true },
-	}).with((plugins) => plugins)
+	}).with({})
 	const Plain = App.Schema.define({
 		className: 'SlotPlain',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) => plugins)
+	}).with({})
 
 	expectTypeOf(
 		Flagged.findOne({ select: { flagged: true, note: true } }),
@@ -147,12 +147,12 @@ test('adds statics typed against the configured schema', () => {
 		className: 'SlotCommands',
 		fields: (field) => ({ title: field.string() }),
 		flag: { commands: true },
-	}).with((plugins) => plugins)
+	}).with({})
 	const Fields = App.Schema.define({
 		className: 'SlotFieldsOnly',
 		fields: (field) => ({ title: field.string() }),
 		flag: true,
-	}).with((plugins) => plugins)
+	}).with({})
 
 	expectTypeOf(
 		Commands.archiveOne({ id: 'row-1', select: { title: true } }),
@@ -172,15 +172,14 @@ test('types the rules of `.with` and keeps features out of the schema', () => {
 		className: 'SlotRules',
 		fields: (field) => ({ title: field.string() }),
 		flag: true,
-	}).with((plugins) => plugins.flagNote('reviewed'))
+	}).with({ flagNote: 'reviewed' })
 	App.Schema.define({
 		className: 'SlotBadRules',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) =>
-		plugins
-			// @ts-expect-error -- The rule value is a string.
-			.flagNote(1),
-	)
+	}).with({
+		// @ts-expect-error -- The rule value is a string.
+		flagNote: 1,
+	})
 	const Once = App.Schema.define({
 		className: 'SlotOnce',
 		fields: (field) => ({ title: field.string() }),
@@ -198,7 +197,7 @@ test('feature options add no initializer cycle on self relations', () => {
 			children: field.relation({ target: () => Node, mappedBy: 'parent' }),
 		}),
 		flag: { commands: true, note: true },
-	}).with((plugins) => plugins)
+	}).with({})
 	expectTypeOf(
 		Node.findMany({ include: { parent: { select: { flagged: true } } } }),
 	).resolves.toExtend<readonly object[]>()

@@ -84,22 +84,21 @@ test('lets Access rule the request commands by name', () => {
 		className: 'SourceGuardedDocument',
 		fields: (field) => ({ title: field.string() }),
 		softDelete: true,
-	}).with((plugins) =>
-		plugins.access({
+	}).with({
+		access: {
 			read: true,
 			softDeleteOne: true,
 			softDeleteMany: true,
 			restoreOne: false,
 			restoreMany: false,
-		}),
-	)
+		},
+	})
 	Guarded.Schema.define({
 		className: 'SourceGuardedPurgeDocument',
 		fields: (field) => ({ title: field.string() }),
 		softDelete: true,
-	}).with((plugins) =>
-		plugins
-			// @ts-expect-error -- Purge is Master-only, so Access has no rule for it.
-			.access({ purgeOne: true }),
-	)
+	}).with({
+		// @ts-expect-error -- Purge is Master-only, so Access has no rule for it.
+		access: { purgeOne: true },
+	})
 })

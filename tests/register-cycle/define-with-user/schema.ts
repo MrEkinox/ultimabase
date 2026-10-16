@@ -24,12 +24,12 @@ export const Member = App.UserSchema.define({
 		{ fields: ['email', 'isDeleted'], unique: true },
 		{ fields: ['displayName'], unique: true, where: { isDeleted: false } },
 	],
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ where }) => where.eq('isDeleted', false),
 		softDeleteOne: true,
-	}),
-)
+	},
+})
 
 export const ultimabase = new App({ schemas: [Member] })
 

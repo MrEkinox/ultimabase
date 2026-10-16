@@ -61,7 +61,7 @@ const SecretDocument = AccessApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string(),
 	}),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 const PlainDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginPlainDocument',
@@ -71,12 +71,12 @@ const PlainDocument = AccessApplication.Schema.define({
 const ObservedDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginObservedDocument',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => plugins.access({ read: () => true }))
+}).with({ access: { read: () => true } })
 
 const CountOnlyDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginCountOnlyDocument',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => plugins.access({ read: { count: true } }))
+}).with({ access: { read: { count: true } } })
 
 const MasterBypassDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginMasterBypassDocument',
@@ -84,7 +84,7 @@ const MasterBypassDocument = AccessApplication.Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string(),
 	}),
-}).with((plugins) => plugins.access({ read: false }))
+}).with({ access: { read: false } })
 
 const VirtualDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginVirtualDocument',
@@ -102,7 +102,7 @@ const VirtualDocument = AccessApplication.Schema.define({
 		}),
 		title: field.string(),
 	}),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 const row = {
 	createdAt: '2026-08-20T10:00:00.000Z',

@@ -127,7 +127,7 @@ const defineVirtualSchema = () =>
 				select: { id: true },
 			}),
 		}),
-	}).with((plugins) => plugins.graphql(true))
+	}).with({ graphql: true })
 
 const customSummaryExtension = () =>
 	new GraphQLSchema({

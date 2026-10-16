@@ -41,8 +41,8 @@ export const ConversationSchema = UltimaBase.Schema.define({
 		participants: field.relation({ target: 'User' }),
 		otherParticipants: field.relation({ target: 'User' }),
 	}),
-}).with((plugins) =>
-	plugins.relations({
+}).with({
+	relations: {
 		otherParticipants: {
 			where: ({ context, where }) => {
 				const userId = context.getValue(currentUserId)
@@ -50,8 +50,8 @@ export const ConversationSchema = UltimaBase.Schema.define({
 				return userId === undefined ? where : where.ne('id', userId)
 			},
 		},
-	}),
-)
+	},
+})
 
 export type User = InferObject<typeof UserSchema>
 export type CreateUserInput = InferCreateInput<typeof UserSchema>

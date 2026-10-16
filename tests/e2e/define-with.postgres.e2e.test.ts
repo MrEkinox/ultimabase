@@ -28,7 +28,7 @@ const Article = App.Schema.define({
 		{ fields: ['slug', 'isDeleted'], unique: true },
 		{ fields: ['title'], unique: true, where: { isDeleted: false } },
 	],
-}).with((plugins) => plugins.postgres({ table: 'define_with_articles' }))
+}).with({ postgres: { table: 'define_with_articles' } })
 
 let fixture: PostgresWorkerFixture | undefined
 

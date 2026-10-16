@@ -38,14 +38,12 @@ const Note = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		parent: field.pointer({ target: () => Note }),
 	}),
-}).with((plugins) =>
-	plugins.access({ read: ({ where }) => where.eq('visible', true) }),
-)
+}).with({ access: { read: ({ where }) => where.eq('visible', true) } })
 
 const Secret = App.Schema.define({
 	className: 'ReadableSecret',
 	fields: (field) => ({ body: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: false }))
+}).with({ access: { read: false } })
 
 const Archived = App.Schema.define({
 	className: 'ReadableArchived',
@@ -55,9 +53,7 @@ const Archived = App.Schema.define({
 		secret: field.string({ access: { read: false } }),
 	}),
 	softDelete: true,
-}).with((plugins) =>
-	plugins.access({ read: ({ where }) => where.eq('visible', true) }),
-)
+}).with({ access: { read: ({ where }) => where.eq('visible', true) } })
 
 const Explicit = App.Schema.define({
 	className: 'ReadableExplicit',
@@ -67,9 +63,7 @@ const Explicit = App.Schema.define({
 		secret: field.string({ access: { read: false } }),
 	}),
 	softDelete: { mode: 'command' },
-}).with((plugins) =>
-	plugins.access({ read: ({ where }) => where.eq('visible', true) }),
-)
+}).with({ access: { read: ({ where }) => where.eq('visible', true) } })
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

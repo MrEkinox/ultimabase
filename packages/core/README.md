@@ -190,11 +190,10 @@ export const Customer = App.Schema.define({
 				loyaltyService.tiers(items.map(({ email }) => String(email))),
 		}),
 	}),
-}).with((plugins) =>
-	plugins
-		// Reads through `wishlist` only show published books.
-		.relations({ wishlist: { where: { published: { eq: true } } } }),
-)
+}).with({
+	// Reads through `wishlist` only show published books.
+	relations: { wishlist: { where: { published: { eq: true } } } },
+})
 ```
 
 <!-- endregion -->
@@ -2141,7 +2140,7 @@ const Post = Application.Schema.define({
 			hooks: { resolveInput: ({ value }) => value.trim() },
 		}),
 	}),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 
 export const ultimabase = new Application({ schemas: [Post] })
 
@@ -2478,8 +2477,8 @@ export const isEditor: PolicyPredicate = async function isEditor({
 export const Announcement = App.Schema.define({
 	className: 'Announcement',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: true,
 		create: {
 			where: isAuthenticated,
@@ -2495,8 +2494,8 @@ export const Announcement = App.Schema.define({
 		},
 		update: isEditor,
 		delete: isEditor,
-	}),
-)
+	},
+})
 ```
 
 <!-- endregion -->

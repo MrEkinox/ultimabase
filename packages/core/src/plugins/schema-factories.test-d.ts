@@ -108,9 +108,7 @@ declare const fixture: ReturnType<
 const App = UltimaBase.use(fixture)
 
 test('adds factories only to applications that install them', () => {
-	const Note = App.NoteSchema.define({ className: 'TypedNote' }).with(
-		(plugins) => plugins,
-	)
+	const Note = App.NoteSchema.define({ className: 'TypedNote' }).with({})
 	expectTypeOf(Note.describe()).toEqualTypeOf<string>()
 	expectTypeOf(Note).toExtend<SchemaDefinition>()
 	// @ts-expect-error -- The root factory has no NoteSchema.
@@ -118,7 +116,7 @@ test('adds factories only to applications that install them', () => {
 	const Plain = App.Schema.define({
 		className: 'PlainNote',
 		fields: () => ({}),
-	}).with((plugins) => plugins)
+	}).with({})
 	// @ts-expect-error -- Ordinary declarations get no factory statics.
 	void Plain.describe
 })
@@ -128,23 +126,17 @@ test('passes the features set in define to rules slots', () => {
 		className: 'Tagged',
 		fields: () => ({}),
 		tagged: true,
-	}).with((plugins) => plugins.tag({ initial: 'a' }))
+	}).with({ tag: { initial: 'a' } })
 	App.Schema.define({
 		className: 'TaggedMissing',
 		fields: () => ({}),
 		tagged: true,
-	}).with(
-		(plugins) =>
-			// @ts-expect-error -- `tag` is required once `tagged: true` is set.
-			plugins,
-	)
-	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with(
-		(plugins) => {
-			// @ts-expect-error -- `tag` needs `tagged: true`.
-			void plugins.tag
-			return plugins
-		},
-	)
+		// @ts-expect-error -- `tag` is required once `tagged: true` is set.
+	}).with({})
+	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with({
+		// @ts-expect-error -- `tag` needs `tagged: true`.
+		tag: { initial: 'a' },
+	})
 })
 
 test('accepts a field update input in update data only', async () => {
@@ -152,7 +144,7 @@ test('accepts a field update input in update data only', async () => {
 		className: 'TaggedInput',
 		fields: () => ({}),
 		tagged: true,
-	}).with((plugins) => plugins.tag({ initial: 'a' }))
+	}).with({ tag: { initial: 'a' } })
 	await Tagged.updateOne({ where: { id: 'x' }, data: { tag: { append: 'b' } } })
 	await Tagged.updateOne({ where: { id: 'x' }, data: { tag: 'c' } })
 	// @ts-expect-error -- Creates take the field value only.

@@ -44,7 +44,7 @@ const GraphqlAuthor = GraphqlSchemaApplication.Schema.define({
 			target: 'GraphqlExecutionPost',
 		}),
 	}),
-}).with((plugins) => plugins.graphql(true))
+}).with({ graphql: true })
 
 const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionPost',
@@ -72,28 +72,27 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 		}),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.hooks({
-			beforeOperation: {
-				create: ({ item }) => {
-					hookTrace.push(`${getCurrentRequest().requestId}:create:${item.slug}`)
-				},
-				delete: ({ originalItem }) => {
-					hookTrace.push(
-						`${getCurrentRequest().requestId}:delete:${originalItem.slug}`,
-					)
-				},
-				update: ({ item }) => {
-					hookTrace.push(`${getCurrentRequest().requestId}:update:${item.slug}`)
-				},
+}).with({
+	hooks: {
+		beforeOperation: {
+			create: ({ item }) => {
+				hookTrace.push(`${getCurrentRequest().requestId}:create:${item.slug}`)
 			},
-		})
-		.acl({
-			default: publicAcl,
-		})
-		.graphql(true),
-)
+			delete: ({ originalItem }) => {
+				hookTrace.push(
+					`${getCurrentRequest().requestId}:delete:${originalItem.slug}`,
+				)
+			},
+			update: ({ item }) => {
+				hookTrace.push(`${getCurrentRequest().requestId}:update:${item.slug}`)
+			},
+		},
+	},
+	acl: {
+		default: publicAcl,
+	},
+	graphql: true,
+})
 
 const harness: ExecutionHarness = {}
 let fixture: PostgresWorkerFixture | undefined

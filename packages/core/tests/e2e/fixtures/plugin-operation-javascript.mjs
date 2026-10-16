@@ -170,7 +170,7 @@ const Application = UltimaBase.use(
 const StablePost = Application.Schema.define({
 	className: 'JavaScriptStablePost',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => plugins.document((value) => value))
+}).with({ document: (value) => value })
 const DynamicPost = Application.Schema.define({
 	className: 'JavaScriptDynamicPost',
 	fields: (field) => ({ title: field.string() }),

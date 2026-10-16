@@ -39,7 +39,7 @@ describe('direct community plugin options', () => {
 				className: 'OpenKernelUnknownDecimalSchemaOption',
 				fields: (field) => ({ label: field.string() }),
 			})
-			.with((plugins) => plugins.decimalLedger({ defaultScale: 2 }))
+			.with({ decimalLedger: { defaultScale: 2 } })
 		const schemaApplication = new UltimaBase({ schemas: [UnknownSchemaOption] })
 		expect(() => schemaApplication.compile()).toThrow(
 			'Unknown schema option: decimalLedger',

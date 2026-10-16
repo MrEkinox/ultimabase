@@ -274,15 +274,15 @@ const ConversationSchema = UltimaBase.Schema.define({
 		activeParticipants: field.relation({ target: 'User' }),
 		otherParticipants: field.relation({ target: 'User' }),
 	}),
-}).with((plugins) =>
-	plugins.relations({
+}).with({
+	relations: {
 		activeParticipants: { where: { suspended: { eq: false } } },
 		otherParticipants: {
 			where: ({ context, where }) =>
 				where.ne('id', String(context.metadata.currentUserId)),
 		},
-	}),
-)
+	},
+})
 ```
 
 `.with` receives the complete schemas, so two schemas may filter each other's

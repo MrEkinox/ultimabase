@@ -78,15 +78,15 @@ const RoleApplication = UltimaBase.use(rolesPlugin())
 const FailRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferenceFailRole',
 	members: () => FailPrincipal,
-}).with((plugins) => plugins.roles({ deletion: 'fail' }))
+}).with({ roles: { deletion: 'fail' } })
 const PreserveRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferencePreserveRole',
 	members: () => FailPrincipal,
-}).with((plugins) => plugins.roles({ deletion: 'preserve' }))
+}).with({ roles: { deletion: 'preserve' } })
 const CascadeRole = RoleApplication.RoleSchema.define({
 	className: 'ACLReferenceCascadeRole',
 	members: () => FailPrincipal,
-}).with((plugins) => plugins.roles({ deletion: 'cascade' }))
+}).with({ roles: { deletion: 'cascade' } })
 
 const emptyACL = new ACL()
 const committedACLChanges: ACLChangedEvent[] = []
@@ -97,34 +97,34 @@ const ProtectedPrimary = ACLReferenceApplication.Schema.define({
 		title: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins.postgres({ table: 'acl_reference_primary' }).acl({
+}).with({
+	postgres: { table: 'acl_reference_primary' },
+	acl: {
 		default: emptyACL,
-	}),
-)
+	},
+})
 const ProtectedSecondary = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.postgres({ table: 'acl_reference_secondary' })
-		.hooks({
-			beforeOperation: {
-				update: () => {
-					if (!rejectNextSecondaryCleanup) return
+}).with({
+	postgres: { table: 'acl_reference_secondary' },
+	hooks: {
+		beforeOperation: {
+			update: () => {
+				if (!rejectNextSecondaryCleanup) return
 
-					rejectNextSecondaryCleanup = false
-					throw new Error('ACL reference cleanup rollback fixture')
-				},
+				rejectNextSecondaryCleanup = false
+				throw new Error('ACL reference cleanup rollback fixture')
 			},
-		})
-		.acl({
-			default: emptyACL,
-		}),
-)
+		},
+	},
+	acl: {
+		default: emptyACL,
+	},
+})
 
 const readPrincipalCleanups = (
 	values: readonly NamedRequestSubjectReferenceCleanup[],

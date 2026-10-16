@@ -40,7 +40,7 @@ describe('GraphQL read input compilation', () => {
 				tags: field.string({ list: true }),
 				title: field.string(),
 			}),
-		}).with((plugins) => plugins.graphql({ count: true }))
+		}).with({ graphql: { count: true } })
 		const { application, schema } = await readSchema([Author, Post])
 		const query = schema.getQueryType()?.getFields()
 
@@ -143,7 +143,7 @@ describe('GraphQL read input compilation', () => {
 			fields: (field) => ({
 				children: field.relation({ target: 'ConfiguredReadChild' }),
 			}),
-		}).with((plugins) => plugins.graphql(true))
+		}).with({ graphql: true })
 		const { application, schema } = await readSchema(
 			[Child, Parent],
 			graphqlPlugin({ pagination: { defaultTake: 7, maxTake: 20 } }),
@@ -168,14 +168,14 @@ describe('GraphQL read input compilation', () => {
 		const HiddenReads = GraphqlSchemaApplication.Schema.define({
 			className: 'HiddenReads',
 			fields: (field) => ({ value: field.string() }),
-		}).with((plugins) =>
-			plugins.graphql({
+		}).with({
+			graphql: {
 				count: true,
 				exists: false,
 				findMany: false,
 				findOne: false,
-			}),
-		)
+			},
+		})
 		const { application, schema } = await readSchema([HiddenReads])
 		const query = schema.getQueryType()?.getFields()
 

@@ -57,14 +57,14 @@ const FilterNote = FilterApplication.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	acl: true,
 	softDelete: { mode: 'command' },
-}).with((plugins) =>
-	plugins.acl({
+}).with({
+	acl: {
 		default: ({ principal }) => new ACL(principal),
 		clientSharing: ({ principal, currentAcl }) =>
 			principal !== undefined &&
 			currentAcl.hasPrincipalPermission(principal, 'update'),
-	}),
-)
+	},
+})
 /** A schema without ACL that reaches notes through a pointer and a relation. */
 const FilterFolder = FilterApplication.Schema.define({
 	className: 'ACLFilterFolder',

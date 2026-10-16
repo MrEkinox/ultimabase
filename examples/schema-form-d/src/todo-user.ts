@@ -15,8 +15,8 @@ export const TodoUser = App.UserSchema.define({
 		assignedTodos: field.relation({ target: () => Todo, mappedBy: 'assignee' }),
 		roles: field.relation({ target: () => TodoRole, mappedBy: 'members' }),
 	}),
-}).with((plugins) =>
-	plugins.access({
+}).with({
+	access: {
 		read: ({ where }) =>
 			where.some('assignedTodos', (todo) => todo.eq('archived', false)),
 		create: true,
@@ -24,5 +24,5 @@ export const TodoUser = App.UserSchema.define({
 		update: hasRole(TodoRole.role('admin')),
 		delete: ({ where }) =>
 			where.some('roles', (role) => role.eq('name', 'admin')),
-	}),
-)
+	},
+})

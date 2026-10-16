@@ -175,14 +175,12 @@ export const Note = ExposureApplication.Schema.define({
 		views: field.int(),
 	}),
 	archivable: true,
-}).with((plugins) =>
-	plugins.rest({ archiveOne: true, count: true, deleteOne: false }),
-)
+}).with({ rest: { archiveOne: true, count: true, deleteOne: false } })
 export const Draft = ExposureApplication.Schema.define({
 	className: 'RestExposureDraft',
 	fields: (field) => ({ title: field.string() }),
 	archivable: true,
-}).with((plugins) => plugins.rest({ findMany: true }))
+}).with({ rest: { findMany: true } })
 // Relationship fields, to compare the OpenAPI inputs with the REST decoder.
 export const Shelf = ExposureApplication.Schema.define({
 	className: 'RestExposureShelf',
@@ -193,11 +191,11 @@ export const Shelf = ExposureApplication.Schema.define({
 		pinned: field.pointer({ target: () => Note, required: true }),
 		drafts: field.relation({ target: () => Draft }),
 	}),
-}).with((plugins) => plugins.rest({ createMany: true, upsertOne: true }))
+}).with({ rest: { createMany: true, upsertOne: true } })
 export const Hidden = ExposureApplication.Schema.define({
 	className: 'RestExposureHidden',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => plugins.rest(false))
+}).with({ rest: false })
 
 /** Another plugin's routes, to share REST's base path (6.4a amendment). */
 export const neighbourPlugin = (paths: readonly string[]) =>

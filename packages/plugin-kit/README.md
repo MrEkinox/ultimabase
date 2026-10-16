@@ -92,9 +92,11 @@ export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 	archivable: true,
-}).with((plugins) =>
-	plugins.audit(true).rest({ archiveOne: true }).graphql({ archiveOne: true }),
-)
+}).with({
+	audit: true,
+	rest: { archiveOne: true },
+	graphql: { archiveOne: true },
+})
 ```
 
 <!-- endregion -->
@@ -227,7 +229,7 @@ const Story = App.Schema.define({
 	reviewable: true,
 	// `indexes` may name a field the feature adds.
 	indexes: [{ fields: ['reviewedAt', 'title'] }],
-}).with((plugins) => plugins.review('editors'))
+}).with({ review: 'editors' })
 ```
 
 <!-- endregion -->

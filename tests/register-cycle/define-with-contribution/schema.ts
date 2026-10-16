@@ -28,11 +28,10 @@ export const Post = App.Schema.define({
 	}),
 	softDelete: { mode: 'command' },
 	indexes: [{ fields: ['author', 'title'], unique: true }],
-}).with((plugins) =>
-	plugins
-		.access({ read: true, softDeleteOne: true })
-		.hooks({
-			afterOperation: { update: ({ changes, item }) => void [changes, item] },
-		})
-		.rest({ softDeleteOne: true }),
-)
+}).with({
+	access: { read: true, softDeleteOne: true },
+	hooks: {
+		afterOperation: { update: ({ changes, item }) => void [changes, item] },
+	},
+	rest: { softDeleteOne: true },
+})

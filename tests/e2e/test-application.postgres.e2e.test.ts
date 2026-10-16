@@ -34,7 +34,7 @@ const App = UltimaBase.use(
 const Member = App.Schema.define({
 	className: 'TestApplicationMember',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with((plugins) => plugins.access({ read: true, create: false }))
+}).with({ access: { read: true, create: false } })
 
 const Note = App.Schema.define({
 	className: 'TestApplicationNote',
@@ -43,23 +43,22 @@ const Note = App.Schema.define({
 		owner: field.pointer({ target: () => Member }),
 		sequence: field.int({ autoIncrement: true }),
 	}),
-}).with((plugins) =>
-	plugins
-		// Only the owner reads a note; nobody else writes one.
-		.access({
-			read: ({ principal, where }) =>
-				principal === undefined ? false : where.eq('owner', principal.id),
-			create: false,
-		})
-		.hooks({
-			afterCommit: {
-				create: ({ item }) => {
-					committed.push(item.body)
-				},
+}).with({
+	// Only the owner reads a note; nobody else writes one.
+	access: {
+		read: ({ principal, where }) =>
+			principal === undefined ? false : where.eq('owner', principal.id),
+		create: false,
+	},
+	hooks: {
+		afterCommit: {
+			create: ({ item }) => {
+				committed.push(item.body)
 			},
-		})
-		.rest(true),
-)
+		},
+	},
+	rest: true,
+})
 
 const ultimabase = new App({ logger: false, schemas: [Member, Note] })
 const admin = new Pool({ connectionString: databaseUrl, max: 1 })

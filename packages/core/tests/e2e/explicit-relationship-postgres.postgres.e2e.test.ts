@@ -53,8 +53,8 @@ const Membership = ExplicitRelationshipApplication.Schema.define({
 		}),
 	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			create: ({ item }) => {
 				membershipTrace.push(`created:${item.role}`)
@@ -68,8 +68,8 @@ const Membership = ExplicitRelationshipApplication.Schema.define({
 				}
 			},
 		},
-	}),
-)
+	},
+})
 
 const explicitRelationshipSchemas = [Member, Project, Membership] as const
 

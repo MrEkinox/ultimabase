@@ -37,8 +37,8 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 	}),
 	indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
 	softDelete: { mode: 'command' },
-}).with((plugins) =>
-	plugins.hooks({
+}).with({
+	hooks: {
 		afterOperation: {
 			purgeOne: ({ item, originalItem }) => {
 				administrationTrace.push(
@@ -75,8 +75,8 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 				}
 			},
 		},
-	}),
-)
+	},
+})
 
 const Author = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationAuthor',

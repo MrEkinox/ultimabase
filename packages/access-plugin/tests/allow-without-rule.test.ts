@@ -44,7 +44,7 @@ const App = UltimaBase.use(accessPlugin(), archivePlugin)
 const Member = App.Schema.define({
 	className: 'OpeningMember',
 	fields: (field) => ({ name: field.string() }),
-}).with((plugins) => plugins.access({ read: true }))
+}).with({ access: { read: true } })
 const Document = App.Schema.define({
 	className: 'OpeningDocument',
 	fields: (field) => ({ title: field.string() }),
@@ -53,7 +53,7 @@ const Document = App.Schema.define({
 const Ruled = App.Schema.define({
 	className: 'OpeningRuled',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) => plugins.access({ update: false }))
+}).with({ access: { update: false } })
 
 const operations = [
 	'one',

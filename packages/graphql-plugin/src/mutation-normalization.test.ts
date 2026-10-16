@@ -28,7 +28,7 @@ const RecordSchema = GraphqlSchemaApplication.Schema.define({
 		title: field.string(),
 		views: field.int(),
 	}),
-}).with((plugins) => plugins.graphql(true))
+}).with({ graphql: true })
 
 const createFixture = async () => {
 	const application = await createApplication({
