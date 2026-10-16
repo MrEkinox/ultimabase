@@ -98,5 +98,5 @@ when its `where` names `isDeleted`.
 Application code should not update the tombstone manually; use the commands so
 protected constraints, authority, Hooks, and transactions remain intact.
 
-See the runnable [`minimal`](../../examples/minimal/README.md) application for
+See the runnable [`full-stack`](../../examples/full-stack/README.md) application for
 direct, REST, networkless GraphQL, Yoga, Access, Hooks, and PostgreSQL examples.

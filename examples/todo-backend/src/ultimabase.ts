@@ -2,7 +2,8 @@ import process from 'node:process'
 
 import { MasterAuthority } from '@ultimabase/core'
 
-import { App, Todo, TodoRole, TodoUser } from './schema.ts'
+import { App } from './app.ts'
+import { Todo, TodoRole, TodoUser } from './schema.ts'
 
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
 if (masterKey === undefined || masterKey === '') {

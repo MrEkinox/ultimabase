@@ -1,7 +1,7 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { isAuthenticated } from '@ultimabase/core'
 
-import { App } from './schema.ts'
+import { App } from './app.ts'
 
 //#region draft
 /** No Access rule at all: denied unless `allowWithoutRule` opens it. */

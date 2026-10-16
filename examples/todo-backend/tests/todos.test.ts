@@ -2,7 +2,7 @@ import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
 import { addUserToRole, createTodoUser } from '../src/admin.ts'
-import { ultimabase } from '../src/application.ts'
+import { ultimabase } from '../src/ultimabase.ts'
 import { Todo, TodoRole, TodoUser } from '../src/schema.ts'
 import { completeTodo, createTodo, listPendingTodos } from '../src/todos.ts'
 

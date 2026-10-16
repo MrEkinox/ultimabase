@@ -1,23 +1,12 @@
-//#region factory
-import { accessPlugin } from '@ultimabase/access-plugin'
+//#region imports
 import {
 	PublicError,
-	UltimaBase,
 	isAuthenticated,
 	type PolicyPredicate,
 } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-/**
- * Access opens every operation of a schema that declares no rule, so the blog
- * data stays public in this example; `Announcement` declares its own rules.
- * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
- */
-export const App = UltimaBase.use(
-	accessPlugin({ allowWithoutRule: { all: true } }),
-	postgresPlugin(),
-)
-//#endregion factory
+import { App } from './app.ts'
+//#endregion imports
 
 //#region author
 /** A writer; requests run on behalf of an Author (the request principal). */

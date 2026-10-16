@@ -19,19 +19,20 @@ says.
 
 ## Files
 
-| File                                                   | What it shows                                                                                                                                                                              |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`src/schema.ts`](src/schema.ts)                       | the factory with Access, Roles and the audit plugin; `Member` and `StaffRole` with its `ensure` roles; `Team`, a second role schema managed by administrators; `Post` ruled by `hasRole()` |
-| [`src/staff.ts`](src/staff.ts)                         | trusted server code: adding and removing staff members, linking the hierarchy                                                                                                              |
-| [`src/role-audit.ts`](src/role-audit.ts)               | a plugin observing the membership, hierarchy and deletion events                                                                                                                           |
-| [`src/ultimabase.ts`](src/ultimabase.ts)               | the application, its audited Master authority and the `Register` declaration                                                                                                               |
-| [`src/main.ts`](src/main.ts)                           | the development entry point, which links the hierarchy once started                                                                                                                        |
-| [`tests/membership.test.ts`](tests/membership.test.ts) | `ensure`, members and included roles, cycles, Master-only staff changes, teams managed under rules, name normalization and uniqueness                                                      |
-| [`tests/queries.test.ts`](tests/queries.test.ts)       | `has()` and `current()` for a request or a principal, Master holding no role, the request cache, name and UUID references                                                                  |
-| [`tests/policy.test.ts`](tests/policy.test.ts)         | `hasRole()` in Access rules, direct and inherited                                                                                                                                          |
-| [`tests/provider.test.ts`](tests/provider.test.ts)     | `PLUGIN_CAPABILITY_MISSING` in an application without a role provider                                                                                                                      |
-| [`tests/deletion.test.ts`](tests/deletion.test.ts)     | the `fail` and `cascade` policies, `deleteMany` rollback, the committed events                                                                                                             |
-| [`tests/rest.test.ts`](tests/rest.test.ts)             | a role schema served by REST under its rules, sent in memory with `t.fetch`                                                                                                                |
+| File                                                   | What it shows                                                                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/app.ts`](src/app.ts)                             | the factory `App` with Access, Roles and the audit plugin                                                                             |
+| [`src/schema.ts`](src/schema.ts)                       | `Member` and `StaffRole` with its `ensure` roles; `Team`, a second role schema managed by administrators; `Post` ruled by `hasRole()` |
+| [`src/staff.ts`](src/staff.ts)                         | trusted server code: adding and removing staff members, linking the hierarchy                                                         |
+| [`src/role-audit.ts`](src/role-audit.ts)               | a plugin observing the membership, hierarchy and deletion events                                                                      |
+| [`src/ultimabase.ts`](src/ultimabase.ts)               | the application, its audited Master authority and the `Register` declaration                                                          |
+| [`src/main.ts`](src/main.ts)                           | the development entry point, which links the hierarchy once started                                                                   |
+| [`tests/membership.test.ts`](tests/membership.test.ts) | `ensure`, members and included roles, cycles, Master-only staff changes, teams managed under rules, name normalization and uniqueness |
+| [`tests/queries.test.ts`](tests/queries.test.ts)       | `has()` and `current()` for a request or a principal, Master holding no role, the request cache, name and UUID references             |
+| [`tests/policy.test.ts`](tests/policy.test.ts)         | `hasRole()` in Access rules, direct and inherited                                                                                     |
+| [`tests/provider.test.ts`](tests/provider.test.ts)     | `PLUGIN_CAPABILITY_MISSING` in an application without a role provider                                                                 |
+| [`tests/deletion.test.ts`](tests/deletion.test.ts)     | the `fail` and `cascade` policies, `deleteMany` rollback, the committed events                                                        |
+| [`tests/rest.test.ts`](tests/rest.test.ts)             | a role schema served by REST under its rules, sent in memory with `t.fetch`                                                           |
 
 Region names are stable identifiers: renaming one breaks the page or README
 that includes it, and the website content tests report the missing region.

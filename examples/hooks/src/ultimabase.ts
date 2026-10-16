@@ -1,6 +1,7 @@
 //#region application
+import { App } from './app.ts'
 import { postRulesPlugin } from './post-rules-plugin.ts'
-import { App, Author, Comment, Post, PostTitleChange, Tag } from './schema.ts'
+import { Author, Comment, Post, PostTitleChange, Tag } from './schema.ts'
 
 /** The contributing plugin targets Post, so it joins once Post exists. */
 export const ultimabase = new (App.use(postRulesPlugin))({

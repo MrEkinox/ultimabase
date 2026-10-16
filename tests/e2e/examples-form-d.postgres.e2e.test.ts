@@ -18,7 +18,7 @@ import { postgresConnectionUriContextKey } from '../fixtures/postgres-context.js
 const execFileAsync = promisify(execFile)
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 const examples = [
-	'minimal',
+	'full-stack',
 	'todo-backend',
 	'soft-delete',
 	'access',

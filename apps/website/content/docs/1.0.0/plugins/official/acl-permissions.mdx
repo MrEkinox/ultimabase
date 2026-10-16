@@ -10,6 +10,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
   - examples/acl/README.md
+  - examples/acl/src/app.ts
   - examples/acl/src/schema.ts
   - examples/acl/src/ultimabase.ts
   - examples/acl/src/main.ts
@@ -92,8 +93,8 @@ Install the plugin on the application factory. The example also installs
 operations run at all, and [Roles](./roles), which tells ACL the caller's
 roles:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/acl/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/acl/src/app.ts#factory
 </include>
 
 Set `acl: true` in `define`: this feature key adds the reserved, required

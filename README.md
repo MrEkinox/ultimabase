@@ -11,7 +11,7 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 
 Configure plugins once, declare schemas from that factory, and register them
 explicitly. This example uses a disposable development PostgreSQL database;
-`override` may change its physical schema. The [minimal application](examples/minimal/README.md)
+`override` may change its physical schema. The [full-stack application](examples/full-stack/README.md)
 adds REST, GraphQL, authentication and policies to the same authoring path.
 
 ```ts twoslash
@@ -121,7 +121,7 @@ JavaScript executes the same graph.
 
 The shipped authenticated REST, GraphQL, soft-delete, nested-write,
 virtual-result, and contextual relation-filter vertical is demonstrated by the
-[`examples/minimal`](examples/minimal/README.md)
+[`examples/full-stack`](examples/full-stack/README.md)
 application. It exercises network-independent GraphQL execution and the
 optional Yoga HTTP adapter beside REST, including atomic pointer and relation
 writes, both soft-delete modes, private Master restoration and purge, plus

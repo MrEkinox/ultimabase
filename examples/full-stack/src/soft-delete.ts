@@ -1,25 +1,26 @@
 import { authPlugin } from '@ultimabase/auth-plugin'
 
-import type { createMinimalApplication } from './create-application.ts'
+import type { createUltimabase } from './ultimabase.ts'
 import { ExampleArticle, ExampleAuthor } from './schema.ts'
 
-type MinimalApplication = ReturnType<typeof createMinimalApplication>
+/** One application built by `createUltimabase`. */
+type FullStackApplication = ReturnType<typeof createUltimabase>
 
 //#region soft-delete-article
 const runWithSession = <TResult>(
-	app: MinimalApplication,
+	ultimabase: FullStackApplication,
 	sessionToken: string,
 	handler: () => Promise<TResult>,
 ): Promise<TResult> =>
-	app.plugin(authPlugin).runWithSession(sessionToken, handler)
+	ultimabase.plugin(authPlugin).runWithSession(sessionToken, handler)
 
 /** Runs the plugin command on the class through this exact application. */
 export const softDeleteArticle = (
-	app: MinimalApplication,
+	ultimabase: FullStackApplication,
 	id: string,
 	sessionToken: string,
 ) =>
-	runWithSession(app, sessionToken, () =>
+	runWithSession(ultimabase, sessionToken, () =>
 		ExampleArticle.softDeleteOne({
 			id,
 			select: { id: true, isDeleted: true, title: true },

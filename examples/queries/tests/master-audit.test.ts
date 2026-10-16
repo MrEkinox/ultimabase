@@ -4,9 +4,9 @@ import { MasterAuthority } from '@ultimabase/core'
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
+import { App } from '../src/app.ts'
 import {
 	Announcement,
-	App,
 	Author,
 	Comment,
 	Post,

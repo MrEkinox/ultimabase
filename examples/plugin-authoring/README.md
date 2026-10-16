@@ -37,7 +37,8 @@ here, and the tests prove what the documentation says.
 | [`src/workflow/`](src/workflow/plugin.ts)                                  | an application operation, its typed GraphQL binding, and the plugin that owns both               |
 | [`src/graphql-addon.ts`](src/graphql-addon.ts)                             | an independent `GraphQLSchema` with a `peers` range on the GraphQL plugin                        |
 | [`src/status-route.ts`](src/status-route.ts)                               | an HTTP route contributed by a plugin                                                            |
-| [`src/schema.ts`](src/schema.ts)                                           | the factory with the schema plugins, `Post` and `Comment`                                        |
+| [`src/app.ts`](src/app.ts)                                                 | the factory `App` with the schema plugins                                                        |
+| [`src/schema.ts`](src/schema.ts)                                           | `Post` and `Comment`                                                                             |
 | [`src/ultimabase.ts`](src/ultimabase.ts)                                   | the application with the other plugins and the `Register` declaration                            |
 | [`src/main.ts`](src/main.ts)                                               | the development entry point                                                                      |
 | [`tests/starter.test.ts`](tests/starter.test.ts)                           | the setup export and the common conformance suite                                                |

@@ -15,6 +15,7 @@ sources:
   - examples/http/src/routes.ts
   - examples/http/src/counters.ts
   - examples/http/src/partners.ts
+  - examples/http/src/app.ts
   - examples/http/src/schema.ts
   - examples/http/src/ultimabase.ts
   - examples/http/tests/routes.test.ts
@@ -82,8 +83,8 @@ HTTP, REST, GraphQL and the Hono server together.
 `apiServer({ http })` installs `httpPlugin(http)` beside REST and the
 managed Hono server; `UltimaBase.use(httpPlugin(http))` installs it alone:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/http/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/http/src/app.ts#factory
 </include>
 
 | Option                 | Default                                                    |

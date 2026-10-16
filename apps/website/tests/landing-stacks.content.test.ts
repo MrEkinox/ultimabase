@@ -44,15 +44,15 @@ describe('landing plugin stacks', () => {
 		20_000,
 	)
 
-	it('typechecks the direct request against the existing minimal application', async () => {
+	it('typechecks the direct request against the existing full-stack application', async () => {
 		await withLandingDirectory(async (directory) => {
 			const code = transportExamples[0].code.replace(
 				"'./src/schema.ts'",
-				"'../examples/minimal/src/schema.ts'",
+				"'../examples/full-stack/src/schema.ts'",
 			)
 			const program = await compileLandingSample(
 				path.join(directory, 'request.ts'),
-				`import { createMinimalApplication } from '../examples/minimal/src/create-application.ts'\ndeclare const app: ReturnType<typeof createMinimalApplication>\n${code}`,
+				`import { createUltimabase } from '../examples/full-stack/src/ultimabase.ts'\ndeclare const app: ReturnType<typeof createUltimabase>\n${code}`,
 			)
 			expect(formatLandingDiagnostics(program)).toBe('')
 		})

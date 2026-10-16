@@ -189,8 +189,9 @@ after its audit succeeds:
 ```ts
 import { MasterAuthority } from '@ultimabase/core'
 
+import { App } from './app.ts'
 import { readSecret } from './env.ts'
-import { App, Link } from './schema.ts'
+import { Link } from './schema.ts'
 
 export const ultimabase = new App({
 	// `httpPlugin({ master: true })` hands the header to this authority.

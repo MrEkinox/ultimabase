@@ -30,7 +30,8 @@ says.
 | [`src/counters.ts`](src/counters.ts)                           | the shared rate limit store over a stand-in for a Redis client                                                                                      |
 | [`src/partners.ts`](src/partners.ts)                           | a credential plugin: a request context resolver for partner Bearer tokens, with a browser policy check                                              |
 | [`src/api-info-plugin.ts`](src/api-info-plugin.ts)             | a `definePlugin` plugin contributing a route with `httpRoutes` and a mount with `provideHttpEndpoints`                                              |
-| [`src/schema.ts`](src/schema.ts)                               | the factory with `apiServer` (HTTP, REST, the managed Hono server) and the `Link` schema                                                            |
+| [`src/app.ts`](src/app.ts)                                     | the factory `App` with `apiServer` (HTTP, REST, the managed Hono server)                                                                            |
+| [`src/schema.ts`](src/schema.ts)                               | the `Link` schema                                                                                                                                   |
 | [`src/ultimabase.ts`](src/ultimabase.ts)                       | the application, its `MasterAuthority` and its `Register` declaration                                                                               |
 | [`src/main.ts`](src/main.ts)                                   | the entry point: start, listening address, awaited shutdown on SIGINT or SIGTERM                                                                    |
 | [`src/existing-app.ts`](src/existing-app.ts)                   | a second application installing the plugins one by one on an existing Hono app                                                                      |

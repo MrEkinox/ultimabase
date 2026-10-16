@@ -11,6 +11,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
   - examples/hooks/README.md
+  - examples/hooks/src/app.ts
   - examples/hooks/src/schema.ts
   - examples/hooks/src/events.ts
   - examples/hooks/src/effects.ts
@@ -85,8 +86,8 @@ and `events`, the consumers of [typed events](#typed-events). The example
 also installs Soft Delete, whose commands Hooks observe, and REST, which shows
 how a client sees a Hook's error:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/hooks/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/hooks/src/app.ts#factory
 </include>
 
 `sendMessage` is the example's stand-in for an e-mail or webhook client

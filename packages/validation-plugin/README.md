@@ -15,7 +15,7 @@ Every code block in this README is copied from the tested
 schema file installs the plugin and declares an `Event` with field validators
 and a schema check:
 
-<!-- region ../../examples/validation/src/schema.ts#factory,event -->
+<!-- region ../../examples/validation/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -23,9 +23,6 @@ import { apiServer } from '@ultimabase/api-server'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
-import { z } from 'zod'
-
-import { isRoomOpen } from './rooms.ts'
 
 /**
  * The configured factory types the `validation` field option and the schema
@@ -38,6 +35,17 @@ export const App = UltimaBase.use(
 	...apiServer({ http: { appId: 'events' }, rest: true }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/validation/src/schema.ts#imports,event -->
+
+```ts
+import { z } from 'zod'
+
+import { App } from './app.ts'
+import { isRoomOpen } from './rooms.ts'
 
 export const Event = App.Schema.define({
 	className: 'Event',

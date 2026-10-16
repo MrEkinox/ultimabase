@@ -1,5 +1,6 @@
 //#region application
-import { App, Author, Feedback, Post, Tag } from './schema.ts'
+import { App } from './app.ts'
+import { Author, Feedback, Post, Tag } from './schema.ts'
 
 export const ultimabase = new App({ schemas: [Author, Tag, Post, Feedback] })
 

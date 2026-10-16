@@ -14,7 +14,8 @@ sources:
   - .changeset/README.md
   - docs/RELEASING.md
   - packages/README.md
-  - examples/minimal/README.md
+  - examples/full-stack/README.md
+  - examples/modeling/README.md
   - apps/website/lib/docs-versions.ts
   - packages/create-app/README.md
   - packages/create-app/tests/e2e/create-app-packed.e2e.test.ts
@@ -32,12 +33,12 @@ Manual Installation explains the intended project setup; this site is not a rele
 
 ## Current status
 
-| Question                                    | Answer                                                                                                                                                                                                                                |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Can I evaluate the framework?               | Yes. The repository contains a [runnable PostgreSQL, REST, and GraphQL example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md). It needs Node.js 24 or newer and a development PostgreSQL database. |
-| How do I install the documented packages?   | Follow [Manual Installation](/docs/1.0.0/manual-installation) for the intended npm, yarn, or pnpm setup. Registry commands require publication; evaluate locally built workspace packages in the meantime.                            |
-| Does `1.0.0` mean a stable package release? | No. It selects this documentation line; by itself, it does not prove an npm release or guarantee compatibility.                                                                                                                       |
-| Is production support guaranteed?           | No. There is no announced support window, migration guarantee, hosted service, or production support commitment.                                                                                                                      |
+| Question                                    | Answer                                                                                                                                                                                                                                   |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Can I evaluate the framework?               | Yes. The repository contains a [runnable PostgreSQL, REST, and GraphQL example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/full-stack/README.md). It needs Node.js 24 or newer and a development PostgreSQL database. |
+| How do I install the documented packages?   | Follow [Manual Installation](/docs/1.0.0/manual-installation) for the intended npm, yarn, or pnpm setup. Registry commands require publication; evaluate locally built workspace packages in the meantime.                               |
+| Does `1.0.0` mean a stable package release? | No. It selects this documentation line; by itself, it does not prove an npm release or guarantee compatibility.                                                                                                                          |
+| Is production support guaranteed?           | No. There is no announced support window, migration guarantee, hosted service, or production support commitment.                                                                                                                         |
 
 Core schemas, immutable data operations, PostgreSQL persistence, and optional
 plugins are implemented in the repository. Direct TypeScript, experimental
@@ -48,7 +49,7 @@ owning pages describe behavior and limits; this page does not replace them.
 ## Choose your next step
 
 - To evaluate the implementation from source, run the repository's
-  [minimal example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md)
+  [modeling example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/modeling/README.md#run-and-verify-it)
   against a disposable database.
 - For a new application, follow [Manual Installation](/docs/1.0.0/manual-installation)
   and check package versions and requirements in

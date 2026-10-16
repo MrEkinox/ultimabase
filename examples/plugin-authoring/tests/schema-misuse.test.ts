@@ -3,7 +3,7 @@ import { plugin } from '@ultimabase/core/plugin'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { expect, it } from 'vitest'
 
-import { App } from '../src/schema.ts'
+import { App } from '../src/app.ts'
 
 it('rejects a rule passed to define', () => {
 	expect(() =>

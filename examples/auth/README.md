@@ -23,7 +23,8 @@ says.
 
 | File                                               | What it shows                                                                                                                                |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/schema.ts`](src/schema.ts)                   | the factory with Access, `authPlugin` (password by email, session lifetimes, cookie, events) and the API server; the `Member` User; `Note`   |
+| [`src/app.ts`](src/app.ts)                         | the factory `App` with Access, `authPlugin` (password by email, session lifetimes, cookie, events) and the API server                        |
+| [`src/schema.ts`](src/schema.ts)                   | the `Member` User; `Note`                                                                                                                    |
 | [`src/email-flows.ts`](src/email-flows.ts)         | the `reset`, `verification` and `emailChange` option groups of `password()`                                                                  |
 | [`src/mailer.ts`](src/mailer.ts)                   | the test email sender: an outbox standing in for an email provider                                                                           |
 | [`src/events.ts`](src/events.ts)                   | authentication event handlers writing to an in-memory security log                                                                           |

@@ -24,14 +24,14 @@ Every code block in this README is copied from the tested
 schema file installs the plugin, declares a role schema with seed roles, and
 uses those roles in Access rules:
 
-<!-- region ../../examples/roles/src/schema.ts#factory,staff-role,post -->
+<!-- region ../../examples/roles/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 
 import { roleAuditPlugin } from './role-audit.ts'
 
@@ -48,6 +48,16 @@ export const App = UltimaBase.use(
 	...apiServer({ http: { appId: 'newsroom' }, rest: true }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/roles/src/schema.ts#imports,staff-role,post -->
+
+```ts
+import { hasRole } from '@ultimabase/roles-plugin'
+
+import { App } from './app.ts'
 
 /** The people of the newsroom; a request principal points to a Member. */
 export const Member = App.Schema.define({

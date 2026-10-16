@@ -14,7 +14,7 @@ Without an existing app, the plugin creates one Hono application and owns its
 Node listener. `apiServer({ server })` from `@ultimabase/api-server` passes
 its `server` options to `honoServerPlugin(server)`:
 
-<!-- region ../../examples/http/src/schema.ts#factory -->
+<!-- region ../../examples/http/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'

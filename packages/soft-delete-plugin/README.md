@@ -16,14 +16,14 @@ Every code block in this README is copied from the tested
 `yarn docs:regions` (ADR-0330): edit the example, then run the script. Its
 schema file installs the plugin and opts a `Post` in:
 
-<!-- region ../../examples/soft-delete/src/schema.ts#factory,moderators,post -->
+<!-- region ../../examples/soft-delete/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 /**
@@ -38,6 +38,16 @@ export const App = UltimaBase.use(
 	...apiServer({ http: { appId: 'blog' }, rest: true, graphql: true }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/soft-delete/src/schema.ts#imports,moderators,post -->
+
+```ts
+import { hasRole } from '@ultimabase/roles-plugin'
+
+import { App } from './app.ts'
 
 /** The people who use the blog; a request principal points to a Member. */
 export const Member = App.Schema.define({
@@ -86,7 +96,7 @@ plugin declaration; no generated declarations are needed. The plugin is written
 with `definePlugin` from `@ultimabase/plugin-kit` and is the proving plugin of
 ADR-0316.
 
-The [`examples/minimal`](../../examples/minimal/README.md) application also
+The [`examples/full-stack`](../../examples/full-stack/README.md) application also
 proves both modes with authenticated REST and GraphQL execution and
 transactional Hook evidence.
 

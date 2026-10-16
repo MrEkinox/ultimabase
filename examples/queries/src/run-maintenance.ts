@@ -2,7 +2,7 @@
 import { createMaintenanceAnnouncement } from './maintenance.ts'
 import { ultimabase } from './ultimabase.ts'
 
-await using app = await ultimabase.start()
+await using started = await ultimabase.start()
 await createMaintenanceAnnouncement('Rebuild complete')
-console.info(app.state)
+console.info(started.state)
 //#endregion run-maintenance

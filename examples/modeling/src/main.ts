@@ -3,10 +3,10 @@ import process from 'node:process'
 import { ultimabase } from './ultimabase.ts'
 
 //#region start
-// start() resolves to the application; leaving this scope disposes it.
-await using app = await ultimabase.start()
+// start() resolves to ultimabase itself; leaving this scope disposes it.
+await using started = await ultimabase.start()
 //#endregion start
 
 process.stdout.write(
-	`Modeling example ${app.state}, database ${await app.health()}\n`,
+	`Modeling example ${started.state}, database ${await started.health()}\n`,
 )

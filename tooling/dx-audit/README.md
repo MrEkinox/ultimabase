@@ -20,7 +20,7 @@ node tooling/dx-audit/run.mjs <baselineRoot> <candidateRoot> [--out dir] [--only
   `<candidateRoot>`: the tree to audit.
 - `--out` defaults to `<candidateRoot>/node_modules/.cache/dx-audit` (never
   committed); `--only` restricts the audit to package directories or groups
-  (`tests`, `examples/minimal`).
+  (`tests`, `examples/full-stack`).
 - Output: `report.json` (every collected difference, machine-readable) and
   `summary.md` (grouped by package and section; identical changes at several
   sites are listed once with all their locations). A full run takes about

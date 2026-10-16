@@ -1,13 +1,15 @@
-# Minimal REST and GraphQL application
+# Full-stack REST and GraphQL application
 
-This runnable example is the smallest complete authenticated UltimaBase
-multi-transport vertical. It starts a framework-owned Hono listener on port
+This runnable example combines every official plugin family in one
+authenticated application: it starts a framework-owned Hono listener on port
 `1337`, stores data in PostgreSQL, and mounts REST and Yoga GraphQL as sibling
-transports over one HTTP application.
+transports over one HTTP application. For a first run, start with the smaller
+[modeling example](../modeling/README.md), which uses the same project layout
+with a single plugin.
 
-The commands below send `X-UltimaBase-Application-Id: minimal`; without the
-header a request reaches this only application, and `GET /health` reports its
-health (ADR-0323). REST is mounted under `/api` and
+The commands below send `X-UltimaBase-Application-Id: full-stack`; without
+the header a request reaches this only application, and `GET /health` reports
+its health (ADR-0323). REST is mounted under `/api` and
 GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
 `ExampleArticle` and `ExampleAuthor` soft-delete commands (`.with({ rest: true })`), the
@@ -20,11 +22,16 @@ public schema.
 
 Access, ACL, Hooks, Validation, Roles, authentication, REST, GraphQL, Yoga,
 HTTP, Hono, and PostgreSQL remain explicit independently removable plugins.
-The schema factory installs REST and GraphQL before declaring schemas, so their
-`rest` and `graphql` rules are typed from source; the application extends that
-same flat plugin chain and explicitly registers the schemas at construction.
-The example installs the HTTP plugins one by one instead of `apiServer()`:
-its tests give each application instance its own server and HTTP settings.
+The project follows the [recommended layout](../../apps/website/content/docs/1.0.0/project-layout.mdx):
+[`src/app.ts`](src/app.ts) installs the plugins the schemas are typed from,
+REST and GraphQL included, so their `rest` and `graphql` rules are typed from
+source; [`src/schema.ts`](src/schema.ts) declares the schemas from `App`; and
+[`src/ultimabase.ts`](src/ultimabase.ts) adds the HTTP plugins, the Yoga
+transport, the Hono listener and PostgreSQL when it creates the application,
+which registers the schemas explicitly. `createUltimabase()` is a function
+rather than one `ultimabase` constant because the repository's end-to-end
+suites give each application instance its own server, database and HTTP
+settings; [`src/main.ts`](src/main.ts) creates and starts one.
 REST and GraphQL normalize requests into the same Core operation pipeline;
 their `{ results, nextCursor }` envelopes and Relay connections remain
 intentionally different wire representations of the same cursors.
@@ -36,9 +43,9 @@ plus a server-only Master key:
 
 ```sh
 corepack yarn build
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_minimal \
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_full_stack \
 ULTIMABASE_MASTER_KEY=development-only-secret \
-  corepack yarn workspace @ultimabase/example-minimal start
+  corepack yarn workspace @ultimabase/example-full-stack start
 ```
 
 The server listens at `http://127.0.0.1:1337`.
@@ -51,7 +58,7 @@ Create an article through REST:
 curl http://127.0.0.1:1337/api/classes/ExampleArticle \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
   --data '{"slug":"hello-rest","title":"  Hello REST  "}'
 ```
 
@@ -61,7 +68,7 @@ Create another through Yoga GraphQL:
 curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
   --data '{"query":"mutation Create($input: ExampleArticleCreateInput!) { createExampleArticle(input: $input) { id slug title } }","variables":{"input":{"slug":"hello-graphql","title":"  Hello GraphQL  "}}}'
 ```
 
@@ -90,19 +97,19 @@ before entering the ambient request context:
 
 ```ts
 const runWithSession = <TResult>(
-	app: MinimalApplication,
+	ultimabase: FullStackApplication,
 	sessionToken: string,
 	handler: () => Promise<TResult>,
 ): Promise<TResult> =>
-	app.plugin(authPlugin).runWithSession(sessionToken, handler)
+	ultimabase.plugin(authPlugin).runWithSession(sessionToken, handler)
 
 /** Runs the plugin command on the class through this exact application. */
 export const softDeleteArticle = (
-	app: MinimalApplication,
+	ultimabase: FullStackApplication,
 	id: string,
 	sessionToken: string,
 ) =>
-	runWithSession(app, sessionToken, () =>
+	runWithSession(ultimabase, sessionToken, () =>
 		ExampleArticle.softDeleteOne({
 			id,
 			select: { id: true, isDeleted: true, title: true },
@@ -120,7 +127,7 @@ curl "http://127.0.0.1:1337/api/classes/ExampleArticle/ARTICLE_ID/soft-delete-on
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer SESSION_TOKEN' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
   --data '{"select":{"id":true,"isDeleted":true,"title":true}}'
 ```
 
@@ -376,7 +383,7 @@ Sign up through the explicit GraphQL operation binding:
 curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
   --data '{"query":"mutation SignUp($input: PasswordSignUpInput!) { signUp(input: $input) { user { id } session { token expiresAt } } }","variables":{"input":{"username":"ada","password":"correct horse battery staple"}}}'
 ```
 
@@ -388,7 +395,7 @@ principal while Core authority remains `anonymous`:
 curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
   --header 'Authorization: Bearer ub_s1.REPLACE_WITH_THE_SESSION_TOKEN' \
   --data '{"query":"{ status { authority principalId } }"}'
 ```
@@ -409,16 +416,16 @@ curl http://127.0.0.1:1337/api/auth/login \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'Origin: http://localhost:5173' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
-  --cookie-jar /tmp/ultimabase-minimal-cookies.txt \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
+  --cookie-jar /tmp/ultimabase-full-stack-cookies.txt \
   --data '{"username":"ada","password":"correct horse battery staple"}'
 
 curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
   --header 'Origin: http://localhost:5173' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
-  --cookie /tmp/ultimabase-minimal-cookies.txt \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
+  --cookie /tmp/ultimabase-full-stack-cookies.txt \
   --data '{"query":"{ status { authority principalId } }"}'
 ```
 
@@ -432,7 +439,7 @@ transport. The selected application verifies and audits it before GraphQL runs:
 curl http://127.0.0.1:1337/graphql \
   --request POST \
   --header 'Content-Type: application/json' \
-  --header 'X-UltimaBase-Application-Id: minimal' \
+  --header 'X-UltimaBase-Application-Id: full-stack' \
   --header 'X-UltimaBase-Request-Id: trusted-maintenance-1' \
   --header 'X-UltimaBase-Master-Key: development-only-secret' \
   --data '{"query":"{ status { authority principalId } }"}'
@@ -443,7 +450,7 @@ key ID and request ID without logging the raw key. Never place a Master key in a
 browser bundle. Master bypasses authorization policies but not validation,
 hooks, transactions, constraints, or integrity maintenance.
 
-`createMinimalClient()` demonstrates the shared Fetch header handling. Its
+`createClient()` in [`src/client.ts`](src/client.ts) demonstrates the shared Fetch header handling. Its
 `masterKey` option exists for trusted integration code only.
 
 ## Declaration form and current boundary
@@ -453,12 +460,12 @@ are thunks such as `target: () => ExampleAuthor`, feature keys such as
 `softDelete: true` and `acl: true` sit in `define(...)`, and Access, ACL,
 Hooks, REST and GraphQL rules sit in `.with({ ... })`. The application
 declares itself once in `Register`
-(`readonly app: ReturnType<typeof createMinimalApplication>`), which gives
+(`readonly app: ReturnType<typeof createUltimabase>`), which gives
 name-keyed types such as `WhereBuilder<SchemaRef<"ExampleArticle">>`. There is
 no generated declaration and no generation step:
 
 ```sh
-corepack yarn workspace @ultimabase/example-minimal typecheck
+corepack yarn workspace @ultimabase/example-full-stack typecheck
 ```
 
 Virtual field resolvers inside `define(...)` read their selected values as

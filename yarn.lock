@@ -3647,6 +3647,31 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/example-full-stack@workspace:examples/full-stack":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-full-stack@workspace:examples/full-stack"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/access-plugin": "workspace:^"
+    "@ultimabase/acl-permissions-plugin": "workspace:^"
+    "@ultimabase/auth-password": "workspace:^"
+    "@ultimabase/auth-plugin": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/graphql-plugin": "workspace:^"
+    "@ultimabase/graphql-yoga-plugin": "workspace:^"
+    "@ultimabase/hono-server-plugin": "workspace:^"
+    "@ultimabase/hooks-plugin": "workspace:^"
+    "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/rest-plugin": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
+    "@ultimabase/soft-delete-plugin": "workspace:^"
+    "@ultimabase/validation-plugin": "workspace:^"
+    typescript: "npm:^6.0.3"
+    zod: "npm:^4.4.3"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/example-graphql@workspace:examples/graphql":
   version: 0.0.0-use.local
   resolution: "@ultimabase/example-graphql@workspace:examples/graphql"
@@ -3704,31 +3729,6 @@ __metadata:
     hono: "npm:^4.13.7"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.11"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/example-minimal@workspace:examples/minimal":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/example-minimal@workspace:examples/minimal"
-  dependencies:
-    "@types/node": "npm:^24.0.0"
-    "@ultimabase/access-plugin": "workspace:^"
-    "@ultimabase/acl-permissions-plugin": "workspace:^"
-    "@ultimabase/auth-password": "workspace:^"
-    "@ultimabase/auth-plugin": "workspace:^"
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/graphql-plugin": "workspace:^"
-    "@ultimabase/graphql-yoga-plugin": "workspace:^"
-    "@ultimabase/hono-server-plugin": "workspace:^"
-    "@ultimabase/hooks-plugin": "workspace:^"
-    "@ultimabase/http-plugin": "workspace:^"
-    "@ultimabase/postgres-plugin": "workspace:^"
-    "@ultimabase/rest-plugin": "workspace:^"
-    "@ultimabase/roles-plugin": "workspace:^"
-    "@ultimabase/soft-delete-plugin": "workspace:^"
-    "@ultimabase/validation-plugin": "workspace:^"
-    typescript: "npm:^6.0.3"
-    zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
 

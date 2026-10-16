@@ -33,7 +33,7 @@ const checks: readonly (readonly string[])[] = [
 	// Builds the packages first: the projects below read their declarations.
 	['--build', 'tsconfig.json'],
 	['--project', 'tooling/tsconfig/test-typescript-7.json'],
-	['--project', 'examples/minimal/tsconfig.json'],
+	['--project', 'examples/full-stack/tsconfig.json'],
 	['--project', 'examples/todo-backend/tsconfig.json'],
 	['--project', 'examples/soft-delete/tsconfig.json'],
 	['--project', 'examples/access/tsconfig.json'],

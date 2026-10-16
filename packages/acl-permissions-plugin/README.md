@@ -33,14 +33,14 @@ a declaration without it is a TypeScript error, and fails when `.with` runs or
 the application compiles. The example also installs Access, which decides who may create, and
 Roles, which supplies role membership:
 
-<!-- region ../../examples/acl/src/schema.ts#factory,note -->
+<!-- region ../../examples/acl/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 
 /**
  * ACL stores the rights of each row with the row. Access decides which
@@ -53,6 +53,18 @@ export const App = UltimaBase.use(
 	rolesPlugin(),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/acl/src/schema.ts#imports,note -->
+
+```ts
+import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { isAuthenticated } from '@ultimabase/core'
+import { hasRole } from '@ultimabase/roles-plugin'
+
+import { App } from './app.ts'
 
 /**
  * Private notes. Access lets members create them and lets every operation

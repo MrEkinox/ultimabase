@@ -1,25 +1,9 @@
-//#region factory
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
+//#region imports
 import { z } from 'zod'
 
+import { App } from './app.ts'
 import { isRoomOpen } from './rooms.ts'
-
-/**
- * The configured factory types the `validation` field option and the schema
- * check of `.with({ validation: … })`. Access opens the REST writes of this
- * example; Validation needs neither Access nor REST.
- */
-export const App = UltimaBase.use(
-	validationPlugin(),
-	accessPlugin(),
-	...apiServer({ http: { appId: 'events' }, rest: true }),
-	postgresPlugin(),
-)
-//#endregion factory
+//#endregion imports
 
 //#region event
 export const Event = App.Schema.define({

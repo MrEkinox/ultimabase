@@ -1,9 +1,10 @@
 import { anonymous } from '@ultimabase/core/plugin'
 
-import type { createMinimalApplication } from './create-application.ts'
+import type { createUltimabase } from './ultimabase.ts'
 import { ExampleArticle } from './schema.ts'
 
-type MinimalApplication = ReturnType<typeof createMinimalApplication>
+/** One application built by `createUltimabase`. */
+type FullStackApplication = ReturnType<typeof createUltimabase>
 
 // The README shows these regions; the example typecheck compiles them.
 
@@ -74,7 +75,9 @@ export const writeArticleGraph = async (
 }
 
 /** Runs one GraphQL document in process, without Yoga or HTTP. */
-export const listArticlesInProcess = async (ultimabase: MinimalApplication) => {
+export const listArticlesInProcess = async (
+	ultimabase: FullStackApplication,
+) => {
 	//#region graphql-execute
 	const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
 	const context = anonymous(ultimabase, {
