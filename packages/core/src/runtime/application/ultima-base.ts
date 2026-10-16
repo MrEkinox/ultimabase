@@ -101,7 +101,10 @@ import {
  * const posts = await Post.findMany()
  * ```
  */
-const configuredSchemaNamespace = createConfiguredSchemaNamespace(new Map())
+const configuredSchemaNamespace = createConfiguredSchemaNamespace({
+	features: new Map(),
+	rules: [],
+})
 
 let readKernel: <
 	const TSchemas extends readonly SchemaDefinition[],

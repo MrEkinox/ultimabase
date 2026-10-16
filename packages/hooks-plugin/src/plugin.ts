@@ -18,6 +18,7 @@ import {
 	type SchemaRulesHKT,
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeRequirement,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import {
 	definePluginFieldOption,
@@ -240,16 +241,20 @@ export type HooksPlugin = PluginInstance<{
  * @example `UltimaBase.use(hooksPlugin({ events: [onEvent(todoCreated, notify)] }))`
  */
 export const hooksPlugin = (options: HooksPluginOptions = {}): HooksPlugin =>
-	plugin({
-		id: '@ultimabase/hooks-plugin',
-		version: '0.0.0',
-		core: '^0.0.0',
-		contributions: [
-			optionalHookContributions,
-			optionalHookEvents,
-			optionalHookDiagnostics,
-			createHooksRuntimeProvider(parseOptions(options)),
-			schemaMutationSurfaceRequirement,
-			hooksDeclarations,
-		],
-	})
+	// `.with((plugins) => plugins.hooks({ … }))` (ADR-0339).
+	provideSchemaRules<HooksPlugin>(
+		plugin({
+			id: '@ultimabase/hooks-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [
+				optionalHookContributions,
+				optionalHookEvents,
+				optionalHookDiagnostics,
+				createHooksRuntimeProvider(parseOptions(options)),
+				schemaMutationSurfaceRequirement,
+				hooksDeclarations,
+			],
+		}),
+		['hooks'],
+	)

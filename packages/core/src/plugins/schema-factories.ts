@@ -63,6 +63,13 @@ export interface SchemaFactoryContext {
 		options: object,
 		statics?: (schema: SchemaDefinition) => Readonly<Record<string, unknown>>,
 	) => unknown
+	/**
+	 * The feature keys `define` accepts in this application (ADR-0339), so a
+	 * factory can tell them from unknown options before calling `define`.
+	 *
+	 * @example `if (!features.has(key)) throw new TypeError(`Unknown option: ${key}`)`
+	 */
+	readonly features: ReadonlySet<string>
 }
 
 /** Runtime of the schema factories one plugin declares, keyed by factory name. */

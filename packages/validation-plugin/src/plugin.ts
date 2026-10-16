@@ -9,6 +9,7 @@ import {
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
 	type SchemaRulesHKT,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
@@ -93,18 +94,22 @@ const createValidationPlugin = (): ValidationPlugin => {
 		},
 	})
 
-	return plugin({
-		id: '@ultimabase/validation-plugin',
-		version: '0.0.0',
-		core: '^0.0.0',
-		contributions: [
-			runtimeProvider,
-			validationDeclarations,
-			contributeApplication(({ schemas }) => ({
-				exports: immutableRecord({ check: createValidationCheck(schemas) }),
-			})),
-		],
-	})
+	// `.with((plugins) => plugins.validation({ … }))` (ADR-0339).
+	return provideSchemaRules<ValidationPlugin>(
+		plugin({
+			id: '@ultimabase/validation-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [
+				runtimeProvider,
+				validationDeclarations,
+				contributeApplication(({ schemas }) => ({
+					exports: immutableRecord({ check: createValidationCheck(schemas) }),
+				})),
+			],
+		}),
+		['validation'],
+	)
 }
 
 /** Installs field validators, schema checks and `check()` explicitly. */

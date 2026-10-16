@@ -71,7 +71,7 @@ export interface PluginSourceProjection {
 	readonly schemaRules?: SchemaRulesHKT
 	/** Callback-free shape methods chained before `.with(...)` (ADR-0297). */
 	readonly shapeMethods?: Readonly<
-		Record<string, SchemaShapeMethod<readonly unknown[], object>>
+		Record<string, SchemaShapeMethod<readonly unknown[], object, string>>
 	>
 	/** Fields added from the called shape methods (ADR-0316). */
 	readonly shapeFields?: SchemaFieldsHKT

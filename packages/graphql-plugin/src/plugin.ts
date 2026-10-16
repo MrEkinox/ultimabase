@@ -19,6 +19,7 @@ import {
 	type PluginOperationDefinition,
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import { readDeploymentEnvironment } from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -290,22 +291,26 @@ export const graphqlPlugin = (
 			},
 		}
 	})
-	return plugin({
-		id: '@ultimabase/graphql-plugin',
-		version: '0.0.0',
-		core: '^0.0.0',
-		contributions: [
-			optionalSchemaContributions,
-			optionalFilterOperators,
-			applicationProvider,
-			requestExecutionRequirement,
-			operationPlanningRequirement,
-			graphqlApplicationRequirement,
-			declarations,
-			application,
-		],
-		...(normalized.sdl === undefined
-			? {}
-			: { environment: ['environment:filesystem'] as const }),
-	})
+	// `.with((plugins) => plugins.graphql({ … }))` (ADR-0339).
+	return provideSchemaRules<GraphqlPlugin>(
+		plugin({
+			id: '@ultimabase/graphql-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [
+				optionalSchemaContributions,
+				optionalFilterOperators,
+				applicationProvider,
+				requestExecutionRequirement,
+				operationPlanningRequirement,
+				graphqlApplicationRequirement,
+				declarations,
+				application,
+			],
+			...(normalized.sdl === undefined
+				? {}
+				: { environment: ['environment:filesystem'] as const }),
+		}),
+		['graphql'],
+	)
 }

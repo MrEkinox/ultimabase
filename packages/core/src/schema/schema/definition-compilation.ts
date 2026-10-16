@@ -83,6 +83,16 @@ export interface NormalizedSchemaDeclaration {
 	/** Relation filters of the final `.with({ relations })` (ADR-0328). */
 	readonly relationFilters?:
 		ReadonlyMap<string, RelationWhereDeclaration> | undefined
+	/**
+	 * Whether `define` set feature keys: its indexes may then name feature
+	 * fields, checked against the compiled fields (ADR-0339).
+	 */
+	readonly featureIndexes?: boolean | undefined
+	/**
+	 * Rules required by the features `define` set, while no `.with` gave
+	 * them: `[feature, rule]` pairs reported when an application compiles.
+	 */
+	readonly missingRules?: readonly (readonly [string, string])[] | undefined
 	readonly options: Readonly<Record<string, unknown>>
 }
 
@@ -108,6 +118,19 @@ export const storeSchemaDeclaration = (
 	declaration: NormalizedSchemaDeclaration,
 ): void => {
 	schemaDeclarations.set(schema, declaration)
+}
+
+/**
+ * Rejects a schema registered without the `.with` its `define` features
+ * require (ADR-0339): `acl: true` without `plugins.acl({ … })`.
+ */
+export const assertDeclaredRulesComplete = (schema: SchemaDefinition): void => {
+	const [missing] = schemaDeclarations.get(schema)?.missingRules ?? []
+	if (missing === undefined) return
+	const [feature, rule] = missing
+	throw new TypeError(
+		`${schema.className} sets ${feature} in define(), which requires .with((plugins) => plugins.${rule}({ … }))`,
+	)
 }
 
 /** Reads the fields captured when one schema was declared, before compilation. */
@@ -308,6 +331,7 @@ export const prepareSchemaCompilation = (
 		persisted,
 		declaration.indexes,
 		declaration.ruleIndexes,
+		declaration.featureIndexes === true,
 	)
 
 	return immutableRecord({

@@ -1,6 +1,7 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { PluginDefinition, PluginSource } from './definition.js'
+import { assertUnreservedSchemaKey } from './schema-rule-names.js'
 
 /**
  * Higher-kinded slot through which one plugin contributes rule entries to the
@@ -118,37 +119,77 @@ export type SchemaShapeOf<TOptions> =
 
 declare const shapeMethodArgumentsType: unique symbol
 declare const shapeMethodOptionsType: unique symbol
+declare const featureRequiredRulesType: unique symbol
 
 /**
- * Describes one callback-free shape method chained before `.with(...)`, such
- * as `.softDelete()`. It never sees the schema, so it cannot create an
- * initializer cycle; its result is a patch of ordinary declaration options
- * that the installed plugins already interpret (fields, selectors, storage).
+ * Describes one feature of a plugin: a key of `define` (`softDelete: { mode:
+ * 'command' }`, ADR-0339) and, until the shape methods are removed, the
+ * callback-free method of the same name chained before `.with(...)`. It never
+ * sees the schema, so it cannot create an initializer cycle; its result is a
+ * patch of ordinary declaration options that the installed plugins already
+ * interpret (fields, selectors, storage). `TArguments` is `readonly []` for a
+ * feature set with `true`, `readonly [options?: TValue]` for one that also
+ * takes an options object. `TRequiredRules` names the rules a declaration
+ * setting the feature must give in `.with((plugins) => …)`.
  */
 export interface SchemaShapeMethod<
 	TArguments extends readonly unknown[] = readonly [],
 	TOptions extends object = Readonly<Record<never, never>>,
+	TRequiredRules extends string = never,
 > {
 	readonly [shapeMethodArgumentsType]: TArguments
 	readonly [shapeMethodOptionsType]: TOptions
+	readonly [featureRequiredRulesType]: TRequiredRules
 }
+
+/**
+ * Describes one feature of a plugin (ADR-0339), the key it adds to `define`.
+ * The same contract as {@link SchemaShapeMethod}, under its new name.
+ *
+ * @example `SchemaFeature<readonly [], Readonly<{ acl: object }>, 'acl'>`
+ */
+export type SchemaFeature<
+	TArguments extends readonly unknown[] = readonly [],
+	TOptions extends object = Readonly<Record<never, never>>,
+	TRequiredRules extends string = never,
+> = SchemaShapeMethod<TArguments, TOptions, TRequiredRules>
+
+/** Reads the rules one declared feature requires (`never` when none). */
+export type SchemaFeatureRequiredRules<TFeature> =
+	TFeature extends SchemaShapeMethod<
+		readonly unknown[],
+		object,
+		infer TRequiredRules
+	>
+		? TRequiredRules
+		: never
 
 /** Source projection carrying one plugin's shape methods. */
 export type PluginSchemaShapeSource<
 	TMethods extends Readonly<
-		Record<string, SchemaShapeMethod<readonly unknown[], object>>
+		Record<string, SchemaShapeMethod<readonly unknown[], object, string>>
 	>,
 > = Readonly<{ shapeMethods: TMethods }>
 
+/**
+ * Source projection carrying one plugin's features, the keys it adds to
+ * `define` (ADR-0339).
+ */
+export type PluginSchemaFeatureSource<
+	TFeatures extends Readonly<
+		Record<string, SchemaShapeMethod<readonly unknown[], object, string>>
+	>,
+> = PluginSchemaShapeSource<TFeatures>
+
 /** Reads the arguments accepted by one declared shape method. */
 export type SchemaShapeMethodArguments<TMethod> =
-	TMethod extends SchemaShapeMethod<infer TArguments, object>
+	TMethod extends SchemaShapeMethod<infer TArguments, object, string>
 		? TArguments
 		: never
 
 /** Reads the declaration options added by one declared shape method. */
 export type SchemaShapeMethodOptions<TMethod> =
-	TMethod extends SchemaShapeMethod<readonly unknown[], infer TOptions>
+	TMethod extends SchemaShapeMethod<readonly unknown[], infer TOptions, string>
 		? TOptions
 		: never
 
@@ -191,6 +232,7 @@ type DeclaredShapeMethods<TSource> = UnionToIntersection<
 export interface SchemaShapeMethodImplementation<
 	TArguments extends readonly unknown[] = readonly unknown[],
 	TOptions extends object = object,
+	TRequiredRules extends string = string,
 > {
 	/**
 	 * Declaration option keys the method sets; the method is unavailable when a
@@ -199,6 +241,12 @@ export interface SchemaShapeMethodImplementation<
 	readonly sets: readonly (keyof TOptions & string)[]
 	/** Returns the declaration options the method adds. */
 	readonly apply: (...arguments_: TArguments) => TOptions
+	/**
+	 * Rules a declaration setting the feature in `define` must give in
+	 * `.with((plugins) => …)`, as its source type declares them (ADR-0339).
+	 * @example `requires: ['acl']`
+	 */
+	readonly requires?: readonly TRequiredRules[]
 }
 
 /** Runtime implementations matching the shape methods a plugin source declares. */
@@ -207,19 +255,29 @@ export type SchemaShapeMethodImplementations<TSource> = {
 		TName in keyof DeclaredShapeMethods<TSource>
 	]: SchemaShapeMethodImplementation<
 		SchemaShapeMethodArguments<DeclaredShapeMethods<TSource>[TName]>,
-		SchemaShapeMethodOptions<DeclaredShapeMethods<TSource>[TName]>
+		SchemaShapeMethodOptions<DeclaredShapeMethods<TSource>[TName]>,
+		SchemaFeatureRequiredRules<DeclaredShapeMethods<TSource>[TName]>
 	>
 }
 
 type RuntimeShapeMethod = Readonly<{
 	sets: readonly string[]
 	apply: (...arguments_: readonly unknown[]) => object
+	requires: readonly string[]
 }>
 
 const shapeMethodsByPlugin = new WeakMap<
 	PluginDefinition,
 	Readonly<Record<string, RuntimeShapeMethod>>
 >()
+
+const readNameList = (value: unknown, message: string): readonly string[] => {
+	if (value === undefined) return Object.freeze([])
+	if (!Array.isArray(value) || value.some((key) => typeof key !== 'string')) {
+		throw new TypeError(message)
+	}
+	return Object.freeze(value.map(String))
+}
 
 const snapshotShapeMethod = (
 	name: string,
@@ -244,23 +302,28 @@ const snapshotShapeMethod = (
 			}
 			return options
 		},
+		requires: readNameList(
+			value.requires,
+			`schema feature ${name} requires must list rule names`,
+		),
 	})
 }
 
 /**
- * Attaches the runtime of the shape methods one plugin declares in its source
- * type. Returns the same frozen plugin instance.
+ * Attaches the runtime of the features one plugin declares in its source
+ * type (ADR-0339): the keys it adds to `define`, and until their removal the
+ * shape methods of the same names. Returns the same frozen plugin instance.
  *
- * @example `provideSchemaShapeMethods(instance, { archivable: { sets: ['archivable'], apply: (options = {}) => ({ archivable: options }) } })`
+ * @example `provideSchemaFeatures(instance, { archivable: { sets: ['archivable'], apply: (options = {}) => ({ archivable: options }) } })`
  */
-export const provideSchemaShapeMethods = <
+export const provideSchemaFeatures = <
 	TPlugin extends PluginDefinition,
 	TSource = PluginSource<TPlugin>,
 >(
 	plugin: TPlugin,
-	methods: SchemaShapeMethodImplementations<TSource>,
+	features: SchemaShapeMethodImplementations<TSource>,
 ): TPlugin => {
-	const untrusted: unknown = methods
+	const untrusted: unknown = features
 	if (!isPlainRecord(untrusted)) {
 		throw new TypeError('schema shape methods must be a plain object')
 	}
@@ -278,13 +341,25 @@ export const provideSchemaShapeMethods = <
 	return plugin
 }
 
+/**
+ * Attaches the runtime of the shape methods one plugin declares in its source
+ * type. Returns the same frozen plugin instance.
+ *
+ * @deprecated Use {@link provideSchemaFeatures} (ADR-0339); this name is
+ * removed with the shape methods.
+ * @example `provideSchemaShapeMethods(instance, { archivable: { sets: ['archivable'], apply: (options = {}) => ({ archivable: options }) } })`
+ */
+export const provideSchemaShapeMethods: typeof provideSchemaFeatures =
+	provideSchemaFeatures
+
 /** One collected runtime shape method. */
 export type SchemaShapeMethodRuntime = RuntimeShapeMethod
 
 /**
  * @internal Collects the shape methods of one installed plugin tuple. Several
  * instances of one plugin declare the same method: the first one is kept, and
- * methods setting different options under one name are rejected.
+ * methods setting different options under one name are rejected. A feature
+ * named after a reserved key (ADR-0339) is rejected.
  */
 export const readSchemaShapeMethods = (
 	plugins: readonly PluginDefinition[],
@@ -294,6 +369,7 @@ export const readSchemaShapeMethods = (
 		for (const [name, method] of Object.entries(
 			shapeMethodsByPlugin.get(plugin) ?? {},
 		)) {
+			assertUnreservedSchemaKey('feature', name)
 			const existing = methods.get(name)
 			if (existing === undefined) methods.set(name, method)
 			else if (existing.sets.join() !== method.sets.join()) {

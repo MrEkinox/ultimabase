@@ -331,6 +331,10 @@ export type {
 	SchemaShapeMethods,
 } from './schema/schema-declaration-chain.js'
 export type {
+	CompleteSchemaRules,
+	SchemaRulesBuilder,
+} from './schema/schema-rules-builder.js'
+export type {
 	CreateInput,
 	IsRegisteredSchema,
 	Item,

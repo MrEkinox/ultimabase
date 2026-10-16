@@ -281,14 +281,18 @@ const isSameIndex = (
 
 /**
  * Collects field-level indexes first, then schema-level declarations in
- * configuration order. Indexes declared in the final `.with` (`ruleIndexes`)
- * may name fields that installed plugins add later; the compiled application
- * checks them with `assertCompiledSchemaIndexes`.
+ * configuration order. Indexes declared in the final `.with` (`ruleIndexes`),
+ * and those of a `define` that sets feature keys (`featureIndexes`), may name
+ * fields that installed plugins add later; the compiled application checks
+ * them with `assertCompiledSchemaIndexes`. A complete unique index of
+ * `define` is a unique target even when it names feature fields; a partial
+ * one, or one of `.with`, is storage only (ADR-0332 amendment, ADR-0339).
  */
 export const normalizeSchemaIndexes = (
 	fields: SchemaFields,
 	indexes: readonly SchemaIndexInput[] | undefined,
 	ruleIndexes: readonly SchemaIndexInput[] = [],
+	featureIndexes = false,
 ): readonly SchemaIndexDefinition[] => {
 	assertSchemaIndexes(indexes)
 	assertSchemaIndexes(ruleIndexes)
@@ -306,10 +310,14 @@ export const normalizeSchemaIndexes = (
 	const fieldLevel = definitions.length
 
 	const declared = [
-		...(indexes ?? []).map((index) => ({ index, pending: false })),
-		...ruleIndexes.map((index) => ({ index, pending: true })),
+		...(indexes ?? []).map((index) => ({
+			index,
+			pending: featureIndexes,
+			target: true,
+		})),
+		...ruleIndexes.map((index) => ({ index, pending: true, target: false })),
 	]
-	for (const [position, { index, pending }] of declared.entries()) {
+	for (const [position, { index, pending, target }] of declared.entries()) {
 		const definition = normalizeCompositeIndex(
 			index,
 			knownFields,
@@ -325,7 +333,7 @@ export const normalizeSchemaIndexes = (
 				`Index duplicates the field-level index of ${definition.fields[0]}`,
 			)
 		}
-		if (!pending && definition.unique && definition.where === undefined) {
+		if (target && definition.unique && definition.where === undefined) {
 			uniqueTargetIndexes.add(definition)
 		}
 		definitions.push(definition)

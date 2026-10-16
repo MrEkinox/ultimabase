@@ -16,6 +16,7 @@ import type {
 } from '../../plugins/source-projections.js'
 import type { PluginSource } from '../../plugins/definition.js'
 import { readSchemaShapeMethods } from '../../plugins/schema-extensions.js'
+import { readSchemaRuleNames } from '../../plugins/schema-rule-names.js'
 import {
 	readSchemaFactories,
 	type SchemaFactoriesFor,
@@ -128,24 +129,28 @@ export const appendConfiguredPlugins = <
 	const ConfiguredApplication = class extends parent {}
 
 	configuredPlugins.set(ConfiguredApplication, plugins)
-	// A factory whose plugins add shape methods (`.softDelete()`) declares
-	// schemas through its own namespace; others share their parent's.
-	const shapes = readSchemaShapeMethods(plugins)
-	if (shapes.size > 0) {
+	// A factory whose plugins add features (`softDelete`) or rules (`access`)
+	// declares schemas through its own namespace; others share their parent's.
+	const extensions = immutableRecord({
+		features: readSchemaShapeMethods(plugins),
+		rules: readSchemaRuleNames(plugins),
+	})
+	if (extensions.features.size > 0 || extensions.rules.length > 0) {
 		Object.defineProperty(ConfiguredApplication, 'Schema', {
 			configurable: false,
 			enumerable: true,
-			value: createConfiguredSchemaNamespace(shapes),
+			value: createConfiguredSchemaNamespace(extensions),
 			writable: false,
 		})
 	}
 	// Plugin schema factories declare through the same chain (ADR-0322).
 	const context = immutableRecord({
 		define: (options: object, statics?: FactoryStatics) =>
-			defineFactorySchema(shapes, options, statics),
+			defineFactorySchema(extensions, options, statics),
+		features: new Set(extensions.features.keys()),
 	})
 	for (const [name, create] of readSchemaFactories(plugins)) {
-		// Inherited factories are rebound to this factory's own shape methods.
+		// Inherited factories are rebound to this factory's own features and rules.
 		if (Object.hasOwn(ConfiguredApplication, name)) {
 			throw new TypeError(`Reserved schema factory name: ${name}`)
 		}

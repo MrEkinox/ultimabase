@@ -187,6 +187,10 @@ interface SchemaDeclarationRules {
 	readonly indexes?: readonly SchemaIndexInput[] | undefined
 	/** Unvalidated `relations` rules (ADR-0328). */
 	readonly relations?: unknown
+	/** Whether `define` set feature keys, so its indexes may name their fields. */
+	readonly featureIndexes?: boolean
+	/** `[feature, rule]` pairs required by `define` features, not given yet. */
+	readonly missingRules?: readonly (readonly [string, string])[]
 }
 
 const defineSchemaModel = <
@@ -250,6 +254,10 @@ const defineSchemaModel = <
 				? {}
 				: { ruleIndexes: snapshotSchemaIndexOptions(rules.indexes) }),
 			...(relationFilters.size === 0 ? {} : { relationFilters }),
+			...(rules.featureIndexes === true ? { featureIndexes: true } : {}),
+			...(rules.missingRules === undefined || rules.missingRules.length === 0
+				? {}
+				: { missingRules: rules.missingRules }),
 			options: snapshotUnresolvedSchemaOptions(options),
 		}),
 	)

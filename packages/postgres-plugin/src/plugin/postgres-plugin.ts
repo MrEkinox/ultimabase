@@ -17,6 +17,7 @@ import {
 	type PluginDeclarationContribution,
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import {
 	definePluginOptionsParser,
@@ -381,19 +382,23 @@ export const postgresPlugin = (
 		},
 	)
 
-	return plugin({
-		id: postgresPluginName,
-		version: '0.0.0',
-		core: '^0.0.0',
-		environment: postgresPluginEnvironment,
-		contributions: [
-			connectionProvider,
-			adapterProvider,
-			operatorsProvider,
-			providePostgresReset(connections, catalogs),
-			connectionRequirement,
-			declarations,
-			application,
-		],
-	})
+	// `.with((plugins) => plugins.postgres({ … }))` (ADR-0339).
+	return provideSchemaRules<PostgresPlugin>(
+		plugin({
+			id: postgresPluginName,
+			version: '0.0.0',
+			core: '^0.0.0',
+			environment: postgresPluginEnvironment,
+			contributions: [
+				connectionProvider,
+				adapterProvider,
+				operatorsProvider,
+				providePostgresReset(connections, catalogs),
+				connectionRequirement,
+				declarations,
+				application,
+			],
+		}),
+		['postgres'],
+	)
 }

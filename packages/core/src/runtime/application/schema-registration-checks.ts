@@ -4,6 +4,7 @@ import type { ResolveSchemaTarget } from '../../schema/schema/deferred-targets.j
 import type { SourceSchemaTypeInfo } from '../../schema/schema/source-type-info.js'
 import type { SchemaTypeInfoCarrier } from '../../schema/type-info.js'
 import type { Register } from '../../schema/schema/registered-schemas.js'
+import type { SchemaRequiredRuleMessages } from '../../schema/schema/schema-declaration-chain.js'
 
 declare const schemaRegistrationErrorType: unique symbol
 declare const registerDeclarationRequiredType: unique symbol
@@ -82,13 +83,18 @@ type MappedByIssues<TSchema> =
 				}[keyof FieldsOf<TSchema>]
 			: never
 
+// A declaration registered without the `.with` its `define` features
+// require (`acl: true` without `plugins.acl({ … })`, ADR-0339).
+type RegistrationIssues<TSchema> =
+	MappedByIssues<TSchema> | SchemaRequiredRuleMessages<TSchema>
+
 /** Each registered schema, or a readable registration error in its place. */
 export type CheckedSchemas<TSchemas extends readonly SchemaDefinition[]> = {
 	readonly [TIndex in keyof TSchemas]: [
-		MappedByIssues<TSchemas[TIndex]>,
+		RegistrationIssues<TSchemas[TIndex]>,
 	] extends [never]
 		? TSchemas[TIndex]
-		: SchemaRegistrationError<MappedByIssues<TSchemas[TIndex]>>
+		: SchemaRegistrationError<RegistrationIssues<TSchemas[TIndex]>>
 }
 
 /**

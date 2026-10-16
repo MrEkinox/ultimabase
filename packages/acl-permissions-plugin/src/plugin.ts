@@ -33,6 +33,7 @@ import {
 	type SchemaRulesHKT,
 	type SchemaShapeMethod,
 	provideSchemaShapeMethods,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import {
 	createPluginEventDispatcher,
@@ -150,7 +151,7 @@ export type ACLShapeSource = PluginSchemaShapeSource<{
 	 * Configure it in `.with({ acl: { default } })`.
 	 * @example `App.Schema.define({ className: 'Todo', fields }).acl().with({ acl: { default: ({ principal }) => new ACL(principal) } })`
 	 */
-	readonly acl: SchemaShapeMethod<readonly [], Readonly<{ acl: object }>>
+	readonly acl: SchemaShapeMethod<readonly [], Readonly<{ acl: object }>, 'acl'>
 }>
 
 type ACLSource =
@@ -522,7 +523,15 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			aclDeclarations,
 		],
 	})
-	return provideSchemaShapeMethods<ACLPlugin, ACLShapeSource>(instance, {
-		acl: { sets: ['acl'], apply: () => ({ acl: aclShapeDeclared }) },
-	})
+	// `acl: true` in define requires `plugins.acl({ default })` (ADR-0339).
+	return provideSchemaRules<ACLPlugin>(
+		provideSchemaShapeMethods<ACLPlugin, ACLShapeSource>(instance, {
+			acl: {
+				sets: ['acl'],
+				apply: () => ({ acl: aclShapeDeclared }),
+				requires: ['acl'],
+			},
+		}),
+		['acl'],
+	)
 }

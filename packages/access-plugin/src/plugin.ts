@@ -20,6 +20,7 @@ import {
 	type PluginSchemaRulesSource,
 	type SchemaRulesHKT,
 	type SchemaRulesSource,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
@@ -245,5 +246,6 @@ export const accessPlugin = (
 			contributeAccessStartup(allowWithoutRule),
 		],
 	})
-	return instance
+	// `.with((plugins) => plugins.access({ … }))` (ADR-0339).
+	return provideSchemaRules<AccessPlugin>(instance, ['access'])
 }

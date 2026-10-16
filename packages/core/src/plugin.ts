@@ -177,7 +177,20 @@ export type {
 	PluginSourceRelationChange,
 	PluginSourceState,
 } from './plugins/source-projections.js'
-export { provideSchemaShapeMethods } from './plugins/schema-extensions.js'
+export {
+	provideSchemaFeatures,
+	provideSchemaShapeMethods,
+} from './plugins/schema-extensions.js'
+export { provideSchemaRules } from './plugins/schema-rule-names.js'
+export type {
+	DefineFeatureCheck,
+	DefineFeatureNames,
+	DefineFeatureOptions,
+	DefineFeatures,
+	DefineFeaturesNotInferred,
+	DefineUniqueIndexFields,
+	CompleteDefineFields,
+} from './schema/schema/define-features.js'
 export { provideSchemaFactories } from './plugins/schema-factories.js'
 export type {
 	PluginSchemaFactoriesSource,
@@ -202,6 +215,9 @@ export type {
 	SchemaStaticsHKT,
 	SchemaRulesFor,
 	SchemaRulesHKT,
+	PluginSchemaFeatureSource,
+	SchemaFeature,
+	SchemaFeatureRequiredRules,
 	SchemaShapeMethod,
 	SchemaShapeMethodImplementation,
 	SchemaShapeMethodImplementations,

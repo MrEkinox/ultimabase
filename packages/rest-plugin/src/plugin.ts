@@ -17,6 +17,7 @@ import {
 	type PluginInstance,
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import {
 	httpApplicationCapability,
@@ -314,20 +315,24 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			}
 		},
 	)
-	return plugin({
-		id: restPluginId,
-		version: restPluginVersion,
-		core: '^0.0.0',
-		...(instanceId === undefined ? {} : { instanceId }),
-		contributions: [
-			...routeProviders,
-			httpEndpointProvider,
-			routeGraphRequirement,
-			requestExecutionRequirement,
-			transportPlanningRequirement,
-			optionalHttpApplication,
-			declarations,
-			application,
-		],
-	})
+	// `.with((plugins) => plugins.rest({ … }))` (ADR-0339).
+	return provideSchemaRules<RestPlugin>(
+		plugin({
+			id: restPluginId,
+			version: restPluginVersion,
+			core: '^0.0.0',
+			...(instanceId === undefined ? {} : { instanceId }),
+			contributions: [
+				...routeProviders,
+				httpEndpointProvider,
+				routeGraphRequirement,
+				requestExecutionRequirement,
+				transportPlanningRequirement,
+				optionalHttpApplication,
+				declarations,
+				application,
+			],
+		}),
+		['rest'],
+	)
 }
