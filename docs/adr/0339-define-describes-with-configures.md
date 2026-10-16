@@ -132,4 +132,4 @@ Consequences of the amendment:
   - The missing-required-rule message is TypeScript's "Property 'acl' is missing …", which is longer than the
     builder's custom message.
   - In plain JavaScript, a duplicate key keeps its last value.
-- **Exports.** `SchemaRulesBuilder` and `CompleteSchemaRules` are replaced by `SchemaRulesObject`.
+- **Exports.** `SchemaRulesBuilder` and `CompleteSchemaRules` are replaced by `SchemaRulesObject`, plus `NoSchemaRules`: the parameter of `.with` when no installed plugin declares a rule and the schema has no relation, so an unexpected key is named in the error ("'rest' does not exist in type 'NoSchemaRules'"). Required-rule messages read `.with({ rule: … })`, since some rules take a non-object value.
