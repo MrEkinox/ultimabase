@@ -38,6 +38,9 @@ No validation gate runs these scripts; they produce evidence for refactors.
   Git-tracked files of any checkout by category (production, tests, generated,
   documentation, tooling) in non-blank lines, with production lines per package
   and the published runtime dependencies.
+- `codemods/define-with/run.ts [--write] <paths>` converts schema declarations
+  to the ADR-0339 form and lists the sites it leaves for a manual conversion.
+  See [the define-with codemod](codemods/define-with/README.md).
 - `architecture/measure-runtime-baseline.ts` (`yarn measure:runtime-baseline`)
   measures startup, request latency and heap use against a deterministic
   in-memory adapter.

@@ -81,6 +81,7 @@ export default defineConfig(
 			'tests/fixtures/**/*.ts',
 			'tooling/architecture/**/*.ts',
 			'tooling/ci/**/*.ts',
+			'tooling/codemods/**/*.ts',
 			'tooling/vitest/**/*.test.ts',
 			'tooling/documentation/**/*.ts',
 			'tooling/eslint/**/*.test.ts',

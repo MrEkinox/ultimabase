@@ -21,6 +21,7 @@
 		"../../tests/performance/**/*.ts",
 		"../architecture/**/*.ts",
 		"../ci/**/*.ts",
+		"../codemods/**/*.ts",
 		"../documentation/**/*.ts",
 		"../eslint/**/*.test.ts",
 		"../vitest/**/*.test.ts",
