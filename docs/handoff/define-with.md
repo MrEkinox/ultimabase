@@ -93,8 +93,37 @@ indexes, …"`). Les `indexes` sont vérifiés dans cette contrainte (et non par
 
 ## Prochaine action vérifiable
 
-Voir la fin de la section « Preuves ».
+Phase 2 (plugins officiels) : migrer Soft Delete (`definePlugin({ features })`, `feature`) et
+ACL (`provideSchemaFeatures`, message de règle requise au nouveau format), puis vérifier
+`yarn vitest run --project e2e tests/e2e/define-with-diagnostics.e2e.test.ts` et la matrice
+`tests/register-cycle/define-with*` sur TypeScript 6 et 7.
 
 ## Preuves
 
-(complété au fil des commits)
+Journaux de la phase 1 : `/private/tmp/claude-501/…/scratchpad/define-with-p1/` (session de
+l'agent, non versionnés).
+
+- Matrice des cycles (ordres de fichiers racine : alphabétique, inverse, chaque fichier en
+  premier ; TS 6 et 7 ; sources et paquets construits) : 0 erreur pour `define-with`,
+  `define-with-mutual`, `define-with-contribution`, `define-with-user`, `define-with-role`.
+- Diagnostics (`tests/e2e/define-with-diagnostics.e2e.test.ts`, TS 6 service de langage et
+  TS 7 compilateur, sources et paquets construits) : un diagnostic sur sa ligne pour clé
+  inconnue, option de fonctionnalité, champ et `where` d'index, commande sans fonctionnalité,
+  méthode appelée deux fois, règle requise absente du rappel, `.with` absent à
+  l'enregistrement ; complétions de `Post.` sans membre de configuration.
+- Banc forme D (médianes de 3 exécutions entrelacées, charge 1 min < 4, paquets construits par
+  `yarn build`, `main` = arbre détaché 41cae632), secondes édition → diagnostics :
+
+  | Variante                | TS 7, 50 | TS 7, 200 | TS 6, 50 | TS 6, 200 |
+  | ----------------------- | -------: | --------: | -------: | --------: |
+  | `main`, forme actuelle  |     0.56 |      1.88 |     1.96 |      5.78 |
+  | branche, forme actuelle |     0.57 |      1.92 |     1.99 |      5.92 |
+  | branche, nouvelle forme |     0.55 |      1.81 |     1.91 |      5.64 |
+
+  Instanciations (TS 6 / TS 7) : 50 schémas `main` 1 932 345 / 4 286 929, forme actuelle
+  1 952 491 / 4 366 463 (+1,0 % / +1,9 %), nouvelle forme 1 999 019 / 4 403 110 ;
+  200 schémas `main` 8 922 135 / 19 220 889, forme actuelle 8 999 911 / 19 527 793
+  (+0,9 % / +1,6 %), nouvelle forme 9 725 729 / 20 753 778 (plus d'instanciations, moins de
+  types : 525 501 contre 546 235, et plus rapide). Coût de la forme actuelle mesuré par
+  expériences : capture de `define` ~0,4 %, types de résultat ~0,3 %, reste ~0,4 % ; l'union
+  du paramètre de `.with` ~0,02 %. La forme actuelle disparaît en phase 3/5.
