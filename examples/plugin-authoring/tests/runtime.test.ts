@@ -8,17 +8,15 @@ import { sessionVersion } from '../src/sessions-plugin.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 it('composes two plugins through a capability', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	expect(ultimabase.plugin('community.workflow-consumer')).toStrictEqual({
 		format: 'compact',
 	})
-	await t.afterCommit()
 })
 
 it('connects a lifecycle-only resource with the application', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	expect(client.connected).toBe(true)
-	await t.afterCommit()
 })
 
 it('stops a callback at a safe boundary once its signal aborts', async () => {
@@ -50,5 +48,4 @@ it('keeps verifier records in owner-private storage', async () => {
 	// No schema, REST route or GraphQL type exposes the collection.
 	const response = await t.fetch('/api/classes/sessions')
 	expect(response.status).toBe(404)
-	await t.afterCommit()
 })

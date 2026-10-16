@@ -34,6 +34,7 @@ describe('project documentation', () => {
 			'/docs/1.0.0',
 			'/docs/1.0.0/quick-start',
 			'/docs/1.0.0/manual-installation',
+			'/docs/1.0.0/project-layout',
 		])
 
 		const metadata = JSON.parse(

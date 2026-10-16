@@ -214,7 +214,7 @@ Plugin composition offers TypeScript, REST, and GraphQL application presets.
 Each preset is compiled and its static plugin graph is checked without opening
 a database or listener. HTTP presets explicitly include their HTTP/Hono/Yoga
 dependencies and explain their local, unprotected evaluation configuration.
-A second set of tabs shows requests against the existing minimal example and
+A second set of tabs shows requests against the existing full-stack example and
 explains its shared title Hook; response envelopes remain transport-specific.
 Native Commit/Rollback tabs explain two transaction outcomes; they illustrate
 the contract without pretending to run a database in the browser. A visible

@@ -15,6 +15,7 @@ sources:
   - examples/plugin-authoring/src/audit-plugin.ts
   - examples/plugin-authoring/tests/starter.test.ts
   - examples/plugin-authoring/tests/first.test.ts
+  - examples/plugin-authoring/src/app.ts
   - examples/plugin-authoring/src/schema.ts
   - examples/plugin-authoring/tests/schema-contributions.test.ts
   - examples/plugin-authoring/tests/schema-misuse.test.ts
@@ -128,8 +129,8 @@ explains which of the two an option should be.
 The definition enters one application's `.use()` chain. A schema then sets
 the feature in `define` and the rule in `.with`:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/plugin-authoring/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/plugin-authoring/src/app.ts#factory
 </include>
 
 <include cwd meta='title="src/schema.ts"'>

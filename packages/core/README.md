@@ -1287,9 +1287,9 @@ relations. The static form uses the same portable filter vocabulary as an
 ordinary target Query. The contextual form receives only the immutable request
 context and an empty, target-typed `WhereBuilder`; it is synchronous and may
 return either that builder or an exact target `WhereInput`. The `relations`
-rule of the minimal example's `ExampleArticle` uses both:
+rule of the full-stack example's `ExampleArticle` uses both:
 
-<!-- region ../../examples/minimal/src/schema.ts#relation-views -->
+<!-- region ../../examples/full-stack/src/schema.ts#relation-views -->
 
 ```ts
 // Narrows every read through these relation fields (ADR-0328).
@@ -2172,7 +2172,7 @@ const Note = UltimaBase.Schema.define({
 })
 
 const ultimabase = new UltimaBase({ schemas: [Note] })
-await using app = await ultimabase.start()
+await using started = await ultimabase.start()
 await Note.findMany()
 ```
 
@@ -2336,8 +2336,8 @@ from its entry point:
 <!-- region ../../examples/modeling/src/main.ts#start -->
 
 ```ts
-// start() resolves to the application; leaving this scope disposes it.
-await using app = await ultimabase.start()
+// start() resolves to ultimabase itself; leaving this scope disposes it.
+await using started = await ultimabase.start()
 ```
 
 <!-- endregion -->
@@ -2377,8 +2377,8 @@ there is no force reset. Escaped engines, grants, contexts, and handles retain
 their previous owner. Static plugin mutation visibility is removed on disposal.
 Independent parallel applications use separate workers, processes, or containers.
 Jest/Vitest suites await `start()` in `beforeAll` and `dispose()` in `afterAll`.
-Scripts declare `await using app = await ultimabase.start()`: `start()`
-resolves to the application (concurrent calls share one promise) and the
+Scripts declare `await using started = await ultimabase.start()`: `start()`
+resolves to the application itself (concurrent calls share one promise) and the
 facade implements `Symbol.asyncDispose`, so `dispose()` is awaited when the
 async scope exits. Guides document only `start()`, `await using` and
 `dispose()`; `compile()`, `initialize()` and `stop()` are for advanced cases.
@@ -2443,16 +2443,11 @@ Application code refuses an operation with a client-visible message by
 throwing `PublicError` (ADR-0305), here from an Access rule of the queries
 example:
 
-<!-- region ../../examples/queries/src/schema.ts#factory,policies,announcement -->
+<!-- region ../../examples/queries/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import {
-	PublicError,
-	UltimaBase,
-	isAuthenticated,
-	type PolicyPredicate,
-} from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 /**
@@ -2464,6 +2459,20 @@ export const App = UltimaBase.use(
 	accessPlugin({ allowWithoutRule: { all: true } }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/queries/src/schema.ts#imports,policies,announcement -->
+
+```ts
+import {
+	PublicError,
+	isAuthenticated,
+	type PolicyPredicate,
+} from '@ultimabase/core'
+
+import { App } from './app.ts'
 
 /** Editors are Authors flagged `editor`; anonymous callers never are. */
 export const isEditor: PolicyPredicate = async function isEditor({

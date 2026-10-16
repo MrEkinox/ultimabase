@@ -145,7 +145,7 @@ describe('documentation page actions', () => {
 				'# Manual Installation (/docs/1.0.0/manual-installation)',
 			)
 			expect(full).toContain('**npm**\n\n```bash\nmkdir ultimabase-first-app')
-			expect(full).toContain('- src/\n  - schema.ts')
+			expect(full).toContain('- src/\n  - app.ts\n  - schemas/\n    - task.ts')
 			expect(full).toContain(
 				'[File fields](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#file-fields)',
 			)

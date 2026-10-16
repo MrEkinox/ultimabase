@@ -16,14 +16,14 @@ tests prove each behavior described here (ADR-0330). This one permits reads
 of published articles, hides `internalNote`, and denies every mutation to
 ordinary callers:
 
-<!-- region ../../examples/access/src/schema.ts#factory,article -->
+<!-- region ../../examples/access/src/app.ts#factory -->
 
 ```ts
-import { accessPlugin, allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 /**
@@ -39,6 +39,18 @@ export const App = UltimaBase.use(
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/access/src/schema.ts#imports,article -->
+
+```ts
+import { allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { isAuthenticated } from '@ultimabase/core'
+import { hasRole } from '@ultimabase/roles-plugin'
+
+import { App } from './app.ts'
 
 /** Readers see published articles only; `internalNote` never leaves the server. */
 export const Article = App.Schema.define({
@@ -131,14 +143,14 @@ to tell the client why.
 
 Notes below are private to their author; `Admin` is a Roles role:
 
-<!-- region ../../examples/access/src/schema.ts#factory,members,note -->
+<!-- region ../../examples/access/src/app.ts#factory -->
 
 ```ts
-import { accessPlugin, allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 /**
@@ -154,6 +166,18 @@ export const App = UltimaBase.use(
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/access/src/schema.ts#imports,members,note -->
+
+```ts
+import { allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { isAuthenticated } from '@ultimabase/core'
+import { hasRole } from '@ultimabase/roles-plugin'
+
+import { App } from './app.ts'
 
 /** The people who use the newsroom; a request principal points to a Member. */
 export const Member = App.Schema.define({
@@ -299,14 +323,14 @@ holds it. Access never imports the declaring plugin.
 Soft Delete's `readDeleted` is one; the example grants it to editors, beside
 the rules of Soft Delete's commands:
 
-<!-- region ../../examples/access/src/schema.ts#factory,members,comment -->
+<!-- region ../../examples/access/src/app.ts#factory -->
 
 ```ts
-import { accessPlugin, allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 /**
@@ -322,6 +346,18 @@ export const App = UltimaBase.use(
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/access/src/schema.ts#imports,members,comment -->
+
+```ts
+import { allOf, anyOf, not } from '@ultimabase/access-plugin'
+import { isAuthenticated } from '@ultimabase/core'
+import { hasRole } from '@ultimabase/roles-plugin'
+
+import { App } from './app.ts'
 
 /** The people who use the newsroom; a request principal points to a Member. */
 export const Member = App.Schema.define({

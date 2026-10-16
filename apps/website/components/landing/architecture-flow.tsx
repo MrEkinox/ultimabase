@@ -57,7 +57,7 @@ export function ArchitectureFlow() {
 					<p>
 						The saved title is the same. Each API keeps its own response format.
 					</p>
-					<TextLink href={siteConfig.sourceExampleUrl.href}>
+					<TextLink href={siteConfig.fullStackExampleUrl.href}>
 						See the complete example <ArrowUpRight aria-hidden="true" />
 					</TextLink>
 				</div>

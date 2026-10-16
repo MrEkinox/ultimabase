@@ -9,7 +9,7 @@ afterEach(() => {
 })
 
 it('adds a server-written field and its commands with archivable: true', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Draft' } })
 	expect(post.archivedAt).toBeNull()
 
@@ -18,11 +18,10 @@ it('adds a server-written field and its commands with archivable: true', async (
 	//#endregion archive-one
 
 	expect(archived.archivedAt).toEqual(expect.any(String))
-	await t.afterCommit()
 })
 
 it('archives every matching row with archiveMany', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	await Post.createMany({ data: [{ title: 'Old' }, { title: 'Older' }] })
 
 	//#region archive-many
@@ -35,18 +34,16 @@ it('archives every matching row with archiveMany', async () => {
 	expect(await Post.count({ where: { archivedAt: { isNotNull: true } } })).toBe(
 		1,
 	)
-	await t.afterCommit()
 })
 
 it('rejects the server-written field in create input', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	await expect(
 		Post.createOne({
 			// @ts-expect-error -- `archivedAt` is written by the plugin only.
 			data: { title: 'Forged', archivedAt: new Date().toISOString() },
 		}),
 	).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-	await t.afterCommit()
 })
 
 it('runs afterCommit with the schema rules after each committed write', async () => {
@@ -60,7 +57,7 @@ it('runs afterCommit with the schema rules after each committed write', async ()
 })
 
 it('gives flaggable schemas a readable, server-written flagged field', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	const comment = await Comment.createOne({ data: { body: 'Hello' } })
 	expect(comment.flagged).toBe(false)
 	await expect(
@@ -71,7 +68,6 @@ it('gives flaggable schemas a readable, server-written flagged field', async () 
 	).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 	// A schema without `flaggable: true` gains neither the field nor the rule.
 	expect(Object.keys((await Post.findOne({})) ?? {})).not.toContain('flagged')
-	await t.afterCommit()
 })
 
 it('adds the commands only to the schemas that set the feature', () => {
@@ -129,5 +125,4 @@ it('exposes a one-row command where the schema names it', async () => {
 		body: '{}',
 	})
 	expect(many.status).toBe(404)
-	await t.afterCommit()
 })

@@ -2,13 +2,21 @@
 
 Examples are user-facing, tested applications. They must only import public `@ultimabase/*` exports, and use the declaration form only (ADR-0297, ADR-0327): no generation step and no generated files.
 
-- [`minimal`](minimal/README.md): runnable authenticated Hono application on
+Every example follows the [project layout](../apps/website/content/docs/1.0.0/project-layout.mdx)
+that `create-app` generates: `src/app.ts` exports the factory `App` and
+imports no schema, the schema files import `App`, `src/ultimabase.ts` exports
+the application `ultimabase` and its `Register` declaration, and
+`src/main.ts` starts it.
+
+- [`full-stack`](full-stack/README.md): the most complete application, a
+  runnable authenticated Hono application on
   port `1337` with sibling REST and GraphQL transports, PostgreSQL, Password
   Auth Bearer and cookie sessions, role-protected data, audited Master requests,
   both official soft-delete modes with private restoration and purge, atomic
   nested pointer and relation writes, and explicitly exposed plugin operations.
   Its README regions are compiled by the example typecheck; the repository
-  end-to-end suites run the application.
+  end-to-end suites run the application. For a first run, start with
+  [`modeling`](modeling/README.md), which needs only Core and PostgreSQL.
 - [`todo-backend`](todo-backend/README.md): the reference Todo application
   with Access, ACL, Hooks, Roles, Validation, PostgreSQL and REST in the
   declaration form, and its tests with `testApplication`. Its `//#region`

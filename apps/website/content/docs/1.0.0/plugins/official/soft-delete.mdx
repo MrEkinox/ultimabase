@@ -10,6 +10,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
   - examples/soft-delete/README.md
+  - examples/soft-delete/src/app.ts
   - examples/soft-delete/src/schema.ts
   - examples/soft-delete/src/ultimabase.ts
   - examples/soft-delete/src/main.ts
@@ -101,8 +102,8 @@ Install the plugin on the application factory. The example also installs
 Access and Roles, which decide who may read deleted posts; Soft Delete needs
 neither:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/soft-delete/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/soft-delete/src/app.ts#factory
 </include>
 
 Then opt a schema in with `softDelete: true` in `define`. Soft Delete has no

@@ -49,28 +49,32 @@ export interface MinimalExampleModule {
 const isObjectLike = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
 
-/** Loads the example through Vitest without adding its Typegen registry globally. */
+/**
+ * Loads the full-stack example through Vitest. The suites keep their own names
+ * for its exports (`createMinimalApplication` is the example's
+ * `createUltimabase`).
+ */
 export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 	// Import sequentially, schemas first: parallel importActual calls can make
 	// Vitest's module runner evaluate schema.ts twice in one worker, leaving the
 	// test with schema classes the application never compiled.
 	const schemaModule = await vi.importActual<unknown>(
-		'../../examples/minimal/src/schema.ts',
+		'../../examples/full-stack/src/schema.ts',
 	)
 	const applicationModule = await vi.importActual<unknown>(
-		'../../examples/minimal/src/create-application.ts',
+		'../../examples/full-stack/src/ultimabase.ts',
 	)
 	const clientModule = await vi.importActual<unknown>(
-		'../../examples/minimal/src/client.ts',
+		'../../examples/full-stack/src/client.ts',
 	)
 	const softDeleteModule = await vi.importActual<unknown>(
-		'../../examples/minimal/src/soft-delete.ts',
+		'../../examples/full-stack/src/soft-delete.ts',
 	)
 	if (
 		typeof applicationModule !== 'object' ||
 		applicationModule === null ||
-		!('createMinimalApplication' in applicationModule) ||
-		typeof applicationModule.createMinimalApplication !== 'function' ||
+		!('createUltimabase' in applicationModule) ||
+		typeof applicationModule.createUltimabase !== 'function' ||
 		typeof schemaModule !== 'object' ||
 		schemaModule === null ||
 		!('ExampleArticle' in schemaModule) ||
@@ -87,8 +91,8 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		!isObjectLike(schemaModule.ExampleUser) ||
 		typeof clientModule !== 'object' ||
 		clientModule === null ||
-		!('createMinimalClient' in clientModule) ||
-		typeof clientModule.createMinimalClient !== 'function' ||
+		!('createClient' in clientModule) ||
+		typeof clientModule.createClient !== 'function' ||
 		typeof softDeleteModule !== 'object' ||
 		softDeleteModule === null ||
 		!('purgeArticle' in softDeleteModule) ||
@@ -100,7 +104,7 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		!('softDeleteAuthor' in softDeleteModule) ||
 		typeof softDeleteModule.softDeleteAuthor !== 'function'
 	) {
-		throw new TypeError('Minimal example exports are invalid')
+		throw new TypeError('Full-stack example exports are invalid')
 	}
 	return {
 		ExampleArticle: schemaModule.ExampleArticle,
@@ -109,8 +113,8 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		ExampleRole: schemaModule.ExampleRole,
 		ExampleSoftDeleteEvent: schemaModule.ExampleSoftDeleteEvent,
 		ExampleUser: schemaModule.ExampleUser,
-		createMinimalApplication: applicationModule.createMinimalApplication,
-		createMinimalClient: clientModule.createMinimalClient,
+		createMinimalApplication: applicationModule.createUltimabase,
+		createMinimalClient: clientModule.createClient,
 		purgeArticle: softDeleteModule.purgeArticle,
 		restoreArticle: softDeleteModule.restoreArticle,
 		softDeleteArticle: softDeleteModule.softDeleteArticle,

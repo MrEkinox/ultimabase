@@ -13,6 +13,7 @@ reviewedAt: 2026-10-17
 sources:
   - examples/postgres/README.md
   - examples/postgres/src/database.ts
+  - examples/postgres/src/app.ts
   - examples/postgres/src/schema.ts
   - examples/postgres/src/ultimabase.ts
   - examples/postgres/src/main.ts
@@ -98,8 +99,8 @@ its connection pool; keep `DATABASE_URL` out of source control. Install the
 plugin on the application factory; `database` is the configured
 `postgresPlugin()` shown in [Connection settings](#connection-settings):
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/postgres/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/postgres/src/app.ts#factory
 </include>
 
 Register the schemas, then start the application from its entry point:

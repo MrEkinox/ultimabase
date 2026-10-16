@@ -7,24 +7,20 @@ without generated files, and tested with `testApplication`.
 
 ## What the developer writes
 
-[`src/schema.ts`](src/schema.ts) installs every plugin once and declares the
-schemas. The block below shows the plugin list, then the `title` field of
-`Todo`, whose behavior sits on the field, and the end of `Todo`: its
-`indexes` and the `acl: true` feature key in `define`, then the schema rules
-in `.with({ ... })`:
+[`src/app.ts`](src/app.ts) installs every plugin once, in one list, and
+imports no schema:
 
-<!-- region src/schema.ts#factory,todo-title,todo-rules -->
+<!-- region src/app.ts#factory -->
 
 ```ts
-import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import { PublicError, UltimaBase, defineEnum } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
-import { z } from 'zod'
 
 /**
  * One plugin list types every schema and builds the application.
@@ -42,6 +38,23 @@ export const App = UltimaBase.use(
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+[`src/schema.ts`](src/schema.ts) declares the schemas from `App`. The block
+below shows its imports, the `title` field of `Todo`, whose behavior sits on the field,
+and the end of `Todo`: its `indexes` and the `acl: true` feature key in
+`define`, then the schema rules in `.with({ ... })`:
+
+<!-- region src/schema.ts#imports,todo-title,todo-rules -->
+
+```ts
+import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { PublicError, defineEnum } from '@ultimabase/core'
+import { z } from 'zod'
+
+import { App } from './app.ts'
 
 title: field.string({
 	description: 'Short task summary shown in todo lists.',
@@ -102,11 +115,11 @@ The same file also declares:
 - an enum shared by two fields, nested typed objects, JSON paths and a
   composite index.
 
-[`src/application.ts`](src/application.ts) creates the application with an
+[`src/ultimabase.ts`](src/ultimabase.ts) creates the application with an
 audited Master authority (`ULTIMABASE_MASTER_KEY`) and declares it once in
 `Register`, which gives name-keyed types such as `CreateInput<'Todo'>`:
 
-<!-- region src/application.ts#application -->
+<!-- region src/ultimabase.ts#application -->
 
 ```ts
 export const ultimabase = new App({

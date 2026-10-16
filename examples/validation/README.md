@@ -16,17 +16,18 @@ says.
 
 ## Files
 
-| File                                                         | What it shows                                                                                                                           |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/schema.ts`](src/schema.ts)                             | the factory; `Event` with Standard Schema, function and async field validators and a schema check; `TicketTier` with a Zod object check |
-| [`src/rooms.ts`](src/rooms.ts)                               | the in-memory stand-in for the room service the async validator calls                                                                   |
-| [`src/ultimabase.ts`](src/ultimabase.ts)                     | the application and the `Register` declaration                                                                                          |
-| [`src/main.ts`](src/main.ts)                                 | the development entry point                                                                                                             |
-| [`tests/fields.test.ts`](tests/fields.test.ts)               | the stored validator output, every issue in one `VALIDATION_ERROR`, `null` inputs, Master writes                                        |
-| [`tests/updates.test.ts`](tests/updates.test.ts)             | changed-fields-only updates, the schema check on an updated item, an atomic decrement, `updateMany` index paths                         |
-| [`tests/schema-checks.test.ts`](tests/schema-checks.test.ts) | a Standard Schema object validator as the schema check                                                                                  |
-| [`tests/check.test.ts`](tests/check.test.ts)                 | `check()`, which validates data without writing it                                                                                      |
-| [`tests/rest.test.ts`](tests/rest.test.ts)                   | the REST `422` answer, with Core's and the validators' issues together, sent in memory with `t.fetch`                                   |
+| File                                                         | What it shows                                                                                                              |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| [`src/app.ts`](src/app.ts)                                   | the factory `App`                                                                                                          |
+| [`src/schema.ts`](src/schema.ts)                             | `Event` with Standard Schema, function and async field validators and a schema check; `TicketTier` with a Zod object check |
+| [`src/rooms.ts`](src/rooms.ts)                               | the in-memory stand-in for the room service the async validator calls                                                      |
+| [`src/ultimabase.ts`](src/ultimabase.ts)                     | the application and the `Register` declaration                                                                             |
+| [`src/main.ts`](src/main.ts)                                 | the development entry point                                                                                                |
+| [`tests/fields.test.ts`](tests/fields.test.ts)               | the stored validator output, every issue in one `VALIDATION_ERROR`, `null` inputs, Master writes                           |
+| [`tests/updates.test.ts`](tests/updates.test.ts)             | changed-fields-only updates, the schema check on an updated item, an atomic decrement, `updateMany` index paths            |
+| [`tests/schema-checks.test.ts`](tests/schema-checks.test.ts) | a Standard Schema object validator as the schema check                                                                     |
+| [`tests/check.test.ts`](tests/check.test.ts)                 | `check()`, which validates data without writing it                                                                         |
+| [`tests/rest.test.ts`](tests/rest.test.ts)                   | the REST `422` answer, with Core's and the validators' issues together, sent in memory with `t.fetch`                      |
 
 Region names are stable identifiers: renaming one breaks the page or README
 that includes it, and the website content tests report the missing region.

@@ -3,13 +3,13 @@ import process from 'node:process'
 import { ultimabase } from './ultimabase.ts'
 
 //#region start
-// start() resolves to the application; leaving this scope disposes it and
+// start() resolves to ultimabase itself; leaving this scope disposes it and
 // waits for pending after-commit work.
-await using app = await ultimabase.start()
+await using started = await ultimabase.start()
 //#endregion start
 
 process.stdout.write(
-	`Hooks example ${app.state}: REST on http://127.0.0.1:1337/api/classes/Post\n`,
+	`Hooks example ${started.state}: REST on http://127.0.0.1:1337/api/classes/Post\n`,
 )
 
 // Keep framework-owned resources until the development process stops.

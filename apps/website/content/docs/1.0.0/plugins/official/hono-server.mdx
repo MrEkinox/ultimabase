@@ -11,6 +11,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-13
 sources:
   - examples/http/README.md
+  - examples/http/src/app.ts
   - examples/http/src/schema.ts
   - examples/http/src/ultimabase.ts
   - examples/http/src/main.ts
@@ -87,8 +88,8 @@ Choose one listener owner. With no `app`, UltimaBase creates and starts a Node
 listener after the application graph validates. The `apiServer()` preset passes
 its `server` options to `honoServerPlugin(server)`:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/http/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/http/src/app.ts#factory
 </include>
 
 <include cwd meta='title="src/ultimabase.ts"'>

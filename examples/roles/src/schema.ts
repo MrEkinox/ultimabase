@@ -1,26 +1,8 @@
-//#region factory
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+//#region imports
+import { hasRole } from '@ultimabase/roles-plugin'
 
-import { roleAuditPlugin } from './role-audit.ts'
-
-/**
- * Roles adds `App.RoleSchema` and resolves memberships; Access turns a
- * membership into a decision through `hasRole()`. The audit plugin observes
- * committed role changes. `postgresPlugin()` reads `DATABASE_URL` when the
- * application starts.
- */
-export const App = UltimaBase.use(
-	accessPlugin(),
-	rolesPlugin(),
-	roleAuditPlugin,
-	...apiServer({ rest: true }),
-	postgresPlugin(),
-)
-//#endregion factory
+import { App } from './app.ts'
+//#endregion imports
 
 //#region staff-role
 /** The people of the newsroom; a request principal points to a Member. */

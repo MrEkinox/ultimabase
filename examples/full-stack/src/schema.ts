@@ -1,63 +1,16 @@
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { password, passwordOperations } from '@ultimabase/auth-password'
-import {
-	authOperations,
-	authPlugin,
-	authPrincipal,
-} from '@ultimabase/auth-plugin'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { restPlugin } from '@ultimabase/rest-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
-import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
+import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { authPrincipal } from '@ultimabase/auth-plugin'
+import { isAuthenticated } from '@ultimabase/core'
+import { hasRole } from '@ultimabase/roles-plugin'
 import { z } from 'zod'
 
+import { App } from './app.ts'
 import { readPresentation, readText } from './stored-values.ts'
 
 const publicArticleACL = new ACL().grantPublic('delete', 'read', 'update')
 
-/** Owns every source-typed schema declaration used by the example. */
-export const MinimalSchemaApplication = UltimaBase.use(softDeletePlugin())
-	// Opens every operation and command that a schema leaves without a rule,
-	// production included; each schema below narrows its own (ADR-0317).
-	.use(accessPlugin({ allowWithoutRule: { all: true } }))
-	.use(hooksPlugin())
-	.use(validationPlugin())
-	.use(rolesPlugin())
-	.use(aclPlugin())
-	.use(
-		// The authentication routes live under `/api/auth` (ADR-0326); browsers keep
-		// the session in a secure cookie instead of reading its token.
-		authPlugin({
-			methods: [password()],
-			http: { cookie: { name: '__Host-minimal-session', sameSite: 'lax' } },
-		}),
-	)
-	.use(
-		// Public operations are exposed by their owners (ADR-0324): REST keeps
-		// the status operation; authentication is served under `/api/auth`.
-		restPlugin({
-			hide: [
-				...Object.values(authOperations),
-				...Object.values(passwordOperations),
-			],
-		}),
-	)
-	.use(
-		// GraphQL exposes the authentication operations except two (ADR-0325).
-		graphqlPlugin({
-			hide: [
-				passwordOperations.changePassword,
-				authOperations.logoutEverywhere,
-			],
-		}),
-	)
-
 /** The User of `authPlugin`; `password()` adds the unique `username`. */
-export const ExampleUser = MinimalSchemaApplication.UserSchema.define({
+export const ExampleUser = App.UserSchema.define({
 	className: 'ExampleUser',
 }).with({
 	// Each user reads only their own profile; no generated User CRUD.
@@ -70,7 +23,7 @@ export const ExampleUser = MinimalSchemaApplication.UserSchema.define({
 })
 
 /** The current member is the request principal Core resolves (ADR-0304). */
-export const ExampleRole = MinimalSchemaApplication.RoleSchema.define({
+export const ExampleRole = App.RoleSchema.define({
 	className: 'ExampleRole',
 	members: () => ExampleUser,
 	fields: (field) => ({
@@ -97,7 +50,7 @@ const editorACL = new ACL().grantRole(
 )
 
 /** Stores durable evidence from logical soft-delete lifecycle Hooks. */
-export const ExampleSoftDeleteEvent = MinimalSchemaApplication.Schema.define({
+export const ExampleSoftDeleteEvent = App.Schema.define({
 	className: 'ExampleSoftDeleteEvent',
 	fields: (field) => ({
 		logicalOperation: field.string({ required: true }),
@@ -135,7 +88,7 @@ const recordSoftDeleteEvent = async (
 }
 
 /** Authors can be selected and included through both public transports. */
-export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
+export const ExampleAuthor = App.Schema.define({
 	className: 'ExampleAuthor',
 	fields: (field) => ({
 		articles: field.relation({
@@ -204,7 +157,7 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 })
 
 /** Articles demonstrate policy, lifecycle, validation, and relationships. */
-export const ExampleArticle = MinimalSchemaApplication.Schema.define({
+export const ExampleArticle = App.Schema.define({
 	className: 'ExampleArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: () => ExampleAuthor }),
@@ -360,7 +313,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 })
 
 /** Notes prove authenticated role-based Access and ACL through public CRUD. */
-export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
+export const ExamplePrivateNote = App.Schema.define({
 	className: 'ExamplePrivateNote',
 	fields: (field) => ({
 		body: field.string({ required: true }),
@@ -378,7 +331,8 @@ export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
 	rest: true,
 })
 
-export const minimalSchemas = [
+/** Every schema of the application, registered in `ultimabase.ts`. */
+export const schemas = [
 	ExampleUser,
 	ExampleAuthor,
 	ExampleArticle,

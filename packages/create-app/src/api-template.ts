@@ -41,7 +41,7 @@ export const pluginImports = (
 const hiddenAuthOperations = (plan: InitializerPlan): readonly string[] =>
 	has(plan, 'auth-plugin')
 		? [
-				`// Served under /api/auth by authPlugin (ADR-0326).
+				`// Served under /api/auth by authPlugin.
 hide: [
   ...Object.values(authOperations),
   ...Object.values(passwordOperations),
@@ -91,7 +91,7 @@ const graphqlOptions = (plan: InitializerPlan, explorer: boolean): string =>
 		...hiddenEmailOperations(plan),
 		...(explorer
 			? [
-					`// GraphiQL at /graphiql, in development only (ADR-0325).
+					`// GraphiQL at /graphiql, in development only.
 explorer: 'graphiql'`,
 				]
 			: []),

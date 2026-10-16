@@ -20,12 +20,12 @@ import {
 	securityApplicationImports,
 	securityApplicationOption,
 	securityMasterSource,
+	securityPluginImports,
 	securityReadmeNotes,
-	securitySchemaDeclarations,
-	securitySchemaImports,
+	securitySchemaFiles,
 	securitySchemaPluginEntries,
-	securitySchemaNames,
 	taskRulesChain,
+	type SchemaFile,
 } from './security-template.js'
 import { mainSource } from './main-template.js'
 import { joinSections, renderImports } from './source.js'
@@ -56,16 +56,11 @@ const dependencyOrder: readonly PluginId[] = [
 	'validation-plugin',
 ]
 
-/** Data and behavior plugins installed on the schema factory: [plugin, factory, entry]. */
+/** Data and behavior plugins installed on the factory `App`: [plugin, factory, entry]. */
 const behaviorPlugins: readonly (readonly [PluginId, string, string])[] = [
 	['hooks-plugin', 'hooksPlugin', 'hooksPlugin()'],
 	['soft-delete-plugin', 'softDeletePlugin', 'softDeletePlugin()'],
 	['validation-plugin', 'validationPlugin', 'validationPlugin()'],
-]
-
-const applicationSchemaNames = (plan: InitializerPlan): readonly string[] => [
-	...(plan.starter === 'task' ? ['Task'] : []),
-	...securitySchemaNames(plan),
 ]
 
 const scriptCommand = (
@@ -83,10 +78,10 @@ const scriptCommand = (
  * above it.
  */
 const pluginList = (entries: readonly string[]): string => {
-	const single = `export const SchemaApplication = UltimaBase.use(${entries.join(', ')})`
+	const single = `export const App = UltimaBase.use(${entries.join(', ')})`
 	if (single.length <= 80 && !entries.some((entry) => entry.includes('\n')))
 		return single
-	return `export const SchemaApplication = UltimaBase.use(\n  ${entries
+	return `export const App = UltimaBase.use(\n  ${entries
 		.map((entry) => indentRest(entry, 2))
 		.join(',\n  ')},\n)`
 }
@@ -125,32 +120,11 @@ declare module '@ultimabase/core' {
   }
 }`
 
-const applicationSource = (plan: InitializerPlan): string =>
-	joinSections([
-		renderImports([
-			...securityApplicationImports(plan),
-			[
-				local(plan, 'schema'),
-				['SchemaApplication', ...applicationSchemaNames(plan)].join(', '),
-			],
-		]),
-		securityMasterSource(plan),
-		`export const ultimabase = new SchemaApplication({
-${[
-	`  schemas: [${applicationSchemaNames(plan).join(', ')}],`,
-	securityApplicationOption(plan),
-]
-	.filter((line) => line !== '')
-	.join('\n')}
-})`,
-		registerSource(plan),
-	])
-
 // ADR-0339: features in `define`, then rules in `.with({ … })`.
 const taskSchemaSource = (
 	plan: InitializerPlan,
 ): string => `// The same declaration drives TypeScript inference and Runtime validation.
-export const Task = SchemaApplication.Schema.define({
+export const Task = App.Schema.define({
   className: 'Task',
   fields: (f) => ({
     title: f.string({
@@ -160,9 +134,49 @@ ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value
   }),
 ${has(plan, 'soft-delete-plugin') ? '  softDelete: true,\n' : ''}${has(plan, 'acl-permissions-plugin') ? '  acl: true,\n' : ''}})${taskRulesChain(plan)}`
 
-const schemaSource = (plan: InitializerPlan): string => {
-	const task = plan.starter === 'task'
-	// One plugin list: postgresPlugin() reads DATABASE_URL at start (ADR-0312).
+/** Every generated schema module under `src/schemas/`, the Task first. */
+const schemaFiles = (plan: InitializerPlan): readonly SchemaFile[] => [
+	...(plan.starter === 'task'
+		? [
+				{
+					file: 'task',
+					name: 'Task',
+					packageImports: [
+						...(has(plan, 'acl-permissions-plugin')
+							? [['@ultimabase/acl-permissions-plugin', 'ACL'] as const]
+							: []),
+						...(has(plan, 'validation-plugin') ? [['zod', 'z'] as const] : []),
+					],
+					schemaImports: [],
+					declaration: taskSchemaSource(plan),
+				},
+			]
+		: []),
+	...securitySchemaFiles(plan),
+]
+
+/** One schema module: it imports `App` and the schemas it references. */
+const schemaModuleSource = (
+	plan: InitializerPlan,
+	schema: SchemaFile,
+): string =>
+	joinSections([
+		renderImports(schema.packageImports),
+		renderImports([
+			[`../app.${plan.language}`, 'App'],
+			...schema.schemaImports.map(
+				([file, name]) => [local(plan, file), name] as const,
+			),
+		]),
+		schema.declaration,
+	])
+
+/**
+ * `src/app.ts`: the one plugin list. It imports no schema, so the schema
+ * modules can import `App` in any order, cyclic relations included.
+ */
+const appSource = (plan: InitializerPlan): string => {
+	// postgresPlugin() reads DATABASE_URL at start (ADR-0312).
 	const entries = [
 		...behaviorPlugins
 			.filter(([id]) => has(plan, id))
@@ -175,19 +189,39 @@ const schemaSource = (plan: InitializerPlan): string => {
 		renderImports([
 			['@ultimabase/core', 'UltimaBase'],
 			...pluginImports(plan, behaviorPlugins),
-			...(task && has(plan, 'validation-plugin')
-				? [['zod', 'z'] as const]
-				: []),
-			...securitySchemaImports(plan),
+			...securityPluginImports(plan),
 			...apiSchemaPluginImports(plan),
 			['@ultimabase/postgres-plugin', 'postgresPlugin'],
 		]),
-		pluginList(entries),
-		task
-			? taskSchemaSource(plan)
-			: `// Add your first SchemaApplication.Schema.define() declaration here.
-export {}`,
-		securitySchemaDeclarations(plan),
+		`// Every plugin, in one list. The schemas in src/schemas/ are declared from
+// App, so this module imports none of them.
+${pluginList(entries)}`,
+	])
+}
+
+/** `src/ultimabase.ts`: the application, its schemas and `Register`. */
+const applicationSource = (plan: InitializerPlan): string => {
+	const schemas = schemaFiles(plan)
+	return joinSections([
+		renderImports(securityApplicationImports(plan)),
+		renderImports([
+			[local(plan, 'app'), 'App'],
+			...schemas.map(
+				({ file, name }) => [local(plan, `schemas/${file}`), name] as const,
+			),
+		]),
+		securityMasterSource(plan),
+		`export const ultimabase = new App({
+${[
+	schemas.length === 0
+		? '  // List the schemas you declare from App in src/schemas/.\n  schemas: [],'
+		: `  schemas: [${schemas.map(({ name }) => name).join(', ')}],`,
+	securityApplicationOption(plan),
+]
+	.filter((line) => line !== '')
+	.join('\n')}
+})`,
+		registerSource(plan),
 	])
 }
 
@@ -235,6 +269,19 @@ const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
 	])
 }
 
+/** The four roles of the generated sources, in the order they load. */
+const layoutNotes = (plan: InitializerPlan): string => {
+	const extension = plan.language
+	return [
+		`\`src/app.${extension}\` installs every plugin in one list (\`App\`) and imports no schema.`,
+		`\`src/schemas/\` declares each schema from \`App\`; schemas may import each other.`,
+		`\`src/ultimabase.${extension}\` creates the application (\`ultimabase\`) with its schemas${plan.language === 'ts' ? ' and declares it once in `Register`' : ''}.`,
+		`\`src/main.${extension}\` starts it.`,
+	]
+		.map((note) => `- ${note}`)
+		.join('\n')
+}
+
 const commandList = (commands: readonly string[]): string =>
 	commands.map((command) => `    ${command}`).join('\n')
 
@@ -258,6 +305,8 @@ ${plan.starter === 'task' ? 'The Task starter seeds one record on its first run;
 		]
 			.map((note) => `- ${note}`)
 			.join('\n'),
+		'## Layout',
+		layoutNotes(plan),
 		'## Run',
 		`Commands:\n\n${commandList(nextCommands(plan).slice(1))}`,
 		`\`${scriptCommand(plan.packageManager, 'dev')}\` restarts the application when a source file changes.${plan.language === 'ts' ? ` For production, \`${plan.packageManager === 'npm' ? 'npm run build' : `${plan.packageManager} build`}\` compiles to dist/ and \`${plan.packageManager === 'npm' ? 'npm start' : `${plan.packageManager} start`}\` runs it.` : ''}`,
@@ -317,7 +366,14 @@ export const renderBaseFiles = (
 					: '') +
 				'# Optional: an existing test database instead of a Docker container.\n# TEST_DATABASE_URL=postgres://user:password@127.0.0.1:5432/your_test_database\n',
 		],
-		[`src/schema.${extension}`, schemaSource(plan)],
+		[`src/app.${extension}`, appSource(plan)],
+		...schemaFiles(plan).map(
+			(schema) =>
+				[
+					`src/schemas/${schema.file}.${extension}`,
+					schemaModuleSource(plan, schema),
+				] as const,
+		),
 		[`src/ultimabase.${extension}`, applicationSource(plan)],
 		[`src/main.${extension}`, mainSource(plan)],
 		[`vitest.config.${extension}`, vitestConfigSource(plan)],

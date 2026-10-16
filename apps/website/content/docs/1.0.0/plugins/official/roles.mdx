@@ -10,6 +10,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
   - examples/roles/README.md
+  - examples/roles/src/app.ts
   - examples/roles/src/schema.ts
   - examples/roles/src/staff.ts
   - examples/roles/src/role-audit.ts
@@ -94,8 +95,8 @@ The example also installs [Access](./access), whose rules use `hasRole()`, and
 a small plugin that observes role events (see
 [Deletion, events, and limits](#deletion-events-and-limits)):
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/roles/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/roles/src/app.ts#factory
 </include>
 
 Declare a role schema with the schema of its members, then end with

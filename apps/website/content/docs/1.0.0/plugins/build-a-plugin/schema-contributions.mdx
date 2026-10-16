@@ -9,6 +9,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
   - examples/plugin-authoring/README.md
+  - examples/plugin-authoring/src/app.ts
   - examples/plugin-authoring/src/schema.ts
   - examples/plugin-authoring/src/flag-plugin.ts
   - examples/plugin-authoring/tests/schema-contributions.test.ts
@@ -96,8 +97,8 @@ shows the `archivePlugin` it builds. An application installs it once in its
 factory, here with the `auditPlugin` of the same page and the raw
 `flagPlugin` below:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/plugin-authoring/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/plugin-authoring/src/app.ts#factory
 </include>
 
 A schema then sets the feature key `archivable: true` in `define`, and gives

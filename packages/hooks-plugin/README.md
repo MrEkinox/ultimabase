@@ -16,17 +16,17 @@ declares a `Post` with field and schema Hooks (`Author`, `Tag` and
 `PostTitleChange` are plain schemas declared beside it; `sendMessage` stands
 in for an e-mail or webhook client):
 
-<!-- region ../../examples/hooks/src/schema.ts#factory,post -->
+<!-- region ../../examples/hooks/src/app.ts#factory -->
 
 ```ts
 import { apiServer } from '@ultimabase/api-server'
-import { PublicError, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 import { sendMessage } from './effects.ts'
-import { announcePost, postPublished } from './events.ts'
+import { announcePost } from './events.ts'
 
 /**
  * The configured factory types `.with({ hooks: … })` and field `hooks` from the
@@ -50,6 +50,18 @@ export const App = UltimaBase.use(
 	...apiServer({ rest: { publicWrites: true } }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/hooks/src/schema.ts#imports,post -->
+
+```ts
+import { PublicError } from '@ultimabase/core'
+
+import { App } from './app.ts'
+import { sendMessage } from './effects.ts'
+import { postPublished } from './events.ts'
 
 const slugify = (title: string) => title.toLowerCase().replace(/\s+/gu, '-')
 
@@ -287,17 +299,17 @@ trusted maintenance operations still retain business Hooks. The example's
 `Comment` uses Soft Delete in command mode; its `afterCommit.all` narrows on
 `kind`, and its reply cascade shows the depth limit of [Recursion](#recursion):
 
-<!-- region ../../examples/hooks/src/schema.ts#factory,comment -->
+<!-- region ../../examples/hooks/src/app.ts#factory -->
 
 ```ts
 import { apiServer } from '@ultimabase/api-server'
-import { PublicError, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 import { sendMessage } from './effects.ts'
-import { announcePost, postPublished } from './events.ts'
+import { announcePost } from './events.ts'
 
 /**
  * The configured factory types `.with({ hooks: … })` and field `hooks` from the
@@ -321,6 +333,18 @@ export const App = UltimaBase.use(
 	...apiServer({ rest: { publicWrites: true } }),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/hooks/src/schema.ts#imports,comment -->
+
+```ts
+import { PublicError } from '@ultimabase/core'
+
+import { App } from './app.ts'
+import { sendMessage } from './effects.ts'
+import { postPublished } from './events.ts'
 
 /**
  * A thread whose comments count their replies at every level: updating a

@@ -11,7 +11,7 @@ listeners, access an adapter, or retain request data in an AST.
 Every code block in this README is copied from the tested
 [`examples/rest`](../../examples/rest/README.md) application by
 `yarn docs:regions` (ADR-0330): edit the example, then run the script. The
-[runnable Hono and PostgreSQL example](../../examples/minimal/README.md) adds
+[runnable Hono and PostgreSQL example](../../examples/full-stack/README.md) adds
 authenticated sessions, role-protected REST, audited Master access, and public
 plugin operations.
 
@@ -21,7 +21,7 @@ REST needs the HTTP foundation, a server provider and a database provider
 beside it. The example installs Access to decide what clients may do, and
 exposes `Post` with the built-in routes plus `count` and the bulk create:
 
-<!-- region ../../examples/rest/src/schema.ts#factory,post -->
+<!-- region ../../examples/rest/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -49,6 +49,14 @@ export const App = UltimaBase.use(
 	postgresPlugin(),
 	readingTime, // POST /api/operations/readingTime
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/rest/src/schema.ts#imports,post -->
+
+```ts
+import { App } from './app.ts'
 
 /** Every client may read and write posts: this example has no sign-in. */
 export const Post = App.Schema.define({

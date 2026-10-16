@@ -53,9 +53,12 @@ const generatedFile = (name: string): string => {
 }
 
 describe('create-app output shown in the documentation', () => {
-	it('shows the generated schema on Quick Start', () => {
-		expect(shownFile('quick-start', 'src/schema.ts')).toBe(
-			generatedFile('src/schema.ts'),
+	it('shows the generated factory and schema on Quick Start', () => {
+		expect(shownFile('quick-start', 'src/app.ts')).toBe(
+			generatedFile('src/app.ts'),
+		)
+		expect(shownFile('quick-start', 'src/schemas/task.ts')).toBe(
+			generatedFile('src/schemas/task.ts'),
 		)
 	})
 

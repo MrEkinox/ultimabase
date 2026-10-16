@@ -153,7 +153,7 @@ outcome: Start and verify a minimal UltimaBase application.
 releaseStatus: pre-release
 reviewedAt: 2026-09-14
 sources:
-  - examples/minimal/README.md
+  - examples/modeling/README.md
 ```
 
 `audience` accepts `application-developer`, `plugin-author`, and `operator`.

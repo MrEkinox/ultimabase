@@ -1,24 +1,8 @@
-//#region factory
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
-import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+//#region imports
+import { hasRole } from '@ultimabase/roles-plugin'
 
-/**
- * The configured factory types the `softDelete` key, its commands and fields.
- * Access and Roles only decide who may read the trash; Soft Delete needs
- * neither. `postgresPlugin()` reads `DATABASE_URL` when the application starts.
- */
-export const App = UltimaBase.use(
-	softDeletePlugin(),
-	accessPlugin(),
-	rolesPlugin(),
-	...apiServer({ rest: true, graphql: true }),
-	postgresPlugin(),
-)
-//#endregion factory
+import { App } from './app.ts'
+//#endregion imports
 
 //#region moderators
 /** The people who use the blog; a request principal points to a Member. */

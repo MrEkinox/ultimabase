@@ -18,18 +18,19 @@ says.
 
 ## Files
 
-| File                                                       | What it shows                                                                                                                                      |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/schema.ts`](src/schema.ts)                           | the factory with global Hooks and event consumers; `Post` with field and schema Hooks; `PostTitleChange`; `Comment` with a cascade and Soft Delete |
-| [`src/events.ts`](src/events.ts)                           | the `postPublished` event and its consumer                                                                                                         |
-| [`src/post-rules-plugin.ts`](src/post-rules-plugin.ts)     | a compatible plugin contributing a `Post` Hook with `provideHookContributions`                                                                     |
-| [`src/effects.ts`](src/effects.ts)                         | the stand-in for an e-mail or webhook client, which the tests read                                                                                 |
-| [`src/ultimabase.ts`](src/ultimabase.ts)                   | the application and the `Register` declaration                                                                                                     |
-| [`src/main.ts`](src/main.ts)                               | the development entry point                                                                                                                        |
-| [`tests/data.test.ts`](tests/data.test.ts)                 | field Hooks, `resolveInput` for create, update and upsert, readable `changes`                                                                      |
-| [`tests/operations.test.ts`](tests/operations.test.ts)     | writes in the transaction, `PublicError` in TypeScript and REST, rollback, the contributed Hook                                                    |
-| [`tests/after-commit.test.ts`](tests/after-commit.test.ts) | `afterCommit` order and timing, bulk calls, typed events, `all` for a plugin command                                                               |
-| [`tests/recursion.test.ts`](tests/recursion.test.ts)       | the reply cascade and the depth limit                                                                                                              |
+| File                                                       | What it shows                                                                                   |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [`src/app.ts`](src/app.ts)                                 | the factory `App` with global Hooks and event consumers                                         |
+| [`src/schema.ts`](src/schema.ts)                           | `Post` with field and schema Hooks; `PostTitleChange`; `Comment` with a cascade and Soft Delete |
+| [`src/events.ts`](src/events.ts)                           | the `postPublished` event and its consumer                                                      |
+| [`src/post-rules-plugin.ts`](src/post-rules-plugin.ts)     | a compatible plugin contributing a `Post` Hook with `provideHookContributions`                  |
+| [`src/effects.ts`](src/effects.ts)                         | the stand-in for an e-mail or webhook client, which the tests read                              |
+| [`src/ultimabase.ts`](src/ultimabase.ts)                   | the application and the `Register` declaration                                                  |
+| [`src/main.ts`](src/main.ts)                               | the development entry point                                                                     |
+| [`tests/data.test.ts`](tests/data.test.ts)                 | field Hooks, `resolveInput` for create, update and upsert, readable `changes`                   |
+| [`tests/operations.test.ts`](tests/operations.test.ts)     | writes in the transaction, `PublicError` in TypeScript and REST, rollback, the contributed Hook |
+| [`tests/after-commit.test.ts`](tests/after-commit.test.ts) | `afterCommit` order and timing, bulk calls, typed events, `all` for a plugin command            |
+| [`tests/recursion.test.ts`](tests/recursion.test.ts)       | the reply cascade and the depth limit                                                           |
 
 Region names are stable identifiers: renaming one breaks the page or README
 that includes it, and the website content tests report the missing region.

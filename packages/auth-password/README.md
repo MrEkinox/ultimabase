@@ -8,7 +8,7 @@ Every code block in this README is copied from the tested
 `yarn docs:regions` (ADR-0330): edit the example, then run the script. Its
 factory signs members in by email, with the three email flows:
 
-<!-- region ../../examples/auth/src/schema.ts#factory -->
+<!-- region ../../examples/auth/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -19,7 +19,7 @@ import {
 	passwordOperations,
 } from '@ultimabase/auth-password'
 import { authOperations, authPlugin } from '@ultimabase/auth-plugin'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 import { emailChange, reset, verification } from './email-flows.ts'

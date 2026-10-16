@@ -25,13 +25,14 @@ sources:
   - packages/create-app/tests/e2e/create-app-starter.postgres.e2e.test.ts
   - apps/website/tests/create-app-output.content.test.ts
   - docs/adr/0339-define-describes-with-configures.md
+  - examples/modeling/README.md
 ---
 
 <Callout type="warn" title="The initializer is not published">
 	These commands show the intended release experience. They cannot install
-	UltimaBase from the npm registry today. Run the [repository
-	example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md)
-	with locally built packages. [Manual
+	UltimaBase from the npm registry today. Run the [modeling
+	example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/modeling/README.md#run-and-verify-it),
+	which has the same project layout, with locally built packages. [Manual
 	Installation](/docs/1.0.0/manual-installation) explains the project files and
 	intended package setup.
 </Callout>
@@ -134,7 +135,10 @@ The default choices create:
 
 <Files>
 	<Folder name="src" defaultOpen>
-		<File name="schema.ts" />
+		<File name="app.ts" />
+		<Folder name="schemas" defaultOpen>
+			<File name="task.ts" />
+		</Folder>
 		<File name="ultimabase.ts" />
 		<File name="main.ts" />
 	</Folder>
@@ -152,20 +156,19 @@ The default choices create:
 	<File name="vitest.config.ts" />
 </Files>
 
-`schema.ts` installs every plugin once, in one list, and declares `Task` in
-the declaration form: what the schema is in `define(...)`, and how each plugin
-treats it in `.with({ ... })` when a schema has rules. `ultimabase.ts` creates the application and declares
-it once in `Register` for name-keyed editor types; there is no generation
-step. `main.ts` starts the application and seeds a Task. The default choices
-generate this `schema.ts`; its Access line is the prototype opening:
+The sources follow the [project layout](/docs/1.0.0/project-layout): plugins,
+then schemas, then the application. `app.ts` installs every plugin once, in
+one list, and imports no schema. Its Access line is the prototype opening:
 
-```ts twoslash title="src/schema.ts"
+```ts twoslash title="src/app.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const SchemaApplication = UltimaBase.use(
+// Every plugin, in one list. The schemas in src/schemas/ are declared from
+// App, so this module imports none of them.
+export const App = UltimaBase.use(
 	// Prototype: operations without an Access rule are open outside production.
 	// Production refuses to start until you write .with({ access }) rules and
 	// remove this opening.
@@ -173,9 +176,30 @@ export const SchemaApplication = UltimaBase.use(
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+```
+
+`schemas/task.ts` declares `Task` from `App` in the declaration form: what
+the schema is in `define(...)`, and how each plugin treats it in
+`.with({ ... })` when a schema has rules:
+
+```ts twoslash title="src/schemas/task.ts"
+// @filename: src/app.ts
+import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { apiServer } from '@ultimabase/api-server'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+export const App = UltimaBase.use(
+	accessPlugin({ allowWithoutRule: { all: 'development' } }),
+	...apiServer({ rest: true }),
+	postgresPlugin(),
+)
+// @filename: src/schemas/task.ts
+// ---cut---
+import { App } from '../app.ts'
 
 // The same declaration drives TypeScript inference and Runtime validation.
-export const Task = SchemaApplication.Schema.define({
+export const Task = App.Schema.define({
 	className: 'Task',
 	fields: (f) => ({
 		title: f.string({
@@ -185,6 +209,10 @@ export const Task = SchemaApplication.Schema.define({
 	}),
 })
 ```
+
+`ultimabase.ts` creates the application `ultimabase` with its schemas and
+declares it once in `Register` for name-keyed editor types; there is no
+generation step. `main.ts` starts the application and seeds a Task.
 
 Its scripts are:
 
@@ -198,8 +226,9 @@ Its scripts are:
 }
 ```
 
-JavaScript instead writes `src/schema.js`, `src/ultimabase.js`,
-`src/main.js`, `tests/task.test.js` and `vitest.config.js`, without
+JavaScript instead writes `src/app.js`, `src/schemas/task.js`,
+`src/ultimabase.js`, `src/main.js`, `tests/task.test.js` and
+`vitest.config.js`, without
 TypeScript files or dependencies. Its scripts are `dev`, `start` and `test`.
 With an existing database, either language writes `.env` only when you gave
 its URL, and never `compose.yaml`. The generated README records the selected
@@ -308,10 +337,11 @@ Authentication](/docs/1.0.0/plugins/official/password-authentication),
 
 ## Next steps
 
-- Edit `src/schema.ts` or `src/schema.js` to define models, then write
-  `access` rules in the `.with` of each schema and remove the prototype opening
-  before production.
-- Before publication, run the [repository example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md).
+- Add schemas under `src/schemas/`, list them in `src/ultimabase.ts`, then
+  write `access` rules in the `.with` of each schema and remove the prototype
+  opening before production. [Project Layout](/docs/1.0.0/project-layout)
+  explains where each declaration goes.
+- Before publication, run the [modeling example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/modeling/README.md#run-and-verify-it).
   Use [Manual Installation](/docs/1.0.0/manual-installation) to understand the project setup.
 - Before exposing an API beyond your machine, read [Before Exposing Your
   Application](/docs/1.0.0/operations/before-exposing-your-application).

@@ -11,6 +11,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
   - examples/access/README.md
+  - examples/access/src/app.ts
   - examples/access/src/schema.ts
   - examples/access/src/openings.ts
   - examples/access/src/ultimabase.ts
@@ -83,8 +84,8 @@ Install the plugin on the application factory. The example also installs
 [Roles](./roles), whose `hasRole()` predicates its rules use, and
 [Soft Delete](./soft-delete), whose commands have their own Access keys:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/access/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/access/src/app.ts#factory
 </include>
 
 Declare a policy on the schema it protects. This one permits reads of

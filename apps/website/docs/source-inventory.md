@@ -21,7 +21,7 @@ content evidence.
 | `packages/*/src/index.ts`       | Authoritative availability of public exports                  | Names alone do not explain behavior or safe usage                                |
 | `packages/core/docs/*.md`       | Detailed schema, query, Runtime, and access semantics         | Some material is internal or organized by implementation domain                  |
 | `packages/core/examples/schema` | Focused schema and mutation examples                          | Snippets need a runnable application context                                     |
-| `examples/minimal`              | Canonical runnable first application and API setup            | Does not demonstrate every optional capability                                   |
+| `examples/modeling`             | Canonical runnable first application: Core and PostgreSQL     | No HTTP API; `examples/full-stack` adds REST, GraphQL and authentication         |
 | `examples/todo-backend`         | Broader application scenario                                  | Must be checked against the current minimal architecture before reuse            |
 | `docs/adr`                      | Decision rationale, invariants, and historical context        | Never the primary learning path; accepted history may include superseded choices |
 | `ROADMAP.md`                    | Proposed directions and their archived issue context          | Planning language is not a public compatibility promise                          |
@@ -31,7 +31,7 @@ content evidence.
 
 | Public area              | Primary sources                                                    | Readiness | Editorial treatment                                                  |
 | ------------------------ | ------------------------------------------------------------------ | --------- | -------------------------------------------------------------------- |
-| Introduction             | Root README, `examples/minimal`, Core and PostgreSQL exports       | Partial   | Keep the manual path runnable; mark automatic setup unavailable      |
+| Introduction             | Root README, `examples/modeling`, Core and PostgreSQL exports      | Partial   | Keep the manual path runnable; mark automatic setup unavailable      |
 | Core                     | Schema examples, Core source and guides, Runtime and security ADRs | Ready     | Own native modeling, reads, writes, Runtime, and authority           |
 | Plugins                  | Official package READMEs, plugin-kit, testing, and capability ADRs | Ready     | Keep optional setup and limitations with the owning plugin           |
 | Guides                   | Testing README, Manual Installation, maintained tests              | Partial   | Teach concrete application tasks without repeating package reference |

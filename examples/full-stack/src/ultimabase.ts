@@ -7,10 +7,11 @@ import {
 	type HonoServerPlugin,
 } from '@ultimabase/hono-server-plugin'
 
-import { MinimalSchemaApplication, minimalSchemas } from './schema.ts'
+import { App } from './app.ts'
+import { schemas } from './schema.ts'
 import { exampleStatusPlugin } from './status-plugin.ts'
 
-interface MinimalApplicationBaseOptions {
+interface UltimabaseBaseOptions {
 	readonly applicationId?: string
 	readonly browserOrigin?: string
 	readonly masterKey: string
@@ -23,15 +24,22 @@ interface MinimalApplicationBaseOptions {
  * Selects a managed URL, a developer-owned pool, or neither: `DATABASE_URL`
  * is then read when the application starts (ADR-0312).
  */
-export type MinimalApplicationOptions = MinimalApplicationBaseOptions &
+export type UltimabaseOptions = UltimabaseBaseOptions &
 	(
 		| { readonly databasePool: PostgresPool; readonly databaseUrl?: never }
 		| { readonly databasePool?: never; readonly databaseUrl?: string }
 	)
 
-/** Builds the complete public REST and GraphQL graph without starting it. */
-export const createMinimalApplication = ({
-	applicationId = 'minimal',
+/**
+ * Builds the complete public REST and GraphQL application without starting
+ * it. An application usually exports one `ultimabase` constant; this example
+ * exports a function because its end-to-end suites create one instance per
+ * suite, each with its own listener, database and HTTP settings. The plugins
+ * that only serve or store data join `App` here, when the application is
+ * created: the schemas need none of them.
+ */
+export const createUltimabase = ({
+	applicationId = 'full-stack',
 	browserOrigin = 'http://localhost:5173',
 	databasePool,
 	databaseUrl,
@@ -43,44 +51,39 @@ export const createMinimalApplication = ({
 		)
 	},
 	server = honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
-}: MinimalApplicationOptions) => {
-	const Application = MinimalSchemaApplication.use(exampleStatusPlugin)
-		.use(
-			httpPlugin({
-				appId: applicationId,
-				browser: {
-					origins: [browserOrigin],
-					credentials: true,
-					maxAgeSeconds: 600,
-				},
-				...(masterTransport ? { master: true as const } : {}),
-				requestTimeoutMs: 15_000,
-			}),
-		)
-		.use(graphqlYogaPlugin({ introspection: true }))
-		.use(server)
-		.use(
-			postgresPlugin(
-				databasePool !== undefined
-					? { pool: databasePool, schemaPolicy: 'override' }
-					: databaseUrl === undefined
-						? { schemaPolicy: 'override' }
-						: { schemaPolicy: 'override', url: databaseUrl },
-			),
-		)
-
-	return new Application({
+}: UltimabaseOptions) =>
+	new (App.use(
+		exampleStatusPlugin,
+		httpPlugin({
+			appId: applicationId,
+			browser: {
+				origins: [browserOrigin],
+				credentials: true,
+				maxAgeSeconds: 600,
+			},
+			...(masterTransport ? { master: true as const } : {}),
+			requestTimeoutMs: 15_000,
+		}),
+		graphqlYogaPlugin({ introspection: true }),
+		server,
+		postgresPlugin(
+			databasePool !== undefined
+				? { pool: databasePool, schemaPolicy: 'override' }
+				: databaseUrl === undefined
+					? { schemaPolicy: 'override' }
+					: { schemaPolicy: 'override', url: databaseUrl },
+		),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: applicationId, value: masterKey }],
 			onUse: onMasterUse,
 		}),
-		schemas: minimalSchemas,
+		schemas,
 	})
-}
 
 // One declaration per application gives name-keyed editor types (ADR-0297).
 declare module '@ultimabase/core' {
 	interface Register {
-		readonly app: ReturnType<typeof createMinimalApplication>
+		readonly app: ReturnType<typeof createUltimabase>
 	}
 }

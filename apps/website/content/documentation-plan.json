@@ -272,7 +272,7 @@
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"sourceStatus": "partial",
 			"sources": [
-				"examples/minimal/README.md",
+				"examples/full-stack/README.md",
 				"packages/core/README.md",
 				"packages/testing/README.md"
 			],
@@ -292,7 +292,7 @@
 			"sourceStatus": "partial",
 			"sources": [
 				"packages/core/README.md",
-				"examples/minimal/README.md",
+				"examples/full-stack/README.md",
 				"docs/RELEASING.md"
 			],
 			"releaseStatus": "pre-release",
@@ -374,7 +374,11 @@
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",
-			"sources": ["README.md", "ARCHITECTURE.md", "examples/minimal/README.md"]
+			"sources": [
+				"README.md",
+				"ARCHITECTURE.md",
+				"examples/full-stack/README.md"
+			]
 		},
 		{
 			"path": "/docs/1.0.0",
@@ -418,7 +422,22 @@
 				"README.md",
 				"packages/core/README.md",
 				"packages/postgres-plugin/README.md",
-				"examples/minimal/README.md"
+				"examples/modeling/README.md"
+			]
+		},
+		{
+			"path": "/docs/1.0.0/project-layout",
+			"slug": "project-layout",
+			"contentType": "concept",
+			"outcome": "Place plugins, schemas and the application in the files that keep every schema module loadable.",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"examples/README.md",
+				"examples/modeling/src/app.ts",
+				"packages/create-app/src/base-template.ts",
+				"packages/core/src/plugins/graph.ts"
 			]
 		}
 	]

@@ -1,7 +1,7 @@
 //#region application
+import { App } from './app.ts'
 import { Draft } from './openings.ts'
 import {
-	App,
 	Article,
 	AuditEntry,
 	Comment,

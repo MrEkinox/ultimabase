@@ -11,6 +11,7 @@ const canonicalNavigation = {
 		'quick-start',
 		'index',
 		'manual-installation',
+		'project-layout',
 		'---Core---',
 		'...core',
 		'---Plugins---',

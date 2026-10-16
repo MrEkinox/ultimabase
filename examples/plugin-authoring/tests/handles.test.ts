@@ -8,7 +8,7 @@ import { formatWorkflow } from '../src/workflow/operations.ts'
 
 // These regions are shown in the Core README.
 it('resolves one cached handle per schema of the application', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 
 	//#region schema-handles
 	const Posts = ultimabase.schema(Post)
@@ -23,11 +23,10 @@ it('resolves one cached handle per schema of the application', async () => {
 	expect(ultimabase.schema(Post)).toBe(Posts)
 	expect(commentClass).toBe('Comment')
 	expect(comments).toStrictEqual([])
-	await t.afterCommit()
 })
 
 it('selects the operations one transport may execute', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 
 	//#region expose-operations
 	const exposed = ultimabase.exposeOperations({
@@ -49,5 +48,4 @@ it('selects the operations one transport may execute', async () => {
 			publicName: 'formatWorkflow',
 		},
 	])
-	await t.afterCommit()
 })

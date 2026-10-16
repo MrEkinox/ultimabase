@@ -1,5 +1,6 @@
 //#region application
-import { App, Article, Contribution, StaffMember, Tag } from './schema.ts'
+import { App } from './app.ts'
+import { Article, Contribution, StaffMember, Tag } from './schema.ts'
 
 /** Creating the application does not contact PostgreSQL; `start()` does. */
 export const ultimabase = new App({

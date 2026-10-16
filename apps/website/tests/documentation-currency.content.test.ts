@@ -92,6 +92,7 @@ describe('documentation currency guardrails', () => {
 			...documentationSections.map(({ slug }) => slug),
 			'quick-start',
 			'manual-installation',
+			'project-layout',
 		]
 
 		expect(

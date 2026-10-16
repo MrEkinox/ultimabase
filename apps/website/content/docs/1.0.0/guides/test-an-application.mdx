@@ -94,19 +94,21 @@ imports the `Task` schema and the application of the
 `/api/classes/Task`:
 
 ```ts twoslash title="tests/task.test.ts"
-// @filename: src/schema.ts
+// @filename: src/app.ts
 import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const SchemaApplication = UltimaBase.use(
+export const App = UltimaBase.use(
 	accessPlugin({ allowWithoutRule: { all: 'development' } }),
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+// @filename: src/schemas/task.ts
+import { App } from '../app.ts'
 
-export const Task = SchemaApplication.Schema.define({
+export const Task = App.Schema.define({
 	className: 'Task',
 	fields: (f) => ({
 		title: f.string({ required: true }),
@@ -114,9 +116,10 @@ export const Task = SchemaApplication.Schema.define({
 	}),
 })
 // @filename: src/ultimabase.ts
-import { SchemaApplication, Task } from './schema.ts'
+import { App } from './app.ts'
+import { Task } from './schemas/task.ts'
 
-export const ultimabase = new SchemaApplication({ schemas: [Task] })
+export const ultimabase = new App({ schemas: [Task] })
 
 declare module '@ultimabase/core' {
 	interface Register {
@@ -128,17 +131,16 @@ declare module '@ultimabase/core' {
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
-import { Task } from '../src/schema.ts'
+import { Task } from '../src/schemas/task.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 // testApplication starts the real application on this worker's own schema;
-// each call starts from empty tables.
+// each call starts from empty tables. Leaving the scope disposes the handle
+// and waits for after-commit work; `_t` is never read.
 it('creates a Task with its defaults', async () => {
-	await using t = await testApplication(ultimabase)
+	await using _t = await testApplication(ultimabase)
 	const task = await Task.createOne({ data: { title: 'Write the first test' } })
 	expect(task).toMatchObject({ done: false, title: 'Write the first test' })
-	// Hooks' afterCommit work runs after the response: wait for it.
-	await t.afterCommit()
 })
 
 it('lists Tasks over REST', async () => {
@@ -156,8 +158,10 @@ Each test opens its handle with
 `await using t = await testApplication(ultimabase)`. The first call starts
 the application; a later call in the same file reuses it after emptying its
 tables, so the REST list holds only the Task of its own test. Leaving the
-`await using` scope waits for after-commit work. The application stops after
-the file and its schema is dropped.
+`await using` scope waits for after-commit work, so a test that never reads
+its handle still declares it, named `_t` so that TypeScript's
+`noUnusedLocals` accepts it. The application stops after the file and its
+schema is dropped.
 
 ### Use the handle
 

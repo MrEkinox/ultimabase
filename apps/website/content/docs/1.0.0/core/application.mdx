@@ -9,7 +9,7 @@ contentType: concept
 order: 1
 outcome: Explain how one UltimaBase application is composed, started, used, and isolated.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/modeling/README.md
   - examples/modeling/src/app.ts
@@ -43,7 +43,9 @@ An application is one `UltimaBase` instance. It owns a set of schemas and
 configured plugins, starts their resources, and scopes every operation to that
 exact instance. It is not itself an HTTP server: you can use it directly from
 TypeScript, then add a transport plugin when you need an API. For a complete
-project setup, follow [Manual Installation](/docs/1.0.0/manual-installation).
+project setup, follow [Manual Installation](/docs/1.0.0/manual-installation);
+[Project Layout](/docs/1.0.0/project-layout) explains where the factory, the
+schemas and the application live.
 
 ## Application graph
 
@@ -81,12 +83,13 @@ first, then construct the application with its instance options.
 with one flat ordered plugin list. You can also spread a dynamic list or chain
 `.use()` calls; every call leaves its parent unchanged. The constructor accepts
 instance options only, never a `plugins` option.
-`new Application({ schemas, ...options })` then snapshots the
-configuration without connecting to infrastructure.
+`new App({ schemas, ...options })` then snapshots the
+configuration without connecting to infrastructure. These pages call the
+factory `App` and the application `ultimabase`.
 
 The [modeling example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/modeling),
-a small bookshop, keeps the factory in its own file. Its only plugin is the
-database: data modeling is Core.
+a small bookshop, keeps the factory in its own file, which imports no schema.
+Its only plugin is the database: data modeling is Core.
 
 <include cwd meta='title="src/app.ts"'>
 	../../examples/modeling/src/app.ts#factory
@@ -112,11 +115,11 @@ Its instance options are:
 
 No database, server, API, plugin behavior, or Master authority is installed
 implicitly. An unknown root option throws `TypeError`. Schema and plugin graph
-errors are reported before infrastructure starts. Use `app.schema(...)`,
-`app.operation(...)`, and `app.plugin(configuredDefinition)` for typed
+errors are reported before infrastructure starts. Use `ultimabase.schema(...)`,
+`ultimabase.operation(...)`, and `ultimabase.plugin(configuredDefinition)` for typed
 application-owned handles. Ordinary CRUD runs directly on the schema class,
 including the `.schema` class resolved from a dynamic plugin schema handle.
-`app.plugin({ pluginId, instanceId })` also supports
+`ultimabase.plugin({ pluginId, instanceId })` also supports
 dynamic identity lookup for repeated plugin instances. For request identity and
 grouped writes, see [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
 and [Transactions](/docs/1.0.0/core/writing-data/transactions).
@@ -169,7 +172,8 @@ generators in trusted application setup, not request input.
 
 Call `start()` before executing operations. It finishes setup, connects the
 installed resources, starts transports in dependency order, and resolves to
-the application itself, so `await using` releases it when the scope ends:
+the application itself, so `await using` releases it when the scope ends. The
+example names that binding `started`; it is the same object as `ultimabase`:
 
 <include cwd meta='title="src/main.ts"'>
 	../../examples/modeling/src/main.ts#start
@@ -181,7 +185,7 @@ cleanup of its initialized resources. Repeated disposal shares the same
 cleanup outcome. If cleanup also fails, startup reports the original failure
 and the cleanup failure in an `AggregateError`.
 
-`app.state` reports the current lifecycle state. Concurrent `start()` calls
+`ultimabase.state` reports the current lifecycle state. Concurrent `start()` calls
 share one promise. `dispose()` permanently releases the application; a
 disposed application cannot restart. The facade is frozen, but its private
 lifecycle state advances through these methods. For advanced cases,
@@ -190,7 +194,7 @@ lifecycle state advances through these methods. For advanced cases,
 ends active infrastructure without releasing setup-owned resources; a stopped
 application cannot restart either.
 
-`await app.health()` resolves to `'OK'` when the application is started and its
+`await ultimabase.health()` resolves to `'OK'` when the application is started and its
 database answers within two seconds, and to `'DEGRADED'` otherwise: before
 start, while stopping or stopped, or when the database fails or times out.
 In the example's tests, a started application reports `'started'` and `'OK'`:

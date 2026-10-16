@@ -3,14 +3,8 @@ import process from 'node:process'
 
 import { MasterAuthority } from '@ultimabase/core'
 
-import {
-	Announcement,
-	App,
-	Author,
-	Comment,
-	Post,
-	Translation,
-} from './schema.ts'
+import { App } from './app.ts'
+import { Announcement, Author, Comment, Post, Translation } from './schema.ts'
 
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
 if (masterKey === undefined || masterKey === '') {

@@ -3,8 +3,9 @@ import process from 'node:process'
 
 import { MasterAuthority } from '@ultimabase/core'
 
+import { App } from './app.ts'
 import { aclAuditPlugin } from './acl-audit-plugin.ts'
-import { Announcement, App, Member, Note, Page, Team } from './schema.ts'
+import { Announcement, Member, Note, Page, Team } from './schema.ts'
 
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
 if (masterKey === undefined || masterKey === '') {

@@ -19,22 +19,23 @@ says.
 
 ## Files
 
-| File                                                       | What it shows                                                                                                                                        |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/database.ts`](src/database.ts)                       | `postgresPlugin()` with its connection settings and slow-query log                                                                                   |
-| [`src/schema.ts`](src/schema.ts)                           | the factory; `StaffMember` and `Tag` with unique fields; `Article` with its table name, a rename, one field per kind and its indexes; `Contribution` |
-| [`src/ultimabase.ts`](src/ultimabase.ts)                   | the application and its `Register` declaration                                                                                                       |
-| [`src/newsroom.ts`](src/newsroom.ts)                       | an explicit transaction and keyset pagination                                                                                                        |
-| [`src/main.ts`](src/main.ts)                               | the development entry point and the connection state                                                                                                 |
-| [`tests/storage.test.ts`](tests/storage.test.ts)           | table, column and index names and column types, read from the PostgreSQL catalog; health checks                                                      |
-| [`tests/queries.test.ts`](tests/queries.test.ts)           | create, read, update, delete, bulk writes, upserts, filters, keyset and offset pagination                                                            |
-| [`tests/relations.test.ts`](tests/relations.test.ts)       | pointer filters and inclusion, relation members and relation filters                                                                                 |
-| [`tests/integrity.test.ts`](tests/integrity.test.ts)       | `UNIQUE_VIOLATION` on field and composite indexes, `restrict` and `cascade` deletions                                                                |
-| [`tests/transactions.test.ts`](tests/transactions.test.ts) | atomic batches, an explicit transaction that commits or rolls back, no nested transaction                                                            |
-| [`tests/connection.test.ts`](tests/connection.test.ts)     | `DATABASE_URL` read at start, `url` and injected `pool`, connection failures, statement logs                                                         |
-| [`tests/schema-sync.test.ts`](tests/schema-sync.test.ts)   | release 1 then release 2 of one database: `override`, a forgotten rename, `renamedFrom`, `fail` and `ignore`                                         |
-| [`tests/releases.ts`](tests/releases.ts)                   | the previous release of the newsroom schemas, started by the schema policy tests                                                                     |
-| [`tests/support.ts`](tests/support.ts)                     | a dedicated PostgreSQL schema through `search_path`, a recording logger, and catalog reads with a `pg` pool outside UltimaBase                       |
+| File                                                       | What it shows                                                                                                                           |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/database.ts`](src/database.ts)                       | `postgresPlugin()` with its connection settings and slow-query log                                                                      |
+| [`src/app.ts`](src/app.ts)                                 | the factory `App`                                                                                                                       |
+| [`src/schema.ts`](src/schema.ts)                           | `StaffMember` and `Tag` with unique fields; `Article` with its table name, a rename, one field per kind and its indexes; `Contribution` |
+| [`src/ultimabase.ts`](src/ultimabase.ts)                   | the application and its `Register` declaration                                                                                          |
+| [`src/newsroom.ts`](src/newsroom.ts)                       | an explicit transaction and keyset pagination                                                                                           |
+| [`src/main.ts`](src/main.ts)                               | the development entry point and the connection state                                                                                    |
+| [`tests/storage.test.ts`](tests/storage.test.ts)           | table, column and index names and column types, read from the PostgreSQL catalog; health checks                                         |
+| [`tests/queries.test.ts`](tests/queries.test.ts)           | create, read, update, delete, bulk writes, upserts, filters, keyset and offset pagination                                               |
+| [`tests/relations.test.ts`](tests/relations.test.ts)       | pointer filters and inclusion, relation members and relation filters                                                                    |
+| [`tests/integrity.test.ts`](tests/integrity.test.ts)       | `UNIQUE_VIOLATION` on field and composite indexes, `restrict` and `cascade` deletions                                                   |
+| [`tests/transactions.test.ts`](tests/transactions.test.ts) | atomic batches, an explicit transaction that commits or rolls back, no nested transaction                                               |
+| [`tests/connection.test.ts`](tests/connection.test.ts)     | `DATABASE_URL` read at start, `url` and injected `pool`, connection failures, statement logs                                            |
+| [`tests/schema-sync.test.ts`](tests/schema-sync.test.ts)   | release 1 then release 2 of one database: `override`, a forgotten rename, `renamedFrom`, `fail` and `ignore`                            |
+| [`tests/releases.ts`](tests/releases.ts)                   | the previous release of the newsroom schemas, started by the schema policy tests                                                        |
+| [`tests/support.ts`](tests/support.ts)                     | a dedicated PostgreSQL schema through `search_path`, a recording logger, and catalog reads with a `pg` pool outside UltimaBase          |
 
 Most tests use `testApplication`, which starts the application on the test
 worker's own PostgreSQL schema. `connection.test.ts` and `schema-sync.test.ts`

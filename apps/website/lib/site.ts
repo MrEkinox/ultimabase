@@ -24,6 +24,9 @@ export interface SiteConfig {
 	}
 	readonly releaseStatus: SiteReleaseStatus
 	readonly repositoryUrl: URL
+	/** The complete REST and GraphQL example the landing requests target. */
+	readonly fullStackExampleUrl: URL
+	/** The first runnable example: Core and PostgreSQL only. */
 	readonly sourceExampleUrl: URL
 	readonly sourceRepository: {
 		readonly branch: string
@@ -73,7 +76,10 @@ const repositoryUrl = new URL(
 	`https://github.com/${sourceRepository.owner}/${sourceRepository.name}`,
 )
 const sourceExampleUrl = new URL(
-	`${repositoryUrl.href}/blob/${sourceRepository.branch}/examples/minimal/README.md`,
+	`${repositoryUrl.href}/blob/${sourceRepository.branch}/examples/modeling/README.md`,
+)
+const fullStackExampleUrl = new URL(
+	`${repositoryUrl.href}/blob/${sourceRepository.branch}/examples/full-stack/README.md`,
 )
 const preview: SiteConfig['preview'] = Object.freeze({
 	indexable: process.env.NEXT_PUBLIC_SITE_INDEXABLE === 'true',
@@ -108,6 +114,7 @@ export const siteConfig = Object.freeze({
 	]),
 	preview,
 	releaseStatus: currentDocumentationVersion.status,
+	fullStackExampleUrl,
 	repositoryUrl,
 	sourceExampleUrl,
 	sourceRepository,

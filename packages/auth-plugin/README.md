@@ -13,7 +13,7 @@ Every code block in this README is copied from the tested
 schema file installs the foundation with the password method, declares the
 User and opens each member's own profile through Access:
 
-<!-- region ../../examples/auth/src/schema.ts#factory,member -->
+<!-- region ../../examples/auth/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -24,7 +24,7 @@ import {
 	passwordOperations,
 } from '@ultimabase/auth-password'
 import { authOperations, authPlugin } from '@ultimabase/auth-plugin'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 import { emailChange, reset, verification } from './email-flows.ts'
@@ -71,6 +71,16 @@ export const App = UltimaBase.use(
 	}),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/auth/src/schema.ts#imports,member -->
+
+```ts
+import { isAuthenticated } from '@ultimabase/core'
+
+import { App } from './app.ts'
 
 /**
  * The User: `password({ identifier: 'email' })` adds `email`,

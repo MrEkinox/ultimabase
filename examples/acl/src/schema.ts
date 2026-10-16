@@ -1,22 +1,10 @@
-//#region factory
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+//#region imports
+import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { isAuthenticated } from '@ultimabase/core'
+import { hasRole } from '@ultimabase/roles-plugin'
 
-/**
- * ACL stores the rights of each row with the row. Access decides which
- * operations run at all, creation included; Roles tells ACL the caller's
- * roles. `postgresPlugin()` reads `DATABASE_URL` when the application starts.
- */
-export const App = UltimaBase.use(
-	aclPlugin(),
-	accessPlugin(),
-	rolesPlugin(),
-	postgresPlugin(),
-)
-//#endregion factory
+import { App } from './app.ts'
+//#endregion imports
 
 //#region members
 /** The people who use the notebook; a request principal points to a Member. */

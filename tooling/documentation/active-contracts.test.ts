@@ -175,26 +175,27 @@ describe('active documentation contracts', () => {
 		expect(violations).toEqual([])
 	})
 
+	// The factory may be its own block (`src/app.ts`, see the Project Layout
+	// page): an option is covered by the block that installs its plugin or by
+	// an earlier block of the same document.
 	it('installs the owner of every Hooks or Access schema option example', () => {
 		const violations: string[] = []
 
 		for (const document of activeDocuments) {
+			let hooksInstalled = false
+			let accessInstalled = false
 			for (const fence of codeFences(readDocument(document))) {
-				if (/^\s*hooks\s*:/mu.test(fence)) {
-					if (
-						!fence.includes("from '@ultimabase/hooks-plugin'") ||
-						!fence.includes('hooksPlugin(')
-					) {
-						violations.push(`${document}: Hooks option without hooksPlugin()`)
-					}
+				hooksInstalled ||=
+					fence.includes("from '@ultimabase/hooks-plugin'") &&
+					fence.includes('hooksPlugin(')
+				accessInstalled ||=
+					fence.includes("from '@ultimabase/access-plugin'") &&
+					fence.includes('accessPlugin(')
+				if (/^\s*hooks\s*:/mu.test(fence) && !hooksInstalled) {
+					violations.push(`${document}: Hooks option without hooksPlugin()`)
 				}
-				if (/^\s*access\s*:/mu.test(fence)) {
-					if (
-						!fence.includes("from '@ultimabase/access-plugin'") ||
-						!fence.includes('accessPlugin(')
-					) {
-						violations.push(`${document}: Access option without accessPlugin()`)
-					}
+				if (/^\s*access\s*:/mu.test(fence) && !accessInstalled) {
+					violations.push(`${document}: Access option without accessPlugin()`)
 				}
 			}
 		}

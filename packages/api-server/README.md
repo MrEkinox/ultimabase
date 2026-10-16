@@ -9,7 +9,7 @@ Every code block in this README is copied from the tested
 [`examples/http`](../../examples/http/README.md) application by
 `yarn docs:regions` (ADR-0330): edit the example, then run the script.
 
-<!-- region ../../examples/http/src/schema.ts#factory,link -->
+<!-- region ../../examples/http/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -40,6 +40,14 @@ export const App = UltimaBase.use(
 	}),
 	postgresPlugin(),
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/http/src/schema.ts#imports,link -->
+
+```ts
+import { App } from './app.ts'
 
 /**
  * Saved links, served by REST under `/api/classes/Link`. Everyone reads

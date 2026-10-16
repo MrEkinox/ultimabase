@@ -11,6 +11,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
   - examples/rest/README.md
+  - examples/rest/src/app.ts
   - examples/rest/src/schema.ts
   - examples/rest/src/operations.ts
   - examples/rest/src/guestbook.ts
@@ -87,8 +88,8 @@ Install REST on the application factory beside the HTTP foundation, a server
 provider and a database provider. The example also installs [Access](./access),
 which decides what clients may do, and one application operation:
 
-<include cwd meta='title="src/schema.ts"'>
-	../../examples/rest/src/schema.ts#factory
+<include cwd meta='title="src/app.ts"'>
+	../../examples/rest/src/app.ts#factory
 </include>
 
 | Plugin option  | Purpose                                                                     |

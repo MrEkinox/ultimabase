@@ -12,7 +12,7 @@ its Yoga transport, the HTTP foundation and the Hono listener (ADR-0325). The
 example also installs Access, which decides what clients may do, and exposes
 `Post` with the default fields plus `count`:
 
-<!-- region ../../examples/graphql/src/schema.ts#factory,post -->
+<!-- region ../../examples/graphql/src/app.ts#factory -->
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
@@ -22,7 +22,6 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 import { versionSchema } from './custom-schema.ts'
 import { readingTime } from './operations.ts'
-import { readingService } from './reading-service.ts'
 
 /**
  * `apiServer({ graphql })` installs GraphQL, its Yoga transport (`POST
@@ -43,6 +42,15 @@ export const App = UltimaBase.use(
 	}),
 	readingTime, // the `readingTime` mutation
 )
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/graphql/src/schema.ts#imports,post -->
+
+```ts
+import { App } from './app.ts'
+import { readingService } from './reading-service.ts'
 
 /** Every client may read and write posts: this example has no sign-in. */
 export const Post = App.Schema.define({
