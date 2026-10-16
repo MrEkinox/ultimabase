@@ -15,7 +15,7 @@ public entries, and `@ultimabase/core/plugin` for the authoring contracts.
 
 `definePlugin` (ADR-0316) builds the `plugin()` call of the common cases from a
 declarative object: features (keys of `define`) with their fields and
-commands, rules (methods of `.with((plugins) => ...)`), a post-commit callback,
+commands, rules (keys of `.with({ ... })`), a post-commit callback,
 and raw contributions. It writes the option
 definitions, schema selectors, patches with server-written fields, schema
 mutations, model extensions, Runtime behavior and static source types; Core
@@ -61,7 +61,7 @@ export const archivePlugin = () =>
 ```ts
 import { definePlugin } from '@ultimabase/plugin-kit'
 
-/** `plugins.audit(true)` logs each committed write of the schema. */
+/** `.with({ audit: true })` logs each committed write of the schema. */
 export const auditPlugin = () =>
 	definePlugin({
 		name: '@example/audit-plugin',
@@ -128,12 +128,11 @@ const archivedPosts = await Post.archiveMany({
   take `{ where }` and run the one-row rules for each matching row in one
   transaction. `checkReadable: 'before'` suits a command that hides its row.
 - REST and GraphQL expose a one-row request command only when the schema
-  names it, `.with((plugins) => plugins.rest({ archiveOne: true }).graphql({ archiveOne: true }))`,
+  names it, `.with({ rest: { archiveOne: true }, graphql: { archiveOne: true } })`,
   without any binding (ADR-0324): `POST /api/classes/Post/{id}/archive-one`
   and the `archiveOnePost(input: { id })` mutation. Many-row commands stay
   off both transports.
-- `rules` validate the values given to the `plugins` methods of `.with`, one
-  method per rule; `afterCommit` receives them, as `readSchemaRules` from
+- `rules` validate the values given to `.with`, one key per rule; `afterCommit` receives them, as `readSchemaRules` from
   `@ultimabase/core/plugin` returns them to raw plugins.
 - `contributions` take raw Core contributions or a transport helper such as
   `httpRoutes` from `@ultimabase/http-plugin`.
@@ -153,21 +152,26 @@ Keep raw `plugin()` when rules or commands depend on the schema they apply to
 
 ### Features and rules
 
-ADR-0339 splits what a plugin contributes to a schema in two. The
+ADR-0339 splits what a plugin contributes to a schema in two. `define`
+describes the data model: the fields, their constraints and indexes, which
+Core owns, plus the features that add something to the schema (fields,
+commands). `.with({ … })` describes how each plugin treats that schema; a
+storage setting of one plugin, such as a table name, is a rule because it
+changes nothing application code can write. The
 [Features and Rules](../../apps/website/content/docs/1.0.0/plugins/build-a-plugin/features-and-rules.mdx)
 guide explains how to choose:
 
-- **Features** describe what the schema is. They are keys of `define`, with
-  static values only (`true` or an options object), and may add fields,
+- **Features** add something to the data model. They are keys of `define`,
+  with static values only (`true` or an options object), and may add fields,
   commands and permissions. Declare them with `features` and `feature(...)`.
   A feature may list the rules of the same plugin it requires
   (`requires: ['review']`): TypeScript reports a declaration that sets the
   feature without them, and Core rejects it when `.with` runs or the
   application compiles.
-- **Rules** configure how the plugin treats a schema. Each is one method of
-  `plugins` in `.with((plugins) => plugins.review('editors'))`, callable once.
-  `definePlugin` declares their names when the plugin is created and types
-  each method from its validator; a raw `plugin()` declares them with
+- **Rules** describe how the plugin treats a schema. Each is one key of
+  `.with`, such as `.with({ review: 'editors' })`. `definePlugin` declares
+  their names when the plugin is created and types each key from its
+  validator; a raw `plugin()` declares them with
   `provideSchemaRules(instance, names)` from `@ultimabase/core/plugin` and
   may type them against the completed schema through a rules slot, so they
   may hold callbacks.
@@ -184,7 +188,7 @@ import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 
 /**
  * `reviewable: true` in `define` adds `reviewedAt` and `approveOne`; it
- * requires `plugins.review('editors')` in `.with`, which names the reviewers.
+ * requires `review: 'editors'` in `.with`, which names the reviewers.
  */
 export const reviewPlugin = () =>
 	definePlugin({
@@ -203,7 +207,7 @@ export const reviewPlugin = () =>
 				requires: ['review'],
 			}),
 		},
-		// Rules: how the plugin treats a schema. Methods of `plugins` in `.with`.
+		// Rules: how the plugin treats a schema. Keys of `.with`.
 		rules: {
 			review: (value, path) => {
 				if (typeof value !== 'string' || value === '')

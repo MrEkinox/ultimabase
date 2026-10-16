@@ -14,8 +14,8 @@ policy consumer receives this privilege from Roles.
 
 Installing `rolesPlugin()` adds `App.RoleSchema` to the configured factory
 (ADR-0322). Declare each role schema with the schema of its members, then end
-with `.with((plugins) => ...)` like any schema; `plugins.roles({ … })` sets
-the role behaviour (ADR-0339). An application may declare several role
+with `.with({ ... })` like any schema; its `roles` key sets the role behaviour
+(ADR-0339). An application may declare several role
 schemas.
 
 Every code block in this README is copied from the tested
@@ -219,7 +219,7 @@ and nominal value type never appear in authoring options or autocomplete. Applic
 Role schemas are application schemas. Trusted server code can use schema-root
 reads such as `StaffRole.findMany()`, and the REST and GraphQL transports
 expose them like any other application schema, under their Access rules;
-`plugins.rest(false)` in `.with` keeps one off REST.
+`rest: false` in `.with` keeps one off REST.
 
 A `members` link change delegates to the normal relation lifecycle, inherits
 ambient execution or ordinary operation options, and emits

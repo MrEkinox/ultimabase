@@ -126,14 +126,14 @@ A feature can also declare schema permissions, such as
 Master always holds it, and the plugin asks for it during a request with
 `holdsSchemaPermission(context, schema, 'readArchived')` from
 `@ultimabase/core/plugin` (ADR-0317).
-A rule is a method of `plugins` in the schema's `.with` callback; post-commit
-callbacks read its value:
+A rule is a key of the schema's `.with({ ... })`; post-commit callbacks read
+its value:
 
 <include cwd meta='title="src/audit-plugin.ts"'>
 	../../examples/plugin-authoring/src/audit-plugin.ts#audit-plugin
 </include>
 
-A schema declared with `.with((plugins) => plugins.audit(true))` logs
+A schema declared with `.with({ audit: true })` logs
 `[audit] Post create-one` once the write has committed; a schema without the
 rule logs nothing. [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules)
 explains which of the two an option should be.

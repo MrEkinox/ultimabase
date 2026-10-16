@@ -99,7 +99,7 @@ a small plugin that observes role events (see
 </include>
 
 Declare a role schema with the schema of its members, then end with
-`.with((plugins) => ...)` like any schema. `plugins.roles(...)` sets the role
+`.with({ ... })` like any schema. Its `roles` key sets the role
 behaviour: `StaffRole` creates its two roles at start, and its Access rules
 let every caller read roles but change none:
 
@@ -148,22 +148,22 @@ options; each role schema declares what it is in `App.RoleSchema.define`:
 | `indexes`                      | Indexes, custom fields included, as for any schema                  |
 | feature keys                   | Features of the installed plugins, such as `acl: true`              |
 
-How Roles treats the schema goes in `.with((plugins) => plugins.roles({ … }))`:
+How Roles treats the schema goes in `.with({ roles: { … } })`:
 
-| `plugins.roles` option | Purpose                                                                                      |
-| ---------------------- | -------------------------------------------------------------------------------------------- |
-| `deletion`             | External-reference policy: `'fail'` (default), `'preserve'`, or `'cascade'`                  |
-| `ensure`               | Role names created at `start()` when missing (idempotent, existing roles unchanged)          |
-| `resolveCurrent`       | Special cases only: maps request-local identity to a member Pointer instead of the principal |
+| `roles` option   | Purpose                                                                                      |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `deletion`       | External-reference policy: `'fail'` (default), `'preserve'`, or `'cascade'`                  |
+| `ensure`         | Role names created at `start()` when missing (idempotent, existing roles unchanged)          |
+| `resolveCurrent` | Special cases only: maps request-local identity to a member Pointer instead of the principal |
 
-The other rules (`plugins.access`, `plugins.hooks`, …) chain in the same
-`.with` callback, as on any schema (see
+The other rules (`access`, `hooks`, …) sit beside it in the same `.with`
+object, as on any schema (see
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)).
 The factory adds `name`, `members`, and `includedRoles`; do not redeclare
 them. Role schemas are application schemas: trusted server code queries them
 like any schema, and the REST and GraphQL transports expose them like any
 other schema, under their Access rules. The example's REST clients can list
-staff roles but not create one; `plugins.rest(false)` keeps a role schema off
+staff roles but not create one; `.with({ rest: false })` keeps a role schema off
 [REST](./rest).
 
 ## Behavior and limitations

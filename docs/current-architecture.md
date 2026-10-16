@@ -56,8 +56,8 @@ These are accepted limits, not fresh experiments to repeat on each task.
 [ADR-0297](adr/0297-declare-schemas-without-typegen.md) is the only declaration
 form, in the two blocks of [ADR-0339](adr/0339-define-describes-with-configures.md):
 `define({ className, fields, indexes, ...features })` with static values only,
-thunk relation targets, a final non-generic `.with((plugins) => ...)` for
-plugin rules (one method per rule, callbacks only there), and one required
+thunk relation targets, a final non-generic `.with({ ... })` for
+plugin rules (one key per rule, callbacks only there), and one required
 `Register` declaration for name-keyed types. Typegen and the old form (plugin options
 inside `define`) were removed in migration step 6.8b; the Typegen-era records
 are superseded by ADR-0297, entirely or for their Typegen parts (see the ADR

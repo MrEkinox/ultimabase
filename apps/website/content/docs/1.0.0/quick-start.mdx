@@ -154,7 +154,7 @@ The default choices create:
 
 `schema.ts` installs every plugin once, in one list, and declares `Task` in
 the declaration form: what the schema is in `define(...)`, and how each plugin
-treats it in `.with((plugins) => ...)` when a schema has rules. `ultimabase.ts` creates the application and declares
+treats it in `.with({ ... })` when a schema has rules. `ultimabase.ts` creates the application and declares
 it once in `Register` for name-keyed editor types; there is no generation
 step. `main.ts` starts the application and seeds a Task. The default choices
 generate this `schema.ts`; its Access line is the prototype opening:
@@ -167,7 +167,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 export const SchemaApplication = UltimaBase.use(
 	// Prototype: operations without an Access rule are open outside production.
-	// Production refuses to start until you write plugins.access(...) rules and
+	// Production refuses to start until you write .with({ access }) rules and
 	// remove this opening.
 	accessPlugin({ allowWithoutRule: { all: 'development' } }),
 	...apiServer({ rest: true }),
@@ -309,7 +309,7 @@ Authentication](/docs/1.0.0/plugins/official/password-authentication),
 ## Next steps
 
 - Edit `src/schema.ts` or `src/schema.js` to define models, then write
-  `plugins.access(...)` rules in the `.with` of each schema and remove the prototype opening
+  `access` rules in the `.with` of each schema and remove the prototype opening
   before production.
 - Before publication, run the [repository example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md).
   Use [Manual Installation](/docs/1.0.0/manual-installation) to understand the project setup.

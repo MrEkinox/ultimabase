@@ -61,7 +61,7 @@ export const Article = App.Schema.define({
 With the declaration form of
 [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) and
 [ADR-0339](../../docs/adr/0339-define-describes-with-configures.md), schema
-rules go in `.with((plugins) => plugins.access({ … }))`, typed by
+rules go in `.with({ access: { … } })`, typed by
 `AccessRules` and contributed through `AccessSchemaRules`. Filters may cross thunk targets in both directions;
 `define` rejects an `access` option.
 

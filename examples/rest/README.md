@@ -1,7 +1,7 @@
 # REST example
 
 A small blog backend that shows the REST plugin end to end: the `/api`
-mount, `plugins.rest(...)` method keys that expose or hide routes per schema, a
+mount, `rest` rule keys that expose or hide routes per schema, a
 schema without any route, list reads with `where`, `select`, `orderBy`,
 `include` and cursor pagination, single reads, `first`, `count` and `exists`,
 create, update and delete with their status codes, relation links, an atomic
@@ -21,18 +21,18 @@ says.
 
 ## Files
 
-| File                                                         | What it shows                                                                                                                                                                                                 |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/schema.ts`](src/schema.ts)                             | the factory with Access, HTTP, `restPlugin` options, Hono and the operation; `Author` (read-only routes), `Tag` (`plugins.rest(false)`), `Post` (count, bulk create, a hidden field), `Feedback` (write-only) |
-| [`src/operations.ts`](src/operations.ts)                     | `readingTime`, an application operation with Zod validators                                                                                                                                                   |
-| [`src/guestbook.ts`](src/guestbook.ts)                       | a second application without any policy plugin, started with `publicWrites`                                                                                                                                   |
-| [`src/ultimabase.ts`](src/ultimabase.ts)                     | the application and its `Register` declaration                                                                                                                                                                |
-| [`src/main.ts`](src/main.ts)                                 | the development entry point                                                                                                                                                                                   |
-| [`tests/reads.test.ts`](tests/reads.test.ts)                 | lists, `where` in GET and POST, `select`, `orderBy`, `take` and `after`, the configured page size, `include`, tagged pointers, `first`, `count` and `exists`                                                  |
-| [`tests/writes.test.ts`](tests/writes.test.ts)               | create (201), update (200) and delete (200) with pointer and relation links, the atomic bulk create, `?select=id` for a row the caller cannot read                                                            |
-| [`tests/errors.test.ts`](tests/errors.test.ts)               | the error envelope and request ID, 400 details, the hidden field, 404 targets and paths, 405 with `Allow`, 409 and 422, an HTTP failure before REST                                                           |
-| [`tests/operations.test.ts`](tests/operations.test.ts)       | calling the operation, its 422 issues, the `{ "input": value }` body, the OpenAPI document                                                                                                                    |
-| [`tests/public-writes.test.ts`](tests/public-writes.test.ts) | the startup refusal without a policy, and writes with `publicWrites`                                                                                                                                          |
+| File                                                         | What it shows                                                                                                                                                                                                    |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/schema.ts`](src/schema.ts)                             | the factory with Access, HTTP, `restPlugin` options, Hono and the operation; `Author` (read-only routes), `Tag` (`.with({ rest: false })`), `Post` (count, bulk create, a hidden field), `Feedback` (write-only) |
+| [`src/operations.ts`](src/operations.ts)                     | `readingTime`, an application operation with Zod validators                                                                                                                                                      |
+| [`src/guestbook.ts`](src/guestbook.ts)                       | a second application without any policy plugin, started with `publicWrites`                                                                                                                                      |
+| [`src/ultimabase.ts`](src/ultimabase.ts)                     | the application and its `Register` declaration                                                                                                                                                                   |
+| [`src/main.ts`](src/main.ts)                                 | the development entry point                                                                                                                                                                                      |
+| [`tests/reads.test.ts`](tests/reads.test.ts)                 | lists, `where` in GET and POST, `select`, `orderBy`, `take` and `after`, the configured page size, `include`, tagged pointers, `first`, `count` and `exists`                                                     |
+| [`tests/writes.test.ts`](tests/writes.test.ts)               | create (201), update (200) and delete (200) with pointer and relation links, the atomic bulk create, `?select=id` for a row the caller cannot read                                                               |
+| [`tests/errors.test.ts`](tests/errors.test.ts)               | the error envelope and request ID, 400 details, the hidden field, 404 targets and paths, 405 with `Allow`, 409 and 422, an HTTP failure before REST                                                              |
+| [`tests/operations.test.ts`](tests/operations.test.ts)       | calling the operation, its 422 issues, the `{ "input": value }` body, the OpenAPI document                                                                                                                       |
+| [`tests/public-writes.test.ts`](tests/public-writes.test.ts) | the startup refusal without a policy, and writes with `publicWrites`                                                                                                                                             |
 
 Region names are stable identifiers: renaming one breaks the page or README
 that includes it, and the website content tests report the missing region.

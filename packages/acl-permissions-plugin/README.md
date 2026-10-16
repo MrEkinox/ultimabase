@@ -1,7 +1,7 @@
 # @ultimabase/acl-permissions-plugin
 
 Stores per-row rights: the immutable `ACL` value, the `acl` feature key of
-`define`, the `plugins.acl(...)` rule of `.with`, and the `aclPlugin()`
+`define`, the `acl` rule of `.with`, and the `aclPlugin()`
 provider (ADR-0321, ADR-0339).
 
 ACL grants object-level `read`, `update`, and `delete` rights to public,
@@ -26,7 +26,7 @@ Every TypeScript block below is copied from the
 prove each behavior described here (ADR-0330).
 
 `acl: true` in `define` adds one reserved, required, indexed `acl` field
-through Core's fields slot; `plugins.acl({ … })` in `.with` configures it, and
+through Core's fields slot; `acl: { … }` in `.with` configures it, and
 its `default` is required once `acl: true` is set, because an empty ACL hides
 a row from everyone but Master. The feature declares the rule as required:
 a declaration without it is a TypeScript error, and fails when `.with` runs or

@@ -21,6 +21,7 @@ sources:
   - packages/core/README.md
   - packages/core/src/plugins/schema-extensions.ts
   - packages/core/src/plugins/schema-rule-names.ts
+  - packages/core/src/schema/schema/schema-rules-object.ts
   - packages/acl-permissions-plugin/src/plugin.ts
   - docs/adr/0316-plugin-facade-and-projection-slots.md
   - docs/adr/0321-acl-shape-sharing-and-backfill.md
@@ -31,11 +32,19 @@ sources:
 
 An application declares each schema in two blocks, as
 [Schemas](/docs/1.0.0/core/data-modeling/schemas#plugin-features-and-rules)
-shows: `define` describes what the schema is, and `.with((plugins) => ...)`
-configures how each plugin treats it. Every schema-level option your plugin
-offers belongs to exactly one block. An option in `define` is a **feature**;
+shows. `define` describes the data model: the fields, their constraints and
+indexes, which Core owns, plus the features that add something to the schema
+(fields, commands). `.with({ … })` describes how each plugin treats that
+schema. Every schema-level option your plugin offers belongs to exactly one
+block. An option in `define` is a **feature**;
 an option in `.with` is a **rule**. Choosing well gives application developers
 one predictable place to look, and keeps their editor fast and exact.
+
+Indexes stay Core's, in `define`: a unique index decides which fields identify
+a row, so it types `updateOne` and `upsertOne` targets, and every adapter
+enforces indexes as data constraints, like `required` or `indexed: 'unique'`.
+A storage setting of your plugin, such as `postgres: { table }`, is a rule: it
+changes nothing application code can write.
 
 This page assumes you have read [Start Here](/docs/1.0.0/plugins/build-a-plugin)
 and know `definePlugin`.
@@ -53,11 +62,11 @@ its value cannot depend on that schema.
 
 ### A rule is how your plugin treats the schema
 
-A rule is one method of `plugins` in `.with`, such as `plugins.access(...)`,
-`plugins.hooks(...)`, or `plugins.acl({ default })`. `.with` is the last call
-of a declaration and sees the completed schema, including the fields that
-features add, so a rule may hold callbacks that read the schema's fields. A
-rule never changes the shape of the schema. Each method can be called once.
+A rule is one key of `.with({ … })`, such as `access`, `hooks`, or
+`acl: { default }`. `.with` is the last call of a declaration and sees the
+completed schema, including the fields that features add, so a rule may hold
+callbacks that read the schema's fields. A rule never changes the shape of the
+schema. Its key is typed exactly like your plugin's rules slot.
 
 The example's review plugin offers both. `reviewable` is a feature: it adds a
 `reviewedAt` field and an `approveOne` command. `review` is a rule: it names
@@ -68,7 +77,7 @@ create:
 	../../examples/plugin-authoring/src/review-plugin.ts#review-plugin
 </include>
 
-An application sets the feature in `define` and calls the rule in `.with`.
+An application sets the feature in `define` and gives the rule in `.with`.
 Its `indexes` may already name `reviewedAt`, the field the feature adds:
 
 <include cwd meta='title="tests/features-and-rules.test.ts"'>
@@ -86,10 +95,10 @@ committed, and `Story.approveOne({ id })` sets `reviewedAt`:
 
 `requires: ['review']` makes the rule mandatory for every schema that sets the
 feature. Use it when the feature has no safe default, as ACL Permissions does:
-`acl: true` requires `plugins.acl({ default })`, because an empty ACL would
+`acl: true` requires `.with({ acl: { default } })`, because an empty ACL would
 hide each new row from everyone but Master. A declaration that sets the
-feature without the rule is a TypeScript error on the `.with` callback, and
-fails at runtime when `.with` runs:
+feature without the rule is a TypeScript error on the `.with` object, where
+the rule is a required property, and fails at runtime when `.with` runs:
 
 <include cwd meta='title="tests/features-and-rules.test.ts"'>
 	../../examples/plugin-authoring/tests/features-and-rules.test.ts#missing-rule
@@ -125,12 +134,12 @@ declares a feature and a rule this way.
   when the plugin is installed.
 - **Name a rule after your plugin.** One rule per plugin, named with the
   plugin's short name (`access`, `hooks`, `acl`, `roles`, `audit`, `review`),
-  tells a reader at once which plugin a `plugins.x(...)` call configures. Put
+  tells a reader at once which plugin a `.with({ x: … })` entry configures. Put
   all of the plugin's schema behaviour in that one rule's options.
 - **Name a feature after what the schema becomes.** `softDelete`,
   `archivable`, `reviewable`. A feature and its required rule may share the
   plugin's name when the rule configures the feature, as `acl: true` and
-  `plugins.acl({ default })` do.
+  `.with({ acl: { default } })` do.
 - **Neither is a field option.** An option about one field, such as a column
   name or a field Hook, stays on the field: declare it with
   `definePluginFieldOption()`, as
@@ -140,9 +149,9 @@ declares a feature and a rule this way.
   schema belongs to your plugin factory, such as
   `accessPlugin({ allowWithoutRule })`.
 - **Misuses fail in TypeScript and at runtime.** A rule in `define` is an
-  unknown key (`Unknown schema option: review`); a feature called on
-  `plugins` does not exist; a rule whose plugin is not installed throws
-  `plugins.<name> is not a function`.
+  unknown key (`Unknown schema option: review`); a feature in `.with`, or a
+  rule whose plugin is not installed, is an unknown key of `.with`
+  (`<name> is not a rule of an installed plugin`).
 
 ## Decide
 
@@ -151,7 +160,8 @@ declares a feature and a rule this way.
 3. The option adds fields, commands, or permissions, or changes what a row
    stores: a feature.
 4. The option holds a callback or reads the schema's fields: a rule.
-5. Any other per-schema behaviour, such as a switch or a name: a rule.
+5. Any other per-schema behaviour, such as a switch, a name, or a storage
+   setting like a table name: a rule.
 6. The feature is unsafe or meaningless without configuration: add
    `requires` with that rule.
 

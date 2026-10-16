@@ -75,11 +75,11 @@ exact source-owned plugin surface, and `new App({ schemas: [...] })` remains the
 explicit Runtime registration root.
 [ADR-0297](docs/adr/0297-declare-schemas-without-typegen.md) completes it
 without generation, and [ADR-0339](docs/adr/0339-define-describes-with-configures.md)
-splits each declaration in two blocks: `define` describes what the schema is
+splits each declaration in two blocks: `define` describes the data model
 (`className`, `fields`, `indexes` and the static feature keys of installed
 plugins, such as `softDelete: true`), relation targets are thunks, and a final
-non-generic `.with((plugins) => ...)` configures how each plugin treats the
-schema, one method per plugin rule; one `Register` declaration gives
+non-generic `.with({ ... })` describes how each plugin treats the schema, one
+key per plugin rule; one `Register` declaration gives
 name-keyed types. Typegen and
 the old declaration form (plugin options inside `define`) were removed in
 migration step 6.8b. Direct schema class commands
@@ -280,7 +280,7 @@ credential, or authority; calls outside the active owner's lifecycle fail
 before effects.
 
 ADR-0247 makes a relation's static or request-contextual `where` a Core-owned
-private read scope; ADR-0328 declares it with `plugins.relations(...)` in the
+private read scope; ADR-0328 declares it with `relations` in the
 schema's `.with` (ADR-0339), typed against the complete target, so two schemas may
 filter each other's relations. The exact request context resolves synchronous
 application behavior once per relation definition and root operation; the
@@ -321,7 +321,7 @@ only failures raised after their handler begins.
 
 ADR-0228 fixes the experimental REST surface, mounted under `/api` without a
 version since ADR-0324 (the `X-UltimaBase-Rest-Version` header carries it).
-Application-owned schemas select their routes with `plugins.rest(...)` keyed by
+Application-owned schemas select their routes with `.with({ rest: … })` keyed by
 schema method and plugin command names, sparse rules inherit the REST plugin
 default, and plugin-owned schemas remain private from generated CRUD
 routes. Short class paths normalize simple GET parameters or explicit complex
@@ -804,7 +804,7 @@ roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.
 
 The `acl: true` feature key adds the field through Core's fields slot, and the
-`plugins.acl(...)` rule of `.with`, which that feature requires, owns
+`acl` rule of `.with`, which that feature requires, owns
 row-aware defaults and input recomputation
 through public capability middleware. The field declares, through neutral
 plugin-field metadata, the value existing rows receive when storage adds it

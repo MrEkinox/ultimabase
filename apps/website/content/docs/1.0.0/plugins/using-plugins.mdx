@@ -109,7 +109,7 @@ Each plugin option has one place. Options about one field, such as these
 `hooks` and `validation`, stay on the field; a plugin feature that changes
 what the schema is, such as `softDelete: true`, is a key of `define`; how a
 plugin treats the whole schema, such as an Access rule or a schema Hook, is a
-method of `.with((plugins) => ...)`; and an option for the whole application
+key of `.with({ ... })`; and an option for the whole application
 goes to the plugin factory in `.use()`. The
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)
 table lists every case.
@@ -288,14 +288,14 @@ No schema is registered by being declared: keep `new App({ schemas: [...] })`.
 Advanced dynamically named handles remain for capabilities that need them; they
 are not the ordinary CRUD journey. Plugins may add schema factories to the
 configured application: installing Roles adds `App.RoleSchema.define(...)`,
-whose declarations end with `.with((plugins) => ...)` like any schema and inherit the same
+whose declarations end with `.with({ ... })` like any schema and inherit the same
 plugin configuration; installing `authPlugin` adds `App.UserSchema.define(...)`
 for the User. No additional plugin installation is required per schema.
 
 ## Next steps
 
 When removing a plugin, remove its factory, its feature keys in `define`, its
-`.with` methods and its commands, then verify typechecking, startup and stored-data
+`.with` keys and its commands, then verify typechecking, startup and stored-data
 compatibility.
 Removing a plugin does not automatically migrate its data. Core checks
 required providers, protocol compatibility, privileges, and duplicate

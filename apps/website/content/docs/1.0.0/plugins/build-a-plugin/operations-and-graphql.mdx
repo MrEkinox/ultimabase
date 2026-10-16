@@ -313,8 +313,8 @@ its own root name, target ID, result type, resolver, or authority. A
 Master-only mutation never enters the public SDL. The official
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
 mutations: REST exposes a one-row request command when the application names
-it with `plugins.rest({ softDeleteOne: true })` in `.with`, and GraphQL when it
-names it with `plugins.graphql({ softDeleteOne: true })`, without any binding: the
+it with `rest: { softDeleteOne: true }` in `.with`, and GraphQL when it
+names it with `.with({ graphql: { softDeleteOne: true } })`, without any binding: the
 GraphQL field then takes only the row `id`. The `archivePlugin` of
 [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#start-with-defineplugin)
 works the same way once `Post` names `archiveOne` for both transports:

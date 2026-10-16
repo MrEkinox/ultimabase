@@ -8,7 +8,7 @@ options (`required`, defaults and factories, `indexed` and `unique`,
 and ordinary indexes and the unique targets they give, embedded objects and
 object lists, virtual fields with `resolve` and `resolveMany`, pointers with
 `restrict` and `cascade` deletion, an owning relation filtered by
-`plugins.relations(...)` in `.with` and an inverse `mappedBy` relation, frozen plain
+`relations` in `.with` and an inverse `mappedBy` relation, frozen plain
 results, `toJSON`, and the named types `Model`, `CreateInput`, `UpdateInput`
 and `UniqueWhereInput`. Its only plugin is PostgreSQL: data modeling is Core.
 It uses the declaration form (ADR-0297) without generated files and is tested

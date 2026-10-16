@@ -4,7 +4,7 @@ Optional official application validation for UltimaBase.
 
 Install `validationPlugin()` in the application graph to expose the
 `validation` field option, the schema check of
-`.with((plugins) => plugins.validation(...))`, and
+`.with({ validation: … })`, and
 `check()`. Core continues to enforce required presence, nullability, canonical
 scalar and object shapes, defaults, generators, immutable fields, and database
 integrity without this plugin.
@@ -29,7 +29,7 @@ import { isRoomOpen } from './rooms.ts'
 
 /**
  * The configured factory types the `validation` field option and the schema
- * check of `plugins.validation(...)`. Access opens the REST writes of this
+ * check of `.with({ validation: … })`. Access opens the REST writes of this
  * example; Validation needs neither Access nor REST.
  */
 export const App = UltimaBase.use(
@@ -87,7 +87,7 @@ export const Event = App.Schema.define({
 <!-- endregion -->
 
 `define` takes no `validation` key: the schema check belongs in
-`.with((plugins) => plugins.validation(...))`, and field rules stay on their
+`.with({ validation: … })`, and field rules stay on their
 fields. Importing this package has no
 effect; without `validationPlugin()`, the configured factory omits the
 options and application compilation rejects untyped declarations that use
@@ -116,7 +116,7 @@ may be omitted or set to `null`, and it never runs for `null`.
 
 ## Schema checks
 
-`plugins.validation(...)` takes a function on the complete final item,
+`.with({ validation: … })` takes a function on the complete final item,
 `({ item }) => true | 'message' | { path, message, code? } | readonly issues[]`,
 as `Event` does above, or a Standard Schema object validator run on the item
 (its output is not stored), as the example's `TicketTier` does.

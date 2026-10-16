@@ -10,7 +10,7 @@ header a request reaches this only application, and `GET /health` reports its
 health (ADR-0323). REST is mounted under `/api` and
 GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleAuthor`, `ExampleArticle`, and `ExamplePrivateNote` CRUD plus the
-`ExampleArticle` and `ExampleAuthor` soft-delete commands (`plugins.rest(true)`), the
+`ExampleArticle` and `ExampleAuthor` soft-delete commands (`.with({ rest: true })`), the
 public `example.status` operation (`/api/operations/status`). Authentication
 serves its operations under `/api/auth` and in GraphQL (which hides
 `changePassword` and `logoutEverywhere`); REST hides them. `ExampleUser`,
@@ -176,9 +176,9 @@ delete.
 
 ## Contextual relation views
 
-Relations may define one reusable read subset with `plugins.relations(...)`
-in the schema's `.with` callback, keyed by relation field name (ADR-0328,
-ADR-0339). The callback of `ExampleArticle` starts with it:
+Relations may define one reusable read subset with `relations` in the
+schema's `.with({ … })`, keyed by relation field name (ADR-0328, ADR-0339).
+The `.with` of `ExampleArticle` starts with it:
 `contributors` uses a static target filter, while `reviewers` uses the
 authentication request context:
 
@@ -206,7 +206,7 @@ GraphQL connections, and the visible universe used by `some`, `none`, `every`,
 logical `AND`; ordering, `skip`, and `take` run after filtering.
 `ExampleAuthor.articles` and `contributions` list published articles only,
 while Article filters its `contributors` and `reviewers` through Author: the
-`.with` callback receives the complete schemas, so two schemas may filter each
+rules of `.with` receive the complete schemas, so two schemas may filter each
 other's relations.
 
 This is presentation logic, not security. The example's independent Author
@@ -451,7 +451,7 @@ hooks, transactions, constraints, or integrity maintenance.
 Every schema uses the declaration form (ADR-0297, ADR-0339): relation targets
 are thunks such as `target: () => ExampleAuthor`, feature keys such as
 `softDelete: true` and `acl: true` sit in `define(...)`, and Access, ACL,
-Hooks, REST and GraphQL rules sit in `.with((plugins) => ...)`. The application
+Hooks, REST and GraphQL rules sit in `.with({ ... })`. The application
 declares itself once in `Register`
 (`readonly app: ReturnType<typeof createMinimalApplication>`), which gives
 name-keyed types such as `WhereBuilder<SchemaRef<"ExampleArticle">>`. There is

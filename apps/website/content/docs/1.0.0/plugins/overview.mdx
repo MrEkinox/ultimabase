@@ -61,8 +61,8 @@ declare module '@ultimabase/core' {
 ```
 
 The `hooks` rule belongs to the Hooks plugin. If you remove `hooksPlugin()`
-but leave `plugins.hooks(...)` in `Post`'s `.with`, TypeScript rejects it and
-the declaration throws `plugins.hooks is not a function`; it does not silently
+but leave `hooks` in `Post`'s `.with`, TypeScript rejects it and the
+declaration throws `Post.with({ hooks }): hooks is not a rule of an installed plugin`; it does not silently
 skip the callback. This excerpt assembles an
 application but does not start a database or an API. For a complete working
 setup, follow [Using Plugins](./using-plugins).

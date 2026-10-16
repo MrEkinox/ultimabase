@@ -42,7 +42,7 @@ Extend a schema without changing Core or patching an exported schema class.
 An application declares each schema in two blocks: what the schema is in
 `App.Schema.define({ className, fields, indexes, ... })`, including the
 feature keys of the installed plugins such as `softDelete: true`, then how
-each plugin treats it in one optional `.with((plugins) => ...)` holding their
+each plugin treats it in one optional `.with({ ... })` holding their
 rules (ADR-0297, ADR-0339). Your plugin types both blocks from its own source
 through Core's projection slots (ADR-0316).
 There is no generation step and no generated file, and the same declarations
@@ -100,8 +100,8 @@ factory, here with the `auditPlugin` of the same page and the raw
 	../../examples/plugin-authoring/src/schema.ts#factory
 </include>
 
-A schema then sets the feature key `archivable: true` in `define`, and calls
-in its `.with` callback the `audit` rule and the REST and GraphQL rules that
+A schema then sets the feature key `archivable: true` in `define`, and gives
+in its `.with` the `audit` rule and the REST and GraphQL rules that
 expose `archiveOne`:
 
 <include cwd meta='title="src/schema.ts"'>
@@ -122,17 +122,17 @@ input.
 
 ## Type a rule with a rules slot
 
-A rule is a schema option that the application sets with a method of
-`plugins` in `.with((plugins) => ...)`. `define` rejects it as an unknown key,
-in TypeScript and at runtime (`Unknown schema option: <name>`). Declare the
-option once with `schemas.defineOptions()`, give its name to
-`provideSchemaRules(instance, names)` so that `plugins` offers the method, then
+A rule is a schema option that the application sets with a key of
+`.with({ ... })`. `define` rejects it as an unknown key, in TypeScript and at
+runtime (`Unknown schema option: <name>`). Declare the option once with
+`schemas.defineOptions()`, give its name to
+`provideSchemaRules(instance, names)` so that `.with` accepts the key, then
 type it through a rules slot: an interface extending `SchemaRulesHKT` whose
 `rules` member is the `.with` entry. The slot reads `this['schema']`, the
 configured schema, so a rule may be typed against its fields (as Access, Hooks
 and Validation do), and `this['shape']`, the features `define` sets, so a rule
 may appear only with its feature. A feature that needs a rule declares it as
-required, as ACL's `acl: true` requires `plugins.acl({ default })` (ADR-0321);
+required, as ACL's `acl: true` requires `.with({ acl: { default } })` (ADR-0321);
 see [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules#a-feature-may-require-a-rule).
 
 This raw plugin adds a `flaggable` feature that gives a schema a
@@ -153,8 +153,8 @@ with `flagPlugin()` in the factory shown above:
 indexes `flagged` with `createdAt`; create and update input reject it, because
 `mutationInput: 'forbidden'` reserves the field for the plugin's own effects
 while keeping it readable and persisted. It is not a permission rule for
-reading the field. `plugins.flagReason(...)` without `flaggable: true` is a
-type error, and each `plugins` method can be called once. At Runtime the plugin
+reading the field. `.with({ flagReason: … })` without `flaggable: true` is a
+type error, and TypeScript flags a key given twice. At Runtime the plugin
 reads a schema's rules with `readSchemaRules(schema, owner)` from
 `@ultimabase/core/plugin`, which returns only the options that plugin declared.
 
@@ -218,7 +218,7 @@ application through `provideSchemaFactories()`, typed by a
 `define(options, statics)`: the same declaration as `App.Schema.define`,
 with `statics` bound to every class it creates, so its declarations take the
 same `indexes`, feature keys and `.with` rules as any schema. The factory's
-own behaviour options are a rule too, as Roles offers `plugins.roles(...)`.
+own behaviour options are a rule too, as Roles offers `.with({ roles: … })`.
 
 If the package must instead expose one final schema class of its own, use the
 low-level Core boundary `Schema.defineSpecialized(options, createStatics)`.

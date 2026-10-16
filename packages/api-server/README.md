@@ -67,7 +67,7 @@ export const Link = App.Schema.define({
 `graphql: { explorer: 'graphiql' }` adds GraphQL with its in-browser explorer
 in development, next to REST on the same HTTP foundation. The returned list is
 typed entry by entry, so the configured factory keeps every plugin's
-`plugins.rest(...)` and `plugins.graphql(...)` rules and
+`.with({ rest: … })` and `.with({ graphql: … })` rules and
 `ultimabase.plugin(...)` exports.
 Installing the same plugins one by one gives the same application; the
 example's second application does so, with its own Hono `app`:

@@ -12,7 +12,7 @@ follow their modules and must not lose an assertion when they move.
   (ADR-0297, register-cycle note), one program per case, each checked from
   package sources (`tsconfig.json`) and built packages (`tsconfig.dist.json`).
   The `define-with*` cases cover the declaration form of ADR-0339 (feature
-  keys in `define`, `.with((plugins) => …)`); `define-with-diagnostics.e2e`
+  keys in `define`, `.with({ … })`); `define-with-diagnostics.e2e`
   also compiles them on TypeScript 6 and checks its diagnostics.
 
 Focused package unit and compile-time tests live beside their source. A package's

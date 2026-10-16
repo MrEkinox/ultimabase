@@ -10,7 +10,7 @@ AND field decisions
 AND optional provider policies
 ```
 
-`@ultimabase/access-plugin` owns the `access` rule (`plugins.access({ … })`), the class-level
+`@ultimabase/access-plugin` owns the `access` rule (`.with({ access: { … } })`), the class-level
 permission API. With `accessPlugin()` configured, it protects singular and
 collection reads, counts, existence checks, creates, updates, upserts, deletes,
 row visibility, and prepared items.
@@ -87,11 +87,11 @@ Internal role membership resolution uses its existing trusted provider
 boundary so evaluating a role grant never recurses through the ACL protecting
 that role row. `ultimabase.plugin(rolesPlugin)` answers `has(role)` and
 `current(schema)` with the same computation, and the `ensure` option of
-`plugins.roles({ … })` creates seed roles at `start()` (ADR-0322, ADR-0339).
+`.with({ roles: { … } })` creates seed roles at `start()` (ADR-0322, ADR-0339).
 
 ## ACL input
 
-`acl: true` in `define` adds the field and `plugins.acl({ … })` in `.with`
+`acl: true` in `define` adds the field and `acl: { … }` in `.with`
 configures it (ADR-0321, ADR-0339): a required static or asynchronous `default`, and an optional
 `resolveInput` that recomputes the ACL from the row's data on each create and
 singular update without an explicit ACL. A default factory receives the
@@ -114,7 +114,7 @@ behavior, transactions, database constraints, or audit events.
 
 `aclPlugin()` defaults each ACL to at most 100 exact principals and 50 roles.
 Applications may change those defaults through plugin options, while the
-`plugins.acl({ limits })` rule overrides either value for one schema and inherits
+`.with({ acl: { limits } })` rule overrides either value for one schema and inherits
 omitted values. Limits count canonical subject entries after duplicate grants are
 merged. Public and authenticated rights consume no subject entry, and every
 create or update path—including master execution—is checked before persistence.

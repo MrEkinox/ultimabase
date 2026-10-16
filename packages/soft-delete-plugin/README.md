@@ -168,8 +168,8 @@ command, and its `all` branch runs for each command first with `kind` naming
 it.
 
 The one-row request commands reach REST and GraphQL when the schema's rule
-names them, `plugins.rest({ softDeleteOne: true, restoreOne: true })` and
-`plugins.graphql({ softDeleteOne: true, restoreOne: true })`, as
+names them, `.with({ rest: { softDeleteOne: true, restoreOne: true } })` and
+`.with({ graphql: { softDeleteOne: true, restoreOne: true } })`, as
 `POST /api/classes/{Schema}/{id}/soft-delete-one` and `…/restore-one`, and as
 the `softDeleteOne{Schema}` and `restoreOne{Schema}` mutations (ADR-0324,
 ADR-0325). Many-row commands and purge have no route or field.

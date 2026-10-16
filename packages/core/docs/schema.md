@@ -262,7 +262,7 @@ reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
 join-table or transport names.
 
-An optional `where`, declared with `plugins.relations(...)` in `.with` under the
+An optional `where`, declared with `relations` in `.with` under the
 relation field name (ADR-0328), narrows the visible target collection for this
 exact relation. It accepts an ordinary target `WhereInput` or one synchronous
 contextual resolver:
