@@ -446,3 +446,23 @@ hooks-plugin,validation-plugin,rest-plugin,graphql-plugin,postgres-plugin`, apr�
   - complétions et diagnostics d'usage (68) : fixtures IntelliSense converties (phase 3),
     `indexes` n'est plus proposé dans `.with`, message de clé inconnue de `define`,
     impressions de `DeclaredSchema` raccourcies.
+- Porte sur 818f979e (seul ce paragraphe de preuves a été ajouté ensuite),
+  `YARN_CACHE_FOLDER` du dépôt principal, `packages/*/dist`, `*.tsbuildinfo` et
+  `examples/schema-form-d/gen/` supprimés avant :
+  - `yarn install --immutable` 0 ;
+  - `yarn validate:full` 1 : `format:check`, `typecheck`, `lint` (0 erreur), `build`,
+    `test:performance` passent ; couverture 738/739 fichiers, 3 946/3 947 tests, types sans
+    erreur ; seul échec `tooling/documentation/active-contracts.test.ts` « typechecks the
+    complete root journey » : le bloc de code du `README.md` racine utilise encore
+    `.softDelete({ mode: 'command' })` (prose, corrigée sur `feat/define-with-docs`) ;
+    étapes suivantes lancées à part : `yarn constraints` 0, `yarn website:validate` 1 avec
+    le même bloc (`compiled-snippets` « README.md:17 », 212/213) ;
+  - `yarn test:e2e:built` 1 : seul `create-app-packed` « writes a valid graph for each
+    official plugin selected alone » dépasse 120 s (charge 1 min ≈ 15, deux agents) ;
+    relancé seul (charge 3,35) : 8/8 en 34,4 s ; les 700 autres tests passent ;
+  - `yarn website:test` 0 (8 fichiers, 59 tests) ; `yarn typecheck:typescript-7` 0 ;
+    `yarn docs:regions --check` 0.
+- Recherches finales (`.with({`, `.softDelete(`, `.acl()`, `shapeMethod`,
+  `provideSchemaShapeMethods` dans le code de `packages tests examples tooling apps`) : seuls
+  deux commentaires de `examples/plugin-authoring` (phase 4) ; les résultats historiques
+  `examples/schema-form-d/results/*.json` citent encore `shapeMethods`.
