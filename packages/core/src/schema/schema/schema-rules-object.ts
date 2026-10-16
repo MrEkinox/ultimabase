@@ -14,7 +14,12 @@ export type SchemaRulesObject<TRules, TRequired extends PropertyKey> = [
 		Readonly<Record<string, never>>
 	: [TRequired] extends [never]
 		? TRules
-		: TRules & Required<Pick<TRules, TRequired & keyof TRules>>
+		: TRules & {
+				readonly [TName in TRequired & keyof TRules]-?: Exclude<
+					TRules[TName],
+					undefined
+				>
+			}
 
 /**
  * @internal Reads the object form of `.with({ … })`: every key must be a rule
