@@ -185,18 +185,17 @@ authentication request context:
 <!-- region src/schema.ts#relation-views -->
 
 ```ts
-plugins
-	// Narrows every read through these relation fields (ADR-0328).
-	.relations({
-		contributors: { where: { listed: { eq: true } } },
-		// Anonymous requests see only public reviewers.
-		reviewers: {
-			where: ({ context, where }) =>
-				context.getValue(authPrincipal) === undefined
-					? where.eq('audience', 'public')
-					: where,
-		},
-	})
+// Narrows every read through these relation fields (ADR-0328).
+relations: {
+	contributors: { where: { listed: { eq: true } } },
+	// Anonymous requests see only public reviewers.
+	reviewers: {
+		where: ({ context, where }) =>
+			context.getValue(authPrincipal) === undefined
+				? where.eq('audience', 'public')
+				: where,
+	},
+},
 ```
 
 <!-- endregion -->

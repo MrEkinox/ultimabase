@@ -176,7 +176,7 @@ describe('feature keys of define (ADR-0339)', () => {
 
 	it('requires the rules of a feature, in .with and when .with is missing', () => {
 		const message =
-			'FeatureMissingRule sets flagged in define(), which requires .with((plugins) => plugins.audit({ … }))'
+			'FeatureMissingRule sets flagged in define(), which requires .with({ audit: { … } })'
 		const declared = App.Schema.define({
 			className: 'FeatureMissingRule',
 			fields: (field) => ({ title: field.string() }),
@@ -186,7 +186,7 @@ describe('feature keys of define (ADR-0339)', () => {
 		const withMethod: unknown = Reflect.get(declared, 'with')
 		expect(() => {
 			if (typeof withMethod === 'function') {
-				Reflect.apply(withMethod, declared, [(plugins: unknown) => plugins])
+				Reflect.apply(withMethod, declared, [{}])
 			}
 		}).toThrow(new TypeError(message))
 		// The application reports it with its other declaration errors.

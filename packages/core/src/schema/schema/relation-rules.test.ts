@@ -153,7 +153,7 @@ describe('relation rules of .with() (ADR-0328)', () => {
 				}),
 			}),
 		).toThrow(
-			'RuleFieldWhere.fields.targets cannot declare where: declare relation filters in .with((plugins) => plugins.relations({ targets: { where } }))',
+			'RuleFieldWhere.fields.targets cannot declare where: declare relation filters in .with({ relations: { targets: { where } } })',
 		)
 	})
 })

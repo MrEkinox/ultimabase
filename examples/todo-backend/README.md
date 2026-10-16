@@ -53,31 +53,30 @@ title: field.string({
 
 	indexes: [{ fields: ['completed', 'dueAt'] }],
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('archived', false),
-			create: false,
-			update: true,
-			upsert: false,
-			delete: false,
-		})
-		.acl({
-			default: new ACL()
-				.grantPublic('read')
-				.grantRole(TodoEditorRole, 'read', 'update'),
-		})
-		.hooks({
-			beforeOperation: {
-				update: ({ item, originalItem }) => {
-					if (originalItem.completed && !item.completed) {
-						throw new TypeError('Completed todos cannot be reopened')
-					}
-				},
+}).with({
+	access: {
+		read: ({ where }) => where.eq('archived', false),
+		create: false,
+		update: true,
+		upsert: false,
+		delete: false,
+	},
+	acl: {
+		default: new ACL()
+			.grantPublic('read')
+			.grantRole(TodoEditorRole, 'read', 'update'),
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item, originalItem }) => {
+				if (originalItem.completed && !item.completed) {
+					throw new TypeError('Completed todos cannot be reopened')
+				}
 			},
-		})
-		.postgres({ table: 'todos' }),
-)
+		},
+	},
+	postgres: { table: 'todos' },
+})
 ```
 
 <!-- endregion -->

@@ -49,10 +49,13 @@ describe('the .with rules object', () => {
 
 		expect(Reflect.has(Author, 'with')).toBe(false)
 		expectTypeOf(Author).not.toHaveProperty('with')
-		UltimaBase.Schema.define({
+		const NoAccess = UltimaBase.Schema.define({
 			className: 'ObjectNoAccess',
 			fields: (field) => ({ name: field.string() }),
-			// @ts-expect-error no installed plugin declares access
-		}).with({ access: { read: true } })
+		})
+		expect(() =>
+			// @ts-expect-error -- no installed plugin declares access
+			NoAccess.with({ access: { read: true } }),
+		).toThrow('ObjectNoAccess.with({ access }): access is not a rule')
 	})
 })
