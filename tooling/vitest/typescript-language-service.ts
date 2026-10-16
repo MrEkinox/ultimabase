@@ -10,6 +10,8 @@ export interface LanguageServiceFixture {
 
 export interface LanguageServiceWorkspace {
 	readonly addFile: (fileName: string, source: string) => void
+	/** Removes a file added before from the project's root files. */
+	readonly removeFile: (fileName: string) => void
 	readonly service: ts.LanguageService
 }
 
@@ -69,6 +71,9 @@ export const createLanguageServiceWorkspace = (
 				version: (previous?.version ?? -1) + 1,
 			})
 			projectVersion += 1
+		},
+		removeFile: (fileName) => {
+			if (files.delete(fileName)) projectVersion += 1
 		},
 		service,
 	}

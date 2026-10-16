@@ -45,8 +45,9 @@ Use existing conformance entry points before expanding a change:
 | Editor-visible behavior          | [DX audit](../tooling/dx-audit/README.md) against a built baseline, [behavior differences](rebuild/DIFFERENCES.md)                                                                                                                                                                             |
 
 Run focused unit checks with `yarn vitest run --project unit <test-path>`.
-Packed checks need built dependencies and `--project e2e`; PostgreSQL verticals
-use `--project postgres-e2e` with Docker and listener permissions. See
+Packed checks need built dependencies and `--project e2e` (`e2e-isolated` for
+`create-app-packed`); PostgreSQL verticals use `--project postgres-e2e` with
+Docker and listener permissions. See
 [test ownership/commands](../tests/README.md). These entry points do not replace
 the complete validation gate or the affected package's full conformance matrix.
 

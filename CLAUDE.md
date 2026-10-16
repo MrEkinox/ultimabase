@@ -66,7 +66,8 @@ regressions that every suite missed:
 ## Known load-sensitive tests
 
 Validate on a calm machine before concluding anything from these failures:
-`create-app-packed` (120 s timeout), `core-archive-declarations` (10 s),
+`create-app-packed` (120 s timeout; it runs alone in the `e2e-isolated` project
+after the other E2E projects), `core-archive-declarations` (10 s),
 and postgres-e2e cascades after a timeout ([load-sensitive suites](tests/README.md#load-sensitive-suites)). In GitHub CI the
 `Complete coverage` job excludes performance suites, which run uninstrumented
 in the package and transversal jobs instead.

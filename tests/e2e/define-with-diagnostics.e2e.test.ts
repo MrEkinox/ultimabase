@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import {
 	cpSync,
 	readdirSync,
@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import ts from 'typescript'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createLanguageServiceWorkspace } from '../../tooling/vitest/typescript-language-service.js'
 
@@ -19,6 +19,11 @@ import { createLanguageServiceWorkspace } from '../../tooling/vitest/typescript-
 // readable message, on TypeScript 6 (language service) and TypeScript 7
 // (compiler), from sources and from built packages. The cases edit the
 // `tests/register-cycle/define-with` example, which compiles cleanly.
+//
+// This suite shares the full E2E run with CPU-bound suites such as
+// `create-app-packed`, so it does each piece of work once: one editor project
+// per configuration for every case, one single-threaded TypeScript 7 build of
+// every case in the background, and shared parsed files for the cycle cases.
 const caseDirectory = path.resolve(
 	import.meta.dirname,
 	'../register-cycle/define-with',
@@ -28,6 +33,11 @@ const caseFiles = readdirSync(caseDirectory)
 	.sort()
 const readCaseFile = (name: string): string =>
 	readFileSync(path.join(caseDirectory, name), 'utf8')
+
+const configNames = ['tsconfig.json', 'tsconfig.dist.json'] as const
+type ConfigName = (typeof configNames)[number]
+const variantOf = (configName: ConfigName): string =>
+	configName === 'tsconfig.json' ? 'source' : 'dist'
 
 interface Edit {
 	readonly file: string
@@ -58,9 +68,9 @@ const applyEdits = (edits: readonly Edit[]): ReadonlyMap<string, string> => {
 	return files
 }
 
-const readConfig = (configName: string): ts.ParsedCommandLine => {
+const readConfig = (directory: string, configName: string) => {
 	const parsed = ts.getParsedCommandLineOfConfigFile(
-		path.join(caseDirectory, configName),
+		path.join(directory, configName),
 		{},
 		{
 			...ts.sys,
@@ -75,22 +85,38 @@ const readConfig = (configName: string): ts.ParsedCommandLine => {
 	return parsed
 }
 
-/** One TypeScript 6 editor project per configuration, edited case by case. */
-const createProject = (configName: string) => {
+/**
+ * One TypeScript 6 editor project per configuration, edited case by case.
+ * Each case is diagnosed once: a TypeScript checker is not incremental, so
+ * every edit costs a full check of the case files.
+ */
+const createProject = (configName: ConfigName) => {
 	const workspace = createLanguageServiceWorkspace({
-		compilerOptions: readConfig(configName).options,
+		compilerOptions: readConfig(caseDirectory, configName).options,
 		currentDirectory: caseDirectory,
 	})
-	const diagnose = (edits: readonly Edit[]): readonly Diagnostic[] => {
-		const files = applyEdits(edits)
-		for (const name of new Set([...caseFiles, ...files.keys()])) {
-			workspace.addFile(path.join(caseDirectory, name), files.get(name) ?? '')
+	let shown: ReadonlySet<string> = new Set()
+	const show = (files: ReadonlyMap<string, string>): void => {
+		for (const name of shown) {
+			if (!files.has(name)) workspace.removeFile(path.join(caseDirectory, name))
 		}
-		return [...files.keys()].flatMap((name) =>
+		for (const [name, source] of files) {
+			workspace.addFile(path.join(caseDirectory, name), source)
+		}
+		shown = new Set(files.keys())
+	}
+	const diagnosed = new Map<string, readonly Diagnostic[]>()
+	/** Diagnostics of one case; `''` is the unedited example. */
+	const diagnose = (name: string): readonly Diagnostic[] => {
+		const known = diagnosed.get(name)
+		if (known !== undefined) return known
+		const files = applyEdits(cases[name] ?? [])
+		show(files)
+		const diagnostics = [...files.keys()].flatMap((file) =>
 			workspace.service
-				.getSemanticDiagnostics(path.join(caseDirectory, name))
+				.getSemanticDiagnostics(path.join(caseDirectory, file))
 				.map((diagnostic) => ({
-					file: name,
+					file,
 					line:
 						diagnostic.file === undefined || diagnostic.start === undefined
 							? 0
@@ -102,10 +128,12 @@ const createProject = (configName: string) => {
 					),
 				})),
 		)
+		diagnosed.set(name, diagnostics)
+		return diagnostics
 	}
 	/** Completion names after `text` in one unedited file. */
 	const complete = (file: string, text: string): readonly string[] => {
-		diagnose([])
+		show(applyEdits([]))
 		const source = readCaseFile(file)
 		return (
 			workspace.service
@@ -117,7 +145,14 @@ const createProject = (configName: string) => {
 				?.entries.map(({ name }) => name) ?? []
 		)
 	}
-	return { complete, diagnose }
+	/** The program of the unedited example, as the compiler would build it. */
+	const program = (): ts.Program => {
+		show(applyEdits([]))
+		const current = workspace.service.getProgram()
+		if (current === undefined) throw new TypeError('Missing program')
+		return current
+	}
+	return { complete, diagnose, program }
 }
 
 const typescript7 = path.join(
@@ -127,43 +162,89 @@ const typescript7 = path.join(
 	'bin',
 	'tsc',
 )
+const scratchDirectoryOf = (configName: ConfigName, name: string): string =>
+	path.join(caseDirectory, `../.define-with-${variantOf(configName)}-${name}`)
 const scratchDirectories: string[] = []
 
-/** The same case compiled by the TypeScript 7 compiler. */
-const compileWithTypeScript7 = (
-	name: string,
-	configName: string,
-	edits: readonly Edit[],
-): readonly Diagnostic[] => {
-	const directory = path.join(caseDirectory, `../.define-with-${name}`)
-	scratchDirectories.push(directory)
-	rmSync(directory, { force: true, recursive: true })
-	cpSync(caseDirectory, directory, { recursive: true })
-	for (const [file, source] of applyEdits(edits)) {
-		writeFileSync(path.join(directory, file), source)
-	}
-	const result = spawnSync(
-		process.execPath,
-		[typescript7, '-p', path.join(directory, configName), '--pretty', 'false'],
-		{ encoding: 'utf8' },
-	)
-	rmSync(directory, { force: true, recursive: true })
-	return result.stdout.split('\n').flatMap((line) => {
-		const match =
-			/^(?:.*\/)?([\w.-]+\.ts)\((\d+),\d+\): error TS\d+: (.*)$/u.exec(line)
-		return match === null
-			? []
-			: [
-					{
-						file: match[1] ?? '',
-						line: Number(match[2]),
-						message: match[3] ?? '',
-					},
-				]
+const runTypeScript7 = (args: readonly string[]): Promise<string> =>
+	new Promise((resolve, reject) => {
+		const child = spawn(process.execPath, [typescript7, ...args], {
+			stdio: ['ignore', 'pipe', 'inherit'],
+		})
+		let stdout = ''
+		child.stdout.setEncoding('utf8')
+		child.stdout.on('data', (chunk: string) => {
+			stdout += chunk
+		})
+		child.on('error', reject)
+		child.on('close', () => {
+			if (child.signalCode === null) resolve(stdout)
+			else reject(new Error(`TypeScript 7 stopped by ${child.signalCode}`))
+		})
 	})
+
+/**
+ * Every case of both configurations, compiled by one TypeScript 7 build:
+ * one process on one thread instead of one multi-threaded compiler per case.
+ */
+const compileWithTypeScript7 = async (): Promise<
+	ReadonlyMap<string, readonly Diagnostic[]>
+> => {
+	const diagnostics = new Map<string, Diagnostic[]>()
+	const projects: string[] = []
+	for (const configName of configNames) {
+		for (const [name, edits] of Object.entries(cases)) {
+			const directory = scratchDirectoryOf(configName, name)
+			scratchDirectories.push(directory)
+			rmSync(directory, { force: true, recursive: true })
+			cpSync(caseDirectory, directory, { recursive: true })
+			for (const [file, source] of applyEdits(edits)) {
+				writeFileSync(path.join(directory, file), source)
+			}
+			projects.push(path.join(directory, configName))
+			diagnostics.set(path.basename(directory), [])
+		}
+	}
+	const stdout = await runTypeScript7([
+		'--build',
+		...projects,
+		'--pretty',
+		'false',
+		'--singleThreaded',
+	])
+	// Continuation lines of a message are indented; every other error line
+	// must belong to a case.
+	for (const line of stdout.split('\n')) {
+		if (!/^\S.*\berror TS\d+:/u.test(line)) continue
+		const match =
+			/^(?:.*\/)?(\.define-with-[\w-]+)\/([\w.-]+\.ts)\((\d+),\d+\): error TS\d+: (.*)$/u.exec(
+				line,
+			)
+		const reported =
+			match === null ? undefined : diagnostics.get(match[1] ?? '')
+		if (reported === undefined) {
+			throw new TypeError(`Unexpected TypeScript 7 output: ${line}`)
+		}
+		reported.push({
+			file: match?.[2] ?? '',
+			line: Number(match?.[3]),
+			message: match?.[4] ?? '',
+		})
+	}
+	return diagnostics
 }
 
-afterAll(() => {
+let typescript7Diagnostics: Promise<ReadonlyMap<string, readonly Diagnostic[]>>
+
+// TypeScript 7 compiles in its own process while TypeScript 6 checks the
+// cases below; its tests come last and wait for the result.
+beforeAll(() => {
+	typescript7Diagnostics = compileWithTypeScript7()
+	typescript7Diagnostics.catch(() => undefined)
+})
+
+afterAll(async () => {
+	await typescript7Diagnostics.catch(() => undefined)
 	for (const directory of scratchDirectories) {
 		rmSync(directory, { force: true, recursive: true })
 	}
@@ -352,21 +433,28 @@ const expectCase = (name: string, diagnostics: readonly Diagnostic[]): void => {
 	else expect(first?.message).toMatch(pattern)
 }
 
-describe.each(['tsconfig.json', 'tsconfig.dist.json'])(
+const projects = new Map(
+	configNames.map((configName) => [configName, createProject(configName)]),
+)
+const projectOf = (configName: ConfigName) => {
+	const project = projects.get(configName)
+	if (project === undefined) throw new TypeError(`Missing ${configName}`)
+	return project
+}
+
+describe.each(configNames)(
 	'define and .with diagnostics through %s (ADR-0339)',
 	(configName) => {
-		const { complete, diagnose } = createProject(configName)
+		const { complete, diagnose } = projectOf(configName)
 
 		it('compiles the example without diagnostics', () => {
-			expect(diagnose([])).toStrictEqual([])
+			expect(diagnose('')).toStrictEqual([])
 		}, 120_000)
 
 		it.each(Object.keys(cases))(
-			'reports %s once, on its line, on TypeScript 6 and 7',
+			'reports %s once, on its line, on TypeScript 6',
 			(name) => {
-				const edits = cases[name] ?? []
-				expectCase(name, diagnose(edits))
-				expectCase(name, compileWithTypeScript7(name, configName, edits))
+				expectCase(name, diagnose(name))
 			},
 			120_000,
 		)
@@ -383,8 +471,8 @@ describe.each(['tsconfig.json', 'tsconfig.dist.json'])(
 		}, 120_000)
 
 		it('reports the missing rule by name on TypeScript 6', () => {
-			const [missingRule] = diagnose(cases['missing-required-rule'] ?? [])
-			const [missingWith] = diagnose(cases['missing-with'] ?? [])
+			const [missingRule] = diagnose('missing-required-rule')
+			const [missingWith] = diagnose('missing-with')
 
 			expect(missingRule?.message.split('\n').at(-1)).toMatch(
 				/^ {2}Property 'acl' is missing in type '.*' but required in type 'ACLRules<SchemaRef<"Post">>'\.$/u,
@@ -399,9 +487,33 @@ describe.each(['tsconfig.json', 'tsconfig.dist.json'])(
 // The cycle cases of the new form (form 1 example, mutual relation filters,
 // plugin contributions, User and Role factories) compile on TypeScript 6
 // too; the TypeScript 7 job compiles every `tests/register-cycle` case.
-describe.each(['tsconfig.json', 'tsconfig.dist.json'])(
+describe.each(configNames)(
 	'define and .with Register cycle cases through %s on TypeScript 6',
 	(configName) => {
+		// The cases parse the same package files: parse them once.
+		const sourceFiles = new Map<string, ts.SourceFile | undefined>()
+		const createProgram = (directory: string): ts.Program => {
+			const { fileNames, options } = readConfig(directory, configName)
+			const host = ts.createCompilerHost(options)
+			const getSourceFile = host.getSourceFile.bind(host)
+			host.getSourceFile = (fileName, languageVersion, ...rest) => {
+				const key = JSON.stringify(
+					typeof languageVersion === 'object'
+						? [
+								fileName,
+								languageVersion.languageVersion,
+								languageVersion.impliedNodeFormat,
+							]
+						: [fileName, languageVersion],
+				)
+				if (sourceFiles.has(key)) return sourceFiles.get(key)
+				const sourceFile = getSourceFile(fileName, languageVersion, ...rest)
+				sourceFiles.set(key, sourceFile)
+				return sourceFile
+			}
+			return ts.createProgram(fileNames, options, host)
+		}
+
 		it.each([
 			'define-with',
 			'define-with-contribution',
@@ -411,17 +523,11 @@ describe.each(['tsconfig.json', 'tsconfig.dist.json'])(
 		])(
 			'compiles %s without diagnostics',
 			(name) => {
-				const directory = path.resolve(caseDirectory, '..', name)
-				const parsed = ts.getParsedCommandLineOfConfigFile(
-					path.join(directory, configName),
-					{},
-					{
-						...ts.sys,
-						onUnRecoverableConfigFileDiagnostic: () => undefined,
-					},
-				)
-				if (parsed === undefined) throw new TypeError(`Missing ${name}`)
-				const program = ts.createProgram(parsed.fileNames, parsed.options)
+				// The editor project above already holds the `define-with` program.
+				const program =
+					name === 'define-with'
+						? projectOf(configName).program()
+						: createProgram(path.resolve(caseDirectory, '..', name))
 
 				expect(
 					ts
@@ -430,6 +536,26 @@ describe.each(['tsconfig.json', 'tsconfig.dist.json'])(
 							ts.flattenDiagnosticMessageText(messageText, '\n'),
 						),
 				).toStrictEqual([])
+			},
+			120_000,
+		)
+	},
+)
+
+describe.each(configNames)(
+	'define and .with diagnostics through %s on TypeScript 7 (ADR-0339)',
+	(configName) => {
+		it.each(Object.keys(cases))(
+			'reports %s once, on its line, on TypeScript 7',
+			async (name) => {
+				const diagnostics = await typescript7Diagnostics
+
+				expectCase(
+					name,
+					diagnostics.get(
+						path.basename(scratchDirectoryOf(configName, name)),
+					) ?? [],
+				)
 			},
 			120_000,
 		)

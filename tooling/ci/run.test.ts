@@ -171,6 +171,43 @@ describe('GitHub selected command execution', () => {
 			],
 		})
 	})
+	it('runs isolated E2E suites in their own project', () => {
+		const packed = 'packages/create-app/tests/e2e/create-app-packed.e2e.test.ts'
+		const api =
+			'packages/create-app/tests/e2e/create-app-api.postgres.e2e.test.ts'
+		const { result, commands, directory } = execute(
+			'package',
+			{
+				...selected,
+				packages: [
+					{
+						name: '@ultimabase/create-app',
+						directory: 'packages/create-app',
+						browser: false,
+						files: [packed, api],
+					},
+				],
+			},
+			false,
+			'@ultimabase/create-app',
+		)
+		expect(result.status, result.stderr).toBe(0)
+		expect(commands.at(-1)).toEqual({
+			cwd: directory,
+			args: [
+				'exec',
+				'vitest',
+				'run',
+				'--project',
+				'e2e-isolated',
+				'--project',
+				'postgres-e2e',
+				'--maxWorkers=2',
+				path.join(directory, packed),
+				path.join(directory, api),
+			],
+		})
+	})
 	it('limits documentation changes to formatting and documentation guards', () => {
 		const { result, commands, directory } = execute('repository', {
 			...selected,

@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
+import { isolatedE2eSuites } from '../vitest/isolated-e2e.ts'
 import type { CiPlan } from './selection.ts'
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -66,13 +67,15 @@ const tests = (files: readonly string[], cwd = repositoryRoot): void => {
 		runtimeFiles.map((file) =>
 			file.endsWith('.postgres.e2e.test.ts')
 				? 'postgres-e2e'
-				: file.endsWith('.e2e.test.ts')
-					? 'e2e'
-					: file.endsWith('.performance.test.ts')
-						? 'performance'
-						: file.endsWith('.test-d.ts')
-							? 'types'
-							: 'unit',
+				: isolatedE2eSuites.includes(file)
+					? 'e2e-isolated'
+					: file.endsWith('.e2e.test.ts')
+						? 'e2e'
+						: file.endsWith('.performance.test.ts')
+							? 'performance'
+							: file.endsWith('.test-d.ts')
+								? 'types'
+								: 'unit',
 		),
 	)
 	run(
