@@ -2,20 +2,14 @@ import { test } from 'vitest'
 
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const declare = () =>
+test('types the portable where of a partial index in define (ADR-0303, ADR-0339)', () => {
 	UltimaBase.Schema.define({
 		className: 'TypedPartialIndex',
 		fields: (field) => ({
 			slug: field.string(),
 			archived: field.boolean(),
 			rank: field.int(),
-			labels: field.string({ list: true }),
-			metadata: field.json(),
 		}),
-	})
-
-test('types the portable where of a partial index in the final .with (ADR-0303)', () => {
-	declare().with({
 		indexes: [
 			{ fields: ['slug'] },
 			{ fields: ['slug', 'rank'], unique: true, where: { archived: false } },
@@ -29,26 +23,100 @@ test('types the portable where of a partial index in the final .with (ADR-0303)'
 			},
 		],
 	})
-	// @ts-expect-error -- disjunction is not portable.
-	declare().with({ indexes: [{ fields: ['slug'], where: { OR: [] } }] })
-	declare().with({
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex0',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
+		// @ts-expect-error -- disjunction is not portable.
+		indexes: [{ fields: ['slug'], where: { OR: [] } }],
+	})
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex1',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
 		// @ts-expect-error -- `ne` is not portable.
 		indexes: [{ fields: ['slug'], where: { slug: { ne: 'a' } } }],
 	})
-	declare().with({
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex2',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
 		// @ts-expect-error -- string operators are not portable.
 		indexes: [{ fields: ['slug'], where: { slug: { startsWith: 'a' } } }],
 	})
-	declare().with({
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex3',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
 		// @ts-expect-error -- booleans have no order.
 		indexes: [{ fields: ['slug'], where: { archived: { gt: true } } }],
 	})
-	// @ts-expect-error -- list fields cannot appear in a partial-index predicate.
-	declare().with({ indexes: [{ fields: ['slug'], where: { labels: null } }] })
-	// @ts-expect-error -- JSON fields cannot appear in a partial-index predicate.
-	declare().with({ indexes: [{ fields: ['slug'], where: { metadata: null } }] })
-	// @ts-expect-error -- values keep the field type.
-	declare().with({ indexes: [{ fields: ['slug'], where: { rank: 'one' } }] })
-	// @ts-expect-error -- index fields must exist.
-	declare().with({ indexes: [{ fields: ['missing'] }] })
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex4',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
+		// @ts-expect-error -- list fields cannot appear in a partial-index predicate.
+		indexes: [{ fields: ['slug'], where: { labels: null } }],
+	})
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex5',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
+		// @ts-expect-error -- JSON fields cannot appear in a partial-index predicate.
+		indexes: [{ fields: ['slug'], where: { metadata: null } }],
+	})
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex6',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
+		// @ts-expect-error -- values keep the field type.
+		indexes: [{ fields: ['slug'], where: { rank: 'one' } }],
+	})
+	UltimaBase.Schema.define({
+		className: 'TypedPartialIndex7',
+		fields: (field) => ({
+			slug: field.string(),
+			archived: field.boolean(),
+			rank: field.int(),
+			labels: field.string({ list: true }),
+			metadata: field.json(),
+		}),
+		// @ts-expect-error -- index fields must exist.
+		indexes: [{ fields: ['missing'] }],
+	})
 })

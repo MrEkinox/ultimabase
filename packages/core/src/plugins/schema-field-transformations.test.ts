@@ -14,6 +14,7 @@ import {
 
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
+import { defineWithRawRules } from '../schema/schema/raw-schema-rules.test-support.js'
 
 describe('plugin schema field transformations', () => {
 	it('materializes implicit indexes carried by added field options', async () => {
@@ -126,12 +127,15 @@ describe('plugin schema field transformations', () => {
 			fields: () => ({}),
 		})
 		// The invalid plugin option must reach the Runtime rollback check.
-		const InvalidAddition = UltimaBase.Schema.define({
-			className: 'AtomicOptionInvalidAddition',
-			fields: () => ({}),
-		}).with({
-			broken: true,
-		} as never)
+		const InvalidAddition = defineWithRawRules(
+			{
+				className: 'AtomicOptionInvalidAddition',
+				fields: () => ({}),
+			},
+			{
+				broken: true,
+			},
+		)
 		const optionFailurePlugin = createPlugin({
 			core: '^0.0.0',
 			id: 'fixture.atomic-option',
@@ -298,18 +302,24 @@ describe('plugin schema field transformations', () => {
 	})
 
 	it('matches structurally equal option objects while preserving array order', async () => {
-		const Content = UltimaBase.Schema.define({
-			className: 'WorkflowContent',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).with({
-			workflow: { enabled: true, stages: ['draft', 'published'] },
-		} as never)
-		const Audit = UltimaBase.Schema.define({
-			className: 'WorkflowAudit',
-			fields: (field: FieldBuilder) => ({ message: field.string() }),
-		}).with({
-			workflow: { enabled: true, stages: ['draft', 'published'] },
-		} as never)
+		const Content = defineWithRawRules(
+			{
+				className: 'WorkflowContent',
+				fields: (field: FieldBuilder) => ({ title: field.string() }),
+			},
+			{
+				workflow: { enabled: true, stages: ['draft', 'published'] },
+			},
+		)
+		const Audit = defineWithRawRules(
+			{
+				className: 'WorkflowAudit',
+				fields: (field: FieldBuilder) => ({ message: field.string() }),
+			},
+			{
+				workflow: { enabled: true, stages: ['draft', 'published'] },
+			},
+		)
 		const provider = createPlugin({
 			core: '^0.0.0',
 			id: 'fixture.workflow-schema-provider',

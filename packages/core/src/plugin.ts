@@ -177,16 +177,12 @@ export type {
 	PluginSourceRelationChange,
 	PluginSourceState,
 } from './plugins/source-projections.js'
-export {
-	provideSchemaFeatures,
-	provideSchemaShapeMethods,
-} from './plugins/schema-extensions.js'
+export { provideSchemaFeatures } from './plugins/schema-extensions.js'
 export { provideSchemaRules } from './plugins/schema-rule-names.js'
 // Feature keys and indexes for a plugin schema factory's `define` (ADR-0339).
 export type {
 	CompleteDefineFields,
 	DefineFeatureCheck,
-	DefineFeatureNames,
 	DefineFeatureOptions,
 	DefineFeatures,
 	DefineFeaturesNotInferred,
@@ -208,7 +204,6 @@ export type {
 	DeclaredSchemaShape,
 	PluginSchemaFieldsSource,
 	PluginSchemaRulesSource,
-	PluginSchemaShapeSource,
 	PluginSchemaStaticsSource,
 	SchemaFieldsFor,
 	SchemaFieldsHKT,
@@ -219,10 +214,9 @@ export type {
 	SchemaRulesHKT,
 	PluginSchemaFeatureSource,
 	SchemaFeature,
+	SchemaFeatureImplementation,
+	SchemaFeatureImplementations,
 	SchemaFeatureRequiredRules,
-	SchemaShapeMethod,
-	SchemaShapeMethodImplementation,
-	SchemaShapeMethodImplementations,
 } from './plugins/schema-extensions.js'
 export type {
 	SchemaCommands,

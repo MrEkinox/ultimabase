@@ -22,6 +22,7 @@ describe('the .with rules builder', () => {
 		const rules = collectSchemaRules(
 			(plugins) => call(call(plugins, 'audit', true), 'access', { read: true }),
 			names,
+			'Post',
 		)
 
 		expect(rules).toStrictEqual({ audit: true, access: { read: true } })
@@ -29,15 +30,19 @@ describe('the .with rules builder', () => {
 	})
 
 	it('offers only the declared rule names', () => {
-		const builder = collectSchemaRules((plugins) => {
-			expect(
-				Object.keys(
-					typeof plugins === 'object' && plugins !== null ? plugins : {},
-				).sort(),
-			).toStrictEqual(['access', 'audit', 'relations'])
-			expect(Object.isFrozen(plugins)).toBe(true)
-			return plugins
-		}, names)
+		const builder = collectSchemaRules(
+			(plugins) => {
+				expect(
+					Object.keys(
+						typeof plugins === 'object' && plugins !== null ? plugins : {},
+					).sort(),
+				).toStrictEqual(['access', 'audit', 'relations'])
+				expect(Object.isFrozen(plugins)).toBe(true)
+				return plugins
+			},
+			names,
+			'Post',
+		)
 
 		expect(builder).toStrictEqual({})
 	})
@@ -47,6 +52,7 @@ describe('the .with rules builder', () => {
 			collectSchemaRules(
 				(plugins) => call(call(plugins, 'audit', true), 'audit', false),
 				names,
+				'Post',
 			),
 		).toThrow(
 			new TypeError(
@@ -59,12 +65,36 @@ describe('the .with rules builder', () => {
 		const message =
 			'.with((plugins) => …) must return the plugins builder, such as (plugins) => plugins.access({ … })'
 
-		expect(() => collectSchemaRules(() => undefined, names)).toThrow(
+		expect(() => collectSchemaRules(() => undefined, names, 'Post')).toThrow(
 			new TypeError(message),
 		)
-		expect(() => collectSchemaRules(() => ({ audit: true }), names)).toThrow(
-			new TypeError(message),
+		expect(() =>
+			collectSchemaRules(() => ({ audit: true }), names, 'Post'),
+		).toThrow(new TypeError(message))
+	})
+
+	it('names the available rules when JavaScript calls a missing one', () => {
+		// What a JavaScript caller writes: `plugins` has no `hooks` method.
+		const missing = (plugins: unknown): unknown =>
+			(plugins as { readonly hooks: () => unknown }).hooks()
+
+		expect(() => collectSchemaRules(missing, names, 'Post')).toThrow(
+			/^plugins\.hooks is not a function in Post\.with\(\(plugins\) => …\): plugins offers relations, access, audit; a rule needs the plugin that declares it$/u,
 		)
+	})
+
+	it('keeps an error thrown by the callback that is not a TypeError', () => {
+		const failure = new RangeError('out of range')
+
+		expect(() =>
+			collectSchemaRules(
+				() => {
+					throw failure
+				},
+				names,
+				'Post',
+			),
+		).toThrow(failure)
 	})
 
 	it('ends a root declaration with Core relation rules only', () => {

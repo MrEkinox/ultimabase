@@ -10,20 +10,21 @@ import {
 import {
 	plugin,
 	type PluginSchemaMutationDefinition,
+	type PluginSchemaFeatureSource,
 	type PluginSchemaFieldsSource,
 	type PluginSchemaRulesSource,
-	type PluginSchemaShapeSource,
 	type PluginSchemaStaticsSource,
 	type SchemaCommands,
+	type SchemaFeature,
 	type SchemaFieldsHKT,
 	type SchemaRulesHKT,
-	type SchemaShapeMethod,
 	type SchemaStaticsHKT,
 } from '../plugin.js'
 import type { PluginSource } from './definition.js'
 
 // ADR-0316 decision 1: plugins add fields, statics and rules through
-// higher-kinded slots that Core evaluates against the called shape methods.
+// higher-kinded slots that Core evaluates against the features `define` sets
+// (ADR-0339).
 type Flagged = BooleanField<ScalarFieldTypeState<true, false, false, true>>
 type Note = StringField<ScalarFieldTypeState<false, false, false, false>>
 type Archive = PluginSchemaMutationDefinition<
@@ -49,7 +50,7 @@ type ArchiveAll = PluginSchemaMutationDefinition<
 
 type FlagOptions = Readonly<{ commands?: true; note?: true }>
 
-// Fields read the shape arguments only, never the schema.
+// Fields read the feature options only, never the schema.
 interface FlagFields extends SchemaFieldsHKT {
 	readonly fields: ('flag' extends keyof this['shape']
 		? Readonly<{ flagged: ForbiddenMutationInputField<Flagged> }>
@@ -61,7 +62,7 @@ interface FlagFields extends SchemaFieldsHKT {
 			: unknown)
 }
 
-// Statics read the shape arguments and the configured schema.
+// Statics read the feature options and the configured schema.
 interface FlagStatics extends SchemaStaticsHKT {
 	readonly statics: this['shape'] extends Readonly<{
 		flag: readonly [{ readonly commands: true }]
@@ -78,8 +79,8 @@ interface FlagRules extends SchemaRulesHKT {
 }
 
 type FlagSource =
-	| PluginSchemaShapeSource<{
-			flag: SchemaShapeMethod<
+	| PluginSchemaFeatureSource<{
+			flag: SchemaFeature<
 				readonly [options?: FlagOptions],
 				Readonly<{ flag: object }>
 			>
@@ -117,13 +118,12 @@ test('plugin() keeps an explicit static source', () => {
 	expectTypeOf<PluginSource<typeof inferred>>().toBeNever()
 })
 
-test('adds fields from the called shape methods and their arguments', () => {
+test('adds fields from the features set in define and their options', () => {
 	const Flagged = App.Schema.define({
 		className: 'SlotFlagged',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.flag({ note: true })
-		.with({})
+		flag: { note: true },
+	}).with((plugins) => plugins)
 	const Plain = App.Schema.define({
 		className: 'SlotPlain',
 		fields: (field) => ({ title: field.string() }),
@@ -138,7 +138,7 @@ test('adds fields from the called shape methods and their arguments', () => {
 	} | null>()
 	// @ts-expect-error -- Server-written fields are rejected in create input.
 	void Flagged.createOne({ data: { flagged: true } })
-	// @ts-expect-error -- A schema without `.flag()` has no `flagged`.
+	// @ts-expect-error -- A schema without `flag` has no `flagged`.
 	void Plain.findOne({ select: { flagged: true } })
 })
 
@@ -146,15 +146,13 @@ test('adds statics typed against the configured schema', () => {
 	const Commands = App.Schema.define({
 		className: 'SlotCommands',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.flag({ commands: true })
-		.with({})
+		flag: { commands: true },
+	}).with((plugins) => plugins)
 	const Fields = App.Schema.define({
 		className: 'SlotFieldsOnly',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.flag()
-		.with({})
+		flag: true,
+	}).with((plugins) => plugins)
 
 	expectTypeOf(
 		Commands.archiveOne({ id: 'row-1', select: { title: true } }),
@@ -165,17 +163,16 @@ test('adds statics typed against the configured schema', () => {
 	expectTypeOf(
 		Commands.archiveMany({ where: { title: { eq: 'x' } } }),
 	).resolves.toExtend<readonly object[]>()
-	// @ts-expect-error -- `.flag()` without `commands` adds no command.
+	// @ts-expect-error -- `flag: true` without `commands` adds no command.
 	void Fields.archiveOne
 })
 
-test('types the rules of `.with` and keeps shape methods single-use', () => {
+test('types the rules of `.with` and keeps features out of the schema', () => {
 	App.Schema.define({
 		className: 'SlotRules',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.flag()
-		.with({ flagNote: 'reviewed' })
+		flag: true,
+	}).with((plugins) => plugins.flagNote('reviewed'))
 	App.Schema.define({
 		className: 'SlotBadRules',
 		fields: (field) => ({ title: field.string() }),
@@ -187,21 +184,21 @@ test('types the rules of `.with` and keeps shape methods single-use', () => {
 	const Once = App.Schema.define({
 		className: 'SlotOnce',
 		fields: (field) => ({ title: field.string() }),
-	}).flag()
-	// @ts-expect-error -- A shape method is unavailable once called.
+		flag: true,
+	})
+	// @ts-expect-error -- A feature is a key of define, not a schema member.
 	void Once.flag
 })
 
-test('generic shape methods add no initializer cycle on self relations', () => {
+test('feature options add no initializer cycle on self relations', () => {
 	const Node = App.Schema.define({
 		className: 'SlotNode',
 		fields: (field) => ({
 			parent: field.pointer({ target: () => Node }),
 			children: field.relation({ target: () => Node, mappedBy: 'parent' }),
 		}),
-	})
-		.flag({ commands: true, note: true })
-		.with({})
+		flag: { commands: true, note: true },
+	}).with((plugins) => plugins)
 	expectTypeOf(
 		Node.findMany({ include: { parent: { select: { flagged: true } } } }),
 	).resolves.toExtend<readonly object[]>()

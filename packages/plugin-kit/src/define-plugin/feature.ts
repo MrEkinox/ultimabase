@@ -6,29 +6,28 @@ import type { CommandDefinition } from './commands.js'
 /** Validates one untrusted value and returns it; throws a `TypeError` naming `path`. */
 export type Validator<TValue> = (value: unknown, path: string) => TValue
 
-/** Fields a shape method adds, keyed by field name. */
-export type ShapeMethodFields = Readonly<Record<string, GenericField>>
+/** Fields a feature adds, keyed by field name. */
+export type FeatureFields = Readonly<Record<string, GenericField>>
 
-/** Commands a shape method adds, keyed by command name. */
-export type ShapeMethodCommands = Readonly<Record<string, CommandDefinition>>
+/** Commands a feature adds, keyed by command name. */
+export type FeatureCommands = Readonly<Record<string, CommandDefinition>>
 
-/** Permission names a shape method declares, such as `['readDeleted']`. */
-export type ShapeMethodPermissions = readonly string[]
+/** Permission names a feature declares, such as `['readDeleted']`. */
+export type FeaturePermissions = readonly string[]
 
 /** Rule names a feature requires in `.with((plugins) => …)`, such as `['audit']`. */
 export type FeatureRequiredRules = readonly string[]
 
 /**
- * Declares one feature: a key of `define` (`archivable: true`, ADR-0339)
- * and, until their removal, the shape method of the same name chained before
- * `.with(...)` (see {@link feature}). `TOptions` is `never` when the feature
+ * Declares one feature: a key of `define`, such as `archivable: true`
+ * (ADR-0339; see {@link feature}). `TOptions` is `never` when the feature
  * takes no options object.
  */
-export interface ShapeMethodDefinition<
+export interface FeatureDefinition<
 	TOptions extends object = object,
-	TFields extends ShapeMethodFields = ShapeMethodFields,
-	TCommands extends ShapeMethodCommands = ShapeMethodCommands,
-	TPermissions extends ShapeMethodPermissions = ShapeMethodPermissions,
+	TFields extends FeatureFields = FeatureFields,
+	TCommands extends FeatureCommands = FeatureCommands,
+	TPermissions extends FeaturePermissions = FeaturePermissions,
 	TRequires extends FeatureRequiredRules = FeatureRequiredRules,
 > {
 	/**
@@ -37,12 +36,12 @@ export interface ShapeMethodDefinition<
 	 * Without a validator the feature takes only `true`.
 	 */
 	readonly options?: Validator<TOptions>
-	/** Server-written fields the method adds; create and update inputs reject them. */
+	/** Server-written fields the feature adds; create and update inputs reject them. */
 	readonly fields?: TFields
-	/** Commands the method adds to the schema, made with `command(...)`. */
+	/** Commands the feature adds to the schema, made with `command(...)`. */
 	readonly commands?: TCommands
 	/**
-	 * Schema permissions the method declares (ADR-0317). Policies such as
+	 * Schema permissions the feature declares (ADR-0317). Policies such as
 	 * Access grant them by name; the plugin asks with `holdsSchemaPermission`.
 	 */
 	readonly permissions?: TPermissions
@@ -54,16 +53,7 @@ export interface ShapeMethodDefinition<
 	readonly requires?: TRequires
 }
 
-/** Declares one feature (see {@link feature}); the same contract under its new name. */
-export type FeatureDefinition<
-	TOptions extends object = object,
-	TFields extends ShapeMethodFields = ShapeMethodFields,
-	TCommands extends ShapeMethodCommands = ShapeMethodCommands,
-	TPermissions extends ShapeMethodPermissions = ShapeMethodPermissions,
-	TRequires extends FeatureRequiredRules = FeatureRequiredRules,
-> = ShapeMethodDefinition<TOptions, TFields, TCommands, TPermissions, TRequires>
-
-const shapeMethodKeys = new Set([
+const featureKeys = new Set([
 	'commands',
 	'fields',
 	'options',
@@ -72,19 +62,18 @@ const shapeMethodKeys = new Set([
 ])
 const permissionNamePattern = /^[A-Za-z_$][\w$]*$/u
 
-/** Reads the options object a shape method accepts (`never`: no argument). */
-export type ShapeMethodOptionsOf<TDefinition> =
-	'options' extends keyof TDefinition
-		? Exclude<
-				TDefinition['options' & keyof TDefinition],
-				undefined
-			> extends Validator<infer TOptions extends object>
-			? TOptions
-			: never
+/** Reads the options object a feature accepts (`never`: only `true`). */
+export type FeatureOptionsOf<TDefinition> = 'options' extends keyof TDefinition
+	? Exclude<
+			TDefinition['options' & keyof TDefinition],
+			undefined
+		> extends Validator<infer TOptions extends object>
+		? TOptions
 		: never
+	: never
 
-/** Reads the fields or commands of one shape method (empty when omitted). */
-export type ShapeMethodMember<
+/** Reads the fields or commands of one feature (empty when omitted). */
+export type FeatureMember<
 	TDefinition,
 	TKey extends 'commands' | 'fields',
 > = TKey extends keyof TDefinition
@@ -94,7 +83,7 @@ export type ShapeMethodMember<
 /**
  * Reads the rule names one feature requires: `never` when omitted, and for
  * a definition typed with the default `readonly string[]` (as an annotated
- * `ShapeMethodDefinition<…>` is), whose names are unknown.
+ * `FeatureDefinition<…>` is), whose names are unknown.
  */
 export type FeatureRequiredRuleNames<TDefinition> =
 	'requires' extends keyof TDefinition
@@ -108,8 +97,8 @@ export type FeatureRequiredRuleNames<TDefinition> =
 			: never
 		: never
 
-/** Reads the permission names of one shape method (`never` when omitted). */
-export type ShapeMethodPermissionNames<TDefinition> =
+/** Reads the permission names of one feature (`never` when omitted). */
+export type FeaturePermissionNames<TDefinition> =
 	'permissions' extends keyof TDefinition
 		? Exclude<
 				TDefinition['permissions' & keyof TDefinition],
@@ -121,8 +110,7 @@ export type ShapeMethodPermissionNames<TDefinition> =
 
 /**
  * Declares one feature: the fields and commands a schema gains when its
- * `define` sets the key (`archivable: true`, ADR-0339) or, until its
- * removal, when its declaration calls the shape method of the same name.
+ * `define` sets the key (`archivable: true`, ADR-0339).
  *
  * @example
  * ```ts
@@ -134,28 +122,26 @@ export type ShapeMethodPermissionNames<TDefinition> =
  * })
  * ```
  */
-export const feature = <const TDefinition extends ShapeMethodDefinition>(
+export const feature = <const TDefinition extends FeatureDefinition>(
 	definition: TDefinition,
 ): Readonly<TDefinition> => {
 	const untrusted: unknown = definition
 	if (!isPlainRecord(untrusted)) {
-		throw new TypeError('shape method definition must be a plain object')
+		throw new TypeError('feature definition must be a plain object')
 	}
-	const unknownKey = Object.keys(untrusted).find(
-		(key) => !shapeMethodKeys.has(key),
-	)
+	const unknownKey = Object.keys(untrusted).find((key) => !featureKeys.has(key))
 	if (unknownKey !== undefined) {
-		throw new TypeError(`Unknown shape method option: ${unknownKey}`)
+		throw new TypeError(`Unknown feature option: ${unknownKey}`)
 	}
 	if (
 		definition.options !== undefined &&
 		typeof definition.options !== 'function'
 	) {
-		throw new TypeError('shape method options must be a validator function')
+		throw new TypeError('feature options must be a validator function')
 	}
 	for (const key of ['fields', 'commands'] as const) {
 		if (definition[key] !== undefined && !isPlainRecord(definition[key])) {
-			throw new TypeError(`shape method ${key} must be a plain object`)
+			throw new TypeError(`feature ${key} must be a plain object`)
 		}
 	}
 	const permissions: unknown = definition.permissions
@@ -166,7 +152,7 @@ export const feature = <const TDefinition extends ShapeMethodDefinition>(
 				(name) => typeof name !== 'string' || !permissionNamePattern.test(name),
 			))
 	) {
-		throw new TypeError('shape method permissions must list identifiers')
+		throw new TypeError('feature permissions must list identifiers')
 	}
 	const requires: unknown = definition.requires
 	if (
@@ -180,12 +166,3 @@ export const feature = <const TDefinition extends ShapeMethodDefinition>(
 	}
 	return immutableRecord({ ...definition })
 }
-
-/**
- * Declares one shape method chained before `.with(...)`.
- *
- * Superseded by {@link feature} (ADR-0339); this name is removed with the
- * shape methods.
- * @example `archivable: shapeMethod({ fields: { archivedAt: dateTimeField() } })`
- */
-export const shapeMethod: typeof feature = feature

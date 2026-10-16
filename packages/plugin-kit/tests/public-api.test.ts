@@ -16,7 +16,7 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'definePluginOptionsParser',
 			'deriveEnvironmentDefault',
 			'describeEnvironmentSource',
-			// ADR-0339: `feature` is the new name of `shapeMethod`.
+			// ADR-0339: `feature` replaces `shapeMethod`.
 			'feature',
 			'observePluginEvent',
 			'optionalPluginEvents',
@@ -28,7 +28,6 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'requireCurrentRequestRoleResolver',
 			'resolveRequestRoleReference',
 			'schemaPatch',
-			'shapeMethod',
 		])
 	})
 })

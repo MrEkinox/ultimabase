@@ -70,7 +70,7 @@ import {
 	aclFieldName,
 	aclPluginId,
 	aclSchemaOption,
-	aclShapeDeclared,
+	aclFeatureDeclared,
 	readProtectedSchemaOptions,
 	type ACLField,
 	type ACLRule,
@@ -138,14 +138,14 @@ export interface ACLSchemaRules extends SchemaRulesHKT {
 }
 
 /** Adds the `acl` field through Core's fields slot once `define` sets `acl: true`. */
-export interface ACLShapeFields extends SchemaFieldsHKT {
+export interface ACLFeatureFields extends SchemaFieldsHKT {
 	readonly fields: 'acl' extends keyof this['shape']
 		? Readonly<{ acl: ACLField }>
 		: unknown
 }
 
 /** The `acl` feature, a key of `define`: `acl: true` adds the `acl` field (ADR-0339). */
-export type ACLShapeSource = PluginSchemaFeatureSource<{
+export type ACLFeatureSource = PluginSchemaFeatureSource<{
 	/**
 	 * Adds the ACL field: per-row rights stored with each row (ADR-0321).
 	 * Requires `.with((plugins) => plugins.acl({ default }))`.
@@ -155,9 +155,9 @@ export type ACLShapeSource = PluginSchemaFeatureSource<{
 }>
 
 type ACLSource =
-	| PluginSchemaFieldsSource<ACLShapeFields>
+	| PluginSchemaFieldsSource<ACLFeatureFields>
 	| PluginSchemaRulesSource<ACLSchemaRules>
-	| ACLShapeSource
+	| ACLFeatureSource
 
 const aclDeclarations: PluginDeclarationContribution<readonly [], never> =
 	contributeDeclarations({
@@ -525,10 +525,10 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	})
 	// `acl: true` in define requires `plugins.acl({ default })` (ADR-0339).
 	return provideSchemaRules<ACLPlugin>(
-		provideSchemaFeatures<ACLPlugin, ACLShapeSource>(instance, {
+		provideSchemaFeatures<ACLPlugin, ACLFeatureSource>(instance, {
 			acl: {
 				sets: ['acl'],
-				apply: () => ({ acl: aclShapeDeclared }),
+				apply: () => ({ acl: aclFeatureDeclared }),
 				requires: ['acl'],
 			},
 		}),

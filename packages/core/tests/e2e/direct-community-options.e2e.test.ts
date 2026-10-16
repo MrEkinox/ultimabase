@@ -1,15 +1,45 @@
-import { UltimaBase, type FieldBuilder } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import {
+	plugin,
+	provideSchemaRules,
+	type PluginInstance,
+	type PluginSchemaRulesSource,
+	type SchemaRulesHKT,
+} from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
+
+interface LedgerRules extends SchemaRulesHKT {
+	readonly rules: Readonly<{
+		decimalLedger?: Readonly<{ defaultScale: number }>
+	}>
+}
+
+type LedgerPlugin = PluginInstance<{
+	readonly core: '^0.0.0'
+	readonly id: 'fixture.direct-ledger'
+	readonly source: PluginSchemaRulesSource<LedgerRules>
+	readonly version: '1.0.0'
+}>
 
 describe('direct community plugin options', () => {
 	it('rejects schema and field options when their owner is absent', async () => {
-		// JavaScript callers can still present an option with no installed owner.
-		const UnknownSchemaOption = UltimaBase.Schema.define({
-			className: 'OpenKernelUnknownDecimalSchemaOption',
-			fields: (field: FieldBuilder) => ({ label: field.string() }),
-		}).with({
-			decimalLedger: { defaultScale: 2 },
-		} as never)
+		// A schema declared where its owner is installed, then registered in
+		// an application without it (ADR-0339: `.with` names installed rules).
+		const owner: LedgerPlugin = provideSchemaRules(
+			plugin({
+				core: '^0.0.0',
+				id: 'fixture.direct-ledger',
+				version: '1.0.0',
+				contributions: [],
+			}),
+			['decimalLedger'],
+		)
+		const UnknownSchemaOption = UltimaBase.use(owner)
+			.Schema.define({
+				className: 'OpenKernelUnknownDecimalSchemaOption',
+				fields: (field) => ({ label: field.string() }),
+			})
+			.with((plugins) => plugins.decimalLedger({ defaultScale: 2 }))
 		const schemaApplication = new UltimaBase({ schemas: [UnknownSchemaOption] })
 		expect(() => schemaApplication.compile()).toThrow(
 			'Unknown schema option: decimalLedger',

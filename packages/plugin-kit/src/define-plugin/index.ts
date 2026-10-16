@@ -14,21 +14,19 @@ export {
 } from './define-plugin.js'
 export {
 	feature,
-	shapeMethod,
+	type FeatureCommands,
 	type FeatureDefinition,
+	type FeatureFields,
 	type FeatureRequiredRules,
-	type ShapeMethodCommands,
-	type ShapeMethodDefinition,
-	type ShapeMethodFields,
 	type Validator,
-} from './shape.js'
+} from './feature.js'
 export type {
+	DefinedFeatureCommands,
+	DefinedFeatureFields,
 	DefinedPlugin,
 	DefinedPluginSource,
 	DefinedRules,
-	DefinedShapeCommands,
-	DefinedShapeFields,
+	FeatureArguments,
+	FeatureDefinitions,
 	RuleValues,
-	ShapeMethodArguments,
-	ShapeMethods,
 } from './types.js'

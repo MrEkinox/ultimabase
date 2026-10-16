@@ -8,14 +8,14 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	command,
 	definePlugin,
-	shapeMethod,
+	feature,
 	type CommandDefinition,
 	type CommandMutation,
 	type DefinedPlugin,
-	type ShapeMethodArguments,
+	type FeatureArguments,
 } from '../index.js'
 
-const archive = shapeMethod({
+const archive = feature({
 	fields: { archivedAt: dateTimeField() },
 	commands: {
 		archiveOne: command({ authority: 'request', effect: 'update' }),
@@ -27,7 +27,7 @@ const archive = shapeMethod({
 		purgeOne: command({ authority: 'master', effect: 'delete' }),
 	},
 })
-const labelled = shapeMethod({
+const labelled = feature({
 	options: (value): { readonly label: string } => ({ label: String(value) }),
 })
 
@@ -53,11 +53,9 @@ test('infers each command from its options alone', () => {
 	>()
 })
 
-test('types shape-method arguments from the validator', () => {
-	expectTypeOf<ShapeMethodArguments<typeof archive>>().toEqualTypeOf<
-		readonly []
-	>()
-	expectTypeOf<ShapeMethodArguments<typeof labelled>>().toEqualTypeOf<
+test('types feature arguments from the validator', () => {
+	expectTypeOf<FeatureArguments<typeof archive>>().toEqualTypeOf<readonly []>()
+	expectTypeOf<FeatureArguments<typeof labelled>>().toEqualTypeOf<
 		readonly [options?: { readonly label: string }]
 	>()
 })
@@ -66,7 +64,7 @@ test('projects fields, commands and rules into form D schemas', () => {
 	const App = UltimaBase.use(
 		definePlugin({
 			name: '@community/archive',
-			shape: { archivable: archive, labelled },
+			features: { archivable: archive, labelled },
 			rules: {
 				audit: (value): boolean => value === true,
 			},
@@ -75,10 +73,9 @@ test('projects fields, commands and rules into form D schemas', () => {
 	const Post = App.Schema.define({
 		className: 'TypedFacadePost',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.archivable()
-		.labelled({ label: 'x' })
-		.with({ audit: true })
+		archivable: true,
+		labelled: { label: 'x' },
+	}).with((plugins) => plugins.audit(true))
 
 	expectTypeOf(
 		Post.archiveOne({ id: 'post-1', select: { archivedAt: true } }),
@@ -90,11 +87,18 @@ test('projects fields, commands and rules into form D schemas', () => {
 		readonly object[]
 	>()
 	void Post.purgeOne({ id: 'post-1' })
-	// @ts-expect-error -- The method takes no argument without a validator.
-	void App.Schema.define({ className: 'A', fields: () => ({}) }).archivable({})
-	App.Schema.define({ className: 'B', fields: () => ({}) })
+	App.Schema.define({
+		className: 'A',
+		fields: () => ({}),
+		// @ts-expect-error -- The feature takes only `true` without a validator.
+		archivable: {},
+	})
+	App.Schema.define({
+		className: 'B',
+		fields: () => ({}),
 		// @ts-expect-error -- The options object is checked against the validator.
-		.labelled({ label: 1 })
+		labelled: { label: 1 },
+	})
 	App.Schema.define({ className: 'C', fields: () => ({}) }).with((plugins) =>
 		plugins
 			// @ts-expect-error -- `.with` checks the rule value.
@@ -106,23 +110,24 @@ test('projects fields, commands and rules into form D schemas', () => {
 		className: 'TypedFacadePlain',
 		fields: (field) => ({ title: field.string() }),
 	})
-	// @ts-expect-error -- No command without the shape method.
+	// @ts-expect-error -- No command without the feature.
 	void Plain.archiveOne
 })
 
-test('projects shape-method permissions for rule plugins (ADR-0317)', () => {
+test('projects feature permissions for rule plugins (ADR-0317)', () => {
 	const App = UltimaBase.use(
 		definePlugin({
 			name: '@community/archive-permission',
-			shape: {
-				archivable: shapeMethod({ permissions: ['readArchived'] }),
+			features: {
+				archivable: feature({ permissions: ['readArchived'] }),
 			},
 		}),
 	)
 	const Archived = App.Schema.define({
 		className: 'TypedPermissionArchived',
 		fields: (field) => ({ title: field.string() }),
-	}).archivable()
+		archivable: true,
+	})
 	const Plain = App.Schema.define({
 		className: 'TypedPermissionPlain',
 		fields: (field) => ({ title: field.string() }),

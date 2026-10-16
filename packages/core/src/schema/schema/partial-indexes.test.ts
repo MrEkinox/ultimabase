@@ -78,7 +78,7 @@ describe('partial indexes (ADR-0303)', () => {
 		[{ missing: true }, 'Unknown index field: missing'],
 		[{}, 'where must not be empty'],
 	])('rejects the non-portable where %j', (where, message) => {
-		// Old-form `define` indexes are checked eagerly, without typed fields.
+		// A define without feature keys checks its indexes eagerly.
 		expect(() =>
 			UltimaBase.Schema.define({
 				className: 'NonPortablePartialIndex',
@@ -96,24 +96,5 @@ describe('partial indexes (ADR-0303)', () => {
 				message.startsWith('Unknown') ? message : `indexes[0].${message}`,
 			),
 		)
-	})
-
-	it('checks fields named only by the final .with when the application compiles', async () => {
-		const Draft = UltimaBase.Schema.define({
-			className: 'PendingIndexField',
-			fields: (field) => ({ slug: field.string() }),
-		}).with({
-			// @ts-expect-error -- `isPublished` is neither declared nor contributed.
-			indexes: [{ fields: ['slug'], where: { isPublished: true } }],
-		})
-		const ultimabase = new UltimaBase({
-			logger: false,
-			schemas: [Draft],
-		})
-
-		await expect(ultimabase.initialize()).rejects.toThrow(
-			'Unknown index field: isPublished',
-		)
-		await ultimabase.dispose()
 	})
 })

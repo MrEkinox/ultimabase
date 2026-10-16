@@ -15,7 +15,7 @@ import type {
 	PluginSourceState,
 } from '../../plugins/source-projections.js'
 import type { PluginSource } from '../../plugins/definition.js'
-import { readSchemaShapeMethods } from '../../plugins/schema-extensions.js'
+import { readSchemaFeatures } from '../../plugins/schema-extensions.js'
 import { readSchemaRuleNames } from '../../plugins/schema-rule-names.js'
 import {
 	readSchemaFactories,
@@ -132,7 +132,7 @@ export const appendConfiguredPlugins = <
 	// A factory whose plugins add features (`softDelete`) or rules (`access`)
 	// declares schemas through its own namespace; others share their parent's.
 	const extensions = immutableRecord({
-		features: readSchemaShapeMethods(plugins),
+		features: readSchemaFeatures(plugins),
 		rules: readSchemaRuleNames(plugins),
 	})
 	if (extensions.features.size > 0 || extensions.rules.length > 0) {

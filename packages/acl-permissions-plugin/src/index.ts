@@ -33,8 +33,8 @@ export type {
 	ACLPlugin,
 	ACLRules,
 	ACLSchemaRules,
-	ACLShapeFields,
-	ACLShapeSource,
+	ACLFeatureFields,
+	ACLFeatureSource,
 } from './plugin.js'
 export type { ACLEntryLimits, ACLPluginOptions } from './acl-limits.js'
 export type {

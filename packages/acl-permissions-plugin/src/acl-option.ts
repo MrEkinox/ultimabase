@@ -248,7 +248,7 @@ const aclRuleKeys = new Set([
 const normalizedOptions = new WeakMap<object, NormalizedACLSchemaOption>()
 
 /** The option `acl: true` sets until `plugins.acl({ … })` replaces it. */
-export const aclShapeDeclared: Readonly<Record<never, never>> = Object.freeze(
+export const aclFeatureDeclared: Readonly<Record<never, never>> = Object.freeze(
 	{},
 )
 
@@ -257,7 +257,7 @@ export const normalizeACLSchemaOption = (
 	value: unknown,
 	path: string,
 ): NormalizedACLSchemaOption => {
-	if (value === aclShapeDeclared) {
+	if (value === aclFeatureDeclared) {
 		throw new TypeError(
 			`${path}: the acl feature needs .with((plugins) => plugins.acl({ default })); an empty ACL would hide every row from everyone but Master`,
 		)

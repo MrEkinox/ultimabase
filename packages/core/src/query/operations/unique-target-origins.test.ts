@@ -27,7 +27,6 @@ const Account = UltimaBase.Schema.define({
 		email: field.string({ indexed: 'unique' }),
 		handle: field.string(),
 		region: field.string(),
-		slug: field.string(),
 		tenant: field.string(),
 	}),
 	indexes: [
@@ -37,10 +36,6 @@ const Account = UltimaBase.Schema.define({
 			unique: true,
 			where: { createdAt: { gte: '2026-01-01T00:00:00.000Z' } },
 		},
-	],
-}).with({
-	indexes: [
-		{ fields: ['slug'], unique: true },
 		{ fields: ['code'], unique: true, where: { archived: false } },
 	],
 })
@@ -85,10 +80,9 @@ describe('unique target origins', () => {
 		])
 	})
 
-	it('refuses partial unique indexes and unique indexes of .with', () => {
-		// A partial index of define, a full and a partial index of `.with`.
+	it('refuses partial unique indexes', () => {
+		// Partial indexes of define, on a system field and on a declared one.
 		expect(() => normalize(Account, { region: 'eu' })).toThrow(refusal)
-		expect(() => normalize(Account, { slug: 'hello' })).toThrow(refusal)
 		expect(() => normalize(Account, { code: 'c-1' })).toThrow(refusal)
 	})
 

@@ -5,7 +5,7 @@
 import type {
 	DeclaredSchemaShape,
 	SchemaFeatureRequiredRules,
-	SchemaShapeMethodArguments,
+	SchemaFeatureArguments,
 } from '../../plugins/schema-extensions.js'
 import type { PluginSourceState } from '../../plugins/source-projections.js'
 import type { CompleteConfiguredFields } from './configured-schema-namespace.js'
@@ -30,11 +30,11 @@ type FeatureName<TFeatures> = Exclude<keyof TFeatures, ReservedSchemaKey> &
  * Value of one feature key: `true` for a feature without options, `true` or
  * its options object otherwise (`softDelete: { mode: 'command' }`).
  */
-type DefineFeatureValue<TFeature> = [
-	SchemaShapeMethodArguments<TFeature>,
-] extends [readonly []]
+type DefineFeatureValue<TFeature> = [SchemaFeatureArguments<TFeature>] extends [
+	readonly [],
+]
 	? true
-	: true | Exclude<SchemaShapeMethodArguments<TFeature>[0], undefined>
+	: true | Exclude<SchemaFeatureArguments<TFeature>[0], undefined>
 
 // Keyed by a parameter constrained to the feature names, as `Pick` is, so
 // hovers and completions keep each feature's documentation.
@@ -49,10 +49,7 @@ type DefineFeatureEntries<TFeatures, TNames extends keyof TFeatures> = {
  * @example `App.Schema.define({ className: 'Post', fields, softDelete: { mode: 'command' }, acl: true })`
  */
 export type DefineFeatures<TSource extends PluginSourceState> =
-	DefineFeatureEntries<
-		TSource['shapeMethods'],
-		FeatureName<TSource['shapeMethods']>
-	>
+	DefineFeatureEntries<TSource['features'], FeatureName<TSource['features']>>
 
 type UnionToIntersection<TValue> = (
 	TValue extends unknown ? (value: TValue) => void : never
@@ -143,11 +140,11 @@ type DefineKeyCheck<
 		? Exclude<TOwnOptions[TKey], undefined>
 		: TKey extends CoreDefineKey | typeof defineFeaturesNotInferred
 			? unknown
-			: TKey extends FeatureName<TSource['shapeMethods']>
+			: TKey extends FeatureName<TSource['features']>
 				? DefineFeatures<TSource>[TKey]
 				: UnknownDefineKey<
 						TKey,
-						FeatureName<TSource['shapeMethods']>,
+						FeatureName<TSource['features']>,
 						keyof TOwnOptions & string
 					>
 
@@ -178,7 +175,7 @@ type FeatureArguments<TValue> = TValue extends true
 
 // The feature keys set on one declaration as the shape record the field and
 // statics slots read (`{ softDelete: readonly [{ mode: 'command' }] }`). One
-// `Record` per key, as the shape-method chain builds it, so declarations
+// `Record` per key, so declarations
 // setting the same features share one shape type and its slot evaluations;
 // a mapped type over the captured object would be a new type per schema.
 type FeatureShape<
@@ -197,18 +194,8 @@ export interface FailedDefineShape {
 	readonly [failedDefineShape]: true
 }
 
-declare const definedFeatureForm: unique symbol
-
-/**
- * Marks the options of a declaration whose `define` sets feature keys: its
- * `.with` takes only `(plugins) => plugins…` (ADR-0339).
- */
-export interface DefinedFeatureForm {
-	readonly [definedFeatureForm]: true
-}
-
 type EveryFeatureShape<TSource extends PluginSourceState> = Readonly<
-	Record<FeatureName<TSource['shapeMethods']>, readonly []>
+	Record<FeatureName<TSource['features']>, readonly []>
 > &
 	FailedDefineShape
 
@@ -223,7 +210,7 @@ type IsFailedDefine<
 	: [
 				Exclude<
 					keyof TFeatures,
-					CoreDefineKey | TOwnKeys | FeatureName<TSource['shapeMethods']>
+					CoreDefineKey | TOwnKeys | FeatureName<TSource['features']>
 				>,
 		  ] extends [never]
 		? false
@@ -232,7 +219,7 @@ type IsFailedDefine<
 type SetFeatureName<
 	TSource extends PluginSourceState,
 	TFeatures,
-> = keyof TFeatures & FeatureName<TSource['shapeMethods']>
+> = keyof TFeatures & FeatureName<TSource['features']>
 
 /**
  * The shape record of one `define` call: the features it sets, beside a
@@ -252,10 +239,9 @@ export type DefineFeatureShape<
 					FeatureShape<TFeatures, SetFeatureName<TSource, TFeatures>>
 
 /**
- * The declaration options carrying the shape record of one `define` call;
- * a call that sets feature keys is marked for the callback-only `.with`. A
- * call without features and without a factory record keeps the empty options
- * of the declaration chain, so its types are those of a plain declaration.
+ * The declaration options carrying the shape record of one `define` call. A
+ * call without features and without a factory record keeps empty options, so
+ * its types are those of a plain declaration.
  */
 export type DefineFeatureOptions<
 	TSource extends PluginSourceState,
@@ -274,18 +260,7 @@ export type DefineFeatureOptions<
 			>
 	: DeclaredSchemaShape<
 			DefineFeatureShape<TSource, TFeatures, TFactoryShape, TOwnKeys>
-		> &
-			DefinedFeatureForm
-
-/** Feature keys set by one `define` call: their shape methods leave the chain. */
-export type DefineFeatureNames<
-	TSource extends PluginSourceState,
-	TFeatures,
-	TOwnKeys extends string = never,
-> =
-	IsFailedDefine<TSource, TFeatures, TOwnKeys> extends true
-		? never
-		: SetFeatureName<TSource, TFeatures>
+		>
 
 /** Unique targets of the `indexes` of one `define` call (ADR-0332, ADR-0339). */
 export type DefineUniqueIndexFields<TFeatures> = TFeatures extends {
@@ -325,6 +300,6 @@ export type RequiredSchemaRuleName<
 	? never
 	: {
 			[
-				TName in keyof TShape & keyof TSource['shapeMethods']
-			]: SchemaFeatureRequiredRules<TSource['shapeMethods'][TName]>
-		}[keyof TShape & keyof TSource['shapeMethods']]
+				TName in keyof TShape & keyof TSource['features']
+			]: SchemaFeatureRequiredRules<TSource['features'][TName]>
+		}[keyof TShape & keyof TSource['features']]

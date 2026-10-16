@@ -1,9 +1,9 @@
 const declarationMethods = new WeakSet<object>()
 
 /**
- * @internal Marks one schema declaration chain method (`.with`, shape methods).
- * Such a method yields to an application static mutation of the same name, so
- * a schema declared with the chain can still be registered as it is.
+ * @internal Marks the declaration method `.with` of a schema. It yields to an
+ * application static mutation of the same name, so a schema declared without
+ * `.with` can still be registered as it is.
  */
 export const markSchemaDeclarationMethod = <TMethod extends object>(
 	method: TMethod,

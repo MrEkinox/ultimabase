@@ -140,15 +140,14 @@ test('rejects targets Runtime refuses', () => {
 	void Post.exists({ where: { rank: { in: [1, 2] } } })
 })
 
-// ADR-0332 amendment: partial unique indexes and those of `.with` are
-// storage indexes, not unique targets, in the types as at runtime.
+// ADR-0332 amendment: partial unique indexes are storage indexes, not
+// unique targets, in the types as at runtime.
 const Slot = UltimaBase.Schema.define({
 	className: 'UniqueTargetSlot',
 	fields: (field) => ({
 		archived: field.boolean(),
 		code: field.string(),
 		region: field.string(),
-		slug: field.string(),
 	}),
 	indexes: [
 		{
@@ -156,22 +155,16 @@ const Slot = UltimaBase.Schema.define({
 			unique: true,
 			where: { createdAt: { gte: '2026-01-01T00:00:00.000Z' } },
 		},
-	],
-}).with({
-	indexes: [
-		{ fields: ['slug'], unique: true },
 		{ fields: ['code'], unique: true, where: { archived: false } },
 	],
 })
 
-test('rejects partial unique indexes and unique indexes of .with', () => {
+test('rejects partial unique indexes', () => {
 	void Slot.deleteOne({ where: { id: 'slot-1' } })
-	// @ts-expect-error -- A partial unique index of define is not a target.
+	// @ts-expect-error -- A partial unique index on a system field is not a target.
 	void Slot.deleteOne({ where: { region: 'eu' } })
-	// @ts-expect-error -- A unique index of `.with` is not a target.
-	void Slot.updateOne({ where: { slug: 'hello' }, data: { region: 'eu' } })
 	void Slot.upsertOne({
-		// @ts-expect-error -- A partial unique index of `.with` is not a target.
+		// @ts-expect-error -- A partial unique index on a declared field is not a target.
 		where: { code: 'c-1' },
 		create: { code: 'c-1' },
 		update: { region: 'eu' },

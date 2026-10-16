@@ -52,9 +52,9 @@ export type SchemaFactoryShape<TName extends string> = Readonly<
 export interface SchemaFactoryContext {
 	/**
 	 * Starts one generation-free declaration (ADR-0297) through the configured
-	 * application's schema namespace, so the installed shape methods and the
-	 * final `.with(...)` stay available. `statics` runs for every class of the
-	 * chain, the final `.with(...)` result included, and returns the static
+	 * application's schema namespace, so the installed features and the final
+	 * `.with((plugins) => …)` stay available. `statics` runs for the declared
+	 * class and for the final `.with(...)` result, and returns the static
 	 * members that class gains.
 	 *
 	 * @example `define(options, (schema) => ({ entry: (name: string) => createReference(schema, name) }))`

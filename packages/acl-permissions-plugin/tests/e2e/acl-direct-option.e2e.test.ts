@@ -10,13 +10,15 @@ const fixturePath = path.join(
 	'fixtures/acl-direct-option-javascript.mjs',
 )
 
-it('compiles the .acl() shape method from JavaScript', async () => {
+it('compiles the acl feature from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 
 	expect(output).toStrictEqual({
 		fieldKind: 'ultimabase.acl',
 		missingPluginCode: 'PLUGIN_DECLARATION_INVALID',
+		objectFormMessage:
+			'JavaScriptObjectFormACLPost.with() takes a callback: .with((plugins) => plugins.access({ … }))',
 		optionPresent: true,
 		owner: {
 			kind: 'plugin',

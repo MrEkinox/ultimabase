@@ -19,23 +19,23 @@ import {
 	type PluginContribution,
 	type PluginModelContributionContext,
 	type PluginSchemaContributionContext,
+	type PluginSchemaFeatureSource,
 	type PluginSchemaRulesSource,
-	type PluginSchemaShapeSource,
+	type SchemaFeature,
 	type SchemaOptionDefinition,
 	type SchemaRulesHKT,
-	type SchemaShapeMethod,
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { createCommand, type GeneratedCommand } from './commands.js'
-import type { ShapeMethodDefinition, Validator } from './shape.js'
+import type { FeatureDefinition, Validator } from './feature.js'
 import type {
 	DefinedPlugin,
 	DefinedPluginSource,
+	FeatureDefinitions,
 	RuleValidators,
 	RuleValues,
 	RuleValuesOf,
-	ShapeMethods,
 } from './types.js'
 
 /** Data passed to `afterCommit` after each committed write. */
@@ -56,7 +56,7 @@ export interface CommitInput<TRules extends RuleValues> {
 /** Declares one plugin (see {@link definePlugin}). */
 export interface DefinePluginOptions<
 	TName extends string,
-	TShape extends ShapeMethods,
+	TFeatures extends FeatureDefinitions,
 	TValidators extends RuleValidators,
 > {
 	/** The npm package name: plugin identity, log prefix and command namespace. */
@@ -70,12 +70,7 @@ export interface DefinePluginOptions<
 	 * Features, made with `feature(...)`: keys of `define` (static, they may
 	 * add fields and commands), such as `archivable: true` (ADR-0339).
 	 */
-	readonly features?: TShape
-	/**
-	 * Shape methods chained before `.with(...)`. Superseded by `features`
-	 * (ADR-0339); removed with the shape methods.
-	 */
-	readonly shape?: TShape
+	readonly features?: TFeatures
 	/**
 	 * Rules, each with its validator: the methods of
 	 * `.with((plugins) => plugins.audit(true))`, which may hold callbacks
@@ -96,10 +91,9 @@ const definitionKeys = new Set([
 	'features',
 	'name',
 	'rules',
-	'shape',
 	'version',
 ])
-const methodNamePattern = /^[A-Za-z_$][\w$]*$/u
+const featureNamePattern = /^[A-Za-z_$][\w$]*$/u
 const readOperations: ReadonlySet<string> = new Set([
 	'count',
 	'exists',
@@ -118,12 +112,7 @@ const assertDefinition = (definition: unknown): void => {
 	if (unknownKey !== undefined) {
 		throw new TypeError(`Unknown definePlugin option: ${unknownKey}`)
 	}
-	if (definition.features !== undefined && definition.shape !== undefined) {
-		throw new TypeError(
-			'definePlugin takes features or its deprecated alias shape, not both',
-		)
-	}
-	for (const key of ['features', 'shape', 'rules'] as const) {
+	for (const key of ['features', 'rules'] as const) {
 		const value = definition[key]
 		if (value !== undefined && !isPlainRecord(value)) {
 			throw new TypeError(`definePlugin ${key} must be a plain object`)
@@ -143,31 +132,31 @@ const assertDefinition = (definition: unknown): void => {
 	}
 }
 
-// A method called without its options object is validated as `{}`.
-const normalizeShapeOptions =
-	(method: string, validate: Validator<object> | undefined) =>
+// A feature set with `true` is validated as `{}`.
+const normalizeFeatureOptions =
+	(name: string, validate: Validator<object> | undefined) =>
 	(value: unknown, path: string): unknown => {
 		if (validate !== undefined) return validate(value, path)
 		if (!isPlainRecord(value) || Object.keys(value).length > 0) {
-			throw new TypeError(`${path}: .${method}() takes no options`)
+			throw new TypeError(`${path}: ${name} takes only true`)
 		}
 		return immutableRecord({})
 	}
 
 const declareSchemas =
 	(
-		shape: readonly (readonly [string, ShapeMethodDefinition])[],
+		features: readonly (readonly [string, FeatureDefinition])[],
 		rules: readonly (readonly [string, Validator<unknown>])[],
 	) =>
 	({ schemas }: PluginSchemaContributionContext): undefined => {
 		schemas.defineOptions({
 			contributionId: 'options',
 			schema: Object.fromEntries([
-				...shape.map(
-					([method, definition]): [string, SchemaOptionDefinition] => [
-						method,
+				...features.map(
+					([name, definition]): [string, SchemaOptionDefinition] => [
+						name,
 						defineSchemaOption({
-							normalize: normalizeShapeOptions(method, definition.options),
+							normalize: normalizeFeatureOptions(name, definition.options),
 							protocolVersion: 1,
 							valueKind: 'opaque',
 						}),
@@ -183,11 +172,11 @@ const declareSchemas =
 				]),
 			]),
 		})
-		for (const [method, definition] of shape) {
+		for (const [feature, definition] of features) {
 			const operations = Object.entries(definition.fields ?? {}).map(
 				([name, field]) =>
 					addSchemaField({
-						contributionId: `${method}.${name}`,
+						contributionId: `${feature}.${name}`,
 						field,
 						mutationInput: 'forbidden',
 						name,
@@ -197,7 +186,7 @@ const declareSchemas =
 			schemas.patch({
 				operations,
 				targets: schemas.select({
-					option: { name: method },
+					option: { name: feature },
 					owner: { kind: 'application' },
 				}),
 			})
@@ -208,14 +197,14 @@ const declareSchemas =
 const extendModels =
 	(commands: readonly GeneratedCommand[]) =>
 	({ models }: PluginModelContributionContext): undefined => {
-		for (const method of new Set(commands.map((entry) => entry.method))) {
+		for (const feature of new Set(commands.map((entry) => entry.feature))) {
 			models.extend(
-				{ option: { name: method }, owner: { kind: 'application' } },
+				{ option: { name: feature }, owner: { kind: 'application' } },
 				{
-					contributionId: `${method}.commands`,
+					contributionId: `${feature}.commands`,
 					schemaMutations: Object.fromEntries(
 						commands
-							.filter((generated) => generated.method === method)
+							.filter((generated) => generated.feature === feature)
 							.map(({ command, mutation }) => [
 								command,
 								{ mutation, surfaces: ['schema'] as const },
@@ -229,14 +218,14 @@ const extendModels =
 
 // `models` is declared only with commands: Core derives `model:extend` from it.
 const createDeclarations = (
-	shape: readonly (readonly [string, ShapeMethodDefinition])[],
+	features: readonly (readonly [string, FeatureDefinition])[],
 	rules: readonly (readonly [string, Validator<unknown>])[],
 	commands: readonly GeneratedCommand[],
 ) =>
 	commands.length === 0
-		? contributeDeclarations({ schema: declareSchemas(shape, rules) })
+		? contributeDeclarations({ schema: declareSchemas(features, rules) })
 		: contributeDeclarations({
-				schema: declareSchemas(shape, rules),
+				schema: declareSchemas(features, rules),
 				models: extendModels(commands),
 			})
 
@@ -252,7 +241,7 @@ const createAfterCommit = <TRules extends RuleValues>(
 					if (readOperations.has(operation.kind)) return
 					const schema = getOperationSchema(operation)
 					if (!Schema.is(schema)) return
-					// Shape-method values share the option namespace; only rules are passed.
+					// Feature values share the option namespace; only rules are passed.
 					const rules: Readonly<Record<string, unknown>> = Object.fromEntries(
 						Object.entries(readSchemaRules(schema, owner)).filter(([name]) =>
 							ruleNames.has(name),
@@ -272,12 +261,12 @@ const createAfterCommit = <TRules extends RuleValues>(
 		}),
 	})
 
-// Each schema whose declaration called a shape method gets its permissions.
+// Each schema whose `define` sets a feature gets the feature's permissions.
 const createPermissions = (
-	shape: readonly (readonly [string, ShapeMethodDefinition])[],
+	features: readonly (readonly [string, FeatureDefinition])[],
 ) => {
-	const declared = shape.flatMap(([method, { permissions = [] }]) =>
-		permissions.map((permission) => [method, permission] as const),
+	const declared = features.flatMap(([feature, { permissions = [] }]) =>
+		permissions.map((permission) => [feature, permission] as const),
 	)
 	return declared.length === 0
 		? []
@@ -288,7 +277,7 @@ const createPermissions = (
 						value: schemas.values().flatMap((schema) => {
 							const rules = readSchemaRules(schema, owner)
 							return declared
-								.filter(([method]) => rules[method] !== undefined)
+								.filter(([feature]) => rules[feature] !== undefined)
 								.map(([, permission]) => ({ permission, schema }))
 						}),
 					}),
@@ -296,13 +285,13 @@ const createPermissions = (
 			]
 }
 
-// Shape methods are applied at Runtime under one wide signature; their exact
-// typed signatures come from the plugin's static source.
-type RuntimeShapeSource = PluginSchemaShapeSource<
+// Features are applied at Runtime under one wide signature; their exact
+// typed options come from the plugin's static source.
+type RuntimeFeatureSource = PluginSchemaFeatureSource<
 	Readonly<
 		Record<
 			string,
-			SchemaShapeMethod<
+			SchemaFeature<
 				readonly [options?: unknown],
 				Readonly<Record<string, object>>,
 				string
@@ -338,42 +327,40 @@ interface WideRules extends SchemaRulesHKT {
  */
 export const definePlugin = <
 	const TName extends string,
-	const TShape extends ShapeMethods = Readonly<Record<never, never>>,
+	const TFeatures extends FeatureDefinitions = Readonly<Record<never, never>>,
 	// The constraint as default: a narrower one would hide the validators'
 	// contextual parameter types.
 	const TValidators extends RuleValidators = RuleValidators,
 >(
-	definition: DefinePluginOptions<TName, TShape, TValidators>,
-): DefinedPlugin<TName, TShape, RuleValuesOf<TValidators>> => {
+	definition: DefinePluginOptions<TName, TFeatures, TValidators>,
+): DefinedPlugin<TName, TFeatures, RuleValuesOf<TValidators>> => {
 	assertDefinition(definition)
-	const shape = Object.entries<ShapeMethodDefinition>(
-		definition.features ?? definition.shape ?? {},
-	)
+	const features = Object.entries<FeatureDefinition>(definition.features ?? {})
 	const rules = Object.entries<Validator<unknown>>(definition.rules ?? {})
-	for (const [method] of shape) {
-		if (!methodNamePattern.test(method) || method === 'with') {
-			throw new TypeError(`Invalid shape method name: ${method}`)
+	for (const [feature] of features) {
+		if (!featureNamePattern.test(feature) || feature === 'with') {
+			throw new TypeError(`Invalid feature name: ${feature}`)
 		}
 	}
-	for (const [method, { requires = [] }] of shape) {
+	for (const [feature, { requires = [] }] of features) {
 		const unknownRule = requires.find(
 			(name) => !rules.some(([rule]) => rule === name),
 		)
 		if (unknownRule !== undefined) {
 			throw new TypeError(
-				`Feature ${method} requires ${unknownRule}, which is not a rule of this plugin`,
+				`Feature ${feature} requires ${unknownRule}, which is not a rule of this plugin`,
 			)
 		}
 	}
 	const duplicate = rules.find(([name]) =>
-		shape.some(([method]) => method === name),
+		features.some(([feature]) => feature === name),
 	)
 	if (duplicate !== undefined) {
-		throw new TypeError(`Rule ${duplicate[0]} is also a shape method`)
+		throw new TypeError(`Rule ${duplicate[0]} is also a feature`)
 	}
-	const commands = shape.flatMap(([method, { commands: declared = {} }]) =>
+	const commands = features.flatMap(([feature, { commands: declared = {} }]) =>
 		Object.entries(declared).map(([name, command]) =>
-			createCommand(definition.name, method, name, command),
+			createCommand(definition.name, feature, name, command),
 		),
 	)
 	const instance = plugin<
@@ -387,17 +374,17 @@ export const definePlugin = <
 		undefined,
 		undefined,
 		readonly PluginContribution[],
-		DefinedPluginSource<TShape, RuleValuesOf<TValidators>>
+		DefinedPluginSource<TFeatures, RuleValuesOf<TValidators>>
 	>({
 		id: definition.name,
 		version: definition.version ?? '0.0.0',
 		core: '^0.0.0',
 		contributions: [
-			...(shape.length + rules.length === 0
+			...(features.length + rules.length === 0
 				? []
-				: [createDeclarations(shape, rules, commands)]),
+				: [createDeclarations(features, rules, commands)]),
 			...commands.map(({ contribution }) => contribution),
-			...createPermissions(shape),
+			...createPermissions(features),
 			...(definition.afterCommit === undefined
 				? []
 				: [
@@ -417,16 +404,16 @@ export const definePlugin = <
 					instance,
 					rules.map(([name]) => name),
 				)
-	if (shape.length === 0) return withRules
-	return provideSchemaFeatures<typeof instance, RuntimeShapeSource>(
+	if (features.length === 0) return withRules
+	return provideSchemaFeatures<typeof instance, RuntimeFeatureSource>(
 		withRules,
 		Object.fromEntries(
-			shape.map(([method, { requires = [] }]) => [
-				method,
+			features.map(([feature, { requires = [] }]) => [
+				feature,
 				{
-					sets: [method],
+					sets: [feature],
 					apply: (options?: unknown) =>
-						Object.fromEntries([[method, options ?? {}]]),
+						Object.fromEntries([[feature, options ?? {}]]),
 					requires,
 				},
 			]),
