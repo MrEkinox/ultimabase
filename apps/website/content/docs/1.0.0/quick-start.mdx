@@ -166,7 +166,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 export const SchemaApplication = UltimaBase.use(
 	// Prototype: operations without an Access rule are open outside production.
-	// Production refuses to start until you write .with({ access }) rules and
+	// Production refuses to start until you write plugins.access(...) rules and
 	// remove this opening.
 	accessPlugin({ allowWithoutRule: { all: 'development' } }),
 	...apiServer({ rest: true }),

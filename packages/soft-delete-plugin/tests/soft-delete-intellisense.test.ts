@@ -26,7 +26,7 @@ const SourceApplication = UltimaBase.use(softDeletePlugin())
 const Completion = SourceApplication.Schema.define({
   className: 'SoftDeleteCompletion',
   fields: (field) => ({ title: field.string() }),
-  ${marker}softDelete: true,
+  ${marker}
 })
 const Command = SourceApplication.Schema.define({
   className: 'SoftDeleteCommand',

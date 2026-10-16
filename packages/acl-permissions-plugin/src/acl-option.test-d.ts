@@ -87,7 +87,7 @@ test('adds the acl field through the fields slot and types its updates', async (
 	})
 })
 
-test('requires default once .acl() is called and acl only after it', () => {
+test('requires default once acl: true is set and the acl rule only after it', () => {
 	Application.Schema.define({
 		className: 'MissingACLRulePost',
 		fields: (field) => ({ title: field.string() }),
@@ -105,11 +105,11 @@ test('requires default once .acl() is called and acl only after it', () => {
 	Application.Schema.define({
 		className: 'ACLWithoutShapePost',
 		fields: (field) => ({ title: field.string() }),
-	}).with((plugins) =>
-		plugins
-			// @ts-expect-error -- `acl` rules need `.acl()` first.
-			.acl({ default: new ACL() }),
-	)
+	}).with((plugins) => {
+		// @ts-expect-error -- `plugins.acl` needs `acl: true` first.
+		void plugins.acl
+		return plugins
+	})
 	Application.Schema.define({
 		className: 'LegacyACLOptionPost',
 		fields: (field) => ({ title: field.string() }),

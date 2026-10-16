@@ -65,9 +65,9 @@ test('types the PostgreSQL table rule and field option exactly', () => {
 	UltimaBase.Schema.define({
 		className: 'PostgresRuleWithoutPlugin',
 		fields: () => ({}),
-	}).with((plugins) =>
-		plugins
-			// @ts-expect-error -- The rule exists only with postgresPlugin().
-			.postgres({ table: 'posts' }),
-	)
+	}).with((plugins) => {
+		// @ts-expect-error -- The rule exists only with postgresPlugin().
+		void plugins.postgres
+		return plugins
+	})
 })

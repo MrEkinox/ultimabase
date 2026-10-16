@@ -5,6 +5,12 @@ import { expect, it } from 'vitest'
 
 import { App } from '../src/schema.ts'
 
+// What `plugins` offers at runtime, beyond the methods its type allows here.
+interface UntypedRules {
+	readonly audit: (enabled: boolean) => never
+	readonly flagReason: (reason: string) => never
+}
+
 it('rejects a rule passed to define', () => {
 	expect(() =>
 		App.Schema.define({
@@ -18,27 +24,32 @@ it('rejects a rule passed to define', () => {
 	)
 })
 
-it('offers a rule only after its shape method', () => {
+it('offers a rule only after its feature', () => {
 	const declare = () =>
 		App.Schema.define({
 			className: 'Note',
 			fields: (f) => ({ body: f.string() }),
+		}).with((plugins) => {
+			// @ts-expect-error -- `flagReason` needs `flaggable: true` first.
+			void plugins.flagReason
+			return (plugins as unknown as UntypedRules).flagReason('Spam')
 		})
-			// @ts-expect-error -- `flagReason` needs `.flaggable()` first.
-			.with((plugins) => plugins.flagReason('Spam'))
 	// The rules slot is a type: the option itself accepts the text.
 	expect(declare).not.toThrow()
 })
 
 it('rejects a rule whose plugin is not installed', () => {
-	const Note = UltimaBase.Schema.define({
-		className: 'Note',
-		fields: (f) => ({ body: f.string() }),
-	})
-		// @ts-expect-error -- no installed plugin declares `audit`.
-		.with((plugins) => plugins.audit(true))
-	// The application that would use it refuses to compile.
-	expect(() => new UltimaBase({ schemas: [Note] }).compile()).toThrow('audit')
+	const declare = () =>
+		UltimaBase.Schema.define({
+			className: 'Note',
+			fields: (f) => ({ body: f.string() }),
+		}).with((plugins) => {
+			// @ts-expect-error -- no installed plugin declares `audit`.
+			void plugins.audit
+			return (plugins as unknown as UntypedRules).audit(true)
+		})
+	// `plugins` has one method per installed rule (ADR-0339).
+	expect(declare).toThrow('plugins.audit is not a function')
 })
 
 it('checks a peer range against the installed plugin version', () => {

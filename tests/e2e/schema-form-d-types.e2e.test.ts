@@ -193,19 +193,19 @@ describe('schema declaration form (ADR-0297)', () => {
 			const target = `'{ readonly id: string | { readonly eq: string; }; }'`
 			expect(readExpectedErrors(configName, 'src/typos.ts')).toEqual(
 				expect.arrayContaining([
-					`src/typos.ts:138 Object literal may only specify known properties, and 'title' does not exist in type ${target}.`,
-					`src/typos.ts:144 Object literal may only specify known properties, and 'archived' does not exist in type ${target}.`,
-					"src/typos.ts:150 Type 'null' is not assignable to type 'string | { readonly eq: string; }'.",
+					`src/typos.ts:139 Object literal may only specify known properties, and 'title' does not exist in type ${target}.`,
+					`src/typos.ts:145 Object literal may only specify known properties, and 'archived' does not exist in type ${target}.`,
+					"src/typos.ts:151 Type 'null' is not assignable to type 'string | { readonly eq: string; }'.",
 					expect.stringContaining(
 						// The printed key order follows type creation order.
-						"src/typos.ts:155 Object literal may only specify known properties, and 'acl' does not exist in type 'Readonly<{ readonly ",
+						"src/typos.ts:156 Object literal may only specify known properties, and 'acl' does not exist in type 'Readonly<{ readonly ",
 					),
 				]),
 			)
 			// A schema with a unique index keeps its `mappedBy` check.
 			expect(
 				readExpectedErrors(configName, 'src/typos.ts').filter((diagnostic) =>
-					diagnostic.startsWith('src/typos.ts:168 '),
+					diagnostic.startsWith('src/typos.ts:169 '),
 				),
 			).toEqual([
 				expect.stringContaining(
@@ -250,7 +250,7 @@ describe('schema declaration form (ADR-0297)', () => {
 		120_000,
 	)
 
-	// ADR-0328: relation filters in `.with({ relations })` are typed against
+	// ADR-0328: relation filters in `plugins.relations(...)` are typed against
 	// the complete target (Tag and Todo filter each other), and each misuse is
 	// reported on its own line, from source and built packages.
 	it.each(['tsconfig.json', 'tsconfig.source.json'])(
@@ -269,11 +269,12 @@ describe('schema declaration form (ADR-0297)', () => {
 			)
 			expect(
 				typos.filter((diagnostic) =>
-					diagnostic.startsWith('src/typos.ts:130 '),
+					diagnostic.startsWith('src/typos.ts:131 '),
 				),
 			).toEqual([
+				// The builder offers `relations` only to a schema with relation fields (ADR-0339).
 				expect.stringContaining(
-					"Object literal may only specify known properties, and 'relations' does not exist in type",
+					"Property 'relations' does not exist on type 'SchemaRulesBuilder<",
 				),
 			])
 		},

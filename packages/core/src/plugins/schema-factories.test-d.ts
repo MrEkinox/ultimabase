@@ -130,12 +130,10 @@ test('passes the called shape methods to rules slots', () => {
 		.tagged()
 		// @ts-expect-error -- `tag` is required once `.tagged()` is called.
 		.with({})
-	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with(
-		(plugins) =>
-			plugins
-				// @ts-expect-error -- `tag` needs `.tagged()`.
-				.tag({ initial: 'a' }),
-	)
+	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with({
+		// @ts-expect-error -- `tag` needs `.tagged()`.
+		tag: { initial: 'a' },
+	})
 })
 
 test('accepts a field update input in update data only', async () => {

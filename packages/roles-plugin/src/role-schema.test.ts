@@ -133,7 +133,8 @@ describe('App.RoleSchema', () => {
 		const CascadingRole = Roles.RoleSchema.define({
 			className: 'CascadingRole',
 			members: () => User,
-		}).with((plugins) => plugins.roles({ deletion: 'cascade' }))
+			deletion: 'cascade',
+		})
 
 		expect(getRoleSchemaDeclaration(CascadingRole)?.deletionPolicy).toBe(
 			'cascade',
@@ -142,9 +143,8 @@ describe('App.RoleSchema', () => {
 			Roles.RoleSchema.define({
 				className: 'InvalidDeletionRole',
 				members: () => User,
-			}).with((plugins) =>
-				plugins.roles({ deletion: 'remove' as unknown as 'fail' }),
-			),
+				deletion: 'remove' as unknown as 'fail',
+			}),
 		).toThrow(
 			new TypeError('deletion must be "fail", "preserve", or "cascade"'),
 		)
@@ -154,9 +154,8 @@ describe('App.RoleSchema', () => {
 		const SeededRole = Roles.RoleSchema.define({
 			className: 'SeededRole',
 			members: () => User,
-		}).with((plugins) =>
-			plugins.roles({ ensure: ['Admin', ' admin ', 'Editor'] }),
-		)
+			ensure: ['Admin', ' admin ', 'Editor'],
+		})
 
 		expect(getRoleSchemaDeclaration(SeededRole)?.ensure).toStrictEqual([
 			'admin',
@@ -166,15 +165,15 @@ describe('App.RoleSchema', () => {
 			Roles.RoleSchema.define({
 				className: 'InvalidEnsureRole',
 				members: () => User,
-			}).with((plugins) => plugins.roles({ ensure: [' '] })),
+				ensure: [' '],
+			}),
 		).toThrow(new TypeError('role name must not be empty'))
 		expect(() =>
 			Roles.RoleSchema.define({
 				className: 'InvalidEnsureListRole',
 				members: () => User,
-			}).with((plugins) =>
-				plugins.roles({ ensure: 'admin' as unknown as readonly string[] }),
-			),
+				ensure: 'admin' as unknown as readonly string[],
+			}),
 		).toThrow(new TypeError('ensure must be a list of role names'))
 	})
 

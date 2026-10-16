@@ -59,11 +59,11 @@ const Post = Application.Schema.define({
 UltimaBaseFactory.Schema.define({
 	className: 'UnconfiguredConformancePost',
 	fields: (field) => ({ title: field.string() }),
-}).with((plugins) =>
-	plugins
-		// @ts-expect-error -- The unconfigured factory cannot author plugin rules.
-		.enabled(true),
-)
+}).with((plugins) => {
+	// @ts-expect-error -- The unconfigured factory cannot author plugin rules.
+	void plugins.enabled
+	return plugins
+})
 
 test('preserves exact subject and schema tuples in optional checks', () => {
 	const logicalFixture = createPluginConformanceFixture({ subject })

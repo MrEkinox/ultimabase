@@ -26,6 +26,7 @@ import {
 	plugin,
 	defineSchemaOption,
 	provideCapability,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 
 const immutable = (value) => Object.freeze(value)
@@ -79,7 +80,10 @@ const codec = operationWireCodec({
 	transport: protocol,
 })
 const binding = operationTransportBinding({ codec, operation: inspect })
+// `document` is the `plugins.document(...)` rule of `.with` (ADR-0339).
 const createOperationPlugin = () =>
+	provideSchemaRules(createOperationPluginInstance(), ['document'])
+const createOperationPluginInstance = () =>
 	plugin({
 		core: '^0.0.0',
 		contributions: [
