@@ -5,7 +5,7 @@ import { assertUnreservedSchemaKey } from './schema-rule-names.js'
 
 /**
  * Higher-kinded slot through which one plugin contributes rule entries to the
- * final `.with({ ... })` call of a schema declaration. Core substitutes the
+ * final `.with((plugins) => …)` call of a schema declaration. Core substitutes the
  * schema reference into `schema` and the shape methods called on the
  * declaration into `shape` (`{ acl: readonly [] }`, so a rule can be required
  * once its shape method is called), and reads `rules`; it never names a plugin.
@@ -23,7 +23,7 @@ export interface SchemaRulesHKT {
 	readonly rules: object
 }
 
-/** Source projection carrying one plugin's rule entries for `.with({ ... })`. */
+/** Source projection carrying one plugin's rule entries for `.with((plugins) => …)`. */
 export type PluginSchemaRulesSource<TRules extends SchemaRulesHKT> = Readonly<{
 	schemaRules: TRules
 }>

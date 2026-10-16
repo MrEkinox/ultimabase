@@ -80,7 +80,7 @@ export interface NormalizedSchemaDeclaration {
 	readonly indexes: readonly SchemaIndexInput[] | undefined
 	/** Indexes of the final `.with`, checked against the compiled fields. */
 	readonly ruleIndexes?: readonly SchemaIndexInput[] | undefined
-	/** Relation filters of the final `.with({ relations })` (ADR-0328). */
+	/** Relation filters of the final `plugins.relations(…)` (ADR-0328). */
 	readonly relationFilters?:
 		ReadonlyMap<string, RelationWhereDeclaration> | undefined
 	/**

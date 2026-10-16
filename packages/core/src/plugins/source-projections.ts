@@ -67,7 +67,7 @@ export interface PluginSourceProjection {
 		Partial<Record<FieldDeclarationContext, object>>
 	>
 	readonly operations?: Readonly<Record<string, PluginOperationDefinition>>
-	/** Rule entries accepted by the final `.with({ ... })` (ADR-0297). */
+	/** Rule entries accepted by the final `.with((plugins) => …)` (ADR-0297). */
 	readonly schemaRules?: SchemaRulesHKT
 	/** Callback-free shape methods chained before `.with(...)` (ADR-0297). */
 	readonly shapeMethods?: Readonly<

@@ -62,7 +62,7 @@ const assertRuleKeys = (
 }
 
 /**
- * Compiles the plugin commands an application schema's `.with({ rest })`
+ * Compiles the plugin commands an application schema's `plugins.rest(…)`
  * rule names (ADR-0324): request authority, one row named by `id`.
  */
 export const compileRestSchemaMutationRouteFragment = (options: {

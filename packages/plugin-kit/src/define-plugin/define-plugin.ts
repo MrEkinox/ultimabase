@@ -47,7 +47,7 @@ export interface CommitInput<TRules extends RuleValues> {
 	/** The request identifier, for correlation in logs. */
 	readonly requestId: string
 	/**
-	 * This plugin's `.with({ ... })` entries on the written schema, as their
+	 * This plugin's `.with((plugins) => …)` entries on the written schema, as their
 	 * validators returned them when the application compiled.
 	 */
 	readonly rules: { readonly [TKey in keyof TRules]?: unknown }

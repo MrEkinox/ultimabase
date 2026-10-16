@@ -98,7 +98,7 @@ export interface RestPluginExports {
 	readonly schemaMutationTransport?: RestSchemaMutationTransport
 }
 
-// The schema option projects nothing: `.with({ rest })` types it (ADR-0324).
+// The schema option projects nothing: `plugins.rest(…)` types it (ADR-0324).
 type RestOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-rest-schema-option'
 	readonly schema: Readonly<{ rest: typeof restSchemaOption }>

@@ -23,7 +23,7 @@ type DeclaredRelationTarget<TField> =
 		: never
 
 /**
- * The rules of one relation field in the final `.with({ relations })`.
+ * The rules of one relation field in the final `plugins.relations(…)`.
  *
  * @example
  * ```ts
@@ -110,7 +110,7 @@ export const readRelationRules = (
 	return filters
 }
 
-/** @internal Attaches the filters of `.with({ relations })` to the resolved relation fields. */
+/** @internal Attaches the filters of `plugins.relations(…)` to the resolved relation fields. */
 export const applyRelationRules = (
 	fields: SchemaDeclaredFields,
 	filters: ReadonlyMap<string, RelationWhereDeclaration> | undefined,

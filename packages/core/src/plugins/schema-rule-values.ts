@@ -5,7 +5,7 @@ import { isSamePluginIdentity, type PluginIdentity } from './manifest.js'
 
 /**
  * Reads the values one plugin's schema options received on one compiled
- * schema: the `.with({ ... })` rule entries and shape-method arguments whose
+ * schema: the `.with((plugins) => …)` rule entries and shape-method arguments whose
  * option the plugin declared (ADR-0316). Options of other plugins and of Core
  * are never returned, and an option the schema does not set is absent.
  *

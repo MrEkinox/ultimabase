@@ -29,10 +29,10 @@ import type {
 /** Shape methods of one plugin, keyed by method name. */
 export type ShapeMethods = Readonly<Record<string, ShapeMethodDefinition>>
 
-/** Rule values of one plugin, keyed by `.with({ ... })` entry. */
+/** Rule values of one plugin, keyed by `.with((plugins) => …)` entry. */
 export type RuleValues = Readonly<Record<string, unknown>>
 
-/** Validators of one plugin's `.with({ ... })` entries, keyed by entry. */
+/** Validators of one plugin's `.with((plugins) => …)` entries, keyed by entry. */
 export type RuleValidators = Readonly<Record<string, Validator<unknown>>>
 
 /**
@@ -111,7 +111,7 @@ export interface DefinedShapeCommands<
 		SchemaPermissions<CalledPermissions<TShape, keyof this['shape']>>
 }
 
-/** Rules slot of a plugin made by `definePlugin`: its `.with({ ... })` entries. */
+/** Rules slot of a plugin made by `definePlugin`: its `.with((plugins) => …)` entries. */
 export interface DefinedRules<
 	TRules extends RuleValues,
 > extends SchemaRulesHKT {

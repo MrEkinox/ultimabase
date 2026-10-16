@@ -116,7 +116,7 @@ const withRules = (rules: readonly string[]): string =>
 		? ''
 		: `.with({\n${rules.map((rule) => `  ${rule}`).join('\n')}\n})`
 
-/** ACL is added by `.acl()` and configured in `.with({ acl })` (ADR-0321). */
+/** ACL is added by `.acl()` and configured in `plugins.acl(…)` (ADR-0321). */
 export const taskRulesChain = (plan: InitializerPlan): readonly string[] =>
 	has(plan, 'acl-permissions-plugin')
 		? [

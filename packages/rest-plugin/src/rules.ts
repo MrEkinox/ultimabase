@@ -91,7 +91,7 @@ type RestCommandRules<TSchema> = unknown extends TSchema
 	? unknown
 	: Partial<Readonly<Record<RestCommandName<TSchema>, boolean>>>
 
-/** Entry of `.with({ ... })` owned by REST, for one schema (ADR-0324). */
+/** Entry of `.with((plugins) => …)` owned by REST, for one schema (ADR-0324). */
 export interface RestRules<TSchema> {
 	/**
 	 * Selects the REST routes of this schema by method name; omitted methods
@@ -101,7 +101,7 @@ export interface RestRules<TSchema> {
 	readonly rest?: RestSchemaRule<TSchema>
 }
 
-/** Contributes `rest` to `.with({ ... })` through Core's rules slot (ADR-0324). */
+/** Contributes `rest` to `.with((plugins) => …)` through Core's rules slot (ADR-0324). */
 export interface RestSchemaRules extends SchemaRulesHKT {
 	readonly rules: RestRules<this['schema']>
 }

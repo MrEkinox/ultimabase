@@ -67,7 +67,7 @@ export const fieldValidationOption: FieldOptionDefinition<
 	valueKind: 'opaque',
 })
 
-/** Owns the schema `validation` rule (`.with({ validation })`) as an opaque value. */
+/** Owns the schema `validation` rule (`plugins.validation(…)`) as an opaque value. */
 export const schemaValidationOption: SchemaOptionDefinition =
 	defineSchemaOption({
 		normalize: normalizeSchemaValidation,

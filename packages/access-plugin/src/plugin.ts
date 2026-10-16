@@ -99,7 +99,7 @@ const accessDeclarations: PluginDeclarationContribution<
 		}),
 })
 
-/** Entry of `.with({ ... })` owned by Access, for one schema. */
+/** Entry of `.with((plugins) => …)` owned by Access, for one schema. */
 export interface AccessRules<TSchema> {
 	/**
 	 * Declares schema rules; an operation without a rule is denied unless
@@ -112,7 +112,7 @@ export interface AccessRules<TSchema> {
 	>
 }
 
-/** Contributes `access` to `.with({ ... })` through Core's rules slot (ADR-0297). */
+/** Contributes `access` to `.with((plugins) => …)` through Core's rules slot (ADR-0297). */
 export interface AccessSchemaRules extends SchemaRulesHKT {
 	readonly rules: AccessRules<this['schema']>
 }

@@ -103,7 +103,7 @@ export type GraphqlSchemaRule<TSchema = unknown> =
 	| boolean
 	| (GraphqlMethodRules & GraphqlTypeNameRule & GraphqlCommandRules<TSchema>)
 
-/** Entry of `.with({ ... })` owned by GraphQL, for one schema (ADR-0325). */
+/** Entry of `.with((plugins) => …)` owned by GraphQL, for one schema (ADR-0325). */
 export interface GraphqlRules<TSchema> {
 	/**
 	 * Selects the GraphQL fields of this schema by method name; omitted
@@ -113,7 +113,7 @@ export interface GraphqlRules<TSchema> {
 	readonly graphql?: GraphqlSchemaRule<TSchema>
 }
 
-/** Contributes `graphql` to `.with({ ... })` through Core's rules slot. */
+/** Contributes `graphql` to `.with((plugins) => …)` through Core's rules slot. */
 export interface GraphqlSchemaRules extends SchemaRulesHKT {
 	readonly rules: GraphqlRules<this['schema']>
 }

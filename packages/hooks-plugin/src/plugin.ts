@@ -54,7 +54,7 @@ import {
 	type OwnedHookEventHandler,
 } from './runtime/execution-runtime.js'
 
-/** Owns the `hooks` rule of `.with({ hooks })` as an opaque callback artifact. */
+/** Owns the `hooks` rule of `plugins.hooks(…)` as an opaque callback artifact. */
 const schemaHooksOption: SchemaOptionDefinition<
 	SchemaHookDeclarations | undefined
 > = defineSchemaOption({
@@ -207,7 +207,7 @@ const hooksDeclarations: PluginDeclarationContribution<
 })
 
 // The named alias keeps the reference hover (`source: HooksOptionSource`).
-/** Entry of `.with({ ... })` owned by Hooks, for one schema. */
+/** Entry of `.with((plugins) => …)` owned by Hooks, for one schema. */
 export interface HooksRules<TSchema> {
 	/**
 	 * Declares schema-owned business behavior run around each operation.
@@ -216,7 +216,7 @@ export interface HooksRules<TSchema> {
 	readonly hooks?: SchemaHooks<Extract<TSchema, SchemaDefinition>>
 }
 
-/** Contributes `hooks` to `.with({ ... })` through Core's rules slot (ADR-0297). */
+/** Contributes `hooks` to `.with((plugins) => …)` through Core's rules slot (ADR-0297). */
 export interface HooksSchemaRules extends SchemaRulesHKT {
 	readonly rules: HooksRules<this['schema']>
 }

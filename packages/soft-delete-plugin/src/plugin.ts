@@ -10,10 +10,10 @@ import {
 import {
 	command,
 	definePlugin,
-	shapeMethod,
+	feature,
 	type CommandDefinition,
 	type DefinedPlugin,
-	type ShapeMethodDefinition,
+	type FeatureDefinition,
 } from '@ultimabase/plugin-kit'
 
 import { parseSoftDeleteOptions, type SoftDeleteOptions } from './options.js'
@@ -24,7 +24,7 @@ import {
 } from './replace-delete.js'
 import { createSoftDeleteVisibilityPolicy } from './visibility.js'
 
-/** Fields `.softDelete()` adds; both are written by the server only. */
+/** Fields `softDelete` adds; both are written by the server only. */
 export type SoftDeleteFields = Readonly<{
 	/** True while the row is soft-deleted; the protected filter reads it. */
 	isDeleted: BooleanField<ScalarFieldTypeState<true, false, false, true>>
@@ -32,7 +32,7 @@ export type SoftDeleteFields = Readonly<{
 	deletedAt: DateTimeField<ScalarFieldTypeState<false, false, false, false>>
 }>
 
-/** Commands `.softDelete()` adds, in both modes. */
+/** Commands `softDelete` adds, in both modes. */
 export type SoftDeleteCommands = Readonly<{
 	/** Hides one row (request authority: Access rule `softDeleteOne`). */
 	softDeleteOne: CommandDefinition<'request', 'update', 'one'>
@@ -48,18 +48,18 @@ export type SoftDeleteCommands = Readonly<{
 	purgeMany: CommandDefinition<'master', 'delete', 'many'>
 }>
 
-/** The `.softDelete(...)` shape method. */
+/** The `softDelete` feature, a key of `define` (ADR-0339). */
 export type SoftDeleteShape = Readonly<{
 	/**
 	 * Soft-deletes this schema's rows: adds `isDeleted` and `deletedAt`, hides
 	 * deleted rows from every read and write, and adds the `softDeleteOne/Many`,
 	 * `restoreOne/Many` and `purgeOne/Many` commands and the `readDeleted`
-	 * permission (ordinary reads then see deleted rows). Without options,
+	 * permission (ordinary reads then see deleted rows). With `true`,
 	 * `deleteOne` and `deleteMany` soft-delete too; `{ mode: 'command' }` keeps
-	 * them physical. Call it before `.with(...)`.
-	 * @example `App.Schema.define({ className: 'Todo', fields }).softDelete()`
+	 * them physical.
+	 * @example `App.Schema.define({ className: 'Todo', fields, softDelete: true })`
 	 */
-	softDelete: ShapeMethodDefinition<
+	softDelete: FeatureDefinition<
 		SoftDeleteOptions,
 		SoftDeleteFields,
 		SoftDeleteCommands,
@@ -109,8 +109,8 @@ const commands: SoftDeleteCommands = {
 	purgeMany: command({ authority: 'master', effect: 'delete', target: 'many' }),
 }
 
-const shape: SoftDeleteShape = {
-	softDelete: shapeMethod({
+const features: SoftDeleteShape = {
+	softDelete: feature({
 		options: parseSoftDeleteOptions,
 		fields,
 		commands,
@@ -120,12 +120,12 @@ const shape: SoftDeleteShape = {
 
 /**
  * Installs Soft Delete. Importing the package alone changes nothing; each
- * schema opts in with `.softDelete()`.
+ * schema opts in with `softDelete: true` in its `define`.
  *
  * @example
  * ```ts
  * const App = UltimaBase.use(softDeletePlugin())
- * const Todo = App.Schema.define({ className: 'Todo', fields }).softDelete()
+ * const Todo = App.Schema.define({ className: 'Todo', fields, softDelete: true })
  * await Todo.deleteOne({ where: { id } }) // sets isDeleted and deletedAt
  * await Todo.restoreOne({ id })
  * ```
@@ -133,7 +133,7 @@ const shape: SoftDeleteShape = {
 export const softDeletePlugin = (): SoftDeletePlugin =>
 	definePlugin({
 		name: '@ultimabase/soft-delete-plugin',
-		shape,
+		features,
 		contributions: [
 			provideRuntimeConstraint({
 				contributionId: 'visibility',

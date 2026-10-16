@@ -205,7 +205,7 @@ describe('ACL IntelliSense', () => {
 		)
 
 		expect(ts.displayPartsToString(hover?.documentation)).toContain(
-			'The `acl` entry of `.with({ ... })` once `.acl()` is called',
+			'The `acl` rule of `.with((plugins) => …)`, required once `acl: true`',
 		)
 		expect(names).toEqual(
 			expect.arrayContaining([

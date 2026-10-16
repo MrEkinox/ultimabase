@@ -22,7 +22,7 @@ import {
 /** Configures deterministic GraphQL v1 schema generation (ADR-0325). */
 export interface GraphqlPluginOptions {
 	/**
-	 * Exposure inherited by every schema method a `.with({ graphql })` rule
+	 * Exposure inherited by every schema method a `plugins.graphql(…)` rule
 	 * leaves out: `true`, `false`, or per method.
 	 * @example `default: { createOne: false, updateOne: false, deleteOne: false }`
 	 */

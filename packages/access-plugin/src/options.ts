@@ -76,7 +76,7 @@ type SourceFieldAccessOption = PluginSourceFieldOptionByKind<
 	SourceRelationFieldAccessOption
 >
 
-/** Owns the `access` rule of `.with({ access })` as an opaque policy artifact. */
+/** Owns the `access` rule of `plugins.access(…)` as an opaque policy artifact. */
 export const schemaAccessOption: SchemaOptionDefinition<
 	ReturnType<typeof normalizeSchemaAccessDeclarations>
 > = defineSchemaOption({
