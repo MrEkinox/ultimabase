@@ -115,7 +115,8 @@ const { user, session } = await Member.signUp({
 ## The User schema
 
 `App.UserSchema.define({ className, fields })` declares the application's
-User like any form D schema: it ends with `.with({ access, hooks, … })` and its
+User like any form D schema: `define` also accepts `indexes` and feature keys,
+it ends with `.with((plugins) => plugins.access(…).hooks(…))`, and its
 Access, Hooks and transport rules are the application's. The installed methods
 add their fields (`password({ identifier: 'email' })` adds a unique `email`);
 `password` and the methods' fields are reserved. The class gains static

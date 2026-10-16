@@ -7,7 +7,7 @@ contentType: guide
 order: 5
 outcome: Upsert a record by unique slug and understand both possible branches.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/queries/src/schema.ts
   - examples/queries/src/writes.ts
@@ -24,6 +24,7 @@ sources:
   - packages/postgres-plugin/src/drizzle/operation-executor.ts
   - packages/postgres-plugin/src/drizzle/prepared-operation.ts
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 Use `Post.upsertOne()` when the same unique key should create a record if absent
@@ -88,9 +89,9 @@ await Translation.deleteOne({ where: { post, locale } })
 
 The same input types `updateOne`, `deleteOne`, and the items of
 `updateMany`, `deleteMany`, and `upsertMany`. Runtime checks the target again,
-because untyped transports reach it too, and accepts the same targets. A unique
-index declared in the final `.with`, a partial unique index (with `where`), and
-a unique index a plugin adds with `addSchemaIndex` are storage indexes, not
+because untyped transports reach it too, and accepts the same targets. A
+partial unique index (with `where`) and a unique index a plugin adds with
+`addSchemaIndex` are storage indexes, not
 targets: they enforce uniqueness, and an untyped call that targets one fails
 with `… must match id, a unique field or one non-partial unique index of
 define`. A partial unique index identifies one row only among the rows its

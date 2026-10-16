@@ -9,8 +9,9 @@ without generated files, and tested with `testApplication` (ADR-0327).
 
 [`src/schema.ts`](src/schema.ts) installs every plugin once and declares the
 schemas. The block below shows the plugin list, then the `title` field of
-`Todo`, whose behavior sits on the field, and the end of `Todo`: the `.acl()`
-shape method and the schema rules in a final `.with(...)`:
+`Todo`, whose behavior sits on the field, and the end of `Todo`: its
+`indexes` and the `acl: true` feature key in `define`, then the schema rules
+in `.with((plugins) => ...)` (ADR-0339):
 
 <!-- region src/schema.ts#factory,todo-title,todo-rules -->
 
@@ -50,7 +51,9 @@ title: field.string({
 	validation: z.string().max(200),
 }),
 
-.with((plugins) =>
+	indexes: [{ fields: ['completed', 'dueAt'] }],
+	acl: true,
+}).with((plugins) =>
 	plugins
 		.access({
 			read: ({ where }) => where.eq('archived', false),
@@ -90,8 +93,9 @@ never validation or hooks, and is never accepted from transport input.
 The same file also declares:
 
 - `TodoUser`, the assignee, with an inverse `assignedTodos` relation;
-- `TodoRole`, from `App.RoleSchema.define()` with custom fields, an index, and
-  `ensure: ['editor']`, since the Todo ACL default grants that role;
+- `TodoRole`, from `App.RoleSchema.define()` with custom fields and an index,
+  and `plugins.roles({ ensure: ['editor'] })` in its `.with`, since the Todo
+  ACL default grants that role;
 - an enum shared by two fields, nested typed objects, JSON paths and a
   composite index.
 

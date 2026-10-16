@@ -7,7 +7,7 @@ contentType: concept
 order: 7
 outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/modeling/README.md
   - examples/modeling/src/catalog.ts
@@ -29,6 +29,7 @@ sources:
   - docs/adr/0179-name-based-relationship-targets.md
   - docs/adr/0247-contextual-relation-filters.md
   - docs/adr/0328-relation-filters-in-with.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 Use a **pointer** when a record refers to one target. Use a **relation** when it
@@ -154,8 +155,8 @@ The example declares both kinds. `Author.books` is the inverse of the
 	../../examples/modeling/src/catalog.ts#author
 </include>
 
-`Customer.wishlist` owns its membership, and its final `.with` declares a
-filter for every read through it:
+`Customer.wishlist` owns its membership, and `plugins.relations` in the
+`.with` callback of `Customer` declares a filter for every read through it:
 
 <include cwd meta='title="src/customers.ts"'>
 	../../examples/modeling/src/customers.ts#customer
@@ -218,7 +219,7 @@ add two books to a wishlist and return the visible membership:
 </include>
 
 Both books are members, but `updated.wishlist` lists only the published one:
-the declared filter of `.with({ relations })` hides the draft from every read,
+the declared filter of `plugins.relations` hides the draft from every read,
 `exists` included. Results have no relation handles (ADR-0310); the edge itself
 is not a result field. A relation field takes these commands:
 
@@ -239,8 +240,8 @@ from reads. On an inverse relation whose pointer is required, such as
 clear its required `author`.
 
 A relation may declare a static or request-contextual `where` to narrow every
-read through that field, in the final `.with({ relations })` of its schema,
-keyed by the relation field name, as `Customer` does. It intersects with caller
+read through that field, with `plugins.relations(...)` in the `.with` callback
+of its schema, keyed by the relation field name, as `Customer` does. It intersects with caller
 filters and target policies; it does not grant access or change membership. See
 [Related Data](/docs/1.0.0/core/reading-data/related-data#declared-relation-filters).
 

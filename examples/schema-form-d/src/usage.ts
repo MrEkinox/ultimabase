@@ -74,7 +74,7 @@ expectTypeOf<
 	Awaited1<ReturnType<typeof findTodo>>
 >().toEqualTypeOf<Model<'Todo'> | null>()
 expectTypeOf<Model<typeof Todo>>().toEqualTypeOf<Model<'Todo'>>()
-// Plugin feature fields reach items and models.
+// Fields a plugin feature adds reach items and models.
 expectTypeOf<Item<'Todo'>['isDeleted']>().toEqualTypeOf<boolean>()
 expectTypeOf<Model<'Todo'>['title']>().toEqualTypeOf<string>()
 // Name-keyed inputs.

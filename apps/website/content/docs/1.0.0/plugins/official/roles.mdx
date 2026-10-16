@@ -7,7 +7,7 @@ contentType: guide
 order: 5
 outcome: Compose role membership with Access or ACL without treating membership as a grant.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/roles/README.md
   - examples/roles/src/schema.ts
@@ -40,6 +40,7 @@ sources:
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0322-roles-schema-factory-and-queries.md
   - docs/adr/0329-role-protocol-leaves-core.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
@@ -98,8 +99,9 @@ a small plugin that observes role events (see
 </include>
 
 Declare a role schema with the schema of its members, then end with
-`.with({ ... })` like any schema. `StaffRole` creates its two roles at start,
-and its rules let every caller read roles but change none:
+`.with((plugins) => ...)` like any schema. `plugins.roles(...)` sets the role
+behaviour: `StaffRole` creates its two roles at start, and its Access rules
+let every caller read roles but change none:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/roles/src/schema.ts#staff-role
@@ -137,23 +139,31 @@ ordinary data, which server code links once the application has started:
 Use a disposable database or a reviewed PostgreSQL schema policy while
 developing. Replace the console audit with a reliable sink before deployment;
 never send Master credentials to a browser. `rolesPlugin()` takes no factory
-options; each role schema declares its behavior:
+options; each role schema declares what it is in `App.RoleSchema.define`:
 
-| `App.RoleSchema.define` option | Purpose                                                                                      |
-| ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `members`                      | A function returning the schema of the persisted direct members                              |
-| `fields`                       | Ordinary custom fields beside `name`, `members` and `includedRoles`                          |
-| `deletion`                     | External-reference policy: `'fail'` (default), `'preserve'`, or `'cascade'`                  |
-| `ensure`                       | Role names created at `start()` when missing (idempotent, existing roles unchanged)          |
-| `resolveCurrent`               | Special cases only: maps request-local identity to a member Pointer instead of the principal |
+| `App.RoleSchema.define` option | Purpose                                                             |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `members`                      | A function returning the schema of the persisted direct members     |
+| `fields`                       | Ordinary custom fields beside `name`, `members` and `includedRoles` |
+| `indexes`                      | Indexes, custom fields included, as for any schema                  |
+| feature keys                   | Features of the installed plugins, such as `acl: true`              |
 
-Rules (`access`, `hooks`), indexes and plugin options go in the final
-`.with({ ... })`; shape methods such as `.acl()` may be chained before it.
+How Roles treats the schema goes in `.with((plugins) => plugins.roles({ … }))`:
+
+| `plugins.roles` option | Purpose                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| `deletion`             | External-reference policy: `'fail'` (default), `'preserve'`, or `'cascade'`                  |
+| `ensure`               | Role names created at `start()` when missing (idempotent, existing roles unchanged)          |
+| `resolveCurrent`       | Special cases only: maps request-local identity to a member Pointer instead of the principal |
+
+The other rules (`plugins.access`, `plugins.hooks`, …) chain in the same
+`.with` callback, as on any schema (see
+[Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)).
 The factory adds `name`, `members`, and `includedRoles`; do not redeclare
 them. Role schemas are application schemas: trusted server code queries them
 like any schema, and the REST and GraphQL transports expose them like any
 other schema, under their Access rules. The example's REST clients can list
-staff roles but not create one; `rest: false` keeps a role schema off
+staff roles but not create one; `plugins.rest(false)` keeps a role schema off
 [REST](./rest).
 
 ## Behavior and limitations

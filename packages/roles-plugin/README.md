@@ -14,7 +14,8 @@ policy consumer receives this privilege from Roles.
 
 Installing `rolesPlugin()` adds `App.RoleSchema` to the configured factory
 (ADR-0322). Declare each role schema with the schema of its members, then end
-with `.with({ ... })` like any schema; an application may declare several role
+with `.with((plugins) => ...)` like any schema; `plugins.roles({ … })` sets
+the role behaviour (ADR-0339). An application may declare several role
 schemas.
 
 Every code block in this README is copied from the tested
@@ -92,10 +93,11 @@ export const Post = App.Schema.define({
 <!-- endregion -->
 
 `members` is a function so the role and member schemas may reference each
-other. Rules, indexes and plugin options go in `.with(...)`; shape methods
-such as `.acl()` may be chained before it. `deletion` is `'fail'` (default),
-`'preserve'` or `'cascade'`. `resolveCurrent` replaces the current member for
-special cases. Applications with role schemas register `typeof ultimabase`
+other. `App.RoleSchema.define` also takes `indexes` (custom fields included)
+and feature keys such as `acl: true`. Role behaviour is the `roles` rule of
+`.with`, beside the other rules: `ensure` names the roles created at start,
+`deletion` is `'fail'` (default), `'preserve'` or `'cascade'`, and
+`resolveCurrent` replaces the current member for special cases. Applications with role schemas register `typeof ultimabase`
 like any other (the ADR-0297 step 4 workaround is gone).
 
 `StaffRole` has no write rule, so trusted server code manages its membership
@@ -218,7 +220,7 @@ and nominal value type never appear in authoring options or autocomplete. Applic
 Role schemas are application schemas. Trusted server code can use schema-root
 reads such as `StaffRole.findMany()`, and the REST and GraphQL transports
 expose them like any other application schema, under their Access rules;
-`rest: false` in `.with({ ... })` keeps one off REST.
+`plugins.rest(false)` in `.with` keeps one off REST.
 
 A `members` link change delegates to the normal relation lifecycle, inherits
 ambient execution or ordinary operation options, and emits

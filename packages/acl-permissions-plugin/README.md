@@ -1,7 +1,8 @@
 # @ultimabase/acl-permissions-plugin
 
-Stores per-row rights: the immutable `ACL` value, the `.acl()` shape method,
-the `acl` rule of `.with(...)`, and the `aclPlugin()` provider (ADR-0321).
+Stores per-row rights: the immutable `ACL` value, the `acl` feature key of
+`define`, the `plugins.acl(...)` rule of `.with`, and the `aclPlugin()`
+provider (ADR-0321, ADR-0339).
 
 ACL grants object-level `read`, `update`, and `delete` rights to public,
 authenticated, exact-principal, and role subjects. The provider contributes
@@ -24,10 +25,12 @@ Every TypeScript block below is copied from the
 [ACL example](../../examples/acl/README.md), a small application whose tests
 prove each behavior described here (ADR-0330).
 
-`.acl()` adds one reserved, required, indexed `acl` field through Core's
-fields slot; `.with({ acl })` configures it, and its `default` is required
-once `.acl()` is called, because an empty ACL hides a row from everyone but
-Master. The example also installs Access, which decides who may create, and
+`acl: true` in `define` adds one reserved, required, indexed `acl` field
+through Core's fields slot; `plugins.acl({ … })` in `.with` configures it, and
+its `default` is required once `acl: true` is set, because an empty ACL hides
+a row from everyone but Master. The feature declares the rule as required:
+a declaration without it is a TypeScript error, and fails when `.with` runs or
+the application compiles. The example also installs Access, which decides who may create, and
 Roles, which supplies role membership:
 
 <!-- region ../../examples/acl/src/schema.ts#factory,note -->
@@ -88,7 +91,7 @@ The rule (`ACLRule`) accepts:
   normalized non-ACL `update` operations; `undefined` keeps the default or the
   current ACL. Each `updateMany` item is recomputed like an `updateOne`.
 - `clientSharing`: lets clients share rows (below).
-- `existingRows`: the ACL rows already in a table receive when `.acl()` is
+- `existingRows`: the ACL rows already in a table receive when `acl: true` is
   added and `default` is a function (below).
 - `limits`: overrides the plugin limits for this schema.
 
@@ -261,7 +264,7 @@ default the column keeps. With PostgreSQL synchronization:
   to follow;
 - under `schemaPolicy: 'fail'`, nothing changes and the message names the value.
 
-The column is `NOT NULL` and keeps an empty-ACL default. Removing `.acl()`
+The column is `NOT NULL` and keeps an empty-ACL default. Removing `acl: true`
 later keeps the column and its data; rows written afterward get an empty ACL,
 and the index is dropped.
 
@@ -355,5 +358,5 @@ The strictly validated ACL JSON is attached to the canonical
 `ultimabase.rest@1.0.0` and `ultimabase.graphql.field@1.0.0` field-wire
 protocols, without making ACL depend on either transport package.
 
-A role schema declared with `App.RoleSchema.define(...)` may call `.acl()`
+A role schema declared with `App.RoleSchema.define(...)` may set `acl: true`
 too; only Master may inspect or replace the role row's ACL.

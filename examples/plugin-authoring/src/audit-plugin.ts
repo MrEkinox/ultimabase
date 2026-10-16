@@ -1,7 +1,7 @@
 //#region audit-plugin
 import { definePlugin } from '@ultimabase/plugin-kit'
 
-/** `.with({ audit: true })` logs each committed write of the schema. */
+/** `plugins.audit(true)` logs each committed write of the schema. */
 export const auditPlugin = () =>
 	definePlugin({
 		name: '@example/audit-plugin',

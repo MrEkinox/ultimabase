@@ -29,7 +29,8 @@ export const Post = Blog.Schema.define({
 		title: field.string({ required: true }),
 		published: field.boolean({ default: false }),
 	}),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 
 export const AuditLog = Blog.Schema.define({
 	className: 'AuditLog',
@@ -76,8 +77,8 @@ JavaScript executes the same graph.
 - Singular creates and updates accept the same schema-aware nested pointer and
   relation commands through direct TypeScript, REST, and GraphQL. Core executes
   the complete bounded graph in one automatic transaction.
-- Relations may declare one static or request-contextual `where` in the
-  schema's final `.with({ relations })` that shapes direct reads, eager
+- Relations may declare one static or request-contextual `where` with
+  `plugins.relations(...)` in the schema's `.with` that shapes direct reads, eager
   inclusions, REST, and GraphQL consistently without replacing Access, ACL,
   protected constraints, or physical membership.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
@@ -97,8 +98,8 @@ JavaScript executes the same graph.
   called directly on a frozen configured schema class; the class resolves the
   sole active owner and dispatches through its compiled handle.
 - The official soft-delete plugin turns a schema's native deletes into a
-  tombstone (`.softDelete()`) or keeps them physical and adds the
-  `softDeleteOne`/`softDeleteMany` commands (`.softDelete({ mode: 'command' })`).
+  tombstone (`softDelete: true` in `define`) or keeps them physical and adds the
+  `softDeleteOne`/`softDeleteMany` commands (`softDelete: { mode: 'command' }`).
   Ordinary reads stay tombstone-blind; `restoreOne`/`restoreMany` are
   authorized by Access, while audited `purgeOne`/`purgeMany` remain private to
   trusted server code.

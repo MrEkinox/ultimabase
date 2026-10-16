@@ -1,0 +1,177 @@
+---
+title: Features and Rules
+description: Decide whether a plugin's schema option is a feature of define or a rule of .with, then declare it.
+audience:
+  - plugin-author
+contentType: concept
+outcome: Decide whether a schema option is a feature or a rule, and declare each with definePlugin or Core's plugin contracts.
+releaseStatus: pre-release
+reviewedAt: 2026-10-17
+sources:
+  - examples/plugin-authoring/README.md
+  - examples/plugin-authoring/src/review-plugin.ts
+  - examples/plugin-authoring/src/archive-plugin.ts
+  - examples/plugin-authoring/src/audit-plugin.ts
+  - examples/plugin-authoring/src/flag-plugin.ts
+  - examples/plugin-authoring/tests/features-and-rules.test.ts
+  - examples/plugin-authoring/tests/schema-misuse.test.ts
+  - packages/plugin-kit/README.md
+  - packages/plugin-kit/src/define-plugin/define-plugin.ts
+  - packages/plugin-kit/src/define-plugin/shape.ts
+  - packages/core/README.md
+  - packages/core/src/plugins/schema-extensions.ts
+  - packages/core/src/plugins/schema-rule-names.ts
+  - packages/acl-permissions-plugin/src/plugin.ts
+  - docs/adr/0316-plugin-facade-and-projection-slots.md
+  - docs/adr/0321-acl-shape-sharing-and-backfill.md
+  - docs/adr/0339-define-describes-with-configures.md
+---
+
+## Context
+
+An application declares each schema in two blocks, as
+[Schemas](/docs/1.0.0/core/data-modeling/schemas#plugin-features-and-rules)
+shows: `define` describes what the schema is, and `.with((plugins) => ...)`
+configures how each plugin treats it. Every schema-level option your plugin
+offers belongs to exactly one block. An option in `define` is a **feature**;
+an option in `.with` is a **rule**. Choosing well gives application developers
+one predictable place to look, and keeps their editor fast and exact.
+
+This page assumes you have read [Start Here](/docs/1.0.0/plugins/build-a-plugin)
+and know `definePlugin`.
+
+## Mental model
+
+### A feature is what the schema is
+
+A feature is a key of `define`, such as `softDelete: { mode: 'command' }` from
+Soft Delete or `acl: true` from ACL Permissions. Its value is `true` or a
+static options object, never a callback. A feature may change the shape of the
+schema: add server-written fields, commands, and schema permissions. Because
+it changes the schema, it is read while the schema itself is being built, so
+its value cannot depend on that schema.
+
+### A rule is how your plugin treats the schema
+
+A rule is one method of `plugins` in `.with`, such as `plugins.access(...)`,
+`plugins.hooks(...)`, or `plugins.acl({ default })`. `.with` is the last call
+of a declaration and sees the completed schema, including the fields that
+features add, so a rule may hold callbacks that read the schema's fields. A
+rule never changes the shape of the schema. Each method can be called once.
+
+The example's review plugin offers both. `reviewable` is a feature: it adds a
+`reviewedAt` field and an `approveOne` command. `review` is a rule: it names
+who reviews the schema's rows, and the plugin reads it after each committed
+create:
+
+<include cwd meta='title="src/review-plugin.ts"'>
+	../../examples/plugin-authoring/src/review-plugin.ts#review-plugin
+</include>
+
+An application sets the feature in `define` and calls the rule in `.with`.
+Its `indexes` may already name `reviewedAt`, the field the feature adds:
+
+<include cwd meta='title="tests/features-and-rules.test.ts"'>
+	../../examples/plugin-authoring/tests/features-and-rules.test.ts#reviewed-story
+</include>
+
+Creating a `Story` logs `[review] Story waits for editors` once the write has
+committed, and `Story.approveOne({ id })` sets `reviewedAt`:
+
+<include cwd meta='title="tests/features-and-rules.test.ts"'>
+	../../examples/plugin-authoring/tests/features-and-rules.test.ts#approve-story
+</include>
+
+### A feature may require a rule
+
+`requires: ['review']` makes the rule mandatory for every schema that sets the
+feature. Use it when the feature has no safe default, as ACL Permissions does:
+`acl: true` requires `plugins.acl({ default })`, because an empty ACL would
+hide each new row from everyone but Master. A declaration that sets the
+feature without the rule is a TypeScript error on the `.with` callback, and
+fails at runtime when `.with` runs:
+
+<include cwd meta='title="tests/features-and-rules.test.ts"'>
+	../../examples/plugin-authoring/tests/features-and-rules.test.ts#missing-rule
+</include>
+
+A declaration that omits `.with` entirely is a TypeScript error where the
+application lists it in `schemas`, and the application refuses it when it
+compiles. A feature may require only rules of the same plugin.
+
+### Declare them without `definePlugin`
+
+`definePlugin` writes the Core contributions for you. A raw `plugin()`
+declares the same two kinds with Core's contracts from
+`@ultimabase/core/plugin`:
+
+| Kind    | Runtime declaration                                                    | Type declaration                                       |
+| ------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| Feature | `provideSchemaFeatures(instance, { name: { sets, apply, requires } })` | `PluginSchemaFeatureSource` with `SchemaFeature<…>`    |
+| Rule    | `schemas.defineOptions()`, then `provideSchemaRules(instance, names)`  | `PluginSchemaRulesSource` with a `SchemaRulesHKT` slot |
+
+A rules slot reads `this['schema']`, the completed schema, so a raw rule can be
+typed against its fields, as Access, Hooks, and Validation are. It also reads
+`this['shape']`, the features `define` sets, so a rule may be offered only
+with its feature. A required rule is the third type argument of
+`SchemaFeature` and the `requires` list of `provideSchemaFeatures`. The
+[flag plugin of Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#type-a-rule-with-a-rules-slot)
+declares a feature and a rule this way.
+
+## Boundaries
+
+- **Reserved names.** `className`, `fields`, `indexes`, `relations`, and
+  `with` belong to Core. A feature or rule with one of these names is rejected
+  when the plugin is installed.
+- **Name a rule after your plugin.** One rule per plugin, named with the
+  plugin's short name (`access`, `hooks`, `acl`, `roles`, `audit`, `review`),
+  tells a reader at once which plugin a `plugins.x(...)` call configures. Put
+  all of the plugin's schema behaviour in that one rule's options.
+- **Name a feature after what the schema becomes.** `softDelete`,
+  `archivable`, `reviewable`. A feature and its required rule may share the
+  plugin's name when the rule configures the feature, as `acl: true` and
+  `plugins.acl({ default })` do.
+- **Neither is a field option.** An option about one field, such as a column
+  name or a field Hook, stays on the field: declare it with
+  `definePluginFieldOption()`, as
+  [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#add-field-options-and-field-kinds)
+  shows.
+- **Neither is an application option.** An option that is the same for every
+  schema belongs to your plugin factory, such as
+  `accessPlugin({ allowWithoutRule })`.
+- **Misuses fail in TypeScript and at runtime.** A rule in `define` is an
+  unknown key (`Unknown schema option: review`); a feature called on
+  `plugins` does not exist; a rule whose plugin is not installed throws
+  `plugins.<name> is not a function`.
+
+## Decide
+
+1. The option is about one field: a field option.
+2. The option is the same for the whole application: a factory option.
+3. The option adds fields, commands, or permissions, or changes what a row
+   stores: a feature.
+4. The option holds a callback or reads the schema's fields: a rule.
+5. Any other per-schema behaviour, such as a switch or a name: a rule.
+6. The feature is unsafe or meaningless without configuration: add
+   `requires` with that rule.
+
+## Related tasks
+
+<Cards>
+	<Card
+		title="Schema Contributions"
+		href="/docs/1.0.0/plugins/build-a-plugin/schema-contributions"
+	>
+		Type features, rules, fields, and schema factories from your plugin's
+		source.
+	</Card>
+	<Card
+		title="Schemas"
+		href="/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes"
+	>
+		See where each declaration goes from the application developer's side.
+	</Card>
+	<Card title="Start Here" href="/docs/1.0.0/plugins/build-a-plugin">
+		Create, install, and verify a plugin with definePlugin.
+	</Card>
+</Cards>

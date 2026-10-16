@@ -73,7 +73,7 @@ export const Post = App.Schema.define({
 
 <!-- endregion -->
 
-`.with({ rest })` is typed only because this factory installed `restPlugin()`.
+`plugins.rest(...)` in `.with` is typed only because this factory installed `restPlugin()`.
 Its keys are the schema method names (ADR-0324):
 `findMany`, `findOne`, `count`, `exists`, `createOne`, `updateOne`,
 `deleteOne`, `upsertOne`, `createMany`, `updateMany`, `deleteMany`,
@@ -82,8 +82,9 @@ Its keys are the schema method names (ADR-0324):
 registers it. An omitted method inherits the plugin `default`, then the
 built-in default: `findMany`, `findOne`, `exists`, `createOne`, `updateOne`
 and `deleteOne` are on; `count`, `upsertOne`, the `…Many` methods and every
-plugin command are off. `rest: true` exposes every method and command,
-`rest: false` none. `define` rejects a `rest` option (ADR-0297).
+plugin command are off. `plugins.rest(true)` exposes every method and
+command, `plugins.rest(false)` none. `define` rejects a `rest` key (ADR-0297,
+ADR-0339).
 
 | Method key   | Route below the base path                               |
 | ------------ | ------------------------------------------------------- |
@@ -284,7 +285,7 @@ document is built once, on its first request.
 
 A plugin command REST can expose (request authority, one row named by `id`)
 receives a route only when the schema's rule names it, as
-`.with({ rest: { softDeleteOne: true } })`, or when the rule or the plugin
+`plugins.rest({ softDeleteOne: true })`, or when the rule or the plugin
 default is `true`. REST derives the schema-local route from the compiled
 graph:
 

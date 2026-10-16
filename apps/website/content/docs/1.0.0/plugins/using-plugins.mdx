@@ -8,7 +8,7 @@ contentType: guide
 order: 2
 outcome: Add the smallest compatible plugin set and verify its application-local behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -22,6 +22,7 @@ sources:
   - docs/adr/0279-source-typed-configured-application-authoring.md
   - docs/adr/0282-variadic-configured-plugin-installation.md
   - docs/adr/0284-configured-password-user-authoring.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Outcome
@@ -103,6 +104,15 @@ export const Task = SchemaApplication.Schema.define({
 
 Importing either package or calling its factory alone installs no behavior;
 the returned definition must enter this application's graph.
+
+Each plugin option has one place. Options about one field, such as these
+`hooks` and `validation`, stay on the field; a plugin feature that changes
+what the schema is, such as `softDelete: true`, is a key of `define`; how a
+plugin treats the whole schema, such as an Access rule or a schema Hook, is a
+method of `.with((plugins) => ...)`; and an option for the whole application
+goes to the plugin factory in `.use()`. The
+[Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)
+table lists every case.
 
 Keep every definition in this one flat ordered installation path. You can
 spread a plugin list or chain `.use()` calls; each call returns a new factory
@@ -276,28 +286,28 @@ infrastructure settings.
 
 Use one replacement for each removed form; these are migrations, not compatibility aliases:
 
-| Removed form                                             | Current form                                                                                                       |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Constructor `plugins` option                             | Install once with chained `UltimaBase.use()` calls; a plugin list can use the same `.use(...plugins)` entry point. |
-| Standalone ordinary `Schema.define(options)`             | `App.Schema.define(options)`; portable Core-only schemas use `UltimaBase.Schema.define(options)`.                  |
-| Ordinary CRUD through `application.schema(name)`         | Call the declared schema class directly, such as `Post.findMany()`.                                                |
-| Explicit application selector on ordinary class commands | Call the class after its owning application starts; it resolves and verifies the sole active application.          |
-| Generated `Application*Builder` aliases                  | Infer callback parameters, or annotate low-level consumers with Core's contextual builder types.                   |
-| Plugin options inside `define({ access, hooks, … })`     | `define({ className, fields, indexes })`, shape methods such as `.softDelete()`, then rules in a final `.with()`.  |
-| Generated declarations and `typegenPlugin()`             | None: types come from the source declarations and the application's one `Register` declaration.                    |
+| Removed form                                             | Current form                                                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Constructor `plugins` option                             | Install once with chained `UltimaBase.use()` calls; a plugin list can use the same `.use(...plugins)` entry point.  |
+| Standalone ordinary `Schema.define(options)`             | `App.Schema.define(options)`; portable Core-only schemas use `UltimaBase.Schema.define(options)`.                   |
+| Ordinary CRUD through `application.schema(name)`         | Call the declared schema class directly, such as `Post.findMany()`.                                                 |
+| Explicit application selector on ordinary class commands | Call the class after its owning application starts; it resolves and verifies the sole active application.           |
+| Generated `Application*Builder` aliases                  | Infer callback parameters, or annotate low-level consumers with Core's contextual builder types.                    |
+| Plugin options inside `define({ access, hooks, … })`     | Rules in `.with((plugins) => plugins.access(...).hooks(...))`; feature keys such as `softDelete: true` in `define`. |
+| Generated declarations and `typegenPlugin()`             | None: types come from the source declarations and the application's one `Register` declaration.                     |
 
 No schema is registered by being declared: keep `new App({ schemas: [...] })`.
 Advanced dynamically named handles remain for capabilities that need them; they
 are not the ordinary CRUD journey. Plugins may add schema factories to the
 configured application: installing Roles adds `App.RoleSchema.define(...)`,
-whose declarations end with `.with(...)` like any schema and inherit the same
+whose declarations end with `.with((plugins) => ...)` like any schema and inherit the same
 plugin configuration; installing `authPlugin` adds `App.UserSchema.define(...)`
 for the User. No additional plugin installation is required per schema.
 
 ## Next steps
 
-When removing a plugin, remove its factory, its shape methods, its `.with()`
-rules and its commands, then verify typechecking, startup and stored-data
+When removing a plugin, remove its factory, its feature keys in `define`, its
+`.with` methods and its commands, then verify typechecking, startup and stored-data
 compatibility.
 Removing a plugin does not automatically migrate its data. Core checks
 required providers, protocol compatibility, privileges, and duplicate

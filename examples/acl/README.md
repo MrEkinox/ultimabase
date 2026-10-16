@@ -1,13 +1,13 @@
 # ACL example
 
 A small notebook backend that shows the official ACL plugin end to end:
-`.acl()` and its required `default`, private notes owned by their creator,
+`acl: true` in `define` and its required `default`, private notes owned by their creator,
 atomic `grant` and `revoke` sharing, `clientSharing` and its no-escalation
 guard, `select: { acl: true }` and `acl.entries()`, schema `limits`, a fixed
 ACL with public and role entries, `resolveInput`, complete ACLs written by
 Master, ACL combined with Access rules and Roles, immutable ACL values and
 their JSON, and committed ACL change events. It uses the declaration form
-(ADR-0297) without generated files and is tested with `testApplication`
+(ADR-0297, ADR-0339) without generated files and is tested with `testApplication`
 (ADR-0327).
 
 The [ACL page](../../apps/website/content/docs/1.0.0/plugins/official/acl-permissions.mdx)

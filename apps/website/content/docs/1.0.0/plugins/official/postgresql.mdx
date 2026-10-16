@@ -9,7 +9,7 @@ contentType: guide
 order: 3
 outcome: Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/postgres/README.md
   - examples/postgres/src/database.ts
@@ -43,6 +43,7 @@ sources:
   - packages/postgres-plugin/src/connection/settings.ts
   - packages/postgres-plugin/src/synchronization/safety.ts
   - packages/postgres-plugin/src/naming.ts
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
@@ -182,9 +183,10 @@ production.
 PostgreSQL derives a plural `snake_case` table name from `className`
 (`StaffMember` → `staff_members`) and a `snake_case` column from each field
 (`createdAt` → `created_at`). Queries, results, and errors keep the field
-names. The `postgres` rule of `.with` chooses an exact table identifier, and
-the stored-field `postgres.renamedFrom` names the previous column for a
-data-preserving rename:
+names. The `plugins.postgres({ table })` rule of `.with` chooses an exact
+table identifier, and the stored-field `postgres.renamedFrom` names the
+previous column for a data-preserving rename (the schema's `indexes` stay in
+`define`, see [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)):
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/postgres/src/schema.ts#article

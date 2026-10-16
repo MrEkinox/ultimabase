@@ -8,7 +8,7 @@ contentType: guide
 order: 4
 outcome: Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/graphql/README.md
   - examples/graphql/src/schema.ts
@@ -52,6 +52,7 @@ sources:
   - docs/adr/0312-environment-dependent-plugin-defaults.md
   - docs/adr/0325-graphql-explorer-and-api-server-preset.md
   - docs/adr/0333-graphql-hidden-schemas-stay-hidden.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
@@ -129,9 +130,10 @@ operation:
 | `schemas`      | Completed custom `GraphQLSchema` values composed after the generated surface. |
 | `sdl`          | A file the schema's SDL is written to at startup.                             |
 
-The schema's `.with({ graphql })` rule selects its generated fields; it is
-typed by the installed plugin, with no generation step, and goes in the final
-`.with(...)`, never in `define`. Schema declaration does not register it;
+The schema's `plugins.graphql(...)` rule selects its generated fields; it is
+typed by the installed plugin, with no generation step, and goes in
+`.with((plugins) => ...)`, never in `define` (see
+[Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). Schema declaration does not register it;
 `schemas: [...]` does:
 
 <include cwd meta='title="src/ultimabase.ts"'>
@@ -187,7 +189,7 @@ The rule keys are the schema method names, the same as REST and Access rules
 `exists`, `createOne`, `updateOne`, `deleteOne`, `upsertOne`, `createMany`,
 `updateMany`, `deleteMany`, `upsertMany`, a plugin command such as
 `softDeleteOne`, and `typeName`, which renames the generated type.
-`graphql: true` enables **every** generated root and command, including count,
+`plugins.graphql(true)` enables **every** generated root and command, including count,
 upsert, and bulk. An object enables or disables each method it names; omitted
 methods inherit `graphqlPlugin({ default })`, then the built-in defaults. A
 plugin command is exposed only when a rule names it, or when the rule or the
@@ -209,7 +211,7 @@ authors, and write comments through their post:
 	../../examples/graphql/src/schema.ts#comment
 </include>
 
-`graphql: false` removes one schema's root fields and mutations (ADR-0333).
+`plugins.graphql(false)` removes one schema's root fields and mutations (ADR-0333).
 A schema without any exposed root or command contributes types only where an
 exposed schema reaches it: through a pointer or relation field of an exposed
 type, or a nested write input, transitively. `AuditEntry` holds its link to a
@@ -229,7 +231,7 @@ and introspection answers `null` for `__type(name: "AuditEntry")`:
 A hidden schema that an exposed relation or pointer does reach keeps only the
 types those fields need (its object type, plus the connection, filters and
 nested write inputs they use), and Access still decides every read and nested
-write through them, as REST's `rest: false` keeps links and includes. To keep
+write through them, as REST's `plugins.rest(false)` keeps links and includes. To keep
 such a link out of GraphQL, declare it on the hidden schema, as
 `AuditEntry.post` does. An Access field rule such as
 `access: { read: false, write: false }` denies the field, like
@@ -410,7 +412,7 @@ An empty `text` fails the validator with `VALIDATION_ERROR` and its issues in
 
 [Soft Delete](./soft-delete) contributes schema-specific `softDeleteOnePost`
 and `restoreOnePost` mutations when the rule names them
-(`graphql: { softDeleteOne: true }`). Custom GraphQL schemas add other root
+(`plugins.graphql({ softDeleteOne: true })`). Custom GraphQL schemas add other root
 fields: pass completed `GraphQLSchema` values, from the reference `graphql`
 package, Pothos, Nexus or GraphQL Tools, through `graphqlPlugin({ schemas })`:
 

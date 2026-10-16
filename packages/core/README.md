@@ -37,10 +37,13 @@ Detailed guides remain focused by domain:
 ## Declare schemas
 
 [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) defines the
-only declaration form; no type generation step exists. Data goes in `define`
-(`className`, `fields`, `indexes` only), relation targets
-are thunks, plugins add callback-free shape methods, and a final non-generic
-`.with` carries the rules of the installed plugins. The tested
+only declaration form; no type generation step exists, and
+[ADR-0339](../../docs/adr/0339-define-describes-with-configures.md) splits it
+in two blocks. `define` describes what the schema is, with static values only:
+`className`, `fields`, `indexes`, and the feature keys of the installed
+plugins (`softDelete: true`, `acl: true`). Relation targets are thunks. A
+final non-generic `.with((plugins) => ...)` configures how each plugin treats
+the schema: `plugins` offers one method per installed rule, callable once. The tested
 [modeling example](../../examples/modeling/README.md), a bookshop, shows the
 form; its only plugin is the database:
 
@@ -134,11 +137,11 @@ export const Book = App.Schema.define({
 
 <!-- endregion -->
 
-A final `.with` carries the rules; `relations` is a Core rule that filters
-reads through a relation (ADR-0328). A plugin shape method, such as
-`.softDelete()` in the [Soft Delete example](../../examples/soft-delete/README.md),
-goes between `define(...)` and `.with(...)`. `Customer` reuses one embedded
-shape twice:
+`.with` carries the rules; `plugins.relations(...)` is a Core rule that
+filters reads through a relation (ADR-0328). A plugin feature, such as
+`softDelete: true` in the [Soft Delete example](../../examples/soft-delete/README.md),
+is a key of `define`, and the `indexes` of `define` may name the fields it
+adds. `Customer` reuses one embedded shape twice:
 
 <!-- region ../../examples/modeling/src/address.ts#address -->
 
@@ -230,34 +233,42 @@ declare module '@ultimabase/core' {
   captures the thunk type without resolving it, so schemas in separate files
   may reference each other. `mappedBy` of a thunk target is checked when the
   application is constructed.
-- Plugins contribute shape methods through `provideSchemaShapeMethods` and
-  `.with` entries through `PluginSchemaRulesSource`; Core never names them.
-  `.with` must be the last call. `define` returns a `DeclaredSchema`.
-- Shape methods are generic over their arguments, and the chain records the
-  methods called with their arguments (`{ softDelete: readonly [] }`). Plugins
-  type what a schema gains through higher-kinded slots that Core evaluates
-  against that record (ADR-0316): `SchemaFieldsHKT` returns the added fields
-  (never reading the schema, so no cycle), `SchemaStaticsHKT` the added
-  statics, typed with `SchemaCommands<this['schema'], { … }>`, and
-  `SchemaRulesHKT` the `.with` entries, which replace plugin options in form D.
-  A rules slot also reads `this['shape']`, so a rule can be required once its
-  shape method is called (ACL's `acl.default`, ADR-0321). Schema-level plugin
-  options project no type of their own: a plugin types its `.with` entries
-  through its rules slot. `definePlugin` from `@ultimabase/plugin-kit` writes
-  these slots for the common cases.
+- Plugins contribute features (keys of `define`) through
+  `provideSchemaFeatures` and `PluginSchemaFeatureSource`, and rules (methods
+  of `.with`) through `provideSchemaRules` and `PluginSchemaRulesSource`; Core
+  generates the `plugins` methods from the declared rule names, plus its own
+  `relations`, and never names a plugin. `className`, `fields`, `indexes`,
+  `relations` and `with` are reserved. `.with` must be the last call.
+  `define` returns a `DeclaredSchema`.
+- `define` records the features it sets (`this['shape']`). Plugins type what a
+  schema gains through higher-kinded slots that Core evaluates against that
+  record (ADR-0316): `SchemaFieldsHKT` returns the added fields (never reading
+  the schema, so no cycle), `SchemaStaticsHKT` the added statics, typed with
+  `SchemaCommands<this['schema'], { … }>`, and `SchemaRulesHKT` the `.with`
+  methods, typed against the completed schema. A rules slot also reads
+  `this['shape']`, so a rule may be offered only with its feature, and a
+  feature declares the rules it requires (`SchemaFeature<…, 'acl'>` and
+  `requires: ['acl']`): ACL's `acl: true` requires `plugins.acl({ default })`
+  (ADR-0321), checked on what the `.with` callback returns, at
+  `new App({ schemas })` for a declaration without `.with`, and when the
+  application compiles. Schema-level plugin options project no type of their
+  own. `definePlugin` from `@ultimabase/plugin-kit` writes these slots for the
+  common cases.
 - `SchemaFactoriesHKT` and `provideSchemaFactories` add schema factories to
   the configured application, such as `App.RoleSchema` (ADR-0322). A
-  factory receives `define(options, statics)`: the same declaration chain as
-  `App.Schema.define`, with `statics` bound to every class it creates, and
+  factory receives `define(options, statics)`: the same declaration as
+  `App.Schema.define` (`indexes` and feature keys included), with `statics`
+  bound to every class it creates, and
   starts its declarations with `DeclaredSchemaShape<SchemaFactoryShape<'Name'>>`
   so its statics slot recognizes them.
 - The `Register` declaration gives name-keyed types (`Model<'Todo'>`,
   `Item<'Todo'>`, `CreateInput<'Todo'>`, `Where<'Todo'>`, `Select<'Todo'>`).
   ADR-0297 makes it required.
 
-`define(...)` rejects any other option, at runtime as in the editor:
-`Unknown schema option: access. define() takes className, fields and indexes;
-plugin rules go in the final .with(...) (ADR-0297)`.
+`define(...)` rejects any other key, in the editor
+(`access is not a key of define(): use className, fields, indexes, …`, the
+list ending with the installed features) and at runtime
+(`Unknown schema option: access`).
 
 ## Static schema compilation and relationship targets
 
@@ -526,10 +537,14 @@ export const workflowPlugin = plugin({
 })
 ```
 
-The option is written in the schema's final `.with({ workflow: { enabled: true } })`;
-the plugin types that entry through a rules slot (`SchemaRulesHKT`), and a
-field the patch adds through a fields slot (`SchemaFieldsHKT`): patches and
-schema-level option definitions project no type of their own (ADR-0297).
+Because the option adds a field, the application sets it as a feature key of
+`define` (`workflow: { enabled: true }`) once the plugin attaches it with
+`provideSchemaFeatures`; the plugin types the field the patch adds through a
+fields slot (`SchemaFieldsHKT`). An option that only configures behaviour is a
+rule instead: `provideSchemaRules(instance, ['workflow'])` offers
+`plugins.workflow(...)` in `.with`, typed through a rules slot
+(`SchemaRulesHKT`). Patches and schema-level option definitions project no
+type of their own (ADR-0297, ADR-0339).
 
 Use `schemas.add(...)` when the plugin supplies the schema class. Use
 `schemas.claim({ contributionId, schema })` when application code supplies the
@@ -568,7 +583,8 @@ use `defineFieldOption({ contexts, ... })` and must explicitly list every
 `stored`, `embedded`, `virtual`, or `output` location where their behavior can
 execute. A field option's returned declaration receipt projects its exact
 normalized source type only through configured factories that install the
-plugin; schema-scoped options are typed by the plugin's `.with` rules slot. No
+plugin; schema-scoped options are typed by the plugin's features and `.with`
+rules slot. No
 ambient augmentation is required. Unused
 definitions remain absent and therefore cannot create application-wide
 TypeScript conflicts. JavaScript and stale declarations pass through the same
@@ -1260,8 +1276,8 @@ one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
 update input, validation values, or an ordinary result without `include`.
 
-A relation may define one target-typed read subset in the final
-`.with({ relations })`, keyed by relation field name (ADR-0328). `.with`
+A relation may define one target-typed read subset with `plugins.relations(...)`
+in `.with`, keyed by relation field name (ADR-0328). `.with`
 receives the complete schemas, so two schemas may filter each other's
 relations. The static form uses the same portable filter vocabulary as an
 ordinary target Query. The contextual form receives only the immutable request
@@ -1272,16 +1288,18 @@ rule of the minimal example's `ExampleArticle` uses both:
 <!-- region ../../examples/minimal/src/schema.ts#relation-views -->
 
 ```ts
-.relations({
-	contributors: { where: { listed: { eq: true } } },
-	// Anonymous requests see only public reviewers.
-	reviewers: {
-		where: ({ context, where }) =>
-			context.getValue(authPrincipal) === undefined
-				? where.eq('audience', 'public')
-				: where,
-	},
-})
+plugins
+	// Narrows every read through these relation fields (ADR-0328).
+	.relations({
+		contributors: { where: { listed: { eq: true } } },
+		// Anonymous requests see only public reviewers.
+		reviewers: {
+			where: ({ context, where }) =>
+				context.getValue(authPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
+		},
+	})
 ```
 
 <!-- endregion -->
@@ -2080,9 +2098,9 @@ member per target Runtime accepts, `{ id }`, each field declared
 `null`, and a member names no other unique key. A non-unique field, a partial
 composite index or an extra filter fails to compile; Runtime still checks the
 target, since untyped transports reach it, and accepts the same targets.
-Unique indexes declared in the final `.with` (the declaration form types the
-schema without reading `.with`), partial unique indexes and unique indexes a
-plugin adds with `addSchemaIndex` are storage indexes, not targets: an untyped
+A complete unique index of `define` is a target even when it names a field a
+feature adds. Partial unique indexes and unique indexes a plugin adds with
+`addSchemaIndex` are storage indexes, not targets: an untyped
 call that targets one fails with `… must match id, a unique field or one
 non-partial unique index of define`.
 `orderBy` keys are limited the same way to non-list scalar and enum fields of
@@ -2293,7 +2311,7 @@ refused when no policy answers (fail-closed). Asking about a permission the
 schema does not declare is a programming error. Rule plugins discover the
 declared names at the type level through `SchemaPermissions` and
 `PluginSourceSchemaPermissions`, and through `SchemaRulesSource` for a
-registered `SchemaRef` in `.with`; `definePlugin` shape methods declare
+registered `SchemaRef` in `.with`; `definePlugin` features declare
 them with `permissions: ['readArchived']`.
 
 The official Access plugin compiles its package-owned declarations into
@@ -2597,8 +2615,8 @@ the transport helpers such as `transformQueryFilterInput()`.
 `plugin()` infers the plugin's static source from its contributions; a facade
 that knows it better passes it as the last type argument instead of re-typing
 the result. `readSchemaRules(schema, owner)` returns the values a compiled
-schema gave to the options one plugin declared, `.with` rules and shape-method
-arguments alike, and nothing of other plugins:
+schema gave to the options one plugin declared, `.with` rules and feature
+options alike, and nothing of other plugins:
 
 ```ts twoslash
 import {

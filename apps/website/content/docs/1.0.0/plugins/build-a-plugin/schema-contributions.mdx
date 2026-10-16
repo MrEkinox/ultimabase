@@ -1,12 +1,12 @@
 ---
 title: Schema Contributions
-description: Add plugin-owned shape methods, rules, fields, and schema factories that applications type directly from source.
+description: Add plugin-owned features, rules, fields, and schema factories that applications type directly from source.
 audience:
   - plugin-author
 contentType: guide
 outcome: Choose a schema contribution and type its fields, rules, and commands from the plugin source.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/plugin-authoring/README.md
   - examples/plugin-authoring/src/schema.ts
@@ -33,39 +33,42 @@ sources:
   - docs/adr/0316-plugin-facade-and-projection-slots.md
   - docs/adr/0321-acl-shape-sharing-and-backfill.md
   - docs/adr/0322-roles-schema-factory-and-queries.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Outcome
 
 Extend a schema without changing Core or patching an exported schema class.
-An application declares each schema in one chain: data in
-`App.Schema.define({ className, fields, indexes })`, then the shape methods of
-the installed plugins, such as `.softDelete()`, then one optional final
-`.with({ ... })` holding their rules (ADR-0297). Your plugin types every part
-of that chain from its own source through Core's projection slots (ADR-0316).
+An application declares each schema in two blocks: what the schema is in
+`App.Schema.define({ className, fields, indexes, ... })`, including the
+feature keys of the installed plugins such as `softDelete: true`, then how
+each plugin treats it in one optional `.with((plugins) => ...)` holding their
+rules (ADR-0297, ADR-0339). Your plugin types both blocks from its own source
+through Core's projection slots (ADR-0316).
 There is no generation step and no generated file, and the same declarations
 compile at Runtime, so JavaScript applications get the same behavior.
 
 ## Prerequisites
 
 - Complete [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin) and know its stable plugin identity.
-- Read [Schemas](/docs/1.0.0/core/data-modeling/schemas#plugin-methods-and-rules)
+- Read [Schemas](/docs/1.0.0/core/data-modeling/schemas#plugin-features-and-rules)
   and [Fields](/docs/1.0.0/core/data-modeling/fields) for the declaration
-  chain your plugin extends.
+  your plugin extends, and [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules)
+  to decide whether an option is a feature or a rule.
 
 ## Choose the schema contribution
 
-| Requirement                                        | Public declaration boundary                                                       | Typed for the application by                    |
-| -------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------- |
-| A shape method with fields and commands, or a rule | `definePlugin()` with `shapeMethod()` and `rules`                                 | `definePlugin`, from the same object            |
-| A `.with` rule in a raw plugin                     | `schemas.defineOptions()` with `defineSchemaOption()`                             | A rules slot: `SchemaRulesHKT`                  |
-| A shape method in a raw plugin                     | `provideSchemaShapeMethods()`, plus `schemas.select()` and `schemas.patch()`      | `PluginSchemaShapeSource` and `SchemaFieldsHKT` |
-| Commands added to the schema class                 | `defineSchemaMutation()` and `contributeSchemaMutation()`                         | A statics slot: `SchemaStaticsHKT`              |
-| A field option                                     | `schemas.defineOptions()` with `definePluginFieldOption()` or `defineFieldOption` | The installed option definition                 |
-| A field kind or contextual builder method          | `definePluginField()`, `definePluginFieldFamily()` and `fields.register()`        | The registered family                           |
-| A schema factory such as `App.RoleSchema`          | `provideSchemaFactories()`                                                        | `SchemaFactoriesHKT`                            |
-| An application-local schema, or an owned one       | `schemas.add()`, `schemas.claim()`                                                | The schema's own declaration                    |
-| A field, index, or option value on selected rows   | `schemas.select()` and `schemas.patch()`                                          | Nothing: patches change the Runtime schema only |
+| Requirement                                      | Public declaration boundary                                                       | Typed for the application by                      |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------- |
+| A feature with fields and commands, or a rule    | `definePlugin()` with `features`, `feature()` and `rules`                         | `definePlugin`, from the same object              |
+| A `.with` rule in a raw plugin                   | `schemas.defineOptions()` with `defineSchemaOption()`, `provideSchemaRules()`     | A rules slot: `SchemaRulesHKT`                    |
+| A feature in a raw plugin                        | `provideSchemaFeatures()`, plus `schemas.select()` and `schemas.patch()`          | `PluginSchemaFeatureSource` and `SchemaFieldsHKT` |
+| Commands added to the schema class               | `defineSchemaMutation()` and `contributeSchemaMutation()`                         | A statics slot: `SchemaStaticsHKT`                |
+| A field option                                   | `schemas.defineOptions()` with `definePluginFieldOption()` or `defineFieldOption` | The installed option definition                   |
+| A field kind or contextual builder method        | `definePluginField()`, `definePluginFieldFamily()` and `fields.register()`        | The registered family                             |
+| A schema factory such as `App.RoleSchema`        | `provideSchemaFactories()`                                                        | `SchemaFactoriesHKT`                              |
+| An application-local schema, or an owned one     | `schemas.add()`, `schemas.claim()`                                                | The schema's own declaration                      |
+| A field, index, or option value on selected rows | `schemas.select()` and `schemas.patch()`                                          | Nothing: patches change the Runtime schema only   |
 
 Schema declarations need the `schema:declare` privilege, and schema commands
 `operation:declare` and `model:extend`; Core derives each one from the
@@ -75,7 +78,7 @@ graph. Patches are additive: they cannot replace, rename, or remove existing
 facts, and an option setter rejects an already present value. A patch or a
 `models.extend()` selection changes the compiled schema at Runtime but adds
 nothing to the application's types: when developers should see a field or a
-command, offer it through a shape method. Plugin-owned schemas are not
+command, offer it through a feature. Plugin-owned schemas are not
 automatically public REST or GraphQL schemas.
 
 Use `schemas.claim({ contributionId, schema })` when the developer owns the
@@ -85,7 +88,7 @@ missing class implicitly and cannot duplicate the plugin's own `schemas.add()`.
 
 ## Start with `definePlugin`
 
-Most schema contributions are a shape method that adds server-written fields
+Most schema contributions are a feature that adds server-written fields
 and commands, or a rule read after commit. `definePlugin` from
 `@ultimabase/plugin-kit` declares both from one object and writes every slot
 below for you; [Start Here](/docs/1.0.0/plugins/build-a-plugin#or-declare-it-with-defineplugin)
@@ -97,8 +100,9 @@ factory, here with the `auditPlugin` of the same page and the raw
 	../../examples/plugin-authoring/src/schema.ts#factory
 </include>
 
-A schema then calls the shape method, and sets in its final `.with(...)` the
-`audit` rule and the REST and GraphQL method keys that expose `archiveOne`:
+A schema then sets the feature key `archivable: true` in `define`, and calls
+in its `.with` callback the `audit` rule and the REST and GraphQL rules that
+expose `archiveOne`:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/plugin-authoring/src/schema.ts#post
@@ -106,7 +110,7 @@ A schema then calls the shape method, and sets in its final `.with(...)` the
 
 `Post` gains `archivedAt` in its results, which create and update input
 reject, and the `archiveOne` and `archiveMany` commands; a schema without
-`.archivable()` gains neither:
+`archivable` gains neither:
 
 <include cwd meta='title="tests/schema-contributions.test.ts"'>
 	../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one
@@ -118,24 +122,27 @@ input.
 
 ## Type a rule with a rules slot
 
-A rule is a schema option that the application writes in `.with({ ... })`.
-Core rejects it in `define` with
-`Unknown schema option: <name>. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)`.
-Declare the option once with `schemas.defineOptions()`, then type it through
-a rules slot: an interface extending `SchemaRulesHKT` whose `rules` member is
-the `.with` entry. The slot reads `this['schema']`, the configured schema, so
-a rule may be typed against its fields (as Access, Hooks and Validation do),
-and `this['shape']`, the shape methods already called, so a rule may appear
-or become required only after its method (ACL's `acl.default`, ADR-0321).
+A rule is a schema option that the application sets with a method of
+`plugins` in `.with((plugins) => ...)`. `define` rejects it as an unknown key,
+in TypeScript and at runtime (`Unknown schema option: <name>`). Declare the
+option once with `schemas.defineOptions()`, give its name to
+`provideSchemaRules(instance, names)` so that `plugins` offers the method, then
+type it through a rules slot: an interface extending `SchemaRulesHKT` whose
+`rules` member is the `.with` entry. The slot reads `this['schema']`, the
+configured schema, so a rule may be typed against its fields (as Access, Hooks
+and Validation do), and `this['shape']`, the features `define` sets, so a rule
+may appear only with its feature. A feature that needs a rule declares it as
+required, as ACL's `acl: true` requires `plugins.acl({ default })` (ADR-0321);
+see [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules#a-feature-may-require-a-rule).
 
-This raw plugin adds a `.flaggable()` shape method that gives a schema a
-server-written `flagged` field, and a `flagReason` rule offered only after it:
+This raw plugin adds a `flaggable` feature that gives a schema a
+server-written `flagged` field, and a `flagReason` rule offered only with it:
 
 <include cwd meta='title="src/flag-plugin.ts"'>
 	../../examples/plugin-authoring/src/flag-plugin.ts#flag-plugin
 </include>
 
-The application uses the method and the rule like any official plugin's,
+The application uses the feature and the rule like any official plugin's,
 with `flagPlugin()` in the factory shown above:
 
 <include cwd meta='title="src/schema.ts"'>
@@ -146,8 +153,8 @@ with `flagPlugin()` in the factory shown above:
 indexes `flagged` with `createdAt`; create and update input reject it, because
 `mutationInput: 'forbidden'` reserves the field for the plugin's own effects
 while keeping it readable and persisted. It is not a permission rule for
-reading the field. `.with({ flagReason })` without `.flaggable()` is a type
-error, and the shape method is unavailable once called. At Runtime the plugin
+reading the field. `plugins.flagReason(...)` without `flaggable: true` is a
+type error, and each `plugins` method can be called once. At Runtime the plugin
 reads a schema's rules with `readSchemaRules(schema, owner)` from
 `@ultimabase/core/plugin`, which returns only the options that plugin declared.
 
@@ -162,7 +169,7 @@ additions and patches; later contributions cannot make that selection grow.
 
 ### Add commands to the schema class
 
-A statics slot types the commands a shape method adds: an interface
+A statics slot types the commands a feature adds: an interface
 extending `SchemaStaticsHKT` whose `statics` member uses
 `SchemaCommands<this['schema'], { archiveOne: typeof archive }>`, so each
 command's `select` and result follow the configured schema. Declare the
@@ -208,9 +215,10 @@ A plugin that owns a kind of schema, such as Roles with `App.RoleSchema` or
 authentication with `App.UserSchema`, adds a schema factory to the configured
 application through `provideSchemaFactories()`, typed by a
 `SchemaFactoriesHKT` slot (ADR-0322). A factory receives
-`define(options, statics)`: the same declaration chain as `App.Schema.define`,
+`define(options, statics)`: the same declaration as `App.Schema.define`,
 with `statics` bound to every class it creates, so its declarations take the
-same shape methods and final `.with` as any schema.
+same `indexes`, feature keys and `.with` rules as any schema. The factory's
+own behaviour options are a rule too, as Roles offers `plugins.roles(...)`.
 
 If the package must instead expose one final schema class of its own, use the
 low-level Core boundary `Schema.defineSpecialized(options, createStatics)`.
@@ -232,14 +240,13 @@ operation or schema declaration for work that needs to execute it.
 ## Verify
 
 Compile the application graph with and without your plugin. With the plugin,
-confirm the field or option appears only on the schemas that call the shape
-method and that its provenance names your contribution. Typecheck a consumer
-of the packed package: the shape method, the `.with` rule, the added fields,
+confirm the field or option appears only on the schemas that set the feature
+and that its provenance names your contribution. Typecheck a consumer
+of the packed package: the feature key, the `.with` rule, the added fields,
 and the commands must offer the same completions, hovers, signatures, and
 diagnostics as from source. Check the misuses too: a rule passed to `define`,
-a rule written before its shape method, and a rule whose plugin is not
-installed must each fail, as the example's `tests/schema-misuse.test.ts`
-checks.
+a rule without its feature, and a rule whose plugin is not installed must
+each fail, as the example's `tests/schema-misuse.test.ts` checks.
 
 Run the `@ultimabase/testing/plugins` conformance suite for the generic
 repeatability check, then add a focused assertion for the field, rule, or

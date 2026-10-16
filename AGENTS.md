@@ -73,7 +73,7 @@ Proposed directions live in [ROADMAP.md](ROADMAP.md).
   `skipHooks`.
 - Do not restore [removed powers](docs/engineering/agent-domain-rules.md#removed-extension-and-migration-powers)
   without an ADR.
-- Schemas use only the declaration form of [ADR-0297](docs/adr/0297-declare-schemas-without-typegen.md): `define({ className, fields, indexes })`, shape methods, a final `.with(...)` and the `Register` line. Read the [retained typing boundaries](docs/current-architecture.md#retained-typing-boundaries) before inference work, and measure editor cost with the form D bench (`examples/schema-form-d`) on TypeScript 6 and 7.
+- Schemas use only the declaration form of [ADR-0297](docs/adr/0297-declare-schemas-without-typegen.md) and [ADR-0339](docs/adr/0339-define-describes-with-configures.md): `define({ className, fields, indexes, ...features })` with static values, a final `.with((plugins) => ...)` for plugin rules and the `Register` line. Read the [retained typing boundaries](docs/current-architecture.md#retained-typing-boundaries) before inference work, and measure editor cost with the form D bench (`examples/schema-form-d`) on TypeScript 6 and 7.
 
 ## Code quality
 

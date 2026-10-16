@@ -6,7 +6,7 @@ audience:
 contentType: concept
 outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/validation/README.md
   - examples/validation/src/schema.ts
@@ -28,12 +28,13 @@ sources:
   - packages/validation-plugin/tests/e2e/validation-rules.postgres.e2e.test.ts
   - docs/adr/0223-optional-field-validation-plugin.md
   - docs/adr/0319-validation-transforms-schema-checks-and-issues.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
 
 `@ultimabase/validation-plugin` adds application validation: a `validation`
-option on fields, a schema check in `.with({ validation })`, and `check()` to
+option on fields, a schema check in `.with((plugins) => plugins.validation(...))`, and `check()` to
 validate data without writing. Core always enforces requiredness, nullability,
 canonical value shapes, defaults, immutable fields, and database integrity;
 this plugin adds application rules on top. Importing the package alone does
@@ -72,7 +73,8 @@ neither:
 </include>
 
 A field validator is a Standard Schema validator (Zod, Valibot, ArkType…) or
-a function. A schema check, in the final `.with()`, sees the complete item:
+a function. A schema check, `plugins.validation(...)` in `.with`, sees the
+complete item:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/validation/src/schema.ts#event
@@ -93,7 +95,8 @@ start it from a separate entry point:
 
 `validationPlugin()` takes no options. Types come from the schema itself,
 without generated files. `define` takes no `validation` option: the schema
-rule belongs in the final `.with()`, and field rules stay on their fields.
+rule belongs in `.with((plugins) => plugins.validation(...))`, and field rules
+stay on their fields (see [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)).
 
 A Standard Schema validator must accept the field's value (its input may also
 accept `null`, so a form schema can be reused) and return a value the field

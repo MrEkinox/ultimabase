@@ -8,7 +8,7 @@ audience:
 contentType: concept
 outcome: Choose and configure the right Hook phase for input, mutation, or post-commit behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/hooks/README.md
   - examples/hooks/src/schema.ts
@@ -42,6 +42,7 @@ sources:
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
   - docs/adr/0318-hooks-data-phases-and-post-commit-delivery.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
@@ -91,8 +92,9 @@ how a client sees a Hook's error:
 `sendMessage` is the example's stand-in for an e-mail or webhook client
 (`src/effects.ts`): like a real one, it answers after a network round trip.
 
-Declare schema Hooks in the final `.with({ hooks })` of a schema and field Hooks
-on the field. The example's `Post` trims titles, derives a slug from the data,
+Declare schema Hooks with `plugins.hooks({ … })` in the `.with` callback of a
+schema and field Hooks on the field (see
+[Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). The example's `Post` trims titles, derives a slug from the data,
 prevents changes to a published title, records title changes in the same
 transaction, and sends messages once the transaction has committed. Its
 `author` and `tags` point to two one-field schemas:
@@ -127,7 +129,7 @@ disposes it after pending after-commit work:
 </include>
 
 Hook types come from the schema itself, without generated files. `define`
-takes no `hooks` option: schema Hooks belong in the final `.with()`.
+takes no `hooks` option: schema Hooks belong in `.with((plugins) => plugins.hooks({ … }))`.
 
 ## Behavior and limitations
 

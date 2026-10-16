@@ -297,7 +297,20 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 	softDelete: { mode: 'command' },
 	acl: true,
 }).with((plugins) =>
+	//#region relation-views
 	plugins
+		// Narrows every read through these relation fields (ADR-0328).
+		.relations({
+			contributors: { where: { listed: { eq: true } } },
+			// Anonymous requests see only public reviewers.
+			reviewers: {
+				where: ({ context, where }) =>
+					context.getValue(authPrincipal) === undefined
+						? where.eq('audience', 'public')
+						: where,
+			},
+		})
+		//#endregion relation-views
 		.access({
 			create: true,
 			delete: true,
@@ -348,18 +361,6 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 				},
 			},
 		})
-		//#region relation-views
-		.relations({
-			contributors: { where: { listed: { eq: true } } },
-			// Anonymous requests see only public reviewers.
-			reviewers: {
-				where: ({ context, where }) =>
-					context.getValue(authPrincipal) === undefined
-						? where.eq('audience', 'public')
-						: where,
-			},
-		})
-		//#endregion relation-views
 		.rest(true),
 )
 
