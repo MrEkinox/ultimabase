@@ -424,6 +424,21 @@
 				"packages/postgres-plugin/README.md",
 				"examples/modeling/README.md"
 			]
+		},
+		{
+			"path": "/docs/1.0.0/project-layout",
+			"slug": "project-layout",
+			"contentType": "concept",
+			"outcome": "Place plugins, schemas and the application in the files that keep every schema module loadable.",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"examples/README.md",
+				"examples/modeling/src/app.ts",
+				"packages/create-app/src/base-template.ts",
+				"packages/core/src/plugins/graph.ts"
+			]
 		}
 	]
 }

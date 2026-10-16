@@ -15,7 +15,8 @@ sources:
   - packages/hooks-plugin/README.md
   - packages/validation-plugin/README.md
   - packages/postgres-plugin/README.md
-  - examples/minimal/src/schema.ts
+  - examples/modeling/src/app.ts
+  - examples/full-stack/src/app.ts
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
@@ -35,7 +36,8 @@ the application that installs these plugins.
 ## Prerequisites
 
 - Complete Manual Installation with its disposable PostgreSQL database and
-  `src/schema.ts`, `src/ultimabase.ts`, and `src/main.ts` files.
+  its `src/app.ts`, `src/schemas/task.ts`, `src/ultimabase.ts`, and
+  `src/main.ts` files.
 - Field Hooks and Validation options are typed directly from the configured
   application factory: no generation step or generated declaration is needed,
   and JavaScript applications run the same plugins.
@@ -72,24 +74,57 @@ yarn add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 pnpm add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 ```
 
-### Configure the application with plugins
+### Add the plugins to the factory
 
-Build one immutable schema application factory by passing schema-authoring
-plugins to `.use()`. Define Task from that factory so field Hooks and
-Validation are available directly from the installed plugin set:
+Add Hooks and Validation to the one plugin list in `app.ts`, beside the
+PostgreSQL provider from Manual Installation. The factory stays in this one
+module, which still imports no schema (see [Project Layout](/docs/1.0.0/project-layout)):
 
-```ts twoslash title="src/schema.ts"
+```ts twoslash title="src/app.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
-import { z } from 'zod'
 
-export const SchemaApplication = UltimaBase.use(
+export const App = UltimaBase.use(
 	hooksPlugin(),
 	validationPlugin(),
+	postgresPlugin(),
 )
+```
 
-export const Task = SchemaApplication.Schema.define({
+Importing either package or calling its factory alone installs no behavior;
+the returned definition must enter this application's graph. The order inside
+`use()` does not matter: Core starts each plugin after the plugins it depends
+on. You can also spread a plugin list; each `.use()` call returns a new
+factory and leaves its parent unchanged, and the application constructor
+takes no `plugins` option.
+
+### Use the plugin options
+
+`Task` is declared from `App`, so the field options of the installed plugins
+are available directly. The Hook trims the title before the final field
+validator runs, so Zod receives the trimmed title:
+
+```ts twoslash title="src/schemas/task.ts"
+// @filename: app.ts
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+
+export const App = UltimaBase.use(
+	hooksPlugin(),
+	validationPlugin(),
+	postgresPlugin(),
+)
+// @filename: schemas/task.ts
+// ---cut---
+import { z } from 'zod'
+
+import { App } from '../app.ts'
+
+export const Task = App.Schema.define({
 	className: 'Task',
 	fields: (f) => ({
 		done: f.boolean({ default: false }),
@@ -102,8 +137,8 @@ export const Task = SchemaApplication.Schema.define({
 })
 ```
 
-Importing either package or calling its factory alone installs no behavior;
-the returned definition must enter this application's graph.
+`src/ultimabase.ts` does not change: it still creates the application from
+`App` with `schemas: [Task]`.
 
 Each plugin option has one place. Options about one field, such as these
 `hooks` and `validation`, stay on the field; a plugin feature that changes
@@ -114,67 +149,16 @@ goes to the plugin factory in `.use()`. The
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)
 table lists every case.
 
-Keep every definition in this one flat ordered installation path. You can
-spread a plugin list or chain `.use()` calls; each call returns a new factory
-and leaves its parent unchanged. The application constructor takes no
-`plugins` option. Use `dependencies` when another
-plugin must exist and start first, `optionalDependencies` for that order only
-when it is installed, `peers` for compatible identity without ordering, and a
-versioned capability when several providers can supply the required behavior.
+Use `dependencies` when another plugin must exist and start first,
+`optionalDependencies` for that order only when it is installed, `peers` for
+compatible identity without ordering, and a versioned capability when several
+providers can supply the required behavior.
 
-### Add the database provider
-
-Extend the same factory in `ultimabase.ts` with the PostgreSQL provider from
-Manual Installation; do not repeat Hooks or Validation. `postgresPlugin()`
-still reads `DATABASE_URL` when the application starts. The Hook runs before
-the final field validator, so Zod receives the trimmed title:
-
-```ts twoslash title="src/ultimabase.ts"
-// @filename: schema.ts
-import { UltimaBase } from '@ultimabase/core'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
-import { z } from 'zod'
-
-export const SchemaApplication = UltimaBase.use(
-	hooksPlugin(),
-	validationPlugin(),
-)
-
-export const Task = SchemaApplication.Schema.define({
-	className: 'Task',
-	fields: (f) => ({
-		done: f.boolean({ default: false }),
-		title: f.string({
-			required: true,
-			hooks: { resolveInput: ({ value }) => value.trim() },
-			validation: z.string().min(1),
-		}),
-	}),
-})
-// @filename: ultimabase.ts
-// ---cut---
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-
-import { SchemaApplication, Task } from './schema.js'
-
-const Application = SchemaApplication.use(postgresPlugin())
-
-export const ultimabase = new Application({
-	schemas: [Task],
-})
-
-// Once per application: it gives name-keyed editor types.
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
-
-The Hook may normalize input, but Validation only accepts or rejects the
-result; it does not transform stored values. Core still enforces required
-presence and field structure even if Validation is absent.
+The Hook may normalize input, and Validation then accepts or rejects the
+result. A Standard Schema validator's output is what gets stored, so a
+transforming validator such as `z.string().trim()` changes the stored value
+too; `z.string().min(1)` returns its input unchanged. Core still enforces
+required presence and field structure even if Validation is absent.
 
 ## Verify
 
@@ -182,18 +166,23 @@ Replace the manual tutorial's `main.ts` with one successful and one rejected
 write:
 
 ```ts twoslash title="src/main.ts"
-// @filename: schema.ts
+// @filename: app.ts
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
-import { z } from 'zod'
 
-export const SchemaApplication = UltimaBase.use(
+export const App = UltimaBase.use(
 	hooksPlugin(),
 	validationPlugin(),
+	postgresPlugin(),
 )
+// @filename: schemas/task.ts
+import { z } from 'zod'
 
-export const Task = SchemaApplication.Schema.define({
+import { App } from '../app.ts'
+
+export const Task = App.Schema.define({
 	className: 'Task',
 	fields: (f) => ({
 		done: f.boolean({ default: false }),
@@ -205,17 +194,14 @@ export const Task = SchemaApplication.Schema.define({
 	}),
 })
 // @filename: ultimabase.ts
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { App } from './app.ts'
+import { Task } from './schemas/task.ts'
 
-import { SchemaApplication, Task } from './schema.js'
-
-const Application = SchemaApplication.use(postgresPlugin())
-
-export const ultimabase = new Application({
+export const ultimabase = new App({
 	schemas: [Task],
 })
 
-// Once per application: it gives name-keyed editor types.
+// Required once per application: it gives name-keyed editor types.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase
@@ -225,8 +211,8 @@ declare module '@ultimabase/core' {
 // ---cut---
 import { FrameworkError } from '@ultimabase/core'
 
-import { Task } from './schema.js'
-import { ultimabase } from './ultimabase.js'
+import { Task } from './schemas/task.ts'
+import { ultimabase } from './ultimabase.ts'
 
 try {
 	await ultimabase.start()
@@ -277,8 +263,8 @@ pnpm start
 
 Expect the trimmed title and then `VALIDATION_ERROR`. The second write is
 rejected before persistence. If TypeScript does not recognize `hooks` or
-`validation`, check that Task uses the factory on which Hooks and Validation
-were installed, not the zero-plugin `UltimaBase.Schema`. If startup fails instead, inspect the default
+`validation`, check that Task is declared from `App`, on which Hooks and
+Validation are installed, not from the zero-plugin `UltimaBase.Schema`. If startup fails instead, inspect the default
 plugin report and compatibility diagnostics before changing privileges or
 infrastructure settings.
 

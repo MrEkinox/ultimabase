@@ -4,13 +4,20 @@
 		{
 			"id": "core-application",
 			"packages": ["@ultimabase/core", "@ultimabase/shared"],
-			"sections": ["manual-installation", "core", "guides", "operations"]
+			"sections": [
+				"manual-installation",
+				"project-layout",
+				"core",
+				"guides",
+				"operations"
+			]
 		},
 		{
 			"id": "project-initializer",
 			"packages": ["@ultimabase/create-app"],
 			"sections": [
 				"quick-start",
+				"project-layout",
 				"reference",
 				"project/release-status",
 				"operations/typescript-7"
