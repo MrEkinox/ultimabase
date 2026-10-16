@@ -143,7 +143,10 @@ describe('schema form D on PostgreSQL', { concurrent: false }, () => {
 				data: { title: '   ' },
 				where: { id: { eq: idOf('admin open') } },
 			}),
-		).rejects.toThrow('Todo title is empty')
+		).rejects.toMatchObject({
+			code: 'todo.title-empty',
+			message: 'Todo title is empty',
+		})
 	})
 
 	it('filters with the ACL plugin contains operator', async () => {

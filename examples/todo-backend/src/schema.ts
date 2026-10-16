@@ -2,7 +2,7 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase, defineEnum } from '@ultimabase/core'
+import { PublicError, UltimaBase, defineEnum } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
@@ -268,7 +268,11 @@ export const Todo = App.Schema.define({
 		beforeOperation: {
 			update: ({ item, originalItem }) => {
 				if (originalItem.completed && !item.completed) {
-					throw new TypeError('Completed todos cannot be reopened')
+					// A PublicError reaches REST and GraphQL clients; any other
+					// error is masked as an internal error.
+					throw new PublicError('Completed todos cannot be reopened.', {
+						code: 'todo.reopen',
+					})
 				}
 			},
 		},

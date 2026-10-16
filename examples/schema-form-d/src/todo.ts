@@ -1,4 +1,5 @@
 import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { PublicError } from '@ultimabase/core'
 
 import { App } from './app.ts'
 import { Tag } from './tag.ts'
@@ -33,8 +34,16 @@ export const Todo = App.Schema.define({
 	hooks: {
 		beforeOperation: {
 			update: ({ item }) => {
-				if (item.isDeleted) throw new TypeError('Deleted todos are read-only')
-				if (item.title.trim() === '') throw new TypeError('Todo title is empty')
+				if (item.isDeleted) {
+					throw new PublicError('Deleted todos are read-only', {
+						code: 'todo.deleted',
+					})
+				}
+				if (item.title.trim() === '') {
+					throw new PublicError('Todo title is empty', {
+						code: 'todo.title-empty',
+					})
+				}
 			},
 		},
 	},
