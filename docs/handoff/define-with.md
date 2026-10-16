@@ -5,16 +5,16 @@ Toutes les phases de la migration s'y succèdent ; ne pas fusionner avant la der
 
 ## Périmètre des phases
 
-1. **Phase 1 (ce document, en cours)** : mécanisme Core (clés de fonctionnalité dans `define`,
+1. **Phase 1 (terminée)** : mécanisme Core (clés de fonctionnalité dans `define`,
    `indexes` complets, constructeur `.with((plugins) => …)`, règles requises, clés réservées),
    fabriques `App.UserSchema` / `App.RoleSchema`, règle `roles`, plugin-kit `features`, tests,
    banc, audit DX. Les anciennes formes restent valides pour garder le dépôt vert.
-2. Plugins officiels : clés de fonctionnalité au lieu des méthodes de forme (Soft Delete passe
+2. **Phase 2 (terminée)** — plugins officiels : clés de fonctionnalité au lieu des méthodes de forme (Soft Delete passe
    par `definePlugin({ shape })` et `shapeMethod`, ACL par `provideSchemaShapeMethods` : noms
    remplacés, pas marqués `@deprecated` pour ne pas casser la règle ESLint `no-deprecated`
    pendant la transition), messages des plugins (ACL cite encore `.with({ acl: { default } })`),
    tests et JSDoc des plugins.
-3. Codemod AST sur packages, tests, exemples (~420 `.with`, ~100 méthodes de forme,
+3. **Phase 3 (terminée)** — codemod AST sur packages, tests, exemples (~420 `.with`, ~100 méthodes de forme,
    31 `.with({ indexes })`), puis passe manuelle.
 4. Documentation (site, README, guide « features vs rules »).
 5. Retrait des anciennes formes : objet `.with({ … })`, méthodes de forme, `.with({ indexes })`,
@@ -80,6 +80,116 @@ indexes, …"`). Les `indexes` sont vérifiés dans cette contrainte (et non par
   l'option inconnue du test devient `extensions`), `schema-form-d-types.e2e` (même membres,
   ordre d'impression différent dans deux messages `select`).
 
+## État des phases 2 et 3
+
+Terminées ; porte complète sur le dernier commit de la branche (voir « Preuves des phases 2
+et 3 »).
+
+### Phase 2 (plugins officiels)
+
+- Soft Delete : `definePlugin({ features })` et `feature(...)` (type `FeatureDefinition`) ;
+  JSDoc et messages internes parlent de `softDelete: true`. Le type exporté garde son nom
+  `SoftDeleteShape` (renommage à faire au retrait, avec `SchemaShapeMethod`).
+- ACL : `provideSchemaFeatures`, `PluginSchemaFeatureSource`, `SchemaFeature`, règle `acl`
+  requise (`requires: ['acl']`, `provideSchemaRules(…, ['acl'])`). Messages :
+  `Post.acl: the acl feature needs .with((plugins) => plugins.acl({ default })); …` et
+  `… add existingRows to .with((plugins) => plugins.acl({ default, existingRows })) …`.
+  Exports `ACLShapeSource` / `ACLShapeFields` gardés (renommage au retrait).
+- JSDoc des règles des plugins officiels (Access, Hooks, Validation, REST, GraphQL,
+  PostgreSQL, plugin-kit) : `.with((plugins) => …)` et `plugins.x(…)`.
+- Core : message de `where` sur un champ relation :
+  `… declare relation filters in .with((plugins) => plugins.relations({ name: { where } }))`.
+- Roles : aucune source officielle n'utilisait les options de `define` ; tous les sites
+  d'appel sont passés par le codemod (`plugins.roles({ … })`).
+- Revérifié après la phase 2 puis après la phase 3 : diagnostics
+  (`tests/e2e/define-with-diagnostics.e2e.test.ts`, 32/32) et matrice des cycles (0 erreur
+  pour les 5 cas `define-with*`, TS 6/7, sources/paquets construits).
+
+### Phase 3 (codemod et conversion)
+
+- **Codemod** : `tooling/codemods/define-with/` (README, tests `transform.test.ts`,
+  `markdown.test.ts`, 16 tests). Gardé dans `tooling/` (et non dans le scratchpad) car il
+  servira aux utilisateurs pour migrer, avec ses tests ; branché dans Vitest (`unit`),
+  `tooling/tsconfig/test.json` et ESLint. Usage :
+  `node tooling/codemods/define-with/run.ts [--write] [--report r.json] [--skip p]… [--feature nom]… <chemins>`
+  puis Prettier sur les fichiers modifiés. Éditions textuelles sur positions AST (API du
+  compilateur TypeScript) : valeurs, commentaires, `//#region` copiés tels quels ; les
+  commentaires avant une méthode de forme suivent la clé dans `define`, les marqueurs de
+  région restent en place ; `.with` vidé par le déplacement des `indexes` est supprimé.
+  Fichiers TS/JS et blocs `ts/tsx/js/jsx` des md/mdx, sauf blocs synchronisés par région.
+  Ne devine jamais : signale `non-literal-with`, `unconvertible-with-entry`,
+  `non-literal-define`, `unknown-shape-method`, `unrooted-with-object`,
+  `unrooted-shape-method`, `unexpected-chain`, `with-callback-without-plugins`
+  (et `region-moved` pour relecture).
+- **Exécutions** : défaut sur `packages tests examples tooling apps/website/{content,components,lib,app,tests}` ;
+  `--feature archivable --feature flaggable --feature decimalLedger` sur les sites
+  communautaires (tests Access/REST, façade, open-kernel, register-cycle `defined-plugin`,
+  exemple plugin-authoring) ; puis les fixtures `.mjs`. Total appliqué : 167 fichiers,
+  343 `.with` objet, 99 méthodes de forme, 19 `.with({ indexes })`, 29 déclarations Role ;
+  après retour des tests des anciennes formes : 338 / 99 / 15 / 22.
+- **Sites manuels** (convertis à la main) : aides de test `declare(...)` de Soft Delete
+  (`declareLogical`/`declareCommand`) et d'ACL (`acl-option.test-d.ts`, backfill) ;
+  `.with(variable)` sur règles installées (REST `routes`/`http-responses`/`virtual-http`,
+  Hooks `schema-mutation-hooks`, PostgreSQL `options.test.ts`, `alternative-policy-engine`) ;
+  code dans des chaînes (IntelliSense Access/ACL/GraphQL/Hooks/REST/Roles/Soft Delete,
+  PostgreSQL et Soft Delete e2e, `access-registered-rule-keys`, `principal-language-service`,
+  `register-required`) ; générateurs create-app (`withRules` produit le texte que Prettier
+  imprime ; `privateSchemaApiOptions` rend `rest(false)`) et page Quick Start ; exemple de
+  la page d'accueil (`capability-content.ts`) ; fixture ACL JavaScript ; plugins de fixture
+  bruts qui déclarent maintenant leurs noms de règles (`provideSchemaRules` :
+  `alternative-policy-engine`, `alternative-behavior-engine`, `plugin-kit/authoring.test.ts`,
+  `plugin-operation-javascript.mjs`) ; exemple `plugin-authoring/flag-plugin.ts`
+  (`provideSchemaFeatures` + `provideSchemaRules`) et `archive-plugin.ts` (`features`) ;
+  fixtures `shape`→`features` des tests Access/REST/façade/register-cycle ; fixture
+  open-kernel (`provideSchemaFeatures`).
+- **Tests modifiés** (assertion de la forme elle-même, convertie en équivalent) :
+  `acl-option.test.ts` (message ACL), `acl-intellisense.test.ts` (JSDoc de la règle),
+  `relation-rules.test.ts` (message `relations`), `base-template.test.ts` et
+  `api-template.test.ts` (code généré), `schema-form-d-types.e2e.test.ts` (lignes +1 de
+  `typos.ts`, et `relations` sur un schéma sans relation : « Property 'relations' does not
+  exist on type 'SchemaRulesBuilder<… » au lieu de « Object literal may only specify known
+  properties »), `plugin-authoring/tests/schema-misuse.test.ts` (règle non installée :
+  `plugins.audit is not a function` à l'appel de `.with` au lieu d'une erreur de
+  compilation), `soft-delete-intellisense.test.ts` (complétion de la clé `softDelete` dans
+  `define`). Les tests de types qui appelaient une règle inexistante lisent maintenant
+  `plugins.x` (`void plugins.x`) : l'appel d'une méthode inexistante déclenchait
+  `no-unsafe-call` (Core `schema-declarations.test-d.ts`, ACL, PostgreSQL, testing
+  `conformance.test-d.ts`). Deux casts `as unknown as UntypedRules` dans
+  `examples/plugin-authoring/tests/schema-misuse.test.ts` pour garder l'appel à
+  l'exécution. Titres de tests ajustés seulement là où ils citaient le message ou la forme
+  (relation-rules, acl-option.test-d, schema-misuse).
+- **Anciennes formes restantes** (tests des anciennes formes, laissés pour le retrait) :
+  - `.with({ indexes })` comme index de stockage seulement : Core
+    `unique-target-origins.test.ts`, `unique-targets.test-d.ts`,
+    `schema-command-execution.test.ts`, `partial-indexes.test.ts` (2e test : vérification à
+    la compilation) et `partial-indexes.test-d.ts` (typage du `where` dans `.with`) ;
+  - options Role dans `define` : `role-schema.test.ts` (normalisation `deletion`/`ensure`
+    lue à la déclaration), `role-rules.test.ts` (conflit des deux emplacements) ;
+  - méthodes de forme et chaîne : Core `schema-declaration-chain.test.ts`,
+    `define-features.test.ts`, `projection-slots.test-d.ts` (`.flag()`),
+    `schema-factories.test-d.ts` (`.tagged()`) ; plugin-kit `define-plugin.test(-d).ts`
+    (`shape`, `.archivable()`, `.labelled()`) ;
+  - forme objet comme passage d'options brutes (`… as never`, option sans plugin installé,
+    `Unknown schema option`) : Core `opaque-selectors`, `schema-declaration-registry`,
+    `schema-field-transformations` (3), `schema-option-compilation` (6),
+    `schema-option-ownership`, `schema-option-presence` (3), `relation-rules.test.ts` (2),
+    `direct-community-options.e2e` ; PostgreSQL `options.test.ts` (plugin absent) et
+    fixture JS `postgres-direct-options-javascript.mjs` ; Soft Delete `plugin.test.ts`
+    (plugin absent) ; Roles `role-schema.test.ts` (marqueur d'identité copié),
+    `role-rules.test.ts` (`roles` sur un schéma non Role) ; plugin-kit
+    `define-plugin.test.ts` (`BadRule`) ; fixture JS ACL (`MissingPluginPost`) ;
+    `alternative-policy-engine.e2e` (branche ACL sans plugin ACL). Au retrait, il faut une
+    autre voie pour ces options brutes (ou supprimer ces tests) : décision à prendre.
+  - outils : `examples/schema-form-d/tools/gen.mjs` (génère la forme actuelle pour le banc
+    comparatif) ; les chaînes des tests de diagnostics de la phase 1 couvrent les deux formes.
+    Le codemod signale 45 sites restants (25 `non-literal-with`, 10 `unknown-shape-method`,
+    10 `unrooted-with-object`) et en convertirait 9 fichiers (tous dans la liste ci-dessus).
+- **Régions** : les régions placées dans un objet `.with` extraient maintenant un fragment
+  `.relations({ … })` au lieu de `relations: { … },` (`examples/minimal#relation-views`) :
+  aussi peu autonome qu'avant ; à revoir en phase 4.
+- `.prettierignore` ignore `examples/schema-form-d/gen/` (projets de banc générés, déjà
+  ignorés par Git).
+
 ## Limites connues
 
 - Une faute dans `define` (clé, option, index) fait échouer l'appel générique ; TypeScript
@@ -93,10 +203,14 @@ indexes, …"`). Les `indexes` sont vérifiés dans cette contrainte (et non par
 
 ## Prochaine action vérifiable
 
-Phase 2 (plugins officiels) : migrer Soft Delete (`definePlugin({ features })`, `feature`) et
-ACL (`provideSchemaFeatures`, message de règle requise au nouveau format), puis vérifier
-`yarn vitest run --project e2e tests/e2e/define-with-diagnostics.e2e.test.ts` et la matrice
-`tests/register-cycle/define-with*` sur TypeScript 6 et 7.
+Phase 4 (documentation) : réécrire la prose qui cite encore les anciennes formes (site
+`apps/website/content/docs`, README, `ARCHITECTURE.md`, `README.md` racine, JSDoc restante de
+Core qui décrit la forme objet ou les méthodes de forme), ajouter le tableau « Where does it
+go? » de la page Schemas et la page « features vs rules » du guide plugin ; preuve :
+`yarn vitest run --project website-content` et `yarn docs:regions --check`. Puis phase 5
+(retrait) : `node tooling/codemods/define-with/run.ts packages tests examples tooling apps/website`
+ne doit plus rien signaler hors des tests listés dans « Anciennes formes restantes », qui sont
+alors supprimés ou portés.
 
 ## Preuves
 
