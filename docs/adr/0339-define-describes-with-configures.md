@@ -1,6 +1,6 @@
 # ADR-0339: `define` describes the schema, `.with` configures each plugin
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-16
 - Supersedes: ADR-0316 shape methods (the `.softDelete()`/`.acl()` chain step and their options);
   ADR-0297's object form of `.with`; ADR-0328's `.with({ relations })` placement; ADR-0332's
