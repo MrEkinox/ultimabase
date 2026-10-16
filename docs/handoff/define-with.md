@@ -23,8 +23,8 @@ Toutes les phases de la migration s'y succèdent ; ne pas fusionner avant la der
 
 ## État de la phase 1
 
-Voir la section « Preuves » (commandes et résultats). Commits `wip(define-with): …` sur la
-branche.
+Terminée ; porte complète verte sur 1b736731 (voir « Preuves »). Commits
+`wip(define-with): …` sur la branche.
 
 ## Décisions de la phase 1
 
@@ -127,3 +127,29 @@ l'agent, non versionnés).
   types : 525 501 contre 546 235, et plus rapide). Coût de la forme actuelle mesuré par
   expériences : capture de `define` ~0,4 %, types de résultat ~0,3 %, reste ~0,4 % ; l'union
   du paramètre de `.with` ~0,02 %. La forme actuelle disparaît en phase 3/5.
+
+- Audit DX (`node tooling/dx-audit/run.mjs <main 41cae632 construit> . --only
+core,plugin-kit,auth-plugin,roles-plugin`, paquets construits par `yarn build` seul) :
+  636 différences, toutes attendues : nouveaux exports (Core `./plugin` : 11 types et
+  `provideSchemaFeatures`, `provideSchemaRules` ; Core : `SchemaRulesBuilder`,
+  `CompleteSchemaRules` ; plugin-kit : `feature`, `FeatureDefinition`, `FeatureRequiredRules` ;
+  roles : `RoleRules`, `RoleSchemaRules`) ; survol de `define` (paramètre `TFeatures` capturé
+  au lieu de `TIndexes`, alias `ConfiguredSchemaDeclarationOptions` conservé) ; survol des clés
+  `fields`/`className` dans `define` (type déclaré `&` type capturé) ; survol de `.with`
+  (union objet | rappel) ; troisième paramètre de type de `SchemaShapeMethod` et
+  `SchemaShapeMethodImplementation` ; source de Roles avec son emplacement de règles
+  (`schemaRules: readonly [RoleSchemaRules]`) ; `indexes` dans les complétions et options de
+  `RoleSchema.define`/`UserSchema.define` ; JSDoc de `define`/`.with`/options remplacées ;
+  ordre d'impression de membres identiques ; diagnostic d'une politique `deletion` invalide :
+  `'"cascade" | "fail" | "preserve"'` au lieu de `'RoleReferenceDeletionPolicy'` ; survol de la
+  clé `audit` d'un objet `.with` invalide (`audit: string` au lieu de la règle, effet de
+  l'union transitoire). Attention : après `yarn validate:full`, `dist/` contient aussi la
+  sortie fichier par fichier de `tsc --build`, ce qui gonfle l'audit (5 013 différences
+  privées) ; supprimer `dist/` et relancer `yarn build` avant l'audit.
+- Porte (YARN_CACHE_FOLDER du dépôt principal, `dist/` et `*.tsbuildinfo` supprimés) :
+  `yarn install --immutable` 0 ; `yarn validate:full` 0 (après suppression des projets
+  générés `examples/schema-form-d/gen/`, non ignorés par Prettier) ; `yarn website:test` 0 ;
+  `yarn typecheck:typescript-7` 0 ; `yarn docs:regions --check` 0 ; `yarn test:e2e:built` 1 :
+  seul `create-app-packed` « writes a valid graph for each official plugin selected alone »
+  dépasse 120 s sous charge (≈ 10), suite sensible à la charge connue ; relancé seul : 8/8 en
+  42,5 s (`main` seul : 37,2 s pour ce test, 40,3 s sur la branche).
