@@ -249,7 +249,7 @@ export const assertDeclarationOptionKeys = (options: object): void => {
 	for (const key of Reflect.ownKeys(options)) {
 		if (typeof key !== 'string' || !coreSchemaOptionKeys.has(key)) {
 			throw new TypeError(
-				`Unknown schema option: ${String(key)}. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)`,
+				`Unknown schema option: ${String(key)}. define() takes className, fields and indexes; plugin rules go in the final .with(...)`,
 			)
 		}
 	}
