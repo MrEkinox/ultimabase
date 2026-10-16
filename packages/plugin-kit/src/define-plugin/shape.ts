@@ -91,14 +91,20 @@ export type ShapeMethodMember<
 	? Exclude<TDefinition[TKey], undefined>
 	: Readonly<Record<never, never>>
 
-/** Reads the rule names one feature requires (`never` when omitted). */
+/**
+ * Reads the rule names one feature requires: `never` when omitted, and for
+ * a definition typed with the default `readonly string[]` (as an annotated
+ * `ShapeMethodDefinition<…>` is), whose names are unknown.
+ */
 export type FeatureRequiredRuleNames<TDefinition> =
 	'requires' extends keyof TDefinition
 		? Exclude<
 				TDefinition['requires' & keyof TDefinition],
 				undefined
 			> extends readonly (infer TName extends string)[]
-			? TName
+			? string extends TName
+				? never
+				: TName
 			: never
 		: never
 
