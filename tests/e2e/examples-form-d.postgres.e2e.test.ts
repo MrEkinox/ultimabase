@@ -51,7 +51,7 @@ const testedExamples = [
 	['examples/graphql', 25],
 	['examples/modeling', 26],
 	['examples/queries', 54],
-	['examples/plugin-authoring', 38],
+	['examples/plugin-authoring', 42],
 ] as const
 
 const compile = (example: string): readonly string[] => {
