@@ -5,14 +5,13 @@ a Zod validator trims and checks a title before it is stored, function
 validators return stable issue codes, an async validator asks a room service,
 a schema check compares two dates on the complete event, and every problem
 of a write comes back in one `VALIDATION_ERROR`. It uses the declaration form
-(ADR-0297) without generated files and is tested with `testApplication`
-(ADR-0327).
+without generated files and is tested with `testApplication`.
 
 The [Validation page](../../apps/website/content/docs/1.0.0/plugins/official/validation.mdx)
 and the [package README](../../packages/validation-plugin/README.md) show
 this application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

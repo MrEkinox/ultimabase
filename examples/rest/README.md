@@ -9,14 +9,14 @@ bulk create, a write-only schema answering with its `id` alone, the error
 envelope and its statuses (400, 403, 404, 405, 409, 422), an application
 operation declared with `defineOperation`, the OpenAPI document, and a second
 application that opts into `publicWrites`. Access decides what clients may do;
-an exposed route grants nothing. It uses the declaration form (ADR-0297)
-without generated files and is tested with `testApplication` (ADR-0327).
+an exposed route grants nothing. It uses the declaration form
+without generated files and is tested with `testApplication`.
 
 The [REST page](../../apps/website/content/docs/1.0.0/plugins/official/rest.mdx)
 and the [package README](../../packages/rest-plugin/README.md) show this
 application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

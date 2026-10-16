@@ -6,14 +6,14 @@ title change, a title change writes an audit row in the same transaction,
 `afterCommit` Hooks and a typed event send messages once the transaction has
 committed, a thread counts its replies through a legitimate cascade that the
 depth limit bounds, and a compatible plugin contributes its own rule. It uses
-the declaration form (ADR-0297) without generated files and is tested with
-`testApplication` (ADR-0327).
+the declaration form without generated files and is tested with
+`testApplication`.
 
 The [Hooks page](../../apps/website/content/docs/1.0.0/plugins/official/hooks.mdx)
 and the [package README](../../packages/hooks-plugin/README.md) show this
 application's code: each block is a `//#region <name>` of these files,
-included by the page and copied into the README by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the page and copied into the README by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

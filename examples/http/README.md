@@ -8,8 +8,8 @@ headers, the Master header and the access log), application routes and a
 token, a plugin contributing a route and a mount, the `apiServer` preset with
 REST and the managed Hono listener (compression, graceful shutdown), the
 error envelope, and a second application joining an existing Hono app. It
-uses the declaration form (ADR-0297) without generated files and is tested
-with `testApplication` (ADR-0327); REST only serves as routes to call.
+uses the declaration form without generated files and is tested
+with `testApplication`; REST only serves as routes to call.
 
 The [HTTP page](../../apps/website/content/docs/1.0.0/plugins/official/http.mdx),
 the [Hono Server page](../../apps/website/content/docs/1.0.0/plugins/official/hono-server.mdx)
@@ -17,8 +17,8 @@ and the [`http-plugin`](../../packages/http-plugin/README.md),
 [`hono-server-plugin`](../../packages/hono-server-plugin/README.md) and
 [`api-server`](../../packages/api-server/README.md) READMEs show this
 application's code: each block is a `//#region <name>` of these files,
-included by the pages and copied into the READMEs by `yarn docs:regions`
-(ADR-0330). Change the code here, and the tests prove what the documentation
+included by the pages and copied into the READMEs by `yarn docs:regions`.
+Change the code here, and the tests prove what the documentation
 says.
 
 ## Files

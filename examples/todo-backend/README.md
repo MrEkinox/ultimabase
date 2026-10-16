@@ -2,8 +2,8 @@
 
 The reference UltimaBase application: a Todo backend that combines ordinary
 schemas and queries with the official Access, ACL, Hooks, Roles, Validation,
-PostgreSQL and REST plugins, written in the declaration form (ADR-0297)
-without generated files, and tested with `testApplication` (ADR-0327).
+PostgreSQL and REST plugins, written in the declaration form
+without generated files, and tested with `testApplication`.
 
 ## What the developer writes
 
@@ -11,7 +11,7 @@ without generated files, and tested with `testApplication` (ADR-0327).
 schemas. The block below shows the plugin list, then the `title` field of
 `Todo`, whose behavior sits on the field, and the end of `Todo`: its
 `indexes` and the `acl: true` feature key in `define`, then the schema rules
-in `.with({ ... })` (ADR-0339):
+in `.with({ ... })`:
 
 <!-- region src/schema.ts#factory,todo-title,todo-rules -->
 

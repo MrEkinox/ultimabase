@@ -4,14 +4,14 @@ A small blog backend that shows how Core reads and writes data end to end:
 filters, selections, related data, ordering and keyset pagination, creates,
 updates, deletes, unique upserts, bulk commands, nested writes, automatic and
 explicit transactions, API errors, Master authority and request identity. It
-uses the declaration form (ADR-0297) without generated files and is tested
-with `testApplication` (ADR-0327).
+uses the declaration form without generated files and is tested
+with `testApplication`.
 
 The Reading Data, Writing Data, API Error Boundaries, Master Authority and
 Request Identity pages of the website and the matching sections of the
 [Core README](../../packages/core/README.md) show this application's code:
 each block is a `//#region <name>` of these files, included by the pages and
-copied into the README by `yarn docs:regions` (ADR-0330). Change the code
+copied into the README by `yarn docs:regions`. Change the code
 here, and the tests prove what the documentation says.
 
 ## Files
