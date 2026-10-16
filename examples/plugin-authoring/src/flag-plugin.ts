@@ -40,7 +40,7 @@ const flagReasonOption = defineSchemaOption({
 	protocolVersion: 1,
 })
 
-type FlagShape = PluginSchemaFeatureSource<{
+type FlagFeatures = PluginSchemaFeatureSource<{
 	/** Adds a server-written `flagged` field. */
 	readonly flaggable: SchemaFeature<
 		readonly [],
@@ -67,7 +67,7 @@ export type FlagPlugin = PluginInstance<{
 	readonly version: '1.0.0'
 	readonly core: '^0.0.0'
 	readonly source:
-		| FlagShape
+		| FlagFeatures
 		| PluginSchemaFieldsSource<FlagFields>
 		| PluginSchemaRulesSource<FlagRules>
 }>
@@ -112,7 +112,7 @@ export const flagPlugin = (): FlagPlugin => {
 	})
 	// The rule names become the `plugins.flagReason(...)` method of `.with`.
 	return provideSchemaRules<FlagPlugin>(
-		provideSchemaFeatures<FlagPlugin, FlagShape>(instance, {
+		provideSchemaFeatures<FlagPlugin, FlagFeatures>(instance, {
 			flaggable: { sets: ['flaggable'], apply: () => ({ flaggable: {} }) },
 		}),
 		['flagReason'],
