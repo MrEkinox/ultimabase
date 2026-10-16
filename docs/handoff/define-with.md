@@ -10,8 +10,10 @@ Toutes les phases de la migration s'y succèdent ; ne pas fusionner avant la der
    fabriques `App.UserSchema` / `App.RoleSchema`, règle `roles`, plugin-kit `features`, tests,
    banc, audit DX. Les anciennes formes restent valides pour garder le dépôt vert.
 2. Plugins officiels : clés de fonctionnalité au lieu des méthodes de forme (Soft Delete passe
-   par `definePlugin({ shape })`, alias déprécié ; ACL par `provideSchemaShapeMethods`, alias
-   déprécié), messages des plugins (ACL cite encore `.with({ acl: { default } })`).
+   par `definePlugin({ shape })` et `shapeMethod`, ACL par `provideSchemaShapeMethods` : noms
+   remplacés, pas marqués `@deprecated` pour ne pas casser la règle ESLint `no-deprecated`
+   pendant la transition), messages des plugins (ACL cite encore `.with({ acl: { default } })`),
+   tests et JSDoc des plugins.
 3. Codemod AST sur packages, tests, exemples (~420 `.with`, ~100 méthodes de forme,
    31 `.with({ indexes })`), puis passe manuelle.
 4. Documentation (site, README, guide « features vs rules »).
@@ -28,7 +30,7 @@ branche.
 
 - **Fonctionnalités = méthodes de forme existantes.** Core dérive les clés de `define` de
   `TSource['shapeMethods']` (générique, Core ne nomme aucun plugin). Nouveaux noms Core :
-  `provideSchemaFeatures` (alias déprécié `provideSchemaShapeMethods`), `SchemaFeature`,
+  `provideSchemaFeatures` (ancien nom `provideSchemaShapeMethods` conservé), `SchemaFeature`,
   `PluginSchemaFeatureSource`, `SchemaFeatureRequiredRules`. Une fonctionnalité déclare les
   règles qu'elle exige : troisième paramètre de type `SchemaShapeMethod<…, 'acl'>` et
   `requires: ['acl']` à l'exécution. ACL déclare `acl` requis.
@@ -60,7 +62,23 @@ indexes, …"`). Les `indexes` sont vérifiés dans cette contrainte (et non par
 - **Clés réservées** (`className`, `fields`, `indexes`, `relations`, `with`) refusées à
   `UltimaBase.use` pour une fonctionnalité ou une règle.
 - **Roles** : règle `roles` (`ensure`, `deletion`, `resolveCurrent`) ; les options de `define`
-  restent (dépréciées) ; une option posée aux deux endroits est refusée.
+  restent (marquées « superseded ») ; une option posée aux deux endroits est refusée à la
+  lecture (`readRoleSchemaDeclaration`). `App.UserSchema` / `App.RoleSchema` acceptent
+  `indexes` et les clés de fonctionnalité ; `SchemaFactoryContext` expose `features` pour que
+  la fabrique distingue une clé de fonctionnalité d'une option inconnue.
+- **Fabriques et première passe** : `CompleteDefineFields` est large tant que l'objet n'est
+  pas inféré, sinon la valeur par défaut de `TFields` (UserSchema) refusait les index sur les
+  champs propres pendant la première passe.
+- **Options sans fonctionnalité** : un `define` sans clé de fonctionnalité rend exactement les
+  options vides d'avant (`Readonly<Record<never, never>>`), pour garder les types et le coût
+  de la forme actuelle.
+- **plugin-kit** : `features` (+ `shape`, ancien nom, pas les deux), `feature(...)` (+
+  `shapeMethod`), `requires` (règles du même plugin), noms de règles déclarés à la création.
+- **Tests modifiés** (contrat changé par l'ADR, chaque fois commenté) : inventaires d'exports
+  (Core plugin entry : `provideSchemaFeatures`, `provideSchemaRules` ; plugin-kit : `feature`),
+  `roles-plugin` (`indexes` est désormais une option et une complétion de `RoleSchema.define` :
+  l'option inconnue du test devient `extensions`), `schema-form-d-types.e2e` (même membres,
+  ordre d'impression différent dans deux messages `select`).
 
 ## Limites connues
 
