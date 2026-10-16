@@ -5,7 +5,10 @@
 // `define`, then one `.with((plugins) => plugins.access(…).hooks(…).acl(…)
 // .postgres(…))` (local + cross filter); one file per schema, one findMany per
 // schema in usage.ts, and the one-time Register line (unless --no-register).
-// Usage: node tools/gen.mjs <N> [--no-register]  -> gen/form-d[-noreg]-<N>/
+// `--object` writes the same rules as one object, `.with({ access, hooks, acl,
+// postgres })` (spike/with-object).
+// Usage: node tools/gen.mjs <N> [--no-register] [--object]
+//   -> gen/form-d[-object][-noreg]-<N>/
 import process from 'node:process'
 import console from 'node:console'
 import { URL } from 'node:url'
@@ -17,12 +20,48 @@ const exampleDir = path.resolve(
 	'..',
 )
 
-export const generate = (count, { register = true } = {}) => {
+const builderRules = (i) => `.with((plugins) =>
+	plugins
+		.access({
+			read: ({ where }) => where.eq('f2', false),
+			update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
+			create: true,
+		})
+		.hooks({
+			beforeOperation: {
+				update: ({ item }) => {
+					if (item.f0.length === 0) throw new TypeError('f0')
+				},
+			},
+		})
+		.acl({ default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) })
+		.postgres({ table: 's${i}' }),
+)`
+
+const objectRules = (i) => `.with({
+	access: {
+		read: ({ where }) => where.eq('f2', false),
+		update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
+		create: true,
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item }) => {
+				if (item.f0.length === 0) throw new TypeError('f0')
+			},
+		},
+	},
+	acl: { default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) },
+	postgres: { table: 's${i}' },
+})`
+
+export const generate = (count, { register = true, object = false } = {}) => {
 	const dir = path.join(
 		exampleDir,
 		'gen',
-		`form-d${register ? '' : '-noreg'}-${count}`,
+		`form-d${object ? '-object' : ''}${register ? '' : '-noreg'}-${count}`,
 	)
+	const rules = object ? objectRules : builderRules
 	fs.rmSync(dir, { recursive: true, force: true })
 	fs.mkdirSync(path.join(dir, 'src'), { recursive: true })
 	fs.writeFileSync(
@@ -80,23 +119,7 @@ export const ${name(i)} = App.Schema.define({
 	}),
 	softDelete: true,
 	acl: true,
-}).with((plugins) =>
-	plugins
-		.access({
-			read: ({ where }) => where.eq('f2', false),
-			update: ({ where }) => where.is('next', (next) => next.eq('f0', 'x')),
-			create: true,
-		})
-		.hooks({
-			beforeOperation: {
-				update: ({ item }) => {
-					if (item.f0.length === 0) throw new TypeError('f0')
-				},
-			},
-		})
-		.acl({ default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) })
-		.postgres({ table: 's${i}' }),
-)
+})${rules(i)}
 `,
 		)
 	}
@@ -146,6 +169,7 @@ if (
 	console.log(
 		generate(Number.parseInt(process.argv[2], 10), {
 			register: !process.argv.includes('--no-register'),
+			object: process.argv.includes('--object'),
 		}),
 	)
 }

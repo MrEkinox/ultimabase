@@ -47,18 +47,24 @@ describe('schema declaration chain (ADR-0297)', () => {
 		expect(Reflect.has(configured, 'with')).toBe(false)
 		expect(Object.keys(declared)).not.toContain('with')
 		const withMethod: unknown = Reflect.get(declared, 'with')
-		// ADR-0339: the callback is the only form; the object form is refused.
-		for (const rules of [null, {}, { relations: {} }]) {
-			expect(() => {
-				if (typeof withMethod === 'function') {
-					Reflect.apply(withMethod, declared, [rules])
-				}
-			}).toThrow(
-				new TypeError(
-					'ChainDocument.with() takes a callback: .with((plugins) => plugins.access({ … }))',
-				),
-			)
-		}
+		// spike/with-object: the object form is accepted again; a non-object
+		// and a key no installed plugin declares are refused.
+		const call = (rules: unknown): unknown =>
+			typeof withMethod === 'function'
+				? Reflect.apply(withMethod, declared, [rules])
+				: undefined
+		expect(Schema.is(call({}))).toBe(true)
+		expect(Schema.is(call({ relations: undefined }))).toBe(true)
+		expect(() => call(null)).toThrow(
+			new TypeError(
+				'ChainDocument.with() takes an object of rules: .with({ access: { … } })',
+			),
+		)
+		expect(() => call({ audit: true })).toThrow(
+			new TypeError(
+				'ChainDocument.with({ audit }): audit is not a rule of an installed plugin; .with accepts relations',
+			),
+		)
 		expectTypeOf(configured).not.toHaveProperty('with')
 	})
 

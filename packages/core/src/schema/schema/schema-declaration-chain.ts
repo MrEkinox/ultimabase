@@ -24,7 +24,9 @@ import type { UniqueIndexFields } from './source-unique-targets.js'
 import type { RequiredSchemaRuleName } from './define-features.js'
 import {
 	collectSchemaRules,
+	readSchemaRulesObject,
 	type SchemaRulesCallback,
+	type SchemaRulesObject,
 } from './schema-rules-builder.js'
 
 declare const requiredSchemaRules: unique symbol
@@ -51,23 +53,41 @@ export interface SchemaRulesMethod<
 	 * @example `.with((plugins) => plugins.access({ read: ({ where }) => where.eq('archived', false) }))`
 	 */
 	with(
-		rules: SchemaRulesCallback<
-			SchemaRulesFor<
-				TSource['schemaRules'],
-				SchemaRulesTarget<
-					ConfiguredSchemaResult<
-						TSource,
-						TClassName,
-						TFields,
-						TOptions,
-						TUniqueIndexes
-					>
-				>,
-				SchemaShapeOf<TOptions>
-			> &
-				ConfiguredSchemaRelationRules<TFields>,
-			RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
-		>,
+		rules:
+			| SchemaRulesCallback<
+					SchemaRulesFor<
+						TSource['schemaRules'],
+						SchemaRulesTarget<
+							ConfiguredSchemaResult<
+								TSource,
+								TClassName,
+								TFields,
+								TOptions,
+								TUniqueIndexes
+							>
+						>,
+						SchemaShapeOf<TOptions>
+					> &
+						ConfiguredSchemaRelationRules<TFields>,
+					RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
+			  >
+			| SchemaRulesObject<
+					SchemaRulesFor<
+						TSource['schemaRules'],
+						SchemaRulesTarget<
+							ConfiguredSchemaResult<
+								TSource,
+								TClassName,
+								TFields,
+								TOptions,
+								TUniqueIndexes
+							>
+						>,
+						SchemaShapeOf<TOptions>
+					> &
+						ConfiguredSchemaRelationRules<TFields>,
+					RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
+			  >,
 	): ConfiguredSchemaResult<
 		TSource,
 		TClassName,
@@ -153,16 +173,21 @@ const readRules = (
 	state: DeclarationState,
 	className: string,
 ): Readonly<Record<string, unknown>> => {
-	if (typeof input !== 'function') {
-		throw new TypeError(
-			`${className}.with() takes a callback: .with((plugins) => plugins.access({ … }))`,
+	const names = [...coreRuleNames, ...ruleNames]
+	let rules: Readonly<Record<string, unknown>>
+	if (typeof input === 'function') {
+		rules = collectSchemaRules(
+			(plugins) => Reflect.apply(input, undefined, [plugins]),
+			names,
+			className,
 		)
+	} else {
+		assertPlainObject(
+			input,
+			`${className}.with() takes an object of rules: .with({ access: { … } })`,
+		)
+		rules = readSchemaRulesObject(input, names, className)
 	}
-	const rules = collectSchemaRules(
-		(plugins) => Reflect.apply(input, undefined, [plugins]),
-		[...coreRuleNames, ...ruleNames],
-		className,
-	)
 	const missing = state.requiredRules.find(
 		([, rule]) => !Object.hasOwn(rules, rule),
 	)
