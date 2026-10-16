@@ -57,7 +57,7 @@ export type ConfiguredSchemaRelationRules<TFields> = [
 			/**
 			 * Declares relation filters by relation field name.
 			 *
-			 * @example `relations: { articles: { where: { published: { eq: true } } } }`
+			 * @example `.with((plugins) => plugins.relations({ articles: { where: { published: { eq: true } } } }))`
 			 */
 			readonly relations?: {
 				readonly [TName in DeclaredRelationFieldName<TFields>]?: RelationRule<

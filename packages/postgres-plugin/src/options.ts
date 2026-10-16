@@ -24,7 +24,7 @@ export interface PostgresRules {
 	/**
 	 * Names the exact PostgreSQL table instead of the plural `snake_case`
 	 * class name.
-	 * @example `postgres: { table: 'content_items' }`
+	 * @example `.with((plugins) => plugins.postgres({ table: 'content_items' }))`
 	 */
 	readonly postgres?: PostgresSchemaOption
 }

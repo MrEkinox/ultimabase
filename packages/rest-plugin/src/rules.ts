@@ -81,7 +81,7 @@ export type RestCommandName<TSchema> = {
  * every method and command, an object each method or command by name.
  * A plugin command (`softDeleteOne`) is exposed only when named.
  *
- * @example `rest: { count: true, softDeleteOne: true }`
+ * @example `plugins.rest({ count: true, softDeleteOne: true })`
  */
 export type RestSchemaRule<TSchema = unknown> =
 	boolean | (RestMethodRules & RestCommandRules<TSchema>)
@@ -96,7 +96,7 @@ export interface RestRules<TSchema> {
 	/**
 	 * Selects the REST routes of this schema by method name; omitted methods
 	 * inherit `restPlugin({ default })`.
-	 * @example `rest: { count: true, deleteOne: false }`
+	 * @example `.with((plugins) => plugins.rest({ count: true, deleteOne: false }))`
 	 */
 	readonly rest?: RestSchemaRule<TSchema>
 }
