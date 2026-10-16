@@ -267,3 +267,24 @@ core,plugin-kit,auth-plugin,roles-plugin`, paquets construits par `yarn build` s
   seul `create-app-packed` « writes a valid graph for each official plugin selected alone »
   dépasse 120 s sous charge (≈ 10), suite sensible à la charge connue ; relancé seul : 8/8 en
   42,5 s (`main` seul : 37,2 s pour ce test, 40,3 s sur la branche).
+
+## Preuves des phases 2 et 3
+
+Journaux : `/private/tmp/claude-501/…/scratchpad/define-with-p2/` (session de l'agent, non
+versionnés). Porte sur 79c28f9f (seul ce paragraphe de preuves a été ajouté ensuite),
+`YARN_CACHE_FOLDER` du dépôt principal, `packages/*/dist`, `*.tsbuildinfo` et
+`examples/schema-form-d/gen/` supprimés avant :
+
+- `yarn install --immutable` 0 ;
+- `yarn validate:full` 0 (couverture : 741 fichiers, 3 963 tests ; types sans erreur ;
+  site 20 fichiers, 213 tests) ;
+- `yarn test:e2e:built` 1 : seul `create-app-packed` « writes a valid graph for each official
+  plugin selected alone » dépasse 120 s (charge 1 min ≈ 9,7 au départ), suite sensible à la
+  charge connue ; relancée seule : 8/8 en 39,8 s ; les 700 autres tests passent ;
+- `yarn website:test` 0 (8 fichiers, 59 tests) ; `yarn typecheck:typescript-7` 0 ;
+  `yarn docs:regions --check` 0 ;
+- codemod : `yarn vitest run --project unit tooling/codemods` 16/16 ;
+- diagnostics `define-with` 32/32 et matrice des cycles 0 erreur (après chaque phase).
+
+Non exécuté dans ces phases : l'audit DX (`tooling/dx-audit`) et le banc forme D ; à refaire
+avant la fusion (les JSDoc des règles et les messages ACL / `relations` ont changé).
