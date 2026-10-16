@@ -48,8 +48,10 @@ const allowedRuntimeDependencies = {
 		'plugin-kit',
 		'core',
 	],
-	// The preset only returns the plugins it names (ADR-0325).
+	// The preset only returns the plugins it names (ADR-0325) and forwards
+	// their Core peer.
 	'@ultimabase/api-server': [
+		'core',
 		'graphql-explorer-plugin',
 		'graphql-plugin',
 		'graphql-yoga-plugin',
@@ -140,6 +142,79 @@ const constrainPublishedManifests = ({ Yarn }) => {
 	}
 }
 
+const corePackage = '@ultimabase/core'
+
+/**
+ * An application has exactly one Core instance (one application per realm, one
+ * `Register`), so a published package that uses Core, directly or through a
+ * package that does, declares it as a peer (with a matching development
+ * dependency for the workspace), never as a dependency: a dependency could
+ * install a second copy. Its peer range is the `core` range of its plugin
+ * manifests (ADR-0338). Shared holds no state and stays a dependency.
+ * Applications list Core themselves, since not every package manager installs
+ * peers.
+ *
+ * @param {import('@yarnpkg/types').Yarn.Constraints.Context} context
+ */
+const constrainSharedCore = ({ Yarn }) => {
+	const workspacesByIdent = new Map(
+		Yarn.workspaces().map((workspace) => [workspace.ident, workspace]),
+	)
+	/** @type {Map<string | null, boolean>} */
+	const usesCoreByIdent = new Map()
+	/**
+	 * @param {import('@yarnpkg/types').Yarn.Constraints.Workspace} workspace
+	 * @param {readonly string[]} types
+	 * @returns {boolean}
+	 */
+	const usesCore = (workspace, types) =>
+		Yarn.dependencies({ workspace }).some((dependency) => {
+			if (!types.includes(dependency.type)) return false
+			if (dependency.ident === corePackage) return true
+			const target = workspacesByIdent.get(dependency.ident)
+			if (target === undefined) return false
+			if (!usesCoreByIdent.has(target.ident)) {
+				usesCoreByIdent.set(target.ident, false)
+				usesCoreByIdent.set(
+					target.ident,
+					usesCore(target, ['dependencies', 'peerDependencies']),
+				)
+			}
+			return usesCoreByIdent.get(target.ident) === true
+		})
+
+	for (const workspace of Yarn.workspaces()) {
+		if (workspace.ident === corePackage) continue
+		if (isPublished(workspace)) {
+			if (!usesCore(workspace, ['dependencies', 'peerDependencies'])) continue
+			for (const dependency of Yarn.dependencies({
+				workspace,
+				ident: corePackage,
+			})) {
+				if (dependency.type === 'dependencies') {
+					dependency.error(
+						`${workspace.ident} must declare ${corePackage} as a peer, not a dependency: an application has one Core instance`,
+					)
+				}
+			}
+			workspace.set(['peerDependencies', corePackage], 'workspace:^')
+			workspace.set(['devDependencies', corePackage], 'workspace:^')
+			continue
+		}
+		const listsCore = Yarn.dependencies({ workspace, ident: corePackage }).some(
+			(dependency) => dependency.type !== 'peerDependencies',
+		)
+		if (
+			!listsCore &&
+			usesCore(workspace, ['dependencies', 'devDependencies'])
+		) {
+			workspace.error(
+				`${workspace.ident} must list ${corePackage} in its dependencies: the packages it uses expect the application's Core as a peer`,
+			)
+		}
+	}
+}
+
 /**
  * Published packages and the root use one range per third-party dependency,
  * so no package is tested against a different version than it declares. The
@@ -173,6 +248,7 @@ module.exports = {
 	/** @param {import('@yarnpkg/types').Yarn.Constraints.Context} context */
 	async constraints(context) {
 		constrainDependencyDirection(context)
+		constrainSharedCore(context)
 		constrainPublishedManifests(context)
 		constrainConsistentRanges(context)
 	},
