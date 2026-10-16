@@ -140,7 +140,7 @@ type DefineKeyCheck<
 			TFeatures[TKey & keyof TFeatures]
 		>
 	: TKey extends keyof TOwnOptions
-		? TOwnOptions[TKey]
+		? Exclude<TOwnOptions[TKey], undefined>
 		: TKey extends CoreDefineKey | typeof defineFeaturesNotInferred
 			? unknown
 			: TKey extends FeatureName<TSource['shapeMethods']>
