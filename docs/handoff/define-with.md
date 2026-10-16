@@ -422,9 +422,10 @@ versionnés). Ligne de base : arbre détaché de `main` 41cae632 construit dans 
   4 286 929, branche 1 974 631 / 4 342 291 ; 200 schémas `main` 8 922 135 / 19 220 889,
   branche 9 449 011 / 20 153 863 (types : 524 415 contre 546 235 sur TS 6 ; la phase 1
   mesurait 9 725 729 en nouvelle forme avec l'union transitoire).
+
 - Audit DX (`node tooling/dx-audit/run.mjs <main construit> . --only core,plugin-kit,
-  soft-delete-plugin,acl-permissions-plugin,roles-plugin,auth-plugin,access-plugin,
-  hooks-plugin,validation-plugin,rest-plugin,graphql-plugin,postgres-plugin`, après
+soft-delete-plugin,acl-permissions-plugin,roles-plugin,auth-plugin,access-plugin,
+hooks-plugin,validation-plugin,rest-plugin,graphql-plugin,postgres-plugin`, après
   suppression de `dist/` et `yarn build`) : 3 882 différences, cumul des phases 1 à 5, toutes
   expliquées :
   - exports (47) : ajouts des phases 1–2 (`SchemaRulesBuilder`, `CompleteSchemaRules`,
