@@ -192,7 +192,7 @@ Core's canonical projection always selects `id`, even when application code
 does not mention it. PostgreSQL therefore returns one visible stable identifier
 on every root and nested model. Adapter-private identity metadata remains only
 as a defensive correlation check for immutable commands and mutation
-lifecycles; it no longer hides the identifier from hooks or serialized models.
+lifecycles; it never hides the identifier from hooks or serialized models.
 
 Every adapter request carries Core's policy-neutral `constraints` array and an
 optional framework-owned `rowFilter`. The latter contains protected policy
@@ -216,14 +216,9 @@ advertises `databasePersistencePlanCapability`, and compiles the protected row
 filters that Runtime carries beside each request. PostgreSQL owns Drizzle
 compilation, physical column types and database effects.
 
-ADR-0266 removes `postgresUpgrade()`, the migration contribution protocol and
-migration metadata; no migration planner or history is shipped. ADR-0289
-removes the test-only adapter support providers, `postgresPhysicalColumn()`
-physical-schema contributions with their `adapterMetadata` export, and the
-`postgresRawAdapterCapability` raw lease, and `postgresConstraintCompiler()`
-with the `adapter:consume` privilege. Direct synchronization remains
-available, and neither `pg.Pool`, `PoolClient`, Drizzle, Master authority nor
-a raw SQL API is exposed.
+No migration planner or history is shipped; direct synchronization prepares
+the schema. Neither `pg.Pool`, `PoolClient`, Drizzle, Master authority nor a
+raw SQL API is exposed.
 
 Protected row filters are combined with the developer query using
 parameterized logical `AND` and applied to reads, mutation targets,
@@ -741,10 +736,8 @@ database of `releaseOne`, it logs
 and keeps the stored titles. Without `renamedFrom`, the same start refuses and
 names the forgotten rename.
 
-The former `postgresSchemaPreparationCapability` marker and its type are
-removed by ADR-0266. Direct preparation always follows `schemaPolicy`; use
-existing `ignore` when external tooling manages the schema. No migration
-runner or replacement preparation claim is installed. `renamedFrom` remains
+Direct preparation always follows `schemaPolicy`; use `ignore` when external
+tooling manages the schema. No migration runner is installed. `renamedFrom` is
 part of direct synchronization and preserves data as shown above.
 
 ## Pointer storage
@@ -992,8 +985,8 @@ Containment documents, keys, key arrays, and path segment arrays are parameters.
 The compiler uses `#>>` only for typed string matching and `#>` for JSONB value
 comparisons. No public builder exposes PostgreSQL syntax or raw SQL.
 
-The PostgreSQL-specific JSONPath and `containedBy` operators were removed by
-ADR-0301; Core rejects them before the adapter.
+Core has no JSONPath or `containedBy` operator and rejects them before the
+adapter.
 
 Regex uses PostgreSQL advanced regular expressions for Core's portable subset
 (ADR-0302), which Core validates before execution. `case-insensitive` selects

@@ -245,9 +245,9 @@ const readTrash = () =>
 
 <!-- endregion -->
 
-Master holds every permission, but its reads keep the trash filter by default
-(ADR-0317, 6.1 amendment): a server job using `useMasterKey` never includes
-tombstones silently, and no longer needs `where: { isDeleted: false }`. A
+Master holds every permission, but its reads keep the trash filter by default:
+a server job using `useMasterKey` never includes tombstones silently and needs
+no `where: { isDeleted: false }`. A
 Master read returns tombstones only when its own `where` constrains
 `isDeleted`: any condition on this schema's `isDeleted`, at any depth of `AND`,
 `OR` and `NOT` (a condition inside a relation predicate does not count):

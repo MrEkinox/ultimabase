@@ -1501,9 +1501,7 @@ schema fields. Since persisted typed objects contain every declared key,
 their root key checks are normally redundant; the same operators are primarily
 useful for dynamic JSON branches.
 
-ADR-0301 removed the PostgreSQL-specific `jsonPathExists`, `jsonPathMatches`
-and `containedBy` operators from the builder, serialized `where`, REST and
-GraphQL. Each database adapter declares the operators it executes per field
+Each database adapter declares the operators it executes per field
 family (`filterOperators`); Core rejects any other operator with a public
 `VALIDATION_ERROR` naming the field and operator before the adapter runs, and a
 protected filter with an undeclared operator with a generic message. `matches`
@@ -2257,9 +2255,7 @@ export const publishedOnlyPlugin = () =>
 the request (`allowed: false`, with an optional server-side `reason` added to
 the error message; inclusions still read the denial as absence), AND private
 row filters, and return allowed
-`inputFields` and `selectionFields` that compose by intersection. ADR-0289
-removed the opaque `constraints` effect, `databaseConstraint` and the adapter
-constraint compilers: no production policy produced them. Restricted mutation
+`inputFields` and `selectionFields` that compose by intersection. Restricted mutation
 input is rejected, while selection restrictions project excluded fields away,
 again after business result transforms. `restrictResult` may only omit values from the final result.
 Runtime evaluates guards and protected policies before business effects, keeps
@@ -2704,8 +2700,7 @@ before setup. Consumers can read only the exact required or optional capability
 objects listed in their manifest. Exact identity and cardinality reject
 ambiguous providers before materialization.
 
-Legacy service tokens and string slots have no compatibility bridge. A former
-exclusive service maps to a `single` application capability, while behavior
+An exclusive service is a `single` application capability, while behavior
 intended for application developers is exposed through the owning plugin's
 typed setup export.
 
@@ -2757,17 +2752,12 @@ offers and Core does not emulate it.
 
 Portable plugins reach the database only through Core's neutral adapter
 contracts (`databaseAdapterCapability`, `databasePersistencePlanCapability`
-and the private-storage protocol). ADR-0289 removed the test-only adapter
-support tokens, attributed physical-schema contributions, raw adapter leases
-with the `adapter:raw` privilege, and database constraint compilers with the
-`adapter:consume` privilege; a future community need reopens them with a real
-consumer and a new ADR.
+and the private-storage protocol). There are no raw adapter leases, adapter
+support tokens, physical-schema contributions or database constraint
+compilers.
 
-ADR-0266 removes migration support/intent tokens, `planAdapterMigrations`,
-its exclusive types and `migration:contribute`. Core no longer classifies
-contribution upgrades or orphans. This does not authorize destructive storage
-cleanup: current PostgreSQL synchronization preserves unmatched storage.
-A future database migration product must decide its integration separately.
+Core does not plan migrations or classify contribution upgrades or orphans,
+and PostgreSQL synchronization preserves unmatched storage.
 
 ### Owner-private plugin storage
 
@@ -3247,18 +3237,17 @@ Missing optional dependencies and capabilities remain inspectably inactive.
 Graph construction remains static, exposes no declaration capability values,
 and never executes setup or lifecycle hooks.
 
-## Setup facades and migration map
+## Setup facades
 
-Plugin setup retains only infrastructure-specific compatibility facades still
-owned by Core. Each accepts only its nominal definition or
+Plugin setup keeps only infrastructure-specific facades owned by Core. Each accepts only its nominal definition or
 requirement type, records the exact plugin and instance owner, checks its
 dedicated privilege, and closes when setup finishes. Their backing stores are
 private to Core; applications cannot enumerate or mutate them.
 
-Milestone 14 maps the removed generic paths as follows:
+Each extension need has one supported path:
 
-- exclusive string slots become canonical `single` capabilities;
-- public service tokens become application capabilities;
+- an exclusive value is a canonical `single` capability;
+- a public service is an application capability;
 - optional Hooks and Access use application capabilities owned by their packages;
 - low-level behavior, policy enforcement, and logical operation interceptors use
   `provideRuntimeBehavior()`, `provideRuntimeConstraint()`, and
@@ -3270,19 +3259,15 @@ Milestone 14 maps the removed generic paths as follows:
 - physical persistence rewrites use the ordered
   `persistencePlanRewriterCapability` and exact
   `providePersistencePlanRewriter()` facade under `persistence:rewrite`;
-- cross-plugin commands become domain capabilities, such as
+- cross-plugin commands are domain capabilities, such as
   `requestSubjectReferenceCleanupCapability`;
-- legacy ownership claims disappear because compiled schemas already retain owner
-  provenance; and
-- unused operator, generator, and transport registry categories are removed
-  without replacement.
+- ownership comes from the owner provenance compiled schemas retain; and
+- Core has no operator, generator, or transport registry.
 
 Core owns normalization and transaction commit. Plugins use Runtime behavior
 stages with `provideRuntimeBehavior()` or `preparedOperation` with
 `provideRuntimeInterceptor()` under `runtime:intercept`; they cannot contribute
-normalization/commit stages. ADR-0264 removes `runtimePipelineStage()` and its
-four authoring types. Transactions, Hook `beforeCommit`/`afterCommit`, callback
-ownership and post-commit delivery retain their existing behavior.
+normalization/commit stages.
 
 Persistence plan protocol version 2 keeps logical operations immutable while
 separating plugin-owned schema-mutation identity from its Core-compiled
