@@ -1,6 +1,6 @@
 # ADR-0340: Lower what every application pays
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-17
 - Refines: ADR-0206/ADR-0311 (Master authority), ADR-0279 (configured factory), ADR-0297 (`Register`),
   the field-options records, the server-provider records; applies ADR-0288
