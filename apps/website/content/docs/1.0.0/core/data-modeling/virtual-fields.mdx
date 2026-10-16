@@ -124,7 +124,7 @@ resolvers run in batches of at most 16 invocations. The included targets of
 several parents resolve in parallel, one call per parent and field.
 
 To resolve every row of one read in one call, declare `resolveMany` instead
-of `resolve` (ADR-0325). It receives the immutable dependency `items` in result
+of `resolve`. It receives the immutable dependency `items` in result
 order and returns one value per item, in the same order; a list of another
 length fails the operation. The example's loyalty service answers for many
 customers in one request:

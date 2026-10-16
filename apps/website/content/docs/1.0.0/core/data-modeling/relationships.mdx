@@ -83,7 +83,7 @@ complete record, and `null` in update data unlinks it; pointers cannot be lists 
 
 In the started application of the example, read a book without including its
 author. Its selected `author` field is still a `Pointer`, not a loaded `Author`
-row. A pointer does not read its target (ADR-0310); read it through the target
+row. A pointer does not read its target; read it through the target
 schema:
 
 <include cwd meta='title="tests/relationships.test.ts"'>
@@ -172,7 +172,7 @@ pointer, not a one-item relation.
 
 Relations do not appear as arrays in ordinary results unless they are
 included, and create or update data changes them only through link commands.
-Results are plain data with no relation methods (ADR-0310). Use an explicit
+Results are plain data with no relation methods. Use an explicit
 relationship schema with pointers when the edge itself needs fields such as
 role, position, status, or creation time.
 
@@ -220,7 +220,7 @@ add two books to a wishlist and return the visible membership:
 
 Both books are members, but `updated.wishlist` lists only the published one:
 the declared `relations` filter hides the draft from every read,
-`exists` included. Results have no relation handles (ADR-0310); the edge itself
+`exists` included. Results have no relation handles; the edge itself
 is not a result field. A relation field takes these commands:
 
 | Command      | Effect                                                                                      |

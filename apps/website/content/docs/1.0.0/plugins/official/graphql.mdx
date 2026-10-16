@@ -59,8 +59,7 @@ sources:
 
 `@ultimabase/graphql-plugin` owns the executable schema. Yoga (HTTP), HTTP,
 Hono and the explorer are independent, optional plugins; none installs its
-siblings. `apiServer()` from `@ultimabase/api-server` returns them as one list
-(ADR-0325).
+siblings. `apiServer()` from `@ultimabase/api-server` returns them as one list.
 
 The code on this page comes from the tested
 [GraphQL example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/graphql):
@@ -165,7 +164,7 @@ without a policy plugin. **GraphQL refuses to start when it exposes a write**
 (a generated mutation or a plugin command) and no protected policy plugin
 such as Access is installed:
 `GraphQL exposes writes (createEntry, updateEntry, deleteEntry) but no protected policy plugin is installed: install one, such as accessPlugin(), or pass graphqlPlugin({ publicWrites: true }) to let every client write.`
-`publicWrites: true` lets every client write on purpose (ADR-0294); public
+`publicWrites: true` lets every client write on purpose; public
 operations do not count as writes. Configure identity and
 [Access](./access) or [ACL](./acl-permissions) rules, then review the complete
 exposed schema before binding publicly. Authentication alone grants no
@@ -184,8 +183,8 @@ tables below use `Post` as the GraphQL type name. GraphQL does not pluralize
 or case-fold the schema's `className`; a custom `typeName` changes these field
 suffixes.
 
-The rule keys are the schema method names, the same as REST and Access rules
-(ADR-0325): `findOne` (`get<Type>` and `findOne<Type>`), `findMany`, `count`,
+The rule keys are the schema method names, the same as REST and Access rules:
+`findOne` (`get<Type>` and `findOne<Type>`), `findMany`, `count`,
 `exists`, `createOne`, `updateOne`, `deleteOne`, `upsertOne`, `createMany`,
 `updateMany`, `deleteMany`, `upsertMany`, a plugin command such as
 `softDeleteOne`, and `typeName`, which renames the generated type.
@@ -211,7 +210,7 @@ authors, and write comments through their post:
 	../../examples/graphql/src/schema.ts#comment
 </include>
 
-`.with({ graphql: false })` removes one schema's root fields and mutations (ADR-0333).
+`.with({ graphql: false })` removes one schema's root fields and mutations.
 A schema without any exposed root or command contributes types only where an
 exposed schema reaches it: through a pointer or relation field of an exposed
 type, or a nested write input, transitively. `AuditEntry` holds its link to a
@@ -253,8 +252,8 @@ error is GraphQL's own, naming no schema or rule:
 
 An enum field declared with a string array gets one enum type named from its
 schema and field path, `PostStatus` here. Every field using the same shared
-enum from `defineEnum('TaskPriority', [...])` uses one `TaskPriority` enum type
-(ADR-0310); a name that collides with another generated type fails schema
+enum from `defineEnum('TaskPriority', [...])` uses one `TaskPriority` enum type;
+a name that collides with another generated type fails schema
 compilation.
 
 ### Generated queries
@@ -288,7 +287,7 @@ answer is:
 </include>
 
 Filters and ordering are generated from the schema's actual fields; each
-filter lists only the operators the database adapter declares (ADR-0301),
+filter lists only the operators the database adapter declares,
 and a field without any declared operator is absent from the filter input.
 Here the published posts with at least ten views, the number of titles
 starting with `G`, and whether any post passed 100 views:
@@ -323,7 +322,7 @@ never the value.
 | `upsertManyPost` | `upsertMany` | `input: PostUpsertManyInput!` | Created or updated `[Post!]!` items | Off     |
 
 Create input fields come from the schema. Singular create and update inputs
-accept nested commands on pointer and relation fields (ADR-0308): `connect`
+accept nested commands on pointer and relation fields: `connect`
 or `create` on a pointer, incremental `create` and `connect` on a relation,
 plus `update`, `disconnect` and `set` during an update. The result may select
 the linked rows:
@@ -379,8 +378,8 @@ and nothing is written. An exposed mutation that Access denies answers
 
 The tables cover generated schema operations, not a universal list for every
 application. A plugin-owned schema does not receive generated CRUD fields.
-An operation its owner declared public appears in every installed transport
-(ADR-0324): [authentication](./password-authentication) contributes
+An operation its owner declared public appears in every installed transport:
+[authentication](./password-authentication) contributes
 `signUp`, `login`, `current`, `refresh`, `logout`, `changePassword` and the
 account fields, with typed GraphQL bindings whose `user` is the application's
 User type. `graphqlPlugin({ hide: [authOperations.refresh] })` hides one; an
@@ -446,7 +445,7 @@ application graph. It imports no HTTP, Yoga, REST, authentication, policy, or
 database provider. The setup export exposes `schema`, `execute()`, and
 deterministic `printSchema()`. `execute()` needs a real request context bound
 to the same started application; request contexts are plugin-author
-machinery from `@ultimabase/core/plugin` (ADR-0311). Foreign, forged, stale,
+machinery from `@ultimabase/core/plugin`. Foreign, forged, stale,
 cancelled, and disposed contexts fail before resolver work:
 
 <include cwd meta='title="tests/schema.test.ts"'>
@@ -592,7 +591,7 @@ error contract.
 ### Choose a development explorer
 
 `@ultimabase/graphql-explorer-plugin` serves one browser explorer for the
-installed GraphQL HTTP endpoint (ADR-0325); it installs neither GraphQL, Yoga,
+installed GraphQL HTTP endpoint; it installs neither GraphQL, Yoga,
 HTTP nor a server. `apiServer({ graphql: { explorer: 'graphiql' } })` adds it.
 
 | Explorer       | Option                                            | Route             |

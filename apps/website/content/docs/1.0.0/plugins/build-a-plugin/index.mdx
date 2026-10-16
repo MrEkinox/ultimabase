@@ -53,7 +53,7 @@ plugin does not add schema fields, operations, or Runtime behavior yet.
   version `0.0.0`, so the examples on these pages declare `core: '^0.0.0'`.
   The Core range is checked against the installed Core, and dependency and
   peer ranges against the installed plugin versions, so they must all accept
-  `0.0.0` (ADR-0338).
+  `0.0.0`.
 
 ## Steps
 
@@ -125,7 +125,7 @@ A feature can also declare schema permissions, such as
 `permissions: ['readArchived']`: Access grants one by a rule of the same name,
 Master always holds it, and the plugin asks for it during a request with
 `holdsSchemaPermission(context, schema, 'readArchived')` from
-`@ultimabase/core/plugin` (ADR-0317).
+`@ultimabase/core/plugin`.
 A rule is a key of the schema's `.with({ ... })`; post-commit callbacks read
 its value:
 
