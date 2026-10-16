@@ -22,14 +22,11 @@ const hasProfilePolicy = (plan: InitializerPlan): boolean =>
 const hasMember = (plan: InitializerPlan): boolean =>
 	has(plan, 'roles-plugin') && !hasAuth(plan)
 
-/** These declarations stay in application source; plugin imports alone grant nothing. */
-export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
+/** The factory imports of the security plugins; importing alone grants nothing. */
+export const securityPluginImports = (plan: InitializerPlan): NamedImport[] => [
 	...pluginImports(plan, [
 		['access-plugin', 'accessPlugin'],
-		[
-			'acl-permissions-plugin',
-			plan.starter === 'task' ? 'ACL, aclPlugin' : 'aclPlugin',
-		],
+		['acl-permissions-plugin', 'aclPlugin'],
 		['auth-plugin', 'authPlugin'],
 		['roles-plugin', 'rolesPlugin'],
 	]),
@@ -60,60 +57,97 @@ export const securitySchemaPluginEntries = (plan: InitializerPlan): string[] =>
 	])
 
 // The current member is the request principal resolved by Core (ADR-0304).
-const roleMembers = (plan: InitializerPlan): string =>
-	hasAuth(plan) ? 'AppUser' : 'Member'
+const roleMembers = (
+	plan: InitializerPlan,
+): { readonly file: string; readonly name: string } =>
+	hasAuth(plan)
+		? { file: 'user', name: 'AppUser' }
+		: { file: 'member', name: 'Member' }
 
-export const securitySchemaDeclarations = (plan: InitializerPlan): string =>
-	included([
+/** One generated schema module: its file name under `src/schemas/`. */
+export interface SchemaFile {
+	/** The file name without extension, such as `user`. */
+	readonly file: string
+	/** The exported schema. */
+	readonly name: string
+	/** Package imports of the declaration. */
+	readonly packageImports: readonly NamedImport[]
+	/** The declaration, without imports. */
+	readonly declaration: string
+	/** Other schema modules it imports, as [file, name]. */
+	readonly schemaImports: readonly (readonly [string, string])[]
+}
+
+/** The security schemas, one module each under `src/schemas/`. */
+export const securitySchemaFiles = (plan: InitializerPlan): SchemaFile[] =>
+	included<SchemaFile>([
 		[
 			hasAuth(plan),
-			`// The User of authPlugin: password() adds a unique email; credentials and
+			{
+				file: 'user',
+				name: 'AppUser',
+				packageImports: [],
+				schemaImports: [],
+				declaration: `// The User of authPlugin: password() adds a unique email; credentials and
 // sessions stay in private storage.
-export const AppUser = SchemaApplication.UserSchema.define({
+export const AppUser = App.UserSchema.define({
   className: 'User',
   fields: (f) => ({ displayName: f.string() }),
 })${withRules([
-				...(hasProfilePolicy(plan)
-					? [
-							{
-								comment:
-									'Each user reads only their own profile; writes stay with authPlugin.',
-								entry: [
-									'access: {',
-									'  read: ({ principal, where }) =>',
-									"    where.in('id', principal === undefined ? [] : [principal.id]),",
-									'  create: false,',
-									'  update: false,',
-									'  upsert: false,',
-									'  delete: false,',
-									'}',
-								].join('\n'),
-							},
-						]
-					: []),
-				...privateRules(plan),
-			])}`,
+					...(hasProfilePolicy(plan)
+						? [
+								{
+									comment:
+										'Each user reads only their own profile; writes stay with authPlugin.',
+									entry: [
+										'access: {',
+										'  read: ({ principal, where }) =>',
+										"    where.in('id', principal === undefined ? [] : [principal.id]),",
+										'  create: false,',
+										'  update: false,',
+										'  upsert: false,',
+										'  delete: false,',
+										'}',
+									].join('\n'),
+								},
+							]
+						: []),
+					...privateRules(plan),
+				])}`,
+			},
 		],
 		[
 			hasMember(plan),
-			`// A local member model keeps Roles useful without installing authentication.
-export const Member = SchemaApplication.Schema.define({
+			{
+				file: 'member',
+				name: 'Member',
+				packageImports: [],
+				schemaImports: [],
+				declaration: `// A local member model keeps Roles useful without installing authentication.
+export const Member = App.Schema.define({
   className: 'Member',
   fields: (f) => ({ name: f.string({ required: true }) }),
 })${withRules(privateRules(plan))}`,
+			},
 		],
 		[
 			has(plan, 'roles-plugin'),
-			`// Role membership is data, not an authorization grant by itself.
-export const AppRole = SchemaApplication.RoleSchema.define({
+			{
+				file: 'role',
+				name: 'AppRole',
+				packageImports: [],
+				schemaImports: [[roleMembers(plan).file, roleMembers(plan).name]],
+				declaration: `// Role membership is data, not an authorization grant by itself.
+export const AppRole = App.RoleSchema.define({
 ${[
 	"  className: 'Role',",
-	`  members: () => ${roleMembers(plan)},`,
+	`  members: () => ${roleMembers(plan).name},`,
 	'  fields: (f) => ({ description: f.string() }),',
 ].join('\n')}
 })${withRules([{ entry: "roles: { deletion: 'fail' }" }, ...privateRules(plan)])}`,
+			},
 		],
-	]).join('\n\n')
+	])
 
 /** One entry of `.with({ … })`, such as `rest: false`. */
 interface RuleEntry {
@@ -164,13 +198,6 @@ export const securityApplicationImports = (
 ): NamedImport[] =>
 	included<NamedImport>([
 		[needsMasterKey(plan), ['@ultimabase/core', 'MasterAuthority']],
-	])
-
-export const securitySchemaNames = (plan: InitializerPlan): string[] =>
-	included([
-		[hasAuth(plan), 'AppUser'],
-		[hasMember(plan), 'Member'],
-		[has(plan, 'roles-plugin'), 'AppRole'],
 	])
 
 export const securityMasterSource = (plan: InitializerPlan): string =>

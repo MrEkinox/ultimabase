@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { nextCommands, renderBaseFiles } from './base-template.js'
 import { resolveSelection } from './config.js'
+import {
+	generatedPlans,
+	pluginAndSchemaSources,
+	renderPlan,
+} from './generated-plans.test-support.js'
 
 describe('base project templates', () => {
 	it.each([
@@ -20,7 +25,7 @@ describe('base project templates', () => {
 				const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 					readonly dependencies: Record<string, string>
 				}
-				const schema = files.get(`src/schema.${language}`) ?? ''
+				const schema = pluginAndSchemaSources(files, language)
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 				expect(schema).toContain(factory)
 				expect(plan.plugins).toContain('postgres-plugin')
@@ -53,7 +58,7 @@ describe('base project templates', () => {
 		expect(
 			[...files.keys()].filter((name) => name.includes('generate')),
 		).toEqual([])
-		expect(files.get('src/main.ts')).toContain("from './schema.ts'")
+		expect(files.get('src/main.ts')).toContain("from './schemas/task.ts'")
 		expect(files.get('vitest.config.ts')).toContain('...ultimabaseTesting()')
 		const test = files.get('tests/task.test.ts') ?? ''
 		expect(test).toContain('await using t = await testApplication(ultimabase)')
@@ -155,7 +160,7 @@ describe('base project templates', () => {
 		const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 			readonly dependencies: Record<string, string>
 		}
-		const schema = files.get('src/schema.ts') ?? ''
+		const schema = pluginAndSchemaSources(files, 'ts')
 		for (const id of plan.plugins)
 			expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 		expect(manifest.dependencies).toHaveProperty('zod')
@@ -178,7 +183,7 @@ describe('base project templates', () => {
 			'/tmp',
 		)
 		const files = renderBaseFiles(plan)
-		const schema = files.get('src/schema.js') ?? ''
+		const schema = pluginAndSchemaSources(files, 'js')
 		expect(schema).not.toContain('export const Task')
 		expect(schema).toContain('validationPlugin()')
 		expect(files.get('package.json')).not.toContain('"zod"')
@@ -201,7 +206,7 @@ describe('base project templates', () => {
 				)
 				const files = renderBaseFiles(plan)
 				const application = files.get(`src/ultimabase.${language}`) ?? ''
-				const schema = files.get(`src/schema.${language}`) ?? ''
+				const schema = pluginAndSchemaSources(files, language)
 				const main = files.get(`src/main.${language}`) ?? ''
 				const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 					readonly dependencies: Record<string, string>
@@ -233,10 +238,8 @@ describe('base project templates', () => {
 					expect(schema).toContain('  acl: { default: new ACL() },')
 				}
 				if (id === 'roles-plugin') {
-					expect(schema).toContain('SchemaApplication.RoleSchema.define({')
-					expect(schema).toContain(
-						'export const Member = SchemaApplication.Schema.define(',
-					)
+					expect(schema).toContain('App.RoleSchema.define({')
+					expect(schema).toContain('export const Member = App.Schema.define(')
 					expect(application).toContain('schemas: [Task, Member, AppRole]')
 					// The Register cycle is fixed in Core (ADR-0297 note of
 					// 2026-10-12): no empty `.with` only to finish a declaration.
@@ -255,7 +258,7 @@ describe('base project templates', () => {
 			)
 			const files = renderBaseFiles(plan)
 			const application = files.get(`src/ultimabase.${language}`) ?? ''
-			const schema = files.get(`src/schema.${language}`) ?? ''
+			const schema = pluginAndSchemaSources(files, language)
 			const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 				readonly dependencies: Record<string, string>
 			}
@@ -264,7 +267,7 @@ describe('base project templates', () => {
 			expect(schema).toContain(
 				"authPlugin({ methods: [password({ identifier: 'email' })] })",
 			)
-			expect(schema).toContain('SchemaApplication.UserSchema.define({')
+			expect(schema).toContain('App.UserSchema.define({')
 			// The Register cycle is fixed in Core: no empty `.with` is needed.
 			expect(schema).not.toContain('.with({})')
 			expect(application).toContain('schemas: [Task, AppUser]')
@@ -283,7 +286,7 @@ describe('base project templates', () => {
 			'/tmp',
 		)
 		const files = renderBaseFiles(plan)
-		const schema = files.get('src/schema.ts') ?? ''
+		const schema = pluginAndSchemaSources(files, 'ts')
 		const application = files.get('src/ultimabase.ts') ?? ''
 		expect(schema).toContain('members: () => AppUser')
 		// Roles reads the Core principal: rules no longer import the session token.
@@ -324,11 +327,11 @@ describe('base project templates', () => {
 			"declare module '@ultimabase/core' {\n  interface Register {\n    readonly app: typeof ultimabase\n  }\n}",
 		)
 		expect(application).not.toContain('process.env.DATABASE_URL')
-		expect(typescript.get('src/schema.ts')).toContain(
+		expect(typescript.get('src/app.ts')).toContain(
 			'UltimaBase.use(postgresPlugin())',
 		)
 		expect(typescript.get('src/main.ts')).toContain(
-			'await using app = await ultimabase.start()',
+			'await using started = await ultimabase.start()',
 		)
 		expect(typescript.get('src/main.ts')).not.toContain('dispose()')
 
@@ -353,4 +356,42 @@ describe('base project templates', () => {
 		)
 		expect(javascript.get('src/ultimabase.js')).not.toContain('Register')
 	})
+
+	// The project layout page: plugins, then schemas, then the instance;
+	// app.ts imports no schema, so cyclic schema modules load in any order.
+	it.each(generatedPlans)(
+		'separates the factory, the schemas and the application for %j',
+		(input) => {
+			const files = renderPlan(input)
+			const language = input.language ?? 'ts'
+			const app = files.get(`src/app.${language}`) ?? ''
+			expect(app).toContain('export const App = UltimaBase.use(')
+			expect(app).not.toMatch(/from '\.\//u)
+			const schemas = [...files.keys()].filter((name) =>
+				name.startsWith('src/schemas/'),
+			)
+			expect(schemas.length > 0).toBe(
+				input.starter !== 'empty' ||
+					(input.plugins ?? []).some(
+						(id) => id === 'auth-plugin' || id === 'roles-plugin',
+					),
+			)
+			for (const name of schemas) {
+				const schema = files.get(name) ?? ''
+				expect(schema, name).toContain(
+					`import { App } from '../app.${language}'`,
+				)
+				expect(schema, name).not.toContain('UltimaBase')
+				expect(schema, name).not.toMatch(/ultimabase\.(?:ts|js)'/u)
+			}
+			const application = files.get(`src/ultimabase.${language}`) ?? ''
+			expect(application).toContain(`import { App } from './app.${language}'`)
+			expect(application).toContain('export const ultimabase = new App({')
+			for (const name of schemas)
+				expect(application).toContain(`from './${name.slice('src/'.length)}'`)
+			expect(files.get(`src/main.${language}`)).toContain(
+				'await using started = await ultimabase.start()',
+			)
+		},
+	)
 })

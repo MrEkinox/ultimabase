@@ -85,7 +85,7 @@ describe('generated security applications with PostgreSQL', () => {
 				`import assert from 'node:assert/strict'
 import { authPlugin } from '@ultimabase/auth-plugin'
 import { ultimabase } from './src/ultimabase.js'
-import { AppUser } from './src/schema.js'
+import { AppUser } from './src/schemas/user.js'
 
 await ultimabase.start()
 try {
@@ -133,7 +133,9 @@ try {
 				`import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { authPlugin } from '@ultimabase/auth-plugin'
 import { ultimabase } from './src/ultimabase.js'
-import { AppRole, AppUser, Task } from './src/schema.js'
+import { AppRole } from './src/schemas/role.js'
+import { AppUser } from './src/schemas/user.js'
+import { Task } from './src/schemas/task.js'
 
 await ultimabase.start()
 try {
@@ -181,7 +183,7 @@ try {
 			const output = await runVerification(
 				project.destination,
 				`import { ultimabase } from './dist/ultimabase.js'
-import { Task } from './dist/schema.js'
+import { Task } from './dist/schemas/task.js'
 
 const audit = []
 const originalInfo = console.info

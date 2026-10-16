@@ -24,11 +24,11 @@ console.log(toJSON(task))
 /** The runnable entry point: start, optional Task seed, optional listener wait. */
 export const mainSource = (
 	plan: InitializerPlan,
-): string => `${plan.starter === 'task' ? `import { toJSON } from '@ultimabase/core'\n\nimport { Task } from './schema.${plan.language}'\n` : ''}import { ultimabase } from './ultimabase.${plan.language}'
+): string => `${plan.starter === 'task' ? `import { toJSON } from '@ultimabase/core'\n\nimport { Task } from './schemas/task.${plan.language}'\n` : ''}import { ultimabase } from './ultimabase.${plan.language}'
 
-// start() resolves to the application; leaving this module scope disposes it.
-await using app = await ultimabase.start()
-console.log('UltimaBase is', app.state)
+// start() resolves to ultimabase itself; leaving this module scope disposes it.
+await using started = await ultimabase.start()
+console.log('UltimaBase is', started.state)
 ${plan.starter === 'task' ? taskCommand(plan) : ''}${
 	hasHttpListener(plan)
 		? `console.log('Local API listening on http://127.0.0.1:1337')

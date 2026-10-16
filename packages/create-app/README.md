@@ -37,6 +37,11 @@ tsconfig.build.json`) and `start` (the compiled `dist/main.js`); JavaScript
   When `docker compose` does not answer, the initializer says so and uses an
   existing database; the prompt then offers its URL, written to the ignored
   `.env` (`--database-url` in flags).
+- **Layout.** `src/app.ts` exports the factory `App` with every plugin and
+  imports no schema; `src/schemas/` holds one module per schema, each
+  importing `App`; `src/ultimabase.ts` creates the application `ultimabase`,
+  lists the schemas and declares it once in `Register`; `src/main.ts` starts
+  it. The website's Project Layout page explains why.
 - **Declaration form.** Generated schemas use the declaration form only
   (ADR-0297, ADR-0339): what the schema is in `define(...)`, then how each
   plugin treats it in `.with({ ... })` only when a schema has rules.
@@ -51,7 +56,7 @@ mode.
 
 ## Plugins
 
-The generated schema module owns one plugin list, used both for source
+The generated `src/app.ts` owns one plugin list, `App`, used both for source
 inference and for Runtime installation. Hooks, Validation, and Soft Delete
 can be selected. The Task example configures schema-local Hooks, Validation,
 and recoverable native deletes when selected. PostgreSQL Vector is not
@@ -60,7 +65,7 @@ offered until it persists vector fields; `--plugin
 Roles, and Object ACLs also generate valid application graphs.
 Authentication installs `authPlugin({ methods: [password({ identifier: 'email' })] })`
 (`@ultimabase/auth-plugin` and `@ultimabase/auth-password`) and declares the
-User through `SchemaApplication.UserSchema.define(...)`, matching the
+User through `App.UserSchema.define(...)` in `src/schemas/user.ts`, matching the
 configured Role form; it adds sessions without granting Task access and needs
 no Master key. When Access is selected too, the User's `.with({ access: … })`
 rules expose only the session owner, so sign-up, login, and refresh can

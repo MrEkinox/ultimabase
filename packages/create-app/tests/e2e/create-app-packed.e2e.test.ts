@@ -154,7 +154,7 @@ describe('packed initializer outside the repository', () => {
 			)
 			expect(await readdir(path.join(destination, 'src'))).toEqual(
 				expect.arrayContaining([
-					`schema.${language}`,
+					`app.${language}`,
 					`ultimabase.${language}`,
 					`main.${language}`,
 				]),
@@ -204,11 +204,11 @@ describe('packed initializer outside the repository', () => {
 				path.join(destination, 'src/ultimabase.ts'),
 				'utf8',
 			)
-			const schema = await readFile(
-				path.join(destination, 'src/schema.ts'),
+			const factory = await readFile(
+				path.join(destination, 'src/app.ts'),
 				'utf8',
 			)
-			const applicationGraphSource = application + schema
+			const applicationGraphSource = application + factory
 			expect(manifest).toContain(`"@ultimabase/${id}"`)
 			expect(applicationGraphSource).toContain(
 				apiServerPluginIds.has(id)

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { nextCommands, renderBaseFiles } from './base-template.js'
 import { resolveSelection } from './config.js'
+import { pluginAndSchemaSources } from './generated-plans.test-support.js'
 
 describe('API project templates', () => {
 	it.each([
@@ -48,9 +49,9 @@ describe('API project templates', () => {
 				expect(plan.plugins).toContain(id)
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 			}
-			// One plugin list in the schema module (ADR-0312); apiServer()
+			// One plugin list in the factory module (ADR-0312); apiServer()
 			// installs HTTP, its transports and the server (ADR-0325).
-			const application = files.get(`src/schema.${language}`) ?? ''
+			const application = pluginAndSchemaSources(files, language)
 			expect(application.includes('...apiServer(')).toBe(
 				plan.plugins.includes('http-plugin'),
 			)
@@ -97,7 +98,7 @@ describe('API project templates', () => {
 		)
 		const files = renderBaseFiles(plan)
 		const application = files.get('src/ultimabase.ts') ?? ''
-		const schema = files.get('src/schema.ts') ?? ''
+		const schema = pluginAndSchemaSources(files, 'ts')
 		expect(schema).toContain('...apiServer({')
 		expect(schema).toContain('rest: {')
 		expect(schema).toContain('graphql: {')
@@ -110,10 +111,10 @@ describe('API project templates', () => {
 		).toHaveLength(2)
 		expect(schema).not.toContain('acknowledgeUnverifiedProtection')
 		expect(schema).toMatch(
-			/export const Member = SchemaApplication\.Schema\.define\(\{[\s\S]*?\.with\(\{ rest: false, graphql: false \}\)/u,
+			/export const Member = App\.Schema\.define\(\{[\s\S]*?\.with\(\{ rest: false, graphql: false \}\)/u,
 		)
 		expect(schema).toMatch(
-			/export const AppRole = SchemaApplication\.RoleSchema\.define\(\{[\s\S]*?\}\)\.with\(\{ roles: \{ deletion: 'fail' \}, rest: false, graphql: false \}\)/u,
+			/export const AppRole = App\.RoleSchema\.define\(\{[\s\S]*?\}\)\.with\(\{ roles: \{ deletion: 'fail' \}, rest: false, graphql: false \}\)/u,
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([
@@ -127,7 +128,7 @@ describe('API project templates', () => {
 			{ name: 'direct', plugins: ['auth-plugin'] },
 			'/tmp',
 		)
-		expect(renderBaseFiles(direct).get('src/schema.ts')).not.toContain(
+		expect(pluginAndSchemaSources(renderBaseFiles(direct), 'ts')).not.toContain(
 			'authOperations',
 		)
 		const exposed = resolveSelection(
@@ -139,7 +140,7 @@ describe('API project templates', () => {
 			'/tmp',
 		)
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
-		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
+		const schema = pluginAndSchemaSources(renderBaseFiles(exposed), 'ts')
 		expect(application).not.toContain('authOperations')
 		// The `/api/auth` routes serve HTTP clients: REST hides every operation,
 		// GraphQL exposes them but the unconfigured email flows (ADR-0324,
@@ -159,13 +160,15 @@ describe('API project templates', () => {
 	// ADR-0312: introspection and explorers follow NODE_ENV themselves.
 	it('writes no environment expression for introspection or explorers', () => {
 		const plain = resolveSelection({ name: 'plain', apis: ['graphql'] }, '/tmp')
-		expect(renderBaseFiles(plain).get('src/schema.ts')).toContain('graphql: {')
+		expect(pluginAndSchemaSources(renderBaseFiles(plain), 'ts')).toContain(
+			'graphql: {',
+		)
 		const explorer = resolveSelection(
 			{ name: 'explorer', plugins: ['graphql-explorer-plugin'] },
 			'/tmp',
 		)
 		const files = renderBaseFiles(explorer)
-		const application = files.get('src/schema.ts') ?? ''
+		const application = pluginAndSchemaSources(files, 'ts')
 		expect(application).toContain("explorer: 'graphiql'")
 		expect(nextCommands(explorer)).toContain(
 			'Open http://127.0.0.1:1337/graphiql in development.',

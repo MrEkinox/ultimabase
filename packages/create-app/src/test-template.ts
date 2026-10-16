@@ -87,7 +87,7 @@ export const taskTestSource = (plan: InitializerPlan): string => {
 	return `import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
-import { Task } from '${sourceModule(plan, 'schema')}'
+import { Task } from '${sourceModule(plan, 'schemas/task')}'
 import { ultimabase } from '${sourceModule(plan, 'ultimabase')}'
 
 // testApplication starts the real application on this worker's own schema;

@@ -45,3 +45,20 @@ export const renderPlan = (
 	)
 
 export const officialPluginIds = pluginIds
+
+/**
+ * The factory module and every schema module of one project, joined: the
+ * sources that install the plugins and declare the schemas.
+ */
+export const pluginAndSchemaSources = (
+	files: ReadonlyMap<string, string>,
+	language: 'ts' | 'js',
+): string =>
+	[...files]
+		.filter(
+			([name]) =>
+				name === `src/app.${language}` ||
+				(name.startsWith('src/schemas/') && name.endsWith(`.${language}`)),
+		)
+		.map(([, contents]) => contents)
+		.join('\n')

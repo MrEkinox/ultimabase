@@ -198,7 +198,7 @@ describe('generated HTTP and GraphQL applications with PostgreSQL', () => {
 				await writeFile(
 					path.join(project.destination, 'verify.mjs'),
 					`import { ultimabase } from './src/ultimabase.js'
-import { Task } from './src/schema.js'
+import { Task } from './src/schemas/task.js'
 
 await ultimabase.start()
 try {
@@ -268,7 +268,7 @@ try {
 			await writeFile(
 				path.join(project.destination, 'verify.mjs'),
 				`import { ultimabase } from './src/ultimabase.js'
-import { Task } from './src/schema.js'
+import { Task } from './src/schemas/task.js'
 import { anonymous } from '@ultimabase/core/plugin'
 
 await ultimabase.start()

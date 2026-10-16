@@ -94,19 +94,21 @@ imports the `Task` schema and the application of the
 `/api/classes/Task`:
 
 ```ts twoslash title="tests/task.test.ts"
-// @filename: src/schema.ts
+// @filename: src/app.ts
 import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const SchemaApplication = UltimaBase.use(
+export const App = UltimaBase.use(
 	accessPlugin({ allowWithoutRule: { all: 'development' } }),
 	...apiServer({ rest: true }),
 	postgresPlugin(),
 )
+// @filename: src/schemas/task.ts
+import { App } from '../app.ts'
 
-export const Task = SchemaApplication.Schema.define({
+export const Task = App.Schema.define({
 	className: 'Task',
 	fields: (f) => ({
 		title: f.string({ required: true }),
@@ -114,9 +116,10 @@ export const Task = SchemaApplication.Schema.define({
 	}),
 })
 // @filename: src/ultimabase.ts
-import { SchemaApplication, Task } from './schema.ts'
+import { App } from './app.ts'
+import { Task } from './schemas/task.ts'
 
-export const ultimabase = new SchemaApplication({ schemas: [Task] })
+export const ultimabase = new App({ schemas: [Task] })
 
 declare module '@ultimabase/core' {
 	interface Register {
@@ -128,7 +131,7 @@ declare module '@ultimabase/core' {
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 
-import { Task } from '../src/schema.ts'
+import { Task } from '../src/schemas/task.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 // testApplication starts the real application on this worker's own schema;
