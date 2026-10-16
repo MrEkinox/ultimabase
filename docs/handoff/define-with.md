@@ -597,3 +597,7 @@ hooks-plugin,validation-plugin,rest-plugin,graphql-plugin,postgres-plugin`, apr�
   `provideSchemaShapeMethods` dans le code de `packages tests examples tooling apps`) : seuls
   deux commentaires de `examples/plugin-authoring` (phase 4) ; les résultats historiques
   `examples/schema-form-d/results/*.json` citent encore `shapeMethods`.
+
+## État final avant fusion (2026-10-17)
+
+Branche `feat/define-with` à 4adfe064, prête à fusionner dans `main` après accord de l'utilisateur. Forme retenue : `define` (modèle de données et fonctionnalités) puis `.with({ … })` en objet (amendement de l'ADR-0339), builder retiré, codemod retiré. Suite `define-with-diagnostics` allégée (53 s seule au lieu de 74 s, 52 tests) et `create-app-packed` isolé dans le projet `e2e-isolated` qui passe après les autres projets e2e. Preuves : deux runs complets de `yarn test:e2e:built` au calme, 146 fichiers et 721 tests, exit 0 ; `yarn validate:full` exit 0 (3 964 tests, contenu du site 214) ; `yarn website:test` 59/59 ; TS 7 et `docs:regions --check` verts au gate précédent ; banc forme D de l'objet seul au niveau de `main` ou en dessous (TS7 0,55/1,82 s, TS6 1,92/5,61 s). Prochaine action : fusion `--no-ff` dans `main`, suppression de ce handoff, puis corrections des revues `revue-dx.md` et `revue-dx-declaration.md`.
