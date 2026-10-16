@@ -3,6 +3,11 @@
 Branche d'intégration `feat/define-with` (base `main` 41cae632 + commit de l'ADR 1a98790e).
 Toutes les phases de la migration s'y succèdent ; ne pas fusionner avant la dernière.
 
+**Amendement du 2026-10-17 :** `.with` prend un objet (`.with({ acl: { … }, access: { … } })`),
+le constructeur `.with((plugins) => …)` des phases 1 à 5 est retiré (branche
+`spike/with-object`, section « Phase 6 » ci-dessous). Les mentions du constructeur dans les
+sections des phases 1 à 5 sont l'historique de la branche.
+
 ## Périmètre des phases
 
 1. **Phase 1 (terminée)** : mécanisme Core (clés de fonctionnalité dans `define`,
@@ -309,6 +314,53 @@ Commentaires et titres de `examples/plugin-authoring` (`.with({ audit: true })`,
 `.archivable()`, « shape method ») ; prose du site, de `ARCHITECTURE.md` et des README ;
 `examples/schema-form-d/README.md`.
 
+## Phase 6 : `.with` objet (amendement d'ADR-0339)
+
+Branche `spike/with-object` (depuis `feat/define-with` 6c55ad65, plus 2e7be872 repris), à
+fusionner dans `feat/define-with`. Choix de l'utilisateur après le spike du même nom.
+
+### Décisions
+
+- `.with(rules: SchemaRulesObject<TRules, TRequired>)`, non générique. Clés : noms de règles
+  déclarés par les plugins installés (`provideSchemaRules`) plus `relations` de Core, chacune
+  typée comme l'entrée du slot de règles. Règle requise par une fonctionnalité = propriété
+  requise (`& { readonly acl: ACLRule<…> }`, impression courte dans le survol).
+- Schéma sans aucune règle (fabrique sans plugin à règles, aucune relation) : `NoSchemaRules`
+  (clé symbole optionnelle), pour que TypeScript refuse chaque clé par son nom ; un type vide
+  accepterait tout.
+- Exécution : objet simple exigé (`X.with() takes an object of rules: …`), clé inconnue,
+  symbole ou `__proto__` refusés (`X.with({ k }): k is not a rule of an installed plugin;
+.with accepts relations, …`), entrée `undefined` = absente ; règle requise :
+  `X sets F in define(), which requires .with({ rule: … })` ; enregistrement sans `.with` :
+  `X needs .with({ rule: … }): a feature set in its define() requires that rule`.
+- Exports : `SchemaRulesBuilder`, `CompleteSchemaRules` retirés ; `SchemaRulesObject`,
+  `NoSchemaRules` ajoutés ; fichier `schema-rules-builder.ts` → `schema-rules-object.ts`.
+- Conversion : script AST jetable (scratchpad, jamais versionné) sur 422 appels, 10 tests de
+  types à la main, puis passe manuelle (code dans des chaînes, prose, JSDoc). Générateur
+  create-app (`withRules` produit `.with({ … })`, `privateSchemaApiOptions` rend
+  `rest: false`), `gen.mjs` et `probe.json` du banc forme D en forme objet seule.
+- Documentation : `define` décrit le modèle de données (champs, contraintes, index, que Core
+  possède, plus les fonctionnalités qui ajoutent des champs ou commandes) ; `.with({ … })`
+  décrit comment chaque plugin traite le schéma. Pourquoi les index dans `define` et
+  `postgres: { table }` dans `.with` : page Schemas (tableau groupé « modèle de données » /
+  « comportement des plugins »), page « Features and rules », README Core et plugin-kit.
+
+### Résultats du spike (médianes de 3, charge 1 min 2,35–3,88)
+
+| Variante     | TS 7, 50 | TS 7, 200 | TS 6, 50 | TS 6, 200 |
+| ------------ | -------: | --------: | -------: | --------: |
+| `main`       |     0.56 |      1.88 |     1.96 |      5.77 |
+| constructeur |     0.53 |      1.80 |     1.90 |      5.60 |
+| objet seul   |     0.55 |      1.82 |     1.92 |      5.61 |
+
+Instanciations (TS 6 / TS 7) : 50 schémas 1 967 463 / 4 334 361 (constructeur 1 974 631 /
+4 342 291) ; 200 schémas 9 421 473 / 20 126 553 (constructeur 9 449 011 / 20 153 863).
+Cycles : 0 erreur, TS 6/7, sources et paquets construits, tous les ordres de fichiers racine
+des 5 cas `define-with*` et 9 ordres des anneaux 50/200. Diagnostics : un par cas, sauf la
+cascade connue d'une faute dans `define` ; faute de clé de règle avec « Did you mean » ; clé
+répétée TS1117 ; règle requise absente : « Property 'acl' is missing … » (message plus long
+que celui du constructeur).
+
 ## Limites connues
 
 - Une faute dans `define` (clé, option, index) fait échouer l'appel générique ; TypeScript
@@ -318,9 +370,8 @@ Commentaires et titres de `examples/plugin-authoring` (`.with({ audit: true })`,
   ne donne qu'un diagnostic, sur sa ligne.
 - (Résolu en phase 5) La forme union disparue, un rappel `.with` qui ne renvoie pas le
   constructeur est refusé par les types comme à l'exécution.
-- Depuis JavaScript, appeler une règle qu'aucun plugin installé ne déclare reste la
-  `TypeError` du moteur (`plugins.audit is not a function`), relancée avec le contexte (voir
-  phase 5) ; pas de `Proxy` (choix de l'ADR).
+- Depuis JavaScript, une clé répétée dans l'objet de `.with` garde sa dernière valeur
+  (sémantique JavaScript) ; TypeScript la signale (TS1117).
 
 ## État de la phase 4 (documentation)
 
@@ -398,15 +449,11 @@ Journaux : `/private/tmp/claude-501/…/scratchpad/define-with-p4/` (non version
 
 ## Prochaine action vérifiable
 
-Fusionner `feat/define-with-cleanup` (phase 5) et `feat/define-with-docs` (phase 4) dans
-`feat/define-with`, relancer `yarn docs:regions` (blocs README régénérés des deux côtés)
-puis la porte complète ; supprimer ce handoff à la fusion dans `main`.
-Phase 5 (retrait, agent parallèle) puis fusion de `feat/define-with-docs` dans
-`feat/define-with` ; après la fusion, relancer `yarn vitest run --project
-website-content` et `yarn docs:regions --check` (les messages et sources
-changés par la phase 5 peuvent toucher les pages). Avant la fusion dans
-`main` : audit DX et banc forme D (non exécutés depuis la phase 1), puis
-`yarn validate:full`.
+Relire puis fusionner `spike/with-object` dans `feat/define-with` (`--no-ff`), relancer la
+porte complète (`yarn validate:full`, `yarn test:e2e:built`, `yarn website:test`,
+`yarn typecheck:typescript-7`, `yarn docs:regions --check`) et l'audit DX contre `main`
+41cae632 construit ; fusion dans `main` sur validation de l'utilisateur, puis suppression de
+ce handoff.
 
 ## Preuves
 
