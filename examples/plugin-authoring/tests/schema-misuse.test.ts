@@ -14,7 +14,7 @@ it('rejects a rule passed to define', () => {
 			flagReason: 'Spam',
 		}),
 	).toThrow(
-		'Unknown schema option: flagReason. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
+		'Unknown schema option: flagReason. define() takes className, fields and indexes; plugin rules go in the final .with(...)',
 	)
 })
 

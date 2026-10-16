@@ -170,7 +170,7 @@ describe('feature keys of define (ADR-0339)', () => {
 				{ className: 'FeatureUnknownKey', fields: () => ({}), flaged: true },
 			])
 		}).toThrow(
-			'Unknown schema option: flaged. define() takes className, fields and indexes; plugin rules go in the final .with(...) (ADR-0297)',
+			'Unknown schema option: flaged. define() takes className, fields and indexes; plugin rules go in the final .with(...)',
 		)
 	})
 
