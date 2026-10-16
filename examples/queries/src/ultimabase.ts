@@ -35,7 +35,7 @@ export const ultimabase = new App({
 //#endregion application
 
 //#region register
-// One declaration per application gives name-keyed editor types (ADR-0297);
+// One declaration per application gives name-keyed editor types;
 // `principal` names the schema a request principal points to.
 declare module '@ultimabase/core' {
 	interface Register {

@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 
 const testing = ultimabaseTesting()
 
-// PostgreSQL from TEST_DATABASE_URL, or a container started once (ADR-0327).
+// PostgreSQL from TEST_DATABASE_URL, or a container started once.
 export default defineConfig({
 	test: {
 		...testing,

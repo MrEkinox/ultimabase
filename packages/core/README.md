@@ -223,7 +223,7 @@ export const ultimabase = new App({
 	},
 })
 
-// One declaration per application gives name-keyed editor types (ADR-0297).
+// One declaration per application gives name-keyed editor types.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase
@@ -1707,7 +1707,7 @@ explicitly (server-side only), and `Register` types it by name
 <!-- region ../../examples/queries/src/ultimabase.ts#register -->
 
 ```ts
-// One declaration per application gives name-keyed editor types (ADR-0297);
+// One declaration per application gives name-keyed editor types;
 // `principal` names the schema a request principal points to.
 declare module '@ultimabase/core' {
 	interface Register {

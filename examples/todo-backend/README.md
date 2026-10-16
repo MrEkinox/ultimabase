@@ -27,7 +27,7 @@ import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 /**
- * One plugin list types every schema and builds the application (ADR-0297).
+ * One plugin list types every schema and builds the application.
  * Every schema rules every operation, so Access opens nothing by default.
  * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
  */
@@ -37,7 +37,7 @@ export const App = UltimaBase.use(
 	validationPlugin(),
 	rolesPlugin(),
 	aclPlugin(),
-	// REST over HTTP and a local Hono listener (ADR-0325); Access decides
+	// REST over HTTP and a local Hono listener; Access decides
 	// what each request may do.
 	...apiServer({ rest: true }),
 	postgresPlugin(),
@@ -124,7 +124,7 @@ export const ultimabase = new App({
 	schemas: [TodoUser, TodoRole, Todo],
 })
 
-// One declaration per application gives name-keyed editor types (ADR-0297).
+// One declaration per application gives name-keyed editor types.
 declare module '@ultimabase/core' {
 	interface Register {
 		readonly app: typeof ultimabase

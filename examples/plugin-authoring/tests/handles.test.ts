@@ -6,7 +6,7 @@ import { Post } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 import { formatWorkflow } from '../src/workflow/operations.ts'
 
-// These regions are shown in the Core README (ADR-0330).
+// These regions are shown in the Core README.
 it('resolves one cached handle per schema of the application', async () => {
 	await using t = await testApplication(ultimabase)
 
