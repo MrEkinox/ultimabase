@@ -8,7 +8,7 @@ contentType: guide
 order: 3
 outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
 releaseStatus: pre-release
-reviewedAt: 2026-10-13
+reviewedAt: 2026-10-17
 sources:
   - examples/rest/README.md
   - examples/rest/src/schema.ts
@@ -37,6 +37,7 @@ sources:
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0309-core-cursor-pagination.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Overview
@@ -101,8 +102,8 @@ which decides what clients may do, and one application operation:
 | `publicWrites` | Starts with exposed writes and no protected policy: every client may write. |
 | `instanceId`   | Distinguishes explicit REST configurations in one application.              |
 
-The schema's `.with({ rest })` rule selects its routes by the schema method
-names. `Post` keeps the built-in routes and adds `count` and the bulk create:
+The schema's `rest` rule, in `.with`, selects its routes by the
+schema method names. `Post` keeps the built-in routes and adds `count` and the bulk create:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/rest/src/schema.ts#post
@@ -122,10 +123,11 @@ route at all; posts still link and include tags:
 The `rest` rule accepts `false`, `true`, or a map from method name to boolean.
 Each omitted method inherits `restPlugin({ default })`, then REST's built-in
 default; `restPlugin({ default: false })` makes every schema opt in.
-`rest: false` exposes none of a schema's routes; `rest: true` exposes all of
-them, plugin commands included. A plugin-owned schema cannot expose routes.
-The rule is typed by the installed plugin, with no generation step, and goes
-in the final `.with(...)`, never in `define`. Schema declaration does not
+`.with({ rest: false })` exposes none of a schema's routes; `.with({ rest: true })`
+exposes all of them, plugin commands included. A plugin-owned schema cannot
+expose routes. The rule is typed by the installed plugin, with no generation
+step, and goes in `.with({ rest })`, never in `define` (see
+[Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). Schema declaration does not
 register it; `schemas: [...]` does:
 
 <include cwd meta='title="src/ultimabase.ts"'>
@@ -187,7 +189,7 @@ header. Under the default `/api` root, an application-owned schema exposes:
 | `upsertMany` | `POST /classes/Post/bulk/upsert`                    | Off              |
 
 `{id}` must be a UUID v7. Class names are case-sensitive and are not
-pluralized. `rest: { count: true }` enables count **in addition to** the
+pluralized. `.with({ rest: { count: true } })` enables count **in addition to** the
 built-in routes. A method that is off answers `405` with an `Allow` header
 listing the methods the path accepts:
 

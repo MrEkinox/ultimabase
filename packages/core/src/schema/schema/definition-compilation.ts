@@ -78,11 +78,19 @@ export interface NormalizedSchemaDeclaration {
 	readonly className: string
 	readonly fields: Readonly<Record<string, unknown>>
 	readonly indexes: readonly SchemaIndexInput[] | undefined
-	/** Indexes of the final `.with`, checked against the compiled fields. */
-	readonly ruleIndexes?: readonly SchemaIndexInput[] | undefined
-	/** Relation filters of the final `.with({ relations })` (ADR-0328). */
+	/** Relation filters of the final `.with({ relations: … })` (ADR-0328). */
 	readonly relationFilters?:
 		ReadonlyMap<string, RelationWhereDeclaration> | undefined
+	/**
+	 * Whether `define` set feature keys: its indexes may then name feature
+	 * fields, checked against the compiled fields (ADR-0339).
+	 */
+	readonly featureIndexes?: boolean | undefined
+	/**
+	 * Rules required by the features `define` set, while no `.with` gave
+	 * them: `[feature, rule]` pairs reported when an application compiles.
+	 */
+	readonly missingRules?: readonly (readonly [string, string])[] | undefined
 	readonly options: Readonly<Record<string, unknown>>
 }
 
@@ -108,6 +116,19 @@ export const storeSchemaDeclaration = (
 	declaration: NormalizedSchemaDeclaration,
 ): void => {
 	schemaDeclarations.set(schema, declaration)
+}
+
+/**
+ * Rejects a schema registered without the `.with` its `define` features
+ * require (ADR-0339): `acl: true` without `.with({ acl: { … } })`.
+ */
+export const assertDeclaredRulesComplete = (schema: SchemaDefinition): void => {
+	const [missing] = schemaDeclarations.get(schema)?.missingRules ?? []
+	if (missing === undefined) return
+	const [feature, rule] = missing
+	throw new TypeError(
+		`${schema.className} sets ${feature} in define(), which requires .with({ ${rule}: … })`,
+	)
 }
 
 /** Reads the fields captured when one schema was declared, before compilation. */
@@ -221,7 +242,8 @@ const coreSchemaOptionKeys = new Set(['className', 'fields', 'indexes'])
 
 /**
  * Rejects plugin options passed to `define(...)` itself: plugin rules belong
- * to the final `.with(...)` and plugin shape to its shape method (ADR-0297).
+ * to the final `.with(...)`; feature keys are removed before this check
+ * (ADR-0297, ADR-0339).
  */
 export const assertDeclarationOptionKeys = (options: object): void => {
 	for (const key of Reflect.ownKeys(options)) {
@@ -307,7 +329,7 @@ export const prepareSchemaCompilation = (
 	const indexes = normalizeSchemaIndexes(
 		persisted,
 		declaration.indexes,
-		declaration.ruleIndexes,
+		declaration.featureIndexes === true,
 	)
 
 	return immutableRecord({

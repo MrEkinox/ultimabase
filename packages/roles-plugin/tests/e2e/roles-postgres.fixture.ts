@@ -71,19 +71,21 @@ export const roleDeveloperHookTrace: string[] = []
 export const AppRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EAppRole',
 	members: () => RoleMember,
-	resolveCurrent: ({ context }) => {
-		roleResolutionTrace.push('resolve-current')
-		const memberId = context.getValue(currentRoleMemberId)
-
-		return memberId === undefined ? undefined : RoleMember.pointer(memberId)
-	},
-	deletion: 'fail',
 	fields: (field) => ({
 		description: field.string(),
 		priority: field.int({ default: 0 }),
 	}),
-}).with({
 	indexes: [{ fields: ['priority', 'createdAt'] }],
+}).with({
+	roles: {
+		resolveCurrent: ({ context }) => {
+			roleResolutionTrace.push('resolve-current')
+			const memberId = context.getValue(currentRoleMemberId)
+
+			return memberId === undefined ? undefined : RoleMember.pointer(memberId)
+		},
+		deletion: 'fail',
+	},
 	access: protectedRoleOperations,
 	hooks: {
 		beforeOperation: {
@@ -97,20 +99,21 @@ export const AppRole = RoleSchemaApplication.RoleSchema.define({
 export const FailRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EFailRole',
 	members: () => RoleMember,
-	deletion: 'fail',
-}).with({ access: protectedRoleOperations })
+}).with({ roles: { deletion: 'fail' }, access: protectedRoleOperations })
 
 export const PreserveRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2EPreserveRole',
 	members: () => RoleMember,
-	deletion: 'preserve',
-}).with({ access: { ...protectedRoleOperations, delete: true } })
+}).with({
+	roles: { deletion: 'preserve' },
+	access: { ...protectedRoleOperations, delete: true },
+})
 
 export const CascadeRole = RoleSchemaApplication.RoleSchema.define({
 	className: 'RoleE2ECascadeRole',
 	members: () => RoleMember,
-	deletion: 'cascade',
 }).with({
+	roles: { deletion: 'cascade' },
 	access: {
 		// Native Access permits deletion so the plugin's master-only cascade guard is exercised.
 		...protectedRoleOperations,

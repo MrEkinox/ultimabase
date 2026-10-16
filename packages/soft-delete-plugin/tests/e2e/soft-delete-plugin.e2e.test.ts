@@ -13,7 +13,7 @@ const fixturePath = path.join(
 	'fixtures/soft-delete-option-javascript.mjs',
 )
 
-it('compiles the packed shape method from JavaScript', async () => {
+it('compiles the packed softDelete feature from JavaScript', async () => {
 	const { stdout } = await executeFile(process.execPath, [fixturePath])
 	const output: unknown = JSON.parse(stdout)
 	const commands = [
@@ -46,7 +46,7 @@ describe.each([
 	['source', '../../src/index.js'],
 	['packed', '@ultimabase/soft-delete-plugin'],
 ] as const)('%s inherited soft-delete surface', (mode, moduleName) => {
-	it('types the shape method and leaves other schemas untouched', () => {
+	it('types the softDelete feature and leaves other schemas untouched', () => {
 		const fileName = path.join(
 			import.meta.dirname,
 			`soft-delete-shape.${mode}.fixture.ts`,
@@ -54,7 +54,7 @@ describe.each([
 		const source = `import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '${moduleName}'
 const App = UltimaBase.use(softDeletePlugin())
-const Enabled = App.Schema.define({ className: 'EnabledPost', fields: (field) => ({ title: field.string() }) }).softDelete()
+const Enabled = App.Schema.define({ className: 'EnabledPost', fields: (field) => ({ title: field.string() }), softDelete: true })
 const Plain = App.Schema.define({ className: 'PlainPost', fields: (field) => ({ title: field.string() }) })
 void Enabled.softDeleteOne({ id: 'post-1', select: { isDeleted: true, deletedAt: true } })
 void Enabled.restoreMany({ where: { title: { eq: 'post' } } })

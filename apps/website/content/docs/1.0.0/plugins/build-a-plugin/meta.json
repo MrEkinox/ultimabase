@@ -2,6 +2,7 @@
 	"title": "Build a Plugin",
 	"pages": [
 		"index",
+		"features-and-rules",
 		"schema-contributions",
 		"operations-and-graphql",
 		"runtime-and-infrastructure"

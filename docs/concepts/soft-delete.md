@@ -2,8 +2,8 @@
 
 `@ultimabase/soft-delete-plugin` is the official way to keep deleted records as
 hidden rows without teaching Core or a transport what “soft delete” means. Each
-schema opts in with the `.softDelete()` shape method; the plugin is written
-with `definePlugin` (ADR-0316).
+schema opts in with the `softDelete` feature key of `define` (ADR-0339); the
+plugin is written with `definePlugin` (ADR-0316).
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
@@ -14,18 +14,19 @@ const Application = UltimaBase.use(softDeletePlugin())
 const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).softDelete()
+	softDelete: true,
+})
 
 const ultimabase = new Application({ schemas: [Post] })
 ```
 
 ## Choosing a mode
 
-| Declaration                        | Native delete                             | Added commands   |
-| ---------------------------------- | ----------------------------------------- | ---------------- |
-| no `.softDelete()`                 | Physical delete                           | None             |
-| `.softDelete()`                    | Logical delete, physical tombstone update | The six commands |
-| `.softDelete({ mode: 'command' })` | Physical delete                           | The six commands |
+| Declaration                       | Native delete                             | Added commands   |
+| --------------------------------- | ----------------------------------------- | ---------------- |
+| no `softDelete` key               | Physical delete                           | None             |
+| `softDelete: true`                | Logical delete, physical tombstone update | The six commands |
+| `softDelete: { mode: 'command' }` | Physical delete                           | The six commands |
 
 The six commands are `softDeleteOne`, `softDeleteMany`, `restoreOne`,
 `restoreMany`, `purgeOne` and `purgeMany`. The default mode is useful when
@@ -40,11 +41,11 @@ await Post.softDeleteOne({ id: postId })
 await Post.softDeleteMany({ where: { title: { startsWith: 'Draft' } } })
 ```
 
-The one-row request commands reach REST when the schema's rule names them
-(`.with({ rest: { softDeleteOne: true } })`, ADR-0324):
-`POST /api/classes/Post/{id}/soft-delete-one` and `…/restore-one`; GraphQL
-still exposes `softDeleteOnePost` and `restoreOnePost` by itself until 6.6c. Transport exposure
-grants no authority.
+The one-row request commands reach a transport only when the schema's rule
+names them (ADR-0324, ADR-0325): `.with({ rest: { softDeleteOne: true } })` adds
+`POST /api/classes/Post/{id}/soft-delete-one` (and `…/restore-one` for
+`restoreOne`), `.with({ graphql: { softDeleteOne: true } })` adds the
+`softDeleteOnePost` mutation. Transport exposure grants no authority.
 
 ## Visibility and lifecycle
 
@@ -55,7 +56,7 @@ cannot set them. Core's generic protected constraint boundary adds
 existence checks, relation and pointer traversal, eager materialization, and
 mutation target lookup. Reads by a caller holding the `readDeleted` schema
 permission skip it (Access grants it by rule, ADR-0317); Master holds it but
-skips the filter only when its own `where` names `isDeleted` (6.1 amendment);
+skips the filter only when its own `where` names `isDeleted`;
 writes never skip it, and restore and purge see tombstones only.
 
 The optional Access plugin rules each request command under its own name
@@ -86,7 +87,7 @@ await Post.purgeOne({ id: postId }, { useMasterKey: true })
 Restoring a row whose unique value another row took meanwhile fails with a
 `UNIQUE_VIOLATION` naming the command, the row and the field. Applications that
 want deleted rows to release their unique values declare a partial unique index
-`where: { isDeleted: false }` in `.with`.
+`where: { isDeleted: false }` in the `indexes` of `define`.
 
 ## Deliberate limits
 

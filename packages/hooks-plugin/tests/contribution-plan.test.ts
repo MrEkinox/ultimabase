@@ -57,9 +57,7 @@ describe('Hook contribution provenance', () => {
 		const Owned = HooksApplication.Schema.define({
 			className: 'PluginOwnedInlineSchemaHooks',
 			fields: (field) => ({ title: field.string() }),
-		}).with({
-			hooks: { beforeOperation: { create: () => undefined } },
-		})
+		}).with({ hooks: { beforeOperation: { create: () => undefined } } })
 
 		await expect(
 			new (UltimaBase.use(createSchemaProvider(Owned), hooksPlugin()))({

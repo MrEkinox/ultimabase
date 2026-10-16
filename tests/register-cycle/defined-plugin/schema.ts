@@ -7,9 +7,8 @@ export const App = UltimaBase.use(auditPlugin(), archivePlugin())
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.archivable()
-	.with({ archiveReason: 'Outdated', audit: true })
+	archivable: true,
+}).with({ archiveReason: 'Outdated', audit: true })
 
 export const Note = App.Schema.define({
 	className: 'Note',

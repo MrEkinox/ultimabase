@@ -14,6 +14,7 @@ import {
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
+	type FieldBuilder,
 } from '@ultimabase/core'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
 import {
@@ -81,26 +82,30 @@ const publicRead = new ACL().grantPublic('read')
 
 const createAlternativeFixture = (withAcl = false) => {
 	const engine = createAlternativePolicyEngine({ instanceId: 'typed' })
-	const Application = UltimaBase.use(engine.plugin)
-	const Declared = Application.Schema.define({
-		className: 'AlternativePolicyDocument',
-		fields: (field) => ({
-			secret: field.string(),
-			tenant: field.string(),
-			title: field.string(),
-		}),
+	const fields = (field: FieldBuilder) => ({
+		secret: field.string(),
+		tenant: field.string(),
+		title: field.string(),
 	})
 	const alternativePolicy = alternativeTenantPolicy({
 		hiddenFields: ['secret'],
 		tenant: 'community',
 	})
-	// The optional ACL branch is a Runtime fixture; ACL's exact option is tested by its package.
+	// The ACL branch declares with ACL installed beside the alternative engine.
 	const Document = withAcl
-		? Declared.with({
-				acl: { default: publicRead },
-				alternativePolicy,
-			} as never)
-		: Declared.with({ alternativePolicy })
+		? UltimaBase.use(engine.plugin, aclPlugin())
+				.Schema.define({
+					className: 'AlternativePolicyDocument',
+					fields,
+					acl: true,
+				})
+				.with({
+					acl: { default: publicRead },
+					alternativePolicy: alternativePolicy,
+				})
+		: UltimaBase.use(engine.plugin)
+				.Schema.define({ className: 'AlternativePolicyDocument', fields })
+				.with({ alternativePolicy: alternativePolicy })
 	const adapter = new AlternativeReadAdapter([
 		{
 			...(withAcl ? { acl: publicRead } : {}),

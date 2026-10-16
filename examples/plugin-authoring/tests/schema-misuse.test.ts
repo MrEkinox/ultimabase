@@ -18,27 +18,30 @@ it('rejects a rule passed to define', () => {
 	)
 })
 
-it('offers a rule only after its shape method', () => {
+it('offers a rule only after its feature', () => {
 	const declare = () =>
 		App.Schema.define({
 			className: 'Note',
 			fields: (f) => ({ body: f.string() }),
+		}).with({
+			// @ts-expect-error -- `flagReason` needs `flaggable: true` first.
+			flagReason: 'Spam',
 		})
-			// @ts-expect-error -- `flagReason` needs `.flaggable()` first.
-			.with({ flagReason: 'Spam' })
 	// The rules slot is a type: the option itself accepts the text.
 	expect(declare).not.toThrow()
 })
 
 it('rejects a rule whose plugin is not installed', () => {
-	const Note = UltimaBase.Schema.define({
-		className: 'Note',
-		fields: (f) => ({ body: f.string() }),
-	})
-		// @ts-expect-error -- no installed plugin declares `audit`.
-		.with({ audit: true })
-	// The application that would use it refuses to compile.
-	expect(() => new UltimaBase({ schemas: [Note] }).compile()).toThrow('audit')
+	const declare = () =>
+		UltimaBase.Schema.define({
+			className: 'Note',
+			fields: (f) => ({ body: f.string() }),
+		}).with({
+			// @ts-expect-error -- no installed plugin declares `audit`.
+			audit: true,
+		})
+	// `.with` takes the rules the installed plugins declare (ADR-0339).
+	expect(declare).toThrow('audit is not a rule of an installed plugin')
 })
 
 it('checks a peer range against the installed plugin version', () => {

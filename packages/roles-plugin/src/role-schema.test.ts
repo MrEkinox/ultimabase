@@ -10,6 +10,7 @@ import {
 	QueryBuilder,
 	plugin,
 	contributeApplication,
+	provideSchemaFactories,
 } from '@ultimabase/core/plugin'
 
 /** Calls `new` on a value whose type has no construct signature (ADR-0310). */
@@ -57,9 +58,10 @@ describe('App.RoleSchema', () => {
 			Roles.RoleSchema.define({
 				className: 'UnknownOptionRole',
 				members: () => User,
-				indexes: [],
+				// ADR-0339: `indexes` is a RoleSchema option now; `extensions` is not.
+				extensions: [],
 			} as never),
-		).toThrow(new TypeError('Unknown RoleSchema option: indexes'))
+		).toThrow(new TypeError('Unknown RoleSchema option: extensions'))
 	})
 
 	it('compiles canonical FieldBuilder declarations before adding role fields', async () => {
@@ -99,7 +101,8 @@ describe('App.RoleSchema', () => {
 				description: field.string(),
 				priority: field.int({ default: 0 }),
 			}),
-		}).with({ indexes: [{ fields: ['priority', 'createdAt'] }] })
+			indexes: [{ fields: ['priority', 'createdAt'] }],
+		})
 
 		expect(Schema.is(AppRole)).toBe(true)
 		expect(AppRole.fields).toHaveProperty('name')
@@ -127,52 +130,30 @@ describe('App.RoleSchema', () => {
 		expect(AppRole.role('Editor').value).toContain('"name":"editor"')
 	})
 
-	it('retains one validated schema-owned reference deletion policy', () => {
-		const CascadingRole = Roles.RoleSchema.define({
-			className: 'CascadingRole',
+	it('takes role behaviour only from plugins.roles', () => {
+		// ADR-0339: `ensure`, `deletion` and `resolveCurrent` left define;
+		// role-rules.test.ts covers their normalization in plugins.roles.
+		for (const [key, value] of [
+			['deletion', 'cascade'],
+			['ensure', ['admin']],
+			['resolveCurrent', () => undefined],
+		] as const) {
+			expect(() =>
+				Roles.RoleSchema.define({
+					className: 'RemovedOptionRole',
+					members: () => User,
+					[key]: value,
+				} as never),
+			).toThrow(new TypeError(`Unknown RoleSchema option: ${key}`))
+		}
+		const Plain = Roles.RoleSchema.define({
+			className: 'DefaultBehaviourRole',
 			members: () => User,
-			deletion: 'cascade',
 		})
 
-		expect(getRoleSchemaDeclaration(CascadingRole)?.deletionPolicy).toBe(
-			'cascade',
-		)
-		expect(() =>
-			Roles.RoleSchema.define({
-				className: 'InvalidDeletionRole',
-				members: () => User,
-				deletion: 'remove' as unknown as 'fail',
-			}),
-		).toThrow(
-			new TypeError('deletion must be "fail", "preserve", or "cascade"'),
-		)
-	})
-
-	it('normalizes ensure names and rejects invalid ones', () => {
-		const SeededRole = Roles.RoleSchema.define({
-			className: 'SeededRole',
-			members: () => User,
-			ensure: ['Admin', ' admin ', 'Editor'],
-		})
-
-		expect(getRoleSchemaDeclaration(SeededRole)?.ensure).toStrictEqual([
-			'admin',
-			'editor',
-		])
-		expect(() =>
-			Roles.RoleSchema.define({
-				className: 'InvalidEnsureRole',
-				members: () => User,
-				ensure: [' '],
-			}),
-		).toThrow(new TypeError('role name must not be empty'))
-		expect(() =>
-			Roles.RoleSchema.define({
-				className: 'InvalidEnsureListRole',
-				members: () => User,
-				ensure: 'admin' as unknown as readonly string[],
-			}),
-		).toThrow(new TypeError('ensure must be a list of role names'))
+		expect(getRoleSchemaDeclaration(Plain)?.deletionPolicy).toBe('fail')
+		expect(getRoleSchemaDeclaration(Plain)?.ensure).toStrictEqual([])
+		expect(getRoleSchemaDeclaration(Plain)?.resolveCurrent).toBeUndefined()
 	})
 
 	it('rejects generated field collisions with precise diagnostics', () => {
@@ -246,14 +227,39 @@ describe('App.RoleSchema', () => {
 			typeof identity === 'object' && identity !== null
 				? { ...identity }
 				: identity
-		const CopiedRole = UltimaBase.Schema.define({
-			className: 'CopiedIdentityRole',
-			fields: () => ({}),
-		}).with({ [roleSchemaIdentityOptionName]: copiedIdentity } as never)
-		const ForeignRole = UltimaBase.Schema.define({
-			className: 'ForeignIdentityRole',
-			fields: () => ({}),
-		}).with({ [roleSchemaIdentityOptionName]: identity } as never)
+		// A plugin schema factory passes its options to Core's define as they
+		// are: the only route left to forge the marker (ADR-0339).
+		const forger = provideSchemaFactories(
+			plugin({
+				core: '^0.0.0',
+				id: 'fixture.roles.identity-forger',
+				contributions: [],
+				version: '0.0.0',
+			}),
+			{
+				ForgedSchema: ({ define }) => ({
+					define: (options: object) => define(options),
+				}),
+			},
+		)
+		const Forger = UltimaBase.use(forger)
+		const forge = (className: string, value: unknown): unknown =>
+			Reflect.apply(
+				Reflect.get(
+					Reflect.get(Forger, 'ForgedSchema') as object,
+					'define',
+				) as (options: object) => unknown,
+				undefined,
+				[
+					{
+						className,
+						fields: () => ({}),
+						[roleSchemaIdentityOptionName]: value,
+					},
+				],
+			)
+		const CopiedRole = forge('CopiedIdentityRole', copiedIdentity)
+		const ForeignRole = forge('ForeignIdentityRole', identity)
 
 		for (const [index, schema] of [CopiedRole, ForeignRole].entries()) {
 			let infrastructureStarted = false
@@ -271,7 +277,7 @@ describe('App.RoleSchema', () => {
 
 			await expect(
 				new (UltimaBase.use(rolesPlugin(), infrastructure))({
-					schemas: [schema],
+					schemas: [schema] as never,
 				}).initialize(),
 			).rejects.toMatchObject({ code: 'PLUGIN_DECLARATION_INVALID' })
 			expect(infrastructureStarted).toBe(false)

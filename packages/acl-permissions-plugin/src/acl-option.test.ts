@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
 	aclField,
 	aclFieldKind,
-	aclShapeDeclared,
+	aclFeatureDeclared,
 	normalizeACLSchemaOption,
 	type ACLInputResolver,
 } from './acl-option.js'
@@ -145,10 +145,10 @@ describe('acl schema option', () => {
 			),
 		).toThrow(new TypeError('Post.acl.clientSharing must be a function'))
 		expect(() =>
-			normalizeACLSchemaOption(aclShapeDeclared, 'Post.acl'),
+			normalizeACLSchemaOption(aclFeatureDeclared, 'Post.acl'),
 		).toThrow(
 			new TypeError(
-				'Post.acl: .acl() needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master',
+				'Post.acl: the acl feature needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master',
 			),
 		)
 	})

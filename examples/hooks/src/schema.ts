@@ -9,7 +9,7 @@ import { sendMessage } from './effects.ts'
 import { announcePost, postPublished } from './events.ts'
 
 /**
- * The configured factory types `.with({ hooks })` and field `hooks` from the
+ * The configured factory types `.with({ hooks: … })` and field `hooks` from the
  * plugin declaration. `postgresPlugin()` reads `DATABASE_URL` at start.
  */
 export const App = UltimaBase.use(
@@ -141,28 +141,27 @@ export const Comment = App.Schema.define({
 		parent: field.pointer({ target: () => Comment }),
 		replies: field.int({ default: 0 }),
 	}),
-})
-	.softDelete({ mode: 'command' })
-	.with({
-		hooks: {
-			afterOperation: {
-				create: ({ item }) => countReply(item.parent),
-				update: ({ changes, item }) =>
-					changes.replies === undefined ? undefined : countReply(item.parent),
-			},
-			afterCommit: {
-				// `all` also runs for Soft Delete's commands; `kind` names them.
-				all: async (input) => {
-					if (input.kind === 'softDeleteOne') {
-						await sendMessage({
-							to: 'moderators',
-							subject: `Hidden: ${input.originalItem.body}`,
-						})
-					}
-				},
+	softDelete: { mode: 'command' },
+}).with({
+	hooks: {
+		afterOperation: {
+			create: ({ item }) => countReply(item.parent),
+			update: ({ changes, item }) =>
+				changes.replies === undefined ? undefined : countReply(item.parent),
+		},
+		afterCommit: {
+			// `all` also runs for Soft Delete's commands; `kind` names them.
+			all: async (input) => {
+				if (input.kind === 'softDeleteOne') {
+					await sendMessage({
+						to: 'moderators',
+						subject: `Hidden: ${input.originalItem.body}`,
+					})
+				}
 			},
 		},
-	})
+	},
+})
 
 const countReply = async (parent: { readonly id: string } | null) => {
 	if (parent === null) return

@@ -16,6 +16,8 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'definePluginOptionsParser',
 			'deriveEnvironmentDefault',
 			'describeEnvironmentSource',
+			// ADR-0339: `feature` declares one `define` key.
+			'feature',
 			'observePluginEvent',
 			'optionalPluginEvents',
 			'patchSchemas',
@@ -26,7 +28,6 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'requireCurrentRequestRoleResolver',
 			'resolveRequestRoleReference',
 			'schemaPatch',
-			'shapeMethod',
 		])
 	})
 })

@@ -76,7 +76,8 @@ const ChainLeaf = App.Schema.define({
 const SoftParent = App.Schema.define({
 	className: 'IntegritySoftParent',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).softDelete()
+	softDelete: true,
+})
 
 const SoftChild = App.Schema.define({
 	className: 'IntegritySoftChild',

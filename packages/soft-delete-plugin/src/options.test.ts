@@ -11,6 +11,19 @@ const declare = (className: string) =>
 		className,
 		fields: (field) => ({ title: field.string() }),
 	})
+// The same schema with `softDelete: true`, then with the command mode.
+const declareLogical = (className: string) =>
+	App.Schema.define({
+		className,
+		fields: (field) => ({ title: field.string() }),
+		softDelete: true,
+	})
+const declareCommand = (className: string) =>
+	App.Schema.define({
+		className,
+		fields: (field) => ({ title: field.string() }),
+		softDelete: { mode: 'command' },
+	})
 
 describe('soft-delete options', () => {
 	it('accepts only the empty options object and the command mode', () => {
@@ -35,8 +48,8 @@ describe('soft-delete options', () => {
 	})
 
 	it('reads each compiled schema mode for this plugin instance only', () => {
-		const Logical = declare('LogicalMode').softDelete()
-		const Command = declare('CommandMode').softDelete({ mode: 'command' })
+		const Logical = declareLogical('LogicalMode')
+		const Command = declareCommand('CommandMode')
 		const Plain = declare('PlainMode')
 		const { schemas } = new App({
 			logger: false,
@@ -55,9 +68,12 @@ describe('soft-delete options', () => {
 	})
 
 	it('rejects invalid options when the application compiles', () => {
-		const Invalid = declare('InvalidMode')
+		const Invalid = App.Schema.define({
+			className: 'InvalidMode',
+			fields: (field) => ({ title: field.string() }),
 			// @ts-expect-error -- Only `mode: 'command'` exists.
-			.softDelete({ mode: 'replace-delete' })
+			softDelete: { mode: 'replace-delete' },
+		})
 		expect(() =>
 			new App({ logger: false, schemas: [Invalid] }).compile(),
 		).toThrow(

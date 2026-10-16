@@ -60,9 +60,9 @@ const QueryMember = App.Schema.define({
 const QueryRole = App.RoleSchema.define({
 	className: 'RoleQueryRole',
 	members: () => QueryMember,
-	ensure: ['Admin', 'editor'],
 	fields: (field) => ({ description: field.string() }),
 }).with({
+	roles: { ensure: ['Admin', 'editor'] },
 	hooks: {
 		beforeOperation: {
 			create: async ({ item }) => {
@@ -74,8 +74,7 @@ const QueryRole = App.RoleSchema.define({
 const QueryTeam = App.RoleSchema.define({
 	className: 'RoleQueryTeam',
 	members: () => QueryMember,
-	ensure: ['lead'],
-})
+}).with({ roles: { ensure: ['lead'] } })
 
 const createApplication = (connectionUri: string) =>
 	new (App.use(identity, postgresPlugin({ url: connectionUri })))({

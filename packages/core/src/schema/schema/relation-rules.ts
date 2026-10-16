@@ -23,7 +23,7 @@ type DeclaredRelationTarget<TField> =
 		: never
 
 /**
- * The rules of one relation field in the final `.with({ relations })`.
+ * The rules of one relation field in the final `.with({ relations: … })`.
  *
  * @example
  * ```ts
@@ -57,7 +57,7 @@ export type ConfiguredSchemaRelationRules<TFields> = [
 			/**
 			 * Declares relation filters by relation field name.
 			 *
-			 * @example `relations: { articles: { where: { published: { eq: true } } } }`
+			 * @example `.with({ relations: { articles: { where: { published: { eq: true } } } } })`
 			 */
 			readonly relations?: {
 				readonly [TName in DeclaredRelationFieldName<TFields>]?: RelationRule<
@@ -110,7 +110,7 @@ export const readRelationRules = (
 	return filters
 }
 
-/** @internal Attaches the filters of `.with({ relations })` to the resolved relation fields. */
+/** @internal Attaches the filters of `.with({ relations: … })` to the resolved relation fields. */
 export const applyRelationRules = (
 	fields: SchemaDeclaredFields,
 	filters: ReadonlyMap<string, RelationWhereDeclaration> | undefined,

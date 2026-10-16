@@ -65,47 +65,45 @@ const CanTodo = App.Schema.define({
 		title: field.string({ required: true }),
 		owner: field.string(),
 	}),
+	softDelete: true,
+	acl: true,
+}).with({
+	access: {
+		create: {
+			where: isAuthenticated,
+			item: ({ item }) => item.title !== 'forbidden',
+		},
+		update: {
+			where: function notRefused() {
+				if (refuseUpdates === 'public') {
+					throw new PublicError('Updates are paused.')
+				}
+				if (refuseUpdates === 'error') throw new Error('policy store down')
+				return true
+			},
+			item: ({ originalItem, principal }) =>
+				originalItem.owner === principal?.id,
+		},
+		delete: isAuthenticated,
+	},
+	acl: { default: ({ principal }) => new ACL(principal) },
+	hooks: {
+		beforeOperation: {
+			create: () => {
+				hookCalls += 1
+			},
+			update: () => {
+				hookCalls += 1
+			},
+		},
+	},
 })
-	.softDelete()
-	.acl()
-	.with({
-		access: {
-			create: {
-				where: isAuthenticated,
-				item: ({ item }) => item.title !== 'forbidden',
-			},
-			update: {
-				where: function notRefused() {
-					if (refuseUpdates === 'public') {
-						throw new PublicError('Updates are paused.')
-					}
-					if (refuseUpdates === 'error') throw new Error('policy store down')
-					return true
-				},
-				item: ({ originalItem, principal }) =>
-					originalItem.owner === principal?.id,
-			},
-			delete: isAuthenticated,
-		},
-		acl: { default: ({ principal }) => new ACL(principal) },
-		hooks: {
-			beforeOperation: {
-				create: () => {
-					hookCalls += 1
-				},
-				update: () => {
-					hookCalls += 1
-				},
-			},
-		},
-	})
 
 const CanExplicit = App.Schema.define({
 	className: 'CanExplicit',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-	.softDelete({ mode: 'command' })
-	.with({ access: { softDeleteOne: isAuthenticated, restoreOne: false } })
+	softDelete: { mode: 'command' },
+}).with({ access: { softDeleteOne: isAuthenticated, restoreOne: false } })
 
 const masterKey = 'policy-can-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>

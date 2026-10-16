@@ -21,16 +21,15 @@ const App = UltimaBase.use(accessPlugin(), softDeletePlugin())
 export const Note = App.Schema.define({
   className: 'Note',
   fields: (field) => ({ title: field.string() }),
+  softDelete: true,
+}).with({
+  access: {
+    read: true,
+    softDeleteOne: isAuthenticated,
+    readDeleted: isAuthenticated,
+    /* keys:note */
+  },
 })
-  .softDelete()
-  .with({
-    access: {
-      read: true,
-      softDeleteOne: isAuthenticated,
-      readDeleted: isAuthenticated,
-      /* keys:note */
-    },
-  })
 
 export const Tag = App.Schema.define({
   className: 'Tag',
@@ -51,7 +50,7 @@ describe('Access rule keys of registered schemas (ADR-0317)', () => {
 		'/* keys:note */',
 	])
 
-	it('accepts command and permission keys where the shape method is called', () => {
+	it('accepts command and permission keys where the feature is set', () => {
 		expect(
 			fixture.service
 				.getSemanticDiagnostics(fixtureFile)

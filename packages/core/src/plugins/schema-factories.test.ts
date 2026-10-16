@@ -4,11 +4,11 @@ import { Schema, UltimaBase, type SchemaDefinition } from '../index.js'
 import {
 	plugin,
 	provideSchemaFactories,
-	provideSchemaShapeMethods,
+	provideSchemaFeatures,
 	type PluginSchemaFactoriesSource,
-	type PluginSchemaShapeSource,
+	type PluginSchemaFeatureSource,
 	type SchemaFactoriesHKT,
-	type SchemaShapeMethod,
+	type SchemaFeature,
 } from '../plugin.js'
 import { readSchemaFactories } from './schema-factories.js'
 
@@ -74,40 +74,45 @@ describe('schema factories', () => {
 		).toBe('note FactoryNote')
 	})
 
-	it('rebinds inherited factories to the shape methods of a child factory', () => {
-		type FlagSource = PluginSchemaShapeSource<{
-			readonly flag: SchemaShapeMethod<readonly [], Readonly<{ flag: object }>>
+	it('rebinds inherited factories to the features of a child factory', () => {
+		type FlagSource = PluginSchemaFeatureSource<{
+			readonly flag: SchemaFeature<readonly [], Readonly<{ flag: object }>>
 		}>
-		const flags = provideSchemaShapeMethods<
-			ReturnType<typeof plugin>,
-			FlagSource
-		>(
+		const applied: string[] = []
+		const flags = provideSchemaFeatures<ReturnType<typeof plugin>, FlagSource>(
 			plugin({
 				id: 'fixture.factories.flags',
 				version: '1.0.0',
 				core: '^0.0.0',
 				contributions: [],
 			}),
-			{ flag: { sets: ['flag'], apply: () => ({ flag: {} }) } },
+			{
+				flag: {
+					sets: ['flag'],
+					apply: () => {
+						applied.push('flag')
+						return { flag: {} }
+					},
+				},
+			},
 		)
 		const Parent = UltimaBase.use(createNotePlugin())
 		const Child = Parent.use(flags)
-		const declared = Child.NoteSchema.define({
+		Child.NoteSchema.define({
 			className: 'FactoryFlaggedNote',
 			fields,
+			flag: true,
 		})
 
 		expect(Child.NoteSchema).not.toBe(Parent.NoteSchema)
-		expect(typeof Reflect.get(declared as object, 'flag')).toBe('function')
-		expect(
-			typeof Reflect.get(
-				Parent.NoteSchema.define({
-					className: 'FactoryPlainNote',
-					fields,
-				}) as object,
-				'flag',
-			),
-		).toBe('undefined')
+		expect(applied).toStrictEqual(['flag'])
+		Parent.NoteSchema.define({
+			className: 'FactoryPlainNote',
+			fields,
+			flag: true,
+		})
+		// The parent factory has no `flag` feature: the key stays an option.
+		expect(applied).toStrictEqual(['flag'])
 	})
 
 	it('validates factory names, results and conflicts', () => {

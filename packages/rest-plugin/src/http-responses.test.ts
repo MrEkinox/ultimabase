@@ -47,7 +47,7 @@ const RestSchemaApplication = UltimaBase.use(restPlugin())
 const HttpRecord = RestSchemaApplication.Schema.define({
 	className: 'RestHttpRecord',
 	fields: (field) => ({ title: field.string() }),
-}).with(countRouteOption)
+}).with({ rest: countRouteOption.rest })
 // Keeps the built-in route defaults, where `count` is disabled.
 const DefaultRoutesRecord = RestSchemaApplication.Schema.define({
 	className: 'RestDefaultRoutesRecord',

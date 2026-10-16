@@ -11,6 +11,11 @@ follow their modules and must not lose an assertion when they move.
 - `register-cycle`: compile-only reproduction cases of the `Register` cycle
   (ADR-0297, register-cycle note), one program per case, each checked from
   package sources (`tsconfig.json`) and built packages (`tsconfig.dist.json`).
+  The `define-with*` cases cover the declaration form of ADR-0339 (feature
+  keys in `define`, `.with({ … })`); `define-with-diagnostics.e2e`
+  also compiles them on TypeScript 6 and checks its diagnostics, with one
+  editor project per configuration and one single-threaded TypeScript 7 build
+  of every case.
 
 Focused package unit and compile-time tests live beside their source. A package's
 `tests` directory owns public-export and cross-domain behavior. Its `tests/e2e`
@@ -177,7 +182,11 @@ Some suites depend on machine load. Rerun them alone on a calm machine before
 concluding anything from a failure:
 
 - `packages/create-app/tests/e2e/create-app-packed.e2e.test.ts` (120 s timeout,
-  dominated by building 16 generated projects);
+  dominated by building 16 generated projects): about 35 s alone, but up to
+  118 s beside the other E2E suites, so the root `e2e-isolated` project runs
+  it after the parallel E2E projects (`sequence.groupOrder`, list in
+  `tooling/vitest/isolated-e2e.ts`); select that project to run it from the
+  root configuration;
 - packed archive audits such as `core-archive-declarations` (10 s and 20 s
   timeouts);
 - PostgreSQL E2E suites (20 s timeout): one test that still times out can

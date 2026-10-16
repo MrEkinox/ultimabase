@@ -19,27 +19,25 @@ export const Todo = App.Schema.define({
 		subtasks: field.relation({ target: () => Todo, mappedBy: 'parent' }),
 		tags: field.relation({ target: () => Tag }),
 	}),
-})
-	.softDelete()
-	.acl()
-	.with({
-		access: {
-			read: ({ where }) => where.eq('archived', false),
-			update: ({ where }) =>
-				where.is('assignee', (user) => user.endsWith('email', '@admin.test')),
-			create: true,
-			delete: true,
-		},
-		acl: { default: () => new ACL().grantPublic('read', 'update', 'delete') },
-		hooks: {
-			beforeOperation: {
-				update: ({ item }) => {
-					if (item.isDeleted) throw new TypeError('Deleted todos are read-only')
-					if (item.title.trim() === '')
-						throw new TypeError('Todo title is empty')
-				},
+	softDelete: true,
+	acl: true,
+}).with({
+	access: {
+		read: ({ where }) => where.eq('archived', false),
+		update: ({ where }) =>
+			where.is('assignee', (user) => user.endsWith('email', '@admin.test')),
+		create: true,
+		delete: true,
+	},
+	acl: { default: () => new ACL().grantPublic('read', 'update', 'delete') },
+	hooks: {
+		beforeOperation: {
+			update: ({ item }) => {
+				if (item.isDeleted) throw new TypeError('Deleted todos are read-only')
+				if (item.title.trim() === '') throw new TypeError('Todo title is empty')
 			},
 		},
-		postgres: { table: 'form_d_todos' },
-		relations: { tags: { where: ({ where }) => where.ne('label', '') } },
-	})
+	},
+	postgres: { table: 'form_d_todos' },
+	relations: { tags: { where: ({ where }) => where.ne('label', '') } },
+})

@@ -20,7 +20,7 @@ const defineRestSchema = (className: string, rest?: RestSchemaRule) => {
 		className,
 		fields: () => ({}),
 	})
-	return rest === undefined ? declaration : declaration.with({ rest })
+	return rest === undefined ? declaration : declaration.with({ rest: rest })
 }
 
 // Runtime-negative fixtures bypass only the static option check under test.
@@ -28,7 +28,7 @@ const defineInvalidRestSchema = (className: string, rest: unknown) =>
 	RestSchemaApplication.Schema.define({
 		className,
 		fields: () => ({}),
-	}).with({ rest } as never)
+	}).with({ rest: rest as never })
 
 const readRest = (
 	application: Awaited<ReturnType<typeof createApplication>>,

@@ -251,7 +251,7 @@ test('does not claim issue 1408 direct option augmentation', () => {
 		fields: (field) => ({ title: field.string() }),
 	}).with({
 		// @ts-expect-error -- No installed plugin contributes this schema rule.
-		workflow: { enabled: true },
+		workflow: {},
 	})
 })
 

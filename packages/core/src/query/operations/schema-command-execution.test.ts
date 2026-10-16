@@ -43,11 +43,12 @@ const Article = UltimaBase.Schema.define({
 
 new SchemaRegistry([Tag, Article]).resolveSchemaTargets()
 
-// ADR-0332 amendment: a unique index of `.with` is a storage index only.
+// ADR-0332 amendment: a partial unique index only enforces uniqueness.
 const RuledPost = UltimaBase.Schema.define({
 	className: 'SchemaCommandRuledPost',
 	fields: (field) => ({ slug: field.string(), title: field.string() }),
-}).with({ indexes: [{ fields: ['slug'], unique: true }] })
+	indexes: [{ fields: ['slug'], unique: true, where: { title: 'Pinned' } }],
+})
 
 describe('schema command execution boundaries', () => {
 	it('requires an explicit non-empty predicate for mutations', () => {
@@ -100,7 +101,7 @@ describe('schema command execution boundaries', () => {
 		)
 	})
 
-	it('refuses a unique index of .with as the target of every command', () => {
+	it('refuses a partial unique index as the target of every command', () => {
 		const refusal = (path: string) =>
 			new TypeError(
 				`${path} must match id, a unique field or one non-partial unique index of define`,

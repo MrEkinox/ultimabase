@@ -207,7 +207,7 @@ const isRelationWhereResolver = (
 ): value is RelationWhereResolver => typeof value === 'function'
 
 /**
- * @internal Normalizes one filter of `.with({ relations })` (ADR-0328): a
+ * @internal Normalizes one filter of `.with({ relations: … })` (ADR-0328): a
  * static target filter is snapshotted, a resolver must be synchronous.
  */
 export const normalizeRelationWhereDeclaration = (

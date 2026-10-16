@@ -9,7 +9,7 @@ contentType: concept
 order: 1
 outcome: Decide whether a feature belongs in the application plugin chain and know what Core validates.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -17,6 +17,7 @@ sources:
   - apps/website/lib/official-plugins.ts
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 ## Context
@@ -60,8 +61,9 @@ declare module '@ultimabase/core' {
 ```
 
 The `hooks` rule belongs to the Hooks plugin. If you remove `hooksPlugin()`
-but leave that rule in `Post`'s `.with()`, TypeScript and application
-compilation reject the unknown rule; it does not silently skip the callback. This excerpt assembles an
+but leave `hooks` in `Post`'s `.with`, TypeScript rejects it and the
+declaration throws `Post.with({ hooks }): hooks is not a rule of an installed plugin`; it does not silently
+skip the callback. This excerpt assembles an
 application but does not start a database or an API. For a complete working
 setup, follow [Using Plugins](./using-plugins).
 

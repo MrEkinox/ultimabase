@@ -110,10 +110,10 @@ describe('API project templates', () => {
 		).toHaveLength(2)
 		expect(schema).not.toContain('acknowledgeUnverifiedProtection')
 		expect(schema).toMatch(
-			/export const Member = SchemaApplication\.Schema\.define\(\{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
+			/export const Member = SchemaApplication\.Schema\.define\(\{[\s\S]*?\.with\(\{ rest: false, graphql: false \}\)/u,
 		)
 		expect(schema).toMatch(
-			/export const AppRole = SchemaApplication\.RoleSchema\.define\(\{[\s\S]*?\}\)\.with\(\{\n {2}rest: false,\n {2}graphql: false,\n\}\)/u,
+			/export const AppRole = SchemaApplication\.RoleSchema\.define\(\{[\s\S]*?\}\)\.with\(\{ roles: \{ deletion: 'fail' \}, rest: false, graphql: false \}\)/u,
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([

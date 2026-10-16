@@ -26,6 +26,7 @@ import {
 	plugin,
 	defineSchemaOption,
 	provideCapability,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 
 const immutable = (value) => Object.freeze(value)
@@ -79,7 +80,10 @@ const codec = operationWireCodec({
 	transport: protocol,
 })
 const binding = operationTransportBinding({ codec, operation: inspect })
+// `document` is a rule of `.with` (ADR-0339).
 const createOperationPlugin = () =>
+	provideSchemaRules(createOperationPluginInstance(), ['document'])
+const createOperationPluginInstance = () =>
 	plugin({
 		core: '^0.0.0',
 		contributions: [
@@ -166,9 +170,7 @@ const Application = UltimaBase.use(
 const StablePost = Application.Schema.define({
 	className: 'JavaScriptStablePost',
 	fields: (field) => ({ title: field.string() }),
-}).with({
-	document: (value) => value,
-})
+}).with({ document: (value) => value })
 const DynamicPost = Application.Schema.define({
 	className: 'JavaScriptDynamicPost',
 	fields: (field) => ({ title: field.string() }),

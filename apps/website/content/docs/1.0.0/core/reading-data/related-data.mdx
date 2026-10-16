@@ -7,7 +7,7 @@ contentType: guide
 order: 5
 outcome: Load a pointer and a bounded relation, then choose where a relationship filter applies.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/queries/src/schema.ts
   - examples/queries/src/reads.ts
@@ -18,6 +18,7 @@ sources:
   - packages/core/src/schema/fields/builtins/relation.ts
   - packages/core/src/schema/schema/relation-rules.ts
   - docs/adr/0154-unified-eager-relationship-inclusion.md
+  - docs/adr/0339-define-describes-with-configures.md
   - docs/adr/0159-projection-only-pointer-inclusions.md
   - docs/adr/0156-visible-relation-cardinality-filters.md
   - docs/adr/0157-explicit-relation-emptiness-filters.md
@@ -124,10 +125,10 @@ predicate. Hidden targets are not counted.
 ## Declared relation filters
 
 A relation may declare one static target filter, such as
-`where: { published: { eq: true } }`, in the final `.with({ relations })` of
-its schema, under the relation field name. Use a synchronous contextual
-callback when that subset depends on the request. `.with` receives the
-complete schemas, so two schemas may filter each other's relations. Here
+`where: { published: { eq: true } }`, with `relations` in the `.with` of its
+schema, under the relation field name. Use a synchronous contextual
+callback when that subset depends on the request. The rules of `.with` receive
+the complete schemas, so two schemas may filter each other's relations. Here
 `Author.posts` shows readers only published posts:
 
 <include cwd meta='title="src/schema.ts"'>

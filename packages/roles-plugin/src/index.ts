@@ -39,6 +39,7 @@ export type {
 	RoleSchemaStatics,
 	RoleSchemaStaticsSlot,
 } from './role-schema.js'
+export type { RoleRules, RoleSchemaRules } from './role-rules.js'
 export type {
 	RoleIdSelector,
 	RoleNameSelector,

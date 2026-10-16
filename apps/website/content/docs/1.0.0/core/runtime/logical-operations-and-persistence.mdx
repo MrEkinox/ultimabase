@@ -8,13 +8,14 @@ contentType: concept
 order: 5
 outcome: Predict what changes, and what does not, when a delete is physically rewritten.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-17
 sources:
   - ARCHITECTURE.md
   - packages/core/README.md
   - packages/core/docs/runtime.md
   - docs/adr/0200-protected-rewritable-persistence-plans.md
   - docs/adr/0205-protected-policy-contributions.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 An operation has two identities: what the caller requested and how the
@@ -41,14 +42,14 @@ general SQL or arbitrary-operation rewrite API. A rewriter needs the exact
     A[Logical delete] --> B[Delete policy, Hooks, audit, result]
     A --> C[Physical plan]
     C -->|default| D[Native database delete]
-    C -->|.softDelete()| E[Guarded tombstone update]"
+    C -->|softDelete: true| E[Guarded tombstone update]"
 />
 
-On a schema declared with the optional Soft Delete plugin's `.softDelete()`,
+On a schema that sets the optional Soft Delete plugin's `softDelete: true`,
 `deleteOne` is still a logical delete. The database writes a tombstone update,
 but update policy, update Hooks, defaults, and generators do not run as if the
 caller had requested `updateOne`. The returned delete result and transaction
-semantics stay those of a delete. By contrast, `.softDelete({ mode: 'command' })`
+semantics stay those of a delete. By contrast, `softDelete: { mode: 'command' }`
 adds separate logical `softDeleteOne` and `softDeleteMany` commands; it does
 not reinterpret native delete.
 

@@ -241,7 +241,7 @@ const collectSchemaMutationBindings = (
 		const names = exposable.get(schema.className) ?? new Set<string>()
 		names.add(descriptor.command)
 		exposable.set(schema.className, names)
-		// Commands are exposed only through `.with({ graphql })` (ADR-0325).
+		// Commands are exposed only through `.with({ graphql: … })` (ADR-0325).
 		if (!surface.command(descriptor.command)) {
 			ctx.hints.add(
 				'Mutation',

@@ -46,46 +46,43 @@ const ResolutionPost = ACLSchemaApplication.Schema.define({
 		title: field.string({ required: true }),
 		views: field.int({ default: 2 }),
 	}),
-})
-	.acl()
-	.with({
-		postgres: { table: 'acl_input_resolution_posts' },
-		acl: {
-			default: emptyACL,
-			// ADR-0321: recomputes the ACL from the row's data on each write
-			// that carries no explicit ACL.
-			resolveInput: (input) => {
-				resolutionCount += 1
+	acl: true,
+}).with({
+	postgres: { table: 'acl_input_resolution_posts' },
+	acl: {
+		default: emptyACL,
+		// ADR-0321: recomputes the ACL from the row's data on each write
+		// that carries no explicit ACL.
+		resolveInput: (input) => {
+			resolutionCount += 1
 
-				if (input.operation === 'create') {
-					createResolution = immutableRecord({
-						currentData: input.currentData,
-						data: input.data,
-						update: input.update,
-					})
-
-					return undefined
-				}
-
-				const captured = immutableRecord({
+			if (input.operation === 'create') {
+				createResolution = immutableRecord({
 					currentData: input.currentData,
 					data: input.data,
 					update: input.update,
 				})
 
-				if (input.data.title === 'rollback-candidate') {
-					rollbackResolution = captured
-					throw new Error('ACL resolver requested rollback')
-				}
+				return undefined
+			}
 
-				updateResolution = captured
+			const captured = immutableRecord({
+				currentData: input.currentData,
+				data: input.data,
+				update: input.update,
+			})
 
-				return input.data.title === 'resolved-candidate'
-					? publicRead
-					: undefined
-			},
+			if (input.data.title === 'rollback-candidate') {
+				rollbackResolution = captured
+				throw new Error('ACL resolver requested rollback')
+			}
+
+			updateResolution = captured
+
+			return input.data.title === 'resolved-candidate' ? publicRead : undefined
 		},
-	})
+	},
+})
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:

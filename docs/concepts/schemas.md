@@ -23,8 +23,9 @@ and `toJSON()` contain only visible fields.
 
 Static schema declarations own runtime metadata. The configured application
 factory infers fields, items, inputs, filters and plugin surfaces from source,
-without generation (ADR-0297): relation targets are thunks, plugin rules go in
-the final `.with(...)`, and one `Register` declaration gives name-keyed types.
+without generation (ADR-0297): relation targets are thunks, plugin feature keys
+go in `define`, plugin rules in the final `.with({ … })` (ADR-0339),
+and one `Register` declaration gives name-keyed types.
 Plugins add namespaced direct schema options, plugin-defined fields, immutable patches,
 or application capabilities while Core remains independent from their
 implementations. An option is accepted only when its plugin registers the

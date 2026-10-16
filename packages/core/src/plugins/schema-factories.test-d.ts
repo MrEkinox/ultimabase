@@ -11,16 +11,16 @@ import type {
 	plugin,
 	DeclaredSchemaShape,
 	PluginSchemaFactoriesSource,
+	PluginSchemaFeatureSource,
 	PluginSchemaFieldsSource,
 	PluginSchemaRulesSource,
-	PluginSchemaShapeSource,
 	PluginSchemaStaticsSource,
 	PluginSourceState,
 	SchemaFactoriesHKT,
 	SchemaFactoryShape,
+	SchemaFeature,
 	SchemaFieldsHKT,
 	SchemaRulesHKT,
-	SchemaShapeMethod,
 	SchemaStaticsHKT,
 } from '../plugin.js'
 
@@ -50,8 +50,8 @@ interface NoteStatics extends SchemaStaticsHKT {
 		: unknown
 }
 
-// ADR-0321: a rule can be required once its shape method is called, and a
-// field can accept an extra update input.
+// ADR-0321, ADR-0339: a feature can require a rule, and a field can accept an
+// extra update input.
 type Tag = PluginFieldDefinition<
 	'fixture.tag',
 	string,
@@ -81,10 +81,11 @@ type FixtureSource =
 	| PluginSchemaStaticsSource<NoteStatics>
 	| PluginSchemaFieldsSource<TagFields>
 	| PluginSchemaRulesSource<TagRules>
-	| PluginSchemaShapeSource<{
-			readonly tagged: SchemaShapeMethod<
+	| PluginSchemaFeatureSource<{
+			readonly tagged: SchemaFeature<
 				readonly [],
-				Readonly<{ tagged: object }>
+				Readonly<{ tagged: object }>,
+				'tag'
 			>
 	  }>
 
@@ -120,16 +121,20 @@ test('adds factories only to applications that install them', () => {
 	void Plain.describe
 })
 
-test('passes the called shape methods to rules slots', () => {
-	App.Schema.define({ className: 'Tagged', fields: () => ({}) })
-		.tagged()
-		.with({ tag: { initial: 'a' } })
-	App.Schema.define({ className: 'TaggedMissing', fields: () => ({}) })
-		.tagged()
-		// @ts-expect-error -- `tag` is required once `.tagged()` is called.
-		.with({})
+test('passes the features set in define to rules slots', () => {
+	App.Schema.define({
+		className: 'Tagged',
+		fields: () => ({}),
+		tagged: true,
+	}).with({ tag: { initial: 'a' } })
+	App.Schema.define({
+		className: 'TaggedMissing',
+		fields: () => ({}),
+		tagged: true,
+		// @ts-expect-error -- `tag` is required once `tagged: true` is set.
+	}).with({})
 	App.Schema.define({ className: 'Untagged', fields: () => ({}) }).with({
-		// @ts-expect-error -- `tag` needs `.tagged()`.
+		// @ts-expect-error -- `tag` needs `tagged: true`.
 		tag: { initial: 'a' },
 	})
 })
@@ -138,9 +143,8 @@ test('accepts a field update input in update data only', async () => {
 	const Tagged = App.Schema.define({
 		className: 'TaggedInput',
 		fields: () => ({}),
-	})
-		.tagged()
-		.with({ tag: { initial: 'a' } })
+		tagged: true,
+	}).with({ tag: { initial: 'a' } })
 	await Tagged.updateOne({ where: { id: 'x' }, data: { tag: { append: 'b' } } })
 	await Tagged.updateOne({ where: { id: 'x' }, data: { tag: 'c' } })
 	// @ts-expect-error -- Creates take the field value only.

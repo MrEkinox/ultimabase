@@ -5,22 +5,17 @@ import { softDeletePlugin } from './index.js'
 
 const App = UltimaBase.use(softDeletePlugin())
 
-test('sees shape-method fields in the indexes of the final .with (ADR-0303)', () => {
+test('sees feature fields in the indexes of define (ADR-0303, ADR-0339)', () => {
 	App.Schema.define({
 		className: 'TypedSoftDeletedSlug',
 		fields: (field) => ({ slug: field.string({ required: true }) }),
+		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+		softDelete: true,
 	})
-		.softDelete()
-		.with({
-			indexes: [
-				{ fields: ['slug'], unique: true, where: { isDeleted: false } },
-			],
-		})
 	App.Schema.define({
 		className: 'TypedActiveSlug',
 		fields: (field) => ({ slug: field.string({ required: true }) }),
-	}).with({
-		// @ts-expect-error -- without `.softDelete()` there is no `isDeleted`.
+		// @ts-expect-error -- without `softDelete` there is no `isDeleted`.
 		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
 	})
 })

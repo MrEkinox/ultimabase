@@ -7,18 +7,21 @@ import {
 	jsonObjectOption,
 	optionPlugin,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
-import { UltimaBase } from '../runtime/application/ultima-base.js'
+import { defineWithRawRules } from '../schema/schema/raw-schema-rules.test-support.js'
 
 describe('plugin schema option ownership rejection', () => {
 	it('rejects an actually used option when no exact owner can be selected', async () => {
 		// Two independently configured owners are deliberately ambiguous here;
 		// Runtime must reject this untrusted schema option.
-		const Ambiguous = UltimaBase.Schema.define({
-			className: 'AmbiguousOptionOwner',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).with({
-			workflow: { enabled: true },
-		} as never)
+		const Ambiguous = defineWithRawRules(
+			{
+				className: 'AmbiguousOptionOwner',
+				fields: (field: FieldBuilder) => ({ title: field.string() }),
+			},
+			{
+				workflow: { enabled: true },
+			},
+		)
 
 		await expect(
 			createApplication({

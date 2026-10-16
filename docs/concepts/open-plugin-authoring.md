@@ -91,9 +91,9 @@ ownership to an exact class already listed
 at the application root without implicitly registering it. Patches are additive
 and require `schema:declare`. Returning a field-option receipt projects those
 field options onto `UltimaBase.use(plugin()).Schema`; schema-level options and
-patched fields project nothing (ADR-0297). A plugin types its `.with` entry
-through a rules slot (`SchemaRulesHKT`), the fields it adds through a shape
-method and a fields slot (`SchemaFieldsHKT`), and its commands through a
+patched fields project nothing (ADR-0297). A plugin types its `.with` rule
+through a rules slot (`SchemaRulesHKT`), the fields it adds through a feature
+key of `define` and a fields slot (`SchemaFieldsHKT`), and its commands through a
 statics slot (`SchemaStaticsHKT`); `definePlugin` from `@ultimabase/plugin-kit`
 writes these slots for the common cases. The receipts carry no Runtime state
 and do not create a second registry. Core derives operation declarations from

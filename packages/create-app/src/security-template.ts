@@ -1,4 +1,8 @@
-import { pluginImports, privateSchemaApiOptions } from './api-template.js'
+import {
+	indentRest,
+	pluginImports,
+	privateSchemaApiOptions,
+} from './api-template.js'
 import { hasPlugin as has, included, type InitializerPlan } from './config.js'
 import type { NamedImport } from './source.js'
 
@@ -71,18 +75,23 @@ export const AppUser = SchemaApplication.UserSchema.define({
 })${withRules([
 				...(hasProfilePolicy(plan)
 					? [
-							'// Each user reads only their own profile; writes stay with authPlugin.',
-							'access: {',
-							'  read: ({ principal, where }) =>',
-							"    where.in('id', principal === undefined ? [] : [principal.id]),",
-							'  create: false,',
-							'  update: false,',
-							'  upsert: false,',
-							'  delete: false,',
-							'},',
+							{
+								comment:
+									'Each user reads only their own profile; writes stay with authPlugin.',
+								entry: [
+									'access: {',
+									'  read: ({ principal, where }) =>',
+									"    where.in('id', principal === undefined ? [] : [principal.id]),",
+									'  create: false,',
+									'  update: false,',
+									'  upsert: false,',
+									'  delete: false,',
+									'}',
+								].join('\n'),
+							},
 						]
 					: []),
-				...privateSchemaApiOptions(plan).map((line) => line.trim()),
+				...privateRules(plan),
 			])}`,
 		],
 		[
@@ -91,7 +100,7 @@ export const AppUser = SchemaApplication.UserSchema.define({
 export const Member = SchemaApplication.Schema.define({
   className: 'Member',
   fields: (f) => ({ name: f.string({ required: true }) }),
-})${withRules(privateSchemaApiOptions(plan).map((line) => line.trim()))}`,
+})${withRules(privateRules(plan))}`,
 		],
 		[
 			has(plan, 'roles-plugin'),
@@ -100,33 +109,55 @@ export const AppRole = SchemaApplication.RoleSchema.define({
 ${[
 	"  className: 'Role',",
 	`  members: () => ${roleMembers(plan)},`,
-	"  deletion: 'fail',",
 	'  fields: (f) => ({ description: f.string() }),',
 ].join('\n')}
-})${withRules(privateSchemaApiOptions(plan).map((line) => line.trim()))}`,
+})${withRules([{ entry: "roles: { deletion: 'fail' }" }, ...privateRules(plan)])}`,
 		],
 	]).join('\n\n')
 
-/**
- * Renders the final `.with(...)` of a declaration from its rule lines; a
- * declaration without rules stays an unfinished `define(...)` (ADR-0297).
- */
-const withRules = (rules: readonly string[]): string =>
-	rules.length === 0
-		? ''
-		: `.with({\n${rules.map((rule) => `  ${rule}`).join('\n')}\n})`
+/** One entry of `.with({ … })`, such as `rest: false`. */
+interface RuleEntry {
+	/** A comment line written above the entry. */
+	readonly comment?: string
+	/** `key: value`, possibly over several lines. */
+	readonly entry: string
+}
 
-/** ACL is added by `.acl()` and configured in `.with({ acl })` (ADR-0321). */
-export const taskRulesChain = (plan: InitializerPlan): readonly string[] =>
+const privateRules = (plan: InitializerPlan): RuleEntry[] =>
+	privateSchemaApiOptions(plan).map((entry) => ({ entry }))
+
+/**
+ * Renders the final `.with({ … })` of a declaration closed by `})` as
+ * Prettier prints it; a declaration without rules stays an unfinished
+ * `define(...)` (ADR-0297, ADR-0339).
+ */
+const withRules = (entries: readonly RuleEntry[]): string => {
+	if (entries.length === 0) return ''
+	if (
+		entries.every(
+			({ comment, entry }) => comment === undefined && !entry.includes('\n'),
+		)
+	) {
+		const compact = `.with({ ${entries.map(({ entry }) => entry).join(', ')} })`
+		if (`})${compact}`.length <= 80) return compact
+	}
+	const lines = entries.map(
+		({ comment, entry }) =>
+			`${comment === undefined ? '' : `  // ${comment}\n`}  ${indentRest(entry, 2)},`,
+	)
+	return `.with({\n${lines.join('\n')}\n})`
+}
+
+/** `acl: true` in `define` requires `.with({ acl: { default } })` (ADR-0339). */
+export const taskRulesChain = (plan: InitializerPlan): string =>
 	has(plan, 'acl-permissions-plugin')
-		? [
-				'.acl()',
-				withRules([
-					'// An empty ACL grants no read, update, or delete rights.',
-					'acl: { default: new ACL() },',
-				]),
-			]
-		: []
+		? withRules([
+				{
+					comment: 'An empty ACL grants no read, update, or delete rights.',
+					entry: 'acl: { default: new ACL() }',
+				},
+			])
+		: ''
 
 export const securityApplicationImports = (
 	plan: InitializerPlan,
@@ -181,7 +212,7 @@ export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			has(plan, 'access-plugin'),
-			"Access starts as a prototype: `allowWithoutRule: { all: 'development' }` opens every operation without a rule outside production, with a warning at start. With `NODE_ENV=production` the application refuses to start until you write `.with({ access })` rules for your schemas and remove that opening. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.",
+			"Access starts as a prototype: `allowWithoutRule: { all: 'development' }` opens every operation without a rule outside production, with a warning at start. With `NODE_ENV=production` the application refuses to start until you write `.with({ access: { … } })` rules for your schemas and remove that opening. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.",
 		],
 		[
 			has(plan, 'acl-permissions-plugin'),

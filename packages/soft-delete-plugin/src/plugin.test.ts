@@ -16,6 +16,19 @@ const declare = (className: string) =>
 		className,
 		fields: (field) => ({ title: field.string() }),
 	})
+// The same schema with `softDelete: true`, then with the command mode.
+const declareLogical = (className: string) =>
+	App.Schema.define({
+		className,
+		fields: (field) => ({ title: field.string() }),
+		softDelete: true,
+	})
+const declareCommand = (className: string) =>
+	App.Schema.define({
+		className,
+		fields: (field) => ({ title: field.string() }),
+		softDelete: { mode: 'command' },
+	})
 
 const schemaSurface = (
 	application: Readonly<{ compile(): CompiledApplication }>,
@@ -61,8 +74,8 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('attaches the same six commands to both modes and none elsewhere', async () => {
-		const Logical = declare('CommandsLogical').softDelete()
-		const Command = declare('CommandsCommand').softDelete({ mode: 'command' })
+		const Logical = declareLogical('CommandsLogical')
+		const Command = declareCommand('CommandsCommand')
 		const Plain = declare('CommandsPlain')
 		const application = new App({
 			logger: false,
@@ -105,8 +118,8 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('rewrites native deletes of the default mode only', async () => {
-		const Logical = declare('RewriteLogical').softDelete()
-		const Command = declare('RewriteCommand').softDelete({ mode: 'command' })
+		const Logical = declareLogical('RewriteLogical')
+		const Command = declareCommand('RewriteCommand')
 		const Plain = declare('RewritePlain')
 		const instance = softDeletePlugin()
 		const application = new (UltimaBase.use(instance))({
@@ -127,10 +140,8 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('keeps rewrite plans isolated between applications', async () => {
-		const LogicalDocument = declare('IsolatedRewriteDocument').softDelete()
-		const CommandDocument = declare('IsolatedRewriteDocument').softDelete({
-			mode: 'command',
-		})
+		const LogicalDocument = declareLogical('IsolatedRewriteDocument')
+		const CommandDocument = declareCommand('IsolatedRewriteDocument')
 		const first = softDeletePlugin()
 		const second = softDeletePlugin()
 		const logicalApplication = new (UltimaBase.use(first))({
@@ -162,11 +173,12 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('does not install the option through import side effects', async () => {
-		// The stale runtime definition deliberately bypasses source diagnostics.
-		const Document = UltimaBase.Schema.define({
+		// Declared where Soft Delete is installed, registered where it is not.
+		const Document = App.Schema.define({
 			className: 'MissingSoftDeletePlugin',
 			fields: (field) => ({ title: field.string() }),
-		}).with({ softDelete: {} } as never)
+			softDelete: true,
+		})
 		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -175,9 +187,9 @@ describe('softDeletePlugin', () => {
 		)
 	})
 
-	it('adds the server-written fields only to schemas that call .softDelete()', async () => {
-		const Logical = declare('FieldsLogical').softDelete()
-		const Command = declare('FieldsCommand').softDelete({ mode: 'command' })
+	it('adds the server-written fields only to schemas that set softDelete', async () => {
+		const Logical = declareLogical('FieldsLogical')
+		const Command = declareCommand('FieldsCommand')
 		const Plain = declare('FieldsPlain')
 		const application = new App({
 			logger: false,
@@ -229,7 +241,8 @@ describe('softDeletePlugin', () => {
 			fields: (field) => ({
 				deletedAt: field.string(),
 			}),
-		}).softDelete()
+			softDelete: true,
+		})
 		const application = new App({ logger: false, schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -251,9 +264,11 @@ describe('softDeletePlugin', () => {
 				}),
 			],
 		})
-		const Invalid = declare('InvalidSoftDeleteDocument').softDelete({
-			mode: 'explicit',
-		} as never)
+		const Invalid = App.Schema.define({
+			className: 'InvalidSoftDeleteDocument',
+			fields: (field) => ({ title: field.string() }),
+			softDelete: { mode: 'explicit' } as never,
+		})
 		const application = new (UltimaBase.use(softDeletePlugin(), observer))({
 			logger: false,
 			schemas: [Invalid],

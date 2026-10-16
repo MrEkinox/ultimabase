@@ -88,8 +88,8 @@ const isTombstoneCommand = (
 	operation.owner.instanceId === owner.instanceId
 
 /**
- * Hides soft-deleted rows from every operation on the schemas that called
- * `.softDelete()`; restore and purge see only those rows. Reads by a caller
+ * Hides soft-deleted rows from every operation on the schemas that set
+ * `softDelete`; restore and purge see only those rows. Reads by a caller
  * holding `readDeleted` see every row, except Master: Master holds every
  * permission, but its reads keep the filter unless their own `where`
  * constrains `isDeleted`, so server jobs never include the trash silently.

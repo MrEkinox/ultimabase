@@ -80,8 +80,7 @@ export const PrincipalMember = App.Schema.define({
 export const PrincipalRole = App.RoleSchema.define({
 	className: 'PrincipalRole',
 	members: () => PrincipalMember,
-	deletion: 'fail',
-})
+}).with({ roles: { deletion: 'fail' } })
 
 let failPredicate: 'error' | 'public' | undefined
 const explode: PolicyPredicate = function explode() {
@@ -99,30 +98,29 @@ export const PrincipalTodo = App.Schema.define({
 		title: field.string({ required: true }),
 		owner: field.string(),
 	}),
+	acl: true,
+}).with({
+	access: {
+		create: isAuthenticated,
+		read: true,
+		update: hasRole(PrincipalRole.role('editor')),
+		upsert: {
+			where: isTodoAuthor,
+			item: ({ principal, item }) => item.owner === principal?.id,
+		},
+		delete: explode,
+	},
+	acl: { default: ({ principal }) => new ACL(principal) },
+	hooks: {
+		beforeOperation: {
+			create: async ({ context }) => {
+				hookPrincipals.push(context.principal?.id)
+				// A hook-issued Master operation keeps the request principal.
+				await PrincipalMember.count({}, { useMasterKey: true })
+			},
+		},
+	},
 })
-	.acl()
-	.with({
-		access: {
-			create: isAuthenticated,
-			read: true,
-			update: hasRole(PrincipalRole.role('editor')),
-			upsert: {
-				where: isTodoAuthor,
-				item: ({ principal, item }) => item.owner === principal?.id,
-			},
-			delete: explode,
-		},
-		acl: { default: ({ principal }) => new ACL(principal) },
-		hooks: {
-			beforeOperation: {
-				create: async ({ context }) => {
-					hookPrincipals.push(context.principal?.id)
-					// A hook-issued Master operation keeps the request principal.
-					await PrincipalMember.count({}, { useMasterKey: true })
-				},
-			},
-		},
-	})
 
 export const PrincipalAudit = App.Schema.define({
 	className: 'PrincipalAudit',

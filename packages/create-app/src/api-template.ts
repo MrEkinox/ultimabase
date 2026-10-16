@@ -147,10 +147,11 @@ export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
 	])
 
 /** Generated member and role models are never an implicit public CRUD surface. */
+/** The `.with` entries that keep a schema without public routes. */
 export const privateSchemaApiOptions = (plan: InitializerPlan): string[] =>
 	included([
-		[has(plan, 'rest-plugin'), '  rest: false,'],
-		[has(plan, 'graphql-plugin'), '  graphql: false,'],
+		[has(plan, 'rest-plugin'), 'rest: false'],
+		[has(plan, 'graphql-plugin'), 'graphql: false'],
 	])
 
 export const apiNextCommands = (plan: InitializerPlan): string[] => {

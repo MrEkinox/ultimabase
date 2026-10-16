@@ -2,12 +2,14 @@
 
 Official soft-delete support for UltimaBase application schemas.
 
-A schema opts in with the `.softDelete()` shape method. It gains the
-server-written `isDeleted` and `deletedAt` fields, ordinary operations see
-only active rows, and six commands: `softDeleteOne`, `softDeleteMany`,
-`restoreOne`, `restoreMany`, `purgeOne` and `purgeMany`. Without options,
-native `deleteOne` and `deleteMany` write tombstones; with
-`{ mode: 'command' }` they stay physical deletes.
+A schema opts in with the `softDelete` feature key of `define` (ADR-0339). It
+gains the server-written `isDeleted` and `deletedAt` fields, ordinary
+operations see only active rows, and six commands: `softDeleteOne`,
+`softDeleteMany`, `restoreOne`, `restoreMany`, `purgeOne` and `purgeMany`.
+With `softDelete: true`, native `deleteOne` and `deleteMany` write tombstones;
+with `softDelete: { mode: 'command' }` they stay physical deletes. The plugin
+has no `.with` rule of its own: the schema's Access, REST and GraphQL rules
+name its commands.
 
 Every code block in this README is copied from the tested
 [`examples/soft-delete`](../../examples/soft-delete/README.md) application by
@@ -25,7 +27,7 @@ import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 /**
- * The configured factory types `.softDelete()`, its commands and its fields.
+ * The configured factory types the `softDelete` key, its commands and fields.
  * Access and Roles only decide who may read the trash; Soft Delete needs
  * neither. `postgresPlugin()` reads `DATABASE_URL` when the application starts.
  */
@@ -47,8 +49,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-	ensure: ['moderator'],
-})
+}).with({ roles: { ensure: ['moderator'] } })
 
 export const Moderator = StaffRole.role('moderator')
 
@@ -56,25 +57,24 @@ export const Moderator = StaffRole.role('moderator')
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
+	softDelete: true,
+}).with({
+	access: {
+		// Every caller may write, delete and restore posts in this example.
+		read: true,
+		create: true,
+		delete: true,
+		softDeleteOne: true,
+		softDeleteMany: true,
+		restoreOne: true,
+		restoreMany: true,
+		// Only moderators see tombstones in ordinary reads.
+		readDeleted: hasRole(Moderator),
+	},
+	// A command reaches REST or GraphQL only when the rule names it.
+	rest: { softDeleteOne: true, restoreOne: true },
+	graphql: { softDeleteOne: true, restoreOne: true },
 })
-	.softDelete()
-	.with({
-		access: {
-			// Every caller may write, delete and restore posts in this example.
-			read: true,
-			create: true,
-			delete: true,
-			softDeleteOne: true,
-			softDeleteMany: true,
-			restoreOne: true,
-			restoreMany: true,
-			// Only moderators see tombstones in ordinary reads.
-			readDeleted: hasRole(Moderator),
-		},
-		// A command reaches REST or GraphQL only when the rule names it.
-		rest: { softDeleteOne: true, restoreOne: true },
-		graphql: { softDeleteOne: true, restoreOne: true },
-	})
 ```
 
 <!-- endregion -->
@@ -92,11 +92,11 @@ transactional Hook evidence.
 
 ## Modes
 
-| Declaration                        | `deleteOne` / `deleteMany` | Commands                             |
-| ---------------------------------- | -------------------------- | ------------------------------------ |
-| `.softDelete()`                    | tombstone                  | the six commands                     |
-| `.softDelete({ mode: 'command' })` | hard delete                | the six commands                     |
-| no `.softDelete()`                 | hard delete                | none, and no `isDeleted`/`deletedAt` |
+| Declaration                       | `deleteOne` / `deleteMany` | Commands                             |
+| --------------------------------- | -------------------------- | ------------------------------------ |
+| `softDelete: true`                | tombstone                  | the six commands                     |
+| `softDelete: { mode: 'command' }` | hard delete                | the six commands                     |
+| no `softDelete` key               | hard delete                | none, and no `isDeleted`/`deletedAt` |
 
 The example's `Comment` keeps native deletes permanent:
 
@@ -107,7 +107,8 @@ The example's `Comment` keeps native deletes permanent:
 export const Comment = App.Schema.define({
 	className: 'Comment',
 	fields: (field) => ({ body: field.string({ required: true }) }),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 ```
 
 <!-- endregion -->
@@ -176,8 +177,8 @@ ADR-0325). Many-row commands and purge have no route or field.
 ## Unique values
 
 A tombstone keeps its data and its unique values, unless the application
-declares a partial unique index in the final `.with` (ADR-0303); the plugin
-never adds one:
+declares a partial unique index on `isDeleted` in the `indexes` of `define`
+(ADR-0303, ADR-0339); the plugin never adds one:
 
 <!-- region ../../examples/soft-delete/src/schema.ts#article -->
 
@@ -186,11 +187,9 @@ never adds one:
 export const Article = App.Schema.define({
 	className: 'Article',
 	fields: (field) => ({ slug: field.string({ required: true }) }),
+	indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	softDelete: true,
 })
-	.softDelete()
-	.with({
-		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
-	})
 ```
 
 <!-- endregion -->
@@ -222,7 +221,7 @@ returns nothing to a caller without `readDeleted`.
 
 ## Reading deleted rows: `readDeleted`
 
-`.softDelete()` declares the schema permission `readDeleted` through Core
+`softDelete` declares the schema permission `readDeleted` through Core
 (ADR-0317). Reads by a caller who holds it skip the protected filter: they see
 tombstones and can filter and sort them (`where: { isDeleted: { eq: true } }`,
 `orderBy: { deletedAt: 'desc' }`), REST and GraphQL included. Updates, deletes

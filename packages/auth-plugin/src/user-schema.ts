@@ -7,7 +7,13 @@ import {
 	type SchemaReference,
 } from '@ultimabase/core'
 import type {
-	DeclaredSchemaShape,
+	CompleteDefineFields,
+	ConfiguredSchemaIndex,
+	DefineFeatureCheck,
+	DefineFeatureOptions,
+	DefineFeatures,
+	DefineFeaturesNotInferred,
+	DefineUniqueIndexFields,
 	PluginSourceState,
 	SchemaFactoriesHKT,
 	SchemaFactoryContext,
@@ -34,6 +40,7 @@ export interface UserSchemaOptions<
 	TSource extends PluginSourceState,
 	TClassName extends string,
 	TFields extends SchemaFields,
+	TIndexes = readonly ConfiguredSchemaIndex<SchemaFields>[],
 > {
 	/** Any class name, such as `TodoUser`. */
 	readonly className: TClassName
@@ -43,6 +50,13 @@ export interface UserSchemaOptions<
 	 * @example `fields: (field) => ({ displayName: field.string({ required: true }) })`
 	 */
 	readonly fields?: ConfiguredFieldDeclaration<TSource, TClassName, TFields>
+	/**
+	 * Declares indexes over the complete User fields: its own, the methods'
+	 * and those of the features set beside it (ADR-0339). A unique index
+	 * without `where` is a unique target of `updateOne` and `deleteOne`.
+	 * @example `indexes: [{ fields: ['displayName'], unique: true }]`
+	 */
+	readonly indexes?: TIndexes
 }
 
 /**
@@ -55,18 +69,14 @@ export type UserSchemaFields<TCustomFields, TMethodFields> = TCustomFields &
 	? { readonly [TKey in keyof TFields]: TFields[TKey] }
 	: never
 
-/** Marks a declaration made by `App.UserSchema.define` for the statics slot. */
-type UserSchemaDeclarationOptions = DeclaredSchemaShape<
-	SchemaFactoryShape<'UserSchema'>
->
-
 /** The `App.UserSchema` factory of an application that installs `authPlugin`. */
 export interface UserSchemaFactory<
 	TSource extends PluginSourceState,
 	TMethodFields,
 > {
 	/**
-	 * Declares the one User schema of the application; end with `.with({ ... })`
+	 * Declares the one User schema of the application, with `indexes` and the
+	 * feature keys of the installed plugins (ADR-0339); end with `.with(...)`
 	 * like any schema. Its class gains `signUp`, `login`, `current`, … .
 	 *
 	 * @example
@@ -80,13 +90,33 @@ export interface UserSchemaFactory<
 	define<
 		const TClassName extends string,
 		const TFields extends SchemaFields = Readonly<Record<never, never>>,
+		// The whole options object, captured once (ADR-0339).
+		const TFeatures extends DefineFeatureCheck<
+			TSource,
+			UserSchemaFields<TFields, TMethodFields>,
+			TFeatures
+		> = DefineFeaturesNotInferred,
 	>(
-		options: UserSchemaOptions<TSource, TClassName, TFields>,
+		options: UserSchemaOptions<
+			TSource,
+			TClassName,
+			TFields,
+			readonly ConfiguredSchemaIndex<
+				CompleteDefineFields<
+					TSource,
+					UserSchemaFields<TFields, TMethodFields>,
+					TFeatures
+				>
+			>[]
+		> &
+			DefineFeatures<TSource> &
+			TFeatures,
 	): DeclaredSchema<
 		TSource,
 		TClassName,
 		UserSchemaFields<TFields, TMethodFields>,
-		UserSchemaDeclarationOptions
+		DefineFeatureOptions<TSource, TFeatures, SchemaFactoryShape<'UserSchema'>>,
+		DefineUniqueIndexFields<TFeatures>
 	>
 }
 
@@ -118,7 +148,7 @@ export interface UserSchemaStaticsSlot<TMethods> extends SchemaStaticsHKT {
 		: unknown
 }
 
-const optionKeys = new Set(['className', 'fields'])
+const optionKeys = new Set(['className', 'fields', 'indexes'])
 
 /**
  * Creates the runtime of `App.UserSchema` for one plugin instance: one User
@@ -133,6 +163,7 @@ export const createUserSchemaFactory =
 	) =>
 	({
 		define,
+		features,
 	}: SchemaFactoryContext): Readonly<{
 		define: (options: unknown) => unknown
 	}> =>
@@ -141,13 +172,20 @@ export const createUserSchemaFactory =
 				if (!isPlainRecord(options)) {
 					throw new TypeError('UserSchema options must be a plain object')
 				}
+				// Feature keys (`softDelete: true`) and `indexes` go to Core's define.
 				const unknownKey = Object.keys(options).find(
-					(key) => !optionKeys.has(key),
+					(key) => !optionKeys.has(key) && !features.has(key),
 				)
 				if (unknownKey !== undefined) {
 					throw new TypeError(`Unknown UserSchema option: ${unknownKey}`)
 				}
 				const { className, fields: customFields } = options
+				// `indexes` and feature keys, copied as entries (`__proto__` included).
+				const declaration = Object.fromEntries(
+					Object.entries(options).filter(
+						([key]) => key !== 'className' && key !== 'fields',
+					),
+				)
 				if (typeof className !== 'string' || className.length === 0) {
 					throw new TypeError('className must be a non-empty string')
 				}
@@ -189,6 +227,7 @@ export const createUserSchemaFactory =
 				}
 				return define(
 					{
+						...declaration,
 						className,
 						fields,
 						[authUserIdentityOptionName]: createAuthUserIdentity(className),

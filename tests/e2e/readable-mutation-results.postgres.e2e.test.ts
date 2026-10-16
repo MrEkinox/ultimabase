@@ -38,9 +38,7 @@ const Note = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		parent: field.pointer({ target: () => Note }),
 	}),
-}).with({
-	access: { read: ({ where }) => where.eq('visible', true) },
-})
+}).with({ access: { read: ({ where }) => where.eq('visible', true) } })
 
 const Secret = App.Schema.define({
 	className: 'ReadableSecret',
@@ -54,11 +52,8 @@ const Archived = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		secret: field.string({ access: { read: false } }),
 	}),
-})
-	.softDelete()
-	.with({
-		access: { read: ({ where }) => where.eq('visible', true) },
-	})
+	softDelete: true,
+}).with({ access: { read: ({ where }) => where.eq('visible', true) } })
 
 const Explicit = App.Schema.define({
 	className: 'ReadableExplicit',
@@ -67,11 +62,8 @@ const Explicit = App.Schema.define({
 		visible: field.boolean({ default: true }),
 		secret: field.string({ access: { read: false } }),
 	}),
-})
-	.softDelete({ mode: 'command' })
-	.with({
-		access: { read: ({ where }) => where.eq('visible', true) },
-	})
+	softDelete: { mode: 'command' },
+}).with({ access: { read: ({ where }) => where.eq('visible', true) } })
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',

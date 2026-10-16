@@ -28,7 +28,7 @@ const /* json-hover */document = acl.toJSON()
 void ({} as ACLRule/* option-hover */)
 const directACL: Partial<ACLRule> = { /* options-complete */ }
 void directACL
-Application.Schema.define({ className: 'Completed', fields: () => ({}) }).acl().with({ /* schema-option-complete */ })
+Application.Schema.define({ className: 'Completed', fields: () => ({}), acl: true }).with({ /* schema-option-complete */ })
 void aclPlugin/* plugin-hover */
 aclPlugin({ /* plugin-options-complete */ })
 aclPlugin({ limits: { /* plugin-limits-complete */ } })
@@ -45,10 +45,8 @@ const ContextualPost = Application.Schema.define({
 		title: field.string({ required: true }),
 		visibility: field.string(),
 	}),
-})
-	.acl()
-	.with({
-		acl: {
+	acl: true,
+}).with({ acl: {
 			default: ({ data }) => {
 				data./* schema-data-complete */
 				const /* schema-title-hover */title = data.title
@@ -62,8 +60,7 @@ const ContextualPost = Application.Schema.define({
 				return input.currentAcl
 			},
 			limits: { /* schema-limits-complete */ },
-		},
-	})
+		} })
 
 void ContextualPost
 `
@@ -205,7 +202,7 @@ describe('ACL IntelliSense', () => {
 		)
 
 		expect(ts.displayPartsToString(hover?.documentation)).toContain(
-			'The `acl` entry of `.with({ ... })` once `.acl()` is called',
+			'The `acl` rule of `.with({ … })`, required once `acl: true`',
 		)
 		expect(names).toEqual(
 			expect.arrayContaining([

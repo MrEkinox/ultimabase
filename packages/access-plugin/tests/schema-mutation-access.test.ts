@@ -650,9 +650,7 @@ describe('schema mutation Access', () => {
 		const StaleDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationStaleDocument',
 			fields: (field) => ({ secret: field.string(), title: field.string() }),
-		}).with({
-			access: { stale: true } as never,
-		})
+		}).with({ access: { stale: true } as never })
 		const adapter = new SchemaMutationAdapter()
 		const owner = createMutationOwner(StaleDocument)
 		const ultimabase = new (UltimaBase.use(
@@ -673,9 +671,7 @@ describe('schema mutation Access', () => {
 		const MasterOnlyDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationMasterOnlyDocument',
 			fields: (field) => ({ title: field.string() }),
-		}).with({
-			access: { purge: true } as never,
-		})
+		}).with({ access: { purge: true } as never })
 		const masterAdapter = new SchemaMutationAdapter()
 		const masterOnly = new (UltimaBase.use(
 			accessPlugin(),

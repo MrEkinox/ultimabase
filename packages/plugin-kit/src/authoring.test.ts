@@ -6,6 +6,7 @@ import {
 	defineOperationValue,
 	plugin,
 	defineSchemaOption,
+	provideSchemaRules,
 	type PluginDeclarationContribution,
 	type PluginSchemaRulesSource,
 	type ResourcePluginOperationContributionOptions,
@@ -275,7 +276,7 @@ describe('plugin authoring helpers', () => {
 		interface WorkflowRules extends SchemaRulesHKT {
 			readonly rules: Readonly<{ workflow?: (value: string) => string }>
 		}
-		// The rules slot types `.with({ workflow })` (ADR-0297).
+		// The rules slot types `.with({ workflow: … })` (ADR-0297, ADR-0339).
 		const declarations: PluginDeclarationContribution<
 			readonly [],
 			PluginSchemaRulesSource<WorkflowRules>
@@ -305,22 +306,23 @@ describe('plugin authoring helpers', () => {
 				return [options, patch]
 			},
 		})
-		const definition = plugin({
-			id: 'fixture.plugin-kit',
-			version: '1.2.3',
-			core: '^0.0.0',
-			contributions: [declarations],
-			permissions: {
-				'schema:declare': 'Adds fixture schema metadata.',
-			},
-		})
+		const definition = provideSchemaRules(
+			plugin({
+				id: 'fixture.plugin-kit',
+				version: '1.2.3',
+				core: '^0.0.0',
+				contributions: [declarations],
+				permissions: {
+					'schema:declare': 'Adds fixture schema metadata.',
+				},
+			}),
+			['workflow'],
+		)
 		const Application = UltimaBase.use(definition)
 		const Target = Application.Schema.define({
 			className: 'PluginKitPatchTarget',
 			fields: (field) => ({ title: field.string() }),
-		}).with({
-			workflow: (value: string) => value,
-		})
+		}).with({ workflow: (value: string) => value })
 		const application = new Application({
 			logger: false,
 			schemas: [Target],

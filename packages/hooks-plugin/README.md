@@ -4,9 +4,9 @@ Optional official lifecycle Hooks for UltimaBase.
 
 The package contains both the public authoring contract and its Runtime engine.
 Importing it does not install behavior; add `hooksPlugin()` to the application
-`.use()` chain. Field `hooks` are declared on fields; schema `hooks` live in the
-final `.with({ hooks })` of a schema (ADR-0316) and are typed from the schema,
-without generated files; `define` takes no `hooks` option.
+`.use()` chain. Field `hooks` are declared on fields; schema Hooks live in
+`.with({ hooks: { … } })` (ADR-0316, ADR-0339) and are typed
+from the schema, without generated files; `define` takes no `hooks` key.
 
 Every code block in this README except the conformance sketch is copied from
 the tested [`examples/hooks`](../../examples/hooks/README.md) application by
@@ -29,7 +29,7 @@ import { sendMessage } from './effects.ts'
 import { announcePost, postPublished } from './events.ts'
 
 /**
- * The configured factory types `.with({ hooks })` and field `hooks` from the
+ * The configured factory types `.with({ hooks: … })` and field `hooks` from the
  * plugin declaration. `postgresPlugin()` reads `DATABASE_URL` at start.
  */
 export const App = UltimaBase.use(
@@ -300,7 +300,7 @@ import { sendMessage } from './effects.ts'
 import { announcePost, postPublished } from './events.ts'
 
 /**
- * The configured factory types `.with({ hooks })` and field `hooks` from the
+ * The configured factory types `.with({ hooks: … })` and field `hooks` from the
  * plugin declaration. `postgresPlugin()` reads `DATABASE_URL` at start.
  */
 export const App = UltimaBase.use(
@@ -333,28 +333,27 @@ export const Comment = App.Schema.define({
 		parent: field.pointer({ target: () => Comment }),
 		replies: field.int({ default: 0 }),
 	}),
-})
-	.softDelete({ mode: 'command' })
-	.with({
-		hooks: {
-			afterOperation: {
-				create: ({ item }) => countReply(item.parent),
-				update: ({ changes, item }) =>
-					changes.replies === undefined ? undefined : countReply(item.parent),
-			},
-			afterCommit: {
-				// `all` also runs for Soft Delete's commands; `kind` names them.
-				all: async (input) => {
-					if (input.kind === 'softDeleteOne') {
-						await sendMessage({
-							to: 'moderators',
-							subject: `Hidden: ${input.originalItem.body}`,
-						})
-					}
-				},
+	softDelete: { mode: 'command' },
+}).with({
+	hooks: {
+		afterOperation: {
+			create: ({ item }) => countReply(item.parent),
+			update: ({ changes, item }) =>
+				changes.replies === undefined ? undefined : countReply(item.parent),
+		},
+		afterCommit: {
+			// `all` also runs for Soft Delete's commands; `kind` names them.
+			all: async (input) => {
+				if (input.kind === 'softDeleteOne') {
+					await sendMessage({
+						to: 'moderators',
+						subject: `Hidden: ${input.originalItem.body}`,
+					})
+				}
 			},
 		},
-	})
+	},
+})
 
 const countReply = async (parent: { readonly id: string } | null) => {
 	if (parent === null) return

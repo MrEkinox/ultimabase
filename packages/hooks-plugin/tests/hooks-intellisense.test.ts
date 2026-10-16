@@ -110,9 +110,7 @@ const Application = UltimaBase.use(hooksPlugin())
 Application.Schema.define({
   className: 'NestedHookInput',
   fields: (field) => ({ title: field.string() }),
-}).with({
-  hooks: { afterOperation: { create: (input) => input./* hook-input */ } },
-})
+}).with({ hooks: { afterOperation: { create: (input) => input./* hook-input */ } } })
 `
 		const nestedFile = fixtureFile('nested-hook-input')
 		const fixture = createLanguageServiceFixture(nestedFile, source, [

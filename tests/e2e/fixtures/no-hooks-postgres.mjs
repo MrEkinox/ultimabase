@@ -17,9 +17,7 @@ const Post = Application.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
-}).with({
-	postgres: { table: 'optional_hooks_javascript_posts' },
-})
+}).with({ postgres: { table: 'optional_hooks_javascript_posts' } })
 const ultimabase = new Application({
 	logger: false,
 	schemas: [Post],

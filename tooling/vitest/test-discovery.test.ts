@@ -5,6 +5,8 @@ import { promisify } from 'node:util'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
+import { isolatedE2eSuites } from './isolated-e2e.ts'
+
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 const execute = promisify(execFile)
 interface DiscoveredFile {
@@ -145,10 +147,18 @@ describe('test ownership and discovery', () => {
 	)
 
 	it('runs every E2E exactly once through its built-export project, never as a unit', () => {
+		const manifest = readFileSync(
+			path.join(repositoryRoot, 'package.json'),
+			'utf8',
+		)
+		const builtCommand = /"test:e2e:built": "([^"]*)"/u.exec(manifest)?.[1]
 		for (const file of e2eFiles) {
 			const builtProject = file.endsWith('.postgres.e2e.test.ts')
 				? 'postgres-e2e'
-				: 'e2e'
+				: isolatedE2eSuites.includes(file)
+					? 'e2e-isolated'
+					: 'e2e'
+			expect(builtCommand, file).toContain(`--project ${builtProject} `)
 			expect(
 				rootFiles.filter(
 					(entry) => entry.file === file && entry.projectName === builtProject,
@@ -281,10 +291,14 @@ describe('test ownership and discovery', () => {
 				'postgres-e2e',
 				'performance',
 			]) {
+				// A package runs its few E2E files together: only the root
+				// configuration isolates suites from the full parallel run.
 				const root = rootFiles
 					.filter(
 						(entry) =>
-							entry.projectName === projectName &&
+							(entry.projectName === projectName ||
+								(projectName === 'e2e' &&
+									entry.projectName === 'e2e-isolated')) &&
 							entry.file.startsWith(prefix),
 					)
 					.map(({ file }) => file)

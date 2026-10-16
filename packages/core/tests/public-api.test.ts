@@ -221,8 +221,10 @@ describe('@ultimabase/core public entry point', () => {
 			'plugin',
 			'provideCapability',
 			'provideSchemaFactories',
+			// ADR-0339: features (define keys) and rules (`.with` keys).
+			'provideSchemaFeatures',
 			'provideSchemaPermissions',
-			'provideSchemaShapeMethods',
+			'provideSchemaRules',
 			'readCurrentCapabilityProvider',
 			'readSchemaRules',
 			'requestSources',

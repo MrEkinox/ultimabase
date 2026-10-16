@@ -24,22 +24,21 @@ export const TodoUser = App.Schema.define({
 export const Todo = App.Schema.define({
   className: 'Todo',
   fields: (field) => ({ title: field.string({ required: true }) }),
-})
-  .acl()
-  .with({
-    access: {
-      create: isAuthenticated,
-      update: ({ /* hover:access */principal }) => principal !== undefined,
-    },
-    acl: { default: ({ /* hover:acl */principal }) => new ACL(principal) },
-    hooks: {
-      beforeOperation: {
-        create: ({ context }) => {
-          void context./* hover:hooks */principal
-        },
+  acl: true,
+}).with({
+  access: {
+    create: isAuthenticated,
+    update: ({ /* hover:access */principal }) => principal !== undefined,
+  },
+  acl: { default: ({ /* hover:acl */principal }) => new ACL(principal) },
+  hooks: {
+    beforeOperation: {
+      create: ({ context }) => {
+        void context./* hover:hooks */principal
       },
     },
-  })
+  },
+})
 
 export const ultimabase = new App({ schemas: [TodoUser, Todo] })
 

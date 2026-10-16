@@ -22,7 +22,8 @@ const Item = App.Schema.define({
 		tags: field.string({ list: true }),
 		amount: field.decimal({ precision: 30, scale: 10 }),
 	}),
-}).with({ indexes: [{ fields: ['group', 'rank'], unique: true }] })
+	indexes: [{ fields: ['group', 'rank'], unique: true }],
+})
 
 /** Barrier making both first attempts hold their first row before the second. */
 let arrivals = 0

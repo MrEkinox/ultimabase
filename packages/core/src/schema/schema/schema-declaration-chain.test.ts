@@ -2,16 +2,16 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { plugin, type PluginInstance } from '../../plugins/plugin.js'
 import {
-	provideSchemaShapeMethods,
-	type PluginSchemaShapeSource,
-	type SchemaShapeMethod,
+	provideSchemaFeatures,
+	type PluginSchemaFeatureSource,
+	type SchemaFeature,
 } from '../../plugins/schema-extensions.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 import { Schema } from './definition.js'
 import { isConfiguredSchemaNamespace } from './schema-declaration-chain.js'
 
-type MarkSource = PluginSchemaShapeSource<{
-	readonly mark: SchemaShapeMethod<readonly [], Readonly<{ marked: true }>>
+type MarkSource = PluginSchemaFeatureSource<{
+	readonly mark: SchemaFeature<readonly [], Readonly<{ marked: true }>>
 }>
 
 type MarkPlugin = PluginInstance<{
@@ -22,7 +22,7 @@ type MarkPlugin = PluginInstance<{
 }>
 
 const markPlugin = (): MarkPlugin =>
-	provideSchemaShapeMethods<MarkPlugin, MarkSource>(
+	provideSchemaFeatures<MarkPlugin, MarkSource>(
 		plugin({
 			core: '^0.0.0',
 			id: 'fixture.schema-shape',
@@ -47,48 +47,59 @@ describe('schema declaration chain (ADR-0297)', () => {
 		expect(Reflect.has(configured, 'with')).toBe(false)
 		expect(Object.keys(declared)).not.toContain('with')
 		const withMethod: unknown = Reflect.get(declared, 'with')
-		expect(() => {
-			if (typeof withMethod === 'function') {
-				Reflect.apply(withMethod, declared, [null])
-			}
-		}).toThrow('schema rules must be an object')
+		// ADR-0339: `.with` takes an object of rules; a non-object
+		// and a key no installed plugin declares are refused.
+		const call = (rules: unknown): unknown =>
+			typeof withMethod === 'function'
+				? Reflect.apply(withMethod, declared, [rules])
+				: undefined
+		expect(Schema.is(call({}))).toBe(true)
+		expect(Schema.is(call({ relations: undefined }))).toBe(true)
+		expect(() => call(null)).toThrow(
+			new TypeError(
+				'ChainDocument.with() takes an object of rules: .with({ access: { … } })',
+			),
+		)
+		expect(() => call({ audit: true })).toThrow(
+			new TypeError(
+				'ChainDocument.with({ audit }): audit is not a rule of an installed plugin; .with accepts relations',
+			),
+		)
 		expectTypeOf(configured).not.toHaveProperty('with')
 	})
 
-	it('exposes plugin shape methods once, before .with()', () => {
+	it('takes plugin features as define keys, never as schema methods', () => {
 		const Application = UltimaBase.use(markPlugin())
-		const declared = Application.Schema.define({
-			className: 'ShapedDocument',
+		const plain = Application.Schema.define({
+			className: 'PlainMarkDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const shaped = declared.mark()
+		const marked = Application.Schema.define({
+			className: 'MarkedDocument',
+			fields: (field) => ({ title: field.string() }),
+			mark: true,
+		})
 
-		expect(Schema.is(shaped)).toBe(true)
-		expect(Reflect.has(shaped, 'mark')).toBe(false)
-		expect(Reflect.has(shaped, 'with')).toBe(true)
-		expectTypeOf(shaped).not.toHaveProperty('mark')
-		// The root factory installs no plugin, so no shape method exists there.
-		expect(
-			Reflect.has(
-				UltimaBase.Schema.define({
-					className: 'PlainDocument',
-					fields: () => ({}),
-				}),
-				'mark',
-			),
-		).toBe(false)
-		expectTypeOf(
-			UltimaBase.Schema.define({
-				className: 'PlainDocument',
-				fields: () => ({}),
-			}),
-		).not.toHaveProperty('mark')
+		expect(Schema.is(marked)).toBe(true)
+		// ADR-0339: shape methods are gone; `.with` is the only chain method.
+		for (const declared of [plain, marked]) {
+			expect(Reflect.has(declared, 'mark')).toBe(false)
+			expect(Reflect.has(declared, 'with')).toBe(true)
+		}
+		expectTypeOf(plain).not.toHaveProperty('mark')
+		expectTypeOf(marked).not.toHaveProperty('mark')
+		// The root factory installs no plugin, so `mark` is an unknown option.
+		expect(() => {
+			Reflect.apply(UltimaBase.Schema.define, UltimaBase.Schema, [
+				{ className: 'PlainDocument', fields: () => ({}), mark: true },
+			])
+		}).toThrow('Unknown schema option: mark.')
 	})
 
 	it('recognizes every factory Schema namespace and nothing else', () => {
 		const Application = UltimaBase.use(markPlugin())
 
-		// A shape-method factory owns its namespace; plugin schema factories accept both.
+		// A factory with features owns its namespace; plugin schema factories accept both.
 		expect(Application.Schema).not.toBe(UltimaBase.Schema)
 		expect(isConfiguredSchemaNamespace(UltimaBase.Schema)).toBe(true)
 		expect(isConfiguredSchemaNamespace(Application.Schema)).toBe(true)

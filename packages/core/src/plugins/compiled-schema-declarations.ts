@@ -29,6 +29,7 @@ import {
 import { SchemaCompilationValues } from './schema-compilation/values.js'
 import { assertSchemaCompilationResult } from './schema-compilation/validation.js'
 import { assertCompiledSchemaIndexes } from '../schema/schema/indexes.js'
+import { assertDeclaredRulesComplete } from '../schema/schema/definition-compilation.js'
 
 /** Contains every artifact produced by one successful static schema compilation. */
 export interface CompiledSchemaDeclarations {
@@ -43,6 +44,8 @@ export const compileSchemaDeclarations = (
 	prepared: readonly PreparedSchemaCompilation[],
 	batches: readonly SchemaDeclarationBatch[],
 ): CompiledSchemaDeclarations => {
+	// Features set in `define` whose required rules no `.with` gave (ADR-0339).
+	for (const { schema } of prepared) assertDeclaredRulesComplete(schema)
 	const optionDefinitions = collectOptionDefinitions(batches)
 	const resolvedFields: ResolvedFieldOptions = new WeakMap()
 	const additionsBySchema = new Map<SchemaDefinition, OwnedSchemaAddition>()

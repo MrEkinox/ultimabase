@@ -61,9 +61,6 @@ export const TodoUser = App.Schema.define({
 export const TodoRole = App.RoleSchema.define({
 	className: 'TodoRole',
 	members: () => TodoUser,
-	deletion: 'fail',
-	// The Todo ACL default grants this role: it must exist (ADR-0322).
-	ensure: ['editor'],
 	fields: (field) => ({
 		description: field.string({
 			description: 'Human-readable explanation of the role.',
@@ -74,9 +71,14 @@ export const TodoRole = App.RoleSchema.define({
 			description: 'Display priority for administrative role lists.',
 		}),
 	}),
-}).with({
 	// Stored in the default table, `todo_roles`.
 	indexes: [{ fields: ['priority', 'createdAt'] }],
+}).with({
+	roles: {
+		deletion: 'fail',
+		// The Todo ACL default grants this role: it must exist (ADR-0322).
+		ensure: ['editor'],
+	},
 	access: serverManagedAccess,
 	rest: false,
 })
@@ -246,32 +248,31 @@ export const Todo = App.Schema.define({
 			target: () => TodoUser,
 		}),
 	}),
-	indexes: [{ fields: ['completed', 'dueAt'] }],
-})
 	//#region todo-rules
-	.acl()
-	.with({
-		access: {
-			read: ({ where }) => where.eq('archived', false),
-			create: false,
-			update: true,
-			upsert: false,
-			delete: false,
-		},
-		acl: {
-			default: new ACL()
-				.grantPublic('read')
-				.grantRole(TodoEditorRole, 'read', 'update'),
-		},
-		hooks: {
-			beforeOperation: {
-				update: ({ item, originalItem }) => {
-					if (originalItem.completed && !item.completed) {
-						throw new TypeError('Completed todos cannot be reopened')
-					}
-				},
+	indexes: [{ fields: ['completed', 'dueAt'] }],
+	acl: true,
+}).with({
+	access: {
+		read: ({ where }) => where.eq('archived', false),
+		create: false,
+		update: true,
+		upsert: false,
+		delete: false,
+	},
+	acl: {
+		default: new ACL()
+			.grantPublic('read')
+			.grantRole(TodoEditorRole, 'read', 'update'),
+	},
+	hooks: {
+		beforeOperation: {
+			update: ({ item, originalItem }) => {
+				if (originalItem.completed && !item.completed) {
+					throw new TypeError('Completed todos cannot be reopened')
+				}
 			},
 		},
-		postgres: { table: 'todos' },
-	})
+	},
+	postgres: { table: 'todos' },
+})
 //#endregion todo-rules

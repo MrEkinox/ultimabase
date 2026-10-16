@@ -9,6 +9,7 @@ import {
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
 	type SchemaRulesHKT,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
@@ -39,17 +40,17 @@ const validationDeclarations: PluginDeclarationContribution<
 		}),
 })
 
-/** Entry of `.with({ ... })` owned by Validation, for one schema. */
+/** Entry of `.with({ … })` owned by Validation, for one schema. */
 export interface ValidationRules<TSchema> {
 	/**
 	 * Checks the complete item of every create and update, after field
 	 * validation (ADR-0319): a function or a Standard Schema object validator.
-	 * @example `validation: ({ item }) => item.endsAt > item.startsAt || 'Ends before it starts'`
+	 * @example `.with({ validation: ({ item }) => item.endsAt > item.startsAt || 'Ends before it starts' })`
 	 */
 	readonly validation?: SchemaValidation<Extract<TSchema, SchemaDefinition>>
 }
 
-/** Contributes `validation` to `.with({ ... })` through Core's rules slot. */
+/** Contributes `validation` to `.with({ … })` through Core's rules slot. */
 export interface ValidationSchemaRules extends SchemaRulesHKT {
 	readonly rules: ValidationRules<this['schema']>
 }
@@ -93,18 +94,22 @@ const createValidationPlugin = (): ValidationPlugin => {
 		},
 	})
 
-	return plugin({
-		id: '@ultimabase/validation-plugin',
-		version: '0.0.0',
-		core: '^0.0.0',
-		contributions: [
-			runtimeProvider,
-			validationDeclarations,
-			contributeApplication(({ schemas }) => ({
-				exports: immutableRecord({ check: createValidationCheck(schemas) }),
-			})),
-		],
-	})
+	// `.with({ validation: { … } })` (ADR-0339).
+	return provideSchemaRules<ValidationPlugin>(
+		plugin({
+			id: '@ultimabase/validation-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [
+				runtimeProvider,
+				validationDeclarations,
+				contributeApplication(({ schemas }) => ({
+					exports: immutableRecord({ check: createValidationCheck(schemas) }),
+				})),
+			],
+		}),
+		['validation'],
+	)
 }
 
 /** Installs field validators, schema checks and `check()` explicitly. */

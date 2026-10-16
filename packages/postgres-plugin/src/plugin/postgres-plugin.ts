@@ -17,6 +17,7 @@ import {
 	type PluginDeclarationContribution,
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import {
 	definePluginOptionsParser,
@@ -215,7 +216,7 @@ type PostgresPluginCapabilities = readonly [
 ]
 
 // Keep the projection tied to the two option definitions installed below. The
-// schema option projects nothing: `.with({ postgres })` types it (ADR-0320).
+// schema option projects nothing: `.with({ postgres: … })` types it (ADR-0320).
 type PostgresOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'postgres-options'
 	readonly field: Readonly<{ postgres: typeof postgresFieldOption }>
@@ -381,19 +382,23 @@ export const postgresPlugin = (
 		},
 	)
 
-	return plugin({
-		id: postgresPluginName,
-		version: '0.0.0',
-		core: '^0.0.0',
-		environment: postgresPluginEnvironment,
-		contributions: [
-			connectionProvider,
-			adapterProvider,
-			operatorsProvider,
-			providePostgresReset(connections, catalogs),
-			connectionRequirement,
-			declarations,
-			application,
-		],
-	})
+	// `.with({ postgres: { … } })` (ADR-0339).
+	return provideSchemaRules<PostgresPlugin>(
+		plugin({
+			id: postgresPluginName,
+			version: '0.0.0',
+			core: '^0.0.0',
+			environment: postgresPluginEnvironment,
+			contributions: [
+				connectionProvider,
+				adapterProvider,
+				operatorsProvider,
+				providePostgresReset(connections, catalogs),
+				connectionRequirement,
+				declarations,
+				application,
+			],
+		}),
+		['postgres'],
+	)
 }

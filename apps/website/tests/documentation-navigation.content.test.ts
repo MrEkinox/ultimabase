@@ -91,6 +91,7 @@ const canonicalNavigation = {
 	],
 	'1.0.0/plugins/build-a-plugin': [
 		'index',
+		'features-and-rules',
 		'schema-contributions',
 		'operations-and-graphql',
 		'runtime-and-infrastructure',

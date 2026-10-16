@@ -9,7 +9,6 @@ import {
 	snapshotSchemaIndexOptions,
 	type SchemaFieldName,
 	type SchemaIndexDefinition,
-	type SchemaIndexInput,
 	type SchemaIndexOptions,
 } from './indexes.js'
 import type { SystemFields } from './system-fields.js'
@@ -89,8 +88,8 @@ export interface SchemaOptions<
 	readonly fields: SchemaFieldBuilderDeclaration<TFields, TClassName>
 	/**
 	 * Declares adapter-neutral schema-level indexes. Plain single-field indexes
-	 * belong on the field through `indexed`; partial indexes, whose `where`
-	 * sees every field, are declared in the final `.with` (ADR-0303).
+	 * belong on the field through `indexed`; `App.Schema.define` types a
+	 * partial index's `where` against every field (ADR-0303, ADR-0339).
 	 *
 	 * @example `indexes: [{ fields: ["authorId", "createdAt"] }]`
 	 */
@@ -184,9 +183,12 @@ export interface PreparedSchemaCompilation {
 
 /** Core rules of the final `.with(...)`, checked against the captured fields. */
 interface SchemaDeclarationRules {
-	readonly indexes?: readonly SchemaIndexInput[] | undefined
 	/** Unvalidated `relations` rules (ADR-0328). */
 	readonly relations?: unknown
+	/** Whether `define` set feature keys, so its indexes may name their fields. */
+	readonly featureIndexes?: boolean
+	/** `[feature, rule]` pairs required by `define` features, not given yet. */
+	readonly missingRules?: readonly (readonly [string, string])[]
 }
 
 const defineSchemaModel = <
@@ -246,10 +248,11 @@ const defineSchemaModel = <
 			className: options.className,
 			fields,
 			indexes: snapshotSchemaIndexOptions(options.indexes),
-			...(rules.indexes === undefined
-				? {}
-				: { ruleIndexes: snapshotSchemaIndexOptions(rules.indexes) }),
 			...(relationFilters.size === 0 ? {} : { relationFilters }),
+			...(rules.featureIndexes === true ? { featureIndexes: true } : {}),
+			...(rules.missingRules === undefined || rules.missingRules.length === 0
+				? {}
+				: { missingRules: rules.missingRules }),
 			options: snapshotUnresolvedSchemaOptions(options),
 		}),
 	)
@@ -408,7 +411,7 @@ export const defineOrdinarySchemaModel = <
 	if (collision !== undefined) {
 		throw new TypeError(`Reserved schema declaration method: ${collision}`)
 	}
-	// Declaration chain methods (`.with`, shape methods) follow class-method visibility.
+	// The declaration method `.with` follows class-method visibility.
 	for (const [name, value] of Object.entries({
 		...factoryStatics,
 		...declarationStatics,

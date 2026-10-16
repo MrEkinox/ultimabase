@@ -186,7 +186,7 @@ export type ACLClientSharing = (
 /** Overrides application ACL entry limits for one schema. */
 export type ACLSchemaLimits = ACLEntryLimits
 
-/** The `acl` entry of `.with({ ... })` once `.acl()` is called (ADR-0321). */
+/** The `acl` rule of `.with({ … })`, required once `acl: true` (ADR-0321). */
 export interface ACLRule<
 	TData extends Readonly<Record<string, unknown>> = Readonly<
 		Record<string, unknown>
@@ -200,7 +200,7 @@ export interface ACLRule<
 	 */
 	readonly default: ACL | ACLDefaultFactory<TData>
 	/**
-	 * The ACL rows already in the table receive when `.acl()` is added to a
+	 * The ACL rows already in the table receive when `acl: true` is added to a
 	 * schema whose `default` is a function.
 	 * @example `existingRows: new ACL().grantAuthenticated('read')`
 	 */
@@ -247,8 +247,8 @@ const aclRuleKeys = new Set([
 // Only options produced here are trusted; the map also restores their exact type.
 const normalizedOptions = new WeakMap<object, NormalizedACLSchemaOption>()
 
-/** The option `.acl()` sets until `.with({ acl })` replaces it. */
-export const aclShapeDeclared: Readonly<Record<never, never>> = Object.freeze(
+/** The option `acl: true` sets until `.with({ acl: { … } })` replaces it. */
+export const aclFeatureDeclared: Readonly<Record<never, never>> = Object.freeze(
 	{},
 )
 
@@ -257,9 +257,9 @@ export const normalizeACLSchemaOption = (
 	value: unknown,
 	path: string,
 ): NormalizedACLSchemaOption => {
-	if (value === aclShapeDeclared) {
+	if (value === aclFeatureDeclared) {
 		throw new TypeError(
-			`${path}: .acl() needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master`,
+			`${path}: the acl feature needs .with({ acl: { default } }); an empty ACL would hide every row from everyone but Master`,
 		)
 	}
 	if (!isPlainRecord(value)) {
@@ -309,7 +309,7 @@ export const normalizeACLSchemaOption = (
 	return normalized
 }
 
-/** The `acl` option: set by `.acl()`, configured by `.with({ acl })`. */
+/** The `acl` option: set by `acl: true`, configured by `.with({ acl: { … } })`. */
 export const aclSchemaOption: SchemaOptionDefinition<NormalizedACLSchemaOption> =
 	defineSchemaOption({
 		normalize: normalizeACLSchemaOption,
@@ -317,7 +317,7 @@ export const aclSchemaOption: SchemaOptionDefinition<NormalizedACLSchemaOption> 
 		valueKind: 'opaque',
 	})
 
-/** Reads the trusted ACL rule of one compiled schema, if it calls `.acl()`. */
+/** Reads the trusted ACL rule of one compiled schema, if it sets `acl: true`. */
 export const readACLRule = (
 	schema: SchemaDefinition,
 ): NormalizedACLSchemaOption | undefined => {
@@ -356,7 +356,7 @@ const readExistingRows = (
 		: immutableRecord({ value: fixed })
 }
 
-/** Defines the adapter-neutral field `.acl()` adds. */
+/** Defines the adapter-neutral field `acl: true` adds. */
 export const aclField = definePluginField(
 	aclFieldKind,
 	{ indexed: true, required: true },
@@ -366,7 +366,7 @@ export const aclField = definePluginField(
 		snapshotValue: snapshotACL,
 		snapshotUpdateInput: snapshotACLUpdateInput,
 		existingRows: readExistingRows,
-		// Rows written after a schema stops calling `.acl()` get an empty ACL.
+		// Rows written after a schema drops `acl: true` get an empty ACL.
 		storageDefault: new ACL(),
 		storageCodec: { ...jsonCodec, version: 1 },
 		wireCodecs: [

@@ -146,13 +146,7 @@ ${[
 		registerSource(plan),
 	])
 
-/** Prettier keeps one call on the closing line and breaks two or more. */
-const shapeChain = (calls: readonly string[]): string =>
-	calls.length < 2
-		? calls.join('')
-		: calls.map((call) => `\n  ${indentRest(call, 2)}`).join('')
-
-// Form D (ADR-0297): data in `define`, shape methods, then rules in `.with`.
+// ADR-0339: features in `define`, then rules in `.with({ … })`.
 const taskSchemaSource = (
 	plan: InitializerPlan,
 ): string => `// The same declaration drives TypeScript inference and Runtime validation.
@@ -164,10 +158,7 @@ export const Task = SchemaApplication.Schema.define({
 ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value.trim() },\n' : ''}${has(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
     done: f.boolean({ default: false }),
   }),
-})${shapeChain([
-	...(has(plan, 'soft-delete-plugin') ? ['.softDelete()'] : []),
-	...taskRulesChain(plan),
-])}`
+${has(plan, 'soft-delete-plugin') ? '  softDelete: true,\n' : ''}${has(plan, 'acl-permissions-plugin') ? '  acl: true,\n' : ''}})${taskRulesChain(plan)}`
 
 const schemaSource = (plan: InitializerPlan): string => {
 	const task = plan.starter === 'task'

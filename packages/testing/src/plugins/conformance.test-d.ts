@@ -27,7 +27,7 @@ const sourceOption = defineSchemaOption({
 interface EnabledRules extends SchemaRulesHKT {
 	readonly rules: Readonly<{ enabled?: boolean }>
 }
-// The rules slot types `.with({ enabled })` (ADR-0297).
+// The rules slot types `enabled` in `.with` (ADR-0297).
 const declarations: PluginDeclarationContribution<
 	readonly [],
 	PluginSchemaRulesSource<EnabledRules>
@@ -54,9 +54,7 @@ const Application = UltimaBaseFactory.use(subject)
 const Post = Application.Schema.define({
 	className: 'ConformancePost',
 	fields: (field) => ({ title: field.string() }),
-}).with({
-	enabled: true,
-})
+}).with({ enabled: true })
 
 UltimaBaseFactory.Schema.define({
 	className: 'UnconfiguredConformancePost',

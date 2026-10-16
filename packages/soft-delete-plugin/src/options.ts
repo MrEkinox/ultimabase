@@ -4,7 +4,7 @@ import type { Validator } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 /**
- * Options of `.softDelete(...)`. Without `mode`, `deleteOne` and `deleteMany`
+ * Options of the `softDelete` feature (`softDelete: { mode: 'command' }`). Without `mode`, `deleteOne` and `deleteMany`
  * become logical; with `mode: 'command'` they keep deleting rows and only the
  * `softDeleteOne`/`softDeleteMany` commands hide them.
  */
@@ -16,7 +16,7 @@ export interface SoftDeleteOptions {
 /** How one schema soft-deletes: native deletes rewritten, or commands only. */
 export type SoftDeleteSchemaMode = 'command' | 'delete'
 
-/** @internal Validates the options object of `.softDelete(...)`. */
+/** @internal Validates the options object of the `softDelete` feature. */
 export const parseSoftDeleteOptions: Validator<SoftDeleteOptions> = (
 	value,
 	path,
@@ -36,7 +36,7 @@ export const parseSoftDeleteOptions: Validator<SoftDeleteOptions> = (
 
 /**
  * @internal Reads how one compiled schema soft-deletes for this exact plugin
- * instance, or `undefined` when its declaration did not call `.softDelete()`.
+ * instance, or `undefined` when its declaration does not set `softDelete`.
  */
 export const readSoftDeleteMode = (
 	schema: SchemaDefinition,

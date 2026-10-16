@@ -13,9 +13,8 @@ export const Member = App.Schema.define({
 export const AppRole = App.RoleSchema.define({
 	className: 'AppRole',
 	members: () => Member,
-	deletion: 'fail',
 	fields: (field) => ({ description: field.string() }),
-}).with({})
+}).with({ roles: { deletion: 'fail' } })
 
 export const ultimabase = new App({ schemas: [Member, AppRole] })
 

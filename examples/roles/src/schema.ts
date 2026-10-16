@@ -36,11 +36,15 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-	// The default: refuse to delete a role that still has members or links.
-	deletion: 'fail',
-	ensure: ['editor', 'administrator'],
 	fields: (field) => ({ description: field.string() }),
-}).with({ access: { read: true } })
+}).with({
+	roles: {
+		// The default: refuse to delete a role that still has members or links.
+		deletion: 'fail',
+		ensure: ['editor', 'administrator'],
+	},
+	access: { read: true },
+})
 
 export const Editor = StaffRole.role('editor')
 export const Administrator = StaffRole.role('administrator')
@@ -55,8 +59,8 @@ export const Administrator = StaffRole.role('administrator')
 export const Team = App.RoleSchema.define({
 	className: 'Team',
 	members: () => Member,
-	deletion: 'cascade',
 }).with({
+	roles: { deletion: 'cascade' },
 	access: {
 		read: true,
 		create: hasRole(Administrator),

@@ -32,8 +32,7 @@ export const Member = App.Schema.define({
 export const StaffRole = App.RoleSchema.define({
 	className: 'StaffRole',
 	members: () => Member,
-	ensure: ['editor', 'admin', 'muted'],
-})
+}).with({ roles: { ensure: ['editor', 'admin', 'muted'] } })
 
 export const Editor = StaffRole.role('editor')
 export const Admin = StaffRole.role('admin')
@@ -142,7 +141,7 @@ export const Profile = App.Schema.define({
 
 //#region comment
 /**
- * `.softDelete()` adds request commands (`softDeleteOne`, `restoreOne`…) and
+ * `softDelete: true` adds request commands (`softDeleteOne`, `restoreOne`…) and
  * the `readDeleted` permission. Each has its own Access key: `update` and
  * `delete` grant none of them.
  */
@@ -153,22 +152,21 @@ export const Comment = App.Schema.define({
 		body: field.string({ required: true }),
 		pinned: field.boolean({ default: false }),
 	}),
-})
-	.softDelete()
-	.with({
-		access: {
-			read: true,
-			// Authenticated members may comment unless they are muted.
-			create: allOf(isAuthenticated, not(hasRole(Muted))),
-			// Authors hide their own comments, except pinned ones.
-			softDeleteOne: {
-				where: ({ principal, where }) =>
-					principal === undefined ? false : where.eq('author', principal.id),
-				item: ({ originalItem }) => !originalItem.pinned,
-			},
-			restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
-			// Editors also see hidden comments in ordinary reads.
-			readDeleted: hasRole(Editor),
+	softDelete: true,
+}).with({
+	access: {
+		read: true,
+		// Authenticated members may comment unless they are muted.
+		create: allOf(isAuthenticated, not(hasRole(Muted))),
+		// Authors hide their own comments, except pinned ones.
+		softDeleteOne: {
+			where: ({ principal, where }) =>
+				principal === undefined ? false : where.eq('author', principal.id),
+			item: ({ originalItem }) => !originalItem.pinned,
 		},
-	})
+		restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
+		// Editors also see hidden comments in ordinary reads.
+		readDeleted: hasRole(Editor),
+	},
+})
 //#endregion comment

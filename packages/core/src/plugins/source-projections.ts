@@ -18,7 +18,7 @@ import type { RelationMutationDelta } from '../schema/relations/mutation.js'
 import type {
 	SchemaFieldsHKT,
 	SchemaRulesHKT,
-	SchemaShapeMethod,
+	SchemaFeature,
 	SchemaStaticsHKT,
 } from './schema-extensions.js'
 import type { SchemaFactoriesHKT } from './schema-factories.js'
@@ -67,13 +67,13 @@ export interface PluginSourceProjection {
 		Partial<Record<FieldDeclarationContext, object>>
 	>
 	readonly operations?: Readonly<Record<string, PluginOperationDefinition>>
-	/** Rule entries accepted by the final `.with({ ... })` (ADR-0297). */
+	/** Rule entries accepted by the final `.with({ … })` (ADR-0297). */
 	readonly schemaRules?: SchemaRulesHKT
-	/** Callback-free shape methods chained before `.with(...)` (ADR-0297). */
-	readonly shapeMethods?: Readonly<
-		Record<string, SchemaShapeMethod<readonly unknown[], object>>
+	/** Static keys added to `define`, such as `softDelete: true` (ADR-0339). */
+	readonly features?: Readonly<
+		Record<string, SchemaFeature<readonly unknown[], object, string>>
 	>
-	/** Fields added from the called shape methods (ADR-0316). */
+	/** Fields added from the features set in `define` (ADR-0316). */
 	readonly shapeFields?: SchemaFieldsHKT
 	/** Static members added to the configured schema (ADR-0316). */
 	readonly schemaStatics?: SchemaStaticsHKT
@@ -115,7 +115,7 @@ export interface EmptyPluginSourceState {
 	readonly fieldOptions: Readonly<Record<never, never>>
 	readonly operations: Readonly<Record<never, never>>
 	readonly schemaRules: readonly []
-	readonly shapeMethods: Readonly<Record<never, never>>
+	readonly features: Readonly<Record<never, never>>
 	readonly shapeFields: readonly []
 	readonly schemaStatics: readonly []
 	readonly schemaFactories: readonly []
@@ -131,7 +131,7 @@ export interface PluginSourceState {
 	>
 	readonly operations: Readonly<Record<string, PluginOperationDefinition>>
 	readonly schemaRules: readonly SchemaRulesHKT[]
-	readonly shapeMethods: object
+	readonly features: object
 	readonly shapeFields: readonly SchemaFieldsHKT[]
 	readonly schemaStatics: readonly SchemaStaticsHKT[]
 	readonly schemaFactories: readonly SchemaFactoriesHKT[]
@@ -192,7 +192,7 @@ type UnionToIntersection<TValue> = (
 
 type ObjectProjection<
 	TProjection,
-	TKey extends 'fieldBuilders' | 'fieldOptions' | 'operations' | 'shapeMethods',
+	TKey extends 'fieldBuilders' | 'fieldOptions' | 'operations' | 'features',
 > =
 	UnionToIntersection<
 		TProjection extends Readonly<Record<TKey, infer TValue extends object>>
@@ -218,8 +218,8 @@ export type MergePluginSourceState<
 			readonly schemaRules: [RulesProjection<TAdded>] extends [never]
 				? TCurrent['schemaRules']
 				: readonly [...TCurrent['schemaRules'], RulesProjection<TAdded>]
-			readonly shapeMethods: TCurrent['shapeMethods'] &
-				ObjectProjection<TAdded, 'shapeMethods'>
+			readonly features: TCurrent['features'] &
+				ObjectProjection<TAdded, 'features'>
 			readonly shapeFields: AppendSlot<
 				TCurrent['shapeFields'],
 				SlotProjection<TAdded, 'shapeFields'>

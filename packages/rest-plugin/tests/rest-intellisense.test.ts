@@ -75,7 +75,7 @@ void Post`
 					'upsertOne',
 				]),
 			)
-			// `.with({ rest })` shows the documented method (ADR-0324).
+			// The `rest` key of `.with` shows the documented rule (ADR-0324).
 			expect(ts.displayPartsToString(hover?.displayParts)).toBe(
 				'(property) RestMethodRules.count?: boolean',
 			)

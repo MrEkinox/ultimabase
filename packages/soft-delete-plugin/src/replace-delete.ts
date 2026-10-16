@@ -20,7 +20,7 @@ export const restoredValues = (): Readonly<Record<string, unknown>> =>
 
 /**
  * Turns `deleteOne` and `deleteMany` (one delete per target) into soft
- * deletes on the schemas that called `.softDelete()` without `mode: 'command'`.
+ * deletes on the schemas that set `softDelete` without `mode: 'command'`.
  */
 export const createSoftDeletePersistenceRewriter = (
 	schemas: CompiledSchemaRegistry,

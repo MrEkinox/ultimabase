@@ -99,7 +99,7 @@ export const PublicArticle = Application.Schema.define({
     published: f.boolean({ required: true, default: false }),
   }),
 }).with({
-  ${accessRuleExample},
+  ${accessRuleExample.replaceAll('\n', '\n  ')},
 })`
 
 export const accessCapabilities = [

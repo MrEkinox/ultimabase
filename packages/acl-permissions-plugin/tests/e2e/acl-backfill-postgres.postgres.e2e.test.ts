@@ -24,21 +24,20 @@ const ACLApplication = UltimaBase.use(aclPlugin())
 const publicRead = new ACL().grantPublic('read')
 const signedInRead = new ACL().grantAuthenticated('read')
 
-/** Declares one schema without ACL, as the table was before `.acl()`. */
+/** Declares one schema without ACL, as the table was before `acl: true`. */
 const plain = (className: string) =>
 	ACLApplication.Schema.define({
 		className,
 		fields: (field) => ({ title: field.string({ required: true }) }),
 	})
 
-/** Declares the same schema once `.acl()` is added. */
+/** Declares the same schema once `acl: true` is added. */
 const withACL = (className: string, rule: Readonly<{ acl: ACLRule }>) =>
 	ACLApplication.Schema.define({
 		className,
 		fields: (field) => ({ title: field.string({ required: true }) }),
-	})
-		.acl()
-		.with(rule)
+		acl: true,
+	}).with({ acl: rule.acl })
 
 let fixture: PostgresWorkerFixture | undefined
 

@@ -1,5 +1,5 @@
 import { UltimaBase, isAuthenticated } from '@ultimabase/core'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -12,8 +12,8 @@ import {
 // plugin command and permission keys, partial field rules, openings.
 const archivePlugin = definePlugin({
 	name: '@fixture/archive',
-	shape: {
-		archivable: shapeMethod({
+	features: {
+		archivable: feature({
 			commands: {
 				archiveOne: command({ authority: 'request', effect: 'update' }),
 				purgeOne: command({ authority: 'master', effect: 'delete' }),
@@ -111,46 +111,43 @@ test('rules each read operation on its own, members optional', () => {
 	})
 })
 
-test('adds plugin command and permission keys only where the shape method is called', () => {
+test('adds plugin command and permission keys only where the feature is set', () => {
 	App.Schema.define({
 		className: 'RuleFormsArchived',
 		fields: (field) => ({ title: field.string() }),
-	})
-		.archivable()
-		.with({
-			access: {
-				archiveOne: {
-					where: true,
-					item: ({ originalItem }) => originalItem.title !== '',
-				},
-				readArchived: isAuthenticated,
+		archivable: true,
+	}).with({
+		access: {
+			archiveOne: {
+				where: true,
+				item: ({ originalItem }) => originalItem.title !== '',
 			},
-		})
+			readArchived: isAuthenticated,
+		},
+	})
 	App.Schema.define({
 		className: 'RuleFormsArchivedPurge',
 		fields: (field) => ({ title: field.string() }),
+		archivable: true,
+	}).with({
+		// @ts-expect-error -- Master-only commands have no Access rule.
+		access: { purgeOne: true },
 	})
-		.archivable()
-		.with({
-			// @ts-expect-error -- Master-only commands have no Access rule.
-			access: { purgeOne: true },
-		})
 	App.Schema.define({
 		className: 'RuleFormsArchivedPermissionFilter',
 		fields: (field) => ({ title: field.string() }),
+		archivable: true,
+	}).with({
+		access: {
+			// @ts-expect-error -- A permission is granted or not: no filter.
+			readArchived: () => ({ title: 'x' }),
+		},
 	})
-		.archivable()
-		.with({
-			access: {
-				// @ts-expect-error -- A permission is granted or not: no filter.
-				readArchived: () => ({ title: 'x' }),
-			},
-		})
 	const Plain = App.Schema.define({
 		className: 'RuleFormsPlain',
 		fields: (field) => ({ title: field.string() }),
 	}).with({
-		// @ts-expect-error -- Without `.archivable()` there is no `readArchived`.
+		// @ts-expect-error -- Without `archivable` there is no `readArchived`.
 		access: { readArchived: true },
 	})
 	void Plain

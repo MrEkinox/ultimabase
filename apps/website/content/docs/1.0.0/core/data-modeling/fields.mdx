@@ -9,7 +9,7 @@ contentType: concept
 order: 2
 outcome: Choose a field family, look up its builder, and understand which values are stored, accepted as input, or returned as output.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/modeling/README.md
   - examples/modeling/src/catalog.ts
@@ -26,6 +26,7 @@ sources:
   - packages/core/src/schema/fields/builtins/shared-enum.ts
   - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 Fields describe logical application values, not database columns. Choose a
@@ -84,7 +85,7 @@ record. Choose by the value your application uses, not by a database column type
 | `f.enum()`     | Declared string union       | `values` is a string array or a shared enum from `defineEnum`; see [Enums](#enums).                                           |
 | `f.object()`   | Typed nested value          | Declare child `fields`; see [Embedded Objects](./embedded-objects).                                                           |
 | `f.pointer()`  | One target reference        | `target` is required; `onDelete` defaults to `restrict`. See [Relationships](./relationships).                                |
-| `f.relation()` | To-many target membership   | `target` is required; `mappedBy` declares an inverse; `.with({ relations })` scopes it. See [Relationships](./relationships). |
+| `f.relation()` | To-many target membership   | `target` is required; `mappedBy` declares an inverse; `relations` in `.with` scopes it. See [Relationships](./relationships). |
 | `f.virtual()`  | Selected, output-only value | Declare `output`, `select`, and `resolve`; see [Virtual Fields](./virtual-fields).                                            |
 
 `int` and `float` use JavaScript `number`; `bigint` uses native `bigint`, and

@@ -23,14 +23,12 @@ const AppRole = RoleApplication.RoleSchema.define({
   className: 'Role',
   members: () => User,
   fields: (field) => ({ description: field.string() }),
-  /* deletion-hover */deletion: 'fail',
-}).with({ access: { read: true } })
+}).with({ roles: { /* deletion-hover */deletion: 'fail' }, access: { read: true } })
 
 RoleApplication.RoleSchema.define({
   className: 'CompletedRole',
   members: () => User,
-  deletion: '/* deletion-complete */',
-})
+}).with({ roles: { deletion: '/* deletion-complete */' } })
 
 AppRole./* role-hover */role('editor')
 void /* access-hover */hasRole(AppRole.role('editor'))
@@ -108,23 +106,19 @@ describe('RoleSchema IntelliSense', () => {
 		const names = completions?.entries.map(({ name }) => name) ?? []
 
 		expect(names).toEqual(
-			expect.arrayContaining([
-				'className',
-				'deletion',
-				'ensure',
-				'fields',
-				'members',
-				'resolveCurrent',
-			]),
+			expect.arrayContaining(['className', 'fields', 'members']),
 		)
-		// Rules and indexes go in the final `.with(...)` (ADR-0322).
-		expect(names).not.toContain('access')
-		expect(names).not.toContain('indexes')
+		// Rules go in the final `.with(...)` (ADR-0322); role behaviour is
+		// `.with({ roles: … })` and indexes are in define (ADR-0339).
+		for (const rule of ['access', 'deletion', 'ensure', 'resolveCurrent']) {
+			expect(names).not.toContain(rule)
+		}
+		expect(names).toContain('indexes')
 		expect(names).not.toContain('extensions')
 		expect(names).not.toContain('ultimabase.roles.identity')
 	})
 
-	it('documents and completes schema-owned deletion policy options', () => {
+	it('documents and completes the deletion policy of plugins.roles', () => {
 		const completions = service.getCompletionsAtPosition(
 			fixtureFile,
 			markerPosition('/* deletion-complete */'),

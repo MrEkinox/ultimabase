@@ -55,46 +55,45 @@ const MutationPost = RestMutationApplication.Schema.define({
 			validation: z.string().min(2),
 		}),
 	}),
-})
-	.acl()
-	.with({
-		hooks: {
-			beforeOperation: {
-				create: async ({ item }) => {
-					hookTrace.push(`before:create:${item.slug}`)
-					if (item.slug !== 'deadline') return
+	acl: true,
+}).with({
+	hooks: {
+		beforeOperation: {
+			create: async ({ item }) => {
+				hookTrace.push(`before:create:${item.slug}`)
+				if (item.slug !== 'deadline') return
 
-					const signal = getCurrentRequest().signal
-					await new Promise<never>((_resolve, reject) => {
-						const rejectForCancellation = (): void => {
-							const reason: unknown = signal.reason
-							reject(
-								reason instanceof Error
-									? reason
-									: new Error('Mutation deadline reached', { cause: reason }),
-							)
-						}
-						if (signal.aborted) {
-							rejectForCancellation()
-							return
-						}
-						signal.addEventListener('abort', rejectForCancellation, {
-							once: true,
-						})
+				const signal = getCurrentRequest().signal
+				await new Promise<never>((_resolve, reject) => {
+					const rejectForCancellation = (): void => {
+						const reason: unknown = signal.reason
+						reject(
+							reason instanceof Error
+								? reason
+								: new Error('Mutation deadline reached', { cause: reason }),
+						)
+					}
+					if (signal.aborted) {
+						rejectForCancellation()
+						return
+					}
+					signal.addEventListener('abort', rejectForCancellation, {
+						once: true,
 					})
-				},
-				delete: ({ originalItem }) => {
-					hookTrace.push(`before:delete:${originalItem.slug}`)
-				},
-				update: ({ item }) => {
-					hookTrace.push(`before:update:${item.slug}`)
-				},
+				})
+			},
+			delete: ({ originalItem }) => {
+				hookTrace.push(`before:delete:${originalItem.slug}`)
+			},
+			update: ({ item }) => {
+				hookTrace.push(`before:update:${item.slug}`)
 			},
 		},
-		acl: {
-			default: publicAcl,
-		},
-	})
+	},
+	acl: {
+		default: publicAcl,
+	},
+})
 
 const httpApplicationRequirement = requireCapability(
 	httpApplicationCapability,

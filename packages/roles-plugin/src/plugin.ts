@@ -16,11 +16,13 @@ import {
 	optionalCapability,
 	plugin,
 	provideSchemaFactories,
+	provideSchemaRules,
 	withPluginPrivileges,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type PluginInstance,
 	type PluginSchemaFactoriesSource,
+	type PluginSchemaRulesSource,
 	type PluginSchemaStaticsSource,
 } from '@ultimabase/core/plugin'
 import { createPluginEventDispatcher } from '@ultimabase/plugin-kit'
@@ -49,6 +51,11 @@ import {
 	roleSchemaIdentityOption,
 	roleSchemaIdentityOptionName,
 } from './role-schema-identity.js'
+import {
+	roleRulesOption,
+	roleRulesOptionName,
+	type RoleSchemaRules,
+} from './role-rules.js'
 import {
 	assertRoleHierarchyAcyclic,
 	readPersistedRoleId,
@@ -288,6 +295,7 @@ const rolesPluginPermissions = {
 
 type RolesSource =
 	| PluginSchemaFactoriesSource<RoleSchemaFactories>
+	| PluginSchemaRulesSource<RoleSchemaRules>
 	| PluginSchemaStaticsSource<RoleSchemaStaticsSlot>
 
 /** Represents the exact option-light official stored-role provider. */
@@ -323,6 +331,8 @@ const createRolesPlugin = (): RolesPlugin => {
 				contributionId: 'role-schema-identity',
 				schema: {
 					[roleSchemaIdentityOptionName]: roleSchemaIdentityOption,
+					// `.with({ roles: { … } })` (ADR-0339).
+					[roleRulesOptionName]: roleRulesOption,
 				},
 			})
 			return undefined
@@ -366,9 +376,12 @@ const createRolesPlugin = (): RolesPlugin => {
 			application,
 		],
 	})
-	return provideSchemaFactories<RolesPlugin, RolesSource>(instance, {
-		RoleSchema: createRoleSchemaFactory,
-	})
+	return provideSchemaRules<RolesPlugin>(
+		provideSchemaFactories<RolesPlugin, RolesSource>(instance, {
+			RoleSchema: createRoleSchemaFactory,
+		}),
+		['roles'],
+	)
 }
 
 /**

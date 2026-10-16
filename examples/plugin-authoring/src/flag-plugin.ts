@@ -7,20 +7,21 @@ import {
 	contributeDeclarations,
 	defineSchemaOption,
 	plugin,
-	provideSchemaShapeMethods,
+	provideSchemaFeatures,
+	provideSchemaRules,
 	type PluginInstance,
+	type PluginSchemaFeatureSource,
 	type PluginSchemaFieldsSource,
 	type PluginSchemaRulesSource,
-	type PluginSchemaShapeSource,
+	type SchemaFeature,
 	type SchemaFieldsHKT,
 	type SchemaRulesHKT,
-	type SchemaShapeMethod,
 } from '@ultimabase/core/plugin'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 
 const flaggedField = booleanField({ default: false, required: true })
 
-/** Set by `.flaggable()`: selects the schemas that receive `flagged`. */
+/** Set by `flaggable: true`: selects the schemas that receive `flagged`. */
 const flaggableOption = defineSchemaOption({
 	normalize: (value, path): object => {
 		if (typeof value !== 'object' || value === null)
@@ -30,7 +31,7 @@ const flaggableOption = defineSchemaOption({
 	protocolVersion: 1,
 })
 
-/** The `flagReason` entry of `.with({ ... })`. */
+/** The `flagReason` rule of `.with({ … })`. */
 const flagReasonOption = defineSchemaOption({
 	normalize: (value, path) => {
 		if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
@@ -39,22 +40,22 @@ const flagReasonOption = defineSchemaOption({
 	protocolVersion: 1,
 })
 
-type FlagShape = PluginSchemaShapeSource<{
+type FlagFeatures = PluginSchemaFeatureSource<{
 	/** Adds a server-written `flagged` field. */
-	readonly flaggable: SchemaShapeMethod<
+	readonly flaggable: SchemaFeature<
 		readonly [],
 		Readonly<{ flaggable: object }>
 	>
 }>
 
-/** Reads only the called shape methods, never the schema, so it adds no cycle. */
+/** Reads only the features `define` sets, never the schema, so it adds no cycle. */
 interface FlagFields extends SchemaFieldsHKT {
 	readonly fields: 'flaggable' extends keyof this['shape']
 		? Readonly<{ flagged: ForbiddenMutationInputField<typeof flaggedField> }>
 		: unknown
 }
 
-/** Offers `flagReason` once `.flaggable()` is called. */
+/** Offers `flagReason` once `define` sets `flaggable: true`. */
 interface FlagRules extends SchemaRulesHKT {
 	readonly rules: 'flaggable' extends keyof this['shape']
 		? Readonly<{ flagReason?: string }>
@@ -66,7 +67,7 @@ export type FlagPlugin = PluginInstance<{
 	readonly version: '1.0.0'
 	readonly core: '^0.0.0'
 	readonly source:
-		| FlagShape
+		| FlagFeatures
 		| PluginSchemaFieldsSource<FlagFields>
 		| PluginSchemaRulesSource<FlagRules>
 }>
@@ -109,8 +110,12 @@ export const flagPlugin = (): FlagPlugin => {
 			}),
 		],
 	})
-	return provideSchemaShapeMethods<FlagPlugin, FlagShape>(instance, {
-		flaggable: { sets: ['flaggable'], apply: () => ({ flaggable: {} }) },
-	})
+	// The rule names become the keys `.with` accepts, here `flagReason`.
+	return provideSchemaRules<FlagPlugin>(
+		provideSchemaFeatures<FlagPlugin, FlagFeatures>(instance, {
+			flaggable: { sets: ['flaggable'], apply: () => ({ flaggable: {} }) },
+		}),
+		['flagReason'],
+	)
 }
 //#endregion flag-plugin

@@ -12,18 +12,17 @@ import { starterPlugin } from '../src/starter-plugin.ts'
 import { formatWorkflow } from '../src/workflow/operations.ts'
 import { workflowPlugin } from '../src/workflow/plugin.ts'
 
-it('runs the common suite with the schemas a shape method types', async () => {
+it('runs the common suite with the schemas a feature types', async () => {
 	//#region schema-suite
 	const suite = definePluginConformanceSuite({
-		// The subject and the schemas that call its shape method, together.
+		// The subject and the schemas that set its feature, together.
 		createFixture: () => {
 			const subject = archivePlugin()
-			const Post = UltimaBase.use(subject)
-				.Schema.define({
-					className: 'Post',
-					fields: (f) => ({ title: f.string({ required: true }) }),
-				})
-				.archivable()
+			const Post = UltimaBase.use(subject).Schema.define({
+				className: 'Post',
+				fields: (f) => ({ title: f.string({ required: true }) }),
+				archivable: true,
+			})
 			return createPluginConformanceFixture({ subject, schemas: [Post] })
 		},
 		expected: {

@@ -59,9 +59,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
-		}).with({
-			postgres: { table: 'optional_hooks_typescript_posts' },
-		})
+		}).with({ postgres: { table: 'optional_hooks_typescript_posts' } })
 		const ultimabase = new Application({
 			logger: false,
 			schemas: [Post],

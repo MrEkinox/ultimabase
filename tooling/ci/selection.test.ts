@@ -274,9 +274,14 @@ it('selects every repository suite exactly once during full GitHub validation', 
 			)
 				throw new TypeError('Invalid inventory')
 			const file = path.relative(root, entry.file)
-			return ['unit', 'types', 'e2e', 'postgres-e2e', 'performance'].includes(
-				entry.projectName,
-			) && !file.startsWith('tooling/')
+			return [
+				'unit',
+				'types',
+				'e2e',
+				'e2e-isolated',
+				'postgres-e2e',
+				'performance',
+			].includes(entry.projectName) && !file.startsWith('tooling/')
 				? [file]
 				: []
 		})

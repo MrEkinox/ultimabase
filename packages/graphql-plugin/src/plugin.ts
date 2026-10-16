@@ -19,6 +19,7 @@ import {
 	type PluginOperationDefinition,
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import { readDeploymentEnvironment } from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -79,7 +80,7 @@ const optionalFilterOperators = optionalCapability(
 	'^1.0.0',
 )
 
-// The schema option projects nothing: `.with({ graphql })` types it (ADR-0325).
+// The schema option projects nothing: `.with({ graphql: … })` types it (ADR-0325).
 type GraphqlOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-graphql-schema-option'
 	readonly schema: Readonly<{ graphql: typeof graphqlSchemaOption }>
@@ -290,22 +291,26 @@ export const graphqlPlugin = (
 			},
 		}
 	})
-	return plugin({
-		id: '@ultimabase/graphql-plugin',
-		version: '0.0.0',
-		core: '^0.0.0',
-		contributions: [
-			optionalSchemaContributions,
-			optionalFilterOperators,
-			applicationProvider,
-			requestExecutionRequirement,
-			operationPlanningRequirement,
-			graphqlApplicationRequirement,
-			declarations,
-			application,
-		],
-		...(normalized.sdl === undefined
-			? {}
-			: { environment: ['environment:filesystem'] as const }),
-	})
+	// `.with({ graphql: { … } })` (ADR-0339).
+	return provideSchemaRules<GraphqlPlugin>(
+		plugin({
+			id: '@ultimabase/graphql-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [
+				optionalSchemaContributions,
+				optionalFilterOperators,
+				applicationProvider,
+				requestExecutionRequirement,
+				operationPlanningRequirement,
+				graphqlApplicationRequirement,
+				declarations,
+				application,
+			],
+			...(normalized.sdl === undefined
+				? {}
+				: { environment: ['environment:filesystem'] as const }),
+		}),
+		['graphql'],
+	)
 }

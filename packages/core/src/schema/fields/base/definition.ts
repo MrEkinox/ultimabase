@@ -225,7 +225,7 @@ export const getDeclaredFieldOptionsContract = (
 ): BuiltInFieldOptionsContract | undefined =>
 	fieldCapabilities.get(field)?.optionsContract
 
-/** @internal Returns the filter declared in `.with({ relations })` for one relation field. */
+/** @internal Returns the filter declared in `.with({ relations: … })` for one relation field. */
 export const getRelationWhereDeclaration = (
 	field: GenericField,
 ): RelationWhereDeclaration | undefined =>
@@ -262,7 +262,7 @@ const extendFieldCapabilities = (
 export const forbidFieldMutationInput = (field: GenericField): GenericField =>
 	extendFieldCapabilities(field, { mutationInputForbidden: true })
 
-/** @internal Attaches the filter of `.with({ relations })` to its relation (ADR-0328). */
+/** @internal Attaches the filter of `.with({ relations: … })` to its relation (ADR-0328). */
 export const attachRelationWhereDeclaration = (
 	field: GenericField,
 	relationWhere: RelationWhereDeclaration,

@@ -28,6 +28,7 @@ import {
 	requireField,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
+import { defineWithRawRules } from '../schema/schema/raw-schema-rules.test-support.js'
 
 describe('plugin schema declaration registry', () => {
 	it('lets one plugin claim an exact application-registered schema', async () => {
@@ -231,12 +232,15 @@ describe('plugin schema declaration registry', () => {
 			})
 		const owner = plugin('fixture.stable-option-owner')
 		// This fixture resolves the plugin-owned option only during application compilation.
-		const Shared = UltimaBase.Schema.define({
-			className: 'StableReusePost',
-			fields: (field: FieldBuilder) => ({ title: field.string() }),
-		}).with({
-			stable: { enabled: true },
-		} as never)
+		const Shared = defineWithRawRules(
+			{
+				className: 'StableReusePost',
+				fields: (field: FieldBuilder) => ({ title: field.string() }),
+			},
+			{
+				stable: { enabled: true },
+			},
+		)
 		const first = applicationFixture(
 			new FrameworkApplication({
 				logger: false,

@@ -60,11 +60,9 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 						decimalLabel: { format: 'accounting' },
 					}),
 				}),
+				decimalLedger: { defaultScale: 2 },
 			})
-			.decimalLedger({ defaultScale: 2 })
-			.with({
-				postgres: { table: 'open_kernel_ledger_entries' },
-			})
+			.with({ postgres: { table: 'open_kernel_ledger_entries' } })
 		const SoftPost = PostgresHookApplication.Schema.define({
 			className: 'OpenKernelSoftPost',
 			fields: (field) => ({

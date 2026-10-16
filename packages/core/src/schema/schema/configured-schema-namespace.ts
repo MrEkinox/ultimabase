@@ -10,13 +10,23 @@ import type {
 import type { BaseSchemaTypeInfo } from '../type-info.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import type { DeclaredSchema } from './schema-declaration-chain.js'
+import type { UniqueIndexFields } from './source-unique-targets.js'
 import type {
-	DeclaredUniqueIndexFields,
-	UniqueIndexFields,
-} from './source-unique-targets.js'
+	CompleteDefineFields,
+	DefineFeatureCheck,
+	DefineFeatureOptions,
+	DefineFeatures,
+	DefineFeaturesNotInferred,
+	DefineUniqueIndexFields,
+} from './define-features.js'
 import type { ConfiguredFieldBuilder } from './field-builder-contract.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
-import type { SchemaFieldName, SchemaIndexOptions } from './indexes.js'
+import type {
+	SchemaFieldName,
+	SchemaIndexOptions,
+	SchemaRuleIndexOptions,
+} from './indexes.js'
+import type { SchemaIndexWhere } from './index-predicates.js'
 import type {
 	Schema,
 	SchemaClass,
@@ -34,34 +44,7 @@ export type ConfiguredFieldDeclaration<
 	field: ConfiguredFieldBuilder<TSource, BaseSchemaTypeInfo<TClassName>>,
 ) => TFields
 
-declare const unknownIndexOption: unique symbol
-
-/** Refuses the capture of an index entry naming an unknown option. */
-interface KnownIndexOptionsOnly {
-	readonly [unknownIndexOption]: true
-}
-
-type DeclaredSchemaIndex<TFields extends SchemaFields> = SchemaIndexOptions<
-	SchemaFieldName<NoInfer<TFields>>
->
-
-/**
- * The `indexes` of `define`, captured exactly since its unique indexes are
- * unique targets (ADR-0332). An entry naming an unknown option fails the
- * capture, so it is still reported as an unknown property.
- */
-export type DeclaredSchemaIndexes<
-	TFields extends SchemaFields,
-	TIndexes,
-> = readonly unknown[] & {
-	readonly [TIndex in keyof TIndexes]: [
-		Exclude<keyof TIndexes[TIndex], keyof SchemaIndexOptions>,
-	] extends [never]
-		? DeclaredSchemaIndex<TFields>
-		: DeclaredSchemaIndex<TFields> & KnownIndexOptionsOnly
-}
-
-/** The developer and plugin shape fields of one configured schema. */
+/** The developer fields and the feature fields of one configured schema. */
 export type CompleteConfiguredFields<
 	TSource extends PluginSourceState,
 	TFields extends SchemaDeclaredFields,
@@ -108,23 +91,34 @@ export type ConfiguredSchemaResult<
 		>
 	>
 
-/** The options of `App.Schema.define(...)`: data only, rules go to `.with` (ADR-0297). */
+/**
+ * One index of `define`, typed against the complete fields, those of the
+ * features set beside it included (`isDeleted`).
+ */
+export type ConfiguredSchemaIndex<TFields extends object> =
+	SchemaRuleIndexOptions<SchemaFieldName<TFields>, SchemaIndexWhere<TFields>>
+
+/**
+ * The options of `App.Schema.define(...)`: what the schema is, with static
+ * values only (ADR-0339). Rules go to the final `.with`.
+ */
 export type ConfiguredSchemaDeclarationOptions<
 	TSource extends PluginSourceState,
 	TClassName extends string,
 	TFields extends SchemaFields,
-	TIndexes extends DeclaredSchemaIndexes<TFields, TIndexes> =
-		readonly SchemaIndexOptions<SchemaFieldName<TFields>>[],
+	TIndexes = readonly SchemaIndexOptions<SchemaFieldName<TFields>>[],
+	TFeatures = unknown,
 > = Omit<SchemaOptions<TClassName, TFields>, 'fields' | 'indexes'> &
 	Readonly<{
 		/**
-		 * Declares adapter-neutral schema-level indexes. Plain single-field indexes
-		 * belong on the field through `indexed`; partial indexes, whose `where`
-		 * sees every field, are declared in the final `.with` (ADR-0303). A unique
-		 * index is a unique target of `updateOne`, `deleteOne` and `upsertOne`
-		 * (ADR-0332).
+		 * Declares adapter-neutral schema-level indexes over the complete
+		 * fields, those of the features set in `define` included. Plain
+		 * single-field indexes belong on the field through `indexed`. A unique
+		 * index without `where` is a unique target of `updateOne`, `deleteOne`
+		 * and `upsertOne` (ADR-0332); a partial one only enforces uniqueness
+		 * among the rows its `where` matches.
 		 *
-		 * @example `indexes: [{ fields: ["authorId", "createdAt"] }]`
+		 * @example `indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }]`
 		 */
 		readonly indexes?: TIndexes
 	}> &
@@ -137,7 +131,10 @@ export type ConfiguredSchemaDeclarationOptions<
 		 */
 		fields: ConfiguredFieldDeclaration<TSource, TClassName, TFields>
 	}> &
-	ReservedSchemaFieldCollision<NoInfer<TFields>>
+	DefineFeatures<TSource> &
+	ReservedSchemaFieldCollision<NoInfer<TFields>> &
+	// The whole options object `define` captures (ADR-0339).
+	TFeatures
 
 /** Exposes exact source inference through the one configured application namespace. */
 export type ConfiguredSchemaNamespace<
@@ -146,8 +143,10 @@ export type ConfiguredSchemaNamespace<
 	Readonly<{
 		/**
 		 * Defines one final schema with typed static commands and QueryBuilder access.
-		 * Chain the shape methods of the installed plugins, then end with
-		 * `.with({ ...rules })` (ADR-0297).
+		 * `define` describes what the schema is (`className`, `fields`,
+		 * `indexes` and the feature keys of the installed plugins, such as
+		 * `softDelete: true`); end with `.with({ … })` to configure
+		 * how each plugin treats it (ADR-0339).
 		 *
 		 * @example
 		 * ```ts
@@ -160,21 +159,25 @@ export type ConfiguredSchemaNamespace<
 		define: <
 			const TClassName extends string,
 			const TFields extends SchemaFields,
-			const TIndexes extends DeclaredSchemaIndexes<TFields, TIndexes> =
-				readonly [],
+			// The whole options object, captured once: its feature keys and
+			// indexes are checked against it (ADR-0339).
+			const TFeatures extends DefineFeatureCheck<TSource, TFields, TFeatures> =
+				DefineFeaturesNotInferred,
 		>(
 			options: ConfiguredSchemaDeclarationOptions<
 				TSource,
 				TClassName,
 				TFields,
-				TIndexes
+				readonly ConfiguredSchemaIndex<
+					CompleteDefineFields<TSource, TFields, TFeatures>
+				>[],
+				TFeatures
 			>,
 		) => DeclaredSchema<
 			TSource,
 			TClassName,
 			TFields,
-			Readonly<Record<never, never>>,
-			never,
-			DeclaredUniqueIndexFields<TIndexes>
+			DefineFeatureOptions<TSource, TFeatures>,
+			DefineUniqueIndexFields<TFeatures>
 		>
 	}>

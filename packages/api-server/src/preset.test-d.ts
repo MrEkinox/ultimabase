@@ -42,10 +42,7 @@ test('keeps every plugin projection on the configured factory', () => {
 	App.Schema.define({
 		className: 'PresetTask',
 		fields: (field) => ({ title: field.string() }),
-	}).with({
-		graphql: { count: true, typeName: 'Task' },
-		rest: { count: true },
-	})
+	}).with({ graphql: { count: true, typeName: 'Task' }, rest: { count: true } })
 	App.Schema.define({
 		className: 'PresetInvalid',
 		fields: () => ({}),

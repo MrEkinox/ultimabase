@@ -26,7 +26,7 @@ import {
 	command,
 	defineOperation,
 	definePlugin,
-	shapeMethod,
+	feature,
 } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { validationPlugin } from '@ultimabase/validation-plugin'
@@ -81,8 +81,8 @@ const databasePlugin = plugin({
 const archivePlugin = () =>
 	definePlugin({
 		name: '@fixture/rest-archive',
-		shape: {
-			archivable: shapeMethod({
+		features: {
+			archivable: feature({
 				fields: { archivedAt: dateTimeField() },
 				commands: {
 					archiveOne: command({
@@ -174,15 +174,13 @@ export const Note = ExposureApplication.Schema.define({
 		}),
 		views: field.int(),
 	}),
-})
-	.archivable()
-	.with({ rest: { archiveOne: true, count: true, deleteOne: false } })
+	archivable: true,
+}).with({ rest: { archiveOne: true, count: true, deleteOne: false } })
 export const Draft = ExposureApplication.Schema.define({
 	className: 'RestExposureDraft',
 	fields: (field) => ({ title: field.string() }),
-})
-	.archivable()
-	.with({ rest: { findMany: true } })
+	archivable: true,
+}).with({ rest: { findMany: true } })
 // Relationship fields, to compare the OpenAPI inputs with the REST decoder.
 export const Shelf = ExposureApplication.Schema.define({
 	className: 'RestExposureShelf',

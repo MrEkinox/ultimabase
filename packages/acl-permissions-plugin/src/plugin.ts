@@ -26,13 +26,14 @@ import {
 	type AddSchemaFieldOperation,
 	type PluginDeclarationContribution,
 	type PluginInstance,
+	type PluginSchemaFeatureSource,
 	type PluginSchemaFieldsSource,
 	type PluginSchemaRulesSource,
-	type PluginSchemaShapeSource,
+	type SchemaFeature,
 	type SchemaFieldsHKT,
 	type SchemaRulesHKT,
-	type SchemaShapeMethod,
-	provideSchemaShapeMethods,
+	provideSchemaFeatures,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import {
 	createPluginEventDispatcher,
@@ -69,7 +70,7 @@ import {
 	aclFieldName,
 	aclPluginId,
 	aclSchemaOption,
-	aclShapeDeclared,
+	aclFeatureDeclared,
 	readProtectedSchemaOptions,
 	type ACLField,
 	type ACLRule,
@@ -117,18 +118,18 @@ type ACLRuleData<TSchema> = TSchema extends SchemaDefinition
 		>
 	: Readonly<Record<string, unknown>>
 
-/** Entry of `.with({ ... })` owned by ACL once `.acl()` is called. */
+/** Rule of `.with({ … })` owned by ACL, required once `acl: true`. */
 export interface ACLRules<TSchema> {
 	/**
-	 * Configures the `acl` field `.acl()` added; `default` is required.
-	 * @example `acl: { default: ({ principal }) => new ACL(principal) }`
+	 * Configures the `acl` field that `acl: true` adds; `default` is required.
+	 * @example `.with({ acl: { default: ({ principal }) => new ACL(principal) } })`
 	 */
 	readonly acl: ACLRule<ACLRuleData<TSchema>>
 }
 
 /**
- * Contributes `acl` to `.with({ ... })` through Core's rules slot, required
- * once `.acl()` is called (ADR-0321).
+ * Contributes `acl` to `.with({ … })` through Core's rules slot,
+ * required once `define` sets `acl: true` (ADR-0321, ADR-0339).
  */
 export interface ACLSchemaRules extends SchemaRulesHKT {
 	readonly rules: 'acl' extends keyof this['shape']
@@ -136,27 +137,27 @@ export interface ACLSchemaRules extends SchemaRulesHKT {
 		: Readonly<Record<never, never>>
 }
 
-/** Adds the `acl` field through Core's fields slot once `.acl()` is called. */
-export interface ACLShapeFields extends SchemaFieldsHKT {
+/** Adds the `acl` field through Core's fields slot once `define` sets `acl: true`. */
+export interface ACLFeatureFields extends SchemaFieldsHKT {
 	readonly fields: 'acl' extends keyof this['shape']
 		? Readonly<{ acl: ACLField }>
 		: unknown
 }
 
-/** Shape method chained before `.with(...)`: `.acl()` adds the `acl` field. */
-export type ACLShapeSource = PluginSchemaShapeSource<{
+/** The `acl` feature, a key of `define`: `acl: true` adds the `acl` field (ADR-0339). */
+export type ACLFeatureSource = PluginSchemaFeatureSource<{
 	/**
 	 * Adds the ACL field: per-row rights stored with each row (ADR-0321).
-	 * Configure it in `.with({ acl: { default } })`.
-	 * @example `App.Schema.define({ className: 'Todo', fields }).acl().with({ acl: { default: ({ principal }) => new ACL(principal) } })`
+	 * Requires `.with({ acl: { default } })`.
+	 * @example `App.Schema.define({ className: 'Todo', fields, acl: true }).with({ acl: { default: ({ principal }) => new ACL(principal) } })`
 	 */
-	readonly acl: SchemaShapeMethod<readonly [], Readonly<{ acl: object }>>
+	readonly acl: SchemaFeature<readonly [], Readonly<{ acl: object }>, 'acl'>
 }>
 
 type ACLSource =
-	| PluginSchemaFieldsSource<ACLShapeFields>
+	| PluginSchemaFieldsSource<ACLFeatureFields>
 	| PluginSchemaRulesSource<ACLSchemaRules>
-	| ACLShapeSource
+	| ACLFeatureSource
 
 const aclDeclarations: PluginDeclarationContribution<readonly [], never> =
 	contributeDeclarations({
@@ -522,7 +523,15 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			aclDeclarations,
 		],
 	})
-	return provideSchemaShapeMethods<ACLPlugin, ACLShapeSource>(instance, {
-		acl: { sets: ['acl'], apply: () => ({ acl: aclShapeDeclared }) },
-	})
+	// `acl: true` in define requires `.with({ acl: { default } })` (ADR-0339).
+	return provideSchemaRules<ACLPlugin>(
+		provideSchemaFeatures<ACLPlugin, ACLFeatureSource>(instance, {
+			acl: {
+				sets: ['acl'],
+				apply: () => ({ acl: aclFeatureDeclared }),
+				requires: ['acl'],
+			},
+		}),
+		['acl'],
+	)
 }

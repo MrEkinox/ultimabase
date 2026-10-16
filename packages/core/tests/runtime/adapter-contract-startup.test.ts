@@ -46,7 +46,6 @@ const partialIndexSchema = UltimaBase.Schema.define({
 		slug: field.string(),
 		archived: field.boolean(),
 	}),
-}).with({
 	indexes: [{ fields: ['slug'], unique: true, where: { archived: false } }],
 })
 

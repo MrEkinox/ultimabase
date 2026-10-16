@@ -73,11 +73,11 @@ export const ExampleUser = MinimalSchemaApplication.UserSchema.define({
 export const ExampleRole = MinimalSchemaApplication.RoleSchema.define({
 	className: 'ExampleRole',
 	members: () => ExampleUser,
-	deletion: 'fail',
 	fields: (field) => ({
 		description: field.string(),
 	}),
 }).with({
+	roles: { deletion: 'fail' },
 	access: {
 		create: false,
 		delete: false,
@@ -154,55 +154,54 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 		name: field.string({ required: true, validation: z.string().min(1) }),
 		readable: field.boolean({ default: true }),
 	}),
-})
 	// `deleteOne` hides the author instead of deleting the row.
-	.softDelete()
-	.acl()
-	.with({
-		access: {
-			read: ({ where }) => where.eq('readable', true),
-			// Restoring stays server-side: Master bypasses Access.
-			restoreOne: false,
-			restoreMany: false,
-		},
-		acl: { default: publicArticleACL },
-		graphql: true,
-		hooks: {
-			afterOperation: {
-				delete: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'delete',
-						'update',
-						'ExampleAuthor',
-						originalItem.id,
-					)
-				},
-				purgeOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'purgeOne',
-						'delete',
-						'ExampleAuthor',
-						originalItem.id,
-					)
-				},
-				restoreOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'restoreOne',
-						'update',
-						'ExampleAuthor',
-						originalItem.id,
-					)
-				},
+	softDelete: true,
+	acl: true,
+}).with({
+	access: {
+		read: ({ where }) => where.eq('readable', true),
+		// Restoring stays server-side: Master bypasses Access.
+		restoreOne: false,
+		restoreMany: false,
+	},
+	acl: { default: publicArticleACL },
+	graphql: true,
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+			purgeOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purgeOne',
+					'delete',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+			restoreOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restoreOne',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
 			},
 		},
-		// Relation filters are typed against the complete target, so both
-		// schemas filter each other's relations (ADR-0328).
-		relations: {
-			articles: { where: { published: { eq: true } } },
-			contributions: { where: ({ where }) => where.eq('published', true) },
-		},
-		rest: true,
-	})
+	},
+	// Relation filters are typed against the complete target, so both
+	// schemas filter each other's relations (ADR-0328).
+	relations: {
+		articles: { where: { published: { eq: true } } },
+		contributions: { where: ({ where }) => where.eq('published', true) },
+	},
+	rest: true,
+})
 
 /** Articles demonstrate policy, lifecycle, validation, and relationships. */
 export const ExampleArticle = MinimalSchemaApplication.Schema.define({
@@ -290,75 +289,75 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 			resolve: ({ item }) => readText(item.title),
 		}),
 	}),
-})
 	// `deleteOne` stays physical; `softDeleteOne` hides the article.
-	.softDelete({ mode: 'command' })
-	.acl()
-	.with({
-		access: {
-			create: true,
-			delete: true,
-			read: ({ where }) => where.eq('published', true),
-			update: true,
-			upsert: true,
-			softDeleteOne: isAuthenticated,
-			// Restoring stays server-side: Master bypasses Access.
-			restoreOne: false,
-			restoreMany: false,
-			softDeleteMany: false,
+	softDelete: { mode: 'command' },
+	acl: true,
+}).with({
+	//#region relation-views
+	// Narrows every read through these relation fields (ADR-0328).
+	relations: {
+		contributors: { where: { listed: { eq: true } } },
+		// Anonymous requests see only public reviewers.
+		reviewers: {
+			where: ({ context, where }) =>
+				context.getValue(authPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
 		},
-		acl: { default: publicArticleACL },
-		graphql: true,
-		hooks: {
-			afterOperation: {
-				delete: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'delete',
-						'delete',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
-				purgeOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'purgeOne',
-						'delete',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
-				restoreOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'restoreOne',
-						'update',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
-				softDeleteOne: async ({ originalItem }) => {
-					await recordSoftDeleteEvent(
-						'softDeleteOne',
-						'update',
-						'ExampleArticle',
-						originalItem.id,
-					)
-				},
+	},
+	//#endregion relation-views
+	access: {
+		create: true,
+		delete: true,
+		read: ({ where }) => where.eq('published', true),
+		update: true,
+		upsert: true,
+		softDeleteOne: isAuthenticated,
+		// Restoring stays server-side: Master bypasses Access.
+		restoreOne: false,
+		restoreMany: false,
+		softDeleteMany: false,
+	},
+	acl: { default: publicArticleACL },
+	graphql: true,
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			purgeOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purgeOne',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			restoreOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restoreOne',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			softDeleteOne: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'softDeleteOne',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
 			},
 		},
-		//#region relation-views
-		relations: {
-			contributors: { where: { listed: { eq: true } } },
-			// Anonymous requests see only public reviewers.
-			reviewers: {
-				where: ({ context, where }) =>
-					context.getValue(authPrincipal) === undefined
-						? where.eq('audience', 'public')
-						: where,
-			},
-		},
-		//#endregion relation-views
-		rest: true,
-	})
+	},
+	rest: true,
+})
 
 /** Notes prove authenticated role-based Access and ACL through public CRUD. */
 export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
@@ -366,19 +365,18 @@ export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
 	fields: (field) => ({
 		body: field.string({ required: true }),
 	}),
+	acl: true,
+}).with({
+	access: {
+		create: editorAccess,
+		delete: editorAccess,
+		read: editorAccess,
+		update: editorAccess,
+	},
+	acl: { default: editorACL },
+	graphql: true,
+	rest: true,
 })
-	.acl()
-	.with({
-		access: {
-			create: editorAccess,
-			delete: editorAccess,
-			read: editorAccess,
-			update: editorAccess,
-		},
-		acl: { default: editorACL },
-		graphql: true,
-		rest: true,
-	})
 
 export const minimalSchemas = [
 	ExampleUser,

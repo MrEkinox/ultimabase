@@ -5,33 +5,34 @@ import type {
 import type {
 	PluginInstance,
 	PluginSchemaFieldsSource,
+	PluginSchemaFeatureSource,
 	PluginSchemaRulesSource,
-	PluginSchemaShapeSource,
 	PluginSchemaStaticsSource,
 	SchemaCommands,
 	SchemaFieldsHKT,
 	SchemaPermissions,
+	SchemaFeature,
 	SchemaRulesHKT,
-	SchemaShapeMethod,
 	SchemaStaticsHKT,
 } from '@ultimabase/core/plugin'
 
 import type { CommandMutation } from './commands.js'
 import type {
-	ShapeMethodDefinition,
-	ShapeMethodMember,
-	ShapeMethodOptionsOf,
-	ShapeMethodPermissionNames,
+	FeatureDefinition,
+	FeatureMember,
+	FeatureOptionsOf,
+	FeaturePermissionNames,
+	FeatureRequiredRuleNames,
 	Validator,
-} from './shape.js'
+} from './feature.js'
 
-/** Shape methods of one plugin, keyed by method name. */
-export type ShapeMethods = Readonly<Record<string, ShapeMethodDefinition>>
+/** Features of one plugin, keyed by `define` key. */
+export type FeatureDefinitions = Readonly<Record<string, FeatureDefinition>>
 
-/** Rule values of one plugin, keyed by `.with({ ... })` entry. */
+/** Rule values of one plugin, keyed by `.with({ … })` entry. */
 export type RuleValues = Readonly<Record<string, unknown>>
 
-/** Validators of one plugin's `.with({ ... })` entries, keyed by entry. */
+/** Validators of one plugin's `.with({ … })` entries, keyed by entry. */
 export type RuleValidators = Readonly<Record<string, Validator<unknown>>>
 
 /**
@@ -53,18 +54,18 @@ type UnionToIntersection<TValue> = (
 	? TIntersection
 	: never
 
-// The fields or commands of the shape methods a declaration called; methods
-// not called contribute nothing.
-type CalledShapeMember<
-	TShape extends ShapeMethods,
-	TCalled,
+// The fields or commands of the features a declaration set; features not
+// set contribute nothing.
+type SetFeatureMember<
+	TFeatures extends FeatureDefinitions,
+	TSet,
 	TKey extends 'commands' | 'fields',
 > = UnionToIntersection<
 	{
-		[TName in keyof TShape]: TName extends TCalled
-			? ShapeMethodMember<TShape[TName], TKey>
+		[TName in keyof TFeatures]: TName extends TSet
+			? FeatureMember<TFeatures[TName], TKey>
 			: unknown
-	}[keyof TShape]
+	}[keyof TFeatures]
 >
 
 type ServerWrittenFields<TFields> = {
@@ -74,75 +75,79 @@ type ServerWrittenFields<TFields> = {
 }
 
 /** Fields slot of a plugin made by `definePlugin`. */
-export interface DefinedShapeFields<
-	TShape extends ShapeMethods,
+export interface DefinedFeatureFields<
+	TFeatures extends FeatureDefinitions,
 > extends SchemaFieldsHKT {
 	readonly fields: ServerWrittenFields<
-		CalledShapeMember<TShape, keyof this['shape'], 'fields'>
+		SetFeatureMember<TFeatures, keyof this['shape'], 'fields'>
 	>
 }
 
-type CalledCommands<TShape extends ShapeMethods, TCalled> = CalledShapeMember<
-	TShape,
-	TCalled,
+type SetCommands<TFeatures extends FeatureDefinitions, TSet> = SetFeatureMember<
+	TFeatures,
+	TSet,
 	'commands'
 >
 
-// Permission names of the shape methods a declaration called.
-type CalledPermissions<TShape extends ShapeMethods, TCalled> = {
-	[TName in keyof TShape]: TName extends TCalled
-		? ShapeMethodPermissionNames<TShape[TName]>
+// Permission names of the features a declaration set.
+type SetPermissions<TFeatures extends FeatureDefinitions, TSet> = {
+	[TName in keyof TFeatures]: TName extends TSet
+		? FeaturePermissionNames<TFeatures[TName]>
 		: never
-}[keyof TShape]
+}[keyof TFeatures]
 
 /** Statics slot of a plugin made by `definePlugin`: its commands and permissions. */
-export interface DefinedShapeCommands<
-	TShape extends ShapeMethods,
+export interface DefinedFeatureCommands<
+	TFeatures extends FeatureDefinitions,
 > extends SchemaStaticsHKT {
 	readonly statics: SchemaCommands<
 		this['schema'],
 		{
 			readonly [
-				TName in keyof CalledCommands<TShape, keyof this['shape']>
-			]: CommandMutation<CalledCommands<TShape, keyof this['shape']>[TName]>
+				TName in keyof SetCommands<TFeatures, keyof this['shape']>
+			]: CommandMutation<SetCommands<TFeatures, keyof this['shape']>[TName]>
 		}
 	> &
-		SchemaPermissions<CalledPermissions<TShape, keyof this['shape']>>
+		SchemaPermissions<SetPermissions<TFeatures, keyof this['shape']>>
 }
 
-/** Rules slot of a plugin made by `definePlugin`: its `.with({ ... })` entries. */
+/** Rules slot of a plugin made by `definePlugin`: its `.with({ … })` entries. */
 export interface DefinedRules<
 	TRules extends RuleValues,
 > extends SchemaRulesHKT {
 	readonly rules: { readonly [TKey in keyof TRules]?: TRules[TKey] }
 }
 
-/** Arguments of one shape method: none, or one optional options object. */
-export type ShapeMethodArguments<TMethod> = [
-	ShapeMethodOptionsOf<TMethod>,
-] extends [never]
-	? readonly []
-	: readonly [options?: ShapeMethodOptionsOf<TMethod>]
-
-type DefinedShapeSource<TShape extends ShapeMethods> = [keyof TShape] extends [
+/**
+ * Arguments of one feature: none for a feature set with `true` only, or one
+ * optional options object.
+ */
+export type FeatureArguments<TFeature> = [FeatureOptionsOf<TFeature>] extends [
 	never,
 ]
+	? readonly []
+	: readonly [options?: FeatureOptionsOf<TFeature>]
+
+type DefinedFeatureSource<TFeatures extends FeatureDefinitions> = [
+	keyof TFeatures,
+] extends [never]
 	? never
-	: | PluginSchemaShapeSource<{
-				readonly [TName in keyof TShape]: SchemaShapeMethod<
-					ShapeMethodArguments<TShape[TName]>,
-					Readonly<Record<TName, object>>
+	: | PluginSchemaFeatureSource<{
+				readonly [TName in keyof TFeatures]: SchemaFeature<
+					FeatureArguments<TFeatures[TName]>,
+					Readonly<Record<TName, object>>,
+					FeatureRequiredRuleNames<TFeatures[TName]>
 				>
 		  }>
-		| PluginSchemaFieldsSource<DefinedShapeFields<TShape>>
-		| PluginSchemaStaticsSource<DefinedShapeCommands<TShape>>
+		| PluginSchemaFieldsSource<DefinedFeatureFields<TFeatures>>
+		| PluginSchemaStaticsSource<DefinedFeatureCommands<TFeatures>>
 
 /** Static source of a plugin made by `definePlugin`. */
 export type DefinedPluginSource<
-	TShape extends ShapeMethods,
+	TFeatures extends FeatureDefinitions,
 	TRules extends RuleValues,
 > =
-	| DefinedShapeSource<TShape>
+	| DefinedFeatureSource<TFeatures>
 	| ([keyof TRules] extends [never]
 			? never
 			: PluginSchemaRulesSource<DefinedRules<TRules>>)
@@ -150,7 +155,7 @@ export type DefinedPluginSource<
 /** A plugin made by `definePlugin`. */
 export type DefinedPlugin<
 	TName extends string,
-	TShape extends ShapeMethods,
+	TFeatures extends FeatureDefinitions,
 	TRules extends RuleValues,
 > = PluginInstance<{
 	readonly id: TName
@@ -164,5 +169,5 @@ export type DefinedPlugin<
 	readonly conflicts: undefined
 	readonly environment: undefined
 	readonly capabilities: readonly []
-	readonly source: DefinedPluginSource<TShape, TRules>
+	readonly source: DefinedPluginSource<TFeatures, TRules>
 }>

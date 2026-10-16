@@ -44,34 +44,33 @@ const Post = App.Schema.define({
 		owner: field.string({ required: true }),
 		title: field.string({ required: true }),
 	}),
+	archivable: true,
+}).with({
+	access: {
+		read: true,
+		create: true,
+		delete: true,
+		archiveOne: true,
+		unarchiveOne: true,
+		// Many-row commands keep the one-row rules: a filter narrows the
+		// targeted rows, an item rule refuses one row and rolls all back.
+		archiveMany: {
+			where: () => ({ owner: { eq: 'ada' } }),
+			item: ({ originalItem }) => originalItem.title !== 'locked',
+		},
+	},
+	audit: true,
+	hooks: {
+		beforeOperation: {
+			archiveMany: ({ originalItem }) => {
+				hookTrace.push(`archiveMany:${originalItem.title}`)
+				if (originalItem.title === refusedTitle) {
+					throw new TypeError('archive refused by hook')
+				}
+			},
+		},
+	},
 })
-	.archivable()
-	.with({
-		access: {
-			read: true,
-			create: true,
-			delete: true,
-			archiveOne: true,
-			unarchiveOne: true,
-			// Many-row commands keep the one-row rules: a filter narrows the
-			// targeted rows, an item rule refuses one row and rolls all back.
-			archiveMany: {
-				where: () => ({ owner: { eq: 'ada' } }),
-				item: ({ originalItem }) => originalItem.title !== 'locked',
-			},
-		},
-		audit: true,
-		hooks: {
-			beforeOperation: {
-				archiveMany: ({ originalItem }) => {
-					hookTrace.push(`archiveMany:${originalItem.title}`)
-					if (originalItem.title === refusedTitle) {
-						throw new TypeError('archive refused by hook')
-					}
-				},
-			},
-		},
-	})
 
 const Note = App.Schema.define({
 	className: 'FacadeNote',
@@ -82,7 +81,7 @@ const Note = App.Schema.define({
 export const typeProofs = (): void => {
 	expectTypeOf(Post.archiveOne).parameter(0).toHaveProperty('id')
 	expectTypeOf(Post.archiveMany).parameter(0).toHaveProperty('where')
-	// @ts-expect-error -- A schema without `.archivable()` has no archive command.
+	// @ts-expect-error -- A schema without `archivable` has no archive command.
 	void Note.archiveOne
 	App.Schema.define({
 		className: 'FacadeBadRule',

@@ -36,9 +36,10 @@ export type SchemaFieldName<TFields extends object> =
 	IndexableDeclaredFieldName<TFields> | ReservedSystemFieldName
 
 /**
- * Declares one schema-level index of `define`. Its `where` sees only the
- * framework-owned system fields; partial indexes over the complete shape are
- * declared in the final `.with` (ADR-0303).
+ * Declares one schema-level index in its untyped form, such as a plugin
+ * schema patch. Its `where` sees only the framework-owned system fields; the
+ * indexes of `App.Schema.define` see the complete fields instead
+ * ({@link SchemaRuleIndexOptions}, ADR-0339).
  */
 export interface SchemaIndexOptions<TFieldName extends string = string> {
 	/**
@@ -66,8 +67,9 @@ export interface SchemaIndexOptions<TFieldName extends string = string> {
 }
 
 /**
- * Declares one index in the final `.with`, optionally partial: its `where`
- * sees the complete schema shape, plugin shape fields included (ADR-0303).
+ * Declares one index of `define`, optionally partial: its fields and `where`
+ * see the complete fields, those of the features set in `define` included
+ * (ADR-0303, ADR-0339).
  */
 export interface SchemaRuleIndexOptions<
 	TFieldName extends string,
@@ -281,17 +283,19 @@ const isSameIndex = (
 
 /**
  * Collects field-level indexes first, then schema-level declarations in
- * configuration order. Indexes declared in the final `.with` (`ruleIndexes`)
- * may name fields that installed plugins add later; the compiled application
- * checks them with `assertCompiledSchemaIndexes`.
+ * configuration order. The indexes of a `define` that sets feature keys
+ * (`featureIndexes`) may name fields that installed plugins add later; the
+ * compiled application checks them with `assertCompiledSchemaIndexes`. A
+ * complete unique index of `define` is a unique target even when it names
+ * feature fields; a partial one only enforces uniqueness (ADR-0332
+ * amendment, ADR-0339).
  */
 export const normalizeSchemaIndexes = (
 	fields: SchemaFields,
 	indexes: readonly SchemaIndexInput[] | undefined,
-	ruleIndexes: readonly SchemaIndexInput[] = [],
+	featureIndexes = false,
 ): readonly SchemaIndexDefinition[] => {
 	assertSchemaIndexes(indexes)
-	assertSchemaIndexes(ruleIndexes)
 
 	const definitions: SchemaIndexDefinition[] = []
 	const knownFields = readIndexableFields(fields)
@@ -305,16 +309,12 @@ export const normalizeSchemaIndexes = (
 	}
 	const fieldLevel = definitions.length
 
-	const declared = [
-		...(indexes ?? []).map((index) => ({ index, pending: false })),
-		...ruleIndexes.map((index) => ({ index, pending: true })),
-	]
-	for (const [position, { index, pending }] of declared.entries()) {
+	for (const [position, index] of (indexes ?? []).entries()) {
 		const definition = normalizeCompositeIndex(
 			index,
 			knownFields,
 			`indexes[${String(position)}]`,
-			pending,
+			featureIndexes,
 		)
 		if (
 			definitions
@@ -325,7 +325,7 @@ export const normalizeSchemaIndexes = (
 				`Index duplicates the field-level index of ${definition.fields[0]}`,
 			)
 		}
-		if (!pending && definition.unique && definition.where === undefined) {
+		if (definition.unique && definition.where === undefined) {
 			uniqueTargetIndexes.add(definition)
 		}
 		definitions.push(definition)

@@ -16,11 +16,13 @@ const Application = UltimaBase.use(
 const Command = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteCommand',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).softDelete({ mode: 'command' })
+	softDelete: { mode: 'command' },
+})
 const Logical = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteLogical',
 	fields: (field) => ({ title: field.string({ required: true }) }),
-}).softDelete()
+	softDelete: true,
+})
 const Plain = Application.Schema.define({
 	className: 'JavaScriptSoftDeletePlain',
 	fields: (field) => ({ title: field.string({ required: true }) }),

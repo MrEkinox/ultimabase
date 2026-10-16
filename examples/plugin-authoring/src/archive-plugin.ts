@@ -1,13 +1,13 @@
 //#region archive-plugin
 import { dateTimeField } from '@ultimabase/core'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 
-/** `.archivable()` adds a server-written `archivedAt` and two commands. */
+/** `archivable: true` adds a server-written `archivedAt` and two commands. */
 export const archivePlugin = () =>
 	definePlugin({
 		name: '@example/archive-plugin',
-		shape: {
-			archivable: shapeMethod({
+		features: {
+			archivable: feature({
 				fields: { archivedAt: dateTimeField() },
 				commands: {
 					archiveOne: command({

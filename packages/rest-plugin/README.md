@@ -62,8 +62,8 @@ export const Post = App.Schema.define({
 		// A moderation note no client may read, filter, sort or write.
 		reviewNote: field.string({ access: { read: false, write: false } }),
 	}),
-}).with({
 	indexes: [{ fields: ['slug'], unique: true }],
+}).with({
 	access: { read: true, create: true, update: true, delete: true },
 	// The built-in routes, plus count and the atomic bulk create.
 	rest: { count: true, createMany: true },
@@ -72,7 +72,7 @@ export const Post = App.Schema.define({
 
 <!-- endregion -->
 
-`.with({ rest })` is typed only because this factory installed `restPlugin()`.
+`rest` in `.with` is typed only because this factory installed `restPlugin()`.
 Its keys are the schema method names (ADR-0324):
 `findMany`, `findOne`, `count`, `exists`, `createOne`, `updateOne`,
 `deleteOne`, `upsertOne`, `createMany`, `updateMany`, `deleteMany`,
@@ -81,8 +81,9 @@ Its keys are the schema method names (ADR-0324):
 registers it. An omitted method inherits the plugin `default`, then the
 built-in default: `findMany`, `findOne`, `exists`, `createOne`, `updateOne`
 and `deleteOne` are on; `count`, `upsertOne`, the `…Many` methods and every
-plugin command are off. `rest: true` exposes every method and command,
-`rest: false` none. `define` rejects a `rest` option (ADR-0297).
+plugin command are off. `.with({ rest: true })` exposes every method and
+command, `.with({ rest: false })` none. `define` rejects a `rest` key (ADR-0297,
+ADR-0339).
 
 | Method key   | Route below the base path                               |
 | ------------ | ------------------------------------------------------- |

@@ -192,7 +192,7 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		).toStrictEqual(['cascade', 'restrict', 'setNull'])
 	})
 
-	it('offers relation filters in .with({ relations }), not in relation options', () => {
+	it('offers relation filters in plugins.relations, not in relation options', () => {
 		const relationOptions = languageFixture
 			.readMemberCompletions('relation-options')
 			.map(({ name }) => name)

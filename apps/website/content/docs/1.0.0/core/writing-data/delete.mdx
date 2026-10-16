@@ -7,7 +7,7 @@ contentType: guide
 order: 3
 outcome: Delete one record by ID and handle its pre-delete result or an absent target.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/queries/src/schema.ts
   - examples/queries/src/writes.ts
@@ -24,6 +24,7 @@ sources:
   - docs/adr/0182-singular-id-target-aliases.md
   - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
+  - docs/adr/0339-define-describes-with-configures.md
 ---
 
 Use `Post.deleteOne()` to delete one visible record. It returns an immutable
@@ -103,9 +104,9 @@ general option to skip installed Hooks. See [Relationships](/docs/1.0.0/core/dat
 before deleting records that other schemas reference.
 
 With no delete-rewriting plugin, native delete physically removes the row. On
-a schema declared with `.softDelete()`, the optional Soft Delete plugin instead
-stores a tombstone while preserving the same logical delete result;
-`.softDelete({ mode: 'command' })` leaves native delete physical and adds
+a schema that sets `softDelete: true` in `define`, the optional Soft Delete
+plugin instead stores a tombstone while preserving the same logical delete
+result; `softDelete: { mode: 'command' }` leaves native delete physical and adds
 separate `softDeleteOne` and `softDeleteMany` commands. Its own page covers
 configuration, restore, purge, and tombstone visibility.
 

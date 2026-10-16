@@ -65,6 +65,6 @@ test('types the PostgreSQL table rule and field option exactly', () => {
 		fields: () => ({}),
 	}).with({
 		// @ts-expect-error -- The rule exists only with postgresPlugin().
-		postgres: { table: 'posts' },
+		postgres: { table: 'x' },
 	})
 })

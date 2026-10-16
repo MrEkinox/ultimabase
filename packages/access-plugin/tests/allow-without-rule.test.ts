@@ -5,7 +5,7 @@ import {
 	type PolicyPredicate,
 } from '@ultimabase/core'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 import { createCapturingLogger } from '@ultimabase/testing/plugins'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,8 +15,8 @@ import { accessPlugin, type AllowWithoutRule } from '../src/index.js'
 // ADR-0317, decision 2: openings for operations that have no schema rule.
 const archivePlugin = definePlugin({
 	name: '@fixture/openings-archive',
-	shape: {
-		archivable: shapeMethod({
+	features: {
+		archivable: feature({
 			commands: {
 				archiveOne: command({ authority: 'request', effect: 'update' }),
 			},
@@ -48,7 +48,8 @@ const Member = App.Schema.define({
 const Document = App.Schema.define({
 	className: 'OpeningDocument',
 	fields: (field) => ({ title: field.string() }),
-}).archivable()
+	archivable: true,
+})
 const Ruled = App.Schema.define({
 	className: 'OpeningRuled',
 	fields: (field) => ({ title: field.string() }),

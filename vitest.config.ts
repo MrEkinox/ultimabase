@@ -7,6 +7,7 @@ import {
 	type ViteUserConfig,
 } from 'vitest/config'
 
+import { isolatedE2eSuites } from './tooling/vitest/isolated-e2e.js'
 import { graphqlRuntimeDependencies } from './tooling/vitest/runtime.js'
 
 const workspaceRoot = path.dirname(fileURLToPath(import.meta.url))
@@ -159,13 +160,25 @@ const testProjects: TestProjectConfiguration[] = [
 	{
 		extends: true,
 		test: {
-			exclude: ['**/*.postgres.e2e.test.ts'],
+			exclude: ['**/*.postgres.e2e.test.ts', ...isolatedE2eSuites],
 			include: [
 				'tests/e2e/**/*.e2e.test.ts',
 				'packages/*/tests/e2e/**/*.e2e.test.ts',
 			],
 			name: 'e2e',
 			// Packed language-service checks compete for CPU during the full E2E run.
+			testTimeout: 20_000,
+		},
+	},
+	{
+		extends: true,
+		test: {
+			fileParallelism: false,
+			include: [...isolatedE2eSuites],
+			name: 'e2e-isolated',
+			// Runs after the parallel E2E projects (group 0): these suites keep
+			// their wall-clock budgets only on an otherwise idle CPU.
+			sequence: { groupOrder: 1 },
 			testTimeout: 20_000,
 		},
 	},

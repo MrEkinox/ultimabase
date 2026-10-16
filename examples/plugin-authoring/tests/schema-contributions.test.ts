@@ -8,7 +8,7 @@ afterEach(() => {
 	vi.restoreAllMocks()
 })
 
-it('adds a server-written field and its commands with .archivable()', async () => {
+it('adds a server-written field and its commands with archivable: true', async () => {
 	await using t = await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Draft' } })
 	expect(post.archivedAt).toBeNull()
@@ -55,7 +55,7 @@ it('runs afterCommit with the schema rules after each committed write', async ()
 	await Post.createOne({ data: { title: 'Audited' } })
 	await Comment.createOne({ data: { body: 'Not audited' } })
 	await t.afterCommit()
-	// Post has `.with({ audit: true })`; Comment has no `audit` rule.
+	// Post calls `.with({ audit: true })`; Comment has no `audit` rule.
 	expect(info.mock.calls).toStrictEqual([['[audit] Post create-one']])
 })
 
@@ -69,12 +69,12 @@ it('gives flaggable schemas a readable, server-written flagged field', async () 
 			data: { body: 'Forged', flagged: true },
 		}),
 	).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-	// A schema without `.flaggable()` gains neither the field nor the rule.
+	// A schema without `flaggable: true` gains neither the field nor the rule.
 	expect(Object.keys((await Post.findOne({})) ?? {})).not.toContain('flagged')
 	await t.afterCommit()
 })
 
-it('adds the commands only to the schemas that call the shape method', () => {
+it('adds the commands only to the schemas that set the feature', () => {
 	const surfaces = ultimabase.compile().schemaSurfaces
 	expect(
 		surfaces.map(({ schema, schemaMutations }) => [

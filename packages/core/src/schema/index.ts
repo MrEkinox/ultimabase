@@ -328,8 +328,11 @@ export { isConfiguredSchemaNamespace } from './schema/schema-declaration-chain.j
 export type {
 	DeclaredSchema,
 	SchemaRulesMethod,
-	SchemaShapeMethods,
 } from './schema/schema-declaration-chain.js'
+export type {
+	NoSchemaRules,
+	SchemaRulesObject,
+} from './schema/schema-rules-object.js'
 export type {
 	CreateInput,
 	IsRegisteredSchema,

@@ -36,18 +36,17 @@ export const TypoRules = App.Schema.define({
 export const TypoHook = App.Schema.define({
 	className: 'TypoHook',
 	fields: (field) => ({ title: field.string() }),
-})
-	.softDelete()
-	.with({
-		hooks: {
-			beforeOperation: {
-				update: ({ item }) => {
-					// @ts-expect-error -- `isDeletd` is not a field (soft delete adds `isDeleted`).
-					void item.isDeletd
-				},
+	softDelete: true,
+}).with({
+	hooks: {
+		beforeOperation: {
+			update: ({ item }) => {
+				// @ts-expect-error -- `isDeletd` is not a field (soft delete adds `isDeleted`).
+				void item.isDeletd
 			},
 		},
-	})
+	},
+})
 
 /** 5. `mappedBy` typo, reported where the schema is registered. */
 export const TypoMappedBy = App.Schema.define({

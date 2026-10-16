@@ -18,7 +18,7 @@ import { ensureRoles } from './role-ensure.js'
 import { createRoleQueries, type RolesPluginExports } from './role-queries.js'
 import { registerRoleSchemas } from './role-resolution.js'
 import {
-	getRoleSchemaDeclaration,
+	readRoleSchemaDeclaration,
 	type RoleSchemaDeclaration,
 } from './role-schema.js'
 
@@ -33,7 +33,7 @@ export const readRoleDomains = (
 	schemas: CompiledSchemaRegistry,
 ): readonly RoleDomain[] =>
 	schemas.values().flatMap((schema) => {
-		const declaration = getRoleSchemaDeclaration(schema)
+		const declaration = readRoleSchemaDeclaration(schema)
 
 		return declaration === undefined ? [] : [{ declaration, schema }]
 	})

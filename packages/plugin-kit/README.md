@@ -14,26 +14,27 @@ public entries, and `@ultimabase/core/plugin` for the authoring contracts.
 ## Define a plugin from one object
 
 `definePlugin` (ADR-0316) builds the `plugin()` call of the common cases from a
-declarative object: shape methods with their fields and commands, `.with({ ... })`
-rules, a post-commit callback, and raw contributions. It writes the option
+declarative object: features (keys of `define`) with their fields and
+commands, rules (keys of `.with({ ... })`), a post-commit callback,
+and raw contributions. It writes the option
 definitions, schema selectors, patches with server-written fields, schema
 mutations, model extensions, Runtime behavior and static source types; Core
 still derives the privileges. The
 [plugin authoring example](../../examples/plugin-authoring/README.md) declares
-a shape method in one plugin and a rule in another:
+a feature in one plugin and a rule in another:
 
 <!-- region ../../examples/plugin-authoring/src/archive-plugin.ts#archive-plugin -->
 
 ```ts
 import { dateTimeField } from '@ultimabase/core'
-import { command, definePlugin, shapeMethod } from '@ultimabase/plugin-kit'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 
-/** `.archivable()` adds a server-written `archivedAt` and two commands. */
+/** `archivable: true` adds a server-written `archivedAt` and two commands. */
 export const archivePlugin = () =>
 	definePlugin({
 		name: '@example/archive-plugin',
-		shape: {
-			archivable: shapeMethod({
+		features: {
+			archivable: feature({
 				fields: { archivedAt: dateTimeField() },
 				commands: {
 					archiveOne: command({
@@ -80,8 +81,9 @@ export const auditPlugin = () =>
 
 <!-- endregion -->
 
-A schema of an application that installs both calls the method and sets the
-rule, and may expose a one-row command over REST and GraphQL:
+A schema of an application that installs both sets the feature in `define`
+and calls the rule in `.with`, and may expose a one-row command over REST and
+GraphQL:
 
 <!-- region ../../examples/plugin-authoring/src/schema.ts#post -->
 
@@ -89,13 +91,12 @@ rule, and may expose a one-row command over REST and GraphQL:
 export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
+	archivable: true,
+}).with({
+	audit: true,
+	rest: { archiveOne: true },
+	graphql: { archiveOne: true },
 })
-	.archivable()
-	.with({
-		audit: true,
-		rest: { archiveOne: true },
-		graphql: { archiveOne: true },
-	})
 ```
 
 <!-- endregion -->
@@ -112,12 +113,11 @@ const archivedPosts = await Post.archiveMany({
 
 <!-- endregion -->
 
-- `shapeMethod({ options?, fields?, commands?, permissions? })` declares one
-  method chained before `.with(...)`. The method takes one optional options
-  object, validated by `options` when the application compiles (an omitted
-  object is validated as `{}`); without `options` it takes no argument.
-  `fields` are added to the schemas that call the method and rejected in
-  create and update input. `permissions` (`['readArchived']`) declares named
+- `feature({ options?, fields?, commands?, permissions?, requires? })`
+  declares one key of `define`. The key takes `true` or, when the feature has
+  an `options` validator, a static options object, validated when the
+  application compiles (`true` is validated as `{}`). `fields` are added to
+  the schemas that set the key and rejected in create and update input. `permissions` (`['readArchived']`) declares named
   schema permissions on those schemas (ADR-0317): rule plugins such as Access
   grant them by a rule of the same name, and the plugin asks for one with
   `holdsSchemaPermission` from `@ultimabase/core/plugin`.
@@ -132,12 +132,11 @@ const archivedPosts = await Post.archiveMany({
   without any binding (ADR-0324): `POST /api/classes/Post/{id}/archive-one`
   and the `archiveOnePost(input: { id })` mutation. Many-row commands stay
   off both transports.
-- `rules` validate the entries of `.with({ ... })`; `afterCommit` receives them,
-  as `readSchemaRules` from `@ultimabase/core/plugin` returns them to raw
-  plugins.
+- `rules` validate the values given to `.with`, one key per rule; `afterCommit` receives them, as `readSchemaRules` from
+  `@ultimabase/core/plugin` returns them to raw plugins.
 - `contributions` take raw Core contributions or a transport helper such as
   `httpRoutes` from `@ultimabase/http-plugin`.
-- Mutation names are derived from the package name, the method and the command
+- Mutation names are derived from the package name, the feature and the command
   (`example.archive-plugin.archivable.archive-one` for `@example/archive-plugin`).
 - The plugin declares the Core range of the installed Plugin Kit (`^0.0.0` for
   the pre-release packages), which moves with Core at every release. Core
@@ -148,8 +147,96 @@ const archivedPosts = await Post.archiveMany({
 Keep raw `plugin()` when rules or commands depend on the schema they apply to
 (Access, Hooks, ACL) or when a command takes input. With
 `isolatedDeclarations`, annotate the factory result with
-`DefinedPlugin<Name, Shape, Rules>` and the shape with
-`ShapeMethodDefinition<Options, Fields, Commands>`, as Soft Delete does.
+`DefinedPlugin<Name, Features, Rules>` and each feature with
+`FeatureDefinition<Options, Fields, Commands>`, as Soft Delete does.
+
+### Features and rules
+
+ADR-0339 splits what a plugin contributes to a schema in two. `define`
+describes the data model: the fields, their constraints and indexes, which
+Core owns, plus the features that add something to the schema (fields,
+commands). `.with({ … })` describes how each plugin treats that schema; a
+storage setting of one plugin, such as a table name, is a rule because it
+changes nothing application code can write. The
+[Features and Rules](../../apps/website/content/docs/1.0.0/plugins/build-a-plugin/features-and-rules.mdx)
+guide explains how to choose:
+
+- **Features** add something to the data model. They are keys of `define`,
+  with static values only (`true` or an options object), and may add fields,
+  commands and permissions. Declare them with `features` and `feature(...)`.
+  A feature may list the rules of the same plugin it requires
+  (`requires: ['review']`): TypeScript reports a declaration that sets the
+  feature without them, and Core rejects it when `.with` runs or the
+  application compiles.
+- **Rules** describe how the plugin treats a schema. Each is one key of
+  `.with`, such as `.with({ review: 'editors' })`. `definePlugin` declares
+  their names when the plugin is created and types each key from its
+  validator; a raw `plugin()` declares them with
+  `provideSchemaRules(instance, names)` from `@ultimabase/core/plugin` and
+  may type them against the completed schema through a rules slot, so they
+  may hold callbacks.
+- `className`, `fields`, `indexes`, `relations` and `with` are reserved by
+  Core: a feature or rule with one of these names is rejected.
+
+The example's review plugin declares a feature that requires its rule:
+
+<!-- region ../../examples/plugin-authoring/src/review-plugin.ts#review-plugin -->
+
+```ts
+import { dateTimeField } from '@ultimabase/core'
+import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
+
+/**
+ * `reviewable: true` in `define` adds `reviewedAt` and `approveOne`; it
+ * requires `review: 'editors'` in `.with`, which names the reviewers.
+ */
+export const reviewPlugin = () =>
+	definePlugin({
+		name: '@example/review-plugin',
+		// Features: what a schema is. Static values, keys of `define`.
+		features: {
+			reviewable: feature({
+				fields: { reviewedAt: dateTimeField() },
+				commands: {
+					approveOne: command({
+						authority: 'request',
+						effect: 'update',
+						data: () => ({ reviewedAt: new Date().toISOString() }),
+					}),
+				},
+				requires: ['review'],
+			}),
+		},
+		// Rules: how the plugin treats a schema. Keys of `.with`.
+		rules: {
+			review: (value, path) => {
+				if (typeof value !== 'string' || value === '')
+					throw new TypeError(`${path} must name the reviewers`)
+				return value
+			},
+		},
+		afterCommit: ({ className, operation, rules }) => {
+			if (operation === 'create-one' && typeof rules.review === 'string')
+				console.info(`[review] ${className} waits for ${rules.review}`)
+		},
+	})
+```
+
+<!-- endregion -->
+
+<!-- region ../../examples/plugin-authoring/tests/features-and-rules.test.ts#reviewed-story -->
+
+```ts
+const Story = App.Schema.define({
+	className: 'Story',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+	reviewable: true,
+	// `indexes` may name a field the feature adds.
+	indexes: [{ fields: ['reviewedAt', 'title'] }],
+}).with({ review: 'editors' })
+```
+
+<!-- endregion -->
 
 ## Declare application operations
 
@@ -340,7 +427,7 @@ plugin logger (ADR-0313), never an option value or secret.
 
 `SchemaPatchBuilder` is immutable. Each call delegates to Core's nominal patch
 factory and returns a new builder. The example's flag plugin adds a field and
-an index to the schemas that call `.flaggable()`, inside its `schema`
+an index to the schemas that set `flaggable: true`, inside its `schema`
 declaration callback:
 
 <!-- region ../../examples/plugin-authoring/src/flag-plugin.ts#flag-patch -->

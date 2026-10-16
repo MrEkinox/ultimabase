@@ -20,6 +20,7 @@ import {
 	type PluginSchemaRulesSource,
 	type SchemaRulesHKT,
 	type SchemaRulesSource,
+	provideSchemaRules,
 } from '@ultimabase/core/plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
@@ -98,12 +99,12 @@ const accessDeclarations: PluginDeclarationContribution<
 		}),
 })
 
-/** Entry of `.with({ ... })` owned by Access, for one schema. */
+/** Entry of `.with({ … })` owned by Access, for one schema. */
 export interface AccessRules<TSchema> {
 	/**
 	 * Declares schema rules; an operation without a rule is denied unless
 	 * `allowWithoutRule` opens it.
-	 * @example `access: { read: ({ where }) => where.eq('archived', false) }`
+	 * @example `.with({ access: { read: ({ where }) => where.eq('archived', false) } })`
 	 */
 	readonly access?: SchemaAccess<
 		Extract<TSchema, SchemaDefinition>,
@@ -111,7 +112,7 @@ export interface AccessRules<TSchema> {
 	>
 }
 
-/** Contributes `access` to `.with({ ... })` through Core's rules slot (ADR-0297). */
+/** Contributes `access` to `.with({ … })` through Core's rules slot (ADR-0297). */
 export interface AccessSchemaRules extends SchemaRulesHKT {
 	readonly rules: AccessRules<this['schema']>
 }
@@ -245,5 +246,6 @@ export const accessPlugin = (
 			contributeAccessStartup(allowWithoutRule),
 		],
 	})
-	return instance
+	// `.with({ access: { … } })` (ADR-0339).
+	return provideSchemaRules<AccessPlugin>(instance, ['access'])
 }

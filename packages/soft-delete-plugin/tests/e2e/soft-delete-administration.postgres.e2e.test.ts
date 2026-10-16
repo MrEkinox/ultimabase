@@ -35,49 +35,48 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 		slug: field.string(),
 		title: field.string({ required: true }),
 	}),
-})
-	.softDelete({ mode: 'command' })
-	.with({
-		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
-		hooks: {
-			afterOperation: {
-				purgeOne: ({ item, originalItem }) => {
-					administrationTrace.push(
-						`after:purgeOne:${originalItem.title}:${String(item)}`,
-					)
-				},
-				restoreOne: ({ item, originalItem }) => {
-					administrationTrace.push(
-						`after:restoreOne:${originalItem.title}:${String(item.isDeleted)}`,
-					)
-				},
+	indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	softDelete: { mode: 'command' },
+}).with({
+	hooks: {
+		afterOperation: {
+			purgeOne: ({ item, originalItem }) => {
+				administrationTrace.push(
+					`after:purgeOne:${originalItem.title}:${String(item)}`,
+				)
 			},
-			beforeOperation: {
-				purgeOne: async ({ context, item, mutation, originalItem }) => {
-					administrationTrace.push(
-						`before:purgeOne:${mutation.name}:${context.access.mode}:${String(item)}`,
-					)
-					await AdministrationLog.createOne({
-						data: { message: `purge:${originalItem.title}` },
-					})
-					if (rejectedAdministration === 'purge') {
-						throw new Error('administrative purge rejected')
-					}
-				},
-				restoreOne: async ({ context, item, mutation, originalItem }) => {
-					administrationTrace.push(
-						`before:restoreOne:${mutation.name}:${context.access.mode}:${String(item.isDeleted)}`,
-					)
-					await AdministrationLog.createOne({
-						data: { message: `restore:${originalItem.title}` },
-					})
-					if (rejectedAdministration === 'restore') {
-						throw new Error('administrative restore rejected')
-					}
-				},
+			restoreOne: ({ item, originalItem }) => {
+				administrationTrace.push(
+					`after:restoreOne:${originalItem.title}:${String(item.isDeleted)}`,
+				)
 			},
 		},
-	})
+		beforeOperation: {
+			purgeOne: async ({ context, item, mutation, originalItem }) => {
+				administrationTrace.push(
+					`before:purgeOne:${mutation.name}:${context.access.mode}:${String(item)}`,
+				)
+				await AdministrationLog.createOne({
+					data: { message: `purge:${originalItem.title}` },
+				})
+				if (rejectedAdministration === 'purge') {
+					throw new Error('administrative purge rejected')
+				}
+			},
+			restoreOne: async ({ context, item, mutation, originalItem }) => {
+				administrationTrace.push(
+					`before:restoreOne:${mutation.name}:${context.access.mode}:${String(item.isDeleted)}`,
+				)
+				await AdministrationLog.createOne({
+					data: { message: `restore:${originalItem.title}` },
+				})
+				if (rejectedAdministration === 'restore') {
+					throw new Error('administrative restore rejected')
+				}
+			},
+		},
+	},
+})
 
 const Author = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationAuthor',
@@ -96,7 +95,8 @@ const Article = SoftDeleteAdministrationApplication.Schema.define({
 		tags: field.relation({ target: () => Tag }),
 		title: field.string({ required: true }),
 	}),
-}).softDelete()
+	softDelete: true,
+})
 
 const Plain = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationPlain',

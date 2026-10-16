@@ -17,15 +17,15 @@ physical column; columns are `snake_case` by default.
 
 ## Soft-delete storage changes
 
-Calling `.softDelete()` on a schema adds the plugin-owned, required boolean
+Setting `softDelete` in a schema's `define` adds the plugin-owned, required boolean
 `is_deleted` column (field `isDeleted`) with a default of `false` and the
 optional `deleted_at` date-time column (field `deletedAt`). Development
 applications using PostgreSQL `override` synchronization receive that column
 automatically. A production application should generate, review, and apply the
 equivalent migration before starting with `fail` drift policy.
 
-Adding `.softDelete()` to an existing schema requires that same additive
-migration. Changing between the default mode and `{ mode: 'command' }` changes
+Adding `softDelete` to an existing schema requires that same additive
+migration. Changing between `softDelete: true` and `softDelete: { mode: 'command' }` changes
 behavior but not storage. Disabling or removing the plugin does not implicitly
 drop historical tombstones or decide how to recover them; plan that data
 transition explicitly before removing the column. V1 does not generate partial
