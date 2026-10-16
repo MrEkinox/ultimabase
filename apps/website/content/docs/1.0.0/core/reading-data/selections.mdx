@@ -84,10 +84,9 @@ const card = await readPostCard('POST_ID')
 //    ^?
 ```
 
-At runtime,
-direct properties, `get(field)`, enumeration, inspection, and `toJSON()` expose
-the same selected snapshot. An omitted field cannot be recovered from that
-model; run another read if it is needed.
+At runtime, the result is a plain frozen object: its properties, enumeration,
+inspection, and `toJSON(result)` expose the same selected snapshot. An omitted
+field cannot be recovered from that result; run another read if it is needed.
 
 Prefer inclusion for a public response with a fixed contract. Exclusion may
 expose a field added to the schema later. Use an authorization policy, not a
@@ -99,7 +98,7 @@ account for that restriction.
 
 <Cards>
 	<Card title="Ordering and Pagination" href="./ordering-and-pagination">
-		Add explicit ordering, limit, and offset to page through results.
+		Add explicit ordering, `take`, and an `after` position to page through results.
 	</Card>
 	<Card title="Related Data" href="./related-data">
 		Include related models while keeping their visible fields explicit.
