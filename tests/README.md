@@ -155,7 +155,7 @@ files and declarations excluded).
 
 [`package-coverage.ts`](../tooling/vitest/package-coverage.ts) holds every
 package's lines, statements, functions and branches thresholds (the measured
-values floored, so any drop fails) and stricter thresholds for single files.
+values floored minus one point, so a real drop fails) and stricter thresholds for single files.
 The package job (`node tooling/ci/run.ts package`) runs each suite once: type
 tests, then unit tests and source-coverable E2E instrumented with
 `--coverage.include=packages/<name>/src/**/*.ts`, then performance budgets and

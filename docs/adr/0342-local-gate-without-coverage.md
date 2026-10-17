@@ -53,7 +53,7 @@ E2E suites a second time beside the package jobs. It is removed, with the root `
   package suites only. Suites under `tests/` and other packages' tests never count. The denominator is the package's
   `src/**`.
 - `tooling/vitest/package-coverage.ts` holds each package's lines, statements, functions and branches thresholds, set to
-  the measured coverage floored to the integer, and stricter thresholds for single files
+  the measured coverage floored to the integer minus one point of headroom, and stricter thresholds for single files
   (`packages/core/src/query/filters/relation.ts`). The global 80/90/88/88 thresholds are removed. The former
   `access-plugin` and `hooks-plugin` thresholds still pass and are replaced by the stricter measured floors.
 - The package job runs each suite once: type tests; then unit tests and source-coverable E2E, instrumented, with

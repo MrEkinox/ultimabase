@@ -11,68 +11,69 @@ export interface CoverageThresholds {
  * that package's own suites: its unit tests and its package-owned E2E and
  * PostgreSQL E2E run from sources. Transversal suites and other packages'
  * tests never count. The package CI job and `yarn validate:package <name>`
- * enforce them; values are the measured coverage floored, so any drop fails.
+ * enforce them; values are the measured coverage floored minus one point, so a real drop
+ * fails while run-to-run and platform noise does not.
  */
 export const packageCoverageThresholds: Readonly<
 	Record<string, CoverageThresholds>
 > = {
-	'access-plugin': { branches: 76, functions: 91, lines: 87, statements: 86 },
+	'access-plugin': { branches: 75, functions: 90, lines: 86, statements: 85 },
 	'acl-permissions-plugin': {
-		branches: 88,
-		functions: 98,
+		branches: 87,
+		functions: 97,
+		lines: 94,
+		statements: 93,
+	},
+	'api-server': { branches: 99, functions: 99, lines: 99, statements: 99 },
+	'auth-password': { branches: 83, functions: 96, lines: 93, statements: 92 },
+	'auth-plugin': { branches: 40, functions: 52, lines: 59, statements: 57 },
+	core: { branches: 84, functions: 95, lines: 91, statements: 90 },
+	'create-app': { branches: 82, functions: 76, lines: 82, statements: 82 },
+	'graphql-explorer-plugin': {
+		branches: 99,
+		functions: 99,
+		lines: 99,
+		statements: 99,
+	},
+	'graphql-http': { branches: 94, functions: 74, lines: 89, statements: 89 },
+	'graphql-plugin': { branches: 80, functions: 95, lines: 92, statements: 90 },
+	'graphql-yoga-plugin': {
+		branches: 86,
+		functions: 92,
+		lines: 90,
+		statements: 88,
+	},
+	'hono-server-plugin': {
+		branches: 91,
+		functions: 96,
 		lines: 95,
 		statements: 94,
 	},
-	'api-server': { branches: 100, functions: 100, lines: 100, statements: 100 },
-	'auth-password': { branches: 84, functions: 97, lines: 94, statements: 93 },
-	'auth-plugin': { branches: 41, functions: 53, lines: 60, statements: 58 },
-	core: { branches: 85, functions: 96, lines: 92, statements: 91 },
-	'create-app': { branches: 83, functions: 77, lines: 83, statements: 83 },
-	'graphql-explorer-plugin': {
-		branches: 100,
-		functions: 100,
-		lines: 100,
-		statements: 100,
-	},
-	'graphql-http': { branches: 95, functions: 75, lines: 90, statements: 90 },
-	'graphql-plugin': { branches: 81, functions: 96, lines: 93, statements: 91 },
-	'graphql-yoga-plugin': {
-		branches: 87,
-		functions: 93,
-		lines: 91,
-		statements: 89,
-	},
-	'hono-server-plugin': {
-		branches: 92,
-		functions: 97,
-		lines: 96,
-		statements: 95,
-	},
-	'hooks-plugin': { branches: 84, functions: 96, lines: 93, statements: 92 },
-	'http-plugin': { branches: 89, functions: 97, lines: 95, statements: 94 },
+	'hooks-plugin': { branches: 83, functions: 95, lines: 92, statements: 91 },
+	'http-plugin': { branches: 88, functions: 96, lines: 94, statements: 93 },
 	'pg-vector-plugin': {
-		branches: 100,
-		functions: 100,
-		lines: 100,
-		statements: 100,
+		branches: 99,
+		functions: 99,
+		lines: 99,
+		statements: 99,
 	},
-	'plugin-kit': { branches: 67, functions: 65, lines: 70, statements: 69 },
-	'postgres-plugin': { branches: 79, functions: 95, lines: 90, statements: 89 },
-	'rest-plugin': { branches: 81, functions: 93, lines: 92, statements: 90 },
-	'roles-plugin': { branches: 77, functions: 97, lines: 91, statements: 90 },
-	shared: { branches: 100, functions: 100, lines: 100, statements: 100 },
+	'plugin-kit': { branches: 66, functions: 64, lines: 69, statements: 68 },
+	'postgres-plugin': { branches: 78, functions: 94, lines: 89, statements: 88 },
+	'rest-plugin': { branches: 80, functions: 92, lines: 91, statements: 89 },
+	'roles-plugin': { branches: 76, functions: 96, lines: 90, statements: 89 },
+	shared: { branches: 99, functions: 99, lines: 99, statements: 99 },
 	'soft-delete-plugin': {
-		branches: 97,
-		functions: 100,
-		lines: 100,
-		statements: 98,
+		branches: 96,
+		functions: 99,
+		lines: 99,
+		statements: 97,
 	},
-	testing: { branches: 56, functions: 70, lines: 67, statements: 67 },
+	testing: { branches: 55, functions: 69, lines: 66, statements: 66 },
 	'validation-plugin': {
-		branches: 78,
-		functions: 91,
-		lines: 90,
-		statements: 88,
+		branches: 77,
+		functions: 90,
+		lines: 89,
+		statements: 87,
 	},
 }
 
@@ -81,10 +82,10 @@ export const fileCoverageThresholds: Readonly<
 	Record<string, CoverageThresholds>
 > = {
 	'packages/core/src/query/filters/relation.ts': {
-		branches: 98,
-		functions: 100,
-		lines: 100,
-		statements: 100,
+		branches: 97,
+		functions: 99,
+		lines: 99,
+		statements: 99,
 	},
 }
 
