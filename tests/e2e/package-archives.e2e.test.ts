@@ -126,13 +126,16 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 			await packAsList(directory, { packageManager: 'yarn' })
 		).sort()
 		const requiredFiles = ['README.md', 'dist/LICENSE', 'package.json']
+		// The initializer also publishes the files it copies into new projects.
+		const directories =
+			name === '@ultimabase/create-app' ? ['dist/', 'template/'] : ['dist/']
 		// CHANGELOG.md becomes present after the package receives its first version.
 		const unexpectedFiles = files.filter(
 			(file): boolean =>
 				file !== 'CHANGELOG.md' &&
 				file !== 'README.md' &&
 				file !== 'package.json' &&
-				!file.startsWith('dist/'),
+				!directories.some((prefix) => file.startsWith(prefix)),
 		)
 
 		expect(files).toEqual(expect.arrayContaining(requiredFiles))
