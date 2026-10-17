@@ -247,11 +247,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			const ordinary = await AuthorityRecordSchema.createOne(
-				{ data: { title: 'plugin context' } },
+				{ data: { title: 'plugin context' }, select: { title: true } },
 				{ context },
 			)
 			const master = await AuthorityRecordSchema.createOne(
-				{ data: { title: 'master context' } },
+				{ data: { title: 'master context' }, select: { title: true } },
 				{ context, useMasterKey: true },
 			)
 
@@ -346,7 +346,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			// One live row exercises every built-in field kind across the public boundary.
-			const created = await PostSchema.createOne({ data: allFieldValues })
+			const created = await PostSchema.createOne({
+				data: allFieldValues,
+				select: {},
+			})
 
 			expect(Object.getPrototypeOf(created)).toBe(Object.prototype)
 			expect(created).toMatchObject({

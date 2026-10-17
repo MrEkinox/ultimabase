@@ -195,6 +195,7 @@ beforeAll(async () => {
 				{ key: 'private-a', value: 2, visible: false },
 				{ key: 'visible-b', value: 3, visible: true },
 			],
+			select: { visible: true },
 		},
 		{ useMasterKey: true },
 	)

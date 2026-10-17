@@ -51,10 +51,10 @@ test('preserves schema selection across every root read terminal', () => {
 	>()
 	expectTypeOf(
 		articleSchema.createOne({ data: { title: 'Created' } }),
-	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
+	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema, 'id'>>>()
 	expectTypeOf(
 		articleSchema.createMany({ data: [{ title: 'Created' }] }),
-	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema>[]>>()
+	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema, 'id'>[]>>()
 	expectTypeOf(
 		articleSchema.upsertMany({
 			data: [
@@ -65,7 +65,7 @@ test('preserves schema selection across every root read terminal', () => {
 				},
 			],
 		}),
-	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema>[]>>()
+	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema, 'id'>[]>>()
 	expectTypeOf(
 		articleSchema.updateMany({
 			data: [
@@ -82,7 +82,7 @@ test('preserves schema selection across every root read terminal', () => {
 			create: { title: 'Unique' },
 			update: { views: { increment: 1 } },
 		}),
-	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
+	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema, 'id'>>>()
 	expectTypeOf(
 		articleSchema.deleteMany({ where: [{ id: { eq: 'article-1' } }] }),
 	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema, 'id'>[]>>()

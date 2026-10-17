@@ -77,8 +77,9 @@ describe('RequestEngine transactions', () => {
 		const updated = articleRecord(1, 'Created')
 		const { adapter, request } = await createRequest(
 			[
-				{ status: 'fulfilled', value: created },
-				{ status: 'fulfilled', target: created, value: updated },
+				// Without `select`, a write returns `{ id }` (ADR-0341).
+				{ status: 'fulfilled', value: { id: created.id } },
+				{ status: 'fulfilled', target: created, value: { id: updated.id } },
 			],
 			trace,
 		)
@@ -121,7 +122,7 @@ describe('RequestEngine transactions', () => {
 		})
 
 		expect(Object.getPrototypeOf(result)).toBe(Object.prototype)
-		expect(result).toStrictEqual(created)
+		expect(result).toStrictEqual({ id: created.id })
 		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([
@@ -152,7 +153,7 @@ describe('RequestEngine transactions', () => {
 	it('waits for operations started inside the callback before committing', async () => {
 		const trace: string[] = []
 		const created = articleRecord(0, 'Deferred')
-		const deferred = Promise.withResolvers<typeof created>()
+		const deferred = Promise.withResolvers<Readonly<{ id: string }>>()
 		const { request } = await createRequest(
 			[{ status: 'fulfilled', value: deferred.promise }],
 			trace,
@@ -167,7 +168,7 @@ describe('RequestEngine transactions', () => {
 		await expect.poll(() => trace).toContain('execute:create-one')
 		expect(trace).not.toContain('adapter:commit')
 
-		deferred.resolve(created)
+		deferred.resolve({ id: created.id })
 
 		await expect(transactionPromise).resolves.toBe('completed')
 		expect(trace).toStrictEqual([

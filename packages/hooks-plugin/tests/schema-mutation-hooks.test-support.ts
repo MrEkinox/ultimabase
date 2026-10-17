@@ -53,7 +53,10 @@ const prepareSchemaMutationHook = <
 								kind: 'create' as const,
 							}),
 						]) as unknown as readonly DatabaseMutationMaterialization<TOperation>[],
-						result: created as unknown as DatabaseOperationResult<TOperation>,
+						// The nested Hook write selects nothing: it answers `{ id }` (ADR-0341).
+						result: immutableRecord({
+							id: created.id,
+						}) as unknown as DatabaseOperationResult<TOperation>,
 					}),
 				)
 			},

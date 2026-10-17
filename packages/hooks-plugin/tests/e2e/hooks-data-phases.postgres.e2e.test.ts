@@ -227,6 +227,7 @@ describe('Hooks on plain data (ADR-0318)', () => {
 		const updated = await Todo.updateOne({
 			where: { id: { eq: todo.id } },
 			data: { views: { increment: 2 } },
+			select: { views: true },
 		})
 		// Core's generated `updatedAt` is part of what the update changes.
 		expect(recorded).toHaveLength(1)

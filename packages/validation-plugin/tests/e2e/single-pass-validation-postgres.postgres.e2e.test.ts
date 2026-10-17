@@ -188,6 +188,7 @@ describe(
 				const updated = await Item.updateOne({
 					where: { id: created.id },
 					data: { score: { increment: 1 } },
+					select: { score: true },
 				})
 
 				expect(updated?.score).toBe(2)

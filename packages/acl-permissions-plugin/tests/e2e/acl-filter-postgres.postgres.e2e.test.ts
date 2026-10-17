@@ -75,8 +75,9 @@ const FilterFolder = FilterApplication.Schema.define({
 	}),
 })
 
-type Member = Model<typeof FilterMember>
-type Note = Model<typeof FilterNote>
+// Fixtures keep the identifiers that writes return.
+type Member = Pick<Model<typeof FilterMember>, 'id'>
+type Note = Pick<Model<typeof FilterNote>, 'id'>
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: Awaited<ReturnType<typeof createApplication>> | undefined

@@ -77,7 +77,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 
 		try {
 			const created = await StoredPost.createOne(
-				{ data: { title: 'Protected' } },
+				{ data: { title: 'Protected' }, select: { acl: true } },
 				{ useMasterKey: true },
 			)
 			const createdACL = requireACLValue(
@@ -102,6 +102,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 				{
 					where: { id: { eq: created.id } },
 					data: { acl: replacement },
+					select: { acl: true },
 				},
 				{ useMasterKey: true },
 			)

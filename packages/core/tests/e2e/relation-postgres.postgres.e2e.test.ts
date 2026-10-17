@@ -335,6 +335,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 	it('enforces pointer filter Access before identity or target traversal', async () => {
 		const author = await Author.createOne({
 			data: { name: 'Private pointer author' },
+			select: { name: true },
 		})
 		await PrivatePointerPost.createOne({
 			data: {

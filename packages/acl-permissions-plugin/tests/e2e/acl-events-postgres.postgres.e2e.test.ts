@@ -155,6 +155,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 					acl: new ACL().grantPublic('read').grantAuthenticated('read'),
 					title: 'updated',
 				},
+				select: { acl: true },
 			},
 			{ useMasterKey: true },
 		)
@@ -204,7 +205,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 
 	it('discards queued ACL events when a later developer hook rolls back', async () => {
 		const created = await Post.createOne(
-			{ data: { title: 'rollback' } },
+			{ data: { title: 'rollback' }, select: { acl: true } },
 			{ useMasterKey: true },
 		)
 		const createdACL = requireACLValue(

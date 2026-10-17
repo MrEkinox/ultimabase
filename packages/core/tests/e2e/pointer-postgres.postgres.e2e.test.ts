@@ -289,6 +289,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				author: { connect: firstPointer },
 				title: 'Typed pointer',
 			},
+			select: { author: true },
 		})
 
 		if (!Pointer.is(created.author)) {
@@ -319,6 +320,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const renamedAuthor = await User.updateOne({
 			where: { id: { eq: firstPointer.id } },
 			data: { name: 'Ada Lovelace' },
+			select: { name: true },
 		})
 
 		expect(renamedAuthor?.name).toBe('Ada Lovelace')
@@ -338,6 +340,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const updated = await Post.updateOne({
 			where: { id: { eq: created.id } },
 			data: { author: { connect: secondPointer }, title: 'Updated pointer' },
+			select: { author: true },
 		})
 		if (updated === null || !Pointer.is(updated.author)) {
 			throw new TypeError(
@@ -375,6 +378,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const deleted = await Post.deleteOne({
 			where: { id: { eq: updated.id } },
+			select: { author: true },
 		})
 		if (deleted === null || !Pointer.is(deleted.author)) {
 			throw new TypeError(
@@ -431,6 +435,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 					author: { connect: author.id },
 					title: 'Committed post',
 				},
+				select: { author: true },
 			})
 		})
 
@@ -569,6 +574,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const updatedLeft = await CircularLeft.updateOne({
 			where: { id: { eq: left.id } },
 			data: { right: { connect: CircularRight.pointer(right.id) } },
+			select: { right: true },
 		})
 		if (!Pointer.is(updatedLeft?.right)) {
 			throw new TypeError(

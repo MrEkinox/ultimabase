@@ -198,6 +198,7 @@ export const registerRelationFilterTests = (): void => {
 				},
 				title: 'Hidden predicate post',
 			},
+			select: { author: true },
 		})
 		expect(hiddenPost.author).toBeInstanceOf(Pointer)
 		const hiddenAuthorId = (hiddenPost.author as Pointer).id

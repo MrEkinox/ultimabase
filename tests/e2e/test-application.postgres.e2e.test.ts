@@ -83,6 +83,7 @@ const seed = (t: Handle, body: string) =>
 		const member = await Member.createOne({ data: { name: body } })
 		const note = await Note.createOne({
 			data: { body, owner: { connect: member.id } },
+			select: { sequence: true },
 		})
 		return { member, note }
 	})

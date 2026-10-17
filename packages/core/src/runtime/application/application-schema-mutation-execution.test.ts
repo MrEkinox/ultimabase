@@ -33,7 +33,7 @@ describe('application request schema mutation execution', () => {
 			records.map((record) => ({
 				materializations: [{ current: record, kind: 'create' as const }],
 				status: 'fulfilled' as const,
-				value: record,
+				value: { id: record.id },
 			})),
 			trace,
 		)
@@ -65,8 +65,11 @@ describe('application request schema mutation execution', () => {
 			}),
 		)
 
-		expect(readModelJson(created)).toStrictEqual(records[0])
-		expect(bulk.map(readModelJson)).toStrictEqual(records.slice(1))
+		// Without `select`, a write returns `{ id }` (ADR-0341).
+		expect(readModelJson(created)).toStrictEqual({ id: records[0]?.id })
+		expect(bulk.map(readModelJson)).toStrictEqual(
+			records.slice(1).map(({ id }) => ({ id })),
+		)
 		expect(
 			adapter.transactions.flatMap((transaction) =>
 				transaction.requests.map(({ operation }) => operation.kind),

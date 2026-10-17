@@ -322,7 +322,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		).resolves.toBe(0)
 	})
 
-	it('keeps the default fields beside included values without select', async () => {
+	it('returns { id } beside included values without select (ADR-0341)', async () => {
 		const tag = await Tag.createOne({ data: { label: 'Default tag' } })
 		const include = { tags: { select: { label: true } } } as const
 		const created = await Article.createOne({
@@ -339,12 +339,20 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			include,
 		})
 
-		// Reading `title` needs no cast: the result types keep the default fields.
-		expect(created.title).toBe('Default article')
-		expect(batched?.title).toBe('Default batch article')
-		expect(updated?.title).toBe('Updated default article')
+		expect(Object.keys(created).toSorted()).toStrictEqual(['id', 'tags'])
+		expect(Object.keys(batched ?? {}).toSorted()).toStrictEqual(['id', 'tags'])
 		expect(updated).toStrictEqual(
-			await Article.findOneOrThrow({ where: { id: created.id }, include }),
+			await Article.findOneOrThrow({
+				where: { id: created.id },
+				select: { id: true },
+				include,
+			}),
 		)
+		await expect(
+			Article.findOneOrThrow({
+				where: { id: created.id },
+				select: { title: true },
+			}),
+		).resolves.toMatchObject({ title: 'Updated default article' })
 	})
 })

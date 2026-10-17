@@ -182,6 +182,7 @@ beforeAll(async () => {
 				},
 				{ acl: new ACL(), title: 'denied' },
 			],
+			select: { title: true },
 		},
 		{ useMasterKey: true },
 	)
@@ -274,6 +275,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			{
 				where: { id: { eq: requireRowId('editor') } },
 				data: { marker: 'editor-updated' },
+				select: { marker: true },
 			},
 			{ context: editor },
 		)

@@ -181,6 +181,7 @@ export const registerRuntimeBulkTests = (): void => {
 						where: { email: { eq: email } },
 						create: { email, handle, tenantId: 'tenant-e' },
 						update: { visits: { increment: 1 } },
+						select: { visits: true },
 					})
 				const concurrent = await Promise.all([upsert(), upsert()])
 				expect(concurrent.map(({ visits }) => visits).sort()).toStrictEqual([

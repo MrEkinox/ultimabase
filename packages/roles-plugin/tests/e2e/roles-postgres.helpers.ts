@@ -10,8 +10,9 @@ import {
 } from './roles-postgres.fixture.js'
 import { RequestContext, requestSources } from '@ultimabase/core/plugin'
 
-export type PersistedAppRole = Model<typeof AppRole>
-export type PersistedMember = Model<typeof RoleMember>
+// Fixtures keep the identifiers that writes return.
+export type PersistedAppRole = Pick<Model<typeof AppRole>, 'id'>
+export type PersistedMember = Pick<Model<typeof RoleMember>, 'id'>
 
 export const requireRoleResolver = (value: unknown): RequestRoleResolver => {
 	if (
@@ -43,7 +44,15 @@ export const masterOptions = { useMasterKey: true } as const
 export const updateAppRole = (
 	roleId: string,
 	data: Parameters<typeof AppRole.updateOne>[0]['data'],
-) => AppRole.updateOne({ where: { id: { eq: roleId } }, data }, masterOptions)
+) =>
+	AppRole.updateOne(
+		{
+			where: { id: { eq: roleId } },
+			data,
+			select: { description: true, name: true },
+		},
+		masterOptions,
+	)
 
 // ADR-0310: links are read through include, not relation handles.
 export const countRoleLinks = async (
@@ -64,10 +73,10 @@ export const countRoleLinks = async (
 	return role[field].length
 }
 
-export const requireRole = (
-	role: PersistedAppRole | undefined,
+export const requireRole = <TRole extends PersistedAppRole>(
+	role: TRole | undefined,
 	label: string,
-): PersistedAppRole => {
+): TRole => {
 	if (role === undefined) {
 		throw new TypeError(`Missing persisted ${label} role fixture`)
 	}

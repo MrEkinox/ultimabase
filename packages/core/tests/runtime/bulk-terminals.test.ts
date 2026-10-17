@@ -44,7 +44,10 @@ describe('bulk and upsert terminals', () => {
 			),
 		] as const
 		const { adapter, request } = await createRequest(
-			created.map((value) => ({ status: 'fulfilled' as const, value })),
+			created.map(({ id }) => ({
+				status: 'fulfilled' as const,
+				value: { id },
+			})),
 			trace,
 		)
 
@@ -59,7 +62,8 @@ describe('bulk and upsert terminals', () => {
 				(account) => Object.getPrototypeOf(account) === Object.prototype,
 			),
 		).toBe(true)
-		expect(result).toStrictEqual(created)
+		// Without `select`, a write returns `{ id }` (ADR-0341).
+		expect(result).toStrictEqual(created.map(({ id }) => ({ id })))
 		expect(
 			adapter.transactions[0]?.requests.map(({ operation }) => operation.kind),
 		).toStrictEqual(['create-one', 'create-one'])
@@ -81,7 +85,10 @@ describe('bulk and upsert terminals', () => {
 			),
 		] as const
 		const { adapter, request } = await createRequest(
-			upserted.map((value) => ({ status: 'fulfilled' as const, value })),
+			upserted.map(({ id }) => ({
+				status: 'fulfilled' as const,
+				value: { id },
+			})),
 			trace,
 		)
 
@@ -107,7 +114,7 @@ describe('bulk and upsert terminals', () => {
 				(account) => Object.getPrototypeOf(account) === Object.prototype,
 			),
 		).toBe(true)
-		expect(result).toStrictEqual(upserted)
+		expect(result).toStrictEqual(upserted.map(({ id }) => ({ id })))
 		expect(
 			adapter.transactions[0]?.requests.map(({ operation }) => operation.kind),
 		).toStrictEqual(['upsert-one', 'upsert-one'])
@@ -124,7 +131,7 @@ describe('bulk and upsert terminals', () => {
 		)
 		const { adapter, request } = await createRequest(
 			[
-				{ status: 'fulfilled', value: first },
+				{ status: 'fulfilled', value: { id: first.id } },
 				{ status: 'rejected', error: writeError },
 			],
 			trace,
@@ -212,7 +219,7 @@ describe('bulk and upsert terminals', () => {
 			),
 		] as const
 		const { adapter, request } = await createRequest(
-			[{ status: 'fulfilled', value: created[0] }],
+			[{ status: 'fulfilled', value: { id: created[0].id } }],
 			trace,
 			{
 				transformResult: () => Promise.reject(hookError),
@@ -343,7 +350,7 @@ describe('bulk and upsert terminals', () => {
 			),
 		] as const
 		const { adapter, request } = await createRequest(
-			[{ status: 'fulfilled', value: created[0] }],
+			[{ status: 'fulfilled', value: { id: created[0].id } }],
 			trace,
 		)
 

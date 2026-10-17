@@ -100,6 +100,8 @@ describe('Access rule forms at runtime (ADR-0317)', () => {
 				Post.updateOne({
 					data: { title: 'renamed' },
 					where: { id: { eq: fixtureRowId } },
+					// The fixture answers whole rows (ADR-0341).
+					select: {},
 				}),
 			).resolves.toMatchObject({ id: fixtureRowId })
 		})
@@ -129,6 +131,8 @@ describe('Access rule forms at runtime (ADR-0317)', () => {
 				Post.updateOne({
 					data: { secret: 'changed' },
 					where: { id: { eq: fixtureRowId } },
+					// The fixture answers whole rows (ADR-0341).
+					select: {},
 				}),
 			).resolves.toMatchObject({ id: fixtureRowId })
 		})

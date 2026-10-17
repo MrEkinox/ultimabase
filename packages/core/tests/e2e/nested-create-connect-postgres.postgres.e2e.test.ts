@@ -397,6 +397,7 @@ describe(
 						tags: { create: [{ label: 'Master tag' }] },
 						title: 'Master post',
 					},
+					select: { title: true },
 				},
 				{ useMasterKey: true },
 			)

@@ -171,6 +171,14 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 					balance: { increment: '1.50' },
 					views: { increment: 3 },
 				},
+				select: {
+					acl: true,
+					balance: true,
+					labels: true,
+					status: true,
+					title: true,
+					views: true,
+				},
 			},
 			masterOptions,
 		)

@@ -92,10 +92,11 @@ const Article = ACLSchemaApplication.Schema.define({
 	},
 })
 
-type PersistedMember = Model<typeof Member>
-type PersistedAuthor = Model<typeof Author>
-type PersistedTag = Model<typeof Tag>
-type PersistedArticle = Model<typeof Article>
+// Fixtures keep the identifiers that writes return.
+type PersistedMember = Pick<Model<typeof Member>, 'id'>
+type PersistedAuthor = Pick<Model<typeof Author>, 'id'>
+type PersistedTag = Pick<Model<typeof Tag>, 'id'>
+type PersistedArticle = Pick<Model<typeof Article>, 'id'>
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:

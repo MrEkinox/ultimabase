@@ -105,7 +105,8 @@ describe('schema mutation instance ownership', () => {
 					],
 					status: 'fulfilled',
 					target: original,
-					value: firstCurrent,
+					// Without `select`, a command returns `{ id }` (ADR-0341).
+					value: { id },
 				},
 				{
 					materializations: [
@@ -113,7 +114,7 @@ describe('schema mutation instance ownership', () => {
 					],
 					status: 'fulfilled',
 					target: firstCurrent,
-					value: secondCurrent,
+					value: { id },
 				},
 			],
 			[],

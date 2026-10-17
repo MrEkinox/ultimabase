@@ -27,11 +27,10 @@ const noteSchema = UltimaBase.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 
+// The row as the adapter returns the selected `title` (and `id`).
 const stored = {
-	createdAt: '2026-10-09T00:00:00.000Z',
 	id: '0198f090-2a50-7000-8000-000000000101',
 	title: 'Stored',
-	updatedAt: '2026-10-09T00:00:00.000Z',
 }
 
 /** A conflict the adapter guarantees rolled back completely (ADR-0300). */
@@ -73,7 +72,10 @@ const createRequest = async (
 	})
 	const create = () =>
 		runWithRequestEngine(request, () =>
-			noteSchema.createOne({ data: { title: 'Stored' } }),
+			noteSchema.createOne({
+				data: { title: 'Stored' },
+				select: { title: true },
+			}),
 		)
 	return { adapter, create, request, trace }
 }
