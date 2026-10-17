@@ -56,6 +56,14 @@ Every application pays the same costs before writing its first useful line.
 6. **No silent start without a database.** `start()` fails with a clear message naming the missing capability when
    schemas are registered but no database provider is installed.
 
+## Amendment (2026-10-17): tests wait for post-commit work themselves
+
+Chosen by the user on 2026-10-17. `testApplication` waits for the current test's post-commit work when the test
+finishes, using the test runner's per-test hook when the call happens inside a test. A test that does not use the handle
+writes `await testApplication(ultimabase)` with no binding. The handle's disposal keeps the same wait, so
+`await using t` stays valid but is never required. Trailing `t.afterCommit()` calls and `_t` bindings disappear from
+examples, templates and docs. `t.afterCommit()` remains for waiting before an assertion inside a test.
+
 ## Consequences
 
 - **Examples and templates.**
