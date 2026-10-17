@@ -1,4 +1,8 @@
-import { PluginError, type FrameworkErrorDetails } from '@ultimabase/core'
+import {
+	FrameworkError,
+	PluginError,
+	type FrameworkErrorDetails,
+} from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
 /** Lists the public failures of the authentication foundation and its methods. */
@@ -168,3 +172,15 @@ export const rejectNotConfigured = (feature: string): never =>
 		`${feature} has no email callback configured.`,
 		'This operation is not available.',
 	)
+
+/**
+ * Fails a request whose private state change kept losing to concurrent
+ * ones: the retryable `TRANSACTION_CONFLICT`, never a silently dropped change.
+ */
+export const rejectConflict = (): never => {
+	throw new FrameworkError(
+		'TRANSACTION_CONFLICT',
+		'Concurrent authentication changes conflicted.',
+		{ publicMessage: 'The request conflicted; retry it.', retryable: true },
+	)
+}
