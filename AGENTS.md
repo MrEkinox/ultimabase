@@ -23,7 +23,7 @@ validated by the user.
    change GitHub state without explicit user confirmation.
 2. Work on a focused branch; isolate parallel work in its own `git worktree`.
 3. Read the [architecture index](docs/current-architecture.md#task-routing),
-   then the contracts, package READMEs, accepted ADRs and
+   then the contracts, website pages, accepted ADRs and
    [domain rules](docs/engineering/agent-domain-rules.md) it routes to.
    Read `ARCHITECTURE.md` fully only for cross-domain redesign.
 4. For multi-session work, keep a handoff under `docs/handoff/` (scope, proof

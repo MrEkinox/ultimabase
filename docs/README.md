@@ -6,7 +6,8 @@
 - [Domain-specific agent rules](engineering/agent-domain-rules.md): mandatory
   domain instructions read only for the work in scope; global rules stay in AGENTS.
 - [`RELEASING.md`](RELEASING.md): Changesets, prereleases, and npm publication.
-- [`concepts/`](concepts/README.md): detailed conceptual contracts.
+- [Website documentation](../apps/website/content/docs/1.0.0/index.mdx): the
+  single source for user-facing behaviour, options and examples.
 - [`adr/`](adr/README.md): current and superseded architectural decisions.
   Accepted records remain in force.
 - [`rebuild/DIFFERENCES.md`](rebuild/DIFFERENCES.md): deliberate observable

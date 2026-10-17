@@ -9,8 +9,8 @@ UltimaBase is pre-release. Proposed directions live in [ROADMAP.md](ROADMAP.md);
 the development history is archived in the Git tags `reference-archive` and
 `rebuild-archive` and is not a source of new work.
 
-1. Read `README.md` and the README of each package you will change. Coding
-   agents must also follow `AGENTS.md`.
+1. Read `README.md` and the website pages that document the packages you will
+   change. Coding agents must also follow `AGENTS.md`.
 2. Agree on the scope with the maintainer, through an issue or a roadmap entry.
 3. Create a focused branch.
 4. Implement code, runtime tests, type tests, and documentation together. A
@@ -32,7 +32,8 @@ A change is complete only when:
 - package boundaries remain valid;
 - public exports are deliberate;
 - runtime and type-level tests pass;
-- relevant README files are current;
+- package READMEs are current when a package's purpose, installation, peer
+  dependencies or single example changed;
 - documentation impact is classified, and public behavior, exports,
   configuration, installation, examples, errors, security semantics, and
   supported integrations have been reviewed against `apps/website`;

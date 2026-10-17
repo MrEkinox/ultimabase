@@ -136,8 +136,9 @@ Sandbox remain separate development plugins.
 - [`docs/current-architecture.md`](docs/current-architecture.md): current
   contracts, responsible packages, and accepted decisions by concept.
 - [`ROADMAP.md`](ROADMAP.md): proposed product directions.
-- [`docs/`](docs/README.md): concepts, specifications, and ADRs.
-- [`docs/concepts/open-plugin-authoring.md`](docs/concepts/open-plugin-authoring.md): accepted open-plugin authoring and consumption target.
+- [`docs/`](docs/README.md): specifications, the architecture index, and ADRs.
+- [`apps/website/content/docs`](apps/website/content/docs/1.0.0/index.mdx): the
+  documentation website, the single source for user-facing behaviour.
 - [`packages/`](packages/README.md): publishable `@ultimabase/*` packages.
 - [`apps/`](apps/README.md): the documentation website.
 - [`examples/`](examples/README.md): user-facing examples.
