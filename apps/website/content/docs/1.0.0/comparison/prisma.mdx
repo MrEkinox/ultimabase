@@ -1,0 +1,150 @@
+---
+title: Coming from Prisma
+description: Map Prisma ORM models, queries, nested writes and transactions to UltimaBase, and see what a backend framework adds to an ORM.
+audience:
+  - application-developer
+contentType: concept
+outcome: Map Prisma ORM models, queries and transactions to UltimaBase, and see what a backend framework adds to an ORM.
+releaseStatus: pre-release
+reviewedAt: 2026-10-17
+sources:
+  - README.md
+  - ROADMAP.md
+  - examples/queries/src/reads.ts
+  - examples/queries/src/nested-writes.ts
+  - examples/queries/src/transactions.ts
+  - packages/postgres-plugin/README.md
+---
+
+Prisma ORM is a typed database client: you describe models in its schema
+language, generate a client, and keep authorization, validation, hooks and APIs
+in your own application. UltimaBase covers the data layer too, with a similar
+query vocabulary, and adds the backend around it: every call, from server code,
+REST or GraphQL, goes through the same rules, validation, hooks and
+transaction. This page maps Prisma ORM concepts to UltimaBase.
+
+This page compares with Prisma ORM 7 (7.10.1), checked on 2026-10-17. Prisma
+ORM 8 is a release candidate that changes the schema file, the generation
+command, the query shape and the transaction API[^pr17][^pr18]; the notes say
+where it differs. See the [comparison overview](/docs/1.0.0/comparison/overview)
+for a summary table.
+
+## Vocabulary
+
+| Prisma ORM 7                                                              | UltimaBase                                                               | Read                                                                                                 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `model` in the Prisma schema                                              | Schema declared in TypeScript                                            | [Schemas](/docs/1.0.0/core/data-modeling/schemas)                                                    |
+| Scalar fields, `@default`, optional `?`                                   | Field builders, `default`, `required`                                    | [Fields](/docs/1.0.0/core/data-modeling/fields), [Defaults](/docs/1.0.0/core/data-modeling/defaults) |
+| `@relation`, one-to-many and many-to-many                                 | `field.pointer`, `field.relation`                                        | [Relationships](/docs/1.0.0/core/data-modeling/relationships)                                        |
+| `@unique`, `@@index`                                                      | `indexes` in the schema declaration                                      | [Schemas](/docs/1.0.0/core/data-modeling/schemas#indexes)                                            |
+| `Json` type                                                               | `field.json`, embedded objects                                           | [Embedded Objects](/docs/1.0.0/core/data-modeling/embedded-objects)                                  |
+| `findMany` with `where`, `include`, `select`, `orderBy`, `take`, `cursor` | `findMany` with `where`, `include`, `select`, `orderBy`, `take`, `after` | [Reading Data](/docs/1.0.0/core/reading-data/overview)                                               |
+| `some`, `every`, `none`                                                   | The same names                                                           | [Related Data](/docs/1.0.0/core/reading-data/related-data#relation-predicates)                       |
+| Nested writes with `create`, `connect`, `disconnect`, `set`               | Nested writes with the same verbs                                        | [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes)                                         |
+| `upsert`                                                                  | `upsertOne` on a unique target                                           | [Upserts](/docs/1.0.0/core/writing-data/upserts)                                                     |
+| `$transaction`                                                            | Automatic transaction per mutation, `ultimabase.transaction`             | [Transactions](/docs/1.0.0/core/writing-data/transactions)                                           |
+| `prisma migrate dev`, `prisma migrate deploy`                             | `schemaPolicy` synchronization at startup                                | [PostgreSQL](/docs/1.0.0/plugins/official/postgresql)                                                |
+| `prisma generate`                                                         | Nothing to run: types are inferred                                       | [Schemas](/docs/1.0.0/core/data-modeling/schemas)                                                    |
+| Client extensions                                                         | Hooks, plugins                                                           | [Hooks](/docs/1.0.0/plugins/official/hooks), [Plugin System](/docs/1.0.0/plugins/overview)           |
+| Driver adapter for PostgreSQL                                             | PostgreSQL plugin                                                        | [PostgreSQL](/docs/1.0.0/plugins/official/postgresql)                                                |
+| No equivalent: left to your application                                   | Access, Object ACLs, Roles, authentication, REST and GraphQL plugins     | [Plugin System](/docs/1.0.0/plugins/overview)                                                        |
+
+## Common tasks side by side
+
+| Task                    | Prisma ORM 7                                                          | UltimaBase                                                     |
+| ----------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Declare a model         | A `model` block, then `migrate dev` and `generate`[^pr1][^pr2][^pr11] | `App.Schema.define`; no generation step                        |
+| Query with a relation   | `findMany` with `include`[^pr7]                                       | `findMany` with `include`                                      |
+| Create with nested data | `create` with `connect` or nested `create`[^pr7]                      | `createOne` with `connect` or nested `create`                  |
+| Group writes            | Interactive `$transaction` with a `tx` client[^pr8]                   | `ultimabase.transaction`; no transaction client to pass around |
+| Intercept queries       | A client extension's `query` component[^pr9]                          | Schema or global hooks                                         |
+| Raw SQL                 | `$queryRaw`, `$executeRaw`[^pr31]                                     | No raw SQL API                                                 |
+| Aggregate               | `aggregate`, `groupBy`[^pr5]                                          | `count` only                                                   |
+
+An `include` takes its own selection, filter, ordering and limit, as in
+Prisma ORM:
+
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#post-context
+</include>
+
+Nested writes use the same verbs:
+
+<include cwd meta='title="src/nested-writes.ts"'>
+	../../examples/queries/src/nested-writes.ts#create-graph
+</include>
+
+A transaction follows the async call, so the code inside uses the usual schema
+methods instead of a transaction client:
+
+<include cwd meta='title="src/transactions.ts"'>
+	../../examples/queries/src/transactions.ts#publish
+</include>
+
+## What works differently and why
+
+- **ORM or backend.** Prisma ORM leaves authorization, validation, hooks, APIs
+  and authentication to you. UltimaBase enforces them in one operation
+  pipeline, so a REST request and a server call obey the same rules. The cost
+  is a narrower data layer: one database and no raw SQL.
+- **No generation step.** Prisma ORM generates a client from a separate schema
+  language[^pr11]. UltimaBase declares schemas in TypeScript and infers the
+  types, so there is nothing to regenerate after a change.
+- **No raw SQL.** Prisma ORM offers raw queries as an escape hatch[^pr31].
+  UltimaBase exposes none, so no query can skip the rules and hooks. Work that
+  needs SQL runs outside UltimaBase on your own connection, and then outside
+  its guarantees too.
+- **Migrations.** Prisma Migrate produces versioned migration files[^pr2].
+  UltimaBase synchronizes the schema at startup; versioned migrations are
+  [planned](/docs/1.0.0/project/roadmap#next-priorities).
+- **Databases.** Prisma ORM 7 supports PostgreSQL, MySQL, MariaDB, SQLite, SQL
+  Server and CockroachDB[^pr13]. UltimaBase supports PostgreSQL only.
+- **Stability.** Prisma ORM 7 is stable, and Prisma ORM 8 replaces client
+  extensions with middleware and drops the transaction isolation and timeout
+  options[^pr18][^pr29]. UltimaBase is pre-release, and its APIs may change
+  too.
+
+## What UltimaBase does not offer yet
+
+| Prisma ORM capability                        | UltimaBase status                                                                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Versioned migrations[^pr2]                   | Planned: [PostgreSQL migrations](/docs/1.0.0/project/roadmap#next-priorities)                                                |
+| `aggregate` and `groupBy`[^pr5]              | Not on the roadmap; `count` is the only aggregate                                                                            |
+| Databases other than PostgreSQL[^pr13]       | Not on the roadmap                                                                                                           |
+| Raw SQL[^pr31]                               | Not planned                                                                                                                  |
+| Choosing a transaction isolation level[^pr8] | Not on the roadmap; transactions are at least read-committed, see [Transactions](/docs/1.0.0/core/writing-data/transactions) |
+
+Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
+dates or order.
+
+## Sources
+
+Claims about Prisma ORM cite its official documentation and repository,
+checked on 2026-10-17 against Prisma ORM 7.10.1. Unversioned pages of the
+Prisma documentation now describe Prisma ORM 8, so these notes link the
+`/docs/orm/v7/` pages. Prisma's paid cloud products are not part of this
+comparison.
+
+[^pr1]: [Prisma ORM 7: Prisma schema](https://www.prisma.io/docs/orm/v7/prisma-schema/overview).
+
+[^pr2]: [Prisma ORM 7: Development and production migrations](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/development-and-production).
+
+[^pr5]: [Prisma ORM 7: Aggregation and grouping](https://www.prisma.io/docs/orm/v7/prisma-client/queries/aggregation-grouping-summarizing).
+
+[^pr7]: [Prisma ORM 7: Relation queries](https://www.prisma.io/docs/orm/v7/prisma-client/queries/relation-queries).
+
+[^pr8]: [Prisma ORM 7: Transactions](https://www.prisma.io/docs/orm/v7/prisma-client/queries/transactions).
+
+[^pr9]: [Prisma ORM 7: Client extensions](https://www.prisma.io/docs/orm/v7/prisma-client/client-extensions).
+
+[^pr11]: [Prisma ORM 7: Type safety](https://www.prisma.io/docs/orm/v7/prisma-client/type-safety).
+
+[^pr13]: [Prisma ORM 7: Database drivers](https://www.prisma.io/docs/orm/v7/core-concepts/supported-databases/database-drivers).
+
+[^pr17]: [Prisma ORM release status](https://www.prisma.io/docs/orm/release-status).
+
+[^pr18]: [Prisma ORM 8 introduction](https://www.prisma.io/docs/orm).
+
+[^pr29]: [Prisma ORM 8: Transactions](https://www.prisma.io/docs/orm/prisma-client/queries/transactions).
+
+[^pr31]: [Prisma ORM 7: Raw queries](https://www.prisma.io/docs/orm/v7/prisma-client/using-raw-sql/raw-queries).

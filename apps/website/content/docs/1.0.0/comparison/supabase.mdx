@@ -1,0 +1,186 @@
+---
+title: Coming from Supabase
+description: Map Supabase tables, Row Level Security, database functions and Auth to UltimaBase, and see what has no equivalent yet.
+audience:
+  - application-developer
+  - operator
+contentType: concept
+outcome: Map Supabase tables, RLS policies, functions and auth to UltimaBase, and know what has no equivalent yet.
+releaseStatus: pre-release
+reviewedAt: 2026-10-17
+sources:
+  - README.md
+  - ROADMAP.md
+  - examples/auth/src/schema.ts
+  - examples/queries/src/transactions.ts
+  - packages/postgres-plugin/README.md
+---
+
+Supabase and UltimaBase both use PostgreSQL. Supabase builds a platform around
+the database: you write SQL, policies and functions, and clients reach the
+database through generated APIs. UltimaBase is a TypeScript library that runs
+inside your Node.js server and treats PostgreSQL as storage: schemas, rules and
+hooks live in TypeScript. This page maps Supabase concepts to UltimaBase.
+
+This page compares with the hosted Supabase platform and supabase-js 2.118.0,
+checked on 2026-10-17. See the [comparison overview](/docs/1.0.0/comparison/overview)
+for every system side by side.
+
+## Vocabulary
+
+| Supabase                                                | UltimaBase                                                             | Read                                                                                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Table created with SQL or the Table Editor              | Schema declared in TypeScript; the PostgreSQL plugin creates the table | [Schemas](/docs/1.0.0/core/data-modeling/schemas), [PostgreSQL](/docs/1.0.0/plugins/official/postgresql)                  |
+| Column type, default, `not null`                        | Field builder, `default`, `required`                                   | [Fields](/docs/1.0.0/core/data-modeling/fields), [Defaults](/docs/1.0.0/core/data-modeling/defaults)                      |
+| Foreign key and embedded resource in `select`           | `field.pointer` or `field.relation`, then `include`                    | [Relationships](/docs/1.0.0/core/data-modeling/relationships), [Related Data](/docs/1.0.0/core/reading-data/related-data) |
+| `supabase.from(...).select().eq()`                      | `findMany` with `where`, `select` and `include`                        | [Reading Data](/docs/1.0.0/core/reading-data/overview)                                                                    |
+| Postgres function called with `.rpc()` for atomic work  | `ultimabase.transaction`, or a custom operation                        | [Transactions](/docs/1.0.0/core/writing-data/transactions)                                                                |
+| Migrations with the Supabase CLI                        | `schemaPolicy` synchronization at startup                              | [PostgreSQL](/docs/1.0.0/plugins/official/postgresql)                                                                     |
+| RLS policy                                              | Access row rule returning a filter                                     | [Access](/docs/1.0.0/plugins/official/access)                                                                             |
+| Column privileges                                       | Access field rules                                                     | [Field read and write rules](/docs/1.0.0/plugins/official/access#field-read-and-write-rules)                              |
+| Secret key or `service_role` key                        | Master authority (`useMasterKey: true`)                                | [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)                                                |
+| `anon` and `authenticated` roles, JWT claims            | Request identity: anonymous or a session principal                     | [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)                                                |
+| RBAC recipe with a roles table and an access token hook | Roles plugin, `hasRole`                                                | [Roles](/docs/1.0.0/plugins/official/roles)                                                                               |
+| Postgres triggers, Database Webhooks, Edge Functions    | Hooks, `afterCommit`, custom operations, HTTP routes                   | [Hooks](/docs/1.0.0/plugins/official/hooks), [HTTP](/docs/1.0.0/plugins/official/http)                                    |
+| Check constraints, `pg_jsonschema`                      | Validation plugin                                                      | [Validation](/docs/1.0.0/plugins/official/validation)                                                                     |
+| Supabase Auth with passwords                            | Auth plugin with the password method                                   | [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)                                           |
+| PostgREST at `/rest/v1`                                 | REST plugin at `/api`, with an OpenAPI 3.1 description                 | [REST](/docs/1.0.0/plugins/official/rest)                                                                                 |
+| pg_graphql                                              | GraphQL plugin                                                         | [GraphQL](/docs/1.0.0/plugins/official/graphql)                                                                           |
+| `supabase gen types`                                    | Nothing to run: types are inferred                                     | [Schemas](/docs/1.0.0/core/data-modeling/schemas)                                                                         |
+| Local stack and pgTAP                                   | `testApplication` with Vitest                                          | [Test an Application](/docs/1.0.0/guides/test-an-application)                                                             |
+| pgvector                                                | PostgreSQL Vector plugin, field only                                   | [PostgreSQL Vector](/docs/1.0.0/plugins/official/postgresql-vector)                                                       |
+
+## Common tasks side by side
+
+| Task                          | Supabase                                                     | UltimaBase                                                      |
+| ----------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------- |
+| Define a table                | `create table` in a migration, or the Table Editor[^s1][^s2] | `App.Schema.define`, listed in the application                  |
+| Read with a relation          | `select` with an embedded resource[^s4]                      | `findMany` with `include`                                       |
+| Insert, update, delete        | `insert`, `update`, `delete` with filters[^s50]              | `createOne`, `updateOne`, `deleteOne` and their `Many` variants |
+| Several writes atomically     | A SQL function called with `rpc`[^s3]                        | `ultimabase.transaction`                                        |
+| Owner-only rows               | An RLS policy comparing `auth.uid()` with a column[^s18]     | An Access rule comparing the principal with a field             |
+| Bypass policies on the server | The secret key[^s18]                                         | `useMasterKey: true`, audited                                   |
+| Sign up and sign in           | `auth.signUp`, `auth.signInWithPassword`[^s9]                | `signUp`, `login`                                               |
+| React to a write              | A Postgres trigger or a Database Webhook[^s23][^s24]         | Hooks in the transaction, `afterCommit` after it                |
+| Types                         | `supabase gen types`, re-run after schema changes[^s39]      | Inferred from the declarations                                  |
+
+An RLS policy that limits rows to their owner becomes an Access rule on the
+schema. Here members read and update only their own profile:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/auth/src/schema.ts#member
+</include>
+
+Work that Supabase moves into a SQL function to make it atomic stays in
+TypeScript:
+
+<include cwd meta='title="src/transactions.ts"'>
+	../../examples/queries/src/transactions.ts#publish
+</include>
+
+## What works differently and why
+
+- **Where the logic lives.** Supabase puts schema, policies, functions and
+  triggers in PostgreSQL, and clients call the database through PostgREST[^s28].
+  UltimaBase keeps schemas, rules, validation and hooks in TypeScript in one
+  Node.js process. You do not write SQL, and UltimaBase exposes no raw SQL API,
+  so every write goes through the same rules and hooks.
+- **Authorization defaults.** RLS is not enabled on a table by default, and the
+  secret key bypasses it[^s18]. From 2026-10-30, Supabase no longer exposes new
+  public tables to its APIs without an explicit grant[^s20]. With the UltimaBase
+  Access plugin installed, an operation without a rule is denied, and Master
+  bypasses authorization only, with an audit callback.
+- **Transactions.** The Supabase client library cannot group queries into a
+  transaction[^s3]. Every UltimaBase mutation runs in one, and server code can
+  group several.
+- **Types without a generation step.** Supabase generates types from the
+  database[^s39]; UltimaBase infers them from the declarations, so there is
+  nothing to regenerate.
+- **Platform or library.** Supabase is a hosted platform with Auth, Storage,
+  Realtime, Edge Functions, Cron and a dashboard; self-hosting lacks some Cloud
+  features[^s33][^s45]. UltimaBase is a library you deploy yourself and does
+  not have those services yet.
+
+## What UltimaBase does not offer yet
+
+| Supabase capability                                    | UltimaBase status                                                                                                                  |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Realtime[^s5]                                          | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                                                          |
+| Storage[^s7]                                           | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                                                |
+| OAuth providers and SSO[^s10]                          | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                               |
+| Multi-factor authentication[^s15]                      | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                |
+| Cron and Queues[^s36][^s37]                            | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                                                   |
+| Versioned migrations[^s2]                              | Planned: [PostgreSQL migrations](/docs/1.0.0/project/roadmap#next-priorities)                                                      |
+| Studio[^s33]                                           | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                                                     |
+| Client library (supabase-js)[^s3]                      | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                                                    |
+| Vector search with pgvector[^s38]                      | Planned: [Vector search](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#vector-search)                            |
+| PostGIS[^s48]                                          | Planned among the [advanced field plugins](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#advanced-field-plugins) |
+| Full-text search[^s47]                                 | Not on the roadmap                                                                                                                 |
+| Magic links, email OTP, anonymous sign-ins[^s12][^s13] | Not on the roadmap                                                                                                                 |
+| Hand-written SQL and Postgres extensions[^s42]         | Not planned: UltimaBase exposes no raw SQL API                                                                                     |
+| Hosted service[^s16]                                   | Not planned                                                                                                                        |
+
+Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
+dates or order.
+
+## Sources
+
+Claims about Supabase cite its official documentation, changelog, repository
+and pricing page, checked on 2026-10-17. Supabase is a hosted platform without
+a version number, so a cell can change between checks. Some features depend on
+a paid plan or on Supabase Cloud, as the [overview](/docs/1.0.0/comparison/overview)
+notes.
+
+[^s1]: [Supabase: Tables](https://supabase.com/docs/guides/database/tables).
+
+[^s2]: [Supabase: Database migrations](https://supabase.com/docs/guides/deployment/database-migrations).
+
+[^s3]: [supabase-js: `rpc`](https://supabase.com/docs/reference/javascript/rpc).
+
+[^s4]: [Supabase: Joins and nesting](https://supabase.com/docs/guides/database/joins-and-nesting).
+
+[^s5]: [Supabase Realtime](https://supabase.com/docs/guides/realtime).
+
+[^s7]: [Supabase Storage](https://supabase.com/docs/guides/storage).
+
+[^s9]: [Supabase: Password-based auth](https://supabase.com/docs/guides/auth/passwords).
+
+[^s10]: [Supabase Auth](https://supabase.com/docs/guides/auth).
+
+[^s12]: [Supabase: Passwordless email logins](https://supabase.com/docs/guides/auth/auth-email-passwordless).
+
+[^s13]: [Supabase: Anonymous sign-ins](https://supabase.com/docs/guides/auth/auth-anonymous).
+
+[^s15]: [Supabase: Multi-factor authentication](https://supabase.com/docs/guides/auth/auth-mfa).
+
+[^s16]: [Supabase pricing](https://supabase.com/pricing).
+
+[^s18]: [Supabase: Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+[^s20]: [Supabase changelog: tables not exposed automatically](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically).
+
+[^s23]: [Supabase: Postgres triggers](https://supabase.com/docs/guides/database/postgres/triggers).
+
+[^s24]: [Supabase: Database Webhooks](https://supabase.com/docs/guides/database/webhooks).
+
+[^s28]: [Supabase REST API](https://supabase.com/docs/guides/api).
+
+[^s50]: [supabase-js reference: `insert`](https://supabase.com/docs/reference/javascript/insert), with `update` and `delete` beside it.
+
+[^s33]: [Supabase: Self-hosting](https://supabase.com/docs/guides/self-hosting).
+
+[^s36]: [Supabase Cron](https://supabase.com/docs/guides/cron).
+
+[^s37]: [Supabase Queues](https://supabase.com/docs/guides/queues).
+
+[^s38]: [Supabase: Vector columns](https://supabase.com/docs/guides/ai/vector-columns).
+
+[^s39]: [Supabase: Generating types](https://supabase.com/docs/guides/api/rest/generating-types).
+
+[^s42]: [Supabase: Postgres extensions](https://supabase.com/docs/guides/database/extensions).
+
+[^s45]: [Supabase: Self-hosting with Docker](https://supabase.com/docs/guides/self-hosting/docker).
+
+[^s47]: [Supabase: Full text search](https://supabase.com/docs/guides/database/full-text-search).
+
+[^s48]: [Supabase: PostGIS](https://supabase.com/docs/guides/database/extensions/postgis).

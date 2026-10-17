@@ -61,6 +61,7 @@ describe('documentation sidebar', () => {
 			const sidebar = page.locator('#nd-sidebar')
 			for (const title of [
 				'Introduction',
+				'Comparison',
 				'Core',
 				'Plugins',
 				'Guides',

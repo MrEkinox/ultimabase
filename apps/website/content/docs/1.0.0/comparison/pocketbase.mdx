@@ -1,0 +1,155 @@
+---
+title: Coming from PocketBase
+description: Map PocketBase collections, API rules, hooks and authentication to UltimaBase, and see what has no equivalent yet.
+audience:
+  - application-developer
+  - operator
+contentType: concept
+outcome: Map PocketBase collections, API rules, hooks and auth to UltimaBase, and know what has no equivalent yet.
+releaseStatus: pre-release
+reviewedAt: 2026-10-17
+sources:
+  - README.md
+  - ROADMAP.md
+  - examples/access/src/schema.ts
+  - examples/queries/src/reads.ts
+---
+
+PocketBase is a single Go binary with an embedded SQLite database, a built-in
+dashboard, and hooks written in Go or JavaScript. UltimaBase is a TypeScript
+library on PostgreSQL that runs inside your Node.js process, with schemas and
+rules declared in code. Both projects are pre-1.0. This page maps PocketBase
+concepts to UltimaBase.
+
+This page compares with PocketBase v0.40.5, checked on 2026-10-17. See the
+[comparison overview](/docs/1.0.0/comparison/overview) for every system side
+by side.
+
+## Vocabulary
+
+| PocketBase                                      | UltimaBase                                                                       | Read                                                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Base collection                                 | Schema                                                                           | [Schemas](/docs/1.0.0/core/data-modeling/schemas)                                                                            |
+| Auth collection                                 | User schema of the auth plugin                                                   | [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)                                              |
+| Superusers                                      | Master authority for trusted server code                                         | [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)                                                   |
+| View collection                                 | No direct equivalent; virtual fields compute values                              | [Virtual Fields](/docs/1.0.0/core/data-modeling/virtual-fields)                                                              |
+| Fields (text, number, select, json, relation…)  | Field builders, including enums, JSON, pointers and relations; no file field yet | [Fields](/docs/1.0.0/core/data-modeling/fields)                                                                              |
+| `expand`, back-relations                        | `include`, inverse relations                                                     | [Related Data](/docs/1.0.0/core/reading-data/related-data), [Relationships](/docs/1.0.0/core/data-modeling/relationships)    |
+| Filter string                                   | Typed `where` object                                                             | [Filters](/docs/1.0.0/core/reading-data/filters)                                                                             |
+| `page`, `perPage`, `skipTotal`                  | `take`, `skip`, `after` cursor, `count`                                          | [Ordering and Pagination](/docs/1.0.0/core/reading-data/ordering-and-pagination)                                             |
+| List, view, create, update and delete API rules | Access read and operation rules                                                  | [Access](/docs/1.0.0/plugins/official/access)                                                                                |
+| `@request.auth`                                 | Request identity, the principal in a rule                                        | [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)                                                   |
+| Hidden field                                    | Access field rule with `read: false`                                             | [Field read and write rules](/docs/1.0.0/plugins/official/access#field-read-and-write-rules)                                 |
+| Migration files, automigrate                    | `schemaPolicy` synchronization at startup                                        | [PostgreSQL](/docs/1.0.0/plugins/official/postgresql)                                                                        |
+| `runInTransaction`, batch API                   | `ultimabase.transaction`, bulk operations                                        | [Transactions](/docs/1.0.0/core/writing-data/transactions), [Bulk Operations](/docs/1.0.0/core/writing-data/bulk-operations) |
+| Event hooks                                     | Hooks plugin                                                                     | [Hooks](/docs/1.0.0/plugins/official/hooks)                                                                                  |
+| Custom routes                                   | HTTP routes, custom operations                                                   | [HTTP](/docs/1.0.0/plugins/official/http)                                                                                    |
+| Using PocketBase as a Go framework              | Plugins                                                                          | [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin)                                                                         |
+| Go test helpers                                 | `testApplication`                                                                | [Test an Application](/docs/1.0.0/guides/test-an-application)                                                                |
+
+## Common tasks side by side
+
+| Task                      | PocketBase                                            | UltimaBase                                     |
+| ------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| Define a collection       | The dashboard, or a JS or Go migration[^pb2][^pb3]    | `App.Schema.define`, listed in the application |
+| List with a filter        | `getList` with `filter` and `expand`[^pb19][^pb5]     | `findMany` with `where`, `include` and `take`  |
+| Get one record            | `getOne`, `getFirstListItem`[^pb19]                   | `findOneOrThrow`, `findOne`                    |
+| Create, update, delete    | `create`, `update`, `delete`[^pb19]                   | `createOne`, `updateOne`, `deleteOne`          |
+| Several writes atomically | A batch request[^pb5]                                 | `ultimabase.transaction`, or `createMany`      |
+| Restrict reads            | A list rule such as `@request.auth.id = author`[^pb6] | An Access read rule                            |
+| Run code on create        | A record hook that calls `e.next()`[^pb14]            | Hooks on `create`                              |
+| Sign in                   | `authWithPassword`[^pb12]                             | `login`                                        |
+
+A PocketBase API rule is a filter string. An UltimaBase rule is a TypeScript
+function on the schema that returns a typed filter, and operations without a
+rule stay denied:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#article
+</include>
+
+Where PocketBase uses `expand`, UltimaBase's `include` also takes a selection,
+filter, ordering and limit for each relation:
+
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#post-context
+</include>
+
+## What works differently and why
+
+- **Packaging.** PocketBase ships a binary with its dashboard built in[^pb1],
+  and you extend it in Go or JavaScript[^pb15][^pb22]. UltimaBase is an npm
+  library inside your own Node.js application, so it shares your process,
+  dependencies and deployment.
+- **Database.** PocketBase uses SQLite and has no plans for other
+  databases[^pb18]. UltimaBase uses a PostgreSQL server.
+- **Policies.** PocketBase rules are filter expressions, and roles are modeled
+  with your own fields[^pb6][^pb12]. UltimaBase rules are typed functions, and
+  it adds per-object ACLs and role hierarchies as plugins.
+- **Sessions.** PocketBase tokens are not stored on the server, and there is no
+  logout endpoint[^pb12]. UltimaBase stores sessions, so you can list and
+  revoke them.
+- **Built-ins today.** PocketBase already ships realtime subscriptions, files,
+  OAuth2, multi-factor authentication, email and cron jobs[^pb10][^pb11][^pb12][^pb16][^pb17].
+  UltimaBase does not yet.
+
+## What UltimaBase does not offer yet
+
+| PocketBase capability                            | UltimaBase status                                                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Realtime subscriptions[^pb10]                    | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                                                          |
+| File fields and thumbnails[^pb11]                | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                                                |
+| OAuth2 sign-in[^pb12]                            | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                               |
+| Multi-factor authentication[^pb12]               | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                |
+| Cron jobs[^pb17]                                 | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                                                   |
+| Migration files[^pb3][^pb4]                      | Planned: [PostgreSQL migrations](/docs/1.0.0/project/roadmap#next-priorities)                                                      |
+| Built-in dashboard[^pb1]                         | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                                                     |
+| JavaScript SDK[^pb19]                            | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                                                    |
+| `geoPoint` field and `geoDistance()`[^pb2][^pb6] | Planned among the [advanced field plugins](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#advanced-field-plugins) |
+| Email OTP sign-in[^pb12]                         | Not on the roadmap                                                                                                                 |
+| Mailer and email templates[^pb16]                | Not planned: the auth plugin calls delivery callbacks you supply                                                                   |
+| A single self-contained binary[^pb21]            | Not planned: UltimaBase runs in your Node.js application                                                                           |
+
+Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
+dates or order.
+
+## Sources
+
+Claims about PocketBase cite its official documentation and repositories,
+checked on 2026-10-17 against v0.40.5. PocketBase does not guarantee backward
+compatibility before 1.0[^pb18], so APIs named here may change between
+releases.
+
+[^pb1]: [PocketBase documentation](https://pocketbase.io/docs/).
+
+[^pb2]: [PocketBase: Collections](https://pocketbase.io/docs/collections/).
+
+[^pb3]: [PocketBase: JS migrations](https://pocketbase.io/docs/js-migrations/).
+
+[^pb4]: [PocketBase: Go migrations](https://pocketbase.io/docs/go-migrations/).
+
+[^pb5]: [PocketBase: Records API](https://pocketbase.io/docs/api-records/).
+
+[^pb6]: [PocketBase: API rules and filters](https://pocketbase.io/docs/api-rules-and-filters/).
+
+[^pb10]: [PocketBase: Realtime API](https://pocketbase.io/docs/api-realtime/).
+
+[^pb11]: [PocketBase: Files handling](https://pocketbase.io/docs/files-handling/).
+
+[^pb12]: [PocketBase: Authentication](https://pocketbase.io/docs/authentication/).
+
+[^pb14]: [PocketBase: JS event hooks](https://pocketbase.io/docs/js-event-hooks/).
+
+[^pb15]: [PocketBase: Extend with JavaScript](https://pocketbase.io/docs/js-overview/).
+
+[^pb16]: [PocketBase: Sending emails](https://pocketbase.io/docs/js-sending-emails/).
+
+[^pb17]: [PocketBase: Jobs scheduling](https://pocketbase.io/docs/js-jobs-scheduling/).
+
+[^pb18]: [PocketBase FAQ](https://pocketbase.io/faq/).
+
+[^pb19]: [PocketBase JavaScript SDK](https://github.com/pocketbase/js-sdk).
+
+[^pb21]: [PocketBase: Going to production](https://pocketbase.io/docs/going-to-production/).
+
+[^pb22]: [PocketBase: Use as a framework](https://pocketbase.io/docs/use-as-framework/).
