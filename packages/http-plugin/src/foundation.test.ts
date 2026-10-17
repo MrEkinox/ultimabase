@@ -1,4 +1,4 @@
-import { UltimaBase } from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import {
 	contributeApplication,
 	plugin,
@@ -18,6 +18,12 @@ import type { HttpPluginOptions } from './options.js'
 import { httpPlugin } from './plugin.js'
 import { httpTestDatabasePlugin } from './test-database.test-support.js'
 
+// `master: true` needs a key to verify (ADR-0340).
+const masterAuthority = new MasterAuthority({
+	keys: [{ id: 'operations', value: 'operations-secret' }],
+	onUse: () => undefined,
+})
+
 // Starts one application and returns its port-free HTTP entry (ADR-0323).
 const start = async (
 	options: HttpPluginOptions = {},
@@ -28,7 +34,7 @@ const start = async (
 		httpTestDatabasePlugin(checkHealth),
 		httpPlugin(options),
 		...plugins,
-	))({ logger: false, schemas: [] })
+	))({ logger: false, masterAuthority, schemas: [] })
 	onTestFinished(() => application.dispose())
 	await application.start()
 	return application.plugin(httpPlugin)

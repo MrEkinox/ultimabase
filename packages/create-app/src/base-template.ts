@@ -16,10 +16,9 @@ import {
 	type PackageManager,
 } from './config.js'
 import {
-	needsMasterKey,
+	needsMaster,
 	securityApplicationImports,
 	securityApplicationOption,
-	securityMasterSource,
 	securityPluginImports,
 	securityReadmeNotes,
 	securitySchemaFiles,
@@ -102,7 +101,7 @@ export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 		: writesEnv(plan)
 			? []
 			: [
-					`Create .env from .env.example and set DATABASE_URL for a disposable PostgreSQL database${needsMasterKey(plan) ? ' and a private random ULTIMABASE_MASTER_KEY' : ''}.`,
+					'Create .env from .env.example and set DATABASE_URL for a disposable PostgreSQL database.',
 				]),
 	...(!plan.install ? [`${plan.packageManager} install`] : []),
 	scriptCommand(plan.packageManager, 'dev'),
@@ -210,7 +209,6 @@ const applicationSource = (plan: InitializerPlan): string => {
 				({ file, name }) => [local(plan, `schemas/${file}`), name] as const,
 			),
 		]),
-		securityMasterSource(plan),
 		`export const ultimabase = new App({
 ${[
 	schemas.length === 0
@@ -260,7 +258,7 @@ const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
 		],
 		[
 			has(plan, 'soft-delete-plugin') && task,
-			`Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require trusted, audited Master access; ${needsMasterKey(plan) ? 'this starter configures local Master for development but does not add restore or purge commands.' : 'this starter does not configure it.'}`,
+			`Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require trusted, audited Master access; ${needsMaster(plan) ? 'this starter configures audited in-process Master but does not add restore or purge commands.' : 'this starter does not configure it.'}`,
 		],
 		[
 			plan.starter === 'empty' && plan.plugins.length > 1,
@@ -321,7 +319,6 @@ ${plan.starter === 'task' ? 'The Task starter seeds one record on its first run;
 export const renderBaseFiles = (
 	plan: InitializerPlan,
 	dockerPassword?: string,
-	masterKey?: string,
 ): ProjectFiles => {
 	const extension = plan.language
 	const dependencies: Record<string, string> = {
@@ -361,9 +358,6 @@ export const renderBaseFiles = (
 			(plan.database === 'docker'
 				? 'POSTGRES_PASSWORD=<generated-local-secret>\nDATABASE_URL=postgres://ultimabase:<generated-local-secret>@127.0.0.1:54329/ultimabase\n'
 				: 'DATABASE_URL=postgres://user:password@127.0.0.1:5432/your_disposable_database\n') +
-				(needsMasterKey(plan)
-					? 'ULTIMABASE_MASTER_KEY=<generate-a-random-local-key>\n'
-					: '') +
 				'# Optional: an existing test database instead of a Docker container.\n# TEST_DATABASE_URL=postgres://user:password@127.0.0.1:5432/your_test_database\n',
 		],
 		[`src/app.${extension}`, appSource(plan)],
@@ -376,7 +370,7 @@ export const renderBaseFiles = (
 		),
 		[`src/ultimabase.${extension}`, applicationSource(plan)],
 		[`src/main.${extension}`, mainSource(plan)],
-		[`vitest.config.${extension}`, vitestConfigSource(plan)],
+		[`vitest.config.${extension}`, vitestConfigSource()],
 		...(plan.starter === 'task'
 			? [[`tests/task.test.${extension}`, taskTestSource(plan)] as const]
 			: []),
@@ -384,7 +378,7 @@ export const renderBaseFiles = (
 		['README.md', projectReadme(plan)],
 	])
 	if (plan.database === 'docker') files.set('compose.yaml', composeFile)
-	const environment = environmentFile(plan, dockerPassword, masterKey)
+	const environment = environmentFile(plan, dockerPassword)
 	if (environment !== undefined) files.set('.env', environment)
 	return files
 }

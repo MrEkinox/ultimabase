@@ -23,7 +23,7 @@ const Story = App.Schema.define({
 const stories = new App({ logger: false, schemas: [Story] })
 
 it('adds the feature fields and commands, and reads the rule after commit', async () => {
-	await using _t = await testApplication(stories)
+	await testApplication(stories)
 	const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
 
 	//#region approve-story

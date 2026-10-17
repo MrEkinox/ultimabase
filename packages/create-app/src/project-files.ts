@@ -1,5 +1,4 @@
 import type { InitializerPlan } from './config.js'
-import { needsMasterKey } from './security-template.js'
 
 /** Two-space JSON with a final newline, as Prettier prints package.json. */
 export const json = (value: unknown): string =>
@@ -67,7 +66,6 @@ export const packageScripts = (
 export const environmentFile = (
 	plan: InitializerPlan,
 	dockerPassword: string | undefined,
-	masterKey: string | undefined,
 ): string | undefined => {
 	let databaseUrl = plan.databaseUrl
 	let compose = ''
@@ -78,10 +76,5 @@ export const environmentFile = (
 		databaseUrl = `postgres://ultimabase:${dockerPassword}@127.0.0.1:54329/ultimabase`
 	}
 	if (databaseUrl === undefined) return undefined
-	let masterEntry = ''
-	if (needsMasterKey(plan)) {
-		if (!masterKey) throw new Error('A random local Master key is required.')
-		masterEntry = `ULTIMABASE_MASTER_KEY=${masterKey}\n`
-	}
-	return `${compose}DATABASE_URL=${databaseUrl}\n${masterEntry}`
+	return `${compose}DATABASE_URL=${databaseUrl}\n`
 }

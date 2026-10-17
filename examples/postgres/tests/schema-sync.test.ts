@@ -25,12 +25,12 @@ afterAll(async () => {
 it('creates the tables of release 1 under override', async () => {
 	const { logger, messages } = recordingLogger()
 	//#region override
-	const { application, Article, StaffMember } = releaseOne({
+	const { ultimabase, Article, StaffMember } = releaseOne({
 		url: schema.url,
 		schemaPolicy: 'override',
 		logger,
 	})
-	await application.start()
+	await ultimabase.start()
 	//#endregion override
 
 	try {
@@ -50,25 +50,25 @@ it('creates the tables of release 1 under override', async () => {
 			},
 		})
 	} finally {
-		await application.dispose()
+		await ultimabase.dispose()
 	}
 })
 
 it('refuses a rename without renamedFrom', async () => {
 	const { logger } = recordingLogger()
-	const application = forgottenRename({
+	const ultimabase = forgottenRename({
 		url: schema.url,
 		schemaPolicy: 'override',
 		logger,
 	})
 
-	const failure = application.start()
+	const failure = ultimabase.start()
 
 	await expect(failure).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 	await expect(failure).rejects.toThrow(
 		`"newsroom_articles"."headline" (text), which looks renamed to field title: declare postgres: { renamedFrom: 'headline' } on that field`,
 	)
-	await application.dispose()
+	await ultimabase.dispose()
 })
 
 it('renames the column of release 2 and keeps its data', async () => {
@@ -95,31 +95,31 @@ it('reports drift under fail', async () => {
 	// The database of release 2 has no `headline` column, and indexes that
 	// release 1 does not declare.
 	const { logger } = recordingLogger()
-	const { application } = releaseOne({
+	const { ultimabase } = releaseOne({
 		url: schema.url,
 		schemaPolicy: 'fail',
 		logger,
 	})
 
-	const failure = application.start()
+	const failure = ultimabase.start()
 
 	await expect(failure).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 	await expect(failure).rejects.toThrow(
 		'PostgreSQL schema differs from the registered UltimaBase schemas. 3 change(s): add column "newsroom_articles"."headline" (text, required); drop index',
 	)
-	await application.dispose()
+	await ultimabase.dispose()
 })
 
 it('skips preparation under ignore', async () => {
 	const { logger, messages } = recordingLogger()
-	const { application } = releaseOne({
+	const { ultimabase } = releaseOne({
 		url: schema.url,
 		schemaPolicy: 'ignore',
 		logger,
 	})
 
-	await application.start()
-	await application.dispose()
+	await ultimabase.start()
+	await ultimabase.dispose()
 
 	expect(messages('info')).not.toContainEqual(
 		expect.stringContaining('schema change applied'),

@@ -1,14 +1,7 @@
-import process from 'node:process'
-
 import { MasterAuthority } from '@ultimabase/core'
 
 import { App } from './app.ts'
 import { Todo, TodoRole, TodoUser } from './schema.ts'
-
-const masterKey = process.env.ULTIMABASE_MASTER_KEY
-if (masterKey === undefined || masterKey === '') {
-	throw new TypeError('Set ULTIMABASE_MASTER_KEY to a private random value')
-}
 
 /**
  * The Todo application. Administrative code (`admin.ts`, `todos.ts`) runs
@@ -17,7 +10,6 @@ if (masterKey === undefined || masterKey === '') {
 //#region application
 export const ultimabase = new App({
 	masterAuthority: new MasterAuthority({
-		keys: [{ id: 'todo-backend', value: masterKey }],
 		onUse: (event) => {
 			// Replace this console record with a durable audit sink in production.
 			console.info('Master authority used', {

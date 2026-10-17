@@ -15,6 +15,7 @@ describe('Hono server plugin options', () => {
 			host: '127.0.0.1',
 			port: 1337,
 			shutdownTimeoutMs: 10_000,
+			stopOnSignals: true,
 			sources: { host: 'NODE_ENV is not production', port: 'default' },
 		})
 		vi.unstubAllEnvs()

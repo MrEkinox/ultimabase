@@ -16,6 +16,9 @@ const withTransport = (imports: string, plugins: string) =>
 			"    postgresPlugin({ schemaPolicy: 'fail' }),",
 			`    postgresPlugin({ schemaPolicy: 'fail' }),\n${httpPlugins}\n${plugins}`,
 		)
+		.concat(
+			'\n// The listener stops the application on SIGINT or SIGTERM.\nawait started.closed',
+		)
 
 export const compositionExamples = [
 	{

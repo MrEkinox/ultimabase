@@ -35,7 +35,7 @@ export const App = UltimaBase.use(
 	aclPlugin(),
 	// REST over HTTP and a local Hono listener; Access decides
 	// what each request may do.
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```
@@ -116,7 +116,7 @@ The same file also declares:
   composite index.
 
 [`src/ultimabase.ts`](src/ultimabase.ts) creates the application with an
-audited Master authority (`ULTIMABASE_MASTER_KEY`) and declares it once in
+audited Master authority, which needs no key in process, and declares it once in
 `Register`, which gives name-keyed types such as `CreateInput<'Todo'>`:
 
 <!-- region src/ultimabase.ts#application -->
@@ -124,7 +124,6 @@ audited Master authority (`ULTIMABASE_MASTER_KEY`) and declares it once in
 ```ts
 export const ultimabase = new App({
 	masterAuthority: new MasterAuthority({
-		keys: [{ id: 'todo-backend', value: masterKey }],
 		onUse: (event) => {
 			// Replace this console record with a durable audit sink in production.
 			console.info('Master authority used', {
@@ -241,7 +240,6 @@ Build the repository packages once, then from the repository root:
 ```sh
 corepack yarn build
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_todo \
-ULTIMABASE_MASTER_KEY=development-only-secret \
 	corepack yarn workspace @ultimabase/example-todo-backend dev
 corepack yarn workspace @ultimabase/example-todo-backend typecheck
 corepack yarn workspace @ultimabase/example-todo-backend test

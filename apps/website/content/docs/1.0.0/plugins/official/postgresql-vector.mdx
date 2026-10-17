@@ -59,25 +59,25 @@ Add `pgVectorPlugin()` to the application and declare a stored vector field:
 import { UltimaBase } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
-const Application = UltimaBase.use(pgVectorPlugin())
-const Document = Application.Schema.define({
+const App = UltimaBase.use(pgVectorPlugin())
+const Document = App.Schema.define({
 	className: 'Document',
 	fields: (f) => ({
 		embedding: f.vector({ dimensions: 1536, required: true }),
 	}),
 })
 
-const application = new Application({
+const ultimabase = new App({
 	schemas: [Document],
 })
 
 declare module '@ultimabase/core' {
 	interface Register {
-		readonly app: typeof application
+		readonly app: typeof ultimabase
 	}
 }
 
-application.compile()
+ultimabase.compile()
 ```
 
 This performs pure schema compilation without initializing an application or

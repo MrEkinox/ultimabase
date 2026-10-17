@@ -58,7 +58,7 @@ const runProject = (environment: Readonly<Record<string, string>>) => {
 describe('ultimabaseTesting()', () => {
 	it('uses TEST_DATABASE_URL and drops the worker schemas after the files', async () => {
 		const { stdout } = await runProject({ TEST_DATABASE_URL: projectUrl })
-		expect(stdout).toContain('3 passed')
+		expect(stdout).toContain('5 passed')
 		const database = new Pool({ connectionString: projectUrl, max: 1 })
 		try {
 			const schemas = await database.query(
@@ -72,6 +72,6 @@ describe('ultimabaseTesting()', () => {
 
 	it('starts PostgreSQL once without TEST_DATABASE_URL', async () => {
 		const { stdout } = await runProject({})
-		expect(stdout).toContain('3 passed')
+		expect(stdout).toContain('5 passed')
 	}, 180_000)
 })

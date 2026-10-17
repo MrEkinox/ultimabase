@@ -32,7 +32,7 @@ import { validationPlugin } from '@ultimabase/validation-plugin'
 export const App = UltimaBase.use(
 	validationPlugin(),
 	accessPlugin(),
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```

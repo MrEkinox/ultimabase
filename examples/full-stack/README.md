@@ -48,7 +48,9 @@ ULTIMABASE_MASTER_KEY=development-only-secret \
   corepack yarn workspace @ultimabase/example-full-stack start
 ```
 
-The server listens at `http://127.0.0.1:1337`.
+The server listens at `http://127.0.0.1:1337` until `SIGINT` (Ctrl+C) or
+`SIGTERM` stops it. `ULTIMABASE_MASTER_KEY` is the key of the HTTP Master
+header, read once when the application starts.
 
 ## REST and GraphQL use the same Runtime
 

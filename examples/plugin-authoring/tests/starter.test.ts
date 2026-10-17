@@ -11,17 +11,17 @@ import { expect, it } from 'vitest'
 import { starterPlugin } from '../src/starter-plugin.ts'
 
 it('exposes setup only through its installed application', async () => {
-	const Application = UltimaBase.use(starterPlugin())
-	const application = await new Application({
+	const App = UltimaBase.use(starterPlugin())
+	const ultimabase = await new App({
 		schemas: [],
 	}).initialize()
 
 	try {
-		expect(application.plugin('community.starter')).toStrictEqual({
+		expect(ultimabase.plugin('community.starter')).toStrictEqual({
 			ready: true,
 		})
 	} finally {
-		await application.dispose()
+		await ultimabase.dispose()
 	}
 })
 

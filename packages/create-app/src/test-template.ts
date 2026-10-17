@@ -1,29 +1,13 @@
 import { hasHttpListener } from './api-template.js'
 import { hasPlugin as has, type InitializerPlan } from './config.js'
-import { needsMasterKey } from './security-template.js'
 
 /** Relative import of a generated module from `tests/` (Node runs `.ts`). */
 const sourceModule = (plan: InitializerPlan, name: string): string =>
 	`../src/${name}.${plan.language}`
 
 /** The Vitest configuration: PostgreSQL started once, one schema per worker. */
-export const vitestConfigSource = (plan: InitializerPlan): string =>
-	needsMasterKey(plan)
-		? `import { ultimabaseTesting } from '@ultimabase/testing/vitest'
-import { defineConfig } from 'vitest/config'
-
-const testing = ultimabaseTesting()
-
-// PostgreSQL from TEST_DATABASE_URL, or a container started once (Docker).
-export default defineConfig({
-  test: {
-    ...testing,
-    // The application reads its Master key when it is imported.
-    env: { ...testing.env, ULTIMABASE_MASTER_KEY: 'test-only-master-key' },
-  },
-})
-`
-		: `import { ultimabaseTesting } from '@ultimabase/testing/vitest'
+export const vitestConfigSource = (): string =>
+	`import { ultimabaseTesting } from '@ultimabase/testing/vitest'
 import { defineConfig } from 'vitest/config'
 
 // PostgreSQL from TEST_DATABASE_URL, or a container started once (Docker).
@@ -91,10 +75,10 @@ import { Task } from '${sourceModule(plan, 'schemas/task')}'
 import { ultimabase } from '${sourceModule(plan, 'ultimabase')}'
 
 // testApplication starts the real application on this worker's own schema;
-// each call starts from empty tables. Leaving the scope disposes the handle
-// and waits for after-commit work${hiddenByAcl(plan) ? '' : '; `_t` is never read'}.
+// each call starts from empty tables, and the end of each test waits for its
+// after-commit work.
 it('creates a Task with its defaults', async () => {
-  await using ${hiddenByAcl(plan) ? 't' : '_t'} = await testApplication(ultimabase)
+  ${hiddenByAcl(plan) ? 'await using t = ' : ''}await testApplication(ultimabase)
   ${createTask(plan, 'Write the first test')}
   expect(task).toMatchObject({ done: false, title: 'Write the first test' })
 })${http && has(plan, 'rest-plugin') ? restTest(plan) : ''}${

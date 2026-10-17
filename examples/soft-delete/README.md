@@ -40,7 +40,6 @@ corepack yarn build
 corepack yarn workspace @ultimabase/example-soft-delete typecheck
 corepack yarn workspace @ultimabase/example-soft-delete test
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_soft_delete \
-ULTIMABASE_MASTER_KEY=development-only-secret \
 	corepack yarn workspace @ultimabase/example-soft-delete start
 ```
 

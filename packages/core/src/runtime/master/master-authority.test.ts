@@ -228,8 +228,13 @@ describe('MasterAuthority', () => {
 				message: 'Master authority clock must be a function',
 			},
 			{
-				create: () => new MasterAuthority({ keys: [], onUse: () => undefined }),
-				message: 'Master authority keys must be a non-empty array',
+				create: () =>
+					new MasterAuthority({
+						keys: 'secret' as never,
+						onUse: () => undefined,
+					}),
+				message:
+					'Master authority keys must be an array or a function returning one',
 			},
 			{
 				create: () =>

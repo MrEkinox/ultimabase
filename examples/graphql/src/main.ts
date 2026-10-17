@@ -11,12 +11,6 @@ process.stdout.write(
 	`GraphQL example ${started.state}: POST http://127.0.0.1:1337/graphql, GraphiQL at http://127.0.0.1:1337/graphiql\n`,
 )
 
-// Keep framework-owned resources until the development process stops.
-await new Promise<void>((resolve) => {
-	process.once('SIGINT', () => {
-		resolve()
-	})
-	process.once('SIGTERM', () => {
-		resolve()
-	})
-})
+// The server plugin stops the application on SIGINT or SIGTERM; leaving
+// this scope then disposes it.
+await started.closed

@@ -145,3 +145,42 @@ test('accumulates immutable configured factory tuples', () => {
 		plugins: [databasePlugin],
 	})
 })
+
+test('flattens preset arrays into the installed tuple (ADR-0340)', () => {
+	const preset = [observerPlugin, [databasePlugin]] as const
+	const Preset = UltimaBase.use(preset)
+	const Nested = UltimaBase.use(observerPlugin, [[databasePlugin]])
+	const dynamic: readonly (readonly PluginDefinition[])[] = [[databasePlugin]]
+	const Dynamic = UltimaBase.use(...dynamic)
+
+	expectTypeOf(new Preset({ schemas: [articleSchema] })).toEqualTypeOf<
+		UltimaBase<
+			readonly [typeof articleSchema],
+			readonly [typeof observerPlugin, typeof databasePlugin]
+		>
+	>()
+	expectTypeOf(
+		new (Preset.use([observerPlugin]))({ schemas: [articleSchema] }),
+	).toEqualTypeOf<
+		UltimaBase<
+			readonly [typeof articleSchema],
+			readonly [
+				typeof observerPlugin,
+				typeof databasePlugin,
+				typeof observerPlugin,
+			]
+		>
+	>()
+	expectTypeOf(new Nested({ schemas: [articleSchema] })).toEqualTypeOf<
+		UltimaBase<
+			readonly [typeof articleSchema],
+			readonly [typeof observerPlugin, typeof databasePlugin]
+		>
+	>()
+	const open: readonly PluginDefinition[] = [databasePlugin]
+	expectTypeOf(new Dynamic({ schemas: [articleSchema] })).toEqualTypeOf(
+		new (UltimaBase.use(...open))({ schemas: [articleSchema] }),
+	)
+	// @ts-expect-error -- Only plugins and arrays of plugins are installed.
+	UltimaBase.use(['not a plugin'])
+})

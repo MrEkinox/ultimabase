@@ -6,7 +6,7 @@ import { Post, PostTitleChange } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 it('records a title change in the same transaction', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Draft title' } })
 
 	//#region title-change
@@ -91,7 +91,7 @@ it('rolls back Hook writes and events with their transaction', async () => {
 })
 
 it('runs the Hooks a compatible plugin contributes', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const post = await Post.createOne({
 		data: { title: 'Live', published: true },
 	})

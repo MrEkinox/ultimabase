@@ -27,11 +27,13 @@ describe('landing plugin stacks', () => {
 					example.code
 						.replace("import { Article } from './article.js'", '')
 						.replace("import { UltimaBase } from '@ultimabase/core'", '')
-						.replace('const app =', 'export const app =')
+						.replace('const ultimabase =', 'export const ultimabase =')
 				// Remove startup only from the loaded module; retain it in the compiler input below.
 				const compiled = await compileLandingApplication(
 					path.join(directory, 'application-runtime.ts'),
-					source.replace('await app.start()', ''),
+					source
+						.replace('await using started = await ultimabase.start()', '')
+						.replace(/\n.*\nawait started\.closed$/u, ''),
 				)
 				expect(compiled.schemas.has('Article')).toBe(true)
 				const program = await compileLandingSample(
@@ -106,10 +108,10 @@ const RuntimeConfiguredApplication = RuntimeApplication.use(
   runtimeValidationPlugin(),
   runtimeAccessPlugin(),
 )
-export const app = new RuntimeConfiguredApplication({ schemas: [${example.schema}] })
+export const ultimabase = new RuntimeConfiguredApplication({ schemas: [${example.schema}] })
 declare module '@ultimabase/core' {
   interface Register {
-    readonly app: typeof app
+    readonly app: typeof ultimabase
   }
 }`
 			const compiled = await compileLandingApplication(
@@ -119,7 +121,7 @@ declare module '@ultimabase/core' {
 			expect(compiled.schemas.has(example.schema)).toBe(true)
 			const program = await compileLandingSample(
 				path.join(directory, 'capability.ts'),
-				`${source}\nawait app.start()\n${example.checks}`,
+				`${source}\nawait ultimabase.start()\n${example.checks}`,
 			)
 			expect(formatLandingDiagnostics(program)).toBe('')
 		})

@@ -17,7 +17,6 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
 const execFileAsync = promisify(execFile)
-const masterKey = 'local-test-only-master-key'
 let fixture: PostgresWorkerFixture | undefined
 
 beforeAll(async () => {
@@ -50,7 +49,7 @@ const generate = async (
 		)
 		await writeFile(
 			path.join(plan.destination, '.env'),
-			`DATABASE_URL=${fixture.connectionUri}\nULTIMABASE_MASTER_KEY=${masterKey}\n`,
+			`DATABASE_URL=${fixture.connectionUri}\n`,
 			{ mode: 0o600 },
 		)
 		return {
@@ -197,9 +196,6 @@ try {
   if (!audit.some(({ label, metadata }) => label === 'Master authority used' && metadata?.kind === 'master-access')) {
     throw new Error('Master audit event is missing')
   }
-  if (JSON.stringify(audit).includes(process.env.ULTIMABASE_MASTER_KEY)) {
-    throw new Error('Master key leaked into audit')
-  }
   originalInfo('ACCESS_AUDIT_PASS')
 } finally {
   console.info = originalInfo
@@ -208,7 +204,6 @@ try {
 `,
 			)
 			expect(output).toContain('ACCESS_AUDIT_PASS')
-			expect(output).not.toContain(masterKey)
 		} finally {
 			await project.dispose()
 		}

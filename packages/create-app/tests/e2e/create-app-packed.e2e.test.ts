@@ -222,7 +222,7 @@ describe('packed initializer outside the repository', () => {
 			)
 			await writeFile(
 				path.join(destination, '.env'),
-				'DATABASE_URL=postgres://u:p@127.0.0.1:5432/disposable\nULTIMABASE_MASTER_KEY=local-test-key\n',
+				'DATABASE_URL=postgres://u:p@127.0.0.1:5432/disposable\n',
 			)
 			await execFileAsync('npm', ['run', 'build'], {
 				cwd: destination,

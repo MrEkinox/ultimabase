@@ -28,6 +28,7 @@ sources:
   - docs/adr/0258-single-active-application-lifecycle.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0303-core-partial-indexes-and-health.md
+  - docs/adr/0340-what-every-application-pays.md
   - packages/core/src/runtime/application/application-health.ts
   - docs/adr/0279-source-typed-configured-application-authoring.md
   - docs/adr/0282-variadic-configured-plugin-installation.md
@@ -178,6 +179,17 @@ example names that binding `started`; it is the same object as `ultimabase`:
 <include cwd meta='title="src/main.ts"'>
 	../../examples/modeling/src/main.ts#start
 </include>
+
+A process that serves requests keeps that scope open with
+`await started.closed`: the promise resolves once the application stops or is
+disposed, never rejects, and a server plugin such as
+[Hono Server](/docs/1.0.0/plugins/official/hono-server) stops the application
+on `SIGINT` or `SIGTERM`. Leaving the scope then disposes it.
+
+An application with schemas needs a database plugin: without one, `start()`
+fails with an error naming the missing capability,
+`ultimabase.database-adapter`. An application without schemas starts without
+one, but cannot execute requests.
 
 Without `await using`, put `dispose()` in `finally` so normal work and
 failures both release application resources. If startup fails, Core attempts

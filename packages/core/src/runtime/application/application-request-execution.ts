@@ -35,7 +35,11 @@ import {
 	assertApplicationRequestExecutionAvailable,
 	assertMasterElevationPrivilege,
 } from '../engine/application-binding.js'
-import type { FrameworkEngine } from '../engine/framework-engine.js'
+import {
+	readFrameworkMasterAuthority,
+	type FrameworkEngine,
+} from '../engine/framework-engine.js'
+import { masterAuthorityHasKeys } from '../master/master-authority.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import { hasFrameworkProtectedPolicy } from '../plugin-operations/engine-integration.js'
 import type {
@@ -100,6 +104,12 @@ export interface ApplicationRequestExecutor {
 	verifyMasterKey<const TSource extends string>(
 		options: ApplicationMasterKeyVerificationOptions<TSource>,
 	): Promise<RequestContext<MasterRequestAccess, TSource>>
+	/**
+	 * Reports whether the application's `MasterAuthority` has a raw key to
+	 * verify, read at start: a transport accepting raw keys refuses to start
+	 * without one (ADR-0340).
+	 */
+	hasMasterKeys(): boolean
 	/** Constructs one immutable allowlist for explicitly bound plugin operations. */
 	exposeOperations<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportExposureOptions<TTransport>,
@@ -252,6 +262,13 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		const grant = framework.authorizeMasterKey(options.rawKey)
 		const master = await request.useMasterKey(grant, options.reason)
 		return master.context
+	}
+
+	hasMasterKeys(): boolean {
+		const authority = readFrameworkMasterAuthority(
+			enterBoundFramework(this, false),
+		)
+		return authority !== undefined && masterAuthorityHasKeys(authority)
 	}
 
 	exposeOperations<const TTransport extends OperationTransportProtocol>(

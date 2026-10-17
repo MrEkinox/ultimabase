@@ -8,7 +8,7 @@ import { ultimabase } from '../src/ultimabase.ts'
 import { seedBlog } from './support.ts'
 
 it('prints the schema the application serves', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 
 	const sdl = ultimabase.plugin('@ultimabase/graphql-plugin').printSchema()
 	// The operation's types derive from its validators.

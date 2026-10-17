@@ -77,7 +77,7 @@ export const compileLandingApplication = async (
 	const loaded: unknown = await import(pathToFileURL(filename).href)
 	const application: unknown =
 		typeof loaded === 'object' && loaded !== null
-			? Reflect.get(loaded, 'app')
+			? Reflect.get(loaded, 'ultimabase')
 			: undefined
 	if (!isCompilableApplication(application))
 		throw new TypeError(`${filename} must export an UltimaBase application`)

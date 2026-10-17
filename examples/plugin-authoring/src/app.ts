@@ -17,7 +17,7 @@ export const App = UltimaBase.use(
 	archivePlugin(),
 	auditPlugin(),
 	flagPlugin(),
-	...apiServer({
+	apiServer({
 		rest: { publicWrites: true },
 		graphql: { publicWrites: true },
 	}),

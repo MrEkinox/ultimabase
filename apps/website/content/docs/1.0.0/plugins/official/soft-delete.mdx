@@ -132,8 +132,8 @@ require it:
 **disposable development database**: outside production, PostgreSQL's
 `override` policy can create or alter application tables.
 
-Keep `ULTIMABASE_MASTER_KEY` server-side. A client must never choose
-`useMasterKey` or receive that key. See [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
+In-process Master needs no key. A client must never choose `useMasterKey`.
+See [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
 for audit configuration.
 
 Start the exported application from a separate entry point:

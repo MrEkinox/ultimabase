@@ -30,11 +30,13 @@ Optional credential plugins contribute ordered resolvers that add typed
 immutable values without changing authority. An explicitly enabled canonical
 Master header is verified and audited by the selected application's
 `MasterAuthority` after those resolvers; successful elevation retains their
-values. Fetch cancellation and the optional deadline share the same context
+values. A transport that enables that header refuses to start when the
+authority has no key (ADR-0340). Fetch cancellation and the optional deadline share the same context
 signal through handlers, Runtime, transactions, and response completion.
 Ambiguous sensitive headers and all other pre-dispatch failures use the safe
 HTTP envelope. HTTP owns the browser policy, while the optional Hono provider
-owns sockets and listener lifecycle. Independent applications run in separate
+owns sockets and listener lifecycle, and stops the application on `SIGINT` or
+`SIGTERM` unless `stopOnSignals: false`. Independent applications run in separate
 processes, workers, or containers.
 
 ## REST

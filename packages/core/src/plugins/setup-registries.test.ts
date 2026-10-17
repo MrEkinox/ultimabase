@@ -12,6 +12,7 @@ describe('PluginSetupRegistries', () => {
 			'capabilities',
 			'logger',
 			'schemas',
+			'stopApplication',
 		])
 		expect(context).not.toHaveProperty('runtime')
 		expect(context).not.toHaveProperty('events')

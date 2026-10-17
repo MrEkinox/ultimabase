@@ -1,4 +1,8 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
@@ -34,6 +38,33 @@ type AppendPlugins<
 	TPlugins extends readonly PluginDefinition[],
 	TAdded extends readonly PluginDefinition[],
 > = readonly [...TPlugins, ...TAdded]
+
+/**
+ * One `use()` argument: a plugin, or a preset's array of plugins and
+ * nested arrays, installed in order (ADR-0340).
+ */
+export type PluginInput = PluginDefinition | readonly PluginInput[]
+
+/** Flattens `use()` arguments into the ordered plugin tuple they install. */
+export type FlattenPluginInputs<TInputs extends readonly PluginInput[]> =
+	Extract<FlattenInputs<TInputs>, readonly PluginDefinition[]>
+
+type FlattenInputs<TInputs extends readonly PluginInput[]> =
+	TInputs extends readonly [
+		infer TFirst,
+		...infer TRest extends readonly PluginInput[],
+	]
+		? TFirst extends PluginDefinition
+			? readonly [TFirst, ...FlattenInputs<TRest>]
+			: TFirst extends readonly PluginInput[]
+				? readonly [...FlattenInputs<TFirst>, ...FlattenInputs<TRest>]
+				: never
+		: number extends TInputs['length']
+			? // An open list keeps its plugin type; open nested lists widen.
+				TInputs[number] extends PluginDefinition
+				? readonly TInputs[number][]
+				: readonly PluginDefinition[]
+			: readonly []
 
 /** Folds exact tuple receipts while treating an open array as one broad source. */
 export type MergeInstalledPluginSources<
@@ -74,15 +105,16 @@ export interface ConfiguredUltimaBaseFactory<
 	/** Uses the same schema namespace as the zero-plugin root factory. */
 	readonly Schema: ConfiguredSchemaNamespace<TSource>
 	/**
-	 * Returns a new factory with plugins appended to its flat ordered tuple.
+	 * Returns a new factory with plugins, and the plugins of preset arrays,
+	 * appended in order to its flat tuple (ADR-0340).
 	 *
-	 * @example `const Api = DatabaseApplication.use(httpPlugin(), restPlugin())`
+	 * @example `new (App.use(hooksPlugin(postHooks)))({ schemas })`
 	 */
-	use<const TAdded extends readonly PluginDefinition[]>(
+	use<const TAdded extends readonly PluginInput[]>(
 		...plugins: TAdded
 	): ConfiguredApplicationFactory<
-		AppendPlugins<TPlugins, TAdded>,
-		MergeInstalledPluginSources<TSource, TAdded>
+		AppendPlugins<TPlugins, FlattenPluginInputs<TAdded>>,
+		MergeInstalledPluginSources<TSource, FlattenPluginInputs<TAdded>>
 	>
 	/**
 	 * Creates one application without repeating its configured plugin tuple.
@@ -106,22 +138,32 @@ export const readConfiguredPlugins = (
 	factory: object,
 ): readonly PluginDefinition[] => configuredPlugins.get(factory) ?? emptyPlugins
 
+// Arrays are presets: their plugins install in order; anything else is
+// left for plugin normalization to reject.
+const flattenPluginInputs = (
+	inputs: readonly PluginInput[],
+): PluginDefinition[] =>
+	inputs.flatMap((input) =>
+		isUnknownArray(input) ? flattenPluginInputs(input) : [input],
+	)
+
 /** @internal Creates one frozen descendant without compiling an application graph. */
 export const appendConfiguredPlugins = <
 	TPlugins extends readonly PluginDefinition[],
 	TSource extends PluginSourceState,
-	const TAdded extends readonly PluginDefinition[],
+	const TAdded extends readonly PluginInput[],
 >(
 	factory: object,
-	...added: TAdded
+	...inputs: TAdded
 ): ConfiguredApplicationFactory<
-	AppendPlugins<TPlugins, TAdded>,
-	MergeInstalledPluginSources<TSource, TAdded>
+	AppendPlugins<TPlugins, FlattenPluginInputs<TAdded>>,
+	MergeInstalledPluginSources<TSource, FlattenPluginInputs<TAdded>>
 > => {
+	const added = flattenPluginInputs(inputs)
 	if (added.length === 0) {
 		return factory as ConfiguredApplicationFactory<
-			AppendPlugins<TPlugins, TAdded>,
-			MergeInstalledPluginSources<TSource, TAdded>
+			AppendPlugins<TPlugins, FlattenPluginInputs<TAdded>>,
+			MergeInstalledPluginSources<TSource, FlattenPluginInputs<TAdded>>
 		>
 	}
 	const parent = factory as unknown as RuntimeApplicationConstructor
@@ -168,7 +210,7 @@ export const appendConfiguredPlugins = <
 	return Object.freeze(
 		ConfiguredApplication,
 	) as unknown as ConfiguredApplicationFactory<
-		AppendPlugins<TPlugins, TAdded>,
-		MergeInstalledPluginSources<TSource, TAdded>
+		AppendPlugins<TPlugins, FlattenPluginInputs<TAdded>>,
+		MergeInstalledPluginSources<TSource, FlattenPluginInputs<TAdded>>
 	>
 }

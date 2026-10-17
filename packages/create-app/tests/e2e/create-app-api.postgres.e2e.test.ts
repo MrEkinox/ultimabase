@@ -45,7 +45,7 @@ const setupProject = async (
 		)
 		await writeFile(
 			path.join(plan.destination, '.env'),
-			`DATABASE_URL=${fixture.connectionUri}\nULTIMABASE_MASTER_KEY=local-test-only-master-key\n`,
+			`DATABASE_URL=${fixture.connectionUri}\n`,
 			{ mode: 0o600 },
 		)
 		if (options.language === 'ts') {

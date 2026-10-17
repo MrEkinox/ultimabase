@@ -13,7 +13,7 @@ const reply = (parentId: string | undefined, body: string) =>
 	})
 
 it('counts replies at every level through the same Hook', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	//#region thread
 	const root = await Comment.createOne({ data: { body: 'Root' } })
 	const answer = await Comment.createOne({
@@ -37,7 +37,7 @@ it('counts replies at every level through the same Hook', async () => {
 })
 
 it('stops a chain deeper than 16 Hook-issued operations and rolls it back', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	let parentId: string | undefined
 	// Each new level makes its Hooks update every ancestor, one nested call each.
 	for (let depth = 0; depth <= 16; depth += 1) {

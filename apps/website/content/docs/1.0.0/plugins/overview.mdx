@@ -33,12 +33,12 @@ Importing a plugin package never installs it. Its factory returns an inert
 definition. Add that definition to an immutable application factory with
 `.use()` to opt in:
 
-```ts twoslash title="src/application.ts"
+```ts twoslash title="src/ultimabase.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const Application = UltimaBase.use(hooksPlugin())
-const Post = Application.Schema.define({
+const App = UltimaBase.use(hooksPlugin())
+const Post = App.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string() }),
 }).with({
@@ -49,13 +49,13 @@ const Post = Application.Schema.define({
 	},
 })
 
-export const application = new Application({
+export const ultimabase = new App({
 	schemas: [Post],
 })
 
 declare module '@ultimabase/core' {
 	interface Register {
-		readonly app: typeof application
+		readonly app: typeof ultimabase
 	}
 }
 ```

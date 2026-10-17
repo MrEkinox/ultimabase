@@ -62,12 +62,11 @@ corepack yarn build
 corepack yarn workspace @ultimabase/example-queries typecheck
 corepack yarn workspace @ultimabase/example-queries test
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_queries \
-ULTIMABASE_MASTER_KEY=development-only-secret \
 	corepack yarn workspace @ultimabase/example-queries start
 ```
 
 `test` starts PostgreSQL in a container once (Docker), or uses
-`TEST_DATABASE_URL`. `start` starts the application and keeps it running
-until interrupted; this example installs no transport. The PostgreSQL
+`TEST_DATABASE_URL`. `start` starts the application, prints its state and
+stops: this example installs no transport. The PostgreSQL
 `override` schema policy (the default outside production) is convenient for
 this development example and is not a production migration strategy.

@@ -182,7 +182,9 @@ in front of the server; HTTPS is recognized from the request URL or, behind
 `master: true` enables only the canonical `X-UltimaBase-Master-Key` header.
 The plugin then requests `authority:elevate`, passes that raw value directly to
 the selected application's configured `MasterAuthority`, and continues only
-after its audit succeeds:
+after its audit succeeds. That authority needs at least one key: without one,
+`start()` fails with an error naming `master: true` (ADR-0340). The example
+gives its key as a function, read once when the application starts:
 
 <!-- region ../../examples/http/src/ultimabase.ts#application -->
 
@@ -194,9 +196,12 @@ import { readSecret } from './env.ts'
 import { Link } from './schema.ts'
 
 export const ultimabase = new App({
-	// `httpPlugin({ master: true })` hands the header to this authority.
+	// `httpPlugin({ master: true })` hands the header to this authority. The
+	// key is read once, when the application starts, never at import.
 	masterAuthority: new MasterAuthority({
-		keys: [{ id: 'operations', value: readSecret('ULTIMABASE_MASTER_KEY') }],
+		keys: () => [
+			{ id: 'operations', value: readSecret('ULTIMABASE_MASTER_KEY') },
+		],
 		onUse: (event) => {
 			// Replace this console record with a durable audit sink in production.
 			console.info('Master authority used', event.reason)
@@ -233,8 +238,8 @@ const response = await t.fetch('/api/classes/Link', {
 
 <!-- endregion -->
 
-A missing header remains anonymous. Invalid, disabled, foreign, unaudited, or
-authority-less Master attempts fail with `HTTP_APPLICATION_REJECTED`, and a
+A missing header remains anonymous. Invalid, disabled, foreign, or unaudited
+Master attempts fail with `HTTP_APPLICATION_REJECTED`, and a
 duplicated header with `HTTP_BAD_REQUEST`, before route behavior. Query parameters, body
 fields, alternative headers, grants, contexts, privileges, and `useMasterKey`
 never select Master. Never send the Master key from browser code.

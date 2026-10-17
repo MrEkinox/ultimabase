@@ -36,7 +36,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	partnerCredentials({ acme: readSecret('ACME_PARTNER_TOKEN') }),
 	apiInfoPlugin(),
-	...apiServer({
+	apiServer({
 		http,
 		rest: true,
 		// The managed listener: `PORT`, else 1337; `HOST`, else 127.0.0.1
@@ -61,31 +61,20 @@ that its routes have a server (ADR-0313).
 The listener opens only during `startTransports`, after the complete
 application graph has validated, and closes when its application stops. Keep
 configuration separate from startup so tooling can load it without starting a
-server; the entry point starts the application and awaits its disposal:
+server; the entry point starts the application and awaits `started.closed`:
 
 <!-- region ../../examples/http/src/main.ts#main -->
 
 ```ts
-import { once } from 'node:events'
-import process from 'node:process'
-
 import { ultimabase } from './ultimabase.ts'
 
-// Listen before starting, so a stop signal during startup is observed too.
-const stopSignal = Promise.race([
-	once(process, 'SIGINT'),
-	once(process, 'SIGTERM'),
-])
-try {
-	await ultimabase.start()
-	const address = ultimabase.plugin('@ultimabase/hono-server-plugin').address()
-	console.info(`Listening on port ${String(address?.port)}`)
-	await stopSignal
-} finally {
-	// Refuses new requests, lets in-flight ones finish, then closes the
-	// listener and the database.
-	await ultimabase.dispose()
-}
+await using started = await ultimabase.start()
+const address = started.plugin('@ultimabase/hono-server-plugin').address()
+console.info(`Listening on port ${String(address?.port)}`)
+// SIGINT or SIGTERM stops the application: it refuses new requests, lets
+// in-flight ones finish and closes the listener. Leaving this scope then
+// closes the database.
+await started.closed
 ```
 
 <!-- endregion -->
@@ -106,7 +95,11 @@ deterministic Node address-conflict failure.
 
 `stop()` refuses new requests, waits for in-flight ones at most
 `shutdownTimeoutMs` (10 seconds by default; 5 in the example above), then
-closes the remaining connections (ADR-0323). `compression: true` compresses
+closes the remaining connections (ADR-0323). The managed listener calls it on
+the first `SIGINT` or `SIGTERM` (ADR-0340): `ultimabase.closed` resolves, the
+entry point's `await using` scope disposes the application, and a second
+signal ends the process with Node.js's default behavior. `stopOnSignals:
+false` leaves both signals to your code. `compression: true` compresses
 UltimaBase responses with gzip or deflate; it is off by default because
 proxies and CDNs usually compress. On an existing app only the UltimaBase
 routes are compressed.
@@ -129,8 +122,9 @@ be reused after complete disposal with a fresh application.
 
 Pass `app` when application routes must join an existing Hono assembly. The
 plugin adds one dispatcher after UltimaBase validation but never starts, stops,
-or disposes the Hono application or its listener. `host`, `port` and
-`shutdownTimeoutMs` are rejected in this ownership mode. The example's second
+or disposes the Hono application or its listener, and never handles signals.
+`host`, `port`, `shutdownTimeoutMs` and `stopOnSignals` are rejected in this
+ownership mode. The example's second
 application installs the plugins one by one:
 
 <!-- region ../../examples/http/src/existing-app.ts#existing-app -->

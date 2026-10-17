@@ -173,7 +173,7 @@ export const App = UltimaBase.use(
 	// Production refuses to start until you write .with({ access }) rules and
 	// remove this opening.
 	accessPlugin({ allowWithoutRule: { all: 'development' } }),
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```
@@ -191,7 +191,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 export const App = UltimaBase.use(
 	accessPlugin({ allowWithoutRule: { all: 'development' } }),
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 // @filename: src/schemas/task.ts
@@ -245,8 +245,8 @@ docker compose up -d --wait
 
 For an existing database without a URL, copy `.env.example` to `.env` and
 replace its `DATABASE_URL` placeholder with your disposable database URL.
-Keep the file private. Object ACLs and Roles also configure a local Master
-key; the generated README identifies the value without printing it.
+Keep the file private. Object ACLs and Roles also configure audited Master
+authority for the Task seed; it runs in process and needs no key.
 
 The default flow installs dependencies during generation. If you chose
 `--no-install` or answered No, first run `npm install`, `yarn install`, or
@@ -292,7 +292,8 @@ The Task starter prints a new record with a generated `id`,
 `title: 'Ship the first feature'`, and `done: false`. It seeds that record
 only when no Task exists, so starting it again prints the same record instead
 of writing another. Access logs one warning: the prototype opening is active.
-The application listens on `127.0.0.1:1337` until you stop it; `GET /health`
+The application listens on `127.0.0.1:1337` until Ctrl+C (`SIGINT`) or
+`SIGTERM` stops it; `GET /health`
 reports its health, and the README supplies local requests, which need no
 application header. With `NODE_ENV=production`, the application refuses to
 start until rules replace the opening. The test command reports two passing

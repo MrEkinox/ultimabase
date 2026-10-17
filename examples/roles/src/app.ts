@@ -17,7 +17,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	roleAuditPlugin,
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 //#endregion factory

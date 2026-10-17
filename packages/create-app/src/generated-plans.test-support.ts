@@ -41,7 +41,6 @@ export const renderPlan = (
 	renderBaseFiles(
 		resolveSelection({ name: 'clean-notes', ...input }, '/tmp'),
 		'docker-password',
-		'master-key',
 	)
 
 export const officialPluginIds = pluginIds

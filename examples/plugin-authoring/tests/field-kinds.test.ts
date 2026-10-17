@@ -27,7 +27,7 @@ const Review = App.Schema.define({
 const reviews = new App({ schemas: [Review] })
 
 it('offers the plugin builder method and field option', async () => {
-	await using _t = await testApplication(reviews)
+	await testApplication(reviews)
 	const review = await Review.createOne({
 		data: { body: 'Clear and short', stars: 4 },
 		select: { score: true },

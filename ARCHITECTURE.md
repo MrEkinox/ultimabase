@@ -188,8 +188,12 @@ installed plugins, the deadline, body limit, security headers, rate limits and
 access log shared by every transport, port-free `fetch()`, safe pre-dispatch
 failures, and the explicitly enabled audited Master header boundary without
 opening a socket (ADR-0323). Its health route reads Core's health through the
-request executor's generic `health()`. The Hono package supplies the optional
-server lifecycle, bounded shutdown and optional compression. The REST package owns
+request executor's generic `health()`. The HTTP plugin refuses to start with
+its Master header enabled when the application's authority has no key, which
+it reads through the executor's generic `hasMasterKeys()` (ADR-0340). The Hono
+package supplies the optional server lifecycle, bounded shutdown, optional
+compression, and stops the application on `SIGINT`/`SIGTERM` through the
+setup context's generic `stopApplication()`. The REST package owns
 deterministic application-local REST v1 route metadata, the direct schema
 option, schema-aware read and mutation normalization, response encoding, route
 dispatch, and logical delegation through Core's narrow application request
@@ -350,6 +354,8 @@ application itself on an isolated PostgreSQL schema (`testApplication`,
 ADR-0327) through Core's application harness, which grants Master without a
 key and empties data only to the code that opened it before start; the
 database plugin provides the neutral `ultimabase.database-reset` capability.
+Inside a test, it waits for that test's after-commit work when the test
+finishes, through the Vitest setup file of `ultimabaseTesting()` (ADR-0340).
 The types-only `@standard-schema/spec` dependency is owned only by packages that
 parse Standard Schema contracts, including Plugin Kit and the optional Validation
 plugin. Core has no direct dependency on it.
@@ -525,16 +531,16 @@ is recognized only when `accessPlugin()` contributes its option definitions:
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { UltimaBase } from '@ultimabase/core'
 
-const Application = UltimaBase.use(accessPlugin())
+const App = UltimaBase.use(accessPlugin())
 
-const Post = Application.Schema.define({
+const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string(),
 	}),
 }).with({ access: { read: true } })
 
-const application = new Application({ schemas: [Post] })
+const ultimabase = new App({ schemas: [Post] })
 ```
 
 Each used direct option resolves against one exact definition contributed by an
@@ -721,8 +727,11 @@ the original failure is reported.
 `UltimaBase` is the sole public application owner. Core's Runtime domain keeps
 its application kernel and engine private behind that facade. Construction and
 `compile()` perform no I/O; `initialize()` materializes application capabilities,
-and `start()` assembles Runtime before starting infrastructure. Configured
-literal plugin names retain their setup export types.
+and `start()` assembles Runtime before starting infrastructure, reads lazy
+Master keys once, and fails when schemas are registered without a database
+provider (ADR-0340). The facade's `closed` promise resolves when the
+application stops or is disposed. `use()` flattens preset arrays into the
+plugin tuple. Configured literal plugin names retain their setup export types.
 
 ## Engines
 

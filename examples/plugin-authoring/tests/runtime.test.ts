@@ -8,14 +8,14 @@ import { sessionVersion } from '../src/sessions-plugin.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 it('composes two plugins through a capability', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	expect(ultimabase.plugin('community.workflow-consumer')).toStrictEqual({
 		format: 'compact',
 	})
 })
 
 it('connects a lifecycle-only resource with the application', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	expect(client.connected).toBe(true)
 })
 

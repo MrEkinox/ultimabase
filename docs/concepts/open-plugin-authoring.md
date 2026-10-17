@@ -161,8 +161,8 @@ privileges. Derived privileges are allowed by default, reported, and
 cumulatively denyable:
 
 ```ts
-const Application = UltimaBase.use(workflowPlugin({ instanceId: 'editorial' }))
-const ultimabase = new Application({
+const App = UltimaBase.use(workflowPlugin({ instanceId: 'editorial' }))
+const ultimabase = new App({
 	schemas: [PostSchema],
 	pluginPrivileges: {
 		deny: ['storage:private'],

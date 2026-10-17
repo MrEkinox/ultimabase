@@ -35,8 +35,8 @@ import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
-const Application = UltimaBase.use(hooksPlugin()).use(pgVectorPlugin())
-const DocumentSchema = Application.Schema.define({
+const App = UltimaBase.use(hooksPlugin()).use(pgVectorPlugin())
+const DocumentSchema = App.Schema.define({
 	className: 'Document',
 	fields: (field) => ({
 		embedding: field.vector({
@@ -50,11 +50,11 @@ const DocumentSchema = Application.Schema.define({
 	}),
 })
 
-const application = new Application({
+const ultimabase = new App({
 	schemas: [DocumentSchema],
 })
 
-application.compile()
+ultimabase.compile()
 ```
 
 The configured factory infers `VectorFieldBuilderMethod` from the installed

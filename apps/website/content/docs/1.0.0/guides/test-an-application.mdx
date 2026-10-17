@@ -102,7 +102,7 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 export const App = UltimaBase.use(
 	accessPlugin({ allowWithoutRule: { all: 'development' } }),
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 // @filename: src/schemas/task.ts
@@ -135,10 +135,10 @@ import { Task } from '../src/schemas/task.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 // testApplication starts the real application on this worker's own schema;
-// each call starts from empty tables. Leaving the scope disposes the handle
-// and waits for after-commit work; `_t` is never read.
+// each call starts from empty tables, and the end of each test waits for its
+// after-commit work.
 it('creates a Task with its defaults', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const task = await Task.createOne({ data: { title: 'Write the first test' } })
 	expect(task).toMatchObject({ done: false, title: 'Write the first test' })
 })
@@ -154,14 +154,15 @@ it('lists Tasks over REST', async () => {
 })
 ```
 
-Each test opens its handle with
-`await using t = await testApplication(ultimabase)`. The first call starts
+Each test calls `await testApplication(ultimabase)`. The first call starts
 the application; a later call in the same file reuses it after emptying its
-tables, so the REST list holds only the Task of its own test. Leaving the
-`await using` scope waits for after-commit work, so a test that never reads
-its handle still declares it, named `_t` so that TypeScript's
-`noUnusedLocals` accepts it. The application stops after the file and its
-schema is dropped.
+tables, so the REST list holds only the Task of its own test. Called inside a
+test, it also waits for that test's after-commit work when the test
+finishes, so a test that does not use the handle keeps no binding. A test
+that uses it writes `await using t = await testApplication(ultimabase)`;
+leaving that scope waits the same way. Called from `beforeAll`, outside a
+test, it waits only at the next call. The application stops after the file
+and its schema is dropped.
 
 ### Use the handle
 
@@ -171,7 +172,7 @@ schema is dropped.
 | `t.as(principal, fn)`            | Run direct calls as one user: `t.as(User.pointer(id), () => Task.findMany())`; rules see that principal.                               |
 | `t.asMaster(fn)`                 | Seed or inspect data with Master authority, without a configured key; validation and hooks still run.                                  |
 | `t.reset()`                      | Empty every table within a test; plugins' start seeding, such as Roles `ensure`, runs again.                                           |
-| `t.afterCommit()`                | Wait for `afterCommit` hooks and event consumers before asserting their effects.                                                       |
+| `t.afterCommit()`                | Wait for `afterCommit` hooks and event consumers before asserting their effects; the end of the test waits anyway.                     |
 
 The [plugin authoring example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/plugin-authoring/README.md)
 seeds a post with Master authority, lists it over REST and waits for its

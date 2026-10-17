@@ -21,7 +21,7 @@ export const App = UltimaBase.use(
 	aclPlugin(),
 	// REST over HTTP and a local Hono listener; Access decides
 	// what each request may do.
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 //#endregion factory

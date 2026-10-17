@@ -29,16 +29,16 @@ afterAll(async () => {
 it('reads DATABASE_URL when the application starts', async () => {
 	vi.stubEnv('DATABASE_URL', '')
 	try {
-		const Application = UltimaBase.use(postgresPlugin())
+		const App = UltimaBase.use(postgresPlugin())
 		// Creating the plugin and the application needs no environment.
-		const application = new Application({ schemas: [] })
+		const ultimabase = new App({ schemas: [] })
 
-		const failure = application.start()
+		const failure = ultimabase.start()
 
 		await expect(failure).rejects.toThrow(
 			/set the DATABASE_URL environment variable, or pass postgresPlugin\(\{ url \}\)/u,
 		)
-		await application.dispose()
+		await ultimabase.dispose()
 	} finally {
 		vi.unstubAllEnvs()
 	}
@@ -47,14 +47,14 @@ it('reads DATABASE_URL when the application starts', async () => {
 it('opens the pool at start and closes it on dispose', async () => {
 	const url = schema.url
 	//#region lifecycle
-	const Application = UltimaBase.use(postgresPlugin({ url }))
-	const application = new Application({ schemas: [] })
+	const App = UltimaBase.use(postgresPlugin({ url }))
+	const ultimabase = new App({ schemas: [] })
 
-	await application.start()
-	const { connection } = application.plugin(postgresPluginName)
+	await ultimabase.start()
+	const { connection } = ultimabase.plugin(postgresPluginName)
 	const whileStarted = connection.state
 
-	await application.dispose()
+	await ultimabase.dispose()
 	const afterDispose = connection.state
 	//#endregion lifecycle
 
@@ -64,15 +64,15 @@ it('opens the pool at start and closes it on dispose', async () => {
 
 it('logs the connection source and schema policy at debug', async () => {
 	const { logger, messages } = recordingLogger()
-	const Application = UltimaBase.use(postgresPlugin({ url: schema.url }))
-	const application = new Application({
+	const App = UltimaBase.use(postgresPlugin({ url: schema.url }))
+	const ultimabase = new App({
 		schemas: [],
 		logger,
 		logLevel: 'debug',
 	})
 
-	await application.start()
-	await application.dispose()
+	await ultimabase.start()
+	await ultimabase.dispose()
 
 	// Where the connection comes from, never the URL itself.
 	expect(messages('debug')).toEqual(
@@ -88,11 +88,11 @@ it('leaves an injected pool to its owner', async () => {
 	const connectionString = schema.url
 	//#region own-pool
 	const pool = new Pool({ connectionString, max: 5 })
-	const Application = UltimaBase.use(postgresPlugin({ pool }))
-	const application = new Application({ schemas: [] })
+	const App = UltimaBase.use(postgresPlugin({ pool }))
+	const ultimabase = new App({ schemas: [] })
 
-	await application.start()
-	await application.dispose()
+	await ultimabase.start()
+	await ultimabase.dispose()
 
 	// The application did not close your pool: you still own it.
 	const { rows } = await pool.query('SELECT 1 AS ready')
@@ -106,34 +106,34 @@ it('names only the driver code when the connection fails', async () => {
 	const missing = new URL(testDatabaseUrl())
 	missing.pathname = '/no_such_database'
 	const { logger } = recordingLogger()
-	const Application = UltimaBase.use(postgresPlugin({ url: missing.href }))
-	const application = new Application({ schemas: [], logger })
+	const App = UltimaBase.use(postgresPlugin({ url: missing.href }))
+	const ultimabase = new App({ schemas: [], logger })
 
-	const failure = application.start()
+	const failure = ultimabase.start()
 
 	await expect(failure).rejects.toMatchObject({
 		code: 'INTERNAL_ERROR',
 		message: 'PostgreSQL connection verification failed [SQLSTATE 3D000].',
 		publicMessage: 'The database connection could not be established.',
 	})
-	await application.dispose()
+	await ultimabase.dispose()
 })
 
 it('logs statements without their values', async () => {
 	const { logger, messages } = recordingLogger()
-	const Application = UltimaBase.use(
+	const App = UltimaBase.use(
 		postgresPlugin({ url: schema.url, debug: { logQueries: true } }),
 	)
-	const Tag = Application.Schema.define({
+	const Tag = App.Schema.define({
 		className: 'Tag',
 		fields: (field) => ({ label: field.string({ required: true }) }),
 	})
-	const application = new Application({ schemas: [Tag], logger })
-	await application.start()
+	const ultimabase = new App({ schemas: [Tag], logger })
+	await ultimabase.start()
 	try {
 		await Tag.createOne({ data: { label: 'secret-label' } })
 	} finally {
-		await application.dispose()
+		await ultimabase.dispose()
 	}
 
 	const inserts = messages('info').filter((line) =>

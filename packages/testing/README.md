@@ -9,8 +9,12 @@ Applications import `@ultimabase/testing`; plugin authors import
 ## Test an application: `testApplication`
 
 `testApplication(ultimabase)` starts the production application itself (same
-plugins, same rules) on the test worker's own PostgreSQL schema. Leaving the
-`await using` scope closes the handle. From the
+plugins, same rules) on the test worker's own PostgreSQL schema. Called inside
+a test, it waits for that test's after-commit work when the test finishes
+(ADR-0340), so a test that does not use the handle keeps no binding. A test
+that uses it writes `await using t = await testApplication(ultimabase)`;
+leaving that scope closes the handle and waits the same way. Called from
+`beforeAll`, outside a test, only the next call waits. From the
 [plugin authoring example](../../examples/plugin-authoring/README.md):
 
 <!-- region ../../examples/plugin-authoring/tests/first.test.ts#first-test -->
@@ -23,7 +27,7 @@ import { Post } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 it('creates a Post', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Ship' } })
 	expect(post.archivedAt).toBeNull()
 })
@@ -53,7 +57,7 @@ The handle `t` provides:
 | `t.fetch(path, init?, options?)` | Sends one in-memory request through the HTTP plugin, without a port, as a client would: authentication comes from its headers, and the request comes from the local peer `127.0.0.1`.                                                  |
 | `t.as(principal, fn)`            | Runs `fn` as `principal` (a pointer such as `User.pointer(id)`, or `undefined` for anonymous): rules and hooks see that principal.                                                                                                     |
 | `t.asMaster(fn)`                 | Runs `fn` with Master authority without a configured key; Master bypasses authorization, never validation or hooks.                                                                                                                    |
-| `t.afterCommit()`                | Resolves once pending after-commit work (`afterCommit` hooks, event consumers) has run, including the work it started.                                                                                                                 |
+| `t.afterCommit()`                | Resolves once pending after-commit work (`afterCommit` hooks, event consumers) has run, including the work it started. Call it before asserting that work; the end of the test waits anyway.                                           |
 
 The plugin authoring example seeds with Master authority, reads over HTTP and
 empties the tables:
@@ -130,9 +134,10 @@ your own values win; merge your own `setupFiles`, `env` or `execArgv` with its
 values.
 
 With another runner, `testApplication` works the same way without the global
-setup: without `TEST_DATABASE_URL` it starts one container per process. Call
-`await ultimabase.dispose()` after the suite; the worker schema is recreated
-at the next run.
+setup: without `TEST_DATABASE_URL` it starts one container per process, and
+only the next call or the handle's `await using` scope waits for after-commit
+work. Call `await ultimabase.dispose()` after the suite; the worker schema is
+recreated at the next run.
 
 ## Plugin conformance
 
@@ -157,17 +162,17 @@ import { expect, it } from 'vitest'
 import { starterPlugin } from '../src/starter-plugin.ts'
 
 it('exposes setup only through its installed application', async () => {
-	const Application = UltimaBase.use(starterPlugin())
-	const application = await new Application({
+	const App = UltimaBase.use(starterPlugin())
+	const ultimabase = await new App({
 		schemas: [],
 	}).initialize()
 
 	try {
-		expect(application.plugin('community.starter')).toStrictEqual({
+		expect(ultimabase.plugin('community.starter')).toStrictEqual({
 			ready: true,
 		})
 	} finally {
-		await application.dispose()
+		await ultimabase.dispose()
 	}
 })
 
@@ -305,9 +310,11 @@ Use immutable `.check(contract, verifier)` calls for behavior specific to the
 plugin. Every verifier gets a fresh application built through public Core
 factories; every created value is disposed automatically, including
 after a failed assertion. Executing a request needs a database adapter: a
-logical-only fixture can start, but `ultimabase.operation(token).execute(...)`
-throws `UltimaBase must be started before request execution` until a support
-plugin provides one. Without one, check the compiled declaration:
+logical-only fixture without schemas can start, but
+`ultimabase.operation(token).execute(...)` throws `UltimaBase cannot execute
+requests: no plugin provides the database capability
+ultimabase.database-adapter` until a support plugin provides one; with schemas,
+`start()` itself fails. Without one, check the compiled declaration:
 
 <!-- region ../../examples/plugin-authoring/tests/conformance.test.ts#operation-check -->
 
@@ -414,8 +421,8 @@ records lines instead of printing them, for `new App({ logger })`:
 
 ```ts
 const logger = createCapturingLogger()
-const app = new App({ schemas: [], logger, logLevel: 'debug' })
-await app.start()
+const ultimabase = new App({ schemas: [], logger, logLevel: 'debug' })
+await ultimabase.start()
 
 expect(logger.messages('warn')).toEqual([])
 expect(logger.lines.at(-1)?.message).toMatch(/^UltimaBase started:/u)

@@ -9,15 +9,15 @@ plugin is written with `definePlugin` (ADR-0316).
 import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const Application = UltimaBase.use(softDeletePlugin())
+const App = UltimaBase.use(softDeletePlugin())
 
-const Post = Application.Schema.define({
+const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: true,
 })
 
-const ultimabase = new Application({ schemas: [Post] })
+const ultimabase = new App({ schemas: [Post] })
 ```
 
 ## Choosing a mode

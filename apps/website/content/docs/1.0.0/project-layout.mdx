@@ -22,6 +22,7 @@ sources:
   - docs/adr/0279-source-typed-configured-application-authoring.md
   - docs/adr/0297-declare-schemas-without-typegen.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0340-what-every-application-pays.md
 ---
 
 ## Context
@@ -158,6 +159,10 @@ application when the scope ends:
 <include cwd meta='title="src/main.ts"'>
 	../../examples/modeling/src/main.ts#start
 </include>
+
+The modeling example serves nothing, so its process ends there. A process
+that serves requests then writes `await started.closed`, which resolves when
+the server plugin stops the application on `SIGINT` or `SIGTERM`.
 
 ### Why `app.ts` imports no schema
 

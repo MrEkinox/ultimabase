@@ -36,13 +36,23 @@ export interface MasterAccessEvent {
 /** Requires an audit sink whenever master authority is configured. */
 export interface MasterAuthorityOptions {
 	/**
-	 * Configures verification keys; the first key ID also labels trusted backend
-	 * terminal elevations that do not retain or verify a raw credential.
+	 * Raw keys a transport such as `httpPlugin({ master: true })` verifies;
+	 * in-process `useMasterKey: true` needs none (ADR-0340). A function is
+	 * read once, when the application starts, so importing the application
+	 * reads no secret. The first key ID labels in-process elevations, which
+	 * are labelled `in-process` without keys.
+	 *
+	 * @example `keys: () => [{ id: 'operations', value: readSecret('ULTIMABASE_MASTER_KEY') }]`
 	 */
-	readonly keys: readonly MasterKeyDefinition[]
+	readonly keys?:
+		readonly MasterKeyDefinition[] | (() => readonly MasterKeyDefinition[])
+	/** Audits every Master use before it takes effect; a throw prevents it. */
 	readonly onUse: (event: MasterAccessEvent) => MaybePromise<void>
 	readonly clock?: () => Date
 }
+
+// Labels in-process elevations of an authority that has no key.
+const inProcessKeyId = 'in-process'
 
 interface NormalizedMasterKey {
 	readonly digest: Uint8Array
@@ -62,6 +72,8 @@ type MasterRequestElevator = <
 ) => Promise<RequestContext<MasterRequestAccess, TSource>>
 
 let createMasterKeyGrant: MasterKeyGrantFactory
+let resolveKeys: (authority: MasterAuthority) => void
+let hasKeys: (authority: MasterAuthority) => boolean
 let elevateMasterRequestWithAuthority: MasterRequestElevator
 const trustedTerminalGrants = new WeakMap<MasterAuthority, MasterKeyGrant>()
 
@@ -113,8 +125,8 @@ const createPermissionDeniedError = (): FrameworkError<'PERMISSION_DENIED'> =>
 const normalizeMasterKeys = (
 	value: unknown,
 ): readonly NormalizedMasterKey[] => {
-	if (!isUnknownArray(value) || value.length === 0) {
-		throw new TypeError('Master authority keys must be a non-empty array')
+	if (!isUnknownArray(value)) {
+		throw new TypeError('Master authority keys must be an array')
 	}
 
 	const normalizedKeys: NormalizedMasterKey[] = []
@@ -159,7 +171,9 @@ const normalizeMasterKeys = (
 export class MasterAuthority {
 	readonly #clock: () => Date
 	readonly #grants = new WeakSet<MasterKeyGrant>()
-	readonly #keys: readonly NormalizedMasterKey[]
+	// Undefined until lazy keys are read, once, when an application starts.
+	#keys: readonly NormalizedMasterKey[] | undefined
+	readonly #readKeys: (() => unknown) | undefined
 	readonly #onUse: (event: MasterAccessEvent) => MaybePromise<void>
 
 	constructor(options: MasterAuthorityOptions) {
@@ -183,20 +197,26 @@ export class MasterAuthority {
 			throw new TypeError('Master authority clock must be a function')
 		}
 
-		this.#keys = normalizeMasterKeys(untrustedOptions.keys)
-		this.#onUse = options.onUse
-		this.#clock = options.clock ?? (() => new Date())
-
-		const defaultKey = this.#keys[0]
-
-		if (defaultKey === undefined) {
-			// Normalization already rejects this state; the guard keeps the invariant explicit.
-			throw new TypeError('Master authority requires a default key')
+		const untrustedKeys = untrustedOptions.keys
+		if (
+			untrustedKeys !== undefined &&
+			typeof untrustedKeys !== 'function' &&
+			!isUnknownArray(untrustedKeys)
+		) {
+			throw new TypeError(
+				'Master authority keys must be an array or a function returning one',
+			)
 		}
 
-		const trustedGrant = createMasterKeyGrant(defaultKey.id)
-		this.#grants.add(trustedGrant)
-		trustedTerminalGrants.set(this, trustedGrant)
+		this.#onUse = options.onUse
+		this.#clock = options.clock ?? (() => new Date())
+		const { keys } = options
+		if (typeof keys === 'function') {
+			this.#readKeys = keys
+		} else {
+			this.#readKeys = undefined
+			this.#setKeys(keys ?? [])
+		}
 		Object.freeze(this)
 	}
 
@@ -208,7 +228,7 @@ export class MasterAuthority {
 		let matchingKey: NormalizedMasterKey | undefined
 
 		// Every configured digest is compared so key position does not create an early exit.
-		for (const key of this.#keys) {
+		for (const key of this.#readyKeys()) {
 			if (timingSafeEqual(candidateDigest, key.digest)) {
 				matchingKey = key
 			}
@@ -222,6 +242,26 @@ export class MasterAuthority {
 		this.#grants.add(grant)
 
 		return grant
+	}
+
+	/** Validates keys once and derives the in-process elevation label. */
+	#setKeys(keys: unknown): void {
+		const normalized = normalizeMasterKeys(keys)
+		const trustedGrant = createMasterKeyGrant(
+			normalized[0]?.id ?? inProcessKeyId,
+		)
+		this.#keys = normalized
+		this.#grants.add(trustedGrant)
+		trustedTerminalGrants.set(this, trustedGrant)
+	}
+
+	#readyKeys(): readonly NormalizedMasterKey[] {
+		if (this.#keys === undefined) {
+			throw new TypeError(
+				'Master authority keys are read when the application starts',
+			)
+		}
+		return this.#keys
 	}
 
 	/** Audits an owned grant before the application shell constructs Master state. */
@@ -274,8 +314,33 @@ export class MasterAuthority {
 			reason,
 			application,
 		) => authority.#elevate(grant, context, reason, application)
+		resolveKeys = (authority) => {
+			if (authority.#keys === undefined && authority.#readKeys !== undefined) {
+				authority.#setKeys(authority.#readKeys())
+			}
+		}
+		hasKeys = (authority) => (authority.#keys?.length ?? 0) > 0
 	}
 }
+
+/**
+ * Reads lazy keys once; Core calls it when the application starts.
+ *
+ * @internal
+ */
+export const resolveMasterAuthorityKeys = (
+	authority: MasterAuthority,
+): void => {
+	resolveKeys(authority)
+}
+
+/**
+ * Reports whether a transport can verify a raw key with this authority.
+ *
+ * @internal
+ */
+export const masterAuthorityHasKeys = (authority: MasterAuthority): boolean =>
+	hasKeys(authority)
 
 /** @internal Audits an opaque grant through the exact configured authority. */
 export const elevateMasterRequest = <

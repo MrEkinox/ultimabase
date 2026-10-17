@@ -35,7 +35,7 @@ describe('focused guide contracts', () => {
 			'utf8',
 		)
 
-		expect(source).toContain('Keep `ULTIMABASE_MASTER_KEY` server-side.')
+		expect(source).toContain('Keep any Master key server-side')
 		expect(source).not.toMatch(
 			/(?:browser|client).{0,80}X-UltimaBase-Master-Key/iu,
 		)

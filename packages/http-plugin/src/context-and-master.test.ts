@@ -340,7 +340,7 @@ describe('HTTP Master verification', () => {
 		await fixture.runtime.dispose()
 	})
 
-	it('never falls back after invalid, disabled, absent, foreign, or failed audit verification', async () => {
+	it('never falls back after invalid, disabled, foreign, or failed audit verification', async () => {
 		const handler = vi.fn(() => new Response('unexpected'))
 		const foreignApplicationAuthority = new MasterAuthority({
 			keys: [{ id: 'foreign-app', value: 'foreign-secret' }],
@@ -366,7 +366,6 @@ describe('HTTP Master verification', () => {
 				enabled: false,
 				key: 'disabled-secret',
 			},
-			{ authority: undefined, enabled: true, key: 'absent-secret' },
 			{
 				authority: new MasterAuthority({
 					keys: [{ id: 'foreign', value: 'other-application-secret' }],
@@ -391,9 +390,7 @@ describe('HTTP Master verification', () => {
 			const fixture = await startHttpFixture({
 				appId: `rejected-${String(index)}`,
 				handler,
-				...(testCase.authority === undefined
-					? {}
-					: { masterAuthority: testCase.authority }),
+				masterAuthority: testCase.authority,
 				masterEnabled: testCase.enabled,
 			})
 			const response = await fixture.http.fetch(

@@ -19,6 +19,7 @@ import {
 	type HonoServerPluginOptions,
 } from './options.js'
 import { HonoServerProvider } from './provider.js'
+import { StopOnSignals } from './signals.js'
 
 const applicationRequirement = requireCapability(
 	httpApplicationCapability,
@@ -67,31 +68,41 @@ export const honoServerPlugin = <
 ): HonoServerPlugin => {
 	const normalized = normalizeHonoServerPluginOptions(options)
 	const provider = new HonoServerProvider(normalized)
-	const application = contributeApplication(({ capabilities, logger }) => {
-		if (normalized.app === undefined) {
-			// ADR-0312: derived values and their sources, at debug level.
-			logger.debug(
-				`listen host ${normalized.host ?? 'every interface'} (${normalized.sources.host})`,
-			)
-			logger.debug(
-				`listen port ${String(normalized.port)} (${normalized.sources.port})`,
-			)
-		}
-		const httpApplication = capabilities.get(applicationRequirement)
-		// Stop and disposal release the same exact owner, including failed-startup cleanup.
-		const stop = (): Promise<void> => provider.stop(httpApplication)
+	const application = contributeApplication(
+		({ capabilities, logger, stopApplication }) => {
+			if (normalized.app === undefined) {
+				// ADR-0312: derived values and their sources, at debug level.
+				logger.debug(
+					`listen host ${normalized.host ?? 'every interface'} (${normalized.sources.host})`,
+				)
+				logger.debug(
+					`listen port ${String(normalized.port)} (${normalized.sources.port})`,
+				)
+			}
+			const httpApplication = capabilities.get(applicationRequirement)
+			const signals = normalized.stopOnSignals
+				? new StopOnSignals(logger, stopApplication)
+				: undefined
+			// Stop and disposal release the same exact owner, including failed-startup cleanup.
+			const stop = (): Promise<void> => {
+				signals?.unlisten()
+				return provider.stop(httpApplication)
+			}
 
-		return {
-			exports: immutableRecord({ address: () => provider.address }),
-			startTransports: () =>
-				provider.start(
-					httpApplication,
-					capabilities.get(browserPolicyRequirement),
-				),
-			stop,
-			dispose: stop,
-		}
-	})
+			return {
+				exports: immutableRecord({ address: () => provider.address }),
+				startTransports: async () => {
+					await provider.start(
+						httpApplication,
+						capabilities.get(browserPolicyRequirement),
+					)
+					signals?.listen()
+				},
+				stop,
+				dispose: stop,
+			}
+		},
+	)
 
 	// Tells httpPlugin() that its routes have a server (ADR-0313).
 	const server = provideCapability(httpServerCapability, {

@@ -141,6 +141,7 @@ export class FrameworkApplication<
 	#stopPromise: Promise<void> | undefined
 	#disposePromise: Promise<void> | undefined
 	#closing: 'stopping' | 'stopped' | 'disposing' | 'disposed' | undefined
+	readonly #closed = Promise.withResolvers<undefined>()
 
 	constructor(options: FrameworkApplicationOptions<TSchemas, TPlugins>) {
 		const untrustedOptions: unknown = options
@@ -196,6 +197,7 @@ export class FrameworkApplication<
 				return host.forPlugin(owner)
 			},
 			(owner) => this.#log.forPlugin(owner),
+			() => this.stop(),
 		)
 		const capabilityHost = new ApplicationCapabilityHost(
 			graph,
@@ -234,6 +236,11 @@ export class FrameworkApplication<
 
 	get state(): PluginLifecycleState {
 		return this.#closing ?? this.#lifecycle.state
+	}
+
+	/** Resolves once the application has stopped or been disposed (ADR-0340). */
+	get closed(): Promise<void> {
+		return this.#closed.promise
 	}
 
 	/** Reads the immutable application-local relationship graph after static compilation. */
@@ -444,6 +451,7 @@ export class FrameworkApplication<
 			}
 
 			this.#releaseIfClean()
+			this.#closed.resolve(undefined)
 			throw error
 		}
 	}
@@ -474,6 +482,8 @@ export class FrameworkApplication<
 			this.#closing = 'disposed'
 			this.#releaseIfClean()
 			throw error
+		} finally {
+			if (this.#startFailed) this.#closed.resolve(undefined)
 		}
 	}
 
@@ -488,6 +498,7 @@ export class FrameworkApplication<
 			await this.#lifecycle.stop()
 		} finally {
 			if (this.#closing === 'stopping') this.#closing = 'stopped'
+			this.#closed.resolve(undefined)
 		}
 	}
 
@@ -511,6 +522,7 @@ export class FrameworkApplication<
 		} finally {
 			this.#closing = 'disposed'
 			this.#releaseIfClean()
+			this.#closed.resolve(undefined)
 		}
 	}
 

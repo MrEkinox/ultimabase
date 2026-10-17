@@ -12,7 +12,7 @@ const graphql = (t: TestApplication, query: string) =>
 	})
 
 it('executes the operation from TypeScript', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 
 	//#region execute-operation
 	const result = await ultimabase.operation(formatWorkflow).execute('  ready  ')

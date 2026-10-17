@@ -6,7 +6,7 @@ import { Post } from '../src/schema.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
 it('creates a Post', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Ship' } })
 	expect(post.archivedAt).toBeNull()
 })

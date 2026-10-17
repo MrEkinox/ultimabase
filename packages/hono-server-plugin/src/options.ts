@@ -30,6 +30,12 @@ export interface ManagedHonoServerPluginOptions {
 	readonly shutdownTimeoutMs?: number
 	/** Compresses responses with gzip or deflate; often done by the proxy instead. @default false */
 	readonly compression?: boolean
+	/**
+	 * Stops the application on `SIGINT` and `SIGTERM`, once: `ultimabase.closed`
+	 * then resolves and a second signal ends the process as usual
+	 * (ADR-0340). `false` leaves signals to your own code. @default true
+	 */
+	readonly stopOnSignals?: boolean
 	readonly app?: never
 	readonly browserPolicyOwner?: never
 }
@@ -55,6 +61,7 @@ export interface ExistingHonoServerPluginOptions<
 	readonly host?: never
 	readonly port?: never
 	readonly shutdownTimeoutMs?: never
+	readonly stopOnSignals?: never
 }
 
 /** Chooses either a framework-owned listener or one externally owned Hono app. */
@@ -72,6 +79,8 @@ export interface NormalizedHonoServerPluginOptions {
 	readonly browserPolicyOwner: HonoBrowserPolicyOwner | undefined
 	readonly compression: boolean
 	readonly shutdownTimeoutMs: number
+	/** Only a managed listener stops the application on signals. */
+	readonly stopOnSignals: boolean
 	/** `undefined` listens on every interface. */
 	readonly host: string | undefined
 	readonly port: number
@@ -129,6 +138,7 @@ export const normalizeHonoServerPluginOptions: (
 		'host',
 		'port',
 		'shutdownTimeoutMs',
+		'stopOnSignals',
 	] as const,
 	formatUnknownKey: (key) =>
 		`Unknown Hono server plugin option: ${String(key)}`,
@@ -139,11 +149,20 @@ export const normalizeHonoServerPluginOptions: (
 		host,
 		port,
 		shutdownTimeoutMs,
+		stopOnSignals,
 	}): NormalizedHonoServerPluginOptions => {
 		if (typeof compression !== 'boolean') {
 			throw new TypeError('Hono server plugin compression must be a boolean')
 		}
+		if (stopOnSignals !== undefined && typeof stopOnSignals !== 'boolean') {
+			throw new TypeError('Hono server plugin stopOnSignals must be a boolean')
+		}
 		if (app !== undefined) {
+			if (stopOnSignals !== undefined) {
+				throw new TypeError(
+					'Hono server plugin stopOnSignals cannot configure an external app: its listener and signals stay yours',
+				)
+			}
 			if (!isHonoApplication(app)) {
 				throw new TypeError('Hono server plugin app must be a Hono application')
 			}
@@ -172,6 +191,7 @@ export const normalizeHonoServerPluginOptions: (
 				host: undefined,
 				port: 1337,
 				shutdownTimeoutMs: 0,
+				stopOnSignals: false,
 				sources: { host: 'external app', port: 'external app' },
 			}
 		}
@@ -210,6 +230,7 @@ export const normalizeHonoServerPluginOptions: (
 			compression,
 			host: listen.host,
 			shutdownTimeoutMs: shutdownTimeoutMs ?? 10_000,
+			stopOnSignals: stopOnSignals ?? true,
 			// An explicit port wins, then the hosting convention, then the default.
 			port: port ?? environmentPort ?? 1337,
 			sources: {

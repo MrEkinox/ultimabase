@@ -92,12 +92,13 @@ custom transport may create anonymous or authenticated user state, but its
 source never grants master access. Capability tokens are checked by identity,
 and raw credentials are not retained as context metadata.
 
-Master keys are verified by a `MasterAuthority` configured on the framework.
+Master keys are verified by a `MasterAuthority` configured on the framework;
+its keys are optional and serve only such verification (ADR-0340).
 Verification returns an opaque grant owned by that framework; passing it to
 `request.useMasterKey(grant, reason)` emits an audit-ready event before creating
 the master engine. Trusted schema commands may instead use the server-only
-`useMasterKey: true` option, which crosses the same framework-owned audit
-boundary. Transports must never derive either form from client input.
+`useMasterKey: true` option, which needs no key and crosses the same
+framework-owned audit boundary. Transports must never derive either form from client input.
 
 Update inputs use one field-oriented `data` map. Direct values replace fields,
 `null` clears optional fields, and `{ increment: n }` or `{ decrement: n }`
@@ -155,8 +156,8 @@ transformations:
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const Application = UltimaBase.use(hooksPlugin())
-const UserSchema = Application.Schema.define({
+const App = UltimaBase.use(hooksPlugin())
+const UserSchema = App.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		email: field.string({
@@ -181,7 +182,7 @@ const UserSchema = Application.Schema.define({
 	},
 })
 
-const ultimabase = new Application({
+const ultimabase = new App({
 	schemas: [UserSchema],
 })
 ```

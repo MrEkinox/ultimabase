@@ -49,14 +49,14 @@ The example's tests start applications with an explicit `url`:
 <!-- region ../../examples/postgres/tests/connection.test.ts#lifecycle -->
 
 ```ts
-const Application = UltimaBase.use(postgresPlugin({ url }))
-const application = new Application({ schemas: [] })
+const App = UltimaBase.use(postgresPlugin({ url }))
+const ultimabase = new App({ schemas: [] })
 
-await application.start()
-const { connection } = application.plugin(postgresPluginName)
+await ultimabase.start()
+const { connection } = ultimabase.plugin(postgresPluginName)
 const whileStarted = connection.state
 
-await application.dispose()
+await ultimabase.dispose()
 const afterDispose = connection.state
 ```
 
@@ -71,11 +71,11 @@ shutdown. An injected pool remains owned by the developer:
 
 ```ts
 const pool = new Pool({ connectionString, max: 5 })
-const Application = UltimaBase.use(postgresPlugin({ pool }))
-const application = new Application({ schemas: [] })
+const App = UltimaBase.use(postgresPlugin({ pool }))
+const ultimabase = new App({ schemas: [] })
 
-await application.start()
-await application.dispose()
+await ultimabase.start()
+await ultimabase.dispose()
 
 // The application did not close your pool: you still own it.
 const { rows } = await pool.query('SELECT 1 AS ready')
@@ -676,8 +676,8 @@ export const releaseOne = ({ url, schemaPolicy, logger }: ReleaseOptions) => {
 		}),
 	}).with({ postgres: { table: 'newsroom_articles' } })
 
-	const application = new Release({ schemas: [StaffMember, Article], logger })
-	return { application, Article, StaffMember }
+	const ultimabase = new Release({ schemas: [StaffMember, Article], logger })
+	return { ultimabase, Article, StaffMember }
 }
 ```
 

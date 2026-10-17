@@ -32,19 +32,19 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { Article } from './article.js'
 
 // postgresPlugin() reads DATABASE_URL when the application starts.
-const Application = UltimaBase.use(
+const App = UltimaBase.use(
     postgresPlugin({ schemaPolicy: 'fail' }),
 )
-const app = new Application({ schemas: [Article] })
+const ultimabase = new App({ schemas: [Article] })
 
 // Once per application: name-keyed types, no generation step.
 declare module '@ultimabase/core' {
   interface Register {
-    readonly app: typeof app
+    readonly app: typeof ultimabase
   }
 }
 
-await app.start()`
+await using started = await ultimabase.start()`
 
 export const pluginGroups = [
 	{ name: 'Store', detail: 'PostgreSQL', href: 'plugins/official/postgresql' },
