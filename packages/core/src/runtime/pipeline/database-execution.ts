@@ -37,6 +37,7 @@ import type {
 	RuntimeMutationValidationIssue,
 } from './contracts.js'
 import { loadSingularMutationInclusionSource } from './mutation-inclusion-source.js'
+import { runMutationOutcomeStages } from './mutation-outcome-stages.js'
 import { assertDatabaseRequestCapabilities } from './database-capability-validation.js'
 import {
 	readValidationErrorIssues,
@@ -428,31 +429,18 @@ export const executeRuntimeDatabaseOperation = async <
 		persistencePlanRewrite,
 		request.returningSelection,
 	)
-	let outcome = await prepared.execute(immutableRecord({ operation, plan }))
-
-	if (
-		enforcement?.enforceMutationOutcome !== undefined &&
-		enforcementState !== undefined
-	) {
-		outcome = await enforcement.enforceMutationOutcome(
-			createRuntimeStageInput({ context, operation, outcome }),
-		)
-	}
-	if (behaviors?.transformMutationOutcome !== undefined) {
-		const selectedFieldsOverride = request.returningSelection?.fields.map(
+	const outcome = await runMutationOutcomeStages({
+		behaviorOperation: initialOperation,
+		behaviors,
+		context,
+		enforcement,
+		enforcementState,
+		operation,
+		outcome: await prepared.execute(immutableRecord({ operation, plan })),
+		selectedFieldsOverride: request.returningSelection?.fields.map(
 			({ field }) => field,
-		)
-		outcome = await behaviors.transformMutationOutcome(
-			createRuntimeStageInput({
-				context,
-				operation: request.operation,
-				outcome,
-				...(selectedFieldsOverride === undefined
-					? {}
-					: { selectedFieldsOverride }),
-			}),
-		)
-	}
+		),
+	})
 	await nestedLifecycle?.afterMutationOutcome(outcome)
 	const inclusionSource = await loadSingularMutationInclusionSource(
 		executor,

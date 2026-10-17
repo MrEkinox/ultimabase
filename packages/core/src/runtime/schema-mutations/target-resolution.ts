@@ -4,7 +4,6 @@ import type { PluginSchemaMutationManyEnvelope } from '../../application/applica
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
-import type { DatabaseOperationAst } from '../database/contracts.js'
 import { assertDatabaseRequestCapabilities } from '../pipeline/database-capability-validation.js'
 import { createRuntimeRelationFilterResolver } from '../pipeline/application-bindings.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
@@ -12,7 +11,7 @@ import type { RuntimeLogicalOperationAst } from '../pipeline/contracts.js'
 import { enforceRuntimeOperation } from '../pipeline/stage-inputs.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
-import { readRuntimeSchemaMutationStages } from './pipeline-execution.js'
+import { readRuntimeSchemaMutationStages } from './execution-support.js'
 
 /** Names the rows one many-row command targets. */
 export interface RuntimeSchemaMutationTargetRequest {
@@ -63,8 +62,7 @@ export const resolveRuntimeSchemaMutationTargets = async (
 	const enforced = await enforceRuntimeOperation(
 		stages,
 		context,
-		// Same boundary as `can()`: enforcement reads a logical operation here.
-		logical as DatabaseOperationAst,
+		logical,
 		undefined,
 		undefined,
 		createRuntimeRelationFilterResolver(pipeline),

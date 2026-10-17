@@ -26,7 +26,10 @@ import {
 } from '../engine/request-engine.js'
 import { resolveTerminalContext } from '../engine/application-binding.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
-import { executeRuntimeSchemaMutation } from './pipeline-execution.js'
+import {
+	executeRuntimeSchemaMutation,
+	executeRuntimeSchemaMutationRows,
+} from './pipeline-execution.js'
 import { resolveRuntimeSchemaMutationTargets } from './target-resolution.js'
 
 type SchemaMutationRequestEnvelope =
@@ -131,19 +134,15 @@ const executeSchemaMutationRequest = async (
 					envelope,
 					schema,
 				})
-				const written = []
-				for (const id of ids) {
-					written.push(
-						await executeRuntimeSchemaMutation(pipeline, {
-							application,
-							command,
-							context,
-							envelope: createSchemaMutationRowEnvelope(envelope, schema, id),
-							schema,
-						}),
-					)
-				}
-				return written
+				return executeRuntimeSchemaMutationRows(pipeline, {
+					application,
+					command,
+					context,
+					envelopes: ids.map((id) =>
+						createSchemaMutationRowEnvelope(envelope, schema, id),
+					),
+					schema,
+				})
 			}),
 		)
 		return executions.map((execution) =>

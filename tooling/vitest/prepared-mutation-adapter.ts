@@ -12,6 +12,15 @@ import {
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { testDatabaseFilterOperators } from './database-filter-operators.js'
+
+// Plugin mutations assert the adapter's filter operators like native ones
+// (ADR-0301, ADR-0344): the fixture declares them as a real adapter does.
+const preparedCapabilities: DatabaseAdapterCapabilities = Object.freeze({
+	filterOperators: testDatabaseFilterOperators,
+	persistencePlans: databasePersistencePlanCapability,
+})
+
 type PreparedMutationHandler = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
@@ -26,9 +35,7 @@ export interface PreparedMutationTestAdapterOptions {
 
 /** Captures the common transaction protocol used by prepared-mutation tests. */
 export class PreparedMutationTestTransaction implements DatabaseTransactionAdapter {
-	readonly capabilities: DatabaseAdapterCapabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
+	readonly capabilities: DatabaseAdapterCapabilities = preparedCapabilities
 	readonly kind = 'database-transaction-adapter' as const
 	readonly preparations: DatabaseOperationRequest[] = []
 
@@ -61,9 +68,7 @@ export class PreparedMutationTestTransaction implements DatabaseTransactionAdapt
 
 /** Owns transaction creation while product fixtures retain prepared behavior. */
 export class PreparedMutationTestAdapter implements DatabaseAdapter {
-	readonly capabilities: DatabaseAdapterCapabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
+	readonly capabilities: DatabaseAdapterCapabilities = preparedCapabilities
 	readonly kind = 'database-adapter' as const
 	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly transactions: PreparedMutationTestTransaction[] = []

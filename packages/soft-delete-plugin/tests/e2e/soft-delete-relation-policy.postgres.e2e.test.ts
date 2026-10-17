@@ -77,14 +77,15 @@ const createNote = async (title: string, open: boolean) => {
 	)
 }
 
-const isDeleted = async (id: string): Promise<boolean> => {
-	const row = await Note.findOne(
-		{ where: { id: { eq: id } }, select: { isDeleted: true } },
+// Master reads that constrain `isDeleted` see the trash too.
+const isDeleted = async (id: string): Promise<boolean> =>
+	(await Note.findOne(
+		{
+			where: { id: { eq: id }, isDeleted: { eq: true } },
+			select: { id: true },
+		},
 		master,
-	)
-	if (row === null) throw new TypeError(`Note ${id} is missing`)
-	return row.isDeleted
-}
+	)) !== null
 
 describe('relation-filter policies on plugin commands (PostgreSQL)', () => {
 	it('applies the policy to softDeleteOne', async () => {

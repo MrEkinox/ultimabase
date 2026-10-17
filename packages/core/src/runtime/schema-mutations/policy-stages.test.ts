@@ -118,6 +118,7 @@ const createPolicyFixture = async (options: PolicyFixtureOptions) => {
 	const adapter = new RecordingDatabaseAdapter(
 		options.results,
 		trace,
+		{},
 		options.capabilities,
 	)
 	const owner = plugin({

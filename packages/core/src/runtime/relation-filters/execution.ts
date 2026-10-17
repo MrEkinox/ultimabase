@@ -18,11 +18,11 @@ import { WhereBuilder } from '../../query/filters/where.js'
 import { getRelationWhereDeclaration } from '../../schema/fields/base/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type {
-	DatabaseOperationAst,
 	DatabaseRelationPredicateScope,
 	DatabaseRelationReference,
 } from '../database/contracts.js'
 import type { RequestContext } from '../context/request-context.js'
+import type { RuntimeLogicalOperationAst } from '../pipeline/contracts.js'
 import {
 	createRuntimeCallbackDescriptor,
 	getApplicationRuntimeCallbackExecutor,
@@ -84,7 +84,7 @@ export class RuntimeRelationFilterResolver {
 	/** Returns one immutable private target restriction for an exact relation field. */
 	async resolve(
 		context: RequestContext,
-		operation: DatabaseOperationAst,
+		operation: RuntimeLogicalOperationAst,
 		relation: DatabaseRelationReference,
 	): Promise<QueryFilterNode<SchemaDefinition> | undefined> {
 		assertApplicationExecution(this.#application)

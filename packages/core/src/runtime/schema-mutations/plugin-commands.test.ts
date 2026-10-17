@@ -198,12 +198,13 @@ describe('many-row plugin schema mutations (ADR-0316)', () => {
 			{ id: second, shouted: 'b!' },
 		])
 		expect(fixture.handler).toHaveBeenCalledTimes(2)
+		// Every row is locked before the first one is written (ADR-0344).
 		expect(fixture.trace).toStrictEqual([
 			'adapter:begin',
 			'execute:find-many',
 			'prepare:delete-one',
-			'execute:delete-one',
 			'prepare:delete-one',
+			'execute:delete-one',
 			'execute:delete-one',
 			'adapter:commit',
 		])

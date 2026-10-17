@@ -48,7 +48,7 @@ export interface ReadableResultCheck {
  * `select: { id: true }` reveals nothing the caller did not send or receive
  * anyway, so it is always allowed and skips the check (ADR-0306, decision 4).
  */
-export const selectsOnlyIdentifier = (
+const selectsOnlyIdentifier = (
 	selection: QuerySelectionNode,
 	inclusion: QueryInclusionNode,
 ): boolean =>
@@ -57,7 +57,7 @@ export const selectsOnlyIdentifier = (
 	selection.fields[0]?.field === 'id'
 
 /** Tells whether a mutation result must pass the row read rules. */
-export const requiresReadableResult = (
+const requiresReadableResult = (
 	check: Pick<
 		ReadableResultCheck,
 		'context' | 'inclusion' | 'selection' | 'stages'
@@ -137,7 +137,7 @@ const readRowConstraints = async (
  * with one `exists` query (or one grouped `count`) in the active transaction.
  * PostgreSQL's `RETURNING` under row-level security refuses the same case.
  */
-export const assertReadableMutationRows = async (
+const assertReadableMutationRows = async (
 	check: ReadableResultCheck,
 	ids: readonly string[],
 ): Promise<void> => {
@@ -185,7 +185,7 @@ export const assertReadableMutationRows = async (
 }
 
 /** Reads the identifiers of the rows a create, update or upsert left behind. */
-export const readResultingRowIds = (
+const readResultingRowIds = (
 	executor: DatabaseOperationExecutor,
 	outcome: DatabaseMutationMaterializationSource,
 ): readonly string[] =>
@@ -198,9 +198,8 @@ export const readResultingRowIds = (
 	})
 
 /** Prepares the check of one mutation's result, or `undefined` when none applies. */
-export const prepareReadableResultCheck = (
-	input: Omit<ReadableResultCheck, 'inclusion' | 'schema' | 'selection'> &
-		Readonly<{ operation: RuntimeLogicalOperationAst }>,
+const prepareReadableResultCheck = (
+	input: ReadableResultHooksInput,
 ): ReadableResultCheck | undefined => {
 	const { operation } = input
 	if (
@@ -223,7 +222,31 @@ export const prepareReadableResultCheck = (
 	return requiresReadableResult(check) ? check : undefined
 }
 
-/** The checks one pipeline mutation runs: delete pre-images or resulting rows. */
+/**
+ * Tells which image of a mutation the row read rules check (ADR-0306
+ * decision 2 and step-2 amendment): a delete, rewritten or not, checks its
+ * locked pre-image; a plugin mutation checks the image its `checkReadable`
+ * (default `returning`) names; every other write checks its resulting rows.
+ */
+const checksPreImage = (operation: RuntimeLogicalOperationAst): boolean => {
+	if (operation.kind === 'plugin-schema-mutation') {
+		const { checkReadable, returning } = operation.mutation
+		return (checkReadable ?? returning) === 'before'
+	}
+	return operation.kind === 'delete-one' || operation.kind === 'delete-many'
+}
+
+/** What a mutation's readability checks need besides its rows. */
+export type ReadableResultHooksInput = Omit<
+	ReadableResultCheck,
+	'inclusion' | 'schema' | 'selection'
+> &
+	Readonly<{ operation: RuntimeLogicalOperationAst }>
+
+/**
+ * The checks one mutation runs, each with one query for all its rows: its
+ * locked pre-images (`targets`) or its resulting rows (`result`).
+ */
 export interface ReadableResultHooks {
 	readonly result?: (
 		outcome: DatabaseMutationMaterializationSource,
@@ -231,15 +254,17 @@ export interface ReadableResultHooks {
 	readonly targets?: (ids: readonly string[]) => Promise<void>
 }
 
-/** Prepares the checks of one pipeline mutation (ADR-0306). */
+/**
+ * Prepares the readability checks of one native or plugin mutation, the one
+ * owner of ADR-0306 for both executors (ADR-0344): none for Master or an
+ * `{ id }`-only result, otherwise the image `checksPreImage` names.
+ */
 export const prepareReadableResultHooks = (
-	input: Parameters<typeof prepareReadableResultCheck>[0],
+	input: ReadableResultHooksInput,
 ): ReadableResultHooks => {
 	const check = prepareReadableResultCheck(input)
 	if (check === undefined) return {}
-	const { kind } = input.operation
-	// A delete answers with its pre-image, checked on the locked target.
-	return kind === 'delete-one' || kind === 'delete-many'
+	return checksPreImage(input.operation)
 		? { targets: (ids) => assertReadableMutationRows(check, ids) }
 		: {
 				result: (outcome) =>

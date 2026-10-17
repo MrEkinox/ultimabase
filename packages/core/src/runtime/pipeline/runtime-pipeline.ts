@@ -50,7 +50,7 @@ import {
 	inheritRuntimeVirtualFields,
 } from './application-bindings.js'
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
-import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipeline-execution.js'
+import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/execution-support.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import {
