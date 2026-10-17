@@ -2,21 +2,11 @@ import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
 	getOperationSchema,
 	protectedPolicy,
 	provideRuntimeConstraint,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-import {
-	holdsSchemaPermission,
-	plugin,
-	provideCapability,
-} from '@ultimabase/core/plugin'
+import { holdsSchemaPermission, plugin } from '@ultimabase/core/plugin'
 import { definePlugin, feature } from '@ultimabase/plugin-kit'
 import { describe, expect, it } from 'vitest'
 
@@ -25,40 +15,18 @@ import {
 	type AccessPluginOptions,
 	type SchemaAccess,
 } from '../src/index.js'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
 // ADR-0317, decision 7: Access grants plugin permissions without knowing
 // their owner; neither package imports the other.
-class EmptyReadAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-	readonly #rows: unknown = []
-
-	execute<const TOperation extends DatabaseOperationAst>(): Promise<
-		DatabaseOperationResult<TOperation>
-	> {
-		// Every test reads one `findMany`, whose result is an array.
-		return Promise.resolve(this.#rows as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		throw new TypeError('Empty read adapter does not execute mutations')
-	}
-}
-
-const database = plugin({
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database-adapter',
-			create: () => ({ value: new EmptyReadAdapter() }),
-		}),
-	],
-	core: '^0.0.0',
-	id: 'fixture.permissions-database',
-	version: '1.0.0',
-})
+const database = testDatabasePlugin(
+	// Every test reads one `findMany`, whose result is an array.
+	new ScriptedTestDatabase({ description: 'Empty read adapter', result: [] }),
+	{ contributionId: 'database-adapter', id: 'fixture.permissions-database' },
+)
 
 /** Declares `readArchived` and records Core's answer on every read. */
 const answers: boolean[] = []

@@ -10,10 +10,6 @@ import {
 	databasePersistencePlanCapability,
 	databasePluginFieldStructuralContainsCapability,
 	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
 	type FieldBuilder,
 } from '@ultimabase/core'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
@@ -30,6 +26,7 @@ import {
 	createAlternativePolicyEngine,
 } from './fixtures/alternative-policy-engine.js'
 import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filter-operators.js'
+import { ScriptedTestDatabase } from '../../tooling/vitest/test-database.js'
 
 const alternativeFixturePath = path.join(
 	import.meta.dirname,
@@ -40,28 +37,18 @@ const noAccessJavascriptFixturePath = path.join(
 	'fixtures/no-hooks-postgres.mjs',
 )
 
-class AlternativeReadAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		filterOperators: testDatabaseFilterOperators,
-		persistencePlans: databasePersistencePlanCapability,
-		pluginFieldStructuralContains:
-			databasePluginFieldStructuralContainsCapability,
-	}
-	readonly requests: DatabaseOperationRequest[] = []
-
-	constructor(private readonly result: unknown = []) {}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.requests.push(request)
-		return Promise.resolve(this.result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		return Promise.reject(new Error('Alternative policy fixture reads only'))
+class AlternativeReadAdapter extends ScriptedTestDatabase {
+	constructor(result: unknown = []) {
+		super({
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+				pluginFieldStructuralContains:
+					databasePluginFieldStructuralContainsCapability,
+			},
+			description: 'Alternative policy fixture',
+			result,
+		})
 	}
 }
 

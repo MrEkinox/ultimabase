@@ -1,15 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import {
-	UltimaBase,
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationResult,
-} from '@ultimabase/core'
-import { plugin, provideCapability } from '@ultimabase/core/plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	createPluginConformanceFixture,
@@ -26,6 +19,10 @@ import {
 	createSharedRuntimeMiddleware,
 } from './fixtures/alternative-behavior-engine.js'
 import { createWorkflowPlugin } from './fixtures/open-kernel-workflow.js'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../tooling/vitest/test-database.js'
 
 const alternativeFixturePath = path.join(
 	import.meta.dirname,
@@ -36,36 +33,17 @@ const javascriptFixturePath = path.join(
 	'fixtures/no-hooks-postgres.mjs',
 )
 
-class EmptyReadAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-
-	beginTransaction(): Promise<never> {
-		return Promise.reject(new Error('Unexpected fixture transaction'))
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(): Promise<
-		DatabaseOperationResult<TOperation>
-	> {
-		return Promise.resolve([] as unknown as DatabaseOperationResult<TOperation>)
-	}
-}
-
 const createBehaviorSupportPlugin = () =>
-	plugin({
-		id: 'fixture.alternative-behavior-support',
-		version: '1.0.0',
-		core: '^0.0.0',
-		contributions: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'empty-database',
-				create: () => ({ value: new EmptyReadAdapter() }),
-			}),
-		],
-	})
+	testDatabasePlugin(
+		new ScriptedTestDatabase({
+			description: 'Empty read fixture',
+			result: [],
+		}),
+		{
+			contributionId: 'empty-database',
+			id: 'fixture.alternative-behavior-support',
+		},
+	)
 
 const createAlternativeFixture = () => {
 	const engine = createAlternativeBehaviorEngine({ instanceId: 'typed' })

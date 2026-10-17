@@ -13,7 +13,6 @@ import {
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	type DatabaseAdapter,
-	type DatabaseAdapterCapabilities,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -28,48 +27,32 @@ import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { describe, expect, it } from 'vitest'
 import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filter-operators.js'
+import { ScriptedTestDatabase } from '../../tooling/vitest/test-database.js'
 
 const fixedInstant = '2026-08-04T00:00:00.000Z'
 const editor = new RequestSubjectReference('role', 'fixture.editor')
 const isEditor = hasRole(editor)
 
 /** Records complete requests while returning one trusted logical fixture result. */
-class CompositionReadAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities: DatabaseAdapterCapabilities
-	readonly requests: DatabaseOperationRequest[] = []
-
-	constructor(
-		private readonly result: unknown,
-		structuralContains = true,
-	) {
-		this.capabilities = {
-			filterOperators: testDatabaseFilterOperators,
-			persistencePlans: databasePersistencePlanCapability,
-			// Role schemas declare relation fields (ADR-0301 startup check).
-			relationPredicates: databaseRelationPredicateCapability,
-			relations: databaseRelationCapability,
-			...(structuralContains
-				? {
-						pluginFieldStructuralContains:
-							databasePluginFieldStructuralContainsCapability,
-					}
-				: {}),
-		}
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.requests.push(request)
-
-		// The fixture supplies an operation-compatible result and inspects policy state separately.
-		return Promise.resolve(this.result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		throw new TypeError('Composition read adapter does not execute mutations')
+class CompositionReadAdapter extends ScriptedTestDatabase {
+	constructor(result: unknown, structuralContains = true) {
+		super({
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+				// Role schemas declare relation fields (ADR-0301 startup check).
+				relationPredicates: databaseRelationPredicateCapability,
+				relations: databaseRelationCapability,
+				...(structuralContains
+					? {
+							pluginFieldStructuralContains:
+								databasePluginFieldStructuralContainsCapability,
+						}
+					: {}),
+			},
+			description: 'Composition read adapter',
+			result,
+		})
 	}
 }
 
