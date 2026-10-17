@@ -259,3 +259,13 @@ export const createUserSchemaFactory =
 				)
 			},
 		})
+
+declare module '@ultimabase/core' {
+	interface PrincipalSchemaProviders {
+		/**
+		 * `authPlugin` designates its User schema: request principals point to
+		 * it (ADR-0340).
+		 */
+		readonly 'ultimabase.auth': true
+	}
+}

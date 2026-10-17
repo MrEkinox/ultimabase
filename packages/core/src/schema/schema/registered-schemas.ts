@@ -30,6 +30,22 @@ import type {
  * ```
  */
 export interface Register {}
+
+/**
+ * Lists the installed plugins that designate a principal schema, one key per
+ * plugin, added by declaration merging from the plugin's own package
+ * (ADR-0340). Core reads only whether a key exists, never a name.
+ *
+ * @example
+ * ```ts
+ * declare module '@ultimabase/core' {
+ *   interface PrincipalSchemaProviders {
+ *     readonly 'community.accounts': true
+ *   }
+ * }
+ * ```
+ */
+export interface PrincipalSchemaProviders {}
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 
 // The registry is read only from lazy positions (rules, filters, queries,

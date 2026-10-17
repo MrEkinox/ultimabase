@@ -338,6 +338,7 @@ export type {
 	IsRegisteredSchema,
 	Item,
 	Model,
+	PrincipalSchemaProviders,
 	Register,
 	RegisteredSchema,
 	RegisteredSchemaInputs,

@@ -3,6 +3,7 @@ import { password } from '@ultimabase/auth-password'
 import { authPlugin } from '@ultimabase/auth-plugin'
 import {
 	getRequestPrincipal,
+	isAuthenticated,
 	UltimaBase,
 	type Pointer,
 	type Principal,
@@ -32,6 +33,17 @@ export const Note = App.Schema.define({
 	fields: (field) => ({
 		author: field.pointer({ target: () => Member, required: true }),
 		body: field.string({ required: true }),
+		// A field rule is typed with the schema, while the application is
+		// inferred: the principal must not read `Register` there (TS7022).
+		excerpt: field.virtual({
+			access: { read: { output: isAuthenticated } },
+			output: (output) => output.string(),
+			select: { body: true },
+			resolve: ({ item }) => String(item.body).slice(0, 10),
+		}),
+		draft: field.string({
+			access: { read: { output: ({ principal }) => principal !== undefined } },
+		}),
 	}),
 }).with({
 	access: {

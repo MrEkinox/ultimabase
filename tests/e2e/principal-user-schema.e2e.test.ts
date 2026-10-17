@@ -15,14 +15,15 @@ const application = (
 	register: string,
 ): string => `
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { password } from '@ultimabase/auth-password'
-import { authPlugin } from '@ultimabase/auth-plugin'
+${
+	plugins.includes('authPlugin')
+		? `import { password } from '@ultimabase/auth-password'
+import { authPlugin } from '@ultimabase/auth-plugin'`
+		: ''
+}
 import { UltimaBase, getRequestPrincipal } from '@ultimabase/core'
 import { RequestContext } from '@ultimabase/core/plugin'
 import { testApplication } from '@ultimabase/testing'
-
-void password
-void authPlugin
 
 const App = UltimaBase.use(${plugins})
 
@@ -49,6 +50,7 @@ ${register}
 export const /* hover:request */principal = await getRequestPrincipal(
   RequestContext.anonymous({ requestId: 'hover', source: 'internal' }),
 )
+export const /* hover:schema */schemaName = principal?.toJSON().className
 const t = await testApplication(ultimabase)
 // The signature prints the \`Principal\` alias as declared; its parameter type
 // is the resolved pointer.
@@ -70,31 +72,36 @@ const cases = [
 		name: 'types the principal as the User schema of authPlugin',
 		file: 'principal-user-schema.fixture.ts',
 		source: application(withAuth, userSchema, ''),
-		principal: 'Pointer<"Member">',
+		// The deferred pointer prints its alias; its members name the User.
+		principal: 'PrincipalPointer',
+		className: '"Member"',
 	},
 	{
 		name: 'lets the Register principal key win over the User schema',
 		file: 'principal-user-schema-key.fixture.ts',
 		source: application(withAuth, userSchema, "    readonly principal: 'Note'"),
 		principal: 'Pointer<"Note">',
+		className: '"Note"',
 	},
 	{
 		name: 'keeps PointerValue without a principal schema',
 		file: 'principal-user-schema-none.fixture.ts',
 		source: application('accessPlugin()', plainSchema, ''),
 		principal: 'PointerValue',
+		className: 'string',
 	},
 ] as const
 
 describe('Principal derived from the User schema (ADR-0340)', () => {
 	it.each(cases)(
 		'$name',
-		({ file, source, principal }) => {
+		({ file, source, principal, className }) => {
 			const fixtureFile = path.join(import.meta.dirname, file)
 			const markers = [
 				'/* hover:access */',
 				'/* hover:request */',
 				'/* hover:as */',
+				'/* hover:schema */',
 			] as const
 			const fixture = createLanguageServiceFixture(fixtureFile, source, markers)
 			const hover = (marker: string): string =>
@@ -120,6 +127,9 @@ describe('Principal derived from the User schema (ADR-0340)', () => {
 			)
 			expect(hover('/* hover:as */')).toBe(
 				`type AsPrincipal = ${principal} | undefined`,
+			)
+			expect(hover('/* hover:schema */')).toBe(
+				`const schemaName: ${className} | undefined`,
 			)
 		},
 		120_000,

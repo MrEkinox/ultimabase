@@ -1,5 +1,7 @@
 import type { Pointer, PointerValue } from '../../schema/relations/pointer.js'
+import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type {
+	PrincipalSchemaProviders,
 	Register,
 	RegisteredSchemaNameWithKey,
 } from '../../schema/schema/registered-schemas.js'
@@ -26,9 +28,19 @@ export interface PrincipalSchemaCarrier {
 	readonly [principalSchemaMarker]?: true
 }
 
-type PrincipalPointer<TClassName> = [TClassName] extends [never]
-	? PointerValue
-	: Pointer<Extract<TClassName, string>>
+// Read only when a principal is compared or printed. The alias keeps one type
+// for every use: TypeScript never re-instantiates a non-generic top-level
+// alias, so a schema option typed while the application is being inferred
+// compares principals by identity and never reads `Register` (TS7022).
+type PrincipalPointer = Pointer<DesignatedPrincipalSchema>
+
+type DesignatedPrincipalSchema = PrincipalSchemaOrAny<
+	RegisteredSchemaNameWithKey<typeof principalSchemaMarker>
+>
+
+type PrincipalSchemaOrAny<TClassName> = [TClassName] extends [never]
+	? SchemaDefinition
+	: Extract<TClassName, string>
 
 /**
  * The authenticated identity of the current request: a Core `Pointer` to a row
@@ -37,11 +49,12 @@ type PrincipalPointer<TClassName> = [TClassName] extends [never]
  * credential; authority stays `anonymous` or `master`.
  *
  * Once `Register` names the application, it points to the schema an installed
- * plugin designates through `PrincipalSchemaCarrier`, such as the User schema
- * of the authentication plugin (ADR-0340). An application that identifies
- * callers differently names that schema with the `principal` key of
- * `Register`, which wins. Otherwise it is typed as `PointerValue` (any
- * pointer).
+ * plugin designates through `PrincipalSchemaCarrier` and
+ * `PrincipalSchemaProviders`, such as the User schema of the authentication
+ * plugin (ADR-0340); editors print it `PrincipalPointer` and its `schema` as
+ * `SchemaRef<"TodoUser">`. An application that identifies callers differently
+ * names that schema with the `principal` key of `Register`, which wins.
+ * Otherwise it is typed as `PointerValue` (any pointer).
  *
  * @example
  * ```ts
@@ -58,7 +71,9 @@ export type Principal = Register extends {
 	readonly principal: infer TClassName extends string
 }
 	? Pointer<TClassName>
-	: PrincipalPointer<RegisteredSchemaNameWithKey<typeof principalSchemaMarker>>
+	: [keyof PrincipalSchemaProviders] extends [never]
+		? PointerValue
+		: PrincipalPointer
 
 /**
  * Policy operation keys: the reads `one`, `many`, `count` and `exists`, the

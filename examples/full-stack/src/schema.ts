@@ -187,7 +187,7 @@ export const ExampleArticle = App.Schema.define({
 			},
 		}),
 		optionalSubtitle: field.virtual({
-			output: (output) => output.string(),
+			output: (output) => output.string({ nullable: true }),
 			select: { presentation: true },
 			resolve: ({ item }) => readPresentation(item.presentation).subtitle,
 		}),
@@ -201,7 +201,7 @@ export const ExampleArticle = App.Schema.define({
 				output.object({
 					fields: (output) => ({
 						labels: output.string({ list: true }),
-						subtitle: output.string(),
+						subtitle: output.string({ nullable: true }),
 						title: output.string(),
 					}),
 					typeName: 'ExampleArticleSummary',
