@@ -40,6 +40,7 @@ it('updates by id and returns null for an absent target', async () => {
 	await testApplication(ultimabase)
 	const post = await Post.createOne({
 		data: { slug: 'draft', title: 'Draft', summary: 'Old summary' },
+		select: { title: true },
 	})
 
 	const renamed = await renamePost(post.id, 'Final')

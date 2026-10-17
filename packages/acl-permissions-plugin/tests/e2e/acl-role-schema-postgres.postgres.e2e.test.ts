@@ -239,6 +239,7 @@ describe(
 					{
 						where: { id: { eq: current.id } },
 						data: { description: 'Updated through role ACL' },
+						select: { description: true },
 					},
 					{ context },
 				),

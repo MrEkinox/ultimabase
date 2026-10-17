@@ -70,7 +70,10 @@ it('gives policies the current principal', async () => {
 	const ada = await createAuthor()
 
 	const signedIn = await t.as(Author.pointer(ada.id), () =>
-		Announcement.createOne({ data: { title: 'Signed in' } }),
+		Announcement.createOne({
+			data: { title: 'Signed in' },
+			select: { title: true },
+		}),
 	)
 
 	await expect(
@@ -81,7 +84,10 @@ it('gives policies the current principal', async () => {
 	expect(
 		await t.as(Author.pointer(ada.id), () =>
 			ultimabase.transaction(() =>
-				Announcement.createOne({ data: { title: 'In a transaction' } }),
+				Announcement.createOne({
+					data: { title: 'In a transaction' },
+					select: { title: true },
+				}),
 			),
 		),
 	).toMatchObject({ title: 'In a transaction' })

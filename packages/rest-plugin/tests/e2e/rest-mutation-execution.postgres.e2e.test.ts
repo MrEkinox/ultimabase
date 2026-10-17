@@ -490,7 +490,7 @@ describe(
 				executeRestMutationRequest(executor, getMaster(), MutationPost, {
 					id: privatePost.id,
 					operation: 'update',
-					request: jsonRequest('PATCH', '/posts/private', {
+					request: jsonRequest('PATCH', '/posts/private?select=title', {
 						title: 'Master write',
 					}),
 				}),

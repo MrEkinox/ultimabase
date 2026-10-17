@@ -30,15 +30,11 @@ it('creates, updates and deletes a post with its links', async () => {
 	})
 	//#endregion create-post
 
+	// Without `?select`, a write answers `{ id }`; `include` adds the tags.
 	expect(created.status).toBe(201)
 	expect(await created.clone().json()).toStrictEqual({
 		result: {
 			id,
-			...timestamps,
-			title: 'Release notes',
-			slug: 'release-notes',
-			views: 0,
-			author: { type: 'pointer', className: 'Author', id: ada.id },
 			tags: [{ id: news.id, name: 'news', ...timestamps }],
 		},
 	})
@@ -128,7 +124,7 @@ it('returns only the id of a row the caller cannot read', async () => {
 	await using t = await testApplication(ultimabase)
 
 	//#region write-only
-	const sent = await t.fetch('/api/classes/Feedback?select=id', {
+	const sent = await t.fetch('/api/classes/Feedback', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ message: 'Lovely blog' }),
@@ -138,8 +134,8 @@ it('returns only the id of a row the caller cannot read', async () => {
 	expect(sent.status).toBe(201)
 	expect(await sent.json()).toStrictEqual({ result: { id } })
 
-	// Asking for more fails before anything is written.
-	const denied = await t.fetch('/api/classes/Feedback', {
+	// Asking for more fails and writes nothing.
+	const denied = await t.fetch('/api/classes/Feedback?select=message', {
 		body: JSON.stringify({ message: 'Lovely blog' }),
 		headers: json,
 		method: 'POST',

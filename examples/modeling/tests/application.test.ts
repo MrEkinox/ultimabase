@@ -41,6 +41,7 @@ it('generates calendar values in the application timezone', async () => {
 
 	const order = await Order.createOne({
 		data: { customer: { connect: customer.id }, total: '12.00' },
+		select: { placedAt: true, placedOn: true },
 	})
 
 	expect(order.placedOn).toBe('2026-08-01')

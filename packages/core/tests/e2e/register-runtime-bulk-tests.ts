@@ -141,6 +141,7 @@ export const registerRuntimeBulkTests = (): void => {
 					tenantId: 'tenant-c',
 				},
 				update: { visits: { increment: 1 } },
+				select: { handle: true, tenantId: true, visits: true },
 			})
 			expect(composite).toMatchObject({
 				handle: 'composite',

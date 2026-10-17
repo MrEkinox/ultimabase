@@ -104,7 +104,7 @@ it('runs the Hooks a compatible plugin contributes', async () => {
 		where: { id: { eq: post.id } },
 		data: { published: false },
 	})
-	expect(await Post.deleteOne({ where: { id: post.id } })).toMatchObject({
-		title: 'Live',
-	})
+	expect(
+		await Post.deleteOne({ where: { id: post.id }, select: { title: true } }),
+	).toMatchObject({ title: 'Live' })
 })

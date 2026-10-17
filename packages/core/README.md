@@ -862,7 +862,10 @@ the class:
 <!-- region ../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one -->
 
 ```ts
-const archived = await Post.archiveOne({ id: post.id })
+const archived = await Post.archiveOne({
+	id: post.id,
+	select: { archivedAt: true },
+})
 ```
 
 <!-- endregion -->

@@ -69,6 +69,8 @@ it('reads results with the field names and application values', async () => {
 			metadata: { visibility: 'public', featured: true },
 			author: { connect: ada.id },
 		},
+		// Every field: a write returns `{ id }` unless it selects more.
+		select: {},
 	})
 	//#endregion kinds
 

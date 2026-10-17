@@ -207,7 +207,10 @@ beforeEach(async () => {
 
 describe('Hooks on plain data (ADR-0318)', () => {
 	it('resolves create data, then runs global, all and create in order', async () => {
-		const todo = await Todo.createOne({ data: { title: '  First Todo ' } })
+		const todo = await Todo.createOne({
+			data: { title: '  First Todo ' },
+			select: { slug: true, title: true },
+		})
 		expect(todo).toMatchObject({ slug: 'first-todo', title: 'First Todo' })
 		expect(
 			trace.filter((line) => /^(?:resolve|before):/u.test(line)),
@@ -242,6 +245,7 @@ describe('Hooks on plain data (ADR-0318)', () => {
 		const renamed = await Todo.updateOne({
 			where: { id: { eq: todo.id } },
 			data: { title: 'Renamed Todo' },
+			select: { slug: true, views: true },
 		})
 		expect(recorded).toHaveLength(1)
 		expect(recorded[0]).toMatchObject({ title: 'Renamed Todo' })
@@ -405,7 +409,10 @@ describe('afterCommit and events (ADR-0318)', () => {
 
 	it('logs an afterCommit failure without rejecting the call or the next hooks', async () => {
 		await expect(
-			Todo.createOne({ data: { title: 'fail commit' } }),
+			Todo.createOne({
+				data: { title: 'fail commit' },
+				select: { title: true },
+			}),
 		).resolves.toMatchObject({ title: 'fail commit' })
 		await waitForAfterCommit()
 		expect(logger.messages('error')).toContainEqual(

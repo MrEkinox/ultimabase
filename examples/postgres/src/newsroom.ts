@@ -11,6 +11,7 @@ export const publishWithEditor = (articleId: string, editorId: string) =>
 		const article = await Article.updateOne({
 			where: { id: articleId },
 			data: { status: 'published', publishedAt: new Date().toISOString() },
+			select: { status: true },
 		})
 		if (article === null) throw new Error('Article not found')
 

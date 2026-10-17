@@ -292,7 +292,10 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		).resolves.toHaveLength(1)
 		await expect(
 			ProtectedPost.deleteOne(
-				{ where: { id: { eq: requireRowId('editor') } } },
+				{
+					where: { id: { eq: requireRowId('editor') } },
+					select: { title: true },
+				},
 				{ context: editor },
 			),
 		).resolves.toMatchObject({ title: 'editor' })

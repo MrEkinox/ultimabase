@@ -317,6 +317,7 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 				history: [{ line1: '4 Rue', city: 'Lyon' }],
 				metadata: { kept: false },
 			},
+			select: { history: true, metadata: true },
 		})
 
 		expect(updated).toMatchObject({

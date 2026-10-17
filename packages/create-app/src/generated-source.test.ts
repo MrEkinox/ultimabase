@@ -51,7 +51,7 @@ describe('generated source cleanliness', () => {
 	it('seeds the Task example only into an empty table', () => {
 		const direct = render({ language: 'ts' }).get('src/main.ts') ?? ''
 		expect(direct).toMatch(
-			/const task =\s+\(await Task\.findOne\(\)\) \?\?\s+\(await Task\.createOne\(/u,
+			/const task =\s+\(await Task\.findOne\([^)]*\)\) \?\?\s+\(await Task\.createOne\(/u,
 		)
 		expect(direct.match(/Task\.createOne\(/gu)).toHaveLength(1)
 		// An empty ACL hides the seed, so the existence check uses Master too.
@@ -60,7 +60,7 @@ describe('generated source cleanliness', () => {
 				'src/main.js',
 			) ?? ''
 		expect(secured).toContain(
-			'(await Task.findOne({}, { useMasterKey: true })) ??',
+			'{ select: { done: true, title: true } },\n    { useMasterKey: true },\n  )) ??',
 		)
 		expect(secured.match(/useMasterKey: true/gu)).toHaveLength(2)
 		expect(render({ language: 'ts' }).get('README.md')).toContain(

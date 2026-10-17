@@ -26,13 +26,24 @@ it('updates unlocked stories and keeps a published title', async () => {
 	})
 	//#endregion update-story
 
-	expect(retitled).toMatchObject({ title: 'Final draft' })
+	// A write returns `{ id }` unless it selects more.
+	expect(retitled).toStrictEqual({ id: draft.id })
+	expect(
+		await Story.findOneOrThrow({
+			where: { id: { eq: draft.id } },
+			select: { title: true },
+		}),
+	).toMatchObject({ title: 'Final draft' })
 	// `item` refuses a new title on a published story, not other changes.
 	await expect(
 		Story.updateOne({ data: { title: 'Renamed' }, where: { id: live.id } }),
 	).rejects.toMatchObject(denied)
 	expect(
-		await Story.updateOne({ data: { locked: true }, where: { id: live.id } }),
+		await Story.updateOne({
+			data: { locked: true },
+			select: { locked: true, title: true },
+			where: { id: live.id },
+		}),
 	).toMatchObject({ locked: true, title: 'Live' })
 	// The `where` filter makes a locked story unreachable, like a missing one.
 	expect(
@@ -83,12 +94,16 @@ it('keeps notes private to their author', async () => {
 	).rejects.toMatchObject(denied)
 	expect(
 		await t.as(asAda, () =>
-			Note.updateOne({ data: { body: 'Done' }, where: { id: note.id } }),
+			Note.updateOne({
+				data: { body: 'Done' },
+				select: { body: true },
+				where: { id: note.id },
+			}),
 		),
 	).toMatchObject({ body: 'Done' })
 })
 
-it('lets an admin delete any note by asking for its id alone', async () => {
+it('lets an admin delete a note it cannot read, without selecting more', async () => {
 	await using t = await testApplication(ultimabase)
 	const [ada, root] = await t.asMaster(() =>
 		Member.createMany({ data: [{ name: 'Ada' }, { name: 'Root' }] }),
@@ -108,18 +123,18 @@ it('lets an admin delete any note by asking for its id alone', async () => {
 	// The author is not an admin.
 	await expect(
 		t.as(Member.pointer(ada.id), () =>
-			Note.deleteOne({ select: { id: true }, where: { id: note.id } }),
+			Note.deleteOne({ where: { id: note.id } }),
 		),
 	).rejects.toMatchObject(denied)
-	// The admin cannot read Ada's note, so a full result is refused...
+	// The admin cannot read Ada's note, so selecting its body is refused...
 	await expect(
-		t.as(asRoot, () => Note.deleteOne({ where: { id: note.id } })),
-	).rejects.toMatchObject(denied)
-	// ...and the identifier alone is allowed.
-	expect(
-		await t.as(asRoot, () =>
-			Note.deleteOne({ select: { id: true }, where: { id: note.id } }),
+		t.as(asRoot, () =>
+			Note.deleteOne({ select: { body: true }, where: { id: note.id } }),
 		),
+	).rejects.toMatchObject(denied)
+	// ...while the default `{ id }` result is allowed.
+	expect(
+		await t.as(asRoot, () => Note.deleteOne({ where: { id: note.id } })),
 	).toStrictEqual({ id: note.id })
 	expect(await t.asMaster(() => Note.count())).toBe(0)
 })
@@ -128,17 +143,17 @@ it('writes audit entries that the caller cannot read back', async () => {
 	await using t = await testApplication(ultimabase)
 
 	//#region audit
-	const entry = await AuditEntry.createOne({
-		data: { action: 'login' },
-		select: { id: true },
-	})
+	const entry = await AuditEntry.createOne({ data: { action: 'login' } })
 	//#endregion audit
 
 	expect(Object.keys(entry)).toStrictEqual(['id'])
-	// Without `select: { id: true }` the result is unreadable: refused, and
-	// nothing is written.
+	// Selecting more than `id` needs the `read` rule: refused, and nothing is
+	// written.
 	await expect(
-		AuditEntry.createOne({ data: { action: 'logout' } }),
+		AuditEntry.createOne({
+			data: { action: 'logout' },
+			select: { action: true },
+		}),
 	).rejects.toMatchObject(denied)
 	expect(
 		await t.asMaster(() => AuditEntry.findMany({ select: { action: true } })),

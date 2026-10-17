@@ -350,7 +350,10 @@ describe(
 
 			await expect(
 				Team.createOne(
-					{ data: { name: 'master', owner: { connect: hidden.id } } },
+					{
+						data: { name: 'master', owner: { connect: hidden.id } },
+						select: { name: true },
+					},
 					master,
 				),
 			).resolves.toMatchObject({ name: 'master' })

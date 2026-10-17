@@ -206,6 +206,7 @@ describe('Validation rules (ADR-0319)', () => {
 		await expect(
 			Event.createOne({
 				data: { endsAt: 2, note: null, startsAt: 1, title: 'No note' },
+				select: { note: true },
 			}),
 		).resolves.toMatchObject({ note: null })
 	})

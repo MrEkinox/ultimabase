@@ -404,6 +404,7 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 					scopeId: 'scope-create',
 					title: '  Create lifecycle  ',
 				},
+				select: { profile: true, title: true },
 			}),
 		)
 

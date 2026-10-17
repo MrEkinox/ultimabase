@@ -327,6 +327,7 @@ describe(
 					create: { slug: 'public-one', title: 'Unused' },
 					update: { title: 'Upserted title' },
 					where: { slug: { eq: 'public-one' } },
+					select: { title: true },
 				},
 			)
 			expect(upserted.status).toBe(200)

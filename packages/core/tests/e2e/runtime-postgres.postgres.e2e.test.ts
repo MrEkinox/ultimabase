@@ -290,6 +290,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		try {
 			const committed = await HookPostSchema.createOne({
 				data: { title: 'commit' },
+				select: { title: true },
 			})
 			const audits = await HookAuditSchema.findMany({
 				select: { action: true },

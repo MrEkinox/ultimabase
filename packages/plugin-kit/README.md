@@ -104,7 +104,10 @@ export const Post = App.Schema.define({
 <!-- region ../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one,archive-many -->
 
 ```ts
-const archived = await Post.archiveOne({ id: post.id })
+const archived = await Post.archiveOne({
+	id: post.id,
+	select: { archivedAt: true },
+})
 
 const archivedPosts = await Post.archiveMany({
 	where: { title: { in: ['Old'] } },

@@ -32,6 +32,7 @@ it('lets everyone read and editors change announcements', async () => {
 		Announcement.updateOne({
 			data: { title: 'Launch day' },
 			where: { id: launch.id },
+			select: { title: true },
 		}),
 	)
 	//#endregion announce

@@ -148,6 +148,7 @@ describe('definePlugin probe plugins on PostgreSQL (ADR-0316)', () => {
 	it('adds the shape fields and one-row commands', async () => {
 		const post = await Post.createOne({
 			data: { owner: 'ada', title: 'one' },
+			select: { archivedAt: true },
 		})
 		expect(post).toMatchObject({ archivedAt: null })
 		const archived = await Post.archiveOne({

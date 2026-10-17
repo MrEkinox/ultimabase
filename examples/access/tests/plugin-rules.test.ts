@@ -27,7 +27,9 @@ it('lets authenticated members comment unless they are muted', async () => {
 	const comment = { author: ada.id, body: 'First!' }
 
 	expect(
-		await t.as(ada, () => Comment.createOne({ data: comment })),
+		await t.as(ada, () =>
+			Comment.createOne({ data: comment, select: { body: true } }),
+		),
 	).toMatchObject({ body: 'First!' })
 	await expect(Comment.createOne({ data: comment })).rejects.toMatchObject(
 		denied,
@@ -79,7 +81,9 @@ it('rules plugin commands with their own keys', async () => {
 		t.as(ada, () => Comment.restoreOne({ id: first.id })),
 	).rejects.toMatchObject(denied)
 	expect(
-		await t.as(grace, () => Comment.restoreOne({ id: first.id })),
+		await t.as(grace, () =>
+			Comment.restoreOne({ id: first.id, select: { isDeleted: true } }),
+		),
 	).toMatchObject({ isDeleted: false })
 	await expect(
 		t.as(grace, () => Comment.restoreMany({ where: {} })),

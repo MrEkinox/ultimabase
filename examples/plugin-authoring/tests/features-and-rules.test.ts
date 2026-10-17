@@ -27,10 +27,16 @@ it('adds the feature fields and commands, and reads the rule after commit', asyn
 	const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
 
 	//#region approve-story
-	const story = await Story.createOne({ data: { title: 'Launch' } })
+	const story = await Story.createOne({
+		data: { title: 'Launch' },
+		select: { reviewedAt: true },
+	})
 	await waitForAfterCommit()
 	expect(info).toHaveBeenCalledWith('[review] Story waits for editors')
-	const approved = await Story.approveOne({ id: story.id })
+	const approved = await Story.approveOne({
+		id: story.id,
+		select: { reviewedAt: true },
+	})
 	//#endregion approve-story
 
 	expect(story.reviewedAt).toBeNull()

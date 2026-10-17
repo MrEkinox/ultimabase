@@ -16,7 +16,9 @@ it('runs a Standard Schema object validator on the complete item', async () => {
 	//#endregion ticket-tier-check
 
 	// The validator's output is not stored: the item keeps every field.
-	expect(tier).toMatchObject({ maxPerOrder: 10, minPerOrder: 5, name: 'Group' })
+	expect(
+		await TicketTier.findOneOrThrow({ where: { id: { eq: tier.id } } }),
+	).toMatchObject({ maxPerOrder: 10, minPerOrder: 5, name: 'Group' })
 	await expect(inverted).rejects.toMatchObject({
 		code: 'VALIDATION_ERROR',
 		publicDetails: {

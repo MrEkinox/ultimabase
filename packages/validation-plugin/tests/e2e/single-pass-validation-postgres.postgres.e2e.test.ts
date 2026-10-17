@@ -165,6 +165,7 @@ describe(
 						owner: { connect: owner.id },
 						profile: { name: 'Ada' },
 					},
+					select: { label: true, score: true },
 				})
 
 				expect(created).toMatchObject({ label: 'pending review', score: 1 })

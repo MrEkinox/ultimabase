@@ -660,6 +660,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				MissingProviderPost.updateOne({
 					where: { id: { eq: row.id } },
 					data: { title: 'Community provider allowed' },
+					select: { title: true },
 				}),
 			).resolves.toMatchObject({ title: 'Community provider allowed' })
 			expect(missingProviderHookCalls).toBe(1)
