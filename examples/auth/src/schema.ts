@@ -1,9 +1,7 @@
-//#region imports
 import { isSelf } from '@ultimabase/access-plugin'
 import { isAuthenticated } from '@ultimabase/core'
 
 import { App } from './app.ts'
-//#endregion imports
 
 //#region member
 /**

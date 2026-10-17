@@ -10,7 +10,6 @@ type FullStackApplication = ReturnType<typeof createUltimabase>
 
 /** Reads the computed fields of one article: none of them is stored. */
 export const readArticlePresentation = async (slug: string) => {
-	//#region virtual-fields
 	const article = await ExampleArticle.findOne({
 		select: {
 			displayTitle: true,
@@ -21,7 +20,6 @@ export const readArticlePresentation = async (slug: string) => {
 		},
 		where: { slug: { eq: slug } },
 	})
-	//#endregion virtual-fields
 	return article
 }
 
@@ -30,7 +28,6 @@ export const writeArticleGraph = async (
 	existingAuthorId: string,
 	existingContributorId: string,
 ) => {
-	//#region nested-writes
 	const article = await ExampleArticle.createOne({
 		data: {
 			author: { connect: existingAuthorId },
@@ -70,7 +67,6 @@ export const writeArticleGraph = async (
 			contributors: { select: { id: true, name: true } },
 		},
 	})
-	//#endregion nested-writes
 	return updated
 }
 
@@ -78,7 +74,6 @@ export const writeArticleGraph = async (
 export const listArticlesInProcess = async (
 	ultimabase: FullStackApplication,
 ) => {
-	//#region graphql-execute
 	const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
 	const context = anonymous(ultimabase, {
 		requestId: crypto.randomUUID(),
@@ -94,6 +89,5 @@ export const listArticlesInProcess = async (
 			}
 		}`,
 	})
-	//#endregion graphql-execute
 	return result
 }

@@ -1,4 +1,3 @@
-//#region api-info-plugin
 import {
 	httpMount,
 	httpRoutes,
@@ -33,4 +32,3 @@ export const apiInfoPlugin = () =>
 			}),
 		],
 	})
-//#endregion api-info-plugin

@@ -13,7 +13,6 @@ import { formatWorkflow } from '../src/workflow/operations.ts'
 import { workflowPlugin } from '../src/workflow/plugin.ts'
 
 it('runs the common suite with the schemas a feature types', async () => {
-	//#region schema-suite
 	const suite = definePluginConformanceSuite({
 		// The subject and the schemas that set its feature, together.
 		createFixture: () => {
@@ -39,7 +38,6 @@ it('runs the common suite with the schemas a feature types', async () => {
 			'archiveMany',
 		])
 	})
-	//#endregion schema-suite
 
 	// A failed contract throws a PluginConformanceError that names it.
 	const { checks } = await runPluginConformance(suite)
@@ -47,7 +45,6 @@ it('runs the common suite with the schemas a feature types', async () => {
 })
 
 it('checks two explicit instances of one factory', async () => {
-	//#region instances-suite
 	const suite = definePluginConformanceSuite({
 		createFixture: () =>
 			createPluginConformanceFixture({
@@ -63,7 +60,6 @@ it('checks two explicit instances of one factory', async () => {
 			create: (instanceId) => starterPlugin(instanceId),
 		},
 	})
-	//#endregion instances-suite
 
 	// A failed contract throws a PluginConformanceError that names it.
 	const { checks } = await runPluginConformance(suite)
@@ -71,7 +67,6 @@ it('checks two explicit instances of one factory', async () => {
 })
 
 it('installs a support plugin that provides a required capability', async () => {
-	//#region support-suite
 	const suite = definePluginConformanceSuite({
 		createFixture: () =>
 			createPluginConformanceFixture({
@@ -84,7 +79,6 @@ it('installs a support plugin that provides a required capability', async () => 
 			core: '^0.0.0',
 		},
 	})
-	//#endregion support-suite
 
 	// A failed contract throws a PluginConformanceError that names it.
 	const { checks } = await runPluginConformance(suite)
@@ -92,7 +86,6 @@ it('installs a support plugin that provides a required capability', async () => 
 })
 
 it('adds an optional operation check', async () => {
-	//#region operation-check
 	const suite = definePluginConformanceSuite({
 		createFixture: () =>
 			createPluginConformanceFixture({ subject: workflowPlugin() }),
@@ -109,7 +102,6 @@ it('adds an optional operation check', async () => {
 			ultimabase.compile().operations.map(({ operation }) => operation.name),
 		).toStrictEqual([formatWorkflow.name])
 	})
-	//#endregion operation-check
 
 	const { checks } = await runPluginConformance(suite)
 	expect(checks.map(({ contract }) => contract)).toContain('operation')

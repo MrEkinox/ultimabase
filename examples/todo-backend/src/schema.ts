@@ -1,10 +1,8 @@
-//#region imports
 import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { PublicError, defineEnum } from '@ultimabase/core'
 import { z } from 'zod'
 
 import { App } from './app.ts'
-//#endregion imports
 
 const serverManagedAccess = {
 	read: true,
@@ -76,7 +74,6 @@ export const TodoPriority = defineEnum('TodoPriority', [
 export const Todo = App.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
-		//#region todo-title
 		title: field.string({
 			description: 'Short task summary shown in todo lists.',
 			hooks: { resolveInput: ({ value }) => value.trim() },
@@ -84,7 +81,6 @@ export const Todo = App.Schema.define({
 			required: true,
 			validation: z.string().max(200),
 		}),
-		//#endregion todo-title
 		description: field.string({
 			description: 'Optional details needed to complete the task.',
 		}),
@@ -227,7 +223,6 @@ export const Todo = App.Schema.define({
 			target: () => TodoUser,
 		}),
 	}),
-	//#region todo-rules
 	indexes: [{ fields: ['completed', 'dueAt'] }],
 	acl: true,
 }).with({
@@ -258,4 +253,3 @@ export const Todo = App.Schema.define({
 	},
 	postgres: { table: 'todos' },
 })
-//#endregion todo-rules

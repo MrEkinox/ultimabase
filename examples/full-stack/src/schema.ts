@@ -244,7 +244,6 @@ export const ExampleArticle = App.Schema.define({
 	softDelete: { mode: 'command' },
 	acl: true,
 }).with({
-	//#region relation-views
 	// Narrows every read through these relation fields (ADR-0328).
 	relations: {
 		contributors: { where: { listed: { eq: true } } },
@@ -256,7 +255,6 @@ export const ExampleArticle = App.Schema.define({
 					: where,
 		},
 	},
-	//#endregion relation-views
 	access: {
 		create: true,
 		delete: true,

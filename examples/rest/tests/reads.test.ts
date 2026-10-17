@@ -136,9 +136,7 @@ it('reads one post with its author and tags', async () => {
 	})
 
 	// Without `include`, a pointer is its tagged identity.
-	//#region unloaded-pointer
 	const pointer = await t.fetch(`/api/classes/Post/${hello.id}?select=author`)
-	//#endregion unloaded-pointer
 
 	expect(await pointer.json()).toStrictEqual({
 		result: {

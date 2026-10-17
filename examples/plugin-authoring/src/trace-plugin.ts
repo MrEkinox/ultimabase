@@ -1,4 +1,3 @@
-//#region trace-plugin
 import { contributeApplication, plugin } from '@ultimabase/core/plugin'
 import {
 	deriveEnvironmentDefault,
@@ -26,4 +25,3 @@ export const tracePlugin = (options: { verbose?: boolean } = {}) => {
 		],
 	})
 }
-//#endregion trace-plugin

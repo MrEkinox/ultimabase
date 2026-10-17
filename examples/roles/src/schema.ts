@@ -1,8 +1,6 @@
-//#region imports
 import { hasRole } from '@ultimabase/roles-plugin'
 
 import { App } from './app.ts'
-//#endregion imports
 
 //#region staff-role
 /** The people of the newsroom; a request principal points to a Member. */

@@ -1,7 +1,6 @@
 import { Todo } from './schema.ts'
 import type { CreateInput } from '@ultimabase/core'
 
-//#region create-and-list
 /** Creates a task while letting schema defaults initialize its state. */
 export const createTodo = (data: CreateInput<'Todo'>) =>
 	Todo.createOne(
@@ -34,7 +33,6 @@ export const listPendingTodos = () =>
 		},
 		where: { completed: { eq: false } },
 	})
-//#endregion create-and-list
 
 /** Marks exactly one task as completed and returns its selected public state. */
 export const completeTodo = (id: string) =>

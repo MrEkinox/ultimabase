@@ -1,9 +1,7 @@
-//#region imports
 import { z } from 'zod'
 
 import { App } from './app.ts'
 import { isRoomOpen } from './rooms.ts'
-//#endregion imports
 
 //#region event
 export const Event = App.Schema.define({

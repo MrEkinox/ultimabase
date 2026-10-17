@@ -30,11 +30,9 @@ it('archives every matching row with archiveMany', async () => {
 	await testApplication(ultimabase)
 	await Post.createMany({ data: [{ title: 'Old' }, { title: 'Older' }] })
 
-	//#region archive-many
 	const archivedPosts = await Post.archiveMany({
 		where: { title: { in: ['Old'] } },
 	})
-	//#endregion archive-many
 
 	expect(archivedPosts).toHaveLength(1)
 	expect(await Post.count({ where: { archivedAt: { isNotNull: true } } })).toBe(

@@ -3,7 +3,6 @@ import { expect, it } from 'vitest'
 import { z } from 'zod'
 
 it('parses plugin options once with a Standard Schema validator', () => {
-	//#region schema-parser
 	const parseOptions = definePluginOptionsParser({
 		name: 'workflow plugin options',
 		schema: z.strictObject({
@@ -11,7 +10,6 @@ it('parses plugin options once with a Standard Schema validator', () => {
 			mode: z.enum(['review', 'publish']).default('review'),
 		}),
 	})
-	//#endregion schema-parser
 
 	const options = parseOptions({})
 	expect(options).toStrictEqual({ mode: 'review' })
@@ -22,7 +20,6 @@ it('parses plugin options once with a Standard Schema validator', () => {
 })
 
 it('parses plugin options with the manual contract', () => {
-	//#region manual-parser
 	const parseOptions = definePluginOptionsParser({
 		name: 'workflow plugin options',
 		keys: ['instanceId', 'mode'] as const,
@@ -31,7 +28,6 @@ it('parses plugin options with the manual contract', () => {
 			mode: mode === 'publish' ? 'publish' : 'review',
 		}),
 	})
-	//#endregion manual-parser
 
 	expect(parseOptions({ mode: 'publish' })).toStrictEqual({
 		instanceId: undefined,

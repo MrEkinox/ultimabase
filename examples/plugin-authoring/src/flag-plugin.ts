@@ -87,7 +87,6 @@ export const flagPlugin = (): FlagPlugin => {
 							flagReason: flagReasonOption,
 						},
 					})
-					//#region flag-patch
 					schemas.patch(
 						patchSchemas({
 							targets: schemas.select({ option: { name: 'flaggable' } }),
@@ -104,7 +103,6 @@ export const flagPlugin = (): FlagPlugin => {
 								}),
 						}),
 					)
-					//#endregion flag-patch
 					return undefined
 				},
 			}),

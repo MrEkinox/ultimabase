@@ -1,4 +1,3 @@
-//#region imports
 import {
 	PublicError,
 	isAuthenticated,
@@ -6,7 +5,6 @@ import {
 } from '@ultimabase/core'
 
 import { App } from './app.ts'
-//#endregion imports
 
 //#region author
 /** A writer; requests run on behalf of an Author (the request principal). */
@@ -60,7 +58,6 @@ export const Post = App.Schema.define({
 })
 //#endregion post
 
-//#region comment
 export const Comment = App.Schema.define({
 	className: 'Comment',
 	fields: (field) => ({
@@ -68,9 +65,7 @@ export const Comment = App.Schema.define({
 		published: field.boolean({ default: true }),
 	}),
 })
-//#endregion comment
 
-//#region translation
 /** One translation per post and locale: the pair is a unique target. */
 export const Translation = App.Schema.define({
 	className: 'Translation',
@@ -85,7 +80,6 @@ export const Translation = App.Schema.define({
 	}),
 	indexes: [{ fields: ['post', 'locale'], unique: true }],
 })
-//#endregion translation
 
 //#region policies
 /** Editors are Authors flagged `editor`; anonymous callers never are. */

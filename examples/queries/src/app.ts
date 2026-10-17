@@ -1,4 +1,3 @@
-//#region factory
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -12,4 +11,3 @@ export const App = UltimaBase.use(
 	accessPlugin({ allowWithoutRule: { all: true } }),
 	postgresPlugin(),
 )
-//#endregion factory

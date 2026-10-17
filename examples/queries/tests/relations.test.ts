@@ -64,7 +64,6 @@ it('pages an included relation with after', async () => {
 		},
 	})
 
-	//#region included-page
 	// Each post's comments are paged on their own, like a root `findMany`.
 	const post = await Post.findOneOrThrow({
 		where: { id },
@@ -81,7 +80,6 @@ it('pages an included relation with after', async () => {
 			},
 		},
 	})
-	//#endregion included-page
 
 	expect(post.comments.map(({ body }) => body)).toStrictEqual(['A', 'B'])
 	expect(next.comments.map(({ body }) => body)).toStrictEqual(['C'])

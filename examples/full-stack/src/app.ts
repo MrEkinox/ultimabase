@@ -1,4 +1,3 @@
-//#region factory
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { password, passwordOperations } from '@ultimabase/auth-password'
@@ -39,4 +38,3 @@ export const App = UltimaBase.use(
 		hide: [passwordOperations.changePassword, authOperations.logoutEverywhere],
 	}),
 )
-//#endregion factory

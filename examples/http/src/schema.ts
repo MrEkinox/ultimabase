@@ -1,8 +1,5 @@
-//#region imports
 import { App } from './app.ts'
-//#endregion imports
 
-//#region link
 /**
  * Saved links, served by REST under `/api/classes/Link`. Everyone reads
  * them; without a write rule, only Master requests write.
@@ -14,4 +11,3 @@ export const Link = App.Schema.define({
 		title: field.string(),
 	}),
 }).with({ access: { read: true } })
-//#endregion link
