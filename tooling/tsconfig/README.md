@@ -4,6 +4,8 @@ Shared strict TypeScript configuration for UltimaBase packages.
 
 - `base.json` defines production compiler rules.
 - `test.json` adds Vitest and Node types for package-local and cross-package tests.
+- `example.json` is the whole configuration of every `examples/*` application:
+  each example `tsconfig.json` only extends it.
 
 Package `tsconfig.test.json` files override the shared root include list with
 local source tests and package tests. Declaration support lives in explicit
