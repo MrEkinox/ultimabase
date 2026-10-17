@@ -31,11 +31,14 @@ const include = {
 } as const
 const select = { title: true } as const
 
-// Mutations project like reads: without `select`, the default projection keeps
-// every field and `include` only adds the related values.
-test('createOne projects like findOneOrThrow', () => {
+const idOnly = { id: true } as const
+
+// Mutations project like reads with one difference (ADR-0341): without
+// `select`, a write returns `{ id }` and `include` only adds related values.
+// An explicit `select` keeps the read projection, `{}` included.
+test('createOne returns { id } unless it selects more', () => {
 	expectTypeOf(Post.createOne({ data, include })).toEqualTypeOf(
-		Post.findOneOrThrow({ where, include }),
+		Post.findOneOrThrow({ where, select: idOnly, include }),
 	)
 	expectTypeOf(Post.createOne({ data, select })).toEqualTypeOf(
 		Post.findOneOrThrow({ where, select }),
@@ -43,14 +46,20 @@ test('createOne projects like findOneOrThrow', () => {
 	expectTypeOf(Post.createOne({ data, select, include })).toEqualTypeOf(
 		Post.findOneOrThrow({ where, select, include }),
 	)
-	expectTypeOf(Post.createOne({ data })).toEqualTypeOf(
-		Post.findOneOrThrow({ where }),
+	expectTypeOf(Post.createOne({ data })).toEqualTypeOf<
+		Promise<QueryResult<typeof Post, 'id'>>
+	>()
+	expectTypeOf(Post.createOne({ data, select: {} })).toEqualTypeOf(
+		Post.findOneOrThrow({ where, select: {} }),
 	)
+	expectTypeOf(
+		Post.createOne({ data, select: { title: false } }),
+	).toEqualTypeOf(Post.findOneOrThrow({ where, select: { title: false } }))
 })
 
-test('createMany projects every row like findMany', () => {
+test('createMany returns [{ id }] unless it selects more', () => {
 	expectTypeOf(Post.createMany({ data: [data], include })).toEqualTypeOf(
-		Post.findMany({ include }),
+		Post.findMany({ select: idOnly, include }),
 	)
 	expectTypeOf(Post.createMany({ data: [data], select })).toEqualTypeOf(
 		Post.findMany({ select }),
@@ -58,14 +67,16 @@ test('createMany projects every row like findMany', () => {
 	expectTypeOf(
 		Post.createMany({ data: [data], select, include }),
 	).toEqualTypeOf(Post.findMany({ select, include }))
-	expectTypeOf(Post.createMany({ data: [data] })).toEqualTypeOf(Post.findMany())
+	expectTypeOf(Post.createMany({ data: [data] })).toEqualTypeOf<
+		Promise<readonly QueryResult<typeof Post, 'id'>[]>
+	>()
 })
 
-test('updateOne projects like findOne', () => {
+test('updateOne returns { id } or null unless it selects more', () => {
 	const update = { where, data: { title: 'Updated' } } as const
 
 	expectTypeOf(Post.updateOne({ ...update, include })).toEqualTypeOf(
-		Post.findOne({ include }),
+		Post.findOne({ select: idOnly, include }),
 	)
 	expectTypeOf(Post.updateOne({ ...update, select })).toEqualTypeOf(
 		Post.findOne({ select }),
@@ -73,7 +84,9 @@ test('updateOne projects like findOne', () => {
 	expectTypeOf(Post.updateOne({ ...update, select, include })).toEqualTypeOf(
 		Post.findOne({ select, include }),
 	)
-	expectTypeOf(Post.updateOne(update)).toEqualTypeOf(Post.findOne())
+	expectTypeOf(Post.updateOne(update)).toEqualTypeOf<
+		Promise<QueryResult<typeof Post, 'id'> | null>
+	>()
 })
 
 test('updateMany keeps its identity default and adds includes', () => {
@@ -93,7 +106,7 @@ test('updateMany keeps its identity default and adds includes', () => {
 	>()
 })
 
-test('commands without include keep their projections', () => {
+test('commands without include return { id } unless they select more', () => {
 	const upsert = {
 		where: { slug: 'post' },
 		create: data,
@@ -103,17 +116,21 @@ test('commands without include keep their projections', () => {
 	expectTypeOf(Post.upsertOne({ ...upsert, select })).toEqualTypeOf(
 		Post.findOneOrThrow({ select }),
 	)
-	expectTypeOf(Post.upsertOne(upsert)).toEqualTypeOf(Post.findOneOrThrow())
+	expectTypeOf(Post.upsertOne(upsert)).toEqualTypeOf<
+		Promise<QueryResult<typeof Post, 'id'>>
+	>()
 	expectTypeOf(Post.upsertMany({ data: [upsert], select })).toEqualTypeOf(
 		Post.findMany({ select }),
 	)
-	expectTypeOf(Post.upsertMany({ data: [upsert] })).toEqualTypeOf(
-		Post.findMany(),
-	)
+	expectTypeOf(Post.upsertMany({ data: [upsert] })).toEqualTypeOf<
+		Promise<readonly QueryResult<typeof Post, 'id'>[]>
+	>()
 	expectTypeOf(Post.deleteOne({ where, select })).toEqualTypeOf(
 		Post.findOne({ select }),
 	)
-	expectTypeOf(Post.deleteOne({ where })).toEqualTypeOf(Post.findOne())
+	expectTypeOf(Post.deleteOne({ where })).toEqualTypeOf<
+		Promise<QueryResult<typeof Post, 'id'> | null>
+	>()
 	expectTypeOf(Post.deleteMany({ where: [where], select })).toEqualTypeOf(
 		Post.findMany({ select }),
 	)
@@ -122,13 +139,13 @@ test('commands without include keep their projections', () => {
 	>()
 })
 
-test('plugin schema mutations project like findOneOrThrow', async () => {
+test('plugin schema mutations return { id } unless they select more', async () => {
 	type Include = typeof include
 	type Select = typeof select
 
 	expectTypeOf<
 		PluginSchemaMutationResult<typeof Post, undefined, Include>
-	>().toEqualTypeOf(await Post.findOneOrThrow({ include }))
+	>().toEqualTypeOf(await Post.findOneOrThrow({ select: idOnly, include }))
 	expectTypeOf<
 		PluginSchemaMutationResult<typeof Post, Select, undefined>
 	>().toEqualTypeOf(await Post.findOneOrThrow({ select }))
@@ -137,13 +154,15 @@ test('plugin schema mutations project like findOneOrThrow', async () => {
 	>().toEqualTypeOf(await Post.findOneOrThrow({ select, include }))
 	expectTypeOf<
 		PluginSchemaMutationResult<typeof Post, undefined, undefined>
-	>().toEqualTypeOf(await Post.findOneOrThrow())
+	>().toEqualTypeOf<QueryResult<typeof Post, 'id'>>()
 })
 
-test('an included result keeps the default fields', async () => {
+test('an included result adds related values to { id }', async () => {
 	const created = await Post.createOne({ data, include })
 
-	expectTypeOf(created.title).toEqualTypeOf<string>()
+	expectTypeOf(created.id).toEqualTypeOf<string>()
+	// @ts-expect-error -- Without `select`, a write returns only `id` (ADR-0341).
+	void created.title
 	expectTypeOf(created.comments).toEqualTypeOf<
 		readonly QueryResult<typeof Comment>[]
 	>()

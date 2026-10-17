@@ -55,6 +55,15 @@ test('projects fields and the same commands in both modes', () => {
 		readonly id: string
 		readonly isDeleted: boolean
 	}>()
+	// Without `select`, a command returns `{ id }` like any write (ADR-0341).
+	expectTypeOf(
+		Logical.softDeleteOne({ id: 'document-1' }),
+	).resolves.toEqualTypeOf<{
+		readonly id: string
+	}>()
+	expectTypeOf(Command.purgeMany({ where: {} })).resolves.toEqualTypeOf<
+		readonly { readonly id: string }[]
+	>()
 
 	// @ts-expect-error -- A many-row command targets a `where`, not an `id`.
 	void Logical.restoreMany({ id: 'document-1' })
