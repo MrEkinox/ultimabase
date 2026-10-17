@@ -423,7 +423,8 @@ describe('GraphQL plugin operations', () => {
 			metadata: echoMetadata,
 			operation: echoOperation,
 		})
-		// A binding for another protocol version leaves the default form.
+		// A binding for another protocol version chooses that version only:
+		// this one gets no default form (ADR-0341).
 		const incompatible = new (UltimaBase.use(
 			databasePlugin,
 			createOperationPlugin({ binding: incompatibleBinding }),
@@ -436,7 +437,7 @@ describe('GraphQL plugin operations', () => {
 		await incompatible.start()
 		expect(
 			printSchema(incompatible.plugin('@ultimabase/graphql-plugin').schema),
-		).toContain('echo(input: JSON): JSON')
+		).not.toContain('echo(')
 		await incompatible.dispose()
 
 		for (const [metadata, message] of [
