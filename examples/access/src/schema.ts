@@ -1,12 +1,9 @@
-//#region imports
 import { allOf, anyOf, not } from '@ultimabase/access-plugin'
 import { isAuthenticated } from '@ultimabase/core'
 import { hasRole } from '@ultimabase/roles-plugin'
 
 import { App } from './app.ts'
-//#endregion imports
 
-//#region members
 /** The people who use the newsroom; a request principal points to a Member. */
 export const Member = App.Schema.define({
 	className: 'Member',
@@ -22,7 +19,6 @@ export const StaffRole = App.RoleSchema.define({
 export const Editor = StaffRole.role('editor')
 export const Admin = StaffRole.role('admin')
 export const Muted = StaffRole.role('muted')
-//#endregion members
 
 //#region article
 /** Readers see published articles only; `internalNote` never leaves the server. */

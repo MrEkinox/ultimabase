@@ -15,7 +15,6 @@ it('creates, reads, updates and deletes one row', async () => {
 	await testApplication(ultimabase)
 	const ada = await createAuthor()
 
-	//#region crud
 	const created = await Article.createOne({
 		data: {
 			slug: 'crud',
@@ -40,7 +39,6 @@ it('creates, reads, updates and deletes one row', async () => {
 		where: { id: created.id },
 		select: { title: true },
 	})
-	//#endregion crud
 
 	expect(created).toStrictEqual({
 		id: created.id,
@@ -60,7 +58,6 @@ it('writes many rows and upserts on a unique field', async () => {
 	await testApplication(ultimabase)
 	const ada = await createAuthor()
 
-	//#region bulk
 	const imported = await Article.createMany({
 		data: [
 			{ slug: 'one', title: 'One', author: { connect: ada.id } },
@@ -83,7 +80,6 @@ it('writes many rows and upserts on a unique field', async () => {
 		})
 	const created = await upsert()
 	const updated = await upsert()
-	//#endregion bulk
 
 	// Results keep the input order.
 	expect(imported.map(({ slug }) => slug)).toStrictEqual(['one', 'two'])
@@ -116,7 +112,6 @@ it('compiles filters to parameterized predicates', async () => {
 		],
 	})
 
-	//#region filters
 	// `%` and `_` are literal characters here, not SQL wildcards.
 	const literal = await Article.findMany({
 		where: { title: { contains: 'Ultima_100%' } },
@@ -133,7 +128,6 @@ it('compiles filters to parameterized predicates', async () => {
 		},
 		select: { slug: true },
 	})
-	//#endregion filters
 
 	expect(literal.map(({ slug }) => slug)).toStrictEqual(['release-12'])
 	expect(matching.map(({ slug }) => slug)).toStrictEqual(['release-12'])
@@ -157,11 +151,9 @@ it('reads pages after a position, without OFFSET', async () => {
 		})),
 	})
 
-	//#region read-pages
 	const first = await readPublishedPage()
 	const second = await readPublishedPage(first.rows.at(-1))
 	const third = await readPublishedPage(second.rows.at(-1))
-	//#endregion read-pages
 
 	expect(
 		[first, second, third].map((page) => [
@@ -174,7 +166,6 @@ it('reads pages after a position, without OFFSET', async () => {
 		[false, ['Article a']],
 	])
 
-	//#region skip
 	// Offset pagination: simpler, but it shifts when rows are inserted.
 	const skipped = await Article.findMany({
 		orderBy: { publishedAt: 'desc' },
@@ -182,7 +173,6 @@ it('reads pages after a position, without OFFSET', async () => {
 		skip: 2,
 		take: 2,
 	})
-	//#endregion skip
 
 	expect(skipped.map(({ title }) => title)).toStrictEqual([
 		'Article c',

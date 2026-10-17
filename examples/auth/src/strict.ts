@@ -34,7 +34,6 @@ export const strictPassword = password({
 })
 //#endregion strict-password
 
-//#region strict-application
 export const StrictApp = UltimaBase.use(
 	authPlugin({ methods: [strictPassword] }),
 	postgresPlugin(),
@@ -43,4 +42,3 @@ export const StrictApp = UltimaBase.use(
 export const Reader = StrictApp.UserSchema.define({ className: 'Reader' })
 
 export const strict = new StrictApp({ schemas: [Reader] })
-//#endregion strict-application

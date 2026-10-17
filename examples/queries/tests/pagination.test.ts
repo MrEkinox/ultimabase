@@ -33,7 +33,6 @@ it('continues after a row read with the same shape', async () => {
 	await testApplication(ultimabase)
 	await createPosts([{ title: 'A' }, { title: 'B' }, { title: 'C' }])
 
-	//#region after
 	const page = await Post.findMany({
 		orderBy: { title: 'desc' },
 		select: { id: true, title: true },
@@ -47,7 +46,6 @@ it('continues after a row read with the same shape', async () => {
 		take: 2,
 		...(last === undefined ? {} : { after: last }),
 	})
-	//#endregion after
 
 	expect(page.map(({ title }) => title)).toStrictEqual(['C', 'B'])
 	expect(next.map(({ title }) => title)).toStrictEqual(['A'])

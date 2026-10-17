@@ -7,7 +7,6 @@ import { Todo, TodoRole, TodoUser } from './schema.ts'
  * The Todo application. Administrative code (`admin.ts`, `todos.ts`) runs
  * with `useMasterKey`; `start()` connects PostgreSQL from `DATABASE_URL`.
  */
-//#region application
 export const ultimabase = new App({
 	masterAuthority: new MasterAuthority({
 		onUse: (event) => {
@@ -28,4 +27,3 @@ declare module '@ultimabase/core' {
 		readonly app: typeof ultimabase
 	}
 }
-//#endregion application

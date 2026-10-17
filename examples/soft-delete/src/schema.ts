@@ -1,8 +1,6 @@
-//#region imports
 import { hasRole } from '@ultimabase/roles-plugin'
 
 import { App } from './app.ts'
-//#endregion imports
 
 //#region moderators
 /** The people who use the blog; a request principal points to a Member. */

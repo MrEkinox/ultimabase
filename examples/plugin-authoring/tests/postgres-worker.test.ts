@@ -8,7 +8,6 @@ import { expect, it } from 'vitest'
 const databaseUrl = process.env.TEST_DATABASE_URL
 
 it('gives the worker its own PostgreSQL schema', async () => {
-	//#region postgres-worker
 	const adminPool = new Pool({ connectionString: databaseUrl })
 	const worker = new PostgresTestWorker({
 		query: async (statement) => {
@@ -25,7 +24,6 @@ it('gives the worker its own PostgreSQL schema', async () => {
 		connectionString: databaseUrl,
 		options: worker.connectionOptions,
 	})
-	//#endregion postgres-worker
 
 	try {
 		await pool.query('CREATE TABLE probe (id int)')

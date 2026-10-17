@@ -47,13 +47,11 @@ it('types a unique target', async () => {
 	await testApplication(ultimabase)
 	await savePost('hello', 'Hello')
 
-	//#region unique-target
 	const target: UniqueWhereInput<'Post'> = { slug: 'hello' }
 	const deleted = await Post.deleteOne({
 		where: target,
 		select: { slug: true },
 	})
-	//#endregion unique-target
 
 	expect(deleted).toMatchObject({ slug: 'hello' })
 	expect(await Post.count()).toBe(0)

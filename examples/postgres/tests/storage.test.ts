@@ -56,7 +56,6 @@ it('reads results with the field names and application values', async () => {
 		data: { name: 'Ada', email: 'ada@example.com' },
 	})
 
-	//#region kinds
 	const article = await Article.createOne({
 		data: {
 			slug: 'postgres-kinds',
@@ -72,7 +71,6 @@ it('reads results with the field names and application values', async () => {
 		// Every field: a write returns `{ id }` unless it selects more.
 		select: {},
 	})
-	//#endregion kinds
 
 	expect(article).toMatchObject({
 		author: { id: ada.id },
@@ -113,9 +111,7 @@ it('compiles field, composite and partial indexes', async () => {
 it('answers health checks with a query on its pool', async () => {
 	await testApplication(ultimabase)
 
-	//#region health
 	const health = await ultimabase.health()
-	//#endregion health
 
 	expect(health).toBe('OK')
 })

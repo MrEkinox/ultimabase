@@ -1,7 +1,6 @@
 import { Article, Contribution } from './schema.ts'
 import { ultimabase } from './ultimabase.ts'
 
-//#region publish
 /**
  * Publishes an article and records its editor in one explicit transaction:
  * both writes commit together, or neither does.
@@ -24,9 +23,7 @@ export const publishWithEditor = (articleId: string, editorId: string) =>
 		})
 		return article
 	})
-//#endregion publish
 
-//#region page
 const PAGE_SIZE = 2
 
 /**
@@ -46,4 +43,3 @@ export const readPublishedPage = async (after?: {
 	})
 	return { hasMore: rows.length > PAGE_SIZE, rows: rows.slice(0, PAGE_SIZE) }
 }
-//#endregion page

@@ -19,7 +19,6 @@ it('stores a pointer and filters through its target', async () => {
 		data: { name: 'Grace', email: 'grace@example.com' },
 	})
 
-	//#region pointer
 	const engines = await Article.createOne({
 		data: { slug: 'engines', title: 'Engines', author: { connect: ada.id } },
 	})
@@ -29,7 +28,6 @@ it('stores a pointer and filters through its target', async () => {
 		select: { title: true },
 		include: { author: { select: { name: true } } },
 	})
-	//#endregion pointer
 
 	expect(found).toStrictEqual({
 		author: { id: ada.id, name: 'Ada' },
@@ -54,7 +52,6 @@ it('connects, reads and replaces relation members', async () => {
 	)
 	if (!postgres || !typescript || !featured) throw new TypeError('No tags')
 
-	//#region relation
 	await Article.updateOne({
 		where: { id: article.id },
 		data: { tags: { connect: [postgres.id, typescript.id] } },
@@ -73,7 +70,6 @@ it('connects, reads and replaces relation members', async () => {
 		where: { id: article.id },
 		data: { tags: { set: [featured.id] } },
 	})
-	//#endregion relation
 
 	expect(tags.map(({ label }) => label)).toStrictEqual([
 		'postgres',
@@ -115,7 +111,6 @@ it('filters on relation members without loading them', async () => {
 	})
 	await Article.createOne({ data: { slug: 'none', title: 'None', author } })
 
-	//#region relation-filters
 	// EXISTS: at least one member matches.
 	const aboutPostgres = await Article.findMany({
 		where: { tags: { some: { label: { eq: 'postgres' } } } },
@@ -134,7 +129,6 @@ it('filters on relation members without loading them', async () => {
 		orderBy: { slug: 'asc' },
 		select: { slug: true },
 	})
-	//#endregion relation-filters
 
 	expect(aboutPostgres.map(({ slug }) => slug)).toStrictEqual(['both'])
 	expect(wellTagged.map(({ slug }) => slug)).toStrictEqual(['both'])

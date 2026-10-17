@@ -24,14 +24,12 @@ afterAll(async () => {
 
 it('creates the tables of release 1 under override', async () => {
 	const { logger, messages } = recordingLogger()
-	//#region override
 	const { ultimabase, Article, StaffMember } = releaseOne({
 		url: schema.url,
 		schemaPolicy: 'override',
 		logger,
 	})
 	await ultimabase.start()
-	//#endregion override
 
 	try {
 		expect(messages('info')).toContainEqual(

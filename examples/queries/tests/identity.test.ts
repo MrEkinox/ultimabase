@@ -44,7 +44,6 @@ it('reads with a job context and its cancellation signal', async () => {
 })
 
 it('reports a cancelled signal at a safe boundary', () => {
-	//#region cancellation
 	const controller = new AbortController()
 	// Returns while the signal is active.
 	throwIfOperationCancelled(controller.signal, { phase: 'before-callback' })
@@ -53,7 +52,6 @@ it('reports a cancelled signal at a safe boundary', () => {
 	const check = () => {
 		throwIfOperationCancelled(controller.signal, { phase: 'before-callback' })
 	}
-	//#endregion cancellation
 
 	expect(check).toThrow(
 		expect.objectContaining({ code: 'OPERATION_CANCELLED' }),

@@ -1,10 +1,8 @@
-//#region imports
 import { PublicError } from '@ultimabase/core'
 
 import { App } from './app.ts'
 import { sendMessage } from './effects.ts'
 import { postPublished } from './events.ts'
-//#endregion imports
 
 //#region targets
 export const Author = App.Schema.define({

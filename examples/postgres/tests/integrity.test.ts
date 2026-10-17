@@ -36,7 +36,6 @@ it('enforces a composite unique index', async () => {
 		data: { slug: 'launch', title: 'Launch', author: { connect: ada.id } },
 	})
 
-	//#region composite-unique
 	await Contribution.createOne({
 		data: {
 			article: { connect: article.id },
@@ -53,7 +52,6 @@ it('enforces a composite unique index', async () => {
 			role: 'editor',
 		},
 	})
-	//#endregion composite-unique
 
 	await expect(twice).rejects.toMatchObject({
 		code: 'UNIQUE_VIOLATION',
@@ -80,10 +78,8 @@ it('restricts or cascades deletions through foreign keys', async () => {
 		},
 	})
 
-	//#region restrict
 	// `Contribution.member` restricts: Grace's contribution keeps her.
 	const restricted = StaffMember.deleteOne({ where: { id: grace.id } })
-	//#endregion restrict
 
 	await expect(restricted).rejects.toMatchObject({
 		code: 'REFERENCE_VIOLATION',
@@ -91,11 +87,9 @@ it('restricts or cascades deletions through foreign keys', async () => {
 			'The StaffMember object cannot be deleted while other objects reference it.',
 	})
 
-	//#region cascade
 	// `Article.author` cascades: deleting Ada deletes her article, and
 	// `Contribution.article` cascades to its contributions.
 	await StaffMember.deleteOne({ where: { id: ada.id } })
-	//#endregion cascade
 
 	expect(await Article.count()).toBe(0)
 	expect(await Contribution.count()).toBe(0)

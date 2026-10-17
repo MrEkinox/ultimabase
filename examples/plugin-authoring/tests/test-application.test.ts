@@ -19,9 +19,7 @@ it('seeds with Master authority and reads over HTTP', async () => {
 	expect(response.status).toBe(200)
 	expect(await response.json()).toMatchObject({ results: [{ id: post.id }] })
 
-	//#region reset
 	await t.reset()
-	//#endregion reset
 
 	expect(await Post.count()).toBe(0)
 })
@@ -30,11 +28,9 @@ it('waits for after-commit work of the active application', async () => {
 	await using t = await testApplication(ultimabase)
 	const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
 
-	//#region wait-for-after-commit
 	await Post.createOne({ data: { title: 'Ship' } })
 	await waitForAfterCommit()
 	expect(info).toHaveBeenCalledWith('[audit] Post create-one')
-	//#endregion wait-for-after-commit
 
 	info.mockRestore()
 	await t.reset()

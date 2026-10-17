@@ -1,10 +1,8 @@
-//#region imports
 import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { isAuthenticated } from '@ultimabase/core'
 import { hasRole } from '@ultimabase/roles-plugin'
 
 import { App } from './app.ts'
-//#endregion imports
 
 //#region members
 /** The people who use the notebook; a request principal points to a Member. */

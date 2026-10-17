@@ -20,7 +20,6 @@ it('runs each mutation in its own transaction', async () => {
 		data: { name: 'Ada', email: 'ada@example.com' },
 	})
 
-	//#region atomic-batch
 	// The second row repeats a unique slug: no row of the batch is kept.
 	const batch = Article.createMany({
 		data: [
@@ -28,7 +27,6 @@ it('runs each mutation in its own transaction', async () => {
 			{ slug: 'first', title: 'Again', author: { connect: ada.id } },
 		],
 	})
-	//#endregion atomic-batch
 
 	await expect(batch).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
 	expect(await Article.count()).toBe(0)
@@ -41,9 +39,7 @@ it('commits an explicit transaction once', async () => {
 		data: { name: 'Grace', email: 'grace@example.com' },
 	})
 
-	//#region publish-call
 	const published = await publishWithEditor(draft.id, grace.id)
-	//#endregion publish-call
 
 	expect(published).toMatchObject({ id: draft.id, status: 'published' })
 	const contributions = await Contribution.findMany({
@@ -67,11 +63,9 @@ it('rolls back every write of a failed transaction', async () => {
 		},
 	})
 
-	//#region rollback
 	// Grace already contributed: the second write fails, so the status
 	// update made before it in the same transaction is rolled back too.
 	const failure = publishWithEditor(draft.id, grace.id)
-	//#endregion rollback
 
 	await expect(failure).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
 	expect(

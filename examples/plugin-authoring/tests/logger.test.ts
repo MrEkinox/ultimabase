@@ -7,14 +7,12 @@ import { tracePlugin } from '../src/trace-plugin.ts'
 it('logs the derived default and its source at debug level', async () => {
 	const App = UltimaBase.use(tracePlugin())
 
-	//#region capturing-logger
 	const logger = createCapturingLogger()
 	const ultimabase = new App({ schemas: [], logger, logLevel: 'debug' })
 	await ultimabase.start()
 
 	expect(logger.messages('warn')).toEqual([])
 	expect(logger.lines.at(-1)?.message).toMatch(/^UltimaBase started:/u)
-	//#endregion capturing-logger
 
 	try {
 		expect(ultimabase.plugin('community.trace')).toStrictEqual({

@@ -1,7 +1,5 @@
-//#region imports
 import { App } from './app.ts'
 import { readingService } from './reading-service.ts'
-//#endregion imports
 
 //#region author
 /** Authors are managed on the server: clients only read them. */

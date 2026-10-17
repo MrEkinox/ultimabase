@@ -1,8 +1,5 @@
-//#region imports
 import { App } from './app.ts'
-//#endregion imports
 
-//#region staff-member
 /** Stored in `staff_members`: a plural `snake_case` table name. */
 export const StaffMember = App.Schema.define({
 	className: 'StaffMember',
@@ -12,16 +9,13 @@ export const StaffMember = App.Schema.define({
 		email: field.string({ required: true, indexed: 'unique' }),
 	}),
 })
-//#endregion staff-member
 
-//#region tag
 export const Tag = App.Schema.define({
 	className: 'Tag',
 	fields: (field) => ({
 		label: field.string({ required: true, indexed: 'unique' }),
 	}),
 })
-//#endregion tag
 
 //#region article
 /** Each field kind maps to one PostgreSQL column type. */

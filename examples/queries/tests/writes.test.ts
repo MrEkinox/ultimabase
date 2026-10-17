@@ -93,7 +93,6 @@ it('rejects an increment whose result is not a safe integer', async () => {
 it('returns frozen plain results that serialize like REST', async () => {
 	await testApplication(ultimabase)
 
-	//#region round-trip
 	const created = await Post.createOne({
 		data: { slug: 'preview', title: 'Preview', tags: ['draft'] },
 		select: { title: true, tags: true },
@@ -106,7 +105,6 @@ it('returns frozen plain results that serialize like REST', async () => {
 
 	const json = toJSON(updated)
 	await Post.deleteOne({ where: { id: created.id }, select: { id: true } })
-	//#endregion round-trip
 
 	expect(created).toStrictEqual({
 		id: created.id,

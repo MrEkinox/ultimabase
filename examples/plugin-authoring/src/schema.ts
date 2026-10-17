@@ -1,6 +1,4 @@
-//#region imports
 import { App } from './app.ts'
-//#endregion imports
 
 //#region post
 export const Post = App.Schema.define({

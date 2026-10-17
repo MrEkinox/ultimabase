@@ -11,7 +11,6 @@ export interface ReleaseOptions {
 	readonly logger: Logger
 }
 
-//#region release-one
 /** Release 1 of the newsroom: an article still had a `headline`. */
 export const releaseOne = ({ url, schemaPolicy, logger }: ReleaseOptions) => {
 	const Release = UltimaBase.use(postgresPlugin({ url, schemaPolicy }))
@@ -38,7 +37,6 @@ export const releaseOne = ({ url, schemaPolicy, logger }: ReleaseOptions) => {
 	const ultimabase = new Release({ schemas: [StaffMember, Article], logger })
 	return { ultimabase, Article, StaffMember }
 }
-//#endregion release-one
 
 /** Release 1 with `headline` renamed to `title` but no `renamedFrom`. */
 export const forgottenRename = ({

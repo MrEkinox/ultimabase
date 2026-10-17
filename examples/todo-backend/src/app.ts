@@ -1,4 +1,3 @@
-//#region factory
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
@@ -24,4 +23,3 @@ export const App = UltimaBase.use(
 	apiServer({ rest: true }),
 	postgresPlugin(),
 )
-//#endregion factory

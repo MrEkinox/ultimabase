@@ -3,13 +3,11 @@ import { isAuthenticated } from '@ultimabase/core'
 
 import { App } from './app.ts'
 
-//#region draft
 /** No Access rule at all: denied unless `allowWithoutRule` opens it. */
 export const Draft = App.Schema.define({
 	className: 'Draft',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
-//#endregion draft
 
 // This application installs plain `accessPlugin()`. Each function below
 // configures Access for another application; the tests start each one.
