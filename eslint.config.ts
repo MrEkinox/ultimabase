@@ -88,7 +88,10 @@ export default defineConfig(
 			'tooling/vitest/optional-product-public-api.ts',
 			'tooling/vitest/http-plugin-public-api.ts',
 			'tooling/vitest/auth-public-api.ts',
+			'tooling/vitest/memory-database.ts',
+			'tooling/vitest/memory-database-query.ts',
 			'tooling/vitest/prepared-mutation-adapter.ts',
+			'tooling/vitest/test-database.ts',
 			'tooling/vitest/typescript-language-service.ts',
 		],
 		languageOptions: {
