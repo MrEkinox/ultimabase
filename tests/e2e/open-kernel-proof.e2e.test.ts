@@ -1,13 +1,11 @@
 import {
 	FrameworkError,
 	UltimaBase,
-	databaseAdapterCapability,
 	getPluginFieldStorageCodec,
 } from '@ultimabase/core'
 import {
 	RequestContext,
 	plugin,
-	provideCapability,
 	type PluginPrivilege,
 } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -26,35 +24,20 @@ import {
 	inspectWorkflow,
 	workflowFakeTransport,
 } from './fixtures/open-kernel-workflow.js'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../tooling/vitest/test-database.js'
 
-const transaction = {
-	commit: () => Promise.resolve(),
-	execute: () =>
-		Promise.reject(new Error('Unexpected fixture database execution')),
-	kind: 'database-transaction-adapter' as const,
-	prepare: () =>
-		Promise.reject(new Error('Unexpected fixture database preparation')),
-	rollback: () => Promise.resolve(),
-}
-const database = {
-	beginTransaction: () => Promise.resolve(transaction),
-	execute: () =>
-		Promise.reject(new Error('Unexpected fixture database execution')),
-	kind: 'database-adapter' as const,
-	checkHealth: (): Promise<void> => Promise.resolve(),
-}
 const createKernelSupportPlugin = () =>
-	plugin({
-		contributions: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: database }),
-			}),
-		],
-		core: '^0.0.0',
-		id: 'fixture.open-kernel-support',
-		version: '1.0.0',
-	})
+	testDatabasePlugin(
+		new ScriptedTestDatabase({
+			capabilities: {},
+			description: 'Open kernel fixture',
+			transactions: 'empty',
+		}),
+		{ id: 'fixture.open-kernel-support' },
+	)
 
 const createWorkflowFixture = () => {
 	const Stable = UltimaBase.Schema.define({

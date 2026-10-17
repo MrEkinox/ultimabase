@@ -1,13 +1,4 @@
-import {
-	UltimaBase,
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
-} from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { graphql } from 'graphql'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -17,8 +8,11 @@ import {
 	defineOperation,
 	defineOperationValue,
 	plugin,
-	provideCapability,
 } from '@ultimabase/core/plugin'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
 const nullValue = defineOperationValue((value: unknown): null => {
 	if (value !== null) throw new TypeError('Expected null')
@@ -33,36 +27,10 @@ const optionOperation = defineOperation({
 	version: '1.0.0',
 })
 
-class ProtectionDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		void request
-		return Promise.reject(new TypeError('Protection fixture does not execute'))
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		return Promise.reject(new TypeError('Protection fixture does not mutate'))
-	}
-}
-
-const protectionDatabasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.graphql-protection-database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: new ProtectionDatabase() }),
-		}),
-	],
-})
+const protectionDatabasePlugin = testDatabasePlugin(
+	new ScriptedTestDatabase({ description: 'Protection fixture' }),
+	{ id: 'fixture.graphql-protection-database' },
+)
 
 describe('graphqlPlugin', () => {
 	it('declares one unambiguous privileged application capability', () => {

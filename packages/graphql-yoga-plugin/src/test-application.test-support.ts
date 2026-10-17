@@ -1,16 +1,6 @@
 import {
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
-} from '@ultimabase/core'
-import {
 	plugin,
 	contributeApplication,
-	provideCapability,
 	requireCapability,
 	type PluginDefinition,
 } from '@ultimabase/core/plugin'
@@ -19,36 +9,16 @@ import {
 	type HttpApplication,
 } from '@ultimabase/http-plugin'
 
-class GraphqlYogaFixtureDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		void request
-		return Promise.reject(new TypeError('GraphQL Yoga fixture does not query'))
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		return Promise.reject(new TypeError('GraphQL Yoga fixture does not mutate'))
-	}
-}
-
-export const graphqlYogaFixtureDatabasePlugin: PluginDefinition = plugin({
-	core: '^0.0.0',
-	id: 'fixture.graphql-yoga-database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: new GraphqlYogaFixtureDatabase() }),
-		}),
-	],
-})
+export const graphqlYogaFixtureDatabasePlugin: PluginDefinition =
+	testDatabasePlugin(
+		new ScriptedTestDatabase({ description: 'GraphQL Yoga fixture' }),
+		{ id: 'fixture.graphql-yoga-database' },
+	)
 
 const httpApplicationRequirement = requireCapability(
 	httpApplicationCapability,

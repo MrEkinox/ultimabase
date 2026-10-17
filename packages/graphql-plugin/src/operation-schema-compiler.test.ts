@@ -2,16 +2,9 @@ import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	PluginError,
 	UltimaBase,
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
 	defineOperationTransport,
 	operationTransportBinding,
 	operationWireCodec,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
 	type JsonValue,
 	type OperationTransportBindingDefinition,
 } from '@ultimabase/core'
@@ -27,39 +20,16 @@ import {
 	defineOperation,
 	defineOperationValue,
 	plugin,
-	provideCapability,
 } from '@ultimabase/core/plugin'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
-class OperationDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		void request
-		return Promise.reject(new TypeError('Operation fixture does not persist'))
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		return Promise.reject(new TypeError('Operation fixture does not mutate'))
-	}
-}
-
-const databasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.graphql-operation-database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: new OperationDatabase() }),
-		}),
-	],
-})
+const databasePlugin = testDatabasePlugin(
+	new ScriptedTestDatabase({ description: 'Operation fixture' }),
+	{ id: 'fixture.graphql-operation-database' },
+)
 
 const input = defineOperationValue((value: unknown, path) => {
 	if (

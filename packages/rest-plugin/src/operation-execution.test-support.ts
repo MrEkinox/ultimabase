@@ -4,11 +4,9 @@ import {
 	MasterAuthority,
 	PluginError,
 	UltimaBase,
-	databaseAdapterCapability,
 	defineOperationTransport,
 	operationTransportBinding,
 	operationWireCodec,
-	type DatabaseAdapter,
 	type JsonValue,
 	type OperationTransportProtocol,
 } from '@ultimabase/core'
@@ -21,19 +19,11 @@ import {
 	defineOperation,
 	defineOperationValue,
 	plugin,
-	provideCapability,
 } from '@ultimabase/core/plugin'
-
-export const unavailableAdapter: DatabaseAdapter = {
-	kind: 'database-adapter',
-	checkHealth: (): Promise<void> => Promise.resolve(),
-	beginTransaction: () => {
-		throw new TypeError('REST operation fixture does not open transactions')
-	},
-	execute: () => {
-		throw new TypeError('REST operation fixture does not execute database work')
-	},
-}
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
 export const sessionValue = new RequestContextValue<
 	Readonly<{ readonly id: string }>
@@ -138,17 +128,13 @@ export const createOperationPlugin = (options: {
 	})
 }
 
-export const databasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.rest-operation.database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: unavailableAdapter }),
-		}),
-	],
-})
+export const databasePlugin = testDatabasePlugin(
+	new ScriptedTestDatabase({
+		capabilities: {},
+		description: 'REST operation fixture',
+	}),
+	{ id: 'fixture.rest-operation.database' },
+)
 
 export const createFixture = async (
 	options: {

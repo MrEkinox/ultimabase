@@ -1,12 +1,6 @@
 import { authPlugin } from '@ultimabase/auth-plugin'
-import {
-	databaseAdapterCapability,
-	registerPrivateStorageAdapter,
-	UltimaBase,
-	type DatabaseAdapter,
-	type DatabaseTransactionAdapter,
-} from '@ultimabase/core'
-import { plugin, provideCapability } from '@ultimabase/core/plugin'
+import { registerPrivateStorageAdapter, UltimaBase } from '@ultimabase/core'
+import { plugin } from '@ultimabase/core/plugin'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
@@ -15,38 +9,27 @@ import {
 import { expect, it } from 'vitest'
 
 import { password } from './password.js'
-
-const unavailable = (): Promise<never> =>
-	Promise.reject(new TypeError('Conformance adapter does not execute requests'))
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
 const createDatabaseSupport = () => {
-	const transaction: DatabaseTransactionAdapter = {
-		kind: 'database-transaction-adapter',
-		commit: () => Promise.resolve(),
-		execute: unavailable,
-		prepare: unavailable,
-		rollback: () => Promise.resolve(),
-	}
-	const adapter: DatabaseAdapter = {
-		kind: 'database-adapter',
-		checkHealth: (): Promise<void> => Promise.resolve(),
-		beginTransaction: () => Promise.resolve(transaction),
-		execute: unavailable,
-	}
+	const adapter = new ScriptedTestDatabase({
+		capabilities: {},
+		description: 'Conformance adapter',
+		transactions: 'empty',
+	})
 	registerPrivateStorageAdapter(adapter, {
 		configurePrivateStorage: () => undefined,
-		executePrivateStorage: unavailable,
+		executePrivateStorage: () =>
+			Promise.reject(
+				new TypeError('Conformance adapter does not execute requests'),
+			),
 	})
-	return plugin({
-		contributions: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'conformance-database',
-				create: () => ({ value: adapter }),
-			}),
-		],
-		core: '^0.0.0',
+	return testDatabasePlugin(adapter, {
+		contributionId: 'conformance-database',
 		id: 'fixture.auth-database',
-		version: '1.0.0',
 	})
 }
 
