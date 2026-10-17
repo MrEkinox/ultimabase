@@ -74,6 +74,6 @@ export const explainPostgresSynchronizationFailure = (
 		(change.kind === 'add-column' && !change.column.nullable) ||
 		(change.kind === 'set-column-nullability' && !change.nullable)
 	return driverCode === notNullViolation && required
-		? ' Existing rows have no value for this required column: make it optional or give it a default first, and use `postgres: { renamedFrom }` when the field was renamed.'
+		? ' Existing rows have no value for this required column: give the field a static default, fill those rows first, or let it hold null (no `required`, `nullable: true` beside a default), and use `postgres: { renamedFrom }` when the field was renamed.'
 		: ''
 }

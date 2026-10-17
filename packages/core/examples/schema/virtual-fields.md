@@ -34,8 +34,9 @@ the declaration communicates that intent directly.
 
 ## Output shapes
 
-The output descriptor controls the complete returned value. Nullability applies
-to the value or list container; list elements remain non-null:
+The output descriptor controls the complete returned value. An output is
+non-null unless it declares `nullable: true`, which applies to the value or
+list container; list elements remain non-null:
 
 ```ts
 const Profile = UltimaBase.Schema.define({
@@ -46,7 +47,7 @@ const Profile = UltimaBase.Schema.define({
 		nickname: field.string(),
 		labels: field.string({ list: true }),
 		optionalLabel: field.virtual({
-			output: (output) => output.string(),
+			output: (output) => output.string({ nullable: true }),
 			select: { nickname: true },
 			resolve: ({ item }) => item.nickname,
 		}),

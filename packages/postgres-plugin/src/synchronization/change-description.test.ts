@@ -66,4 +66,20 @@ describe('PostgreSQL schema change descriptions', () => {
 			),
 		).toBe('')
 	})
+
+	// ADR-0340: a default makes an existing column NOT NULL; rows created
+	// before may hold null there.
+	it('names nullable: true when an existing column becomes NOT NULL', () => {
+		expect(
+			explainPostgresSynchronizationFailure(
+				{
+					kind: 'set-column-nullability',
+					table: 'orders',
+					column: 'status',
+					nullable: false,
+				},
+				'23502',
+			),
+		).toContain('`nullable: true` beside a default')
+	})
 })

@@ -20,6 +20,7 @@ it('completes an order created with its required input only', async () => {
 	//#endregion required-input
 
 	expect(order).toMatchObject({
+		coupon: 'WELCOME',
 		giftWrap: false,
 		note: null,
 		pickupTime: null,
@@ -46,12 +47,20 @@ it('keeps an explicit null apart from an omitted value', async () => {
 
 	//#region explicit-null
 	const order = await Order.createOne({
-		data: { customer: { connect: customer.id }, total: '24.90', status: null },
+		data: { customer: { connect: customer.id }, total: '24.90', coupon: null },
 	})
 	//#endregion explicit-null
 
 	// A default fills an omitted value only: `null` stays `null`.
-	expect(order.status).toBeNull()
+	expect(order.coupon).toBeNull()
+	// Without `nullable: true`, a defaulted field rejects `null` like a
+	// required one, in types and at runtime.
+	await expect(
+		Order.createOne({
+			// @ts-expect-error -- `status` has a default and is non-null.
+			data: { customer: { connect: customer.id }, total: '5', status: null },
+		}),
+	).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 })
 
 it('leaves omitted fields unchanged on update and clears with null', async () => {
@@ -69,6 +78,7 @@ it('leaves omitted fields unchanged on update and clears with null', async () =>
 	//#endregion update-null
 
 	expect(updated).toMatchObject({
+		coupon: 'WELCOME',
 		giftWrap: false,
 		note: null,
 		placedAt: order.placedAt,
@@ -85,13 +95,18 @@ it('applies the nullability rule to whole lists and objects', async () => {
 
 	const cleared = await Customer.updateOne({
 		where: { id: customer.id },
-		data: { previousAddresses: null, favoriteGenres: null },
+		data: { favoriteGenres: null },
 	})
 
 	expect(customer.previousAddresses).toStrictEqual([])
 	expect(customer.favoriteGenres).toBeNull()
-	expect(cleared).toMatchObject({
-		favoriteGenres: null,
-		previousAddresses: null,
-	})
+	expect(cleared).toMatchObject({ favoriteGenres: null, previousAddresses: [] })
+	// `previousAddresses` has a default: the whole list cannot be `null`.
+	await expect(
+		Customer.updateOne({
+			where: { id: customer.id },
+			// @ts-expect-error -- A defaulted list is non-null.
+			data: { previousAddresses: null },
+		}),
+	).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 })

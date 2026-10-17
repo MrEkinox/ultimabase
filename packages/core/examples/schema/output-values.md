@@ -16,7 +16,7 @@ export const declareProfileSummary = (output: OutputBuilder) =>
 				values: ['active', 'disabled'],
 			}),
 			tags: output.string({ list: true }),
-			avatarUrl: output.string(),
+			avatarUrl: output.string({ nullable: true }),
 		}),
 	})
 
