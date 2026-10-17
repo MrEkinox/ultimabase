@@ -1,0 +1,183 @@
+---
+title: Coming from Firebase
+description: Map Firestore collections, Security Rules, Cloud Functions and Firebase Authentication to UltimaBase, and see what has no equivalent yet.
+audience:
+  - application-developer
+  - operator
+contentType: concept
+outcome: Map Firestore collections, Security Rules, Cloud Functions and Firebase Auth to UltimaBase, and know what has no equivalent yet.
+releaseStatus: pre-release
+reviewedAt: 2026-10-17
+sources:
+  - README.md
+  - ROADMAP.md
+  - examples/access/src/schema.ts
+  - examples/queries/src/reads.ts
+---
+
+Firebase is a set of Google-hosted services that clients call directly:
+Firestore stores schemaless documents, Security Rules decide what each client
+may do, and Cloud Functions run server code. UltimaBase is a TypeScript
+library on PostgreSQL that you run in your own Node.js server; clients reach it
+through REST or GraphQL. This page maps Firebase concepts to UltimaBase.
+
+This page compares with the hosted Firebase platform, the Firebase JavaScript
+SDK 13.0.0 and firebase-tools 15.34.0, checked on 2026-10-17. Cells about
+Firestore describe the Standard edition unless they name Enterprise. See the
+[comparison overview](/docs/1.0.0/comparison/overview) for every system side
+by side.
+
+## Vocabulary
+
+| Firebase                                        | UltimaBase                                                                | Read                                                                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Collection and document, schemaless             | Schema and model, declared and typed                                      | [Schemas](/docs/1.0.0/core/data-modeling/schemas), [Models](/docs/1.0.0/core/data-modeling/models)                             |
+| Map field, nested data                          | Embedded object field                                                     | [Embedded Objects](/docs/1.0.0/core/data-modeling/embedded-objects)                                                            |
+| Document reference, subcollection               | `field.pointer`, `field.relation`                                         | [Relationships](/docs/1.0.0/core/data-modeling/relationships)                                                                  |
+| `query` with `where`, `orderBy`, `limit`        | `findMany` with `where`, `orderBy`, `take`                                | [Reading Data](/docs/1.0.0/core/reading-data/overview)                                                                         |
+| `startAfter` cursors                            | `after` cursor                                                            | [Ordering and Pagination](/docs/1.0.0/core/reading-data/ordering-and-pagination)                                               |
+| Count aggregation                               | `count`, `exists`                                                         | [Reading Data](/docs/1.0.0/core/reading-data/overview)                                                                         |
+| `runTransaction`, `writeBatch`                  | Automatic transaction per mutation, `ultimabase.transaction`, bulk writes | [Transactions](/docs/1.0.0/core/writing-data/transactions), [Bulk Operations](/docs/1.0.0/core/writing-data/bulk-operations)   |
+| Security Rules                                  | Access operation, row and field rules                                     | [Access](/docs/1.0.0/plugins/official/access)                                                                                  |
+| Data validation in rules                        | Validation plugin                                                         | [Validation](/docs/1.0.0/plugins/official/validation)                                                                          |
+| Custom claims                                   | Roles plugin, `hasRole`                                                   | [Roles](/docs/1.0.0/plugins/official/roles)                                                                                    |
+| Admin SDK                                       | Master authority                                                          | [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)                                                     |
+| Firebase Authentication with email and password | Auth plugin with the password method                                      | [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)                                                |
+| ID token and refresh token                      | Opaque session token, sent as a Bearer header or a cookie                 | [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)                                                |
+| Cloud Firestore triggers                        | Hooks inside the transaction, `afterCommit` after it                      | [Hooks](/docs/1.0.0/plugins/official/hooks)                                                                                    |
+| Callable and HTTP functions                     | Custom operations, HTTP routes                                            | [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql), [HTTP](/docs/1.0.0/plugins/official/http) |
+| Local Emulator Suite, rules unit tests          | `testApplication` with PostgreSQL in Testcontainers                       | [Test an Application](/docs/1.0.0/guides/test-an-application)                                                                  |
+| SQL Connect GraphQL                             | GraphQL plugin                                                            | [GraphQL](/docs/1.0.0/plugins/official/graphql)                                                                                |
+
+## Common tasks side by side
+
+| Task                      | Firebase                                                                       | UltimaBase                                           |
+| ------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| Read one document         | `getDoc`[^f56]                                                                 | `findOneOrThrow` or `findOne` with a `where` on `id` |
+| Query                     | `getDocs` on a `query` with `where`, `orderBy`, `limit`[^f4]<sup>,</sup>[^f56] | `findMany` with `where`, `orderBy`, `take`           |
+| Write                     | `addDoc`, `setDoc`, `updateDoc`[^f55]                                          | `createOne`, `upsertOne`, `updateOne`                |
+| Several writes atomically | `runTransaction` or `writeBatch`[^f8]                                          | `ultimabase.transaction`; each mutation is atomic    |
+| Restrict reads            | An `allow read` rule[^f20]                                                     | An Access read rule                                  |
+| Grant an admin role       | `setCustomUserClaims`, checked in rules[^f25]                                  | Role membership and `hasRole` in an Access rule      |
+| React to a write          | `onDocumentCreated` and related triggers[^f27]                                 | Hooks, or `afterCommit` for external effects         |
+| Sign in                   | `signInWithEmailAndPassword`[^f13]                                             | `login`                                              |
+| Test locally              | Emulator Suite and `@firebase/rules-unit-testing`[^f45]<sup>,</sup>[^f46]      | `testApplication` with Vitest                        |
+
+Firestore rules are not filters: a query fails when it could return a document
+the rules forbid, so the client repeats the rule's condition in its
+query[^f22]. An UltimaBase read rule is a filter, compiled into the database
+query, so a read returns only the rows the caller may see:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/access/src/schema.ts#article
+</include>
+
+A query then needs no copy of the rule:
+
+<include cwd meta='title="src/reads.ts"'>
+	../../examples/queries/src/reads.ts#published-posts
+</include>
+
+## What works differently and why
+
+- **Relational and declared.** Firestore is schemaless, and the Standard
+  edition has references but no joins[^f1]<sup>,</sup>[^f6]. UltimaBase stores data in
+  PostgreSQL with declared, typed schemas, relations, `include` and nested
+  writes.
+- **Server trust.** The Admin SDK bypasses Security Rules[^f20], and the
+  validation written in those rules with them[^f21]. UltimaBase Master bypasses
+  authorization only; validation, hooks and transactions still run, and every
+  use is audited.
+- **When server code runs.** Cloud Firestore triggers run after the
+  write[^f27]. UltimaBase hooks run inside the write's transaction and can
+  refuse or extend it; `afterCommit` handles effects that must wait for the
+  commit.
+- **Where the code runs.** Firebase clients talk to Google services directly,
+  and Cloud Functions deployments need the Blaze plan[^f26]. UltimaBase is your
+  own Node.js server; clients use its REST or GraphQL API.
+- **Hosting and cost.** Firebase runs on Google Cloud only[^f45], and Cloud
+  Storage requires the Blaze plan[^f12]. UltimaBase is Apache-2.0 software you
+  host yourself, which also means you operate it.
+
+## What UltimaBase does not offer yet
+
+| Firebase capability                                           | UltimaBase status                                                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Realtime listeners (`onSnapshot`)[^f9]                        | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                               |
+| Cloud Storage for Firebase[^f11]                              | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                     |
+| Social sign-in providers[^f14]                                | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                    |
+| Multi-factor authentication[^f16]                             | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)     |
+| Scheduled and task queue functions[^f39]<sup>,</sup>[^f40]    | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                        |
+| Firebase console[^f20]                                        | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                          |
+| Client SDKs[^f50]                                             | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                         |
+| Vector search (`findNearest`)[^f43]                           | Planned: [Vector search](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#vector-search) |
+| Cloud Messaging push notifications[^f35]                      | Not on the roadmap                                                                                      |
+| Email link sign-in, anonymous sign-in[^f15]<sup>,</sup>[^f14] | Not on the roadmap                                                                                      |
+| Hosted service[^f45]                                          | Not planned                                                                                             |
+
+Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
+dates or order.
+
+## Sources
+
+Claims about Firebase cite its official documentation and repositories,
+checked on 2026-10-17. Firebase products change names and plans without a
+version number: Data Connect is now SQL Connect, and Firebase Extensions shut
+down on 2027-03-31[^f32]<sup>,</sup>[^f49]. Cells that need the Blaze plan or Identity
+Platform say so in the [overview](/docs/1.0.0/comparison/overview).
+
+[^f1]: [Cloud Firestore data model](https://firebase.google.com/docs/firestore/data-model).
+
+[^f4]: [Cloud Firestore: Queries](https://firebase.google.com/docs/firestore/query-data/queries).
+
+[^f6]: [Cloud Firestore Enterprise: Pipelines](https://firebase.google.com/docs/firestore/enterprise/pipelines-overview).
+
+[^f55]: [Cloud Firestore: Add data](https://firebase.google.com/docs/firestore/manage-data/add-data).
+
+[^f56]: [Cloud Firestore: Get data](https://firebase.google.com/docs/firestore/query-data/get-data).
+
+[^f8]: [Cloud Firestore: Transactions and batched writes](https://firebase.google.com/docs/firestore/manage-data/transactions).
+
+[^f9]: [Cloud Firestore: Realtime updates](https://firebase.google.com/docs/firestore/query-data/listen).
+
+[^f11]: [Cloud Storage for Firebase: Security](https://firebase.google.com/docs/storage/security).
+
+[^f12]: [Cloud Storage for Firebase: Pricing plan changes](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024).
+
+[^f13]: [Firebase Auth: Password authentication](https://firebase.google.com/docs/auth/web/password-auth).
+
+[^f14]: [Firebase Authentication](https://firebase.google.com/docs/auth).
+
+[^f15]: [Firebase Auth: Email link](https://firebase.google.com/docs/auth/web/email-link-auth).
+
+[^f16]: [Firebase Auth: Multi-factor authentication](https://firebase.google.com/docs/auth/web/multi-factor).
+
+[^f20]: [Cloud Firestore Security Rules: Get started](https://firebase.google.com/docs/firestore/security/get-started).
+
+[^f21]: [Cloud Firestore Security Rules: Conditions](https://firebase.google.com/docs/firestore/security/rules-conditions).
+
+[^f22]: [Cloud Firestore Security Rules: Securely query data](https://firebase.google.com/docs/firestore/security/rules-query).
+
+[^f25]: [Firebase Auth: Custom claims](https://firebase.google.com/docs/auth/admin/custom-claims).
+
+[^f26]: [Cloud Functions for Firebase](https://firebase.google.com/docs/functions).
+
+[^f27]: [Cloud Functions: Cloud Firestore triggers](https://firebase.google.com/docs/functions/firestore-events).
+
+[^f32]: [Firebase SQL Connect](https://firebase.google.com/docs/sql-connect).
+
+[^f35]: [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging).
+
+[^f39]: [Cloud Functions: Scheduled functions](https://firebase.google.com/docs/functions/schedule-functions).
+
+[^f40]: [Cloud Functions: Task queue functions](https://firebase.google.com/docs/functions/task-functions).
+
+[^f43]: [Cloud Firestore: Vector search](https://firebase.google.com/docs/firestore/vector-search).
+
+[^f45]: [Firebase Local Emulator Suite](https://firebase.google.com/docs/emulator-suite).
+
+[^f46]: [Firebase: Rules unit tests](https://firebase.google.com/docs/rules/unit-tests).
+
+[^f49]: [Firebase Extensions](https://firebase.google.com/docs/extensions).
+
+[^f50]: [Firebase JavaScript SDK](https://github.com/firebase/firebase-js-sdk).

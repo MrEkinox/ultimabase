@@ -1,0 +1,169 @@
+---
+title: Coming from Appwrite
+description: Map Appwrite tables, permissions, Functions and accounts to UltimaBase, and see what has no equivalent yet.
+audience:
+  - application-developer
+  - operator
+contentType: concept
+outcome: Map Appwrite tables, permissions, Functions and accounts to UltimaBase, and know what has no equivalent yet.
+releaseStatus: pre-release
+reviewedAt: 2026-10-17
+sources:
+  - README.md
+  - ROADMAP.md
+  - examples/acl/src/schema.ts
+  - examples/queries/src/transactions.ts
+---
+
+Appwrite is a multi-service platform, self-hosted with Docker or used as
+Appwrite Cloud, that clients and servers call through its SDKs. UltimaBase is a
+TypeScript library on PostgreSQL inside your own Node.js process, with schemas,
+rules and hooks declared in code. This page maps Appwrite concepts to
+UltimaBase.
+
+This page compares with Appwrite 2.5.0 and its TablesDB database, checked on
+2026-10-17. See the [comparison overview](/docs/1.0.0/comparison/overview) for
+every system side by side.
+
+## Vocabulary
+
+| Appwrite                                                 | UltimaBase                                                   | Read                                                                                                                               |
+| -------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Project                                                  | Application                                                  | [Application](/docs/1.0.0/core/application)                                                                                        |
+| Table in TablesDB                                        | Schema                                                       | [Schemas](/docs/1.0.0/core/data-modeling/schemas)                                                                                  |
+| Column                                                   | Field                                                        | [Fields](/docs/1.0.0/core/data-modeling/fields)                                                                                    |
+| Row                                                      | Model                                                        | [Models](/docs/1.0.0/core/data-modeling/models)                                                                                    |
+| Relationship column with `onDelete`                      | `field.pointer` with `onDelete`, `field.relation`            | [Relationships](/docs/1.0.0/core/data-modeling/relationships)                                                                      |
+| `Query.equal`, `Query.orderDesc`, `Query.limit`, cursors | `where`, `orderBy`, `take`, `after`                          | [Filters](/docs/1.0.0/core/reading-data/filters), [Ordering and Pagination](/docs/1.0.0/core/reading-data/ordering-and-pagination) |
+| `Query.select`                                           | `select`, `include`                                          | [Selections](/docs/1.0.0/core/reading-data/selections), [Related Data](/docs/1.0.0/core/reading-data/related-data)                 |
+| Transactions                                             | Automatic transaction per mutation, `ultimabase.transaction` | [Transactions](/docs/1.0.0/core/writing-data/transactions)                                                                         |
+| Table permissions                                        | Access operation rules                                       | [Access](/docs/1.0.0/plugins/official/access)                                                                                      |
+| Row security and row permissions                         | Object ACLs plugin                                           | [Object ACLs](/docs/1.0.0/plugins/official/acl-permissions)                                                                        |
+| Teams, team roles, labels                                | Roles plugin, `hasRole`                                      | [Roles](/docs/1.0.0/plugins/official/roles)                                                                                        |
+| Server API key                                           | Master authority                                             | [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)                                                         |
+| Account and sessions                                     | Auth plugin with the password method                         | [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)                                                    |
+| Functions triggered by events or HTTP                    | Hooks in the transaction, `afterCommit`, custom operations   | [Hooks](/docs/1.0.0/plugins/official/hooks), [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)   |
+| REST and GraphQL APIs                                    | REST plugin, GraphQL plugin                                  | [REST](/docs/1.0.0/plugins/official/rest), [GraphQL](/docs/1.0.0/plugins/official/graphql)                                         |
+| `appwrite types`                                         | Nothing to run: types are inferred                           | [Schemas](/docs/1.0.0/core/data-modeling/schemas)                                                                                  |
+| VectorsDB                                                | PostgreSQL Vector plugin, field only                         | [PostgreSQL Vector](/docs/1.0.0/plugins/official/postgresql-vector)                                                                |
+
+## Common tasks side by side
+
+| Task                      | Appwrite                                                                     | UltimaBase                                                |
+| ------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Create a table            | The Console, the server SDK, or `appwrite push tables`[^a2]<sup>,</sup>[^a4] | `App.Schema.define`, listed in the application            |
+| Create a row              | `tablesDB.createRow` with data and permissions[^a21]                         | `createOne`, with an ACL when the ACL plugin is installed |
+| List rows                 | `tablesDB.listRows` with `Query` helpers[^a21]<sup>,</sup>[^a6]              | `findMany` with `where` and `take`                        |
+| Share a row               | `Permission` and `Role` helpers on the row[^a17]                             | ACL grants, or an Access rule with `hasRole`              |
+| Several writes atomically | Create a transaction, pass its ID to each write, then commit it[^a8]         | `ultimabase.transaction`                                  |
+| Sign up and sign in       | `account.create`, `account.createEmailPasswordSession`[^a39]                 | `signUp`, `login`                                         |
+| Run server logic          | A Function triggered by an event or an execution[^a20]                       | Hooks, or a custom operation                              |
+
+Appwrite row permissions correspond to the Object ACLs plugin: a schema
+declares `acl: true`, and each new row gets a default ACL:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/acl/src/schema.ts#note
+</include>
+
+An Appwrite transaction is an object you create, pass to each write and
+commit[^a8]. In UltimaBase the transaction follows the async call, and a thrown
+error rolls it back:
+
+<include cwd meta='title="src/transactions.ts"'>
+	../../examples/queries/src/transactions.ts#publish
+</include>
+
+## What works differently and why
+
+- **Platform or library.** Appwrite is a set of services administered from a
+  Console, with logic in isolated Functions[^a20]<sup>,</sup>[^a36]. UltimaBase is one
+  library in your server process, so your code and its rules share one
+  runtime.
+- **When logic runs.** Appwrite Functions run on events, HTTP calls or a
+  schedule, and no synchronous before-write hook is documented[^a20]<sup>,</sup>[^a3].
+  UltimaBase hooks run inside the write's transaction and can refuse it, with a
+  separate stage after commit.
+- **Predicate rules.** Appwrite permissions list who may act on a table or
+  row[^a16]<sup>,</sup>[^a17]. UltimaBase adds Access rules that are arbitrary TypeScript
+  predicates, compiled into the query for reads.
+- **Types.** Appwrite generates types with its CLI[^a32]. UltimaBase infers
+  them from the declarations.
+- **Breadth.** Appwrite ships realtime, storage, messaging, multi-factor
+  authentication, OAuth and several database engines[^a9]<sup>,</sup>[^a11]<sup>,</sup>[^a26]<sup>,</sup>[^a13]<sup>,</sup>[^a12]<sup>,</sup>[^a37].
+  UltimaBase covers data, authorization and password sign-in today.
+
+## What UltimaBase does not offer yet
+
+| Appwrite capability                            | UltimaBase status                                                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Realtime[^a9]                                  | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                               |
+| Storage buckets[^a11]                          | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                     |
+| OAuth providers[^a12]                          | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                    |
+| Multi-factor authentication[^a13]              | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)     |
+| Scheduled Function executions[^a29]            | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                        |
+| Console[^a25]                                  | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                          |
+| Client SDKs[^a38]                              | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                         |
+| Multi-tenancy pattern with teams[^a30]         | Planned: [Tenant isolation](/docs/1.0.0/project/roadmap#application-capabilities)                       |
+| VectorsDB[^a31]                                | Planned: [Vector search](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#vector-search) |
+| Messaging: push, email and SMS[^a26]           | Not on the roadmap                                                                                      |
+| Magic URL, email OTP, anonymous sessions[^a12] | Not on the roadmap                                                                                      |
+| Full-text search[^a6]                          | Not on the roadmap                                                                                      |
+| MariaDB or MongoDB[^a37]                       | Not on the roadmap                                                                                      |
+| Appwrite Cloud hosting[^a36]                   | Not planned                                                                                             |
+
+Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
+dates or order.
+
+## Sources
+
+Claims about Appwrite cite its official documentation and repository, checked
+on 2026-10-17 against Appwrite 2.5.0. Appwrite Cloud plans cap some features,
+such as transaction operations and schedule intervals[^a8]<sup>,</sup>[^a29]; the
+[overview](/docs/1.0.0/comparison/overview) notes them.
+
+[^a2]: [Appwrite TablesDB: Tables](https://appwrite.io/docs/products/databases/tablesdb/tables).
+
+[^a3]: [Appwrite: Events](https://appwrite.io/docs/advanced/platform/events).
+
+[^a4]: [Appwrite CLI: Tables](https://appwrite.io/docs/tooling/command-line/tables).
+
+[^a6]: [Appwrite TablesDB: Queries](https://appwrite.io/docs/products/databases/tablesdb/queries).
+
+[^a8]: [Appwrite TablesDB: Transactions](https://appwrite.io/docs/products/databases/tablesdb/transactions).
+
+[^a9]: [Appwrite Realtime](https://appwrite.io/docs/apis/realtime).
+
+[^a11]: [Appwrite Storage: Buckets](https://appwrite.io/docs/products/storage/buckets).
+
+[^a12]: [Appwrite Auth](https://appwrite.io/docs/products/auth).
+
+[^a13]: [Appwrite Auth: Multi-factor authentication](https://appwrite.io/docs/products/auth/mfa).
+
+[^a16]: [Appwrite TablesDB: Permissions](https://appwrite.io/docs/products/databases/tablesdb/permissions).
+
+[^a17]: [Appwrite: Permissions](https://appwrite.io/docs/advanced/platform/permissions).
+
+[^a20]: [Appwrite Functions](https://appwrite.io/docs/products/functions/functions).
+
+[^a21]: [Appwrite TablesDB: Rows](https://appwrite.io/docs/products/databases/tablesdb/rows).
+
+[^a25]: [Appwrite releases](https://github.com/appwrite/appwrite/releases).
+
+[^a26]: [Appwrite Messaging](https://appwrite.io/docs/products/messaging).
+
+[^a29]: [Appwrite Functions: Executions](https://appwrite.io/docs/products/functions/executions).
+
+[^a30]: [Appwrite Auth: Multi-tenancy](https://appwrite.io/docs/products/auth/multi-tenancy).
+
+[^a31]: [Appwrite VectorsDB](https://appwrite.io/docs/products/databases/vectorsdb).
+
+[^a32]: [Appwrite: Type generation](https://appwrite.io/docs/products/databases/tablesdb/type-generation).
+
+[^a36]: [Appwrite self-hosting](https://appwrite.io/docs/advanced/self-hosting).
+
+[^a37]: [Appwrite self-hosting: Databases](https://appwrite.io/docs/advanced/self-hosting/configuration/databases).
+
+[^a38]: [Appwrite repository](https://github.com/appwrite/appwrite).
+
+[^a39]: [Appwrite Auth: Email and password login](https://appwrite.io/docs/products/auth/email-password).

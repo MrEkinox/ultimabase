@@ -1,6 +1,51 @@
 {
 	"sections": [
 		{
+			"slug": "comparison",
+			"label": "Comparison",
+			"audiences": ["application-developer", "operator"],
+			"sourceStatus": "partial",
+			"sources": ["README.md", "ROADMAP.md", "examples/README.md"],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "overview",
+					"contentType": "concept",
+					"outcome": "Decide whether UltimaBase fits an application by comparing its shipped capabilities with Parse Server, Supabase, Firebase, PocketBase, Appwrite and Prisma ORM."
+				},
+				{
+					"slug": "parse-server",
+					"contentType": "concept",
+					"outcome": "Map Parse Server classes, queries, permissions, Cloud Code and users to UltimaBase, and know what has no equivalent yet."
+				},
+				{
+					"slug": "supabase",
+					"contentType": "concept",
+					"outcome": "Map Supabase tables, RLS policies, functions and auth to UltimaBase, and know what has no equivalent yet."
+				},
+				{
+					"slug": "firebase",
+					"contentType": "concept",
+					"outcome": "Map Firestore collections, Security Rules, Cloud Functions and Firebase Auth to UltimaBase, and know what has no equivalent yet."
+				},
+				{
+					"slug": "pocketbase",
+					"contentType": "concept",
+					"outcome": "Map PocketBase collections, API rules, hooks and auth to UltimaBase, and know what has no equivalent yet."
+				},
+				{
+					"slug": "appwrite",
+					"contentType": "concept",
+					"outcome": "Map Appwrite tables, permissions, Functions and accounts to UltimaBase, and know what has no equivalent yet."
+				},
+				{
+					"slug": "prisma",
+					"contentType": "concept",
+					"outcome": "Map Prisma ORM models, queries and transactions to UltimaBase, and see what a backend framework adds to an ORM."
+				}
+			]
+		},
+		{
 			"slug": "core",
 			"label": "Core",
 			"audiences": ["application-developer", "plugin-author", "operator"],

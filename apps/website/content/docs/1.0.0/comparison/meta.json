@@ -1,0 +1,12 @@
+{
+	"title": "Comparison",
+	"pages": [
+		"overview",
+		"parse-server",
+		"supabase",
+		"firebase",
+		"pocketbase",
+		"appwrite",
+		"prisma"
+	]
+}

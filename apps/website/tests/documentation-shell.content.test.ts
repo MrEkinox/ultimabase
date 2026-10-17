@@ -203,6 +203,7 @@ describe('public documentation content contract', () => {
 			(await readContentPages()).map((page) => page.url),
 		)
 		expect(visible.map(({ slug }) => slug)).toEqual([
+			'comparison',
 			'core',
 			'plugins',
 			'guides',
