@@ -37,9 +37,10 @@ export interface RestPluginOptions {
 	 */
 	readonly default?: boolean | RestMethodRules
 	/**
-	 * Public operations this instance does not expose; every other operation
-	 * its owner declared public is exposed.
-	 * @example `hide: [authOperations.refresh]`
+	 * Public operations this instance does not expose; every other public
+	 * operation REST serves is exposed: those whose owner binds them to REST
+	 * or to no transport (ADR-0341).
+	 * @example `hide: [readingTime]`
 	 */
 	readonly hide?: readonly PluginOperationDefinition[]
 	/** Distinguishes two explicit REST configurations in one application. */

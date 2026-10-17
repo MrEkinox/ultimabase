@@ -1,4 +1,8 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
 import {
@@ -16,6 +20,11 @@ import type {
 	SchemaOptionProvenance,
 } from '../../schema/schema/provenance.js'
 import { reservedSystemFieldNames } from '../../schema/schema/system-fields.js'
+import {
+	closedCommandsKey,
+	createSchemaCommandClosure,
+	readClosedSchemaCommand,
+} from '../../schema/schema/command-closures.js'
 import type {
 	OptionDefinitionIndex,
 	OwnedSchemaPatch,
@@ -53,7 +62,7 @@ const assertUnusedContributionId = (
 		)
 }
 
-/** Applies only the five nominal additive operations; logical attribution remains independent. */
+/** Applies only the six nominal additive operations; logical attribution remains independent. */
 export const applySchemaPatchOperation = (
 	candidate: PreparedSchemaCompilation,
 	patch: OwnedSchemaPatch,
@@ -169,6 +178,25 @@ export const applySchemaPatchOperation = (
 					immutableRecord({ definition: index, provenance: source }),
 				]),
 			})
+			break
+		}
+		case 'command:close': {
+			const { command } = operation
+			if (readClosedSchemaCommand(definition, command) !== undefined)
+				throw new TypeError(
+					`Duplicate schema command closure: ${definition.className}.${command}`,
+				)
+			const stored: unknown = Object.hasOwn(definition, closedCommandsKey)
+				? Reflect.get(definition, closedCommandsKey)
+				: undefined
+			const closed = immutableRecord(
+				Object.fromEntries([
+					...Object.entries(isPlainRecord(stored) ? stored : {}),
+					[command, createSchemaCommandClosure(patch.owner, operation.reason)],
+				]),
+			)
+			const closures = { [closedCommandsKey]: closed }
+			next = immutableRecord({ ...definition, ...closures })
 			break
 		}
 		case 'schema-option:set':

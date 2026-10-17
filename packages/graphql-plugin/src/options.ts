@@ -28,8 +28,9 @@ export interface GraphqlPluginOptions {
 	 */
 	readonly default?: boolean | GraphqlMethodRules
 	/**
-	 * Public operations this schema does not expose; every other operation
-	 * its owner declared public is exposed.
+	 * Public operations this schema does not expose; every other public
+	 * operation GraphQL serves is exposed: those whose owner binds them to
+	 * GraphQL or to no transport (ADR-0341).
 	 * @example `hide: [authOperations.refresh]`
 	 */
 	readonly hide?: readonly PluginOperationDefinition[]

@@ -1,3 +1,4 @@
+import { isSelf } from '@ultimabase/access-plugin'
 import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { authPrincipal } from '@ultimabase/auth-plugin'
 import { isAuthenticated } from '@ultimabase/core'
@@ -15,8 +16,7 @@ export const ExampleUser = App.UserSchema.define({
 }).with({
 	// Each user reads only their own profile; no generated User CRUD.
 	access: {
-		read: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('id', principal.id),
+		read: isSelf,
 	},
 	graphql: false,
 	rest: false,

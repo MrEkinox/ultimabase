@@ -1,10 +1,8 @@
 import {
 	booleanField,
 	dateTimeField,
-	FrameworkError,
 	stringField,
 	type BooleanField,
-	type DatabaseMutationOperationAst,
 	type DateTimeField,
 	type SchemaReference,
 	type StringField,
@@ -12,6 +10,7 @@ import {
 } from '@ultimabase/core'
 import {
 	addSchemaField,
+	closeSchemaCommand,
 	contributeSchemaMutation,
 	defineOperationValue,
 	defineSchemaMutation,
@@ -23,7 +22,6 @@ import {
 } from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { readCreateInputs } from './foundation-routes.js'
 import { authUserIdentityOptionName } from './user-identity.js'
 
 /** The typing state of a field only the authentication flows write. */
@@ -85,7 +83,7 @@ const managedWriteValue = new RequestContextValue<
 })
 
 /** Marks a context as the authentication flows' own User writes. */
-export const withManagedWrite = (context: RequestContext): RequestContext =>
+const withManagedWrite = (context: RequestContext): RequestContext =>
 	context.withValue(managedWriteValue, managedWrite)
 
 /** The values one managed write sets. */
@@ -152,7 +150,15 @@ const userSelector = immutableRecord({
 	owner: immutableRecord({ kind: 'application' as const }),
 })
 
-/** Adds the email fields to the User, with no create or update input. */
+/** Why the User's generic create is closed when a method signs in by email. */
+export const userCreationReason =
+	'Users are created by sign-up, which sets their email, or on the server by auth.createUser({ data, email }).'
+
+/**
+ * Adds the email fields to the User, with no create or update input, and
+ * closes its generic create: only the flows, which set the email, create
+ * Users (ADR-0341).
+ */
 export const declareEmailFields = (
 	schemas: PluginSchemaContributionContext['schemas'],
 ): void => {
@@ -177,6 +183,11 @@ export const declareEmailFields = (
 				mutationInput: 'forbidden',
 				name: 'emailVerifiedAt',
 			}),
+			closeSchemaCommand({
+				command: 'create',
+				contributionId: 'user-creation',
+				reason: userCreationReason,
+			}),
 		],
 		targets: schemas.select(userSelector),
 	})
@@ -196,26 +207,6 @@ export const extendUserWithEmailWrite = ({
 		},
 	})
 	return undefined
-}
-
-/** Rejects User creation outside the authentication flows, which set the email. */
-export const guardUserCreation = (
-	operation: DatabaseMutationOperationAst,
-	context: RequestContext,
-): void => {
-	if (
-		readCreateInputs(operation).length === 0 ||
-		context.getValue(managedWriteValue) !== undefined
-	) {
-		return
-	}
-	const message = 'Users are created through sign-up, which sets their email'
-	throw new FrameworkError('VALIDATION_ERROR', message, {
-		publicMessage: 'The operation input is invalid.',
-		publicDetails: {
-			issues: [{ code: 'auth.user-creation', message, path: [] }],
-		},
-	})
 }
 
 /** Reads one User row with the plugin's elevation, or `undefined`. */

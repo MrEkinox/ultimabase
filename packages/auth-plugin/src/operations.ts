@@ -92,16 +92,24 @@ const currentOperation: AuthOperation<
 	'current',
 	null,
 	Readonly<Record<string, unknown>>,
-	readonly ['AUTH_INVALID_SESSION']
-> = operation('current', 'optional', nullInput, profileResult, session)
+	readonly ['AUTH_INVALID_SESSION', 'AUTH_USER_NOT_READABLE']
+> = operation('current', 'optional', nullInput, profileResult, [
+	authErrorCodes.invalidSession,
+	authErrorCodes.userNotReadable,
+])
 const refreshOperation: AuthOperation<
 	'refresh',
 	null,
 	AuthenticationResult,
-	readonly ['AUTH_EMAIL_NOT_VERIFIED', 'AUTH_INVALID_SESSION']
+	readonly [
+		'AUTH_EMAIL_NOT_VERIFIED',
+		'AUTH_INVALID_SESSION',
+		'AUTH_USER_NOT_READABLE',
+	]
 > = operation('refresh', 'required', nullInput, authenticationResult, [
 	authErrorCodes.emailNotVerified,
 	authErrorCodes.invalidSession,
+	authErrorCodes.userNotReadable,
 ])
 const logoutOperation: AuthOperation<
 	'logout',
@@ -200,9 +208,9 @@ const deleteAccountOperation: AuthOperation<
 
 // The `typeof` members keep hovers on the named private constants.
 /**
- * The foundation's operations, all public (ADR-0324): every transport
- * exposes them; `graphqlPlugin({ hide: [authOperations.deleteAccount] })`
- * hides one.
+ * The foundation's operations, all public (ADR-0324) and served under
+ * `/api/auth` and in GraphQL only (ADR-0341);
+ * `graphqlPlugin({ hide: [authOperations.deleteAccount] })` hides one.
  */
 export const authOperations: Readonly<{
 	readonly current: typeof currentOperation

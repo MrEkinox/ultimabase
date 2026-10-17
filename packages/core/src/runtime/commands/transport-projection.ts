@@ -59,7 +59,10 @@ export const describeOperationTransport = (
 	return descriptor
 }
 
-/** Lists every public operation with its binding for one protocol (ADR-0324). */
+/**
+ * Lists every public operation with its binding for one protocol: the owner's,
+ * or the default one when the owner binds it to no protocol (ADR-0324, ADR-0341).
+ */
 export const projectPublicOperationTransports = (
 	graph: CompiledCommandGraph,
 	protocol: OperationTransportProtocol,

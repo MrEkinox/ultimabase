@@ -1,17 +1,22 @@
 import {
 	getPluginFieldWireCodec,
+	readSchemaCommandClosure,
 	type CompiledSchemaRegistry,
 	type GenericField,
 	type GenericOutputDescriptor,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import type { PluginIdentity } from '@ultimabase/core/plugin'
+import {
+	formatPluginIdentity,
+	type PluginIdentity,
+} from '@ultimabase/core/plugin'
 import type { HttpMethod } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { restFieldProtocol } from './field-codecs.js'
 import {
 	readRestSchemaRule,
+	restMethodNames,
 	type NormalizedRestRule,
 	type RestMethodName,
 } from './rules.js'
@@ -82,6 +87,50 @@ export const isRestMethodEnabled = (
 	readRule(schema, key) ??
 	readRule(defaults, key) ??
 	(isMethodName(key) ? builtInDefaults[key] : false)
+
+/**
+ * Names where an explicit `true` for one method comes from: the schema rule's
+ * own key, else the plugin default's when the schema rule leaves the key
+ * open. A `true` rule or default enables everything without naming it.
+ */
+const explicitSetting = (
+	schema: NormalizedRestRule | undefined,
+	defaults: NormalizedRestRule | undefined,
+	key: string,
+): 'default' | 'schema' | undefined => {
+	if (typeof schema === 'object' && Object.hasOwn(schema, key)) {
+		return schema[key] === true ? 'schema' : undefined
+	}
+	if (typeof schema === 'boolean') return undefined
+	return typeof defaults === 'object' && defaults[key] === true
+		? 'default'
+		: undefined
+}
+
+/**
+ * Refuses an explicit setting that would publish a method a plugin closed on
+ * the schema (ADR-0341); the defaults and `true` forms leave it unpublished.
+ */
+const assertClosedMethodsUnrequested = (
+	schema: SchemaDefinition,
+	rule: NormalizedRestRule | undefined,
+	defaults: NormalizedRestRule | undefined,
+): void => {
+	for (const method of restMethodNames) {
+		const closure = readSchemaCommandClosure(schema, method)
+		if (closure === undefined) continue
+		const source = explicitSetting(rule, defaults, method)
+		if (source === undefined) continue
+		const { className } = schema
+		throw new TypeError(
+			`${className}.${method} is closed by plugin "${formatPluginIdentity(closure.owner)}": ${closure.reason} ${
+				source === 'schema'
+					? `Remove ${method} from .with({ rest }) of ${className}.`
+					: `Remove ${method} from restPlugin({ default }), or set it to false in .with({ rest }) of ${className}.`
+			}`,
+		)
+	}
+}
 
 /** Path templates of every native route, relative to the class path. */
 export const restRouteTemplates: readonly Readonly<{
@@ -215,12 +264,17 @@ export const compileRestRouteFragment = (
 			)
 		}
 		if (owner !== 'application') continue
-		const templates = restRouteTemplates.filter(({ operation }) =>
-			isRestMethodEnabled(
-				rule,
-				options.defaultRule,
-				restOperationMethods[operation],
-			),
+		assertClosedMethodsUnrequested(schema, rule, options.defaultRule)
+		// A command a plugin closed has no route, whatever the rules (ADR-0341).
+		const templates = restRouteTemplates.filter(
+			({ operation }) =>
+				isRestMethodEnabled(
+					rule,
+					options.defaultRule,
+					restOperationMethods[operation],
+				) &&
+				readSchemaCommandClosure(schema, restOperationMethods[operation]) ===
+					undefined,
 		)
 		if (templates.length > 0) assertRestSchemaResultCodecs(schema)
 		const classPath = restClassPath(options.basePath, schema.className)

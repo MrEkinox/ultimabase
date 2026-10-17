@@ -9,6 +9,7 @@ export const httpPluginPublicApi = {
 		'HttpContextResolverBrowserPolicyValidator',
 		'HttpContextResolverContributionsCapability',
 		'HttpContextResolverDefinition',
+		'HttpContextResolverErrors',
 		'HttpContextResolverFactory',
 		'HttpContextResolverFactoryContext',
 		'HttpContextResolverInput',

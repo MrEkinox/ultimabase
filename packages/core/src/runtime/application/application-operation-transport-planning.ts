@@ -38,7 +38,8 @@ import {
 
 /**
  * Selects exact operation tokens for deterministic transport schema planning;
- * without `operations`, every public operation (ADR-0324).
+ * without `operations`, every public operation the protocol serves: those its
+ * owner binds to this protocol or to none (ADR-0324, ADR-0341).
  */
 export interface OperationTransportPlanningOptions<
 	TTransport extends OperationTransportProtocol = OperationTransportProtocol,

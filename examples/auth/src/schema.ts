@@ -1,4 +1,5 @@
 //#region imports
+import { isSelf } from '@ultimabase/access-plugin'
 import { isAuthenticated } from '@ultimabase/core'
 
 import { App } from './app.ts'
@@ -18,11 +19,10 @@ export const Member = App.UserSchema.define({
 	}),
 }).with({
 	access: {
-		// Members read and edit only their own profile.
-		read: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('id', principal.id),
-		update: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('id', principal.id),
+		// Members read and edit only their own profile; sign-up, login and
+		// `current` read it as the member, so `read` must match it.
+		read: isSelf,
+		update: isSelf,
 	},
 })
 //#endregion member

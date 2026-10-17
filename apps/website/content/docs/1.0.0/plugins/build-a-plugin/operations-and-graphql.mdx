@@ -11,6 +11,7 @@ sources:
   - examples/plugin-authoring/README.md
   - examples/plugin-authoring/src/workflow/operations.ts
   - examples/plugin-authoring/src/workflow/graphql-binding.ts
+  - examples/plugin-authoring/src/workflow/rest-binding.ts
   - examples/plugin-authoring/src/workflow/plugin.ts
   - examples/plugin-authoring/src/ultimabase.ts
   - examples/plugin-authoring/src/graphql-addon.ts
@@ -233,15 +234,26 @@ protocol through Core without importing the GraphQL package:
 	../../examples/plugin-authoring/src/workflow/graphql-binding.ts#graphql-binding
 </include>
 
-Replace the previous plugin definition with the version that installs both
-providers under the same owner and requests the additional privilege:
+A binding chooses the operation's transports: once the owner binds it to one
+protocol, transports it binds to no protocol stop exposing it. To keep
+`POST /api/operations/formatWorkflow`, bind REST too, with the canonical
+`ultimabase.rest@1.0.0` protocol and its error statuses:
+
+<include cwd meta='title="src/workflow/rest-binding.ts"'>
+	../../examples/plugin-authoring/src/workflow/rest-binding.ts#rest-binding
+</include>
+
+Replace the previous plugin definition with the version that installs the
+handler and both bindings under the same owner and requests the additional
+privilege:
 
 <include cwd meta='title="src/workflow/plugin.ts"'>
 	../../examples/plugin-authoring/src/workflow/plugin.ts#workflow-plugin
 </include>
 
 The operation owner can instead add
-`contributeOperationBinding(formatGraphqlBinding)` separately to the same
+`contributeOperationBinding(formatGraphqlBinding)` and
+`contributeOperationBinding(formatRestBinding)` separately to the same
 plugin's `contributions` list. This keeps handler and transport modules separate
 without weakening exact ownership; a foreign plugin cannot publish the
 operation. The binding still requires `transport:expose`.
@@ -256,8 +268,8 @@ and the plugin:
 </include>
 
 After startup, `ultimabase.plugin('@ultimabase/graphql-plugin').printSchema()`
-shows `formatWorkflow(input: String!): String!` under `Query`, and the public
-name also exposes `POST /api/operations/formatWorkflow` over REST. `graphqlPlugin({ hide: [formatWorkflow] })` hides it;
+shows `formatWorkflow(input: String!): String!` under `Query`, and the REST
+binding exposes `POST /api/operations/formatWorkflow`. `graphqlPlugin({ hide: [formatWorkflow] })` hides it;
 an operation its owner does not declare public stays absent. GraphQL checks owner, protocol, types, names, and collisions
 before serving requests. Its resolver passes a real application-bound request
 context to Core; neither GraphQL variables nor a custom resolver can create
@@ -330,7 +342,8 @@ REST answers `200` with the archived row in `result`, GraphQL with
 
 - An operation is public only when its owner declares it:
   `contributeOperation({ operation, execute, public: { name: 'login' } })`.
-  Every installed transport then exposes it; REST at
+  Every installed transport then exposes it, unless the owner binds it to
+  some transports, which then are the only ones (ADR-0341); REST at
   `POST /api/operations/{public name}`, unless the application hides it with
   `restPlugin({ hide: [token] })`. An optional REST binding for canonical
   `ultimabase.rest@1.0.0` adapts the wire format with a codec and

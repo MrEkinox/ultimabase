@@ -81,15 +81,23 @@ it('signs in over HTTP and sends the token as a Bearer', async () => {
 	})
 	expect(forged.status).toBe(401)
 	expect(await forged.json()).toMatchObject({
-		error: { code: 'HTTP_APPLICATION_REJECTED' },
+		error: { code: 'AUTH_INVALID_SESSION' },
 	})
-	// REST hides the operations the `/api/auth` routes serve.
+	// Authentication binds its operations to `/api/auth`: REST does not
+	// serve them a second time.
 	const hidden = await t.fetch('/api/operations/login', {
 		body: JSON.stringify(ada),
 		headers: json,
 		method: 'POST',
 	})
 	expect(hidden.status).toBe(404)
+	// Authentication closes the User's generic create: no route takes it.
+	const create = await t.fetch('/api/classes/Member', {
+		body: JSON.stringify({ displayName: 'Mallory' }),
+		headers: json,
+		method: 'POST',
+	})
+	expect(create.status).toBe(405)
 	const logout = await t.fetch('/api/auth/logout', {
 		headers: bearer,
 		method: 'POST',

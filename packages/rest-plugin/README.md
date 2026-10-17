@@ -190,14 +190,23 @@ Two explicit instances use `instanceId`. Distinct base paths compose into one
 graph, while matching methods and paths fail with a deterministic collision
 diagnostic.
 
+A method a plugin closed on a schema with Core's `closeSchemaCommand`
+(ADR-0341) gets no route and no OpenAPI entry: with an email identifier,
+authentication closes the User's create, so `POST /classes/{User}` answers
+`405`. Naming a closed method in `.with({ rest })` or `restPlugin({ default })`
+fails at startup with the schema, the method, the closing plugin and its
+reason; `true` rules and the defaults leave it out silently.
+
 ## Public operations
 
 An operation is public only when its owner declares it (ADR-0324):
 `contributeOperation({ operation, execute, public: { name: 'login' } })`.
-Every installed transport exposes it; an operation not declared public is
-never exposed. The application hides some per instance with
-`restPlugin({ hide: [authOperations.refresh] })`. A hidden token that is not a public operation of the application fails at
-startup. Each exposed operation receives `POST /api/operations/{public name}`
+Every installed transport exposes it, unless its owner binds it to some
+transports: it is then exposed only by those (ADR-0341), as authentication's
+operations, served under `/api/auth` and in GraphQL only. An operation not
+declared public is never exposed. The application hides some per instance with
+`restPlugin({ hide: [readingTime] })`. A hidden token that REST does not serve
+fails at startup. Each exposed operation receives `POST /api/operations/{public name}`
 and accepts exactly `{ "input": value }`.
 
 An owner may contribute a REST binding through Core: a logical-to-wire codec

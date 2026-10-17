@@ -21,8 +21,9 @@ export interface PluginOperationHandlerResource<
 
 /**
  * Declares an operation meant for clients (ADR-0324): every installed
- * transport exposes it, unless the application hides it. An operation
- * without this declaration is never exposed by a transport.
+ * transport exposes it, unless the application hides it. An owner that binds
+ * the operation to some transports exposes it only there (ADR-0341). An
+ * operation without this declaration is never exposed by a transport.
  *
  * @example `public: { name: 'login' }`
  */
@@ -48,11 +49,15 @@ interface PluginOperationContributionBase<
 > {
 	/** Selects the exact logical contract implemented by this contribution. */
 	readonly operation: TOperation
-	/** Adds nominal wire bindings without making the operation publicly exposed. */
+	/**
+	 * Adds nominal wire bindings without making the operation publicly
+	 * exposed. A public operation with bindings is exposed only by the
+	 * transports they name.
+	 */
 	readonly bindings?: TBindings
 	/**
-	 * Makes the operation public: every installed transport exposes it
-	 * (ADR-0324). A binding only adapts its wire format to one transport.
+	 * Makes the operation public (ADR-0324): every installed transport exposes
+	 * it, or, when `bindings` name transports, only those (ADR-0341).
 	 * @example `public: { name: 'login' }`
 	 */
 	readonly public?: PluginOperationPublicDeclaration

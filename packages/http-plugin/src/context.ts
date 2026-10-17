@@ -1,7 +1,9 @@
-import type {
-	AnonymousRequestAccess,
-	ApplicationRequestExecutor,
-	CompiledSchemaRegistry,
+import {
+	PluginError,
+	type AnonymousRequestAccess,
+	type ApplicationRequestExecutor,
+	type CompiledSchemaRegistry,
+	type PluginErrorPayload,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -44,8 +46,16 @@ export type HttpContextResolver<TSource extends string = string> = (
 	input: HttpContextResolverInput<TSource>,
 ) => MaybePromise<RequestContext<AnonymousRequestAccess, TSource>>
 
+/**
+ * The `PluginError` codes one resolver throws, each with the HTTP status the
+ * HTTP plugin answers it with (400 to 599).
+ * @example `{ AUTH_INVALID_SESSION: 401 }`
+ */
+export type HttpContextResolverErrors = Readonly<Record<string, number>>
+
 /** Declares one immutable ordered request-context resolver. */
 export interface HttpContextResolverDefinition {
+	readonly errors?: HttpContextResolverErrors
 	readonly resolve: HttpContextResolver
 	readonly validateBrowserPolicy?: HttpContextResolverBrowserPolicyValidator
 }
@@ -57,6 +67,13 @@ export type HttpContextResolverBrowserPolicyValidator = (
 
 /** Configures one resolver that must preserve HTTP-owned context invariants. */
 export interface HttpContextResolverOptions {
+	/**
+	 * Errors the resolver throws as a `PluginError`, with their HTTP status:
+	 * the HTTP plugin answers them with their code and public message. Any
+	 * other failure answers 401 `HTTP_APPLICATION_REJECTED`.
+	 * @example `errors: { AUTH_INVALID_SESSION: 401 }`
+	 */
+	readonly errors?: HttpContextResolverErrors
 	readonly resolve: HttpContextResolver
 	/** Rejects application materialization when the effective policy is unsafe. */
 	readonly validateBrowserPolicy?: HttpContextResolverBrowserPolicyValidator
@@ -67,13 +84,40 @@ const contextResolverDefinitions =
 		'httpContextResolver',
 	)
 
+// Copies user-controlled codes without assigning keys such as `__proto__`.
+const snapshotResolverErrors = (value: unknown): HttpContextResolverErrors => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(
+			'HTTP context resolver errors must map error codes to statuses',
+		)
+	}
+	const entries: (readonly [string, number])[] = []
+	for (const [code, status] of Object.entries(value)) {
+		if (code.length === 0) {
+			throw new TypeError('HTTP context resolver error code must not be empty')
+		}
+		if (
+			typeof status !== 'number' ||
+			!Number.isInteger(status) ||
+			status < 400 ||
+			status > 599
+		) {
+			throw new TypeError(
+				`HTTP context resolver error ${code} needs a status from 400 to 599`,
+			)
+		}
+		entries.push([code, status])
+	}
+	return immutableRecord(Object.fromEntries(entries))
+}
+
 /** Creates one context resolver without registering global transport behavior. */
 export const httpContextResolver = (
 	options: HttpContextResolverOptions,
 ): HttpContextResolverDefinition => {
 	assertExactOptions(
 		options,
-		['resolve', 'validateBrowserPolicy'],
+		['errors', 'resolve', 'validateBrowserPolicy'],
 		'HTTP context resolver options',
 	)
 	if (typeof options.resolve !== 'function') {
@@ -88,8 +132,13 @@ export const httpContextResolver = (
 		)
 	}
 
+	const errors =
+		options.errors === undefined
+			? undefined
+			: snapshotResolverErrors(options.errors)
 	return contextResolverDefinitions.register(
 		immutableRecord({
+			...(errors === undefined ? {} : { errors }),
 			resolve: options.resolve,
 			...(options.validateBrowserPolicy === undefined
 				? {}
@@ -149,9 +198,29 @@ export const provideHttpContextResolvers = (
 		contextResolverDefinitions.contribution(options, 'HTTP context resolver'),
 	)
 
+const isPluginError = (error: unknown): error is PluginError =>
+	error instanceof PluginError
+
 interface OwnedHttpContextResolver {
+	readonly errors: ReadonlyMap<string, number>
 	readonly owner: PluginIdentity
 	readonly resolve: HttpContextResolver
+}
+
+/**
+ * @internal An error a resolver declared, answered with its status and public
+ * payload instead of `HTTP_APPLICATION_REJECTED` (ADR-0341).
+ */
+export class HttpDeclaredContextError extends Error {
+	readonly payload: PluginErrorPayload
+	readonly status: number
+
+	constructor(status: number, payload: PluginErrorPayload) {
+		super(payload.code)
+		this.name = 'HttpDeclaredContextError'
+		this.payload = payload
+		this.status = status
+	}
 }
 
 interface HttpContextLineage {
@@ -191,6 +260,7 @@ export const compileHttpContextResolvers = (
 			}
 			resolvers.push(
 				immutableRecord({
+					errors: new Map(Object.entries(definition.errors ?? {})),
 					owner: immutableRecord(contribution.owner),
 					resolve: definition.resolve,
 				}),
@@ -254,16 +324,28 @@ export const resolveHttpContext = async <TSource extends string>(
 	const lineage = immutableRecord({ request: {} })
 	let context = initial.withValue(httpContextLineage, lineage)
 	for (const resolver of resolvers) {
-		const resolved = await callbacks.runPlugin(resolver.owner, () =>
-			requestExecution.runWithContext(context, (activeContext) =>
-				resolver.resolve({
-					browserPolicy,
-					clientAddress,
-					context: activeContext,
-					request,
-				}),
-			),
-		)
+		let resolved: unknown
+		try {
+			resolved = await callbacks.runPlugin(resolver.owner, () =>
+				requestExecution.runWithContext(context, (activeContext) =>
+					resolver.resolve({
+						browserPolicy,
+						clientAddress,
+						context: activeContext,
+						request,
+					}),
+				),
+			)
+		} catch (error: unknown) {
+			// Only the throwing resolver's own declaration makes an error public.
+			const status = isPluginError(error)
+				? resolver.errors.get(error.code)
+				: undefined
+			if (isPluginError(error) && status !== undefined) {
+				throw new HttpDeclaredContextError(status, error.toJSON())
+			}
+			throw error
+		}
 		assertDerivedAnonymousContext(context, resolved, lineage)
 		context = resolved
 	}

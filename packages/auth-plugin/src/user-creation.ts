@@ -7,7 +7,6 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { withManagedWrite } from './email.js'
 import { rejectSignUp } from './errors.js'
 
 // Byte snapshots stay opaque and immutable across the operation boundary;
@@ -128,8 +127,9 @@ const readUserId = (model: unknown): string => {
 /**
  * Creates one User through the ordinary pipeline (validation, defaults,
  * Hooks) with the plugin's own `authority:elevate`, so the User's Access
- * rules need not open creation. Invalid data names its fields; a duplicate
- * unique value is rejected without naming it.
+ * rules need not open creation. As the plugin that closes the User's
+ * generic create (ADR-0341), its own call still runs it. Invalid data names
+ * its fields; a duplicate unique value is rejected without naming it.
  */
 export const createUserElevated = async (
 	user: SchemaReference<string>,
@@ -140,8 +140,7 @@ export const createUserElevated = async (
 		const created: unknown = await user.createOne(
 			{ data: restoreData(data), select: { id: true } },
 			{
-				// The flows' marker lets the guard accept this User creation.
-				context: withManagedWrite(context),
+				context,
 				...(context.access.mode === 'master' ? {} : { useMasterKey: true }),
 			},
 		)

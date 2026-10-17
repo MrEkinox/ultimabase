@@ -15,7 +15,8 @@ GraphQL accepts `POST /graphql`. The application exposes only
 `ExampleArticle` and `ExampleAuthor` soft-delete commands (`.with({ rest: true })`), the
 public `example.status` operation (`/api/operations/status`). Authentication
 serves its operations under `/api/auth` and in GraphQL (which hides
-`changePassword` and `logoutEverywhere`); REST hides them. `ExampleUser`,
+`changePassword` and `logoutEverywhere`), the transports it binds them to;
+REST does not serve them. `ExampleUser`,
 `ExampleRole` and the internal `ExampleSoftDeleteEvent` audit schema have no
 generated CRUD roots, and credentials and session storage never enter either
 public schema.
@@ -403,10 +404,10 @@ curl http://127.0.0.1:1337/graphql \
 ```
 
 `login`, `refresh`, `logout` and the account fields are on the same `/graphql`
-endpoint. Authentication declares its operations public, so GraphQL exposes
-them; the example hides `changePassword` and `logoutEverywhere` with
-`graphqlPlugin({ hide })` and every authentication operation from REST, which
-the `/api/auth` routes replace (ADR-0325, ADR-0326).
+endpoint. Authentication declares its operations public and binds them to
+GraphQL and its `/api/auth` routes only, so REST does not serve them
+(ADR-0341); the example hides `changePassword` and `logoutEverywhere` with
+`graphqlPlugin({ hide })` (ADR-0325, ADR-0326).
 
 The same operations are served under `/api/auth`. Browser cookie mode is enabled for
 `http://localhost:5173`: a request with that `Origin` gets the session as a

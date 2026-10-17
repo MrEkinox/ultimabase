@@ -23,6 +23,8 @@ import {
 	type AddSchemaFieldOperation,
 	type AddSchemaFieldOptions,
 	type AddSchemaIndexOperation,
+	type CloseSchemaCommandOperation,
+	type CloseSchemaCommandOptions,
 	type SchemaPatchOperation,
 	schemaPatchOperations,
 	type SetSchemaFieldOptionOperation,
@@ -151,6 +153,44 @@ export const setSchemaFieldOption = (
 			kind: 'field-option:set',
 			name: options.name,
 			value: snapshotCapturedOptionValue(options.value),
+		}),
+	)
+}
+
+/**
+ * Closes one generic command of the patched schemas (ADR-0341): transports
+ * publish no route or field for it, and every call fails with
+ * `VALIDATION_ERROR` (issue `command.closed`, its reason), Master included.
+ * The closing plugin's own calls still run it.
+ *
+ * @example `closeSchemaCommand({ contributionId: 'user-creation', command: 'create', reason: 'Users are created by sign-up.' })`
+ */
+export const closeSchemaCommand = (
+	options: CloseSchemaCommandOptions,
+): CloseSchemaCommandOperation => {
+	assertExactPlainObject(
+		options,
+		new Set(['command', 'contributionId', 'reason']),
+		'Schema command closure must be a plain object',
+		'Unknown Schema command closure key: ',
+	)
+	assertNonEmptyString(options.contributionId, 'Schema command contributionId')
+	const command: unknown = options.command
+	if (command !== 'create') {
+		throw new TypeError("Schema command closure command must be 'create'")
+	}
+	const reason: unknown = options.reason
+	if (typeof reason !== 'string' || reason.trim().length === 0) {
+		throw new TypeError(
+			'Schema command closure reason must be a non-empty string',
+		)
+	}
+	return registerPatchOperation(
+		immutableRecord({
+			command,
+			contributionId: options.contributionId,
+			kind: 'command:close' as const,
+			reason,
 		}),
 	)
 }

@@ -133,7 +133,11 @@ export const createAuthPluginExports = (options: {
 							createAuthPrincipal(requireUser(state).pointer(validated.userId)),
 						)
 						.withValue(authSession, validated.context)
-					return executor.runWithContext(authenticated, () => handler())
+					// The handler is application code, never the plugin: it gets no
+					// power reserved to authentication, such as creating Users.
+					return executor.runWithContext(authenticated, () =>
+						callbacks.runApplication(() => handler()),
+					)
 				}),
 			)
 		},

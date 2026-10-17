@@ -93,6 +93,11 @@ export {
 	readFieldTypeState,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
+export { readSchemaCommandClosure } from './schema/command-closures.js'
+export type {
+	SchemaClosableCommand,
+	SchemaCommandClosure,
+} from './schema/command-closures.js'
 export {
 	readPluginFieldExistingRows,
 	readPluginFieldStorageDefault,

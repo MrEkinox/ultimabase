@@ -228,8 +228,14 @@ exposes nothing, `.with({ graphql: true })` every method and command. An omitted
 default: reads, `exists`, `createOne`, `updateOne` and `deleteOne` on; `count`,
 upserts and the `…Many` methods off. A plugin command is exposed only when a
 rule names it, or when the rule or the default is `true`; a key that names no
-method or exposable command fails startup. Exposure only controls which
-GraphQL declarations exist; it never grants access or bypasses Runtime policy.
+method or exposable command fails startup. A method a plugin closed with
+Core's `closeSchemaCommand` (ADR-0341), such as the User's create under
+authentication with an email identifier, has no field; naming it in
+`.with({ graphql })` or `graphqlPlugin({ default })` fails startup with the
+schema, the method, the closing plugin and its reason, while `true` rules and
+the defaults leave it out silently.
+Exposure only controls which GraphQL declarations exist; it never grants
+access or bypasses Runtime policy.
 
 `.with({ graphql: false })` removes the schema's root fields and mutations (ADR-0333).
 A schema without any exposed root or command contributes types only where an
@@ -448,8 +454,9 @@ reclassified as the other.
 
 An operation is public only when its owner declares it
 (`contributeOperation({ ..., public: { name } })`, ADR-0324): GraphQL then
-exposes it, like every installed transport, and `graphqlPlugin({ hide: [token] })`
-hides it; a hidden token that is not a public operation fails startup. With a
+exposes it, like every installed transport, unless its owner binds it to other
+transports only (ADR-0341), and `graphqlPlugin({ hide: [token] })` hides it; a
+hidden token that GraphQL does not serve fails startup. With a
 binding for the canonical `ultimabase.graphql.operation@1.0.0` protocol, the
 owner describes the field, its input and result types. Without one, the
 operation becomes a mutation named after its public name whose types derive

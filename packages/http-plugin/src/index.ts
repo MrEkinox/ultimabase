@@ -52,6 +52,7 @@ export type {
 	HttpContextResolverBrowserPolicyValidator,
 	HttpContextResolverContributionsCapability,
 	HttpContextResolverDefinition,
+	HttpContextResolverErrors,
 	HttpContextResolverFactory,
 	HttpContextResolverFactoryContext,
 	HttpContextResolverInput,

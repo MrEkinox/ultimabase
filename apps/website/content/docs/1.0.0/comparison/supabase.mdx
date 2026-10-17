@@ -65,7 +65,8 @@ for every system side by side.
 | Types                         | `supabase gen types`, re-run after schema changes[^s39]                  | Inferred from the declarations                                  |
 
 An RLS policy that limits rows to their owner becomes an Access rule on the
-schema. Here members read and update only their own profile:
+schema. Here Access's `isSelf` lets members read and update only their own
+profile:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/auth/src/schema.ts#member

@@ -2,6 +2,7 @@ import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
+	graphqlOnly,
 	neighbourPlugin,
 	secret,
 	startExposure,
@@ -194,7 +195,8 @@ describe('REST exposure (ADR-0324)', () => {
 			error: { code: 'fixture.rest-exposure.refused', message: 'Refused.' },
 		})
 
-		for (const name of ['whisper', 'secret', secret.name]) {
+		// `graphqlOnly` is public, but its owner binds it to GraphQL only.
+		for (const name of ['whisper', 'secret', secret.name, 'graphqlOnly']) {
 			const { response } = await send(`/api/operations/${name}`, {
 				json: { input: { text: 'hi' } },
 			})
@@ -202,10 +204,12 @@ describe('REST exposure (ADR-0324)', () => {
 		}
 	})
 
-	it('rejects a hidden operation that is not public', async () => {
-		await expect(startExposure({ hide: [secret] })).rejects.toThrow(
-			`restPlugin({ hide }) lists ${secret.name}, which is not a public operation of this application`,
-		)
+	it('rejects a hidden operation that REST does not expose', async () => {
+		for (const operation of [secret, graphqlOnly]) {
+			await expect(startExposure({ hide: [operation] })).rejects.toThrow(
+				`restPlugin({ hide }) lists ${operation.name}, which REST does not expose: it is not a public operation, or its owner binds it to other transports only`,
+			)
+		}
 	})
 
 	it('runs an application operation and reports its validation issues', async () => {

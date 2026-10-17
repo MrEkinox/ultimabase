@@ -47,15 +47,20 @@ it('resolves the partner from a Bearer token', async () => {
 		mode: 'anonymous',
 		partner: 'acme',
 	})
-	// An unknown token is refused before any route runs.
+	// An unknown token is refused, as the resolver declares, before any route
+	// runs.
+	//#region partner-refused
 	const forged = await t.fetch('/status', {
 		headers: { Authorization: 'Bearer forged' },
 	})
+	//#endregion partner-refused
 	expect(forged.status).toBe(401)
-	expect(await forged.json()).toMatchObject({
+	expect(await forged.json()).toStrictEqual({
 		error: {
-			code: 'HTTP_APPLICATION_REJECTED',
-			message: 'The application or credentials were rejected.',
+			code: 'PARTNER_UNKNOWN',
+			message: 'The partner token is unknown.',
+			requestId: forged.headers.get('x-ultimabase-request-id'),
+			retryable: false,
 		},
 	})
 })

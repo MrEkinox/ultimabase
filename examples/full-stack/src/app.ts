@@ -31,14 +31,9 @@ export const App = UltimaBase.use(
 		methods: [password()],
 		http: { cookie: { name: '__Host-full-stack-session', sameSite: 'lax' } },
 	}),
-	// Public operations are exposed by their owners (ADR-0324): REST keeps
-	// the status operation; authentication is served under `/api/auth`.
-	restPlugin({
-		hide: [
-			...Object.values(authOperations),
-			...Object.values(passwordOperations),
-		],
-	}),
+	// Public operations are exposed by their owners (ADR-0324): REST serves
+	// the status operation; authentication binds its own under `/api/auth`.
+	restPlugin(),
 	// GraphQL exposes the authentication operations except two (ADR-0325).
 	graphqlPlugin({
 		hide: [passwordOperations.changePassword, authOperations.logoutEverywhere],

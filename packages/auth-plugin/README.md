@@ -18,12 +18,8 @@ User and opens each member's own profile through Access:
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import {
-	password,
-	passwordEmailOperations,
-	passwordOperations,
-} from '@ultimabase/auth-password'
-import { authOperations, authPlugin } from '@ultimabase/auth-plugin'
+import { password } from '@ultimabase/auth-password'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -60,14 +56,8 @@ export const App = UltimaBase.use(
 			trustProxy: 1,
 			browser: { origins: ['https://notes.example.com'], credentials: true },
 		},
-		// Clients use the `/api/auth` routes; REST serves only the schemas.
-		rest: {
-			hide: [
-				...Object.values(authOperations),
-				...Object.values(passwordOperations),
-				...Object.values(passwordEmailOperations),
-			],
-		},
+		// REST serves the schemas; authentication serves `/api/auth` itself.
+		rest: true,
 	}),
 	postgresPlugin(),
 )
@@ -78,6 +68,7 @@ export const App = UltimaBase.use(
 <!-- region ../../examples/auth/src/schema.ts#imports,member -->
 
 ```ts
+import { isSelf } from '@ultimabase/access-plugin'
 import { isAuthenticated } from '@ultimabase/core'
 
 import { App } from './app.ts'
@@ -95,11 +86,10 @@ export const Member = App.UserSchema.define({
 	}),
 }).with({
 	access: {
-		// Members read and edit only their own profile.
-		read: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('id', principal.id),
-		update: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('id', principal.id),
+		// Members read and edit only their own profile; sign-up, login and
+		// `current` read it as the member, so `read` must match it.
+		read: isSelf,
+		update: isSelf,
 	},
 })
 ```
@@ -148,14 +138,27 @@ through a Master-only schema mutation owned by the foundation that refuses
 callers outside the flows, so the email stays in step with credentials and
 linked accounts. Users of such an application are created only by sign-up, or
 on the server by `auth.createUser({ data, email })` for administration and
-seeding; any other create fails with `VALIDATION_ERROR` (issue code
-`auth.user-creation`).
+seeding: the foundation closes the User's generic create with Core's
+`closeSchemaCommand` (ADR-0341). REST publishes no `POST` for the User,
+OpenAPI no create entry and GraphQL no create mutation, and any other create,
+upsert or nested create fails with `VALIDATION_ERROR` (issue code
+`command.closed`), Master included. Code run through `runWithSession` is the
+application's, so it cannot create Users either.
 
 Sign-up creates the User through the ordinary pipeline (validation, defaults,
 Hooks) with the plugin's own `authority:elevate` privilege: the User's Access
 need not open creation and no `masterAuthority` is required. Invalid data
 fails with `AUTH_SIGN_UP_REJECTED`, whose `details.fields` names the missing or
 invalid fields; a duplicate unique value is rejected without naming it.
+
+Sign-up, login, `refresh` and `current` return the User as the signed-in user
+reads it, so the User's `read` rule must match their own row: Access's
+`isSelf` does (`.with({ access: { read: isSelf } })`). When it does not, they
+fail with `AUTH_USER_NOT_READABLE` (HTTP 500, a configuration error) and roll
+back; the server-side message names the User schema and suggests
+`read: isSelf`, while clients see a generic message. A method operation that
+calls the foundation's `signIn` or `authenticateAccount` declares
+`authErrorCodes.userNotReadable` among its errors.
 
 ## Sessions and the current principal
 
@@ -325,14 +328,22 @@ allowed origin: `httpPlugin({ browser: { origins, credentials: true } })`.
 Bearer and cookie together are rejected; a stale cookie never blocks sign-up
 or login.
 
+A revoked, expired, forged or stale token is refused before any route runs,
+on data routes and under `/api/auth`, with 401 `AUTH_INVALID_SESSION`: the
+resolver declares that error to the HTTP plugin (ADR-0341), so a client knows
+to sign the user in again. A header that is not `Bearer <token>`, Bearer and
+cookie together, a foreign browser origin and a wrong Master key keep the HTTP
+plugin's 401 `HTTP_APPLICATION_REJECTED`.
+
 ## Transports
 
-Every operation is public (ADR-0324): GraphQL exposes them with typed fields
-(`signUp`, `login`, `current`, …, the payload's `user` being the User type)
-and REST under `/api/operations/<name>`. Hide them per transport when the
-`/api/auth` routes serve HTTP clients: the example's factory passes
-`authOperations`, `passwordOperations` and `passwordEmailOperations` to
-`rest: { hide }`, and `/api/operations/login` then answers 404.
+Every operation is public (ADR-0324) and bound to two transports only
+(ADR-0341): the `/api/auth` routes above, and GraphQL with typed fields
+(`signUp`, `login`, `current`, …, the payload's `user` being the User type).
+REST does not serve them a second time: `/api/operations/login` answers 404.
+`graphqlPlugin({ hide: [authOperations.deleteAccount] })` removes one from
+GraphQL; `authOperations`, `passwordOperations` and `passwordEmailOperations`
+name them.
 
 ## Events
 

@@ -154,7 +154,15 @@ with `flagPlugin()` in the factory shown above:
 indexes `flagged` with `createdAt`; create and update input reject it, because
 `mutationInput: 'forbidden'` reserves the field for the plugin's own effects
 while keeping it readable and persisted. It is not a permission rule for
-reading the field. `.with({ flagReason: … })` without `flaggable: true` is a
+reading the field. A patch can close a whole generic command the same way:
+`closeSchemaCommand({ contributionId, command: 'create', reason })` from
+`@ultimabase/core/plugin` closes `createOne`, `createMany`, `upsertOne` and
+`upsertMany` on the targeted schemas. REST, OpenAPI and GraphQL then publish
+nothing for them, and every call fails with `VALIDATION_ERROR` (issue
+`command.closed`, carrying `reason`), Master included, except the closing
+plugin's own calls, which provide the schema's creation path; Password
+Authentication closes the User's create this way (ADR-0341).
+`.with({ flagReason: … })` without `flaggable: true` is a
 type error, and TypeScript flags a key given twice. At Runtime the plugin
 reads a schema's rules with `readSchemaRules(schema, owner)` from
 `@ultimabase/core/plugin`, which returns only the options that plugin declared.

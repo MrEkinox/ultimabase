@@ -328,7 +328,7 @@ Selecting Authentication with Access generates User rules limited to the
 current session owner, allowing authentication to return the required
 profile, and denying direct User writes. Object ACLs start empty and hide
 Tasks from ordinary reads. Authentication operations are served under
-`/api/auth` and in a selected GraphQL API; REST hides them. GraphiQL,
+`/api/auth` and in a selected GraphQL API; REST does not serve them. GraphiQL,
 including the introspection it needs, is development-only in the generated
 configuration. Review [Password
 Authentication](/docs/1.0.0/plugins/official/password-authentication),

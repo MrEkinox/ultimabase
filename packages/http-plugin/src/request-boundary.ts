@@ -231,24 +231,29 @@ export const createHttpPreDispatchErrorResponse = (
 }
 
 /**
- * @internal Answers one `PublicError` thrown by a route handler as a client
- * error (ADR-0305): status 400 with its code, message and details.
+ * @internal Answers one public error: a `PublicError` thrown by a route
+ * handler (ADR-0305, status 400), or an error a context resolver declared with
+ * its status (ADR-0341), with its code, public message and details.
  */
 export const createHttpPublicErrorResponse = (
 	payload: Readonly<{
 		code: string
 		details?: Readonly<Record<string, unknown>> | undefined
-		message: string
+		message?: string | undefined
+		retryable?: boolean
 	}>,
 	requestId: string,
+	status = 400,
 ): Response =>
 	Response.json(
 		immutableRecord({
 			error: immutableRecord({
 				code: payload.code,
-				message: payload.message,
+				message:
+					payload.message ??
+					errorContracts[httpPreDispatchErrorCodes.applicationRejected][1],
 				requestId,
-				retryable: false,
+				retryable: payload.retryable ?? false,
 				...(payload.details === undefined ? {} : { details: payload.details }),
 			}),
 		}),
@@ -257,7 +262,7 @@ export const createHttpPublicErrorResponse = (
 				'Cache-Control': 'private, no-store',
 				[httpRequestIdHeader]: requestId,
 			},
-			status: 400,
+			status,
 		},
 	)
 

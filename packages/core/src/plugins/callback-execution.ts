@@ -49,6 +49,13 @@ export const runWithApplicationOwner = <TResult>(
 		callback,
 	)
 
+/**
+ * @internal Reads the plugin attributed to the active callback, whatever its
+ * application: one application is initialized per realm.
+ */
+export const readActivePluginOwner = (): PluginIdentity | undefined =>
+	callbackExecutionStorage.getStore()?.owner
+
 /** @internal Reads only the owner attributed to this exact application. */
 export const readApplicationPluginOwner = (
 	application: object,

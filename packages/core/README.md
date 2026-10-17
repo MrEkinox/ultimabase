@@ -730,8 +730,12 @@ import { contributeOperation, plugin } from '@ultimabase/core/plugin'
 
 import { formatGraphqlBinding } from './graphql-binding.ts'
 import { formatWorkflow } from './operations.ts'
+import { formatRestBinding } from './rest-binding.ts'
 
-/** One owner declares, executes and publishes the operation. */
+/**
+ * One owner declares, executes and publishes the operation. Its bindings
+ * choose its transports: GraphQL and REST, nothing else (ADR-0341).
+ */
 export const workflowPlugin = () =>
 	plugin({
 		id: 'community.workflow',
@@ -739,7 +743,7 @@ export const workflowPlugin = () =>
 		version: '1.0.0',
 		contributions: [
 			contributeOperation({
-				bindings: [formatGraphqlBinding],
+				bindings: [formatGraphqlBinding, formatRestBinding],
 				execute: ({ input }) => input.trim(),
 				operation: formatWorkflow,
 				public: { name: 'formatWorkflow' },
@@ -3398,6 +3402,19 @@ validation, while Core omits it from create, update, bulk, upsert, nested,
 and transport mutation inputs. Defaults still materialize on create,
 and plugin-owned schema-mutation effects may write the field through their
 separate provenance-checked effect boundary.
+
+A patch may likewise close a generic command of the schemas it targets
+(ADR-0341):
+`closeSchemaCommand({ contributionId, command: 'create', reason })` closes
+every method that may create a row (`createOne`, `createMany`, `upsertOne`,
+`upsertMany`). Transports publish no route, OpenAPI entry or GraphQL field for
+a closed method (an explicit setting naming it fails at startup), `can()` answers `false`, and every call fails before any
+stage with `VALIDATION_ERROR` whose `command.closed` issue carries the
+reason, Master and nested writes included. Only the plugin that closed the
+command still runs it, from its own callbacks: that is how it provides the
+schema's own creation path. `readSchemaCommandClosure(schema, 'createOne')`
+reads the closure and its reason. Authentication closes the User's create
+when a method signs in by email.
 
 Portable plugin scalars may additionally declare a private, versioned JSON
 storage codec through `definePluginField()`. Core validates and snapshots both

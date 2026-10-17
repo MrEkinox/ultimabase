@@ -289,9 +289,12 @@ Do not expose a raw Master key to browser code.
 ### Credentials from requests
 
 A plugin turns request credentials into request context values with a
-resolver; it never grants Master authority. The example resolves a partner
-from a Bearer token, and an unknown token is refused with
-`HTTP_APPLICATION_REJECTED` before any route runs:
+resolver; it never grants Master authority. A resolver declares the errors it
+throws with their HTTP status, `errors: { PARTNER_UNKNOWN: 401 }`: HTTP answers
+a declared `PluginError` with that status, its code and its public message, so
+a client can act on it. Any other failure, a wrong Master key included, answers
+`HTTP_APPLICATION_REJECTED` (401). The example resolves a partner from a Bearer
+token and refuses an unknown token before any route runs:
 
 <include cwd meta='title="src/partners.ts"'>
 	../../examples/http/src/partners.ts#partner-credentials
@@ -303,8 +306,17 @@ from a Bearer token, and an unknown token is refused with
 
 `/status` then reads `{ "mode": "anonymous", "partner": "acme" }`. Route
 handlers never see the `Authorization` or `Cookie` headers, only the values
-resolvers derived. Password Authentication uses the same mechanism for its
-sessions.
+resolvers derived. An unknown token is refused:
+
+<include cwd meta='title="tests/identity.test.ts"'>
+	../../examples/http/tests/identity.test.ts#partner-refused
+</include>
+
+The unknown token answers `401` with
+`{ "error": { "code": "PARTNER_UNKNOWN", "message": "The partner token is unknown.", … } }`.
+
+Password Authentication uses the same mechanism for its sessions and declares
+`AUTH_INVALID_SESSION` (401).
 
 ### Test without a server
 
@@ -354,17 +366,18 @@ ETag, OpenTelemetry tracing, connection takeover for realtime plugins and
 Before a route starts, HTTP returns a private, non-cacheable envelope with a
 stable code and `X-UltimaBase-Request-Id`:
 
-| Code                        | First interpretation                                            |
-| --------------------------- | --------------------------------------------------------------- |
-| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence                         |
-| `HTTP_APPLICATION_REJECTED` | credentials rejected, or a missing header under strict identity |
-| `HTTP_APPLICATION_UNKNOWN`  | the header names another application                            |
-| `HTTP_CORS_DISABLED`        | a browser preflight reached an application without CORS         |
-| `HTTP_NOT_FOUND`            | no selected route owns the path                                 |
-| `HTTP_PAYLOAD_TOO_LARGE`    | the request body exceeded the route's limit                     |
-| `HTTP_RATE_LIMITED`         | the client exceeded a rate limit; retry after `Retry-After`     |
-| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired                             |
-| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely                         |
+| Code                        | First interpretation                                               |
+| --------------------------- | ------------------------------------------------------------------ |
+| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence                            |
+| `HTTP_APPLICATION_REJECTED` | credentials rejected, or a missing header under strict identity    |
+| a resolver's declared code  | a resolver refused the credentials, such as `AUTH_INVALID_SESSION` |
+| `HTTP_APPLICATION_UNKNOWN`  | the header names another application                               |
+| `HTTP_CORS_DISABLED`        | a browser preflight reached an application without CORS            |
+| `HTTP_NOT_FOUND`            | no selected route owns the path                                    |
+| `HTTP_PAYLOAD_TOO_LARGE`    | the request body exceeded the route's limit                        |
+| `HTTP_RATE_LIMITED`         | the client exceeded a rate limit; retry after `Retry-After`        |
+| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired                                |
+| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely                            |
 
 Reproduce without credentials first:
 

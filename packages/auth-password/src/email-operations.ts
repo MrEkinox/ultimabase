@@ -150,8 +150,9 @@ const confirmEmailChangeOperation: PasswordOperation<
 // The `typeof` members keep hovers on the named private constants.
 /**
  * The email operations of `password({ identifier: 'email' })`: password
- * reset, email verification and email change, all public (ADR-0324);
- * `restPlugin({ hide: Object.values(passwordEmailOperations) })` hides them.
+ * reset, email verification and email change, all public (ADR-0324) and
+ * served under `/api/auth` and in GraphQL only (ADR-0341);
+ * `graphqlPlugin({ hide: Object.values(passwordEmailOperations) })` hides them.
  */
 export const passwordEmailOperations: Readonly<{
 	readonly confirmEmailChange: typeof confirmEmailChangeOperation

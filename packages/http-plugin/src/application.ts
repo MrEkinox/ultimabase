@@ -23,6 +23,7 @@ import {
 	httpRequestIdHeader,
 } from './constants.js'
 import {
+	HttpDeclaredContextError,
 	compileHttpContextResolvers,
 	resolveHttpContext,
 	type HttpContextResolverContributionsCapability,
@@ -270,7 +271,18 @@ const dispatchPreparedRequest = async (
 							reason: 'HTTP Master key verification',
 						}),
 					)
-	} catch {
+	} catch (error: unknown) {
+		if (
+			error instanceof HttpDeclaredContextError &&
+			!timedOut() &&
+			!request.signal.aborted
+		) {
+			return createHttpPublicErrorResponse(
+				error.payload,
+				prepared.requestId,
+				error.status,
+			)
+		}
 		return contextFailure(httpPreDispatchErrorCodes.applicationRejected)
 	}
 

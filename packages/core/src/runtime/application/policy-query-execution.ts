@@ -10,6 +10,8 @@ import { evaluateRuntimePolicyQuery } from '../enforcement/policy-query-binding.
 import type { RequestEngine } from '../engine/framework-engine.js'
 import { readRequestEngineInternals } from '../engine/request-engine.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
+import { readClosedSchemaCommand } from '../../schema/schema/command-closures.js'
+import { isClosedForCaller } from '../pipeline/closed-commands.js'
 
 /** Operation keys `can()` accepts: `read` asks about a single-row read (`one`). */
 export type CanOperation = 'read' | PolicyOperation
@@ -79,6 +81,15 @@ export const executePolicyQuery = (
 		throw new TypeError(
 			`can() schema does not belong to this application: ${className}`,
 		)
+	}
+	// A closed command is permitted to no caller, Master included (ADR-0341).
+	if (
+		(options.operation === 'create' || options.operation === 'upsert') &&
+		isClosedForCaller(
+			readClosedSchemaCommand(options.schema.definition, 'create'),
+		)
+	) {
+		return Promise.resolve(false)
 	}
 	// Master bypasses authorization: every operation is permitted.
 	if (context.access.mode === 'master') return Promise.resolve(true)

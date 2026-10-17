@@ -404,14 +404,18 @@ naming both fixes.
 Credential plugins contribute ordered resolvers without introducing a new Core
 authority mode. A resolver receives the current anonymous context, the client
 address (`undefined` when unknown), the effective browser policy and a credential-only request view, then
-returns an immutable derivative made with `withValue()`; a resolver that
-throws refuses the request with `HTTP_APPLICATION_REJECTED`:
+returns an immutable derivative made with `withValue()`. A resolver that
+throws refuses the request: with a `PluginError` it declares in
+`errors: { CODE: status }`, HTTP answers that status with the error's code and
+public message; with anything else, `HTTP_APPLICATION_REJECTED` (401), so a
+client can tell a refusal it can act on from a rejected request (ADR-0341):
 
 <!-- region ../../examples/http/src/partners.ts#partner-credentials -->
 
 ```ts
 import { createHash, timingSafeEqual } from 'node:crypto'
 
+import { PluginError } from '@ultimabase/core'
 import { RequestContextValue, plugin } from '@ultimabase/core/plugin'
 import {
 	httpContextResolver,
@@ -437,7 +441,7 @@ const digest = (token: string): Buffer =>
 /**
  * Signs partner integrations in with `Authorization: Bearer <token>`. A
  * request without the header stays anonymous; an unknown token is refused
- * with `HTTP_APPLICATION_REJECTED` before any route runs.
+ * with the declared `PARTNER_UNKNOWN` (401) before any route runs.
  */
 export const partnerCredentials = (
 	tokens: Readonly<Record<string, string>>,
@@ -455,6 +459,9 @@ export const partnerCredentials = (
 				contributionId: 'partner-bearer',
 				create: () =>
 					httpContextResolver({
+						// Answered as declared; any other failure stays
+						// `HTTP_APPLICATION_REJECTED`.
+						errors: { PARTNER_UNKNOWN: 401 },
 						// Checked once, before the application serves a request.
 						validateBrowserPolicy: (policy) => {
 							if (policy.enabled && policy.origins === '*') {
@@ -468,7 +475,15 @@ export const partnerCredentials = (
 							const match = partners.find((candidate) =>
 								timingSafeEqual(candidate.digest, presented),
 							)
-							if (match === undefined) throw new TypeError('Unknown partner')
+							if (match === undefined) {
+								throw new PluginError(
+									'PARTNER_UNKNOWN',
+									'Unknown partner token',
+									{
+										publicMessage: 'The partner token is unknown.',
+									},
+								)
+							}
 							return context.withValue(partner, { name: match.name })
 						},
 					}),
@@ -486,7 +501,18 @@ source, signal, metadata, capabilities, application lineage, or anonymous Core
 authority. Master verification runs after resolvers so a valid Master context
 retains those safe derived values. Master credentials are hidden from resolvers;
 all credential headers are hidden from route handlers, which read the values
-the resolvers derived instead:
+the resolvers derived instead. An unknown token answers the declared
+`PARTNER_UNKNOWN` with status 401:
+
+<!-- region ../../examples/http/tests/identity.test.ts#partner-refused -->
+
+```ts
+const forged = await t.fetch('/status', {
+	headers: { Authorization: 'Bearer forged' },
+})
+```
+
+<!-- endregion -->
 
 <!-- region ../../examples/http/tests/identity.test.ts#partner-request -->
 
@@ -635,8 +661,10 @@ A normalized `Headers` object alone cannot prove that a sensitive header did
 not occur twice. Duplicate application ID, Master, Authorization, Cookie,
 Content-Length, or request-ID evidence therefore returns `HTTP_BAD_REQUEST`
 before application behavior. A different application ID returns
-`HTTP_APPLICATION_UNKNOWN`; a missing one under `requireApplicationId`, or
-rejected credentials, return `HTTP_APPLICATION_REJECTED`; unknown routes return
+`HTTP_APPLICATION_UNKNOWN`; a missing one under `requireApplicationId`, a
+wrong Master key, or credentials a resolver refuses without a declared error,
+return `HTTP_APPLICATION_REJECTED`; a declared resolver error returns its own
+code and status; unknown routes return
 `HTTP_NOT_FOUND`; oversized bodies `HTTP_PAYLOAD_TOO_LARGE`; rate limits
 `HTTP_RATE_LIMITED`; deadlines `HTTP_REQUEST_TIMEOUT`; a preflight without
 CORS `HTTP_CORS_DISABLED`; and other pre-dispatch failures

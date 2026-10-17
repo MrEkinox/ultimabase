@@ -379,7 +379,8 @@ and nothing is written. An exposed mutation that Access denies answers
 
 The tables cover generated schema operations, not a universal list for every
 application. A plugin-owned schema does not receive generated CRUD fields.
-An operation its owner declared public appears in every installed transport:
+An operation its owner declared public appears in every installed transport,
+or only in those its owner binds it to:
 [authentication](./password-authentication) contributes
 `signUp`, `login`, `current`, `refresh`, `logout`, `changePassword` and the
 account fields, with typed GraphQL bindings whose `user` is the application's
@@ -635,8 +636,11 @@ If startup warns that GraphQL exposes no schema or operation, expose at least
 one schema or a public operation; only the `health` field answers meanwhile.
 If startup refuses public writes, install a policy plugin such as Access or
 pass `graphqlPlugin({ publicWrites: true })`. Outside production, a
-validation error with a `hint:` names the rule that enables the field. If a
-type you expected is missing from the schema, check that an exposed root,
+validation error with a `hint:` names the rule that enables the field. A
+command a plugin closed has no field, such as the User's create under
+[authentication](./password-authentication) with an email identifier; naming
+it in `.with({ graphql })` or `graphqlPlugin({ default })` fails at startup
+with the schema, the method, the closing plugin and its reason. If a type you expected is missing from the schema, check that an exposed root,
 command, pointer or relation reaches its schema. If direct execution rejects
 a context, create it from the same started application and do not retain it
 after cancellation or disposal.

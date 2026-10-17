@@ -610,8 +610,12 @@ import { contributeOperation, plugin } from '@ultimabase/core/plugin'
 
 import { formatGraphqlBinding } from './graphql-binding.ts'
 import { formatWorkflow } from './operations.ts'
+import { formatRestBinding } from './rest-binding.ts'
 
-/** One owner declares, executes and publishes the operation. */
+/**
+ * One owner declares, executes and publishes the operation. Its bindings
+ * choose its transports: GraphQL and REST, nothing else (ADR-0341).
+ */
 export const workflowPlugin = () =>
 	plugin({
 		id: 'community.workflow',
@@ -619,7 +623,7 @@ export const workflowPlugin = () =>
 		version: '1.0.0',
 		contributions: [
 			contributeOperation({
-				bindings: [formatGraphqlBinding],
+				bindings: [formatGraphqlBinding, formatRestBinding],
 				execute: ({ input }) => input.trim(),
 				operation: formatWorkflow,
 				public: { name: 'formatWorkflow' },
@@ -641,10 +645,10 @@ transactional request engine; the handler must not open a redundant nested
 transaction.
 
 Transport publication remains explicit: the owner declares the operation
-public with `public: { name }`, then every installed transport exposes it
-(here the `formatWorkflow` GraphQL query field and
-`POST /api/operations/formatWorkflow`), and a binding inside the contribution
-requires `transport:expose`. `contributeOperationBinding()` keeps a binding
+public with `public: { name }`, then every installed transport exposes it, or,
+once the owner binds it, only the transports it binds (here the
+`formatWorkflow` GraphQL query field and `POST /api/operations/formatWorkflow`,
+ADR-0341), and a binding inside the contribution requires `transport:expose`. `contributeOperationBinding()` keeps a binding
 separate from its handler under the same exact operation owner; foreign
 binding owners remain invalid.
 

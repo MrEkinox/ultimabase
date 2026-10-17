@@ -53,6 +53,7 @@ export type {
 	SchemaMutationWhereAccessInput,
 } from './authoring/schema-mutations.js'
 export { allOf, anyOf, not } from './authoring/utilities.js'
+export { isSelf } from './authoring/is-self.js'
 export type { AccessDecisionInput } from './authoring/utilities.js'
 
 // Compatible-provider contract: official contribution targets, factories,

@@ -123,7 +123,7 @@ describe('API project templates', () => {
 		)
 	})
 
-	it('serves authentication under /api/auth and hides it from REST only', () => {
+	it('serves authentication under /api/auth without hiding it from REST', () => {
 		const direct = resolveSelection(
 			{ name: 'direct', plugins: ['auth-plugin'] },
 			'/tmp',
@@ -142,17 +142,12 @@ describe('API project templates', () => {
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
 		const schema = pluginAndSchemaSources(renderBaseFiles(exposed), 'ts')
 		expect(application).not.toContain('authOperations')
-		// The `/api/auth` routes serve HTTP clients: REST hides every operation,
-		// GraphQL exposes them but the unconfigured email flows (ADR-0324,
-		// ADR-0325, ADR-0326).
-		expect(schema.match(/hide: \[/gu)).toHaveLength(1)
-		expect(schema).toContain(
-			`hide: [
-        ...Object.values(authOperations),
-        ...Object.values(passwordOperations),
-        ...Object.values(passwordEmailOperations),
-      ]`,
-		)
+		// Authentication binds its operations to `/api/auth` and GraphQL, so REST
+		// never serves them (ADR-0341); GraphQL hides only the unconfigured
+		// email flows (ADR-0325, ADR-0326).
+		expect(schema).not.toContain('authOperations')
+		expect(schema).not.toContain('passwordOperations')
+		expect(schema.match(/hide: /gu)).toHaveLength(1)
 		expect(schema).toContain('hide: Object.values(passwordEmailOperations)')
 		expect(application).not.toContain('cookie:')
 	})

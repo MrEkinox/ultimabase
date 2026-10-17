@@ -87,7 +87,9 @@ export const securitySchemaFiles = (plan: InitializerPlan): SchemaFile[] =>
 			{
 				file: 'user',
 				name: 'AppUser',
-				packageImports: [],
+				packageImports: hasProfilePolicy(plan)
+					? [['@ultimabase/access-plugin', 'isSelf']]
+					: [],
 				schemaImports: [],
 				declaration: `// The User of authPlugin: password() adds a unique email; credentials and
 // sessions stay in private storage.
@@ -102,8 +104,7 @@ export const AppUser = App.UserSchema.define({
 										'Each user reads only their own profile; writes stay with authPlugin.',
 									entry: [
 										'access: {',
-										'  read: ({ principal, where }) =>',
-										"    where.in('id', principal === undefined ? [] : [principal.id]),",
+										'  read: isSelf,',
 										'  create: false,',
 										'  update: false,',
 										'  upsert: false,',

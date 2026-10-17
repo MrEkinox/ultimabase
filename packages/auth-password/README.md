@@ -13,12 +13,8 @@ factory signs members in by email, with the three email flows:
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import {
-	password,
-	passwordEmailOperations,
-	passwordOperations,
-} from '@ultimabase/auth-password'
-import { authOperations, authPlugin } from '@ultimabase/auth-plugin'
+import { password } from '@ultimabase/auth-password'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -55,14 +51,8 @@ export const App = UltimaBase.use(
 			trustProxy: 1,
 			browser: { origins: ['https://notes.example.com'], credentials: true },
 		},
-		// Clients use the `/api/auth` routes; REST serves only the schemas.
-		rest: {
-			hide: [
-				...Object.values(authOperations),
-				...Object.values(passwordOperations),
-				...Object.values(passwordEmailOperations),
-			],
-		},
+		// REST serves the schemas; authentication serves `/api/auth` itself.
+		rest: true,
 	}),
 	postgresPlugin(),
 )
@@ -152,7 +142,7 @@ Login, password change and re-authentication follow the foundation's attempt
 limiting. Over HTTP they are `POST /api/auth/sign-up`, `/api/auth/login`,
 `/api/auth/change-password` and `/api/auth/reauthenticate`; in GraphQL,
 `signUp`, `login`, `changePassword` and `reauthenticate`. `passwordOperations`
-names them for `hide`.
+names them for `graphqlPlugin({ hide })`; REST does not serve them (ADR-0341).
 
 ## Password reset, email verification and email change
 
@@ -285,7 +275,7 @@ Over HTTP the operations are `POST /api/auth/request-password-reset`,
 `/api/auth/reset-password`, `/api/auth/request-email-verification`,
 `/api/auth/verify-email`, `/api/auth/request-email-change` and
 `/api/auth/confirm-email-change`; in GraphQL, mutations of the same names.
-`passwordEmailOperations` names them for `hide`.
+`passwordEmailOperations` names them for `graphqlPlugin({ hide })`.
 
 ## Password policy
 
