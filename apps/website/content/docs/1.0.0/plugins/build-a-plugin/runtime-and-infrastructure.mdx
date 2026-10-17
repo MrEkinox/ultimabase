@@ -28,6 +28,7 @@ sources:
   - docs/adr/0271-native-contribution-plugin-plan.md
   - docs/adr/0274-canonical-operation-cancellation.md
   - docs/adr/0301-adapter-declared-filter-operators.md
+  - docs/adr/0345-private-insert-if-absent.md
   - packages/core/src/runtime/database/adapter-capabilities.ts
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
@@ -294,8 +295,11 @@ must never become a model, Query surface, or generated REST/GraphQL route:
 </include>
 
 Only an attributed callback from the same exact plugin instance, here the
-plugin's own operation handler, may use `privateStore(sessions)`. It exposes bounded `findUnique`, `insert`, `update`,
-`delete`, and `compareAndSwap` methods, not an adapter or generic SQL handle.
+plugin's own operation handler, may use `privateStore(sessions)`. It exposes bounded `findUnique`, `insert`,
+`insertIfAbsent`, `update`, `delete`, and `compareAndSwap` methods, not an adapter or generic SQL handle.
+To create the first record of a key under concurrency, use `insertIfAbsent`: it returns `null` when a unique index
+already holds the value, where `insert` raises `UNIQUE_VIOLATION`, which on PostgreSQL also aborts the transaction, so
+read the winner's record and `compareAndSwap` it instead of catching the error.
 Writes join the active request transaction or open an automatic one. Removal
 of the plugin does not silently authorize dropping physical data.
 
