@@ -35,6 +35,20 @@ test('derives the exact private record and operation surface', () => {
 			secret: 'digest',
 		},
 	})
+	expectTypeOf(
+		store.insertIfAbsent({
+			data: {
+				id: '0198c000-0000-7000-8000-000000000001',
+				secret: 'digest',
+			},
+		}),
+	).toEqualTypeOf<
+		Promise<{
+			readonly id: string
+			readonly label: string | null
+			readonly secret: string
+		} | null>
+	>()
 	void store.findUnique({
 		where: { id: '0198c000-0000-7000-8000-000000000001' },
 	})
@@ -48,6 +62,8 @@ test('derives the exact private record and operation surface', () => {
 
 	// @ts-expect-error -- Required private fields cannot be omitted.
 	void store.insert({ data: { secret: 'digest' } })
+	// @ts-expect-error -- A conditional insert takes the same complete record.
+	void store.insertIfAbsent({ data: { secret: 'digest' } })
 	void store.update({
 		// @ts-expect-error -- Immutable fields cannot be updated.
 		data: { id: '0198c000-0000-7000-8000-000000000002' },
@@ -97,6 +113,7 @@ test('keeps adapter requests exact and discriminated', () => {
 				>()
 				break
 			case 'insert':
+			case 'insert-if-absent':
 				expectTypeOf(request.data).toEqualTypeOf<
 					Readonly<Record<string, unknown>>
 				>()

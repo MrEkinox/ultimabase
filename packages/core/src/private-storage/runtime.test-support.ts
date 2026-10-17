@@ -53,7 +53,8 @@ const executeMemoryRequest = (
 			)
 			return index < 0 ? null : (records[index] ?? null)
 		}
-		case 'insert': {
+		case 'insert':
+		case 'insert-if-absent': {
 			const record = immutableRecord(request.data)
 			for (const unique of request.collection.indexes) {
 				if (
@@ -63,6 +64,7 @@ const executeMemoryRequest = (
 						),
 					)
 				) {
+					if (request.kind === 'insert-if-absent') return null
 					throw new FrameworkError('VALIDATION_ERROR', 'Unique conflict')
 				}
 			}

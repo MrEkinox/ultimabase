@@ -63,6 +63,15 @@ const pins = definePrivateCollection({
 	references: [{ field: 'accountId', onDelete: 'fail', target: Account }],
 })
 
+const claims = definePrivateCollection({
+	contributionId: 'claims',
+	fields: {
+		key: stringField({ immutable: true, required: true }),
+		owner: stringField({ required: true }),
+	},
+	indexes: [{ fields: ['key'] }] as const,
+})
+
 const actionValue = defineOperationValue((value) => {
 	if (!isPlainRecord(value) || typeof value.action !== 'string') {
 		throw new TypeError('action is required')
@@ -241,6 +250,104 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			await expect(
 				Account.exists({ where: { id: { eq: pinned.id } } }),
 			).resolves.toBe(true)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('inserts if absent without aborting the transaction, once under concurrency', async () => {
+		const racers = 4
+		let arrived = 0
+		let release: () => void = () => undefined
+		const allArrived = new Promise<void>((resolve) => {
+			release = resolve
+		})
+		const claimContribution = contributeOperation({
+			operation: atomicOperation,
+			execute: async ({ input }) => {
+				const store = privateStore(claims)
+				if (input.action === 'twice') {
+					const first = await store.insertIfAbsent({
+						data: { key: 'twice', owner: 'first' },
+					})
+					const second = await store.insertIfAbsent({
+						data: { key: 'twice', owner: 'second' },
+					})
+					// Both statements below fail with 25P02 if the conflict aborted the transaction.
+					const swapped = await store.compareAndSwap({
+						data: { owner: 'swapped' },
+						expected: { owner: 'first' },
+						where: { key: 'twice' },
+					})
+					const account = await Account.createOne({ data: { name: 'after' } })
+					return [
+						first?.owner ?? 'absent',
+						second?.owner ?? 'absent',
+						swapped?.owner ?? 'conflict',
+						account.name,
+					].join(' ')
+				}
+				// Every racer reads nothing before any of them inserts.
+				const before = await store.findUnique({ where: { key: 'race' } })
+				arrived += 1
+				if (arrived === racers) release()
+				await allArrived
+				const inserted = await store.insertIfAbsent({
+					data: { key: 'race', owner: input.action },
+				})
+				const winner = await store.findUnique({ where: { key: 'race' } })
+				return `${before === null ? 'empty' : 'seen'} ${inserted === null ? 'lost' : 'won'} ${winner?.owner ?? 'missing'}`
+			},
+		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+			plugin({
+				core: '^0.0.0',
+				id: 'fixture.private-postgres-claims',
+				permissions: {
+					'operation:declare': 'Declares private claim fixtures.',
+					'storage:private': 'Stores private claim fixtures.',
+				},
+				version: '1.0.0',
+				contributions: [
+					claimContribution,
+					contributeDeclarations({
+						privateStorage: ({ privateStorage }) => {
+							privateStorage.register(claims)
+							return undefined
+						},
+					}),
+				],
+			}),
+		))({ logger: false, schemas: [Account] })
+		await ultimabase.start()
+
+		try {
+			expect(
+				await ultimabase
+					.operation(atomicOperation)
+					.execute({ action: 'twice' }),
+			).toBe('first absent swapped after')
+
+			const results = await Promise.all(
+				Array.from({ length: racers }, (_, index) =>
+					ultimabase
+						.operation(atomicOperation)
+						.execute({ action: `racer-${String(index)}` }),
+				),
+			)
+			const winners = results.filter((result) => result.includes(' won '))
+			expect(winners).toHaveLength(1)
+			const owner = winners[0]?.split(' ')[2]
+			expect(results.sort()).toStrictEqual(
+				[
+					`empty won ${String(owner)}`,
+					...Array.from(
+						{ length: racers - 1 },
+						() => `empty lost ${String(owner)}`,
+					),
+				].sort(),
+			)
 		} finally {
 			await ultimabase.dispose()
 		}
