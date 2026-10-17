@@ -179,7 +179,6 @@ describe('GitHub action input and Yarn selection', () => {
 		expect(plan(directory, base)).toMatchObject({
 			full: false,
 			packages: [],
-			coverage: false,
 		})
 	})
 	it('keeps deleted paths visible and falls back for removed tests', () => {
@@ -195,10 +194,7 @@ describe('GitHub action input and Yarn selection', () => {
 		'requires complete checks for unavailable base %s',
 		(before) => {
 			const { directory } = repository()
-			expect(plan(directory, before)).toMatchObject({
-				full: true,
-				coverage: true,
-			})
+			expect(plan(directory, before)).toMatchObject({ full: true })
 		},
 	)
 	it.each([null, {}, [42]])(
@@ -207,7 +203,6 @@ describe('GitHub action input and Yarn selection', () => {
 			const { directory, base } = repository()
 			expect(plan(directory, base, false, changed)).toMatchObject({
 				full: true,
-				coverage: true,
 			})
 		},
 	)

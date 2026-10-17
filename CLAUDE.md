@@ -61,7 +61,7 @@ regressions that every suite missed:
 - Copies of user-controlled keys use `Object.fromEntries` or `Map`, never
   `object[key] = value` (several reference defects came from `__proto__` keys).
 - `yarn install --immutable`: `validate:full` does not check that `yarn.lock` matches the manifests, and CI fails when it does not.
-- `yarn test:coverage` runs in GitHub CI, not in `validate:full` (ADR-0342); run it locally when a change could lower coverage.
+- Package coverage runs in each GitHub package job, not in `validate:full` (ADR-0342); `yarn validate:package <name>` runs that job locally when a change could lower a package's coverage.
 - `yarn website:test` (browser and accessibility suite) when a change touches `apps/website`: `validate:full` does not run it, and CI does.
 
 ## Known load-sensitive tests
@@ -70,8 +70,8 @@ Validate on a calm machine before concluding anything from these failures:
 `create-app-packed` (120 s timeout; it runs alone in the `e2e-isolated` project
 after the other E2E projects), `core-archive-declarations` (10 s),
 and postgres-e2e cascades after a timeout ([load-sensitive suites](tests/README.md#load-sensitive-suites)). In GitHub CI the
-`Complete coverage` job excludes performance suites, which run uninstrumented
-in the package and transversal jobs instead.
+package jobs run performance suites uninstrumented, after the instrumented
+unit and source E2E run.
 
 ## Project hook
 

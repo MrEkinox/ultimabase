@@ -25,6 +25,7 @@ const selected: CiPlan = {
 			name: '@ultimabase/example',
 			directory: 'packages/example',
 			browser: false,
+			coverage: false,
 			files: [
 				'packages/example/src/example.test.ts',
 				'packages/example/src/example.test-d.ts',
@@ -34,7 +35,6 @@ const selected: CiPlan = {
 	],
 	transversal: [],
 	build: true,
-	coverage: false,
 	tooling: false,
 	documentation: false,
 	website: false,
@@ -150,26 +150,71 @@ describe('GitHub selected command execution', () => {
 			},
 		])
 	})
-	it('does not duplicate units and types already executed by complete coverage', () => {
-		const { result, commands, directory } = execute('package', {
-			...selected,
-			full: true,
-			coverage: true,
-		})
+	it('measures an affected package from its own suites, running each suite once', () => {
+		const builtOnly =
+			'packages/rest-plugin/tests/e2e/rest-application.e2e.test.ts'
+		const source = 'packages/rest-plugin/tests/e2e/rest-source.e2e.test.ts'
+		const database =
+			'packages/rest-plugin/tests/e2e/rest-storage.postgres.e2e.test.ts'
+		const unit = 'packages/rest-plugin/src/rest.test.ts'
+		const budget =
+			'packages/rest-plugin/tests/performance/rest.performance.test.ts'
+		const { result, commands, directory } = execute(
+			'package',
+			{
+				...selected,
+				packages: [
+					{
+						name: '@ultimabase/rest-plugin',
+						directory: 'packages/rest-plugin',
+						browser: false,
+						coverage: true,
+						files: [unit, builtOnly, source, database, budget],
+					},
+				],
+			},
+			false,
+			'@ultimabase/rest-plugin',
+		)
 		expect(result.status, result.stderr).toBe(0)
-		expect(commands).toHaveLength(3)
-		expect(commands[2]).toEqual({
-			cwd: directory,
-			args: [
-				'exec',
-				'vitest',
-				'run',
-				'--project',
-				'e2e',
-				'--maxWorkers=2',
-				path.join(directory, 'packages/example/tests/example.e2e.test.ts'),
-			],
-		})
+		expect(commands.slice(2)).toEqual([
+			{
+				cwd: directory,
+				args: [
+					'exec',
+					'vitest',
+					'run',
+					'--project',
+					'unit',
+					'--project',
+					'coverage-e2e',
+					'--project',
+					'coverage-postgres-e2e',
+					'--maxWorkers=2',
+					'--coverage.enabled',
+					'--coverage.include=packages/rest-plugin/src/**/*.ts',
+					path.join(directory, unit),
+					path.join(directory, source),
+					path.join(directory, database),
+				],
+			},
+			{
+				// V8 instrumentation distorts budgets; built-only E2E check artifacts.
+				cwd: directory,
+				args: [
+					'exec',
+					'vitest',
+					'run',
+					'--project',
+					'e2e',
+					'--project',
+					'performance',
+					'--maxWorkers=2',
+					path.join(directory, builtOnly),
+					path.join(directory, budget),
+				],
+			},
+		])
 	})
 	it('runs isolated E2E suites in their own project', () => {
 		const packed = 'packages/create-app/tests/e2e/create-app-packed.e2e.test.ts'
@@ -184,6 +229,7 @@ describe('GitHub selected command execution', () => {
 						name: '@ultimabase/create-app',
 						directory: 'packages/create-app',
 						browser: false,
+						coverage: false,
 						files: [packed, api],
 					},
 				],

@@ -83,7 +83,6 @@ if (process.env.GITHUB_OUTPUT !== undefined) {
 		})),
 		build: plan.build,
 		transversal: plan.transversal.length > 0 || plan.workspaceLint.length > 0,
-		coverage: plan.coverage,
 		website: plan.website,
 	})) {
 		appendFileSync(

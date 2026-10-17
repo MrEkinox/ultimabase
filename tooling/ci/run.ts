@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
+import { builtOnlyE2eSuites } from '../vitest/built-only-e2e.ts'
 import { isolatedE2eSuites } from '../vitest/isolated-e2e.ts'
 import type { CiPlan } from './selection.ts'
 
@@ -11,7 +12,7 @@ const strings = (value: unknown): value is string[] =>
 	value.every((entry: unknown) => typeof entry === 'string')
 const validPlan = (value: unknown): value is CiPlan =>
 	record(value) &&
-	['full', 'build', 'coverage', 'tooling', 'documentation', 'website'].every(
+	['full', 'build', 'tooling', 'documentation', 'website'].every(
 		(key) => typeof value[key] === 'boolean',
 	) &&
 	['changed', 'transversal', 'workspaceLint'].every((key) =>
@@ -26,6 +27,7 @@ const validPlan = (value: unknown): value is CiPlan =>
 			typeof item.directory === 'string' &&
 			/^packages\/[a-z0-9-]+$/u.test(item.directory) &&
 			typeof item.browser === 'boolean' &&
+			typeof item.coverage === 'boolean' &&
 			strings(item.files),
 	)
 const input: unknown = JSON.parse(process.env.CI_PLAN ?? 'null')
@@ -45,8 +47,58 @@ const run = (args: readonly string[], cwd = repositoryRoot): void => {
 			`Command failed (${String(result.status)}): ${args.join(' ')}`,
 		)
 }
-const tests = (files: readonly string[], cwd = repositoryRoot): void => {
+// Instrumented projects: unit tests and package-owned E2E run from sources.
+const coverageProjects = new Set([
+	'unit',
+	'coverage-e2e',
+	'coverage-postgres-e2e',
+])
+const projectOf = (file: string, coverage: boolean): string =>
+	file.endsWith('.postgres.e2e.test.ts')
+		? coverage
+			? 'coverage-postgres-e2e'
+			: 'postgres-e2e'
+		: isolatedE2eSuites.includes(file)
+			? 'e2e-isolated'
+			: file.endsWith('.e2e.test.ts')
+				? coverage && !builtOnlyE2eSuites.includes(file)
+					? 'coverage-e2e'
+					: 'e2e'
+				: file.endsWith('.performance.test.ts')
+					? 'performance'
+					: 'unit'
+const vitest = (
+	files: readonly string[],
+	coverage: boolean,
+	extra: readonly string[] = [],
+): void => {
 	if (files.length === 0) return
+	// Filters alone are insufficient: select projects explicitly to avoid duplicates.
+	const projects = new Set(files.map((file) => projectOf(file, coverage)))
+	run(
+		[
+			'exec',
+			'vitest',
+			'run',
+			...[...projects].flatMap((project) => ['--project', project]),
+			'--maxWorkers=2',
+			...extra,
+			...files.map((file) => path.join(repositoryRoot, file)),
+		],
+		// Existing subprocess and generated-application fixtures resolve from the repository root.
+		repositoryRoot,
+	)
+}
+/**
+ * Runs each suite once. With a package `directory`, unit tests and the
+ * package's source-coverable E2E run instrumented and must meet that package's
+ * thresholds; performance budgets and built-only E2E run uninstrumented.
+ */
+const tests = (
+	files: readonly string[],
+	cwd = repositoryRoot,
+	directory?: string,
+): void => {
 	const typeFiles = files.filter((file) => file.endsWith('.test-d.ts'))
 	if (typeFiles.length > 0)
 		run(
@@ -61,40 +113,22 @@ const tests = (files: readonly string[], cwd = repositoryRoot): void => {
 			cwd,
 		)
 	const runtimeFiles = files.filter((file) => !file.endsWith('.test-d.ts'))
-	if (runtimeFiles.length === 0) return
-	// Filters alone are insufficient: select projects explicitly to avoid coverage duplicates.
-	const projects = new Set(
-		runtimeFiles.map((file) =>
-			file.endsWith('.postgres.e2e.test.ts')
-				? 'postgres-e2e'
-				: isolatedE2eSuites.includes(file)
-					? 'e2e-isolated'
-					: file.endsWith('.e2e.test.ts')
-						? 'e2e'
-						: file.endsWith('.performance.test.ts')
-							? 'performance'
-							: file.endsWith('.test-d.ts')
-								? 'types'
-								: 'unit',
-		),
+	if (directory === undefined) {
+		vitest(runtimeFiles, false)
+		return
+	}
+	const instrumented = runtimeFiles.filter((file) =>
+		coverageProjects.has(projectOf(file, true)),
 	)
-	run(
-		[
-			'exec',
-			'vitest',
-			'run',
-			...[...projects].flatMap((project) => ['--project', project]),
-			'--maxWorkers=2',
-			...runtimeFiles.map((file) => path.join(repositoryRoot, file)),
-		],
-		// Existing subprocess and generated-application fixtures resolve from the repository root.
-		repositoryRoot,
+	vitest(instrumented, true, [
+		'--coverage.enabled',
+		`--coverage.include=${directory}/src/**/*.ts`,
+	])
+	vitest(
+		runtimeFiles.filter((file) => !instrumented.includes(file)),
+		true,
 	)
 }
-// Suites that complete coverage does not run: E2E has its own coverage projects
-// and performance budgets are only meaningful without instrumentation.
-const runsOutsideCoverage = (file: string): boolean =>
-	file.endsWith('.e2e.test.ts') || file.endsWith('.performance.test.ts')
 
 switch (process.argv[2]) {
 	case 'repository': {
@@ -104,7 +138,7 @@ switch (process.argv[2]) {
 			run(['prettier', '--check', '--ignore-unknown', '--', ...formatted])
 		if (plan.documentation) {
 			// The complete tooling selection below already includes the documentation guards.
-			if (!plan.tooling && !plan.coverage)
+			if (!plan.tooling)
 				run(['vitest', 'run', '--project', 'unit', 'tooling/documentation/'])
 			// Landing examples and Twoslash snippets compile against built exports.
 			run(
@@ -121,7 +155,7 @@ switch (process.argv[2]) {
 						],
 			)
 		}
-		if (plan.tooling && !plan.coverage)
+		if (plan.tooling)
 			run(['vitest', 'run', '--project', 'unit', 'tooling/', '--maxWorkers=2'])
 		break
 	}
@@ -133,13 +167,12 @@ switch (process.argv[2]) {
 			throw new Error('Package was not selected by the planner')
 		run(['workspace', selected.name, 'typecheck:tests'])
 		run(['eslint', selected.directory])
-		// Complete coverage already executes unit and type suites once. Performance
-		// suites stay here: V8 coverage instrumentation distorts their timings.
+		// A package selected only as a consumer of another change runs part of
+		// its suites: its coverage is measured when all of them are selected.
 		tests(
-			plan.coverage
-				? selected.files.filter(runsOutsideCoverage)
-				: selected.files,
+			selected.files,
 			path.join(repositoryRoot, selected.directory),
+			selected.coverage ? selected.directory : undefined,
 		)
 		break
 	}
@@ -151,11 +184,7 @@ switch (process.argv[2]) {
 			run(['lint:workspace'])
 		} else if (plan.transversal.length > 0)
 			run(['tsc', '--project', 'tests/tsconfig.json'])
-		tests(
-			plan.coverage
-				? plan.transversal.filter(runsOutsideCoverage)
-				: plan.transversal,
-		)
+		tests(plan.transversal)
 		break
 	}
 	default:

@@ -78,14 +78,16 @@ and Master presentation, and crosses more than two fixed resolver batches.
 The focused nested-write suites retain the policy, lifecycle, limits, rollback,
 cancellation, application-isolation, and transport-safe failure matrix.
 Built E2E retain their public package imports and worker-isolated schemas.
-The coverage projects run the same source-coverable suites with source aliases;
-archive and compiled-artifact audits remain built-only.
+The coverage projects (`coverage-e2e`, `coverage-postgres-e2e`) run the
+source-coverable package-owned E2E with source aliases, so they count toward
+their package's coverage; root suites under `tests/e2e` never do. Archive and
+compiled-artifact audits remain built-only.
 This includes language-service suites that read compiled declarations and suites
 that invoke built exports exclusively through Node subprocesses: Vitest's source
 aliases cannot affect either path. They run once through the built E2E project,
-including in complete GitHub validation. The discovery guard keeps their explicit
-exceptions separate from source-coverable E2E; production coverage inclusion and
-thresholds stay unchanged.
+including in GitHub validation. [`built-only-e2e.ts`](../tooling/vitest/built-only-e2e.ts)
+lists them, and the discovery guard keeps these exceptions separate from
+source-coverable E2E.
 
 PostgreSQL E2E suites start real Testcontainers and therefore require a working
 Docker-compatible container runtime. Package unit and type tests never require
@@ -102,19 +104,17 @@ Docker.
   It runs every suite once: format, typecheck, lint, build, performance budgets,
   one uninstrumented run of the unit, type, E2E, PostgreSQL E2E and isolated E2E
   projects against the built packages, dependency constraints, and
-  public-documentation validation. Coverage is checked by GitHub CI
-  ([ADR-0342](../docs/adr/0342-local-gate-without-coverage.md)).
+  public-documentation validation. Coverage is checked per package by the
+  GitHub package jobs ([package coverage](#package-coverage)).
 - `yarn test`: run package unit tests, compile-time type tests, and deterministic performance budgets.
 - `yarn test:all`: run unit, type, build, cross-package E2E, and package archive checks.
 - `yarn test:e2e`: build every package, then run ordinary and PostgreSQL E2E tests.
 - `yarn test:pack`: build every package, then run every built-export E2E suite (archive checks, Node consumers, packed-declaration editor checks).
 - `yarn test:performance`: run deterministic performance regression budgets.
-- `yarn test:coverage`: run unit, type, performance, ordinary E2E, and PostgreSQL
-  E2E projects with V8 coverage. Local execution uses four workers; the GitHub
-  coverage job sets `ULTIMABASE_COVERAGE_WORKERS=2` for the proven memory-safe
-  bound. Yarn passes this value as Vitest's CLI `maxWorkers`, preserving one
-  worker for the serial performance project. Do not use `VITEST_MAX_WORKERS`:
-  its native override also changes serial projects' resolved worker limit.
+- `yarn validate:package <name...>`: run the GitHub package job for one or more
+  packages (`core` or `@ultimabase/core`), with every suite of the package and
+  its coverage thresholds ([package coverage](#package-coverage)). Run
+  `yarn build` first.
 - `yarn test:types`: run compile-time type tests only.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.
 - `yarn typecheck:typescript-7`: type-check with TypeScript 7 (see below).
@@ -143,17 +143,39 @@ Apollo Sandbox own their browser behavior, while root suites retain explorer
 collisions, application isolation, and compatible-provider composition. Shared
 fixture modules contain helpers only; importing one never executes another suite.
 
-The root `yarn test:coverage` remains the complete coverage gate, run by GitHub CI. A package-only
-run does not replace it or apply global coverage thresholds to a partial suite.
 See [ADR-0250](../docs/adr/0250-package-owned-e2e-and-type-tests.md).
+
+## Package coverage
+
+Each package's coverage is measured from its own suites only: its unit tests
+and its package-owned E2E and PostgreSQL E2E, run from sources through the
+coverage projects. Root suites under `tests/` and other packages' tests never
+count. The denominator is the package's own `src/**` (test files, generated
+files and declarations excluded).
+
+[`package-coverage.ts`](../tooling/vitest/package-coverage.ts) holds every
+package's lines, statements, functions and branches thresholds (the measured
+values floored minus one point, so a real drop fails) and stricter thresholds for single files.
+The package job (`node tooling/ci/run.ts package`) runs each suite once: type
+tests, then unit tests and source-coverable E2E instrumented with
+`--coverage.include=packages/<name>/src/**/*.ts`, then performance budgets and
+built-only E2E uninstrumented, since V8 instrumentation distorts timings and
+cannot see compiled artifacts. A package below its thresholds fails its own job;
+other packages are unaffected. `yarn validate:package <name>` runs the same job
+locally.
+
+A package selected only because one of its suites consumes another change runs
+those suites without coverage: a partial suite cannot meet the package's
+thresholds. Raise a package's thresholds when its coverage grows; lower them
+only with a reason in the same change
+([ADR-0342 amendment](../docs/adr/0342-local-gate-without-coverage.md#amendment-2026-10-17-coverage-per-package)).
 
 ## GitHub Actions
 
 GitHub selects affected packages, their transitive dependants, and the integration
 suites that consume them. Documentation-only changes run documentation checks.
 Shared configuration changes and uncertain diffs fall back to complete validation;
-manual workflow dispatch also runs the complete coverage gate. A targeted run does
-not measure or enforce global coverage. Local commands above keep their existing
+each affected package measures its own coverage in its package job. Local commands above keep their existing
 behavior. See [ADR-0251](../docs/adr/0251-affected-github-validation.md) and
 [the CI tooling guide](../tooling/ci/README.md).
 

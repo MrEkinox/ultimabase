@@ -13,7 +13,10 @@ ordinary local Yarn commands.
 - `run.ts` validates the plan and invokes the selected formatting, documentation,
   lint, type, and runtime commands with argument arrays rather than shell strings.
   Documentation-only runs include architecture routing and checkpoint/backlog
-  guards once, even when no package build or complete coverage is selected.
+  guards once, even when no package build is selected. An affected package's
+  job runs all its suites and enforces its own coverage thresholds; a package
+  selected only as a consumer runs its selected suites without coverage
+  ([package coverage](../../tests/README.md#package-coverage)).
   Complete selection invokes the same repository-wide `yarn format:check` gate
   as local validation; affected selection retains the narrower changed-file check.
 - Every package must re-export `tooling/vitest/package.config.ts` from its local
@@ -34,21 +37,16 @@ For a local read-only simulation, set `CI_BASE_SHA` to a full commit SHA and
 `CI_CHANGED_FILES` to the action's JSON array of changed paths, then run
 `node tooling/ci/plan.ts`. Yarn also observes uncommitted changes, so use a clean
 checkout for an exact simulation. `node tooling/ci/plan.ts --full` shows every check.
-On GitHub, **Run workflow** requests complete validation including global coverage.
-
-The complete coverage job sets `ULTIMABASE_COVERAGE_WORKERS=2`. The root Yarn
-script expands this into the CLI worker bound, defaulting to four locally.
-Performance projects retain their one-worker limit and Vitest's isolated serial
-scheduling. Do not replace this with `VITEST_MAX_WORKERS`: Vitest applies that
-native override after resolving `fileParallelism: false`, allowing benchmarks
-to compete with other suites. The discovery regression resolves the real Yarn
-command and Vitest projects for both environments without executing their tests.
+On GitHub, **Run workflow** requests complete validation: every package job
+measures its coverage.
 
 Use `yarn validate` for the ordinary local format, type, test, lint, and build
 contract. `yarn validate:affected` (`local.ts`) runs this planner and `run.ts`
 locally for the changes since the merge base with `main`, including uncommitted
-files. `yarn validate:full` is the complete gate before merging into `main`
+files. `yarn validate:package <name...>` (`package.ts`) runs one package's job
+with all its suites. `yarn validate:full` is the complete gate before merging into `main`
 ([ADR-0291](../../docs/adr/0291-faster-validation-cadence.md)).
 
-See [ADR-0251](../../docs/adr/0251-affected-github-validation.md) for fallback and
-coverage semantics. A partial run intentionally does not report global coverage.
+See [ADR-0251](../../docs/adr/0251-affected-github-validation.md) for fallback
+semantics and the [ADR-0342 amendment](../../docs/adr/0342-local-gate-without-coverage.md#amendment-2026-10-17-coverage-per-package)
+for package coverage.
