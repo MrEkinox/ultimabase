@@ -3,7 +3,7 @@ import type { Principal } from '../../access/subject/principal.js'
 import { readApplicationRuntimeKernelState } from '../../application/application-kernel-state.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import { Pointer, type PointerValue } from '../../schema/relations/pointer.js'
+import { Pointer } from '../../schema/relations/pointer.js'
 import {
 	getRequestContextOwner,
 	type RequestContext,
@@ -17,7 +17,7 @@ import {
 interface RequestPrincipalCell {
 	readonly explicit: boolean
 	readonly value?: unknown
-	resolution?: Promise<PointerValue | undefined>
+	resolution?: Promise<Principal | undefined>
 }
 
 const requestPrincipalCells = new WeakMap<object, RequestPrincipalCell>()
@@ -56,15 +56,26 @@ export const setExplicitRequestPrincipal = (
 const ownsSchema = (application: object, schema: unknown): boolean =>
 	application instanceof FrameworkApplication && application.ownsSchema(schema)
 
+/**
+ * A Core Pointer to a schema of the application is its request principal:
+ * the single provider answers with rows of the schema `Principal` names
+ * (the designated principal schema or the `principal` key of `Register`).
+ */
+const isApplicationPrincipal = (
+	application: object,
+	value: unknown,
+): value is Principal =>
+	Pointer.is(value) && ownsSchema(application, value.schema)
+
 const validatePrincipal = (
 	application: object,
 	principal: unknown,
-): PointerValue | undefined => {
+): Principal | undefined => {
 	if (principal === undefined) return undefined
 	if (!Pointer.is(principal)) {
 		throw new TypeError('Request principal must be a Core Pointer')
 	}
-	if (!ownsSchema(application, principal.schema)) {
+	if (!isApplicationPrincipal(application, principal)) {
 		throw new TypeError(
 			'Request principal belongs to a foreign application schema',
 		)
@@ -76,7 +87,7 @@ const resolveCell = async (
 	context: RequestContext,
 	application: object,
 	cell: RequestPrincipalCell,
-): Promise<PointerValue | undefined> => {
+): Promise<Principal | undefined> => {
 	if (cell.explicit) return validatePrincipal(application, cell.value)
 	const state = readApplicationRuntimeKernelState(application)
 	if (!state.bound) return undefined
@@ -106,6 +117,5 @@ export const getRequestPrincipal = (
 	if (application === undefined) return Promise.resolve(undefined)
 	const cell = readCell(context)
 	cell.resolution ??= resolveCell(context, application, cell)
-	// Core validated a Pointer owned by the application; `Register` names its schema.
 	return cell.resolution
 }

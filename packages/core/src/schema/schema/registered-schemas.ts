@@ -69,6 +69,22 @@ type ClassNameOf<TSchema> = TSchema extends {
 /** Class names of the schemas registered through `Register`. */
 export type RegisteredSchemaName = ClassNameOf<RegisteredSchemaUnion<'~any'>>
 
+type ClassNameWithKey<
+	TSchema,
+	TKey extends PropertyKey,
+> = TSchema extends unknown
+	? TKey extends keyof TSchema
+		? ClassNameOf<TSchema>
+		: never
+	: never
+
+/**
+ * Class names of the registered schemas whose type carries one type-only
+ * key, such as the marker of `PrincipalSchemaCarrier`.
+ */
+export type RegisteredSchemaNameWithKey<TKey extends PropertyKey> =
+	ClassNameWithKey<RegisteredSchemaUnion<'~any'>, TKey>
+
 /** Looks up one registered schema by its class name. */
 export type RegisteredSchema<TClassName extends string> = Extract<
 	RegisteredSchemaUnion<TClassName>,

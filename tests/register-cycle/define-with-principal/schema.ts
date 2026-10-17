@@ -40,7 +40,7 @@ export const Note = App.Schema.define({
 			return member !== undefined
 		},
 		read: ({ principal, where }) =>
-			where.eq('author', principal ?? Member.pointer('nobody')),
+			where.eq('author', principal?.id ?? 'nobody'),
 	},
 })
 
