@@ -9,7 +9,6 @@ import {
 } from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldTypeState,
@@ -87,14 +86,14 @@ export type CompatibleEnumFieldOptions<TValues extends EnumValues> =
 /** Preserves the enum domain while naming only operation-relevant options. */
 type DefaultedEnumFieldOptions<
 	TValues extends EnumValues,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
 	EnumValue<TValues>,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	object,
@@ -137,16 +136,10 @@ type ResolvedEnumField<
 
 type DefaultedEnumField<
 	TValues extends EnumValues,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedEnumField<
-	TValues,
-	DefaultedFieldNonNull<TNullable>,
-	TList,
-	TImmutable,
-	true
->
+> = ResolvedEnumField<TValues, TRequired, TList, TImmutable, true>
 
 type NonDefaultedEnumField<
 	TValues extends EnumValues,
@@ -184,20 +177,20 @@ const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
  */
 export function enumField<
 	const TValues extends EnumValues,
-	const TNullable extends boolean = false,
+	const TRequired extends boolean = true,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
 	const TIndexed extends FieldIndexOption = false,
 	const TExtensionOptions extends object = object,
 >(
 	options: CompatibleFieldOptionsExtension<
-		DefaultedEnumFieldOptions<TValues, TNullable, TList, TImmutable, TIndexed>,
+		DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable, TIndexed>,
 		TExtensionOptions,
 		EnumValue<TValues>
 	>,
 ): UniqueIndexedField<
 	TIndexed,
-	DefaultedEnumField<TValues, TNullable, TList, TImmutable>
+	DefaultedEnumField<TValues, TRequired, TList, TImmutable>
 >
 
 export function enumField<

@@ -68,7 +68,7 @@ Invalid combinations are rejected on the option object itself. Editor
 diagnostics identify `values` for an empty enum domain, `onDelete` for a
 required pointer using `setNull`, and the temporal field option contract when
 `autoNow: true` is combined with `default` or `list: true`. A field with a
-`default` is non-null; `nullable: true` beside it keeps `null` acceptable, and
-is rejected without a default or beside `required: true` or
-`autoIncrement: true`. No extra positional argument is part of any field
+`default` is required; `required: false` beside it keeps `null` acceptable, and
+is rejected beside `autoNow: true` or `autoIncrement: true`, whose generated
+value always exists. No extra positional argument is part of any field
 factory API.

@@ -519,7 +519,7 @@ describe('REST route metadata', () => {
 	it('rejects a plugin virtual output without an exact REST representation', async () => {
 		const pluginOutput = definePluginOutputDescriptor(
 			'fixture.virtual-output',
-			{ list: false, nullable: false },
+			{ list: false, required: true },
 			(value, path): string => {
 				if (typeof value !== 'string')
 					throw new TypeError(`${path} must be text`)

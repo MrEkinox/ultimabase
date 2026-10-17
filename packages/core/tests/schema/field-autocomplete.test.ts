@@ -74,7 +74,6 @@ const commonFieldOptions = [
 	'immutable',
 	'indexed',
 	'list',
-	'nullable',
 	'required',
 ] as const
 
@@ -145,7 +144,6 @@ const topLevelOptionExpressions: Readonly<Record<string, string>> = {
 	immutable: 'true',
 	indexed: "'unique'",
 	list: 'true',
-	nullable: 'true',
 	precision: '12',
 	required: 'true',
 	scale: '2',
@@ -160,11 +158,6 @@ const createRequiredOptions = (
 	optionName: string,
 	invocationPrefix: string,
 ): string => {
-	// `nullable` is accepted only beside a default (ADR-0340).
-	if (optionName === 'nullable') {
-		return `${createRequiredOptions(factoryName, 'default', invocationPrefix)}default: ${fieldDefaultExpressions[factoryName]}, `
-	}
-
 	if (
 		factoryName === 'enumField' &&
 		optionName !== 'values' &&
@@ -215,7 +208,8 @@ const fieldHoverCases = createHoverCases(
 )
 /**
  * Exercises every built-in factory with metadata that must stay runtime-only.
- * A defaulted field's first state argument is `nullable` (ADR-0340).
+ * A defaulted field's first state argument is `required`, which a default
+ * makes `true` unless the field declares `required: false` (ADR-0340).
  */
 const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
@@ -227,14 +221,14 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'binaryField',
 		expression:
-			"binaryField({ default: new Uint8Array([1]), nullable: true, description: 'runtime-only-hover-marker' })",
-		expectedReturn: 'DefaultedBinaryField<true, false, false>',
+			"binaryField({ default: new Uint8Array([1]), required: false, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedBinaryField<false, false, false>',
 	},
 	{
 		factoryName: 'booleanField',
 		expression:
-			"booleanField({ default: true, nullable: true, description: 'runtime-only-hover-marker' })",
-		expectedReturn: 'DefaultedBooleanField<true, false, false>',
+			"booleanField({ default: true, required: false, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedBooleanField<false, false, false>',
 	},
 	{
 		factoryName: 'dateField',
@@ -251,21 +245,21 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'decimalField',
 		expression:
-			"decimalField({ default: '19.99', nullable: true, precision: 12, scale: 2, indexed: true, description: 'runtime-only-hover-marker' })",
-		expectedReturn: 'DefaultedDecimalField<true, false, false>',
+			"decimalField({ default: '19.99', required: false, precision: 12, scale: 2, indexed: true, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedDecimalField<false, false, false>',
 	},
 	{
 		factoryName: 'enumField',
 		expression:
-			"enumField({ values: ['draft', 'published'] as const, default: 'draft', nullable: true, description: 'runtime-only-hover-marker' })",
+			"enumField({ values: ['draft', 'published'] as const, default: 'draft', required: false, description: 'runtime-only-hover-marker' })",
 		expectedReturn:
-			'DefaultedEnumField<readonly ["draft", "published"], true, false, false>',
+			'DefaultedEnumField<readonly ["draft", "published"], false, false, false>',
 	},
 	{
 		factoryName: 'floatField',
 		expression:
-			"floatField({ default: 1.5, nullable: true, description: 'runtime-only-hover-marker' })",
-		expectedReturn: 'DefaultedFloatField<true, false, false>',
+			"floatField({ default: 1.5, required: false, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedFloatField<false, false, false>',
 	},
 	{
 		factoryName: 'intField',
@@ -276,20 +270,20 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'jsonField',
 		expression:
-			"jsonField({ default: { active: true }, nullable: true, description: 'runtime-only-hover-marker' })",
-		expectedReturn: 'DefaultedJsonField<true, false, false>',
+			"jsonField({ default: { active: true }, required: false, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedJsonField<false, false, false>',
 	},
 	{
 		factoryName: 'objectField',
 		expression:
-			"objectField({ fields: { name: stringField() }, default: { name: 'Ada' }, nullable: true, typeName: 'ProfileHoverMarker', description: 'runtime-only-hover-marker' })",
+			"objectField({ fields: { name: stringField() }, default: { name: 'Ada' }, required: false, typeName: 'ProfileHoverMarker', description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedObjectField<',
 	},
 	{
 		factoryName: 'stringField',
 		expression:
-			"stringField({ default: 'Ada', nullable: true, description: 'runtime-only-hover-marker' })",
-		expectedReturn: 'DefaultedStringField<true, false, false>',
+			"stringField({ default: 'Ada', required: false, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedStringField<false, false, false>',
 	},
 	{
 		factoryName: 'timeField',
@@ -300,8 +294,8 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'uuidField',
 		expression:
-			"uuidField({ default: '018f3f35-a4b2-7cc1-9dd5-3f706ef18a34', nullable: true, description: 'runtime-only-hover-marker' })",
-		expectedReturn: 'DefaultedUuidField<true, false, false>',
+			"uuidField({ default: '018f3f35-a4b2-7cc1-9dd5-3f706ef18a34', required: false, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedUuidField<false, false, false>',
 	},
 ]
 

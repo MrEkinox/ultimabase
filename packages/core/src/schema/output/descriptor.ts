@@ -58,7 +58,7 @@ export const definePluginOutputDescriptor = <
 	snapshotElement: (value: unknown, path: string) => TElement,
 ): OutputDescriptor<
 	TKind,
-	OutputValueShape<TElement, TOptions['nullable'], TOptions['list']>,
+	OutputValueShape<TElement, TOptions['required'], TOptions['list']>,
 	TOptions
 > => {
 	assertPluginFieldKind(kind, 'Plugin output descriptor kind')
@@ -67,8 +67,8 @@ export const definePluginOutputDescriptor = <
 	}
 	if (!isPlainRecord(options)) return fail('options must be a plain object')
 	if (typeof options.list !== 'boolean') fail('options.list must be a boolean')
-	if (typeof options.nullable !== 'boolean') {
-		fail('options.nullable must be a boolean')
+	if (typeof options.required !== 'boolean') {
+		fail('options.required must be a boolean')
 	}
 	if (
 		options.description !== undefined &&
@@ -82,7 +82,7 @@ export const definePluginOutputDescriptor = <
 
 	return createOutputDescriptor<
 		TKind,
-		OutputValueShape<TElement, TOptions['nullable'], TOptions['list']>,
+		OutputValueShape<TElement, TOptions['required'], TOptions['list']>,
 		TOptions
 	>(kind, immutableRecord({ ...options }), snapshotElement)
 }
@@ -121,7 +121,7 @@ export const snapshotOutputValue = <
 	}
 
 	if (value === null) {
-		if (!descriptor.options.nullable) {
+		if (descriptor.options.required) {
 			throw new TypeError(`${path} must not be null`)
 		}
 

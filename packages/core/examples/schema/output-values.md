@@ -16,7 +16,7 @@ export const declareProfileSummary = (output: OutputBuilder) =>
 				values: ['active', 'disabled'],
 			}),
 			tags: output.string({ list: true }),
-			avatarUrl: output.string({ nullable: true }),
+			avatarUrl: output.string({ required: false }),
 		}),
 	})
 
@@ -30,7 +30,7 @@ export type ProfileSummary = OutputValue<
 value `string | null`. List elements cannot be null.
 
 Output options intentionally stop at value shape and representation. Options
-such as `default`, `required`, `immutable`, `indexed`, `autoNow`, validation,
+such as `default`, `immutable`, `indexed`, `autoNow`, validation,
 `pointer`, and `relation` belong to stored or input-capable fields and are not
 available here. The callback itself does not resolve a value; an owning schema
 feature such as a virtual field supplies when and how it executes.
@@ -45,7 +45,7 @@ import { definePluginOutputDescriptor } from '@ultimabase/core'
 const ratingOutput = () =>
 	definePluginOutputDescriptor(
 		'community.rating',
-		{ list: false, nullable: false },
+		{ list: false, required: true },
 		(value, path) => {
 			if (typeof value !== 'number' || !Number.isFinite(value)) {
 				throw new TypeError(`${path} must be a finite rating`)

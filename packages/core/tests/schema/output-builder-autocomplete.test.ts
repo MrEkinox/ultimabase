@@ -56,8 +56,8 @@ ${calls.join('\n')}
 
 // @ts-expect-error -- Output values have no persisted defaults.
 output.string({ default: 'Ada' })
-// @ts-expect-error -- Output nullability replaces create-input requiredness.
-output.string({ required: true })
+// @ts-expect-error -- \`required: false\` is the one word for a nullable output.
+output.string({ nullable: true })
 // @ts-expect-error -- Output values cannot own indexes.
 output.string({ indexed: true })
 // @ts-expect-error -- Output values do not expose relationships.
@@ -112,7 +112,7 @@ describe('OutputBuilder IntelliSense', () => {
 				[
 					'description',
 					'list',
-					'nullable',
+					'required',
 					...specificOptions[factoryName],
 				].sort(),
 			)

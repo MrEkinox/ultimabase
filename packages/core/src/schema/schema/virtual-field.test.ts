@@ -40,7 +40,7 @@ describe('virtual schema fields', () => {
 		const slugOutput = () =>
 			definePluginOutputDescriptor(
 				'fixture.virtual-slug',
-				{ list: false, nullable: false },
+				{ list: false, required: true },
 				(value, path) => {
 					if (typeof value !== 'string') {
 						throw new TypeError(`${path} must be a string`)
@@ -202,7 +202,7 @@ describe('virtual schema fields', () => {
 				first: field.string(),
 				second: field.string(),
 				summary: field.virtual({
-					output: (output) => output.string({ nullable: true }),
+					output: (output) => output.string({ required: false }),
 					resolve: () => null,
 					select: { second: false },
 				}),
@@ -237,7 +237,7 @@ describe('virtual schema fields', () => {
 					className: invalid.className,
 					fields: (field) => ({
 						summary: field.virtual({
-							output: (output) => output.string({ nullable: true }),
+							output: (output) => output.string({ required: false }),
 							resolve: () => null,
 							select: invalid.select as never,
 						}),

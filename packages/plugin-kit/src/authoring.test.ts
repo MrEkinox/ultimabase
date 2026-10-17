@@ -28,7 +28,7 @@ describe('plugin authoring helpers', () => {
 	it('preserves Core provenance for contextual field helpers', () => {
 		const output = defineOutputDescriptor(
 			'fixture.label-output',
-			{ list: false, nullable: false },
+			{ list: false, required: true },
 			(value) => String(value),
 		)
 		const option = definePluginFieldOption({
@@ -63,7 +63,7 @@ describe('plugin authoring helpers', () => {
 		).not.toThrow()
 		expect(output).toStrictEqual({
 			kind: 'fixture.label-output',
-			options: { list: false, nullable: false },
+			options: { list: false, required: true },
 		})
 		expect(Object.isFrozen(output.options)).toBe(true)
 	})

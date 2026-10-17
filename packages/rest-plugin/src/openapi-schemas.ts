@@ -202,11 +202,9 @@ const describeField = (
 	return wrapList(scalar, getFieldListDepth(field.options))
 }
 
+// Core derives nullability: a default makes a field required (ADR-0340).
 const isNullable = (field: GenericField): boolean =>
-	readOption(field, 'required') !== true &&
-	readOption(field, 'autoNow') !== true &&
-	readOption(field, 'autoIncrement') !== true &&
-	!Object.hasOwn(field.options, 'generatedOn')
+	readFieldTypeState(field).nullable
 
 /** Describes one field value as its wire JSON Schema, constraints included. */
 const describeValue = (

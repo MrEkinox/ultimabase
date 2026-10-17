@@ -59,7 +59,7 @@ const readTypeName = (
 
 // Two declarations may share one explicit name only with an identical shape.
 const outputShapeSignature = (descriptor: GenericOutputDescriptor): string => {
-	const common = `${descriptor.kind}:${String(descriptor.options.list)}:${String(descriptor.options.nullable)}`
+	const common = `${descriptor.kind}:${String(descriptor.options.list)}:${String(descriptor.options.required)}`
 	if (descriptor.kind === 'enum') {
 		return `${common}:${readTypeName(descriptor) ?? ''}:${JSON.stringify(readGraphqlEnumValues(descriptor.options))}`
 	}
@@ -306,6 +306,6 @@ export class GraphqlOutputTypeCompiler {
 		const value: GraphQLNullableOutputType = descriptor.options.list
 			? nonNullList(element)
 			: element
-		return descriptor.options.nullable ? value : new GraphQLNonNull(value)
+		return descriptor.options.required ? new GraphQLNonNull(value) : value
 	}
 }

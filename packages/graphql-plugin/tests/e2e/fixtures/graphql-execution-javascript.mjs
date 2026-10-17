@@ -59,11 +59,10 @@ const Note = Application.Schema.define({
 			output: (output) =>
 				output.object({
 					fields: (nested) => ({
-						binary: nested.binary({ nullable: false }),
-						huge: nested.bigint({ nullable: false }),
-						label: nested.string({ nullable: false }),
+						binary: nested.binary(),
+						huge: nested.bigint(),
+						label: nested.string(),
 					}),
-					nullable: false,
 				}),
 			resolve: async ({ item }) => {
 				await Promise.resolve()

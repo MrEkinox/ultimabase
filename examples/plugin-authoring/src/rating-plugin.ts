@@ -16,7 +16,7 @@ const ratingFamily = definePluginFieldFamily({
 				factory: () =>
 					defineOutputDescriptor(
 						'community.rating',
-						{ list: false, nullable: false },
+						{ list: false, required: true },
 						(value, path) => {
 							if (typeof value !== 'number') {
 								throw new TypeError(`${path} must be a number`)

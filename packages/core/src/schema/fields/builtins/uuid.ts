@@ -1,6 +1,5 @@
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -29,14 +28,14 @@ export type UuidField<TState extends FieldTypeState = FieldTypeState> =
 	FieldDefinition<'uuid', string, UuidFieldOptions, TState>
 
 type DefaultedUuidFieldOptions<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	object,
@@ -74,10 +73,10 @@ type ResolvedUuidField<
 >
 
 type DefaultedUuidField<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedUuidField<DefaultedFieldNonNull<TNullable>, TList, TImmutable, true>
+> = ResolvedUuidField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedUuidField<
 	TRequired extends boolean,
@@ -89,26 +88,21 @@ export interface UuidFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedUuidFieldOptions<TNullable, TList, TImmutable, TIndexed>,
+			DefaultedUuidFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				string,
-				TList,
-				DefaultedFieldNonNull<TNullable>
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedUuidField<TNullable, TList, TImmutable>
+		DefaultedUuidField<TRequired, TList, TImmutable>
 	>
 	<
 		const TRequired extends boolean = false,

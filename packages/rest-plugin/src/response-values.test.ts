@@ -95,7 +95,7 @@ const VirtualResponseRecord = UltimaBase.Schema.define({
 						huge: nested.bigint(),
 						metadata: nested.json(),
 						moment: nested.dateTime(),
-						note: nested.string({ nullable: true }),
+						note: nested.string({ required: false }),
 						score: nested.float(),
 						status: nested.enum({
 							values: ['ready', 'done'],

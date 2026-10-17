@@ -53,8 +53,8 @@ it('keeps an explicit null apart from an omitted value', async () => {
 
 	// A default fills an omitted value only: `null` stays `null`.
 	expect(order.coupon).toBeNull()
-	// Without `nullable: true`, a defaulted field rejects `null` like a
-	// required one, in types and at runtime.
+	// Without `required: false`, a defaulted field is required and rejects
+	// `null`, in types and at runtime.
 	await expect(
 		Order.createOne({
 			// @ts-expect-error -- `status` has a default and is non-null.

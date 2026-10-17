@@ -114,13 +114,6 @@ export interface ScalarFieldTypeState<
 }
 
 /**
- * The non-null flag of a field with a default: a default makes a field
- * non-null unless it declares `nullable: true` (ADR-0340).
- */
-export type DefaultedFieldNonNull<TNullable extends boolean> =
-	TNullable extends true ? false : true
-
-/**
  * Applies the optional one-dimensional list wrapper to a field's scalar value.
  */
 export type FieldListValue<TValue, TList> = TList extends true
@@ -145,7 +138,8 @@ type FieldOptionsDefaultValue<
 interface FieldMetadataOptions {
 	/**
 	 * Requires a non-null persisted value and, without a default or generator,
-	 * requires the field in create input.
+	 * requires the field in create input. A default or generator makes it
+	 * `true`; `required: false` beside a default keeps `null` allowed.
 	 *
 	 * @example `required: true`
 	 */
@@ -193,20 +187,13 @@ export interface FieldOptions<
 > extends FieldOptionsBase<TList, TValue> {
 	/**
 	 * Provides a static value or a zero-argument factory evaluated for each
-	 * created object. A defaulted field is non-null unless it declares
-	 * `nullable: true`.
+	 * created object. A defaulted field is required unless it declares
+	 * `required: false`.
 	 *
 	 * @example `default: initialValue`
 	 * @example `default: () => createInitialValue()`
 	 */
 	readonly default?: FieldDefault<FieldOptionsDefaultValue<TValue, TList>>
-	/**
-	 * Lets a field with a `default` hold `null`: an omitted value still gets
-	 * the default, and explicit `null` is kept. Accepted only beside a default.
-	 *
-	 * @example `nullable: true`
-	 */
-	readonly nullable?: boolean
 }
 
 type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
@@ -335,26 +322,26 @@ type FieldOptionsAreImmutable<TOptions> = TOptions extends {
 
 type ResolveObjectPresence = 'required'
 
-type FieldOptionsAreNullable<TOptions> = TOptions extends {
-	readonly nullable: true
+type FieldOptionsAreNotRequired<TOptions> = TOptions extends {
+	readonly required: false
 }
 	? true
 	: false
 
-// A default, like a generator, makes a field non-null unless it declares
-// `nullable: true` (ADR-0340).
+// `required` defaults to `true` beside a default or generator (ADR-0340);
+// generated values stay non-null even when a plugin field says otherwise.
 type ResolveNullability<TOptions> =
-	FieldOptionsAreNullable<TOptions> extends true
-		? true
-		: FieldOptionsRequired<TOptions> extends true
+	FieldOptionsHaveAutoNow<TOptions> extends true
+		? false
+		: FieldOptionsAreAutoIncremented<TOptions> extends true
 			? false
-			: FieldOptionsHaveDefault<TOptions> extends true
+			: FieldOptionsAreGenerated<TOptions> extends true
 				? false
-				: FieldOptionsHaveAutoNow<TOptions> extends true
+				: FieldOptionsRequired<TOptions> extends true
 					? false
-					: FieldOptionsAreAutoIncremented<TOptions> extends true
-						? false
-						: FieldOptionsAreGenerated<TOptions> extends true
+					: FieldOptionsAreNotRequired<TOptions> extends true
+						? true
+						: FieldOptionsHaveDefault<TOptions> extends true
 							? false
 							: true
 

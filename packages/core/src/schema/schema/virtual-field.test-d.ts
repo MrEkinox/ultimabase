@@ -34,7 +34,7 @@ test('rejects stored options and incompatible resolver results', () => {
 		className: 'InvalidBootstrapVirtualType',
 		fields: (field) => ({
 			invalidOptions: field.virtual({
-				output: (output) => output.string({ nullable: true }),
+				output: (output) => output.string({ required: false }),
 				resolve: () => null,
 				select: { id: true },
 				// @ts-expect-error -- Stored requiredness belongs to persisted fields.
@@ -46,7 +46,7 @@ test('rejects stored options and incompatible resolver results', () => {
 				resolve: () => 'not-an-int',
 				select: { id: true },
 			}),
-			// ADR-0340: an output without `nullable: true` is non-null.
+			// ADR-0340: an output without `required: false` is non-null.
 			nullResult: field.virtual({
 				output: (output) => output.string(),
 				// @ts-expect-error -- A non-null output rejects a null resolver value.

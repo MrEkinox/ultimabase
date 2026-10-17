@@ -16,14 +16,14 @@ export const Order = App.Schema.define({
 		number: field.bigint({ autoIncrement: true }),
 		// A fresh value for each order whose input omits it.
 		reference: field.uuid({ default: () => crypto.randomUUID() }),
-		// A default makes a field non-null: `status` never holds `null`.
+		// A default makes a field required: `status` never holds `null`.
 		status: field.enum({
 			values: ['pending', 'paid', 'shipped'],
 			default: 'pending',
 		}),
 		giftWrap: field.boolean({ default: false }),
-		// `nullable: true` keeps the default and lets an order hold `null`.
-		coupon: field.string({ default: 'WELCOME', nullable: true }),
+		// `required: false` keeps the default and lets an order hold `null`.
+		coupon: field.string({ default: 'WELCOME', required: false }),
 		note: field.string(),
 		// Filled from the operation clock, in the application's timezone.
 		placedAt: field.dateTime({ autoNow: true }),

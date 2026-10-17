@@ -324,9 +324,9 @@ normalization, and temporal `autoNow` behavior.
 
 Returned values use a third, independent `OutputBuilder` contract. It exposes
 the same value vocabulary where representation is meaningful, but only accepts
-`description`, complete-value `nullable` (outputs are non-null unless they
-declare `nullable: true`, ADR-0340), one-dimensional `list`, and the
-representation options owned by a kind. It has no defaults, input requiredness,
+`description`, complete-value `required` (outputs are non-null unless they
+declare `required: false`, ADR-0340), one-dimensional `list`, and the
+representation options owned by a kind. It has no defaults, create-input presence,
 immutability, indexes, generators, validation hooks, relationships, or storage
 metadata. `output.object({ fields })` recursively preserves an exact readonly
 object shape; each property is present, while its own descriptor decides whether

@@ -703,10 +703,10 @@ Under `override`, synchronization is safe by construction (ADR-0320):
   forgotten `renamedFrom`; for an optional orphan column it is a `warn` line
   and the plan still applies.
 - A column is `NOT NULL` when its field is required, generated, or has a
-  `default` without `nullable: true` (ADR-0340). Making an existing column
+  `default` without `required: false` (ADR-0340). Making an existing column
   `NOT NULL` fails while rows hold `null` there, as in a database created
-  before defaults became non-null; the error names the column: fill those
-  rows, or declare `nullable: true` beside the default.
+  before defaults became required; the error names the column: fill those
+  rows, or declare `required: false` beside the default.
 - A required plugin field added to a table that already has rows (ACL's
   `acl`, ADR-0321) takes the value its field declares for existing rows
   through Core's neutral `existingRows` metadata: the column is added as

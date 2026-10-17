@@ -61,7 +61,7 @@ const outputKinds = [
 	'uuid',
 ] as const satisfies readonly OutputKind[]
 
-const commonOptionNames = ['description', 'list', 'nullable'] as const
+const commonOptionNames = ['description', 'list', 'required'] as const
 
 const [createCapturedOutputBuilderCall, isCapturedOutputBuilderCall] =
 	createCapturedBuilderCallRegistry<GenericOutputDescriptor>()
@@ -170,10 +170,10 @@ const normalizeOutputOptions = (
 		`${path} does not support output option `,
 	)
 
-	// Outputs are non-null unless they declare `nullable: true` (ADR-0340).
-	const { description, list = false, nullable = false } = options
-	if (typeof nullable !== 'boolean') {
-		throw new TypeError(`${path}.nullable must be a boolean`)
+	// Outputs are required unless they declare `required: false` (ADR-0340).
+	const { description, list = false, required = true } = options
+	if (typeof required !== 'boolean') {
+		throw new TypeError(`${path}.required must be a boolean`)
 	}
 	if (typeof list !== 'boolean') {
 		throw new TypeError(`${path}.list must be a boolean`)
@@ -187,7 +187,7 @@ const normalizeOutputOptions = (
 		common: immutableRecord({
 			...(description === undefined ? {} : { description }),
 			list,
-			nullable,
+			required,
 		}),
 	}
 }
