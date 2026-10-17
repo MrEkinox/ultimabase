@@ -317,6 +317,7 @@ Current records (accepted or still active in part):
 - [ADR-0343: The website is the single documentation source](0343-website-is-the-single-documentation-source.md)
 - [ADR-0344: Plugin mutations share the native policy stages](0344-one-mutation-policy-for-plugin-mutations.md)
 - [ADR-0345: Private storage inserts a record only if it is absent](0345-private-insert-if-absent.md)
+- [ADR-0346: Update commands declare their data](0346-update-commands-declare-data.md)
 
 Proposed records (awaiting user validation):
 

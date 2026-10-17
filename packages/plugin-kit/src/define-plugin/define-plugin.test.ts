@@ -37,6 +37,7 @@ const archivePlugin = () =>
 					archiveMany: command({
 						authority: 'request',
 						effect: 'update',
+						data: () => ({ archivedAt: '2026-10-11T00:00:00.000Z' }),
 						target: 'many',
 					}),
 					purgeOne: command({ authority: 'master', effect: 'delete' }),
@@ -249,7 +250,11 @@ describe('definePlugin features and rules (ADR-0339)', () => {
 				flaggable: feature({
 					fields: { flaggedAt: dateTimeField() },
 					commands: {
-						flagOne: command({ authority: 'request', effect: 'update' }),
+						flagOne: command({
+							authority: 'request',
+							effect: 'update',
+							data: () => ({ flaggedAt: '2026-10-18T00:00:00.000Z' }),
+						}),
 					},
 					requires: ['flagReason'],
 				}),
@@ -380,7 +385,12 @@ describe('definePlugin authoring validation (untyped JavaScript)', () => {
 		[
 			'command checkReadable must be before',
 			command,
-			{ authority: 'request', effect: 'update', checkReadable: 'after' },
+			{
+				authority: 'request',
+				effect: 'update',
+				data: () => ({ archived: true }),
+				checkReadable: 'after',
+			},
 		],
 		['feature definition must be a plain object', feature, null],
 		[
