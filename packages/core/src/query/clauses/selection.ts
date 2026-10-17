@@ -183,8 +183,7 @@ const writeIdentifierSelection: Readonly<{ id: true }> = Object.freeze({
  */
 export const readWriteSelection = <TSelection>(
 	selection: TSelection | undefined,
-): TSelection | Readonly<{ id: true }> =>
-	selection ?? writeIdentifierSelection
+): TSelection | Readonly<{ id: true }> => selection ?? writeIdentifierSelection
 
 /** Normalizes one literal boolean projection without mutating caller-owned input. */
 export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
