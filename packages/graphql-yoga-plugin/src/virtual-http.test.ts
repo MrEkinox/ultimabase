@@ -1,14 +1,4 @@
-import {
-	MasterAuthority,
-	UltimaBase,
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
-} from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import {
 	httpContextResolver,
@@ -25,11 +15,9 @@ import {
 	graphqlYogaFixtureHttpConsumer,
 	readFixtureHttpApplication,
 } from './test-application.test-support.js'
-import {
-	RequestContextValue,
-	plugin,
-	provideCapability,
-} from '@ultimabase/core/plugin'
+import { RequestContextValue, plugin } from '@ultimabase/core/plugin'
+import { MemoryTestDatabase } from '../../../tooling/vitest/memory-database.js'
+import { testDatabasePlugin } from '../../../tooling/vitest/test-database.js'
 
 const viewer = new RequestContextValue<string>(
 	'fixture.graphql-yoga.virtual-viewer',
@@ -87,40 +75,16 @@ const VirtualYogaRecord = UltimaBase.Schema.define({
 	}),
 })
 
-class VirtualYogaDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		const row = {
-			id: '01991f00-0000-7000-8000-000000000703',
-			title: 'Yoga virtual',
-		}
-		const result: unknown = request.operation.kind === 'find-many' ? [row] : row
-		return Promise.resolve(result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		return Promise.reject(new TypeError('Yoga virtual fixture does not mutate'))
-	}
-}
-
-const databasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.graphql-yoga-virtual-database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: new VirtualYogaDatabase() }),
-		}),
-	],
-})
+const databasePlugin = testDatabasePlugin(
+	new MemoryTestDatabase({
+		rows: {
+			GraphqlYogaVirtualRecord: [
+				{ id: '01991f00-0000-7000-8000-000000000703', title: 'Yoga virtual' },
+			],
+		},
+	}),
+	{ id: 'fixture.graphql-yoga-virtual-database' },
+)
 
 const contextPlugin = plugin({
 	core: '^0.0.0',

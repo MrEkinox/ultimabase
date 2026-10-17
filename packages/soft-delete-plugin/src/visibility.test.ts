@@ -7,14 +7,11 @@ import {
 	databasePersistencePlanCapability,
 	type DatabaseAdapter,
 	type DatabaseFilterOperatorCapability,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
 
 import { softDeletePlugin } from './plugin.js'
+import { ScriptedTestDatabase } from '../../../tooling/vitest/test-database.js'
 
 /** Declares the built-in operators these fixtures filter with (ADR-0301). */
 const testDatabaseFilterOperators: DatabaseFilterOperatorCapability = {
@@ -27,26 +24,16 @@ const testDatabaseFilterOperators: DatabaseFilterOperatorCapability = {
 	},
 }
 
-class VisibilityReadAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		filterOperators: testDatabaseFilterOperators,
-		persistencePlans: databasePersistencePlanCapability,
-	}
-	readonly requests: DatabaseOperationRequest[] = []
-
-	constructor(private readonly result: unknown) {}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.requests.push(request)
-		return Promise.resolve(this.result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		throw new TypeError('Visibility read fixture does not execute mutations')
+class VisibilityReadAdapter extends ScriptedTestDatabase {
+	constructor(result: unknown) {
+		super({
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
+			description: 'Visibility read fixture',
+			result,
+		})
 	}
 }
 

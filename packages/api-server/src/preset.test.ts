@@ -1,34 +1,16 @@
-import {
-	UltimaBase,
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
-	type DatabaseAdapter,
-	type DatabaseTransactionAdapter,
-} from '@ultimabase/core'
-import { plugin, provideCapability } from '@ultimabase/core/plugin'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { apiServer } from './preset.js'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
-const database: DatabaseAdapter = {
-	kind: 'database-adapter',
-	capabilities: { persistencePlans: databasePersistencePlanCapability },
-	checkHealth: () => Promise.resolve(),
-	execute: () => Promise.reject(new TypeError('Preset fixture does not read')),
-	beginTransaction: (): Promise<DatabaseTransactionAdapter> =>
-		Promise.reject(new TypeError('Preset fixture does not write')),
-}
-const databasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.api-server-database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: database }),
-		}),
-	],
-})
+const databasePlugin = testDatabasePlugin(
+	new ScriptedTestDatabase({ description: 'Preset fixture' }),
+	{ id: 'fixture.api-server-database' },
+)
 
 const ids = (
 	plugins: readonly {

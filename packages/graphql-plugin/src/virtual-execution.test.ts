@@ -2,12 +2,8 @@ import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	UltimaBase,
 	databaseAdapterCapability,
-	databasePersistencePlanCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
 
 import { graphqlPlugin } from './index.js'
@@ -17,6 +13,7 @@ import {
 	plugin,
 	provideCapability,
 } from '@ultimabase/core/plugin'
+import { MemoryTestDatabase } from '../../../tooling/vitest/memory-database.js'
 
 const objectId = '01991f00-0000-7000-8000-000000000702'
 const viewer = new RequestContextValue<string>(
@@ -86,29 +83,23 @@ const VirtualRecord = UltimaBase.Schema.define({
 	}),
 })
 
-class VirtualDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
+class VirtualDatabase extends MemoryTestDatabase {
+	constructor() {
+		super({
+			rows: {
+				GraphqlVirtualRecord: [{ id: objectId, title: 'GraphQL virtual' }],
+			},
+		})
 	}
-	readonly operations: DatabaseOperationAst[] = []
-	readonly selections: string[][] = []
 
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.operations.push(request.operation)
-		this.selections.push(
-			request.plan.returning.selection.fields.map(({ field }) => field),
+	get operations(): readonly DatabaseOperationAst[] {
+		return this.requests.map(({ operation }) => operation)
+	}
+
+	get selections(): readonly string[][] {
+		return this.requests.map(({ plan }) =>
+			plan.returning.selection.fields.map(({ field }) => field),
 		)
-		const row = { id: objectId, title: 'GraphQL virtual' }
-		const result: unknown = request.operation.kind === 'find-many' ? [row] : row
-		return Promise.resolve(result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		return Promise.reject(new TypeError('Virtual fixture does not mutate'))
 	}
 }
 

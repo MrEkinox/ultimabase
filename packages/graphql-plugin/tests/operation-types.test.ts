@@ -1,37 +1,19 @@
-import {
-	UltimaBase,
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
-	type DatabaseAdapter,
-	type DatabaseTransactionAdapter,
-} from '@ultimabase/core'
-import { anonymous, plugin, provideCapability } from '@ultimabase/core/plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { anonymous } from '@ultimabase/core/plugin'
 import { defineOperation } from '@ultimabase/plugin-kit'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import { z } from 'zod'
 
 import { graphqlPlugin } from '../src/index.js'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
-const database: DatabaseAdapter = {
-	kind: 'database-adapter',
-	capabilities: { persistencePlans: databasePersistencePlanCapability },
-	checkHealth: () => Promise.resolve(),
-	execute: () =>
-		Promise.reject(new TypeError('Operation fixture does not read')),
-	beginTransaction: (): Promise<DatabaseTransactionAdapter> =>
-		Promise.reject(new TypeError('Operation fixture does not write')),
-}
-const databasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.graphql-operation-types-database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: database }),
-		}),
-	],
-})
+const databasePlugin = testDatabasePlugin(
+	new ScriptedTestDatabase({ description: 'Operation fixture' }),
+	{ id: 'fixture.graphql-operation-types-database' },
+)
 
 // Nested objects, an enum, lists, a nullable value and a free-form record.
 const planTrip = defineOperation({

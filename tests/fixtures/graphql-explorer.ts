@@ -1,13 +1,4 @@
 import {
-	databaseAdapterCapability,
-	databasePersistencePlanCapability,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
-} from '@ultimabase/core'
-import {
 	plugin,
 	contributeApplication,
 	provideCapability,
@@ -25,39 +16,17 @@ import {
 	type HttpApplication,
 	type HttpServerRequest,
 } from '@ultimabase/http-plugin'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../tooling/vitest/test-database.js'
 // Share provider-neutral infrastructure without importing either explorer.
 
-class ExplorerFixtureDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		void request
-		return Promise.reject(new TypeError('Explorer fixture does not query'))
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		return Promise.reject(new TypeError('Explorer fixture does not mutate'))
-	}
-}
-
 export const databasePlugin = (): PluginDefinition =>
-	plugin({
-		core: '^0.0.0',
-		id: 'fixture.explorer-database',
-		version: '1.0.0',
-		contributions: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: new ExplorerFixtureDatabase() }),
-			}),
-		],
-	})
+	testDatabasePlugin(
+		new ScriptedTestDatabase({ description: 'Explorer fixture' }),
+		{ id: 'fixture.explorer-database' },
+	)
 
 /** Publishes the endpoint and, unless disabled, introspection (ADR-0312). */
 export const graphqlHttpProvider = ({

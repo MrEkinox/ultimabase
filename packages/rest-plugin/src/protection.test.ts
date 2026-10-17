@@ -1,37 +1,24 @@
 import { onTestFinished, afterEach, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
-	databaseAdapterCapability,
 	protectedPolicy,
 	provideRuntimeConstraint,
-	type DatabaseAdapter,
 } from '@ultimabase/core'
-import { plugin, provideCapability } from '@ultimabase/core/plugin'
+import { plugin } from '@ultimabase/core/plugin'
 
 import { restPlugin } from './plugin.js'
+import {
+	ScriptedTestDatabase,
+	testDatabasePlugin,
+} from '../../../tooling/vitest/test-database.js'
 
-const unavailableAdapter: DatabaseAdapter = {
-	kind: 'database-adapter',
-	checkHealth: (): Promise<void> => Promise.resolve(),
-	beginTransaction: () => {
-		throw new TypeError('Protection diagnostics do not open transactions')
-	},
-	execute: () => {
-		throw new TypeError('Protection diagnostics do not execute operations')
-	},
-}
-
-const databasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.rest-database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: unavailableAdapter }),
-		}),
-	],
-})
+const databasePlugin = testDatabasePlugin(
+	new ScriptedTestDatabase({
+		capabilities: {},
+		description: 'Protection diagnostics',
+	}),
+	{ id: 'fixture.rest-database' },
+)
 
 const PublicSchema = UltimaBase.Schema.define({
 	className: 'PublicProtectionDocument',

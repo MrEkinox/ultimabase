@@ -3,12 +3,7 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	databaseAdapterCapability,
-	databasePersistencePlanCapability,
 	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
 import { plugin, provideCapability } from '@ultimabase/core/plugin'
 
@@ -18,27 +13,13 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from './index.js'
+import { ScriptedTestDatabase } from '../../../tooling/vitest/test-database.js'
 
 const AccessApplication = UltimaBase.use(accessPlugin())
 
-class StaticReadAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-
-	constructor(private readonly result: unknown) {}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		void request
-		return Promise.resolve(this.result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		throw new TypeError('Static read adapter does not execute mutations')
+class StaticReadAdapter extends ScriptedTestDatabase {
+	constructor(result: unknown) {
+		super({ description: 'Static read adapter', result })
 	}
 }
 

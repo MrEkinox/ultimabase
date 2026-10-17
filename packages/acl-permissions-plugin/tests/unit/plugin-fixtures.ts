@@ -30,6 +30,7 @@ import {
 	provideCapability,
 	type PluginDefinition,
 } from '@ultimabase/core/plugin'
+import { ScriptedTestDatabase } from '../../../../tooling/vitest/test-database.js'
 
 export const databaseAdapterProvider = (adapter: DatabaseAdapter) =>
 	provideCapability(databaseAdapterCapability, {
@@ -70,24 +71,14 @@ export const aclAdapterCapabilities = {
 		databasePluginFieldStructuralContainsCapability,
 }
 
-export class ACLReadAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = aclAdapterCapabilities
-	readonly requests: DatabaseOperationRequest[] = []
-
-	constructor(private readonly result: unknown) {}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.requests.push(request)
-
-		return Promise.resolve(this.result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		throw new TypeError('ACL read fixture does not execute mutations')
+/** Answers every read with one fixed result and records each request. */
+export class ACLReadAdapter extends ScriptedTestDatabase {
+	constructor(result: unknown) {
+		super({
+			capabilities: aclAdapterCapabilities,
+			description: 'ACL read fixture',
+			result,
+		})
 	}
 }
 

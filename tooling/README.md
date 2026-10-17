@@ -16,6 +16,13 @@ commands retain complete discovery.
   TypeScript's real language service. Compatible completion and QuickInfo
   markers should share one fixture program; source and built-package contracts
   remain separate when their module resolution differs.
+- `vitest/test-database.ts` and `vitest/memory-database.ts` are the shared test
+  databases: `ScriptedTestDatabase` answers one fixed read result (or refuses)
+  and records requests; `MemoryTestDatabase` stores rows and answers like a
+  real adapter, write results shaped by the selection included. Prefer them to
+  a new hand-written adapter, and write one only for a protocol edge or a
+  failure injection. Core's unit tests run on sources and keep their own
+  fixtures.
 - `tsconfig/test.json` provides strict shared compiler options and the complete root test
   program. Each package overrides the root files in `tsconfig.test.json` and
   explicitly includes shared application option declaration fixtures.
