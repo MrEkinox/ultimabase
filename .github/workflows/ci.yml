@@ -96,7 +96,7 @@ jobs:
           retention-days: 1
 
   packages:
-    name: Package (${{ matrix.name }})
+    name: Packages (${{ matrix.name }})
     needs: [select, build]
     if: needs.select.outputs.packages != '[]'
     runs-on: ubuntu-24.04
@@ -108,7 +108,7 @@ jobs:
         include: ${{ fromJSON(needs.select.outputs.packages) }}
     env:
       CI_PLAN: ${{ needs.select.outputs.plan }}
-      CI_PACKAGE: ${{ matrix.name }}
+      CI_PACKAGES: ${{ join(matrix.packages, ',') }}
       NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v6

@@ -314,6 +314,32 @@ describe('GitHub selected command execution', () => {
 		expect(result.status).not.toBe(0)
 		expect(commands).toHaveLength(1)
 	})
+	it('checks every package of a group even when one fails, then fails once', () => {
+		const second = {
+			...selected.packages[0],
+			name: '@ultimabase/second',
+			directory: 'packages/second',
+			files: ['packages/second/src/second.test.ts'],
+		}
+		const { result, commands } = execute(
+			'package',
+			{ ...selected, packages: [...selected.packages, second] },
+			true,
+			'@ultimabase/example,@ultimabase/second',
+		)
+		expect(result.status).not.toBe(0)
+		expect(result.stderr).toContain(
+			'Package checks failed: @ultimabase/example, @ultimabase/second',
+		)
+		expect(commands).toEqual([
+			expect.objectContaining({
+				args: ['workspace', '@ultimabase/example', 'typecheck:tests'],
+			}),
+			expect.objectContaining({
+				args: ['workspace', '@ultimabase/second', 'typecheck:tests'],
+			}),
+		])
+	})
 	it('rejects malformed plans and unselected packages before invoking Yarn', () => {
 		for (const run of [
 			execute('package', {}),
