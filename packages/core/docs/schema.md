@@ -173,11 +173,11 @@ The resulting `SchemaTargetGraph` is immutable and application-local. It
 identifies an edge by exact source class identity and structural field path.
 
 ```ts
-const application = new UltimaBase({
+const ultimabase = new UltimaBase({
 	schemas: [UserSchema, PostSchema],
 })
 
-application.compile().schemas.schemaTargets.get(PostSchema, ['author'])
+ultimabase.compile().schemas.schemaTargets.get(PostSchema, ['author'])
 ```
 
 Relationship fields populate this graph while keeping callbacks out of public

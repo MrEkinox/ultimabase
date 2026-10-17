@@ -35,8 +35,8 @@ export const releaseOne = ({ url, schemaPolicy, logger }: ReleaseOptions) => {
 		}),
 	}).with({ postgres: { table: 'newsroom_articles' } })
 
-	const application = new Release({ schemas: [StaffMember, Article], logger })
-	return { application, Article, StaffMember }
+	const ultimabase = new Release({ schemas: [StaffMember, Article], logger })
+	return { ultimabase, Article, StaffMember }
 }
 //#endregion release-one
 

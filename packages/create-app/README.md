@@ -72,14 +72,16 @@ rules expose only the session owner, so sign-up, login, and refresh can
 return their required profile, and deny direct User writes. Object ACLs start
 empty and deny ordinary Task reads, updates, and deletes, but do not govern
 creation. Roles define membership identities without granting access by
-themselves. Object ACLs and Roles configure a development Master audit and
-require a private key in the ignored `.env`; the initializer generates it
-whenever it writes `.env`.
+themselves. Object ACLs and Roles configure an audited `MasterAuthority` for
+the Task seed; in-process Master needs no key, so `.env` holds none
+(ADR-0340).
 
 The API selector composes REST or GraphQL over HTTP with the HTTP boundary
 and a managed Hono listener on `127.0.0.1:1337`, through one
-`...apiServer({ rest, graphql })` entry from `@ultimabase/api-server`
-(ADR-0325). Advanced choices can install HTTP without a listener,
+`apiServer({ rest, graphql })` entry from `@ultimabase/api-server`
+(ADR-0325), which `UltimaBase.use()` installs as an array (ADR-0340). The
+managed listener stops the application on `SIGINT` or `SIGTERM`, and the
+generated `main` ends with `await started.closed`. Advanced choices can install HTTP without a listener,
 network-independent GraphQL, or the development-only GraphiQL page at
 `/graphiql`. Internal member and role schemas remain off generated routes.
 Authentication serves its operations under `/api/auth` (Bearer, or a cookie

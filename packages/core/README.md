@@ -1813,7 +1813,11 @@ const attempt = Announcement.createOne(
 <!-- endregion -->
 
 The application-owned `MasterAuthority` audits the operation before it runs;
-the first configured key ID labels trusted operation elevations. Contexts and
+`onUse` is mandatory, `keys` are not (ADR-0340). The first configured key ID
+labels trusted operation elevations, `in-process` without keys. Keys matter
+only to a transport that verifies raw keys, such as `httpPlugin({ master:
+true })`, which refuses to start without one; given as a function, they are
+read once when the application starts. Contexts and
 authority flags never enter Query or Operation ASTs, and transports must not
 map client input into these server-only options.
 
@@ -2132,9 +2136,9 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const Application = UltimaBase.use(accessPlugin(), hooksPlugin())
+const App = UltimaBase.use(accessPlugin(), hooksPlugin())
 
-const Post = Application.Schema.define({
+const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({
@@ -2144,7 +2148,7 @@ const Post = Application.Schema.define({
 	}),
 }).with({ access: { read: true } })
 
-export const ultimabase = new Application({ schemas: [Post] })
+export const ultimabase = new App({ schemas: [Post] })
 
 declare module '@ultimabase/core' {
 	interface Register {
@@ -2323,9 +2327,10 @@ capability outside the official Access vocabulary.
 ## Application ownership
 
 The sole public application owner is the configured `UltimaBase` factory from
-`@ultimabase/core`. `UltimaBase.use(pluginA(), pluginB())` or
-`UltimaBase.use(...plugins)` returns a new immutable factory with one flat
-ordered plugin tuple. Calls can also be chained. Construction receives only instance
+`@ultimabase/core`. `UltimaBase.use(pluginA(), pluginB())` returns a new
+immutable factory with one flat ordered plugin tuple; an argument may also be
+an array of plugins, such as a preset's `apiServer({ rest: true })`, installed
+in order with nested arrays flattened (ADR-0340). Calls can also be chained. Construction receives only instance
 options. The zero-plugin root follows the same path. `compile()` validates and
 snapshots deterministic schema and plugin declarations without claiming the
 active-application slot. `initialize()` additionally materializes application
@@ -2368,6 +2373,17 @@ details. A stopped application cannot be restarted; disposal permanently
 releases its plugin and capability resources. Initialization claims ownership
 before capability factories and setup. A second application rejects without
 affecting the incumbent. Pure construction and `compile()` do not claim ownership.
+
+`started.closed` resolves, and never rejects, once the application stops or is
+disposed, including after a failed start; a server plugin may stop the
+application, as Hono Server does on `SIGINT`/`SIGTERM`, so an entry point
+that serves requests ends with `await started.closed`. `start()` fails when
+schemas are registered but no plugin provides the database capability
+`ultimabase.database-adapter`; without schemas it starts, and requests then
+fail with an error naming that capability. A plugin stops its application
+with `stopApplication()` from its setup context, as a server plugin does on a
+process signal, never from inside a request or an operation, whose work
+stopping waits for.
 
 `stop()` retains setup resources and the slot. `dispose()` closes new work,
 waits for admitted Core execution, completes teardown, and only then permits a
@@ -3152,14 +3168,14 @@ const workflowPlugin = (instanceId?: string) =>
 		],
 	})
 
-const WorkflowApplication = UltimaBase.use(workflowPlugin('editorial'))
+const App = UltimaBase.use(workflowPlugin('editorial'))
 
-const PostSchema = WorkflowApplication.Schema.define({
+const PostSchema = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 
-export const ultimabase = new WorkflowApplication({
+export const ultimabase = new App({
 	schemas: [PostSchema],
 	pluginPrivileges: {
 		deny: ['authority:elevate'],

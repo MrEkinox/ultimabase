@@ -46,12 +46,11 @@ corepack yarn build
 corepack yarn workspace @ultimabase/example-acl typecheck
 corepack yarn workspace @ultimabase/example-acl test
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_acl \
-ULTIMABASE_MASTER_KEY=development-only-secret \
 	corepack yarn workspace @ultimabase/example-acl start
 ```
 
 `test` starts PostgreSQL in a container once (Docker), or uses
-`TEST_DATABASE_URL`, and sets a test-only Master key. `start` synchronizes
+`TEST_DATABASE_URL`. `start` synchronizes
 the tables and stops: the example has no transport. The PostgreSQL `override`
 schema policy (the default outside production) is convenient for this
 development example and is not a production migration strategy.

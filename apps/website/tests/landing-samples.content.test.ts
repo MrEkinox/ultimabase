@@ -30,8 +30,8 @@ describe('landing page examples', () => {
 				schemaExample +
 					'\n' +
 					applicationModule
-						.replace('const app =', 'export const app =')
-						.replace('await app.start()', ''),
+						.replace('const ultimabase =', 'export const ultimabase =')
+						.replace('await using started = await ultimabase.start()', ''),
 			)
 			expect(compiled.schemas.has('Article')).toBe(true)
 
@@ -51,8 +51,7 @@ const selectedTitle: string | undefined = articles[0]?.title
 articles[0]?.published
 // @ts-expect-error The schema requires a string title.
 const invalid: number = article.title
-void title; void selectedTitle; void invalid;
-await app.dispose()`,
+void title; void selectedTitle; void invalid;`,
 				].join('\n\n'),
 				{ noUncheckedIndexedAccess: true },
 			)

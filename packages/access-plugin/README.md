@@ -36,7 +36,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	softDeletePlugin(),
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```
@@ -163,7 +163,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	softDeletePlugin(),
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```
@@ -343,7 +343,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	rolesPlugin(),
 	softDeletePlugin(),
-	...apiServer({ rest: true }),
+	apiServer({ rest: true }),
 	postgresPlugin(),
 )
 ```

@@ -34,9 +34,9 @@ configuration without running plugin setup or opening infrastructure. `start()`
 assembles Runtime and completes the deterministic plugin lifecycle:
 
 ```ts
-const Application = UltimaBase.use(databasePlugin())
+const App = UltimaBase.use(databasePlugin())
 
-const ultimabase = new Application({
+const ultimabase = new App({
 	schemas: [ArticleSchema],
 	validation: { timezone: 'Europe/Paris' },
 })
@@ -70,21 +70,23 @@ locally, `await using` invokes the existing `Symbol.asyncDispose` boundary even
 when the scope throws:
 
 ```ts
-const Application = UltimaBase.use(databasePlugin())
+const App = UltimaBase.use(databasePlugin())
 
-await using ultimabase = new Application({
+await using ultimabase = new App({
 	schemas: [ArticleSchema],
 })
 
 await ultimabase.start()
 ```
 
-The application is disposed when the enclosing async scope exits. Long-lived
-servers and exported application singletons should retain explicit graceful
-shutdown handling because their lifetime is not one lexical block.
+The application is disposed when the enclosing async scope exits. A
+long-lived server keeps that scope open with `await ultimabase.closed`, which
+resolves once the application stops or is disposed, for example when a server
+plugin stops it on `SIGINT` or `SIGTERM` through the setup context's
+`stopApplication()` (ADR-0340).
 
 Independent Jest or Vitest workers can each run one application. Within a suite,
-return `app.start()` from `beforeAll` and `app.dispose()` from `afterAll`; finish
+return `ultimabase.start()` from `beforeAll` and `ultimabase.dispose()` from `afterAll`; finish
 disposal before starting another application in the same realm.
 
 ## Runtime assembly
@@ -95,17 +97,17 @@ behavior and observers, and compiles monotonic enforcement only when a plugin
 contributed it:
 
 ```ts
-const Application = UltimaBase.use(databasePlugin())
+const App = UltimaBase.use(databasePlugin())
 
-const application = new Application({
+const ultimabase = new App({
 	schemas: [ArticleSchema],
 	validation: { timezone: 'Europe/Paris' },
 })
 
-await application.start()
+await ultimabase.start()
 
 // Plugin-author names come from `@ultimabase/core/plugin` (ADR-0311).
-const request = anonymous(application, {
+const request = anonymous(ultimabase, {
 	requestId: 'article-list',
 	source: requestSources.internal,
 })
@@ -441,9 +443,11 @@ not pretend an adapter supports savepoints.
 
 ## Trusted master authority
 
-Master access starts from a configured `MasterAuthority`. It hashes configured
-keys immediately, requires an audit handler, and turns a matching raw key into
-an opaque grant owned by that exact framework:
+Master access starts from a configured `MasterAuthority`. It requires an
+audit handler; keys are optional and serve only transports that verify raw
+keys (ADR-0340). It hashes static keys immediately, reads a `keys` function
+once when the application starts, and turns a matching raw key into an
+opaque grant owned by that exact framework:
 
 ```ts
 const masterAuthority = new MasterAuthority({
@@ -463,9 +467,10 @@ const master = await request.useMasterKey(grant, 'Rebuild article search index')
 await runWithRequestEngine(master, () => ArticleSchema.findMany())
 ```
 
-Ordinary trusted backend code normally uses the concise terminal option. The
-first configured key ID identifies this path in the audit event, while no raw
-key is retained or verified again:
+Ordinary trusted backend code normally uses the concise terminal option, which
+needs no key. The first configured key ID, or `in-process` without keys,
+identifies this path in the audit event, while no raw key is retained or
+verified again:
 
 ```ts
 const allArticles = await ArticleSchema.findMany(undefined, {

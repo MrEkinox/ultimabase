@@ -8,7 +8,7 @@ contentType: guide
 order: 7
 outcome: Run and verify one audited Master command without exposing a client-side bypass.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/queries/src/schema.ts
   - examples/queries/src/ultimabase.ts
@@ -16,6 +16,7 @@ sources:
   - examples/queries/src/run-maintenance.ts
   - examples/queries/tests/master.test.ts
   - examples/queries/tests/master-audit.test.ts
+  - examples/http/src/ultimabase.ts
   - packages/core/README.md
   - packages/core/docs/runtime.md
   - packages/access-plugin/README.md
@@ -26,6 +27,7 @@ sources:
   - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
   - docs/adr/0326-auth-foundation-and-password-method.md
   - docs/adr/0311-application-lifecycle-and-authority-surface.md
+  - docs/adr/0340-what-every-application-pays.md
 ---
 
 Master is trusted server-side authority for work that must bypass
@@ -37,14 +39,15 @@ transport flag, or substitute for an ordinary application policy.
 
 The example is the
 [queries example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/queries),
-whose tests check each result described here. `DATABASE_URL` and
-`ULTIMABASE_MASTER_KEY` are supplied by the server environment. It uses
+whose tests check each result described here. `DATABASE_URL` is supplied by
+the server environment. It uses
 PostgreSQL for persistence and the optional Access plugin, and its
 `Announcement` schema lets only signed-in authors create: an ordinary
 anonymous create is denied with `PERMISSION_DENIED`. Keep the code on the
 server, never in a browser bundle.
 
-The application owns its `MasterAuthority`:
+The application owns its `MasterAuthority`. In-process use needs no key,
+only the mandatory `onUse` audit:
 
 <include cwd meta='title="src/ultimabase.ts"'>
 	../../examples/queries/src/ultimabase.ts#application
@@ -64,16 +67,17 @@ Run that command from an entry point that owns startup and cleanup:
 
 Calling `createMaintenanceAnnouncement('Rebuild complete')` from trusted
 server code returns the created announcement and emits one audit event, with
-the key ID `maintenance`, before the write. If the audit callback throws,
+the key ID `in-process`, before the write. If the audit callback throws,
 elevation fails and no announcement is written. `console.info`
 is only a local demonstration; use an audit sink with appropriate durability,
 access controls, and failure handling for production.
 
 ## Choose the entry path
 
-`useMasterKey: true` is the concise, trusted direct-server option. It uses the
-first configured key ID for the audit and does not verify a raw key at that
-call. The option is a boolean, so a conditional elevation stays one call:
+`useMasterKey: true` is the concise, trusted direct-server option. It never
+verifies a raw key: the audit event carries the first configured key ID, or
+`in-process` when the authority has no key. The option is a boolean, so a
+conditional elevation stays one call:
 
 <include cwd meta='title="tests/master.test.ts"'>
 	../../examples/queries/tests/master.test.ts#conditional
@@ -90,6 +94,17 @@ in [Password Authentication](/docs/1.0.0/plugins/official/password-authenticatio
 creates its User that way, each elevation being recorded as a `debug` line of
 the application logger. Your own server code still needs a configured
 authority.
+
+Only a transport that accepts raw keys needs them, and it refuses to start
+without one: `httpPlugin({ master: true })` names that option in its error.
+Give the keys as `keys`, or as a function the application reads once, when it
+starts, so importing the application reads no secret, as the
+[HTTP example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/http)
+does:
+
+<include cwd meta='title="src/ultimabase.ts"'>
+	../../examples/http/src/ultimabase.ts#application
+</include>
 
 When a trusted transport receives a raw key, `authorizeMasterKey(app, rawKey)`
 from `@ultimabase/core/plugin` verifies it and returns an opaque grant;

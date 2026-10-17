@@ -54,7 +54,7 @@ export const App = UltimaBase.use(
 		http: { cookie: { name: '__Host-notes-session', sameSite: 'lax' } },
 		events: authEvents,
 	}),
-	...apiServer({
+	apiServer({
 		http: {
 			// One reverse proxy in front: `X-Forwarded-For` names the client.
 			trustProxy: 1,

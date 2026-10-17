@@ -43,7 +43,6 @@ const generated = renderBaseFiles(
 	),
 	// Local secrets appear only in `.env`, which no page shows.
 	'DOCKER_PASSWORD',
-	'MASTER_KEY',
 )
 
 const generatedFile = (name: string): string => {

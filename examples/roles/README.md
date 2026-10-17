@@ -46,7 +46,6 @@ corepack yarn build
 corepack yarn workspace @ultimabase/example-roles typecheck
 corepack yarn workspace @ultimabase/example-roles test
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_roles \
-ULTIMABASE_MASTER_KEY=development-only-secret \
 	corepack yarn workspace @ultimabase/example-roles start
 ```
 

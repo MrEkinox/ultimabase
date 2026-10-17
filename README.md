@@ -47,7 +47,7 @@ declare module '@ultimabase/core' {
 }
 
 // start() resolves to the application; leaving the scope disposes it.
-await using app = await ultimabase.start()
+await using started = await ultimabase.start()
 const post = await Post.createOne({ data: { title: 'Hello UltimaBase' } })
 await Post.softDeleteOne({ id: post.id })
 const posts = await Post.findMany({
@@ -55,7 +55,7 @@ const posts = await Post.findMany({
 	take: 25,
 })
 // Results are frozen plain objects; toJSON serializes them as REST does.
-console.log(toJSON(posts), app.state)
+console.log(toJSON(posts), started.state)
 ```
 
 Every type infers from the declarations themselves, with no generation step

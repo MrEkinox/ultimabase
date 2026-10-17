@@ -20,11 +20,9 @@ such as `@ultimabase/testing` do not use it.
 Every installed definition appears in one flat application chain:
 
 ```ts
-const Application = UltimaBase.use(postgresPlugin()).use(
-	postgresMigrationPlugin(),
-)
+const App = UltimaBase.use(postgresPlugin()).use(postgresMigrationPlugin())
 
-new Application({
+new App({
 	schemas: [],
 })
 ```
