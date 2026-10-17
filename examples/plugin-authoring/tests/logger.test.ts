@@ -17,7 +17,9 @@ it('logs the derived default and its source at debug level', async () => {
 	//#endregion capturing-logger
 
 	try {
-		expect(ultimabase.plugin('community.trace')).toStrictEqual({ verbose: true })
+		expect(ultimabase.plugin('community.trace')).toStrictEqual({
+			verbose: true,
+		})
 		expect(logger.messages('debug')).toContain(
 			'[community.trace] verbose true (NODE_ENV is not production)',
 		)

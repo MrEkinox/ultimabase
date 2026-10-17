@@ -48,7 +48,9 @@ describe('MasterAuthority keys', () => {
 			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
 		)
 		expect(
-			masterAuthorityHasKeys(new MasterAuthority({ keys: [], onUse: () => undefined })),
+			masterAuthorityHasKeys(
+				new MasterAuthority({ keys: [], onUse: () => undefined }),
+			),
 		).toBe(false)
 	})
 
@@ -97,7 +99,10 @@ describe('MasterAuthority keys', () => {
 		}
 		expect(
 			() =>
-				new MasterAuthority({ keys: 'secret' as never, onUse: () => undefined }),
+				new MasterAuthority({
+					keys: 'secret' as never,
+					onUse: () => undefined,
+				}),
 		).toThrow(
 			new TypeError(
 				'Master authority keys must be an array or a function returning one',

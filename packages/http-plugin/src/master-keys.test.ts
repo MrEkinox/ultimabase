@@ -33,13 +33,11 @@ const readMode = async (
 	ultimabase: ReturnType<typeof createApplication>,
 	key: string,
 ): Promise<unknown> => {
-	const response = await ultimabase
-		.plugin(httpPlugin)
-		.fetch(
-			new Request('http://localhost/mode', {
-				headers: { 'X-UltimaBase-Master-Key': key },
-			}),
-		)
+	const response = await ultimabase.plugin(httpPlugin).fetch(
+		new Request('http://localhost/mode', {
+			headers: { 'X-UltimaBase-Master-Key': key },
+		}),
+	)
 	return response.json()
 }
 

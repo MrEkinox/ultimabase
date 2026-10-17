@@ -105,17 +105,6 @@ export interface ConfiguredUltimaBaseFactory<
 	/** Uses the same schema namespace as the zero-plugin root factory. */
 	readonly Schema: ConfiguredSchemaNamespace<TSource>
 	/**
-	 * Returns a new factory with plugins appended to its flat ordered tuple.
-	 *
-	 * @example `new (App.use(hooksPlugin(postHooks)))({ schemas })`
-	 */
-	use<const TAdded extends readonly PluginDefinition[]>(
-		...plugins: TAdded
-	): ConfiguredApplicationFactory<
-		AppendPlugins<TPlugins, TAdded>,
-		MergeInstalledPluginSources<TSource, TAdded>
-	>
-	/**
 	 * Returns a new factory with plugins, and the plugins of preset arrays,
 	 * appended in order to its flat tuple (ADR-0340).
 	 *

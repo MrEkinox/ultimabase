@@ -26,12 +26,13 @@ afterEach(() => {
 })
 
 // Runs first: testApplication keeps its application active until the file
-// ends. No database is needed, since Access refuses before any query.
+// ends. Access refuses whatever the schemas; without schemas, the
+// application starts without a database (ADR-0340), so none is needed.
 it("refuses to start in production with 'development'", async () => {
 	vi.stubEnv('NODE_ENV', 'production')
 	const ultimabase = new (UltimaBase.use(developmentAccess()))({
 		logger: false,
-		schemas: [Draft],
+		schemas: [],
 	})
 	try {
 		await expect(ultimabase.start()).rejects.toThrow(

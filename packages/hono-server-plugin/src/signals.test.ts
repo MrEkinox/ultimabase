@@ -94,9 +94,7 @@ describe('honoServerPlugin signals', () => {
 	})
 
 	it('validates stopOnSignals', () => {
-		expect(() =>
-			honoServerPlugin({ stopOnSignals: 'yes' as never }),
-		).toThrow(
+		expect(() => honoServerPlugin({ stopOnSignals: 'yes' as never })).toThrow(
 			new TypeError('Hono server plugin stopOnSignals must be a boolean'),
 		)
 		expect(() =>

@@ -12,7 +12,7 @@ import {
 } from 'node:fs/promises'
 import path from 'node:path'
 
-import { renderBaseFiles, writesEnv } from './base-template.js'
+import { renderBaseFiles } from './base-template.js'
 import { isPluginId } from './catalog.js'
 import type { InitializerPlan, PackageManager } from './config.js'
 
