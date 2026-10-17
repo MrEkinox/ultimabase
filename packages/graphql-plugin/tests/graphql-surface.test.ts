@@ -139,6 +139,32 @@ const pingPlugin = plugin({
 
 const App = UltimaBase.use(graphqlPlugin())
 
+/** Closes the create of one schema (ADR-0341). */
+const closingPlugin = (className: string) =>
+	plugin({
+		core: '^0.0.0',
+		id: 'fixture.graphql-surface-closure',
+		permissions: { 'schema:declare': 'Closes ledger creation.' },
+		version: '1.0.0',
+		contributions: [
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.patch({
+						operations: [
+							closeSchemaCommand({
+								command: 'create',
+								contributionId: 'ledger-creation',
+								reason: 'Ledgers are imported.',
+							}),
+						],
+						targets: schemas.select({ className }),
+					})
+					return undefined
+				},
+			}),
+		],
+	})
+
 const Post = App.Schema.define({
 	className: 'SurfacePost',
 	fields: (field) => ({
@@ -262,32 +288,9 @@ describe('GraphQL surface (ADR-0325)', () => {
 			className: 'SurfaceLedger',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const closing = plugin({
-			core: '^0.0.0',
-			id: 'fixture.graphql-surface-closure',
-			permissions: { 'schema:declare': 'Closes ledger creation.' },
-			version: '1.0.0',
-			contributions: [
-				contributeDeclarations({
-					schema: ({ schemas }) => {
-						schemas.patch({
-							operations: [
-								closeSchemaCommand({
-									command: 'create',
-									contributionId: 'ledger-creation',
-									reason: 'Ledgers are imported.',
-								}),
-							],
-							targets: schemas.select({ className: Ledger.className }),
-						})
-						return undefined
-					},
-				}),
-			],
-		})
 		const application = new (UltimaBase.use(
 			databasePlugin(new SurfaceDatabase()),
-			closing,
+			closingPlugin(Ledger.className),
 			graphqlPlugin({ default: true, publicWrites: true }),
 		))({ logger: false, schemas: [Ledger] })
 		onTestFinished(() => application.dispose())
@@ -304,6 +307,40 @@ describe('GraphQL surface (ADR-0325)', () => {
 		}
 		expect(mutation).toContain('updateSurfaceLedger')
 	})
+
+	// An explicit setting that would publish a closed command fails at
+	// startup; `true` forms and the defaults stay silent (ADR-0341).
+	it.each([
+		[
+			'SurfaceExplicitLedger',
+			{ createMany: true },
+			{},
+			'SurfaceExplicitLedger.createMany is closed by plugin "fixture.graphql-surface-closure": Ledgers are imported. Remove createMany from .with({ graphql }) of SurfaceExplicitLedger.',
+		],
+		[
+			'SurfaceDefaultLedger',
+			undefined,
+			{ default: { upsertMany: true } },
+			'SurfaceDefaultLedger.upsertMany is closed by plugin "fixture.graphql-surface-closure": Ledgers are imported. Remove upsertMany from graphqlPlugin({ default }), or set it to false in .with({ graphql }) of SurfaceDefaultLedger.',
+		],
+	] as const)(
+		'refuses an explicit setting for a closed command %#',
+		async (className, rule, options, message) => {
+			const declared = App.Schema.define({
+				className,
+				fields: (field) => ({ title: field.string() }),
+			})
+			const schema =
+				rule === undefined ? declared : declared.with({ graphql: rule })
+			const application = new (UltimaBase.use(
+				databasePlugin(new SurfaceDatabase()),
+				closingPlugin(className),
+				graphqlPlugin({ publicWrites: true, ...options }),
+			))({ logger: false, schemas: [schema] })
+			onTestFinished(() => application.dispose())
+			await expect(application.start()).rejects.toThrow(message)
+		},
+	)
 
 	it('refuses a rule key that names no method or command', async () => {
 		const Bogus = App.Schema.define({
