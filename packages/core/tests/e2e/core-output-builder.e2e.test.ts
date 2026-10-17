@@ -63,7 +63,7 @@ describe('packed @ultimabase/core OutputBuilder contract', () => {
 				[
 					'description',
 					'list',
-					'nullable',
+					'required',
 					...(specificOptions[factoryName] ?? []),
 				].sort(),
 			)

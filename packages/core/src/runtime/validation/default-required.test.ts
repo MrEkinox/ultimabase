@@ -12,14 +12,14 @@ import { executeStage } from '../../../tests/fixtures/runtime-validation.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { createRuntimeValidationStage } from './runtime-validation.js'
 
-// ADR-0340: a defaulted field rejects explicit null like `required: true`,
-// unless it declares `nullable: true`.
+// ADR-0340: a defaulted field is required, so it rejects explicit null
+// unless it declares `required: false`.
 const Article = UltimaBase.Schema.define({
-	className: 'DefaultNullabilityArticle',
+	className: 'DefaultRequiredArticle',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 		published: field.boolean({ default: false }),
-		channel: field.string({ default: 'web', nullable: true }),
+		channel: field.string({ default: 'web', required: false }),
 	}),
 })
 const schema = new QueryBuilder(Article).ast.schema
@@ -37,8 +37,8 @@ const issueCodes = (error: unknown): readonly unknown[] => {
 	)
 }
 
-describe('default nullability (ADR-0340)', () => {
-	it('fills omitted defaults and keeps the nullable opt-in clearable', async () => {
+describe('default requiredness (ADR-0340)', () => {
+	it('fills omitted defaults and keeps required: false clearable', async () => {
 		const operation: CreateOneOperationAst<typeof Article> = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },

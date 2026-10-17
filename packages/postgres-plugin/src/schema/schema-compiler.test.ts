@@ -231,12 +231,12 @@ describe('PostgreSQL primitive schema compiler', () => {
 		expect(runtimeDefault).not.toHaveBeenCalled()
 	})
 
-	it('makes defaulted fields NOT NULL unless they declare nullable', () => {
+	it('makes defaulted fields NOT NULL unless they declare required: false', () => {
 		const schema = UltimaBase.Schema.define({
 			className: 'NullableFixture',
 			fields: (field) => ({
 				defaulted: field.string({ default: 'fallback' }),
-				nullable: field.string({ default: 'fallback', nullable: true }),
+				nullable: field.string({ default: 'fallback', required: false }),
 			}),
 		})
 		const columns = indexColumns(

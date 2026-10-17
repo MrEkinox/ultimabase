@@ -77,11 +77,10 @@ const Note = Application.Schema.define({
 		summary: field.virtual({
 			output: (output) =>
 				output.object({
-					nullable: false,
 					fields: (nested) => ({
-						bytes: nested.binary({ nullable: false }),
-						label: nested.string({ nullable: false }),
-						total: nested.bigint({ nullable: false }),
+						bytes: nested.binary(),
+						label: nested.string(),
+						total: nested.bigint(),
 					}),
 				}),
 			resolve: async ({ item }) => ({

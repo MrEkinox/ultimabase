@@ -88,6 +88,16 @@ const defineVirtualSchema = () =>
 				resolve: () => ['one'],
 				select: { id: true },
 			}),
+			nickname: field.virtual({
+				output: (output) => output.string({ required: false }),
+				resolve: () => null,
+				select: { id: true },
+			}),
+			optionalTags: field.virtual({
+				output: (output) => output.string({ list: true, required: false }),
+				resolve: () => null,
+				select: { id: true },
+			}),
 			clockTime: field.virtual({
 				output: (output) => output.time(),
 				resolve: () => '20:00:00',
@@ -179,7 +189,7 @@ describe('GraphQL virtual schema compilation', () => {
 		if (!isObjectType(model) || !isObjectType(summary)) {
 			throw new TypeError('Expected virtual output object types')
 		}
-		// ADR-0340: outputs are non-null unless they declare `nullable: true`.
+		// ADR-0340: outputs are non-null unless they declare `required: false`.
 		expect(
 			Object.fromEntries(
 				Object.entries(model.getFields()).map(([name, field]) => [
@@ -197,6 +207,8 @@ describe('GraphQL virtual schema compilation', () => {
 			flag: 'Boolean!',
 			instant: 'DateTime!',
 			metadata: 'JSON!',
+			nickname: 'String',
+			optionalTags: '[String!]',
 			price: 'Decimal!',
 			ratio: 'Float!',
 			repeatedSummary: 'SharedVirtualSummary!',
@@ -329,7 +341,7 @@ describe('GraphQL virtual schema compilation', () => {
 	it('rejects plugin output kinds without an exact GraphQL representation', async () => {
 		const output = definePluginOutputDescriptor(
 			'fixture.graphql-output',
-			{ list: false, nullable: false },
+			{ list: false, required: true },
 			(value): string => String(value),
 		)
 		const Invalid = GraphqlSchemaApplication.Schema.define({

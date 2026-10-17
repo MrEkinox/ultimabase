@@ -39,7 +39,7 @@ describe('OutputBuilder', () => {
 						factory: () =>
 							definePluginOutputDescriptor(
 								'fixture.slug',
-								{ list: false, nullable: false },
+								{ list: false, required: true },
 								(value, path) => {
 									if (typeof value !== 'string') {
 										throw new TypeError(`${path} must be a string`)
@@ -150,7 +150,7 @@ describe('OutputBuilder', () => {
 			options: {
 				description: 'Public label',
 				list: false,
-				nullable: false,
+				required: true,
 			},
 		})
 		expect(Object.isFrozen(descriptor)).toBe(true)
@@ -218,10 +218,10 @@ describe('OutputBuilder', () => {
 
 	it('applies nullability to the container and keeps list elements non-null', () => {
 		const optional = resolveOutputBuilder(
-			(output) => output.string({ nullable: true }),
+			(output) => output.string({ required: false }),
 			'User.nickname.output',
 		)
-		// ADR-0340: an output without `nullable: true` is non-null.
+		// ADR-0340: an output without `required: false` is non-null.
 		const name = resolveOutputBuilder(
 			(output) => output.string(),
 			'User.name.output',
@@ -231,8 +231,8 @@ describe('OutputBuilder', () => {
 			'User.tags.output',
 		)
 
-		expect(optional.options).toStrictEqual({ list: false, nullable: true })
-		expect(name.options).toStrictEqual({ list: false, nullable: false })
+		expect(optional.options).toStrictEqual({ list: false, required: false })
+		expect(name.options).toStrictEqual({ list: false, required: true })
 		expect(snapshotOutputValue(optional, null, 'User.nickname')).toBeNull()
 		expect(() => snapshotOutputValue(name, null, 'User.name')).toThrow(
 			new TypeError('User.name must not be null'),
@@ -328,8 +328,8 @@ describe('OutputBuilder', () => {
 			'hooks',
 			'immutable',
 			'indexed',
+			'nullable',
 			'postgres',
-			'required',
 			'validation',
 		] as const) {
 			expect(() =>
@@ -385,7 +385,7 @@ describe('OutputBuilder', () => {
 
 		const forged = Object.freeze({
 			kind: 'string',
-			options: Object.freeze({ list: false, nullable: false }),
+			options: Object.freeze({ list: false, required: true }),
 		}) as GenericOutputDescriptor
 		expect(() => {
 			assertOutputDescriptor(forged, 'forged')

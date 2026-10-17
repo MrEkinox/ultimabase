@@ -46,10 +46,10 @@ const rating: RatingFactory = (options) =>
 		},
 	)
 
-const ratingOutput = (options: { readonly nullable: false }) =>
+const ratingOutput = (options: { readonly required: true }) =>
 	definePluginOutputDescriptor(
 		'fixture.rating',
-		{ list: false, nullable: options.nullable },
+		{ list: false, required: options.required },
 		(value, path): number => {
 			if (typeof value !== 'number')
 				throw new TypeError(`${path} must be numeric`)
@@ -236,7 +236,7 @@ const Post = Application.Schema.define({
 		ratingSummary: field.virtual({
 			output: (output) =>
 				output.rating({
-					nullable: false,
+					required: true,
 					transform: (value) => value + 1,
 				}),
 			resolve: () => 1,

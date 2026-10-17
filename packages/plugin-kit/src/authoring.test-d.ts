@@ -36,12 +36,12 @@ import {
 
 const ratingOutput = defineOutputDescriptor(
 	'community.rating',
-	{ list: false, nullable: false },
+	{ list: false, required: true },
 	(value): number => Number(value),
 )
 expectTypeOf(ratingOutput.kind).toEqualTypeOf<'community.rating'>()
 // @ts-expect-error -- Plugin-owned output descriptor kinds must be namespaced.
-defineOutputDescriptor('rating', { list: false, nullable: false }, Number)
+defineOutputDescriptor('rating', { list: false, required: true }, Number)
 
 const contextualOption = definePluginFieldOption({
 	contexts: ['stored', 'embedded'],

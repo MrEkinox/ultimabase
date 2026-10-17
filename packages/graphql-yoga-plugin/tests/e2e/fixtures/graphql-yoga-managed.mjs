@@ -214,7 +214,7 @@ const ManagedVirtual = Application.Schema.define({
 	fields: (field) => ({
 		title: field.string(),
 		summary: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: async ({ item }) => {
 				await Promise.resolve()
 				return String(item.title).toUpperCase()

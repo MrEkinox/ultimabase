@@ -3,6 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	UltimaBase,
 	booleanField,
+	dateTimeField,
 	enumField,
 	intField,
 	jsonField,
@@ -15,8 +16,8 @@ import {
 	type SchemaUpdateData,
 } from '../../../index.js'
 
-// ADR-0340: a default makes a stored field non-null unless it declares
-// `nullable: true`; `nullable` exists only beside a default.
+// ADR-0340: `required` is the one word for nullability. A default makes a
+// stored field required unless it declares `required: false`.
 
 test('types a defaulted field as non-null and optional on create', () => {
 	const done = booleanField({ default: false })
@@ -48,11 +49,11 @@ test('types a defaulted field as non-null and optional on create', () => {
 	void json
 })
 
-test('lets nullable: true keep a defaulted field nullable', () => {
+test('lets required: false keep a defaulted field nullable', () => {
 	const status = enumField({
 		values: ['draft', 'published'],
 		default: 'draft',
-		nullable: true,
+		required: false,
 	})
 	expectTypeOf<FieldTypeStateOf<typeof status>>().toEqualTypeOf<{
 		readonly create: 'optional'
@@ -62,12 +63,7 @@ test('lets nullable: true keep a defaulted field nullable', () => {
 		readonly list: false
 	}>()
 	void status
-	const counter = intField({ default: 0, nullable: false })
-	expectTypeOf<
-		FieldTypeStateOf<typeof counter>['nullable']
-	>().toEqualTypeOf<false>()
-	void counter
-	// `required: true` beside a default adds nothing.
+	// `required: true` beside a default is the default value and changes nothing.
 	const flag = booleanField({ default: false, required: true })
 	expectTypeOf<
 		FieldTypeStateOf<typeof flag>['nullable']
@@ -76,26 +72,44 @@ test('lets nullable: true keep a defaulted field nullable', () => {
 		FieldTypeStateOf<typeof flag>['create']
 	>().toEqualTypeOf<'optional'>()
 	void flag
+	const optionalObject = objectField({
+		fields: { name: stringField() },
+		default: { name: null },
+		required: false,
+	})
+	expectTypeOf<
+		FieldTypeStateOf<typeof optionalObject>['nullable']
+	>().toEqualTypeOf<true>()
+	void optionalObject
 })
 
-test('rejects nullable without a default or beside required', () => {
-	// @ts-expect-error -- A field without a default is already nullable.
-	stringField({ nullable: true })
-	// @ts-expect-error -- `required` and `nullable` contradict each other.
-	stringField({ default: 'x', nullable: true, required: true })
+test('keeps generated values required and removes nullable', () => {
+	const sequence = intField({ autoIncrement: true })
+	expectTypeOf<
+		FieldTypeStateOf<typeof sequence>['nullable']
+	>().toEqualTypeOf<false>()
+	void sequence
 	// @ts-expect-error -- An auto-increment value is never null.
-	intField({ autoIncrement: true, default: 1, nullable: true })
+	intField({ autoIncrement: true, required: false })
+	// @ts-expect-error -- An auto-increment value is never null.
+	intField({ autoIncrement: true, default: 1, required: false })
+	// @ts-expect-error -- An autoNow value is never null.
+	dateTimeField({ autoNow: true, required: false })
+	// @ts-expect-error -- `nullable` is not a field option.
+	stringField({ default: 'x', nullable: true })
+	// @ts-expect-error -- `nullable` is not a field option.
+	stringField({ nullable: true })
 })
 
 const Article = UltimaBase.Schema.define({
-	className: 'NullableDefaultArticle',
+	className: 'RequiredDefaultArticle',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 		published: field.boolean({ default: false }),
 		channel: field.enum({
 			values: ['web', 'store'],
 			default: 'web',
-			nullable: true,
+			required: false,
 		}),
 		metadata: field.json({ default: {} }),
 		note: field.string(),

@@ -112,7 +112,7 @@ describe('OutputBuilder IntelliSense', () => {
 				[
 					'description',
 					'list',
-					'nullable',
+					'required',
 					...specificOptions[factoryName],
 				].sort(),
 			)

@@ -9,15 +9,15 @@ import type {
 
 test('infers exact scalar nullability and list containers', () => {
 	const output = undefined as unknown as OutputBuilder
-	// ADR-0340: outputs are non-null unless they declare `nullable: true`.
-	const optionalName = output.string({ nullable: true })
+	// ADR-0340: outputs are non-null unless they declare `required: false`.
+	const optionalName = output.string({ required: false })
 	const name = output.string()
-	const explicitName = output.string()
-	const optionalTags = output.string({ list: true, nullable: true })
+	const explicitName = output.string({ required: true })
+	const optionalTags = output.string({ list: true, required: false })
 	const tags = output.string({ list: true })
 	const status = output.enum({ values: ['draft', 'published'] as const })
 	const optionalStatus = output.enum({
-		nullable: true,
+		required: false,
 		values: ['draft', 'published'] as const,
 	})
 
@@ -54,13 +54,13 @@ test('infers recursive objects with required nullable properties', () => {
 					scores: child.int({ list: true }),
 				}),
 			}),
-			note: nested.string({ nullable: true }),
+			note: nested.string({ required: false }),
 		}),
 		typeName: 'Summary',
 	})
 	const optionalSummary = output.object({
 		fields: (nested) => ({ label: nested.string() }),
-		nullable: true,
+		required: false,
 	})
 
 	expectTypeOf(summary).toExtend<GenericOutputDescriptor>()
@@ -89,7 +89,7 @@ test('infers recursive objects with required nullable properties', () => {
 test('exposes every built-in output representation option', () => {
 	const output = undefined as unknown as OutputBuilder
 
-	output.bigint({ nullable: true })
+	output.bigint({ required: false })
 	output.binary({ list: true })
 	output.boolean({ description: 'Flag' })
 	output.date()
@@ -111,8 +111,8 @@ test('rejects persisted, input, relationship, and plugin-owned options', () => {
 
 	// @ts-expect-error -- Output values never provide create defaults.
 	output.string({ default: 'hidden' })
-	// @ts-expect-error -- Output nullability replaces required input presence.
-	output.string({ required: true })
+	// @ts-expect-error -- `required: false` is the one word for a nullable output.
+	output.string({ nullable: true })
 	// @ts-expect-error -- Output values are never immutable stored fields.
 	output.string({ immutable: true })
 	// @ts-expect-error -- Output values cannot be indexed.
