@@ -10,7 +10,7 @@ export const Author = App.Schema.define({
 		// Computed for each result that selects it, never stored. Inside
 		// `fields`, dependency values are typed `unknown`: convert them.
 		displayName: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) =>
 				`${String(item.firstName)} ${String(item.lastName)}`,

@@ -33,7 +33,7 @@ const VirtualRecord = UltimaBase.Schema.define({
 	fields: (field) => ({
 		title: field.string(),
 		displayTitle: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: async ({ context, item }) => {
 				await Promise.resolve()
 				return `${String(item.title).toUpperCase()}:${context.getValue(viewer) ?? 'anonymous'}`
@@ -44,11 +44,10 @@ const VirtualRecord = UltimaBase.Schema.define({
 			output: (output) =>
 				output.object({
 					fields: (nested) => ({
-						binary: nested.binary({ nullable: false }),
-						huge: nested.bigint({ nullable: false }),
-						tags: nested.string({ list: true, nullable: false }),
+						binary: nested.binary(),
+						huge: nested.bigint(),
+						tags: nested.string({ list: true }),
 					}),
-					nullable: false,
 				}),
 			resolve: () => ({
 				binary: Uint8Array.from([1, 2, 3]),

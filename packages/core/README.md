@@ -95,7 +95,7 @@ export const Author = App.Schema.define({
 		// Computed for each result that selects it, never stored. Inside
 		// `fields`, dependency values are typed `unknown`: convert them.
 		displayName: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) =>
 				`${String(item.firstName)} ${String(item.lastName)}`,
@@ -189,7 +189,7 @@ export const Customer = App.Schema.define({
 		wishlist: field.relation({ target: () => Book }),
 		// One call to the loyalty service resolves every customer of a read.
 		loyaltyTier: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { email: true },
 			resolveMany: ({ items }) =>
 				loyaltyService.tiers(items.map(({ email }) => String(email))),
@@ -324,7 +324,8 @@ normalization, and temporal `autoNow` behavior.
 
 Returned values use a third, independent `OutputBuilder` contract. It exposes
 the same value vocabulary where representation is meaningful, but only accepts
-`description`, complete-value `nullable`, one-dimensional `list`, and the
+`description`, complete-value `nullable` (outputs are non-null unless they
+declare `nullable: true`, ADR-0340), one-dimensional `list`, and the
 representation options owned by a kind. It has no defaults, input requiredness,
 immutability, indexes, generators, validation hooks, relationships, or storage
 metadata. `output.object({ fields })` recursively preserves an exact readonly
@@ -1261,7 +1262,7 @@ export const Author = App.Schema.define({
 		// Computed for each result that selects it, never stored. Inside
 		// `fields`, dependency values are typed `unknown`: convert them.
 		displayName: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) =>
 				`${String(item.firstName)} ${String(item.lastName)}`,
@@ -1701,8 +1702,10 @@ hook-issued and transactional operations inherit it, and Master elevation keeps
 it: authority changes, identity does not. An absent provider or absent
 request-local identity gives `undefined`; neither creates authenticated
 authority. `context.withPrincipal(pointer)` names the principal of a context
-explicitly (server-side only), and `Register` types it by name
-(ADR-0304):
+explicitly (server-side only). Its type follows the identity schema: a
+plugin that designates one, such as the User schema of `authPlugin`, types it
+once `Register` names the application (ADR-0340); otherwise the `principal`
+key of `Register` names it, and wins over a designated schema (ADR-0304):
 
 <!-- region ../../examples/queries/src/ultimabase.ts#register -->
 

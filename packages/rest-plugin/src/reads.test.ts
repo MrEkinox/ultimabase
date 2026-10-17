@@ -83,7 +83,7 @@ const RecordSchema = UltimaBase.Schema.define({
 		name: field.string(),
 		nickname: field.string(),
 		displayName: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => String(item.name),
 			select: { name: true },
 		}),

@@ -221,6 +221,14 @@ with `statics` bound to every class it creates, so its declarations take the
 same `indexes`, feature keys and `.with` rules as any schema. The factory's
 own behaviour options are a rule too, as Roles offers `.with({ roles: … })`.
 
+A plugin whose schema identifies callers, as `App.UserSchema` does, types the
+request principal for applications: add Core's type-only
+`PrincipalSchemaCarrier` to the statics of the schema it designates, and a key
+such as `readonly 'community.accounts': true` to Core's
+`PrincipalSchemaProviders` interface by declaration merging from the plugin
+package. `Principal` then points to that schema once `Register` names the
+application, and the `principal` key of `Register` still wins.
+
 If the package must instead expose one final schema class of its own, use the
 low-level Core boundary `Schema.defineSpecialized(options, createStatics)`.
 The factory returns the static capabilities only; Core attaches them before

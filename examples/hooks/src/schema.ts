@@ -33,7 +33,7 @@ export const Post = App.Schema.define({
 			hooks: { resolveInput: ({ value }) => value.trim() },
 		}),
 		slug: field.string(),
-		published: field.boolean({ default: false, required: true }),
+		published: field.boolean({ default: false }),
 		views: field.int({ default: 0 }),
 		author: field.pointer({ target: () => Author }),
 		tags: field.relation({ target: () => Tag }),

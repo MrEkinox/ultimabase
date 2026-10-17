@@ -85,25 +85,23 @@ const VirtualResponseRecord = UltimaBase.Schema.define({
 		virtualValues: field.virtual({
 			output: (output) =>
 				output.object({
-					nullable: false,
 					fields: (nested) => ({
-						active: nested.boolean({ nullable: false }),
-						amount: nested.decimal({ nullable: false }),
-						blob: nested.binary({ nullable: false }),
-						calendar: nested.date({ nullable: false }),
-						clock: nested.time({ nullable: false }),
-						count: nested.int({ nullable: false }),
-						huge: nested.bigint({ nullable: false }),
-						metadata: nested.json({ nullable: false }),
-						moment: nested.dateTime({ nullable: false }),
-						note: nested.string(),
-						score: nested.float({ nullable: false }),
+						active: nested.boolean(),
+						amount: nested.decimal(),
+						blob: nested.binary(),
+						calendar: nested.date(),
+						clock: nested.time(),
+						count: nested.int(),
+						huge: nested.bigint(),
+						metadata: nested.json(),
+						moment: nested.dateTime(),
+						note: nested.string({ nullable: true }),
+						score: nested.float(),
 						status: nested.enum({
-							nullable: false,
 							values: ['ready', 'done'],
 						}),
-						tags: nested.string({ list: true, nullable: false }),
-						uid: nested.uuid({ nullable: false }),
+						tags: nested.string({ list: true }),
+						uid: nested.uuid(),
 					}),
 				}),
 			resolve: () => ({

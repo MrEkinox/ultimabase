@@ -34,7 +34,7 @@ const Post = RestNestedWriteApplication.Schema.define({
 	className: 'RestNestedPost',
 	fields: (field) => ({
 		headline: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: async ({ item }) => {
 				await Promise.resolve()
 				return `Post: ${String(item.title)}`

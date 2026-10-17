@@ -90,13 +90,13 @@ const VirtualDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginVirtualDocument',
 	fields: (field) => ({
 		label: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => `Label: ${String(item.title)}`,
 			select: { title: true },
 		}),
 		privateLabel: field.virtual({
 			access: { read: false },
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => `Private: ${String(item.title)}`,
 			select: { title: true },
 		}),

@@ -121,7 +121,8 @@ enums, lists, and recursive objects. Every factory accepts `description`,
 only their relevant representation metadata.
 
 Output nullability applies to the complete scalar or list container and defaults
-to `true`. A list element is always non-null. Every declared object property is
+to `false`: an output is non-null unless it declares `nullable: true`
+(ADR-0340). A list element is always non-null. Every declared object property is
 required in the resolved object, though a child descriptor may allow that
 property's value to be `null`. Core snapshots output values through the same
 transport-neutral descriptor regardless of whether REST or GraphQL eventually
@@ -452,8 +453,9 @@ provided unless a default, `autoNow`, or auto-increment supplies their value. Im
 developer fields remain accepted during creation.
 
 `InferUpdateInput` excludes generated and immutable fields, and makes every
-remaining property optional. Every complete field property is present: required
-fields use `T`, while optional fields use `T | null`. Create and update inputs
+remaining property optional. Every complete field property is present: required,
+defaulted and generated fields use `T`, while optional fields, and defaulted
+fields declaring `nullable: true`, use `T | null`. Create and update inputs
 keep optional properties so omission still means default resolution or no change.
 Object fields apply the same rules recursively. A listed object uses create-input rules for each complete
 replacement item during update.
@@ -466,7 +468,7 @@ operation-specific presence rules.
 
 ## Generic field contract
 
-- `FieldOptions<TValue>` adds direct `required`, typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. Optional fields persist as `null`; `required: true` makes their persisted value non-null and requires create input unless a default or generator supplies it. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldOptions<TValue>` adds direct `required`, typed defaults, homogeneous lists, field-value immutability, `indexed`, and descriptions without introducing database-specific metadata. Optional fields persist as `null`; `required: true` makes their persisted value non-null and requires create input unless a default or generator supplies it. A default also makes the value non-null (ADR-0340); `nullable: true`, accepted only beside a default and never with `required` or `autoIncrement`, keeps it nullable. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata

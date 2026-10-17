@@ -14,7 +14,7 @@ export const User = UltimaBase.Schema.define({
 		tags: field.string({ list: true }),
 		displayName: field.virtual({
 			description: 'The public display name',
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) => `${item.firstName} ${item.lastName}`,
 		}),
@@ -34,8 +34,9 @@ the declaration communicates that intent directly.
 
 ## Output shapes
 
-The output descriptor controls the complete returned value. Nullability applies
-to the value or list container; list elements remain non-null:
+The output descriptor controls the complete returned value. An output is
+non-null unless it declares `nullable: true`, which applies to the value or
+list container; list elements remain non-null:
 
 ```ts
 const Profile = UltimaBase.Schema.define({
@@ -46,12 +47,12 @@ const Profile = UltimaBase.Schema.define({
 		nickname: field.string(),
 		labels: field.string({ list: true }),
 		optionalLabel: field.virtual({
-			output: (output) => output.string(),
+			output: (output) => output.string({ nullable: true }),
 			select: { nickname: true },
 			resolve: ({ item }) => item.nickname,
 		}),
 		publicLabels: field.virtual({
-			output: (output) => output.string({ list: true, nullable: false }),
+			output: (output) => output.string({ list: true }),
 			select: { labels: true },
 			resolve: ({ item }) => item.labels ?? [],
 		}),
@@ -59,10 +60,9 @@ const Profile = UltimaBase.Schema.define({
 			output: (output) =>
 				output.object({
 					typeName: 'ProfileSummary',
-					nullable: false,
 					fields: (output) => ({
-						label: output.string({ nullable: false }),
-						aliases: output.string({ list: true, nullable: false }),
+						label: output.string(),
+						aliases: output.string({ list: true }),
 					}),
 				}),
 			select: { firstName: true, lastName: true },
@@ -92,7 +92,7 @@ const Account = UltimaBase.Schema.define({
 	fields: (field) => ({
 		email: field.string({ required: true }),
 		maskedEmail: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { email: true },
 			resolve: async ({ item, context }) => {
 				const canReadEmail = context.source === 'internal-job'

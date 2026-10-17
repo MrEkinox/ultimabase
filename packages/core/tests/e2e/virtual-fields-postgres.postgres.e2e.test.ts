@@ -20,7 +20,7 @@ const Person = UltimaBase.Schema.define({
 		lastName: field.string({ required: true }),
 		secret: field.string({ required: true }),
 		displayName: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: async ({ item }) => {
 				await Promise.resolve()
@@ -29,7 +29,7 @@ const Person = UltimaBase.Schema.define({
 			},
 		}),
 		initials: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) =>
 				`${String(item.firstName).slice(0, 1)}${String(item.lastName).slice(0, 1)}`,

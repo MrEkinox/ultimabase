@@ -7,7 +7,7 @@ contentType: concept
 order: 6
 outcome: Define a virtual field and predict its selection, privacy, typing, and failure behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-10-14
+reviewedAt: 2026-10-17
 sources:
   - examples/modeling/README.md
   - examples/modeling/src/catalog.ts
@@ -39,9 +39,10 @@ computes `displayName` from two stored fields:
 	../../examples/modeling/src/catalog.ts#author
 </include>
 
-`output` defines the complete returned value. Outputs are nullable by default;
-`nullable: false` requires a string here rather than `null`. `undefined` is
-invalid even for a nullable output. The `output` callback describes the value
+`output` defines the complete returned value. Outputs are non-null, like
+stored fields with a default: `displayName` is always a string here. Declare
+`nullable: true`, as in `output.string({ nullable: true })`, when the resolver
+may return `null`. `undefined` is invalid even for a nullable output. The `output` callback describes the value
 once at schema compilation; `resolve` computes it for each selected result.
 Inside the `fields` callback, the schema's own types do not exist yet, so the
 dependency values of `item` are typed `unknown`: convert or narrow them, as

@@ -9,12 +9,15 @@ import type {
 
 test('infers exact scalar nullability and list containers', () => {
 	const output = undefined as unknown as OutputBuilder
-	const optionalName = output.string()
-	const name = output.string({ nullable: false })
-	const optionalTags = output.string({ list: true })
-	const tags = output.string({ list: true, nullable: false })
-	const status = output.enum({
-		nullable: false,
+	// ADR-0340: outputs are non-null unless they declare `nullable: true`.
+	const optionalName = output.string({ nullable: true })
+	const name = output.string()
+	const explicitName = output.string()
+	const optionalTags = output.string({ list: true, nullable: true })
+	const tags = output.string({ list: true })
+	const status = output.enum({ values: ['draft', 'published'] as const })
+	const optionalStatus = output.enum({
+		nullable: true,
 		values: ['draft', 'published'] as const,
 	})
 
@@ -27,6 +30,7 @@ test('infers exact scalar nullability and list containers', () => {
 		string | null
 	>()
 	expectTypeOf<OutputValue<typeof name>>().toEqualTypeOf<string>()
+	expectTypeOf<OutputValue<typeof explicitName>>().toEqualTypeOf<string>()
 	expectTypeOf<OutputValue<typeof optionalTags>>().toEqualTypeOf<
 		readonly string[] | null
 	>()
@@ -34,26 +38,36 @@ test('infers exact scalar nullability and list containers', () => {
 	expectTypeOf<OutputValue<typeof status>>().toEqualTypeOf<
 		'draft' | 'published'
 	>()
+	expectTypeOf<OutputValue<typeof optionalStatus>>().toEqualTypeOf<
+		'draft' | 'published' | null
+	>()
+	void [explicitName, optionalStatus]
 })
 
 test('infers recursive objects with required nullable properties', () => {
 	const output = undefined as unknown as OutputBuilder
 	const summary = output.object({
 		fields: (nested) => ({
-			label: nested.string({ nullable: false }),
+			label: nested.string(),
 			metadata: nested.object({
 				fields: (child) => ({
-					scores: child.int({ list: true, nullable: false }),
+					scores: child.int({ list: true }),
 				}),
-				nullable: false,
 			}),
-			note: nested.string(),
+			note: nested.string({ nullable: true }),
 		}),
-		nullable: false,
 		typeName: 'Summary',
+	})
+	const optionalSummary = output.object({
+		fields: (nested) => ({ label: nested.string() }),
+		nullable: true,
 	})
 
 	expectTypeOf(summary).toExtend<GenericOutputDescriptor>()
+	expectTypeOf<OutputValue<typeof optionalSummary>>().toEqualTypeOf<{
+		readonly label: string
+	} | null>()
+	void optionalSummary
 	type SummaryValue = OutputValue<typeof summary>
 	interface ExpectedSummary {
 		readonly label: string
@@ -75,7 +89,7 @@ test('infers recursive objects with required nullable properties', () => {
 test('exposes every built-in output representation option', () => {
 	const output = undefined as unknown as OutputBuilder
 
-	output.bigint({ nullable: false })
+	output.bigint({ nullable: true })
 	output.binary({ list: true })
 	output.boolean({ description: 'Flag' })
 	output.date()

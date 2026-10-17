@@ -55,7 +55,7 @@ const Tag = App.Schema.define({
 	fields: (field) => ({
 		name: field.string({ required: true }),
 		label: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { name: true },
 			resolveMany: ({ items }) => {
 				labelCalls.push(items.length)

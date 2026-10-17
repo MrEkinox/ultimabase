@@ -52,7 +52,7 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 		author: field.pointer({ target: 'GraphqlExecutionAuthor' }),
 		counter: field.int({ default: 0 }),
 		contextLabel: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: async ({ context, item }) => {
 				await Promise.resolve()
 				return `${String(item.title)}:${context.access.mode}`
@@ -61,7 +61,7 @@ const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 		}),
 		privateLabel: field.virtual({
 			...deniedVirtualAccess,
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => `Private: ${String(item.title)}`,
 			select: { title: true },
 		}),

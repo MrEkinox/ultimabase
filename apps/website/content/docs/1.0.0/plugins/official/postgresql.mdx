@@ -242,6 +242,11 @@ approximated. No official migration runner is shipped yet.
   declares refuses to start, because every insert would fail. When a field of
   the same type appears at the same time, the message suggests the forgotten
   `renamedFrom`.
+- A column is `NOT NULL` when its field is required, generated, or has a
+  `default` without `nullable: true`. Making an existing column `NOT NULL`
+  fails while rows hold `null` there, as in a database created before
+  defaults became non-null; the error names the column: fill those rows, or
+  declare `nullable: true` beside the default.
 
 A database with camelCase columns is not converted: the check above reports
 them. Rename them outside UltimaBase

@@ -7,7 +7,7 @@ const schema = UltimaBase.Schema.define({
 	className: 'EnforcementVirtualField',
 	fields: (field) => ({
 		label: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => String(item.title),
 			select: { title: true },
 		}),

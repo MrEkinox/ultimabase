@@ -112,7 +112,7 @@ describe('Runtime virtual fields', () => {
 				lastName: field.string({ required: true }),
 				secret: field.string({ required: true }),
 				displayName: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { firstName: true, lastName: true },
 					resolve: ({ item, context: requestContext }) => {
 						resolverItem = item
@@ -184,7 +184,7 @@ describe('Runtime virtual fields', () => {
 			fields: (field) => ({
 				message: field.string({ required: true }),
 				label: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { message: true },
 					resolve: ({ item }) => {
 						owner = readApplicationPluginOwner(compiled)
@@ -250,7 +250,7 @@ describe('Runtime virtual fields', () => {
 			fields: (field) => ({
 				label: field.string({ required: true }),
 				summary: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { label: true },
 					resolve: ({ item }) => {
 						resolutions += 1
@@ -297,7 +297,7 @@ describe('Runtime virtual fields', () => {
 				name: field.string({ required: true }),
 				secret: field.string({ required: true }),
 				label: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { name: true },
 					resolve: ({ item }) =>
 						String(Reflect.get(item, 'name')).toUpperCase(),
@@ -384,7 +384,7 @@ describe('Runtime virtual fields', () => {
 			fields: (field) => ({
 				value: field.int({ required: true }),
 				computed: field.virtual({
-					output: (output) => output.int({ nullable: false }),
+					output: (output) => output.int(),
 					select: { value: true },
 					resolve: () => 'invalid' as never,
 				}),
@@ -431,7 +431,7 @@ describe('Runtime virtual fields', () => {
 			fields: (field) => ({
 				value: field.int({ required: true }),
 				doubled: field.virtual({
-					output: (output) => output.int({ nullable: false }),
+					output: (output) => output.int(),
 					select: { value: true },
 					resolve: ({ item }) => {
 						trace.push('virtual')
@@ -497,7 +497,7 @@ describe('Runtime virtual fields', () => {
 			fields: (field) => ({
 				value: field.int({ required: true }),
 				recursive: field.virtual({
-					output: (output) => output.int({ nullable: false }),
+					output: (output) => output.int(),
 					select: { value: true },
 					resolve: async () => {
 						await runtime.pipeline.execute({
@@ -535,7 +535,7 @@ describe('Runtime virtual fields', () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 				[protoField]: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { title: true },
 					resolve: ({ item }) =>
 						`virtual:${String(Reflect.get(item, 'title'))}`,

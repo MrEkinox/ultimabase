@@ -13,7 +13,7 @@ test('types bootstrap virtual declarations', () => {
 		fields: (field) => ({
 			name: field.string({ required: true }),
 			displayName: field.virtual({
-				output: (output) => output.string({ nullable: false }),
+				output: (output) => output.string(),
 				resolve: ({ item, context }) => {
 					expectTypeOf(item.id).toEqualTypeOf<string>()
 					expectTypeOf(context.source).toEqualTypeOf<string>()
@@ -34,16 +34,23 @@ test('rejects stored options and incompatible resolver results', () => {
 		className: 'InvalidBootstrapVirtualType',
 		fields: (field) => ({
 			invalidOptions: field.virtual({
-				output: (output) => output.string(),
+				output: (output) => output.string({ nullable: true }),
 				resolve: () => null,
 				select: { id: true },
 				// @ts-expect-error -- Stored requiredness belongs to persisted fields.
 				required: true,
 			}),
 			invalidResult: field.virtual({
-				output: (output) => output.int({ nullable: false }),
+				output: (output) => output.int(),
 				// @ts-expect-error -- Resolver values must match the output descriptor.
 				resolve: () => 'not-an-int',
+				select: { id: true },
+			}),
+			// ADR-0340: an output without `nullable: true` is non-null.
+			nullResult: field.virtual({
+				output: (output) => output.string(),
+				// @ts-expect-error -- A non-null output rejects a null resolver value.
+				resolve: () => null,
 				select: { id: true },
 			}),
 		}),

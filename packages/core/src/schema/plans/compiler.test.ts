@@ -120,10 +120,11 @@ describe('validation plans', () => {
 				internalCode: { presence: 'forbidden' },
 			},
 		})
+		// ADR-0340: a default makes the list non-null.
 		expect(createTags).toMatchObject({
 			kind: 'array',
 			field: schema.fields.tags,
-			nullable: true,
+			nullable: false,
 			items: {
 				kind: 'scalar',
 				field: schema.fields.tags,

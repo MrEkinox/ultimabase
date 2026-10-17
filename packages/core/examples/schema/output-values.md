@@ -10,15 +10,13 @@ import type { OutputBuilder, OutputValue } from '@ultimabase/core'
 export const declareProfileSummary = (output: OutputBuilder) =>
 	output.object({
 		typeName: 'ProfileSummary',
-		nullable: false,
 		fields: (output) => ({
-			displayName: output.string({ nullable: false }),
+			displayName: output.string(),
 			status: output.enum({
 				values: ['active', 'disabled'],
-				nullable: false,
 			}),
-			tags: output.string({ list: true, nullable: false }),
-			avatarUrl: output.string(),
+			tags: output.string({ list: true }),
+			avatarUrl: output.string({ nullable: true }),
 		}),
 	})
 

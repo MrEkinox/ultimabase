@@ -57,7 +57,7 @@ const RestPost = RestReadApplication.Schema.define({
 		title: field.string({ required: true }),
 		summary: field.virtual({
 			...deniedVirtualAccess,
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: async ({ item }) => {
 				await Promise.resolve()
 				return `Summary: ${String(item.title)}`

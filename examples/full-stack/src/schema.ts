@@ -178,7 +178,7 @@ export const ExampleArticle = App.Schema.define({
 		}),
 		displayTitle: field.virtual({
 			description: 'A display label derived from the persisted title.',
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { title: true },
 			resolve: ({ item }) => {
 				// @ts-expect-error -- Resolver items contain only declared dependencies.
@@ -187,12 +187,12 @@ export const ExampleArticle = App.Schema.define({
 			},
 		}),
 		optionalSubtitle: field.virtual({
-			output: (output) => output.string(),
+			output: (output) => output.string({ nullable: true }),
 			select: { presentation: true },
 			resolve: ({ item }) => readPresentation(item.presentation).subtitle,
 		}),
 		labels: field.virtual({
-			output: (output) => output.string({ list: true, nullable: false }),
+			output: (output) => output.string({ list: true }),
 			select: { presentation: true },
 			resolve: ({ item }) => readPresentation(item.presentation).tags,
 		}),
@@ -200,11 +200,10 @@ export const ExampleArticle = App.Schema.define({
 			output: (output) =>
 				output.object({
 					fields: (output) => ({
-						labels: output.string({ list: true, nullable: false }),
-						subtitle: output.string(),
-						title: output.string({ nullable: false }),
+						labels: output.string({ list: true }),
+						subtitle: output.string({ nullable: true }),
+						title: output.string(),
 					}),
-					nullable: false,
 					typeName: 'ExampleArticleSummary',
 				}),
 			select: { presentation: true, title: true },
@@ -217,7 +216,7 @@ export const ExampleArticle = App.Schema.define({
 		viewerLabel: field.virtual({
 			description:
 				'A request-aware label that demonstrates context composition.',
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { slug: true },
 			resolve: ({ context, item }) => {
 				const slug = readText(item.slug)
@@ -237,7 +236,7 @@ export const ExampleArticle = App.Schema.define({
 			},
 			description:
 				'A virtual field visible to authenticated requests and Master.',
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { title: true },
 			resolve: ({ item }) => readText(item.title),
 		}),

@@ -227,7 +227,6 @@ const Post = Application.Schema.define({
 		summary: field.virtual({
 			output: (output) =>
 				output.string({
-					nullable: false,
 					transform: (value) => value.trim(),
 				}),
 			resolve: () => 'summary',

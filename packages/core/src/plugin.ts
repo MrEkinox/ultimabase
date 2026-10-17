@@ -189,6 +189,7 @@ export type {
 	DefineUniqueIndexFields,
 } from './schema/schema/define-features.js'
 export type { ConfiguredSchemaIndex } from './schema/schema/configured-schema-namespace.js'
+export type { PrincipalSchemaCarrier } from './access/subject/principal.js'
 export { provideSchemaFactories } from './plugins/schema-factories.js'
 export type {
 	PluginSchemaFactoriesSource,

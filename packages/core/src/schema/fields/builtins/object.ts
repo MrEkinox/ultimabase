@@ -15,6 +15,7 @@ import {
 } from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
+	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldTypeState,
 	FieldListOption,
@@ -120,7 +121,10 @@ type CompactObjectFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = Omit<ObjectFieldOptions<TFields>, 'immutable' | 'list' | 'required'> & {
+> = Omit<
+	ObjectFieldOptions<TFields>,
+	'immutable' | 'list' | 'nullable' | 'required'
+> & {
 	/**
 	 * Requires a non-null persisted object and requires create input unless a default supplies it.
 	 * @example `required: true`
@@ -140,13 +144,24 @@ type CompactObjectFieldOptions<
 
 export type DefaultedObjectFieldOptions<
 	TFields extends ObjectFields,
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactObjectFieldOptions<TFields, TRequired, TList, TImmutable> & {
+> = CompactObjectFieldOptions<
+	TFields,
+	TNullable extends true ? false : boolean,
+	TList,
+	TImmutable
+> & {
 	readonly default: FieldDefault<
 		FieldListValue<ObjectFieldCreateValue<NoInfer<TFields>>, TList>
 	>
+	/**
+	 * Lets the defaulted object hold `null`: an omitted value still gets the
+	 * default, and explicit `null` is kept.
+	 * @example `nullable: true`
+	 */
+	readonly nullable?: TNullable
 }
 
 export type NonDefaultedObjectFieldOptions<
@@ -156,6 +171,12 @@ export type NonDefaultedObjectFieldOptions<
 	TImmutable extends boolean,
 > = CompactObjectFieldOptions<TFields, TRequired, TList, TImmutable> & {
 	readonly default?: never
+	/**
+	 * Accepted only beside a `default`: without one, an object that is not
+	 * `required` is already nullable.
+	 * @example `default: false, nullable: true`
+	 */
+	readonly nullable?: never
 }
 
 type ResolvedObjectField<
@@ -173,10 +194,16 @@ type ResolvedObjectField<
 
 export type DefaultedObjectField<
 	TFields extends ObjectFields,
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedObjectField<TFields, TRequired, TList, TImmutable, true>
+> = ResolvedObjectField<
+	TFields,
+	DefaultedFieldNonNull<TNullable>,
+	TList,
+	TImmutable,
+	true
+>
 
 export type NonDefaultedObjectField<
 	TFields extends ObjectFields,
@@ -230,17 +257,17 @@ function snapshotObjectValue(
  */
 export function objectField<
 	const TFields extends ObjectFields,
-	const TRequired extends boolean = false,
+	const TNullable extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
 	const TExtensionOptions extends object = object,
 >(
 	options: CompatibleFieldOptionsExtension<
-		DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+		DefaultedObjectFieldOptions<TFields, TNullable, TList, TImmutable>,
 		TExtensionOptions,
 		ObjectFieldValue<TFields>
 	>,
-): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
+): DefaultedObjectField<TFields, TNullable, TList, TImmutable>
 
 export function objectField<
 	const TFields extends ObjectFields,

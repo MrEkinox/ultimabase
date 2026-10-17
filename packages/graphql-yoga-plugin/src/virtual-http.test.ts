@@ -48,11 +48,10 @@ const VirtualYogaRecord = UltimaBase.Schema.define({
 			output: (output) =>
 				output.object({
 					fields: (nested) => ({
-						authority: nested.string({ nullable: false }),
-						label: nested.string({ nullable: false }),
-						viewer: nested.string({ nullable: false }),
+						authority: nested.string(),
+						label: nested.string(),
+						viewer: nested.string(),
 					}),
-					nullable: false,
 				}),
 			resolve: async ({ context, item }) => {
 				await Promise.resolve()

@@ -22,10 +22,9 @@ output.uuid({/* completion:output-uuid-options */})
 
 const summary = output.object({
 	fields: (nested) => ({
-		label: nested.string({ nullable: false }),
-		scores: nested.int({ list: true, nullable: false }),
+		label: nested.string(),
+		scores: nested.int({ list: true }),
 	}),
-	nullable: false,
 })
 void summary
 type SummaryValue = OutputValue<typeof summary>

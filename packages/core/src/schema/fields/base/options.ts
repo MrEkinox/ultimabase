@@ -31,6 +31,7 @@ export const fieldOptionsBaseKeys: readonly string[] = [
 export const fieldOptionKeys: readonly string[] = [
 	...fieldOptionsBaseKeys,
 	'default',
+	'nullable',
 ]
 
 /** Describes every metadata key owned by one built-in field kind. */
@@ -141,10 +142,44 @@ export const snapshotListedFieldValue = (
 	)
 }
 
+/** Reads direct required presence without trusting external metadata. */
+const hasRequiredOption = (options: object): boolean =>
+	'required' in options && options.required === true
+
+/**
+ * A default makes a field non-null; `nullable: true` beside it is the only way
+ * back to `null` (ADR-0340). Without a default the option would say nothing.
+ */
+const assertNullableOption = (options: object): void => {
+	const nullable = 'nullable' in options ? options.nullable : undefined
+	assertOptionalBoolean(nullable, 'nullable')
+	if (nullable === undefined) {
+		return
+	}
+
+	if (!('default' in options)) {
+		throw new TypeError('nullable is only accepted beside a default')
+	}
+
+	if (nullable && hasRequiredOption(options)) {
+		throw new TypeError('required and nullable cannot both be true')
+	}
+
+	if (
+		nullable &&
+		'autoIncrement' in options &&
+		options.autoIncrement === true
+	) {
+		throw new TypeError('autoIncrement and nullable cannot both be true')
+	}
+}
+
 const assertCommonFieldMetadata = (options: object): void => {
 	if ('required' in options) {
 		assertOptionalBoolean(options.required, 'required')
 	}
+
+	assertNullableOption(options)
 
 	if ('immutable' in options) {
 		assertOptionalBoolean(options.immutable, 'immutable')
@@ -203,10 +238,6 @@ export const normalizeFieldOptions = <const TOptions extends object>(
 	})
 }
 
-/** Reads direct required presence without trusting external metadata. */
-const hasRequiredOption = (options: object): boolean =>
-	'required' in options && options.required === true
-
 /** Clock, sequence and plugin-generated values are supplied by the system. */
 const hasGeneratedValue = (options: object): boolean =>
 	('autoNow' in options && options.autoNow === true) ||
@@ -217,9 +248,16 @@ const hasGeneratedValue = (options: object): boolean =>
 export const hasListOption = (options: object): boolean =>
 	'list' in options && options.list !== undefined && options.list !== false
 
-/** Derives whether a selected persisted field may contain logical null. */
+/**
+ * Derives whether a selected persisted field may contain logical null: a
+ * required, defaulted or generated field may not, unless a defaulted field
+ * declares `nullable: true` (ADR-0340).
+ */
 export const isFieldNullable = (field: GenericField): boolean =>
-	!hasRequiredOption(field.options) && !hasGeneratedValue(field.options)
+	('nullable' in field.options && field.options.nullable === true) ||
+	(!hasRequiredOption(field.options) &&
+		!('default' in field.options) &&
+		!hasGeneratedValue(field.options))
 
 /** Mirrors create-input omission rules at runtime snapshot boundaries. */
 export const isRequiredOnCreate = (field: GenericField): boolean =>

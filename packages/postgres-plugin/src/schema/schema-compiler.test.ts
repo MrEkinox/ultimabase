@@ -36,7 +36,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 				summary: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { title: true },
 					resolve,
 				}),
@@ -214,11 +214,12 @@ describe('PostgreSQL primitive schema compiler', () => {
 		})
 		expect(columns.required?.notNull).toBe(true)
 		expect(columns.optional?.notNull).toBe(false)
-		expect(columns.runtime).toMatchObject({ hasDefault: false, notNull: false })
+		// ADR-0340: a default makes the column NOT NULL.
+		expect(columns.runtime).toMatchObject({ hasDefault: false, notNull: true })
 		expect(columns.active).toMatchObject({
 			default: true,
 			hasDefault: true,
-			notNull: false,
+			notNull: true,
 		})
 		expect(columns.counter?.generatedIdentity?.type).toBe('byDefault')
 		expect(columns.blob?.columnType).toBe('PgBytea')
@@ -230,20 +231,24 @@ describe('PostgreSQL primitive schema compiler', () => {
 		expect(runtimeDefault).not.toHaveBeenCalled()
 	})
 
-	it('keeps optional nullable fields physically nullable', () => {
+	it('makes defaulted fields NOT NULL unless they declare nullable', () => {
 		const schema = UltimaBase.Schema.define({
 			className: 'NullableFixture',
 			fields: (field) => ({
-				nullable: field.string({
-					default: 'fallback',
-				}),
+				defaulted: field.string({ default: 'fallback' }),
+				nullable: field.string({ default: 'fallback', nullable: true }),
 			}),
 		})
-		const column = getTableConfig(
-			compilePostgresSchema(schema).table,
-		).columns.find((candidate) => candidate.name === 'nullable')
+		const columns = indexColumns(
+			getTableConfig(compilePostgresSchema(schema).table).columns,
+		)
 
-		expect(column).toMatchObject({
+		expect(columns.defaulted).toMatchObject({
+			default: 'fallback',
+			hasDefault: true,
+			notNull: true,
+		})
+		expect(columns.nullable).toMatchObject({
 			default: 'fallback',
 			hasDefault: true,
 			notNull: false,

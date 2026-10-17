@@ -108,6 +108,8 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 			'description',
 			'immutable',
 			'list',
+			// ADR-0340: beside a default only.
+			'nullable',
 			'required',
 			'validation',
 		]

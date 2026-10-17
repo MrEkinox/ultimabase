@@ -1,5 +1,6 @@
 import type {
 	CompatibleFieldOptionsExtension,
+	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -33,7 +34,7 @@ export type DateField<TState extends FieldTypeState = FieldTypeState> =
 
 /** Provides date-specific names for compact auto-now inference. */
 type DefaultedDateFieldOptions<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
@@ -41,7 +42,7 @@ type DefaultedDateFieldOptions<
 > = DefaultedCompactScalarFieldOptions<
 	DateFieldOptions,
 	string,
-	TRequired,
+	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>,
@@ -84,11 +85,17 @@ type ResolvedDateField<
 >
 
 type DefaultedDateField<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedDateField<TRequired, TList, TImmutable, true, TAutoNow>
+> = ResolvedDateField<
+	DefaultedFieldNonNull<TNullable>,
+	TList,
+	TImmutable,
+	true,
+	TAutoNow
+>
 
 type NonDefaultedDateField<
 	TRequired extends boolean,
@@ -101,7 +108,7 @@ export interface DateFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
@@ -110,7 +117,7 @@ export interface DateFieldFactory<
 	>(
 		options: CompatibleFieldOptionsExtension<
 			DefaultedDateFieldOptions<
-				TRequired,
+				TNullable,
 				TList,
 				TImmutable,
 				TAutoNow,
@@ -118,11 +125,16 @@ export interface DateFieldFactory<
 			>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
+			ResolvedFieldSourceOptions<
+				TSourceTemplate,
+				string,
+				TList,
+				DefaultedFieldNonNull<TNullable>
+			>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedDateField<TRequired, TList, TImmutable, TAutoNow>
+		DefaultedDateField<TNullable, TList, TImmutable, TAutoNow>
 	>
 	<
 		const TRequired extends boolean = false,

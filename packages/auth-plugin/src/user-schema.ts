@@ -15,6 +15,7 @@ import type {
 	DefineFeaturesNotInferred,
 	DefineUniqueIndexFields,
 	PluginSourceState,
+	PrincipalSchemaCarrier,
 	SchemaFactoriesHKT,
 	SchemaFactoryContext,
 	SchemaFactoryShape,
@@ -140,11 +141,15 @@ export interface UserSchemaFactories<TMethodFields> extends SchemaFactoriesHKT {
 	>
 }
 
-/** Adds the foundation's and methods' members to the User class. */
+/**
+ * Adds the foundation's and methods' members to the User class, and marks it
+ * as the schema request principals point to (ADR-0340).
+ */
 export interface UserSchemaStaticsSlot<TMethods> extends SchemaStaticsHKT {
 	readonly statics: 'UserSchema' extends keyof this['shape']
 		? AuthUserStatics<Extract<this['schema'], SchemaDefinition>> &
-				AuthMethodStatics<TMethods, Extract<this['schema'], SchemaDefinition>>
+				AuthMethodStatics<TMethods, Extract<this['schema'], SchemaDefinition>> &
+				PrincipalSchemaCarrier
 		: unknown
 }
 
@@ -254,3 +259,13 @@ export const createUserSchemaFactory =
 				)
 			},
 		})
+
+declare module '@ultimabase/core' {
+	interface PrincipalSchemaProviders {
+		/**
+		 * `authPlugin` designates its User schema: request principals point to
+		 * it (ADR-0340).
+		 */
+		readonly 'ultimabase.auth': true
+	}
+}

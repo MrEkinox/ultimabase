@@ -1,5 +1,6 @@
 import type {
 	CompatibleFieldOptionsExtension,
+	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -35,7 +36,7 @@ export type TimeField<TState extends FieldTypeState = FieldTypeState> =
 
 /** Provides time-specific names for compact auto-now inference. */
 type DefaultedTimeFieldOptions<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
@@ -43,7 +44,7 @@ type DefaultedTimeFieldOptions<
 > = DefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
-	TRequired,
+	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>,
@@ -86,11 +87,17 @@ type ResolvedTimeField<
 >
 
 type DefaultedTimeField<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedTimeField<TRequired, TList, TImmutable, true, TAutoNow>
+> = ResolvedTimeField<
+	DefaultedFieldNonNull<TNullable>,
+	TList,
+	TImmutable,
+	true,
+	TAutoNow
+>
 
 type NonDefaultedTimeField<
 	TRequired extends boolean,
@@ -103,7 +110,7 @@ export interface TimeFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
@@ -112,7 +119,7 @@ export interface TimeFieldFactory<
 	>(
 		options: CompatibleFieldOptionsExtension<
 			DefaultedTimeFieldOptions<
-				TRequired,
+				TNullable,
 				TList,
 				TImmutable,
 				TAutoNow,
@@ -120,11 +127,16 @@ export interface TimeFieldFactory<
 			>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
+			ResolvedFieldSourceOptions<
+				TSourceTemplate,
+				string,
+				TList,
+				DefaultedFieldNonNull<TNullable>
+			>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
+		DefaultedTimeField<TNullable, TList, TImmutable, TAutoNow>
 	>
 	<
 		const TRequired extends boolean = false,
