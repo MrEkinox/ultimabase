@@ -1,4 +1,4 @@
-import { FrameworkError, privateStore } from '@ultimabase/core'
+import { privateStore } from '@ultimabase/core'
 import {
 	immutableArray,
 	immutableRecord,
@@ -7,6 +7,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { AuthCollections, UserStateRecord } from './collections.js'
+import { rejectConflict } from './errors.js'
 
 /** The private authentication state of one user. */
 export interface UserState {
@@ -45,9 +46,6 @@ const toState = (record: UserStateRecord | null): UserState =>
 		tokenIds: readTokenIds(record?.tokenIds),
 	})
 
-const isUniqueViolation = (error: unknown): boolean =>
-	error instanceof FrameworkError && error.code === 'UNIQUE_VIOLATION'
-
 /** Reads the state of a user; a user without a row is at generation 0. */
 export const readUserState = async (
 	collections: AuthCollections,
@@ -80,13 +78,15 @@ export const swapUserState = async (
 			tokenIds: { ...next.tokenIds },
 		}
 		if (record === null) {
-			try {
-				await store.insert({ data: { ...data, userId, version: 0 } })
+			// A concurrent change may create the row first: swap it next.
+			if (
+				(await store.insertIfAbsent({
+					data: { ...data, userId, version: 0 },
+				})) !== null
+			) {
 				return next
-			} catch (error: unknown) {
-				if (!isUniqueViolation(error)) throw error
-				continue
 			}
+			continue
 		}
 		if (
 			(await store.compareAndSwap({
@@ -98,11 +98,7 @@ export const swapUserState = async (
 			return next
 		}
 	}
-	throw new FrameworkError(
-		'TRANSACTION_CONFLICT',
-		'Concurrent authentication changes conflicted.',
-		{ publicMessage: 'The request conflicted; retry it.', retryable: true },
-	)
+	return rejectConflict()
 }
 
 /** Applies one unconditional change to the state of a user (see `swapUserState`). */

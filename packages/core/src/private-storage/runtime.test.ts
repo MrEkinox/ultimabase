@@ -157,6 +157,25 @@ const createFixture = async () => {
 					},
 				})
 				throw new Error('atomic rollback')
+			case 'insert-if-absent': {
+				const data = {
+					id: '0198c000-0000-7000-8000-000000000006',
+					secret: 'digest-e',
+					version: '1',
+				}
+				const first = await store.insertIfAbsent({ data })
+				// Another id with the same secret conflicts on the secret index.
+				const second = await store.insertIfAbsent({
+					data: { ...data, id: '0198c000-0000-7000-8000-000000000007' },
+				})
+				// The transaction stays usable after the skipped insert.
+				const read = await store.findUnique({ where: { secret: 'digest-e' } })
+				return [
+					first?.id ?? 'absent',
+					second?.id ?? 'absent',
+					read?.id ?? 'missing',
+				].join(' ')
+			}
 			case 'capture':
 				retainedStore = store
 				return 'captured'
@@ -278,6 +297,19 @@ describe('owner-private plugin storage', () => {
 				.operation(privateOperation)
 				.execute({ action: 'read-b' }),
 		).toBe('missing')
+		await ultimabase.dispose()
+	})
+
+	it('inserts if absent and answers null on a unique conflict without failing the transaction', async () => {
+		const { adapter, ultimabase } = await createFixture()
+		expect(
+			await ultimabase
+				.operation(privateOperation)
+				.execute({ action: 'insert-if-absent' }),
+		).toBe(
+			'0198c000-0000-7000-8000-000000000006 absent 0198c000-0000-7000-8000-000000000006',
+		)
+		expect(adapter.transactions.at(-1)).toMatchObject({ privateRequests: 3 })
 		await ultimabase.dispose()
 	})
 

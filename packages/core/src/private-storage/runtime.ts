@@ -167,6 +167,7 @@ export const privateStore = <const TCollection extends PrivateCollection>(
 			}
 			return result
 		},
+		insertIfAbsent: (options) => execute('insert-if-absent', options),
 		update: (options) => execute('update', options),
 		delete: (options) => execute('delete', options),
 		compareAndSwap: (options) => execute('compare-and-swap', options),

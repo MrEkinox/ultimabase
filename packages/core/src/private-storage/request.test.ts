@@ -50,6 +50,38 @@ describe('private storage request validation', () => {
 		expect(Object.isFrozen(request.data)).toBe(true)
 	})
 
+	it('snapshots a conditional insert exactly like an insert', () => {
+		const { descriptor } = createFixture()
+		const data = {
+			id: '0198c000-0000-7000-8000-000000000001',
+			secret: 'digest',
+		}
+		const insert = normalizePrivateStorageRequest(descriptor, 'insert', {
+			data,
+		})
+		const conditional = normalizePrivateStorageRequest(
+			descriptor,
+			'insert-if-absent',
+			{ data },
+		)
+
+		expect(conditional).toStrictEqual({ ...insert, kind: 'insert-if-absent' })
+		expect(Object.isFrozen(conditional)).toBe(true)
+		expect(() => {
+			normalizePrivateStorageRequest(descriptor, 'insert-if-absent', {
+				data: { secret: 'digest' },
+			})
+		}).toThrow('data.id is required')
+		expect(() => {
+			normalizePrivateStorageRequest(descriptor, 'insert-if-absent', {
+				data,
+				where: { secret: 'digest' },
+			})
+		}).toThrow(
+			'private storage insert-if-absent contains unknown option: where',
+		)
+	})
+
 	it('emits only the exact fields required by each closed operation', () => {
 		const { descriptor } = createFixture()
 		const requests = [

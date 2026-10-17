@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
 
-import { FrameworkError, privateStore } from '@ultimabase/core'
+import { privateStore } from '@ultimabase/core'
 
 import type { AttemptCollection } from './collections.js'
-import { rejectTooManyAttempts } from './errors.js'
+import { rejectConflict, rejectTooManyAttempts } from './errors.js'
 
 /**
  * Limits on failed attempts (ADR-0326). A limit allows `free` failures, then
@@ -88,10 +88,11 @@ const lockFor = (limit: AttemptLimit, failures: number): number =>
 				limit.maxDelayMs,
 			)
 
-const isUniqueViolation = (error: unknown): boolean =>
-	error instanceof FrameworkError && error.code === 'UNIQUE_VIOLATION'
-
-/** Counts one failure for each key of the subject. */
+/**
+ * Counts one failure for each key of the subject. A failure that keeps losing
+ * to concurrent ones fails the request with `TRANSACTION_CONFLICT`: dropping
+ * it would let contention bypass the limits.
+ */
 export const recordAttemptFailure = async (
 	attempts: AttemptCollection,
 	subject: AttemptSubject,
@@ -100,8 +101,10 @@ export const recordAttemptFailure = async (
 	const store = privateStore(attempts)
 	const updatedAt = new Date(now).toISOString()
 	for (const [key, limit] of keysOf(subject)) {
-		// A concurrent failure may win the swap; three tries keep counting fair.
-		for (let attempt = 0; attempt < 3; attempt += 1) {
+		let recorded = false
+		// A concurrent failure may win the first insert, then the swap: four
+		// tries let four simultaneous first failures all count.
+		for (let attempt = 0; attempt < 4 && !recorded; attempt += 1) {
 			const record = await store.findUnique({ where: { key } })
 			const failures = (record?.failures ?? 0) + 1
 			const delay = lockFor(limit, failures)
@@ -110,25 +113,16 @@ export const recordAttemptFailure = async (
 				lockedUntil: delay === 0 ? null : new Date(now + delay).toISOString(),
 				updatedAt,
 			}
-			if (record === null) {
-				try {
-					await store.insert({ data: { ...data, key } })
-					break
-				} catch (error: unknown) {
-					if (!isUniqueViolation(error)) throw error
-					continue
-				}
-			}
-			if (
-				(await store.compareAndSwap({
-					data,
-					expected: { failures: record.failures },
-					where: { key },
-				})) !== null
-			) {
-				break
-			}
+			recorded =
+				(record === null
+					? await store.insertIfAbsent({ data: { ...data, key } })
+					: await store.compareAndSwap({
+							data,
+							expected: { failures: record.failures },
+							where: { key },
+						})) !== null
 		}
+		if (!recorded) rejectConflict()
 	}
 }
 

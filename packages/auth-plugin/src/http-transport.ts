@@ -1,4 +1,5 @@
 import {
+	FrameworkError,
 	PluginError,
 	defineOperationTransport,
 	getCurrentRequest,
@@ -80,7 +81,10 @@ const isSignInRoute = (route: AuthHttpRoute): boolean =>
 	route.anonymous === true ||
 	(route.response === 'session' && route.body === 'json')
 
-/** Maps declared failures to their status and hides every other error. */
+/**
+ * Maps declared failures to their status, a retryable conflict to 409, and
+ * hides every other error.
+ */
 const errorResponse = (
 	error: unknown,
 	statuses: ReadonlyMap<string, number>,
@@ -102,6 +106,17 @@ const errorResponse = (
 					? { headers: { 'Retry-After': String(retryAfter) } }
 					: {}),
 			},
+		)
+	}
+	// A retryable conflict asks the client to retry, as REST answers it.
+	if (
+		error instanceof FrameworkError &&
+		error.code === 'TRANSACTION_CONFLICT' &&
+		error.retryable
+	) {
+		return Response.json(
+			{ error: { ...error.toJSON(), requestId } },
+			{ status: 409 },
 		)
 	}
 	return Response.json(

@@ -166,6 +166,38 @@ describe('Roles queries and seed roles', { concurrent: false }, () => {
 		await expect(listRoleNames()).resolves.toStrictEqual(['admin', 'editor'])
 	})
 
+	// ADR-0345: another instance's ensure inserts the same new name in flight;
+	// the conflict must not abort the roles ensured after it.
+	it('ensures roles while another instance creates the same name concurrently', async () => {
+		const { pool, schemaName } = requireFixture()
+		application = createApplication(requireFixture().connectionUri)
+		await application.start()
+		await application.dispose()
+		await pool.query(`DELETE FROM "${schemaName}"."role_query_roles"`)
+		const competitor = await pool.connect()
+		let committed: Promise<unknown> = Promise.resolve()
+		competingInsert = async (name) => {
+			competingInsert = undefined
+			// The competitor holds the name uncommitted while this insert waits on it.
+			await competitor.query('BEGIN')
+			await competitor.query(
+				`INSERT INTO "${schemaName}"."role_query_roles" (id, name, created_at, updated_at) VALUES (gen_random_uuid(), $1, now(), now())`,
+				[name],
+			)
+			committed = new Promise((resolve) => setTimeout(resolve, 50)).then(() =>
+				competitor.query('COMMIT'),
+			)
+		}
+		try {
+			application = createApplication(requireFixture().connectionUri)
+			await application.start()
+			await committed
+			await expect(listRoleNames()).resolves.toStrictEqual(['admin', 'editor'])
+		} finally {
+			competitor.release()
+		}
+	})
+
 	it('answers has() and current() with inheritance, for a request or a principal', async () => {
 		application = createApplication(requireFixture().connectionUri)
 		const app = await application.start()

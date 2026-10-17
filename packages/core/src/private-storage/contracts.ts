@@ -145,6 +145,22 @@ export interface PrivateCollectionHandle<
 	insert(
 		options: PrivateCollectionInsertOptions<TCollection>,
 	): Promise<PrivateCollectionRecord<TCollection>>
+	/**
+	 * Inserts one complete record, or returns `null` when a record with the
+	 * same value on any declared unique index already exists. It never raises
+	 * a unique violation nor aborts the transaction, so concurrent requests
+	 * can create the first record of a key and fall back to the winner's.
+	 *
+	 * @example
+	 * const created = await store.insertIfAbsent({ data: { key, failures: 1 } })
+	 * if (created === null) {
+	 * 	const current = await store.findUnique({ where: { key } })
+	 * 	// ...then compareAndSwap from `current`.
+	 * }
+	 */
+	insertIfAbsent(
+		options: PrivateCollectionInsertOptions<TCollection>,
+	): Promise<PrivateCollectionRecord<TCollection> | null>
 	update(
 		options: PrivateCollectionUpdateOptions<TCollection>,
 	): Promise<PrivateCollectionRecord<TCollection> | null>
