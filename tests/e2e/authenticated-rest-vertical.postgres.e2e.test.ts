@@ -431,22 +431,30 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		firstApplication = createFirstApplication()
 		await firstApplication.start()
 
-		for (const response of await Promise.all([
-			requestJson(firstAppId, statusPath, {
-				body: { input: null },
-				method: 'POST',
-				sessionToken: 'malformed',
-			}),
-			requestJson(firstAppId, statusPath, {
-				body: { input: null },
-				masterKey: 'invalid-master',
-				method: 'POST',
-				sessionToken: authenticated.token,
-			}),
-		])) {
+		// A forged session is the auth resolver's declared refusal; a wrong
+		// Master key stays the HTTP plugin's (ADR-0341).
+		for (const [response, code] of [
+			[
+				await requestJson(firstAppId, statusPath, {
+					body: { input: null },
+					method: 'POST',
+					sessionToken: 'malformed',
+				}),
+				'AUTH_INVALID_SESSION',
+			],
+			[
+				await requestJson(firstAppId, statusPath, {
+					body: { input: null },
+					masterKey: 'invalid-master',
+					method: 'POST',
+					sessionToken: authenticated.token,
+				}),
+				'HTTP_APPLICATION_REJECTED',
+			],
+		] as const) {
 			const serialized = await response.text()
 			expect(response.status).toBe(401)
-			expect(serialized).toContain('HTTP_APPLICATION_REJECTED')
+			expect(serialized).toContain(code)
 			expect(serialized).not.toMatch(/ub_s1\.|invalid-master/u)
 		}
 

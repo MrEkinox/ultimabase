@@ -95,7 +95,7 @@ describe(
 				const stale = await send('/api/auth/current', { headers: bearer })
 				expect(stale.status).toBe(401)
 				expect(await json(stale)).toMatchObject({
-					error: { code: 'HTTP_APPLICATION_REJECTED' },
+					error: { code: 'AUTH_INVALID_SESSION' },
 				})
 				const malformed = await ultimabase.plugin(httpPlugin).fetch(
 					new Request('https://api.example.test/api/auth/login', {

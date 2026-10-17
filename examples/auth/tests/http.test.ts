@@ -81,7 +81,7 @@ it('signs in over HTTP and sends the token as a Bearer', async () => {
 	})
 	expect(forged.status).toBe(401)
 	expect(await forged.json()).toMatchObject({
-		error: { code: 'HTTP_APPLICATION_REJECTED' },
+		error: { code: 'AUTH_INVALID_SESSION' },
 	})
 	// Authentication binds its operations to `/api/auth`: REST does not
 	// serve them a second time.
