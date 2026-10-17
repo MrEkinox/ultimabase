@@ -1,13 +1,3 @@
 {
-	"extends": "../../tooling/tsconfig/base.json",
-	"compilerOptions": {
-		"allowImportingTsExtensions": true,
-		"composite": false,
-		"declaration": false,
-		"declarationMap": false,
-		"isolatedDeclarations": false,
-		"noEmit": true,
-		"skipLibCheck": true
-	},
-	"include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+	"extends": "../../tooling/tsconfig/example.json"
 }

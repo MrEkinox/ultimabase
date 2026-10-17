@@ -151,8 +151,8 @@ its documentation page, and the single example of its package README:
 
 1. Write a small complete application in the declaration form, with short
    files and comments that explain intent, and its tests with
-   `testApplication` (copy `soft-delete/package.json`, `tsconfig.json` and
-   `vitest.config.ts`).
+   `testApplication` (copy `soft-delete/package.json` and `vitest.config.ts`;
+   `tsconfig.json` only extends the shared `tooling/tsconfig/example.json`).
 2. Mark each block the documentation shows with `//#region <name>` and
    `//#endregion <name>`, in `src/` for application code and in `tests/` for
    a call whose result the test then asserts. Keep test scaffolding outside

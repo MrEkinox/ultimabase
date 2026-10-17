@@ -1,0 +1,19 @@
+{
+	"extends": "./base.json",
+	// Examples run their TypeScript sources with Node.js and never emit.
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"noEmit": true,
+		"skipLibCheck": true
+	},
+	// `${configDir}` is the directory of the example tsconfig that extends this one.
+	"include": [
+		"${configDir}/src/**/*.ts",
+		"${configDir}/tests/**/*.ts",
+		"${configDir}/vitest.config.ts"
+	]
+}

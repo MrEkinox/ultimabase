@@ -12,6 +12,8 @@
 	"include": [
 		"*.config.ts",
 		"packages/*/*.config.ts",
+		// Files create-app copies into every generated TypeScript project.
+		"packages/create-app/template/*.ts",
 		"tooling/**/*.config.ts"
 	],
 	"references": [

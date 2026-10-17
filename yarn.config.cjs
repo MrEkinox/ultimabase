@@ -123,7 +123,13 @@ const constrainPublishedManifests = ({ Yarn }) => {
 		if (!isPublished(workspace)) continue
 		workspace.set('type', 'module')
 		workspace.set('license', 'Apache-2.0')
-		workspace.set('files', ['dist'])
+		// The initializer also publishes the files it copies into new projects.
+		workspace.set(
+			'files',
+			workspace.ident === '@ultimabase/create-app'
+				? ['dist', 'template']
+				: ['dist'],
+		)
 		// Consumers on an older Node get an install-time warning, not a runtime crash.
 		workspace.set(['engines', 'node'], '>=24.0.0')
 		workspace.set('repository', {
