@@ -7,7 +7,6 @@ import {
 import type {
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
 	DatabaseRelationPredicateScope,
 	DatabaseRelationReference,
 	DatabaseRowFilterNode,
@@ -48,7 +47,7 @@ export const createRuntimeStageInput = <const TInput extends object>(
 }
 
 export const createRuntimeOperationInput = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	context: RequestContext,
 	operation: TOperation,
@@ -56,7 +55,7 @@ export const createRuntimeOperationInput = <
 	createRuntimeStageInput({ context, operation })
 
 export const createRuntimeEnforcementInput = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	context: RequestContext,
 	operation: TOperation,
@@ -84,7 +83,7 @@ export const createRuntimePreparedMutationInput = <
 
 /** Retains every protected restriction prepared for one read or mutation. */
 export interface RuntimeOperationEnforcement<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
 > {
 	readonly enforcement: EnforcementState | undefined
 	readonly operation: TOperation
@@ -96,9 +95,10 @@ export interface RuntimeOperationEnforcement<
 /**
  * Applies protected policy before resolving one application-owned relation filter,
  * then prepares every relation predicate against the final private filters.
+ * Native operations and plugin schema mutations share it (ADR-0344).
  */
 export const enforceRuntimeOperation = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	stages: Readonly<RuntimePipelineStages>,
 	context: RequestContext,

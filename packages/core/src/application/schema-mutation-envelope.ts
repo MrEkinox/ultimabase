@@ -8,6 +8,7 @@ import {
 	queryFromFindManyInput,
 	queryFromFindOneInput,
 } from '../query/query/input.js'
+import { readWriteSelection } from '../query/clauses/selection.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type {
 	PluginSchemaMutationEnvelope,
@@ -34,7 +35,7 @@ const readWriteProjection = (
 		...(projection.include === undefined
 			? {}
 			: { include: projection.include }),
-		select: projection.select ?? { id: true },
+		select: readWriteSelection(projection.select),
 	})
 
 /** Handles and transports validate the payload before reading result projection options. */

@@ -274,7 +274,11 @@ surface. Static transport planning and late execution remain separate; Core and
 the transports never name `softDeleteOne`, `restoreOne`, or `purgeOne`. A
 mutation declared with `target: 'many'` takes a `where`: Core resolves the
 rows the command may target, then runs the one-row pipeline for each inside one
-transaction (ADR-0316).
+transaction (ADR-0316), locking every row before the first write so its
+readability is checked with one grouped query. The plugin executor shares the
+native policy stages (ADR-0344): protected policy with relation predicates,
+database capability assertions, the readable-result policy, the persistence-plan
+rewrite and the outcome stages each have one owner.
 
 ADR-0248 also exposes schema mutations through direct frozen-class syntax.
 Each call resolves the sole active initialized application and verifies exact

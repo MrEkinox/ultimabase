@@ -14,8 +14,8 @@ import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { getApplicationRuntimeCallbackExecutor } from '../contributions/execution.js'
 import type { RequestContext } from '../context/request-context.js'
+import type { RuntimeLogicalOperationAst } from '../pipeline/contracts.js'
 import type {
-	DatabaseOperationAst,
 	DatabaseRelationPredicateScope,
 	DatabaseRelationReference,
 	DatabaseRowFilterNode,
@@ -45,7 +45,7 @@ type RelationFilterApplication = FrameworkApplication<
 /** Supplies the final private filters already accumulated for one root operation. */
 export interface RuntimeRelationPredicatePreparationInput {
 	readonly context: RequestContext
-	readonly operation: DatabaseOperationAst
+	readonly operation: RuntimeLogicalOperationAst
 	readonly relationPredicates?:
 		readonly DatabaseRelationPredicateScope[] | undefined
 	readonly rowFilter?: DatabaseRowFilterNode | undefined
@@ -142,7 +142,7 @@ class RuntimeRelationPredicatePreparer {
 		expression: QueryExpressionNode,
 		depth: number,
 		origin: PredicateOrigin,
-		sourceOperation: DatabaseOperationAst,
+		sourceOperation: RuntimeLogicalOperationAst,
 	): Promise<void> {
 		for (const predicate of collectDirectRelationPredicates(expression)) {
 			await this.#visitPredicate(predicate, depth + 1, origin, sourceOperation)
@@ -153,7 +153,7 @@ class RuntimeRelationPredicatePreparer {
 		predicate: QueryRelationFilterNode,
 		depth: number,
 		origin: PredicateOrigin,
-		sourceOperation: DatabaseOperationAst,
+		sourceOperation: RuntimeLogicalOperationAst,
 	): Promise<void> {
 		if (depth > queryRelationPredicateMaxDepth) {
 			throw createQueryRelationDepthError()

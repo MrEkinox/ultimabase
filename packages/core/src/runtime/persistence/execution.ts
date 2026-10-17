@@ -13,6 +13,7 @@ import type {
 import {
 	databasePersistencePlanVersion,
 	type DatabasePersistencePlan,
+	type PersistenceLogicalOperationAst,
 	type RuntimePersistencePlanRewriteStage,
 } from './contracts.js'
 import {
@@ -71,16 +72,21 @@ export const assertPersistencePlanCapability = (
 	}
 }
 
-/** Compiles and authorizes the final physical plan without exposing constraints. */
+/**
+ * Compiles and authorizes the final physical plan without exposing constraints.
+ * Rewriters observe the logical operation: the physical one itself, or the
+ * plugin schema mutation it carries out (ADR-0245, ADR-0344).
+ */
 export const compileDatabasePersistencePlan = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	executor: DatabaseOperationExecutor,
-	logicalOperation: TOperation,
+	operation: TOperation,
 	rewrite: RuntimePersistencePlanRewriteStage | undefined,
 	returningSelection?: QuerySelectionNode,
+	logicalOperation: PersistenceLogicalOperationAst = operation,
 ): Promise<DatabasePersistencePlan<TOperation>> => {
-	const canonical = createCanonicalPlan(logicalOperation, returningSelection)
+	const canonical = createCanonicalPlan(operation, returningSelection)
 	const plan =
 		rewrite === undefined
 			? canonical

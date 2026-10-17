@@ -84,13 +84,17 @@ export class AccessRuntime {
 		const operation: RuntimeLogicalOperationAst = request.operation
 		const scope = this.#scope(request.context, operation)
 		let rowFilter
+		// `can()` carries no input or selection: field rules do not apply,
+		// and create items run only on the candidate data it received.
+		const query = readPolicyQuery(operation)
 		if (operation.kind === 'plugin-schema-mutation') {
 			rowFilter = await evaluateSchemaMutationAccess(scope, operation)
+			// A command's targeting filter obeys the field read rules (ADR-0344).
+			if (query === undefined) {
+				await evaluateAccessFieldReferenceRules(scope, operation)
+			}
 		} else {
 			rowFilter = await evaluateAccessOperation(scope, operation.kind)
-			// `can()` carries no input or selection: field rules do not apply,
-			// and create items run only on the candidate data it received.
-			const query = readPolicyQuery(operation)
 			if (query === undefined) {
 				// Native field transitions and create-item checks belong only to CRUD.
 				await evaluateAccessFieldReferenceRules(scope, operation)
