@@ -43,7 +43,7 @@ its transaction the same way.
 ## Consequences
 
 - Tests: the concurrent first-failure test passes; concurrent first sign-ins succeed; `insertIfAbsent` on PostgreSQL and
-  the shared memory test database (returns the record, then `null`, without aborting); an attempt that cannot be
+  Core's in-memory private-storage test adapter (returns the record, then `null`, without aborting); an attempt that cannot be
   recorded answers `TRANSACTION_CONFLICT`; roles `ensure` under concurrency.
 - Plugin authors get a way to create keyed records under concurrency without catching database errors.
 - **Documentation impact:** both: the plugin-authoring page that documents private storage, and this record.
