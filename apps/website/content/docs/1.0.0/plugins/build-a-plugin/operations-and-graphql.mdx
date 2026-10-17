@@ -387,9 +387,7 @@ id }`. In one transaction, Core finds the rows the caller may target, then runs
 the one-row pipeline for each in identifier order, so Access, Hooks and
 readable-result checks apply per row and one refusal rolls back all of them.
 Many-row mutations have no transport binding yet. If an effect's write collides
-with a unique index, the call fails with `UNIQUE_VIOLATION` (`Cannot run
-
-<command> on <Schema> <id>: <fields> is now used by another row.`).
+with a unique index, the call fails with `UNIQUE_VIOLATION` (`Cannot run <command> on <Schema> <id>: <fields> is now used by another row.`).
 
 ## REST and HTTP are separate choices
 
