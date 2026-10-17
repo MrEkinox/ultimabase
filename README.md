@@ -58,76 +58,24 @@ const posts = await Post.findMany({
 console.log(toJSON(posts), started.state)
 ```
 
-Every type infers from the declarations themselves, with no generation step
-(ADR-0297): plugin fields, rules and commands come from the configured
-factory, and relations name their target with a thunk (`() => Author`).
-JavaScript executes the same graph.
+Types come from the declarations themselves, with no generation step.
 
-## Principles
+## What it gives you
 
-- Developer declarations plus authorized deterministic plugin contributions
-  form the authoritative compiled application graph.
-- Concrete product capabilities are plugins; Core is the trusted,
-  privilege-aware application and execution kernel.
-- Publishable plugin packages use the explicit `-plugin` directory and package-name suffix.
-- Core contains Schema, Query, application orchestration, protected execution,
-  persistence-plan, master-authority, and Runtime mechanisms while remaining
-  independent from concrete product and infrastructure implementations.
-- REST and GraphQL use one operation AST and one runtime pipeline.
-- Singular creates and updates accept the same schema-aware nested pointer and
-  relation commands through direct TypeScript, REST, and GraphQL. Core executes
-  the complete bounded graph in one automatic transaction.
-- Relations may declare one static or request-contextual `where` with
-  `relations` in the schema's `.with` that shapes direct reads, eager
-  inclusions, REST, and GraphQL consistently without replacing Access, ACL,
-  protected constraints, or physical membership.
-- UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
-- Hooks, Access, and application field validation are optional official plugin
-  capabilities. The Validation plugin owns Standard Schema rules while Core
-  always retains structural validation. ACL contributes
-  persisted per-object policies directly
-  through Core's generic protected-policy boundary, while roles and
-  authentication provide optional request subjects. Core keeps anonymous and
-  trusted master authority; master bypasses authorization without bypassing
-  structural or installed application validation, hooks, transactions, or
-  integrity constraints.
-- Types come from the declarations, without code generation; JavaScript
-  applications run the same graph without a generated client.
-- Stable plugin operations and application-specific schema surfaces execute
-  through application-owned handles. Plugin schema mutations can also be
-  called directly on a frozen configured schema class; the class resolves the
-  sole active owner and dispatches through its compiled handle.
-- The official soft-delete plugin turns a schema's native deletes into a
-  tombstone (`softDelete: true` in `define`) or keeps them physical and adds the
-  `softDeleteOne`/`softDeleteMany` commands (`softDelete: { mode: 'command' }`).
-  Ordinary reads stay tombstone-blind; `restoreOne`/`restoreMany` are
-  authorized by Access, while audited `purgeOne`/`purgeMany` remain private to
-  trusted server code.
-- Owner-private plugin records retain typed transactional persistence and
-  versioned physical provenance without becoming application schemas, Query
-  surfaces, generated transport routes, or application behavior inputs.
-- PostgreSQL synchronization is available today. Migration support is not shipped;
-  a future migration product would own reviewed DDL and history separately.
-- An optional HTTP plugin delivers HTTP application identity,
-  Fetch-compatible route composition, and request context resolution. Hono
-  only provides the server, REST and GraphQL remain sibling transports, and
-  authentication (`auth-plugin` with methods such as `auth-password`) adds
-  identity without granting authorization.
-- That target enters Runtime through a narrow Core request-execution capability
-  rather than giving HTTP the application engine. Cross-origin access is
-  explicit and disabled by default. One initialized application owns resources
-  per JavaScript realm; independent workers or processes may run in parallel.
-- The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
+- **A small Core:** schemas, queries, one operation engine, transactions and
+  audited Master authority. Everything else is a plugin, and Core never knows a
+  plugin.
+- **Official plugins:** PostgreSQL, REST, GraphQL, HTTP, Access, Hooks,
+  Validation, ACL, Roles, Soft Delete and password authentication.
+- **One pipeline for every caller:** server code, REST and GraphQL run the same
+  rules, hooks and validation.
 
-The shipped authenticated REST, GraphQL, soft-delete, nested-write,
-virtual-result, and contextual relation-filter vertical is demonstrated by the
-[`examples/full-stack`](examples/full-stack/README.md)
-application. It exercises network-independent GraphQL execution and the
-optional Yoga HTTP adapter beside REST, including atomic pointer and relation
-writes, both soft-delete modes, private Master restoration and purge, plus
-request-aware output-only fields whose persisted dependencies stay private and
-relation views shaped from authentication context, while GraphiQL and Apollo
-Sandbox remain separate development plugins.
+Read the [documentation](apps/website/content/docs/1.0.0/index.mdx): the
+[quick start](apps/website/content/docs/1.0.0/quick-start.mdx), the
+[comparison with Parse Server and others](apps/website/content/docs/1.0.0/comparison/overview.mdx)
+and the [official plugins](apps/website/content/docs/1.0.0/plugins/overview.mdx).
+The [full-stack example](examples/full-stack/README.md) combines REST, GraphQL,
+authentication and policies.
 
 ## Repository map
 
