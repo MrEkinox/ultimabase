@@ -1,11 +1,11 @@
 # ADR-0344: Plugin mutations share the native policy stages
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-17
 - Refines: ADR-0245 (plugin schema mutations), ADR-0306 (readable mutation results), ADR-0316 decision 6 (many-row
   plugin commands), ADR-0317 (Access rules); applies ADR-0288
 - Approval: change-amplification audit and mutation-path investigation of 2026-10-17; cleanup programme approved by the
-  user on 2026-10-17
+  user on 2026-10-17; record accepted by the user on 2026-10-17
 
 ## Context
 

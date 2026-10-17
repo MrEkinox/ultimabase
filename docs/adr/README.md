@@ -315,7 +315,7 @@ Current records (accepted or still active in part):
 - [ADR-0341: Write results and refusals a client can act on](0341-write-results-and-refusals.md)
 - [ADR-0342: Validate locally without coverage, once](0342-local-gate-without-coverage.md)
 - [ADR-0343: The website is the single documentation source](0343-website-is-the-single-documentation-source.md)
-- [ADR-0344: Plugin mutations share the native policy stages](0344-one-mutation-policy-for-plugin-mutations.md) (proposed)
+- [ADR-0344: Plugin mutations share the native policy stages](0344-one-mutation-policy-for-plugin-mutations.md)
 
 Proposed records (awaiting user validation):
 
