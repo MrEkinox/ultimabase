@@ -99,10 +99,11 @@ Docker.
   changes since the merge base with `main` (uncommitted files included); a
   change to shared inputs runs `yarn validate:full` instead.
 - `yarn validate:full`: the complete gate required before merging into `main`.
-  It runs every suite once: format, typecheck, lint, build, performance budgets
-  without instrumentation, complete source-mode coverage of unit, type, E2E and
-  PostgreSQL E2E projects, dependency constraints, and public-documentation
-  validation.
+  It runs every suite once: format, typecheck, lint, build, performance budgets,
+  one uninstrumented run of the unit, type, E2E, PostgreSQL E2E and isolated E2E
+  projects against the built packages, dependency constraints, and
+  public-documentation validation. Coverage is checked by GitHub CI
+  ([ADR-0342](../docs/adr/0342-local-gate-without-coverage.md)).
 - `yarn test`: run package unit tests, compile-time type tests, and deterministic performance budgets.
 - `yarn test:all`: run unit, type, build, cross-package E2E, and package archive checks.
 - `yarn test:e2e`: build every package, then run ordinary and PostgreSQL E2E tests.
@@ -142,7 +143,7 @@ Apollo Sandbox own their browser behavior, while root suites retain explorer
 collisions, application isolation, and compatible-provider composition. Shared
 fixture modules contain helpers only; importing one never executes another suite.
 
-The root `yarn test:coverage` remains the complete coverage gate. A package-only
+The root `yarn test:coverage` remains the complete coverage gate, run by GitHub CI. A package-only
 run does not replace it or apply global coverage thresholds to a partial suite.
 See [ADR-0250](../docs/adr/0250-package-owned-e2e-and-type-tests.md).
 

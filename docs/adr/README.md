@@ -313,6 +313,7 @@ Current records (accepted or still active in part):
 - [ADR-0339: `define` describes the schema, `.with` configures each plugin](0339-define-describes-with-configures.md)
 - [ADR-0340: Lower what every application pays](0340-what-every-application-pays.md)
 - [ADR-0341: Write results and refusals a client can act on](0341-write-results-and-refusals.md)
+- [ADR-0342: Validate locally without coverage, once](0342-local-gate-without-coverage.md)
 
 Proposed records (awaiting user validation):
 

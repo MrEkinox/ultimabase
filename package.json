@@ -40,7 +40,7 @@
 		"typecheck:typescript-7": "node tooling/ci/typescript-7.ts",
 		"validate": "yarn format:check && yarn typecheck && yarn test && yarn lint && yarn build",
 		"validate:affected": "node tooling/ci/local.ts",
-		"validate:full": "yarn format:check && yarn typecheck && yarn lint && yarn build && yarn test:performance && yarn test:coverage --exclude '**/*.performance.test.ts' && yarn constraints && yarn website:validate",
+		"validate:full": "yarn format:check && yarn typecheck && yarn lint && yarn build && yarn test:performance && vitest run --project unit --project types --project e2e --project postgres-e2e --project e2e-isolated && yarn constraints && yarn website:validate",
 		"website:build": "yarn workspace @ultimabase/website build",
 		"website:build:public": "yarn workspace @ultimabase/website build:public",
 		"website:dev": "yarn workspace @ultimabase/website dev",

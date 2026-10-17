@@ -61,6 +61,7 @@ regressions that every suite missed:
 - Copies of user-controlled keys use `Object.fromEntries` or `Map`, never
   `object[key] = value` (several reference defects came from `__proto__` keys).
 - `yarn install --immutable`: `validate:full` does not check that `yarn.lock` matches the manifests, and CI fails when it does not.
+- `yarn test:coverage` runs in GitHub CI, not in `validate:full` (ADR-0342); run it locally when a change could lower coverage.
 - `yarn website:test` (browser and accessibility suite) when a change touches `apps/website`: `validate:full` does not run it, and CI does.
 
 ## Known load-sensitive tests
