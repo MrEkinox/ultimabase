@@ -44,7 +44,7 @@ const defineVirtualSchema = () =>
 				select: { id: true },
 			}),
 			flag: field.virtual({
-				output: (output) => output.boolean({ nullable: false }),
+				output: (output) => output.boolean(),
 				resolve: () => true,
 				select: { id: true },
 			}),
@@ -84,7 +84,7 @@ const defineVirtualSchema = () =>
 				select: { id: true },
 			}),
 			tags: field.virtual({
-				output: (output) => output.string({ list: true, nullable: false }),
+				output: (output) => output.string({ list: true }),
 				resolve: () => ['one'],
 				select: { id: true },
 			}),
@@ -102,7 +102,7 @@ const defineVirtualSchema = () =>
 				output: (output) =>
 					output.object({
 						fields: (nested) => ({
-							label: nested.string({ nullable: false }),
+							label: nested.string(),
 							nested: nested.object({
 								fields: (child) => ({ score: child.int() }),
 							}),
@@ -116,7 +116,7 @@ const defineVirtualSchema = () =>
 				output: (output) =>
 					output.object({
 						fields: (nested) => ({
-							label: nested.string({ nullable: false }),
+							label: nested.string(),
 							nested: nested.object({
 								fields: (child) => ({ score: child.int() }),
 							}),
@@ -179,6 +179,7 @@ describe('GraphQL virtual schema compilation', () => {
 		if (!isObjectType(model) || !isObjectType(summary)) {
 			throw new TypeError('Expected virtual output object types')
 		}
+		// ADR-0340: outputs are non-null unless they declare `nullable: true`.
 		expect(
 			Object.fromEntries(
 				Object.entries(model.getFields()).map(([name, field]) => [
@@ -187,20 +188,20 @@ describe('GraphQL virtual schema compilation', () => {
 				]),
 			),
 		).toMatchObject({
-			bigCounter: 'BigInt',
-			binary: 'Base64',
-			calendarDate: 'Date',
-			clockTime: 'Time',
-			count: 'SafeInt',
-			externalId: 'UUID',
+			bigCounter: 'BigInt!',
+			binary: 'Base64!',
+			calendarDate: 'Date!',
+			clockTime: 'Time!',
+			count: 'SafeInt!',
+			externalId: 'UUID!',
 			flag: 'Boolean!',
-			instant: 'DateTime',
-			metadata: 'JSON',
-			price: 'Decimal',
-			ratio: 'Float',
-			repeatedSummary: 'SharedVirtualSummary',
-			status: 'VirtualStatus',
-			summary: 'SharedVirtualSummary',
+			instant: 'DateTime!',
+			metadata: 'JSON!',
+			price: 'Decimal!',
+			ratio: 'Float!',
+			repeatedSummary: 'SharedVirtualSummary!',
+			status: 'VirtualStatus!',
+			summary: 'SharedVirtualSummary!',
 			tags: '[String!]!',
 		})
 		expect(Object.keys(summary.getFields())).toStrictEqual([

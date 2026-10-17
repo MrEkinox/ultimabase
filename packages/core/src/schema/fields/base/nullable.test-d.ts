@@ -13,7 +13,7 @@ import {
 	type SchemaCreateData,
 	type SchemaItem,
 	type SchemaUpdateData,
-} from '../../index.js'
+} from '../../../index.js'
 
 // ADR-0340: a default makes a stored field non-null unless it declares
 // `nullable: true`; `nullable` exists only beside a default.

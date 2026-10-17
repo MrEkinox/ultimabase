@@ -17,7 +17,7 @@ describe('Runtime virtual field projection', () => {
 				title: field.string(),
 				targets: field.relation({ target: 'VirtualProjectionTarget' }),
 				headline: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					resolve: ({ item }) => String(item.title),
 					select: { title: true },
 				}),

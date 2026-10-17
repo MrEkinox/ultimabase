@@ -14,7 +14,7 @@ export const User = UltimaBase.Schema.define({
 		tags: field.string({ list: true }),
 		displayName: field.virtual({
 			description: 'The public display name',
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) => `${item.firstName} ${item.lastName}`,
 		}),
@@ -51,7 +51,7 @@ const Profile = UltimaBase.Schema.define({
 			resolve: ({ item }) => item.nickname,
 		}),
 		publicLabels: field.virtual({
-			output: (output) => output.string({ list: true, nullable: false }),
+			output: (output) => output.string({ list: true }),
 			select: { labels: true },
 			resolve: ({ item }) => item.labels ?? [],
 		}),
@@ -59,10 +59,9 @@ const Profile = UltimaBase.Schema.define({
 			output: (output) =>
 				output.object({
 					typeName: 'ProfileSummary',
-					nullable: false,
 					fields: (output) => ({
-						label: output.string({ nullable: false }),
-						aliases: output.string({ list: true, nullable: false }),
+						label: output.string(),
+						aliases: output.string({ list: true }),
 					}),
 				}),
 			select: { firstName: true, lastName: true },
@@ -92,7 +91,7 @@ const Account = UltimaBase.Schema.define({
 	fields: (field) => ({
 		email: field.string({ required: true }),
 		maskedEmail: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { email: true },
 			resolve: async ({ item, context }) => {
 				const canReadEmail = context.source === 'internal-job'

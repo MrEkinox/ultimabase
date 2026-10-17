@@ -37,7 +37,10 @@ export interface OutputValueOptions<
 	readonly description?: string
 	/** Wraps the complete value in one homogeneous list. @example `list: true` */
 	readonly list?: TList
-	/** Allows the complete value or list container to be `null`. @example `nullable: false` */
+	/**
+	 * Allows the complete value or list container to be `null`; outputs are
+	 * non-null otherwise (ADR-0340). @example `nullable: true`
+	 */
 	readonly nullable?: TNullable
 }
 
@@ -107,31 +110,31 @@ interface OutputScalarBuilderMethod<
 > {
 	/** Declares one non-null scalar output value. */
 	(
-		options: OutputValueOptions<false, false> &
+		options?: OutputValueOptions<false, false> &
 			TRepresentationOptions & {
 				readonly list?: false
-				readonly nullable: false
+				readonly nullable?: false
 			} & OutputSourceOptions<TSourceTemplate, TValue>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, false>
 	(
 		options: OutputValueOptions<false, true> &
 			TRepresentationOptions & {
 				readonly list: true
-				readonly nullable: false
+				readonly nullable?: false
 			} & OutputSourceOptions<TSourceTemplate, readonly TValue[]>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, true>
 	(
 		options: OutputValueOptions<true, true> &
 			TRepresentationOptions & {
 				readonly list: true
-				readonly nullable?: true
+				readonly nullable: true
 			} & OutputSourceOptions<TSourceTemplate, readonly TValue[] | null>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, true, true>
 	(
-		options?: OutputValueOptions<true, false> &
+		options: OutputValueOptions<true, false> &
 			TRepresentationOptions & {
 				readonly list?: false
-				readonly nullable?: true
+				readonly nullable: true
 			} & OutputSourceOptions<TSourceTemplate, TValue | null>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, true, false>
 	<const TNullable extends boolean, const TList extends boolean>(
@@ -196,19 +199,19 @@ interface OutputEnumBuilderMethod<
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, false, false> & {
 			readonly list?: false
-			readonly nullable: false
+			readonly nullable?: false
 		} & OutputSourceOptions<TSourceTemplate, EnumValue<TValues>>,
 	): EnumOutputDescriptor<TValues, false, false>
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, false, true> & {
 			readonly list: true
-			readonly nullable: false
+			readonly nullable?: false
 		} & OutputSourceOptions<TSourceTemplate, readonly EnumValue<TValues>[]>,
 	): EnumOutputDescriptor<TValues, false, true>
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, true, true> & {
 			readonly list: true
-			readonly nullable?: true
+			readonly nullable: true
 		} & OutputSourceOptions<
 				TSourceTemplate,
 				readonly EnumValue<TValues>[] | null
@@ -217,7 +220,7 @@ interface OutputEnumBuilderMethod<
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, true, false> & {
 			readonly list?: false
-			readonly nullable?: true
+			readonly nullable: true
 		} & OutputSourceOptions<TSourceTemplate, EnumValue<TValues> | null>,
 	): EnumOutputDescriptor<TValues, true, false>
 	<
@@ -272,7 +275,7 @@ interface OutputObjectBuilderMethod<
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> & {
 			readonly list?: false
-			readonly nullable: false
+			readonly nullable?: false
 		} & OutputSourceOptions<TSourceTemplate, OutputObjectValue<TFields>>,
 	): ObjectOutputDescriptor<TFields, false, false>
 	<const TFields extends OutputFields>(
@@ -283,7 +286,7 @@ interface OutputObjectBuilderMethod<
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> & {
 			readonly list: true
-			readonly nullable: false
+			readonly nullable?: false
 		} & OutputSourceOptions<
 				TSourceTemplate,
 				readonly OutputObjectValue<TFields>[]
@@ -297,7 +300,7 @@ interface OutputObjectBuilderMethod<
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> & {
 			readonly list: true
-			readonly nullable?: true
+			readonly nullable: true
 		} & OutputSourceOptions<
 				TSourceTemplate,
 				readonly OutputObjectValue<TFields>[] | null
@@ -311,7 +314,7 @@ interface OutputObjectBuilderMethod<
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> & {
 			readonly list?: false
-			readonly nullable?: true
+			readonly nullable: true
 		} & OutputSourceOptions<TSourceTemplate, OutputObjectValue<TFields> | null>,
 	): ObjectOutputDescriptor<TFields, true, false>
 	<
@@ -336,7 +339,7 @@ interface OutputCoreBuilderMethods<
 	TSourceTemplate extends object,
 	TPluginMethods extends object,
 > {
-	/** Describes a string result. @example `output.string({ nullable: false })` */
+	/** Describes a string result. @example `output.string({ nullable: true })` */
 	readonly string: OutputScalarBuilderMethod<
 		'string',
 		string,

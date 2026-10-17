@@ -1,5 +1,6 @@
 import type {
 	CompatibleFieldOptionsExtension,
+	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -28,14 +29,14 @@ export type UuidField<TState extends FieldTypeState = FieldTypeState> =
 	FieldDefinition<'uuid', string, UuidFieldOptions, TState>
 
 type DefaultedUuidFieldOptions<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
 	string,
-	TRequired,
+	TNullable,
 	TList,
 	TImmutable,
 	object,
@@ -73,10 +74,10 @@ type ResolvedUuidField<
 >
 
 type DefaultedUuidField<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedUuidField<TRequired, TList, TImmutable, true>
+> = ResolvedUuidField<DefaultedFieldNonNull<TNullable>, TList, TImmutable, true>
 
 type NonDefaultedUuidField<
 	TRequired extends boolean,
@@ -88,21 +89,26 @@ export interface UuidFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedUuidFieldOptions<TRequired, TList, TImmutable, TIndexed>,
+			DefaultedUuidFieldOptions<TNullable, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
+			ResolvedFieldSourceOptions<
+				TSourceTemplate,
+				string,
+				TList,
+				DefaultedFieldNonNull<TNullable>
+			>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedUuidField<TRequired, TList, TImmutable>
+		DefaultedUuidField<TNullable, TList, TImmutable>
 	>
 	<
 		const TRequired extends boolean = false,

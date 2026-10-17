@@ -141,7 +141,6 @@ describe('OutputBuilder', () => {
 			return output.string({
 				description: 'Public label',
 				list: false,
-				nullable: false,
 			})
 		}, 'User.label.output')
 
@@ -163,28 +162,25 @@ describe('OutputBuilder', () => {
 			(output) =>
 				output.object({
 					fields: (nested) => ({
-						bigint: nested.bigint({ nullable: false }),
-						binary: nested.binary({ nullable: false }),
-						boolean: nested.boolean({ nullable: false }),
-						date: nested.date({ nullable: false }),
-						dateTime: nested.dateTime({ nullable: false }),
+						bigint: nested.bigint(),
+						binary: nested.binary(),
+						boolean: nested.boolean(),
+						date: nested.date(),
+						dateTime: nested.dateTime(),
 						decimal: nested.decimal({
-							nullable: false,
 							precision: 4,
 							scale: 2,
 						}),
 						enum: nested.enum({
-							nullable: false,
 							values: ['draft', 'published'],
 						}),
-						float: nested.float({ nullable: false }),
-						int: nested.int({ nullable: false }),
-						json: nested.json({ nullable: false }),
-						string: nested.string({ nullable: false }),
-						time: nested.time({ nullable: false }),
-						uuid: nested.uuid({ nullable: false }),
+						float: nested.float(),
+						int: nested.int(),
+						json: nested.json(),
+						string: nested.string(),
+						time: nested.time(),
+						uuid: nested.uuid(),
 					}),
-					nullable: false,
 				}),
 			'User.summary.output',
 		)
@@ -258,10 +254,9 @@ describe('OutputBuilder', () => {
 			(output) =>
 				output.object({
 					fields: (nested) => ({
-						label: nested.string({ nullable: false }),
+						label: nested.string(),
 						note: nested.string(),
 					}),
-					nullable: false,
 					typeName: 'Summary',
 				}),
 			'User.summary.output',
@@ -293,32 +288,27 @@ describe('OutputBuilder', () => {
 		const invalidCases = [
 			{
 				descriptor: resolveOutputBuilder(
-					(output) => output.dateTime({ nullable: false, timezone: false }),
+					(output) => output.dateTime({ timezone: false }),
 					'output',
 				),
 				value: '2026-09-09T12:30:00.000Z',
 			},
 			{
 				descriptor: resolveOutputBuilder(
-					(output) =>
-						output.decimal({ nullable: false, precision: 3, scale: 1 }),
+					(output) => output.decimal({ precision: 3, scale: 1 }),
 					'output',
 				),
 				value: '123.4',
 			},
 			{
 				descriptor: resolveOutputBuilder(
-					(output) =>
-						output.enum({ nullable: false, values: ['draft', 'published'] }),
+					(output) => output.enum({ values: ['draft', 'published'] }),
 					'output',
 				),
 				value: 'archived',
 			},
 			{
-				descriptor: resolveOutputBuilder(
-					(output) => output.uuid({ nullable: false }),
-					'output',
-				),
+				descriptor: resolveOutputBuilder((output) => output.uuid(), 'output'),
 				value: 'not-a-uuid',
 			},
 		] as const

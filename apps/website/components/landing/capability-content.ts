@@ -7,7 +7,7 @@ export const Profile = UltimaBase.Schema.define({
     firstName: f.string({ required: true }),
     lastName: f.string({ required: true }),
     displayName: f.virtual({
-      output: (o) => o.string({ nullable: false }),
+      output: (o) => o.string(),
       select: { firstName: true, lastName: true },
       resolve: ({ item }) =>
         \`\${item.firstName} \${item.lastName}\`,

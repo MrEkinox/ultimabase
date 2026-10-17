@@ -68,7 +68,7 @@ describe('default nullability (ADR-0340)', () => {
 
 		await expect(
 			executeStage(createRuntimeValidationStage(), operation).catch(issueCodes),
-		).resolves.toStrictEqual([['field.null', ['published']]])
+		).resolves.toStrictEqual([['field.null', ['input', 'published']]])
 	})
 
 	it('rejects explicit null on a defaulted field on update', async () => {
@@ -85,6 +85,8 @@ describe('default nullability (ADR-0340)', () => {
 
 		await expect(
 			executeStage(createRuntimeValidationStage(), operation).catch(issueCodes),
-		).resolves.toStrictEqual([['field.null', ['published']]])
+		).resolves.toStrictEqual([
+			['field.null', ['update', 0, 'published', 'value']],
+		])
 	})
 })

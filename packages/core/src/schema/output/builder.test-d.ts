@@ -12,7 +12,7 @@ test('infers exact scalar nullability and list containers', () => {
 	// ADR-0340: outputs are non-null unless they declare `nullable: true`.
 	const optionalName = output.string({ nullable: true })
 	const name = output.string()
-	const explicitName = output.string({ nullable: false })
+	const explicitName = output.string()
 	const optionalTags = output.string({ list: true, nullable: true })
 	const tags = output.string({ list: true })
 	const status = output.enum({ values: ['draft', 'published'] as const })
@@ -58,12 +58,14 @@ test('infers recursive objects with required nullable properties', () => {
 		typeName: 'Summary',
 	})
 	const optionalSummary = output.object({
-		fields: () => ({}),
+		fields: (nested) => ({ label: nested.string() }),
 		nullable: true,
 	})
 
 	expectTypeOf(summary).toExtend<GenericOutputDescriptor>()
-	expectTypeOf<OutputValue<typeof optionalSummary>>().toEqualTypeOf<{} | null>()
+	expectTypeOf<OutputValue<typeof optionalSummary>>().toEqualTypeOf<{
+		readonly label: string
+	} | null>()
 	type SummaryValue = OutputValue<typeof summary>
 	interface ExpectedSummary {
 		readonly label: string

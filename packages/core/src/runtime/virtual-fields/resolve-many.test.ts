@@ -58,7 +58,7 @@ describe('resolveMany virtual fields (ADR-0325)', () => {
 			fields: (field) => ({
 				name: field.string({ required: true }),
 				shout: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { name: true },
 					resolveMany: ({ items }) => {
 						calls.push(items)
@@ -111,7 +111,7 @@ describe('resolveMany virtual fields (ADR-0325)', () => {
 			fields: (field) => ({
 				name: field.string({ required: true }),
 				shout: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { name: true },
 					resolveMany: () => ['only one'],
 				}),
@@ -175,7 +175,7 @@ describe('resolveMany virtual fields (ADR-0325)', () => {
 			fields: (field) => ({
 				name: field.string({ required: true }),
 				label: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { name: true },
 					resolveMany: async ({ items }) => {
 						const names = items.map((item) => String(item.name))

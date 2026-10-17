@@ -52,7 +52,7 @@ const SourceContract = UltimaBase.Schema.define({
 		rating: field.float(),
 		status: field.enum({ values: ['draft', 'published'] as const }),
 		summaryLength: field.virtual({
-			output: (output) => output.int({ nullable: false }),
+			output: (output) => output.int(),
 			resolve: () => 0,
 			select: { displayName: true },
 		}),
@@ -68,7 +68,7 @@ test('derives every Core field family and lifecycle state from source', () => {
 	expectTypeOf<
 		SchemaTypeInfoFor<typeof SourceContract>['key']
 	>().toEqualTypeOf<'SourceContract'>()
-	expectTypeOf<Item['active']>().toEqualTypeOf<boolean | null>()
+	expectTypeOf<Item['active']>().toEqualTypeOf<boolean>()
 	expectTypeOf<Item['attachment']>().toEqualTypeOf<Uint8Array | null>()
 	expectTypeOf<Item['birthday']>().toEqualTypeOf<string | null>()
 	expectTypeOf<Item['counter']>().toBeNumber()
@@ -92,7 +92,7 @@ test('derives every Core field family and lifecycle state from source', () => {
 	void (null as unknown as PersistedVirtual)
 
 	expectTypeOf<Create['displayName']>().toBeString()
-	expectTypeOf<Create['active']>().toEqualTypeOf<boolean | null | undefined>()
+	expectTypeOf<Create['active']>().toEqualTypeOf<boolean | undefined>()
 	expectTypeOf<Create['counter']>().toEqualTypeOf<number | undefined>()
 	expectTypeOf<Update['createdLocallyAt']>().toEqualTypeOf<string | undefined>()
 	// @ts-expect-error -- Immutable fields are absent from update input.

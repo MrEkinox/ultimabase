@@ -8,7 +8,7 @@ const Person = UltimaBase.Schema.define({
 	className: 'MutationTransformationPerson',
 	fields: (field) => ({
 		label: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => String(item.name),
 			select: { name: true },
 		}),

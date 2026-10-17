@@ -47,11 +47,10 @@ const VirtualHttpRecord = RestSchemaApplication.Schema.define({
 		displayTitle: field.virtual({
 			output: (output) =>
 				output.object({
-					nullable: false,
 					fields: (nested) => ({
-						authority: nested.string({ nullable: false }),
-						label: nested.string({ nullable: false }),
-						viewer: nested.string({ nullable: false }),
+						authority: nested.string(),
+						label: nested.string(),
+						viewer: nested.string(),
 					}),
 				}),
 			resolve: async ({ context, item }) => {
@@ -72,7 +71,7 @@ const VirtualFailureRecord = RestSchemaApplication.Schema.define({
 	fields: (field) => ({
 		title: field.string(),
 		broken: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: async () => {
 				await Promise.resolve()
 				throw new Error('private virtual dependency and resolver secret')
@@ -80,12 +79,12 @@ const VirtualFailureRecord = RestSchemaApplication.Schema.define({
 			select: { title: true },
 		}),
 		invalid: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: () => 42 as unknown as string,
 			select: { title: true },
 		}),
 		waiting: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ context }) =>
 				new Promise<string>((_resolve, reject) => {
 					context.signal.addEventListener(

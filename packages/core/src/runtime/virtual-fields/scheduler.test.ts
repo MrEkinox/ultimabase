@@ -72,7 +72,7 @@ describe('Runtime virtual field scheduler', () => {
 			fields: (field) => ({
 				value: field.int({ required: true }),
 				first: field.virtual({
-					output: (output) => output.int({ nullable: false }),
+					output: (output) => output.int(),
 					select: { value: true },
 					resolve: async ({ item }) => {
 						const value = Number(Reflect.get(item, 'value'))
@@ -85,7 +85,7 @@ describe('Runtime virtual field scheduler', () => {
 					},
 				}),
 				second: field.virtual({
-					output: (output) => output.int({ nullable: false }),
+					output: (output) => output.int(),
 					select: { value: true },
 					resolve: async ({ item }) => {
 						const value = Number(Reflect.get(item, 'value'))
@@ -130,7 +130,7 @@ describe('Runtime virtual field scheduler', () => {
 			fields: (field) => ({
 				value: field.int({ required: true }),
 				computed: field.virtual({
-					output: (output) => output.int({ nullable: false }),
+					output: (output) => output.int(),
 					select: { value: true },
 					resolve: async ({ item }) => {
 						const value = Number(Reflect.get(item, 'value'))
@@ -173,7 +173,7 @@ describe('Runtime virtual field scheduler', () => {
 			fields: (field) => ({
 				value: field.int({ required: true }),
 				computed: field.virtual({
-					output: (output) => output.int({ nullable: false }),
+					output: (output) => output.int(),
 					select: { value: true },
 					resolve: async ({ item }) => {
 						const value = Number(Reflect.get(item, 'value'))

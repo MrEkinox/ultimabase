@@ -156,7 +156,7 @@ describe('virtual schema fields', () => {
 					description: 'Public display name',
 					output: (output) => {
 						outputCalls += 1
-						return output.string({ nullable: false })
+						return output.string()
 					},
 					resolve: resolver,
 					select: { name: true },
@@ -202,7 +202,7 @@ describe('virtual schema fields', () => {
 				first: field.string(),
 				second: field.string(),
 				summary: field.virtual({
-					output: (output) => output.string(),
+					output: (output) => output.string({ nullable: true }),
 					resolve: () => null,
 					select: { second: false },
 				}),
@@ -237,7 +237,7 @@ describe('virtual schema fields', () => {
 					className: invalid.className,
 					fields: (field) => ({
 						summary: field.virtual({
-							output: (output) => output.string(),
+							output: (output) => output.string({ nullable: true }),
 							resolve: () => null,
 							select: invalid.select as never,
 						}),

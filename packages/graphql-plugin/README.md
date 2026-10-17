@@ -66,7 +66,7 @@ export const Post = App.Schema.define({
 		reviewNote: field.string({ access: { read: false, write: false } }),
 		// Output only: one call resolves every post of a read.
 		readingMinutes: field.virtual({
-			output: (output) => output.int({ nullable: false }),
+			output: (output) => output.int(),
 			select: { body: true },
 			resolveMany: ({ items }) =>
 				readingService.estimate(

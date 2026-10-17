@@ -46,7 +46,7 @@ const Author = UltimaBase.Schema.define({
 		huge: field.bigint(),
 		name: field.string(),
 		label: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => String(item.name),
 			select: { name: true },
 		}),
@@ -73,7 +73,7 @@ const RecordSchema = UltimaBase.Schema.define({
 		title: field.string(),
 		views: field.int(),
 		displayTitle: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => String(item.title),
 			select: { title: true },
 		}),

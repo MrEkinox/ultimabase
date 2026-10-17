@@ -95,7 +95,7 @@ export const Author = App.Schema.define({
 		// Computed for each result that selects it, never stored. Inside
 		// `fields`, dependency values are typed `unknown`: convert them.
 		displayName: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) =>
 				`${String(item.firstName)} ${String(item.lastName)}`,
@@ -189,7 +189,7 @@ export const Customer = App.Schema.define({
 		wishlist: field.relation({ target: () => Book }),
 		// One call to the loyalty service resolves every customer of a read.
 		loyaltyTier: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { email: true },
 			resolveMany: ({ items }) =>
 				loyaltyService.tiers(items.map(({ email }) => String(email))),
@@ -1261,7 +1261,7 @@ export const Author = App.Schema.define({
 		// Computed for each result that selects it, never stored. Inside
 		// `fields`, dependency values are typed `unknown`: convert them.
 		displayName: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { firstName: true, lastName: true },
 			resolve: ({ item }) =>
 				`${String(item.firstName)} ${String(item.lastName)}`,

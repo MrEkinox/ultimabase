@@ -64,7 +64,9 @@ describe('default nullability', () => {
 				published: field.boolean({ default: false }),
 				channel: field.string({ default: 'web', nullable: true }),
 				address: field.object({
-					fields: { city: stringField({ default: 'Paris' }) },
+					fields: (embedded) => ({
+						city: embedded.string({ default: 'Paris' }),
+					}),
 					default: { city: 'Lyon' },
 				}),
 			}),

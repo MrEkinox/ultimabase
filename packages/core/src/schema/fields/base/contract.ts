@@ -114,6 +114,13 @@ export interface ScalarFieldTypeState<
 }
 
 /**
+ * The non-null flag of a field with a default: a default makes a field
+ * non-null unless it declares `nullable: true` (ADR-0340).
+ */
+export type DefaultedFieldNonNull<TNullable extends boolean> =
+	TNullable extends true ? false : true
+
+/**
  * Applies the optional one-dimensional list wrapper to a field's scalar value.
  */
 export type FieldListValue<TValue, TList> = TList extends true
@@ -185,12 +192,21 @@ export interface FieldOptions<
 	TList extends FieldListOption = FieldListOption,
 > extends FieldOptionsBase<TList, TValue> {
 	/**
-	 * Provides a static value or a zero-argument factory evaluated for each created object.
+	 * Provides a static value or a zero-argument factory evaluated for each
+	 * created object. A defaulted field is non-null unless it declares
+	 * `nullable: true`.
 	 *
 	 * @example `default: initialValue`
 	 * @example `default: () => createInitialValue()`
 	 */
 	readonly default?: FieldDefault<FieldOptionsDefaultValue<TValue, TList>>
+	/**
+	 * Lets a field with a `default` hold `null`: an omitted value still gets
+	 * the default, and explicit `null` is kept. Accepted only beside a default.
+	 *
+	 * @example `nullable: true`
+	 */
+	readonly nullable?: boolean
 }
 
 type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
@@ -319,16 +335,28 @@ type FieldOptionsAreImmutable<TOptions> = TOptions extends {
 
 type ResolveObjectPresence = 'required'
 
+type FieldOptionsAreNullable<TOptions> = TOptions extends {
+	readonly nullable: true
+}
+	? true
+	: false
+
+// A default, like a generator, makes a field non-null unless it declares
+// `nullable: true` (ADR-0340).
 type ResolveNullability<TOptions> =
-	FieldOptionsRequired<TOptions> extends true
-		? false
-		: FieldOptionsHaveAutoNow<TOptions> extends true
+	FieldOptionsAreNullable<TOptions> extends true
+		? true
+		: FieldOptionsRequired<TOptions> extends true
 			? false
-			: FieldOptionsAreAutoIncremented<TOptions> extends true
+			: FieldOptionsHaveDefault<TOptions> extends true
 				? false
-				: FieldOptionsAreGenerated<TOptions> extends true
+				: FieldOptionsHaveAutoNow<TOptions> extends true
 					? false
-					: true
+					: FieldOptionsAreAutoIncremented<TOptions> extends true
+						? false
+						: FieldOptionsAreGenerated<TOptions> extends true
+							? false
+							: true
 
 type ResolveCreatePresence<TOptions> =
 	FieldOptionsAreGenerated<TOptions> extends true

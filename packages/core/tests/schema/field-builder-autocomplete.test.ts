@@ -125,6 +125,7 @@ const embeddedCommonOptions = [
 	'description',
 	'immutable',
 	'list',
+	'nullable',
 	'required',
 ] as const
 const embeddedOptionMarkers = new Map<EmbeddedFactoryName, string>()

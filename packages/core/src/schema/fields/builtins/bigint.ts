@@ -1,5 +1,6 @@
 import type {
 	CompatibleFieldOptionsExtension,
+	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -43,7 +44,7 @@ export type BigintField<TState extends FieldTypeState = FieldTypeState> =
 
 /** Provides bigint-specific names for compact sequence inference. */
 type DefaultedBigintFieldOptions<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
@@ -51,7 +52,7 @@ type DefaultedBigintFieldOptions<
 > = DefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
 	bigint,
-	TRequired,
+	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
@@ -63,7 +64,9 @@ type DefaultedBigintFieldOptions<
 		TList,
 		true,
 		false
-	>
+	> &
+	// The database's identity value is never null (ADR-0340).
+	(TAutoIncrement extends true ? { readonly nullable?: false } : unknown)
 
 type NonDefaultedBigintFieldOptions<
 	TRequired extends boolean,
@@ -110,11 +113,17 @@ type ResolvedBigintField<
 >
 
 type DefaultedBigintField<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = ResolvedBigintField<TRequired, TList, TImmutable, true, TAutoIncrement>
+> = ResolvedBigintField<
+	DefaultedFieldNonNull<TNullable>,
+	TList,
+	TImmutable,
+	true,
+	TAutoIncrement
+>
 
 type NonDefaultedBigintField<
 	TRequired extends boolean,
@@ -127,7 +136,7 @@ export interface BigintFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
@@ -136,7 +145,7 @@ export interface BigintFieldFactory<
 	>(
 		options: CompatibleFieldOptionsExtension<
 			DefaultedBigintFieldOptions<
-				TRequired,
+				TNullable,
 				TList,
 				TImmutable,
 				TAutoIncrement,
@@ -144,11 +153,16 @@ export interface BigintFieldFactory<
 			>,
 			TExtensionOptions,
 			bigint,
-			ResolvedFieldSourceOptions<TSourceTemplate, bigint, TList, TRequired>
+			ResolvedFieldSourceOptions<
+				TSourceTemplate,
+				bigint,
+				TList,
+				DefaultedFieldNonNull<TNullable>
+			>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
+		DefaultedBigintField<TNullable, TList, TImmutable, TAutoIncrement>
 	>
 	<
 		const TRequired extends boolean = false,

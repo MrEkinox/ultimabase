@@ -103,7 +103,7 @@ const virtualSchema = UltimaBase.Schema.define({
 	fields: (field) => ({
 		secret: field.string({ required: true }),
 		display: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			select: { secret: true },
 			resolve: ({ item }) => String(item.secret).toUpperCase(),
 		}),

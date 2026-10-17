@@ -17,12 +17,12 @@ import type { EmbeddedFieldBuilder } from './field-builder-contract.js'
 
 type DefaultedObjectFieldBuilderOptions<
 	TFields extends ObjectFields,
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TEmbeddedBuilder,
 > = Omit<
-	DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+	DefaultedObjectFieldOptions<TFields, TNullable, TList, TImmutable>,
 	'fields'
 > & {
 	readonly fields: (field: TEmbeddedBuilder) => TFields
@@ -51,12 +51,12 @@ export type EmbeddedObjectFieldBuilderOptions<
 
 type DefaultedEmbeddedObjectFieldBuilderOptions<
 	TFields extends ObjectFields,
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TEmbeddedBuilder,
 > = Omit<
-	DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+	DefaultedObjectFieldOptions<TFields, TNullable, TList, TImmutable>,
 	'fields' | 'indexed'
 > & {
 	readonly fields: (field: TEmbeddedBuilder) => TFields
@@ -82,7 +82,7 @@ export interface ObjectFieldBuilderMethod<
 > {
 	<
 		const TFields extends ObjectFields,
-		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TExtensionOptions extends object = object,
@@ -90,7 +90,7 @@ export interface ObjectFieldBuilderMethod<
 		options: CompatibleFieldOptionsExtension<
 			DefaultedObjectFieldBuilderOptions<
 				TFields,
-				TRequired,
+				TNullable,
 				TList,
 				TImmutable,
 				TEmbeddedBuilder
@@ -101,14 +101,14 @@ export interface ObjectFieldBuilderMethod<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
 					FieldListValue<ObjectFieldValue<TFields>, TList>,
-					TRequired extends true
-						? FieldListValue<ObjectFieldValue<TFields>, TList>
-						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
+					TNullable extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList> | null
+						: FieldListValue<ObjectFieldValue<TFields>, TList>
 				>,
 				object
 			>
 		>,
-	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
+	): DefaultedObjectField<TFields, TNullable, TList, TImmutable>
 	<
 		const TFields extends ObjectFields,
 		const TRequired extends boolean = false,
@@ -147,7 +147,7 @@ export interface EmbeddedObjectFieldBuilderMethod<
 > {
 	<
 		const TFields extends ObjectFields,
-		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TExtensionOptions extends object = object,
@@ -155,7 +155,7 @@ export interface EmbeddedObjectFieldBuilderMethod<
 		options: CompatibleFieldOptionsExtension<
 			DefaultedEmbeddedObjectFieldBuilderOptions<
 				TFields,
-				TRequired,
+				TNullable,
 				TList,
 				TImmutable,
 				TEmbeddedBuilder
@@ -166,14 +166,14 @@ export interface EmbeddedObjectFieldBuilderMethod<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
 					FieldListValue<ObjectFieldValue<TFields>, TList>,
-					TRequired extends true
-						? FieldListValue<ObjectFieldValue<TFields>, TList>
-						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
+					TNullable extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList> | null
+						: FieldListValue<ObjectFieldValue<TFields>, TList>
 				>,
 				object
 			>
 		>,
-	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
+	): DefaultedObjectField<TFields, TNullable, TList, TImmutable>
 	<
 		const TFields extends ObjectFields,
 		const TRequired extends boolean = false,

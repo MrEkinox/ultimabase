@@ -17,7 +17,7 @@ const ProtoFieldItem = UltimaBase.Schema.define({
 		// A computed key declares an own `__proto__` property, unlike `__proto__:`.
 		[protoField]: field.string(),
 		label: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => String(item.title),
 			select: { title: true },
 		}),
@@ -30,7 +30,7 @@ const ControlItem = UltimaBase.Schema.define({
 	className: 'OwnFieldKeysControlItem',
 	fields: (field) => ({
 		label: field.virtual({
-			output: (output) => output.string({ nullable: false }),
+			output: (output) => output.string(),
 			resolve: ({ item }) => String(item.title),
 			select: { title: true },
 		}),

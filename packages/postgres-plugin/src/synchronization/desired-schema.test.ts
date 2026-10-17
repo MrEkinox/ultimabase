@@ -22,7 +22,7 @@ describe('desired PostgreSQL schema', () => {
 			fields: (field) => ({
 				title: field.string({ required: true }),
 				summary: field.virtual({
-					output: (output) => output.string({ nullable: false }),
+					output: (output) => output.string(),
 					select: { title: true },
 					resolve: async ({ item }) => Promise.resolve(String(item.title)),
 				}),

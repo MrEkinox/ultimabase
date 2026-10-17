@@ -170,7 +170,8 @@ const normalizeOutputOptions = (
 		`${path} does not support output option `,
 	)
 
-	const { description, list = false, nullable = true } = options
+	// Outputs are non-null unless they declare `nullable: true` (ADR-0340).
+	const { description, list = false, nullable = false } = options
 	if (typeof nullable !== 'boolean') {
 		throw new TypeError(`${path}.nullable must be a boolean`)
 	}

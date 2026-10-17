@@ -1,5 +1,6 @@
 import type {
 	CompatibleFieldOptionsExtension,
+	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -37,14 +38,14 @@ export type JsonField<TState extends FieldTypeState = FieldTypeState> =
 	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TState>
 
 type DefaultedJsonFieldOptions<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
 	JsonDocument,
-	TRequired,
+	TNullable,
 	TList,
 	TImmutable,
 	object,
@@ -82,10 +83,10 @@ type ResolvedJsonField<
 >
 
 type DefaultedJsonField<
-	TRequired extends boolean,
+	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedJsonField<TRequired, TList, TImmutable, true>
+> = ResolvedJsonField<DefaultedFieldNonNull<TNullable>, TList, TImmutable, true>
 
 type NonDefaultedJsonField<
 	TRequired extends boolean,
@@ -97,26 +98,26 @@ export interface JsonFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedJsonFieldOptions<TRequired, TList, TImmutable, TIndexed>,
+			DefaultedJsonFieldOptions<TNullable, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			JsonDocument,
 			ResolvedFieldSourceOptions<
 				TSourceTemplate,
 				JsonDocument,
 				TList,
-				TRequired
+				DefaultedFieldNonNull<TNullable>
 			>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedJsonField<TRequired, TList, TImmutable>
+		DefaultedJsonField<TNullable, TList, TImmutable>
 	>
 	<
 		const TRequired extends boolean = false,

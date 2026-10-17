@@ -22,5 +22,5 @@ test('infers local Core item fields before code generation', () => {
 	const item = null as unknown as SchemaItem<typeof BootstrapTodo>
 	expectTypeOf(item.id).toBeString()
 	expectTypeOf(item.title).toBeString()
-	expectTypeOf(item.completed).toEqualTypeOf<boolean | null>()
+	expectTypeOf(item.completed).toBeBoolean()
 })
