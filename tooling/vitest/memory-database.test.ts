@@ -19,7 +19,9 @@ const MemoryNote = UltimaBase.Schema.define({
 })
 
 const start = async (database = new MemoryTestDatabase()) => {
-	const application = new (UltimaBase.use(testDatabasePlugin(database)))({
+	const application = new (UltimaBase.use(
+		testDatabasePlugin(database, { id: 'fixture.memory-database' }),
+	))({
 		logger: false,
 		schemas: [MemoryNote],
 	})
@@ -42,7 +44,9 @@ describe('MemoryTestDatabase', () => {
 				createFixture: () =>
 					createPluginConformanceFixture({
 						schemas: [],
-						subject: testDatabasePlugin(new MemoryTestDatabase()),
+						subject: testDatabasePlugin(new MemoryTestDatabase(), {
+							id: 'fixture.test-database',
+						}),
 					}),
 				expected: {
 					core: '^0.0.0',

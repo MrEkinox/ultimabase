@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { UltimaBase } from '@ultimabase/core'
-import { plugin } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	createPluginConformanceFixture,

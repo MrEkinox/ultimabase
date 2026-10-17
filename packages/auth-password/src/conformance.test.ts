@@ -1,6 +1,5 @@
 import { authPlugin } from '@ultimabase/auth-plugin'
 import { registerPrivateStorageAdapter, UltimaBase } from '@ultimabase/core'
-import { plugin } from '@ultimabase/core/plugin'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,

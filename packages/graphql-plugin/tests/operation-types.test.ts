@@ -1,5 +1,5 @@
 import { UltimaBase } from '@ultimabase/core'
-import { anonymous, plugin } from '@ultimabase/core/plugin'
+import { anonymous } from '@ultimabase/core/plugin'
 import { defineOperation } from '@ultimabase/plugin-kit'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import { z } from 'zod'

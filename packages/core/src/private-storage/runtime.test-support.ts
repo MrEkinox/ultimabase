@@ -150,12 +150,13 @@ export class MemoryTransaction implements DatabaseTransactionAdapter {
 					this.#publicRows.push(current)
 					// Like a real adapter, answer the selection only (ADR-0341).
 					const { fields } = request.plan.returning.selection
+					const row: Readonly<Record<string, unknown>> = current
 					const result =
 						fields.length === 0
 							? current
 							: immutableRecord(
 									Object.fromEntries(
-										fields.map(({ field }) => [field, current[field]]),
+										fields.map(({ field }) => [field, row[field]]),
 									),
 								)
 					return Promise.resolve(result) as unknown as Promise<

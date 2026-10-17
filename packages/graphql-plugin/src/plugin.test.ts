@@ -7,7 +7,6 @@ import {
 	anonymous,
 	defineOperation,
 	defineOperationValue,
-	plugin,
 } from '@ultimabase/core/plugin'
 import {
 	ScriptedTestDatabase,

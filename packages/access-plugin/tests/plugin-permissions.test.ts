@@ -6,7 +6,7 @@ import {
 	protectedPolicy,
 	provideRuntimeConstraint,
 } from '@ultimabase/core'
-import { holdsSchemaPermission, plugin } from '@ultimabase/core/plugin'
+import { holdsSchemaPermission } from '@ultimabase/core/plugin'
 import { definePlugin, feature } from '@ultimabase/plugin-kit'
 import { describe, expect, it } from 'vitest'
 

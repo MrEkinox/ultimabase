@@ -1,5 +1,4 @@
 import { UltimaBase } from '@ultimabase/core'
-import { plugin } from '@ultimabase/core/plugin'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { apiServer } from './preset.js'

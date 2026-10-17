@@ -8,25 +8,21 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
-import {
-	plugin,
-	provideCapability,
-	type PluginDefinition,
-} from '@ultimabase/core/plugin'
+import { plugin, provideCapability } from '@ultimabase/core/plugin'
 
 /** Names the support plugin that installs one test database. */
-export interface TestDatabasePluginOptions {
-	/** Plugin id; defaults to `fixture.test-database`. */
-	readonly id?: string
+export interface TestDatabasePluginOptions<TId extends string> {
+	/** Plugin id, kept literal so applications keep their plugin map typed. */
+	readonly id: TId
 	/** Capability contribution id; defaults to `database`. */
 	readonly contributionId?: string
 }
 
 /** Installs one test database through the public adapter capability. */
-export const testDatabasePlugin = (
+export const testDatabasePlugin = <const TId extends string>(
 	adapter: DatabaseAdapter,
-	options: TestDatabasePluginOptions = {},
-): PluginDefinition =>
+	options: TestDatabasePluginOptions<TId>,
+) =>
 	plugin({
 		contributions: [
 			provideCapability(databaseAdapterCapability, {
@@ -35,7 +31,7 @@ export const testDatabasePlugin = (
 			}),
 		],
 		core: '^0.0.0',
-		id: options.id ?? 'fixture.test-database',
+		id: options.id,
 		version: '1.0.0',
 	})
 

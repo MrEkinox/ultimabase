@@ -3,11 +3,7 @@ import {
 	UltimaBase,
 	getPluginFieldStorageCodec,
 } from '@ultimabase/core'
-import {
-	RequestContext,
-	plugin,
-	type PluginPrivilege,
-} from '@ultimabase/core/plugin'
+import { RequestContext, type PluginPrivilege } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	FakePublicOperationTransport,
