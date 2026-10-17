@@ -25,7 +25,7 @@ transaction. This page maps Prisma ORM concepts to UltimaBase.
 
 This page compares with Prisma ORM 7 (7.10.1), checked on 2026-10-17. Prisma
 ORM 8 is a release candidate that changes the schema file, the generation
-command, the query shape and the transaction API[^pr17][^pr18]; the notes say
+command, the query shape and the transaction API[^pr17]<sup>,</sup>[^pr18]; the notes say
 where it differs. See the [comparison overview](/docs/1.0.0/comparison/overview)
 for a summary table.
 
@@ -51,15 +51,15 @@ for a summary table.
 
 ## Common tasks side by side
 
-| Task                    | Prisma ORM 7                                                          | UltimaBase                                                     |
-| ----------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Declare a model         | A `model` block, then `migrate dev` and `generate`[^pr1][^pr2][^pr11] | `App.Schema.define`; no generation step                        |
-| Query with a relation   | `findMany` with `include`[^pr7]                                       | `findMany` with `include`                                      |
-| Create with nested data | `create` with `connect` or nested `create`[^pr7]                      | `createOne` with `connect` or nested `create`                  |
-| Group writes            | Interactive `$transaction` with a `tx` client[^pr8]                   | `ultimabase.transaction`; no transaction client to pass around |
-| Intercept queries       | A client extension's `query` component[^pr9]                          | Schema or global hooks                                         |
-| Raw SQL                 | `$queryRaw`, `$executeRaw`[^pr31]                                     | No raw SQL API                                                 |
-| Aggregate               | `aggregate`, `groupBy`[^pr5]                                          | `count` only                                                   |
+| Task                    | Prisma ORM 7                                                                                  | UltimaBase                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Declare a model         | A `model` block, then `migrate dev` and `generate`[^pr1]<sup>,</sup>[^pr2]<sup>,</sup>[^pr11] | `App.Schema.define`; no generation step                        |
+| Query with a relation   | `findMany` with `include`[^pr7]                                                               | `findMany` with `include`                                      |
+| Create with nested data | `create` with `connect` or nested `create`[^pr7]                                              | `createOne` with `connect` or nested `create`                  |
+| Group writes            | Interactive `$transaction` with a `tx` client[^pr8]                                           | `ultimabase.transaction`; no transaction client to pass around |
+| Intercept queries       | A client extension's `query` component[^pr9]                                                  | Schema or global hooks                                         |
+| Raw SQL                 | `$queryRaw`, `$executeRaw`[^pr31]                                                             | No raw SQL API                                                 |
+| Aggregate               | `aggregate`, `groupBy`[^pr5]                                                                  | `count` only                                                   |
 
 An `include` takes its own selection, filter, ordering and limit, as in
 Prisma ORM:
@@ -101,7 +101,7 @@ methods instead of a transaction client:
   Server and CockroachDB[^pr13]. UltimaBase supports PostgreSQL only.
 - **Stability.** Prisma ORM 7 is stable, and Prisma ORM 8 replaces client
   extensions with middleware and drops the transaction isolation and timeout
-  options[^pr18][^pr29]. UltimaBase is pre-release, and its APIs may change
+  options[^pr18]<sup>,</sup>[^pr29]. UltimaBase is pre-release, and its APIs may change
   too.
 
 ## What UltimaBase does not offer yet

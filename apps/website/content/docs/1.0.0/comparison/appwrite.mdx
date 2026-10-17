@@ -49,15 +49,15 @@ every system side by side.
 
 ## Common tasks side by side
 
-| Task                      | Appwrite                                                             | UltimaBase                                                |
-| ------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------- |
-| Create a table            | The Console, the server SDK, or `appwrite push tables`[^a2][^a4]     | `App.Schema.define`, listed in the application            |
-| Create a row              | `tablesDB.createRow` with data and permissions[^a21]                 | `createOne`, with an ACL when the ACL plugin is installed |
-| List rows                 | `tablesDB.listRows` with `Query` helpers[^a21][^a6]                  | `findMany` with `where` and `take`                        |
-| Share a row               | `Permission` and `Role` helpers on the row[^a17]                     | ACL grants, or an Access rule with `hasRole`              |
-| Several writes atomically | Create a transaction, pass its ID to each write, then commit it[^a8] | `ultimabase.transaction`                                  |
-| Sign up and sign in       | `account.create`, `account.createEmailPasswordSession`[^a39]         | `signUp`, `login`                                         |
-| Run server logic          | A Function triggered by an event or an execution[^a20]               | Hooks, or a custom operation                              |
+| Task                      | Appwrite                                                                     | UltimaBase                                                |
+| ------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Create a table            | The Console, the server SDK, or `appwrite push tables`[^a2]<sup>,</sup>[^a4] | `App.Schema.define`, listed in the application            |
+| Create a row              | `tablesDB.createRow` with data and permissions[^a21]                         | `createOne`, with an ACL when the ACL plugin is installed |
+| List rows                 | `tablesDB.listRows` with `Query` helpers[^a21]<sup>,</sup>[^a6]              | `findMany` with `where` and `take`                        |
+| Share a row               | `Permission` and `Role` helpers on the row[^a17]                             | ACL grants, or an Access rule with `hasRole`              |
+| Several writes atomically | Create a transaction, pass its ID to each write, then commit it[^a8]         | `ultimabase.transaction`                                  |
+| Sign up and sign in       | `account.create`, `account.createEmailPasswordSession`[^a39]                 | `signUp`, `login`                                         |
+| Run server logic          | A Function triggered by an event or an execution[^a20]                       | Hooks, or a custom operation                              |
 
 Appwrite row permissions correspond to the Object ACLs plugin: a schema
 declares `acl: true`, and each new row gets a default ACL:
@@ -77,20 +77,20 @@ error rolls it back:
 ## What works differently and why
 
 - **Platform or library.** Appwrite is a set of services administered from a
-  Console, with logic in isolated Functions[^a20][^a36]. UltimaBase is one
+  Console, with logic in isolated Functions[^a20]<sup>,</sup>[^a36]. UltimaBase is one
   library in your server process, so your code and its rules share one
   runtime.
 - **When logic runs.** Appwrite Functions run on events, HTTP calls or a
-  schedule, and no synchronous before-write hook is documented[^a20][^a3].
+  schedule, and no synchronous before-write hook is documented[^a20]<sup>,</sup>[^a3].
   UltimaBase hooks run inside the write's transaction and can refuse it, with a
   separate stage after commit.
 - **Predicate rules.** Appwrite permissions list who may act on a table or
-  row[^a16][^a17]. UltimaBase adds Access rules that are arbitrary TypeScript
+  row[^a16]<sup>,</sup>[^a17]. UltimaBase adds Access rules that are arbitrary TypeScript
   predicates, compiled into the query for reads.
 - **Types.** Appwrite generates types with its CLI[^a32]. UltimaBase infers
   them from the declarations.
 - **Breadth.** Appwrite ships realtime, storage, messaging, multi-factor
-  authentication, OAuth and several database engines[^a9][^a11][^a26][^a13][^a12][^a37].
+  authentication, OAuth and several database engines[^a9]<sup>,</sup>[^a11]<sup>,</sup>[^a26]<sup>,</sup>[^a13]<sup>,</sup>[^a12]<sup>,</sup>[^a37].
   UltimaBase covers data, authorization and password sign-in today.
 
 ## What UltimaBase does not offer yet
@@ -119,7 +119,7 @@ dates or order.
 
 Claims about Appwrite cite its official documentation and repository, checked
 on 2026-10-17 against Appwrite 2.5.0. Appwrite Cloud plans cap some features,
-such as transaction operations and schedule intervals[^a8][^a29]; the
+such as transaction operations and schedule intervals[^a8]<sup>,</sup>[^a29]; the
 [overview](/docs/1.0.0/comparison/overview) notes them.
 
 [^a2]: [Appwrite TablesDB: Tables](https://appwrite.io/docs/products/databases/tablesdb/tables).

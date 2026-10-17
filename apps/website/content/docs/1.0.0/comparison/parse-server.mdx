@@ -83,7 +83,7 @@ from a tested example in the repository. The examples call their application
 
 In Parse Server, a class can appear on the first save, its field types lock
 after the first write, and an optional defined schema in the server options
-declares fields, indexes and class-level permissions[^p3][^p7]. In UltimaBase
+declares fields, indexes and class-level permissions[^p3]<sup>,</sup>[^p7]. In UltimaBase
 you declare every schema in TypeScript and list it in the application; nothing
 is created implicitly. Pointers and relations are fields of the schema:
 
@@ -166,7 +166,7 @@ header or request context never creates Master; see
 ### Set class-level and field permissions
 
 Parse Server: class-level permissions per operation, pointer permissions and
-`protectedFields`[^p2][^p11]. UltimaBase's Access plugin attaches one rule per
+`protectedFields`[^p2]<sup>,</sup>[^p11]. UltimaBase's Access plugin attaches one rule per
 operation to the schema. A read rule returns a filter that becomes part of the
 database query, a field rule hides or protects one field, and an operation
 without a rule is denied:
@@ -228,7 +228,7 @@ Hooks never run for reads. There is no `beforeFind` or `afterFind`; see
 ### Define a Cloud function
 
 Parse Server: `Parse.Cloud.define('name', handler, validator)`, called with
-`Parse.Cloud.run` or the REST `/functions` route[^p4][^p5]. UltimaBase's
+`Parse.Cloud.run` or the REST `/functions` route[^p4]<sup>,</sup>[^p5]. UltimaBase's
 custom operation declares its input and output with a validator; the REST
 plugin exposes it and describes it in OpenAPI:
 
@@ -252,7 +252,7 @@ or a function to each field, plus a schema-level check:
 ### Sign users up and in
 
 Parse Server: `Parse.User` with `signUp` and `logIn`; email verification and
-password reset need an email adapter[^p3][^p1]. UltimaBase's auth plugin
+password reset need an email adapter[^p3]<sup>,</sup>[^p1]. UltimaBase's auth plugin
 designates a user schema, and the password method adds the identifier fields:
 
 <include cwd meta='title="src/schema.ts"'>
@@ -291,7 +291,7 @@ see [Test an Application](/docs/1.0.0/guides/test-an-application).
   transaction.
 - **Core is small; features are plugins you install.** Parse Server ships its
   features in one package, configured through server options and
-  adapters[^p1][^p11]. UltimaBase Core knows schemas, queries, operations,
+  adapters[^p1]<sup>,</sup>[^p11]. UltimaBase Core knows schemas, queries, operations,
   transactions and Master only. Access, ACLs, roles, hooks, validation,
   authentication, HTTP, REST and GraphQL are optional plugins, and community
   plugins use the same public contracts.

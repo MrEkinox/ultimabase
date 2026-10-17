@@ -52,17 +52,17 @@ for every system side by side.
 
 ## Common tasks side by side
 
-| Task                          | Supabase                                                     | UltimaBase                                                      |
-| ----------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------- |
-| Define a table                | `create table` in a migration, or the Table Editor[^s1][^s2] | `App.Schema.define`, listed in the application                  |
-| Read with a relation          | `select` with an embedded resource[^s4]                      | `findMany` with `include`                                       |
-| Insert, update, delete        | `insert`, `update`, `delete` with filters[^s50]              | `createOne`, `updateOne`, `deleteOne` and their `Many` variants |
-| Several writes atomically     | A SQL function called with `rpc`[^s3]                        | `ultimabase.transaction`                                        |
-| Owner-only rows               | An RLS policy comparing `auth.uid()` with a column[^s18]     | An Access rule comparing the principal with a field             |
-| Bypass policies on the server | The secret key[^s18]                                         | `useMasterKey: true`, audited                                   |
-| Sign up and sign in           | `auth.signUp`, `auth.signInWithPassword`[^s9]                | `signUp`, `login`                                               |
-| React to a write              | A Postgres trigger or a Database Webhook[^s23][^s24]         | Hooks in the transaction, `afterCommit` after it                |
-| Types                         | `supabase gen types`, re-run after schema changes[^s39]      | Inferred from the declarations                                  |
+| Task                          | Supabase                                                                 | UltimaBase                                                      |
+| ----------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Define a table                | `create table` in a migration, or the Table Editor[^s1]<sup>,</sup>[^s2] | `App.Schema.define`, listed in the application                  |
+| Read with a relation          | `select` with an embedded resource[^s4]                                  | `findMany` with `include`                                       |
+| Insert, update, delete        | `insert`, `update`, `delete` with filters[^s50]                          | `createOne`, `updateOne`, `deleteOne` and their `Many` variants |
+| Several writes atomically     | A SQL function called with `rpc`[^s3]                                    | `ultimabase.transaction`                                        |
+| Owner-only rows               | An RLS policy comparing `auth.uid()` with a column[^s18]                 | An Access rule comparing the principal with a field             |
+| Bypass policies on the server | The secret key[^s18]                                                     | `useMasterKey: true`, audited                                   |
+| Sign up and sign in           | `auth.signUp`, `auth.signInWithPassword`[^s9]                            | `signUp`, `login`                                               |
+| React to a write              | A Postgres trigger or a Database Webhook[^s23]<sup>,</sup>[^s24]         | Hooks in the transaction, `afterCommit` after it                |
+| Types                         | `supabase gen types`, re-run after schema changes[^s39]                  | Inferred from the declarations                                  |
 
 An RLS policy that limits rows to their owner becomes an Access rule on the
 schema. Here members read and update only their own profile:
@@ -98,27 +98,27 @@ TypeScript:
   nothing to regenerate.
 - **Platform or library.** Supabase is a hosted platform with Auth, Storage,
   Realtime, Edge Functions, Cron and a dashboard; self-hosting lacks some Cloud
-  features[^s33][^s45]. UltimaBase is a library you deploy yourself and does
+  features[^s33]<sup>,</sup>[^s45]. UltimaBase is a library you deploy yourself and does
   not have those services yet.
 
 ## What UltimaBase does not offer yet
 
-| Supabase capability                                    | UltimaBase status                                                                                                                  |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Realtime[^s5]                                          | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                                                          |
-| Storage[^s7]                                           | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                                                |
-| OAuth providers and SSO[^s10]                          | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                               |
-| Multi-factor authentication[^s15]                      | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                |
-| Cron and Queues[^s36][^s37]                            | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                                                   |
-| Versioned migrations[^s2]                              | Planned: [PostgreSQL migrations](/docs/1.0.0/project/roadmap#next-priorities)                                                      |
-| Studio[^s33]                                           | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                                                     |
-| Client library (supabase-js)[^s3]                      | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                                                    |
-| Vector search with pgvector[^s38]                      | Planned: [Vector search](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#vector-search)                            |
-| PostGIS[^s48]                                          | Planned among the [advanced field plugins](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#advanced-field-plugins) |
-| Full-text search[^s47]                                 | Not on the roadmap                                                                                                                 |
-| Magic links, email OTP, anonymous sign-ins[^s12][^s13] | Not on the roadmap                                                                                                                 |
-| Hand-written SQL and Postgres extensions[^s42]         | Not planned: UltimaBase exposes no raw SQL API                                                                                     |
-| Hosted service[^s16]                                   | Not planned                                                                                                                        |
+| Supabase capability                                                | UltimaBase status                                                                                                                  |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Realtime[^s5]                                                      | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                                                          |
+| Storage[^s7]                                                       | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                                                |
+| OAuth providers and SSO[^s10]                                      | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                               |
+| Multi-factor authentication[^s15]                                  | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                |
+| Cron and Queues[^s36]<sup>,</sup>[^s37]                            | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                                                   |
+| Versioned migrations[^s2]                                          | Planned: [PostgreSQL migrations](/docs/1.0.0/project/roadmap#next-priorities)                                                      |
+| Studio[^s33]                                                       | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                                                     |
+| Client library (supabase-js)[^s3]                                  | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                                                    |
+| Vector search with pgvector[^s38]                                  | Planned: [Vector search](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#vector-search)                            |
+| PostGIS[^s48]                                                      | Planned among the [advanced field plugins](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#advanced-field-plugins) |
+| Full-text search[^s47]                                             | Not on the roadmap                                                                                                                 |
+| Magic links, email OTP, anonymous sign-ins[^s12]<sup>,</sup>[^s13] | Not on the roadmap                                                                                                                 |
+| Hand-written SQL and Postgres extensions[^s42]                     | Not planned: UltimaBase exposes no raw SQL API                                                                                     |
+| Hosted service[^s16]                                               | Not planned                                                                                                                        |
 
 Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
 dates or order.

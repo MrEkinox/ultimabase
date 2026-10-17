@@ -49,16 +49,16 @@ by side.
 
 ## Common tasks side by side
 
-| Task                      | PocketBase                                            | UltimaBase                                     |
-| ------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
-| Define a collection       | The dashboard, or a JS or Go migration[^pb2][^pb3]    | `App.Schema.define`, listed in the application |
-| List with a filter        | `getList` with `filter` and `expand`[^pb19][^pb5]     | `findMany` with `where`, `include` and `take`  |
-| Get one record            | `getOne`, `getFirstListItem`[^pb19]                   | `findOneOrThrow`, `findOne`                    |
-| Create, update, delete    | `create`, `update`, `delete`[^pb19]                   | `createOne`, `updateOne`, `deleteOne`          |
-| Several writes atomically | A batch request[^pb5]                                 | `ultimabase.transaction`, or `createMany`      |
-| Restrict reads            | A list rule such as `@request.auth.id = author`[^pb6] | An Access read rule                            |
-| Run code on create        | A record hook that calls `e.next()`[^pb14]            | Hooks on `create`                              |
-| Sign in                   | `authWithPassword`[^pb12]                             | `login`                                        |
+| Task                      | PocketBase                                                     | UltimaBase                                     |
+| ------------------------- | -------------------------------------------------------------- | ---------------------------------------------- |
+| Define a collection       | The dashboard, or a JS or Go migration[^pb2]<sup>,</sup>[^pb3] | `App.Schema.define`, listed in the application |
+| List with a filter        | `getList` with `filter` and `expand`[^pb19]<sup>,</sup>[^pb5]  | `findMany` with `where`, `include` and `take`  |
+| Get one record            | `getOne`, `getFirstListItem`[^pb19]                            | `findOneOrThrow`, `findOne`                    |
+| Create, update, delete    | `create`, `update`, `delete`[^pb19]                            | `createOne`, `updateOne`, `deleteOne`          |
+| Several writes atomically | A batch request[^pb5]                                          | `ultimabase.transaction`, or `createMany`      |
+| Restrict reads            | A list rule such as `@request.auth.id = author`[^pb6]          | An Access read rule                            |
+| Run code on create        | A record hook that calls `e.next()`[^pb14]                     | Hooks on `create`                              |
+| Sign in                   | `authWithPassword`[^pb12]                                      | `login`                                        |
 
 A PocketBase API rule is a filter string. An UltimaBase rule is a TypeScript
 function on the schema that returns a typed filter, and operations without a
@@ -78,37 +78,37 @@ filter, ordering and limit for each relation:
 ## What works differently and why
 
 - **Packaging.** PocketBase ships a binary with its dashboard built in[^pb1],
-  and you extend it in Go or JavaScript[^pb15][^pb22]. UltimaBase is an npm
+  and you extend it in Go or JavaScript[^pb15]<sup>,</sup>[^pb22]. UltimaBase is an npm
   library inside your own Node.js application, so it shares your process,
   dependencies and deployment.
 - **Database.** PocketBase uses SQLite and has no plans for other
   databases[^pb18]. UltimaBase uses a PostgreSQL server.
 - **Policies.** PocketBase rules are filter expressions, and roles are modeled
-  with your own fields[^pb6][^pb12]. UltimaBase rules are typed functions, and
+  with your own fields[^pb6]<sup>,</sup>[^pb12]. UltimaBase rules are typed functions, and
   it adds per-object ACLs and role hierarchies as plugins.
 - **Sessions.** PocketBase tokens are not stored on the server, and there is no
   logout endpoint[^pb12]. UltimaBase stores sessions, so you can list and
   revoke them.
 - **Built-ins today.** PocketBase already ships realtime subscriptions, files,
-  OAuth2, multi-factor authentication, email and cron jobs[^pb10][^pb11][^pb12][^pb16][^pb17].
+  OAuth2, multi-factor authentication, email and cron jobs[^pb10]<sup>,</sup>[^pb11]<sup>,</sup>[^pb12]<sup>,</sup>[^pb16]<sup>,</sup>[^pb17].
   UltimaBase does not yet.
 
 ## What UltimaBase does not offer yet
 
-| PocketBase capability                            | UltimaBase status                                                                                                                  |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Realtime subscriptions[^pb10]                    | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                                                          |
-| File fields and thumbnails[^pb11]                | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                                                |
-| OAuth2 sign-in[^pb12]                            | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                               |
-| Multi-factor authentication[^pb12]               | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                |
-| Cron jobs[^pb17]                                 | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                                                   |
-| Migration files[^pb3][^pb4]                      | Planned: [PostgreSQL migrations](/docs/1.0.0/project/roadmap#next-priorities)                                                      |
-| Built-in dashboard[^pb1]                         | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                                                     |
-| JavaScript SDK[^pb19]                            | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                                                    |
-| `geoPoint` field and `geoDistance()`[^pb2][^pb6] | Planned among the [advanced field plugins](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#advanced-field-plugins) |
-| Email OTP sign-in[^pb12]                         | Not on the roadmap                                                                                                                 |
-| Mailer and email templates[^pb16]                | Not planned: the auth plugin calls delivery callbacks you supply                                                                   |
-| A single self-contained binary[^pb21]            | Not planned: UltimaBase runs in your Node.js application                                                                           |
+| PocketBase capability                                        | UltimaBase status                                                                                                                  |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Realtime subscriptions[^pb10]                                | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                                                          |
+| File fields and thumbnails[^pb11]                            | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                                                |
+| OAuth2 sign-in[^pb12]                                        | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                               |
+| Multi-factor authentication[^pb12]                           | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                                |
+| Cron jobs[^pb17]                                             | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                                                   |
+| Migration files[^pb3]<sup>,</sup>[^pb4]                      | Planned: [PostgreSQL migrations](/docs/1.0.0/project/roadmap#next-priorities)                                                      |
+| Built-in dashboard[^pb1]                                     | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                                                     |
+| JavaScript SDK[^pb19]                                        | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                                                    |
+| `geoPoint` field and `geoDistance()`[^pb2]<sup>,</sup>[^pb6] | Planned among the [advanced field plugins](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#advanced-field-plugins) |
+| Email OTP sign-in[^pb12]                                     | Not on the roadmap                                                                                                                 |
+| Mailer and email templates[^pb16]                            | Not planned: the auth plugin calls delivery callbacks you supply                                                                   |
+| A single self-contained binary[^pb21]                        | Not planned: UltimaBase runs in your Node.js application                                                                           |
 
 Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
 dates or order.

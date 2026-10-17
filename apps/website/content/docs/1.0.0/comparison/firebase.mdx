@@ -51,17 +51,17 @@ by side.
 
 ## Common tasks side by side
 
-| Task                      | Firebase                                                           | UltimaBase                                           |
-| ------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------- |
-| Read one document         | `getDoc`[^f56]                                                     | `findOneOrThrow` or `findOne` with a `where` on `id` |
-| Query                     | `getDocs` on a `query` with `where`, `orderBy`, `limit`[^f4][^f56] | `findMany` with `where`, `orderBy`, `take`           |
-| Write                     | `addDoc`, `setDoc`, `updateDoc`[^f55]                              | `createOne`, `upsertOne`, `updateOne`                |
-| Several writes atomically | `runTransaction` or `writeBatch`[^f8]                              | `ultimabase.transaction`; each mutation is atomic    |
-| Restrict reads            | An `allow read` rule[^f20]                                         | An Access read rule                                  |
-| Grant an admin role       | `setCustomUserClaims`, checked in rules[^f25]                      | Role membership and `hasRole` in an Access rule      |
-| React to a write          | `onDocumentCreated` and related triggers[^f27]                     | Hooks, or `afterCommit` for external effects         |
-| Sign in                   | `signInWithEmailAndPassword`[^f13]                                 | `login`                                              |
-| Test locally              | Emulator Suite and `@firebase/rules-unit-testing`[^f45][^f46]      | `testApplication` with Vitest                        |
+| Task                      | Firebase                                                                       | UltimaBase                                           |
+| ------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| Read one document         | `getDoc`[^f56]                                                                 | `findOneOrThrow` or `findOne` with a `where` on `id` |
+| Query                     | `getDocs` on a `query` with `where`, `orderBy`, `limit`[^f4]<sup>,</sup>[^f56] | `findMany` with `where`, `orderBy`, `take`           |
+| Write                     | `addDoc`, `setDoc`, `updateDoc`[^f55]                                          | `createOne`, `upsertOne`, `updateOne`                |
+| Several writes atomically | `runTransaction` or `writeBatch`[^f8]                                          | `ultimabase.transaction`; each mutation is atomic    |
+| Restrict reads            | An `allow read` rule[^f20]                                                     | An Access read rule                                  |
+| Grant an admin role       | `setCustomUserClaims`, checked in rules[^f25]                                  | Role membership and `hasRole` in an Access rule      |
+| React to a write          | `onDocumentCreated` and related triggers[^f27]                                 | Hooks, or `afterCommit` for external effects         |
+| Sign in                   | `signInWithEmailAndPassword`[^f13]                                             | `login`                                              |
+| Test locally              | Emulator Suite and `@firebase/rules-unit-testing`[^f45]<sup>,</sup>[^f46]      | `testApplication` with Vitest                        |
 
 Firestore rules are not filters: a query fails when it could return a document
 the rules forbid, so the client repeats the rule's condition in its
@@ -81,7 +81,7 @@ A query then needs no copy of the rule:
 ## What works differently and why
 
 - **Relational and declared.** Firestore is schemaless, and the Standard
-  edition has references but no joins[^f1][^f6]. UltimaBase stores data in
+  edition has references but no joins[^f1]<sup>,</sup>[^f6]. UltimaBase stores data in
   PostgreSQL with declared, typed schemas, relations, `include` and nested
   writes.
 - **Server trust.** The Admin SDK bypasses Security Rules[^f20], and the
@@ -101,19 +101,19 @@ A query then needs no copy of the rule:
 
 ## What UltimaBase does not offer yet
 
-| Firebase capability                               | UltimaBase status                                                                                       |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Realtime listeners (`onSnapshot`)[^f9]            | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                               |
-| Cloud Storage for Firebase[^f11]                  | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                     |
-| Social sign-in providers[^f14]                    | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                    |
-| Multi-factor authentication[^f16]                 | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)     |
-| Scheduled and task queue functions[^f39][^f40]    | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                        |
-| Firebase console[^f20]                            | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                          |
-| Client SDKs[^f50]                                 | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                         |
-| Vector search (`findNearest`)[^f43]               | Planned: [Vector search](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#vector-search) |
-| Cloud Messaging push notifications[^f35]          | Not on the roadmap                                                                                      |
-| Email link sign-in, anonymous sign-in[^f15][^f14] | Not on the roadmap                                                                                      |
-| Hosted service[^f45]                              | Not planned                                                                                             |
+| Firebase capability                                           | UltimaBase status                                                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Realtime listeners (`onSnapshot`)[^f9]                        | Planned: [Realtime](/docs/1.0.0/project/roadmap#application-capabilities)                               |
+| Cloud Storage for Firebase[^f11]                              | Planned: [File fields](/docs/1.0.0/project/roadmap#next-priorities)                                     |
+| Social sign-in providers[^f14]                                | Planned: [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)                    |
+| Multi-factor authentication[^f16]                             | Planned after OAuth, in [More authentication](/docs/1.0.0/project/roadmap#application-capabilities)     |
+| Scheduled and task queue functions[^f39]<sup>,</sup>[^f40]    | Planned: [Background jobs](/docs/1.0.0/project/roadmap#application-capabilities)                        |
+| Firebase console[^f20]                                        | Planned: [Administration](/docs/1.0.0/project/roadmap#shipping-and-operations)                          |
+| Client SDKs[^f50]                                             | Planned: [TypeScript SDK](/docs/1.0.0/project/roadmap#apis-and-developer-tools)                         |
+| Vector search (`findNearest`)[^f43]                           | Planned: [Vector search](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#vector-search) |
+| Cloud Messaging push notifications[^f35]                      | Not on the roadmap                                                                                      |
+| Email link sign-in, anonymous sign-in[^f15]<sup>,</sup>[^f14] | Not on the roadmap                                                                                      |
+| Hosted service[^f45]                                          | Not planned                                                                                             |
 
 Planned is not shipped: the [Roadmap](/docs/1.0.0/project/roadmap) gives no
 dates or order.
@@ -123,7 +123,7 @@ dates or order.
 Claims about Firebase cite its official documentation and repositories,
 checked on 2026-10-17. Firebase products change names and plans without a
 version number: Data Connect is now SQL Connect, and Firebase Extensions shut
-down on 2027-03-31[^f32][^f49]. Cells that need the Blaze plan or Identity
+down on 2027-03-31[^f32]<sup>,</sup>[^f49]. Cells that need the Blaze plan or Identity
 Platform say so in the [overview](/docs/1.0.0/comparison/overview).
 
 [^f1]: [Cloud Firestore data model](https://firebase.google.com/docs/firestore/data-model).
