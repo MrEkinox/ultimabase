@@ -293,7 +293,9 @@ describe('public operations', () => {
 			unbound.name,
 		])
 		expect(() =>
-			run(() => planner.plan({ operations: [bound], transport: otherProtocol })),
+			run(() =>
+				planner.plan({ operations: [bound], transport: otherProtocol }),
+			),
 		).toThrow(`Operation ${bound.name} requires one exact binding`)
 		expect(() =>
 			run(() =>
