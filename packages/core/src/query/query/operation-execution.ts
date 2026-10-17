@@ -6,6 +6,7 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
+import { readWriteSelection } from '../clauses/selection.js'
 import type { QueryFilterNode } from '../filters/logical.js'
 import type {
 	CountOperationAst,
@@ -191,10 +192,9 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
 ): Promise<object> => {
-	// Without `select`, a write returns `{ id }` (ADR-0341).
 	const projection = queryFromFindOneInput(schema, {
 		...(input.include === undefined ? {} : { include: input.include }),
-		select: input.select ?? { id: true },
+		select: readWriteSelection(input.select),
 	})
 	const operation: CreateOneOperationAst<
 		TSchema,

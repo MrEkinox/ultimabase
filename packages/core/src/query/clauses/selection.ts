@@ -171,6 +171,21 @@ export const normalizeQuerySelectedFields = <
 	})
 }
 
+const writeIdentifierSelection: Readonly<{ id: true }> = Object.freeze({
+	id: true,
+})
+
+/**
+ * Without `select`, a write returns `{ id }` (ADR-0341): the identifier is all
+ * a caller that may write but not read a row can receive. An explicit
+ * `select` keeps the read projection grammar. Every write lowering reads its
+ * default here.
+ */
+export const readWriteSelection = <TSelection>(
+	selection: TSelection | undefined,
+): TSelection | Readonly<{ id: true }> =>
+	selection ?? writeIdentifierSelection
+
 /** Normalizes one literal boolean projection without mutating caller-owned input. */
 export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,

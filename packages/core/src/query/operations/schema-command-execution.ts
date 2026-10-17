@@ -10,6 +10,7 @@ import type { QueryFieldName, QuerySelectionNode } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import {
 	normalizeQuerySelection,
+	readWriteSelection,
 	type QuerySelection,
 } from '../clauses/selection.js'
 import type { QueryFilterNode } from '../filters/logical.js'
@@ -108,16 +109,12 @@ const createSchemaWhereQuery = <TSchema extends SchemaDefinition>(
 	return immutableRecord({ ast, schema })
 }
 
-/**
- * Without `select`, a write returns `{ id }` (ADR-0341): the identifier is
- * all a caller that may write but not read a row can receive. An explicit
- * `select` keeps the read projection grammar.
- */
+/** Normalizes a write's `select`, `{ id }` by default (ADR-0341). */
 const normalizeWriteSelection = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	select: QuerySelection<TSchema> | undefined,
 ): QuerySelectionNode<QueryFieldName<TSchema>> =>
-	normalizeQuerySelection(schema, select ?? { id: true })
+	normalizeQuerySelection(schema, readWriteSelection(select))
 
 /** Normalizes a write's `select` and `include` through the read projection. */
 const normalizeWriteProjection = <TSchema extends SchemaDefinition>(
@@ -127,7 +124,7 @@ const normalizeWriteProjection = <TSchema extends SchemaDefinition>(
 ): SchemaQuery<TSchema>['ast'] =>
 	queryFromFindOneInput(schema, {
 		...(include === undefined ? {} : { include }),
-		select: select ?? { id: true },
+		select: readWriteSelection(select),
 	}).ast
 
 const projectQuery = <TSchema extends SchemaDefinition>(
