@@ -1,6 +1,5 @@
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -29,14 +28,14 @@ export type BooleanField<TState extends FieldTypeState = FieldTypeState> =
 	FieldDefinition<'boolean', boolean, BooleanFieldOptions, TState>
 
 type DefaultedBooleanFieldOptions<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	object,
@@ -74,15 +73,10 @@ type ResolvedBooleanField<
 >
 
 type DefaultedBooleanField<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBooleanField<
-	DefaultedFieldNonNull<TNullable>,
-	TList,
-	TImmutable,
-	true
->
+> = ResolvedBooleanField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedBooleanField<
 	TRequired extends boolean,
@@ -94,26 +88,21 @@ export interface BooleanFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedBooleanFieldOptions<TNullable, TList, TImmutable, TIndexed>,
+			DefaultedBooleanFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			boolean,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				boolean,
-				TList,
-				DefaultedFieldNonNull<TNullable>
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList, TRequired>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedBooleanField<TNullable, TList, TImmutable>
+		DefaultedBooleanField<TRequired, TList, TImmutable>
 	>
 	<
 		const TRequired extends boolean = false,

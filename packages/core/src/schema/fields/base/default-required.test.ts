@@ -33,12 +33,14 @@ describe('default requiredness', () => {
 			readFieldTypeState(intField({ default: 0, required: true })),
 		).toMatchObject({ create: 'optional', nullable: false })
 		expect(readFieldTypeState(stringField())).toMatchObject({ nullable: true })
-		expect(
-			readFieldTypeState(stringField({ required: false })),
-		).toMatchObject({ create: 'optional', nullable: true })
-		expect(
-			readFieldTypeState(stringField({ required: true })),
-		).toMatchObject({ create: 'required', nullable: false })
+		expect(readFieldTypeState(stringField({ required: false }))).toMatchObject({
+			create: 'optional',
+			nullable: true,
+		})
+		expect(readFieldTypeState(stringField({ required: true }))).toMatchObject({
+			create: 'required',
+			nullable: false,
+		})
 	})
 
 	it('rejects required: false beside a generator and a non-boolean required', () => {
@@ -67,19 +69,20 @@ describe('default requiredness', () => {
 		).toMatchObject({ create: 'optional', nullable: false })
 	})
 
-	it('rejects nullable like any other unknown field option', () => {
-		const declare = (): unknown =>
-			UltimaBase.Schema.define({
-				className: 'RemovedNullableOption',
-				fields: (field) => ({
-					// @ts-expect-error -- `nullable` is not a field option.
-					channel: field.string({ default: 'web', nullable: true }),
-				}),
-			})
+	it('rejects nullable like any other unknown field option', async () => {
+		const Removed = UltimaBase.Schema.define({
+			className: 'RemovedNullableOption',
+			fields: (field) => ({
+				// @ts-expect-error -- `nullable` is not a field option.
+				channel: field.string({ default: 'web', nullable: true }),
+			}),
+		})
+		const application = new UltimaBase({ schemas: [Removed] })
 
-		expect(declare).toThrow(
-			new TypeError('Unknown string field option: nullable'),
+		expect(() => application.compile()).toThrow(
+			'Unknown string field option: nullable',
 		)
+		await application.dispose()
 	})
 
 	it('compiles a defaulted field to a non-null validation plan', () => {

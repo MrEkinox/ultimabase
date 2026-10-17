@@ -1,6 +1,5 @@
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldIndexOption,
 	FieldListOption,
 	ResolvedFieldSourceOptions,
@@ -32,7 +31,7 @@ type EnumBuilderOptions<
 
 type DefaultedEnumFieldBuilderOptions<
 	TValues extends EnumValues,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TContext extends EnumBuilderContext,
@@ -40,7 +39,7 @@ type DefaultedEnumFieldBuilderOptions<
 > = DefaultedCompactScalarFieldOptions<
 	EnumBuilderOptions<TValues, TContext>,
 	EnumValue<TValues>,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	object,
@@ -73,7 +72,7 @@ export interface EnumFieldBuilderFactory<
 > {
 	<
 		const TValues extends EnumValues,
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TIndexed extends FieldIndexOption = false,
@@ -82,7 +81,7 @@ export interface EnumFieldBuilderFactory<
 		options: CompatibleFieldOptionsExtension<
 			DefaultedEnumFieldBuilderOptions<
 				TValues,
-				TNullable,
+				TRequired,
 				TList,
 				TImmutable,
 				TContext,
@@ -94,7 +93,7 @@ export interface EnumFieldBuilderFactory<
 				TSourceTemplate,
 				EnumValue<TValues>,
 				TList,
-				DefaultedFieldNonNull<TNullable>
+				TRequired
 			>
 		>,
 	): TContext extends 'stored'
@@ -104,7 +103,7 @@ export interface EnumFieldBuilderFactory<
 					'enum',
 					EnumValue<TValues>,
 					EnumFieldOptions<TValues> & TExtensionOptions,
-					DefaultedFieldNonNull<TNullable>,
+					TRequired,
 					TList,
 					TImmutable,
 					true
@@ -114,7 +113,7 @@ export interface EnumFieldBuilderFactory<
 				'enum',
 				EnumValue<TValues>,
 				EmbeddedEnumFieldOptions<TValues>,
-				DefaultedFieldNonNull<TNullable>,
+				TRequired,
 				TList,
 				TImmutable,
 				true

@@ -1,6 +1,5 @@
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -29,14 +28,14 @@ export type StringField<TState extends FieldTypeState = FieldTypeState> =
 	FieldDefinition<'string', string, StringFieldOptions, TState>
 
 type DefaultedStringFieldOptions<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	StringFieldOptions,
 	string,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	object,
@@ -74,15 +73,10 @@ type ResolvedStringField<
 >
 
 type DefaultedStringField<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedStringField<
-	DefaultedFieldNonNull<TNullable>,
-	TList,
-	TImmutable,
-	true
->
+> = ResolvedStringField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedStringField<
 	TRequired extends boolean,
@@ -94,26 +88,21 @@ export interface StringFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedStringFieldOptions<TNullable, TList, TImmutable, TIndexed>,
+			DefaultedStringFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				string,
-				TList,
-				DefaultedFieldNonNull<TNullable>
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedStringField<TNullable, TList, TImmutable>
+		DefaultedStringField<TRequired, TList, TImmutable>
 	>
 	<
 		const TRequired extends boolean = false,

@@ -1,6 +1,5 @@
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -44,7 +43,7 @@ export type IntField<TState extends FieldTypeState = FieldTypeState> =
 
 /** Provides integer-specific names for compact sequence inference. */
 type DefaultedIntFieldOptions<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
@@ -52,7 +51,7 @@ type DefaultedIntFieldOptions<
 > = DefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>,
@@ -64,9 +63,7 @@ type DefaultedIntFieldOptions<
 		TList,
 		true,
 		false
-	> &
-	// The database's identity value is never null (ADR-0340).
-	(TAutoIncrement extends true ? { readonly nullable?: false } : unknown)
+	>
 
 type NonDefaultedIntFieldOptions<
 	TRequired extends boolean,
@@ -109,17 +106,11 @@ type ResolvedIntField<
 >
 
 type DefaultedIntField<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = ResolvedIntField<
-	DefaultedFieldNonNull<TNullable>,
-	TList,
-	TImmutable,
-	true,
-	TAutoIncrement
->
+> = ResolvedIntField<TRequired, TList, TImmutable, true, TAutoIncrement>
 
 type NonDefaultedIntField<
 	TRequired extends boolean,
@@ -132,7 +123,7 @@ export interface IntFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
@@ -141,7 +132,7 @@ export interface IntFieldFactory<
 	>(
 		options: CompatibleFieldOptionsExtension<
 			DefaultedIntFieldOptions<
-				TNullable,
+				TRequired,
 				TList,
 				TImmutable,
 				TAutoIncrement,
@@ -149,16 +140,11 @@ export interface IntFieldFactory<
 			>,
 			TExtensionOptions,
 			number,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				number,
-				TList,
-				DefaultedFieldNonNull<TNullable>
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedIntField<TNullable, TList, TImmutable, TAutoIncrement>
+		DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 	>
 	<
 		const TRequired extends boolean = false,

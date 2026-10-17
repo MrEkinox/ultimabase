@@ -10,6 +10,7 @@ import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import type { UpdateExpressionNode } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { snapshotDeclaredFieldValue } from '../../schema/fields/base/definition.js'
+import { isFieldNullable } from '../../schema/fields/base/options.js'
 
 export interface ValidatedSchemaMutationEffect {
 	readonly current: Readonly<Record<string, unknown>> | null
@@ -112,12 +113,12 @@ export const validateSchemaMutationEffect = (
 				fieldName,
 			)
 		}
-		const required = 'required' in field.options && field.options.required
 		let snapshot: unknown
 		try {
-			// `null` clears an optional field, as in update data (ADR-0133).
+			// `null` clears a nullable field, as in update data (ADR-0133); a
+			// default makes a field required unless it says otherwise (ADR-0340).
 			snapshot =
-				value === null && required !== true
+				value === null && isFieldNullable(field)
 					? null
 					: snapshotDeclaredFieldValue(
 							field,

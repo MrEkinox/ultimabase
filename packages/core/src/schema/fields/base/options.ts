@@ -31,7 +31,6 @@ export const fieldOptionsBaseKeys: readonly string[] = [
 export const fieldOptionKeys: readonly string[] = [
 	...fieldOptionsBaseKeys,
 	'default',
-	'nullable',
 ]
 
 /** Describes every metadata key owned by one built-in field kind. */
@@ -146,40 +145,39 @@ export const snapshotListedFieldValue = (
 const hasRequiredOption = (options: object): boolean =>
 	'required' in options && options.required === true
 
+/** Reads an explicit opt-out of a default's requiredness. */
+const declaresNotRequired = (options: object): boolean =>
+	'required' in options && options.required === false
+
 /**
- * A default makes a field non-null; `nullable: true` beside it is the only way
- * back to `null` (ADR-0340). Without a default the option would say nothing.
+ * `required` defaults to `true` beside a default or generator (ADR-0340). A
+ * generated value always exists, so its field cannot opt out.
  */
-const assertNullableOption = (options: object): void => {
-	const nullable = 'nullable' in options ? options.nullable : undefined
-	assertOptionalBoolean(nullable, 'nullable')
-	if (nullable === undefined) {
+const assertRequiredOption = (options: object): void => {
+	if (!('required' in options)) {
 		return
 	}
 
-	if (!('default' in options)) {
-		throw new TypeError('nullable is only accepted beside a default')
+	assertOptionalBoolean(options.required, 'required')
+	if (options.required !== false) {
+		return
 	}
 
-	if (nullable && hasRequiredOption(options)) {
-		throw new TypeError('required and nullable cannot both be true')
+	if ('autoIncrement' in options && options.autoIncrement === true) {
+		throw new TypeError(
+			'required: false cannot be used with autoIncrement: the database always generates a value',
+		)
 	}
 
-	if (
-		nullable &&
-		'autoIncrement' in options &&
-		options.autoIncrement === true
-	) {
-		throw new TypeError('autoIncrement and nullable cannot both be true')
+	if ('autoNow' in options && options.autoNow === true) {
+		throw new TypeError(
+			'required: false cannot be used with autoNow: the clock always supplies a value',
+		)
 	}
 }
 
 const assertCommonFieldMetadata = (options: object): void => {
-	if ('required' in options) {
-		assertOptionalBoolean(options.required, 'required')
-	}
-
-	assertNullableOption(options)
+	assertRequiredOption(options)
 
 	if ('immutable' in options) {
 		assertOptionalBoolean(options.immutable, 'immutable')
@@ -250,14 +248,13 @@ export const hasListOption = (options: object): boolean =>
 
 /**
  * Derives whether a selected persisted field may contain logical null: a
- * required, defaulted or generated field may not, unless a defaulted field
- * declares `nullable: true` (ADR-0340).
+ * required or generated field may not, and a default makes a field required
+ * unless it declares `required: false` (ADR-0340).
  */
 export const isFieldNullable = (field: GenericField): boolean =>
-	('nullable' in field.options && field.options.nullable === true) ||
-	(!hasRequiredOption(field.options) &&
-		!('default' in field.options) &&
-		!hasGeneratedValue(field.options))
+	!hasGeneratedValue(field.options) &&
+	!hasRequiredOption(field.options) &&
+	(declaresNotRequired(field.options) || !('default' in field.options))
 
 /** Mirrors create-input omission rules at runtime snapshot boundaries. */
 export const isRequiredOnCreate = (field: GenericField): boolean =>

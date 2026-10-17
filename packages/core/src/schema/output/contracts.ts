@@ -30,7 +30,7 @@ export type OutputKind =
 
 /** Describes value shape without persisted-input or storage behavior. */
 export interface OutputValueOptions<
-	TNullable extends boolean = boolean,
+	TRequired extends boolean = boolean,
 	TList extends boolean = boolean,
 > {
 	/** Supplies human-readable output documentation. @example `description: "Display name"` */
@@ -38,30 +38,31 @@ export interface OutputValueOptions<
 	/** Wraps the complete value in one homogeneous list. @example `list: true` */
 	readonly list?: TList
 	/**
-	 * Allows the complete value or list container to be `null`; outputs are
-	 * non-null otherwise (ADR-0340). @example `nullable: true`
+	 * Keeps the complete value or list container non-null. Outputs are
+	 * required unless they declare `required: false`, for a resolver that may
+	 * return `null` (ADR-0340). @example `required: false`
 	 */
-	readonly nullable?: TNullable
+	readonly required?: TRequired
 }
 
 /** Carries explicit defaults after one output declaration is normalized. */
 export interface NormalizedOutputValueOptions<
-	TNullable extends boolean = boolean,
+	TRequired extends boolean = boolean,
 	TList extends boolean = boolean,
 > {
 	readonly description?: string
 	readonly list: TList
-	readonly nullable: TNullable
+	readonly required: TRequired
 }
 
-/** Applies list shape first and complete-value nullability second. */
+/** Applies list shape first and complete-value requiredness second. */
 export type OutputValueShape<
 	TValue,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends boolean,
 > =
 	| (TList extends true ? readonly TValue[] : TValue)
-	| (TNullable extends true ? null : never)
+	| (TRequired extends true ? never : null)
 
 /** Describes one immutable logical output without creating a stored field. */
 export interface OutputDescriptor<
@@ -94,12 +95,12 @@ type ScalarOutputDescriptor<
 	TKind extends Exclude<OutputKind, 'enum' | 'object'>,
 	TValue,
 	TRepresentationOptions extends object,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends boolean,
 > = OutputDescriptor<
 	TKind,
-	OutputValueShape<TValue, TNullable, TList>,
-	NormalizedOutputValueOptions<TNullable, TList> & TRepresentationOptions
+	OutputValueShape<TValue, TRequired, TList>,
+	NormalizedOutputValueOptions<TRequired, TList> & TRepresentationOptions
 >
 
 interface OutputScalarBuilderMethod<
@@ -110,45 +111,45 @@ interface OutputScalarBuilderMethod<
 > {
 	/** Declares one non-null scalar output value. */
 	(
-		options?: OutputValueOptions<false, false> &
+		options?: OutputValueOptions<true, false> &
 			TRepresentationOptions & {
 				readonly list?: false
-				readonly nullable?: false
+				readonly required?: true
 			} & OutputSourceOptions<TSourceTemplate, TValue>,
-	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, false>
-	(
-		options: OutputValueOptions<false, true> &
-			TRepresentationOptions & {
-				readonly list: true
-				readonly nullable?: false
-			} & OutputSourceOptions<TSourceTemplate, readonly TValue[]>,
-	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, true>
+	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, true, false>
 	(
 		options: OutputValueOptions<true, true> &
 			TRepresentationOptions & {
 				readonly list: true
-				readonly nullable: true
-			} & OutputSourceOptions<TSourceTemplate, readonly TValue[] | null>,
+				readonly required?: true
+			} & OutputSourceOptions<TSourceTemplate, readonly TValue[]>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, true, true>
 	(
-		options: OutputValueOptions<true, false> &
+		options: OutputValueOptions<false, true> &
+			TRepresentationOptions & {
+				readonly list: true
+				readonly required: false
+			} & OutputSourceOptions<TSourceTemplate, readonly TValue[] | null>,
+	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, true>
+	(
+		options: OutputValueOptions<false, false> &
 			TRepresentationOptions & {
 				readonly list?: false
-				readonly nullable: true
+				readonly required: false
 			} & OutputSourceOptions<TSourceTemplate, TValue | null>,
-	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, true, false>
-	<const TNullable extends boolean, const TList extends boolean>(
-		options: OutputValueOptions<TNullable, TList> &
+	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, false>
+	<const TRequired extends boolean, const TList extends boolean>(
+		options: OutputValueOptions<TRequired, TList> &
 			TRepresentationOptions &
 			OutputSourceOptions<
 				TSourceTemplate,
-				OutputValueShape<TValue, TNullable, TList>
+				OutputValueShape<TValue, TRequired, TList>
 			>,
 	): ScalarOutputDescriptor<
 		TKind,
 		TValue,
 		TRepresentationOptions,
-		TNullable,
+		TRequired,
 		TList
 	>
 }
@@ -170,9 +171,9 @@ export interface TemporalOutputRepresentationOptions {
 /** Describes one exact output enum domain. */
 export interface EnumOutputOptions<
 	TValues extends EnumValues,
-	TNullable extends boolean = boolean,
+	TRequired extends boolean = boolean,
 	TList extends boolean = boolean,
-> extends OutputValueOptions<TNullable, TList> {
+> extends OutputValueOptions<TRequired, TList> {
 	/**
 	 * Declares the accepted string values: a non-empty array or a shared enum.
 	 * @example `values: ["draft"]`
@@ -182,12 +183,12 @@ export interface EnumOutputOptions<
 
 type EnumOutputDescriptor<
 	TValues extends EnumValues,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends boolean,
 > = OutputDescriptor<
 	'enum',
-	OutputValueShape<EnumValue<TValues>, TNullable, TList>,
-	NormalizedOutputValueOptions<TNullable, TList> & {
+	OutputValueShape<EnumValue<TValues>, TRequired, TList>,
+	NormalizedOutputValueOptions<TRequired, TList> & {
 		readonly values: TValues
 	}
 >
@@ -197,52 +198,52 @@ interface OutputEnumBuilderMethod<
 > {
 	/** Declares one non-null output value from an exact enum domain. */
 	<const TValues extends EnumValues>(
-		options: EnumOutputOptions<TValues, false, false> & {
+		options: EnumOutputOptions<TValues, true, false> & {
 			readonly list?: false
-			readonly nullable?: false
+			readonly required?: true
 		} & OutputSourceOptions<TSourceTemplate, EnumValue<TValues>>,
-	): EnumOutputDescriptor<TValues, false, false>
-	<const TValues extends EnumValues>(
-		options: EnumOutputOptions<TValues, false, true> & {
-			readonly list: true
-			readonly nullable?: false
-		} & OutputSourceOptions<TSourceTemplate, readonly EnumValue<TValues>[]>,
-	): EnumOutputDescriptor<TValues, false, true>
+	): EnumOutputDescriptor<TValues, true, false>
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, true, true> & {
 			readonly list: true
-			readonly nullable: true
+			readonly required?: true
+		} & OutputSourceOptions<TSourceTemplate, readonly EnumValue<TValues>[]>,
+	): EnumOutputDescriptor<TValues, true, true>
+	<const TValues extends EnumValues>(
+		options: EnumOutputOptions<TValues, false, true> & {
+			readonly list: true
+			readonly required: false
 		} & OutputSourceOptions<
 				TSourceTemplate,
 				readonly EnumValue<TValues>[] | null
 			>,
-	): EnumOutputDescriptor<TValues, true, true>
+	): EnumOutputDescriptor<TValues, false, true>
 	<const TValues extends EnumValues>(
-		options: EnumOutputOptions<TValues, true, false> & {
+		options: EnumOutputOptions<TValues, false, false> & {
 			readonly list?: false
-			readonly nullable: true
+			readonly required: false
 		} & OutputSourceOptions<TSourceTemplate, EnumValue<TValues> | null>,
-	): EnumOutputDescriptor<TValues, true, false>
+	): EnumOutputDescriptor<TValues, false, false>
 	<
 		const TValues extends EnumValues,
-		const TNullable extends boolean,
+		const TRequired extends boolean,
 		const TList extends boolean,
 	>(
-		options: EnumOutputOptions<TValues, TNullable, TList> &
+		options: EnumOutputOptions<TValues, TRequired, TList> &
 			OutputSourceOptions<
 				TSourceTemplate,
-				OutputValueShape<EnumValue<TValues>, TNullable, TList>
+				OutputValueShape<EnumValue<TValues>, TRequired, TList>
 			>,
-	): EnumOutputDescriptor<TValues, TNullable, TList>
+	): EnumOutputDescriptor<TValues, TRequired, TList>
 }
 
 /** Describes one recursively named output object. */
 export interface ObjectOutputOptions<
 	TFields extends OutputFields,
-	TNullable extends boolean = boolean,
+	TRequired extends boolean = boolean,
 	TList extends boolean = boolean,
 	TBuilder = OutputBuilder,
-> extends OutputValueOptions<TNullable, TList> {
+> extends OutputValueOptions<TRequired, TList> {
 	/** Declares every required property through the same output-only builder. */
 	readonly fields: (output: TBuilder) => TFields
 	/** Supplies a stable generator-neutral object identity. @example `typeName: "Summary"` */
@@ -251,12 +252,12 @@ export interface ObjectOutputOptions<
 
 type ObjectOutputDescriptor<
 	TFields extends OutputFields,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends boolean,
 > = OutputDescriptor<
 	'object',
-	OutputValueShape<OutputObjectValue<TFields>, TNullable, TList>,
-	NormalizedOutputValueOptions<TNullable, TList> & {
+	OutputValueShape<OutputObjectValue<TFields>, TRequired, TList>,
+	NormalizedOutputValueOptions<TRequired, TList> & {
 		readonly fields: TFields
 		readonly typeName?: string
 	}
@@ -270,76 +271,76 @@ interface OutputObjectBuilderMethod<
 	<const TFields extends OutputFields>(
 		options: ObjectOutputOptions<
 			TFields,
-			false,
+			true,
 			false,
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> & {
 			readonly list?: false
-			readonly nullable?: false
+			readonly required?: true
 		} & OutputSourceOptions<TSourceTemplate, OutputObjectValue<TFields>>,
-	): ObjectOutputDescriptor<TFields, false, false>
+	): ObjectOutputDescriptor<TFields, true, false>
 	<const TFields extends OutputFields>(
 		options: ObjectOutputOptions<
 			TFields,
-			false,
+			true,
 			true,
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> & {
 			readonly list: true
-			readonly nullable?: false
+			readonly required?: true
 		} & OutputSourceOptions<
 				TSourceTemplate,
 				readonly OutputObjectValue<TFields>[]
-			>,
-	): ObjectOutputDescriptor<TFields, false, true>
-	<const TFields extends OutputFields>(
-		options: ObjectOutputOptions<
-			TFields,
-			true,
-			true,
-			OutputBuilder<TSourceTemplate, TPluginMethods>
-		> & {
-			readonly list: true
-			readonly nullable: true
-		} & OutputSourceOptions<
-				TSourceTemplate,
-				readonly OutputObjectValue<TFields>[] | null
 			>,
 	): ObjectOutputDescriptor<TFields, true, true>
 	<const TFields extends OutputFields>(
 		options: ObjectOutputOptions<
 			TFields,
+			false,
 			true,
+			OutputBuilder<TSourceTemplate, TPluginMethods>
+		> & {
+			readonly list: true
+			readonly required: false
+		} & OutputSourceOptions<
+				TSourceTemplate,
+				readonly OutputObjectValue<TFields>[] | null
+			>,
+	): ObjectOutputDescriptor<TFields, false, true>
+	<const TFields extends OutputFields>(
+		options: ObjectOutputOptions<
+			TFields,
+			false,
 			false,
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> & {
 			readonly list?: false
-			readonly nullable: true
+			readonly required: false
 		} & OutputSourceOptions<TSourceTemplate, OutputObjectValue<TFields> | null>,
-	): ObjectOutputDescriptor<TFields, true, false>
+	): ObjectOutputDescriptor<TFields, false, false>
 	<
 		const TFields extends OutputFields,
-		const TNullable extends boolean,
+		const TRequired extends boolean,
 		const TList extends boolean,
 	>(
 		options: ObjectOutputOptions<
 			TFields,
-			TNullable,
+			TRequired,
 			TList,
 			OutputBuilder<TSourceTemplate, TPluginMethods>
 		> &
 			OutputSourceOptions<
 				TSourceTemplate,
-				OutputValueShape<OutputObjectValue<TFields>, TNullable, TList>
+				OutputValueShape<OutputObjectValue<TFields>, TRequired, TList>
 			>,
-	): ObjectOutputDescriptor<TFields, TNullable, TList>
+	): ObjectOutputDescriptor<TFields, TRequired, TList>
 }
 
 interface OutputCoreBuilderMethods<
 	TSourceTemplate extends object,
 	TPluginMethods extends object,
 > {
-	/** Describes a string result. @example `output.string({ nullable: true })` */
+	/** Describes a string result. @example `output.string({ required: false })` */
 	readonly string: OutputScalarBuilderMethod<
 		'string',
 		string,

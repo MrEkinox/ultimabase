@@ -2,7 +2,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -30,14 +29,15 @@ type CompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
-> = Omit<TOptions, 'immutable' | 'indexed' | 'list' | 'nullable' | 'required'> &
+> = Omit<TOptions, 'immutable' | 'indexed' | 'list' | 'required'> &
 	// Embedded fields have no `indexed` option.
 	('indexed' extends keyof TOptions
 		? IndexedFieldOption<TIndexed>
 		: unknown) & {
 		/**
 		 * Requires a non-null persisted value and requires create input unless a
-		 * default or generator supplies it.
+		 * default or generator supplies it. A default or generator makes it
+		 * `true`; `required: false` beside a default keeps `null` allowed.
 		 * @example `required: true`
 		 */
 		readonly required?: TRequired
@@ -67,33 +67,26 @@ export interface IndexedFieldOption<TIndexed extends FieldIndexOption> {
 
 /**
  * Names the complete input so editor hovers do not expand its intersections.
- * A default makes the field non-null unless it declares `nullable: true`, so
- * `required` adds nothing beside it and cannot be combined with `nullable`
+ * A default makes the field required unless it declares `required: false`
  * (ADR-0340).
  */
 export type DefaultedCompactScalarFieldOptions<
 	TOptions extends object,
 	TValue,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
 	TIndexed extends FieldIndexOption = FieldIndexOption,
 > = CompactScalarFieldOptions<
 	TOptions,
-	TNullable extends true ? false : boolean,
+	TRequired,
 	TList,
 	TImmutable,
 	TIndexed
 > &
 	TInferredOptions & {
 		readonly default: FieldDefault<FieldListValue<TValue, TList>>
-		/**
-		 * Lets the defaulted field hold `null`: an omitted value still gets the
-		 * default, and explicit `null` is kept.
-		 * @example `nullable: true`
-		 */
-		readonly nullable?: TNullable
 	}
 
 /** Names the default-free input independently from the inferred field state. */
@@ -112,15 +105,7 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TImmutable,
 	TIndexed
 > &
-	TInferredOptions & {
-		readonly default?: never
-		/**
-		 * Accepted only beside a `default`: without one, a field that is not
-		 * `required` is already nullable.
-		 * @example `default: false, nullable: true`
-		 */
-		readonly nullable?: never
-	}
+	TInferredOptions & { readonly default?: never }
 
 /** Resolves one scalar field's compact state for field-specific editor aliases. */
 export type CompactScalarFieldDefinition<
@@ -177,7 +162,19 @@ type CompatibleGeneratedValue<
 		: object
 	: object
 
-/** Projects an invalid generated-value combination onto its conflicting option. */
+/** A generated value always exists, so its field cannot opt out of `required`. */
+export interface GeneratedValueRequiredOption {
+	/**
+	 * Is always `true`: an `autoNow` or `autoIncrement` value is never null.
+	 * @example `required: true`
+	 */
+	readonly required?: true
+}
+
+/**
+ * Projects an invalid generated-value combination onto its conflicting option;
+ * a generated value also rejects `required: false` (ADR-0340).
+ */
 export type CompatibleGeneratedScalarOptions<
 	TGenerationKey extends PropertyKey,
 	THasGeneratedValue extends boolean,
@@ -194,13 +191,15 @@ export type CompatibleGeneratedScalarOptions<
 		? THasDefault extends true
 			? Readonly<Partial<Record<TGenerationKey, false>>>
 			: { readonly list?: false }
-		: object
+		: THasGeneratedValue extends true
+			? GeneratedValueRequiredOption
+			: object
 
 /** Names a generated scalar input with a default so editor signatures stay compact. */
 type DefaultedGeneratedScalarFieldOptions<
 	TOptions extends object,
 	TValue,
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TGenerationKey extends PropertyKey,
@@ -209,7 +208,7 @@ type DefaultedGeneratedScalarFieldOptions<
 > = DefaultedCompactScalarFieldOptions<
 	TOptions,
 	TValue,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
@@ -259,7 +258,7 @@ export interface CompactScalarFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TExtensionOptions extends object = object,
@@ -268,7 +267,7 @@ export interface CompactScalarFieldFactory<
 			DefaultedCompactScalarFieldOptions<
 				TOptions,
 				TValue,
-				TNullable,
+				TRequired,
 				TList,
 				TImmutable
 			>,
@@ -278,9 +277,9 @@ export interface CompactScalarFieldFactory<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
 					FieldListValue<TValue, TList>,
-					TNullable extends true
-						? FieldListValue<TValue, TList> | null
-						: FieldListValue<TValue, TList>
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
 				>,
 				object
 			>
@@ -289,12 +288,7 @@ export interface CompactScalarFieldFactory<
 		TKind,
 		TValue,
 		TOptions & TExtensionOptions,
-		ScalarFieldTypeState<
-			DefaultedFieldNonNull<TNullable>,
-			TList,
-			TImmutable,
-			true
-		>
+		ScalarFieldTypeState<TRequired, TList, TImmutable, true>
 	>
 	<
 		const TRequired extends boolean = false,
@@ -341,7 +335,7 @@ export interface GeneratedCompactScalarFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
@@ -351,7 +345,7 @@ export interface GeneratedCompactScalarFieldFactory<
 			DefaultedGeneratedScalarFieldOptions<
 				TOptions,
 				TValue,
-				TNullable,
+				TRequired,
 				TList,
 				TImmutable,
 				TGenerationKey,
@@ -364,9 +358,9 @@ export interface GeneratedCompactScalarFieldFactory<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
 					FieldListValue<TValue, TList>,
-					TNullable extends true
-						? FieldListValue<TValue, TList> | null
-						: FieldListValue<TValue, TList>
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
 				>,
 				object
 			>
@@ -375,7 +369,7 @@ export interface GeneratedCompactScalarFieldFactory<
 		TKind,
 		TValue,
 		TOptions & TExtensionOptions,
-		DefaultedFieldNonNull<TNullable>,
+		TRequired,
 		TList,
 		TImmutable,
 		true,

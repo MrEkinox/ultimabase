@@ -1,6 +1,5 @@
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -36,7 +35,7 @@ export type DateTimeField<TState extends FieldTypeState = FieldTypeState> =
 
 /** Provides date-time-specific names for compact auto-now inference. */
 type DefaultedDateTimeFieldOptions<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
@@ -44,7 +43,7 @@ type DefaultedDateTimeFieldOptions<
 > = DefaultedCompactScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>,
@@ -87,17 +86,11 @@ type ResolvedDateTimeField<
 >
 
 type DefaultedDateTimeField<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedDateTimeField<
-	DefaultedFieldNonNull<TNullable>,
-	TList,
-	TImmutable,
-	true,
-	TAutoNow
->
+> = ResolvedDateTimeField<TRequired, TList, TImmutable, true, TAutoNow>
 
 type NonDefaultedDateTimeField<
 	TRequired extends boolean,
@@ -110,7 +103,7 @@ export interface DateTimeFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
@@ -119,7 +112,7 @@ export interface DateTimeFieldFactory<
 	>(
 		options: CompatibleFieldOptionsExtension<
 			DefaultedDateTimeFieldOptions<
-				TNullable,
+				TRequired,
 				TList,
 				TImmutable,
 				TAutoNow,
@@ -127,16 +120,11 @@ export interface DateTimeFieldFactory<
 			>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				string,
-				TList,
-				DefaultedFieldNonNull<TNullable>
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedDateTimeField<TNullable, TList, TImmutable, TAutoNow>
+		DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 	>
 	<
 		const TRequired extends boolean = false,

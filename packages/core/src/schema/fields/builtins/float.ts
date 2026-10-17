@@ -1,6 +1,5 @@
 import type {
 	CompatibleFieldOptionsExtension,
-	DefaultedFieldNonNull,
 	FieldDefinition,
 	FieldIndexOption,
 	FieldListOption,
@@ -32,14 +31,14 @@ export type FloatField<TState extends FieldTypeState = FieldTypeState> =
 	FieldDefinition<'float', number, FloatFieldOptions, TState>
 
 type DefaultedFloatFieldOptions<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TIndexed extends FieldIndexOption,
 > = DefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
 	number,
-	TNullable,
+	TRequired,
 	TList,
 	TImmutable,
 	object,
@@ -77,15 +76,10 @@ type ResolvedFloatField<
 >
 
 type DefaultedFloatField<
-	TNullable extends boolean,
+	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedFloatField<
-	DefaultedFieldNonNull<TNullable>,
-	TList,
-	TImmutable,
-	true
->
+> = ResolvedFloatField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedFloatField<
 	TRequired extends boolean,
@@ -97,26 +91,21 @@ export interface FloatFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
-		const TNullable extends boolean = false,
+		const TRequired extends boolean = true,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TIndexed extends FieldIndexOption = false,
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedFloatFieldOptions<TNullable, TList, TImmutable, TIndexed>,
+			DefaultedFloatFieldOptions<TRequired, TList, TImmutable, TIndexed>,
 			TExtensionOptions,
 			number,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				number,
-				TList,
-				DefaultedFieldNonNull<TNullable>
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
 	): UniqueIndexedField<
 		TIndexed,
-		DefaultedFloatField<TNullable, TList, TImmutable>
+		DefaultedFloatField<TRequired, TList, TImmutable>
 	>
 	<
 		const TRequired extends boolean = false,
