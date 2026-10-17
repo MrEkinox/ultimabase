@@ -67,6 +67,15 @@ examples, templates and docs. `t.afterCommit()` remains for waiting before an as
 The started handle in `main.ts` keeps the project layout's `started` binding: `await using started = await
 ultimabase.start(); await started.closed`.
 
+## Amendment (2026-10-17): one word for nullability
+
+Chosen by the user on 2026-10-17. `required` and `nullable` named the same property with opposite polarity, so one
+word remains. `required` means the field always holds a value. It defaults to `true` for a field with a `default`,
+`autoNow` or `autoIncrement`, and to `false` otherwise; without a default, `required: true` also means the value must be
+supplied on create. `required: false` beside a `default` keeps an explicit `null` allowed. Virtual outputs use the same
+word: non-null by default, `required: false` when the resolver may return `null`. The `nullable` option is removed from
+stored and virtual fields, and decision 3 reads accordingly.
+
 ## Consequences
 
 - **Examples and templates.**
