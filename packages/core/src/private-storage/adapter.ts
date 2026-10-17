@@ -48,6 +48,12 @@ type PrivateStorageOperationRequest =
 	| (PrivateStorageOperationBase &
 			Readonly<{
 				readonly data: Readonly<Record<string, unknown>>
+				/** Inserts unless a unique index already holds the value; then resolves `null`. */
+				readonly kind: 'insert-if-absent'
+			}>)
+	| (PrivateStorageOperationBase &
+			Readonly<{
+				readonly data: Readonly<Record<string, unknown>>
 				readonly kind: 'update'
 				readonly where: Readonly<Record<string, unknown>>
 			}>)

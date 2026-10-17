@@ -284,7 +284,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 						first?.owner ?? 'absent',
 						second?.owner ?? 'absent',
 						swapped?.owner ?? 'conflict',
-						account.name,
+						typeof account.id === 'string' ? 'created' : 'missing',
 					].join(' ')
 				}
 				// Every racer reads nothing before any of them inserts.
@@ -327,7 +327,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 				await ultimabase
 					.operation(atomicOperation)
 					.execute({ action: 'twice' }),
-			).toBe('first absent swapped after')
+			).toBe('first absent swapped created')
 
 			const results = await Promise.all(
 				Array.from({ length: racers }, (_, index) =>

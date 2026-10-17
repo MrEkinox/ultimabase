@@ -51,6 +51,14 @@ const execute = async (
 				.insert(collection.table)
 				.values(request.data)
 				.returning(returning)
+		case 'insert-if-absent':
+			// Without a conflict target, every unique index skips the row; no
+			// error aborts the transaction and RETURNING yields no row.
+			return client
+				.insert(collection.table)
+				.values(request.data)
+				.onConflictDoNothing()
+				.returning(returning)
 		case 'update':
 			return client
 				.update(collection.table)

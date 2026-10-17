@@ -195,6 +195,7 @@ const operationKeys: Readonly<
 > = {
 	'find-unique': new Set(['where']),
 	insert: new Set(['data']),
+	'insert-if-absent': new Set(['data']),
 	update: new Set(['data', 'where']),
 	delete: new Set(['where']),
 	'compare-and-swap': new Set(['data', 'expected', 'where']),
@@ -221,6 +222,7 @@ export const normalizePrivateStorageRequest = (
 				where: snapshotWhere(collection, input.where),
 			})
 		case 'insert':
+		case 'insert-if-absent':
 			return immutableRecord({
 				collection,
 				data: snapshotInsert(collection, input.data),
