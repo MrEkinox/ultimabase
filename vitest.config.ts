@@ -7,7 +7,9 @@ import {
 	type ViteUserConfig,
 } from 'vitest/config'
 
+import { builtOnlyE2eSuites } from './tooling/vitest/built-only-e2e.js'
 import { isolatedE2eSuites } from './tooling/vitest/isolated-e2e.js'
+import { coverageThresholds } from './tooling/vitest/package-coverage.js'
 import { graphqlRuntimeDependencies } from './tooling/vitest/runtime.js'
 
 const workspaceRoot = path.dirname(fileURLToPath(import.meta.url))
@@ -100,43 +102,13 @@ const testProjects: TestProjectConfiguration[] = [
 		extends: true,
 		resolve: { alias: sourcePackageAliases },
 		test: {
+			// Package-owned E2E from sources: they count toward their package's
+			// coverage. Transversal suites never do.
 			exclude: [
-				'tests/e2e/**/*.postgres.e2e.test.ts',
 				'packages/*/tests/e2e/**/*.postgres.e2e.test.ts',
-				'tests/e2e/package-archives.e2e.test.ts',
-				'packages/core/tests/e2e/core-archive-declarations.e2e.test.ts',
-				// The managed listener validates compiled Fetch realms, not source coverage.
-				'packages/graphql-yoga-plugin/tests/e2e/graphql-yoga-application.e2e.test.ts',
-				// This artifact audit reads build-only source maps and remains covered by
-				// the post-build e2e project.
-				'packages/auth-password/tests/e2e/auth-password-archive.e2e.test.ts',
-				// These suites read compiled declarations or invoke built exports in child
-				// processes. Source aliases cannot change them; retain their built E2E run.
-				'packages/acl-permissions-plugin/tests/e2e/acl-direct-option.e2e.test.ts',
-				'packages/core/tests/e2e/core-field-builder.e2e.test.ts',
-				'packages/core/tests/e2e/core-field-option-diagnostics.e2e.test.ts',
-				'packages/core/tests/e2e/core-output-builder.e2e.test.ts',
-				'packages/core/tests/e2e/core-plugin-manifest.e2e.test.ts',
-				'packages/core/tests/e2e/core-public-query-types.e2e.test.ts',
-				'packages/core/tests/e2e/core-runtime-capabilities.e2e.test.ts',
-				'packages/core/tests/e2e/core-schema-compiler-ir.e2e.test.ts',
-				'packages/core/tests/e2e/core-schema-targets.e2e.test.ts',
-				'packages/core/tests/e2e/plugin-operations.e2e.test.ts',
-				'packages/create-app/tests/e2e/create-app-packed.e2e.test.ts',
-				'packages/graphql-plugin/tests/e2e/graphql-schema-execution.e2e.test.ts',
-				'packages/http-plugin/tests/e2e/http-application.e2e.test.ts',
-				'packages/pg-vector-plugin/tests/e2e/pg-vector-field-builder.e2e.test.ts',
-				'packages/plugin-kit/tests/e2e/plugin-kit-authoring-language-service.e2e.test.ts',
-				'packages/rest-plugin/tests/e2e/rest-application.e2e.test.ts',
-				'packages/soft-delete-plugin/tests/e2e/soft-delete-plugin.e2e.test.ts',
-				'packages/validation-plugin/tests/e2e/standard-schema-validation.e2e.test.ts',
-				'tests/e2e/optional-product-public-api.e2e.test.ts',
-				'tests/e2e/register-required.e2e.test.ts',
+				...builtOnlyE2eSuites,
 			],
-			include: [
-				'tests/e2e/**/*.e2e.test.ts',
-				'packages/*/tests/e2e/**/*.e2e.test.ts',
-			],
+			include: ['packages/*/tests/e2e/**/*.e2e.test.ts'],
 			name: 'coverage-e2e',
 			// Source instrumentation needs headroom on resource-constrained hosted runners:
 			// the instrumented language-service checks took 10 to 21 s on CI runners, so
@@ -149,10 +121,7 @@ const testProjects: TestProjectConfiguration[] = [
 		resolve: { alias: sourcePackageAliases },
 		test: {
 			globalSetup: ['./tests/fixtures/postgres.global-setup.ts'],
-			include: [
-				'tests/e2e/**/*.postgres.e2e.test.ts',
-				'packages/*/tests/e2e/**/*.postgres.e2e.test.ts',
-			],
+			include: ['packages/*/tests/e2e/**/*.postgres.e2e.test.ts'],
 			name: 'coverage-postgres-e2e',
 			testTimeout: 20_000,
 		},
@@ -240,30 +209,8 @@ const config: ViteUserConfig = defineConfig({
 			include: ['packages/*/src/**/*.ts'],
 			provider: 'v8',
 			reporter: ['text', 'json', 'html'],
-			thresholds: {
-				'packages/access-plugin/src/**': {
-					branches: 71,
-					functions: 88,
-					lines: 83,
-					statements: 83,
-				},
-				'packages/core/src/query/filters/relation.ts': {
-					branches: 98,
-					functions: 100,
-					lines: 98,
-					statements: 98,
-				},
-				'packages/hooks-plugin/src/**': {
-					branches: 81,
-					functions: 94,
-					lines: 90,
-					statements: 90,
-				},
-				branches: 80,
-				functions: 90,
-				lines: 88,
-				statements: 88,
-			},
+			// Each package job measures its own sources against its own thresholds.
+			thresholds: coverageThresholds,
 		},
 		fileParallelism: true,
 		pool: 'forks',

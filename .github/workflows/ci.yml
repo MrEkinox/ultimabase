@@ -23,7 +23,6 @@ jobs:
       packages: ${{ steps.plan.outputs.packages }}
       build: ${{ steps.plan.outputs.build }}
       transversal: ${{ steps.plan.outputs.transversal }}
-      coverage: ${{ steps.plan.outputs.coverage }}
       website: ${{ steps.plan.outputs.website }}
     steps:
       - uses: actions/checkout@v6
@@ -121,6 +120,7 @@ jobs:
       - name: Install browser only for selected browser suites
         if: matrix.browser
         run: yarn playwright install --with-deps chromium
+      # Affected packages also measure their own coverage against their thresholds.
       - name: Check the selected package suites
         run: node tooling/ci/run.ts package
 
@@ -144,30 +144,6 @@ jobs:
         if: contains(needs.select.outputs.plan, 'authenticated-rest-vertical.postgres.e2e.test.ts')
         run: yarn playwright install --with-deps chromium
       - run: node tooling/ci/run.ts transversal
-
-  coverage:
-    name: Complete coverage
-    needs: [select, build]
-    # Unknown/global inputs and manual runs require the complete coverage denominator.
-    # Ordinary affected runs must not secretly execute every suite again here.
-    if: needs.select.outputs.coverage == 'true'
-    runs-on: ubuntu-24.04
-    # The complete suite grew past 18 minutes on hosted runners (2026-10-11).
-    timeout-minutes: 30
-    env:
-      # Pass the safe hosted bound through CLI without overriding serial projects.
-      ULTIMABASE_COVERAGE_WORKERS: 2
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: compiled-packages
-      - run: tar -xf compiled-packages.tar
-      - run: yarn playwright install --with-deps chromium
-      # Performance budgets are timing-sensitive and distorted by V8 coverage:
-      # the package and transversal jobs run them without instrumentation.
-      - run: yarn test:coverage --exclude '**/*.performance.test.ts'
 
   website:
     name: Website
@@ -204,16 +180,7 @@ jobs:
   quality:
     name: Quality
     needs:
-      [
-        select,
-        repository,
-        build,
-        packages,
-        transversal,
-        coverage,
-        website,
-        typescript-7,
-      ]
+      [select, repository, build, packages, transversal, website, typescript-7]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 1

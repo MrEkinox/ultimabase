@@ -41,3 +41,38 @@ so the local coverage run duplicated it.
 - `yarn website:test`, `yarn typecheck:typescript-7` and `yarn install --immutable` stay separate checks, as before.
 - **Documentation impact:** internal engineering documentation (this record, `CLAUDE.md`, `CONTRIBUTING.md` where
   they describe the gate).
+
+## Amendment (2026-10-17): coverage per package
+
+Decided by the user on 2026-10-17. The `Complete coverage` GitHub job (11 to 29 minutes on hosted runners, the longest
+job of every complete run) measured one global figure from every suite, transversal ones included, and ran unit and
+E2E suites a second time beside the package jobs. It is removed, with the root `yarn test:coverage` script.
+
+- Each package's coverage is measured from its own suites only: its unit tests and its package-owned E2E and
+  PostgreSQL E2E, run from sources through the `coverage-e2e` and `coverage-postgres-e2e` projects, which now include
+  package suites only. Suites under `tests/` and other packages' tests never count. The denominator is the package's
+  `src/**`.
+- `tooling/vitest/package-coverage.ts` holds each package's lines, statements, functions and branches thresholds, set to
+  the measured coverage floored to the integer, and stricter thresholds for single files
+  (`packages/core/src/query/filters/relation.ts`). The global 80/90/88/88 thresholds are removed. The former
+  `access-plugin` and `hooks-plugin` thresholds still pass and are replaced by the stricter measured floors.
+- The package job runs each suite once: type tests; then unit tests and source-coverable E2E, instrumented, with
+  `--coverage.include=packages/<name>/src/**/*.ts` and that package's thresholds; then performance budgets and
+  built-only E2E (`tooling/vitest/built-only-e2e.ts`) uninstrumented. A package below its thresholds fails its own job.
+  A package selected only because one of its suites consumes another change runs those suites without coverage.
+- Source-coverable package E2E therefore run from sources in GitHub CI and no longer also against the built packages;
+  `yarn validate:full` still runs every E2E against the built packages before a merge, and built-only suites keep their
+  built run everywhere.
+- `yarn validate:package <name...>` runs the same package job locally; `yarn validate:affected` now measures the
+  coverage of each affected package. `yarn validate:full` still runs no coverage.
+
+Measured on 2026-10-17 (lines, statements, functions, branches, in %): `core` 92.35, 91.86, 96.13, 85.93 (12,038 lines);
+`access-plugin` 87.21, 86.15, 91, 76.89; `hooks-plugin` 93.8, 92.93, 96.98, 84.37; `rest-plugin` 92.29, 90.05, 93.68,
+81.82; `postgres-plugin` 90.17, 89.87, 95.26, 79.76; `graphql-plugin` 93.04, 91.77, 96.57, 81.38. The fourteen other
+packages are between 83 and 100 on lines. The lowest are `auth-plugin` 60.52, 58.84, 53.92, 41.83, `testing` 67.91,
+67.18, 70.79, 56.32 and `plugin-kit` 70.7, 69.09, 65.71, 67.17: their behaviour is mostly exercised by other packages'
+and transversal suites, which no longer count. `shared`, `api-server`, `pg-vector-plugin` and `graphql-explorer-plugin`
+are at 100 with few lines; `graphql-http` has 21 lines.
+
+**Documentation impact:** internal engineering documentation (this amendment, `tests/README.md`,
+`tooling/ci/README.md`, `CLAUDE.md`).

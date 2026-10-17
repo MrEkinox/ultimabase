@@ -7,6 +7,8 @@ export interface Workspace {
 export interface PackageSelection extends Workspace {
 	readonly files: readonly string[]
 	readonly browser: boolean
+	/** Every suite of the package is selected, so its coverage thresholds apply. */
+	readonly coverage: boolean
 }
 export interface CiPlan {
 	readonly full: boolean
@@ -14,7 +16,6 @@ export interface CiPlan {
 	readonly packages: readonly PackageSelection[]
 	readonly transversal: readonly string[]
 	readonly build: boolean
-	readonly coverage: boolean
 	readonly tooling: boolean
 	readonly documentation: boolean
 	readonly website: boolean
@@ -144,8 +145,10 @@ export const selectCi = (input: SelectionInput): CiPlan => {
 			const browser = local.some((file) =>
 				(files.get(file) ?? '').includes('playwright'),
 			)
-			return affected.has(workspace.name) || local.length > 0
-				? [{ ...workspace, files: local, browser }]
+			// An affected package selects all its suites; a consumer, only some.
+			const coverage = affected.has(workspace.name)
+			return coverage || local.length > 0
+				? [{ ...workspace, files: local, browser, coverage }]
 				: []
 		})
 		.sort((left, right) => left.name.localeCompare(right.name))
@@ -175,8 +178,6 @@ export const selectCi = (input: SelectionInput): CiPlan => {
 			transversal.length > 0 ||
 			workspaceLint.length > 0 ||
 			website,
-		// A partial suite cannot be compared to the complete production coverage denominator.
-		coverage: full,
 		tooling: full || changed.some((file) => file.startsWith('tooling/')),
 		documentation:
 			full ||

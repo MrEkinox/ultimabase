@@ -72,12 +72,11 @@ describe('GitHub affected checks', () => {
 		'packages/core/README.md',
 		'docs/adr/0250-package-owned-e2e-and-type-tests.md',
 		'apps/website/content/docs/guide.mdx',
-	])('keeps %s changes out of package tests and coverage', (file) => {
+	])('keeps %s changes out of package tests', (file) => {
 		expect(select([file])).toMatchObject({
 			packages: [],
 			transversal: [],
 			build: false,
-			coverage: false,
 			documentation: true,
 			website: false,
 		})
@@ -102,9 +101,19 @@ describe('GitHub affected checks', () => {
 	})
 	it('selects a supporting-package E2E without scheduling unrelated Core unit tests', () => {
 		const plan = select(['packages/postgres-plugin/src/index.ts'])
+		// Partial Core suites cannot measure Core coverage; the affected package does.
 		expect(
-			plan.packages.find(({ name }) => name === '@ultimabase/core')?.files,
-		).toEqual(['packages/core/tests/e2e/storage.postgres.e2e.test.ts'])
+			plan.packages.find(({ name }) => name === '@ultimabase/core'),
+		).toMatchObject({
+			files: ['packages/core/tests/e2e/storage.postgres.e2e.test.ts'],
+			coverage: false,
+		})
+		expect(
+			plan.packages.find(({ name }) => name === '@ultimabase/postgres-plugin'),
+		).toMatchObject({
+			files: ['packages/postgres-plugin/src/storage.test.ts'],
+			coverage: true,
+		})
 		expect(
 			plan.packages.some(({ name }) => name === '@ultimabase/rest-plugin'),
 		).toBe(false)
@@ -120,7 +129,6 @@ describe('GitHub affected checks', () => {
 		expect(select(['tests/e2e/rest.e2e.test.ts'])).toMatchObject({
 			packages: [],
 			transversal: ['tests/e2e/rest.e2e.test.ts'],
-			coverage: false,
 		})
 	})
 	it.each([
@@ -136,11 +144,7 @@ describe('GitHub affected checks', () => {
 		'packages/core/src/removed.test.ts',
 		'unknown/script.ts',
 	])('falls back to full validation for %s', (file) => {
-		expect(select([file])).toMatchObject({
-			full: true,
-			coverage: true,
-			build: true,
-		})
+		expect(select([file])).toMatchObject({ full: true, build: true })
 	})
 	it('supports a manual complete run even with an empty diff', () => {
 		expect(select([], true).transversal).toHaveLength(3)
@@ -152,7 +156,6 @@ describe('GitHub affected checks', () => {
 			transversal: [],
 			website: true,
 			build: true,
-			coverage: false,
 		})
 	})
 	it('recognizes generated imports and relative fixture chains, including cycles', () => {
