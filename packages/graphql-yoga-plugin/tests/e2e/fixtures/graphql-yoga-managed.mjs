@@ -1,6 +1,7 @@
 import {
 	UltimaBase,
 	databaseAdapterCapability,
+	databaseFilterOperatorCapabilityVersion,
 	databasePersistencePlanCapability,
 	booleanField,
 	defineOperationTransport,
@@ -24,6 +25,19 @@ import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { createServer } from 'node:net'
 import process from 'node:process'
 
+// A real adapter declares the filters it can compile (ADR-0301); this one only
+// targets rows by id.
+const adapterCapabilities = Object.freeze({
+	filterOperators: Object.freeze({
+		kind: 'filter-operators',
+		version: databaseFilterOperatorCapabilityVersion,
+		families: Object.freeze({
+			uuid: Object.freeze(['equal', 'not-equal', 'in', 'not-in', 'null']),
+		}),
+	}),
+	persistencePlans: databasePersistencePlanCapability,
+})
+
 const storedRow = Object.freeze({
 	createdAt: '2026-09-10T00:00:00.000Z',
 	id: '01991f00-0000-7000-8000-000000000704',
@@ -34,7 +48,7 @@ const storedRow = Object.freeze({
 
 class GraphqlYogaE2eTransaction {
 	kind = 'database-transaction-adapter'
-	capabilities = { persistencePlans: databasePersistencePlanCapability }
+	capabilities = adapterCapabilities
 
 	prepare() {
 		return Promise.resolve({
@@ -72,7 +86,7 @@ class GraphqlYogaE2eTransaction {
 
 class GraphqlYogaE2eDatabase {
 	kind = 'database-adapter'
-	capabilities = { persistencePlans: databasePersistencePlanCapability }
+	capabilities = adapterCapabilities
 
 	execute(request) {
 		const row = {
