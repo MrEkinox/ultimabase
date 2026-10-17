@@ -284,6 +284,11 @@ export class CommandBindings {
 		return this.#read(command)?.transports.get(protocol)
 	}
 
+	/** Reports whether the owner bound the command to at least one protocol. */
+	hasTransports(command: CompiledCommand): boolean {
+		return (this.#read(command)?.transports.size ?? 0) > 0
+	}
+
 	/** Releases owned closures even when a caller retains an old execution view. */
 	dispose(): void {
 		this.#disposed = true

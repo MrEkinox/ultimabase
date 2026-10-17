@@ -83,7 +83,8 @@ it('signs in over HTTP and sends the token as a Bearer', async () => {
 	expect(await forged.json()).toMatchObject({
 		error: { code: 'HTTP_APPLICATION_REJECTED' },
 	})
-	// REST hides the operations the `/api/auth` routes serve.
+	// Authentication binds its operations to `/api/auth`: REST does not
+	// serve them a second time.
 	const hidden = await t.fetch('/api/operations/login', {
 		body: JSON.stringify(ada),
 		headers: json,

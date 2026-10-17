@@ -22,8 +22,8 @@ import {
 } from './routes.js'
 
 /**
- * Compiles every public operation (ADR-0324) except the hidden ones: the
- * owner's REST path, or `/operations/<public name>`.
+ * Compiles every public operation REST serves (ADR-0324, ADR-0341) except the
+ * hidden ones: the owner's REST path, or `/operations/<public name>`.
  */
 export const compileRestOperationRouteFragment = (options: {
 	readonly basePath: string
@@ -38,7 +38,7 @@ export const compileRestOperationRouteFragment = (options: {
 	for (const hidden of options.hide) {
 		if (!planned.has(hidden.name)) {
 			throw new TypeError(
-				`restPlugin({ hide }) lists ${hidden.name}, which is not a public operation of this application`,
+				`restPlugin({ hide }) lists ${hidden.name}, which REST does not expose: it is not a public operation, or its owner binds it to other transports only`,
 			)
 		}
 	}

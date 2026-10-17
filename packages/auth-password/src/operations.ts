@@ -263,8 +263,9 @@ const reauthenticateOperation: PasswordOperation<
 
 // The `typeof` members keep hovers on the named private constants.
 /**
- * The password method's operations, all public (ADR-0324);
- * `restPlugin({ hide: [passwordOperations.signUp] })` hides one.
+ * The password method's operations, all public (ADR-0324) and served under
+ * `/api/auth` and in GraphQL only (ADR-0341);
+ * `graphqlPlugin({ hide: [passwordOperations.changePassword] })` hides one.
  */
 export const passwordOperations: Readonly<{
 	readonly changePassword: typeof changePasswordOperation

@@ -34,22 +34,10 @@ export const pluginImports = (
 		.map(([id, names]) => [`@ultimabase/${id}`, names] as const)
 
 /**
- * Authentication declares its operations public (ADR-0324): its own `/api/auth`
- * routes serve HTTP clients, so REST hides them; GraphQL exposes them, except
- * the email flows, which need application callbacks first.
+ * Authentication binds its operations to its own `/api/auth` routes and to
+ * GraphQL, so REST never serves them (ADR-0341); GraphQL hides the email
+ * flows, which need application callbacks first.
  */
-const hiddenAuthOperations = (plan: InitializerPlan): readonly string[] =>
-	has(plan, 'auth-plugin')
-		? [
-				`// Served under /api/auth by authPlugin.
-hide: [
-  ...Object.values(authOperations),
-  ...Object.values(passwordOperations),
-  ...Object.values(passwordEmailOperations),
-]`,
-			]
-		: []
-
 const hiddenEmailOperations = (plan: InitializerPlan): readonly string[] =>
 	hasPublishedAuth(plan)
 		? [
@@ -83,7 +71,7 @@ const apiOptions = (entries: readonly string[]): string =>
 		: `{\n  ${entries.map((entry) => indentRest(entry, 2)).join(',\n  ')},\n}`
 
 const restOptions = (plan: InitializerPlan): string =>
-	apiOptions([...readOnly(plan), ...hiddenAuthOperations(plan)])
+	apiOptions(readOnly(plan))
 
 const graphqlOptions = (plan: InitializerPlan, explorer: boolean): string =>
 	apiOptions([
@@ -124,17 +112,9 @@ export const apiSchemaPluginImports = (
 	...(has(plan, 'graphql-plugin') && !graphqlOverHttp(plan)
 		? [['@ultimabase/graphql-plugin', 'graphqlPlugin'] as const]
 		: []),
-	...(hasPublishedAuth(plan) && has(plan, 'rest-plugin')
-		? [
-				['@ultimabase/auth-plugin', 'authOperations'] as const,
-				[
-					'@ultimabase/auth-password',
-					'passwordEmailOperations, passwordOperations',
-				] as const,
-			]
-		: hasPublishedAuth(plan) && has(plan, 'graphql-plugin')
-			? [['@ultimabase/auth-password', 'passwordEmailOperations'] as const]
-			: []),
+	...(hasPublishedAuth(plan) && has(plan, 'graphql-plugin')
+		? [['@ultimabase/auth-password', 'passwordEmailOperations'] as const]
+		: []),
 ]
 
 export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
@@ -204,7 +184,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasPublishedAuth(plan),
-			'Authentication serves sign-up, login, sessions, password change and account deletion under /api/auth; GraphQL exposes the same operations and REST hides them. Password reset, email verification and email change need email callbacks in `password({ reset, verification, emailChange })`: until then they answer `AUTH_NOT_CONFIGURED` and GraphQL hides them. Sessions identify a caller; they do not grant Task access. Logins are limited per account and per account and address; the HTTP plugin can add a global per-address limit.',
+			'Authentication serves sign-up, login, sessions, password change and account deletion under /api/auth; GraphQL exposes the same operations; REST does not serve them. Password reset, email verification and email change need email callbacks in `password({ reset, verification, emailChange })`: until then they answer `AUTH_NOT_CONFIGURED` and GraphQL hides them. Sessions identify a caller; they do not grant Task access. Logins are limited per account and per account and address; the HTTP plugin can add a global per-address limit.',
 		],
 		[
 			has(plan, 'graphql-plugin') && !has(plan, 'graphql-yoga-plugin'),

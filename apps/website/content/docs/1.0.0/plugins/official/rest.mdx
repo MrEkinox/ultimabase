@@ -354,11 +354,14 @@ unreadable result fails with `403` and nothing is written.
 
 ### Public operations
 
-A plugin declares which of its operations are meant for clients, such as
-[authentication](./password-authentication)'s `signUp` and `login`; every
-installed transport exposes them, and an operation not declared public is
-never exposed. Hide one with `restPlugin({ hide: [authOperations.refresh] })`;
-an application served by authentication's own `/api/auth` routes may hide them all.
+A plugin declares which of its operations are meant for clients, and an
+operation not declared public is never exposed. A public operation its owner
+binds to no transport, such as one from `defineOperation()`, is exposed by
+every installed transport. An owner that binds it to some transports chooses
+them all: [authentication](./password-authentication) serves `signUp` and
+`login` under its own `/api/auth` routes and in GraphQL, so REST does not serve
+them. Hide an operation REST serves with `restPlugin({ hide: [readingTime] })`;
+listing one REST does not serve fails at startup.
 An operation answers `POST /api/operations/{name}` with exactly
 `{ "input": value }`, unless its owner declares a static REST path such as
 `/reports/daily`. The configured `basePath` applies to these routes too.
@@ -442,8 +445,8 @@ route is missing, check the schema's `rest` rule, the plugin default, the
 configured `basePath`, and whether the schema is application-owned. A `405`
 names a method the rule turned off, as `POST /api/classes/Author` in the
 example; a `404` on a whole schema means it has no route. An operation that is
-not listed is not declared public by its owner, or is hidden by
-`restPlugin({ hide })`.
+not listed is not declared public by its owner, is bound by its owner to
+other transports only, or is hidden by `restPlugin({ hide })`.
 
 If a request fails before REST begins, check [HTTP troubleshooting](./http#troubleshooting)
 for application ID, credentials, browser policy, and request correlation. If

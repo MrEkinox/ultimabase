@@ -379,7 +379,8 @@ and nothing is written. An exposed mutation that Access denies answers
 
 The tables cover generated schema operations, not a universal list for every
 application. A plugin-owned schema does not receive generated CRUD fields.
-An operation its owner declared public appears in every installed transport:
+An operation its owner declared public appears in every installed transport,
+or only in those its owner binds it to:
 [authentication](./password-authentication) contributes
 `signUp`, `login`, `current`, `refresh`, `logout`, `changePassword` and the
 account fields, with typed GraphQL bindings whose `user` is the application's

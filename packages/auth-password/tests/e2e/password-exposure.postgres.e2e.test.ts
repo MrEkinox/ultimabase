@@ -19,13 +19,6 @@ import { fastPolicy, secret } from './password-fixture.js'
 
 let fixture: PostgresWorkerFixture | undefined
 
-beforeAll(async () => {
-	fixture = await createPostgresWorkerFixture({ prefix: 'auth_exposure' })
-}, 30_000)
-afterAll(async () => {
-	await fixture?.dispose()
-})
-
 const createApplication = (identifier: 'email' | 'username') => {
 	if (fixture === undefined) throw new TypeError('PostgreSQL is unavailable')
 	const App = UltimaBase.use(
@@ -64,6 +57,16 @@ const createApplication = (identifier: 'email' | 'username') => {
 describe.each(['email', 'username'] as const)(
 	'authentication exposure with the %s identifier',
 	(identifier) => {
+		// One database schema per identifier: their auth storage differs.
+		beforeAll(async () => {
+			fixture = await createPostgresWorkerFixture({
+				prefix: `auth_exposure_${identifier}`,
+			})
+		}, 30_000)
+		afterAll(async () => {
+			await fixture?.dispose()
+		})
+
 		it('is served once over HTTP, under /api/auth, and unchanged in GraphQL', async () => {
 			const { send, ultimabase } = createApplication(identifier)
 			const started = await ultimabase.start()

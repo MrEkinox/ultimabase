@@ -111,7 +111,7 @@ const withoutHidden = (
 	for (const hidden of hide) {
 		if (!planned.has(hidden.name)) {
 			throw new TypeError(
-				`graphqlPlugin({ hide }) lists ${hidden.name}, which is not a public operation of this application`,
+				`graphqlPlugin({ hide }) lists ${hidden.name}, which GraphQL does not expose: it is not a public operation, or its owner binds it to other transports only`,
 			)
 		}
 	}

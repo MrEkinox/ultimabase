@@ -85,8 +85,8 @@ generated `main` ends with `await started.closed`. Advanced choices can install 
 network-independent GraphQL, or the development-only GraphiQL page at
 `/graphiql`. Internal member and role schemas remain off generated routes.
 Authentication serves its operations under `/api/auth` (Bearer, or a cookie
-for browsers once configured); GraphQL exposes the same operations and REST
-hides them. A valid session still grants no Task permission. Browser-origin
+for browsers once configured); GraphQL exposes the same operations, and REST
+does not serve them. A valid session still grants no Task permission. Browser-origin
 access and HTTP Master keys remain disabled; requests need no application
 header. The generated README gives exact local request examples and
 deployment boundaries.

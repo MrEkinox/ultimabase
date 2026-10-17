@@ -127,43 +127,44 @@ describe('REST plugin operation exposure', () => {
 		).rejects.toThrow('has an invalid status')
 	})
 
-	// ADR-0324: a public operation needs no REST binding; without one, REST
-	// passes the wire input to the operation's own contract.
-	it.each([
-		{ omitBinding: true },
-		{
+	// ADR-0341: an owner that binds the operation to REST v2 only chose its
+	// transports, so REST v1 gives it no default binding.
+	it('does not expose a public operation bound to another protocol only', async () => {
+		const fixture = await createFixture({
 			transport: defineOperationTransport({
 				name: 'ultimabase.rest',
 				version: '2.0.0',
 			}),
-		},
-	])(
-		'exposes a public operation without a REST v1 binding',
-		async (options) => {
-			const fixture = await createFixture(options)
-			const transport = fixture.rest.operationTransport
-			const route = transport?.operations[0]
-			if (transport === undefined || route === undefined) {
-				throw new TypeError('expected REST operation transport')
-			}
-			expect(route.path).toBe('/api/operations/inspect')
-			const context = RequestContext.anonymous({
-				requestId: 'u',
-				source: 'rest',
-			})
-			const { readLimits } = fixture.rest
-			const execute = (input: unknown) =>
-				transport.execute(context, route, request(input), readLimits)
-			await expect(execute({ message: 'anonymous' })).resolves.toStrictEqual({
-				accepted: true,
-			})
-			await expect(execute({ text: 'x' })).rejects.toMatchObject({
-				code: 'VALIDATION_ERROR',
-			})
-			const rejected = 'fixture.rest-operation.rejected'
-			expect(transport.statusFor(inspectOperation.name, rejected)).toBe(400)
-		},
-	)
+		})
+		expect(fixture.rest.operationTransport?.operations ?? []).toStrictEqual([])
+	})
+
+	// ADR-0324: a public operation needs no REST binding; without one, REST
+	// passes the wire input to the operation's own contract.
+	it('exposes a public operation without any binding', async () => {
+		const fixture = await createFixture({ omitBinding: true })
+		const transport = fixture.rest.operationTransport
+		const route = transport?.operations[0]
+		if (transport === undefined || route === undefined) {
+			throw new TypeError('expected REST operation transport')
+		}
+		expect(route.path).toBe('/api/operations/inspect')
+		const context = RequestContext.anonymous({
+			requestId: 'u',
+			source: 'rest',
+		})
+		const { readLimits } = fixture.rest
+		const execute = (input: unknown) =>
+			transport.execute(context, route, request(input), readLimits)
+		await expect(execute({ message: 'anonymous' })).resolves.toStrictEqual({
+			accepted: true,
+		})
+		await expect(execute({ text: 'x' })).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+		})
+		const rejected = 'fixture.rest-operation.rejected'
+		expect(transport.statusFor(inspectOperation.name, rejected)).toBe(400)
+	})
 
 	it.each([
 		{ path: undefined, distinct: false },

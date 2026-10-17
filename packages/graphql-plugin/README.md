@@ -448,8 +448,9 @@ reclassified as the other.
 
 An operation is public only when its owner declares it
 (`contributeOperation({ ..., public: { name } })`, ADR-0324): GraphQL then
-exposes it, like every installed transport, and `graphqlPlugin({ hide: [token] })`
-hides it; a hidden token that is not a public operation fails startup. With a
+exposes it, like every installed transport, unless its owner binds it to other
+transports only (ADR-0341), and `graphqlPlugin({ hide: [token] })` hides it; a
+hidden token that GraphQL does not serve fails startup. With a
 binding for the canonical `ultimabase.graphql.operation@1.0.0` protocol, the
 owner describes the field, its input and result types. Without one, the
 operation becomes a mutation named after its public name whose types derive

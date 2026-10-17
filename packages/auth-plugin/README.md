@@ -18,12 +18,8 @@ User and opens each member's own profile through Access:
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { apiServer } from '@ultimabase/api-server'
-import {
-	password,
-	passwordEmailOperations,
-	passwordOperations,
-} from '@ultimabase/auth-password'
-import { authOperations, authPlugin } from '@ultimabase/auth-plugin'
+import { password } from '@ultimabase/auth-password'
+import { authPlugin } from '@ultimabase/auth-plugin'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -60,14 +56,8 @@ export const App = UltimaBase.use(
 			trustProxy: 1,
 			browser: { origins: ['https://notes.example.com'], credentials: true },
 		},
-		// Clients use the `/api/auth` routes; REST serves only the schemas.
-		rest: {
-			hide: [
-				...Object.values(authOperations),
-				...Object.values(passwordOperations),
-				...Object.values(passwordEmailOperations),
-			],
-		},
+		// REST serves the schemas; authentication serves `/api/auth` itself.
+		rest: true,
 	}),
 	postgresPlugin(),
 )
@@ -327,12 +317,13 @@ or login.
 
 ## Transports
 
-Every operation is public (ADR-0324): GraphQL exposes them with typed fields
-(`signUp`, `login`, `current`, …, the payload's `user` being the User type)
-and REST under `/api/operations/<name>`. Hide them per transport when the
-`/api/auth` routes serve HTTP clients: the example's factory passes
-`authOperations`, `passwordOperations` and `passwordEmailOperations` to
-`rest: { hide }`, and `/api/operations/login` then answers 404.
+Every operation is public (ADR-0324) and bound to two transports only
+(ADR-0341): the `/api/auth` routes above, and GraphQL with typed fields
+(`signUp`, `login`, `current`, …, the payload's `user` being the User type).
+REST does not serve them a second time: `/api/operations/login` answers 404.
+`graphqlPlugin({ hide: [authOperations.deleteAccount] })` removes one from
+GraphQL; `authOperations`, `passwordOperations` and `passwordEmailOperations`
+name them.
 
 ## Events
 

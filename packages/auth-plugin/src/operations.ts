@@ -200,9 +200,9 @@ const deleteAccountOperation: AuthOperation<
 
 // The `typeof` members keep hovers on the named private constants.
 /**
- * The foundation's operations, all public (ADR-0324): every transport
- * exposes them; `graphqlPlugin({ hide: [authOperations.deleteAccount] })`
- * hides one.
+ * The foundation's operations, all public (ADR-0324) and served under
+ * `/api/auth` and in GraphQL only (ADR-0341);
+ * `graphqlPlugin({ hide: [authOperations.deleteAccount] })` hides one.
  */
 export const authOperations: Readonly<{
 	readonly current: typeof currentOperation

@@ -194,10 +194,12 @@ diagnostic.
 
 An operation is public only when its owner declares it (ADR-0324):
 `contributeOperation({ operation, execute, public: { name: 'login' } })`.
-Every installed transport exposes it; an operation not declared public is
-never exposed. The application hides some per instance with
-`restPlugin({ hide: [authOperations.refresh] })`. A hidden token that is not a public operation of the application fails at
-startup. Each exposed operation receives `POST /api/operations/{public name}`
+Every installed transport exposes it, unless its owner binds it to some
+transports: it is then exposed only by those (ADR-0341), as authentication's
+operations, served under `/api/auth` and in GraphQL only. An operation not
+declared public is never exposed. The application hides some per instance with
+`restPlugin({ hide: [readingTime] })`. A hidden token that REST does not serve
+fails at startup. Each exposed operation receives `POST /api/operations/{public name}`
 and accepts exactly `{ "input": value }`.
 
 An owner may contribute a REST binding through Core: a logical-to-wire codec

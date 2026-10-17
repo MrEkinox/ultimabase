@@ -52,9 +52,11 @@ const decodeWithContract =
 
 /**
  * Reads the owner's binding of one command for a protocol or, for a command
- * a transport may expose without one (a public operation, a request command
- * on one row), a default binding that keeps the wire value and validates it
- * with the command's own input contract (ADR-0324).
+ * a transport may expose without one (a public operation its owner binds to
+ * no protocol, a request command on one row), a default binding that keeps
+ * the wire value and validates it with the command's own input contract
+ * (ADR-0324). An owner that binds a public operation to any protocol chose
+ * its transports: the others get no default (ADR-0341).
  */
 export const resolveCommandTransport = (
 	graph: CompiledCommandGraph,
@@ -65,7 +67,8 @@ export const resolveCommandTransport = (
 	if (owned !== undefined) return owned
 	const exposable =
 		command.kind === 'operation'
-			? graph.bindings.publicDeclaration(command) !== undefined
+			? graph.bindings.publicDeclaration(command) !== undefined &&
+				!graph.bindings.hasTransports(command)
 			: command.definition.authority === 'request' &&
 				command.definition.target === 'one'
 	if (!exposable) return undefined

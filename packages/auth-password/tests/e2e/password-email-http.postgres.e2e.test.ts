@@ -285,7 +285,9 @@ describe(
 						.plugin(httpPlugin)
 						.fetch(new Request('https://api.example.test/api/openapi.json'))
 				).text()
-				expect(openapi).toContain('verificationRequired')
+				// REST does not serve sign-up, so OpenAPI does not describe it
+				// (ADR-0341).
+				expect(openapi).not.toContain('/operations/signUp')
 			} finally {
 				await ultimabase.dispose()
 			}
