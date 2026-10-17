@@ -129,8 +129,8 @@ Stored value fields share several options:
 - `required: true` makes a complete value non-null. Create input must supply it
   unless a default or generator can provide it.
 - `default` supplies a static value or a zero-argument factory when create input
-  omits the field. A default makes the field non-null: explicit `null` is
-  rejected unless the field also declares `nullable: true`.
+  omits the field. A default makes the field required: explicit `null` is
+  rejected unless the field also declares `required: false`.
 - `list: true` creates one list level for a value field; nested arrays belong in
   a JSON document.
 - `indexed: true` requests an index, while `indexed: 'unique'` requests a unique

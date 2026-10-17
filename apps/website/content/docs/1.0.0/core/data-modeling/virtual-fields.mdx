@@ -39,10 +39,11 @@ computes `displayName` from two stored fields:
 	../../examples/modeling/src/catalog.ts#author
 </include>
 
-`output` defines the complete returned value. Outputs are non-null, like
+`output` defines the complete returned value. Outputs are required, like
 stored fields with a default: `displayName` is always a string here. Declare
-`nullable: true`, as in `output.string({ nullable: true })`, when the resolver
-may return `null`. `undefined` is invalid even for a nullable output. The `output` callback describes the value
+`required: false`, as in `output.string({ required: false })`, when the
+resolver may return `null`. `undefined` is invalid even for an output that is
+not required. The `output` callback describes the value
 once at schema compilation; `resolve` computes it for each selected result.
 Inside the `fields` callback, the schema's own types do not exist yet, so the
 dependency values of `item` are typed `unknown`: convert or narrow them, as
