@@ -1,44 +1,14 @@
 import type { InitializerPlan } from './config.js'
+import { templateFile } from './template.js'
 
 /** Two-space JSON with a final newline, as Prettier prints package.json. */
 export const json = (value: unknown): string =>
 	`${JSON.stringify(value, null, 2)}\n`
 
-/** JSON as Prettier prints a tsconfig: short string lists on one line. */
-const tsconfigJson = (value: unknown): string =>
-	json(value).replaceAll(
-		/\[\n\s*("[^\]]*")\n\s*\]/gu,
-		(_match, items: string) => `[${items.replaceAll(/,\n\s*/gu, ', ')}]`,
-	)
-
 /** Node runs the sources; the build configuration emits them to dist/. */
 export const typescriptConfigs = (): readonly (readonly [string, string])[] => [
-	[
-		'tsconfig.json',
-		tsconfigJson({
-			compilerOptions: {
-				erasableSyntaxOnly: true,
-				module: 'NodeNext',
-				moduleResolution: 'NodeNext',
-				noEmit: true,
-				rewriteRelativeImportExtensions: true,
-				skipLibCheck: true,
-				strict: true,
-				target: 'ES2024',
-				types: ['node'],
-				verbatimModuleSyntax: true,
-			},
-			include: ['src', 'tests', 'vitest.config.ts'],
-		}),
-	],
-	[
-		'tsconfig.build.json',
-		tsconfigJson({
-			extends: './tsconfig.json',
-			compilerOptions: { noEmit: false, outDir: 'dist', rootDir: 'src' },
-			include: ['src'],
-		}),
-	],
+	['tsconfig.json', templateFile('tsconfig.json')],
+	['tsconfig.build.json', templateFile('tsconfig.build.json')],
 ]
 
 export const packageScripts = (

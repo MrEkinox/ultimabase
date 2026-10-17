@@ -5,15 +5,6 @@ import { hasPlugin as has, type InitializerPlan } from './config.js'
 const sourceModule = (plan: InitializerPlan, name: string): string =>
 	`../src/${name}.${plan.language}`
 
-/** The Vitest configuration: PostgreSQL started once, one schema per worker. */
-export const vitestConfigSource = (): string =>
-	`import { ultimabaseTesting } from '@ultimabase/testing/vitest'
-import { defineConfig } from 'vitest/config'
-
-// PostgreSQL from TEST_DATABASE_URL, or a container started once (Docker).
-export default defineConfig({ test: { ...ultimabaseTesting() } })
-`
-
 /** An empty ACL hides every Task from ordinary reads, the result included. */
 const hiddenByAcl = (plan: InitializerPlan): boolean =>
 	has(plan, 'acl-permissions-plugin')

@@ -34,7 +34,8 @@ import {
 	packageScripts,
 	typescriptConfigs,
 } from './project-files.js'
-import { taskTestSource, vitestConfigSource } from './test-template.js'
+import { templateFile } from './template.js'
+import { taskTestSource } from './test-template.js'
 
 export type ProjectFiles = ReadonlyMap<string, string>
 
@@ -223,28 +224,6 @@ ${[
 	])
 }
 
-const composeFile = `services:
-  postgres:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ultimabase
-      POSTGRES_USER: ultimabase
-      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
-    ports:
-      - '127.0.0.1:54329:5432'
-    volumes:
-      - ultimabase-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ultimabase -d ultimabase']
-      interval: 2s
-      timeout: 2s
-      retries: 20
-
-volumes:
-  ultimabase-data:
-`
-
 const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
 	const task = plan.starter === 'task'
 	return included([
@@ -352,7 +331,7 @@ export const renderBaseFiles = (
 	}
 	const files = new Map<string, string>([
 		['package.json', json(packageJson)],
-		['.gitignore', '.env\ndist/\nnode_modules/\n'],
+		['.gitignore', templateFile('gitignore')],
 		[
 			'.env.example',
 			(plan.database === 'docker'
@@ -370,14 +349,16 @@ export const renderBaseFiles = (
 		),
 		[`src/ultimabase.${extension}`, applicationSource(plan)],
 		[`src/main.${extension}`, mainSource(plan)],
-		[`vitest.config.${extension}`, vitestConfigSource()],
+		// The Vitest configuration is the same in both languages.
+		[`vitest.config.${extension}`, templateFile('vitest.config.ts')],
 		...(plan.starter === 'task'
 			? [[`tests/task.test.${extension}`, taskTestSource(plan)] as const]
 			: []),
 		...(plan.language === 'ts' ? typescriptConfigs() : []),
 		['README.md', projectReadme(plan)],
 	])
-	if (plan.database === 'docker') files.set('compose.yaml', composeFile)
+	if (plan.database === 'docker')
+		files.set('compose.yaml', templateFile('compose.yaml'))
 	const environment = environmentFile(plan, dockerPassword)
 	if (environment !== undefined) files.set('.env', environment)
 	return files
