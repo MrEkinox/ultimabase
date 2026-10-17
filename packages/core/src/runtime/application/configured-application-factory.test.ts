@@ -83,6 +83,33 @@ describe('configured UltimaBase factories', () => {
 		await variable.dispose()
 	})
 
+	it('flattens preset arrays in order (ADR-0340)', async () => {
+		const trace: string[] = []
+		const first = createLifecyclePlugin('fixture.preset-first', trace)
+		const second = createLifecyclePlugin('fixture.preset-second', trace)
+		const third = createLifecyclePlugin('fixture.preset-third', trace)
+		const fourth = createLifecyclePlugin('fixture.preset-fourth', trace)
+		const Preset = UltimaBase.use(first, [second, [third]], [])
+		const Extended = Preset.use([fourth])
+		const Empty = UltimaBase.use([])
+		const application = new Extended({ logger: false, schemas: [] })
+
+		expect(Empty).toBe(UltimaBase)
+		expect(
+			application.pluginPrivilegeReport.plugins.map(
+				({ identity }) => identity.pluginId,
+			),
+		).toStrictEqual([
+			'fixture.preset-first',
+			'fixture.preset-second',
+			'fixture.preset-third',
+			'fixture.preset-fourth',
+		])
+		expect(() => UltimaBase.use([null] as never)).toThrow(TypeError)
+
+		await application.dispose()
+	})
+
 	it('appends one flat immutable tuple without mutating its parent', async () => {
 		const trace: string[] = []
 		const first = createLifecyclePlugin('fixture.factory-first', trace)
