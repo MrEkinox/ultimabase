@@ -15,8 +15,10 @@
       `SchemaMutationResult` et `PluginSchemaMutationResult` → `id` + champs inclus.
 - [x] Conversions : tests unitaires/e2e, exemples (régions resynchronisées), modèles create-app, landing.
 - [x] Docs : pages Core writing-data, REST, Access, Soft Delete, defaults, guide de test ; READMEs ; ADR-0306/0341.
-- [ ] Bench form D, audit DX, gate complet.
+- [x] Bench form D (voir la note d'ADR-0297) et audit DX (core, rest-plugin, soft-delete-plugin, exemples) :
+      différences = JSDoc des méthodes d'écriture, résultat `{ id }` par défaut, sites d'usage modifiés.
+- [ ] Gate complet.
 
 ## Prochaine action vérifiable
 
-Bench form D (TS 6/7, 50/200) contre une base construite de main a85c032e, puis audit DX et gate.
+`yarn validate:full`, `yarn test:e2e:built`, `yarn website:test`, `yarn typecheck:typescript-7`.
