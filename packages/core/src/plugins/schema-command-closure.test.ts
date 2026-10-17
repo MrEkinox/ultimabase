@@ -60,7 +60,8 @@ const ledgerPlugin = createPlugin({
 		// The closing plugin's own path still creates.
 		contributeOperation({
 			execute: async ({ input }) => {
-				await Entry.createOne({ data: { title: input } })
+				// The memory fixture answers whole rows, so the call selects them all.
+				await Entry.createOne({ data: { title: input }, select: {} })
 				return input
 			},
 			operation: record,
