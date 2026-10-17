@@ -210,6 +210,16 @@ are. A command is exposed only when its rule names it, or when the rule or the
 plugin default is `true`. See [Soft Delete](./soft-delete) for a concrete
 example.
 
+A plugin command route accepts a JSON body with optional `input`, `select` and
+`include`, such as
+`{ "input": { "reason": "superseded" }, "select": { "id": true } }`, and answers
+`200` with `{ "result": … }`. The command's own input contract validates
+`input`, and commands are never reachable through `/operations`.
+
+A plugin route under one of these roots fails at startup. Two REST
+configurations need distinct `instanceId` values and base paths; the same method
+and path in both fails at startup.
+
 ### Reading
 
 A collection read accepts simple GET parameters:
@@ -355,6 +365,10 @@ It answers `201` with `{ "result": { "id": "…" } }`. Selecting more of an
 unreadable result, such as `?select=message`, fails with `403` and nothing is
 written.
 
+Link targets in a write are UUID v7 strings, such as
+`{ "author": { "connect": "0199…" } }`. The tagged pointer object that reads
+return is not accepted as input.
+
 ### Public operations
 
 A plugin declares which of its operations are meant for clients, and an
@@ -439,6 +453,12 @@ keep it with the safe code when reporting a failure. Earlier application
 identity or credential failures retain the HTTP plugin's envelope and never
 enter REST: an unknown `X-UltimaBase-Application-Id` answers `404`
 `HTTP_APPLICATION_UNKNOWN` without the REST version header.
+
+Responses are `application/json; charset=utf-8`. `Accept` may be omitted,
+`application/json` or a wildcard; excluding JSON with `q=0` answers `406`
+`REST_NOT_ACCEPTABLE`. A body that is not JSON answers `415`, one above
+`bodyLimit` `413`, and an unexpected failure `500`; credential rejection (`401`)
+and the request deadline (`408`) come from HTTP.
 
 ## Troubleshooting
 

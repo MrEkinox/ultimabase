@@ -166,6 +166,13 @@ When you need to handle an absent direct-read target, check the stable code:
 	../../examples/queries/src/errors.ts#find-post-or-null
 </include>
 
+Asynchronous APIs never throw from the call itself. Schema reads and commands,
+plugin schema mutations, `start()`, `stop()`, `dispose()`, `transaction()` and
+`can()` report every failure by rejecting their promise, including malformed
+input (`TypeError`) and a call with no application
+(`MISSING_EXECUTION_CONTEXT`), so one `await` inside `try`/`catch` handles all
+of them.
+
 ### Read validation issues when present
 
 A `VALIDATION_ERROR` about operation input lists every problem in one

@@ -86,6 +86,13 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({ test: { ...ultimabaseTesting() } })
 ```
 
+It also sets `PORT=0`, so a server plugin listens on a free port and workers
+never compete for your development port, and 30-second test and hook timeouts.
+Spread it first so your own values win, and merge your own `setupFiles`, `env`
+or `execArgv` with its values rather than replacing them. If `graphql` fails
+with `Cannot use GraphQLSchema from another module or realm`, the worker lost
+the `--no-experimental-require-module` flag.
+
 ### Write the test
 
 This is the first test the initializer generates for its default choices. It
@@ -238,6 +245,13 @@ Plugin conformance suites and lower-level helpers live in
 `@ultimabase/testing/plugins`; they belong to the [plugin-author
 workflow](/docs/1.0.0/plugins/build-a-plugin), not to ordinary application
 assertions.
+
+With PostgreSQL, `t.reset()` and the emptying between tests truncate only the
+tables the application manages (schema tables, relation link tables and private
+storage) and restart their identities. They never cascade, so if another table
+in the test schema has a foreign key to a managed table, the reset fails instead
+of emptying data your application does not own. Keep such tables out of the test
+schema.
 
 ## Related concepts
 

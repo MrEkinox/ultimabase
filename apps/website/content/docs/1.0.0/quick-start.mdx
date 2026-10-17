@@ -129,6 +129,10 @@ GraphQL, Yoga, HTTP, and Hono. Advanced plugin choices can keep GraphQL
 network-independent or add a development-only explorer. See [Using
 Plugins](/docs/1.0.0/plugins/using-plugins) for the composition rules.
 
+Without Access, the generated data APIs only read. An invalid name, an unknown
+plugin ID, a missing prerequisite or an incompatible selection fails before any
+file is written.
+
 ### 3. Inspect the generated files
 
 The default choices create:

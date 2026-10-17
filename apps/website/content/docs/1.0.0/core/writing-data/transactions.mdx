@@ -12,7 +12,7 @@ sources:
   - examples/queries/src/transactions.ts
   - examples/queries/tests/transactions.test.ts
   - packages/core/README.md
-  - packages/core/docs/runtime.md
+  - packages/core/src/runtime/index.ts
   - packages/hooks-plugin/README.md
   - packages/postgres-plugin/README.md
   - docs/adr/0068-request-engine-transactions.md
@@ -154,6 +154,10 @@ its own transaction's writes, the target of an update, delete or upsert stays
 stable from loading to commit, and atomic updates such as `increment` never
 lose a concurrent update. Transactions are not serializable: two transactions
 reading different rows and writing based on what they read can both commit.
+
+Each replay is logged at `debug` level, and a conflict that persists after the
+last attempt is logged as a `warn` line. These lines contain only the operation,
+schema, attempt number and error code, never the written values.
 
 ## Next steps
 

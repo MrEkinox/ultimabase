@@ -179,6 +179,12 @@ text with `$1` placeholders. `slowQueryMs` writes one `warn` line per statement
 that takes at least that many milliseconds; it is cheap enough to keep in
 production.
 
+`debug` works the same with an injected `pool`. Schema synchronization
+statements are logged too; their DDL can contain the static defaults and
+partial-index literals you declared, never row values. With the application's
+`logLevel: 'debug'`, the plugin also logs where its connection comes from and
+which `schemaPolicy` it derived and why, never the URL.
+
 ### Table and column names
 
 PostgreSQL derives a plural `snake_case` table name from `className`
@@ -203,6 +209,12 @@ Use `renamedFrom` only when an existing managed column is actually being
 renamed, and remove it once every database has applied the rename. The
 configured `App` types both from the installed plugin; a factory without the
 plugin rejects them. Field-level `postgres` is limited to stored fields.
+
+Table names follow English plural inflection (`Person` → `people`, `Category` →
+`categories`), and acronyms become single words (`userID` → `user_id`,
+`URLValue` → `url_value`). Two fields of one schema that map to the same column,
+such as `fooBar` and `foo_bar`, fail when the application compiles. Index and
+foreign-key names are derived from the physical column names.
 
 ## Behavior and limitations
 
@@ -257,6 +269,16 @@ explicitly when external tooling manages schema changes. `renamedFrom` applies
 explicit column renames
 under `override`, as shown above.
 
+A database with camelCase columns can also be adopted field by field: declare
+`postgres: { renamedFrom: 'publishedAt' }` on the `publishedAt` field, and under
+`override` the old `publishedAt` column is renamed to `published_at` with its
+data kept. Remove `renamedFrom` once every database has applied the rename.
+
+An optional column that no field declares any more does not stop startup:
+`override` logs one `warn` line naming it and applies the rest of the plan.
+Foreign tables and columns of a type the plugin does not know stop preparation
+like views, partitioned tables and generated columns.
+
 ### Index preparation
 
 Declare single-field and composite indexes through Core's
@@ -281,6 +303,11 @@ index, so also declare `required: true` when absence must be forbidden.
 A partial index compiles to `CREATE [UNIQUE] INDEX ... WHERE ...`. Its physical
 name includes a hash of the predicate, so `override` replaces an index whose
 predicate changed.
+
+A non-unique index on one field stored as `jsonb` (a `json`, `object` or list
+field) is created as a GIN index, which serves containment filters. Every other
+index uses PostgreSQL's default btree method, and `override` repairs an index
+whose method differs.
 
 ### Errors, conflicts, and health
 
@@ -328,6 +355,10 @@ example's tests build such a URL for the applications they start themselves:
 <include cwd meta='title="tests/support.ts"'>
 	../../examples/postgres/tests/support.ts#search-path
 </include>
+
+The plugin reports the `environment:network` environment claim because it opens
+PostgreSQL connections itself. Denying that claim through `pluginPrivileges`
+refuses the plugin before any connection is attempted.
 
 ## Troubleshooting
 

@@ -165,6 +165,11 @@ also close your listener from the same entry point:
 	../../examples/http/src/existing-main.ts#close
 </include>
 
+With `app`, passing `host`, `port`, `shutdownTimeoutMs` or `stopOnSignals` is an
+error, and the plugin never handles process signals. `compression: true`
+compresses only UltimaBase's responses. After `dispose()`, UltimaBase's routes
+answer `HTTP_APPLICATION_REJECTED` while your own routes keep working.
+
 ## Behavior and limitations
 
 ### Run one active application
@@ -197,6 +202,10 @@ authentication, authorization, or CSRF protection. TLS and HTTP/2 come from
 the proxy or platform; proxy trust, rate limits and security headers are
 [HTTP plugin](./http) options; REST, GraphQL and authentication are separate
 plugins. Servers for Bun, Deno and Workers are not provided yet.
+
+Hono's `app.request()` supplies no `rawHeaders`, so such requests are refused;
+test through `ultimabase.plugin(httpPlugin).fetch()` or `testApplication()`
+instead.
 
 ## Troubleshooting
 

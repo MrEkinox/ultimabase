@@ -16,10 +16,9 @@ sources:
   - examples/modeling/tests/schemas.test.ts
   - examples/soft-delete/src/schema.ts
   - packages/core/README.md
-  - packages/core/docs/schema.md
+  - packages/core/src/schema/index.ts
   - packages/core/src/schema/schema/definition.ts
   - packages/core/src/schema/schema/indexes.ts
-  - packages/core/examples/schema/basic-schema.md
   - docs/adr/0080-postgres-index-compilation.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
   - docs/adr/0248-application-selected-schema-class-mutations.md
@@ -202,6 +201,10 @@ for an example and [Models](./models) for plain data results.
 such as `Model<'Book'>`, and adapters. Treat it like a persistent API name: changing it describes a
 different schema, not a cosmetic rename.
 
+`className` must be unique within one application. Listing two schemas with the
+same `className` throws `DuplicateSchemaError`
+(`code: 'SCHEMA_DUPLICATE_CLASS_NAME'`) before startup.
+
 ## System fields
 
 Every compiled schema receives three framework-owned fields:
@@ -216,6 +219,11 @@ They are always present on complete persisted models and are not accepted in
 create or update data. UltimaBase generates all three at creation and refreshes
 `updatedAt` on persisted updates; application code cannot set or redeclare
 them.
+
+UUID v7 identifiers follow creation time only across distinct milliseconds: two
+records created in the same millisecond have no guaranteed `id` order, so order
+by `createdAt` or an explicit field when creation order matters. An `id` from a
+custom `validation.uuidV7Generator` is validated like any generated `id`.
 
 ## Compilation errors
 

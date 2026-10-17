@@ -73,6 +73,11 @@ graph.
 | `@ultimabase/create-app` | Unpublished [project initializer](/docs/1.0.0/quick-start); its packed local executable generates TypeScript or JavaScript applications with the official plugin choices described there.                                                              |
 | `@ultimabase/testing`    | `testApplication` for application tests, plugin conformance under `/plugins` and the Vitest configuration under `/vitest`; see [Test an Application](/docs/1.0.0/guides/test-an-application) and [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin). |
 
+`@ultimabase/shared` exports small primitives plugin authors may reuse: `Brand`,
+`MaybePromise`, `assertNever`, the shallow `immutableArray` and
+`immutableRecord`, and the guards `isPlainRecord`, `isUnknownArray`,
+`assertNonEmptyString` and `assertOptionalBoolean`.
+
 ### Data, validation, and security
 
 | Package                              | Purpose                                                                                                          |
@@ -107,6 +112,12 @@ public exports; their TypeScript types describe the compiled application but
 never replace it as Runtime truth. A deep import may fail
 package resolution, and a missing plugin or capability fails application
 compilation or startup rather than silently enabling substitute behavior.
+
+`apiServer({ http, rest, graphql, server })` always installs `httpPlugin(http)`.
+`rest` and `graphql` take `true` or that plugin's options and install nothing
+when omitted. `server` takes `honoServerPlugin` options, or `false` to use
+another server plugin. The returned list keeps each plugin's types, so schema
+rules and `ultimabase.plugin(...)` exports stay typed.
 
 ## Install the smallest set
 

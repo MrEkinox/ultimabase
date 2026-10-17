@@ -32,7 +32,7 @@ sources:
   - packages/graphql-plugin/README.md
   - tests/e2e/soft-delete-explicit-transports.postgres.e2e.test.ts
   - tests/e2e/soft-delete-public-vertical.postgres.e2e.test.ts
-  - packages/core/docs/runtime.md
+  - packages/core/src/runtime/index.ts
   - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0303-core-partial-indexes-and-health.md
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
@@ -180,6 +180,11 @@ const deleted = await Post.deleteOne({
 type Deleted = typeof deleted
 //   ^?
 ```
+
+A tombstone written by `deleteOne()` or `deleteMany()` is still a delete: it
+runs the `delete` Access rule and `delete` Hooks, and only its storage becomes
+one atomic update of `isDeleted` and `deletedAt`. Update rules, update Hooks,
+validators, defaults and generators do not run.
 
 ### Restore
 
@@ -425,6 +430,14 @@ private `isDeleted: false` constraint, unless the caller holds `readDeleted`.
 Tombstones are hidden from ordinary reads, counts, existence checks, pointer
 and relation traversal, eager loading, and ordinary update or delete targets.
 Direct database queries do not apply these application rules.
+
+Enabling `softDelete` on an existing schema adds the `is_deleted` column
+(`NOT NULL`, default `false`) and the nullable `deleted_at` column; PostgreSQL's
+`override` policy adds them, and under `fail` you apply that additive migration
+before starting. Switching between `softDelete: true` and `{ mode: 'command' }`
+changes no storage. Removing `softDelete` or the plugin neither drops nor
+recovers tombstones: without the plugin's filter they become ordinary rows, so
+restore or purge them first.
 
 ### Reading deleted rows: `readDeleted`
 

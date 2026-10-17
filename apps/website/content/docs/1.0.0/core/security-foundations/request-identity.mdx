@@ -16,7 +16,6 @@ sources:
   - examples/queries/src/schema.ts
   - examples/queries/tests/identity.test.ts
   - packages/core/README.md
-  - packages/core/docs/access.md
   - packages/core/src/runtime/context/request-context.ts
   - packages/core/src/runtime/context/request-principal.ts
   - packages/core/src/access/subject/principal.ts
@@ -80,6 +79,11 @@ Inside an active request or transaction, omit these options to inherit its
 context, signal, authority, and transaction instead. See
 [Query Overview](/docs/1.0.0/core/reading-data/overview#execution-context).
 
+Creating a context throws a `TypeError` when `metadata` contains a
+credential-shaped key: `authorization`, `cookie`, `password`, `apiKey`,
+`accessToken`, `refreshToken`, `sessionToken`, `clientSecret` or `masterKey`,
+matched without regard to case, `-` or `_`.
+
 ## Identity is not a grant
 
 Values can inform Access rules, ACL subject resolution, relation shaping,
@@ -134,6 +138,13 @@ type Principal = Parameters<PolicyPredicate>[0]['principal']
 Without either, `principal` is typed as `PointerValue`. Server code that runs on
 behalf of a user names it explicitly: `context.withPrincipal(pointer)` returns
 a context with that principal, `withPrincipal(undefined)` an anonymous one.
+
+Identity and role plugins publish subject data through shared protocols rather than importing each other. Role lookup uses `requestRoleResolverCapability` from `@ultimabase/plugin-kit`: a role provider contributes it, and a permission plugin calls `requireCurrentRequestRoleResolver().hasRole({ context, role })` during a request, which fails with `PLUGIN_CAPABILITY_MISSING` when no role plugin is installed. Cleanup when a subject is deleted uses Core's `requestSubjectReferenceCleanupCapability`. A cleanup contribution declares `hasReferences` and `cleanup` with
+`defineRequestSubjectReferenceCleanup()`; they run only when the subject
+provider calls them, inside the active request transaction.
+`createRequestPrincipalReference(pointer)` and
+`parseRequestPrincipalReference(reference)` exchange a neutral reference that
+keeps only `className` and `id`. Missing subject data is never a permission.
 
 ## Policy predicates
 

@@ -13,10 +13,10 @@ sources:
   - examples/queries/src/writes.ts
   - examples/queries/tests/writes.test.ts
   - packages/core/README.md
-  - packages/core/docs/query.md
+  - packages/core/src/query/index.ts
   - packages/core/src/query/updates/normalize.ts
   - packages/core/src/runtime/validation/projected-update-validation.ts
-  - packages/core/docs/runtime.md
+  - packages/core/src/runtime/index.ts
   - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0134-unified-update-data.md
   - docs/adr/0162-strict-object-target-commands.md
@@ -59,6 +59,9 @@ If no visible post matches, `updateOne()` returns `null`. Handle that case
 before reading the result. Results have no `update()` method: to update a row
 you loaded, pass its `id` as the target. See
 [Models](/docs/1.0.0/core/data-modeling/models) for the result contract.
+
+When no row matches, no item Hook or item policy runs for the missing record.
+Use `findOneOrThrow` first when the row is required.
 
 ## Replace, clear, or increment fields
 

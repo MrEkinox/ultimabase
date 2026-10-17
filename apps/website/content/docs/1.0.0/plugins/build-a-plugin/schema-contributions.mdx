@@ -12,6 +12,8 @@ sources:
   - examples/plugin-authoring/src/app.ts
   - examples/plugin-authoring/src/schema.ts
   - examples/plugin-authoring/src/flag-plugin.ts
+  - examples/plugin-authoring/src/rating-plugin.ts
+  - examples/plugin-authoring/tests/field-kinds.test.ts
   - examples/plugin-authoring/tests/schema-contributions.test.ts
   - examples/plugin-authoring/tests/schema-misuse.test.ts
   - packages/core/README.md
@@ -26,7 +28,7 @@ sources:
   - packages/core/src/plugins/schema-compilation/opaque-selectors.test.ts
   - packages/acl-permissions-plugin/src/plugin.ts
   - packages/postgres-plugin/src/options.ts
-  - docs/concepts/open-plugin-authoring.md
+  - tests/e2e/fixtures/open-kernel-workflow.ts
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
   - docs/adr/0263-direct-private-schema-compilation.md
   - docs/adr/0277-canonical-schema-specialization.md
@@ -176,6 +178,25 @@ absence, but equality and path selectors never invoke the callback or expose
 an internal marker. Each plugin's selection targets are frozen before its own
 additions and patches; later contributions cannot make that selection grow.
 
+`present: true`, `present: false` combined with `equals` or `path`, and selector
+negation are rejected, and the option name must resolve to exactly one
+definition; an option set explicitly to `false` counts as present. A
+`contributionId` only needs to be unique within one plugin instance, so two
+explicit instances of the same plugin may reuse it.
+
+An option definition may add `runtime: { requirement, compile }` when each use
+must register with a capability your plugin owns. `ultimabase.compile()` only
+records the uses. Initialization materializes capabilities, then calls `compile`
+once per use, in plugin-declaration and schema order and before plugin `setup`,
+with the capability, `className`, `fieldName`, `optionName`, `path`, `scope`,
+`provenance` and normalized `value`. `compile` returns `undefined`; a throw
+aborts initialization and disposes the capabilities already created. Set
+`valueKind: 'opaque'` for values that are not portable JSON.
+
+A forbidden field still receives its declared default on create. For a closed
+command, `can()` answers `false` and nested writes fail the same way; read a
+closure and its reason with `readSchemaCommandClosure(schema, 'createOne')`.
+
 ### Add commands to the schema class
 
 A statics slot types the commands a feature adds: an interface
@@ -213,10 +234,69 @@ Register a family with `fields.register(family)` in the same `schema`
 declaration callback; `UltimaBase.use()` then offers the builder method, such
 as `f.vector()`, only in the contexts the family names. A stored field method
 does not automatically work as a virtual output, and Core rejects unsupported
-usage even when JavaScript bypasses autocomplete. See the concrete
-[plugin field families](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/README.md#static-schema-compilation-and-relationship-targets)
-and the [plugin scalar example](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/examples/schema/plugin-field-containment.md)
-for the full field and codec contracts.
+usage even when JavaScript bypasses autocomplete.
+
+A field kind is a namespaced string such as `community.search.document`: a
+non-empty namespace, a dot, and a name, never a Core kind.
+`definePluginField(kind, options, { snapshotValue, storageCodec, wireCodecs, structuralContains })`
+builds the field, and hand-built field objects are rejected.
+`snapshotValue(value, path)` validates and freezes every logical value and
+throws with `path` on invalid input; it must be pure, deterministic and
+idempotent, because Core also applies it to static defaults. Validate an unknown
+options container with `assertFieldOptions`, and report failures with
+`PluginValidationIssueCode<'your.kind'>` codes. Compiling the application
+rejects a kind no installed plugin claims, or that two plugins claim.
+
+A `storageCodec` is `{ format: 'json', version, encode, decode }` with a
+positive integer `version`; Core runs `snapshotValue` around both directions, so
+the adapter stores one versioned JSON value and reads it with
+`getPluginFieldStorageCodec()`. It gives a non-list field complete-value `eq`,
+`ne`, `in` and `notIn` filters, and no ordering or other operator. Each entry of
+`wireCodecs` is `{ format: 'json', protocol, encode, decode }` for one transport
+protocol created with `definePluginFieldWireProtocol({ name, version })`, such
+as `ultimabase.graphql.field@1.0.0`, without importing the transport; a field
+gives each protocol once, and transports resolve it with
+`getPluginFieldWireCodec(field, protocol)`. A storage codec is never used as a
+wire codec.
+
+To accept a partial `where: { field: { contains: … } }` operand, add
+`structuralContains: { snapshotOperand }`: Core validates, detaches and freezes
+the operand before the adapter sees it. It needs a JSON `storageCodec`, is
+rejected on a list field, and a query using it fails unless the adapter
+advertises `databasePluginFieldStructuralContainsCapability`, which the
+PostgreSQL adapter does. A field may also declare `snapshotUpdateInput` for
+extra update input (typed with `FieldUpdateInputCarrier`),
+`existingRows(schema)` for rows that exist when storage adds the field, and
+`storageDefault`; adapters read the last two with `readPluginFieldExistingRows`
+and `readPluginFieldStorageDefault`. A plugin field may defer its required
+create value until `resolveInput`, and a unique plugin field must carry
+`UniqueFieldCarrier` in its type to be a `where` target.
+
+`definePluginFieldFamily({ fieldKind, builder: { name, contexts } })` names a
+non-empty subset of `stored`, `embedded`, `virtual` and `output`, with exactly
+one factory per context; a context may override the family's kind. An
+output-context factory returns
+`definePluginOutputDescriptor(kind, { list, required }, snapshot)`, re-exported
+as `defineOutputDescriptor` by `@ultimabase/plugin-kit`. Registration rejects a
+Core kind, a duplicate, an unstable declaration, an unsupported context, and a
+factory that returns another kind. Return the receipt of
+`fields.register(family)` from the `schema` callback, or the configured factory
+does not offer the method. A family without `builder` registers the kind for
+fields your plugin adds through a schema patch, and offers developers no builder
+method.
+
+This plugin adds an `output.rating()` method for virtual results and a
+stored-only `searchable` field option, and returns both receipts:
+
+<include cwd meta='title="src/rating-plugin.ts"'>
+	../../examples/plugin-authoring/src/rating-plugin.ts#rating-plugin
+</include>
+
+An application then uses both like built-in declarations:
+
+<include cwd meta='title="tests/field-kinds.test.ts"'>
+	../../examples/plugin-authoring/tests/field-kinds.test.ts#review
+</include>
 
 ## Add a schema factory
 
@@ -245,6 +325,10 @@ methods. A specialization does not receive an application, adapter,
 authority, or mutable prototype, and it does not register its class
 automatically.
 
+Type the schemas your factory creates as
+`DeclaredSchemaShape<SchemaFactoryShape<'Name'>>`, with your factory's name, so
+that your statics slot recognizes them and adds their commands.
+
 ## Inspect the compiled contracts
 
 Tools can read `application.compile().operations` for the operations plugins
@@ -253,6 +337,10 @@ each schema gained. Both are descriptions without their executable parts:
 operation entries omit the `input` and `result` contracts, and each surface
 names its schema by `className`, not by constructor. Keep the original
 operation or schema declaration for work that needs to execute it.
+
+Each compiled schema exposes `schema.definition.provenance`, the inert owner and
+`contributionId` of its schema, fields, options, indexes and applied patches.
+Read it to verify which contribution added what.
 
 ## Verify
 
