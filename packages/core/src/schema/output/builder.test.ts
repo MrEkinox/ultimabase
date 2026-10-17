@@ -222,15 +222,25 @@ describe('OutputBuilder', () => {
 
 	it('applies nullability to the container and keeps list elements non-null', () => {
 		const optional = resolveOutputBuilder(
-			(output) => output.string(),
+			(output) => output.string({ nullable: true }),
 			'User.nickname.output',
 		)
+		// ADR-0340: an output without `nullable: true` is non-null.
+		const name = resolveOutputBuilder(
+			(output) => output.string(),
+			'User.name.output',
+		)
 		const requiredList = resolveOutputBuilder(
-			(output) => output.string({ list: true, nullable: false }),
+			(output) => output.string({ list: true }),
 			'User.tags.output',
 		)
 
+		expect(optional.options).toStrictEqual({ list: false, nullable: true })
+		expect(name.options).toStrictEqual({ list: false, nullable: false })
 		expect(snapshotOutputValue(optional, null, 'User.nickname')).toBeNull()
+		expect(() => snapshotOutputValue(name, null, 'User.name')).toThrow(
+			new TypeError('User.name must not be null'),
+		)
 		expect(() => snapshotOutputValue(requiredList, null, 'User.tags')).toThrow(
 			new TypeError('User.tags must not be null'),
 		)

@@ -518,6 +518,7 @@ describe.each(configNames)(
 			'define-with',
 			'define-with-contribution',
 			'define-with-mutual',
+			'define-with-principal',
 			'define-with-role',
 			'define-with-user',
 		])(
