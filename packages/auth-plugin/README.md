@@ -167,7 +167,10 @@ default) after it is issued or last refreshed: using it does not extend it,
 above sets one day. `authPlugin` provides Core's current principal (ADR-0304): Access
 rules, Hooks, ACL and Roles receive the User pointer as `principal`; the
 request values `authPrincipal`, `authSession` and `authClient` read the
-session itself.
+session itself. The User schema types it once `Register` names the
+application, with no `principal` key (ADR-0340): `App.UserSchema` marks the
+schema it declares through Core's `PrincipalSchemaCarrier` and
+`PrincipalSchemaProviders`.
 
 On the server, `runWithSession(token, fn)` runs `fn` as the session's user,
 and the Access rules of the example's `Note` receive that member:

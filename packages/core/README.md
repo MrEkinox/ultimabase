@@ -1702,8 +1702,10 @@ hook-issued and transactional operations inherit it, and Master elevation keeps
 it: authority changes, identity does not. An absent provider or absent
 request-local identity gives `undefined`; neither creates authenticated
 authority. `context.withPrincipal(pointer)` names the principal of a context
-explicitly (server-side only), and `Register` types it by name
-(ADR-0304):
+explicitly (server-side only). Its type follows the identity schema: a
+plugin that designates one, such as the User schema of `authPlugin`, types it
+once `Register` names the application (ADR-0340); otherwise the `principal`
+key of `Register` names it, and wins over a designated schema (ADR-0304):
 
 <!-- region ../../examples/queries/src/ultimabase.ts#register -->
 
