@@ -2,11 +2,7 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	databaseAdapterCapability,
-	databasePersistencePlanCapability,
 	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
 import {
@@ -27,6 +23,7 @@ import {
 	provideCapability,
 	requireCapability,
 } from '@ultimabase/core/plugin'
+import { MemoryTestDatabase } from '../../../tooling/vitest/memory-database.js'
 
 const objectId = '01991f00-0000-7000-8000-000000000201'
 const upsertRouteOption = { rest: { upsertOne: true } }
@@ -107,30 +104,22 @@ const VirtualFailureRecord = RestSchemaApplication.Schema.define({
 	}),
 })
 
-class VirtualDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-	}
-	requests = 0
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.requests += 1
+class VirtualDatabase extends MemoryTestDatabase {
+	constructor() {
 		const record = { id: objectId, title: 'Visible' }
-		const result: unknown =
-			request.operation.kind === 'find-many'
-				? [record]
-				: request.operation.kind === 'find-one'
-					? record
-					: record
-		return Promise.resolve(result as DatabaseOperationResult<TOperation>)
+		super({
+			rows: {
+				RestHttpVirtualFailure: [record],
+				RestHttpVirtualRecord: [record],
+			},
+		})
 	}
 
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		throw new TypeError('Virtual HTTP fixture rejects input before persistence')
+	// Writes stop here: the body-limit test expects REST's own refusal.
+	override beginTransaction(): Promise<DatabaseTransactionAdapter> {
+		return Promise.reject(
+			new TypeError('Virtual HTTP fixture rejects input before persistence'),
+		)
 	}
 }
 
@@ -345,7 +334,7 @@ describe('REST virtual HTTP boundary', () => {
 				error: { code: 'REST_MUTATION_INVALID_INPUT' },
 			})
 		}
-		expect(fixture.adapter.requests).toBe(0)
+		expect(fixture.adapter.requests).toHaveLength(0)
 
 		const relationship = await fetchApplication(
 			fixture.http,

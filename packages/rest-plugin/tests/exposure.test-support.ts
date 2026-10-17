@@ -5,24 +5,17 @@ import {
 	defineOperationTransport,
 	operationTransportBinding,
 	operationWireCodec,
-	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databasePointerCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	dateTimeField,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
 } from '@ultimabase/core'
 import {
 	contributeOperation,
 	defineOperation as defineOperationToken,
 	defineOperationValue,
 	plugin,
-	provideCapability,
 } from '@ultimabase/core/plugin'
 import { httpPlugin, httpRoutes } from '@ultimabase/http-plugin'
 import {
@@ -37,48 +30,21 @@ import { onTestFinished } from 'vitest'
 import { z } from 'zod'
 
 import { restPlugin, type RestPluginOptions } from '../src/index.js'
+import { MemoryTestDatabase } from '../../../tooling/vitest/memory-database.js'
+import { testDatabasePlugin } from '../../../tooling/vitest/test-database.js'
 
-// A database that answers every read with no row; writes never run here.
-class EmptyDatabase implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly checkHealth = (): Promise<void> => Promise.resolve()
-	readonly capabilities = {
-		persistencePlans: databasePersistencePlanCapability,
-		pointers: databasePointerCapability,
-		relationPredicates: databaseRelationPredicateCapability,
-		relations: databaseRelationCapability,
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		const result: unknown =
-			request.operation.kind === 'find-many'
-				? []
-				: request.operation.kind === 'count'
-					? 0
-					: request.operation.kind === 'exists'
-						? false
-						: null
-		return Promise.resolve(result as DatabaseOperationResult<TOperation>)
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		throw new TypeError('The exposure fixture never writes')
-	}
-}
-
-export const databasePlugin = plugin({
-	core: '^0.0.0',
-	id: 'fixture.rest-exposure.database',
-	version: '1.0.0',
-	contributions: [
-		provideCapability(databaseAdapterCapability, {
-			contributionId: 'database',
-			create: () => ({ value: new EmptyDatabase() }),
-		}),
-	],
-})
+// A database without rows; writes never run here.
+export const databasePlugin = testDatabasePlugin(
+	new MemoryTestDatabase({
+		capabilities: {
+			persistencePlans: databasePersistencePlanCapability,
+			pointers: databasePointerCapability,
+			relationPredicates: databaseRelationPredicateCapability,
+			relations: databaseRelationCapability,
+		},
+	}),
+	{ id: 'fixture.rest-exposure.database' },
+)
 
 // A facade command plugin: REST binds none of its commands by itself.
 const archivePlugin = () =>
