@@ -271,7 +271,7 @@ If you also expose a `find` route for this schema through [REST](./rest),
 verify the boundary with three requests: an anonymous read returns `403`
 `PERMISSION_DENIED`, a valid authentication Bearer session returns
 `200` with a `results` collection, and a revoked session returns `401`
-`HTTP_APPLICATION_REJECTED` before Access runs. The Bearer token establishes
+`AUTH_INVALID_SESSION` before Access runs. The Bearer token establishes
 identity; this Access rule grants the read. A successful read does not imply
 per-user row isolation. The example's `tests/rest.test.ts` checks the
 anonymous request.

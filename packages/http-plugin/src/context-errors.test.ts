@@ -2,7 +2,11 @@ import { MasterAuthority, PluginError, UltimaBase } from '@ultimabase/core'
 import { plugin } from '@ultimabase/core/plugin'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
-import { httpContextResolver, provideHttpContextResolvers } from './context.js'
+import {
+	httpContextResolver,
+	provideHttpContextResolvers,
+	type HttpContextResolver,
+} from './context.js'
 import { httpRoute, provideHttpEndpoints } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
 import { httpTestDatabasePlugin } from './test-database.test-support.js'
@@ -127,13 +131,13 @@ describe('HTTP context resolver errors (ADR-0341)', () => {
 	})
 
 	it('validates the declared errors', () => {
-		const resolve = ({ context }: { context: never }) => context
+		const resolve: HttpContextResolver = ({ context }) => context
 		expect(() => httpContextResolver({ errors: [] as never, resolve })).toThrow(
 			'HTTP context resolver errors must map error codes to statuses',
 		)
-		expect(() =>
-			httpContextResolver({ errors: { 'not a code': 401 }, resolve }),
-		).toThrow('HTTP context resolver error code is invalid: not a code')
+		expect(() => httpContextResolver({ errors: { '': 401 }, resolve })).toThrow(
+			'HTTP context resolver error code must not be empty',
+		)
 		for (const status of [200, 399, 600, 401.5]) {
 			expect(() =>
 				httpContextResolver({ errors: { [rejected]: status }, resolve }),

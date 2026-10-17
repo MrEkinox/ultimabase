@@ -315,6 +315,13 @@ allowed origin: `httpPlugin({ browser: { origins, credentials: true } })`.
 Bearer and cookie together are rejected; a stale cookie never blocks sign-up
 or login.
 
+A revoked, expired, forged or stale token is refused before any route runs,
+on data routes and under `/api/auth`, with 401 `AUTH_INVALID_SESSION`: the
+resolver declares that error to the HTTP plugin (ADR-0341), so a client knows
+to sign the user in again. A header that is not `Bearer <token>`, Bearer and
+cookie together, a foreign browser origin and a wrong Master key keep the HTTP
+plugin's 401 `HTTP_APPLICATION_REJECTED`.
+
 ## Transports
 
 Every operation is public (ADR-0324) and bound to two transports only

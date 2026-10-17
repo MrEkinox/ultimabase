@@ -74,8 +74,11 @@ The HTTP layer adds `X-UltimaBase-Request-Id` and
 correlate a sanitized report with server diagnostics; it is not a credential.
 
 Before route dispatch, malformed or ambiguous headers use `HTTP_BAD_REQUEST`;
-another application's ID uses `HTTP_APPLICATION_UNKNOWN`; credential
-rejection uses `HTTP_APPLICATION_REJECTED`; oversized bodies and rate limits
+another application's ID uses `HTTP_APPLICATION_UNKNOWN`; a wrong Master key
+or a rejected credential request uses `HTTP_APPLICATION_REJECTED`, unless the
+resolver that refused it declared its own error, such as authentication's
+`AUTH_INVALID_SESSION` (401) for a revoked, expired or forged session;
+oversized bodies and rate limits
 use `HTTP_PAYLOAD_TOO_LARGE` and `HTTP_RATE_LIMITED`. After
 REST begins, unsupported versions, body limits, authorization, validation, and
 missing targets use REST-owned codes. Unknown REST failures become the fixed

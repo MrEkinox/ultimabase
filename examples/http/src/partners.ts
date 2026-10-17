@@ -1,6 +1,7 @@
 //#region partner-credentials
 import { createHash, timingSafeEqual } from 'node:crypto'
 
+import { PluginError } from '@ultimabase/core'
 import { RequestContextValue, plugin } from '@ultimabase/core/plugin'
 import {
 	httpContextResolver,
@@ -26,7 +27,7 @@ const digest = (token: string): Buffer =>
 /**
  * Signs partner integrations in with `Authorization: Bearer <token>`. A
  * request without the header stays anonymous; an unknown token is refused
- * with `HTTP_APPLICATION_REJECTED` before any route runs.
+ * with the declared `PARTNER_UNKNOWN` (401) before any route runs.
  */
 export const partnerCredentials = (
 	tokens: Readonly<Record<string, string>>,
@@ -44,6 +45,9 @@ export const partnerCredentials = (
 				contributionId: 'partner-bearer',
 				create: () =>
 					httpContextResolver({
+						// Answered as declared; any other failure stays
+						// `HTTP_APPLICATION_REJECTED`.
+						errors: { PARTNER_UNKNOWN: 401 },
 						// Checked once, before the application serves a request.
 						validateBrowserPolicy: (policy) => {
 							if (policy.enabled && policy.origins === '*') {
@@ -57,7 +61,15 @@ export const partnerCredentials = (
 							const match = partners.find((candidate) =>
 								timingSafeEqual(candidate.digest, presented),
 							)
-							if (match === undefined) throw new TypeError('Unknown partner')
+							if (match === undefined) {
+								throw new PluginError(
+									'PARTNER_UNKNOWN',
+									'Unknown partner token',
+									{
+										publicMessage: 'The partner token is unknown.',
+									},
+								)
+							}
 							return context.withValue(partner, { name: match.name })
 						},
 					}),

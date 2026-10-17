@@ -9,7 +9,7 @@ import {
 	type httpContextResolverContributionsCapability,
 } from '@ultimabase/http-plugin'
 
-import { rejectSession } from './errors.js'
+import { authErrorCodes, rejectSession } from './errors.js'
 import type { ResolvedAuthHttpOptions } from './http-options.js'
 import { createAuthPrincipal } from './principal.js'
 import {
@@ -55,8 +55,17 @@ const readCookieValues = (
 	return values
 }
 
+/**
+ * Refuses a malformed or unsafe credential request: an undeclared error, which
+ * the HTTP plugin answers as `HTTP_APPLICATION_REJECTED`, unlike a session
+ * refusal (ADR-0341).
+ */
+const rejectRequest = (): never => {
+	throw new TypeError('The authentication credentials are malformed')
+}
+
 const readBearerCredential = (header: string): string => {
-	if (!header.startsWith('Bearer ')) return rejectSession()
+	if (!header.startsWith('Bearer ')) return rejectRequest()
 	const token = header.slice('Bearer '.length)
 	if (!isSessionToken(token)) return rejectSession()
 	return token
@@ -100,7 +109,7 @@ const assertCookieRequestProof = (
 		policy.origins === '*' ||
 		!policy.origins.includes(origin)
 	) {
-		return rejectSession()
+		return rejectRequest()
 	}
 }
 
@@ -123,6 +132,9 @@ export const provideAuthHttpResolver = (options: {
 		contributionId: 'auth-session',
 		create: () =>
 			httpContextResolver({
+				// A revoked, expired, forged or stale token: one uniform refusal
+				// the client can act on by signing in again (ADR-0341).
+				errors: { [authErrorCodes.invalidSession]: 401 },
 				...(cookie === undefined
 					? {}
 					: {
@@ -148,7 +160,7 @@ export const provideAuthHttpResolver = (options: {
 							: readCookieValues(request.headers.get('Cookie'), cookie.name)
 					// Bearer plus the configured cookie is always ambiguous.
 					if (authorization !== null && cookieValues !== undefined) {
-						return rejectSession()
+						return rejectRequest()
 					}
 					let token: string | undefined
 					let usesCookie = false
@@ -160,9 +172,8 @@ export const provideAuthHttpResolver = (options: {
 						!options.paths.signIn.has(path)
 					) {
 						const [value] = cookieValues
-						if (cookieValues.length !== 1 || !isSessionToken(value)) {
-							return rejectSession()
-						}
+						if (cookieValues.length !== 1) return rejectRequest()
+						if (!isSessionToken(value)) return rejectSession()
 						token = value
 						usesCookie = true
 					}
