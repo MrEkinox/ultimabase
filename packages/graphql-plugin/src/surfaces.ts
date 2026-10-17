@@ -4,6 +4,7 @@ import {
 	type SchemaContributionOwner,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { formatPluginIdentity } from '@ultimabase/core/plugin'
 
 import {
 	graphqlSourceDescription,
@@ -11,6 +12,7 @@ import {
 } from './compile-context.js'
 import { GraphqlSchemaCompilationError } from './errors.js'
 import {
+	graphqlMethodNames,
 	isGraphqlMethodEnabled,
 	readGraphqlSchemaRule,
 	type GraphqlMethodName,
@@ -81,6 +83,50 @@ export const graphqlOperationMethods: Readonly<
 }
 
 /**
+ * Names where an explicit `true` for one method comes from: the schema rule's
+ * own key, else the plugin default's when the schema rule leaves the key
+ * open. A `true` rule or default enables everything without naming it.
+ */
+const explicitSetting = (
+	schema: NormalizedGraphqlRule | undefined,
+	defaults: NormalizedGraphqlRule | undefined,
+	key: string,
+): 'default' | 'schema' | undefined => {
+	if (typeof schema === 'object' && Object.hasOwn(schema.methods, key)) {
+		return schema.methods[key] === true ? 'schema' : undefined
+	}
+	if (typeof schema === 'boolean') return undefined
+	return typeof defaults === 'object' && defaults.methods[key] === true
+		? 'default'
+		: undefined
+}
+
+/**
+ * Refuses an explicit setting that would publish a method a plugin closed on
+ * the schema (ADR-0341); the defaults and `true` forms leave it unpublished.
+ */
+const assertClosedMethodsUnrequested = (
+	schema: SchemaDefinition,
+	rule: NormalizedGraphqlRule | undefined,
+	defaults: NormalizedGraphqlRule | undefined,
+): void => {
+	for (const method of graphqlMethodNames) {
+		const closure = readSchemaCommandClosure(schema, method)
+		if (closure === undefined) continue
+		const source = explicitSetting(rule, defaults, method)
+		if (source === undefined) continue
+		const { className } = schema
+		throw new TypeError(
+			`${className}.${method} is closed by plugin "${formatPluginIdentity(closure.owner)}": ${closure.reason} ${
+				source === 'schema'
+					? `Remove ${method} from .with({ graphql }) of ${className}.`
+					: `Remove ${method} from graphqlPlugin({ default }), or set it to false in .with({ graphql }) of ${className}.`
+			}`,
+		)
+	}
+}
+
+/**
  * Resolves GraphQL identities and enabled roots from final provenance.
  * `commands` lists, per schema class name, the request commands GraphQL
  * may expose.
@@ -110,6 +156,9 @@ export const collectGraphqlSchemaSurfaces = (
 		// Plugin-owned schemas never get generated roots: their types appear only
 		// where an exposed type or a public operation reaches them (ADR-0333).
 		const application = owner.kind === 'application'
+		if (application) {
+			assertClosedMethodsUnrequested(schema, rule, pluginDefault)
+		}
 		// A command a plugin closed has no root, whatever the rules (ADR-0341).
 		const enabled = (key: string): boolean =>
 			application &&

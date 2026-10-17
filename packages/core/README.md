@@ -3401,7 +3401,7 @@ A patch may likewise close a generic command of the schemas it targets
 `closeSchemaCommand({ contributionId, command: 'create', reason })` closes
 every method that may create a row (`createOne`, `createMany`, `upsertOne`,
 `upsertMany`). Transports publish no route, OpenAPI entry or GraphQL field for
-a closed method, `can()` answers `false`, and every call fails before any
+a closed method (an explicit setting naming it fails at startup), `can()` answers `false`, and every call fails before any
 stage with `VALIDATION_ERROR` whose `command.closed` issue carries the
 reason, Master and nested writes included. Only the plugin that closed the
 command still runs it, from its own callbacks: that is how it provides the

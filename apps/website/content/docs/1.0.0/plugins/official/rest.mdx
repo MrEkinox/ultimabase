@@ -446,7 +446,9 @@ configured `basePath`, and whether the schema is application-owned. A `405`
 names a method the rule turned off, as `POST /api/classes/Author` in the
 example, or one a plugin closed, such as the User's create under
 [authentication](./password-authentication) with an email identifier; a `404`
-on a whole schema means it has no route. An operation that is
+on a whole schema means it has no route. Naming a closed method in
+`.with({ rest })` or `restPlugin({ default })` fails at startup with the
+schema, the method, the closing plugin and its reason. An operation that is
 not listed is not declared public by its owner, is bound by its owner to
 other transports only, or is hidden by `restPlugin({ hide })`.
 

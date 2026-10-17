@@ -230,7 +230,10 @@ upserts and the `…Many` methods off. A plugin command is exposed only when a
 rule names it, or when the rule or the default is `true`; a key that names no
 method or exposable command fails startup. A method a plugin closed with
 Core's `closeSchemaCommand` (ADR-0341), such as the User's create under
-authentication with an email identifier, has no field whatever the rules.
+authentication with an email identifier, has no field; naming it in
+`.with({ graphql })` or `graphqlPlugin({ default })` fails startup with the
+schema, the method, the closing plugin and its reason, while `true` rules and
+the defaults leave it out silently.
 Exposure only controls which GraphQL declarations exist; it never grants
 access or bypasses Runtime policy.
 

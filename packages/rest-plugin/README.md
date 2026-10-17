@@ -191,9 +191,11 @@ graph, while matching methods and paths fail with a deterministic collision
 diagnostic.
 
 A method a plugin closed on a schema with Core's `closeSchemaCommand`
-(ADR-0341) gets no route and no OpenAPI entry, whatever the `rest` rules: with
-an email identifier, authentication closes the User's create, so
-`POST /classes/{User}` answers `405`.
+(ADR-0341) gets no route and no OpenAPI entry: with an email identifier,
+authentication closes the User's create, so `POST /classes/{User}` answers
+`405`. Naming a closed method in `.with({ rest })` or `restPlugin({ default })`
+fails at startup with the schema, the method, the closing plugin and its
+reason; `true` rules and the defaults leave it out silently.
 
 ## Public operations
 
