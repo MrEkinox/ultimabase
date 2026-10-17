@@ -1,6 +1,7 @@
 import {
 	UltimaBase,
 	databaseAdapterCapability,
+	dateTimeField,
 	isAuthenticated,
 	type PolicyPredicate,
 } from '@ultimabase/core'
@@ -17,8 +18,13 @@ const archivePlugin = definePlugin({
 	name: '@fixture/openings-archive',
 	features: {
 		archivable: feature({
+			fields: { archivedAt: dateTimeField() },
 			commands: {
-				archiveOne: command({ authority: 'request', effect: 'update' }),
+				archiveOne: command({
+					authority: 'request',
+					effect: 'update',
+					data: () => ({ archivedAt: '2026-10-18T00:00:00.000Z' }),
+				}),
 			},
 		}),
 	},

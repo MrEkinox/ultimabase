@@ -37,6 +37,7 @@ export interface CommandOptions<
 	readonly target?: TTarget
 	/**
 	 * Values an update command writes, computed for each row it writes.
+	 * Required for `'update'`; forbidden for `'delete'`.
 	 * @example `data: () => ({ archivedAt: new Date() })`
 	 */
 	readonly data?: () => Readonly<Record<string, unknown>>
@@ -116,6 +117,13 @@ export const command = <const TOptions extends CommandOptions>(
 	}
 	if (effect === 'delete' && data !== undefined) {
 		throw new TypeError('delete commands write no data')
+	}
+	// Core refuses an update that writes nothing, so it fails here instead
+	// of on every run (ADR-0346).
+	if (effect === 'update' && data === undefined) {
+		throw new TypeError(
+			'update commands must declare data: the values each row receives',
+		)
 	}
 	if (checkReadable !== undefined && checkReadable !== 'before') {
 		throw new TypeError('command checkReadable must be before')

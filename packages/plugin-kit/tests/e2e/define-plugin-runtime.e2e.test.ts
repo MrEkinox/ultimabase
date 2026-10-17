@@ -174,3 +174,15 @@ describe('definePlugin at runtime', () => {
 		}
 	})
 })
+
+// ADR-0346: Core refuses an update that writes nothing, so `command()`
+// refuses an update declared without data instead of failing every run.
+describe('update commands without data', () => {
+	it('are refused when declared, since Core could never run them', () => {
+		expect(() => command({ authority: 'request', effect: 'update' })).toThrow(
+			new TypeError(
+				'update commands must declare data: the values each row receives',
+			),
+		)
+	})
+})

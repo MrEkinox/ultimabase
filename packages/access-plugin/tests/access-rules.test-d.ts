@@ -1,4 +1,4 @@
-import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { UltimaBase, dateTimeField, isAuthenticated } from '@ultimabase/core'
 import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 import { expectTypeOf, test } from 'vitest'
 
@@ -14,8 +14,13 @@ const archivePlugin = definePlugin({
 	name: '@fixture/archive',
 	features: {
 		archivable: feature({
+			fields: { archivedAt: dateTimeField() },
 			commands: {
-				archiveOne: command({ authority: 'request', effect: 'update' }),
+				archiveOne: command({
+					authority: 'request',
+					effect: 'update',
+					data: () => ({ archivedAt: '2026-10-18T00:00:00.000Z' }),
+				}),
 				purgeOne: command({ authority: 'master', effect: 'delete' }),
 			},
 			permissions: ['readArchived'],

@@ -155,7 +155,8 @@ asks for it during a request with
 With an `options` validator, the key also accepts a static options object,
 validated when the application compiles (`true` is validated as `{}`).
 `command()` takes `authority`, `effect`, `data`, `target` and `checkReadable`:
-`effect: 'delete'` requires `authority: 'master'`, and a command returns
+`effect: 'update'` requires `data`, the values each row receives, and
+`effect: 'delete'` requires `authority: 'master'` and takes no `data`. A command returns
 `{ id }` unless the call selects more. Set `checkReadable: 'before'` on a
 command that hides its row, so that a wider selection is checked against the row
 as it was.
