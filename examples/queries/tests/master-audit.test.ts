@@ -1,5 +1,3 @@
-import process from 'node:process'
-
 import { MasterAuthority } from '@ultimabase/core'
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
@@ -17,9 +15,6 @@ import {
 // does not import `src/ultimabase.ts`: one application per test file.
 const failingAudit = new App({
 	masterAuthority: new MasterAuthority({
-		keys: [
-			{ id: 'maintenance', value: process.env.ULTIMABASE_MASTER_KEY ?? '' },
-		],
 		onUse: () => {
 			throw new Error('Audit sink unavailable')
 		},

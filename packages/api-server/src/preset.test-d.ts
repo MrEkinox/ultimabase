@@ -38,7 +38,7 @@ test('types the exact plugin tuple of each option set', () => {
 })
 
 test('keeps every plugin projection on the configured factory', () => {
-	const App = UltimaBase.use(...apiServer({ graphql: true, rest: true }))
+	const App = UltimaBase.use(apiServer({ graphql: true, rest: true }))
 	App.Schema.define({
 		className: 'PresetTask',
 		fields: (field) => ({ title: field.string() }),

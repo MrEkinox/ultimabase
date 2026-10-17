@@ -107,14 +107,15 @@ const asOptions = <TOptions extends object>(
 /**
  * Returns the plugins of a REST and GraphQL API server, each configured with
  * its own options (ADR-0325): `httpPlugin`, `restPlugin`, `graphqlPlugin`,
- * `graphqlYogaPlugin`, `graphqlExplorerPlugin` and `honoServerPlugin`. It
- * hides no code: every plugin stays installable alone.
+ * `graphqlYogaPlugin`, `graphqlExplorerPlugin` and `honoServerPlugin`.
+ * `UltimaBase.use()` installs the array in order (ADR-0340). It hides no
+ * code: every plugin stays installable alone.
  *
  * @example
  * ```ts
  * export const App = UltimaBase.use(
  * 	postgresPlugin(),
- * 	...apiServer({ rest: true, graphql: { explorer: 'graphiql' } }),
+ * 	apiServer({ rest: true, graphql: { explorer: 'graphiql' } }),
  * )
  * ```
  */

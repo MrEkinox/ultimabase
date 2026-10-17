@@ -52,7 +52,7 @@ describe('API project templates', () => {
 			// One plugin list in the factory module (ADR-0312); apiServer()
 			// installs HTTP, its transports and the server (ADR-0325).
 			const application = pluginAndSchemaSources(files, language)
-			expect(application.includes('...apiServer(')).toBe(
+			expect(application.includes('apiServer(')).toBe(
 				plan.plugins.includes('http-plugin'),
 			)
 			expect('@ultimabase/api-server' in manifest.dependencies).toBe(
@@ -79,10 +79,10 @@ describe('API project templates', () => {
 				)
 			}
 			if (plan.plugins.includes('hono-server-plugin')) {
-				// The listen address follows HOST and NODE_ENV (ADR-0312).
-				expect(files.get(`src/main.${language}`)).toContain(
-					"process.once('SIGTERM'",
-				)
+				// The server plugin stops the application on signals (ADR-0340).
+				const main = files.get(`src/main.${language}`) ?? ''
+				expect(main).toContain('await started.closed')
+				expect(main).not.toContain('process.once(')
 			}
 		}
 	})
@@ -99,7 +99,7 @@ describe('API project templates', () => {
 		const files = renderBaseFiles(plan)
 		const application = files.get('src/ultimabase.ts') ?? ''
 		const schema = pluginAndSchemaSources(files, 'ts')
-		expect(schema).toContain('...apiServer({')
+		expect(schema).toContain('apiServer({')
 		expect(schema).toContain('rest: {')
 		expect(schema).toContain('graphql: {')
 		expect(application).not.toContain('apiServer(')

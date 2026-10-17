@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 import { MasterAuthority, type MasterAccessEvent } from '@ultimabase/core'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
@@ -14,7 +16,8 @@ import { exampleStatusPlugin } from './status-plugin.ts'
 interface UltimabaseBaseOptions {
 	readonly applicationId?: string
 	readonly browserOrigin?: string
-	readonly masterKey: string
+	/** The key the HTTP Master header must match; `ULTIMABASE_MASTER_KEY` at start by default. */
+	readonly masterKey?: string
 	readonly masterTransport?: boolean
 	readonly onMasterUse?: (event: MasterAccessEvent) => void | PromiseLike<void>
 	readonly server?: HonoServerPlugin
@@ -75,7 +78,13 @@ export const createUltimabase = ({
 		),
 	))({
 		masterAuthority: new MasterAuthority({
-			keys: [{ id: applicationId, value: masterKey }],
+			// Read once, at start: importing the application reads no secret.
+			keys: () => [
+				{
+					id: applicationId,
+					value: masterKey ?? process.env.ULTIMABASE_MASTER_KEY ?? '',
+				},
+			],
 			onUse: onMasterUse,
 		}),
 		schemas,

@@ -126,12 +126,12 @@ describe('project generation', () => {
 		expect(readdirSync(cwd)).toEqual([])
 	})
 
-	it('writes security secrets only after dependency installation', async () => {
+	it('writes the local environment only after dependency installation', async () => {
 		const cwd = root()
 		const plan = resolveSelection(
 			{
 				name: 'secure-notes',
-				// ACL needs the local Master key; authentication does not (ADR-0326).
+				// ACL seeds with in-process Master, which needs no key (ADR-0340).
 				plugins: ['acl-permissions-plugin'],
 				database: 'docker',
 				install: true,
@@ -145,15 +145,13 @@ describe('project generation', () => {
 			},
 		})
 		const env = readFileSync(path.join(plan.destination, '.env'), 'utf8')
-		expect(env).toMatch(/ULTIMABASE_MASTER_KEY=[0-9a-f]{64}/)
-		const masterKey = /ULTIMABASE_MASTER_KEY=([0-9a-f]{64})/.exec(env)?.[1]
-		expect(masterKey).toBeDefined()
+		expect(env).not.toContain('ULTIMABASE_MASTER_KEY')
 		expect(statSync(path.join(plan.destination, '.env')).mode & 0o777).toBe(
 			0o600,
 		)
 		expect(
 			readFileSync(path.join(plan.destination, '.env.example'), 'utf8'),
-		).not.toContain(masterKey)
+		).not.toContain('ULTIMABASE_MASTER_KEY')
 	})
 
 	it('does not expose a Docker secret to dependency installation', async () => {

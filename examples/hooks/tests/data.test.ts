@@ -9,7 +9,7 @@ import { ultimabase } from '../src/ultimabase.ts'
 // assertions after it prove what the page says about the result.
 
 it('resolves the data of a create, field Hooks first', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	//#region create
 	const post = await Post.createOne({
 		data: { title: '  Hello Hooks ', summary: null },
@@ -74,7 +74,7 @@ it('gives an update only its changes, in readable form', async () => {
 })
 
 it('renames the slug with the title', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'First title' } })
 
 	const renamed = await Post.updateOne({
@@ -86,7 +86,7 @@ it('renames the slug with the title', async () => {
 })
 
 it('knows whether an upsert creates or updates', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	//#region upsert
 	const importPost = () =>
 		Post.upsertOne({

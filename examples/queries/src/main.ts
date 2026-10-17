@@ -6,13 +6,3 @@ import { ultimabase } from './ultimabase.ts'
 await using started = await ultimabase.start()
 
 process.stdout.write(`Queries example ${started.state}\n`)
-
-// Keep framework-owned resources until the development process stops.
-await new Promise<void>((resolve) => {
-	process.once('SIGINT', () => {
-		resolve()
-	})
-	process.once('SIGTERM', () => {
-		resolve()
-	})
-})

@@ -70,7 +70,7 @@ describe('apiServer (ADR-0325)', () => {
 	it('forwards each option object to its plugin', async () => {
 		const application = new (UltimaBase.use(
 			databasePlugin,
-			...apiServer({
+			apiServer({
 				graphql: {
 					default: false,
 					explorer: { environment: 'development', path: '/ide' },

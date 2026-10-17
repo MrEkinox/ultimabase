@@ -9,7 +9,7 @@ afterEach(() => {
 })
 
 it('adds a server-written field and its commands with archivable: true', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const post = await Post.createOne({ data: { title: 'Draft' } })
 	expect(post.archivedAt).toBeNull()
 
@@ -21,7 +21,7 @@ it('adds a server-written field and its commands with archivable: true', async (
 })
 
 it('archives every matching row with archiveMany', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	await Post.createMany({ data: [{ title: 'Old' }, { title: 'Older' }] })
 
 	//#region archive-many
@@ -37,7 +37,7 @@ it('archives every matching row with archiveMany', async () => {
 })
 
 it('rejects the server-written field in create input', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	await expect(
 		Post.createOne({
 			// @ts-expect-error -- `archivedAt` is written by the plugin only.
@@ -57,7 +57,7 @@ it('runs afterCommit with the schema rules after each committed write', async ()
 })
 
 it('gives flaggable schemas a readable, server-written flagged field', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const comment = await Comment.createOne({ data: { body: 'Hello' } })
 	expect(comment.flagged).toBe(false)
 	await expect(

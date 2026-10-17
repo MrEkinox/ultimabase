@@ -7,7 +7,8 @@ const testing = ultimabaseTesting()
 export default defineConfig({
 	test: {
 		...testing,
-		// The application reads its secrets when it is imported.
+		// The partner token is read at import, the Master key at start; the
+		// tests send both.
 		env: {
 			...testing.env,
 			ACME_PARTNER_TOKEN: 'test-only-partner-token',

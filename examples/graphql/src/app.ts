@@ -16,7 +16,7 @@ import { readingTime } from './operations.ts'
 export const App = UltimaBase.use(
 	accessPlugin(),
 	postgresPlugin(), // reads DATABASE_URL when the application starts
-	...apiServer({
+	apiServer({
 		http: { appId: 'blog' },
 		graphql: {
 			pagination: { defaultTake: 20, maxTake: 100 },

@@ -106,10 +106,10 @@ const apiServerEntry = (plan: InitializerPlan): string => {
 		],
 		[!hasHttpListener(plan), ['server', 'false']],
 	])
-	if (options.length === 0) return '...apiServer()'
+	if (options.length === 0) return 'apiServer()'
 	if (options.every(([, value]) => !value.includes('\n')))
-		return `...apiServer({ ${options.map(([key, value]) => `${key}: ${value}`).join(', ')} })`
-	return `...apiServer({\n  ${options
+		return `apiServer({ ${options.map(([key, value]) => `${key}: ${value}`).join(', ')} })`
+	return `apiServer({\n  ${options
 		.map(([key, value]) => `${key}: ${indentRest(value, 2)}`)
 		.join(',\n  ')},\n})`
 }

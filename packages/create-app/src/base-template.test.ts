@@ -216,17 +216,15 @@ describe('base project templates', () => {
 				expect(application).not.toContain('restPlugin(')
 				expect(application).not.toContain('graphqlYogaPlugin(')
 				expect(application).not.toContain('cookie:')
-				expect(application).not.toContain('console.log(masterKey)')
-				// ADR-0327: the prototype opening needs no Master key; an empty
-				// ACL and role administration still do.
+				// ADR-0327: the prototype opening needs no Master; an empty ACL
+				// and role administration still do, in process and without a
+				// key (ADR-0340).
 				const master = id !== 'access-plugin'
 				expect(application.includes('new MasterAuthority({')).toBe(master)
 				expect(main.includes('useMasterKey: true')).toBe(master)
-				expect(
-					files
-						.get('.env.example')
-						?.includes('ULTIMABASE_MASTER_KEY=<generate-a-random-local-key>'),
-				).toBe(master)
+				expect(application).not.toContain('keys:')
+				expect(application).not.toContain('ULTIMABASE_MASTER_KEY')
+				expect(files.get('.env.example')).not.toContain('ULTIMABASE_MASTER_KEY')
 				if (id === 'access-plugin') {
 					expect(schema).toContain(
 						"accessPlugin({ allowWithoutRule: { all: 'development' } })",
@@ -301,7 +299,7 @@ describe('base project templates', () => {
 		expect(files.get('README.md')).toContain('ACL alone does not deny creation')
 	})
 
-	it('requires a local Master key for security Docker projects', () => {
+	it('writes no Master key for security Docker projects (ADR-0340)', () => {
 		const plan = resolveSelection(
 			{
 				name: 'secure-notes',
@@ -310,10 +308,11 @@ describe('base project templates', () => {
 			},
 			'/tmp',
 		)
-		expect(() => renderBaseFiles(plan, 'docker-password')).toThrow('Master key')
-		const files = renderBaseFiles(plan, 'docker-password', 'test-master-key')
-		expect(files.get('.env')).toContain('ULTIMABASE_MASTER_KEY=test-master-key')
-		expect(files.get('.env.example')).not.toContain('test-master-key')
+		const files = renderBaseFiles(plan, 'docker-password')
+		expect(files.get('.env')).not.toContain('ULTIMABASE_MASTER_KEY')
+		expect(files.get('src/ultimabase.ts')).toContain(
+			'masterAuthority: new MasterAuthority({\n    onUse: (event) => {',
+		)
 		expect(files.get('.gitignore')).toContain('.env\n')
 	})
 

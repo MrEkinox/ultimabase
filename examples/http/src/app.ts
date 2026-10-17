@@ -18,7 +18,7 @@ export const App = UltimaBase.use(
 	accessPlugin(),
 	partnerCredentials({ acme: readSecret('ACME_PARTNER_TOKEN') }),
 	apiInfoPlugin(),
-	...apiServer({
+	apiServer({
 		http,
 		rest: true,
 		// The managed listener: `PORT`, else 1337; `HOST`, else 127.0.0.1

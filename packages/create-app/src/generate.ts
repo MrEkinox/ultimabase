@@ -15,7 +15,6 @@ import path from 'node:path'
 import { renderBaseFiles, writesEnv } from './base-template.js'
 import { isPluginId } from './catalog.js'
 import type { InitializerPlan, PackageManager } from './config.js'
-import { needsMasterKey } from './security-template.js'
 
 export interface ProjectGenerationOptions {
 	readonly installDependencies?: (
@@ -76,9 +75,6 @@ export const createProject = async (
 		const files = renderBaseFiles(
 			plan,
 			docker ? randomBytes(24).toString('hex') : undefined,
-			writesEnv(plan) && needsMasterKey(plan)
-				? randomBytes(32).toString('hex')
-				: undefined,
 		)
 		options.onProgress?.('Writing project files')
 		for (const [relative, contents] of files) {

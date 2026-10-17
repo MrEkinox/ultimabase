@@ -6,10 +6,11 @@ import {
 import { hasPlugin as has, included, type InitializerPlan } from './config.js'
 import type { NamedImport } from './source.js'
 
-// Sign-up needs no Master key: authPlugin elevates with its own privilege
+// Sign-up needs no Master: authPlugin elevates with its own privilege
 // (ADR-0326), and the prototype Access opening allows the Task seed in
 // development (ADR-0327). An empty ACL still hides the seed from its check.
-export const needsMasterKey = (plan: InitializerPlan): boolean =>
+// In-process Master needs no key (ADR-0340).
+export const needsMaster = (plan: InitializerPlan): boolean =>
 	has(plan, 'acl-permissions-plugin') || has(plan, 'roles-plugin')
 
 const hasAuth = (plan: InitializerPlan): boolean => has(plan, 'auth-plugin')
@@ -197,21 +198,13 @@ export const securityApplicationImports = (
 	plan: InitializerPlan,
 ): NamedImport[] =>
 	included<NamedImport>([
-		[needsMasterKey(plan), ['@ultimabase/core', 'MasterAuthority']],
+		[needsMaster(plan), ['@ultimabase/core', 'MasterAuthority']],
 	])
 
-export const securityMasterSource = (plan: InitializerPlan): string =>
-	needsMasterKey(plan)
-		? `const masterKey = process.env.ULTIMABASE_MASTER_KEY
-if (masterKey === undefined || masterKey === '<generate-a-random-local-key>') {
-  throw new TypeError('Set ULTIMABASE_MASTER_KEY to a private random value')
-}`
-		: ''
-
 export const securityApplicationOption = (plan: InitializerPlan): string =>
-	needsMasterKey(plan)
-		? `  masterAuthority: new MasterAuthority({
-    keys: [{ id: 'local', value: masterKey }],
+	needsMaster(plan)
+		? `  // Trusted server code runs useMasterKey: true in process; every use is audited.
+  masterAuthority: new MasterAuthority({
     onUse: (event) => {
       // Replace this development console record with a durable audit sink before deployment.
       console.info('Master authority used', {
@@ -226,8 +219,8 @@ export const securityApplicationOption = (plan: InitializerPlan): string =>
 export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 	included([
 		[
-			needsMasterKey(plan),
-			'This development project uses an ignored local Master key for trusted server-side examples. Never expose it through HTTP or a browser; replace the console audit with durable auditing before deployment.',
+			needsMaster(plan),
+			'Trusted server code (the Task seed) uses Master in process with `useMasterKey: true`: it needs no key, nothing exposes it over HTTP, and `onUse` audits every use. Replace the console audit with durable auditing before deployment.',
 		],
 		[
 			hasAuth(plan),

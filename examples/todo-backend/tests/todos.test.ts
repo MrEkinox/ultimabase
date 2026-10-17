@@ -8,7 +8,7 @@ import { Todo, TodoRole, TodoUser } from '../src/schema.ts'
 import { completeTodo, createTodo, listPendingTodos } from '../src/todos.ts'
 
 it('creates, lists and completes a task', async () => {
-	await using _t = await testApplication(ultimabase)
+	await testApplication(ultimabase)
 	const todo = await createTodo({ slug: 'Write Docs', title: '  Write docs ' })
 	// The field hook trimmed the title before Validation checked it.
 	expect(todo).toMatchObject({ completed: false, title: 'Write docs' })

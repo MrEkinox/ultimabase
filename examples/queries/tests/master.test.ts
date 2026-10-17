@@ -18,7 +18,7 @@ it('runs one audited Master command that Access would deny', async () => {
 	expect(created).toMatchObject({ title: 'Rebuild complete' })
 	const masterUses = audit.mock.calls.filter(([line]) => line === 'Master use')
 	expect(masterUses).toHaveLength(1)
-	expect(masterUses[0]?.[1]).toMatchObject({ keyId: 'maintenance' })
+	expect(masterUses[0]?.[1]).toMatchObject({ keyId: 'in-process' })
 	audit.mockRestore()
 })
 
