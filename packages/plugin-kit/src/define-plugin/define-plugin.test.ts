@@ -342,3 +342,88 @@ describe('definePlugin features and rules (ADR-0339)', () => {
 		)
 	})
 })
+
+describe('definePlugin authoring validation (untyped JavaScript)', () => {
+	const callUntyped = (
+		target: (...parameters: never[]) => unknown,
+		parameter: unknown,
+	): unknown => Reflect.apply(target, undefined, [parameter])
+
+	it.for([
+		['definePlugin options must be a plain object', definePlugin, null],
+		[
+			'definePlugin features must be a plain object',
+			definePlugin,
+			{ name: 'community.bad', features: [] },
+		],
+		[
+			'definePlugin rules must be a plain object',
+			definePlugin,
+			{ name: 'community.bad', rules: 'audit' },
+		],
+		[
+			'definePlugin afterCommit must be a function',
+			definePlugin,
+			{ name: 'community.bad', afterCommit: 'log' },
+		],
+		['command options must be a plain object', command, null],
+		[
+			'command effect must be update or delete',
+			command,
+			{ authority: 'request', effect: 'archive' },
+		],
+		[
+			'command data must be a function',
+			command,
+			{ authority: 'request', effect: 'update', data: { archived: true } },
+		],
+		[
+			'command checkReadable must be before',
+			command,
+			{ authority: 'request', effect: 'update', checkReadable: 'after' },
+		],
+		['feature definition must be a plain object', feature, null],
+		[
+			'feature options must be a validator function',
+			feature,
+			{ options: { reason: true } },
+		],
+	] as const)('reports: %s', ([message, target, parameter]) => {
+		expect(() => {
+			callUntyped(target, parameter)
+		}).toThrow(new TypeError(message))
+	})
+
+	it('keeps checkReadable on the command mutation it generates', () => {
+		const hide = definePlugin({
+			name: '@community/hide',
+			features: {
+				hideable: feature({
+					fields: { hiddenAt: dateTimeField() },
+					commands: {
+						hideOne: command({
+							authority: 'request',
+							checkReadable: 'before',
+							data: () => ({ hiddenAt: '2026-10-18T00:00:00.000Z' }),
+							effect: 'update',
+						}),
+					},
+				}),
+			},
+		})
+		const App = UltimaBase.use(hide)
+		const Hidden = App.Schema.define({
+			className: 'FacadeHidden',
+			fields: (field) => ({ title: field.string() }),
+			hideable: true,
+		})
+		const compiled = new App({ logger: false, schemas: [Hidden] }).compile()
+		expect(
+			surface(compiled, Hidden.className)?.schemaMutations.get('hideOne')
+				?.mutation,
+		).toMatchObject({
+			checkReadable: 'before',
+			name: 'community.hide.hideable.hide-one',
+		})
+	})
+})

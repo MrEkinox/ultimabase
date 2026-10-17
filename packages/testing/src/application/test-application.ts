@@ -167,8 +167,16 @@ const startApplication = async (
 			`testApplication starts the application itself on an isolated database; it is already ${ultimabase.state}`,
 		)
 	}
-	const harness = openApplicationHarness(ultimabase)
 	const database = await openTestDatabase()
+	let harness: ApplicationHarness
+	try {
+		// Opened once the database is ready, so a database failure leaves the
+		// application untouched for the next call.
+		harness = openApplicationHarness(ultimabase)
+	} catch (error: unknown) {
+		await database.dispose()
+		throw error
+	}
 	const previousUrl = process.env.DATABASE_URL
 	try {
 		// postgresPlugin() reads DATABASE_URL once, at start (ADR-0312).
@@ -233,26 +241,31 @@ const createHandle = (current: RunningApplication): TestApplication => {
 			await waitForAfterCommitWork()
 			await harness.resetDatabase()
 		},
-		fetch: (path: string, init?: RequestInit, options?: TestFetchOptions) => {
+		// Async so every failure rejects the returned promise, never throws.
+		fetch: async (
+			path: string,
+			init?: RequestInit,
+			options?: TestFetchOptions,
+		) => {
 			assertOpen()
 			// An explicit `remoteAddress: undefined` asks for no peer.
 			const remoteAddress =
 				options !== undefined && 'remoteAddress' in options
 					? options.remoteAddress
 					: loopbackAddress
-			return readFetch(ultimabase)(
+			return await readFetch(ultimabase)(
 				new Request(new URL(path, 'http://localhost'), init),
 				{ remoteAddress },
 			)
 		},
-		as: <TResult>(
+		as: async <TResult>(
 			principal: Principal | undefined,
 			fn: () => TResult | PromiseLike<TResult>,
-		) => {
+		): Promise<Awaited<TResult>> => {
 			assertOpen()
 			const context =
 				RequestContext.anonymous(requestOptions()).withPrincipal(principal)
-			return run(withContext(ultimabase, context), fn)
+			return await run(withContext(ultimabase, context), fn)
 		},
 		asMaster: async <TResult>(
 			fn: () => TResult | PromiseLike<TResult>,

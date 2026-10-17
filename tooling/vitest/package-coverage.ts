@@ -57,7 +57,7 @@ export const packageCoverageThresholds: Readonly<
 		lines: 99,
 		statements: 99,
 	},
-	'plugin-kit': { branches: 66, functions: 64, lines: 69, statements: 68 },
+	'plugin-kit': { branches: 97, functions: 98, lines: 99, statements: 98 },
 	'postgres-plugin': { branches: 78, functions: 94, lines: 89, statements: 88 },
 	'rest-plugin': { branches: 80, functions: 92, lines: 91, statements: 89 },
 	'roles-plugin': { branches: 76, functions: 96, lines: 90, statements: 89 },
@@ -68,7 +68,7 @@ export const packageCoverageThresholds: Readonly<
 		lines: 99,
 		statements: 97,
 	},
-	testing: { branches: 55, functions: 69, lines: 66, statements: 66 },
+	testing: { branches: 95, functions: 97, lines: 97, statements: 97 },
 	'validation-plugin': {
 		branches: 77,
 		functions: 90,
