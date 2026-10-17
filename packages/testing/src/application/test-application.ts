@@ -34,8 +34,9 @@ export interface TestFetchOptions {
 
 /**
  * One test's handle on an application started by `testApplication` (ADR-0327).
- * Leaving its `await using` scope waits for after-commit work; the
- * application keeps running for the next `testApplication` call on it.
+ * The test's after-commit work is awaited when the test finishes, and when
+ * an `await using` scope ends; the application keeps running for the next
+ * `testApplication` call on it.
  */
 export interface TestApplication extends AsyncDisposable {
 	/**
@@ -79,9 +80,15 @@ export interface TestApplication extends AsyncDisposable {
 	): Promise<Awaited<TResult>>
 	/**
 	 * Resolves once pending after-commit work (`afterCommit` hooks, event
-	 * consumers) has run, including the work it started; never rejects.
+	 * consumers) has run, including the work it started; never rejects. Call
+	 * it before an assertion on that work: the end of the test waits anyway.
 	 *
-	 * @example `await t.afterCommit()`
+	 * @example
+	 * ```ts
+	 * await Task.createOne({ data: { title: 'Ship' } })
+	 * await t.afterCommit()
+	 * expect(sentEmails).toHaveLength(1)
+	 * ```
 	 */
 	afterCommit(): Promise<void>
 }
@@ -100,6 +107,22 @@ interface RunningApplication {
 
 // One initialized application per realm: the one testApplication started.
 let running: RunningApplication | undefined
+
+// Registers a wait run when the current test finishes; false outside a test.
+let registerTestFinished: ((wait: () => Promise<void>) => boolean) | undefined
+
+/**
+ * Lets the Vitest setup file of `ultimabaseTesting()` hand over its per-test
+ * hook, so a test needs no `await using` to wait for its own after-commit
+ * work (ADR-0340 amendment).
+ *
+ * @internal
+ */
+export const setTestFinishedHook = (
+	register: (wait: () => Promise<void>) => boolean,
+): void => {
+	registerTestFinished = register
+}
 
 const httpPluginId = '@ultimabase/http-plugin'
 // The socket peer of a request to a local server.
@@ -251,12 +274,14 @@ const createHandle = (current: RunningApplication): TestApplication => {
  * Starts the production application itself (same plugins, same rules) on
  * this test worker's own PostgreSQL schema, from `TEST_DATABASE_URL` or a
  * container started once (ADR-0327). A later call with the same application
- * reuses it from empty tables, so each test starts from no data.
+ * reuses it from empty tables, so each test starts from no data. Called
+ * inside a test, it waits for that test's after-commit work when the test
+ * finishes (ADR-0340); keep the handle only to use it.
  *
  * @example
  * ```ts
  * it('creates a task', async () => {
- *   await using t = await testApplication(ultimabase)
+ *   await testApplication(ultimabase)
  *   await Task.createOne({ data: { title: 'Ship' } })
  *   expect(await Task.count()).toBe(1)
  * })
@@ -278,9 +303,11 @@ export const testApplication = async <
 	if (running?.ultimabase === application) {
 		await waitForAfterCommitWork()
 		await running.harness.resetDatabase()
-		return createHandle(running)
+	} else {
+		await stopTestApplication()
+		running = await startApplication(application)
 	}
-	await stopTestApplication()
-	running = await startApplication(application)
+	// Outside a test (beforeAll), the next call or the handle's disposal waits.
+	registerTestFinished?.(() => waitForAfterCommitWork())
 	return createHandle(running)
 }

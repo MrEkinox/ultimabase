@@ -51,7 +51,6 @@ import type {
 	FrameworkEngine,
 	RequestEngine,
 } from '../engine/framework-engine.js'
-import { databaseAdapterCapability } from '../database/contracts.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import { executeRequestPluginOperation } from '../plugin-operations/request-execution.js'
 import type {
@@ -65,15 +64,18 @@ import {
 	executePolicyQuery,
 	type CanOptions,
 } from './policy-query-execution.js'
+import { type CreateFrameworkEngineOptions } from './create-framework-engine.js'
 import {
-	createFrameworkEngine,
-	type CreateFrameworkEngineOptions,
-} from './create-framework-engine.js'
+	assembleRuntime,
+	missingDatabaseCapability,
+} from './runtime-assembly.js'
 import {
 	appendConfiguredPlugins,
 	readConfiguredPlugins,
 	type ConfiguredApplicationFactory,
+	type FlattenPluginInputs,
 	type MergeInstalledPluginSources,
+	type PluginInput,
 } from './configured-application-factory.js'
 import type {
 	EmptyPluginSourceState,
@@ -84,6 +86,7 @@ import {
 	readEngineOptions,
 	type CompiledApplication,
 	type RootUltimaBaseOptions,
+	type StartedApplication,
 } from './ultima-base-contracts.js'
 
 /**
@@ -97,7 +100,7 @@ import {
  * const App = UltimaBase.use(postgresPlugin())
  * export const ultimabase = new App({ schemas: [Post] })
  *
- * await using app = await ultimabase.start()
+ * await using started = await ultimabase.start()
  * const posts = await Post.findMany()
  * ```
  */
@@ -113,11 +116,6 @@ let readKernel: <
 >(
 	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 ) => FrameworkApplication<TSchemas, TPlugins>
-/** Shares one start result between concurrent `start()` calls. */
-interface StartedApplication<TApplication> {
-	readonly source: Promise<void>
-	readonly result: Promise<TApplication>
-}
 
 let readStarted: <
 	const TSchemas extends readonly SchemaDefinition[],
@@ -146,19 +144,32 @@ export class UltimaBase<
 	/**
 	 * Returns a new immutable factory with plugins appended to its flat graph.
 	 *
-	 * @example `const Application = UltimaBase.use(databasePlugin(), httpPlugin())`
+	 * @example `export const App = UltimaBase.use(postgresPlugin(), apiServer({ rest: true }))`
 	 */
 	static use<const TInstalled extends readonly PluginDefinition[]>(
 		...plugins: TInstalled
 	): ConfiguredApplicationFactory<
 		readonly [...TInstalled],
 		MergeInstalledPluginSources<EmptyPluginSourceState, TInstalled>
-	> {
-		return appendConfiguredPlugins<
-			readonly [],
+	>
+	/**
+	 * Returns a new immutable factory with plugins appended to its flat
+	 * graph; a preset's array of plugins installs them in order (ADR-0340).
+	 * @example `export const App = UltimaBase.use(postgresPlugin(), apiServer({ rest: true }))`
+	 */
+	static use<const TInstalled extends readonly PluginInput[]>(
+		...plugins: TInstalled
+	): ConfiguredApplicationFactory<
+		readonly [...FlattenPluginInputs<TInstalled>],
+		MergeInstalledPluginSources<
 			EmptyPluginSourceState,
-			TInstalled
-		>(this, ...plugins)
+			FlattenPluginInputs<TInstalled>
+		>
+	>
+	static use(
+		...plugins: readonly PluginInput[]
+	): ConfiguredApplicationFactory<readonly PluginDefinition[]> {
+		return appendConfiguredPlugins(this, ...plugins)
 	}
 
 	readonly #application: FrameworkApplication<TSchemas, TPlugins>
@@ -208,14 +219,25 @@ export class UltimaBase<
 	}
 
 	get #engine(): FrameworkEngine<TSchemas, TPlugins> {
-		if (
-			this.#frameworkEngine === undefined ||
-			this.#application.state !== 'started'
-		) {
+		if (this.#application.state !== 'started') {
 			throw new TypeError('UltimaBase must be started before request execution')
 		}
-
+		if (this.#frameworkEngine === undefined) {
+			throw new TypeError(
+				`UltimaBase cannot execute requests: ${missingDatabaseCapability()}`,
+			)
+		}
 		return this.#frameworkEngine
+	}
+
+	/**
+	 * Resolves once the application has stopped or been disposed: `stop()`,
+	 * `dispose()`, a failed start, or a server plugin on `SIGINT`/`SIGTERM`.
+	 * It never rejects (ADR-0340).
+	 * @example `await using started = await ultimabase.start(); await started.closed`
+	 */
+	get closed(): Promise<void> {
+		return this.#application.closed
 	}
 
 	/** Compiles and returns the immutable application facts used by deterministic tooling. */
@@ -366,7 +388,11 @@ export class UltimaBase<
 	 * Initializes plugins, assembles Runtime, starts infrastructure exactly once
 	 * and resolves to this application (ADR-0311).
 	 *
-	 * @example `await using app = await ultimabase.start()`
+	 * @example
+	 * ```ts
+	 * await using started = await ultimabase.start()
+	 * await started.closed
+	 * ```
 	 */
 	start(): Promise<this> {
 		const { state } = this.#application
@@ -382,16 +408,10 @@ export class UltimaBase<
 		}
 
 		const started = this.#application.start(() => {
-			if (
-				readApplicationKernelState(this.#application).capabilityContributions(
-					databaseAdapterCapability,
-				).length > 0
-			) {
-				this.#frameworkEngine = createFrameworkEngine(
-					this.#application,
-					this.#engineOptions,
-				)
-			}
+			this.#frameworkEngine = assembleRuntime(
+				this.#application,
+				this.#engineOptions,
+			)
 		})
 		// Concurrent calls share one promise, as the kernel's start does.
 		if (this.#started?.source !== started) {

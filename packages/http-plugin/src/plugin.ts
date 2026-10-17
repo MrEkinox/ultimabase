@@ -121,6 +121,9 @@ export interface HttpPluginFactory {
 	readonly pluginId: '@ultimabase/http-plugin'
 }
 
+const missingMasterKeys =
+	'httpPlugin({ master: true }) accepts the X-UltimaBase-Master-Key header, but the application has no Master key to verify it: give new MasterAuthority({ keys, onUse }) at least one key, or remove master: true.'
+
 const masterPermissions = {
 	'authority:elevate': 'Verifies explicitly enabled HTTP Master credentials.',
 } as const
@@ -277,7 +280,18 @@ const createHttpPlugin = (options: HttpPluginOptions = {}): HttpPlugin => {
 				if (active === undefined) {
 					throw new TypeError('HTTP application was not materialized')
 				}
+				const requestExecution = capabilities.get(requestExecutionRequirement)
 				return {
+					// Keys are read at start, so the check waits for it (ADR-0340).
+					...(normalized.masterEnabled
+						? {
+								connect: () => {
+									if (!requestExecution.hasMasterKeys()) {
+										throw new TypeError(missingMasterKeys)
+									}
+								},
+							}
+						: {}),
 					exports: immutableRecord({
 						appId: normalized.appId,
 						browser: active.policy,

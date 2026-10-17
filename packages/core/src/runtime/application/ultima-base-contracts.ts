@@ -109,3 +109,9 @@ export const readEngineOptions = <
 			? {}
 			: { validation: options.validation }),
 	})
+
+/** @internal Shares one start result between concurrent `start()` calls. */
+export interface StartedApplication<TApplication> {
+	readonly source: Promise<void>
+	readonly result: Promise<TApplication>
+}

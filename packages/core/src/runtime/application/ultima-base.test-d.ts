@@ -177,9 +177,10 @@ test('flattens preset arrays into the installed tuple (ADR-0340)', () => {
 			readonly [typeof observerPlugin, typeof databasePlugin]
 		>
 	>()
-	expectTypeOf(new Dynamic({ schemas: [articleSchema] })).toEqualTypeOf<
-		UltimaBase<readonly [typeof articleSchema], readonly PluginDefinition[]>
-	>()
+	const open: readonly PluginDefinition[] = [databasePlugin]
+	expectTypeOf(new Dynamic({ schemas: [articleSchema] })).toEqualTypeOf(
+		new (UltimaBase.use(...open))({ schemas: [articleSchema] }),
+	)
 	// @ts-expect-error -- Only plugins and arrays of plugins are installed.
 	UltimaBase.use(['not a plugin'])
 })

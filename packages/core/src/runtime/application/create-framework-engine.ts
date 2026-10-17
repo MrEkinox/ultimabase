@@ -30,7 +30,10 @@ import {
 	type RuntimeValidationOptions,
 } from '../validation/runtime-validation.js'
 import { createFinalMutationValidationStage } from '../validation/final-mutation-validation.js'
-import { MasterAuthority } from '../master/master-authority.js'
+import {
+	MasterAuthority,
+	resolveMasterAuthorityKeys,
+} from '../master/master-authority.js'
 import { createPersistencePlanRewriteStage } from '../persistence/rewriter-stage.js'
 import { composeRuntimeBehaviors } from '../behaviors/composition.js'
 import {
@@ -251,14 +254,13 @@ export const createFrameworkEngine = <
 			normalizedOptions.validation,
 		),
 	)
+	const { masterAuthority } = normalizedOptions
+	// Lazy Master keys are read once, at start (ADR-0340).
+	if (masterAuthority !== undefined) resolveMasterAuthorityKeys(masterAuthority)
 	const engineOptions =
-		normalizedOptions.masterAuthority === undefined
+		masterAuthority === undefined
 			? { application, pipeline }
-			: {
-					application,
-					pipeline,
-					masterAuthority: normalizedOptions.masterAuthority,
-				}
+			: { application, pipeline, masterAuthority }
 
 	const framework = new FrameworkEngine(engineOptions)
 	assertSchemaMutationHandlers(application)

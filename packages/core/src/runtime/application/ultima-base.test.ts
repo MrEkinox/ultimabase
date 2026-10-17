@@ -133,7 +133,9 @@ describe('UltimaBase', () => {
 		expect(trace).toStrictEqual(['connect'])
 		expect(() =>
 			anonymous(ultimabase, { requestId: 'no-runtime', source: 'internal' }),
-		).toThrow('UltimaBase must be started before request execution')
+		).toThrow(
+			'UltimaBase cannot execute requests: no plugin provides the database capability ultimabase.database-adapter',
+		)
 
 		await ultimabase.dispose()
 		expect(trace).toStrictEqual(['connect', 'dispose'])

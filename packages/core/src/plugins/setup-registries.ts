@@ -59,6 +59,15 @@ export interface PluginSetupContext {
 	 * @example `logger.debug('introspection enabled (NODE_ENV: development)')`
 	 */
 	readonly logger: Logger
+	/**
+	 * Stops the application as `ultimabase.stop()` does, for a plugin that
+	 * owns a process-level stop request such as a signal (ADR-0340). Call it
+	 * from such an event, never from a request or an operation: stopping
+	 * waits for them.
+	 *
+	 * @example `process.once('SIGTERM', () => void stopApplication())`
+	 */
+	readonly stopApplication: () => Promise<void>
 }
 
 const silentLogger: Logger = Object.freeze({
@@ -79,6 +88,7 @@ export class PluginSetupRegistries {
 		) => PluginCapabilityReader = () => emptyCapabilityReader,
 		readonly loggerForPlugin: (owner: PluginIdentity) => Logger = () =>
 			silentLogger,
+		readonly stopApplication: () => Promise<void> = () => Promise.resolve(),
 	) {}
 
 	/** Returns one stable owner-bound setup context for a structured plugin identity. */
@@ -90,6 +100,7 @@ export class PluginSetupRegistries {
 				schemas: this.schemas,
 				capabilities,
 				logger: this.loggerForPlugin(owner),
+				stopApplication: this.stopApplication,
 			})
 		})
 	}

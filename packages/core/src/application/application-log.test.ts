@@ -10,6 +10,8 @@ import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { ApplicationLog, type Logger } from './application-log.js'
 import { FrameworkApplication } from './framework-application.js'
 import { formatStartupSummary } from './startup-summary.js'
+import { provideTestDatabaseAdapter } from '../../tests/runtime/fixtures/database-adapter-capability.js'
+import { RecordingDatabaseAdapter } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 
 const capture = () => {
 	const lines: { level: string; message: string; details?: object }[] = []
@@ -56,11 +58,14 @@ const elevating = createPlugin({
 		),
 	],
 })
+// It also provides the database the schemas need to start (ADR-0340).
 const quiet = createPlugin({
 	core: '^0.0.0',
 	id: '@fixture/quiet-plugin',
 	version: '1.0.0',
-	contributions: [],
+	contributions: [
+		provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+	],
 })
 
 // ADR-0313: one logger and level per application, plugin-prefixed lines.
@@ -116,7 +121,7 @@ describe('application logger', () => {
 			vi.spyOn(console, level).mockImplementation(() => undefined),
 		)
 		try {
-			const ultimabase = new (UltimaBase.use(elevating))({
+			const ultimabase = new (UltimaBase.use(quiet, elevating))({
 				logger: false,
 				logLevel: 'debug',
 				schemas: [Todo],
