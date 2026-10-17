@@ -2,7 +2,12 @@ import { execFileSync } from 'node:child_process'
 import { globSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { selectCi, type Workspace } from './selection.ts'
+import {
+	groupPackages,
+	selectCi,
+	type PackageSelection,
+	type Workspace,
+} from './selection.ts'
 
 const workspaces: Workspace[] = [
 	{ name: '@ultimabase/core', directory: 'packages/core' },
@@ -291,4 +296,50 @@ it('selects every repository suite exactly once during full GitHub validation', 
 		.sort()
 	expect(selected).toEqual(expected)
 	expect(new Set(selected).size).toBe(selected.length)
+})
+
+describe('package job groups', () => {
+	const selection = (name: string, files: number): PackageSelection => ({
+		name: `@ultimabase/${name}`,
+		directory: `packages/${name}`,
+		browser: name === 'web',
+		coverage: true,
+		files: Array.from(
+			{ length: files },
+			(_, index) => `${name}/${String(index)}.test.ts`,
+		),
+	})
+
+	it('packs the heaviest packages first into the lightest job', () => {
+		const groups = groupPackages(
+			[
+				selection('core', 50),
+				selection('rest', 10),
+				selection('web', 8),
+				selection('shared', 1),
+				selection('hooks', 9),
+			],
+			3,
+		)
+		expect(groups).toEqual([
+			{ name: 'core', packages: ['@ultimabase/core'], browser: false },
+			{
+				name: 'rest, shared',
+				packages: ['@ultimabase/rest', '@ultimabase/shared'],
+				browser: false,
+			},
+			{
+				name: 'hooks, web',
+				packages: ['@ultimabase/hooks', '@ultimabase/web'],
+				browser: true,
+			},
+		])
+	})
+
+	it('creates no more jobs than packages and none without packages', () => {
+		expect(groupPackages([selection('core', 3)])).toEqual([
+			{ name: 'core', packages: ['@ultimabase/core'], browser: false },
+		])
+		expect(groupPackages([])).toEqual([])
+	})
 })

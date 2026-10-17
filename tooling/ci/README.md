@@ -38,7 +38,10 @@ For a local read-only simulation, set `CI_BASE_SHA` to a full commit SHA and
 `node tooling/ci/plan.ts`. Yarn also observes uncommitted changes, so use a clean
 checkout for an exact simulation. `node tooling/ci/plan.ts --full` shows every check.
 On GitHub, **Run workflow** requests complete validation: every package job
-measures its coverage.
+measures its coverage. Selected packages run in at most five jobs
+(`groupPackages`), heaviest first into the lightest job: each job pays about a
+minute of setup and GitHub bills every job by the started minute. A job checks
+all its packages and fails once, naming every package that failed.
 
 Use `yarn validate` for the ordinary local format, type, test, lint, and build
 contract. `yarn validate:affected` (`local.ts`) runs this planner and `run.ts`

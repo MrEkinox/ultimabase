@@ -193,3 +193,51 @@ export const selectCi = (input: SelectionInput): CiPlan => {
 		workspaceLint,
 	}
 }
+
+/** One CI job running the suites of several selected packages in turn. */
+export interface PackageGroup {
+	readonly name: string
+	readonly packages: readonly string[]
+	readonly browser: boolean
+}
+
+/**
+ * Packs selected packages into at most `count` jobs, heaviest first into the
+ * lightest job, weighing each package by its selected test files. Every job
+ * pays about a minute of setup and GitHub bills each job by the started
+ * minute, so one job per package spent most of its time preparing.
+ */
+export const groupPackages = (
+	packages: readonly PackageSelection[],
+	count = 5,
+): readonly PackageGroup[] => {
+	const groups: { weight: number; members: PackageSelection[] }[] = Array.from(
+		{ length: Math.min(count, packages.length) },
+		() => ({
+			weight: 0,
+			members: [],
+		}),
+	)
+	const heaviestFirst = [...packages].sort(
+		(left, right) =>
+			right.files.length - left.files.length ||
+			left.name.localeCompare(right.name),
+	)
+	for (const selection of heaviestFirst) {
+		const lightest = groups.reduce((best, group) =>
+			group.weight < best.weight ? group : best,
+		)
+		lightest.members.push(selection)
+		lightest.weight += Math.max(1, selection.files.length)
+	}
+	return groups
+		.filter(({ members }) => members.length > 0)
+		.map(({ members }) => {
+			const names = members.map(({ name }) => name).sort()
+			return {
+				name: names.map((name) => name.replace('@ultimabase/', '')).join(', '),
+				packages: names,
+				browser: members.some(({ browser }) => browser),
+			}
+		})
+}

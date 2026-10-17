@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, existsSync, readFileSync } from 'node:fs'
-import { selectCi, type Workspace } from './selection.ts'
+import { groupPackages, selectCi, type Workspace } from './selection.ts'
 
 const record = (value: unknown): Record<string, unknown> => {
 	if (typeof value !== 'object' || value === null || Array.isArray(value))
@@ -76,11 +76,7 @@ console.info(JSON.stringify(plan, null, 2))
 if (process.env.GITHUB_OUTPUT !== undefined) {
 	for (const [name, value] of Object.entries({
 		plan,
-		packages: plan.packages.map(({ name, directory, browser }) => ({
-			name,
-			directory,
-			browser,
-		})),
+		packages: groupPackages(plan.packages),
 		build: plan.build,
 		transversal: plan.transversal.length > 0 || plan.workspaceLint.length > 0,
 		website: plan.website,

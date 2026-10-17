@@ -160,20 +160,34 @@ switch (process.argv[2]) {
 		break
 	}
 	case 'package': {
-		const selected = plan.packages.find(
-			({ name }) => name === process.env.CI_PACKAGE,
-		)
-		if (selected === undefined)
-			throw new Error('Package was not selected by the planner')
-		run(['workspace', selected.name, 'typecheck:tests'])
-		run(['eslint', selected.directory])
-		// A package selected only as a consumer of another change runs part of
-		// its suites: its coverage is measured when all of them are selected.
-		tests(
-			selected.files,
-			path.join(repositoryRoot, selected.directory),
-			selected.coverage ? selected.directory : undefined,
-		)
+		// One job checks a group of packages in turn; every package runs even
+		// when an earlier one fails, and the job fails once at the end.
+		const names = (process.env.CI_PACKAGES ?? process.env.CI_PACKAGE ?? '')
+			.split(',')
+			.filter(Boolean)
+		if (names.length === 0) throw new Error('No package was given to check')
+		const failures: string[] = []
+		for (const name of names) {
+			const selected = plan.packages.find((entry) => entry.name === name)
+			if (selected === undefined)
+				throw new Error(`Package ${name} was not selected by the planner`)
+			try {
+				run(['workspace', selected.name, 'typecheck:tests'])
+				run(['eslint', selected.directory])
+				// A package selected only as a consumer of another change runs part
+				// of its suites: its coverage is measured when all of them are selected.
+				tests(
+					selected.files,
+					path.join(repositoryRoot, selected.directory),
+					selected.coverage ? selected.directory : undefined,
+				)
+			} catch (error) {
+				console.error(`${name} failed:`, error)
+				failures.push(name)
+			}
+		}
+		if (failures.length > 0)
+			throw new Error(`Package checks failed: ${failures.join(', ')}`)
 		break
 	}
 	case 'transversal': {
