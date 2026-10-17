@@ -76,4 +76,16 @@ describe('PostgreSQL test worker', () => {
 			),
 		)
 	})
+
+	it('validates untyped JavaScript options before touching a database', () => {
+		const create = (options: unknown) => (): void => {
+			Reflect.construct(PostgresTestWorker, [options])
+		}
+		expect(create(null)).toThrow(
+			new TypeError('PostgreSQL test worker options must be an object'),
+		)
+		expect(create({ query: 'DROP SCHEMA', workerId: 1 })).toThrow(
+			new TypeError('PostgreSQL test worker query must be a function'),
+		)
+	})
 })

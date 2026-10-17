@@ -68,7 +68,7 @@ export const packageCoverageThresholds: Readonly<
 		lines: 99,
 		statements: 97,
 	},
-	testing: { branches: 55, functions: 69, lines: 66, statements: 66 },
+	testing: { branches: 95, functions: 97, lines: 97, statements: 97 },
 	'validation-plugin': {
 		branches: 77,
 		functions: 90,
