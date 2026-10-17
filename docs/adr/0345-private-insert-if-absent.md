@@ -1,9 +1,9 @@
 # ADR-0345: Private storage inserts a record only if it is absent
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-17
 - Refines: ADR-0234 (owner-private plugin storage); applies ADR-0288
-- Approval: race found by the auth-plugin own-tests pass of 2026-10-17
+- Approval: race found by the auth-plugin own-tests pass of 2026-10-17; accepted by the user on 2026-10-17
 
 ## Context
 
