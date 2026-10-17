@@ -6,7 +6,7 @@ import { ExampleArticle } from './schema.ts'
 /** One application built by `createUltimabase`. */
 type FullStackApplication = ReturnType<typeof createUltimabase>
 
-// The README shows these regions; the example typecheck compiles them.
+// The example typecheck compiles these regions.
 
 /** Reads the computed fields of one article: none of them is stored. */
 export const readArticlePresentation = async (slug: string) => {

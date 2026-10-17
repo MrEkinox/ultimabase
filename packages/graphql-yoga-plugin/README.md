@@ -1,17 +1,22 @@
-# `@ultimabase/graphql-yoga-plugin`
+# @ultimabase/graphql-yoga-plugin
 
-The official GraphQL-over-HTTP adapter for UltimaBase. It mounts the final
-application-local schema from `@ultimabase/graphql-plugin` through the shared
-Fetch application from `@ultimabase/http-plugin`.
+Serves the GraphQL plugin's schema over HTTP with GraphQL Yoga, as a route of
+the HTTP plugin.
 
-It also provides `graphqlHttpEndpointCapability` from
-`@ultimabase/graphql-http`. Provider-neutral developer tools can discover the
-configured path without importing Yoga or choosing among endpoints.
-The Yoga plugin itself returns no setup value through `ultimabase.plugin()`.
+## Installation
 
-The package does not install GraphQL, HTTP, authentication, or a server. The
-application configures those sibling plugins explicitly, or installs them all
-with `apiServer({ graphql: true })` from `@ultimabase/api-server` (ADR-0325):
+```sh
+npm install @ultimabase/graphql-plugin @ultimabase/graphql-yoga-plugin @ultimabase/core
+```
+
+`@ultimabase/core` is a peer dependency. `@ultimabase/graphql-plugin`,
+`@ultimabase/http-plugin` and a server provider are required beside it;
+`@ultimabase/api-server` installs them together.
+
+## Example
+
+A GraphQL application installing each plugin, from the tested
+[`examples/graphql`](../../examples/graphql/README.md) application:
 
 <!-- region ../../examples/graphql/src/notes.ts#notes -->
 
@@ -53,65 +58,7 @@ export const notes = new Notes({ schemas: [Note] })
 
 <!-- endregion -->
 
-This application from the tested [`examples/graphql`](../../examples/graphql/README.md)
-exposes reads only and needs a disposable PostgreSQL database; `override` may
-create or alter tables. Configure and review authorization before public
-deployment. The code blocks of this README are copied from the example by
-`yarn docs:regions` (ADR-0330). The
-[website GraphQL guide](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
-includes the complete installation and matching HTTP requests:
+## Documentation
 
-<!-- region ../../examples/graphql/tests/notes.test.ts#notes-query -->
-
-```ts
-const response = await t.fetch('/api/graphql', {
-	method: 'POST',
-	headers: {
-		'content-type': 'application/json',
-		'x-ultimabase-application-id': 'notes',
-	},
-	body: JSON.stringify({ query: '{ findManyNote { nodes { text } } }' }),
-})
-```
-
-<!-- endregion -->
-
-`graphqlYogaPlugin()` mounts `POST /graphql` by default. It accepts only UTF-8
-JSON GraphQL requests, rejects batching, uploads, subscriptions, SSE, and the
-built-in GraphiQL UI (`@ultimabase/graphql-explorer-plugin` serves one), and limits streamed request bodies to 1 MiB. HTTP
-introspection follows `NODE_ENV` (ADR-0312): the plugin reads it when created,
-enabling introspection in development and disabling it when `NODE_ENV` is
-`production`; an explicit `introspection` always wins, and `logLevel: 'debug'`
-logs the value and its source. While introspection is enabled, the plugin
-publishes the `ultimabase.graphql.introspection` capability that served
-explorers require. With introspection disabled, no error carries a "Did you
-mean …" suggestion, which would name a field, argument or enum value: neither
-validation errors nor `BAD_USER_INPUT` errors for a variable's value
-(ADR-0333).
-
-Without `bodyLimit`, GraphQL inherits `httpPlugin({ bodyLimit })` (1 MiB by
-default), enforced while the body streams; `bodyLimit` replaces it for the
-GraphQL endpoint (ADR-0323).
-
-The application above sets `path: '/api/graphql'`, a 512 KiB `bodyLimit` (a
-larger body answers `413` `HTTP_PAYLOAD_TOO_LARGE`) and explicit
-introspection.
-
-The HTTP plugin selects the application, resolves its request context and
-credentials, and exchanges an enabled Master key before Yoga runs. Yoga sees
-only that active context and delegates execution to the same narrow GraphQL
-application capability used by networkless execution. It validates documents
-with the application's `validationRules`, so a field a disabled feature leaves
-out answers `400` with the same `hint: enable graphql: { … } on …` as
-networkless execution (ADR-0325), outside production only (ADR-0333).
-
-Virtual fields require no Yoga-specific resolver or configuration. Their
-selection, request-aware asynchronous resolution, output validation, Access,
-Master behavior, cancellation, and mutation rollback stay in Core; Yoga only
-delivers the resulting GraphQL response through the selected HTTP application.
-
-Contextual relation filters follow the same rule. Yoga contributes no filter
-argument or resolver: it forwards the HTTP-selected anonymous, authenticated,
-or Master context, and Core applies the source relation's synchronous `where`
-before GraphQL connection ordering and pagination. Networkless execution and
-Yoga therefore return the same visible nodes for the same application context.
+- [GraphQL](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
+- [HTTP](../../apps/website/content/docs/1.0.0/plugins/official/http.mdx)

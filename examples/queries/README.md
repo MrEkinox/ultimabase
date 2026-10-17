@@ -8,10 +8,8 @@ uses the declaration form without generated files and is tested
 with `testApplication`.
 
 The Reading Data, Writing Data, API Error Boundaries, Master Authority and
-Request Identity pages of the website and the matching sections of the
-[Core README](../../packages/core/README.md) show this application's code:
-each block is a `//#region <name>` of these files, included by the pages and
-copied into the README by `yarn docs:regions`. Change the code
+Request Identity pages of the website show this application's code: each
+block is a `//#region <name>` of these files, included by the pages. Change the code
 here, and the tests prove what the documentation says.
 
 ## Files

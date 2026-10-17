@@ -18,7 +18,6 @@ const activeRoots = [
 	'docs/README.md',
 	'docs/current-architecture.md',
 	'docs/engineering',
-	'docs/concepts',
 	'docs/PRODUCT_SPEC.md',
 	'docs/rebuild',
 	'docs/RELEASING.md',
@@ -248,17 +247,20 @@ describe('active documentation contracts', () => {
 	})
 
 	it('keeps important guides backed by executable public examples', () => {
+		// The website owns behaviour (ADR-0343): its pages name their tests in
+		// `sources`.
+		const pages = 'apps/website/content/docs/1.0.0'
 		const backingExamples = {
-			'docs/concepts/open-plugin-authoring.md':
+			[`${pages}/plugins/build-a-plugin/index.mdx`]:
 				'tests/e2e/fixtures/open-kernel-workflow.ts',
-			'packages/access-plugin/README.md':
+			[`${pages}/plugins/official/access.mdx`]:
 				'packages/access-plugin/tests/e2e/access-plugin-postgres.postgres.e2e.test.ts',
-			'packages/hooks-plugin/README.md':
+			[`${pages}/plugins/official/hooks.mdx`]:
 				'packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
-			'packages/pg-vector-plugin/README.md':
-				'packages/pg-vector-plugin/tests/field-builder-autocomplete.test.ts',
-			'packages/postgres-plugin/README.md':
-				'packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts',
+			[`${pages}/plugins/official/postgresql-vector.mdx`]:
+				'packages/pg-vector-plugin/tests/field-builder.test.ts',
+			[`${pages}/plugins/official/postgresql.mdx`]:
+				'examples/postgres/tests/connection.test.ts',
 		} as const
 
 		for (const [document, example] of Object.entries(backingExamples)) {

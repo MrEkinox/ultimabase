@@ -14,8 +14,7 @@ the application `ultimabase` and its `Register` declaration, and
   Auth Bearer and cookie sessions, role-protected data, audited Master requests,
   both official soft-delete modes with private restoration and purge, atomic
   nested pointer and relation writes, and explicitly exposed plugin operations.
-  Its README regions are compiled by the example typecheck; the repository
-  end-to-end suites run the application. For a first run, start with
+  The repository end-to-end suites run the application. For a first run, start with
   [`modeling`](modeling/README.md), which needs only Core and PostgreSQL.
 - [`todo-backend`](todo-backend/README.md): the reference Todo application
   with Access, ACL, Hooks, Roles, Validation, PostgreSQL and REST in the
@@ -106,7 +105,7 @@ the application `ultimabase` and its `Register` declaration, and
   `publicWrites`, and a second application installing each plugin with Yoga
   options and Apollo Sandbox), tested with `testApplication`. Its `//#region`
   blocks are the code of the GraphQL page and the `graphql-plugin`,
-  `graphql-yoga-plugin`, `graphql-http` and `graphql-explorer-plugin` READMEs
+  `graphql-yoga-plugin` and `graphql-explorer-plugin` READMEs
   (ADR-0330).
 - [`modeling`](modeling/README.md): Core data modeling end to end (the
   configured factory, the application with its `validation` options and
@@ -127,8 +126,7 @@ the application `ultimabase` and its `Register` declaration, and
   authority; request values, cancellation, the current principal, policy
   predicates and `can()`), tested with `testApplication`. Its `//#region`
   blocks are the code of the Reading Data, Writing Data, API Error
-  Boundaries, Master Authority and Request Identity pages and of the Core
-  README (ADR-0330).
+  Boundaries, Master Authority and Request Identity pages (ADR-0330).
 - [`plugin-authoring`](plugin-authoring/README.md): plugin authoring end to
   end (an inert factory with a typed setup export, `definePlugin`
   features with server-written fields, commands exposed over REST and GraphQL
@@ -140,8 +138,8 @@ the application `ultimabase` and its `Register` declaration, and
   GraphQL schema with a `peers` range, an HTTP route, an environment-dependent
   default, option parsers, and the plugin conformance suites), tested with
   `testApplication`. Its `//#region` blocks are the code of the Build a Plugin
-  pages, the Test an Application page and the `plugin-kit`, `testing` and
-  Core READMEs (ADR-0330).
+  pages, the Test an Application page and the `plugin-kit` and `testing`
+  READMEs (ADR-0330).
 - [`schema-form-d`](schema-form-d/README.md): the declaration form
   (ADR-0297) on cyclic schemas with Access, ACL, Hooks and Soft Delete,
   with its typo cases, editor probes and measurements.
@@ -149,7 +147,7 @@ the application `ultimabase` and its `Register` declaration, and
 ## Feature examples and documentation
 
 A feature example (`examples/<feature>/`, ADR-0330) is the tested source of
-its documentation page and package README:
+its documentation page, and the single example of its package README:
 
 1. Write a small complete application in the declaration form, with short
    files and comments that explain intent, and its tests with

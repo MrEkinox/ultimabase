@@ -4,201 +4,16 @@ The reference UltimaBase application: a Todo backend that combines ordinary
 schemas and queries with the official Access, ACL, Hooks, Roles, Validation,
 PostgreSQL and REST plugins, written in the declaration form
 without generated files, and tested with `testApplication`.
+[`src/app.ts`](src/app.ts) installs every plugin once and imports no schema,
+[`src/schema.ts`](src/schema.ts) declares the schemas and their rules,
+[`src/ultimabase.ts`](src/ultimabase.ts) creates the application and
+[`src/todos.ts`](src/todos.ts) holds the typed backend code.
 
-## What the developer writes
-
-[`src/app.ts`](src/app.ts) installs every plugin once, in one list, and
-imports no schema:
-
-<!-- region src/app.ts#factory -->
-
-```ts
-import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { apiServer } from '@ultimabase/api-server'
-import { UltimaBase } from '@ultimabase/core'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { rolesPlugin } from '@ultimabase/roles-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
-
-/**
- * One plugin list types every schema and builds the application.
- * Every schema rules every operation, so Access opens nothing by default.
- * `postgresPlugin()` reads `DATABASE_URL` when the application starts.
- */
-export const App = UltimaBase.use(
-	accessPlugin(),
-	hooksPlugin(),
-	validationPlugin(),
-	rolesPlugin(),
-	aclPlugin(),
-	// REST over HTTP and a local Hono listener; Access decides
-	// what each request may do.
-	apiServer({ rest: true }),
-	postgresPlugin(),
-)
-```
-
-<!-- endregion -->
-
-[`src/schema.ts`](src/schema.ts) declares the schemas from `App`. The block
-below shows its imports, the `title` field of `Todo`, whose behavior sits on the field,
-and the end of `Todo`: its `indexes` and the `acl: true` feature key in
-`define`, then the schema rules in `.with({ ... })`:
-
-<!-- region src/schema.ts#imports,todo-title,todo-rules -->
-
-```ts
-import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { PublicError, defineEnum } from '@ultimabase/core'
-import { z } from 'zod'
-
-import { App } from './app.ts'
-
-title: field.string({
-	description: 'Short task summary shown in todo lists.',
-	hooks: { resolveInput: ({ value }) => value.trim() },
-	postgres: { renamedFrom: 'summary' },
-	required: true,
-	validation: z.string().max(200),
-}),
-
-	indexes: [{ fields: ['completed', 'dueAt'] }],
-	acl: true,
-}).with({
-	access: {
-		read: ({ where }) => where.eq('archived', false),
-		create: false,
-		update: true,
-		upsert: false,
-		delete: false,
-	},
-	acl: {
-		default: new ACL()
-			.grantPublic('read')
-			.grantRole(TodoEditorRole, 'read', 'update'),
-	},
-	hooks: {
-		beforeOperation: {
-			update: ({ item, originalItem }) => {
-				if (originalItem.completed && !item.completed) {
-					// A PublicError reaches REST and GraphQL clients; any other
-					// error is masked as an internal error.
-					throw new PublicError('Completed todos cannot be reopened.', {
-						code: 'todo.reopen',
-					})
-				}
-			},
-		},
-	},
-	postgres: { table: 'todos' },
-})
-```
-
-<!-- endregion -->
-
-Relation targets are thunks (`target: () => TodoUser`), so schemas reference
-each other across the file without names to keep in sync. Every option is
-typed from the plugins installed on `App`: removing a plugin makes its
-options unknown at once. The plugins compose monotonically: ordinary readers
-see only non-archived tasks their ACL allows, an editor's role may update
-them, and `internalNotes` stays server-only. Master bypasses Access and ACL,
-never validation or hooks, and is never accepted from transport input.
-
-The same file also declares:
-
-- `TodoUser`, the assignee, with an inverse `assignedTodos` relation;
-- `TodoRole`, from `App.RoleSchema.define()` with custom fields and an index,
-  and `roles: { ensure: ['editor'] }` in its `.with`, since the Todo
-  ACL default grants that role;
-- an enum shared by two fields, nested typed objects, JSON paths and a
-  composite index.
-
-[`src/ultimabase.ts`](src/ultimabase.ts) creates the application with an
-audited Master authority, which needs no key in process, and declares it once in
-`Register`, which gives name-keyed types such as `CreateInput<'Todo'>`:
-
-<!-- region src/ultimabase.ts#application -->
-
-```ts
-export const ultimabase = new App({
-	masterAuthority: new MasterAuthority({
-		onUse: (event) => {
-			// Replace this console record with a durable audit sink in production.
-			console.info('Master authority used', {
-				kind: event.kind,
-				reason: event.reason,
-				requestId: event.requestId,
-			})
-		},
-	}),
-	schemas: [TodoUser, TodoRole, Todo],
-})
-
-// One declaration per application gives name-keyed editor types.
-declare module '@ultimabase/core' {
-	interface Register {
-		readonly app: typeof ultimabase
-	}
-}
-```
-
-<!-- endregion -->
-
-## Typed backend code
-
-[`src/todos.ts`](src/todos.ts) and [`src/admin.ts`](src/admin.ts) use the
-schema-root query and mutation API; selections and includes narrow the
-resolved types, and application code never imports PostgreSQL or Drizzle:
-
-<!-- region src/todos.ts#create-and-list -->
-
-```ts
-/** Creates a task while letting schema defaults initialize its state. */
-export const createTodo = (data: CreateInput<'Todo'>) =>
-	Todo.createOne(
-		{
-			data,
-			select: {
-				completed: true,
-				createdAt: true,
-				id: true,
-				priority: true,
-				title: true,
-			},
-		},
-		{ useMasterKey: true },
-	)
-
-/** Lists incomplete tasks in deadline order for the application dashboard. */
-export const listPendingTodos = () =>
-	Todo.findMany({
-		include: {
-			assignee: { select: { displayName: true } },
-		},
-		orderBy: { dueAt: 'asc', createdAt: 'asc' },
-		select: {
-			completed: true,
-			dueAt: true,
-			id: true,
-			priority: true,
-			title: true,
-		},
-		where: { completed: { eq: false } },
-	})
-```
-
-<!-- endregion -->
-
-`addUserToRole` links members through the checked `connect` command, and
-`grantTodoToUser` replaces an immutable ACL with a newly granted one.
-
-## Tests
+## Test
 
 [`tests/todos.test.ts`](tests/todos.test.ts) starts the application itself
 with `testApplication` on its own PostgreSQL schema; each test starts from
-empty tables, with the `editor` role created again by Roles:
+empty tables:
 
 <!-- region tests/todos.test.ts#editor-update -->
 
@@ -230,9 +45,6 @@ it('lets an editor update a task through its role and the ACL', async () => {
 
 <!-- endregion -->
 
-The tests also cover the hook that refuses to reopen a task and the REST
-route, called in memory with `t.fetch`.
-
 ## Run and verify it
 
 Build the repository packages once, then from the repository root:
@@ -245,11 +57,18 @@ corepack yarn workspace @ultimabase/example-todo-backend typecheck
 corepack yarn workspace @ultimabase/example-todo-backend test
 ```
 
-`dev` runs the TypeScript sources with Node 24 and restarts on change, reading
-an optional `.env`; REST
-listens on `http://127.0.0.1:1337/api/classes/Todo`. `test` starts PostgreSQL
-in a container once (Docker), or uses `TEST_DATABASE_URL`.
+`dev` restarts on change and reads an optional `.env`; REST listens on
+`http://127.0.0.1:1337/api/classes/Todo`. `test` starts PostgreSQL in a
+container once (Docker), or uses `TEST_DATABASE_URL`. The PostgreSQL
+`override` schema policy (the default outside production) is not a production
+migration strategy.
 
-The PostgreSQL `override` schema policy (the default outside production) is
-convenient for this development example and is not a production migration
-strategy.
+## Documentation
+
+- [Test an Application](../../apps/website/content/docs/1.0.0/guides/test-an-application.mdx)
+- [Access](../../apps/website/content/docs/1.0.0/plugins/official/access.mdx),
+  [ACL Permissions](../../apps/website/content/docs/1.0.0/plugins/official/acl-permissions.mdx),
+  [Roles](../../apps/website/content/docs/1.0.0/plugins/official/roles.mdx),
+  [Hooks](../../apps/website/content/docs/1.0.0/plugins/official/hooks.mdx) and
+  [Validation](../../apps/website/content/docs/1.0.0/plugins/official/validation.mdx)
+- [API Errors](../../apps/website/content/docs/1.0.0/core/runtime/api-errors.mdx)
