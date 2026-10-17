@@ -28,10 +28,13 @@ sources:
   - packages/access-plugin/src/authoring/allow-without-rule.ts
   - packages/access-plugin/src/authoring/field-declarations.ts
   - packages/access-plugin/src/authoring/utilities.ts
+  - packages/access-plugin/src/authoring/is-self.ts
   - packages/access-plugin/src/plugin.ts
   - packages/access-plugin/src/startup.ts
   - packages/access-plugin/src/runtime/denial-log.ts
   - packages/auth-plugin/README.md
+  - examples/auth/src/schema.ts
+  - examples/auth/tests/sessions.test.ts
   - packages/access-plugin/tests/e2e/access-plugin-postgres.postgres.e2e.test.ts
   - docs/adr/0204-access-is-one-vertical-plugin.md
   - docs/adr/0205-protected-policy-contributions.md
@@ -42,6 +45,7 @@ sources:
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0341-write-results-and-refusals.md
 ---
 
 ## Overview
@@ -276,6 +280,28 @@ identity; this Access rule grants the read. A successful read does not imply
 per-user row isolation. The example's `tests/rest.test.ts` checks the
 anonymous request.
 
+### The caller's own row: `isSelf`
+
+`isSelf` matches the row of the current principal when the principal points to
+the schema, and denies otherwise, like `false`. It is the rule of a User schema:
+[authentication](./password-authentication) reads the signed-in user's row as
+that user during sign-up, login, `refresh` and `current`, and without a `read`
+rule matching it they fail with `AUTH_USER_NOT_READABLE`. The authentication
+example's members read and edit only their own profile:
+
+<include cwd meta='title="src/schema.ts"'>
+	../../examples/auth/src/schema.ts#imports,member
+</include>
+
+<include cwd meta='title="tests/sessions.test.ts"'>
+	../../examples/auth/tests/sessions.test.ts#own-profile
+</include>
+
+`profiles` holds Grace's row alone, and an anonymous `Member.findMany()` fails
+with `PERMISSION_DENIED`. `isSelf` is a row rule: it fits `read`, `update`,
+`upsert`, `delete` and request commands, not `create`, which decides before
+any row exists.
+
 ### Field read and write rules
 
 An undeclared field is available unless an exact field rule or compatible
@@ -425,6 +451,29 @@ exists. The line is `info` outside production and `debug` in production;
 clients receive the same `PERMISSION_DENIED` as before. `ultimabase.can()`
 answers are not logged.
 
+### Which refusal a client receives
+
+The form of the rule decides what a refused caller sees:
+
+| Rule                                                                                           | Result                                                                           |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| No rule and no opening, `false`, or a predicate that answers `false`                           | `PERMISSION_DENIED`, REST `403`                                                  |
+| An `item` check that answers `false`                                                           | `PERMISSION_DENIED`, REST `403`                                                  |
+| A hidden field named in `select`, `where` or `orderBy`; a selected write result it cannot read | `PERMISSION_DENIED`, REST `403`                                                  |
+| A `where` filter that excludes the row                                                         | `[]` from `findMany()`; `null` from `findOne()`, `updateOne()` and `deleteOne()` |
+| The same filter on a required target                                                           | `NOT_FOUND`, REST `404`, as for a missing row                                    |
+| A rule that throws a `PublicError`                                                             | Its own code and message, REST `400`                                             |
+
+Predicates include `isAuthenticated`, `hasRole()` and `isSelf` without a
+matching principal. A required target is the row of `findOneOrThrow()`, of REST
+`GET`, `PATCH` and `DELETE` on `/classes/{Schema}/{id}`, of a plugin command
+such as `softDeleteOne`, or of a `connect`.
+
+A filter never reveals that a hidden row exists; a denial says only that the
+operation is not permitted. Choose a filter when a caller may look for rows it
+cannot see, and `false` or a predicate when the operation itself is closed to
+it.
+
 ## Troubleshooting
 
 - **Every request is denied:** confirm `accessPlugin()` is installed, read the
@@ -451,6 +500,9 @@ answers are not logged.
   `accessPlugin()` on the configured factory used to declare that schema and
   check the exact rule shape. A detailed mutation rule needs both `where` and
   `item`; a permission rule is `true`, `false` or a predicate.
+- **Sign-up or login fails with `AUTH_USER_NOT_READABLE`:** the User schema
+  has no `read` rule matching the signed-in user's own row; add
+  `read: isSelf` (see [The caller's own row](#the-callers-own-row-isself)).
 - **A role-dependent rule denies unexpectedly:** verify that [Roles](./roles)
   and its subject resolver are configured in the same application. Do not use
   Master to hide a broken caller policy.

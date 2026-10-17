@@ -83,7 +83,8 @@ The root export has three deliberate groups:
 
 - **Application API:** `accessPlugin`, its options (`AllowWithoutRule`),
   `AccessContext`, schema and field rule types, exact plugin command and
-  permission rule types, and the `anyOf`, `allOf` and `not` authoring helpers.
+  permission rule types, the `anyOf`, `allOf` and `not` authoring helpers, and
+  the `isSelf` own-row rule.
   A rule that allows or denies everything is `true` or `false`.
 - **Compatible-provider contract:** `accessContributionsCapability`,
   `provideAccessContributions`, the direct and field-kind contribution
@@ -256,6 +257,20 @@ them or a row filter. A function that may return nothing is a type error. The
 - Field rules `read: { output, where, orderBy }` and
   `write: { fill, replace, clear }` are partial: an omitted member restricts
   nothing.
+
+`isSelf` matches the row of the current principal when the principal points to
+the schema and denies otherwise, like `false` (ADR-0341). It is the `read` rule
+a User schema needs, since authentication reads the signed-in user's row as
+that user and otherwise fails with `AUTH_USER_NOT_READABLE`:
+`.with({ access: { read: isSelf, update: isSelf } })`. It is a row rule, so
+`create` does not accept it.
+
+The rule's form decides the refusal: no rule, `false`, a predicate or an
+`item` check answering `false`, or a hidden field named in a query give
+`PERMISSION_DENIED` (REST 403); a `where` filter excluding the row gives `[]`
+or `null`, and `NOT_FOUND` (REST 404) on a required target such as
+`findOneOrThrow()` or REST `/classes/{Schema}/{id}`; a thrown `PublicError`
+keeps its own code (REST 400).
 
 ## Operations without a rule: `allowWithoutRule`
 

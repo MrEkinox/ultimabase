@@ -49,10 +49,15 @@ it('gives Access rules the member of the session', async () => {
 			Note.createOne({ data: { author: user.id, body: 'Forged' } }),
 		),
 	).rejects.toMatchObject(denied)
-	// Each member reads only their own profile; without a session, nothing.
-	expect(
-		await auth.runWithSession(grace.session.token, () => Member.findMany()),
-	).toMatchObject([{ id: grace.user.id }])
+	// Each member reads only their own profile (`read: isSelf`); without a
+	// session, nothing.
+	//#region own-profile
+	const profiles = await auth.runWithSession(grace.session.token, () =>
+		Member.findMany(),
+	)
+	//#endregion own-profile
+	expect(profiles).toMatchObject([{ id: grace.user.id }])
+	await expect(Member.findMany()).rejects.toMatchObject(denied)
 	await expect(Note.findMany()).rejects.toMatchObject(denied)
 	await expect(Member.current()).rejects.toMatchObject(invalidSession)
 	await expect(

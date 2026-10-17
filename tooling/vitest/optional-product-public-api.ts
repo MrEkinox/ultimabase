@@ -176,6 +176,7 @@ export const accessPluginPublicApi = {
 		'accessPlugin',
 		'allOf',
 		'anyOf',
+		'isSelf',
 		'not',
 	],
 	compatibleProviderContract: [

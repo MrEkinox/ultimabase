@@ -13,6 +13,7 @@ export const authErrorCodes: Readonly<{
 	readonly reauthenticationRequired: 'AUTH_REAUTHENTICATION_REQUIRED'
 	readonly signUpRejected: 'AUTH_SIGN_UP_REJECTED'
 	readonly tooManyAttempts: 'AUTH_TOO_MANY_ATTEMPTS'
+	readonly userNotReadable: 'AUTH_USER_NOT_READABLE'
 }> = immutableRecord({
 	emailNotVerified: 'AUTH_EMAIL_NOT_VERIFIED',
 	invalidCredentials: 'AUTH_INVALID_CREDENTIALS',
@@ -24,6 +25,7 @@ export const authErrorCodes: Readonly<{
 	reauthenticationRequired: 'AUTH_REAUTHENTICATION_REQUIRED',
 	signUpRejected: 'AUTH_SIGN_UP_REJECTED',
 	tooManyAttempts: 'AUTH_TOO_MANY_ATTEMPTS',
+	userNotReadable: 'AUTH_USER_NOT_READABLE',
 } as const)
 
 /** One public failure code of the foundation. */
@@ -42,6 +44,7 @@ export const authErrorStatuses: Readonly<Record<AuthErrorCode, number>> =
 		AUTH_REAUTHENTICATION_REQUIRED: 403,
 		AUTH_SIGN_UP_REJECTED: 400,
 		AUTH_TOO_MANY_ATTEMPTS: 429,
+		AUTH_USER_NOT_READABLE: 500,
 	})
 
 const reject = (
@@ -116,6 +119,22 @@ export const rejectLastMethod = (): never =>
 		authErrorCodes.lastMethod,
 		'The last authentication method cannot be removed.',
 		'The last sign-in method cannot be removed.',
+	)
+
+/**
+ * Fails an authentication whose user cannot read their own User row: a
+ * configuration error the message names, while clients see a generic one.
+ */
+export const rejectUnreadableUser = (
+	className: string,
+	cause: unknown,
+): never =>
+	reject(
+		authErrorCodes.userNotReadable,
+		`The signed-in user cannot read their own ${className} row, so authentication cannot return it: give ${className} a read rule that matches it, such as ${className}.with({ access: { read: isSelf } }) with isSelf from @ultimabase/access-plugin.`,
+		'The authentication request could not be completed: the server configuration is invalid.',
+		undefined,
+		cause,
 	)
 
 /** Rejects an unknown session or method id, or one owned by another user. */

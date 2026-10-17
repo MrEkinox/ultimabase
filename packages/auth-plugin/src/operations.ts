@@ -92,16 +92,24 @@ const currentOperation: AuthOperation<
 	'current',
 	null,
 	Readonly<Record<string, unknown>>,
-	readonly ['AUTH_INVALID_SESSION']
-> = operation('current', 'optional', nullInput, profileResult, session)
+	readonly ['AUTH_INVALID_SESSION', 'AUTH_USER_NOT_READABLE']
+> = operation('current', 'optional', nullInput, profileResult, [
+	authErrorCodes.invalidSession,
+	authErrorCodes.userNotReadable,
+])
 const refreshOperation: AuthOperation<
 	'refresh',
 	null,
 	AuthenticationResult,
-	readonly ['AUTH_EMAIL_NOT_VERIFIED', 'AUTH_INVALID_SESSION']
+	readonly [
+		'AUTH_EMAIL_NOT_VERIFIED',
+		'AUTH_INVALID_SESSION',
+		'AUTH_USER_NOT_READABLE',
+	]
 > = operation('refresh', 'required', nullInput, authenticationResult, [
 	authErrorCodes.emailNotVerified,
 	authErrorCodes.invalidSession,
+	authErrorCodes.userNotReadable,
 ])
 const logoutOperation: AuthOperation<
 	'logout',

@@ -204,9 +204,10 @@ const signUpOperation: PasswordOperation<
 	'sign-up',
 	PasswordSignUpData,
 	PasswordSignUpResult,
-	readonly ['AUTH_SIGN_UP_REJECTED']
+	readonly ['AUTH_SIGN_UP_REJECTED', 'AUTH_USER_NOT_READABLE']
 > = passwordOperation('sign-up', signUpInput, signUpResult, [
 	authErrorCodes.signUpRejected,
+	authErrorCodes.userNotReadable,
 ])
 const loginOperation: PasswordOperation<
 	'login',
@@ -216,11 +217,13 @@ const loginOperation: PasswordOperation<
 		'AUTH_EMAIL_NOT_VERIFIED',
 		'AUTH_INVALID_CREDENTIALS',
 		'AUTH_TOO_MANY_ATTEMPTS',
+		'AUTH_USER_NOT_READABLE',
 	]
 > = passwordOperation('login', loginInput, authenticationResult, [
 	authErrorCodes.emailNotVerified,
 	authErrorCodes.invalidCredentials,
 	authErrorCodes.tooManyAttempts,
+	authErrorCodes.userNotReadable,
 ])
 const changePasswordOperation: PasswordOperation<
 	'change-password',

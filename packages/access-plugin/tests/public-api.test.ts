@@ -14,6 +14,7 @@ describe('@ultimabase/access-plugin public entry point', () => {
 			'fieldAccess',
 			'fieldKindAccess',
 			'globalAccess',
+			'isSelf',
 			'not',
 			'provideAccessContributions',
 			'schemaAccess',

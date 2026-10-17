@@ -3,6 +3,8 @@ import {
 	type OperationOptions,
 	type SchemaReference,
 } from '@ultimabase/core'
+
+import { rejectUnreadableUser } from './errors.js'
 import { RequestContext } from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
@@ -14,20 +16,27 @@ import {
 } from './session.js'
 import type { IssuedSessionPair } from './sessions.js'
 
-/** Reads one User profile, rejecting a missing or filtered-out row uniformly. */
+/**
+ * Reads one User profile as its owner. A row the read rule denies or filters
+ * out fails with `AUTH_USER_NOT_READABLE`, which names the missing rule
+ * (ADR-0341).
+ */
 export const readUserProfile = async (
 	user: SchemaReference<string>,
 	userId: string,
 	options?: OperationOptions,
 ): Promise<object> => {
-	const profile: unknown = await user.findOne(
-		{ where: { id: userId } },
-		options,
-	)
+	let profile: unknown
+	try {
+		profile = await user.findOne({ where: { id: userId } }, options)
+	} catch (error: unknown) {
+		if (error instanceof FrameworkError && error.code === 'PERMISSION_DENIED') {
+			return rejectUnreadableUser(user.className, error)
+		}
+		throw error
+	}
 	if (typeof profile !== 'object' || profile === null) {
-		throw new FrameworkError('NOT_FOUND', 'Auth User is not readable.', {
-			publicMessage: 'The requested object was not found.',
-		})
+		return rejectUnreadableUser(user.className, undefined)
 	}
 	return profile
 }

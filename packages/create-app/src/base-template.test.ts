@@ -299,6 +299,18 @@ describe('base project templates', () => {
 		expect(files.get('README.md')).toContain('ACL alone does not deny creation')
 	})
 
+	// ADR-0341: the own-profile rule is Access's `isSelf`.
+	it('lets each user read their own profile with isSelf', () => {
+		const plan = resolveSelection(
+			{ name: 'profiles', plugins: ['auth-plugin', 'access-plugin'] },
+			'/tmp',
+		)
+		const user = renderBaseFiles(plan).get('src/schemas/user.ts') ?? ''
+		expect(user).toContain("import { isSelf } from '@ultimabase/access-plugin'")
+		expect(user).toContain('read: isSelf,')
+		expect(user).not.toContain('principal')
+	})
+
 	it('writes no Master key for security Docker projects (ADR-0340)', () => {
 		const plan = resolveSelection(
 			{

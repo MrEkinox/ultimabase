@@ -68,6 +68,7 @@ export const App = UltimaBase.use(
 <!-- region ../../examples/auth/src/schema.ts#imports,member -->
 
 ```ts
+import { isSelf } from '@ultimabase/access-plugin'
 import { isAuthenticated } from '@ultimabase/core'
 
 import { App } from './app.ts'
@@ -85,11 +86,10 @@ export const Member = App.UserSchema.define({
 	}),
 }).with({
 	access: {
-		// Members read and edit only their own profile.
-		read: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('id', principal.id),
-		update: ({ principal, where }) =>
-			principal === undefined ? false : where.eq('id', principal.id),
+		// Members read and edit only their own profile; sign-up, login and
+		// `current` read it as the member, so `read` must match it.
+		read: isSelf,
+		update: isSelf,
 	},
 })
 ```
@@ -146,6 +146,15 @@ Hooks) with the plugin's own `authority:elevate` privilege: the User's Access
 need not open creation and no `masterAuthority` is required. Invalid data
 fails with `AUTH_SIGN_UP_REJECTED`, whose `details.fields` names the missing or
 invalid fields; a duplicate unique value is rejected without naming it.
+
+Sign-up, login, `refresh` and `current` return the User as the signed-in user
+reads it, so the User's `read` rule must match their own row: Access's
+`isSelf` does (`.with({ access: { read: isSelf } })`). When it does not, they
+fail with `AUTH_USER_NOT_READABLE` (HTTP 500, a configuration error) and roll
+back; the server-side message names the User schema and suggests
+`read: isSelf`, while clients see a generic message. A method operation that
+calls the foundation's `signIn` or `authenticateAccount` declares
+`authErrorCodes.userNotReadable` among its errors.
 
 ## Sessions and the current principal
 
