@@ -5,6 +5,7 @@ import type { Pool } from 'pg'
 
 import {
 	authPlugin,
+	type AuthCookieSameSite,
 	type AuthEventHandlers,
 	type AuthLinking,
 	type AuthSessionOptions,
@@ -25,6 +26,10 @@ export const cookieName = '__Host-probe-session'
 export interface ProbeApplicationOptions extends Partial<ProbeMethodOptions> {
 	/** Serves the session in a cookie to browsers of `browserOrigin`. */
 	readonly cookie?: boolean
+	/** The cookie's SameSite attribute; the plugin's default otherwise. */
+	readonly cookieSameSite?: AuthCookieSameSite
+	/** Lets browsers send credentials; cookie mode requires it. @default true */
+	readonly credentials?: boolean
 	readonly events?: AuthEventHandlers
 	readonly linking?: AuthLinking
 	readonly session?: AuthSessionOptions
@@ -47,7 +52,15 @@ export const createProbeApplication = (
 	pool: Pool,
 	options: ProbeApplicationOptions = {},
 ) => {
-	const { cookie = false, events, linking, scenarios = {}, session } = options
+	const {
+		cookie = false,
+		cookieSameSite,
+		credentials = true,
+		events,
+		linking,
+		scenarios = {},
+		session,
+	} = options
 	const App = UltimaBase.use(
 		postgresPlugin({ pool, schemaPolicy: 'override' }),
 		authPlugin({
@@ -55,14 +68,23 @@ export const createProbeApplication = (
 			...(events === undefined ? {} : { events }),
 			...(linking === undefined ? {} : { linking }),
 			...(session === undefined ? {} : { session }),
-			...(cookie ? { http: { cookie: { name: cookieName } } } : {}),
+			...(cookie
+				? {
+						http: {
+							cookie: {
+								name: cookieName,
+								...(cookieSameSite === undefined
+									? {}
+									: { sameSite: cookieSameSite }),
+							},
+						},
+					}
+				: {}),
 		}),
 		httpPlugin({
 			// `fetch()` has no socket: one proxy hop makes X-Forwarded-For the client.
 			trustProxy: 1,
-			...(cookie
-				? { browser: { credentials: true, origins: [browserOrigin] } }
-				: {}),
+			...(cookie ? { browser: { credentials, origins: [browserOrigin] } } : {}),
 		}),
 	)
 	const ProbeUser = App.UserSchema.define({

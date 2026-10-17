@@ -31,14 +31,26 @@ export interface ProbeInput {
 	readonly scenario: string
 }
 
+/** Freezes plain test data in place, as operation boundaries require. */
+const freezeDeep = (value: unknown): unknown => {
+	if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
+		for (const item of Object.values(value)) freezeDeep(item)
+		Object.freeze(value)
+	}
+	return value
+}
+
 const probeInput = defineOperationValue<ProbeInput>((value, path) => {
 	if (!isPlainRecord(value) || typeof value.scenario !== 'string') {
 		throw new TypeError(`${path} must name a scenario`)
 	}
-	return immutableRecord({ input: value.input, scenario: value.scenario })
+	return immutableRecord({
+		input: freezeDeep(structuredClone(value.input)),
+		scenario: value.scenario,
+	})
 })
 // Scenario results are test data: the contract keeps them as they are.
-const probeResult = defineOperationValue<unknown>((value) => value)
+const probeResult = defineOperationValue<unknown>(freezeDeep)
 const probeErrors = [...Object.values(authErrorCodes), 'PROBE_TEAPOT']
 
 const probeOperation = <const TName extends string>(name: TName) =>
@@ -176,3 +188,31 @@ export const probeMethod = (
 		},
 	})
 }
+
+/** Reads one scenario input record. */
+export const readProbeRecord = (
+	input: unknown,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(input)) throw new TypeError('Probe input must be a record')
+	return input
+}
+
+/** Reads one string of a scenario input record. */
+export const readProbeString = (
+	record: Readonly<Record<string, unknown>>,
+	key: string,
+): string => {
+	const value = record[key]
+	if (typeof value !== 'string') throw new TypeError(`Probe ${key} is missing`)
+	return value
+}
+
+/** Reads one nested value of test data, `undefined` when a step is missing. */
+export const readProbePath = (
+	value: unknown,
+	...path: readonly string[]
+): unknown =>
+	path.reduce<unknown>(
+		(current, key) => (isPlainRecord(current) ? current[key] : undefined),
+		value,
+	)
