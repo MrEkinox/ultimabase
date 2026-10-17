@@ -27,10 +27,12 @@ test('types a defaulted field as non-null and optional on create', () => {
 		readonly nullable: false
 		readonly list: false
 	}>()
+	void done
 	const listed = stringField({ default: ['draft'], list: true })
 	expectTypeOf<
 		FieldTypeStateOf<typeof listed>['nullable']
 	>().toEqualTypeOf<false>()
+	void listed
 	const object = objectField({
 		fields: { name: stringField() },
 		default: { name: null },
@@ -38,10 +40,12 @@ test('types a defaulted field as non-null and optional on create', () => {
 	expectTypeOf<
 		FieldTypeStateOf<typeof object>['nullable']
 	>().toEqualTypeOf<false>()
+	void object
 	const json = jsonField({ default: () => ({}) })
 	expectTypeOf<
 		FieldTypeStateOf<typeof json>['nullable']
 	>().toEqualTypeOf<false>()
+	void json
 })
 
 test('lets nullable: true keep a defaulted field nullable', () => {
@@ -57,10 +61,12 @@ test('lets nullable: true keep a defaulted field nullable', () => {
 		readonly nullable: true
 		readonly list: false
 	}>()
+	void status
 	const counter = intField({ default: 0, nullable: false })
 	expectTypeOf<
 		FieldTypeStateOf<typeof counter>['nullable']
 	>().toEqualTypeOf<false>()
+	void counter
 	// `required: true` beside a default adds nothing.
 	const flag = booleanField({ default: false, required: true })
 	expectTypeOf<
@@ -69,6 +75,7 @@ test('lets nullable: true keep a defaulted field nullable', () => {
 	expectTypeOf<
 		FieldTypeStateOf<typeof flag>['create']
 	>().toEqualTypeOf<'optional'>()
+	void flag
 })
 
 test('rejects nullable without a default or beside required', () => {
@@ -116,5 +123,5 @@ test('derives non-null items and create or update inputs without null', () => {
 	// @ts-expect-error -- and on update.
 	const nullOnUpdate: Update = { published: null }
 	const clearedChannel: Create = { title: 'Draft', channel: null }
-	void [nullOnCreate, nullOnUpdate, clearedChannel]
+	void [Article, nullOnCreate, nullOnUpdate, clearedChannel]
 })

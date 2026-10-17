@@ -41,6 +41,7 @@ test('infers exact scalar nullability and list containers', () => {
 	expectTypeOf<OutputValue<typeof optionalStatus>>().toEqualTypeOf<
 		'draft' | 'published' | null
 	>()
+	void [explicitName, optionalStatus]
 })
 
 test('infers recursive objects with required nullable properties', () => {
@@ -66,6 +67,7 @@ test('infers recursive objects with required nullable properties', () => {
 	expectTypeOf<OutputValue<typeof optionalSummary>>().toEqualTypeOf<{
 		readonly label: string
 	} | null>()
+	void optionalSummary
 	type SummaryValue = OutputValue<typeof summary>
 	interface ExpectedSummary {
 		readonly label: string

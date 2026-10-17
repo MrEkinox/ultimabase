@@ -1,5 +1,4 @@
 import type { Pointer, PointerValue } from '../../schema/relations/pointer.js'
-import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type {
 	PrincipalSchemaProviders,
 	Register,
@@ -38,8 +37,9 @@ type DesignatedPrincipalSchema = PrincipalSchemaOrAny<
 	RegisteredSchemaNameWithKey<typeof principalSchemaMarker>
 >
 
+// A plugin may designate no schema of this application: any registered name.
 type PrincipalSchemaOrAny<TClassName> = [TClassName] extends [never]
-	? SchemaDefinition
+	? string
 	: Extract<TClassName, string>
 
 /**

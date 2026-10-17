@@ -63,7 +63,7 @@ const Membership = ExplicitRelationshipApplication.Schema.define({
 		beforeOperation: {
 			create: ({ item }) => {
 				// The edge uses the ordinary schema lifecycle for cross-field invariants.
-				if (item.role === 'viewer' && (item.position ?? 0) === 0) {
+				if (item.role === 'viewer' && item.position === 0) {
 					throw new TypeError('The first project member must be an editor')
 				}
 			},
