@@ -127,6 +127,28 @@ describe('session lifecycle', { concurrent: false }, () => {
 		}
 	})
 
+	it('keeps sessions across instances of the same application class', async () => {
+		const first = await start()
+		const { App, ProbeNote, ProbeUser } = first
+		let signedIn: Awaited<ReturnType<typeof first.signIn>>
+		try {
+			signedIn = await first.signIn('acct|restart')
+		} finally {
+			await first.ultimabase.dispose()
+		}
+		// The plugin instance declares its private collections again, unchanged.
+		const second = new App({ logger: false, schemas: [ProbeNote, ProbeUser] })
+		await second.start()
+		try {
+			const current = await second
+				.plugin(authPlugin)
+				.runWithSession(signedIn.session.token, () => ProbeUser.current())
+			expect(current.id).toBe(signedIn.user.id)
+		} finally {
+			await second.dispose()
+		}
+	})
+
 	it('lists live sessions without tokens and revokes only the user’s own', async () => {
 		const { ProbeUser, asUser, auth, signIn, ultimabase } = await start()
 		try {

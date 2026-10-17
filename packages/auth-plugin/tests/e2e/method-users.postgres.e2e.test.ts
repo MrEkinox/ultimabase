@@ -66,7 +66,10 @@ const scenarios: Readonly<Record<string, ProbeScenario>> = {
 		const record = readProbeRecord(input)
 		return services.linkAccount(readProbeString(record, 'userId'), {
 			email: readProbeString(record, 'email'),
-			emailVerified: record.emailVerified === true,
+			// Omitted, the method vouches for an unverified email.
+			...(typeof record.emailVerified === 'boolean'
+				? { emailVerified: record.emailVerified }
+				: {}),
 			method: 'probe',
 			providerUserId: readProbeString(record, 'providerUserId'),
 		})

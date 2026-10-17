@@ -228,7 +228,8 @@ describe('User data written by methods', { concurrent: false }, () => {
 })
 
 /** How the User's read rule treats its own row while a test runs. */
-let readRule: 'denied' | 'self' = 'self'
+let readRule: 'denied' | 'filtered' | 'self' = 'self'
+const otherId = '0199325a-0c00-7000-8000-000000000341'
 
 describe('a User its owner cannot read', { concurrent: false }, () => {
 	it('fails authentication with AUTH_USER_NOT_READABLE, which names the missing rule', async () => {
@@ -243,7 +244,12 @@ describe('a User its owner cannot read', { concurrent: false }, () => {
 		}).with({
 			access: {
 				create: false,
-				read: (input) => (readRule === 'self' ? isSelf(input) : false),
+				read: (input) =>
+					readRule === 'self'
+						? isSelf(input)
+						: readRule === 'filtered'
+							? input.where.eq('id', otherId)
+							: false,
 			},
 		})
 		const ultimabase = new App({ logger: false, schemas: [HiddenUser] })
@@ -291,15 +297,20 @@ describe('a User its owner cannot read', { concurrent: false }, () => {
 			await expect(failed).rejects.toThrow(
 				'HiddenUser.with({ access: { read: isSelf } })',
 			)
-			readRule = 'self'
-			const fresh = readSession(await login(userId))
-			readRule = 'denied'
-			await expect(
-				auth.runWithSession(fresh.token, () => HiddenUser.current()),
-			).rejects.toMatchObject(notReadable)
-			await expect(HiddenUser.refresh(fresh.token)).rejects.toMatchObject(
-				notReadable,
-			)
+			// A rule that filters the row out fails the same way as a denial.
+			for (const rule of ['denied', 'filtered'] as const) {
+				readRule = 'self'
+				const fresh = readSession(await login(userId))
+				readRule = rule
+				await expect(
+					auth.runWithSession(fresh.token, () => HiddenUser.current()),
+					rule,
+				).rejects.toMatchObject(notReadable)
+				await expect(
+					HiddenUser.refresh(fresh.token),
+					rule,
+				).rejects.toMatchObject(notReadable)
+			}
 		} finally {
 			readRule = 'self'
 			await ultimabase.dispose()
