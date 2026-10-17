@@ -43,7 +43,7 @@ const createApplication = (elevation: boolean) => {
 		operation: createOperation,
 		execute: async ({ input }) => {
 			await ElevationRecord.createOne(
-				{ data: { title: input } },
+				{ data: { title: input }, select: {} },
 				{ useMasterKey: true },
 			)
 			return input

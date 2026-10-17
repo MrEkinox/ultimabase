@@ -104,7 +104,10 @@ export const Post = App.Schema.define({
 <!-- region ../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one,archive-many -->
 
 ```ts
-const archived = await Post.archiveOne({ id: post.id })
+const archived = await Post.archiveOne({
+	id: post.id,
+	select: { archivedAt: true },
+})
 
 const archivedPosts = await Post.archiveMany({
 	where: { title: { in: ['Old'] } },
@@ -126,7 +129,9 @@ const archivedPosts = await Post.archiveMany({
   plugins such as Access under their own name; `'master'` commands need Master.
   `effect: 'delete'` requires `'master'`. `target: 'many'` makes the command
   take `{ where }` and run the one-row rules for each matching row in one
-  transaction. `checkReadable: 'before'` suits a command that hides its row.
+  transaction. A command returns `{ id }` unless the call selects more; for a
+  selection beyond `id`, `checkReadable: 'before'` suits a command that hides
+  its row.
 - REST and GraphQL expose a one-row request command only when the schema
   names it, `.with({ rest: { archiveOne: true }, graphql: { archiveOne: true } })`,
   without any binding (ADR-0324): `POST /api/classes/Post/{id}/archive-one`

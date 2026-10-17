@@ -171,6 +171,14 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 					balance: { increment: '1.50' },
 					views: { increment: 3 },
 				},
+				select: {
+					acl: true,
+					balance: true,
+					labels: true,
+					status: true,
+					title: true,
+					views: true,
+				},
 			},
 			masterOptions,
 		)
@@ -277,6 +285,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: { id: { eq: id } },
 					data: { status: 'ordinary' },
+					select: { status: true },
 				},
 				masterOptions,
 			),
@@ -287,7 +296,11 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		const explicit = new ACL().grantAuthenticated('read')
 		await expect(
 			ResolutionPost.updateOne(
-				{ where: { id: { eq: id } }, data: { acl: explicit } },
+				{
+					where: { id: { eq: id } },
+					data: { acl: explicit },
+					select: { acl: true },
+				},
 				masterOptions,
 			),
 		).resolves.toMatchObject({ acl: explicit })

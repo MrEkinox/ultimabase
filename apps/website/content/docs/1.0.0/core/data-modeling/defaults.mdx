@@ -18,6 +18,7 @@ sources:
   - packages/core/src/runtime/validation/runtime-validation.ts
   - docs/adr/0038-static-and-runtime-field-defaults.md
   - docs/adr/0133-canonical-null-for-optional-fields.md
+  - docs/adr/0341-write-results-and-refusals.md
 ---
 
 Create input and persisted output answer different questions. You may omit a
@@ -49,8 +50,9 @@ Without an output policy restricting fields, `order` contains the supplied
 `coupon: 'WELCOME'` from their defaults, `note: null` and `pickupTime: null`, a fresh `reference` from its
 factory, `number: 1n` from the database, an operation-time `placedAt` and
 `placedOn`, and the generated `id`, `createdAt`, and `updatedAt` system fields.
-The example requests no `select`, so it returns the complete result permitted
-by installed output policy.
+A write without `select` returns only `{ id }`; the example requests
+`select: {}`, every field, so it returns the complete result permitted by
+installed output policy.
 
 ## Omitted input versus explicit null
 

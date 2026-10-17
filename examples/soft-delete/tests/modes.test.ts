@@ -26,9 +26,12 @@ it('keeps native deletes permanent in command mode', async () => {
 	await expect(
 		Comment.restoreOne({ id: removed.id }, master),
 	).rejects.toMatchObject({ code: 'NOT_FOUND' })
-	expect(await Comment.restoreOne({ id: hidden.id }, master)).toMatchObject({
-		isDeleted: false,
-	})
+	expect(
+		await Comment.restoreOne(
+			{ id: hidden.id, select: { isDeleted: true } },
+			master,
+		),
+	).toMatchObject({ isDeleted: false })
 })
 
 it('releases a unique slug through the partial index', async () => {

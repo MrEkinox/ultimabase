@@ -91,7 +91,7 @@ the application `ultimabase` and its `Register` declaration, and
   `rest` rule keys exposing or hiding routes per schema, list
   reads with `where`, `select`, `orderBy`, `include` and cursor pagination,
   single reads, `first`, `count` and `exists`, create, update and delete with
-  relation links, an atomic bulk create, `?select=id` for an unreadable row,
+  relation links, an atomic bulk create, the `{ id }` answer of a write,
   the error envelope and its statuses, a `defineOperation` operation, the
   OpenAPI document, `publicWrites`), tested with `testApplication`. Its
   `//#region` blocks are the code of the REST page and package README

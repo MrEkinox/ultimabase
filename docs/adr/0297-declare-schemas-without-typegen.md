@@ -271,6 +271,16 @@ D bench (medians of three interleaved runs, 1-minute load below 4) against
 and 5.81 s (before: 1.92 s and 5.76 s). Within the thresholds; TypeScript 6 has
 little margin, and one single TypeScript 6 run at 200 schemas took 6.12 s.
 
+Note (2026-10-17, ADR-0341 decision 1): a write without `select` is typed
+`{ id }` (plus its included fields). Measured on the form D bench against
+`main` a85c032e (medians of three interleaved runs, 1-minute load below 4):
+edit to diagnostics on TypeScript 7 0.63 s at 50 and 1.84 s at 200 schemas
+(`main` 0.55 s and 1.90 s), on TypeScript 6 1.93 s and 5.63 s (`main` 2.01 s
+and 5.77 s). The 50-schema TypeScript 7 median came from runs started at a
+load of 3.7 to 4; a second campaign of three interleaved runs measured 0.55 s
+(`main` 0.54 s) on TypeScript 7 and 1.91 s (`main` 1.91 s) on TypeScript 6.
+Checker instantiations fall by 0.14% to 0.65%.
+
 ## Migration step 6.8c (2026-10-13)
 
 ADR-0177, ADR-0184, ADR-0185, ADR-0198, ADR-0217, ADR-0265 and ADR-0285 are

@@ -43,7 +43,10 @@ export const countAllPosts = () =>
 /** Permanently removes the posts deleted before `cutoff`. */
 export const emptyTrash = (cutoff: Date) =>
 	Post.purgeMany(
-		{ where: { deletedAt: { lt: cutoff.toISOString() } } },
+		{
+			where: { deletedAt: { lt: cutoff.toISOString() } },
+			select: { title: true },
+		},
 		{ useMasterKey: true },
 	)
 //#endregion empty-trash

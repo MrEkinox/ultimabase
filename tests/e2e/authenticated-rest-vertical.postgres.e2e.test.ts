@@ -310,11 +310,15 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 			sessionToken: authenticated.token,
 		})
 		expect(read.status).toBe(200)
-		const updated = await requestJson(firstAppId, `${notePath}/${noteId}`, {
-			body: { body: 'Published privately' },
-			method: 'PATCH',
-			sessionToken: authenticated.token,
-		})
+		const updated = await requestJson(
+			firstAppId,
+			`${notePath}/${noteId}?select=body`,
+			{
+				body: { body: 'Published privately' },
+				method: 'PATCH',
+				sessionToken: authenticated.token,
+			},
+		)
 		expect(await updated.json()).toMatchObject({
 			result: { body: 'Published privately' },
 		})

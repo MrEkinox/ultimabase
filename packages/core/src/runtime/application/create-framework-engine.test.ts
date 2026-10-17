@@ -190,7 +190,11 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		const result = await runWithRequestEngine(request, () =>
-			articleSchema.createOne({ data: { title: 'assembled' } }),
+			articleSchema.createOne({
+				data: { title: 'assembled' },
+				// Every field: the assembled hooks read the whole result (ADR-0341).
+				select: {},
+			}),
 		)
 
 		expect(result.title).toBe('assembled')

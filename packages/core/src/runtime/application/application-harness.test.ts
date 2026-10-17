@@ -93,7 +93,7 @@ describe('application harness (ADR-0327)', () => {
 		expect(engine.context.access.mode).toBe('master')
 		expect(
 			await runWithRequestEngine(engine, () =>
-				HarnessRecord.createOne({ data: { title: 'master' } }),
+				HarnessRecord.createOne({ data: { title: 'master' }, select: {} }),
 			),
 		).toMatchObject({ title: 'master' })
 		expect(logger.debug).toHaveBeenCalledWith(

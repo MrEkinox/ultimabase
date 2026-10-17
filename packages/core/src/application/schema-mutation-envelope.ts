@@ -14,6 +14,8 @@ import type {
 	PluginSchemaMutationManyEnvelope,
 } from './application-schema-mutations.js'
 
+type MutationProjection = Readonly<{ include?: unknown; select?: unknown }>
+
 interface PrepareSchemaMutationEnvelopeOptions {
 	readonly graph: CompiledCommandGraph
 	readonly command: CompiledMutationCommand
@@ -21,8 +23,19 @@ interface PrepareSchemaMutationEnvelopeOptions {
 	readonly name: string
 	readonly id: string
 	readonly input: unknown
-	readonly projection: Readonly<{ include?: unknown; select?: unknown }>
+	readonly projection: MutationProjection
 }
+
+/** Without `select`, a plugin mutation returns `{ id }` like any write (ADR-0341). */
+const readWriteProjection = (
+	projection: MutationProjection,
+): MutationProjection =>
+	immutableRecord({
+		...(projection.include === undefined
+			? {}
+			: { include: projection.include }),
+		select: projection.select ?? { id: true },
+	})
 
 /** Handles and transports validate the payload before reading result projection options. */
 export const prepareSchemaMutationEnvelope = ({
@@ -36,10 +49,7 @@ export const prepareSchemaMutationEnvelope = ({
 }: PrepareSchemaMutationEnvelopeOptions): PluginSchemaMutationEnvelope => {
 	const payload = graph.snapshotInput(command, input)
 	const query = queryFromFindOneInput(schema, {
-		...(projection.include === undefined
-			? {}
-			: { include: projection.include }),
-		...(projection.select === undefined ? {} : { select: projection.select }),
+		...readWriteProjection(projection),
 		where: { id: { eq: id } },
 	} as never)
 	return immutableRecord({
@@ -59,7 +69,7 @@ interface PrepareSchemaMutationManyEnvelopeOptions {
 	readonly name: string
 	readonly where: unknown
 	readonly input: unknown
-	readonly projection: Readonly<{ include?: unknown; select?: unknown }>
+	readonly projection: MutationProjection
 }
 
 /**
@@ -81,23 +91,14 @@ export const prepareSchemaMutationManyEnvelope = ({
 		select: { id: true },
 		where,
 	} as never)
-	queryFromFindOneInput(schema, {
-		...(projection.include === undefined
-			? {}
-			: { include: projection.include }),
-		...(projection.select === undefined ? {} : { select: projection.select }),
-	} as never)
+	const rowProjection = readWriteProjection(projection)
+	queryFromFindOneInput(schema, rowProjection as never)
 	return immutableRecord({
 		command: name,
 		kind: 'plugin-schema-mutation-many' as const,
 		mutation: command.definition,
 		payload,
-		projection: immutableRecord({
-			...(projection.include === undefined
-				? {}
-				: { include: projection.include }),
-			...(projection.select === undefined ? {} : { select: projection.select }),
-		}),
+		projection: rowProjection,
 		query: query.ast,
 	})
 }

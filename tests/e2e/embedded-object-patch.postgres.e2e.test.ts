@@ -153,6 +153,7 @@ const createProfile = () => {
 			],
 			metadata: { kept: true, removed: true },
 		},
+		select: { code: true },
 	})
 }
 
@@ -175,6 +176,7 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 		const updated = await Profile.updateOne({
 			where: { id: created.id },
 			data: { box: { b: '3' } },
+			select: { box: true },
 		})
 
 		expect(updated?.box).toStrictEqual({ a: '1', b: '3' })
@@ -187,6 +189,7 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 		const updated = await Profile.updateOne({
 			where: { id: created.id },
 			data: { address: { city: 'Lyon' } },
+			select: { address: true },
 		})
 
 		expect(updated?.address).toStrictEqual({ ...storedAddress, city: 'Lyon' })
@@ -202,6 +205,7 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 		const updated = await Profile.updateOne({
 			where: { id: created.id },
 			data: { address: { geo: { lat: 45.76, label: { lang: 'en' } } } },
+			select: { address: true },
 		})
 
 		expect(updated?.address).toStrictEqual({
@@ -223,6 +227,7 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 					geo: { label: null },
 				},
 			},
+			select: { address: true },
 		})
 
 		expect(updated?.address).toStrictEqual({
@@ -240,10 +245,12 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 		const cleared = await Profile.updateOne({
 			where: { id: created.id },
 			data: { box: null },
+			select: { box: true },
 		})
 		const patched = await Profile.updateOne({
 			where: { id: created.id },
 			data: { box: { a: '9' } },
+			select: { box: true },
 		})
 
 		expect(cleared?.box).toBeNull()
@@ -310,6 +317,7 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 				history: [{ line1: '4 Rue', city: 'Lyon' }],
 				metadata: { kept: false },
 			},
+			select: { history: true, metadata: true },
 		})
 
 		expect(updated).toMatchObject({
@@ -358,6 +366,7 @@ describe('embedded object deep patch on PostgreSQL (ADR-0032)', () => {
 			where: { code: { eq: created.code ?? '' } },
 			create: { address: { line1: 'unused', city: 'unused' } },
 			update: { address: { line1: '5 Rue' } },
+			select: { address: true },
 		})
 
 		expect(upserted.id).toBe(created.id)

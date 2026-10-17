@@ -231,6 +231,7 @@ describe('public nested-write vertical', { concurrent: false }, () => {
 					title: '  Aggregate updated  ',
 				},
 				where: { id: readString(directCreated, 'id') },
+				select: { slug: true, title: true },
 				include: { author: {}, contributors: {} },
 			},
 		])
@@ -259,7 +260,7 @@ describe('public nested-write vertical', { concurrent: false }, () => {
 			'REST article',
 		)
 		const restUpdatedResponse = await requireClient().fetch(
-			`${articlePath}/${readString(restCreated, 'id')}?include=author,contributors`,
+			`${articlePath}/${readString(restCreated, 'id')}?select=slug,title&include=author,contributors`,
 			{
 				body: JSON.stringify({
 					contributors: {

@@ -10,11 +10,17 @@ afterEach(() => {
 
 it('adds a server-written field and its commands with archivable: true', async () => {
 	await testApplication(ultimabase)
-	const post = await Post.createOne({ data: { title: 'Draft' } })
+	const post = await Post.createOne({
+		data: { title: 'Draft' },
+		select: { archivedAt: true },
+	})
 	expect(post.archivedAt).toBeNull()
 
 	//#region archive-one
-	const archived = await Post.archiveOne({ id: post.id })
+	const archived = await Post.archiveOne({
+		id: post.id,
+		select: { archivedAt: true },
+	})
 	//#endregion archive-one
 
 	expect(archived.archivedAt).toEqual(expect.any(String))
@@ -58,7 +64,10 @@ it('runs afterCommit with the schema rules after each committed write', async ()
 
 it('gives flaggable schemas a readable, server-written flagged field', async () => {
 	await testApplication(ultimabase)
-	const comment = await Comment.createOne({ data: { body: 'Hello' } })
+	const comment = await Comment.createOne({
+		data: { body: 'Hello' },
+		select: { flagged: true },
+	})
 	expect(comment.flagged).toBe(false)
 	await expect(
 		Comment.createOne({

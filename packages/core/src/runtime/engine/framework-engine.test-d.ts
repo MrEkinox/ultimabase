@@ -109,7 +109,7 @@ test('keeps bound terminal types exact in multi-schema applications', () => {
 		runWithRequestEngine(request, () =>
 			schema.createOne({ data: { title: 'Typed article' } }),
 		),
-	).toEqualTypeOf<Promise<QueryResult<typeof schema>>>()
+	).toEqualTypeOf<Promise<QueryResult<typeof schema, 'id'>>>()
 })
 
 test('retains trusted master request types through opaque grants', async () => {

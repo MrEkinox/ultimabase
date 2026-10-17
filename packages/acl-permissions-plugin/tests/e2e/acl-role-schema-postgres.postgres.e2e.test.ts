@@ -73,8 +73,9 @@ const AppRole = ACLRoleSchemaApplication.RoleSchema.define({
 		acl: { default: emptyACL },
 	})
 
-type PersistedMember = Model<typeof Member>
-type PersistedRole = Model<typeof AppRole>
+// Fixtures keep the identifiers that writes return.
+type PersistedMember = Pick<Model<typeof Member>, 'id'>
+type PersistedRole = Pick<Model<typeof AppRole>, 'id'>
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
@@ -238,6 +239,7 @@ describe(
 					{
 						where: { id: { eq: current.id } },
 						data: { description: 'Updated through role ACL' },
+						select: { description: true },
 					},
 					{ context },
 				),
@@ -306,7 +308,10 @@ describe(
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				AppRole.deleteOne(
-					{ where: { id: { eq: requireFixture(deletable, 'deletable').id } } },
+					{
+						where: { id: { eq: requireFixture(deletable, 'deletable').id } },
+						select: { name: true },
+					},
 					{ context },
 				),
 			).resolves.toMatchObject({ name: 'deletable' })

@@ -23,17 +23,18 @@ sources:
   - docs/adr/0162-strict-object-target-commands.md
   - docs/adr/0182-singular-id-target-aliases.md
   - docs/adr/0306-readable-mutation-results.md
+  - docs/adr/0341-write-results-and-refusals.md
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
   - docs/adr/0339-define-describes-with-configures.md
 ---
 
-Use `Post.deleteOne()` to delete one visible record. It returns an immutable
-snapshot of that record **before** deletion, so select any values you need from
-the result before the row becomes unavailable. That pre-image obeys the row
-read rules: Core checks it on the locked target before deleting, and a caller
-who may delete a row it cannot read requests `select: { id: true }`. A delete
-that Soft Delete rewrites into a tombstone is checked the same way but returns
-the row as written, with `isDeleted: true`.
+Use `Post.deleteOne()` to delete one visible record. Without `select`, it
+returns `{ id }`. A `select` returns an immutable snapshot of the selected
+fields **before** deletion, so select any values you need before the row
+becomes unavailable. That pre-image obeys the row read rules: Core checks it on
+the locked target before deleting, so a caller who may delete a row it cannot
+read omits `select`. A delete that Soft Delete rewrites into a tombstone is
+checked the same way but returns the row as written, with `isDeleted: true`.
 
 The example uses the `Post` schema from [Create Records](./create), with `slug`
 and `title` fields.
@@ -57,8 +58,7 @@ match several rows is not a valid `deleteOne` target and fails to compile
 If a visible post matches, `deletePost()` returns a `Post` containing its `id`,
 `slug`, and `title` as they were before deletion. A later ordinary read by that
 ID returns no record. The returned snapshot is not a live row or a way to undo
-the delete. Without `select`, the result contains the complete visible
-pre-delete row.
+the delete. Without `select`, the result is `{ id }`.
 
 If no visible post matches, schema-level `deleteOne()` returns `null`; it does
 not run item Hooks for a nonexistent record. Check for `null` before using the

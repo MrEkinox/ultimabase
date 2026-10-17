@@ -90,6 +90,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				Post.updateOne({
 					data: { title: 'TypeScript update' },
 					where: { id: created.id },
+					select: { title: true },
 				}),
 			).resolves.toMatchObject({ title: 'TypeScript update' })
 			await expect(

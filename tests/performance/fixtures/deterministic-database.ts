@@ -57,7 +57,8 @@ const mutationResult = <
 		materializations: [
 			{ kind: 'create', current: createdRecord },
 		] as unknown as readonly DatabaseMutationMaterialization<TOperation>[],
-		result: createdRecord,
+		// The measured create selects nothing: it answers `{ id }` (ADR-0341).
+		result: Object.freeze({ id: createdRecord.id }),
 	}) as unknown as DatabaseOperationOutcome<TOperation>
 
 class DeterministicTransactionAdapter implements DatabaseTransactionAdapter {

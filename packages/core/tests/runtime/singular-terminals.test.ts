@@ -107,7 +107,7 @@ describe('read terminals and singular schema commands', () => {
 				{
 					materializations: [{ current: persisted, kind: 'create' }],
 					status: 'fulfilled',
-					value: persisted,
+					value: { id: persisted.id },
 				},
 				{ status: 'fulfilled', value: true },
 				{ status: 'fulfilled', value: null },
@@ -251,7 +251,7 @@ describe('read terminals and singular schema commands', () => {
 					},
 				],
 			},
-			{ status: 'fulfilled', value: upserted },
+			{ status: 'fulfilled', value: { id: upserted.id } },
 			{
 				status: 'fulfilled',
 				target: deletedOne,
@@ -329,7 +329,8 @@ describe('read terminals and singular schema commands', () => {
 			})
 
 			expect(Object.getPrototypeOf(upsertedResult)).toBe(Object.prototype)
-			expect(upsertedResult).toStrictEqual(upserted)
+			// Without `select`, a write returns `{ id }` (ADR-0341).
+			expect(upsertedResult).toStrictEqual({ id: upserted.id })
 			const deletedOneResult = await articleSchema.deleteOne({
 				where: { title: { eq: 'Deleted target' } },
 				select: { id: true, title: true },

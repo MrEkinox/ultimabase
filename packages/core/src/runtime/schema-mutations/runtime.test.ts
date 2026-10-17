@@ -212,7 +212,8 @@ describe('plugin schema mutation Runtime', () => {
 					materializations: [{ current, kind: 'update', previous }],
 					status: 'fulfilled',
 					target: previous,
-					value: current,
+					// Without `select`, the command returns `{ id }` (ADR-0341).
+					value: { id },
 				},
 			],
 		})
@@ -288,7 +289,8 @@ describe('plugin schema mutation Runtime', () => {
 					materializations: [{ current, kind: 'update', previous }],
 					status: 'fulfilled',
 					target: previous,
-					value: current,
+					// Without `select`, the command returns `{ id }` (ADR-0341).
+					value: { id },
 				},
 				{ status: 'fulfilled', value: [] },
 			],

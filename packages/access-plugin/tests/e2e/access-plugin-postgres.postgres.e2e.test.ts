@@ -195,6 +195,7 @@ beforeAll(async () => {
 				{ key: 'private-a', value: 2, visible: false },
 				{ key: 'visible-b', value: 3, visible: true },
 			],
+			select: { visible: true },
 		},
 		{ useMasterKey: true },
 	)
@@ -273,6 +274,7 @@ describe('Access plugin with PostgreSQL', () => {
 					secret: 'master-secret',
 					title: 'master-created',
 				},
+				select: { secret: true },
 			},
 			{ useMasterKey: true },
 		)
@@ -283,6 +285,7 @@ describe('Access plugin with PostgreSQL', () => {
 				{
 					data: { secret: 'master-updated', title: 'master-updated' },
 					where: { id: { eq: masterCreated.id } },
+					select: { secret: true, title: true },
 				},
 				{ useMasterKey: true },
 			),
@@ -320,6 +323,7 @@ describe('Access plugin with PostgreSQL', () => {
 			AccessArticle.updateOne({
 				where: { id: { eq: publicModel.id } },
 				data: { title: 'public-updated' },
+				select: { title: true },
 			}),
 		).resolves.toMatchObject({ title: 'public-updated' })
 
@@ -350,6 +354,7 @@ describe('Access plugin with PostgreSQL', () => {
 				where: { key: { eq: 'visible-a' } },
 				create: { key: 'visible-a', value: 0, visible: true },
 				update: { value: { increment: 1 } },
+				select: { value: true },
 			}),
 		).resolves.toMatchObject({ value: 12 })
 		await expect(BulkDocument.count({})).resolves.toBe(2)

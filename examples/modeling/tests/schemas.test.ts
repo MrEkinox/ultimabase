@@ -56,8 +56,15 @@ it('targets one row by a unique field or a complete unique index', async () => {
 	})
 	//#endregion unique-targets
 
-	expect(byIsbn).toMatchObject({ id: book.id, pages: 120 })
-	expect(byIndex).toMatchObject({ id: book.id, pages: 120, published: true })
+	// Each write returns `{ id }`: both targeted the same book.
+	expect(byIsbn).toStrictEqual({ id: book.id })
+	expect(byIndex).toStrictEqual({ id: book.id })
+	await expect(
+		Book.findOneOrThrow({
+			where: { id: { eq: book.id } },
+			select: { pages: true, published: true },
+		}),
+	).resolves.toMatchObject({ pages: 120, published: true })
 })
 
 it('generates the system fields', async () => {
@@ -68,6 +75,7 @@ it('generates the system fields', async () => {
 	const updated = await Book.updateOne({
 		where: { id: book.id },
 		data: { pages: 10 },
+		select: { createdAt: true, updatedAt: true },
 	})
 
 	expect(book.id).toMatch(/^[\da-f]{8}-[\da-f]{4}-7/u)

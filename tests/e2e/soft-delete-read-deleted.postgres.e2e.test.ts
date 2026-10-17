@@ -308,17 +308,16 @@ describe('Soft Delete readDeleted through Access (ADR-0317)', () => {
 		})
 		auditing = true
 		try {
-			await expect(Note.restoreOne({ id: newer })).resolves.toMatchObject({
-				id: newer,
-				isDeleted: false,
-			})
+			await expect(
+				Note.restoreOne({ id: newer, select: { isDeleted: true } }),
+			).resolves.toMatchObject({ id: newer, isDeleted: false })
 		} finally {
 			auditing = false
 		}
 		await Note.deleteOne({ where: { id: newer } })
-		await expect(Note.restoreOne({ id: newer }, master)).resolves.toMatchObject(
-			{ id: newer, isDeleted: false },
-		)
+		await expect(
+			Note.restoreOne({ id: newer, select: { isDeleted: true } }, master),
+		).resolves.toMatchObject({ id: newer, isDeleted: false })
 		await Note.deleteOne({ where: { id: newer } })
 		await expect(Note.purgeOne({ id: newer }, master)).resolves.toMatchObject({
 			id: newer,

@@ -127,8 +127,9 @@ In the default mode the logical delete keeps its Access, Hooks, audit, result
 and transaction semantics; only the physical persistence plan becomes one
 atomic update that sets `isDeleted: true` and `deletedAt` to the current time.
 Native update policy, Hooks, validators, defaults and generators are not run.
-Core checks the pre-delete record against the read rules, then the delete
-returns the record as written (ADR-0306); `deleteMany` writes one tombstone per
+Without `select` the delete returns `{ id }` (ADR-0341); with a selection
+beyond `id`, Core checks the pre-delete record against the read rules, then the
+delete returns the record as written (ADR-0306); `deleteMany` writes one tombstone per
 target in one transaction, and one rejected item rolls back the batch.
 
 ## Commands
@@ -164,10 +165,11 @@ const removed = await Post.purgeMany(
 
 `…One` commands take `{ id }`, `…Many` commands take `{ where }` and resolve to
 one result per written row, in identifier order; both accept `select` and
-`include`. A many-row command runs the one-row Access rule, Hooks and
+`include`, and return `{ id }` without them, like any write (ADR-0341). A many-row command runs the one-row Access rule, Hooks and
 readable-result check for each matching row inside one transaction, and one
-refused row rolls the whole command back. `softDeleteOne` checks the read rules
-on the row before it hides it (`checkReadable: 'before'`).
+refused row rolls the whole command back. With a selection beyond `id`,
+`softDeleteOne` checks the read rules on the row before it hides it
+(`checkReadable: 'before'`).
 
 Request commands are ruled by the optional Access plugin under their own name
 (`access.softDeleteOne`, `access.restoreOne`, …): restoration is closed when

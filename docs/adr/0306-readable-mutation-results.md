@@ -70,3 +70,9 @@ A plugin mutation declares which row is checked with `checkReadable: 'before' | 
 (defaults to `returning`); `softDelete` declares `returning: 'after'` and
 `checkReadable: 'before'`. Core gives a delete rewritten into an update the rewrite's values on
 the selected fields of its result.
+
+## ADR-0341 refinement (2026-10-17)
+
+ADR-0341 decision 1 changes the default of decisions 3 and 4: a write without `select` (or `include`) now
+returns `{ id }` and skips the check. Only an explicit selection beyond `id`, or an `include`, is refused for an
+unreadable row; `select: {}` is such a selection.

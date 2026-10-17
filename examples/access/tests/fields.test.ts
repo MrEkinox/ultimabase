@@ -39,7 +39,14 @@ it('sets a handle once and then keeps it', async () => {
 	})
 	//#endregion set-handle
 
-	expect(named).toMatchObject({ handle: 'ada' })
+	// A write returns `{ id }` unless it selects more.
+	expect(named).toStrictEqual({ id: profile.id })
+	expect(
+		await Profile.findOneOrThrow({
+			where: { id: { eq: profile.id } },
+			select: { handle: true },
+		}),
+	).toMatchObject({ handle: 'ada' })
 	// Replacing or clearing it is refused.
 	await expect(
 		Profile.updateOne({
@@ -55,6 +62,7 @@ it('sets a handle once and then keeps it', async () => {
 		await Profile.updateOne({
 			data: { bio: 'Analyst' },
 			where: { id: profile.id },
+			select: { bio: true, handle: true },
 		}),
 	).toMatchObject({ bio: 'Analyst', handle: 'ada' })
 })

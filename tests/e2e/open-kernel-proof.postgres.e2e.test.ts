@@ -104,6 +104,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			const amount = { scale: 2, units: '12345' } as const
 			const entry = await LedgerEntry.createOne({
 				data: { amount, label: 'invoice' },
+				select: { amount: true, label: true },
 			})
 			expect(entry).toMatchObject({ amount, label: 'invoice' })
 			await expect(

@@ -13,6 +13,7 @@ it('resolves the data of a create, field Hooks first', async () => {
 	//#region create
 	const post = await Post.createOne({
 		data: { title: '  Hello Hooks ', summary: null },
+		select: { slug: true, summary: true, title: true },
 	})
 	//#endregion create
 
@@ -25,6 +26,7 @@ it('resolves the data of a create, field Hooks first', async () => {
 	// A field Hook never runs for null: `value.trim()` would have thrown.
 	const trimmed = await Post.createOne({
 		data: { title: 'Second', summary: '  Short ' },
+		select: { summary: true },
 	})
 	expect(trimmed.summary).toBe('Short')
 })
@@ -80,6 +82,7 @@ it('renames the slug with the title', async () => {
 	const renamed = await Post.updateOne({
 		where: { id: { eq: post.id } },
 		data: { title: 'Second title' },
+		select: { slug: true },
 	})
 
 	expect(renamed).toMatchObject({ slug: 'second-title' })
@@ -93,6 +96,7 @@ it('knows whether an upsert creates or updates', async () => {
 			where: { slug: { eq: 'imported-post' } },
 			create: { title: 'Imported post' },
 			update: { views: { increment: 1 } },
+			select: { slug: true, views: true },
 		})
 
 	const created = await importPost()

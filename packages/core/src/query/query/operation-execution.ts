@@ -191,9 +191,10 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
 ): Promise<object> => {
+	// Without `select`, a write returns `{ id }` (ADR-0341).
 	const projection = queryFromFindOneInput(schema, {
 		...(input.include === undefined ? {} : { include: input.include }),
-		...(input.select === undefined ? {} : { select: input.select }),
+		select: input.select ?? { id: true },
 	})
 	const operation: CreateOneOperationAst<
 		TSchema,

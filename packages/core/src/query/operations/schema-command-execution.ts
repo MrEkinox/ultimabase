@@ -9,7 +9,6 @@ import { assertExactCommandKeys } from '../../exact-object-validation.js'
 import type { QueryFieldName, QuerySelectionNode } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import {
-	emptyQuerySelection,
 	normalizeQuerySelection,
 	type QuerySelection,
 } from '../clauses/selection.js'
@@ -109,24 +108,27 @@ const createSchemaWhereQuery = <TSchema extends SchemaDefinition>(
 	return immutableRecord({ ast, schema })
 }
 
-/** Normalizes `select` and `include` through the canonical read projection. */
-const normalizeProjection = <TSchema extends SchemaDefinition>(
+/**
+ * Without `select`, a write returns `{ id }` (ADR-0341): the identifier is
+ * all a caller that may write but not read a row can receive. An explicit
+ * `select` keeps the read projection grammar.
+ */
+const normalizeWriteSelection = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	select: QuerySelection<TSchema> | undefined,
+): QuerySelectionNode<QueryFieldName<TSchema>> =>
+	normalizeQuerySelection(schema, select ?? { id: true })
+
+/** Normalizes a write's `select` and `include` through the read projection. */
+const normalizeWriteProjection = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	select: QuerySelection<TSchema> | undefined,
 	include?: FindOneInput<TSchema>['include'],
 ): SchemaQuery<TSchema>['ast'] =>
 	queryFromFindOneInput(schema, {
 		...(include === undefined ? {} : { include }),
-		...(select === undefined ? {} : { select }),
+		select: select ?? { id: true },
 	}).ast
-
-const normalizeSelection = <TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	select: QuerySelection<TSchema> | undefined,
-): QuerySelectionNode<QueryFieldName<TSchema>> =>
-	select === undefined
-		? emptyQuerySelection
-		: normalizeQuerySelection(schema, select)
 
 const projectQuery = <TSchema extends SchemaDefinition>(
 	query: SchemaQuery<TSchema>,
@@ -229,7 +231,11 @@ export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 	)
 	assertCommandArray(input.data, 'schema createMany data')
 
-	const projection = normalizeProjection(schema, input.select, input.include)
+	const projection = normalizeWriteProjection(
+		schema,
+		input.select,
+		input.include,
+	)
 	const schemaNode = createQueryAst(schema).schema
 
 	return rejectLinkFailures(() => {
@@ -280,7 +286,7 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 	return executeQueryUpdateOne(
 		projectQuery(
 			query,
-			normalizeProjection(schema, input.select, input.include),
+			normalizeWriteProjection(schema, input.select, input.include),
 		),
 		input.data,
 		options,
@@ -301,10 +307,9 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 	)
 	assertCommandArray(input.data, 'schema updateMany data')
 
-	// Without an explicit projection, batch updates return only identities.
-	const projection = normalizeProjection(
+	const projection = normalizeWriteProjection(
 		schema,
-		input.select ?? { id: true },
+		input.select,
 		input.include,
 	)
 
@@ -368,7 +373,7 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 		return executeQueryUpsertOne(
 			projectQuery(query, {
 				inclusion: query.ast.inclusion,
-				selection: normalizeSelection(schema, input.select),
+				selection: normalizeWriteSelection(schema, input.select),
 			}),
 			upsert.data,
 			options,
@@ -386,7 +391,7 @@ export const upsertSchemaRecords = <const TSchema extends SchemaDefinition>(
 	assertExactCommandKeys(input, 'schema upsertMany input', ['data'], ['select'])
 	assertCommandArray(input.data, 'schema upsertMany data')
 
-	const selection = normalizeSelection(schema, input.select)
+	const selection = normalizeWriteSelection(schema, input.select)
 
 	return rejectLinkFailures(() => {
 		const entries = input.data.map((item, index) => {
@@ -438,7 +443,7 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 	return executeQueryDeleteOne(
 		projectQuery(query, {
 			inclusion: query.ast.inclusion,
-			selection: normalizeSelection(schema, input.select),
+			selection: normalizeWriteSelection(schema, input.select),
 		}),
 		options,
 	)
@@ -458,12 +463,8 @@ export const deleteSchemaRecords = <const TSchema extends SchemaDefinition>(
 	)
 	assertCommandArray(input.where, 'schema deleteMany where')
 
+	const selection = normalizeWriteSelection(schema, input.select)
 	const entries = input.where.map((where) => {
-		// Without an explicit projection, batch deletes return only identities.
-		const selection = normalizeQuerySelection(
-			schema,
-			input.select ?? { id: true },
-		)
 		const query = createSchemaWhereQuery(
 			schema,
 			where,

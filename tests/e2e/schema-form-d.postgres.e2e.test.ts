@@ -66,7 +66,7 @@ beforeAll(async () => {
 		)
 	}
 	const tags = await Tag.createMany(
-		{ data: [{ label: 'team' }, { label: 'admin' }] },
+		{ data: [{ label: 'team' }, { label: 'admin' }], select: { label: true } },
 		master,
 	)
 	for (const tag of tags) ids.set(tag.label, tag.id)

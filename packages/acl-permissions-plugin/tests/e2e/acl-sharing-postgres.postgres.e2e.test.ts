@@ -68,7 +68,8 @@ const PrivateNote = ShareApplication.Schema.define({
 	acl: true,
 }).with({ acl: { default: ({ principal }) => new ACL(principal) } })
 
-type User = Model<typeof ShareUser>
+// Fixtures keep the identifiers that writes return.
+type User = Pick<Model<typeof ShareUser>, 'id'>
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: Awaited<ReturnType<typeof createApplication>> | undefined

@@ -420,20 +420,25 @@ describe('UltimaBase', () => {
 		)
 		try {
 			await ultimabase.start()
+			// The fixture adapter answers whole rows: every write selects every field.
 			const created = await articleSchema.createOne({
 				data: { title: 'Created' },
+				select: {},
 			})
 			const upserted = await articleSchema.upsertOne({
 				create: { title: 'Imported' },
 				update: { title: 'Upserted' },
 				where: { title: { eq: 'Imported' } },
+				select: {},
 			})
 			const updated = await articleSchema.updateOne({
 				where: { id: created.id },
 				data: { title: 'Updated' },
+				select: {},
 			})
 			const deleted = await articleSchema.deleteOne({
 				where: { id: created.id },
+				select: {},
 			})
 
 			expect(created).toStrictEqual(createdRecord)
@@ -567,7 +572,10 @@ describe('UltimaBase', () => {
 				requestId: 'transaction-owner',
 				source: 'internal',
 			}).transaction(async () =>
-				articleSchema.createOne({ data: { title: 'Transactional' } }),
+				articleSchema.createOne({
+					data: { title: 'Transactional' },
+					select: {},
+				}),
 			)
 
 			expect(firstAdapter.rootRequests).toStrictEqual([])

@@ -16,6 +16,7 @@ it('completes an order created with its required input only', async () => {
 	//#region required-input
 	const order = await Order.createOne({
 		data: { customer: { connect: customer.id }, total: '24.90' },
+		select: {},
 	})
 	//#endregion required-input
 
@@ -36,6 +37,7 @@ it('completes an order created with its required input only', async () => {
 	// The database numbers the next order; the factory runs once per order.
 	const next = await Order.createOne({
 		data: { customer: { connect: customer.id }, total: '5.00' },
+		select: { number: true, reference: true },
 	})
 	expect(next.number).toBe(2n)
 	expect(next.reference).not.toBe(order.reference)
@@ -48,6 +50,7 @@ it('keeps an explicit null apart from an omitted value', async () => {
 	//#region explicit-null
 	const order = await Order.createOne({
 		data: { customer: { connect: customer.id }, total: '24.90', coupon: null },
+		select: { coupon: true },
 	})
 	//#endregion explicit-null
 
@@ -68,12 +71,14 @@ it('leaves omitted fields unchanged on update and clears with null', async () =>
 	const customer = await createCustomer()
 	const order = await Order.createOne({
 		data: { customer: { connect: customer.id }, total: '24.90', note: 'Gift' },
+		select: {},
 	})
 
 	//#region update-null
 	const updated = await Order.updateOne({
 		where: { id: order.id },
 		data: { status: 'paid', note: null },
+		select: {},
 	})
 	//#endregion update-null
 
@@ -96,6 +101,7 @@ it('applies the nullability rule to whole lists and objects', async () => {
 	const cleared = await Customer.updateOne({
 		where: { id: customer.id },
 		data: { favoriteGenres: null },
+		select: { favoriteGenres: true, previousAddresses: true },
 	})
 
 	expect(customer.previousAddresses).toStrictEqual([])

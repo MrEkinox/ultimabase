@@ -118,6 +118,7 @@ describe('Validation rules (ADR-0319)', () => {
 	it('stores the validator output', async () => {
 		const event = await Event.createOne({
 			data: { endsAt: 2, startsAt: 1, title: '  Launch  ' },
+			select: { title: true },
 		})
 		expect(event.title).toBe('Launch')
 	})
@@ -205,6 +206,7 @@ describe('Validation rules (ADR-0319)', () => {
 		await expect(
 			Event.createOne({
 				data: { endsAt: 2, note: null, startsAt: 1, title: 'No note' },
+				select: { note: true },
 			}),
 		).resolves.toMatchObject({ note: null })
 	})

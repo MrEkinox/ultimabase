@@ -79,11 +79,10 @@ const recordSoftDeleteEvent = async (
 	schemaName: 'ExampleArticle' | 'ExampleAuthor',
 	targetId: string,
 ): Promise<void> => {
-	// The audit log is write-only (`read: false`): a write-only caller asks
-	// for the identifier alone, the only result it may read (ADR-0306).
+	// The audit log is write-only (`read: false`): without `select`, a write
+	// returns `{ id }` and needs no read rule (ADR-0341).
 	await ExampleSoftDeleteEvent.createOne({
 		data: { logicalOperation, persistenceEffect, schemaName, targetId },
-		select: { id: true },
 	})
 }
 

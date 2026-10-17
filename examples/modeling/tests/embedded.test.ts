@@ -53,6 +53,7 @@ it('patches an object and replaces a whole list', async () => {
 				line1: '12 Rue Exemple',
 			},
 		},
+		select: { previousAddresses: true, shippingAddress: true },
 	})
 
 	//#region update-addresses

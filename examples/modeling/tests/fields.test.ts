@@ -42,7 +42,12 @@ it('stores the value of each built-in kind', async () => {
 	})
 	//#endregion values
 
-	expect(book).toMatchObject({
+	// A write returns `{ id }`: read the stored values back.
+	const stored = await Book.findOneOrThrow({ where: { id: { eq: book.id } } })
+	const storedOrder = await Order.findOneOrThrow({
+		where: { id: { eq: order.id } },
+	})
+	expect(stored).toMatchObject({
 		cover: new Uint8Array([1, 2, 3]),
 		details: { editions: [1843, 2026], translator: null },
 		format: 'hardcover',
@@ -53,8 +58,8 @@ it('stores the value of each built-in kind', async () => {
 		tags: ['computing', 'history'],
 		weightKg: 0.45,
 	})
-	expect(typeof order.number).toBe('bigint')
-	expect(order).toMatchObject({
+	expect(typeof storedOrder.number).toBe('bigint')
+	expect(storedOrder).toMatchObject({
 		pickupTime: '14:30:00.000',
 		placedAt: '2026-07-31T14:30:00.000Z',
 		total: '19.99',
@@ -101,6 +106,7 @@ it('validates structure, never application rules', async () => {
 	const renamed = await Customer.updateOne({
 		where: { id: customer.id },
 		data: { email: 'not an email' },
+		select: { email: true },
 	})
 	expect(renamed).toMatchObject({ email: 'not an email' })
 })
@@ -118,6 +124,7 @@ it('shares one enum between fields and keeps a local one per field', async () =>
 			price: '12.00',
 			genre: 'poetry',
 		},
+		select: { format: true, genre: true },
 	})
 	const customer = await Customer.createOne({
 		data: {
@@ -130,6 +137,7 @@ it('shares one enum between fields and keeps a local one per field', async () =>
 			},
 			favoriteGenres: ['poetry', 'essay'],
 		},
+		select: { favoriteGenres: true },
 	})
 	//#endregion enums
 

@@ -248,6 +248,7 @@ describe('PublicError through transports (ADR-0305)', () => {
 			failAfterCommit = true
 			const created = await ErrorTodo.createOne({
 				data: { title: 'committed' },
+				select: { title: true },
 			})
 
 			expect(created.title).toBe('committed')

@@ -862,7 +862,10 @@ the class:
 <!-- region ../../examples/plugin-authoring/tests/schema-contributions.test.ts#archive-one -->
 
 ```ts
-const archived = await Post.archiveOne({ id: post.id })
+const archived = await Post.archiveOne({
+	id: post.id,
+	select: { archivedAt: true },
+})
 ```
 
 <!-- endregion -->
@@ -1214,7 +1217,7 @@ it. Installed target policies still apply and may make an inaccessible pointer `
 
 `select` is flat and schema-correlated. Any `true` flag selects only the fields
 marked `true`; an object containing only `false` flags selects every other
-field. `{}` keeps the complete result shape. Every returned result always
+field. `{}` keeps the complete result shape, in reads and writes alike. Every returned result always
 contains `id`, including nested pointer and relation results, so an explicit
 selection adds it implicitly. `id: false` is rejected rather than silently
 ignored. Relationship result shaping stays explicit through `include`.
@@ -1910,18 +1913,22 @@ effect outside it. An explicit `transaction()` callback is never replayed and
 rejects with `TRANSACTION_CONFLICT`. Retries log at debug level and exhaustion
 logs a warning, with operation, schema, attempt and code only.
 
-Mutation results obey the row read rules of every installed policy, like
-PostgreSQL's `RETURNING` under row-level security (ADR-0306). For a
-non-Master caller, Core checks each resulting row before commit (after the
-after hooks, before the final output restrictions) with one `exists` query by
-identifier, or one grouped `count` for collection commands; a delete, and a
-plugin mutation declaring `returning: 'before'`, is checked on its locked
-pre-image before the write. An unreadable row with a selection beyond `id`
-(no `select`, another field, or any `include`) fails with `PERMISSION_DENIED`
-and rolls the transaction back. `select: { id: true }` is always allowed and
-skips the check; nested children answer through the root's inclusions, which
-keep their own read rules. No query runs when the read guard grants every row
-without a filter.
+Every write without `select` or `include` (`createOne`, `createMany`,
+`updateOne`, `updateMany`, `upsertOne`, `upsertMany`, `deleteOne`,
+`deleteMany` and plugin schema mutations, Master included) returns `{ id }`,
+one per row for collection commands, and its type says so (ADR-0341). An
+explicit `select` keeps the read projection, so `select: {}` returns every
+field the caller may read. A selection beyond `id`, or any `include`, obeys the
+row read rules of every installed policy, like PostgreSQL's `RETURNING` under
+row-level security (ADR-0306). For a non-Master caller, Core checks each
+resulting row before commit (after the after hooks, before the final output
+restrictions) with one `exists` query by identifier, or one grouped `count`
+for collection commands; a delete, and a plugin mutation declaring
+`returning: 'before'`, is checked on its locked pre-image before the write. An
+unreadable row fails with `PERMISSION_DENIED` and rolls the transaction back.
+An identifier-only result skips the check; nested children answer through the
+root's inclusions, which keep their own read rules. No query runs when the
+read guard grants every row without a filter.
 
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate

@@ -129,6 +129,9 @@ it('names results and inputs with the named types', async () => {
 		{ title: 'More tales' },
 	)
 
-	expect(describeBook(book)).toBe('Tales, 9.90 EUR')
-	expect(renamed).toMatchObject({ id: book.id, title: 'More tales' })
+	// A write returns `{ id }`; `describeBook` takes a complete book.
+	expect(renamed).toStrictEqual({ id: book.id })
+	expect(
+		describeBook(await Book.findOneOrThrow({ where: { id: { eq: book.id } } })),
+	).toBe('More tales, 9.90 EUR')
 })

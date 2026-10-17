@@ -182,6 +182,7 @@ beforeAll(async () => {
 				},
 				{ acl: new ACL(), title: 'denied' },
 			],
+			select: { title: true },
 		},
 		{ useMasterKey: true },
 	)
@@ -274,6 +275,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			{
 				where: { id: { eq: requireRowId('editor') } },
 				data: { marker: 'editor-updated' },
+				select: { marker: true },
 			},
 			{ context: editor },
 		)
@@ -290,7 +292,10 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		).resolves.toHaveLength(1)
 		await expect(
 			ProtectedPost.deleteOne(
-				{ where: { id: { eq: requireRowId('editor') } } },
+				{
+					where: { id: { eq: requireRowId('editor') } },
+					select: { title: true },
+				},
 				{ context: editor },
 			),
 		).resolves.toMatchObject({ title: 'editor' })

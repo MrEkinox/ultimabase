@@ -96,7 +96,8 @@ describe('Runtime nested create and connect execution', () => {
 				{
 					materializations: [{ current: post, kind: 'create' }],
 					status: 'fulfilled',
-					value: post,
+					// Without `select`, the root write returns `{ id }` (ADR-0341).
+					value: { id: rootId },
 				},
 			],
 			trace,

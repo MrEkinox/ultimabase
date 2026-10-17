@@ -18,17 +18,27 @@ export default defineConfig({ test: { ...ultimabaseTesting() } })
 const hiddenByAcl = (plan: InitializerPlan): boolean =>
 	has(plan, 'acl-permissions-plugin')
 
+/** A write returns `{ id }` unless it selects more (ADR-0341). */
 const createTask = (
 	plan: InitializerPlan,
 	title: string,
 	binding: 'const task = ' | '' = 'const task = ',
-): string =>
-	hiddenByAcl(plan)
+	selected = false,
+): string => {
+	const indent = hiddenByAcl(plan) ? '      ' : '    '
+	const input = selected
+		? `{
+${indent}data: { title: '${title}' },
+${indent}select: { done: true, title: true },
+${indent.slice(2)}}`
+		: `{ data: { title: '${title}' } }`
+	return hiddenByAcl(plan)
 		? `// An empty ACL hides the Task from ordinary reads: create it as Master.
   ${binding}await t.asMaster(() =>
-    Task.createOne({ data: { title: '${title}' } }),
+    Task.createOne(${input}),
   )`
-		: `${binding}await Task.createOne({ data: { title: '${title}' } })`
+		: `${binding}await Task.createOne(${input})`
+}
 
 /** An ACL-hidden Task is not listed, so the test keeps no binding. */
 const listedTask = (plan: InitializerPlan, title: string): string =>
@@ -79,7 +89,7 @@ import { ultimabase } from '${sourceModule(plan, 'ultimabase')}'
 // after-commit work.
 it('creates a Task with its defaults', async () => {
   ${hiddenByAcl(plan) ? 'await using t = ' : ''}await testApplication(ultimabase)
-  ${createTask(plan, 'Write the first test')}
+  ${createTask(plan, 'Write the first test', 'const task = ', true)}
   expect(task).toMatchObject({ done: false, title: 'Write the first test' })
 })${http && has(plan, 'rest-plugin') ? restTest(plan) : ''}${
 		http && !has(plan, 'rest-plugin') && has(plan, 'graphql-yoga-plugin')

@@ -479,9 +479,10 @@ unrepresentable output, and undeclared or unmapped plugin errors become the
 fixed non-retryable `REST_INTERNAL_ERROR` response and are logged with their
 stack and request ID through the plugin logger (ADR-0313).
 
-Mutation results obey the row read rules (ADR-0306): a client allowed to write
-a row it cannot read requests the identifier alone, `?select=id` on create,
-update and delete or `"select": { "id": true }` in an upsert or bulk body.
+Without `?select`, `POST`, `PATCH` and `DELETE` answer `{ "result": { "id": … } }`,
+and upsert or bulk bodies without `"select"` answer `{ id }` per row
+(ADR-0341). A selection beyond `id`, or any `include`, obeys the row read rules
+(ADR-0306): an unreadable result fails with `403` and nothing is written.
 
 A client error locates its cause in `details: { parameter, path, reason }`
 (ADR-0324): `parameter` is the query parameter, `id`, `query` or `body` (or a

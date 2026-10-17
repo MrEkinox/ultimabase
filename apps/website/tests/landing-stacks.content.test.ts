@@ -86,7 +86,7 @@ void name`,
 		code: validationFieldExample,
 		schema: 'ValidatedArticle',
 		checks: `const article = await ValidatedArticle.createOne(
-  { data: { title: 'A validated title' } }
+  { data: { title: 'A validated title' }, select: { title: true } }
 )
 const title: string = article.title
 // @ts-expect-error Validation must preserve the declared field type.

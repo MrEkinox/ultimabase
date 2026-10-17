@@ -139,9 +139,10 @@ afterAll(async () => {
 	await fixture?.dispose()
 })
 
+// `select: {}` returns every field, which these assertions compare.
 const createItem = async () => {
-	const author = await Author.createOne({ data: { name: 'Ada' } })
-	const tag = await Tag.createOne({ data: { label: 'first' } })
+	const author = await Author.createOne({ data: { name: 'Ada' }, select: {} })
+	const tag = await Tag.createOne({ data: { label: 'first' }, select: {} })
 	const item = await Item.createOne({
 		data: {
 			amount: '123456.78',
@@ -162,6 +163,7 @@ const createItem = async () => {
 			title: 'Every field kind',
 			wakeAt: '08:30:00.456',
 		},
+		select: {},
 	})
 	return { author, item, tag }
 }

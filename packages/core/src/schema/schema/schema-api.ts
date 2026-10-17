@@ -47,25 +47,20 @@ type SchemaReadResult<
 >
 
 /**
- * Resolves one mutation result like a read with the same projection. Without
- * `select`, a command keeps the default projection (`never`: every field, as
- * `find*` returns) and `include` only adds related values; batch updates and
- * deletes narrow that default to `TDefaultField` plus the included fields.
+ * Resolves one mutation result like a read with the same projection, except
+ * that without `select` a write returns `id` plus the included fields
+ * (ADR-0341).
  */
 type SchemaMutationResult<
 	TContract extends SchemaTypeInfo,
 	TSchema extends SchemaDefinition,
 	TSelection,
 	TInclude = undefined,
-	TDefaultField extends QueryFieldName<TContract> = never,
 > = QueryResult<
 	TSchema,
 	Extract<
 		[TSelection] extends [undefined]
-			? [TDefaultField] extends [never]
-				? never
-				: | TDefaultField
-					| Extract<keyof NonNullable<TInclude>, QueryFieldName<TContract>>
+			? 'id' | Extract<keyof NonNullable<TInclude>, QueryFieldName<TContract>>
 			: QuerySelectedFieldFromInput<
 					TContract,
 					SchemaProjection<TSelection, TInclude>
@@ -89,7 +84,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<number>
 
-	/** Creates ordered rows and returns their requested projections. */
+	/** Creates ordered rows and returns `{ id }` for each unless `select` or `include` asks for more. */
 	createMany<
 		const TSelection extends object | undefined = undefined,
 		const TInclude extends object | undefined = undefined,
@@ -100,7 +95,12 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		readonly SchemaMutationResult<TContract, this, TSelection, TInclude>[]
 	>
 
-	/** Creates one row and returns its requested projection. */
+	/**
+	 * Creates one row and returns `{ id }` unless `select` or `include` asks
+	 * for more; a selection beyond `id` requires the caller to read the row.
+	 *
+	 * @example `const { id } = await Todo.createOne({ data: { title: 'Ship' } })`
+	 */
 	createOne<
 		const TSelection extends object | undefined = undefined,
 		const TInclude extends object | undefined = undefined,
@@ -109,21 +109,13 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection, TInclude>>
 
-	/** Deletes ordered unique targets and always retains each result `id`. */
+	/** Deletes ordered unique targets and returns `{ id }` for each unless `select` asks for more. */
 	deleteMany<const TSelection extends object | undefined = undefined>(
 		input: SchemaDeleteManyInput<TContract, TSelection>,
 		options?: OperationOptions,
-	): Promise<
-		readonly SchemaMutationResult<
-			TContract,
-			this,
-			TSelection,
-			undefined,
-			Extract<'id', QueryFieldName<TContract>>
-		>[]
-	>
+	): Promise<readonly SchemaMutationResult<TContract, this, TSelection>[]>
 
-	/** Deletes one unique target or returns `null` when none matches. */
+	/** Deletes one unique target and returns `{ id }` unless `select` asks for more, or `null` when none matches. */
 	deleteOne<const TSelection extends object | undefined = undefined>(
 		input: SchemaDeleteOneInput<TContract, TSelection>,
 		options?: OperationOptions,
@@ -167,7 +159,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<SchemaReadResult<TContract, this, TSelection, TInclude>>
 
-	/** Updates ordered unique targets and always retains each result `id`. */
+	/** Updates ordered unique targets and returns `{ id }` for each unless `select` or `include` asks for more. */
 	updateMany<
 		const TSelection extends object | undefined = undefined,
 		const TInclude extends object | undefined = undefined,
@@ -175,16 +167,10 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		input: SchemaUpdateManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
 	): Promise<
-		readonly SchemaMutationResult<
-			TContract,
-			this,
-			TSelection,
-			TInclude,
-			Extract<'id', QueryFieldName<TContract>>
-		>[]
+		readonly SchemaMutationResult<TContract, this, TSelection, TInclude>[]
 	>
 
-	/** Updates one unique target or returns `null` when none matches. */
+	/** Updates one unique target and returns `{ id }` unless `select` or `include` asks for more, or `null` when none matches. */
 	updateOne<
 		const TSelection extends object | undefined = undefined,
 		const TInclude extends object | undefined = undefined,
@@ -193,13 +179,13 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection, TInclude> | null>
 
-	/** Creates or updates ordered unique targets. */
+	/** Creates or updates ordered unique targets and returns `{ id }` for each unless `select` asks for more. */
 	upsertMany<const TSelection extends object | undefined = undefined>(
 		input: SchemaUpsertManyInput<TContract, TSelection>,
 		options?: OperationOptions,
 	): Promise<readonly SchemaMutationResult<TContract, this, TSelection>[]>
 
-	/** Creates or updates one unique target. */
+	/** Creates or updates one unique target and returns `{ id }` unless `select` asks for more. */
 	upsertOne<const TSelection extends object | undefined = undefined>(
 		input: SchemaUpsertOneInput<TContract, TSelection>,
 		options?: OperationOptions,

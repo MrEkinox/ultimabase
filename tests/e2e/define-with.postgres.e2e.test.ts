@@ -56,6 +56,7 @@ describe('define features and .with rules on PostgreSQL (ADR-0339)', () => {
 			const renamed = await Article.updateOne({
 				where: { slug: 'alpha', isDeleted: false },
 				data: { title: 'Alpha 2' },
+				select: { title: true },
 			})
 			expect(renamed).toMatchObject({ id: first.id, title: 'Alpha 2' })
 

@@ -1,4 +1,8 @@
-import { runWithRequestEngine, type OperationOptions } from '@ultimabase/core'
+import {
+	runWithRequestEngine,
+	type Model,
+	type OperationOptions,
+} from '@ultimabase/core'
 import { resolveRoleReference } from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -48,7 +52,10 @@ let fixture: PostgresWorkerFixture | undefined
 let ultimabase: RoleApplication | undefined
 let alice: PersistedMember | undefined
 let bob: PersistedMember | undefined
-let editor: PersistedAppRole | undefined
+let editor:
+	| (PersistedAppRole &
+			Pick<Model<typeof AppRole>, 'description' | 'name' | 'priority'>)
+	| undefined
 let publisher: PersistedAppRole | undefined
 let reviewer: PersistedAppRole | undefined
 let administrator: PersistedAppRole | undefined
@@ -87,6 +94,7 @@ beforeAll(async () => {
 				name: '  EDITOR  ',
 				priority: 10,
 			},
+			select: { description: true, name: true, priority: true },
 		},
 		masterOptions,
 	)
@@ -252,6 +260,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			{
 				where: { id: { eq: publishedPostId } },
 				data: { title: 'Updated through inherited roles' },
+				select: { internalNote: true },
 			},
 			{ context: aliceContext },
 		)
@@ -651,6 +660,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				MissingProviderPost.updateOne({
 					where: { id: { eq: row.id } },
 					data: { title: 'Community provider allowed' },
+					select: { title: true },
 				}),
 			).resolves.toMatchObject({ title: 'Community provider allowed' })
 			expect(missingProviderHookCalls).toBe(1)

@@ -26,7 +26,10 @@ const ultimabase = new Application({
 await ultimabase.start()
 
 try {
-	const created = await Post.createOne({ data: { title: 'JavaScript create' } })
+	const created = await Post.createOne({
+		data: { title: 'JavaScript create' },
+		select: { title: true },
+	})
 	const found = await Post.findOne({ where: { id: { eq: created.id } } })
 	const request = anonymous(ultimabase, {
 		requestId: 'javascript-no-engine-transaction',
@@ -39,6 +42,7 @@ try {
 	const updated = await Post.updateOne({
 		data: { title: 'JavaScript update' },
 		where: { id: created.id },
+		select: { title: true },
 	})
 	let rollbackMessage = ''
 	try {

@@ -309,6 +309,8 @@ const createRequest = async (
 	return { adapter, application, request }
 }
 
+// These writes select every field (`select: {}`): the hooks under test
+// read and transform the whole result (ADR-0341).
 describe('Runtime contributions and post-commit events', () => {
 	it('orders plugin observers and delivers events only after commit', async () => {
 		const trace: string[] = []
@@ -320,7 +322,7 @@ describe('Runtime contributions and post-commit events', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			articleSchema.createOne({ data: { title: 'input' } }),
+			articleSchema.createOne({ data: { title: 'input' }, select: {} }),
 		)
 
 		// Root mutations must use the transaction executor rather than the root adapter.
@@ -364,7 +366,7 @@ describe('Runtime contributions and post-commit events', () => {
 		)
 
 		await request.transaction(async () => {
-			await articleSchema.createOne({ data: { title: 'input' } })
+			await articleSchema.createOne({ data: { title: 'input' }, select: {} })
 			expect(trace.some((entry) => entry.startsWith('event:'))).toBe(false)
 			trace.push('transaction:callback-complete')
 		})
@@ -406,7 +408,7 @@ describe('Runtime contributions and post-commit events', () => {
 		// The root mutation owns the rollback boundary without an explicit callback.
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.createOne({ data: { title: 'input' } }),
+				articleSchema.createOne({ data: { title: 'input' }, select: {} }),
 			),
 		).rejects.toBe(hookError)
 		expect(trace).toStrictEqual([

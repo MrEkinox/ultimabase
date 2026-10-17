@@ -167,7 +167,8 @@ describe(
 		it('derives defaults from resolved input and the exact current principal', async () => {
 			const alice = request('acl-composition-default', 'a')
 			const owned = await Document.createOne(
-				{ data: { secret: 'private', title: '  Owned  ' } },
+				// `select: {}` asks for every field the caller may read.
+				{ data: { secret: 'private', title: '  Owned  ' }, select: {} },
 				{ context: alice },
 			)
 			const publicDocument = await Document.createOne({

@@ -26,6 +26,8 @@ export const createBook = async (
 			title,
 			...options,
 		},
+		// Tests read the whole created book.
+		select: {},
 	})
 }
 
@@ -40,4 +42,5 @@ export const createCustomer = (name = 'Grace', email = 'grace@example.com') =>
 				line1: '1 Rue Exemple',
 			},
 		},
+		select: { favoriteGenres: true, previousAddresses: true },
 	})

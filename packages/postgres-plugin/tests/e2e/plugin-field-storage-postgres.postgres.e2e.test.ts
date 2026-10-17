@@ -87,6 +87,7 @@ describe('PostgreSQL plugin-field storage', { concurrent: false }, () => {
 		try {
 			const created = await BridgeItem.createOne({
 				data: { value: 'logical-value' },
+				select: { value: true },
 			})
 			expect(created.value).toBe('logical-value')
 			await BridgeItem.createOne({ data: { value: 'unrelated-value' } })

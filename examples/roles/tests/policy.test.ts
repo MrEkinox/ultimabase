@@ -25,7 +25,11 @@ it('lets editors write posts and administrators delete them', async () => {
 
 	//#region edit-post
 	const edited = await t.as(Member.pointer(ada.id), () =>
-		Post.updateOne({ where: { id: post.id }, data: { title: 'Launch day' } }),
+		Post.updateOne({
+			where: { id: post.id },
+			data: { title: 'Launch day' },
+			select: { title: true },
+		}),
 	)
 	//#endregion edit-post
 
@@ -49,7 +53,11 @@ it('lets editors write posts and administrators delete them', async () => {
 	const asGrace = Member.pointer(grace.id)
 	expect(
 		await t.as(asGrace, () =>
-			Post.updateOne({ where: { id: post.id }, data: { title: 'Final' } }),
+			Post.updateOne({
+				where: { id: post.id },
+				data: { title: 'Final' },
+				select: { title: true },
+			}),
 		),
 	).toMatchObject({ title: 'Final' })
 	expect(

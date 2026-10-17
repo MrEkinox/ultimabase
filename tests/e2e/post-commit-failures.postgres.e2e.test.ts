@@ -169,7 +169,10 @@ beforeEach(() => {
 describe('post-commit failures (ADR-0318 amendment)', () => {
 	it('resolves the committed call, logs each failure and runs the later effects', async () => {
 		await expect(
-			Note.createOne({ data: { body: 'secret-body-value' } }),
+			Note.createOne({
+				data: { body: 'secret-body-value' },
+				select: { body: true },
+			}),
 		).resolves.toMatchObject({ body: 'secret-body-value' })
 
 		// Effects run in queue order: events emitted during the write first.

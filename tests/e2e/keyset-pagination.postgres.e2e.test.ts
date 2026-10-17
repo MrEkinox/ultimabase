@@ -363,6 +363,7 @@ describe('keyset pagination (ADR-0309)', { concurrent: false }, () => {
 					{ group: 'g', rank: 3, title: 'g2-3' },
 					{ group: 'g', rank: 1, title: 'g2-1' },
 				],
+				select: { rank: true, title: true },
 			},
 			master,
 		)

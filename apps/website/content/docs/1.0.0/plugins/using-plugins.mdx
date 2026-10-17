@@ -218,6 +218,7 @@ try {
 	await ultimabase.start()
 	const task = await Task.createOne({
 		data: { title: '  Write the documentation  ' },
+		select: { title: true },
 	})
 	console.log(task.title) // 'Write the documentation'
 

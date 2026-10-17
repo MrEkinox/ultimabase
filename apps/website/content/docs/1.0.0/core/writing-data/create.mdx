@@ -20,10 +20,13 @@ sources:
   - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0243-bounded-singular-nested-writes.md
   - docs/adr/0306-readable-mutation-results.md
+  - docs/adr/0341-write-results-and-refusals.md
 ---
 
-Use `Post.createOne()` to persist one record. `data` describes the new record;
-`select` and `include` shape the returned model, not the data being written.
+Use `Post.createOne()` to persist one record. `data` describes the new record.
+Without `select` or `include`, the command returns `{ id }`; `select` and
+`include` ask for more of the returned model, as in a read, and never change
+the data being written.
 
 The examples of the Writing Data pages come from the
 [queries example](/docs/1.0.0/core/reading-data/overview), a tested blog
@@ -61,13 +64,16 @@ transaction. The optional Validation, Access, and Hooks plugins participate
 only when installed. If target validation, an installed policy or hook, or
 persistence fails, the transaction rolls back; no partial post is committed.
 
-The result obeys the row read rules of installed policies, like PostgreSQL's
-`RETURNING` under row-level security. When the caller may create a row it
-cannot read, a result selecting anything beyond `id` fails with
-`PERMISSION_DENIED` and nothing is written; request `select: { id: true }`,
-which is always allowed. The same holds for update, upsert and delete results
-and for bulk commands, where one unreadable row rejects the call. Master skips
-the check.
+Every write without `select` or `include` returns `{ id }`, one per row for
+collection commands: the identifier never depends on the `read` rules, so a
+caller allowed to create a row it cannot read still succeeds. An explicit
+`select` keeps the read grammar, so `select: {}` asks for every field the
+caller may read. A selection beyond `id`, or any `include`, obeys the row read
+rules of installed policies, like PostgreSQL's `RETURNING` under row-level
+security: when the row is not readable, the call fails with
+`PERMISSION_DENIED` and nothing is written. The same holds for update, upsert
+and delete results and for bulk commands, where one unreadable row rejects the
+call. Master follows the same default and skips the check.
 
 ## Other create paths
 

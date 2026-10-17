@@ -38,6 +38,7 @@ sources:
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
   - docs/adr/0306-readable-mutation-results.md
+  - docs/adr/0341-write-results-and-refusals.md
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
@@ -256,8 +257,8 @@ test runs each call as a member with `t.as()`:
 
 `mine` holds Ada's note and `theirs` is empty, while an anonymous
 `Note.findMany()` fails with `PERMISSION_DENIED`. Only an admin deletes a
-note; because the deleted note obeys the admin's own `read` rule, an admin
-deleting another member's note asks for `select: { id: true }` (see
+note; because a selected result obeys the admin's own `read` rule, an admin
+deleting another member's note selects nothing and receives `{ id }` (see
 [Mutation results obey read rules](#mutation-results-obey-read-rules)).
 
 A rule never imports the authentication plugin: the
@@ -361,13 +362,13 @@ rules; they do not authorize an operation by themselves.
 
 ### Mutation results obey read rules
 
-The result of a create, update, upsert or delete obeys the row `read` rules,
-like PostgreSQL's `RETURNING` under row-level security: before commit, Core
-checks each resulting row (the locked pre-image for a delete) against every
-installed read policy. When a row is not readable and the call selects
-anything beyond `id` (no `select`, another field, or any `include`), it fails
-with `PERMISSION_DENIED` and nothing is written. `select: { id: true }` is
-always allowed, so a write-only client asks for the identifier alone:
+Without `select`, a create, update, upsert or delete returns `{ id }`, which
+needs no `read` rule. A selection beyond `id`, or any `include`, obeys the row
+`read` rules, like PostgreSQL's `RETURNING` under row-level security: before
+commit, Core checks each resulting row (the locked pre-image for a delete)
+against every installed read policy, and an unreadable row fails the call with
+`PERMISSION_DENIED` and writes nothing. A write-only client therefore writes
+without `select`:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/access/src/schema.ts#audit-entry
@@ -377,9 +378,15 @@ always allowed, so a write-only client asks for the identifier alone:
 	../../examples/access/tests/mutations.test.ts#audit
 </include>
 
-`entry` is `{ id }`. The same call without `select` fails and writes nothing.
-Collection commands are atomic, Master skips the check, and field rules keep
-their behavior.
+`entry` is `{ id }`. The same call with `select: { action: true }` fails and
+writes nothing. Collection commands are atomic, Master skips the check, and
+field rules keep their behavior.
+
+The default also means that a write rule alone decides a write. An `update` or
+`delete` that `access` allows on a row that `read` hides commits and answers
+`{ id }`. When such a write must be refused, narrow the write rule itself, for
+example with the same `where` filter as `read`, rather than relying on the
+result.
 
 ### Links obey read rules
 
@@ -440,9 +447,9 @@ answers are not logged.
 - **A row cannot be found or updated:** check the caller's query together with
   the private `where` restrictions on the relevant operation. Check `item`
   separately if a prepared target is rejected.
-- **A write fails with `PERMISSION_DENIED` although its rule allows it:** the
-  result may be unreadable under the `read` rule. Select `{ id: true }` alone,
-  or widen the `read` rule.
+- **A write fails with `PERMISSION_DENIED` although its rule allows it:** its
+  `select` or `include` may ask for a result the `read` rule hides. Drop the
+  selection to receive `{ id }`, or widen the `read` rule.
 - **A field is missing or a query fails with `PERMISSION_DENIED`:** check the
   declared read channels (`output`, `where`, `orderBy`) and the write
   transition that the operation performs. Explicit selection of a denied field fails;

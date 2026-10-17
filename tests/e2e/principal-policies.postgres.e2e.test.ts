@@ -219,7 +219,10 @@ describe('neutral current principal and policy predicates (ADR-0304)', () => {
 
 		providerCalls = 0
 		const created = await PrincipalTodo.createOne(
-			{ data: { title: 'Signed in', owner: editor.id } },
+			{
+				data: { title: 'Signed in', owner: editor.id },
+				select: { title: true },
+			},
 			{ context: as(editor) },
 		)
 
@@ -273,7 +276,11 @@ describe('neutral current principal and policy predicates (ADR-0304)', () => {
 
 		await expect(
 			PrincipalTodo.updateOne(
-				{ where: { id: { eq: created.id } }, data: { title: 'Edited' } },
+				{
+					where: { id: { eq: created.id } },
+					data: { title: 'Edited' },
+					select: { title: true },
+				},
 				{ context: as(editor) },
 			),
 		).resolves.toMatchObject({ title: 'Edited' })

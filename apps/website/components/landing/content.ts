@@ -24,6 +24,7 @@ export const writeExample = `const article = await Article.createOne(
       title: 'Hello, world',
       published: true,
     },
+    select: { title: true, published: true },
   }
 )`
 

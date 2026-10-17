@@ -6,16 +6,27 @@ import { needsMaster } from './security-template.js'
 const taskCommand = (plan: InitializerPlan): string => {
 	const master = needsMaster(plan)
 	return `// Seed the example Task only once; later starts print the existing record.
+// A write returns { id } unless it selects more, so both calls select alike.
 const task =
-  (await Task.findOne(${master ? '{}, { useMasterKey: true }' : ''})) ??
-  ${
-		master
-			? `(await Task.createOne(
-    { data: { title: 'Ship the first feature' } },
+${
+	master
+		? `  (await Task.findOne(
+    { select: { done: true, title: true } },
+    { useMasterKey: true },
+  )) ??
+  (await Task.createOne(
+    {
+      data: { title: 'Ship the first feature' },
+      select: { done: true, title: true },
+    },
     { useMasterKey: true },
   ))`
-			: "(await Task.createOne({ data: { title: 'Ship the first feature' } }))"
-	}
+		: `  (await Task.findOne({ select: { done: true, title: true } })) ??
+  (await Task.createOne({
+    data: { title: 'Ship the first feature' },
+    select: { done: true, title: true },
+  }))`
+}
 // Results are frozen plain objects; toJSON serializes them as REST does.
 console.log(toJSON(task))
 `

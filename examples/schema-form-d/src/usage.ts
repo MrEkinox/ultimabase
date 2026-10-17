@@ -115,9 +115,10 @@ expectTypeOf<
 		Awaited1<ReturnType<typeof listAssignedTodos>>[number]['assignee']
 	>['email']
 >().toEqualTypeOf<string>()
-expectTypeOf<
-	Awaited1<ReturnType<typeof createTodo>>['title']
->().toEqualTypeOf<string>()
+// A write returns `{ id }` unless it selects more (ADR-0341).
+expectTypeOf<Awaited1<ReturnType<typeof createTodo>>>().toEqualTypeOf<{
+	readonly id: string
+}>()
 expectTypeOf<
 	Awaited1<ReturnType<typeof listPublicTodos>>[number]['title']
 >().toEqualTypeOf<string>()

@@ -14,6 +14,7 @@ export const createAuthor = (
 			email: `author-${String(authors)}@example.com`,
 			...data,
 		},
+		select: { displayName: true },
 	})
 }
 

@@ -111,7 +111,8 @@ const createMutationTarget = (
 const mutationFixtures: readonly MutationFixture[] = [
 	{
 		kind: 'create-one',
-		result: articleRecord('0198f090-2a50-7000-8000-000000000001', 'Created'),
+		// Without `select`, a write returns `{ id }` (ADR-0341).
+		result: { id: '0198f090-2a50-7000-8000-000000000001' },
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.createOne({ data: { title: 'Created' } }),
@@ -119,11 +120,8 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'create-one',
-		adapterResult: articleRecord(
-			'0198f090-2a50-7000-8000-000000000002',
-			'Created',
-		),
-		result: [articleRecord('0198f090-2a50-7000-8000-000000000002', 'Created')],
+		adapterResult: { id: '0198f090-2a50-7000-8000-000000000002' },
+		result: [{ id: '0198f090-2a50-7000-8000-000000000002' }],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.createMany({ data: [{ title: 'Created' }] }),
@@ -131,7 +129,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'update-one',
-		result: articleRecord('0198f090-2a50-7000-8000-000000000003', 'After'),
+		result: { id: '0198f090-2a50-7000-8000-000000000003' },
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.updateOne({
@@ -158,7 +156,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'upsert-one',
-		result: articleRecord('0198f090-2a50-7000-8000-000000000004', 'Upserted'),
+		result: { id: '0198f090-2a50-7000-8000-000000000004' },
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.upsertOne({
@@ -170,11 +168,8 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'upsert-one',
-		adapterResult: articleRecord(
-			'0198f090-2a50-7000-8000-000000000005',
-			'Upserted',
-		),
-		result: [articleRecord('0198f090-2a50-7000-8000-000000000005', 'Upserted')],
+		adapterResult: { id: '0198f090-2a50-7000-8000-000000000005' },
+		result: [{ id: '0198f090-2a50-7000-8000-000000000005' }],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.upsertMany({
@@ -190,7 +185,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'delete-one',
-		result: articleRecord('0198f090-2a50-7000-8000-000000000006', 'Deleted'),
+		result: { id: '0198f090-2a50-7000-8000-000000000006' },
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.deleteOne({
@@ -311,7 +306,7 @@ describe('automatic mutation transaction scope', () => {
 		const { adapter, request } = await createRequest(
 			[
 				{ status: 'rejected', error: nestedError },
-				{ status: 'fulfilled', value: storedPrimary },
+				{ status: 'fulfilled', value: { id: storedPrimary.id } },
 			],
 			trace,
 			behaviorStages,
@@ -355,10 +350,7 @@ describe('automatic mutation transaction scope', () => {
 			[
 				{
 					status: 'fulfilled',
-					value: articleRecord(
-						'0198f090-2a50-7000-8000-000000000008',
-						'Nested',
-					),
+					value: { id: '0198f090-2a50-7000-8000-000000000008' },
 				},
 				{ status: 'rejected', error: primaryError },
 			],
@@ -398,17 +390,11 @@ describe('automatic mutation transaction scope', () => {
 			[
 				{
 					status: 'fulfilled',
-					value: articleRecord(
-						'0198f090-2a50-7000-8000-000000000009',
-						'Primary',
-					),
+					value: { id: '0198f090-2a50-7000-8000-000000000009' },
 				},
 				{
 					status: 'fulfilled',
-					value: articleRecord(
-						'0198f090-2a50-7000-8000-000000000010',
-						'Nested after',
-					),
+					value: { id: '0198f090-2a50-7000-8000-000000000010' },
 				},
 			],
 			trace,
@@ -467,17 +453,11 @@ describe('automatic mutation transaction scope', () => {
 			[
 				{
 					status: 'fulfilled',
-					value: articleRecord(
-						'0198f090-2a50-7000-8000-000000000011',
-						'Master nested',
-					),
+					value: { id: '0198f090-2a50-7000-8000-000000000011' },
 				},
 				{
 					status: 'fulfilled',
-					value: articleRecord(
-						'0198f090-2a50-7000-8000-000000000012',
-						'Primary',
-					),
+					value: { id: '0198f090-2a50-7000-8000-000000000012' },
 				},
 			],
 			trace,
@@ -489,7 +469,7 @@ describe('automatic mutation transaction scope', () => {
 			runWithRequestEngine(request, () =>
 				articleSchema.createOne({ data: { title: 'Primary' } }),
 			),
-		).resolves.toMatchObject({ title: 'Primary' })
+		).resolves.toStrictEqual({ id: '0198f090-2a50-7000-8000-000000000012' })
 		expect(nestedAccessMode).toBe('master')
 		expect(auditReasons).toStrictEqual([
 			'Schema command create-one on AutomaticTransactionArticle',

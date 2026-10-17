@@ -25,7 +25,8 @@ import {
 } from '@ultimabase/core/plugin'
 
 // ADR-0306: mutation results obey the row read rules, like PostgreSQL's
-// RETURNING under row-level security.
+// RETURNING under row-level security. Without `select`, a write returns `{ id }`
+// and skips the check (ADR-0341), so these calls select more on purpose.
 const App = UltimaBase.use(
 	softDeletePlugin(),
 	accessPlugin({ allowWithoutRule: { all: true } }),
@@ -113,6 +114,8 @@ const unreadable = {
 		'The ReadableNote result is not readable by the caller: request select: { id: true } or review the ReadableNote read rule.',
 }
 
+const title = { title: true } as const
+
 const titles = async (prefix: string): Promise<readonly string[]> =>
 	(
 		await Note.findMany(
@@ -159,13 +162,17 @@ afterAll(async () => {
 describe('mutation results obey row read rules (ADR-0306)', () => {
 	it('rejects and rolls back an unreadable create, update and upsert', async () => {
 		await expect(
-			Note.createOne({ data: { title: 'create-hidden', visible: false } }),
+			Note.createOne({
+				data: { title: 'create-hidden', visible: false },
+				select: title,
+			}),
 		).rejects.toMatchObject(unreadable)
 		const visible = await Note.createOne({ data: { title: 'update-visible' } })
 		await expect(
 			Note.updateOne({
 				where: { id: { eq: visible.id } },
 				data: { title: 'update-hidden', visible: false },
+				select: title,
 			}),
 		).rejects.toMatchObject(unreadable)
 		await expect(
@@ -173,6 +180,7 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 				where: { id: { eq: '0199c2d0-0000-7000-8000-0000000000ff' } },
 				create: { title: 'upsert-hidden', visible: false },
 				update: { title: 'upsert-hidden' },
+				select: title,
 			}),
 		).rejects.toMatchObject(unreadable)
 
@@ -206,10 +214,10 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		})
 
 		await expect(
-			Note.deleteOne({ where: { id: { eq: shown.id } } }),
+			Note.deleteOne({ where: { id: { eq: shown.id } }, select: title }),
 		).resolves.toMatchObject({ title: 'delete-shown' })
 		await expect(
-			Note.deleteOne({ where: { id: { eq: hidden.id } } }),
+			Note.deleteOne({ where: { id: { eq: hidden.id } }, select: title }),
 		).rejects.toMatchObject(unreadable)
 		await expect(titles('delete-hidden')).resolves.toStrictEqual([
 			'delete-hidden',
@@ -226,6 +234,7 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		await expect(
 			Note.createMany({
 				data: [{ title: 'many-a' }, { title: 'many-b', visible: false }],
+				select: title,
 			}),
 		).rejects.toMatchObject(unreadable)
 		await expect(titles('many-')).resolves.toStrictEqual([])
@@ -261,16 +270,25 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 	it('lets Master read back any result', async () => {
 		await expect(
 			Note.createOne(
-				{ data: { title: 'master-hidden', visible: false } },
+				{
+					data: { title: 'master-hidden', visible: false },
+					select: { title: true, visible: true },
+				},
 				master,
 			),
 		).resolves.toMatchObject({ title: 'master-hidden', visible: false })
 	})
 
-	it('serves a write-only schema through select: { id: true } only', async () => {
+	it('serves a write-only schema through { id } only', async () => {
+		await expect(
+			Secret.createOne({
+				data: { body: 'write-only' },
+				select: { body: true },
+			}),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			Secret.createOne({ data: { body: 'write-only' } }),
-		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		).resolves.toStrictEqual({ id: expect.any(String) as unknown })
 		await expect(
 			Secret.createOne({ data: { body: 'write-only' }, select: { id: true } }),
 		).resolves.toHaveProperty('id')
@@ -286,14 +304,16 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		})
 		// Readable before: the logical delete answers with the written row,
 		// and field rules still mask `secret`.
+		// `select: {}` asks for every field the caller may read, like a read.
 		const deleted = await Archived.deleteOne({
 			where: { id: { eq: shown.id } },
+			select: {},
 		})
 		expect(deleted).toMatchObject({ isDeleted: true, title: 'archive-shown' })
 		expect(deleted).not.toHaveProperty('secret')
 		// Unreadable before: refused, and nothing is written.
 		await expect(
-			Archived.deleteOne({ where: { id: { eq: hidden.id } } }),
+			Archived.deleteOne({ where: { id: { eq: hidden.id } }, select: title }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			Archived.count(
@@ -303,7 +323,7 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		).resolves.toBe(1)
 
 		const softDeleteRow = (id: string): Promise<unknown> =>
-			Explicit.softDeleteOne({ id })
+			Explicit.softDeleteOne({ id, select: {} })
 		const explicit = await Explicit.createOne({
 			data: { title: 'explicit', secret: 'kept private' },
 		})
@@ -330,8 +350,8 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 				headers: { 'content-type': 'application/json' },
 				method: 'POST',
 			})
-		const refused = await create('')
-		const accepted = await create('?select=id')
+		const refused = await create('?select=body')
+		const accepted = await create('')
 
 		expect(refused.status).toBe(403)
 		expect(accepted.status).toBe(201)

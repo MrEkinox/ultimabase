@@ -74,9 +74,11 @@ it('opens reads but counts, and writes for authenticated callers', async () => {
 	expect(await Draft.findMany()).toStrictEqual([])
 	await expect(Draft.count()).rejects.toMatchObject(denied)
 	await expect(Draft.createOne(draft)).rejects.toMatchObject(denied)
-	expect(await t.as(member, () => Draft.createOne(draft))).toMatchObject({
-		title: 'Notes',
-	})
+	expect(
+		await t.as(member, () =>
+			Draft.createOne({ ...draft, select: { title: true } }),
+		),
+	).toMatchObject({ title: 'Notes' })
 })
 
 it("opens everything with 'development' outside production", async () => {

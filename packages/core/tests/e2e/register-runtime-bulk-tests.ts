@@ -141,6 +141,7 @@ export const registerRuntimeBulkTests = (): void => {
 					tenantId: 'tenant-c',
 				},
 				update: { visits: { increment: 1 } },
+				select: { handle: true, tenantId: true, visits: true },
 			})
 			expect(composite).toMatchObject({
 				handle: 'composite',
@@ -181,6 +182,7 @@ export const registerRuntimeBulkTests = (): void => {
 						where: { email: { eq: email } },
 						create: { email, handle, tenantId: 'tenant-e' },
 						update: { visits: { increment: 1 } },
+						select: { visits: true },
 					})
 				const concurrent = await Promise.all([upsert(), upsert()])
 				expect(concurrent.map(({ visits }) => visits).sort()).toStrictEqual([

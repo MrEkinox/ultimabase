@@ -165,6 +165,7 @@ describe(
 						owner: { connect: owner.id },
 						profile: { name: 'Ada' },
 					},
+					select: { label: true, score: true },
 				})
 
 				expect(created).toMatchObject({ label: 'pending review', score: 1 })
@@ -188,6 +189,7 @@ describe(
 				const updated = await Item.updateOne({
 					where: { id: created.id },
 					data: { score: { increment: 1 } },
+					select: { score: true },
 				})
 
 				expect(updated?.score).toBe(2)

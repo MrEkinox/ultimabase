@@ -88,7 +88,10 @@ describe(
 				// A soft-deleted row leaves the index, so the slug is free again.
 				await UniqueActiveSlug.deleteOne({ where: { id: first.id } })
 				await expect(
-					UniqueActiveSlug.createOne({ data: { slug: 'alpha' } }),
+					UniqueActiveSlug.createOne({
+						data: { slug: 'alpha' },
+						select: { slug: true },
+					}),
 				).resolves.toMatchObject({ slug: 'alpha' })
 				await expect(readPartialIndexes()).resolves.toEqual([
 					expect.stringContaining('WHERE (is_deleted = false)'),
@@ -109,7 +112,10 @@ describe(
 				// Rows outside the new predicate may now repeat a slug.
 				await UniqueActiveLongSlug.createOne({ data: { slug: 'beta' } })
 				await expect(
-					UniqueActiveLongSlug.createOne({ data: { slug: 'beta' } }),
+					UniqueActiveLongSlug.createOne({
+						data: { slug: 'beta' },
+						select: { slug: true },
+					}),
 				).resolves.toMatchObject({ slug: 'beta' })
 			} finally {
 				await ultimabase.dispose()
