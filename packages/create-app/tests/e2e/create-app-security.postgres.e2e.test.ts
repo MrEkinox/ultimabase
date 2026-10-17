@@ -94,7 +94,8 @@ try {
   const bob = await signUp('bob@example.test')
   assert.equal(alice.user.email, 'alice@example.test')
   assert.equal(bob.user.email, 'bob@example.test')
-  assert.deepEqual(await AppUser.findMany(), [])
+  // isSelf denies a caller without a session, like false (ADR-0341).
+  await assert.rejects(AppUser.findMany(), { code: 'PERMISSION_DENIED' })
   await auth.runWithSession(alice.session.token, async () => {
     const users = await AppUser.findMany()
     assert.deepEqual(users.map(user => user.id), [alice.user.id])
