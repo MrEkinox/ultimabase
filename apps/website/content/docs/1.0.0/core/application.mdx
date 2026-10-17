@@ -11,6 +11,8 @@ outcome: Explain how one UltimaBase application is composed, started, used, and 
 releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
+  - examples/plugin-authoring/tests/handles.test.ts
+  - examples/modeling/tests/compile.test.ts
   - examples/modeling/README.md
   - examples/modeling/src/app.ts
   - examples/modeling/src/ultimabase.ts
@@ -143,6 +145,29 @@ environment. Keep credentials server-side; the
 [pre-exposure checklist](/docs/1.0.0/operations/before-exposing-your-application)
 collects the other boundaries to review before accepting public traffic.
 
+A `UltimaBase.use(...)` argument may also be an array of plugins, such as the
+list a preset like `apiServer({ rest: true })` returns: its plugins are
+installed in order at that position, and nested arrays are flattened.
+
+`ultimabase.plugin()` also accepts the stable plugin ID as a string, or a
+factory that names the plugin it creates through a static `pluginId`, such as
+`ultimabase.plugin(validationPlugin)`. `ultimabase.ownsSchema(schema)` compares
+exact object identity: a separately declared schema with the same `className` is
+not owned by the application.
+
+<include cwd meta='title="tests/handles.test.ts"'>
+	../../examples/plugin-authoring/tests/handles.test.ts#schema-handles
+</include>
+
+`pluginPrivileges` accepts `deny` (privileges such as `'authority:elevate'`) and
+`denyClaims` (environment claims such as `'environment:native-code'`) for every
+plugin, and `plugins: { 'community.workflow': { deny, instances: { editorial: {
+deny } } } }` narrows a denial to one plugin or one configured instance; denials add up from the root to the exact instance. Unknown
+privileges, claims, plugin IDs and instance IDs are configuration errors. Every
+denial is reported together in one `PLUGIN_PRIVILEGE_DENIED` before any plugin
+callback runs, and `ultimabase.pluginPrivilegeReport` returns the same report as
+data, without plugin options, credentials or stack traces.
+
 ### Configure Core validation and time
 
 The root `validation` option configures Core's structural Runtime boundary; it
@@ -229,6 +254,17 @@ disposable database; `NODE_ENV=production` defaults to `fail`. For writes and
 query options, continue with [Writing Data](/docs/1.0.0/core/writing-data/create)
 and [Reading Data](/docs/1.0.0/core/reading-data/overview).
 
+`compile()` runs plugin declarations and compiles the schema graph without
+plugin setup, connections or the active-application slot, and the application
+stays `idle`. Its result's `schemas` is the read-only registry, so
+`ultimabase.compile().schemas.get('Book')` is `Book`. After a success, later
+calls return the same result; after a failure, every later call rethrows the
+original error.
+
+<include cwd meta='title="tests/compile.test.ts"'>
+	../../examples/modeling/tests/compile.test.ts#compile
+</include>
+
 ### Register the application
 
 Each application declares itself once in `Register`. Constructing an
@@ -260,6 +296,10 @@ and the fix: a REST surface that exposes no schema or operation, REST routes
 without the HTTP plugin, HTTP routes without a server plugin, and unverified
 public transport protection. Plugin lines start with the plugin package
 name, for example `[@ultimabase/rest-plugin]`.
+
+A logger that throws never fails the work it reports on. Plugins receive the
+same logger, prefixed with their package name, in their setup context, start
+phases and capability factories.
 
 ## Application boundaries
 

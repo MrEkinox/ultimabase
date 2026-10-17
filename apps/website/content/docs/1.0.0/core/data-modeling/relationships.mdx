@@ -15,12 +15,10 @@ sources:
   - examples/modeling/src/orders.ts
   - examples/modeling/tests/relationships.test.ts
   - packages/core/README.md
-  - packages/core/docs/schema.md
+  - packages/core/src/schema/index.ts
   - packages/core/src/schema/relations/pointer.ts
   - packages/core/src/schema/relations/mutation.ts
   - packages/postgres-plugin/src/drizzle/relation-executor.ts
-  - packages/core/examples/schema/pointers.md
-  - packages/core/examples/schema/relations.md
   - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0118-transport-neutral-relations.md
   - docs/adr/0314-pointers-created-by-their-schema.md
@@ -180,6 +178,16 @@ role, position, status, or creation time.
 	Choose either an owning relation or an inverse `mappedBy` relation for an
 	edge. Do not mirror both sides with separately writable relation sets.
 </Callout>
+
+Compilation rejects, before any database connection, an inverse whose `mappedBy`
+names a missing field or a field that is not a pointer or owning relation
+targeting this schema, an inverse that maps itself or another inverse, two
+inverses mapping the same field, and one owning relation definition reused by
+two fields. The error names the source schema and field.
+
+Deleting a record removes its relation memberships on both sides but never
+deletes the related records. Connecting a target that is already a member
+changes nothing: a membership exists at most once.
 
 ## Read through a relation
 

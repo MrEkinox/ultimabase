@@ -19,10 +19,6 @@ const exemptDocuments = new Map<string, string>([
 		'apps/website/content/docs/1.0.0/plugins/official/postgresql-vector.mdx',
 		'pg-vector is unfinished: its page waits for the plugin (ADR-0330)',
 	],
-	[
-		'packages/pg-vector-plugin/README.md',
-		'pg-vector is unfinished: its README waits for the plugin (ADR-0330)',
-	],
 ])
 
 const documents = listDocumentationFiles().map((file) => ({

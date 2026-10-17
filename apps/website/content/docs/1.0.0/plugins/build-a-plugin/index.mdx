@@ -27,7 +27,7 @@ sources:
   - docs/adr/0316-plugin-facade-and-projection-slots.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
   - packages/testing/README.md
-  - docs/concepts/open-plugin-authoring.md
+  - tests/e2e/fixtures/open-kernel-workflow.ts
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
@@ -124,6 +124,11 @@ its value:
 [Features and Rules](/docs/1.0.0/plugins/build-a-plugin/features-and-rules)
 explains which of the two an option should be.
 
+If your package compiles with `isolatedDeclarations`, annotate the factory's
+return type as `DefinedPlugin<Name, Features, Rules>` and each feature as
+`FeatureDefinition<Options, Fields, Commands>`, both from
+`@ultimabase/plugin-kit`.
+
 ### Install it in an application
 
 The definition enters one application's `.use()` chain. A schema then sets
@@ -145,6 +150,15 @@ grants one by a rule of the same name, Master always holds it, and the plugin
 asks for it during a request with
 `holdsSchemaPermission(context, schema, 'readArchived')` from
 `@ultimabase/core/plugin`.
+
+`feature()` takes `options`, `fields`, `commands`, `permissions` and `requires`.
+With an `options` validator, the key also accepts a static options object,
+validated when the application compiles (`true` is validated as `{}`).
+`command()` takes `authority`, `effect`, `data`, `target` and `checkReadable`:
+`effect: 'delete'` requires `authority: 'master'`, and a command returns
+`{ id }` unless the call selects more. Set `checkReadable: 'before'` on a
+command that hides its row, so that a wider selection is checked against the row
+as it was.
 
 ### Test it with `testApplication`
 
@@ -248,6 +262,12 @@ Core fails when the application is constructed, before any effect, with
 <include cwd meta='title="tests/schema-misuse.test.ts"'>
 	../../examples/plugin-authoring/tests/schema-misuse.test.ts#core-range
 </include>
+
+`definePlugin` and `defineOperation` take no `core` key: they declare the Core
+range of the installed Plugin Kit, so upgrade Plugin Kit together with Core; a
+mismatch fails with `PLUGIN_PROTOCOL_INCOMPATIBLE`. Command names are derived
+from the package name, the feature and the command, such as
+`example.archive-plugin.archivable.archive-one` for `@example/archive-plugin`.
 
 ## Next steps
 

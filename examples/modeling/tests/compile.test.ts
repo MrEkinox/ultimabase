@@ -3,8 +3,8 @@ import { expect, it } from 'vitest'
 import { Book } from '../src/catalog.ts'
 import { ultimabase } from '../src/ultimabase.ts'
 
-// This region is shown in the Core README; the assertions after it prove what
-// the README says about compilation.
+// This region is shown on the Application page; the assertions after it prove
+// what the page says about compilation.
 
 it('compiles the schema graph without starting anything', () => {
 	//#region compile

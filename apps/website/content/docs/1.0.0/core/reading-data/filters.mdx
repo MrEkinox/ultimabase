@@ -13,7 +13,7 @@ sources:
   - examples/queries/src/reads.ts
   - examples/queries/tests/filters.test.ts
   - packages/core/README.md
-  - packages/core/docs/query.md
+  - packages/core/src/query/index.ts
   - packages/core/src/query/filters
   - docs/adr/0143-canonical-object-where-inputs.md
   - docs/adr/0157-explicit-relation-emptiness-filters.md
@@ -96,6 +96,9 @@ groups, alternation, and the quantifiers `* + ? {m} {m,} {m,n}`, with the flags
 lookaround, named groups, Unicode properties, lazy quantifiers and other
 escapes are rejected with `VALIDATION_ERROR` before the database runs.
 
+`contains`, `startsWith` and `endsWith` match the text literally: `%` and `_`
+are ordinary characters, not SQL wildcards. Use `matches` for patterns.
+
 ## Operators the database runs
 
 Each database adapter declares the operators it executes for each field kind.
@@ -118,6 +121,8 @@ with `contact.email`:
 Each `at` path is an array of segments, not a dotted string. Typed object
 paths and operands follow the declared shape; JSON paths are dynamic. See [Embedded Objects](/docs/1.0.0/core/data-modeling/embedded-objects) for
 how nested values are declared.
+
+A path cannot traverse a list field.
 
 ## Pointers and relations
 

@@ -375,6 +375,9 @@ and nothing is written. An exposed mutation that Access denies answers
 	../../examples/graphql/tests/mutations.test.ts#exposed-not-granted
 </include>
 
+Upsert and bulk inputs are flat: they omit pointer and relation fields, so link
+rows with singular `createPost` or `updatePost`.
+
 ### Plugin and custom root fields
 
 The tables cover generated schema operations, not a universal list for every
@@ -439,6 +442,9 @@ the GraphQL plugin's deterministic schema, then releases its resources:
 
 For graphql-codegen or gql.tada, `graphqlPlugin({ sdl: './schema.graphql' })`
 writes the same SDL to that file each time the application starts.
+
+An operation that declares no input or output schema takes and returns `JSON`.
+One whose input is `null` takes no argument.
 
 ### GraphQL without HTTP
 
@@ -538,6 +544,12 @@ Each post carries its author (`null` when unset) and its last comment, with
 in application code, for example `todo.relation('tags').findMany()` in a
 loop, stays one query per row.
 
+`limits` defaults to `maxDocumentBytes: 102_400`, `maxDocumentTokens: 10_000`,
+`maxDepth: 20`, `maxAliases: 100`, `maxRootFields: 20` and
+`maxVariablesBytes: 1_048_576`; each can be lowered or raised. Documents over
+budget, subscriptions, `@defer`, `@stream`, and cyclic or non-JSON variables are
+rejected before any resolver runs, in direct `execute()` calls as over HTTP.
+
 ### Serve GraphQL over HTTP with Yoga
 
 `@ultimabase/graphql-yoga-plugin` mounts the final schema through the shared
@@ -629,6 +641,10 @@ workers load their own modules without that check. Apollo Sandbox loads an
 unpinned script Apollo publishes without a version, so whatever Apollo serves
 runs in the page: a documented risk, limited by serving explorers in
 development only. Both need network access to their CDN.
+
+`path` moves the explorer route. `environment` overrides the value read from
+`NODE_ENV`, where only `production` counts as production, and
+`logLevel: 'debug'` logs whether the route is served, where, and why.
 
 ## Troubleshooting
 

@@ -17,8 +17,7 @@ is tested with `testApplication`.
 
 The [GraphQL page](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
 and the READMEs of [`graphql-plugin`](../../packages/graphql-plugin/README.md),
-[`graphql-yoga-plugin`](../../packages/graphql-yoga-plugin/README.md),
-[`graphql-http`](../../packages/graphql-http/README.md) and
+[`graphql-yoga-plugin`](../../packages/graphql-yoga-plugin/README.md) and
 [`graphql-explorer-plugin`](../../packages/graphql-explorer-plugin/README.md)
 show this application's code: each block is a `//#region <name>` of these
 files, included by the page and copied into the READMEs by

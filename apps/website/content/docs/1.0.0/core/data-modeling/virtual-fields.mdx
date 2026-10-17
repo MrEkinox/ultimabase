@@ -15,7 +15,6 @@ sources:
   - examples/modeling/src/loyalty.ts
   - examples/modeling/tests/virtual.test.ts
   - packages/core/README.md
-  - packages/core/examples/schema/virtual-fields.md
   - packages/core/src/schema/output/descriptor.ts
   - packages/core/src/runtime/virtual-fields/projection.ts
   - packages/core/src/runtime/virtual-fields/execution.ts
@@ -156,6 +155,10 @@ resolver as a Hook or event handler. An exception from `resolve` fails the
 operation; a value that violates `output` produces a result validation error.
 On a mutation, either failure happens before commit and rolls back the
 transaction.
+
+When a resolver throws, Core lets the batch already started finish, reports the
+failure of the earliest item in result order, and starts no later batch;
+cancellation stops scheduling the same way.
 
 ## Persisted data and types
 

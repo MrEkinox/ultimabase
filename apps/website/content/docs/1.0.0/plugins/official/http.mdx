@@ -106,6 +106,11 @@ managed Hono server; `UltimaBase.use(httpPlugin(http))` installs it alone:
 `requestTimeoutMs` is a whole number of milliseconds from 1 through
 2147483647, the largest delay a JavaScript timer honors.
 
+The request deadline is one abort signal shared by context resolvers, your
+handler, Runtime work, transactions and response completion. If it expires
+before the response completes, HTTP replaces the handler's answer with
+`HTTP_REQUEST_TIMEOUT`.
+
 ## Behavior and limitations
 
 ### Application identity
@@ -174,6 +179,10 @@ Any other handler failure propagates to the server plugin.
 header or credential, whichever transports are installed. Move it with
 `health: { path: '/healthz' }` or remove it with `health: false`.
 
+The cause of a `DEGRADED` answer is logged on the server, never returned. A
+mount at `/` owns every path, so move the health route or set `health: false`
+when you mount one there.
+
 ### Limits and security headers
 
 Request bodies are limited to 1 MiB for every route, counted while the body
@@ -189,6 +198,14 @@ come from the proxy or platform in front of the server.
 <include cwd meta='title="src/http.ts"'>
 	../../examples/http/src/http.ts#security-headers
 </include>
+
+On HTTPS, `Strict-Transport-Security` defaults to
+`max-age=31536000; includeSubDomains`; tune it with
+`hsts: { maxAgeSeconds, includeSubDomains }`. Set `frameOptions` to
+`'SAMEORIGIN'`, or set `frameOptions`, `contentTypeOptions` or `hsts` to `false`
+to drop that one header. A header your handler sets itself wins. HTTPS is
+recognized from the request URL or, behind `trustProxy`, from
+`X-Forwarded-Proto`.
 
 ### Rate limits and proxies
 
@@ -233,11 +250,15 @@ failing store refuses requests rather than letting them through.
 	../../examples/http/src/counters.ts#store
 </include>
 
+A failing store answers `HTTP_INTERNAL_ERROR`: limits never fail open.
+
 ### Access log
 
 `accessLog: true` writes one line per request through the application logger:
 method, path, status, duration and request ID, never bodies, query strings or
 credentials.
+
+Lines are written at `info` level, and headers are never logged.
 
 ### Browser policy
 
@@ -266,6 +287,12 @@ CORS controls browser responses; it is not authentication, authorization, CSRF
 protection, or protection from non-browser clients: a request from another
 origin is still answered, only without the CORS headers its browser needs. A
 wildcard origin is incompatible with credentials and Master transport.
+
+`maxAgeSeconds` (600 by default) sets how long browsers cache a preflight. When
+a mount exists, every method is allowed. `Authorization` is never allowed with
+`origins: '*'`. An accepted preflight is answered before application identity,
+credentials, Master or any route runs. Exactly one layer must own CORS: a route
+response that adds its own CORS headers while `browser` is enabled fails safely.
 
 ### Master
 
@@ -318,6 +345,15 @@ The unknown token answers `401` with
 Password Authentication uses the same mechanism for its sessions and declares
 `AUTH_INVALID_SESSION` (401).
 
+A plugin contributes a resolver with `provideHttpContextResolvers()` and
+`httpContextResolver({ errors, validateBrowserPolicy, resolve })`. `resolve`
+receives the anonymous context, the client address, the effective browser policy
+and a credential-only view of the request, and returns `context.withValue(...)`.
+Resolvers run in plugin order, never see the Master key, and cannot change
+request identity or authority; Master verification runs after them.
+`validateBrowserPolicy` checks the effective policy once, before the application
+serves a request.
+
 ### Test without a server
 
 <include cwd meta='title="tests/routes.test.ts"'>
@@ -360,6 +396,13 @@ tool setup.
 
 ETag, OpenTelemetry tracing, connection takeover for realtime plugins and
 `multipart` bodies are not provided yet.
+
+Also provide `httpServerCapability` with your package name
+(`{ name: '@acme/server-plugin' }`); otherwise `httpPlugin()` logs a warning
+that its routes have no server. Keep one optional `HttpApplication` owner: a
+second application is rejected before your listener changes.
+`HttpServerOwnership` names the two listener modes, framework-owned (drained and
+closed on stop) and external (left to the developer).
 
 ## Troubleshooting
 

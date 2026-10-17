@@ -46,7 +46,6 @@ sources:
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
   - docs/adr/0339-define-describes-with-configures.md
-  - docs/adr/0341-write-results-and-refusals.md
 ---
 
 ## Overview
@@ -201,6 +200,8 @@ server code manages, that line is
 An opening of `write` is an explicit policy: Access is installed, so public
 transports never ask for a separate acknowledgment of public writes.
 
+An unknown `allowWithoutRule` key fails when the application compiles.
+
 ### Detailed mutations: `where` and `item`
 
 A mutation can also take `{ where, item }`, and both members are required.
@@ -344,6 +345,12 @@ each child's own Access policy. See [Related Data](/docs/1.0.0/core/reading-data
 and [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes) for those
 operations.
 
+In a nested write, the source relation's `access.write` runs before any child
+Hook or write. It receives the immutable `create`, `connect`, `update`,
+`disconnect` and `set` changes in command order; a `create` carries the reserved
+target Pointer, and `set: []` carries an empty collection. Each child then runs
+its own complete Access policy as an ordinary `createOne` or `updateOne`.
+
 ### Plugin commands, plugin permissions and policy composition
 
 A plugin-owned request command, such as [Soft Delete](./soft-delete)'s
@@ -386,6 +393,20 @@ intersect. A provider cannot turn a denial into a grant. [Object ACLs](./acl-per
 use Core's independent protected-policy boundary and compose with Access
 without depending on it. Authentication and role membership supply facts for
 rules; they do not authorize an operation by themselves.
+
+A plugin contributes official Access rules with `provideAccessContributions(id,
+() => schemaAccess(Post, { … }))`, using `globalAccess`, `schemaAccess`,
+`fieldAccess`, or `fieldKindAccess` with `defineFieldKindAccessTarget` for a
+field kind the plugin owns. It declares `@ultimabase/access-plugin` as a peer
+and may appear before or after `accessPlugin()`. Contributed rules can only
+narrow the developer's rules and share the same Master bypass. They execute
+under the contributing plugin's identity, so a rule that starts its own Master
+elevation needs `authority:elevate`.
+
+To test such a provider, make it the `subject` of
+`createPluginConformanceFixture()` from `@ultimabase/testing/plugins`, install
+`accessPlugin()` and a database plugin as `supportPlugins`, then check the row
+filters it produces and that it never widens a denial.
 
 ### Mutation results obey read rules
 
@@ -458,6 +479,11 @@ rule that denied, for example
 exists. The line is `info` outside production and `debug` in production;
 clients receive the same `PERMISSION_DENIED` as before. `ultimabase.can()`
 answers are not logged.
+
+A plugin that requests `runtime:observe` can provide
+`accessDiagnosticsObserverCapability` to receive immutable, redacted events when
+policy callbacks complete. Observer failures are isolated and never change a
+policy outcome.
 
 ### Which refusal a client receives
 

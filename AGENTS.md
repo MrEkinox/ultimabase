@@ -23,7 +23,7 @@ validated by the user.
    change GitHub state without explicit user confirmation.
 2. Work on a focused branch; isolate parallel work in its own `git worktree`.
 3. Read the [architecture index](docs/current-architecture.md#task-routing),
-   then the contracts, package READMEs, accepted ADRs and
+   then the contracts, website pages, accepted ADRs and
    [domain rules](docs/engineering/agent-domain-rules.md) it routes to.
    Read `ARCHITECTURE.md` fully only for cross-domain redesign.
 4. For multi-session work, keep a handoff under `docs/handoff/` (scope, proof
@@ -113,8 +113,11 @@ Proposed directions live in [ROADMAP.md](ROADMAP.md).
   `both`, and explain `none`.
 - Public behavior, exports, configuration, examples, errors and security
   changes update `apps/website/content/docs` in the same change (check page
-  `sources` and `apps/website/content/documentation-ownership.json`) and the
-  package README.
+  `sources` and `apps/website/content/documentation-ownership.json`). The
+  website is the single documentation source
+  ([ADR-0343](docs/adr/0343-website-is-the-single-documentation-source.md)):
+  a package README changes only when its purpose, installation, peer
+  dependencies or single example change.
 - Architecture, dependency, storage, API and security decisions get an ADR.
   Supersede ADRs; never rewrite accepted history.
 

@@ -18,7 +18,7 @@ sources:
   - examples/queries/tests/master-audit.test.ts
   - examples/http/src/ultimabase.ts
   - packages/core/README.md
-  - packages/core/docs/runtime.md
+  - packages/core/src/runtime/index.ts
   - packages/access-plugin/README.md
   - packages/postgres-plugin/README.md
   - docs/adr/0206-application-owned-master-provenance.md
@@ -121,6 +121,13 @@ authority may verify and audit the raw key. A client-supplied `useMasterKey`
 flag, shaped context, foreign grant, or alternative header cannot select
 Master. See [HTTP](/docs/1.0.0/plugins/official/http) for that
 separate transport setup.
+
+You can pass a trusted `context` together with `useMasterKey: true` in the same
+options: the supplied context is elevated and keeps its typed request values and
+principal; only its authority changes. Operations that run inside a request that
+is already Master, such as nested writes, Hooks or a `transaction()` callback,
+inherit that authority without a new elevation, so `onUse` runs once per
+elevation.
 
 ## Know what Master bypasses
 

@@ -8,6 +8,7 @@ outcome: Declare executable plugin behavior and choose its exact public transpor
 releaseStatus: pre-release
 reviewedAt: 2026-10-17
 sources:
+  - examples/plugin-authoring/tests/handles.test.ts
   - examples/plugin-authoring/README.md
   - examples/plugin-authoring/src/workflow/operations.ts
   - examples/plugin-authoring/src/workflow/graphql-binding.ts
@@ -127,6 +128,26 @@ installed operation's source definition gives TypeScript its input and result
 types without a generated plugin declaration. The operation remains private
 from every network transport at this point.
 
+`ultimabase.operation(token)` returns a handle: `prepare(input)` validates the
+input without I/O, and `execute(input)` runs it in the active request, enforcing
+cancellation and the token's `transaction` policy, then validates the result.
+Only the `PluginError` codes listed in the token's `errors` reach callers as
+public failures. A code is either dot-namespaced lowercase, such as
+`community.workflow.rejected`, or a constant identifier, such as
+`PASSWORD_AUTH_INVALID_SESSION`.
+
+`transaction` is `'forbidden'`, `'optional'` or `'required'`: Runtime runs the
+operation outside a transaction, in the caller's transaction if there is one, or
+always inside one. `execute` receives the validated `input`, the `target`, the
+immutable request `context`, the request `engine` and the contribution `owner`.
+When the handler owns an application-local resource, pass `create` instead of
+`execute`: it returns `{ execute, dispose? }`, Core calls `dispose` on teardown,
+and a contribution has exactly one of the two.
+
+Do not open another transaction in the handler of a `transaction: 'required'`
+operation: Core already supplies the transactional request engine, and a nested
+explicit transaction fails with `TRANSACTION_ERROR`.
+
 ## Reuse queries and mutate one item
 
 For a reusable query, export an ordinary function that builds an immutable
@@ -218,6 +239,15 @@ still owns scalar wrappers, IDs, command allowlists, and transport errors. Pass
 the result to the ordinary schema-mutation normalizer; this helper neither
 validates the complete command nor executes it.
 
+A transport that paginates uses Core's cursor encoder from
+`@ultimabase/core/plugin`, the one REST and GraphQL share.
+`encodeQueryCursor(schema, orderBy, row)` turns a returned row's position into
+an opaque base64url string of at most 4096 characters, and
+`decodeQueryCursor(schema, orderBy, cursor)` turns it back into the `after`
+position for a read with the same schema and ordering. A malformed or mismatched
+cursor fails with the `after` `VALIDATION_ERROR`. Cursors are unsigned because a
+position grants nothing, so they stay valid across restarts and instances.
+
 ## Expose behavior through GraphQL
 
 ### Bind an existing operation
@@ -306,6 +336,13 @@ overwriting another contribution. For data operations, prefer the owned
 operation and binding path above instead of reaching into Core Runtime from a
 resolver.
 
+To write another GraphQL HTTP adapter, provide `graphqlHttpEndpointCapability`
+from `@ultimabase/graphql-http` with its absolute `path`, and
+`graphqlIntrospectionCapability` only while introspection is enabled. Validate
+documents with the GraphQL plugin's `validationRules` export. Browser tools
+require these capabilities instead of importing an adapter, and a second
+endpoint provider fails at startup, so a tool never chooses between endpoints.
+
 ### Expose a schema mutation
 
 Use `defineSchemaMutation()` when the command acts on one persisted schema
@@ -337,6 +374,22 @@ works the same way once `Post` names `archiveOne` for both transports:
 
 REST answers `200` with the archived row in `result`, GraphQL with
 `{ archiveOnePost: { id } }`; `archiveMany` stays off both transports.
+
+`defineSchemaMutation()` fixes the command's `name` and `version`, its `authority` (`'request'`, ruled by policies under the command's name, or `'master'`), its `effect` (`'update'` or `'delete'`), its `input` contract and optional `errors`, whether it returns the row `'before'` or `'after'` the change (`returning`, and `checkReadable` for the readable-result check), and its `target`: `'one'` by `id` (the default) or `'many'` by `where`. `select` names, with `true`, the stored scalar, object or pointer fields loaded privately for the resolver; `id` is always included, and virtual, relation or unknown fields fail before setup.
+`contributeSchemaMutation()` supplies `resolve`, or `create` for a resolver that
+needs an application-lifetime resource. The resolver receives immutable `context`, `input`, `originalItem` and `target`, never the adapter, transaction control or authority, and returns the update for an update effect (nothing for a delete), such as
+`{ data: { workflowState: 'archived' } }`; an effect may write `null` to clear
+an optional field it owns. A delete effect runs only with Master authority, and
+calling the command on an application that does not install it fails.
+
+A schema mutation declared with `target: 'many'` takes `{ where }` instead of `{
+id }`. In one transaction, Core finds the rows the caller may target, then runs
+the one-row pipeline for each in identifier order, so Access, Hooks and
+readable-result checks apply per row and one refusal rolls back all of them.
+Many-row mutations have no transport binding yet. If an effect's write collides
+with a unique index, the call fails with `UNIQUE_VIOLATION` (`Cannot run
+
+<command> on <Schema> <id>: <fields> is now used by another row.`).
 
 ## REST and HTTP are separate choices
 
@@ -391,6 +444,42 @@ Transport exposure is not authorization. Check Access, ACL, request identity
 and browser policy for the actual public route; REST and GraphQL refuse to
 start with public writes and no policy plugin unless `publicWrites` opts in. See the official [REST](/docs/1.0.0/plugins/official/rest)
 and [HTTP](/docs/1.0.0/plugins/official/http) guides for complete application configuration.
+
+`provideHttpEndpoints()` also accepts `httpMount({ path, protocol, handle })`,
+which owns every path below `path`; routes and mounts both accept `bodyLimit`
+and `rateLimit`. A malformed route key or a missing handler fails when the
+plugin is created. Overlapping mounts, or a route under a mount, fail at startup
+like a route collision, before any listener opens. Each handler runs under its
+contributing plugin's identity, never the HTTP plugin's.
+
+### Build a custom transport
+
+A custom transport requires `applicationRequestExecutionCapability` and reads it
+only inside its application capability factory, wrapping later route callbacks
+in `callbacks.runPlugin(owner, …)`. The facade creates contexts with
+`createAnonymousContext({ requestId, source })` and runs work with
+`runWithContext(context, fn)`. `executeRead(context, operation)` runs a
+normalized read, and `executeMutation(context, schema, request)` runs only
+schema create, update, delete, upsert and bulk commands. `verifyMasterKey({
+context, rawKey, reason })` requires `authority:elevate` and returns a Master
+context, never the key. Read `hasProtectedPolicy()` to refuse public writes
+without a policy. The facade works only after the application has started and
+stops working on stop or disposal, and a context from another application fails
+before any work.
+
+`public.name` must be a camelCase identifier unique in the application. Without
+a binding for a protocol, the wire value goes to the operation's own input
+contract, and a rejection is a `VALIDATION_ERROR` with one issue at `['input']`.
+A transport that builds its schema before startup requires
+`applicationOperationTransportPlanningCapability`: `plan({ transport })` lists
+every public operation in public-name order, and `planSchemaMutations({
+transport })` lists schema mutations (with `bindings: 'optional'`, also the
+one-row request commands that have no binding, never Master-only or many-row
+ones). `ultimabase.exposeOperations({ transport, operations })` selects the exact operations one transport may execute.
+
+<include cwd meta='title="tests/handles.test.ts"'>
+	../../examples/plugin-authoring/tests/handles.test.ts#expose-operations
+</include>
 
 ## Schema-derived operation inputs
 

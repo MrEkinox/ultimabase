@@ -13,8 +13,7 @@ sources:
   - examples/modeling/src/orders.ts
   - examples/modeling/tests/defaults.test.ts
   - packages/core/README.md
-  - packages/core/docs/schema.md
-  - packages/core/examples/schema/field-options.md
+  - packages/core/src/schema/index.ts
   - packages/core/src/runtime/validation/runtime-validation.ts
   - docs/adr/0038-static-and-runtime-field-defaults.md
   - docs/adr/0133-canonical-null-for-optional-fields.md
@@ -122,6 +121,10 @@ synchronization fails and names the column: fill those rows, or declare
 	Schema defaults are application values or application factories. Database-side
 	expressions belong to database-specific migration or adapter configuration.
 </Callout>
+
+Each operation reads its clock once: every `autoNow` value and the `createdAt`
+and `updatedAt` timestamps it writes share that instant, including all items of
+a `createMany` or another bulk command.
 
 ## Updates and selections
 

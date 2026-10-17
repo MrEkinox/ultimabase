@@ -14,7 +14,7 @@ sources:
   - examples/queries/tests/relations.test.ts
   - examples/queries/tests/filters.test.ts
   - packages/core/README.md
-  - packages/core/docs/query.md
+  - packages/core/src/query/index.ts
   - packages/core/src/schema/fields/builtins/relation.ts
   - packages/core/src/schema/schema/relation-rules.ts
   - docs/adr/0154-unified-eager-relationship-inclusion.md
@@ -122,6 +122,15 @@ Every predicate observes the same visible universe: physical membership, the
 field's declared filter, target policies and constraints, then the caller's
 predicate. Hidden targets are not counted.
 
+`count` accepts `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`
+and `notBetween`; several comparisons in one `count` all apply to the same
+count.
+
+One operation may contain at most 64 relation predicates, including those added
+by declared relation filters and installed policies; Core rejects a larger
+filter before any database work. Predicates that declared filters expand also
+count toward the nesting depth.
+
 ## Declared relation filters
 
 A relation may declare one static target filter, such as
@@ -162,3 +171,9 @@ applies to eager inclusion, relation predicates, counts, and reads
 through REST or GraphQL. Test both request contexts against those paths when
 you use a contextual relation. Protect the target schema separately with an
 authorization policy: a relation filter is not a permission check.
+
+`.with` checks `relations` immediately: a key that is not a relation field of
+the schema, an unknown rule key or a malformed filter throws when `.with` runs,
+and a schema without relation fields has no `relations` key. Type a rule you
+declare as a constant with `RelationRule<typeof Comment>`. A relation added by a
+plugin schema patch cannot be filtered this way.

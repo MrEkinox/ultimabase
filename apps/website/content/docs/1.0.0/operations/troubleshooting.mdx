@@ -103,6 +103,12 @@ those repository commands are not application setup steps.
 Never disable validation, Hooks, authorization, or privilege checks as a
 recovery step.
 
+`PLUGIN_DECLARATION_INVALID` keeps the original error as its `cause` and names
+the plugin owner, the contribution and the path. No partial set of plugin
+schemas is published, and the failure is permanent for that application
+instance: `compile()`, `initialize()` and `start()` fail again, so fix the
+declaration and construct a new application.
+
 ### Escalate
 
 Reduce the failure to the smallest graph of schemas and plugins that still

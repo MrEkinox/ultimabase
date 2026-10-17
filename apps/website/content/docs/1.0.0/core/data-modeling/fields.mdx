@@ -18,10 +18,10 @@ sources:
   - examples/modeling/src/orders.ts
   - examples/modeling/tests/fields.test.ts
   - packages/core/README.md
-  - packages/core/docs/schema.md
+  - packages/core/src/schema/index.ts
   - packages/core/src/schema/schema/field-builder-contract.ts
-  - packages/core/examples/schema/field-options.md
-  - packages/core/examples/schema/virtual-fields.md
+  - examples/modeling/tests/defaults.test.ts
+  - examples/modeling/tests/virtual.test.ts
   - packages/core/src/schema/fields/builtins/enum.ts
   - packages/core/src/schema/fields/builtins/shared-enum.ts
   - docs/adr/0310-plain-data-results-and-named-types.md
@@ -122,6 +122,15 @@ controls automatic calendar and zone-less values; it does not relax a field's
 required input format. See [Application](/docs/1.0.0/core/application#configure-core-validation-and-time)
 for that setting and [Defaults and Nullability](./defaults) for `autoNow`.
 
+A `decimal` declaration needs a positive safe integer `precision` and a
+non-negative safe integer `scale` no greater than `precision`; any other
+declaration fails when the schema is defined. A decimal value cannot use leading
+zeroes, such as `'007.5'`, or a negative zero, such as `'-0.00'`.
+
+A `json` document is copied and deeply frozen; `undefined`, `Date`, `bigint`,
+functions and circular references inside it are rejected. A Node.js `Buffer` is
+a valid `binary` value, since it extends `Uint8Array`.
+
 ## Common options and validation
 
 Stored value fields share several options:
@@ -149,6 +158,14 @@ through the optional [Validation plugin](/docs/1.0.0/plugins/official/validation
 option or combination fails during declaration or application compilation;
 invalid input values fail when an operation runs. For create-input and
 persisted-value details, see [Defaults and Nullability](./defaults).
+
+Field names cannot reuse a system field (`id`, `createdAt`, `updatedAt`), a filter keyword (`AND`, `OR`, `NOT`) or a model capability (`create`, `delete`, `get`, `relation`, `then`, `toJSON`, `update`, `upsert`). TypeScript reports the conflict in `define`, and compilation rejects it in field maps built dynamically and in plugin-added fields.
+
+A field factory rejects a Core option that its field kind does not support as
+soon as you call it. Any other option on a field, such as `validation` or
+`postgres`, must belong to exactly one installed plugin when the application
+compiles: an option whose plugin is not installed, or that several installed
+plugins could own, fails compilation before plugin setup.
 
 ## Enums
 
@@ -187,6 +204,9 @@ type FavoriteGenres = Model<'Customer'>['favoriteGenres']
 Two different shared enums with the same name fail when the application is
 constructed. The object-mapping form, TypeScript `enum` objects, and the
 `typeName` option are not accepted.
+
+The values must be a non-empty list of distinct strings, and a static `default`
+must be one of them.
 
 ## Virtual results
 

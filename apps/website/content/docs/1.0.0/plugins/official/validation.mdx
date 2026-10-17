@@ -168,6 +168,10 @@ holds its locks. Uniqueness belongs to a unique index, not to a validator.
 Master mutations take the same validation path; Master bypasses
 authorization, not validation.
 
+This projection applies to integer, bigint, float and decimal arithmetic. When
+an operation has no prepared target from which to project the complete value, a
+validated field updated by arithmetic is rejected rather than stored unchecked.
+
 ### Schema checks
 
 A schema check is a function on the complete item, as in `Event`, returning

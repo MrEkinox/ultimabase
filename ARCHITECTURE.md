@@ -525,23 +525,10 @@ that frozen tests deep-import, and the 16 published runtime dependencies.
 
 Core accepts schema and field options only when an installed plugin contributes
 their typed contracts to the compiled application graph. For example, `access`
-is recognized only when `accessPlugin()` contributes its option definitions:
-
-```ts
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
-
-const App = UltimaBase.use(accessPlugin())
-
-const Post = App.Schema.define({
-	className: 'Post',
-	fields: (field) => ({
-		title: field.string(),
-	}),
-}).with({ access: { read: true } })
-
-const ultimabase = new App({ schemas: [Post] })
-```
+in `.with({ ... })` is recognized only when `accessPlugin()` contributes its
+option definitions; the
+[Using Plugins page](apps/website/content/docs/1.0.0/plugins/using-plugins.mdx#use-the-plugin-options)
+shows the authoring form.
 
 Each used direct option resolves against one exact definition contributed by an
 installed plugin without exposing that plugin's implementation to Schema.
@@ -624,12 +611,9 @@ predicate AST, target Access, and an adapter-owned singular relation query.
 
 ## Plugins
 
-Plugins form one deterministic flat graph. The immutable configured factory is
-the sole installation path:
-
-```ts
-const Api = UltimaBase.use(graphqlYogaPlugin()).use(graphqlExplorerPlugin())
-```
+Plugins form one deterministic flat graph. The immutable configured factory,
+`UltimaBase.use(...)` chained once per plugin, is the sole installation path
+([Using Plugins](apps/website/content/docs/1.0.0/plugins/using-plugins.mdx#add-the-plugins-to-the-factory)).
 
 Plugin definitions never contain nested plugins. Dependencies determine setup
 order, then `.use()` position breaks ties. Teardown uses the reverse order.
@@ -914,7 +898,8 @@ unmatched columns and private/orphaned storage for explicit external review.
 ## Further reading
 
 - [`docs/adr/`](docs/adr/README.md): decision records, which remain in force.
-- [`docs/concepts/`](docs/concepts/README.md): detailed contracts.
+- [Website documentation](apps/website/content/docs/1.0.0/index.mdx): the
+  single source for user-facing behaviour, options and examples (ADR-0343).
 - [`docs/rebuild/DIFFERENCES.md`](docs/rebuild/DIFFERENCES.md): deliberate
   observable differences from the reference implementation.
 - [`tooling/dx-audit/`](tooling/dx-audit/README.md): the editor-visible audit

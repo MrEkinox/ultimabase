@@ -11,7 +11,7 @@ reviewedAt: 2026-10-14
 sources:
   - examples/queries/src/reads.ts
   - examples/queries/tests/pagination.test.ts
-  - packages/core/docs/query.md
+  - packages/core/src/query/index.ts
   - packages/core/src/query/query/input.ts
   - packages/core/src/query/clauses/ordering.ts
   - packages/core/src/query/clauses/pagination.ts
@@ -61,6 +61,10 @@ priority. Core completes every collection order with `id` ascending unless `id`
 is already ordered, so the order is total; without `orderBy` rows come in `id`
 order. Every database adapter sorts `null` last, in ascending and descending
 order alike, and positions follow the same rule.
+
+Strings are ordered and compared (`gt`, `lt`, `between`) by the database
+column's collation, so the order of letters, case and accents depends on how
+the database was created.
 
 A position is an ordinary filter of the caller: each ordered field counts as
 filtered, so ordering by a field the caller may not read or filter fails with

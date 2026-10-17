@@ -110,7 +110,7 @@ The rule applies to every page under `content/docs` (every version folder)
 and to the root, package and example READMEs, found by glob:
 `verified-code.content.test.ts` fails on any unmarked block in any of them.
 The only escape is its `exemptDocuments` list, where each document carries
-its reason (today the unfinished pg-vector page and README); an exemption
+its reason (today the unfinished pg-vector page); an exemption
 fails as soon as its document complies, so the list cannot go stale. The test
 prints the counts of each kind per document set. Package and example READMEs
 copy example regions between `<!-- region <path>#<names> -->` and
@@ -270,6 +270,9 @@ An unavoidable false positive may be listed in
 specific reason. Broad patterns and undocumented suppressions are not accepted.
 The exception is a reviewable escape hatch, not a substitute for clear prose.
 
-Package READMEs, TypeScript declarations, tests, and accepted ADRs remain the
-authoritative contracts. Public pages synthesize those sources for readers;
-they do not replace or silently contradict them.
+The website is the single documentation source for user-facing behaviour
+(ADR-0343). TypeScript declarations, tests, and accepted ADRs remain the
+authoritative contracts; public pages explain them and never silently
+contradict them. A package README is a short entry point: purpose,
+installation with peer dependencies, at most one example region, and links to
+the pages that document the package.
