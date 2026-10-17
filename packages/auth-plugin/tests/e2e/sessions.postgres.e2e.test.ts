@@ -13,11 +13,15 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { UltimaBase } from '@ultimabase/core'
+
 import {
 	authErrorCodes,
 	authOperations,
+	authPlugin,
 	type AuthEvents,
 } from '../../src/index.js'
+import { fakeMethod } from './fake-method.js'
 import {
 	createProbeApplication,
 	type ProbeApplicationOptions,
@@ -294,6 +298,36 @@ describe('session expiry', { concurrent: false }, () => {
 					asUser(token, () => ProbeUser.current()),
 				).rejects.toMatchObject(invalidSession)
 			}
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('refuses misused server helpers and foreign User classes', async () => {
+		const { asUser, auth, signIn, ultimabase } = await start()
+		try {
+			const { session } = await signIn('acct|helpers')
+			const exports = auth()
+			const callUntyped = (name: string, ...args: readonly unknown[]) => {
+				const helper: unknown = Reflect.get(exports, name)
+				if (typeof helper !== 'function') throw new TypeError(`No ${name}`)
+				return Promise.resolve().then((): unknown =>
+					Reflect.apply(helper, exports, args),
+				)
+			}
+			await expect(
+				callUntyped('runWithSession', session.token, 'handler'),
+			).rejects.toThrow('runWithSession handler must be a function')
+			await expect(callUntyped('listSessions', 42)).rejects.toThrow(
+				'auth user must be an id, a model or a pointer',
+			)
+			// Another application's User class is not served by this one.
+			const OtherUser = UltimaBase.use(
+				authPlugin({ methods: [fakeMethod()] }),
+			).UserSchema.define({ className: 'OtherUser' })
+			await expect(
+				asUser(session.token, () => OtherUser.current()),
+			).rejects.toThrow('This User schema is not installed in the application')
 		} finally {
 			await ultimabase.dispose()
 		}

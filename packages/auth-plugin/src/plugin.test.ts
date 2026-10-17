@@ -6,6 +6,12 @@ import { authPlugin } from './plugin.js'
 const method = (name: string) =>
 	defineAuthMethod({ name, contributions: () => [] })
 
+/** Calls a factory with a value its types refuse, as untyped callers can. */
+const callUntyped = (factory: unknown, value: unknown): void => {
+	if (typeof factory !== 'function') throw new TypeError('No factory')
+	Reflect.apply(factory, undefined, [value])
+}
+
 describe('authPlugin options', () => {
 	it('carries its id for ultimabase.plugin(authPlugin)', () => {
 		expect(authPlugin.pluginId).toBe('@ultimabase/auth-plugin')
@@ -43,6 +49,12 @@ describe('authPlugin options', () => {
 		expect(() => authPlugin({ methods, user: 'User' } as never)).toThrow(
 			'authPlugin contains unknown option: user',
 		)
+		expect(() => {
+			callUntyped(authPlugin, { events: 'audit', methods })
+		}).toThrow('authPlugin events must be a plain object')
+		expect(() => {
+			callUntyped(authPlugin, { methods: [null] })
+		}).toThrow('created by an auth method')
 	})
 
 	it('requires cookie mode to declare the HTTP plugin as a peer', () => {
@@ -70,5 +82,8 @@ describe('defineAuthMethod', () => {
 		expect(() =>
 			defineAuthMethod({ name: '', contributions: () => [] }),
 		).toThrow('auth method name')
+		expect(() => {
+			callUntyped(defineAuthMethod, 'password')
+		}).toThrow('auth method must be a plain object')
 	})
 })
