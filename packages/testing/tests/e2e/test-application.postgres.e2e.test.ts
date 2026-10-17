@@ -6,7 +6,7 @@ import {
 	getRequestPrincipal,
 	UltimaBase,
 } from '@ultimabase/core'
-import { runAfterCommit } from '@ultimabase/core/plugin'
+import { openApplicationHarness, runAfterCommit } from '@ultimabase/core/plugin'
 import { testApplication } from '@ultimabase/testing'
 import { waitForAfterCommit } from '@ultimabase/testing/plugins'
 import { ultimabaseTesting } from '@ultimabase/testing/vitest'
@@ -248,6 +248,17 @@ describe('testApplication lifecycle', () => {
 		process.env.VITEST_POOL_ID = poolId
 		await testApplication(ultimabase)
 		expect(ultimabase.state).toBe('started')
+	})
+
+	it('refuses an application harnessed elsewhere and drops the schema it opened', async () => {
+		const { trace, ultimabase } = createApplication()
+		openApplicationHarness(ultimabase)
+		await expect(testApplication(ultimabase)).rejects.toThrow(
+			'This application already has a harness',
+		)
+		expect(ultimabase.state).toBe('idle')
+		expect(trace).toStrictEqual([])
+		expect(await listTestSchemas()).toStrictEqual([])
 	})
 })
 
