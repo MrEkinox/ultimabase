@@ -1,10 +1,10 @@
 # ADR-0341: Write results and refusals a client can act on
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-17
 - Refines: ADR-0306 (readable mutation results), ADR-0324 (operation exposure), ADR-0326 (User creation),
   the HTTP context-resolver records; applies ADR-0288
-- Approval: DX review of 2026-10-16 (`docs/handoff/revue-dx.md` §2.2, §2.4, §3.1, §3.2, §3.4, §6.1), plan item 3
+- Approval: DX review of 2026-10-16 (`docs/handoff/revue-dx.md` §2.2, §2.4, §3.1, §3.2, §3.4, §6.1), plan item 3; accepted by the user on 2026-10-17 with `{ id }` as the default write result
 
 ## Context
 

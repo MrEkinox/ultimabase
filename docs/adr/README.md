@@ -312,7 +312,7 @@ Current records (accepted or still active in part):
 - [ADR-0338: A plugin's Core range is checked](0338-core-range-is-checked.md)
 - [ADR-0339: `define` describes the schema, `.with` configures each plugin](0339-define-describes-with-configures.md)
 - [ADR-0340: Lower what every application pays](0340-what-every-application-pays.md)
-- [ADR-0341: Write results and refusals a client can act on](0341-write-results-and-refusals.md) (proposed)
+- [ADR-0341: Write results and refusals a client can act on](0341-write-results-and-refusals.md)
 
 Proposed records (awaiting user validation):
 
