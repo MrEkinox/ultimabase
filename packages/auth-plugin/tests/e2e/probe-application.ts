@@ -46,7 +46,8 @@ export interface ProbeRequest {
 
 /**
  * Builds one application with the fake and probe methods, a `ProbeUser`
- * with an optional `nickname`, and the HTTP plugin behind one proxy hop.
+ * with optional fields of each kind, a `ProbeNote` it can point to, and the
+ * HTTP plugin behind one proxy hop.
  */
 export const createProbeApplication = (
 	pool: Pool,
@@ -87,11 +88,25 @@ export const createProbeApplication = (
 			...(cookie ? { browser: { credentials, origins: [browserOrigin] } } : {}),
 		}),
 	)
+	const ProbeNote = App.Schema.define({
+		className: 'ProbeNote',
+		fields: (field) => ({ title: field.string() }),
+	})
 	const ProbeUser = App.UserSchema.define({
 		className: 'ProbeUser',
-		fields: (field) => ({ nickname: field.string() }),
+		fields: (field) => ({
+			avatar: field.binary(),
+			handle: field.string({ indexed: 'unique' }),
+			labels: field.string({ list: true }),
+			nickname: field.string(),
+			pinned: field.pointer({ target: () => ProbeNote }),
+			settings: field.json(),
+		}),
 	})
-	const ultimabase = new App({ logger: false, schemas: [ProbeUser] })
+	const ultimabase = new App({
+		logger: false,
+		schemas: [ProbeNote, ProbeUser],
+	})
 	const auth = () => ultimabase.plugin(authPlugin)
 	/** Signs in one fake account, creating its user the first time. */
 	const signIn = (providerUserId: string, email: string | null = null) =>
@@ -121,7 +136,17 @@ export const createProbeApplication = (
 			}),
 		)
 	}
-	return { App, ProbeUser, asUser, auth, run, send, signIn, ultimabase }
+	return {
+		App,
+		ProbeNote,
+		ProbeUser,
+		asUser,
+		auth,
+		run,
+		send,
+		signIn,
+		ultimabase,
+	}
 }
 
 /** Reads one JSON response as unknown data, with its status. */
