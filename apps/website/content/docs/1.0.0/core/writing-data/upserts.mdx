@@ -25,6 +25,7 @@ sources:
   - packages/postgres-plugin/src/drizzle/prepared-operation.ts
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0341-write-results-and-refusals.md
 ---
 
 Use `Post.upsertOne()` when the same unique key should create a record if absent
@@ -47,8 +48,7 @@ On the first call for a slug, the create branch stores `slug` and `title`. On a
 later call with the same slug, the update branch replaces `title` and leaves
 omitted fields unchanged. The result is an immutable `Post` in either case,
 with its `id` plus the selected `slug` and `title`. The selection does not
-change what is persisted. Without `select`, the result is the complete visible
-model.
+change what is persisted. Without `select`, the result is `{ id }`.
 
 For the create branch, Core treats the unique equality in `where` as the
 authoritative identity. It supplies missing target values to the create

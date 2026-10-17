@@ -48,8 +48,8 @@ required `slug` and `title` and an `author` pointer, and an `Author` with
 authority, and metadata; otherwise it opens a fresh anonymous internal
 request. The callback receives no argument.
 Both commands use its one transaction, even though the schema methods do not
-receive a transaction parameter. `Post.createOne()` returns a post in that
-scope; the outer `createPostAndRenameAuthor()` call succeeds only after the
+receive a transaction parameter. `Post.createOne()` returns the new post's
+`{ id }` in that scope; the outer `createPostAndRenameAuthor()` call succeeds only after the
 transaction finishes. If the author update returns `null`, throwing ensures
 the new post is not committed alone. An installed policy or Hook can also
 reject either command and abort both writes.

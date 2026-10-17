@@ -23,6 +23,7 @@ sources:
   - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
+  - docs/adr/0341-write-results-and-refusals.md
 ---
 
 Use `Post.updateOne()` to change one persisted record. The `data` object names
@@ -50,7 +51,9 @@ multi-match filter is not a valid `updateOne` target. Its type is
 If a visible post matches, `renamePost()` returns a new frozen plain result with
 the same `id` and the updated `title`. A result you loaded earlier does not
 change. Other post fields are absent from this selected result, not deleted
-from storage. Without `select`, the command returns the complete visible row.
+from storage. Without `select` or `include`, the command returns `{ id }`; see
+[Create Records](./create#verify-the-result) for the read rules a larger
+selection obeys.
 
 If no visible post matches, `updateOne()` returns `null`. Handle that case
 before reading the result. Results have no `update()` method: to update a row

@@ -97,3 +97,15 @@ reproduced on `main` a85c032e.
 - **Out of scope:** homogeneous validation issue paths, `PublicError` with `issues` and error guards (review §3.3)
   get their own record.
 - **Documentation impact:** both.
+
+## Implementation note: decision 1 (2026-10-17)
+
+- **Only an absent `select` means `{ id }`.** An explicit `select` keeps the read projection grammar of
+  `findOne`: `{}` and an object of `false` flags only (such as `{ title: false }`) ask for every field, or every
+  field but the named ones, the caller may read. They are selections beyond `id`, so ADR-0306 applies. Reads and
+  writes share one grammar; the only write-specific rule is what an absent `select` means.
+- **One mechanism.** Runtime normalizes an absent write `select` to `{ id: true }`, the default `updateMany` and
+  `deleteMany` already used, so the readable-result check skips it as an identifier-only selection. The result
+  types reuse the same default: `id` plus the included fields.
+- **Plugin mutations** (Soft Delete commands and any schema-mutation command) normalize their projection the same
+  way, through the TypeScript handle, REST and GraphQL alike.

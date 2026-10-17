@@ -39,6 +39,7 @@ sources:
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0309-core-cursor-pagination.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0341-write-results-and-refusals.md
 ---
 
 ## Overview
@@ -293,8 +294,9 @@ the scalar fields:
 	../../examples/rest/tests/writes.test.ts#create-post
 </include>
 
-Create answers `201` with `{ "result": … }`; `select` and `include` query
-parameters shape the result as in a read. An update additionally accepts
+Create answers `201` with `{ "result": { "id": … } }`, here with the included
+`tags`: without `?select`, a write answers the identifier alone, and the
+`select` and `include` query parameters ask for more as in a read. An update additionally accepts
 `update` on a pointer, `null` to unlink an optional pointer, `update`,
 `disconnect` and `set` on a relation (`set: []` removes every visible
 member), and `{ "increment": n }` or `{ "decrement": n }` on a number:
@@ -336,10 +338,10 @@ any installed Validation, Access, ACL, and Hooks behavior. A public route is
 not itself a permission rule. A non-empty JSON body must use
 `application/json` and stay within `bodyLimit`.
 
-Mutation results obey the row read rules. A client allowed to write a row it
-cannot read asks for the identifier alone: `?select=id` on create, update and
-delete, or `"select": { "id": true }` in an upsert or bulk body. `Feedback`
-accepts creates and no read:
+`POST`, `PATCH` and `DELETE` without `?select`, and upsert or bulk bodies
+without `"select"`, answer `{ id }`, which needs no read rule. A selection
+beyond `id`, or any `include`, obeys the row read rules. `Feedback` accepts
+creates and no read:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/rest/src/schema.ts#feedback
@@ -349,8 +351,9 @@ accepts creates and no read:
 	../../examples/rest/tests/writes.test.ts#write-only
 </include>
 
-It answers `201` with `{ "result": { "id": "…" } }`. Any other selection of an
-unreadable result fails with `403` and nothing is written.
+It answers `201` with `{ "result": { "id": "…" } }`. Selecting more of an
+unreadable result, such as `?select=message`, fails with `403` and nothing is
+written.
 
 ### Public operations
 

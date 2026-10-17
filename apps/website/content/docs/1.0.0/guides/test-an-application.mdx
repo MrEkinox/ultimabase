@@ -139,7 +139,10 @@ import { ultimabase } from '../src/ultimabase.ts'
 // after-commit work.
 it('creates a Task with its defaults', async () => {
 	await testApplication(ultimabase)
-	const task = await Task.createOne({ data: { title: 'Write the first test' } })
+	const task = await Task.createOne({
+		data: { title: 'Write the first test' },
+		select: { done: true, title: true },
+	})
 	expect(task).toMatchObject({ done: false, title: 'Write the first test' })
 })
 

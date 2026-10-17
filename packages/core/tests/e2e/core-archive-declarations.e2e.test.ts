@@ -335,7 +335,9 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		const bulkUpdated = readFixtureQuickInfo(
 			'bulkUpdated = await BulkAccountSchema',
 		)
-		const create = readFixtureQuickInfo('createOne({ data: allFieldValues })')
+		const create = readFixtureQuickInfo(
+			'createOne({\n\t\t\t\tdata: allFieldValues,',
+		)
 
 		// Local fields come from source; generated declarations still own named relations.
 		for (const result of [created, selected, deleted, bulkUpdated]) {

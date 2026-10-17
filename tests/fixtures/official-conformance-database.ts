@@ -25,6 +25,28 @@ import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filte
 
 const fixedInstant = '2026-08-20T12:00:00.000Z'
 
+/** Answers the selected fields of a created row, as a real adapter does. */
+const selectFields = (
+	operation: DatabaseMutationOperationAst,
+	record: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
+	const selection: unknown = isPlainRecord(operation)
+		? operation.selection
+		: undefined
+	const nodes: unknown = isPlainRecord(selection) ? selection.fields : undefined
+	if (!Array.isArray(nodes) || nodes.length === 0) return record
+	const fields = new Set(
+		nodes.flatMap((node: unknown) =>
+			isPlainRecord(node) && typeof node.field === 'string' ? [node.field] : [],
+		),
+	)
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(record).filter(([field]) => fields.has(field)),
+		),
+	)
+}
+
 /** Supplies deterministic logical rows without reproducing a database engine. */
 export class OfficialConformanceDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
@@ -152,15 +174,12 @@ export class OfficialConformanceDatabase implements DatabaseAdapter {
 						}
 						attempted = true
 						const operation = execution?.operation ?? request.operation
-						const result = this.#createRecord(operation)
+						const current = this.#createRecord(operation)
 						return Promise.resolve({
 							materializations: immutableArray([
-								immutableRecord({
-									current: result,
-									kind: 'create' as const,
-								}),
+								immutableRecord({ current, kind: 'create' as const }),
 							]),
-							result,
+							result: selectFields(operation, current),
 						} as unknown as DatabaseOperationOutcome<TOperation>)
 					},
 				}

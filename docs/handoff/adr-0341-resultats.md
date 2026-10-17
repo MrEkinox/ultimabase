@@ -10,8 +10,13 @@
 
 - [x] Tests rouges : `tests/e2e/write-results.postgres.e2e.test.ts`, conversion de
       `tests/e2e/readable-mutation-results.postgres.e2e.test.ts`, tests de types Core et Soft Delete.
-- [ ] Core (exécution + types), conversions, docs, bench, audit DX, gate.
+- [x] Core (exécution + types) : `normalizeWriteSelection`/`normalizeWriteProjection`
+      (schema-command-execution.ts), `executeSchemaCreateOne`, enveloppes des mutations de plugin ;
+      `SchemaMutationResult` et `PluginSchemaMutationResult` → `id` + champs inclus.
+- [x] Conversions : tests unitaires/e2e, exemples (régions resynchronisées), modèles create-app, landing.
+- [x] Docs : pages Core writing-data, REST, Access, Soft Delete, defaults, guide de test ; READMEs ; ADR-0306/0341.
+- [ ] Bench form D, audit DX, gate complet.
 
 ## Prochaine action vérifiable
 
-`yarn vitest run --project postgres-e2e tests/e2e/write-results.postgres.e2e.test.ts` passe.
+Bench form D (TS 6/7, 50/200) contre une base construite de main a85c032e, puis audit DX et gate.

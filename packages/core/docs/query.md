@@ -332,8 +332,9 @@ or adapter-specific behavior. A schema-root `updateOne` or `deleteOne` returns
 
 ## Mutation results and relationships
 
-`createOne`, `updateOne`, and `deleteOne` return complete immutable models by
-default and accept the same flat boolean `select` contract as schema reads. The
+`createOne`, `updateOne`, and `deleteOne` return `{ id }` by default (ADR-0341)
+and accept the same flat boolean `select` contract as schema reads; `select: {}`
+returns the complete visible model. The
 projection changes only the public result; installed mutation behavior continues
 to receive complete logical materializations. `createOne`, `createMany`,
 `updateOne`, and `updateMany` also accept `include` for transaction-bound

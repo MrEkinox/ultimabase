@@ -22,6 +22,7 @@ sources:
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0332-typed-unique-targets-and-order-keys.md
+  - docs/adr/0341-write-results-and-refusals.md
 ---
 
 Bulk commands execute an ordered list of singular record operations in one
@@ -37,9 +38,9 @@ and `title` fields, no other required fields, and a unique `slug`.
 
 | Command      | Input entries                       | Result without `select`              |
 | ------------ | ----------------------------------- | ------------------------------------ |
-| `createMany` | Create data                         | Complete visible created models      |
+| `createMany` | Create data                         | Models with only `id`                |
 | `updateMany` | `{ where, data }`                   | Models with only `id`                |
-| `upsertMany` | `{ where, create, update }`         | Complete visible result models       |
+| `upsertMany` | `{ where, create, update }`         | Models with only `id`                |
 | `deleteMany` | Unique predicates in `where: [...]` | Models with only `id`, before delete |
 
 Each command accepts one `select` for every result. A selected model still

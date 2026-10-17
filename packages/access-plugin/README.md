@@ -230,9 +230,11 @@ must be visible to the caller as a `one` read under every installed policy;
 `NOT_FOUND` as a missing one (ADR-0308). Rule filter objects accept the
 equality shorthand (`where: () => ({ published: true })`, ADR-0307).
 
-Mutation results obey the row `read` rules (ADR-0306): a write whose result
-the caller cannot read, selected beyond `id`, fails with `PERMISSION_DENIED`
-and rolls back; `select: { id: true }` is always allowed. Rules evaluated for
+A write without `select` returns `{ id }` and needs no `read` rule (ADR-0341);
+a selection beyond `id`, or any `include`, obeys the row `read` rules
+(ADR-0306) and fails with `PERMISSION_DENIED`, rolling back, when the caller
+cannot read the result. An `update` or `delete` allowed on a row that `read`
+hides therefore commits: narrow the write rule when it must not. Rules evaluated for
 `ultimabase.can()` skip field rules: the operation carries no input or
 selection (`readPolicyQuery()` marks it).
 
