@@ -394,7 +394,7 @@ describe('GraphQL surface (ADR-0325)', () => {
 		))({ logger: false, schemas: [] })
 		onTestFinished(() => application.dispose())
 		await expect(application.start()).rejects.toThrow(
-			'graphqlPlugin({ hide }) lists fixture.graphql-surface.ping, which is not a public operation of this application',
+			'graphqlPlugin({ hide }) lists fixture.graphql-surface.ping, which GraphQL does not expose: it is not a public operation, or its owner binds it to other transports only',
 		)
 	})
 })

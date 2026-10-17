@@ -291,21 +291,29 @@ describe(
 			}
 		})
 
-		it('exposes the email operations through REST and typed GraphQL', async () => {
+		it('exposes the email operations under /api/auth and through typed GraphQL', async () => {
 			const { send, ultimabase } = createApplication()
 			const started = await ultimabase.start()
 			try {
+				const routed = await send('/api/auth/request-password-reset', {
+					email: 'nobody@example.test',
+				})
+				expect(await routed.json()).toStrictEqual({
+					result: { accepted: true },
+				})
+				const routedToken = await send('/api/auth/verify-email', {
+					token: 'not a token',
+				})
+				expect(routedToken.status).toBe(400)
+				expect(await routedToken.json()).toMatchObject({
+					error: { code: 'AUTH_INVALID_TOKEN' },
+				})
+				// The owner binds them to its routes and GraphQL: REST does not
+				// serve them a second time (ADR-0341).
 				const rest = await send('/api/operations/requestPasswordReset', {
 					input: { email: 'nobody@example.test' },
 				})
-				expect(await rest.json()).toStrictEqual({ result: { accepted: true } })
-				const restToken = await send('/api/operations/verifyEmail', {
-					input: { token: 'not a token' },
-				})
-				expect(restToken.status).toBe(400)
-				expect(await restToken.json()).toMatchObject({
-					error: { code: 'AUTH_INVALID_TOKEN' },
-				})
+				expect(rest.status).toBe(404)
 				const graphql = started.plugin('@ultimabase/graphql-plugin')
 				const context = anonymous(started, {
 					requestId: randomUUID(),

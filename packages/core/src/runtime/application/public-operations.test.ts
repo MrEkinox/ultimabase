@@ -57,6 +57,10 @@ const protocol = defineOperationTransport({
 	name: 'fixture.public-operations.transport',
 	version: '1.0.0',
 })
+const otherProtocol = defineOperationTransport({
+	name: 'fixture.public-operations.other-transport',
+	version: '1.0.0',
+})
 const binding = operationTransportBinding({
 	codec: operationWireCodec({
 		decode: (value: string) => immutableRecord({ message: value }),
@@ -278,6 +282,27 @@ describe('public operations', () => {
 				}),
 			),
 		).toThrow(`Operation ${hidden.name} has no binding`)
+	})
+
+	// ADR-0341: an owner that binds an operation to one protocol chooses all of them.
+	it('gives no default binding to an operation its owner binds elsewhere', async () => {
+		const { executor, planner, run } = await start()
+		const plan = run(() => planner.plan({ transport: otherProtocol }))
+
+		expect(plan.operations.map(({ name }) => name)).toStrictEqual([
+			unbound.name,
+		])
+		expect(() =>
+			run(() => planner.plan({ operations: [bound], transport: otherProtocol })),
+		).toThrow(`Operation ${bound.name} requires one exact binding`)
+		expect(() =>
+			run(() =>
+				executor.exposeOperations({
+					operations: [bound],
+					transport: otherProtocol,
+				}),
+			),
+		).toThrow(`Operation ${bound.name} has no binding`)
 	})
 
 	it('rejects two operations with one public name', async () => {

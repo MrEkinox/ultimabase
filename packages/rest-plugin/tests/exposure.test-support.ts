@@ -2,6 +2,9 @@
 import {
 	PluginError,
 	UltimaBase,
+	defineOperationTransport,
+	operationTransportBinding,
+	operationWireCodec,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databasePointerCapability,
@@ -121,6 +124,20 @@ const operation = (name: string) =>
 export const echo = operation('echo')
 export const whisper = operation('whisper')
 export const secret = operation('secret')
+export const graphqlOnly = operation('graphql-only')
+const graphqlOnlyBinding = operationTransportBinding({
+	codec: operationWireCodec({
+		decode: (value: unknown) => text.snapshot(value, 'graphqlOnly input'),
+		encode: (value) => value,
+		operation: graphqlOnly,
+		transport: defineOperationTransport({
+			name: 'ultimabase.graphql.operation',
+			version: '1.0.0',
+		}),
+	}),
+	metadata: { field: 'graphqlOnly' },
+	operation: graphqlOnly,
+})
 const echoPlugin = plugin({
 	core: '^0.0.0',
 	id: 'fixture.rest-exposure.operations',
@@ -147,6 +164,13 @@ const echoPlugin = plugin({
 		}),
 		// Never public: no transport may expose it.
 		contributeOperation({ execute: ({ input }) => input, operation: secret }),
+		// Public, but its owner chose GraphQL only (ADR-0341).
+		contributeOperation({
+			bindings: [graphqlOnlyBinding],
+			execute: ({ input }) => input,
+			operation: graphqlOnly,
+			public: { name: 'graphqlOnly' },
+		}),
 	],
 })
 
