@@ -1,7 +1,8 @@
-import type {
-	CompiledSchemaRegistry,
-	SchemaContributionOwner,
-	SchemaDefinition,
+import {
+	readSchemaCommandClosure,
+	type CompiledSchemaRegistry,
+	type SchemaContributionOwner,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 
 import {
@@ -109,8 +110,11 @@ export const collectGraphqlSchemaSurfaces = (
 		// Plugin-owned schemas never get generated roots: their types appear only
 		// where an exposed type or a public operation reaches them (ADR-0333).
 		const application = owner.kind === 'application'
+		// A command a plugin closed has no root, whatever the rules (ADR-0341).
 		const enabled = (key: string): boolean =>
-			application && isGraphqlMethodEnabled(rule, pluginDefault, key)
+			application &&
+			isGraphqlMethodEnabled(rule, pluginDefault, key) &&
+			readSchemaCommandClosure(schema, key) === undefined
 		const operation = (name: GraphqlSurfaceOperation): boolean =>
 			enabled(graphqlOperationMethods[name])
 		const exposed =

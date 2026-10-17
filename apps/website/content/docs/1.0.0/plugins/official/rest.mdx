@@ -444,7 +444,9 @@ install a policy such as Access or opt in with `publicWrites: true`. If a
 route is missing, check the schema's `rest` rule, the plugin default, the
 configured `basePath`, and whether the schema is application-owned. A `405`
 names a method the rule turned off, as `POST /api/classes/Author` in the
-example; a `404` on a whole schema means it has no route. An operation that is
+example, or one a plugin closed, such as the User's create under
+[authentication](./password-authentication) with an email identifier; a `404`
+on a whole schema means it has no route. An operation that is
 not listed is not declared public by its owner, is bound by its owner to
 other transports only, or is hidden by `restPlugin({ hide })`.
 

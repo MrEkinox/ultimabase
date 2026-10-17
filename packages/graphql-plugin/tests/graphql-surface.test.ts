@@ -258,10 +258,14 @@ describe('GraphQL surface (ADR-0325)', () => {
 
 	// ADR-0341: a closed command has no mutation, whatever the rules say.
 	it('publishes no mutation for a command a plugin closed', async () => {
+		const Ledger = App.Schema.define({
+			className: 'SurfaceLedger',
+			fields: (field) => ({ title: field.string() }),
+		})
 		const closing = plugin({
 			core: '^0.0.0',
 			id: 'fixture.graphql-surface-closure',
-			permissions: { 'schema:declare': 'Closes article creation.' },
+			permissions: { 'schema:declare': 'Closes ledger creation.' },
 			version: '1.0.0',
 			contributions: [
 				contributeDeclarations({
@@ -270,11 +274,11 @@ describe('GraphQL surface (ADR-0325)', () => {
 							operations: [
 								closeSchemaCommand({
 									command: 'create',
-									contributionId: 'article-creation',
-									reason: 'Articles are imported.',
+									contributionId: 'ledger-creation',
+									reason: 'Ledgers are imported.',
 								}),
 							],
-							targets: schemas.select({ className: Post.className }),
+							targets: schemas.select({ className: Ledger.className }),
 						})
 						return undefined
 					},
@@ -285,20 +289,20 @@ describe('GraphQL surface (ADR-0325)', () => {
 			databasePlugin(new SurfaceDatabase()),
 			closing,
 			graphqlPlugin({ default: true, publicWrites: true }),
-		))({ logger: false, schemas: [Post] })
+		))({ logger: false, schemas: [Ledger] })
 		onTestFinished(() => application.dispose())
 		await application.start()
 		const graphql = application.plugin('@ultimabase/graphql-plugin')
 		const mutation = fieldNames(graphql.schema, 'Mutation')
 		for (const name of [
-			'createArticle',
-			'createManyArticle',
-			'upsertArticle',
-			'upsertManyArticle',
+			'createSurfaceLedger',
+			'createManySurfaceLedger',
+			'upsertSurfaceLedger',
+			'upsertManySurfaceLedger',
 		]) {
 			expect(mutation).not.toContain(name)
 		}
-		expect(mutation).toContain('updateArticle')
+		expect(mutation).toContain('updateSurfaceLedger')
 	})
 
 	it('refuses a rule key that names no method or command', async () => {

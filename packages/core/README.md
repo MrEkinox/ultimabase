@@ -3396,6 +3396,19 @@ and transport mutation inputs. Defaults still materialize on create,
 and plugin-owned schema-mutation effects may write the field through their
 separate provenance-checked effect boundary.
 
+A patch may likewise close a generic command of the schemas it targets
+(ADR-0341):
+`closeSchemaCommand({ contributionId, command: 'create', reason })` closes
+every method that may create a row (`createOne`, `createMany`, `upsertOne`,
+`upsertMany`). Transports publish no route, OpenAPI entry or GraphQL field for
+a closed method, `can()` answers `false`, and every call fails before any
+stage with `VALIDATION_ERROR` whose `command.closed` issue carries the
+reason, Master and nested writes included. Only the plugin that closed the
+command still runs it, from its own callbacks: that is how it provides the
+schema's own creation path. `readSchemaCommandClosure(schema, 'createOne')`
+reads the closure and its reason. Authentication closes the User's create
+when a method signs in by email.
+
 Portable plugin scalars may additionally declare a private, versioned JSON
 storage codec through `definePluginField()`. Core validates and snapshots both
 codec directions without placing executable functions in field metadata.

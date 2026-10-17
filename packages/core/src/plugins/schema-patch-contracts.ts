@@ -5,6 +5,7 @@ import type { GenericField } from '../schema/fields/base/contract.js'
 import type { SchemaIndexOptions } from '../schema/schema/indexes.js'
 
 import { type SchemaContributionOwnerReference } from '../schema/schema/provenance.js'
+import type { SchemaClosableCommand } from '../schema/schema/command-closures.js'
 
 /** Selects schemas where one normalized direct option is present. */
 export interface SchemaOptionPresenceSelector {
@@ -99,9 +100,37 @@ export interface SetSchemaFieldOptionOperation {
 	readonly value: unknown
 }
 
+export interface CloseSchemaCommandOperation {
+	readonly command: SchemaClosableCommand
+	readonly contributionId: string
+	readonly kind: 'command:close'
+	readonly reason: string
+}
+
+/**
+ * Closes one generic command of the selected schemas (ADR-0341), as
+ * `mutationInput: 'forbidden'` closes one field to mutation input.
+ */
+export interface CloseSchemaCommandOptions {
+	/**
+	 * The command to close; `create` covers `createOne`, `createMany`,
+	 * `upsertOne` and `upsertMany`.
+	 * @example `command: 'create'`
+	 */
+	readonly command: SchemaClosableCommand
+	/** Identifies the closure among the plugin's contributions. */
+	readonly contributionId: string
+	/**
+	 * Why the command is closed: every refused call reports it.
+	 * @example `reason: 'Users are created by sign-up.'`
+	 */
+	readonly reason: string
+}
+
 export type SchemaPatchOperation =
 	| AddSchemaFieldOperation
 	| AddSchemaIndexOperation
+	| CloseSchemaCommandOperation
 	| SetSchemaFieldOptionOperation
 	| SetSchemaOptionOperation
 

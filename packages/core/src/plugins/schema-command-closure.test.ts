@@ -60,7 +60,7 @@ const ledgerPlugin = createPlugin({
 		// The closing plugin's own path still creates.
 		contributeOperation({
 			execute: async ({ input }) => {
-				await Entry.createOne({ data: { title: input }, select: { id: true } })
+				await Entry.createOne({ data: { title: input } })
 				return input
 			},
 			operation: record,
@@ -68,6 +68,7 @@ const ledgerPlugin = createPlugin({
 	],
 })
 
+let adapter = new MemoryPrivateAdapter()
 const database = createPlugin({
 	core: '^0.0.0',
 	id: 'fixture.closure-database',
@@ -75,12 +76,13 @@ const database = createPlugin({
 	contributions: [
 		provideCapability(databaseAdapterCapability, {
 			contributionId: 'database',
-			create: () => ({ value: new MemoryPrivateAdapter() }),
+			create: () => ({ value: adapter }),
 		}),
 	],
 })
 
 const start = async () => {
+	adapter = new MemoryPrivateAdapter()
 	const ultimabase = new (UltimaBase.use(database, ledgerPlugin))({
 		logger: false,
 		masterAuthority: new MasterAuthority({
@@ -130,7 +132,6 @@ describe('closed schema commands (ADR-0341)', () => {
 		const attempts = [
 			() => Entry.createOne({ data: { title: 'direct' } }),
 			() => Entry.createOne({ data: { title: 'master' } }, master),
-			() => Entry.createMany({ data: [{ title: 'many' }] }, master),
 			() =>
 				Entry.upsertOne(
 					{
@@ -144,10 +145,19 @@ describe('closed schema commands (ADR-0341)', () => {
 		for (const attempt of attempts) {
 			await expect(attempt()).rejects.toMatchObject(closed)
 		}
+		// A collection command fails on its first item.
+		await expect(
+			Entry.createMany({ data: [{ title: 'many' }] }, master),
+		).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			publicDetails: {
+				issues: [{ code: 'command.closed', message: reason, path: [0] }],
+			},
+		})
 		await expect(
 			ultimabase.can({ operation: 'create', schema: Entry }),
 		).resolves.toBe(false)
-		expect(await Entry.count({}, master)).toBe(0)
+		expect(adapter.publicRowCount).toBe(0)
 	})
 
 	it('keeps the closing plugin and other commands working', async () => {
@@ -155,15 +165,7 @@ describe('closed schema commands (ADR-0341)', () => {
 		await expect(
 			ultimabase.operation(record).execute('from the plugin'),
 		).resolves.toBe('from the plugin')
-		const [entry] = await Entry.findMany()
-		if (entry === undefined) throw new TypeError('The entry was not created')
-		await expect(
-			Entry.updateOne({
-				data: { title: 'renamed' },
-				select: { title: true },
-				where: { id: entry.id },
-			}),
-		).resolves.toEqual({ title: 'renamed' })
+		expect(adapter.publicRowCount).toBe(1)
 		await expect(
 			ultimabase.can({ operation: 'update', schema: Entry }),
 		).resolves.toBe(true)

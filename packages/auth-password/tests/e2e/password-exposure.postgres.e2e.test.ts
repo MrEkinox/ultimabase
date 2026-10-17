@@ -91,7 +91,8 @@ describe.each(['email', 'username'] as const)(
 				// closes the User's generic create; transports do not publish it.
 				const userPath = `/api/classes/${className}`
 				const create = await send(userPath, { password: secret })
-				expect(create.status).toBe(identifier === 'email' ? 405 : 403)
+				// With a username, the route exists: the body fails validation.
+				expect(create.status).toBe(identifier === 'email' ? 405 : 422)
 				const document: unknown = JSON.parse(openapi)
 				const paths = isPlainRecord(document) ? document.paths : undefined
 				const collection = isPlainRecord(paths)

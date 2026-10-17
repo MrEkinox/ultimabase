@@ -138,8 +138,12 @@ through a Master-only schema mutation owned by the foundation that refuses
 callers outside the flows, so the email stays in step with credentials and
 linked accounts. Users of such an application are created only by sign-up, or
 on the server by `auth.createUser({ data, email })` for administration and
-seeding; any other create fails with `VALIDATION_ERROR` (issue code
-`auth.user-creation`).
+seeding: the foundation closes the User's generic create with Core's
+`closeSchemaCommand` (ADR-0341). REST publishes no `POST` for the User,
+OpenAPI no create entry and GraphQL no create mutation, and any other create,
+upsert or nested create fails with `VALIDATION_ERROR` (issue code
+`command.closed`), Master included. Code run through `runWithSession` is the
+application's, so it cannot create Users either.
 
 Sign-up creates the User through the ordinary pipeline (validation, defaults,
 Hooks) with the plugin's own `authority:elevate` privilege: the User's Access

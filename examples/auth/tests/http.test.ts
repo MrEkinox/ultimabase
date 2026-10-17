@@ -91,6 +91,13 @@ it('signs in over HTTP and sends the token as a Bearer', async () => {
 		method: 'POST',
 	})
 	expect(hidden.status).toBe(404)
+	// Authentication closes the User's generic create: no route takes it.
+	const create = await t.fetch('/api/classes/Member', {
+		body: JSON.stringify({ displayName: 'Mallory' }),
+		headers: json,
+		method: 'POST',
+	})
+	expect(create.status).toBe(405)
 	const logout = await t.fetch('/api/auth/logout', {
 		headers: bearer,
 		method: 'POST',

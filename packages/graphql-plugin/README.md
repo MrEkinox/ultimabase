@@ -228,8 +228,11 @@ exposes nothing, `.with({ graphql: true })` every method and command. An omitted
 default: reads, `exists`, `createOne`, `updateOne` and `deleteOne` on; `count`,
 upserts and the `…Many` methods off. A plugin command is exposed only when a
 rule names it, or when the rule or the default is `true`; a key that names no
-method or exposable command fails startup. Exposure only controls which
-GraphQL declarations exist; it never grants access or bypasses Runtime policy.
+method or exposable command fails startup. A method a plugin closed with
+Core's `closeSchemaCommand` (ADR-0341), such as the User's create under
+authentication with an email identifier, has no field whatever the rules.
+Exposure only controls which GraphQL declarations exist; it never grants
+access or bypasses Runtime policy.
 
 `.with({ graphql: false })` removes the schema's root fields and mutations (ADR-0333).
 A schema without any exposed root or command contributes types only where an

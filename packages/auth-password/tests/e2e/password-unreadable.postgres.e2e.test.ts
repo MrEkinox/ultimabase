@@ -103,17 +103,16 @@ describe.each(['denied', 'filtered'] as const)(
 				const bearer = { Authorization: `Bearer ${session.token}` }
 				readRule = rule
 
-				await expect(
-					HiddenUser.signUp({
-						email: `bob-${randomUUID()}@example.test`,
-						password: secret,
-					}),
-				).rejects.toMatchObject({
-					code: 'AUTH_USER_NOT_READABLE',
-					message: expect.stringContaining(
-						'HiddenUser.with({ access: { read: isSelf } })',
-					),
+				const signUp = HiddenUser.signUp({
+					email: `bob-${randomUUID()}@example.test`,
+					password: secret,
 				})
+				await expect(signUp).rejects.toMatchObject({
+					code: 'AUTH_USER_NOT_READABLE',
+				})
+				await expect(signUp).rejects.toThrow(
+					'HiddenUser.with({ access: { read: isSelf } })',
+				)
 				await expect(HiddenUser.login(credentials)).rejects.toMatchObject({
 					code: 'AUTH_USER_NOT_READABLE',
 				})

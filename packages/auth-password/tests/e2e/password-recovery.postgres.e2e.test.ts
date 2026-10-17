@@ -392,6 +392,19 @@ describe('email verification', { concurrent: false }, () => {
 					issues: [expect.objectContaining({ code: 'command.closed' })],
 				},
 			})
+			// Code run as the session's user is the application's, not the
+			// plugin's: it cannot create Users either.
+			await expect(
+				ultimabase
+					.plugin(authPlugin)
+					.runWithSession(signed.session.token, () =>
+						AuthUser.createOne({ data: { displayName: 'Jo' } }),
+					),
+			).rejects.toMatchObject({
+				publicDetails: {
+					issues: [expect.objectContaining({ code: 'command.closed' })],
+				},
+			})
 			// The managed write refuses Master callers outside the flows.
 			const write: unknown = Reflect.get(AuthUser, 'ultimabaseAuthWriteEmail')
 			if (typeof write !== 'function') throw new TypeError('No email write')

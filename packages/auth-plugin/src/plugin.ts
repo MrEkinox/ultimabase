@@ -32,7 +32,6 @@ import {
 	declareEmailFields,
 	emailWriteContribution,
 	extendUserWithEmailWrite,
-	guardUserCreation,
 } from './email.js'
 import { authErrorStatuses } from './errors.js'
 import {
@@ -241,15 +240,11 @@ const createAuthPlugin = <const TMethods extends readonly AuthMethod[]>(
 				owner,
 				state,
 			})
-			const guard: RuntimeFinalMutationGuardStage = ({
-				context,
-				operation,
-			}) => {
+			const guard: RuntimeFinalMutationGuardStage = ({ operation }) => {
 				if (getOperationSchema(operation) !== state.user) return
 				for (const data of readCreateInputs(operation)) {
 					for (const method of methods) method.checkUserData?.(data)
 				}
-				if (ownsEmail) guardUserCreation(operation, context)
 			}
 			return { value: { guardMutationInput: guard } }
 		},

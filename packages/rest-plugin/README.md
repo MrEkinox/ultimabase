@@ -190,6 +190,11 @@ Two explicit instances use `instanceId`. Distinct base paths compose into one
 graph, while matching methods and paths fail with a deterministic collision
 diagnostic.
 
+A method a plugin closed on a schema with Core's `closeSchemaCommand`
+(ADR-0341) gets no route and no OpenAPI entry, whatever the `rest` rules: with
+an email identifier, authentication closes the User's create, so
+`POST /classes/{User}` answers `405`.
+
 ## Public operations
 
 An operation is public only when its owner declares it (ADR-0324):

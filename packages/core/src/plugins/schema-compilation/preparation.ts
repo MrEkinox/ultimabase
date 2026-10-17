@@ -106,6 +106,8 @@ const prepareOperation = (
 					unique: operation.index.unique ?? false,
 				}),
 			})
+		case 'command:close':
+			return operation
 		case 'schema-option:set':
 		case 'field-option:set': {
 			const scope = operation.kind === 'schema-option:set' ? 'schema' : 'field'

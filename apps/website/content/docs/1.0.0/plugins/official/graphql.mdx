@@ -636,8 +636,10 @@ If startup warns that GraphQL exposes no schema or operation, expose at least
 one schema or a public operation; only the `health` field answers meanwhile.
 If startup refuses public writes, install a policy plugin such as Access or
 pass `graphqlPlugin({ publicWrites: true })`. Outside production, a
-validation error with a `hint:` names the rule that enables the field. If a
-type you expected is missing from the schema, check that an exposed root,
+validation error with a `hint:` names the rule that enables the field. A
+command a plugin closed has no field whatever the rules, such as the User's
+create under [authentication](./password-authentication) with an email
+identifier. If a type you expected is missing from the schema, check that an exposed root,
 command, pointer or relation reaches its schema. If direct execution rejects
 a context, create it from the same started application and do not retain it
 after cancellation or disposal.

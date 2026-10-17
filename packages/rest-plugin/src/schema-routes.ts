@@ -1,5 +1,6 @@
 import {
 	getPluginFieldWireCodec,
+	readSchemaCommandClosure,
 	type CompiledSchemaRegistry,
 	type GenericField,
 	type GenericOutputDescriptor,
@@ -215,12 +216,16 @@ export const compileRestRouteFragment = (
 			)
 		}
 		if (owner !== 'application') continue
-		const templates = restRouteTemplates.filter(({ operation }) =>
-			isRestMethodEnabled(
-				rule,
-				options.defaultRule,
-				restOperationMethods[operation],
-			),
+		// A command a plugin closed has no route, whatever the rules (ADR-0341).
+		const templates = restRouteTemplates.filter(
+			({ operation }) =>
+				isRestMethodEnabled(
+					rule,
+					options.defaultRule,
+					restOperationMethods[operation],
+				) &&
+				readSchemaCommandClosure(schema, restOperationMethods[operation]) ===
+					undefined,
 		)
 		if (templates.length > 0) assertRestSchemaResultCodecs(schema)
 		const classPath = restClassPath(options.basePath, schema.className)

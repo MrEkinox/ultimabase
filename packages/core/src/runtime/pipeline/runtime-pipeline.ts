@@ -15,6 +15,7 @@ import type {
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import { createRuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
+import { assertSchemaCommandOpen } from './closed-commands.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import { verifyRuntimeLinkTargets } from '../nested-writes/link-targets.js'
@@ -427,6 +428,8 @@ export class RuntimePipeline {
 		const stages = this.#stages
 		const { context, relation } = request
 		const { nested, relationFilters, virtualFields } = scope
+		// A closed command fails before any stage, nested children included.
+		assertSchemaCommandOpen(request.operation)
 		const privateRowFilter =
 			request.rowFilter === undefined
 				? undefined

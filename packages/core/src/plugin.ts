@@ -244,6 +244,7 @@ export type {
 export {
 	addSchemaField,
 	addSchemaIndex,
+	closeSchemaCommand,
 	setSchemaFieldOption,
 	setSchemaOption,
 } from './plugins/schema-field-patch-operations.js'
@@ -266,6 +267,8 @@ export type {
 	AddSchemaFieldOperation,
 	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
+	CloseSchemaCommandOperation,
+	CloseSchemaCommandOptions,
 	SchemaOptionAbsenceSelector,
 	SchemaOptionEqualitySelector,
 	SchemaOptionPresenceSelector,
