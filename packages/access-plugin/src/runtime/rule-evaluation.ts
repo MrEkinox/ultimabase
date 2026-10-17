@@ -188,10 +188,13 @@ export const assertAccessRules = async (
 	}
 }
 
-/** Checks the exact field references of where and orderBy clauses. */
+/**
+ * Checks the exact field references of where and orderBy clauses, including
+ * the targeting filter of a plugin command (ADR-0316 decision 6, ADR-0344).
+ */
 export const evaluateAccessFieldReferenceRules = async (
 	scope: AccessScope,
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 ): Promise<void> => {
 	const filterFields = new Set<string>()
 	const orderFields = new Set<string>()
