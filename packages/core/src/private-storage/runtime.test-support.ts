@@ -148,7 +148,17 @@ export class MemoryTransaction implements DatabaseTransactionAdapter {
 				execute: () => {
 					this.publicRequests += 1
 					this.#publicRows.push(current)
-					return Promise.resolve(current) as unknown as Promise<
+					// Like a real adapter, answer the selection only (ADR-0341).
+					const { fields } = request.plan.returning.selection
+					const result =
+						fields.length === 0
+							? current
+							: immutableRecord(
+									Object.fromEntries(
+										fields.map(({ field }) => [field, current[field]]),
+									),
+								)
+					return Promise.resolve(result) as unknown as Promise<
 						DatabaseOperationResult<TOperation>
 					>
 				},
