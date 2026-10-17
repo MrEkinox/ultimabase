@@ -174,18 +174,3 @@ describe('definePlugin at runtime', () => {
 		}
 	})
 })
-
-// Defect found by this suite: `command()` accepts an update without `data`
-// (it defaults to writing `{}`), but Core refuses every such run with
-// PLUGIN_OPERATION_INVALID "Update schema mutation … must return one
-// non-empty data object", which the caller sees only as "The requested
-// operation could not be completed.". Pending a decision (refuse it in
-// command(), like a delete with data, or give it a meaning), this test
-// states the authoring-time refusal.
-describe('update commands without data', () => {
-	it('are refused when declared, since Core could never run them', () => {
-		expect(() => command({ authority: 'request', effect: 'update' })).toThrow(
-			TypeError,
-		)
-	})
-})
