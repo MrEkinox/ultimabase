@@ -99,11 +99,20 @@ it('keeps the email fields to the authentication flows', async () => {
 			Member.findOneOrThrow({ where: { id: { eq: id } } }),
 		),
 	).toMatchObject({ email: 'grace@example.com', emailVerified: false })
-	// Master included, a direct create comes only from sign-up or createUser.
+	// Authentication closes the generic create, Master included: Users come
+	// only from sign-up or createUser.
 	await expect(
 		t.asMaster(() => Member.createOne({ data: { displayName: 'Mallory' } })),
 	).rejects.toMatchObject({
 		code: 'VALIDATION_ERROR',
-		publicDetails: { issues: [{ code: 'auth.user-creation' }] },
+		publicDetails: {
+			issues: [
+				{
+					code: 'command.closed',
+					message:
+						'Users are created by sign-up, which sets their email, or on the server by auth.createUser({ data, email }).',
+				},
+			],
+		},
 	})
 })

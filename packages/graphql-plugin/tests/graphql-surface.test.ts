@@ -21,6 +21,8 @@ import {
 } from '@ultimabase/core'
 import {
 	anonymous,
+	closeSchemaCommand,
+	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
 	defineOperationValue,
@@ -252,6 +254,51 @@ describe('GraphQL surface (ADR-0325)', () => {
 			expect.arrayContaining(['createArticle', 'createManyArticle']),
 		)
 		expect(mutation).not.toContain('updateManyArticle')
+	})
+
+	// ADR-0341: a closed command has no mutation, whatever the rules say.
+	it('publishes no mutation for a command a plugin closed', async () => {
+		const closing = plugin({
+			core: '^0.0.0',
+			id: 'fixture.graphql-surface-closure',
+			permissions: { 'schema:declare': 'Closes article creation.' },
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								closeSchemaCommand({
+									command: 'create',
+									contributionId: 'article-creation',
+									reason: 'Articles are imported.',
+								}),
+							],
+							targets: schemas.select({ className: Post.className }),
+						})
+						return undefined
+					},
+				}),
+			],
+		})
+		const application = new (UltimaBase.use(
+			databasePlugin(new SurfaceDatabase()),
+			closing,
+			graphqlPlugin({ default: true, publicWrites: true }),
+		))({ logger: false, schemas: [Post] })
+		onTestFinished(() => application.dispose())
+		await application.start()
+		const graphql = application.plugin('@ultimabase/graphql-plugin')
+		const mutation = fieldNames(graphql.schema, 'Mutation')
+		for (const name of [
+			'createArticle',
+			'createManyArticle',
+			'upsertArticle',
+			'upsertManyArticle',
+		]) {
+			expect(mutation).not.toContain(name)
+		}
+		expect(mutation).toContain('updateArticle')
 	})
 
 	it('refuses a rule key that names no method or command', async () => {

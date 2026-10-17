@@ -8,6 +8,7 @@ import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
+import { isPlainRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -29,9 +30,8 @@ const createApplication = (identifier: 'email' | 'username') => {
 		restPlugin({ openapi: true }),
 		graphqlPlugin(),
 	)
-	const ExposedUser = App.UserSchema.define({
-		className: `Exposed${identifier === 'email' ? 'Email' : 'Name'}User`,
-	}).with({
+	const className = `Exposed${identifier === 'email' ? 'Email' : 'Name'}User`
+	const ExposedUser = App.UserSchema.define({ className }).with({
 		access: {
 			read: ({ principal, where }) =>
 				where.in('id', principal === undefined ? [] : [principal.id]),
@@ -49,7 +49,7 @@ const createApplication = (identifier: 'email' | 'username') => {
 				method,
 			}),
 		)
-	return { send, ultimabase }
+	return { className, send, ultimabase }
 }
 
 // ADR-0341 decision 2: the auth plugin binds its operations to its own routes
@@ -68,7 +68,7 @@ describe.each(['email', 'username'] as const)(
 		})
 
 		it('is served once over HTTP, under /api/auth, and unchanged in GraphQL', async () => {
-			const { send, ultimabase } = createApplication(identifier)
+			const { className, send, ultimabase } = createApplication(identifier)
 			const started = await ultimabase.start()
 			try {
 				const credentials =
@@ -87,6 +87,19 @@ describe.each(['email', 'username'] as const)(
 					await send('/api/openapi.json', undefined, 'GET')
 				).text()
 				expect(openapi).not.toContain('/api/operations/')
+				// ADR-0341 decision 3: with an email identifier, authentication
+				// closes the User's generic create; transports do not publish it.
+				const userPath = `/api/classes/${className}`
+				const create = await send(userPath, { password: secret })
+				expect(create.status).toBe(identifier === 'email' ? 405 : 403)
+				const document: unknown = JSON.parse(openapi)
+				const paths = isPlainRecord(document) ? document.paths : undefined
+				const collection = isPlainRecord(paths)
+					? paths[`/classes/${className}`]
+					: undefined
+				expect(
+					isPlainRecord(collection) ? Object.keys(collection).sort() : [],
+				).toEqual(identifier === 'email' ? ['get'] : ['get', 'post'])
 
 				const graphql = started.plugin('@ultimabase/graphql-plugin')
 				const { context } = anonymous(started, {
@@ -103,6 +116,9 @@ describe.each(['email', 'username'] as const)(
 				for (const name of ['signUp', 'login', 'refresh', 'current']) {
 					expect(roots).toContain(`"${name}"`)
 				}
+				expect(roots.includes(`"create${className}"`)).toBe(
+					identifier === 'username',
+				)
 			} finally {
 				await ultimabase.dispose()
 			}

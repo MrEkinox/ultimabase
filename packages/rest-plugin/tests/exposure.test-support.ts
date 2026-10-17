@@ -68,7 +68,7 @@ class EmptyDatabase implements DatabaseAdapter {
 	}
 }
 
-const databasePlugin = plugin({
+export const databasePlugin = plugin({
 	core: '^0.0.0',
 	id: 'fixture.rest-exposure.database',
 	version: '1.0.0',

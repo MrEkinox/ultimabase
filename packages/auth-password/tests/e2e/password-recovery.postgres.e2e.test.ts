@@ -382,13 +382,14 @@ describe('email verification', { concurrent: false }, () => {
 					master,
 				),
 			).rejects.toThrow()
-			// Only sign-up creates Users: it sets their email.
+			// Only sign-up creates Users: it sets their email. Authentication
+			// closes the generic create (ADR-0341).
 			await expect(
 				AuthUser.createOne({ data: { displayName: 'Ivy' } }, master),
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 				publicDetails: {
-					issues: [expect.objectContaining({ code: 'auth.user-creation' })],
+					issues: [expect.objectContaining({ code: 'command.closed' })],
 				},
 			})
 			// The managed write refuses Master callers outside the flows.
