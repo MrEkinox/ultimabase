@@ -26,7 +26,7 @@ export const packageCoverageThresholds: Readonly<
 	},
 	'api-server': { branches: 99, functions: 99, lines: 99, statements: 99 },
 	'auth-password': { branches: 83, functions: 96, lines: 93, statements: 92 },
-	'auth-plugin': { branches: 40, functions: 52, lines: 59, statements: 57 },
+	'auth-plugin': { branches: 92, functions: 98, lines: 96, statements: 96 },
 	core: { branches: 84, functions: 95, lines: 91, statements: 90 },
 	'create-app': { branches: 82, functions: 76, lines: 82, statements: 82 },
 	'graphql-explorer-plugin': {

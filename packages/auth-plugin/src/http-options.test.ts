@@ -22,6 +22,16 @@ describe('authPlugin HTTP options', () => {
 		expect(Object.isFrozen(options.cookie)).toBe(true)
 	})
 
+	it('keeps Bearer only when the options name no cookie', () => {
+		expect(resolveAuthHttpOptions({ basePath: '/v2/auth' })).toStrictEqual({
+			basePath: '/v2/auth',
+			cookie: undefined,
+		})
+		expect(() => resolveAuthHttpOptions('/api/auth')).toThrow(
+			'authPlugin http must be a plain object',
+		)
+	})
+
 	it('rejects weaker or ambiguous configuration', () => {
 		for (const options of [
 			{ cookie: { name: 'session' } },
@@ -32,6 +42,7 @@ describe('authPlugin HTTP options', () => {
 			{ basePath: '/Auth' },
 			{ basePath: '/auth/' },
 			{ prefix: '/auth' },
+			{ cookie: '__Host-session' },
 		]) {
 			expect(
 				() => resolveAuthHttpOptions(options),
