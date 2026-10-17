@@ -64,6 +64,9 @@ writes `await testApplication(ultimabase)` with no binding. The handle's disposa
 `await using t` stays valid but is never required. Trailing `t.afterCommit()` calls and `_t` bindings disappear from
 examples, templates and docs. `t.afterCommit()` remains for waiting before an assertion inside a test.
 
+The started handle in `main.ts` keeps the project layout's `started` binding: `await using started = await
+ultimabase.start(); await started.closed`.
+
 ## Consequences
 
 - **Examples and templates.**
