@@ -55,3 +55,18 @@ The copies have diverged:
 - Which error wins when several refusals apply to a plugin mutation may change; every case still rolls back.
 - **Documentation impact:** internal engineering documentation (Runtime docs and this record). The Access page already
   states that plugin commands follow the same rules.
+
+## Implementation note (2026-10-17)
+
+- Owners: `enforceRuntimeOperation` and `assertDatabaseRequestCapabilities` lock the one-row target;
+  `prepareReadableResultHooks` (`runtime/enforcement/readable-results.ts`) decides the checked image for
+  both executors; `compileDatabasePersistencePlan` takes the plugin mutation as its logical operation;
+  `runMutationOutcomeStages` runs the outcome stages; `readWriteSelection` holds the `{ id }` default.
+- Error precedence that changed, every case still rolling back: a plugin mutation's pre-image is checked
+  right after its target is locked and item-checked, as a native delete's is, so an unreadable pre-image
+  is refused before the owner resolver, Access re-evaluation and before Hooks run. A many-row command
+  locks and item-checks every row before resolving the first, checks the pre-images with one query
+  after the locks and the resulting rows with one query after the last row is finalized (after that
+  row's final output restrictions).
+- Test adapters that model a real database declare their filter operators (ADR-0301), which the
+  one-row plugin path now asserts.
