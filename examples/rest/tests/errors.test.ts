@@ -166,7 +166,7 @@ it('answers 404 for missing targets and unserved paths', async () => {
 		},
 	})
 
-	// `rest: false`: the schema has no route, and no answer reveals it.
+	// `expose: false`: the schema has no route, and no answer reveals it.
 	const tags = await t.fetch('/api/classes/Tag')
 	expect(tags.status).toBe(404)
 	expect(await tags.json()).toMatchObject({

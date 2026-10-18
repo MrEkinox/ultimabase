@@ -1,7 +1,7 @@
 # REST example
 
 A small blog backend that shows the REST plugin end to end: the `/api`
-mount, `rest` rule keys that expose or hide routes per schema, a
+mount, `expose` keys that open or close routes per schema, a
 schema without any route, list reads with `where`, `select`, `orderBy`,
 `include` and cursor pagination, single reads, `first`, `count` and `exists`,
 create, update and delete with their status codes, relation links, an atomic
@@ -24,7 +24,7 @@ says.
 | File                                                         | What it shows                                                                                                                                                |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`src/app.ts`](src/app.ts)                                   | the factory `App` with Access, HTTP, `restPlugin` options, Hono and the operation                                                                            |
-| [`src/schema.ts`](src/schema.ts)                             | `Author` (read-only routes), `Tag` (`.with({ rest: false })`), `Post` (count, bulk create, a hidden field), `Feedback` (write-only)                          |
+| [`src/schema.ts`](src/schema.ts)                             | `Author` (`expose: { write: false }`), `Tag` (`expose: false`), `Post` (count, bulk create, a hidden field), `Feedback` (write-only)                         |
 | [`src/operations.ts`](src/operations.ts)                     | `readingTime`, an application operation with Zod validators                                                                                                  |
 | [`src/guestbook.ts`](src/guestbook.ts)                       | a second application without any policy plugin, started with `publicWrites`                                                                                  |
 | [`src/ultimabase.ts`](src/ultimabase.ts)                     | the application and its `Register` declaration                                                                                                               |

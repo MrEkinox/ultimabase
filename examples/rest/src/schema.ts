@@ -7,8 +7,8 @@ export const Author = App.Schema.define({
 	fields: (field) => ({ name: field.string({ required: true }) }),
 }).with({
 	access: { read: true },
-	// These methods get no route: POST /api/classes/Author answers 405.
-	rest: { createOne: false, updateOne: false, deleteOne: false },
+	// No write gets a route: POST /api/classes/Author answers 405.
+	expose: { write: false },
 })
 //#endregion author
 
@@ -17,7 +17,7 @@ export const Author = App.Schema.define({
 export const Tag = App.Schema.define({
 	className: 'Tag',
 	fields: (field) => ({ name: field.string({ required: true }) }),
-}).with({ access: { read: true }, rest: false })
+}).with({ access: { read: true }, expose: false })
 //#endregion tag
 
 //#region post
@@ -37,7 +37,7 @@ export const Post = App.Schema.define({
 }).with({
 	access: { read: true, create: true, update: true, delete: true },
 	// The built-in routes, plus count and the atomic bulk create.
-	rest: { count: true, createMany: true },
+	expose: { count: true, createMany: true },
 })
 //#endregion post
 
