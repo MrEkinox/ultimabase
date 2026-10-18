@@ -16,6 +16,7 @@ import {
 } from 'graphql'
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+import type { GraphqlWriteRoot } from './exposure.js'
 import type { GraphqlOperationExecution } from './operation-execution.js'
 import type { graphqlProtocol } from './protocol.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
@@ -46,8 +47,8 @@ export interface GraphqlApplicationFacts {
 	readonly exposed: boolean
 	/** The public operations GraphQL exposes, by name. */
 	readonly operations: readonly string[]
-	/** Root fields that write: generated mutations and plugin commands. */
-	readonly writes: readonly string[]
+	/** Root fields that write: generated mutations, then plugin commands. */
+	readonly writes: readonly GraphqlWriteRoot[]
 }
 
 /** @internal Owns every disposable part behind one application facade. */

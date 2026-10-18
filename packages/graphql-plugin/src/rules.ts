@@ -1,27 +1,38 @@
 import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	defineSchemaOption,
-	type PluginSchemaMutationDefinition,
-	type PluginSchemaMutationDependencySelection,
-	type PluginSchemaMutationEffect,
-	type PluginSchemaMutationReturning,
-	type PluginSourceSchemaMutations,
+	normalizeExposureRule,
+	type ExposureCommandKey,
+	type NativeExposureRules,
 	type SchemaOptionDefinition,
 	type SchemaRulesHKT,
-	type SchemaRulesSource,
 } from '@ultimabase/core/plugin'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 /**
- * Exposure of one schema's methods over GraphQL, keyed by the schema method
- * names (ADR-0325), as REST and Access rules. An omitted method inherits
- * `graphqlPlugin({ default })`, then its built-in default.
+ * Exposure of one schema's methods over GraphQL (ADR-0325, ADR-0347), with
+ * the keys of `.with({ expose })`: `all`, a group, an operation or a method.
+ * The most precise key present decides each method; a method the rule leaves
+ * out follows `expose`, then `graphqlPlugin({ default })`, then its built-in
+ * default.
  */
-export interface GraphqlMethodRules {
+export interface GraphqlMethodRules extends NativeExposureRules {
+	/** Every root field of the schema, and every request plugin command. */
+	readonly all?: boolean
+	/** The `find`, `count` and `exists` query fields. */
+	readonly read?: boolean
+	/** Every generated mutation, and every request plugin command. */
+	readonly write?: boolean
+	/** `findMany<Type>`, `get<Type>(id)` and `findOne<Type>`. */
+	readonly find?: boolean
+	/** `create<Type>` and `createMany<Type>`. */
+	readonly create?: boolean
+	/** `update<Type>` and `updateMany<Type>`. */
+	readonly update?: boolean
+	/** `upsert<Type>` and `upsertMany<Type>`. */
+	readonly upsert?: boolean
+	/** `delete<Type>` and `deleteMany<Type>`. */
+	readonly delete?: boolean
 	/** `findMany<Type>`, a Relay connection. @default true */
 	readonly findMany?: boolean
 	/** `get<Type>(id)` and `findOne<Type>(where, orderBy)`. @default true */
@@ -49,7 +60,19 @@ export interface GraphqlMethodRules {
 }
 
 /** One native schema method GraphQL can expose. */
-export type GraphqlMethodName = keyof GraphqlMethodRules
+export type GraphqlMethodName =
+	| 'findMany'
+	| 'findOne'
+	| 'count'
+	| 'exists'
+	| 'createOne'
+	| 'updateOne'
+	| 'deleteOne'
+	| 'upsertOne'
+	| 'createMany'
+	| 'updateMany'
+	| 'deleteMany'
+	| 'upsertMany'
 
 /** Renames the generated GraphQL type without changing the schema name. */
 export interface GraphqlTypeNameRule {
@@ -61,30 +84,12 @@ export interface GraphqlTypeNameRule {
 	readonly typeName?: string
 }
 
-type SchemaMutations<TSchema> = PluginSourceSchemaMutations<
-	SchemaRulesSource<TSchema>
->
-
-/** A command GraphQL can expose: request authority, one row named by `id`. */
-type ExposableCommand = PluginSchemaMutationDefinition<
-	string,
-	string,
-	unknown,
-	readonly string[],
-	'request',
-	PluginSchemaMutationEffect,
-	PluginSchemaMutationReturning,
-	PluginSchemaMutationDependencySelection,
-	'one'
->
-
-/** Names the plugin commands of one schema that GraphQL can expose. */
-export type GraphqlCommandName<TSchema> = {
-	readonly [
-		TName in keyof SchemaMutations<TSchema>
-	]: SchemaMutations<TSchema>[TName] extends ExposableCommand ? TName : never
-}[keyof SchemaMutations<TSchema>] &
-	string
+/**
+ * Names the plugin keys GraphQL accepts for one schema: the `One` method
+ * and the operation of each request command on one row (`archiveOne`,
+ * `archive`).
+ */
+export type GraphqlCommandName<TSchema> = ExposureCommandKey<TSchema>
 
 /** The command keys of one schema's rule; none without a schema. */
 type GraphqlCommandRules<TSchema> = unknown extends TSchema
@@ -92,10 +97,10 @@ type GraphqlCommandRules<TSchema> = unknown extends TSchema
 	: Partial<Readonly<Record<GraphqlCommandName<TSchema>, boolean>>>
 
 /**
- * GraphQL exposure of one schema (ADR-0325): `false` exposes nothing,
- * `true` every method and command, an object each method or command by
+ * GraphQL exposure of one schema (ADR-0325, ADR-0347): `false` exposes
+ * nothing, `true` every method and request command, an object each key by
  * name, plus an optional `typeName`. A plugin command (`softDeleteOne`) is
- * exposed only when named, or when the rule or the plugin default is `true`.
+ * exposed only when a key opens it.
  *
  * @example `.with({ graphql: { count: true, typeName: 'Task', softDeleteOne: true } })`
  */
@@ -106,8 +111,10 @@ export type GraphqlSchemaRule<TSchema = unknown> =
 /** Entry of `.with({ … })` owned by GraphQL, for one schema (ADR-0325). */
 export interface GraphqlRules<TSchema> {
 	/**
-	 * Selects the GraphQL fields of this schema by method name; omitted
-	 * methods inherit `graphqlPlugin({ default })`.
+	 * Exceptions to `.with({ expose })` for GraphQL: each key wins over
+	 * `expose` at any level, even when it is less precise. Methods it leaves
+	 * out follow `expose`, then `graphqlPlugin({ default })`, then the
+	 * built-in defaults.
 	 * @example `.with({ graphql: { count: true, typeName: 'Task' } })`
 	 */
 	readonly graphql?: GraphqlSchemaRule<TSchema>
@@ -118,48 +125,13 @@ export interface GraphqlSchemaRules extends SchemaRulesHKT {
 	readonly rules: GraphqlRules<this['schema']>
 }
 
-/** Every native method key, in root-field order. */
-export const graphqlMethodNames: readonly GraphqlMethodName[] = immutableArray([
-	'findOne',
-	'findMany',
-	'count',
-	'exists',
-	'createOne',
-	'updateOne',
-	'deleteOne',
-	'upsertOne',
-	'createMany',
-	'updateMany',
-	'deleteMany',
-	'upsertMany',
-])
-const methodKeys: ReadonlySet<string> = new Set(graphqlMethodNames)
-const commandKeyPattern = /^[a-z][A-Za-z0-9]*$/u
-
-/** The normalized rule of one schema: a boolean, or a sparse per-key record. */
+/**
+ * The stored rule of one schema: a boolean, or a frozen record of exposure
+ * keys plus an optional `typeName`. Core's planner reads its boolean keys
+ * (ADR-0347); GraphQL reads `typeName` only.
+ */
 export type NormalizedGraphqlRule =
-	| boolean
-	| Readonly<{
-			readonly methods: Readonly<Record<string, boolean>>
-			readonly typeName?: string
-	  }>
-
-/** Built-in defaults used when neither the schema rule nor the plugin decides. */
-const builtInDefaults: Readonly<Record<GraphqlMethodName, boolean>> =
-	immutableRecord({
-		count: false,
-		createMany: false,
-		createOne: true,
-		deleteMany: false,
-		deleteOne: true,
-		exists: true,
-		findMany: true,
-		findOne: true,
-		updateMany: false,
-		updateOne: true,
-		upsertMany: false,
-		upsertOne: false,
-	})
+	boolean | Readonly<Record<string, boolean | string>>
 
 const readTypeName = (value: unknown, path: string): string => {
 	if (typeof value !== 'string' || value === '') {
@@ -169,42 +141,26 @@ const readTypeName = (value: unknown, path: string): string => {
 }
 
 /**
- * @internal Validates one rule; `schema` allows plugin command keys and
- * `typeName`, which the plugin-wide default cannot carry.
+ * @internal Validates one schema rule: `typeName`, then the exposure keys
+ * with Core's vocabulary check.
  */
 export const normalizeGraphqlRule = (
 	value: unknown,
 	path: string,
-	schema: boolean,
 ): NormalizedGraphqlRule => {
-	if (typeof value === 'boolean') return value
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a boolean or plain object`)
+	if (!isPlainRecord(value) || !Object.hasOwn(value, 'typeName')) {
+		return normalizeExposureRule(value, path)
 	}
-	const methods: [string, boolean][] = []
-	let typeName: string | undefined
-	for (const key of Reflect.ownKeys(value)) {
-		if (schema && key === 'typeName') {
-			typeName = readTypeName(value.typeName, path)
-			continue
-		}
-		const known =
-			typeof key === 'string' &&
-			(methodKeys.has(key) || (schema && commandKeyPattern.test(key)))
-		if (!known) {
-			throw new TypeError(
-				`${path} contains unknown method: ${String(key)}; use ${graphqlMethodNames.join(', ')}${schema ? ', typeName or a plugin command name' : ''}`,
-			)
-		}
-		const option: unknown = value[key]
-		if (typeof option !== 'boolean') {
-			throw new TypeError(`${path}.${key} must be a boolean`)
-		}
-		methods.push([key, option])
-	}
+	const typeName = readTypeName(value.typeName, path)
+	const keys = Object.fromEntries(
+		Reflect.ownKeys(value)
+			.filter((key) => key !== 'typeName')
+			.map((key) => [key, Reflect.get(value, key)]),
+	)
+	const rule = normalizeExposureRule(keys, path)
 	return immutableRecord({
-		methods: immutableRecord(Object.fromEntries(methods)),
-		...(typeName === undefined ? {} : { typeName }),
+		...(typeof rule === 'object' ? rule : {}),
+		typeName,
 	})
 }
 
@@ -212,42 +168,16 @@ export const normalizeGraphqlRule = (
 export const graphqlSchemaOption: SchemaOptionDefinition<NormalizedGraphqlRule> =
 	defineSchemaOption({
 		normalize: (value, path): NormalizedGraphqlRule =>
-			normalizeGraphqlRule(value, path, true),
+			normalizeGraphqlRule(value, path),
 		protocolVersion: 1,
 	})
 
-const isNormalizedRule = (value: unknown): value is NormalizedGraphqlRule =>
-	typeof value === 'boolean' ||
-	(isPlainRecord(value) && isPlainRecord(value.methods))
-
-/** Reads the normalized rule without treating omission as a denial. */
-export const readGraphqlSchemaRule = (
-	schema: SchemaDefinition,
-): NormalizedGraphqlRule | undefined => {
-	if (!Object.hasOwn(schema.definition, 'graphql')) return undefined
-	const rule: unknown = Reflect.get(schema.definition, 'graphql')
-	return isNormalizedRule(rule) ? rule : undefined
-}
-
-const readRule = (
-	rule: NormalizedGraphqlRule | undefined,
-	key: string,
-): boolean | undefined => (typeof rule === 'object' ? rule.methods[key] : rule)
-
-const isMethodName = (key: string): key is GraphqlMethodName =>
-	Object.hasOwn(builtInDefaults, key)
-
-/**
- * Resolves one method or command: schema rule, then plugin default, then
- * built-in. A plugin command is exposed only when a rule names it, or when
- * a rule or the default is `true` (ADR-0325).
- */
-export const isGraphqlMethodEnabled = (
-	schema: NormalizedGraphqlRule | undefined,
-	defaults: NormalizedGraphqlRule | undefined,
-	key: string,
-): boolean => {
-	const explicit = readRule(schema, key) ?? readRule(defaults, key)
-	if (explicit !== undefined) return explicit
-	return isMethodName(key) ? builtInDefaults[key] : false
+/** Reads the GraphQL type name of one schema: its `typeName`, else its class name. */
+export const readGraphqlTypeName = (schema: SchemaDefinition): string => {
+	const rule: unknown = Object.hasOwn(schema.definition, 'graphql')
+		? Reflect.get(schema.definition, 'graphql')
+		: undefined
+	return isPlainRecord(rule) && typeof rule.typeName === 'string'
+		? rule.typeName
+		: schema.className
 }

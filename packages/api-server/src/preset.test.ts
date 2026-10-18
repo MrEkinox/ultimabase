@@ -209,18 +209,22 @@ describe('apiServer (ADR-0325)', () => {
 					...options,
 				}),
 			))({ logger: false, schemas: [Entry] })
-			onTestFinished(() => application.dispose())
-			await application.start()
-			return {
-				queries: Object.keys(
-					application
-						.plugin('@ultimabase/graphql-plugin')
-						.schema.getQueryType()
-						?.getFields() ?? {},
-				),
-				routes: application
-					.plugin('@ultimabase/rest-plugin')
-					.routeGraph.routes.map((route) => `${route.method} ${route.path}`),
+			// One application per realm: each start disposes before the next.
+			try {
+				await application.start()
+				return {
+					queries: Object.keys(
+						application
+							.plugin('@ultimabase/graphql-plugin')
+							.schema.getQueryType()
+							?.getFields() ?? {},
+					),
+					routes: application
+						.plugin('@ultimabase/rest-plugin')
+						.routeGraph.routes.map((route) => `${route.method} ${route.path}`),
+				}
+			} finally {
+				await application.dispose()
 			}
 		}
 

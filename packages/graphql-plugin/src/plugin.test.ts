@@ -60,7 +60,20 @@ describe('graphqlPlugin', () => {
 		[{ publicWrites: 'yes' }, 'publicWrites must be a boolean'],
 		[{ sdl: '' }, 'sdl must be a non-empty file path'],
 		[{ limits: null }, 'plain object'],
-		[{ pagination: { maxTake: 0 } }, 'greater than or equal to 1'],
+		[
+			{ pagination: { maxTake: 0 } },
+			'pagination.maxTake must be a positive safe integer',
+		],
+		[{ pagination: { defaultTake: 2.5 } }, 'safe integer'],
+		[
+			{ pagination: { unknown: 1 } },
+			'pagination has an unknown option: unknown',
+		],
+		[{ pagination: null }, 'pagination must be a plain object'],
+		[
+			{ pagination: { defaultTake: 2_147_483_648, maxTake: 2_147_483_648 } },
+			'GraphQL Int range',
+		],
 		[{ pagination: { defaultTake: 10, maxTake: 5 } }, 'must not exceed'],
 		[{ limits: { maxPageSize: 10 } }, 'unknown option'],
 		[{ limits: { unknown: 1 } }, 'unknown option'],

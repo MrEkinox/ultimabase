@@ -1,30 +1,29 @@
+import type { PluginOperationDefinition } from '@ultimabase/core/plugin'
 import {
-	isPluginOperationDefinition,
-	type PluginOperationDefinition,
-} from '@ultimabase/core/plugin'
-import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+	definePluginOptionsParser,
+	parseTransportExposureOptions,
+	transportExposureOptionKeys,
+	type NormalizedTransportExposureOptions,
+	type TransportExposureOptions,
+} from '@ultimabase/plugin-kit'
 import { immutableArray, isUnknownArray } from '@ultimabase/shared'
 import { GraphQLSchema } from 'graphql'
 
 import {
-	defaultGraphqlExecutionLimits,
 	normalizeGraphqlExecutionLimits,
 	type GraphqlExecutionLimits,
 	type GraphqlPaginationOptions,
 	type NormalizedGraphqlExecutionLimits,
 } from './connection-limits.js'
-import {
-	normalizeGraphqlRule,
-	type GraphqlMethodRules,
-	type NormalizedGraphqlRule,
-} from './rules.js'
+import type { GraphqlMethodRules } from './rules.js'
 
-/** Configures deterministic GraphQL v1 schema generation (ADR-0325). */
-export interface GraphqlPluginOptions {
+/** Configures deterministic GraphQL v1 schema generation (ADR-0325, ADR-0347). */
+export interface GraphqlPluginOptions extends TransportExposureOptions {
 	/**
-	 * Exposure inherited by every schema method a `.with({ graphql: … })` rule
-	 * leaves out: `true`, `false`, or per method.
-	 * @example `default: { createOne: false, updateOne: false, deleteOne: false }`
+	 * Exposure of every schema method that `.with({ graphql })` and
+	 * `.with({ expose })` leave out: `true`, `false`, or by `all`, group,
+	 * operation or method. Plugin commands are named in `.with`, never here.
+	 * @example `default: { write: false }`
 	 */
 	readonly default?: boolean | GraphqlMethodRules
 	/**
@@ -76,31 +75,6 @@ const normalizeCustomSchemas = (value: unknown): readonly GraphQLSchema[] => {
 	return immutableArray(schemas)
 }
 
-/** @internal Validates the public operation tokens GraphQL hides. */
-const normalizeGraphqlHide = (
-	value: unknown,
-): readonly PluginOperationDefinition[] => {
-	if (value === undefined) return immutableArray([])
-	if (!isUnknownArray(value)) {
-		throw new TypeError('GraphQL plugin hide must be an array')
-	}
-	const names = new Set<string>()
-	const operations: PluginOperationDefinition[] = []
-	for (const [index, operation] of value.entries()) {
-		if (!isPluginOperationDefinition(operation)) {
-			throw new TypeError(
-				`GraphQL plugin hide[${String(index)}] must be an operation token`,
-			)
-		}
-		if (names.has(operation.name)) {
-			throw new TypeError(`GraphQL plugin hide repeats ${operation.name}`)
-		}
-		names.add(operation.name)
-		operations.push(operation)
-	}
-	return immutableArray(operations)
-}
-
 const normalizeSdlPath = (value: unknown): string | undefined => {
 	if (value === undefined) return undefined
 	if (typeof value !== 'string' || value.length === 0) {
@@ -111,10 +85,9 @@ const normalizeSdlPath = (value: unknown): string | undefined => {
 
 /** @internal The validated configuration one `graphqlPlugin()` call closes over. */
 export interface NormalizedGraphqlPluginOptions {
-	readonly defaultRule: NormalizedGraphqlRule | undefined
-	readonly hide: readonly PluginOperationDefinition[]
+	/** `default`, `hide`, `pagination` and `publicWrites`, parsed by Plugin Kit. */
+	readonly exposure: NormalizedTransportExposureOptions
 	readonly limits: NormalizedGraphqlExecutionLimits
-	readonly publicWrites: boolean
 	readonly schemas: readonly GraphQLSchema[]
 	readonly sdl: string | undefined
 }
@@ -124,37 +97,17 @@ export const parseGraphqlPluginOptions: (
 	options: GraphqlPluginOptions,
 ) => NormalizedGraphqlPluginOptions = definePluginOptionsParser({
 	name: 'GraphQL plugin options',
-	keys: [
-		'default',
-		'hide',
-		'limits',
-		'pagination',
-		'publicWrites',
-		'schemas',
-		'sdl',
-	] as const,
-	normalize: (options) => {
-		const { publicWrites } = options
-		if (publicWrites !== undefined && typeof publicWrites !== 'boolean') {
-			throw new TypeError('GraphQL plugin publicWrites must be a boolean')
-		}
+	keys: [...transportExposureOptionKeys, 'limits', 'schemas', 'sdl'] as const,
+	normalize: ({ limits, schemas, sdl, ...values }) => {
+		// The page window is shared; GraphQL adds the Int range of `first`.
+		const exposure = parseTransportExposureOptions(values, {
+			name: 'GraphQL plugin',
+		})
 		return {
-			defaultRule:
-				options.default === undefined
-					? undefined
-					: normalizeGraphqlRule(
-							options.default,
-							'GraphQL plugin default',
-							false,
-						),
-			hide: normalizeGraphqlHide(options.hide),
-			limits:
-				options.limits === undefined && options.pagination === undefined
-					? defaultGraphqlExecutionLimits
-					: normalizeGraphqlExecutionLimits(options.limits, options.pagination),
-			publicWrites: publicWrites ?? false,
-			schemas: normalizeCustomSchemas(options.schemas),
-			sdl: normalizeSdlPath(options.sdl),
+			exposure,
+			limits: normalizeGraphqlExecutionLimits(limits, exposure.pagination),
+			schemas: normalizeCustomSchemas(schemas),
+			sdl: normalizeSdlPath(sdl),
 		}
 	},
 })

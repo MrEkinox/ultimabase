@@ -1,3 +1,4 @@
+import type { TransportPaginationOptions } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { assertGraphqlKnownKeys } from './known-keys.js'
@@ -11,7 +12,7 @@ export const maximumGraphqlInt = 2_147_483_647
  *
  * @example `graphqlPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
  */
-export interface GraphqlPaginationOptions {
+export interface GraphqlPaginationOptions extends TransportPaginationOptions {
 	/** Page size used when `first` is omitted. @default 100 */
 	readonly defaultTake?: number
 	/** Largest accepted `first`; a larger value is a GraphQL error. @default 1000 */
@@ -63,8 +64,6 @@ const limitKeys = new Set(
 		(key) => key !== 'defaultTake' && key !== 'maxTake',
 	),
 )
-const paginationKeys = new Set(['defaultTake', 'maxTake'])
-
 const readLimit = (value: unknown, path: string, minimum: number): number => {
 	if (
 		typeof value !== 'number' ||
@@ -78,10 +77,13 @@ const readLimit = (value: unknown, path: string, minimum: number): number => {
 	return value
 }
 
-/** Snapshots the request limits and the Relay page window of one application. */
+/**
+ * Snapshots the request limits of one application with its Relay page
+ * window, which Plugin Kit parsed with the other transport options.
+ */
 export const normalizeGraphqlExecutionLimits = (
 	limits: unknown,
-	pagination?: unknown,
+	pagination: Readonly<{ defaultTake: number; maxTake: number }>,
 ): NormalizedGraphqlExecutionLimits => {
 	const path = 'GraphQL plugin limits'
 	const value = limits === undefined ? {} : limits
@@ -89,17 +91,7 @@ export const normalizeGraphqlExecutionLimits = (
 		throw new TypeError(`${path} must be a plain object`)
 	}
 	assertGraphqlKnownKeys(value, limitKeys, path)
-	const page = pagination === undefined ? {} : pagination
-	if (!isPlainRecord(page)) {
-		throw new TypeError('GraphQL plugin pagination must be a plain object')
-	}
-	assertGraphqlKnownKeys(page, paginationKeys, 'GraphQL plugin pagination')
-	const take = (key: 'defaultTake' | 'maxTake'): number =>
-		page[key] === undefined
-			? defaultGraphqlExecutionLimits[key]
-			: readLimit(page[key], `GraphQL plugin pagination.${key}`, 1)
-	const defaultTake = take('defaultTake')
-	const maxTake = take('maxTake')
+	const { defaultTake, maxTake } = pagination
 	const positiveLimit = (
 		key: Exclude<
 			keyof NormalizedGraphqlExecutionLimits,
@@ -109,11 +101,6 @@ export const normalizeGraphqlExecutionLimits = (
 		value[key] === undefined
 			? defaultGraphqlExecutionLimits[key]
 			: readLimit(value[key], `${path}.${key}`, 1)
-	if (defaultTake > maxTake) {
-		throw new RangeError(
-			'GraphQL plugin pagination.defaultTake must not exceed pagination.maxTake',
-		)
-	}
 	if (defaultTake > maximumGraphqlInt) {
 		throw new RangeError(
 			'GraphQL plugin pagination.defaultTake must fit the GraphQL Int range',

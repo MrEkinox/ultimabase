@@ -124,6 +124,7 @@ describe('GraphQL reads the exposure plan (ADR-0347)', () => {
 			'existsGqlExposeCount',
 			'findManyGqlExposeCount',
 			'findOneGqlExposeCount',
+			'getGqlExposeCount',
 		])
 		expect(mutations('GqlExposeCount')).toStrictEqual([
 			'createGqlExposeCount',
@@ -134,6 +135,7 @@ describe('GraphQL reads the exposure plan (ADR-0347)', () => {
 			'existsGqlExposeReadOnly',
 			'findManyGqlExposeReadOnly',
 			'findOneGqlExposeReadOnly',
+			'getGqlExposeReadOnly',
 		])
 		expect(mutations('GqlExposeReadOnly')).toStrictEqual([])
 		expect(queries('GqlExposeHidden')).toStrictEqual([])

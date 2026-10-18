@@ -45,11 +45,19 @@ export interface ApiServerGraphqlOptions extends GraphqlPluginOptions {
 
 /**
  * Selects and configures the plugins of one REST and GraphQL API server.
- * `hide`, `pagination` and `publicWrites` apply to every installed
- * transport; the same option inside `rest` or `graphql` replaces the shared
- * value for that transport, whole (ADR-0347).
+ * `default`, `hide`, `pagination` and `publicWrites` apply to every
+ * installed transport; the same option inside `rest` or `graphql` replaces
+ * the shared value for that transport, whole (ADR-0347).
  */
 export interface ApiServerOptions {
+	/**
+	 * Exposure of every schema method that `.with({ expose })` and the
+	 * transport keys leave out, on every transport: `true`, `false`, or by
+	 * `all`, group, operation or method. A `default` inside `rest` or
+	 * `graphql` replaces it for that transport, whole.
+	 * @example `default: { count: true }`
+	 */
+	readonly default?: NonNullable<TransportExposureOptions['default']>
 	/**
 	 * Public operations that neither REST nor GraphQL exposes. A `hide` inside
 	 * `rest` or `graphql` replaces this list for that transport.
@@ -134,13 +142,12 @@ const asOptions = <TOptions extends object>(
 
 /** The shared options the call sets, so that an omitted one stays unset. */
 const sharedOptions = ({
+	default: defaultRule,
 	hide,
 	pagination,
 	publicWrites,
-}: ApiServerOptions): Pick<
-	TransportExposureOptions,
-	'hide' | 'pagination' | 'publicWrites'
-> => ({
+}: ApiServerOptions): TransportExposureOptions => ({
+	...(defaultRule === undefined ? {} : { default: defaultRule }),
 	...(hide === undefined ? {} : { hide }),
 	...(pagination === undefined ? {} : { pagination }),
 	...(publicWrites === undefined ? {} : { publicWrites }),

@@ -5,7 +5,8 @@ import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
 	databaseFilterOperatorsCapability,
-	type ApplicationOperationTransportPlan,
+	type ApplicationOperationTransportPlanner,
+	type OperationTransportProtocol,
 } from '@ultimabase/core'
 import {
 	contributeApplication,
@@ -16,12 +17,14 @@ import {
 	requireCapability,
 	type PluginDeclarationContribution,
 	type PluginInstance,
-	type PluginOperationDefinition,
 	type PluginSchemaOptionSource,
 	type PluginSchemaRulesSource,
 	provideSchemaRules,
 } from '@ultimabase/core/plugin'
-import { readDeploymentEnvironment } from '@ultimabase/plugin-kit'
+import {
+	readDeploymentEnvironment,
+	readExposurePlan,
+} from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -51,6 +54,7 @@ import { graphqlSchemaOption, type GraphqlSchemaRules } from './rules.js'
 import { composeGraphqlSchemas } from './schema-composition.js'
 import { graphqlSchemaContributionsCapability } from './schema-contributions.js'
 import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
+import { assertNoPluginOwnedGraphqlRule } from './surfaces.js'
 
 /** Exposes the application-local network-independent GraphQL schema. */
 export type GraphqlPluginExports = GraphqlApplication
@@ -98,32 +102,6 @@ export type GraphqlPlugin = PluginInstance<{
 
 const noHints: GraphqlDisabledFieldHints = new Map()
 
-type OperationPlan = ApplicationOperationTransportPlan<
-	typeof graphqlOperationProtocol
->
-
-/** Keeps the public operations a `hide` list does not name (ADR-0325). */
-const withoutHidden = (
-	plan: OperationPlan,
-	hide: readonly PluginOperationDefinition[],
-): OperationPlan => {
-	const planned = new Set(plan.operations.map(({ name }) => name))
-	for (const hidden of hide) {
-		if (!planned.has(hidden.name)) {
-			throw new TypeError(
-				`graphqlPlugin({ hide }) lists ${hidden.name}, which GraphQL does not expose: it is not a public operation, or its owner binds it to other transports only`,
-			)
-		}
-	}
-	const hidden = new Set(hide.map(({ name }) => name))
-	return immutableRecord({
-		operations: immutableArray(
-			plan.operations.filter(({ name }) => !hidden.has(name)),
-		),
-		transport: plan.transport,
-	})
-}
-
 /** Installs generated GraphQL schema execution without selecting an HTTP adapter. */
 export const graphqlPlugin = (
 	options: GraphqlPluginOptions = {},
@@ -133,16 +111,32 @@ export const graphqlPlugin = (
 	// outside production only, like Access's 'development' openings
 	// (ADR-0312, ADR-0333).
 	const hinted = readDeploymentEnvironment() !== 'production'
+	// Core decides what GraphQL serves (ADR-0347); GraphQL lays out the roots.
+	const readPlan = <const TTransport extends OperationTransportProtocol>(
+		planner: ApplicationOperationTransportPlanner,
+		transport: TTransport,
+		hide: boolean,
+	) =>
+		readExposurePlan(planner, {
+			factory: 'graphqlPlugin',
+			label: 'GraphQL',
+			// `hide` names public operations, which bind to the operation protocol.
+			options: hide
+				? normalized.exposure
+				: { ...normalized.exposure, hide: immutableArray([]) },
+			schemaKey: 'graphql',
+			transport,
+		})
 	const applicationProvider = provideCapability(graphqlApplicationCapability, {
 		contributionId: 'official-graphql-application',
 		create: ({ callbacks, capabilities: reader, logger, owner, schemas }) => {
 			const connections = new GraphqlConnectionRuntime(normalized.limits)
 			const planner = reader.get(operationPlanningRequirement)
+			assertNoPluginOwnedGraphqlRule(schemas)
 			// Every public operation is exposed unless hidden (ADR-0324, F1).
-			const operationPlan = withoutHidden(
-				planner.plan({ transport: graphqlOperationProtocol }),
-				normalized.hide,
-			)
+			const operationPlan = readPlan(planner, graphqlOperationProtocol, true)
+			// Generated roots and plugin commands bind to the GraphQL protocol.
+			const exposurePlan = readPlan(planner, graphqlProtocol, false)
 			const operations = new GraphqlOperationExecution(operationPlan)
 			const schemaMutationPlan = planner.planSchemaMutations({
 				bindings: 'optional',
@@ -164,8 +158,8 @@ export const graphqlPlugin = (
 				const filterOperators = reader.get(optionalFilterOperators)
 				const generated = compileGraphqlSchema({
 					connectionLimits: normalized.limits,
-					defaultRule: normalized.defaultRule,
 					execution,
+					exposurePlan,
 					...(filterOperators === undefined ? {} : { filterOperators }),
 					operationPlan,
 					schemaMutationPlan,
@@ -264,7 +258,7 @@ export const graphqlPlugin = (
 				assertGraphqlPublicWrites(
 					facts.writes,
 					executor.hasProtectedPolicy(),
-					normalized.publicWrites,
+					normalized.exposure.publicWrites,
 				)
 				if (facts.operations.length > 0) {
 					bindGraphqlOperationTransport(

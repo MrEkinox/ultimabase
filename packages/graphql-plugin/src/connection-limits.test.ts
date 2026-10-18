@@ -7,9 +7,9 @@ import {
 
 describe('GraphQL connection limits', () => {
 	it('applies immutable defaults and accepts bounded overrides', () => {
-		expect(normalizeGraphqlExecutionLimits({})).toStrictEqual(
-			defaultGraphqlExecutionLimits,
-		)
+		expect(
+			normalizeGraphqlExecutionLimits({}, { defaultTake: 100, maxTake: 1000 }),
+		).toStrictEqual(defaultGraphqlExecutionLimits)
 		expect(
 			normalizeGraphqlExecutionLimits(
 				{ maxDepth: 12 },
@@ -38,24 +38,21 @@ describe('GraphQL connection limits', () => {
 		[{ maxDocumentBytes: 1.5 }, 'safe integer'],
 		[{ defaultPageSize: 10 }, 'unknown option'],
 	])('rejects malformed limits %#', (value, message) => {
-		expect(() => normalizeGraphqlExecutionLimits(value)).toThrow(message)
+		expect(() =>
+			normalizeGraphqlExecutionLimits(value, {
+				defaultTake: 100,
+				maxTake: 1000,
+			}),
+		).toThrow(message)
 	})
 
-	// ADR-0309 step 3b amendment: one `pagination` option, as REST.
-	it.each([
-		[null, 'plain object'],
-		[{ unknown: 1 }, 'unknown option'],
-		[{ defaultTake: 0 }, 'pagination.defaultTake must be a safe integer'],
-		[{ defaultTake: 2.5 }, 'safe integer'],
-		[{ maxTake: 0 }, 'pagination.maxTake must be a safe integer'],
-		[{ defaultTake: 11, maxTake: 10 }, 'must not exceed pagination.maxTake'],
-		[
-			{ defaultTake: 2_147_483_648, maxTake: 2_147_483_648 },
-			'GraphQL Int range',
-		],
-	])('rejects malformed pagination %#', (value, message) => {
-		expect(() => normalizeGraphqlExecutionLimits(undefined, value)).toThrow(
-			message,
-		)
+	// Plugin Kit parses `pagination` (ADR-0347); GraphQL adds the Int range.
+	it('rejects a default page size beyond the GraphQL Int range', () => {
+		expect(() =>
+			normalizeGraphqlExecutionLimits(undefined, {
+				defaultTake: 2_147_483_648,
+				maxTake: 2_147_483_648,
+			}),
+		).toThrow('GraphQL Int range')
 	})
 })

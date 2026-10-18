@@ -1,4 +1,5 @@
 import type {
+	ApplicationExposurePlan,
 	ApplicationOperationTransportPlan,
 	DatabaseFilterOperatorCapability,
 	ApplicationSchemaMutationTransportPlan,
@@ -20,6 +21,7 @@ import {
 import type { NormalizedGraphqlExecutionLimits } from './connection-limits.js'
 import { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
+import type { GraphqlWriteRoot } from './exposure.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
 import type { GraphqlDisabledFieldHints } from './hints.js'
@@ -31,7 +33,6 @@ import {
 	type GraphqlRootCompilers,
 } from './root-fields.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
-import type { NormalizedGraphqlRule } from './rules.js'
 import { graphqlBuiltInTypeNames } from './scalar-types.js'
 import { collectGraphqlSchemaSurfaces } from './surfaces.js'
 
@@ -42,8 +43,8 @@ export interface GraphqlCompiledSchema {
 	readonly hints: GraphqlDisabledFieldHints
 	/** Whether any schema root or operation is exposed besides `health`. */
 	readonly exposed: boolean
-	/** Root fields that write: generated mutations and plugin commands. */
-	readonly writes: readonly string[]
+	/** Root fields that write: generated mutations, then plugin commands. */
+	readonly writes: readonly GraphqlWriteRoot[]
 }
 
 const healthStatus = new GraphQLEnumType({
@@ -52,24 +53,12 @@ const healthStatus = new GraphQLEnumType({
 	values: { DEGRADED: { value: 'DEGRADED' }, OK: { value: 'OK' } },
 })
 
-/** Lists the request commands of each schema, which GraphQL may expose. */
-const requestCommands = (
-	plan: ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>,
-): ReadonlyMap<string, readonly string[]> => {
-	const commands = new Map<string, readonly string[]>()
-	for (const { authority, command, schema } of plan.mutations) {
-		// Master-only commands are never exposed (see the binding compiler).
-		if (authority !== 'request') continue
-		commands.set(schema, [...(commands.get(schema) ?? []), command])
-	}
-	return commands
-}
-
 /** Compiles one isolated GraphQL structural schema from the final Core graph. */
 export const compileGraphqlSchema = (
 	options: Readonly<{
 		readonly connectionLimits: NormalizedGraphqlExecutionLimits
-		readonly defaultRule: NormalizedGraphqlRule | undefined
+		/** Core's decision of what GraphQL serves (ADR-0347). */
+		readonly exposurePlan: ApplicationExposurePlan
 		/** The adapter's static operator declaration (ADR-0325, decision 5). */
 		readonly filterOperators?: DatabaseFilterOperatorCapability
 		readonly execution: GraphqlGeneratedExecution
@@ -93,12 +82,7 @@ export const compileGraphqlSchema = (
 	const ctx = new GraphqlCompileContext(
 		names,
 		options.schemas,
-		collectGraphqlSchemaSurfaces(
-			options.schemas,
-			options.defaultRule,
-			names,
-			requestCommands(options.schemaMutationPlan),
-		),
+		collectGraphqlSchemaSurfaces(options.schemas, options.exposurePlan, names),
 		options.filterOperators,
 	)
 	const { execution } = options
@@ -139,8 +123,8 @@ export const compileGraphqlSchema = (
 		schemaMutations: options.schemaMutations,
 	})
 	const generatedQuery = compileGraphqlQueryFields(roots)
-	const mutationFields = compileGraphqlMutationFields(roots)
-	const generatedWrites = Object.keys(mutationFields)
+	const { fields: mutationFields, writes: generatedWrites } =
+		compileGraphqlMutationFields(roots)
 	const bindings = addBindingRoots(generatedQuery, mutationFields)
 	// `health` is always present, so an application without exposed schema
 	// still starts (ADR-0325).

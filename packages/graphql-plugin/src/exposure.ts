@@ -1,15 +1,31 @@
+import type { ExposedWriteMethod } from '@ultimabase/core'
+import { assertPublicWrites } from '@ultimabase/plugin-kit'
+
+/** One root field that writes, with the plan entry that serves it. */
+export interface GraphqlWriteRoot {
+	readonly field: string
+	readonly write: ExposedWriteMethod
+}
+
 /**
  * Refuses to start when GraphQL exposes writes and no protected policy is
  * installed, unless `publicWrites` opts in (ADR-0294, ADR-0325). Writes are
- * the generated mutations and plugin commands; operations do not count.
+ * the generated mutations and plugin commands, named by root field in
+ * schema order; operations do not count.
  */
 export const assertGraphqlPublicWrites = (
-	writes: readonly string[],
+	roots: readonly GraphqlWriteRoot[],
 	hasProtectedPolicy: boolean,
 	publicWrites: boolean,
 ): void => {
-	if (publicWrites || writes.length === 0 || hasProtectedPolicy) return
-	throw new TypeError(
-		`GraphQL exposes writes (${writes.slice(0, 3).join(', ')}${writes.length > 3 ? ', …' : ''}) but no protected policy plugin is installed: install one, such as accessPlugin(), or pass graphqlPlugin({ publicWrites: true }) to let every client write.`,
-	)
+	const fields = new Map(roots.map(({ field, write }) => [write, field]))
+	assertPublicWrites({
+		describe: (write) =>
+			fields.get(write) ?? `${write.schema}.${write.method.entry.method}`,
+		hasProtectedPolicy,
+		hint: 'graphqlPlugin({ publicWrites: true })',
+		label: 'GraphQL',
+		publicWrites,
+		writes: roots.map(({ write }) => write),
+	})
 }

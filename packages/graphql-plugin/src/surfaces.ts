@@ -1,23 +1,17 @@
-import {
-	readSchemaCommandClosure,
-	type CompiledSchemaRegistry,
-	type SchemaContributionOwner,
-	type SchemaDefinition,
+import type {
+	ApplicationExposurePlan,
+	CompiledSchemaRegistry,
+	ExposedSchemaMethod,
+	SchemaContributionOwner,
+	SchemaDefinition,
 } from '@ultimabase/core'
-import { formatPluginIdentity } from '@ultimabase/core/plugin'
 
 import {
 	graphqlSourceDescription,
 	type GraphqlNameRegistry,
 } from './compile-context.js'
 import { GraphqlSchemaCompilationError } from './errors.js'
-import {
-	graphqlMethodNames,
-	isGraphqlMethodEnabled,
-	readGraphqlSchemaRule,
-	type GraphqlMethodName,
-	type NormalizedGraphqlRule,
-} from './rules.js'
+import { readGraphqlTypeName, type GraphqlMethodName } from './rules.js'
 
 /** The generated GraphQL surface of one schema and its enabled roots. */
 export interface GraphqlSchemaSurface {
@@ -37,8 +31,8 @@ export interface GraphqlSchemaSurface {
 	readonly get: boolean
 	readonly update: boolean
 	readonly upsert: boolean
-	/** Reports whether one plugin command is exposed on this schema. */
-	readonly command: (name: string) => boolean
+	/** The methods and plugin commands Core's plan serves, by method name. */
+	readonly methods: ReadonlyMap<string, ExposedSchemaMethod>
 	/**
 	 * Whether a generated root or a plugin command of this schema is exposed.
 	 * A schema without one contributes types only where an exposed type
@@ -83,106 +77,67 @@ export const graphqlOperationMethods: Readonly<
 }
 
 /**
- * Names where an explicit `true` for one method comes from: the schema rule's
- * own key, else the plugin default's when the schema rule leaves the key
- * open. A `true` rule or default enables everything without naming it.
+ * Refuses a `graphql` rule on a plugin-owned schema before Core plans the
+ * exposure, so the message keeps GraphQL's compilation error (ADR-0333).
  */
-const explicitSetting = (
-	schema: NormalizedGraphqlRule | undefined,
-	defaults: NormalizedGraphqlRule | undefined,
-	key: string,
-): 'default' | 'schema' | undefined => {
-	if (typeof schema === 'object' && Object.hasOwn(schema.methods, key)) {
-		return schema.methods[key] === true ? 'schema' : undefined
-	}
-	if (typeof schema === 'boolean') return undefined
-	return typeof defaults === 'object' && defaults.methods[key] === true
-		? 'default'
-		: undefined
-}
-
-/**
- * Refuses an explicit setting that would publish a method a plugin closed on
- * the schema (ADR-0341); the defaults and `true` forms leave it unpublished.
- */
-const assertClosedMethodsUnrequested = (
-	schema: SchemaDefinition,
-	rule: NormalizedGraphqlRule | undefined,
-	defaults: NormalizedGraphqlRule | undefined,
-): void => {
-	for (const method of graphqlMethodNames) {
-		const closure = readSchemaCommandClosure(schema, method)
-		if (closure === undefined) continue
-		const source = explicitSetting(rule, defaults, method)
-		if (source === undefined) continue
-		const { className } = schema
-		throw new TypeError(
-			`${className}.${method} is closed by plugin "${formatPluginIdentity(closure.owner)}": ${closure.reason} ${
-				source === 'schema'
-					? `Remove ${method} from .with({ graphql }) of ${className}.`
-					: `Remove ${method} from graphqlPlugin({ default }), or set it to false in .with({ graphql }) of ${className}.`
-			}`,
-		)
-	}
-}
-
-/**
- * Resolves GraphQL identities and enabled roots from final provenance.
- * `commands` lists, per schema class name, the request commands GraphQL
- * may expose.
- */
-export const collectGraphqlSchemaSurfaces = (
+export const assertNoPluginOwnedGraphqlRule = (
 	schemas: CompiledSchemaRegistry,
-	pluginDefault: NormalizedGraphqlRule | undefined,
-	names: GraphqlNameRegistry,
-	commands: ReadonlyMap<string, readonly string[]>,
-): ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface> => {
-	const surfaces = new Map<SchemaDefinition, GraphqlSchemaSurface>()
+): void => {
 	for (const schema of schemas.values()) {
-		const owner = schema.definition.provenance.schema.owner
-		const rule = readGraphqlSchemaRule(schema)
-		if (owner.kind === 'plugin' && rule !== undefined) {
+		const { owner } = schema.definition.provenance.schema
+		if (
+			owner.kind === 'plugin' &&
+			Object.hasOwn(schema.definition, 'graphql')
+		) {
 			throw new GraphqlSchemaCompilationError(
 				'plugin-schema-option',
 				`Plugin-owned schema ${schema.className} cannot declare the direct graphql option`,
 				{ owner, path: schema.className },
 			)
 		}
-		const typeName =
-			typeof rule === 'object' && rule.typeName !== undefined
-				? rule.typeName
-				: schema.className
+	}
+}
+
+/**
+ * Lays out the GraphQL identity and roots of every schema from Core's
+ * exposure plan (ADR-0347): GraphQL decides names, never exposure.
+ */
+export const collectGraphqlSchemaSurfaces = (
+	schemas: CompiledSchemaRegistry,
+	plan: ApplicationExposurePlan,
+	names: GraphqlNameRegistry,
+): ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface> => {
+	const served = new Map(
+		plan.schemas.map(({ className, methods }) => [
+			className,
+			new Map(methods.map((method) => [method.entry.method, method])),
+		]),
+	)
+	const surfaces = new Map<SchemaDefinition, GraphqlSchemaSurface>()
+	for (const schema of schemas.values()) {
+		const owner = schema.definition.provenance.schema.owner
+		const typeName = readGraphqlTypeName(schema)
 		names.claimType(typeName, graphqlSourceDescription(schema), owner)
-		// Plugin-owned schemas never get generated roots: their types appear only
+		// Plugin-owned schemas are never in the plan: their types appear only
 		// where an exposed type or a public operation reaches them (ADR-0333).
-		const application = owner.kind === 'application'
-		if (application) {
-			assertClosedMethodsUnrequested(schema, rule, pluginDefault)
-		}
-		// A command a plugin closed has no root, whatever the rules (ADR-0341).
-		const enabled = (key: string): boolean =>
-			application &&
-			isGraphqlMethodEnabled(rule, pluginDefault, key) &&
-			readSchemaCommandClosure(schema, key) === undefined
+		const methods: ReadonlyMap<string, ExposedSchemaMethod> =
+			served.get(schema.className) ?? new Map()
 		const operation = (name: GraphqlSurfaceOperation): boolean =>
-			enabled(graphqlOperationMethods[name])
-		const exposed =
-			Object.values(graphqlOperationMethods).some(enabled) ||
-			(commands.get(schema.className) ?? []).some(enabled)
+			methods.has(graphqlOperationMethods[name])
 		surfaces.set(schema, {
 			bulkCreate: operation('bulkCreate'),
 			bulkDelete: operation('bulkDelete'),
 			bulkUpdate: operation('bulkUpdate'),
 			bulkUpsert: operation('bulkUpsert'),
-			command: enabled,
 			count: operation('count'),
 			create: operation('create'),
 			delete: operation('delete'),
 			exists: operation('exists'),
-			exposed,
+			exposed: methods.size > 0,
 			findMany: operation('findMany'),
 			findOne: operation('findOne'),
 			get: operation('get'),
+			methods,
 			owner,
 			schema,
 			typeName,

@@ -20,6 +20,7 @@ import {
 } from './compile-context.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import type { GraphqlFilterInputCompiler } from './filter-input-compiler.js'
+import type { GraphqlWriteRoot } from './exposure.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import type { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
 import type { GraphqlMutationOperation } from './mutation-normalization.js'
@@ -91,13 +92,14 @@ const addDisabledRootHints = (
 	}
 }
 
+/** Adds one enabled root and returns its field name. */
 const addRoot = (
 	fields: RootFields,
 	surface: GraphqlSchemaSurface,
 	operation: GraphqlReadOperation | GraphqlMutationOperation,
 	config: () => GraphQLFieldConfig<unknown, unknown>,
-): void => {
-	if (!surface[operation]) return
+): string | undefined => {
+	if (!surface[operation]) return undefined
 	const fieldName = rootFieldName(operation, surface.typeName)
 	assertGraphqlFieldName(
 		fieldName,
@@ -105,6 +107,7 @@ const addRoot = (
 		surface.owner,
 	)
 	fields[fieldName] = config()
+	return fieldName
 }
 
 /**
@@ -162,6 +165,7 @@ export const compileGraphqlQueryFields = (
 const surfaceMutationFields = (
 	compilers: GraphqlRootCompilers,
 	fields: RootFields,
+	writes: GraphqlWriteRoot[],
 	surface: GraphqlSchemaSurface,
 ): void => {
 	const { ctx, execution, inputs } = compilers
@@ -184,11 +188,15 @@ const surfaceMutationFields = (
 		argument: GraphQLInputObjectType,
 		type: GraphQLOutputType,
 	): void => {
-		addRoot(fields, surface, operation, () => ({
+		const field = addRoot(fields, surface, operation, () => ({
 			args: { input: { type: new GraphQLNonNull(argument) } },
 			resolve: execution.mutation(schema, operation),
 			type,
 		}))
+		const method = surface.methods.get(graphqlOperationMethods[operation])
+		if (field !== undefined && method !== undefined) {
+			writes.push({ field, write: { method, schema: schema.className } })
+		}
 	}
 	const model = compilers.fields.model(schema)
 	const create = inputs.createInput(schema)
@@ -266,15 +274,19 @@ const surfaceMutationFields = (
 	}
 }
 
-/** Generates exact schema-command roots for exposed application schemas only. */
+/**
+ * Generates exact schema-command roots for exposed application schemas only,
+ * with the writes they serve in root order.
+ */
 export const compileGraphqlMutationFields = (
 	compilers: GraphqlRootCompilers,
-): RootFields => {
+): Readonly<{ fields: RootFields; writes: readonly GraphqlWriteRoot[] }> => {
 	const fields: RootFields = {}
+	const writes: GraphqlWriteRoot[] = []
 	for (const surface of compilers.ctx.surfaces.values()) {
 		if (surface.owner.kind === 'application' && surface.exposed) {
-			surfaceMutationFields(compilers, fields, surface)
+			surfaceMutationFields(compilers, fields, writes, surface)
 		}
 	}
-	return fields
+	return { fields, writes }
 }

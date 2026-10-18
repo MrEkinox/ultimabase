@@ -2,6 +2,7 @@ import type {
 	ApplicationOperationTransportPlan,
 	ApplicationSchemaMutationTransportPlan,
 	CompiledSchemaRegistry,
+	ExposedSchemaMethod,
 	ExposedSchemaMutationTransportBinding,
 	PluginSchemaContributionOwner,
 	SchemaDefinition,
@@ -35,9 +36,9 @@ import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import type { GraphqlMutationInputCompiler } from './mutation-input-compiler.js'
+import type { GraphqlWriteRoot } from './exposure.js'
 import { describeUnboundOperation } from './operation-json-types.js'
 import type { graphqlProtocol } from './protocol.js'
-import { graphqlMethodNames, readGraphqlSchemaRule } from './rules.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 
 type RootFields = GraphQLFieldConfigMap<unknown, unknown>
@@ -59,7 +60,7 @@ export interface GraphqlBindingCompilers {
 export type GraphqlBindingRoots = (
 	query: RootFields,
 	mutation: RootFields,
-) => Readonly<{ commands: readonly string[] }>
+) => Readonly<{ commands: readonly GraphqlWriteRoot[] }>
 
 // A command its owner did not bind takes no data: its input is the row ID.
 const unboundCommandMetadata: GraphqlSchemaMutationBindingMetadata =
@@ -132,7 +133,7 @@ export const compileGraphqlBindings = (
 	const schemaMutations = collectSchemaMutationBindings(compilers, types)
 	types.finalize()
 	return (query, mutation) => {
-		const commands: string[] = []
+		const commands: GraphqlWriteRoot[] = []
 		for (const { descriptor, metadata, owner } of operations) {
 			const fields = metadata.root === 'query' ? query : mutation
 			const source = `operation ${descriptor.name}`
@@ -157,7 +158,7 @@ export const compileGraphqlBindings = (
 			}
 		}
 		for (const binding of schemaMutations) {
-			const { descriptor, metadata, owner, schema } = binding
+			const { descriptor, metadata, method, owner, schema } = binding
 			const typeName = ctx.surface(schema).typeName
 			const fieldName = `${descriptor.command}${typeName}`
 			const source = `schema mutation ${descriptor.mutation}`
@@ -187,7 +188,12 @@ export const compileGraphqlBindings = (
 				// v1 root remains nullable like update and delete.
 				type: compilers.fields.model(schema),
 			}
-			commands.push(fieldName)
+			commands.push(
+				immutableRecord({
+					field: fieldName,
+					write: immutableRecord({ method, schema: schema.className }),
+				}),
+			)
 		}
 		return immutableRecord({ commands: immutableArray(commands) })
 	}
@@ -196,28 +202,10 @@ export const compileGraphqlBindings = (
 interface SchemaMutationBinding {
 	readonly descriptor: ExposedSchemaMutationTransportBinding
 	readonly metadata: GraphqlSchemaMutationBindingMetadata
+	/** The plan's entry for the command, named in the `publicWrites` check. */
+	readonly method: ExposedSchemaMethod
 	readonly owner: PluginSchemaContributionOwner
 	readonly schema: SchemaDefinition
-}
-
-const nativeKeys: ReadonlySet<string> = new Set(graphqlMethodNames)
-
-/**
- * Checks that every key of an application schema's rule names a native
- * method or one of the commands GraphQL can expose on that schema.
- */
-const assertRuleKeys = (
-	schema: SchemaDefinition,
-	commands: ReadonlySet<string>,
-): void => {
-	const rule = readGraphqlSchemaRule(schema)
-	if (typeof rule !== 'object') return
-	for (const key of Object.keys(rule.methods)) {
-		if (nativeKeys.has(key) || commands.has(key)) continue
-		throw new TypeError(
-			`graphql.${key} on ${schema.className} names no schema method or exposable command${commands.size === 0 ? '' : `; its commands are ${[...commands].sort().join(', ')}`}`,
-		)
-	}
 }
 
 const collectSchemaMutationBindings = (
@@ -225,7 +213,6 @@ const collectSchemaMutationBindings = (
 	types: GraphqlBindingTypes,
 ): readonly SchemaMutationBinding[] => {
 	const { ctx } = compilers
-	const exposable = new Map<string, Set<string>>()
 	const bindings: SchemaMutationBinding[] = []
 	for (const descriptor of compilers.schemaMutationPlan.mutations) {
 		// Master-only mutations are never generated as public fields.
@@ -238,11 +225,9 @@ const collectSchemaMutationBindings = (
 			)
 		}
 		if (surface.owner.kind !== 'application') continue
-		const names = exposable.get(schema.className) ?? new Set<string>()
-		names.add(descriptor.command)
-		exposable.set(schema.className, names)
-		// Commands are exposed only through `.with({ graphql: … })` (ADR-0325).
-		if (!surface.command(descriptor.command)) {
+		// Core's plan decides which commands are exposed (ADR-0347).
+		const method = surface.methods.get(descriptor.command)
+		if (method === undefined) {
 			ctx.hints.add(
 				'Mutation',
 				`${descriptor.command}${surface.typeName}`,
@@ -267,14 +252,7 @@ const collectSchemaMutationBindings = (
 				: [{ mode: 'input', reference: metadata.input }],
 		)
 		compilers.schemaMutations.select(descriptor)
-		bindings.push({ descriptor, metadata, owner, schema })
-	}
-	for (const surface of ctx.surfaces.values()) {
-		if (surface.owner.kind !== 'application') continue
-		assertRuleKeys(
-			surface.schema,
-			exposable.get(surface.schema.className) ?? new Set(),
-		)
+		bindings.push({ descriptor, metadata, method, owner, schema })
 	}
 	return bindings
 }
