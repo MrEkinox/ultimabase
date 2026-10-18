@@ -254,7 +254,7 @@ Soft Delete example's `Post`:
 such as `softDeleteOne` and `restoreOne`, so the Access, REST, and GraphQL
 rules in `.with` can name them. A feature key takes `true` or a static options
 object. `.with` must be the last call, and its keys are the rules of the
-installed plugins plus Core's `relations`. It is optional: a schema without
+installed plugins plus Core's `relations` and `expose`. It is optional: a schema without
 plugin rules ends with `define(...)`, unless a feature it sets requires a rule,
 as `acl: true` requires `.with({ acl: { default } })`. An unknown or misspelled
 key of `define` or of `.with`, or a rule in `define`, is a TypeScript error; at

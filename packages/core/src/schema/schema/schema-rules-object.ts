@@ -6,7 +6,8 @@ declare const noInstalledRules: unique symbol
 
 /**
  * The `.with({ … })` parameter of a schema whose factory installs no plugin
- * with rules and that declares no relation: every key is refused, by name.
+ * with rules and that declares no relation: every plugin rule key is
+ * refused, by name; Core's `expose` stays available.
  */
 export interface NoSchemaRules {
 	readonly [noInstalledRules]?: never

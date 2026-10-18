@@ -26,6 +26,7 @@ import type { BaseSchemaTypeInfo, SchemaTypeInfo } from '../type-info.js'
 import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
+import type { NormalizedExposureRule } from '../../plugins/exposure-rules.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import type { UniqueIndexFields } from './source-unique-targets.js'
 import type { SchemaTypeInfoByNameOrRegistered } from './registered-schemas.js'
@@ -185,6 +186,8 @@ export interface PreparedSchemaCompilation {
 interface SchemaDeclarationRules {
 	/** Unvalidated `relations` rules (ADR-0328). */
 	readonly relations?: unknown
+	/** The normalized `expose` rule, stored as a Core key (ADR-0347). */
+	readonly expose?: NormalizedExposureRule
 	/** Whether `define` set feature keys, so its indexes may name their fields. */
 	readonly featureIndexes?: boolean
 	/** `[feature, rule]` pairs required by `define` features, not given yet. */
@@ -249,6 +252,7 @@ const defineSchemaModel = <
 			fields,
 			indexes: snapshotSchemaIndexOptions(options.indexes),
 			...(relationFilters.size === 0 ? {} : { relationFilters }),
+			...(rules.expose === undefined ? {} : { expose: rules.expose }),
 			...(rules.featureIndexes === true ? { featureIndexes: true } : {}),
 			...(rules.missingRules === undefined || rules.missingRules.length === 0
 				? {}

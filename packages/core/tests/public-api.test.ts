@@ -218,6 +218,7 @@ describe('@ultimabase/core public entry point', () => {
 			'isPluginSchemaMutationDefinition',
 			'isSamePluginIdentity',
 			'nativeCommandCatalog',
+			'normalizeExposureRule',
 			'normalizePlugins',
 			'openApplicationHarness',
 			'optionalCapability',

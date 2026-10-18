@@ -274,9 +274,15 @@ export const resolveCandidateOptions = (
 		),
 	) as typeof candidate.developerFields
 
+	// Core keys such as `expose` (ADR-0347) pass through unchanged.
+	const coreEntries = Object.entries(candidate.definition).filter(([key]) =>
+		coreSchemaKeys.has(key),
+	)
+
 	return immutableRecord({
 		definition: immutableRecord({
 			...schemaOptions,
+			...Object.fromEntries(coreEntries),
 			className: candidate.definition.className,
 			fields: logicalFields,
 			indexes: candidate.definition.indexes,

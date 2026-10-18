@@ -113,6 +113,14 @@ export type {
 	NativeCommandOperation,
 	PluginCommandCatalogEntry,
 } from './plugins/command-catalog.js'
+export { normalizeExposureRule } from './plugins/exposure-rules.js'
+export type {
+	ExposureCommandKey,
+	NativeExposureRules,
+	NormalizedExposureRule,
+	SchemaExposeRule,
+	SchemaExposeRules,
+} from './plugins/exposure-rules.js'
 export type {
 	CompiledPluginSchemaMutationDefinition,
 	DefinePluginSchemaMutationOptions,

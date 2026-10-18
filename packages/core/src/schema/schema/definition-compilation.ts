@@ -5,6 +5,10 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import {
+	exposeRuleKey,
+	type NormalizedExposureRule,
+} from '../../plugins/exposure-rules.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { RelationWhereDeclaration } from '../fields/builtins/relation.js'
@@ -91,6 +95,8 @@ export interface NormalizedSchemaDeclaration {
 	 * them: `[feature, rule]` pairs reported when an application compiles.
 	 */
 	readonly missingRules?: readonly (readonly [string, string])[] | undefined
+	/** The `expose` rule of the final `.with`, a Core key (ADR-0347). */
+	readonly expose?: NormalizedExposureRule | undefined
 	readonly options: Readonly<Record<string, unknown>>
 }
 
@@ -267,6 +273,12 @@ export const snapshotUnresolvedSchemaOptions = (
 			throw new TypeError(`Unknown schema option: ${String(key)}`)
 		}
 
+		if (key === exposeRuleKey) {
+			throw new TypeError(
+				'Schema option expose is owned by Core: set it in the final .with({ expose })',
+			)
+		}
+
 		if (!coreSchemaOptionKeys.has(key)) {
 			unresolved.push([key, snapshotCapturedOptionValue(options[key])])
 		}
@@ -320,7 +332,7 @@ export const prepareSchemaCompilation = (
 		throw new TypeError('schema must be a class created by App.Schema.define')
 	}
 
-	const { className, options } = declaration
+	const { className, expose, options } = declaration
 	const { declared, persisted, virtual } = assertDeveloperFields(
 		resolveDeveloperFields(declaration, fieldMethods, resolveTarget),
 		className,
@@ -335,6 +347,7 @@ export const prepareSchemaCompilation = (
 	return immutableRecord({
 		definition: immutableRecord({
 			...options,
+			...(expose === undefined ? {} : { [exposeRuleKey]: expose }),
 			className,
 			fields,
 			indexes,

@@ -5,13 +5,15 @@ import type { SchemaRulesHKT } from './schema-extensions.js'
 
 /**
  * Keys no plugin may contribute as a feature or a rule: Core's `define` keys,
- * its `relations` rule and the `with` call itself (ADR-0339).
+ * its `relations` and `expose` rules and the `with` call itself (ADR-0339,
+ * ADR-0347).
  */
 const reservedSchemaKeys: ReadonlySet<string> = new Set([
 	'className',
 	'fields',
 	'indexes',
 	'relations',
+	'expose',
 	'with',
 ])
 
@@ -24,7 +26,7 @@ export const assertUnreservedSchemaKey = (
 ): void => {
 	if (reservedSchemaKeys.has(name)) {
 		throw new TypeError(
-			`A plugin cannot declare the schema ${kind} ${name}: className, fields, indexes, relations and with are reserved by Core`,
+			`A plugin cannot declare the schema ${kind} ${name}: className, fields, indexes, relations, expose and with are reserved by Core`,
 		)
 	}
 }

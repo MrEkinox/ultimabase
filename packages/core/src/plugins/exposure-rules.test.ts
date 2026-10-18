@@ -10,8 +10,12 @@ import {
 	type SchemaRulesHKT,
 } from '../plugin.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
+import { defineWithRawRules } from '../schema/schema/raw-schema-rules.test-support.js'
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
-import { normalizeExposureRule, readSchemaExposeRule } from './exposure-rules.js'
+import {
+	normalizeExposureRule,
+	readSchemaExposeRule,
+} from './exposure-rules.js'
 
 describe('exposure rule normalization (ADR-0347)', () => {
 	it('keeps booleans and copies a record of boolean keys', () => {
@@ -77,9 +81,10 @@ describe('the expose rule of .with (ADR-0347)', () => {
 			return schema
 		}
 
-		expect(readSchemaExposeRule(compiled('ExposeRuleDocument'))).toStrictEqual(
-			{ write: false, create: true },
-		)
+		expect(readSchemaExposeRule(compiled('ExposeRuleDocument'))).toStrictEqual({
+			write: false,
+			create: true,
+		})
 		expect(readSchemaExposeRule(compiled('ExposeRuleHidden'))).toBe(false)
 		expect(readSchemaExposeRule(compiled('ExposeRulePlain'))).toBeUndefined()
 		expect(
@@ -123,6 +128,19 @@ type ExposeRulePlugin = PluginInstance<{
 }>
 
 describe('expose ownership (ADR-0347)', () => {
+	it('refuses expose as a schema option, as a feature patch could set it', () => {
+		expect(() =>
+			defineWithRawRules(
+				{ className: 'ExposeRuleOption', fields: () => ({}) },
+				{ expose: true },
+			),
+		).toThrow(
+			new TypeError(
+				'Schema option expose is owned by Core: set it in the final .with({ expose })',
+			),
+		)
+	})
+
 	it('rejects a plugin rule named expose', () => {
 		const instance: ExposeRulePlugin = createPlugin({
 			core: '^0.0.0',

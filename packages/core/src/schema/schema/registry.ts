@@ -22,6 +22,7 @@ import { assertEmbeddedFieldDefinition } from '../fields/builtins/object.js'
 export const coreSchemaKeys: ReadonlySet<string> = new Set([
 	'className',
 	'closedCommands',
+	'expose',
 	'fields',
 	'indexes',
 	'persistedFields',

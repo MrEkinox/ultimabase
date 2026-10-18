@@ -4,6 +4,10 @@ import type {
 	SchemaShapeOf,
 } from '../../plugins/schema-extensions.js'
 import type { PluginSourceState } from '../../plugins/source-projections.js'
+import {
+	normalizeExposureRule,
+	type SchemaExposeRules,
+} from '../../plugins/exposure-rules.js'
 import type {
 	ConfiguredSchemaNamespace,
 	ConfiguredSchemaResult,
@@ -67,7 +71,18 @@ export interface SchemaRulesMethod<
 			> &
 				ConfiguredSchemaRelationRules<TFields>,
 			RequiredSchemaRuleName<TSource, SchemaShapeOf<TOptions>>
-		>,
+		> &
+			SchemaExposeRules<
+				SchemaRulesTarget<
+					ConfiguredSchemaResult<
+						TSource,
+						TClassName,
+						TFields,
+						TOptions,
+						TUniqueIndexes
+					>
+				>
+			>,
 	): ConfiguredSchemaResult<
 		TSource,
 		TClassName,
@@ -144,8 +159,8 @@ interface DeclarationState {
 	readonly definedFeatures: boolean
 }
 
-// Core's rule beside the plugins' rules (ADR-0328, ADR-0339).
-const coreRuleNames: readonly string[] = ['relations']
+// Core's rules beside the plugins' rules (ADR-0328, ADR-0339, ADR-0347).
+const coreRuleNames: readonly string[] = ['relations', 'expose']
 
 const readRules = (
 	input: unknown,
@@ -181,14 +196,26 @@ const defineDeclaredSchema = (
 ): unknown => {
 	const { options } = state
 	const configure = markSchemaDeclarationMethod((input: unknown) => {
-		// Relation filters join their relation field (ADR-0328).
-		const { relations, ...rest }: Readonly<Record<string, unknown>> = {
+		// Relation filters join their relation field (ADR-0328); `expose` is
+		// a Core key of the compiled definition, never a plugin option.
+		const { relations, expose, ...rest }: Readonly<Record<string, unknown>> = {
 			...readRules(input, ruleNames, state, options.className),
 		}
 		return defineOrdinarySchemaModel(
 			{ ...options, ...rest },
 			{},
-			{ relations, featureIndexes: state.definedFeatures },
+			{
+				relations,
+				...(expose === undefined
+					? {}
+					: {
+							expose: normalizeExposureRule(
+								expose,
+								`${options.className}.expose`,
+							),
+						}),
+				featureIndexes: state.definedFeatures,
+			},
 			statics,
 		)
 	})
