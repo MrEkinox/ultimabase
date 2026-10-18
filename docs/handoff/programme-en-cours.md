@@ -40,9 +40,16 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    de route. Écarté : vocabulaire des seules méthodes ou des seules opérations, `expose` dans
    `api-server` ou dans un plugin d'exposition, options d'exposition sur `App` (laisse croire qu'elles
    bornent l'API serveur), retrait des routes refusées (révèle l'absence de règle, prive Master par HTTP).
-   Prochaine action vérifiable : un test qui fixe l'effet des droits ACL sur une
-   commande de plugin (aucun test ne le couvre), puis la tranche verticale (catalogue, `expose`,
-   options communes des transports, REST sur un exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
+   **Faille trouvée le 2026-10-18 (implémentation arrêtée, en attente de décision) :** les droits
+   ACL ne s'appliquent à aucune commande de plugin. La politique de lignes ACL se limite à
+   `aclConstraintOperationKinds` (`packages/acl-permissions-plugin/src/plugin.ts:219`), sans
+   `plugin-schema-mutation` ; `softDeleteOne/Many` et `restoreOne/Many` réussissent sans aucun droit
+   sur la ligne (même illisible ; le contrôle `checkReadable` est sauté pour un résultat `{ id }`).
+   Test rouge : `packages/acl-permissions-plugin/tests/e2e/acl-plugin-commands-postgres.postgres.e2e.test.ts`
+   (8 échecs, 3 succès ; il attend le droit `update` pour l'effet `update`, `deleteOne` garde `delete`).
+   Prochaine action vérifiable : décision de l'utilisateur sur le droit exigé, correctif ACL (test vert),
+   puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
+   exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
