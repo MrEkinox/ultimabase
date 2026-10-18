@@ -271,10 +271,10 @@ plugin commands installed later; rule completions list more keys.
 - **Documentation impact:** both: the Access, Hooks, REST, GraphQL, Soft Delete and Build a Plugin pages, the examples
   and create-app templates, and this record.
 
-## Implementation amendment (2026-10-18, proposed)
+## Implementation amendment (2026-10-18)
 
-The read-only inventory for the vertical slice found five points where the record is silent or cannot hold literally.
-Each is listed with what the developer sees.
+Accepted by the user on 2026-10-18. The read-only inventory for the vertical slice found five points where the record
+is silent or cannot hold literally. Each is listed with what the developer sees.
 
 1. **The plan is compiled once, when the first transport asks.** REST compiles its routes and OpenAPI at application
    setup, before `start()`. Core compiles the exposure plan on the first request for a protocol and caches it; the

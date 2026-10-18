@@ -50,7 +50,7 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    Décision de l'utilisateur (2026-10-18) : option A, ADR séparé → [ADR-0348](../adr/0348-plugin-commands-need-the-acl-right-of-their-effect.md)
    accepté ; correctif confié à un agent `implementer` dans la worktree `../ultimadatabase-acl-fix`
    (branche `fix/acl-plugin-commands`), à relire puis fusionner `--no-ff` dans `adr/vocabulary-exposure`.
-   Inventaire de la tranche fait (lecture seule) ; amendement d'implémentation de l'ADR-0347 **proposé**
+   Inventaire de la tranche fait (lecture seule) ; amendement d’implémentation de l’ADR-0347 **accepté le 2026-10-18**
    (fin de l'ADR : plan compilé à la première demande, `true`/groupes ouvrent les commandes, clé
    d'opération = méthode One servie, `default` dans `apiServer()` avec GraphQL, `expose` dans le message
    de `.with`), en attente de validation. Choix de conception sans effet public : catalogue dans
@@ -61,7 +61,10 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    (le transport décrit les méthodes) ; renommer `ultimabaseAuthWriteEmail` en `…One` et ~25 noms de
    commandes de tests ; étendre `examples/schema-form-d/tools/gen.mjs` avec `expose` pour le banc ;
    exemple de la tranche : `examples/rest`.
-   Prochaine action vérifiable : validation de l'amendement, correctif ACL fusionné (test vert),
+   Correctif ACL : appliqué seul sur `main` (choix de l'utilisateur), puis `main` fusionnée ici. Cas limite
+   repoussé à la passe de tests propres d'`access-plugin` et de l'ACL : une opération non-Master lancée par
+   un hook pendant le nettoyage des références ACL, sur le même schéma, échappe au filtre `acl-rows`.
+   Prochaine action vérifiable :
    puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
    exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
