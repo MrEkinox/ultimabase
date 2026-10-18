@@ -151,6 +151,87 @@ DX review §4.1, §4.2, §4.5) go to a separate "commands" ADR; the trash semant
 to another. ACL rights (`read`, `update`, `delete`) are row rights, not operations, and keep their names; their
 `write` alias keeps its meaning, `update` and `delete` (`packages/acl-permissions-plugin/src/acl-contracts.ts:7`).
 
+## Examples
+
+What a developer writes before and after, from the repository's examples.
+
+Exposing plugin commands (`examples/soft-delete/src/schema.ts:41`):
+
+```ts
+// Before: one rule per transport, one key per One/Many method
+.with({ rest: { softDeleteOne: true, restoreOne: true }, graphql: { softDeleteOne: true, restoreOne: true } })
+// After: every installed transport; the operation covers One and Many
+.with({ expose: { softDelete: true, restore: true } })
+```
+
+Access on plugin commands (`examples/full-stack/src/schema.ts:113`) and groups in schema rules:
+
+```ts
+// Before
+access: { read: ({ where }) => where.eq('readable', true), restoreOne: false, restoreMany: false }
+// After
+access: { read: ({ where }) => where.eq('readable', true), restore: false }
+access: { read: true, write: isOwner, softDelete: hasRole(Admin) } // softDelete, more precise, wins over write
+```
+
+Fetching one row versus listing:
+
+```ts
+// Before
+access: { read: { one: true, many: isAuthenticated } }
+accessPlugin({ allowWithoutRule: { one: true, many: false } })
+// After
+access: { findOne: true, findMany: isAuthenticated }
+accessPlugin({ allowWithoutRule: { findOne: true, findMany: false } })
+```
+
+Hooks (`examples/full-stack/src/schema.ts:122`); `restore` now also runs for each row of `restoreMany`:
+
+```ts
+// Before
+hooks: { afterOperation: { delete: onDelete, purgeOne: onPurge, restoreOne: onRestore } }
+// After
+hooks: { afterOperation: { delete: onDelete, purge: onPurge, restore: onRestore } }
+```
+
+Shared transport options (`examples/graphql/src/app.ts:19`):
+
+```ts
+// Before: repeated for each transport
+apiServer({
+	rest: {
+		pagination: { defaultTake: 20, maxTake: 100 },
+		hide: [authOperations.refresh],
+	},
+	graphql: {
+		pagination: { defaultTake: 20, maxTake: 100 },
+		hide: [authOperations.refresh],
+		explorer: 'graphiql',
+	},
+})
+// After: shared options belong to the application, protocol options stay on the transport
+new App({
+	schemas,
+	exposure: {
+		pagination: { defaultTake: 20, maxTake: 100 },
+		hide: [authOperations.refresh],
+	},
+})
+apiServer({ rest: true, graphql: { explorer: 'graphiql' } })
+```
+
+Plugin commands:
+
+```ts
+archiveOne: command({ authority: 'request', effect: 'update', data }) // operation `archive`
+archiveMany: command({ authority: 'request', effect: 'update', data, target: 'many' })
+archive: command({ … }) // refused when the plugin is defined: the name must end in One or Many
+```
+
+DX costs: a schema is exposed alike on every installed transport (only `graphql: false` or `rest: false` hides it from
+one), so a method cannot be opened on one transport only; pagination moves from the transport to the application;
+group rules such as `write: isOwner` also cover plugin commands installed later; rule completions list more keys.
+
 ## Consequences
 
 - One key means one thing in every `.with` member and plugin option; plugin operations cover their One and Many
