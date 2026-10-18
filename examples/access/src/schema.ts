@@ -122,9 +122,9 @@ export const Profile = App.Schema.define({
 
 //#region comment
 /**
- * `softDelete: true` adds request commands (`softDeleteOne`, `restoreOne`…) and
- * the `readDeleted` permission. Each has its own Access key: `update` and
- * `delete` grant none of them.
+ * `softDelete: true` adds request commands (`softDeleteOne`, `restoreMany`…)
+ * and the `readDeleted` permission. The `softDelete` and `restore` keys each
+ * cover their One and Many commands; `update` and `delete` grant none of them.
  */
 export const Comment = App.Schema.define({
 	className: 'Comment',

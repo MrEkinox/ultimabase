@@ -8,7 +8,7 @@ contentType: guide
 order: 4
 outcome: Define fail-closed authorization that can only narrow as policies compose.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-18
 sources:
   - examples/access/README.md
   - examples/access/src/app.ts
@@ -46,6 +46,7 @@ sources:
   - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0347-one-operation-vocabulary-and-shared-exposure.md
 ---
 
 ## Overview
@@ -114,7 +115,7 @@ Start it from a separate entry point; leaving the `await using` scope awaits
 </include>
 
 The installed engine denies every operation that has no schema rule. Here, the
-`read` rule covers all four read operations and returns a private row filter
+`read` rule covers `findOne`, `findMany`, `count` and `exists` and returns a private row filter
 that limits them to published rows, so an ordinary caller reads only the
 published article:
 
@@ -138,30 +139,44 @@ JavaScript uses the same compiled policy.
 
 ### One rule per operation
 
-Each operation has at most one schema rule, evaluated before any row is
+Each method is decided by one schema rule, evaluated before any row is
 loaded. It is `true` (every row), `false` (no row), or a function
 that returns one of them or a row filter built with the typed `where` builder.
 A function that may return nothing is a type error, so a forgotten branch can
 never open every row.
 
-| Schema key  | Applies to                                                                         | Rule                                                         |
-| ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `read`      | `one` (`findOne` and `findOneOrThrow`), `many` (`findMany`), `count`, and `exists` | `true`, `false`, a filter, or `{ one, many, … }`             |
-| `create`    | Singular and itemized bulk creates                                                 | `true`, `false`, a predicate, or `{ where, item }`           |
-| `update`    | Singular and itemized bulk updates                                                 | `true`, `false`, a filter, or `{ where, item }`              |
-| `upsert`    | Singular and itemized bulk upserts                                                 | `true`, `false`, a filter, or `{ where, item }`              |
-| `delete`    | Singular and itemized bulk deletes                                                 | `true`, `false`, a filter, or `{ where, item }`              |
-| plugin keys | Request commands such as `softDeleteOne`, permissions such as `readDeleted`        | Commands like `update`; permissions `true`/`false`/predicate |
+| Schema key         | Applies to                                                                      | Rule                                               |
+| ------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `all`              | Every operation and request plugin operation                                    | `true`, `false`, or a predicate                    |
+| `read`             | `findOne` (and `findOneOrThrow`), `findMany`, `count`, and `exists`             | `true`, `false`, or a filter                       |
+| `find`             | `findOne` and `findMany`                                                        | `true`, `false`, or a filter                       |
+| `findOne`          | `findOne` and `findOneOrThrow`                                                  | `true`, `false`, or a filter                       |
+| `findMany`         | `findMany`                                                                      | `true`, `false`, or a filter                       |
+| `count`, `exists`  | `count()` and `exists()`                                                        | `true`, `false`, or a filter                       |
+| `write`            | `create`, `update`, `upsert`, `delete`, and request plugin operations           | `true`, `false`, or a predicate                    |
+| `create`           | `createOne` and `createMany`                                                    | `true`, `false`, a predicate, or `{ where, item }` |
+| `update`           | `updateOne` and `updateMany`                                                    | `true`, `false`, a filter, or `{ where, item }`    |
+| `upsert`           | `upsertOne` and `upsertMany`                                                    | `true`, `false`, a filter, or `{ where, item }`    |
+| `delete`           | `deleteOne` and `deleteMany`                                                    | `true`, `false`, a filter, or `{ where, item }`    |
+| plugin operations  | Request commands, such as `softDelete` for `softDeleteOne` and `softDeleteMany` | The forms of `update`                              |
+| plugin permissions | Named permissions such as `readDeleted`                                         | `true`, `false`, or a predicate                    |
 
-`read` takes one rule for its four operations, or an object whose members
-`one`, `many`, `count` and `exists` are each optional:
+The most precise key decides: a read method (`findOne`, `findMany`), then its
+operation (`find`, `create`, `softDelete`), then its group (`read` or
+`write`), then `all`. A write rule never depends on how many rows a call
+targets: `create` governs `createOne` and `createMany`, and write methods such
+as `createMany` or `softDeleteOne` are not keys. `write` and `all` also cover
+the request commands of a plugin installed later. A plugin permission belongs
+to no group: only its own key grants it.
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/access/src/schema.ts#subscriber
 </include>
 
-With plain `accessPlugin()`, `Subscriber.count()` is allowed while `one`,
-`many`, and `exists` stay denied: an omitted member has no schema rule.
+With plain `accessPlugin()`, `Subscriber.count()` is allowed while `findOne`,
+`findMany`, and `exists` stay denied: no key of this rule covers them. A rule
+such as `{ read: true, findMany: false }` lets a caller fetch a row it knows
+but never list them.
 
 ### Operations without a rule: `allowWithoutRule`
 
@@ -174,11 +189,11 @@ small application with each of these configurations:
 	../../examples/access/src/openings.ts#openings
 </include>
 
-- **Keys:** `all`; the groups `read` (`one`, `many`, `count`, `exists`) and
-  `write` (`create`, `update`, `upsert`, `delete` and request plugin commands);
-  each operation or plugin command key alone (`softDeleteOne`). An operation
-  key wins over its group, a group over `all`, and a schema rule always wins.
-  A plugin permission (`readDeleted`) is opened only by its own key, never by
+- **Keys:** the keys of schema rules: `all`; the groups `read` and `write`;
+  each operation, request plugin operations included (`softDelete`); and the
+  read methods `findOne` and `findMany`. The most precise key wins, and a
+  schema rule key that covers a method always wins over an opening. A
+  plugin permission (`readDeleted`) is opened only by its own key, never by
   `all`, `read` or `write`.
 - **Values:** `true` opens everywhere, production included; `'development'`
   opens outside production, and in production `start()` fails with a message
@@ -192,15 +207,32 @@ denies its creates, and `memberWritesAccess()` refuses `count()` and lets
 only an authenticated caller create.
 
 After `start()`, Access logs one `warn` line per opening (a `false` key opens
-nothing), production included, naming predicates, and one `info` line listing
-the schemas that have no Access rule at all (they are fully denied unless an
-opening applies). In the example's application, whose members and roles only
-server code manages, that line is
-`schemas without an Access rule, denied unless allowWithoutRule opens them: Member, StaffRole, Draft.`
-An opening of `write` is an explicit policy: Access is installed, so public
-transports never ask for a separate acknowledgment of public writes.
+nothing), production included, naming predicates. An opening of `write` is an
+explicit policy: Access is installed, so public transports never ask for a
+separate acknowledgment of public writes.
 
-An unknown `allowWithoutRule` key fails when the application compiles.
+An unknown `allowWithoutRule` key, or a write method such as `createMany`,
+fails when the application compiles.
+
+### Exposed methods that no rule opens
+
+After `start()`, Access also reads the methods the installed transports
+expose, such as [REST](./rest) or [GraphQL](./graphql), and reports each one
+it refuses to every caller except Master: no schema rule decides it and no
+opening applies. In the example's application, `Draft` has no rule, so REST's
+default methods on it are refused:
+
+```text
+Draft.deleteOne is exposed but no Access rule opens it. Add an Access rule, open it in allowWithoutRule, or close it with expose: { deleteOne: false }.
+```
+
+Outside production each method is one `warn` line; in production `start()`
+fails with the same list. Any explicit rule is a decision and silences the
+report, `false` included: a method meant only for Master callers declares
+`delete: false`. The report changes nothing on the wire: the routes, the
+OpenAPI document and the GraphQL schema stay as the transports declare them,
+and Master callers keep every route. Without a transport, nothing is
+reported.
 
 ### Detailed mutations: `where` and `item`
 
@@ -354,12 +386,13 @@ its own complete Access policy as an ordinary `createOne` or `updateOne`.
 ### Plugin commands, plugin permissions and policy composition
 
 A plugin-owned request command, such as [Soft Delete](./soft-delete)'s
-`softDeleteOne`, has its own exact schema `access` key with the same forms as
-`update`; its `input` is available to the rule. It does not inherit `update`
-or `delete` permission merely because its physical effect is an update or
-delete. Without a rule, its own `allowWithoutRule` key, then `write`, then
-`all` decide. Master-only commands such as `purgeOne` have no Access key and
-never become public.
+`softDeleteOne` and `softDeleteMany`, is governed by its operation key,
+`softDelete`, with the same forms as `update`; its `input` is available to the
+rule. It does not inherit `update` or `delete` permission merely because its
+physical effect is an update or delete. Without its own key, the schema's
+`write`, then `all` decide, then the same keys of `allowWithoutRule`.
+Master-only commands such as `purgeOne` have no Access key and never become
+public.
 
 A plugin can also declare a named schema permission, such as Soft Delete's
 `readDeleted`. Access grants it through a rule of the same name (`true`,
@@ -383,9 +416,9 @@ filters. The example's `Comment` uses all three:
 Ada hides her comment, but not her pinned one (`item`), and nobody else's
 (`where`, which answers `NOT_FOUND` like a missing row). Native `deleteOne`
 keeps its own `delete` key, which this schema leaves without a rule, so it
-stays denied. An editor restores the comment, `restoreMany` has no rule and
-is denied, a muted member cannot comment, and only editors see hidden comments
-in ordinary reads.
+stays denied. `restore` covers `restoreOne` and `restoreMany`: an editor
+restores the comment and Ada can do neither. A muted member cannot comment,
+and only editors see hidden comments in ordinary reads.
 
 Compatible provider contributions join schema decisions through logical
 `AND`; private row filters also join through `AND`, and field restrictions
@@ -440,7 +473,7 @@ result.
 
 Linking a row is reading it: each target named by `connect` or `set`, in a
 singular, nested or collection command, must be visible to the caller as a
-single-row (`one`) read under every installed policy, and `disconnect` names
+single-row (`findOne`) read under every installed policy, and `disconnect` names
 only visible linked targets. A hidden target fails with the same `NOT_FOUND`
 as a missing one, naming the field and target schema, so a link never reveals
 that a row exists. Master skips visibility but still fails on a
@@ -468,6 +501,12 @@ the named row as that principal, and a hidden or missing row answers `false`.
 It evaluates every installed policy as at execution time, runs no hook or
 write, and skips field rules; `principal` defaults to the current request's
 principal.
+
+`operation` is an operation (`create`, `find`, `softDelete`) or a read method
+(`findOne`, `findMany`). An operation that covers several methods answers
+`true` only when every one of them is permitted: `find` needs both `findOne`
+and `findMany`, and `restore` both `restoreOne` and `restoreMany`. Another
+name, such as a group or `softDeleteOne`, throws.
 
 ### Denial diagnostics
 
@@ -512,14 +551,18 @@ it.
 
 - **Every request is denied:** confirm `accessPlugin()` is installed, read the
   denial line in the server log, and check the schema rule or the
-  `allowWithoutRule` key that should open the operation. The startup `info`
-  line lists the schemas without any rule.
-- **`count` works but `findMany` fails:** inspect `read`. A declaration such as
-  `{ count: true }` leaves `many`, `one`, and `exists` without a rule, so only
-  `allowWithoutRule` can open them.
+  `allowWithoutRule` key that should open the operation. Outside production,
+  the startup `warn` lines name each exposed method that no rule opens.
+- **`count` works but `findMany` fails:** inspect the rule. A declaration such
+  as `{ count: true }` leaves `findMany`, `findOne`, and `exists` without a
+  rule, so only `allowWithoutRule` can open them.
 - **`start()` fails in production:** an `allowWithoutRule` value is
-  `'development'`. Write schema rules for those operations, or use `true` to
-  open them in production too.
+  `'development'`, or the message lists exposed methods that no rule opens.
+  Write schema rules for those operations, use `true` to open them in
+  production too, or close the methods with `expose`.
+- **A rule key such as `createMany` or `softDeleteOne` is rejected:** write
+  rules name the operation (`create`, `softDelete`), which covers its One and
+  Many methods.
 - **A row cannot be found or updated:** check the caller's query together with
   the private `where` restrictions on the relevant operation. Check `item`
   separately if a prepared target is rejected.

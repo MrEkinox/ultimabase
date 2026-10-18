@@ -39,6 +39,7 @@ sources:
   - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0316-plugin-facade-and-projection-slots.md
   - docs/adr/0317-access-rules-and-explicit-openings.md
+  - docs/adr/0347-one-operation-vocabulary-and-shared-exposure.md
   - tests/e2e/soft-delete-read-deleted.postgres.e2e.test.ts
   - docs/adr/0339-define-describes-with-configures.md
   - docs/adr/0341-write-results-and-refusals.md
@@ -121,8 +122,8 @@ Access rules and REST and GraphQL exposure, which name the added commands, and
 </include>
 
 This example opens writing, deletion, and restoration to every caller to keep
-the walkthrough short; in your application, give `restoreOne` and
-`restoreMany` the same rule as `delete`. Create the application with an audited Master authority, which
+the walkthrough short; in your application, give `restore` the same rule as
+`delete`. Create the application with an audited Master authority, which
 the private purge step uses later; soft deletion and restoration do not
 require it:
 
@@ -200,10 +201,11 @@ preserves the ID, stored fields, pointers, and relation memberships; it only
 sees tombstones, so an active or missing ID fails with `NOT_FOUND`.
 
 Restoration is a request command: with [Access](./access) installed it needs an
-`access.restoreOne` rule, and is closed when the rule is absent and no
-`allowWithoutRule` key opens it. Without Access, any caller that reaches the command may run
-it, like every other request operation. To keep restoration server-side, set
-`restoreOne: false` and `restoreMany: false` in the `access` rules and run it
+`access.restore` rule (or a `write` or `all` rule that covers it), and is
+closed when no rule covers it and no `allowWithoutRule` key opens it. Without
+Access, any caller that reaches the command may run it, like every other
+request operation. To keep restoration server-side, set `restore: false` in
+the `access` rules, which closes `restoreOne` and `restoreMany`, and run it
 with Master, which bypasses Access.
 
 On a schema with [ACL Permissions](./acl-permissions#plugin-commands),
@@ -238,8 +240,8 @@ refused row rolls the whole command back.
 Each resolves to one result per written row, in identifier order. A many-row
 command sees only the rows it may target: `softDeleteMany` sees visible rows,
 `restoreMany` and `purgeMany` see tombstones, which is why the posts are
-soft-deleted again before `purgeMany`. Access rules use the command's
-own name (`access.softDeleteMany`, `access.restoreMany`). Many-row commands are
+soft-deleted again before `purgeMany`. Access rules name the operation, which
+covers both commands (`access.softDelete`, `access.restore`). Many-row commands are
 not exposed through REST or GraphQL yet.
 
 ### Enable REST and GraphQL
@@ -490,10 +492,11 @@ The rule applies to `findMany`, `findOne`, `findOneOrThrow`, `count`, `exists`,
 inclusions, REST and GraphQL. Restore and purge keep reaching tombstones for
 Master and for allowed callers.
 
-With [Access](./access), each command has its own rule (`softDeleteOne`,
-`softDeleteMany`, `restoreOne`, `restoreMany`) and `readDeleted` its own
-permission rule; granting native update or delete does not grant them, and
-purge is Master-only so it has none. With
+With [Access](./access), each operation has its own rule (`softDelete` for
+`softDeleteOne` and `softDeleteMany`, `restore` for `restoreOne` and
+`restoreMany`) and `readDeleted` its own permission rule; granting native
+update or delete does not grant them, a `write` rule does, and purge is
+Master-only so it has none. With
 [Hooks](./hooks), each command has its own `beforeOperation`,
 `afterOperation` and `afterCommit` branch, and the `all` branch runs for it
 first with `kind` naming the command. REST, GraphQL, and TypeScript enter the same Runtime
@@ -525,7 +528,7 @@ nested soft delete yet. A scheduled server job can empty the trash with
   Direct database reads still see tombstones.
 - **Native deletion cannot be restored:** in command mode, or on a schema
   without `softDelete`, native delete is permanent.
-- **Restoration is refused:** check `access.restoreOne` and that the ID is a
+- **Restoration is refused:** check `access.restore` and that the ID is a
   tombstone; a `UNIQUE_VIOLATION` means another row took a unique value.
 - **Purge is rejected:** use trusted server code with audited Master authority
   and an existing tombstone.
