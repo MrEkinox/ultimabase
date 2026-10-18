@@ -124,8 +124,23 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
      règles GraphQL, `GraphqlMethodName` en union explicite, `ApiServerOptions.default` ajouté.
      Questions ouvertes : la ligne d'objet des README rest-plugin et graphql-plugin cite encore
      `.with({ graphql: … })` (à voir avec la migration des appelants).
-     Prochaine action vérifiable : Access/`allowWithoutRule` (diagnostic de démarrage, décision 4) par un
-     agent `implementer`, tests d'abord ; puis Hooks, puis migration de tous les appelants.
+     Étape Access terminée, relecture faite (HEAD af6834b2, 9 commits depuis d26cf17f, aucun cast ajouté) :
+     vocabulaire commun pour les règles Access et `allowWithoutRule` (`findOne`/`findMany`, `SchemaReadAccess`
+     retiré, clés d'opération de plugin couvrant One et Many), `can()` sur les clés d'opération et de méthode
+     de lecture (rejette `read`/`one`/`many`, même pour Master), diagnostic de démarrage (un `warn` par méthode,
+     échec de `start()` en production) qui remplace le résumé de l'ADR-0317 décision 6. Nouveau point
+     d'extension générique : `ApplicationOperationTransportPlanner.readExposurePlans()`.
+     Contrôles (af6834b2) : `yarn install --immutable` exit 0 ; `validate:full` exit 0 (821 fichiers, 4587
+     tests) ; `typecheck:typescript-7` exit 0 ; `website:test` 59/59 ; `yarn build` exit 0. Audit DX
+     access-plugin + core + soft-delete-plugin contre `main` : 614 différences ; celles de Core viennent
+     surtout des étapes précédentes (catalogue, plan). Point relevé : les complétions de `allowWithoutRule`
+     proposent les 8 clés de méthode d'écriture typées `?: never` (nécessaires pour que les types les
+     rejettent malgré la signature d'index des opérations de plugin).
+     Questions ouvertes à trancher par l'utilisateur : clés `never` dans les complétions ; ~34 lignes `warn`
+     au démarrage de `examples/access` ; vocabulaire mixte dans le journal de refus (« denied many … no rule
+     for findMany ») ; message du diagnostic sur une ligne (l'ADR l'affiche sur deux).
+     Prochaine action vérifiable : réponses de l'utilisateur, puis Hooks par un agent `implementer`
+     (Opus, effort moyen), puis migration de tous les appelants.
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
