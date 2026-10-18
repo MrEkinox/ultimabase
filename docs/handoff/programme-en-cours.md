@@ -76,11 +76,25 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    à la racine de Core (à côté de `ApplicationOperationTransportPlanner`). `adr/vocabulary-exposure` fusionnée
    dans la tranche : `yarn validate:package acl-permissions-plugin` vert (131/131). Pendant la passe A,
    l'avertissement « no transport » apparaît même avec REST (REST ne lit pas encore le plan).
-   Passe B en cours (agent `implementer`, même worktree) : REST lit le plan, `apiServer()` reçoit `hide`,
-   `pagination`, `publicWrites`, `examples/rest` passe à `expose`, doc REST/api-server/Build a Plugin, `gen.mjs`.
-   Prochaine action vérifiable : relire la passe B, puis déclarations compilées, audit DX contre une worktree
-   construite de `main` (a399235f), banc forme D TS 6 et 7 (50 et 200 schémas), et montrer à l'utilisateur le
-   diff de l'exemple, le banc et l'audit avant GraphQL, Access, Hooks et la migration des appelants.
+   Passe B terminée et relue (HEAD 14b6eaaa) : REST lit le plan, `apiServer()` reçoit `hide`,
+   `pagination`, `publicWrites` (nouvelle dépendance api-server → plugin-kit), `examples/rest` passe à `expose`,
+   doc REST/api-server/Build a Plugin, `gen.mjs` émet `expose` sur deux schémas sur trois.
+   Mesures (2026-10-18) :
+   - `yarn build` vert dans la tranche et dans la base (worktree `../ultimadatabase-acl-fix` détachée sur
+     a399235f, reconstruite par `yarn build` : une base non bundlée donnait 8563 différences parasites).
+   - Audit DX : 930 différences (604 ajouts, 62 retraits, 264 modifiées) + 11 pour `examples/schema-form-d`
+     (audité seul : bug d'outil préexistant, « Duplicate audit key » quand il est audité avec `tests`, même
+     `main` contre `main`). Ajouts : nouveaux exports, clés de `RestMethodRules`, options d'`apiServer()`,
+     tests de types. Retraits : membres `string` de `RestCommandName`. Modifiées : `.with` gagne
+     `& SchemaExposeRules<…>` (survols et diagnostics TS ; retour tronqué sur les gros schémas), survol de
+     `RestMethodName` (union explicite), JSDoc REST, bruit de bundler et ordre d'une union. **Non annoncé** :
+     le survol de `SchemaRulesSource` développe `RegisteredSchema<…>` (déclaration déplacée dans le chunk
+     partagé par le bundler).
+   - Banc forme D (3 passages entrelacés, charge < 4), médianes main → tranche : TS 7 50 = 0,55 → 0,56 s,
+     200 = 1,79 → 1,83 s ; TS 6 50 = 1,88 → 1,90 s, 200 = 5,55 → 5,56 s. Sous les seuils de l'ADR-0297.
+     Prochaine action vérifiable : `validate:full`, `typecheck:typescript-7`, `website:test` et
+     `yarn install --immutable` sur la tranche, puis montrer à l'utilisateur le diff de l'exemple, le banc et
+     l'audit avant GraphQL, Access, Hooks et la migration des appelants.
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
