@@ -7,7 +7,7 @@ contentType: guide
 order: 8
 outcome: Soft-delete a record, verify that ordinary reads hide it, restore it, and purge it from trusted server code.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-18
 sources:
   - examples/soft-delete/README.md
   - examples/soft-delete/src/app.ts
@@ -42,6 +42,7 @@ sources:
   - tests/e2e/soft-delete-read-deleted.postgres.e2e.test.ts
   - docs/adr/0339-define-describes-with-configures.md
   - docs/adr/0341-write-results-and-refusals.md
+  - docs/adr/0348-plugin-commands-need-the-acl-right-of-their-effect.md
 ---
 
 ## Overview
@@ -204,6 +205,10 @@ Restoration is a request command: with [Access](./access) installed it needs an
 it, like every other request operation. To keep restoration server-side, set
 `restoreOne: false` and `restoreMany: false` in the `access` rules and run it
 with Master, which bypasses Access.
+
+On a schema with [ACL Permissions](./acl-permissions#plugin-commands),
+`softDeleteOne`, `softDeleteMany`, `restoreOne`, and `restoreMany` also need
+the caller's `update` right on each row; a row without it is left unchanged.
 
 ### Purge from server code
 
