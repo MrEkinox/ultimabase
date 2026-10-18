@@ -85,8 +85,25 @@ test('types the shared exposure options of every transport', () => {
 		// @ts-expect-error -- a page size is a number.
 		pagination: { maxTake: '100' },
 	})
+})
+
+// ADR-0347 amendment item 4: one shared default for both transports.
+test('types the shared default of every transport', () => {
 	apiServer({
-		// @ts-expect-error -- no shared default until GraphQL reads the plan.
-		default: { count: true },
+		default: { count: true, write: false },
+		graphql: { default: false },
+		rest: true,
+	})
+	apiServer({ default: true })
+	expectTypeOf<ApiServerOptions['default']>().toEqualTypeOf<
+		NonNullable<TransportExposureOptions['default']> | undefined
+	>()
+	apiServer({
+		// @ts-expect-error -- plugin commands are named in `.with`, never in `default`.
+		default: { archiveOne: true },
+	})
+	apiServer({
+		// @ts-expect-error -- not a key of the vocabulary.
+		default: { list: true },
 	})
 })

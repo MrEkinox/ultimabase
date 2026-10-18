@@ -192,6 +192,85 @@ describe('apiServer (ADR-0325)', () => {
 		})
 	})
 
+	// ADR-0347 amendment item 4: the shared default reaches both transports.
+	it('forwards the shared default to REST and GraphQL', async () => {
+		const Entry = UltimaBase.Schema.define({
+			className: 'PresetDefaultEntry',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const start = async (options: Parameters<typeof apiServer>[0]) => {
+			const application = new (UltimaBase.use(
+				databasePlugin,
+				apiServer({
+					graphql: true,
+					publicWrites: true,
+					rest: true,
+					server: false,
+					...options,
+				}),
+			))({ logger: false, schemas: [Entry] })
+			onTestFinished(() => application.dispose())
+			await application.start()
+			return {
+				queries: Object.keys(
+					application
+						.plugin('@ultimabase/graphql-plugin')
+						.schema.getQueryType()
+						?.getFields() ?? {},
+				),
+				routes: application
+					.plugin('@ultimabase/rest-plugin')
+					.routeGraph.routes.map((route) => `${route.method} ${route.path}`),
+			}
+		}
+
+		const shared = await start({ default: { count: true } })
+		expect(shared.routes).toContain('GET /api/classes/PresetDefaultEntry/count')
+		expect(shared.queries).toContain('countPresetDefaultEntry')
+
+		// A transport's own default replaces the shared one as a whole.
+		const replaced = await start({
+			default: { count: true },
+			graphql: { default: false },
+		})
+		expect(replaced.routes).toContain(
+			'GET /api/classes/PresetDefaultEntry/count',
+		)
+		expect(replaced.queries).toStrictEqual(['health'])
+	})
+
+	// ADR-0347 decision 1: one expose rule applies to every transport.
+	it('applies one expose rule to REST and GraphQL alike', async () => {
+		const Entry = UltimaBase.Schema.define({
+			className: 'PresetExposedEntry',
+			fields: (field) => ({ title: field.string() }),
+		}).with({ expose: { count: true, write: false } })
+		const application = new (UltimaBase.use(
+			databasePlugin,
+			apiServer({ graphql: true, rest: true, server: false }),
+		))({ logger: false, schemas: [Entry] })
+		onTestFinished(() => application.dispose())
+		// Starts without publicWrites: neither transport exposes a write.
+		await application.start()
+		const routes = application
+			.plugin('@ultimabase/rest-plugin')
+			.routeGraph.routes.map((route) => `${route.method} ${route.path}`)
+			.filter((route) => route.includes('PresetExposedEntry'))
+		expect(routes).toContain('GET /api/classes/PresetExposedEntry/count')
+		for (const write of [
+			'POST /api/classes/PresetExposedEntry',
+			'PATCH /api/classes/PresetExposedEntry/{id}',
+			'DELETE /api/classes/PresetExposedEntry/{id}',
+		]) {
+			expect(routes).not.toContain(write)
+		}
+		const graphql = application.plugin('@ultimabase/graphql-plugin').schema
+		expect(Object.keys(graphql.getQueryType()?.getFields() ?? {})).toContain(
+			'countPresetExposedEntry',
+		)
+		expect(graphql.getMutationType()).toBeUndefined()
+	})
+
 	it('rejects an explorer in production unless allowed, like the plugin', () => {
 		const [, , , explorer] = apiServer({
 			graphql: { explorer: { environment: 'production' } },
