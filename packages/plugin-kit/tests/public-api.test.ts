@@ -5,6 +5,8 @@ describe('@ultimabase/plugin-kit public API', () => {
 	it('exports only focused authoring helpers', () => {
 		expect(Object.keys(pluginKit).sort()).toStrictEqual([
 			'SchemaPatchBuilder',
+			// ADR-0347: the shared publicWrites check of transports.
+			'assertPublicWrites',
 			'command',
 			'createPluginEventDispatcher',
 			'defineOperation',
@@ -20,14 +22,19 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'feature',
 			'observePluginEvent',
 			'optionalPluginEvents',
+			// ADR-0347 decision 3: the shared transport exposure options.
+			'parseTransportExposureOptions',
 			'patchSchemas',
 			'providePluginEvent',
 			'readDeploymentEnvironment',
+			// ADR-0347: the typed reader of a transport's exposure plan.
+			'readExposurePlan',
 			'readStandardJsonSchema',
 			'requestRoleResolverCapability',
 			'requireCurrentRequestRoleResolver',
 			'resolveRequestRoleReference',
 			'schemaPatch',
+			'transportExposureOptionKeys',
 		])
 	})
 })
