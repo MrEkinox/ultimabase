@@ -50,7 +50,7 @@ const workflowPlugin = createPlugin({
 				models.extend(WorkflowPost, {
 					contributionId: 'workflow-mutations',
 					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema'] },
+						archiveOne: { mutation: archive, surfaces: ['schema'] },
 					},
 				})
 				return undefined
@@ -70,7 +70,7 @@ describe('application-owned schema mutations', () => {
 			.schemaSurfaces.find(
 				({ schema }) => schema.className === WorkflowPost.className,
 			)
-		const command = surface?.schemaMutations.get('archive')
+		const command = surface?.schemaMutations.get('archiveOne')
 
 		expect(command?.owner.pluginId).toBe(
 			workflowPlugin.manifest.identity.pluginId,
@@ -87,10 +87,10 @@ describe('application-owned schema mutations', () => {
 		expect(JSON.stringify(command?.mutation)).not.toContain('snapshot')
 
 		const schemaHandle = ultimabase.schema(WorkflowPost)
-		expect('archive' in schemaHandle).toBe(true)
-		expect(typeof Reflect.get(schemaHandle, 'archive')).toBe('function')
+		expect('archiveOne' in schemaHandle).toBe(true)
+		expect(typeof Reflect.get(schemaHandle, 'archiveOne')).toBe('function')
 		await expect(
-			(Reflect.get(schemaHandle, 'archive') as () => Promise<unknown>)(),
+			(Reflect.get(schemaHandle, 'archiveOne') as () => Promise<unknown>)(),
 		).rejects.toThrow('input must be a plain object')
 		// Results carry no model methods (ADR-0310): the schema handle is the surface.
 		expect(schemaHandle).not.toHaveProperty('for')
@@ -135,7 +135,7 @@ describe('application-owned schema mutations', () => {
 							{
 								contributionId: 'selected-relation-mutation',
 								schemaMutations: {
-									mutate: { mutation, surfaces: ['schema'] },
+									mutateOne: { mutation, surfaces: ['schema'] },
 								},
 							},
 						)
@@ -155,7 +155,7 @@ describe('application-owned schema mutations', () => {
 				.schemaSurfaces.find(
 					({ schema }) => schema.className === Document.className,
 				)
-				?.schemaMutations.has('mutate'),
+				?.schemaMutations.has('mutateOne'),
 		).toBe(true)
 	})
 
@@ -185,7 +185,7 @@ describe('application-owned schema mutations', () => {
 						models.extend(WorkflowPost, {
 							contributionId: 'foreign',
 							schemaMutations: {
-								archive: { mutation: archive, surfaces: ['schema'] },
+								archiveOne: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 						return undefined
@@ -229,7 +229,7 @@ describe('application-owned schema mutations', () => {
 						models.extend(WorkflowPost, {
 							contributionId: 'missing-field',
 							schemaMutations: {
-								archive: { mutation: missingField, surfaces: ['schema'] },
+								archiveOne: { mutation: missingField, surfaces: ['schema'] },
 							},
 						})
 						return undefined
@@ -262,13 +262,13 @@ describe('application-owned schema mutations', () => {
 						models.extend(WorkflowPost, {
 							contributionId: 'first',
 							schemaMutations: {
-								archive: { mutation: archive, surfaces: ['schema'] },
+								archiveOne: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 						models.extend(WorkflowPost, {
 							contributionId: 'second',
 							schemaMutations: {
-								archive: { mutation: archive, surfaces: ['schema'] },
+								archiveOne: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 						return undefined
@@ -281,7 +281,7 @@ describe('application-owned schema mutations', () => {
 				logger: false,
 				schemas: [WorkflowPost],
 			}).schema(WorkflowPost),
-		).toThrow('surface contains duplicate command: archive')
+		).toThrow('surface contains duplicate command: archiveOne')
 
 		const modelSurface = createPlugin({
 			core: '^0.0.0',
@@ -323,7 +323,7 @@ describe('application-owned schema mutations', () => {
 	it('keeps two explicit plugin instances deterministic with distinct identities', () => {
 		const configured = (
 			instanceId: 'editorial' | 'legal',
-			command: 'archiveEditorial' | 'archiveLegal',
+			command: 'archiveEditorialOne' | 'archiveLegalOne',
 		) => {
 			const mutation = defineSchemaMutation({
 				authority: archive.authority,
@@ -364,8 +364,8 @@ describe('application-owned schema mutations', () => {
 			})
 		}
 		const application = new (UltimaBase.use(
-			configured('editorial', 'archiveEditorial'),
-			configured('legal', 'archiveLegal'),
+			configured('editorial', 'archiveEditorialOne'),
+			configured('legal', 'archiveLegalOne'),
 		))({
 			logger: false,
 			schemas: [WorkflowPost],
@@ -377,17 +377,19 @@ describe('application-owned schema mutations', () => {
 			)
 
 		expect([...(surface?.schemaMutations.keys() ?? [])]).toStrictEqual([
-			'archiveEditorial',
-			'archiveLegal',
+			'archiveEditorialOne',
+			'archiveLegalOne',
 		])
 		expect(
-			surface?.schemaMutations.get('archiveEditorial')?.owner.instanceId,
+			surface?.schemaMutations.get('archiveEditorialOne')?.owner.instanceId,
 		).toBe('editorial')
-		expect(surface?.schemaMutations.get('archiveLegal')?.owner.instanceId).toBe(
-			'legal',
-		)
 		expect(
-			Object.isFrozen(surface?.schemaMutations.get('archiveLegal')?.mutation),
+			surface?.schemaMutations.get('archiveLegalOne')?.owner.instanceId,
+		).toBe('legal')
+		expect(
+			Object.isFrozen(
+				surface?.schemaMutations.get('archiveLegalOne')?.mutation,
+			),
 		).toBe(true)
 	})
 })

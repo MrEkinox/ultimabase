@@ -258,7 +258,7 @@ describe('plugin conformance suite', () => {
 							{
 								contributionId: 'archive-surface',
 								schemaMutations: {
-									archive: {
+									archiveOne: {
 										mutation: archive,
 										surfaces: ['schema'],
 									},
@@ -293,7 +293,7 @@ describe('plugin conformance suite', () => {
 					({ schema }) => schema.className === Post.className,
 				)
 
-			expect(surface?.schemaMutations.get('archive')?.mutation.name).toBe(
+			expect(surface?.schemaMutations.get('archiveOne')?.mutation.name).toBe(
 				archive.name,
 			)
 		})

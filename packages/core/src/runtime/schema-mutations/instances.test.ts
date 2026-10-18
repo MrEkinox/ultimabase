@@ -80,10 +80,14 @@ const createWorkflowInstance = (
 
 describe('schema mutation instance ownership', () => {
 	it('executes two explicit instances through their exact handlers and fields', async () => {
-		const first = createWorkflowInstance('first', 'archiveFirst', 'firstState')
+		const first = createWorkflowInstance(
+			'first',
+			'archiveFirstOne',
+			'firstState',
+		)
 		const second = createWorkflowInstance(
 			'second',
-			'archiveSecond',
+			'archiveSecondOne',
 			'secondState',
 		)
 		const id = '0199325a-0c00-7000-8000-000000000201'
@@ -137,12 +141,12 @@ describe('schema mutation instance ownership', () => {
 		const schema = ultimabase.schema(Post)
 
 		await (
-			Reflect.get(schema, 'archiveFirst') as (
+			Reflect.get(schema, 'archiveFirstOne') as (
 				input: unknown,
 			) => Promise<unknown>
 		)({ id })
 		await (
-			Reflect.get(schema, 'archiveSecond') as (
+			Reflect.get(schema, 'archiveSecondOne') as (
 				input: unknown,
 			) => Promise<unknown>
 		)({ id })

@@ -2,6 +2,7 @@ import {
 	contributeSchemaMutation,
 	defineOperationValue,
 	defineSchemaMutation,
+	readPluginCommandOperation,
 	type PluginContribution,
 	type PluginOperationValueContract,
 	type PluginSchemaMutationDefinition,
@@ -189,6 +190,8 @@ export const createCommand = (
 	name: string,
 	definition: CommandDefinition,
 ): GeneratedCommand => {
+	// Core checks the name again; this reports it when the plugin is defined.
+	readPluginCommandOperation(name, definition.target)
 	const mutationName = `${mutationNamespace(pluginName)}.${nameSegment(feature)}.${nameSegment(name)}`
 	const common = {
 		authority: definition.authority,

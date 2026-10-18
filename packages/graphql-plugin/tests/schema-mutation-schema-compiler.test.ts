@@ -200,15 +200,15 @@ const createMutationPlugin = (
 					models.extend(WorkflowDocument, {
 						contributionId: 'workflow-mutations',
 						schemaMutations: {
-							[options.command ?? 'archiveDocument']: {
+							[options.command ?? 'archiveDocumentOne']: {
 								mutation: archiveMutation,
 								surfaces: ['schema'],
 							},
-							purgeDocument: {
+							purgeDocumentOne: {
 								mutation: purgeMutation,
 								surfaces: ['schema'],
 							},
-							sealDocument: {
+							sealDocumentOne: {
 								mutation: sealMutation,
 								surfaces: ['schema'],
 							},
@@ -280,16 +280,16 @@ describe('GraphQL schema mutation exposure', () => {
 		try {
 			const sdl = fixture.graphql.printSchema()
 			expect(sdl).toContain(
-				'archiveDocumentGraphqlWorkflowDocument(input: ArchiveDocumentGraphqlWorkflowDocumentInput!): GraphqlWorkflowDocument',
+				'archiveDocumentOneGraphqlWorkflowDocument(input: ArchiveDocumentOneGraphqlWorkflowDocumentInput!): GraphqlWorkflowDocument',
 			)
 			expect(sdl).toContain('data: ArchiveWorkflowInput!')
 			expect(sdl).toContain('id: ID!')
-			expect(sdl).not.toContain('purgeDocument')
+			expect(sdl).not.toContain('purgeDocumentOne')
 			expect(sdl).toContain(
-				'sealDocumentGraphqlWorkflowDocument(input: SealDocumentGraphqlWorkflowDocumentInput!): GraphqlWorkflowDocument',
+				'sealDocumentOneGraphqlWorkflowDocument(input: SealDocumentOneGraphqlWorkflowDocumentInput!): GraphqlWorkflowDocument',
 			)
 			expect(sdl).toContain(
-				'input SealDocumentGraphqlWorkflowDocumentInput {\n  id: ID!\n}',
+				'input SealDocumentOneGraphqlWorkflowDocumentInput {\n  id: ID!\n}',
 			)
 
 			const context = anonymous(fixture.application, {
@@ -299,7 +299,7 @@ describe('GraphQL schema mutation exposure', () => {
 			const result = await fixture.graphql.execute({
 				context,
 				document: `mutation Archive($id: ID!) {
-					archiveDocumentGraphqlWorkflowDocument(input: {
+					archiveDocumentOneGraphqlWorkflowDocument(input: {
 						id: $id
 						data: { reason: "obsolete" }
 					}) { id title workflowState }
@@ -308,7 +308,7 @@ describe('GraphQL schema mutation exposure', () => {
 			})
 			expect(result).toMatchObject({
 				data: {
-					archiveDocumentGraphqlWorkflowDocument: {
+					archiveDocumentOneGraphqlWorkflowDocument: {
 						id: graphqlSchemaMutationId,
 						title: 'GraphQL release notes',
 						workflowState: 'archived',
@@ -326,7 +326,7 @@ describe('GraphQL schema mutation exposure', () => {
 			const unitResult = await fixture.graphql.execute({
 				context,
 				document: `mutation Seal($id: ID!) {
-					sealDocumentGraphqlWorkflowDocument(input: { id: $id }) {
+					sealDocumentOneGraphqlWorkflowDocument(input: { id: $id }) {
 						id title workflowState
 					}
 				}`,
@@ -344,7 +344,7 @@ describe('GraphQL schema mutation exposure', () => {
 			const masterResult = await fixture.graphql.execute({
 				context: master.context,
 				document: `mutation Archive($id: ID!) {
-					archiveDocumentGraphqlWorkflowDocument(input: {
+					archiveDocumentOneGraphqlWorkflowDocument(input: {
 						id: $id
 						data: { reason: "compliance" }
 					}) { id title workflowState }
@@ -369,7 +369,7 @@ describe('GraphQL schema mutation exposure', () => {
 		const first = await createFixture()
 
 		const document = `mutation Archive($id: ID!, $reason: String!) {
-			archiveDocumentGraphqlWorkflowDocument(input: {
+			archiveDocumentOneGraphqlWorkflowDocument(input: {
 				id: $id
 				data: { reason: $reason }
 			}) { id }
@@ -428,7 +428,7 @@ describe('GraphQL schema mutation exposure', () => {
 	it('respects schema mutation exposure and rejects metadata and root collisions', async () => {
 		const disabled = await createFixture({ mutations: false })
 		try {
-			expect(disabled.graphql.printSchema()).not.toContain('archiveDocument')
+			expect(disabled.graphql.printSchema()).not.toContain('archiveDocumentOne')
 		} finally {
 			await disabled.application.dispose()
 		}
@@ -466,7 +466,7 @@ describe('GraphQL schema mutation exposure', () => {
 			}),
 		).rejects.toThrow(`conflicts with schema ${WorkflowDocument.className}`)
 		await expect(createFixture({ command: 'delete' })).rejects.toThrow(
-			'collides with an existing field',
+			'Command delete must be named <operation>One because its target is one: deleteOne',
 		)
 	})
 })

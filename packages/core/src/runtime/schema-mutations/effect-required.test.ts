@@ -72,7 +72,7 @@ const readArchiveEffect = () => {
 							models.extend(Target, {
 								contributionId: 'archive',
 								schemaMutations: {
-									archive: { mutation: archive, surfaces: ['schema'] },
+									archiveOne: { mutation: archive, surfaces: ['schema'] },
 								},
 							})
 							return undefined
@@ -83,7 +83,7 @@ const readArchiveEffect = () => {
 		],
 	})
 	const surface = application.getSchemaSurface(Target.className)
-	const view = surface?.schemaMutations.get('archive')
+	const view = surface?.schemaMutations.get('archiveOne')
 	if (surface === undefined || view === undefined) {
 		throw new TypeError('Expected the archive schema mutation')
 	}

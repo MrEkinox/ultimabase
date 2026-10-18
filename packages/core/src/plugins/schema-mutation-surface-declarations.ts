@@ -9,6 +9,7 @@ import {
 	assertPlainObject,
 } from '../exact-object-validation.js'
 
+import { readPluginCommandOperation } from './command-catalog.js'
 import {
 	isPluginSchemaMutationDefinition,
 	type PluginSchemaMutationDefinition,
@@ -41,7 +42,7 @@ export const snapshotSchemaMutationMap = (
 		value,
 		'schema surface schemaMutations must be a plain object',
 	)
-	const snapshot: Record<string, PluginSchemaMutationSurfaceBinding> = {}
+	const snapshot: [string, PluginSchemaMutationSurfaceBinding][] = []
 	for (const [name, binding] of Object.entries(value)) {
 		if (!schemaMutationCommandNamePattern.test(name)) {
 			throw new TypeError(
@@ -79,10 +80,15 @@ export const snapshotSchemaMutationMap = (
 			}
 			surfaces.add(surface)
 		}
-		snapshot[name] = immutableRecord({
-			mutation: binding.mutation,
-			surfaces: immutableArray([...surfaces]),
-		})
+		// The alias names its operation, so rules can cover One and Many (ADR-0347).
+		readPluginCommandOperation(name, binding.mutation.target)
+		snapshot.push([
+			name,
+			immutableRecord({
+				mutation: binding.mutation,
+				surfaces: immutableArray([...surfaces]),
+			}),
+		])
 	}
-	return immutableRecord(snapshot)
+	return immutableRecord(Object.fromEntries(snapshot))
 }

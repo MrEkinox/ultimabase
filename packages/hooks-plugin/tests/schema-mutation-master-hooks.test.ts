@@ -46,14 +46,14 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 	const inlineHooks: unknown = {
 		afterOperation: {
 			delete: nativeDelete,
-			purge: (input: MasterMutationHookInput) => {
+			purgeOne: (input: MasterMutationHookInput) => {
 				trace.push('purge:after')
 				customInputs.push(input)
 			},
 		},
 		beforeOperation: {
 			delete: nativeDelete,
-			purge: (input: MasterMutationHookInput) => {
+			purgeOne: (input: MasterMutationHookInput) => {
 				trace.push('purge:before')
 				customInputs.push(input)
 			},
@@ -89,7 +89,7 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 					models.extend(Document, {
 						contributionId: 'purge-surface',
 						schemaMutations: {
-							purge: { mutation: purge, surfaces: ['schema'] },
+							purgeOne: { mutation: purge, surfaces: ['schema'] },
 						},
 					})
 
@@ -122,7 +122,7 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 
 	try {
 		await ultimabase.start()
-		const execute = Reflect.get(ultimabase.schema(Document), 'purge') as (
+		const execute = Reflect.get(ultimabase.schema(Document), 'purgeOne') as (
 			input: unknown,
 			options: unknown,
 		) => Promise<unknown>

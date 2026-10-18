@@ -48,7 +48,7 @@ describe('plugin schema mutation Runtime', () => {
 				},
 			],
 		})
-		const archive = Reflect.get(fixture.Post, 'archive') as (
+		const archive = Reflect.get(fixture.Post, 'archiveOne') as (
 			input: unknown,
 		) => Promise<unknown>
 		expect(Object.isFrozen(fixture.Post)).toBe(true)
@@ -65,7 +65,7 @@ describe('plugin schema mutation Runtime', () => {
 			workflowState: 'archived',
 		})
 		// Results have no model methods: the schema runs the command (ADR-0310).
-		expect(result).not.toHaveProperty('archive')
+		expect(result).not.toHaveProperty('archiveOne')
 		await expect(
 			archive({
 				id,
@@ -127,7 +127,7 @@ describe('plugin schema mutation Runtime', () => {
 		})
 		const archive = Reflect.get(
 			fixture.ultimabase.schema(fixture.Post),
-			'archive',
+			'archiveOne',
 		) as (input: unknown) => Promise<unknown>
 
 		await expect(
@@ -149,7 +149,7 @@ describe('plugin schema mutation Runtime', () => {
 		})
 		const archive = Reflect.get(
 			fixture.ultimabase.schema(fixture.Post),
-			'archive',
+			'archiveOne',
 		) as (input: unknown) => Promise<unknown>
 
 		await expect(
@@ -185,7 +185,7 @@ describe('plugin schema mutation Runtime', () => {
 		})
 		const archive = Reflect.get(
 			fixture.ultimabase.schema(fixture.Post),
-			'archive',
+			'archiveOne',
 		) as (input: unknown) => Promise<unknown>
 
 		await archive({
@@ -219,7 +219,7 @@ describe('plugin schema mutation Runtime', () => {
 		})
 		const archive = Reflect.get(
 			fixture.ultimabase.schema(fixture.Post),
-			'archive',
+			'archiveOne',
 		) as (input: unknown) => Promise<unknown>
 
 		await archive({ id, input: { reason: 'constrained' } })
@@ -247,7 +247,7 @@ describe('plugin schema mutation Runtime', () => {
 		})
 		const archive = Reflect.get(
 			fixture.ultimabase.schema(fixture.Post),
-			'archive',
+			'archiveOne',
 		) as (input: unknown, options: unknown) => Promise<unknown>
 		const context = RequestContext.anonymous({
 			requestId: 'cancelled-schema-mutation',
@@ -297,7 +297,7 @@ describe('plugin schema mutation Runtime', () => {
 		})
 		const archive = Reflect.get(
 			fixture.ultimabase.schema(fixture.Post),
-			'archive',
+			'archiveOne',
 		) as (input: unknown) => Promise<unknown>
 
 		await archive({ id, input: { reason: 'nested query' } })
@@ -348,7 +348,7 @@ describe('plugin schema mutation Runtime', () => {
 			target: previous,
 			value: { id, title: previous.title },
 		})
-		const purge = Reflect.get(fixture.Post, 'purge') as (
+		const purge = Reflect.get(fixture.Post, 'purgeOne') as (
 			input: unknown,
 			options?: unknown,
 		) => Promise<unknown>
@@ -368,7 +368,7 @@ describe('plugin schema mutation Runtime', () => {
 			'delete-one',
 		)
 		await fixture.ultimabase.dispose()
-		expect(Reflect.has(fixture.Post, 'purge')).toBe(false)
+		expect(Reflect.has(fixture.Post, 'purgeOne')).toBe(false)
 		const otherAdapter = new RecordingDatabaseAdapter([], [])
 		const other = applicationFixture(
 			new (UltimaBase.use(
@@ -383,7 +383,7 @@ describe('plugin schema mutation Runtime', () => {
 		try {
 			await other.start()
 			await expect(purge({ id }, { useMasterKey: true })).rejects.toThrow(
-				`Schema mutation ${fixture.Post.className}.purge is not installed in this application`,
+				`Schema mutation ${fixture.Post.className}.purgeOne is not installed in this application`,
 			)
 			expect(otherAdapter.rootRequests).toStrictEqual([])
 		} finally {
@@ -399,7 +399,7 @@ describe('plugin schema mutation Runtime', () => {
 		})
 		const archive = Reflect.get(
 			first.ultimabase.schema(first.Post),
-			'archive',
+			'archiveOne',
 		) as (input: unknown) => Promise<unknown>
 		await first.ultimabase.dispose()
 		const second = await createUpdateFixture({ results: [] })

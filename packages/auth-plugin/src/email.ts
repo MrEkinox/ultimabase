@@ -129,7 +129,7 @@ const emailWriteMutation = defineSchemaMutation({
 })
 
 /** The User static through which the flows run the managed write. */
-const emailWriteStatic = 'ultimabaseAuthWriteEmail'
+const emailWriteStatic = 'ultimabaseAuthWriteEmailOne'
 
 /** The owned schema mutation that writes the email fields. */
 export const emailWriteContribution: PluginContribution =

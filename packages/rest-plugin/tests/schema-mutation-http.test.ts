@@ -151,11 +151,11 @@ const createMutationPlugin = (
 					models.extend(WorkflowDocument, {
 						contributionId: 'workflow-mutations',
 						schemaMutations: {
-							archiveDocument: {
+							archiveDocumentOne: {
 								mutation: archiveMutation,
 								surfaces: ['schema'],
 							},
-							purgeDocument: {
+							purgeDocumentOne: {
 								mutation: masterMutation,
 								surfaces: ['schema'],
 							},
@@ -267,7 +267,7 @@ const fetchApplication = (
 	})
 }
 
-const archivePath = `/api/classes/${WorkflowDocument.className}/${schemaMutationRestId}/archive-document`
+const archivePath = `/api/classes/${WorkflowDocument.className}/${schemaMutationRestId}/archive-document-one`
 
 describe('REST schema mutation exposure', () => {
 	it('generates and executes one request-authority route', async () => {
@@ -278,10 +278,10 @@ describe('REST schema mutation exposure', () => {
 			)
 			expect(mutationRoutes).toHaveLength(1)
 			expect(mutationRoutes[0]).toMatchObject({
-				command: 'archiveDocument',
+				command: 'archiveDocumentOne',
 				method: 'POST',
 				mutation: archiveMutation.name,
-				path: `/api/classes/${WorkflowDocument.className}/{id}/archive-document`,
+				path: `/api/classes/${WorkflowDocument.className}/{id}/archive-document-one`,
 				schema: WorkflowDocument.className,
 			})
 

@@ -91,13 +91,13 @@ describe('canonical mutation request identity', () => {
 						models.extend(Post, {
 							contributionId: 'post',
 							schemaMutations: {
-								archive: { mutation: archive, surfaces: ['schema'] },
+								archiveOne: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 						models.extend(Other, {
 							contributionId: 'other',
 							schemaMutations: {
-								close: { mutation: archive, surfaces: ['schema'] },
+								closeOne: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 						return undefined
@@ -129,7 +129,7 @@ describe('canonical mutation request identity', () => {
 			graph,
 			command,
 			schema: Post,
-			name: 'archive',
+			name: 'archiveOne',
 			id,
 			input: undefined,
 			projection: {},
@@ -165,8 +165,8 @@ describe('canonical mutation request identity', () => {
 			expect(
 				plan.mutations.map(({ schema, command }) => [schema, command]),
 			).toEqual([
-				[Post.className, 'archive'],
-				[Other.className, 'close'],
+				[Post.className, 'archiveOne'],
+				[Other.className, 'closeOne'],
 			])
 			expect(
 				exposure.mutations.every(
@@ -184,7 +184,7 @@ describe('canonical mutation request identity', () => {
 			).rejects.toMatchObject({ code: 'PLUGIN_OPERATION_INVALID' })
 			for (const [candidate, schema, request] of [
 				[{ ...command }, Post, envelope],
-				[command, Post, { ...envelope, command: 'close' }],
+				[command, Post, { ...envelope, command: 'closeOne' }],
 				[
 					command,
 					Other,
@@ -192,7 +192,7 @@ describe('canonical mutation request identity', () => {
 						graph,
 						command,
 						schema: Other,
-						name: 'archive',
+						name: 'archiveOne',
 						id,
 						input: undefined,
 						projection: {},

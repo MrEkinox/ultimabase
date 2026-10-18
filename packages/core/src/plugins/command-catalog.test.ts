@@ -108,9 +108,9 @@ describe('command key resolution', () => {
 		expect(resolveCommandKey({ all: true, write: false }, createMany)).toBe(
 			false,
 		)
-		expect(
-			resolveCommandKey({ create: true, write: false }, createMany),
-		).toBe(true)
+		expect(resolveCommandKey({ create: true, write: false }, createMany)).toBe(
+			true,
+		)
 		expect(
 			resolveCommandKey(
 				{ all: true, create: true, createMany: false, write: true },
@@ -120,9 +120,9 @@ describe('command key resolution', () => {
 	})
 
 	it('treats count and exists as both operation and method', () => {
-		expect(resolveCommandKey({ count: true, read: false }, native('count'))).toBe(
-			true,
-		)
+		expect(
+			resolveCommandKey({ count: true, read: false }, native('count')),
+		).toBe(true)
 		expect(
 			resolveCommandKey({ exists: false, read: true }, native('exists')),
 		).toBe(false)

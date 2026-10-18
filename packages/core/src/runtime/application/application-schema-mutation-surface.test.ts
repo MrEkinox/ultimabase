@@ -65,7 +65,7 @@ const defineFixture = (suffix: string) => {
 					models.extend(Post, {
 						contributionId: 'archive-surface',
 						schemaMutations: {
-							archive: { mutation: archive, surfaces: ['schema'] },
+							archiveOne: { mutation: archive, surfaces: ['schema'] },
 						},
 					})
 					return undefined
@@ -110,7 +110,7 @@ describe('application schema mutation surface capability', () => {
 			const descriptors = fixture.read()
 			expect(descriptors).toHaveLength(1)
 			expect(descriptors[0]).toMatchObject({
-				command: 'archive',
+				command: 'archiveOne',
 				mutation: { name: fixture.archive.name },
 				owner: { pluginId: fixture.owner.manifest.identity.pluginId },
 				schema: fixture.Post,

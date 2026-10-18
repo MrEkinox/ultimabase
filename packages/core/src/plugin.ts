@@ -99,6 +99,20 @@ export {
 	defineSchemaMutation,
 	isPluginSchemaMutationDefinition,
 } from './plugins/plugin-schema-mutations.js'
+export {
+	nativeCommandCatalog,
+	readPluginCommandOperation,
+	resolveCommandKey,
+} from './plugins/command-catalog.js'
+export type {
+	CommandCardinality,
+	CommandCatalogEntry,
+	CommandGroup,
+	NativeCommandCatalogEntry,
+	NativeCommandMethod,
+	NativeCommandOperation,
+	PluginCommandCatalogEntry,
+} from './plugins/command-catalog.js'
 export type {
 	CompiledPluginSchemaMutationDefinition,
 	DefinePluginSchemaMutationOptions,

@@ -155,7 +155,7 @@ const workflowPlugin = plugin({
 				models.extend(ManagedVirtual, {
 					contributionId: 'workflow-mutation',
 					schemaMutations: {
-						archive: { mutation: archiveMutation, surfaces: ['schema'] },
+						archiveOne: { mutation: archiveMutation, surfaces: ['schema'] },
 					},
 				})
 			},
@@ -268,7 +268,7 @@ try {
 		{
 			body: JSON.stringify({
 				query:
-					'mutation { archiveManagedVirtual(input: { id: "01991f00-0000-7000-8000-000000000704" }) { id title workflowArchived createdAt updatedAt } }',
+					'mutation { archiveOneManagedVirtual(input: { id: "01991f00-0000-7000-8000-000000000704" }) { id title workflowArchived createdAt updatedAt } }',
 			}),
 			headers: {
 				'Content-Type': 'application/json',

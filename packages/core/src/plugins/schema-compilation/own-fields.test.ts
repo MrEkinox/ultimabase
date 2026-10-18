@@ -148,7 +148,7 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 									models.extend(Target, {
 										contributionId: 'update',
 										schemaMutations: {
-											update: { mutation, surfaces: ['schema'] },
+											reviseOne: { mutation, surfaces: ['schema'] },
 										},
 									})
 									return undefined

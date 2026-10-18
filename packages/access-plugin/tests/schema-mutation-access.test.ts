@@ -100,7 +100,7 @@ interface ArchiveFields extends SchemaFieldsHKT {
 interface ArchiveStatics extends SchemaStaticsHKT {
 	readonly statics: SchemaCommands<
 		this['schema'],
-		{ readonly archive: typeof archive }
+		{ readonly archiveOne: typeof archive }
 	>
 }
 
@@ -159,7 +159,7 @@ const mutationSourcePlugin = plugin<
 					{
 						contributionId: 'access-document-archive-surface',
 						schemaMutations: {
-							archive: { mutation: archive, surfaces: ['schema'] },
+							archiveOne: { mutation: archive, surfaces: ['schema'] },
 						},
 					},
 				),
@@ -168,7 +168,7 @@ const mutationSourcePlugin = plugin<
 					{
 						contributionId: 'provider-document-archive-surface',
 						schemaMutations: {
-							archive: { mutation: archive, surfaces: ['schema'] },
+							archiveOne: { mutation: archive, surfaces: ['schema'] },
 						},
 					},
 				),
@@ -200,7 +200,7 @@ const AccessDocument = AccessMutationApplication.Schema.define({
 	}),
 }).with({
 	access: {
-		archive: {
+		archiveOne: {
 			// One rule before loading (ADR-0317): no row, or a row filter.
 			where: (input) => {
 				operationInputs.push(input)
@@ -240,7 +240,7 @@ const ProviderDocument = AccessMutationApplication.Schema.define({
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 }).with({
 	access: {
-		archive: ({ input }) => input.reason !== 'developer-deny',
+		archiveOne: ({ input }) => input.reason !== 'developer-deny',
 	},
 })
 
@@ -283,7 +283,7 @@ const createMutationOwner = (schema: SchemaDefinition) => {
 							{
 								contributionId: 'archive-surface',
 								schemaMutations: {
-									archive: { mutation: archive, surfaces: ['schema'] },
+									archiveOne: { mutation: archive, surfaces: ['schema'] },
 								},
 							},
 						)
@@ -319,7 +319,7 @@ const createMasterMutationOwner = (schema: SchemaDefinition) => {
 						{
 							contributionId: 'purge-surface',
 							schemaMutations: {
-								purge: { mutation: purge, surfaces: ['schema'] },
+								purgeOne: { mutation: purge, surfaces: ['schema'] },
 							},
 						},
 					)
@@ -360,7 +360,7 @@ const executeArchive = (
 	schema: SchemaDefinition,
 	reason: string,
 ) => {
-	const method = Reflect.get(ultimabase.schema(schema), 'archive') as (
+	const method = Reflect.get(ultimabase.schema(schema), 'archiveOne') as (
 		input: unknown,
 		options?: unknown,
 	) => Promise<unknown>
@@ -485,7 +485,7 @@ describe('schema mutation Access', () => {
 		onTestFinished(() => denied.dispose())
 		const allowed = new (UltimaBase.use(
 			// Mutation results obey the read rules (ADR-0306).
-			accessPlugin({ allowWithoutRule: { read: true, archive: true } }),
+			accessPlugin({ allowWithoutRule: { read: true, archiveOne: true } }),
 			allowedOwner.plugin,
 			databasePlugin(allowedAdapter),
 		))({
@@ -541,7 +541,7 @@ describe('schema mutation Access', () => {
 			contributions: [
 				provideAccessContributions('archive-policy', () =>
 					schemaAccess(ProviderDocument, {
-						archive: providerRule,
+						archiveOne: providerRule,
 					}),
 				),
 			],
@@ -556,7 +556,7 @@ describe('schema mutation Access', () => {
 		const ultimabase = new (UltimaBase.use(
 			provider,
 			// Mutation results obey the read rules (ADR-0306).
-			accessPlugin({ allowWithoutRule: { read: true, archive: true } }),
+			accessPlugin({ allowWithoutRule: { read: true, archiveOne: true } }),
 			owner.plugin,
 			databasePlugin(adapter),
 		))({
@@ -607,7 +607,7 @@ describe('schema mutation Access', () => {
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			const method = Reflect.get(
 				ultimabase.schema(MasterDocument),
-				'archive',
+				'archiveOne',
 			) as (input: unknown, options: unknown) => Promise<unknown>
 			await expect(
 				method(
@@ -671,7 +671,7 @@ describe('schema mutation Access', () => {
 		const MasterOnlyDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationMasterOnlyDocument',
 			fields: (field) => ({ title: field.string() }),
-		}).with({ access: { purge: true } as never })
+		}).with({ access: { purgeOne: true } as never })
 		const masterAdapter = new SchemaMutationAdapter()
 		const masterOnly = new (UltimaBase.use(
 			accessPlugin(),
@@ -684,7 +684,7 @@ describe('schema mutation Access', () => {
 		onTestFinished(() => masterOnly.dispose())
 
 		await expect(masterOnly.start()).rejects.toThrow(
-			'Unknown request schema mutation Access branch: access.purge',
+			'Unknown request schema mutation Access branch: access.purgeOne',
 		)
 		expect(masterAdapter.transactions).toHaveLength(0)
 	})

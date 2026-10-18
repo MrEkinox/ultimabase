@@ -202,7 +202,10 @@ describe('User data written by methods', { concurrent: false }, () => {
 			const id = await ultimabase
 				.plugin(authPlugin)
 				.createUser({ data: {}, email: 'master@example.test' })
-			const write: unknown = Reflect.get(MasterUser, 'ultimabaseAuthWriteEmail')
+			const write: unknown = Reflect.get(
+				MasterUser,
+				'ultimabaseAuthWriteEmailOne',
+			)
 			if (typeof write !== 'function') throw new TypeError('No email write')
 			const forged = async () => {
 				await Reflect.apply(write, MasterUser, [

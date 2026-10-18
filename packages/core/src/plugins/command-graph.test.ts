@@ -115,7 +115,7 @@ const fixture = (instanceId = 'one') => {
 					models.extend(Document, {
 						contributionId: 'private',
 						schemaMutations: {
-							[`purge_${instanceId}`]: {
+							[`purge_${instanceId}One`]: {
 								mutation: privateMutation,
 								surfaces: ['schema'],
 							},
@@ -124,7 +124,7 @@ const fixture = (instanceId = 'one') => {
 					models.extend(Document, {
 						contributionId: 'public',
 						schemaMutations: {
-							[`archive_${instanceId}`]: {
+							[`archive_${instanceId}One`]: {
 								mutation,
 								surfaces: ['schema'],
 							},
@@ -184,8 +184,8 @@ describe('canonical command graph', () => {
 		const direct = application.getSchemaSurface(Document.className)
 		expect(direct?.schema).toBe(Document)
 		expect([...surface.schemaMutations.keys()]).toEqual([
-			'purge_one',
-			'archive_one',
+			'purge_oneOne',
+			'archive_oneOne',
 		])
 		for (const [name, command] of surface.schemaMutations) {
 			assertInert(command)
@@ -239,7 +239,7 @@ describe('canonical command graph', () => {
 		)
 		const mutationView = first
 			.schemaSurface(Document.className)
-			?.schemaMutations.get('archive_one')
+			?.schemaMutations.get('archive_oneOne')
 		if (mutationView === undefined) throw new Error('Missing mutation fixture')
 		const mutation = readMutationCommand(mutationView)
 		expect(mutation.graph).toBe(first)
@@ -285,11 +285,11 @@ describe('canonical command graph', () => {
 		if (first === undefined || second === undefined)
 			throw new TypeError('Compiled surfaces are missing')
 		expect([...first.schemaMutations.keys()]).toEqual([
-			'purge_one',
-			'archive_one',
+			'purge_oneOne',
+			'archive_oneOne',
 		])
-		expect(first.schemaMutations.get('archive_one')).toBe(
-			second.schemaMutations.get('archive_one'),
+		expect(first.schemaMutations.get('archive_oneOne')).toBe(
+			second.schemaMutations.get('archive_oneOne'),
 		)
 		// Publicly reachable JS Maps are detached indexes, never mutable graph authority.
 		if (first.schemaMutations instanceof Map) first.schemaMutations.clear()
@@ -423,7 +423,7 @@ describe('canonical command graph', () => {
 		)
 
 		expect(() => application.compileSchemas()).toThrow(
-			'Reserved schema static mutation: className',
+			'Command className must be named <operation>One because its target is one: classNameOne',
 		)
 		expect(() => readApplicationKernelState(application).commands).toThrow(
 			'have not been compiled',

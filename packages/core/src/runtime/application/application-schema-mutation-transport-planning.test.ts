@@ -95,7 +95,7 @@ const createOwnerPlugin = (bindingCount = 1, selected = true) =>
 						models.extend(Document, {
 							contributionId: 'archive',
 							schemaMutations: {
-								archive: { mutation: archive, surfaces: ['schema'] },
+								archiveOne: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 				},
@@ -174,7 +174,7 @@ describe('application schema mutation transport planning', () => {
 				{
 					bound: true,
 					authority: 'request',
-					command: 'archive',
+					command: 'archiveOne',
 					effect: 'update',
 					errors: ['fixture.archive-rejected'],
 					metadata: { errors: { 'fixture.archive-rejected': 409 } },
@@ -221,7 +221,7 @@ describe('application schema mutation transport planning', () => {
 			{
 				authority: 'request',
 				bound: false,
-				command: 'archive',
+				command: 'archiveOne',
 				metadata: null,
 				mutation: archive.name,
 			},

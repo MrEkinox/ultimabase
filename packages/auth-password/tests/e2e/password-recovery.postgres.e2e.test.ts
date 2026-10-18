@@ -406,7 +406,10 @@ describe('email verification', { concurrent: false }, () => {
 				},
 			})
 			// The managed write refuses Master callers outside the flows.
-			const write: unknown = Reflect.get(AuthUser, 'ultimabaseAuthWriteEmail')
+			const write: unknown = Reflect.get(
+				AuthUser,
+				'ultimabaseAuthWriteEmailOne',
+			)
 			if (typeof write !== 'function') throw new TypeError('No email write')
 			await expect(
 				Promise.resolve().then((): unknown =>

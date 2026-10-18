@@ -199,7 +199,7 @@ export const createUpdateFixture = async (options: {
 						{
 							contributionId: 'workflow-mutations',
 							schemaMutations: {
-								archive: {
+								archiveOne: {
 									mutation: archive,
 									surfaces: ['schema'],
 								},
@@ -275,7 +275,7 @@ export const createMasterDeleteFixture = async (
 						{
 							contributionId: 'purge-surface',
 							schemaMutations: {
-								purge: { mutation: purge, surfaces: ['schema'] },
+								purgeOne: { mutation: purge, surfaces: ['schema'] },
 							},
 						},
 					)
