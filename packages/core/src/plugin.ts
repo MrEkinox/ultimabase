@@ -248,8 +248,8 @@ export type {
 	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaMutations,
 	PluginSourceSchemaPermissions,
-	SchemaRulesSource,
 } from './plugins/source-schema-templates.js'
+export type { SchemaRulesSource } from './plugins/schema-rules-source.js'
 export {
 	holdsSchemaPermission,
 	provideSchemaPermissions,

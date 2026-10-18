@@ -9,9 +9,10 @@ import type {
 	PluginSchemaMutationReturning,
 } from './plugin-schema-mutations.js'
 import type {
-	PluginSourceSchemaMutations,
-	SchemaRulesSource,
-} from './source-schema-templates.js'
+	IsSchemaRef,
+	RegisteredSchema,
+} from '../schema/schema/registered-schemas.js'
+import type { PluginSourceSchemaMutations } from './source-schema-templates.js'
 
 /**
  * The native keys of an exposure rule (ADR-0347), from the broadest to the
@@ -61,8 +62,20 @@ export interface NativeExposureRules {
 	readonly deleteMany?: boolean
 }
 
+// Same reading as `SchemaRulesSource`, kept private: referencing that alias
+// from the `.with` signature moves it into Core's shared declaration chunk,
+// where its hover expands `RegisteredSchema<…>` (ADR-0347 slice audit).
+type ExposureSchema<TSchema> =
+	IsSchemaRef<TSchema> extends true
+		? TSchema extends { readonly className: infer TClassName extends string }
+			? [RegisteredSchema<TClassName>] extends [never]
+				? TSchema
+				: RegisteredSchema<TClassName>
+			: TSchema
+		: TSchema
+
 type SchemaMutations<TSchema> = PluginSourceSchemaMutations<
-	SchemaRulesSource<TSchema>
+	ExposureSchema<TSchema>
 >
 
 /** A command transports serve: request authority, one row named by `id`. */
