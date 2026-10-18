@@ -33,6 +33,7 @@
 		"@ultimabase/graphql-yoga-plugin": "workspace:^",
 		"@ultimabase/hono-server-plugin": "workspace:^",
 		"@ultimabase/http-plugin": "workspace:^",
+		"@ultimabase/plugin-kit": "workspace:^",
 		"@ultimabase/rest-plugin": "workspace:^"
 	},
 	"devDependencies": {

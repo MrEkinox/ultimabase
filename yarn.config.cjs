@@ -48,8 +48,9 @@ const allowedRuntimeDependencies = {
 		'plugin-kit',
 		'core',
 	],
-	// The preset only returns the plugins it names (ADR-0325) and forwards
-	// their Core peer.
+	// The preset only returns the plugins it names (ADR-0325), forwards
+	// their Core peer and types the options it shares with Plugin Kit's
+	// transport options (ADR-0347).
 	'@ultimabase/api-server': [
 		'core',
 		'graphql-explorer-plugin',
@@ -57,6 +58,7 @@ const allowedRuntimeDependencies = {
 		'graphql-yoga-plugin',
 		'hono-server-plugin',
 		'http-plugin',
+		'plugin-kit',
 		'rest-plugin',
 	],
 	// The initializer generates projects that install published packages.

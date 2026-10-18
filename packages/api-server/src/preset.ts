@@ -24,6 +24,7 @@ import {
 	type HttpPlugin,
 	type HttpPluginOptions,
 } from '@ultimabase/http-plugin'
+import type { TransportExposureOptions } from '@ultimabase/plugin-kit'
 import {
 	restPlugin,
 	type RestPlugin,
@@ -42,8 +43,35 @@ export interface ApiServerGraphqlOptions extends GraphqlPluginOptions {
 	readonly yoga?: GraphqlYogaPluginOptions
 }
 
-/** Selects and configures the plugins of one REST and GraphQL API server. */
+/**
+ * Selects and configures the plugins of one REST and GraphQL API server.
+ * `hide`, `pagination` and `publicWrites` apply to every installed
+ * transport; the same option inside `rest` or `graphql` replaces the shared
+ * value for that transport, whole (ADR-0347).
+ */
 export interface ApiServerOptions {
+	/**
+	 * Public operations that neither REST nor GraphQL exposes. A `hide` inside
+	 * `rest` or `graphql` replaces this list for that transport.
+	 * @example `hide: [readingTime]`
+	 */
+	readonly hide?: NonNullable<TransportExposureOptions['hide']>
+	/**
+	 * Default and largest page size of collection reads on every transport
+	 * (ADR-0309). A `pagination` inside `rest` or `graphql` replaces it for
+	 * that transport, whole.
+	 * @default { defaultTake: 100, maxTake: 1000 }
+	 * @example `pagination: { defaultTake: 20, maxTake: 200 }`
+	 */
+	readonly pagination?: NonNullable<TransportExposureOptions['pagination']>
+	/**
+	 * Lets every transport start when it exposes writes and no protected
+	 * policy (such as Access) is installed: every client may then write
+	 * (ADR-0294). A `publicWrites` inside `rest` or `graphql` replaces it.
+	 * @default false
+	 * @example `publicWrites: true`
+	 */
+	readonly publicWrites?: NonNullable<TransportExposureOptions['publicWrites']>
 	/**
 	 * Installs REST (`restPlugin`): `true`, or its options.
 	 * @example `rest: { openapi: true }`
@@ -104,6 +132,20 @@ const asOptions = <TOptions extends object>(
 	value: boolean | TOptions,
 ): TOptions | undefined => (typeof value === 'object' ? value : undefined)
 
+/** The shared options the call sets, so that an omitted one stays unset. */
+const sharedOptions = ({
+	hide,
+	pagination,
+	publicWrites,
+}: ApiServerOptions): Pick<
+	TransportExposureOptions,
+	'hide' | 'pagination' | 'publicWrites'
+> => ({
+	...(hide === undefined ? {} : { hide }),
+	...(pagination === undefined ? {} : { pagination }),
+	...(publicWrites === undefined ? {} : { publicWrites }),
+})
+
 /**
  * Returns the plugins of a REST and GraphQL API server, each configured with
  * its own options (ADR-0325): `httpPlugin`, `restPlugin`, `graphqlPlugin`,
@@ -125,15 +167,16 @@ export const apiServer = <
 	options: TOptions = {} as TOptions,
 ): ApiServerPlugins<TOptions> => {
 	const { graphql = false, http, rest = false, server } = options
+	const shared = sharedOptions(options)
 	const graphqlOptions = asOptions(graphql)
 	const { explorer, yoga, ...graphqlPluginOptions } = graphqlOptions ?? {}
 	const plugins = [
 		httpPlugin(http),
-		...(rest === false ? [] : [restPlugin(asOptions(rest))]),
+		...(rest === false ? [] : [restPlugin({ ...shared, ...asOptions(rest) })]),
 		...(graphql === false
 			? []
 			: [
-					graphqlPlugin(graphqlPluginOptions),
+					graphqlPlugin({ ...shared, ...graphqlPluginOptions }),
 					graphqlYogaPlugin(yoga),
 					...(explorer === undefined
 						? []

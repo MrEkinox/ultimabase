@@ -12,6 +12,7 @@
 		"src/**/*.test-support.ts"
 	],
 	"references": [
+		{ "path": "../plugin-kit" },
 		{ "path": "../http-plugin" },
 		{ "path": "../rest-plugin" },
 		{ "path": "../graphql-plugin" },

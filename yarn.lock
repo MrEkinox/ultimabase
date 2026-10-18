@@ -3531,6 +3531,7 @@ __metadata:
     "@ultimabase/graphql-yoga-plugin": "workspace:^"
     "@ultimabase/hono-server-plugin": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/rest-plugin": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"

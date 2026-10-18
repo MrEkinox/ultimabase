@@ -149,7 +149,8 @@ describe('apiServer (ADR-0325)', () => {
 			}),
 		))({ logger: false, schemas: [Entry] })
 		onTestFinished(() => open.dispose())
-		await expect(open.start()).resolves.toBeUndefined()
+		// Starts: both transports received `publicWrites`.
+		await open.start()
 	})
 
 	it('lets a transport section replace a shared option wholesale', async () => {
