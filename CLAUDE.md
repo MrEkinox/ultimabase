@@ -27,7 +27,8 @@ what worked (and what went wrong) during the package-by-package rebuild.
 - `main` of `MrEkinox/ultimadatabase` holds the rebuilt implementation and is
   never rewritten without explicit confirmation. Work happens on branches
   merged into `main` after review.
-- The tags `reference-archive` and `rebuild-archive` hold the archived history;
+- The tags `reference-archive`, `rebuild-archive`, `api-challenge-archive` and
+  `adr-superseded-archive` hold the archived history;
   pushing or moving them requires confirmation like any other push.
 
 ## Long tasks

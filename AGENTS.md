@@ -32,7 +32,9 @@ validated by the user.
    resumption, verify the handoff against the tree before trusting it.
 
 History lives in Git tags, not in the tree: `reference-archive` (the
-reference's backlog and plans) and `rebuild-archive` (the rebuild records).
+reference's backlog and plans), `rebuild-archive` (the rebuild records),
+`api-challenge-archive` (the API and DX review notes) and
+`adr-superseded-archive` (superseded ADR files).
 Proposed directions live in [ROADMAP.md](ROADMAP.md).
 
 ## Scope and stop rules

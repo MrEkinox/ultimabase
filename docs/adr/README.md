@@ -325,47 +325,50 @@ Proposed records (awaiting user validation):
 
 Superseded records:
 
-- [ADR-0002: Static schemas and typed extensions](0002-static-schemas-and-typed-extensions.md), superseded by ADR-0213.
-- [ADR-0003: Global plugin graph with nested composition](0003-global-plugin-graph.md), superseded by ADR-0267.
-- [ADR-0013: Access modes and master authority](0013-access-modes-and-master.md), superseded by ADR-0113.
-- [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md), superseded by ADR-0021.
-- [ADR-0018: Default value boundaries](0018-default-value-boundaries.md), superseded by ADR-0038.
-- [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md), superseded by ADR-0039.
-- [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
-- [ADR-0051: Plugin-owned extension handlers](0051-plugin-owned-extension-handlers.md), superseded by ADR-0213.
-- [ADR-0056: Protected opaque Query cursors](0056-protected-opaque-query-cursors.md), superseded by ADR-0227.
-- [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md), superseded by ADR-0108.
-- [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md), superseded by ADR-0113.
-- [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
-- [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md), superseded by ADR-0108.
-- [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.
-- [ADR-0104: Read hook execution and safe output resolution](0104-read-hook-execution-and-output-resolution.md), superseded by ADR-0161 and ADR-0163.
-- [ADR-0105: Transaction hook finalization journal](0105-transaction-hook-journal.md), superseded by ADR-0172.
-- [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md), superseded by ADR-0152.
-- [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md), superseded by ADR-0310.
-- [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
-- [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md), superseded by ADR-0164.
-- [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md), superseded by ADR-0153.
-- [ADR-0115: Immutable model commands and protected identity](0115-immutable-model-commands.md), superseded by ADR-0310.
-- [ADR-0125: Dedicated ACL and PostgreSQL integration plugin](0125-dedicated-acl-postgres-integration-plugin.md), superseded by ADR-0212.
-- [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md), superseded by ADR-0213.
-- [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
-- [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.
-- [ADR-0150: Instance command result selections](0150-instance-command-result-selections.md), superseded by ADR-0310.
-- [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md), superseded by ADR-0310.
-- [ADR-0177: Flat generated schema registry](0177-flat-generated-schema-registry.md), superseded by ADR-0297.
-- [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md), superseded by ADR-0307.
-- [ADR-0184: Type generation uses an explicit package identity](0184-typegen-package-identity.md), superseded by ADR-0297.
-- [ADR-0185: Generated schema aliases expose canonical values only](0185-canonical-generated-schema-aliases.md), superseded by ADR-0297.
-- [ADR-0198: Plugin Typegen contracts are structured and application-local](0198-structured-plugin-typegen-contracts.md), superseded by ADR-0297.
-- [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md), superseded by ADR-0310.
-- [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md), superseded by ADR-0273.
-- [ADR-0217: Generated registries do not reject schema class declarations](0217-generated-registries-do-not-reject-schema-class-declarations.md), superseded by ADR-0297.
-- [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md), superseded by ADR-0309.
-- [ADR-0265: Remove the Typegen emitter marker](0265-remove-typegen-emitter-marker.md), superseded by ADR-0297.
-- [ADR-0280: Complete-schema callbacks use the retained Typegen graph](0280-complete-schema-callbacks-use-typegen-graph.md), superseded by ADR-0297.
-- [ADR-0281: Retain generated Where contracts for the source-authoring milestone](0281-retain-generated-where-contracts.md), superseded by ADR-0297.
-- [ADR-0283: Exact ACL schema callbacks use the retained Typegen graph](0283-acl-callbacks-use-retained-typegen-graph.md), superseded by ADR-0297.
-- [ADR-0285: Sparse generated mutation surfaces derive class methods](0285-sparse-generated-mutation-surfaces.md), superseded by ADR-0297.
+Their files are archived in the tag `adr-superseded-archive`; read one with
+`git show adr-superseded-archive:docs/adr/<file>`.
+
+- ADR-0002: Static schemas and typed extensions, superseded by ADR-0213.
+- ADR-0003: Global plugin graph with nested composition, superseded by ADR-0267.
+- ADR-0013: Access modes and master authority, superseded by ADR-0113.
+- ADR-0017: Composite fields and PostgreSQL storage, superseded by ADR-0021.
+- ADR-0018: Default value boundaries, superseded by ADR-0038.
+- ADR-0020: Compiled validation plans, superseded by ADR-0039.
+- ADR-0035: Schema domain-oriented internal layout, superseded by ADR-0036.
+- ADR-0051: Plugin-owned extension handlers, superseded by ADR-0213.
+- ADR-0056: Protected opaque Query cursors, superseded by ADR-0227.
+- ADR-0061: Neutral BoundQuery facade, superseded by ADR-0108.
+- ADR-0062: Request context security boundary, superseded by ADR-0113.
+- ADR-0064: Mandatory deterministic Runtime pipeline, superseded by ADR-0090.
+- ADR-0092: Bound queries require executors, superseded by ADR-0108.
+- ADR-0093: Immutable Schema constructor API, superseded by ADR-0109.
+- ADR-0104: Read hook execution and safe output resolution, superseded by ADR-0161 and ADR-0163.
+- ADR-0105: Transaction hook finalization journal, superseded by ADR-0172.
+- ADR-0108: Contextual Query terminal execution, superseded by ADR-0152.
+- ADR-0109: Constructible schema model classes, superseded by ADR-0310.
+- ADR-0110: Concise singular Query terminals, superseded by ADR-0132.
+- ADR-0111: Non-atomic bulk hook semantics, superseded by ADR-0164.
+- ADR-0114: Terminal-only Query authority resolution, superseded by ADR-0153.
+- ADR-0115: Immutable model commands and protected identity, superseded by ADR-0310.
+- ADR-0125: Dedicated ACL and PostgreSQL integration plugin, superseded by ADR-0212.
+- ADR-0130: Contextual schema extension binding, superseded by ADR-0213.
+- ADR-0141: Explicit read hooks and eager pointer inclusion, superseded by ADR-0163.
+- ADR-0142: Explicit schema operation hooks, superseded by ADR-0163.
+- ADR-0150: Instance command result selections, superseded by ADR-0310.
+- ADR-0151: Persisted model read and identity helpers, superseded by ADR-0310.
+- ADR-0177: Flat generated schema registry, superseded by ADR-0297.
+- ADR-0182: Singular mutations accept an identifier target alias, superseded by ADR-0307.
+- ADR-0184: Type generation uses an explicit package identity, superseded by ADR-0297.
+- ADR-0185: Generated schema aliases expose canonical values only, superseded by ADR-0297.
+- ADR-0198: Plugin Typegen contracts are structured and application-local, superseded by ADR-0297.
+- ADR-0201: Application-bound results expose plugin model commands directly, superseded by ADR-0310.
+- ADR-0214: Plugin field types do not require public builders, superseded by ADR-0273.
+- ADR-0217: Generated registries do not reject schema class declarations, superseded by ADR-0297.
+- ADR-0227: Core Query exposes offset, not cursors, superseded by ADR-0309.
+- ADR-0265: Remove the Typegen emitter marker, superseded by ADR-0297.
+- ADR-0280: Complete-schema callbacks use the retained Typegen graph, superseded by ADR-0297.
+- ADR-0281: Retain generated Where contracts for the source-authoring milestone, superseded by ADR-0297.
+- ADR-0283: Exact ACL schema callbacks use the retained Typegen graph, superseded by ADR-0297.
+- ADR-0285: Sparse generated mutation surfaces derive class methods, superseded by ADR-0297.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.
