@@ -321,7 +321,7 @@ Current records (accepted or still active in part):
 
 Proposed records (awaiting user validation):
 
-- None.
+- [ADR-0347: One operation vocabulary and a shared exposure plan](0347-one-operation-vocabulary-and-shared-exposure.md)
 
 Superseded records:
 

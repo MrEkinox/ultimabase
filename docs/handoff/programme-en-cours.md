@@ -29,17 +29,23 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
 
 ## Ensuite
 
-1. ADR « vocabulaire et exposition » (revue DX §2.1, §2.3, §4.x), avec un spike avant. Il doit
-   répondre à ce qui manque à Core (un plan d'exposition générique des commandes de schéma) et à Plugin
-   Kit (des aides pour écrire un transport), pour que REST et GraphQL cessent de dupliquer la liste des
-   12 méthodes et leurs règles. Budget connu : `/classes/` dans 96 fichiers, clés `rest:`/`graphql:`
-   dans 91.
-2. ADR « erreurs » (revue DX §3.3).
-3. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
+1. ADR « vocabulaire et exposition » : spike fait, [ADR-0347](../adr/0347-one-operation-vocabulary-and-shared-exposure.md)
+   proposé sur la branche `adr/vocabulary-exposure`, en attente de validation. Choix de l'utilisateur
+   (2026-10-18) : périmètre §2.1 + §2.3 seulement ; hiérarchie `all` > `read`/`write` > opération >
+   méthode, définie par Core ; clé `expose` et option d'application `exposure` possédées par Core ;
+   diagnostic Access au démarrage (avertissement hors production, échec en production), sans retirer
+   de route. Écarté : vocabulaire des seules méthodes ou des seules opérations, `expose` dans
+   `api-server`, retrait des routes refusées (révèle l'absence de règle, prive Master par HTTP).
+   Prochaine action vérifiable : après validation, un test qui fixe l'effet des droits ACL sur une
+   commande de plugin (aucun test ne le couvre), puis la tranche verticale (catalogue, `expose`,
+   `exposure`, REST sur un exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
+1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
+1. ADR « erreurs » (revue DX §3.3).
+1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
    (sécurité), puis `roles-plugin`, `validation-plugin`, `postgres-plugin`.
-4. Le reste de [la revue DX](revue-dx.md) et de [la revue de la déclaration](revue-dx-declaration.md) :
+1. Le reste de [la revue DX](revue-dx.md) et de [la revue de la déclaration](revue-dx-declaration.md) :
    sections 1, 3 (sauf 3.3) et 5.1 traitées par les ADR-0339 à 0341.
-5. Migrations de base de données, préparation de la publication (versions en lockstep, liens des
+1. Migrations de base de données, préparation de la publication (versions en lockstep, liens des
    README vers l'URL publique du site), OAuth, benchmarks de la section Comparaison.
 
 À ne faire que si un ADR change le démarrage d'une application : le code de démarrage répété dans les
