@@ -122,7 +122,9 @@ describe('application surface declaration validation', () => {
 				{},
 				{
 					contributionId: `named-${name}`,
-					schemaMutations: { [name]: { mutation: target, surfaces: ['schema'] } },
+					schemaMutations: {
+						[name]: { mutation: target, surfaces: ['schema'] },
+					},
 				},
 			)
 		}
@@ -139,6 +141,8 @@ describe('application surface declaration validation', () => {
 		)
 		expect(() => {
 			extend('updateOne', mutation)
-		}).toThrow('Command updateOne names the operation update, which Core reserves')
+		}).toThrow(
+			'Command updateOne names the operation update, which Core reserves',
+		)
 	})
 })
