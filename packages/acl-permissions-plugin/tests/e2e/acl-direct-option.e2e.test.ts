@@ -24,6 +24,6 @@ it('compiles the acl feature from JavaScript', async () => {
 			version: '0.0.0',
 		},
 		unknownRuleMessage:
-			'JavaScriptUnknownRuleACLPost.with({ acl }): acl is not a rule of an installed plugin; .with accepts relations',
+			'JavaScriptUnknownRuleACLPost.with({ acl }): acl is not a rule of an installed plugin; .with accepts relations, expose',
 	})
 })

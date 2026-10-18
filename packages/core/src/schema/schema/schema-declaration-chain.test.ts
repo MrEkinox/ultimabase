@@ -62,7 +62,7 @@ describe('schema declaration chain (ADR-0297)', () => {
 		)
 		expect(() => call({ audit: true })).toThrow(
 			new TypeError(
-				'ChainDocument.with({ audit }): audit is not a rule of an installed plugin; .with accepts relations',
+				'ChainDocument.with({ audit }): audit is not a rule of an installed plugin; .with accepts relations, expose',
 			),
 		)
 		expectTypeOf(configured).not.toHaveProperty('with')

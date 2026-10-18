@@ -259,12 +259,12 @@ describe('reserved keys (ADR-0339)', () => {
 
 		expect(() => UltimaBase.use(feature)).toThrow(
 			new TypeError(
-				'A plugin cannot declare the schema feature indexes: className, fields, indexes, relations and with are reserved by Core',
+				'A plugin cannot declare the schema feature indexes: className, fields, indexes, relations, expose and with are reserved by Core',
 			),
 		)
 		expect(() => UltimaBase.use(rule)).toThrow(
 			new TypeError(
-				'A plugin cannot declare the schema rule with: className, fields, indexes, relations and with are reserved by Core',
+				'A plugin cannot declare the schema rule with: className, fields, indexes, relations, expose and with are reserved by Core',
 			),
 		)
 	})

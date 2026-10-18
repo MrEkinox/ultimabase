@@ -6,7 +6,7 @@ import { readSchemaRulesObject } from './schema-rules-object.js'
 // ADR-0339: `.with({ … })` accepts the rule names declared when the
 // factory was configured (no Proxy), plus Core's `relations`.
 describe('the .with rules object', () => {
-	const names = ['relations', 'access', 'audit']
+	const names = ['relations', 'expose', 'access', 'audit']
 
 	it('copies each rule as an entry, in order, without undefined entries', () => {
 		const rules = readSchemaRulesObject(
@@ -22,7 +22,7 @@ describe('the .with rules object', () => {
 	it('names the available rules for a key no installed plugin declares', () => {
 		expect(() => readSchemaRulesObject({ hooks: {} }, names, 'Post')).toThrow(
 			new TypeError(
-				'Post.with({ hooks }): hooks is not a rule of an installed plugin; .with accepts relations, access, audit',
+				'Post.with({ hooks }): hooks is not a rule of an installed plugin; .with accepts relations, expose, access, audit',
 			),
 		)
 		expect(() =>
