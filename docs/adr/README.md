@@ -318,6 +318,7 @@ Current records (accepted or still active in part):
 - [ADR-0344: Plugin mutations share the native policy stages](0344-one-mutation-policy-for-plugin-mutations.md)
 - [ADR-0345: Private storage inserts a record only if it is absent](0345-private-insert-if-absent.md)
 - [ADR-0346: Update commands declare their data](0346-update-commands-declare-data.md)
+- [ADR-0348: Plugin commands need the ACL right of their effect](0348-plugin-commands-need-the-acl-right-of-their-effect.md)
 
 Proposed records (awaiting user validation):
 
