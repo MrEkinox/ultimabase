@@ -1,25 +1,17 @@
 import {
 	getPluginFieldWireCodec,
-	readSchemaCommandClosure,
+	type ApplicationExposurePlan,
 	type CompiledSchemaRegistry,
 	type GenericField,
 	type GenericOutputDescriptor,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import {
-	formatPluginIdentity,
-	type PluginIdentity,
-} from '@ultimabase/core/plugin'
+import type { PluginIdentity } from '@ultimabase/core/plugin'
 import type { HttpMethod } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { restFieldProtocol } from './field-codecs.js'
-import {
-	readRestSchemaRule,
-	restMethodNames,
-	type NormalizedRestRule,
-	type RestMethodName,
-} from './rules.js'
+import type { RestMethodName } from './rules.js'
 import { isRestOutputKind } from './response-values.js'
 import {
 	createRestRouteFragment,
@@ -30,22 +22,6 @@ import {
 	type RestRouteFragmentValue,
 	type RestSchemaOperation,
 } from './routes.js'
-
-// Built-in defaults used when neither the schema rule nor the plugin decides.
-const builtInDefaults = immutableRecord({
-	count: false,
-	createMany: false,
-	createOne: true,
-	deleteMany: false,
-	deleteOne: true,
-	exists: true,
-	findMany: true,
-	findOne: true,
-	updateMany: false,
-	updateOne: true,
-	upsertMany: false,
-	upsertOne: false,
-}) satisfies Readonly<Record<RestMethodName, boolean>>
 
 /** The schema method each REST route operation belongs to (ADR-0324). */
 export const restOperationMethods: Readonly<
@@ -65,72 +41,6 @@ export const restOperationMethods: Readonly<
 	update: 'updateOne',
 	upsert: 'upsertOne',
 })
-
-const isMethodName = (key: string): key is RestMethodName =>
-	Object.hasOwn(builtInDefaults, key)
-
-const readRule = (
-	rule: NormalizedRestRule | undefined,
-	key: string,
-): boolean | undefined => (typeof rule === 'object' ? rule[key] : rule)
-
-/**
- * Resolves one method or command: schema rule, then plugin default, then
- * built-in. A plugin command is exposed only when a rule names it, or when
- * a rule or the default is `true` (ADR-0324).
- */
-export const isRestMethodEnabled = (
-	schema: NormalizedRestRule | undefined,
-	defaults: NormalizedRestRule | undefined,
-	key: string,
-): boolean =>
-	readRule(schema, key) ??
-	readRule(defaults, key) ??
-	(isMethodName(key) ? builtInDefaults[key] : false)
-
-/**
- * Names where an explicit `true` for one method comes from: the schema rule's
- * own key, else the plugin default's when the schema rule leaves the key
- * open. A `true` rule or default enables everything without naming it.
- */
-const explicitSetting = (
-	schema: NormalizedRestRule | undefined,
-	defaults: NormalizedRestRule | undefined,
-	key: string,
-): 'default' | 'schema' | undefined => {
-	if (typeof schema === 'object' && Object.hasOwn(schema, key)) {
-		return schema[key] === true ? 'schema' : undefined
-	}
-	if (typeof schema === 'boolean') return undefined
-	return typeof defaults === 'object' && defaults[key] === true
-		? 'default'
-		: undefined
-}
-
-/**
- * Refuses an explicit setting that would publish a method a plugin closed on
- * the schema (ADR-0341); the defaults and `true` forms leave it unpublished.
- */
-const assertClosedMethodsUnrequested = (
-	schema: SchemaDefinition,
-	rule: NormalizedRestRule | undefined,
-	defaults: NormalizedRestRule | undefined,
-): void => {
-	for (const method of restMethodNames) {
-		const closure = readSchemaCommandClosure(schema, method)
-		if (closure === undefined) continue
-		const source = explicitSetting(rule, defaults, method)
-		if (source === undefined) continue
-		const { className } = schema
-		throw new TypeError(
-			`${className}.${method} is closed by plugin "${formatPluginIdentity(closure.owner)}": ${closure.reason} ${
-				source === 'schema'
-					? `Remove ${method} from .with({ rest }) of ${className}.`
-					: `Remove ${method} from restPlugin({ default }), or set it to false in .with({ rest }) of ${className}.`
-			}`,
-		)
-	}
-}
 
 /** Path templates of every native route, relative to the class path. */
 export const restRouteTemplates: readonly Readonly<{
@@ -242,42 +152,45 @@ export const assertRestSchemaResultCodecs = (
 	)
 }
 
-/** Compiles one instance fragment from the complete application schema graph. */
+/**
+ * Compiles the native routes of every method the exposure plan serves
+ * (ADR-0347), in template order; REST decides paths, never exposure.
+ */
 export const compileRestRouteFragment = (
 	options: Readonly<{
 		basePath: string
-		defaultRule: NormalizedRestRule | undefined
 		owner: PluginIdentity
+		plan: () => ApplicationExposurePlan<typeof restProtocol>
 		pluginVersion: string
 		schemas: CompiledSchemaRegistry
 	}>,
 ): RestRouteFragmentValue => {
-	const plugin = createRestRoutePlugin(options.owner, options.pluginVersion)
-	const routes: RestRouteCandidate[] = []
 	for (const schema of options.schemas.values()) {
-		const rule = readRestSchemaRule(schema)
-		const owner = schema.provenance.schema.owner.kind
 		// Storage ownership can never be converted into public CRUD exposure.
-		if (owner === 'plugin' && rule !== undefined) {
+		if (
+			schema.provenance.schema.owner.kind === 'plugin' &&
+			Object.hasOwn(schema.definition, 'rest')
+		) {
 			throw new TypeError(
 				`Plugin-owned schema "${schema.className}" cannot declare REST schema routes`,
 			)
 		}
-		if (owner !== 'application') continue
-		assertClosedMethodsUnrequested(schema, rule, options.defaultRule)
-		// A command a plugin closed has no route, whatever the rules (ADR-0341).
-		const templates = restRouteTemplates.filter(
-			({ operation }) =>
-				isRestMethodEnabled(
-					rule,
-					options.defaultRule,
-					restOperationMethods[operation],
-				) &&
-				readSchemaCommandClosure(schema, restOperationMethods[operation]) ===
-					undefined,
+	}
+	const plugin = createRestRoutePlugin(options.owner, options.pluginVersion)
+	const routes: RestRouteCandidate[] = []
+	for (const { className, methods } of options.plan().schemas) {
+		const schema = options.schemas.get(className)
+		if (schema === undefined) continue
+		const served = new Set(
+			methods.flatMap(({ entry, kind }) =>
+				kind === 'native' ? [entry.method] : [],
+			),
+		)
+		const templates = restRouteTemplates.filter(({ operation }) =>
+			served.has(restOperationMethods[operation]),
 		)
 		if (templates.length > 0) assertRestSchemaResultCodecs(schema)
-		const classPath = restClassPath(options.basePath, schema.className)
+		const classPath = restClassPath(options.basePath, className)
 		const virtualFields = readRestVirtualFields(schema)
 		for (const { method, operation, suffix } of templates) {
 			const path = `${classPath}${suffix}`
@@ -296,7 +209,7 @@ export const compileRestRouteFragment = (
 						protocolVersion: restProtocol.version,
 						schema: schema.provenance.schema,
 					}),
-					schema: schema.className,
+					schema: className,
 					virtualFields,
 				}),
 			)

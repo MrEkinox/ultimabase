@@ -1,17 +1,13 @@
 import type {
 	ApplicationSchemaMutationTransportPlan,
 	CompiledSchemaRegistry,
+	ExposedNativeSchemaMethod,
+	ExposedPluginSchemaMethod,
 	ExposedSchemaMutationTransportBinding,
-	SchemaDefinition,
 } from '@ultimabase/core'
 import type { PluginIdentity } from '@ultimabase/core/plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import {
-	readRestSchemaRule,
-	restMethodNames,
-	type NormalizedRestRule,
-} from './rules.js'
 import {
 	createRestRouteFragment,
 	createRestRoutePlugin,
@@ -23,7 +19,6 @@ import {
 } from './routes.js'
 import {
 	assertRestSchemaResultCodecs,
-	isRestMethodEnabled,
 	readRestVirtualFields,
 } from './schema-routes.js'
 
@@ -41,69 +36,41 @@ export const restCommandPath = (command: string): string => {
 	return encodeRestPathSegment(path, `REST schema mutation ${command}`)
 }
 
-const nativeKeys: ReadonlySet<string> = new Set(restMethodNames)
-
 /**
- * Checks that every key of a schema rule names a native method or one of the
- * commands REST can expose on that schema (request authority, one row).
+ * The part of an exposure plan the command routes read: which plugin
+ * commands each schema serves, and their REST binding.
  */
-const assertRuleKeys = (
-	schema: SchemaDefinition,
-	rule: NormalizedRestRule | undefined,
-	commands: ReadonlySet<string>,
-): void => {
-	if (typeof rule !== 'object') return
-	for (const key of Object.keys(rule)) {
-		if (nativeKeys.has(key) || commands.has(key)) continue
-		throw new TypeError(
-			`rest.${key} on ${schema.className} names no schema method or exposable command${commands.size === 0 ? '' : `; its commands are ${[...commands].sort().join(', ')}`}`,
-		)
-	}
+interface RestCommandExposure {
+	readonly schemas: readonly Readonly<{
+		className: string
+		methods: readonly (
+			| Pick<ExposedNativeSchemaMethod, 'kind'>
+			| Pick<ExposedPluginSchemaMethod, 'binding' | 'kind'>
+		)[]
+	}>[]
 }
 
 /**
- * Compiles the plugin commands an application schema's `.with({ rest: … })`
- * rule names (ADR-0324): request authority, one row named by `id`.
+ * Compiles the plugin commands the exposure plan serves on application
+ * schemas (ADR-0324, ADR-0347): request authority, one row named by `id`.
  */
 export const compileRestSchemaMutationRouteFragment = (options: {
 	readonly basePath: string
-	readonly defaultRule: NormalizedRestRule | undefined
 	readonly owner: PluginIdentity
-	readonly plan: ApplicationSchemaMutationTransportPlan<typeof restProtocol>
+	readonly plan: RestCommandExposure
 	readonly pluginVersion: string
 	readonly schemas: CompiledSchemaRegistry
 }): RestRouteFragmentValue => {
 	const plugin = createRestRoutePlugin(options.owner, options.pluginVersion)
-	const exposable = readExposableCommands(options.plan)
-	for (const schema of options.schemas.values()) {
-		if (schema.provenance.schema.owner.kind !== 'application') continue
-		assertRuleKeys(
-			schema,
-			readRestSchemaRule(schema),
-			new Set(exposable.get(schema.className)?.map(({ command }) => command)),
-		)
-	}
 	const routes: RestRouteCandidate[] = []
-	for (const descriptors of exposable.values()) {
-		for (const descriptor of descriptors) {
-			const schema = options.schemas.get(descriptor.schema)
-			if (schema === undefined) {
-				throw new TypeError(
-					`REST schema mutation ${descriptor.command} targets an unavailable schema`,
-				)
-			}
-			if (
-				schema.provenance.schema.owner.kind !== 'application' ||
-				!isRestMethodEnabled(
-					readRestSchemaRule(schema),
-					options.defaultRule,
-					descriptor.command,
-				)
-			) {
-				continue
-			}
+	for (const { className, methods } of options.plan.schemas) {
+		const schema = options.schemas.get(className)
+		if (schema === undefined) continue
+		for (const method of methods) {
+			if (method.kind !== 'plugin') continue
+			const descriptor = method.binding
 			assertRestSchemaResultCodecs(schema)
-			const path = `${restClassPath(options.basePath, schema.className)}/{id}/${restCommandPath(descriptor.command)}`
+			const path = `${restClassPath(options.basePath, className)}/{id}/${restCommandPath(descriptor.command)}`
 			routes.push(
 				immutableRecord({
 					command: descriptor.command,
@@ -134,7 +101,7 @@ export const compileRestSchemaMutationRouteFragment = (options: {
 						protocolVersion: restProtocol.version,
 						schema: schema.provenance.schema,
 					}),
-					schema: schema.className,
+					schema: className,
 					virtualFields: readRestVirtualFields(schema),
 				}),
 			)
@@ -143,7 +110,10 @@ export const compileRestSchemaMutationRouteFragment = (options: {
 	return createRestRouteFragment(routes)
 }
 
-/** Groups by schema the commands REST can expose: request authority, one row. */
+/**
+ * Groups by schema the request commands REST knows, served or not, so that a
+ * closed command answers 405 rather than 404.
+ */
 export const readExposableCommands = (
 	plan: ApplicationSchemaMutationTransportPlan<typeof restProtocol>,
 ): ReadonlyMap<string, readonly ExposedSchemaMutationTransportBinding[]> => {

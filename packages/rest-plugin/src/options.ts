@@ -1,23 +1,17 @@
+import type { PluginOperationDefinition } from '@ultimabase/core/plugin'
 import {
-	isPluginOperationDefinition,
-	type PluginOperationDefinition,
-} from '@ultimabase/core/plugin'
-import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
-import {
-	immutableArray,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+	definePluginOptionsParser,
+	parseTransportExposureOptions,
+	transportExposureOptionKeys,
+	type NormalizedTransportExposureOptions,
+	type TransportExposureOptions,
+	type TransportPaginationOptions,
+} from '@ultimabase/plugin-kit'
 
-import { defaultRestReadLimits } from './reads.js'
-import {
-	normalizeRule,
-	type NormalizedRestRule,
-	type RestMethodRules,
-} from './rules.js'
+import type { RestMethodRules } from './rules.js'
 
-/** Configures one REST instance (ADR-0324). */
-export interface RestPluginOptions {
+/** Configures one REST instance (ADR-0324, ADR-0347). */
+export interface RestPluginOptions extends TransportExposureOptions {
 	/**
 	 * Absolute prefix of every REST route; it carries no protocol version
 	 * (the `X-UltimaBase-Rest-Version` response header does).
@@ -31,9 +25,10 @@ export interface RestPluginOptions {
 	 */
 	readonly bodyLimit?: number
 	/**
-	 * Exposure inherited by every schema method a `.with({ rest: … })` rule
-	 * leaves out: `true`, `false`, or per method.
-	 * @example `default: { createOne: false, updateOne: false, deleteOne: false }`
+	 * Exposure of every schema method that `.with({ rest })` and
+	 * `.with({ expose })` leave out: `true`, `false`, or by `all`, group,
+	 * operation or method. Plugin commands are named in `.with`, never here.
+	 * @example `default: { write: false }`
 	 */
 	readonly default?: boolean | RestMethodRules
 	/**
@@ -72,74 +67,11 @@ export interface RestPluginOptions {
  *
  * @example `restPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
  */
-export interface RestPaginationOptions {
+export interface RestPaginationOptions extends TransportPaginationOptions {
 	/** `take` used when a collection read omits it. @default 100 */
 	readonly defaultTake?: number
 	/** Largest accepted `take`; a larger one is `REST_READ_INVALID_INPUT`. @default 1000 */
 	readonly maxTake?: number
-}
-
-/** @internal Validates the page window shared by every REST collection read. */
-const normalizeRestPagination = (
-	value: unknown,
-): Readonly<{ defaultTake: number; maxTake: number }> => {
-	if (value === undefined) {
-		return {
-			defaultTake: defaultRestReadLimits.defaultTake,
-			maxTake: defaultRestReadLimits.maxTake,
-		}
-	}
-	if (!isPlainRecord(value)) {
-		throw new TypeError('REST plugin pagination must be a plain object')
-	}
-	for (const key of Object.keys(value)) {
-		if (key !== 'defaultTake' && key !== 'maxTake') {
-			throw new TypeError(
-				`REST plugin pagination has an unknown option: ${key}`,
-			)
-		}
-	}
-	const defaultTake = normalizePositiveSafeInteger(
-		value.defaultTake,
-		'pagination.defaultTake',
-		defaultRestReadLimits.defaultTake,
-	)
-	const maxTake = normalizePositiveSafeInteger(
-		value.maxTake,
-		'pagination.maxTake',
-		defaultRestReadLimits.maxTake,
-	)
-	if (defaultTake > maxTake) {
-		throw new TypeError(
-			'REST plugin pagination.defaultTake must not exceed pagination.maxTake',
-		)
-	}
-	return { defaultTake, maxTake }
-}
-
-/** @internal Validates the public operation tokens one REST instance hides. */
-const normalizeRestHide = (
-	value: unknown,
-): readonly PluginOperationDefinition[] => {
-	if (value === undefined) return immutableArray([])
-	if (!isUnknownArray(value)) {
-		throw new TypeError('REST plugin hide must be an array')
-	}
-	const names = new Set<string>()
-	const operations: PluginOperationDefinition[] = []
-	for (const [index, operation] of value.entries()) {
-		if (!isPluginOperationDefinition(operation)) {
-			throw new TypeError(
-				`REST plugin hide[${String(index)}] must be an operation token`,
-			)
-		}
-		if (names.has(operation.name)) {
-			throw new TypeError(`REST plugin hide repeats ${operation.name}`)
-		}
-		names.add(operation.name)
-		operations.push(operation)
-	}
-	return immutableArray(operations)
 }
 
 const normalizeBasePath = (value: unknown): string => {
@@ -173,14 +105,10 @@ const normalizeBasePath = (value: unknown): string => {
 	return value
 }
 
-const normalizePositiveSafeInteger = (
-	value: unknown,
-	name: string,
-	fallback: number,
-): number => {
-	if (value === undefined) return fallback
+const normalizeBodyLimit = (value: unknown): number | undefined => {
+	if (value === undefined) return undefined
 	if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
-		throw new TypeError(`REST plugin ${name} must be a positive safe integer`)
+		throw new TypeError('REST plugin bodyLimit must be a positive safe integer')
 	}
 	return value
 }
@@ -199,12 +127,10 @@ export interface NormalizedRestPluginOptions {
 	readonly basePath: string
 	/** `undefined` inherits the HTTP plugin's limit (ADR-0323). */
 	readonly bodyLimit: number | undefined
-	readonly defaultRule: NormalizedRestRule | undefined
-	readonly hide: readonly PluginOperationDefinition[]
+	/** `default`, `hide`, `pagination` and `publicWrites`, parsed by Plugin Kit. */
+	readonly exposure: NormalizedTransportExposureOptions
 	readonly instanceId: string | undefined
 	readonly openapi: boolean
-	readonly pagination: Readonly<{ defaultTake: number; maxTake: number }>
-	readonly publicWrites: boolean
 }
 
 /** @internal Rejects unknown keys and normalizes every plugin factory option. */
@@ -213,25 +139,13 @@ export const parseRestPluginOptions: (
 ) => NormalizedRestPluginOptions = definePluginOptionsParser({
 	name: 'REST plugin options',
 	keys: [
+		...transportExposureOptionKeys,
 		'basePath',
 		'bodyLimit',
-		'default',
-		'hide',
 		'instanceId',
 		'openapi',
-		'pagination',
-		'publicWrites',
 	] as const,
-	normalize: ({
-		basePath,
-		bodyLimit,
-		default: defaultRule,
-		hide,
-		instanceId,
-		openapi,
-		pagination,
-		publicWrites,
-	}) => {
+	normalize: ({ basePath, bodyLimit, instanceId, openapi, ...exposure }) => {
 		if (
 			instanceId !== undefined &&
 			(typeof instanceId !== 'string' || instanceId.length === 0)
@@ -240,23 +154,13 @@ export const parseRestPluginOptions: (
 		}
 		return {
 			basePath: normalizeBasePath(basePath),
-			bodyLimit:
-				bodyLimit === undefined
-					? undefined
-					: normalizePositiveSafeInteger(
-							bodyLimit,
-							'bodyLimit',
-							defaultRestReadLimits.bodyBytes,
-						),
-			defaultRule:
-				defaultRule === undefined
-					? undefined
-					: normalizeRule(defaultRule, 'REST plugin default', false),
-			hide: normalizeRestHide(hide),
+			bodyLimit: normalizeBodyLimit(bodyLimit),
+			// REST represents any safe page size: no pagination maximum.
+			exposure: parseTransportExposureOptions(exposure, {
+				name: 'REST plugin',
+			}),
 			instanceId,
 			openapi: normalizeBoolean(openapi, 'openapi'),
-			pagination: normalizeRestPagination(pagination),
-			publicWrites: normalizeBoolean(publicWrites, 'publicWrites'),
 		}
 	},
 })

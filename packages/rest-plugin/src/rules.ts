@@ -1,27 +1,36 @@
-import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	defineSchemaOption,
-	type PluginSchemaMutationDefinition,
-	type PluginSchemaMutationDependencySelection,
-	type PluginSchemaMutationEffect,
-	type PluginSchemaMutationReturning,
-	type PluginSourceSchemaMutations,
+	normalizeExposureRule,
+	type ExposureCommandKey,
+	type NativeExposureRules,
+	type NormalizedExposureRule,
 	type SchemaOptionDefinition,
 	type SchemaRulesHKT,
-	type SchemaRulesSource,
 } from '@ultimabase/core/plugin'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
 
 /**
- * Exposure of one schema's methods over REST, keyed by the schema method
- * names (ADR-0324). An omitted method inherits `restPlugin({ default })`,
- * then its built-in default.
+ * Exposure of one schema's methods over REST (ADR-0324, ADR-0347), with the
+ * keys of `.with({ expose })`: `all`, a group, an operation or a method. The
+ * most precise key present decides each method; a method the rule leaves out
+ * follows `expose`, then `restPlugin({ default })`, then its built-in default.
  */
-export interface RestMethodRules {
+export interface RestMethodRules extends NativeExposureRules {
+	/** Every route of the schema, and every request plugin command. */
+	readonly all?: boolean
+	/** The `find`, `count` and `exists` routes. */
+	readonly read?: boolean
+	/** Every native write route, and every request plugin command. */
+	readonly write?: boolean
+	/** The `findMany` and `findOne` routes. */
+	readonly find?: boolean
+	/** `POST /classes/{Schema}` and `POST /classes/{Schema}/bulk/create`. */
+	readonly create?: boolean
+	/** `PATCH /classes/{Schema}/{id}` and `POST /classes/{Schema}/bulk/update`. */
+	readonly update?: boolean
+	/** `POST /classes/{Schema}/upsert` and `POST /classes/{Schema}/bulk/upsert`. */
+	readonly upsert?: boolean
+	/** `DELETE /classes/{Schema}/{id}` and `POST /classes/{Schema}/bulk/delete`. */
+	readonly delete?: boolean
 	/** `GET /classes/{Schema}` and `POST /classes/{Schema}/query`. @default true */
 	readonly findMany?: boolean
 	/** `GET /classes/{Schema}/{id}` and `GET|POST /classes/{Schema}/first`. @default true */
@@ -49,37 +58,30 @@ export interface RestMethodRules {
 }
 
 /** One native schema method REST can expose. */
-export type RestMethodName = keyof RestMethodRules
-
-type SchemaMutations<TSchema> = PluginSourceSchemaMutations<
-	SchemaRulesSource<TSchema>
->
-
-/** A command REST can expose: request authority, one row named by `id`. */
-type ExposableCommand = PluginSchemaMutationDefinition<
-	string,
-	string,
-	unknown,
-	readonly string[],
-	'request',
-	PluginSchemaMutationEffect,
-	PluginSchemaMutationReturning,
-	PluginSchemaMutationDependencySelection,
-	'one'
->
-
-/** Names the plugin commands of one schema that REST can expose. */
-export type RestCommandName<TSchema> = {
-	readonly [
-		TName in keyof SchemaMutations<TSchema>
-	]: SchemaMutations<TSchema>[TName] extends ExposableCommand ? TName : never
-}[keyof SchemaMutations<TSchema>] &
-	string
+export type RestMethodName =
+	| 'findMany'
+	| 'findOne'
+	| 'count'
+	| 'exists'
+	| 'createOne'
+	| 'updateOne'
+	| 'deleteOne'
+	| 'upsertOne'
+	| 'createMany'
+	| 'updateMany'
+	| 'deleteMany'
+	| 'upsertMany'
 
 /**
- * REST exposure of one schema (ADR-0324): `false` exposes nothing, `true`
- * every method and command, an object each method or command by name.
- * A plugin command (`softDeleteOne`) is exposed only when named.
+ * Names the plugin keys REST accepts for one schema: the `One` method and
+ * the operation of each request command on one row (`archiveOne`, `archive`).
+ */
+export type RestCommandName<TSchema> = ExposureCommandKey<TSchema>
+
+/**
+ * REST exposure of one schema (ADR-0324, ADR-0347): `false` exposes nothing,
+ * `true` every method and request command, an object each key by name. A
+ * plugin command (`softDeleteOne`) is exposed only when a key opens it.
  *
  * @example `.with({ rest: { count: true, softDeleteOne: true } })`
  */
@@ -94,8 +96,10 @@ type RestCommandRules<TSchema> = unknown extends TSchema
 /** Entry of `.with({ … })` owned by REST, for one schema (ADR-0324). */
 export interface RestRules<TSchema> {
 	/**
-	 * Selects the REST routes of this schema by method name; omitted methods
-	 * inherit `restPlugin({ default })`.
+	 * Exceptions to `.with({ expose })` for REST: each key wins over `expose`
+	 * at any level, even when it is less precise. Methods it leaves out
+	 * follow `expose`, then `restPlugin({ default })`, then the built-in
+	 * defaults.
 	 * @example `.with({ rest: { count: true, deleteOne: false } })`
 	 */
 	readonly rest?: RestSchemaRule<TSchema>
@@ -106,74 +110,10 @@ export interface RestSchemaRules extends SchemaRulesHKT {
 	readonly rules: RestRules<this['schema']>
 }
 
-/** Every native method key, in route order. */
-export const restMethodNames: readonly RestMethodName[] = immutableArray([
-	'findMany',
-	'findOne',
-	'count',
-	'exists',
-	'createOne',
-	'updateOne',
-	'deleteOne',
-	'upsertOne',
-	'createMany',
-	'updateMany',
-	'deleteMany',
-	'upsertMany',
-])
-const methodKeys: ReadonlySet<string> = new Set(restMethodNames)
-const commandKeyPattern = /^[a-z][A-Za-z0-9]*$/u
-
-/** The normalized rule of one schema: a boolean, or a sparse per-key record. */
-export type NormalizedRestRule = boolean | Readonly<Record<string, boolean>>
-
-/** @internal Validates one rule (`commands`: plugin command keys allowed). */
-export const normalizeRule = (
-	value: unknown,
-	path: string,
-	commands: boolean,
-): NormalizedRestRule => {
-	if (typeof value === 'boolean') return value
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a boolean or plain object`)
-	}
-	const entries: [string, boolean][] = []
-	for (const key of Reflect.ownKeys(value)) {
-		const known =
-			typeof key === 'string' &&
-			(methodKeys.has(key) || (commands && commandKeyPattern.test(key)))
-		if (!known) {
-			throw new TypeError(
-				`${path} contains unknown method: ${String(key)}; use ${restMethodNames.join(', ')}${commands ? ' or a plugin command name' : ''}`,
-			)
-		}
-		const option: unknown = value[key]
-		if (typeof option !== 'boolean') {
-			throw new TypeError(`${path}.${key} must be a boolean`)
-		}
-		entries.push([key, option])
-	}
-	return immutableRecord(Object.fromEntries(entries))
-}
-
 /** Owns the `rest` rule; its static type comes from the `.with` rules slot. */
-export const restSchemaOption: SchemaOptionDefinition<NormalizedRestRule> =
+export const restSchemaOption: SchemaOptionDefinition<NormalizedExposureRule> =
 	defineSchemaOption({
-		normalize: (value, path): NormalizedRestRule =>
-			normalizeRule(value, path, true),
+		normalize: (value, path): NormalizedExposureRule =>
+			normalizeExposureRule(value, path),
 		protocolVersion: 1,
 	})
-
-const isNormalizedRule = (value: unknown): value is NormalizedRestRule =>
-	typeof value === 'boolean' ||
-	(isPlainRecord(value) &&
-		Object.values(value).every((item) => typeof item === 'boolean'))
-
-/** Reads the normalized rule without treating omission as a denial. */
-export const readRestSchemaRule = (
-	schema: SchemaDefinition,
-): NormalizedRestRule | undefined => {
-	if (!Object.hasOwn(schema.definition, 'rest')) return undefined
-	const rule: unknown = Reflect.get(schema.definition, 'rest')
-	return isNormalizedRule(rule) ? rule : undefined
-}

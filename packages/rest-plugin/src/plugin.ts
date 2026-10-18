@@ -23,12 +23,17 @@ import {
 	httpApplicationCapability,
 	httpEndpointContributionsCapability,
 } from '@ultimabase/http-plugin'
+import { readExposurePlan } from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { parseRestPluginOptions, type RestPluginOptions } from './options.js'
 import { restSchemaOption, type RestSchemaRules } from './rules.js'
 import { createRestOpenApiDocument } from './openapi.js'
-import { assertPublicWrites, lazyDocument, readKnownPaths } from './exposure.js'
+import {
+	assertRestPublicWrites,
+	lazyDocument,
+	readKnownPaths,
+} from './exposure.js'
 import { compileRestOperationRouteFragment } from './operation-routes.js'
 import {
 	readRestMountRoots,
@@ -120,38 +125,41 @@ export type RestPlugin = PluginInstance<{
 /** Installs deterministic REST route metadata without executing Runtime. */
 export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 	const normalized = parseRestPluginOptions(options)
-	const { basePath, defaultRule, instanceId } = normalized
+	const { basePath, instanceId } = normalized
 	// Each application's HTTP mount reads the configuration its setup binds later.
 	const httpSlots = new WeakMap<
 		ApplicationRequestExecutor,
 		{ configuration?: RestHttpConfiguration }
 	>()
 
-	// Each compiler sees the same configuration; planning is read only when needed.
-	const routeConfig = {
-		basePath,
-		defaultRule,
-		pluginVersion: restPluginVersion,
-	}
-	const planMutations = (planner: ApplicationOperationTransportPlanner) =>
-		planner.planSchemaMutations({
-			bindings: 'optional',
+	// Core decides what REST serves (ADR-0347); REST only lays out the routes.
+	const readPlan = (planner: ApplicationOperationTransportPlanner) =>
+		readExposurePlan(planner, {
+			factory: 'restPlugin',
+			label: 'REST',
+			options: normalized.exposure,
+			schemaKey: 'rest',
 			transport: restProtocol,
 		})
+	const routeConfig = { basePath, pluginVersion: restPluginVersion }
 	const compilers: readonly [string, RestRouteCompiler][] = [
 		[
 			'official-rest-schema-routes',
-			(owner, schemas) =>
-				compileRestRouteFragment({ ...routeConfig, owner, schemas }),
+			(owner, schemas, planner) =>
+				compileRestRouteFragment({
+					...routeConfig,
+					owner,
+					plan: () => readPlan(planner()),
+					schemas,
+				}),
 		],
 		[
 			'official-rest-operation-routes',
 			(owner, schemas, planner) =>
 				compileRestOperationRouteFragment({
 					...routeConfig,
-					hide: normalized.hide,
 					owner,
-					plan: planner().plan({ transport: restProtocol }),
+					plan: readPlan(planner()),
 					schemas,
 				}),
 		],
@@ -161,7 +169,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				compileRestSchemaMutationRouteFragment({
 					...routeConfig,
 					owner,
-					plan: planMutations(planner()),
+					plan: readPlan(planner()),
 					schemas,
 				}),
 		],
@@ -221,8 +229,8 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			const readLimits = immutableRecord({
 				// Without its own limit REST inherits the HTTP one, which HTTP enforces.
 				bodyBytes: normalized.bodyLimit ?? Number.MAX_SAFE_INTEGER,
-				defaultTake: normalized.pagination.defaultTake,
-				maxTake: normalized.pagination.maxTake,
+				defaultTake: normalized.exposure.pagination.defaultTake,
+				maxTake: normalized.exposure.pagination.maxTake,
 			})
 			const ownRoutes = routeGraph.routes.filter(
 				({ provenance: { plugin } }) =>
@@ -253,7 +261,12 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 					knownPaths: readKnownPaths(
 						basePath,
 						ownRoutes,
-						readExposableCommands(planMutations(planner)),
+						readExposableCommands(
+							planner.planSchemaMutations({
+								bindings: 'optional',
+								transport: restProtocol,
+							}),
+						),
 					),
 					limits: readLimits,
 					logger,
@@ -261,8 +274,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 						? lazyDocument(() =>
 								createRestOpenApiDocument({
 									basePath,
-									operations: planner.plan({ transport: restProtocol })
-										.operations,
+									operations: readPlan(planner).operations,
 									routes: ownRoutes,
 									schemas,
 								}),
@@ -297,7 +309,12 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				exports,
 				startTransports: () => {
 					const executor = capabilities.get(requestExecutionRequirement)
-					assertPublicWrites(ownRoutes, executor, normalized.publicWrites)
+					assertRestPublicWrites(
+						readPlan(planner),
+						basePath,
+						executor,
+						normalized.exposure.publicWrites,
+					)
 					// Core exposes only the exact allowlists compiled into this route graph.
 					operations?.[1](
 						executor.exposeOperations({

@@ -1,8 +1,4 @@
-import {
-	UltimaBase,
-	type ApplicationSchemaMutationTransportPlan,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
 import {
 	plugin,
 	provideCapability,
@@ -12,11 +8,7 @@ import { initializeRestTestApplication as createApplication } from './applicatio
 import { describe, expect, it } from 'vitest'
 
 import { restPlugin } from './plugin.js'
-import {
-	createRestRouteFragment,
-	restProtocol,
-	restRouteGraphCapability,
-} from './routes.js'
+import { createRestRouteFragment, restRouteGraphCapability } from './routes.js'
 import { compileRestSchemaMutationRouteFragment } from './schema-mutation-routes.js'
 
 const owner: PluginIdentity = {
@@ -43,12 +35,28 @@ const descriptor = (
 	version: '1.0.0',
 })
 
+// The plan lists the commands REST serves; Core decides which ones
+// (application-exposure-planning.test.ts, tests/expose.test.ts).
+const planOf = (
+	mutations: readonly ReturnType<typeof descriptor>[],
+	native: readonly string[] = [],
+) => ({
+	schemas: [
+		...new Set([...native, ...mutations.map(({ schema }) => schema)]),
+	].map((className) => ({
+		className,
+		methods: [
+			...(native.includes(className) ? [{ kind: 'native' as const }] : []),
+			...mutations
+				.filter(({ schema }) => schema === className)
+				.map((binding) => ({ binding, kind: 'plugin' as const })),
+		],
+	})),
+})
+
 const compile = async (
 	schemas: readonly SchemaDefinition[],
-	mutations: ApplicationSchemaMutationTransportPlan<
-		typeof restProtocol
-	>['mutations'],
-	defaultRule?: boolean,
+	plan: ReturnType<typeof planOf>,
 ) => {
 	const application = await createApplication({
 		logger: false,
@@ -58,9 +66,8 @@ const compile = async (
 	try {
 		return compileRestSchemaMutationRouteFragment({
 			basePath: '/api',
-			defaultRule,
 			owner,
-			plan: { mutations, transport: restProtocol },
+			plan,
 			pluginVersion: '0.0.0',
 			schemas: application.compile().schemas,
 		})
@@ -70,53 +77,32 @@ const compile = async (
 }
 
 describe('REST schema mutation route compilation', () => {
-	it('applies schema-local enablement and never emits Master routes', async () => {
-		const RestSchemaApplication = UltimaBase.use(restPlugin())
-		// A boolean rule covers commands too; named commands are tested with a
-		// real command in tests/schema-mutation-http.test.ts.
-		const Explicit = RestSchemaApplication.Schema.define({
-			className: 'RestMutationExplicit',
-			fields: () => ({}),
-		}).with({ rest: true })
-		const Disabled = RestSchemaApplication.Schema.define({
-			className: 'RestMutationDisabled',
-			fields: () => ({}),
-		}).with({ rest: false })
-		const Inherited = RestSchemaApplication.Schema.define({
-			className: 'RestMutationInherited',
+	it('emits one route per plugin command the plan serves', async () => {
+		const Served = UltimaBase.Schema.define({
+			className: 'RestMutationServed',
 			fields: () => ({}),
 		})
-		const mutations = [
-			descriptor(Explicit.className, 'publishNow'),
-			descriptor(Disabled.className, 'publishNow'),
-			descriptor(Inherited.className, 'publishNow'),
-			descriptor(Explicit.className, 'purge', 'master'),
-		]
+		const Native = UltimaBase.Schema.define({
+			className: 'RestMutationNative',
+			fields: () => ({}),
+		})
 
-		const disabledByDefault = await compile(
-			[Explicit, Disabled, Inherited],
-			mutations,
-			false,
-		)
-		expect(disabledByDefault.routes.map(({ path }) => path)).toStrictEqual([
-			'/api/classes/RestMutationExplicit/{id}/publish-now',
-		])
-		// ADR-0324: a command is exposed only when named, or when everything is.
-		const builtIn = await compile([Explicit, Disabled, Inherited], mutations)
-		expect(builtIn.routes.map(({ path }) => path)).toStrictEqual([
-			'/api/classes/RestMutationExplicit/{id}/publish-now',
-		])
-
-		const enabledByDefault = await compile(
-			[Explicit, Disabled, Inherited],
-			mutations,
-			true,
-		)
-		expect(
-			enabledByDefault.routes.map((route) =>
-				'schema' in route ? route.schema : undefined,
+		const fragment = await compile(
+			[Served, Native],
+			planOf(
+				[
+					descriptor(Served.className, 'publishOne'),
+					descriptor(Served.className, 'archiveOne'),
+					// A schema the registry does not know is skipped.
+					descriptor('RestMutationUnknown', 'publishOne'),
+				],
+				[Native.className],
 			),
-		).toStrictEqual(['RestMutationExplicit', 'RestMutationInherited'])
+		)
+		expect(fragment.routes.map(({ path }) => path)).toStrictEqual([
+			'/api/classes/RestMutationServed/{id}/publish-one',
+			'/api/classes/RestMutationServed/{id}/archive-one',
+		])
 	})
 
 	it('rejects commands without one canonical REST path segment', async () => {
@@ -125,7 +111,7 @@ describe('REST schema mutation route compilation', () => {
 			fields: () => ({}),
 		})
 		await expect(
-			compile([Invalid], [descriptor(Invalid.className, '_private')], true),
+			compile([Invalid], planOf([descriptor(Invalid.className, '_private')])),
 		).rejects.toThrow('has no canonical path segment')
 	})
 
@@ -136,11 +122,10 @@ describe('REST schema mutation route compilation', () => {
 		})
 		const fragment = await compile(
 			[Collision],
-			[
+			planOf([
 				descriptor(Collision.className, 'softDelete'),
 				descriptor(Collision.className, 'soft_delete'),
-			],
-			true,
+			]),
 		)
 		expect(fragment.routes[0]?.path).toBe(fragment.routes[1]?.path)
 		const collisionPlugin = plugin({

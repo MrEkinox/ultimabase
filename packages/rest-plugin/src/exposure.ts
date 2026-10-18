@@ -1,49 +1,65 @@
-import type { ApplicationRequestExecutor } from '@ultimabase/core'
+import type {
+	ApplicationExposurePlan,
+	ApplicationRequestExecutor,
+	ExposedWriteMethod,
+} from '@ultimabase/core'
+import { assertPublicWrites } from '@ultimabase/plugin-kit'
 import { immutableArray } from '@ultimabase/shared'
 
-import { restClassPath, type RestRouteDefinition } from './routes.js'
+import {
+	restClassPath,
+	type restProtocol,
+	type RestRouteDefinition,
+} from './routes.js'
 import { restCommandPath } from './schema-mutation-routes.js'
-import { restRouteTemplates } from './schema-routes.js'
+import { restOperationMethods, restRouteTemplates } from './schema-routes.js'
 
-// Native routes that write; with plugin commands they need a policy (ADR-0294).
-const writeOperations: ReadonlySet<string> = new Set([
-	'bulkCreate',
-	'bulkDelete',
-	'bulkUpdate',
-	'bulkUpsert',
-	'create',
-	'delete',
-	'update',
-	'upsert',
-])
+type WriteRoute = Readonly<{
+	index: number
+	template: (typeof restRouteTemplates)[number]
+}>
 
-const describeRoute = (route: RestRouteDefinition): string =>
-	route.kind === 'rest-schema-mutation-route'
-		? `${route.schema}.${route.command}`
-		: route.kind === 'rest-schema-route'
-			? `${route.method} ${route.path}`
-			: route.operation
+// Each native write method has exactly one route; reads may have several.
+const writeRoutes = new Map<string, WriteRoute>(
+	restRouteTemplates.map((template, index) => [
+		restOperationMethods[template.operation],
+		{ index, template },
+	]),
+)
 
 /**
  * Refuses to start when REST exposes writes and no protected policy is
- * installed, unless `publicWrites` opts in (ADR-0294).
+ * installed, unless `publicWrites` opts in (ADR-0294). Writes are named in
+ * route order: native routes of every schema, then plugin commands.
  */
-export const assertPublicWrites = (
-	routes: readonly RestRouteDefinition[],
+export const assertRestPublicWrites = (
+	plan: ApplicationExposurePlan<typeof restProtocol>,
+	basePath: string,
 	executor: ApplicationRequestExecutor,
 	publicWrites: boolean,
 ): void => {
-	if (publicWrites) return
-	const writes = routes.filter(
-		(route) =>
-			route.kind === 'rest-schema-mutation-route' ||
-			(route.kind === 'rest-schema-route' &&
-				writeOperations.has(route.operation)),
-	)
-	if (writes.length === 0 || executor.hasProtectedPolicy()) return
-	throw new TypeError(
-		`REST exposes writes (${writes.slice(0, 3).map(describeRoute).join(', ')}${writes.length > 3 ? ', …' : ''}) but no protected policy plugin is installed: install one, such as accessPlugin(), or pass restPlugin({ publicWrites: true }) to let every client write.`,
-	)
+	const schemaOrder = plan.schemas.map(({ className }) => className)
+	const routeOrder = ({ method, schema }: ExposedWriteMethod): number =>
+		method.kind === 'plugin'
+			? Number.MAX_SAFE_INTEGER
+			: schemaOrder.indexOf(schema) * restRouteTemplates.length +
+				(writeRoutes.get(method.entry.method)?.index ?? 0)
+	assertPublicWrites({
+		describe: ({ method, schema }) => {
+			const route = writeRoutes.get(method.entry.method)?.template
+			return method.kind === 'plugin' || route === undefined
+				? `${schema}.${method.entry.method}`
+				: `${route.method} ${restClassPath(basePath, schema)}${route.suffix}`
+		},
+		hasProtectedPolicy: executor.hasProtectedPolicy(),
+		hint: 'restPlugin({ publicWrites: true })',
+		label: 'REST',
+		publicWrites,
+		// A stable sort keeps plugin commands in plan order, after native routes.
+		writes: plan.writes.toSorted(
+			(left, right) => routeOrder(left) - routeOrder(right),
+		),
+	})
 }
 
 /** Builds a JSON document once, on the first request that reads it. */
