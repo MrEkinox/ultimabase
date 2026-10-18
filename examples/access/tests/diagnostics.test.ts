@@ -17,13 +17,28 @@ const accessLines = (spy: { mock: { calls: unknown[][] } }) =>
 				typeof line === 'string' && line.startsWith('[@ultimabase/access'),
 		)
 
-it('lists the schemas without any rule after start', async () => {
-	const info = vi.spyOn(console, 'info')
+it('warns about each exposed method no Access rule opens', async () => {
+	const warn = vi.spyOn(console, 'warn')
 	await testApplication(ultimabase)
 
-	expect(accessLines(info)).toStrictEqual([
-		'[@ultimabase/access-plugin] schemas without an Access rule, denied unless allowWithoutRule opens them: Member, StaffRole, Draft.',
-	])
+	// REST serves its default methods; Draft has no rule and no opening, and
+	// Story opens no create or delete. Each method Access always refuses is
+	// one warn line (production refuses to start instead).
+	const lines = accessLines(warn)
+	const fix = (method: string) =>
+		`no Access rule opens it. Add an Access rule, open it in allowWithoutRule, or close it with expose: { ${method}: false }.`
+	expect(lines.filter((line) => line.includes('] Draft.'))).toStrictEqual(
+		['findMany', 'findOne', 'exists', 'createOne', 'updateOne', 'deleteOne'].map(
+			(method) =>
+				`[@ultimabase/access-plugin] Draft.${method} is exposed but ${fix(method)}`,
+		),
+	)
+	expect(lines.filter((line) => line.includes('] Story.'))).toStrictEqual(
+		['createOne', 'deleteOne'].map(
+			(method) =>
+				`[@ultimabase/access-plugin] Story.${method} is exposed but ${fix(method)}`,
+		),
+	)
 })
 
 it('explains a denial on the server only', async () => {

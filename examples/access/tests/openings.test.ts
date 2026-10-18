@@ -45,17 +45,12 @@ it("refuses to start in production with 'development'", async () => {
 
 it('opens reads and keeps writes denied', async () => {
 	const warn = vi.spyOn(console, 'warn')
-	const info = vi.spyOn(console, 'info')
 	await using t = await testApplication(applicationWith(readOnlyAccess()))
 
-	// After start(), one warn line per opening (`false` opens
-	// nothing) and one info line listing the schemas without a rule.
+	// After start(), one warn line per opening (`false` opens nothing).
 	expect(warn.mock.calls.map(([line]: unknown[]) => line)).toStrictEqual([
 		'[@ultimabase/access-plugin] allowWithoutRule.all opens every operation and request plugin command on schemas without a rule, for every caller, production included.',
 	])
-	expect(info).toHaveBeenCalledWith(
-		'[@ultimabase/access-plugin] schemas without an Access rule, denied unless allowWithoutRule opens them: Member, Draft.',
-	)
 	await t.asMaster(() => Draft.createOne(draft))
 	expect(await Draft.findMany({ select: { title: true } })).toMatchObject([
 		{ title: 'Notes' },

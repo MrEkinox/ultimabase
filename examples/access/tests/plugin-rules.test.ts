@@ -76,18 +76,18 @@ it('rules plugin commands with their own keys', async () => {
 	await expect(
 		t.as(ada, () => Comment.deleteOne({ where: { id: pinned.id } })),
 	).rejects.toMatchObject(denied)
-	// `restoreOne` needs an editor or an admin; `restoreMany` has no rule.
+	// `restore` needs an editor or an admin, for restoreOne and restoreMany.
 	await expect(
 		t.as(ada, () => Comment.restoreOne({ id: first.id })),
+	).rejects.toMatchObject(denied)
+	await expect(
+		t.as(ada, () => Comment.restoreMany({ where: {} })),
 	).rejects.toMatchObject(denied)
 	expect(
 		await t.as(grace, () =>
 			Comment.restoreOne({ id: first.id, select: { isDeleted: true } }),
 		),
 	).toMatchObject({ isDeleted: false })
-	await expect(
-		t.as(grace, () => Comment.restoreMany({ where: {} })),
-	).rejects.toMatchObject(denied)
 })
 
 it('shows hidden comments to editors through readDeleted', async () => {

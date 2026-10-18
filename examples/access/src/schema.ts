@@ -40,7 +40,7 @@ export const Article = App.Schema.define({
 export const Subscriber = App.Schema.define({
 	className: 'Subscriber',
 	fields: (field) => ({ email: field.string({ required: true }) }),
-}).with({ access: { read: { count: true } } })
+}).with({ access: { count: true } })
 //#endregion subscriber
 
 //#region story
@@ -140,12 +140,12 @@ export const Comment = App.Schema.define({
 		// Authenticated members may comment unless they are muted.
 		create: allOf(isAuthenticated, not(hasRole(Muted))),
 		// Authors hide their own comments, except pinned ones.
-		softDeleteOne: {
+		softDelete: {
 			where: ({ principal, where }) =>
 				principal === undefined ? false : where.eq('author', principal.id),
 			item: ({ originalItem }) => !originalItem.pinned,
 		},
-		restoreOne: anyOf(hasRole(Editor), hasRole(Admin)),
+		restore: anyOf(hasRole(Editor), hasRole(Admin)),
 		// Editors also see hidden comments in ordinary reads.
 		readDeleted: hasRole(Editor),
 	},

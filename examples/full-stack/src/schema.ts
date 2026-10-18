@@ -113,8 +113,7 @@ export const ExampleAuthor = App.Schema.define({
 	access: {
 		read: ({ where }) => where.eq('readable', true),
 		// Restoring stays server-side: Master bypasses Access.
-		restoreOne: false,
-		restoreMany: false,
+		restore: false,
 	},
 	acl: { default: publicArticleACL },
 	graphql: true,
@@ -261,11 +260,9 @@ export const ExampleArticle = App.Schema.define({
 		read: ({ where }) => where.eq('published', true),
 		update: true,
 		upsert: true,
-		softDeleteOne: isAuthenticated,
+		softDelete: isAuthenticated,
 		// Restoring stays server-side: Master bypasses Access.
-		restoreOne: false,
-		restoreMany: false,
-		softDeleteMany: false,
+		restore: false,
 	},
 	acl: { default: publicArticleACL },
 	graphql: true,

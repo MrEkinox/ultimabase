@@ -30,10 +30,8 @@ export const Post = App.Schema.define({
 		read: true,
 		create: true,
 		delete: true,
-		softDeleteOne: true,
-		softDeleteMany: true,
-		restoreOne: true,
-		restoreMany: true,
+		softDelete: true,
+		restore: true,
 		// Only moderators see tombstones in ordinary reads.
 		readDeleted: hasRole(Moderator),
 	},
