@@ -48,6 +48,9 @@ export const App = UltimaBase.use(
 `,
 	)
 	const name = (i) => `S${i}`
+	// A share of the schemas types `expose` (ADR-0347), so the bench measures it.
+	const exposure = (i) =>
+		[`\n\texpose: { count: true },`, `\n\texpose: { write: false },`, ''][i % 3]
 	for (let i = 0; i < count; i += 1) {
 		const next = (i + 1) % count
 		const previous = (i - 1 + count) % count
@@ -94,7 +97,7 @@ export const ${name(i)} = App.Schema.define({
 		},
 	},
 	acl: { default: ({ data }) => (data.f0 === '' ? acl : acl.grantPublic('read')) },
-	postgres: { table: 's${i}' },
+	postgres: { table: 's${i}' },${exposure(i)}
 })
 `,
 		)
