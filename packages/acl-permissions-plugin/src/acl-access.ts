@@ -6,6 +6,7 @@ import {
 	type ExecutableOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { type PluginSchemaMutationEffect } from '@ultimabase/core/plugin'
 import {
 	type RequestRoleReference,
 	type RequestRoleResolver,
@@ -156,5 +157,20 @@ export const requiredACLPermission = <TSchema extends SchemaDefinition>(
 		case 'create-many':
 		case 'create-one':
 			return undefined
+	}
+}
+
+/**
+ * Maps a plugin command to the right of its declared effect, like the native
+ * write it performs; the command's name never matters (ADR-0348).
+ */
+export const requiredPluginCommandACLPermission = (
+	effect: PluginSchemaMutationEffect,
+): ACLPermission => {
+	switch (effect) {
+		case 'delete':
+			return 'delete'
+		case 'update':
+			return 'update'
 	}
 }

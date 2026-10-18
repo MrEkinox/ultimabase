@@ -7,7 +7,7 @@ contentType: guide
 order: 6
 outcome: Protect individual objects with public, principal, and role permissions.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-18
 sources:
   - examples/acl/README.md
   - examples/acl/src/app.ts
@@ -34,6 +34,7 @@ sources:
   - packages/acl-permissions-plugin/src/plugin.ts
   - packages/acl-permissions-plugin/tests/e2e/acl-access-postgres.postgres.e2e.test.ts
   - packages/acl-permissions-plugin/tests/e2e/acl-backfill-postgres.postgres.e2e.test.ts
+  - packages/acl-permissions-plugin/tests/e2e/acl-plugin-commands-postgres.postgres.e2e.test.ts
   - packages/acl-permissions-plugin/tests/e2e/acl-sharing-postgres.postgres.e2e.test.ts
   - packages/postgres-plugin/src/synchronization/existing-rows.ts
   - docs/adr/0123-master-only-acl-management.md
@@ -42,6 +43,7 @@ sources:
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0321-acl-shape-sharing-and-backfill.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0348-plugin-commands-need-the-acl-right-of-their-effect.md
 ---
 
 ## Overview
@@ -269,6 +271,17 @@ ACL reports every row whose ACL names a user or role to the plugin that owns
 that subject. With Roles' `deletion: 'fail'`, a role still named in an ACL
 cannot be deleted; with `'preserve'` the entry stays inert; with `'cascade'` the
 entry is removed from each matching row in the same transaction.
+
+### Plugin commands
+
+A plugin command needs the ACL right of the change it declares, whatever its
+name: an update command needs `update` and a delete command needs `delete`.
+[Soft Delete](./soft-delete)'s `softDeleteOne`, `softDeleteMany`, `restoreOne`,
+and `restoreMany` update the row, so they need `update`, while `deleteOne`
+keeps needing `delete` even when it writes a tombstone. As for a native write,
+a refused `softDeleteOne` fails with `NOT_FOUND` and writes nothing, and
+`softDeleteMany` skips the row. Commands that run only as Master, such as
+`purgeOne` and `purgeMany`, bypass the ACL like any Master operation.
 
 ### Adding or removing ACL on a table with rows
 

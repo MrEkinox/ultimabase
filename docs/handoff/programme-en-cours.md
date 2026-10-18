@@ -64,7 +64,12 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    Correctif ACL : appliqué seul sur `main` (choix de l'utilisateur), puis `main` fusionnée ici. Cas limite
    repoussé à la passe de tests propres d'`access-plugin` et de l'ACL : une opération non-Master lancée par
    un hook pendant le nettoyage des références ACL, sur le même schéma, échappe au filtre `acl-rows`.
-   Prochaine action vérifiable : `validate:full` du correctif sur `main`, puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
+   Fait : `validate:full` vert (808 fichiers, 4479 tests), `website:test` 59/59, TS 7 ok ; fusionné dans `main`
+   local (a399235f, non poussé) puis ici (c10a1856). Attention : le projet `postgres-e2e` teste les `dist`
+   construits ; sans rebuild, utiliser `coverage-postgres-e2e` pour tester les sources.
+   Tranche, passe A (Core et Plugin Kit) en cours : agent `implementer`, worktree `../ultimadatabase-slice`,
+   branche `feat/vocabulary-exposure-slice` (brief : catalogue, nommage, `expose`, plan, options communes).
+   Prochaine action vérifiable : relire la passe A, puis passe B (REST, `apiServer()`, `examples/rest`, doc), puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
    exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
