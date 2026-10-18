@@ -146,7 +146,12 @@ export const appendSchemaDeclarations = (
 		const declaration = Object.hasOwn(declarations, family)
 			? declarations[family]
 			: undefined
-		push(draft.item[family], declaration?.item, source, locate(`${family}.item`))
+		push(
+			draft.item[family],
+			declaration?.item,
+			source,
+			locate(`${family}.item`),
+		)
 	}
 	const known = new Set(nativeAccessKeys)
 	for (const mutation of draft.schemaMutations.values()) {
@@ -186,7 +191,10 @@ const assertKnownSchemaKey = (draft: SchemaDraft, key: string): void => {
 		({ descriptor, entry }) =>
 			descriptor.command === key || entry.operation === key,
 	)
-	if (named !== undefined && named.descriptor.mutation.authority !== 'request') {
+	if (
+		named !== undefined &&
+		named.descriptor.mutation.authority !== 'request'
+	) {
 		throw new TypeError(
 			`Unknown request schema mutation Access branch: access.${key}`,
 		)

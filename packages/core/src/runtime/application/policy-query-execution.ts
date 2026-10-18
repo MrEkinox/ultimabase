@@ -127,9 +127,7 @@ export const executePolicyQuery = async (
 		return false
 	}
 	// Reading a row happens in a transaction that is always rolled back.
-	const evaluate = async (
-		request: PolicyQueryRequest,
-	): Promise<boolean> => {
+	const evaluate = async (request: PolicyQueryRequest): Promise<boolean> => {
 		if (
 			options.item === undefined ||
 			request.operation === 'create' ||
@@ -182,7 +180,8 @@ const readQueriedMethods = (
 			{ command: undefined, operation: 'findMany' },
 		]
 	}
-	if (isNativePolicyQueryKey(key)) return [{ command: undefined, operation: key }]
+	if (isNativePolicyQueryKey(key))
+		return [{ command: undefined, operation: key }]
 	const { commands } = readApplicationKernelState(application)
 	const methods = readSchemaCommandCatalog(commands, className).flatMap(
 		(entry) =>

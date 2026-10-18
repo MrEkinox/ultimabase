@@ -87,15 +87,17 @@ export type SchemaMutationAccessDeclaration<
 
 /** The request-authority commands present on the statics of `TSource`. */
 type RequestSchemaMutations<TSource> = {
-	readonly [TCommand in keyof PluginSourceSchemaMutations<TSource> as PluginSourceSchemaMutations<TSource>[TCommand] extends PluginSchemaMutationDefinition<
-		string,
-		string,
-		unknown,
-		readonly string[],
-		'request'
-	>
-		? TCommand
-		: never]: PluginSourceSchemaMutations<TSource>[TCommand]
+	readonly [
+		TCommand in keyof PluginSourceSchemaMutations<TSource> as PluginSourceSchemaMutations<TSource>[TCommand] extends PluginSchemaMutationDefinition<
+			string,
+			string,
+			unknown,
+			readonly string[],
+			'request'
+		>
+			? TCommand
+			: never
+	]: PluginSourceSchemaMutations<TSource>[TCommand]
 }
 
 /** The operation a command alias forms: `softDeleteOne` forms `softDelete`. */
@@ -115,11 +117,10 @@ export type SchemaMutationAccessMap<
 	TSchema extends SchemaDefinition,
 	TSource = TSchema,
 > = {
-	readonly [TOperation in CommandOperation<
-		keyof RequestSchemaMutations<TSource>
-	>]?: RequestSchemaMutations<TSource>[(
-		| `${TOperation}Many`
-		| `${TOperation}One`
+	readonly [
+		TOperation in CommandOperation<keyof RequestSchemaMutations<TSource>>
+	]?: RequestSchemaMutations<TSource>[(
+		`${TOperation}Many` | `${TOperation}One`
 	) &
 		keyof RequestSchemaMutations<TSource>] extends infer TMutation extends
 		PluginSchemaMutationDefinition

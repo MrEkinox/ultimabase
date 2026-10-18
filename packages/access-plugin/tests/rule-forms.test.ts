@@ -77,8 +77,8 @@ describe('Access rule forms at runtime (ADR-0317)', () => {
 			Counted,
 			async (ultimabase) =>
 				Promise.all(
-					(['findOne', 'findMany', 'count', 'exists'] as const).map((operation) =>
-						ultimabase.can({ operation, schema: Counted }),
+					(['findOne', 'findMany', 'count', 'exists'] as const).map(
+						(operation) => ultimabase.can({ operation, schema: Counted }),
 					),
 				),
 			{ allowWithoutRule: { count: true } },

@@ -28,7 +28,14 @@ it('warns about each exposed method no Access rule opens', async () => {
 	const fix = (method: string) =>
 		`no Access rule opens it. Add an Access rule, open it in allowWithoutRule, or close it with expose: { ${method}: false }.`
 	expect(lines.filter((line) => line.includes('] Draft.'))).toStrictEqual(
-		['findMany', 'findOne', 'exists', 'createOne', 'updateOne', 'deleteOne'].map(
+		[
+			'findMany',
+			'findOne',
+			'exists',
+			'createOne',
+			'updateOne',
+			'deleteOne',
+		].map(
 			(method) =>
 				`[@ultimabase/access-plugin] Draft.${method} is exposed but ${fix(method)}`,
 		),
