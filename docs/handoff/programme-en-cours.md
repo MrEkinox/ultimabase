@@ -47,7 +47,21 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    sur la ligne (même illisible ; le contrôle `checkReadable` est sauté pour un résultat `{ id }`).
    Test rouge : `packages/acl-permissions-plugin/tests/e2e/acl-plugin-commands-postgres.postgres.e2e.test.ts`
    (8 échecs, 3 succès ; il attend le droit `update` pour l'effet `update`, `deleteOne` garde `delete`).
-   Prochaine action vérifiable : décision de l'utilisateur sur le droit exigé, correctif ACL (test vert),
+   Décision de l'utilisateur (2026-10-18) : option A, ADR séparé → [ADR-0348](../adr/0348-plugin-commands-need-the-acl-right-of-their-effect.md)
+   accepté ; correctif confié à un agent `implementer` dans la worktree `../ultimadatabase-acl-fix`
+   (branche `fix/acl-plugin-commands`), à relire puis fusionner `--no-ff` dans `adr/vocabulary-exposure`.
+   Inventaire de la tranche fait (lecture seule) ; amendement d'implémentation de l'ADR-0347 **proposé**
+   (fin de l'ADR : plan compilé à la première demande, `true`/groupes ouvrent les commandes, clé
+   d'opération = méthode One servie, `default` dans `apiServer()` avec GraphQL, `expose` dans le message
+   de `.with`), en attente de validation. Choix de conception sans effet public : catalogue dans
+   `packages/core/src/plugins/command-catalog.ts` (natif statique + entrées du `CompiledCommandGraph`) ;
+   contrôle des noms dans `snapshotSchemaMutationMap` et dans `command()` de Plugin Kit ; `expose`
+   extrait dans `configure` comme `relations` (piège de provenance sinon) ; plan via
+   `planExposure` sur la capacité de planification des transports ; message `publicWrites` inchangé
+   (le transport décrit les méthodes) ; renommer `ultimabaseAuthWriteEmail` en `…One` et ~25 noms de
+   commandes de tests ; étendre `examples/schema-form-d/tools/gen.mjs` avec `expose` pour le banc ;
+   exemple de la tranche : `examples/rest`.
+   Prochaine action vérifiable : validation de l'amendement, correctif ACL fusionné (test vert),
    puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
    exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.

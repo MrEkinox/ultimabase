@@ -270,3 +270,64 @@ plugin commands installed later; rule completions list more keys.
   slice, a test pins how ACL rights apply to plugin write commands, which no current test covers.
 - **Documentation impact:** both: the Access, Hooks, REST, GraphQL, Soft Delete and Build a Plugin pages, the examples
   and create-app templates, and this record.
+
+## Implementation amendment (2026-10-18, proposed)
+
+The read-only inventory for the vertical slice found five points where the record is silent or cannot hold literally.
+Each is listed with what the developer sees.
+
+1. **The plan is compiled once, when the first transport asks.** REST compiles its routes and OpenAPI at application
+   setup, before `start()`. Core compiles the exposure plan on the first request for a protocol and caches it; the
+   checks that need a started application (`publicWrites`, the `expose` warning of decision 2) still run at `start()`.
+   Nothing changes for the developer.
+2. **`true` and group keys open request plugin commands.** `expose: true`, `all: true` and `write: true` open them, as
+   `rest: true` does today; only an omitted key leaves them to the closed built-in default.
+
+   ```ts
+   .with({ expose: { write: true } }) // createOne, …, softDeleteOne and restoreOne
+   .with({ expose: { read: true } }) // reads only; softDeleteOne stays closed
+   ```
+
+3. **An operation key exposes the methods a transport serves.** REST and GraphQL serve only one-row plugin commands
+   today, so the operation key publishes the `One` method and the `Many` method key stays a type error in `expose`,
+   `rest` and `graphql`, as it is in `rest` today:
+
+   ```ts
+   // Before
+   .with({ rest: { softDeleteOne: true } })
+   // After
+   .with({ expose: { softDelete: true } }) // softDeleteOne over HTTP; softDeleteMany is not served
+   .with({ expose: { softDeleteMany: true } }) // type error, as rest: { softDeleteMany: true } today
+   ```
+
+4. **`default` reaches `apiServer()` with GraphQL.** The slice adds the shared `hide`, `pagination` and `publicWrites`
+   options to `apiServer()` and passes them to both transports, which accept them already. The shared `default`
+   follows when GraphQL reads the plan, since its parser rejects group keys until then; a shared option must never
+   reach one installed transport and silently skip the other.
+
+   ```ts
+   // Slice
+   apiServer({
+   	pagination: { defaultTake: 20, maxTake: 100 },
+   	rest: { default: { count: true } },
+   	graphql: true,
+   })
+   // After the GraphQL step
+   apiServer({
+   	pagination: { defaultTake: 20, maxTake: 100 },
+   	default: { count: true },
+   	rest: true,
+   	graphql: true,
+   })
+   ```
+
+5. **`.with` always offers `expose`.** The misuse message lists it beside `relations`, and a factory without any rule
+   plugin accepts `.with({ expose })` instead of no rules:
+
+   ```text
+   Before: Post.with({ hooks }): hooks is not a rule of an installed plugin; .with accepts relations, access, audit
+   After:  Post.with({ hooks }): hooks is not a rule of an installed plugin; .with accepts relations, expose, access, audit
+   ```
+
+The `publicWrites` messages keep their wording: the shared check returns the exposed write methods and each transport
+describes them in its own terms (routes for REST, root fields for GraphQL).
