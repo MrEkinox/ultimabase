@@ -103,12 +103,15 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
      `exposure-rules.ts` importe `source-schema-templates.ts`, qui passe dans le chunk partagé, et le survol
      y développe `RegisteredSchema<…>`. Correctif qui marche sur la branche d'essai
      `exp/schema-rules-source-hover` (05ec8518, depuis 14b6eaaa) : `SchemaRulesSource` dans son propre module
-     - copie privée `ExposureSchema` dans `exposure-rules.ts`. Audit `core` : l'écart disparaît, mais le
-       survol du nouvel `ExposureCommandKey` affiche `ExposureSchema<TSchema>` (nom privé) au lieu de
-       `SchemaRulesSource<TSchema>`. `typecheck` et `typecheck:tests` de core verts. Attention : les `dist`
-       de la tranche sont construits depuis cette branche d'essai ; relancer `yarn build` sur la tranche.
-       Prochaine action vérifiable : décision de l'utilisateur entre B (fusionner l'essai) et A (une ligne
-       dans l'ADR-0347), puis l'étape GraphQL (agent `implementer`, tests d'abord).
+     et une copie privée `ExposureSchema` dans `exposure-rules.ts`. Audit `core` : l'écart disparaît, mais le
+     survol du nouvel `ExposureCommandKey` affiche `ExposureSchema<TSchema>` (nom privé) au lieu de
+     `SchemaRulesSource<TSchema>`. `typecheck` et `typecheck:tests` de core verts.
+     Décision de l'utilisateur (2026-10-18) : option A. Point 6 ajouté à l'amendement de l'ADR-0347 dans
+     la tranche (9a4a43c2) ; `dist` de la tranche reconstruits depuis la tranche ; audit `core` : 336
+     différences, dont `SchemaRulesSource` désormais annoncé ; `website-content` 227/227. La branche d'essai
+     `exp/schema-rules-source-hover` est gardée (suppression sur confirmation de l'utilisateur).
+     Prochaine action vérifiable : étape GraphQL (GraphQL lit le plan, `default` commun dans `apiServer()`,
+     GraphQL seul sans avertissement « no transport ») par un agent `implementer`, tests d'abord.
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
