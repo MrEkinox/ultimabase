@@ -39,10 +39,16 @@ what worked (and what went wrong) during the package-by-package rebuild.
   handoff against the tree.
 - Sub-agents work in isolated worktrees (`git worktree add ../<name> -b <branch>`,
   then `YARN_CACHE_FOLDER=<repo>/.yarn/cache yarn install --immutable`),
-  at most 3 or 4 at once: more saturates the machine and turns load-sensitive
-  tests into false failures. Each agent commits checkpoints and reports files
-  touched outside its scope, casts added and tests edited; the coordinator
-  reviews the diff before merging with `--no-ff`.
+  one heavy agent at a time (two that build or test saturate the machine and
+  turn load-sensitive tests into false failures), and follow the
+  [agent brief](docs/engineering/agent-brief.md): cheap checks in agents, one
+  `validate:full` by the coordinator per merge. Each agent commits checkpoints
+  and reports files touched outside its scope, casts added and tests edited;
+  the coordinator reviews the diff before merging with `--no-ff`.
+- Start each larger task in a fresh session from the current handoff: a long
+  session reloads its whole history on every turn. At the start of a task,
+  recommend a model and effort level (table in the agent brief).
+- Small changes are made directly, without an agent.
 - Multi-agent workflows are expensive: run one only when the user asks for it.
 
 ## Checks the test suites do not cover

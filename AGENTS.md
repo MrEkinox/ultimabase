@@ -125,6 +125,7 @@ Proposed directions live in [ROADMAP.md](ROADMAP.md).
 
 ## Sub-agents
 
-Delegate only independent, bounded work, at most three or four agents at once.
+Delegate only independent, bounded work: one agent that builds or tests at a
+time, and give each agent the [agent brief](docs/engineering/agent-brief.md).
 The primary agent keeps central architecture, reviews every diff and runs the
 complete gate.
