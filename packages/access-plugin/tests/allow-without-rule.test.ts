@@ -219,7 +219,9 @@ describe('allowWithoutRule (ADR-0317)', () => {
 	it('rejects unknown keys and values', async () => {
 		// A write rule never depends on cardinality (ADR-0347).
 		expect(() =>
-			accessPlugin({ allowWithoutRule: { createMany: true } as never }),
+			accessPlugin({
+				allowWithoutRule: Object.fromEntries([['createMany', true]]),
+			}),
 		).toThrow(
 			'Access allowWithoutRule.createMany names a write method: use its operation create',
 		)

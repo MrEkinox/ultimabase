@@ -1,5 +1,8 @@
 import type { PolicyPredicate } from '@ultimabase/core'
-import { resolveCommandKey, type CommandKeyEntry } from '@ultimabase/core/plugin'
+import {
+	resolveCommandKey,
+	type CommandKeyEntry,
+} from '@ultimabase/core/plugin'
 import {
 	readDeploymentEnvironment,
 	type DeploymentEnvironment,
@@ -198,8 +201,10 @@ export const normalizeAllowWithoutRule = (
 		),
 		// A configured key that opens nothing (`false`, or `'development'` in
 		// production) still decides, so a precise `false` closes a broad `true`.
-		resolve: (entry: CommandKeyEntry) =>
-			resolveCommandKey(deciding, entry) || undefined,
+		resolve: (entry: CommandKeyEntry) => {
+			const opening = resolveCommandKey(deciding, entry)
+			return opening === false ? undefined : opening
+		},
 		resolvePermission: (permission: string) =>
 			configured.has(permission) ? openings.get(permission) : undefined,
 	})
