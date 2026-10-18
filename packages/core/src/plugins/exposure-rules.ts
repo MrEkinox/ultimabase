@@ -140,6 +140,16 @@ export type NormalizedExposureRule = boolean | Readonly<Record<string, boolean>>
 const nativeKeys: ReadonlySet<string> = new Set(nativeCommandKeys)
 const pluginKeyPattern = /^[a-z][A-Za-z0-9]*$/u
 
+/** Options of {@link normalizeExposureRule}. */
+export interface ExposureRuleNormalizationOptions {
+	/**
+	 * Accepts plugin operation and command names besides the native keys;
+	 * `false` for a rule that applies to every schema, such as a transport
+	 * `default`. @default true
+	 */
+	readonly pluginKeys?: boolean
+}
+
 /**
  * Validates the shape of one exposure rule (`expose`, or a transport's own
  * key such as `rest`): `true`, `false`, or an object whose keys are native
@@ -152,20 +162,22 @@ const pluginKeyPattern = /^[a-z][A-Za-z0-9]*$/u
 export const normalizeExposureRule = (
 	value: unknown,
 	path: string,
+	options: ExposureRuleNormalizationOptions = {},
 ): NormalizedExposureRule => {
 	if (typeof value === 'boolean') return value
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a boolean or plain object`)
 	}
+	const pluginKeys = options.pluginKeys !== false
 	const entries: [string, boolean][] = []
 	for (const key of Reflect.ownKeys(value)) {
 		if (
 			typeof key !== 'string' ||
 			key === '__proto__' ||
-			(!nativeKeys.has(key) && !pluginKeyPattern.test(key))
+			(!nativeKeys.has(key) && !(pluginKeys && pluginKeyPattern.test(key)))
 		) {
 			throw new TypeError(
-				`${path} contains unknown method: ${String(key)}; use ${nativeCommandKeys.join(', ')} or a plugin operation or command name`,
+				`${path} contains unknown method: ${String(key)}; use ${nativeCommandKeys.join(', ')}${pluginKeys ? ' or a plugin operation or command name' : ''}`,
 			)
 		}
 		const entry: unknown = Reflect.get(value, key)

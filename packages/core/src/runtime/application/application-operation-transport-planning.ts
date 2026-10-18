@@ -23,6 +23,7 @@ import {
 	type CoreFoundationProvider,
 } from '../../plugins/capability-providers.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
+import type { PluginIdentity } from '../../plugins/manifest.js'
 import {
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
@@ -30,11 +31,26 @@ import {
 import { isOperationTransportProtocol } from '../plugin-operations/capabilities.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
+import { planApplicationExposure } from './exposure-planning.js'
+import type {
+	ApplicationExposurePlan,
+	ExposurePlanningOptions,
+} from './exposure-planning-options.js'
 import {
 	planApplicationSchemaMutations,
 	type ApplicationSchemaMutationTransportPlan,
 	type SchemaMutationTransportPlanningOptions,
 } from './schema-mutation-transport-planning.js'
+
+export type {
+	ApplicationExposurePlan,
+	ExposedNativeSchemaMethod,
+	ExposedPluginSchemaMethod,
+	ExposedSchemaMethod,
+	ExposedSchemaPlan,
+	ExposedWriteMethod,
+	ExposurePlanningOptions,
+} from './exposure-planning-options.js'
 
 /**
  * Selects exact operation tokens for deterministic transport schema planning;
@@ -65,6 +81,16 @@ export interface ApplicationOperationTransportPlanner {
 	planSchemaMutations<const TTransport extends OperationTransportProtocol>(
 		options: SchemaMutationTransportPlanningOptions<TTransport>,
 	): ApplicationSchemaMutationTransportPlan<TTransport>
+	/**
+	 * Compiles what one transport serves from `expose`, its own `.with` key,
+	 * its `default` and its `hide` (ADR-0347). The plan is compiled on the
+	 * first request and the same plan is returned for the same options.
+	 *
+	 * @example `planner.planExposure({ transport, schemaKey: 'rest', factory: 'restPlugin', label: 'REST' })`
+	 */
+	planExposure<const TTransport extends OperationTransportProtocol>(
+		options: ExposurePlanningOptions<TTransport>,
+	): ApplicationExposurePlan<TTransport>
 }
 
 interface PlannerState {
@@ -116,7 +142,7 @@ const authorizePlanning = (
 	planner: object,
 	subject: string,
 	kind: string,
-): object => {
+): Readonly<{ application: object; owner: PluginIdentity }> => {
 	const application = plannerStates.get(planner)?.application
 	if (application === undefined) {
 		throw new TypeError(
@@ -135,14 +161,14 @@ const authorizePlanning = (
 		owner,
 		'transport:expose',
 	)
-	return application
+	return { application, owner }
 }
 
 class CoreApplicationOperationTransportPlanner implements ApplicationOperationTransportPlanner {
 	plan<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportPlanningOptions<TTransport>,
 	): ApplicationOperationTransportPlan<TTransport> {
-		const application = authorizePlanning(
+		const { application } = authorizePlanning(
 			this,
 			'Operation',
 			'operation-planning-owner-missing',
@@ -195,7 +221,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 	planSchemaMutations<const TTransport extends OperationTransportProtocol>(
 		options: SchemaMutationTransportPlanningOptions<TTransport>,
 	): ApplicationSchemaMutationTransportPlan<TTransport> {
-		const application = authorizePlanning(
+		const { application } = authorizePlanning(
 			this,
 			'Schema mutation',
 			'schema-mutation-planning-owner-missing',
@@ -217,6 +243,17 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 			readApplicationKernelState(application).commands,
 			options,
 		)
+	}
+
+	planExposure<const TTransport extends OperationTransportProtocol>(
+		options: ExposurePlanningOptions<TTransport>,
+	): ApplicationExposurePlan<TTransport> {
+		const { application, owner } = authorizePlanning(
+			this,
+			'Exposure',
+			'exposure-planning-owner-missing',
+		)
+		return planApplicationExposure(application, owner, options)
 	}
 }
 

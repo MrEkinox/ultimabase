@@ -55,6 +55,7 @@ import {
 	type Logger,
 } from './application-log.js'
 import { formatStartupSummary } from './startup-summary.js'
+import { warnUnusedExposeRules } from './exposure-warning.js'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledOperationFacts,
@@ -461,6 +462,7 @@ export class FrameworkApplication<
 			await this.initialize()
 			beforeStart?.()
 			await this.#lifecycle.start()
+			warnUnusedExposeRules(this, this.schemas.values(), this.#log)
 			this.#log.info(
 				formatStartupSummary(this.schemas.size, this.pluginPrivilegeReport),
 			)

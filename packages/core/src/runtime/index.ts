@@ -23,8 +23,15 @@ export type {
 } from './application/application-request-execution.js'
 export { applicationOperationTransportPlanningCapability } from './application/application-operation-transport-planning.js'
 export type {
+	ApplicationExposurePlan,
 	ApplicationOperationTransportPlan,
 	ApplicationOperationTransportPlanner,
+	ExposedNativeSchemaMethod,
+	ExposedPluginSchemaMethod,
+	ExposedSchemaMethod,
+	ExposedSchemaPlan,
+	ExposedWriteMethod,
+	ExposurePlanningOptions,
 	OperationTransportPlanningOptions,
 } from './application/application-operation-transport-planning.js'
 export type {

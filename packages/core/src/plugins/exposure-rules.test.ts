@@ -48,6 +48,18 @@ describe('exposure rule normalization (ADR-0347)', () => {
 		)
 	})
 
+	it('refuses plugin keys in a rule that applies to every schema', () => {
+		expect(() =>
+			normalizeExposureRule({ softDelete: true }, 'REST plugin default', {
+				pluginKeys: false,
+			}),
+		).toThrow(
+			new TypeError(
+				'REST plugin default contains unknown method: softDelete; use all, read, write, find, count, exists, create, update, upsert, delete, findMany, findOne, createOne, createMany, updateOne, updateMany, upsertOne, upsertMany, deleteOne, deleteMany',
+			),
+		)
+	})
+
 	it('refuses a __proto__ key instead of reading a prototype', () => {
 		const input: unknown = JSON.parse('{"__proto__": true}')
 		expect(() => normalizeExposureRule(input, 'Todo.expose')).toThrow(

@@ -36,7 +36,10 @@ import {
 	type PluginSchemaRulesSource,
 	type SchemaRulesHKT,
 } from '../../plugin.js'
-import { Schema, type SchemaDefinition } from '../../schema/schema/definition.js'
+import {
+	Schema,
+	type SchemaDefinition,
+} from '../../schema/schema/definition.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
 import {
 	schemaMutationTransportBinding,
@@ -117,13 +120,19 @@ const commandsPlugin = (classNames: readonly string[]) =>
 			'transport:expose': 'Binds purge.',
 		},
 		contributions: [
-			contributeSchemaMutation({ mutation: archive, resolve: () => ({}) }),
+			contributeSchemaMutation({
+				mutation: archive,
+				resolve: () => ({ data: {} }),
+			}),
 			contributeSchemaMutation({
 				bindings: [purgeBinding],
 				mutation: purge,
-				resolve: () => ({}),
+				resolve: () => ({ data: {} }),
 			}),
-			contributeSchemaMutation({ mutation: shout, resolve: () => ({}) }),
+			contributeSchemaMutation({
+				mutation: shout,
+				resolve: () => ({ data: {} }),
+			}),
 			contributeOperation({
 				execute: ({ input }) => input,
 				operation: echo,
@@ -319,11 +328,7 @@ const planWith = (
 	input: PlanInput = {},
 ): ApplicationExposurePlan<typeof protocol> => {
 	const { callbacks, owner, planner } = harness
-	if (
-		callbacks === undefined ||
-		owner === undefined ||
-		planner === undefined
-	) {
+	if (callbacks === undefined || owner === undefined || planner === undefined) {
 		throw new TypeError('Exposure planning harness is unavailable')
 	}
 	return callbacks.runPlugin(owner, () =>
@@ -420,13 +425,13 @@ describe('exposure plan resolution (ADR-0347)', () => {
 		const exposure = plan()
 		const [schema] = exposure.schemas
 
-		expect(schema?.methods[0]).toStrictEqual({
-			entry: expect.objectContaining({
+		expect(schema?.methods[0]).toMatchObject({
+			entry: {
 				kind: 'native',
 				method: 'findMany',
 				operation: 'find',
 				group: 'read',
-			}),
+			},
 			kind: 'native',
 		})
 		expect(schema?.methods.at(-1)).toMatchObject({
@@ -461,14 +466,18 @@ describe('exposure plan resolution (ADR-0347)', () => {
 
 	it('lists the exposed writes of every schema', async () => {
 		await setup([
-			declare('ExposureWriteGroups', { expose: { write: false, create: true } }),
+			declare('ExposureWriteGroups', {
+				expose: { write: false, create: true },
+			}),
 			declare('ExposureWriteCommand', {
 				expose: { read: false, write: false, archive: true },
 			}),
 		])
 
 		expect(
-			plan().writes.map(({ schema, method }) => `${schema}.${method.entry.method}`),
+			plan().writes.map(
+				({ schema, method }) => `${schema}.${method.entry.method}`,
+			),
 		).toEqual([
 			'ExposureWriteGroups.createOne',
 			'ExposureWriteGroups.createMany',
@@ -543,35 +552,32 @@ describe('exposure plan diagnostics (ADR-0347)', () => {
 	it.each([
 		['expose', { expose: true }],
 		['wire', { wire: true }],
-	])(
-		'refuses a plugin-owned schema that declares %s',
-		async (key, rules) => {
-			const storage = createPlugin({
-				core: '^0.0.0',
-				id: 'fixture.exposure-planning.storage',
-				permissions: { 'schema:declare': 'Declares storage.' },
-				version: '1.0.0',
-				contributions: [
-					contributeDeclarations({
-						schema: ({ schemas }) => {
-							schemas.add({
-								contributionId: 'storage',
-								schema: declare('ExposureStorage', rules),
-							})
-							return undefined
-						},
-					}),
-				],
-			})
-			await setup([], [storage])
+	])('refuses a plugin-owned schema that declares %s', async (key, rules) => {
+		const storage = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.exposure-planning.storage',
+			permissions: { 'schema:declare': 'Declares storage.' },
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.add({
+							contributionId: 'storage',
+							schema: declare('ExposureStorage', rules),
+						})
+						return undefined
+					},
+				}),
+			],
+		})
+		await setup([], [storage])
 
-			expect(() => plan()).toThrow(
-				new TypeError(
-					`Plugin-owned schema "ExposureStorage" cannot declare .with({ ${key} }): transports expose application schemas only`,
-				),
-			)
-		},
-	)
+		expect(() => plan()).toThrow(
+			new TypeError(
+				`Plugin-owned schema "ExposureStorage" cannot declare .with({ ${key} }): transports expose application schemas only`,
+			),
+		)
+	})
 
 	it('plans only a schema key the calling transport defines', async () => {
 		await setup([declare('ExposureOwnedKey', { wire: true })], [foreignPlugin])
