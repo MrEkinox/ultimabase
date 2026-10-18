@@ -95,4 +95,50 @@ describe('application surface declaration validation', () => {
 			)
 		}).toThrow('must be created by defineSchemaMutation')
 	})
+
+	it('refuses an alias that does not name its operation (ADR-0347)', () => {
+		const registrars = createApplicationSurfaceRegistrars(
+			immutableRecord({
+				kind: 'plugin' as const,
+				pluginId: 'fixture.surface-names',
+				version: '1.0.0',
+			}),
+			{ modelSurfaces: [], operations: [] },
+			() => {
+				throw new TypeError('selection must not be reached')
+			},
+		)
+		const many = defineSchemaMutation({
+			authority: 'request',
+			effect: 'update',
+			input: value,
+			name: 'fixture.surface.mutation-many',
+			returning: 'after',
+			target: 'many',
+			version: '1.0.0',
+		})
+		const extend = (name: string, target: typeof mutation | typeof many) => {
+			registrars.models.extend(
+				{},
+				{
+					contributionId: `named-${name}`,
+					schemaMutations: { [name]: { mutation: target, surfaces: ['schema'] } },
+				},
+			)
+		}
+
+		expect(() => {
+			extend('archive', mutation)
+		}).toThrow(
+			'Command archive must be named <operation>One because its target is one: archiveOne',
+		)
+		expect(() => {
+			extend('archiveOne', many)
+		}).toThrow(
+			'Command archiveOne must be named <operation>Many because its target is many: archiveMany',
+		)
+		expect(() => {
+			extend('updateOne', mutation)
+		}).toThrow('Command updateOne names the operation update, which Core reserves')
+	})
 })

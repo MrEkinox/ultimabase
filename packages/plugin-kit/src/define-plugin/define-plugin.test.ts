@@ -240,6 +240,27 @@ describe('definePlugin', () => {
 			}),
 		).toThrow('delete schema mutations must require master authority')
 	})
+
+	it('refuses a command whose name does not form its operation (ADR-0347)', () => {
+		const archive = command({
+			authority: 'request',
+			effect: 'update',
+			data: () => ({ archivedAt: null }),
+		})
+		const define = (commands: Readonly<Record<string, typeof archive>>) =>
+			definePlugin({
+				name: 'community.names',
+				features: { archivable: feature({ commands }) },
+			})
+
+		expect(() => define({ archive })).toThrow(
+			'Command archive must be named <operation>One because its target is one: archiveOne',
+		)
+		expect(() => define({ updateOne: archive })).toThrow(
+			'Command updateOne names the operation update, which Core reserves',
+		)
+		expect(() => define({ archiveOne: archive })).not.toThrow()
+	})
 })
 
 describe('definePlugin features and rules (ADR-0339)', () => {
