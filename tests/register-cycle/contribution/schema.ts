@@ -27,7 +27,7 @@ export const Post = App.Schema.define({
 	indexes: [{ fields: ['author', 'title'], unique: true }],
 	softDelete: { mode: 'command' },
 }).with({
-	access: { read: true, softDeleteOne: true },
+	access: { read: true, softDelete: true },
 	hooks: {
 		afterOperation: { update: ({ changes, item }) => void [changes, item] },
 	},

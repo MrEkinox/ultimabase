@@ -26,7 +26,7 @@ export const Post = App.Schema.define({
 		// Post -> Author filter (pointer)
 		update: ({ where }) =>
 			where.is('author', (author) => author.endsWith('email', '@admin.test')),
-		softDeleteOne: true,
+		softDelete: true,
 	},
 	hooks: {
 		beforeOperation: {

@@ -63,7 +63,7 @@ export const rulesPlugin = plugin({
 					where: ({ where }) => where.eq('published', false),
 					item: ({ originalItem }) => !originalItem.published,
 				},
-				softDeleteOne: true,
+				softDelete: true,
 				// @ts-expect-error unknown permission of the targeted schema
 				nope: true,
 			}),

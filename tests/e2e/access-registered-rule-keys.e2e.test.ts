@@ -25,7 +25,7 @@ export const Note = App.Schema.define({
 }).with({
   access: {
     read: true,
-    softDeleteOne: isAuthenticated,
+    softDelete: isAuthenticated,
     readDeleted: isAuthenticated,
     /* keys:note */
   },
@@ -68,8 +68,6 @@ describe('Access rule keys of registered schemas (ADR-0317)', () => {
 					{},
 				)
 				?.entries.map(({ name }) => name),
-		).toEqual(
-			expect.arrayContaining(['restoreOne', 'softDeleteMany', 'update']),
-		)
+		).toEqual(expect.arrayContaining(['restore', 'update', 'write']))
 	})
 })

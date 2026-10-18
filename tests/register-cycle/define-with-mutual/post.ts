@@ -24,8 +24,8 @@ export const Post = App.Schema.define({
 		read: ({ where }) => where.eq('published', true),
 		update: ({ where }) =>
 			where.is('author', (author) => author.endsWith('email', '@admin.test')),
-		softDeleteOne: true,
-		restoreOne: ({ where }) =>
+		softDelete: true,
+		restore: ({ where }) =>
 			where.some('comments', (comment) => comment.eq('body', 'ok')),
 	},
 	hooks: {

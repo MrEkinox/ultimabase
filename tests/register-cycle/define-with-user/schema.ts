@@ -27,7 +27,7 @@ export const Member = App.UserSchema.define({
 }).with({
 	access: {
 		read: ({ where }) => where.eq('isDeleted', false),
-		softDeleteOne: true,
+		softDelete: true,
 	},
 })
 
