@@ -56,17 +56,22 @@ type NativeKind =
 	| 'update-one'
 	| 'upsert-one'
 
+// A write operation is asked about through its One method: a write rule
+// never depends on cardinality (ADR-0347).
 const nativeKinds: ReadonlyMap<string, NativeKind> = new Map([
 	['count', 'count'],
 	['create', 'create-one'],
 	['delete', 'delete-one'],
 	['exists', 'exists'],
-	['many', 'find-many'],
-	['one', 'find-one'],
-	['read', 'find-one'],
+	['findMany', 'find-many'],
+	['findOne', 'find-one'],
 	['update', 'update-one'],
 	['upsert', 'upsert-one'],
 ])
+
+/** @internal Whether `can()` asks about `key` through one native terminal. */
+export const isNativePolicyQueryKey = (key: string): boolean =>
+	nativeKinds.has(key)
 
 /** What `can()` asks Core to decide for one principal and one schema. */
 export interface PolicyQueryRequest {

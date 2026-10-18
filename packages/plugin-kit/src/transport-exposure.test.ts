@@ -164,6 +164,7 @@ const recordingPlanner = (requests: unknown[]) => {
 	const planner: ApplicationOperationTransportPlanner = {
 		plan: unsupported,
 		planSchemaMutations: unsupported,
+		readExposurePlans: unsupported,
 		planExposure: <const TTransport extends OperationTransportProtocol>(
 			options: ExposurePlanningOptions<TTransport>,
 		): ApplicationExposurePlan<TTransport> => {

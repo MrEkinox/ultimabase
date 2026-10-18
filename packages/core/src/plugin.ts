@@ -108,6 +108,7 @@ export type {
 	CommandCardinality,
 	CommandCatalogEntry,
 	CommandGroup,
+	CommandKeyEntry,
 	NativeCommandCatalogEntry,
 	NativeCommandMethod,
 	NativeCommandOperation,

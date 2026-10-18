@@ -31,7 +31,10 @@ import {
 import { isOperationTransportProtocol } from '../plugin-operations/capabilities.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
-import { planApplicationExposure } from './exposure-planning.js'
+import {
+	planApplicationExposure,
+	readApplicationExposurePlans,
+} from './exposure-planning.js'
 import type {
 	ApplicationExposurePlan,
 	ExposurePlanningOptions,
@@ -91,6 +94,14 @@ export interface ApplicationOperationTransportPlanner {
 	planExposure<const TTransport extends OperationTransportProtocol>(
 		options: ExposurePlanningOptions<TTransport>,
 	): ApplicationExposurePlan<TTransport>
+	/**
+	 * Lists the exposure plans the installed transports compiled, one per
+	 * transport and protocol, so any plugin can check what is served; empty
+	 * when no transport planned its exposure (ADR-0347 decision 4).
+	 *
+	 * @example `planner.readExposurePlans().flatMap(({ schemas }) => schemas)`
+	 */
+	readExposurePlans(): readonly ApplicationExposurePlan[]
 }
 
 interface PlannerState {
@@ -254,6 +265,16 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 			'exposure-planning-owner-missing',
 		)
 		return planApplicationExposure(application, owner, options)
+	}
+
+	readExposurePlans(): readonly ApplicationExposurePlan[] {
+		const application = plannerStates.get(this)?.application
+		if (application === undefined) {
+			throw new TypeError(
+				'Application operation transport planner is unavailable',
+			)
+		}
+		return readApplicationExposurePlans(application)
 	}
 }
 

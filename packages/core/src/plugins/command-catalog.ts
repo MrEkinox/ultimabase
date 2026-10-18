@@ -147,8 +147,14 @@ export const readPluginCommandOperation = (
 	return operation
 }
 
+/** The fields of an entry that place it in the vocabulary. */
+export type CommandKeyEntry = Pick<
+	CommandCatalogEntry,
+	'group' | 'method' | 'operation'
+>
+
 /** Names the key that decides one entry, from the most precise level. */
-const decidingKeys = (entry: CommandCatalogEntry): readonly string[] =>
+const decidingKeys = (entry: CommandKeyEntry): readonly string[] =>
 	entry.method === entry.operation
 		? [entry.method, entry.group, 'all']
 		: [entry.method, entry.operation, entry.group, 'all']
@@ -156,20 +162,23 @@ const decidingKeys = (entry: CommandCatalogEntry): readonly string[] =>
 /**
  * Reads the decision of the most precise key of `rule` that covers `entry`:
  * method, then operation, then group, then `all`; `undefined` when no key
- * covers it.
+ * covers it. A rule value may be anything a plugin decides with, such as a
+ * policy; an `undefined` value covers nothing.
  *
  * @example `resolveCommandKey({ write: false, create: true }, createMany) // true`
  */
-export const resolveCommandKey = (
-	rule: Readonly<Record<string, boolean>>,
-	entry: CommandCatalogEntry,
-): boolean | undefined => readCommandKeyDecision(rule, entry)?.value
+export const resolveCommandKey = <TValue>(
+	rule: Readonly<Record<string, TValue | undefined>>,
+	entry: CommandKeyEntry,
+): TValue | undefined => readCommandKeyDecision(rule, entry)?.value
 
-/** @internal Reads the deciding key and its value, for messages that name it. */
-export const readCommandKeyDecision = (
-	rule: Readonly<Record<string, boolean>>,
-	entry: CommandCatalogEntry,
-): Readonly<{ key: string; value: boolean }> | undefined => {
+/**
+ * @internal Reads the deciding key and its value, for messages that name it.
+ */
+export const readCommandKeyDecision = <TValue>(
+	rule: Readonly<Record<string, TValue | undefined>>,
+	entry: CommandKeyEntry,
+): Readonly<{ key: string; value: TValue }> | undefined => {
 	for (const key of decidingKeys(entry)) {
 		if (Object.hasOwn(rule, key)) {
 			const value = rule[key]

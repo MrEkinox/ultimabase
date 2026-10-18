@@ -316,3 +316,13 @@ export const planApplicationExposure = <
 	byProtocol.set(parsed.transport, [...cached, { owner, plan, signature }])
 	return plan
 }
+
+/** @internal Lists every plan compiled for one application, in planning order. */
+export const readApplicationExposurePlans = (
+	application: object,
+): readonly ApplicationExposurePlan[] =>
+	immutableArray(
+		[...(plans.get(application)?.values() ?? [])].flatMap((cached) =>
+			cached.map(({ plan }) => plan),
+		),
+	)
