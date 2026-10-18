@@ -9,7 +9,6 @@ import {
 	type ApplicationSchemaHandleForName,
 	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
-import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import {
 	type ConfiguredPluginExports,
 	type ConfiguredPluginId,
@@ -35,7 +34,11 @@ import {
 } from '../../query/operations/execution.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import { Schema } from '../../schema/index.js'
+import {
+	invokeInstalledSchemaMutation,
+	readInstalledPluginExports,
+	resolveSchemaSurface,
+} from './application-lookups.js'
 import { createConfiguredSchemaNamespace } from '../../schema/schema/schema-declaration-chain.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 
@@ -318,20 +321,10 @@ export class UltimaBase<
 		className: TClassName,
 	): ApplicationSchemaHandleForName<TClassName>
 	schema(nameOrClass: SchemaDefinition | string): ApplicationSchemaHandle {
-		const className =
-			typeof nameOrClass === 'string' ? nameOrClass : nameOrClass.className
-		const surface = this.#application.getSchemaSurface(className)
-		if (surface === undefined) {
-			throw new TypeError(`Unknown application schema: ${className}`)
-		}
-		if (
-			typeof nameOrClass !== 'string' &&
-			(!Schema.is(nameOrClass) || surface.schema !== nameOrClass)
-		) {
-			throw new TypeError(
-				`Schema class does not belong to this application: ${className}`,
-			)
-		}
+		const surface = resolveSchemaSurface(nameOrClass, (className) =>
+			this.#application.getSchemaSurface(className),
+		)
+		const { className } = surface.schema
 		let handle = this.#schemaHandles.get(className)
 		if (handle === undefined) {
 			handle = new ApplicationSchemaHandleBase(
@@ -373,15 +366,7 @@ export class UltimaBase<
 		pluginOrIdentity:
 			PluginDefinition | PluginFactory | PluginIdentity | string,
 	): unknown {
-		if (typeof pluginOrIdentity === 'function') {
-			return this.#application.getPluginDynamic(pluginOrIdentity.pluginId)
-		}
-		return typeof pluginOrIdentity === 'object' &&
-			'manifest' in pluginOrIdentity
-			? readApplicationKernelState(this.#application).pluginExports(
-					pluginOrIdentity,
-				)
-			: this.#application.getPluginDynamic(pluginOrIdentity)
+		return readInstalledPluginExports(this.#application, pluginOrIdentity)
 	}
 
 	/**
@@ -516,14 +501,7 @@ export class UltimaBase<
 			surface?.schema === schema && surface.schemaMutations.has(name)
 				? this.schema(schema)
 				: undefined
-		const method: unknown =
-			handle === undefined ? undefined : Reflect.get(handle, name)
-		if (handle === undefined || typeof method !== 'function') {
-			throw new TypeError(
-				`Schema mutation ${schema.className}.${name} is not installed in this application`,
-			)
-		}
-		return Reflect.apply(method, handle, [input, options]) as Promise<unknown>
+		return invokeInstalledSchemaMutation(handle, schema, name, input, options)
 	}
 
 	#executePluginOperation(
