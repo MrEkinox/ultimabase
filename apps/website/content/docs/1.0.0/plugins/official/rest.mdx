@@ -8,7 +8,7 @@ contentType: guide
 order: 3
 outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-18
 sources:
   - examples/rest/README.md
   - examples/rest/src/app.ts
@@ -24,7 +24,9 @@ sources:
   - examples/rest/tests/public-writes.test.ts
   - packages/rest-plugin/README.md
   - packages/rest-plugin/src/schema-routes.ts
+  - packages/rest-plugin/src/rules.ts
   - packages/rest-plugin/src/options.ts
+  - packages/plugin-kit/src/transport-exposure.ts
   - packages/rest-plugin/src/operation-routes.ts
   - packages/rest-plugin/src/openapi.ts
   - packages/plugin-kit/src/define-operation.ts
@@ -40,6 +42,7 @@ sources:
   - docs/adr/0309-core-cursor-pagination.md
   - docs/adr/0339-define-describes-with-configures.md
   - docs/adr/0341-write-results-and-refusals.md
+  - docs/adr/0347-one-operation-vocabulary-and-shared-exposure.md
 ---
 
 ## Overview
@@ -93,19 +96,26 @@ which decides what clients may do, and one application operation:
 	../../examples/rest/src/app.ts#factory
 </include>
 
-| Plugin option  | Purpose                                                                     |
-| -------------- | --------------------------------------------------------------------------- |
-| `basePath`     | Mount prefix, `/api` by default; `/api/v1` versions your own API.           |
-| `bodyLimit`    | Maximum JSON request body; inherits `httpPlugin({ bodyLimit })`.            |
-| `pagination`   | `{ defaultTake, maxTake }` of collection reads, 100 and 1,000.              |
-| `default`      | `true`, `false` or per-method defaults inherited by every schema.           |
-| `hide`         | Public operations this instance does not expose.                            |
-| `openapi`      | Serves the OpenAPI 3.1 description at `{basePath}/openapi.json`.            |
-| `publicWrites` | Starts with exposed writes and no protected policy: every client may write. |
-| `instanceId`   | Distinguishes explicit REST configurations in one application.              |
+| Plugin option  | Purpose                                                                            |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `basePath`     | Mount prefix, `/api` by default; `/api/v1` versions your own API.                  |
+| `bodyLimit`    | Maximum JSON request body; inherits `httpPlugin({ bodyLimit })`.                   |
+| `pagination`   | `{ defaultTake, maxTake }` of collection reads, 100 and 1,000.                     |
+| `default`      | `true`, `false` or keys (`write: false`) for the methods `.with` leaves undecided. |
+| `hide`         | Public operations this instance does not expose.                                   |
+| `openapi`      | Serves the OpenAPI 3.1 description at `{basePath}/openapi.json`.                   |
+| `publicWrites` | Starts with exposed writes and no protected policy: every client may write.        |
+| `instanceId`   | Distinguishes explicit REST configurations in one application.                     |
 
-The schema's `rest` rule, in `.with`, selects its routes by the
-schema method names. `Post` keeps the built-in routes and adds `count` and the bulk create:
+`default`, `hide`, `pagination` and `publicWrites` have the same shape on every
+transport (Plugin Kit's `TransportExposureOptions`).
+[`apiServer()`](./graphql#configuration) takes `hide`, `pagination` and `publicWrites`
+once for REST and GraphQL; the same option inside its `rest` section replaces
+the shared value for REST, whole.
+
+The schema's `expose` rule, in `.with`, selects its methods on every transport
+that reads Core's exposure plan, as REST does; [GraphQL](./graphql) keeps its
+own `graphql` rule for now. `Post` keeps the built-in routes and adds `count` and the bulk create:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/rest/src/schema.ts#post
@@ -122,13 +132,26 @@ route at all; posts still link and include tags:
 	../../examples/rest/src/schema.ts#tag
 </include>
 
-The `rest` rule accepts `false`, `true`, or a map from method name to boolean.
-Each omitted method inherits `restPlugin({ default })`, then REST's built-in
-default; `restPlugin({ default: false })` makes every schema opt in.
-`.with({ rest: false })` exposes none of a schema's routes; `.with({ rest: true })`
-exposes all of them, plugin commands included. A plugin-owned schema cannot
-expose routes. The rule is typed by the installed plugin, with no generation
-step, and goes in `.with({ rest })`, never in `define` (see
+`expose` accepts `true`, `false`, or an object of keys at four levels, with
+boolean values: `all`; the groups `read` (`find`, `count`, `exists`) and `write`
+(every other operation, plugin commands included); the operations `find`,
+`count`, `exists`, `create`, `update`, `upsert`, `delete` and each plugin
+operation, such as `softDelete`; and the method names of the table below.
+Within one rule the most precise key wins: `{ write: false, create: true }`
+opens `createOne` and `createMany` and closes the other writes. `expose: false` exposes none of
+a schema's routes; `true`, `all: true` and `write: true` also open request
+plugin commands.
+
+The `rest` key takes the same forms and holds REST's exceptions. For each
+method, REST asks in order: the `rest` key, when it names the method at any
+level; then `expose`; then `restPlugin({ default })`; then the built-in default
+of the table below. An exception wins even when it is less precise:
+`.with({ expose: { count: true }, rest: { read: false } })` serves no read over
+REST, and `.with({ expose: false, rest: { findMany: true } })` lists the schema
+over REST. `rest: false` hides the schema from REST alone, and
+`restPlugin({ default: false })` makes every schema opt in. A plugin-owned
+schema cannot expose routes. The rules are typed by the installed plugins, with
+no generation step, and go in `.with`, never in `define` (see
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). Schema declaration does not
 register it; `schemas: [...]` does:
 
@@ -191,7 +214,7 @@ header. Under the default `/api` root, an application-owned schema exposes:
 | `upsertMany` | `POST /classes/Post/bulk/upsert`                    | Off              |
 
 `{id}` must be a UUID v7. Class names are case-sensitive and are not
-pluralized. `.with({ rest: { count: true } })` enables count **in addition to** the
+pluralized. `.with({ expose: { count: true } })` enables count **in addition to** the
 built-in routes. A method that is off answers `405` with an `Allow` header
 listing the methods the path accepts:
 
@@ -203,11 +226,13 @@ The answer is `405` `REST_METHOD_NOT_ALLOWED` with `Allow: GET`. A schema
 with no route at all, like `Tag`, answers `404` `REST_NOT_FOUND`, so a hidden
 schema is not revealed. Master authority does not enable a route.
 
-A plugin command uses the same keys: `.with({ rest: { softDeleteOne: true } })`
-adds `POST /classes/Post/{id}/soft-delete-one`. Only request-authority
-commands on one row can be exposed; Master-only and many-row commands never
-are. A command is exposed only when its rule names it, or when the rule or the
-plugin default is `true`. See [Soft Delete](./soft-delete) for a concrete
+A plugin command is opened by its operation or its `One` method:
+`.with({ expose: { softDelete: true } })`, or `softDeleteOne: true`, adds
+`POST /classes/Post/{id}/soft-delete-one`; the path follows the method name.
+Only request-authority commands on one row are served; Master-only and
+many-row commands never are, and a `Many` method key is a type error. A command
+stays closed until a key opens it: its operation or method, `write`, `all`,
+`true`, or a `true` default. See [Soft Delete](./soft-delete) for a concrete
 example.
 
 A plugin command route accepts a JSON body with optional `input`, `select` and
@@ -464,13 +489,13 @@ and the request deadline (`408`) come from HTTP.
 
 If startup reports that REST exposes writes without a protected policy plugin,
 install a policy such as Access or opt in with `publicWrites: true`. If a
-route is missing, check the schema's `rest` rule, the plugin default, the
-configured `basePath`, and whether the schema is application-owned. A `405`
+route is missing, check the schema's `rest` key, then its `expose` rule, then
+the plugin default, the configured `basePath`, and whether the schema is application-owned. A `405`
 names a method the rule turned off, as `POST /api/classes/Author` in the
 example, or one a plugin closed, such as the User's create under
 [authentication](./password-authentication) with an email identifier; a `404`
 on a whole schema means it has no route. Naming a closed method in
-`.with({ rest })` or `restPlugin({ default })` fails at startup with the
+`.with({ rest })`, `.with({ expose })` or `restPlugin({ default })` fails at startup with the
 schema, the method, the closing plugin and its reason. An operation that is
 not listed is not declared public by its owner, is bound by its owner to
 other transports only, or is hidden by `restPlugin({ hide })`.

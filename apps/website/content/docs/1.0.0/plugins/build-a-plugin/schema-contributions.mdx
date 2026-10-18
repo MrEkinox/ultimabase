@@ -6,7 +6,7 @@ audience:
 contentType: guide
 outcome: Choose a schema contribution and type its fields, rules, and commands from the plugin source.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-18
 sources:
   - examples/plugin-authoring/README.md
   - examples/plugin-authoring/src/app.ts
@@ -37,6 +37,8 @@ sources:
   - docs/adr/0321-acl-shape-sharing-and-backfill.md
   - docs/adr/0322-roles-schema-factory-and-queries.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0347-one-operation-vocabulary-and-shared-exposure.md
+  - packages/core/src/plugins/command-catalog.ts
 ---
 
 ## Outcome
@@ -122,6 +124,17 @@ reject, and the `archiveOne` and `archiveMany` commands; a schema without
 `archived.archivedAt` is the time of the command. Keep a raw `plugin()` when a
 rule or a command depends on the schema it applies to, or when a command takes
 input.
+
+Name each command `<operation>One` for a `'one'` target and `<operation>Many`
+for a `'many'` target: `archiveOne` and `archiveMany` form the operation
+`archive`. `definePlugin` refuses another name, an operation that is a native
+operation or method, `read`, `write` or `all`, and two commands sharing a name.
+The REST path (`/archive-one`) and the GraphQL field (`archiveOnePost`) follow
+the method name, and `.with({ expose: { archive: true } })` opens the operation
+on REST without a `rest` key, whose `archiveOne` entry above is the
+per-transport form;
+[Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql#expose-a-schema-mutation)
+details the rule.
 
 ## Type a rule with a rules slot
 

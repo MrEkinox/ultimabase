@@ -6,7 +6,7 @@ audience:
 contentType: guide
 outcome: Declare executable plugin behavior and choose its exact public transport surface.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-18
 sources:
   - examples/plugin-authoring/tests/handles.test.ts
   - examples/plugin-authoring/README.md
@@ -38,6 +38,9 @@ sources:
   - packages/core/src/schema/nested-writes/input-transformation.ts
   - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
   - docs/adr/0256-rest-operation-public-paths.md
+  - docs/adr/0347-one-operation-vocabulary-and-shared-exposure.md
+  - packages/plugin-kit/src/transport-exposure.ts
+  - packages/core/src/plugins/command-catalog.ts
   - docs/adr/0324-rest-exposure-operations-and-openapi.md
 ---
 
@@ -171,6 +174,21 @@ For transport authors, the Core planner and late execution facade share the
 same frozen descriptors from the compiled command. Keep those descriptors when
 binding execution; a reconstructed object does not identify an exposed mutation.
 The plan contains no codec or handler and cannot authorize a request.
+
+A transport never resolves exposure itself. It adds Plugin Kit's
+`TransportExposureOptions` (`default`, `hide`, `pagination`, `publicWrites`)
+to its own options, spreads `transportExposureOptionKeys` into its
+`definePluginOptionsParser` keys and validates them with
+`parseTransportExposureOptions(values, { name })`. At materialization it reads
+what it serves with `readExposurePlan(planner, { transport, schemaKey, factory, label, options })`:
+Core decides every schema method and operation from `expose`, the transport's
+own `.with` key (which wins over `expose` at any level), its `default` and its
+`hide`, and returns the served `schemas`, `operations` and `writes`. Pass
+`writes` to `assertPublicWrites({ label, writes, hasProtectedPolicy, publicWrites, describe, hint })`,
+which refuses to start when the transport exposes writes without a protected
+policy or the `publicWrites` opt-in. Once a transport reads a plan, Core no
+longer warns that a schema declares `expose` without a transport. The official
+REST plugin reads its routes this way.
 
 ### Decode a Core-shaped filter without rebuilding its traversal
 
@@ -361,10 +379,11 @@ owner may describe only the optional payload's closed input types, not choose
 its own root name, target ID, result type, resolver, or authority. A
 Master-only mutation never enters the public SDL. The official
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
-mutations: REST exposes a one-row request command when the application names
-it with `rest: { softDeleteOne: true }` in `.with`, and GraphQL when it
-names it with `.with({ graphql: { softDeleteOne: true } })`, without any binding: the
-GraphQL field then takes only the row `id`. The `archivePlugin` of
+mutations: REST exposes a one-row request command when the application opens
+its operation with `expose: { softDelete: true }` in `.with` (or only REST with
+`rest: { softDelete: true }`), and GraphQL when it names it with
+`.with({ graphql: { softDeleteOne: true } })`, without any binding: the
+GraphQL field then takes only the row `id`. GraphQL does not read `expose` yet. The `archivePlugin` of
 [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#start-with-defineplugin)
 works the same way once `Post` names `archiveOne` for both transports:
 
@@ -381,6 +400,19 @@ needs an application-lifetime resource. The resolver receives immutable `context
 `{ data: { workflowState: 'archived' } }`; an effect may write `null` to clear
 an optional field it owns. A delete effect runs only with Master authority, and
 calling the command on an application that does not install it fails.
+
+A command's name names its operation: `<operation>One` when `target` is `'one'`
+and `<operation>Many` when it is `'many'`, so `archiveOne` and `archiveMany`
+form the operation `archive`. The plugin fails when it is defined if a name
+lacks the suffix of its target (`Command archive must be named <operation>One
+because its target is one: archiveOne`), if the operation is a native operation or method,
+`read`, `write` or `all` (`archive` may not be `create` or `findOne`), or if two
+commands of one owner share a name. Applications open the operation with one
+key, `expose: { archive: true }`, or a single method with `archiveOne`. Generated transport names follow the
+method name: REST publishes `archiveOne` at `POST /api/classes/{Schema}/{id}/archive-one`
+and GraphQL as the field `archiveOne{Schema}`. REST serves only the `One`
+method of a request command, so a `Many` key is a type error in `expose` and
+`rest`.
 
 A schema mutation declared with `target: 'many'` takes `{ where }` instead of `{
 id }`. In one transaction, Core finds the rows the caller may target, then runs

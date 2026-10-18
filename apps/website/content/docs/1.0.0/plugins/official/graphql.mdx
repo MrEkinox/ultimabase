@@ -8,7 +8,7 @@ contentType: guide
 order: 4
 outcome: Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-18
 sources:
   - examples/graphql/README.md
   - examples/graphql/src/app.ts
@@ -42,6 +42,7 @@ sources:
   - packages/graphql-http/README.md
   - packages/graphql-explorer-plugin/README.md
   - packages/api-server/README.md
+  - packages/api-server/src/preset.ts
   - docs/adr/0238-graphql-v1-contract.md
   - docs/adr/0309-core-cursor-pagination.md
   - docs/adr/0310-plain-data-results-and-named-types.md
@@ -54,6 +55,7 @@ sources:
   - docs/adr/0325-graphql-explorer-and-api-server-preset.md
   - docs/adr/0333-graphql-hidden-schemas-stay-hidden.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0347-one-operation-vocabulary-and-shared-exposure.md
 ---
 
 ## Overview
@@ -129,6 +131,14 @@ operation:
 | `publicWrites` | Starts with exposed writes and no protected policy: every client may write.   |
 | `schemas`      | Completed custom `GraphQLSchema` values composed after the generated surface. |
 | `sdl`          | A file the schema's SDL is written to at startup.                             |
+
+`apiServer()` also takes `hide`, `pagination` and `publicWrites` at the top
+level, written once for every transport it installs, REST and GraphQL. The same
+option inside `rest` or `graphql` replaces the shared value for that transport,
+whole, without merging:
+`apiServer({ pagination: { defaultTake: 20, maxTake: 100 }, rest: true, graphql: { pagination: { defaultTake: 20, maxTake: 50 } } })`
+pages REST by up to 100 rows and GraphQL by up to 50. `default` stays in each
+transport's own section.
 
 The schema's `graphql` rule selects its generated fields; it is typed by the
 installed plugin, with no generation step, and goes in `.with({ graphql })`,
