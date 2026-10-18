@@ -110,8 +110,22 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
      la tranche (9a4a43c2) ; `dist` de la tranche reconstruits depuis la tranche ; audit `core` : 336
      différences, dont `SchemaRulesSource` désormais annoncé ; `website-content` 227/227. La branche d'essai
      `exp/schema-rules-source-hover` est gardée (suppression sur confirmation de l'utilisateur).
-     Prochaine action vérifiable : étape GraphQL (GraphQL lit le plan, `default` commun dans `apiServer()`,
-     GraphQL seul sans avertissement « no transport ») par un agent `implementer`, tests d'abord.
+     Étape GraphQL terminée et relue (HEAD d26cf17f, 4 commits depuis 9a4a43c2, sans cast) : GraphQL lit le
+     plan (`readExposurePlan`, `normalizeExposureRule`, `parseTransportExposureOptions`, `assertPublicWrites`),
+     la clé `graphql` gagne sur `expose`, `apiServer({ default })` commun, doc GraphQL/REST/api-server/Soft
+     Delete/Build a Plugin. Messages non épinglés qui changent : pagination (RangeError → TypeError de Plugin
+     Kit, « pagination has an unknown option: X »), liste « use … » de Core ; le message `hide` épinglé reste.
+     Indication « enable graphql: { xMany: true } » : impossible (Core refuse de lier une commande Many à un
+     transport, `transport-capabilities.ts:91`), test ajouté qui le fixe.
+     Contrôles (d26cf17f) : `yarn install --immutable` exit 0 ; `validate:full` exit 0 (819 fichiers, 4576
+     tests, aucune erreur de type) ; `typecheck:typescript-7` exit 0 ; `website:test` 59/59. Audit DX
+     graphql-plugin + api-server contre la base reconstruite : 277 différences, toutes annoncées (ADR l. 260
+     et amendement point 4) : 53 membres `string` retirés de `GraphqlCommandName`, survols des types de
+     règles GraphQL, `GraphqlMethodName` en union explicite, `ApiServerOptions.default` ajouté.
+     Questions ouvertes : la ligne d'objet des README rest-plugin et graphql-plugin cite encore
+     `.with({ graphql: … })` (à voir avec la migration des appelants).
+     Prochaine action vérifiable : Access/`allowWithoutRule` (diagnostic de démarrage, décision 4) par un
+     agent `implementer`, tests d'abord ; puis Hooks, puis migration de tous les appelants.
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
