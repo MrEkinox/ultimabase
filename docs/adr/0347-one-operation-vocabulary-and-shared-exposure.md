@@ -274,7 +274,7 @@ plugin commands installed later; rule completions list more keys.
 ## Implementation amendment (2026-10-18)
 
 Accepted by the user on 2026-10-18. The read-only inventory for the vertical slice found five points where the record
-is silent or cannot hold literally. Each is listed with what the developer sees.
+is silent or cannot hold literally. Each is listed with what the developer sees. The slice audit added the sixth.
 
 1. **The plan is compiled once, when the first transport asks.** REST compiles its routes and OpenAPI at application
    setup, before `start()`. Core compiles the exposure plan on the first request for a protocol and caches it; the
@@ -327,6 +327,18 @@ is silent or cannot hold literally. Each is listed with what the developer sees.
    ```text
    Before: Post.with({ hooks }): hooks is not a rule of an installed plugin; .with accepts relations, access, audit
    After:  Post.with({ hooks }): hooks is not a rule of an installed plugin; .with accepts relations, expose, access, audit
+   ```
+
+6. **The hover of `SchemaRulesSource` spells out `RegisteredSchema<…>`.** Accepted by the user on 2026-10-18 after the
+   slice audit. The `.with` signature now reads plugin commands for `expose`, so the declaration bundler moves the
+   module of `SchemaRulesSource` into Core's shared chunk, where the editor expands the alias. The type is unchanged.
+   Keeping the alias would take a private copy of the type and a dedicated module only to steer the bundler, and the
+   hover of `ExposureCommandKey` would then show the private name.
+
+   ```text
+   Before: [RegisteredSchema<TClassName>] extends [never] ? TSchema : RegisteredSchema<TClassName>
+   After:  [Extract<RegisteredSchemaUnion<TClassName>, SchemaDefinition<TClassName, …>>] extends [never]
+             ? TSchema : Extract<RegisteredSchemaUnion<TClassName>, SchemaDefinition<TClassName, …>>
    ```
 
 The `publicWrites` messages keep their wording: the shared check returns the exposed write methods and each transport
