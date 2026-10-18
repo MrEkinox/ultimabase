@@ -32,13 +32,16 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
 1. ADR « vocabulaire et exposition » : spike fait, [ADR-0347](../adr/0347-one-operation-vocabulary-and-shared-exposure.md)
    proposé sur la branche `adr/vocabulary-exposure`, en attente de validation. Choix de l'utilisateur
    (2026-10-18) : périmètre §2.1 + §2.3 seulement ; hiérarchie `all` > `read`/`write` > opération >
-   méthode, définie par Core ; clé `expose` et option d'application `exposure` possédées par Core ;
+   méthode, définie par Core ; clé `expose` possédée par Core (avertissement si aucun transport), avec exceptions par transport
+   dans `rest`/`graphql` qui gagnent sur `expose` ; options communes (`default`, `hide`, `pagination`,
+   `publicWrites`) sur les transports, une fois dans `apiServer()`, jamais sur `App` ;
    diagnostic Access au démarrage (avertissement hors production, échec en production), sans retirer
    de route. Écarté : vocabulaire des seules méthodes ou des seules opérations, `expose` dans
-   `api-server`, retrait des routes refusées (révèle l'absence de règle, prive Master par HTTP).
+   `api-server` ou dans un plugin d'exposition, options d'exposition sur `App` (laisse croire qu'elles
+   bornent l'API serveur), retrait des routes refusées (révèle l'absence de règle, prive Master par HTTP).
    Prochaine action vérifiable : après validation, un test qui fixe l'effet des droits ACL sur une
    commande de plugin (aucun test ne le couvre), puis la tranche verticale (catalogue, `expose`,
-   `exposure`, REST sur un exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
+   options communes des transports, REST sur un exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord

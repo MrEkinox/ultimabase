@@ -5,7 +5,8 @@
 - Refines: ADR-0168 (read cardinality in Access), ADR-0294 (`publicWrites`), ADR-0317 (Access rules and
   `allowWithoutRule`), ADR-0318 (Hooks phases), ADR-0324 (REST exposure), ADR-0325 (GraphQL exposure), ADR-0341
   (command closures); applies ADR-0288
-- Approval: scope and the four main choices made by the user on 2026-10-18 (DX review `docs/handoff/revue-dx.md`
+- Approval: scope, the four main choices, per-transport exceptions and transport-owned options made by the user on
+  2026-10-18 (DX review `docs/handoff/revue-dx.md`
   §2.1 and §2.3); record pending validation
 
 ## Context
@@ -81,50 +82,66 @@ exists }` form and the `allowWithoutRule` keys `one` and `many`. Group and `all`
   method, operation, group, cardinality (`one`, `many` or aggregate), effect, authority and owner. Rule normalizers,
   transports and diagnostics read this catalog instead of keeping their own tables.
 
-### 2. One `expose` key, owned by Core
+### 2. One `expose` key, owned by Core, with per-transport exceptions
 
-Core owns the schema rule `expose` and the application option `exposure`; both are protocol-neutral and name no
-transport:
+Core owns the protocol-neutral schema rule `expose`. Each transport's own schema key takes the same keys and holds
+the exceptions for that transport:
 
 ```ts
 App.Schema.define({ className: 'Todo', fields }).with({
 	access: { read: true, write: isOwner, softDelete: hasRole(Admin) },
 	hooks: { afterCommit: { create: notify } },
-	expose: { write: false, create: true, count: true },
-})
-
-new App({
-	schemas: [Todo],
-	exposure: {
-		default: { count: true },
-		publicWrites: false,
-		hide: [authOperations.refresh],
-		pagination,
-	},
+	expose: { write: false, create: true, count: true }, // every installed transport
+	graphql: { count: false }, // except GraphQL
 })
 ```
 
-- `expose` takes `true`, `false`, or an object of the keys of decision 1 with boolean values. A key the schema
-  does not set inherits `exposure.default`, then Core's built-in defaults: `findMany`, `findOne`, `exists`, `createOne`,
-  `updateOne` and `deleteOne` open, everything else closed. Request plugin commands are closed until a key opens
-  them; Master commands are never exposed.
-- `exposure` replaces `restPlugin({ default, hide, pagination, publicWrites })` and the same four GraphQL options.
-  `publicWrites` keeps the meaning of ADR-0294 and is checked once, by Core, for every installed transport.
-- The `rest` and `graphql` schema keys keep only protocol settings (GraphQL's `typeName`) and `false`, which hides
-  the schema from that one transport (ADR-0333). Transport plugin options keep only protocol settings (`basePath`,
-  `openapi`, GraphQL `limits`, `schemas`, `sdl`).
+- `expose` takes `true`, `false`, or an object of the keys of decision 1 with boolean values.
+- `rest` and `graphql` take the same forms, plus their protocol settings (GraphQL's `typeName`); `false` still hides
+  the schema from that one transport (ADR-0333).
+- **Resolution, per transport and method:** the transport's own key decides when it names the method at any level;
+  otherwise `expose` decides; otherwise the transport's `default` option; otherwise Core's built-in defaults
+  (`findMany`, `findOne`, `exists`, `createOne`, `updateOne` and `deleteOne` open, everything else closed). An
+  exception wins even when it is less precise: `expose: { count: true }` with `graphql: { read: false }` exposes
+  `count` over REST and no read over GraphQL. Within one key, the most precise level wins (decision 1).
+- Request plugin commands are closed until a key opens them; Master commands are never exposed.
+- When a schema declares `expose` and no installed transport reads the exposure plan, `start()` logs one `warn` line:
+  `Todo declares expose, but no transport is installed: it has no effect.`
 
-### 3. Core plans exposure; Plugin Kit gives transports a reader
+### 3. Shared transport options, one plan in Core, one reader in Plugin Kit
 
-**Core** compiles one exposure plan at start, like the operations planner: for each protocol a transport asks for,
-the exposed schemas, their exposed methods with their catalog entries, the exposed public operations (ADR-0324
-decision 5, after `exposure.hide`) and the pagination limits. It applies, once, the defaults, command closures
-(ADR-0341), per-protocol hiding and the `publicWrites` check. Core reads protocols as opaque strings that transports
-pass, as it already does for owner bindings.
+Exposure options stay on the transports, so an application never carries options that no installed plugin reads, and
+nothing suggests they apply to the server-side API (`pagination` does not bound `Todo.findMany()`).
 
-**Plugin Kit** exports a typed reader of that plan and its descriptor types for transport authors. REST and GraphQL
-read the plan and keep only what is protocol-specific: routes and field names, wire codecs, OpenAPI and SDL. Their
-defaults tables, rule normalizers, closure and `publicWrites` assertions, `hide` and pagination parsers are removed.
+- REST and GraphQL take the same `default`, `hide`, `pagination` and `publicWrites` options, with one shape defined in
+  Plugin Kit; `publicWrites` keeps the meaning of ADR-0294.
+- `apiServer()` takes these four options once for every transport it installs; a transport's own section holds the
+  exceptions: each option it sets replaces the shared one as a whole, without merging:
+
+  ```ts
+  apiServer({
+  	pagination: { defaultTake: 20, maxTake: 100 },
+  	hide: [authOperations.refresh],
+  	rest: true,
+  	graphql: {
+  		explorer: 'graphiql',
+  		pagination: { defaultTake: 20, maxTake: 50 },
+  	},
+  })
+  ```
+
+- Without the preset, each transport is configured on its own, with the same shape.
+
+**Core** compiles the exposure plan at start, like the operations planner. For each protocol a transport asks for, the
+transport passes its parsed options and the owner of its schema key; Core returns the exposed schemas, their exposed
+methods with their catalog entries, and the exposed public operations (ADR-0324 decision 5, after `hide`). It applies
+the resolution of decision 2, command closures (ADR-0341) and the `publicWrites` check once, generically. Core reads
+protocols as opaque strings that transports pass, as it already does for owner bindings, and names no transport.
+
+**Plugin Kit** exports the shared option type and its parser, a typed reader of the plan and its descriptor types, so
+a third-party transport gets the same options and rules. REST and GraphQL keep only what is protocol-specific: routes
+and field names, wire codecs, pagination on the wire, OpenAPI and SDL. Their defaults tables, rule normalizers,
+closure and `publicWrites` assertions, `hide` parsers and option parsers are removed.
 
 ### 4. Access diagnoses exposed methods it always refuses
 
@@ -209,15 +226,20 @@ apiServer({
 		explorer: 'graphiql',
 	},
 })
-// After: shared options belong to the application, protocol options stay on the transport
-new App({
-	schemas,
-	exposure: {
-		pagination: { defaultTake: 20, maxTake: 100 },
-		hide: [authOperations.refresh],
-	},
+// After: written once in the preset; a transport section holds its exceptions
+apiServer({
+	pagination: { defaultTake: 20, maxTake: 100 },
+	hide: [authOperations.refresh],
+	rest: true,
+	graphql: { explorer: 'graphiql' },
 })
-apiServer({ rest: true, graphql: { explorer: 'graphiql' } })
+```
+
+One transport differs from the shared rule:
+
+```ts
+.with({ expose: { count: true }, graphql: { count: false } }) // count over REST only
+.with({ rest: { count: true } }) // the same, written as an exception alone
 ```
 
 Plugin commands:
@@ -228,21 +250,22 @@ archiveMany: command({ authority: 'request', effect: 'update', data, target: 'ma
 archive: command({ … }) // refused when the plugin is defined: the name must end in One or Many
 ```
 
-DX costs: a schema is exposed alike on every installed transport (only `graphql: false` or `rest: false` hides it from
-one), so a method cannot be opened on one transport only; pagination moves from the transport to the application;
-group rules such as `write: isOwner` also cover plugin commands installed later; rule completions list more keys.
+DX costs: an exception on a transport wins over `expose` even when it is less precise, which the rule types' JSDoc
+must say; without `apiServer()`, two transports repeat their shared options; `expose` is offered in `.with` even when
+no transport is installed (a startup warning says it has no effect); group rules such as `write: isOwner` also cover
+plugin commands installed later; rule completions list more keys.
 
 ## Consequences
 
 - One key means one thing in every `.with` member and plugin option; plugin operations cover their One and Many
   methods. Hovers and completions of the Access, Hooks, REST and GraphQL rule types change.
-- Exposure is written once for every transport, and a third-party transport inherits defaults, closures, `hide`,
-  pagination and `publicWrites` by reading the plan.
+- Exposure is written once for every transport, with exceptions per transport; a third-party transport gets the same
+  options and rules from Plugin Kit and the plan.
 - A command whose name does not end in `One` or `Many` fails when the plugin is defined. Soft Delete
   already follows the convention; the Master-only email write of the auth plugin
   (`packages/auth-plugin/src/email.ts:131`) is renamed.
 - An application that exposes a method without any Access rule fails to start in production until it decides.
-- **Proof.** A vertical slice first: the catalog, `expose`, `exposure` and REST on one example, with compiled
+- **Proof.** A vertical slice first: the catalog, `expose`, the shared transport options and REST on one example, with compiled
   declarations, the DX audit against `main` and the form D bench on TypeScript 6 and 7 (the rule types gain group
   and operation keys). Then GraphQL, Access and `allowWithoutRule`, Hooks, and every repository consumer. Before the
   slice, a test pins how ACL rights apply to plugin write commands, which no current test covers.
