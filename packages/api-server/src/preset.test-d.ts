@@ -4,10 +4,15 @@ import type { GraphqlPlugin } from '@ultimabase/graphql-plugin'
 import type { GraphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import type { HonoServerPlugin } from '@ultimabase/hono-server-plugin'
 import type { HttpPlugin } from '@ultimabase/http-plugin'
+import type { TransportExposureOptions } from '@ultimabase/plugin-kit'
 import type { RestPlugin } from '@ultimabase/rest-plugin'
 import { expectTypeOf, test } from 'vitest'
 
-import { apiServer, type ApiServerPlugins } from './index.js'
+import {
+	apiServer,
+	type ApiServerOptions,
+	type ApiServerPlugins,
+} from './index.js'
 
 test('types the exact plugin tuple of each option set', () => {
 	expectTypeOf(apiServer()).toEqualTypeOf<
@@ -55,5 +60,33 @@ test('keeps every plugin projection on the configured factory', () => {
 			// @ts-expect-error -- each option object keeps its plugin's type.
 			basePath: 1,
 		},
+	})
+})
+
+// ADR-0347 decision 3 and amendment item 4: hide, pagination, publicWrites.
+test('types the shared exposure options of every transport', () => {
+	apiServer({
+		hide: [],
+		pagination: { defaultTake: 20, maxTake: 100 },
+		publicWrites: true,
+		rest: { pagination: { maxTake: 50 } },
+		graphql: { publicWrites: false },
+	})
+	expectTypeOf<ApiServerOptions['pagination']>().toEqualTypeOf<
+		TransportExposureOptions['pagination']
+	>()
+	expectTypeOf<ApiServerOptions['hide']>().toEqualTypeOf<
+		TransportExposureOptions['hide']
+	>()
+	expectTypeOf<ApiServerOptions['publicWrites']>().toEqualTypeOf<
+		boolean | undefined
+	>()
+	apiServer({
+		// @ts-expect-error -- a page size is a number.
+		pagination: { maxTake: '100' },
+	})
+	apiServer({
+		// @ts-expect-error -- no shared default until GraphQL reads the plan.
+		default: { count: true },
 	})
 })

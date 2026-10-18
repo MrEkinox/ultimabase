@@ -2,7 +2,11 @@ import { UltimaBase, dateTimeField } from '@ultimabase/core'
 import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 import { expectTypeOf, test } from 'vitest'
 
-import { restPlugin, type RestSchemaRule } from '../src/index.js'
+import {
+	restPlugin,
+	type RestMethodRules,
+	type RestSchemaRule,
+} from '../src/index.js'
 
 const archivePlugin = definePlugin({
 	name: '@fixture/rest-archive-types',
@@ -52,12 +56,35 @@ test('keys `.with({ rest: … })` by method and exposable command names', () => 
 		// @ts-expect-error -- the command exists only after `archivable: true`.
 		rest: { archiveOne: true },
 	})
-	define().with({
-		// @ts-expect-error -- the former REST-only keys are gone.
-		rest: { find: true },
-	})
 
 	expectTypeOf<RestSchemaRule>().toExtend<
 		boolean | Readonly<{ findOne?: boolean; deleteMany?: boolean }>
 	>()
+})
+
+// ADR-0347 decision 2: the rest key takes every level of the vocabulary.
+test('keys `.with({ rest: … })` by all, group, operation and method', () => {
+	define().with({ rest: { find: true } })
+	define().with({ rest: { all: false, read: true, count: false } })
+	define().with({ rest: { write: false, create: true, upsert: true } })
+	defineArchivable().with({ rest: { write: false, archive: true } })
+	defineArchivable().with({
+		expose: { write: false },
+		rest: { archiveOne: true, delete: true },
+	})
+	restPlugin({ default: { read: true, write: false, find: true } })
+
+	define().with({
+		// @ts-expect-error -- `archive` exists only after `archivable: true`.
+		rest: { archive: true },
+	})
+	define().with({
+		// @ts-expect-error -- not a key of the vocabulary.
+		rest: { list: true },
+	})
+	// @ts-expect-error -- plugin commands are named in `.with`, never in `default`.
+	restPlugin({ default: { archiveOne: true } })
+	expectTypeOf<
+		'all' | 'read' | 'write' | 'find' | 'create' | 'delete'
+	>().toExtend<keyof RestMethodRules>()
 })
