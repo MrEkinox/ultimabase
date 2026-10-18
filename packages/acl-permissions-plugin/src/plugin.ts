@@ -51,6 +51,7 @@ import {
 import {
 	createACLPermissionRowFilter,
 	requiredACLPermission,
+	requiredPluginCommandACLPermission,
 } from './acl-access.js'
 import {
 	aclChangedEventContract,
@@ -230,6 +231,12 @@ const aclConstraintOperationKinds = Object.freeze([
 	'upsert-one',
 ] as const)
 
+/** Plugin commands need the right of their declared effect (ADR-0348). */
+const aclRowOperationKinds = Object.freeze([
+	...aclConstraintOperationKinds,
+	'plugin-schema-mutation',
+] as const)
+
 const aclReplacementInvariantOperationKinds = Object.freeze([
 	'update-many',
 	'upsert-many',
@@ -383,11 +390,15 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				const option = state.protectedOption(operation)
 				if (option === undefined) return undefined
 				if (getACLReferenceScope(option.schema) !== undefined) return undefined
-				// `operations` limits this policy to executable terminals Core types broadly.
-				const permission = requiredACLPermission(
-					operation as unknown as ExecutableAst,
-					option.config.clientSharing !== undefined,
-				)
+				// `operations` limits this policy to plugin commands and to executable
+				// terminals Core types broadly.
+				const permission =
+					operation.kind === 'plugin-schema-mutation'
+						? requiredPluginCommandACLPermission(operation.mutation.effect)
+						: requiredACLPermission(
+								operation as unknown as ExecutableAst,
+								option.config.clientSharing !== undefined,
+							)
 				if (permission === undefined) return undefined
 				return immutableRecord({
 					rowFilter: createACLPermissionRowFilter(
@@ -397,7 +408,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				})
 			},
 			master: 'bypass',
-			operations: aclConstraintOperationKinds,
+			operations: aclRowOperationKinds,
 		}),
 	)
 	const behaviorProvider = provideRuntimeBehavior({
