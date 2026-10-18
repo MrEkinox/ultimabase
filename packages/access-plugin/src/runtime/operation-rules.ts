@@ -15,13 +15,10 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type {
-	AccessOpening,
-	AccessOpeningGroup,
-} from '../authoring/allow-without-rule.js'
+import type { AccessOpening } from '../authoring/allow-without-rule.js'
 import {
-	readAccessOperationGroup,
-	readAccessOperationSlot,
+	readAccessBranch,
+	readAccessCommandEntry,
 	type AccessPlan,
 	type AccessRuleSource,
 	type CompiledAccessRule,
@@ -156,19 +153,16 @@ export const evaluateAccessOperation = (
 	kind: OperationKind,
 ): Promise<DatabaseRowFilterNode | undefined> => {
 	const { context, plan, schemaPlan } = scope
-	const slot = readAccessOperationSlot(kind)
-	const filters = slot !== 'create'
+	const entry = readAccessCommandEntry(kind)
+	const filters = entry.operation !== 'create'
 	return evaluateOperationRules(scope, {
-		branch: slot,
+		branch: readAccessBranch(entry),
 		createInput: () =>
 			filters
 				? immutableRecord({ context, where: new WhereBuilder(scope.schema) })
 				: immutableRecord({ context }),
 		filters,
-		opening: plan.allowWithoutRule.resolve(
-			slot,
-			readAccessOperationGroup(kind),
-		),
+		opening: plan.allowWithoutRule.resolve(entry),
 		rules: schemaPlan.operation[kind],
 	})
 }
@@ -179,16 +173,15 @@ export const evaluateSchemaMutationAccess = (
 	operation: PluginSchemaMutationOperationAst,
 ): Promise<DatabaseRowFilterNode | undefined> => {
 	const mutation = readSchemaMutationPlan(scope, operation)
-	const group: AccessOpeningGroup = 'write'
 	return evaluateOperationRules(scope, {
-		branch: operation.command,
+		branch: mutation.entry.operation,
 		createInput: () =>
 			immutableRecord({
 				...schemaMutationInput(scope.context, operation),
 				where: new WhereBuilder(scope.schema),
 			}),
 		filters: true,
-		opening: scope.plan.allowWithoutRule.resolve(operation.command, group),
+		opening: scope.plan.allowWithoutRule.resolve(mutation.entry),
 		rules: mutation.operation,
 	})
 }
@@ -221,7 +214,7 @@ export const evaluateAccessPermission = async (
 		branch: permission,
 		createInput: () => immutableRecord({ context }),
 		filters: false,
-		opening: plan.allowWithoutRule.resolve(permission),
+		opening: plan.allowWithoutRule.resolvePermission(permission),
 		rules,
 	})
 	return true

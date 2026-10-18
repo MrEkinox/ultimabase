@@ -4,13 +4,17 @@ import type {
 	OperationKind,
 	SchemaDefinition,
 } from '@ultimabase/core'
+import {
+	nativeCommandCatalog,
+	type CommandKeyEntry,
+	type NativeCommandCatalogEntry,
+} from '@ultimabase/core/plugin'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { AllowWithoutRulePlan } from './allow-without-rule.js'
 import type {
 	NormalizedAccessRule,
 	SchemaItemAccessFamily,
-	SchemaReadAccessBranch,
 } from './declarations.js'
 import type {
 	FieldReadAccessChannel,
@@ -20,7 +24,10 @@ import type {
 export type AccessOperationFamily =
 	'create' | 'delete' | 'read' | 'update' | 'upsert'
 
-/** Names the public decision that owns one terminal: a read branch or a family. */
+/** The policy `operation` key of a read terminal (`one`, `many`, …). */
+type SchemaReadAccessBranch = 'count' | 'exists' | 'many' | 'one'
+
+/** Names the policy operation of one terminal: a read branch or a family. */
 export type AccessOperationSlot =
 	Exclude<AccessOperationFamily, 'read'> | SchemaReadAccessBranch
 
@@ -62,7 +69,31 @@ export const isReadAccessSlot = (
 ): slot is SchemaReadAccessBranch =>
 	slot === 'one' || slot === 'many' || slot === 'count' || slot === 'exists'
 
-/** Resolves one native terminal to its public read branch or family. */
+const nativeEntries = new Map(
+	nativeCommandCatalog.map((entry) => [entry.operationKind, entry]),
+)
+
+/**
+ * Places one native terminal in Core's operation vocabulary (ADR-0347): a
+ * `get` is a `findOne`.
+ */
+export const readAccessCommandEntry = (
+	kind: OperationKind,
+): NativeCommandCatalogEntry => {
+	const entry = nativeEntries.get(kind === 'get' ? 'find-one' : kind)
+	if (entry === undefined) throw new TypeError(`Unknown operation ${kind}`)
+	return entry
+}
+
+/**
+ * Names the key that opens one entry in messages: a read method
+ * (`findMany`, `count`) or a write operation (`create`, `softDelete`).
+ */
+export const readAccessBranch = (
+	entry: Pick<NativeCommandCatalogEntry, 'group' | 'method' | 'operation'>,
+): string => (entry.group === 'read' ? entry.method : entry.operation)
+
+/** Resolves one native terminal to its policy operation key. */
 export const readAccessOperationSlot = (
 	kind: OperationKind,
 ): AccessOperationSlot => accessOperationSlots[kind]
@@ -74,12 +105,6 @@ export const readAccessOperationFamily = (
 	const slot = accessOperationSlots[kind]
 	return isReadAccessSlot(slot) ? 'read' : slot
 }
-
-/** The `allowWithoutRule` group of one terminal: reads or writes. */
-export const readAccessOperationGroup = (
-	kind: OperationKind,
-): 'read' | 'write' =>
-	isReadAccessSlot(accessOperationSlots[kind]) ? 'read' : 'write'
 
 /** Fields stay available until one exact field declaration narrows them. */
 export const allowUndeclaredFieldAccess = true as const
@@ -123,6 +148,8 @@ export interface FieldAccessPlan {
 
 export interface SchemaMutationAccessPlan {
 	readonly descriptor: ApplicationSchemaMutationDescriptor
+	/** The command placed in Core's vocabulary: method, operation, `write`. */
+	readonly entry: CommandKeyEntry
 	readonly item: readonly CompiledAccessRule[]
 	readonly operation: readonly CompiledAccessRule[]
 }

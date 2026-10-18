@@ -108,33 +108,6 @@ export type SchemaItemAccessInput<
 						originalItem: SchemaResult<TSchema>
 					}>
 
-/**
- * Rules each read operation separately; an omitted member has no schema rule,
- * so `allowWithoutRule` decides it.
- */
-export interface SchemaReadAccess<TSchema extends SchemaDefinition> {
-	/**
-	 * Rules singular reads such as `findOne`.
-	 * @example `one: true`
-	 */
-	readonly one?: AccessRule<TSchema>
-	/**
-	 * Rules collection reads through `findMany`.
-	 * @example `many: ({ where }) => where.eq('published', true)`
-	 */
-	readonly many?: AccessRule<TSchema>
-	/**
-	 * Rules exact row counts without enabling other reads.
-	 * @example `count: false`
-	 */
-	readonly count?: AccessRule<TSchema>
-	/**
-	 * Rules existence checks without enabling object output.
-	 * @example `exists: true`
-	 */
-	readonly exists?: AccessRule<TSchema>
-}
-
 /** Decides creation, then checks each prepared draft. */
 export interface SchemaCreateAccess<TSchema extends SchemaDefinition> {
 	/**
@@ -192,13 +165,56 @@ export interface SchemaDeleteAccess<TSchema extends SchemaDefinition> {
 	readonly item: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'delete'>>
 }
 
-/** Groups every schema rule by the operation developers are authorizing. */
+/**
+ * The native keys of a schema rule (ADR-0347), from the broadest to the most
+ * precise: `all`, a group (`read`, `write`), an operation, a read method.
+ * The most precise key present decides each method; write methods such as
+ * `createMany` are not keys, so a write rule never depends on cardinality.
+ */
 interface NativeSchemaAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Rules `one`, `many`, `count` and `exists` together, or each one.
+	 * Every read and write, request plugin operations included; never a
+	 * plugin permission. A value or a predicate.
+	 * @example `all: hasRole(Admin)`
+	 */
+	readonly all?: AccessDecisionRule<AccessPolicyInput>
+	/**
+	 * The reads `find`, `count` and `exists`.
 	 * @example `read: ({ where }) => where.eq('published', true)`
 	 */
-	readonly read?: AccessRule<TSchema> | SchemaReadAccess<TSchema>
+	readonly read?: AccessRule<TSchema>
+	/**
+	 * Every write: `create`, `update`, `upsert`, `delete` and request plugin
+	 * operations, including those of plugins installed later. A value or a
+	 * predicate.
+	 * @example `write: isAuthenticated`
+	 */
+	readonly write?: AccessDecisionRule<AccessPolicyInput>
+	/**
+	 * Reading one row (`findOne`) and listing rows (`findMany`).
+	 * @example `find: true`
+	 */
+	readonly find?: AccessRule<TSchema>
+	/**
+	 * Reading one row through `findOne`.
+	 * @example `findOne: true`
+	 */
+	readonly findOne?: AccessRule<TSchema>
+	/**
+	 * Listing rows through `findMany`.
+	 * @example `findMany: ({ where }) => where.eq('published', true)`
+	 */
+	readonly findMany?: AccessRule<TSchema>
+	/**
+	 * Exact row counts, without enabling other reads.
+	 * @example `count: false`
+	 */
+	readonly count?: AccessRule<TSchema>
+	/**
+	 * Existence checks, without enabling object output.
+	 * @example `exists: true`
+	 */
+	readonly exists?: AccessRule<TSchema>
 	/**
 	 * Rules creation: a boolean decision, or `{ where, item }` to check drafts.
 	 * @example `create: isAuthenticated`
@@ -237,7 +253,7 @@ export type SchemaPermissionAccessMap<TSource> = Readonly<
 >
 
 /**
- * Combines native families, request plugin commands and plugin permissions.
+ * Combines native keys, request plugin operations and plugin permissions.
  * `TSource` is the schema whose statics carry the commands and permissions:
  * the registered schema when `TSchema` is a `SchemaRef` (ADR-0297).
  */

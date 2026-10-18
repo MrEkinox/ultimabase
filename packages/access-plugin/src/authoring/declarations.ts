@@ -1,3 +1,4 @@
+import { nativeCommandCatalog } from '@ultimabase/core/plugin'
 import {
 	immutableRecord,
 	isPlainRecord,
@@ -15,13 +16,6 @@ export type NormalizedAccessRuleMap<TKey extends string> = Readonly<
 	Partial<Record<TKey, NormalizedAccessRule>>
 >
 
-/** Lists public read operations once so validation stays exhaustive. */
-export const schemaReadAccessBranches = [
-	'one',
-	'many',
-	'count',
-	'exists',
-] as const
 export const schemaItemAccessFamilies = [
 	'create',
 	'update',
@@ -29,26 +23,11 @@ export const schemaItemAccessFamilies = [
 	'delete',
 ] as const
 
-export type SchemaReadAccessBranch = (typeof schemaReadAccessBranches)[number]
 export type SchemaItemAccessFamily = (typeof schemaItemAccessFamilies)[number]
-
-/** Names the public slot of each native operation rule. */
-export const schemaOperationAccessSlots = [
-	'one',
-	'many',
-	'count',
-	'exists',
-	'create',
-	'update',
-	'upsert',
-	'delete',
-] as const
-export type SchemaOperationAccessSlot =
-	(typeof schemaOperationAccessSlots)[number]
 
 /**
  * One normalized operation rule. `path` names it in diagnostics
- * (`read.many`, `update.where`); `step` is `filter` for the `where` member of
+ * (`findMany`, `update.where`); `step` is `filter` for the `where` member of
  * a detailed `{ where, item }` rule and `operation` otherwise.
  */
 export interface NormalizedOperationRule {
@@ -58,23 +37,19 @@ export interface NormalizedOperationRule {
 }
 
 /**
- * One rule under a key that is not a native operation: a request plugin
- * command (`softDeleteOne`) or a plugin permission (`readDeleted`). The
- * compiler classifies it against the compiled application.
+ * The rules of one key: `all`, a group, an operation (native or plugin), a
+ * read method or a plugin permission. The compiler places each key in Core's
+ * operation vocabulary against the compiled application (ADR-0347).
  */
-export interface ExtensionAccessDeclarations {
+export interface SchemaAccessDeclaration {
 	readonly item?: NormalizedAccessRule
 	readonly operation: NormalizedOperationRule
 }
 
-/** Retains normalized rules in the private compiler format. */
-export interface SchemaAccessDeclarations {
-	readonly operation?: Readonly<
-		Partial<Record<SchemaOperationAccessSlot, NormalizedOperationRule>>
-	>
-	readonly item?: NormalizedAccessRuleMap<SchemaItemAccessFamily>
-	readonly extensions?: Readonly<Record<string, ExtensionAccessDeclarations>>
-}
+/** Retains normalized rules by key, in the private compiler format. */
+export type SchemaAccessDeclarations = Readonly<
+	Record<string, SchemaAccessDeclaration>
+>
 
 export const isRuleCallback = (value: unknown): value is ErasedAccessRule =>
 	typeof value === 'function'
@@ -170,6 +145,39 @@ const normalizeRule = (
 
 const isItemFamily = (key: string): key is SchemaItemAccessFamily =>
 	key === 'create' || key === 'update' || key === 'upsert' || key === 'delete'
+
+/** Keys that take the short form only: `all`, groups and read keys. */
+const shortFormKeys: ReadonlySet<string> = new Set([
+	'all',
+	'read',
+	'write',
+	'find',
+	'findOne',
+	'findMany',
+	'count',
+	'exists',
+])
+
+/** The operation of each native write method, which Access never takes. */
+const nativeWriteMethods: ReadonlyMap<string, string> = new Map(
+	nativeCommandCatalog
+		.filter(({ group }) => group === 'write')
+		.map(({ method, operation }) => [method, operation]),
+)
+
+/**
+ * Throws for a native write method key: a write rule never depends on
+ * cardinality (ADR-0347), so `createMany` cannot bypass `create`.
+ */
+export const assertNoNativeWriteMethod = (key: string, path: string): void => {
+	const operation = nativeWriteMethods.get(key)
+	if (operation !== undefined) {
+		throw new TypeError(
+			`${path} names a write method: use its operation ${operation}`,
+		)
+	}
+}
+
 const extensionKeyPattern = /^[_A-Za-z][_0-9A-Za-z]*$/u
 
 /** Copies and validates one schema declaration without executing policy code. */
@@ -181,71 +189,34 @@ export const normalizeSchemaAccessDeclarations = (
 		throw new TypeError('access must be a plain object')
 	}
 
-	const operation: [string, NormalizedOperationRule][] = []
-	const item: [string, NormalizedAccessRule][] = []
-	const extensions: [string, ExtensionAccessDeclarations][] = []
-
+	const declarations: [string, SchemaAccessDeclaration][] = []
 	for (const key of Reflect.ownKeys(access)) {
 		if (typeof key !== 'string') {
 			throw new TypeError('access contains an unsupported symbol key')
 		}
 		const path = `access.${key}`
 		const value = access[key]
-		if (key === 'read') {
-			if (isAccessRule(value)) {
-				for (const branch of schemaReadAccessBranches) {
-					operation.push([
-						branch,
-						immutableRecord({
-							path: 'read',
-							rule: value,
-							step: 'operation' as const,
-						}),
-					])
-				}
-				continue
-			}
-			const branches = normalizeAccessRuleMap(
-				value,
-				schemaReadAccessBranches,
-				path,
-			)
-			for (const [branch, rule] of Object.entries(branches)) {
-				operation.push([
-					branch,
-					immutableRecord({
-						path: `read.${branch}`,
-						rule,
+		assertNoNativeWriteMethod(key, path)
+		if (shortFormKeys.has(key)) {
+			declarations.push([
+				key,
+				immutableRecord({
+					operation: immutableRecord({
+						path: key,
+						rule: normalizeAccessRule(value, path),
 						step: 'operation' as const,
 					}),
-				])
-			}
+				}),
+			])
 			continue
 		}
-		if (isItemFamily(key)) {
-			const rule = normalizeRule(value, path, key)
-			operation.push([key, rule.operation])
-			if (rule.item !== undefined) item.push([key, rule.item])
-			continue
-		}
-		if (!extensionKeyPattern.test(key)) {
+		if (!isItemFamily(key) && !extensionKeyPattern.test(key)) {
 			throw new TypeError(`Unknown schema Access rule: ${path}`)
 		}
-		extensions.push([key, normalizeRule(value, path, key)])
+		declarations.push([key, normalizeRule(value, path, key)])
 	}
-
-	const declarations: SchemaAccessDeclarations = {
-		...(operation.length === 0
-			? {}
-			: { operation: immutableRecord(Object.fromEntries(operation)) }),
-		...(item.length === 0
-			? {}
-			: { item: immutableRecord(Object.fromEntries(item)) }),
-		...(extensions.length === 0
-			? {}
-			: { extensions: immutableRecord(Object.fromEntries(extensions)) }),
-	}
-	return Object.keys(declarations).length === 0
+	// Keys are user-controlled: copied as entries, never assigned.
+	return declarations.length === 0
 		? undefined
-		: immutableRecord(declarations)
+		: immutableRecord(Object.fromEntries(declarations))
 }

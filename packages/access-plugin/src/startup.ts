@@ -1,6 +1,13 @@
-import type { CompiledSchemaRegistry } from '@ultimabase/core'
+import {
+	applicationOperationTransportPlanningCapability,
+	type ApplicationExposurePlan,
+	type CompiledSchemaRegistry,
+} from '@ultimabase/core'
 import {
 	contributeApplication,
+	optionalCapability,
+	resolveCommandKey,
+	type CapabilityRequirement,
 	type PluginApplicationContribution,
 } from '@ultimabase/core/plugin'
 
@@ -12,7 +19,7 @@ const describeKey = (key: string): string => {
 		case 'all':
 			return 'every operation and request plugin command'
 		case 'read':
-			return 'read (one, many, count, exists)'
+			return 'read (find, count, exists)'
 		case 'write':
 			return 'write (create, update, upsert, delete and request plugin commands)'
 		default:
@@ -61,43 +68,97 @@ export const describeOpenings = (
 				`allowWithoutRule.${key} opens ${describeKey(key)} on schemas without a rule, ${describeValue(value)}.`,
 		)
 
+/** Reads the exposure plans every installed transport asked for. */
+export const exposurePlanningRequirement: CapabilityRequirement<
+	typeof applicationOperationTransportPlanningCapability,
+	true,
+	'^1.0.0',
+	'materialization'
+> = optionalCapability(
+	applicationOperationTransportPlanningCapability,
+	'^1.0.0',
+	{ phase: 'materialization' },
+)
+
 // Inline options were normalized by the option definitions in `options.ts`.
 const readSchemaAccess = (options: object): unknown =>
 	Object.hasOwn(options, 'access') ? Reflect.get(options, 'access') : undefined
 
-/** Lists the schemas whose declaration has no operation or command rule. */
-export const listSchemasWithoutRule = (
+/** Keeps the operation decision of each developer key, `false` included. */
+const readDeveloperDecisions = (
 	schemas: CompiledSchemaRegistry,
-): readonly string[] =>
-	schemas
-		.values()
-		.filter((schema) => {
-			const access = readSchemaAccess(schema.definition) as
-				SchemaAccessDeclarations | undefined
-			return (
-				access?.operation === undefined &&
-				Object.keys(access?.extensions ?? {}).length === 0
-			)
-		})
-		.map(({ className }) => className)
+	className: string,
+): Readonly<Record<string, unknown>> => {
+	const definition = schemas.get(className)?.definition
+	const access =
+		definition === undefined
+			? undefined
+			: (readSchemaAccess(definition) as SchemaAccessDeclarations | undefined)
+	return Object.fromEntries(
+		Object.entries(access ?? {}).map(([key, { operation }]) => [
+			key,
+			operation,
+		]),
+	)
+}
 
 /**
- * Starts Access: refuses `'development'` openings in production, then logs one
- * `warn` line per opening and one `info` line listing the schemas without any
- * rule (ADR-0317, decisions 2 and 6).
+ * Lists every method a transport serves that Access refuses to every
+ * non-Master caller: no developer rule and no `allowWithoutRule` opening
+ * decides it (ADR-0347 decision 4). Plugin rules only narrow, so they never
+ * open a method. Master-authority commands are Master-only by design.
+ */
+export const listRefusedExposedMethods = (
+	plans: readonly ApplicationExposurePlan[],
+	schemas: CompiledSchemaRegistry,
+	allowWithoutRule: AllowWithoutRulePlan,
+): readonly string[] => {
+	const refused = new Map<string, string>()
+	for (const { className, methods } of plans.flatMap((plan) => plan.schemas)) {
+		const decisions = readDeveloperDecisions(schemas, className)
+		for (const { entry } of methods) {
+			const name = `${className}.${entry.method}`
+			if (
+				refused.has(name) ||
+				(entry.kind === 'plugin' && entry.authority !== 'request') ||
+				resolveCommandKey(decisions, entry) !== undefined ||
+				allowWithoutRule.resolve(entry) !== undefined
+			) {
+				continue
+			}
+			refused.set(
+				name,
+				`${name} is exposed but no Access rule opens it. Add an Access rule, open it in allowWithoutRule, or close it with expose: { ${entry.method}: false }.`,
+			)
+		}
+	}
+	return [...refused.values()]
+}
+
+/**
+ * Starts Access: refuses `'development'` openings in production, logs one
+ * `warn` line per opening (ADR-0317 decision 2), then reports the exposed
+ * methods Access always refuses: one `warn` line each, or a failed start in
+ * production (ADR-0347 decision 4).
  */
 export const contributeAccessStartup = (
 	allowWithoutRule: AllowWithoutRulePlan,
 ): PluginApplicationContribution<void> =>
-	contributeApplication(({ schemas }) => ({
+	contributeApplication(({ capabilities, schemas }) => ({
 		startRuntime: ({ logger }) => {
 			assertProductionOpenings(allowWithoutRule)
 			for (const line of describeOpenings(allowWithoutRule)) logger.warn(line)
-			const bare = listSchemasWithoutRule(schemas)
-			if (bare.length > 0) {
-				logger.info(
-					`schemas without an Access rule, denied unless allowWithoutRule opens them: ${bare.join(', ')}.`,
-				)
+			const plans =
+				capabilities.get(exposurePlanningRequirement)?.readExposurePlans() ?? []
+			const refused = listRefusedExposedMethods(
+				plans,
+				schemas,
+				allowWithoutRule,
+			)
+			if (refused.length === 0) return
+			if (allowWithoutRule.environment === 'production') {
+				throw new TypeError(refused.join('\n'))
 			}
+			for (const line of refused) logger.warn(line)
 		},
 	}))

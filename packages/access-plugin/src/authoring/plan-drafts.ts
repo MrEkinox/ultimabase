@@ -7,6 +7,10 @@ import type {
 	SchemaDefinition,
 } from '@ultimabase/core'
 import {
+	readPluginCommandOperation,
+	resolveCommandKey,
+} from '@ultimabase/core/plugin'
+import {
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
@@ -16,6 +20,7 @@ import {
 	isAccessRule,
 	schemaItemAccessFamilies,
 	type NormalizedAccessRule,
+	type SchemaAccessDeclaration,
 	type SchemaAccessDeclarations,
 	type SchemaItemAccessFamily,
 } from './declarations.js'
@@ -29,13 +34,26 @@ import {
 import {
 	accessOperationKinds,
 	encodeFieldPath,
-	readAccessOperationSlot,
+	readAccessCommandEntry,
 	type AccessRuleSource,
 	type CompiledAccessRule,
 	type FieldAccessPlan,
 	type SchemaAccessPlan,
 	type SchemaMutationAccessPlan,
 } from './plan.js'
+
+/** Keys every schema accepts: `all`, groups, native operations, read methods. */
+const nativeAccessKeys = [
+	'all',
+	'read',
+	'write',
+	'find',
+	'findOne',
+	'findMany',
+	'count',
+	'exists',
+	...schemaItemAccessFamilies,
+]
 
 export type RuleLists<TKey extends string> = Record<TKey, CompiledAccessRule[]>
 
@@ -97,56 +115,90 @@ const push = (
 	}
 }
 
+/**
+ * Places one declaration in the plan (ADR-0347): each native terminal and
+ * each request command takes the rule of its most precise key (method,
+ * operation, group, then `all`), and a permission only its own key. Item
+ * checks come from the deciding operation key, the only one that takes
+ * `{ where, item }`.
+ */
 export const appendSchemaDeclarations = (
 	draft: SchemaDraft,
 	declarations: SchemaAccessDeclarations,
 	source: AccessRuleSource,
 	locate: RuleLocator,
 ): void => {
-	for (const kind of accessOperationKinds) {
-		const rule = declarations.operation?.[readAccessOperationSlot(kind)]
-		if (rule === undefined) continue
-		push(draft.operation[kind], rule.rule, source, locate(rule.path), rule.step)
+	const pushOperation = (
+		list: CompiledAccessRule[],
+		declaration: SchemaAccessDeclaration | undefined,
+	): void => {
+		if (declaration === undefined) return
+		const { operation } = declaration
+		push(list, operation.rule, source, locate(operation.path), operation.step)
 	}
-	for (const family of schemaItemAccessFamilies) {
-		push(
-			draft.item[family],
-			declarations.item?.[family],
-			source,
-			locate(`${family}.item`),
+	for (const kind of accessOperationKinds) {
+		pushOperation(
+			draft.operation[kind],
+			resolveCommandKey(declarations, readAccessCommandEntry(kind)),
 		)
 	}
-	for (const [key, rules] of Object.entries(declarations.extensions ?? {})) {
-		const { operation } = rules
-		const mutation = draft.schemaMutations.get(key)
-		const permission = draft.permissions.get(key)
-		if (mutation !== undefined) {
-			if (mutation.descriptor.mutation.authority !== 'request') {
-				throw new TypeError(
-					`Unknown request schema mutation Access branch: access.${key}`,
-				)
-			}
+	for (const family of schemaItemAccessFamilies) {
+		const declaration = Object.hasOwn(declarations, family)
+			? declarations[family]
+			: undefined
+		push(draft.item[family], declaration?.item, source, locate(`${family}.item`))
+	}
+	const known = new Set(nativeAccessKeys)
+	for (const mutation of draft.schemaMutations.values()) {
+		if (mutation.descriptor.mutation.authority !== 'request') continue
+		const { entry } = mutation
+		known.add(entry.operation)
+		const declaration = resolveCommandKey(declarations, entry)
+		pushOperation(mutation.operation, declaration)
+		if (declaration?.item !== undefined) {
 			push(
-				mutation.operation,
-				operation.rule,
+				mutation.item,
+				declaration.item,
 				source,
-				locate(operation.path),
-				operation.step,
-			)
-			push(mutation.item, rules.item, source, locate(`${key}.item`))
-		} else if (permission !== undefined) {
-			if (rules.item !== undefined) {
-				throw new TypeError(
-					`access.${key} is a permission: use true, false or a predicate`,
-				)
-			}
-			push(permission, operation.rule, source, locate(operation.path))
-		} else {
-			throw new TypeError(
-				`Unknown Access rule: access.${key} is neither a request command nor a permission of ${draft.schema.className}`,
+				locate(`${entry.operation}.item`),
 			)
 		}
 	}
+	for (const [permission, rules] of draft.permissions) {
+		if (!Object.hasOwn(declarations, permission)) continue
+		known.add(permission)
+		const declaration = declarations[permission]
+		if (declaration?.item !== undefined) {
+			throw new TypeError(
+				`access.${permission} is a permission: use true, false or a predicate`,
+			)
+		}
+		pushOperation(rules, declaration)
+	}
+	for (const key of Object.keys(declarations)) {
+		if (!known.has(key)) assertKnownSchemaKey(draft, key)
+	}
+}
+
+/** Explains why `key` names no operation, read method or permission. */
+const assertKnownSchemaKey = (draft: SchemaDraft, key: string): void => {
+	const named = [...draft.schemaMutations.values()].find(
+		({ descriptor, entry }) =>
+			descriptor.command === key || entry.operation === key,
+	)
+	if (named !== undefined && named.descriptor.mutation.authority !== 'request') {
+		throw new TypeError(
+			`Unknown request schema mutation Access branch: access.${key}`,
+		)
+	}
+	if (named !== undefined) {
+		throw new TypeError(
+			`access.${key} names a write method: use its operation ${named.entry.operation}`,
+		)
+	}
+	throw new TypeError(
+		`Unknown Access rule: access.${key} is neither a request command nor a permission of ${draft.schema.className}`,
+	)
 }
 
 const publicReadChannels: Readonly<Record<FieldReadAccessChannel, string>> =
@@ -238,7 +290,19 @@ export const createSchemaDraft = (
 		schemaMutations: new Map(
 			mutations.map((descriptor) => [
 				descriptor.command,
-				{ descriptor, item: [], operation: [] },
+				{
+					descriptor,
+					entry: immutableRecord({
+						group: 'write' as const,
+						method: descriptor.command,
+						operation: readPluginCommandOperation(
+							descriptor.command,
+							descriptor.mutation.target,
+						),
+					}),
+					item: [],
+					operation: [],
+				},
 			]),
 		),
 	}

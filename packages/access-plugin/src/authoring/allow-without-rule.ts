@@ -1,4 +1,5 @@
 import type { PolicyPredicate } from '@ultimabase/core'
+import { resolveCommandKey, type CommandKeyEntry } from '@ultimabase/core/plugin'
 import {
 	readDeploymentEnvironment,
 	type DeploymentEnvironment,
@@ -9,7 +10,11 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { isRuleCallback, type ErasedAccessRule } from './declarations.js'
+import {
+	assertNoNativeWriteMethod,
+	isRuleCallback,
+	type ErasedAccessRule,
+} from './declarations.js'
 
 /**
  * Opens an operation that has no schema rule (ADR-0317): `true` everywhere,
@@ -21,34 +26,50 @@ export type AllowWithoutRuleValue = boolean | 'development' | PolicyPredicate
 
 /**
  * Operations that Access allows when a schema has no rule for them; anything
- * not opened here is denied. An operation key wins over its group, a group
- * over `all`, and a schema rule always wins.
+ * not opened here is denied. Keys follow the operation vocabulary
+ * (ADR-0347): the most precise wins (a read method over its operation, an
+ * operation over its group, a group over `all`), and a schema rule always
+ * wins. Write methods such as `createMany` are not keys: a write opening
+ * never depends on cardinality.
  *
  * @example
  * ```ts
  * accessPlugin({ allowWithoutRule: { all: true, write: false } })
- * accessPlugin({ allowWithoutRule: { read: true, count: false, write: isAuthenticated } })
+ * accessPlugin({ allowWithoutRule: { read: true, findMany: false, write: isAuthenticated } })
  * accessPlugin({ allowWithoutRule: { all: 'development' } })
  * ```
  */
 export interface AllowWithoutRule {
-	/** Every native operation and request plugin command; never a plugin permission. */
+	/** Every native operation and request plugin operation; never a plugin permission. */
 	readonly all?: AllowWithoutRuleValue
-	/** The reads `one`, `many`, `count` and `exists`. */
+	/** The reads `find`, `count` and `exists`. */
 	readonly read?: AllowWithoutRuleValue
-	readonly one?: AllowWithoutRuleValue
-	readonly many?: AllowWithoutRuleValue
+	/** `findOne` and `findMany`. */
+	readonly find?: AllowWithoutRuleValue
+	/** Reading one row. */
+	readonly findOne?: AllowWithoutRuleValue
+	/** Listing rows. */
+	readonly findMany?: AllowWithoutRuleValue
 	readonly count?: AllowWithoutRuleValue
 	readonly exists?: AllowWithoutRuleValue
-	/** `create`, `update`, `upsert`, `delete` and request plugin commands. */
+	/** `create`, `update`, `upsert`, `delete` and request plugin operations. */
 	readonly write?: AllowWithoutRuleValue
 	readonly create?: AllowWithoutRuleValue
 	readonly update?: AllowWithoutRuleValue
 	readonly upsert?: AllowWithoutRuleValue
 	readonly delete?: AllowWithoutRuleValue
+	readonly createOne?: never
+	readonly createMany?: never
+	readonly updateOne?: never
+	readonly updateMany?: never
+	readonly upsertOne?: never
+	readonly upsertMany?: never
+	readonly deleteOne?: never
+	readonly deleteMany?: never
 	/**
-	 * A request plugin command (`softDeleteOne`) or a plugin permission
-	 * (`readDeleted`) by name; a permission is opened only by its own key.
+	 * A request plugin operation (`softDelete`, covering `softDeleteOne` and
+	 * `softDeleteMany`) or a plugin permission (`readDeleted`) by name; a
+	 * permission is opened only by its own key.
 	 */
 	readonly [key: string]: AllowWithoutRuleValue | undefined
 }
@@ -59,9 +80,6 @@ export interface AccessOpening {
 	readonly key: string
 	readonly rule: true | ErasedAccessRule
 }
-
-/** Group an operation falls back to when its own key is absent. */
-export type AccessOpeningGroup = 'read' | 'write'
 
 type ConfiguredValue = boolean | 'development' | ErasedAccessRule
 
@@ -74,13 +92,15 @@ export interface AllowWithoutRulePlan {
 		key: string
 		value: Exclude<ConfiguredValue, false>
 	}>[]
-	/** Configured keys that name plugin commands or permissions. */
+	/** Configured keys that name plugin operations or permissions. */
 	readonly extensionKeys: readonly string[]
 	/**
-	 * Resolves the opening of one operation: its own key, then its group, then
-	 * `all`. Without a group (plugin permissions), only its own key counts.
+	 * Resolves the opening of one method from its most precise configured
+	 * key: method, operation, group, then `all` (Core's vocabulary).
 	 */
-	resolve(key: string, group?: AccessOpeningGroup): AccessOpening | undefined
+	resolve(entry: CommandKeyEntry): AccessOpening | undefined
+	/** Resolves the opening of one plugin permission: only its own key. */
+	resolvePermission(permission: string): AccessOpening | undefined
 }
 
 /** Keys Access defines itself; any other key names a plugin command or permission. */
@@ -90,8 +110,9 @@ export const nativeOpeningKeys: ReadonlySet<string> = new Set([
 	'create',
 	'delete',
 	'exists',
-	'many',
-	'one',
+	'find',
+	'findMany',
+	'findOne',
 	'read',
 	'update',
 	'upsert',
@@ -129,6 +150,7 @@ export const normalizeAllowWithoutRule = (
 				`Access allowWithoutRule contains an invalid key: ${String(key)}`,
 			)
 		}
+		assertNoNativeWriteMethod(key, `Access allowWithoutRule.${key}`)
 		configured.set(key, normalizeValue(Reflect.get(value ?? {}, key), key))
 	}
 	const environment = readDeploymentEnvironment()
@@ -150,6 +172,10 @@ export const normalizeAllowWithoutRule = (
 		)
 	}
 
+	const deciding: Readonly<Record<string, AccessOpening | false>> =
+		Object.fromEntries(
+			[...configured.keys()].map((key) => [key, openings.get(key) ?? false]),
+		)
 	return immutableRecord({
 		environment,
 		extensionKeys: immutableArray(
@@ -162,10 +188,11 @@ export const normalizeAllowWithoutRule = (
 					: [immutableRecord({ key, value: configuredValue })],
 			),
 		),
-		resolve: (key: string, group?: AccessOpeningGroup) => {
-			const chain = group === undefined ? [key] : [key, group, 'all']
-			const decidingKey = chain.find((candidate) => configured.has(candidate))
-			return decidingKey === undefined ? undefined : openings.get(decidingKey)
-		},
+		// A configured key that opens nothing (`false`, or `'development'` in
+		// production) still decides, so a precise `false` closes a broad `true`.
+		resolve: (entry: CommandKeyEntry) =>
+			resolveCommandKey(deciding, entry) || undefined,
+		resolvePermission: (permission: string) =>
+			configured.has(permission) ? openings.get(permission) : undefined,
 	})
 }

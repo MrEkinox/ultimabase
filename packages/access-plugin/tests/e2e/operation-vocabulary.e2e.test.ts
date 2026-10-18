@@ -157,15 +157,27 @@ describe('Access rule vocabulary (ADR-0347)', () => {
 		await expect(can(undefined)).resolves.toBe(false)
 		await expect(can(memberId)).resolves.toBe(true)
 		await expect(
+			as(ultimabase, undefined, () => Note.archiveOne({ id: noteId })),
+		).rejects.toMatchObject(denied)
+		await expect(
+			as(ultimabase, memberId, () => Note.archiveOne({ id: noteId })),
+		).resolves.toStrictEqual({ id: noteId })
+		await expect(
 			as(ultimabase, undefined, () =>
-				Note.updateOne({ id: noteId, data: { title: 'x' } }),
+				Note.updateOne({
+					data: { title: 'x' },
+					where: { id: { eq: noteId } },
+				}),
 			),
 		).rejects.toMatchObject(denied)
 		await expect(
 			as(ultimabase, memberId, () =>
-				Note.updateOne({ id: noteId, data: { title: 'member' } }),
+				Note.updateOne({
+					data: { title: 'member' },
+					where: { id: { eq: noteId } },
+				}),
 			),
-		).resolves.toMatchObject({ title: 'member' })
+		).resolves.toStrictEqual({ id: noteId })
 	})
 
 	it('lets the softDelete operation win over write, for One and Many', async () => {

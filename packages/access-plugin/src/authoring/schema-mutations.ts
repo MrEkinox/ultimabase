@@ -85,26 +85,43 @@ export type SchemaMutationAccessDeclaration<
 	| AccessRule<TSchema, SchemaMutationWhereAccessInput<TSchema, TMutation>>
 	| SchemaMutationAccess<TSchema, TMutation>
 
+/** The request-authority commands present on the statics of `TSource`. */
+type RequestSchemaMutations<TSource> = {
+	readonly [TCommand in keyof PluginSourceSchemaMutations<TSource> as PluginSourceSchemaMutations<TSource>[TCommand] extends PluginSchemaMutationDefinition<
+		string,
+		string,
+		unknown,
+		readonly string[],
+		'request'
+	>
+		? TCommand
+		: never]: PluginSourceSchemaMutations<TSource>[TCommand]
+}
+
+/** The operation a command alias forms: `softDeleteOne` forms `softDelete`. */
+type CommandOperation<TCommand> = TCommand extends `${infer TOperation}One`
+	? TOperation
+	: TCommand extends `${infer TOperation}Many`
+		? TOperation
+		: never
+
 /**
- * Projects only request-authority commands present on this schema. `TSource`
- * is the schema whose statics carry the commands (the registered schema of a
- * `SchemaRef`).
+ * Projects one key per request plugin operation present on this schema
+ * (ADR-0347): `softDelete` rules `softDeleteOne` and `softDeleteMany`, so a
+ * write rule never depends on cardinality. `TSource` is the schema whose
+ * statics carry the commands (the registered schema of a `SchemaRef`).
  */
 export type SchemaMutationAccessMap<
 	TSchema extends SchemaDefinition,
 	TSource = TSchema,
 > = {
-	readonly [
-		TCommand in keyof PluginSourceSchemaMutations<TSource> as PluginSourceSchemaMutations<TSource>[TCommand] extends PluginSchemaMutationDefinition<
-			string,
-			string,
-			unknown,
-			readonly string[],
-			'request'
-		>
-			? TCommand
-			: never
-	]?: PluginSourceSchemaMutations<TSource>[TCommand] extends infer TMutation extends
+	readonly [TOperation in CommandOperation<
+		keyof RequestSchemaMutations<TSource>
+	>]?: RequestSchemaMutations<TSource>[(
+		| `${TOperation}Many`
+		| `${TOperation}One`
+	) &
+		keyof RequestSchemaMutations<TSource>] extends infer TMutation extends
 		PluginSchemaMutationDefinition
 		? SchemaMutationAccessDeclaration<TSchema, TMutation>
 		: never

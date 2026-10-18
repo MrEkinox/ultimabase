@@ -38,7 +38,6 @@ export type {
 	SchemaDeleteAccess,
 	SchemaItemAccessInput,
 	SchemaPermissionAccessMap,
-	SchemaReadAccess,
 	SchemaUpdateAccess,
 	SchemaUpsertAccess,
 	SchemaWhereAccessInput,

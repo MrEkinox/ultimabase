@@ -175,23 +175,35 @@ const appendDeveloperDeclarations = (drafts: readonly SchemaDraft[]): void => {
 	}
 }
 
-/** Rejects `allowWithoutRule` keys that name no request command or permission. */
+/**
+ * Rejects `allowWithoutRule` keys that name no request plugin operation or
+ * permission; a plugin method such as `archiveOne` names its operation.
+ */
 const assertOpeningKeys = (
 	allowWithoutRule: AllowWithoutRulePlan,
 	drafts: readonly SchemaDraft[],
 ): void => {
+	const requestCommands = drafts.flatMap((draft) =>
+		[...draft.schemaMutations.values()].filter(
+			({ descriptor }) => descriptor.mutation.authority === 'request',
+		),
+	)
 	for (const key of allowWithoutRule.extensionKeys) {
-		const known = drafts.some(
-			(draft) =>
-				draft.permissions.has(key) ||
-				draft.schemaMutations.get(key)?.descriptor.mutation.authority ===
-					'request',
-		)
-		if (!known) {
+		if (
+			drafts.some((draft) => draft.permissions.has(key)) ||
+			requestCommands.some(({ entry }) => entry.operation === key)
+		) {
+			continue
+		}
+		const method = requestCommands.find(({ entry }) => entry.method === key)
+		if (method !== undefined) {
 			throw new TypeError(
-				`Unknown Access allowWithoutRule key: ${key} is neither an operation, a request plugin command nor a plugin permission`,
+				`Access allowWithoutRule.${key} names a write method: use its operation ${method.entry.operation}`,
 			)
 		}
+		throw new TypeError(
+			`Unknown Access allowWithoutRule key: ${key} is neither an operation, a request plugin command nor a plugin permission`,
+		)
 	}
 }
 

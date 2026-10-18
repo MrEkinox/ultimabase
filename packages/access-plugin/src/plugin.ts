@@ -38,7 +38,10 @@ import { createDenialLog } from './runtime/denial-log.js'
 import { AccessRuntime } from './runtime/dispatcher.js'
 import { accessDiagnosticsObserverCapability } from './runtime/diagnostics.js'
 import { readPolicyOperation } from './runtime/rule-evaluation.js'
-import { contributeAccessStartup } from './startup.js'
+import {
+	contributeAccessStartup,
+	exposurePlanningRequirement,
+} from './startup.js'
 
 const optionalAccessContributions = optionalCapability(
 	accessContributionsCapability,
@@ -243,6 +246,7 @@ export const accessPlugin = (
 			runtimeProvider,
 			schemaMutationSurfaceRequirement,
 			accessDeclarations,
+			exposurePlanningRequirement,
 			contributeAccessStartup(allowWithoutRule),
 		],
 	})

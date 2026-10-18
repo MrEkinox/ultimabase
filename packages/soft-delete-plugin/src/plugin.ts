@@ -34,13 +34,13 @@ export type SoftDeleteFields = Readonly<{
 
 /** Commands `softDelete` adds, in both modes. */
 export type SoftDeleteCommands = Readonly<{
-	/** Hides one row (request authority: Access rule `softDeleteOne`). */
+	/** Hides one row (request authority: Access rule `softDelete`). */
 	softDeleteOne: CommandDefinition<'request', 'update', 'one'>
-	/** Hides every visible row matching `where` (Access rule `softDeleteMany`). */
+	/** Hides every visible row matching `where` (Access rule `softDelete`). */
 	softDeleteMany: CommandDefinition<'request', 'update', 'many'>
-	/** Brings one hidden row back (Access rule `restoreOne`, closed by default). */
+	/** Brings one hidden row back (Access rule `restore`, closed by default). */
 	restoreOne: CommandDefinition<'request', 'update', 'one'>
-	/** Brings back every hidden row matching `where` (Access rule `restoreMany`). */
+	/** Brings back every hidden row matching `where` (Access rule `restore`). */
 	restoreMany: CommandDefinition<'request', 'update', 'many'>
 	/** Deletes one hidden row for good (Master only). */
 	purgeOne: CommandDefinition<'master', 'delete', 'one'>
