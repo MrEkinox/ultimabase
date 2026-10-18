@@ -96,10 +96,8 @@ test('lets Access rule the request commands by name', () => {
 	}).with({
 		access: {
 			read: true,
-			softDeleteOne: true,
-			softDeleteMany: true,
-			restoreOne: false,
-			restoreMany: false,
+			softDelete: true,
+			restore: false,
 		},
 	})
 	Guarded.Schema.define({

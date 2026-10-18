@@ -85,7 +85,7 @@ describe('Access denial diagnostics (ADR-0317)', () => {
 				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(denials(logger, 'info')).toEqual([
-				'[@ultimabase/access-plugin] denied many on DeniedBare at the operation step (no rule for many, and allowWithoutRule does not open it).',
+				'[@ultimabase/access-plugin] denied many on DeniedBare at the operation step (no rule for findMany, and allowWithoutRule does not open it).',
 				'[@ultimabase/access-plugin] denied create on DeniedRuled at the operation step (DeniedRuled.access.create).',
 				'[@ultimabase/access-plugin] denied delete on DeniedRuled at the row filter step (DeniedRuled.access.delete.where).',
 				'[@ultimabase/access-plugin] denied update on DeniedRuled at the item step (DeniedRuled.access.update.item).',
@@ -111,7 +111,7 @@ describe('Access denial diagnostics (ADR-0317)', () => {
 			expect(JSON.stringify(error.toJSON())).not.toContain('allowWithoutRule')
 			expect(denials(logger, 'info')).toEqual([])
 			expect(denials(logger, 'debug')).toEqual([
-				'[@ultimabase/access-plugin] denied many on DeniedBare at the operation step (no rule for many, and allowWithoutRule does not open it).',
+				'[@ultimabase/access-plugin] denied many on DeniedBare at the operation step (no rule for findMany, and allowWithoutRule does not open it).',
 			])
 		} finally {
 			await ultimabase.dispose()
@@ -122,7 +122,7 @@ describe('Access denial diagnostics (ADR-0317)', () => {
 		const { logger, ultimabase } = await start()
 		try {
 			await expect(
-				ultimabase.can({ operation: 'many', schema: Bare }),
+				ultimabase.can({ operation: 'findMany', schema: Bare }),
 			).resolves.toBe(false)
 			expect(denials(logger, 'info')).toEqual([])
 		} finally {

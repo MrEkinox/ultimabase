@@ -79,12 +79,10 @@ export const createOfficialAccessConformanceFixture = (
 				where: true,
 				item: ({ item }) => item.title !== 'denied-item',
 			},
-			read: {
-				count: false,
-				exists: () => ({ visible: { eq: true } }),
-				many: () => ({ visible: { eq: true } }),
-				one: () => ({ visible: { eq: true } }),
-			},
+			count: false,
+			exists: () => ({ visible: { eq: true } }),
+			findMany: () => ({ visible: { eq: true } }),
+			findOne: () => ({ visible: { eq: true } }),
 			update: {
 				where: true,
 				item: ({ item, originalItem }) =>

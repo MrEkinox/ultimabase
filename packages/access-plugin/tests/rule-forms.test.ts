@@ -28,7 +28,7 @@ const Post = App.Schema.define({
 const Counted = App.Schema.define({
 	className: 'RuleFormCounted',
 	fields: (field) => ({ title: field.string() }),
-}).with({ access: { read: { many: true, exists: false } } })
+}).with({ access: { findMany: true, exists: false } })
 
 const run = async <TResult>(
 	schema: SchemaDefinition,
@@ -77,7 +77,7 @@ describe('Access rule forms at runtime (ADR-0317)', () => {
 			Counted,
 			async (ultimabase) =>
 				Promise.all(
-					(['one', 'many', 'count', 'exists'] as const).map((operation) =>
+					(['findOne', 'findMany', 'count', 'exists'] as const).map((operation) =>
 						ultimabase.can({ operation, schema: Counted }),
 					),
 				),

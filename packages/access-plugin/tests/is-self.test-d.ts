@@ -33,7 +33,7 @@ test('fits every row rule position, not a decision', () => {
 	App.Schema.define({
 		className: 'IsSelfReadForms',
 		fields: (field) => ({ name: field.string() }),
-	}).with({ access: { read: { one: isSelf, many: isSelf, count: false } } })
+	}).with({ access: { findOne: isSelf, findMany: isSelf, count: false } })
 	App.Schema.define({
 		className: 'IsSelfCreate',
 		fields: (field) => ({ name: field.string() }),

@@ -57,7 +57,7 @@ const ObservedDocument = AccessApplication.Schema.define({
 const CountOnlyDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginCountOnlyDocument',
 	fields: (field) => ({ title: field.string() }),
-}).with({ access: { read: { count: true } } })
+}).with({ access: { count: true } })
 
 const MasterBypassDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginMasterBypassDocument',
@@ -274,10 +274,10 @@ describe('accessPlugin', () => {
 			contributions: [
 				provideAccessContributions('monotonic-read-policies', () => [
 					schemaAccess(CountOnlyDocument, {
-						read: { count: false },
+						count: false,
 					}),
 					schemaAccess(PlainDocument, {
-						read: { many: true },
+						findMany: true,
 					}),
 				]),
 			],

@@ -169,7 +169,6 @@ export const accessPluginPublicApi = {
 		'SchemaMutationOperationAccessInput',
 		'SchemaMutationWhereAccessInput',
 		'SchemaPermissionAccessMap',
-		'SchemaReadAccess',
 		'SchemaUpdateAccess',
 		'SchemaUpsertAccess',
 		'SchemaWhereAccessInput',
@@ -421,6 +420,8 @@ export const removedAccessPluginPublicApiNames = [
 	'SchemaReadAccessDefaults',
 	'SchemaReadAllowAccess',
 	'SchemaReadAllowAccessDeclaration',
+	// Removed by ADR-0347: read methods are flat keys (findOne, findMany).
+	'SchemaReadAccess',
 	'allMutations',
 	'allOperations',
 	'allowAll',

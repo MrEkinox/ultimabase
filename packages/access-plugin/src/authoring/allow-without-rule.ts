@@ -58,13 +58,21 @@ export interface AllowWithoutRule {
 	readonly update?: AllowWithoutRuleValue
 	readonly upsert?: AllowWithoutRuleValue
 	readonly delete?: AllowWithoutRuleValue
+	/** Not a key: a write never depends on cardinality, use `create`. */
 	readonly createOne?: never
+	/** Not a key: a write never depends on cardinality, use `create`. */
 	readonly createMany?: never
+	/** Not a key: a write never depends on cardinality, use `update`. */
 	readonly updateOne?: never
+	/** Not a key: a write never depends on cardinality, use `update`. */
 	readonly updateMany?: never
+	/** Not a key: a write never depends on cardinality, use `upsert`. */
 	readonly upsertOne?: never
+	/** Not a key: a write never depends on cardinality, use `upsert`. */
 	readonly upsertMany?: never
+	/** Not a key: a write never depends on cardinality, use `delete`. */
 	readonly deleteOne?: never
+	/** Not a key: a write never depends on cardinality, use `delete`. */
 	readonly deleteMany?: never
 	/**
 	 * A request plugin operation (`softDelete`, covering `softDeleteOne` and

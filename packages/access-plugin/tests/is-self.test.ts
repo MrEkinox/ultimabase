@@ -67,7 +67,7 @@ describe('isSelf (ADR-0341)', () => {
 		})
 		for (const principal of [undefined, Robot.pointer(memberId)]) {
 			await expect(
-				ultimabase.can({ operation: 'many', principal, schema: Member }),
+				ultimabase.can({ operation: 'findMany', principal, schema: Member }),
 			).resolves.toBe(false)
 		}
 	})

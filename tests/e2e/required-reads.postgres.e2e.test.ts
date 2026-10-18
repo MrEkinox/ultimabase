@@ -28,7 +28,10 @@ const OneOnly = App.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 }).with({
 	access: {
-		read: { count: false, exists: false, many: false, one: true },
+		count: false,
+		exists: false,
+		findMany: false,
+		findOne: true,
 	},
 })
 

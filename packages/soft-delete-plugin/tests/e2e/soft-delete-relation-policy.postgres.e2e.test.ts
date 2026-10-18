@@ -35,8 +35,7 @@ const Note = App.Schema.define({
 }).with({
 	access: {
 		read: ({ where }) => where.is('folder', { open: { eq: true } }),
-		softDeleteMany: ({ where }) => where.is('folder', { open: { eq: true } }),
-		softDeleteOne: ({ where }) => where.is('folder', { open: { eq: true } }),
+		softDelete: ({ where }) => where.is('folder', { open: { eq: true } }),
 	},
 })
 

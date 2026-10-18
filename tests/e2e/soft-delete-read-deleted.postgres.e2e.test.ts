@@ -46,7 +46,7 @@ const Note = SchemaApplication.Schema.define({
 		create: true,
 		delete: true,
 		readDeleted: isAuditing,
-		restoreOne: isAuditing,
+		restore: isAuditing,
 	},
 })
 const Ref = SchemaApplication.Schema.define({

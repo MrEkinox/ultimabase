@@ -50,11 +50,11 @@ const Post = App.Schema.define({
 		read: true,
 		create: true,
 		delete: true,
-		archiveOne: true,
-		unarchiveOne: true,
-		// Many-row commands keep the one-row rules: a filter narrows the
-		// targeted rows, an item rule refuses one row and rolls all back.
-		archiveMany: {
+		unarchive: true,
+		// One operation key rules archiveOne and archiveMany (ADR-0347): a
+		// filter narrows the targeted rows, an item rule refuses one row and
+		// rolls all back.
+		archive: {
 			where: () => ({ owner: { eq: 'ada' } }),
 			item: ({ originalItem }) => originalItem.title !== 'locked',
 		},

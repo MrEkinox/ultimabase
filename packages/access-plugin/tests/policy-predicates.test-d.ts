@@ -54,7 +54,8 @@ const Document = App.Schema.define({
 }).with({
 	access: {
 		create: isAuthenticated,
-		read: { many: isAuthenticated, one: isOwner },
+		findMany: isAuthenticated,
+		findOne: isOwner,
 		update: { where: anyOf(isAuthenticated, isOwner), item: isOwner },
 		delete: allOf(isAuthenticated, not(isOwner)),
 	},

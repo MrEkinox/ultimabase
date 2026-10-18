@@ -200,7 +200,7 @@ const AccessDocument = AccessMutationApplication.Schema.define({
 	}),
 }).with({
 	access: {
-		archiveOne: {
+		archive: {
 			// One rule before loading (ADR-0317): no row, or a row filter.
 			where: (input) => {
 				operationInputs.push(input)
@@ -240,7 +240,7 @@ const ProviderDocument = AccessMutationApplication.Schema.define({
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 }).with({
 	access: {
-		archiveOne: ({ input }) => input.reason !== 'developer-deny',
+		archive: ({ input }) => input.reason !== 'developer-deny',
 	},
 })
 
@@ -485,7 +485,7 @@ describe('schema mutation Access', () => {
 		onTestFinished(() => denied.dispose())
 		const allowed = new (UltimaBase.use(
 			// Mutation results obey the read rules (ADR-0306).
-			accessPlugin({ allowWithoutRule: { read: true, archiveOne: true } }),
+			accessPlugin({ allowWithoutRule: { read: true, archive: true } }),
 			allowedOwner.plugin,
 			databasePlugin(allowedAdapter),
 		))({
@@ -541,7 +541,7 @@ describe('schema mutation Access', () => {
 			contributions: [
 				provideAccessContributions('archive-policy', () =>
 					schemaAccess(ProviderDocument, {
-						archiveOne: providerRule,
+						archive: providerRule,
 					}),
 				),
 			],
@@ -556,7 +556,7 @@ describe('schema mutation Access', () => {
 		const ultimabase = new (UltimaBase.use(
 			provider,
 			// Mutation results obey the read rules (ADR-0306).
-			accessPlugin({ allowWithoutRule: { read: true, archiveOne: true } }),
+			accessPlugin({ allowWithoutRule: { read: true, archive: true } }),
 			owner.plugin,
 			databasePlugin(adapter),
 		))({

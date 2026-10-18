@@ -103,7 +103,7 @@ const CanExplicit = App.Schema.define({
 	className: 'CanExplicit',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: { mode: 'command' },
-}).with({ access: { softDeleteOne: isAuthenticated, restoreOne: false } })
+}).with({ access: { softDelete: isAuthenticated, restore: false } })
 
 const masterKey = 'policy-can-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>
@@ -197,7 +197,7 @@ describe('ultimabase.can() (ADR-0305)', () => {
 	it('answers operations without an item from guards alone', async () => {
 		await expect(can(undefined, 'create')).resolves.toBe(false)
 		await expect(can(ada, 'create')).resolves.toBe(true)
-		await expect(can(undefined, 'read')).resolves.toBe(true)
+		await expect(can(undefined, 'findOne')).resolves.toBe(true)
 		await expect(can(undefined, 'delete')).resolves.toBe(false)
 		// A filter counts as permitted for its rows.
 		await expect(can(grace, 'update')).resolves.toBe(true)
@@ -212,28 +212,28 @@ describe('ultimabase.can() (ADR-0305)', () => {
 
 	it('checks persisted rows against every policy, hidden rows included', async () => {
 		// ACL: Ada owns the row; Grace has no right on it.
-		await expect(can(ada, 'read', { id: adaTodo })).resolves.toBe(true)
-		await expect(can(grace, 'read', { id: adaTodo })).resolves.toBe(false)
-		await expect(can(ada, 'one', { id: adaTodo })).resolves.toBe(true)
+		await expect(can(ada, 'findOne', { id: adaTodo })).resolves.toBe(true)
+		await expect(can(grace, 'findOne', { id: adaTodo })).resolves.toBe(false)
+		await expect(can(ada, 'find', { id: adaTodo })).resolves.toBe(true)
 		// Soft Delete hides deleted rows from every caller.
-		await expect(can(ada, 'read', { id: deletedTodo })).resolves.toBe(false)
+		await expect(can(ada, 'findOne', { id: deletedTodo })).resolves.toBe(false)
 		// Access item checks run with the row as originalItem.
 		await expect(can(ada, 'update', { id: adaTodo })).resolves.toBe(true)
 		await expect(can(grace, 'update', { id: adaTodo })).resolves.toBe(false)
 		await expect(can(ada, 'delete', { id: adaTodo })).resolves.toBe(true)
 		await expect(
-			can(ada, 'read', { id: '0199c2d0-0000-7000-8000-0000000000ee' }),
+			can(ada, 'findOne', { id: '0199c2d0-0000-7000-8000-0000000000ee' }),
 		).resolves.toBe(false)
 	})
 
 	it('evaluates plugin mutation keys', async () => {
 		await expect(
-			can(undefined, 'softDeleteOne', undefined, CanExplicit),
+			can(undefined, 'softDelete', undefined, CanExplicit),
 		).resolves.toBe(false)
 		await expect(
-			can(ada, 'softDeleteOne', { id: explicitRow }, CanExplicit),
+			can(ada, 'softDelete', { id: explicitRow }, CanExplicit),
 		).resolves.toBe(true)
-		await expect(can(ada, 'restoreOne', undefined, CanExplicit)).resolves.toBe(
+		await expect(can(ada, 'restore', undefined, CanExplicit)).resolves.toBe(
 			false,
 		)
 	})

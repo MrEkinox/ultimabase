@@ -22,9 +22,8 @@ const Note = App.Schema.define({
 }).with({
 	access: {
 		read: true,
-		restoreMany: true,
-		softDeleteMany: true,
-		softDeleteOne: true,
+		restore: true,
+		softDelete: true,
 	},
 })
 

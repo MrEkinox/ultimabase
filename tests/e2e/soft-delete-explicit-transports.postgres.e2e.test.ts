@@ -49,7 +49,7 @@ const Explicit = SchemaApplication.Schema.define({
 		create: true,
 		delete: true,
 		read: true,
-		softDeleteOne: true,
+		softDelete: true,
 		update: false,
 	},
 	hooks: {
