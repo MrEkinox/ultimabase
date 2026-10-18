@@ -67,10 +67,20 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    Fait : `validate:full` vert (808 fichiers, 4479 tests), `website:test` 59/59, TS 7 ok ; fusionné dans `main`
    local (a399235f, non poussé) puis ici (c10a1856). Attention : le projet `postgres-e2e` teste les `dist`
    construits ; sans rebuild, utiliser `coverage-postgres-e2e` pour tester les sources.
-   Tranche, passe A (Core et Plugin Kit) en cours : agent `implementer`, worktree `../ultimadatabase-slice`,
-   branche `feat/vocabulary-exposure-slice` (brief : catalogue, nommage, `expose`, plan, options communes).
-   Prochaine action vérifiable : relire la passe A, puis passe B (REST, `apiServer()`, `examples/rest`, doc), puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
-   exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
+   Tranche, passe A (Core et Plugin Kit) terminée : worktree `../ultimadatabase-slice`, branche
+   `feat/vocabulary-exposure-slice` (11 commits depuis 93ddd615, sans cast). Catalogue
+   (`packages/core/src/plugins/command-catalog.ts`), règle de nommage (Core et `command()`), `expose` possédé par
+   Core, `planExposure`, options communes dans Plugin Kit (`parseTransportExposureOptions`, `readExposurePlan`,
+   `assertPublicWrites`). Effets visibles : `ultimabaseAuthWriteEmail` devient `ultimabaseAuthWriteEmailOne` ;
+   les noms de commandes de test renommés changent les routes et champs GraphQL générés ; nouveaux types de plan
+   à la racine de Core (à côté de `ApplicationOperationTransportPlanner`). `adr/vocabulary-exposure` fusionnée
+   dans la tranche : `yarn validate:package acl-permissions-plugin` vert (131/131). Pendant la passe A,
+   l'avertissement « no transport » apparaît même avec REST (REST ne lit pas encore le plan).
+   Passe B en cours (agent `implementer`, même worktree) : REST lit le plan, `apiServer()` reçoit `hide`,
+   `pagination`, `publicWrites`, `examples/rest` passe à `expose`, doc REST/api-server/Build a Plugin, `gen.mjs`.
+   Prochaine action vérifiable : relire la passe B, puis déclarations compilées, audit DX contre une worktree
+   construite de `main` (a399235f), banc forme D TS 6 et 7 (50 et 200 schémas), et montrer à l'utilisateur le
+   diff de l'exemple, le banc et l'audit avant GraphQL, Access, Hooks et la migration des appelants.
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
