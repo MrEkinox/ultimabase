@@ -94,9 +94,21 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
      200 = 1,79 → 1,83 s ; TS 6 50 = 1,88 → 1,90 s, 200 = 5,55 → 5,56 s. Sous les seuils de l'ADR-0297.
      Contrôles sur la tranche (14b6eaaa) : `yarn install --immutable` exit 0 ; `validate:full` exit 0 (817 fichiers,
      4568 tests, aucune erreur de type) ; `typecheck:typescript-7` exit 0 (44 projets ok) ; `website:test` 59/59.
-     Prochaine action vérifiable : tranche présentée à l'utilisateur ; attendre sa décision (point
-     `SchemaRulesSource`, dépendance api-server → plugin-kit) avant GraphQL, Access, Hooks et la migration des
-     appelants.
+     Tranche présentée le 2026-10-18. Réponses de l'utilisateur : dépendance api-server → plugin-kit
+     acceptée ; règle `One`/`Many` gardée pour l'instant (crainte : `archiveOne` seul fait croire à un
+     `archiveMany`) ; GraphQL doit fonctionner sans REST, donc la tranche n'entre pas dans `main` avant que
+     GraphQL lise le plan (aujourd'hui `expose` n'a aucun effet sur GraphQL et l'avertissement « no
+     transport » apparaît avec GraphQL seul) ; bug « Duplicate audit key » proposé en session séparée.
+     Option B (`SchemaRulesSource`) essayée : cause = le bundler de déclarations découpe par module ;
+     `exposure-rules.ts` importe `source-schema-templates.ts`, qui passe dans le chunk partagé, et le survol
+     y développe `RegisteredSchema<…>`. Correctif qui marche sur la branche d'essai
+     `exp/schema-rules-source-hover` (05ec8518, depuis 14b6eaaa) : `SchemaRulesSource` dans son propre module
+     - copie privée `ExposureSchema` dans `exposure-rules.ts`. Audit `core` : l'écart disparaît, mais le
+       survol du nouvel `ExposureCommandKey` affiche `ExposureSchema<TSchema>` (nom privé) au lieu de
+       `SchemaRulesSource<TSchema>`. `typecheck` et `typecheck:tests` de core verts. Attention : les `dist`
+       de la tranche sont construits depuis cette branche d'essai ; relancer `yarn build` sur la tranche.
+       Prochaine action vérifiable : décision de l'utilisateur entre B (fusionner l'essai) et A (une ligne
+       dans l'ADR-0347), puis l'étape GraphQL (agent `implementer`, tests d'abord).
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
