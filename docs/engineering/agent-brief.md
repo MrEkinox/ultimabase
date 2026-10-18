@@ -47,11 +47,14 @@ audit; checks run with their result lines and those not run; anything left for a
 
 ## Choosing the model and effort
 
-The coordinator recommends a model and effort level to the user at the start of each task, and sets the agent's model:
+Project agents in `.claude/agents/` fix the model, effort and tools, so the coordinator picks the agent type instead
+of restating them:
 
-| Work                                                                  | Model                   | Effort |
-| --------------------------------------------------------------------- | ----------------------- | ------ |
-| Read-only investigation, inventories, audits                          | Sonnet                  | medium |
-| Mechanical conversions, documentation updates, tests for a given list | Sonnet                  | medium |
-| ADR design, Core runtime or type changes, security fixes, reviews     | Opus                    | high   |
-| Trivial edits                                                         | done directly, no agent | low    |
+| Agent type     | Model  | Effort | Work                                                                           |
+| -------------- | ------ | ------ | ------------------------------------------------------------------------------ |
+| `investigator` | Sonnet | medium | Read-only investigation, inventories, audits (no edit tools)                   |
+| `mechanic`     | Sonnet | medium | Mechanical conversions, documentation updates, tests for a given list          |
+| `implementer`  | Opus   | high   | Accepted ADRs, Core runtime or type changes, security fixes, non-trivial fixes |
+
+Trivial edits are made directly, without an agent. The coordinator also recommends a model and effort for its own
+session at the start of each task: Opus with high effort for ADR design and reviews, Sonnet for mechanical batches.
