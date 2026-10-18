@@ -188,7 +188,7 @@ own `.with` key (which wins over `expose` at any level), its `default` and its
 which refuses to start when the transport exposes writes without a protected
 policy or the `publicWrites` opt-in. Once a transport reads a plan, Core no
 longer warns that a schema declares `expose` without a transport. The official
-REST plugin reads its routes this way.
+REST and GraphQL plugins read what they serve this way.
 
 ### Decode a Core-shaped filter without rebuilding its traversal
 
@@ -379,11 +379,11 @@ owner may describe only the optional payload's closed input types, not choose
 its own root name, target ID, result type, resolver, or authority. A
 Master-only mutation never enters the public SDL. The official
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
-mutations: REST exposes a one-row request command when the application opens
-its operation with `expose: { softDelete: true }` in `.with` (or only REST with
-`rest: { softDelete: true }`), and GraphQL when it names it with
-`.with({ graphql: { softDeleteOne: true } })`, without any binding: the
-GraphQL field then takes only the row `id`. GraphQL does not read `expose` yet. The `archivePlugin` of
+mutations: REST and GraphQL expose a one-row request command when the
+application opens its operation with `expose: { softDelete: true }` in `.with`
+(or one transport alone with `rest: { softDelete: true }` or
+`graphql: { softDeleteOne: true }`), without any binding: the GraphQL field
+then takes only the row `id`. The `archivePlugin` of
 [Schema Contributions](/docs/1.0.0/plugins/build-a-plugin/schema-contributions#start-with-defineplugin)
 works the same way once `Post` names `archiveOne` for both transports:
 
@@ -410,9 +410,9 @@ because its target is one: archiveOne`), if the operation is a native operation 
 commands of one owner share a name. Applications open the operation with one
 key, `expose: { archive: true }`, or a single method with `archiveOne`. Generated transport names follow the
 method name: REST publishes `archiveOne` at `POST /api/classes/{Schema}/{id}/archive-one`
-and GraphQL as the field `archiveOne{Schema}`. REST serves only the `One`
-method of a request command, so a `Many` key is a type error in `expose` and
-`rest`.
+and GraphQL as the field `archiveOne{Schema}`. REST and GraphQL serve only the
+`One` method of a request command, so a `Many` key is a type error in
+`expose`, `rest` and `graphql`.
 
 A schema mutation declared with `target: 'many'` takes `{ where }` instead of `{
 id }`. In one transaction, Core finds the rows the caller may target, then runs

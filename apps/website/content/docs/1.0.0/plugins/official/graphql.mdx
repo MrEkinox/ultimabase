@@ -30,6 +30,8 @@ sources:
   - examples/graphql/tests/production.test.ts
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/options.ts
+  - packages/graphql-plugin/src/exposure.ts
+  - packages/plugin-kit/src/transport-exposure.ts
   - packages/graphql-plugin/src/rules.ts
   - packages/graphql-plugin/src/operation-json-types.ts
   - packages/graphql-plugin/src/hints.ts
@@ -124,7 +126,7 @@ operation:
 
 | Plugin option  | Purpose                                                                       |
 | -------------- | ----------------------------------------------------------------------------- |
-| `default`      | `true`, `false` or per-method defaults inherited by every schema.             |
+| `default`      | `true`, `false` or keys (`write: false`) for the methods `.with` leaves open. |
 | `hide`         | Public operations this instance does not expose.                              |
 | `limits`       | Document and execution budgets: size, tokens, depth, aliases, root fields.    |
 | `pagination`   | `{ defaultTake, maxTake }` of connections, 100 and 1,000 by default.          |
@@ -132,16 +134,18 @@ operation:
 | `schemas`      | Completed custom `GraphQLSchema` values composed after the generated surface. |
 | `sdl`          | A file the schema's SDL is written to at startup.                             |
 
-`apiServer()` also takes `hide`, `pagination` and `publicWrites` at the top
-level, written once for every transport it installs, REST and GraphQL. The same
-option inside `rest` or `graphql` replaces the shared value for that transport,
-whole, without merging:
+`default`, `hide`, `pagination` and `publicWrites` have the same shape on every
+transport (Plugin Kit's `TransportExposureOptions`). `apiServer()` also takes
+them at the top level, written once for every transport it installs, REST and
+GraphQL. The same option inside `rest` or `graphql` replaces the shared value
+for that transport, whole, without merging:
 `apiServer({ pagination: { defaultTake: 20, maxTake: 100 }, rest: true, graphql: { pagination: { defaultTake: 20, maxTake: 50 } } })`
-pages REST by up to 100 rows and GraphQL by up to 50. `default` stays in each
-transport's own section.
+pages REST by up to 100 rows and GraphQL by up to 50, and
+`apiServer({ default: { count: true }, rest: true, graphql: { default: false } })`
+adds `count` to every REST schema while GraphQL serves only what `.with` opens.
 
-The schema's `graphql` rule selects its generated fields; it is typed by the
-installed plugin, with no generation step, and goes in `.with({ graphql })`,
+The schema's `expose` and `graphql` rules select its generated fields; they are
+typed by the installed plugins, with no generation step, and go in `.with`,
 never in `define` (see
 [Where each declaration goes](/docs/1.0.0/core/data-modeling/schemas#where-each-declaration-goes)). Schema declaration does not register it;
 `schemas: [...]` does:
@@ -194,17 +198,41 @@ tables below use `Post` as the GraphQL type name. GraphQL does not pluralize
 or case-fold the schema's `className`; a custom `typeName` changes these field
 suffixes.
 
-The rule keys are the schema method names, the same as REST and Access rules:
-`findOne` (`get<Type>` and `findOne<Type>`), `findMany`, `count`,
-`exists`, `createOne`, `updateOne`, `deleteOne`, `upsertOne`, `createMany`,
-`updateMany`, `deleteMany`, `upsertMany`, a plugin command such as
-`softDeleteOne`, and `typeName`, which renames the generated type.
-`.with({ graphql: true })` enables **every** generated root and command, including count,
-upsert, and bulk. An object enables or disables each method it names; omitted
-methods inherit `graphqlPlugin({ default })`, then the built-in defaults. A
-plugin command is exposed only when a rule names it, or when the rule or the
-default is `true`. `Post` keeps the defaults and adds `countPost` and
-`totalCount`:
+The schema's `expose` rule, in `.with`, selects its methods on every transport
+that reads Core's exposure plan, REST and GraphQL alike, so one rule serves
+both. It applies when GraphQL is the only transport too:
+`.with({ expose: { write: false } })` removes the schema's mutations and
+`.with({ expose: false })` its root fields, and Core no longer warns that the
+schema declares `expose` without a transport.
+
+`expose` accepts `true`, `false`, or an object of keys at four levels, with
+boolean values: `all`; the groups `read` (`find`, `count`, `exists`) and
+`write` (every other operation, plugin commands included); the operations
+`find`, `count`, `exists`, `create`, `update`, `upsert`, `delete` and each
+plugin operation, such as `softDelete`; and the schema method names, the same
+as REST and Access rules: `findOne` (`get<Type>` and `findOne<Type>`),
+`findMany`, `count`, `exists`, `createOne`, `updateOne`, `deleteOne`,
+`upsertOne`, `createMany`, `updateMany`, `deleteMany`, `upsertMany`, and the
+`One` method of a plugin command, such as `softDeleteOne`. Within one rule the
+most precise key wins: `{ write: false, create: true }` opens `createOne` and
+`createMany` and closes the other writes.
+
+The `graphql` key takes the same forms, plus `typeName`, which renames the
+generated type, and holds GraphQL's exceptions. For each method, GraphQL asks
+in order: the `graphql` key, when it names the method at any level; then
+`expose`; then `graphqlPlugin({ default })`; then the built-in defaults
+(`findMany`, `findOne`, `exists`, `createOne`, `updateOne` and `deleteOne`).
+An exception wins even when it is less precise:
+`.with({ expose: { write: false }, graphql: { createOne: true } })` serves
+`createPost` and no other mutation, and
+`.with({ expose: { count: true }, graphql: { read: false } })` serves no read
+over GraphQL. `.with({ graphql: true })` enables **every** generated root and
+request command on one row, including count, upsert, and bulk. A plugin
+command is exposed only when a key opens it (`true`, `all`, `write`, its
+operation or its method); an operation key such as `softDelete: true` opens
+its `One` method, and a `Many` command or a Master command is never a field,
+so naming one is a type error. `Post` keeps the defaults and adds `countPost`
+and `totalCount`:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/graphql/src/schema.ts#post
@@ -221,8 +249,8 @@ authors, and write comments through their post:
 	../../examples/graphql/src/schema.ts#comment
 </include>
 
-`.with({ graphql: false })` removes one schema's root fields and mutations.
-A schema without any exposed root or command contributes types only where an
+`.with({ graphql: false })` removes one schema's root fields and mutations
+from GraphQL alone, whatever its `expose` rule says. A schema without any exposed root or command contributes types only where an
 exposed schema reaches it: through a pointer or relation field of an exposed
 type, or a nested write input, transitively. `AuditEntry` holds its link to a
 post itself, so nothing exposed reaches it:
@@ -425,8 +453,9 @@ An empty `text` fails the validator with `VALIDATION_ERROR` and its issues in
 `extensions.details.issues`.
 
 [Soft Delete](./soft-delete) contributes schema-specific `softDeleteOnePost`
-and `restoreOnePost` mutations when the rule names them
-(`.with({ graphql: { softDeleteOne: true } })`). Custom GraphQL schemas add other root
+and `restoreOnePost` mutations when a rule opens them
+(`.with({ expose: { softDelete: true } })` for every transport, or
+`.with({ graphql: { softDeleteOne: true } })` for GraphQL alone). Custom GraphQL schemas add other root
 fields: pass completed `GraphQLSchema` values, from the reference `graphql`
 package, Pothos, Nexus or GraphQL Tools, through `graphqlPlugin({ schemas })`:
 
@@ -660,12 +689,14 @@ development only. Both need network access to their CDN.
 
 If startup warns that GraphQL exposes no schema or operation, expose at least
 one schema or a public operation; only the `health` field answers meanwhile.
+If a root field is missing, check the schema's `graphql` key, then its
+`expose` rule, then `graphqlPlugin({ default })`.
 If startup refuses public writes, install a policy plugin such as Access or
 pass `graphqlPlugin({ publicWrites: true })`. Outside production, a
 validation error with a `hint:` names the rule that enables the field. A
 command a plugin closed has no field, such as the User's create under
 [authentication](./password-authentication) with an email identifier; naming
-it in `.with({ graphql })` or `graphqlPlugin({ default })` fails at startup
+it in `.with({ graphql })`, `.with({ expose })` or `graphqlPlugin({ default })` fails at startup
 with the schema, the method, the closing plugin and its reason. If a type you expected is missing from the schema, check that an exposed root,
 command, pointer or relation reaches its schema. If direct execution rejects
 a context, create it from the same started application and do not retain it

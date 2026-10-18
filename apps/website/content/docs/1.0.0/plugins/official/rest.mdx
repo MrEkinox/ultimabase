@@ -109,13 +109,13 @@ which decides what clients may do, and one application operation:
 
 `default`, `hide`, `pagination` and `publicWrites` have the same shape on every
 transport (Plugin Kit's `TransportExposureOptions`).
-[`apiServer()`](./graphql#configuration) takes `hide`, `pagination` and `publicWrites`
-once for REST and GraphQL; the same option inside its `rest` section replaces
-the shared value for REST, whole.
+[`apiServer()`](./graphql#configuration) takes `default`, `hide`, `pagination`
+and `publicWrites` once for REST and GraphQL; the same option inside its `rest`
+section replaces the shared value for REST, whole.
 
 The schema's `expose` rule, in `.with`, selects its methods on every transport
-that reads Core's exposure plan, as REST does; [GraphQL](./graphql) keeps its
-own `graphql` rule for now. `Post` keeps the built-in routes and adds `count` and the bulk create:
+that reads Core's exposure plan, REST and [GraphQL](./graphql#choose-the-generated-surface)
+alike. `Post` keeps the built-in routes and adds `count` and the bulk create:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/rest/src/schema.ts#post

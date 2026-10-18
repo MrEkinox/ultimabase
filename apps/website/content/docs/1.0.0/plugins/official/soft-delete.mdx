@@ -244,8 +244,9 @@ not exposed through REST or GraphQL yet.
 
 ### Enable REST and GraphQL
 
-REST and GraphQL expose a command only when the schema's rule names it, with
-the command's own name, like every schema method. The
+REST and GraphQL expose a command only when a rule of the schema opens it:
+`.with({ expose: { softDelete: true } })` for both transports, or the
+transport's own key with the command's name, like every schema method. The
 example's `Post` declares `.with({ rest: { softDeleteOne: true, restoreOne: true } })`
 and the GraphQL rule of the same shape,
 `.with({ graphql: { softDeleteOne: true, restoreOne: true } })`.
@@ -513,8 +514,8 @@ nested soft delete yet. A scheduled server job can empty the trash with
 ## Troubleshooting
 
 - **The soft-delete route or field is missing:** check plugin installation,
-  the `softDelete` key in that schema's `define`, and that its `rest` or
-  `graphql` rule names the command (`softDeleteOne: true`). Many-row commands
+  the `softDelete` key in that schema's `define`, and that its `expose`,
+  `rest` or `graphql` rule opens the command (`softDeleteOne: true`). Many-row commands
   and purge are never exposed.
 - **Soft deletion returns `NOT_FOUND`:** the ID may be absent, already deleted,
   or hidden by a policy. Repeating soft deletion does not succeed again.
