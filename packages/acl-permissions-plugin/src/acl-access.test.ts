@@ -10,6 +10,7 @@ import { ACL } from './acl.js'
 import {
 	createACLPermissionRowFilter,
 	requiredACLPermission,
+	requiredPluginCommandACLPermission,
 	resolveACLAccessSubjects,
 } from './acl-access.js'
 import { QueryBuilder } from '@ultimabase/core/plugin'
@@ -127,5 +128,11 @@ describe('ACL Access contributions', () => {
 				schema,
 			}),
 		).toBeUndefined()
+	})
+
+	// ADR-0348: the declared effect picks the right, never the command name.
+	it('maps a plugin command to the right of its declared effect', () => {
+		expect(requiredPluginCommandACLPermission('update')).toBe('update')
+		expect(requiredPluginCommandACLPermission('delete')).toBe('delete')
 	})
 })
