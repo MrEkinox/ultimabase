@@ -92,9 +92,11 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
      partagé par le bundler).
    - Banc forme D (3 passages entrelacés, charge < 4), médianes main → tranche : TS 7 50 = 0,55 → 0,56 s,
      200 = 1,79 → 1,83 s ; TS 6 50 = 1,88 → 1,90 s, 200 = 5,55 → 5,56 s. Sous les seuils de l'ADR-0297.
-     Prochaine action vérifiable : `validate:full`, `typecheck:typescript-7`, `website:test` et
-     `yarn install --immutable` sur la tranche, puis montrer à l'utilisateur le diff de l'exemple, le banc et
-     l'audit avant GraphQL, Access, Hooks et la migration des appelants.
+     Contrôles sur la tranche (14b6eaaa) : `yarn install --immutable` exit 0 ; `validate:full` exit 0 (817 fichiers,
+     4568 tests, aucune erreur de type) ; `typecheck:typescript-7` exit 0 (44 projets ok) ; `website:test` 59/59.
+     Prochaine action vérifiable : tranche présentée à l'utilisateur ; attendre sa décision (point
+     `SchemaRulesSource`, dépendance api-server → plugin-kit) avant GraphQL, Access, Hooks et la migration des
+     appelants.
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
