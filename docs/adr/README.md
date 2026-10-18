@@ -318,10 +318,11 @@ Current records (accepted or still active in part):
 - [ADR-0344: Plugin mutations share the native policy stages](0344-one-mutation-policy-for-plugin-mutations.md)
 - [ADR-0345: Private storage inserts a record only if it is absent](0345-private-insert-if-absent.md)
 - [ADR-0346: Update commands declare their data](0346-update-commands-declare-data.md)
+- [ADR-0347: One operation vocabulary and a shared exposure plan](0347-one-operation-vocabulary-and-shared-exposure.md)
 
 Proposed records (awaiting user validation):
 
-- [ADR-0347: One operation vocabulary and a shared exposure plan](0347-one-operation-vocabulary-and-shared-exposure.md)
+- None.
 
 Superseded records:
 

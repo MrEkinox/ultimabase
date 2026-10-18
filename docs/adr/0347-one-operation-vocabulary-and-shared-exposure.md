@@ -1,13 +1,12 @@
 # ADR-0347: One operation vocabulary and a shared exposure plan
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-18
 - Refines: ADR-0168 (read cardinality in Access), ADR-0294 (`publicWrites`), ADR-0317 (Access rules and
   `allowWithoutRule`), ADR-0318 (Hooks phases), ADR-0324 (REST exposure), ADR-0325 (GraphQL exposure), ADR-0341
   (command closures); applies ADR-0288
 - Approval: scope, the four main choices, per-transport exceptions and transport-owned options made by the user on
-  2026-10-18 (DX review `docs/handoff/revue-dx.md`
-  §2.1 and §2.3); record pending validation
+  2026-10-18 (DX review `docs/handoff/revue-dx.md` §2.1 and §2.3); record accepted by the user on 2026-10-18
 
 ## Context
 
