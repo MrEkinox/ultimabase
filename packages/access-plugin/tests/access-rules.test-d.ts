@@ -104,15 +104,57 @@ test('rules each read operation on its own, members optional', () => {
 		fields: (field) => ({ published: field.boolean() }),
 	}).with({
 		access: {
-			read: { many: ({ where }) => where.eq('published', true), count: true },
+			read: true,
+			findMany: ({ where }) => where.eq('published', true),
+			count: true,
 		},
 	})
 	App.Schema.define({
-		className: 'RuleFormsReadsTypo',
+		className: 'RuleFormsReadsGrouped',
 		fields: (field) => ({ published: field.boolean() }),
 	}).with({
-		// @ts-expect-error -- `all` is an allowWithoutRule key, not a read operation.
-		access: { read: { all: true } },
+		// @ts-expect-error -- The grouped read form is replaced by findOne and findMany (ADR-0347).
+		access: { read: { many: true } },
+	})
+})
+
+test('takes groups and operations but never a write method (ADR-0347)', () => {
+	App.Schema.define({
+		className: 'RuleFormsGroups',
+		fields: (field) => ({ title: field.string() }),
+		archivable: true,
+	}).with({
+		access: {
+			all: false,
+			read: true,
+			write: isAuthenticated,
+			create: { where: true, item: ({ item }) => item.title !== '' },
+			archive: false,
+		},
+	})
+	App.Schema.define({
+		className: 'RuleFormsCreateMany',
+		fields: (field) => ({ title: field.string() }),
+	}).with({
+		// @ts-expect-error -- A write rule never depends on cardinality: use `create`.
+		access: { createMany: true },
+	})
+	App.Schema.define({
+		className: 'RuleFormsArchiveOne',
+		fields: (field) => ({ title: field.string() }),
+		archivable: true,
+	}).with({
+		// @ts-expect-error -- A plugin command is ruled by its operation: use `archive`.
+		access: { archiveOne: true },
+	})
+	App.Schema.define({
+		className: 'RuleFormsDetailedGroup',
+		fields: (field) => ({ title: field.string() }),
+	}).with({
+		access: {
+			// @ts-expect-error -- A group takes the short form only.
+			write: { where: true, item: () => true },
+		},
 	})
 })
 
@@ -123,7 +165,7 @@ test('adds plugin command and permission keys only where the feature is set', ()
 		archivable: true,
 	}).with({
 		access: {
-			archiveOne: {
+			archive: {
 				where: true,
 				item: ({ originalItem }) => originalItem.title !== '',
 			},
@@ -136,7 +178,7 @@ test('adds plugin command and permission keys only where the feature is set', ()
 		archivable: true,
 	}).with({
 		// @ts-expect-error -- Master-only commands have no Access rule.
-		access: { purgeOne: true },
+		access: { purge: true },
 	})
 	App.Schema.define({
 		className: 'RuleFormsArchivedPermissionFilter',
@@ -157,7 +199,18 @@ test('adds plugin command and permission keys only where the feature is set', ()
 	})
 	void Plain
 	expectTypeOf<keyof SchemaAccess<typeof Plain>>().toEqualTypeOf<
-		'read' | 'create' | 'update' | 'upsert' | 'delete'
+		| 'all'
+		| 'read'
+		| 'write'
+		| 'find'
+		| 'findOne'
+		| 'findMany'
+		| 'count'
+		| 'exists'
+		| 'create'
+		| 'update'
+		| 'upsert'
+		| 'delete'
 	>()
 })
 
@@ -177,9 +230,13 @@ test('types every allowWithoutRule value', () => {
 		read: true
 		count: false
 		write: typeof isAuthenticated
-		softDeleteOne: true
+		findOne: true
+		findMany: false
+		softDelete: true
 	}>().toExtend<AllowWithoutRule>()
 	accessPlugin({ allowWithoutRule: { all: true, write: false } })
+	// @ts-expect-error -- A write rule never depends on cardinality: use `create`.
+	accessPlugin({ allowWithoutRule: { createMany: true } })
 	// @ts-expect-error -- Only true, false, 'development' or a predicate.
 	accessPlugin({ allowWithoutRule: { read: 'production' } })
 	// @ts-expect-error -- `default` is replaced by `allowWithoutRule` (ADR-0317).

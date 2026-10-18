@@ -62,15 +62,15 @@ const Ruled = App.Schema.define({
 }).with({ access: { update: false } })
 
 const operations = [
-	'one',
-	'many',
+	'findOne',
+	'findMany',
 	'count',
 	'exists',
 	'create',
 	'update',
 	'upsert',
 	'delete',
-	'archiveOne',
+	'archive',
 ] as const
 
 const start = async (allowWithoutRule: AllowWithoutRule) => {
@@ -116,21 +116,27 @@ describe('allowWithoutRule (ADR-0317)', () => {
 	it('opens all, a group or one operation, the most specific key winning', async () => {
 		await expect(opened({ all: true })).resolves.toEqual(operations)
 		await expect(opened({ all: true, write: false })).resolves.toEqual([
-			'one',
-			'many',
+			'findOne',
+			'findMany',
 			'count',
 			'exists',
 		])
 		await expect(opened({ read: true, count: false })).resolves.toEqual([
-			'one',
-			'many',
+			'findOne',
+			'findMany',
 			'exists',
 		])
 		await expect(
 			opened({ all: false, write: true, delete: false }),
-		).resolves.toEqual(['create', 'update', 'upsert', 'archiveOne'])
-		await expect(opened({ archiveOne: true })).resolves.toEqual(['archiveOne'])
-		await expect(opened({ write: true, archiveOne: false })).resolves.toEqual([
+		).resolves.toEqual(['create', 'update', 'upsert', 'archive'])
+		await expect(opened({ archive: true })).resolves.toEqual(['archive'])
+		await expect(opened({ findMany: true })).resolves.toEqual(['findMany'])
+		await expect(opened({ read: true, findMany: false })).resolves.toEqual([
+			'findOne',
+			'count',
+			'exists',
+		])
+		await expect(opened({ write: true, archive: false })).resolves.toEqual([
 			'create',
 			'update',
 			'upsert',
@@ -165,10 +171,10 @@ describe('allowWithoutRule (ADR-0317)', () => {
 		await expect(opened({ write: isAuthenticated })).resolves.toEqual([])
 		await expect(
 			opened({ write: isAuthenticated }, Member.pointer('member-1')),
-		).resolves.toEqual(['create', 'update', 'upsert', 'delete', 'archiveOne'])
+		).resolves.toEqual(['create', 'update', 'upsert', 'delete', 'archive'])
 		await expect(
 			opened({ read: isNamed }, Member.pointer('member-1')),
-		).resolves.toEqual(['one', 'many', 'count', 'exists'])
+		).resolves.toEqual(['findOne', 'findMany', 'count', 'exists'])
 		expect(seen).toEqual([
 			'OpeningDocument:one',
 			'OpeningDocument:many',
@@ -189,7 +195,7 @@ describe('allowWithoutRule (ADR-0317)', () => {
 		))({ logger: false, schemas: [Member, Document, Ruled] })
 		try {
 			await expect(ultimabase.start()).rejects.toThrow(
-				"Access allowWithoutRule opens read (one, many, count, exists) with 'development', which production refuses (NODE_ENV is production).",
+				"Access allowWithoutRule opens read (find, count, exists) with 'development', which production refuses (NODE_ENV is production).",
 			)
 		} finally {
 			await ultimabase.dispose()
@@ -210,19 +216,13 @@ describe('allowWithoutRule (ADR-0317)', () => {
 		])
 	})
 
-	it('lists the schemas without any Access rule at info after start', async () => {
-		const { logger, ultimabase } = await start({})
-		await ultimabase.dispose()
-		expect(
-			logger
-				.messages('info')
-				.filter((message) => message.includes('without an Access rule')),
-		).toEqual([
-			'[@ultimabase/access-plugin] schemas without an Access rule, denied unless allowWithoutRule opens them: OpeningDocument.',
-		])
-	})
-
 	it('rejects unknown keys and values', async () => {
+		// A write rule never depends on cardinality (ADR-0347).
+		expect(() =>
+			accessPlugin({ allowWithoutRule: { createMany: true } as never }),
+		).toThrow(
+			'Access allowWithoutRule.createMany names a write method: use its operation create',
+		)
 		expect(() =>
 			accessPlugin({ allowWithoutRule: { read: 'production' } as never }),
 		).toThrow(
@@ -242,6 +242,27 @@ describe('allowWithoutRule (ADR-0317)', () => {
 			)
 		} finally {
 			await ultimabase.dispose()
+		}
+		for (const [key, message] of [
+			[
+				'archiveOne',
+				'Access allowWithoutRule.archiveOne names a write method: use its operation archive',
+			],
+			[
+				'one',
+				'Unknown Access allowWithoutRule key: one is neither an operation, a request plugin command nor a plugin permission',
+			],
+		] as const) {
+			const application = new (UltimaBase.use(
+				accessPlugin({ allowWithoutRule: { [key]: true } }),
+				archivePlugin,
+				database,
+			))({ logger: false, schemas: [Member, Document, Ruled] })
+			try {
+				await expect(application.start()).rejects.toThrow(message)
+			} finally {
+				await application.dispose()
+			}
 		}
 	})
 })
