@@ -64,8 +64,7 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
    Correctif ACL : appliqué seul sur `main` (choix de l'utilisateur), puis `main` fusionnée ici. Cas limite
    repoussé à la passe de tests propres d'`access-plugin` et de l'ACL : une opération non-Master lancée par
    un hook pendant le nettoyage des références ACL, sur le même schéma, échappe au filtre `acl-rows`.
-   Prochaine action vérifiable :
-   puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
+   Prochaine action vérifiable : `validate:full` du correctif sur `main`, puis la tranche verticale (catalogue, `expose`, options communes des transports, REST sur un
    exemple, déclarations compilées, audit DX, banc forme D TS 6 et 7).
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
