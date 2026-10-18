@@ -1,4 +1,5 @@
 import { UltimaBase, dateTimeField } from '@ultimabase/core'
+import { anonymous } from '@ultimabase/core/plugin'
 import { command, definePlugin, feature } from '@ultimabase/plugin-kit'
 import { isObjectType, type GraphQLSchema } from 'graphql'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -96,8 +97,17 @@ const start = async (
 	})
 	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
-	const { schema: graphql } = ultimabase.plugin('@ultimabase/graphql-plugin')
+	const graphqlRuntime = ultimabase.plugin('@ultimabase/graphql-plugin')
+	const { schema: graphql } = graphqlRuntime
 	return {
+		execute: (document: string) =>
+			graphqlRuntime.execute({
+				context: anonymous(ultimabase, {
+					requestId: 'graphql-expose',
+					source: 'ultimabase.graphql',
+				}).context,
+				document,
+			}),
 		mutations: (className: string) => roots(graphql, 'Mutation', className),
 		queries: (className: string) => roots(graphql, 'Query', className),
 	}
@@ -170,6 +180,23 @@ describe('GraphQL reads the exposure plan (ADR-0347)', () => {
 			'archiveManyGqlOperationKey',
 		)
 		expect(queries('GqlOperationKey')).toStrictEqual(['existsGqlOperationKey'])
+	})
+
+	it('hints only at commands a rule can expose', async () => {
+		const { execute } = await start()
+		const one = await execute(
+			'mutation { archiveOneGqlExposeCount(id: "x") { id } }',
+		)
+		expect(one.errors?.map((error) => error.message)).toStrictEqual([
+			'Cannot query field "archiveOneGqlExposeCount" on type "Mutation". hint: enable graphql: { archiveOne: true } on GqlExposeCount',
+		])
+		// A Many command is never served, so no rule key would enable it.
+		const many = await execute(
+			'mutation { archiveManyGqlExposeCount { count } }',
+		)
+		const message = many.errors?.[0]?.message ?? ''
+		expect(message).toMatch(/^Cannot query field "archiveManyGqlExposeCount"/u)
+		expect(message).not.toContain('hint:')
 	})
 
 	it('takes group keys in graphqlPlugin({ default })', async () => {
