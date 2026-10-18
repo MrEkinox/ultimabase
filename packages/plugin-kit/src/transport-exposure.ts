@@ -259,7 +259,7 @@ export interface PublicWritesCheckOptions {
 	readonly hasProtectedPolicy: boolean
 	/** The transport's parsed `publicWrites` option. */
 	readonly publicWrites: boolean
-	/** Names one write in the transport's own terms. @example `({ schema, method }) => `${schema}.${method.entry.method}`` */
+	/** Names one write in the transport's own terms. @example `(write) => write.schema + '.' + write.method.entry.method` */
 	readonly describe: (write: ExposedWriteMethod) => string
 	/** The opt-in the message suggests. @example 'restPlugin({ publicWrites: true })' */
 	readonly hint: string
