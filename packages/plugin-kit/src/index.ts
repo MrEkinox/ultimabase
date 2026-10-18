@@ -64,3 +64,15 @@ export {
 	type RequestRoleResolver,
 	type RequestRoleSubject,
 } from './request-roles.js'
+export {
+	assertPublicWrites,
+	parseTransportExposureOptions,
+	readExposurePlan,
+	transportExposureOptionKeys,
+	type NormalizedTransportExposureOptions,
+	type PublicWritesCheckOptions,
+	type ReadExposurePlanOptions,
+	type TransportExposureOptions,
+	type TransportExposureParserOptions,
+	type TransportPaginationOptions,
+} from './transport-exposure.js'

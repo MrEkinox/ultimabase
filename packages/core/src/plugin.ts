@@ -116,6 +116,7 @@ export type {
 export { normalizeExposureRule } from './plugins/exposure-rules.js'
 export type {
 	ExposureCommandKey,
+	ExposureRuleNormalizationOptions,
 	NativeExposureRules,
 	NormalizedExposureRule,
 	SchemaExposeRule,

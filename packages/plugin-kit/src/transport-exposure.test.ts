@@ -6,11 +6,13 @@ import {
 	type ExposurePlanningOptions,
 	type OperationTransportProtocol,
 } from '@ultimabase/core'
-import { nativeCommandCatalog } from '@ultimabase/core/plugin'
+import {
+	defineOperation,
+	defineOperationValue,
+	nativeCommandCatalog,
+} from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
-import { z } from 'zod'
 
-import { defineOperation } from './define-operation.js'
 import { definePluginOptionsParser } from './plugin-options.js'
 import {
 	assertPublicWrites,
@@ -23,10 +25,12 @@ import {
 // ADR-0347 decision 3: every transport shares `default`, `hide`,
 // `pagination` and `publicWrites`; each keeps its own wording.
 const readingTime = defineOperation({
-	name: 'readingTime',
-	input: z.object({}),
-	output: z.number(),
-	handler: () => 1,
+	input: defineOperationValue(() => null),
+	name: 'fixture.reading-time',
+	result: defineOperationValue(() => 1),
+	target: 'application',
+	transaction: 'forbidden',
+	version: '1.0.0',
 })
 
 const parseFixture = definePluginOptionsParser({
@@ -81,16 +85,22 @@ describe('shared transport exposure options', () => {
 	})
 
 	it.each([
-		[{ default: 'all' }, 'Fixture plugin default must be a boolean or plain object'],
+		[
+			{ default: 'all' },
+			'Fixture plugin default must be a boolean or plain object',
+		],
 		[
 			{ default: { softDelete: true } },
 			'Fixture plugin default contains unknown method: softDelete; use all, read, write, find, count, exists, create, update, upsert, delete, findMany, findOne, createOne, createMany, updateOne, updateMany, upsertOne, upsertMany, deleteOne, deleteMany',
 		],
 		[{ hide: readingTime }, 'Fixture plugin hide must be an array'],
-		[{ hide: ['refresh'] }, 'Fixture plugin hide[0] must be an operation token'],
+		[
+			{ hide: ['refresh'] },
+			'Fixture plugin hide[0] must be an operation token',
+		],
 		[
 			{ hide: [readingTime, readingTime] },
-			'Fixture plugin hide repeats readingTime',
+			'Fixture plugin hide repeats fixture.reading-time',
 		],
 		[{ pagination: 20 }, 'Fixture plugin pagination must be a plain object'],
 		[
@@ -127,14 +137,17 @@ describe('shared transport exposure options', () => {
 				{ pagination },
 				{ maximumTake: 500, name: 'Fixture plugin' },
 			)
-		expect(parse({ defaultTake: 500, maxTake: 500 }).pagination).toStrictEqual(
-			{ defaultTake: 500, maxTake: 500 },
-		)
+		expect(parse({ defaultTake: 500, maxTake: 500 }).pagination).toStrictEqual({
+			defaultTake: 500,
+			maxTake: 500,
+		})
 		expect(() => parse({ maxTake: 501 })).toThrow(
 			new TypeError('Fixture plugin pagination.maxTake must not exceed 500'),
 		)
 		expect(() => parse({ defaultTake: 501 })).toThrow(
-			new TypeError('Fixture plugin pagination.defaultTake must not exceed 500'),
+			new TypeError(
+				'Fixture plugin pagination.defaultTake must not exceed 500',
+			),
 		)
 	})
 })
@@ -155,7 +168,12 @@ const recordingPlanner = (requests: unknown[]) => {
 			options: ExposurePlanningOptions<TTransport>,
 		): ApplicationExposurePlan<TTransport> => {
 			requests.push(options)
-			return { operations: [], schemas: [], transport: options.transport, writes: [] }
+			return {
+				operations: [],
+				schemas: [],
+				transport: options.transport,
+				writes: [],
+			}
 		},
 	}
 	return planner
@@ -226,19 +244,21 @@ const nativeWrite = (schema: string, method: string): ExposedWriteMethod => {
 const describeWrite = ({ method, schema }: ExposedWriteMethod): string =>
 	`${schema}.${method.entry.method}`
 
-const check = (
-	writes: readonly ExposedWriteMethod[],
-	values: Readonly<{ hasProtectedPolicy?: boolean; publicWrites?: boolean }>,
-) => () => {
-	assertPublicWrites({
-		describe: describeWrite,
-		hasProtectedPolicy: values.hasProtectedPolicy ?? false,
-		hint: 'fixturePlugin({ publicWrites: true })',
-		label: 'Fixture',
-		publicWrites: values.publicWrites ?? false,
-		writes,
-	})
-}
+const check =
+	(
+		writes: readonly ExposedWriteMethod[],
+		values: Readonly<{ hasProtectedPolicy?: boolean; publicWrites?: boolean }>,
+	) =>
+	() => {
+		assertPublicWrites({
+			describe: describeWrite,
+			hasProtectedPolicy: values.hasProtectedPolicy ?? false,
+			hint: 'fixturePlugin({ publicWrites: true })',
+			label: 'Fixture',
+			publicWrites: values.publicWrites ?? false,
+			writes,
+		})
+	}
 
 describe('the shared publicWrites check (ADR-0294)', () => {
 	const writes = [
