@@ -250,3 +250,33 @@ query's meaning.
 Rejected: Master sees the trash (jobs include deleted rows silently); the
 previous exception where Master kept the filter unless its `where` named
 `isDeleted`.
+
+## D-18: Queries start from the schema
+
+Choice: operations are called on the schema object: `Post.findMany(...)`,
+including plugin commands (`Post.trash.findMany(...)`). One initialized
+application per JavaScript realm tells each schema where to run.
+Why: completion lists every command after `Post.`, go-to-definition and
+rename work, types are already carried by `Post`, and no string names a schema
+(D-14). Frameworks that start from a client (`prisma.post`) generate that
+client, which D-11 rules out.
+Rejected: `app.findMany('Post', ...)`, whose string needs a global type lookup
+on every call and breaks rename.
+
+## D-19: One `as` option says who sends an operation
+
+Choice: every operation takes `{ as: caller }`. `master` is a server-only
+imported value; `ctx.caller` is the caller the Identify hook found for the
+current request; a plain expression chooses between them. Without `as`, the
+operation runs as anonymous. Plugins may add kinds of callers through
+Identify; only the kernel creates `master`.
+Why: Parse splits this between `useMasterKey` and `sessionToken`, which can be
+passed together with an unclear priority. One option holds one caller, a
+condition is a ternary, and a forgotten `as` fails closed (D-04) instead of
+leaking.
+Rejected: a `useMasterKey` boolean; separate master and session options.
+Example:
+
+```ts
+Post.findMany({ where }, { as: fromBackOffice ? master : ctx.caller })
+```
