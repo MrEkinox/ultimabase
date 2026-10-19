@@ -680,3 +680,34 @@ writing GraphQL types; rare GraphQL-only features stay possible, as raw Hono
 routes do for HTTP (D-27).
 Rejected: a GraphQL type builder in UltimaBase (re-creating Nexus); output
 limited to models.
+
+## D-46: An adapter runs a whole query in one round trip
+
+Choice: the kernel hands the adapter the whole operation (nested `include`,
+`select`, relation filters, access filters) and the adapter runs it in one
+round trip: lateral subqueries aggregated as JSON on PostgreSQL,
+`JSON_ARRAYAGG` on MySQL, one `$lookup` pipeline on MongoDB. The contract
+suite (D-02) counts statements: a `findMany` with three levels of `include`
+runs exactly one. A filter through a relation (`posts: { some: { ... } }`)
+applies the target model's access rules, as D-44 does for fields.
+Why: N+1 queries are prevented by the contract, not by care in each adapter,
+and a test catches any regression; a relation filter ignoring the target's
+access would reveal rows the caller cannot read (met in the previous base).
+Rejected: fetching relations one query per parent; batching loaders as the
+main defence.
+
+## D-47: SQL adapters build queries with Kysely
+
+Choice: the PostgreSQL adapter, and later MySQL, build SQL with Kysely, a
+schema-less query builder; one internal relation compiler, shared by the SQL
+adapters, produces the single query of D-46. Kysely never appears in public
+code. PostgreSQL starts on the `pg` driver.
+Why: the previous base generated Drizzle tables and relations from its models
+at startup, kept three representations in sync, injected access filters
+through raw SQL and depended on a release candidate; its PostgreSQL plugin
+reached 9,500 lines. Kysely needs nothing generated, shares one query API
+across PostgreSQL, MySQL and SQLite, and provides the JSON helpers the single
+query needs. Builder overhead is negligible next to a database round trip.
+Rejected: Drizzle (built for hand-written static schemas, one table builder per
+database); a hand-written SQL compiler (escaping and dialects for no speed
+gain).
