@@ -1,0 +1,37 @@
+fixture/src/app.ts(5,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/enums.ts(4,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/negative.ts(9,32): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/negative.ts(9,71): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/negative.ts(12,33): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/negative.ts(13,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/negative.ts(19,34): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/negative.ts(24,31): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/negative.ts(25,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/negative.ts(29,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/negative.ts(31,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/negative.ts(33,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/negative.ts(35,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/negative.ts(37,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/tag.ts(4,26): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/tag.ts(6,34): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/tag.ts(8,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/todo-role.ts(4,31): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo-role.ts(5,11): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo-role.ts(8,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/todo-user.ts(5,31): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo-user.ts(7,42): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo-user.ts(8,34): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo-user.ts(10,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/todo.ts(9,27): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo.ts(15,36): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo.ts(16,34): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo.ts(17,37): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo.ts(18,33): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/src/todo.ts(20,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/ultimabase.ts(7,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/usage.ts(11,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/usage.ts(27,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/usage.ts(34,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/usage.ts(43,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/usage.ts(45,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/src/usage.ts(63,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.

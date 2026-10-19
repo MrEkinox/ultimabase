@@ -1,0 +1,144 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/ts7/repros/e2-this-with",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "where",
+   "text": "(parameter) where: WhereBuilder<typeof Todo>",
+   "length": 44
+  },
+  {
+   "name": "cross builder",
+   "text": "(parameter) user: WhereBuilder<typeof User>",
+   "length": 43
+  },
+  {
+   "name": "hook item",
+   "text": "(parameter) item: Item<typeof Todo>",
+   "length": 35
+  },
+  {
+   "name": "static options",
+   "text": "(property) Todo.options: SchemaRules<typeof Todo>",
+   "length": 49
+  },
+  {
+   "name": "class Todo",
+   "text": "class Todo",
+   "length": 10
+  }
+ ],
+ "hoverSets": [
+  {
+   "name": "control: non-generic polymorphic this",
+   "diagnostics": 0,
+   "hovers": [
+    {
+     "name": "where",
+     "text": "(parameter) where: WhereBuilder<SchemaClass<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => typeof User>;\n}>>",
+     "length": 157
+    },
+    {
+     "name": "cross builder",
+     "text": "(parameter) user: WhereBuilder<typeof User>",
+     "length": 43
+    },
+    {
+     "name": "hook item",
+     "text": "(parameter) item: Item<SchemaClass<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => typeof User>;\n}>>",
+     "length": 148
+    },
+    {
+     "name": "static options",
+     "text": "(property) Todo.options: SchemaRules<SchemaClass<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => typeof User>;\n}>>",
+     "length": 162
+    },
+    {
+     "name": "class Todo",
+     "text": "class Todo",
+     "length": 10
+    }
+   ]
+  }
+ ],
+ "completions": [],
+ "cases": [
+  {
+   "name": "control: non-generic polymorphic this (compiles, see hoverSets)",
+   "file": "core.ts",
+   "faultyLine": 11,
+   "count": 0,
+   "onLine": false,
+   "primary": null,
+   "diagnostics": []
+  },
+  {
+   "name": "control: filter expressions typed by the schema type instead of its name",
+   "file": "../common/mini.ts",
+   "faultyLine": 24,
+   "count": 4,
+   "onLine": false,
+   "primary": {
+    "file": "todo.ts",
+    "line": 6,
+    "col": 9,
+    "code": 7022,
+    "message": "'options' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 6,
+     "col": 9,
+     "code": 7022,
+     "message": "'options' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer."
+    },
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 3,
+     "code": 7023,
+     "message": "'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions."
+    },
+    {
+     "file": "user.ts",
+     "line": 6,
+     "col": 9,
+     "code": 7022,
+     "message": "'options' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer."
+    },
+    {
+     "file": "user.ts",
+     "line": 6,
+     "col": 31,
+     "code": 7023,
+     "message": "'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions."
+    }
+   ]
+  },
+  {
+   "name": "typo in cross filter detected",
+   "file": "todo.ts",
+   "faultyLine": 7,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 7,
+    "col": 60,
+    "code": 2345,
+    "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 60,
+     "code": 2345,
+     "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,61 @@
+{
+	"hovers": [
+		{
+			"name": "where (JS)",
+			"file": "tag.js",
+			"find": "where, userId }) => where.some",
+			"offset": 0
+		},
+		{
+			"name": "cross builder (JS)",
+			"file": "tag.js",
+			"find": "(user) => user.eq",
+			"offset": 1
+		},
+		{
+			"name": "class (JS)",
+			"file": "tag.js",
+			"find": "class Tag extends",
+			"offset": 6
+		},
+		{
+			"name": "rules (JS)",
+			"file": "tag.js",
+			"find": "static rules",
+			"offset": 7
+		},
+		{
+			"name": "helper (JS)",
+			"file": "tag.js",
+			"find": "static findNamed",
+			"offset": 7
+		}
+	],
+	"cases": [
+		{
+			"name": "JS cross-schema builder typo",
+			"file": "tag.js",
+			"find": "user.eq('id', userId)",
+			"replace": "user.eq('emial', userId)"
+		},
+		{
+			"name": "JS wrong filter return",
+			"file": "tag.js",
+			"find": "({ where, userId }) => where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', userId)))",
+			"replace": "() => 42"
+		},
+		{
+			"name": "JS rules key typo",
+			"file": "tag.js",
+			"find": "access: {",
+			"replace": "acess: {"
+		},
+		{
+			"name": "JS instance method",
+			"file": "tag.js",
+			"find": "\n\tstatic findNamed",
+			"replace": "\n\tisNew() {\n\t\treturn true\n\t}\n\tstatic findNamed",
+			"line": "isNew()"
+		}
+	]
+}

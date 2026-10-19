@@ -1,0 +1,1 @@
+{ "extends": "../../../tsconfig.base.json", "compilerOptions": { "allowImportingTsExtensions": true, "allowJs": true, "checkJs": true }, "include": ["todo-role.js", "../fixture/src/**/*.ts", "../lib/**/*.ts"], "exclude": ["../fixture/src/ultimabase.ts", "../fixture/src/usage.ts", "../fixture/src/extra.ts", "../fixture/src/tag-extra-rules.ts"] }

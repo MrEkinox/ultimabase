@@ -1,0 +1,57 @@
+{
+	"hovers": [
+		{
+			"name": "where",
+			"file": "todo.ts",
+			"find": "where) => where.is"
+		},
+		{
+			"name": "cross builder",
+			"file": "todo.ts",
+			"find": "user) => user.eq"
+		},
+		{
+			"name": "hook item",
+			"file": "todo.ts",
+			"find": "item) => {"
+		},
+		{
+			"name": "static options",
+			"file": "todo.ts",
+			"find": "options: Rules"
+		},
+		{
+			"name": "class Todo",
+			"file": "todo.ts",
+			"find": "Todo extends"
+		}
+	],
+	"cases": [
+		{
+			"name": "control: annotation removed (contextual typing lost)",
+			"file": "todo.ts",
+			"find": "static readonly options: Rules<typeof Todo> = {",
+			"replace": "static readonly options = {"
+		},
+		{
+			"name": "control: filter expressions typed by the schema type instead of its name",
+			"file": "../common/mini.ts",
+			"find": "type NameOf<TSchema> = TSchema extends { readonly '~name': infer TName extends string } ? TName : never",
+			"replace": "type NameOf<TSchema> = TSchema",
+			"line": "type NameOf<TSchema> = TSchema",
+			"alsoEdits": [
+				{
+					"file": "../common/mini.ts",
+					"find": "export interface Expr<TName extends string> {",
+					"replace": "export interface Expr<TName> {"
+				}
+			]
+		},
+		{
+			"name": "typo in cross filter detected",
+			"file": "todo.ts",
+			"find": "user.eq('email'",
+			"replace": "user.eq('emial'"
+		}
+	]
+}

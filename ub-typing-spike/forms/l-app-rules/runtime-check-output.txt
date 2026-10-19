@@ -1,0 +1,51 @@
+## Registered application
+
+### TodoUser (factory PasswordUserSchema)
+fields: {"id":"string","createdAt":"date","updatedAt":"date","displayName":"string","assignedTodos":"relation","username":"string","email":"string","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"},"update":{"where":"[function where]"}}
+rule postgres (plugin postgres): {"table":"users"}
+
+### TodoRole (factory RoleSchema)
+fields: {"id":"string","createdAt":"date","updatedAt":"date","description":"string","name":"string","members":"relation","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"},"create":false}
+
+### Todo
+fields: {"id":"string","createdAt":"date","updatedAt":"date","title":"string","archived":"boolean","priority":"enum","allowedPriorities":"list","status":"enum","dueAt":"date","assignee":"pointer","parent":"pointer","subtasks":"relation","tags":"relation","acl":"json","isDeleted":"boolean"}
+shape options: {"softDelete":true}
+rule access (plugin access): {"read":{"where":"[function where]"},"update":{"where":"[function where]"},"delete":{"where":"[function where]"}}
+rule acl (plugin acl): {"default":"[function default]"}
+rule hooks (plugin hooks): {"beforeUpdate":"[function beforeUpdate]"}
+rule postgres (plugin postgres): {"table":"todos","indexes":[{"fields":["status","dueAt"]}]}
+
+### Tag
+fields: {"id":"string","createdAt":"date","updatedAt":"date","name":"string","todos":"relation","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"}}
+
+## Executing rules
+Todo access.update filter: {"Todo":{"assignee":{"is":{"assignee":{"id":{"eq":"u1"}}}}}}
+Todo hooks.beforeUpdate on a deleted item throws: Deleted todos are read-only
+
+## Startup checks of the application rules
+
+### L1 class name typo as rules key: RegistrationError
+Invalid application:
+- rules.Todoo: no registered schema has this className
+
+### L2 rules for a schema missing from schemas: RegistrationError
+Invalid application:
+- Todo.tags: target is not a registered schema
+- rules.Tag: no registered schema has this className
+
+### L3 rules entry forgotten (no rules at all): accepted
+
+### L4 second RoleSchema: RegistrationError
+Invalid application:
+- RoleSchema (plugin 'roles'): exactly one registered schema expected, got 2 (TodoRole, StaffRole)
+
+### L5 unknown rule key: RegistrationError
+Invalid application:
+- rules.Todo.acess: unknown rule (installed: postgres, access, hooks, acl)
+JS TodoRole fields: id, createdAt, updatedAt, description, name, members, acl | rules: access

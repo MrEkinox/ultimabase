@@ -1,0 +1,140 @@
+{
+	"hovers": [
+		{
+			"file": "src/todo.ts",
+			"find": "Todo = App",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "where }) => where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "item, originalItem }) =>",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq",
+			"offset": 1
+		},
+		{
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": ".access({",
+			"offset": 1
+		}
+	],
+	"completions": [
+		{
+			"file": "src/todo.ts",
+			"find": "\n})\n\t."
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "'read')) })\n\t."
+		},
+		{
+			"file": "src/minimal.ts",
+			"find": "(field) => ({ body: field.string() }) })\n\t."
+		}
+	],
+	"cases": [
+		{
+			"name": "typo in relation target",
+			"file": "src/todo.ts",
+			"find": "target: () => User,",
+			"replace": "target: () => Usr,"
+		},
+		{
+			"name": "typo in own where field (builder)",
+			"file": "src/todo.ts",
+			"find": "where.eq('archived', false)",
+			"replace": "where.eq('archivd', false)"
+		},
+		{
+			"name": "typo in cross-schema where field (builder)",
+			"file": "src/user.ts",
+			"find": "todo.eq('archived', false)",
+			"replace": "todo.eq('archivd', false)"
+		},
+		{
+			"name": "typo in cross-schema where field (object)",
+			"file": "src/todo.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "typo in hook record field (plugin field)",
+			"file": "src/todo.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "typo in mappedBy",
+			"file": "src/user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "typo in plugin method name",
+			"file": "src/todo.ts",
+			"find": ".access({",
+			"replace": ".acess({"
+		},
+		{
+			"name": "wrong where return type",
+			"file": "src/tag.ts",
+			"find": ".access({ read: true })",
+			"replace": ".access({ read: { where: () => 42 } })"
+		},
+		{
+			"name": "extra: same method twice",
+			"file": "src/tag.ts",
+			"find": ".access({ read: true })",
+			"replace": ".access({ read: true }).access({ read: false })"
+		},
+		{
+			"name": "extra: shape method after a behaviour method",
+			"file": "src/tag.ts",
+			"find": ".access({ read: true })",
+			"replace": ".access({ read: true }).softDelete()"
+		},
+		{
+			"name": "extra: method of a plugin that is not installed",
+			"file": "src/minimal.ts",
+			"find": ".access({ read: true })",
+			"replace": ".access({ read: true }).hooks({})"
+		},
+		{
+			"name": "extra: hook before softDelete reads isDeleted (order rule)",
+			"file": "src/todo.ts",
+			"find": "\t.softDelete()\n",
+			"replace": "\t.hooks({ beforeSave: ({ item }) => { if (item.isDeleted) throw new TypeError('x') } })\n\t.softDelete()\n"
+		},
+		{
+			"name": "extra: one-direction cross-schema callback in a non-last call (Tag -> Todo)",
+			"file": "src/tag.ts",
+			"find": ".access({ read: true })",
+			"replace": ".access({ read: { where: ({ where }) => where.some('todos', (todo) => todo.eq('archived', false)) } }).postgres({ table: 'tags' })"
+		},
+		{
+			"name": "extra: User cross filter moved to a non-last call (Todo keeps its cross filter last)",
+			"file": "src/user.ts",
+			"find": "where.eq('id', userId ?? '') },\n\t})",
+			"replace": "where.eq('id', userId ?? '') },\n\t})\n\t.acl({})"
+		},
+		{
+			"name": "extra: application registry declared (short hovers)",
+			"file": "src/application.ts",
+			"find": "export const app = new App({ schemas: [User, Role, Todo, Tag] })",
+			"replace": "export const app = new App({ schemas: [User, Role, Todo, Tag] })\ndeclare module '../../../lib-f/types.ts' { interface Register { readonly app: typeof app } }"
+		}
+	]
+}

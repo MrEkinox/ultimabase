@@ -1,0 +1,23 @@
+{
+	"hovers": [
+		{ "file": "src/todo-role.ts", "find": "where }) => where.some('members'", "offset": 0 },
+		{ "file": "src/todo-user.ts", "find": "(role) => role.eq", "offset": 1 },
+		{ "file": "src/todo-user.ts", "find": "item }) =>", "offset": 0 },
+		{ "file": "src/usage.ts", "find": "signedUp = await", "offset": 0 },
+		{ "file": "src/usage.ts", "find": "roles = await", "offset": 0 }
+	],
+	"completions": [
+		{ "file": "src/todo.ts", "find": "= App." },
+		{ "file": "src/minimal.ts", "find": "= MiniApp." },
+		{ "file": "src/todo-role.ts", "find": "priority: field.int({ default: 0 }) }),\n})." },
+		{ "file": "src/usage.ts", "find": "await TodoRole." }
+	],
+	"cases": [
+		{ "name": "two schemas from the same factory registered", "file": "src/application.ts", "find": "[TodoUser, TodoRole, Todo, Tag]", "replace": "[TodoUser, TodoRole, Todo, Tag, Customer]" },
+		{ "name": "typo in the members thunk", "file": "src/todo-role.ts", "find": "members: () => TodoUser,", "replace": "members: () => TodoUsr," },
+		{ "name": "typo in a role field (cross-schema builder)", "file": "src/todo-user.ts", "find": "role.eq('name', 'admin')", "replace": "role.eq('nme', 'admin')" },
+		{ "name": "typo in a factory-owned field read by a hook", "file": "src/todo-user.ts", "find": "item.email === ''", "replace": "item.emial === ''" },
+		{ "name": "factory of a plugin that is not installed", "file": "src/minimal.ts", "find": "MiniApp.Schema.define(", "replace": "MiniApp.RoleSchema.define(" },
+		{ "name": "model method with a wrong argument", "file": "src/usage.ts", "find": "await TodoRole.addMember({ id: 'r1' }, signedUp)", "replace": "await TodoRole.addMember('r1', signedUp)" }
+	]
+}

@@ -1,0 +1,55 @@
+forms/d-build/scratch/noreg/src/named.ts(21,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/named.ts(22,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/named.ts(23,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/named.ts(24,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/named.ts(25,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/named.ts(26,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/named.ts(27,50): error TS2339: Property 'priority' does not exist on type 'Model<any>'.
+forms/d-build/scratch/noreg/src/named.ts(31,33): error TS2339: Property 'title' does not exist on type 'Model<any>'.
+forms/d-build/scratch/noreg/src/tag.ts(13,52): error TS2345: Argument of type '"todos"' is not assignable to parameter of type 'K'.
+  '"todos"' is assignable to the constraint of type 'K', but 'K' could be instantiated with a different subtype of constraint '"todos"'.
+forms/d-build/scratch/noreg/src/tag.ts(13,79): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PointerKeys<SchemaRef<TargetOf<Readonly<{ readonly name: ScalarField<"string", string, true>; readonly todos: RelationField<() => any, "tags">; } & SystemFields & Readonly<...> & object & { ...; }>[K]>>>'.
+  Type 'string' is not assignable to type 'FieldsOf<SchemaRef<TargetOf<Readonly<{ readonly name: ScalarField<"string", string, true>; readonly todos: RelationField<() => any, "tags">; } & SystemFields & Readonly<...> & object & { ...; }>[K]>>>[keyof FieldsOf<...>] extends PointerField<...> ? keyof FieldsOf<...> : never'.
+forms/d-build/scratch/noreg/src/tag.ts(13,109): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ScalarKeys<SchemaRef<TargetOf<FieldsOf<SchemaRef<TargetOf<Readonly<{ readonly name: ScalarField<"string", string, true>; readonly todos: RelationField<() => any, "tags">; } & SystemFields & Readonly<...> & object & { ...; }>[K]>>>[PointerKeys<...>]>>>'.
+  Type 'string' is not assignable to type 'FieldsOf<SchemaRef<TargetOf<FieldsOf<SchemaRef<TargetOf<Readonly<{ readonly name: ScalarField<"string", string, true>; readonly todos: RelationField<() => any, "tags">; } & SystemFields & Readonly<...> & object & { ...; }>[K]>>>[PointerKeys<...>]>>>[keyof FieldsOf<...>] extends ScalarField<...> ? keyof FieldsOf<...>...'.
+forms/d-build/scratch/noreg/src/todo-role.ts(10,81): error TS2345: Argument of type '"id"' is not assignable to parameter of type 'never'.
+forms/d-build/scratch/noreg/src/todo-user.ts(4,14): error TS7022: 'TodoUser' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-build/scratch/noreg/src/todo-user.ts(8,35): error TS7023: 'target' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-build/scratch/noreg/src/todo-user.ts(13,11): error TS7023: 'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-build/scratch/noreg/src/todo-user.ts(13,44): error TS2345: Argument of type '"assignedTodos"' is not assignable to parameter of type 'K'.
+  '"assignedTodos"' is assignable to the constraint of type 'K', but 'K' could be instantiated with a different subtype of constraint '"assignedTodos"'.
+forms/d-build/scratch/noreg/src/todo-user.ts(13,61): error TS7024: Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-build/scratch/noreg/src/todo-user.ts(13,71): error TS2615: Type of property 'assignedTodos' circularly references itself in mapped type 'TargetExpressions<DefinedSchema<"TodoUser", { readonly displayName: ScalarField<"string", string, true>; readonly assignedTodos: RelationField<() => any, "assignee">; } & PasswordUserOwnedFields, AppTypes<...>>>'.
+forms/d-build/scratch/noreg/src/todo-user.ts(13,79): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ScalarKeys<SchemaRef<TargetOf<Readonly<{ readonly displayName: ScalarField<"string", string, true>; readonly assignedTodos: RelationField<() => any, "assignee">; } & PasswordUserOwnedFields & SystemFields & Readonly<...> & object & { ...; }>[K]>>>'.
+  Type 'string' is not assignable to type 'FieldsOf<SchemaRef<TargetOf<Readonly<{ readonly displayName: ScalarField<"string", string, true>; readonly assignedTodos: RelationField<() => any, "assignee">; } & PasswordUserOwnedFields & SystemFields & Readonly<...> & object & { ...; }>[K]>>>[keyof FieldsOf<...>] extends ScalarField<...> ? keyof FieldsOf<...> : n...'.
+forms/d-build/scratch/noreg/src/todo.ts(7,14): error TS7022: 'Todo' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-build/scratch/noreg/src/todo.ts(15,29): error TS7023: 'target' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-build/scratch/noreg/src/todo.ts(16,27): error TS7023: 'target' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-build/scratch/noreg/src/todo.ts(26,5): error TS7023: 'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-build/scratch/noreg/src/todo.ts(26,44): error TS2345: Argument of type '"assignee"' is not assignable to parameter of type 'K'.
+  '"assignee"' is assignable to the constraint of type 'K', but 'K' could be instantiated with a different subtype of constraint 'PointerKeys<DefinedSchema<"Todo", { readonly title: ScalarField<"string", string, true>; readonly archived: ScalarField<"boolean", boolean, true>; readonly priority: ScalarField<"enum", "low" | ... 1 more ... | "high", false>; ... 5 more ...; readonly tags: RelationField<...>; } & { ...; }, AppTypes<...>>>'.
+forms/d-build/scratch/noreg/src/todo.ts(26,74): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ScalarKeys<SchemaRef<TargetOf<Readonly<{ readonly title: ScalarField<"string", string, true>; readonly archived: ScalarField<"boolean", boolean, true>; readonly priority: ScalarField<"enum", "low" | "normal" | "high", false>; ... 5 more ...; readonly tags: RelationField<...>; } & ... 4 more ... & { ...; }>[K]>>>'.
+  Type 'string' is not assignable to type 'FieldsOf<SchemaRef<TargetOf<Readonly<{ readonly title: ScalarField<"string", string, true>; readonly archived: ScalarField<"boolean", boolean, true>; readonly priority: ScalarField<"enum", "low" | "normal" | "high", false>; ... 5 more ...; readonly tags: RelationField<...>; } & ... 4 more ... & { ...; }>[K]>>>[keyof...'.
+forms/d-build/scratch/noreg/src/ultimabase.ts(9,57): error TS2322: Type 'BuiltSchema<"TodoRole", { readonly description: ScalarField<"string", string, false>; } & RoleOwnedFields<() => any>, AppTypes<readonly [PostgresSchemaOptions, ... 5 more ..., NoSchemaOptions], Readonly<...> & ... 1 more ... & { ...; }, Readonly<...> & ... 1 more ... & SoftDeleteShapes>, RoleModel & { ...; }>' is not assignable to type 'typeof Schema & RoleModel & { readonly '~factory': "RoleSchema"; } & SchemaRegistrationError<"TodoRole: factory 'RoleSchema' already created another registered schema">'.
+  Type 'BuiltSchema<"TodoRole", { readonly description: ScalarField<"string", string, false>; } & RoleOwnedFields<() => any>, AppTypes<readonly [PostgresSchemaOptions, ... 5 more ..., NoSchemaOptions], Readonly<...> & ... 1 more ... & { ...; }, Readonly<...> & ... 1 more ... & SoftDeleteShapes>, RoleModel & { ...; }>' is not assignable to type 'SchemaRegistrationError<"TodoRole: factory 'RoleSchema' already created another registered schema">'.
+forms/d-build/scratch/noreg/src/ultimabase.ts(9,73): error TS2322: Type 'typeof Schema' is not assignable to type 'typeof Schema & SchemaRegistrationError<`Tag.todos: mappedBy 'tags' is not a field of ${string}`>'.
+  Property ''~error'' is missing in type 'typeof Schema' but required in type 'SchemaRegistrationError<`Tag.todos: mappedBy 'tags' is not a field of ${string}`>'.
+forms/d-build/scratch/noreg/src/usage.ts(16,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(17,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(18,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(19,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(20,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(21,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(25,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(26,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(27,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(31,26): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(36,26): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-build/scratch/noreg/src/usage.ts(39,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-build/scratch/noreg/src/usage.ts(41,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-build/scratch/noreg/src/usage.ts(43,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-build/scratch/noreg/src/usage.ts(45,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-build/scratch/noreg/src/usage.ts(47,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-build/scratch/noreg/src/usage.ts(49,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-build/scratch/noreg/src/usage.ts(51,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-build/scratch/noreg/src/usage.ts(53,1): error TS2578: Unused '@ts-expect-error' directive.

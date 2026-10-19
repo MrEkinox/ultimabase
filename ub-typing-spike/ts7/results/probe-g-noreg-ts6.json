@@ -1,0 +1,282 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/ts7/work/g-noreg/fixture",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "(todo) => todo.eq('archived'",
+   "text": "(parameter) todo: WhereBuilder<SchemaHeader<\"Todo\", Readonly<{\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => typeof TodoUser, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & SystemFields & Readonly<...> & {\n    ...;\n} & {\n    ...;\n}>>>",
+   "length": 750
+  },
+  {
+   "name": "(user) => user.eq('id'",
+   "text": "(parameter) user: WhereBuilder<typeof TodoUser>",
+   "length": 47
+  },
+  {
+   "name": "(user) => user.eq('displayName'",
+   "text": "(parameter) user: WhereBuilder<typeof TodoUser>",
+   "length": 47
+  },
+  {
+   "name": "({ item }) =>",
+   "text": "(parameter) item: Readonly<{\n    acl: ACL | null;\n    id: string;\n    createdAt: Date;\n    updatedAt: Date;\n    assignee: PointerRef | null;\n    parent: PointerRef | null;\n    archived: boolean | null;\n    dueAt: Date | null;\n    title: string;\n    priority: \"low\" | \"normal\" | \"high\" | null;\n    allowedPriorities: readonly (\"low\" | \"normal\" | \"high\")[] | null;\n    status: \"open\" | \"inProgress\" | \"done\" | null;\n    isDeleted: boolean;\n}>",
+   "length": 440
+  },
+  {
+   "name": "(value) => value.trim()",
+   "text": "(parameter) value: string",
+   "length": 25
+  },
+  {
+   "name": "class Todo extends",
+   "text": "class Todo",
+   "length": 10
+  },
+  {
+   "name": "static access = this.rules.access(",
+   "text": "(property) Todo.access: RuleDeclaration<\"access\">",
+   "length": 49
+  },
+  {
+   "name": "static access = this.rules.access(",
+   "text": "(property) SchemaStatics<\"Todo\", Readonly<{ readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, false>; readonly priority: ScalarField<...>; ... 6 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<...> & { ...; } & { ...; }>, RuleMethods<...>>.rules: RuleMethods<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], SchemaHeader<\"Todo\", Readonly<{\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => typeof TodoUser, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & SystemFields & Readonly<...> & {\n    ...;\n} & {\n    ...;\n}>>>",
+   "length": 1139
+  },
+  {
+   "name": "static access = this.rules.access(",
+   "text": "(property) access: (options: AccessOptions<SchemaHeader<\"Todo\", Readonly<{\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => typeof TodoUser, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & SystemFields & Readonly<...> & {\n    ...;\n} & {\n    ...;\n}>>>) => RuleDeclaration<...>",
+   "length": 787
+  },
+  {
+   "name": "App.Schema(",
+   "text": "(property) ConfiguredFactory<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], readonly [PostgresShape, ... 5 more ..., NoShape], Readonly<...> & { ...; }, readonly [...]>.Schema: SchemaFunction\n<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => typeof TodoUser, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n}, {\n    ...;\n}>(className: \"Todo\", fields: {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => typeof TodoUser, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n}, shape?: ({\n    ...;\n} & ExactShape<...>) | undefined) => SchemaStatics<...>",
+   "length": 1606
+  },
+  {
+   "name": "pending = await",
+   "text": "const pending: {\n    readonly id: string;\n    readonly assignee: {\n        readonly id: string;\n        readonly displayName: string;\n    } | null;\n    readonly dueAt: Date | null;\n    readonly title: string;\n    readonly priority: \"low\" | \"normal\" | \"high\" | null;\n    readonly subtasks: {\n        readonly id: string;\n        readonly title: string;\n    }[];\n}[]",
+   "length": 364
+  },
+  {
+   "name": "one: Todo | null = await Todo.findOne(",
+   "text": "(method) SchemaQueries.findOne<typeof Todo, {\n    readonly where: {\n        readonly title: {\n            readonly eq: \"x\";\n        };\n    };\n}>(this: typeof Todo, args?: {\n    readonly where: {\n        readonly title: {\n            readonly eq: \"x\";\n        };\n    };\n} | undefined): Promise<Todo | null>",
+   "length": 305
+  },
+  {
+   "name": "signedUp = await",
+   "text": "const signedUp: TodoUser",
+   "length": 24
+  }
+ ],
+ "hoverSets": [],
+ "completions": [
+  {
+   "name": "static acl = this.rules.",
+   "names": [
+    "access",
+    "acl",
+    "hooks"
+   ]
+  },
+  {
+   "name": "static acl = this.",
+   "names": [
+    "access",
+    "acl",
+    "apply",
+    "arguments",
+    "bind",
+    "call",
+    "caller",
+    "className",
+    "createOne",
+    "findMany",
+    "findOne",
+    "hooks",
+    "length",
+    "name",
+    "prototype",
+    "rules",
+    "toString"
+   ]
+  },
+  {
+   "name": "extends App.",
+   "names": [
+    "PasswordUserSchema",
+    "RoleSchema",
+    "Schema",
+    "apply",
+    "arguments",
+    "bind",
+    "call",
+    "caller",
+    "field",
+    "length",
+    "name",
+    "prototype",
+    "toString",
+    "use"
+   ]
+  },
+  {
+   "name": "{ softDelete: true, ",
+   "names": [
+    "softDelete"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "2 local where field typo (builder)",
+   "file": "todo.ts",
+   "faultyLine": 24,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 24,
+    "col": 36,
+    "code": 2345,
+    "message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'ScalarKeys<SchemaHeader<\"Todo\", Readonly<{ readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, false>; readonly priority: ScalarField<\"enum\", \"low\" | ... 1 more ... | \"high\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<......'."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 24,
+     "col": 36,
+     "code": 2345,
+     "message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'ScalarKeys<SchemaHeader<\"Todo\", Readonly<{ readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, false>; readonly priority: ScalarField<\"enum\", \"low\" | ... 1 more ... | \"high\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<......'."
+    }
+   ]
+  },
+  {
+   "name": "3 cross-schema field typo (object, Todo -> TodoUser)",
+   "file": "todo.ts",
+   "faultyLine": 27,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 27,
+    "col": 47,
+    "code": 2561,
+    "message": "Object literal may only specify known properties, but 'emial' does not exist in type 'Where<typeof TodoUser>'. Did you mean to write 'email'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 27,
+     "col": 47,
+     "code": 2561,
+     "message": "Object literal may only specify known properties, but 'emial' does not exist in type 'Where<typeof TodoUser>'. Did you mean to write 'email'?"
+    }
+   ]
+  },
+  {
+   "name": "4 plugin-added field typo in a hook",
+   "file": "todo.ts",
+   "faultyLine": 37,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 37,
+    "col": 13,
+    "code": 2551,
+    "message": "Property 'isDeletd' does not exist on type 'Readonly<{ acl: ACL | null; id: string; createdAt: Date; updatedAt: Date; assignee: PointerRef | null; parent: PointerRef | null; archived: boolean | null; ... 5 more ...; isDeleted: boolean; }>'. Did you mean 'isDeleted'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 37,
+     "col": 13,
+     "code": 2551,
+     "message": "Property 'isDeletd' does not exist on type 'Readonly<{ acl: ACL | null; id: string; createdAt: Date; updatedAt: Date; assignee: PointerRef | null; parent: PointerRef | null; archived: boolean | null; ... 5 more ...; isDeleted: boolean; }>'. Did you mean 'isDeleted'?"
+    }
+   ]
+  },
+  {
+   "name": "6a rule method typo",
+   "file": "todo.ts",
+   "faultyLine": 23,
+   "count": 6,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 23,
+    "col": 29,
+    "code": 2551,
+    "message": "Property 'acess' does not exist on type 'RuleMethods<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], SchemaHeader<\"Todo\", Readonly<{ readonly title: ScalarField<...>; ... 8 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<...> & { ...; } & { ...; }>>>'. Did you mean 'access'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 23,
+     "col": 29,
+     "code": 2551,
+     "message": "Property 'acess' does not exist on type 'RuleMethods<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], SchemaHeader<\"Todo\", Readonly<{ readonly title: ScalarField<...>; ... 8 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<...> & { ...; } & { ...; }>>>'. Did you mean 'access'?"
+    },
+    {
+     "file": "todo.ts",
+     "line": 24,
+     "col": 19,
+     "code": 7006,
+     "message": "Parameter 'todo' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 26,
+     "col": 21,
+     "code": 7006,
+     "message": "Parameter 'todo' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 26,
+     "col": 29,
+     "code": 7031,
+     "message": "Binding element 'userId' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 26,
+     "col": 63,
+     "code": 7006,
+     "message": "Parameter 'user' implicitly has an 'any' type."
+    },
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 67,
+     "code": 2322,
+     "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<any>'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<any>'."
+    }
+   ]
+  },
+  {
+   "name": "7 wrong filter return",
+   "file": "tag.ts",
+   "faultyLine": 11,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "tag.ts",
+    "line": 11,
+    "col": 26,
+    "code": 2322,
+    "message": "Type 'number' is not assignable to type 'AccessFilterResult<SchemaHeader<\"Tag\", Readonly<{ readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => typeof Todo, \"tags\">; } & SystemFields & Readonly<...> & { ...; }>>>'."
+   },
+   "diagnostics": [
+    {
+     "file": "tag.ts",
+     "line": 11,
+     "col": 26,
+     "code": 2322,
+     "message": "Type 'number' is not assignable to type 'AccessFilterResult<SchemaHeader<\"Tag\", Readonly<{ readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => typeof Todo, \"tags\">; } & SystemFields & Readonly<...> & { ...; }>>>'."
+    }
+   ]
+  }
+ ]
+}

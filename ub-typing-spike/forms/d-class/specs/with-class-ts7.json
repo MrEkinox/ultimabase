@@ -1,0 +1,88 @@
+{
+ "version": "7",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/forms/d-build/with-class/fixture",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "schema constant (declaration)",
+   "text": "const Todo: typeof Schema",
+   "length": 25
+  },
+  {
+   "name": "schema constant (usage `Todo.findMany`)",
+   "text": "(alias) const Todo: typeof Schema",
+   "length": 33
+  },
+  {
+   "name": "`Todo.findMany` method (usage)",
+   "text": "(property) Schema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<...>; ... 5 more ...; readonly tags: RelationField<...>; } & { ...; }, AppTypes<...>>.findMany: <typeof Schema, {\n    readonly where: {\n        readonly archived: {\n            readonly eq: false;\n        };\n        readonly assignee: {\n            readonly is: {\n                readonly displayName: {\n                    readonly startsWith: \"A\";\n                };\n            };\n        };\n        readonly tags: {\n            readonly some: {\n                readonly name: {\n                    readonly eq: \"x\";\n                };\n            };\n        };\n    };\n    readonly select: {\n        readonly title: true;\n        readonly priority: true;\n        readonly status: true;\n    };\n    readonly include: {\n        readonly assignee: {\n            readonly select: {\n                readonly email: true;\n            };\n        };\n        readonly subtasks: {\n            readonly select: {\n                readonly title: true;\n            };\n            readonly where: {\n                readonly isDeleted: {\n                    readonly eq: false;\n                };\n            };\n        };\n    };\n}>(this: typeof Schema, args?: {\n    readonly where: {\n        readonly archived: {\n            readonly eq: false;\n        };\n        readonly assignee: {\n            ...;\n        };\n        readonly tags: {\n            ...;\n        };\n    };\n    readonly select: {\n        ...;\n    };\n    readonly include: {\n        ...;\n    };\n} | undefined, options?: QueryOptions) => Promise<...>",
+   "length": 1672
+  },
+  {
+   "name": "factory constant (TodoUser)",
+   "text": "const TodoUser: ConfiguredSchema<\"TodoUser\", {\n    readonly displayName: ScalarField<\"string\", string, true>;\n    readonly assignedTodos: RelationField<() => typeof Schema, \"assignee\">;\n} & PasswordUserOwnedFields, AppTypes<readonly [PostgresSchemaOptions, AccessSchemaOptions, HooksSchemaOptions, NoSchemaOptions, AclSchemaOptions, NoSchemaOptions, NoSchemaOptions], Readonly<Record<never, never>> & object & {\n    ...;\n}, Readonly<...> & ... 1 more ... & SoftDeleteShapes>, PasswordUserModel & {\n    ...;\n}>",
+   "length": 509
+  },
+  {
+   "name": "rules entry `.with(`",
+   "text": "(method) RulesMethod<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 5 more ...; readonly tags: RelationField<...>; } & { ...; }, AppTypes<...>, unknown>.with(rules: PostgresSchemaOption<\"Todo\"> & AccessSchemaOption<\"Todo\"> & HooksSchemaOption<\"Todo\"> & Readonly<Record<never, never>> & AclSchemaOption<\"Todo\">): typeof Schema",
+   "length": 486
+  }
+ ],
+ "hoverSets": [
+  {
+   "name": "WITHOUT the Register line",
+   "diagnostics": 0,
+   "hovers": [
+    {
+     "name": "schema constant (declaration)",
+     "text": "const Todo: typeof Schema",
+     "length": 25
+    },
+    {
+     "name": "schema constant (usage `Todo.findMany`)",
+     "text": "(alias) const Todo: typeof Schema",
+     "length": 33
+    },
+    {
+     "name": "`Todo.findMany` method (usage)",
+     "text": "(property) Schema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<...>; ... 5 more ...; readonly tags: RelationField<...>; } & { ...; }, AppTypes<...>>.findMany: <typeof Schema, {\n    readonly where: {\n        readonly archived: {\n            readonly eq: false;\n        };\n        readonly assignee: {\n            readonly is: {\n                readonly displayName: {\n                    readonly startsWith: \"A\";\n                };\n            };\n        };\n        readonly tags: {\n            readonly some: {\n                readonly name: {\n                    readonly eq: \"x\";\n                };\n            };\n        };\n    };\n    readonly select: {\n        readonly title: true;\n        readonly priority: true;\n        readonly status: true;\n    };\n    readonly include: {\n        readonly assignee: {\n            readonly select: {\n                readonly email: true;\n            };\n        };\n        readonly subtasks: {\n            readonly select: {\n                readonly title: true;\n            };\n            readonly where: {\n                readonly isDeleted: {\n                    readonly eq: false;\n                };\n            };\n        };\n    };\n}>(this: typeof Schema, args?: {\n    readonly where: {\n        readonly archived: {\n            readonly eq: false;\n        };\n        readonly assignee: {\n            ...;\n        };\n        readonly tags: {\n            ...;\n        };\n    };\n    readonly select: {\n        ...;\n    };\n    readonly include: {\n        ...;\n    };\n} | undefined, options?: QueryOptions) => Promise<...>",
+     "length": 1672
+    },
+    {
+     "name": "factory constant (TodoUser)",
+     "text": "const TodoUser: ConfiguredSchema<\"TodoUser\", {\n    readonly displayName: ScalarField<\"string\", string, true>;\n    readonly assignedTodos: RelationField<() => typeof Schema, \"assignee\">;\n} & PasswordUserOwnedFields, AppTypes<readonly [PostgresSchemaOptions, AccessSchemaOptions, HooksSchemaOptions, NoSchemaOptions, AclSchemaOptions, NoSchemaOptions, NoSchemaOptions], Readonly<Record<never, never>> & object & {\n    ...;\n}, Readonly<...> & ... 1 more ... & SoftDeleteShapes>, PasswordUserModel & {\n    ...;\n}>",
+     "length": 509
+    },
+    {
+     "name": "rules entry `.with(`",
+     "text": "(method) RulesMethod<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 5 more ...; readonly tags: RelationField<...>; } & { ...; }, AppTypes<...>, unknown>.with(rules: PostgresSchemaOption<DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>> & AccessSchemaOption<...> & HooksSchemaOption<...> & Readonly<...> & AclSchemaOption<...>): typeof Schema",
+     "length": 1299
+    }
+   ]
+  }
+ ],
+ "completions": [
+  {
+   "name": "Todo. (usage)",
+   "names": [
+    "Symbol",
+    "apply",
+    "arguments",
+    "bind",
+    "call",
+    "caller",
+    "className",
+    "createOne",
+    "findMany",
+    "findOne",
+    "length",
+    "name",
+    "prototype",
+    "toString",
+    "~fields"
+   ]
+  }
+ ],
+ "cases": []
+}

@@ -1,0 +1,56 @@
+## Registered application
+
+### TodoUser (factory PasswordUserSchema)
+fields: {"id":"string","createdAt":"date","updatedAt":"date","displayName":"string","assignedTodos":"relation","username":"string","email":"string","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"},"update":{"where":"[function where]"}}
+rule postgres (plugin postgres): {"table":"users"}
+
+### TodoRole (factory RoleSchema)
+fields: {"id":"string","createdAt":"date","updatedAt":"date","description":"string","name":"string","members":"relation","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"},"create":false}
+
+### Todo
+fields: {"id":"string","createdAt":"date","updatedAt":"date","title":"string","archived":"boolean","priority":"enum","allowedPriorities":"list","status":"enum","dueAt":"date","assignee":"pointer","parent":"pointer","subtasks":"relation","tags":"relation","acl":"json","isDeleted":"boolean"}
+shape options: {"softDelete":true}
+rule access (plugin access): {"read":{"where":"[function where]"},"update":{"where":"[function where]"},"delete":{"where":"[function where]"}}
+rule acl (plugin acl): {"default":"[function default]"}
+rule hooks (plugin hooks): {"beforeUpdate":"[function beforeUpdate]"}
+rule postgres (plugin postgres): {"table":"todos","indexes":[{"fields":["status","dueAt"]}]}
+
+### Tag
+fields: {"id":"string","createdAt":"date","updatedAt":"date","name":"string","todos":"relation","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"}}
+
+## Executing rules
+Todo access.update filter: {"Todo":{"assignee":{"is":{"assignee":{"id":{"eq":"u1"}}}}}}
+Todo hooks.beforeUpdate on a deleted item throws: Deleted todos are read-only
+
+## Statement-specific checks
+
+Tag rules after registration: access (tag-extra-rules.ts never imported: its hooks are silently absent)
+
+### K'a statement after registration (Todo.acl): TypeError
+Todo.acl(...) at runtime-check.mjs:46: Todo is sealed (registered by new App); declare rules before registration
+
+### K'b late import of a rules module after registration: TypeError
+Tag.hooks(...) at tag-extra-rules.ts:6: Tag is sealed (registered by new App); declare rules before registration
+
+### K'c same statement twice before registration: TypeError
+Note.access(...) at runtime-check.mjs:50: already declared at runtime-check.mjs:49
+
+### K'd unknown statement (no plugin method): TypeError
+Note.acess is not a function
+
+### K'e schema registered in a second application (tests): accepted
+
+### K'f second RoleSchema: RegistrationError
+Invalid application:
+- RoleSchema (plugin 'roles'): exactly one registered schema expected, got 2 (TodoRole, StaffRole)
+JS TodoRole fields: id, createdAt, updatedAt, description, name, members, acl | rules: access
+--- cycle: entry imports the schema module first
+ReferenceError: Cannot access 'Note' before initialization
+--- cycle: entry imports the application module first
+registered: Note rules=hooks

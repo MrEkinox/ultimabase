@@ -1,0 +1,38 @@
+{
+	"hovers": [
+		{ "file": "src/ultimabase.ts", "find": "where }) => where.eq('archived'", "offset": 0 },
+		{ "file": "src/ultimabase.ts", "find": "'assignee', (user)", "offset": 13 },
+		{ "file": "src/ultimabase.ts", "find": "item }) =>", "offset": 0 },
+		{ "file": "src/todo.ts", "find": "Todo = App", "offset": 0 },
+		{ "file": "src/ultimabase.ts", "find": "rules: {", "offset": 0 },
+		{ "file": "src/ultimabase.ts", "find": "Todo: {", "offset": 0 },
+		{ "file": "src/ultimabase.ts", "find": "ultimabase = new", "offset": 0 },
+		{ "file": "src/usage.ts", "find": "pending = await", "offset": 0 },
+		{ "file": "src/ultimabase.ts", "find": "(todo) => todo.is", "offset": 1 }
+	],
+	"completions": [
+		{ "file": "src/completion-probe.ts", "find": "rules: {" },
+		{ "file": "src/completion-probe.ts", "find": "Tag: {" },
+		{ "file": "src/todo.ts", "find": "Todo = App." },
+		{ "file": "src/tag.ts", "find": "Tag = App.Schema.define({" },
+		{ "file": "src/usage.ts", "find": "await TodoRole." }
+	],
+	"cases": [
+		{ "name": "1. relation target typo", "file": "src/todo.ts", "find": "target: () => TodoUser,", "replace": "target: () => TodoUsr," },
+		{ "name": "2. local where field typo", "file": "src/ultimabase.ts", "find": "where.eq('archived', false)", "replace": "where.eq('archivd', false)" },
+		{ "name": "3. cross-schema field typo (Todo -> TodoUser)", "file": "src/ultimabase.ts", "find": "email: { endsWith", "replace": "emial: { endsWith" },
+		{ "name": "4. plugin-added field typo in a hook", "file": "src/ultimabase.ts", "find": "item.isDeleted", "replace": "item.isDeletd" },
+		{ "name": "5. mappedBy typo", "file": "src/todo-user.ts", "find": "mappedBy: 'assignee'", "replace": "mappedBy: 'asignee'" },
+		{ "name": "6. rules key typo", "file": "src/ultimabase.ts", "find": "Todo: {\n\t\t\taccess: {", "replace": "Todo: {\n\t\t\tacess: {" },
+		{ "name": "7. wrong filter return", "file": "src/ultimabase.ts", "find": "where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', userId)))", "replace": "42" },
+		{ "name": "8. query select typo", "file": "src/usage.ts", "find": "select: { title: true } })", "replace": "select: { titel: true } })" },
+		{ "name": "8b. query select typo next to valid keys (Core query typing, all forms)", "file": "src/usage.ts", "find": "select: { title: true, dueAt: true, priority: true }", "replace": "select: { titel: true, dueAt: true, priority: true }" },
+		{ "name": "L1. class name typo as rules key", "file": "src/ultimabase.ts", "find": "\t\tTodo: {\n", "replace": "\t\tTodoo: {\n" },
+		{ "name": "L2. rules for a schema missing from schemas", "file": "src/ultimabase.ts", "find": "schemas: [TodoUser, TodoRole, Todo, Tag]", "replace": "schemas: [TodoUser, TodoRole, Todo]" },
+		{ "name": "L3. rules entry of a schema forgotten (Tag entry deleted)", "file": "src/ultimabase.ts", "find": "\t\tTag: {\n\t\t\taccess: {\n\t\t\t\t// Two hops: Tag -> Todo -> TodoUser.\n\t\t\t\tread: { where: ({ where, userId }) => where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', userId))) },\n\t\t\t},\n\t\t},\n", "replace": "" },
+		{ "name": "L4. second schema from the RoleSchema factory", "file": "src/ultimabase.ts", "find": "schemas: [TodoUser, TodoRole, Todo, Tag]", "replace": "schemas: [TodoUser, TodoRole, Todo, Tag, StaffRole]",
+			"also": [{ "file": "src/ultimabase.ts", "find": "import { App } from './app.ts'", "replace": "import { App } from './app.ts'\nimport { StaffRole } from './extra.ts'" }] },
+		{ "name": "L5. shape option typo in define", "file": "src/todo.ts", "find": "softDelete: true,", "replace": "sofDelete: true," },
+		{ "name": "L6. cross callback returns the wrong schema expression", "file": "src/ultimabase.ts", "find": "(user) => user.eq('id', userId)),\n\t\t\t\t},", "replace": "(user) => where.eq('archived', false)),\n\t\t\t\t}," }
+	]
+}

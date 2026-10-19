@@ -1,0 +1,105 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/ts7/repros/e1-annotation",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "where",
+   "text": "(parameter) where: WhereBuilder<typeof Todo>",
+   "length": 44
+  },
+  {
+   "name": "cross builder",
+   "text": "(parameter) user: WhereBuilder<typeof User>",
+   "length": 43
+  },
+  {
+   "name": "hook item",
+   "text": "(parameter) item: Item<typeof Todo>",
+   "length": 35
+  },
+  {
+   "name": "static options",
+   "text": "(property) Todo.options: Rules<typeof Todo>",
+   "length": 43
+  },
+  {
+   "name": "class Todo",
+   "text": "class Todo",
+   "length": 10
+  }
+ ],
+ "hoverSets": [],
+ "completions": [],
+ "cases": [
+  {
+   "name": "control: annotation removed (contextual typing lost)",
+   "file": "todo.ts",
+   "faultyLine": 6,
+   "count": 3,
+   "onLine": false,
+   "primary": {
+    "file": "todo.ts",
+    "line": 7,
+    "col": 11,
+    "code": 7006,
+    "message": "Parameter 'where' implicitly has an 'any' type."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 11,
+     "code": 7006,
+     "message": "Parameter 'where' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 43,
+     "code": 7006,
+     "message": "Parameter 'user' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 8,
+     "col": 18,
+     "code": 7006,
+     "message": "Parameter 'item' implicitly has an 'any' type."
+    }
+   ]
+  },
+  {
+   "name": "control: filter expressions typed by the schema type instead of its name",
+   "file": "../common/mini.ts",
+   "faultyLine": 24,
+   "count": 0,
+   "onLine": false,
+   "primary": null,
+   "diagnostics": []
+  },
+  {
+   "name": "typo in cross filter detected",
+   "file": "todo.ts",
+   "faultyLine": 7,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 7,
+    "col": 60,
+    "code": 2345,
+    "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 60,
+     "code": 2345,
+     "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+    }
+   ]
+  }
+ ]
+}

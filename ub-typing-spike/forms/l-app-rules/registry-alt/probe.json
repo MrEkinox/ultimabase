@@ -1,0 +1,106 @@
+{
+	"hovers": [
+		{
+			"file": "src/ultimabase.ts",
+			"find": "where }) => where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"file": "src/ultimabase.ts",
+			"find": "'assignee', (user)",
+			"offset": 13
+		},
+		{
+			"file": "src/ultimabase.ts",
+			"find": "item }) =>",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "Todo = App",
+			"offset": 0
+		},
+		{
+			"file": "src/ultimabase.ts",
+			"find": "rules: {",
+			"offset": 0
+		},
+		{
+			"file": "src/ultimabase.ts",
+			"find": "Todo: {",
+			"offset": 0
+		},
+		{
+			"file": "src/ultimabase.ts",
+			"find": "ultimabase = new",
+			"offset": 0
+		},
+		{
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"file": "src/ultimabase.ts",
+			"find": "(todo) => todo.is",
+			"offset": 1
+		}
+	],
+	"completions": [],
+	"cases": [
+		{
+			"name": "1. relation target typo",
+			"file": "src/todo.ts",
+			"find": "target: () => TodoUser,",
+			"replace": "target: () => TodoUsr,"
+		},
+		{
+			"name": "2. local where field typo",
+			"file": "src/ultimabase.ts",
+			"find": "where.eq('archived', false)",
+			"replace": "where.eq('archivd', false)"
+		},
+		{
+			"name": "3. cross-schema field typo (Todo -> TodoUser)",
+			"file": "src/ultimabase.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "4. plugin-added field typo in a hook",
+			"file": "src/ultimabase.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "5. mappedBy typo",
+			"file": "src/todo-user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "6. rules key typo",
+			"file": "src/ultimabase.ts",
+			"find": "Todo: {\n\t\t\taccess: {",
+			"replace": "Todo: {\n\t\t\tacess: {"
+		},
+		{
+			"name": "7. wrong filter return",
+			"file": "src/ultimabase.ts",
+			"find": "where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', userId)))",
+			"replace": "42"
+		},
+		{
+			"name": "8. query select typo",
+			"file": "src/usage.ts",
+			"find": "select: { title: true } })",
+			"replace": "select: { titel: true } })"
+		},
+		{
+			"name": "8b. query select typo next to valid keys (Core query typing, all forms)",
+			"file": "src/usage.ts",
+			"find": "select: { title: true, dueAt: true, priority: true }",
+			"replace": "select: { titel: true, dueAt: true, priority: true }"
+		}
+	]
+}

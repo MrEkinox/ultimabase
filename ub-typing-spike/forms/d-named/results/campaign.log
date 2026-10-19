@@ -1,0 +1,15 @@
+2026-10-09T10:16:24.634Z done d-hybrid-10 load 2.44 1.94 1.86
+2026-10-09T10:16:33.540Z done d-named-10 load 2.61 1.99 1.88
+2026-10-09T10:16:42.310Z done d-named-args-10 load 2.51 1.99 1.88
+2026-10-09T10:16:50.778Z done d-hybrid-noreg-10 load 2.63 2.02 1.90
+2026-10-09T10:16:59.204Z done d-named-noreg-10 load 2.69 2.05 1.91
+2026-10-09T10:17:14.734Z done d-hybrid-50 load 2.90 2.13 1.94
+2026-10-09T10:17:30.048Z done d-named-50 load 3.64 2.34 2.02
+2026-10-09T10:17:45.212Z done d-named-args-50 load 3.64 2.40 2.04
+2026-10-09T10:17:58.806Z done d-hybrid-noreg-50 load 3.65 2.46 2.07
+2026-10-09T10:18:12.459Z done d-named-noreg-50 load 3.47 2.46 2.08
+2026-10-09T10:18:49.348Z done d-hybrid-200 load 3.37 2.55 2.12
+2026-10-09T10:19:26.077Z done d-named-200 load 3.37 2.63 2.17
+2026-10-09T10:20:02.028Z done d-named-args-200 load 3.36 2.69 2.21
+2026-10-09T10:20:32.912Z done d-hybrid-noreg-200 load 3.13 2.70 2.23
+2026-10-09T10:21:03.836Z done d-named-noreg-200 load 3.49 2.83 2.29

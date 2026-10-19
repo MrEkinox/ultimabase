@@ -1,0 +1,28 @@
+fixture/app.ts(5,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/app.ts(7,16): error TS9019: Binding elements can't be exported directly with --isolatedDeclarations.
+fixture/extra.ts(5,33): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/priority.ts(3,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/tag.ts(4,26): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/tag.ts(6,6): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/tag.ts(10,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/todo-role.ts(4,31): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo-role.ts(9,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/todo-user.ts(5,31): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo-user.ts(7,6): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo-user.ts(10,6): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo-user.ts(14,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/todo-user.ts(20,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/todo.ts(7,27): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo.ts(16,7): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo.ts(19,7): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo.ts(22,7): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo.ts(25,7): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+fixture/todo.ts(31,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/todo.ts(39,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/todo.ts(43,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+fixture/ultimabase.ts(7,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/usage.ts(11,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/usage.ts(41,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/usage.ts(47,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/usage.ts(51,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+fixture/usage.ts(54,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.

@@ -1,0 +1,41 @@
+{
+	"hovers": [
+		{ "file": "src/todo.ts", "find": "where }) => where.eq('archived'", "offset": 0 },
+		{ "file": "src/todo.ts", "find": "(user) => user.eq", "offset": 1 },
+		{ "file": "src/todo.ts", "find": "item }) =>", "offset": 0 },
+		{ "file": "src/todo.ts", "find": "Todo = App", "offset": 0 },
+		{ "file": "src/todo.ts", "find": "rules({", "offset": 0 },
+		{ "file": "src/todo.ts", "find": "todoRules = Todo", "offset": 0 },
+		{ "file": "src/ultimabase.ts", "find": "rules: [", "offset": 0 },
+		{ "file": "src/ultimabase.ts", "find": "ultimabase = new", "offset": 0 },
+		{ "file": "src/usage.ts", "find": "pending = await", "offset": 0 },
+		{ "file": "src/tag.ts", "find": "(todo) => todo.is", "offset": 1 }
+	],
+	"completions": [
+		{ "file": "src/extra.ts", "find": "StaffRole.rules({" },
+		{ "file": "src/extra.ts", "find": "StaffRole." },
+		{ "file": "src/todo.ts", "find": "Todo = App." },
+		{ "file": "src/tag.ts", "find": "Tag = App.Schema.define({" },
+		{ "file": "src/usage.ts", "find": "await TodoRole." }
+	],
+	"cases": [
+		{ "name": "1. relation target typo", "file": "src/todo.ts", "find": "target: () => TodoUser,", "replace": "target: () => TodoUsr," },
+		{ "name": "2. local where field typo", "file": "src/todo.ts", "find": "where.eq('archived', false)", "replace": "where.eq('archivd', false)" },
+		{ "name": "3. cross-schema field typo (Todo -> TodoUser)", "file": "src/todo.ts", "find": "email: { endsWith", "replace": "emial: { endsWith" },
+		{ "name": "4. plugin-added field typo in a hook", "file": "src/todo.ts", "find": "item.isDeleted", "replace": "item.isDeletd" },
+		{ "name": "5. mappedBy typo", "file": "src/todo-user.ts", "find": "mappedBy: 'assignee'", "replace": "mappedBy: 'asignee'" },
+		{ "name": "6. rules key typo", "file": "src/todo.ts", "find": "access: {", "replace": "acess: {" },
+		{ "name": "7. wrong filter return", "file": "src/tag.ts", "find": "where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', userId)))", "replace": "42" },
+		{ "name": "8. query select typo", "file": "src/usage.ts", "find": "select: { title: true } })", "replace": "select: { titel: true } })" },
+		{ "name": "8b. query select typo next to valid keys (Core query typing, all forms)", "file": "src/usage.ts", "find": "select: { title: true, dueAt: true, priority: true }", "replace": "select: { titel: true, dueAt: true, priority: true }" },
+		{ "name": "K1. rules forgotten in rules: [...]", "file": "src/ultimabase.ts", "find": "todoRules, tagRules]", "replace": "todoRules]" },
+		{ "name": "K2. rules listed twice", "file": "src/ultimabase.ts", "find": "todoRules, tagRules]", "replace": "todoRules, tagRules, todoRules]" },
+		{ "name": "K3. rules registered without their schema", "file": "src/ultimabase.ts", "find": "schemas: [TodoUser, TodoRole, Todo, Tag]", "replace": "schemas: [TodoUser, TodoRole, Todo]" },
+		{ "name": "K4. second schema from the RoleSchema factory", "file": "src/ultimabase.ts", "find": "schemas: [TodoUser, TodoRole, Todo, Tag]", "replace": "schemas: [TodoUser, TodoRole, Todo, Tag, StaffRole]",
+			"also": [{ "file": "src/ultimabase.ts", "find": "import { App } from './app.ts'", "replace": "import { App } from './app.ts'\nimport { StaffRole } from './extra.ts'" }] },
+		{ "name": "K5. shape option typo in define", "file": "src/todo.ts", "find": "softDelete: true,", "replace": "sofDelete: true," },
+		{ "name": "K6. cross callback returns the wrong schema expression", "file": "src/todo.ts", "find": "(user) => user.eq('id', userId)", "replace": "(user) => where.eq('archived', false)" },
+		{ "name": "K7. softDelete removed: hook reads isDeleted", "file": "src/todo.ts", "find": "softDelete: true,", "replace": "" },
+		{ "name": "K8. rules declared for a schema of another file passed as a different schema's rules (wrong value)", "file": "src/ultimabase.ts", "find": "todoRules, tagRules]", "replace": "todoRules, tagRules, Tag]" }
+	]
+}

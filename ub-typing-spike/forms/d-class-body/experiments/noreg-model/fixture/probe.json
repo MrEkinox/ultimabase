@@ -1,0 +1,162 @@
+{
+	"hovers": [
+		{
+			"name": "where (builder)",
+			"file": "src/todo.ts",
+			"find": "where }) => where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"name": "cross-schema builder",
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq",
+			"offset": 1
+		},
+		{
+			"name": "hook item",
+			"file": "src/todo.ts",
+			"find": "item }) => {",
+			"offset": 0
+		},
+		{
+			"name": "schema class (declaration)",
+			"file": "src/todo.ts",
+			"find": "class Todo extends",
+			"offset": 6
+		},
+		{
+			"name": "schema class (usage `Todo.findMany`)",
+			"file": "src/usage.ts",
+			"find": "await Todo.findMany",
+			"offset": 6
+		},
+		{
+			"name": "`Todo.findMany` method (usage)",
+			"file": "src/usage.ts",
+			"find": "await Todo.findMany",
+			"offset": 11
+		},
+		{
+			"name": "`static rules` property",
+			"file": "src/todo.ts",
+			"find": "static rules",
+			"offset": 7
+		},
+		{
+			"name": "static helper `findOpen` (declaration)",
+			"file": "src/todo.ts",
+			"find": "static findOpen",
+			"offset": 7
+		},
+		{
+			"name": "static helper result `Todo.findOpen()`",
+			"file": "src/named.ts",
+			"find": "openList = await",
+			"offset": 0
+		},
+		{
+			"name": "rules entry `this.with(`",
+			"file": "src/todo.ts",
+			"find": "this.with({",
+			"offset": 5
+		},
+		{
+			"name": "findMany result",
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"name": "field hook value",
+			"file": "src/todo-user.ts",
+			"find": "value }) => value.trim()",
+			"offset": 0
+		},
+		{
+			"name": "factory schema class (TodoUser)",
+			"file": "src/todo-user.ts",
+			"find": "class TodoUser extends",
+			"offset": 6
+		},
+		{
+			"name": "role where (two factories)",
+			"file": "src/todo-role.ts",
+			"find": "where, userId }) => where.some('members'",
+			"offset": 0
+		},
+		{
+			"name": "hook originalItem",
+			"file": "src/todo.ts",
+			"find": "originalItem }) =>",
+			"offset": 0
+		},
+		{
+			"name": "findMany() no args",
+			"file": "src/named.ts",
+			"find": "allTodos = await",
+			"offset": 0
+		},
+		{
+			"name": "findMany({ where }) no select",
+			"file": "src/named.ts",
+			"find": "openTodos = await",
+			"offset": 0
+		},
+		{
+			"name": "findOne({ where })",
+			"file": "src/named.ts",
+			"find": "oneTodo = await",
+			"offset": 0
+		},
+		{
+			"name": "createOne({ data })",
+			"file": "src/named.ts",
+			"find": "madeTodo = await",
+			"offset": 0
+		},
+		{
+			"name": "findOne + select (partial)",
+			"file": "src/named.ts",
+			"find": "oneTitle = await",
+			"offset": 0
+		},
+		{
+			"name": "findMany + include (partial)",
+			"file": "src/named.ts",
+			"find": "withAssignee = await",
+			"offset": 0
+		},
+		{
+			"name": "Model<typeof Todo>",
+			"file": "src/named.ts",
+			"find": "model: Model",
+			"offset": 0
+		},
+		{
+			"name": "CreateInput<typeof Todo>",
+			"file": "src/named.ts",
+			"find": "createInput: CreateInput",
+			"offset": 0
+		},
+		{
+			"name": "UpdateInput<typeof Todo>",
+			"file": "src/named.ts",
+			"find": "updateInput: UpdateInput",
+			"offset": 0
+		}
+	],
+	"hoverSets": [
+		{
+			"name": "WITHOUT the Register line",
+			"edits": [
+				{
+					"file": "src/ultimabase.ts",
+					"find": "readonly app: typeof ultimabase",
+					"replace": "readonly unrelated: true"
+				}
+			]
+		}
+	],
+	"completions": [],
+	"cases": []
+}

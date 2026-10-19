@@ -1,0 +1,22 @@
+forms/d-class-wrapper/scratch/noreg-oneway/src/tag.ts(4,14): error TS2506: 'Tag' is referenced directly or indirectly in its own base expression.
+forms/d-class-wrapper/scratch/noreg-oneway/src/tag.ts(4,14): error TS7022: 'Tag' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-class-wrapper/scratch/noreg-oneway/src/tag.ts(13,11): error TS7023: 'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-class-wrapper/scratch/noreg-oneway/src/tag.ts(13,61): error TS7024: Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-class-wrapper/scratch/noreg-oneway/src/tag.ts(13,101): error TS18046: 'user' is of type 'unknown'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/todo-role.ts(10,81): error TS2345: Argument of type '"id"' is not assignable to parameter of type 'never'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/todo-user.ts(4,14): error TS2506: 'TodoUser' is referenced directly or indirectly in its own base expression.
+forms/d-class-wrapper/scratch/noreg-oneway/src/todo-user.ts(4,14): error TS7022: 'TodoUser' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-class-wrapper/scratch/noreg-oneway/src/todo-user.ts(13,11): error TS7023: 'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-class-wrapper/scratch/noreg-oneway/src/todo-user.ts(13,61): error TS7024: Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-class-wrapper/scratch/noreg-oneway/src/todo.ts(15,29): error TS7023: 'target' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-class-wrapper/scratch/noreg-oneway/src/todo.ts(18,26): error TS7023: 'target' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+forms/d-class-wrapper/scratch/noreg-oneway/src/ultimabase.ts(9,47): error TS2322: Type 'typeof TodoUser' is not assignable to type 'typeof TodoUser & SchemaRegistrationError<unknown>'.
+  Property ''~error'' is missing in type 'typeof TodoUser' but required in type 'SchemaRegistrationError<unknown>'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/ultimabase.ts(9,73): error TS2322: Type 'typeof Tag' is not assignable to type 'typeof Tag & SchemaRegistrationError<unknown>'.
+  Property ''~error'' is missing in type 'typeof Tag' but required in type 'SchemaRegistrationError<unknown>'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/usage.ts(19,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/usage.ts(23,37): error TS2339: Property 'findMany' does not exist on type 'typeof TodoUser'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/usage.ts(33,40): error TS2339: Property 'signUp' does not exist on type 'typeof TodoUser'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/usage.ts(36,26): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/usage.ts(37,31): error TS2339: Property 'findMany' does not exist on type 'typeof Tag'.
+forms/d-class-wrapper/scratch/noreg-oneway/src/usage.ts(41,1): error TS2578: Unused '@ts-expect-error' directive.

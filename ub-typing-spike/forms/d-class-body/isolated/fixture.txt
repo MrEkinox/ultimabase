@@ -1,0 +1,47 @@
+forms/d-class-body/fixture/src/app.ts(5,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/discover.ts(4,27): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/discover.ts(5,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/enums.ts(3,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/extra.ts(5,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/extra.ts(5,83): error TS9007: Function must have an explicit return type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(8,14): error TS2883: The inferred type of 'allTodos' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/named.ts(8,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(9,14): error TS2883: The inferred type of 'openTodos' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/named.ts(9,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(10,14): error TS2883: The inferred type of 'oneTodo' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/named.ts(10,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(11,14): error TS2883: The inferred type of 'madeTodo' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/named.ts(11,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(13,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(14,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(16,14): error TS2883: The inferred type of 'openList' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/named.ts(16,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(33,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/named.ts(34,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/tag.ts(4,26): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/tag.ts(8,35): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/tag.ts(11,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo-role.ts(4,31): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo-role.ts(6,11): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo-role.ts(9,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo-user.ts(4,31): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo-user.ts(8,43): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo-user.ts(11,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo.ts(7,27): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo.ts(15,37): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo.ts(16,35): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo.ts(17,38): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo.ts(18,34): error TS9021: Extends clause can't contain an expression with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo.ts(21,9): error TS9012: Property must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/todo.ts(40,9): error TS2883: The inferred type of 'findOpen' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/todo.ts(40,9): error TS9008: Method must have an explicit return type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/ultimabase.ts(9,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/usage.ts(10,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/usage.ts(23,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/usage.ts(30,14): error TS2883: The inferred type of 'created' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/usage.ts(30,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/usage.ts(33,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/usage.ts(35,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/usage.ts(37,14): error TS2883: The inferred type of 'tags' cannot be named without a reference to 'Model' from '../node_modules/@ultimabase/core/types.ts'. This is likely not portable. A type annotation is necessary.
+forms/d-class-body/fixture/src/usage.ts(37,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.
+forms/d-class-body/fixture/src/usage.ts(57,14): error TS9010: Variable must have an explicit type annotation with --isolatedDeclarations.

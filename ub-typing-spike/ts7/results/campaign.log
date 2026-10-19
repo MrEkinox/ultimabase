@@ -1,0 +1,22 @@
+2026-10-09T09:42:00.216Z done d-hybrid-10 load 1.98 1.93 2.09
+2026-10-09T09:42:03.058Z done d-hybrid-noreg-10 load 1.98 1.93 2.09
+2026-10-09T09:42:06.032Z done e1-annotated-10 load 2.14 1.97 2.10
+2026-10-09T09:42:09.155Z done e2-this-with-10 load 2.14 1.97 2.10
+2026-10-09T09:42:12.016Z done k-rules-list-10 load 2.13 1.97 2.10
+2026-10-09T09:42:15.112Z done e3-static-block-10 load 2.13 1.97 2.10
+2026-10-09T09:42:18.211Z done g-class-10 load 2.20 1.99 2.10
+2026-10-09T09:42:23.357Z done d-hybrid-50 load 2.42 2.04 2.12
+2026-10-09T09:42:27.956Z done d-hybrid-noreg-50 load 2.47 2.05 2.13
+2026-10-09T09:42:33.127Z done e1-annotated-50 load 2.59 2.08 2.14
+2026-10-09T09:42:38.411Z done e2-this-with-50 load 2.86 2.15 2.16
+2026-10-09T09:42:43.064Z done k-rules-list-50 load 2.96 2.18 2.17
+2026-10-09T09:42:48.250Z done e3-static-block-50 load 2.96 2.19 2.17
+2026-10-09T09:42:53.645Z done g-class-50 load 3.04 2.22 2.18
+2026-10-09T09:43:30.773Z done d-hybrid-200 load 3.61 2.47 2.28
+2026-10-09T09:44:01.821Z done d-hybrid-noreg-200 load 4.70 2.91 2.45
+load 4.70 > 4 before e1-annotated-200, waiting 30 s
+2026-10-09T09:45:08.018Z done e1-annotated-200 load 3.47 2.86 2.46
+2026-10-09T09:45:45.773Z done e2-this-with-200 load 3.12 2.84 2.47
+2026-10-09T09:46:18.095Z done k-rules-list-200 load 3.25 2.91 2.50
+2026-10-09T09:46:54.158Z done e3-static-block-200 load 3.01 2.88 2.51
+2026-10-09T09:47:32.718Z done g-class-200 load 3.32 2.99 2.56

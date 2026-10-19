@@ -1,0 +1,156 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/ts7/repros/d-last-call",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "where",
+   "text": "(parameter) where: WhereBuilder<Defined<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => Configured<\"User\", {\n        email: Scalar<string>;\n        lastTodo: Pointer<() => Configured<\"Todo\", ... & {\n            readonly isDeleted: Scalar<boolean>;\n        }>>;\n    }>>;\n} & {\n    readonly isDeleted: Scalar<boolean>;\n}>>",
+   "length": 368
+  },
+  {
+   "name": "cross builder",
+   "text": "(parameter) user: WhereBuilder<Configured<\"User\", {\n    email: Scalar<string>;\n    lastTodo: Pointer<() => Configured<\"Todo\", ... & {\n        readonly isDeleted: Scalar<boolean>;\n    }>>;\n}>>",
+   "length": 191
+  },
+  {
+   "name": "hook item",
+   "text": "(parameter) item: Item<Defined<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => Configured<\"User\", {\n        email: Scalar<string>;\n        lastTodo: Pointer<() => Configured<\"Todo\", ... & {\n            readonly isDeleted: Scalar<boolean>;\n        }>>;\n    }>>;\n} & {\n    readonly isDeleted: Scalar<boolean>;\n}>>",
+   "length": 359
+  },
+  {
+   "name": "const Todo",
+   "text": "const Todo: Configured<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => Configured<\"User\", {\n        email: Scalar<string>;\n        lastTodo: Pointer<() => Configured<\"Todo\", ... & {\n            readonly isDeleted: Scalar<boolean>;\n        }>>;\n    }>>;\n} & {\n    readonly isDeleted: Scalar<boolean>;\n}>",
+   "length": 350
+  }
+ ],
+ "hoverSets": [],
+ "completions": [],
+ "cases": [
+  {
+   "name": "control: generic final call (reads its arguments) -> cycle",
+   "file": "core.ts",
+   "faultyLine": 8,
+   "count": 11,
+   "onLine": false,
+   "primary": {
+    "file": "todo.ts",
+    "line": 7,
+    "col": 14,
+    "code": 7022,
+    "message": "'Todo' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 14,
+     "code": 7022,
+     "message": "'Todo' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer."
+    },
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 91,
+     "code": 7024,
+     "message": "Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions."
+    },
+    {
+     "file": "todo.ts",
+     "line": 10,
+     "col": 3,
+     "code": 7023,
+     "message": "'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions."
+    },
+    {
+     "file": "todo.ts",
+     "line": 10,
+     "col": 30,
+     "code": 2345,
+     "message": "Argument of type '\"assignee\"' is not assignable to parameter of type 'K'.\n  '\"assignee\"' is assignable to the constraint of type 'K', but 'K' could be instantiated with a different subtype of constraint '\"assignee\"'."
+    },
+    {
+     "file": "todo.ts",
+     "line": 10,
+     "col": 60,
+     "code": 2345,
+     "message": "Argument of type 'string' is not assignable to parameter of type 'ScalarKeys<TargetOf<({ title: Scalar<string>; archived: Scalar<boolean>; assignee: Pointer<() => any>; } & { readonly isDeleted: Scalar<boolean>; })[K]>>'.\n  Type 'string' is not assignable to type 'FieldsOf<TargetOf<({ title: Scalar<string>; archived: Scalar<boolean>; assignee: Pointer<() => any>; } & { readonly isDeleted: Scalar<boolean>; })[K]>>[keyof FieldsOf<...>] extends Scalar<...> ? keyof FieldsOf<...> : never'."
+    },
+    {
+     "file": "user.ts",
+     "line": 5,
+     "col": 14,
+     "code": 7022,
+     "message": "'User' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer."
+    },
+    {
+     "file": "user.ts",
+     "line": 5,
+     "col": 75,
+     "code": 7024,
+     "message": "Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions."
+    },
+    {
+     "file": "user.ts",
+     "line": 6,
+     "col": 2,
+     "code": 7023,
+     "message": "'where' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions."
+    },
+    {
+     "file": "user.ts",
+     "line": 6,
+     "col": 29,
+     "code": 2345,
+     "message": "Argument of type '\"lastTodo\"' is not assignable to parameter of type 'K'.\n  '\"lastTodo\"' is assignable to the constraint of type 'K', but 'K' could be instantiated with a different subtype of constraint '\"lastTodo\"'."
+    },
+    {
+     "file": "user.ts",
+     "line": 6,
+     "col": 41,
+     "code": 7024,
+     "message": "Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions."
+    },
+    {
+     "file": "user.ts",
+     "line": 6,
+     "col": 59,
+     "code": 2345,
+     "message": "Argument of type 'string' is not assignable to parameter of type 'ScalarKeys<TargetOf<{ email: Scalar<string>; lastTodo: Pointer<() => any>; }[K]>>'.\n  Type 'string' is not assignable to type 'FieldsOf<TargetOf<{ email: Scalar<string>; lastTodo: Pointer<() => any>; }[K]>>[keyof FieldsOf<TargetOf<{ email: Scalar<string>; lastTodo: Pointer<() => any>; }[K]>>] extends Scalar<...> ? keyof FieldsOf<...> : never'."
+    }
+   ]
+  },
+  {
+   "name": "control: filter expressions typed by the schema type instead of its name",
+   "file": "../common/mini.ts",
+   "faultyLine": 24,
+   "count": 0,
+   "onLine": false,
+   "primary": null,
+   "diagnostics": []
+  },
+  {
+   "name": "typo in cross filter detected",
+   "file": "todo.ts",
+   "faultyLine": 10,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 10,
+    "col": 60,
+    "code": 2345,
+    "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 10,
+     "col": 60,
+     "code": 2345,
+     "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+    }
+   ]
+  }
+ ]
+}

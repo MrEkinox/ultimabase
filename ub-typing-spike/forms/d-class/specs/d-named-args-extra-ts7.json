@@ -1,0 +1,78 @@
+{
+ "version": "7",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/forms/d-named/experiments/named-args/fixture",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "schema constant (declaration)",
+   "text": "const Todo: DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>",
+   "length": 857
+  },
+  {
+   "name": "schema constant (usage `Todo.findMany`)",
+   "text": "(alias) const Todo: DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>",
+   "length": 865
+  },
+  {
+   "name": "`Todo.findMany` method (usage)",
+   "text": "(method) SchemaQueries.findMany<DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>, {\n    ...;\n}>(this: DefinedSchema<...>, args?: {\n    ...;\n} | undefined, options?: QueryOptions): Promise<...>",
+   "length": 989
+  },
+  {
+   "name": "factory constant (TodoUser)",
+   "text": "const TodoUser: ConfiguredSchema<\"TodoUser\", {\n    readonly displayName: ScalarField<\"string\", string, true>;\n    readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", {\n        readonly title: ScalarField<\"string\", string, true>;\n        readonly archived: ScalarField<\"boolean\", boolean, true>;\n        readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n        readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n        readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n        readonly assignee: PointerField<...>;\n        readonly parent: PointerField<...>;\n        readonly subtasks: RelationField<...>;\n        readonly tags: RelationField<...>;\n    } & {\n        ...;\n    }, AppTypes<...>>, \"assignee\">;\n} & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n    ...;\n}>",
+   "length": 894
+  },
+  {
+   "name": "rules entry `.with(`",
+   "text": "(method) RulesMethod<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 5 more ...; readonly tags: RelationField<...>; } & { ...; }, AppTypes<...>, unknown>.with(rules: PostgresSchemaOption<\"Todo\"> & AccessSchemaOption<\"Todo\"> & HooksSchemaOption<\"Todo\"> & Readonly<Record<never, never>> & AclSchemaOption<\"Todo\">): DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | ... 1 more ... | \"normal\")[], false>;\n    ... 4 more ...;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>",
+   "length": 898
+  }
+ ],
+ "hoverSets": [
+  {
+   "name": "WITHOUT the Register line",
+   "diagnostics": 0,
+   "hovers": [
+    {
+     "name": "schema constant (declaration)",
+     "text": "const Todo: DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>",
+     "length": 857
+    },
+    {
+     "name": "schema constant (usage `Todo.findMany`)",
+     "text": "(alias) const Todo: DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>",
+     "length": 865
+    },
+    {
+     "name": "`Todo.findMany` method (usage)",
+     "text": "(method) SchemaQueries.findMany<DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>, {\n    ...;\n}>(this: DefinedSchema<...>, args?: {\n    ...;\n} | undefined, options?: QueryOptions): Promise<...>",
+     "length": 989
+    },
+    {
+     "name": "factory constant (TodoUser)",
+     "text": "const TodoUser: ConfiguredSchema<\"TodoUser\", {\n    readonly displayName: ScalarField<\"string\", string, true>;\n    readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", {\n        readonly title: ScalarField<\"string\", string, true>;\n        readonly archived: ScalarField<\"boolean\", boolean, true>;\n        readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n        readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n        readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n        readonly assignee: PointerField<...>;\n        readonly parent: PointerField<...>;\n        readonly subtasks: RelationField<...>;\n        readonly tags: RelationField<...>;\n    } & {\n        ...;\n    }, AppTypes<...>>, \"assignee\">;\n} & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n    ...;\n}>",
+     "length": 894
+    },
+    {
+     "name": "rules entry `.with(`",
+     "text": "(method) RulesMethod<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 5 more ...; readonly tags: RelationField<...>; } & { ...; }, AppTypes<...>, unknown>.with(rules: PostgresSchemaOption<DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"enumList\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"open\", true>;\n    readonly assignee: PointerField<() => ConfiguredSchema<\"TodoUser\", {\n        readonly displayName: ScalarField<\"string\", string, true>;\n        readonly assignedTodos: RelationField<...>;\n    } & PasswordUserOwnedFields, AppTypes<...>, PasswordUserModel & {\n        ...;\n    }>, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & {\n    ...;\n}, AppTypes<...>>> & AccessSchemaOption<...> & HooksSchemaOption<...> & Readonly<...> & AclSchemaOption<...>): DefinedSchema<...>",
+     "length": 1304
+    }
+   ]
+  }
+ ],
+ "completions": [
+  {
+   "name": "Todo. (usage)",
+   "names": [
+    "className",
+    "createOne",
+    "findMany",
+    "findOne",
+    "~fields"
+   ]
+  }
+ ],
+ "cases": []
+}

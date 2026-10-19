@@ -1,0 +1,80 @@
+{
+	"hovers": [
+		{
+			"name": "static findOverdue (declaration)",
+			"file": "src/todo.ts",
+			"find": "findOverdue() {",
+			"offset": 0
+		},
+		{
+			"name": "this.findMany in the helper",
+			"file": "src/todo.ts",
+			"find": "findMany({ where: { archived",
+			"offset": 0
+		},
+		{
+			"name": "isLate (declaration)",
+			"file": "src/todo.ts",
+			"find": "isLate(): boolean",
+			"offset": 0
+		},
+		{
+			"name": "hook item",
+			"file": "src/todo.ts",
+			"find": "item }) =>",
+			"offset": 0
+		},
+		{
+			"name": "overdue",
+			"file": "src/methods.ts",
+			"find": "overdue = await",
+			"offset": 0
+		},
+		{
+			"name": "titles (select title)",
+			"file": "src/methods.ts",
+			"find": "titles = await",
+			"offset": 0
+		},
+		{
+			"name": "OverdueHasMethod",
+			"file": "src/methods.ts",
+			"find": "OverdueHasMethod =",
+			"offset": 0
+		},
+		{
+			"name": "TitlesHaveMethod",
+			"file": "src/methods.ts",
+			"find": "TitlesHaveMethod =",
+			"offset": 0
+		},
+		{
+			"name": "FullHasMethod",
+			"file": "src/methods.ts",
+			"find": "FullHasMethod =",
+			"offset": 0
+		},
+		{
+			"name": "OverdueIsFull",
+			"file": "src/methods.ts",
+			"find": "OverdueIsFull =",
+			"offset": 0
+		}
+	],
+	"completions": [
+		{
+			"name": "Todo.",
+			"file": "src/methods.ts",
+			"find": "completion = Todo."
+		}
+	],
+	"cases": [
+		{
+			"name": "M1 registration check restored (current form rule)",
+			"file": "../lib/core.ts",
+			"find": "\t// | MemberIssues<TSchema> (relaxed for the TS7 custom-method experiment)\n",
+			"replace": "\t| MemberIssues<TSchema>\n",
+			"line": "| MemberIssues<TSchema>"
+		}
+	]
+}

@@ -1,0 +1,17 @@
+/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:123840
+      throw e;
+      ^
+
+Error: Debug Failure. Expected [object Object] === [object Object]. Parameter symbol already has a cached type which differs from newly assigned type
+    at assignParameterType (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:78595:13)
+    at assignContextualParameterTypes (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:78539:9)
+    at contextuallyCheckFunctionExpressionOrObjectLiteralMethod (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:79321:13)
+    at checkFunctionExpressionOrObjectLiteralMethod (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:79296:5)
+    at checkObjectLiteralMethod (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:80895:32)
+    at checkObjectLiteral (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:74320:244)
+    at checkExpressionWorker (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:81202:16)
+    at checkExpression (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:81113:32)
+    at checkExpressionForMutableLocation (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:80872:18)
+    at checkPropertyAssignment (/Users/mrekinox/Desktop/ub-small/node_modules/typescript/lib/_tsc.js:80888:12)
+
+Node.js v24.20.0

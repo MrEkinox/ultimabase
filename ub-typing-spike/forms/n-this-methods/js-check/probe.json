@@ -1,0 +1,11 @@
+{
+	"hovers": [
+		{ "name": "this.where (JS)", "file": "tag.js", "find": "where.some('todos'", "offset": 0 },
+		{ "name": "cross builder (JS)", "file": "tag.js", "find": "(user) => user.eq", "offset": 1 }
+	],
+	"cases": [
+		{ "name": "JS cross-schema builder typo", "file": "tag.js", "find": "user.eq('id', this.userId)", "replace": "user.eq('emial', this.userId)" },
+		{ "name": "JS wrong filter return", "file": "tag.js", "find": "return this.where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', this.userId)))", "replace": "return 42" },
+		{ "name": "JS rules key typo", "file": "tag.js", "find": "access: {", "replace": "acess: {" }
+	]
+}

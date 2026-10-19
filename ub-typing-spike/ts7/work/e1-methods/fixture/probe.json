@@ -1,0 +1,155 @@
+{
+	"hovers": [
+		{
+			"file": "src/todo.ts",
+			"find": "class Todo extends",
+			"offset": 6
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "where }) => where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq('id'",
+			"offset": 1
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "item }) =>",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "options: Options",
+			"offset": 1
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "softDelete() {",
+			"offset": 1
+		},
+		{
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"file": "src/usage.ts",
+			"find": "one: Todo",
+			"offset": 0
+		},
+		{
+			"file": "src/todo-user.ts",
+			"find": "value }) => value.trim()",
+			"offset": 0
+		},
+		{
+			"file": "src/todo-role.ts",
+			"find": "(user) => user.eq",
+			"offset": 1
+		}
+	],
+	"completions": [
+		{
+			"file": "src/tag.ts",
+			"find": "Options<typeof Tag> = {\n\t\taccess",
+			"offset": 26
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "extends App."
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "})).",
+			"offset": 4
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "access: {\n\t\t\tread",
+			"offset": 13
+		}
+	],
+	"cases": [
+		{
+			"name": "1 relation target typo",
+			"file": "src/todo.ts",
+			"find": "target: () => TodoUser,",
+			"replace": "target: () => TodoUsr,"
+		},
+		{
+			"name": "2 local where field typo",
+			"file": "src/todo.ts",
+			"find": "where.eq('archived', false)",
+			"replace": "where.eq('archivd', false)"
+		},
+		{
+			"name": "3 cross-schema field typo",
+			"file": "src/todo.ts",
+			"find": "user.eq('email',",
+			"replace": "user.eq('emial',"
+		},
+		{
+			"name": "4 plugin field typo in hook",
+			"file": "src/todo.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "5 mappedBy typo",
+			"file": "src/todo-user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "6 rules key typo",
+			"file": "src/todo.ts",
+			"find": "access: {",
+			"replace": "acess: {"
+		},
+		{
+			"name": "7 wrong filter return",
+			"file": "src/tag.ts",
+			"find": "where: () => false",
+			"replace": "where: () => 42"
+		},
+		{
+			"name": "8 query select typo",
+			"file": "src/usage.ts",
+			"find": "select: { title: true } })",
+			"replace": "select: { titel: true } })"
+		},
+		{
+			"name": "R1 second RoleSchema",
+			"file": "src/negative.ts",
+			"find": "// @ts-expect-error second RoleSchema schema",
+			"replace": "//"
+		},
+		{
+			"name": "R2 custom static/instance members",
+			"file": "src/negative.ts",
+			"find": "// @ts-expect-error custom static and instance members",
+			"replace": "//"
+		},
+		{
+			"name": "R3 unannotated options",
+			"file": "src/negative.ts",
+			"find": "// @ts-expect-error unannotated options with a wrong value",
+			"replace": "//"
+		},
+		{
+			"name": "R4 no RoleSchema registered",
+			"file": "src/negative.ts",
+			"find": "// @ts-expect-error no RoleSchema schema registered",
+			"replace": "//"
+		},
+		{
+			"name": "S1 hook reading isDeleted without softDelete",
+			"file": "src/todo.ts",
+			"find": "})).softDelete() {",
+			"replace": "})) {"
+		}
+	]
+}

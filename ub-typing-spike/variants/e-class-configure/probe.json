@@ -1,0 +1,84 @@
+{
+	"hovers": [
+		{
+			"file": "src/todo.ts",
+			"find": "class Todo extends",
+			"offset": 6
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "where }) => where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "item, originalItem }) =>",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq",
+			"offset": 1
+		},
+		{
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"file": "src/todo.ts",
+			"find": ".configure({",
+			"offset": 1
+		}
+	],
+	"cases": [
+		{
+			"name": "typo in relation target",
+			"file": "src/todo.ts",
+			"find": "target: () => User,",
+			"replace": "target: () => Usr,"
+		},
+		{
+			"name": "typo in own where field (builder)",
+			"file": "src/todo.ts",
+			"find": "where.eq('archived', false)",
+			"replace": "where.eq('archivd', false)"
+		},
+		{
+			"name": "typo in cross-schema where field (builder)",
+			"file": "src/user.ts",
+			"find": "todo.eq('archived', false)",
+			"replace": "todo.eq('archivd', false)"
+		},
+		{
+			"name": "typo in cross-schema where field (object)",
+			"file": "src/todo.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "typo in hook record field (plugin field)",
+			"file": "src/todo.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "typo in mappedBy",
+			"file": "src/user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "typo in plugin option key",
+			"file": "src/todo.ts",
+			"find": "access: {",
+			"replace": "acess: {"
+		},
+		{
+			"name": "wrong where return type",
+			"file": "src/tag.ts",
+			"find": "access: { read: true }",
+			"replace": "access: { read: { where: () => 42 } }"
+		}
+	]
+}

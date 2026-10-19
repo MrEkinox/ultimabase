@@ -1,0 +1,222 @@
+{
+	"hovers": [
+		{
+			"name": "where (this.where)",
+			"file": "src/todo.ts",
+			"find": "where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"name": "this in a rule method",
+			"file": "src/todo.ts",
+			"find": "this.where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"name": "cross-schema builder",
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq",
+			"offset": 1
+		},
+		{
+			"name": "hook item (this.item)",
+			"file": "src/todo.ts",
+			"find": "item.isDeleted",
+			"offset": 0
+		},
+		{
+			"name": "schema constant",
+			"file": "src/todo.ts",
+			"find": "Todo = App",
+			"offset": 0
+		},
+		{
+			"name": "rules entry (`access` key in define)",
+			"file": "src/todo.ts",
+			"find": "access: {\n\t\tread()",
+			"offset": 0
+		},
+		{
+			"name": "rules entry (`define(`)",
+			"file": "src/todo.ts",
+			"find": "define({",
+			"offset": 0
+		},
+		{
+			"name": "findMany result",
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"name": "field option value (this.value)",
+			"file": "src/todo-user.ts",
+			"find": "value.trim()",
+			"offset": 0
+		},
+		{
+			"name": "factory schema constant (TodoUser)",
+			"file": "src/todo-user.ts",
+			"find": "TodoUser = App",
+			"offset": 0
+		},
+		{
+			"name": "role where (this.where)",
+			"file": "src/todo-role.ts",
+			"find": "where.some('members'",
+			"offset": 0
+		}
+	],
+	"completions": [
+		{
+			"name": "rules entry (empty spot in define)",
+			"file": "src/discover.ts",
+			"find": "field.string() }),  "
+		},
+		{
+			"name": "inside access: { }",
+			"file": "src/todo.ts",
+			"find": "access: {\n\t\t"
+		},
+		{
+			"name": "App.",
+			"file": "src/todo.ts",
+			"find": "= App."
+		}
+	],
+	"cases": [
+		{
+			"name": "1 relation target typo",
+			"file": "src/todo.ts",
+			"find": "target: () => TodoUser,",
+			"replace": "target: () => TodoUsr,"
+		},
+		{
+			"name": "2 local where typo",
+			"file": "src/todo.ts",
+			"find": "this.where.eq('archived', false)",
+			"replace": "this.where.eq('archivd', false)"
+		},
+		{
+			"name": "3 cross-schema field typo (object filter)",
+			"file": "src/todo.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "4 plugin field typo in hook",
+			"file": "src/todo.ts",
+			"find": "this.item.isDeleted",
+			"replace": "this.item.isDeletd"
+		},
+		{
+			"name": "5 mappedBy typo",
+			"file": "src/todo-user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "6 rules key typo",
+			"file": "src/todo.ts",
+			"find": "access: {",
+			"replace": "acess: {"
+		},
+		{
+			"name": "7 wrong filter return",
+			"file": "src/tag.ts",
+			"find": "return this.where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', this.userId)))",
+			"replace": "return 42"
+		},
+		{
+			"name": "8 query select typo",
+			"file": "src/usage.ts",
+			"find": "select: { title: true } })",
+			"replace": "select: { titel: true } })"
+		},
+		{
+			"name": "extra cross-schema builder typo",
+			"file": "src/todo.ts",
+			"find": "user.eq('id', this.userId)",
+			"replace": "user.eq('emial', this.userId)"
+		},
+		{
+			"name": "extra cross callback returns the wrong schema",
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq('id', this.userId)",
+			"replace": "(user) => this.where.eq('archived', false)"
+		},
+		{
+			"name": "extra field option returns a number",
+			"file": "src/todo-user.ts",
+			"find": "return this.value.trim()",
+			"replace": "return this.value.length"
+		},
+		{
+			"name": "extra index on unknown field",
+			"file": "src/todo.ts",
+			"find": "fields: ['archived', 'priority']",
+			"replace": "fields: ['archived', 'priorty']"
+		},
+		{
+			"name": "extra hook item is readonly",
+			"file": "src/todo.ts",
+			"find": "if (this.item.isDeleted) throw new TypeError('Deleted todos are read-only')",
+			"replace": "this.item.title = ''"
+		},
+		{
+			"name": "extra hook written as an arrow (no this)",
+			"file": "src/todo.ts",
+			"find": "beforeUpdate() {\n\t\t\tif (this.item.isDeleted) throw new TypeError('Deleted todos are read-only')\n\t\t},",
+			"replace": "beforeUpdate: () => {\n\t\t\tif (this.item.isDeleted) throw new TypeError('Deleted todos are read-only')\n\t\t},",
+			"line": "if (this.item.isDeleted)"
+		},
+		{
+			"name": "extra wrong return in a crossing rule (Todo.update returns a number)",
+			"file": "src/todo.ts",
+			"find": "return this.where.is('assignee', (user) => user.eq('id', this.userId))",
+			"replace": "return 7"
+		},
+		{
+			"name": "extra acl default returns a string",
+			"file": "src/todo.ts",
+			"find": "return ACL.none().grantRole('TodoRole', 'read', 'update')",
+			"replace": "return 'everyone'"
+		},
+		{
+			"name": "extra second role schema registered",
+			"file": "src/ultimabase.ts",
+			"find": "[TodoUser, TodoRole, Todo, Tag]",
+			"replace": "[TodoUser, TodoRole, Todo, Tag, AdminRole]"
+		},
+		{
+			"name": "extra role schema missing",
+			"file": "src/ultimabase.ts",
+			"find": "[TodoUser, TodoRole, Todo, Tag]",
+			"replace": "[TodoUser, Todo, Tag]"
+		},
+		{
+			"name": "extra shape option key typo (sofDelete)",
+			"file": "src/todo.ts",
+			"find": "softDelete: true,",
+			"replace": "sofDelete: true,"
+		},
+		{
+			"name": "extra shape option wrong value",
+			"file": "src/todo.ts",
+			"find": "softDelete: true,",
+			"replace": "softDelete: 'yes',"
+		},
+		{
+			"name": "extra field option wrong value (required: 'yes')",
+			"file": "src/todo.ts",
+			"find": "title: field.string({ required: true,",
+			"replace": "title: field.string({ required: 'yes',"
+		},
+		{
+			"name": "extra className not a string",
+			"file": "src/todo.ts",
+			"find": "className: 'Todo',",
+			"replace": "className: 42,"
+		}
+	]
+}

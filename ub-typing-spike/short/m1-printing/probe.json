@@ -1,0 +1,11 @@
+{ "hovers": [
+ { "file": "src/a.ts", "find": "where }) =>" }, { "file": "src/a.ts", "find": "(user) =>", "offset": 1 },
+ { "file": "src/b.ts", "find": "where }) =>" }, { "file": "src/b.ts", "find": "(user) =>", "offset": 1 },
+ { "file": "src/c.ts", "find": "where }) =>" }, { "file": "src/c.ts", "find": "(user) =>", "offset": 1 },
+ { "file": "src/d.ts", "find": "where }) =>" }, { "file": "src/d.ts", "find": "(user) =>", "offset": 1 }
+], "cases": [
+ { "name": "A own typo", "file": "src/a.ts", "find": "user.eq('email'", "replace": "user.eq('emial'" },
+ { "name": "B own typo", "file": "src/b.ts", "find": "user.eq('email'", "replace": "user.eq('emial'" },
+ { "name": "C own typo", "file": "src/c.ts", "find": "user.eq('email'", "replace": "user.eq('emial'" },
+ { "name": "D own typo", "file": "src/d.ts", "find": "user.eq('email'", "replace": "user.eq('emial'" }
+] }

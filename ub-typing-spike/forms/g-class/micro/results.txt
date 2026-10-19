@@ -1,0 +1,10 @@
+m1.ts(10,9): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class '{ readonly id: string; }'.
+m1.ts(10,9): error TS7022: 'access' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+m1.ts(10,23): error TS2729: Property 'access' is used before its initialization.
+m1.ts(13,14): error TS2417: Class static side 'typeof B' incorrectly extends base class static side '{ access(options: { read?: boolean; }): Decl<{ read?: boolean; }>; hooks(options: { beforeSave?: () => void; }): Decl<{ beforeSave?: () => void; }>; }'.
+  Types of property 'access' are incompatible.
+    Type 'Decl<{ read?: boolean; }>' is not assignable to type '(options: { read?: boolean; }) => Decl<{ read?: boolean; }>'.
+      Type 'Decl<{ read?: boolean; }>' provides no match for the signature '(options: { read?: boolean; }): Decl<{ read?: boolean; }>'.
+m1.ts(14,9): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class '{ readonly id: string; }'.
+m2.ts(10,60): error TS2322: Type 'BaseCtor<{ readonly title: "x"; }>' is not assignable to type 'number'.
+m2.ts(13,7): error TS2322: Type 'BaseCtor<{ readonly title: "x"; }>' is not assignable to type 'number'.

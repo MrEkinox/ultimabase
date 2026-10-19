@@ -1,0 +1,276 @@
+{
+	"hovers": [
+		{
+			"name": "where (builder)",
+			"file": "src/todo.ts",
+			"find": "where }) => where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"name": "cross-schema builder",
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq",
+			"offset": 1
+		},
+		{
+			"name": "hook item",
+			"file": "src/todo.ts",
+			"find": "item }) => {",
+			"offset": 0
+		},
+		{
+			"name": "schema constant",
+			"file": "src/todo.ts",
+			"find": "Todo = App",
+			"offset": 0
+		},
+		{
+			"name": "rules entry `.with(`",
+			"file": "src/todo.ts",
+			"find": ".with({",
+			"offset": 1
+		},
+		{
+			"name": "findMany result",
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"name": "field hook value",
+			"file": "src/todo-user.ts",
+			"find": "value }) => value.trim()",
+			"offset": 0
+		},
+		{
+			"name": "factory schema constant (TodoUser)",
+			"file": "src/todo-user.ts",
+			"find": "TodoUser = App",
+			"offset": 0
+		},
+		{
+			"name": "role where (two factories)",
+			"file": "src/todo-role.ts",
+			"find": "where, userId }) => where.some('members'",
+			"offset": 0
+		},
+		{
+			"name": "getter field (assignee)",
+			"file": "src/todo.ts",
+			"find": "assignee() {",
+			"offset": 0
+		}
+	],
+	"hoverSets": [
+		{
+			"name": "WITHOUT the Register line",
+			"edits": [
+				{
+					"file": "src/ultimabase.ts",
+					"find": "readonly app: typeof ultimabase",
+					"replace": "readonly unrelated: true"
+				}
+			]
+		}
+	],
+	"completions": [
+		{
+			"name": "rules entry (empty .with({}))",
+			"file": "src/discover.ts",
+			"find": ".with({ "
+		},
+		{
+			"name": "define declaration keys",
+			"file": "src/discover.ts",
+			"find": "className: 'Note', "
+		},
+		{
+			"name": "after define(...). (discover)",
+			"file": "src/discover.ts",
+			"find": "field.string() }) })."
+		},
+		{
+			"name": "App.",
+			"file": "src/todo.ts",
+			"find": "= App."
+		},
+		{
+			"name": "after define(...).",
+			"file": "src/todo.ts",
+			"find": "\n\t.softDelete",
+			"offset": 3
+		},
+		{
+			"name": "after .softDelete().",
+			"file": "src/todo.ts",
+			"find": ".softDelete()\n\t."
+		}
+	],
+	"cases": [
+		{
+			"name": "1 relation target typo",
+			"file": "src/todo.ts",
+			"find": "target: TodoUser,",
+			"replace": "target: TodoUsr,"
+		},
+		{
+			"name": "2 local where typo",
+			"file": "src/todo.ts",
+			"find": "where.eq('archived', false)",
+			"replace": "where.eq('archivd', false)"
+		},
+		{
+			"name": "3 cross-schema field typo (object filter)",
+			"file": "src/todo.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "4 plugin field typo in hook",
+			"file": "src/todo.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "5 mappedBy typo",
+			"file": "src/todo-user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "6 rules key typo",
+			"file": "src/todo.ts",
+			"find": "access: {",
+			"replace": "acess: {"
+		},
+		{
+			"name": "7 wrong filter return",
+			"file": "src/tag.ts",
+			"find": "({ where, userId }) => where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', userId)))",
+			"replace": "() => 42"
+		},
+		{
+			"name": "8 query select typo",
+			"file": "src/usage.ts",
+			"find": "select: { title: true } })",
+			"replace": "select: { titel: true } })"
+		},
+		{
+			"name": "extra cross-schema builder typo",
+			"file": "src/todo.ts",
+			"find": "user.eq('id', userId)",
+			"replace": "user.eq('emial', userId)"
+		},
+		{
+			"name": "extra cross callback returns the wrong schema",
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq('id', userId)",
+			"replace": "(user) => where.eq('archived', false)"
+		},
+		{
+			"name": "extra field hook returns a number",
+			"file": "src/todo-user.ts",
+			"find": "value.trim()",
+			"replace": "value.length"
+		},
+		{
+			"name": "extra field hook key typo",
+			"file": "src/todo-user.ts",
+			"find": "fields: { displayName:",
+			"replace": "fields: { displayNme:"
+		},
+		{
+			"name": "extra index on unknown field",
+			"file": "src/todo.ts",
+			"find": "fields: ['archived', 'priority']",
+			"replace": "fields: ['archived', 'priorty']"
+		},
+		{
+			"name": "extra hook item is readonly",
+			"file": "src/todo.ts",
+			"find": "if (item.isDeleted) throw new TypeError('Deleted todos are read-only')",
+			"replace": "item.title = ''"
+		},
+		{
+			"name": "extra softDelete called twice",
+			"file": "src/todo.ts",
+			"find": "\t.softDelete()\n",
+			"replace": "\t.softDelete()\n\t.softDelete()\n",
+			"line": "\t.softDelete()\n\t.softDelete()"
+		},
+		{
+			"name": "extra shape method after .with",
+			"file": "src/tag.ts",
+			"find": "user.eq('id', userId))) },\n\t},\n})",
+			"replace": "user.eq('id', userId))) },\n\t},\n}).softDelete()",
+			"line": "}).softDelete()"
+		},
+		{
+			"name": "extra second role schema registered",
+			"file": "src/ultimabase.ts",
+			"find": "[TodoUser, TodoRole, Todo, Tag]",
+			"replace": "[TodoUser, TodoRole, Todo, Tag, AdminRole]"
+		},
+		{
+			"name": "extra role schema missing",
+			"file": "src/ultimabase.ts",
+			"find": "[TodoUser, TodoRole, Todo, Tag]",
+			"replace": "[TodoUser, Todo, Tag]"
+		},
+		{
+			"name": "extra Register removed (plain D)",
+			"file": "src/ultimabase.ts",
+			"find": "readonly app: typeof ultimabase",
+			"replace": "readonly unrelated: true"
+		},
+		{
+			"name": "extra getter without return",
+			"file": "src/todo.ts",
+			"find": "return field.pointer({ target: Todo })",
+			"replace": "field.pointer({ target: Todo })"
+		},
+		{
+			"name": "extra arrow-thunk mixed in (target: () => Todo)",
+			"file": "src/todo.ts",
+			"find": "return field.pointer({ target: Todo })",
+			"replace": "return field.pointer({ target: () => Todo })"
+		},
+		{
+			"name": "extra target read eagerly (no getter)",
+			"file": "src/todo.ts",
+			"find": "get tags() {\n\t\t\treturn field.relation({ target: Tag })\n\t\t},",
+			"replace": "tags: field.relation({ target: Tag }),"
+		},
+		{
+			"name": "extra eager targets in both directions (Todo.assignee and TodoUser.assignedTodos without getters)",
+			"file": "src/todo.ts",
+			"find": "get assignee() {\n\t\t\treturn field.pointer({ target: TodoUser, onDelete: 'setNull' })\n\t\t},",
+			"replace": "assignee: field.pointer({ target: TodoUser, onDelete: 'setNull' }),",
+			"alsoEdits": [
+				{
+					"file": "src/todo-user.ts",
+					"find": "get assignedTodos() {\n\t\t\treturn field.relation({ target: Todo, mappedBy: 'assignee' })\n\t\t},",
+					"replace": "assignedTodos: field.relation({ target: Todo, mappedBy: 'assignee' }),"
+				}
+			]
+		},
+		{
+			"name": "extra eager self pointer (parent without getter)",
+			"file": "src/todo.ts",
+			"find": "get parent() {\n\t\t\treturn field.pointer({ target: Todo })\n\t\t},",
+			"replace": "parent: field.pointer({ target: Todo }),"
+		},
+		{
+			"name": "extra field option wrong value (required: 'yes')",
+			"file": "src/todo.ts",
+			"find": "title: field.string({ required: true,",
+			"replace": "title: field.string({ required: 'yes',"
+		},
+		{
+			"name": "extra className not a string",
+			"file": "src/todo.ts",
+			"find": "className: 'Todo',",
+			"replace": "className: 42,"
+		}
+	]
+}

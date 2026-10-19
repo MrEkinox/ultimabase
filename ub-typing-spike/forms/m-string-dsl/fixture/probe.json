@@ -1,0 +1,12 @@
+{
+	"hovers": [
+		{ "file": "src/todo.ts", "find": "Todo = App", "offset": 0 },
+		{ "file": "src/usage.ts", "find": "pending = await", "offset": 0 }
+	],
+	"cases": [
+		{ "name": "target typo", "file": "src/todo.ts", "find": "assignee: 'TodoUser?'", "replace": "assignee: 'TodoUsr?'" },
+		{ "name": "scalar type typo", "file": "src/todo.ts", "find": "title: 'string'", "replace": "title: 'strng'" },
+		{ "name": "mappedBy typo", "file": "src/todo-user.ts", "find": "'Todo[] by assignee'", "replace": "'Todo[] by asignee'" },
+		{ "name": "registry declaration missing", "file": "src/ultimabase.ts", "find": "readonly app: typeof ultimabase", "replace": "readonly other: typeof ultimabase" }
+	]
+}

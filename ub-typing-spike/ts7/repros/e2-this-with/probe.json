@@ -1,0 +1,69 @@
+{
+	"hovers": [
+		{
+			"name": "where",
+			"file": "todo.ts",
+			"find": "where) => where.is"
+		},
+		{
+			"name": "cross builder",
+			"file": "todo.ts",
+			"find": "user) => user.eq"
+		},
+		{
+			"name": "hook item",
+			"file": "todo.ts",
+			"find": "item) => {"
+		},
+		{
+			"name": "static options",
+			"file": "todo.ts",
+			"find": "options = this"
+		},
+		{
+			"name": "class Todo",
+			"file": "todo.ts",
+			"find": "Todo extends"
+		}
+	],
+	"hoverSets": [
+		{
+			"name": "control: non-generic polymorphic this",
+			"edits": [
+				{
+					"file": "core.ts",
+					"find": "with<TSelf>(this: TSelf, options: Rules<TSelf>): SchemaRules<TSelf>",
+					"replace": "with(options: Rules<this>): SchemaRules<this>"
+				}
+			]
+		}
+	],
+	"cases": [
+		{
+			"name": "control: non-generic polymorphic this (compiles, see hoverSets)",
+			"file": "core.ts",
+			"find": "with<TSelf>(this: TSelf, options: Rules<TSelf>): SchemaRules<TSelf>",
+			"replace": "with(options: Rules<this>): SchemaRules<this>"
+		},
+		{
+			"name": "control: filter expressions typed by the schema type instead of its name",
+			"file": "../common/mini.ts",
+			"find": "type NameOf<TSchema> = TSchema extends { readonly '~name': infer TName extends string } ? TName : never",
+			"replace": "type NameOf<TSchema> = TSchema",
+			"line": "type NameOf<TSchema> = TSchema",
+			"alsoEdits": [
+				{
+					"file": "../common/mini.ts",
+					"find": "export interface Expr<TName extends string> {",
+					"replace": "export interface Expr<TName> {"
+				}
+			]
+		},
+		{
+			"name": "typo in cross filter detected",
+			"file": "todo.ts",
+			"find": "user.eq('email'",
+			"replace": "user.eq('emial'"
+		}
+	]
+}

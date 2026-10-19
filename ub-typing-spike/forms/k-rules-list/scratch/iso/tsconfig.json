@@ -1,0 +1,1 @@
+{ "extends": "../../../../tsconfig.base.json", "compilerOptions": { "allowImportingTsExtensions": true, "isolatedDeclarations": true, "declaration": true, "noEmit": false, "emitDeclarationOnly": true, "outDir": "out", "rootDir": "../.." }, "include": ["src/tag.ts"] }

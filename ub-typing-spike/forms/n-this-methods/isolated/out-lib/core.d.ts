@@ -1,0 +1,377 @@
+import type { CreateInput, FieldsOf, FindManyArgs, PointerField, RelationField, ResolveTarget, Result, ScalarField, SystemFields } from './types.ts';
+export type * from './types.ts';
+/**
+ * Application registry, declared once per application (optional, for short hovers):
+ * `declare module '@ultimabase/core' { interface Register { readonly app: typeof ultimabase } }`.
+ * Read lazily only (callback and query types), never while a schema constant is typed.
+ */
+export interface Register {
+}
+/** Options shared by scalar fields. */
+export interface ScalarOptions<TRequired extends boolean, TValue> {
+    /** Requires a non-null value on creation. @example `required: true` */
+    readonly required?: TRequired;
+    /** Value used when creation omits the field. */
+    readonly default?: TValue;
+    /** Validates written values: `true` or an error message. @example `validate: (value) => value !== '' || 'empty'` */
+    readonly validate?: (value: TValue) => true | string;
+    readonly description?: string;
+}
+/** Relationship target: a thunk (`() => User`); kept unevaluated (see lib/core.ts). */
+export type SchemaTarget = object;
+/** Options of one pointer field. */
+export interface PointerOptions<TTarget, TRequired extends boolean> {
+    /** Target schema. @example `target: () => User` */
+    readonly target: TTarget;
+    readonly required?: TRequired;
+    readonly onDelete?: 'restrict' | 'cascade' | 'setNull';
+}
+/** Options of one relation field. */
+export interface RelationOptions<TTarget, TMappedBy extends string | undefined> {
+    /** Target schema. @example `target: () => Todo` */
+    readonly target: TTarget;
+    /** Pointer field of the target that owns this inverse relation. @example `mappedBy: 'assignee'` */
+    readonly mappedBy?: TMappedBy;
+}
+/** Shared enum declared once with `defineEnum('TodoPriority', [...])`. */
+export interface EnumDefinition<TName extends string = string, TValues extends readonly string[] = readonly string[]> {
+    readonly enumName: TName;
+    readonly values: TValues;
+}
+/** Enum values: inline (`values: [...]`) or a shared enum (`enum: TodoPriority`). */
+export type EnumSource<TValues extends readonly string[]> = {
+    readonly values: TValues;
+} | {
+    readonly enum: EnumDefinition<string, TValues>;
+};
+/**
+ * Higher-kinded slot for field options contributed by plugins (form N: field hooks are field
+ * options, see FieldHooks in plugins.ts for why they cannot be rules keyed by field name).
+ * A plugin writes `interface X extends FieldOptionsHKT { readonly options: MyOptions<this['value']> }`.
+ */
+export interface FieldOptionsHKT {
+    readonly value: unknown;
+    readonly options: object;
+}
+type ApplyFieldOptions<THKT, TValue> = THKT extends FieldOptionsHKT ? (THKT & {
+    readonly value: TValue;
+})['options'] : unknown;
+/** Field options of every installed slot for one value type. */
+export type FieldOptionsFor<THKTs, TValue> = THKTs extends readonly [infer THead, ...infer TRest] ? ApplyFieldOptions<THead, TValue> & FieldOptionsFor<TRest, TValue> : unknown;
+/** Field factory passed to `fields: (field) => ({ ... })`. */
+export interface FieldBuilder<TFieldHKTs = readonly []> {
+    string<const TRequired extends boolean = false>(options?: ScalarOptions<TRequired, string> & FieldOptionsFor<TFieldHKTs, string>): ScalarField<'string', string, TRequired>;
+    int<const TRequired extends boolean = false>(options?: ScalarOptions<TRequired, number> & FieldOptionsFor<TFieldHKTs, number>): ScalarField<'int', number, TRequired>;
+    boolean<const TRequired extends boolean = false>(options?: ScalarOptions<TRequired, boolean> & FieldOptionsFor<TFieldHKTs, boolean>): ScalarField<'boolean', boolean, TRequired>;
+    date<const TRequired extends boolean = false>(options?: ScalarOptions<TRequired, Date> & FieldOptionsFor<TFieldHKTs, Date>): ScalarField<'date', Date, TRequired>;
+    enum<const TValues extends readonly string[], const TRequired extends boolean = false>(options: ScalarOptions<TRequired, TValues[number]> & EnumSource<TValues> & FieldOptionsFor<TFieldHKTs, TValues[number]>): ScalarField<'enum', TValues[number], TRequired>;
+    enumList<const TValues extends readonly string[], const TRequired extends boolean = false>(options: ScalarOptions<TRequired, readonly TValues[number][]> & EnumSource<TValues> & FieldOptionsFor<TFieldHKTs, readonly TValues[number][]>): ScalarField<'enumList', readonly TValues[number][], TRequired>;
+    pointer<const TTarget extends SchemaTarget, const TRequired extends boolean = false>(options: PointerOptions<TTarget, TRequired>): PointerField<TTarget, TRequired>;
+    relation<const TTarget extends SchemaTarget, const TMappedBy extends string | undefined = undefined>(options: RelationOptions<TTarget, TMappedBy>): RelationField<TTarget, TMappedBy>;
+}
+/** Declares one shared enum. @example `export const TodoPriority = defineEnum('TodoPriority', ['low', 'normal', 'high'])` */
+export declare const defineEnum: <const TName extends string, const TValues extends readonly string[]>(enumName: TName, values: TValues) => EnumDefinition<TName, TValues>;
+/** Runtime description of one field; the typed members (`'~value'`, `'~target'`...) are phantom. */
+export interface FieldDescriptor {
+    readonly kind: string;
+    readonly options: Readonly<Record<string, unknown>>;
+}
+/** Runtime field builder. */
+export declare const fieldBuilder: FieldBuilder;
+/**
+ * Higher-kinded rules slot: a plugin writes `interface X extends SchemaOptionsHKT {
+ * readonly options: AccessSchemaOption<this['schema']> }`; Core substitutes the schema.
+ */
+export interface SchemaOptionsHKT {
+    readonly schema: unknown;
+    readonly options: object;
+}
+/** Plugin without rules. */
+export interface NoSchemaOptions extends SchemaOptionsHKT {
+    readonly options: Readonly<Record<never, never>>;
+}
+/**
+ * One shape option of `define` (`softDelete: true`): the fields it adds when set to `true`.
+ * Shape options never see the schema (no callback), so they cannot create initializer cycles.
+ */
+export interface ShapeOption<TFields extends object = Readonly<Record<never, never>>> {
+    readonly '~fields': TFields;
+}
+/** Higher-kinded slot for schema factories on the application (`App.RoleSchema`). */
+export interface SchemaFactoriesHKT {
+    readonly app: AppTypes;
+    readonly factories: object;
+}
+/** Plugin with no schema factory. */
+export interface NoSchemaFactories extends SchemaFactoriesHKT {
+    readonly factories: Readonly<Record<never, never>>;
+}
+/** Runtime part of a plugin, read by Core generically. */
+export interface PluginRuntime {
+    /** Keys this plugin owns in `.with({ ... })`. */
+    readonly ruleKeys?: readonly string[];
+    /** Field option keys this plugin owns (`resolveInput`). */
+    readonly fieldOptionKeys?: readonly string[];
+    /** Fields added to every schema. */
+    readonly fields?: (field: FieldBuilder) => Readonly<Record<string, unknown>>;
+    /** Shape options of `define`: name -> fields added when the option is `true`. */
+    readonly shapeOptions?: Readonly<Record<string, (field: FieldBuilder) => Readonly<Record<string, unknown>>>>;
+    /** Schema factories exposed on the configured application. */
+    readonly factories?: Readonly<Record<string, (kit: SchemaKit) => object>>;
+    /** Factories that must create exactly one registered schema. */
+    readonly requiredFactories?: readonly string[];
+}
+/** Static type contribution and runtime part of one installed plugin. */
+export interface PluginDefinition<TId extends string = string, TOptions extends SchemaOptionsHKT = SchemaOptionsHKT, TFields extends object = object, TShapes extends object = object, TFactories extends SchemaFactoriesHKT = SchemaFactoriesHKT, TRequired extends string = string, TFieldOptions extends FieldOptionsHKT = FieldOptionsHKT> {
+    readonly id: TId;
+    readonly runtime: PluginRuntime;
+    readonly '~schemaOptions'?: TOptions;
+    readonly '~fields'?: TFields;
+    readonly '~shapes'?: TShapes;
+    readonly '~schemaFactories'?: TFactories;
+    readonly '~requiredFactories'?: TRequired;
+    readonly '~fieldOptions'?: TFieldOptions;
+}
+type ApplyOptions<THKT, TSchema> = THKT extends SchemaOptionsHKT ? (THKT & {
+    readonly schema: TSchema;
+})['options'] : unknown;
+/** Every installed rules slot evaluated against one schema (tuple: see lib/core.ts on TS2589). */
+export type SchemaOptionsFor<THKTs, TSchema> = THKTs extends readonly [infer THead, ...infer TRest] ? ApplyOptions<THead, TSchema> & SchemaOptionsFor<TRest, TSchema> : unknown;
+/** Type-level configuration of one configured application. */
+export interface AppTypes<THKTs = unknown, TAdded = unknown, TShapes = unknown, TFieldHKTs = unknown> {
+    readonly '~hkts': THKTs;
+    readonly '~added': TAdded;
+    readonly '~shapes': TShapes;
+    readonly '~fieldHkts': TFieldHKTs;
+}
+/** Complete field map: declared fields, Core system fields and plugin fields. */
+export type CompleteFields<TDeclared, TAdded> = Readonly<TDeclared & SystemFields & TAdded>;
+/** Runs one query with Master authority (server-side only, never from transport input). */
+export interface QueryOptions {
+    readonly useMasterKey?: boolean;
+}
+/** Static query surface; `this` is the schema itself. */
+export interface SchemaQueries {
+    findMany<TSelf, const TArgs extends FindManyArgs<TSelf> = Readonly<Record<never, never>>>(this: TSelf, args?: TArgs, options?: QueryOptions): Promise<Simplify<Result<TSelf, TArgs>>[]>;
+    createOne<TSelf, const TArgs extends CreateArgs<TSelf>>(this: TSelf, args: TArgs, options?: QueryOptions): Promise<Simplify<Result<TSelf, TArgs>>>;
+}
+/** Prints the resolved object in editors instead of the alias. */
+export type Simplify<TValue> = {
+    [K in keyof TValue]: TValue[K];
+} & {};
+/** Arguments of `createOne`. */
+export interface CreateArgs<TSchema> extends Omit<FindManyArgs<TSchema>, 'where' | 'orderBy' | 'limit' | 'offset'> {
+    readonly data: CreateInput<TSchema>;
+}
+/** One defined schema (what `.with` and queries see). */
+export interface DefinedSchema<TName extends string, TFields, TApp extends AppTypes> extends SchemaQueries {
+    readonly className: TName;
+    readonly '~fields': CompleteFields<TFields, TApp['~added']>;
+}
+/**
+ * Shape options accepted by `define` for the installed plugins. `className` is required so that
+ * the declaration is never a weak type: the parameter is then always inferred from the whole
+ * declaration, which keeps the rules' exact types for the registration check below.
+ */
+export type ShapeDeclaration<TShapes> = {
+    readonly className: string;
+} & {
+    readonly [K in keyof TShapes]?: boolean;
+};
+type ShapeOptionFields<TOption> = TOption extends ShapeOption<infer TFields> ? TFields : never;
+/** Fields added by the shape options set to `true` in one declaration. */
+export type ShapeFieldsOf<TShapes, TDeclaration> = UnionToIntersection<{
+    [K in keyof TShapes]: TDeclaration extends {
+        readonly [P in K]: true;
+    } ? ShapeOptionFields<TShapes[K]> : Readonly<Record<never, never>>;
+}[keyof TShapes]>;
+type UnionToIntersection<TUnion> = (TUnion extends unknown ? (value: TUnion) => void : never) extends (value: infer TIntersection) => void ? TIntersection : never;
+/**
+ * Homomorphic view of the shape options. Inferring the shape parameter through this mapped
+ * type (reverse mapping) instead of a naked `& TShape` is what lets the rules' `this` see the
+ * fields added by shape options: with a naked type parameter, TypeScript fixed it to its
+ * default before checking the methods (attempts/micro/m2.ts F/G vs m3.ts F6).
+ */
+export type ShapeParams<TShape> = {
+    readonly [K in keyof TShape]: TShape[K];
+};
+/**
+ * The shape type parameter is inferred from the whole declaration object (TypeScript cannot
+ * infer a part of it); this mapped type restores the excess-property check for unknown keys.
+ */
+export type NoExtraKeys<TDeclaration, TAllowed> = {
+    readonly [K in Exclude<keyof TDeclaration, TAllowed>]: never;
+};
+/**
+ * Schema seen by the rules of one declaration. Not `SchemaRef` (registry): the rules type is
+ * instantiated while the schema constant is typed, so reading the registry there is a cycle
+ * (attempts/n2-exact-with-register.txt: TS2456 on the registry aliases, TS7022).
+ */
+export type RulesSchema<TName extends string, TFields, TApp extends AppTypes> = DefinedSchema<TName, TFields, TApp>;
+/** Exact rules of the installed plugins for one declaration (checked at registration). */
+export type RulesOf<TApp extends AppTypes, TName extends string, TFields> = SchemaOptionsFor<TApp['~hkts'], RulesSchema<TName, TFields, TApp>>;
+/**
+ * Rules as accepted inside the generic `define` call: every method keeps its exact `this` and
+ * parameters but returns `void`. TypeScript then never needs a method's body (its return type)
+ * to type the schema constant, which is what creates the cycle between two schemas whose rules
+ * cross to each other (attempts/repro-exact-both-directions). Return types are checked at
+ * registration instead (`RuleIssues`).
+ */
+export type Loosen<TValue> = TValue extends (this: infer TThis, ...args: infer TArgs) => unknown ? (this: TThis, ...args: TArgs) => void : TValue extends readonly unknown[] ? TValue : TValue extends object ? {
+    readonly [K in keyof TValue]: Loosen<TValue[K]>;
+} : TValue;
+/** Loosened rules of one declaration (also used by plugin factories). */
+export type LooseRulesOf<TApp extends AppTypes, TName extends string, TFields> = Loosen<RulesOf<TApp, TName, TFields>>;
+/** Keys of the installed plugins' rules (schema-independent). */
+export type RuleKeys<TApp extends AppTypes> = keyof SchemaOptionsFor<TApp['~hkts'], never>;
+/** Exact declaration kept on the schema type for the registration check (phantom member). */
+export interface DeclaredRules<TApp extends AppTypes, TName extends string, TFields, TDeclaration> {
+    readonly '~declaration': TDeclaration;
+    readonly '~rules': (rules: RulesOf<TApp, TName, TFields>) => void;
+}
+/** Value returned by `define(...)`. */
+export type Schema<TName extends string, TFields, TApp extends AppTypes, TModel> = DefinedSchema<TName, TFields, TApp> & TModel;
+/** Value returned by `.with(...)`: the registered schema. */
+export type ConfiguredSchema<TName extends string, TFields, TApp extends AppTypes, TModel> = DefinedSchema<TName, TFields, TApp> & TModel;
+/** Schema created by a plugin factory: plugin-owned fields, model methods and a factory brand. */
+export type FactorySchema<TFactory extends string, TName extends string, TFields, TApp extends AppTypes, TModel = unknown> = TApp extends {
+    readonly '~hkts': infer THKTs;
+    readonly '~added': infer TAdded;
+    readonly '~shapes': infer TShapes;
+    readonly '~fieldHkts': infer TFieldHKTs;
+} ? Schema<TName, TFields, AppTypes<THKTs, TAdded, TShapes, TFieldHKTs>, TModel & {
+    readonly '~factory': TFactory;
+}> : never;
+/** Declaration of one schema. */
+export interface SchemaDeclaration<TName extends string, TFields, TFieldHKTs = readonly []> {
+    /** Runtime class name. */
+    readonly className: TName;
+    /** Field declarations; relation targets are thunks (`() => User`). */
+    readonly fields: (field: FieldBuilder<TFieldHKTs>) => TFields;
+}
+/** Schema namespace of one configured application. */
+export interface SchemaNamespace<TApp extends AppTypes> {
+    /**
+     * Declares fields, shape options (`softDelete: true`) and the rules of installed plugins
+     * as methods using `this`.
+     * @example `App.Schema.define({ className: 'Todo', fields: (field) => ({ archived: field.boolean() }), access: { read() { return this.where.eq('archived', false) } } })`
+     */
+    define<const TName extends string, const TFields, const TShape extends ShapeDeclaration<TApp['~shapes']>, const TDeclaration>(declaration: SchemaDeclaration<TName, TFields, TApp['~fieldHkts']> & TDeclaration & ShapeParams<TShape> & NoExtraKeys<TShape, keyof SchemaDeclaration<string, unknown> | keyof TApp['~shapes'] | RuleKeys<TApp>> & LooseRulesOf<TApp, TName, TFields & ShapeFieldsOf<TApp['~shapes'], TShape>>): Schema<TName, TFields & ShapeFieldsOf<TApp['~shapes'], TShape>, TApp, DeclaredRules<TApp, TName, TFields & ShapeFieldsOf<TApp['~shapes'], TShape>, TDeclaration>>;
+}
+type NameOf<TSchema> = TSchema extends {
+    readonly className: infer TName extends string;
+} ? TName : never;
+type RelationIssues<TSchema> = {
+    [K in keyof FieldsOf<TSchema>]: FieldsOf<TSchema>[K] extends RelationField<infer TTarget, infer TMappedBy> ? TMappedBy extends string ? TMappedBy extends keyof FieldsOf<ResolveTarget<TTarget>> ? never : `${NameOf<TSchema>}.${K & string}: mappedBy '${TMappedBy}' is not a field of ${NameOf<ResolveTarget<TTarget>>}` : never : never;
+}[keyof FieldsOf<TSchema>];
+/** Registration error shown in place of one invalid schema. */
+export interface SchemaRegistrationError<TMessage extends string> {
+    readonly '~error': TMessage;
+}
+type FactoryOf<TSchema> = TSchema extends {
+    readonly '~factory': infer TFactory extends string;
+} ? TFactory : never;
+/** A plugin factory creates at most one registered schema (compared against the tuple union: linear). */
+type FactoryIssues<TSchemas extends readonly unknown[], TSchema> = TSchema extends {
+    readonly '~factory': infer TFactory extends string;
+} ? [Exclude<Extract<TSchemas[number], {
+    readonly '~factory': TFactory;
+}>, TSchema>] extends [never] ? never : `${NameOf<TSchema>}: factory '${TFactory}' already created another registered schema` : never;
+/**
+ * Rule methods were accepted with `void` returns in `define`; their exact return types are
+ * checked here, once every schema is typed. The error names the schema, not the line.
+ */
+type RuleIssues<TSchema> = TSchema extends {
+    readonly '~declaration': infer TDeclaration;
+    readonly '~rules': (rules: infer TRules) => void;
+} ? Pick<TDeclaration, keyof TDeclaration & keyof TRules> extends TRules ? never : `${NameOf<TSchema>}: a rule method returns a value of the wrong type (${RuleKeysWithIssues<Pick<TDeclaration, keyof TDeclaration & keyof TRules>, TRules> & string})` : never;
+type RuleKeysWithIssues<TDeclared, TRules> = {
+    [K in keyof TDeclared]: K extends keyof TRules ? (TDeclared[K] extends TRules[K] ? never : K) : never;
+}[keyof TDeclared];
+type Issues<TSchemas extends readonly unknown[], TSchema> = RelationIssues<TSchema> | FactoryIssues<TSchemas, TSchema> | RuleIssues<TSchema>;
+/** Each registered schema, or a readable error instead of it. */
+export type CheckedSchemas<TSchemas extends readonly unknown[]> = {
+    readonly [K in keyof TSchemas]: [Issues<TSchemas, TSchemas[K]>] extends [never] ? TSchemas[K] : SchemaRegistrationError<Issues<TSchemas, TSchemas[K]>>;
+};
+type MissingFactories<TSchemas extends readonly unknown[], TRequired extends string> = TRequired extends FactoryOf<TSchemas[number]> ? never : TRequired;
+/** Registration options; a required factory without its schema adds an impossible member. */
+export type ApplicationOptions<TSchemas extends readonly unknown[], TRequired extends string> = {
+    readonly schemas: TSchemas & CheckedSchemas<TSchemas>;
+} & ([MissingFactories<TSchemas, TRequired>] extends [never] ? unknown : {
+    readonly '~missing': SchemaRegistrationError<`no registered schema created by factory '${MissingFactories<TSchemas, TRequired>}'`>;
+});
+/** One application instance. */
+export interface Application<TSchemas extends readonly unknown[]> {
+    readonly schemas: TSchemas;
+    /** What registration collected: fields and plugin rules per schema. */
+    describe(): readonly RegisteredSchema[];
+    /** Rules owned by one plugin, per class name. */
+    rulesOf(pluginId: string): ReadonlyMap<string, unknown>;
+    start(): Promise<void>;
+}
+type PluginOptionsHKT<TPlugin> = TPlugin extends {
+    readonly '~schemaOptions'?: infer THKT extends SchemaOptionsHKT;
+} ? THKT : NoSchemaOptions;
+type PluginFields<TPlugin> = TPlugin extends {
+    readonly '~fields'?: infer TFields extends object;
+} ? TFields : unknown;
+type PluginShapes<TPlugin> = TPlugin extends {
+    readonly '~shapes'?: infer TShapes extends object;
+} ? TShapes : unknown;
+type PluginFactoriesHKT<TPlugin> = TPlugin extends {
+    readonly '~schemaFactories'?: infer THKT extends SchemaFactoriesHKT;
+} ? THKT : NoSchemaFactories;
+type PluginRequired<TPlugin> = TPlugin extends {
+    readonly '~requiredFactories'?: infer TRequired extends string;
+} ? TRequired : never;
+type PluginFieldOptionsHKT<TPlugin> = TPlugin extends {
+    readonly '~fieldOptions'?: infer THKT extends FieldOptionsHKT;
+} ? THKT : NoFieldOptions;
+/** Plugin without field options. */
+export interface NoFieldOptions extends FieldOptionsHKT {
+    readonly options: Readonly<Record<never, never>>;
+}
+type ApplyFactories<THKT, TApp> = THKT extends SchemaFactoriesHKT ? (THKT & {
+    readonly app: TApp;
+})['factories'] : unknown;
+/** Factories of every installed slot, evaluated against the final application configuration. */
+export type SchemaFactoriesFor<TFactoryHKTs, TApp> = TFactoryHKTs extends readonly [infer THead, ...infer TRest] ? ApplyFactories<THead, TApp> & SchemaFactoriesFor<TRest, TApp> : unknown;
+type Installed<TPlugins, THKTs extends readonly unknown[], TAdded, TShapes, TFieldHKTs extends readonly unknown[], TFactoryHKTs extends readonly unknown[], TRequired extends string> = TPlugins extends readonly [infer TPlugin, ...infer TRest] ? Installed<TRest, readonly [...THKTs, PluginOptionsHKT<TPlugin>], TAdded & PluginFields<TPlugin>, TShapes & PluginShapes<TPlugin>, readonly [...TFieldHKTs, PluginFieldOptionsHKT<TPlugin>], readonly [...TFactoryHKTs, PluginFactoriesHKT<TPlugin>], TRequired | PluginRequired<TPlugin>> : Factory<AppTypes<THKTs, TAdded, TShapes, TFieldHKTs>, TFactoryHKTs, TRequired>;
+/** Immutable configured application factory returned by `UltimaBase.use(...)`. */
+export interface ConfiguredFactory<TApp extends AppTypes, TFactoryHKTs extends readonly unknown[], TRequired extends string> {
+    /** Installs plugins; returns a new configured factory. */
+    use<const TPlugins extends readonly PluginDefinition[]>(...plugins: TPlugins): TApp extends AppTypes<infer THKTs extends readonly unknown[], infer TAdded, infer TShapes, infer TFieldHKTs extends readonly unknown[]> ? Installed<TPlugins, THKTs, TAdded, TShapes, TFieldHKTs, TFactoryHKTs, TRequired> : never;
+    /** Plain schemas. */
+    readonly Schema: SchemaNamespace<TApp>;
+    new <const TSchemas extends readonly unknown[]>(options: ApplicationOptions<TSchemas, TRequired>): Application<TSchemas>;
+}
+/** Configured factory plus the schema factories of installed plugins (`App.RoleSchema`). */
+export type Factory<TApp extends AppTypes, TFactoryHKTs extends readonly unknown[], TRequired extends string> = ConfiguredFactory<TApp, TFactoryHKTs, TRequired> & SchemaFactoriesFor<TFactoryHKTs, TApp>;
+/** Declaration accepted by Core's schema kit (used by `define` and by plugin factories). */
+export interface RuntimeDeclaration {
+    readonly className: string;
+    readonly fields?: (field: FieldBuilder) => object;
+    readonly factory?: string;
+    readonly model?: Readonly<Record<string, unknown>>;
+    /** Shape options and rules of installed plugins. */
+    readonly [option: string]: unknown;
+}
+/** What a plugin factory receives from Core. */
+export interface SchemaKit {
+    define(declaration: RuntimeDeclaration): object;
+}
+/** Collected registration of one schema. */
+export interface RegisteredSchema {
+    readonly className: string;
+    readonly factory: string | undefined;
+    readonly fields: Readonly<Record<string, string>>;
+    readonly shapeOptions: readonly string[];
+    /** Plugin field options, per field: `{ displayName: { 'hooks:resolveInput': fn } }`. */
+    readonly fieldOptions: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+    readonly rules: Readonly<Record<string, unknown>>;
+}
+/**
+ * Root factory. The runtime object is built generically from plugin runtimes; its static type
+ * is computed from the plugins' type slots, which runtime code cannot express: one cast here.
+ */
+export declare const UltimaBase: Factory<AppTypes<readonly [], Readonly<Record<never, never>>, Readonly<Record<never, never>>, readonly []>, readonly [], never>;

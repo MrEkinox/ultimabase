@@ -1,0 +1,1 @@
+{ "extends": "../../tsconfig.base.json", "compilerOptions": { "allowImportingTsExtensions": true, "isolatedDeclarations": true, "declaration": true, "noEmit": false, "emitDeclarationOnly": true, "rootDir": "lib", "outDir": "scratch/dts-lib" }, "include": ["lib/**/*.ts"] }

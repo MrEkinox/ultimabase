@@ -1,0 +1,163 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/ts7/work/e2-methods/fixture",
+ "baseline": [
+  {
+   "file": "src/methods.ts",
+   "line": 15,
+   "col": 37,
+   "code": 2339,
+   "message": "Property 'isLate' does not exist on type '{ readonly id: string; readonly title: string; }'."
+  },
+  {
+   "file": "src/methods.ts",
+   "line": 16,
+   "col": 34,
+   "code": 2339,
+   "message": "Property 'isLate' does not exist on type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; }'."
+  },
+  {
+   "file": "src/methods.ts",
+   "line": 17,
+   "col": 14,
+   "code": 2322,
+   "message": "Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; } | null' is not assignable to type 'Todo | null'.\n  Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; }' is missing the following properties from type 'Todo': isLate, late"
+  },
+  {
+   "file": "src/usage.ts",
+   "line": 39,
+   "col": 7,
+   "code": 2322,
+   "message": "Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; } | null' is not assignable to type 'Todo | null'.\n  Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; }' is missing the following properties from type 'Todo': isLate, late"
+  }
+ ],
+ "hovers": [
+  {
+   "name": "static findOverdue (declaration)",
+   "text": "(method) Todo.findOverdue(): Promise<{\n    readonly acl: ACL;\n    readonly parent: PointerRef | null;\n    readonly archived: boolean | null;\n    readonly id: string;\n    readonly title: string;\n    readonly priority: \"low\" | \"normal\" | \"high\" | null;\n    readonly allowedPriorities: readonly (\"low\" | \"normal\" | \"high\")[] | null;\n    readonly status: \"open\" | \"inProgress\" | \"done\";\n    readonly assignee: PointerRef | null;\n    readonly dueAt: Date | null;\n    readonly isDeleted: boolean;\n    readonly createdAt: Date;\n    readonly updatedAt: Date;\n}[]>",
+   "length": 555
+  },
+  {
+   "name": "this.findMany in the helper",
+   "text": "(method) SchemaQueries.findMany<typeof Todo, {\n    readonly where: {\n        readonly archived: {\n            readonly eq: false;\n        };\n    };\n}>(this: typeof Todo, args?: {\n    readonly where: {\n        readonly archived: {\n            readonly eq: false;\n        };\n    };\n} | undefined, options?: QueryOptions): Promise<{\n    readonly acl: ACL;\n    readonly parent: PointerRef | null;\n    readonly archived: boolean | null;\n    readonly id: string;\n    readonly title: string;\n    readonly priority: \"low\" | \"normal\" | \"high\" | null;\n    readonly allowedPriorities: readonly (\"low\" | \"normal\" | \"high\")[] | null;\n    readonly status: \"open\" | \"inProgress\" | \"done\";\n    ... 4 more ...;\n    readonly updatedAt: Date;\n}[]>",
+   "length": 728
+  },
+  {
+   "name": "isLate (declaration)",
+   "text": "(method) Todo.isLate(): boolean",
+   "length": 31
+  },
+  {
+   "name": "hook item",
+   "text": "(parameter) item: Todo",
+   "length": 22
+  },
+  {
+   "name": "overdue",
+   "text": "const overdue: {\n    readonly acl: ACL;\n    readonly parent: PointerRef | null;\n    readonly archived: boolean | null;\n    readonly id: string;\n    readonly title: string;\n    readonly priority: \"low\" | \"normal\" | \"high\" | null;\n    readonly allowedPriorities: readonly (\"low\" | \"normal\" | \"high\")[] | null;\n    readonly status: \"open\" | \"inProgress\" | \"done\";\n    readonly assignee: PointerRef | null;\n    readonly dueAt: Date | null;\n    readonly isDeleted: boolean;\n    readonly createdAt: Date;\n    readonly updatedAt: Date;\n}[]",
+   "length": 532
+  },
+  {
+   "name": "titles (select title)",
+   "text": "const titles: {\n    readonly id: string;\n    readonly title: string;\n}[]",
+   "length": 72
+  },
+  {
+   "name": "OverdueHasMethod",
+   "text": "type OverdueHasMethod = false",
+   "length": 29
+  },
+  {
+   "name": "TitlesHaveMethod",
+   "text": "type TitlesHaveMethod = false",
+   "length": 29
+  },
+  {
+   "name": "FullHasMethod",
+   "text": "type FullHasMethod = false",
+   "length": 26
+  },
+  {
+   "name": "OverdueIsFull",
+   "text": "type OverdueIsFull = true",
+   "length": 25
+  }
+ ],
+ "hoverSets": [],
+ "completions": [
+  {
+   "name": "Todo.",
+   "names": [
+    "apply",
+    "arguments",
+    "bind",
+    "call",
+    "caller",
+    "className",
+    "createOne",
+    "findMany",
+    "findOne",
+    "findOverdue",
+    "length",
+    "name",
+    "options",
+    "prototype",
+    "toString",
+    "with"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "M1 registration check restored (current form rule)",
+   "file": "../lib/core.ts",
+   "faultyLine": 391,
+   "count": 5,
+   "onLine": false,
+   "primary": {
+    "file": "src/methods.ts",
+    "line": 15,
+    "col": 37,
+    "code": 2339,
+    "message": "Property 'isLate' does not exist on type '{ readonly id: string; readonly title: string; }'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/methods.ts",
+     "line": 15,
+     "col": 37,
+     "code": 2339,
+     "message": "Property 'isLate' does not exist on type '{ readonly id: string; readonly title: string; }'."
+    },
+    {
+     "file": "src/methods.ts",
+     "line": 16,
+     "col": 34,
+     "code": 2339,
+     "message": "Property 'isLate' does not exist on type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; }'."
+    },
+    {
+     "file": "src/methods.ts",
+     "line": 17,
+     "col": 14,
+     "code": 2322,
+     "message": "Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; } | null' is not assignable to type 'Todo | null'.\n  Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; }' is missing the following properties from type 'Todo': isLate, late"
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 7,
+     "col": 67,
+     "code": 2322,
+     "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<\"Todo: custom instance member 'late' is not allowed; models are immutable data without behaviour; Todo: custom instance member 'isLate' is not allowed; models are immutable data without behaviour; Todo: custom static member 'findOverdue' is not allowed; a schema class declares f...'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<\"Todo: custom instance member 'late' is not allowed; models are immutable data without behaviour; Todo: custom instance member 'isLate' is not allowed; models are immutable data without behaviour; Todo: custom static member 'findOverdue' is not allowed; a schema class declares fields and rule...'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 39,
+     "col": 7,
+     "code": 2322,
+     "message": "Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; } | null' is not assignable to type 'Todo | null'.\n  Type '{ readonly acl: ACL; readonly parent: PointerRef | null; readonly archived: boolean | null; readonly id: string; readonly title: string; readonly priority: \"low\" | \"normal\" | \"high\" | null; ... 6 more ...; readonly updatedAt: Date; }' is missing the following properties from type 'Todo': isLate, late"
+    }
+   ]
+  }
+ ]
+}

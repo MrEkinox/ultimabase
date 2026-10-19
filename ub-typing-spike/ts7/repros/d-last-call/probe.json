@@ -1,0 +1,53 @@
+{
+	"hovers": [
+		{
+			"name": "where",
+			"file": "todo.ts",
+			"find": "where) => where.is"
+		},
+		{
+			"name": "cross builder",
+			"file": "todo.ts",
+			"find": "user) => user.eq"
+		},
+		{
+			"name": "hook item",
+			"file": "todo.ts",
+			"find": "item) => {"
+		},
+		{
+			"name": "const Todo",
+			"file": "todo.ts",
+			"find": "Todo = define"
+		}
+	],
+	"cases": [
+		{
+			"name": "control: generic final call (reads its arguments) -> cycle",
+			"file": "core.ts",
+			"find": "with(rules: Rules<Defined<TName, TFields>>): Configured<TName, TFields>",
+			"replace": "with<const TRules extends Rules<Defined<TName, TFields>>>(rules: TRules): Configured<TName, TFields> & { readonly rules: TRules }",
+			"line": "with<const TRules"
+		},
+		{
+			"name": "control: filter expressions typed by the schema type instead of its name",
+			"file": "../common/mini.ts",
+			"find": "type NameOf<TSchema> = TSchema extends { readonly '~name': infer TName extends string } ? TName : never",
+			"replace": "type NameOf<TSchema> = TSchema",
+			"line": "type NameOf<TSchema> = TSchema",
+			"alsoEdits": [
+				{
+					"file": "../common/mini.ts",
+					"find": "export interface Expr<TName extends string> {",
+					"replace": "export interface Expr<TName> {"
+				}
+			]
+		},
+		{
+			"name": "typo in cross filter detected",
+			"file": "todo.ts",
+			"find": "user.eq('email'",
+			"replace": "user.eq('emial'"
+		}
+	]
+}

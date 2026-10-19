@@ -1,0 +1,10 @@
+import { App } from './app.ts'
+import { Todo } from './todo.ts'
+
+export const TodoUser = App.PasswordUserSchema.define({
+	className: 'TodoUser',
+	fields: (field) => ({
+		displayName: field.string({ required: true, hooks: { resolveInput: ({ value }) => value.trim() } }),
+		assignedTodos: field.relation({ target: () => Todo, mappedBy: 'assignee' }),
+	}),
+})

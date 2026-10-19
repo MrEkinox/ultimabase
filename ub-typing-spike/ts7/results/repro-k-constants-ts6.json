@@ -1,0 +1,77 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/ts7/repros/k-constants",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "where",
+   "text": "(parameter) where: WhereBuilder<Defined<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => Defined<\"User\", {\n        email: Scalar<string>;\n        lastTodo: Pointer<() => Defined<\"Todo\", ...>>;\n    }>>;\n}>>",
+   "length": 252
+  },
+  {
+   "name": "cross builder",
+   "text": "(parameter) user: WhereBuilder<Defined<\"User\", {\n    email: Scalar<string>;\n    lastTodo: Pointer<() => Defined<\"Todo\", ...>>;\n}>>",
+   "length": 130
+  },
+  {
+   "name": "hook item",
+   "text": "(parameter) item: Item<Defined<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => Defined<\"User\", {\n        email: Scalar<string>;\n        lastTodo: Pointer<() => Defined<\"Todo\", ...>>;\n    }>>;\n}>>",
+   "length": 243
+  },
+  {
+   "name": "const Todo",
+   "text": "const Todo: Defined<\"Todo\", {\n    title: Scalar<string>;\n    archived: Scalar<boolean>;\n    assignee: Pointer<() => Defined<\"User\", {\n        email: Scalar<string>;\n        lastTodo: Pointer<() => Defined<\"Todo\", ...>>;\n    }>>;\n}>",
+   "length": 231
+  },
+  {
+   "name": "const todoRules",
+   "text": "const todoRules: SchemaRules<\"Todo\">",
+   "length": 36
+  }
+ ],
+ "hoverSets": [],
+ "completions": [],
+ "cases": [
+  {
+   "name": "control: generic rules call",
+   "file": "core.ts",
+   "faultyLine": 10,
+   "count": 0,
+   "onLine": false,
+   "primary": null,
+   "diagnostics": []
+  },
+  {
+   "name": "control: filter expressions typed by the schema type instead of its name",
+   "file": "../common/mini.ts",
+   "faultyLine": 24,
+   "count": 0,
+   "onLine": false,
+   "primary": null,
+   "diagnostics": []
+  },
+  {
+   "name": "typo in cross filter detected",
+   "file": "todo.ts",
+   "faultyLine": 7,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 7,
+    "col": 59,
+    "code": 2345,
+    "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 7,
+     "col": 59,
+     "code": 2345,
+     "message": "Argument of type '\"emial\"' is not assignable to parameter of type '\"email\"'."
+    }
+   ]
+  }
+ ]
+}

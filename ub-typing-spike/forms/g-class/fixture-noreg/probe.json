@@ -1,0 +1,120 @@
+{
+	"hovers": [
+		{
+			"file": "../fixture/todo.ts",
+			"find": "(todo) => todo.eq('archived'",
+			"offset": 1
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "(user) => user.eq('id'",
+			"offset": 1
+		},
+		{
+			"file": "../fixture/tag.ts",
+			"find": "(user) => user.eq('displayName'",
+			"offset": 1
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "({ item }) =>",
+			"offset": 3
+		},
+		{
+			"file": "../fixture/todo-user.ts",
+			"find": "(value) => value.trim()",
+			"offset": 1
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "class Todo extends",
+			"offset": 6
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "static access = this.rules.access(",
+			"offset": 7
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "static access = this.rules.access(",
+			"offset": 22
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "static access = this.rules.access(",
+			"offset": 28
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "App.Schema(",
+			"offset": 4
+		},
+		{
+			"file": "../fixture/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"file": "../fixture/usage.ts",
+			"find": "one: Todo | null = await Todo.findOne(",
+			"offset": 32
+		},
+		{
+			"file": "../fixture/usage.ts",
+			"find": "signedUp = await",
+			"offset": 0
+		}
+	],
+	"completions": [
+		{
+			"file": "../fixture/todo.ts",
+			"find": "static acl = this.rules."
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "static acl = this."
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "extends App."
+		},
+		{
+			"file": "../fixture/todo.ts",
+			"find": "{ softDelete: true, ",
+			"offset": 2
+		}
+	],
+	"cases": [
+		{
+			"name": "2 local where field typo (builder)",
+			"file": "../fixture/todo.ts",
+			"find": "todo.eq('archived', false)",
+			"replace": "todo.eq('archivd', false)"
+		},
+		{
+			"name": "3 cross-schema field typo (object, Todo -> TodoUser)",
+			"file": "../fixture/todo.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "4 plugin-added field typo in a hook",
+			"file": "../fixture/todo.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "6a rule method typo",
+			"file": "../fixture/todo.ts",
+			"find": "static access = this.rules.access(",
+			"replace": "static access = this.rules.acess("
+		},
+		{
+			"name": "7 wrong filter return",
+			"file": "../fixture/tag.ts",
+			"find": "delete: { where: () => false }",
+			"replace": "delete: { where: () => 42 }"
+		}
+	]
+}

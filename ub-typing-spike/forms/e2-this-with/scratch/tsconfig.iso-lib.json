@@ -1,0 +1,1 @@
+{ "extends": "../../../tsconfig.base.json", "compilerOptions": { "allowImportingTsExtensions": true, "noEmit": false, "declaration": true, "emitDeclarationOnly": true, "isolatedDeclarations": true, "outDir": "dts-lib", "rootDir": "../lib", "rewriteRelativeImportExtensions": true }, "include": ["../lib/**/*.ts"] }

@@ -1,0 +1,1 @@
+{ "extends": "../../../tsconfig.base.json", "compilerOptions": { "allowImportingTsExtensions": true }, "include": ["../fixture/*.ts", "../lib/*.ts"], "exclude": ["../fixture/register.ts"] }

@@ -1,0 +1,40 @@
+forms/d-class-wrapper/fixture/src/named.ts(26,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-class-wrapper/fixture/src/tag.ts(13,21): error TS7031: Binding element 'where' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/tag.ts(13,28): error TS7031: Binding element 'userId' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/tag.ts(13,62): error TS7006: Parameter 'todo' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/tag.ts(13,92): error TS7006: Parameter 'user' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-role.ts(10,21): error TS7031: Binding element 'where' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-role.ts(10,28): error TS7031: Binding element 'userId' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-role.ts(10,64): error TS7006: Parameter 'user' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-user.ts(4,14): error TS2506: 'TodoUser' is referenced directly or indirectly in its own base expression.
+forms/d-class-wrapper/fixture/src/todo-user.ts(4,14): error TS7022: 'TodoUser' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-class-wrapper/fixture/src/todo-user.ts(13,21): error TS7031: Binding element 'where' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-user.ts(13,62): error TS7006: Parameter 'todo' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-user.ts(14,23): error TS7031: Binding element 'where' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-user.ts(14,30): error TS7031: Binding element 'userId' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo-user.ts(17,45): error TS7031: Binding element 'value' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo.ts(24,22): error TS7031: Binding element 'where' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo.ts(26,15): error TS7031: Binding element 'where' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo.ts(26,22): error TS7031: Binding element 'userId' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo.ts(26,57): error TS7006: Parameter 'user' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo.ts(32,21): error TS7031: Binding element 'item' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/todo.ts(35,18): error TS7031: Binding element 'originalItem' implicitly has an 'any' type.
+forms/d-class-wrapper/fixture/src/ultimabase.ts(9,14): error TS7022: 'ultimabase' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-class-wrapper/fixture/src/ultimabase.ts(9,47): error TS2322: Type 'typeof TodoUser' is not assignable to type 'typeof TodoUser & SchemaRegistrationError<unknown>'.
+  Property ''~error'' is missing in type 'typeof TodoUser' but required in type 'SchemaRegistrationError<unknown>'.
+forms/d-class-wrapper/fixture/src/ultimabase.ts(14,12): error TS2502: 'app' is referenced directly or indirectly in its own type annotation.
+forms/d-class-wrapper/fixture/src/usage.ts(19,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-class-wrapper/fixture/src/usage.ts(23,37): error TS2339: Property 'findMany' does not exist on type 'typeof TodoUser'.
+forms/d-class-wrapper/fixture/src/usage.ts(33,40): error TS2339: Property 'signUp' does not exist on type 'typeof TodoUser'.
+forms/d-class-wrapper/fixture/src/usage.ts(36,26): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-class-wrapper/fixture/src/usage.ts(39,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-wrapper/fixture/src/usage.ts(41,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-wrapper/fixture/src/usage.ts(45,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-wrapper/fixture/src/usage.ts(47,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-wrapper/fixture/src/usage.ts(53,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-wrapper/lib/core.ts(254,5): error TS2577: Return type annotation circularly references itself.
+forms/d-class-wrapper/lib/core.ts(290,7): error TS2502: 'rules' is referenced directly or indirectly in its own type annotation.
+forms/d-class-wrapper/lib/types.ts(51,6): error TS2456: Type alias 'RegisteredList' circularly references itself.
+forms/d-class-wrapper/lib/types.ts(63,6): error TS2456: Type alias 'RegisteredNames' circularly references itself.
+forms/d-class-wrapper/lib/types.ts(66,13): error TS2456: Type alias 'SchemaNamed' circularly references itself.
+forms/d-class-wrapper/lib/types.ts(76,52): error TS2315: Type 'SchemaNamed' is not generic.

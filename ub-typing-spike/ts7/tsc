@@ -1,0 +1,3 @@
+#!/bin/sh
+# Runs TypeScript 7.0.2 (native) installed in this folder.
+exec /Users/mrekinox/Desktop/ub-typing-spike/ts7/node_modules/@typescript/typescript-darwin-x64/lib/tsc "$@"

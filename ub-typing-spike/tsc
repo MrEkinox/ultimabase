@@ -1,0 +1,3 @@
+#!/bin/sh
+# Runs the repository's TypeScript (6.0.3) from ub-small, read-only.
+exec node /Users/mrekinox/Desktop/ub-small/node_modules/typescript/bin/tsc "$@"

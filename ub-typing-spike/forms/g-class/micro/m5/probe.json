@@ -1,0 +1,4 @@
+{ "hovers": [], "completions": [
+ { "file": "a.ts", "find": "{ name: field.string() }, { ", "offset": 28 },
+ { "file": "a.ts", "find": "fields: ['", "offset": 10 }
+], "cases": [] }

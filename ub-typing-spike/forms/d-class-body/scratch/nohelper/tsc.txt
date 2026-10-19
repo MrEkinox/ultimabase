@@ -1,0 +1,15 @@
+forms/d-class-body/lib/types.ts(51,6): error TS2456: Type alias 'RegisteredList' circularly references itself.
+forms/d-class-body/lib/types.ts(63,6): error TS2456: Type alias 'RegisteredNames' circularly references itself.
+forms/d-class-body/lib/types.ts(66,13): error TS2456: Type alias 'SchemaNamed' circularly references itself.
+forms/d-class-body/lib/types.ts(76,52): error TS2315: Type 'SchemaNamed' is not generic.
+forms/d-class-body/scratch/nohelper/src/named.ts(26,25): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+forms/d-class-body/scratch/nohelper/src/todo.ts(21,9): error TS7022: 'rules' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-class-body/scratch/nohelper/src/ultimabase.ts(9,14): error TS7022: 'ultimabase' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+forms/d-class-body/scratch/nohelper/src/ultimabase.ts(14,12): error TS2502: 'app' is referenced directly or indirectly in its own type annotation.
+forms/d-class-body/scratch/nohelper/src/usage.ts(39,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-body/scratch/nohelper/src/usage.ts(41,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-body/scratch/nohelper/src/usage.ts(43,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-body/scratch/nohelper/src/usage.ts(45,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-body/scratch/nohelper/src/usage.ts(47,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-body/scratch/nohelper/src/usage.ts(51,1): error TS2578: Unused '@ts-expect-error' directive.
+forms/d-class-body/scratch/nohelper/src/usage.ts(53,1): error TS2578: Unused '@ts-expect-error' directive.

@@ -1,0 +1,11 @@
+{
+	"hovers": [
+		{ "file": "todo-role.js", "find": "where, userId }) => where.some", "offset": 0 },
+		{ "file": "todo-role.js", "find": "(user) => user.eq", "offset": 1 }
+	],
+	"cases": [
+		{ "name": "JS: cross-schema field typo", "file": "todo-role.js", "find": "user.eq('id', userId)", "replace": "user.eq('idd', userId)" },
+		{ "name": "JS: statement typo", "file": "todo-role.js", "find": "TodoRole.access({", "replace": "TodoRole.acess({" },
+		{ "name": "JS: members target typo", "file": "todo-role.js", "find": "members: () => TodoUser", "replace": "members: () => TodoUsr" }
+	]
+}

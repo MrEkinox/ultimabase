@@ -1,0 +1,870 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/fixture",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "where }) => where.eq('archived'",
+   "text": "(parameter) where: WhereBuilder<DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"list\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"todo\", true>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => DefinedSchema<\"TodoUser\", {\n        ...;\n    } & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & {\n        ...;\n    }, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & SoftDeleteFields, AppTypes<...>>>",
+   "length": 824
+  },
+  {
+   "name": "(user) => user.eq",
+   "text": "(parameter) user: WhereBuilder<DefinedSchema<\"TodoUser\", {\n    readonly displayName: ScalarField<\"string\", string, true>;\n    readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", {\n        readonly title: ScalarField<\"string\", string, true>;\n        readonly archived: ScalarField<\"boolean\", boolean, true>;\n        readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n        readonly allowedPriorities: ScalarField<\"list\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n        readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"todo\", true>;\n        ... 4 more ...;\n        readonly tags: RelationField<...>;\n    } & SoftDeleteFields, AppTypes<...>>, \"assignee\">;\n} & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & {\n    ...;\n}>",
+   "length": 787
+  },
+  {
+   "name": "item }) =>",
+   "text": "(parameter) item: Readonly<{\n    acl: ACL;\n    allowedPriorities: readonly (\"high\" | \"low\" | \"normal\")[] | null;\n    archived: boolean;\n    assignee: PointerRef | null;\n    createdAt: Date;\n    dueAt: Date | null;\n    id: string;\n    isDeleted: boolean;\n    parent: PointerRef | null;\n    priority: \"high\" | \"low\" | \"normal\" | null;\n    status: \"doing\" | \"done\" | \"todo\";\n    title: string;\n    updatedAt: Date;\n}>",
+   "length": 414
+  },
+  {
+   "name": "Todo = App",
+   "text": "const Todo: DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"list\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"todo\", true>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => DefinedSchema<\"TodoUser\", {\n        ...;\n    } & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & {\n        ...;\n    }, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & SoftDeleteFields, AppTypes<...>>",
+   "length": 803
+  },
+  {
+   "name": "rules({",
+   "text": "(method) DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>.rules(rules: PostgresRuleTypes<DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"list\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"todo\", true>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => DefinedSchema<\"TodoUser\", {\n        ...;\n    } & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & {\n        ...;\n    }, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & SoftDeleteFields, AppTypes<...>>> & AccessRuleTypes<...> & HooksRuleTypes<...> & AclRuleTypes<...>): SchemaRules<...>",
+   "length": 1222
+  },
+  {
+   "name": "todoRules = Todo",
+   "text": "const todoRules: SchemaRules<\"Todo\">",
+   "length": 36
+  },
+  {
+   "name": "rules: [",
+   "text": "(property) ApplicationOptions<readonly [DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; ... 8 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"assignee\">; } & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & { ...; }, DefinedSchema<...> & ... 1 more ... & { ...; }, DefinedSchema<...>, DefinedSchema<...>], readonly [...]>.rules: readonly [SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">, SchemaRules<\"Tag\">]",
+   "length": 638
+  },
+  {
+   "name": "ultimabase = new",
+   "text": "const ultimabase: Application<readonly [DefinedSchema<\"TodoUser\", {\n    readonly displayName: ScalarField<\"string\", string, true>;\n    readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", {\n        readonly title: ScalarField<\"string\", string, true>;\n        readonly archived: ScalarField<\"boolean\", boolean, true>;\n        readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n        readonly allowedPriorities: ScalarField<\"list\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n        readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"todo\", true>;\n        ... 4 more ...;\n        readonly tags: RelationField<...>;\n    } & SoftDeleteFields, AppTypes<...>>, \"assignee\">;\n} & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & {\n    ...;\n}, DefinedSchema<...> & ... 1 more ... & {\n    ...;\n}, DefinedSchema<...>, DefinedSchema<...>]>",
+   "length": 889
+  },
+  {
+   "name": "pending = await",
+   "text": "const pending: {\n    readonly assignee: {\n        readonly displayName: string;\n        readonly id: string;\n    } | null;\n    readonly dueAt: Date | null;\n    readonly id: string;\n    readonly priority: \"high\" | \"low\" | \"normal\" | null;\n    readonly subtasks: {\n        readonly id: string;\n        readonly title: string;\n    }[];\n    readonly title: string;\n}[]",
+   "length": 364
+  },
+  {
+   "name": "(todo) => todo.is",
+   "text": "(parameter) todo: WhereBuilder<DefinedSchema<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, true>;\n    readonly priority: ScalarField<\"enum\", \"high\" | \"low\" | \"normal\", false>;\n    readonly allowedPriorities: ScalarField<\"list\", readonly (\"high\" | \"low\" | \"normal\")[], false>;\n    readonly status: ScalarField<\"enum\", \"doing\" | \"done\" | \"todo\", true>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => DefinedSchema<\"TodoUser\", {\n        ...;\n    } & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & {\n        ...;\n    }, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n} & SoftDeleteFields, AppTypes<...>>>",
+   "length": 823
+  }
+ ],
+ "hoverSets": [],
+ "completions": [
+  {
+   "name": "StaffRole.rules({",
+   "names": [
+    "access",
+    "acl",
+    "hooks",
+    "postgres"
+   ]
+  },
+  {
+   "name": "StaffRole.",
+   "names": [
+    "addMember",
+    "className",
+    "createOne",
+    "findMany",
+    "rules"
+   ]
+  },
+  {
+   "name": "Todo = App.",
+   "names": [
+    "PasswordUserSchema",
+    "RoleSchema",
+    "Schema",
+    "apply",
+    "arguments",
+    "bind",
+    "call",
+    "caller",
+    "length",
+    "name",
+    "prototype",
+    "toString",
+    "use"
+   ]
+  },
+  {
+   "name": "Tag = App.Schema.define({",
+   "names": [
+    "softDelete"
+   ]
+  },
+  {
+   "name": "await TodoRole.",
+   "names": [
+    "addMember",
+    "className",
+    "createOne",
+    "findMany",
+    "rules"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "1. relation target typo",
+   "file": "src/todo.ts",
+   "faultyLine": 19,
+   "count": 2,
+   "onLine": true,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 19,
+    "col": 43,
+    "code": 2552,
+    "message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+   },
+   "diagnostics": [
+    {
+     "file": "src/todo.ts",
+     "line": 19,
+     "col": 43,
+     "code": 2552,
+     "message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 43,
+     "col": 1,
+     "code": 2578,
+     "message": "Unused '@ts-expect-error' directive."
+    }
+   ]
+  },
+  {
+   "name": "2. local where field typo",
+   "file": "src/todo.ts",
+   "faultyLine": 28,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 28,
+    "col": 42,
+    "code": 2345,
+    "message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'ScalarKeys<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>>'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/todo.ts",
+     "line": 28,
+     "col": 42,
+     "code": 2345,
+     "message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'ScalarKeys<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>>'."
+    }
+   ]
+  },
+  {
+   "name": "3. cross-schema field typo (Todo -> TodoUser)",
+   "file": "src/todo.ts",
+   "faultyLine": 32,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 32,
+    "col": 47,
+    "code": 2561,
+    "message": "Object literal may only specify known properties, but 'emial' does not exist in type 'Where<DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; ... 8 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"assignee\">; }...'. Did you mean to write 'email'?"
+   },
+   "diagnostics": [
+    {
+     "file": "src/todo.ts",
+     "line": 32,
+     "col": 47,
+     "code": 2561,
+     "message": "Object literal may only specify known properties, but 'emial' does not exist in type 'Where<DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; ... 8 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"assignee\">; }...'. Did you mean to write 'email'?"
+    }
+   ]
+  },
+  {
+   "name": "4. plugin-added field typo in a hook",
+   "file": "src/todo.ts",
+   "faultyLine": 37,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 37,
+    "col": 13,
+    "code": 2551,
+    "message": "Property 'isDeletd' does not exist on type 'Readonly<{ acl: ACL; allowedPriorities: readonly (\"high\" | \"low\" | \"normal\")[] | null; archived: boolean; assignee: PointerRef | null; createdAt: Date; dueAt: Date | null; ... 6 more ...; updatedAt: Date; }>'. Did you mean 'isDeleted'?"
+   },
+   "diagnostics": [
+    {
+     "file": "src/todo.ts",
+     "line": 37,
+     "col": 13,
+     "code": 2551,
+     "message": "Property 'isDeletd' does not exist on type 'Readonly<{ acl: ACL; allowedPriorities: readonly (\"high\" | \"low\" | \"normal\")[] | null; archived: boolean; assignee: PointerRef | null; createdAt: Date; dueAt: Date | null; ... 6 more ...; updatedAt: Date; }>'. Did you mean 'isDeleted'?"
+    }
+   ]
+  },
+  {
+   "name": "5. mappedBy typo",
+   "file": "src/todo-user.ts",
+   "faultyLine": 8,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "src/ultimabase.ts",
+    "line": 8,
+    "col": 12,
+    "code": 2719,
+    "message": "Type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...' is not assignable to type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...'. Two different types with this name exist, but they are unrelated.\n  Property ''~error'' is missing in type 'DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; ... 8 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"asignee\">; } & Pass...' but required in type 'SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/ultimabase.ts",
+     "line": 8,
+     "col": 12,
+     "code": 2719,
+     "message": "Type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...' is not assignable to type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...'. Two different types with this name exist, but they are unrelated.\n  Property ''~error'' is missing in type 'DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; ... 8 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"asignee\">; } & Pass...' but required in type 'SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'."
+    }
+   ]
+  },
+  {
+   "name": "6. rules key typo",
+   "file": "src/todo.ts",
+   "faultyLine": 27,
+   "count": 5,
+   "onLine": true,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 27,
+    "col": 2,
+    "code": 2561,
+    "message": "Object literal may only specify known properties, but 'acess' does not exist in type 'PostgresRuleTypes<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes...'. Did you mean to write 'access'?"
+   },
+   "diagnostics": [
+    {
+     "file": "src/todo.ts",
+     "line": 27,
+     "col": 2,
+     "code": 2561,
+     "message": "Object literal may only specify known properties, but 'acess' does not exist in type 'PostgresRuleTypes<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes...'. Did you mean to write 'access'?"
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 28,
+     "col": 21,
+     "code": 7031,
+     "message": "Binding element 'where' implicitly has an 'any' type."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 30,
+     "col": 14,
+     "code": 7031,
+     "message": "Binding element 'where' implicitly has an 'any' type."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 30,
+     "col": 21,
+     "code": 7031,
+     "message": "Binding element 'userId' implicitly has an 'any' type."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 30,
+     "col": 56,
+     "code": 7006,
+     "message": "Parameter 'user' implicitly has an 'any' type."
+    }
+   ]
+  },
+  {
+   "name": "7. wrong filter return",
+   "file": "src/tag.ts",
+   "faultyLine": 15,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "src/tag.ts",
+    "line": 15,
+    "col": 41,
+    "code": 2322,
+    "message": "Type 'number' is not assignable to type 'AccessFilterResult<DefinedSchema<\"Tag\", { readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<...>; ... 7 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, ...'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/tag.ts",
+     "line": 15,
+     "col": 41,
+     "code": 2322,
+     "message": "Type 'number' is not assignable to type 'AccessFilterResult<DefinedSchema<\"Tag\", { readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<...>; ... 7 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, ...'."
+    }
+   ]
+  },
+  {
+   "name": "8. query select typo",
+   "file": "src/usage.ts",
+   "faultyLine": 38,
+   "count": 2,
+   "onLine": true,
+   "primary": {
+    "file": "src/usage.ts",
+    "line": 38,
+    "col": 55,
+    "code": 2561,
+    "message": "Object literal may only specify known properties, but 'titel' does not exist in type 'Select<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>>'. Did you mean to write 'title'?"
+   },
+   "diagnostics": [
+    {
+     "file": "src/usage.ts",
+     "line": 38,
+     "col": 55,
+     "code": 2561,
+     "message": "Object literal may only specify known properties, but 'titel' does not exist in type 'Select<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>>'. Did you mean to write 'title'?"
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 39,
+     "col": 26,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    }
+   ]
+  },
+  {
+   "name": "8b. query select typo next to valid keys (Core query typing, all forms)",
+   "file": "src/usage.ts",
+   "faultyLine": 11,
+   "count": 2,
+   "onLine": false,
+   "primary": {
+    "file": "src/usage.ts",
+    "line": 16,
+    "col": 39,
+    "code": 2339,
+    "message": "Property 'title' does not exist on type '{ readonly assignee: { readonly displayName: string; readonly id: string; } | null; readonly dueAt: Date | null; readonly id: string; readonly priority: \"high\" | \"low\" | \"normal\" | null; readonly subtasks: { ...; }[]; readonly titel: never; }'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/usage.ts",
+     "line": 16,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'title' does not exist on type '{ readonly assignee: { readonly displayName: string; readonly id: string; } | null; readonly dueAt: Date | null; readonly id: string; readonly priority: \"high\" | \"low\" | \"normal\" | null; readonly subtasks: { ...; }[]; readonly titel: never; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 20,
+     "col": 25,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    }
+   ]
+  },
+  {
+   "name": "K1. rules forgotten in rules: [...]",
+   "file": "src/ultimabase.ts",
+   "faultyLine": 9,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "src/ultimabase.ts",
+    "line": 9,
+    "col": 2,
+    "code": 2322,
+    "message": "Type '[SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">]' is not assignable to type 'readonly [SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">] & { readonly '~missingRules': SchemaRegistrationError<\"no rules entry for Tag; register X.rules({}) to declare none\">; }'.\n  Property ''~missingRules'' is missing in type '[SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">]' but required in type '{ readonly '~missingRules': SchemaRegistrationError<\"no rules entry for Tag; register X.rules({}) to declare none\">; }'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 2,
+     "code": 2322,
+     "message": "Type '[SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">]' is not assignable to type 'readonly [SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">] & { readonly '~missingRules': SchemaRegistrationError<\"no rules entry for Tag; register X.rules({}) to declare none\">; }'.\n  Property ''~missingRules'' is missing in type '[SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">]' but required in type '{ readonly '~missingRules': SchemaRegistrationError<\"no rules entry for Tag; register X.rules({}) to declare none\">; }'."
+    }
+   ]
+  },
+  {
+   "name": "K2. rules listed twice",
+   "file": "src/ultimabase.ts",
+   "faultyLine": 9,
+   "count": 2,
+   "onLine": true,
+   "primary": {
+    "file": "src/ultimabase.ts",
+    "line": 9,
+    "col": 40,
+    "code": 2322,
+    "message": "Type 'SchemaRules<\"Todo\">' is not assignable to type 'SchemaRules<\"Todo\"> & SchemaRegistrationError<\"rules: Todo is listed twice\">'.\n  Property ''~error'' is missing in type 'SchemaRules<\"Todo\">' but required in type 'SchemaRegistrationError<\"rules: Todo is listed twice\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 40,
+     "code": 2322,
+     "message": "Type 'SchemaRules<\"Todo\">' is not assignable to type 'SchemaRules<\"Todo\"> & SchemaRegistrationError<\"rules: Todo is listed twice\">'.\n  Property ''~error'' is missing in type 'SchemaRules<\"Todo\">' but required in type 'SchemaRegistrationError<\"rules: Todo is listed twice\">'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 61,
+     "code": 2322,
+     "message": "Type 'SchemaRules<\"Todo\">' is not assignable to type 'SchemaRules<\"Todo\"> & SchemaRegistrationError<\"rules: Todo is listed twice\">'.\n  Property ''~error'' is missing in type 'SchemaRules<\"Todo\">' but required in type 'SchemaRegistrationError<\"rules: Todo is listed twice\">'."
+    }
+   ]
+  },
+  {
+   "name": "K3. rules registered without their schema",
+   "file": "src/ultimabase.ts",
+   "faultyLine": 8,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "src/ultimabase.ts",
+    "line": 9,
+    "col": 51,
+    "code": 2322,
+    "message": "Type 'SchemaRules<\"Tag\">' is not assignable to type 'SchemaRules<\"Tag\"> & SchemaRegistrationError<\"rules: Tag is not in schemas\">'.\n  Property ''~error'' is missing in type 'SchemaRules<\"Tag\">' but required in type 'SchemaRegistrationError<\"rules: Tag is not in schemas\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 51,
+     "code": 2322,
+     "message": "Type 'SchemaRules<\"Tag\">' is not assignable to type 'SchemaRules<\"Tag\"> & SchemaRegistrationError<\"rules: Tag is not in schemas\">'.\n  Property ''~error'' is missing in type 'SchemaRules<\"Tag\">' but required in type 'SchemaRegistrationError<\"rules: Tag is not in schemas\">'."
+    }
+   ]
+  },
+  {
+   "name": "K4. second schema from the RoleSchema factory",
+   "file": "src/ultimabase.ts",
+   "faultyLine": 8,
+   "count": 4,
+   "onLine": true,
+   "primary": {
+    "file": "src/ultimabase.ts",
+    "line": 8,
+    "col": 12,
+    "code": 2719,
+    "message": "Type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...' is not assignable to type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...'. Two different types with this name exist, but they are unrelated.\n  Property ''~error'' is missing in type 'DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; ... 8 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"assignee\">; } & Pas...' but required in type 'SchemaRegistrationError<\"TodoUser: factory 'PasswordUserSchema' already created another registered schema\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/ultimabase.ts",
+     "line": 8,
+     "col": 12,
+     "code": 2719,
+     "message": "Type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...' is not assignable to type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...'. Two different types with this name exist, but they are unrelated.\n  Property ''~error'' is missing in type 'DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; ... 8 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"assignee\">; } & Pas...' but required in type 'SchemaRegistrationError<\"TodoUser: factory 'PasswordUserSchema' already created another registered schema\">'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 8,
+     "col": 22,
+     "code": 2719,
+     "message": "Type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoRole\", { readonly description: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...' is not assignable to type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoRole\", { readonly description: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...'. Two different types with this name exist, but they are unrelated.\n  Property ''~error'' is missing in type 'DefinedSchema<\"TodoRole\", { readonly description: ScalarField<\"string\", string, false>; } & RoleOwnedFields<() => DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<...>; } & PasswordUserOwnedFields, AppTypes<...>> & PasswordUserModel & { ...;...' but required in type 'SchemaRegistrationError<\"TodoRole: factory 'RoleSchema' already created another registered schema\">'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 8,
+     "col": 43,
+     "code": 2304,
+     "message": "Cannot find name 'StaffRole'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 2,
+     "code": 2322,
+     "message": "Type '[SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">, SchemaRules<\"Tag\">]' is not assignable to type 'readonly [SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">, SchemaRules<\"Tag\">] & { readonly '~missingRules': SchemaRegistrationError<...>; }'.\n  Property ''~missingRules'' is missing in type '[SchemaRules<\"TodoUser\">, SchemaRules<\"TodoRole\">, SchemaRules<\"Todo\">, SchemaRules<\"Tag\">]' but required in type '{ readonly '~missingRules': SchemaRegistrationError<`no rules entry for ${any}; register X.rules({}) to declare none`>; }'."
+    }
+   ]
+  },
+  {
+   "name": "K5. shape option typo in define",
+   "file": "src/todo.ts",
+   "faultyLine": 11,
+   "count": 29,
+   "onLine": true,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 11,
+    "col": 2,
+    "code": 2561,
+    "message": "Object literal may only specify known properties, but 'sofDelete' does not exist in type 'SchemaDeclaration<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; }> & { ...; }'. Did you mean to write 'softDelete'?"
+   },
+   "diagnostics": [
+    {
+     "file": "src/tag.ts",
+     "line": 15,
+     "col": 79,
+     "code": 2345,
+     "message": "Argument of type '\"assignee\"' is not assignable to parameter of type 'never'."
+    },
+    {
+     "file": "src/tag.ts",
+     "line": 15,
+     "col": 106,
+     "code": 2339,
+     "message": "Property 'eq' does not exist on type 'never'."
+    },
+    {
+     "file": "src/todo-user.ts",
+     "line": 15,
+     "col": 79,
+     "code": 2345,
+     "message": "Argument of type '\"archived\"' is not assignable to parameter of type 'ScalarKeys<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 11,
+     "col": 2,
+     "code": 2561,
+     "message": "Object literal may only specify known properties, but 'sofDelete' does not exist in type 'SchemaDeclaration<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; }> & { ...; }'. Did you mean to write 'softDelete'?"
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 28,
+     "col": 42,
+     "code": 2345,
+     "message": "Argument of type '\"archived\"' is not assignable to parameter of type 'ScalarKeys<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 30,
+     "col": 43,
+     "code": 2345,
+     "message": "Argument of type '\"assignee\"' is not assignable to parameter of type 'never'."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 30,
+     "col": 70,
+     "code": 2339,
+     "message": "Property 'eq' does not exist on type 'never'."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 32,
+     "col": 26,
+     "code": 2322,
+     "message": "Type '{ assignee: { is: { email: { endsWith: string; }; }; }; }' is not assignable to type 'AccessFilterResult<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 37,
+     "col": 13,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type 'Readonly<{ acl: ACL; createdAt: Date; id: string; updatedAt: Date; }>'."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 40,
+     "col": 51,
+     "code": 2322,
+     "message": "Type '\"status\"' is not assignable to type 'ScalarKeys<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/todo.ts",
+     "line": 40,
+     "col": 61,
+     "code": 2322,
+     "message": "Type '\"dueAt\"' is not assignable to type 'ScalarKeys<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 8,
+     "col": 12,
+     "code": 2719,
+     "message": "Type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...' is not assignable to type 'import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/core\", { with: { \"resolution-mode\": \"import\" } }).DefinedSchema<\"TodoUser\", { readonly displayName: import(\"/Users/mrekinox/Desktop/ub-typing-spike/forms/k-rules-list/lib/types\", { with: { \"resolution-mode\": \"import\" } }).ScalarField<\"string\", st...'. Two different types with this name exist, but they are unrelated.\n  Property ''~error'' is missing in type 'DefinedSchema<\"TodoUser\", { readonly displayName: ScalarField<\"string\", string, true>; readonly assignedTodos: RelationField<() => DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<...> & AclFields, readonly [...]>>, \"assignee\">; } & PasswordUserOwnedFields...' but required in type 'SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'assignee' is not a field of Todo\">'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 8,
+     "col": 38,
+     "code": 2322,
+     "message": "Type 'DefinedSchema<\"Tag\", { readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<...> & AclFields, readonly [...]>>, \"tags\">; }, AppTypes<...>>' is not assignable to type 'DefinedSchema<\"Tag\", { readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<...> & AclFields, readonly [...]>>, \"tags\">; }, AppTypes<...>> & SchemaRegistrationError<...>'.\n  Property ''~error'' is missing in type 'DefinedSchema<\"Tag\", { readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<...> & AclFields, readonly [...]>>, \"tags\">; }, AppTypes<...>>' but required in type 'SchemaRegistrationError<\"Tag.todos: mappedBy 'tags' is not a field of Todo\">'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 10,
+     "col": 11,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'archived' does not exist in type 'Where<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 11,
+     "col": 12,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'title' does not exist in type 'Select<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 13,
+     "col": 13,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'dueAt' does not exist in type 'OrderBy<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 16,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'title' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 17,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'dueAt' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 18,
+     "col": 51,
+     "code": 2339,
+     "message": "Property 'assignee' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 19,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'subtasks' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 20,
+     "col": 25,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 21,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'priority' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 26,
+     "col": 58,
+     "code": 2339,
+     "message": "Property 'status' does not exist on type '{ readonly acl: ACL; readonly createdAt: Date; readonly id: string; readonly updatedAt: Date; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 27,
+     "col": 58,
+     "code": 2339,
+     "message": "Property 'allowedPriorities' does not exist on type '{ readonly acl: ACL; readonly createdAt: Date; readonly id: string; readonly updatedAt: Date; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 29,
+     "col": 43,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'title' does not exist in type 'CreateInput<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 31,
+     "col": 49,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type '{ readonly acl: ACL; readonly createdAt: Date; readonly id: string; readonly updatedAt: Date; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 38,
+     "col": 55,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'title' does not exist in type 'Select<DefinedSchema<\"Todo\", unknown, AppTypes<readonly [PostgresRules, AccessRules, HooksRules, AclRules], Readonly<Record<never, never>> & AclFields, readonly [...]>>>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 39,
+     "col": 26,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 43,
+     "col": 1,
+     "code": 2578,
+     "message": "Unused '@ts-expect-error' directive."
+    }
+   ]
+  },
+  {
+   "name": "K6. cross callback returns the wrong schema expression",
+   "file": "src/todo.ts",
+   "faultyLine": 30,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 30,
+    "col": 65,
+    "code": 2322,
+    "message": "Type 'WhereExpression<\"Todo\">' is not assignable to type 'WhereExpression<\"TodoUser\">'.\n  Type '\"Todo\"' is not assignable to type '\"TodoUser\"'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/todo.ts",
+     "line": 30,
+     "col": 65,
+     "code": 2322,
+     "message": "Type 'WhereExpression<\"Todo\">' is not assignable to type 'WhereExpression<\"TodoUser\">'.\n  Type '\"Todo\"' is not assignable to type '\"TodoUser\"'."
+    }
+   ]
+  },
+  {
+   "name": "K7. softDelete removed: hook reads isDeleted",
+   "file": "src/todo.ts",
+   "faultyLine": 3,
+   "count": 10,
+   "onLine": false,
+   "primary": {
+    "file": "src/todo.ts",
+    "line": 37,
+    "col": 13,
+    "code": 2339,
+    "message": "Property 'isDeleted' does not exist on type 'Readonly<{ acl: ACL; allowedPriorities: readonly (\"high\" | \"low\" | \"normal\")[] | null; archived: boolean; assignee: PointerRef | null; createdAt: Date; dueAt: Date | null; ... 5 more ...; updatedAt: Date; }>'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/todo.ts",
+     "line": 37,
+     "col": 13,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type 'Readonly<{ acl: ACL; allowedPriorities: readonly (\"high\" | \"low\" | \"normal\")[] | null; archived: boolean; assignee: PointerRef | null; createdAt: Date; dueAt: Date | null; ... 5 more ...; updatedAt: Date; }>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 12,
+     "col": 104,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'isDeleted' does not exist in type 'Where<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; }, AppTypes<...>>>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 16,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'title' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 17,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'dueAt' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 18,
+     "col": 51,
+     "code": 2339,
+     "message": "Property 'assignee' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 19,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'subtasks' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 20,
+     "col": 25,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 21,
+     "col": 39,
+     "code": 2339,
+     "message": "Property 'priority' does not exist on type '{ readonly id: string; }'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 29,
+     "col": 88,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'isDeleted' does not exist in type 'CreateInput<DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, true>; readonly priority: ScalarField<\"enum\", \"high\" | ... 1 more ... | \"normal\", false>; ... 6 more ...; readonly tags: RelationField<...>; }, AppTypes<...>>>'."
+    },
+    {
+     "file": "src/usage.ts",
+     "line": 31,
+     "col": 49,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type '{ readonly acl: ACL; readonly allowedPriorities: readonly (\"high\" | \"low\" | \"normal\")[] | null; readonly archived: boolean; readonly assignee: PointerRef | null; readonly createdAt: Date; ... 6 more ...; readonly updatedAt: Date; }'."
+    }
+   ]
+  },
+  {
+   "name": "K8. rules declared for a schema of another file passed as a different schema's rules (wrong value)",
+   "file": "src/ultimabase.ts",
+   "faultyLine": 9,
+   "count": 5,
+   "onLine": true,
+   "primary": {
+    "file": "src/ultimabase.ts",
+    "line": 9,
+    "col": 10,
+    "code": 2322,
+    "message": "Type 'SchemaRules<\"TodoUser\">' is not assignable to type 'SchemaRules<string> & SchemaRegistrationError<`rules: ${string} is not in schemas`>'.\n  Property ''~error'' is missing in type 'SchemaRules<\"TodoUser\">' but required in type 'SchemaRegistrationError<`rules: ${string} is not in schemas`>'."
+   },
+   "diagnostics": [
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 10,
+     "code": 2322,
+     "message": "Type 'SchemaRules<\"TodoUser\">' is not assignable to type 'SchemaRules<string> & SchemaRegistrationError<`rules: ${string} is not in schemas`>'.\n  Property ''~error'' is missing in type 'SchemaRules<\"TodoUser\">' but required in type 'SchemaRegistrationError<`rules: ${string} is not in schemas`>'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 25,
+     "code": 2322,
+     "message": "Type 'SchemaRules<\"TodoRole\">' is not assignable to type 'SchemaRules<string> & SchemaRegistrationError<`rules: ${string} is not in schemas`>'.\n  Property ''~error'' is missing in type 'SchemaRules<\"TodoRole\">' but required in type 'SchemaRegistrationError<`rules: ${string} is not in schemas`>'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 40,
+     "code": 2322,
+     "message": "Type 'SchemaRules<\"Todo\">' is not assignable to type 'SchemaRules<string> & SchemaRegistrationError<`rules: ${string} is not in schemas`>'.\n  Property ''~error'' is missing in type 'SchemaRules<\"Todo\">' but required in type 'SchemaRegistrationError<`rules: ${string} is not in schemas`>'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 51,
+     "code": 2322,
+     "message": "Type 'SchemaRules<\"Tag\">' is not assignable to type 'SchemaRules<string> & SchemaRegistrationError<`rules: ${string} is not in schemas`>'.\n  Property ''~error'' is missing in type 'SchemaRules<\"Tag\">' but required in type 'SchemaRegistrationError<`rules: ${string} is not in schemas`>'."
+    },
+    {
+     "file": "src/ultimabase.ts",
+     "line": 9,
+     "col": 61,
+     "code": 2322,
+     "message": "Type 'DefinedSchema<\"Tag\", { readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<...>; ... 7 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"ta...' is not assignable to type 'SchemaRules<string> & SchemaRegistrationError<`rules: ${string} is not in schemas`>'.\n  Property ''~rulesOf'' is missing in type 'DefinedSchema<\"Tag\", { readonly name: ScalarField<\"string\", string, true>; readonly todos: RelationField<() => DefinedSchema<\"Todo\", { readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<...>; ... 7 more ...; readonly tags: RelationField<...>; } & SoftDeleteFields, AppTypes<...>>, \"ta...' but required in type 'SchemaRules<string>'."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+{ "extends": "../../../tsconfig.base.json", "compilerOptions": { "allowImportingTsExtensions": true, "rewriteRelativeImportExtensions": true, "noEmit": false, "declaration": true, "emitDeclarationOnly": true, "isolatedDeclarations": true, "outDir": "out-fixture", "rootDir": ".." }, "include": ["../fixture/*.ts", "../lib/*.ts"] }

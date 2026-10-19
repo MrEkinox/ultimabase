@@ -1,0 +1,25 @@
+TodoUser (App.PasswordUserSchema)
+  fields: displayName, assignedTodos, roles, username, email, id, createdAt, updatedAt, acl
+  shape:  {}
+  rules:  {"access":["read","update"],"hooks":["fields"]}
+TodoRole (App.RoleSchema)
+  fields: description, name, members, id, createdAt, updatedAt, acl
+  shape:  {}
+  rules:  {"access":["read","create"]}
+Todo
+  fields: title, archived, priority, allowedPriorities, status, dueAt, assignee, parent, subtasks, tags, id, createdAt, updatedAt, acl, isDeleted
+  shape:  {"softDelete":true,"postgres":{"table":"todos","indexes":[{"fields":["archived","dueAt"]}]}}
+  rules:  {"access":["read","update","delete","create"],"acl":["default"],"hooks":["beforeUpdate","beforeCreate"]}
+Tag
+  fields: name, todos, id, createdAt, updatedAt, acl
+  shape:  {}
+  rules:  {"access":["read","delete"]}
+
+Todo.access.read.where(builder) -> [["eq","archived",false]]
+Todo frozen rule declaration: true
+custom static method: rejected (WithStatic.complete: static member is not a rule of an installed plugin)
+instance method: rejected (WithMethod: instance members are not allowed (label))
+rule under another name: rejected (WrongName.hooks: holds a 'access' rule)
+second role schema: rejected (SecondRole: App.RoleSchema may create exactly one registered schema)
+missing role schema: rejected (register exactly one schema created with App.RoleSchema)
+unknown shape option: rejected (Bad: 'sofDelete' is not a schema option of the installed plugins)

@@ -1,0 +1,14 @@
+{
+	"hovers": [
+		{ "name": "schema constant (declaration)", "file": "src/todo.ts", "find": "Todo = App", "offset": 0 },
+		{ "name": "schema constant (usage `Todo.findMany`)", "file": "src/usage.ts", "find": "await Todo.findMany", "offset": 6 },
+		{ "name": "`Todo.findMany` method (usage)", "file": "src/usage.ts", "find": "await Todo.findMany", "offset": 11 },
+		{ "name": "factory constant (TodoUser)", "file": "src/todo-user.ts", "find": "TodoUser = App", "offset": 0 },
+		{ "name": "rules entry `.with(`", "file": "src/todo.ts", "find": ".with({", "offset": 1 }
+	],
+	"hoverSets": [
+		{ "name": "WITHOUT the Register line", "edits": [{ "file": "src/ultimabase.ts", "find": "readonly app: typeof ultimabase", "replace": "readonly unrelated: true" }] }
+	],
+	"completions": [{ "name": "Todo. (usage)", "file": "src/usage.ts", "find": "await Todo.findMany", "offset": 11 }],
+	"cases": []
+}

@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
+		"exactOptionalPropertyTypes": true,
+		"forceConsistentCasingInFileNames": true,
+		"lib": ["ES2024", "ESNext.Disposable"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noUncheckedIndexedAccess": true,
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"strict": true,
+		"target": "ES2024",
+		"types": [],
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+		"skipLibCheck": true
+	}
+}

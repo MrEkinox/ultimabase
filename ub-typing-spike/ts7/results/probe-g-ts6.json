@@ -1,0 +1,674 @@
+{
+ "version": "6",
+ "dir": "/Users/mrekinox/Desktop/ub-typing-spike/forms/g-class/fixture",
+ "baseline": [],
+ "hovers": [
+  {
+   "name": "(todo) => todo.eq('archived'",
+   "text": "(parameter) todo: WhereBuilder<\"Todo\">",
+   "length": 38
+  },
+  {
+   "name": "(user) => user.eq('id'",
+   "text": "(parameter) user: WhereBuilder<\"TodoUser\">",
+   "length": 42
+  },
+  {
+   "name": "(user) => user.eq('displayName'",
+   "text": "(parameter) user: WhereBuilder<\"TodoUser\">",
+   "length": 42
+  },
+  {
+   "name": "({ item }) =>",
+   "text": "(parameter) item: Todo",
+   "length": 22
+  },
+  {
+   "name": "(value) => value.trim()",
+   "text": "(parameter) value: string",
+   "length": 25
+  },
+  {
+   "name": "class Todo extends",
+   "text": "class Todo",
+   "length": 10
+  },
+  {
+   "name": "static access = this.rules.access(",
+   "text": "(property) Todo.access: RuleDeclaration<\"access\">",
+   "length": 49
+  },
+  {
+   "name": "static access = this.rules.access(",
+   "text": "(property) SchemaStatics<\"Todo\", Readonly<{ readonly title: ScalarField<\"string\", string, true>; readonly archived: ScalarField<\"boolean\", boolean, false>; readonly priority: ScalarField<...>; ... 6 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<...> & { ...; } & { ...; }>, RuleMethods<...>>.rules: RuleMethods<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], SchemaHeader<\"Todo\", Readonly<{\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    ... 4 more ...;\n    readonly tags: RelationField<...>;\n} & SystemFields & Readonly<...> & {\n    ...;\n} & {\n    ...;\n}>>>",
+   "length": 955
+  },
+  {
+   "name": "static access = this.rules.access(",
+   "text": "(property) access: (options: AccessOptions<\"Todo\">) => RuleDeclaration<\"access\">",
+   "length": 80
+  },
+  {
+   "name": "App.Schema(",
+   "text": "(property) ConfiguredFactory<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], readonly [PostgresShape, ... 5 more ..., NoShape], Readonly<...> & { ...; }, readonly [...]>.Schema: SchemaFunction\n<\"Todo\", {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => typeof TodoUser, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n}, {\n    ...;\n}>(className: \"Todo\", fields: {\n    readonly title: ScalarField<\"string\", string, true>;\n    readonly archived: ScalarField<\"boolean\", boolean, false>;\n    readonly priority: ScalarField<\"enum\", \"low\" | \"normal\" | \"high\", false>;\n    readonly allowedPriorities: ScalarField<\"enum\", readonly (\"low\" | \"normal\" | \"high\")[], false>;\n    readonly status: ScalarField<\"enum\", \"open\" | \"inProgress\" | \"done\", false>;\n    readonly dueAt: ScalarField<\"date\", Date, false>;\n    readonly assignee: PointerField<() => typeof TodoUser, false>;\n    readonly parent: PointerField<...>;\n    readonly subtasks: RelationField<...>;\n    readonly tags: RelationField<...>;\n}, shape?: ({\n    ...;\n} & ExactShape<...>) | undefined) => SchemaStatics<...>",
+   "length": 1606
+  },
+  {
+   "name": "pending = await",
+   "text": "const pending: {\n    readonly id: string;\n    readonly assignee: {\n        readonly id: string;\n        readonly displayName: string;\n    } | null;\n    readonly dueAt: Date | null;\n    readonly title: string;\n    readonly priority: \"low\" | \"normal\" | \"high\" | null;\n    readonly subtasks: {\n        readonly id: string;\n        readonly title: string;\n    }[];\n}[]",
+   "length": 364
+  },
+  {
+   "name": "one: Todo | null = await Todo.findOne(",
+   "text": "(method) SchemaQueries.findOne<typeof Todo, {\n    readonly where: {\n        readonly title: {\n            readonly eq: \"x\";\n        };\n    };\n}>(this: typeof Todo, args?: {\n    readonly where: {\n        readonly title: {\n            readonly eq: \"x\";\n        };\n    };\n} | undefined): Promise<Todo | null>",
+   "length": 305
+  },
+  {
+   "name": "signedUp = await",
+   "text": "const signedUp: TodoUser",
+   "length": 24
+  }
+ ],
+ "hoverSets": [],
+ "completions": [
+  {
+   "name": "static acl = this.rules.",
+   "names": [
+    "access",
+    "acl",
+    "hooks"
+   ]
+  },
+  {
+   "name": "static acl = this.",
+   "names": [
+    "access",
+    "acl",
+    "apply",
+    "arguments",
+    "bind",
+    "call",
+    "caller",
+    "className",
+    "createOne",
+    "findMany",
+    "findOne",
+    "hooks",
+    "length",
+    "name",
+    "prototype",
+    "rules",
+    "toString"
+   ]
+  },
+  {
+   "name": "extends App.",
+   "names": [
+    "PasswordUserSchema",
+    "RoleSchema",
+    "Schema",
+    "apply",
+    "arguments",
+    "bind",
+    "call",
+    "caller",
+    "field",
+    "length",
+    "name",
+    "prototype",
+    "toString",
+    "use"
+   ]
+  },
+  {
+   "name": "{ softDelete: true, ",
+   "names": [
+    "softDelete"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "1 relation target typo",
+   "file": "todo.ts",
+   "faultyLine": 16,
+   "count": 3,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 16,
+    "col": 33,
+    "code": 2552,
+    "message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 16,
+     "col": 33,
+     "code": 2552,
+     "message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+    },
+    {
+     "file": "usage.ts",
+     "line": 20,
+     "col": 2,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    },
+    {
+     "file": "usage.ts",
+     "line": 59,
+     "col": 1,
+     "code": 2578,
+     "message": "Unused '@ts-expect-error' directive."
+    }
+   ]
+  },
+  {
+   "name": "2 local where field typo (builder)",
+   "file": "todo.ts",
+   "faultyLine": 24,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 24,
+    "col": 36,
+    "code": 2345,
+    "message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'ScalarKeys<\"Todo\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 24,
+     "col": 36,
+     "code": 2345,
+     "message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'ScalarKeys<\"Todo\">'."
+    }
+   ]
+  },
+  {
+   "name": "3 cross-schema field typo (object, Todo -> TodoUser)",
+   "file": "todo.ts",
+   "faultyLine": 27,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 27,
+    "col": 47,
+    "code": 2561,
+    "message": "Object literal may only specify known properties, but 'emial' does not exist in type 'Where<\"TodoUser\">'. Did you mean to write 'email'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 27,
+     "col": 47,
+     "code": 2561,
+     "message": "Object literal may only specify known properties, but 'emial' does not exist in type 'Where<\"TodoUser\">'. Did you mean to write 'email'?"
+    }
+   ]
+  },
+  {
+   "name": "4 plugin-added field typo in a hook",
+   "file": "todo.ts",
+   "faultyLine": 37,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 37,
+    "col": 13,
+    "code": 2551,
+    "message": "Property 'isDeletd' does not exist on type 'Todo'. Did you mean 'isDeleted'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 37,
+     "col": 13,
+     "code": 2551,
+     "message": "Property 'isDeletd' does not exist on type 'Todo'. Did you mean 'isDeleted'?"
+    }
+   ]
+  },
+  {
+   "name": "5 mappedBy typo",
+   "file": "todo-user.ts",
+   "faultyLine": 7,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "ultimabase.ts",
+    "line": 7,
+    "col": 47,
+    "code": 2322,
+    "message": "Type 'typeof TodoUser' is not assignable to type 'typeof TodoUser & SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'.\n  Property ''~error'' is missing in type 'typeof TodoUser' but required in type 'SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 47,
+     "code": 2322,
+     "message": "Type 'typeof TodoUser' is not assignable to type 'typeof TodoUser & SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'.\n  Property ''~error'' is missing in type 'typeof TodoUser' but required in type 'SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'."
+    }
+   ]
+  },
+  {
+   "name": "6a rule method typo",
+   "file": "todo.ts",
+   "faultyLine": 23,
+   "count": 6,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 23,
+    "col": 29,
+    "code": 2551,
+    "message": "Property 'acess' does not exist on type 'RuleMethods<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], SchemaHeader<\"Todo\", Readonly<{ readonly title: ScalarField<...>; ... 8 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<...> & { ...; } & { ...; }>>>'. Did you mean 'access'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 23,
+     "col": 29,
+     "code": 2551,
+     "message": "Property 'acess' does not exist on type 'RuleMethods<readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], SchemaHeader<\"Todo\", Readonly<{ readonly title: ScalarField<...>; ... 8 more ...; readonly tags: RelationField<...>; } & SystemFields & Readonly<...> & { ...; } & { ...; }>>>'. Did you mean 'access'?"
+    },
+    {
+     "file": "todo.ts",
+     "line": 24,
+     "col": 19,
+     "code": 7006,
+     "message": "Parameter 'todo' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 26,
+     "col": 21,
+     "code": 7006,
+     "message": "Parameter 'todo' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 26,
+     "col": 29,
+     "code": 7031,
+     "message": "Binding element 'userId' implicitly has an 'any' type."
+    },
+    {
+     "file": "todo.ts",
+     "line": 26,
+     "col": 63,
+     "code": 7006,
+     "message": "Parameter 'user' implicitly has an 'any' type."
+    },
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 67,
+     "code": 2322,
+     "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<any>'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<any>'."
+    }
+   ]
+  },
+  {
+   "name": "6b rule static member typo",
+   "file": "todo.ts",
+   "faultyLine": 23,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "ultimabase.ts",
+    "line": 7,
+    "col": 67,
+    "code": 2322,
+    "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<\"Todo.acess: static member is not a rule of an installed plugin\">'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<\"Todo.acess: static member is not a rule of an installed plugin\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 67,
+     "code": 2322,
+     "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<\"Todo.acess: static member is not a rule of an installed plugin\">'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<\"Todo.acess: static member is not a rule of an installed plugin\">'."
+    }
+   ]
+  },
+  {
+   "name": "6c shape option typo",
+   "file": "todo.ts",
+   "faultyLine": 21,
+   "count": 4,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 21,
+    "col": 4,
+    "code": 2322,
+    "message": "Type 'true' is not assignable to type 'true & UnknownSchemaOption<\"sofDelete\">'.\n  Type 'boolean' is not assignable to type 'UnknownSchemaOption<\"sofDelete\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 21,
+     "col": 4,
+     "code": 2322,
+     "message": "Type 'true' is not assignable to type 'true & UnknownSchemaOption<\"sofDelete\">'.\n  Type 'boolean' is not assignable to type 'UnknownSchemaOption<\"sofDelete\">'."
+    },
+    {
+     "file": "todo.ts",
+     "line": 37,
+     "col": 13,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type 'Todo'."
+    },
+    {
+     "file": "usage.ts",
+     "line": 37,
+     "col": 36,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type 'Todo'."
+    },
+    {
+     "file": "usage.ts",
+     "line": 46,
+     "col": 70,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'isDeleted' does not exist in type 'CreateInput<typeof Todo>'."
+    }
+   ]
+  },
+  {
+   "name": "7 wrong filter return",
+   "file": "tag.ts",
+   "faultyLine": 11,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "tag.ts",
+    "line": 11,
+    "col": 26,
+    "code": 2322,
+    "message": "Type 'number' is not assignable to type 'AccessFilterResult<\"Tag\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "tag.ts",
+     "line": 11,
+     "col": 26,
+     "code": 2322,
+     "message": "Type 'number' is not assignable to type 'AccessFilterResult<\"Tag\">'."
+    }
+   ]
+  },
+  {
+   "name": "8 query select typo",
+   "file": "usage.ts",
+   "faultyLine": 13,
+   "count": 2,
+   "onLine": true,
+   "primary": {
+    "file": "usage.ts",
+    "line": 13,
+    "col": 12,
+    "code": 2561,
+    "message": "Object literal may only specify known properties, but 'titel' does not exist in type 'Select<typeof Todo>'. Did you mean to write 'title'?"
+   },
+   "diagnostics": [
+    {
+     "file": "usage.ts",
+     "line": 13,
+     "col": 12,
+     "code": 2561,
+     "message": "Object literal may only specify known properties, but 'titel' does not exist in type 'Select<typeof Todo>'. Did you mean to write 'title'?"
+    },
+    {
+     "file": "usage.ts",
+     "line": 20,
+     "col": 2,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    }
+   ]
+  },
+  {
+   "name": "x1 cross-schema builder field typo (two hops)",
+   "file": "tag.ts",
+   "faultyLine": 10,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "tag.ts",
+    "line": 10,
+    "col": 93,
+    "code": 2345,
+    "message": "Argument of type '\"displayNme\"' is not assignable to parameter of type 'ScalarKeys<\"TodoUser\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "tag.ts",
+     "line": 10,
+     "col": 93,
+     "code": 2345,
+     "message": "Argument of type '\"displayNme\"' is not assignable to parameter of type 'ScalarKeys<\"TodoUser\">'."
+    }
+   ]
+  },
+  {
+   "name": "x2 custom static method in the body",
+   "file": "todo.ts",
+   "faultyLine": 31,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "ultimabase.ts",
+    "line": 7,
+    "col": 67,
+    "code": 2322,
+    "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<\"Todo.complete: static member is not a rule of an installed plugin\">'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<\"Todo.complete: static member is not a rule of an installed plugin\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 67,
+     "code": 2322,
+     "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<\"Todo.complete: static member is not a rule of an installed plugin\">'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<\"Todo.complete: static member is not a rule of an installed plugin\">'."
+    }
+   ]
+  },
+  {
+   "name": "x3 instance method in the body",
+   "file": "todo.ts",
+   "faultyLine": 31,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "ultimabase.ts",
+    "line": 7,
+    "col": 67,
+    "code": 2322,
+    "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<\"Todo: instance member 'label' is not allowed (models are immutable data)\">'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<\"Todo: instance member 'label' is not allowed (models are immutable data)\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 67,
+     "code": 2322,
+     "message": "Type 'typeof Todo' is not assignable to type 'typeof Todo & SchemaRegistrationError<\"Todo: instance member 'label' is not allowed (models are immutable data)\">'.\n  Property ''~error'' is missing in type 'typeof Todo' but required in type 'SchemaRegistrationError<\"Todo: instance member 'label' is not allowed (models are immutable data)\">'."
+    }
+   ]
+  },
+  {
+   "name": "x4 rule stored under another rule's name",
+   "file": "tag.ts",
+   "faultyLine": 8,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "ultimabase.ts",
+    "line": 7,
+    "col": 73,
+    "code": 2322,
+    "message": "Type 'typeof Tag' is not assignable to type 'typeof Tag & SchemaRegistrationError<\"Tag.hooks: assign this.rules.hooks(...) to this static member\">'.\n  Property ''~error'' is missing in type 'typeof Tag' but required in type 'SchemaRegistrationError<\"Tag.hooks: assign this.rules.hooks(...) to this static member\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 73,
+     "code": 2322,
+     "message": "Type 'typeof Tag' is not assignable to type 'typeof Tag & SchemaRegistrationError<\"Tag.hooks: assign this.rules.hooks(...) to this static member\">'.\n  Property ''~error'' is missing in type 'typeof Tag' but required in type 'SchemaRegistrationError<\"Tag.hooks: assign this.rules.hooks(...) to this static member\">'."
+    }
+   ]
+  },
+  {
+   "name": "x5 second role schema registered",
+   "file": "ultimabase.ts",
+   "faultyLine": 7,
+   "count": 2,
+   "onLine": false,
+   "primary": {
+    "file": "ultimabase.ts",
+    "line": 8,
+    "col": 57,
+    "code": 2322,
+    "message": "Type 'typeof TodoRole' is not assignable to type 'typeof TodoRole & SchemaRegistrationError<\"TodoRole: App.RoleSchema may create exactly one registered schema\">'.\n  Property ''~error'' is missing in type 'typeof TodoRole' but required in type 'SchemaRegistrationError<\"TodoRole: App.RoleSchema may create exactly one registered schema\">'."
+   },
+   "diagnostics": [
+    {
+     "file": "ultimabase.ts",
+     "line": 8,
+     "col": 57,
+     "code": 2322,
+     "message": "Type 'typeof TodoRole' is not assignable to type 'typeof TodoRole & SchemaRegistrationError<\"TodoRole: App.RoleSchema may create exactly one registered schema\">'.\n  Property ''~error'' is missing in type 'typeof TodoRole' but required in type 'SchemaRegistrationError<\"TodoRole: App.RoleSchema may create exactly one registered schema\">'."
+    },
+    {
+     "file": "ultimabase.ts",
+     "line": 8,
+     "col": 78,
+     "code": 2322,
+     "message": "Type 'typeof SecondRole' is not assignable to type 'typeof SecondRole & SchemaRegistrationError<\"SecondRole: App.RoleSchema may create exactly one registered schema\">'.\n  Property ''~error'' is missing in type 'typeof SecondRole' but required in type 'SchemaRegistrationError<\"SecondRole: App.RoleSchema may create exactly one registered schema\">'."
+    }
+   ]
+  },
+  {
+   "name": "x6 role schema missing",
+   "file": "ultimabase.ts",
+   "faultyLine": 7,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "ultimabase.ts",
+    "line": 7,
+    "col": 35,
+    "code": 2345,
+    "message": "Argument of type '{ schemas: [typeof TodoUser, typeof Todo, typeof Tag]; }' is not assignable to parameter of type 'ApplicationOptions<readonly [typeof TodoUser, typeof Todo, typeof Tag], readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], readonly [...]>'.\n  Property ''~missingSchema'' is missing in type '{ schemas: [typeof TodoUser, typeof Todo, typeof Tag]; }' but required in type '{ readonly '~missingSchema': \"register exactly one schema created with App.RoleSchema\"; }'."
+   },
+   "diagnostics": [
+    {
+     "file": "ultimabase.ts",
+     "line": 7,
+     "col": 35,
+     "code": 2345,
+     "message": "Argument of type '{ schemas: [typeof TodoUser, typeof Todo, typeof Tag]; }' is not assignable to parameter of type 'ApplicationOptions<readonly [typeof TodoUser, typeof Todo, typeof Tag], readonly [NoRules, AccessRules, HooksRules, AclRules, NoRules, NoRules, NoRules], readonly [...]>'.\n  Property ''~missingSchema'' is missing in type '{ schemas: [typeof TodoUser, typeof Todo, typeof Tag]; }' but required in type '{ readonly '~missingSchema': \"register exactly one schema created with App.RoleSchema\"; }'."
+    }
+   ]
+  },
+  {
+   "name": "x7 index field typo",
+   "file": "todo.ts",
+   "faultyLine": 21,
+   "count": 4,
+   "onLine": true,
+   "primary": {
+    "file": "todo.ts",
+    "line": 21,
+    "col": 71,
+    "code": 2820,
+    "message": "Type '\"archivd\"' is not assignable to type '\"assignee\" | \"parent\" | \"dueAt\" | \"title\" | \"archived\" | \"priority\" | \"allowedPriorities\" | \"status\" | \"subtasks\" | \"tags\"'. Did you mean '\"archived\"'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo.ts",
+     "line": 21,
+     "col": 71,
+     "code": 2820,
+     "message": "Type '\"archivd\"' is not assignable to type '\"assignee\" | \"parent\" | \"dueAt\" | \"title\" | \"archived\" | \"priority\" | \"allowedPriorities\" | \"status\" | \"subtasks\" | \"tags\"'. Did you mean '\"archived\"'?"
+    },
+    {
+     "file": "todo.ts",
+     "line": 37,
+     "col": 13,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type 'Todo'."
+    },
+    {
+     "file": "usage.ts",
+     "line": 37,
+     "col": 36,
+     "code": 2339,
+     "message": "Property 'isDeleted' does not exist on type 'Todo'."
+    },
+    {
+     "file": "usage.ts",
+     "line": 46,
+     "col": 70,
+     "code": 2353,
+     "message": "Object literal may only specify known properties, and 'isDeleted' does not exist in type 'CreateInput<typeof Todo>'."
+    }
+   ]
+  },
+  {
+   "name": "x8 unknown members on role factory",
+   "file": "todo-role.ts",
+   "faultyLine": 4,
+   "count": 1,
+   "onLine": true,
+   "primary": {
+    "file": "todo-role.ts",
+    "line": 4,
+    "col": 108,
+    "code": 2552,
+    "message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+   },
+   "diagnostics": [
+    {
+     "file": "todo-role.ts",
+     "line": 4,
+     "col": 108,
+     "code": 2552,
+     "message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+    }
+   ]
+  },
+  {
+   "name": "x9 select typo next to valid keys",
+   "file": "usage.ts",
+   "faultyLine": 13,
+   "count": 1,
+   "onLine": false,
+   "primary": {
+    "file": "usage.ts",
+    "line": 20,
+    "col": 2,
+    "code": 2344,
+    "message": "Type 'false' does not satisfy the constraint 'true'."
+   },
+   "diagnostics": [
+    {
+     "file": "usage.ts",
+     "line": 20,
+     "col": 2,
+     "code": 2344,
+     "message": "Type 'false' does not satisfy the constraint 'true'."
+    }
+   ]
+  }
+ ]
+}

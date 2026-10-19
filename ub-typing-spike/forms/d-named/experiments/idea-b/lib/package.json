@@ -1,0 +1,6 @@
+{
+	"name": "@ultimabase/core",
+	"private": true,
+	"type": "module",
+	"exports": { ".": "./core.ts", "./plugins": "./plugins.ts" }
+}

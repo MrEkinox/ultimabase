@@ -1,0 +1,9 @@
+{"dir":"f-10","run":1,"checkS":0.26,"totalS":0.38,"memoryK":56494,"instantiations":37068,"types":6524,"maxRssBytes":149250048,"errors":0}
+{"dir":"f-10","run":2,"checkS":0.27,"totalS":0.38,"memoryK":56294,"instantiations":37068,"types":6524,"maxRssBytes":151715840,"errors":0}
+{"dir":"f-10","run":3,"checkS":0.26,"totalS":0.37,"memoryK":53841,"instantiations":37068,"types":6524,"maxRssBytes":149655552,"errors":0}
+{"dir":"f-50","run":1,"checkS":0.61,"totalS":0.76,"memoryK":111001,"instantiations":155988,"types":19500,"maxRssBytes":227078144,"errors":0}
+{"dir":"f-50","run":2,"checkS":0.62,"totalS":0.77,"memoryK":111075,"instantiations":155988,"types":19500,"maxRssBytes":227844096,"errors":0}
+{"dir":"f-50","run":3,"checkS":0.61,"totalS":0.76,"memoryK":107493,"instantiations":155988,"types":19500,"maxRssBytes":225718272,"errors":0}
+{"dir":"f-200","run":1,"checkS":1.6,"totalS":1.85,"memoryK":165121,"instantiations":601938,"types":68160,"maxRssBytes":372871168,"errors":0}
+{"dir":"f-200","run":2,"checkS":1.58,"totalS":1.83,"memoryK":165842,"instantiations":601938,"types":68160,"maxRssBytes":371531776,"errors":0}
+{"dir":"f-200","run":3,"checkS":1.6,"totalS":1.83,"memoryK":166099,"instantiations":601938,"types":68160,"maxRssBytes":371838976,"errors":0}

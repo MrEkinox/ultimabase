@@ -1,0 +1,70 @@
+## Registered application
+
+### TodoUser (factory PasswordUserSchema)
+fields: {"id":"string","createdAt":"date","updatedAt":"date","displayName":"string","assignedTodos":"relation","username":"string","email":"string","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"},"update":{"where":"[function where]"}}
+rule postgres (plugin postgres): {"table":"users"}
+
+### TodoRole (factory RoleSchema)
+fields: {"id":"string","createdAt":"date","updatedAt":"date","description":"string","name":"string","members":"relation","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"},"create":false}
+
+### Todo
+fields: {"id":"string","createdAt":"date","updatedAt":"date","title":"string","archived":"boolean","priority":"enum","allowedPriorities":"list","status":"enum","dueAt":"date","assignee":"pointer","parent":"pointer","subtasks":"relation","tags":"relation","acl":"json","isDeleted":"boolean"}
+shape options: {"softDelete":true}
+rule access (plugin access): {"read":{"where":"[function where]"},"update":{"where":"[function where]"},"delete":{"where":"[function where]"}}
+rule acl (plugin acl): {"default":"[function default]"}
+rule hooks (plugin hooks): {"beforeUpdate":"[function beforeUpdate]"}
+rule postgres (plugin postgres): {"table":"todos","indexes":[{"fields":["status","dueAt"]}]}
+
+### Tag
+fields: {"id":"string","createdAt":"date","updatedAt":"date","name":"string","todos":"relation","acl":"json"}
+shape options: {}
+rule access (plugin access): {"read":{"where":"[function where]"}}
+
+## Executing rules
+Todo access.update filter: {"Todo":{"assignee":{"is":{"assignee":{"id":{"eq":"u1"}}}}}}
+Tag access.read filter (two hops): {"Tag":{"todos":{"some":{"todos":{"assignee":{"is":{"assignee":{"id":{"eq":"u1"}}}}}}}}}
+Todo hooks.beforeUpdate on a deleted item throws: Deleted todos are read-only
+TodoUser.displayName resolveInput("  Ann "): "Ann"
+Todo.title validate(201 chars): title is too long
+
+## Startup checks of the rules list
+
+### K1 rules forgotten (tagRules missing): RegistrationError
+Invalid application:
+- rules: Tag.rules(...) declared at tag.ts:12 is not listed in rules
+
+### K2 rules listed twice: RegistrationError
+Invalid application:
+- rules: Todo has two rules entries (todo.ts:26, todo.ts:26)
+
+### K3 rules without their schema (Tag missing from schemas): RegistrationError
+Invalid application:
+- Todo.tags: target is not a registered schema
+- rules: rules of Tag (tag.ts:12) target a schema missing from schemas
+
+### K4 second RoleSchema: RegistrationError
+Invalid application:
+- RoleSchema (plugin 'roles'): exactly one registered schema expected, got 2 (TodoRole, StaffRole)
+
+### K4b no RoleSchema at all: RegistrationError
+Invalid application:
+- RoleSchema (plugin 'roles'): exactly one registered schema expected, got 0
+
+### K5 unknown rule key at declaration: TypeError
+Todo.rules: unknown rule 'acess' (installed: postgres, access, hooks, acl)
+
+### K6 unknown shape option at define: TypeError
+X: unknown schema option 'sofDelete' (installed: softDelete)
+
+### K7 schema undefined (import cycle evaluated new App first): RegistrationError
+Invalid application:
+- schemas: undefined is not a schema (undefined usually means an import cycle evaluated new App first)
+
+### K8 Todo.rules(...) declared but not listed (and also duplicate if listed): RegistrationError
+Invalid application:
+- rules: Todo.rules(...) declared at runtime-check.mjs:59 is not listed in rules
+JS TodoRole fields: id, createdAt, updatedAt, description, name, members, acl | rules: access

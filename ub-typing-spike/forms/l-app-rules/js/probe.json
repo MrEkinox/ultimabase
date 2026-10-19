@@ -1,0 +1,11 @@
+{
+	"hovers": [
+		{ "file": "ultimabase.js", "find": "where, userId }) => where.some", "offset": 0 },
+		{ "file": "ultimabase.js", "find": "(user) => user.eq", "offset": 1 }
+	],
+	"cases": [
+		{ "name": "JS: cross-schema field typo", "file": "ultimabase.js", "find": "user.eq('id', userId)", "replace": "user.eq('idd', userId)" },
+		{ "name": "JS: rules key typo", "file": "ultimabase.js", "find": "access: {", "replace": "acess: {" },
+		{ "name": "JS: class name key typo", "file": "ultimabase.js", "find": "TodoRole: {", "replace": "TodoRol: {" }
+	]
+}

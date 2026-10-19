@@ -1,0 +1,17 @@
+b.ts(4,14): error TS7022: 'B1' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+b.ts(6,97): error TS7023: 'target' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+b.ts(11,3): error TS7023: 'update' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+b.ts(12,25): error TS2345: Argument of type '"owner"' is not assignable to parameter of type 'K'.
+  '"owner"' is assignable to the constraint of type 'K', but 'K' could be instantiated with a different subtype of constraint '"owner"'.
+b.ts(12,34): error TS7024: Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+b.ts(12,45): error TS2615: Type of property 'owner' circularly references itself in mapped type 'TargetExpressions<RulesSchema<"B1", { readonly title: ScalarField<"string", string, false>; readonly ar
+b.ts(12,54): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ScalarKeys<SchemaRef<TargetOf<Readonly<{ readonly title: ScalarField<"string", string, false>; readonly arc
+  Type 'string' is not assignable to type 'FieldsOf<SchemaRef<TargetOf<Readonly<{ readonly title: ScalarField<"string", string, false>; readonly archived: ScalarField<"boolean", boolean, false>; reado
+b.ts(17,24): error TS2344: Type 'boolean' does not satisfy the constraint 'true'.
+b2.ts(3,14): error TS7022: 'B2' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+b2.ts(5,70): error TS7023: 'target' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+b2.ts(7,3): error TS7023: 'read' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+b2.ts(8,27): error TS2345: Argument of type '"owned"' is not assignable to parameter of type 'K'.
+  '"owned"' is assignable to the constraint of type 'K', but 'K' could be instantiated with a different subtype of constraint '"owned"'.
+b2.ts(8,54): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ScalarKeys<SchemaRef<TargetOf<Readonly<{ readonly name: ScalarField<"string", string, false>; readonly owne
+  Type 'string' is not assignable to type 'FieldsOf<SchemaRef<TargetOf<Readonly<{ readonly name: ScalarField<"string", string, false>; readonly owned: RelationField<() => any, "owner">; } & Readonly<R

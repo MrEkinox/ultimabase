@@ -1,0 +1,396 @@
+{
+	"hovers": [
+		{
+			"name": "where (builder)",
+			"file": "src/todo.ts",
+			"find": "where }) => where.eq('archived'",
+			"offset": 0
+		},
+		{
+			"name": "cross-schema builder",
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq",
+			"offset": 1
+		},
+		{
+			"name": "hook item",
+			"file": "src/todo.ts",
+			"find": "item }) => {",
+			"offset": 0
+		},
+		{
+			"name": "schema class (declaration)",
+			"file": "src/todo.ts",
+			"find": "class Todo extends",
+			"offset": 6
+		},
+		{
+			"name": "schema class (usage `Todo.findMany`)",
+			"file": "src/usage.ts",
+			"find": "await Todo.findMany",
+			"offset": 6
+		},
+		{
+			"name": "`Todo.findMany` method (usage)",
+			"file": "src/usage.ts",
+			"find": "await Todo.findMany",
+			"offset": 11
+		},
+		{
+			"name": "`static rules` property",
+			"file": "src/todo.ts",
+			"find": "static rules",
+			"offset": 7
+		},
+		{
+			"name": "static helper `findOpen` (declaration)",
+			"file": "src/todo.ts",
+			"find": "static findOpen",
+			"offset": 7
+		},
+		{
+			"name": "static helper result `Todo.findOpen()`",
+			"file": "src/named.ts",
+			"find": "openList = await",
+			"offset": 0
+		},
+		{
+			"name": "rules entry `this.with(`",
+			"file": "src/todo.ts",
+			"find": "this.with({",
+			"offset": 5
+		},
+		{
+			"name": "findMany result",
+			"file": "src/usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"name": "field hook value",
+			"file": "src/todo-user.ts",
+			"find": "value }) => value.trim()",
+			"offset": 0
+		},
+		{
+			"name": "factory schema class (TodoUser)",
+			"file": "src/todo-user.ts",
+			"find": "class TodoUser extends",
+			"offset": 6
+		},
+		{
+			"name": "role where (two factories)",
+			"file": "src/todo-role.ts",
+			"find": "where, userId }) => where.some('members'",
+			"offset": 0
+		},
+		{
+			"name": "hook originalItem",
+			"file": "src/todo.ts",
+			"find": "originalItem }) =>",
+			"offset": 0
+		},
+		{
+			"name": "findMany() no args",
+			"file": "src/named.ts",
+			"find": "allTodos = await",
+			"offset": 0
+		},
+		{
+			"name": "findMany({ where }) no select",
+			"file": "src/named.ts",
+			"find": "openTodos = await",
+			"offset": 0
+		},
+		{
+			"name": "findOne({ where })",
+			"file": "src/named.ts",
+			"find": "oneTodo = await",
+			"offset": 0
+		},
+		{
+			"name": "createOne({ data })",
+			"file": "src/named.ts",
+			"find": "madeTodo = await",
+			"offset": 0
+		},
+		{
+			"name": "findOne + select (partial)",
+			"file": "src/named.ts",
+			"find": "oneTitle = await",
+			"offset": 0
+		},
+		{
+			"name": "findMany + include (partial)",
+			"file": "src/named.ts",
+			"find": "withAssignee = await",
+			"offset": 0
+		},
+		{
+			"name": "Model<typeof Todo>",
+			"file": "src/named.ts",
+			"find": "model: Model",
+			"offset": 0
+		},
+		{
+			"name": "CreateInput<typeof Todo>",
+			"file": "src/named.ts",
+			"find": "createInput: CreateInput",
+			"offset": 0
+		},
+		{
+			"name": "UpdateInput<typeof Todo>",
+			"file": "src/named.ts",
+			"find": "updateInput: UpdateInput",
+			"offset": 0
+		}
+	],
+	"hoverSets": [
+		{
+			"name": "WITHOUT the Register line",
+			"edits": [
+				{
+					"file": "src/ultimabase.ts",
+					"find": "readonly app: typeof ultimabase",
+					"replace": "readonly unrelated: true"
+				}
+			]
+		}
+	],
+	"completions": [
+		{
+			"name": "rules entry (empty this.with({}))",
+			"file": "src/discover.ts",
+			"find": "this.with({ "
+		},
+		{
+			"name": "define declaration keys",
+			"file": "src/discover.ts",
+			"find": "className: 'Note', "
+		},
+		{
+			"name": "this. in static initializer",
+			"file": "src/discover.ts",
+			"find": "this.with({  })",
+			"offset": 5
+		},
+		{
+			"name": "App.",
+			"file": "src/todo.ts",
+			"find": "extends App."
+		},
+		{
+			"name": "after define(...).",
+			"file": "src/todo.ts",
+			"find": "}).softDelete",
+			"offset": 3
+		},
+		{
+			"name": "item. (hook)",
+			"file": "src/todo.ts",
+			"find": "item.isDeleted",
+			"offset": 5
+		},
+		{
+			"name": "Todo. (usage)",
+			"file": "src/usage.ts",
+			"find": "await Todo.findMany",
+			"offset": 11
+		}
+	],
+	"cases": [
+		{
+			"name": "1 relation target typo",
+			"file": "src/todo.ts",
+			"find": "target: () => TodoUser,",
+			"replace": "target: () => TodoUsr,"
+		},
+		{
+			"name": "2 local where typo",
+			"file": "src/todo.ts",
+			"find": "where.eq('archived', false)",
+			"replace": "where.eq('archivd', false)"
+		},
+		{
+			"name": "3 cross-schema field typo (object filter)",
+			"file": "src/todo.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "4 plugin field typo in hook",
+			"file": "src/todo.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "5 mappedBy typo",
+			"file": "src/todo-user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "6 rules key typo",
+			"file": "src/todo.ts",
+			"find": "access: {",
+			"replace": "acess: {"
+		},
+		{
+			"name": "7 wrong filter return",
+			"file": "src/tag.ts",
+			"find": "({ where, userId }) => where.some('todos', (todo) => todo.is('assignee', (user) => user.eq('id', userId)))",
+			"replace": "() => 42"
+		},
+		{
+			"name": "8 query select typo",
+			"file": "src/usage.ts",
+			"find": "select: { title: true } })",
+			"replace": "select: { titel: true } })"
+		},
+		{
+			"name": "extra cross-schema builder typo",
+			"file": "src/todo.ts",
+			"find": "user.eq('id', userId)",
+			"replace": "user.eq('emial', userId)"
+		},
+		{
+			"name": "extra cross callback returns the wrong schema",
+			"file": "src/todo.ts",
+			"find": "(user) => user.eq('id', userId)",
+			"replace": "(user) => where.eq('archived', false)"
+		},
+		{
+			"name": "extra field hook returns a number",
+			"file": "src/todo-user.ts",
+			"find": "value.trim()",
+			"replace": "value.length"
+		},
+		{
+			"name": "extra field hook key typo",
+			"file": "src/todo-user.ts",
+			"find": "fields: { displayName:",
+			"replace": "fields: { displayNme:"
+		},
+		{
+			"name": "extra index on unknown field",
+			"file": "src/todo.ts",
+			"find": "fields: ['archived', 'priority']",
+			"replace": "fields: ['archived', 'priorty']"
+		},
+		{
+			"name": "extra hook item is readonly",
+			"file": "src/todo.ts",
+			"find": "if (item.isDeleted) throw new TypeError('Deleted todos are read-only')",
+			"replace": "item.title = ''"
+		},
+		{
+			"name": "extra softDelete called twice",
+			"file": "src/todo.ts",
+			"find": "}).softDelete() {",
+			"replace": "}).softDelete().softDelete() {",
+			"line": "}).softDelete().softDelete() {"
+		},
+		{
+			"name": "extra second role schema registered",
+			"file": "src/ultimabase.ts",
+			"find": "[TodoUser, TodoRole, Todo, Tag]",
+			"replace": "[TodoUser, TodoRole, Todo, Tag, AdminRole]"
+		},
+		{
+			"name": "extra role schema missing",
+			"file": "src/ultimabase.ts",
+			"find": "[TodoUser, TodoRole, Todo, Tag]",
+			"replace": "[TodoUser, Todo, Tag]"
+		},
+		{
+			"name": "extra Register removed (plain D)",
+			"file": "src/ultimabase.ts",
+			"find": "readonly app: typeof ultimabase",
+			"replace": "readonly unrelated: true"
+		},
+		{
+			"name": "extra field option wrong value (required: 'yes')",
+			"file": "src/todo.ts",
+			"find": "title: field.string({ required: true,",
+			"replace": "title: field.string({ required: 'yes',"
+		},
+		{
+			"name": "extra className not a string",
+			"file": "src/todo.ts",
+			"find": "className: 'Todo',",
+			"replace": "className: 42,"
+		},
+		{
+			"name": "extra findMany() element typo",
+			"file": "src/named.ts",
+			"find": "allTodos[0]?.title",
+			"replace": "allTodos[0]?.titel"
+		},
+		{
+			"name": "extra Model<typeof Todo> typo",
+			"file": "src/named.ts",
+			"find": "model.title",
+			"replace": "model.titel"
+		},
+		{
+			"name": "extra originalItem typo",
+			"file": "src/todo.ts",
+			"find": "void originalItem,",
+			"replace": "void originalItem?.isDeletd,"
+		},
+		{
+			"name": "extra instance method in the class body",
+			"file": "src/todo.ts",
+			"find": "\n\t/** Static helper: open todos. */",
+			"replace": "\n\tisLate(): boolean {\n\t\treturn true\n\t}\n\t/** Static helper: open todos. */",
+			"line": "isLate(): boolean"
+		},
+		{
+			"name": "extra instance field in the class body",
+			"file": "src/todo.ts",
+			"find": "\n\t/** Static helper: open todos. */",
+			"replace": "\n\tcached = 1\n\t/** Static helper: open todos. */",
+			"line": "cached = 1"
+		},
+		{
+			"name": "extra compatible override of findMany",
+			"file": "src/todo.ts",
+			"find": "\n\t/** Static helper: open todos. */",
+			"replace": "\n\tstatic override findMany() {\n\t\treturn Promise.resolve([])\n\t}\n\t/** Static helper: open todos. */",
+			"line": "static override findMany"
+		},
+		{
+			"name": "extra override without the override keyword",
+			"file": "src/todo.ts",
+			"find": "\n\t/** Static helper: open todos. */",
+			"replace": "\n\tstatic findMany() {\n\t\treturn Promise.resolve([])\n\t}\n\t/** Static helper: open todos. */",
+			"line": "static findMany()"
+		},
+		{
+			"name": "extra static helper with a cross typo",
+			"file": "src/todo.ts",
+			"find": "return this.findMany({ where: { archived: { eq: false } } })",
+			"replace": "return this.findMany({ where: { archivd: { eq: false } } })"
+		},
+		{
+			"name": "extra rules borrowed from another class",
+			"file": "src/tag.ts",
+			"find": "static rules = this.with({",
+			"replace": "static rules = Todo.with({",
+			"line": "static rules = Todo.with({"
+		},
+		{
+			"name": "extra rules static name typo",
+			"file": "src/todo.ts",
+			"find": "static rules = this.with({",
+			"replace": "static rule = this.with({"
+		},
+		{
+			"name": "extra rules without this.with",
+			"file": "src/tag.ts",
+			"find": "static rules = this.with({",
+			"replace": "static rules = ({",
+			"line": "static rules = ({"
+		}
+	]
+}

@@ -1,0 +1,204 @@
+{
+	"hovers": [
+		{
+			"file": "todo.ts",
+			"find": "(todo) => todo.eq('archived'",
+			"offset": 1
+		},
+		{
+			"file": "todo.ts",
+			"find": "(user) => user.eq('id'",
+			"offset": 1
+		},
+		{
+			"file": "tag.ts",
+			"find": "(user) => user.eq('displayName'",
+			"offset": 1
+		},
+		{
+			"file": "todo.ts",
+			"find": "({ item }) =>",
+			"offset": 3
+		},
+		{
+			"file": "todo-user.ts",
+			"find": "(value) => value.trim()",
+			"offset": 1
+		},
+		{
+			"file": "todo.ts",
+			"find": "class Todo extends",
+			"offset": 6
+		},
+		{
+			"file": "todo.ts",
+			"find": "static access = this.rules.access(",
+			"offset": 7
+		},
+		{
+			"file": "todo.ts",
+			"find": "static access = this.rules.access(",
+			"offset": 22
+		},
+		{
+			"file": "todo.ts",
+			"find": "static access = this.rules.access(",
+			"offset": 28
+		},
+		{
+			"file": "todo.ts",
+			"find": "App.Schema(",
+			"offset": 4
+		},
+		{
+			"file": "usage.ts",
+			"find": "pending = await",
+			"offset": 0
+		},
+		{
+			"file": "usage.ts",
+			"find": "one: Todo | null = await Todo.findOne(",
+			"offset": 32
+		},
+		{
+			"file": "usage.ts",
+			"find": "signedUp = await",
+			"offset": 0
+		}
+	],
+	"completions": [
+		{
+			"file": "todo.ts",
+			"find": "static acl = this.rules."
+		},
+		{
+			"file": "todo.ts",
+			"find": "static acl = this."
+		},
+		{
+			"file": "todo.ts",
+			"find": "extends App."
+		},
+		{
+			"file": "todo.ts",
+			"find": "{ softDelete: true, ",
+			"offset": 2
+		}
+	],
+	"cases": [
+		{
+			"name": "1 relation target typo",
+			"file": "todo.ts",
+			"find": "field.pointer(() => TodoUser,",
+			"replace": "field.pointer(() => TodoUsr,"
+		},
+		{
+			"name": "2 local where field typo (builder)",
+			"file": "todo.ts",
+			"find": "todo.eq('archived', false)",
+			"replace": "todo.eq('archivd', false)"
+		},
+		{
+			"name": "3 cross-schema field typo (object, Todo -> TodoUser)",
+			"file": "todo.ts",
+			"find": "email: { endsWith",
+			"replace": "emial: { endsWith"
+		},
+		{
+			"name": "4 plugin-added field typo in a hook",
+			"file": "todo.ts",
+			"find": "item.isDeleted",
+			"replace": "item.isDeletd"
+		},
+		{
+			"name": "5 mappedBy typo",
+			"file": "todo-user.ts",
+			"find": "mappedBy: 'assignee'",
+			"replace": "mappedBy: 'asignee'"
+		},
+		{
+			"name": "6a rule method typo",
+			"file": "todo.ts",
+			"find": "static access = this.rules.access(",
+			"replace": "static access = this.rules.acess("
+		},
+		{
+			"name": "6b rule static member typo",
+			"file": "todo.ts",
+			"find": "static access = this.rules.access(",
+			"replace": "static acess = this.rules.access("
+		},
+		{
+			"name": "6c shape option typo",
+			"file": "todo.ts",
+			"find": "{ softDelete: true,",
+			"replace": "{ sofDelete: true,"
+		},
+		{
+			"name": "7 wrong filter return",
+			"file": "tag.ts",
+			"find": "delete: { where: () => false }",
+			"replace": "delete: { where: () => 42 }"
+		},
+		{
+			"name": "8 query select typo",
+			"file": "usage.ts",
+			"find": "select: { title: true, dueAt: true, priority: true }",
+			"replace": "select: { titel: true }"
+		},
+		{
+			"name": "x1 cross-schema builder field typo (two hops)",
+			"file": "tag.ts",
+			"find": "user.eq('displayName'",
+			"replace": "user.eq('displayNme'"
+		},
+		{
+			"name": "x2 custom static method in the body",
+			"file": "todo.ts",
+			"find": "\tstatic acl = this.rules.acl({",
+			"replace": "\tstatic complete(): number {\n\t\treturn 1\n\t}\n\tstatic acl = this.rules.acl({"
+		},
+		{
+			"name": "x3 instance method in the body",
+			"file": "todo.ts",
+			"find": "\tstatic acl = this.rules.acl({",
+			"replace": "\tlabel(): string {\n\t\treturn 'x'\n\t}\n\tstatic acl = this.rules.acl({"
+		},
+		{
+			"name": "x4 rule stored under another rule's name",
+			"file": "tag.ts",
+			"find": "static access = this.rules.access({",
+			"replace": "static hooks = this.rules.access({"
+		},
+		{
+			"name": "x5 second role schema registered",
+			"file": "ultimabase.ts",
+			"find": "export const ultimabase = new App({ schemas: [TodoUser, TodoRole, Todo, Tag] })",
+			"replace": "import { SecondRole } from './extra.ts'\nexport const ultimabase = new App({ schemas: [TodoUser, TodoRole, Todo, Tag, SecondRole] })"
+		},
+		{
+			"name": "x6 role schema missing",
+			"file": "ultimabase.ts",
+			"find": "[TodoUser, TodoRole, Todo, Tag]",
+			"replace": "[TodoUser, Todo, Tag]"
+		},
+		{
+			"name": "x7 index field typo",
+			"file": "todo.ts",
+			"find": "fields: ['archived', 'dueAt']",
+			"replace": "fields: ['archivd', 'dueAt']"
+		},
+		{
+			"name": "x8 unknown members on role factory",
+			"file": "todo-role.ts",
+			"find": "{ members: () => TodoUser }",
+			"replace": "{ members: () => TodoUsr }"
+		},
+		{
+			"name": "x9 select typo next to valid keys",
+			"file": "usage.ts",
+			"find": "select: { title: true, dueAt",
+			"replace": "select: { titel: true, dueAt"
+		}
+	]
+}
