@@ -128,20 +128,24 @@ plugins export their own (`isAuthenticated` from auth); rules combine with
 helpers such as `anyOf`. One rule may cover the whole model or each operation.
 The operations are `read`, `create`, `update` and `delete`; `write` is a
 shorthand for `create`, `update` and `delete` (on a field, `create` and
-`update`, D-44), and a specific key wins over `write`. A rule receives
+`update`, D-44), and a specific key wins over `write`. Every rule receives
 `{ caller, operation }`, so one `write` function can handle every write by
-testing `operation`.
+testing `operation`. A write rule also receives the stored `record` (on
+`update` and `delete`) and the new `value` (on `create` and `update`), and
+returns `true` or `false`. A read rule on a model cannot see the record: it
+returns `true`, `false` or an explicit filter, `{ where: { ... } }` in
+Prisma's form (D-20), which the kernel ANDs into the query.
 Why: DX is UltimaBase's first goal. One concept instead of words plus
 functions; a developer jumps to a rule's source to see what it does; rules
 compose; plugins add rules without a typed registry of words. The previous
 five-key object, modelled on Keystone, was verbose for the common cases.
+`record.status === 'draft'` is the clearest write condition. A read filter
+keeps pagination, `count` and relation filters exact and runs in the same
+round trip (D-46); the `where` key says it is a filter.
 Rejected: string words (`'public'`), whose meaning hides inside the access
-implementation; a per-operation object as the only form.
-Open: what else a rule receives and returns. Write rules will receive the
-stored `record` (and the new `value`) and return a boolean. For reads, the
-choice is between an explicit filter (`{ where: { ... } }`, Prisma's form,
-run in the same round trip, D-46) and a hybrid: a rule on each row's `record`
-for safety, plus an optional filter for speed and correct pagination.
+implementation; a per-operation object as the only form; read rules run on
+each loaded row, which shorten pages, falsify `count` and cannot run inside a
+relation filter (`posts: { some: ... }`) without leaking or a second query.
 Example:
 
 ```ts
@@ -149,7 +153,9 @@ Example:
 .with({ access: { read: allow.public, write: isAuthenticated } })
 .with({
 	access: {
-		read: allow.public,
+		read: ({ caller }) =>
+			caller.kind === 'master' || { where: { archived: false } },
+		update: ({ record }) => record.status === 'draft',
 		write: ({ operation, caller }) =>
 			operation === 'delete'
 				? caller.kind === 'master'
@@ -703,24 +709,21 @@ export const User = defineModel({ name: 'User', fields }).with({
 ## D-44: Field access rules per operation
 
 Choice: a field's `.with({ access })` takes one rule or one rule per operation
-(`read`, `create`, `update`). A rule has the shape of D-10: it receives the
-caller and, for writes, the new value, and returns `true`, `false` or a
-`where`. A read `where` decides, row by row, whether the field's value is
-returned; an update `where` names the rows whose field may change (`{ status:
-'draft' }`: only while the stored status is still draft). An unreadable field
-is left out of results; a field nobody but Master may read is absent from the
-generated GraphQL type, and one readable under a condition is nullable there.
-Filtering or sorting on a field is refused when its read rule returns
-`false`, and narrowed by its `where` otherwise. A refused write fails with
-`ACCESS_DENIED` and the field's path.
+(`read`, `create`, `update`). A rule has the shape of D-10 and returns `true`
+or `false`; every field rule, read included, receives the row's `record`
+(none on `create`) and, for writes, the new `value`. A read rule only hides a
+value, so it runs on each returned row: an unreadable field is left out of
+that row. A field nobody but Master may read is absent from the generated
+GraphQL type, and one readable under a condition is nullable there. A caller
+other than Master cannot filter or sort on a field that has a read rule. A
+refused write fails with `ACCESS_DENIED` and the field's path.
 Why: Parse puts protected fields and per-field write checks in `beforeSave`
 code, which grows into spaghetti; a rule next to its field reads at a glance.
-A filter on a hidden field would leak its value one guess at a time; ANDing
-the read `where` into the filter (`isSelf` returns `{ id: caller.user.id }`)
-lets a caller filter on their own email and nobody else's.
-Rejected: per-field checks in hooks; a model-level map of protected fields.
-Open: the rule shape follows the open point of D-10; the `where` wording
-above is a draft until it is decided.
+A filter on a hidden field would leak its value one guess at a time, and a
+rule on `record` cannot run inside the query.
+Rejected: per-field checks in hooks; a model-level map of protected fields;
+field read rules returning a filter, which let a caller filter on their own
+email at the cost of a second rule shape.
 Example:
 
 ```ts
@@ -728,7 +731,10 @@ fields: {
 	email: string().with({ access: { read: isSelf, update: isSelf } }),
 	status: enumOf(['draft', 'published']).with({
 		access: {
-			update: anyOf(({ value }) => value === 'draft', hasRole('editor')),
+			update: anyOf(
+				({ record }) => record.status === 'draft',
+				hasRole('editor'),
+			),
 		},
 	}),
 	createdBy: one(() => User).with({
@@ -765,7 +771,7 @@ round trip: lateral subqueries aggregated as JSON on PostgreSQL,
 `JSON_ARRAYAGG` on MySQL, one `$lookup` pipeline on MongoDB. The contract
 suite (D-02) counts statements: a `findMany` with three levels of `include`
 runs exactly one. A filter through a relation (`posts: { some: { ... } }`)
-applies the target model's access rules, as D-44 does for fields.
+applies the target model's read filter (D-10).
 Why: N+1 queries are prevented by the contract, not by care in each adapter,
 and a test catches any regression; a relation filter ignoring the target's
 access would reveal rows the caller cannot read (met in the previous base).
@@ -796,15 +802,17 @@ Hooks run for every caller; access rules for every caller but Master. The
 kernel sends at most two SQL statements per write, BEGIN and COMMIT aside and
 queries made by hooks excluded: one `SELECT ... FOR UPDATE` loading every
 affected row once, when a `before*` hook or an access rule needs the stored
-record, then one write statement (with `RETURNING`, through a CTE when
-`after*` hooks need the previous values). Without such hooks or rules, the
-write is a single statement. The contract suite counts statements (D-46).
+record or a connected row, then one write statement (with `RETURNING`,
+through a CTE when `after*` hooks need the previous values). Nested relation
+writes (`connect`, nested `create`) join that one write statement through
+data-modifying CTEs, since the kernel generates every id beforehand (D-22).
+Without such hooks or rules, the write is a single statement. The contract
+suite counts statements (D-46). These counts hold on PostgreSQL; other
+adapters may need more (D-51).
 Why: a bulk write that skips per-row logic lets data bypass the rules; each
 extra round trip costs latency on every write.
-Rejected: bulk writes that skip hooks or rules; one statement per row.
-Open: nested relation writes (`create` with `connect` or a nested `create`):
-one statement per relation, or still two in total through data-modifying
-CTEs.
+Rejected: bulk writes that skip hooks or rules; one statement per row or per
+nested relation.
 
 ## D-49: A master key lets transports act as Master, outside production
 
@@ -834,3 +842,15 @@ in November 2026); a developer on 18 gets its gains by connecting to it, with
 no option to set.
 Rejected: requiring 18, which many hosted databases do not offer yet; an
 option naming the version.
+
+## D-51: PostgreSQL is the reference database
+
+Choice: UltimaBase is designed and optimised for PostgreSQL, the database it
+recommends. Other adapters (MySQL, SQLite, MongoDB) are supported later and
+may do less or do it in more statements; a table in the documentation lists,
+per adapter, what is supported, how many statements an operation takes and
+which adapter is recommended. A design decision is never weakened to fit a
+database that lacks a PostgreSQL feature.
+Why: aiming at the lowest common denominator would give up single-statement
+writes (D-48) and reads (D-46) on the database most users run.
+Rejected: one feature set identical on every adapter.
