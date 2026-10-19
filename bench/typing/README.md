@@ -33,6 +33,36 @@ Measured on 2026-10-19 so that the new prototype has something to beat.
 These agree with ADR-0297 of the previous base (0.55 s at 50 models, 1.90 s at
 200 after an edit).
 
+## Prototype
+
+`prototype/` holds the types of `defineModel(...).with(...)`, fields,
+relations, queries, model and field rules, two stand-in plugins and
+`createApp`; nothing in it runs. `prototype/example/` is a small application
+whose `checks.ts` and `declared.ts` assert the types: `tsc` fails if one does
+not hold.
+
+`node bench/typing/gen.ts <N> [--field-rules]` writes `gen/proto[-rules]-<N>/`
+with the graph and density of the baseline's generator (six scalars, a ring
+relation and its inverse, a self relation one model in five, a model `.with`
+whose read filter crosses a relation, one `findMany` per model).
+`--field-rules` adds a loose field rule and two rules on a declared record,
+combined with `anyOf`. On 2026-10-19, `tsc -p` reported 0 errors for
+`proto-10`, `proto-50`, `proto-200`, `proto-rules-10` and `proto-rules-200`,
+and `lsp-edit.ts` raised exactly one error after the edit on `proto-200` and
+`proto-rules-200`.
+
+What the prototype found, and D-44 now records: a field's `.with` is checked
+while its model is being typed, so a record type derived from the model is a
+cycle. The first form named the model (`.with<'Post'>`, the record read from
+`Register`). It held with one rule that destructures `{ record }`, and broke
+with two such rules in one `access`, with one annotated parameter (even a
+hand-written type), or with a forgotten `: boolean`: `app` became `any`
+(TS7022 in `app.ts`), with nothing on the faulty line. TypeScript 6.0.3
+behaves the same. A declared record type
+(`.with<{ status: 'draft' | 'published' }>`), whose fields `defineModel`
+checks against the model's exact types, does not cycle; a mismatch fails on
+the field's line and the error shows the model's type.
+
 ## Reproducing
 
 ```bash

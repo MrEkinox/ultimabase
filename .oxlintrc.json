@@ -19,7 +19,7 @@
 		"reportUnusedDisableDirectives": "error",
 		"typeAware": true
 	},
-	"ignorePatterns": ["**/coverage/**", "**/dist/**"],
+	"ignorePatterns": ["**/coverage/**", "**/dist/**", "bench/typing/gen/**"],
 	"rules": {
 		"eslint/max-lines": ["error", { "max": 400 }],
 		"typescript/await-thenable": "error",

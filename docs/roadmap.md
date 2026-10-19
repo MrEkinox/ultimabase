@@ -23,7 +23,7 @@ overrun.
 
 - [x] Typing cost of the previous base measured on TypeScript 7, as the
       baseline (D-12, D-24).
-- [ ] Prototype of `defineModel` / `.with`, fields and relations.
+- [x] Prototype of `defineModel` / `.with`, fields and relations.
 - [ ] D-12 benchmark: a large model, and 200 models, on TypeScript 7.
 - [ ] D-24 spike: `App.defineModel` against global interface augmentation.
 - [ ] D-24 and D-57 settled, which fixes `definePlugin` and `defineUser`.
