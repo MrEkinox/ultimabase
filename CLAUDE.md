@@ -8,8 +8,7 @@ anything below.
 ## Working agreement
 
 - Answer the user in French; write code, comments, commits and repository
-  documentation in English (except handoffs under `docs/handoff/`, which are
-  French).
+  documentation in English.
 - Start every task by stating a verifiable "done" criterion.
 - Prove, do not assert: quote the command and its result for every claim of
   success. A check that was not run is reported as not run.
