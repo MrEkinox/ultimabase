@@ -885,22 +885,35 @@ Rejected: defaults receiving the caller; `json` typed as `any`.
 Choice: a `one` relation takes `onDelete: 'cascade' | 'restrict' |
 'setNull'`, as in Prisma. Without it, a required relation restricts (the
 target cannot be deleted while referenced) and an optional one sets null.
-Why: deleting a user who has posts must have a declared, predictable outcome.
-Rejected: no cascade (Parse), which leaves dangling pointers.
-Open: whether a cascade runs the hooks (soft delete, `afterDelete`) and the
-access rules of each row it deletes, or the database cascades on its own.
+A cascade goes through the kernel: the hooks of every deleted row run (soft
+delete redirects them, `afterDelete` sees them), while access rules are
+checked on the row the caller deletes only, since the model's author declared
+the cascade. It fits D-48: one recursive `SELECT` loads every affected row,
+one statement deletes them.
+Why: deleting a user who has posts must have a declared, predictable outcome;
+a cascade done by the database alone would bypass soft delete and hooks, and
+checking access on each child would make most cascades fail (other people's
+comments under one's own post).
+Rejected: no cascade (Parse), which leaves dangling pointers; cascades by
+database foreign keys.
 
 ## D-55: Reads have configurable limits
 
-Choice: without `take`, a list returns 100 rows; the default and the maximum
-`take` are set for the application and overridden per model. The GraphQL
-transport refuses queries nested deeper than 10 levels, a limit set in
-`graphql({ ... })`.
-Why: a forgotten `take` or a deep query must not read a whole table or
-exhaust the server.
-Rejected: no limit.
-Open: whether these limits apply to Master and to server code, and how server
-code reads every row of a large table (Parse's `findAll`).
+Choice: limits protect the server from clients. A request arriving through a
+transport, from a caller other than Master, gets 100 rows when it gives no
+`take`; the default and the maximum `take` are set for the application and
+overridden per model. The GraphQL transport refuses such queries nested deeper
+than 10 levels, a limit set in `graphql({ ... })`. Server code and Master,
+including a request with the master key (D-49), have no limit, as in Prisma
+(D-20).
+Why: a forgotten `take` or a deep query from a client must not read a whole
+table or exhaust the server; Master and server code are trusted, and a
+developer coming from Prisma expects `findMany` to return every row.
+Rejected: Parse's default limit of 100 for every caller, with `findAll` to
+lift it.
+Later: an iterator reading a large table in batches by cursor
+(`for await (const post of Post.findEach(...))`), if paginating by hand with
+`cursor` proves tedious.
 
 ## D-56: Passwords use Argon2id, sign-in is rate limited
 
@@ -912,9 +925,11 @@ password reset attempts per account and per address, stored in the database.
 Why: Argon2id is OWASP's first recommendation and Node's LTS ships it, so no
 native dependency is compiled; a brute-force guard must not depend on an
 optional plugin.
+A general limit for the whole API, per caller or per address, comes later as
+a separate `rateLimit()` plugin.
 Rejected: bcrypt (72-byte limit); scrypt (second choice once Argon2id is
-built in); a native `argon2` package.
-Open: whether a general rate limit for the whole API exists, and where.
+built in); a native `argon2` package; sign-in protection left to a general
+rate-limit plugin.
 
 ## D-57: Writing a plugin takes as few lines as possible
 
