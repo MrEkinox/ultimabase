@@ -470,6 +470,26 @@ describe('schema mutation Hooks', () => {
 		}
 	})
 
+	// ADR-0347: Hooks name the plugin operation, never one of its methods.
+	it('refuses a method key with the operation that covers it', async () => {
+		const trace: string[] = []
+		const parts = createArchiveParts(trace, {
+			afterOperation: { archiveOne: () => undefined },
+		})
+		const app = new (UltimaBase.use(
+			hooksPlugin(),
+			parts.owner,
+			parts.database,
+		))({ logger: false, schemas: [parts.Document] })
+		onTestFinished(() => app.dispose())
+		await expect(app.start()).rejects.toThrow(
+			new TypeError(
+				`Hook branch ${parts.Document.className}.hooks.afterOperation.archiveOne names the method archiveOne: Hooks take its operation archive, which covers archiveOne`,
+			),
+		)
+		expect(trace).toStrictEqual([])
+	})
+
 	it('isolates exact mutation callbacks across sequential applications', async () => {
 		const firstTrace: string[] = []
 		const secondTrace: string[] = []

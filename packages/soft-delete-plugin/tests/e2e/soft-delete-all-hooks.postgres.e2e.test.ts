@@ -81,6 +81,40 @@ const Document = Application.Schema.define({
 	},
 })
 
+// ADR-0347: a plugin operation key runs for its One command and for each
+// row of its Many command, after `all`.
+const OperationDocument = Application.Schema.define({
+	className: 'SoftDeleteOperationHooksDocument',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	softDelete: { mode: 'command' },
+}).with({
+	hooks: {
+		beforeOperation: {
+			all: ({ kind }) => {
+				audit.push(`operation:beforeOperation:all:${kind}`)
+			},
+			softDelete: ({ originalItem }) => {
+				audit.push(`operation:beforeOperation:softDelete:${originalItem.title}`)
+			},
+		},
+		afterOperation: {
+			restore: ({ item, target }) => {
+				audit.push(
+					`operation:afterOperation:restore:${item.title}:${String(item.isDeleted)}:${String(target.id.length > 0)}`,
+				)
+			},
+			purge: ({ originalItem }) => {
+				audit.push(`operation:afterOperation:purge:${originalItem.title}`)
+			},
+		},
+		afterCommit: {
+			restore: ({ originalItem }) => {
+				audit.push(`operation:afterCommit:restore:${originalItem.title}`)
+			},
+		},
+	},
+})
+
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: { dispose(): Promise<void> } | undefined
 
@@ -94,7 +128,7 @@ beforeAll(async () => {
 			keys: [{ id: 'soft-delete-all-hooks', value: 'all-hooks-key' }],
 			onUse: () => undefined,
 		}),
-		schemas: [Document],
+		schemas: [Document, OperationDocument],
 	})
 	ultimabase = app
 	try {
@@ -166,5 +200,102 @@ describe('`all` hooks and Soft Delete commands (ADR-0318 amendment)', () => {
 				.map((line) => line.slice('afterCommit:all:'.length)),
 		)
 		expect([...kinds].sort()).toStrictEqual(['purgeMany', 'softDeleteMany'])
+	})
+})
+
+describe('plugin operation hook keys (ADR-0347)', () => {
+	const operationAudit = () =>
+		audit.filter((line) => line.startsWith('operation:'))
+
+	it('runs softDelete for softDeleteOne and each row of softDeleteMany', async () => {
+		const one = await OperationDocument.createOne({ data: { title: 'one' } })
+		await OperationDocument.createMany({
+			data: [{ title: 'many-a' }, { title: 'many-b' }],
+		})
+		await waitForAfterCommit()
+		audit.length = 0
+
+		await OperationDocument.softDeleteOne({ id: one.id })
+		expect(operationAudit()).toStrictEqual([
+			'operation:beforeOperation:all:softDeleteOne',
+			'operation:beforeOperation:softDelete:one',
+		])
+
+		audit.length = 0
+		await OperationDocument.softDeleteMany({
+			where: { title: { startsWith: 'many-' } },
+		})
+		const lines = operationAudit()
+		expect(
+			lines.filter((line) => line.includes(':softDelete:')).sort(),
+		).toStrictEqual([
+			'operation:beforeOperation:softDelete:many-a',
+			'operation:beforeOperation:softDelete:many-b',
+		])
+		// `all` still runs before the operation branch of each row.
+		expect(lines.filter((line) => line.includes(':all:'))).toStrictEqual([
+			'operation:beforeOperation:all:softDeleteMany',
+			'operation:beforeOperation:all:softDeleteMany',
+		])
+		expect(lines[0]).toBe('operation:beforeOperation:all:softDeleteMany')
+	})
+
+	it('runs restore for restoreOne and each row of restoreMany', async () => {
+		const one = await OperationDocument.createOne({
+			data: { title: 'restore-one' },
+		})
+		await OperationDocument.createMany({
+			data: [{ title: 'restore-a' }, { title: 'restore-b' }],
+		})
+		await OperationDocument.softDeleteMany({
+			where: { title: { startsWith: 'restore-' } },
+		})
+		await waitForAfterCommit()
+		audit.length = 0
+
+		await OperationDocument.restoreOne({ id: one.id })
+		await waitForAfterCommit()
+		expect(
+			operationAudit().filter((line) => !line.includes(':all:')),
+		).toStrictEqual([
+			'operation:afterOperation:restore:restore-one:false:true',
+			'operation:afterCommit:restore:restore-one',
+		])
+
+		audit.length = 0
+		await OperationDocument.restoreMany({
+			where: { title: { in: ['restore-a', 'restore-b'] } },
+		})
+		await waitForAfterCommit()
+		expect(
+			operationAudit()
+				.filter((line) => !line.includes(':all:'))
+				.sort(),
+		).toStrictEqual([
+			'operation:afterCommit:restore:restore-a',
+			'operation:afterCommit:restore:restore-b',
+			'operation:afterOperation:restore:restore-a:false:true',
+			'operation:afterOperation:restore:restore-b:false:true',
+		])
+	})
+
+	it('runs purge for each row of purgeMany', async () => {
+		await OperationDocument.createMany({
+			data: [{ title: 'purge-a' }, { title: 'purge-b' }],
+		})
+		await waitForAfterCommit()
+		audit.length = 0
+		await OperationDocument.purgeMany(
+			{ where: { title: { startsWith: 'purge-' } } },
+			{ useMasterKey: true },
+		)
+		expect(
+			operationAudit()
+				.filter((line) => line.includes(':purge:'))
+				.sort(),
+		).toStrictEqual([
+			'operation:afterOperation:purge:purge-a',
+			'operation:afterOperation:purge:purge-b',
+		])
 	})
 })

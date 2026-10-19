@@ -5,6 +5,8 @@ import {
 	normalizeHookDeclarations,
 	type HookPhaseDescriptor,
 	type NormalizedHookHandler,
+	normalizeGlobalHookDeclarations,
+	normalizeSchemaHookDeclarations,
 } from './declarations.js'
 
 const phases = ['beforeSave', 'afterSave', 'beforeCreate'] as const
@@ -172,4 +174,27 @@ describe('hook declaration normalization', () => {
 			new TypeError('hooks.beforeSave contains an unsupported symbol key'),
 		)
 	})
+})
+
+// ADR-0347: Hooks take `all` and operations; there are no read hooks.
+describe('schema and global hook keys', () => {
+	it.each([
+		{ scope: 'schema', group: 'beforeOperation', key: 'read' },
+		{ scope: 'schema', group: 'afterCommit', key: 'write' },
+		{ scope: 'global', group: 'afterOperation', key: 'read' },
+		{ scope: 'global', group: 'beforeOperation', key: 'write' },
+	] as const)(
+		'rejects the $key group in a $scope hook',
+		({ scope, group, key }) => {
+			const normalize =
+				scope === 'schema'
+					? normalizeSchemaHookDeclarations
+					: normalizeGlobalHookDeclarations
+			expect(() => normalize({ [group]: { [key]: () => undefined } })).toThrow(
+				new TypeError(
+					`hooks.${group}.${key} is not a Hook key: Hooks take all, create, update, upsert, delete or a plugin operation, and ${key} is an operation group`,
+				),
+			)
+		},
+	)
 })
