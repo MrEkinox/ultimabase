@@ -1,1 +1,0 @@
-{ "extends": "../tsconfig.dist.json", "include": ["*.ts"] }

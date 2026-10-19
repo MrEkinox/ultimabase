@@ -2,13 +2,5 @@
 	"semi": false,
 	"singleQuote": true,
 	"trailingComma": "all",
-	"useTabs": true,
-	"overrides": [
-		{
-			"files": "packages/create-app/template/**",
-			"options": {
-				"useTabs": false
-			}
-		}
-	]
+	"useTabs": true
 }

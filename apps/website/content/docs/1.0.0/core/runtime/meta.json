@@ -1,8 +1,0 @@
-{
-	"title": "Runtime",
-	"pages": [
-		"runtime-pipeline",
-		"logical-operations-and-persistence",
-		"api-errors"
-	]
-}
