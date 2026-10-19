@@ -194,3 +194,59 @@ imported value rather than a string keyword.
 Why: a developer can jump to a function's source and read what it does; a
 keyword's meaning is hidden inside the code that interprets it.
 Rejected: string keywords for behaviour.
+
+## D-15: A plugin adds features, commands and hooks
+
+Choice: a plugin contributes features to `define` (fields, tables), commands
+(new operations on a schema, such as `restore`) and hooks. Hooks are few and
+fixed. On an operation, in this order:
+
+1. Redirect: replace the operation with another one (soft delete turns
+   `delete` into `update`). The replacement runs through the whole pipeline.
+2. Restrict: refuse the operation or add a filter. Only narrows, never widens
+   (access, validation, ACL).
+3. Transform: change input or output data (trim, computed field, hidden
+   field).
+4. React: run inside the operation's transaction, after its write, and write
+   more (create a user's profile when the user is created). A failure rolls
+   everything back.
+5. Observe: run after commit (email, webhook, cache).
+
+Restrict, Transform and React receive the record as it was before the
+operation. On the application: Identify (per request, before any operation,
+fill a generic slot of the context with who is calling) and Start/Stop
+(connect, listen, seed).
+Why: the previous runtime had about eighteen stages; each hook here is needed
+by a real plugin of the previous base (access, ACL, roles, hooks, soft delete,
+auth, Postgres, HTTP) and has one nameable purpose.
+Guards: at most one plugin may redirect a given operation on a given schema;
+a conflict stops startup with a message naming both plugins. The model is
+accepted once access, soft delete and an after-commit email plugin are
+written with it, soft delete in under 150 lines (383 before).
+Rejected: a hook per pipeline stage; a generic interceptor around everything.
+
+## D-16: Plugins call each other directly
+
+Choice: a plugin that needs another declares it (`requires: [roles()]`) and
+calls its public API. Startup fails, naming the missing plugin, when a
+requirement is not installed. The kernel has no service registry and no event
+bus between plugins. HTTP routes belong to an HTTP plugin with which REST and
+GraphQL register; the kernel knows no transport. The kernel exposes its
+schemas read-only for transports and tools.
+Why: a direct call can be followed in the editor in one click; the previous
+capabilities and plugin events could not.
+Rejected: kernel-level capabilities and plugin events.
+
+## D-17: Soft-deleted rows are absent, the trash is read explicitly
+
+Choice: a soft-deleted row does not exist for ordinary reads, for every
+caller including Master. The trash is read through the plugin's own commands
+(`Post.trash.findMany(...)`), which go through Restrict like any command;
+Master passes, others need the permission.
+Why: hiding deleted rows is the meaning of the data, not authorization, so
+Master keeps bypassing authorization with no exception. A server job never
+includes the trash by accident, and no filter on a magic field changes a
+query's meaning.
+Rejected: Master sees the trash (jobs include deleted rows silently); the
+previous exception where Master kept the filter unless its `where` named
+`isDeleted`.
