@@ -3,14 +3,18 @@ import { describe, expect, it } from 'vitest'
 
 import { createDenialLog } from './denial-log.js'
 
-const denial = new FrameworkError('PERMISSION_DENIED', 'Native Access denied.', {
-	internalDetails: {
-		kind: 'access-rule-denied',
-		phase: 'access-operation',
-		rule: 'Post.access.read',
-		schema: 'Post',
+const denial = new FrameworkError(
+	'PERMISSION_DENIED',
+	'Native Access denied.',
+	{
+		internalDetails: {
+			kind: 'access-rule-denied',
+			phase: 'access-operation',
+			rule: 'Post.access.read',
+			schema: 'Post',
+		},
 	},
-})
+)
 
 const capture = (operation: string): readonly string[] => {
 	const lines: string[] = []
