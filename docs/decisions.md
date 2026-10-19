@@ -721,9 +721,11 @@ Why: Parse puts protected fields and per-field write checks in `beforeSave`
 code, which grows into spaghetti; a rule next to its field reads at a glance.
 A filter on a hidden field would leak its value one guess at a time, and a
 rule on `record` cannot run inside the query.
-Rejected: per-field checks in hooks; a model-level map of protected fields;
-field read rules returning a filter, which let a caller filter on their own
-email at the cost of a second rule shape.
+Rejected: per-field checks in hooks; a model-level map of protected fields.
+Later, if a real need appears: a field read rule may also return
+`{ where: { ... } }`, ANDed into any filter on that field, so a caller can
+filter on their own email and nobody else's. It adds to this entry without
+breaking it.
 Example:
 
 ```ts
