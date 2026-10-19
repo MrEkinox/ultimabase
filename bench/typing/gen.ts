@@ -3,13 +3,17 @@
 // scalars, a ring `next`, its inverse `prevs`, a self relation one model in
 // five, `softDelete` in `defineModel`, then one `.with({ access, hooks, acl,
 // postgres })` whose read filter crosses a relation; one file per model, one
-// `findMany` per model in `usage.ts`, and the `Register` declaration.
+// `findMany` and one `trash.findMany` per model in `usage.ts`, and the
+// `Register` declaration.
 // `--field-rules` adds field rules in both D-44 forms, loose and with a
 // declared record, combined with `anyOf`. `--wide <K>` gives `S0` K more
 // scalars in the same cycle of types (D-12's large model); with
 // `--field-rules`, one in six gets a loose rule and one in six a declared one.
-// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>]
-//   -> bench/typing/gen/proto[-rules]-<N>[-wide<K>]/
+// `--app` declares the models from the plugin set instead (D-24, option A):
+// `src/plugins.ts` holds `UltimaBase.use(...)`, models call `App.defineModel`
+// and nothing is declared globally.
+// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>] [--app]
+//   -> bench/typing/gen/proto[-app][-rules]-<N>[-wide<K>]/
 // Files are overwritten, never deleted: one N always writes the same files.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -20,6 +24,7 @@ if (!Number.isInteger(count) || count < 2) {
 	throw new Error('usage: gen.ts <N> [--field-rules], with N >= 2')
 }
 const fieldRules = process.argv.includes('--field-rules')
+const fromApp = process.argv.includes('--app')
 const wideAt = process.argv.indexOf('--wide')
 const wide =
 	wideAt === -1 ? 0 : Number.parseInt(process.argv[wideAt + 1] ?? '', 10)
@@ -31,7 +36,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const project = join(
 	here,
 	'gen',
-	`proto${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}`,
+	`proto${fromApp ? '-app' : ''}${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}`,
 )
 mkdirSync(join(project, 'src'), { recursive: true })
 const write = (path: string, text: string): void => {
@@ -51,7 +56,9 @@ write(
 				isolatedDeclarations: false,
 				noEmit: true,
 			},
-			include: ['src/**/*.ts', '../../prototype/plugins.ts'],
+			include: fromApp
+				? ['src/**/*.ts']
+				: ['src/**/*.ts', '../../prototype/plugins.ts'],
 		},
 		null,
 		'\t',
@@ -115,15 +122,24 @@ for (let i = 0; i < count; i += 1) {
 		.filter((j) => j !== i)
 		.map((j) => `import { ${name(j)} } from './s${j}.ts'`)
 		.join('\n')
-	const builders = fieldRules
-		? 'allow, anyOf, boolean, date, defineModel, enumOf, many, number, one, string'
-		: 'allow, boolean, date, defineModel, enumOf, many, number, one, string'
+	const builders = [
+		'allow',
+		...(fieldRules ? ['anyOf'] : []),
+		'boolean',
+		'date',
+		...(fromApp ? [] : ['defineModel']),
+		'enumOf',
+		'many',
+		'number',
+		'one',
+		'string',
+	].join(', ')
 	write(
 		`src/s${i}.ts`,
 		`import { ${builders} } from '${kernel}'
-${imports}
+${fromApp ? "import { App } from './plugins.ts'\n" : ''}${imports}
 
-export const ${name(i)} = defineModel({
+export const ${name(i)} = ${fromApp ? 'App.' : ''}defineModel({
 	name: '${name(i)}',
 	softDelete: true,
 	fields: {
@@ -160,9 +176,27 @@ const all = Array.from({ length: count }, (_, i) => name(i))
 const importAll = all
 	.map((model, i) => `import { ${model} } from './s${i}.ts'`)
 	.join('\n')
-write(
-	'src/app.ts',
-	`import { createApp } from '${kernel}'
+if (fromApp) {
+	write(
+		'src/plugins.ts',
+		`import { UltimaBase } from '../../../prototype/use.ts'
+import { acl, postgres, softDelete } from '../../../prototype/plugin-values.ts'
+
+export const App = UltimaBase.use(softDelete(), acl(), postgres({ url: 'postgres://x' }))
+`,
+	)
+	write(
+		'src/app.ts',
+		`import { App } from './plugins.ts'
+${importAll}
+
+export const app = App.create({ models: [${all.join(', ')}] })
+`,
+	)
+} else {
+	write(
+		'src/app.ts',
+		`import { createApp } from '${kernel}'
 ${importAll}
 
 export const app = createApp({ models: [${all.join(', ')}] })
@@ -173,7 +207,8 @@ declare module '../../../prototype/register.ts' {
 	}
 }
 `,
-)
+	)
+}
 write(
 	'src/usage.ts',
 	`${importAll}
@@ -182,6 +217,12 @@ ${all
 	.map(
 		(model, i) =>
 			`export const q${i} = await ${model}.findMany({ where: { f0: { equals: 'current' }, next: { is: { f2: { equals: true } } } }, select: { f0: true, f1: true, next: { select: { f0: true } } } })`,
+	)
+	.join('\n')}
+${all
+	.map(
+		(model, i) =>
+			`export const t${i} = await ${model}.trash.findMany({ where: { f0: { equals: 'gone' } } })`,
 	)
 	.join('\n')}
 export const hoverProbe = q0

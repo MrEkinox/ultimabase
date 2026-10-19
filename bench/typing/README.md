@@ -93,6 +93,61 @@ base type-checks its real packages: the margin is room for the kernel to grow
 into, not a final number. Run this campaign again once the kernel's own types
 replace the prototype's.
 
+## D-24 spike
+
+D-24 leaves open how a plugin key in `defineModel` that changes the model's
+shape is typed: `softDelete: true` adds `trash` and `restore` (D-15, D-17).
+Both options are in the prototype, and `prototype/example/plugin-keys.ts`
+asserts them.
+
+- Option B, global interfaces: `defineModel` is the kernel's;
+  `prototype/plugins.ts` adds each stand-in plugin's keys and commands to
+  `ModelOptionKeys`, `ModelWithKeys` and `ModelCommands` (`register.ts`).
+- Option A, the plugin set: `prototype/use.ts` gives
+  `UltimaBase.use(softDelete(), acl(), postgres({ url }))`, whose
+  `defineModel`, `.with` and `create` know only the keys of those plugins.
+  Each plugin value carries its types (`prototype/plugin-values.ts`).
+
+Both give `trash` and `restore` only with `softDelete: true`, keep them after
+`.with`, and fail on `softDelet` ("Did you mean…"). Only A fails on a key whose
+plugin is not used, on the key's line: B accepts the key of any plugin whose
+types are loaded, and leaves it to startup.
+
+`gen.ts --app` writes the same projects under option A (`gen/proto-app-*`):
+`src/plugins.ts` holds the plugin set and the models call `App.defineModel`.
+Every project now also calls `trash.findMany` once per model.
+
+Measured on 2026-10-19, B and A interleaved, three runs, medians in
+milliseconds; load average 2.1 to 2.3. Every `tsc -p` exited 0, every first
+check reported 0 errors and every edit raised exactly one.
+
+| Project             | `tsc` | Query: first | Query: edit | Model: first | Model: edit |
+| ------------------- | ----: | -----------: | ----------: | -----------: | ----------: |
+| B, wide 120         |   214 |           56 |          23 |           46 |          14 |
+| A, wide 120         |   224 |           57 |          24 |           49 |          15 |
+| B, wide 120, rules  |   240 |           80 |          51 |           68 |          36 |
+| A, wide 120, rules  |   249 |           83 |          52 |           70 |          37 |
+| B, 200              |   509 |          385 |         251 |          148 |           7 |
+| A, 200              |   532 |          400 |         267 |          151 |           9 |
+| B, 200, field rules |   651 |          498 |         368 |          152 |          10 |
+| A, 200, field rules |   657 |          511 |         383 |          156 |          11 |
+
+A costs 1 % to 6 % more, at most 23 ms; both stay far below the previous base.
+
+What else the spike found:
+
+- Since D-44, no type reads `Register`: no model is looked up by name any
+  more, and plugin keys come from the plugin set (A) or from the plugins'
+  own interfaces (B).
+- `caller.user` (D-62) cannot come from the plugin set: the user model is
+  declared from it, so it needs a global declaration under either option. In
+  a throwaway copy of the prototype, `caller.user` read
+  `Register['user']`, declared as `typeof User`. Rules on any model's `.with`
+  and field rules on other models were typed exactly (`role === 'admin'`
+  fails). A field rule of the user model itself that reads `caller.user`
+  cycles unless it declares `: boolean`: without it, `User` becomes `any`
+  (TS7022 on its declaration), with nothing on the rule's line.
+
 ## Reproducing
 
 ```bash

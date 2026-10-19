@@ -7,7 +7,11 @@ import type {
 	TargetFields,
 	UpdateData,
 } from './record.ts'
-import type { ModelOptionKeys, ModelWithKeys } from './register.ts'
+import type {
+	ModelCommands,
+	ModelOptionKeys,
+	ModelWithKeys,
+} from './register.ts'
 import type { Caller } from './rules.ts'
 import type { declaredRecord, fieldType, modelFields } from './symbols.ts'
 
@@ -70,19 +74,45 @@ export type ModelHooks<F> = {
 	readonly afterDeleteCommit?: RecordHook<F>
 }
 
-/** The kernel's keys and one key per plugin (D-42). */
-export type ModelWith<F> = {
+/** The kernel's keys; `W` holds one key per plugin (D-42). */
+export type ModelWith<F, W> = {
 	readonly access?: ModelAccess<F>
 	readonly hooks?: ModelHooks<F>
-} & ModelWithKeys<F>
+} & W
 
-export interface Model<N extends string, F> extends Queries<F> {
+export interface Model<
+	N extends string,
+	F,
+	W = ModelWithKeys<F>,
+> extends Queries<F> {
 	readonly name: N
 	readonly [modelFields]: F
-	with(rules: ModelWith<F>): Model<N, F>
+	with(rules: ModelWith<F, W>): this
 }
 
-type FieldShape = {
+/**
+ * The intersection of an object's values, each plugin's contribution: an
+ * `unknown` value adds nothing (in a union, it would absorb the others).
+ */
+export type IntersectValues<T> = {
+	readonly [K in keyof T]: (value: T[K]) => void
+}[keyof T] extends (value: infer I) => void
+	? I
+	: never
+
+/** Keys of `defineModel` that no plugin declares fail with a message. */
+export type OptionCheck<O, K> = {
+	readonly [P in Exclude<keyof O, 'name' | 'fields'>]?: P extends K
+		? unknown
+		: {
+				readonly error: `'${P & string}' is not a defineModel key of an installed plugin`
+			}
+}
+
+/** What the plugin keys of `defineModel` add to the model (D-15). */
+type Commands<F, O> = IntersectValues<ModelCommands<F, O>>
+
+export type FieldShape = {
 	readonly [fieldType]: {
 		readonly kind: 'scalar' | 'one' | 'many'
 		readonly options: object
@@ -112,7 +142,7 @@ type Expected<D, F> = {
 		: `'${P & string}' is not a scalar field of the model`
 }
 
-type RecordCheck<F> = {
+export type RecordCheck<F> = {
 	readonly [K in keyof F]: F[K] extends { readonly [declaredRecord]: infer D }
 		? { readonly [declaredRecord]: Expected<D, F> }
 		: unknown
@@ -121,14 +151,19 @@ type RecordCheck<F> = {
 export declare function defineModel<
 	const N extends string,
 	const F extends { readonly [field: string]: FieldShape },
+	const O extends ModelOptionKeys = {},
 >(
 	definition: {
 		readonly name: N
 		readonly fields: F & NoInfer<RecordCheck<F>>
-	} & ModelOptionKeys,
-): Model<N, F>
+	} & O &
+		NoInfer<OptionCheck<O, keyof ModelOptionKeys>>,
+): Model<N, F> & Commands<F, O>
 
-type ModelShape = { readonly name: string; readonly [modelFields]: object }
+export type ModelShape = {
+	readonly name: string
+	readonly [modelFields]: object
+}
 
 // An `inverse` names a field of the target (D-37). It is checked here, where
 // every model is typed, since reading the target while declaring is a cycle.
@@ -145,7 +180,7 @@ type InverseErrors<F> = {
 		: never
 }[keyof F]
 
-type InverseCheck<M> = {
+export type InverseCheck<M> = {
 	readonly [I in keyof M]: M[I] extends { readonly [modelFields]: infer F }
 		? [InverseErrors<F>] extends [never]
 			? unknown
