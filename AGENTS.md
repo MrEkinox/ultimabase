@@ -24,8 +24,8 @@ reuse an idea, a test or a known pitfall only when a decision calls for it.
 ## Code quality
 
 - No `any` in any form. Validate `unknown` at untrusted boundaries.
-- Code files stay under 400 lines (documentation is exempt); size budgets per
-  package come with the first package.
+- Production code files stay under 400 lines; tests and documentation are
+  exempt. Size budgets per package come with the first package.
 - Every bug fix gets a regression test.
 
 ## Validation

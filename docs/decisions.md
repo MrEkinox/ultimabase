@@ -93,10 +93,12 @@ safety net.
 
 ## D-07: Models keep the `defineModel(...).with(...)` shape
 
-Choice: a model is declared with `defineModel({ ... })`, which holds the data,
-followed by `.with({ ... })`, which holds behaviour: the kernel's `access` and
-`hooks` and what plugins add (D-42). The details (field
-syntax, defaults, rule spelling) are decided in later entries.
+Choice: a model is declared with `defineModel({ ... })`, which holds
+everything that shapes the model: its fields and the plugin features that add
+fields or storage (soft delete). It is followed by `.with({ ... })`, which
+holds what acts on the model once built: the kernel's `access` and `hooks` and
+what plugins add (D-42). The details (field syntax, defaults, rule spelling)
+are decided in later entries.
 Why: the previous base reached this shape after many iterations and proved it
 clear and well typed; restarting does not reopen it.
 Rejected: starting the model API over from a blank page.
@@ -124,22 +126,36 @@ Choice: an access rule is always a function. The kernel exports ready-made
 rules under `allow` (`allow.public`, `allow.readOnly`, `allow.private`);
 plugins export their own (`isAuthenticated` from auth); rules combine with
 helpers such as `anyOf`. One rule may cover the whole model or each operation.
-A rule receives `{ caller }` (and `value` for a field write, D-44) and returns
-`true`, `false` or a Prisma `where` (D-20) that narrows the rows the operation
-may touch; the kernel ANDs that `where` into the query, so the adapter applies
-it in the same round trip (D-46).
+The operations are `read`, `create`, `update` and `delete`; `write` is a
+shorthand for `create`, `update` and `delete` (on a field, `create` and
+`update`, D-44), and a specific key wins over `write`. A rule receives
+`{ caller, operation }`, so one `write` function can handle every write by
+testing `operation`.
 Why: DX is UltimaBase's first goal. One concept instead of words plus
 functions; a developer jumps to a rule's source to see what it does; rules
 compose; plugins add rules without a typed registry of words. The previous
 five-key object, modelled on Keystone, was verbose for the common cases.
 Rejected: string words (`'public'`), whose meaning hides inside the access
 implementation; a per-operation object as the only form.
+Open: what else a rule receives and returns. Write rules will receive the
+stored `record` (and the new `value`) and return a boolean. For reads, the
+choice is between an explicit filter (`{ where: { ... } }`, Prisma's form,
+run in the same round trip, D-46) and a hybrid: a rule on each row's `record`
+for safety, plus an optional filter for speed and correct pagination.
 Example:
 
 ```ts
 .with({ access: allow.public })
 .with({ access: { read: allow.public, write: isAuthenticated } })
-.with({ access: { read: () => ({ archived: false }) } })
+.with({
+	access: {
+		read: allow.public,
+		write: ({ operation, caller }) =>
+			operation === 'delete'
+				? caller.kind === 'master'
+				: caller.kind === 'user',
+	},
+})
 ```
 
 ## D-11: No type generation
@@ -155,9 +171,9 @@ Rejected: any form of typegen, even optional.
 Choice: a field is built by an imported function whose options describe the
 data (`string({ optional: true })`); an optional `.with({ ... })` on the field
 holds plugin rules for that field, as `.with` on the model holds rules for the
-whole model. A rule sits next to the object it governs. A model feature that
-adds data (fields, storage) goes in `defineModel`; a rule that adds behaviour
-goes in `.with`.
+whole model. A rule sits next to the object it governs. As for models
+(D-07), what shapes the field goes in its options and what acts on it goes in
+`.with`.
 Why: one rule to learn at both levels; no rules map keyed by field names far
 from the fields; no `(field) => ...` callback.
 Condition: accepted once a benchmark on a large model shows editor typing
@@ -172,7 +188,9 @@ Example:
 export const Todo = defineModel({
 	name: 'Todo',
 	fields: {
-		title: string().with({ input: (value) => value.trim() }),
+		title: string({ validate: z.string().trim() }).with({
+			access: { update: isAuthenticated },
+		}),
 		done: boolean({ default: false }),
 		assignee: one(() => User, { optional: true }),
 	},
@@ -230,16 +248,18 @@ this order:
    retries belong to a jobs plugin.
 
 Write hooks receive the record as it was before the operation. The names
-follow Parse (`beforeSave`) and Rails (`after_create_commit`). On the
-application: Identify (per request, before any operation,
-fill a generic slot of the context with who is calling) and Start/Stop
-(connect, listen, seed).
+follow Parse (`beforeSave`) and Rails (`after_create_commit`). Plugins
+alone also have application hooks: Identify (per request, before any
+operation: the identity plugin, such as auth, fills `caller.user`, and another
+plugin adds its own key, such as `caller.tenant`, D-19) and Start/Stop
+(connect, listen, seed). Applications do not write these.
 Why: the previous runtime had about eighteen stages; each hook here is needed
 by a real plugin of the previous base (access, ACL, roles, hooks, soft delete,
 auth, Postgres, HTTP) and has one nameable purpose.
 Guards: at most one plugin may redirect a given operation on a given model,
-and two plugins may not add a command of the same name to one model; either
-conflict stops startup with a message naming both plugins. This design is
+two plugins may not add a command of the same name to one model, and only one
+plugin may fill `caller.user`; each conflict stops startup with a message
+naming both plugins. This design is
 accepted once access, soft delete and an after-commit email plugin are
 written with it, soft delete in under 150 lines (383 before).
 Rejected: a hook per pipeline stage; a generic interceptor around everything.
@@ -292,9 +312,14 @@ on every call and breaks rename.
 Choice: every operation takes `{ as: caller }`. `master` is a server-only
 imported value; `caller` is the caller the Identify hook found for the
 current request, which hooks, functions and HTTP routes receive as
-`{ caller }`; a plain expression chooses between them. Without `as`, the
-operation runs as anonymous. Plugins may add kinds of callers through
-Identify; only the kernel creates `master`.
+`{ caller }`; a plain expression chooses between them. `caller.kind` is
+`'anonymous'`, `'user'` or `'master'`; `caller.user` is set for a user,
+`caller.master` (`{ source: 'code' | 'key' }`) for Master; plugins add their
+own keys through Identify (`caller.tenant`). `{ as: caller }` runs with
+whatever the caller is, Master included when the request came with the master
+key (D-49), so hooks and routes never import `master`; server code without a
+request (scripts, jobs) does. Without `as`, the operation runs as anonymous.
+Only the kernel creates `master`.
 Why: Parse splits this between `useMasterKey` and `sessionToken`, which can be
 passed together with an unclear priority. One option holds one caller, a
 condition is a ternary, and a forgotten `as` fails closed (D-04) instead of
@@ -356,7 +381,11 @@ database to create).
 ## D-23: Field validation uses Standard Schema or a function
 
 Choice: a field's `validate` option takes any Standard Schema (Zod, Valibot,
-ArkType…) or a plain function. Validation errors carry the field path.
+ArkType…) or a plain function. Its output is the stored value, so a schema
+may transform it (`z.string().trim()`). Validation runs before the `before*`
+hooks (D-15); a value a hook writes is not validated again, since hooks are
+trusted server code. Validation is part of the kernel. Validation errors carry
+the field path.
 Why: developers already know their validation library; the previous base's
 validation worked well.
 Rejected: a validation language of our own.
@@ -368,8 +397,19 @@ Choice: the project declares its application once,
 models, `.with` and plugin rules are typed from the installed plugins. The
 starter template writes it.
 Why: the previous base proved no alternative without type generation (D-11);
-three lines once per project is an acceptable cost.
-Rejected: type generation; passing the application to every `defineModel`.
+name-keyed types read the models from it, and without it typing grows
+quadratically (200 models: 73 s instead of 23 s on TypeScript 6). Cycles
+between models are avoided as before: relation targets are thunks, callbacks
+sit in the final non-generic `.with`, and the registry is read lazily by
+model name. Three lines once per project is an acceptable cost.
+Rejected: type generation.
+Open: plugin keys in `defineModel` that change a model's shape (D-07) need the
+plugin types while the model is typed, which a global `defineModel` cannot
+read from `Register` without a cycle. Two options are spiked and benchmarked
+with the `defineModel` prototype: models declared from the plugin set
+(`const App = UltimaBase.use(softDelete())`, then `App.defineModel(...)` and
+`App.defineRole(...)`, D-13), or each installed plugin adding its keys to a
+global interface, with startup refusing a key whose plugin is not used.
 
 ## D-25: Planned later, as plugins
 
@@ -395,9 +435,11 @@ ones (drop, rename, type change) with a message saying what to run.
 `ultimabase migrate create` writes a reviewable, editable SQL file;
 `ultimabase migrate deploy` applies committed files in production, where the
 application refuses to start when the database does not match its models.
-Migrations live in the PostgreSQL package; a shared package comes only with a
-second SQL adapter. From the first release, the storage adapter contract
-includes comparing models with the database and returning a plan.
+The `migrate` commands belong to the kernel's `ultimabase` binary, which asks
+the storage adapter for its plan; the PostgreSQL package implements it, and a
+shared SQL package comes only with a second SQL adapter. From the first
+release, the storage adapter contract includes comparing models with the
+database and returning a plan.
 Why: Parse migrations are hand-written queries run at startup, hard to follow
 and slow; tracked SQL files are reviewable and replayable.
 Rejected: the previous per-model `override` / `fail` / `ignore` modes;
@@ -477,7 +519,7 @@ Rejected: a documentation website during the design.
 
 Choice: from the first release, a plugin can provide field types (`file()`,
 later `vector()`), with their storage and transport representation. Files are
-a plugin with a storage adapter (`memory()`, `local(...)`, `s3(...)`) and a
+a plugin with a storage adapter (`memoryFiles()`, `local(...)`, `s3(...)`) and a
 `file()` field; they are not a dedicated slot, since many applications store
 no files.
 Why: new field types brought by plugins are a core promise of UltimaBase.
@@ -621,11 +663,11 @@ read oddly to front-end developers.
 ## D-42: One `.with` key per owner
 
 Choice: in `.with({ ... })`, on a model or a field, the kernel and each plugin
-own exactly one key, named after them (`access`, `hooks`, `softDelete`, `acl`).
-A plugin with a single option takes the value directly
-(`access: allow.public`, `softDelete: true`); one with several takes an
-object. Two plugins claiming the same key stop startup with a message naming
-both.
+own exactly one key, named after them (`access`, `hooks`, `graphql`,
+`rest`). A plugin with a single option takes the value directly
+(`access: allow.public`, `rest: false`); one with several takes an object. The
+same rule holds for plugin keys in `defineModel` (`softDelete: true`). Two
+plugins claiming the same key stop startup with a message naming both.
 Why: no collision between independent plugins (D-21); autocompletion lists
 one key per installed plugin; a key leads to its plugin in one click; opening a
 model stays one word (D-04).
@@ -677,6 +719,8 @@ A filter on a hidden field would leak its value one guess at a time; ANDing
 the read `where` into the filter (`isSelf` returns `{ id: caller.user.id }`)
 lets a caller filter on their own email and nobody else's.
 Rejected: per-field checks in hooks; a model-level map of protected fields.
+Open: the rule shape follows the open point of D-10; the `where` wording
+above is a draft until it is decided.
 Example:
 
 ```ts
@@ -743,3 +787,50 @@ query needs. Builder overhead is negligible next to a database round trip.
 Rejected: Drizzle (built for hand-written static schemas, one table builder per
 database); a hand-written SQL compiler (escaping and dialects for no speed
 gain).
+
+## D-48: Writes apply rules and hooks per row, in at most two statements
+
+Choice: every write, single or bulk (`updateMany`, `deleteMany`), applies
+hooks and access rules to each affected row; no API or option skips them.
+Hooks run for every caller; access rules for every caller but Master. The
+kernel sends at most two SQL statements per write, BEGIN and COMMIT aside and
+queries made by hooks excluded: one `SELECT ... FOR UPDATE` loading every
+affected row once, when a `before*` hook or an access rule needs the stored
+record, then one write statement (with `RETURNING`, through a CTE when
+`after*` hooks need the previous values). Without such hooks or rules, the
+write is a single statement. The contract suite counts statements (D-46).
+Why: a bulk write that skips per-row logic lets data bypass the rules; each
+extra round trip costs latency on every write.
+Rejected: bulk writes that skip hooks or rules; one statement per row.
+Open: nested relation writes (`create` with `connect` or a nested `create`):
+one statement per relation, or still two in total through data-modifying
+CTEs.
+
+## D-49: A master key lets transports act as Master, outside production
+
+Choice: `UltimaBase.create({ masterKey: process.env.ULTIMABASE_MASTER_KEY })`
+declares an optional master key. A transport receiving it (the
+`x-ultimabase-master-key` header over HTTP) runs the request as Master, with
+`caller.master.source === 'key'` (D-19). The comparison is constant-time and
+every use is logged. Without a configured key, a request carrying one is
+refused. When `NODE_ENV === 'production'`, the key is refused even if set,
+unless the developer writes `masterKey: { key, production: true }`.
+Why: front-end end-to-end tests seed their data through the API with the key,
+then test the interface; a key copied into production by mistake must not
+open the database.
+Rejected: the key as an option of the HTTP plugin (the previous base), since
+Master belongs to the kernel and every transport reads it; a key enabled
+without configuration.
+
+## D-50: PostgreSQL 15 and later, newer features when present
+
+Choice: the PostgreSQL adapter supports version 15 and later and stops startup
+below it. It reads the server version at startup and uses newer features when
+present (on PostgreSQL 18, `RETURNING old` and `new`), with the same results on
+every version. The contract suite runs on the oldest and the newest supported
+versions.
+Why: 15 is the oldest version still maintained for the first release (14 ends
+in November 2026); a developer on 18 gets its gains by connecting to it, with
+no option to set.
+Rejected: requiring 18, which many hosted databases do not offer yet; an
+option naming the version.
