@@ -35,11 +35,12 @@ These agree with ADR-0297 of the previous base (0.55 s at 50 models, 1.90 s at
 
 ## Prototype
 
-`prototype/` holds the types of `defineModel(...).with(...)`, fields,
-relations, queries, model and field rules, two stand-in plugins and
-`createApp`; nothing in it runs. `prototype/example/` is a small application
-whose `checks.ts` and `declared.ts` assert the types: `tsc` fails if one does
-not hold.
+`prototype/` holds the types of the form D-24 settled:
+`UltimaBase.create({ database }).use(...)`, `App.defineModel(...).with(...)`,
+fields, relations, queries, model and field rules, three stand-in plugins and
+`App.build({ models })`; nothing in it runs. `prototype/example/` is a small
+application whose `checks.ts`, `declared.ts` and `plugin-keys.ts` assert the
+types: `tsc` fails if one does not hold.
 
 `node bench/typing/gen.ts <N> [--field-rules]` writes `gen/proto[-rules]-<N>/`
 with the graph and density of the baseline's generator (six scalars, a ring
@@ -100,22 +101,21 @@ shape is typed: `softDelete: true` adds `trash` and `restore` (D-15, D-17).
 Both options are in the prototype, and `prototype/example/plugin-keys.ts`
 asserts them.
 
-- Option B, global interfaces: `defineModel` is the kernel's;
-  `prototype/plugins.ts` adds each stand-in plugin's keys and commands to
-  `ModelOptionKeys`, `ModelWithKeys` and `ModelCommands` (`register.ts`).
-- Option A, the plugin set: `prototype/use.ts` gives
-  `UltimaBase.use(softDelete(), acl(), postgres({ url }))`, whose
-  `defineModel`, `.with` and `create` know only the keys of those plugins.
-  Each plugin value carries its types (`prototype/plugin-values.ts`).
+- Option B, global interfaces: `defineModel` is the kernel's; each stand-in
+  plugin adds its keys and commands to global interfaces.
+- Option A, the plugin set: `UltimaBase.use(softDelete(), acl(), postgres())`
+  gives `defineModel`, `.with` and `create` that know only the keys of those
+  plugins. Each plugin value carries its types.
 
 Both give `trash` and `restore` only with `softDelete: true`, keep them after
 `.with`, and fail on `softDelet` ("Did you mean…"). Only A fails on a key whose
 plugin is not used, on the key's line: B accepts the key of any plugin whose
 types are loaded, and leaves it to startup.
 
-`gen.ts --app` writes the same projects under option A (`gen/proto-app-*`):
-`src/plugins.ts` holds the plugin set and the models call `App.defineModel`.
-Every project now also calls `trash.findMany` once per model.
+`gen.ts --app` wrote the same projects under option A. Every project also
+called `trash.findMany` once per model. Both options are in commit `ee4a857e`;
+D-24 chose A, and the prototype and `gen.ts` now hold only its settled form
+(below).
 
 Measured on 2026-10-19, B and A interleaved, three runs, medians in
 milliseconds; load average 2.1 to 2.3. Every `tsc -p` exited 0, every first
@@ -147,6 +147,14 @@ What else the spike found:
   fails). A field rule of the user model itself that reads `caller.user`
   cycles unless it declares `: boolean`: without it, `User` becomes `any`
   (TS7022 on its declaration), with nothing on the rule's line.
+
+After D-24, the prototype was aligned on the decision: the database moved to
+`UltimaBase.create` (D-02), `App.create` became `App.build`, and the
+`postgres` key of `.with` became `graphql`, since a storage adapter is not a
+plugin. On 2026-10-19, `tsc -p` exited 0 on the prototype and on the seven
+projects `gen.ts` writes (10, 50, 200, rules 10, rules 200, wide 120 with and
+without rules), and on `proto-200` and `proto-rules-200` the query edit raised
+exactly one error, in 271 ms and 376 ms (one run).
 
 ## Reproducing
 

@@ -4,7 +4,6 @@ import {
 	anyOf,
 	boolean,
 	date,
-	defineModel,
 	enumOf,
 	json,
 	many,
@@ -12,6 +11,7 @@ import {
 	one,
 	string,
 } from '../index.ts'
+import { App } from './app.ts'
 import { Tag } from './tag.ts'
 import { User } from './user.ts'
 
@@ -20,7 +20,7 @@ export declare function hasRole(
 	role: string,
 ): (facts: { readonly caller: Caller }) => boolean
 
-export const Post = defineModel({
+export const Post = App.defineModel({
 	name: 'Post',
 	softDelete: true,
 	fields: {
@@ -80,5 +80,5 @@ export const Post = defineModel({
 		},
 	},
 	acl: { default: { read: allow.public }, ownerField: 'title' },
-	postgres: { table: 'posts' },
+	graphql: { name: 'Article' },
 })

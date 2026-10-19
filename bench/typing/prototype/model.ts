@@ -1,5 +1,5 @@
-// `defineModel(...).with(...)` (D-07) and the application that registers
-// the models (D-24).
+// The model `App.defineModel(...).with(...)` returns (D-07, D-24) and the
+// application `App.build` assembles.
 import type { Queries, Where } from './query.ts'
 import type {
 	CreateData,
@@ -7,11 +7,6 @@ import type {
 	TargetFields,
 	UpdateData,
 } from './record.ts'
-import type {
-	ModelCommands,
-	ModelOptionKeys,
-	ModelWithKeys,
-} from './register.ts'
 import type { Caller } from './rules.ts'
 import type { declaredRecord, fieldType, modelFields } from './symbols.ts'
 
@@ -80,11 +75,7 @@ export type ModelWith<F, W> = {
 	readonly hooks?: ModelHooks<F>
 } & W
 
-export interface Model<
-	N extends string,
-	F,
-	W = ModelWithKeys<F>,
-> extends Queries<F> {
+export interface Model<N extends string, F, W> extends Queries<F> {
 	readonly name: N
 	readonly [modelFields]: F
 	with(rules: ModelWith<F, W>): this
@@ -100,7 +91,7 @@ export type IntersectValues<T> = {
 	? I
 	: never
 
-/** Keys of `defineModel` that no plugin declares fail with a message. */
+/** Keys of `App.defineModel` that no plugin declares fail with a message. */
 export type OptionCheck<O, K> = {
 	readonly [P in Exclude<keyof O, 'name' | 'fields'>]?: P extends K
 		? unknown
@@ -108,9 +99,6 @@ export type OptionCheck<O, K> = {
 				readonly error: `'${P & string}' is not a defineModel key of an installed plugin`
 			}
 }
-
-/** What the plugin keys of `defineModel` add to the model (D-15). */
-type Commands<F, O> = IntersectValues<ModelCommands<F, O>>
 
 export type FieldShape = {
 	readonly [fieldType]: {
@@ -148,18 +136,6 @@ export type RecordCheck<F> = {
 		: unknown
 }
 
-export declare function defineModel<
-	const N extends string,
-	const F extends { readonly [field: string]: FieldShape },
-	const O extends ModelOptionKeys = {},
->(
-	definition: {
-		readonly name: N
-		readonly fields: F & NoInfer<RecordCheck<F>>
-	} & O &
-		NoInfer<OptionCheck<O, keyof ModelOptionKeys>>,
-): Model<N, F> & Commands<F, O>
-
 export type ModelShape = {
 	readonly name: string
 	readonly [modelFields]: object
@@ -188,10 +164,9 @@ export type InverseCheck<M> = {
 		: unknown
 }
 
+/** The application `App.build` returns (D-24, D-59). */
 export interface App<M> {
 	readonly models: M
+	start(): Promise<void>
+	stop(): Promise<void>
 }
-
-export declare function createApp<
-	const M extends readonly ModelShape[],
->(options: { readonly models: M & NoInfer<InverseCheck<M>> }): App<M>

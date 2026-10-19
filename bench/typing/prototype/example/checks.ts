@@ -1,6 +1,7 @@
 // Type assertions for the prototype: `tsc` fails if one does not hold.
 import type { Caller } from '../index.ts'
-import { createApp, defineModel, many, string } from '../index.ts'
+import { many, string } from '../index.ts'
+import { App } from './app.ts'
 import { Post } from './post.ts'
 import { Tag } from './tag.ts'
 import { User } from './user.ts'
@@ -77,7 +78,7 @@ await Tag.create({ data: {} })
 await Tag.create({ data: { label: 'news' } })
 
 // Field rules without the model's name: `value` and `record.id` typed.
-export const Loose = defineModel({
+export const Loose = App.defineModel({
 	name: 'Loose',
 	fields: {
 		a: string().with({
@@ -125,9 +126,9 @@ Post.with({ cache: true })
 Post.with({ acl: { ownerField: 'author' } })
 
 // An inverse names a field of the target, checked at registration.
-const Broken = defineModel({
+const Broken = App.defineModel({
 	name: 'Broken',
 	fields: { posts: many(() => Post, { inverse: 'autor' }) },
 })
 // @ts-expect-error: Broken.posts: inverse 'autor' is not a field of Post.
-createApp({ models: [Broken, Post, User, Tag] })
+App.build({ models: [Broken, Post, User, Tag] })

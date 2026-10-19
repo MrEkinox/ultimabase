@@ -1,10 +1,15 @@
-// Stand-ins for the plugins the measured models use, as values (D-24,
-// option A): each carries its types.
-import type { Plugin } from './use.ts'
-import type { SoftDeleteCommands } from './plugins.ts'
-import type { ScalarKeys } from './record.ts'
+// Stand-ins for the plugins and the storage adapter the measured models use
+// (D-24): each plugin value carries its types.
+import type { Queries, UniqueWhere } from './query.ts'
+import type { RecordOf, ScalarKeys } from './record.ts'
 import type { AnyRule } from './rules.ts'
-import type { FromModel } from './use.ts'
+import type { Database, FromModel, Plugin } from './ultimabase.ts'
+
+/** The commands soft delete adds (D-15, D-17). */
+export interface SoftDeleteCommands<F> {
+	readonly trash: Queries<F>
+	restore(args: { readonly where: UniqueWhere<F> }): Promise<RecordOf<F>>
+}
 
 interface SoftDeleteModel extends FromModel {
 	readonly out: this['options'] extends true
@@ -21,8 +26,8 @@ interface AclWith extends FromModel {
 	readonly out: AclKey<this['fields']>
 }
 
-interface PostgresWith extends FromModel {
-	readonly out: { readonly table?: string }
+interface GraphqlWith extends FromModel {
+	readonly out: { readonly name?: string }
 }
 
 export declare function softDelete(): Plugin<{
@@ -34,6 +39,9 @@ export declare function acl(): Plugin<{
 	readonly name: 'acl'
 	readonly with: AclWith
 }>
-export declare function postgres(options: {
-	readonly url: string
-}): Plugin<{ readonly name: 'postgres'; readonly with: PostgresWith }>
+export declare function graphql(): Plugin<{
+	readonly name: 'graphql'
+	readonly with: GraphqlWith
+}>
+export declare function memory(): Database
+export declare function postgres(): Database

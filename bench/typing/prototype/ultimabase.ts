@@ -1,5 +1,6 @@
-// D-24, option A: models are declared from the plugin set,
-// `const App = UltimaBase.use(softDelete())` then `App.defineModel(...)`.
+// D-24: models are declared from the application,
+// `const App = UltimaBase.create({ database }).use(softDelete())` then
+// `App.defineModel(...)`, and `App.build({ models })` assembles it.
 // A plugin's types travel with its value; nothing is declared globally.
 import type {
 	App,
@@ -75,7 +76,15 @@ type Commands<
 		: unknown
 }>
 
+/** A storage adapter (D-02): its own slot, not a plugin, so no keys. */
+export interface Database {
+	readonly adapter: string
+}
+
 export interface AppBuilder<P extends readonly Plugin<PluginTypes>[]> {
+	use<const Q extends readonly Plugin<PluginTypes>[]>(
+		...plugins: Q
+	): AppBuilder<[...P, ...Q]>
 	defineModel<
 		const N extends string,
 		const F extends { readonly [field: string]: FieldShape },
@@ -89,13 +98,11 @@ export interface AppBuilder<P extends readonly Plugin<PluginTypes>[]> {
 			// oxlint-disable-next-line typescript/no-generated-empty-object-type -- resolves per plugin set
 			NoInfer<OptionCheck<O, keyof OptionKeys<P>>>,
 	): Model<N, F, WithKeys<P, F>> & Commands<P, F, O>
-	create<const M extends readonly ModelShape[]>(options: {
+	build<const M extends readonly ModelShape[]>(options: {
 		readonly models: M & NoInfer<InverseCheck<M>>
 	}): App<M>
 }
 
 export declare const UltimaBase: {
-	use<const P extends readonly Plugin<PluginTypes>[]>(
-		...plugins: P
-	): AppBuilder<P>
+	create(options: { readonly database: Database }): AppBuilder<[]>
 }

@@ -1,19 +1,16 @@
 // Generates N models on the prototype with the graph and density of the
 // previous base's `schema-form-d` generator (README.md, "Baseline"): six
 // scalars, a ring `next`, its inverse `prevs`, a self relation one model in
-// five, `softDelete` in `defineModel`, then one `.with({ access, hooks, acl,
-// postgres })` whose read filter crosses a relation; one file per model, one
-// `findMany` and one `trash.findMany` per model in `usage.ts`, and the
-// `Register` declaration.
+// five, `softDelete` in `App.defineModel`, then one `.with({ access, hooks,
+// acl, graphql })` whose read filter crosses a relation; one file per model,
+// one `findMany` and one `trash.findMany` per model in `usage.ts`. Models are
+// declared from `src/app.ts` and assembled in `src/server.ts` (D-24).
 // `--field-rules` adds field rules in both D-44 forms, loose and with a
 // declared record, combined with `anyOf`. `--wide <K>` gives `S0` K more
 // scalars in the same cycle of types (D-12's large model); with
 // `--field-rules`, one in six gets a loose rule and one in six a declared one.
-// `--app` declares the models from the plugin set instead (D-24, option A):
-// `src/plugins.ts` holds `UltimaBase.use(...)`, models call `App.defineModel`
-// and nothing is declared globally.
-// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>] [--app]
-//   -> bench/typing/gen/proto[-app][-rules]-<N>[-wide<K>]/
+// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>]
+//   -> bench/typing/gen/proto[-rules]-<N>[-wide<K>]/
 // Files are overwritten, never deleted: one N always writes the same files.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -24,7 +21,6 @@ if (!Number.isInteger(count) || count < 2) {
 	throw new Error('usage: gen.ts <N> [--field-rules], with N >= 2')
 }
 const fieldRules = process.argv.includes('--field-rules')
-const fromApp = process.argv.includes('--app')
 const wideAt = process.argv.indexOf('--wide')
 const wide =
 	wideAt === -1 ? 0 : Number.parseInt(process.argv[wideAt + 1] ?? '', 10)
@@ -36,7 +32,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const project = join(
 	here,
 	'gen',
-	`proto${fromApp ? '-app' : ''}${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}`,
+	`proto${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}`,
 )
 mkdirSync(join(project, 'src'), { recursive: true })
 const write = (path: string, text: string): void => {
@@ -56,9 +52,7 @@ write(
 				isolatedDeclarations: false,
 				noEmit: true,
 			},
-			include: fromApp
-				? ['src/**/*.ts']
-				: ['src/**/*.ts', '../../prototype/plugins.ts'],
+			include: ['src/**/*.ts'],
 		},
 		null,
 		'\t',
@@ -127,7 +121,6 @@ for (let i = 0; i < count; i += 1) {
 		...(fieldRules ? ['anyOf'] : []),
 		'boolean',
 		'date',
-		...(fromApp ? [] : ['defineModel']),
 		'enumOf',
 		'many',
 		'number',
@@ -137,9 +130,10 @@ for (let i = 0; i < count; i += 1) {
 	write(
 		`src/s${i}.ts`,
 		`import { ${builders} } from '${kernel}'
-${fromApp ? "import { App } from './plugins.ts'\n" : ''}${imports}
+import { App } from './app.ts'
+${imports}
 
-export const ${name(i)} = ${fromApp ? 'App.' : ''}defineModel({
+export const ${name(i)} = App.defineModel({
 	name: '${name(i)}',
 	softDelete: true,
 	fields: {
@@ -166,7 +160,7 @@ ${scalars}${i === 0 ? wideFields : ''}
 		},
 	},
 	acl: { default: { read: allow.public } },
-	postgres: { table: 's${i}' },
+	graphql: { name: '${name(i)}' },
 })
 `,
 	)
@@ -176,39 +170,21 @@ const all = Array.from({ length: count }, (_, i) => name(i))
 const importAll = all
 	.map((model, i) => `import { ${model} } from './s${i}.ts'`)
 	.join('\n')
-if (fromApp) {
-	write(
-		'src/plugins.ts',
-		`import { UltimaBase } from '../../../prototype/use.ts'
-import { acl, postgres, softDelete } from '../../../prototype/plugin-values.ts'
+write(
+	'src/app.ts',
+	`import { UltimaBase, acl, graphql, memory, softDelete } from '${kernel}'
 
-export const App = UltimaBase.use(softDelete(), acl(), postgres({ url: 'postgres://x' }))
+export const App = UltimaBase.create({ database: memory() }).use(softDelete(), acl(), graphql())
 `,
-	)
-	write(
-		'src/app.ts',
-		`import { App } from './plugins.ts'
+)
+write(
+	'src/server.ts',
+	`import { App } from './app.ts'
 ${importAll}
 
-export const app = App.create({ models: [${all.join(', ')}] })
+export const app = App.build({ models: [${all.join(', ')}] })
 `,
-	)
-} else {
-	write(
-		'src/app.ts',
-		`import { createApp } from '${kernel}'
-${importAll}
-
-export const app = createApp({ models: [${all.join(', ')}] })
-
-declare module '../../../prototype/register.ts' {
-	interface Register {
-		readonly app: typeof app
-	}
-}
-`,
-	)
-}
+)
 write(
 	'src/usage.ts',
 	`${importAll}

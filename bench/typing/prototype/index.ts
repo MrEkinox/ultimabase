@@ -11,7 +11,8 @@ export {
 	string,
 } from './fields.ts'
 export type { App, Model } from './model.ts'
-export { createApp, defineModel } from './model.ts'
-export type { Register } from './register.ts'
+export { acl, graphql, memory, postgres, softDelete } from './plugin-values.ts'
 export type { Caller } from './rules.ts'
 export { allow, anyOf } from './rules.ts'
+export type { AppBuilder, Database } from './ultimabase.ts'
+export { UltimaBase } from './ultimabase.ts'
