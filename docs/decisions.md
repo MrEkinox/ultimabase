@@ -36,21 +36,27 @@ Example: to be written once the kernel API is decided.
 ## D-02: Storage is a dedicated, explicit slot, not a plugin
 
 Choice: an application has exactly one storage adapter, given in its own
-required `database` option rather than in the plugin list. The in-memory
-adapter ships with the kernel and is imported like any other (`memory()`);
-PostgreSQL is a separate package. Adapters implement one public contract, and
-one shared contract suite runs against each of them (transactions included).
+required `database` option beside the `plugins` list, in the one options object
+of `UltimaBase.create` that holds the rest of the application's configuration
+(D-49, D-58). The in-memory adapter ships with the kernel and is imported like
+any other (`memory()`); PostgreSQL is a separate package. Adapters implement
+one public contract, and one shared contract suite runs against each of them
+(transactions included).
 Why: storage is mandatory and unique, unlike plugins, which are optional and
 combinable; a dedicated slot makes both rules structural instead of runtime
 checks. Naming the in-memory adapter keeps a first application and the test
 suite free of Docker while making it obvious that data disappears on restart.
 Rejected: storage as a plugin (the previous design), which needed checks for
 "none" and "two"; an implicit in-memory default, which lets a forgotten option
-run production on memory.
+run production on memory; plugins chained with `.use(...)`, the one call
+outside the options object, which left open whether two calls add up.
 Example:
 
 ```ts
-const App = UltimaBase.create({ database: postgres() }).use(http(), graphql())
+const App = UltimaBase.create({
+	database: postgres(),
+	plugins: [http(), graphql()],
+})
 const Demo = UltimaBase.create({ database: memory() })
 ```
 
@@ -400,20 +406,20 @@ Rejected: a validation language of our own.
 
 ## D-24: Models are declared from the application
 
-Choice: the application is built first, as D-02 shows, with the database in
-`UltimaBase.create` and the plugins in `.use` (example below). Every model is
-declared from it: `App.defineModel(...)`, and the plugins' entries
-`App.defineRole(...)` and `App.defineUser(...)` (D-13, D-62). Each plugin value
-carries its types, so `App.defineModel` keys, the commands they add (D-15) and
-`.with` keys (D-42) are exactly those of the plugins in `use`: a key of a
-plugin outside it fails on its own line, before startup. Nothing is declared
-globally; there is no `Register`. A plugin option cannot reference a model,
-which is declared from the application. A separate file assembles the
-application with `App.build({ models: [...], functions: [...] })`;
-`App.defineModel` and `App.defineFunction` (D-27) register nothing, and
-`migrate` (D-26) and tests (D-40) import the built application without starting
-it. The lists cannot go in `UltimaBase.create`: each model and function
-imports `App`, so the application's file importing them is an import cycle.
+Choice: the application is built first, as D-02 shows, with the database and
+the plugins in `UltimaBase.create` (example below). Every model is declared
+from it: `App.defineModel(...)`, and the plugins' entries `App.defineRole(...)`
+and `App.defineUser(...)` (D-13, D-62). Each plugin value carries its types, so
+`App.defineModel` keys, the commands they add (D-15) and `.with` keys (D-42)
+are exactly those of the plugins listed in `plugins`: a key of a plugin outside
+it fails on its own line, before startup. Nothing is declared globally; there
+is no `Register`. A plugin option cannot reference a model, which is declared
+from the application. A separate file assembles the application with
+`App.build({ models: [...], functions: [...] })`; `App.defineModel` and
+`App.defineFunction` (D-27) register nothing, and `migrate` (D-26) and tests
+(D-40) import the built application without starting it. The lists cannot go in
+`UltimaBase.create`: each model and function imports `App`, so the
+application's file importing them is an import cycle.
 Why: nothing implicit. The D-24 spike (`bench/typing/README.md`, 2026-10-19)
 typed both open options and found that no type reads a model by name any more
 (D-44), so `Register` had nothing left to type: relation cycles are avoided
@@ -441,10 +447,10 @@ export const Post = defineModel({ name: 'Post', softDelete: true, fields })
 
 // After
 // app.ts
-export const App = UltimaBase.create({ database: postgres() }).use(
-	softDelete(),
-	graphql(),
-)
+export const App = UltimaBase.create({
+	database: postgres(),
+	plugins: [softDelete(), graphql()],
+})
 // post.ts
 import { App } from './app.ts'
 export const Post = App.defineModel({ name: 'Post', softDelete: true, fields })
@@ -531,10 +537,10 @@ Rejected: exposing error messages by default.
 
 ## D-29: Plugin order matters only where it must
 
-Choice: hooks run in the fixed order of D-15. Filters and refusals from `before`
-hooks combine with AND, so plugin order cannot change them. Data changes and
-`after` hooks run in `.use(...)` order, plugins first, then the application's
-own hooks.
+Choice: hooks run in the fixed order of D-15. Filters and refusals from
+`before` hooks combine with AND, so plugin order cannot change them. Data
+changes and `after` hooks run in the order of `plugins`, plugins first, then
+the application's own hooks.
 Why: security never depends on the order plugins were written in.
 Rejected: explicit priorities.
 
@@ -570,9 +576,10 @@ Why: new field types brought by plugins are a core promise of UltimaBase.
 Example:
 
 ```ts
-const App = UltimaBase.create({ database: postgres() }).use(
-	files({ storage: s3({ bucket }) }),
-)
+const App = UltimaBase.create({
+	database: postgres(),
+	plugins: [files({ storage: s3({ bucket }) })],
+})
 App.defineModel({ name: 'Post', fields: { cover: file({ optional: true }) } })
 ```
 

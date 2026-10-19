@@ -1,6 +1,7 @@
 // D-24: models are declared from the application,
-// `const App = UltimaBase.create({ database }).use(softDelete())` then
-// `App.defineModel(...)`, and `App.build({ models })` assembles it.
+// `const App = UltimaBase.create({ database, plugins: [softDelete()] })` then
+// `App.defineModel(...)`, and `App.build({ models })` assembles it
+// (functions are not prototyped).
 // A plugin's types travel with its value; nothing is declared globally.
 import type {
 	App,
@@ -82,9 +83,6 @@ export interface Database {
 }
 
 export interface AppBuilder<P extends readonly Plugin<PluginTypes>[]> {
-	use<const Q extends readonly Plugin<PluginTypes>[]>(
-		...plugins: Q
-	): AppBuilder<[...P, ...Q]>
 	defineModel<
 		const N extends string,
 		const F extends { readonly [field: string]: FieldShape },
@@ -104,5 +102,8 @@ export interface AppBuilder<P extends readonly Plugin<PluginTypes>[]> {
 }
 
 export declare const UltimaBase: {
-	create(options: { readonly database: Database }): AppBuilder<[]>
+	create<const P extends readonly Plugin<PluginTypes>[] = []>(options: {
+		readonly database: Database
+		readonly plugins?: P
+	}): AppBuilder<P>
 }

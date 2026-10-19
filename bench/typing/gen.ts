@@ -174,7 +174,7 @@ write(
 	'src/app.ts',
 	`import { UltimaBase, acl, graphql, memory, softDelete } from '${kernel}'
 
-export const App = UltimaBase.create({ database: memory() }).use(softDelete(), acl(), graphql())
+export const App = UltimaBase.create({ database: memory(), plugins: [softDelete(), acl(), graphql()] })
 `,
 )
 write(

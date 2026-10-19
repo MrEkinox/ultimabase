@@ -36,7 +36,7 @@ These agree with ADR-0297 of the previous base (0.55 s at 50 models, 1.90 s at
 ## Prototype
 
 `prototype/` holds the types of the form D-24 settled:
-`UltimaBase.create({ database }).use(...)`, `App.defineModel(...).with(...)`,
+`UltimaBase.create({ database, plugins })`, `App.defineModel(...).with(...)`,
 fields, relations, queries, model and field rules, three stand-in plugins and
 `App.build({ models })`; nothing in it runs. `prototype/example/` is a small
 application whose `checks.ts`, `declared.ts` and `plugin-keys.ts` assert the
@@ -148,8 +148,9 @@ What else the spike found:
   cycles unless it declares `: boolean`: without it, `User` becomes `any`
   (TS7022 on its declaration), with nothing on the rule's line.
 
-After D-24, the prototype was aligned on the decision: the database moved to
-`UltimaBase.create` (D-02), `App.create` became `App.build`, and the
+After D-24, the prototype was aligned on the decision: the database and the plugins
+moved to the options of `UltimaBase.create` (D-02), `App.create` became
+`App.build`, and the
 `postgres` key of `.with` became `graphql`, since a storage adapter is not a
 plugin. On 2026-10-19, `tsc -p` exited 0 on the prototype and on the seven
 projects `gen.ts` writes (10, 50, 200, rules 10, rules 200, wide 120 with and

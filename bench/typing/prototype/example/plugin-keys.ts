@@ -1,10 +1,10 @@
 // Plugin keys that change a model's shape (D-24): soft delete's
 // `softDelete: true` adds `trash` and `restore` (D-15, D-17), and only the
-// plugins in `use` give keys. `tsc` fails if a case does not hold.
+// plugins listed in `plugins` give keys. `tsc` fails if a case does not hold.
 import { UltimaBase, acl, memory, string } from '../index.ts'
 import { App } from './app.ts'
 
-const AclOnly = UltimaBase.create({ database: memory() }).use(acl())
+const AclOnly = UltimaBase.create({ database: memory(), plugins: [acl()] })
 const SetOn = App.defineModel({
 	name: 'SetOn',
 	softDelete: true,
@@ -34,7 +34,7 @@ export const NoGraphql = AclOnly.defineModel({
 	name: 'NoGraphql',
 	fields: { t: string() },
 }).with({
-	// @ts-expect-error: graphql() is not in `use`
+	// @ts-expect-error: graphql() is not in `plugins`
 	graphql: {},
 })
 export const BadOwner = SetOn.with({
