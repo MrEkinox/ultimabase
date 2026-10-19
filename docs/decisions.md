@@ -725,29 +725,36 @@ that row. A field nobody but Master may read is absent from the generated
 GraphQL type, and one readable under a condition is nullable there. A caller
 other than Master cannot filter or sort on a field that has a read rule. A
 refused write fails with `ACCESS_DENIED` and the field's path.
-Typing: a field rule has two forms. In `.with({ ... })`, `value` and
-`record.id` are typed, the other fields of `record` are `unknown`, and the
-`boolean` result is checked. Naming the model, `.with<'Post'>({ ... })`, types
-the whole `record` from `Register` (D-24); each of its rules then writes its
-result type, `({ record }): boolean => ...`, and a forgotten `: boolean`
-fails the type check. A model rule (D-10) needs neither: it is typed in full.
+Typing: in `.with({ ... })`, `value` and `record.id` are typed, the other
+fields of `record` are `unknown`, and the `boolean` result is checked. Rules
+that read other fields declare only those fields, each with the model's exact
+type: `.with<{ status: 'draft' | 'published' }>({ ... })` types them in
+`record`, and the rules need no annotation. `defineModel` checks the
+declaration against the model: a field the model does not have, or a type
+that differs from the model's (wider, narrower, optional, `any`), fails on
+that field's line and shows the model's type to copy, so a wider type cannot
+let `'publshed'` through. An
+optional field is declared with `| null`; scalar and system fields can be
+declared, relations cannot. A model rule (D-10) is typed in full.
 Why: Parse puts protected fields and per-field write checks in `beforeSave`
 code, which grows into spaghetti; a rule next to its field reads at a glance.
 A filter on a hidden field would leak its value one guess at a time, and a
 rule on `record` cannot run inside the query. On TypeScript 7 the field's
-`.with` call is resolved while its model is still being typed, so a rule
-cannot read the model's type unless the developer names it, and its result
-cannot be inferred from a body that reads the model: that is a cycle
-(TS7022). Simple rules stay free of ceremony; full typing costs two
-annotations.
-Rejected: per-field checks in hooks; a model-level map of protected fields;
-`.with<{ status: ... }>` listing the fields a rule reads (repeats the model's
-types); a `void` result for named rules (accepts any result, a `Promise`
-included); the record type taken from a callback around the fields or from
-`typeof Post` (both a cycle).
-Condition: the typing forms hold in the Phase 1 prototype with rules nested
-in `access`, combined with `anyOf`, and 200 models; otherwise this entry is
-revised.
+`.with` call is checked while its model is still being typed, so any record
+type derived from the model is a cycle (TS7022) that turns the whole
+application into `any`, far from the faulty line. A declared type does not
+depend on the model, so it cannot cycle; checking it in `defineModel`, where
+the fields are known, keeps it from drifting. The developer writes only the
+fields a rule reads. Checked in the Phase 1 prototype with rules nested in
+`access`, combined with `anyOf`, and 200 models (`bench/typing/README.md`).
+Rejected: per-field checks in hooks; a model-level map of protected fields,
+and record-reading rules moved to the model's `.with` keyed by field (both far
+from their fields); naming the model, `.with<'Post'>` with `: boolean` on each
+rule (the prototype showed it cycles as soon as two rules destructure the
+record or one parameter is annotated, even with a hand-written type); an
+unchecked declared type (drifts from the model); a declared type allowed to
+be wider than the model's (lets a misspelt enum value through); the record type taken from a
+callback around the fields or from `typeof Post` (both a cycle).
 Later, if a real need appears: a field read rule may also return
 `{ where: { ... } }`, ANDed into any filter on that field, so a caller can
 filter on their own email and nobody else's. It adds to this entry without
@@ -768,9 +775,13 @@ fields: {
 	createdBy: one(() => User).with({
 		access: { create: allow.private, update: allow.private },
 	}),
-	// Named model: `record.status` is 'draft' | 'published'
-	title: string().with<'Post'>({
-		access: { update: ({ record }): boolean => record.status === 'draft' },
+	// Declared record: the fields the rules read, with the model's exact types
+	title: string().with<{ status: 'draft' | 'published' }>({
+		access: {
+			read: ({ record, caller }) =>
+				record.status === 'published' || isEditor(caller),
+			update: ({ record }) => record.status === 'draft',
+		},
 	}),
 }
 ```
