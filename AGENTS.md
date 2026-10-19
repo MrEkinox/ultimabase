@@ -21,6 +21,9 @@ reuse an idea, a test or a known pitfall only when a decision calls for it.
    asks for. No speculative APIs, options, packages or infrastructure.
 4. Stop and ask before a choice that is not covered by a recorded decision.
 
+[docs/roadmap.md](docs/roadmap.md) tracks the current phase; tick an item in
+the commit that completes it.
+
 ## Code quality
 
 - No `any` in any form. Validate `unknown` at untrusted boundaries.

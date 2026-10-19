@@ -1094,3 +1094,16 @@ Why: the smallest set that builds a real application end to end, from a
 starter to production, and proves the plugin design.
 Rejected: roles and ACL in 0.1 (functions cover simple permissions, D-10);
 migrations after 0.1 (nothing could go to production).
+
+## D-69: Vitest, and line budgets per package
+
+Choice: tests run on Vitest. Each package has a line budget for its production
+code, checked by CI: kernel 10,000, PostgreSQL 4,000, GraphQL 3,000, auth
+3,000, HTTP 800, soft delete 150; a new package gets its budget in the commit
+that creates it. A budget changes only in a commit that says why.
+Why: Vitest runs TypeScript and ESM natively and fast, and the previous base
+used it. The previous base reached 76,000 kernel lines, 10,000 PostgreSQL,
+8,300 GraphQL and 9,000 auth; a budget enforced from the first commit stops
+that growth instead of measuring it afterwards.
+Rejected: Node's test runner (weaker watch mode and type tests); budgets set
+after the code exists.
