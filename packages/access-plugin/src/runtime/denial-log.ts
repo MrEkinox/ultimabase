@@ -10,6 +10,12 @@ const steps: Readonly<Record<string, string>> = {
 	'access-operation': 'operation',
 }
 
+// The read policy operations print as the methods rules name (ADR-0347).
+const printedOperations: ReadonlyMap<string, string> = new Map([
+	['many', 'findMany'],
+	['one', 'findOne'],
+])
+
 /**
  * Logs why Access denied one request (ADR-0317, decision 5): the schema, the
  * operation, the step and the rule, at `info` outside production and `debug`
@@ -29,7 +35,7 @@ export const createDenialLog =
 		) {
 			return
 		}
-		const line = `denied ${operation} on ${details.schema} at the ${steps[details.phase] ?? details.phase} step (${details.rule}).`
+		const line = `denied ${printedOperations.get(operation) ?? operation} on ${details.schema} at the ${steps[details.phase] ?? details.phase} step (${details.rule}).`
 		if (environment === 'production') logger.debug(line)
 		else logger.info(line)
 	}
