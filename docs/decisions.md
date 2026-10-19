@@ -203,21 +203,25 @@ Rejected: string keywords for behaviour.
 
 Choice: a plugin contributes features to `defineModel` (fields, tables),
 commands (new operations on a model, such as `restore`) and hooks. Hooks are few
-and fixed. On an operation, in this order:
+and fixed, and an application writes the same ones (D-43). On an operation, in
+this order:
 
-1. Redirect: replace the operation with another one (soft delete turns
-   `delete` into `update`). The replacement runs through the whole pipeline.
-2. Restrict: refuse the operation or add a filter. Only narrows, never widens
-   (access, validation, ACL).
-3. Transform: change input or output data (trim, computed field, hidden
-   field).
-4. React: run inside the operation's transaction, after its write, and write
-   more (create a user's profile when the user is created). A failure rolls
-   everything back.
-5. Observe: run after commit (email, webhook, cache).
+1. `redirect` (plugins only): replace the operation with another one (soft
+   delete turns `delete` into `update`). The replacement runs through the
+   whole pipeline.
+2. `beforeFind`, `beforeCreate`, `beforeUpdate`, `beforeDelete`: refuse the
+   operation, add a filter that only narrows, never widens (access, ACL), or
+   change the input data (trim, computed field).
+3. `afterFind`: change the output. `afterCreate`, `afterUpdate`,
+   `afterDelete`: run inside the operation's transaction, after its write, and
+   write more (create a user's profile when the user is created). A failure
+   rolls everything back.
+4. `afterCreateCommit`, `afterUpdateCommit`, `afterDeleteCommit`: run after
+   commit (email, webhook, cache).
 
-Restrict, Transform and React receive the record as it was before the
-operation. On the application: Identify (per request, before any operation,
+Write hooks receive the record as it was before the operation. The names
+follow Parse (`beforeSave`) and Rails (`after_create_commit`). On the
+application: Identify (per request, before any operation,
 fill a generic slot of the context with who is calling) and Start/Stop
 (connect, listen, seed).
 Why: the previous runtime had about eighteen stages; each hook here is needed
@@ -248,7 +252,7 @@ Rejected: kernel-level capabilities and plugin events.
 
 Choice: a soft-deleted row does not exist for ordinary reads, for every
 caller including Master. The trash is read through the plugin's own commands
-(`Post.trash.findMany(...)`), which go through Restrict like any command;
+(`Post.trash.findMany(...)`), which go through `beforeFind` like any read;
 Master passes, others need the permission.
 Why: hiding deleted rows is the meaning of the data, not authorization, so
 Master keeps bypassing authorization with no exception. A server job never
@@ -365,7 +369,7 @@ room for them now:
 - Realtime subscriptions, with access rules applied to each event.
 - Scheduled and background jobs; an admin dashboard.
 - Multi-tenancy, through Identify (the tenant is part of the caller) and
-  Restrict (a tenant filter), with no kernel change.
+  a `beforeFind` tenant filter, with no kernel change.
 - A typed browser client, much later; most users go through REST or GraphQL.
   Why: knowing them now keeps today's code from blocking them.
 
@@ -428,9 +432,10 @@ Rejected: exposing error messages by default.
 
 ## D-29: Plugin order matters only where it must
 
-Choice: hooks run in the fixed order of D-15. Within Restrict, results combine
-with AND, so plugin order cannot change them. Within Transform, React and
-Observe, plugins run in `.use(...)` order.
+Choice: hooks run in the fixed order of D-15. Filters and refusals from `before`
+hooks combine with AND, so plugin order cannot change them. Data changes and
+`after` hooks run in `.use(...)` order, plugins first, then the application's
+own hooks.
 Why: security never depends on the order plugins were written in.
 Rejected: explicit priorities.
 
@@ -591,3 +596,67 @@ Why: GraphQL clients and tools (Apollo, Relay) expect these names; Relay is the
 maintainer's daily usage, while some applications want plain lists.
 Rejected: Prisma-style names (`findManyPost`), which keep one vocabulary but
 read oddly to front-end developers.
+
+## D-42: One `.with` key per owner
+
+Choice: in `.with({ ... })`, on a model or a field, the kernel and each plugin
+own exactly one key, named after them (`access`, `hooks`, `softDelete`, `acl`).
+A plugin with a single option takes the value directly
+(`access: allow.public`, `softDelete: true`); one with several takes an
+object. Two plugins claiming the same key stop startup with a message naming
+both.
+Why: no collision between independent plugins (D-21); autocompletion lists
+one key per installed plugin; a key leads to its plugin in one click; opening a
+model stays one word (D-04).
+Rejected: every option flat at the root (mixed keys, collisions, unclear
+owner); a mandatory object per plugin (`access: { rule: allow.public }`).
+
+## D-43: Applications write hooks under `hooks`
+
+Choice: an application writes the D-15 hooks on its model, under the kernel's
+`hooks` key. Queries inside an in-transaction hook join the transaction
+(D-36). Hooks are for behaviour; permissions belong to `access` rules (D-44).
+Why: the hooks Parse developers use every day, with the same names, and no
+second concept beside the plugin hooks.
+Rejected: a separate hooks plugin; Parse's global `beforeSave('Post', ...)`
+registration, far from the model.
+Example:
+
+```ts
+export const User = defineModel({ name: 'User', fields }).with({
+	access: allow.public,
+	hooks: {
+		afterCreate: async ({ record }) => {
+			await Profile.create({ data: { user: record.id } }, { as: master })
+		},
+		afterCreateCommit: async ({ record }) => sendWelcomeEmail(record.email),
+	},
+})
+```
+
+## D-44: Field access rules per operation
+
+Choice: a field's `.with({ access })` takes one rule or one rule per operation
+(`read`, `create`, `update`). A rule receives the caller, the current record
+and, for writes, the new value. An unreadable field is left out of results;
+a field nobody but Master may read is absent from the generated GraphQL type,
+and one readable under a condition is nullable there. Filtering or sorting on
+a field the caller cannot read is refused. A refused write fails with
+`ACCESS_DENIED` and the field's path.
+Why: Parse puts protected fields and per-field write checks in `beforeSave`
+code, which grows into spaghetti; a rule next to its field reads at a glance.
+A filter on a hidden field would leak its value one guess at a time.
+Rejected: per-field checks in hooks; a model-level map of protected fields.
+Example:
+
+```ts
+fields: {
+	email: string().with({ access: { read: isSelf, update: isSelf } }),
+	status: enumOf(['draft', 'published']).with({
+		access: { update: anyOf(({ value }) => value === 'draft', hasRole('editor')) },
+	}),
+	createdBy: one(() => User).with({
+		access: { create: allow.private, update: allow.private },
+	}),
+}
+```
