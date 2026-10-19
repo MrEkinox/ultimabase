@@ -23,8 +23,9 @@ Example: the code a developer writes.
 
 Choice: UltimaBase targets developers coming from Parse, Supabase, Prisma,
 Payload or a hand-written backend. The kernel alone is the most basic system
-possible; every capability (authentication, permissions, transports, storage,
-hooks…) is a plugin the developer adds when they need it, or writes when it
+possible: models, queries, the storage slot (D-02), access rules (D-10) and
+hooks (D-43). Every other capability (authentication, roles, transports,
+files…) is a plugin the developer adds when they need it, or writes when it
 does not exist. The same tool fits a tiny public site storing a few records
 with no authentication and a large application.
 Why: the plugin ecosystem is what sets UltimaBase apart from other backend
@@ -36,7 +37,7 @@ Example: to be written once the kernel API is decided.
 
 Choice: an application has exactly one storage adapter, given in its own
 required `database` option rather than in the plugin list. The in-memory
-adapter ships with the kernel and is chosen by name like any other;
+adapter ships with the kernel and is imported like any other (`memory()`);
 PostgreSQL is a separate package. Adapters implement one public contract, and
 one shared contract suite runs against each of them (transactions included).
 Why: storage is mandatory and unique, unlike plugins, which are optional and
@@ -49,7 +50,7 @@ run production on memory.
 Example:
 
 ```ts
-const App = UltimaBase.create({ database: postgres() }).use(rest())
+const App = UltimaBase.create({ database: postgres() }).use(graphql())
 const Demo = UltimaBase.create({ database: memory() })
 ```
 
@@ -93,7 +94,8 @@ safety net.
 ## D-07: Models keep the `defineModel(...).with(...)` shape
 
 Choice: a model is declared with `defineModel({ ... })`, which holds the data,
-followed by `.with({ ... })`, which holds what plugins add. The details (field
+followed by `.with({ ... })`, which holds behaviour: the kernel's `access` and
+`hooks` and what plugins add (D-42). The details (field
 syntax, defaults, rule spelling) are decided in later entries.
 Why: the previous base reached this shape after many iterations and proved it
 clear and well typed; restarting does not reopen it.
@@ -108,8 +110,9 @@ Rejected: Parse's optional-by-default.
 
 ## D-09: The first field types include relations
 
-Choice: the first release ships string, number, boolean, date, json, enum
-and the relations `one` and `many` (D-37). Bigint, decimal, time, binary and
+Choice: the first release ships `string`, `number`, `boolean`, `date`, `json`,
+`enumOf` (`enum` is a reserved word in JavaScript) and the relations `one`
+and `many` (D-37). Bigint, decimal, time, binary and
 uuid come later, on demand.
 Why: relations shape the data model and the query API, so they must be designed
 from the start; the other types are additions that change nothing else.
@@ -121,6 +124,10 @@ Choice: an access rule is always a function. The kernel exports ready-made
 rules under `allow` (`allow.public`, `allow.readOnly`, `allow.private`);
 plugins export their own (`isAuthenticated` from auth); rules combine with
 helpers such as `anyOf`. One rule may cover the whole model or each operation.
+A rule receives `{ caller }` (and `value` for a field write, D-44) and returns
+`true`, `false` or a Prisma `where` (D-20) that narrows the rows the operation
+may touch; the kernel ANDs that `where` into the query, so the adapter applies
+it in the same round trip (D-46).
 Why: DX is UltimaBase's first goal. One concept instead of words plus
 functions; a developer jumps to a rule's source to see what it does; rules
 compose; plugins add rules without a typed registry of words. The previous
@@ -132,7 +139,7 @@ Example:
 ```ts
 .with({ access: allow.public })
 .with({ access: { read: allow.public, write: isAuthenticated } })
-.with({ access: { read: ({ where }) => where.eq('archived', false) } })
+.with({ access: { read: () => ({ archived: false }) } })
 ```
 
 ## D-11: No type generation
@@ -154,7 +161,8 @@ goes in `.with`.
 Why: one rule to learn at both levels; no rules map keyed by field names far
 from the fields; no `(field) => ...` callback.
 Condition: accepted once a benchmark on a large model shows editor typing
-cost no worse than the previous form D on TypeScript 7. If it fails, this entry
+cost no worse than the previous base's field form (fields declared through a
+`(field) => ({ ... })` callback) on TypeScript 7. If it fails, this entry
 is replaced.
 Rejected: plugin options inside field options (mixes data and behaviour); a
 per-field rules map in the model's `.with` (rules far from their fields).
@@ -217,7 +225,9 @@ this order:
    write more (create a user's profile when the user is created). A failure
    rolls everything back.
 4. `afterCreateCommit`, `afterUpdateCommit`, `afterDeleteCommit`: run after
-   commit (email, webhook, cache).
+   commit (email, webhook, cache). A failure is logged with a correlation id
+   (D-28) and the operation still succeeds, since its write is committed;
+   retries belong to a jobs plugin.
 
 Write hooks receive the record as it was before the operation. The names
 follow Parse (`beforeSave`) and Rails (`after_create_commit`). On the
@@ -227,8 +237,9 @@ fill a generic slot of the context with who is calling) and Start/Stop
 Why: the previous runtime had about eighteen stages; each hook here is needed
 by a real plugin of the previous base (access, ACL, roles, hooks, soft delete,
 auth, Postgres, HTTP) and has one nameable purpose.
-Guards: at most one plugin may redirect a given operation on a given model;
-a conflict stops startup with a message naming both plugins. This design is
+Guards: at most one plugin may redirect a given operation on a given model,
+and two plugins may not add a command of the same name to one model; either
+conflict stops startup with a message naming both plugins. This design is
 accepted once access, soft delete and an after-commit email plugin are
 written with it, soft delete in under 150 lines (383 before).
 Rejected: a hook per pipeline stage; a generic interceptor around everything.
@@ -241,8 +252,10 @@ requirement is not installed. A plugin that can work without another lists it
 in `optional: [roles]` and gets `Roles | undefined`; it reports a clear error,
 and types its options accordingly, when a feature needs the absent plugin (an
 ACL entry naming a role without `roles()` installed). The kernel has no
-service registry and no event bus between plugins. HTTP routes belong to an
-HTTP plugin with which REST and GraphQL register; the kernel knows no
+service registry and no event bus between plugins. HTTP routes belong to the
+`http()` plugin, which owns the server (port, CORS, Hono routes); GraphQL and
+REST require it and register on that one server, so both transports share one
+listener unless the developer explicitly starts another. The kernel knows no
 transport. The kernel exposes its models read-only for transports and tools.
 Why: a direct call can be followed in the editor in one click; the previous
 capabilities and plugin events could not.
@@ -277,8 +290,9 @@ on every call and breaks rename.
 ## D-19: One `as` option says who sends an operation
 
 Choice: every operation takes `{ as: caller }`. `master` is a server-only
-imported value; `ctx.caller` is the caller the Identify hook found for the
-current request; a plain expression chooses between them. Without `as`, the
+imported value; `caller` is the caller the Identify hook found for the
+current request, which hooks, functions and HTTP routes receive as
+`{ caller }`; a plain expression chooses between them. Without `as`, the
 operation runs as anonymous. Plugins may add kinds of callers through
 Identify; only the kernel creates `master`.
 Why: Parse splits this between `useMasterKey` and `sessionToken`, which can be
@@ -289,7 +303,7 @@ Rejected: a `useMasterKey` boolean; separate master and session options.
 Example:
 
 ```ts
-Post.findMany({ where }, { as: fromBackOffice ? master : ctx.caller })
+Post.findMany({ where }, { as: fromBackOffice ? master : caller })
 ```
 
 ## D-20: The query API follows Prisma Client
@@ -362,16 +376,16 @@ Rejected: type generation; passing the application to every `defineModel`.
 Choice: these come after the first release, as plugins, and the design leaves
 room for them now:
 
-- GraphQL, generated from the models, as important as REST: the maintainer
-  and many users work only in GraphQL.
-- Files, early: memory, local and S3 adapters and a file field (shape still open).
+- REST, right after GraphQL (D-34).
+- Files, early, in the shape of D-32.
 - OAuth and magic link, early, as methods of the auth plugin.
 - Realtime subscriptions, with access rules applied to each event.
 - Scheduled and background jobs; an admin dashboard.
 - Multi-tenancy, through Identify (the tenant is part of the caller) and
   a `beforeFind` tenant filter, with no kernel change.
 - A typed browser client, much later; most users go through REST or GraphQL.
-  Why: knowing them now keeps today's code from blocking them.
+
+Why: knowing them now keeps today's code from blocking them.
 
 ## D-26: Migrations are SQL files, safe changes sync in development
 
@@ -392,13 +406,13 @@ automatic destructive sync.
 ## D-27: Functions, exposed by transports, plus raw HTTP routes
 
 Choice: `defineFunction({ name, input, output, run })` declares a server
-operation with Standard Schema input and output (a model is accepted as
-output). Every installed transport exposes it (a GraphQL query or mutation,
-a REST endpoint); `.with({ ... })` sets its access, closed by default (D-04),
-and where it is exposed (`.with({ rest: false })`). `run` receives the
-validated input and the caller. For anything else (webhooks, redirects) the
-HTTP plugin is built on Hono and the developer writes plain Hono routes with
-the caller available.
+operation with a Standard Schema input and a typed output (D-45 lists the
+accepted outputs). Every installed transport exposes it (a GraphQL query or
+mutation, a REST endpoint); `.with({ ... })` sets its access, closed by
+default (D-04), and where it is exposed (`.with({ rest: false })`). `run`
+receives the validated input and the caller. For anything else (webhooks,
+redirects) the HTTP plugin is built on Hono and the developer writes plain Hono
+routes with the caller available.
 Why: one declaration replaces one custom endpoint per transport, like Parse
 Cloud Functions; GraphQL needs a runtime output type, which the output schema
 gives. Hono routes need no new concept.
@@ -537,8 +551,11 @@ Choice: a relation field is `one(() => Target)` or `many(() => Target)`, and
 both models declare their side. `one` facing `many` is one-to-many; `many`
 facing `many` is many-to-many through a join table. When two relations join
 the same models, `{ inverse: 'author' }` names the field on the other side,
-typed from that model's fields. A missing side stops startup with a message
-saying what to add.
+typed from that model's fields. `one` facing `one` is one-to-one: the
+required side stores the key (`Profile.user` required, `User.profile`
+optional); when both sides are required or both optional, startup stops and
+asks to make one optional. A missing side stops startup with a message saying
+what to add.
 Why: the cardinality reads from the word; both sides keep each model complete
 on its own (colocation) and make the inverse explicit, as Prisma does.
 Rejected: Parse's `pointer` and `relation`; an implicit inverse side.
@@ -570,7 +587,9 @@ Rejected: Bun, Deno and edge runtimes for now; Bun may come later.
 
 Choice: the `auth` plugin issues opaque session tokens stored in the database,
 so they can be revoked. A client sends one as a `Bearer` header or an httpOnly
-cookie; the format is the same.
+cookie; the format is the same. The cookie is `SameSite=Lax`, and the GraphQL
+transport refuses requests that are not JSON, which together block cross-site
+request forgery without a CSRF token.
 Why: revocation needs server state; the cookie keeps browsers safe by default
 while mobile and server clients keep a plain header.
 Rejected: JWT sessions (cannot be revoked before they expire).
@@ -581,6 +600,8 @@ Choice: `@ultimabase/testing` provides `testApplication(app)`, which starts
 the application on a fresh `memory()` database for each test, conformance
 suites for plugin and adapter authors (D-02), and PostgreSQL tests through
 Docker or `TEST_DATABASE_URL`. Server-side tests use `as: master` (D-19).
+Since one application runs per JavaScript realm (D-18), tests inside one file
+run one after another; test files run in parallel in separate workers.
 Why: the previous base proved these helpers useful; the in-memory database
 keeps application tests fast.
 Rejected: leaving every application to build its own test setup.
@@ -627,7 +648,10 @@ export const User = defineModel({ name: 'User', fields }).with({
 	access: allow.public,
 	hooks: {
 		afterCreate: async ({ record }) => {
-			await Profile.create({ data: { user: record.id } }, { as: master })
+			await Profile.create(
+				{ data: { user: { connect: { id: record.id } } } },
+				{ as: master },
+			)
 		},
 		afterCreateCommit: async ({ record }) => sendWelcomeEmail(record.email),
 	},
@@ -637,15 +661,21 @@ export const User = defineModel({ name: 'User', fields }).with({
 ## D-44: Field access rules per operation
 
 Choice: a field's `.with({ access })` takes one rule or one rule per operation
-(`read`, `create`, `update`). A rule receives the caller, the current record
-and, for writes, the new value. An unreadable field is left out of results;
-a field nobody but Master may read is absent from the generated GraphQL type,
-and one readable under a condition is nullable there. Filtering or sorting on
-a field the caller cannot read is refused. A refused write fails with
+(`read`, `create`, `update`). A rule has the shape of D-10: it receives the
+caller and, for writes, the new value, and returns `true`, `false` or a
+`where`. A read `where` decides, row by row, whether the field's value is
+returned; an update `where` names the rows whose field may change (`{ status:
+'draft' }`: only while the stored status is still draft). An unreadable field
+is left out of results; a field nobody but Master may read is absent from the
+generated GraphQL type, and one readable under a condition is nullable there.
+Filtering or sorting on a field is refused when its read rule returns
+`false`, and narrowed by its `where` otherwise. A refused write fails with
 `ACCESS_DENIED` and the field's path.
 Why: Parse puts protected fields and per-field write checks in `beforeSave`
 code, which grows into spaghetti; a rule next to its field reads at a glance.
-A filter on a hidden field would leak its value one guess at a time.
+A filter on a hidden field would leak its value one guess at a time; ANDing
+the read `where` into the filter (`isSelf` returns `{ id: caller.user.id }`)
+lets a caller filter on their own email and nobody else's.
 Rejected: per-field checks in hooks; a model-level map of protected fields.
 Example:
 
@@ -653,7 +683,9 @@ Example:
 fields: {
 	email: string().with({ access: { read: isSelf, update: isSelf } }),
 	status: enumOf(['draft', 'published']).with({
-		access: { update: anyOf(({ value }) => value === 'draft', hasRole('editor')) },
+		access: {
+			update: anyOf(({ value }) => value === 'draft', hasRole('editor')),
+		},
 	}),
 	createdBy: one(() => User).with({
 		access: { create: allow.private, update: allow.private },
