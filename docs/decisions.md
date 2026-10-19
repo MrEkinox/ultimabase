@@ -660,3 +660,23 @@ fields: {
 	}),
 }
 ```
+
+## D-45: Function types become GraphQL types, with an escape hatch
+
+Choice: a function's `input` is any Standard Schema; its `output` is a model
+(`Todo`), a list (`[Todo]`), a paginated list (`paginated(Todo)`, shaped by the
+application's pagination, a Relay connection by default, D-41), an object
+mixing models and schemas (`{ todo: Todo, created: z.boolean() }`) or any
+Standard Schema. GraphQL types come from the validator's standard JSON Schema
+export: a nested object is named from its path (`CreateOrderInputAddress`); a
+schema given an id (Zod's `.meta({ id: 'Address' })`) becomes one shared type;
+two different shapes under one name stop startup; a validator without a JSON
+Schema export stops startup naming the function. What a validator cannot
+describe (arguments on output fields, interfaces, per-field resolvers) is
+added by extending the generated GraphQL schema by hand (`graphql-js`, Nexus or
+any tool producing it); the documentation states this path.
+Why: one declaration covers the common custom query or mutation without
+writing GraphQL types; rare GraphQL-only features stay possible, as raw Hono
+routes do for HTTP (D-27).
+Rejected: a GraphQL type builder in UltimaBase (re-creating Nexus); output
+limited to models.
