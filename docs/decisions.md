@@ -505,7 +505,8 @@ Rejected: explicit priorities.
 
 Choice: `ultimabase` holds the kernel and the in-memory adapter; official
 plugins are `@ultimabase/<name>` (`postgres`, `graphql`, `rest`, `auth`…).
-Community plugins are named `ultimabase-plugin-<name>` and carry the
+A plugin is official when the UltimaBase team writes and maintains it;
+community plugins are named `ultimabase-plugin-<name>` and carry the
 `ultimabase-plugin` keyword, so they can be listed automatically.
 Why: one obvious install for the kernel; the keyword is how Vite's ecosystem
 is indexed.
@@ -856,3 +857,107 @@ database that lacks a PostgreSQL feature.
 Why: aiming at the lowest common denominator would give up single-statement
 writes (D-48) and reads (D-46) on the database most users run.
 Rejected: one feature set identical on every adapter.
+
+## D-52: Unique fields on the field, indexes in `defineModel`
+
+Choice: a field takes `unique: true` (`string({ unique: true })`); indexes
+over one or several fields go in `defineModel`, since they shape the model
+(D-07): `indexes: [{ fields: ['author', 'slug'], unique: true }]`. Every
+unique field and unique index is a target of `findUnique`, `update`,
+`delete` and `upsert` (D-20).
+Why: the previous base used this split and it worked; uniqueness read from
+the field is the common case.
+Rejected: indexes in `.with` (they change the storage, not behaviour).
+
+## D-53: Defaults are values or functions; `json` takes a schema
+
+Choice: `default` takes a value (`default: false`) or a function without
+arguments (`default: () => new Date()`). A default that depends on the caller
+(`createdBy`) is written in a `beforeCreate` hook (D-15). `json()` accepts
+`validate` (D-23) and takes its type from the schema's output; without a
+schema its type is `unknown`.
+Why: a function covers dates and generated values without a second option;
+the caller belongs to hooks, which already receive it.
+Rejected: defaults receiving the caller; `json` typed as `any`.
+
+## D-54: Relations say what deleting their target does
+
+Choice: a `one` relation takes `onDelete: 'cascade' | 'restrict' |
+'setNull'`, as in Prisma. Without it, a required relation restricts (the
+target cannot be deleted while referenced) and an optional one sets null.
+Why: deleting a user who has posts must have a declared, predictable outcome.
+Rejected: no cascade (Parse), which leaves dangling pointers.
+Open: whether a cascade runs the hooks (soft delete, `afterDelete`) and the
+access rules of each row it deletes, or the database cascades on its own.
+
+## D-55: Reads have configurable limits
+
+Choice: without `take`, a list returns 100 rows; the default and the maximum
+`take` are set for the application and overridden per model. The GraphQL
+transport refuses queries nested deeper than 10 levels, a limit set in
+`graphql({ ... })`.
+Why: a forgotten `take` or a deep query must not read a whole table or
+exhaust the server.
+Rejected: no limit.
+Open: whether these limits apply to Master and to server code, and how server
+code reads every row of a large table (Parse's `findAll`).
+
+## D-56: Passwords use Argon2id, sign-in is rate limited
+
+Choice: the `auth` plugin hashes passwords with Argon2id from Node's
+`node:crypto` (OWASP parameters: 19 MiB memory, 2 passes, parallelism 1) and
+stores the algorithm and parameters with each hash, so they can change later
+and old hashes are upgraded at the next sign-in. It limits sign-in and
+password reset attempts per account and per address, stored in the database.
+Why: Argon2id is OWASP's first recommendation and Node's LTS ships it, so no
+native dependency is compiled; a brute-force guard must not depend on an
+optional plugin.
+Rejected: bcrypt (72-byte limit); scrypt (second choice once Argon2id is
+built in); a native `argon2` package.
+Open: whether a general rate limit for the whole API exists, and where.
+
+## D-57: Writing a plugin takes as few lines as possible
+
+Choice: a plugin is declared with one kernel entry and the fewest lines
+possible: a name, its requirements (D-16) and what it adds (features,
+commands, hooks, field types, D-15 and D-32). Its package declares
+`ultimabase` as a peer dependency with a version range, and startup refuses a
+plugin whose range excludes the running kernel, naming both versions.
+Why: the community plugin ecosystem is the product (D-01); a plugin that
+takes a page of boilerplate will not be written.
+Open: the exact entry, decided with the open point of D-24.
+
+## D-58: One pino-compatible logger
+
+Choice: `UltimaBase.create({ logger })` takes any logger with pino's interface
+(`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
+to the console. The kernel, plugins and D-28 correlation ids use it.
+OpenTelemetry comes later, as a plugin.
+Why: pino's interface is the Node standard and keeps the kernel free of a
+logging dependency.
+Rejected: a logging library bundled in the kernel.
+
+## D-59: `start` and `stop` drive the application
+
+Choice: `await app.start()` connects the database and starts the plugins
+(Start hooks, D-15); `await app.stop()` stops them. On `SIGTERM`, the
+application stops accepting requests, waits for running ones and pending
+`*Commit` hooks, then stops.
+Why: deployments restart applications constantly; work in progress must not
+be cut.
+Rejected: starting on import; leaving signals to each application.
+
+## D-60: Releases are 0.x, versioned together, with Changesets
+
+Choice: until 1.0, any minor version may break. The kernel and the official
+plugins are released together with the same version number, and Changesets
+writes the changelog.
+Why: one number tells which official packages work together.
+Rejected: independent versions per official package before 1.0.
+
+## D-61: `npm create ultimabase` from the first release
+
+Choice: the first release ships a minimal starter: one model, `memory()`,
+GraphQL and the `Register` declaration (D-24) already written.
+Why: the starter is the first impression, and it writes the one part a
+newcomer cannot guess.
