@@ -280,3 +280,21 @@ Example:
 ```ts
 Post.findMany({ where }, { as: fromBackOffice ? master : ctx.caller })
 ```
+
+## D-20: The query API follows Prisma Client
+
+Choice: operations, their names and their arguments follow Prisma Client, so
+a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
+`findFirst`, `findMany`, `count`, `create`, `createMany`, `update`,
+`updateMany`, `upsert`, `delete`, `deleteMany`, with `where`, `select`,
+`include`, `omit`, `orderBy`, `take`, `skip` and `cursor`, and nested relation
+filters (`some`, `every`, `none`) and writes (`connect`, `disconnect`).
+Without `select`, scalar fields return and relations do not. UltimaBase
+departs from Prisma only where a recorded decision says so: the caller
+option (D-19), the schema as entry point (D-18), plugin commands on the schema.
+The first release ships the subset needed by its examples; the rest follows
+Prisma's spelling when added.
+Why: Prisma's query API is the best-known in TypeScript and many frameworks
+copied it; familiarity is free DX.
+Rejected: a query syntax of our own; a function builder for `where` beside
+the object form.
