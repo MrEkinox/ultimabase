@@ -63,6 +63,36 @@ behaves the same. A declared record type
 checks against the model's exact types, does not cycle; a mismatch fails on
 the field's line and the error shows the model's type.
 
+## D-12 benchmark
+
+Measured on 2026-10-19, the previous base in the same session, its runs
+interleaved with the prototype's; same machine and TypeScript as the baseline.
+
+- Large model: `--wide 120` gives `S0` 120 more scalars (`w0` to `w119`) in
+  the cycle of `f0` to `f5`, in a 10-model project. The previous base's
+  `tools/gen.mjs` was given the same option locally (its field form has no
+  field rules); with `--field-rules`, the prototype adds 20 loose rules and 20
+  rules on a declared record to those fields.
+- Edits: the query edit of the baseline in `src/usage.ts`, and a model edit in
+  `src/s0.ts`, `default: false` becoming `default: 42   ` on `f2`. Each raised
+  exactly one error.
+- Three runs, medians below, in milliseconds. Load average 2.2 to 2.6. Every
+  `tsc -p` exited 0 and every first check reported 0 errors.
+
+| Project                 | `tsc` | Query: first | Query: edit | Model: first | Model: edit |
+| ----------------------- | ----: | -----------: | ----------: | -----------: | ----------: |
+| Previous base, wide 120 |   646 |          365 |         289 |          423 |         345 |
+| Prototype, wide 120     |   210 |           52 |          20 |           45 |          13 |
+| + field rules           |   239 |           79 |          46 |           66 |          36 |
+| Previous base, 200      | 4 228 |        1 948 |       1 822 |        1 061 |         892 |
+| Prototype, 200          |   463 |          320 |         198 |          145 |           7 |
+| + field rules           |   596 |          454 |         317 |          152 |          15 |
+
+The prototype holds types only, with two stand-in plugins, where the previous
+base type-checks its real packages: the margin is room for the kernel to grow
+into, not a final number. Run this campaign again once the kernel's own types
+replace the prototype's.
+
 ## Reproducing
 
 ```bash

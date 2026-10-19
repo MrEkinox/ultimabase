@@ -5,9 +5,11 @@
 // postgres })` whose read filter crosses a relation; one file per model, one
 // `findMany` per model in `usage.ts`, and the `Register` declaration.
 // `--field-rules` adds field rules in both D-44 forms, loose and with a
-// declared record, combined with `anyOf`.
-// Usage: node bench/typing/gen.ts <N> [--field-rules]
-//   -> bench/typing/gen/proto[-rules]-<N>/
+// declared record, combined with `anyOf`. `--wide <K>` gives `S0` K more
+// scalars in the same cycle of types (D-12's large model); with
+// `--field-rules`, one in six gets a loose rule and one in six a declared one.
+// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>]
+//   -> bench/typing/gen/proto[-rules]-<N>[-wide<K>]/
 // Files are overwritten, never deleted: one N always writes the same files.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -18,9 +20,19 @@ if (!Number.isInteger(count) || count < 2) {
 	throw new Error('usage: gen.ts <N> [--field-rules], with N >= 2')
 }
 const fieldRules = process.argv.includes('--field-rules')
+const wideAt = process.argv.indexOf('--wide')
+const wide =
+	wideAt === -1 ? 0 : Number.parseInt(process.argv[wideAt + 1] ?? '', 10)
+if (!Number.isInteger(wide) || wide < 0) {
+	throw new Error('usage: --wide <K>, with K >= 0')
+}
 
 const here = dirname(fileURLToPath(import.meta.url))
-const project = join(here, 'gen', `proto${fieldRules ? '-rules' : ''}-${count}`)
+const project = join(
+	here,
+	'gen',
+	`proto${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}`,
+)
 mkdirSync(join(project, 'src'), { recursive: true })
 const write = (path: string, text: string): void => {
 	writeFileSync(join(project, path), text)
@@ -70,6 +82,32 @@ const scalars = fieldRules
 		f4: enumOf(['a', 'b', 'c'], { optional: true }),
 		f5: string({ optional: true }),`
 
+const wideField = (k: number): string => {
+	const kind = k % 6
+	if (kind === 0) {
+		return fieldRules
+			? `\t\tw${k}: string().with({ access: { update: ({ value }) => value.length > 0 } }),`
+			: `\t\tw${k}: string(),`
+	}
+	if (kind === 1) return `\t\tw${k}: number({ optional: true }),`
+	if (kind === 2) return `\t\tw${k}: boolean(),`
+	if (kind === 3) return `\t\tw${k}: date({ optional: true }),`
+	if (kind === 4)
+		return `\t\tw${k}: enumOf(['a', 'b', 'c'], { optional: true }),`
+	return fieldRules
+		? `\t\tw${k}: string({ optional: true }).with<{ w${k - 3}: boolean; w${k - 1}: 'a' | 'b' | 'c' | null }>({
+			access: {
+				read: ({ record }) => record.w${k - 1} !== 'c',
+				update: anyOf(({ record }) => record.w${k - 3}, allow.private),
+			},
+		}),`
+		: `\t\tw${k}: string({ optional: true }),`
+}
+const wideFields = Array.from(
+	{ length: wide },
+	(_, k) => `\n${wideField(k)}`,
+).join('')
+
 for (let i = 0; i < count; i += 1) {
 	const next = (i + 1) % count
 	const previous = (i - 1 + count) % count
@@ -89,7 +127,7 @@ export const ${name(i)} = defineModel({
 	name: '${name(i)}',
 	softDelete: true,
 	fields: {
-${scalars}
+${scalars}${i === 0 ? wideFields : ''}
 		next: one(() => ${name(next)}, { optional: true, onDelete: 'setNull' }),
 		prevs: many(() => ${name(previous)}, { inverse: 'next' }),${
 			i % 5 === 0

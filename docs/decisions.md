@@ -185,7 +185,8 @@ from the fields; no `(field) => ...` callback.
 Condition: accepted once a benchmark on a large model shows editor typing
 cost no worse than the previous base's field form (fields declared through a
 `(field) => ({ ... })` callback) on TypeScript 7. If it fails, this entry
-is replaced.
+is replaced. Met on 2026-10-19 by the Phase 1 prototype, with and without
+field rules, 120 more fields on one model (`bench/typing/README.md`).
 Rejected: plugin options inside field options (mixes data and behaviour); a
 per-field rules map in the model's `.with` (rules far from their fields).
 Example:
