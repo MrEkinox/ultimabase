@@ -15,4 +15,182 @@ Rejected: the alternatives and why.
 Example: the code a developer writes.
 ```
 
-No decision recorded yet.
+## D-01: A bare kernel that grows by plugins
+
+Choice: UltimaBase targets developers coming from Parse, Supabase, Prisma,
+Payload or a hand-written backend. The kernel alone is the most basic system
+possible; every capability (authentication, permissions, transports, storage,
+hooks…) is a plugin the developer adds when they need it, or writes when it
+does not exist. The same tool fits a tiny public site storing a few records
+with no authentication and a large application.
+Why: the plugin ecosystem is what sets UltimaBase apart from other backend
+frameworks; a small project must not pay for features it does not use.
+Rejected: a batteries-included framework where features are switched off.
+Example: to be written once the kernel API is decided.
+
+## D-02: Storage is a dedicated, explicit slot, not a plugin
+
+Choice: an application has exactly one storage adapter, given in its own
+required `database` option rather than in the plugin list. The in-memory
+adapter ships with the kernel and is chosen by name like any other;
+PostgreSQL is a separate package. Adapters implement one public contract, and
+one shared contract suite runs against each of them (transactions included).
+Why: storage is mandatory and unique, unlike plugins, which are optional and
+combinable; a dedicated slot makes both rules structural instead of runtime
+checks. Naming the in-memory adapter keeps a first application and the test
+suite free of Docker while making it obvious that data disappears on restart.
+Rejected: storage as a plugin (the previous design), which needed checks for
+"none" and "two"; an implicit in-memory default, which lets a forgotten option
+run production on memory.
+Example:
+
+```ts
+const App = UltimaBase.create({ database: postgres() }).use(rest())
+const Demo = UltimaBase.create({ database: memory() })
+```
+
+## D-03: Transports are optional plugins
+
+Choice: REST and GraphQL are plugins. Without them, the developer writes their
+own routes and calls the internal API. No transport is installed by default.
+Why: most applications use a small part of what an all-in-one server ships.
+Rejected: a built-in HTTP server.
+
+## D-04: Closed by default, opened in one rule
+
+Choice: a schema exposed by a transport refuses reads and writes until the
+developer opens it. Opening takes one ready-made rule on the schema (D-10).
+Why: forgetting a rule must never publish a writable database, and opening a
+tiny public site must not need an authorization plugin.
+Rejected: open by default; opening through a verbose rule object.
+Example: `.with({ access: allow.public })`.
+
+## D-05: TypeScript 7 and Oxlint
+
+Choice: TypeScript 7 is the only compiler. Linting uses Oxlint with type-aware
+rules through tsgolint.
+Why: TypeScript 7 is the current stable release; typescript-eslint supports
+TypeScript up to 6.0 only, and Oxlint is native and much faster.
+Rejected: keeping TypeScript 6 for lint alongside TypeScript 7.
+
+## D-06: Agent-first, measured by speed
+
+Choice: the repository is built so an agent can make a typical change and
+verify it in minutes. Rules live in tools (types, lint, CI checks, generators)
+rather than in documents; an agent reads `AGENTS.md` and the package it
+touches, nothing else. Budgets enforced by CI: `yarn validate` under one
+minute locally, PostgreSQL tests in a separate command, file and package line
+limits.
+Why: the previous base slowed down until a small change took a day (slow
+tests, many documents to check, gates on every merge, invented structure).
+Rejected: process documents per change (ADRs, handoffs, audits) as the main
+safety net.
+
+## D-07: Schemas keep the `define(...).with(...)` shape
+
+Choice: a schema is declared with `define({ ... })`, which holds the data
+model, followed by `.with({ ... })`, which holds what plugins add. The details
+(field syntax, defaults, rule spelling) are decided in later entries.
+Why: the previous base reached this shape after many iterations and proved it
+clear and well typed; restarting does not reopen it.
+Rejected: starting the schema API over from a blank page.
+
+## D-08: Fields are required unless marked optional
+
+Choice: a field is required by default; `optional: true` marks the exception.
+Why: most fields are required, so the previous `required: true` repeated on
+nearly every field; Zod, Prisma and TypeScript use the same default.
+Rejected: Parse's optional-by-default.
+
+## D-09: The first field types include relations
+
+Choice: the first release ships string, number, boolean, date, json, enum,
+pointer (one target) and relation (many targets, including the inverse side of
+a pointer). Bigint, decimal, time, binary and uuid come later, on demand.
+Why: relations shape the data model and the query API, so they must be designed
+from the start; the other types are additions that change nothing else.
+Rejected: shipping every type of the previous base from the start.
+
+## D-10: Access rules are functions, with ready-made ones
+
+Choice: an access rule is always a function. The kernel exports ready-made
+rules under `allow` (`allow.public`, `allow.readOnly`, `allow.private`);
+plugins export their own (`isAuthenticated` from auth); rules combine with
+helpers such as `anyOf`. One rule may cover the whole schema or each operation.
+Why: DX is UltimaBase's first goal. One concept instead of words plus
+functions; a developer jumps to a rule's source to see what it does; rules
+compose; plugins add rules without a typed registry of words. The previous
+five-key object, modelled on Keystone, was verbose for the common cases.
+Rejected: string words (`'public'`), whose meaning hides inside the access
+implementation; a per-operation object as the only form.
+Example:
+
+```ts
+.with({ access: allow.public })
+.with({ access: { read: allow.public, write: isAuthenticated } })
+.with({ access: { read: ({ where }) => where.eq('archived', false) } })
+```
+
+## D-11: No type generation
+
+Choice: every type comes from TypeScript inference on the code the developer
+writes. No generator, no generated file, no build step for types.
+Why: type generation is a major flaw of other backend frameworks: an extra
+command, files out of sync with the code, slower feedback.
+Rejected: any form of typegen, even optional.
+
+## D-12: The same `(data).with(plugins)` shape for schemas and fields
+
+Choice: a field is built by an imported function whose options describe the
+data (`string({ optional: true })`); an optional `.with({ ... })` on the field
+holds plugin rules for that field, as `.with` on the schema holds rules for the
+whole schema. A rule sits next to the object it governs. A schema feature that
+adds data (fields, storage) goes in `define`; a rule that adds behaviour goes in
+`.with`.
+Why: one rule to learn at both levels; no rules map keyed by field names far
+from the fields; no `(field) => ...` callback.
+Condition: accepted once a benchmark on a large schema shows editor typing
+cost no worse than the previous form D on TypeScript 7. If it fails, this entry
+is replaced.
+Rejected: plugin options inside field options (mixes data and behaviour); a
+per-field rules map in the schema's `.with` (rules far from their fields).
+Example:
+
+```ts
+export const Todo = define({
+	className: 'Todo',
+	fields: {
+		title: string().with({ input: (value) => value.trim() }),
+		done: boolean({ default: false }),
+		assignee: pointer(() => User, { optional: true }),
+	},
+}).with({ access: allow.public })
+```
+
+## D-13: Plugins with a schema of their own export a `define` alias
+
+Choice: a plugin that needs a specific kind of schema exports its own entry,
+named `define<Kind>` (roles: `defineRole`), which builds an ordinary schema
+through the kernel's `define`. An application may have several role schemas,
+each with its own custom fields.
+Why: the kind of a schema is visible from its first word, while the kernel
+keeps one schema entry and knows no plugin.
+Rejected: a `RoleSchema.define` entry in the kernel; a `role` key inside
+`define`, easy to miss in a long declaration.
+Example:
+
+```ts
+export const TeamRole = defineRole({
+	className: 'TeamRole',
+	members: () => User,
+	fields: { color: string({ optional: true }) },
+})
+```
+
+## D-14: Functions over magic words
+
+Choice: when a value carries behaviour, the API takes a function or an
+imported value rather than a string keyword.
+Why: a developer can jump to a function's source and read what it does; a
+keyword's meaning is hidden inside the code that interprets it.
+Rejected: string keywords for behaviour.
