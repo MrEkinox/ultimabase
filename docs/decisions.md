@@ -976,3 +976,60 @@ Choice: the first release ships a minimal starter: one model, `memory()`,
 GraphQL and the `Register` declaration (D-24) already written.
 Why: the starter is the first impression, and it writes the one part a
 newcomer cannot guess.
+
+## D-62: One user model, declared with `defineUser`
+
+Choice: the `auth` plugin exports `defineUser({ fields })` (D-13), which adds
+the developer's fields to the user model it owns; `caller.user` takes that
+model's type. An application has exactly one user model: a second
+`defineUser` stops startup.
+Why: `caller.user` has one type, read everywhere (rules, hooks, functions);
+two user models would make it a union nobody can use.
+Rejected: a fixed user model extended through a separate profile model; a
+user model per sign-in method.
+Example:
+
+```ts
+export const User = defineUser({
+	fields: { firstName: string(), avatar: file({ optional: true }) },
+})
+```
+
+## D-63: Storage names follow the database's convention, `dbName` overrides
+
+Choice: each adapter maps model and field names to its database's convention
+(PostgreSQL: `Post.createdAt` becomes `post.created_at`; MongoDB keeps the
+names). `dbName` overrides the stored name on a model
+(`defineModel({ name: 'Post', dbName: 'posts' })`) and on a field
+(`string({ dbName: 'e_mail' })`); it names a table, a collection or a column
+depending on the adapter.
+Why: hand-written SQL needs no quotes; an existing database can be adopted;
+one neutral option works on every adapter (D-51).
+Rejected: `table` (meaningless on MongoDB); one option per adapter.
+
+## D-64: Many-to-many joins carry nothing
+
+Choice: the join table of a `many` facing a `many` (D-37) holds the two keys
+only. A join that needs its own fields (an enrolment date) is an ordinary
+model with two `one` relations (`Enrollment` between `User` and `Course`).
+Why: Prisma works this way; an explicit model gets access rules, hooks and
+queries like any other.
+Rejected: fields declared on an implicit join table.
+
+## D-65: `date()` is a UTC instant
+
+Choice: `date()` stores an instant (`timestamptz` on PostgreSQL) and returns a
+JavaScript `Date`. A calendar date without time (a birthday) comes later with
+the types of D-09.
+Why: an instant is unambiguous across time zones.
+Rejected: timestamps without time zone.
+
+## D-66: `http()` is closed by default
+
+Choice: CORS allows no origin until the developer lists them
+(`http({ cors: ['https://app.example.com'] })`); request bodies are limited to
+1 MB by default, configurable. Transactions keep PostgreSQL's default
+isolation (read committed); writes lock their rows (D-48).
+Why: the same rule as D-04: forgetting an option must not open the server.
+Rejected: CORS open to every origin by default; a stricter isolation level by
+default, which adds retries for no common need.
