@@ -402,14 +402,18 @@ Rejected: a validation language of our own.
 
 Choice: the application is built first, as D-02 shows, with the database in
 `UltimaBase.create` and the plugins in `.use` (example below). Every model is
-declared from it:
-`App.defineModel(...)`, and the plugins' entries `App.defineRole(...)` and
-`App.defineUser(...)` (D-13, D-62). Each plugin value carries its types, so
-`App.defineModel` keys, the commands they add (D-15) and `.with` keys (D-42)
-are exactly those of the plugins in `use`: a key of a plugin outside it fails
-on its own line, before startup. Nothing is declared globally; there is no
-`Register`. A plugin option cannot reference a model, which is declared from
-the application.
+declared from it: `App.defineModel(...)`, and the plugins' entries
+`App.defineRole(...)` and `App.defineUser(...)` (D-13, D-62). Each plugin value
+carries its types, so `App.defineModel` keys, the commands they add (D-15) and
+`.with` keys (D-42) are exactly those of the plugins in `use`: a key of a
+plugin outside it fails on its own line, before startup. Nothing is declared
+globally; there is no `Register`. A plugin option cannot reference a model,
+which is declared from the application. A separate file assembles the
+application with `App.build({ models: [...] })`; `App.defineModel` registers
+nothing, and `migrate` (D-26) and tests (D-40) import the built application
+without starting it. The list cannot go in `UltimaBase.create`: each model
+imports `App`, so the application's file importing the models is an import
+cycle.
 Why: nothing implicit. The D-24 spike (`bench/typing/README.md`, 2026-10-19)
 typed both open options and found that no type reads a model by name any more
 (D-44), so `Register` had nothing left to type: relation cycles are avoided
@@ -426,9 +430,8 @@ Open: `caller.user` (D-62) cannot come from `App`, since the user model is
 declared from it. If no other way holds, the known fallback is one global
 declaration, `interface Register { user: typeof User }`, proven in the spike;
 a field rule of the user model that reads `caller.user` then needs
-`: boolean`, or the model becomes `any`. Also open: how the declared models
-reach the application at startup, and the plugin entry that gives a plugin
-value its types (D-57).
+`: boolean`, or the model becomes `any`. Also open: the plugin entry that
+gives a plugin value its types (D-57).
 Example:
 
 ```ts
@@ -445,6 +448,9 @@ export const App = UltimaBase.create({ database: postgres() }).use(
 // post.ts
 import { App } from './app.ts'
 export const Post = App.defineModel({ name: 'Post', softDelete: true, fields })
+// server.ts
+export const app = App.build({ models: [Post, User] })
+await app.start()
 ```
 
 ## D-25: Planned later, as plugins
@@ -483,7 +489,7 @@ automatic destructive sync.
 
 ## D-27: Functions, exposed by transports, plus raw HTTP routes
 
-Choice: `defineFunction({ name, input, output, run })` declares a server
+Choice: `App.defineFunction({ name, input, output, run })` declares a server
 operation with a Standard Schema input and a typed output (D-45 lists the
 accepted outputs). Every installed transport exposes it (a GraphQL query or
 mutation, a REST endpoint); `.with({ ... })` sets its access, closed by
@@ -498,7 +504,7 @@ Rejected: a `defineRoute` wrapper around HTTP; functions per transport.
 Example:
 
 ```ts
-export const archiveTodo = defineFunction({
+export const archiveTodo = App.defineFunction({
 	name: 'archiveTodo',
 	input: z.object({ id: z.string() }),
 	output: Todo,
@@ -595,14 +601,15 @@ realtime (D-25); two GraphQL servers to choose from (the previous base).
 
 Choice: a declaration the developer writes is `define<Thing>`, named after
 UltimaBase's own noun (`App.defineModel`, `App.defineRole`,
-`defineFunction`); the declared thing is named by a `name` key everywhere.
+`App.defineFunction`); the declared thing is named by a `name` key everywhere.
 Something plugged in or configured (a plugin, an adapter, a field type) is a
 plain noun call (`postgres()`, `files()`, `s3()`, `string()`, `file()`).
 Ready-made access rules live under `allow`. A data declaration is a model,
 never a schema, in the API, errors and documentation.
-Why: one bare `define` beside `App.defineRole` and `defineFunction` read as an
-accident; "model" matches Prisma (D-20), while "schema" already means Standard
-Schema validators (D-23), the GraphQL schema (D-34) and Postgres schemas.
+Why: one bare `define` beside `App.defineRole` and `App.defineFunction` read as
+an accident; "model" matches Prisma (D-20), while "schema" already means
+Standard Schema validators (D-23), the GraphQL schema (D-34) and Postgres
+schemas.
 Rejected: a bare `define`; `defineSchema`; `defineCollection` (suggests a
 document store); Parse's `className`.
 Example:
@@ -616,7 +623,7 @@ export const TeamRole = App.defineRole({
 	name: 'TeamRole',
 	members: () => User,
 })
-export const archiveTodo = defineFunction({
+export const archiveTodo = App.defineFunction({
 	name: 'archiveTodo',
 	input,
 	output,
@@ -627,10 +634,10 @@ export const archiveTodo = defineFunction({
 ## D-36: Hooks share the operation's transaction; functions open their own
 
 Choice: queries made inside an in-transaction hook join that transaction
-without a `tx` argument (Node's `AsyncLocalStorage`). A `defineFunction` runs
-without a transaction; the developer opens one explicitly with
-`await transaction(async () => { ... })`. A single operation, with its
-in-transaction hooks, is always atomic.
+without a `tx` argument (Node's `AsyncLocalStorage`). An `App.defineFunction`
+runs without a transaction; the developer opens one explicitly with `await
+transaction(async () => { ... })`. A single operation, with its in-transaction
+hooks, is always atomic.
 Why: a forgotten `tx` silently writes outside the transaction; a function
 often calls external services (payments, email), and holding a transaction
 open across a network call locks rows and sends effects before a rollback.
@@ -1032,10 +1039,10 @@ Rejected: a logging library bundled in the kernel.
 
 ## D-59: `start` and `stop` drive the application
 
-Choice: `await app.start()` connects the database and starts the plugins
-(Start hooks, D-15); `await app.stop()` stops them. On `SIGTERM`, the
-application stops accepting requests, waits for running ones and pending
-`*Commit` hooks, then stops.
+Choice: `await app.start()`, on the application `App.build` returns (D-24),
+connects the database and starts the plugins (Start hooks, D-15); `await
+app.stop()` stops them. On `SIGTERM`, the application stops accepting requests,
+waits for running ones and pending `*Commit` hooks, then stops.
 Why: deployments restart applications constantly; work in progress must not
 be cut.
 Rejected: starting on import; leaving signals to each application.
