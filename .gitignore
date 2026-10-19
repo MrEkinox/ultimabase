@@ -9,12 +9,9 @@
 node_modules
 coverage
 dist
-.next
-.source
 *.tsbuildinfo
 *.log
 .idea
 .claude/worktrees/
 .vscode/*
 !.vscode/settings.json
-ultimabase/migrations/*.local.*

@@ -1,1 +1,0 @@
-The static Inter Regular and SemiBold fonts render the prebuilt Open Graph image with accurate text weights. They come from the `extras/ttf` directory of the [Inter 4.1 release](https://github.com/rsms/inter/releases/tag/v4.1) and are licensed under the SIL Open Font License 1.1 in [LICENSE.txt](./LICENSE.txt).
