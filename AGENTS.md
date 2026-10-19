@@ -2,11 +2,11 @@
 
 The contract for every coding agent and contributor.
 
-## Current phase
+## Decisions
 
-UltimaBase restarts from a clean base. Until [docs/decisions.md](docs/decisions.md)
-is agreed with the maintainer, no product code is written: discuss, then record
-each decision there.
+[docs/decisions.md](docs/decisions.md) is agreed and binding; record a new
+decision there before building on a choice it does not cover.
+[docs/roadmap.md](docs/roadmap.md) tracks the current phase.
 
 The previous implementation is reference material, never a contract. Read it
 from the `codex-archive` tag (`git worktree add ../ultimadatabase-old codex-archive`);
@@ -21,17 +21,25 @@ reuse an idea, a test or a known pitfall only when a decision calls for it.
    asks for. No speculative APIs, options, packages or infrastructure.
 4. Stop and ask before a choice that is not covered by a recorded decision.
 
-[docs/roadmap.md](docs/roadmap.md) tracks the current phase; tick an item in
-the commit that completes it.
+Tick a roadmap item in the commit that completes it.
 
 ## Code quality
 
 - No `any` in any form. Validate `unknown` at untrusted boundaries.
-- Production code files stay under 400 lines; tests and documentation are
-  exempt. Size budgets per package come with the first package.
+- Production code files stay under 400 lines (Oxlint `max-lines`); tests and
+  documentation are exempt.
+- Each package has a line budget for its production code in
+  `line-budgets.json`, checked by `yarn budgets` (D-69). A new package gets its
+  budget in the commit that creates it; a budget changes only in a commit that
+  says why.
 - Every bug fix gets a regression test.
 
 ## Validation
 
-`yarn validate` (format, types, lint, tests) must pass before a merge into
-`main`. Report any check that failed or was not run.
+`yarn validate` (format, types, lint, budgets, tests) must pass before a merge
+into `main` and must stay under one minute (D-06). Tests that need PostgreSQL
+are named `*.postgres.test.ts` and run with `yarn test:postgres`, outside
+`yarn validate`. Report any check that failed or was not run.
+
+Rules live in tools (types, lint, CI checks) rather than in documents: to
+understand a change, read this file and the package it touches, nothing else.

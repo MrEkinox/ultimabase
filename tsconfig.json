@@ -1,11 +1,12 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"allowImportingTsExtensions": true,
 		"composite": false,
 		"declaration": false,
 		"declarationMap": false,
 		"isolatedDeclarations": false,
 		"noEmit": true
 	},
-	"include": ["*.config.ts"]
+	"include": ["*.config.ts", "scripts/**/*.ts", "packages/*/src/**/*.ts"]
 }

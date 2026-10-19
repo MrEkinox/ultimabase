@@ -8,12 +8,12 @@ Status: **Phase 0** is next.
 
 ## Phase 0: Tooling
 
-- [ ] Yarn workspace on TypeScript 7 and Oxlint, `max-lines` at 400 for
+- [x] Yarn workspace on TypeScript 7 and Oxlint, `max-lines` at 400 for
       production code (D-05).
-- [ ] Package line budgets checked by CI (D-69).
-- [ ] `yarn validate` runs format, types, lint and Vitest; PostgreSQL tests
+- [x] Package line budgets checked by CI (D-69).
+- [x] `yarn validate` runs format, types, lint and Vitest; PostgreSQL tests
       in a separate command (D-06).
-- [ ] D-06 written into `AGENTS.md`.
+- [x] D-06 written into `AGENTS.md`.
 - [ ] `restart` merged into `main` with `--no-ff`, after confirmation.
 
 Exit: `yarn validate` passes in under one minute, and CI fails on a budget

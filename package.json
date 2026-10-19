@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"license": "Apache-2.0",
-	"packageManager": "yarn@4.9.2",
+	"packageManager": "yarn@4.18.1",
 	"engines": {
 		"node": ">=24.0.0"
 	},
@@ -12,21 +12,22 @@
 		"packages/*"
 	],
 	"scripts": {
+		"budgets": "node scripts/check-budgets.ts",
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
-		"lint": "eslint .",
-		"test": "vitest run --passWithNoTests",
+		"lint": "oxlint",
+		"test": "vitest run --project unit --passWithNoTests",
+		"test:postgres": "vitest run --project postgres --passWithNoTests",
 		"typecheck": "tsc --project tsconfig.json",
-		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn test"
+		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test"
 	},
 	"devDependencies": {
-		"@eslint/js": "^10.0.1",
 		"@types/node": "^24.0.0",
-		"eslint": "^10.7.0",
-		"jiti": "^2.6.1",
+		"oxlint": "1.88.0",
+		"oxlint-tsgolint": "7.0.2004",
 		"prettier": "^3.6.2",
-		"typescript": "^6.0.3",
-		"typescript-eslint": "8.65.0",
-		"vitest": "4.1.11"
+		"typescript": "7.0.2",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
 	}
 }
