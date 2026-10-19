@@ -50,7 +50,7 @@ run production on memory.
 Example:
 
 ```ts
-const App = UltimaBase.create({ database: postgres() }).use(graphql())
+const App = UltimaBase.create({ database: postgres() }).use(http(), graphql())
 const Demo = UltimaBase.create({ database: memory() })
 ```
 
@@ -260,14 +260,14 @@ operation: the identity plugin, such as auth, fills `caller.user`, and another
 plugin adds its own key, such as `caller.tenant`, D-19) and Start/Stop
 (connect, listen, seed). Applications do not write these.
 Why: the previous runtime had about eighteen stages; each hook here is needed
-by a real plugin of the previous base (access, ACL, roles, hooks, soft delete,
-auth, Postgres, HTTP) and has one nameable purpose.
+by the kernel's access rules (D-10) or by a real plugin of the previous base
+(ACL, roles, soft delete, auth, Postgres, HTTP) and has one nameable purpose.
 Guards: at most one plugin may redirect a given operation on a given model,
 two plugins may not add a command of the same name to one model, and only one
 plugin may fill `caller.user`; each conflict stops startup with a message
 naming both plugins. This design is
-accepted once access, soft delete and an after-commit email plugin are
-written with it, soft delete in under 150 lines (383 before).
+accepted once the kernel's access rules, soft delete and an after-commit email
+plugin are written with it, soft delete in under 150 lines (383 before).
 Rejected: a hook per pipeline stage; a generic interceptor around everything.
 
 ## D-16: Plugins call each other directly
@@ -615,7 +615,7 @@ export const Post = defineModel({
 	name: 'Post',
 	fields: { author: one(() => User), tags: many(() => Tag) },
 })
-export const User = defineModel({
+export const User = defineUser({
 	name: 'User',
 	fields: { posts: many(() => Post) },
 })
@@ -693,7 +693,7 @@ registration, far from the model.
 Example:
 
 ```ts
-export const User = defineModel({ name: 'User', fields }).with({
+export const User = defineUser({ name: 'User', fields }).with({
 	access: allow.public,
 	hooks: {
 		afterCreate: async ({ record }) => {
@@ -979,10 +979,11 @@ newcomer cannot guess.
 
 ## D-62: One user model, declared with `defineUser`
 
-Choice: the `auth` plugin exports `defineUser({ fields })` (D-13), which adds
-the developer's fields to the user model it owns; `caller.user` takes that
-model's type. An application has exactly one user model: a second
-`defineUser` stops startup.
+Choice: the `auth` plugin exports `defineUser({ name, fields })` (D-13), which
+adds the developer's fields to the user model it owns; `name` is required, as
+for every declaration (D-35), and `caller.user` takes that model's type.
+An application has exactly one user model: a second `defineUser` stops
+startup.
 Why: `caller.user` has one type, read everywhere (rules, hooks, functions);
 two user models would make it a union nobody can use.
 Rejected: a fixed user model extended through a separate profile model; a
@@ -991,6 +992,7 @@ Example:
 
 ```ts
 export const User = defineUser({
+	name: 'User',
 	fields: { firstName: string(), avatar: file({ optional: true }) },
 })
 ```
@@ -1033,3 +1035,18 @@ isolation (read committed); writes lock their rows (D-48).
 Why: the same rule as D-04: forgetting an option must not open the server.
 Rejected: CORS open to every origin by default; a stricter isolation level by
 default, which adds retries for no common need.
+
+## D-67: One fixed order for every operation
+
+Choice: an operation runs in this order: `redirect` (D-15), the model's access
+rule (D-10), the fields' access rules on the data the caller sent (D-44),
+validation (D-23), the `before*` hooks, the write, the in-transaction `after*`
+hooks, commit, then the `*Commit` hooks. A value written by a hook goes
+through neither access rules nor validation: hooks are trusted server code, so
+a `beforeCreate` hook can fill `createdBy` even when the field refuses it on
+`create`.
+Why: access and validation judge what the caller sent; refusing early avoids
+validating or hooking a request that will fail; a field closed to clients
+must stay writable by the server.
+Rejected: access rules after the hooks, which would block server-filled fields
+or let a hook's output be judged as the caller's.
