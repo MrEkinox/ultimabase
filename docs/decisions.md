@@ -685,7 +685,8 @@ owner); a mandatory object per plugin (`access: { rule: allow.public }`).
 
 Choice: an application writes the D-15 hooks on its model, under the kernel's
 `hooks` key. Queries inside an in-transaction hook join the transaction
-(D-36). Hooks are for behaviour; permissions belong to `access` rules (D-44).
+(D-36). Hooks are for behaviour; permissions belong to
+`access` rules (D-10, D-44).
 Why: the hooks Parse developers use every day, with the same names, and no
 second concept beside the plugin hooks.
 Rejected: a separate hooks plugin; Parse's global `beforeSave('Post', ...)`
@@ -802,7 +803,7 @@ gain).
 Choice: every write, single or bulk (`updateMany`, `deleteMany`), applies
 hooks and access rules to each affected row; no API or option skips them.
 Hooks run for every caller; access rules for every caller but Master. The
-kernel sends at most two SQL statements per write, BEGIN and COMMIT aside and
+adapter sends at most two SQL statements per write, BEGIN and COMMIT aside and
 queries made by hooks excluded: one `SELECT ... FOR UPDATE` loading every
 affected row once, when a `before*` hook or an access rule needs the stored
 record or a connected row, then one write statement (with `RETURNING`,
@@ -1029,7 +1030,8 @@ Rejected: timestamps without time zone.
 ## D-66: `http()` is closed by default
 
 Choice: CORS allows no origin until the developer lists them
-(`http({ cors: ['https://app.example.com'] })`); request bodies are limited to
+(`http({ cors: ['https://app.example.com'] })`), and a listed origin may
+send the master key header (D-49); request bodies are limited to
 1 MB by default, configurable. Transactions keep PostgreSQL's default
 isolation (read committed); writes lock their rows (D-48).
 Why: the same rule as D-04: forgetting an option must not open the server.
