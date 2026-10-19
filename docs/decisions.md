@@ -409,11 +409,11 @@ carries its types, so `App.defineModel` keys, the commands they add (D-15) and
 plugin outside it fails on its own line, before startup. Nothing is declared
 globally; there is no `Register`. A plugin option cannot reference a model,
 which is declared from the application. A separate file assembles the
-application with `App.build({ models: [...] })`; `App.defineModel` registers
-nothing, and `migrate` (D-26) and tests (D-40) import the built application
-without starting it. The list cannot go in `UltimaBase.create`: each model
-imports `App`, so the application's file importing the models is an import
-cycle.
+application with `App.build({ models: [...], functions: [...] })`;
+`App.defineModel` and `App.defineFunction` (D-27) register nothing, and
+`migrate` (D-26) and tests (D-40) import the built application without starting
+it. The lists cannot go in `UltimaBase.create`: each model and function
+imports `App`, so the application's file importing them is an import cycle.
 Why: nothing implicit. The D-24 spike (`bench/typing/README.md`, 2026-10-19)
 typed both open options and found that no type reads a model by name any more
 (D-44), so `Register` had nothing left to type: relation cycles are avoided
@@ -449,7 +449,7 @@ export const App = UltimaBase.create({ database: postgres() }).use(
 import { App } from './app.ts'
 export const Post = App.defineModel({ name: 'Post', softDelete: true, fields })
 // server.ts
-export const app = App.build({ models: [Post, User] })
+export const app = App.build({ models: [Post, User], functions: [archive] })
 await app.start()
 ```
 
@@ -496,7 +496,8 @@ mutation, a REST endpoint); `.with({ ... })` sets its access, closed by
 default (D-04), and where it is exposed (`.with({ rest: false })`). `run`
 receives the validated input and the caller. For anything else (webhooks,
 redirects) the HTTP plugin is built on Hono and the developer writes plain Hono
-routes with the caller available.
+routes with the caller available. A function reaches the application through
+`App.build({ functions: [...] })` (D-24), like models.
 Why: one declaration replaces one custom endpoint per transport, like Parse
 Cloud Functions; GraphQL needs a runtime output type, which the output schema
 gives. Hono routes need no new concept.
