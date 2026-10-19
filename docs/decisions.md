@@ -1031,12 +1031,18 @@ Rejected: timestamps without time zone.
 
 Choice: CORS allows no origin until the developer lists them
 (`http({ cors: ['https://app.example.com'] })`), and a listed origin may
-send the master key header (D-49); request bodies are limited to
-1 MB by default, configurable. Transactions keep PostgreSQL's default
-isolation (read committed); writes lock their rows (D-48).
-Why: the same rule as D-04: forgetting an option must not open the server.
-Rejected: CORS open to every origin by default; a stricter isolation level by
-default, which adds retries for no common need.
+send the master key header (D-49). When `NODE_ENV` is not `production`,
+local origins (`http://localhost` and `http://127.0.0.1`, any port) are also
+allowed without configuration. Request bodies are limited to 1 MB by
+default, configurable. Transactions keep PostgreSQL's default isolation (read
+committed); writes lock their rows (D-48).
+Why: the same rule as D-04: forgetting an option must not open the server. A
+front-end dev server or end-to-end tests on the same machine work with no
+setup, and a server started without `NODE_ENV` still accepts only local
+origins, not the whole internet.
+Rejected: CORS open to every origin by default; no CORS check at all outside
+production (a missing `NODE_ENV` would open a deployed server); a stricter
+isolation level by default, which adds retries for no common need.
 
 ## D-67: One fixed order for every operation
 
