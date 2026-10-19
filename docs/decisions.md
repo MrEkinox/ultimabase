@@ -62,8 +62,8 @@ Rejected: a built-in HTTP server.
 
 ## D-04: Closed by default, opened in one rule
 
-Choice: a schema exposed by a transport refuses reads and writes until the
-developer opens it. Opening takes one ready-made rule on the schema (D-10).
+Choice: a model exposed by a transport refuses reads and writes until the
+developer opens it. Opening takes one ready-made rule on the model (D-10).
 Why: forgetting a rule must never publish a writable database, and opening a
 tiny public site must not need an authorization plugin.
 Rejected: open by default; opening through a verbose rule object.
@@ -90,14 +90,14 @@ tests, many documents to check, gates on every merge, invented structure).
 Rejected: process documents per change (ADRs, handoffs, audits) as the main
 safety net.
 
-## D-07: Schemas keep the `define(...).with(...)` shape
+## D-07: Models keep the `defineModel(...).with(...)` shape
 
-Choice: a schema is declared with `define({ ... })`, which holds the data
-model, followed by `.with({ ... })`, which holds what plugins add. The details
-(field syntax, defaults, rule spelling) are decided in later entries.
+Choice: a model is declared with `defineModel({ ... })`, which holds the data,
+followed by `.with({ ... })`, which holds what plugins add. The details (field
+syntax, defaults, rule spelling) are decided in later entries.
 Why: the previous base reached this shape after many iterations and proved it
 clear and well typed; restarting does not reopen it.
-Rejected: starting the schema API over from a blank page.
+Rejected: starting the model API over from a blank page.
 
 ## D-08: Fields are required unless marked optional
 
@@ -120,7 +120,7 @@ Rejected: shipping every type of the previous base from the start.
 Choice: an access rule is always a function. The kernel exports ready-made
 rules under `allow` (`allow.public`, `allow.readOnly`, `allow.private`);
 plugins export their own (`isAuthenticated` from auth); rules combine with
-helpers such as `anyOf`. One rule may cover the whole schema or each operation.
+helpers such as `anyOf`. One rule may cover the whole model or each operation.
 Why: DX is UltimaBase's first goal. One concept instead of words plus
 functions; a developer jumps to a rule's source to see what it does; rules
 compose; plugins add rules without a typed registry of words. The previous
@@ -143,26 +143,26 @@ Why: type generation is a major flaw of other backend frameworks: an extra
 command, files out of sync with the code, slower feedback.
 Rejected: any form of typegen, even optional.
 
-## D-12: The same `(data).with(plugins)` shape for schemas and fields
+## D-12: The same `(data).with(plugins)` shape for models and fields
 
 Choice: a field is built by an imported function whose options describe the
 data (`string({ optional: true })`); an optional `.with({ ... })` on the field
-holds plugin rules for that field, as `.with` on the schema holds rules for the
-whole schema. A rule sits next to the object it governs. A schema feature that
-adds data (fields, storage) goes in `define`; a rule that adds behaviour goes in
-`.with`.
+holds plugin rules for that field, as `.with` on the model holds rules for the
+whole model. A rule sits next to the object it governs. A model feature that
+adds data (fields, storage) goes in `defineModel`; a rule that adds behaviour
+goes in `.with`.
 Why: one rule to learn at both levels; no rules map keyed by field names far
 from the fields; no `(field) => ...` callback.
-Condition: accepted once a benchmark on a large schema shows editor typing
+Condition: accepted once a benchmark on a large model shows editor typing
 cost no worse than the previous form D on TypeScript 7. If it fails, this entry
 is replaced.
 Rejected: plugin options inside field options (mixes data and behaviour); a
-per-field rules map in the schema's `.with` (rules far from their fields).
+per-field rules map in the model's `.with` (rules far from their fields).
 Example:
 
 ```ts
-export const Todo = define({
-	className: 'Todo',
+export const Todo = defineModel({
+	name: 'Todo',
 	fields: {
 		title: string().with({ input: (value) => value.trim() }),
 		done: boolean({ default: false }),
@@ -171,21 +171,21 @@ export const Todo = define({
 }).with({ access: allow.public })
 ```
 
-## D-13: Plugins with a schema of their own export a `define` alias
+## D-13: Plugins with a model of their own export a `define<Kind>` entry
 
-Choice: a plugin that needs a specific kind of schema exports its own entry,
-named `define<Kind>` (roles: `defineRole`), which builds an ordinary schema
-through the kernel's `define`. An application may have several role schemas,
-each with its own custom fields.
-Why: the kind of a schema is visible from its first word, while the kernel
-keeps one schema entry and knows no plugin.
-Rejected: a `RoleSchema.define` entry in the kernel; a `role` key inside
-`define`, easy to miss in a long declaration.
+Choice: a plugin that needs a specific kind of model exports its own entry,
+named `define<Kind>` (roles: `defineRole`), which builds an ordinary model
+through the kernel's `defineModel`. An application may have several role
+models, each with its own custom fields.
+Why: the kind of a model is visible from its first word, while the kernel
+keeps one model entry and knows no plugin.
+Rejected: a `RoleModel.define` entry in the kernel; a `role` key inside
+`defineModel`, easy to miss in a long declaration.
 Example:
 
 ```ts
 export const TeamRole = defineRole({
-	className: 'TeamRole',
+	name: 'TeamRole',
 	members: () => User,
 	fields: { color: string({ optional: true }) },
 })
@@ -201,9 +201,9 @@ Rejected: string keywords for behaviour.
 
 ## D-15: A plugin adds features, commands and hooks
 
-Choice: a plugin contributes features to `define` (fields, tables), commands
-(new operations on a schema, such as `restore`) and hooks. Hooks are few and
-fixed. On an operation, in this order:
+Choice: a plugin contributes features to `defineModel` (fields, tables),
+commands (new operations on a model, such as `restore`) and hooks. Hooks are few
+and fixed. On an operation, in this order:
 
 1. Redirect: replace the operation with another one (soft delete turns
    `delete` into `update`). The replacement runs through the whole pipeline.
@@ -223,8 +223,8 @@ fill a generic slot of the context with who is calling) and Start/Stop
 Why: the previous runtime had about eighteen stages; each hook here is needed
 by a real plugin of the previous base (access, ACL, roles, hooks, soft delete,
 auth, Postgres, HTTP) and has one nameable purpose.
-Guards: at most one plugin may redirect a given operation on a given schema;
-a conflict stops startup with a message naming both plugins. The model is
+Guards: at most one plugin may redirect a given operation on a given model;
+a conflict stops startup with a message naming both plugins. This design is
 accepted once access, soft delete and an after-commit email plugin are
 written with it, soft delete in under 150 lines (383 before).
 Rejected: a hook per pipeline stage; a generic interceptor around everything.
@@ -236,7 +236,7 @@ calls its public API. Startup fails, naming the missing plugin, when a
 requirement is not installed. The kernel has no service registry and no event
 bus between plugins. HTTP routes belong to an HTTP plugin with which REST and
 GraphQL register; the kernel knows no transport. The kernel exposes its
-schemas read-only for transports and tools.
+models read-only for transports and tools.
 Why: a direct call can be followed in the editor in one click; the previous
 capabilities and plugin events could not.
 Rejected: kernel-level capabilities and plugin events.
@@ -255,13 +255,13 @@ Rejected: Master sees the trash (jobs include deleted rows silently); the
 previous exception where Master kept the filter unless its `where` named
 `isDeleted`.
 
-## D-18: Queries start from the schema
+## D-18: Queries start from the model
 
-Choice: operations are called on the schema object: `Post.findMany(...)`,
+Choice: operations are called on the model object: `Post.findMany(...)`,
 including plugin commands (`Post.trash.findMany(...)`). One initialized
-application per JavaScript realm tells each schema where to run.
+application per JavaScript realm tells each model where to run.
 Why: completion lists every command after `Post.`, go-to-definition and
-rename work, types are already carried by `Post`, and no string names a schema
+rename work, types are already carried by `Post`, and no string names a model
 (D-14). Frameworks that start from a client (`prisma.post`) generate that
 client, which D-11 rules out.
 Rejected: `app.findMany('Post', ...)`, whose string needs a global type lookup
@@ -295,7 +295,7 @@ a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
 filters (`some`, `every`, `none`) and writes (`connect`, `disconnect`).
 Without `select`, scalar fields return and relations do not. UltimaBase
 departs from Prisma only where a recorded decision says so: the caller
-option (D-19), the schema as entry point (D-18), plugin commands on the schema.
+option (D-19), the model as entry point (D-18), plugin commands on the model.
 The first release ships the subset needed by its examples; the rest follows
 Prisma's spelling when added.
 Why: Prisma's query API is the best-known in TypeScript and many frameworks
@@ -319,7 +319,7 @@ Rejected: plugins that assume a standard set is installed.
 
 ## D-22: Every record has `id`, `createdAt` and `updatedAt`
 
-Choice: the kernel adds `id`, `createdAt` and `updatedAt` to every schema; the
+Choice: the kernel adds `id`, `createdAt` and `updatedAt` to every model; the
 developer never declares them. `id` is a UUIDv7 string generated by the kernel.
 Why: every record needs them, and `where`, `orderBy`, `cursor` and relations
 rely on them. UUIDv7 is a standard, sorts by creation time (index locality,
@@ -344,18 +344,18 @@ Rejected: a validation language of our own.
 
 Choice: the project declares its application once,
 `declare module 'ultimabase' { interface Register { app: typeof app } }`, so
-schemas, `.with` and plugin rules are typed from the installed plugins. The
+models, `.with` and plugin rules are typed from the installed plugins. The
 starter template writes it.
 Why: the previous base proved no alternative without type generation (D-11);
 three lines once per project is an acceptable cost.
-Rejected: type generation; passing the application to every `define`.
+Rejected: type generation; passing the application to every `defineModel`.
 
 ## D-25: Planned later, as plugins
 
 Choice: these come after the first release, as plugins, and the design leaves
 room for them now:
 
-- GraphQL, generated from the schemas, as important as REST: the maintainer
+- GraphQL, generated from the models, as important as REST: the maintainer
   and many users work only in GraphQL.
 - Files, early: memory, local and S3 adapters and a file field (shape still open).
 - OAuth and magic link, early, as methods of the auth plugin.
@@ -364,7 +364,7 @@ room for them now:
 - Multi-tenancy, through Identify (the tenant is part of the caller) and
   Restrict (a tenant filter), with no kernel change.
 - A typed browser client, much later; most users go through REST or GraphQL.
-Why: knowing them now keeps today's code from blocking them.
+  Why: knowing them now keeps today's code from blocking them.
 
 ## D-26: Migrations are SQL files, safe changes sync in development
 
@@ -373,20 +373,20 @@ Choice: in development, the PostgreSQL adapter applies safe changes at startup
 ones (drop, rename, type change) with a message saying what to run.
 `ultimabase migrate create` writes a reviewable, editable SQL file;
 `ultimabase migrate deploy` applies committed files in production, where the
-application refuses to start when the database does not match its schemas.
+application refuses to start when the database does not match its models.
 Migrations live in the PostgreSQL package; a shared package comes only with a
 second SQL adapter. From the first release, the storage adapter contract
-includes comparing schemas with the database and returning a plan.
+includes comparing models with the database and returning a plan.
 Why: Parse migrations are hand-written queries run at startup, hard to follow
 and slow; tracked SQL files are reviewable and replayable.
-Rejected: the previous per-schema `override` / `fail` / `ignore` modes;
+Rejected: the previous per-model `override` / `fail` / `ignore` modes;
 automatic destructive sync.
 
 ## D-27: Functions, exposed by transports, plus raw HTTP routes
 
 Choice: `defineFunction({ name, input, output, run })` declares a server
-operation with Standard Schema input and output (a schema object is accepted
-as output). Every installed transport exposes it (a GraphQL query or mutation,
+operation with Standard Schema input and output (a model is accepted as
+output). Every installed transport exposes it (a GraphQL query or mutation,
 a REST endpoint); `.with({ ... })` sets its access, closed by default (D-04),
 and where it is exposed (`.with({ rest: false })`). `run` receives the
 validated input and the caller. For anything else (webhooks, redirects) the
@@ -404,7 +404,10 @@ export const archiveTodo = defineFunction({
 	input: z.object({ id: z.string() }),
 	output: Todo,
 	run: ({ input, caller }) =>
-		Todo.update({ where: { id: input.id }, data: { archived: true } }, { as: caller }),
+		Todo.update(
+			{ where: { id: input.id }, data: { archived: true } },
+			{ as: caller },
+		),
 }).with({ access: isAuthenticated, rest: false })
 ```
 
@@ -459,8 +462,10 @@ Why: new field types brought by plugins are a core promise of UltimaBase.
 Example:
 
 ```ts
-UltimaBase.create({ database: postgres() }).use(files({ storage: s3({ bucket }) }))
-define({ className: 'Post', fields: { cover: file({ optional: true }) } })
+UltimaBase.create({ database: postgres() }).use(
+	files({ storage: s3({ bucket }) }),
+)
+defineModel({ name: 'Post', fields: { cover: file({ optional: true }) } })
 ```
 
 ## D-33: Sign-in methods combine on one user
@@ -475,6 +480,33 @@ Rejected: one plugin per method, each with its own users.
 ## D-34: GraphQL is the first transport
 
 Choice: the first release ships the GraphQL transport, generated from the
-schemas and functions; REST follows.
-Why: one transport proves the model; GraphQL is the one the maintainer uses
+models and functions; REST follows.
+Why: one transport proves the design; GraphQL is the one the maintainer uses
 daily and many users depend on.
+
+## D-35: Public names follow one convention
+
+Choice: a declaration the developer writes is `define<Thing>`, named after
+UltimaBase's own noun (`defineModel`, `defineRole`, `defineFunction`); the
+declared thing is named by a `name` key everywhere. Something plugged in or
+configured (a plugin, an adapter, a field type) is a plain noun call
+(`postgres()`, `files()`, `s3()`, `string()`, `file()`). Ready-made access
+rules live under `allow`. A data declaration is a model, never a schema, in
+the API, errors and documentation.
+Why: one bare `define` beside `defineRole` and `defineFunction` read as an
+accident; "model" matches Prisma (D-20), while "schema" already means Standard
+Schema validators (D-23), the GraphQL schema (D-34) and Postgres schemas.
+Rejected: a bare `define`; `defineSchema`; `defineCollection` (suggests a
+document store); Parse's `className`.
+Example:
+
+```ts
+export const Todo = defineModel({ name: 'Todo', fields: { title: string() } })
+export const TeamRole = defineRole({ name: 'TeamRole', members: () => User })
+export const archiveTodo = defineFunction({
+	name: 'archiveTodo',
+	input,
+	output,
+	run,
+})
+```
