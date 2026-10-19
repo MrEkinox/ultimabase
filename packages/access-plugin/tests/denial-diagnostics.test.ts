@@ -85,12 +85,12 @@ describe('Access denial diagnostics (ADR-0317)', () => {
 				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(denials(logger, 'info')).toEqual([
-				'[@ultimabase/access-plugin] denied many on DeniedBare at the operation step (no rule for findMany, and allowWithoutRule does not open it).',
+				'[@ultimabase/access-plugin] denied findMany on DeniedBare at the operation step (no rule for findMany, and allowWithoutRule does not open it).',
 				'[@ultimabase/access-plugin] denied create on DeniedRuled at the operation step (DeniedRuled.access.create).',
 				'[@ultimabase/access-plugin] denied delete on DeniedRuled at the row filter step (DeniedRuled.access.delete.where).',
 				'[@ultimabase/access-plugin] denied update on DeniedRuled at the item step (DeniedRuled.access.update.item).',
-				'[@ultimabase/access-plugin] denied many on DeniedRuled at the field step (DeniedRuled.secret.access.read.orderBy).',
-				'[@ultimabase/access-plugin] denied many on DeniedRuled at the field step (DeniedRuled.hidden.access.read.output).',
+				'[@ultimabase/access-plugin] denied findMany on DeniedRuled at the field step (DeniedRuled.secret.access.read.orderBy).',
+				'[@ultimabase/access-plugin] denied findMany on DeniedRuled at the field step (DeniedRuled.hidden.access.read.output).',
 				'[@ultimabase/access-plugin] denied update on DeniedRuled at the field step (DeniedRuled.hidden.access.write.fill).',
 			])
 			expect(denials(logger, 'debug')).toEqual([])
@@ -111,7 +111,7 @@ describe('Access denial diagnostics (ADR-0317)', () => {
 			expect(JSON.stringify(error.toJSON())).not.toContain('allowWithoutRule')
 			expect(denials(logger, 'info')).toEqual([])
 			expect(denials(logger, 'debug')).toEqual([
-				'[@ultimabase/access-plugin] denied many on DeniedBare at the operation step (no rule for findMany, and allowWithoutRule does not open it).',
+				'[@ultimabase/access-plugin] denied findMany on DeniedBare at the operation step (no rule for findMany, and allowWithoutRule does not open it).',
 			])
 		} finally {
 			await ultimabase.dispose()
