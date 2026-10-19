@@ -1058,3 +1058,31 @@ validating or hooking a request that will fail; a field closed to clients
 must stay writable by the server.
 Rejected: access rules after the hooks, which would block server-filled fields
 or let a hook's output be judged as the caller's.
+
+## D-68: The first release (0.1)
+
+Choice: version 0.1 ships these packages, each with the subset its examples
+need (D-20, D-31):
+
+- `ultimabase`: models and fields (D-07 to D-09, D-12, D-22, D-37, D-52 to
+  D-54, D-63 to D-65), access rules and hooks (D-10, D-15, D-43, D-44, D-67),
+  queries, callers, transactions and read limits (D-18 to D-20, D-36, D-49,
+  D-55), functions, errors, logger, lifecycle, `memory()`, `Register` and
+  migrations (D-02, D-24, D-26 to D-28, D-45, D-58, D-59), and field types
+  added by plugins (D-32).
+- `@ultimabase/postgres` (D-46 to D-48, D-50, D-51).
+- `@ultimabase/http` (D-16, D-27, D-66).
+- `@ultimabase/graphql` (D-34, D-41, D-45, D-55).
+- `@ultimabase/auth`, with `password()` in the same package (D-33, D-39,
+  D-56, D-62).
+- `@ultimabase/soft-delete` (D-17), which also proves the hooks of D-15.
+- `@ultimabase/testing` (D-40) and `create-ultimabase` (D-61).
+
+The after-commit email plugin that D-15 asks for is an example in
+`examples/`, not a package. Everything else waits: D-25 (REST, files, OAuth,
+realtime…), roles and ACL, the later field types (D-09, D-65), other
+databases (D-51) and the `Later:` lines of D-20, D-44, D-55, D-56 and D-58.
+Why: the smallest set that builds a real application end to end, from a
+starter to production, and proves the plugin design.
+Rejected: roles and ACL in 0.1 (functions cover simple permissions, D-10);
+migrations after 0.1 (nothing could go to production).
