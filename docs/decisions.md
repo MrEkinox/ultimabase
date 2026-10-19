@@ -397,26 +397,52 @@ Why: developers already know their validation library; the previous base's
 validation worked well.
 Rejected: a validation language of our own.
 
-## D-24: One `Register` declaration types the application
+## D-24: Models are declared from the plugin set
 
-Choice: the project declares its application once,
-`declare module 'ultimabase' { interface Register { app: typeof app } }`, so
-models, `.with` and plugin rules are typed from the installed plugins. The
-starter template writes it.
-Why: the previous base proved no alternative without type generation (D-11);
-name-keyed types read the models from it, and without it typing grows
-quadratically (200 models: 73 s instead of 23 s on TypeScript 6). Cycles
-between models are avoided as before: relation targets are thunks, callbacks
-sit in the final non-generic `.with`, and the registry is read lazily by
-model name. Three lines once per project is an acceptable cost.
-Rejected: type generation.
-Open: plugin keys in `defineModel` that change a model's shape (D-07) need the
-plugin types while the model is typed, which a global `defineModel` cannot
-read from `Register` without a cycle. Two options are spiked and benchmarked
-with the `defineModel` prototype: models declared from the plugin set
-(`const App = UltimaBase.use(softDelete())`, then `App.defineModel(...)` and
-`App.defineRole(...)`, D-13), or each installed plugin adding its keys to a
-global interface, with startup refusing a key whose plugin is not used.
+Choice: the application starts from its plugin set,
+`export const App = UltimaBase.use(softDelete(), ...)`, and models are
+declared from it with `App.defineModel(...)`, then `App.create({ models })`.
+Each plugin value carries its types, so `defineModel` keys, the commands they
+add (D-15) and `.with` keys (D-42) are exactly those of the plugins in the
+set: a key of a plugin outside it fails on its own line, before startup.
+Nothing is declared globally; there is no `Register`. Examples in other
+entries write `defineModel` for `App.defineModel`.
+Why: nothing implicit. The D-24 spike (`bench/typing/README.md`, 2026-10-19)
+typed both open options and found no type reads a model by name any more
+(D-44), so `Register` had nothing left to type: relation cycles are avoided
+by thunks read lazily and callbacks in the final non-generic `.with`, as
+before, and the 200-model project with ring, inverse and self relations
+types exactly without it. Global interfaces cost 1 % to 6 % less, but accept
+the keys of any plugin whose types are loaded and leave the refusal to
+startup.
+Rejected: a project-wide `Register` declaration, which the previous base
+needed for its name-keyed types and which caused its own cycles (its
+ADR-0297 and ADR-0335); each plugin adding its keys to global interfaces;
+type generation (D-11).
+Open: `caller.user` (D-62) cannot come from the plugin set, since the user
+model is declared from it. If no other way holds, the known fallback is one
+global declaration, `interface Register { user: typeof User }`, proven in the
+spike; a field rule of the user model that reads `caller.user` then needs
+`: boolean`, or the model becomes `any`. Also open, with D-57: whether the
+database and transports join the plugin set or `App.create`, and how a
+plugin's `define<Kind>` entry (D-13) reaches the set. A plugin option in
+`use()` cannot reference a model, which is declared from the set.
+Example:
+
+```ts
+// Before: a global entry, plugin keys typed from what is installed
+import { defineModel } from 'ultimabase'
+export const Post = defineModel({ name: 'Post', softDelete: true, fields })
+
+// After
+// plugins.ts
+export const App = UltimaBase.use(softDelete(), graphql())
+// post.ts
+import { App } from './plugins.ts'
+export const Post = App.defineModel({ name: 'Post', softDelete: true, fields })
+// app.ts
+export const app = App.create({ models: [Post, User] })
+```
 
 ## D-25: Planned later, as plugins
 
@@ -981,7 +1007,8 @@ commands, hooks, field types, D-15 and D-32). Its package declares
 plugin whose range excludes the running kernel, naming both versions.
 Why: the community plugin ecosystem is the product (D-01); a plugin that
 takes a page of boilerplate will not be written.
-Open: the exact entry, decided with the open point of D-24.
+Open: the exact entry, which gives a plugin value its types (D-24), decided
+with D-24's open points.
 
 ## D-58: One pino-compatible logger
 
@@ -1014,7 +1041,8 @@ Rejected: independent versions per official package before 1.0.
 ## D-61: `npm create ultimabase` from the first release
 
 Choice: the first release ships a minimal starter: one model, `memory()`,
-GraphQL and the `Register` declaration (D-24) already written.
+GraphQL and the plugin set the models are declared from (D-24) already
+written.
 Why: the starter is the first impression, and it writes the one part a
 newcomer cannot guess.
 
@@ -1107,7 +1135,7 @@ need (D-20, D-31):
 - `ultimabase`: models and fields (D-07 to D-09, D-12, D-22, D-37, D-52 to
   D-54, D-63 to D-65), access rules and hooks (D-10, D-15, D-43, D-44, D-67),
   queries, callers, transactions and read limits (D-18 to D-20, D-36, D-49,
-  D-55), functions, errors, logger, lifecycle, `memory()`, `Register` and
+  D-55), functions, errors, logger, lifecycle, `memory()`, `UltimaBase.use` and
   the `migrate` commands with their adapter contract (D-02, D-24, D-26 to
   D-28, D-45, D-58, D-59), and field types added by plugins (D-32).
 - `@ultimabase/postgres`, a storage adapter outside the kernel, which also
