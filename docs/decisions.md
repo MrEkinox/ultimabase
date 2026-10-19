@@ -551,9 +551,15 @@ Rejected: one plugin per method, each with its own users.
 ## D-34: GraphQL is the first transport
 
 Choice: the first release ships the GraphQL transport, generated from the
-models and functions; REST follows.
+models and functions; REST follows. It runs on `graphql-http`, the reference
+implementation, mounted on the `http()` server (D-16). Outside production it
+also serves GraphiQL.
 Why: one transport proves the design; GraphQL is the one the maintainer uses
-daily and many users depend on.
+daily and many users depend on. `graphql-http` is small and enough, since
+`http()` already owns the server and CORS; GraphiQL is the first screen a
+developer opens after `npm create ultimabase` (D-61).
+Rejected: GraphQL Yoga, whose extras (subscriptions, Envelop plugins) wait for
+realtime (D-25); two GraphQL servers to choose from (the previous base).
 
 ## D-35: Public names follow one convention
 
@@ -1068,9 +1074,11 @@ need (D-20, D-31):
   D-54, D-63 to D-65), access rules and hooks (D-10, D-15, D-43, D-44, D-67),
   queries, callers, transactions and read limits (D-18 to D-20, D-36, D-49,
   D-55), functions, errors, logger, lifecycle, `memory()`, `Register` and
-  migrations (D-02, D-24, D-26 to D-28, D-45, D-58, D-59), and field types
-  added by plugins (D-32).
-- `@ultimabase/postgres` (D-46 to D-48, D-50, D-51).
+  the `migrate` commands with their adapter contract (D-02, D-24, D-26 to
+  D-28, D-45, D-58, D-59), and field types added by plugins (D-32).
+- `@ultimabase/postgres`, a storage adapter outside the kernel, which also
+  compares models with the database and writes and applies migrations (D-26,
+  D-46 to D-48, D-50, D-51).
 - `@ultimabase/http` (D-16, D-27, D-66).
 - `@ultimabase/graphql` (D-34, D-41, D-45, D-55).
 - `@ultimabase/auth`, with `password()` in the same package (D-33, D-39,
