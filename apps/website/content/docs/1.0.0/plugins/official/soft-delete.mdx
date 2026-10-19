@@ -7,7 +7,7 @@ contentType: guide
 order: 8
 outcome: Soft-delete a record, verify that ordinary reads hide it, restore it, and purge it from trusted server code.
 releaseStatus: pre-release
-reviewedAt: 2026-10-18
+reviewedAt: 2026-10-19
 sources:
   - examples/soft-delete/README.md
   - examples/soft-delete/src/app.ts
@@ -27,6 +27,8 @@ sources:
   - packages/soft-delete-plugin/src/replace-delete.ts
   - packages/soft-delete-plugin/tests/e2e/soft-delete-visibility.postgres.e2e.test.ts
   - packages/soft-delete-plugin/tests/e2e/soft-delete-administration.postgres.e2e.test.ts
+  - packages/soft-delete-plugin/tests/e2e/soft-delete-all-hooks.postgres.e2e.test.ts
+  - packages/soft-delete-plugin/tests/soft-delete-hooks.test-d.ts
   - packages/plugin-kit/src/define-plugin/commands.ts
   - packages/rest-plugin/README.md
   - packages/graphql-plugin/README.md
@@ -497,9 +499,10 @@ With [Access](./access), each operation has its own rule (`softDelete` for
 `restoreMany`) and `readDeleted` its own permission rule; granting native
 update or delete does not grant them, a `write` rule does, and purge is
 Master-only so it has none. With
-[Hooks](./hooks), each command has its own `beforeOperation`,
-`afterOperation` and `afterCommit` branch, and the `all` branch runs for it
-first with `kind` naming the command. REST, GraphQL, and TypeScript enter the same Runtime
+[Hooks](./hooks), each operation has its own `beforeOperation`,
+`afterOperation` and `afterCommit` branch: `softDelete`, `restore` and `purge`
+run for their one-row command and once for each row of their many-row
+command. The `all` branch runs first, with `kind` naming the command. REST, GraphQL, and TypeScript enter the same Runtime
 pipeline and preserve transaction and protected-policy boundaries.
 
 A soft deletion is an update: it triggers no `onDelete` referential action. A

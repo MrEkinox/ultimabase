@@ -8,7 +8,7 @@ audience:
 contentType: concept
 outcome: Choose and configure the right Hook phase for input, mutation, or post-commit behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-10-17
+reviewedAt: 2026-10-19
 sources:
   - examples/hooks/README.md
   - examples/hooks/src/app.ts
@@ -26,14 +26,19 @@ sources:
   - packages/hooks-plugin/src/authoring/contracts.ts
   - packages/hooks-plugin/src/authoring/global-contracts.ts
   - packages/hooks-plugin/src/authoring/schema-mutation-contracts.ts
+  - packages/hooks-plugin/src/authoring/declarations.ts
   - packages/hooks-plugin/src/contributions.ts
   - packages/hooks-plugin/src/context/hook-context.ts
   - packages/hooks-plugin/src/runtime/events.ts
   - packages/hooks-plugin/src/runtime/execution-runtime.ts
   - packages/hooks-plugin/src/runtime/lifecycle.ts
   - packages/hooks-plugin/src/runtime/readable-data.ts
+  - packages/hooks-plugin/src/runtime/contribution-plan.ts
+  - packages/hooks-plugin/src/runtime/schema-mutation-dispatch.ts
   - packages/hooks-plugin/tests/e2e/hooks-data-phases.postgres.e2e.test.ts
   - packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts
+  - packages/hooks-plugin/tests/schema-mutation-hooks.test.ts
+  - packages/soft-delete-plugin/tests/e2e/soft-delete-all-hooks.postgres.e2e.test.ts
   - docs/adr/0161-compact-field-operation-hooks.md
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0300-retry-automatic-mutation-transactions.md
@@ -44,6 +49,7 @@ sources:
   - docs/adr/0305-public-errors-and-can.md
   - docs/adr/0318-hooks-data-phases-and-post-commit-delivery.md
   - docs/adr/0339-define-describes-with-configures.md
+  - docs/adr/0347-one-operation-vocabulary-and-shared-exposure.md
 ---
 
 ## Overview
@@ -145,8 +151,11 @@ takes no `hooks` option: schema Hooks belong in `.with({ hooks: { … } })`.
 
 Every phase accepts `create`, `update`, `upsert` and `delete` branches (no
 `delete` for `resolveInput`) and an `all` branch that runs before the
-operation's own branch. `all` also runs for plugin commands, such as Soft
-Delete's `softDeleteOne`, with `kind` naming the operation or the command, so
+operation's own branch. `beforeOperation`, `afterOperation` and `afterCommit`
+also accept each plugin operation, such as Soft Delete's `softDelete`
+([below](#plugin-defined-mutations)). Branches name operations, never methods
+or groups: `softDeleteOne`, `read` and `write` are refused. `all` also runs
+for plugin commands, with `kind` naming the operation or the command, so
 `if (input.kind === 'softDeleteOne')` narrows the input. Each branch takes one callback or a non-empty array.
 Hooks never run for reads, and no option skips them: Master bypasses
 authorization, never Hooks.
@@ -302,14 +311,17 @@ Global `all` also sees plugin commands; since they depend on each schema, its
 
 ### Plugin-defined mutations
 
-Installed schema mutations add their own branches. For example, with the
-[Soft Delete plugin](./soft-delete), `softDeleteOne`, `restoreOne`, `purgeOne`
-and their `Many` forms are separate logical branches of `beforeOperation`,
-`afterOperation` and `afterCommit`. A `softDeleteOne` implemented by a physical
-update runs `softDeleteOne` Hooks, not native `update` Hooks. `all` runs for
-these commands too, before their own branch, with `kind` set to the command
-name (`resolveInput` has no command form). The example's `Comment` uses
-Soft Delete in command mode and narrows `all` on `kind`:
+Installed schema mutations add one branch per operation to `beforeOperation`,
+`afterOperation` and `afterCommit`. For example, with the
+[Soft Delete plugin](./soft-delete), the `softDelete`, `restore` and `purge`
+branches each cover a one-row command and a many-row command: `restore` runs
+for `restoreOne`, and once for each row of `restoreMany`, with the same input
+as for one row. A method key such as `restoreOne` fails at startup and names
+the operation to use. A `softDeleteOne` implemented by a physical update runs
+`softDelete` Hooks, not native `update` Hooks. `all` runs for these commands
+too, before their own branch, with `kind` set to the command name
+(`resolveInput` has no command form). The example's `Comment` uses Soft Delete
+in command mode and narrows `all` on `kind`:
 
 <include cwd meta='title="src/schema.ts"'>
 	../../examples/hooks/src/schema.ts#comment
