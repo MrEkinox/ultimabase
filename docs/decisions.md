@@ -362,3 +362,116 @@ room for them now:
   Restrict (a tenant filter), with no kernel change.
 - A typed browser client, much later; most users go through REST or GraphQL.
 Why: knowing them now keeps today's code from blocking them.
+
+## D-26: Migrations are SQL files, safe changes sync in development
+
+Choice: in development, the PostgreSQL adapter applies safe changes at startup
+(new table, new optional field, new index) and refuses destructive or ambiguous
+ones (drop, rename, type change) with a message saying what to run.
+`ultimabase migrate create` writes a reviewable, editable SQL file;
+`ultimabase migrate deploy` applies committed files in production, where the
+application refuses to start when the database does not match its schemas.
+Migrations live in the PostgreSQL package; a shared package comes only with a
+second SQL adapter. From the first release, the storage adapter contract
+includes comparing schemas with the database and returning a plan.
+Why: Parse migrations are hand-written queries run at startup, hard to follow
+and slow; tracked SQL files are reviewable and replayable.
+Rejected: the previous per-schema `override` / `fail` / `ignore` modes;
+automatic destructive sync.
+
+## D-27: Functions, exposed by transports, plus raw HTTP routes
+
+Choice: `defineFunction({ name, input, output, run })` declares a server
+operation with Standard Schema input and output (a schema object is accepted
+as output). Every installed transport exposes it (a GraphQL query or mutation,
+a REST endpoint); `.with({ ... })` sets its access, closed by default (D-04),
+and where it is exposed (`.with({ rest: false })`). `run` receives the
+validated input and the caller. For anything else (webhooks, redirects) the
+HTTP plugin is built on Hono and the developer writes plain Hono routes with
+the caller available.
+Why: one declaration replaces one custom endpoint per transport, like Parse
+Cloud Functions; GraphQL needs a runtime output type, which the output schema
+gives. Hono routes need no new concept.
+Rejected: a `defineRoute` wrapper around HTTP; functions per transport.
+Example:
+
+```ts
+export const archiveTodo = defineFunction({
+	name: 'archiveTodo',
+	input: z.object({ id: z.string() }),
+	output: Todo,
+	run: ({ input, caller }) =>
+		Todo.update({ where: { id: input.id }, data: { archived: true } }, { as: caller }),
+}).with({ access: isAuthenticated, rest: false })
+```
+
+## D-28: Errors are hidden unless public
+
+Choice: only a `PublicError` reaches clients; every other error is masked as
+an internal error that carries a correlation id, also written to the server
+log. Kernel errors have stable, typed codes (`ACCESS_DENIED`, `NOT_FOUND`,
+`VALIDATION_FAILED`…); validation errors list the failing field paths.
+Transports map codes to their own conventions (HTTP status, GraphQL
+extensions).
+Why: masking by default keeps internals private; the previous masked errors
+left no trace to debug from.
+Rejected: exposing error messages by default.
+
+## D-29: Plugin order matters only where it must
+
+Choice: hooks run in the fixed order of D-15. Within Restrict, results combine
+with AND, so plugin order cannot change them. Within Transform, React and
+Observe, plugins run in `.use(...)` order.
+Why: security never depends on the order plugins were written in.
+Rejected: explicit priorities.
+
+## D-30: Package names
+
+Choice: `ultimabase` holds the kernel and the in-memory adapter; official
+plugins are `@ultimabase/<name>` (`postgres`, `graphql`, `rest`, `auth`…).
+Community plugins are named `ultimabase-plugin-<name>` and carry the
+`ultimabase-plugin` keyword, so they can be listed automatically.
+Why: one obvious install for the kernel; the keyword is how Vite's ecosystem
+is indexed.
+
+## D-31: Examples are the documentation until release
+
+Choice: `examples/` holds one folder per feature (`relation-many-to-many`,
+`custom-function`…), each a small working project run by the test suite. The
+documentation website and the landing page come back just before the first
+release.
+Why: a developer finds how to do something by opening its folder, and code
+that runs in CI cannot be out of date. The previous website cost a lot to keep
+in sync while the API moved.
+Rejected: a documentation website during the design.
+
+## D-32: Plugins add field types; files are a plugin
+
+Choice: from the first release, a plugin can provide field types (`file()`,
+later `vector()`), with their storage and transport representation. Files are
+a plugin with a storage adapter (`memory()`, `local(...)`, `s3(...)`) and a
+`file()` field; they are not a dedicated slot, since many applications store
+no files.
+Why: new field types brought by plugins are a core promise of UltimaBase.
+Example:
+
+```ts
+UltimaBase.create({ database: postgres() }).use(files({ storage: s3({ bucket }) }))
+define({ className: 'Post', fields: { cover: file({ optional: true }) } })
+```
+
+## D-33: Sign-in methods combine on one user
+
+Choice: the `auth` plugin owns users, sessions and Identify; each sign-in
+method is a plugin that requires it (`password()`, `magicLink()`,
+`oauth({ google, github })`). One user may have several linked methods (email
+and password plus Google), and a user can link or unlink a method.
+Why: most applications offer more than one way to sign in to the same account.
+Rejected: one plugin per method, each with its own users.
+
+## D-34: GraphQL is the first transport
+
+Choice: the first release ships the GraphQL transport, generated from the
+schemas and functions; REST follows.
+Why: one transport proves the model; GraphQL is the one the maintainer uses
+daily and many users depend on.
