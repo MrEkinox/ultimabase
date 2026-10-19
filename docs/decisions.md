@@ -108,9 +108,9 @@ Rejected: Parse's optional-by-default.
 
 ## D-09: The first field types include relations
 
-Choice: the first release ships string, number, boolean, date, json, enum,
-pointer (one target) and relation (many targets, including the inverse side of
-a pointer). Bigint, decimal, time, binary and uuid come later, on demand.
+Choice: the first release ships string, number, boolean, date, json, enum
+and the relations `one` and `many` (D-37). Bigint, decimal, time, binary and
+uuid come later, on demand.
 Why: relations shape the data model and the query API, so they must be designed
 from the start; the other types are additions that change nothing else.
 Rejected: shipping every type of the previous base from the start.
@@ -166,7 +166,7 @@ export const Todo = defineModel({
 	fields: {
 		title: string().with({ input: (value) => value.trim() }),
 		done: boolean({ default: false }),
-		assignee: pointer(() => User, { optional: true }),
+		assignee: one(() => User, { optional: true }),
 	},
 }).with({ access: allow.public })
 ```
@@ -231,12 +231,15 @@ Rejected: a hook per pipeline stage; a generic interceptor around everything.
 
 ## D-16: Plugins call each other directly
 
-Choice: a plugin that needs another declares it (`requires: [roles()]`) and
+Choice: a plugin that needs another declares it (`requires: [auth]`) and
 calls its public API. Startup fails, naming the missing plugin, when a
-requirement is not installed. The kernel has no service registry and no event
-bus between plugins. HTTP routes belong to an HTTP plugin with which REST and
-GraphQL register; the kernel knows no transport. The kernel exposes its
-models read-only for transports and tools.
+requirement is not installed. A plugin that can work without another lists it
+in `optional: [roles]` and gets `Roles | undefined`; it reports a clear error,
+and types its options accordingly, when a feature needs the absent plugin (an
+ACL entry naming a role without `roles()` installed). The kernel has no
+service registry and no event bus between plugins. HTTP routes belong to an
+HTTP plugin with which REST and GraphQL register; the kernel knows no
+transport. The kernel exposes its models read-only for transports and tools.
 Why: a direct call can be followed in the editor in one click; the previous
 capabilities and plugin events could not.
 Rejected: kernel-level capabilities and plugin events.
@@ -510,3 +513,81 @@ export const archiveTodo = defineFunction({
 	run,
 })
 ```
+
+## D-36: Hooks share the operation's transaction; functions open their own
+
+Choice: queries made inside an in-transaction hook join that transaction
+without a `tx` argument (Node's `AsyncLocalStorage`). A `defineFunction` runs
+without a transaction; the developer opens one explicitly with
+`await transaction(async () => { ... })`. A single operation, with its
+in-transaction hooks, is always atomic.
+Why: a forgotten `tx` silently writes outside the transaction; a function
+often calls external services (payments, email), and holding a transaction
+open across a network call locks rows and sends effects before a rollback.
+Rejected: passing `tx` by hand; a transaction around every function.
+
+## D-37: Relations are `one` and `many`, declared on both sides
+
+Choice: a relation field is `one(() => Target)` or `many(() => Target)`, and
+both models declare their side. `one` facing `many` is one-to-many; `many`
+facing `many` is many-to-many through a join table. When two relations join
+the same models, `{ inverse: 'author' }` names the field on the other side,
+typed from that model's fields. A missing side stops startup with a message
+saying what to add.
+Why: the cardinality reads from the word; both sides keep each model complete
+on its own (colocation) and make the inverse explicit, as Prisma does.
+Rejected: Parse's `pointer` and `relation`; an implicit inverse side.
+Example:
+
+```ts
+export const Post = defineModel({
+	name: 'Post',
+	fields: { author: one(() => User), tags: many(() => Tag) },
+})
+export const User = defineModel({
+	name: 'User',
+	fields: { posts: many(() => Post) },
+})
+export const Tag = defineModel({
+	name: 'Tag',
+	fields: { posts: many(() => Post) },
+})
+```
+
+## D-38: Node LTS and ESM only
+
+Choice: the first releases target the active Node LTS, as ESM only.
+Why: one runtime keeps drivers, crypto and file storage simple, and allows
+`AsyncLocalStorage` (D-36).
+Rejected: Bun, Deno and edge runtimes for now; Bun may come later.
+
+## D-39: Sessions are opaque tokens stored in the database
+
+Choice: the `auth` plugin issues opaque session tokens stored in the database,
+so they can be revoked. A client sends one as a `Bearer` header or an httpOnly
+cookie; the format is the same.
+Why: revocation needs server state; the cookie keeps browsers safe by default
+while mobile and server clients keep a plain header.
+Rejected: JWT sessions (cannot be revoked before they expire).
+
+## D-40: Applications are tested with `@ultimabase/testing`
+
+Choice: `@ultimabase/testing` provides `testApplication(app)`, which starts
+the application on a fresh `memory()` database for each test, conformance
+suites for plugin and adapter authors (D-02), and PostgreSQL tests through
+Docker or `TEST_DATABASE_URL`. Server-side tests use `as: master` (D-19).
+Why: the previous base proved these helpers useful; the in-memory database
+keeps application tests fast.
+Rejected: leaving every application to build its own test setup.
+
+## D-41: Generated GraphQL follows GraphQL conventions
+
+Choice: operations are named the GraphQL way (`post`, `posts`, `createPost`,
+`updatePost`, `deletePost`), with plurals computed and overridable per model;
+arguments follow the query API (`where`, `orderBy`, `data`, D-20). Lists use
+Relay connections by default, or plain lists with
+`graphql({ pagination: 'list' })`.
+Why: GraphQL clients and tools (Apollo, Relay) expect these names; Relay is the
+maintainer's daily usage, while some applications want plain lists.
+Rejected: Prisma-style names (`findManyPost`), which keep one vocabulary but
+read oddly to front-end developers.
