@@ -296,5 +296,19 @@ The first release ships the subset needed by its examples; the rest follows
 Prisma's spelling when added.
 Why: Prisma's query API is the best-known in TypeScript and many frameworks
 copied it; familiarity is free DX.
+Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
+can run without an extra query per parent (no N+1).
 Rejected: a query syntax of our own; a function builder for `where` beside
 the object form.
+
+## D-21: Plugins are independent of each other
+
+Choice: the kernel never imports, names or special-cases a plugin. Each plugin
+works alone with the kernel whenever its purpose allows; `requires` (D-16) is
+used only when a plugin cannot do its job without another one, never for
+convenience. A plugin that enriches another one's behaviour when both are
+present does it through the kernel's generic hooks, not through a hard
+requirement.
+Why: a developer adds exactly the bricks they need (D-01); a community plugin
+must not drag a chain of other plugins with it.
+Rejected: plugins that assume a standard set is installed.
