@@ -139,8 +139,28 @@ Abandonné : types de champs génériques (les survols par type sont le contrat 
      Questions ouvertes à trancher par l'utilisateur : clés `never` dans les complétions ; ~34 lignes `warn`
      au démarrage de `examples/access` ; vocabulaire mixte dans le journal de refus (« denied many … no rule
      for findMany ») ; message du diagnostic sur une ligne (l'ADR l'affiche sur deux).
-     Prochaine action vérifiable : réponses de l'utilisateur, puis Hooks par un agent `implementer`
-     (Opus, effort moyen), puis migration de tous les appelants.
+     Réponses de l'utilisateur (2026-10-19) : 1A garder les clés `never` ; 2 chaque exemple démarre sans
+     `warn` (règle ou `expose: { … false }`), sauf `Draft` dans `examples/access` exprès ; 3 journal de
+     refus corrigé à l'étape Hooks ; 4 message sur une ligne.
+     Étape Hooks terminée, relecture faite (HEAD d15ff99f, 6 commits depuis af6834b2, aucun cast ajouté) :
+     les branches `beforeOperation`/`afterOperation`/`afterCommit` prennent une clé par opération de plugin
+     (`softDelete`, `restore`, `purge`), exécutée pour la commande One et pour chaque ligne de la commande
+     Many avec la même entrée ; une clé de méthode (`restoreOne`) échoue au démarrage en nommant
+     l'opération ; `read`/`write` refusés à la normalisation ; `all` reste additif (exécuté avant la branche
+     d'opération, comme pour les branches natives, ADR-0318) ; `context.hook.declarationBranch` nomme
+     l'opération ; journal de refus Access : `denied findMany`/`denied findOne`.
+     Contrôles (d15ff99f) : `yarn install --immutable` exit 0 ; `validate:full` exit 0 (823 fichiers, 4602
+     tests, aucune erreur de type) ; `typecheck:typescript-7` exit 0 ; `website:test` 59/59 ; `yarn build`
+     exit 0. Audit DX hooks-plugin + access-plugin + soft-delete-plugin contre `main` : 406 différences ;
+     hooks-plugin : 0 export changé, survols des types de branches (`CommandOperation`), complétion `expose`
+     (étape tranche), JSDoc « Combines the native operations with this schema's plugin operations ».
+     Décisions prises : `SchemaMutationBeforeHook`/`SchemaMutationAfterHook` restent exportés (types de
+     gestionnaire toujours valides, retrait non annoncé par l'ADR).
+     À faire pendant la migration des appelants : `examples/full-stack/src/schema.ts` enregistre
+     `'purgeOne'`/`'restoreOne'`/`'softDeleteOne'` dans son journal alors que la branche couvre aussi les
+     commandes Many : passer aux noms d'opération.
+     Prochaine action vérifiable : migration de tous les appelants par un agent `mechanic` (Sonnet, effort
+     moyen), puis `validate:full`, bench et audit DX complet montrés à l'utilisateur.
 1. ADR « commandes » (revue DX §4.1, §4.2, §4.5) et ADR « corbeille » (§4.4), séparés de l'ADR-0347.
 1. ADR « erreurs » (revue DX §3.3).
 1. Tests propres des paquets encore autour de 76 à 79 % des branches : `access-plugin` d'abord
