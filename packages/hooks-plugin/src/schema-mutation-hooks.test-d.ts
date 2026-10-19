@@ -52,11 +52,12 @@ test('types exact request and Master schema mutation Hook branches', () => {
 		className: 'HookSchemaMutationTypeDocument',
 		fields: (field) => ({ title: field.string() }),
 	})
-	// A plugin statics slot types the commands of a configured schema (ADR-0316).
+	// A plugin statics slot types the commands of a configured schema
+	// (ADR-0316); Hooks key them by operation (ADR-0347).
 	type Document = typeof Base &
 		SchemaCommands<
 			typeof Base,
-			{ readonly archive: typeof archive; readonly purge: typeof purge }
+			{ readonly archiveOne: typeof archive; readonly purgeOne: typeof purge }
 		>
 	const hooks: SchemaHooks<Document> = {
 		afterOperation: {

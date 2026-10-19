@@ -127,7 +127,7 @@ export const ExampleAuthor = App.Schema.define({
 					originalItem.id,
 				)
 			},
-			purgeOne: async ({ originalItem }) => {
+			purge: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
 					'purgeOne',
 					'delete',
@@ -135,7 +135,7 @@ export const ExampleAuthor = App.Schema.define({
 					originalItem.id,
 				)
 			},
-			restoreOne: async ({ originalItem }) => {
+			restore: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
 					'restoreOne',
 					'update',
@@ -276,7 +276,7 @@ export const ExampleArticle = App.Schema.define({
 					originalItem.id,
 				)
 			},
-			purgeOne: async ({ originalItem }) => {
+			purge: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
 					'purgeOne',
 					'delete',
@@ -284,7 +284,7 @@ export const ExampleArticle = App.Schema.define({
 					originalItem.id,
 				)
 			},
-			restoreOne: async ({ originalItem }) => {
+			restore: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
 					'restoreOne',
 					'update',
@@ -292,7 +292,7 @@ export const ExampleArticle = App.Schema.define({
 					originalItem.id,
 				)
 			},
-			softDeleteOne: async ({ originalItem }) => {
+			softDelete: async ({ originalItem }) => {
 				await recordSoftDeleteEvent(
 					'softDeleteOne',
 					'update',

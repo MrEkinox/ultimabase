@@ -190,7 +190,7 @@ describe('schema mutation Hooks', () => {
 		const nativeDelete = vi.fn()
 		const inlineHooks = {
 			afterOperation: {
-				archiveOne: (input: RuntimeMutationHookInput) => {
+				archive: (input: RuntimeMutationHookInput) => {
 					trace.push('inline:after')
 					inputs.push(input)
 					input.context.emit(archiveCompleted, { id: input.target.id })
@@ -199,7 +199,7 @@ describe('schema mutation Hooks', () => {
 				update: nativeUpdate,
 			},
 			beforeOperation: {
-				archiveOne: async (input: RuntimeMutationHookInput) => {
+				archive: async (input: RuntimeMutationHookInput) => {
 					trace.push('inline:before')
 					inputs.push(input)
 					await runNestedQuery()
@@ -219,13 +219,13 @@ describe('schema mutation Hooks', () => {
 			parts.Document,
 			{
 				afterOperation: {
-					archiveOne: [
+					archive: [
 						() => trace.push('first:after:0'),
 						() => trace.push('first:after:1'),
 					],
 				},
 				beforeOperation: {
-					archiveOne: [
+					archive: [
 						(input: RuntimeMutationHookInput) => {
 							trace.push('first:before:0')
 							expect(input.context.hook.owner).toMatchObject({
@@ -242,8 +242,8 @@ describe('schema mutation Hooks', () => {
 			'fixture.schema-hook-provider-second',
 			parts.Document,
 			{
-				afterOperation: { archiveOne: () => trace.push('second:after') },
-				beforeOperation: { archiveOne: () => trace.push('second:before') },
+				afterOperation: { archive: () => trace.push('second:after') },
+				beforeOperation: { archive: () => trace.push('second:before') },
 			},
 		)
 		const events = plugin({
@@ -310,14 +310,14 @@ describe('schema mutation Hooks', () => {
 			})
 			expect(inputs[1]).toMatchObject({ item: { workflowState: 'archived' } })
 			expect(inputs[0]?.context.hook).toMatchObject({
-				declarationBranch: 'archiveOne',
+				declarationBranch: 'archive',
 				operationKind: 'plugin-schema-mutation',
 				owner: { kind: 'application' },
 				phase: 'beforeOperation',
 				target: { className: parts.Document.className, kind: 'schema' },
 			})
 			expect(inputs[1]?.context.hook).toMatchObject({
-				declarationBranch: 'archiveOne',
+				declarationBranch: 'archive',
 				operationKind: 'plugin-schema-mutation',
 				phase: 'afterOperation',
 			})
@@ -338,7 +338,7 @@ describe('schema mutation Hooks', () => {
 		const beforeTrace: string[] = []
 		const before = createArchiveParts(beforeTrace, {
 			beforeOperation: {
-				archiveOne: () => {
+				archive: () => {
 					throw new Error('before rejected')
 				},
 			},
@@ -365,7 +365,7 @@ describe('schema mutation Hooks', () => {
 		const afterTrace: string[] = []
 		const after = createArchiveParts(afterTrace, {
 			afterOperation: {
-				archiveOne: () => {
+				archive: () => {
 					throw new Error('after rejected')
 				},
 			},
@@ -396,7 +396,7 @@ describe('schema mutation Hooks', () => {
 		const controller = new AbortController()
 		const parts = createArchiveParts(trace, {
 			beforeOperation: {
-				archiveOne: () => {
+				archive: () => {
 					trace.push('hook:cancel')
 					controller.abort()
 				},
@@ -496,10 +496,10 @@ describe('schema mutation Hooks', () => {
 		const firstHook = vi.fn()
 		const secondHook = vi.fn()
 		const first = createArchiveParts(firstTrace, {
-			beforeOperation: { archiveOne: firstHook },
+			beforeOperation: { archive: firstHook },
 		})
 		const second = createArchiveParts(secondTrace, {
-			beforeOperation: { archiveOne: secondHook },
+			beforeOperation: { archive: secondHook },
 		})
 		const firstApp = new (UltimaBase.use(
 			hooksPlugin(),
@@ -541,7 +541,7 @@ describe('schema mutation Hooks', () => {
 			trace.push(`hook:${input.context.access.mode}`)
 		})
 		const parts = createArchiveParts(trace, {
-			beforeOperation: { archiveOne: hook },
+			beforeOperation: { archive: hook },
 		})
 		const audit = vi.fn()
 		const ultimabase = new (UltimaBase.use(

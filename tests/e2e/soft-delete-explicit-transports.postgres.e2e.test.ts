@@ -54,12 +54,12 @@ const Explicit = SchemaApplication.Schema.define({
 	},
 	hooks: {
 		afterOperation: {
-			softDeleteOne: ({ item }) => {
+			softDelete: ({ item }) => {
 				explicitSoftDeleteTrace.push(`after:softDeleteOne:${item.title}`)
 			},
 		},
 		beforeOperation: {
-			softDeleteOne: ({ item, originalItem }) => {
+			softDelete: ({ item, originalItem }) => {
 				const title = originalItem.title
 				explicitSoftDeleteTrace.push(
 					`before:softDeleteOne:${title}:${String(item.isDeleted)}`,

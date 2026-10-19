@@ -106,25 +106,60 @@ export type SchemaMutationAllHookInput<
 		: never
 }[keyof SchemaMutationMap<TSchema> & string]
 
-/** Projects exact custom before-operation branches from the generated graph. */
-type SchemaMutationBeforeOperationHooks<TSchema extends SchemaDefinition> = {
-	readonly [
-		TCommand in keyof SchemaMutationMap<TSchema>
-	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
-		PluginSchemaMutationDefinition
-		? HookHandlerDeclaration<SchemaMutationBeforeHook<TSchema, TMutation>>
+/** The operation a command alias forms: `softDeleteOne` forms `softDelete`. */
+type CommandOperation<TCommand> = TCommand extends `${infer TOperation}One`
+	? TOperation
+	: TCommand extends `${infer TOperation}Many`
+		? TOperation
 		: never
+
+/** The commands one plugin operation covers: its `One` and `Many` methods. */
+type OperationMutations<
+	TSchema extends SchemaDefinition,
+	TOperation extends string,
+> = SchemaMutationMap<TSchema>[(`${TOperation}Many` | `${TOperation}One`) &
+	keyof SchemaMutationMap<TSchema>]
+
+/**
+ * What an operation branch receives: the input of the one-row command, or of
+ * one row of the many-row command (ADR-0347).
+ */
+type OperationHookInput<
+	TSchema extends SchemaDefinition,
+	TMutation,
+	TPhase extends 'after' | 'before',
+> = TMutation extends PluginSchemaMutationDefinition
+	? TPhase extends 'before'
+		? SchemaMutationBeforeHookInput<TSchema, TMutation>
+		: SchemaMutationAfterHookInput<TSchema, TMutation>
+	: never
+
+/**
+ * Projects one branch per plugin operation (ADR-0347): `restore` runs for
+ * `restoreOne` and for each row of `restoreMany`.
+ */
+type SchemaMutationOperationHooks<
+	TSchema extends SchemaDefinition,
+	TPhase extends 'after' | 'before',
+> = {
+	readonly [
+		TOperation in CommandOperation<keyof SchemaMutationMap<TSchema>>
+	]?: HookHandlerDeclaration<
+		SchemaOperationHook<
+			OperationHookInput<
+				TSchema,
+				OperationMutations<TSchema, TOperation>,
+				TPhase
+			>
+		>
+	>
 }
 
-/** Projects exact custom after-operation branches from the generated graph. */
-type SchemaMutationAfterOperationHooks<TSchema extends SchemaDefinition> = {
-	readonly [
-		TCommand in keyof SchemaMutationMap<TSchema>
-	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
-		PluginSchemaMutationDefinition
-		? HookHandlerDeclaration<SchemaMutationAfterHook<TSchema, TMutation>>
-		: never
-}
+type SchemaMutationBeforeOperationHooks<TSchema extends SchemaDefinition> =
+	SchemaMutationOperationHooks<TSchema, 'before'>
+
+type SchemaMutationAfterOperationHooks<TSchema extends SchemaDefinition> =
+	SchemaMutationOperationHooks<TSchema, 'after'>
 
 interface NativeSchemaBeforeOperationHooks<TSchema extends SchemaDefinition> {
 	/**
@@ -151,7 +186,7 @@ interface NativeSchemaBeforeOperationHooks<TSchema extends SchemaDefinition> {
 	>
 }
 
-/** Combines native lifecycle names with this application's exact schema mutations. */
+/** Combines the native operations with this schema's plugin operations. */
 export type SchemaBeforeOperationHooks<TSchema extends SchemaDefinition> =
 	Readonly<{
 		[
@@ -190,7 +225,7 @@ interface NativeSchemaAfterOperationHooks<TSchema extends SchemaDefinition> {
 	>
 }
 
-/** Combines native lifecycle names with this application's exact schema mutations. */
+/** Combines the native operations with this schema's plugin operations. */
 export type SchemaAfterOperationHooks<TSchema extends SchemaDefinition> =
 	Readonly<{
 		[

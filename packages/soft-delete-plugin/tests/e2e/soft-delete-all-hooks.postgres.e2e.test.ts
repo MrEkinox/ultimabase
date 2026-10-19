@@ -58,7 +58,7 @@ const Document = Application.Schema.define({
 				>()
 				audit.push(`beforeOperation:all:${kind}`)
 			},
-			softDeleteOne: ({ originalItem }) => {
+			softDelete: ({ originalItem }) => {
 				audit.push(`beforeOperation:softDeleteOne:${originalItem.title}`)
 			},
 		},
@@ -282,6 +282,10 @@ describe('plugin operation hook keys (ADR-0347)', () => {
 	it('runs purge for each row of purgeMany', async () => {
 		await OperationDocument.createMany({
 			data: [{ title: 'purge-a' }, { title: 'purge-b' }],
+		})
+		// Purge targets tombstones only.
+		await OperationDocument.softDeleteMany({
+			where: { title: { startsWith: 'purge-' } },
 		})
 		await waitForAfterCommit()
 		audit.length = 0

@@ -35,7 +35,7 @@ export const rulesPlugin = plugin({
 						void originalItem.nope
 						void [published, slug, originalItem.author]
 					},
-					softDeleteOne: ({ originalItem }) => void originalItem.published,
+					softDelete: ({ originalItem }) => void originalItem.published,
 					// @ts-expect-error unknown plugin command of the targeted schema
 					nope: () => undefined,
 				},

@@ -270,8 +270,10 @@ const nativeBranches: ReadonlySet<string> = new Set([
  *
  * Native branches (`all`, `create`, `update`, `upsert`, `delete`) are grouped
  * per phase so `all` runs before the operation's own branch; other identifier
- * branches name custom schema mutations, which the contribution plan checks
- * against the application catalog. Global declarations accept none.
+ * branches name plugin operations (`softDelete`, ADR-0347), which the
+ * contribution plan checks against the schema's commands. Global
+ * declarations accept none, and no scope accepts the groups `read` and
+ * `write`: there are no read hooks.
  */
 const normalizeGroupedHookDeclarations = (
 	hooks: unknown,
@@ -312,6 +314,11 @@ const normalizeGroupedHookDeclarations = (
 		for (const branch of branches) {
 			if (typeof branch !== 'string') {
 				throw new TypeError(`hooks.${key} contains an unsupported symbol key`)
+			}
+			if (branch === 'read' || branch === 'write') {
+				throw new TypeError(
+					`hooks.${key}.${branch} is not a Hook key: Hooks take all, create, update, upsert, delete or a plugin operation, and ${branch} is an operation group`,
+				)
 			}
 			if (nativeBranches.has(branch)) {
 				nativeGroup[branch] = group[branch]

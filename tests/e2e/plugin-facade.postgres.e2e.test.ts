@@ -62,7 +62,7 @@ const Post = App.Schema.define({
 	audit: true,
 	hooks: {
 		beforeOperation: {
-			archiveMany: ({ originalItem }) => {
+			archive: ({ originalItem }) => {
 				hookTrace.push(`archiveMany:${originalItem.title}`)
 				if (originalItem.title === refusedTitle) {
 					throw new TypeError('archive refused by hook')

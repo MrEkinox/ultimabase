@@ -6,6 +6,7 @@ import type {
 	SchemaContributionOwner,
 	SchemaDefinition,
 } from '@ultimabase/core'
+import { readPluginCommandOperation } from '@ultimabase/core/plugin'
 import {
 	immutableArray,
 	immutableRecord,
@@ -228,6 +229,27 @@ const nestContributions = <TDeclarations extends object>(
 	})
 }
 
+/**
+ * Lists the commands each plugin operation of one schema covers, the `One`
+ * method first: `softDelete` covers `softDeleteOne` and `softDeleteMany`.
+ */
+const readPluginOperations = (
+	schemaMutations: SchemaHookContributionPlan['schemaMutations'],
+): ReadonlyMap<string, readonly string[]> => {
+	const operations = new Map<string, readonly string[]>()
+	for (const { command, mutation } of schemaMutations.values()) {
+		const operation = readPluginCommandOperation(command, mutation.target)
+		const commands = operations.get(operation) ?? []
+		operations.set(
+			operation,
+			mutation.target === 'one'
+				? [command, ...commands]
+				: [...commands, command],
+		)
+	}
+	return operations
+}
+
 const finalizeSchemaPlan = (
 	draft: SchemaDraft,
 	global: SchemaHookDeclarations | undefined,
@@ -268,20 +290,31 @@ const finalizeSchemaPlan = (
 	}
 	const contributions = nestContributions(draft.plugins, developer, global)
 
-	// Stale custom mutation branches fail at startup, before Runtime work begins.
+	// Stale or per-method branches fail at startup, before Runtime work begins.
+	const operations = readPluginOperations(schemaMutations)
 	for (const { declarations } of contributions.before) {
-		for (const [command, branches] of Object.entries(
+		for (const [branch, groups] of Object.entries(
 			declarations.mutations ?? {},
 		)) {
-			if (schemaMutations.has(command)) continue
+			if (operations.has(branch)) continue
 			const group =
-				branches.beforeOperation !== undefined
+				groups.beforeOperation !== undefined
 					? 'beforeOperation'
-					: branches.afterOperation !== undefined
+					: groups.afterOperation !== undefined
 						? 'afterOperation'
 						: 'afterCommit'
+			const method = schemaMutations.get(branch)
+			if (method !== undefined) {
+				const operation = readPluginCommandOperation(
+					branch,
+					method.mutation.target,
+				)
+				throw new TypeError(
+					`Hook branch ${schema.className}.hooks.${group}.${branch} names the method ${branch}: Hooks take its operation ${operation}, which covers ${(operations.get(operation) ?? []).join(' and ')}`,
+				)
+			}
 			throw new TypeError(
-				`Unknown schema mutation Hook branch: ${schema.className}.hooks.${group}.${command}`,
+				`Unknown schema mutation Hook branch: ${schema.className}.hooks.${group}.${branch}`,
 			)
 		}
 	}

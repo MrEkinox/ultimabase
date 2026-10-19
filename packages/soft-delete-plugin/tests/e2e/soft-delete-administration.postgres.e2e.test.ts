@@ -40,19 +40,19 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 }).with({
 	hooks: {
 		afterOperation: {
-			purgeOne: ({ item, originalItem }) => {
+			purge: ({ item, originalItem }) => {
 				administrationTrace.push(
 					`after:purgeOne:${originalItem.title}:${String(item)}`,
 				)
 			},
-			restoreOne: ({ item, originalItem }) => {
+			restore: ({ item, originalItem }) => {
 				administrationTrace.push(
 					`after:restoreOne:${originalItem.title}:${String(item.isDeleted)}`,
 				)
 			},
 		},
 		beforeOperation: {
-			purgeOne: async ({ context, item, mutation, originalItem }) => {
+			purge: async ({ context, item, mutation, originalItem }) => {
 				administrationTrace.push(
 					`before:purgeOne:${mutation.name}:${context.access.mode}:${String(item)}`,
 				)
@@ -63,7 +63,7 @@ const Document = SoftDeleteAdministrationApplication.Schema.define({
 					throw new Error('administrative purge rejected')
 				}
 			},
-			restoreOne: async ({ context, item, mutation, originalItem }) => {
+			restore: async ({ context, item, mutation, originalItem }) => {
 				administrationTrace.push(
 					`before:restoreOne:${mutation.name}:${context.access.mode}:${String(item.isDeleted)}`,
 				)

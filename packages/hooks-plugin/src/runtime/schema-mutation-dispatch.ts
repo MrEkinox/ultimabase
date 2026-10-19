@@ -4,7 +4,11 @@ import {
 	type DatabaseMutationMaterializationSource,
 	type PluginSchemaMutationOperationAst,
 } from '@ultimabase/core'
-import type { RequestContext } from '@ultimabase/core/plugin'
+import {
+	readPluginCommandOperation,
+	resolveCommandKey,
+	type RequestContext,
+} from '@ultimabase/core/plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { SchemaHookGroup } from '../authoring/declarations.js'
@@ -26,8 +30,8 @@ import {
 type LogicalPair = Readonly<{ originalItem: unknown; item: unknown }>
 
 /**
- * Runs one exact custom mutation branch (Soft Delete's `softDeleteOne`, …)
- * around its owner-resolved effect. Dispatch uses the logical command, never
+ * Runs the branch of one plugin operation (Soft Delete's `softDelete`, …)
+ * around the owner-resolved effect of each row. Dispatch uses the logical command, never
  * its physical statement, so native update or delete hooks never observe it.
  */
 export const createSchemaMutationHooks = (
@@ -55,21 +59,36 @@ export const createSchemaMutationHooks = (
 	}
 
 	/**
-	 * Lists, per contribution, the phase's `all` branch then the command's own
-	 * branch: `all` covers plugin commands too (ADR-0318 amendment).
+	 * Lists, per contribution, the phase's `all` branch then the branch of the
+	 * command's operation: `all` covers plugin commands too (ADR-0318
+	 * amendment), and `restore` covers `restoreOne` and each row of
+	 * `restoreMany` (ADR-0347).
 	 */
 	const handlersFor = (
 		schemaPlan: SchemaHookContributionPlan,
 		operation: PluginSchemaMutationOperationAst,
 		phase: SchemaHookGroup,
-	): readonly PlannedHandler[] =>
-		collectHandlers(
+	): readonly PlannedHandler[] => {
+		const entry = immutableRecord({
+			group: 'write' as const,
+			method: operation.command,
+			operation: readPluginCommandOperation(
+				operation.command,
+				operation.mutation.target,
+			),
+		})
+		return collectHandlers(
 			schemaPlan.contributions[phase === 'afterOperation' ? 'after' : 'before'],
 			(declarations) => [
 				...(declarations[phase]?.all ?? []),
+				// The plan admits only operation keys, so the operation decides.
 				...(
-					declarations.mutations?.[operation.command]?.[phase]?.all ?? []
-				).map((entry) => ({ ...entry, declarationBranch: operation.command })),
+					resolveCommandKey(declarations.mutations ?? {}, entry)?.[phase]
+						?.all ?? []
+				).map((handler) => ({
+					...handler,
+					declarationBranch: entry.operation,
+				})),
 			],
 			{
 				operationKind: 'plugin-schema-mutation',
@@ -77,6 +96,7 @@ export const createSchemaMutationHooks = (
 				target: createSchemaHookTarget(schemaPlan.schema.className),
 			},
 		)
+	}
 
 	const createBase = (
 		schemaPlan: SchemaHookContributionPlan,

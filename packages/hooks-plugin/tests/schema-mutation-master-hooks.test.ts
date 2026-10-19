@@ -46,14 +46,14 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 	const inlineHooks: unknown = {
 		afterOperation: {
 			delete: nativeDelete,
-			purgeOne: (input: MasterMutationHookInput) => {
+			purge: (input: MasterMutationHookInput) => {
 				trace.push('purge:after')
 				customInputs.push(input)
 			},
 		},
 		beforeOperation: {
 			delete: nativeDelete,
-			purgeOne: (input: MasterMutationHookInput) => {
+			purge: (input: MasterMutationHookInput) => {
 				trace.push('purge:before')
 				customInputs.push(input)
 			},
