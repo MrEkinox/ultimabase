@@ -49,3 +49,12 @@ export declare function isSelf(facts: {
 	readonly caller: Caller
 	readonly record: { readonly id: string }
 }): boolean
+
+/**
+ * The default "whoever creates the record" (D-53, D-62): the signed-in
+ * caller's `{ id }`, no value otherwise. Its declared return type spares the
+ * user model's own defaults the annotation.
+ */
+export declare function currentUser(facts: {
+	readonly caller: Caller
+}): { readonly id: string } | undefined

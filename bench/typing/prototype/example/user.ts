@@ -1,6 +1,6 @@
 // The user model, declared with auth's `defineUser` (D-13, D-62).
 import type { Caller } from '../index.ts'
-import { defineUser, graphql, isSelf } from '../index.ts'
+import { currentUser, defineUser, graphql, isSelf } from '../index.ts'
 import { Post } from './post.ts'
 
 // A helper with a declared return type reads `caller.user` in any rule of
@@ -26,13 +26,9 @@ export const User = defineUser({
 		manager: f
 			.one(() => User, { optional: true })
 			.with({ access: { update: ({ caller }) => isEditor(caller) } }),
-		// The same holds for a default reading `caller.user`: it declares its
-		// return type, or `User` degrades silently (D-62).
-		invitedBy: f.one(() => User, {
-			optional: true,
-			default: ({ caller }): { readonly id: string } | undefined =>
-				caller.kind === 'user' ? caller.user : undefined,
-		}),
+		// A default reading `caller.user` here declares its return type, or
+		// `User` degrades silently; auth's `currentUser` has one (D-62).
+		invitedBy: f.one(() => User, { optional: true, default: currentUser }),
 	}),
 	indexes: [{ fields: ['manager', 'role'] }],
 }).with({

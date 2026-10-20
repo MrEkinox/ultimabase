@@ -1210,7 +1210,8 @@ Choice: `default` takes a value (`default: false`) or a function receiving
 who creates the record. A relation's default is the target's `{ id }`, or a
 function returning it; a record of the target, `caller.user` included, fits.
 Returning `undefined` gives no value; a default of the wrong type is refused
-on its line. A field with a default is optional in
+on its line. auth's `currentUser` (D-62) is that default for the record's
+author. A field with a default is optional in
 `create`'s input, and the default applies when the caller sends no value. A
 `beforeCreate` hook (D-15) may still set or replace the value: a required
 field is checked for presence after the hooks (D-67). `f.json()` accepts
@@ -1480,7 +1481,11 @@ user model that reads `caller.user` in its own body needs `: boolean`, and a
 default of the user model that reads it (D-53) declares its return type,
 `({ caller }): { readonly id: string } | undefined => ...`; without it,
 `User` loses its type with no error on that line, only on `defineApp`.
-Another model's default that reads `caller.user` needs nothing.
+Another model's default that reads `caller.user` needs nothing. auth exports
+`currentUser`, the default "whoever creates the record" (the signed-in
+caller's `{ id }`, no value otherwise), declared with its return type:
+`invitedBy: f.one(() => User, { default: currentUser })` needs no annotation,
+in the user model or any other.
 Without it, TypeScript reports TS7023 on the rule's line and on `fields`, and
 `User` becomes `any` (TS7022): typing `caller.user` needs `User`'s fields,
 which hold the rule. A rule that calls a helper with a declared return type,
