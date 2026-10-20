@@ -628,7 +628,7 @@ automatic destructive sync.
 
 ## D-27: Functions, exposed by transports, plus raw HTTP routes
 
-Choice: `defineFunction({ name, input, output, run })` declares a server
+Choice: `defineFunction({ name, use, input, output, run })` declares a server
 operation with a Standard Schema input and a typed output (D-45 lists the
 accepted outputs). Every installed transport exposes it (a GraphQL query or
 mutation, a REST endpoint); `.with({ ... })` sets its access, closed by
@@ -637,14 +637,30 @@ transport listed in its `use`, as on a model, D-24). `run`
 receives the validated input and the caller. For anything else (webhooks,
 redirects) the HTTP plugin is built on Hono and the developer writes plain Hono
 routes with the caller available. A function reaches the application through
-`defineApp({ functions: [...] })` (D-24), like models.
+`defineApp({ functions: [...] })` (D-24), like models, which refuses a
+function whose `use` lists a plugin missing from `plugins`.
+Typing (2026-10-20): `input` is optional; without it, `run` receives no
+`input`, and an input schema typed `any` or without types is refused (D-23).
+`run` returns the output's type (D-45), which is not validated at run time:
+like hooks, a function is trusted server code (D-23). A transport keys a
+function's `.with` through `functionWith` in its types (D-57), the way
+`with` keys a model's; the graphql and REST plugins type it
+`{ name?: string } | false`, and `false` hides the function from that
+transport. A plugin without `functionWith` is refused in a function's `use`,
+where it would do nothing. The access rule receives `{ caller }` only: it runs
+before the input is validated, so a closed function reveals nothing of its
+input; a check that needs the input throws from `run`. `allow.public` and
+`allow.private` fit it; `allow.readOnly`, which reads the operation, does not.
 Why: one declaration replaces one custom endpoint per transport, like Parse
 Cloud Functions; GraphQL needs a runtime output type, which the output schema
-gives. Hono routes need no new concept.
-Rejected: a `defineRoute` wrapper around HTTP; functions per transport.
-Example:
+gives. Hono routes need no new concept. Validating the output would cost every
+call to catch what the types already catch.
+Rejected: a `defineRoute` wrapper around HTTP; functions per transport;
+validating the output at run time; an access rule that reads the input.
+Example (before, the decision's first form; after, as typed):
 
 ```ts
+// Before: `rest: false` was untyped, and `run`'s return was not checked
 export const archiveTodo = defineFunction({
 	name: 'archiveTodo',
 	use: [rest()],
@@ -656,6 +672,19 @@ export const archiveTodo = defineFunction({
 			{ as: caller },
 		),
 }).with({ access: isAuthenticated, rest: false })
+
+// After: the same declaration; each line below is refused on its own
+export const openTodos = defineFunction({
+	name: 'openTodos',
+	output: [Todo],
+	run: ({ caller }) => Todo.findMany({ where: { archived: false } }, { as: caller }),
+}).with({ access: allow.public })
+
+run: ({ input }) => input, // no `input` without an input schema
+run: () => ({ title: 'a' }), // `output: Todo` returns a Todo record
+use: [softDelete()], // soft delete has no key on a function
+.with({ graphql: false }), // graphql is not in the function's `use`
+.with({ access: allow.readOnly }), // a function has no operation
 ```
 
 ## D-28: Errors are hidden unless public
@@ -988,10 +1017,13 @@ fields: (f) => ({
 ## D-45: Function types become GraphQL types, with an escape hatch
 
 Choice: a function's `input` is any Standard Schema; its `output` is a model
-(`Todo`), a list (`[Todo]`), a paginated list (`paginated(Todo)`, shaped by the
-application's pagination, a Relay connection by default, D-41), an object
-mixing models and schemas (`{ todo: Todo, created: z.boolean() }`) or any
-Standard Schema. GraphQL types come from the validator's standard JSON Schema
+(`Todo`), a list (`[Todo]`), an object mixing models and schemas
+(`{ todo: Todo, created: z.boolean() }`) or any Standard Schema. `run` returns,
+respectively, the model's record, a `readonly` array of them, an object of
+those types and the schema's output (D-27). A paginated output
+(`paginated(Todo)`, a Relay connection) is out of 0.1 (amended 2026-10-20): a
+function returns `[Todo]` and takes its pagination in its `input`. GraphQL
+types come from the validator's standard JSON Schema
 export: a nested object is named from its path (`CreateOrderInputAddress`); a
 schema given an id (Zod's `.meta({ id: 'Address' })`) becomes one shared type;
 two different shapes under one name stop startup; a validator without a JSON
@@ -1003,7 +1035,19 @@ Why: one declaration covers the common custom query or mutation without
 writing GraphQL types; rare GraphQL-only features stay possible, as raw Hono
 routes do for HTTP (D-27).
 Rejected: a GraphQL type builder in UltimaBase (re-creating Nexus); output
-limited to models.
+limited to models; `paginated(Todo)` in 0.1, whose connection shape depends on
+the GraphQL plugin's pagination (D-41) and would tie the kernel to it.
+Example:
+
+```ts
+// Before: `paginated(Todo)` was an accepted output
+output: paginated(Todo),
+// After: a list, paginated by the input
+input: z.object({ take: z.number().int().max(100), skip: z.number().int() }),
+output: [Todo],
+run: ({ input, caller }) => Todo.findMany(input, { as: caller }),
+// `run` returns `readonly TodoRecord[]`
+```
 
 ## D-46: An adapter runs a whole query in one round trip
 
@@ -1209,8 +1253,9 @@ Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
 `appOptions` (its application value's), `requires` and `optional` (D-16),
 `api` (what it offers other plugins), `adds` (the fields it adds to the models
-that use it), `commands` (D-15), `with` (its key of the model's `.with`, D-42)
-and `fieldWith` (its key of a field's `.with`, D-12). Inside the interface,
+that use it), `commands` (D-15), `with` (its key of the model's `.with`, D-42),
+`fieldWith` (its key of a field's `.with`, D-12) and `functionWith` (its key
+of a function's `.with`, D-27). Inside the interface,
 `this['fields']` is the fields of the model that lists the plugin in its
 `use`, `this['options']` the options of its entry there, and `this['value']`
 the value of the field whose `.with` holds its rule. Its code is one

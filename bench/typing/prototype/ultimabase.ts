@@ -1,7 +1,7 @@
 // D-24: a model lists the plugins it uses, `defineModel({ use: [softDelete()] })`,
-// and `defineApp({ database, plugins, models })` assembles the application
-// (functions are not prototyped). A plugin's types travel with its values;
-// nothing is declared globally.
+// and `defineApp({ database, plugins, models, functions })` assembles the
+// application. A plugin's types travel with its values; nothing is declared
+// globally.
 import type {
 	App,
 	FieldShape,
@@ -13,6 +13,7 @@ import type {
 	RecordCheck,
 } from './model.ts'
 import type { FieldBuilders } from './fields.ts'
+import type { FunctionShape } from './function.ts'
 import type { Queries, UniqueWhere } from './query.ts'
 import type { RecordOf } from './record.ts'
 import type { Caller } from './rules.ts'
@@ -47,6 +48,8 @@ export interface PluginTypes {
 	readonly with?: object
 	/** Its key of a field's `.with`, read with `this['value']` (D-12). */
 	readonly fieldWith?: object
+	/** Its key of a function's `.with`; `false` stops exposing it (D-27). */
+	readonly functionWith?: object | false
 }
 
 /** A plugin's types for one model's fields. */
@@ -263,10 +266,10 @@ type Used<M> =
 	| (M extends { readonly [modelFields]: infer F }
 			? FieldTypePlugins<F>
 			: never)
-type Missing<
-	P extends readonly PluginValue<string, string>[],
-	M extends readonly ModelShape[],
-> = Exclude<Used<M[number]>, P[number]['name'] | undefined>
+type Missing<P extends readonly PluginValue<string, string>[], X> = Exclude<
+	Used<X>,
+	P[number]['name'] | undefined
+>
 type RequiresOf<V> = V extends PluginValue<string, infer R> ? R : never
 type Unmet<P extends readonly PluginValue<string, string>[]> = Exclude<
 	RequiresOf<P[number]>,
@@ -275,14 +278,19 @@ type Unmet<P extends readonly PluginValue<string, string>[]> = Exclude<
 type PluginCheck<
 	P extends readonly PluginValue<string, string>[],
 	M extends readonly ModelShape[],
-> = [Missing<P, M>] extends [never]
-	? [Unmet<P>] extends [never]
-		? unknown
+	Fn extends readonly FunctionShape[],
+> = [Missing<P, M[number]>] extends [never]
+	? [Missing<P, Fn[number]>] extends [never]
+		? [Unmet<P>] extends [never]
+			? unknown
+			: {
+					readonly pluginError: `a plugin requires '${Unmet<P> & string}', which is not in plugins`
+				}
 		: {
-				readonly pluginError: `a plugin requires '${Unmet<P> & string}', which is not in plugins`
+				readonly pluginError: `a function uses '${Missing<P, Fn[number]> & string}', which is not in plugins`
 			}
 	: {
-			readonly pluginError: `a model uses '${Missing<P, M> & string}', which is not in plugins`
+			readonly pluginError: `a model uses '${Missing<P, M[number]> & string}', which is not in plugins`
 		}
 
 type Targets<X> = X extends { readonly [modelFields]: infer F }
@@ -309,11 +317,13 @@ type ModelCheck<M extends readonly ModelShape[]> = [Unlisted<M>] extends [never]
 export declare function defineApp<
 	const P extends readonly PluginValue<string, string>[] = [],
 	const M extends readonly ModelShape[] = [],
+	const Fn extends readonly FunctionShape[] = [],
 >(
 	options: {
 		readonly database: Database
 		readonly plugins?: P
 		readonly models: M & NoInfer<InverseCheck<M>>
-	} & NoInfer<PluginCheck<P, M>> &
+		readonly functions?: Fn
+	} & NoInfer<PluginCheck<P, M, Fn>> &
 		NoInfer<ModelCheck<M>>,
 ): App<M>

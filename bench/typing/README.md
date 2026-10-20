@@ -335,6 +335,25 @@ without its `validate` signature (−0.3 %), a field's options stored without
 their schema (0 %), and the schema's types flattened once in the builder
 (+2 %).
 
+## Phase 1b: functions
+
+`defineFunction` and `defineApp({ functions })` (D-27, D-45) live in
+`prototype/function.ts`; `prototype/example/define-function.ts` asserts each
+output form and the refusals. The generated projects declare no function, so
+they measure what the change costs models: one `tsc --extendedDiagnostics`
+run of each, three times, on 2026-10-20, "before" being `7558694b`.
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 101 603 |        535 |
+| After, 200         |      1 101 777 |        542 |
+| Before, 200, rules |      1 542 879 |        704 |
+| After, 200, rules  |      1 543 053 |        714 |
+
+174 instantiations more (0.02 %); the check times differ by less than their
+spread. Functions at scale are measured with the full benchmark (Phase 1b,
+last item).
+
 ## Reproducing
 
 ```bash

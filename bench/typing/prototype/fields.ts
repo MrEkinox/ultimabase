@@ -43,13 +43,15 @@ export type ScalarOptions<V> = {
 	readonly validate?: Validate<V>
 }
 
-type SchemaTypes<S> = S extends {
+/** The types a Standard Schema declares, `never` without them. */
+export type SchemaTypes<S> = S extends {
 	readonly '~standard': { readonly types?: infer T }
 }
 	? NonNullable<T>
 	: never
 type IsAny<X> = 0 extends 1 & X ? true : false
-type AnyCheck<S> =
+/** Refuses a schema typed `any` or without types, under `validate`. */
+export type AnyCheck<S> =
 	SchemaTypes<S> extends { readonly input: infer I; readonly output: infer O }
 		? IsAny<I> extends true
 			? { readonly validate: 'the schema types its input as any' }

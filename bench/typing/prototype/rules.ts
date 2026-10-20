@@ -32,10 +32,13 @@ export type AnyRule = (facts: {
 	readonly operation: Operation
 }) => boolean
 
+/** A rule that reads only the caller also fits a function's access (D-27). */
+export type CallerRule = (facts: { readonly caller: Caller }) => boolean
+
 export declare const allow: {
-	readonly public: AnyRule
+	readonly public: CallerRule
 	readonly readOnly: AnyRule
-	readonly private: AnyRule
+	readonly private: CallerRule
 }
 
 /**

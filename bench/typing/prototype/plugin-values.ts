@@ -80,6 +80,7 @@ export const aclPlugin: PluginOf<Acl> = aclDefinition.plugin
 interface Graphql extends PluginTypes {
 	readonly name: 'graphql'
 	readonly with: { readonly name?: string }
+	readonly functionWith: { readonly name?: string } | false
 }
 
 const graphqlDefinition = definePlugin<Graphql>({

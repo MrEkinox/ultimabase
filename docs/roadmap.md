@@ -41,7 +41,7 @@ written, so that Phase 2 moves its types instead of discovering them.
 
 - [x] Field validation with Standard Schema, `f.json({ validate })` typed by
       the schema, Zod in the 200-model benchmark (D-23, D-53).
-- [ ] `defineFunction` and `defineApp({ functions })` (D-27, D-45).
+- [x] `defineFunction` and `defineApp({ functions })` (D-27, D-45).
 - [ ] `defineUser` as auth's `define<Kind>` entry, and a rule on
       `caller.user` without `: boolean` if one exists (D-13, D-62).
 - [ ] `default: ({ caller }) => ...` and composite unique indexes as
