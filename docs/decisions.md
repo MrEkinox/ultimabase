@@ -273,6 +273,43 @@ export const TeamRole = defineRole({
 })
 ```
 
+Typing (2026-10-20): the kernel exports `ModelFields<F, U>` and
+`ModelOf<N, F, U>`, the types of `defineModel`'s `fields` callback and of the
+model it returns. A `define<Kind>` declares its signature with them and puts
+its own entry first in `U`. The model it returns then lists the plugin, so
+`defineApp` asks for the plugin's application value, and its `.with` holds the
+keys of every plugin in its `use`. The plugin does not have to export the
+entry its `define<Kind>` adds; auth does not, so `defineUser` is the only way
+to declare a user model. Typing the body of a `define<Kind>` needs an
+assertion when `use` is omitted, which Oxlint refuses
+(`no-unsafe-type-assertion`). How the plugin's code builds its `use` is
+settled when auth is written (Phase 5).
+Why: a plugin's signature reads like `defineModel`'s and follows it when it
+changes.
+Rejected: instantiation expressions
+(`ReturnType<typeof defineModel<N, F, U>>`). They compile, but every plugin
+depends on the order of `defineModel`'s type parameters, and the signature
+is hard to read.
+Example:
+
+```ts
+// Before: a plugin repeats defineModel's signature through instantiation expressions
+readonly fields: Parameters<typeof defineModel<N, F, WithAuth<U>>>[0]['fields']
+}): ReturnType<typeof defineModel<N, F, WithAuth<U>>>
+
+// After: auth's defineUser
+type WithAuth<U extends Uses> = readonly [ModelUse<'auth', Auth>, ...U]
+export declare function defineUser<
+	const N extends string,
+	const F extends FieldShapes,
+	const U extends Uses = [],
+>(definition: {
+	readonly name: N
+	readonly use?: U
+	readonly fields: ModelFields<F, WithAuth<U>>
+}): ModelOf<N, F, WithAuth<U>>
+```
+
 ## D-14: Functions over magic words
 
 Choice: when a value carries behaviour, the API takes a function or an
@@ -1409,20 +1446,24 @@ newcomer cannot guess.
 
 ## D-62: One user model, declared with `defineUser`
 
-Choice: the `auth` plugin exports `defineUser({ name, fields })` (D-13), which
-adds the developer's fields to the user model it owns; `name` is required, as
-for every declaration (D-35). An application has exactly one user model: a
-second `defineUser` stops startup. `caller.user` is `{ id }` by default.
+Choice: the `auth` plugin exports `defineUser({ name, use, fields })` (D-13),
+which adds the developer's fields to the user model it owns; `name` is
+required, as for every declaration (D-35). `use` is optional, and auth comes
+first in it, so `defineApp` asks for `authPlugin()`. An application has
+exactly one user model: a second `defineUser` stops startup. `caller.user` is
+`{ id }` by default.
 Three lines under `defineUser` give it the user model's type in every rule,
 hook and function, without an import or a `use` entry:
 `declare module 'ultimabase' { interface Register { user: typeof User } }`.
 Only the user model goes there; plugins and models never do (D-24). auth
 exports `isSelf`, the rule "the caller is this record". A field rule of the
-user model written by hand that reads `caller.user` needs `: boolean`:
-without it, TypeScript reports TS7023 on the rule's line and on `fields`,
-and `User` becomes
-`any` (TS7022), because typing `caller.user` needs `User`'s fields, which hold
-the rule. The documentation says so next to that error. Applications with
+user model that reads `caller.user` in its own body needs `: boolean`.
+Without it, TypeScript reports TS7023 on the rule's line and on `fields`, and
+`User` becomes `any` (TS7022): typing `caller.user` needs `User`'s fields,
+which hold the rule. A rule that calls a helper with a declared return type,
+`({ caller }) => isEditor(caller)`, needs no annotation, and neither does a
+rule of the model's `.with`. The documentation says so next to that error.
+Applications with
 different user models are type-checked by separate `tsconfig` files; one
 program holding two declarations fails with TS2717.
 Why: `caller.user` has one type, read everywhere (rules, hooks, functions);
@@ -1432,8 +1473,15 @@ reads `caller.user.role` synchronously, as Parse's `request.user`. The
 declaration is the idiom of Auth.js (`Session`), TanStack Router (`Register`)
 and Passport (`Express.User`). Measured on 2026-10-20 on 200 models whose
 read rules all read `caller.user`: 0.09 % more instantiations, the same check
-time. The `: boolean` case is a TypeScript limit of inferred models: a
-non-generic field `.with` did not remove it.
+time. The `: boolean` case is a TypeScript limit of inferred models. A field's
+`.with` is checked while `defineModel` infers the fields, so its rule's return
+type is needed before `User` has a type. A non-generic field `.with` did not
+remove it, and neither did a ternary in place of `&&` (2026-10-20). Why the
+model's `.with` escapes is a hypothesis, not verified in TypeScript's source:
+it is a single non-generic call at the top of the initializer, which
+TypeScript would type from its declared return type without reading its
+argument. Measured on 2026-10-20 with `defineUser`, `ModelFields` and
+`ModelOf` on 200 models: 0.09 % more instantiations, the same check time.
 Rejected: a fixed user model extended through a separate profile model; a
 user model per sign-in method; a `use` entry (`use: [signedIn]`) in every
 model that reads `caller.user` (forgetting it narrows `caller.user` to `{ id }`
@@ -1464,6 +1512,21 @@ declare module 'ultimabase' {
 	}
 }
 // post.ts: the same rule compiles, and `caller.user.role === 'admin'` fails
+
+// A field rule of User itself: before, the cycle
+role: f.enumOf(['reader', 'editor']).with({
+	access: { update: ({ caller }) => caller.kind === 'user' && caller.user.role === 'editor' },
+}),
+// error TS7023: 'update' implicitly has return type 'any' because it does not have
+// a return type annotation and is referenced directly or indirectly in one of its
+// return expressions.
+
+// After: an annotation, or a helper written once with one
+const isEditor = (caller: Caller): boolean =>
+	caller.kind === 'user' && caller.user.role === 'editor'
+role: f.enumOf(['reader', 'editor']).with({
+	access: { update: ({ caller }) => isEditor(caller) },
+}),
 ```
 
 ## D-63: Storage names follow the database's convention, `dbName` overrides

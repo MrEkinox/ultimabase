@@ -1,6 +1,7 @@
 // The application (D-24): the plugins the models use, and every model.
 import {
 	aclPlugin,
+	authPlugin,
 	defineApp,
 	graphqlPlugin,
 	memory,
@@ -12,6 +13,6 @@ import { User } from './user.ts'
 
 export const app = defineApp({
 	database: memory(),
-	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin(), authPlugin()],
 	models: [Post, User, Tag],
 })

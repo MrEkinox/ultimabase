@@ -354,6 +354,42 @@ run of each, three times, on 2026-10-20, "before" being `7558694b`.
 spread. Functions at scale are measured with the full benchmark (Phase 1b,
 last item).
 
+## Phase 1b: the user model
+
+auth's `defineUser` (D-13, D-62) lives in `prototype/auth.ts`, declared with
+the kernel's `ModelFields` and `ModelOf`; `example/user.ts` declares `User`
+with it, and `example/caller-checks.ts` asserts that the model lists `auth`
+before its own plugins, that `defineApp` asks for `authPlugin()`, and that
+`.with` holds only the keys of the plugins the user model uses.
+
+A field rule of `User` that reads `caller.user` was tried in three forms by
+editing `example/user.ts`:
+
+| Rule                                                 | Result            |
+| ---------------------------------------------------- | ----------------- |
+| `caller.kind === 'user' && caller.user.role === ...` | TS7022, TS7023    |
+| the same as a ternary                                | TS7022, TS7023    |
+| `isEditor(caller)`, declared `: boolean`             | compiles, `tsc` 0 |
+
+The prototype's `defineUser` is declared, not written. A body that calls
+`defineModel` with `[auth(), ...use]` returns `[auth] | [auth, ...U]` when
+`use` is omitted, and the assertion to `U` fails Oxlint's
+`no-unsafe-type-assertion`.
+
+Measured as the functions were, three interleaved runs on 2026-10-20,
+"before" being `95be5f89`; the generated projects declare no user model, so
+the change is `ModelFields`, `ModelOf` and the auth plugin's types:
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 101 777 | 575–608 ms |
+| After, 200         |      1 102 779 | 575–590 ms |
+| Before, 200, rules |      1 543 053 | 706–717 ms |
+| After, 200, rules  |      1 544 805 | 697–719 ms |
+
+1 002 and 1 752 instantiations more (0.09 % and 0.11 %); the check times
+overlap.
+
 ## Reproducing
 
 ```bash

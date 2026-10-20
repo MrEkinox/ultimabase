@@ -1,4 +1,5 @@
 // The prototype's public surface: types only, nothing here runs (Phase 1).
+export { authPlugin, defineUser, isSelf } from './auth.ts'
 export type { Field, FieldBuilders, Many, One } from './fields.ts'
 export type { ServerFunction } from './function.ts'
 export { defineFunction } from './function.ts'

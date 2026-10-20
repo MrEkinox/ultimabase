@@ -241,24 +241,41 @@ type AllFields<F, U> = [Added<U>] extends [unknown]
 		: F & Added<U>
 	: F & Added<U>
 
-export declare function defineModel<
-	const N extends string,
-	const F extends { readonly [field: string]: FieldShape },
-	const U extends readonly ModelUse<string, PluginTypes>[] = [],
->(definition: {
-	readonly name: N
-	readonly use?: U
-	/** The only form: its builders know the plugins of `use` (D-12, D-57). */
-	readonly fields: (
-		fields: FieldBuilders<UsedTypes<U[number]>>,
-	) => F & NoInfer<RecordCheck<F>>
-}): Model<
+/** A model's fields, as `fields` returns them. */
+export type FieldShapes = { readonly [field: string]: FieldShape }
+
+/** The `fields` callback: its builders know the plugins of `use` (D-12, D-57). */
+export type ModelFields<
+	F,
+	U extends readonly ModelUse<string, PluginTypes>[],
+> = (fields: FieldBuilders<UsedTypes<U[number]>>) => F & NoInfer<RecordCheck<F>>
+
+/**
+ * The model a declaration with these fields and plugins builds; a plugin's
+ * `define<Kind>` returns it with its own entry in `U` (D-13).
+ */
+export type ModelOf<
+	N extends string,
+	F,
+	U extends readonly ModelUse<string, PluginTypes>[],
+> = Model<
 	N,
 	AllFields<F, U[number]>,
 	U[number]['plugin'],
 	WithKeys<U[number], AllFields<F, U[number]>>
 > &
 	Commands<U[number], AllFields<F, U[number]>>
+
+export declare function defineModel<
+	const N extends string,
+	const F extends FieldShapes,
+	const U extends readonly ModelUse<string, PluginTypes>[] = [],
+>(definition: {
+	readonly name: N
+	readonly use?: U
+	/** The only form (D-12). */
+	readonly fields: ModelFields<F, U>
+}): ModelOf<N, F, U>
 
 // Checked on the `defineApp` line, where every model is typed (D-24).
 type Used<M> =
