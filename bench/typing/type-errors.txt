@@ -213,13 +213,32 @@ TS2741: Property 'archived' is missing in type '{}' but required in type 'Archiv
 
 prototype/example/define-plugin.ts: the manifest is required.
 TS2345: Argument of type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' is not assignable to parameter of type 'PluginDefinition<Archive>'.
-  Property 'manifest' is missing in type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' but required in type '{ readonly name: "archive"; readonly manifest: Manifest; readonly hooks?: PluginHooks<Record<never, never>, { readonly [option: string]: never; }, unknown>; readonly redirect?: PluginRedirects<...>; readonly start?: (context: PluginContext<...>) => void | Promise<...>; }'.
+  Property 'manifest' is missing in type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' but required in type '{ readonly name: "archive"; readonly manifest: Manifest; readonly hooks?: PluginHooks<Record<never, never>, { readonly [option: string]: never; }, unknown, "archived">; readonly redirect?: PluginRedirects<...>; readonly start?: (context: PluginContext<...>) => void | Promise<...>; }'.
 
 prototype/example/define-plugin.ts: a manifest has a version.
 TS2741: Property 'version' is missing in type '{ name: string; }' but required in type 'Manifest'.
 
 prototype/example/define-plugin.ts: the interface declares no commands.
 TS2322: Type '() => {}' is not assignable to type 'never'.
+
+prototype/example/hooks.ts: a filter only comes from `where`.
+TS2322: Type '() => { status: string; }' is not assignable to type '(facts: { readonly caller: Caller; readonly where: (filter: Where<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<...>, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>) => ...'.
+  Type '{ status: string; }' is not assignable to type 'void | Promise<void | ReadFilter> | ReadFilter'.
+
+prototype/example/hooks.ts: `statuss` is not a field of Doc.
+TS2561: Object literal may only specify known properties, but 'statuss' does not exist in type 'Where<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>'. Did you mean to write 'status'?
+
+prototype/example/hooks.ts: `title` is a string.
+TS2322: Type 'number' is not assignable to type 'string'.
+
+prototype/example/hooks.ts: `titel` is not a field of Doc.
+TS2551: Property 'titel' does not exist on type 'Draft<CreateData<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>>'. Did you mean 'title'?
+
+prototype/example/hooks.ts: a created record has no previous version.
+TS2339: Property 'previous' does not exist on type '{ readonly record: RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>; } & { ...; }'.
+
+prototype/example/hooks.ts: `afterFind` is not a hook (D-71).
+TS2353: Object literal may only specify known properties, and 'afterFind' does not exist in type 'ModelHooks<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>'.
 
 prototype/example/plugin-keys.ts: no `softDelete()` in `use`, no trash.
 TS2339: Property 'trash' does not exist on type 'Model<"SetOff", { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }, never, WithKeys<never, { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }>, never>'.
@@ -246,6 +265,13 @@ TS2322: Type 'string' is not assignable to type 'Date'.
 
 prototype/example/plugin-own.ts: the plugin cannot read a model's field.
 TS2339: Property 'title' does not exist on type 'RecordOf<{ readonly trashedAt: Field<Date, { readonly optional: true; }, never, never, Date>; }>'.
+
+prototype/example/plugin-own.ts: `trahs` is not a command of the plugin.
+TS2367: This comparison appears to be unintentional because the types '"trash" | undefined' and '"trahs"' have no overlap.
+
+prototype/example/plugin-own.ts: a filter only comes from `where`.
+TS2322: Type '() => { trashedAt: null; }' is not assignable to type '(facts: { readonly caller: Caller; readonly where: (filter: Where<{ readonly trashedAt: Field<Date, { readonly optional: true; }, never, never, Date>; }>) => ReadFilter; } & PluginModel<...> & { ...; }) => void | ... 1 more ... | ReadFilter'.
+  Type '{ trashedAt: null; }' is not assignable to type 'void | Promise<void | ReadFilter> | ReadFilter'.
 
 prototype/example/plugin-parts.ts: the value is a string.
 TS2365: Operator '>' cannot be applied to types 'string' and 'number'.

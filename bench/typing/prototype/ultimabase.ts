@@ -107,11 +107,16 @@ export interface Database {
 type HookFacts<F, K extends keyof ModelHooks<F>> = Parameters<
 	NonNullable<ModelHooks<F>[K]>
 >[0]
-/** The hooks a plugin runs on every model that uses it (D-15). */
-export type PluginHooks<F, O, A> = {
+/**
+ * The hooks a plugin runs on every model that uses it (D-15). `command` names
+ * the plugin's command the operation was called through, on that model only
+ * (D-71).
+ */
+export type PluginHooks<F, O, A, C> = {
 	readonly [K in keyof ModelHooks<unknown>]?: (
-		facts: HookFacts<F, K> & PluginModel<F, O, A>,
-	) => void | Promise<void>
+		facts: HookFacts<F, K> &
+			PluginModel<F, O, A> & { readonly command: C | undefined },
+	) => ReturnType<NonNullable<ModelHooks<F>[K]>>
 }
 /** `redirect` replaces an operation with another (D-15). */
 export type PluginRedirects<F, O, A> = {
@@ -158,7 +163,12 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly name: T['name']
 	readonly manifest: Manifest
 	/** The hooks it runs on each model that uses it. */
-	readonly hooks?: PluginHooks<Own<T>, EntryOptions<T>, Apis<T>>
+	readonly hooks?: PluginHooks<
+		Own<T>,
+		EntryOptions<T>,
+		Apis<T>,
+		keyof ForModel<T, Own<T>>['commands'] & string
+	>
 	readonly redirect?: PluginRedirects<Own<T>, EntryOptions<T>, Apis<T>>
 	/** Runs once when the application starts (D-15). */
 	readonly start?: (context: PluginContext<T>) => void | Promise<void>

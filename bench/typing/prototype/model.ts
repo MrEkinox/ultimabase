@@ -63,22 +63,31 @@ type Hook<Facts> = (
 	facts: Facts & { readonly caller: Caller },
 ) => void | Promise<void>
 type RecordHook<F> = Hook<{ readonly record: RecordOf<F> }>
+type UpdatedHook<F> = Hook<{
+	readonly record: RecordOf<F>
+	readonly previous: RecordOf<F>
+}>
+/** The data a `before*` hook changes in place (D-71). */
+type Draft<D> = { -readonly [K in keyof D]: D[K] }
 
-/** The fixed hooks of D-15, written by the application (D-43). */
+/** The fixed hooks of D-15, written by the application (D-43, D-71). */
 export type ModelHooks<F> = {
-	readonly beforeFind?: Hook<{ readonly where: Where<F> }>
-	readonly beforeCreate?: Hook<{ readonly data: CreateData<F> }>
+	/** Narrows every read of the model, at every level, Master included. */
+	readonly beforeFind?: (facts: {
+		readonly caller: Caller
+		readonly where: (filter: Where<F>) => ReadFilter
+	}) => ReadFilter | void | Promise<ReadFilter | void>
+	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F>> }>
 	readonly beforeUpdate?: Hook<{
 		readonly record: RecordOf<F>
-		readonly data: UpdateData<F>
+		readonly data: Draft<UpdateData<F>>
 	}>
 	readonly beforeDelete?: RecordHook<F>
-	readonly afterFind?: Hook<{ readonly records: readonly RecordOf<F>[] }>
 	readonly afterCreate?: RecordHook<F>
-	readonly afterUpdate?: RecordHook<F>
+	readonly afterUpdate?: UpdatedHook<F>
 	readonly afterDelete?: RecordHook<F>
 	readonly afterCreateCommit?: RecordHook<F>
-	readonly afterUpdateCommit?: RecordHook<F>
+	readonly afterUpdateCommit?: UpdatedHook<F>
 	readonly afterDeleteCommit?: RecordHook<F>
 }
 

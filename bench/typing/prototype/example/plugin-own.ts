@@ -24,11 +24,11 @@ const trashDefinition = definePlugin<Trash>({
 			queries.update({ where, data: { trashedAt: new Date() } }),
 	},
 	hooks: {
-		beforeFind: ({ where }) => {
-			const filter: Date | null | undefined =
-				where.trashedAt instanceof Date ? where.trashedAt : undefined
-			void filter
-		},
+		// Trashed rows do not exist, except through `trash` (D-17, D-71).
+		beforeFind: ({ where, command }) =>
+			command === 'trash'
+				? where({ trashedAt: { not: null } })
+				: where({ trashedAt: null }),
 		afterDelete: async ({ record, queries }) => {
 			const at: Date | null = record.trashedAt
 			void at
@@ -43,6 +43,25 @@ const trashDefinition = definePlugin<Trash>({
 			// @ts-expect-error: the plugin cannot read a model's field.
 			void record.title
 		},
+	},
+	commands: ({ queries }) => ({ trash: queries }),
+})
+definePlugin<Trash>({
+	name: 'trash',
+	manifest: { name: 'trash', version: '1.0.0' },
+	hooks: {
+		beforeFind: ({ where, command }) =>
+			// @ts-expect-error: `trahs` is not a command of the plugin.
+			command === 'trahs' ? where({ trashedAt: null }) : undefined,
+	},
+	commands: ({ queries }) => ({ trash: queries }),
+})
+definePlugin<Trash>({
+	name: 'trash',
+	manifest: { name: 'trash', version: '1.0.0' },
+	hooks: {
+		// @ts-expect-error: a filter only comes from `where`.
+		beforeFind: () => ({ trashedAt: null }),
 	},
 	commands: ({ queries }) => ({ trash: queries }),
 })

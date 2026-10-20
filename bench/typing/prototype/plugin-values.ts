@@ -38,10 +38,10 @@ const softDeleteDefinition = definePlugin<SoftDelete>({
 	name: 'softDelete',
 	manifest: { name: 'ultimabase-soft-delete', version: '1.0.0' },
 	hooks: {
-		beforeFind: ({ where, options }) => {
-			void where
-			void options.field
-		},
+		// Deleted rows do not exist, except through `trash` (D-17, D-71). The
+		// code sees the default field name; a renamed one needs a cast (D-57).
+		beforeFind: ({ where, command }) =>
+			where({ deletedAt: command === 'trash' ? { not: null } : null }),
 	},
 	commands: ({ queries }) => ({
 		trash: deletedOnly(queries),

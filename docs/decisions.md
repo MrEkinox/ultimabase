@@ -332,17 +332,16 @@ this order:
 2. `beforeFind`, `beforeCreate`, `beforeUpdate`, `beforeDelete`: refuse the
    operation, add a filter that only narrows, never widens (access, ACL), or
    change the input data (trim, computed field).
-3. `afterFind`: change the output. `afterCreate`, `afterUpdate`,
-   `afterDelete`: run inside the operation's transaction, after its write, and
-   write more (create a user's profile when the user is created). A failure
-   rolls everything back.
+3. `afterCreate`, `afterUpdate`, `afterDelete`: run inside the operation's
+   transaction, after its write, and write more (create a user's profile
+   when the user is created). A failure rolls everything back.
 4. `afterCreateCommit`, `afterUpdateCommit`, `afterDeleteCommit`: run after
    commit (email, webhook, cache). A failure is logged with a correlation id
    (D-28) and the operation still succeeds, since its write is committed;
    retries belong to a jobs plugin.
 
-Write hooks receive the record as it was before the operation. The names
-follow Parse (`beforeSave`) and Rails (`after_create_commit`). Plugins
+What each hook receives and returns is D-71; there is no `afterFind`. The
+names follow Parse (`beforeSave`) and Rails (`after_create_commit`). Plugins
 alone also have application hooks: Identify (per request, before any
 operation: the identity plugin, such as auth, fills `caller.user`, and another
 plugin adds its own key, such as `caller.tenant`, D-19) and Start/Stop
@@ -1722,4 +1721,77 @@ const softDeleteDefinition = definePlugin<SoftDelete>({
 export const softDelete: UseOf<SoftDelete> = softDeleteDefinition.use
 export const softDeletePlugin: PluginOf<SoftDelete> =
 	softDeleteDefinition.plugin
+```
+
+## D-71: What hooks receive and return
+
+Choice: the D-15 hooks take one object of facts, `caller` included, and
+return nothing, except `beforeFind`.
+
+- `beforeFind` gets `where` (the D-10 helper) and returns `where({ ... })`, or
+  nothing. The kernel ANDs that filter into every read of the model, at every
+  level: the top-level query, an `include`, `some`/`every`, `count`, and the
+  lookup of the record an update or delete targets. It applies to Master too,
+  and does not see the query's arguments. `access.read` decides who may see a
+  record and Master bypasses it; `beforeFind` decides which records exist.
+- `beforeCreate` gets `data`; `beforeUpdate` gets `record` (as stored) and
+  `data` (the fields sent). Both change `data` in place, checked by type on
+  each assignment. `beforeDelete` gets `record`.
+- A `before*` hook refuses the operation by throwing (D-28).
+- `afterCreate` and `afterDelete` get `record`; `afterUpdate` gets `record`
+  (as written) and `previous`. The `*Commit` hooks get the same facts.
+- There is no `afterFind`.
+- A plugin's hook also gets `command`: the name of the plugin's own command the
+  operation was called through, on that model only (`'trash'` for
+  `Post.trash.findMany`), otherwise `undefined`. A misspelt name fails typing.
+  Application hooks get no `command`.
+
+Why: `where` is the one way to build a filter, so a misspelt field fails on
+its line, and a filter that only ANDs can only narrow (D-29). In-place changes
+avoid merging partial returns from several hooks. `previous` answers "did the
+status change?", Parse's `original`. `afterFind` cost a pass over every
+result for a use Parse developers rarely had; field access (D-44) hides
+values. `command` is how soft delete shows the trash through `beforeFind`
+(D-17) without a second hook.
+Rejected: returning new data from `before*` hooks; a `beforeFind` that sees
+and rewrites the query (it could widen it); `afterFind`; refusing by returning
+`false`.
+Example:
+
+```ts
+// Before: Parse
+Parse.Cloud.beforeFind('Doc', ({ query }) => {
+	query.notEqualTo('status', 'archived')
+})
+Parse.Cloud.beforeSave('Doc', ({ object, original }) => {
+	if (original?.get('locked')) throw new Parse.Error(141, 'Locked.')
+	object.set('title', object.get('title').trim())
+})
+Parse.Cloud.afterSave('Doc', ({ object, original }) => {
+	const published =
+		original?.get('status') !== 'published' &&
+		object.get('status') === 'published'
+})
+
+// After
+export const Doc = defineModel({ name: 'Doc', fields }).with({
+	hooks: {
+		beforeFind: ({ where }) => where({ status: { not: 'archived' } }),
+		beforeCreate: ({ data }) => {
+			data.title = data.title.trim()
+		},
+		beforeUpdate: ({ record, data }) => {
+			if (record.locked) throw new Error('This document is locked.')
+			if (data.title !== undefined) data.title = data.title.trim()
+		},
+		afterUpdate: ({ record, previous }) => {
+			const published =
+				previous.status !== 'published' && record.status === 'published'
+		},
+	},
+})
+
+// A plugin's hook, soft delete
+beforeFind: ({ where, command }) =>
+	where({ deletedAt: command === 'trash' ? { not: null } : null }),
 ```
