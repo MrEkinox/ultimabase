@@ -333,16 +333,44 @@ own keys through Identify (`caller.tenant`). `{ as: caller }` runs with
 whatever the caller is, Master included when the request came with the master
 key (D-49), so hooks and routes never import `master`; server code without a
 request (scripts, jobs) does. Without `as`, the operation runs as anonymous.
-Only the kernel creates `master`.
+Only the kernel creates `master`. `caller` is a union discriminated by
+`kind`: `caller.user` exists only when `kind` is `'user'` and `caller.master`
+only when it is `'master'`, so code tests `kind` before reading them and
+`caller.user?.id` is a type error. A `where` keeps Prisma's meaning of
+`undefined`, no condition (D-20).
 Why: Parse splits this between `useMasterKey` and `sessionToken`, which can be
 passed together with an unclear priority. One option holds one caller, a
 condition is a ternary, and a forgotten `as` fails closed (D-04) instead of
-leaking.
-Rejected: a `useMasterKey` boolean; separate master and session options.
+leaking. With an optional `caller.user`, the read filter
+`{ author: { is: { id: caller.user?.id } } }` compiled and, for an anonymous
+caller, meant "any author": it leaked every draft (sample application,
+2026-10-20). The union makes that line fail to compile.
+Rejected: a `useMasterKey` boolean; separate master and session options; an
+optional `caller.user` on every caller; refusing `undefined` in a `where`,
+which departs from Prisma and still leaves the mistake to runtime.
 Example:
 
 ```ts
 Post.findMany({ where }, { as: fromBackOffice ? master : caller })
+
+// Before: compiles, and shows every author's drafts to an anonymous caller
+read: ({ caller }) => ({
+	where: {
+		OR: [{ status: 'published' }, { author: { is: { id: caller.user?.id } } }],
+	},
+})
+// After
+read: ({ caller }) => ({
+	where:
+		caller.kind === 'user'
+			? {
+					OR: [
+						{ status: 'published' },
+						{ author: { is: { id: caller.user.id } } },
+					],
+				}
+			: { status: 'published' },
+})
 ```
 
 ## D-20: The query API follows Prisma Client
@@ -398,8 +426,9 @@ Choice: a field's `validate` option takes any Standard Schema (Zod, Valibot,
 ArkType…) or a plain function. Its output is the stored value, so a schema
 may transform it (`z.string().trim()`). Validation runs before the `before*`
 hooks (D-15); a value a hook writes is not validated again, since hooks are
-trusted server code. Validation is part of the kernel. Validation errors carry
-the field path.
+trusted server code. Whether a required field is present is checked later, at
+the write (D-67), so a hook can fill it. Validation is part of the kernel.
+Validation errors carry the field path.
 Why: developers already know their validation library; the previous base's
 validation worked well.
 Rejected: a validation language of our own.
@@ -419,7 +448,10 @@ from the application. A separate file assembles the application with
 `App.defineFunction` (D-27) register nothing, and `migrate` (D-26) and tests
 (D-40) import the built application without starting it. The lists cannot go in
 `UltimaBase.create`: each model and function imports `App`, so the
-application's file importing them is an import cycle.
+application's file importing them is an import cycle. A relation whose target
+is missing from `models` fails typing on the `App.build` line, and startup
+stops with a message naming the model and the relation (for JavaScript and
+casts).
 Why: nothing implicit. The D-24 spike (`bench/typing/README.md`, 2026-10-19)
 typed both open options and found that no type reads a model by name any more
 (D-44), so `Register` had nothing left to type: relation cycles are avoided
@@ -963,14 +995,32 @@ Rejected: indexes in `.with` (they change the storage, not behaviour).
 
 ## D-53: Defaults are values or functions; `json` takes a schema
 
-Choice: `default` takes a value (`default: false`) or a function without
-arguments (`default: () => new Date()`). A default that depends on the caller
-(`createdBy`) is written in a `beforeCreate` hook (D-15). `json()` accepts
+Choice: `default` takes a value (`default: false`) or a function receiving
+`{ caller }` (D-19): `default: () => new Date()`, or a value that depends on
+who creates the record. A relation's default returns the target's `{ id }`;
+returning `undefined` gives no value. A field with a default is optional in
+`create`'s input, and the default applies when the caller sends no value. A
+`beforeCreate` hook (D-15) may still set or replace the value: a required
+field is checked for presence after the hooks (D-67). `json()` accepts
 `validate` (D-23) and takes its type from the schema's output; without a
 schema its type is `unknown`.
-Why: a function covers dates and generated values without a second option;
-the caller belongs to hooks, which already receive it.
-Rejected: defaults receiving the caller; `json` typed as `any`.
+Why: a function covers dates and generated values without a second option.
+The author of a record is the most common server-filled field; a sample
+application (2026-10-20) showed that filling it only in a hook left it
+required in `create`'s type and failed validation, which ran before the hook.
+Rejected: caller-dependent values only in hooks (above); `json` typed as `any`.
+Example:
+
+```ts
+// Before: required in `create`'s type, and refused by validation
+author: one(() => User).with({ access: { create: allow.private } }),
+// with, on the model:
+hooks: { beforeCreate: ({ data, caller }) => ... }
+// After
+author: one(() => User, {
+	default: ({ caller }) => (caller.kind === 'user' ? caller.user : undefined),
+}).with({ access: { create: allow.private, update: allow.private } }),
+```
 
 ## D-54: Relations say what deleting their target does
 
@@ -1141,11 +1191,12 @@ isolation level by default, which adds retries for no common need.
 
 Choice: an operation runs in this order: `redirect` (D-15), the model's access
 rule (D-10), the fields' access rules on the data the caller sent (D-44),
-validation (D-23), the `before*` hooks, the write, the in-transaction `after*`
-hooks, commit, then the `*Commit` hooks. A value written by a hook goes
-through neither access rules nor validation: hooks are trusted server code, so
-a `beforeCreate` hook can fill `createdBy` even when the field refuses it on
-`create`.
+defaults (D-53), validation (D-23), the `before*` hooks, the check that
+required fields are present, the write, the in-transaction `after*` hooks,
+commit, then the `*Commit` hooks. A value written by a hook goes through
+neither access rules nor validation: hooks are trusted server code, so a
+`beforeCreate` hook can fill `createdBy` even when the field refuses it on
+`create`, and a required field may be left to a hook.
 Why: access and validation judge what the caller sent; refusing early avoids
 validating or hooking a request that will fail; a field closed to clients
 must stay writable by the server.
