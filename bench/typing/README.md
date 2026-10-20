@@ -422,6 +422,24 @@ the types alone:
 9 990 instantiations more on both (0.9 % and 0.6 %); the check times are
 within the spread between runs.
 
+## Phase 1b: the query subset of 0.1
+
+`findFirst`, `cursor` (on `findMany`, `findFirst` and nested lists) and
+`disconnect` were added (D-20); [example/queries.ts](prototype/example/queries.ts)
+holds seven refusals, each probed by removing its directive: every one fails
+on its own line. Three interleaved runs on 2026-10-20, "before" being
+`4d2cd38a`:
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 112 769 | 564–592 ms |
+| After, 200         |      1 115 189 | 548–591 ms |
+| Before, 200, rules |      1 554 795 | 692–720 ms |
+| After, 200, rules  |      1 557 215 | 695–708 ms |
+
+2 420 instantiations more on both (0.2 %); the check times are within the
+spread between runs.
+
 ## Reproducing
 
 ```bash

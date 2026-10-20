@@ -63,14 +63,25 @@ type WrittenValue<X> = X extends {
 		: I
 	: StoredValue<X>
 
-type Connect = { readonly connect: { readonly id: string } }
-type InputOf<X> = X extends Scalar
+type Ref = { readonly id: string }
+type Connect = { readonly connect: Ref }
+/** A created relation is connected; nested creation comes later (D-20). */
+type CreateInput<X> = X extends Scalar
+	? WrittenValue<X>
+	: X extends Relation<'one'>
+		? Connect
+		: { readonly connect?: readonly Ref[] }
+/** An optional `one` relation is unset with `disconnect: true` (D-20). */
+type UpdateInput<X> = X extends Scalar
 	? WrittenValue<X>
 	: X extends Relation<'one', unknown, infer O>
 		? IsOptional<O> extends true
-			? Connect | null
+			? Connect | { readonly disconnect: true }
 			: Connect
-		: { readonly connect?: readonly { readonly id: string }[] }
+		: {
+				readonly connect?: readonly Ref[]
+				readonly disconnect?: readonly Ref[]
+			}
 type Needed<X> =
 	X extends Scalar<unknown, infer O>
 		? IsOptional<O> extends true
@@ -87,16 +98,16 @@ type Needed<X> =
 			: false
 
 export type CreateData<F> = {
-	readonly [K in keyof F as Needed<F[K]> extends true ? K : never]: InputOf<
+	readonly [K in keyof F as Needed<F[K]> extends true ? K : never]: CreateInput<
 		F[K]
 	>
 } & {
-	readonly [K in keyof F as Needed<F[K]> extends true ? never : K]?: InputOf<
-		F[K]
-	>
+	readonly [
+		K in keyof F as Needed<F[K]> extends true ? never : K
+	]?: CreateInput<F[K]>
 }
 
-export type UpdateData<F> = { readonly [K in keyof F]?: InputOf<F[K]> }
+export type UpdateData<F> = { readonly [K in keyof F]?: UpdateInput<F[K]> }
 
 export type ScalarKeys<F> = {
 	[K in keyof F]: F[K] extends Scalar ? K : never

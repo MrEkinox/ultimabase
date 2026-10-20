@@ -46,7 +46,7 @@ written, so that Phase 2 moves its types instead of discovering them.
       `caller.user` without `: boolean` if one exists (D-13, D-62).
 - [x] `default: ({ caller }) => ...` and composite unique indexes as
       `findUnique` targets (D-52, D-53).
-- [ ] The query subset of 0.1 settled and prototyped (D-20).
+- [x] The query subset of 0.1 settled and prototyped (D-20).
 - [ ] Type error messages checked against snapshots; full benchmark run
       again, wide 120 included.
 

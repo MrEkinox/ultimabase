@@ -466,8 +466,16 @@ filters (`some`, `every`, `none`) and writes (`connect`, `disconnect`).
 Without `select`, scalar fields return and relations do not. UltimaBase
 departs from Prisma only where a recorded decision says so: the caller
 option (D-19), the model as entry point (D-18), plugin commands on the model.
-The first release ships the subset needed by its examples; the rest follows
-Prisma's spelling when added. Like Prisma, the kernel refuses at run time any
+The first release ships the subset needed by its examples and its GraphQL
+(D-41); the rest follows Prisma's spelling when added. That subset is
+`findUnique`, `findFirst`, `findMany`, `count`, `create`, `update` and
+`delete`, with `where` (scalar filters, `is`/`isNot`, `some`/`every`/`none`,
+`AND`/`OR`/`NOT`), `select`, `include`, `orderBy`, `take`, `skip` and
+`cursor`, and relation writes by id: `connect` on a `one` and a `many`
+relation, `disconnect: true` to unset an optional `one` relation (`null` is
+refused, as in Prisma), `disconnect: [{ id }]` on a `many` relation in
+`update`. A `cursor` is a unique target (D-52) and also pages a nested list,
+which a Relay connection needs. Like Prisma, the kernel refuses at run time any
 argument key it does not know, at any depth, in the caller's arguments and in
 the filters that rules and hooks add, with the `INVALID_QUERY` code and the
 key's path; keys a plugin adds to an operation are known keys. The error is
@@ -479,7 +487,13 @@ copied it; familiarity is free DX. Types do not reach JavaScript callers,
 casts or values built at run time, and an ignored filter key widens a query:
 on a read filter it leaks rows (D-04).
 Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
-can run without an extra query per parent (no N+1).
+can run without an extra query per parent (no N+1). After the first release:
+`upsert` and the batch operations `createMany`, `updateMany` and
+`deleteMany`, once it is decided which rules and hooks they run (create's or
+update's for `upsert`, per row or per batch, and the soft-delete trash);
+`omit`, which `select` covers meanwhile; nested creation, `set`, `distinct`
+and aggregates; case-insensitive filters (`mode: 'insensitive'`), left to a
+search plugin first.
 Rejected: a query syntax of our own; a function builder for `where` beside
 the object form; ignoring unknown keys, which turns a typo into a wider read.
 Example:
@@ -489,6 +503,20 @@ Example:
 await Post.findMany({ where: { status: 'published', titel: 'x' } })
 // Before: `titel` ignored, every published post returned
 // After: throws INVALID_QUERY, unknown key `where.titel` on Post
+```
+
+```ts
+// Before (the prototype): an optional relation unset with `null`, no way
+// to take one tag off a post, no cursor
+await Post.update({ where: { id }, data: { reviewer: null } })
+// After (0.1): Prisma's spelling
+await Post.update({ where: { id }, data: { reviewer: { disconnect: true } } })
+await Post.update({
+	where: { id },
+	data: { tags: { disconnect: [{ id: t }] } },
+})
+const page = await Post.findMany({ cursor: { id: last }, skip: 1, take: 20 })
+const latest = await Post.findFirst({ orderBy: { createdAt: 'desc' } })
 ```
 
 ## D-21: Plugins are independent of each other

@@ -107,6 +107,7 @@ type RelationArgs<X> = {
 			readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>>
 			readonly take?: number
 			readonly skip?: number
+			readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>>
 		}
 	: unknown)
 
@@ -155,13 +156,15 @@ export type Payload<F, A> = A extends { readonly select: infer S }
 
 export type QueryOptions = { readonly as?: Caller }
 
-export type FindManyArgs<F> = {
+/** `findMany` and `findFirst`; `cursor` starts at a unique target. */
+export type FindManyArgs<F, X = never> = {
 	readonly where?: Where<F>
 	readonly select?: Select<F>
 	readonly include?: Include<F>
 	readonly orderBy?: OrderBy<F> | readonly OrderBy<F>[]
 	readonly take?: number
 	readonly skip?: number
+	readonly cursor?: UniqueWhere<F, X>
 }
 
 export type FindUniqueArgs<F, X = never> = {
@@ -185,10 +188,14 @@ export type UpdateArgs<F, X = never> = {
 
 /** Model methods (D-18), the subset the prototype measures. */
 export interface Queries<F, X = never> {
-	findMany<const A extends FindManyArgs<F>>(
-		args?: A & NoInfer<Exact<A, FindManyArgs<F>>>,
+	findMany<const A extends FindManyArgs<F, X>>(
+		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>[]>
+	findFirst<const A extends FindManyArgs<F, X>>(
+		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		options?: QueryOptions,
+	): Promise<Payload<F, A> | null>
 	findUnique<const A extends FindUniqueArgs<F, X>>(
 		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
