@@ -884,11 +884,19 @@ Choice: queries made inside an in-transaction hook join that transaction
 without a `tx` argument (Node's `AsyncLocalStorage`). A function (D-27)
 runs without a transaction; the developer opens one explicitly with `await
 transaction(async () => { ... })`. A single operation, with its in-transaction
-hooks, is always atomic.
+hooks, is always atomic. When the callback throws, every write made inside it,
+hooks' writes included, is rolled back and `transaction` rejects with that
+error; the `*Commit` hooks (D-15) of those writes run only once the
+transaction commits, and never after a rollback. A query that fails inside a
+transaction rolls all of it back even when the callback catches the error, as
+PostgreSQL does, and `transaction` rejects with that error. A `transaction`
+called inside another joins the outer one: no savepoint.
 Why: a forgotten `tx` silently writes outside the transaction; a function
 often calls external services (payments, email), and holding a transaction
 open across a network call locks rows and sends effects before a rollback.
-Rejected: passing `tx` by hand; a transaction around every function.
+Rejected: passing `tx` by hand; a transaction around every function; a
+savepoint around each query or nested `transaction`, slower and harder to
+reason about.
 
 ## D-37: Relations are `one` and `many`, declared on both sides
 
