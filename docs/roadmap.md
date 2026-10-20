@@ -52,7 +52,7 @@ written, so that Phase 2 moves its types instead of discovering them.
       again, wide 120 included.
 - [x] What hooks receive and return: `beforeFind` filters, `previous`,
       in-place `data`, a plugin's `command`, no `afterFind` (D-71).
-- [ ] Errors: `PublicError` and typed codes (D-28).
+- [x] Errors: `PublicError` and the kernel's codes (D-28, D-72).
 - [ ] `onDelete: 'setNull'` refused on a required relation (D-54).
 - [ ] `transaction(fn)` (D-36).
 - [ ] `dbName` on models and fields (D-63).

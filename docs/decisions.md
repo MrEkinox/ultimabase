@@ -759,7 +759,7 @@ an internal error that carries a correlation id, also written to the server
 log. Kernel errors have stable, typed codes (`ACCESS_DENIED`, `NOT_FOUND`,
 `VALIDATION_FAILED`…); validation errors list the failing field paths.
 Transports map codes to their own conventions (HTTP status, GraphQL
-extensions).
+extensions). The API and the codes are D-72.
 Why: masking by default keeps internals private; the previous masked errors
 left no trace to debug from.
 Rejected: exposing error messages by default.
@@ -1737,7 +1737,8 @@ return nothing, except `beforeFind`.
 - `beforeCreate` gets `data`; `beforeUpdate` gets `record` (as stored) and
   `data` (the fields sent). Both change `data` in place, checked by type on
   each assignment. `beforeDelete` gets `record`.
-- A `before*` hook refuses the operation by throwing (D-28).
+- A `before*` hook refuses the operation by throwing, a `PublicError` for
+  the client to see it (D-28, D-72).
 - `afterCreate` and `afterDelete` get `record`; `afterUpdate` gets `record`
   (as written) and `previous`. The `*Commit` hooks get the same facts.
 - There is no `afterFind`.
@@ -1781,7 +1782,8 @@ export const Doc = defineModel({ name: 'Doc', fields }).with({
 			data.title = data.title.trim()
 		},
 		beforeUpdate: ({ record, data }) => {
-			if (record.locked) throw new Error('This document is locked.')
+			if (record.locked)
+				throw new PublicError('DOCUMENT_LOCKED', 'This document is locked.')
 			if (data.title !== undefined) data.title = data.title.trim()
 		},
 		afterUpdate: ({ record, previous }) => {
@@ -1794,4 +1796,53 @@ export const Doc = defineModel({ name: 'Doc', fields }).with({
 // A plugin's hook, soft delete
 beforeFind: ({ where, command }) =>
 	where({ deletedAt: command === 'trash' ? { not: null } : null }),
+```
+
+## D-72: `PublicError` and the kernel's codes
+
+Choice: `new PublicError(code, message, { details?, cause? })` is the one
+error a client sees, Parse's `Parse.Error` with a named code. The code is a
+kernel code or the application's own, in capitals (`'DOCUMENT_LOCKED'`);
+`'documentLocked'` fails typing. The kernel's codes are the `ErrorCode`
+union, and each keeps its meaning when the application throws it:
+
+| Code                  | HTTP | When                                           |
+| --------------------- | ---- | ---------------------------------------------- |
+| `ACCESS_DENIED`       | 403  | a rule refuses a write (D-10, D-44)            |
+| `NOT_FOUND`           | 404  | the target does not exist or cannot be read    |
+| `VALIDATION_FAILED`   | 400  | `details.issues`: `{ path, message }` (D-23)   |
+| `UNIQUE_VIOLATION`    | 409  | a unique index refuses a write (D-52)          |
+| `RELATION_RESTRICTED` | 409  | `onDelete: 'restrict'` refuses a delete (D-54) |
+| `INTERNAL`            | 500  | any other error, with a correlation id (D-28)  |
+
+An application's own code is sent with status 400. `details` is JSON, and
+for `VALIDATION_FAILED` lists the issues in Standard Schema's shape. An update
+or delete of a record the caller cannot read fails with `NOT_FOUND`, not
+`ACCESS_DENIED`, so it does not reveal that the record exists. A caught
+error's `code` is typed, not `any`.
+Why: a code that names the problem reads better than Parse's `141`, and a
+client tests the code, not the message. The kernel knows no transport (D-16),
+so an application error carries no HTTP status; one status for every
+application error is what Parse does.
+Rejected: numeric codes; a `status` option on `PublicError`; a registry of the
+application's codes, which would be global augmentation (D-24) and only
+checks comparisons on the server.
+Example:
+
+```ts
+// Before: Parse
+throw new Parse.Error(141, 'This document is locked.')
+// client: if (error.code === 141) …
+
+// After
+throw new PublicError('DOCUMENT_LOCKED', 'This document is locked.')
+throw new PublicError('NOT_FOUND', 'No such invoice.')
+throw new PublicError('VALIDATION_FAILED', 'Too short.', {
+	details: { issues: [{ path: ['title'], message: 'At least 3 letters.' }] },
+})
+
+// The client receives, over HTTP with status 400:
+// { "code": "DOCUMENT_LOCKED", "message": "This document is locked." }
+// and for `throw new Error('Connection refused.')`, status 500:
+// { "code": "INTERNAL", "message": "Internal error.", "correlationId": "c0f1…" }
 ```

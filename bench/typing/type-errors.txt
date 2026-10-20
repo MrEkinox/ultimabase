@@ -240,6 +240,23 @@ TS2339: Property 'previous' does not exist on type '{ readonly record: RecordOf<
 prototype/example/hooks.ts: `afterFind` is not a hook (D-71).
 TS2353: Object literal may only specify known properties, and 'afterFind' does not exist in type 'ModelHooks<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>'.
 
+prototype/example/hooks.ts: a code is written in capitals.
+TS2345: Argument of type '"documentLocked"' is not assignable to parameter of type '"DOCUMENTLOCKED"'.
+
+prototype/example/hooks.ts: `VALIDATION_FAILED` details list the issues.
+TS2353: Object literal may only specify known properties, and 'title' does not exist in type '{ readonly issues: readonly Issue[]; }'.
+
+prototype/example/hooks.ts: details are sent as JSON.
+TS2322: Type '{ at: Date; }' is not assignable to type 'JsonValue | undefined'.
+  Types of property 'at' are incompatible.
+    Type 'Date' is not assignable to type '((index: number) => JsonValue | undefined) | ((index: number) => string | undefined) | JsonValue | undefined'.
+      Type 'Date' is not assignable to type '{ readonly [key: string]: JsonValue; }'.
+        Index signature for type 'string' is missing in type 'Date'.
+
+prototype/example/hooks.ts: a caught error's code is a string, not `any`.
+TS2322: Type 'Uppercase<string>' is not assignable to type 'number'.
+  Type 'string' is not assignable to type 'number'.
+
 prototype/example/plugin-keys.ts: no `softDelete()` in `use`, no trash.
 TS2339: Property 'trash' does not exist on type 'Model<"SetOff", { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }, never, WithKeys<never, { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }>, never>'.
 
