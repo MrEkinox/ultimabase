@@ -1448,8 +1448,11 @@ newcomer cannot guess.
 
 Choice: the `auth` plugin exports `defineUser({ name, use, fields })` (D-13),
 which adds the developer's fields to the user model it owns; `name` is
-required, as for every declaration (D-35). `use` is optional, and auth comes
-first in it, so `defineApp` asks for `authPlugin()`. An application has
+required, as for every declaration (D-35). `defineUser` takes everything
+`defineModel` takes, and its model has everything a model has (`.with`,
+queries, commands); when `defineModel` gains an option, `defineUser` gains it
+too. `use` is optional, and auth comes first in it, so `defineApp` asks for
+`authPlugin()`. An application has
 exactly one user model: a second `defineUser` stops startup. `caller.user` is
 `{ id }` by default.
 Three lines under `defineUser` give it the user model's type in every rule,
