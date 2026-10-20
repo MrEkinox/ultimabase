@@ -1,12 +1,30 @@
 // What every access rule receives, and the kernel's ready-made rules (D-10).
+import type { RecordOf } from './record.ts'
+import type { modelFields } from './symbols.ts'
 
 export type Operation = 'read' | 'create' | 'update' | 'delete'
 
-/** Who sends an operation (D-19). */
-export interface Caller {
-	readonly kind: 'anonymous' | 'user' | 'master'
-	readonly user?: { readonly id: string }
+/**
+ * The application declares its user model here, once; without it,
+ * `caller.user` is `{ id }` (D-24, D-62).
+ */
+export interface Register {}
+
+/** The user record a registry gives `caller.user`. */
+export type UserOf<R> = R extends {
+	readonly user: { readonly [modelFields]: infer F }
 }
+	? RecordOf<F>
+	: { readonly id: string }
+
+/** Who sends an operation (D-19). */
+export type Caller =
+	| { readonly kind: 'anonymous' }
+	| { readonly kind: 'user'; readonly user: UserOf<Register> }
+	| {
+			readonly kind: 'master'
+			readonly master: { readonly source: 'code' | 'key' }
+	  }
 
 /** A rule that reads only the caller and the operation fits any access key. */
 export type AnyRule = (facts: {

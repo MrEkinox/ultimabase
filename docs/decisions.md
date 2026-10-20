@@ -341,7 +341,8 @@ Choice: every operation takes `{ as: caller }`. `master` is a server-only
 imported value; `caller` is the caller the Identify hook found for the
 current request, which hooks, functions and HTTP routes receive as
 `{ caller }`; a plain expression chooses between them. `caller.kind` is
-`'anonymous'`, `'user'` or `'master'`; `caller.user` is set for a user,
+`'anonymous'`, `'user'` or `'master'`; `caller.user` is set for a user
+(its type, D-62),
 `caller.master` (`{ source: 'code' | 'key' }`) for Master; plugins add their
 own keys through Identify (`caller.tenant`). `{ as: caller }` runs with
 whatever the caller is, Master included when the request came with the master
@@ -466,7 +467,8 @@ Rejected: a validation language of our own.
 
 Choice: `defineModel` and `defineFunction` (D-27) are imported from
 `ultimabase`. Nothing is declared from an application object or globally:
-there is no `App` and no `Register`. A model lists the plugins it uses in
+there is no `App`, and the only global declaration is the optional user model
+(D-62). A model lists the plugins it uses in
 `use: [...]`, each entry imported from the plugin's package (`softDelete()`,
 `acl()`); an entry's options shape the model for that plugin (D-07). One file
 assembles the application with `defineApp({ database, plugins, models,
@@ -500,19 +502,11 @@ declared before it); one plugin value shared by `plugins` and `use` (the
 application's options and a model's options differ); `use` as the only switch
 of every plugin (a model forgetting `acl()` would lose its ACL filter
 silently); a generic `.with` taking the plugins (relation rings cycle,
-TS7022); a project-wide `Register` declaration, which the previous base needed
+TS7022); a project-wide `Register` of plugins or models, which the previous base needed
 for its name-keyed types and which caused its own cycles (its ADR-0297 and
 ADR-0335); each plugin adding its keys to global interfaces (accepts the keys
 of any plugin whose types are loaded); type generation (D-11).
-Open: how `caller.user` (D-62) gets the user model's type. A `use` entry
-(`export const signedIn = auth(() => User)`, then `use: [signedIn]`) types it
-without a global and without a cycle, the user model's own rules included,
-but every model, field rule and function that reads `caller.user` would list
-it, and forgetting it narrows `caller.user` to `{ id }` with no error where it
-is forgotten: not adopted. The known fallback stays one global declaration,
-`interface Register { user: typeof User }`, proven in the D-24 spike; a field
-rule of the user model that reads `caller.user` then needs `: boolean`. Also
-open: the plugin entry that gives a plugin's two values their types (D-57).
+Open: the plugin entry that gives a plugin's two values their types (D-57).
 Example:
 
 ```ts
@@ -1193,20 +1187,58 @@ newcomer cannot guess.
 
 Choice: the `auth` plugin exports `defineUser({ name, fields })` (D-13), which
 adds the developer's fields to the user model it owns; `name` is required, as
-for every declaration (D-35), and `caller.user` takes that model's type (how
-is open, D-24). An application has exactly one user model: a second
-`defineUser` stops startup.
+for every declaration (D-35). An application has exactly one user model: a
+second `defineUser` stops startup. `caller.user` is `{ id }` by default.
+Three lines under `defineUser` give it the user model's type in every rule,
+hook and function, without an import or a `use` entry:
+`declare module 'ultimabase' { interface Register { user: typeof User } }`.
+Only the user model goes there; plugins and models never do (D-24). auth
+exports `isSelf`, the rule "the caller is this record". A field rule of the
+user model written by hand that reads `caller.user` needs `: boolean`:
+without it, TypeScript reports TS7023 on the rule's line and `User` becomes
+`any` (TS7022), because typing `caller.user` needs `User`'s fields, which hold
+the rule. The documentation says so next to that error. Applications with
+different user models are type-checked by separate `tsconfig` files; one
+program holding two declarations fails with TS2717.
 Why: `caller.user` has one type, read everywhere (rules, hooks, functions);
-two user models would make it a union nobody can use.
+two user models would make it a union nobody can use. An application without
+the declaration loses nothing but the user's other fields; with it, a rule
+reads `caller.user.role` synchronously, as Parse's `request.user`. The
+declaration is the idiom of Auth.js (`Session`), TanStack Router (`Register`)
+and Passport (`Express.User`). Measured on 2026-10-20 on 200 models whose
+read rules all read `caller.user`: 0.09 % more instantiations, the same check
+time. The `: boolean` case is a TypeScript limit of inferred models: a
+non-generic field `.with` did not remove it.
 Rejected: a fixed user model extended through a separate profile model; a
-user model per sign-in method.
+user model per sign-in method; a `use` entry (`use: [signedIn]`) in every
+model that reads `caller.user` (forgetting it narrows `caller.user` to `{ id }`
+with no error where it is forgotten); a `defineModel` bound to the user model
+in a local file (importing `defineModel` from `ultimabase` instead loses the
+type silently, and plugins never see it); `{ id }` only (role checks need a
+load, which rules cannot do); type generation (D-11).
 Example:
 
 ```ts
+// Before: caller.user is { id }
+read: ({ caller, where }) =>
+	(caller.kind === 'user' && caller.user.role === 'editor') ||
+	where({ status: 'published' }),
+// error TS2339: Property 'role' does not exist on type '{ readonly id: string; }'
+
+// After: user.ts, once for the application
 export const User = defineUser({
 	name: 'User',
-	fields: { firstName: string(), avatar: file({ optional: true }) },
+	fields: {
+		email: string({ unique: true }).with({ access: { read: isSelf } }),
+		role: enumOf(['reader', 'editor']),
+	},
 })
+declare module 'ultimabase' {
+	interface Register {
+		user: typeof User
+	}
+}
+// post.ts: the same rule compiles, and `caller.user.role === 'admin'` fails
 ```
 
 ## D-63: Storage names follow the database's convention, `dbName` overrides

@@ -31,7 +31,8 @@ export const Post = defineModel({
 		title: string().with<{ status: 'draft' | 'published' }>({
 			access: {
 				read: ({ record, caller }) =>
-					record.status === 'published' || caller.kind === 'master',
+					record.status === 'published' ||
+					(caller.kind === 'user' && caller.user.role === 'editor'),
 				update: ({ record, value }) =>
 					record.status === 'draft' && value.length > 0,
 			},

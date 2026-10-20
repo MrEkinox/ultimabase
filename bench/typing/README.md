@@ -147,7 +147,7 @@ What else the spike found:
   and field rules on other models were typed exactly (`role === 'admin'`
   fails). A field rule of the user model itself that reads `caller.user`
   cycles unless it declares `: boolean`: without it, `User` becomes `any`
-  (TS7022 on its declaration), with nothing on the rule's line.
+  (TS7022 on its declaration, TS7023 on the rule's line).
 
 After D-24, the prototype was aligned on the decision: the database and the plugins
 moved to the options of `UltimaBase.create` (D-02), `App.create` became
@@ -197,8 +197,25 @@ models, where the new checks run.
 `caller.user` was tried in a throwaway copy: a `signedIn` entry in `use`
 carrying the user model's type, read lazily inside `.with`'s signature. It
 typed rules exactly, the user model's own rules included, without a cycle;
-D-24 leaves the question open all the same, since a model should not have to
-list a plugin to read its caller.
+it was not adopted, since a model should not have to list a plugin to read
+its caller.
+
+D-62 chose the `Register` declaration, and the prototype now holds it
+(`rules.ts`, `example/user.ts`, `example/caller-checks.ts`). Measured on
+2026-10-20 on `proto-rules-200` whose read rules all read `caller.user`, three
+interleaved runs on throwaway copies:
+
+| Variant                       | Instantiations | Check time    |
+| ----------------------------- | -------------: | ------------- |
+| No declaration                |      1 279 233 | 0.648–0.669 s |
+| Declaration, rules read `.id` |      1 280 369 | 0.664–0.672 s |
+| Declaration, rules read `.f0` |      1 280 384 | 0.661–0.673 s |
+
+Without the declaration, the 200 reads of `.f0` fail, so the declaration is
+what types them. The generated projects do not declare it. Two declarations
+of different user models in one program fail with TS2717; one `tsconfig` per
+application avoids it. Making a field's `.with` non-generic does not remove
+the `: boolean` case: the cycle goes through `defineModel`'s inferred fields.
 
 Relation cycles need no registry either. `prototype/example/relations.ts`
 queries Author and Book, two models in two files that import each other, and

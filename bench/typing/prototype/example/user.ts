@@ -1,15 +1,42 @@
-import { allow, defineModel, enumOf, many, one, string } from '../index.ts'
+import type { Caller } from '../index.ts'
+import { defineModel, enumOf, many, one, string } from '../index.ts'
 import { Post } from './post.ts'
+
+/** auth's ready-made rule: the caller is this user (D-62). */
+export declare function isSelf(facts: {
+	readonly caller: Caller
+	readonly record: { readonly id: string }
+}): boolean
 
 export const User = defineModel({
 	name: 'User',
 	fields: {
-		email: string({ unique: true }).with({
-			access: { read: ({ caller, record }) => caller.user?.id === record.id },
+		email: string({ unique: true }).with({ access: { read: isSelf } }),
+		// A field rule of the user model written by hand that reads
+		// `caller.user` needs `: boolean`, or `User` cycles (TS7022, D-24).
+		role: enumOf(['reader', 'editor'], { default: 'reader' }).with({
+			access: {
+				update: ({ caller }): boolean =>
+					caller.kind === 'user' && caller.user.role === 'editor',
+			},
 		}),
-		role: enumOf(['reader', 'editor'], { default: 'reader' }),
 		posts: many(() => Post, { inverse: 'author' }),
 		reviewed: many(() => Post, { inverse: 'reviewer' }),
 		manager: one(() => User, { optional: true }),
 	},
-}).with({ access: allow.public })
+}).with({
+	access: {
+		read: ({ caller, where }) =>
+			(caller.kind === 'user' && caller.user.role === 'editor') ||
+			where({ manager: { is: null } }),
+		update: ({ caller, record }) =>
+			caller.kind === 'user' && caller.user.id === record.id,
+	},
+})
+
+// The application types `caller.user` with its user model, once (D-24).
+declare module '../rules.ts' {
+	interface Register {
+		readonly user: typeof User
+	}
+}
