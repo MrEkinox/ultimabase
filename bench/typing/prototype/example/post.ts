@@ -65,10 +65,9 @@ export const Post = defineModel({
 	},
 }).with({
 	access: {
-		read: ({ caller }) =>
-			caller.kind === 'master' || {
-				where: { status: 'published', author: { is: { role: 'editor' } } },
-			},
+		read: ({ caller, where }) =>
+			caller.kind === 'master' ||
+			where({ status: 'published', author: { is: { role: 'editor' } } }),
 		update: ({ record, caller }) =>
 			record.status === 'draft' && caller.kind === 'user',
 		write: ({ operation, caller }) =>

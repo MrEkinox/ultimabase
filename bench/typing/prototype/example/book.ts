@@ -13,9 +13,8 @@ export const Book = defineModel({
 	},
 }).with({
 	access: {
-		read: () => ({
-			where: { author: { is: { books: { some: { pages: { gt: 10 } } } } } },
-		}),
+		read: ({ where }) =>
+			where({ author: { is: { books: { some: { pages: { gt: 10 } } } } } }),
 		update: ({ record }) => record.title !== '',
 	},
 	hooks: {

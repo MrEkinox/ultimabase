@@ -150,10 +150,9 @@ ${scalars}${i === 0 ? wideFields : ''}
 	},
 }).with({
 	access: {
-		read: ({ caller }) =>
-			caller.kind === 'master' || {
-				where: { f2: { equals: false }, next: { is: { f0: { equals: 'x' } } } },
-			},
+		read: ({ caller, where }) =>
+			caller.kind === 'master' ||
+			where({ f2: { equals: false }, next: { is: { f0: { equals: 'x' } } } }),
 		update: ({ record }) => record.f0 !== 'x',
 		create: allow.public,
 	},

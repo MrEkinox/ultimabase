@@ -140,19 +140,26 @@ shorthand for `create`, `update` and `delete` (on a field, `create` and
 testing `operation`. A write rule also receives the stored `record` (on
 `update` and `delete`) and the new `value` (on `create` and `update`), and
 returns `true` or `false`. A read rule on a model cannot see the record: it
-returns `true`, `false` or an explicit filter, `{ where: { ... } }` in
-Prisma's form (D-20), which the kernel ANDs into the query.
+returns `true`, `false` or a filter built by the `where` it receives,
+`where({ ... })` in Prisma's form (D-20), which the kernel ANDs into the
+query. `where` returns an opaque filter, so a plain object is refused.
 Why: DX is UltimaBase's first goal. One concept instead of words plus
 functions; a developer jumps to a rule's source to see what it does; rules
 compose; plugins add rules without a typed registry of words. The previous
 five-key object, modelled on Keystone, was verbose for the common cases.
 `record.status === 'draft'` is the clearest write condition. A read filter
 keeps pagination, `count` and relation filters exact and runs in the same
-round trip (D-46); the `where` key says it is a filter.
+round trip (D-46). TypeScript checks an argument for unknown keys but never
+an object a function returns, and `.with` cannot be generic without a cycle
+(D-24): written `where({ ... })`, a misspelled key next to a valid one fails on
+its line at any depth, where a returned `{ where: { ... } }` compiled and
+reached the kernel.
 Rejected: string words (`'public'`), whose meaning hides inside the access
 implementation; a per-operation object as the only form; read rules run on
 each loaded row, which shorten pages, falsify `count` and cannot run inside a
-relation filter (`posts: { some: ... }`) without leaking or a second query.
+relation filter (`posts: { some: ... }`) without leaking or a second query;
+returning `{ where: { ... } }`, never checked for unknown keys; an annotated
+return type on each rule, which names the model's type and is easy to forget.
 Example:
 
 ```ts
@@ -160,8 +167,8 @@ Example:
 .with({ access: { read: allow.public, write: isAuthenticated } })
 .with({
 	access: {
-		read: ({ caller }) =>
-			caller.kind === 'master' || { where: { archived: false } },
+		read: ({ caller, where }) =>
+			caller.kind === 'master' || where({ archived: false }),
 		update: ({ record }) => record.status === 'draft',
 		write: ({ operation, caller }) =>
 			operation === 'delete'
@@ -169,6 +176,11 @@ Example:
 				: caller.kind === 'user',
 	},
 })
+
+// Before: compiles, and the kernel receives an unknown `statuss` condition
+read: () => ({ where: { archived: false, statuss: 'published' } }),
+// After: fails on `statuss`, "Did you mean to write 'status'?"
+read: ({ where }) => where({ archived: false, statuss: 'published' }),
 ```
 
 ## D-11: No type generation
@@ -356,14 +368,13 @@ Example:
 Post.findMany({ where }, { as: fromBackOffice ? master : caller })
 
 // Before: compiles, and shows every author's drafts to an anonymous caller
-read: ({ caller }) => ({
-	where: {
+read: ({ caller, where }) =>
+	where({
 		OR: [{ status: 'published' }, { author: { is: { id: caller.user?.id } } }],
-	},
-})
+	})
 // After
-read: ({ caller }) => ({
-	where:
+read: ({ caller, where }) =>
+	where(
 		caller.kind === 'user'
 			? {
 					OR: [
@@ -372,7 +383,7 @@ read: ({ caller }) => ({
 					],
 				}
 			: { status: 'published' },
-})
+	)
 ```
 
 ## D-20: The query API follows Prisma Client
@@ -881,7 +892,7 @@ be wider than the model's (lets a misspelt enum value through); the record
 type taken from a callback around the fields or from `typeof Post` (both a
 cycle).
 Later, if a real need appears: a field read rule may also return
-`{ where: { ... } }`, ANDed into any filter on that field, so a caller can
+`where({ ... })` (D-10), ANDed into any filter on that field, so a caller can
 filter on their own email and nobody else's. It adds to this entry without
 breaking it.
 Example:

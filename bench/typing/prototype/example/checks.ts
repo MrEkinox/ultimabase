@@ -10,6 +10,7 @@ import {
 	softDeletePlugin,
 	string,
 } from '../index.ts'
+import { Book } from './book.ts'
 import { Post } from './post.ts'
 import { Tag } from './tag.ts'
 import { User } from './user.ts'
@@ -122,9 +123,39 @@ Post.with({
 	// @ts-expect-error: `status` is 'draft' | 'published'.
 	access: { update: ({ record }) => record.status === 'archived' },
 })
+// A read rule builds its filter with `where` (D-10): a misspelled key next to
+// a valid one is refused on its line, at any depth and through a cycle.
 Post.with({
-	// @ts-expect-error: a read filter names the model's fields.
-	access: { read: () => ({ where: { titel: 'x' } }) },
+	access: {
+		read: ({ where }) =>
+			where({
+				status: 'published',
+				// @ts-expect-error: `titel` is not a field of Post.
+				titel: 'x',
+			}),
+	},
+})
+Book.with({
+	access: {
+		read: ({ where }) =>
+			where({
+				author: {
+					is: {
+						books: {
+							some: {
+								pages: { gt: 1 },
+								// @ts-expect-error: `titel` is not a field of Book, through Author.
+								titel: 'x',
+							},
+						},
+					},
+				},
+			}),
+	},
+})
+Post.with({
+	// @ts-expect-error: a filter written as an object is never checked; it is refused.
+	access: { read: () => ({ where: { status: 'published' } }) },
 })
 // @ts-expect-error: a delete rule returns a boolean.
 Post.with({ access: { delete: () => 42 } })

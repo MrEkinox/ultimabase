@@ -13,9 +13,8 @@ export const Author = defineModel({
 	},
 }).with({
 	access: {
-		read: () => ({
-			where: { books: { some: { author: { is: { level: 'senior' } } } } },
-		}),
+		read: ({ where }) =>
+			where({ books: { some: { author: { is: { level: 'senior' } } } } }),
 	},
 	hooks: {
 		afterCreate: async ({ record }) => {

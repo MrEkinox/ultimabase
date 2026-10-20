@@ -235,9 +235,17 @@ without it:
 | After, wide 120, rules  |   286 |    131 |           92 |          59 |         60 |
 
 About 0.25 ms a query, 100 ms on a file of 400, still far under the previous
-base's 1 875 ms. A read rule's returned filter is not checked: TypeScript
-never excess-checks an object returned by a function, and `.with` cannot be
-generic (it cycles).
+base's 1 875 ms.
+
+A read rule's filter had the same gap for another reason: TypeScript never
+excess-checks an object a function returns, and `.with` cannot be generic (it
+cycles). The rule now builds its filter with the `where` it receives (D-10),
+whose parameter is not inferred, so the native check applies: "Did you mean
+to write 'title'?", at any depth and through the Author <-> Book cycle
+(`example/checks.ts`). Measured on 2026-10-20 with `tsc --extendedDiagnostics`
+against the plain object, three interleaved runs: 902 017 instantiations
+instead of 903 409 on 200 models, 1 279 226 instead of 1 280 618 with field
+rules, and the same check time within noise.
 
 ## Reproducing
 

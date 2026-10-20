@@ -8,7 +8,12 @@ import type {
 	UpdateData,
 } from './record.ts'
 import type { Caller } from './rules.ts'
-import type { declaredRecord, fieldType, modelFields } from './symbols.ts'
+import type {
+	declaredRecord,
+	fieldType,
+	modelFields,
+	readFilter,
+} from './symbols.ts'
 
 type ReadFacts = { readonly caller: Caller; readonly operation: 'read' }
 type CreateFacts<F> = {
@@ -28,8 +33,16 @@ type DeleteFacts<F> = {
 	readonly record: RecordOf<F>
 }
 
-/** A model read rule cannot see the record: it may return a filter (D-10). */
-type ReadRule<F> = (facts: ReadFacts) => boolean | { readonly where: Where<F> }
+/** A read filter; only the `where` a read rule receives builds one (D-10). */
+type ReadFilter = { readonly [readFilter]: true }
+/**
+ * A model read rule cannot see the record: it may return a filter (D-10).
+ * TypeScript never checks a returned object for unknown keys, but it checks
+ * an argument: `where({ ... })` refuses a misspelled key on its line.
+ */
+type ReadRule<F> = (
+	facts: ReadFacts & { readonly where: (filter: Where<F>) => ReadFilter },
+) => boolean | ReadFilter
 
 /** One rule, or one rule per operation; `write` covers the three writes. */
 export type ModelAccess<F> =
