@@ -483,6 +483,24 @@ model edit against 895 ms. Since D-24 revisited, the query edit at 200 models
 went from 280 ms to 391 ms (the user model, functions, validation, defaults,
 indexes and the query subset), on a busier machine.
 
+## Phase 1b: hooks, errors and options
+
+What hooks receive (D-71), `PublicError` (D-72), the `setNull` check (D-54),
+`transaction` (D-36), `dbName` (D-63), a plugin's `stop` and
+`defineApp({ masterKey, logger })` (D-49, D-58). One `tsc --extendedDiagnostics`
+run of each project, three interleaved times, on 2026-10-20, "before" being
+`f0597a78`; medians in milliseconds, load average about 1.2.
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 028 869 |        524 |
+| After, 200         |      1 043 302 |        544 |
+| Before, 200, rules |      1 470 895 |        702 |
+| After, 200, rules  |      1 485 327 |        704 |
+
+14 433 instantiations more, about 72 per model (1.4 %, and 1.0 % with rules);
+check time grows by 20 ms without rules and stays within its spread with them.
+
 ## Reproducing
 
 ```bash

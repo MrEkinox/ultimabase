@@ -2,6 +2,7 @@
 // and `defineApp({ database, plugins, models, functions })` assembles the
 // application. A plugin's types travel with its values; nothing is declared
 // globally.
+import type { Logger, MasterKey } from './app-options.ts'
 import type {
 	App,
 	FieldShape,
@@ -85,6 +86,7 @@ export interface PluginContext<T> {
 		? { readonly [option: string]: never }
 		: AppOptions<T>
 	readonly plugins: Apis<T>
+	readonly logger: Logger
 }
 
 /** A plugin's entry in a model's `use`, named after the plugin. */
@@ -172,6 +174,8 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly redirect?: PluginRedirects<Own<T>, EntryOptions<T>, Apis<T>>
 	/** Runs once when the application starts (D-15). */
 	readonly start?: (context: PluginContext<T>) => void | Promise<void>
+	/** Runs once when the application stops: close, flush (D-15). */
+	readonly stop?: (context: PluginContext<T>) => void | Promise<void>
 } & CodePart<
 	T,
 	'commands',
@@ -295,6 +299,8 @@ export declare function defineModel<
 	const X extends readonly IndexShape[] = [],
 >(definition: {
 	readonly name: N
+	/** The stored table's or collection's name (D-63). */
+	readonly dbName?: string
 	readonly use?: U
 	/** The only form (D-12). */
 	readonly fields: ModelFields<F, U>
@@ -365,6 +371,8 @@ export declare function defineApp<
 		readonly plugins?: P
 		readonly models: M
 		readonly functions?: Fn
+		readonly masterKey?: MasterKey
+		readonly logger?: Logger
 	} & NoInfer<PluginCheck<P, M, Fn>> &
 		NoInfer<ModelCheck<M>> &
 		NoInfer<InverseCheck<M>>,

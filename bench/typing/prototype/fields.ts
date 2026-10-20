@@ -46,6 +46,8 @@ export type ScalarOptions<V> = {
 	readonly unique?: boolean
 	readonly default?: V | DefaultFunction<V>
 	readonly validate?: Validate<V>
+	/** The stored column's name, when the adapter's convention will not do (D-63). */
+	readonly dbName?: string
 }
 
 /** The types a Standard Schema declares, `never` without them. */
@@ -86,6 +88,7 @@ export type JsonOptions = {
 	// Any value; the function member types `caller`. JsonCheck checks it.
 	readonly default?: DefaultFunction<unknown> | {} | null
 	readonly validate?: StandardSchema | ((value: JsonValue) => unknown)
+	readonly dbName?: string
 }
 /** What a `json` field stores and returns: the schema's output. */
 type JsonOutput<O> = O extends { readonly validate: infer S }
@@ -121,7 +124,19 @@ export type OneOptions = {
 		{ readonly id: string } | DefaultFunction<{ readonly id: string }>
 	readonly onDelete?: 'cascade' | 'restrict' | 'setNull'
 	readonly inverse?: string
+	readonly dbName?: string
 }
+// `setNull` empties the relation, which only an optional one may be (D-54).
+// The message is an object: a literal would empty the whole options type.
+type OneCheck<O> = O extends { readonly optional: true }
+	? unknown
+	: O extends { readonly onDelete: 'setNull' }
+		? {
+				readonly onDelete: {
+					readonly error: 'setNull needs an optional relation'
+				}
+			}
+		: unknown
 
 export type ManyOptions = { readonly inverse?: string }
 
@@ -318,7 +333,7 @@ export interface FieldBuilders<T> {
 	) => Field<E, O, never, T>
 	readonly one: <M extends object, const O extends OneOptions = OneOptions>(
 		target: M,
-		options?: O,
+		options?: O & NoInfer<OneCheck<O>>,
 	) => One<M, O, T>
 	readonly many: <M extends object, const O extends ManyOptions = ManyOptions>(
 		target: M,

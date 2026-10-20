@@ -53,10 +53,10 @@ written, so that Phase 2 moves its types instead of discovering them.
 - [x] What hooks receive and return: `beforeFind` filters, `previous`,
       in-place `data`, a plugin's `command`, no `afterFind` (D-71).
 - [x] Errors: `PublicError` and the kernel's codes (D-28, D-72).
-- [ ] `onDelete: 'setNull'` refused on a required relation (D-54).
-- [ ] `transaction(fn)` (D-36).
-- [ ] `dbName` on models and fields (D-63).
-- [ ] A plugin's `stop` (D-15), `defineApp({ masterKey, logger })` (D-49,
+- [x] `onDelete: 'setNull'` refused on a required relation (D-54).
+- [x] `transaction(fn)` (D-36).
+- [x] `dbName` on models and fields (D-63).
+- [x] A plugin's `stop` (D-15), `defineApp({ masterKey, logger })` (D-49,
       D-58).
 
 Exit: every typed part of 0.1 has a prototype example, and the benchmark,

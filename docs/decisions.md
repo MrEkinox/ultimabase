@@ -1173,7 +1173,8 @@ declares an optional master key. A transport receiving it (the
 `caller.master.source === 'key'` (D-19). The comparison is constant-time and
 every use is logged. Without a configured key, a request carrying one is
 refused. When `NODE_ENV === 'production'`, the key is refused even if set,
-unless the developer writes `masterKey: { key, production: true }`.
+unless the developer writes `masterKey: { key, production: true }`. An unset
+key (`undefined`, in either form) leaves the master key off.
 Why: front-end end-to-end tests seed their data through the API with the key,
 then test the interface; a key copied into production by mistake must not
 open the database.
@@ -1457,7 +1458,8 @@ fields: (f) => ({
 
 Choice: `defineApp({ logger })` takes any logger with pino's interface
 (`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
-to the console. The kernel, plugins and D-28 correlation ids use it.
+to the console. The kernel, plugins and D-28 correlation ids use it; a
+plugin's `start`, `stop` and `api` receive it as `logger`.
 OpenTelemetry comes later, as a plugin.
 Why: pino's interface is the Node standard and keeps the kernel free of a
 logging dependency.
@@ -1592,7 +1594,8 @@ Choice: each adapter maps model and field names to its database's convention
 names). `dbName` overrides the stored name on a model
 (`defineModel({ name: 'Post', dbName: 'posts' })`) and on a field
 (`f.string({ dbName: 'e_mail' })`); it names a table, a collection or a column
-depending on the adapter.
+depending on the adapter. A `many` relation stores no column and takes no
+`dbName`; naming a many-to-many join table is decided with the adapter.
 Why: hand-written SQL needs no quotes; an existing database can be adopted;
 one neutral option works on every adapter (D-51).
 Rejected: `table` (meaningless on MongoDB); one option per adapter.

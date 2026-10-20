@@ -1,3 +1,24 @@
+prototype/example/app-options.ts: `setNull` needs an optional relation (D-54).
+TS2322: Type '"setNull"' is not assignable to type '"setNull" & { readonly error: "setNull needs an optional relation"; }'.
+  Type 'string' is not assignable to type '{ readonly error: "setNull needs an optional relation"; }'.
+
+prototype/example/app-options.ts: a required relation cannot be set to null.
+TS2322: Type '"setNull"' is not assignable to type '"setNull" & { readonly error: "setNull needs an optional relation"; }'.
+  Type 'string' is not assignable to type '{ readonly error: "setNull needs an optional relation"; }'.
+
+prototype/example/app-options.ts: a `many` relation stores no column of its own.
+TS2353: Object literal may only specify known properties, and 'dbName' does not exist in type 'ManyOptions'.
+
+prototype/example/app-options.ts: there is no `tx` to pass along (D-36).
+TS2345: Argument of type '(tx: unknown) => Promise<unknown>' is not assignable to parameter of type '() => Promise<unknown>'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+
+prototype/example/app-options.ts: the object form only opens production (D-49).
+TS2322: Type 'false' is not assignable to type 'true'.
+
+prototype/example/app-options.ts: `console` has no `child` (D-58).
+TS2741: Property 'child' is missing in type 'Console' but required in type 'Logger'.
+
 prototype/example/author.ts: `pages` was not selected.
 TS2339: Property 'pages' does not exist on type 'Selected<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly pages: Field<number, { readonly optional: true; }, never, never, number>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, { ...; }>'.
 
@@ -64,7 +85,7 @@ prototype/example/checks.ts: `ownerField` names a scalar field.
 TS2322: Type '"author"' is not assignable to type 'ScalarKeys<{ readonly title: Field<string, ScalarOptions<string>, never, never, string> & { readonly [declaredRecord]: { readonly status: (value: "draft" | "published") => "draft" | "published"; }; }; ... 7 more ...; readonly tags: Many<...>; } & DeletedField<...>> | undefined'.
 
 prototype/example/checks.ts: Broken.posts: inverse 'autor' is not a field of Post.
-TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; models: [...]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; readonly models: readonly [...]; readonly functions?: []; } & NoInfer<{ ...; }>'.
+TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; models: [...]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; readonly models: readonly [...]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: Logger; } & NoInfer<{ ...; }>'.
   Property 'inverseError' is missing in type '{ database: Database; plugins: [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; models: [...]; }' but required in type '{ readonly inverseError: "Broken.posts: inverse 'autor' is not a field of the target"; }'.
 
 prototype/example/declared.ts: `status` is 'draft' | 'published'.
@@ -198,7 +219,7 @@ prototype/example/define-function.ts: the function does not use graphql.
 TS2353: Object literal may only specify known properties, and 'graphql' does not exist in type 'FunctionWith<FunctionWithKeys<never>>'.
 
 prototype/example/define-function.ts: a function uses 'graphql', which is not in plugins.
-TS2345: Argument of type '{ database: Database; models: []; functions: [ServerFunction<"todoStats", undefined, z.ZodObject<{ open: z.ZodNumber; archived: z.ZodNumber; }, z.core.$strip>, "graphql", FunctionWithKeys<...>>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: []; readonly models: readonly []; readonly functions?: readonly [ServerFunction<"todoStats", undefined, ZodObject<{ open: ZodNumber; archived: ZodNumber; }, $strip>, "graphql", FunctionWithKeys<...>>]; } & NoInfer<{ ...; }>'.
+TS2345: Argument of type '{ database: Database; models: []; functions: [ServerFunction<"todoStats", undefined, z.ZodObject<{ open: z.ZodNumber; archived: z.ZodNumber; }, z.core.$strip>, "graphql", FunctionWithKeys<...>>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: []; readonly models: readonly []; readonly functions?: readonly [ServerFunction<"todoStats", undefined, ZodObject<{ open: ZodNumber; archived: ZodNumber; }, $strip>, "graphql", FunctionWithKeys<...>>]; readonly masterKey?: MasterKey; readonly logger?: Logger; } & NoI...'.
   Property 'pluginError' is missing in type '{ database: Database; models: []; functions: [ServerFunction<"todoStats", undefined, z.ZodObject<{ open: z.ZodNumber; archived: z.ZodNumber; }, z.core.$strip>, "graphql", FunctionWithKeys<...>>]; }' but required in type '{ readonly pluginError: "a function uses 'graphql', which is not in plugins"; }'.
 
 prototype/example/define-plugin.ts: the name differs from the interface's.
@@ -213,7 +234,7 @@ TS2741: Property 'archived' is missing in type '{}' but required in type 'Archiv
 
 prototype/example/define-plugin.ts: the manifest is required.
 TS2345: Argument of type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' is not assignable to parameter of type 'PluginDefinition<Archive>'.
-  Property 'manifest' is missing in type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' but required in type '{ readonly name: "archive"; readonly manifest: Manifest; readonly hooks?: PluginHooks<Record<never, never>, { readonly [option: string]: never; }, unknown, "archived">; readonly redirect?: PluginRedirects<...>; readonly start?: (context: PluginContext<...>) => void | Promise<...>; }'.
+  Property 'manifest' is missing in type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' but required in type '{ readonly name: "archive"; readonly manifest: Manifest; readonly hooks?: PluginHooks<Record<never, never>, { readonly [option: string]: never; }, unknown, "archived">; readonly redirect?: PluginRedirects<...>; readonly start?: (context: PluginContext<...>) => void | Promise<...>; readonly stop?: (context: PluginCon...'.
 
 prototype/example/define-plugin.ts: a manifest has a version.
 TS2741: Property 'version' is missing in type '{ name: string; }' but required in type 'Manifest'.
@@ -267,11 +288,11 @@ prototype/example/plugin-keys.ts: not a scalar field of the model
 TS2322: Type '"nope"' is not assignable to type 'ScalarKeys<{ readonly t: Field<string, ScalarOptions<string>, never, Acl | Graphql | SoftDelete, string>; } & DeletedField<{ readonly field?: string; }>> | undefined'.
 
 prototype/example/plugin-keys.ts: a model uses 'softDelete', which is not in plugins
-TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"acl", never>, PluginValue<"graphql", never>]; models: [ModelOf<"SetOn", { readonly t: Field<string, ScalarOptions<string>, never, Acl | ... 1 more ... | SoftDelete, string>; }, readonly [...], []>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"acl", never>, PluginValue<"graphql", never>]; readonly models: readonly [ModelOf<"SetOn", { readonly t: Field<...>; }, readonly [...], []>]; readonly functions?: []; } & NoInfer<{ ...; }>'.
+TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"acl", never>, PluginValue<"graphql", never>]; models: [ModelOf<"SetOn", { readonly t: Field<string, ScalarOptions<string>, never, Acl | ... 1 more ... | SoftDelete, string>; }, readonly [...], []>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"acl", never>, PluginValue<"graphql", never>]; readonly models: readonly [ModelOf<"SetOn", { readonly t: Field<...>; }, readonly [...], []>]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: Logger; } & NoInfer<{ ...; }>'.
   Property 'pluginError' is missing in type '{ database: Database; plugins: [PluginValue<"acl", never>, PluginValue<"graphql", never>]; models: [ModelOf<"SetOn", { readonly t: Field<string, ScalarOptions<string>, never, Acl | ... 1 more ... | SoftDelete, string>; }, readonly [...], []>]; }' but required in type '{ readonly pluginError: "a model uses 'softDelete', which is not in plugins"; }'.
 
 prototype/example/plugin-keys.ts: a relation points to 'Tag', which is not in models
-TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; models: [...]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; readonly models: readonly [...]; readonly functions?: []; } & NoInfer<{ ...; }>'.
+TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; models: [...]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; readonly models: readonly [...]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: Logger; } & NoInfer<{ ...; }>'.
   Property 'modelError' is missing in type '{ database: Database; plugins: [PluginValue<"softDelete", never>, PluginValue<"acl", never>, PluginValue<"graphql", never>, PluginValue<...>]; models: [...]; }' but required in type '{ readonly modelError: "a relation points to 'Tag', which is not in models"; }'.
 
 prototype/example/plugin-own.ts: `title` belongs to the model, not to the plugin.
@@ -315,7 +336,7 @@ prototype/example/plugin-parts.ts: `place` is optional, so it may be null.
 TS18047: 'shop.place' is possibly 'null'.
 
 prototype/example/plugin-parts.ts: `Shop.place` needs the geo plugin.
-TS2345: Argument of type '{ database: Database; models: [Model<"Shop", { readonly name: Field<string, ScalarOptions<string>, never, never, string>; readonly place: Field<GeoPoint, { ...; }, "geo", never, GeoPoint>; }, never, WithKeys<...>, never>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: []; readonly models: readonly [Model<"Shop", { readonly name: Field<string, ScalarOptions<string>, never, never, string>; readonly place: Field<...>; }, never, WithKeys<...>, never>]; readonly functions?: []; } & NoInfer<{ ...; }>'.
+TS2345: Argument of type '{ database: Database; models: [Model<"Shop", { readonly name: Field<string, ScalarOptions<string>, never, never, string>; readonly place: Field<GeoPoint, { ...; }, "geo", never, GeoPoint>; }, never, WithKeys<...>, never>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: []; readonly models: readonly [Model<"Shop", { readonly name: Field<string, ScalarOptions<string>, never, never, string>; readonly place: Field<...>; }, never, WithKeys<...>, never>]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: Logger; ...'.
   Property 'pluginError' is missing in type '{ database: Database; models: [Model<"Shop", { readonly name: Field<string, ScalarOptions<string>, never, never, string>; readonly place: Field<GeoPoint, { ...; }, "geo", never, GeoPoint>; }, never, WithKeys<...>, never>]; }' but required in type '{ readonly pluginError: "a model uses 'geo', which is not in plugins"; }'.
 
 prototype/example/plugin-parts.ts: a plugin that declares an `api` must build it.
@@ -353,7 +374,7 @@ prototype/example/plugin-parts.ts: `keepDays` is a number.
 TS2322: Type 'string' is not assignable to type 'number'.
 
 prototype/example/plugin-parts.ts: archive requires auth and tenant.
-TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"archive", "auth" | "tenant">]; models: [Model<"Doc", {}, "archive", WithKeys<ModelUse<"archive", Archive>, {}>, never>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"archive", "auth" | "tenant">]; readonly models: readonly [Model<"Doc", {}, "archive", WithKeys<ModelUse<"archive", Archive>, {}>, never>]; readonly functions?: []; } & NoInfer<{ ...; }>'.
+TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"archive", "auth" | "tenant">]; models: [Model<"Doc", {}, "archive", WithKeys<ModelUse<"archive", Archive>, {}>, never>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"archive", "auth" | "tenant">]; readonly models: readonly [Model<"Doc", {}, "archive", WithKeys<ModelUse<"archive", Archive>, {}>, never>]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: Logger; } & NoInfer<{ ...; }>'.
   Property 'pluginError' is missing in type '{ database: Database; plugins: [PluginValue<"archive", "auth" | "tenant">]; models: [Model<"Doc", {}, "archive", WithKeys<ModelUse<"archive", Archive>, {}>, never>]; }' but required in type '{ readonly pluginError: "a plugin requires 'auth', which is not in plugins" | "a plugin requires 'tenant', which is not in plugins"; }'.
 
 prototype/example/queries.ts: a cursor is a unique target
@@ -411,7 +432,7 @@ prototype/example/shared-use.ts: `ownerField` names a field of Note.
 TS2322: Type '"text"' is not assignable to type 'ScalarKeys<{ readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; } & DeletedField<{ readonly field?: string; }>> | undefined'.
 
 prototype/example/shared-use.ts: Note uses soft delete, missing from `plugins`.
-TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"acl", never>]; models: [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"acl", never>]; readonly models: readonly [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; readonly functions?: []; } & NoInfer<{ ...; }>'.
+TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"acl", never>]; models: [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"acl", never>]; readonly models: readonly [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; readonly functions?: []; readonly masterKey?: MasterKe...'.
   Property 'pluginError' is missing in type '{ database: Database; plugins: [PluginValue<"acl", never>]; models: [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; }' but required in type '{ readonly pluginError: "a model uses 'softDelete', which is not in plugins"; }'.
 
 prototype/example/typos.ts: `titel` is not a field.

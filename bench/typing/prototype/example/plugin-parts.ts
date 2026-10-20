@@ -161,6 +161,11 @@ const archiveDefinition = definePlugin<Archive>({
 		void plugins.roles.has('admin')
 		void plugins.roles?.has('admin')
 	},
+	// Runs once when the application stops (D-15); the logger is the
+	// application's (D-58).
+	stop: ({ logger }) => {
+		logger.info('archive stopped')
+	},
 	redirect: {
 		delete: ({ where, queries, plugins }) => {
 			void plugins.auth.currentUserId()
