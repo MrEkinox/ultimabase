@@ -55,8 +55,7 @@ validation and functions included, stays within Phase 1's exit criterion.
 
 ## Phase 2: Kernel slice on `memory()`
 
-- [ ] 0.1 field types, `findMany`, `findUnique`, `create`, `update`,
-      `delete`.
+- [ ] 0.1 field types and the 0.1 query subset (D-20).
 - [ ] Callers and `master` (D-19), model and field access (D-10, D-44).
 - [ ] Hooks in the order of D-67, validation (D-23), errors (D-28),
       transactions (D-36).
@@ -106,6 +105,7 @@ Exit: `npm create ultimabase` produces an application that starts.
 - [ ] REST (D-25).
 - [ ] Roles (`defineRole`, D-13) and ACL.
 - [ ] `vector()` field type for pgvector (D-32).
+- [ ] Nested creation, `create` in a relation write, before 1.0 (D-20).
 
 Exit: every feature of the previous base has an example, in far fewer lines.
 

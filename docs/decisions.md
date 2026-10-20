@@ -491,9 +491,10 @@ can run without an extra query per parent (no N+1). After the first release:
 `upsert` and the batch operations `createMany`, `updateMany` and
 `deleteMany`, once it is decided which rules and hooks they run (create's or
 update's for `upsert`, per row or per batch, and the soft-delete trash);
-`omit`, which `select` covers meanwhile; nested creation, `set`, `distinct`
-and aggregates; case-insensitive filters (`mode: 'insensitive'`), left to a
-search plugin first.
+`omit`, which `select` covers meanwhile; nested creation (`create` in a
+relation write), which ships before 1.0; `set`, `distinct` and aggregates;
+case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
+first.
 Rejected: a query syntax of our own; a function builder for `where` beside
 the object form; ignoring unknown keys, which turns a typo into a wider read.
 Example:
