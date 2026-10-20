@@ -200,6 +200,18 @@ typed rules exactly, the user model's own rules included, without a cycle;
 D-24 leaves the question open all the same, since a model should not have to
 list a plugin to read its caller.
 
+Relation cycles need no registry either. `prototype/example/relations.ts`
+queries Author and Book, two models in two files that import each other, and
+asserts exact results for `select` and `include` three levels deep, there and
+back, and for `where` through the cycle in both directions; a wrong field or
+value fails at every depth. Author's and Book's own read rules filter through
+the cycle, and their hooks query the other model with a `select` that comes
+back: neither model becomes `any`. Found on 2026-10-20 and left open: a
+misspelled key next to a valid one passes, in a query
+(`where: { title: 'x', titel: 'x' }`, the same in `select` and in a scalar
+filter) and in a read rule's filter. A query's arguments are inferred, so
+TypeScript skips the excess-property check; a misspelled key alone still fails.
+
 ## Reproducing
 
 ```bash
