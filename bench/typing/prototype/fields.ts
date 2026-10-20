@@ -35,11 +35,16 @@ type SchemaResult<O> =
  */
 export type Validate<V> = StandardSchema<V, V> | ((value: V) => V | Promise<V>)
 
+/** A default's function form: `undefined` gives no value (D-53). */
+export type DefaultFunction<V> = (facts: {
+	readonly caller: Caller
+}) => V | undefined
+
 /** What shapes a scalar field (D-08, D-23, D-52, D-53). */
 export type ScalarOptions<V> = {
 	readonly optional?: boolean
 	readonly unique?: boolean
-	readonly default?: V | (() => V)
+	readonly default?: V | DefaultFunction<V>
 	readonly validate?: Validate<V>
 }
 
@@ -78,7 +83,8 @@ type ValidateCheck<O, V> = O extends {
 /** What shapes a `json` field (D-53): its schema gives its types. */
 export type JsonOptions = {
 	readonly optional?: boolean
-	readonly default?: unknown
+	// Any value; the function member types `caller`. JsonCheck checks it.
+	readonly default?: DefaultFunction<unknown> | {} | null
 	readonly validate?: StandardSchema | ((value: JsonValue) => unknown)
 }
 /** What a `json` field stores and returns: the schema's output. */
@@ -102,14 +108,17 @@ type JsonCheck<O> = (O extends {
 	? AnyCheck<S>
 	: unknown) &
 	(O extends { readonly default: infer D }
-		? [D] extends [JsonInput<O> | (() => JsonInput<O>)]
+		? [D] extends [JsonInput<O> | DefaultFunction<JsonInput<O>>]
 			? unknown
-			: { readonly default: JsonInput<O> | (() => JsonInput<O>) }
+			: { readonly default: JsonInput<O> | DefaultFunction<JsonInput<O>> }
 		: unknown)
 
 /** What shapes a `one` relation (D-37, D-54). */
 export type OneOptions = {
 	readonly optional?: boolean
+	/** The target's id (D-53). */
+	readonly default?:
+		{ readonly id: string } | DefaultFunction<{ readonly id: string }>
 	readonly onDelete?: 'cascade' | 'restrict' | 'setNull'
 	readonly inverse?: string
 }

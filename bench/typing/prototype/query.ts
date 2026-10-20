@@ -74,12 +74,24 @@ export type Where<F> = {
 	readonly NOT?: Where<F> | readonly Where<F>[]
 }
 
-/** `findUnique` and single-row writes target `id` or a unique field (D-52). */
-export type UniqueWhere<F> =
+/** A unique index's value: a scalar's, or a `one` relation's target id. */
+type IndexValue<X> =
+	KindOf<X> extends 'one' ? string : NonNullable<StoredValue<X>>
+/** A unique index, targeted flat with exactly its fields (D-52). */
+type IndexTarget<F, X> = X extends readonly (infer K extends keyof F)[]
+	? { readonly [P in K]: IndexValue<F[P]> }
+	: never
+
+/**
+ * `findUnique` and single-row writes target `id`, a unique field or a unique
+ * index, whose fields `X` lists (D-52).
+ */
+export type UniqueWhere<F, X = never> =
 	| { readonly id: string }
 	| {
 			[K in UniqueKeys<F>]: { readonly [P in K]: StoredValue<F[K]> }
 	  }[UniqueKeys<F>]
+	| IndexTarget<F, X>
 
 type Direction = 'asc' | 'desc'
 export type OrderBy<F> = {
@@ -152,8 +164,8 @@ export type FindManyArgs<F> = {
 	readonly skip?: number
 }
 
-export type FindUniqueArgs<F> = {
-	readonly where: UniqueWhere<F>
+export type FindUniqueArgs<F, X = never> = {
+	readonly where: UniqueWhere<F, X>
 	readonly select?: Select<F>
 	readonly include?: Include<F>
 }
@@ -164,21 +176,21 @@ export type CreateArgs<F> = {
 	readonly include?: Include<F>
 }
 
-export type UpdateArgs<F> = {
-	readonly where: UniqueWhere<F>
+export type UpdateArgs<F, X = never> = {
+	readonly where: UniqueWhere<F, X>
 	readonly data: UpdateData<F>
 	readonly select?: Select<F>
 	readonly include?: Include<F>
 }
 
 /** Model methods (D-18), the subset the prototype measures. */
-export interface Queries<F> {
+export interface Queries<F, X = never> {
 	findMany<const A extends FindManyArgs<F>>(
 		args?: A & NoInfer<Exact<A, FindManyArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>[]>
-	findUnique<const A extends FindUniqueArgs<F>>(
-		args: A & NoInfer<Exact<A, FindUniqueArgs<F>>>,
+	findUnique<const A extends FindUniqueArgs<F, X>>(
+		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	count(
@@ -189,12 +201,12 @@ export interface Queries<F> {
 		args: A & NoInfer<Exact<A, CreateArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
-	update<const A extends UpdateArgs<F>>(
-		args: A & NoInfer<Exact<A, UpdateArgs<F>>>,
+	update<const A extends UpdateArgs<F, X>>(
+		args: A & NoInfer<Exact<A, UpdateArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	delete(
-		args: { readonly where: UniqueWhere<F> },
+		args: { readonly where: UniqueWhere<F, X> },
 		options?: QueryOptions,
 	): Promise<RecordOf<F>>
 }

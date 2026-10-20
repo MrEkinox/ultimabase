@@ -88,7 +88,11 @@ export type ModelWith<F, W> = {
 	readonly hooks?: ModelHooks<F>
 } & W
 
-export interface Model<N extends string, F, P, W> extends Queries<F> {
+/** `X` lists the fields of each unique index (D-52). */
+export interface Model<N extends string, F, P, W, X = never> extends Queries<
+	F,
+	X
+> {
 	readonly name: N
 	readonly [modelFields]: F
 	/** The plugins it uses, checked against the application's (D-24). */
@@ -141,6 +145,46 @@ export type FieldTypePlugins<F> = {
 		? P
 		: never
 }[keyof F]
+
+/** An index of `defineModel`, over one or several fields (D-52). */
+export type IndexShape = {
+	readonly fields: readonly string[]
+	readonly unique?: boolean
+}
+
+/** The fields of each unique index. */
+export type UniqueIndexFields<X> = X extends readonly (infer I)[]
+	? I extends { readonly unique: true; readonly fields: infer K }
+		? K
+		: never
+	: never
+
+// An index covers scalar fields and `one` relations, the model's columns.
+type IndexableKeys<F> = {
+	[K in keyof F]: F[K] extends {
+		readonly [fieldType]: { readonly kind: 'scalar' | 'one' }
+	}
+		? K
+		: never
+}[keyof F]
+type NotIndexable<I, F> = I extends { readonly fields: readonly (infer K)[] }
+	? Exclude<K, IndexableKeys<F>>
+	: never
+
+/**
+ * Each index names fields of the model. TypeScript first checks the call
+ * before reading `fields`, while `F` is still any field name: the check
+ * waits for the real fields.
+ */
+export type IndexCheck<X, F> = string extends keyof F
+	? unknown
+	: {
+			readonly [I in keyof X]: [NotIndexable<X[I], F>] extends [never]
+				? unknown
+				: {
+						readonly fields: `'${NotIndexable<X[I], F> & string}' is not a scalar field or a one relation of the model`
+					}
+		}
 
 export type ModelShape = {
 	readonly name: string

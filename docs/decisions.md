@@ -1184,17 +1184,33 @@ Choice: a field takes `unique: true` (`f.string({ unique: true })`); indexes
 over one or several fields go in `defineModel`, since they shape the model
 (D-07): `indexes: [{ fields: ['author', 'slug'], unique: true }]`. Every
 unique field and unique index is a target of `findUnique`, `update`,
-`delete` and `upsert` (D-20).
+`delete` and `upsert` (D-20). A unique index is targeted flat, with exactly
+its fields: `where: { author: 'u1', slug: 'hello' }`; a `one` relation in it
+takes the target's id (amended 2026-10-20).
+An index lists scalar fields and `one` relations only: a misspelt field or a
+`many` relation is refused on the index's line. A non-unique index is not a
+target.
 Why: the previous base used this split and it worked; uniqueness read from
-the field is the common case.
-Rejected: indexes in `.with` (they change the storage, not behaviour).
+the field is the common case. The flat target reads like any filter and has
+no name to learn; `findUnique` takes no other filter, so nothing needs
+setting apart.
+Typing (2026-10-20): TypeScript checks the call once before it reads the
+`fields` callback; the index check waits for the real fields, or every index
+would be refused and the callback's parameters lose their types. Measured
+on 200 models without indexes: 0.9 % more instantiations, the same check
+time.
+Rejected: indexes in `.with` (they change the storage, not behaviour);
+Prisma's compound key, `where: { author_slug: { author, slug } }`, a name
+built from the fields that the developer must know.
 
 ## D-53: Defaults are values or functions; `json` takes a schema
 
 Choice: `default` takes a value (`default: false`) or a function receiving
 `{ caller }` (D-19): `default: () => new Date()`, or a value that depends on
-who creates the record. A relation's default returns the target's `{ id }`;
-returning `undefined` gives no value. A field with a default is optional in
+who creates the record. A relation's default is the target's `{ id }`, or a
+function returning it; a record of the target, `caller.user` included, fits.
+Returning `undefined` gives no value; a default of the wrong type is refused
+on its line. A field with a default is optional in
 `create`'s input, and the default applies when the caller sends no value. A
 `beforeCreate` hook (D-15) may still set or replace the value: a required
 field is checked for presence after the hooks (D-67). `f.json()` accepts
@@ -1460,7 +1476,11 @@ hook and function, without an import or a `use` entry:
 `declare module 'ultimabase' { interface Register { user: typeof User } }`.
 Only the user model goes there; plugins and models never do (D-24). auth
 exports `isSelf`, the rule "the caller is this record". A field rule of the
-user model that reads `caller.user` in its own body needs `: boolean`.
+user model that reads `caller.user` in its own body needs `: boolean`, and a
+default of the user model that reads it (D-53) declares its return type,
+`({ caller }): { readonly id: string } | undefined => ...`; without it,
+`User` loses its type with no error on that line, only on `defineApp`.
+Another model's default that reads `caller.user` needs nothing.
 Without it, TypeScript reports TS7023 on the rule's line and on `fields`, and
 `User` becomes `any` (TS7022): typing `caller.user` needs `User`'s fields,
 which hold the rule. A rule that calls a helper with a declared return type,

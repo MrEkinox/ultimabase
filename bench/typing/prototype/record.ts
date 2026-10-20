@@ -81,7 +81,9 @@ type Needed<X> =
 		: X extends Relation<'one', unknown, infer O>
 			? IsOptional<O> extends true
 				? false
-				: true
+				: O extends { readonly default: unknown }
+					? false
+					: true
 			: false
 
 export type CreateData<F> = {

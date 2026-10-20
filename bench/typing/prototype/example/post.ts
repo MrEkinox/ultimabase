@@ -51,7 +51,12 @@ export const Post = defineModel({
 		}),
 		meta: f.json({ optional: true }),
 		author: f
-			.one(() => User, { onDelete: 'cascade' })
+			.one(() => User, {
+				onDelete: 'cascade',
+				// Whoever creates the post (D-53).
+				default: ({ caller }) =>
+					caller.kind === 'user' ? caller.user : undefined,
+			})
 			.with({
 				access: { create: allow.private, update: allow.private },
 			}),

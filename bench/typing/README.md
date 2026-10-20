@@ -390,6 +390,38 @@ the change is `ModelFields`, `ModelOf` and the auth plugin's types:
 1 002 and 1 752 instantiations more (0.09 % and 0.11 %); the check times
 overlap.
 
+## Phase 1b: defaults and indexes
+
+`example/defaults-indexes.ts` declares defaults that read the caller (D-53),
+a relation's included, and a unique index over a relation and a scalar
+targeted flat by `findUnique`, `update` and `delete` (D-52); each refusal is
+an `@ts-expect-error` line whose error was read. `Post.author` takes the
+caller as default with no annotation.
+
+Two findings:
+
+- The first `indexes` check refused every index and left `caller` untyped in
+  the `fields` callback (TS7031). TypeScript checks a call once with the
+  context-sensitive arguments skipped, `F` still at its constraint, and drops
+  the candidate on failure; the check now passes while `F` has a string index.
+- A default of `User` that returns `caller.user` breaks `User` with no error
+  on its line (the errors appear on `defineApp` and on the type assertions),
+  with or without `{ id: caller.user.id }`; a declared return type fixes it.
+
+Three interleaved runs on 2026-10-20, "before" being `5a4be4e1`; the
+generated projects declare no index and no default function, so the change is
+the types alone:
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 102 779 | 600–621 ms |
+| After, 200         |      1 112 769 | 588–601 ms |
+| Before, 200, rules |      1 544 805 | 692–717 ms |
+| After, 200, rules  |      1 554 795 | 720–742 ms |
+
+9 990 instantiations more on both (0.9 % and 0.6 %); the check times are
+within the spread between runs.
+
 ## Reproducing
 
 ```bash

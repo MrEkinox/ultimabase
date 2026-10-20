@@ -1,9 +1,11 @@
 // auth (D-33, D-62) owns the user model. Its `define<Kind>` entry,
 // `defineUser`, builds an ordinary model with auth in its `use` (D-13).
 import type { Caller } from './rules.ts'
+import type { IndexShape } from './model.ts'
 import type {
 	FieldShapes,
 	ModelFields,
+	ModelIndexes,
 	ModelOf,
 	ModelUse,
 	PluginOf,
@@ -34,11 +36,13 @@ export declare function defineUser<
 	const N extends string,
 	const F extends FieldShapes,
 	const U extends Uses = [],
+	const X extends readonly IndexShape[] = [],
 >(definition: {
 	readonly name: N
 	readonly use?: U
 	readonly fields: ModelFields<F, WithAuth<U>>
-}): ModelOf<N, F, WithAuth<U>>
+	readonly indexes?: ModelIndexes<X, F, WithAuth<U>>
+}): ModelOf<N, F, WithAuth<U>, X>
 
 /** The rule "the caller is this record" (D-62). */
 export declare function isSelf(facts: {

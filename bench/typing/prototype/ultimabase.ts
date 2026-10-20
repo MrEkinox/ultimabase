@@ -6,11 +6,14 @@ import type {
 	App,
 	FieldShape,
 	FieldTypePlugins,
+	IndexCheck,
+	IndexShape,
 	InverseCheck,
 	Model,
 	ModelHooks,
 	ModelShape,
 	RecordCheck,
+	UniqueIndexFields,
 } from './model.ts'
 import type { FieldBuilders } from './fields.ts'
 import type { FunctionShape } from './function.ts'
@@ -258,24 +261,35 @@ export type ModelOf<
 	N extends string,
 	F,
 	U extends readonly ModelUse<string, PluginTypes>[],
+	X extends readonly IndexShape[] = [],
 > = Model<
 	N,
 	AllFields<F, U[number]>,
 	U[number]['plugin'],
-	WithKeys<U[number], AllFields<F, U[number]>>
+	WithKeys<U[number], AllFields<F, U[number]>>,
+	UniqueIndexFields<X>
 > &
 	Commands<U[number], AllFields<F, U[number]>>
+
+/** `indexes`, whose fields are checked against the model's (D-52). */
+export type ModelIndexes<
+	X,
+	F,
+	U extends readonly ModelUse<string, PluginTypes>[],
+> = X & NoInfer<IndexCheck<X, AllFields<F, U[number]>>>
 
 export declare function defineModel<
 	const N extends string,
 	const F extends FieldShapes,
 	const U extends readonly ModelUse<string, PluginTypes>[] = [],
+	const X extends readonly IndexShape[] = [],
 >(definition: {
 	readonly name: N
 	readonly use?: U
 	/** The only form (D-12). */
 	readonly fields: ModelFields<F, U>
-}): ModelOf<N, F, U>
+	readonly indexes?: ModelIndexes<X, F, U>
+}): ModelOf<N, F, U, X>
 
 // Checked on the `defineApp` line, where every model is typed (D-24).
 type Used<M> =

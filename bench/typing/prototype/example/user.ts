@@ -26,7 +26,15 @@ export const User = defineUser({
 		manager: f
 			.one(() => User, { optional: true })
 			.with({ access: { update: ({ caller }) => isEditor(caller) } }),
+		// The same holds for a default reading `caller.user`: it declares its
+		// return type, or `User` degrades silently (D-62).
+		invitedBy: f.one(() => User, {
+			optional: true,
+			default: ({ caller }): { readonly id: string } | undefined =>
+				caller.kind === 'user' ? caller.user : undefined,
+		}),
 	}),
+	indexes: [{ fields: ['manager', 'role'] }],
 }).with({
 	graphql: { name: 'Member' },
 	access: {
