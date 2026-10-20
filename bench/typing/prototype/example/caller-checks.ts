@@ -2,7 +2,7 @@
 // (user.ts), in every model, without an import (D-24, D-62). `tsc` fails if
 // one does not hold.
 import type { Caller } from '../index.ts'
-import { defineModel, one, string } from '../index.ts'
+import { defineModel } from '../index.ts'
 import type { UserOf } from '../rules.ts'
 import { Post } from './post.ts'
 import { User } from './user.ts'
@@ -26,15 +26,15 @@ export type CallerChecks = [
 // A field rule of another model, related to the user model, reads it too.
 export const Note = defineModel({
 	name: 'Note',
-	fields: {
-		body: string().with({
+	fields: (f) => ({
+		body: f.string().with({
 			access: {
 				read: ({ caller }) =>
 					caller.kind === 'user' && caller.user.role === 'editor',
 			},
 		}),
-		owner: one(() => User),
-	},
+		owner: f.one(() => User),
+	}),
 })
 
 Post.with({

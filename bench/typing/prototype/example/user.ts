@@ -1,5 +1,5 @@
 import type { Caller } from '../index.ts'
-import { defineModel, enumOf, many, one, string } from '../index.ts'
+import { defineModel } from '../index.ts'
 import { Post } from './post.ts'
 
 /** auth's ready-made rule: the caller is this user (D-62). */
@@ -10,20 +10,20 @@ export declare function isSelf(facts: {
 
 export const User = defineModel({
 	name: 'User',
-	fields: {
-		email: string({ unique: true }).with({ access: { read: isSelf } }),
+	fields: (f) => ({
+		email: f.string({ unique: true }).with({ access: { read: isSelf } }),
 		// A field rule of the user model written by hand that reads
 		// `caller.user` needs `: boolean`, or `User` cycles (TS7022, D-24).
-		role: enumOf(['reader', 'editor'], { default: 'reader' }).with({
+		role: f.enumOf(['reader', 'editor'], { default: 'reader' }).with({
 			access: {
 				update: ({ caller }): boolean =>
 					caller.kind === 'user' && caller.user.role === 'editor',
 			},
 		}),
-		posts: many(() => Post, { inverse: 'author' }),
-		reviewed: many(() => Post, { inverse: 'reviewer' }),
-		manager: one(() => User, { optional: true }),
-	},
+		posts: f.many(() => Post, { inverse: 'author' }),
+		reviewed: f.many(() => Post, { inverse: 'reviewer' }),
+		manager: f.one(() => User, { optional: true }),
+	}),
 }).with({
 	access: {
 		read: ({ caller, where }) =>

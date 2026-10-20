@@ -2,18 +2,10 @@ import type { Caller } from '../index.ts'
 import {
 	allow,
 	anyOf,
-	boolean,
-	date,
-	enumOf,
-	json,
-	many,
-	number,
-	one,
 	softDelete,
 	acl,
 	graphql,
 	defineModel,
-	string,
 } from '../index.ts'
 import { Tag } from './tag.ts'
 import { User } from './user.ts'
@@ -26,9 +18,9 @@ export declare function hasRole(
 export const Post = defineModel({
 	name: 'Post',
 	use: [softDelete(), acl(), graphql()],
-	fields: {
+	fields: (f) => ({
 		// Declared record: the fields the rules read, checked against the model.
-		title: string().with<{ status: 'draft' | 'published' }>({
+		title: f.string().with<{ status: 'draft' | 'published' }>({
 			access: {
 				read: ({ record, caller }) =>
 					record.status === 'published' ||
@@ -39,7 +31,7 @@ export const Post = defineModel({
 		}),
 		// Without a declaration: `value` and `record.id` are typed, the rest
 		// `unknown`.
-		status: enumOf(['draft', 'published'], { default: 'draft' }).with({
+		status: f.enumOf(['draft', 'published'], { default: 'draft' }).with({
 			access: {
 				update: anyOf(
 					({ record }) => record.status === 'draft',
@@ -47,9 +39,9 @@ export const Post = defineModel({
 				),
 			},
 		}),
-		views: number({ default: 0 }),
-		pinned: boolean({ optional: true }),
-		publishedAt: date({ optional: true }).with<{ views: number }>({
+		views: f.number({ default: 0 }),
+		pinned: f.boolean({ optional: true }),
+		publishedAt: f.date({ optional: true }).with<{ views: number }>({
 			access: {
 				write: anyOf(
 					({ caller }) => caller.kind === 'master',
@@ -57,13 +49,15 @@ export const Post = defineModel({
 				),
 			},
 		}),
-		meta: json({ optional: true }),
-		author: one(() => User, { onDelete: 'cascade' }).with({
-			access: { create: allow.private, update: allow.private },
-		}),
-		reviewer: one(() => User, { optional: true }),
-		tags: many(() => Tag),
-	},
+		meta: f.json({ optional: true }),
+		author: f
+			.one(() => User, { onDelete: 'cascade' })
+			.with({
+				access: { create: allow.private, update: allow.private },
+			}),
+		reviewer: f.one(() => User, { optional: true }),
+		tags: f.many(() => Tag),
+	}),
 }).with({
 	access: {
 		read: ({ caller, where }) =>

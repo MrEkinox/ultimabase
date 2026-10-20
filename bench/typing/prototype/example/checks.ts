@@ -5,10 +5,8 @@ import {
 	defineApp,
 	defineModel,
 	graphqlPlugin,
-	many,
 	memory,
 	softDeletePlugin,
-	string,
 } from '../index.ts'
 import { Book } from './book.ts'
 import { Post } from './post.ts'
@@ -55,6 +53,7 @@ export type Checks = [
 				readonly pinned: boolean | null
 				readonly publishedAt: Date | null
 				readonly meta: unknown
+				readonly deletedAt: Date | null
 			}
 		>
 	>,
@@ -89,8 +88,8 @@ await Tag.create({ data: { label: 'news' } })
 // Field rules without the model's name: `value` and `record.id` typed.
 export const Loose = defineModel({
 	name: 'Loose',
-	fields: {
-		a: string().with({
+	fields: (f) => ({
+		a: f.string().with({
 			access: {
 				update: ({ record, value }) => {
 					const id: string = record.id
@@ -100,17 +99,17 @@ export const Loose = defineModel({
 			},
 		}),
 		// @ts-expect-error: a rule returns a boolean.
-		b: string().with({ access: { update: () => 'yes' } }),
+		b: f.string().with({ access: { update: () => 'yes' } }),
 		// @ts-expect-error: `value` is a string.
-		c: string().with({ access: { create: ({ value }) => value > 1 } }),
-		d: string().with({
+		c: f.string().with({ access: { create: ({ value }) => value > 1 } }),
+		d: f.string().with({
 			access: { update: anyOfLoose },
 		}),
-		e: string({ optional: true }).with({
+		e: f.string({ optional: true }).with({
 			// @ts-expect-error: an optional field may be written `null`.
 			access: { update: ({ value }) => value.length > 0 },
 		}),
-	},
+	}),
 })
 function anyOfLoose(facts: {
 	readonly record: { readonly id: string }
@@ -167,7 +166,7 @@ Post.with({ acl: { ownerField: 'author' } })
 // An inverse names a field of the target, checked by `defineApp`.
 const Broken = defineModel({
 	name: 'Broken',
-	fields: { posts: many(() => Post, { inverse: 'autor' }) },
+	fields: (f) => ({ posts: f.many(() => Post, { inverse: 'autor' }) }),
 })
 defineApp({
 	database: memory(),

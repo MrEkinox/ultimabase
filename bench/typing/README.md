@@ -36,12 +36,13 @@ These agree with ADR-0297 of the previous base (0.55 s at 50 models, 1.90 s at
 ## Prototype
 
 `prototype/` holds the types of the form D-24 settled:
-`defineModel({ name, use, fields }).with(...)`, fields, relations, queries,
-model and field rules, three stand-in plugins (each with its application value
-and its model entry) and `defineApp({ database, plugins, models })`; nothing
-in it runs. `prototype/example/` is a small
-application whose `checks.ts`, `declared.ts` and `plugin-keys.ts` assert the
-types: `tsc` fails if one does not hold.
+`defineModel({ name, use, fields }).with(...)`, the `fields` callback and its
+builders (D-12), relations, queries, model and field rules, three stand-in
+plugins defined with `definePlugin` (D-57) and
+`defineApp({ database, plugins, models })`; nothing in it runs.
+`prototype/example/` is a small application whose `checks.ts`, `declared.ts`,
+`plugin-keys.ts`, `define-plugin.ts`, `plugin-own.ts` and `plugin-parts.ts`
+assert the types: `tsc` fails if one does not hold.
 
 `node bench/typing/gen.ts <N> [--field-rules]` writes `gen/proto[-rules]-<N>/`
 with the graph and density of the baseline's generator (six scalars, a ring
@@ -263,6 +264,33 @@ to write 'title'?", at any depth and through the Author <-> Book cycle
 against the plain object, three interleaved runs: 902 017 instantiations
 instead of 903 409 on 200 models, 1 279 226 instead of 1 280 618 with field
 rules, and the same check time within noise.
+
+## D-57: plugin definition
+
+D-57 settled how a plugin is written: an interface extending `PluginTypes`
+and `definePlugin<T>({ name, manifest, ... })` checked against it, its
+requirements as an object of plugin values (`requires: { auth: authPlugin }`),
+and a field's `.with` taking the rules of the model's plugins. For that, the
+builders now come only from the `fields` callback, typed by `use`;
+`prototype/example/define-plugin.ts`, `plugin-own.ts` and `plugin-parts.ts`
+assert the refused cases. Kept as a callback only, a declared record's error
+stays on the field's own line; offered next to the object form, it moved to
+`fields`.
+
+Three runs interleaved with the previous commit on 2026-10-20, medians in
+milliseconds; instantiations and check time from `tsc --extendedDiagnostics`:
+
+| Project            | Instantiations | Check time | `tsc` | Memory | Query: first | Query: edit | Model: first | Model: edit |
+| ------------------ | -------------: | ---------: | ----: | -----: | -----------: | ----------: | -----------: | ----------: |
+| Before, 200        |        902 026 |        483 |   660 |    195 |          513 |         351 |          183 |          11 |
+| After, 200         |      1 046 017 |        515 |   710 |    210 |          501 |         374 |          154 |          17 |
+| Before, 200, rules |      1 279 235 |        637 |   850 |    249 |          633 |         481 |          188 |          15 |
+| After, 200, rules  |      1 492 947 |        682 |   920 |    266 |          638 |         517 |          165 |          18 |
+
+16 % more instantiations and about 7 % more check time, 35 ms on a query
+edit of 200 models. In the spike, a helper instead of the callback cost
+1.6 % fewer instantiations; most of the cost is the plugin rules on each
+field, not the callback. The `wide 120` projects were not measured.
 
 ## Reproducing
 

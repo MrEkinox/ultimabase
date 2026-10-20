@@ -12,7 +12,6 @@ import {
 	memory,
 	softDelete,
 	softDeletePlugin,
-	string,
 } from '../index.ts'
 import { Post } from './post.ts'
 import { User } from './user.ts'
@@ -20,9 +19,12 @@ import { User } from './user.ts'
 const SetOn = defineModel({
 	name: 'SetOn',
 	use: [softDelete(), acl(), graphql()],
-	fields: { t: string() },
+	fields: (f) => ({ t: f.string() }),
 })
-const SetOff = defineModel({ name: 'SetOff', fields: { t: string() } })
+const SetOff = defineModel({
+	name: 'SetOff',
+	fields: (f) => ({ t: f.string() }),
+})
 export const setTrash = await SetOn.with({
 	acl: { ownerField: 't' },
 	graphql: { name: 'S' },

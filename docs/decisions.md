@@ -193,24 +193,38 @@ Rejected: any form of typegen, even optional.
 
 ## D-12: The same `(data).with(plugins)` shape for models and fields
 
-Choice: a field is built by an imported function whose options describe the
-data (`string({ optional: true })`); an optional `.with({ ... })` on the field
-holds plugin rules for that field, as `.with` on the model holds rules for the
-whole model. A rule sits next to the object it governs. As for models
-(D-07), what shapes the field goes in its options and what acts on it goes in
-`.with`.
+Choice: `defineModel`'s `fields` is a callback, `fields: (f) => ({ ... })`,
+its only form; it receives the field builders, which `ultimabase` does not
+export. A builder's options describe the data (`f.string({ optional: true })`);
+an optional `.with({ ... })` on the field holds the rules for that field: the
+kernel's `access` (D-44) and, under its name, the field rule of each plugin in
+the model's `use` (`fieldWith`, D-57), typed by the field's value. Without the
+plugin in `use`, its key fails on its line. A rule sits next to the object it
+governs. As for models (D-07), what shapes the field goes in its options and
+what acts on it goes in `.with`.
 Why: one rule to learn at both levels; no rules map keyed by field names far
-from the fields; no `(field) => ...` callback.
+from the fields. The callback is how the builders learn the model's `use`,
+with no import, registry or helper. As the only form it is one thing to learn,
+and a declared record's error (D-44) stays on the field's line: offered next
+to an object form, the error moved to `fields`.
 Condition: accepted once a benchmark on a large model shows editor typing
-cost no worse than the previous base's field form (fields declared through a
-`(field) => ({ ... })` callback) on TypeScript 7. If it fails, this entry
-is replaced. Met on 2026-10-19 by the Phase 1 prototype, with and without
-field rules, 120 more fields on one model (`bench/typing/README.md`).
+cost no worse than the previous base's field form on TypeScript 7. If it
+fails, this entry is replaced. Met on 2026-10-19 by the Phase 1 prototype,
+with and without field rules, 120 more fields on one model; measured again on
+2026-10-20 with the callback and plugin field rules: 16 % more instantiations
+and about 7 % more check time than imported builders on 200 models, 0.52 s
+against the previous base's 4.2 s (`bench/typing/README.md`).
 Rejected: plugin options inside field options (mixes data and behaviour); a
-per-field rules map in the model's `.with` (rules far from their fields).
+per-field rules map in the model's `.with` (rules far from their fields);
+imported builders taking `access` only (a plugin's field rule could not be
+typed); imported builders next to the callback (two forms, and the error
+leaves the field's line); a registry of the plugins (global, D-24); a helper
+binding the builders to a `use` (one more import and line per model).
 Example:
 
 ```ts
+// Before
+import { boolean, defineModel, one, string } from 'ultimabase'
 export const Todo = defineModel({
 	name: 'Todo',
 	fields: {
@@ -220,6 +234,21 @@ export const Todo = defineModel({
 		done: boolean({ default: false }),
 		assignee: one(() => User, { optional: true }),
 	},
+}).with({ access: allow.public })
+
+// After
+import { defineModel } from 'ultimabase'
+export const Todo = defineModel({
+	name: 'Todo',
+	use: [acl()],
+	fields: (f) => ({
+		title: f.string({ validate: z.string().trim() }).with({
+			access: { update: isAuthenticated },
+			acl: { roles: ['editor'] },
+		}),
+		done: f.boolean({ default: false }),
+		assignee: f.one(() => User, { optional: true }),
+	}),
 }).with({ access: allow.public })
 ```
 
@@ -240,7 +269,7 @@ Example:
 export const TeamRole = defineRole({
 	name: 'TeamRole',
 	members: () => User,
-	fields: { color: string({ optional: true }) },
+	fields: (f) => ({ color: f.string({ optional: true }) }),
 })
 ```
 
@@ -294,10 +323,12 @@ Rejected: a hook per pipeline stage; a generic interceptor around everything.
 
 ## D-16: Plugins call each other directly
 
-Choice: a plugin that needs another declares it (`requires: [auth]`) and
-calls its public API. Startup fails, naming the missing plugin, when a
-requirement is not installed. A plugin that can work without another lists it
-in `optional: [roles]` and gets `Roles | undefined`; it reports a clear error,
+Choice: a plugin that needs another declares it by its plugin value
+(`requires: { auth: authPlugin }`, D-57) and calls its public API,
+`plugins.auth`. `defineApp` fails typing, and startup fails, naming the
+missing plugin, when a requirement is not installed. A plugin that can work
+without another lists it in `optional: { roles: rolesPlugin }` and gets
+`plugins.roles`, possibly `undefined`; it reports a clear error,
 and types its options accordingly, when a feature needs the absent plugin (an
 ACL entry naming a role without `rolesPlugin()` installed). The kernel has no
 service registry and no event bus between plugins. HTTP routes belong to the
@@ -474,7 +505,8 @@ there is no `App`, and the only global declaration is the optional user model
 assembles the application with `defineApp({ database, plugins, models,
 functions })`, which holds every option of the application (D-02); `plugins`
 takes each plugin's application value (`softDeletePlugin()`, D-35) with the
-options that apply to the whole application. Each plugin decides where it
+options that apply to the whole application; both values come from the
+plugin's `definePlugin` (D-57). Each plugin decides where it
 acts: one that changes a model (soft delete) acts only on the models that list
 it; one that acts on every model (ACL, transports) does so whether a model
 lists it or not, and its entry only gives that model its options, so
@@ -506,7 +538,6 @@ TS7022); a project-wide `Register` of plugins or models, which the previous base
 for its name-keyed types and which caused its own cycles (its ADR-0297 and
 ADR-0335); each plugin adding its keys to global interfaces (accepts the keys
 of any plugin whose types are loaded); type generation (D-11).
-Open: the plugin entry that gives a plugin's two values their types (D-57).
 Example:
 
 ```ts
@@ -657,14 +688,16 @@ Choice: from the first release, a plugin can provide field types (`file()`,
 later `vector()`), with their storage and transport representation. Files are
 a plugin with a storage adapter (`memoryFiles()`, `local(...)`, `s3(...)`) and a
 `file()` field; they are not a dedicated slot, since many applications store
-no files.
+no files. A plugin's field type is imported from its package and needs no
+`use` entry; `defineApp` fails when its plugin is not in `plugins`, and its
+`.with` takes `access` only (D-57).
 Why: new field types brought by plugins are a core promise of UltimaBase.
 Example:
 
 ```ts
 export const Post = defineModel({
 	name: 'Post',
-	fields: { cover: file({ optional: true }) },
+	fields: () => ({ cover: file({ optional: true }) }),
 })
 export const app = defineApp({
 	database: postgres(),
@@ -701,7 +734,7 @@ Choice: a declaration the developer writes is `define<Thing>`, named after
 UltimaBase's own noun (`defineModel`, `defineFunction`, `defineApp`, and a
 plugin's `defineRole`); the declared thing is named by a `name` key everywhere.
 Something plugged in or configured is a plain noun call: an adapter
-(`postgres()`, `s3()`), a field type (`string()`, `file()`), a plugin's entry
+(`postgres()`, `s3()`), a field type (`f.string()`, `file()`), a plugin's entry
 in a model's `use` (`softDelete()`, D-24). A plugin's value for the `plugins`
 of `defineApp` adds `Plugin` (`softDeletePlugin()`, `filesPlugin()`), every
 plugin alike, whether or not it has a `use` entry.
@@ -719,7 +752,7 @@ Example:
 ```ts
 export const Todo = defineModel({
 	name: 'Todo',
-	fields: { title: string() },
+	fields: (f) => ({ title: f.string() }),
 })
 export const TeamRole = defineRole({
 	name: 'TeamRole',
@@ -747,7 +780,7 @@ Rejected: passing `tx` by hand; a transaction around every function.
 
 ## D-37: Relations are `one` and `many`, declared on both sides
 
-Choice: a relation field is `one(() => Target)` or `many(() => Target)`, and
+Choice: a relation field is `f.one(() => Target)` or `f.many(() => Target)`, and
 both models declare their side. `one` facing `many` is one-to-many; `many`
 facing `many` is many-to-many through a join table. When two relations join
 the same models, `{ inverse: 'author' }` names the field on the other side,
@@ -764,15 +797,15 @@ Example:
 ```ts
 export const Post = defineModel({
 	name: 'Post',
-	fields: { author: one(() => User), tags: many(() => Tag) },
+	fields: (f) => ({ author: f.one(() => User), tags: f.many(() => Tag) }),
 })
 export const User = defineUser({
 	name: 'User',
-	fields: { posts: many(() => Post) },
+	fields: (f) => ({ posts: f.many(() => Post) }),
 })
 export const Tag = defineModel({
 	name: 'Tag',
-	fields: { posts: many(() => Post) },
+	fields: (f) => ({ posts: f.many(() => Post) }),
 })
 ```
 
@@ -908,9 +941,9 @@ breaking it.
 Example:
 
 ```ts
-fields: {
-	email: string().with({ access: { read: isSelf, update: isSelf } }),
-	status: enumOf(['draft', 'published']).with({
+fields: (f) => ({
+	email: f.string().with({ access: { read: isSelf, update: isSelf } }),
+	status: f.enumOf(['draft', 'published']).with({
 		access: {
 			update: anyOf(
 				({ record }) => record.status === 'draft',
@@ -918,18 +951,20 @@ fields: {
 			),
 		},
 	}),
-	createdBy: one(() => User).with({
-		access: { create: allow.private, update: allow.private },
-	}),
+	createdBy: f
+		.one(() => User)
+		.with({
+			access: { create: allow.private, update: allow.private },
+		}),
 	// Declared record: the fields the rules read, with the model's exact types
-	title: string().with<{ status: 'draft' | 'published' }>({
+	title: f.string().with<{ status: 'draft' | 'published' }>({
 		access: {
 			read: ({ record, caller }) =>
 				record.status === 'published' || isEditor(caller),
 			update: ({ record }) => record.status === 'draft',
 		},
 	}),
-}
+})
 ```
 
 ## D-45: Function types become GraphQL types, with an escape hatch
@@ -1046,7 +1081,7 @@ Rejected: one feature set identical on every adapter.
 
 ## D-52: Unique fields on the field, indexes in `defineModel`
 
-Choice: a field takes `unique: true` (`string({ unique: true })`); indexes
+Choice: a field takes `unique: true` (`f.string({ unique: true })`); indexes
 over one or several fields go in `defineModel`, since they shape the model
 (D-07): `indexes: [{ fields: ['author', 'slug'], unique: true }]`. Every
 unique field and unique index is a target of `findUnique`, `update`,
@@ -1063,7 +1098,7 @@ who creates the record. A relation's default returns the target's `{ id }`;
 returning `undefined` gives no value. A field with a default is optional in
 `create`'s input, and the default applies when the caller sends no value. A
 `beforeCreate` hook (D-15) may still set or replace the value: a required
-field is checked for presence after the hooks (D-67). `json()` accepts
+field is checked for presence after the hooks (D-67). `f.json()` accepts
 `validate` (D-23) and takes its type from the schema's output; without a
 schema its type is `unknown`.
 Why: a function covers dates and generated values without a second option.
@@ -1075,11 +1110,11 @@ Example:
 
 ```ts
 // Before: required in `create`'s type, and refused by validation
-author: one(() => User).with({ access: { create: allow.private } }),
+author: f.one(() => User).with({ access: { create: allow.private } }),
 // with, on the model:
 hooks: { beforeCreate: ({ data, caller }) => ... }
 // After
-author: one(() => User, {
+author: f.one(() => User, {
 	default: ({ caller }) => (caller.kind === 'user' ? caller.user : undefined),
 }).with({ access: { create: allow.private, update: allow.private } }),
 ```
@@ -1135,17 +1170,128 @@ Rejected: bcrypt (72-byte limit); scrypt (second choice once Argon2id is
 built in); a native `argon2` package; sign-in protection left to a general
 rate-limit plugin.
 
-## D-57: Writing a plugin takes as few lines as possible
+## D-57: A plugin is an interface of types and one `definePlugin`
 
-Choice: a plugin is declared with one kernel entry and the fewest lines
-possible: a name, its requirements (D-16) and what it adds (features,
-commands, hooks, field types, D-15 and D-32). Its package declares
-`ultimabase` as a peer dependency with a version range, and startup refuses a
-plugin whose range excludes the running kernel, naming both versions.
-Why: the community plugin ecosystem is the product (D-01); a plugin that
-takes a page of boilerplate will not be written.
-Open: the exact entry, which gives a plugin value its types (D-24), decided
-with D-24's open points.
+Choice: a plugin declares its types in an interface extending `PluginTypes`:
+its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
+`appOptions` (its application value's), `requires` and `optional` (D-16),
+`api` (what it offers other plugins), `adds` (the fields it adds to the models
+that use it), `commands` (D-15), `with` (its key of the model's `.with`, D-42)
+and `fieldWith` (its key of a field's `.with`, D-12). Inside the interface,
+`this['fields']` is the fields of the model that lists the plugin in its
+`use`, `this['options']` the options of its entry there, and `this['value']`
+the value of the field whose `.with` holds its rule. Its code is one
+`definePlugin<T>({ name, manifest, ... })`, checked against the interface: a
+different name, a missing command or `api`, or a part the interface does not
+declare fails on its line. It returns `use`, the model entry, and `plugin`,
+the application value (D-24, D-35), which the package exports (D-70). The
+entry is overloaded: called without options it carries the plugin's types as
+they are, and only an entry given options (`softDelete({ field: 'removedAt' })`)
+types the model from their literal values.
+Hooks (an object of functions, D-15), redirects and commands receive the
+operation's facts, the model's `queries`, the entry's `options` and
+`plugins`, the API of each requirement; `start` receives the application
+options. A plugin's code sees a model through the fields it adds and the
+system fields (D-22), never the model's own fields; a plugin that needs more
+casts. Requirements are objects of plugin values keyed by plugin name:
+`requires: { auth: authPlugin }`, `optional: { roles: rolesPlugin }`. A
+missing, extra or swapped value fails, and `defineApp` fails when a
+requirement is not in `plugins`. `manifest` is required: `{ name, version,
+peerDependencies? }`, usually the package's own `package.json` imported with
+`with { type: 'json' }`, or written by hand; the documentation shows the
+import first and warns that a hand-written manifest drifts from the package.
+At startup, the kernel refuses a plugin whose `ultimabase` range excludes the
+running kernel, or whose peer range excludes an installed plugin, naming both
+versions. A field type a plugin provides (`geoPoint()`, D-32) is imported
+from its package and needs no `use` entry: `defineApp` fails when its plugin
+is missing from `plugins`, and its `.with` takes `access` only.
+Why: the community plugin ecosystem is the product (D-01): a plugin is an
+interface and one call, and its author learns of a mistake on its own line,
+not in a user's application. The interface is where the model's fields, an
+entry's options and a field's value reach every part, `this` acting as their
+type parameter; it is no global declaration (D-24), so two plugins of one
+name, or two versions of one plugin, coexist. The overloaded entry costs
+5.5 % more instantiations on 200 models, against 50 % for an entry that is
+always generic (spike, 2026-10-20). An object of values gives each
+requirement's API its type and reads like the `plugins` it receives. Seeing
+only its own fields keeps a plugin from depending on models it does not know.
+The manifest gives the kernel the versions to check without reading the file
+system.
+Rejected: a registry by name that plugins extend with `declare module`
+(global: two plugins of one name fail with TS2717, two versions cannot
+coexist, and D-24 would need a second global declaration); types inferred
+from the code without an interface (the name inferred from the call breaks
+the typing of `commands`, TS2719); an entry that is always generic (50 % more
+instantiations); a non-generic entry (an option could never change a type, so
+a renamed field would be typed wrong silently); `hooks: (model) => ({ ... })`
+(a misspelled hook name passes); requirements as an array of values
+(`requires: [authPlugin]`) or as names in the interface only; the kernel
+reading `package.json` itself (file system, bundlers); field builders added
+by plugins (`f.geoPoint()`), until a plugin's field type needs field rules.
+Example:
+
+```ts
+// Before: the types written by hand, the code never checked against them
+interface SoftDeleteModel extends FromModel {
+	readonly out: SoftDeleteCommands<this['fields']>
+}
+export declare function softDeletePlugin(): PluginValue<'softDelete'>
+export declare function softDelete(): ModelUse<
+	'softDelete',
+	{ readonly commands: SoftDeleteModel }
+>
+
+// After
+import manifest from '../package.json' with { type: 'json' }
+
+interface SoftDelete extends PluginTypes {
+	readonly name: 'softDelete'
+	readonly options: { readonly field?: string }
+	readonly appOptions: { readonly purgeAfterDays?: number }
+	readonly adds: DeletedField<this['options']>
+	readonly commands: SoftDeleteCommands<this['fields']>
+}
+const softDeleteDefinition = definePlugin<SoftDelete>({
+	name: 'softDelete',
+	manifest,
+	hooks: { beforeFind: ({ where, options }) => hideDeleted(where, options) },
+	commands: ({ queries }) => ({
+		trash: deletedOnly(queries),
+		restore: ({ where }) => undelete(queries, where),
+	}),
+})
+export const softDelete: UseOf<SoftDelete> = softDeleteDefinition.use
+export const softDeletePlugin: PluginOf<SoftDelete> =
+	softDeleteDefinition.plugin
+
+// A plugin that needs others, with a hand-written manifest
+interface Archive extends PluginTypes {
+	readonly name: 'archive'
+	readonly requires: Auth | Tenant
+	readonly optional: Roles
+}
+const archiveDefinition = definePlugin<Archive>({
+	name: 'archive',
+	manifest: { name: 'ultimabase-archive', version: '1.0.0' },
+	requires: { auth: authPlugin, tenant: tenantPlugin },
+	optional: { roles: rolesPlugin },
+	redirect: {
+		delete: ({ where, queries, plugins }) =>
+			markArchived(queries, where, plugins.auth.currentUserId()),
+	},
+})
+
+// A field rule: the ACL plugin's key of a field's `.with`
+interface Acl extends PluginTypes {
+	readonly name: 'acl'
+	readonly with: AclKey<this['fields']>
+	readonly fieldWith: AclField<this['value']>
+}
+// In an application
+fields: (f) => ({
+	code: f.string().with({ acl: { check: (value) => value.length > 4 } }),
+}),
+```
 
 ## D-58: One pino-compatible logger
 
@@ -1195,7 +1341,8 @@ hook and function, without an import or a `use` entry:
 Only the user model goes there; plugins and models never do (D-24). auth
 exports `isSelf`, the rule "the caller is this record". A field rule of the
 user model written by hand that reads `caller.user` needs `: boolean`:
-without it, TypeScript reports TS7023 on the rule's line and `User` becomes
+without it, TypeScript reports TS7023 on the rule's line and on `fields`,
+and `User` becomes
 `any` (TS7022), because typing `caller.user` needs `User`'s fields, which hold
 the rule. The documentation says so next to that error. Applications with
 different user models are type-checked by separate `tsconfig` files; one
@@ -1228,10 +1375,10 @@ read: ({ caller, where }) =>
 // After: user.ts, once for the application
 export const User = defineUser({
 	name: 'User',
-	fields: {
-		email: string({ unique: true }).with({ access: { read: isSelf } }),
-		role: enumOf(['reader', 'editor']),
-	},
+	fields: (f) => ({
+		email: f.string({ unique: true }).with({ access: { read: isSelf } }),
+		role: f.enumOf(['reader', 'editor']),
+	}),
 })
 declare module 'ultimabase' {
 	interface Register {
@@ -1247,7 +1394,7 @@ Choice: each adapter maps model and field names to its database's convention
 (PostgreSQL: `Post.createdAt` becomes `post.created_at`; MongoDB keeps the
 names). `dbName` overrides the stored name on a model
 (`defineModel({ name: 'Post', dbName: 'posts' })`) and on a field
-(`string({ dbName: 'e_mail' })`); it names a table, a collection or a column
+(`f.string({ dbName: 'e_mail' })`); it names a table, a collection or a column
 depending on the adapter.
 Why: hand-written SQL needs no quotes; an existing database can be adopted;
 one neutral option works on every adapter (D-51).
@@ -1262,9 +1409,9 @@ Why: Prisma works this way; an explicit model gets access rules, hooks and
 queries like any other.
 Rejected: fields declared on an implicit join table.
 
-## D-65: `date()` is a UTC instant
+## D-65: `f.date()` is a UTC instant
 
-Choice: `date()` stores an instant (`timestamptz` on PostgreSQL) and returns a
+Choice: `f.date()` stores an instant (`timestamptz` on PostgreSQL) and returns a
 JavaScript `Date`. A calendar date without time (a birthday) comes later with
 the types of D-09.
 Why: an instant is unambiguous across time zones.
@@ -1346,3 +1493,35 @@ used it. The previous base reached 76,000 kernel lines, 10,000 PostgreSQL,
 that growth instead of measuring it afterwards.
 Rejected: Node's test runner (weaker watch mode and type tests); budgets set
 after the code exists.
+
+## D-70: This repository's packages use `isolatedDeclarations`
+
+Choice: `tsconfig.base.json` enables `isolatedDeclarations` for every package
+of this repository: each export has a written type, so a plugin of ours
+exports its two values in three lines (D-57). The kernel does not require it
+of community plugins or applications, which may export
+`definePlugin(...).use` without a type.
+Why: the kernel's types are heavy. Without the option, `tsc` copies each
+plugin's whole inferred type into its `.d.ts`, large and unstable, sometimes
+past TS7056's length limit; with it, a fast tool emits declarations file by
+file, and the public surface is written out. The cost, two lines a plugin, is
+paid once by its author and never by its users.
+Rejected: dropping it (one-line exports, but inferred `.d.ts` files, and every
+plugin's export rewritten if it came back later); requiring it of community
+plugins (a constraint on their build that the kernel does not need).
+Example:
+
+```ts
+// Before: refused under isolatedDeclarations (TS9019)
+export const { use: softDelete, plugin: softDeletePlugin } =
+	definePlugin<SoftDelete>({ name: 'softDelete', manifest })
+
+// After, in this repository
+const softDeleteDefinition = definePlugin<SoftDelete>({
+	name: 'softDelete',
+	manifest,
+})
+export const softDelete: UseOf<SoftDelete> = softDeleteDefinition.use
+export const softDeletePlugin: PluginOf<SoftDelete> =
+	softDeleteDefinition.plugin
+```

@@ -126,11 +126,21 @@ type Expected<D, F> = {
 		: `'${P & string}' is not a scalar field of the model`
 }
 
+// A field typed before the model cannot check its record against it.
 export type RecordCheck<F> = {
 	readonly [K in keyof F]: F[K] extends { readonly [declaredRecord]: infer D }
 		? { readonly [declaredRecord]: Expected<D, F> }
 		: unknown
 }
+
+/** The plugins that provide the model's field types (D-32). */
+export type FieldTypePlugins<F> = {
+	[K in keyof F]: F[K] extends {
+		readonly [fieldType]: { readonly plugin?: infer P extends string }
+	}
+		? P
+		: never
+}[keyof F]
 
 export type ModelShape = {
 	readonly name: string

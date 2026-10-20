@@ -9,7 +9,6 @@ import {
 	memory,
 	softDelete,
 	softDeletePlugin,
-	string,
 } from '../index.ts'
 
 const common = [softDelete(), acl()]
@@ -17,13 +16,13 @@ const common = [softDelete(), acl()]
 export const Note = defineModel({
 	name: 'Note',
 	use: common,
-	fields: { body: string() },
+	fields: (f) => ({ body: f.string() }),
 }).with({ acl: { ownerField: 'body' } })
 
 export const Memo = defineModel({
 	name: 'Memo',
 	use: [...common, graphql()],
-	fields: { text: string() },
+	fields: (f) => ({ text: f.string() }),
 }).with({ acl: { ownerField: 'text' } })
 
 await Note.trash.findMany({ where: { body: 'x' } })

@@ -28,7 +28,7 @@ overrun.
 - [x] D-24 spike: `App.defineModel` against global interface augmentation.
 - [x] D-24 revisited: models list their plugins in `use`, `defineApp`
       assembles the application, measured on 200 models.
-- [ ] `caller.user` (D-24, D-62) and D-57 settled, which fixes `definePlugin`
+- [x] `caller.user` (D-24, D-62) and D-57 settled, which fixes `definePlugin`
       and `defineUser`.
 
 Exit: editor typing cost no worse than the previous base. If it fails, the

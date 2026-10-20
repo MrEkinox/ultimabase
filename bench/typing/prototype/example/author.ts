@@ -1,16 +1,16 @@
 // One side of a two-file cycle (relations.ts): Author's own rules and hooks
 // query Book and come back to Author, which must not make either `any`.
-import { defineModel, enumOf, many, one, string } from '../index.ts'
+import { defineModel } from '../index.ts'
 import { Book } from './book.ts'
 
 export const Author = defineModel({
 	name: 'Author',
-	fields: {
-		name: string({ unique: true }),
-		level: enumOf(['junior', 'senior']),
-		books: many(() => Book, { inverse: 'author' }),
-		favorite: one(() => Book, { optional: true }),
-	},
+	fields: (f) => ({
+		name: f.string({ unique: true }),
+		level: f.enumOf(['junior', 'senior']),
+		books: f.many(() => Book, { inverse: 'author' }),
+		favorite: f.one(() => Book, { optional: true }),
+	}),
 }).with({
 	access: {
 		read: ({ where }) =>

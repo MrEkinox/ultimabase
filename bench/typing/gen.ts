@@ -1,9 +1,9 @@
 // Generates N models on the prototype with the graph and density of the
 // previous base's `schema-form-d` generator (README.md, "Baseline"): six
 // scalars, a ring `next`, its inverse `prevs`, a self relation one model in
-// five, `use: [softDelete(), acl(), graphql()]` in `defineModel`, then one
-// `.with({ access, hooks, acl, graphql })` whose read filter crosses a
-// relation; one file per model, one `findMany` and one `trash.findMany` per
+// five, built by the `fields` callback (D-12); `use: [softDelete(), acl(),
+// graphql()]` in `defineModel`, then one `.with({ access, hooks, acl,
+// graphql })` whose read filter crosses a relation; one file per model, one `findMany` and one `trash.findMany` per
 // model in `usage.ts`. `src/app.ts` assembles them with `defineApp` (D-24).
 // `--field-rules` adds field rules in both D-44 forms, loose and with a
 // declared record, combined with `anyOf`. `--wide <K>` gives `S0` K more
@@ -63,46 +63,46 @@ const name = (i: number): string => `S${i}`
 const kernel = '../../../prototype/index.ts'
 
 const scalars = fieldRules
-	? `		f0: string().with({
+	? `		f0: f.string().with({
 			access: { update: ({ value }) => value.length > 0 },
 		}),
-		f1: number({ optional: true }),
-		f2: boolean({ default: false }),
-		f3: date({ optional: true }),
-		f4: enumOf(['a', 'b', 'c'], { optional: true }),
-		f5: string({ optional: true }).with<{ f2: boolean; f4: 'a' | 'b' | 'c' | null }>({
+		f1: f.number({ optional: true }),
+		f2: f.boolean({ default: false }),
+		f3: f.date({ optional: true }),
+		f4: f.enumOf(['a', 'b', 'c'], { optional: true }),
+		f5: f.string({ optional: true }).with<{ f2: boolean; f4: 'a' | 'b' | 'c' | null }>({
 			access: {
 				read: ({ record }) => record.f4 !== 'c',
 				update: anyOf(({ record }) => record.f2, allow.private),
 			},
 		}),`
-	: `		f0: string(),
-		f1: number({ optional: true }),
-		f2: boolean({ default: false }),
-		f3: date({ optional: true }),
-		f4: enumOf(['a', 'b', 'c'], { optional: true }),
-		f5: string({ optional: true }),`
+	: `		f0: f.string(),
+		f1: f.number({ optional: true }),
+		f2: f.boolean({ default: false }),
+		f3: f.date({ optional: true }),
+		f4: f.enumOf(['a', 'b', 'c'], { optional: true }),
+		f5: f.string({ optional: true }),`
 
 const wideField = (k: number): string => {
 	const kind = k % 6
 	if (kind === 0) {
 		return fieldRules
-			? `\t\tw${k}: string().with({ access: { update: ({ value }) => value.length > 0 } }),`
-			: `\t\tw${k}: string(),`
+			? `\t\tw${k}: f.string().with({ access: { update: ({ value }) => value.length > 0 } }),`
+			: `\t\tw${k}: f.string(),`
 	}
-	if (kind === 1) return `\t\tw${k}: number({ optional: true }),`
-	if (kind === 2) return `\t\tw${k}: boolean(),`
-	if (kind === 3) return `\t\tw${k}: date({ optional: true }),`
+	if (kind === 1) return `\t\tw${k}: f.number({ optional: true }),`
+	if (kind === 2) return `\t\tw${k}: f.boolean(),`
+	if (kind === 3) return `\t\tw${k}: f.date({ optional: true }),`
 	if (kind === 4)
-		return `\t\tw${k}: enumOf(['a', 'b', 'c'], { optional: true }),`
+		return `\t\tw${k}: f.enumOf(['a', 'b', 'c'], { optional: true }),`
 	return fieldRules
-		? `\t\tw${k}: string({ optional: true }).with<{ w${k - 3}: boolean; w${k - 1}: 'a' | 'b' | 'c' | null }>({
+		? `\t\tw${k}: f.string({ optional: true }).with<{ w${k - 3}: boolean; w${k - 1}: 'a' | 'b' | 'c' | null }>({
 			access: {
 				read: ({ record }) => record.w${k - 1} !== 'c',
 				update: anyOf(({ record }) => record.w${k - 3}, allow.private),
 			},
 		}),`
-		: `\t\tw${k}: string({ optional: true }),`
+		: `\t\tw${k}: f.string({ optional: true }),`
 }
 const wideFields = Array.from(
 	{ length: wide },
@@ -119,13 +119,6 @@ for (let i = 0; i < count; i += 1) {
 	const builders = [
 		'allow',
 		...(fieldRules ? ['anyOf'] : []),
-		'boolean',
-		'date',
-		'enumOf',
-		'many',
-		'number',
-		'one',
-		'string',
 		'defineModel',
 		'softDelete',
 		'acl',
@@ -139,15 +132,15 @@ ${imports}
 export const ${name(i)} = defineModel({
 	name: '${name(i)}',
 	use: [softDelete(), acl(), graphql()],
-	fields: {
+	fields: (f) => ({
 ${scalars}${i === 0 ? wideFields : ''}
-		next: one(() => ${name(next)}, { optional: true, onDelete: 'setNull' }),
-		prevs: many(() => ${name(previous)}, { inverse: 'next' }),${
+		next: f.one(() => ${name(next)}, { optional: true, onDelete: 'setNull' }),
+		prevs: f.many(() => ${name(previous)}, { inverse: 'next' }),${
 			i % 5 === 0
-				? `\n\t\tparent: one(() => ${name(i)}, { optional: true }),`
+				? `\n\t\tparent: f.one(() => ${name(i)}, { optional: true }),`
 				: ''
 		}
-	},
+	}),
 }).with({
 	access: {
 		read: ({ caller, where }) =>

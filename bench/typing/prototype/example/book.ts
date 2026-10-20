@@ -1,16 +1,16 @@
 // The other side of the cycle (relations.ts).
-import { defineModel, many, number, one, string } from '../index.ts'
+import { defineModel } from '../index.ts'
 import { Author } from './author.ts'
 
 export const Book = defineModel({
 	name: 'Book',
-	fields: {
-		title: string(),
-		pages: number({ optional: true }),
-		author: one(() => Author),
-		reviewer: one(() => Author, { optional: true }),
-		sequels: many(() => Book),
-	},
+	fields: (f) => ({
+		title: f.string(),
+		pages: f.number({ optional: true }),
+		author: f.one(() => Author),
+		reviewer: f.one(() => Author, { optional: true }),
+		sequels: f.many(() => Book),
+	}),
 }).with({
 	access: {
 		read: ({ where }) =>
