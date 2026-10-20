@@ -9,8 +9,10 @@
 // declared record, combined with `anyOf`. `--wide <K>` gives `S0` K more
 // scalars in the same cycle of types (D-12's large model); with
 // `--field-rules`, one in six gets a loose rule and one in six a declared one.
-// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>]
-//   -> bench/typing/gen/proto[-rules]-<N>[-wide<K>]/
+// `--schemas` validates `f0` with a Zod schema and adds a `json` field typed
+// by a Zod object (D-23, D-53).
+// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>] [--schemas]
+//   -> bench/typing/gen/proto[-rules]-<N>[-wide<K>][-zod]/
 // Files are overwritten, never deleted: one N always writes the same files.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -21,6 +23,7 @@ if (!Number.isInteger(count) || count < 2) {
 	throw new Error('usage: gen.ts <N> [--field-rules], with N >= 2')
 }
 const fieldRules = process.argv.includes('--field-rules')
+const schemas = process.argv.includes('--schemas')
 const wideAt = process.argv.indexOf('--wide')
 const wide =
 	wideAt === -1 ? 0 : Number.parseInt(process.argv[wideAt + 1] ?? '', 10)
@@ -32,7 +35,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const project = join(
 	here,
 	'gen',
-	`proto${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}`,
+	`proto${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}${schemas ? '-zod' : ''}`,
 )
 mkdirSync(join(project, 'src'), { recursive: true })
 const write = (path: string, text: string): void => {
@@ -62,8 +65,14 @@ write(
 const name = (i: number): string => `S${i}`
 const kernel = '../../../prototype/index.ts'
 
+const f0 = schemas
+	? `f.string({ validate: z.string().trim().min(1) })`
+	: 'f.string()'
+const settings = schemas
+	? `\n\t\tf6: f.json({ validate: z.object({ theme: z.enum(['light', 'dark']), size: z.number().default(12) }) }),`
+	: ''
 const scalars = fieldRules
-	? `		f0: f.string().with({
+	? `		f0: ${f0}.with({
 			access: { update: ({ value }) => value.length > 0 },
 		}),
 		f1: f.number({ optional: true }),
@@ -75,13 +84,13 @@ const scalars = fieldRules
 				read: ({ record }) => record.f4 !== 'c',
 				update: anyOf(({ record }) => record.f2, allow.private),
 			},
-		}),`
-	: `		f0: f.string(),
+		}),${settings}`
+	: `		f0: ${f0},
 		f1: f.number({ optional: true }),
 		f2: f.boolean({ default: false }),
 		f3: f.date({ optional: true }),
 		f4: f.enumOf(['a', 'b', 'c'], { optional: true }),
-		f5: f.string({ optional: true }),`
+		f5: f.string({ optional: true }),${settings}`
 
 const wideField = (k: number): string => {
 	const kind = k % 6
@@ -127,7 +136,7 @@ for (let i = 0; i < count; i += 1) {
 	write(
 		`src/s${i}.ts`,
 		`import { ${builders} } from '${kernel}'
-${imports}
+${schemas ? "import { z } from 'zod'\n" : ''}${imports}
 
 export const ${name(i)} = defineModel({
 	name: '${name(i)}',

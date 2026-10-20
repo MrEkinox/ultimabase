@@ -292,6 +292,49 @@ edit of 200 models. In the spike, a helper instead of the callback cost
 1.6 % fewer instantiations; most of the cost is the plugin rules on each
 field, not the callback. The `wide 120` projects were not measured.
 
+## Phase 1b: field validation
+
+`validate` takes a Standard Schema or a function (D-23), and `f.json` reads
+its schema's output and is written its input (D-53);
+`prototype/example/validation.ts` asserts the types and the refusals with
+Zod 4.6.5. `gen.ts --schemas` validates `f0` with `z.string().trim().min(1)`
+and adds `f6: f.json({ validate: z.object({ ... }) })` to every model: a
+worst case, one schema of each kind on each of 200 models. "Zod alone" is
+that project with the same two schemas declared in each file but not passed
+to `validate`, so it measures what Zod itself costs.
+
+Three runs interleaved on 2026-10-20, "before" being `df67d279`; medians in
+milliseconds, load average 3.0 to 4.5. Every `tsc -p` exited 0, every first
+check reported 0 errors and every edit raised exactly one.
+
+| Project               | Instantiations | Check time | `tsc` | Memory | Query: first | Query: edit | Model: first | Model: edit |
+| --------------------- | -------------: | ---------: | ----: | -----: | -----------: | ----------: | -----------: | ----------: |
+| Before, 200           |      1 046 017 |        522 |   729 |    205 |          539 |         375 |          187 |          17 |
+| After, 200            |      1 101 603 |        539 |   754 |    207 |          520 |         376 |          158 |          18 |
+| Zod alone, 200        |      1 294 114 |        840 | 1 083 |    296 |          534 |         401 |          170 |          25 |
+| Schemas, 200          |      1 800 318 |        976 | 1 251 |    342 |          663 |         538 |          176 |          32 |
+| Before, 200, rules    |      1 492 947 |        692 |   957 |    260 |          673 |         533 |          195 |          18 |
+| After, 200, rules     |      1 542 879 |        720 |   950 |    262 |          648 |         521 |          163 |          21 |
+| Zod alone, 200, rules |      1 748 890 |        988 | 1 270 |    352 |          672 |         546 |          179 |          28 |
+| Schemas, 200, rules   |      2 318 664 |      1 134 | 1 438 |    403 |          817 |         691 |          179 |          30 |
+
+Without schemas, the new options cost 5 % more instantiations and nothing
+measurable in the editor. With them, a query edit takes 140 ms more than
+with Zod alone, still far under the previous base's 1 875 ms. Single `tsc`
+runs on variants of the 200-model project locate the cost:
+
+- the `f0` schema alone adds 46 000 instantiations, the `json` one 470 000;
+- reading Zod's input and output types, without the prototype, adds 51 000;
+- a `json` field typed by a function returning a plain object adds 90 000,
+  and 228 000 when that function returns `z.output<typeof Settings>`: Zod's
+  deferred types cost again wherever records and inputs use them;
+- declaring the schema outside `defineModel` changes nothing.
+
+Three attempts gave nothing and were not kept: a Standard Schema type
+without its `validate` signature (−0.3 %), a field's options stored without
+their schema (0 %), and the schema's types flattened once in the builder
+(+2 %).
+
 ## Reproducing
 
 ```bash

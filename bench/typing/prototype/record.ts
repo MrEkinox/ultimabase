@@ -54,9 +54,18 @@ export type RecordFor<R extends object> = [R] extends [never]
 	? Loose
 	: { readonly id: string } & Readonly<R>
 
+/** A written scalar value: the schema's input when one transforms (D-23). */
+type WrittenValue<X> = X extends {
+	readonly [fieldType]: { readonly input: infer I; readonly options: infer O }
+}
+	? IsOptional<O> extends true
+		? I | null
+		: I
+	: StoredValue<X>
+
 type Connect = { readonly connect: { readonly id: string } }
 type InputOf<X> = X extends Scalar
-	? StoredValue<X>
+	? WrittenValue<X>
 	: X extends Relation<'one', unknown, infer O>
 		? IsOptional<O> extends true
 			? Connect | null

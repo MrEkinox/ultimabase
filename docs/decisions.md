@@ -490,9 +490,27 @@ hooks (D-15); a value a hook writes is not validated again, since hooks are
 trusted server code. Whether a required field is present is checked later, at
 the write (D-67), so a hook can fill it. Validation is part of the kernel.
 Validation errors carry the field path.
+Typing (2026-10-20): on a scalar, the builder gives the type. The schema's
+input must accept every value of the field and its output must be of the
+field's type: `z.string().email()` fits `f.string()`, `z.enum(['a', 'b'])`
+is refused there (`f.enumOf` says it), and so are a schema typed `any` and
+one that declares no types. The function form takes the field's value and
+returns the value to store, sync or async; it throws to refuse. Field rules,
+the model's and the plugins' (D-12, D-44, D-57), judge what the caller sent
+(D-67), so they see the schema's input; records hold its output.
 Why: developers already know their validation library; the previous base's
-validation worked well.
-Rejected: a validation language of our own.
+validation worked well. A schema narrower than its field would make the
+field's type lie about what reaches the database.
+Rejected: a validation language of our own; a schema narrowing a scalar's
+type, which `f.enumOf` and `f.json` already cover.
+Example:
+
+```ts
+name: f.string({ validate: z.string().trim().min(1) }),
+slug: f.string({ validate: (value) => value.toLowerCase() }),
+// Refused on its line: the schema must accept every value of the field
+kind: f.string({ validate: z.enum(['a', 'b']) }),
+```
 
 ## D-24: Models list the plugins they use; `defineApp` assembles the application
 
@@ -1099,8 +1117,12 @@ returning `undefined` gives no value. A field with a default is optional in
 `create`'s input, and the default applies when the caller sends no value. A
 `beforeCreate` hook (D-15) may still set or replace the value: a required
 field is checked for presence after the hooks (D-67). `f.json()` accepts
-`validate` (D-23) and takes its type from the schema's output; without a
-schema its type is `unknown`.
+`validate` (D-23): it reads the schema's output and is written its input, so
+a key with a schema default is optional in `create`. Defaults are validated
+(D-67), so a `json` default is of the schema's input. With the function
+form, the field reads what the function returns. Without `validate`, a
+`json` field reads `unknown` and is written any JSON value. Whether a
+schema's output is JSON is checked when it is stored, not by its type.
 Why: a function covers dates and generated values without a second option.
 The author of a record is the most common server-filled field; a sample
 application (2026-10-20) showed that filling it only in a hook left it
@@ -1117,6 +1139,17 @@ hooks: { beforeCreate: ({ data, caller }) => ... }
 author: f.one(() => User, {
 	default: ({ caller }) => (caller.kind === 'user' ? caller.user : undefined),
 }).with({ access: { create: allow.private, update: allow.private } }),
+
+// Before: `unknown`, cast at every read
+settings: f.json(),
+const size = (post.settings as { size: number }).size
+// After: `{ theme: 'light' | 'dark'; size: number }` when read,
+// `size` optional when written
+settings: f.json({
+	validate: z.object({ theme: z.enum(['light', 'dark']), size: z.number().default(12) }),
+	default: { theme: 'light' },
+}),
+const size = post.settings.size
 ```
 
 ## D-54: Relations say what deleting their target does

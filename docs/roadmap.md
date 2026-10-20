@@ -4,7 +4,7 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 1** is next.
+Status: **Phase 1b** is next.
 
 ## Phase 0: Tooling
 
@@ -33,6 +33,25 @@ overrun.
 
 Exit: editor typing cost no worse than the previous base. If it fails, the
 design is revisited here, before anything else is built on it.
+
+## Phase 1b: Prototype coverage
+
+The typing prototype covers every typed part of 0.1 before the kernel is
+written, so that Phase 2 moves its types instead of discovering them.
+
+- [x] Field validation with Standard Schema, `f.json({ validate })` typed by
+      the schema, Zod in the 200-model benchmark (D-23, D-53).
+- [ ] `defineFunction` and `defineApp({ functions })` (D-27, D-45).
+- [ ] `defineUser` as auth's `define<Kind>` entry, and a rule on
+      `caller.user` without `: boolean` if one exists (D-13, D-62).
+- [ ] `default: ({ caller }) => ...` and composite unique indexes as
+      `findUnique` targets (D-52, D-53).
+- [ ] The query subset of 0.1 settled and prototyped (D-20).
+- [ ] Type error messages checked against snapshots; full benchmark run
+      again, wide 120 included.
+
+Exit: every typed part of 0.1 has a prototype example, and the benchmark,
+validation and functions included, stays within Phase 1's exit criterion.
 
 ## Phase 2: Kernel slice on `memory()`
 
