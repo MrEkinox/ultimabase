@@ -1,8 +1,7 @@
-import { allow, enumOf, many, one, string } from '../index.ts'
-import { App } from './app.ts'
+import { allow, defineModel, enumOf, many, one, string } from '../index.ts'
 import { Post } from './post.ts'
 
-export const User = App.defineModel({
+export const User = defineModel({
 	name: 'User',
 	fields: {
 		email: string({ unique: true }).with({

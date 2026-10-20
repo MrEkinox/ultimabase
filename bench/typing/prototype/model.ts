@@ -1,5 +1,5 @@
-// The model `App.defineModel(...).with(...)` returns (D-07, D-24) and the
-// application `App.build` assembles.
+// The model `defineModel(...).with(...)` returns (D-07, D-24) and the
+// application `defineApp` assembles.
 import type { Queries, Where } from './query.ts'
 import type {
 	CreateData,
@@ -75,29 +75,12 @@ export type ModelWith<F, W> = {
 	readonly hooks?: ModelHooks<F>
 } & W
 
-export interface Model<N extends string, F, W> extends Queries<F> {
+export interface Model<N extends string, F, P, W> extends Queries<F> {
 	readonly name: N
 	readonly [modelFields]: F
+	/** The plugins it uses, checked against the application's (D-24). */
+	readonly plugins?: P
 	with(rules: ModelWith<F, W>): this
-}
-
-/**
- * The intersection of an object's values, each plugin's contribution: an
- * `unknown` value adds nothing (in a union, it would absorb the others).
- */
-export type IntersectValues<T> = {
-	readonly [K in keyof T]: (value: T[K]) => void
-}[keyof T] extends (value: infer I) => void
-	? I
-	: never
-
-/** Keys of `App.defineModel` that no plugin declares fail with a message. */
-export type OptionCheck<O, K> = {
-	readonly [P in Exclude<keyof O, 'name' | 'fields'>]?: P extends K
-		? unknown
-		: {
-				readonly error: `'${P & string}' is not a defineModel key of an installed plugin`
-			}
 }
 
 export type FieldShape = {
@@ -164,7 +147,7 @@ export type InverseCheck<M> = {
 		: unknown
 }
 
-/** The application `App.build` returns (D-24, D-59). */
+/** The application `defineApp` returns (D-24, D-59). */
 export interface App<M> {
 	readonly models: M
 	start(): Promise<void>

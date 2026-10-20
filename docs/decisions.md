@@ -37,8 +37,8 @@ Example: to be written once the kernel API is decided.
 
 Choice: an application has exactly one storage adapter, given in its own
 required `database` option beside the `plugins` list, in the one options object
-of `UltimaBase.create` that holds the rest of the application's configuration
-(D-49, D-58). The in-memory adapter ships with the kernel and is imported like
+of `defineApp` that holds the rest of the application's configuration (D-24,
+D-49, D-58). The in-memory adapter ships with the kernel and is imported like
 any other (`memory()`); PostgreSQL is a separate package. Adapters implement
 one public contract, and one shared contract suite runs against each of them
 (transactions included).
@@ -53,11 +53,12 @@ outside the options object, which left open whether two calls add up.
 Example:
 
 ```ts
-const App = UltimaBase.create({
+export const app = defineApp({
 	database: postgres(),
-	plugins: [http(), graphql()],
+	plugins: [httpPlugin(), graphqlPlugin()],
+	models: [Post, User],
 })
-const Demo = UltimaBase.create({ database: memory() })
+export const demo = defineApp({ database: memory(), models: [Post, User] })
 ```
 
 ## D-03: Transports are optional plugins
@@ -97,11 +98,11 @@ tests, many documents to check, gates on every merge, invented structure).
 Rejected: process documents per change (ADRs, handoffs, audits) as the main
 safety net.
 
-## D-07: Models keep the `App.defineModel(...).with(...)` shape
+## D-07: Models keep the `defineModel(...).with(...)` shape
 
-Choice: a model is declared with `App.defineModel({ ... })`, which holds
-everything that shapes the model: its fields and the plugin features that add
-fields or storage (soft delete). It is followed by `.with({ ... })`, which
+Choice: a model is declared with `defineModel({ ... })`, which holds
+everything that shapes the model: its fields and the plugins it uses, whose
+entries' options add fields or storage (soft delete, D-24). It is followed by `.with({ ... })`, which
 holds what acts on the model once built: the kernel's `access` and `hooks` and
 what plugins add (D-42). The details (field syntax, defaults, rule spelling)
 are decided in later entries.
@@ -198,7 +199,7 @@ per-field rules map in the model's `.with` (rules far from their fields).
 Example:
 
 ```ts
-export const Todo = App.defineModel({
+export const Todo = defineModel({
 	name: 'Todo',
 	fields: {
 		title: string({ validate: z.string().trim() }).with({
@@ -212,19 +213,19 @@ export const Todo = App.defineModel({
 
 ## D-13: Plugins with a model of their own add a `define<Kind>` entry
 
-Choice: a plugin that needs a specific kind of model adds its own entry to the
-application that uses it, named `define<Kind>` (roles: `App.defineRole`),
-which builds an ordinary model through the kernel's `App.defineModel` (D-24).
+Choice: a plugin that needs a specific kind of model exports its own entry,
+named `define<Kind>` (roles: `defineRole`), which builds an ordinary model
+through the kernel's `defineModel`, with the plugin in its `use` (D-24).
 An application may have several role models, each with its own custom
 fields.
 Why: the kind of a model is visible from its first word, while the kernel
 keeps one model entry and knows no plugin.
 Rejected: a `RoleModel.define` entry in the kernel; a `role` key inside
-`App.defineModel`, easy to miss in a long declaration.
+`defineModel`, easy to miss in a long declaration.
 Example:
 
 ```ts
-export const TeamRole = App.defineRole({
+export const TeamRole = defineRole({
 	name: 'TeamRole',
 	members: () => User,
 	fields: { color: string({ optional: true }) },
@@ -241,8 +242,9 @@ Rejected: string keywords for behaviour.
 
 ## D-15: A plugin adds features, commands and hooks
 
-Choice: a plugin contributes features to `App.defineModel` (fields, tables),
-commands (new operations on a model, such as `restore`) and hooks. Hooks are few
+Choice: a plugin contributes features to the models that use it (fields,
+tables, D-24), commands (new operations on a model, such as `restore`) and
+hooks. Hooks are few
 and fixed, and an application writes the same ones (D-43). On an operation, in
 this order:
 
@@ -285,9 +287,9 @@ calls its public API. Startup fails, naming the missing plugin, when a
 requirement is not installed. A plugin that can work without another lists it
 in `optional: [roles]` and gets `Roles | undefined`; it reports a clear error,
 and types its options accordingly, when a feature needs the absent plugin (an
-ACL entry naming a role without `roles()` installed). The kernel has no
+ACL entry naming a role without `rolesPlugin()` installed). The kernel has no
 service registry and no event bus between plugins. HTTP routes belong to the
-`http()` plugin, which owns the server (port, CORS, Hono routes); GraphQL and
+HTTP plugin (`httpPlugin()`), which owns the server (port, CORS, Hono routes); GraphQL and
 REST require it and register on that one server, so both transports share one
 listener unless the developer explicitly starts another. The kernel knows no
 transport. The kernel exposes its models read-only for transports and tools.
@@ -433,61 +435,90 @@ Why: developers already know their validation library; the previous base's
 validation worked well.
 Rejected: a validation language of our own.
 
-## D-24: Models are declared from the application
+## D-24: Models list the plugins they use; `defineApp` assembles the application
 
-Choice: the application is built first, as D-02 shows, with the database and
-the plugins in `UltimaBase.create` (example below). Every model is declared
-from it: `App.defineModel(...)`, and the plugins' entries `App.defineRole(...)`
-and `App.defineUser(...)` (D-13, D-62). Each plugin value carries its types, so
-`App.defineModel` keys, the commands they add (D-15) and `.with` keys (D-42)
-are exactly those of the plugins listed in `plugins`: a key of a plugin outside
-it fails on its own line, before startup. Nothing is declared globally; there
-is no `Register`. A plugin option cannot reference a model, which is declared
-from the application. A separate file assembles the application with
-`App.build({ models: [...], functions: [...] })`; `App.defineModel` and
-`App.defineFunction` (D-27) register nothing, and `migrate` (D-26) and tests
-(D-40) import the built application without starting it. The lists cannot go in
-`UltimaBase.create`: each model and function imports `App`, so the
-application's file importing them is an import cycle. A relation whose target
-is missing from `models` fails typing on the `App.build` line, and startup
-stops with a message naming the model and the relation (for JavaScript and
-casts).
-Why: nothing implicit. The D-24 spike (`bench/typing/README.md`, 2026-10-19)
-typed both open options and found that no type reads a model by name any more
-(D-44), so `Register` had nothing left to type: relation cycles are avoided
-by thunks read lazily and callbacks in the final non-generic `.with`, as
-before, and the 200-model project with ring, inverse and self relations
-types exactly without it. Global interfaces cost 1 % to 6 % less, but accept
-the keys of any plugin whose types are loaded and leave the refusal to
-startup.
-Rejected: a project-wide `Register` declaration, which the previous base
-needed for its name-keyed types and which caused its own cycles (its
-ADR-0297 and ADR-0335); each plugin adding its keys to global interfaces;
-type generation (D-11).
-Open: `caller.user` (D-62) cannot come from `App`, since the user model is
-declared from it. If no other way holds, the known fallback is one global
-declaration, `interface Register { user: typeof User }`, proven in the spike;
-a field rule of the user model that reads `caller.user` then needs
-`: boolean`, or the model becomes `any`. Also open: the plugin entry that
-gives a plugin value its types (D-57).
+Choice: `defineModel` and `defineFunction` (D-27) are imported from
+`ultimabase`. Nothing is declared from an application object or globally:
+there is no `App` and no `Register`. A model lists the plugins it uses in
+`use: [...]`, each entry imported from the plugin's package (`softDelete()`,
+`acl()`); an entry's options shape the model for that plugin (D-07). One file
+assembles the application with `defineApp({ database, plugins, models,
+functions })`, which holds every option of the application (D-02); `plugins`
+takes each plugin's application value (`softDeletePlugin()`, D-35) with the
+options that apply to the whole application. Each plugin decides where it
+acts: one that changes a model (soft delete) acts only on the models that list
+it; one that acts on every model (ACL, transports) does so whether a model
+lists it or not, and its entry only gives that model its options, so
+forgetting an entry never removes a protection (D-04). A model's `.with` keys
+(D-42) and commands (D-15) are exactly those of the plugins in its `use`: a
+key of a plugin outside it fails on its own line. The `defineApp` line fails
+typing when a model uses a plugin missing from `plugins`, when a relation's
+target is missing from `models`, or when an `inverse` names no field of its
+target (D-37); startup stops with a message for each, for JavaScript and
+casts. `defineModel` and `defineFunction` register nothing; `migrate` (D-26)
+and tests (D-40) import the application without starting it.
+Why: nothing implicit. One file configures the whole application, and each
+model says which plugins act on it: a reader sees a model's behaviour in its
+file, and no key appears because a plugin is installed elsewhere. A model is a
+plain value that imports only what it uses, with no application object to
+declare before it. Relation cycles are avoided by thunks read lazily and
+callbacks in the final non-generic `.with`. Measured on 2026-10-20
+(`bench/typing/README.md`): typing cost within 0 % to 10 % of the previous
+`App.defineModel` form, at most 50 ms more on the `defineApp` line of 200
+models, which also checks the plugins and the relation targets.
+Rejected: `App.defineModel` from `UltimaBase.create({ database, plugins })`
+and `App.build({ models })` (the configuration split over two calls, every
+installed plugin's keys on every model, each model importing an application
+declared before it); one plugin value shared by `plugins` and `use` (the
+application's options and a model's options differ); `use` as the only switch
+of every plugin (a model forgetting `acl()` would lose its ACL filter
+silently); a generic `.with` taking the plugins (relation rings cycle,
+TS7022); a project-wide `Register` declaration, which the previous base needed
+for its name-keyed types and which caused its own cycles (its ADR-0297 and
+ADR-0335); each plugin adding its keys to global interfaces (accepts the keys
+of any plugin whose types are loaded); type generation (D-11).
+Open: how `caller.user` (D-62) gets the user model's type. A `use` entry
+(`export const signedIn = auth(() => User)`, then `use: [signedIn]`) types it
+without a global and without a cycle, the user model's own rules included,
+but every model, field rule and function that reads `caller.user` would list
+it, and forgetting it narrows `caller.user` to `{ id }` with no error where it
+is forgotten: not adopted. The known fallback stays one global declaration,
+`interface Register { user: typeof User }`, proven in the D-24 spike; a field
+rule of the user model that reads `caller.user` then needs `: boolean`. Also
+open: the plugin entry that gives a plugin's two values their types (D-57).
 Example:
 
 ```ts
-// Before: a global entry, plugin keys typed from what is installed
-import { defineModel } from 'ultimabase'
-export const Post = defineModel({ name: 'Post', softDelete: true, fields })
-
-// After
+// Before
 // app.ts
 export const App = UltimaBase.create({
 	database: postgres(),
-	plugins: [softDelete(), graphql()],
+	plugins: [softDelete(), acl(), graphql()],
 })
 // post.ts
 import { App } from './app.ts'
 export const Post = App.defineModel({ name: 'Post', softDelete: true, fields })
 // server.ts
 export const app = App.build({ models: [Post, User], functions: [archive] })
+
+// After
+// post.ts
+import { defineModel } from 'ultimabase'
+import { acl } from '@ultimabase/acl'
+import { softDelete } from '@ultimabase/soft-delete'
+export const Post = defineModel({
+	name: 'Post',
+	use: [softDelete(), acl()],
+	fields,
+}).with({ access: allow.public, acl: { ownerField: 'author' } })
+// app.ts
+export const app = defineApp({
+	database: postgres(),
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
+	models: [Post, User],
+	functions: [archive],
+})
+// server.ts
 await app.start()
 ```
 
@@ -527,15 +558,16 @@ automatic destructive sync.
 
 ## D-27: Functions, exposed by transports, plus raw HTTP routes
 
-Choice: `App.defineFunction({ name, input, output, run })` declares a server
+Choice: `defineFunction({ name, input, output, run })` declares a server
 operation with a Standard Schema input and a typed output (D-45 lists the
 accepted outputs). Every installed transport exposes it (a GraphQL query or
 mutation, a REST endpoint); `.with({ ... })` sets its access, closed by
-default (D-04), and where it is exposed (`.with({ rest: false })`). `run`
+default (D-04), and where it is exposed (`.with({ rest: false })`, for a
+transport listed in its `use`, as on a model, D-24). `run`
 receives the validated input and the caller. For anything else (webhooks,
 redirects) the HTTP plugin is built on Hono and the developer writes plain Hono
 routes with the caller available. A function reaches the application through
-`App.build({ functions: [...] })` (D-24), like models.
+`defineApp({ functions: [...] })` (D-24), like models.
 Why: one declaration replaces one custom endpoint per transport, like Parse
 Cloud Functions; GraphQL needs a runtime output type, which the output schema
 gives. Hono routes need no new concept.
@@ -543,8 +575,9 @@ Rejected: a `defineRoute` wrapper around HTTP; functions per transport.
 Example:
 
 ```ts
-export const archiveTodo = App.defineFunction({
+export const archiveTodo = defineFunction({
 	name: 'archiveTodo',
+	use: [rest()],
 	input: z.object({ id: z.string() }),
 	output: Todo,
 	run: ({ input, caller }) =>
@@ -608,18 +641,22 @@ Why: new field types brought by plugins are a core promise of UltimaBase.
 Example:
 
 ```ts
-const App = UltimaBase.create({
-	database: postgres(),
-	plugins: [files({ storage: s3({ bucket }) })],
+export const Post = defineModel({
+	name: 'Post',
+	fields: { cover: file({ optional: true }) },
 })
-App.defineModel({ name: 'Post', fields: { cover: file({ optional: true }) } })
+export const app = defineApp({
+	database: postgres(),
+	plugins: [filesPlugin({ storage: s3({ bucket }) })],
+	models: [Post],
+})
 ```
 
 ## D-33: Sign-in methods combine on one user
 
 Choice: the `auth` plugin owns users, sessions and Identify; each sign-in
-method is a plugin that requires it (`password()`, `magicLink()`,
-`oauth({ google, github })`). One user may have several linked methods (email
+method is a plugin that requires it (`passwordPlugin()`, `magicLinkPlugin()`,
+`oauthPlugin({ google, github })`). One user may have several linked methods (email
 and password plus Google), and a user can link or unlink a method.
 Why: most applications offer more than one way to sign in to the same account.
 Rejected: one plugin per method, each with its own users.
@@ -628,11 +665,11 @@ Rejected: one plugin per method, each with its own users.
 
 Choice: the first release ships the GraphQL transport, generated from the
 models and functions; REST follows. It runs on `graphql-http`, the reference
-implementation, mounted on the `http()` server (D-16). Outside production it
+implementation, mounted on the HTTP plugin's server (D-16). Outside production it
 also serves GraphiQL.
 Why: one transport proves the design; GraphQL is the one the maintainer uses
 daily and many users depend on. `graphql-http` is small and enough, since
-`http()` already owns the server and CORS; GraphiQL is the first screen a
+the HTTP plugin already owns the server and CORS; GraphiQL is the first screen a
 developer opens after `npm create ultimabase` (D-61).
 Rejected: GraphQL Yoga, whose extras (subscriptions, Envelop plugins) wait for
 realtime (D-25); two GraphQL servers to choose from (the previous base).
@@ -640,14 +677,18 @@ realtime (D-25); two GraphQL servers to choose from (the previous base).
 ## D-35: Public names follow one convention
 
 Choice: a declaration the developer writes is `define<Thing>`, named after
-UltimaBase's own noun (`App.defineModel`, `App.defineRole`,
-`App.defineFunction`); the declared thing is named by a `name` key everywhere.
-Something plugged in or configured (a plugin, an adapter, a field type) is a
-plain noun call (`postgres()`, `files()`, `s3()`, `string()`, `file()`).
+UltimaBase's own noun (`defineModel`, `defineFunction`, `defineApp`, and a
+plugin's `defineRole`); the declared thing is named by a `name` key everywhere.
+Something plugged in or configured is a plain noun call: an adapter
+(`postgres()`, `s3()`), a field type (`string()`, `file()`), a plugin's entry
+in a model's `use` (`softDelete()`, D-24). A plugin's value for the `plugins`
+of `defineApp` adds `Plugin` (`softDeletePlugin()`, `filesPlugin()`), every
+plugin alike, whether or not it has a `use` entry.
 Ready-made access rules live under `allow`. A data declaration is a model,
 never a schema, in the API, errors and documentation.
-Why: one bare `define` beside `App.defineRole` and `App.defineFunction` read as
-an accident; "model" matches Prisma (D-20), while "schema" already means
+Why: one bare `define` beside `defineRole` and `defineFunction` read as an
+accident; the `use` entry is written in every model that needs it and the
+application value once, so the short name goes to the entry; "model" matches Prisma (D-20), while "schema" already means
 Standard Schema validators (D-23), the GraphQL schema (D-34) and Postgres
 schemas.
 Rejected: a bare `define`; `defineSchema`; `defineCollection` (suggests a
@@ -655,15 +696,15 @@ document store); Parse's `className`.
 Example:
 
 ```ts
-export const Todo = App.defineModel({
+export const Todo = defineModel({
 	name: 'Todo',
 	fields: { title: string() },
 })
-export const TeamRole = App.defineRole({
+export const TeamRole = defineRole({
 	name: 'TeamRole',
 	members: () => User,
 })
-export const archiveTodo = App.defineFunction({
+export const archiveTodo = defineFunction({
 	name: 'archiveTodo',
 	input,
 	output,
@@ -674,7 +715,7 @@ export const archiveTodo = App.defineFunction({
 ## D-36: Hooks share the operation's transaction; functions open their own
 
 Choice: queries made inside an in-transaction hook join that transaction
-without a `tx` argument (Node's `AsyncLocalStorage`). An `App.defineFunction`
+without a `tx` argument (Node's `AsyncLocalStorage`). A function (D-27)
 runs without a transaction; the developer opens one explicitly with `await
 transaction(async () => { ... })`. A single operation, with its in-transaction
 hooks, is always atomic.
@@ -700,15 +741,15 @@ Rejected: Parse's `pointer` and `relation`; an implicit inverse side.
 Example:
 
 ```ts
-export const Post = App.defineModel({
+export const Post = defineModel({
 	name: 'Post',
 	fields: { author: one(() => User), tags: many(() => Tag) },
 })
-export const User = App.defineUser({
+export const User = defineUser({
 	name: 'User',
 	fields: { posts: many(() => Post) },
 })
-export const Tag = App.defineModel({
+export const Tag = defineModel({
 	name: 'Tag',
 	fields: { posts: many(() => Post) },
 })
@@ -750,7 +791,7 @@ Choice: operations are named the GraphQL way (`post`, `posts`, `createPost`,
 `updatePost`, `deletePost`), with plurals computed and overridable per model;
 arguments follow the query API (`where`, `orderBy`, `data`, D-20). Lists use
 Relay connections by default, or plain lists with
-`graphql({ pagination: 'list' })`.
+`graphqlPlugin({ pagination: 'list' })`.
 Why: GraphQL clients and tools (Apollo, Relay) expect these names; Relay is the
 maintainer's daily usage, while some applications want plain lists.
 Rejected: Prisma-style names (`findManyPost`), which keep one vocabulary but
@@ -761,11 +802,11 @@ read oddly to front-end developers.
 Choice: in `.with({ ... })`, on a model or a field, the kernel and each plugin
 own exactly one key, named after them (`access`, `hooks`, `graphql`,
 `rest`). A plugin with a single option takes the value directly
-(`access: allow.public`, `rest: false`); one with several takes an object. The
-same rule holds for plugin keys in `App.defineModel` (`softDelete: true`). Two
-plugins claiming the same key stop startup with a message naming both.
+(`access: allow.public`, `rest: false`); one with several takes an object. A
+plugin's key exists only where its entry is in `use` (D-24). Two plugins
+claiming the same key stop startup with a message naming both.
 Why: no collision between independent plugins (D-21); autocompletion lists
-one key per installed plugin; a key leads to its plugin in one click; opening a
+one key per plugin the model uses; a key leads to its plugin in one click; opening a
 model stays one word (D-04).
 Rejected: every option flat at the root (mixed keys, collisions, unclear
 owner); a mandatory object per plugin (`access: { rule: allow.public }`).
@@ -783,7 +824,7 @@ registration, far from the model.
 Example:
 
 ```ts
-export const User = App.defineUser({ name: 'User', fields }).with({
+export const User = defineUser({ name: 'User', fields }).with({
 	access: allow.public,
 	hooks: {
 		afterCreate: async ({ record }) => {
@@ -812,7 +853,7 @@ Typing: in `.with({ ... })`, `value` and `record.id` are typed, the other
 fields of `record` are `unknown`, and the `boolean` result is checked. Rules
 that read other fields declare only those fields, each with the model's exact
 type: `.with<{ status: 'draft' | 'published' }>({ ... })` types them in
-`record`, and the rules need no annotation. `App.defineModel` checks the
+`record`, and the rules need no annotation. `defineModel` checks the
 declaration against the model: a field the model does not have, or a type
 that differs from the model's (wider, narrower, optional, `any`), fails on
 that field's line and shows the model's type to copy, so a wider type cannot
@@ -826,7 +867,7 @@ rule on `record` cannot run inside the query. On TypeScript 7 the field's
 `.with` call is checked while its model is still being typed, so any record
 type derived from the model is a cycle (TS7022) that turns the whole
 application into `any`, far from the faulty line. A declared type does not
-depend on the model, so it cannot cycle; checking it in `App.defineModel`, where
+depend on the model, so it cannot cycle; checking it in `defineModel`, where
 the fields are known, keeps it from drifting. The developer writes only the
 fields a rule reads. Checked in the Phase 1 prototype with rules nested in
 `access`, combined with `anyOf`, and 200 models (`bench/typing/README.md`).
@@ -943,7 +984,7 @@ nested relation.
 
 ## D-49: A master key lets transports act as Master, outside production
 
-Choice: `UltimaBase.create({ masterKey: process.env.ULTIMABASE_MASTER_KEY })`
+Choice: `defineApp({ masterKey: process.env.ULTIMABASE_MASTER_KEY })`
 declares an optional master key. A transport receiving it (the
 `x-ultimabase-master-key` header over HTTP) runs the request as Master, with
 `caller.master.source === 'key'` (D-19). The comparison is constant-time and
@@ -982,10 +1023,10 @@ Why: aiming at the lowest common denominator would give up single-statement
 writes (D-48) and reads (D-46) on the database most users run.
 Rejected: one feature set identical on every adapter.
 
-## D-52: Unique fields on the field, indexes in `App.defineModel`
+## D-52: Unique fields on the field, indexes in `defineModel`
 
 Choice: a field takes `unique: true` (`string({ unique: true })`); indexes
-over one or several fields go in `App.defineModel`, since they shape the model
+over one or several fields go in `defineModel`, since they shape the model
 (D-07): `indexes: [{ fields: ['author', 'slug'], unique: true }]`. Every
 unique field and unique index is a target of `findUnique`, `update`,
 `delete` and `upsert` (D-20).
@@ -1045,7 +1086,7 @@ Choice: limits protect the server from clients. A request arriving through a
 transport, from a caller other than Master, gets 100 rows when it gives no
 `take`; the default and the maximum `take` are set for the application and
 overridden per model. The GraphQL transport refuses such queries nested deeper
-than 10 levels, a limit set in `graphql({ ... })`. Server code and Master,
+than 10 levels, a limit set in `graphqlPlugin({ ... })`. Server code and Master,
 including a request with the master key (D-49), have no limit, as in Prisma
 (D-20).
 Why: a forgotten `take` or a deep query from a client must not read a whole
@@ -1087,7 +1128,7 @@ with D-24's open points.
 
 ## D-58: One pino-compatible logger
 
-Choice: `UltimaBase.create({ logger })` takes any logger with pino's interface
+Choice: `defineApp({ logger })` takes any logger with pino's interface
 (`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
 to the console. The kernel, plugins and D-28 correlation ids use it.
 OpenTelemetry comes later, as a plugin.
@@ -1097,7 +1138,7 @@ Rejected: a logging library bundled in the kernel.
 
 ## D-59: `start` and `stop` drive the application
 
-Choice: `await app.start()`, on the application `App.build` returns (D-24),
+Choice: `await app.start()`, on the application `defineApp` returns (D-24),
 connects the database and starts the plugins (Start hooks, D-15); `await
 app.stop()` stops them. On `SIGTERM`, the application stops accepting requests,
 waits for running ones and pending `*Commit` hooks, then stops.
@@ -1121,13 +1162,13 @@ written.
 Why: the starter is the first impression, and it writes the one part a
 newcomer cannot guess.
 
-## D-62: One user model, declared with `App.defineUser`
+## D-62: One user model, declared with `defineUser`
 
-Choice: the `auth` plugin adds `App.defineUser({ name, fields })` (D-13), which
+Choice: the `auth` plugin exports `defineUser({ name, fields })` (D-13), which
 adds the developer's fields to the user model it owns; `name` is required, as
-for every declaration (D-35), and `caller.user` takes that model's type.
-An application has exactly one user model: a second `App.defineUser` stops
-startup.
+for every declaration (D-35), and `caller.user` takes that model's type (how
+is open, D-24). An application has exactly one user model: a second
+`defineUser` stops startup.
 Why: `caller.user` has one type, read everywhere (rules, hooks, functions);
 two user models would make it a union nobody can use.
 Rejected: a fixed user model extended through a separate profile model; a
@@ -1135,7 +1176,7 @@ user model per sign-in method.
 Example:
 
 ```ts
-export const User = App.defineUser({
+export const User = defineUser({
 	name: 'User',
 	fields: { firstName: string(), avatar: file({ optional: true }) },
 })
@@ -1146,7 +1187,7 @@ export const User = App.defineUser({
 Choice: each adapter maps model and field names to its database's convention
 (PostgreSQL: `Post.createdAt` becomes `post.created_at`; MongoDB keeps the
 names). `dbName` overrides the stored name on a model
-(`App.defineModel({ name: 'Post', dbName: 'posts' })`) and on a field
+(`defineModel({ name: 'Post', dbName: 'posts' })`) and on a field
 (`string({ dbName: 'e_mail' })`); it names a table, a collection or a column
 depending on the adapter.
 Why: hand-written SQL needs no quotes; an existing database can be adopted;
@@ -1170,10 +1211,10 @@ the types of D-09.
 Why: an instant is unambiguous across time zones.
 Rejected: timestamps without time zone.
 
-## D-66: `http()` is closed by default
+## D-66: `httpPlugin()` is closed by default
 
 Choice: CORS allows no origin until the developer lists them
-(`http({ cors: ['https://app.example.com'] })`), and a listed origin may
+(`httpPlugin({ cors: ['https://app.example.com'] })`), and a listed origin may
 send the master key header (D-49). When `NODE_ENV` is not `production`,
 local origins (`http://localhost` and `http://127.0.0.1`, any port) are also
 allowed without configuration. Request bodies are limited to 1 MB by
@@ -1211,8 +1252,8 @@ need (D-20, D-31):
 - `ultimabase`: models and fields (D-07 to D-09, D-12, D-22, D-37, D-52 to
   D-54, D-63 to D-65), access rules and hooks (D-10, D-15, D-43, D-44, D-67),
   queries, callers, transactions and read limits (D-18 to D-20, D-36, D-49,
-  D-55), functions, errors, logger, lifecycle, `memory()`,
-  `UltimaBase.create` and the `migrate` commands with their adapter contract
+  D-55), functions, errors, logger, lifecycle, `memory()`, `defineApp`
+  and the `migrate` commands with their adapter contract
   (D-02, D-24, D-26 to D-28, D-45, D-58, D-59), and field types added by
   plugins (D-32).
 - `@ultimabase/postgres`, a storage adapter outside the kernel, which also
@@ -1220,7 +1261,7 @@ need (D-20, D-31):
   D-46 to D-48, D-50, D-51).
 - `@ultimabase/http` (D-16, D-27, D-66).
 - `@ultimabase/graphql` (D-34, D-41, D-45, D-55).
-- `@ultimabase/auth`, with `password()` in the same package (D-33, D-39,
+- `@ultimabase/auth`, with `passwordPlugin()` in the same package (D-33, D-39,
   D-56, D-62).
 - `@ultimabase/soft-delete` (D-17), which also proves the hooks of D-15.
 - `@ultimabase/testing` (D-40) and `create-ultimabase` (D-61).

@@ -1,109 +1,126 @@
-// D-24: models are declared from the application,
-// `const App = UltimaBase.create({ database, plugins: [softDelete()] })` then
-// `App.defineModel(...)`, and `App.build({ models })` assembles it
-// (functions are not prototyped).
-// A plugin's types travel with its value; nothing is declared globally.
+// D-24: a model lists the plugins it uses, `defineModel({ use: [softDelete()] })`,
+// and `defineApp({ database, plugins, models })` assembles the application
+// (functions are not prototyped). A plugin's types travel with its values;
+// nothing is declared globally.
 import type {
 	App,
 	FieldShape,
-	IntersectValues,
 	InverseCheck,
 	Model,
 	ModelShape,
-	OptionCheck,
 	RecordCheck,
 } from './model.ts'
-import type { pluginTypes } from './symbols.ts'
+import type { fieldType, modelFields, pluginTypes } from './symbols.ts'
 
-/**
- * A type computed from a model: `this['fields']` and `this['options']` are
- * the model's fields and the value of the plugin's `defineModel` key.
- */
+/** A type computed from a model: `this['fields']` is the model's fields. */
 export interface FromModel {
 	readonly fields: unknown
-	readonly options: unknown
 	readonly out: unknown
 }
 
-/** What a plugin adds to the types, named after it (D-42). */
-export interface PluginTypes {
-	readonly name: string
-	/** Its `defineModel` key (D-07). */
-	readonly option?: unknown
-	/** What its `defineModel` key adds to the model (D-15 commands). */
+/** What a plugin adds to a model that uses it. */
+export interface UseTypes {
+	/** Its commands (D-15). */
 	readonly commands?: FromModel
-	/** Its key of a model's `.with`. */
+	/** Its key of the model's `.with` (D-42). */
 	readonly with?: FromModel
 }
 
-export interface Plugin<T extends PluginTypes> {
+/** A plugin's entry in a model's `use`, named after the plugin. */
+export interface ModelUse<P extends string, T extends UseTypes> {
+	readonly plugin: P
 	readonly [pluginTypes]: T
 }
 
-type Apply<K extends FromModel, F, O> = (K & {
-	readonly fields: F
-	readonly options: O
-})['out']
-type TypesOf<P extends readonly Plugin<PluginTypes>[]> =
-	P[number][typeof pluginTypes]
-
-type OptionKeys<P extends readonly Plugin<PluginTypes>[]> = {
-	readonly [
-		T in TypesOf<P> as T extends { readonly option: unknown }
-			? T['name']
-			: never
-	]?: T['option']
+/** A plugin's value in the application's `plugins`. */
+export interface PluginValue<P extends string> {
+	readonly name: P
 }
 
-type WithKeys<P extends readonly Plugin<PluginTypes>[], F> = {
-	readonly [
-		T in TypesOf<P> as T extends { readonly with: FromModel }
-			? T['name']
-			: never
-	]?: T extends { readonly with: infer W extends FromModel }
-		? Apply<W, F, unknown>
-		: never
-}
-
-type Commands<
-	P extends readonly Plugin<PluginTypes>[],
-	F,
-	O,
-> = IntersectValues<{
-	readonly [T in TypesOf<P> as T['name']]: T extends {
-		readonly commands: infer C extends FromModel
-	}
-		? Apply<C, F, T['name'] extends keyof O ? O[T['name']] : undefined>
-		: unknown
-}>
-
-/** A storage adapter (D-02): its own slot, not a plugin, so no keys. */
+/** A storage adapter (D-02): its own slot, not a plugin. */
 export interface Database {
 	readonly adapter: string
 }
 
-export interface AppBuilder<P extends readonly Plugin<PluginTypes>[]> {
-	defineModel<
-		const N extends string,
-		const F extends { readonly [field: string]: FieldShape },
-		// oxlint-disable-next-line typescript/no-generated-empty-object-type -- resolves per plugin set
-		const O extends OptionKeys<P> = {},
-	>(
-		definition: {
-			readonly name: N
-			readonly fields: F & NoInfer<RecordCheck<F>>
-		} & O &
-			// oxlint-disable-next-line typescript/no-generated-empty-object-type -- resolves per plugin set
-			NoInfer<OptionCheck<O, keyof OptionKeys<P>>>,
-	): Model<N, F, WithKeys<P, F>> & Commands<P, F, O>
-	build<const M extends readonly ModelShape[]>(options: {
-		readonly models: M & NoInfer<InverseCheck<M>>
-	}): App<M>
+type Out<C extends FromModel, F> = (C & { readonly fields: F })['out']
+
+// The intersection of the used plugins' commands; `unknown` without any.
+type CommandFn<U, F> =
+	U extends ModelUse<string, { readonly commands: infer C extends FromModel }>
+		? (value: Out<C, F>) => void
+		: never
+type Commands<U, F> = [U] extends [never]
+	? unknown
+	: CommandFn<U, F> extends (value: infer I) => void
+		? I
+		: unknown
+
+/** Each used plugin's key of `.with`, typed by the model's fields. */
+type WithKeys<U, F> = {
+	readonly [
+		V in U as V extends ModelUse<infer P, { readonly with: FromModel }>
+			? P
+			: never
+	]?: V extends ModelUse<string, { readonly with: infer W extends FromModel }>
+		? Out<W, F>
+		: never
 }
 
-export declare const UltimaBase: {
-	create<const P extends readonly Plugin<PluginTypes>[] = []>(options: {
+export declare function defineModel<
+	const N extends string,
+	const F extends { readonly [field: string]: FieldShape },
+	const U extends readonly ModelUse<string, UseTypes>[] = [],
+>(definition: {
+	readonly name: N
+	readonly use?: U
+	readonly fields: F & NoInfer<RecordCheck<F>>
+}): Model<N, F, U[number]['plugin'], WithKeys<U[number], F>> &
+	Commands<U[number], F>
+
+// Checked on the `defineApp` line, where every model is typed (D-24).
+type Used<M> = M extends { readonly plugins?: infer P } ? P : never
+type Missing<
+	P extends readonly PluginValue<string>[],
+	M extends readonly ModelShape[],
+> = Exclude<Used<M[number]>, P[number]['name'] | undefined>
+type PluginCheck<
+	P extends readonly PluginValue<string>[],
+	M extends readonly ModelShape[],
+> = [Missing<P, M>] extends [never]
+	? unknown
+	: {
+			readonly pluginError: `a model uses '${Missing<P, M> & string}', which is not in plugins`
+		}
+
+type Targets<X> = X extends { readonly [modelFields]: infer F }
+	? {
+			[K in keyof F]: F[K] extends {
+				readonly [fieldType]: { readonly target: () => infer T }
+			}
+				? T extends { readonly name: infer N }
+					? N
+					: never
+				: never
+		}[keyof F]
+	: never
+type Unlisted<M extends readonly ModelShape[]> = Exclude<
+	Targets<M[number]>,
+	M[number]['name']
+>
+type ModelCheck<M extends readonly ModelShape[]> = [Unlisted<M>] extends [never]
+	? unknown
+	: {
+			readonly modelError: `a relation points to '${Unlisted<M> & string}', which is not in models`
+		}
+
+export declare function defineApp<
+	const P extends readonly PluginValue<string>[] = [],
+	const M extends readonly ModelShape[] = [],
+>(
+	options: {
 		readonly database: Database
 		readonly plugins?: P
-	}): AppBuilder<P>
-}
+		readonly models: M & NoInfer<InverseCheck<M>>
+	} & NoInfer<PluginCheck<P, M>> &
+		NoInfer<ModelCheck<M>>,
+): App<M>

@@ -36,9 +36,10 @@ These agree with ADR-0297 of the previous base (0.55 s at 50 models, 1.90 s at
 ## Prototype
 
 `prototype/` holds the types of the form D-24 settled:
-`UltimaBase.create({ database, plugins })`, `App.defineModel(...).with(...)`,
-fields, relations, queries, model and field rules, three stand-in plugins and
-`App.build({ models })`; nothing in it runs. `prototype/example/` is a small
+`defineModel({ name, use, fields }).with(...)`, fields, relations, queries,
+model and field rules, three stand-in plugins (each with its application value
+and its model entry) and `defineApp({ database, plugins, models })`; nothing
+in it runs. `prototype/example/` is a small
 application whose `checks.ts`, `declared.ts` and `plugin-keys.ts` assert the
 types: `tsc` fails if one does not hold.
 
@@ -155,7 +156,49 @@ moved to the options of `UltimaBase.create` (D-02), `App.create` became
 plugin. On 2026-10-19, `tsc -p` exited 0 on the prototype and on the seven
 projects `gen.ts` writes (10, 50, 200, rules 10, rules 200, wide 120 with and
 without rules), and on `proto-200` and `proto-rules-200` the query edit raised
-exactly one error, in 271 ms and 376 ms (one run).
+exactly one error, in 271 ms and 376 ms (one run). D-24 was revisited the next
+day (below).
+
+## D-24 revisited
+
+The `App` form needed `app.ts` to exist before any model, and `App.build` to
+repeat the models. D-24 now has each model list the plugins it uses,
+`defineModel({ name, use: [softDelete(), acl(), graphql()], fields })`, and
+one `defineApp({ database, plugins, models })` assemble the application. A
+plugin exports two values: its entry in a model's `use` (`softDelete()`),
+which unlocks its `.with` key and commands, and its application value
+(`softDeletePlugin()`). `defineApp` fails, on its own line, when a model uses
+a plugin missing from `plugins`, when a relation points to a model missing
+from `models`, and on a wrong `inverse`; `prototype/example/plugin-keys.ts`
+and `checks.ts` assert all three.
+
+Measured on 2026-10-20 against the `App` form, on projects `gen.ts` wrote
+under each form, three interleaved runs, medians in milliseconds (memory in
+MB); load average 1.5 to 3.0. The query edit is the one above, the model edit
+`default: false` to `default: 42` in `s0.ts`, the assembly edit removes `S1`
+from the models list (`server.ts` under `App`, `app.ts` under A2). Every
+first check reported 0 errors and every edit one, except the A2 assembly
+edit: two, the unused import and the missing model.
+
+| Project                | `tsc` | Memory | Query: first | Query: edit | Model: first | Model: edit | Assembly: first | Assembly: edit |
+| ---------------------- | ----: | -----: | -----------: | ----------: | -----------: | ----------: | --------------: | -------------: |
+| `App`, 200             |   565 |    228 |          415 |         280 |          159 |           9 |             359 |            221 |
+| A2, 200                |   573 |    229 |          423 |         268 |          174 |           8 |             409 |            255 |
+| `App`, 200, rules      |   708 |    294 |          540 |         405 |          162 |          16 |             513 |            372 |
+| A2, 200, rules         |   732 |    299 |          559 |         402 |          179 |          16 |             552 |            390 |
+| `App`, wide 120        |   249 |    114 |           60 |          25 |           53 |          15 |              68 |             34 |
+| A2, wide 120           |   254 |    119 |           58 |          26 |           49 |          16 |              67 |             34 |
+| `App`, wide 120, rules |   283 |    128 |           87 |          55 |           73 |          39 |              95 |             61 |
+| A2, wide 120, rules    |   302 |    128 |           87 |          53 |           71 |          37 |              97 |             63 |
+
+A2 costs 0 % to 10 % more, at most 50 ms, on the `defineApp` line of 200
+models, where the new checks run.
+
+`caller.user` was tried in a throwaway copy: a `signedIn` entry in `use`
+carrying the user model's type, read lazily inside `.with`'s signature. It
+typed rules exactly, the user model's own rules included, without a cycle;
+D-24 leaves the question open all the same, since a model should not have to
+list a plugin to read its caller.
 
 ## Reproducing
 

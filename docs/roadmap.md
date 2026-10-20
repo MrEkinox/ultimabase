@@ -26,7 +26,10 @@ overrun.
 - [x] Prototype of `defineModel` / `.with`, fields and relations.
 - [x] D-12 benchmark: a large model, and 200 models, on TypeScript 7.
 - [x] D-24 spike: `App.defineModel` against global interface augmentation.
-- [ ] D-24 and D-57 settled, which fixes `definePlugin` and `App.defineUser`.
+- [x] D-24 revisited: models list their plugins in `use`, `defineApp`
+      assembles the application, measured on 200 models.
+- [ ] `caller.user` (D-24, D-62) and D-57 settled, which fixes `definePlugin`
+      and `defineUser`.
 
 Exit: editor typing cost no worse than the previous base. If it fails, the
 design is revisited here, before anything else is built on it.
@@ -56,17 +59,17 @@ counts included.
 
 ## Phase 4: Transports
 
-- [ ] `http()`: Hono, CORS and body limit (D-66).
-- [ ] `graphql()`: `graphql-http`, Relay, depth limit, GraphiQL (D-34, D-41,
+- [ ] `httpPlugin()`: Hono, CORS and body limit (D-66).
+- [ ] `graphqlPlugin()`: `graphql-http`, Relay, depth limit, GraphiQL (D-34, D-41,
       D-55).
-- [ ] `App.defineFunction` (D-27, D-45), master key (D-49).
+- [ ] `defineFunction` (D-27, D-45), master key (D-49).
 
 Exit: a full CRUD example over GraphQL against PostgreSQL.
 
 ## Phase 5: Authentication
 
-- [ ] `auth`: `App.defineUser`, sessions, Identify (D-33, D-39, D-62).
-- [ ] `password()`: Argon2id, sign-in rate limit (D-56).
+- [ ] `auth`: `defineUser`, sessions, Identify (D-33, D-39, D-62).
+- [ ] `passwordPlugin()`: Argon2id, sign-in rate limit (D-56).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
 
@@ -82,7 +85,7 @@ Exit: `npm create ultimabase` produces an application that starts.
 ## Phase 7: Parity with the previous base
 
 - [ ] REST (D-25).
-- [ ] Roles (`App.defineRole`, D-13) and ACL.
+- [ ] Roles (`defineRole`, D-13) and ACL.
 - [ ] `vector()` field type for pgvector (D-32).
 
 Exit: every feature of the previous base has an example, in far fewer lines.

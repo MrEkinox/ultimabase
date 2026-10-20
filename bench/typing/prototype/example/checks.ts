@@ -1,7 +1,15 @@
 // Type assertions for the prototype: `tsc` fails if one does not hold.
 import type { Caller } from '../index.ts'
-import { many, string } from '../index.ts'
-import { App } from './app.ts'
+import {
+	aclPlugin,
+	defineApp,
+	defineModel,
+	graphqlPlugin,
+	many,
+	memory,
+	softDeletePlugin,
+	string,
+} from '../index.ts'
 import { Post } from './post.ts'
 import { Tag } from './tag.ts'
 import { User } from './user.ts'
@@ -78,7 +86,7 @@ await Tag.create({ data: {} })
 await Tag.create({ data: { label: 'news' } })
 
 // Field rules without the model's name: `value` and `record.id` typed.
-export const Loose = App.defineModel({
+export const Loose = defineModel({
 	name: 'Loose',
 	fields: {
 		a: string().with({
@@ -120,15 +128,19 @@ Post.with({
 })
 // @ts-expect-error: a delete rule returns a boolean.
 Post.with({ access: { delete: () => 42 } })
-// @ts-expect-error: no installed plugin owns this key.
+// @ts-expect-error: no plugin the model uses owns this key.
 Post.with({ cache: true })
 // @ts-expect-error: `ownerField` names a scalar field.
 Post.with({ acl: { ownerField: 'author' } })
 
-// An inverse names a field of the target, checked at registration.
-const Broken = App.defineModel({
+// An inverse names a field of the target, checked by `defineApp`.
+const Broken = defineModel({
 	name: 'Broken',
 	fields: { posts: many(() => Post, { inverse: 'autor' }) },
 })
-// @ts-expect-error: Broken.posts: inverse 'autor' is not a field of Post.
-App.build({ models: [Broken, Post, User, Tag] })
+defineApp({
+	database: memory(),
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
+	// @ts-expect-error: Broken.posts: inverse 'autor' is not a field of Post.
+	models: [Broken, Post, User, Tag],
+})

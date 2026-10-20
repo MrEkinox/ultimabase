@@ -1,6 +1,17 @@
-import { UltimaBase, acl, graphql, memory, softDelete } from '../index.ts'
+// The application (D-24): the plugins the models use, and every model.
+import {
+	aclPlugin,
+	defineApp,
+	graphqlPlugin,
+	memory,
+	softDeletePlugin,
+} from '../index.ts'
+import { Post } from './post.ts'
+import { Tag } from './tag.ts'
+import { User } from './user.ts'
 
-export const App = UltimaBase.create({
+export const app = defineApp({
 	database: memory(),
-	plugins: [softDelete(), acl(), graphql()],
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
+	models: [Post, User, Tag],
 })

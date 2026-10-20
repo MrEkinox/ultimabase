@@ -1,43 +1,54 @@
-// Plugin keys that change a model's shape (D-24): soft delete's
-// `softDelete: true` adds `trash` and `restore` (D-15, D-17), and only the
-// plugins listed in `plugins` give keys. `tsc` fails if a case does not hold.
-import { UltimaBase, acl, memory, string } from '../index.ts'
-import { App } from './app.ts'
+// What a model's `use` gives (D-24): soft delete adds `trash` and `restore`
+// (D-15, D-17), and only the plugins in `use` give `.with` keys. `defineApp`
+// refuses a used plugin missing from `plugins` and a relation target missing
+// from `models`. `tsc` fails if a case does not hold.
+import {
+	acl,
+	aclPlugin,
+	defineApp,
+	defineModel,
+	graphql,
+	graphqlPlugin,
+	memory,
+	softDelete,
+	softDeletePlugin,
+	string,
+} from '../index.ts'
+import { Post } from './post.ts'
+import { User } from './user.ts'
 
-const AclOnly = UltimaBase.create({ database: memory(), plugins: [acl()] })
-const SetOn = App.defineModel({
+const SetOn = defineModel({
 	name: 'SetOn',
-	softDelete: true,
+	use: [softDelete(), acl(), graphql()],
 	fields: { t: string() },
 })
-const SetOff = App.defineModel({ name: 'SetOff', fields: { t: string() } })
+const SetOff = defineModel({ name: 'SetOff', fields: { t: string() } })
 export const setTrash = await SetOn.with({
 	acl: { ownerField: 't' },
 	graphql: { name: 'S' },
 }).trash.count()
 export const setRestored = await SetOn.restore({ where: { id: 'x' } })
-// @ts-expect-error: no `softDelete: true`, no trash.
+// @ts-expect-error: no `softDelete()` in `use`, no trash.
 export type SetNoTrash = typeof SetOff.trash
-export const SetTypo = App.defineModel({
-	name: 'SetTypo',
-	// @ts-expect-error: Did you mean to write 'softDelete'?
-	softDelet: true,
-	fields: { t: string() },
-})
-export const NotInstalled = AclOnly.defineModel({
-	name: 'NotInstalled',
-	// @ts-expect-error: 'softDelete' is not a defineModel key of an installed plugin
-	softDelete: true,
-	fields: { t: string() },
-})
-export const NoGraphql = AclOnly.defineModel({
-	name: 'NoGraphql',
-	fields: { t: string() },
-}).with({
-	// @ts-expect-error: graphql() is not in `plugins`
-	graphql: {},
+export const NoAcl = SetOff.with({
+	// @ts-expect-error: no `acl()` in `use`, no `acl` key.
+	acl: { ownerField: 't' },
 })
 export const BadOwner = SetOn.with({
 	// @ts-expect-error: not a scalar field of the model
 	acl: { ownerField: 'nope' },
 })
+
+// @ts-expect-error: a model uses 'softDelete', which is not in plugins
+export const MissingPlugin = defineApp({
+	database: memory(),
+	plugins: [aclPlugin(), graphqlPlugin()],
+	models: [SetOn],
+})
+// @ts-expect-error: a relation points to 'Tag', which is not in models
+export const MissingModel = defineApp({
+	database: memory(),
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
+	models: [Post, User],
+})
+export const Plain = defineApp({ database: memory(), models: [SetOff] })

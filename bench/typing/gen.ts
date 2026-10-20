@@ -1,10 +1,10 @@
 // Generates N models on the prototype with the graph and density of the
 // previous base's `schema-form-d` generator (README.md, "Baseline"): six
 // scalars, a ring `next`, its inverse `prevs`, a self relation one model in
-// five, `softDelete` in `App.defineModel`, then one `.with({ access, hooks,
-// acl, graphql })` whose read filter crosses a relation; one file per model,
-// one `findMany` and one `trash.findMany` per model in `usage.ts`. Models are
-// declared from `src/app.ts` and assembled in `src/server.ts` (D-24).
+// five, `use: [softDelete(), acl(), graphql()]` in `defineModel`, then one
+// `.with({ access, hooks, acl, graphql })` whose read filter crosses a
+// relation; one file per model, one `findMany` and one `trash.findMany` per
+// model in `usage.ts`. `src/app.ts` assembles them with `defineApp` (D-24).
 // `--field-rules` adds field rules in both D-44 forms, loose and with a
 // declared record, combined with `anyOf`. `--wide <K>` gives `S0` K more
 // scalars in the same cycle of types (D-12's large model); with
@@ -126,16 +126,19 @@ for (let i = 0; i < count; i += 1) {
 		'number',
 		'one',
 		'string',
+		'defineModel',
+		'softDelete',
+		'acl',
+		'graphql',
 	].join(', ')
 	write(
 		`src/s${i}.ts`,
 		`import { ${builders} } from '${kernel}'
-import { App } from './app.ts'
 ${imports}
 
-export const ${name(i)} = App.defineModel({
+export const ${name(i)} = defineModel({
 	name: '${name(i)}',
-	softDelete: true,
+	use: [softDelete(), acl(), graphql()],
 	fields: {
 ${scalars}${i === 0 ? wideFields : ''}
 		next: one(() => ${name(next)}, { optional: true, onDelete: 'setNull' }),
@@ -172,17 +175,21 @@ const importAll = all
 	.join('\n')
 write(
 	'src/app.ts',
-	`import { UltimaBase, acl, graphql, memory, softDelete } from '${kernel}'
+	`import { aclPlugin, defineApp, graphqlPlugin, memory, softDeletePlugin } from '${kernel}'
+${importAll}
 
-export const App = UltimaBase.create({ database: memory(), plugins: [softDelete(), acl(), graphql()] })
+export const app = defineApp({
+	database: memory(),
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
+	models: [${all.join(', ')}],
+})
 `,
 )
 write(
 	'src/server.ts',
-	`import { App } from './app.ts'
-${importAll}
+	`import { app } from './app.ts'
 
-export const app = App.build({ models: [${all.join(', ')}] })
+await app.start()
 `,
 )
 write(

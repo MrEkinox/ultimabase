@@ -9,9 +9,12 @@ import {
 	many,
 	number,
 	one,
+	softDelete,
+	acl,
+	graphql,
+	defineModel,
 	string,
 } from '../index.ts'
-import { App } from './app.ts'
 import { Tag } from './tag.ts'
 import { User } from './user.ts'
 
@@ -20,9 +23,9 @@ export declare function hasRole(
 	role: string,
 ): (facts: { readonly caller: Caller }) => boolean
 
-export const Post = App.defineModel({
+export const Post = defineModel({
 	name: 'Post',
-	softDelete: true,
+	use: [softDelete(), acl(), graphql()],
 	fields: {
 		// Declared record: the fields the rules read, checked against the model.
 		title: string().with<{ status: 'draft' | 'published' }>({

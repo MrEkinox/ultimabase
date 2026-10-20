@@ -1,9 +1,8 @@
 // Field rules that declare the record fields they read (D-44).
-import { anyOf, enumOf, number, string } from '../index.ts'
-import { App } from './app.ts'
+import { anyOf, defineModel, enumOf, number, string } from '../index.ts'
 import { hasRole } from './post.ts'
 
-export const Declared = App.defineModel({
+export const Declared = defineModel({
 	name: 'Declared',
 	fields: {
 		status: enumOf(['draft', 'published']),
