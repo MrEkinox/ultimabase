@@ -10,6 +10,7 @@ import type {
 	UniqueKeys,
 	UpdateData,
 } from './record.ts'
+import type { Exact } from './exact.ts'
 import type { Caller } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
@@ -173,11 +174,11 @@ export type UpdateArgs<F> = {
 /** Model methods (D-18), the subset the prototype measures. */
 export interface Queries<F> {
 	findMany<const A extends FindManyArgs<F>>(
-		args?: A,
+		args?: A & NoInfer<Exact<A, FindManyArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>[]>
 	findUnique<const A extends FindUniqueArgs<F>>(
-		args: A,
+		args: A & NoInfer<Exact<A, FindUniqueArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	count(
@@ -185,11 +186,11 @@ export interface Queries<F> {
 		options?: QueryOptions,
 	): Promise<number>
 	create<const A extends CreateArgs<F>>(
-		args: A,
+		args: A & NoInfer<Exact<A, CreateArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	update<const A extends UpdateArgs<F>>(
-		args: A,
+		args: A & NoInfer<Exact<A, UpdateArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	delete(

@@ -206,11 +206,38 @@ asserts exact results for `select` and `include` three levels deep, there and
 back, and for `where` through the cycle in both directions; a wrong field or
 value fails at every depth. Author's and Book's own read rules filter through
 the cycle, and their hooks query the other model with a `select` that comes
-back: neither model becomes `any`. Found on 2026-10-20 and left open: a
-misspelled key next to a valid one passes, in a query
-(`where: { title: 'x', titel: 'x' }`, the same in `select` and in a scalar
-filter) and in a read rule's filter. A query's arguments are inferred, so
-TypeScript skips the excess-property check; a misspelled key alone still fails.
+back: neither model becomes `any`.
+
+A misspelled key next to a valid one passed, found on 2026-10-20: a query's
+arguments are inferred, so TypeScript skips the excess-property check (a
+misspelled key alone already failed). `prototype/exact.ts` walks the written
+arguments against their schema, and `prototype/example/typos.ts` asserts the
+error on the key's own line in `where` (scalar, `Date` and relation filters,
+`OR`), `orderBy`, `select`, `include`, `findUnique`, `create` and `update`.
+The first version mirrored the whole arguments and cost 90 % more check time;
+the kept one is `unknown` wherever the arguments fit, and skips types whose
+keys are all optional, such as a variable typed `Where<F>`, which would
+otherwise be walked through every relation (30 000 instantiations a query).
+Three runs interleaved with the previous commit, medians in milliseconds; the
+query file holds 400 queries, the "typo" edit writes
+`f0: 'valid', f0x: 'valid'`, which raises one error with the check and none
+without it:
+
+| Project                 | `tsc` | Memory | Query: first | Query: edit | Typo: edit |
+| ----------------------- | ----: | -----: | -----------: | ----------: | ---------: |
+| Before, 200             |   636 |    248 |          437 |         266 |        275 |
+| After, 200              |   674 |    256 |          534 |         366 |        366 |
+| Before, 200, rules      |   749 |    320 |          577 |         400 |        426 |
+| After, 200, rules       |   852 |    321 |          663 |         498 |        496 |
+| Before, wide 120        |   248 |    118 |           59 |          23 |         23 |
+| After, wide 120         |   260 |    120 |           66 |          30 |         29 |
+| Before, wide 120, rules |   284 |    131 |           87 |          53 |         54 |
+| After, wide 120, rules  |   286 |    131 |           92 |          59 |         60 |
+
+About 0.25 ms a query, 100 ms on a file of 400, still far under the previous
+base's 1 875 ms. A read rule's returned filter is not checked: TypeScript
+never excess-checks an object returned by a function, and `.with` cannot be
+generic (it cycles).
 
 ## Reproducing
 
