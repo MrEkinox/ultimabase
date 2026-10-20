@@ -2,6 +2,7 @@
 import type { Caller } from '../index.ts'
 import {
 	aclPlugin,
+	authPlugin,
 	defineApp,
 	defineModel,
 	graphqlPlugin,
@@ -168,9 +169,9 @@ const Broken = defineModel({
 	name: 'Broken',
 	fields: (f) => ({ posts: f.many(() => Post, { inverse: 'autor' }) }),
 })
+// @ts-expect-error: Broken.posts: inverse 'autor' is not a field of Post.
 defineApp({
 	database: memory(),
-	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
-	// @ts-expect-error: Broken.posts: inverse 'autor' is not a field of Post.
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin(), authPlugin()],
 	models: [Broken, Post, User, Tag],
 })

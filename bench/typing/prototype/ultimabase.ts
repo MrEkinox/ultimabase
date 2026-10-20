@@ -353,8 +353,9 @@ export declare function defineApp<
 	options: {
 		readonly database: Database
 		readonly plugins?: P
-		readonly models: M & NoInfer<InverseCheck<M>>
+		readonly models: M
 		readonly functions?: Fn
 	} & NoInfer<PluginCheck<P, M, Fn>> &
-		NoInfer<ModelCheck<M>>,
+		NoInfer<ModelCheck<M>> &
+		NoInfer<InverseCheck<M>>,
 ): App<M>

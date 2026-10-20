@@ -440,6 +440,49 @@ on its own line. Three interleaved runs on 2026-10-20, "before" being
 2 420 instantiations more on both (0.2 %); the check times are within the
 spread between runs.
 
+## Phase 1b: error messages and the full run
+
+`type-errors.test.ts`, in `yarn validate`, copies `prototype/` with its
+`@ts-expect-error` directives disabled, checks it with one `tsc` run and
+requires each directive's line to fail, and no other line. The messages are
+recorded with their reason in [type-errors.txt](type-errors.txt), without line
+numbers, so a changed message shows in the diff. Reading them against their
+reasons found three refusals that failed for another reason:
+
+- `plugin-keys.ts`: the missing model `Tag` was hidden by a missing auth
+  plugin; `checks.ts`: so was the wrong `inverse`;
+- `book.ts`: the reason named `level`, the error is on `author`.
+
+The `inverse` check moved from each model of `models` to the whole options
+object, as the missing-model check is: its message embedded absolute paths
+(TS2719), and it now names the model, `Broken.posts: inverse 'autor' is not a
+field of the target`. It also costs 86 320 fewer instantiations on 200
+models (7.7 %, and 5.5 % with rules).
+
+The full campaign again, with every Phase 1b part in the prototype, on
+2026-10-20: three interleaved runs, the previous base included, medians in
+milliseconds (memory in MB); load average 2.8 to 4.1. The edits are those of
+the D-12 benchmark. Every `tsc -p` exited 0, every first check reported 0
+errors and every edit exactly one.
+
+| Project                 | Instantiations | `tsc` | Memory | Query: first | Query: edit | Model: first | Model: edit |
+| ----------------------- | -------------: | ----: | -----: | -----------: | ----------: | -----------: | ----------: |
+| Previous base, 200      |     20 099 545 | 4 692 |    777 |        1 995 |       1 848 |        1 068 |         895 |
+| Prototype, 200          |      1 028 869 |   754 |    208 |          519 |         391 |          156 |          19 |
+| + field rules           |      1 470 895 |   951 |    263 |          650 |         525 |          164 |          22 |
+| + schemas               |      1 693 643 | 1 250 |    343 |          660 |         542 |          171 |          27 |
+| + rules and schemas     |      2 212 739 | 1 474 |    403 |          816 |         695 |          178 |          30 |
+| Previous base, wide 120 |      2 411 201 |   735 |    214 |          361 |         287 |          424 |         348 |
+| Prototype, wide 120     |        145 327 |   273 |     90 |           70 |          40 |           56 |          22 |
+| + field rules           |        331 728 |   311 |     98 |           97 |          63 |           78 |          47 |
+
+Phase 1b's exit criterion holds: the slowest prototype project, 200 models
+with field rules and a Zod schema of each kind on every model, waits 695 ms
+after a query edit where the previous base waits 1 848 ms, and 30 ms after a
+model edit against 895 ms. Since D-24 revisited, the query edit at 200 models
+went from 280 ms to 391 ms (the user model, functions, validation, defaults,
+indexes and the query subset), on a busier machine.
+
 ## Reproducing
 
 ```bash

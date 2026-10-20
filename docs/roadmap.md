@@ -4,7 +4,7 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 1b** is next.
+Status: **Phase 2** is next.
 
 ## Phase 0: Tooling
 
@@ -47,7 +47,7 @@ written, so that Phase 2 moves its types instead of discovering them.
 - [x] `default: ({ caller }) => ...` and composite unique indexes as
       `findUnique` targets (D-52, D-53).
 - [x] The query subset of 0.1 settled and prototyped (D-20).
-- [ ] Type error messages checked against snapshots; full benchmark run
+- [x] Type error messages checked against snapshots; full benchmark run
       again, wide 120 included.
 
 Exit: every typed part of 0.1 has a prototype example, and the benchmark,

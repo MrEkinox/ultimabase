@@ -193,7 +193,7 @@ export type ModelShape = {
 
 // An `inverse` names a field of the target (D-37). It is checked here, where
 // every model is typed, since reading the target while declaring is a cycle.
-type InverseErrors<F> = {
+type InverseErrors<N extends string, F> = {
 	[K in keyof F]: F[K] extends {
 		readonly [fieldType]: {
 			readonly target: infer T
@@ -202,17 +202,23 @@ type InverseErrors<F> = {
 	}
 		? I extends keyof TargetFields<T>
 			? never
-			: `${K & string}: inverse '${I}' is not a field of the target`
+			: `${N}.${K & string}: inverse '${I}' is not a field of the target`
 		: never
 }[keyof F]
 
-export type InverseCheck<M> = {
-	readonly [I in keyof M]: M[I] extends { readonly [modelFields]: infer F }
-		? [InverseErrors<F>] extends [never]
-			? unknown
-			: { readonly inverseError: InverseErrors<F> }
-		: unknown
-}
+type AppInverseErrors<M> = {
+	[I in keyof M]: M[I] extends {
+		readonly name: infer N extends string
+		readonly [modelFields]: infer F
+	}
+		? InverseErrors<N, F>
+		: never
+}[number & keyof M]
+
+/** Checked on the whole options object, as `ModelCheck` is. */
+export type InverseCheck<M> = [AppInverseErrors<M>] extends [never]
+	? unknown
+	: { readonly inverseError: AppInverseErrors<M> }
 
 /** The application `defineApp` returns (D-24, D-59). */
 export interface App<M> {

@@ -26,7 +26,7 @@ export const Book = defineModel({
 			const pages: (number | null)[] =
 				author?.books.map((book) => book.pages) ?? []
 			void pages
-			// @ts-expect-error: `level` was not selected in `books`.
+			// @ts-expect-error: `author` was not selected in `books`.
 			void author?.books[0]?.author
 		},
 	},
