@@ -398,13 +398,29 @@ Without `select`, scalar fields return and relations do not. UltimaBase
 departs from Prisma only where a recorded decision says so: the caller
 option (D-19), the model as entry point (D-18), plugin commands on the model.
 The first release ships the subset needed by its examples; the rest follows
-Prisma's spelling when added.
+Prisma's spelling when added. Like Prisma, the kernel refuses at run time any
+argument key it does not know, at any depth, in the caller's arguments and in
+the filters that rules and hooks add, with the `INVALID_QUERY` code and the
+key's path; keys a plugin adds to an operation are known keys. The error is
+not public (D-28): a wrong key is a bug of the server code, written to the
+log; a transport that passes client input checks it against its own schema
+first.
 Why: Prisma's query API is the best-known in TypeScript and many frameworks
-copied it; familiarity is free DX.
+copied it; familiarity is free DX. Types do not reach JavaScript callers,
+casts or values built at run time, and an ignored filter key widens a query:
+on a read filter it leaks rows (D-04).
 Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1).
 Rejected: a query syntax of our own; a function builder for `where` beside
-the object form.
+the object form; ignoring unknown keys, which turns a typo into a wider read.
+Example:
+
+```ts
+// A key the types did not see: JavaScript, a cast, a value built at run time
+await Post.findMany({ where: { status: 'published', titel: 'x' } })
+// Before: `titel` ignored, every published post returned
+// After: throws INVALID_QUERY, unknown key `where.titel` on Post
+```
 
 ## D-21: Plugins are independent of each other
 
