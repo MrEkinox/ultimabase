@@ -78,7 +78,8 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [x] A rule's record omits the optional side of a one-to-one (D-87).
 - [x] Hooks in the order of D-67, validation (D-23), errors (D-28, D-82),
       transactions (D-36).
-- [ ] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57).
+- [x] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57,
+      D-89).
 - [ ] Cascades run by the kernel (D-54).
 - [ ] `start`, `stop` and the logger (D-58, D-59).
 - [ ] Adapter contract suite started (D-02, D-73).

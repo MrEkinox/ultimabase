@@ -30,19 +30,48 @@ export type ModelDefinition = {
 	readonly dbName: string | undefined
 	readonly fields: ReadonlyMap<string, FieldDefinition>
 	readonly indexes: readonly IndexDefinition[]
-	readonly use: readonly unknown[]
+	/** The plugins of its `use`, in that order (D-89). */
+	readonly uses: readonly PluginUse[]
 	/** What `.with` received, once (D-07). */
 	rules: object | undefined
 }
 
+/** A plugin's code, as `definePlugin` checked it (D-57, D-89). */
+export type PluginCode = {
+	readonly name: string
+	readonly requires: readonly string[]
+	readonly optional: readonly string[]
+	readonly hooks: { readonly [hook: string]: Function | undefined }
+	readonly redirect: Function | undefined
+	readonly commands: Function | undefined
+	readonly api: Function | undefined
+	readonly addedFields: Function | undefined
+	/** The APIs of the plugins it needs, read when used (D-89). */
+	readonly plugins: object
+}
+
+/** A plugin's entry in `use`, or its value in `plugins`, with its options. */
 export type PluginRecord = {
-	readonly definition: unknown
-	readonly options: object | undefined
+	readonly code: PluginCode
+	readonly options: object
+}
+
+/** A plugin in a model's `use`, and what its code gets of the model. */
+export type PluginUse = {
+	readonly code: PluginCode
+	readonly model: {
+		readonly queries: object
+		readonly options: object
+		readonly plugins: object
+	}
 }
 
 export const fieldDefinitions: WeakMap<object, FieldDefinition> = new WeakMap()
 export const modelDefinitions: WeakMap<object, ModelDefinition> = new WeakMap()
-export const pluginDefinitions: WeakMap<object, PluginRecord> = new WeakMap()
+/** The application values `plugin()` returned. */
+export const pluginValues: WeakMap<object, PluginRecord> = new WeakMap()
+/** The model entries `use()` returned. */
+export const pluginEntries: WeakMap<object, PluginRecord> = new WeakMap()
 
 function build(definition: FieldDefinition): object {
 	const field = {

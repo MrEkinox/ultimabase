@@ -1344,13 +1344,13 @@ rate-limit plugin.
 Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
 `appOptions` (its application value's), `requires` and `optional` (D-16),
-`api` (what it offers other plugins), `adds` (the fields it adds to the models
-that use it), `commands` (D-15), `with` (its key of the model's `.with`, D-42),
-`fieldWith` (its key of a field's `.with`, D-12) and `functionWith` (its key
-of a function's `.with`, D-27). Inside the interface,
-`this['fields']` is the fields of the model that lists the plugin in its
-`use`, `this['options']` the options of its entry there, and `this['value']`
-the value of the field whose `.with` holds its rule. Its code is one
+`api` (what it offers other plugins), `addedFields` (the fields it adds to
+the models that use it, renamed by D-89), `commands` (D-15), `with` (its key
+of the model's `.with`, D-42), `fieldWith` (its key of a field's `.with`,
+D-12) and `functionWith` (its key of a function's `.with`, D-27). Inside the
+interface, `this['fields']` is the fields of the model that lists the plugin
+in its `use`, `this['options']` the options of its entry there, and
+`this['value']` the value of the field whose `.with` holds its rule. Its code is one
 `definePlugin<T>({ name, manifest, ... })`, checked against the interface: a
 different name, a missing command or `api`, or a part the interface does not
 declare fails on its line. It returns `use`, the model entry, and `plugin`,
@@ -1418,12 +1418,13 @@ interface SoftDelete extends PluginTypes {
 	readonly name: 'softDelete'
 	readonly options: { readonly field?: string }
 	readonly appOptions: { readonly purgeAfterDays?: number }
-	readonly adds: DeletedField<this['options']>
+	readonly addedFields: DeletedField<this['options']>
 	readonly commands: SoftDeleteCommands<this['fields']>
 }
 const softDeleteDefinition = definePlugin<SoftDelete>({
 	name: 'softDelete',
 	manifest,
+	addedFields: (f, options) => deletedField(f, options),
 	hooks: { beforeFind: ({ where, options }) => hideDeleted(where, options) },
 	commands: ({ queries }) => ({
 		trash: deletedOnly(queries),
@@ -1645,11 +1646,11 @@ isolation level by default, which adds retries for no common need.
 
 ## D-67: One fixed order for every operation
 
-Choice: an operation runs in this order: `redirect` (D-15), the model's access
-rule (D-10), the fields' access rules on the data the caller sent (D-44),
-defaults (D-53), validation (D-23), the `before*` hooks, the check that
-required fields are present, the write, the in-transaction `after*` hooks,
-commit, then the `*Commit` hooks. A value written by a hook goes through
+Choice: an operation runs in this order: the model's access rule (D-10), the
+fields' access rules on the data the caller sent (D-44), defaults (D-53),
+validation (D-23), the `before*` hooks, the check that required fields are
+present, the write, which a `redirect` replaces (D-15, amended by D-89), the
+in-transaction `after*` hooks, commit, then the `*Commit` hooks. A value written by a hook goes through
 neither access rules nor validation: hooks are trusted server code, so a
 `beforeCreate` hook can fill `createdBy` even when the field refuses it on
 `create`, and a required field may be left to a hook.
@@ -2656,4 +2657,124 @@ slug: f.string({
 }),
 // PublicError VALIDATION_FAILED,
 // details.issues: [{ path: ['slug'], message: 'Lowercase letters only.' }]
+```
+
+## D-89: Plugins at run time
+
+Choice: seven details of D-15, D-57, D-67 and D-71 at run time. It replaces
+D-67's place for `redirect` and D-57's name `adds`.
+
+1. A redirected `delete` runs the path of a `delete`: the lookup of its row
+   (`beforeFind`, `NOT_FOUND`), the model's `delete` access rule, the
+   `beforeDelete` hooks, then the redirect in place of the write, given
+   `where: { id }` of the row found, in the operation's transaction. Then
+   `afterDelete` with the record as it was, the commit and
+   `afterDeleteCommit`. The redirect's own queries run their own pipeline.
+   `delete` returns the row as stored after the redirect, under the caller's
+   field rules, or the record as it was when the redirect removed it.
+2. While a command runs, the queries it makes on its model give the
+   plugin's hooks on that model `command`, its name. A query a hook makes,
+   the application's or a plugin's, gets no `command`. A command is a
+   function or an object of functions (`trash: queries`).
+3. The interface declares a plugin's fields in `addedFields`, and its code
+   builds them in `addedFields: (f, options) => ({ ... })`, required when
+   the interface declares them. It runs once per model entry, with the
+   entry's options (`{}` without). Its types are checked with the default
+   options: a field that an option names or adds needs a cast in the
+   plugin's code, never in the application's.
+4. A plugin's hooks run before the application's, in `plugins` order
+   (D-29); every `beforeFind` filter is ANDed. Their facts add `queries`,
+   the model's kernel queries, the entry's `options`, `plugins` and
+   `command`.
+5. `defineModel` refuses: a `use` value no plugin's entry returned, a plugin
+   listed twice in `use`, an added field whose name a model field, another
+   plugin's field or the kernel holds, two plugins adding one command, a
+   command named after a model method (`findMany`, `with`), and two plugins
+   redirecting `delete`. `start` refuses: a `plugins` value no plugin
+   returned, two plugins of one name, a plugin a model uses that is missing
+   from `plugins` or comes from another `definePlugin`, and a requirement
+   missing from `plugins`.
+6. `plugins.auth` is read when used: reading it before `start` throws. At
+   `start`, each plugin's `api(context)` runs once, after the APIs of the
+   plugins it requires or optionally uses; a cycle of requirements stops
+   startup naming its plugins. `context` holds the application value's
+   options (`{}` without), `plugins` and the logger.
+7. Later: a plugin's `start` and `stop`, the manifest's version checks
+   (D-58, D-59), Identify, with `caller.user` (with auth), and a plugin
+   reading its own `.with` key (with ACL).
+
+Why:
+
+1. The redirect only changes how the row goes away. Running the update's
+   access rule instead of the delete's would let a caller who may edit but
+   not delete delete, and Master would skip every rule. An application's
+   `afterDeleteCommit` keeps running when soft delete is installed (D-54:
+   "afterDelete sees them"). The redirect's update may run as Master and
+   return fields the caller cannot read; the kernel's read keeps them out.
+2. `restore`'s update must find the deleted row, while an application hook
+   that lists posts during it must not see the trash.
+3. Types are erased at run time: the kernel needs the code to create the
+   column. Inferring the types from the code instead is what D-57 rejects
+   (TS2719, and an option could not change a type). `fields` already names
+   the model's fields inside the interface (`this['fields']`).
+4. D-29's order, plugins first.
+5. A conflict a model alone holds is found where the model is written;
+   one of the application is found where it is assembled.
+6. Commands are built by `defineModel`, before any application starts. A
+   plugin's API may read the APIs it needs as it is built.
+7. Each needs a part that does not exist yet.
+
+Rejected:
+
+- `redirect` before the access rule, as D-67 had it;
+- a redirected `delete` running only the update's hooks;
+- `command` seen by every query that runs during a command;
+- `fields` as the name, or field types inferred from `addedFields`;
+- plugin hooks after the application's.
+
+Example:
+
+```ts
+// Before: Parse, no redirect; the client gets an error, the access rule is
+// the update's
+Parse.Cloud.beforeDelete('Post', async ({ object }) => {
+	object.set('deletedAt', new Date())
+	await object.save(null, { useMasterKey: true })
+	throw new Parse.Error(141, 'Soft deleted.')
+})
+
+// After
+interface SoftDelete extends PluginTypes {
+	readonly name: 'softDelete'
+	readonly addedFields: {
+		readonly deletedAt: Field<Date, { readonly optional: true }>
+	}
+	readonly commands: SoftDeleteCommands<this['fields']>
+}
+const softDeleteDefinition = definePlugin<SoftDelete>({
+	name: 'softDelete',
+	manifest,
+	addedFields: (f) => ({ deletedAt: f.date({ optional: true }) }),
+	hooks: {
+		beforeFind: ({ where, command }) =>
+			where({
+				deletedAt: command === undefined ? null : { not: null },
+			}),
+	},
+	// Runs after the `delete` access rule and `beforeDelete`.
+	redirect: {
+		delete: ({ where, queries }) =>
+			queries.update({ where, data: { deletedAt: new Date() } }, M),
+	},
+	commands: ({ queries }) => ({
+		trash: queries,
+		// Its update sees `command: 'restore'`, so it finds the deleted row.
+		restore: ({ where }) =>
+			queries.update({ where, data: { deletedAt: null } }, M),
+	}),
+})
+
+await Post.delete({ where: { id } }, { as: caller }) // the delete rule
+await Post.trash.findMany({}, { as: caller }) // the deleted posts
+await Post.restore({ where: { id } })
 ```

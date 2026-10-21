@@ -1,14 +1,11 @@
-// `defineModel` (D-07, D-12): the fields its callback builds, recorded for
-// `start`, and the model value whose methods run the queries (D-18).
-import {
-	fieldBuilders,
-	fieldDefinitions,
-	modelDefinitions,
-} from './definition.ts'
+// `defineModel` (D-07, D-12): the fields its callback and its plugins build,
+// recorded for `start`, and the model value whose methods run the queries
+// (D-18) and its plugins' commands (D-89).
+import { fieldBuilders, modelDefinitions } from './definition.ts'
 import type { FieldDefinition, ModelDefinition } from './definition.ts'
 import { query } from './engine.ts'
 import type { Operation } from './engine.ts'
-import { isObject } from './query-where.ts'
+import { addFields, usedBy } from './plugin-use.ts'
 import type { FieldBuilders } from './fields.ts'
 import type {
 	FieldShape,
@@ -52,7 +49,7 @@ type UsedTypes<U> = U extends ModelUse<string, infer T> ? T : never
 // The fields the used plugins add, merged with the model's own.
 type AddFn<U> =
 	U extends ModelUse<string, infer T>
-		? T extends { readonly adds: infer A }
+		? T extends { readonly addedFields: infer A }
 			? (value: A) => void
 			: never
 		: never
@@ -126,9 +123,6 @@ export function defineModel<
 	return model as unknown as ModelOf<N, F, U, X>
 }
 
-/** The kernel's names, which a model's field cannot take (D-22, D-20). */
-const reserved = new Set(['id', 'createdAt', 'updatedAt', 'AND', 'OR', 'NOT'])
-
 const operations: readonly Operation[] = [
 	'findMany',
 	'findFirst',
@@ -156,23 +150,15 @@ function createModel(definition: {
 	const built: unknown = Reflect.apply(definition.fields, undefined, [
 		fieldBuilders,
 	])
-	if (!isObject(built)) {
-		throw new Error(`${name}: fields must return an object of fields.`)
-	}
 	const fields = new Map<string, FieldDefinition>()
-	for (const [field, value] of Object.entries(built)) {
-		const recorded =
-			typeof value === 'object' && value !== null
-				? fieldDefinitions.get(value)
-				: undefined
-		if (recorded === undefined) {
-			throw new Error(`${name}.${field} is not a field a builder returned.`)
-		}
-		if (reserved.has(field)) {
-			throw new Error(`${name}.${field}: the kernel owns this name.`)
-		}
-		fields.set(field, recorded)
+	addFields(name, built, fields, new Map())
+	const queries: { [operation: string]: unknown } = {}
+	for (const operation of operations) {
+		queries[operation] = async (args?: unknown, options?: unknown) =>
+			query(name, operation, args, options)
 	}
+	Object.freeze(queries)
+	const { uses, commands } = usedBy(name, definition.use, fields, queries)
 	const record: ModelDefinition = {
 		name,
 		dbName,
@@ -181,13 +167,13 @@ function createModel(definition: {
 			fields: [...index.fields],
 			...(index.unique === undefined ? {} : { unique: index.unique }),
 		})),
-		use: definition.use,
+		uses,
 		rules: undefined,
 	}
-	const model: { [key: string]: unknown } = { name }
-	for (const operation of operations) {
-		model[operation] = (args?: unknown, options?: unknown) =>
-			query(name, operation, args, options)
+	const model: { [key: string]: unknown } = {
+		name,
+		...queries,
+		...Object.fromEntries(commands),
 	}
 	// The rules are read when they apply, so `.with` keeps the same value.
 	model['with'] = (rules: unknown): object => {

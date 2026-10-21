@@ -230,8 +230,8 @@ definePlugin<Archive>({
 	requires: { auth: authPlugin, tenant: tenantPlugin },
 	optional: { roles: rolesPlugin },
 	redirect: {
-		// @ts-expect-error: a redirected delete returns the deleted record.
-		delete: ({ queries }) => queries.count(),
+		// What a redirect returns is ignored (D-89).
+		delete: async ({ queries }) => queries.count(),
 	},
 })
 // @ts-expect-error: `keepDays` is a number.

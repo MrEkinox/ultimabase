@@ -1,5 +1,6 @@
-// `defineApp` (D-24, D-59): the application's models, checked together on
-// its line, and the `start` that resolves them for the adapter.
+// `defineApp` (D-24, D-59): the application's models and plugins, checked
+// together on its line, and the `start` that resolves them for the adapter
+// and builds the plugins' APIs (D-89).
 import type { Adapter } from './adapter.ts'
 import type { Logger, MasterKey } from './app-options.ts'
 import { consoleLogger } from './console-logger.ts'
@@ -11,6 +12,7 @@ import type {
 	ModelShape,
 } from './model.ts'
 import type { PluginValue } from './plugin.ts'
+import { buildApis, installed } from './plugin-app.ts'
 import type { Running } from './running.ts'
 import { register, unregister } from './running.ts'
 import { resolve } from './schema.ts'
@@ -92,14 +94,25 @@ export function defineApp<
 		models,
 		start: async () => {
 			if (running !== undefined) throw new Error('The application is running.')
-			const resolved = resolve(models)
+			const { plugins, apiOrder } = installed(options.plugins ?? [])
+			const resolved = resolve(
+				models,
+				plugins.map((plugin) => plugin.code),
+			)
 			await database.start(resolved.schema)
-			running = {
-				resolved,
-				adapter: database,
-				logger: options.logger ?? consoleLogger(),
+			const logger = options.logger ?? consoleLogger()
+			const apis = new Map<string, unknown>()
+			const app: Running = { resolved, adapter: database, logger, apis }
+			register(app)
+			try {
+				// An API may read the APIs it needs as it is built (D-89).
+				buildApis(apiOrder, apis, logger)
+			} catch (error) {
+				unregister(app)
+				await database.stop()
+				throw error
 			}
-			register(running)
+			running = app
 		},
 		stop: async () => {
 			if (running === undefined) return

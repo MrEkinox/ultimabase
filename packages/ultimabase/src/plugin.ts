@@ -1,10 +1,11 @@
 // A plugin is an interface of types and one `definePlugin` (D-57). Its types
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
-import { pluginDefinitions } from './definition.ts'
+import type { FieldBuilders } from './fields.ts'
+import { pluginEntries, pluginValues } from './definition.ts'
+import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks } from './model.ts'
 import type { Queries, UniqueWhere } from './query.ts'
-import type { RecordOf } from './record.ts'
 import type { Caller } from './rules.ts'
 import type { pluginTypes } from './symbols.ts'
 
@@ -29,8 +30,8 @@ export interface PluginTypes {
 	readonly optional?: PluginTypes
 	/** What it offers other plugins (D-16). */
 	readonly api?: object
-	/** The fields it adds to the models that use it (D-07, D-15). */
-	readonly adds?: { readonly [field: string]: FieldShape }
+	/** The fields it adds to the models that use it (D-07, D-15, D-89). */
+	readonly addedFields?: { readonly [field: string]: FieldShape }
 	/** Its commands (D-15). */
 	readonly commands?: object
 	/** Its key of the model's `.with` (D-42). */
@@ -45,8 +46,10 @@ export interface PluginTypes {
 export type ForModel<T, F> = T & { readonly fields: F }
 /** What a plugin's own code sees of a model: the fields it adds. Other
  * fields are the model's, unknown to the plugin (D-57). */
-// oxlint-disable-next-line typescript/no-generated-empty-object-type -- no fields, not any value
-type Own<T> = T extends { readonly adds: infer A } ? A : Record<never, never>
+type Own<T> = T extends { readonly addedFields: infer A }
+	? A
+	: // oxlint-disable-next-line typescript/no-generated-empty-object-type -- no fields, not any value
+		Record<never, never>
 type EntryOptions<T> = T extends { readonly options: infer O extends object }
 	? O
 	: { readonly [option: string]: never }
@@ -107,7 +110,7 @@ export type PluginRedirects<F, O, A> = {
 			readonly caller: Caller
 			readonly where: UniqueWhere<F>
 		} & PluginModel<F, O, A>,
-	) => Promise<RecordOf<F>>
+	) => Promise<unknown>
 }
 
 /** What a model gives a plugin's code. */
@@ -117,7 +120,11 @@ export interface PluginModel<F, O, A> {
 	readonly plugins: A
 }
 
-type CodePart<T, K extends 'commands' | 'api', Out> = T extends {
+type CodePart<
+	T,
+	K extends 'commands' | 'api' | 'addedFields',
+	Out,
+> = T extends {
 	readonly [P in K]: object
 }
 	? { readonly [P in K]: Out }
@@ -164,6 +171,11 @@ export type PluginDefinition<T extends PluginTypes> = {
 	) => ForModel<T, Own<T>>['commands']
 > &
 	CodePart<T, 'api', (context: PluginContext<T>) => T['api']> &
+	CodePart<
+		T,
+		'addedFields',
+		(fields: FieldBuilders<never>, options: EntryOptions<T>) => Own<T>
+	> &
 	Needs<'requires', Requires<T>> &
 	Needs<'optional', Optional<T>>
 
@@ -187,23 +199,20 @@ export type UseOf<T extends PluginTypes> = Plugin<T>['use']
 /** The type of a plugin's application value function, for its export. */
 export type PluginOf<T extends PluginTypes> = Plugin<T>['plugin']
 
-/** What the kernel reads of a definition, whatever its types. */
-type LooseDefinition = {
-	readonly name: string
-	readonly requires?: { readonly [name: string]: unknown }
-}
-
 export function definePlugin<T extends PluginTypes>(
 	definition: PluginDefinition<T>,
 ): Plugin<T> {
-	const loose: LooseDefinition = definition
-	const requires = Object.keys(loose.requires ?? {})
+	const code = pluginCode(definition)
 	const plugin = (options?: object): PluginValue<string, string> => {
-		const value = { name: loose.name, requires }
-		pluginDefinitions.set(value, { definition, options })
+		const value = Object.freeze({ name: code.name, requires: code.requires })
+		pluginValues.set(value, { code, options: options ?? {} })
 		return value
 	}
-	const use = (options?: object): object => ({ plugin: loose.name, options })
+	const use = (options?: object): object => {
+		const entry = Object.freeze({ plugin: code.name, options })
+		pluginEntries.set(entry, { code, options: options ?? {} })
+		return entry
+	}
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the two functions are Plugin<T>'s; their types follow T.
 	return { plugin, use } as unknown as Plugin<T>
 }

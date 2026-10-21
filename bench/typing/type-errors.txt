@@ -403,12 +403,6 @@ TS2345: Argument of type '{ name: "archive"; manifest: { name: string; version: 
 prototype/example/plugin-parts.ts: auth declares no requirement.
 TS2322: Type '{ tenant: PluginOf<Tenant>; }' is not assignable to type 'never'.
 
-prototype/example/plugin-parts.ts: a redirected delete returns the deleted record.
-TS2322: Type '({ queries }: { readonly caller: Caller; readonly where: { readonly id: string; }; } & PluginModel<Record<never, never>, { readonly [option: string]: never; }, Apis<Archive>>) => Promise<...>' is not assignable to type '(facts: { readonly caller: Caller; readonly where: { readonly id: string; }; } & PluginModel<Record<never, never>, { readonly [option: string]: never; }, Apis<Archive>>) => Promise<...>'.
-  Type 'Promise<number>' is not assignable to type 'Promise<RecordOf<Record<never, never>>>'.
-    Type 'number' is not assignable to type 'RecordOf<Record<never, never>>'.
-      Type 'number' is not assignable to type 'SystemFields'.
-
 prototype/example/plugin-parts.ts: `keepDays` is a number.
 TS2322: Type 'string' is not assignable to type 'number'.
 

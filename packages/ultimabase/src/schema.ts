@@ -5,6 +5,8 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	ModelDefinition,
+	PluginCode,
+	PluginUse,
 } from './definition.ts'
 import { modelDefinitions } from './definition.ts'
 
@@ -17,6 +19,8 @@ export type ModelInfo = {
 	readonly fields: ReadonlyMap<string, FieldInfo>
 	/** The unique targets (D-52): `id`, unique fields, unique indexes. */
 	readonly uniques: readonly (readonly string[])[]
+	/** The plugins of its `use`, in the order of `plugins` (D-29). */
+	readonly plugins: readonly PluginUse[]
 }
 
 export type Resolved = {
@@ -153,8 +157,30 @@ function schemaField(field: FieldInfo): SchemaField {
 	return schema
 }
 
+/** A model's plugins in the order of `plugins`, each one installed. */
+function installedUses(
+	definition: ModelDefinition,
+	plugins: readonly PluginCode[],
+): readonly PluginUse[] {
+	const at = (use: PluginUse) => plugins.indexOf(use.code)
+	for (const use of definition.uses) {
+		if (at(use) !== -1) continue
+		const { name } = use.code
+		const other = plugins.some((code) => code.name === name)
+		throw new Error(
+			other
+				? `${definition.name} uses a ${name} from another definePlugin than the one in plugins (D-89).`
+				: `${definition.name} uses ${name}, which is not in plugins.`,
+		)
+	}
+	return definition.uses.toSorted((a, b) => at(a) - at(b))
+}
+
 /** Resolves the application's models, or stops startup with a message. */
-export function resolve(values: readonly unknown[]): Resolved {
+export function resolve(
+	values: readonly unknown[],
+	plugins: readonly PluginCode[] = [],
+): Resolved {
 	const definitions = new Map<string, ModelDefinition>()
 	const names = new Map<object, string>()
 	for (const value of values) {
@@ -236,7 +262,13 @@ export function resolve(values: readonly unknown[]): Resolved {
 		for (const index of definition.indexes) {
 			if (index.unique === true) uniques.push(index.fields)
 		}
-		const info: ModelInfo = { name: model, definition, fields, uniques }
+		const info: ModelInfo = {
+			name: model,
+			definition,
+			fields,
+			uniques,
+			plugins: installedUses(definition, plugins),
+		}
 		models.set(model, info)
 		schemaModels.push({
 			name: model,

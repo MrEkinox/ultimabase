@@ -40,13 +40,19 @@ interface SoftDelete extends PluginTypes {
 	readonly name: 'softDelete'
 	readonly options: { readonly field?: string }
 	readonly appOptions: { readonly purgeAfterDays?: number }
-	readonly adds: DeletedField<this['options']>
+	readonly addedFields: DeletedField<this['options']>
 	readonly commands: SoftDeleteCommands<this['fields']>
 }
 
 const softDeleteDefinition = definePlugin<SoftDelete>({
 	name: 'softDelete',
 	manifest: { name: 'ultimabase-soft-delete', version: '1.0.0' },
+	// The default field name; a renamed one needs a cast (D-89).
+	addedFields: (f, options) =>
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the field an option names (D-89).
+		({
+			[options.field ?? 'deletedAt']: f.date({ optional: true }),
+		}) as DeletedField<typeof options>,
 	hooks: {
 		// Deleted rows do not exist, except through `trash` (D-17, D-71). The
 		// code sees the default field name; a renamed one needs a cast (D-57).

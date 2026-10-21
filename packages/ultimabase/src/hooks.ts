@@ -1,8 +1,9 @@
-// The fixed hooks of D-15 at run time (D-71, D-88): read from the model's
-// `.with`, run with their facts; `after*` hooks in the transaction, the
-// `*Commit` hooks once it commits.
-import { recordOf } from './access.ts'
+// The fixed hooks of D-15 at run time (D-71, D-88): the plugins', then the
+// model's `.with` (D-89), run with their facts; `after*` hooks in the
+// transaction, the `*Commit` hooks once it commits.
+import { and, recordOf } from './access.ts'
 import type { Filter, Row } from './adapter.ts'
+import { commandOf, outsideCommands } from './plugin-code.ts'
 import type { Caller } from './rules.ts'
 import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
@@ -22,10 +23,22 @@ type HookName =
 	| 'afterUpdateCommit'
 	| 'afterDeleteCommit'
 
-type Hook = (facts: object) => Promise<unknown>
+type Hook = {
+	/** Where it is written, for its errors. */
+	readonly path: string
+	readonly run: (facts: object) => Promise<unknown>
+}
 
-/** The model's hook `name`, `undefined` when it has none. */
-function hookOf(model: ModelInfo, name: HookName): Hook | undefined {
+/** Runs a hook's body; the queries it makes run outside any command. */
+async function called(hook: Function, facts: object): Promise<unknown> {
+	return outsideCommands(async () => {
+		const result: unknown = await Reflect.apply(hook, undefined, [facts])
+		return result
+	})
+}
+
+/** The application's hook `name` of the model, from its `.with` (D-71). */
+function ownHook(model: ModelInfo, name: HookName): Hook | undefined {
 	const rules = model.definition.rules
 	const hooks =
 		rules !== undefined && isObject(rules) ? rules['hooks'] : undefined
@@ -38,14 +51,37 @@ function hookOf(model: ModelInfo, name: HookName): Hook | undefined {
 	if (typeof hook !== 'function') {
 		throw new TypeError(`${model.name}.hooks.${name} is a function (D-71).`)
 	}
-	return async (facts) => {
-		const result: unknown = await Reflect.apply(hook, undefined, [facts])
-		return result
+	const path = `${model.name}.hooks.${name}`
+	return { path, run: async (facts) => called(hook, facts) }
+}
+
+/**
+ * The hooks `name` of the model: its plugins' first, in the order of
+ * `plugins`, then the application's (D-29). A plugin's facts add what its
+ * code gets of the model and the command running (D-89).
+ */
+function hooksOf(model: ModelInfo, name: HookName): readonly Hook[] {
+	const hooks: Hook[] = []
+	for (const use of model.plugins) {
+		const hook = use.code.hooks[name]
+		if (hook === undefined) continue
+		const plugin = use.code.name
+		hooks.push({
+			path: `${plugin}.hooks.${name} on ${model.name}`,
+			run: async (facts) =>
+				called(hook, {
+					...facts,
+					...use.model,
+					command: commandOf(model.name, plugin),
+				}),
+		})
 	}
+	const own = ownHook(model, name)
+	return own === undefined ? hooks : [...hooks, own]
 }
 
 export function hasHook(model: ModelInfo, name: HookName): boolean {
-	return hookOf(model, name) !== undefined
+	return hooksOf(model, name).length > 0
 }
 
 export async function runHook(
@@ -53,26 +89,46 @@ export async function runHook(
 	name: 'beforeCreate' | 'beforeUpdate' | 'beforeDelete',
 	facts: object,
 ): Promise<void> {
-	await hookOf(model, name)?.(facts)
+	for (const hook of hooksOf(model, name)) await hook.run(facts)
 }
 
-/** The filter `beforeFind` ANDs into every read of the model (D-71). */
+/** The filters every `beforeFind` ANDs into each read of the model (D-71). */
 export async function beforeFind(
 	models: Models,
 	model: ModelInfo,
 	caller: Caller,
 ): Promise<Filter | undefined> {
-	const hook = hookOf(model, 'beforeFind')
-	const result = await hook?.({ caller, where: readFilter })
-	if (result === undefined) return undefined
-	if (!isReadFilter(result)) {
-		throw new TypeError(
-			`${model.name}.hooks.beforeFind returns where({ ... }) or nothing (D-71).`,
-		)
+	let filter: Filter | undefined
+	for (const hook of hooksOf(model, 'beforeFind')) {
+		const result = await hook.run({ caller, where: readFilter })
+		if (result === undefined) continue
+		if (!isReadFilter(result)) {
+			throw new TypeError(
+				`${hook.path} returns where({ ... }) or nothing (D-71).`,
+			)
+		}
+		// Trusted server code, as a read rule's filter (D-86, D-88).
+		const where = normalizeWhere(models, model, filterOf(result), hook.path)
+		filter = and(where, filter)
 	}
-	// Trusted server code, as a read rule's filter (D-86, D-88).
-	const path = `${model.name}.hooks.beforeFind`
-	return normalizeWhere(models, model, filterOf(result), path)
+	return filter
+}
+
+/**
+ * The plugin's `redirect.delete`, which replaces the write of a `delete`,
+ * given `where: { id }` of the row found (D-15, D-89).
+ */
+export function redirectOf(
+	model: ModelInfo,
+): ((caller: Caller, id: string) => Promise<unknown>) | undefined {
+	const use = model.plugins.find((each) => each.code.redirect !== undefined)
+	const redirect = use?.code.redirect
+	if (use === undefined || redirect === undefined) return undefined
+	return async (caller, id) => {
+		const facts = { caller, where: { id }, ...use.model }
+		const result: unknown = await Reflect.apply(redirect, undefined, [facts])
+		return result
+	}
 }
 
 /** A row a write changed, whose `after*` hooks run once it is written. */
@@ -136,14 +192,14 @@ export async function settle(
 ): Promise<void> {
 	for (const event of events) {
 		const [now, later] = names[event.operation]
-		const after = hookOf(event.model, now)
-		const commit = hookOf(event.model, later)
-		if (after === undefined && commit === undefined) continue
+		const afters = hooksOf(event.model, now)
+		const laters = hooksOf(event.model, later)
+		if (afters.length === 0 && laters.length === 0) continue
 		const facts = await factsOf(store, caller, event)
-		await after?.(facts)
-		if (commit !== undefined) {
+		for (const hook of afters) await hook.run(facts)
+		for (const hook of laters) {
 			commits.push(async () => {
-				await commit(facts)
+				await hook.run(facts)
 			})
 		}
 	}

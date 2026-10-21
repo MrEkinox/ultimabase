@@ -15,7 +15,7 @@ interface TrashCommands<F> {
 }
 interface Trash extends PluginTypes {
 	readonly name: 'trash'
-	readonly adds: {
+	readonly addedFields: {
 		readonly trashedAt: Field<Date, { readonly optional: true }>
 	}
 	readonly commands: TrashCommands<this['fields']>
@@ -23,6 +23,7 @@ interface Trash extends PluginTypes {
 const trashDefinition = definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
+	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
 	redirect: {
 		delete: ({ where, queries }) =>
 			queries.update({ where, data: { trashedAt: new Date() } }),
@@ -53,6 +54,7 @@ const trashDefinition = definePlugin<Trash>({
 definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
+	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
 	hooks: {
 		beforeFind: ({ where, command }) =>
 			// @ts-expect-error: `trahs` is not a command of the plugin.
@@ -63,6 +65,7 @@ definePlugin<Trash>({
 definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
+	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
 	hooks: {
 		// @ts-expect-error: a filter only comes from `where`.
 		beforeFind: () => ({ trashedAt: null }),

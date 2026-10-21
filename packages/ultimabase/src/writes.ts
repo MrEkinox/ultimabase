@@ -1,12 +1,13 @@
 // `create`, `update` and `delete` in the order of D-67: access rules on the
 // data sent, defaults, validation, `before*` hooks, the required check, the
-// write, `after*` hooks; the `*Commit` hooks once it commits (D-71, D-88).
+// write, which a plugin's `redirect` may replace (D-89), `after*` hooks; the
+// `*Commit` hooks once it commits (D-71, D-88).
 import { and, recordOf } from './access.ts'
 import type { Nested, Row } from './adapter.ts'
 import { UniqueViolation } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Event } from './hooks.ts'
-import { rereads, runHook, settle } from './hooks.ts'
+import { redirectOf, rereads, runHook, settle } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { byId, first, given, hiddenBy, picked } from './query-context.ts'
 import type { Shape } from './query-args.ts'
@@ -168,14 +169,25 @@ export async function remove(
 		caller,
 		record: recordOf(model, row),
 	})
-	await guarded(
-		store.write({
-			changes: [{ kind: 'delete', model: model.name, where: byId(row.id) }],
-		}),
-	)
+	const redirect = redirectOf(model)
+	if (redirect === undefined) {
+		await guarded(
+			store.write({
+				changes: [{ kind: 'delete', model: model.name, where: byId(row.id) }],
+			}),
+		)
+	} else {
+		// Its queries run their own pipeline, in this transaction (D-89).
+		await redirect(caller, row.id)
+	}
 	const events: Event[] = [
 		{ model, operation: 'delete', id: row.id, before: row },
 	]
 	await settle(store, caller, events, commits)
-	return project(row, shape, hiddenBy(scope.access))
+	// The row as the redirect left it, or as it was once gone (D-89).
+	const [left] =
+		redirect === undefined
+			? []
+			: await store.find({ model: model.name, where: byId(row.id), take: 1 })
+	return project(left ?? row, shape, hiddenBy(scope.access))
 }
