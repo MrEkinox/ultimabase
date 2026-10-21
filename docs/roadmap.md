@@ -71,7 +71,7 @@ validation and functions included, stays within Phase 1's exit criterion.
 
 ## Phase 2: Kernel slice on `memory()`
 
-- [ ] 0.1 field types and the 0.1 query subset (D-20).
+- [x] 0.1 field types and the 0.1 query subset (D-20).
 - [ ] Callers and `master` (D-19), model and field access (D-10, D-44),
       relation writes from the other side (D-78),
       `anyOf` and `allOf` filters (D-81).

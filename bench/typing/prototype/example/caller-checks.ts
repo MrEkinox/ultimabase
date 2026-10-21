@@ -9,7 +9,7 @@ import {
 	graphqlPlugin,
 	memory,
 } from '../index.ts'
-import type { UserOf } from '../rules.ts'
+import type { UserOf } from '../../../../packages/ultimabase/src/rules.ts'
 import { Post } from './post.ts'
 import { User } from './user.ts'
 

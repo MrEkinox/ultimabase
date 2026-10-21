@@ -1,6 +1,13 @@
 // D-57 stress test, part two: the plugin parts D-15, D-16 and D-32 list.
-import type { Field, ScalarOptions } from '../fields.ts'
-import type { PluginOf, PluginTypes, UseOf } from '../ultimabase.ts'
+import type {
+	Field,
+	ScalarOptions,
+} from '../../../../packages/ultimabase/src/fields.ts'
+import type {
+	PluginOf,
+	PluginTypes,
+	UseOf,
+} from '../../../../packages/ultimabase/src/plugin.ts'
 import {
 	acl,
 	aclPlugin,
@@ -10,9 +17,12 @@ import {
 	softDelete,
 	softDeletePlugin,
 } from '../index.ts'
-import type { Queries, UniqueWhere } from '../query.ts'
-import type { RecordOf } from '../record.ts'
-import { definePlugin } from '../ultimabase.ts'
+import type {
+	Queries,
+	UniqueWhere,
+} from '../../../../packages/ultimabase/src/query.ts'
+import type { RecordOf } from '../../../../packages/ultimabase/src/record.ts'
+import { definePlugin } from '../../../../packages/ultimabase/src/plugin.ts'
 
 // Each plugin's `package.json`, imported with `with { type: 'json' }`: only
 // `name`, `version` and `peerDependencies` are read (D-57).

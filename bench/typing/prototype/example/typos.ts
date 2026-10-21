@@ -1,7 +1,7 @@
 // A misspelled key is refused on its own line, next to valid keys and at any
 // depth of a query (exact.ts). `tsc` fails if one is accepted.
-import type { Where } from '../query.ts'
-import type { modelFields } from '../symbols.ts'
+import type { Where } from '../../../../packages/ultimabase/src/query.ts'
+import type { modelFields } from '../../../../packages/ultimabase/src/symbols.ts'
 import { Book } from './book.ts'
 
 await Book.findMany({

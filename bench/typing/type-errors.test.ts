@@ -70,7 +70,7 @@ function disable(copy: string): Expected[] {
 }
 
 test('every refusal of the prototype fails with its recorded message', async () => {
-	const copy = mkdtempSync(join(root, 'node_modules/.cache/type-errors-'))
+	const copy = mkdtempSync(join(root, 'node_modules/.type-errors-'))
 	try {
 		cpSync(join(root, 'bench/typing/prototype'), join(copy, 'prototype'), {
 			recursive: true,

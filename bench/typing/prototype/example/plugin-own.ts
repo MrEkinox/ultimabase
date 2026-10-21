@@ -1,10 +1,14 @@
 // A plugin's own code sees a model through the fields it adds (D-57): it
 // reads and writes them, and nothing else. `tsc` fails if one does not hold.
-import type { Field } from '../fields.ts'
-import type { Queries } from '../query.ts'
-import type { PluginOf, PluginTypes, UseOf } from '../ultimabase.ts'
+import type { Field } from '../../../../packages/ultimabase/src/fields.ts'
+import type { Queries } from '../../../../packages/ultimabase/src/query.ts'
+import type {
+	PluginOf,
+	PluginTypes,
+	UseOf,
+} from '../../../../packages/ultimabase/src/plugin.ts'
 import { defineApp, defineModel, memory } from '../index.ts'
-import { definePlugin } from '../ultimabase.ts'
+import { definePlugin } from '../../../../packages/ultimabase/src/plugin.ts'
 
 interface TrashCommands<F> {
 	readonly trash: Queries<F>

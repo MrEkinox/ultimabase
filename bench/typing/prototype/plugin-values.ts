@@ -1,11 +1,21 @@
 // The plugins the measured models use, written as their authors would
 // (D-57, form 1): an interface holds the types, `definePlugin` the code.
-import type { Field } from './fields.ts'
-import type { Queries, UniqueWhere } from './query.ts'
-import type { RecordOf, ScalarKeys } from './record.ts'
-import type { AnyRule } from './rules.ts'
-import type { Database, PluginOf, PluginTypes, UseOf } from './ultimabase.ts'
-import { definePlugin } from './ultimabase.ts'
+import type { Field } from '../../../packages/ultimabase/src/fields.ts'
+import type {
+	Queries,
+	UniqueWhere,
+} from '../../../packages/ultimabase/src/query.ts'
+import type {
+	RecordOf,
+	ScalarKeys,
+} from '../../../packages/ultimabase/src/record.ts'
+import type { AnyRule } from '../../../packages/ultimabase/src/rules.ts'
+import type {
+	PluginOf,
+	PluginTypes,
+	UseOf,
+} from '../../../packages/ultimabase/src/plugin.ts'
+import { definePlugin } from '../../../packages/ultimabase/src/plugin.ts'
 
 // Stand-ins for the plugin's runtime.
 declare function deletedOnly<F>(model: Queries<F>): Queries<F>
@@ -89,6 +99,3 @@ const graphqlDefinition = definePlugin<Graphql>({
 })
 export const graphql: UseOf<Graphql> = graphqlDefinition.use
 export const graphqlPlugin: PluginOf<Graphql> = graphqlDefinition.plugin
-
-export declare function memory(): Database
-export declare function postgres(): Database

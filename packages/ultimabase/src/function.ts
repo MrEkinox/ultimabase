@@ -1,13 +1,12 @@
 // Functions (D-27, D-45): a server operation with a Standard Schema input
 // and a typed output, which `defineApp({ functions })` adds to the
 // application.
-import type { AnyCheck, SchemaTypes, StandardSchema } from './fields.ts'
+import type { SchemaTypes, StandardSchema } from './fields.ts'
 import type { ModelShape } from './model.ts'
 import type { QueryOptions } from './query.ts'
 import type { RecordOf } from './record.ts'
 import type { Caller } from './rules.ts'
 import type { modelFields } from './symbols.ts'
-import type { ModelUse, PluginTypes } from './ultimabase.ts'
 
 /**
  * What a function returns (D-45): a model, a list of one, an object of
@@ -27,30 +26,6 @@ export type OutputValue<O> = O extends { readonly [modelFields]: infer F }
 		: O extends readonly [infer X]
 			? readonly OutputValue<X>[]
 			: { readonly [K in keyof O]: OutputValue<O[K]> }
-
-// Without an input, `run` receives none.
-type InputFacts<I> = [I] extends [StandardSchema]
-	? { readonly input: SchemaTypes<I>['output'] }
-	: unknown
-type InputCheck<I> = [I] extends [StandardSchema]
-	? AnyCheck<I> extends { readonly validate: infer M }
-		? { readonly input: M }
-		: unknown
-	: unknown
-
-/** A plugin that exposes functions: it keys their `.with` (D-27). */
-export type FunctionPlugin = PluginTypes & {
-	readonly functionWith: object | false
-}
-
-/** Each used plugin's key of a function's `.with`. */
-type FunctionWithKeys<U> = {
-	readonly [
-		V in U as V extends ModelUse<infer P, FunctionPlugin> ? P : never
-	]?: V extends ModelUse<string, infer T extends FunctionPlugin>
-		? T['functionWith']
-		: never
-}
 
 /**
  * A function's access rule reads the caller only: it runs before the input
@@ -81,20 +56,3 @@ export type FunctionShape = {
 	readonly name: string
 	readonly output: OutputSpec
 }
-
-export declare function defineFunction<
-	const N extends string,
-	const O extends OutputSpec,
-	const I extends StandardSchema | undefined = undefined,
-	const U extends readonly ModelUse<string, FunctionPlugin>[] = [],
->(
-	definition: {
-		readonly name: N
-		readonly use?: U
-		readonly input?: I
-		readonly output: O
-		readonly run: (
-			facts: { readonly caller: Caller } & InputFacts<NoInfer<I>>,
-		) => NoInfer<OutputValue<O>> | Promise<NoInfer<OutputValue<O>>>
-	} & NoInfer<InputCheck<I>>,
-): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>>

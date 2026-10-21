@@ -45,7 +45,7 @@ export const User = defineUser({
 })
 
 // The application types `caller.user` with its user model, once (D-24).
-declare module '../rules.ts' {
+declare module 'ultimabase' {
 	interface Register {
 		readonly user: typeof User
 	}

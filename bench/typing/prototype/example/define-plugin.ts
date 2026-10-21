@@ -1,8 +1,8 @@
 // `definePlugin` checks the code against the plugin's types (D-57). `tsc`
 // fails if one does not hold.
-import type { Queries } from '../query.ts'
-import type { PluginTypes } from '../ultimabase.ts'
-import { definePlugin } from '../ultimabase.ts'
+import type { Queries } from '../../../../packages/ultimabase/src/query.ts'
+import type { PluginTypes } from '../../../../packages/ultimabase/src/plugin.ts'
+import { definePlugin } from '../../../../packages/ultimabase/src/plugin.ts'
 
 interface ArchiveCommands<F> {
 	readonly archived: Queries<F>
