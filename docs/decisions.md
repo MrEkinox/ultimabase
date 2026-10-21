@@ -2217,3 +2217,40 @@ await expect(
 	),
 ).rejects.toThrow('ACCESS_DENIED')
 ```
+
+## D-81: `anyOf` and `allOf` combine read filters
+
+Choice: the kernel exports `allOf` next to `anyOf` (D-10). Both take the
+facts and the result type from where they are used, so in a read rule each
+rule may return `true`, `false` or `where(...)`. `anyOf` joins the filters with
+`OR`, a `true` lets every row through and a `false` adds nothing; `allOf`
+joins them with `AND`, a `false` hides every row and a `true` adds nothing.
+In other rules both stay boolean, and `where` is refused there.
+Why: the most common read rule, "published for everyone, my drafts for me",
+needed a hand-written ternary on `caller.kind`, and `isOwner` (D-79) could not
+be narrowed by a condition such as "while a draft".
+Rejected: an option on `isOwner` for the extra condition, which covers one
+helper only; a separate `anyFilter`, a second name for the same idea.
+Example:
+
+```ts
+// Before: Parse, an ACL per object plus a query constraint in beforeFind
+Parse.Cloud.beforeFind('Post', ({ query, user }) => {
+	const published = new Parse.Query('Post').equalTo('status', 'published')
+	if (!user) return published
+	const mine = new Parse.Query('Post').equalTo('author', user)
+	return Parse.Query.or(published, mine)
+})
+
+// After
+access: {
+	read: anyOf(
+		({ where }) => where({ status: 'published' }),
+		signedIn(({ user, where }) => where({ author: { is: { id: user.id } } })),
+	),
+	update: anyOf(
+		signedIn(({ user }) => user.role === 'editor'),
+		allOf(isOwner('author'), ({ record }) => record.status === 'draft'),
+	),
+}
+```

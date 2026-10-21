@@ -27,7 +27,7 @@ export {
 	softDeletePlugin,
 } from './plugin-values.ts'
 export type { Caller, Register } from './rules.ts'
-export { allow, anyOf, master } from './rules.ts'
+export { allOf, allow, anyOf, master } from './rules.ts'
 export type {
 	ArgsOf,
 	CreateDataOf,

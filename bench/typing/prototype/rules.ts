@@ -45,9 +45,20 @@ export declare const allow: {
 }
 
 /**
- * True when one of the rules is. The facts come from where the result is used,
- * never from the rules, so each rule is typed by its place.
+ * True when one of the rules is (D-10). The facts and the result come from
+ * where it is used, never from the rules, so each rule is typed by its place.
+ * In a read rule, the filters combine with `OR` (D-81): `true` from any rule
+ * lets every row through, `false` adds nothing.
  */
-export declare function anyOf<Facts>(
-	...rules: readonly NoInfer<(facts: Facts) => boolean>[]
-): (facts: Facts) => boolean
+export declare function anyOf<Facts, R = boolean>(
+	...rules: readonly NoInfer<(facts: Facts) => R>[]
+): (facts: Facts) => R
+
+/**
+ * True when every rule is (D-81), typed as `anyOf`. In a read rule, the
+ * filters combine with `AND`: `false` from any rule hides every row, `true`
+ * adds nothing.
+ */
+export declare function allOf<Facts, R = boolean>(
+	...rules: readonly NoInfer<(facts: Facts) => R>[]
+): (facts: Facts) => R

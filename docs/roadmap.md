@@ -62,6 +62,7 @@ written, so that Phase 2 moves its types instead of discovering them.
       `isAuthenticated` (D-10); access rules stay synchronous (D-76).
 - [x] Rules and hooks see a `one` relation's key (D-77).
 - [x] auth's `signedIn` and `isOwner` (D-79).
+- [x] `anyOf` and `allOf` combine read filters (D-81).
 
 Exit: every typed part of 0.1 has a prototype example, and the benchmark,
 validation and functions included, stays within Phase 1's exit criterion.
@@ -70,7 +71,8 @@ validation and functions included, stays within Phase 1's exit criterion.
 
 - [ ] 0.1 field types and the 0.1 query subset (D-20).
 - [ ] Callers and `master` (D-19), model and field access (D-10, D-44),
-      relation writes from the other side (D-78).
+      relation writes from the other side (D-78),
+      `anyOf` and `allOf` filters (D-81).
 - [ ] Hooks in the order of D-67, validation (D-23), errors (D-28),
       transactions (D-36).
 - [ ] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57).
@@ -78,8 +80,9 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [ ] `start`, `stop` and the logger (D-58, D-59).
 - [ ] Adapter contract suite started (D-02, D-73).
 - [ ] `@ultimabase/soft-delete` (D-17).
-- [ ] The prototype's types move into `packages/ultimabase`, and the typing
-      benchmark measures the package. Kernel tests build user callers with
+- [ ] The prototype's types move into `packages/ultimabase`, each export in
+      the package its decision names, and the typing benchmark measures the
+      package. Kernel tests build user callers with
       `asUser` (D-80).
 
 Exit: soft delete under 150 lines (D-15); the kernel within its budget.

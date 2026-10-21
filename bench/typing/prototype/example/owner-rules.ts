@@ -1,5 +1,6 @@
-// auth's `signedIn` and `isOwner` (D-79). `tsc` fails if one does not hold.
-import { anyOf, defineModel, isOwner, signedIn } from '../index.ts'
+// auth's `signedIn` and `isOwner` (D-79), combined with `anyOf` and `allOf`
+// (D-81). `tsc` fails if one does not hold.
+import { allOf, anyOf, defineModel, isOwner, signedIn } from '../index.ts'
 import { User } from './user.ts'
 
 export const Draft = defineModel({
@@ -14,18 +15,16 @@ export const Draft = defineModel({
 	access: {
 		// `user` is the registered user model's record.
 		create: signedIn(({ user }) => user.role !== 'reader'),
-		read: signedIn(({ user, where }) =>
-			where({
-				OR: [{ status: 'published' }, { owner: { is: { id: user.id } } }],
-			}),
+		// Everyone reads published drafts; a user also reads their own (D-81).
+		read: anyOf(
+			({ where }) => where({ status: 'published' }),
+			signedIn(({ user, where }) => where({ owner: { is: { id: user.id } } })),
 		),
 		update: anyOf(
-			isOwner('owner'),
 			isOwner('editor'),
-			signedIn(
-				({ user, record }) =>
-					user.role === 'editor' && record.status === 'draft',
-			),
+			signedIn(({ user }) => user.role === 'editor'),
+			// The owner, while the draft is unpublished (D-81).
+			allOf(isOwner('owner'), ({ record }) => record.status === 'draft'),
 		),
 		delete: isOwner('owner'),
 	},
@@ -44,5 +43,20 @@ export const Mistakes = defineModel({
 		read: isOwner('owner'),
 		// @ts-expect-error: `titel` is not a field of the record.
 		create: signedIn(({ value }) => value.titel === ''),
+	},
+})
+
+export const MoreMistakes = defineModel({
+	name: 'MoreMistakes',
+	fields: (f) => ({ text: f.string(), owner: f.one(() => User) }),
+}).with({
+	access: {
+		read: allOf(
+			signedIn(() => true),
+			// @ts-expect-error: `txt` is not a field of the model.
+			({ where }) => where({ txt: 'a' }),
+		),
+		// @ts-expect-error: only a read rule receives `where`.
+		update: anyOf(isOwner('owner'), ({ where }) => where !== undefined),
 	},
 })

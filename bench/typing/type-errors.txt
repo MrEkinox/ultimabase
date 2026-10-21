@@ -318,6 +318,12 @@ TS2322: Type '(facts: { readonly caller: Caller; readonly record: { readonly own
 prototype/example/owner-rules.ts: `titel` is not a field of the record.
 TS2339: Property 'titel' does not exist on type 'CreateData<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, ne...'.
 
+prototype/example/owner-rules.ts: `txt` is not a field of the model.
+TS2561: Object literal may only specify known properties, but 'txt' does not exist in type 'Where<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, never>;...'. Did you mean to write 'text'?
+
+prototype/example/owner-rules.ts: only a read rule receives `where`.
+TS2339: Property 'where' does not exist on type 'UpdateFacts<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, n...'.
+
 prototype/example/plugin-keys.ts: no `softDelete()` in `use`, no trash.
 TS2339: Property 'trash' does not exist on type 'Model<"SetOff", { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }, never, WithKeys<never, { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }>, never>'.
 

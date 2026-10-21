@@ -549,6 +549,21 @@ nothing for an application that does not call them.
 
 6 instantiations more; check time stays within its spread.
 
+## Phase 1b: `anyOf` and `allOf` combine read filters
+
+Medians of three interleaved runs, check time in ms (D-81). The rules project
+uses `anyOf` in its generated models.
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 054 628 |        641 |
+| After, 200         |      1 054 628 |        543 |
+| Before, 200, rules |      1 496 653 |        726 |
+| After, 200, rules  |      1 498 153 |        705 |
+
+1 500 instantiations more on the rules project (+0.1 %), none on the other;
+check time stays within its spread.
+
 ## Reproducing
 
 ```bash
