@@ -61,6 +61,7 @@ written, so that Phase 2 moves its types instead of discovering them.
 - [x] A model's and a function's types (D-74), a function's `run` (D-75),
       `isAuthenticated` (D-10); access rules stay synchronous (D-76).
 - [x] Rules and hooks see a `one` relation's key (D-77).
+- [x] auth's `signedIn` and `isOwner` (D-79).
 
 Exit: every typed part of 0.1 has a prototype example, and the benchmark,
 validation and functions included, stays within Phase 1's exit criterion.
@@ -78,8 +79,8 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [ ] Adapter contract suite started (D-02, D-73).
 - [ ] `@ultimabase/soft-delete` (D-17).
 - [ ] The prototype's types move into `packages/ultimabase`, and the typing
-      benchmark measures the package. Kernel tests build user callers with an
-      internal helper; the public way waits for auth (Phase 5).
+      benchmark measures the package. Kernel tests build user callers with
+      `asUser` (D-80).
 
 Exit: soft delete under 150 lines (D-15); the kernel within its budget.
 
@@ -96,7 +97,8 @@ counts included.
 
 ## Phase 4: Transports
 
-- [ ] `httpPlugin()`: Hono, CORS and body limit (D-66).
+- [ ] `httpPlugin()`: Hono, CORS and body limit (D-66); decide how a Hono
+      route reads the typed caller (D-27).
 - [ ] `graphqlPlugin()`: `graphql-http`, Relay, depth limit, GraphiQL (D-34, D-41,
       D-55).
 - [ ] `defineFunction` (D-27, D-45), master key (D-49).
@@ -112,7 +114,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 
 ## Phase 6: Release 0.1
 
-- [ ] `@ultimabase/testing` (D-40), `create-ultimabase` (D-61).
+- [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [ ] Documentation website (D-31).
 - [ ] Publication, after confirmation.

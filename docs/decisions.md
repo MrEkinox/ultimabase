@@ -952,7 +952,8 @@ Rejected: JWT sessions (cannot be revoked before they expire).
 Choice: `@ultimabase/testing` provides `testApplication(app)`, which starts
 the application on a fresh `memory()` database for each test, conformance
 suites for plugin and adapter authors (D-02), and PostgreSQL tests through
-Docker or `TEST_DATABASE_URL`. Server-side tests use `as: master` (D-19).
+Docker or `TEST_DATABASE_URL`. Server-side tests use `as: master` (D-19),
+or `asUser(user)` to test access rules (D-80, amended 2026-10-21).
 Since one application runs per JavaScript realm (D-18), tests inside one file
 run one after another; test files run in parallel in separate workers.
 Why: the previous base proved these helpers useful; the in-memory database
@@ -2138,4 +2139,81 @@ await Post.update(
 	{ where: { id: 'p2' }, data: { comments: { connect: [{ id: 'c1' }] } } },
 	{ as: caller },
 )
+```
+
+## D-79: auth's `signedIn` and `isOwner` rules
+
+Choice: auth exports two ready-made rules (D-10), next to `isAuthenticated`
+and `isSelf`. `signedIn(rule)` runs `rule` for a signed-in caller only, with
+`user` (the registered user model's record, D-62) among its facts, and is
+`false` for anyone else; a read rule inside it may still return
+`where(...)`. `isOwner('author')` is "the caller is the user this `one`
+relation points to", read from the stored key (D-77), so it fits `update` and
+`delete` but not `read` or `create`, which have no stored record; a name that
+is not a `one` relation of the model is refused. Both take their facts from
+where they are used, and combine with `anyOf`. `signedIn` fits the user
+model's own rules but not its field rules, where `user` would type the model
+from itself (TS2502): there, `({ caller }): boolean => ...` stays (D-62).
+Why: `caller.kind === 'user' &&` opened most rules of a real application, and
+"the author only" was written by hand in every model.
+Rejected: a `signedIn` in the kernel, which knows no user model; an
+`isOwner` that loads the user, a query in a rule (D-76).
+Example:
+
+```ts
+// Before: Parse, checks repeated in each beforeSave
+Parse.Cloud.beforeSave('Post', ({ object, original, user }) => {
+	if (!user) throw new Parse.Error(209, 'Sign in first.')
+	if (
+		original &&
+		original.get('author').id !== user.id &&
+		user.get('role') !== 'editor'
+	)
+		throw new Parse.Error(119, 'Not your post.')
+})
+
+// After
+export const Post = defineModel({ name: 'Post', fields }).with({
+	access: {
+		create: signedIn(({ user }) => user.role !== 'reader'),
+		update: anyOf(
+			isOwner('author'),
+			signedIn(({ user }) => user.role === 'editor'),
+		),
+		delete: isOwner('author'),
+	},
+})
+```
+
+## D-80: Tests act as a user with `asUser`
+
+Choice: `@ultimabase/testing` exports `asUser(user)`, which builds the caller
+of a signed-in user from a user record, for a test's `{ as }`. Only
+`@ultimabase/testing` exports it; in an application a user caller comes from
+a session (D-39). The kernel's own tests use it from Phase 2.
+Why: tests acting as Master skip every access rule (D-48), so without a user
+caller an application cannot test the rules that keep its data safe.
+Rejected: tests that sign in through a transport, slow and tied to a sign-in
+method; an `asUser` in `ultimabase`, which would let production code act as
+any user without a session.
+Example:
+
+```ts
+// Before: Parse, a real sign-up and sign-in per test user
+const bob = await Parse.User.signUp('bob', 'secret')
+await expect(
+	post.save({ title: 'Hack' }, { sessionToken: bob.getSessionToken() }),
+).rejects.toThrow()
+
+// After
+const bob = await User.create(
+	{ data: { email: 'b@x.io', name: 'Bob' } },
+	{ as: master },
+)
+await expect(
+	Post.update(
+		{ where: { id: post.id }, data: { title: 'Hack' } },
+		{ as: asUser(bob) },
+	),
+).rejects.toThrow('ACCESS_DENIED')
 ```

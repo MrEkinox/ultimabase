@@ -1,6 +1,6 @@
 // The user model, declared with auth's `defineUser` (D-13, D-62).
 import type { Caller } from '../index.ts'
-import { currentUser, defineUser, graphql, isSelf } from '../index.ts'
+import { currentUser, defineUser, graphql, isSelf, signedIn } from '../index.ts'
 import { Post } from './post.ts'
 
 // A helper with a declared return type reads `caller.user` in any rule of
@@ -39,6 +39,8 @@ export const User = defineUser({
 			where({ manager: { is: null } }),
 		update: ({ caller, record }) =>
 			caller.kind === 'user' && caller.user.id === record.id,
+		// The model's own rules use `signedIn`; its field rules cannot (D-79).
+		delete: signedIn(({ user }) => user.role === 'editor'),
 	},
 })
 

@@ -1,6 +1,6 @@
 // auth (D-33, D-62) owns the user model. Its `define<Kind>` entry,
 // `defineUser`, builds an ordinary model with auth in its `use` (D-13).
-import type { Caller, CallerRule } from './rules.ts'
+import type { Caller, CallerRule, Register, UserOf } from './rules.ts'
 import type { IndexShape } from './model.ts'
 import type {
 	FieldShapes,
@@ -46,6 +46,29 @@ export declare function defineUser<
 
 /** The rule "the caller is signed in" (D-10). */
 export declare const isAuthenticated: CallerRule
+
+/**
+ * A rule for signed-in callers only, which receives `user` (D-79); it is
+ * `false` for anyone else. Its facts come from where it is used, as `anyOf`'s
+ * do; a read rule may still return a filter.
+ */
+export declare function signedIn<
+	Facts extends { readonly caller: Caller },
+	R extends boolean | object,
+>(
+	rule: (facts: Facts & { readonly user: UserOf<Register> }) => R,
+): (facts: Facts) => R | false
+
+/**
+ * The rule "the caller is the user this `one` relation points to" (D-79),
+ * read from the stored key (D-77); the field name is checked by the model.
+ */
+export declare function isOwner<const K extends string>(
+	field: K,
+): (facts: {
+	readonly caller: Caller
+	readonly record: { readonly [P in K]: { readonly id: string } | null }
+}) => boolean
 
 /** The rule "the caller is this record" (D-62). */
 export declare function isSelf(facts: {

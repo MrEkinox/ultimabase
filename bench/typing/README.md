@@ -534,6 +534,21 @@ The stored record rules and hooks receive holds each `one` relation's
 10 847 instantiations more (+1.0 % and +0.7 %), the same for both projects,
 about 54 per model; check time stays within its spread.
 
+## Phase 1b: auth's `signedIn` and `isOwner`
+
+Medians of three interleaved runs, check time in ms (D-79). The generated
+models do not use the helpers; the numbers show their declarations cost
+nothing for an application that does not call them.
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 054 622 |        552 |
+| After, 200         |      1 054 628 |        543 |
+| Before, 200, rules |      1 496 647 |        722 |
+| After, 200, rules  |      1 496 653 |        701 |
+
+6 instantiations more; check time stays within its spread.
+
 ## Reproducing
 
 ```bash

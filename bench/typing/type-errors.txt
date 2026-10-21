@@ -296,6 +296,28 @@ TS2344: Type '"aggregate"' does not satisfy the constraint 'keyof Operations<Fie
 prototype/example/model-types.ts: relations are absent without `include`.
 TS2339: Property 'author' does not exist on type 'RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly pages: Field<number, { readonly optional: true; }, never, never, number>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }>'.
 
+prototype/example/owner-rules.ts: `ownr` is not a `one` relation of the model.
+TS2322: Type '(facts: { readonly caller: Caller; readonly record: { readonly ownr: { readonly id: string; } | null; }; }) => boolean' is not assignable to type '(facts: DeleteFacts<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOp...'.
+  Types of parameters 'facts' and 'facts' are incompatible.
+    Type 'DeleteFacts<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, n...' is not assignable to type '{ readonly caller: Caller; readonly record: { readonly ownr: { readonly id: string; } | null; }; }'.
+      Types of property 'record' are incompatible.
+        Property 'ownr' is missing in type 'StoredRecord<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, ...' but required in type '{ readonly ownr: { readonly id: string; } | null; }'.
+
+prototype/example/owner-rules.ts: `text` is not a relation.
+TS2322: Type '(facts: { readonly caller: Caller; readonly record: { readonly text: { readonly id: string; } | null; }; }) => boolean' is not assignable to type '(facts: UpdateFacts<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOp...'.
+  Types of parameters 'facts' and 'facts' are incompatible.
+    Type 'UpdateFacts<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, n...' is not assignable to type '{ readonly caller: Caller; readonly record: { readonly text: { readonly id: string; } | null; }; }'.
+      The types of 'record.text' are incompatible between these types.
+        Type 'string' is not assignable to type '{ readonly id: string; }'.
+
+prototype/example/owner-rules.ts: a read rule has no record to own.
+TS2322: Type '(facts: { readonly caller: Caller; readonly record: { readonly owner: { readonly id: string; } | null; }; }) => boolean' is not assignable to type 'ReadRule<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, neve...'.
+  Types of parameters 'facts' and 'facts' are incompatible.
+    Property 'record' is missing in type 'ReadFacts & { readonly where: (filter: Where<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { ...; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>...' but required in type '{ readonly caller: Caller; readonly record: { readonly owner: { readonly id: string; } | null; }; }'.
+
+prototype/example/owner-rules.ts: `titel` is not a field of the record.
+TS2339: Property 'titel' does not exist on type 'CreateData<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly owner: One<() => Model<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string>; ... 4 more ...; readonly invitedBy: One<...>; }, "auth" | "graphql", WithKeys<...>, never>, OneOptions, ne...'.
+
 prototype/example/plugin-keys.ts: no `softDelete()` in `use`, no trash.
 TS2339: Property 'trash' does not exist on type 'Model<"SetOff", { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }, never, WithKeys<never, { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }>, never>'.
 

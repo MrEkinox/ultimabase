@@ -6,7 +6,9 @@ export {
 	currentUser,
 	defineUser,
 	isAuthenticated,
+	isOwner,
 	isSelf,
+	signedIn,
 } from './auth.ts'
 export type { ErrorCode, Issue } from './errors.ts'
 export { PublicError } from './errors.ts'
