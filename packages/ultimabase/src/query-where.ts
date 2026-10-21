@@ -7,6 +7,19 @@ import type { FieldInfo, ModelInfo } from './schema.ts'
 
 export type Models = ReadonlyMap<string, ModelInfo>
 
+/** What a caller other than Master may filter on and see (D-86). */
+export type Scope = {
+	/** Fails on a field with a read rule (D-44). */
+	readonly check: (
+		model: ModelInfo,
+		field: string,
+		path: string,
+		verb: 'filters' | 'sorts',
+	) => void
+	/** A model's read filter; `undefined` when every row passes. */
+	readonly readable: (model: string) => Filter | undefined
+}
+
 /** `id`, `createdAt` and `updatedAt`, which every model has (D-22). */
 const system: ReadonlyMap<string, ScalarType | 'id'> = new Map([
 	['id', 'id'],
@@ -116,27 +129,53 @@ function scalarCondition(
 	return Object.keys(condition).length === 0 ? undefined : condition
 }
 
-function relationCondition(
+/**
+ * A relation operator that sees readable targets only (D-86): an unreadable
+ * row is absent, so `is: null` holds when the target is unreadable.
+ */
+function restricted(
+	operator: string,
+	inner: Filter | null,
+	readable: Filter,
+): Condition {
+	if (inner === null) {
+		return operator === 'is' ? { isNot: readable } : { is: readable }
+	}
+	if (operator === 'every') {
+		return { every: { OR: [{ NOT: [readable] }, inner] } }
+	}
+	return { [operator]: { AND: [readable, inner] } }
+}
+
+function relationFilters(
 	models: Models,
 	model: ModelInfo,
 	field: Extract<FieldInfo, { readonly kind: 'one' | 'many' }>,
 	value: unknown,
 	path: string,
-): Condition | undefined {
+	scope: Scope | undefined,
+): Filter[] {
 	const target = models.get(field.target)
 	if (target === undefined) throw new Error(`Unknown model ${field.target}.`)
+	const readable = scope?.readable(field.target)
 	const allowed =
 		field.kind === 'one' ? ['is', 'isNot'] : ['some', 'every', 'none']
-	const condition: { [operator: string]: Filter | null } = {}
+	const filters: Filter[] = []
 	for (const [operator, operand] of entries(value, path)) {
 		const at = `${path}.${operator}`
 		if (!allowed.includes(operator)) throw unknownKey(at, model.name)
-		condition[operator] =
+		const inner =
 			operand === null && field.kind === 'one'
 				? null
-				: normalizeWhere(models, target, operand, at)
+				: normalizeWhere(models, target, operand, at, scope)
+		filters.push({
+			[field.name]:
+				readable === undefined
+					? { [operator]: inner }
+					: restricted(operator, inner, readable),
+		})
 	}
-	return Object.keys(condition).length === 0 ? undefined : condition
+	return filters
 }
 
 function list(
@@ -145,46 +184,61 @@ function list(
 	value: unknown,
 	path: string,
 	single: boolean,
+	scope: Scope | undefined,
 ): Filter[] {
 	if (Array.isArray(value)) {
 		return value.map((item: unknown, index) =>
-			normalizeWhere(models, model, item, `${path}.${index}`),
+			normalizeWhere(models, model, item, `${path}.${index}`, scope),
 		)
 	}
-	if (single) return [normalizeWhere(models, model, value, path)]
+	if (single) return [normalizeWhere(models, model, value, path, scope)]
 	throw new InvalidQuery(path, `${path} must be a list.`)
 }
 
-/** A `where` of `model`, normalized; `path` names it in errors. */
+/**
+ * A `where` of `model`, normalized; `path` names it in errors. With a
+ * `scope`, relation filters see readable rows only (D-86).
+ */
 export function normalizeWhere(
 	models: Models,
 	model: ModelInfo,
 	where: unknown,
 	path: string,
+	scope?: Scope,
 ): Filter {
 	const filter: { [key: string]: Condition | Filter[] } = {}
+	const relations: Filter[] = []
 	for (const [key, value] of entries(where, path)) {
 		const at = `${path}.${key}`
-		if (key === 'AND' || key === 'NOT') {
-			filter[key] = list(models, model, value, at, true)
-			continue
-		}
-		if (key === 'OR') {
-			filter[key] = list(models, model, value, at, false)
+		if (key === 'AND' || key === 'NOT' || key === 'OR') {
+			filter[key] = list(models, model, value, at, key !== 'OR', scope)
 			continue
 		}
 		const field = model.fields.get(key)
 		const type = typeOf(model, key)
-		const condition =
-			field !== undefined && field.kind !== 'scalar'
-				? relationCondition(models, model, field, value, at)
-				: type === undefined
-					? undefined
-					: scalarCondition(model, key, type, value, at)
 		if (field === undefined && type === undefined) {
 			throw unknownKey(at, model.name)
 		}
+		scope?.check(model, key, at, 'filters')
+		if (field !== undefined && field.kind !== 'scalar') {
+			relations.push(...relationFilters(models, model, field, value, at, scope))
+			continue
+		}
+		const condition =
+			type === undefined
+				? undefined
+				: scalarCondition(model, key, type, value, at)
 		if (condition !== undefined) filter[key] = condition
 	}
-	return filter
+	const [only, ...others] = relations
+	if (only === undefined) return filter
+	// One relation filter stays in place; more join `AND`.
+	if (others.length === 0 && filter['AND'] === undefined) {
+		return { ...filter, ...only }
+	}
+	const and = filter['AND']
+	return {
+		...filter,
+		AND: [...(Array.isArray(and) ? and : []), ...relations],
+	}
 }

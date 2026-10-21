@@ -1,13 +1,15 @@
 // A read's arguments: `select`, `include`, `orderBy`, `take`, `skip` and
 // `cursor` checked (D-20), as the adapter's read and the shape of the result.
 import type { Filter, Nested, Order } from './adapter.ts'
+import { and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
-import type { Models } from './query-where.ts'
+import type { Models, Scope } from './query-where.ts'
 import { entries, isObject, normalizeWhere, unknownKey } from './query-where.ts'
 
 /** What a query returns of each row, and of each relation it reads. */
 export type Shape = {
+	readonly model: ModelInfo
 	readonly fields: readonly string[]
 	readonly relations: ReadonlyMap<string, Shape>
 }
@@ -44,7 +46,12 @@ function integer(value: unknown, path: string, least?: number): number {
 	return value
 }
 
-function orderBy(model: ModelInfo, value: unknown, path: string): Order[] {
+function orderBy(
+	model: ModelInfo,
+	value: unknown,
+	path: string,
+	scope: Scope | undefined,
+): Order[] {
 	const parts = Array.isArray(value) ? value : [value]
 	const order: Order[] = []
 	parts.forEach((part: unknown, index) => {
@@ -58,6 +65,7 @@ function orderBy(model: ModelInfo, value: unknown, path: string): Order[] {
 			) {
 				throw unknownKey(`${at}.${field}`, model.name)
 			}
+			scope?.check(model, field, `${at}.${field}`, 'sorts')
 			if (direction !== 'asc' && direction !== 'desc') {
 				throw new InvalidQuery(
 					`${at}.${field}`,
@@ -80,6 +88,7 @@ export function uniqueWhere(
 	model: ModelInfo,
 	where: unknown,
 	path: string,
+	scope?: Scope,
 ): Filter {
 	const given = entries(where, path)
 	const keys = given.map(([key]) => key).toSorted()
@@ -103,12 +112,27 @@ export function uniqueWhere(
 		const field = model.fields.get(key)
 		filter[key] = field?.kind === 'one' ? { is: { id: value } } : value
 	}
-	return normalizeWhere(models, model, filter, path)
+	return normalizeWhere(models, model, filter, path, scope)
+}
+
+/** A read narrowed to the rows of a read filter, its cursor too (D-86). */
+export function restrict(read: Nested, readable: Filter | undefined): Nested {
+	if (readable === undefined) return read
+	return {
+		...read,
+		where: and(read.where, readable),
+		...(read.cursor === undefined
+			? {}
+			: { cursor: and(read.cursor, readable) }),
+	}
 }
 
 type Kind = 'many' | 'one'
 
-/** The arguments of a relation read, or of a top-level read when `top`. */
+/**
+ * The arguments of a relation read, or of a top-level read when `path` is
+ * empty. A `scope` checks them and narrows each included relation (D-86).
+ */
 export function plan(
 	models: Models,
 	model: ModelInfo,
@@ -116,6 +140,7 @@ export function plan(
 	path: string,
 	kind: Kind,
 	keys: ReadonlySet<string>,
+	scope?: Scope,
 ): Plan {
 	const given = new Map(args === undefined ? [] : entries(args, path || 'args'))
 	const at = (key: string): string => (path === '' ? key : `${path}.${key}`)
@@ -165,17 +190,29 @@ export function plan(
 				where,
 				field.kind,
 				field.kind === 'many' ? manyKeys : oneKeys,
+				scope,
 			)
-			nested[name] = relation.read
+			nested[name] = restrict(relation.read, scope?.readable(field.target))
 			relations.set(name, relation.shape)
 		}
 	}
 	if (Object.keys(nested).length > 0) read.include = nested
 	if (given.has('where')) {
-		read.where = normalizeWhere(models, model, given.get('where'), at('where'))
+		read.where = normalizeWhere(
+			models,
+			model,
+			given.get('where'),
+			at('where'),
+			scope,
+		)
 	}
 	if (kind === 'many') {
-		read.orderBy = orderBy(model, given.get('orderBy') ?? [], at('orderBy'))
+		read.orderBy = orderBy(
+			model,
+			given.get('orderBy') ?? [],
+			at('orderBy'),
+			scope,
+		)
 		if (given.has('take')) read.take = integer(given.get('take'), at('take'))
 		if (given.has('skip')) read.skip = integer(given.get('skip'), at('skip'), 0)
 		if (given.has('cursor')) {
@@ -184,10 +221,11 @@ export function plan(
 				model,
 				given.get('cursor'),
 				at('cursor'),
+				scope,
 			)
 		}
 	}
-	return { read, shape: { fields, relations } }
+	return { read, shape: { model, fields, relations } }
 }
 
 const oneKeys = new Set(['select', 'include'])
@@ -200,15 +238,27 @@ const manyKeys = new Set([
 	'cursor',
 ])
 
-/** A row as the query returns it, through the shape. */
-export function project(row: unknown, shape: Shape): unknown {
-	if (Array.isArray(row))
-		return row.map((item: unknown) => project(item, shape))
+/** The fields of a row its field read rules hide (D-44). */
+export type Hidden = (
+	model: ModelInfo,
+	row: { readonly [field: string]: unknown },
+	fields: Iterable<string>,
+) => ReadonlySet<string>
+
+/** A row as the query returns it, through the shape, without hidden fields. */
+export function project(row: unknown, shape: Shape, hidden?: Hidden): unknown {
+	if (Array.isArray(row)) {
+		return row.map((item: unknown) => project(item, shape, hidden))
+	}
 	if (!isObject(row)) return null
+	const names = [...shape.fields, ...shape.relations.keys()]
+	const unseen = hidden?.(shape.model, row, names)
 	const result: { [field: string]: unknown } = {}
-	for (const field of shape.fields) result[field] = row[field] ?? null
+	for (const field of shape.fields) {
+		if (!unseen?.has(field)) result[field] = row[field] ?? null
+	}
 	for (const [name, nested] of shape.relations) {
-		result[name] = project(row[name], nested)
+		if (!unseen?.has(name)) result[name] = project(row[name], nested, hidden)
 	}
 	return result
 }

@@ -1,13 +1,15 @@
 // The running application and the queries its models send (D-18): each one
 // checked, run on the adapter and returned in the shape it asked for.
+import type { Access } from './access.ts'
+import { accessFor, and } from './access.ts'
 import type { Adapter, Filter, Row } from './adapter.ts'
 import { UniqueViolation } from './adapter.ts'
 import { InvalidQuery, PublicError } from './errors.ts'
 import type { Caller } from './rules.ts'
 import { isMaster } from './rules.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
-import type { Shape } from './query-args.ts'
-import { plan, project, uniqueWhere } from './query-args.ts'
+import type { Hidden, Shape } from './query-args.ts'
+import { plan, project, restrict, uniqueWhere } from './query-args.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 import { createPlan, updatePlan } from './query-write.ts'
 
@@ -100,9 +102,24 @@ function picked(found: ReadonlyMap<string, unknown>): object {
 
 const byId = (id: string): Filter => ({ id: { equals: id } })
 
-function first(rows: readonly Row[], shape: Shape): unknown {
+/** The fields the caller's field read rules hide (D-44). */
+function hiddenBy(access: Access | undefined): Hidden | undefined {
+	return access && ((model, row, fields) => access.hidden(model, row, fields))
+}
+
+function first(
+	rows: readonly Row[],
+	shape: Shape,
+	access: Access | undefined,
+): unknown {
 	const [row] = rows
-	return row === undefined ? null : project(row, shape)
+	return row === undefined ? null : project(row, shape, hiddenBy(access))
+}
+
+/** `where`, kept to the rows the caller reads (D-10). */
+function visible(context: Context, where: Filter): Filter {
+	const readable = context.access?.readable(context.model.name)
+	return readable === undefined ? where : { AND: [readable, where] }
 }
 
 async function write(
@@ -132,16 +149,12 @@ const manyKeys = [
 	'cursor',
 ]
 
-/**
- * Before access rules land, only Master passes: other callers read nothing
- * and write nothing (D-04).
- */
 async function find(
 	context: Context,
 	args: unknown,
 	single: boolean,
 ): Promise<unknown> {
-	const { resolved, adapter, model, caller } = context
+	const { resolved, adapter, model, access } = context
 	const { read, shape } = plan(
 		resolved.models,
 		model,
@@ -149,28 +162,40 @@ async function find(
 		'',
 		'many',
 		new Set(manyKeys),
+		access,
 	)
 	const take = read.take ?? 1
 	const limited = single ? { ...read, take: Math.sign(take) } : read
-	if (!isMaster(caller)) return single ? null : []
-	const rows = await adapter.find({ model: model.name, ...limited })
-	return single ? first(rows, shape) : rows.map((row) => project(row, shape))
+	const rows = await adapter.find({
+		model: model.name,
+		...restrict(limited, access?.readable(model.name)),
+	})
+	if (single) return first(rows, shape, access)
+	return rows.map((row) => project(row, shape, hiddenBy(access)))
 }
 
+/** A query's caller, and its access rules unless it is Master (D-48). */
 type Context = Running & {
 	readonly model: ModelInfo
 	readonly caller: Caller
+	readonly access: Access | undefined
 }
 
 async function findUnique(context: Context, args: unknown): Promise<unknown> {
-	const { resolved, adapter, model, caller } = context
+	const { resolved, adapter, model, access } = context
 	const found = given(
 		args,
 		model.name,
 		['where', 'select', 'include'],
 		['where'],
 	)
-	const where = uniqueWhere(resolved.models, model, found.get('where'), 'where')
+	const unique = uniqueWhere(
+		resolved.models,
+		model,
+		found.get('where'),
+		'where',
+		access,
+	)
 	const { read, shape } = plan(
 		resolved.models,
 		model,
@@ -178,13 +203,15 @@ async function findUnique(context: Context, args: unknown): Promise<unknown> {
 		'',
 		'one',
 		new Set(['select', 'include']),
+		access,
 	)
-	if (!isMaster(caller)) return null
-	return first(await adapter.find({ model: model.name, ...read, where }), shape)
+	const where = visible(context, unique)
+	const rows = await adapter.find({ model: model.name, ...read, where })
+	return first(rows, shape, access)
 }
 
 async function count(context: Context, args: unknown): Promise<number> {
-	const { resolved, adapter, model, caller } = context
+	const { resolved, adapter, model, access } = context
 	const found = given(args, model.name, ['where'], [])
 	const { read } = plan(
 		resolved.models,
@@ -193,16 +220,18 @@ async function count(context: Context, args: unknown): Promise<number> {
 		'',
 		'one',
 		new Set(['where']),
+		access,
 	)
-	if (!isMaster(caller)) return 0
-	return adapter.count({
-		model: model.name,
-		...(read.where === undefined ? {} : { where: read.where }),
-	})
+	const where = and(read.where, access?.readable(model.name))
+	return adapter.count({ model: model.name, ...(where && { where }) })
 }
 
+/**
+ * The model's rule and the fields' rules, then validation and the targets
+ * a `connect` names, then the target-side rules of each relation (D-67).
+ */
 async function create(context: Context, args: unknown): Promise<unknown> {
-	const { resolved, adapter, model, caller } = context
+	const { resolved, adapter, model, caller, access } = context
 	const found = given(args, model.name, ['data', 'select', 'include'], ['data'])
 	const { read, shape } = plan(
 		resolved.models,
@@ -211,27 +240,27 @@ async function create(context: Context, args: unknown): Promise<unknown> {
 		'',
 		'one',
 		new Set(['select', 'include']),
+		access,
 	)
-	const { id, plan: changes } = await createPlan(
+	const data = found.get('data')
+	const { id, plan: steps } = await createPlan(
 		resolved.models,
 		model,
-		found.get('data'),
+		data,
 		caller,
 		adapter,
 	)
-	if (!isMaster(caller)) {
-		throw new PublicError('ACCESS_DENIED', `Cannot create ${model.name}.`, {
-			details: { model: model.name, operation: 'create' },
-		})
-	}
-	await changes.check(adapter)
+	access?.allow(model, 'create', { data })
+	await steps.check(adapter, access)
+	const changes = await steps.changes(adapter, access)
+	// The created row comes back even when the read rule would hide it.
 	const rows = await write(adapter, (store) =>
 		store.write({
-			changes: changes.changes,
+			changes,
 			read: { model: model.name, ...read, where: byId(id) },
 		}),
 	)
-	return first(rows, shape)
+	return first(rows, shape, access)
 }
 
 /** The stored row a single-row write targets, `NOT_FOUND` when unseen. */
@@ -239,8 +268,15 @@ async function target(
 	context: Context,
 	found: ReadonlyMap<string, unknown>,
 ): Promise<Row | undefined> {
-	const { resolved, adapter, model } = context
-	const where = uniqueWhere(resolved.models, model, found.get('where'), 'where')
+	const { resolved, adapter, model, access } = context
+	const unique = uniqueWhere(
+		resolved.models,
+		model,
+		found.get('where'),
+		'where',
+		access,
+	)
+	const where = visible(context, unique)
 	const [row] = await adapter.find({ model: model.name, where, take: 1 })
 	return row
 }
@@ -250,7 +286,7 @@ function notFound(model: string): PublicError {
 }
 
 async function update(context: Context, args: unknown): Promise<unknown> {
-	const { resolved, adapter, model, caller } = context
+	const { resolved, adapter, model, access } = context
 	const found = given(
 		args,
 		model.name,
@@ -264,29 +300,34 @@ async function update(context: Context, args: unknown): Promise<unknown> {
 		'',
 		'one',
 		new Set(['select', 'include']),
+		access,
 	)
 	const row = await target(context, found)
+	const data = found.get('data')
 	// The data is checked whether or not the row is found.
-	const changes = await updatePlan(
+	const steps = await updatePlan(
 		resolved.models,
 		model,
 		row?.id ?? '',
-		found.get('data'),
+		data,
 		adapter,
 	)
-	if (row === undefined || !isMaster(caller)) throw notFound(model.name)
-	await changes.check(adapter)
+	// A row the caller cannot read is not found (D-72).
+	if (row === undefined) throw notFound(model.name)
+	access?.allow(model, 'update', { record: row, data })
+	await steps.check(adapter, access)
+	const changes = await steps.changes(adapter, access)
 	const rows = await write(adapter, (store) =>
 		store.write({
-			changes: changes.changes,
+			changes,
 			read: { model: model.name, ...read, where: byId(row.id) },
 		}),
 	)
-	return first(rows, shape)
+	return first(rows, shape, access)
 }
 
 async function remove(context: Context, args: unknown): Promise<unknown> {
-	const { resolved, adapter, model, caller } = context
+	const { resolved, adapter, model, access } = context
 	const found = given(args, model.name, ['where'], ['where'])
 	const { shape } = plan(
 		resolved.models,
@@ -297,13 +338,14 @@ async function remove(context: Context, args: unknown): Promise<unknown> {
 		new Set(),
 	)
 	const row = await target(context, found)
-	if (row === undefined || !isMaster(caller)) throw notFound(model.name)
+	if (row === undefined) throw notFound(model.name)
+	access?.allow(model, 'delete', { record: row })
 	await write(adapter, (store) =>
 		store.write({
 			changes: [{ kind: 'delete', model: model.name, where: byId(row.id) }],
 		}),
 	)
-	return project(row, shape)
+	return project(row, shape, hiddenBy(access))
 }
 
 const operations: {
@@ -332,10 +374,8 @@ export async function query(
 	if (running === undefined || model === undefined) {
 		throw new Error(`${name} is not a model of a started application.`)
 	}
-	const context: Context = {
-		...running,
-		model,
-		caller: callerOf(options, name),
-	}
+	const caller = callerOf(options, name)
+	const access = accessFor(running.resolved.models, caller)
+	const context: Context = { ...running, model, caller, access }
 	return operations[operation](context, args)
 }

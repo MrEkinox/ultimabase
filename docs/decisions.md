@@ -2393,3 +2393,97 @@ Cost: about 2 s on `yarn test`, and the `@vitest/coverage-v8` devDependency.
 Rejected: one floor for the whole repository, which a large package can carry
 for a small one; a 95 % floor, which pushes tests for invariants that cannot
 fail.
+
+## D-86: Access rules on relations, filters and written rows
+
+Choice: five details of D-10, D-44 and D-78 at run time.
+
+1. A field rule on a `many` relation receives
+   `value: { connect, disconnect }`, each a list of `{ id }` as the caller
+   sent it, `[]` when absent.
+2. `create` and `update` return the written row even when the model's read
+   rule would hide it afterwards. Field read rules still hide its fields,
+   and its includes follow their own read rules. The result type stays
+   non-nullable.
+3. A caller other than Master that filters, sorts or targets a row (`where`,
+   `orderBy`, `cursor`, a unique `where`) on a field with a read rule, at
+   any depth, gets `INVALID_QUERY` with the path, as
+   `where.author.is.email: User.email has a read rule; only Master filters on it.`
+4. A row the caller cannot read is absent everywhere:
+   - an include leaves it out, and a `one` include reads `null`;
+   - relation filters (`is`, `isNot`, `some`, `every`, `none`) see only
+     readable rows, so `is: null` holds when the target is unreadable;
+   - a `connect` to it fails with `NOT_FOUND`
+     ('A connected Post does not exist.'), and a `disconnect` of it
+     changes nothing;
+   - `update`, `delete` and a `cursor` on it act as on a missing row.
+5. A read rule's `where` is trusted server code. The kernel ANDs it as
+   written: other models' read rules are not applied to its relation
+   conditions, and it may filter on fields that have a read rule.
+
+The rules D-78 runs on the other side's rows come with this slice; the
+update hooks it also calls come with the hooks.
+
+Why:
+
+1. The full list after the write needs a query, which a rule cannot make
+   (D-76). What the caller asked is what Parse's `AddRelation` and
+   `RemoveRelation` show.
+2. The creator supplied the data. A nullable result would add a null check
+   to every `create` for a rare case.
+3. Parse lets a query constrain a protected field, which leaks its value one
+   guess at a time. `ACCESS_DENIED` is for writes (D-72).
+4. Otherwise a count, an `is: null` or a failed `connect` tells a caller that
+   hidden rows exist.
+5. Applying other models' rules to a rule's own filter cycles when Comment
+   reads through Post and Post through Comment. The developer writes that
+   filter and answers for it.
+
+Limit: a field read rule's `record` holds a `one` relation as `{ id }`. When
+the same query includes that relation and the caller cannot read its target,
+the include is `null` and so is the key the rule sees, which fails closed for
+an owner check.
+
+Rejected:
+
+- the list after the write as the `many` value;
+- a nullable write result;
+- `ACCESS_DENIED` for a filter on a hidden field;
+- relation filters that count unreadable rows;
+- read rule filters rewritten with the target's rules.
+
+Example:
+
+```ts
+// Before: Parse, a protected field can still be queried
+const query = new Parse.Query('_User').startsWith('email', 'a')
+await query.count({ sessionToken }) // guesses the emails, letter by letter
+
+// After
+await User.count({ where: { email: { startsWith: 'a' } } }, { as: caller })
+// INVALID_QUERY where.email: User.email has a read rule; only Master filters on it.
+
+// 1. The many value
+comments: f.many(() => Comment).with({
+	access: { update: ({ value }) => value.disconnect.length === 0 },
+}),
+
+// 2. Drafts are unreadable, yet the author gets the draft they created
+const draft = await Post.create(
+	{ data: { title: 'Soon', status: 'draft', author: { connect: { id } } } },
+	{ as: caller },
+)
+draft.title // 'Soon'
+
+// 4. Unreadable rows are absent
+await Comment.count({ where: { post: { is: null } } }, { as: caller })
+// counts the comments of drafts
+await Comment.create(
+	{ data: { text: 'Hi', post: { connect: { id: draft.id } } } },
+	{ as: caller },
+)
+// NOT_FOUND A connected Post does not exist.
+
+// 5. A rule's filter is trusted: it may read the hidden email
+access: { read: ({ where }) => where({ author: { is: { email: { endsWith: '@team.io' } } } }) }
+```

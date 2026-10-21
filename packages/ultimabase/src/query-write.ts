@@ -1,55 +1,14 @@
 // `create` and `update` data, checked and turned into the adapter's changes:
 // values and relation writes by id, from either side (D-20, D-53, D-84).
-import type { Change, Filter, Row, ScalarType } from './adapter.ts'
-import { InvalidQuery, PublicError } from './errors.ts'
-import type { Issue } from './errors.ts'
+import type { Filter, Row, ScalarType } from './adapter.ts'
+import { InvalidQuery } from './errors.ts'
 import type { Caller } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { uuidv7 } from './uuid.ts'
 import type { Models } from './query-where.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
-
-/** The reads a write needs before it runs. */
-export type Reads = {
-	count(read: {
-		readonly model: string
-		readonly where?: Filter
-	}): Promise<number>
-}
-
-/** The changes of one write, and the ids its `connect`s need to exist. */
-export class Plan {
-	readonly changes: Change[] = []
-	readonly issues: Issue[] = []
-	private readonly connected = new Map<string, Set<string>>()
-
-	connect(model: string, ids: readonly string[]): void {
-		const set = this.connected.get(model) ?? new Set()
-		for (const id of ids) set.add(id)
-		this.connected.set(model, set)
-	}
-
-	/** Fails with the issues, then with `NOT_FOUND` for a missing target. */
-	async check(reads: Reads): Promise<void> {
-		if (this.issues.length > 0) {
-			throw new PublicError('VALIDATION_FAILED', 'Invalid data.', {
-				details: { issues: this.issues },
-			})
-		}
-		for (const [model, ids] of this.connected) {
-			const found = await reads.count({
-				model,
-				where: { id: { in: [...ids] } },
-			})
-			if (found !== ids.size) {
-				throw new PublicError(
-					'NOT_FOUND',
-					`A connected ${model} does not exist.`,
-				)
-			}
-		}
-	}
-}
+import type { Reads, Step } from './write-plan.ts'
+import { Plan } from './write-plan.ts'
 
 const byId = (id: string): Filter => ({ id: { equals: id } })
 const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
@@ -141,8 +100,8 @@ type Context = {
 	readonly plan: Plan
 	readonly reads: Reads
 	readonly set: { [field: string]: unknown }
-	/** The changes that run after the row's own. */
-	readonly after: Change[]
+	/** The steps that run after the row's own. */
+	readonly after: Step[]
 }
 
 function scalar(context: Context, field: FieldInfo, value: unknown): void {
@@ -221,10 +180,12 @@ async function one(
 	}
 	if (target !== undefined) {
 		context.after.push({
-			kind: 'update',
+			kind: 'move',
 			model: field.target,
+			field: field.inverse,
+			via: `${name}.${field.name}`,
 			where: byId(target),
-			set: { [field.inverse]: context.id },
+			to: context.id,
 		})
 	}
 }
@@ -250,22 +211,31 @@ function many(
 		: []
 	context.plan.connect(field.target, connect)
 	if (field.join) {
-		for (const [kind, targets] of [
-			['unlink', disconnect],
-			['link', connect],
-		] as const) {
-			if (targets.length === 0) continue
+		const link = {
+			model: context.model.name,
+			field: field.name,
+			id: context.id,
+		}
+		if (disconnect.length > 0) {
 			context.after.push({
-				kind,
-				model: context.model.name,
-				field: field.name,
-				id: context.id,
-				targets,
+				kind: 'detach',
+				...link,
+				targets: disconnect,
+				target: field.target,
 			})
+		}
+		if (connect.length > 0) {
+			context.after.push({ kind: 'link', ...link, targets: connect })
 		}
 		return
 	}
 	const inverse = context.models.get(field.target)?.fields.get(field.inverse)
+	const move = {
+		kind: 'move',
+		model: field.target,
+		field: field.inverse,
+		via: `${context.model.name}.${field.name}`,
+	} as const
 	if (disconnect.length > 0) {
 		if (inverse?.kind === 'one' && !inverse.optional) {
 			context.plan.issues.push({
@@ -274,23 +244,17 @@ function many(
 			})
 		} else {
 			context.after.push({
-				kind: 'update',
-				model: field.target,
+				...move,
 				where: {
 					...byIds(disconnect),
 					[field.inverse]: { is: byId(context.id) },
 				},
-				set: { [field.inverse]: null },
+				to: null,
 			})
 		}
 	}
 	if (connect.length > 0) {
-		context.after.push({
-			kind: 'update',
-			model: field.target,
-			where: byIds(connect),
-			set: { [field.inverse]: context.id },
-		})
+		context.after.push({ ...move, where: byIds(connect), to: context.id })
 	}
 }
 
@@ -358,10 +322,7 @@ export async function createPlan(
 		createdAt: new Date(now),
 		updatedAt: new Date(now),
 	}
-	plan.changes.push(
-		{ kind: 'insert', model: model.name, row },
-		...context.after,
-	)
+	plan.steps.push({ kind: 'insert', model: model.name, row }, ...context.after)
 	return { id, plan }
 }
 
@@ -384,7 +345,7 @@ export async function updatePlan(
 		after: [],
 	}
 	await fields(context, data, false)
-	plan.changes.push(
+	plan.steps.push(
 		{
 			kind: 'update',
 			model: model.name,
