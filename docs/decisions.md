@@ -2081,8 +2081,9 @@ export const Comment = defineModel({ name: 'Comment', fields }).with({
 ## D-77: Rules and hooks see a `one` relation's key
 
 Choice: the stored record access rules and hooks receive (`record`,
-`previous`) holds each `one` relation as `{ id }`, or `null` when the
-relation is optional and unset. A `many` relation stays absent. Query results
+`previous`) holds each `one` relation the row stores as `{ id }`, or `null`
+when the relation is optional and unset; the optional side of a one-to-one
+stores none (D-87). A `many` relation stays absent. Query results
 are unchanged: a relation appears only through `include` or `select` (D-74),
 and `caller.user` keeps its fields (D-62).
 Why: "only the author changes it" is the most common rule, and the key is a
@@ -2486,4 +2487,55 @@ await Comment.create(
 
 // 5. A rule's filter is trusted: it may read the hidden email
 access: { read: ({ where }) => where({ author: { is: { email: { endsWith: '@team.io' } } } }) }
+```
+
+## D-87: A rule's record omits the optional side of a one-to-one
+
+Choice: the `record` and `previous` types of access rules and hooks hold only
+the `one` relations the row stores (D-37). The optional side of a one-to-one
+is absent, as it already is at run time. Startup's inverse resolution decides
+which side that is: a named `inverse`, or else the target's `one` relation
+that points back to the model.
+Why: that side has no column, and reading the key from the other table is a
+query, which a rule cannot make (D-76, D-77). A field that the type offers
+but that is always `undefined` reads as "unset" and fails an owner check
+silently.
+Cost: typing 200 models with a one-to-one each goes from 405,172 to 661,306
+instantiations, and type checking from about 0.25 s to 0.34 s.
+Rejected:
+
+- loading the key with a query for each rule;
+- `{ id } | null | undefined` on that side;
+- write rules that return a filter ANDed into the write, as ZenStack does: it
+  reads the other side in the database, but a create must write, check and
+  roll back (D-36), which runs the hooks before the rule (D-67). To revisit
+  if usage asks for it.
+
+Example:
+
+```ts
+// Before: Parse, the pointer lives on one side only
+const passport = await new Parse.Query('Passport')
+	.equalTo('holder', person)
+	.first({ useMasterKey: true }) // a query to learn whether one exists
+
+// After: the stored side holds the key, the other side has none
+export const Passport = defineModel({
+	name: 'Passport',
+	fields: { holder: f.one(() => Person) },
+}).with({
+	access: {
+		delete: ({ caller, record }) =>
+			caller.kind === 'user' && record.holder.id === caller.user.id,
+	},
+})
+export const Person = defineModel({
+	name: 'Person',
+	fields: { passport: f.one(() => Passport, { optional: true }) },
+}).with({
+	access: {
+		delete: ({ record }) => record.passport === null,
+		// error TS2339: Property 'passport' does not exist on type 'StoredRecord<...>'
+	},
+})
 ```

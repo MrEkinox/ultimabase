@@ -552,6 +552,99 @@ describe('write rules', () => {
 	})
 })
 
+// Each rule records the keys of the record it receives.
+const keys: { [model: string]: string[] } = {}
+const seenKeys = (model: string, record: object): boolean => {
+	keys[model] = Object.keys(record).toSorted()
+	return true
+}
+
+// The holder's passport stores the key; the issuer side names its inverse.
+const Person = defineModel({
+	name: 'Person',
+	fields: (f) => ({
+		name: f.string(),
+		passport: f.one(() => Passport, { optional: true }),
+		issued: f.many(() => Passport, { inverse: 'issuer' }),
+	}),
+}).with({
+	access: {
+		read: () => true,
+		write: () => true,
+		delete: ({ record }) => {
+			// @ts-expect-error: the Passport row stores this key (D-37).
+			void record.passport
+			return seenKeys('Person', record)
+		},
+	},
+})
+
+const Passport = defineModel({
+	name: 'Passport',
+	fields: (f) => ({
+		holder: f.one(() => Person),
+		issuer: f.one(() => Person, { optional: true, inverse: 'issued' }),
+	}),
+}).with({
+	access: {
+		read: () => true,
+		write: () => true,
+		delete: ({ record }) =>
+			seenKeys('Passport', record) &&
+			record.holder.id !== '' &&
+			record.issuer?.id !== '',
+	},
+})
+
+// A one-to-one of a model with itself, without a named inverse.
+const Node = defineModel({
+	name: 'Node',
+	fields: (f) => ({
+		next: f.one(() => Node, { optional: true }),
+		previous: f.one(() => Node),
+	}),
+}).with({
+	access: {
+		update: ({ record }) => {
+			// @ts-expect-error: the next Node stores this key (D-37).
+			void record.next
+			return record.previous.id !== ''
+		},
+	},
+})
+
+// An optional one facing a many stores its key.
+const Shelf = defineModel({
+	name: 'Shelf',
+	fields: (f) => ({ items: f.many(() => Item) }),
+})
+const Item = defineModel({
+	name: 'Item',
+	fields: (f) => ({ shelf: f.one(() => Shelf, { optional: true }) }),
+}).with({ access: { delete: ({ record }) => record.shelf === null } })
+
+describe('a write rule record (D-77, D-87)', () => {
+	it('holds the keys its row stores, not the optional side of a one-to-one', async () => {
+		await app.stop()
+		app = defineApp({
+			database: memory(),
+			models: [Person, Passport, Node, Shelf, Item],
+		})
+		await app.start()
+		const holder = await Person.create({ data: { name: 'Ada' } }, M)
+		const passport = await Passport.create(
+			{ data: { holder: { connect: { id: holder.id } } } },
+			M,
+		)
+		await Passport.delete({ where: { id: passport.id } }, ada)
+		await Person.delete({ where: { id: holder.id } }, ada)
+		expect(keys).toEqual({
+			Passport: ['createdAt', 'holder', 'id', 'issuer', 'updatedAt'],
+			Person: ['createdAt', 'id', 'name', 'updatedAt'],
+		})
+	})
+})
+
 describe('a rule that breaks the contract', () => {
 	it('fails with a TypeError', async () => {
 		expect(await broken({ read: () => 3 }, 'count')).toBe(

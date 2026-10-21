@@ -75,6 +75,7 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [x] Callers and `master` (D-19), model and field access (D-10, D-44),
       relation writes from the other side (D-78),
       `anyOf` and `allOf` filters (D-81).
+- [x] A rule's record omits the optional side of a one-to-one (D-87).
 - [ ] Hooks in the order of D-67, validation (D-23), errors (D-28, D-82),
       transactions (D-36).
 - [ ] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57).
