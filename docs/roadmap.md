@@ -85,7 +85,12 @@ validation and functions included, stays within Phase 1's exit criterion.
       package. Kernel tests build user callers with
       `asUser` (D-80).
 
-Exit: soft delete under 150 lines (D-15); the kernel within its budget.
+Exit: soft delete under 150 lines (D-15); the kernel within its budget. The
+full typing campaign, run again on the package, stays within reach of the
+reference of
+[Phase 1b closed](../bench/typing/README.md#phase-1b-closed-the-full-campaign):
+at 200 models with field rules and schemas, a query edit under 800 ms
+(696 ms then) and a model edit under 50 ms (30 ms then).
 
 ## Phase 3: PostgreSQL adapter
 
