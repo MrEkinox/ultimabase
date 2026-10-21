@@ -519,6 +519,21 @@ milliseconds.
 the models; check time stays within its spread. The types are only computed
 where an application names them.
 
+## Phase 1b: a `one` relation's key in rules and hooks
+
+The stored record rules and hooks receive holds each `one` relation's
+`{ id }` (D-77). Same method, "before" being `c3e3d0f5`.
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 043 775 |        552 |
+| After, 200         |      1 054 622 |        539 |
+| Before, 200, rules |      1 485 800 |        703 |
+| After, 200, rules  |      1 496 647 |        707 |
+
+10 847 instantiations more (+1.0 % and +0.7 %), the same for both projects,
+about 54 per model; check time stays within its spread.
+
 ## Reproducing
 
 ```bash

@@ -44,6 +44,24 @@ export type RecordOf<F> = SystemFields & {
 	readonly [K in keyof F as F[K] extends Scalar ? K : never]: StoredValue<F[K]>
 }
 
+/** A stored `one` relation: its key, `null` when optional and unset. */
+type StoredRef<X> =
+	X extends Relation<'one', unknown, infer O>
+		? IsOptional<O> extends true
+			? { readonly id: string } | null
+			: { readonly id: string }
+		: never
+
+/**
+ * The stored row access rules and hooks receive (D-77): the record plus each
+ * `one` relation's key, which the row already holds.
+ */
+export type StoredRecord<F> = RecordOf<F> & {
+	readonly [
+		K in keyof F as F[K] extends Relation<'one'> ? K : never
+	]: StoredRef<F[K]>
+}
+
 type Loose = { readonly id: string; readonly [field: string]: unknown }
 
 /**

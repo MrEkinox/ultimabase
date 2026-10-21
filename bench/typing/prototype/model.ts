@@ -4,6 +4,7 @@ import type { Queries, Where } from './query.ts'
 import type {
 	CreateData,
 	RecordOf,
+	StoredRecord,
 	TargetFields,
 	UpdateData,
 } from './record.ts'
@@ -24,13 +25,13 @@ type CreateFacts<F> = {
 type UpdateFacts<F> = {
 	readonly caller: Caller
 	readonly operation: 'update'
-	readonly record: RecordOf<F>
+	readonly record: StoredRecord<F>
 	readonly value: UpdateData<F>
 }
 type DeleteFacts<F> = {
 	readonly caller: Caller
 	readonly operation: 'delete'
-	readonly record: RecordOf<F>
+	readonly record: StoredRecord<F>
 }
 
 /** A read filter; only the `where` a read rule receives builds one (D-10). */
@@ -62,10 +63,10 @@ export type ModelAccess<F> =
 type Hook<Facts> = (
 	facts: Facts & { readonly caller: Caller },
 ) => void | Promise<void>
-type RecordHook<F> = Hook<{ readonly record: RecordOf<F> }>
+type RecordHook<F> = Hook<{ readonly record: StoredRecord<F> }>
 type UpdatedHook<F> = Hook<{
-	readonly record: RecordOf<F>
-	readonly previous: RecordOf<F>
+	readonly record: StoredRecord<F>
+	readonly previous: StoredRecord<F>
 }>
 /** The data a `before*` hook changes in place (D-71). */
 type Draft<D> = { -readonly [K in keyof D]: D[K] }
@@ -79,7 +80,7 @@ export type ModelHooks<F> = {
 	}) => ReadFilter | void | Promise<ReadFilter | void>
 	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F>> }>
 	readonly beforeUpdate?: Hook<{
-		readonly record: RecordOf<F>
+		readonly record: StoredRecord<F>
 		readonly data: Draft<UpdateData<F>>
 	}>
 	readonly beforeDelete?: RecordHook<F>

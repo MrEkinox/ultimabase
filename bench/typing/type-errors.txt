@@ -262,7 +262,7 @@ prototype/example/hooks.ts: `titel` is not a field of Doc.
 TS2551: Property 'titel' does not exist on type 'Draft<CreateData<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>>'. Did you mean 'title'?
 
 prototype/example/hooks.ts: a created record has no previous version.
-TS2339: Property 'previous' does not exist on type '{ readonly record: RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>; } & { ...; }'.
+TS2339: Property 'previous' does not exist on type '{ readonly record: StoredRecord<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>; } & { ...'.
 
 prototype/example/hooks.ts: `afterFind` is not a hook (D-71).
 TS2353: Object literal may only specify known properties, and 'afterFind' does not exist in type 'ModelHooks<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly status: Field<"archived" | "draft" | "published", ScalarOptions<"archived" | "draft" | "published">, never, never, "archived" | ... 1 more ... | "published">; readonly locked: Field<...>; }>'.
@@ -320,7 +320,7 @@ prototype/example/plugin-own.ts: `trashedAt` is a date.
 TS2322: Type 'string' is not assignable to type 'Date'.
 
 prototype/example/plugin-own.ts: the plugin cannot read a model's field.
-TS2339: Property 'title' does not exist on type 'RecordOf<{ readonly trashedAt: Field<Date, { readonly optional: true; }, never, never, Date>; }>'.
+TS2339: Property 'title' does not exist on type 'StoredRecord<{ readonly trashedAt: Field<Date, { readonly optional: true; }, never, never, Date>; }>'.
 
 prototype/example/plugin-own.ts: `trahs` is not a command of the plugin.
 TS2367: This comparison appears to be unintentional because the types '"trash" | undefined' and '"trahs"' have no overlap.
@@ -452,6 +452,12 @@ TS2322: Type '"text"' is not assignable to type 'ScalarKeys<{ readonly body: Fie
 prototype/example/shared-use.ts: Note uses soft delete, missing from `plugins`.
 TS2345: Argument of type '{ database: Database; plugins: [PluginValue<"acl", never>]; models: [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; }' is not assignable to parameter of type '{ readonly database: Database; readonly plugins?: readonly [PluginValue<"acl", never>]; readonly models: readonly [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; readonly functions?: []; readonly masterKey?: MasterKe...'.
   Property 'pluginError' is missing in type '{ database: Database; plugins: [PluginValue<"acl", never>]; models: [ModelOf<"Note", { readonly body: Field<string, ScalarOptions<string>, never, Acl | SoftDelete, string>; }, (ModelUse<...> | ModelUse<...>)[], []>]; }' but required in type '{ readonly pluginError: "a model uses 'softDelete', which is not in plugins"; }'.
+
+prototype/example/stored-record.ts: an optional relation's key may be `null`.
+TS18047: 'record.editor' is possibly 'null'.
+
+prototype/example/stored-record.ts: a `many` relation has no key in the row.
+TS2339: Property 'books' does not exist on type 'StoredRecord<{ readonly text: Field<string, ScalarOptions<string>, never, never, string>; readonly author: One<() => Model<"Author", { readonly name: Field<string, { readonly unique: true; }, never, never, string>; readonly level: Field<...>; readonly books: Many<...>; readonly favorite: One<...>; }, never, WithKeys...'.
 
 prototype/example/typos.ts: `titel` is not a field.
 TS2322: Type '"x"' is not assignable to type '"x" & { readonly error: "'titel' is not a key here"; }'.

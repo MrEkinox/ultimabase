@@ -60,6 +60,7 @@ written, so that Phase 2 moves its types instead of discovering them.
       D-58).
 - [x] A model's and a function's types (D-74), a function's `run` (D-75),
       `isAuthenticated` (D-10); access rules stay synchronous (D-76).
+- [x] Rules and hooks see a `one` relation's key (D-77).
 
 Exit: every typed part of 0.1 has a prototype example, and the benchmark,
 validation and functions included, stays within Phase 1's exit criterion.
@@ -67,7 +68,8 @@ validation and functions included, stays within Phase 1's exit criterion.
 ## Phase 2: Kernel slice on `memory()`
 
 - [ ] 0.1 field types and the 0.1 query subset (D-20).
-- [ ] Callers and `master` (D-19), model and field access (D-10, D-44).
+- [ ] Callers and `master` (D-19), model and field access (D-10, D-44),
+      relation writes from the other side (D-78).
 - [ ] Hooks in the order of D-67, validation (D-23), errors (D-28),
       transactions (D-36).
 - [ ] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57).

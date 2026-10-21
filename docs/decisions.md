@@ -2076,3 +2076,66 @@ export const Comment = defineModel({ name: 'Comment', fields }).with({
 	},
 })
 ```
+
+## D-77: Rules and hooks see a `one` relation's key
+
+Choice: the stored record access rules and hooks receive (`record`,
+`previous`) holds each `one` relation as `{ id }`, or `null` when the
+relation is optional and unset. A `many` relation stays absent. Query results
+are unchanged: a relation appears only through `include` or `select` (D-74),
+and `caller.user` keeps its fields (D-62).
+Why: "only the author changes it" is the most common rule, and the key is a
+column of the row the kernel already loads (D-48): no query, so rules stay
+synchronous (D-76).
+Rejected: loading the related record for rules, a query per check; a
+separate `authorId` field, Prisma's spelling, which doubles every relation.
+Example:
+
+```ts
+// Before: Parse, an ACL per object, or a check in beforeSave
+Parse.Cloud.beforeSave('Post', ({ object, original, user }) => {
+	if (original && original.get('author').id !== user?.id)
+		throw new Parse.Error(119, 'Not your post.')
+})
+
+// After: the rule reads the stored key
+export const Post = defineModel({ name: 'Post', fields }).with({
+	access: {
+		update: ({ caller, record }) =>
+			caller.kind === 'user' && record.author.id === caller.user.id,
+	},
+})
+```
+
+## D-78: A relation write from the other side updates the target
+
+Choice: when a `connect` or `disconnect` changes the key stored on the
+target's rows (from the `many` side of a one-to-many, or the side of a
+one-to-one that does not store the key), each changed target row is updated
+as `Target.update` would update it: its `update` rule, its field rule on that
+relation (D-44) and its update hooks run, with `caller` unchanged. A
+many-to-many write changes only the join table and runs the rules of the
+model written. Master skips the rules, as everywhere (D-48).
+Why: otherwise writing from the other side of a relation would bypass the
+target's rules and hooks; D-48 already loads the connected rows once, so the
+rule costs no extra statement.
+Rejected: the rule of the model written alone, a way around every rule of
+the target.
+Example:
+
+```ts
+// Comment.post is written by Master only
+export const Comment = defineModel({ name: 'Comment', fields }).with({
+	access: {
+		read: allow.public,
+		write: ({ caller }) => caller.kind === 'master',
+	},
+})
+
+// Moves comment c1 to post p2: Comment's update rule runs on c1, so a user
+// caller gets ACCESS_DENIED; `{ as: master }` passes.
+await Post.update(
+	{ where: { id: 'p2' }, data: { comments: { connect: [{ id: 'c1' }] } } },
+	{ as: caller },
+)
+```
