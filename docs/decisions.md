@@ -2327,3 +2327,47 @@ Memo.with({ access: { update: editorOrAuthor, delete: editorOrAuthor } })
 delete: isOwner('ownr')
 // Argument of type '"ownr"' is not assignable to parameter of type '"author"'.
 ```
+
+## D-84: `undefined` in data leaves a field unchanged
+
+Choice: as in Prisma, a key whose value is `undefined` is ignored: in a
+`where` it adds no condition (D-19), in `data` it leaves the field unchanged
+(update) or unset (create, where the default applies), and in `take`, `skip`,
+`orderBy` or `cursor` it is as if the key were absent. `null` keeps its
+meaning: it clears an optional field. The types accept `undefined` on every
+optional key, so they hold under `exactOptionalPropertyTypes`; a required
+create field still refuses it. The kernel drops these keys before hooks see
+`data` and before the adapter receives anything (D-73).
+Why: a partial update built from a schema's optional fields, the most common
+function, failed to compile under `exactOptionalPropertyTypes`, and the
+prototype refused the `undefined` that D-19 already allowed in a `where`.
+Limit: a field cannot be set to `undefined` to mean "clear it"; that is `null`.
+`select` and `include` still take no `undefined`, since they shape the result
+type.
+Cost: none measured, 2 240 940 instantiations on the 200-model project with
+rules and schemas (2 240 972 before).
+Rejected: refusing `undefined` and asking for spreads such as
+`...(title === undefined ? {} : { title })`, which is what Parse code does by
+hand.
+Example:
+
+```ts
+// Before: Parse
+const post = await new Parse.Query('Post').get(id, { sessionToken })
+if (title !== undefined) post.set('title', title)
+if (body !== undefined) post.set('body', body)
+await post.save(null, { sessionToken })
+
+// After
+export const editPost = defineFunction({
+	name: 'editPost',
+	input: z.object({
+		id: z.string(),
+		title: z.string().optional(),
+		body: z.string().optional(),
+	}),
+	output: Post,
+	run: ({ input: { id, ...data }, caller }) =>
+		Post.update({ where: { id }, data }, { as: caller }),
+})
+```

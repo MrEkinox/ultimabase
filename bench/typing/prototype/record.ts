@@ -120,12 +120,14 @@ export type CreateData<F> = {
 		F[K]
 	>
 } & {
-	readonly [
-		K in keyof F as Needed<F[K]> extends true ? never : K
-	]?: CreateInput<F[K]>
+	readonly [K in keyof F as Needed<F[K]> extends true ? never : K]?:
+		CreateInput<F[K]> | undefined
 }
 
-export type UpdateData<F> = { readonly [K in keyof F]?: UpdateInput<F[K]> }
+/** `undefined` leaves a field unchanged, as in Prisma (D-84). */
+export type UpdateData<F> = {
+	readonly [K in keyof F]?: UpdateInput<F[K]> | undefined
+}
 
 export type ScalarKeys<F> = {
 	[K in keyof F]: F[K] extends Scalar ? K : never

@@ -29,23 +29,23 @@ type OptionalOne<X> = X extends {
 	: never
 
 type ScalarFilter<V> = {
-	readonly equals?: V | null
-	readonly not?: V | null
-	readonly in?: readonly V[]
-	readonly notIn?: readonly V[]
+	readonly equals?: V | null | undefined
+	readonly not?: V | null | undefined
+	readonly in?: readonly V[] | undefined
+	readonly notIn?: readonly V[] | undefined
 } & ([V] extends [number | Date]
 	? {
-			readonly lt?: V
-			readonly lte?: V
-			readonly gt?: V
-			readonly gte?: V
+			readonly lt?: V | undefined
+			readonly lte?: V | undefined
+			readonly gt?: V | undefined
+			readonly gte?: V | undefined
 		}
 	: unknown) &
 	([V] extends [string]
 		? {
-				readonly contains?: string
-				readonly startsWith?: string
-				readonly endsWith?: string
+				readonly contains?: string | undefined
+				readonly startsWith?: string | undefined
+				readonly endsWith?: string | undefined
 			}
 		: unknown)
 
@@ -54,24 +54,24 @@ type FilterOf<X> =
 		? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
 		: KindOf<X> extends 'one'
 			? {
-					readonly is?: Where<TargetFields<TargetOf<X>>> | null
-					readonly isNot?: Where<TargetFields<TargetOf<X>>> | null
+					readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
+					readonly isNot?: Where<TargetFields<TargetOf<X>>> | null | undefined
 				}
 			: {
-					readonly some?: Where<TargetFields<TargetOf<X>>>
-					readonly every?: Where<TargetFields<TargetOf<X>>>
-					readonly none?: Where<TargetFields<TargetOf<X>>>
+					readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
+					readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
+					readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
 				}
 
 export type Where<F> = {
-	readonly [K in keyof F]?: FilterOf<F[K]>
+	readonly [K in keyof F]?: FilterOf<F[K]> | undefined
 } & {
-	readonly id?: string | ScalarFilter<string>
-	readonly createdAt?: Date | ScalarFilter<Date>
-	readonly updatedAt?: Date | ScalarFilter<Date>
-	readonly AND?: Where<F> | readonly Where<F>[]
-	readonly OR?: readonly Where<F>[]
-	readonly NOT?: Where<F> | readonly Where<F>[]
+	readonly id?: string | ScalarFilter<string> | undefined
+	readonly createdAt?: Date | ScalarFilter<Date> | undefined
+	readonly updatedAt?: Date | ScalarFilter<Date> | undefined
+	readonly AND?: Where<F> | readonly Where<F>[] | undefined
+	readonly OR?: readonly Where<F>[] | undefined
+	readonly NOT?: Where<F> | readonly Where<F>[] | undefined
 }
 
 /** A unique index's value: a scalar's, or a `one` relation's target id. */
@@ -95,7 +95,7 @@ export type UniqueWhere<F, X = never> =
 
 type Direction = 'asc' | 'desc'
 export type OrderBy<F> = {
-	readonly [K in ScalarKeys<F> | keyof SystemFields]?: Direction
+	readonly [K in ScalarKeys<F> | keyof SystemFields]?: Direction | undefined
 }
 
 type RelationArgs<X> = {
@@ -103,11 +103,11 @@ type RelationArgs<X> = {
 	readonly include?: Include<TargetFields<TargetOf<X>>>
 } & (KindOf<X> extends 'many'
 	? {
-			readonly where?: Where<TargetFields<TargetOf<X>>>
-			readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>>
-			readonly take?: number
-			readonly skip?: number
-			readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>>
+			readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
+			readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
+			readonly take?: number | undefined
+			readonly skip?: number | undefined
+			readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>> | undefined
 		}
 	: unknown)
 
@@ -158,13 +158,13 @@ export type QueryOptions = { readonly as?: Caller }
 
 /** `findMany` and `findFirst`; `cursor` starts at a unique target. */
 export type FindManyArgs<F, X = never> = {
-	readonly where?: Where<F>
+	readonly where?: Where<F> | undefined
 	readonly select?: Select<F>
 	readonly include?: Include<F>
-	readonly orderBy?: OrderBy<F> | readonly OrderBy<F>[]
-	readonly take?: number
-	readonly skip?: number
-	readonly cursor?: UniqueWhere<F, X>
+	readonly orderBy?: OrderBy<F> | readonly OrderBy<F>[] | undefined
+	readonly take?: number | undefined
+	readonly skip?: number | undefined
+	readonly cursor?: UniqueWhere<F, X> | undefined
 }
 
 export type FindUniqueArgs<F, X = never> = {

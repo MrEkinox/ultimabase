@@ -426,7 +426,7 @@ prototype/example/queries.ts: a required pointer cannot be unset
 TS2561: Object literal may only specify known properties, but 'disconnect' does not exist in type 'Connect'. Did you mean to write 'connect'?
 
 prototype/example/queries.ts: a pointer is unset with `disconnect`, not `null`
-TS2322: Type 'null' is not assignable to type 'Connect | { readonly disconnect: true; }'.
+TS2322: Type 'null' is not assignable to type 'Connect | { readonly disconnect: true; } | undefined'.
 
 prototype/example/queries.ts: a new record has nothing to disconnect
 TS2561: Object literal may only specify known properties, but 'disconnect' does not exist in type 'Connect'. Did you mean to write 'connect'?
@@ -447,7 +447,7 @@ prototype/example/relations.ts: `pages` is a number on Book, one level down.
 TS2322: Type 'string' is not assignable to type 'number | ScalarFilter<number> | null | undefined'.
 
 prototype/example/relations.ts: a to-one relation takes `is`, not `some`.
-TS2353: Object literal may only specify known properties, and 'some' does not exist in type '{ readonly is?: Where<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly pages: Field<number, { readonly optional: true; }, never, never, number>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }> | null; readonly isNot?: Where<...> | null; }'.
+TS2353: Object literal may only specify known properties, and 'some' does not exist in type '{ readonly is?: Where<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly pages: Field<number, { readonly optional: true; }, never, never, number>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }> | null | undefined; readonly isNot?: Where<......'.
 
 prototype/example/relations.ts: `email` is not a field of Author, three levels down.
 TS2353: Object literal may only specify known properties, and 'email' does not exist in type 'Select<{ readonly name: Field<string, { readonly unique: true; }, never, never, string>; readonly level: Field<"junior" | "senior", ScalarOptions<"junior" | "senior">, never, never, "junior" | "senior">; readonly books: Many<...>; readonly favorite: One<...>; }>'.
@@ -547,6 +547,12 @@ TS2322: Type '3' is not assignable to type '3 & { readonly error: "'pagez' is no
 prototype/example/typos.ts: `titel` is not a field, next to a spread filter.
 TS2322: Type '"x"' is not assignable to type '"x" & { readonly error: "'titel' is not a key here"; }'.
   Type 'string' is not assignable to type '{ readonly error: "'titel' is not a key here"; }'.
+
+prototype/example/undefined-values.ts: `undefined` does not make a wrong value right.
+TS2322: Type 'string' is not assignable to type 'number'.
+
+prototype/example/undefined-values.ts: a required field cannot be left `undefined`.
+TS2322: Type 'undefined' is not assignable to type 'string'.
 
 prototype/example/validation.ts: `theme` is 'light' or 'dark'.
 TS2322: Type '"blue"' is not assignable to type '"dark" | "light"'.

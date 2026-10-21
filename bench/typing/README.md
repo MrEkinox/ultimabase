@@ -578,6 +578,9 @@ against the closing campaign below; times in ms.
 92 instantiations more; both edits stay within their spread, so the closing
 campaign remains the Phase 2 reference.
 
+After D-84, which accepts `undefined` on every optional query key: 2 240 940
+instantiations, query edit 692 ms (691, 702), model edit 29 ms (29, 29).
+
 ## Phase 1b closed: the full campaign
 
 On 2026-10-21, at `65035502`, with every decision up to D-82: three

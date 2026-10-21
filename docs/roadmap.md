@@ -64,6 +64,7 @@ written, so that Phase 2 moves its types instead of discovering them.
 - [x] auth's `signedIn` and `isOwner` (D-79).
 - [x] `anyOf` and `allOf` combine read filters (D-81).
 - [x] Shared `anyOf` and `allOf` rules, `isOwner` checked on its name (D-83).
+- [x] `undefined` ignored in `where`, `data` and query options (D-84).
 
 Exit: every typed part of 0.1 has a prototype example, and the benchmark,
 validation and functions included, stays within Phase 1's exit criterion.
