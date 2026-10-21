@@ -249,8 +249,8 @@ async function create(context: Context, args: unknown): Promise<unknown> {
 		data,
 		caller,
 		adapter,
+		access,
 	)
-	access?.allow(model, 'create', { data })
 	await steps.check(adapter, access)
 	const changes = await steps.changes(adapter, access)
 	// The created row comes back even when the read rule would hide it.

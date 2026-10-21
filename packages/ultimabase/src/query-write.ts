@@ -2,6 +2,7 @@
 // values and relation writes by id, from either side (D-20, D-53, D-84).
 import type { Filter, Row, ScalarType } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
+import type { Access } from './access.ts'
 import type { Caller } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { uuidv7 } from './uuid.ts'
@@ -276,13 +277,17 @@ async function fields(
 	return given
 }
 
-/** `create`'s changes: the row with its id, timestamps and defaults (D-22). */
+/**
+ * `create`'s changes: the row with its id, timestamps and defaults (D-22).
+ * The access rules judge what the caller sent before any default runs (D-67).
+ */
 export async function createPlan(
 	models: Models,
 	model: ModelInfo,
 	data: unknown,
 	caller: Caller,
 	reads: Reads,
+	access: Access | undefined,
 ): Promise<{ readonly id: string; readonly plan: Plan }> {
 	const id = uuidv7()
 	const plan = new Plan()
@@ -296,6 +301,7 @@ export async function createPlan(
 		after: [],
 	}
 	const given = await fields(context, data, true)
+	access?.allow(model, 'create', { data })
 	for (const field of model.fields.values()) {
 		if (given.has(field.name) || field.kind === 'many') continue
 		const fallback = field.options['default']

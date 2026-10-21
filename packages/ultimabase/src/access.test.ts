@@ -97,9 +97,18 @@ const Tag = defineModel({
 	},
 })
 
+let defaults = 0
 const Note = defineModel({
 	name: 'Note',
-	fields: (f) => ({ text: f.string() }),
+	fields: (f) => ({
+		text: f.string(),
+		stamp: f.string({
+			default: () => {
+				defaults += 1
+				return 'now'
+			},
+		}),
+	}),
 })
 
 const M = { as: master }
@@ -238,8 +247,10 @@ describe('a model', () => {
 			code: 'ACCESS_DENIED',
 			details: { model: 'Note', operation: 'create' },
 		})
+		// The refused write runs no default (D-67).
+		expect(defaults).toBe(0)
 		await Note.create({ data: { text: 'x' } }, M)
-		expect(await Note.count({}, M)).toBe(1)
+		expect(defaults).toBe(1)
 	})
 
 	it('takes one rule for every operation', async () => {
