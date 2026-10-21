@@ -564,6 +564,35 @@ uses `anyOf` in its generated models.
 1 500 instantiations more on the rules project (+0.1 %), none on the other;
 check time stays within its spread.
 
+## Phase 1b closed: the full campaign
+
+On 2026-10-21, at `65035502`, with every decision up to D-82: three
+interleaved runs, the previous base included, medians in milliseconds (memory
+in MB); load average 1.3 to 3.7. The edits are those of the D-12 benchmark.
+Every `tsc -p` exited 0, every first check reported 0 errors and every edit
+exactly one. The previous base has no 500-model project.
+
+| Project                 | Instantiations | `tsc` | Memory | Query: first | Query: edit | Model: first | Model: edit |
+| ----------------------- | -------------: | ----: | -----: | -----------: | ----------: | -----------: | ----------: |
+| Previous base, 10       |      1 337 951 |   413 |    206 |          288 |         220 |          291 |         224 |
+| Prototype, 10           |        112 736 |   133 |     86 |           64 |          28 |           48 |          14 |
+| Previous base, 50       |      4 326 373 |   999 |    323 |          631 |         560 |          442 |         359 |
+| Prototype, 50           |        311 032 |   223 |    113 |          147 |         101 |           63 |          13 |
+| Previous base, 200      |     20 099 545 | 4 210 |    778 |        1 971 |       1 823 |        1 066 |         883 |
+| Prototype, 200          |      1 054 628 |   590 |    209 |          525 |         391 |          157 |          19 |
+| + field rules           |      1 498 153 |   757 |    265 |          658 |         522 |          165 |          22 |
+| + schemas               |      1 720 285 | 1 025 |    345 |          663 |         543 |          172 |          29 |
+| + rules and schemas     |      2 240 880 | 1 205 |    405 |          824 |         696 |          176 |          30 |
+| Prototype, 500          |      2 541 848 | 1 363 |    409 |        1 542 |       1 052 |          547 |          14 |
+| Previous base, wide 120 |      2 411 201 |   544 |    215 |          365 |         291 |          417 |         347 |
+| Prototype, wide 120     |        147 760 |   147 |     90 |           71 |          41 |           57 |          22 |
+| + field rules           |        334 396 |   175 |    100 |           98 |          64 |           81 |          46 |
+
+Against the campaign of 2026-10-20, the 200-model query edit is unchanged
+(391 ms) and the slowest project moved from 695 to 696 ms: D-74 to D-82 cost
+nothing measurable. The query edit grows about linearly with the model count;
+a model edit stays under 50 ms at every size.
+
 ## Reproducing
 
 ```bash
