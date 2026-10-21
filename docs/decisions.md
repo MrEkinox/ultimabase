@@ -41,7 +41,7 @@ of `defineApp` that holds the rest of the application's configuration (D-24,
 D-49, D-58). The in-memory adapter ships with the kernel and is imported like
 any other (`memory()`); PostgreSQL is a separate package. Adapters implement
 one public contract, and one shared contract suite runs against each of them
-(transactions included).
+(transactions included). The contract is D-73.
 Why: storage is mandatory and unique, unlike plugins, which are optional and
 combinable; a dedicated slot makes both rules structural instead of runtime
 checks. Naming the in-memory adapter keeps a first application and the test
@@ -1856,4 +1856,83 @@ throw new PublicError('VALIDATION_FAILED', 'Too short.', {
 // { "code": "DOCUMENT_LOCKED", "message": "This document is locked." }
 // and for `throw new Error('Connection refused.')`, status 500:
 // { "code": "INTERNAL", "message": "Internal error.", "correlationId": "c0f1…" }
+```
+
+## D-73: The adapter contract
+
+Choice: an adapter implements six methods. `start(schema)` receives every
+model with its fields, relations, indexes and `dbName` overrides; `stop()`
+closes it; `find(read)` and `count(read)` read; `write(write)` applies one
+whole write, nested relation writes included, and returns the rows it was
+asked for; `begin()` opens a transaction that has its own `find`, `count` and
+`write`, plus `commit()` and `rollback()`. What an adapter receives is fully
+prepared by the kernel:
+
+- filters are normalized: `{ status: 'x' }` arrives as
+  `{ status: { equals: 'x' } }`, `undefined` conditions are gone, and the
+  access filters of every model read, nested `include` and relation filters
+  included, are already ANDed in (D-10, D-46, D-71);
+- names are the models' own; the adapter maps them to storage names with its
+  database's convention and the `dbName` overrides (D-63);
+- ids, timestamps and defaults are already set (D-22, D-53), and a cascade
+  arrives as rows the kernel loaded and decided, through a locking `find`
+  that follows the cascading relations in one statement (D-48, D-54).
+
+The kernel keeps the transaction context (`AsyncLocalStorage`) and routes each
+query to the open transaction; it rolls back after a failed query even when
+the error is caught (D-36). An adapter reports a unique index refusal as a
+typed error naming the model and fields, which the kernel turns into
+`UNIQUE_VIOLATION` (D-72); no database message reaches a client.
+`RELATION_RESTRICTED` is the kernel's own check, since the kernel runs
+cascades. Every adapter executes the whole query subset of 0.1 (D-20): there
+is no capability declaration. The contract suite (D-02) takes a
+`statements()` count from the adapter's author to check the counts of D-46
+and D-48. Comparing models with the database (D-26) joins the contract with
+the PostgreSQL adapter.
+Why: an adapter author reads one small interface and one input shape, and
+never reimplements access, hooks, defaults or transaction rules, so every
+database behaves the same. Cascades go through the kernel at no extra cost
+when no hook or soft delete is involved (one statement either way), and with
+one, the extra `SELECT` loads rows the hooks need, which a database cascade
+cannot provide.
+Rejected: adapters keeping their own transaction context, which each would
+write differently; filters in every shorthand Prisma accepts; capability
+declarations per operator (the previous base, ADR-0301), until a database
+needs one; database foreign key cascades (D-54).
+Later: a cascade option that skips hooks (Rails' `dependent: :delete_all`),
+if large cascades prove slow.
+Example:
+
+```ts
+// Before: Parse's StorageAdapter, about thirty methods (find, createObject,
+// updateObjectsByQuery, deleteObjectsByQuery, ensureUniqueness,
+// createClass, addFieldIfNotExists…); an `include` costs one more query per
+// level, run by the server.
+
+// After
+interface Adapter {
+	start(schema: Schema): Promise<void>
+	stop(): Promise<void>
+	find(read: Read): Promise<Row[]>
+	count(read: CountRead): Promise<number>
+	write(write: Write): Promise<Row[]>
+	begin(): Promise<Transaction>
+}
+
+// The developer writes
+Post.findMany(
+	{ where: { status: 'published' }, include: { author: true } },
+	{ as: caller },
+)
+// and the adapter receives, to run in one statement
+const read: Read = {
+	model: 'Post',
+	where: {
+		AND: [
+			{ status: { equals: 'published' } },
+			{ author: { is: { id: { equals: 'u1' } } } },
+		],
+	},
+	include: { author: { where: userReadFilter } },
+}
 ```
