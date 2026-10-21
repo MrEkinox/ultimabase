@@ -59,16 +59,30 @@ export declare function signedIn<
 	rule: (facts: Facts & { readonly user: UserOf<Register> }) => R,
 ): (facts: Facts) => R | false
 
+type Ref = { readonly id: string } | null
+/** The record's `one` relations, or any name outside a model's rules. */
+type OwnerKey<Facts> = [Facts] extends [never]
+	? string
+	: Facts extends { readonly record: infer R }
+		? { [P in keyof R]: R[P] extends Ref ? P : never }[keyof R]
+		: Facts extends { readonly where: unknown }
+			? 'a read rule has no record to own'
+			: string
+
+/** The facts it needs; a read rule's are refused on the name alone. */
+type Owned<Facts, K extends string> = Facts extends { readonly where: unknown }
+	? Facts
+	: Facts & { readonly record: { readonly [P in K]: Ref } }
+
 /**
  * The rule "the caller is the user this `one` relation points to" (D-79),
- * read from the stored key (D-77); the field name is checked by the model.
+ * read from the stored key (D-77). Its facts come from where it is used, so
+ * a wrong name fails on the name.
  */
-export declare function isOwner<const K extends string>(
-	field: K,
-): (facts: {
-	readonly caller: Caller
-	readonly record: { readonly [P in K]: { readonly id: string } | null }
-}) => boolean
+export declare function isOwner<
+	Facts extends { readonly caller: Caller },
+	const K extends OwnerKey<Facts>,
+>(field: K): (facts: Owned<Facts, K>) => boolean
 
 /** The rule "the caller is this record" (D-62). */
 export declare function isSelf(facts: {

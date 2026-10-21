@@ -2285,3 +2285,45 @@ PublicError {
 	details: { model: 'Comment', operation: 'update', via: 'Post.comments' },
 }
 ```
+
+## D-83: Shared rules, and `isOwner` checked on its name
+
+Choice: `anyOf` and `allOf` (D-81) also accept rules already typed, outside
+any access key, so a combination is defined once in a `const` and used by
+several models; it then needs every rule's facts, and a model without them is
+refused where the `const` is used. `isOwner` (D-79) takes its facts from
+where it is used, as `signedIn` does: a name that is not a `one` relation of
+the record fails on the name, and in a read rule the name is refused with "a
+read rule has no record to own".
+Why: a shared rule is the first thing a team factors out, and it failed with
+`unknown` facts; `isOwner('ownr')` printed five lines of model types before
+"Property 'ownr' is missing".
+Limit: a shared combination is checked where it is used, not where it is
+written, and that message keeps the model's types. Inside an access key the
+contextual signature is tried first, so its messages are unchanged.
+Cost: 92 instantiations on the 200-model project with rules and schemas.
+Rejected: a separate `shared(...)` helper, a second name for the same idea;
+an explicit `anyOf<Facts>`, which asks the developer for a type they never
+write elsewhere.
+Example:
+
+```ts
+// Before: Parse, a function the developer calls from each beforeSave
+async function editorOrAuthor(request) {
+	const user = request.user
+	if (!user) throw new Parse.Error(119, 'Permission denied')
+	if (user.get('role') === 'editor') return
+	if (request.original?.get('author')?.id !== user.id)
+		throw new Parse.Error(119, 'Permission denied')
+}
+
+// After
+export const isEditor = signedIn(({ user }) => user.role === 'editor')
+export const editorOrAuthor = anyOf(isEditor, isOwner('author'))
+
+Note.with({ access: { update: editorOrAuthor } })
+Memo.with({ access: { update: editorOrAuthor, delete: editorOrAuthor } })
+
+delete: isOwner('ownr')
+// Argument of type '"ownr"' is not assignable to parameter of type '"author"'.
+```

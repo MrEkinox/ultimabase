@@ -44,6 +44,18 @@ export declare const allow: {
 	readonly private: CallerRule
 }
 
+/** A rule already typed, such as a `const` holding `signedIn(...)`. */
+type Named = (facts: never) => unknown
+type Both<U> = (U extends unknown ? (u: U) => void : never) extends (
+	u: infer I,
+) => void
+	? I
+	: never
+/** The rule combining named rules: it needs every rule's facts. */
+type Combined<Rules extends readonly Named[]> = (
+	facts: Both<Parameters<Rules[number]>[0]>,
+) => ReturnType<Rules[number]>
+
 /**
  * True when one of the rules is (D-10). The facts and the result come from
  * where it is used, never from the rules, so each rule is typed by its place.
@@ -53,6 +65,10 @@ export declare const allow: {
 export declare function anyOf<Facts, R = boolean>(
 	...rules: readonly NoInfer<(facts: Facts) => R>[]
 ): (facts: Facts) => R
+/** Outside any place, the facts are those every rule needs. */
+export declare function anyOf<const Rules extends readonly Named[]>(
+	...rules: Rules
+): Combined<Rules>
 
 /**
  * True when every rule is (D-81), typed as `anyOf`. In a read rule, the
@@ -62,3 +78,6 @@ export declare function anyOf<Facts, R = boolean>(
 export declare function allOf<Facts, R = boolean>(
 	...rules: readonly NoInfer<(facts: Facts) => R>[]
 ): (facts: Facts) => R
+export declare function allOf<const Rules extends readonly Named[]>(
+	...rules: Rules
+): Combined<Rules>

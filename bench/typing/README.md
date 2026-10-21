@@ -564,6 +564,20 @@ uses `anyOf` in its generated models.
 1 500 instantiations more on the rules project (+0.1 %), none on the other;
 check time stays within its spread.
 
+## After Phase 1b: shared rules and `isOwner` on its name
+
+Three runs on the 200-model project with rules and schemas, after D-83,
+against the closing campaign below; times in ms.
+
+| Measure        | Closing campaign |     After D-83 |
+| -------------- | ---------------: | -------------: |
+| Instantiations |        2 240 880 |      2 240 972 |
+| Query edit     |              696 | 702 (694, 727) |
+| Model edit     |               30 |    31 (30, 32) |
+
+92 instantiations more; both edits stay within their spread, so the closing
+campaign remains the Phase 2 reference.
+
 ## Phase 1b closed: the full campaign
 
 On 2026-10-21, at `65035502`, with every decision up to D-82: three

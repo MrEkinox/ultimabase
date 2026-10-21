@@ -58,5 +58,10 @@ export const MoreMistakes = defineModel({
 		),
 		// @ts-expect-error: only a read rule receives `where`.
 		update: anyOf(isOwner('owner'), ({ where }) => where !== undefined),
+		delete: anyOf(
+			signedIn(() => false),
+			// @ts-expect-error: `ownr` is not a `one` relation, inside `anyOf`.
+			isOwner('ownr'),
+		),
 	},
 })
