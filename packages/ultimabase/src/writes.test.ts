@@ -60,6 +60,18 @@ describe('create', () => {
 					{ path: ['title'], message: 'Expected a string.' },
 					{ path: ['pages'], message: 'Expected a finite number.' },
 					{ path: ['published'], message: 'Expected a boolean.' },
+				],
+			},
+		})
+	})
+
+	it('checks required fields after the hooks, which may fill them (D-88)', async () => {
+		const created = query('Book', 'create', { data: { title: null } }, as)
+		await expect(created).rejects.toMatchObject({
+			code: 'VALIDATION_FAILED',
+			details: {
+				issues: [
+					{ path: ['title'], message: 'Required.' },
 					{ path: ['author'], message: 'Required.' },
 				],
 			},

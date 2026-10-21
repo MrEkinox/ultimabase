@@ -1,5 +1,5 @@
-// Stand-ins for what later Phase 2 slices build: functions (D-27, D-45),
-// `transaction` (D-36) and the PostgreSQL adapter (D-02). Declared only.
+// Stand-ins for what later Phase 2 slices build: functions (D-27, D-45)
+// and the PostgreSQL adapter (D-02). Declared only.
 import type { Adapter } from '../../../packages/ultimabase/src/adapter.ts'
 import type {
 	AnyCheck,
@@ -57,8 +57,5 @@ export declare function defineFunction<
 		) => NoInfer<OutputValue<O>> | Promise<NoInfer<OutputValue<O>>>
 	} & NoInfer<InputCheck<I>>,
 ): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>>
-
-/** Queries inside `run` join its transaction, with no `tx` (D-36). */
-export declare function transaction<R>(run: () => Promise<R>): Promise<R>
 
 export declare function postgres(): Adapter

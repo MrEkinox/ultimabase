@@ -2539,3 +2539,121 @@ export const Person = defineModel({
 	},
 })
 ```
+
+## D-88: Hooks, validation and transactions at run time
+
+Choice: eleven details of D-15, D-23, D-36, D-67 and D-71 at run time.
+
+1. A `*Commit` hook is awaited before its operation, or the outermost
+   `transaction`, resolves. A failure is logged at `error` with a
+   correlation id (D-28) and is not thrown.
+2. `beforeFind` runs only for the models a query reaches: the queried model,
+   its includes, its relation filters, a `connect`'s targets and the rows a
+   relation write moves. It runs at most once per query and model.
+3. When an `after*` hook runs, `create` and `update` read their result again
+   after it, so the hook's writes show. Without one, the write returns its
+   row itself.
+4. A `validate` function that throws refuses with `VALIDATION_FAILED` and the
+   issue `{ path: [field], message: error.message }`. A schema's issues get
+   the field's name in front of their path.
+5. `beforeFind`'s filter is trusted server code, as a read rule's (D-86): it
+   may filter on a field with a read rule, and other models' rules do not
+   apply to its relation conditions.
+6. `create` and `update` return the written row even when `beforeFind` would
+   hide it, as for a read rule (D-86).
+7. After the `before*` hooks, the kernel checks the data again. A required
+   field left empty gives `VALIDATION_FAILED` (`'Required.'`); a value of
+   the wrong type, written by a hook or by `validate`, is a server bug and
+   fails with an internal error.
+8. Every query runs in the open `transaction`; outside one, a write opens its
+   own. Once a query has failed in a transaction, the next ones fail too, as
+   in PostgreSQL.
+9. A row a relation write moves (D-78) runs the target's `beforeUpdate`, with
+   `data` holding that relation as `{ connect: { id } }` or
+   `{ disconnect: true }`, then `afterUpdate` and `afterUpdateCommit`. The
+   hook may add fields to `data`; the relation itself is written as the
+   caller asked. The moved row's `updatedAt` moves, as `Target.update`'s
+   would.
+10. Without a `logger`, the kernel writes JSON lines to the console (D-58).
+    `ACCESS_DENIED` is logged at `warn` with its details and the caller's id
+    (D-82).
+11. A relation value the caller did not send, written by a default or a
+    `before*` hook, skips the target's access rules but not its
+    `beforeFind`: a `connect` to a row `beforeFind` hides fails with
+    `NOT_FOUND`.
+
+Why:
+
+1. A test or a serverless function that ends when the operation resolves
+   would otherwise lose the email; Parse's unawaited `afterSave` loses its
+   errors.
+2. A soft delete's or a tenant's `beforeFind` on every model would run for
+   each query, even on models it never reads.
+3. A hook that writes the row it follows, a counter or a status, would
+   otherwise return stale data; a second read on every write breaks D-48's
+   two statements.
+4. A function has no other way to say why it refuses; its message is what
+   the developer wrote for the client.
+5. Same reason as D-86 for a read rule's filter.
+6. Same reason as D-86 for a written row a read rule hides.
+7. A required field may be left to a hook (D-67), so it can only be checked
+   after it. A client never chose a hook's value, so a wrong one is not the
+   client's fault.
+8. PostgreSQL refuses every statement of an aborted transaction; `memory()`
+   must behave the same, or tests pass that fail in production.
+9. D-78 runs the target's update hooks; a move writes no other field, and
+   one changed by the hook would lose its `connect` check.
+10. ACCESS_DENIED is the error a developer debugs most; the log names who
+    was refused.
+11. D-67 skips access rules for a hook's values; a default is server code
+    too. `beforeFind` is not an access rule: a soft-deleted row stays out of
+    reach whoever writes the relation.
+
+Rejected:
+
+- `*Commit` hooks run without waiting;
+- every model's `beforeFind` at each query;
+- a read after every write;
+- a `validate` function returning an error message instead of throwing;
+- validating hook values, which D-67 rejects;
+- queries that keep running in a failed transaction.
+
+Example:
+
+```ts
+// Before: Parse, afterSave is not awaited and its errors are lost
+Parse.Cloud.afterSave('Order', async ({ object }) => {
+	await sendReceipt(object)
+})
+
+// After
+export const Order = defineModel({ name: 'Order', fields }).with({
+	hooks: {
+		// in the transaction: a failure rolls the order back
+		afterCreate: async ({ record }) => {
+			await Invoice.create(
+				{ data: { order: { connect: { id: record.id } } } },
+				{ as: master },
+			)
+		},
+		// after commit, awaited: a failure is logged, the order is kept
+		afterCreateCommit: async ({ record }) => sendReceipt(record),
+	},
+})
+
+await transaction(async () => {
+	await Order.create({ data }, { as: caller })
+	await Stock.update({ where, data: { count: 0 } }, { as: master })
+	// throws: the order and its invoice roll back, no receipt is sent
+})
+
+// A validate function refuses by throwing
+slug: f.string({
+	validate: (value) => {
+		if (!/^[a-z-]+$/.test(value)) throw new Error('Lowercase letters only.')
+		return value
+	},
+}),
+// PublicError VALIDATION_FAILED,
+// details.issues: [{ path: ['slug'], message: 'Lowercase letters only.' }]
+```

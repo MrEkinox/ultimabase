@@ -25,6 +25,7 @@ export type { ModelUse, PluginOf, PluginTypes, UseOf } from './plugin.ts'
 export { definePlugin } from './plugin.ts'
 export type { Caller, Register } from './rules.ts'
 export { allOf, allow, anyOf, master } from './rules.ts'
+export { transaction } from './transaction.ts'
 export type {
 	ArgsOf,
 	CreateDataOf,

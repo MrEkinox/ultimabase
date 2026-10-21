@@ -2,7 +2,7 @@
 // its line, and the `start` that resolves them for the adapter.
 import type { Adapter } from './adapter.ts'
 import type { Logger, MasterKey } from './app-options.ts'
-import { register, unregister } from './engine.ts'
+import { consoleLogger } from './console-logger.ts'
 import type { FunctionShape } from './function.ts'
 import type {
 	App,
@@ -11,6 +11,8 @@ import type {
 	ModelShape,
 } from './model.ts'
 import type { PluginValue } from './plugin.ts'
+import type { Running } from './running.ts'
+import { register, unregister } from './running.ts'
 import { resolve } from './schema.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 
@@ -85,14 +87,18 @@ export function defineApp<
 		NoInfer<InverseCheck<M>>,
 ): App<M> {
 	const { database, models } = options
-	let running: Parameters<typeof register>[0] | undefined
+	let running: Running | undefined
 	return {
 		models,
 		start: async () => {
 			if (running !== undefined) throw new Error('The application is running.')
 			const resolved = resolve(models)
 			await database.start(resolved.schema)
-			running = { resolved, adapter: database }
+			running = {
+				resolved,
+				adapter: database,
+				logger: options.logger ?? consoleLogger(),
+			}
 			register(running)
 		},
 		stop: async () => {

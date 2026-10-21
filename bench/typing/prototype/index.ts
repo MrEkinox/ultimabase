@@ -10,7 +10,7 @@ export {
 	isSelf,
 	signedIn,
 } from './auth.ts'
-export { defineFunction, postgres, transaction } from './pending.ts'
+export { defineFunction, postgres } from './pending.ts'
 export {
 	acl,
 	aclPlugin,

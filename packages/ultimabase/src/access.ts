@@ -3,10 +3,11 @@
 // Master skips them all (D-48): its queries get no `Access`.
 import { InvalidQuery, PublicError } from './errors.ts'
 import type { Filter } from './adapter.ts'
+import type { Logger } from './app-options.ts'
 import type { Caller } from './rules.ts'
 import { filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
-import type { Models, Scope } from './query-where.ts'
+import type { Models } from './query-where.ts'
 import { entries, isObject, normalizeWhere } from './query-where.ts'
 
 type Operation = 'read' | 'create' | 'update' | 'delete'
@@ -96,16 +97,19 @@ type Refusal = {
 	readonly via?: string
 }
 
-function denied(refusal: Refusal): PublicError {
+/** The refusal, logged with the caller's id before it is thrown (D-88). */
+function denied(refusal: Refusal, caller: Caller, logger: Logger): PublicError {
 	const { model, operation, field, via } = refusal
-	return new PublicError('ACCESS_DENIED', `${model} ${operation} refused.`, {
-		details: {
-			model,
-			operation,
-			...(field === undefined ? {} : { field }),
-			...(via === undefined ? {} : { via }),
-		},
-	})
+	const details = {
+		model,
+		operation,
+		...(field === undefined ? {} : { field }),
+		...(via === undefined ? {} : { via }),
+	}
+	const message = `${model} ${operation} refused.`
+	const callerId = caller.kind === 'user' ? caller.user.id : null
+	logger.warn({ ...details, callerId }, message)
+	return new PublicError('ACCESS_DENIED', message, { details })
 }
 
 /** A write's stored `record`, its `value`, and the relation it comes from. */
@@ -116,14 +120,16 @@ export type Write = {
 }
 
 /** The access rules of one query, for a caller other than Master. */
-export class Access implements Scope {
+export class Access {
 	private readonly filters = new Map<string, Filter | undefined>()
 	readonly models: Models
 	readonly caller: Caller
+	private readonly logger: Logger
 
-	constructor(models: Models, caller: Caller) {
+	constructor(models: Models, caller: Caller, logger: Logger) {
 		this.models = models
 		this.caller = caller
+		this.logger = logger
 	}
 
 	/** The model's read filter (D-10); `undefined` when every row passes. */
@@ -214,7 +220,8 @@ export class Access implements Scope {
 			...(write.via === undefined ? {} : { via: write.via }),
 		}
 		const rule = ruleOf(accessOf(model.definition.rules), operation)
-		if (rule === undefined || !decide(rule, facts)) throw denied(refusal)
+		if (rule === undefined || !decide(rule, facts))
+			throw denied(refusal, this.caller, this.logger)
 		for (const [field, given] of Object.entries(value ?? {})) {
 			const check = fieldRule(model, field, operation)
 			if (check === undefined) continue
@@ -222,14 +229,20 @@ export class Access implements Scope {
 				...facts,
 				value: fieldValue(model, field, given),
 			})
-			if (!allowed) throw denied({ ...refusal, field })
+			if (!allowed) {
+				throw denied({ ...refusal, field }, this.caller, this.logger)
+			}
 		}
 	}
 }
 
 /** The query's access rules; `undefined` for Master, which skips them. */
-export function accessFor(models: Models, caller: Caller): Access | undefined {
-	return isMaster(caller) ? undefined : new Access(models, caller)
+export function accessFor(
+	models: Models,
+	caller: Caller,
+	logger: Logger,
+): Access | undefined {
+	return isMaster(caller) ? undefined : new Access(models, caller, logger)
 }
 
 /** `filter` and the model's read filter, both. */
