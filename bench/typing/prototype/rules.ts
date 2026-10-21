@@ -26,6 +26,9 @@ export type Caller =
 			readonly master: { readonly source: 'code' | 'key' }
 	  }
 
+/** Server code acting with every right; only the kernel creates it. */
+export declare const master: Extract<Caller, { readonly kind: 'master' }>
+
 /** A rule that reads only the caller and the operation fits any access key. */
 export type AnyRule = (facts: {
 	readonly caller: Caller

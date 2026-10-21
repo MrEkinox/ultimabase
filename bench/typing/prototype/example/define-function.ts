@@ -1,8 +1,9 @@
 // Functions (D-27, D-45): each output form, an optional input, the access
 // rule and the transports' keys. `tsc` fails if one does not hold.
 import { z } from 'zod'
-import type { OutputOf } from '../function.ts'
+import type { InputOf, OutputOf } from '../index.ts'
 import {
+	master,
 	allow,
 	defineApp,
 	defineFunction,
@@ -19,8 +20,6 @@ type Equal<A, B> =
 		? true
 		: false
 type Expect<T extends true> = T
-/** What a function's `run` returns. */
-type Output<X> = X extends { readonly output: infer O } ? OutputOf<O> : never
 
 const Todo = defineModel({
 	name: 'Todo',
@@ -96,17 +95,29 @@ export const todoStats = defineFunction({
 }).with({ access: allow.private, graphql: false })
 
 export type FunctionChecks = [
-	Expect<Equal<Output<typeof archiveTodo>, TodoRecord>>,
-	Expect<Equal<Output<typeof openTodos>, readonly TodoRecord[]>>,
-	Expect<Equal<Output<typeof pagedTodos>, readonly TodoRecord[]>>,
+	Expect<Equal<OutputOf<typeof archiveTodo>, TodoRecord>>,
+	Expect<Equal<OutputOf<typeof openTodos>, readonly TodoRecord[]>>,
+	Expect<Equal<OutputOf<typeof pagedTodos>, readonly TodoRecord[]>>,
 	Expect<
 		Equal<
-			Output<typeof ensureTodo>,
+			OutputOf<typeof ensureTodo>,
 			{ readonly todo: TodoRecord; readonly created: boolean }
 		>
 	>,
-	Expect<Equal<Output<typeof todoStats>, { open: number; archived: number }>>,
+	Expect<Equal<OutputOf<typeof todoStats>, { open: number; archived: number }>>,
+	// What a caller sends, before the schema's `trim` (D-74).
+	Expect<Equal<InputOf<typeof ensureTodo>, { title: string }>>,
+	Expect<Equal<InputOf<typeof todoStats>, undefined>>,
 ]
+
+// Server code calls a function with `run` (D-75).
+const archived = await archiveTodo.run({ id: 'a' }, { as: master })
+const stats = await todoStats.run({ as: master })
+export const runChecks: [TodoRecord, number] = [archived, stats.open]
+// @ts-expect-error: the input is checked by its schema's type.
+await archiveTodo.run({ id: 1 }, { as: master })
+// @ts-expect-error: a function without an input takes only the options.
+await todoStats.run({ open: 1 }, { as: master })
 
 export const app = defineApp({
 	database: memory(),

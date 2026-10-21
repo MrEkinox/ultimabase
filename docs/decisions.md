@@ -1936,3 +1936,143 @@ const read: Read = {
 	include: { author: { where: userReadFilter } },
 }
 ```
+
+## D-74: A model's types, named from the model
+
+Choice: `ultimabase` exports one type per need, each taking the model's type,
+so application code names what a query takes and returns without type
+generation (D-11):
+
+- `RecordOf<typeof Post>`: a record as a query returns it without `select`
+  or `include` (D-20); `RecordOf<typeof Post, Args>` is the record that
+  arguments `Args` return, `select` and `include` included. It describes one
+  record, never the list.
+- `WhereOf`, `IncludeOf`, `SelectOf`, `OrderByOf`, `CreateDataOf` and
+  `UpdateDataOf`: the arguments of the same name.
+- `ArgsOf<typeof Post, 'findMany'>`: the whole arguments of one operation,
+  the operation named by a string the editor completes.
+- `InputOf<typeof fn>` and `OutputOf<typeof fn>` for a function (D-27):
+  `InputOf` is what a caller sends, before validation (D-23); `run` receives
+  the validated value, which a transforming schema may change.
+
+A model file may name the record type after the model, as Zod users do:
+`export type Post = RecordOf<typeof Post>`.
+Why: helpers, functions and tests need these types, and Prisma's generated
+`Prisma.PostWhereInput` is what developers expect. One generic per need is
+the TypeScript idiom (`ReturnType`, `z.infer`). A single object of types
+(`ModelTypes<typeof Post>['where']`) cannot give the result of given
+arguments by indexing, so it would need a generic beside it: two mechanisms
+instead of one. The types already exist in the kernel; this exposes them.
+Rejected: an object of types per model; one arguments type per operation
+(`FindManyArgsOf`); a separate `PayloadOf`, which `RecordOf` with arguments
+covers; generated types (D-11).
+Example:
+
+```ts
+// Before: Parse, the schema written a second time by hand
+class Post extends Parse.Object<{ title: string; status: string }> {}
+const query = new Parse.Query(Post).equalTo('status', 'published') // unchecked
+
+// After
+import type { ArgsOf, RecordOf, WhereOf } from 'ultimabase'
+
+export type Post = RecordOf<typeof Post>
+export function visible(authorId: string): WhereOf<typeof Post> {
+	return { OR: [{ status: 'published' }, { author: { is: { id: authorId } } }] }
+}
+const withAuthor = {
+	include: { author: true },
+} satisfies ArgsOf<typeof Post, 'findMany'>
+type PostWithAuthor = RecordOf<typeof Post, typeof withAuthor>
+const rows: PostWithAuthor[] = await Post.findMany(withAuthor, { as: master })
+```
+
+## D-75: Server code calls a function with `run`
+
+Choice: a function (D-27) is called from server code with
+`fn.run(input, { as })`, or `fn.run({ as })` when it has no input. The call
+does what a transport does: it checks the access rule with the caller,
+validates the input, then runs the function and returns its output, typed
+and not validated (D-27). Without `as` it runs as anonymous (D-19), so a
+closed function refuses with `ACCESS_DENIED`, and an invalid input fails with
+`VALIDATION_FAILED` (D-72). It opens no transaction (D-36); inside one, it
+joins it.
+Why: queries start from the model (D-18), so a call starts from the
+function, with one import and its types. Parse's `Parse.Cloud.run` names the
+function by a string and types nothing. `run` is the verb of the definition
+too: there it receives `{ input, caller }`, here it is called with the input
+and the caller, and the editor shows each signature.
+Rejected: `app.run(fn, input, { as })`, which makes a function that calls
+another import the application, a cycle D-18 avoids for models; exporting
+the body of `run`, which skips the access rule and the validation, so tests
+no longer exercise what a client calls; `call` or `invoke`, other verbs for
+the same thing.
+Example:
+
+```ts
+// Before: Parse
+const merged = await Parse.Cloud.run(
+	'mergePosts',
+	{ from, into },
+	{ useMasterKey: true },
+)
+
+// After
+const merged = await mergePosts.run({ from, into }, { as: master })
+const posts = await openPosts.run({ as: caller })
+```
+
+## D-76: Access rules are synchronous
+
+Choice: access rules (D-10, D-44) return their result directly, never a
+`Promise`, and cannot query. A check that needs other records takes the tool
+that runs it without a hidden query:
+
+| Need                                                     | Tool                                               |
+| -------------------------------------------------------- | -------------------------------------------------- |
+| A read decided by the caller, even through another model | `read` rule returning `where({ relation: { … } })` |
+| Records that do not exist for anyone (trash, archive)    | `beforeFind` (D-71)                                |
+| A write that depends on another record                   | `beforeCreate` / `beforeUpdate`, which may query   |
+| A write decided by the caller and the record             | `create` / `update` / `delete` rule                |
+
+Hooks stay asynchronous, `beforeFind` included, for data outside the
+database (an external service, a flag).
+Why: a read rule runs on every read of its model, at every level of an
+`include` and in every `some`; a query inside it would cost a round trip each
+time without showing it, breaking D-46. A rule that reads another model runs
+that model's rules, with no clear caller and a risk of cycles. A
+`boolean | Promise<boolean>` return weighs on every rule and on `anyOf`, the
+part of the typing that was hardest to keep cheap (D-62). Accepting a
+`Promise` later breaks no rule; going back to synchronous rules would.
+Rejected: asynchronous rules; access checks in `beforeFind`, which also
+applies to Master and is not access (D-71).
+Example:
+
+```ts
+// Before: Parse, the check is a query in beforeSave
+Parse.Cloud.beforeSave('Comment', async ({ object }) => {
+	const post = await object.get('post').fetch({ useMasterKey: true })
+	if (post.get('status') !== 'published') throw new Parse.Error(141, 'Closed.')
+})
+
+// After: a read through another model is a filter, run in the same query
+export const Comment = defineModel({ name: 'Comment', fields }).with({
+	access: {
+		read: ({ where }) => where({ post: { is: { status: 'published' } } }),
+		create: isAuthenticated,
+	},
+	hooks: {
+		beforeCreate: async ({ data }) => {
+			const post = await Post.findUnique(
+				{ where: { id: data.post.connect.id } },
+				{ as: master },
+			)
+			if (post?.status !== 'published')
+				throw new PublicError(
+					'POST_CLOSED',
+					'Only published posts take comments.',
+				)
+		},
+	},
+})
+```

@@ -186,6 +186,12 @@ prototype/example/defaults-indexes.ts: a many relation has no column
 TS2322: Type '["tags"]' is not assignable to type 'readonly ["tags"] & "'tags' is not a scalar field or a one relation of the model"'.
   Type '["tags"]' is not assignable to type '"'tags' is not a scalar field or a one relation of the model"'.
 
+prototype/example/define-function.ts: the input is checked by its schema's type.
+TS2322: Type 'number' is not assignable to type 'string'.
+
+prototype/example/define-function.ts: a function without an input takes only the options.
+TS2554: Expected 0-1 arguments, but got 2.
+
 prototype/example/define-function.ts: `run` returns the output's type.
 TS2322: Type '{ title: string; }' is not assignable to type 'Promise<NoInfer<RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly archived: Field<boolean, { readonly default: false; }, never, never, boolean>; }>>> | NoInfer<RecordOf<...>>'.
   Type '{ title: string; }' is not assignable to type 'RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly archived: Field<boolean, { readonly default: false; }, never, never, boolean>; }>'.
@@ -277,6 +283,18 @@ TS2322: Type '{ at: Date; }' is not assignable to type 'JsonValue | undefined'.
 prototype/example/hooks.ts: a caught error's code is a string, not `any`.
 TS2322: Type 'Uppercase<string>' is not assignable to type 'number'.
   Type 'string' is not assignable to type 'number'.
+
+prototype/example/model-types.ts: a misspelt relation in kept arguments.
+TS2561: Object literal may only specify known properties, but 'autor' does not exist in type '{ readonly author?: boolean | { readonly select?: Select<{ readonly name: Field<string, { readonly unique: true; }, never, never, string>; readonly level: Field<"junior" | "senior", ScalarOptions<"junior" | "senior">, never, never, "junior" | "senior">; readonly books: Many<...>; readonly favorite: One<...>; }>; rea...'. Did you mean to write 'author'?
+
+prototype/example/model-types.ts: a misspelt field in a filter helper.
+TS2561: Object literal may only specify known properties, but 'titel' does not exist in type 'WhereOf<Model<"Book", { readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly pages: Field<number, { readonly optional: true; }, never, never, number>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, never, WithKeys<...>, never>>'. Did you mean to write 'title'?
+
+prototype/example/model-types.ts: aggregates are not in 0.1 (D-20).
+TS2344: Type '"aggregate"' does not satisfy the constraint 'keyof Operations<FieldsOf<M>, UniqueOf<M>>'.
+
+prototype/example/model-types.ts: relations are absent without `include`.
+TS2339: Property 'author' does not exist on type 'RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly pages: Field<number, { readonly optional: true; }, never, never, number>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }>'.
 
 prototype/example/plugin-keys.ts: no `softDelete()` in `use`, no trash.
 TS2339: Property 'trash' does not exist on type 'Model<"SetOff", { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }, never, WithKeys<never, { readonly t: Field<string, ScalarOptions<string>, never, never, string>; }>, never>'.

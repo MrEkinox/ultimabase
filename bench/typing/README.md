@@ -501,6 +501,24 @@ run of each project, three interleaved times, on 2026-10-20, "before" being
 14 433 instantiations more, about 72 per model (1.4 %, and 1.0 % with rules);
 check time grows by 20 ms without rules and stays within its spread with them.
 
+## Phase 1b: model types, `run` and `isAuthenticated`
+
+A model's types (D-74), a function's `run` (D-75) and auth's
+`isAuthenticated` (D-10). One `tsc --extendedDiagnostics` run of each project,
+three interleaved times, on 2026-10-21, "before" being `47afe07c`; medians in
+milliseconds.
+
+| Project            | Instantiations | Check time |
+| ------------------ | -------------: | ---------: |
+| Before, 200        |      1 043 302 |        535 |
+| After, 200         |      1 043 775 |        542 |
+| Before, 200, rules |      1 485 327 |        713 |
+| After, 200, rules  |      1 485 800 |        708 |
+
+473 instantiations more, the same for both projects, so they do not grow with
+the models; check time stays within its spread. The types are only computed
+where an application names them.
+
 ## Reproducing
 
 ```bash
