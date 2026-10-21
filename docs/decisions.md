@@ -1820,7 +1820,7 @@ union, and each keeps its meaning when the application throws it:
 
 | Code                  | HTTP | When                                           |
 | --------------------- | ---- | ---------------------------------------------- |
-| `ACCESS_DENIED`       | 403  | a rule refuses a write (D-10, D-44)            |
+| `ACCESS_DENIED`       | 403  | a rule refuses a write (D-10, D-44, D-82)      |
 | `NOT_FOUND`           | 404  | the target does not exist or cannot be read    |
 | `VALIDATION_FAILED`   | 400  | `details.issues`: `{ path, message }` (D-23)   |
 | `UNIQUE_VIOLATION`    | 409  | a unique index refuses a write (D-52)          |
@@ -2252,5 +2252,36 @@ access: {
 		signedIn(({ user }) => user.role === 'editor'),
 		allOf(isOwner('author'), ({ record }) => record.status === 'draft'),
 	),
+}
+```
+
+## D-82: `ACCESS_DENIED` names the rule that refused
+
+Choice: an `ACCESS_DENIED` error (D-72) carries `details`: `model` and
+`operation` always, `field` when a field rule refused (D-44), and `via` when
+the refusal comes from a relation write on the other side (D-78), as
+`'Post.comments'`. The client receives them; the logger (D-58) receives the
+same details and the caller's id. A record the caller cannot read still fails
+with `NOT_FOUND` (D-72), so the details never reveal that a row exists.
+Why: a refusal from another model's rule, as D-78 makes possible, is
+unreadable without knowing which rule spoke; Parse's "Permission denied"
+names neither the class nor the hook.
+Limit: the client sees model and field names, which are usually public in
+the GraphQL schema; an internal model written by a hook shows its name, never
+its data.
+Rejected: details in the log only, which hides them from the front-end
+developer; the rule's source in the message, which exposes access logic; a
+development-only mode, which no decision defines.
+Example:
+
+```ts
+// Before: Parse
+// Parse.Error { code: 119, message: 'Permission denied' }
+
+// After: an editor calls mergePosts, Comment's update rule refuses
+PublicError {
+	code: 'ACCESS_DENIED',
+	message: 'Comment update refused.',
+	details: { model: 'Comment', operation: 'update', via: 'Post.comments' },
 }
 ```

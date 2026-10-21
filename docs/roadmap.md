@@ -4,8 +4,8 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 1b** is reopened for the parts Phase 2 would otherwise
-discover: hooks, errors, transactions and a few options.
+Status: **Phase 2**. Phase 1b is closed: every typed part of 0.1 has a
+prototype example.
 
 ## Phase 0: Tooling
 
@@ -73,7 +73,7 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [ ] Callers and `master` (D-19), model and field access (D-10, D-44),
       relation writes from the other side (D-78),
       `anyOf` and `allOf` filters (D-81).
-- [ ] Hooks in the order of D-67, validation (D-23), errors (D-28),
+- [ ] Hooks in the order of D-67, validation (D-23), errors (D-28, D-82),
       transactions (D-36).
 - [ ] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57).
 - [ ] Cascades run by the kernel (D-54).
