@@ -2371,3 +2371,25 @@ export const editPost = defineFunction({
 		Post.update({ where: { id }, data }, { as: caller }),
 })
 ```
+
+## D-85: Each package covers at least 90 % of its code
+
+Choice: every package's production code (`packages/*/src`, without tests and
+`test/` fixtures) is covered at 90 % or more on lines, statements, functions
+and branches, each package on its own. `yarn test` measures it with the V8
+provider and fails under the floor, so `yarn validate` and CI enforce it.
+95 % is the target, not a ceiling. Coverage-ignore comments are refused by
+Oxlint (`no-warning-comments`): uncovered code is tested, removed or
+restructured. A package that only PostgreSQL can test will be measured by
+`yarn test:postgres` with the same floor; that command gets coverage with the
+first such package, since today it would measure the kernel at 0 %.
+Why: the kernel is a contract for adapters and plugins; a floor per package
+keeps a well-tested package from hiding an untested one, and branches catch
+the refusal paths that a happy-path test skips.
+Limit: coverage proves code ran, not that a test checked it; review still
+judges the assertions. Code written for a later slice counts against the
+floor until its slice tests it.
+Cost: about 2 s on `yarn test`, and the `@vitest/coverage-v8` devDependency.
+Rejected: one floor for the whole repository, which a large package can carry
+for a small one; a 95 % floor, which pushes tests for invariants that cannot
+fail.

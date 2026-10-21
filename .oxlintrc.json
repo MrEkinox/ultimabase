@@ -22,6 +22,13 @@
 	"ignorePatterns": ["**/coverage/**", "**/dist/**", "bench/typing/gen/**"],
 	"rules": {
 		"eslint/max-lines": ["error", { "max": 400 }],
+		"eslint/no-warning-comments": [
+			"error",
+			{
+				"terms": ["v8 ignore", "c8 ignore", "istanbul ignore"],
+				"location": "anywhere"
+			}
+		],
 		"typescript/await-thenable": "error",
 		"typescript/ban-ts-comment": "error",
 		"typescript/consistent-type-exports": "error",
