@@ -8,5 +8,11 @@
 		"isolatedDeclarations": false,
 		"noEmit": true
 	},
-	"include": ["*.config.ts", "scripts/**/*.ts", "packages/*/src/**/*.ts"]
+	"include": [
+		"*.config.ts",
+		"bench/**/*.ts",
+		"scripts/**/*.ts",
+		"packages/*/src/**/*.ts"
+	],
+	"exclude": ["bench/typing/gen"]
 }

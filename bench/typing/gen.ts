@@ -1,0 +1,216 @@
+// Generates N models on the prototype with the graph and density of the
+// previous base's `schema-form-d` generator (README.md, "Baseline"): six
+// scalars, a ring `next`, its inverse `prevs`, a self relation one model in
+// five, built by the `fields` callback (D-12); `use: [softDelete(), acl(),
+// graphql()]` in `defineModel`, then one `.with({ access, hooks, acl,
+// graphql })` whose read filter crosses a relation; one file per model, one `findMany` and one `trash.findMany` per
+// model in `usage.ts`. `src/app.ts` assembles them with `defineApp` (D-24).
+// `--field-rules` adds field rules in both D-44 forms, loose and with a
+// declared record, combined with `anyOf`. `--wide <K>` gives `S0` K more
+// scalars in the same cycle of types (D-12's large model); with
+// `--field-rules`, one in six gets a loose rule and one in six a declared one.
+// `--schemas` validates `f0` with a Zod schema and adds a `json` field typed
+// by a Zod object (D-23, D-53).
+// Usage: node bench/typing/gen.ts <N> [--field-rules] [--wide <K>] [--schemas]
+//   -> bench/typing/gen/proto[-rules]-<N>[-wide<K>][-zod]/
+// Files are overwritten, never deleted: one N always writes the same files.
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const count = Number.parseInt(process.argv[2] ?? '', 10)
+if (!Number.isInteger(count) || count < 2) {
+	throw new Error('usage: gen.ts <N> [--field-rules], with N >= 2')
+}
+const fieldRules = process.argv.includes('--field-rules')
+const schemas = process.argv.includes('--schemas')
+const wideAt = process.argv.indexOf('--wide')
+const wide =
+	wideAt === -1 ? 0 : Number.parseInt(process.argv[wideAt + 1] ?? '', 10)
+if (!Number.isInteger(wide) || wide < 0) {
+	throw new Error('usage: --wide <K>, with K >= 0')
+}
+
+const here = dirname(fileURLToPath(import.meta.url))
+const project = join(
+	here,
+	'gen',
+	`proto${fieldRules ? '-rules' : ''}-${count}${wide > 0 ? `-wide${wide}` : ''}${schemas ? '-zod' : ''}`,
+)
+mkdirSync(join(project, 'src'), { recursive: true })
+const write = (path: string, text: string): void => {
+	writeFileSync(join(project, path), text)
+}
+
+write(
+	'tsconfig.json',
+	`${JSON.stringify(
+		{
+			extends: '../../../../tsconfig.base.json',
+			compilerOptions: {
+				allowImportingTsExtensions: true,
+				composite: false,
+				declaration: false,
+				declarationMap: false,
+				isolatedDeclarations: false,
+				noEmit: true,
+			},
+			include: ['src/**/*.ts'],
+		},
+		null,
+		'\t',
+	)}\n`,
+)
+
+const name = (i: number): string => `S${i}`
+const kernel = '../../../prototype/index.ts'
+
+const f0 = schemas
+	? `f.string({ validate: z.string().trim().min(1) })`
+	: 'f.string()'
+const settings = schemas
+	? `\n\t\tf6: f.json({ validate: z.object({ theme: z.enum(['light', 'dark']), size: z.number().default(12) }) }),`
+	: ''
+const scalars = fieldRules
+	? `		f0: ${f0}.with({
+			access: { update: ({ value }) => value.length > 0 },
+		}),
+		f1: f.number({ optional: true }),
+		f2: f.boolean({ default: false }),
+		f3: f.date({ optional: true }),
+		f4: f.enumOf(['a', 'b', 'c'], { optional: true }),
+		f5: f.string({ optional: true }).with<{ f2: boolean; f4: 'a' | 'b' | 'c' | null }>({
+			access: {
+				read: ({ record }) => record.f4 !== 'c',
+				update: anyOf(({ record }) => record.f2, allow.private),
+			},
+		}),${settings}`
+	: `		f0: ${f0},
+		f1: f.number({ optional: true }),
+		f2: f.boolean({ default: false }),
+		f3: f.date({ optional: true }),
+		f4: f.enumOf(['a', 'b', 'c'], { optional: true }),
+		f5: f.string({ optional: true }),${settings}`
+
+const wideField = (k: number): string => {
+	const kind = k % 6
+	if (kind === 0) {
+		return fieldRules
+			? `\t\tw${k}: f.string().with({ access: { update: ({ value }) => value.length > 0 } }),`
+			: `\t\tw${k}: f.string(),`
+	}
+	if (kind === 1) return `\t\tw${k}: f.number({ optional: true }),`
+	if (kind === 2) return `\t\tw${k}: f.boolean(),`
+	if (kind === 3) return `\t\tw${k}: f.date({ optional: true }),`
+	if (kind === 4)
+		return `\t\tw${k}: f.enumOf(['a', 'b', 'c'], { optional: true }),`
+	return fieldRules
+		? `\t\tw${k}: f.string({ optional: true }).with<{ w${k - 3}: boolean; w${k - 1}: 'a' | 'b' | 'c' | null }>({
+			access: {
+				read: ({ record }) => record.w${k - 1} !== 'c',
+				update: anyOf(({ record }) => record.w${k - 3}, allow.private),
+			},
+		}),`
+		: `\t\tw${k}: f.string({ optional: true }),`
+}
+const wideFields = Array.from(
+	{ length: wide },
+	(_, k) => `\n${wideField(k)}`,
+).join('')
+
+for (let i = 0; i < count; i += 1) {
+	const next = (i + 1) % count
+	const previous = (i - 1 + count) % count
+	const imports = [...new Set([next, previous])]
+		.filter((j) => j !== i)
+		.map((j) => `import { ${name(j)} } from './s${j}.ts'`)
+		.join('\n')
+	const builders = [
+		'allow',
+		...(fieldRules ? ['anyOf'] : []),
+		'defineModel',
+		'softDelete',
+		'acl',
+		'graphql',
+	].join(', ')
+	write(
+		`src/s${i}.ts`,
+		`import { ${builders} } from '${kernel}'
+${schemas ? "import { z } from 'zod'\n" : ''}${imports}
+
+export const ${name(i)} = defineModel({
+	name: '${name(i)}',
+	use: [softDelete(), acl(), graphql()],
+	fields: (f) => ({
+${scalars}${i === 0 ? wideFields : ''}
+		next: f.one(() => ${name(next)}, { optional: true, onDelete: 'setNull' }),
+		prevs: f.many(() => ${name(previous)}, { inverse: 'next' }),${
+			i % 5 === 0
+				? `\n\t\tparent: f.one(() => ${name(i)}, { optional: true }),`
+				: ''
+		}
+	}),
+}).with({
+	access: {
+		read: ({ caller, where }) =>
+			caller.kind === 'master' ||
+			where({ f2: { equals: false }, next: { is: { f0: { equals: 'x' } } } }),
+		update: ({ record }) => record.f0 !== 'x',
+		create: allow.public,
+	},
+	hooks: {
+		beforeUpdate: ({ record }) => {
+			if (record.f0.length === 0) throw new TypeError('f0')
+		},
+	},
+	acl: { default: { read: allow.public } },
+	graphql: { name: '${name(i)}' },
+})
+`,
+	)
+}
+
+const all = Array.from({ length: count }, (_, i) => name(i))
+const importAll = all
+	.map((model, i) => `import { ${model} } from './s${i}.ts'`)
+	.join('\n')
+write(
+	'src/app.ts',
+	`import { aclPlugin, defineApp, graphqlPlugin, memory, softDeletePlugin } from '${kernel}'
+${importAll}
+
+export const app = defineApp({
+	database: memory(),
+	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin()],
+	models: [${all.join(', ')}],
+})
+`,
+)
+write(
+	'src/server.ts',
+	`import { app } from './app.ts'
+
+await app.start()
+`,
+)
+write(
+	'src/usage.ts',
+	`${importAll}
+
+${all
+	.map(
+		(model, i) =>
+			`export const q${i} = await ${model}.findMany({ where: { f0: { equals: 'current' }, next: { is: { f2: { equals: true } } } }, select: { f0: true, f1: true, next: { select: { f0: true } } } })`,
+	)
+	.join('\n')}
+${all
+	.map(
+		(model, i) =>
+			`export const t${i} = await ${model}.trash.findMany({ where: { f0: { equals: 'gone' } } })`,
+	)
+	.join('\n')}
+export const hoverProbe = q0
+export const editProbe = await S0.findMany({ where: { f0: { equals: 'valid' } } })
+`,
+)
+console.log(project)
