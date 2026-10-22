@@ -31,22 +31,22 @@ node bench/writes/bench.ts [--runs 200] [--url postgres://…]
 
 ## Runs
 
-### 2026-10-22: smoke run, 10 runs
+### 2026-10-22: the reference, 200 runs
 
-Not a reference: it checks that the script runs and that the round trips
-match the contract's (`packages/testing/src/round-trips.ts`). Node 24.20,
-PostgreSQL 18.6 in Docker, Intel i7-8700B.
+Commit `7d29c8b9`. Node 24.20, PostgreSQL 18.6 in Docker on the same machine,
+Intel i7-8700B, load average 1.6. `memory()` times grow with the rows the
+runs add, since it scans its tables.
 
 | Case                                      | memory trips | memory median | PostgreSQL trips | PostgreSQL median | PostgreSQL p95 |
 | ----------------------------------------- | -----------: | ------------: | ---------------: | ----------------: | -------------: |
-| create                                    |            1 |          0.15 |                1 |              0.95 |           1.16 |
-| create, a one and a many connected        |            1 |          0.18 |                1 |              1.37 |           1.46 |
-| update by id, Master                      |            1 |          0.12 |                1 |              1.03 |           1.34 |
-| update by id, a user under access rules   |            4 |          0.21 |                4 |              2.27 |           2.73 |
-| delete by id, a user under access rules   |            4 |          0.15 |                4 |              1.89 |           2.32 |
-| delete by id, Master, one row cascaded    |            5 |          0.18 |                5 |              2.77 |           2.83 |
-| update, a many disconnected and connected |            1 |          0.17 |                4 |              2.20 |           2.53 |
-| update, connected from the other side     |            1 |          0.16 |                1 |              1.12 |           1.40 |
-| create, an afterCreate hook               |            5 |          0.10 |                5 |              2.51 |           2.61 |
-| create, an afterCreateCommit hook         |            4 |          0.09 |                4 |              2.01 |           2.27 |
-| transaction(), two creates                |            4 |          0.18 |                4 |              2.26 |           2.51 |
+| create                                    |            1 |          0.14 |                1 |              0.81 |           0.95 |
+| create, a one and a many connected        |            1 |          0.26 |                1 |              1.15 |           1.40 |
+| update by id, Master                      |            1 |          0.09 |                1 |              0.87 |           1.05 |
+| update by id, a user under access rules   |            4 |          0.40 |                4 |              1.96 |           2.24 |
+| delete by id, a user under access rules   |            4 |          0.44 |                4 |              1.68 |           2.28 |
+| delete by id, Master, one row cascaded    |            5 |          0.46 |                5 |              2.45 |           2.88 |
+| update, a many disconnected and connected |            1 |          0.46 |                4 |              1.98 |           2.30 |
+| update, connected from the other side     |            1 |          0.45 |                1 |              1.02 |           1.28 |
+| create, an afterCreate hook               |            5 |          0.32 |                5 |              2.12 |           2.38 |
+| create, an afterCreateCommit hook         |            4 |          0.34 |                4 |              1.84 |           2.17 |
+| transaction(), two creates                |            4 |          0.86 |                4 |              2.00 |           2.36 |
