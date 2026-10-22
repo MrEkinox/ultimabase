@@ -50,3 +50,26 @@ runs add, since it scans its tables.
 | create, an afterCreate hook               |            5 |          0.32 |                5 |              2.12 |           2.38 |
 | create, an afterCreateCommit hook         |            4 |          0.34 |                4 |              1.84 |           2.17 |
 | transaction(), two creates                |            4 |          0.86 |                4 |              2.00 |           2.36 |
+
+### 2026-10-22: a join move, a cascade and a read-back in one statement, 200 runs
+
+Commit `255675f6` (D-101 to D-103). Same machine, load average 2.8.
+
+| Case                                      | memory trips | memory median | PostgreSQL trips | PostgreSQL median | PostgreSQL p95 |
+| ----------------------------------------- | -----------: | ------------: | ---------------: | ----------------: | -------------: |
+| create                                    |            1 |          0.14 |                1 |              0.75 |           0.89 |
+| create, a one and a many connected        |            1 |          0.27 |                1 |              1.09 |           1.36 |
+| update by id, Master                      |            1 |          0.09 |                1 |              0.78 |           1.07 |
+| update by id, a user under access rules   |            4 |          0.43 |                4 |              1.91 |           2.19 |
+| delete by id, a user under access rules   |            4 |          0.44 |                4 |              1.70 |           2.16 |
+| delete by id, Master, one row cascaded    |            1 |          0.27 |                1 |              0.89 |           1.13 |
+| update, a many disconnected and connected |            1 |          0.47 |                1 |              1.11 |           1.49 |
+| update, connected from the other side     |            1 |          0.46 |                1 |              0.91 |           1.14 |
+| create, an afterCreate hook               |            5 |          0.35 |                5 |              2.17 |           2.50 |
+| create, an afterCreateCommit hook         |            4 |          0.35 |                4 |              1.81 |           2.18 |
+| transaction(), two creates                |            4 |          0.88 |                4 |              1.90 |           2.26 |
+
+Against the reference: the cascaded delete goes from 5 round trips and
+2.45 ms to 1 and 0.89 ms (D-102), the `many` moved from 4 and 1.98 ms to 1
+and 1.11 ms (D-101), a create and an update by id lose 0.06 and 0.09 ms
+(D-103). The rest is unchanged within noise.
