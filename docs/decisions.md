@@ -2944,3 +2944,74 @@ export const cache = definePlugin<Cache>({
 
 await app.start() // SIGTERM now stops the application cleanly
 ```
+
+## D-92: A dependency earns its place by removing code we would own
+
+Choice: a package takes a dependency when it replaces code we would
+otherwise write and maintain, and whose correctness is a subject of its own
+(a format, a standard, security, edge cases). The dependency is widely used,
+maintained, and brings few dependencies of its own. Each use is challenged
+in the decision or the commit that adds it: what it removes, and why Node or
+twenty lines of our own would not do.
+
+Why: a small, proven library is less code to maintain and fewer bugs than
+our own copy of it; a dependency that saves nothing is only one more thing
+to update and to trust.
+
+Rejected: no dependencies as a rule (we would rewrite version ranges, for
+instance, and get them wrong); a dependency for what Node already does or
+for a few trivial lines.
+
+Example: `semver` for the manifest's version checks (D-57): no dependencies,
+the parser npm itself uses, and version ranges are full of edge cases.
+Counter-example: `pino-pretty` for the default logger (D-93): a development
+tool with about fifteen dependencies, for a line format Node prints in a
+few lines.
+
+## D-93: The default logger is readable in a terminal
+
+Choice: amends D-58. Without a `logger`, the kernel's console logger writes a
+readable line when the stream it writes to is a terminal (`isTTY`; stdout
+for `info`, stderr for `warn` and `error`), and the JSON lines of D-58
+everywhere else:
+
+```text
+10:42:07 INFO  [ultimabase] Application started.
+10:42:09 WARN  [ultimabase] Order create refused. model=Order callerId=ada
+10:42:12 ERROR [cache] The plugin failed to stop.
+    Error: Connection lost.
+        at …
+```
+
+The time is local; the level is colored with `util.styleText`, which drops
+colors when the terminal has none or `NO_COLOR` is set; the `name` binding
+(D-91) is shown in brackets; the other bindings and fields follow as
+`key=value`, strings quoted when they hold spaces, quotes or `=`, other
+values as JSON; each error is written under the line as its stack, indented.
+No dependency (D-92).
+
+Why: a developer running the application reads its logs in a terminal, and
+JSON lines there are hard to read; a log collector reads JSON, and its
+stream is never a terminal.
+
+Rejected: `pino-pretty` (D-92); choosing the format from `NODE_ENV`, which
+applications often leave unset; one choice for both streams (`2> file` would
+write readable lines to a file).
+
+Limit: a container started with a terminal (`docker run -t`) writes readable
+lines; an application that wants JSON there gives `logger: pino()`.
+
+Later: pino as the default logger, for its `redact`, with the auth plugin
+(D-62).
+
+Example:
+
+```ts
+// Before: Parse Server, the developer configures a logger to read anything
+new ParseServer({ ..., logLevel: 'info', verbose: false, loggerAdapter: … })
+
+// After: nothing to configure
+await app.start()
+// In a terminal: 10:42:07 INFO  [ultimabase] Application started.
+// In production: {"level":"info","time":…,"name":"ultimabase","msg":"Application started."}
+```
