@@ -35,7 +35,11 @@ interface Trash extends PluginTypes {
 }
 const trash = definePlugin<Trash>({
 	name: 'trash',
-	manifest: { name: 'trash', version: '1.0.0' },
+	manifest: {
+		name: 'trash',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*' },
+	},
 	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
 	redirect: {
 		delete: async ({ where, queries }) => {

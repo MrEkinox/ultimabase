@@ -15,7 +15,11 @@ import type { Queries } from './query.ts'
 import { isObject } from './query-where.ts'
 
 const M = { as: master }
-const manifest = { name: 'test-plugin', version: '1.0.0' }
+const manifest = {
+	name: 'test-plugin',
+	version: '1.0.0',
+	peerDependencies: { ultimabase: '*' },
+}
 const log: string[] = []
 /** The command each `beforeFind` of `trash` saw, by model. */
 const commands: string[] = []

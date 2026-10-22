@@ -3,6 +3,7 @@
 import type { Adapter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import { consoleLogger } from './console-logger.ts'
+import { checkVersions } from './manifest.ts'
 import type { Installed } from './plugin-app.ts'
 import { buildApis, installed, withContexts } from './plugin-app.ts'
 import type { Running } from './running.ts'
@@ -75,6 +76,7 @@ export function lifecycle(options: {
 		)
 		const base = options.logger ?? consoleLogger()
 		const logger = base.child({ name: 'ultimabase' })
+		checkVersions(records, logger)
 		const plugins = withContexts(apiOrder, base)
 		await database.start(resolved.schema)
 		const apis = new Map<string, unknown>()

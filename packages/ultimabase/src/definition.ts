@@ -1,6 +1,7 @@
 // What `defineModel`, the field builders and `definePlugin` record at run
 // time: the values behind the types.
 import type { ScalarType } from './adapter.ts'
+import type { Manifest } from './plugin.ts'
 
 export type FieldOptions = { readonly [option: string]: unknown }
 
@@ -39,6 +40,7 @@ export type ModelDefinition = {
 /** A plugin's code, as `definePlugin` checked it (D-57, D-89). */
 export type PluginCode = {
 	readonly name: string
+	readonly manifest: Manifest
 	readonly requires: readonly string[]
 	readonly optional: readonly string[]
 	readonly hooks: { readonly [hook: string]: Function | undefined }

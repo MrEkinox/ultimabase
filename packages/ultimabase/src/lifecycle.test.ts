@@ -14,7 +14,11 @@ import {
 } from './index.ts'
 
 const M = { as: master }
-const manifest = { name: 'test-plugin', version: '1.0.0' }
+const manifest = {
+	name: 'test-plugin',
+	version: '1.0.0',
+	peerDependencies: { ultimabase: '*' },
+}
 const log: string[] = []
 const failing = new Set<string>()
 

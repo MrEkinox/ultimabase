@@ -2,6 +2,7 @@
 // APIs it reads once the application starts, and the command it runs in.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { PluginCode } from './definition.ts'
+import { manifestOf } from './manifest.ts'
 import { isObject } from './query-where.ts'
 import { current } from './running.ts'
 
@@ -80,6 +81,7 @@ export function pluginCode(definition: unknown): PluginCode {
 	const part = (key: string) => functionAt(definition, key, `${name}.${key}`)
 	return Object.freeze({
 		name,
+		manifest: manifestOf(definition['manifest'], name),
 		requires,
 		optional,
 		hooks: Object.freeze(hooks),

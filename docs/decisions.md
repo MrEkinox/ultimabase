@@ -3084,3 +3084,55 @@ import { postgres } from '@ultimabase/postgres'
 
 testAdapter('postgres', () => postgres({ url: process.env.TEST_DATABASE_URL }))
 ```
+
+## D-95: The manifest's version checks
+
+Choice: the checks of D-57 run in `start`, before the database starts, with
+`semver` (D-92):
+
+- `definePlugin` refuses a manifest whose `name` is empty, whose `version` is
+  not a version, or whose `peerDependencies` holds anything but valid ranges;
+  the error names the plugin and the field.
+- The kernel knows its version from its own `package.json`, imported with
+  `with { type: 'json' }`.
+- Each key of `peerDependencies` is a package name: `ultimabase` is the
+  running kernel, any other is matched against the `manifest.name` of the
+  installed plugins. A peer that is not installed is skipped; `requires`
+  already refuses a missing plugin.
+- A range accepts prereleases (`includePrerelease`): kernel `1.3.0-beta.1`
+  runs a plugin written for `^1.0.0`; `2.0.0-beta.1` does not.
+- A plugin that gives `ultimabase` no range starts, with a warning.
+- `ultimabase` and `@ultimabase/testing` are published at one version, so an
+  adapter tested with the suite of `1.4.0` runs on kernel `1.4.0`; a test of
+  the testing package checks it.
+
+Before, a plugin built for another kernel failed later, somewhere in a hook:
+
+```ts
+// ultimabase-archive/package.json: "peerDependencies": { "ultimabase": "^2.0.0" }
+await app.start() // starts; the first delete throws a TypeError in a hook
+```
+
+After, `start` refuses it and names both versions:
+
+```ts
+await app.start()
+// Error: ultimabase-archive 1.0.0 needs ultimabase ^2.0.0; this is ultimabase 1.4.0.
+```
+
+and a plugin without a kernel range is visible at once:
+
+```text
+10:42:07 WARN  [ultimabase] ultimabase-archive declares no ultimabase range.
+```
+
+Why: at `start` every plugin is known, as for `requires`; the error is the
+developer's first line, not a bug report. A missing range is common in a
+plugin's first draft, and refusing it would block a plugin for a field the
+author forgot rather than a real conflict.
+
+Rejected: the check in `defineApp` (a missing requirement is refused at
+`start`, and both checks belong together); strict ranges without
+prereleases (a beta kernel would refuse every plugin); refusing a plugin
+without a kernel range (a warning tells the same without blocking);
+a hand-written range parser (D-92).
