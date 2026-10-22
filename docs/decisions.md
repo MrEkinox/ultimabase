@@ -2833,8 +2833,13 @@ Rejected:
 - cascades that skip rows `beforeFind` hides;
 - one write per level.
 
-Later: one recursive read of the adapter in place of a read per level, with
-the PostgreSQL adapter (D-48).
+Limit: the rows a delete reaches are loaded before its hooks run, so a row a
+hook creates during the delete, referencing a deleted row, is not reached.
+Creating a child of the row being deleted is the developer's error; checking
+every delete again after its write would make every application pay for it.
+
+Later: one recursive read of the adapter (`WITH RECURSIVE`) in place of a read
+per level, with the PostgreSQL adapter (D-48).
 
 Example:
 
