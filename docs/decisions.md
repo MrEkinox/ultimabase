@@ -3696,3 +3696,89 @@ await Genre.create({ data: { label: 'myth' } }, { as: master })
 //   with "#w0" as (insert into "genre" (...) values (...) returning *)
 //   select (select ... from "#w0" as "t1" where "t1"."id" = $5) as "rows"
 ```
+
+## D-104: A user's write reads its row without a lock, then checks it unchanged
+
+Choice: amends D-99 point 2 for the row an `update` or a `delete` targets.
+
+1. When a single-row write owns its transaction and has not begun it (no
+   `transaction()` around it), the kernel reads the row it targets alone,
+   without a lock, runs the access rules, `prepared` and `before*` hooks
+   from it, then writes with one more check: the row the rules saw is still
+   there, unchanged.
+2. Unchanged means the record a rule sees (D-72): `id`, `createdAt`,
+   `updatedAt`, every scalar and every stored `one` key equal to what was
+   read, as `{ equals: value }`, `{ equals: null }`, `{ is: { id: { equals } } }`
+   or `{ is: null }`.
+3. When that check fails, the write starts over once on the locked path of
+   D-99, its data read anew, its rules run again on the row as it now is.
+   No hook has run on another model by then; `beforeUpdate` and
+   `beforeDelete` of the root have not, since the path applies only to a
+   model without them.
+4. It applies to an `update` of a model without update hooks, unless its
+   relation writes reach a model with update hooks, and to a `delete` whose
+   reach runs no hook (D-102). Any other write, and every write inside
+   `transaction()`, locks as before.
+5. `Checked.stale` marks the check; `CheckFailed` on it is no error the
+   caller sees.
+
+Why:
+
+- The locked path is four round trips: BEGIN, the `select ... for update`,
+  the write, COMMIT. Read alone, then written with its check, it is two.
+  On PostgreSQL 18, 200 runs, a user's update under rules went from 4 round
+  trips and 1.91 ms to 2 and 1.39 ms, a user's delete from 4 and 1.70 ms to
+  2 and 1.19 ms (`bench/writes`).
+- Comparing the whole record, not `updatedAt` alone: two writes in the same
+  millisecond leave `updatedAt` equal, so a rule could allow a write from an
+  owner that changed in between.
+- A conflict is rare and costs the locked path plus two round trips; it
+  never fails a write that the locked path would have let through.
+
+Rejected:
+
+- Retrying the optimistic path up to three times, then failing with
+  `CONFLICT`: an error the locked path never raises.
+- Last writer wins, without the check: a rule decides from a row that may
+  no longer be there.
+- Pipelining the read and the write: `pg` sends one query at a time.
+- A per-process monotonic `updatedAt`: it does not hold across instances.
+- `updated_at = greatest(now, updated_at + 1 ms)` in SQL, and PostgreSQL's
+  `xmin` as a row version: both change the adapter contract; `xmin` stays
+  an option.
+
+Limits:
+
+- A date column SQL wrote with microseconds, as `now()` does, never equals
+  the millisecond `Date` the kernel read: that row always takes the locked
+  path, six round trips, until the kernel writes it again. A `createdAt`
+  written that way stays on the locked path for good.
+- Each stored `one` key adds an `exists` lookup by primary key to the check.
+
+Example:
+
+```ts
+const Locker = defineModel({
+	name: 'Locker',
+	fields: (f) => ({ label: f.string(), owner: f.string() }),
+}).with({
+	access: {
+		update: ({ caller, record }) =>
+			caller.kind === 'user' && caller.user.id === record.owner,
+	},
+})
+
+await Locker.update({ where: { id }, data: { label: 'b' } }, { as: user })
+// Before: 4 round trips
+//   begin
+//   select ... from "locker" where "id" = $1 limit 1 for update
+//   with "#w0" as (update "locker" set ... where "id" = $1 returning *) ...
+//   commit
+// After: 2 round trips
+//   select ... from "locker" where "id" = $1 limit 1
+//   with "#checks" as (select (select count(*) from "locker" where "id" = $1
+//       and "created_at" = $2 and "updated_at" = $3 and "label" = $4
+//       and "owner" = $5) = 1 as "c0"),
+//     "#w0" as (update "locker" set ... where "id" = $1
+//       and (select "c0" from "#checks") returning *) ...
+```

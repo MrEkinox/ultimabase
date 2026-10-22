@@ -1,7 +1,8 @@
 // The round trips of the contract, BEGIN and COMMIT included (D-46, D-48,
 // D-99): a read, its relations at any depth included, is one, and so are a
-// count and a write that needs no stored row.
-import type { Adapter } from 'ultimabase'
+// count and a write that needs no stored row. A write that decides from its
+// row reads it alone, then checks it unchanged (D-104).
+import type { Adapter, Caller } from 'ultimabase'
 import { defineApp, defineModel, master, transaction } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { asUser } from './as-user.ts'
@@ -35,6 +36,45 @@ const Shelf = defineModel({
 	fields: (f) => ({ label: f.string({ unique: true }) }),
 }).with({ access: { read: open, create: open, update: open, delete: open } })
 
+const me = '00000000-0000-4000-8000-000000000000'
+const mine = ({
+	caller,
+	record,
+}: {
+	caller: Caller
+	record: { owner: string }
+}) => caller.kind === 'user' && caller.user.id === record.owner
+/** A model whose rules decide from the stored row. */
+const Locker = defineModel({
+	name: 'Locker',
+	fields: (f) => ({
+		label: f.string(),
+		owner: f.string(),
+	}),
+}).with({ access: { read: open, update: mine, delete: mine } })
+
+let hooks = 0
+const Cabinet = defineModel({
+	name: 'Cabinet',
+	fields: (f) => ({ label: f.string(), drawers: f.many(() => Drawer) }),
+}).with({ access: { read: open, update: open } })
+
+/** A model with an update hook, which a relation write reaches. */
+const Drawer = defineModel({
+	name: 'Drawer',
+	fields: (f) => ({
+		label: f.string(),
+		cabinet: f.one(() => Cabinet, { optional: true }),
+	}),
+}).with({
+	access: { read: open, update: open },
+	hooks: {
+		beforeUpdate: async () => {
+			hooks += 1
+		},
+	},
+})
+
 /** Models with hooks after their writes, which run in a transaction. */
 const Note = defineModel({
 	name: 'Note',
@@ -46,13 +86,50 @@ const Memo = defineModel({
 	fields: (f) => ({ text: f.string() }),
 }).with({ hooks: { afterCreateCommit: async () => {} } })
 
-const user = asUser({ id: '00000000-0000-4000-8000-000000000000' })
+const user = asUser({ id: me })
+
+/** Another caller's write, made right after the next read outside a transaction. */
+let meanwhile: ((adapter: Adapter) => Promise<unknown>) | undefined
+
+/** `adapter`, which makes the `meanwhile` write. */
+function racing(adapter: Adapter): Adapter {
+	return {
+		...adapter,
+		find: async (read) => {
+			const rows = await adapter.find(read)
+			const write = meanwhile
+			meanwhile = undefined
+			await write?.(adapter)
+			return rows
+		},
+	}
+}
+
+/** Another caller's change to a locker, `updatedAt` left as it was. */
+const changing =
+	(id: string, set: { readonly [field: string]: unknown }) =>
+	async (adapter: Adapter) =>
+		adapter.write({
+			changes: [
+				{ kind: 'update', model: 'Locker', where: { id: { equals: id } }, set },
+			],
+		})
 
 export function roundTrips(create: () => Adapter, counted: () => number): void {
 	const started = () =>
 		defineApp({
-			database: create(),
-			models: [Writer, Novel, Genre, Shelf, Note, Memo],
+			database: racing(create()),
+			models: [
+				Writer,
+				Novel,
+				Genre,
+				Shelf,
+				Locker,
+				Cabinet,
+				Drawer,
+				Note,
+				Memo,
+			],
 			logger: silent,
 		})
 	const trips = async <T>(
@@ -212,21 +289,79 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			await expect(missing).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
 
-		it('loads the row a user updates or deletes, in a transaction', async () => {
+		it('reads the row a user updates or deletes alone, then checks it unchanged', async () => {
 			const shelf = await once(async () =>
 				Shelf.create({ data: { label: 'top' } }, { as: user }),
 			)
-			// BEGIN, the locked row, the write, COMMIT.
-			await trips(4, async () =>
+			// The row, then the write and its check.
+			await trips(2, async () =>
 				Shelf.update(
 					{ where: { id: shelf.id }, data: { label: 'high' } },
 					{ as: user },
 				),
 			)
-			await trips(4, async () =>
+			await trips(2, async () =>
 				Shelf.delete({ where: { id: shelf.id } }, { as: user }),
 			)
 			expect(await Shelf.count({}, M)).toBe(0)
+		})
+
+		it('starts over locked when the row changed in between', async () => {
+			const locker = await Locker.create({ data: { label: 'a', owner: me } }, M)
+			meanwhile = changing(locker.id, { label: 'b' })
+			// The row, the other write, the failed check, then BEGIN, the
+			// locked row, the write, COMMIT.
+			const updated = await trips(7, async () =>
+				Locker.update(
+					{ where: { id: locker.id }, data: { owner: me } },
+					{ as: user },
+				),
+			)
+			expect(updated.label).toBe('b')
+			meanwhile = changing(locker.id, { label: 'c' })
+			const removed = await trips(7, async () =>
+				Locker.delete({ where: { id: locker.id } }, { as: user }),
+			)
+			expect(removed.label).toBe('c')
+			expect(await Locker.count({}, M)).toBe(0)
+		})
+
+		it('decides again from the row that changed in between', async () => {
+			const locker = await Locker.create({ data: { label: 'a', owner: me } }, M)
+			const other = '00000000-0000-4000-8000-000000000002'
+			for (const write of [
+				async () =>
+					Locker.update(
+						{ where: { id: locker.id }, data: { label: 'z' } },
+						{ as: user },
+					),
+				async () => Locker.delete({ where: { id: locker.id } }, { as: user }),
+			]) {
+				meanwhile = changing(locker.id, { owner: other })
+				await expect(write()).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+				await Locker.update(
+					{ where: { id: locker.id }, data: { owner: me } },
+					M,
+				)
+			}
+			const kept = await Locker.findUnique({ where: { id: locker.id } }, M)
+			expect(kept?.label).toBe('a')
+		})
+
+		it('locks the row before a relation write reaches update hooks', async () => {
+			const cabinet = await Cabinet.create({ data: { label: 'a' } }, M)
+			const drawer = await Drawer.create({ data: { label: 'd' } }, M)
+			hooks = 0
+			const updated = await Cabinet.update(
+				{
+					where: { id: cabinet.id },
+					data: { drawers: { connect: [{ id: drawer.id }] } },
+					include: { drawers: true },
+				},
+				{ as: user },
+			)
+			expect(updated.drawers).toMatchObject([{ id: drawer.id }])
+			expect(hooks).toBe(1)
 		})
 
 		it('runs a write with an after hook in a transaction', async () => {

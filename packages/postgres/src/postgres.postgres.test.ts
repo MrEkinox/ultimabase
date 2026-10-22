@@ -1,10 +1,16 @@
 // The contract on PostgreSQL (D-98): each test in its own schema, on every
 // server `TEST_DATABASE_URL` lists.
 import { randomUUID } from 'node:crypto'
-import { testAdapter } from '@ultimabase/testing'
+import { asUser, testAdapter } from '@ultimabase/testing'
 import { Client } from 'pg'
-import type { Adapter, Schema } from 'ultimabase'
-import { CheckFailed, UniqueViolation } from 'ultimabase'
+import type { Adapter, Logger, Schema } from 'ultimabase'
+import {
+	CheckFailed,
+	defineApp,
+	defineModel,
+	master,
+	UniqueViolation,
+} from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAdapter, requireVersion } from './adapter.ts'
 import { postgres } from './index.ts'
@@ -376,6 +382,57 @@ describe('a write on postgres()', () => {
 		await tx.commit()
 		expect(found?.['id']).toBe(book.id)
 		expect(sent[1]).toContain('for update')
+	})
+})
+
+const quiet: Logger = {
+	info: () => undefined,
+	warn: () => undefined,
+	error: () => undefined,
+	child: () => quiet,
+}
+
+const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({ text: f.string() }),
+}).with({ access: { read: () => true, update: () => true } })
+
+describe('a user write on postgres()', () => {
+	const url = urls[0] ?? ''
+	let schema = ''
+	let sent: string[] = []
+	let app: ReturnType<typeof defineApp>
+	beforeEach(async () => {
+		schema = `t_${randomUUID().replaceAll('-', '')}`
+		await run(url, `create schema "${schema}"`)
+		const database = createAdapter({
+			url: inSchema(url, schema),
+			log: (event) => sent.push(event.query.sql),
+		})
+		app = defineApp({ database, models: [Note], logger: quiet })
+		await app.start()
+	})
+	afterEach(async () => {
+		await app.stop()
+		await run(url, `drop schema "${schema}" cascade`)
+	})
+
+	it('starts over locked on a date SQL wrote in microseconds (D-104)', async () => {
+		const note = await Note.create({ data: { text: 'a' } }, { as: master })
+		await run(
+			inSchema(url, schema),
+			`update "note" set "updated_at" = now() + interval '1 microsecond'`,
+		)
+		sent = []
+		const user = { as: asUser({ id: randomUUID() }) }
+		const updated = await Note.update(
+			{ where: { id: note.id }, data: { text: 'b' } },
+			user,
+		)
+		expect(updated.text).toBe('b')
+		// The row, the failed check, then BEGIN, the locked row, the write, COMMIT.
+		expect(sent).toHaveLength(6)
+		expect(sent[3]).toContain('for update')
 	})
 })
 
