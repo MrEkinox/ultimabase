@@ -169,7 +169,7 @@ export async function sync(
 	await database.start(schema)
 	try {
 		const ran = await synced(database, schema, kernelLogger(options), force)
-		return ran.length === 0
+		return ran === undefined
 			? 'The database already matches the models.'
 			: undefined
 	} finally {

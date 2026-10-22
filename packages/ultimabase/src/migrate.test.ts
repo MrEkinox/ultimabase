@@ -120,7 +120,7 @@ describe('a development start', () => {
 		const database = migrating(state)
 		const schema = schemaOf({ database, models: [Renamed] })
 		const ran = await synced(database, schema, recording(), true)
-		expect(ran.map((statement) => statement.sql)).toStrictEqual([
+		expect(ran?.map((statement) => statement.sql)).toStrictEqual([
 			'drop Locker.label',
 			'add Locker.title',
 		])
@@ -131,7 +131,7 @@ describe('a development start', () => {
 		const schema = schemaOf({ database, models: [Locker] })
 		await expect(
 			synced(database, schema, recording(), false),
-		).resolves.toStrictEqual([])
+		).resolves.toBeUndefined()
 	})
 })
 

@@ -55,20 +55,21 @@ function refusal(losing: readonly Statement[]): string {
 
 /**
  * Brings a development database to the models, refusing what loses data
- * unless `force`, and logs what changed. Returns the statements it ran.
+ * unless `force`, and logs what changed. Returns the statements it ran, or
+ * none when the database already matched.
  */
 export async function synced(
 	database: Adapter,
 	schema: Schema,
 	logger: Logger,
 	force: boolean,
-): Promise<readonly Statement[]> {
+): Promise<readonly Statement[] | undefined> {
 	const migrations = database.migrations
-	if (migrations === undefined) return []
+	if (migrations === undefined) return undefined
 	const stored = await migrations.stored()
 	const from = stored?.snapshot
 	const to = migrations.snapshot(schema)
-	if (from !== undefined && hashOf(from) === hashOf(to)) return []
+	if (from !== undefined && hashOf(from) === hashOf(to)) return undefined
 	const statements = migrations.plan(from, to)
 	const losing = statements.filter((statement) => statement.loses !== undefined)
 	if (losing.length > 0 && !force) throw new Refused(refusal(losing))
@@ -76,6 +77,9 @@ export async function synced(
 	if (from === undefined) {
 		logger.info("Created the database's tables.")
 		return statements
+	}
+	if (statements.length === 0) {
+		logger.info("Synced the models' names: no table changed.")
 	}
 	const changes = Map.groupBy(statements, (statement) => statement.model)
 	for (const [model, made] of changes) {

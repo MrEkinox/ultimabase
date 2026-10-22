@@ -333,6 +333,18 @@ describe('sync', () => {
 		expect(state.runs).toHaveLength(2)
 	})
 
+	it('says it synced names that changed without a table', async () => {
+		const first = await config('renamed', { Locker: ['a', 'b'] })
+		expect(await run('sync', '--config', first)).toBe(0)
+		const reordered = await config('renamed', { Locker: ['b', 'a'] })
+		expect(await run('sync', '--config', reordered)).toBe(0)
+		expect(out).toStrictEqual([])
+		expect(logs.get('renamed')).toContain(
+			"Synced the models' names: no table changed.",
+		)
+		expect(fakeState('renamed').runs).toHaveLength(2)
+	})
+
 	it('refuses production, and a database without migrations', async () => {
 		const file = await config('prod', { Locker: ['label'] })
 		process.env['NODE_ENV'] = 'production'
