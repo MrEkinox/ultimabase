@@ -3054,6 +3054,15 @@ kernel's planning in every test and break with each change of D-73); a
 `reset` the suite calls between tests (an adapter on a fresh database is
 simpler to write and cannot leak rows from one test to the next).
 
+Three details every adapter follows, checked by the suite:
+
+- `%` and `_` are characters in `contains`, `startsWith` and `endsWith`, not
+  patterns: an SQL adapter escapes them in its `LIKE`.
+- `null` is unknown in a comparison, as in SQL, inside `every` too: a book
+  without pages does not fail `every: { pages: { gt: 200 } }`.
+- Two json values are equal when their content is, keys in any order
+  (`jsonb` in PostgreSQL).
+
 Limit: how an adapter makes other writes wait during a transaction is its
 own (memory takes a lock, PostgreSQL row locks); the suite checks only that
 no one sees uncommitted writes.
