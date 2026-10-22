@@ -4126,3 +4126,93 @@ npx ultimabase migrate deploy && npx ultimabase start
 # Back to a clean development database
 npx ultimabase reset                     # Dropped locker. Applied ….sql.
 ```
+
+## D-106: `httpPlugin()`, its Hono routes and the caller they read
+
+Choice: completes D-27, D-49, D-59 and D-66.
+
+1. `@ultimabase/http` exports `httpPlugin(options)` and `routes()`. It
+   depends on `hono` and `@hono/node-server`, whose server it starts.
+   `routes()` is `new Hono<{ Variables: { caller: Caller } }>()`, and a route
+   reads `c.var.caller`, typed, and sends it as `{ as: c.var.caller }`
+   (D-19). The application passes them as `httpPlugin({ routes: [webhooks] })`;
+   each is mounted at the root, in their order.
+2. The kernel gives every plugin's `api`, `start` and `stop` an
+   `identify(request): Promise<Caller>`, so each transport finds the caller
+   the same way:
+   - a request with the `x-ultimabase-master-key` header is compared with the
+     master key in constant time; a match is Master with
+     `caller.master.source === 'key'`; each match and each refusal is
+     logged;
+   - a wrong key, a key sent while none is configured, or any key in
+     production without `{ key, production: true }` is refused with
+     `ACCESS_DENIED` (403);
+   - an empty key is no key: `ULTIMABASE_MASTER_KEY=` must not let an empty
+     header in;
+   - any other request is anonymous. The auth plugin's Identify hook (phase 5) adds the user here.
+3. Errors follow D-28 and D-72. A `PublicError` is sent as
+   `{ code, message, details }`, `details` only when set, with its D-72
+   status. Any other error is sent as `{ code: 'INTERNAL', message:
+'Internal error.', correlationId }` with status 500, and logged with the
+   same `correlationId`. An unknown route is `NOT_FOUND` (404). A body over
+   the limit is `PAYLOAD_TOO_LARGE` (413), the HTTP plugin's own code: the
+   kernel knows no body.
+4. The port is the `port` option, then the `PORT` environment variable, then
+   3000; a `PORT` that is not a port stops `start`. The plugin logs
+   `Listening on http://localhost:3000.` once it listens. `stop` stops
+   accepting connections, closes idle keep-alive connections, and waits for
+   the requests still running, without a timeout (D-59).
+5. CORS (D-66) and the body limit use Hono's middlewares. `cors` lists the
+   allowed origins; outside production, `http://localhost` and
+   `http://127.0.0.1` on any port are also allowed. `bodyLimit` is in bytes,
+   1 MB by default.
+
+Why: Hono is a small router built on the web's `Request` and `Response`,
+whose context already carries typed variables, so a route reads the caller
+with nothing to learn. Identify belongs to the kernel, since the master key
+and the session are the same for HTTP and GraphQL (D-49); a transport only
+hands it the request.
+Rejected: a `defineRoute` wrapper (D-27); the caller as a function argument
+(`(c, caller) => …`), which is not Hono's shape; test helpers, since Hono's
+`routes().request(…)` and a server on port 0 already test a route; the API
+GraphQL mounts itself with, decided with `graphqlPlugin()`.
+Example:
+
+```ts
+// Before: Parse, with Express beside it
+app.post('/webhooks/stripe', async (req, res) => {
+	const query = new Parse.Query('Invoice')
+	const invoice = await query.get(req.body.id, { useMasterKey: true })
+	res.json({ paid: invoice.get('paid') })
+})
+
+// After
+import { httpPlugin, routes } from '@ultimabase/http'
+
+const webhooks = routes()
+webhooks.post('/webhooks/stripe', async (c) => {
+	const { id } = await c.req.json<{ id: string }>()
+	const invoice = await Invoice.findUnique(
+		{ where: { id } },
+		{ as: c.var.caller },
+	)
+	return c.json({ paid: invoice?.paid ?? false })
+})
+
+export default defineApp({
+	database: postgres({ url: process.env.DATABASE_URL }),
+	plugins: [
+		httpPlugin({ cors: ['https://app.example.com'], routes: [webhooks] }),
+	],
+	models: [Invoice],
+	masterKey: process.env.ULTIMABASE_MASTER_KEY,
+})
+```
+
+```bash
+npx ultimabase dev
+# Listening on http://localhost:3000.
+curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
+  -H 'x-ultimabase-master-key: wrong'
+# 403 { "code": "ACCESS_DENIED", "message": "The master key is wrong." }
+```

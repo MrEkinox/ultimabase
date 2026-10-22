@@ -2,6 +2,7 @@
 // their requirements met, then their APIs built, each after those it needs.
 import type { Logger } from './app-options.ts'
 import type { PluginRecord } from './definition.ts'
+import type { Identify } from './identify.ts'
 import { pluginValues } from './definition.ts'
 import { isObject } from './query-where.ts'
 
@@ -57,13 +58,14 @@ export function installed(values: readonly unknown[]): {
 	return { plugins, apiOrder: needsFirst(plugins) }
 }
 
-/** A plugin and what its `api`, `start` and `stop` receive (D-58, D-91). */
+/** A plugin and what its `api`, `start` and `stop` receive (D-58, D-91, D-106). */
 export type Installed = {
 	readonly code: PluginRecord['code']
 	readonly context: {
 		readonly options: object
 		readonly plugins: object
 		readonly logger: Logger
+		readonly identify: Identify
 	}
 }
 
@@ -71,6 +73,7 @@ export type Installed = {
 export function withContexts(
 	apiOrder: readonly PluginRecord[],
 	logger: Logger,
+	identify: Identify,
 ): readonly Installed[] {
 	return apiOrder.map(({ code, options }) => ({
 		code,
@@ -78,6 +81,7 @@ export function withContexts(
 			options,
 			plugins: code.plugins,
 			logger: logger.child({ name: code.name }),
+			identify,
 		},
 	}))
 }

@@ -6,7 +6,9 @@
 		"declaration": false,
 		"declarationMap": false,
 		"isolatedDeclarations": false,
-		"noEmit": true
+		"noEmit": true,
+		// Hono's WebSocket types name DOM types that Node lacks.
+		"skipLibCheck": true
 	},
 	"include": [
 		"*.config.ts",

@@ -1,8 +1,9 @@
 // `start` and `stop` (D-59, D-91): the database, the plugins' APIs, their
 // `start` and `stop`, the operations still running, and `SIGTERM`.
 import type { Adapter, Schema } from './adapter.ts'
-import type { Logger } from './app-options.ts'
+import type { Logger, MasterKey } from './app-options.ts'
 import { consoleLogger } from './console-logger.ts'
+import { identifier } from './identify.ts'
 import { checkVersions } from './manifest.ts'
 import { checked, synced } from './migrate.ts'
 import type { Installed } from './plugin-app.ts'
@@ -42,6 +43,7 @@ export type LifecycleOptions = {
 	readonly plugins?: readonly unknown[]
 	readonly models: readonly unknown[]
 	readonly logger?: Logger
+	readonly masterKey?: MasterKey
 }
 
 /** The application's schema, or a message on what is wrong with it. */
@@ -109,7 +111,8 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		const base = options.logger ?? consoleLogger()
 		const logger = base.child({ name: 'ultimabase' })
 		checkVersions(records, logger)
-		const plugins = withContexts(apiOrder, base)
+		const identify = identifier(options.masterKey, logger)
+		const plugins = withContexts(apiOrder, base, identify)
 		await database.start(resolved.schema)
 		await follow(database, resolved.schema, logger)
 		const apis = new Map<string, unknown>()

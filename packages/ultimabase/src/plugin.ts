@@ -2,6 +2,7 @@
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
 import type { FieldBuilders } from './fields.ts'
+import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks } from './model.ts'
@@ -75,6 +76,8 @@ export interface PluginContext<T> {
 		: AppOptions<T>
 	readonly plugins: Apis<T>
 	readonly logger: Logger
+	/** Who sends a request: what a transport runs it as (D-106). */
+	readonly identify: Identify
 }
 
 /** A plugin's entry in a model's `use`, named after the plugin. */

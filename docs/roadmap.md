@@ -123,11 +123,11 @@ counts included.
 
 ## Phase 4: Transports
 
-- [ ] `httpPlugin()`: Hono, CORS and body limit (D-66); decide how a Hono
-      route reads the typed caller (D-27).
+- [x] `httpPlugin()`: Hono, CORS and body limit (D-66), the typed caller in
+      a route and the master key (D-49, D-106).
 - [ ] `graphqlPlugin()`: `graphql-http`, Relay, depth limit, GraphiQL (D-34, D-41,
       D-55).
-- [ ] `defineFunction` (D-27, D-45), master key (D-49).
+- [ ] `defineFunction` (D-27, D-45).
 - [ ] Decide a function's nullable output, as `postBySlug(slug): Post` in
       GraphQL; today `run` throws `NOT_FOUND` (D-45, D-72).
 
