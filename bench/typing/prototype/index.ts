@@ -1,5 +1,5 @@
-// The surface the measured code imports: the package, the plugins written
-// as their authors would, and stand-ins for what Phase 2 has not built yet.
+// The surface the measured code imports: the packages, and stand-ins for
+// what later phases build (D-97).
 export * from 'ultimabase'
 export {
 	authPlugin,
@@ -11,11 +11,5 @@ export {
 	signedIn,
 } from './auth.ts'
 export { defineFunction, postgres } from './pending.ts'
-export {
-	acl,
-	aclPlugin,
-	graphql,
-	graphqlPlugin,
-	softDelete,
-	softDeletePlugin,
-} from './plugin-values.ts'
+export { acl, aclPlugin, graphql, graphqlPlugin } from './plugin-values.ts'
+export { softDelete, softDeletePlugin } from '@ultimabase/soft-delete'

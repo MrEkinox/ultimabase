@@ -1,7 +1,8 @@
 // The fixed hooks at run time (D-67, D-71, D-88): their order and facts,
 // values a hook or a default writes, and their failures.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { Caller, Logger } from './index.ts'
+import { asUser } from '@ultimabase/testing'
+import type { Logger } from './index.ts'
 import { defineApp, defineModel, master, memory } from './index.ts'
 import { query } from './engine.ts'
 
@@ -124,14 +125,7 @@ let app: {
 	readonly stop: () => Promise<void>
 }
 
-// The kernel reads only the user's id.
-const isCaller = (value: unknown): value is Caller =>
-	typeof value === 'object' && value !== null
-function user(id: string): { readonly as: Caller } {
-	const as: unknown = { kind: 'user', user: { id } }
-	if (!isCaller(as)) throw new Error('A caller is an object.')
-	return { as }
-}
+const user = (id: string) => ({ as: asUser({ id }) })
 const ada = user('ada')
 
 // Asymmetric matchers are typed `any`.

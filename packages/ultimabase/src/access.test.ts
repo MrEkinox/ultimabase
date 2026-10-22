@@ -1,6 +1,7 @@
 // Access rules on `memory()` (D-10, D-44, D-78, D-81, D-86): closed models,
 // read filters, hidden fields, rows absent everywhere, and write rules.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { asUser } from '@ultimabase/testing'
 import type { Caller } from './index.ts'
 import {
 	allOf,
@@ -660,13 +661,4 @@ describe('a rule that breaks the contract', () => {
 	})
 })
 
-// The record the server code gives `caller.user` depends on `Register`;
-// the kernel reads only its id.
-const isCaller = (value: unknown): value is Caller =>
-	typeof value === 'object' && value !== null
-
-function user(id: string): { readonly as: Caller } {
-	const as: unknown = { kind: 'user', user: { id } }
-	if (!isCaller(as)) throw new Error('A caller is an object.')
-	return { as }
-}
+const user = (id: string) => ({ as: asUser({ id }) })

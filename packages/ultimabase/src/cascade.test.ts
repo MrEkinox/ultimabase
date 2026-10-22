@@ -1,7 +1,8 @@
 // Cascades at run time (D-54, D-90): what deleting a row does to the rows
 // that reference it, their hooks and their order.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { Caller, Field, PluginTypes } from './index.ts'
+import { asUser } from '@ultimabase/testing'
+import type { Field, PluginTypes } from './index.ts'
 import {
 	defineApp,
 	defineModel,
@@ -219,14 +220,7 @@ const started = () =>
 	})
 let app: ReturnType<typeof started>
 
-// The kernel reads only the user's id.
-const isCaller = (value: unknown): value is Caller =>
-	typeof value === 'object' && value !== null
-function user(id: string): { readonly as: Caller } {
-	const as: unknown = { kind: 'user', user: { id } }
-	if (!isCaller(as)) throw new Error('A caller is an object.')
-	return { as }
-}
+const user = (id: string) => ({ as: asUser({ id }) })
 
 const people = async (name: string) =>
 	(await User.create({ data: { name } }, M)).id

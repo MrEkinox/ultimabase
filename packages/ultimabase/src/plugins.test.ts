@@ -1,9 +1,10 @@
 // Plugins at run time (D-89): the fields and commands they add, their hooks
 // and redirected delete, and the APIs they build once the application starts.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { asUser } from '@ultimabase/testing'
 import type { Adapter, Write } from './adapter.ts'
 import { modelDefinitions } from './definition.ts'
-import type { Caller, Field, PluginTypes } from './index.ts'
+import type { Field, PluginTypes } from './index.ts'
 import {
 	defineApp,
 	defineModel,
@@ -136,10 +137,7 @@ const started = () =>
 		models: [Bin, Shelf],
 	})
 
-// The kernel reads only the user's id.
-const isCaller = (value: unknown): value is Caller =>
-	typeof value === 'object' && value !== null
-const ada: unknown = { kind: 'user', user: { id: 'ada' } }
+const ada = asUser({ id: 'ada' })
 // Asymmetric matchers are typed `any`.
 const aDate: unknown = expect.any(Date)
 
@@ -274,7 +272,6 @@ describe('a redirected delete', () => {
 	})
 
 	it('keeps the delete access rule', async () => {
-		if (!isCaller(ada)) throw new Error('A caller is an object.')
 		const row = await Shelf.create({ data: { label: 'a' } }, M)
 		clear()
 		await expect(

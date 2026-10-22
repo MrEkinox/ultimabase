@@ -17,7 +17,13 @@ export type { ModelFields, ModelOf } from './define-model.ts'
 export { defineModel } from './define-model.ts'
 export type { ErrorCode, Issue } from './errors.ts'
 export { PublicError } from './errors.ts'
-export type { Field, FieldBuilders, Many, One } from './fields.ts'
+export type {
+	Field,
+	FieldBuilders,
+	Many,
+	One,
+	ScalarOptions,
+} from './fields.ts'
 export type { ServerFunction } from './function.ts'
 export { memory } from './memory.ts'
 export type { App, Model } from './model.ts'

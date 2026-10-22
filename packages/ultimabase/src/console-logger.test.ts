@@ -2,8 +2,8 @@
 // entry, a readable line in a terminal.
 import { stripVTControlCharacters } from 'node:util'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { asUser } from '@ultimabase/testing'
 import { consoleLogger } from './console-logger.ts'
-import type { Caller } from './index.ts'
 import { defineApp, defineModel, memory } from './index.ts'
 
 const lines = {
@@ -29,10 +29,6 @@ const time = String.raw`\d\d:\d\d:\d\d`
 // Asymmetric matchers are typed `any`.
 const aTime: unknown = expect.any(Number)
 const containing = (fields: object): unknown => expect.objectContaining(fields)
-
-// The kernel reads only the user's id.
-const isCaller = (value: unknown): value is Caller =>
-	typeof value === 'object' && value !== null
 
 const terminals = { stdout: process.stdout.isTTY, stderr: process.stderr.isTTY }
 /** Makes stdout and stderr terminals, or not. */
@@ -163,11 +159,11 @@ describe('an application without a logger', () => {
 		await app.stop()
 	})
 
-	const as: unknown = { kind: 'user', user: { id: 'ada' } }
-
 	it('writes ACCESS_DENIED to console.warn', async () => {
-		if (!isCaller(as)) throw new Error('A caller is an object.')
-		const denied = Note.create({ data: { text: 't' } }, { as })
+		const denied = Note.create(
+			{ data: { text: 't' } },
+			{ as: asUser({ id: 'ada' }) },
+		)
 		await expect(denied).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
 		expect(entries('warn')).toEqual([
 			containing({ level: 'warn', callerId: 'ada' }),

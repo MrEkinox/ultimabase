@@ -1,5 +1,6 @@
-// auth (D-33, D-62) owns the user model. Its `define<Kind>` entry,
-// `defineUser`, builds an ordinary model with auth in its `use` (D-13).
+// A stand-in for auth, built in Phase 5 (D-33, D-62), which owns the user
+// model. Its `define<Kind>` entry, `defineUser`, builds an ordinary model
+// with auth in its `use` (D-13).
 import type {
 	Caller,
 	CallerRule,

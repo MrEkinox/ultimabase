@@ -85,10 +85,10 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [x] The manifest's version checks (D-57, D-95).
 - [x] Adapter contract suite started (D-02, D-73, D-94).
 - [x] `@ultimabase/soft-delete` (D-17, D-96).
-- [ ] The prototype's types move into `packages/ultimabase`, each export in
+- [x] The prototype's types move into `packages/ultimabase`, each export in
       the package its decision names, and the typing benchmark measures the
       package. Kernel tests build user callers with
-      `asUser` (D-80).
+      `asUser` (D-80, D-97).
 
 Exit: soft delete under 150 lines (D-15); the kernel within its budget. The
 full typing campaign, run again on the package, stays within reach of the

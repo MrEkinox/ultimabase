@@ -1,6 +1,7 @@
 // Soft delete (D-17, D-89, D-96) on `memory()`: a deleted row leaves every
 // read, the trash reads it, `restore` brings it back, each under its rule.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { asUser } from '@ultimabase/testing'
 import type { Caller } from 'ultimabase'
 import { defineApp, defineModel, master, memory } from 'ultimabase'
 import { softDelete, softDeletePlugin } from './index.ts'
@@ -9,15 +10,7 @@ const M = { as: master }
 // Asymmetric matchers are typed `any`.
 const aDate: unknown = expect.any(Date)
 
-// The record the server code gives `caller.user` depends on `Register`;
-// the kernel reads only its id.
-const isCaller = (value: unknown): value is Caller =>
-	typeof value === 'object' && value !== null
-function user(id: string): { readonly as: Caller } {
-	const as: unknown = { kind: 'user', user: { id } }
-	if (!isCaller(as)) throw new Error('A caller is an object.')
-	return { as }
-}
+const user = (id: string) => ({ as: asUser({ id }) })
 const isAda = (caller: Caller): boolean =>
 	caller.kind === 'user' && caller.user.id === 'ada'
 

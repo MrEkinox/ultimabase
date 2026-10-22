@@ -1,7 +1,6 @@
 // A misspelled key is refused on its own line, next to valid keys and at any
 // depth of a query (exact.ts). `tsc` fails if one is accepted.
-import type { Where } from '../../../../packages/ultimabase/src/query.ts'
-import type { modelFields } from '../../../../packages/ultimabase/src/symbols.ts'
+import type { WhereOf } from '../index.ts'
 import { Book } from './book.ts'
 
 await Book.findMany({
@@ -113,7 +112,7 @@ await Book.update({
 
 // A filter typed elsewhere was checked where it was written: it passes, and
 // is not walked again (exact.ts).
-declare const where: Where<(typeof Book)[typeof modelFields]>
+declare const where: WhereOf<typeof Book>
 await Book.findMany({ where: { AND: [where], title: 'x' } })
 await Book.findMany({
 	where: {

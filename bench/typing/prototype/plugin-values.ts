@@ -1,72 +1,10 @@
-// The plugins the measured models use, written as their authors would
-// (D-57, form 1): an interface holds the types, `definePlugin` the code.
-import type { Field } from '../../../packages/ultimabase/src/fields.ts'
-import type {
-	Queries,
-	UniqueWhere,
-} from '../../../packages/ultimabase/src/query.ts'
-import type {
-	RecordOf,
-	ScalarKeys,
-} from '../../../packages/ultimabase/src/record.ts'
+// Stand-ins for plugins not built yet, written as their authors would
+// (D-57, form 1): ACL in Phase 7, GraphQL in Phase 4. Their types use kernel
+// internals the kernel exports only when those phases need them.
+import type { PluginOf, PluginTypes, RecordOf, UseOf } from 'ultimabase'
+import { definePlugin } from 'ultimabase'
+import type { ScalarKeys } from '../../../packages/ultimabase/src/record.ts'
 import type { AnyRule } from '../../../packages/ultimabase/src/rules.ts'
-import type {
-	PluginOf,
-	PluginTypes,
-	UseOf,
-} from '../../../packages/ultimabase/src/plugin.ts'
-import { definePlugin } from '../../../packages/ultimabase/src/plugin.ts'
-
-// Stand-ins for the plugin's runtime.
-declare function deletedOnly<F>(model: Queries<F>): Queries<F>
-declare function undelete<F>(
-	model: Queries<F>,
-	where: UniqueWhere<F>,
-): Promise<RecordOf<F>>
-
-/** The commands soft delete adds (D-15, D-17). */
-export interface SoftDeleteCommands<F> {
-	readonly trash: Queries<F>
-	restore(args: { readonly where: UniqueWhere<F> }): Promise<RecordOf<F>>
-}
-/** The field soft delete adds, `deletedAt` unless the entry renames it. */
-type DeletedField<O> = {
-	readonly [
-		K in O extends { readonly field: infer N extends string } ? N : 'deletedAt'
-	]: Field<Date, { readonly optional: true }>
-}
-
-interface SoftDelete extends PluginTypes {
-	readonly name: 'softDelete'
-	readonly options: { readonly field?: string }
-	readonly appOptions: { readonly purgeAfterDays?: number }
-	readonly addedFields: DeletedField<this['options']>
-	readonly commands: SoftDeleteCommands<this['fields']>
-}
-
-const softDeleteDefinition = definePlugin<SoftDelete>({
-	name: 'softDelete',
-	manifest: { name: 'ultimabase-soft-delete', version: '1.0.0' },
-	// The default field name; a renamed one needs a cast (D-89).
-	addedFields: (f, options) =>
-		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the field an option names (D-89).
-		({
-			[options.field ?? 'deletedAt']: f.date({ optional: true }),
-		}) as DeletedField<typeof options>,
-	hooks: {
-		// Deleted rows do not exist, except through `trash` (D-17, D-71). The
-		// code sees the default field name; a renamed one needs a cast (D-57).
-		beforeFind: ({ where, command }) =>
-			where({ deletedAt: command === 'trash' ? { not: null } : null }),
-	},
-	commands: ({ queries }) => ({
-		trash: deletedOnly(queries),
-		restore: ({ where }) => undelete(queries, where),
-	}),
-})
-export const softDelete: UseOf<SoftDelete> = softDeleteDefinition.use
-export const softDeletePlugin: PluginOf<SoftDelete> =
-	softDeleteDefinition.plugin
 
 interface AclKey<F> {
 	readonly default?: { readonly read?: AnyRule; readonly write?: AnyRule }

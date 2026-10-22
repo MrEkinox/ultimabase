@@ -78,7 +78,7 @@ test('every refusal of the prototype fails with its recorded message', async () 
 		writeFileSync(
 			join(copy, 'tsconfig.json'),
 			JSON.stringify({
-				extends: relative(copy, join(root, 'tsconfig.json')),
+				extends: relative(copy, join(root, 'bench/typing/tsconfig.json')),
 				include: ['prototype/**/*.ts'],
 				exclude: [],
 			}),

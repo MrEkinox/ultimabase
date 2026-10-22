@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { asUser } from '@ultimabase/testing'
 import { defineModel, master } from './index.ts'
 import { query } from './engine.ts'
 import { resolve } from './schema.ts'
@@ -48,7 +49,7 @@ describe('callers (D-19)', () => {
 	const callers = [
 		{ name: 'anonymous', options: undefined },
 		{ name: 'an explicit anonymous', options: { as: { kind: 'anonymous' } } },
-		{ name: 'a user', options: { as: { kind: 'user', user: { id: 'u1' } } } },
+		{ name: 'a user', options: { as: asUser({ id: 'u1' }) } },
 	]
 
 	it.each(callers)(

@@ -3214,3 +3214,52 @@ await Post.update(
 )
 // PublicError ACCESS_DENIED, path ['deletedAt']
 ```
+
+## D-97: The typing benchmark measures the packages
+
+Choice: the prototype in `bench/typing/prototype` imports the packages the
+way an application does and keeps stand-ins only for what later phases build.
+
+1. Its examples and the generated projects import public names only, from
+   `ultimabase` and `@ultimabase/soft-delete`. A plugin's field type (D-32)
+   needs `ScalarOptions`, which the kernel now exports.
+2. `defineFunction` (Phase 4), `postgres()` (Phase 3), auth (Phase 5), ACL
+   (Phase 7) and GraphQL (Phase 4) stay declared stand-ins, each naming its
+   phase. Their types may reach kernel internals; the exports they need are
+   decided in their phase.
+3. The prototype is its own TypeScript project (`bench/typing/tsconfig.json`).
+   Its `Register` (D-62) declares a user model; in the root project it also
+   reached the packages' tests, which act as a user without one.
+4. `asUser(user)` (D-80) takes the record `caller.user` has: the registered
+   user model's, or `{ id }` without one. It returns a frozen user caller.
+   The kernel and soft delete take `@ultimabase/testing` as a devDependency;
+   both resolve the same kernel source, so `master` stays one object.
+
+Why: the benchmark must measure what developers import, not a copy of it;
+and a test helper typed against one application's user model would refuse
+every other application's tests.
+
+Rejected: the kernel's `defineFunction` types now, without its runtime; an
+`asUser` that takes `{ id }` everywhere, which a rule reading
+`caller.user.email` would see as a string that is `undefined`; importing the
+testing package by a relative path.
+
+Example:
+
+```ts
+// Before: each kernel test file
+const isCaller = (value: unknown): value is Caller =>
+	typeof value === 'object' && value !== null
+function user(id: string) {
+	const as: unknown = { kind: 'user', user: { id } }
+	if (!isCaller(as)) throw new Error('A caller is an object.')
+	return { as }
+}
+await Note.create({ data }, user('ada'))
+
+// After
+import { asUser } from '@ultimabase/testing'
+
+await Note.create({ data }, { as: asUser({ id: 'ada' }) })
+// With a registered user model, the whole record: asUser(bob) (D-80).
+```

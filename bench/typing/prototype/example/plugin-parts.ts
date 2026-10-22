@@ -1,28 +1,22 @@
 // D-57 stress test, part two: the plugin parts D-15, D-16 and D-32 list.
 import type {
 	Field,
-	ScalarOptions,
-} from '../../../../packages/ultimabase/src/fields.ts'
-import type {
 	PluginOf,
 	PluginTypes,
+	Queries,
+	ScalarOptions,
 	UseOf,
-} from '../../../../packages/ultimabase/src/plugin.ts'
+} from '../index.ts'
 import {
 	acl,
 	aclPlugin,
 	defineApp,
 	defineModel,
+	definePlugin,
 	memory,
 	softDelete,
 	softDeletePlugin,
 } from '../index.ts'
-import type {
-	Queries,
-	UniqueWhere,
-} from '../../../../packages/ultimabase/src/query.ts'
-import type { RecordOf } from '../../../../packages/ultimabase/src/record.ts'
-import { definePlugin } from '../../../../packages/ultimabase/src/plugin.ts'
 
 // Each plugin's `package.json`, imported with `with { type: 'json' }`: only
 // `name`, `version` and `peerDependencies` are read (D-57).
@@ -35,10 +29,7 @@ declare const manifest: {
 }
 
 // A stand-in for the plugin's runtime, as for soft delete.
-declare function markArchived<F>(
-	queries: Queries<F>,
-	where: UniqueWhere<F>,
-): Promise<RecordOf<F>>
+declare function markArchived<F>(queries: Queries<F>): Queries<F>['delete']
 
 // 6a: the rules of the model's plugins on a field's `.with`, typed by the
 // field's value (D-12): `fields` is a callback whose builders know `use`.
@@ -179,7 +170,7 @@ const archiveDefinition = definePlugin<Archive>({
 	redirect: {
 		delete: ({ where, queries, plugins }) => {
 			void plugins.auth.currentUserId()
-			return markArchived(queries, where)
+			return markArchived(queries)({ where })
 		},
 	},
 	hooks: {

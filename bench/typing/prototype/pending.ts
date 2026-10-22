@@ -1,5 +1,5 @@
-// Stand-ins for what later Phase 2 slices build: functions (D-27, D-45)
-// and the PostgreSQL adapter (D-02). Declared only.
+// Stand-ins for what later phases build: functions in Phase 4 (D-27, D-45)
+// and the PostgreSQL adapter in Phase 3 (D-02). Declared only.
 import type { Adapter } from '../../../packages/ultimabase/src/adapter.ts'
 import type {
 	AnyCheck,

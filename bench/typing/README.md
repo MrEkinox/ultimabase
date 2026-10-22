@@ -9,6 +9,9 @@ TypeScript 7 takes to report the errors of a file, cold and after one edit.
   project, pulls the diagnostics of one file (`firstMs`), replaces one marker in
   it and pulls them again (`editMs`). It prints one JSON line.
 - `tsc -p <project> --noEmit` gives the full cold check time.
+- `prototype/` is its own project (`tsc -p bench/typing`). It imports the
+  packages by name and keeps stand-ins only for what later phases build
+  (D-97); `gen.ts` writes projects that import it.
 
 ## Baseline: the previous base on TypeScript 7
 
