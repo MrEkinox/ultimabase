@@ -27,6 +27,8 @@ type Part = {
 	readonly removes: boolean
 	readonly adds: boolean
 	readonly reads: ReadonlySet<string>
+	/** A join table's change: the pairs it links or unlinks, `self:other`. */
+	readonly pairs?: ReadonlySet<string>
 }
 
 function assignments(
@@ -115,13 +117,21 @@ function links(
 	const other = sql.id(join.other)
 	const key = [join.self, join.other].toSorted()
 	const id = sql`cast(${change.id} as uuid)`
-	const base = { table: join.table, key, reads: new Set([join.table]) }
+	// The same pair, whichever side names it.
+	const pairOf = (target: string): string =>
+		key[0] === join.self ? `${change.id}:${target}` : `${target}:${change.id}`
+	const pairs = (targets: readonly string[]) => ({
+		table: join.table,
+		key,
+		reads: new Set<string>(),
+		pairs: new Set(targets.map(pairOf)),
+	})
 	if (change.kind === 'unlink') {
 		const targets = change.targets.filter((target) => uuid.test(target))
 		if (targets.length === 0) return undefined
 		const list = sql.join(targets.map((target) => sql`cast(${target} as uuid)`))
 		return {
-			...base,
+			...pairs(targets),
 			build: (gate) =>
 				sql`delete from ${name} where ${self} = ${id} and ${other} in (${list})${and(gate)} returning *`,
 			inserts: false,
@@ -134,7 +144,7 @@ function links(
 		change.targets.map((target) => sql`(${id}, cast(${target} as uuid))`),
 	)
 	return {
-		...base,
+		...pairs(change.targets),
 		build: (gate) => {
 			const source =
 				gate === undefined
@@ -148,26 +158,42 @@ function links(
 	}
 }
 
+/** What the current statement writes to a table. */
+type Written = { readonly inserts: boolean; readonly pairs: Set<string> }
+
+/** Whether `each` may join a statement that already wrote `prior`. */
+function fits(prior: Written | undefined, each: Part): boolean {
+	if (prior === undefined) return true
+	// A join table's changes of distinct pairs never meet.
+	if (each.pairs !== undefined) {
+		return [...each.pairs].every((pair) => !prior.pairs.has(pair))
+	}
+	return prior.inserts && each.inserts
+}
+
 /**
  * The parts of one statement each: a part starts a new one when it writes a
- * table the statement writes (inserts aside) or reads one, since the parts
- * of a statement see the database as it was.
+ * table the statement writes (inserts, and a join table's distinct pairs,
+ * aside) or reads one, since the parts of a statement see the database as it
+ * was.
  */
 function grouped(parts: readonly Part[]): Part[][] {
 	const groups: Part[][] = [[]]
-	/** The tables the current statement writes: whether by inserts only. */
-	const written = new Map<string, boolean>()
+	const written = new Map<string, Written>()
 	for (const each of parts) {
-		const prior = written.get(each.table)
 		const clash =
-			(prior !== undefined && !(prior && each.inserts)) ||
+			!fits(written.get(each.table), each) ||
 			[...each.reads].some((table) => written.has(table))
 		if (clash) {
 			groups.push([])
 			written.clear()
 		}
 		groups.at(-1)?.push(each)
-		written.set(each.table, (written.get(each.table) ?? true) && each.inserts)
+		const prior = written.get(each.table)
+		written.set(each.table, {
+			inserts: (prior?.inserts ?? true) && each.inserts,
+			pairs: new Set([...(prior?.pairs ?? []), ...(each.pairs ?? [])]),
+		})
 	}
 	return groups
 }

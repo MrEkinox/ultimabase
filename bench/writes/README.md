@@ -22,10 +22,10 @@ node bench/writes/bench.ts [--runs 200] [--url postgres://…]
 - PostgreSQL: every statement the adapter sends, BEGIN and COMMIT included,
   through its `log` option, as `yarn test:postgres` counts them (D-98).
 - `memory()`: every call the kernel makes to the adapter. A write is one call
-  whatever its statements, so a write PostgreSQL splits counts more there:
-  `update, a many disconnected and connected` is 1 on `memory()` and 4 on
-  PostgreSQL (BEGIN, two statements, COMMIT), since a join table written twice
-  takes two statements (D-99).
+  whatever its statements, so a write PostgreSQL splits counts more there: a
+  join table's pair unlinked and linked again in one write is 1 on `memory()`
+  and 4 on PostgreSQL (BEGIN, two statements, COMMIT), since a pair changed
+  twice takes two statements (D-101).
 - Times are each case's median, and its 95th percentile on PostgreSQL, in
   milliseconds. Rows add up across runs; the rows a case reads stay few.
 

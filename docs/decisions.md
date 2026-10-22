@@ -1203,7 +1203,8 @@ Limits:
 - The adapter splits a write into several statements, in one transaction,
   when PostgreSQL cannot run it as one: its sub-statements run in no set
   order and see the database as it was, so a table written twice, or read
-  by a later change's filter, starts a new statement.
+  by a later change's filter, starts a new statement; a join table's
+  distinct pairs do not (D-101).
 - These counts hold on PostgreSQL; other adapters may need more (D-51).
 
 ## D-49: A master key lets transports act as Master, outside production
@@ -3419,9 +3420,10 @@ Choice:
      which put the changed rows in place of the stored ones, so the read
      compiler is the one of D-46;
    - a change that writes a table the statement already writes (inserts
-     into the same table aside), or that reads one through its filter,
-     starts a new statement, since the parts of one statement see the
-     database as it was; several statements run in one transaction.
+     into the same table, and a join table's distinct pairs (D-101),
+     aside), or that reads one through its filter, starts a new statement,
+     since the parts of one statement see the database as it was; several
+     statements run in one transaction.
 4. A transaction only when one serves. The kernel begins a write's
    transaction with its first query, so a write that queries nothing before
    its changes begins none: its changes go to the adapter's own `write`,
@@ -3545,3 +3547,47 @@ Rejected:
   COMMIT the way a client pays for them.
 - Adding Prisma and Drizzle to the repository's dependencies (D-92): they
   remove no code of ours.
+
+## D-101: A join table's distinct pairs change in one statement
+
+Choice: on PostgreSQL, the links and unlinks of a join table share one
+statement when no pair appears in two of them, whichever side names the
+pair; a pair changed twice starts a new statement, as any table written
+twice does (D-99). A `disconnect` and a `connect` of the same id stay
+allowed: the row is disconnected, then connected, as on `memory()`.
+
+Why: moving a `many` relation, the commonest relation write after
+`connect`, took BEGIN, two statements and COMMIT, four round trips, while
+its delete and its insert never touch the same row. The adapter sees the
+pairs, so it needs no rule from the kernel.
+
+Rejected: refusing a `disconnect` and a `connect` of the same id as
+`INVALID_QUERY`: the adapter already orders them, and the refusal would be
+one more rule for developers to learn.
+
+Example:
+
+```ts
+await Novel.update(
+	{
+		where: { id: novelId },
+		data: { genres: { disconnect: [{ id: tale }], connect: [{ id: saga }] } },
+	},
+	{ as: master },
+)
+// Before: 4 round trips
+//   begin
+//   with "#checks" as (...), "#w0" as (update "novel" ...),
+//     "#w1" as (delete from "genre_novels" ... returning *) select ...
+//   with "#w2" as (insert into "genre_novels" ... returning *),
+//     "novel" as (...), "genre_novels" as (...) select ... as "rows"
+//   commit
+// After: 1 round trip
+//   with "#checks" as (...), "#w0" as (update "novel" ...),
+//     "#w1" as (delete from "genre_novels" ... returning *),
+//     "#w2" as (insert into "genre_novels" ... returning *),
+//     "novel" as (...), "genre_novels" as (select * from "genre_novels"
+//     where (...) not in (select ... from "#w1") union all select * from
+//     "#w2")
+//   select "c0", (...) as "rows" from "#checks"
+```

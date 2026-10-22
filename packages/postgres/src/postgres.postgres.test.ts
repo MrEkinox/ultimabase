@@ -219,7 +219,32 @@ describe('a write on postgres()', () => {
 		expect(sent).toEqual([])
 	})
 
-	it('splits a write that changes a table twice, in one transaction', async () => {
+	it("moves a join table's distinct pairs in one statement", async () => {
+		const [found] = await adapter.write({
+			changes: [
+				{
+					kind: 'unlink',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [first.id],
+				},
+				// The other side names its pairs the other way round.
+				{
+					kind: 'link',
+					model: 'Tag',
+					field: 'books',
+					id: second.id,
+					targets: [book.id],
+				},
+			],
+			read: tags(book.id),
+		})
+		expect(found?.['tags']).toMatchObject([{ id: second.id }])
+		expect(sent.map((statement) => statement.split(' ')[0])).toEqual(['with'])
+	})
+
+	it('splits a write that changes a pair twice, in one transaction', async () => {
 		const [found] = await adapter.write({
 			changes: [
 				{
@@ -231,15 +256,15 @@ describe('a write on postgres()', () => {
 				},
 				{
 					kind: 'link',
-					model: 'Book',
-					field: 'tags',
-					id: book.id,
-					targets: [second.id],
+					model: 'Tag',
+					field: 'books',
+					id: first.id,
+					targets: [book.id],
 				},
 			],
 			read: tags(book.id),
 		})
-		expect(found?.['tags']).toMatchObject([{ id: second.id }])
+		expect(found?.['tags']).toMatchObject([{ id: first.id }])
 		expect(sent.map((statement) => statement.split(' ')[0])).toEqual([
 			'begin',
 			'with',

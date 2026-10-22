@@ -70,12 +70,13 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 		let app: ReturnType<typeof started>
 		let writer = ''
 		let genre = ''
+		let engines = ''
 		beforeEach(async () => {
 			app = started()
 			await app.start()
 			genre = (await Genre.create({ data: { label: 'tale' } }, M)).id
 			writer = (await Writer.create({ data: { name: 'Ada' } }, M)).id
-			await Novel.create(
+			const created = await Novel.create(
 				{
 					data: {
 						title: 'Engines',
@@ -85,6 +86,7 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 				},
 				M,
 			)
+			engines = created.id
 		})
 		afterEach(async () => app.stop())
 
@@ -166,6 +168,35 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 				),
 			)
 			await expect(missing).rejects.toMatchObject({ code: 'NOT_FOUND' })
+		})
+
+		it('moves a many in one, disconnected and connected', async () => {
+			const other = (await Genre.create({ data: { label: 'saga' } }, M)).id
+			const moved = await once(async () =>
+				Novel.update(
+					{
+						where: { id: engines },
+						data: {
+							genres: { disconnect: [{ id: genre }], connect: [{ id: other }] },
+						},
+						include: { genres: true },
+					},
+					M,
+				),
+			)
+			expect(moved.genres).toMatchObject([{ id: other }])
+			// The same genre on both sides: disconnected, then connected again.
+			const kept = await Novel.update(
+				{
+					where: { id: engines },
+					data: {
+						genres: { disconnect: [{ id: other }], connect: [{ id: other }] },
+					},
+					include: { genres: true },
+				},
+				M,
+			)
+			expect(kept.genres).toMatchObject([{ id: other }])
 		})
 
 		it('loads the row a user updates or deletes, in a transaction', async () => {
