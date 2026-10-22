@@ -1,0 +1,17 @@
+# PostgreSQL for `yarn test:postgres` (D-40, D-50, D-98): the oldest and the
+# newest supported servers, in memory and without durability, for speed.
+services:
+  postgres-15:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports: ['54315:5432']
+    tmpfs: [/var/lib/postgresql]
+    command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+  postgres-18:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports: ['54318:5432']
+    tmpfs: [/var/lib/postgresql]
+    command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off

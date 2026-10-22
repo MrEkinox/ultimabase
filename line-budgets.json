@@ -1,1 +1,1 @@
-{ "ultimabase": 10000, "testing": 1500, "soft-delete": 150 }
+{ "ultimabase": 10000, "testing": 1500, "soft-delete": 150, "postgres": 3000 }

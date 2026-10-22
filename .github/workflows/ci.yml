@@ -22,3 +22,29 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
       - run: yarn validate
+
+  postgres:
+    name: PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres-15:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['54315:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s
+          --health-retries 30
+      postgres-18:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['54318:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - run: yarn test:postgres

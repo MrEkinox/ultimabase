@@ -7,15 +7,20 @@ const postgresTests = '**/*.postgres.test.ts'
 // Each package covers at least 90 % of its production code on every
 // measure, on its own (D-85).
 const floor = { lines: 90, statements: 90, functions: 90, branches: 90 }
+// Packages only `yarn test:postgres` exercises; it sets COVERAGE to measure
+// them, and `yarn test` leaves them out (D-98).
+const postgresOnly = new Set(['postgres'])
+const measured = process.env['COVERAGE'] === 'postgres'
 const packages = readdirSync('packages', { withFileTypes: true })
 	.filter((entry) => entry.isDirectory())
 	.map((entry) => entry.name)
+	.filter((name) => postgresOnly.has(name) === measured)
 
 export default defineConfig({
 	test: {
 		coverage: {
 			provider: 'v8',
-			include: ['packages/*/src/**/*.ts'],
+			include: packages.map((name) => `packages/${name}/src/**/*.ts`),
 			exclude: ['**/*.test.ts', '**/test/**'],
 			reporter: ['text-summary', 'text'],
 			thresholds: Object.fromEntries(

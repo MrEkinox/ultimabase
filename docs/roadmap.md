@@ -101,7 +101,7 @@ at 200 models with field rules and schemas, a query edit under 800 ms
 
 ## Phase 3: PostgreSQL adapter
 
-- [ ] Kysely, one round trip per read with relations and access filters
+- [x] Kysely, one round trip per read with relations and access filters
       (D-46, D-47).
 - [ ] At most two statements per write, nested writes through CTEs (D-48).
 - [ ] Cascades (D-54), PostgreSQL 15 to 18 (D-50).

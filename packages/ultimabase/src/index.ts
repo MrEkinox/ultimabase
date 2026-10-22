@@ -2,11 +2,17 @@
 export type {
 	Adapter,
 	Change,
+	Condition,
 	CountRead,
 	Filter,
+	Nested,
+	Order,
 	Read,
 	Row,
+	ScalarType,
 	Schema,
+	SchemaField,
+	SchemaModel,
 	Transaction,
 	Write,
 } from './adapter.ts'

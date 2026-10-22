@@ -3263,3 +3263,100 @@ import { asUser } from '@ultimabase/testing'
 await Note.create({ data }, { as: asUser({ id: 'ada' }) })
 // With a registered user model, the whole record: asUser(bob) (D-80).
 ```
+
+## D-98: The PostgreSQL adapter's tables, names and test setup
+
+Choice:
+
+1. Tables. `start` refuses a server below PostgreSQL 15 (D-50). When the
+   database holds none of the schema's tables, it creates them all in one
+   transaction, which is D-26's case of new tables. Any other state is refused
+   until `migrate` arrives (Phase 3, item 4).
+2. Columns:
+   - `id uuid primary key`, with `created_at` and `updated_at` as
+     `timestamptz not null`.
+   - string is `text collate "C"`, the order `memory()` mimics.
+   - number is `double precision`, boolean is `boolean`, date is `timestamptz`
+     (D-65).
+   - json is `jsonb`, so two values are equal when their content is.
+   - enum is `text` with `check (column in (...))`.
+   - A stored `one` is an indexed `<field>_id uuid` column (`dbName` names the
+     whole column, D-63). Its foreign key to the target's id has no
+     `on delete`, because the kernel runs the cascades (D-54). The check is
+     deferred to the commit, because a write may delete a parent before it
+     updates the parent's children.
+   - An optional field is nullable; every other field is `not null`.
+   - Unique fields, unique indexes and the key of a one-to-one are unique
+     constraints, checked at once.
+   - A condition on `id` with a string that is not a lowercase UUID matches
+     no row, as in `memory()`, instead of failing in PostgreSQL.
+3. Many-to-many. The join table is named `<table>_<field>` after the side
+   whose model name sorts first, and its columns are named `<table>_id`. So
+   `Book.tags` with `Tag.books` gives `book_tags(book_id, tag_id)`, with a
+   primary key on both columns and an index on the second. A relation of a
+   model to itself is named after the field that sorts first, and each column
+   after the field that lists its ids. So `User.followers` with
+   `User.following` gives `user_followers(followers_id, following_id)`. The
+   join's foreign keys cascade, so a deleted row's links go with it, as in
+   `memory()`.
+4. Constraint names:
+   - `<table>_pkey`, `<table>_<columns>_key`, `_fkey`, `_check` and `_idx`.
+   - A name over 63 bytes keeps its first 54 and ends with 8 hex characters
+     of its hash.
+   - When `<table>_pkey` or a `_key` refuses a write, the adapter reports
+     `UniqueViolation` with the model's field names.
+5. Statement counts. `testAdapter(name, create, { statements })` requires a
+   counter and runs the counts of D-46 and D-48, so no adapter passes the
+   contract without them.
+   - PostgreSQL counts the statements Kysely logs, BEGIN, COMMIT and
+     ROLLBACK aside. It counts through an internal factory that `postgres()`
+     wraps, so nothing public is added.
+   - `memory()` counts the calls it receives.
+6. One schema per test. The test creates `t_<id>` and adds
+   `?options=-c search_path=t_<id>` to the URL; `postgres()` takes no
+   `schema` option.
+7. Where PostgreSQL runs:
+   - `compose.yaml` runs PostgreSQL 15 and 18.
+   - `yarn test:postgres` runs the suite on each space-separated URL of
+     `TEST_DATABASE_URL`, and on both compose services by default.
+   - CI runs the same two servers as service containers in one job, so
+     coverage counts both.
+8. `@ultimabase/postgres` has a budget of 3,000 lines through Phase 3; the
+   previous plugin had 9,500. `yarn test:postgres` measures its coverage
+   against the floor of D-85, and `yarn test` leaves it out.
+
+Why:
+
+- Starting on an empty database is the only migration that needs no diff.
+- The `C` collation and `jsonb` give PostgreSQL the comparisons `memory()`
+  already has, so the contract holds on both.
+- A foreign key keeps hand-written SQL honest without running the kernel's
+  cascades a second time.
+- A schema per test is faster than a database per test, and isolates the
+  tests just as well.
+
+Rejected:
+
+- Native enum types: adding a value takes `alter type`, and a value cannot
+  be removed.
+- `on delete` actions, which would run the cascades a second time (D-54).
+- Immediate foreign keys.
+- Text ids, which take 36 bytes where a `uuid` takes 16.
+- A `schema` option.
+- testcontainers, a dependency for what `compose.yaml` does (D-92).
+
+Example:
+
+```ts
+import { postgres } from '@ultimabase/postgres'
+
+const app = defineApp({
+	database: postgres({ url: 'postgres://localhost/shop' }),
+	models: [Book, Tag],
+})
+await app.start()
+// create table "book" ("id" uuid primary key, "title" text collate "C"
+//   not null, "author_id" uuid not null, "created_at" timestamptz not null, ...)
+// create table "book_tags" ("book_id" uuid not null, "tag_id" uuid not null,
+//   primary key ("book_id", "tag_id"))
+```

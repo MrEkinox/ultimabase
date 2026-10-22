@@ -17,8 +17,8 @@
 		"format:check": "prettier . --check",
 		"lint": "oxlint",
 		"test": "vitest run --project unit --coverage --passWithNoTests",
-		"test:postgres": "vitest run --project postgres --passWithNoTests",
-		"typecheck": "tsc --project tsconfig.json && tsc --project bench/typing && tsc --project packages/ultimabase && tsc --project packages/testing && tsc --project packages/soft-delete",
+		"test:postgres": "COVERAGE=postgres vitest run --project postgres --coverage --passWithNoTests",
+		"typecheck": "tsc --project tsconfig.json && tsc --project bench/typing && tsc --project packages/ultimabase && tsc --project packages/testing && tsc --project packages/soft-delete && tsc --project packages/postgres",
 		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test"
 	},
 	"devDependencies": {
