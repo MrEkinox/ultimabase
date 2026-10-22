@@ -166,6 +166,7 @@ const stamp = () => ({
 })
 const book = stamp()
 const [first, second] = [stamp(), stamp()]
+const byId = (id: string) => ({ id: { equals: id } })
 const tags = (id: string) => ({
 	model: 'Book',
 	where: { id: { equals: id } },
@@ -292,6 +293,81 @@ describe('a write on postgres()', () => {
 		await expect(failed).rejects.toEqual(new CheckFailed(1))
 		const [found] = await adapter.find(tags(book.id))
 		expect(found?.['tags']).toMatchObject([{ id: first.id }])
+	})
+
+	it('reads the one row a write changes from its RETURNING (D-103)', async () => {
+		const at = new Date('2030-01-01T00:00:00.000Z')
+		const [updated] = await adapter.write({
+			changes: [
+				{
+					kind: 'update',
+					model: 'Book',
+					where: byId(book.id),
+					set: { updatedAt: at },
+				},
+			],
+			read: tags(book.id),
+		})
+		expect(updated?.['updatedAt']).toEqual(at)
+		expect(updated?.['tags']).toMatchObject([{ id: first.id }])
+		const added = stamp()
+		const [created] = await adapter.write({
+			changes: [{ kind: 'insert', model: 'Tag', row: added }],
+			read: { model: 'Tag', where: byId(added.id) },
+		})
+		expect(created?.['id']).toBe(added.id)
+		expect(sent).toHaveLength(2)
+		for (const statement of sent) {
+			expect(statement).not.toContain('not materialized')
+		}
+	})
+
+	it('keeps the view of a table the read comes back to', async () => {
+		const at = new Date('2030-01-01T00:00:00.000Z')
+		const [found] = await adapter.write({
+			changes: [
+				{
+					kind: 'update',
+					model: 'Book',
+					where: byId(book.id),
+					set: { updatedAt: at },
+				},
+			],
+			read: { ...tags(book.id), include: { tags: { include: { books: {} } } } },
+		})
+		expect(found?.['tags']).toMatchObject([{ books: [{ updatedAt: at }] }])
+		expect(sent[0]).toContain('"book" as not materialized')
+	})
+
+	it('reads through the views when the read is not the one row written', async () => {
+		const added = stamp()
+		const insert = (tag: typeof added) =>
+			({ kind: 'insert', model: 'Tag', row: tag }) as const
+		const reads = [
+			{ where: undefined, count: 3 },
+			{ where: { NOT: [byId(first.id)] }, count: 3 },
+			{ where: { id: { in: [added.id] } }, count: 1 },
+			{ where: { id: { equals: first.id, not: second.id } }, count: 1 },
+			{ where: byId(first.id), count: 1 },
+		]
+		for (const [at, { where, count }] of reads.entries()) {
+			sent = []
+			const rows = await adapter.write({
+				changes: [insert(at === 0 ? added : stamp())],
+				read: { model: 'Tag', ...(where === undefined ? {} : { where }) },
+			})
+			expect(rows).toHaveLength(count)
+			expect(sent[0]).toContain('"tag" as not materialized')
+		}
+		// Two rows of the table written: the view holds both.
+		sent = []
+		const twice = stamp()
+		const [found] = await adapter.write({
+			changes: [insert(twice), insert(stamp())],
+			read: { model: 'Tag', where: byId(twice.id) },
+		})
+		expect(found?.['id']).toBe(twice.id)
+		expect(sent[0]).toContain('"tag" as not materialized')
 	})
 
 	it('locks the rows it reads', async () => {

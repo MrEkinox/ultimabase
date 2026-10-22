@@ -3659,3 +3659,40 @@ await Writer.delete({ where: { id: writerId } }, { as: master })
 //   select "c0", (select ... from "writer" where "id" = $1) as "rows"
 //   from "#checks"
 ```
+
+## D-103: A write reads the one row it changes from its RETURNING
+
+Choice:
+
+1. When a write's read selects one row by `{ id: { equals } }` alone, and
+   the statement it runs in has exactly one change on that row's table, an
+   insert of that row or an update of it by id, PostgreSQL takes the root
+   row from that change's CTE, `from "#w0"`, rather than from the table's
+   view (D-99).
+2. The table's view is then left out, unless the read comes back to the
+   table through a relation, which still sees the change through it.
+3. Any other read keeps the views of D-99.
+
+Why: the view is a `union all` the planner works through on every write,
+for a row the change already returns. On PostgreSQL 18, a 10 000-row table,
+3 000 runs, the median round trip of a create went from 0.57 to 0.50 ms and
+of an update by id from 0.69 to 0.58 ms; planning a create went from 0.19 to
+0.05 ms. A view left in place without being read still cost 0.02 ms.
+
+Rejected: building the row with `jsonb_build_object` straight from the CTE,
+without the list and its `row_number`: 0.05 ms faster on a create, but a
+second way to compile a read, for one row.
+
+Example:
+
+```ts
+await Genre.create({ data: { label: 'myth' } }, { as: master })
+// Before
+//   with "#w0" as (insert into "genre" (...) values (...) returning *),
+//     "genre" as not materialized (select * from "genre"
+//       union all select * from "#w0")
+//   select (select ... from "genre" as "t1" where "t1"."id" = $5) as "rows"
+// After
+//   with "#w0" as (insert into "genre" (...) values (...) returning *)
+//   select (select ... from "#w0" as "t1" where "t1"."id" = $5) as "rows"
+```

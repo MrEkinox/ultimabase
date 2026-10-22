@@ -55,6 +55,7 @@ class Compiler {
 		]
 		let from = reach.from
 		if (nested.cursor !== undefined) {
+			this.filters.tables.add(table.name)
 			const cursor = this.filters.alias()
 			const found = this.filters.alias()
 			const keys = order.map(
@@ -146,23 +147,29 @@ class Compiler {
 }
 
 /**
- * `read`'s rows as one jsonb array; a locked read locks the root rows its
- * `where` selects (D-99).
+ * `read`'s rows as one jsonb array, its root rows taken from `source`, by
+ * default its table, and the tables it reaches besides; a locked read locks
+ * the root rows its `where` selects (D-99).
  */
-export function compileRows(catalog: Catalog, read: Read): Sql {
+export function compileRows(
+	catalog: Catalog,
+	read: Read,
+	source?: Sql,
+): { readonly rows: Sql; readonly tables: ReadonlySet<string> } {
 	const compiler = new Compiler(catalog)
 	const alias = compiler.filters.alias()
-	const name = sql.id(catalog.table(read.model).name)
+	const name = source ?? sql.id(catalog.table(read.model).name)
 	const as = sql.id(alias)
 	const from = read.lock
 		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} for update) as ${as}`
 		: sql`${name} as ${as}`
-	return compiler.list(read.model, read, { from, on: sql`true` }, alias)
+	const rows = compiler.list(read.model, read, { from, on: sql`true` }, alias)
+	return { rows, tables: compiler.filters.tables }
 }
 
 /** The statement that returns `read`'s rows as one jsonb array, `rows`. */
 export function compileFind(catalog: Catalog, read: Read): Sql {
-	return sql`select ${compileRows(catalog, read)} as "rows"`
+	return sql`select ${compileRows(catalog, read).rows} as "rows"`
 }
 
 export function compileCount(catalog: Catalog, read: CountRead): Sql {

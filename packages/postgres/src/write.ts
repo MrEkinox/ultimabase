@@ -1,11 +1,12 @@
 // A write as the fewest statements (D-99): its checks, then each change as a
 // data-modifying CTE that runs only when they pass, then the read, which sees
 // the changes through CTEs named as the written tables, or, with `before`,
-// runs in the first statement and sees none (D-102). The unique constraint
-// a refused change names is the kernel's `UniqueViolation` (D-98).
+// runs in the first statement and sees none (D-102). A read of the one row a
+// change writes takes it from that change's RETURNING (D-103). The unique
+// constraint a refused change names is the kernel's `UniqueViolation` (D-98).
 import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
-import type { Change, Check, Write } from 'ultimabase'
+import type { Change, Check, Filter, Read, Write } from 'ultimabase'
 import { UniqueViolation } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
@@ -30,6 +31,8 @@ type Part = {
 	readonly reads: ReadonlySet<string>
 	/** A join table's change: the pairs it links or unlinks, `self:other`. */
 	readonly pairs?: ReadonlySet<string>
+	/** The one row it writes, by id, when its RETURNING holds only that row. */
+	readonly row?: string
 }
 
 function assignments(
@@ -48,6 +51,16 @@ function assignments(
 const and = (gate: Sql | undefined): Sql =>
 	gate === undefined ? sql`` : sql` and ${gate}`
 
+/** The id a filter selects by `{ id: { equals } }` alone, if any. */
+function idOf(where: Filter | undefined): string | undefined {
+	if (where === undefined || Object.keys(where).length !== 1) return undefined
+	const id = where['id']
+	if (typeof id !== 'object' || id === null || Object.keys(id).length !== 1) {
+		return undefined
+	}
+	return 'equals' in id && typeof id.equals === 'string' ? id.equals : undefined
+}
+
 /** The CTE of a change, `undefined` when it changes nothing. */
 function part(catalog: Catalog, change: Change): Part | undefined {
 	if (change.kind === 'insert') {
@@ -59,6 +72,7 @@ function part(catalog: Catalog, change: Change): Part | undefined {
 		return {
 			table: table.name,
 			key: ['id'],
+			row: change.row.id,
 			build: (gate) =>
 				gate === undefined
 					? sql`insert into ${name} (${columns}) values (${values}) returning *`
@@ -86,8 +100,10 @@ function part(catalog: Catalog, change: Change): Part | undefined {
 				([column, item]) => sql`${sql.id(column)} = ${item}`,
 			),
 		)
+		const row = idOf(change.where)
 		return {
 			...base,
+			...(row === undefined ? {} : { row }),
 			build: (gate) =>
 				sql`update ${name} as ${alias} set ${set} where ${where}${and(gate)} returning ${alias}.*`,
 			inserts: false,
@@ -237,6 +253,25 @@ function views(parts: ReadonlyMap<number, Part>): Sql[] {
 	})
 }
 
+/**
+ * The change of a statement that writes the one row `read` selects, when no
+ * other change of it writes that table: the read takes the row from its
+ * RETURNING rather than from the table's view (D-103).
+ */
+function sourceOf(
+	catalog: Catalog,
+	read: Read,
+	parts: ReadonlyMap<number, Part>,
+): number | undefined {
+	const id = idOf(read.where)
+	const table = catalog.table(read.model).name
+	const written = [...parts].filter(([, each]) => each.table === table)
+	const [only] = written
+	return id !== undefined && written.length === 1 && only?.[1].row === id
+		? only[0]
+		: undefined
+}
+
 /** The statements of a write, in the order they run. */
 export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 	const checks = write.checks ?? []
@@ -263,16 +298,31 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 		const at = write.before === true ? 0 : groups.length - 1
 		const read = index === at ? write.read : undefined
 		const seen = read !== undefined && write.before !== true
+		const source = seen ? sourceOf(catalog, read, numbered) : undefined
+		const compiled =
+			read === undefined
+				? undefined
+				: compileRows(
+						catalog,
+						read,
+						source === undefined ? undefined : cte(source),
+					)
 		const selected = [
 			...(first ? columns : []),
-			...(read === undefined
-				? []
-				: [sql`${compileRows(catalog, read)} as "rows"`]),
+			...(compiled === undefined ? [] : [sql`${compiled.rows} as "rows"`]),
 		]
+		// The root's table needs no view when only its RETURNING is read.
+		const root = read === undefined ? '' : catalog.table(read.model).name
+		const viewed = [...numbered].filter(
+			([, each]) =>
+				source === undefined ||
+				each.table !== root ||
+				compiled?.tables.has(root) === true,
+		)
 		const all = [
 			...(first ? [sql`"#checks" as (${checking(catalog, checks)})`] : []),
 			...ctes,
-			...(seen ? views(numbered) : []),
+			...(seen ? views(new Map(viewed)) : []),
 		]
 		const list = selected.length === 0 ? sql`1 as "one"` : sql.join(selected)
 		const body = sql`select ${list}${first ? sql` from "#checks"` : sql``}`
