@@ -1154,25 +1154,57 @@ Rejected: Drizzle (built for hand-written static schemas, one table builder per
 database); a hand-written SQL compiler (escaping and dialects for no speed
 gain).
 
-## D-48: Writes apply rules and hooks per row, in at most two statements
+## D-48: Writes apply rules and hooks per row, in the fewest round trips
 
 Choice: every write, single or bulk (`updateMany`, `deleteMany`), applies
 hooks and access rules to each affected row; no API or option skips them.
-Hooks run for every caller; access rules for every caller but Master. The
-adapter sends at most two SQL statements per write, BEGIN and COMMIT aside and
-queries made by hooks excluded: one `SELECT ... FOR UPDATE` loading every
-affected row once, when a `before*` hook or an access rule needs the stored
-record or a connected row, then one write statement (with `RETURNING`,
-through a CTE when `after*` hooks need the previous values). Nested relation
-writes (`connect`, nested `create`) join that one write statement through
-data-modifying CTEs, since the kernel generates every id beforehand (D-22).
-Without such hooks or rules, the write is a single statement. The contract
-suite counts statements (D-46). These counts hold on PostgreSQL; other
-adapters may need more (D-51).
-Why: a bulk write that skips per-row logic lets data bypass the rules; each
-extra round trip costs latency on every write.
-Rejected: bulk writes that skip hooks or rules; one statement per row or per
-nested relation.
+Hooks run for every caller; access rules for every caller but Master.
+
+A write costs round trips to the database, BEGIN and COMMIT included, and
+each case has the fewest it can take. The contract suite counts them on
+`memory()` and PostgreSQL (D-46, D-99). On PostgreSQL, queries made by hooks
+aside:
+
+| The write                                                                                                                | Round trips                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Nothing needs the stored row: `create`, or an `update` by Master on a model without update hooks                         | 1: one statement, which is atomic alone, without BEGIN and COMMIT                  |
+| An access rule, a `before*` hook, a cascade or the returned row needs the stored row: `update` by a user, every `delete` | 4: BEGIN, one `SELECT ... FOR UPDATE` loading the row, one write statement, COMMIT |
+| An `after*` or `*Commit` hook runs                                                                                       | BEGIN, the write, one read per hooked row for the hook's facts, COMMIT             |
+| Inside `transaction()`                                                                                                   | the write's own statements, in the open transaction                                |
+
+The one write statement holds every change, nested relation writes
+included, through data-modifying CTEs, since the kernel generates every id
+beforehand (D-22); its checks (a connected row exists, the row updated is
+there) run in it too (D-99), and so does the read of the returned row.
+
+Why: a round trip costs about 0.1 ms on one machine, 0.5 to 1 ms in one data
+center and tens of milliseconds from a serverless function far from the
+database, while a small statement runs in a fraction of a millisecond, so
+round trips are a write's latency. A bulk write that skips per-row logic lets
+data bypass the rules.
+
+Rejected:
+
+- A fixed cap of two statements: it left BEGIN and COMMIT out, so a write
+  within it still took four round trips, and it fits neither the write
+  that needs one nor the hooked write whose own queries the kernel does not
+  control.
+- BEGIN and COMMIT around a single statement.
+- One statement per change or per nested relation.
+- Bulk writes that skip hooks or rules.
+
+Limits:
+
+- The rows a `before*` hook adds to a write, a `connect` or a `disconnect`
+  on a model with rules or update hooks, are loaded after the hook: one
+  `SELECT` more, since they are unknown before it runs.
+- A cascade loads one `SELECT` per referencing relation and level until it
+  becomes one recursive read (D-90, Phase 3).
+- The adapter splits a write into several statements, in one transaction,
+  when PostgreSQL cannot run it as one: its sub-statements run in no set
+  order and see the database as it was, so a table written twice, or read
+  by a later change's filter, starts a new statement.
+- These counts hold on PostgreSQL; other adapters may need more (D-51).
 
 ## D-49: A master key lets transports act as Master, outside production
 
@@ -1878,7 +1910,10 @@ prepared by the kernel:
   database's convention and the `dbName` overrides (D-63);
 - ids, timestamps and defaults are already set (D-22, D-53), and a cascade
   arrives as rows the kernel loaded and decided, through a locking `find`
-  that follows the cascading relations in one statement (D-48, D-54).
+  that follows the cascading relations in one statement (D-48, D-54);
+- a write carries the counts it needs before it changes anything, its
+  `checks`, and a `find` the kernel decides a write from asks for its rows
+  locked (D-99).
 
 The kernel keeps the transaction context (`AsyncLocalStorage`) and routes each
 query to the open transaction; it rolls back after a failed query even when
@@ -1888,8 +1923,8 @@ typed error naming the model and fields, which the kernel turns into
 `RELATION_RESTRICTED` is the kernel's own check, since the kernel runs
 cascades. Every adapter executes the whole query subset of 0.1 (D-20): there
 is no capability declaration. The contract suite (D-02) takes a
-`statements()` count from the adapter's author to check the counts of D-46
-and D-48. Comparing models with the database (D-26) joins the contract with
+`roundTrips()` count from the adapter's author to check the counts of D-46
+and D-48 (D-99). Comparing models with the database (D-26) joins the contract with
 the PostgreSQL adapter.
 Why: an adapter author reads one small interface and one input shape, and
 never reimplements access, hooks, defaults or transaction rules, so every
@@ -2591,8 +2626,8 @@ Why:
 2. A soft delete's or a tenant's `beforeFind` on every model would run for
    each query, even on models it never reads.
 3. A hook that writes the row it follows, a counter or a status, would
-   otherwise return stale data; a second read on every write breaks D-48's
-   two statements.
+   otherwise return stale data; a second read on every write costs a round
+   trip D-48 does not need.
 4. A function has no other way to say why it refuses; its message is what
    the developer wrote for the client.
 5. Same reason as D-86 for a read rule's filter.
@@ -3305,13 +3340,14 @@ Choice:
      of its hash.
    - When `<table>_pkey` or a `_key` refuses a write, the adapter reports
      `UniqueViolation` with the model's field names.
-5. Statement counts. `testAdapter(name, create, { statements })` requires a
-   counter and runs the counts of D-46 and D-48, so no adapter passes the
-   contract without them.
+5. Round-trip counts. `testAdapter(name, create, { roundTrips })` requires
+   a counter and runs the counts of D-46 and D-48, so no adapter passes the
+   contract without them (D-99).
    - PostgreSQL counts the statements Kysely logs, BEGIN, COMMIT and
-     ROLLBACK aside. It counts through an internal factory that `postgres()`
-     wraps, so nothing public is added.
-   - `memory()` counts the calls it receives.
+     ROLLBACK included. It counts through an internal factory that
+     `postgres()` wraps, so nothing public is added.
+   - `memory()` counts the calls it receives, `begin`, `commit` and
+     `rollback` included.
 6. One schema per test. The test creates `t_<id>` and adds
    `?options=-c search_path=t_<id>` to the URL; `postgres()` takes no
    `schema` option.
@@ -3359,4 +3395,108 @@ await app.start()
 //   not null, "author_id" uuid not null, "created_at" timestamptz not null, ...)
 // create table "book_tags" ("book_id" uuid not null, "tag_id" uuid not null,
 //   primary key ("book_id", "tag_id"))
+```
+
+## D-99: A write in one statement, checked inside it, in a transaction only when one serves
+
+Choice:
+
+1. Checks. `Write.checks` lists the counts a write needs before it changes
+   anything, `{ model, where, count }`. The adapter runs them first, in the
+   write's statement; when one finds another count, nothing is written and
+   the adapter throws `CheckFailed` with that check's index, which the kernel
+   reports as `NOT_FOUND`. The kernel checks the ids each `connect` names
+   (D-86), and the row an update targets when it does not load it (point 5).
+2. Locks. `Read.lock` locks the root rows until the transaction ends:
+   `for update` on PostgreSQL; `memory()` ignores it, since its transaction
+   holds the write lock. The kernel locks the rows it decides a write from:
+   the row an `update` or a `delete` targets, the rows a relation write
+   changes from the other side, a cascade's rows.
+3. One statement. PostgreSQL runs a write as one statement:
+   - each change is a data-modifying CTE that runs only when every check
+     passed;
+   - the read sees the changes through CTEs named as the written tables,
+     which put the changed rows in place of the stored ones, so the read
+     compiler is the one of D-46;
+   - a change that writes a table the statement already writes (inserts
+     into the same table aside), or that reads one through its filter,
+     starts a new statement, since the parts of one statement see the
+     database as it was; several statements run in one transaction.
+4. A transaction only when one serves. The kernel begins a write's
+   transaction with its first query, so a write that queries nothing before
+   its changes begins none: its changes go to the adapter's own `write`,
+   atomic alone, when nothing follows them (no `after*` or `*Commit` hook,
+   no read again). Inside `transaction()`, every query runs in it.
+5. Fewer reads. The kernel loads no row when Master updates by `id` a model
+   without update hooks: the check `{ where: and(where, readable), count: 1 }`
+   stands for it. A relation written from the other side, on a model
+   without update hooks and without rules for the caller, is one update
+   `where: and(where, filter)` instead of a read and an update.
+6. A connected id that is not a UUID is `NOT_FOUND` before any query: the
+   kernel makes every id (D-22), so no row has it, and PostgreSQL would
+   refuse it as a `uuid` before a check could.
+7. The contract suite counts round trips, BEGIN, COMMIT and ROLLBACK
+   included: `testAdapter(name, create, { roundTrips })` (D-98).
+
+Why:
+
+- A check as its own `count` costs a round trip per connected model, and a
+  write that checks inside its statement needs no transaction to undo
+  itself: nothing runs when a check fails.
+- Without a lock, a concurrent write can change a row between the read that
+  allowed a write and the write.
+- Most writes in an application are a `create` or a Master `update` with no
+  hook: they become one round trip.
+
+Rejected:
+
+- Failing a check by raising inside SQL, as a cast of a message to an
+  integer: the error would be PostgreSQL's text, parsed back.
+- A transaction around every write.
+- Serializable isolation instead of row locks: a conflicting write fails
+  and the application retries it.
+- Skipping the read of an update by a unique field other than `id`: the
+  read after it follows the row by `id`, which the kernel has not loaded.
+
+Limits:
+
+- A check runs with the write, so its `NOT_FOUND` comes after the errors
+  the kernel finds before writing: a Master update of a missing row with
+  invalid data fails with `VALIDATION_FAILED`, a connect to a missing row
+  after a move refused as `FORBIDDEN`.
+
+Example:
+
+```ts
+const novel = await Novel.create(
+	{
+		data: {
+			title: 'Engines',
+			writer: { connect: { id: writerId } },
+			genres: { connect: [{ id: genreId }] },
+		},
+	},
+	{ as: master },
+)
+// Before: 7 round trips
+//   begin
+//   select count(*) from "writer" where "id" = $1
+//   select count(*) from "genre" where "id" in ($2)
+//   insert into "novel" (...) values (...)
+//   insert into "genre_novels" (...) values (...) on conflict do nothing
+//   select ... the returned novel
+//   commit
+// After: 1 round trip
+//   with "#checks" as (select
+//     (select count(*) from "writer" as "t1" where "t1"."id" = $1) = 1 as "c0",
+//     (select count(*) from "genre" as "t2" where "t2"."id" in ($2)) = 1 as "c1"),
+//   "#w0" as (insert into "novel" (...) select ... where (select "c0" and "c1"
+//     from "#checks") returning *),
+//   "#w1" as (insert into "genre_novels" (...) select ... where ... on
+//     conflict do nothing returning *),
+//   "novel" as (select * from "novel" where "id" not in (...)
+//     union all select * from "#w0"),
+//   "genre_novels" as (...)
+//   select "c0", "c1", (select ... from "novel" as "t3" ...) as "rows"
+//   from "#checks"
 ```

@@ -2,6 +2,7 @@
 export type {
 	Adapter,
 	Change,
+	Check,
 	Condition,
 	CountRead,
 	Filter,
@@ -16,7 +17,7 @@ export type {
 	Transaction,
 	Write,
 } from './adapter.ts'
-export { UniqueViolation } from './adapter.ts'
+export { CheckFailed, UniqueViolation } from './adapter.ts'
 export type { Logger, MasterKey } from './app-options.ts'
 export { defineApp } from './define-app.ts'
 export type { ModelFields, ModelOf } from './define-model.ts'

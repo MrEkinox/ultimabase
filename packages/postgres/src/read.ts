@@ -145,16 +145,24 @@ class Compiler {
 	}
 }
 
-/** The statement that returns `read`'s rows as one jsonb array, `rows`. */
-export function compileFind(catalog: Catalog, read: Read): Sql {
+/**
+ * `read`'s rows as one jsonb array; a locked read locks the root rows its
+ * `where` selects (D-99).
+ */
+export function compileRows(catalog: Catalog, read: Read): Sql {
 	const compiler = new Compiler(catalog)
 	const alias = compiler.filters.alias()
-	const table = catalog.table(read.model)
-	const reach = {
-		from: sql`${sql.id(table.name)} as ${sql.id(alias)}`,
-		on: sql`true`,
-	}
-	return sql`select ${compiler.list(read.model, read, reach, alias)} as "rows"`
+	const name = sql.id(catalog.table(read.model).name)
+	const as = sql.id(alias)
+	const from = read.lock
+		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} for update) as ${as}`
+		: sql`${name} as ${as}`
+	return compiler.list(read.model, read, { from, on: sql`true` }, alias)
+}
+
+/** The statement that returns `read`'s rows as one jsonb array, `rows`. */
+export function compileFind(catalog: Catalog, read: Read): Sql {
+	return sql`select ${compileRows(catalog, read)} as "rows"`
 }
 
 export function compileCount(catalog: Catalog, read: CountRead): Sql {

@@ -12,7 +12,7 @@ import type {
 	Transaction,
 	Write,
 } from './adapter.ts'
-import { UniqueViolation } from './adapter.ts'
+import { CheckFailed, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
 import { copy, Reader } from './memory-read.ts'
 
@@ -70,6 +70,9 @@ class Draft {
 	}
 
 	write(write: Write): Row[] {
+		for (const [index, check] of (write.checks ?? []).entries()) {
+			if (this.count(check) !== check.count) throw new CheckFailed(index)
+		}
 		const touched = new Set<string>()
 		for (const change of write.changes) {
 			touched.add(change.model)

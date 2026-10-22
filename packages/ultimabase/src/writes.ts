@@ -3,13 +3,13 @@
 // write, which a plugin's `redirect` may replace (D-89), `after*` hooks; the
 // `*Commit` hooks once it commits (D-71, D-88).
 import { and, recordOf } from './access.ts'
-import type { Change, Nested, Row } from './adapter.ts'
+import type { Change, Filter, Nested, Row } from './adapter.ts'
 import type { Cascade } from './cascade.ts'
 import { cascadeOf } from './cascade.ts'
-import { UniqueViolation } from './adapter.ts'
+import { CheckFailed, UniqueViolation } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Event } from './hooks.ts'
-import { redirectOf, rereads, runHook, settle } from './hooks.ts'
+import { redirectOf, rereads, runHook, settle, settles } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { byId, first, given, hiddenBy, picked } from './query-context.ts'
 import type { Shape } from './query-args.ts'
@@ -19,13 +19,21 @@ import { planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
-import type { Plan, Writing } from './write-plan.ts'
-import { moved } from './write-plan.ts'
+import type { Checked, Plan, Writing } from './write-plan.ts'
+import { moved, updated } from './write-plan.ts'
 
-async function guarded(run: Promise<Row[]>): Promise<Row[]> {
+async function guarded(
+	run: Promise<Row[]>,
+	checks: readonly Checked[],
+): Promise<Row[]> {
 	try {
 		return await run
 	} catch (error) {
+		const failed =
+			error instanceof CheckFailed ? checks[error.index] : undefined
+		if (failed !== undefined) {
+			throw new PublicError('NOT_FOUND', failed.message, { cause: error })
+		}
 		if (error instanceof UniqueViolation) {
 			throw new PublicError('UNIQUE_VIOLATION', error.message, {
 				details: { model: error.model, fields: [...error.fields] },
@@ -59,12 +67,14 @@ async function written(
 	steps: Plan,
 	events: Event[],
 	at: { readonly id: string; readonly read: Nested; readonly shape: Shape },
+	checks: Checked[] = [],
 ): Promise<unknown> {
 	const { models, model, scope } = context
 	const writing: Writing = {
 		store,
 		scope,
 		events,
+		checks,
 		replan: async (moving, id, draft) =>
 			updatePlan(models, moving, id, draft, {}, store),
 	}
@@ -72,9 +82,14 @@ async function written(
 	const changes = await steps.changes(writing)
 	const read = { model: model.name, ...at.read, where: byId(at.id) }
 	const again = rereads(events)
-	const rows = await guarded(
-		store.write({ changes, ...(again ? {} : { read }) }),
-	)
+	const write = {
+		checks: checks.map(({ check }) => check),
+		changes,
+		...(again ? {} : { read }),
+	}
+	// Nothing follows a write without hooks: it may need no transaction.
+	const run = settles(events) ? store.write(write) : store.last(write)
+	const rows = await guarded(run, checks)
 	await settle(store, scope.caller, events, commits)
 	// An `after*` hook may have changed the rows: read them again (D-88).
 	const result = again ? await store.find(read) : rows
@@ -106,25 +121,47 @@ export async function create(
 	return written(context, store, commits, steps, events, { id, read, shape })
 }
 
-/** The stored row a single-row write targets, `undefined` when unseen. */
-async function target(
+/** The rows a single-row write may target: the caller reads them (D-72). */
+async function targets(
 	context: Context,
-	store: Store,
 	found: ReadonlyMap<string, unknown>,
-): Promise<Row> {
+): Promise<Filter> {
 	const { models, model, scope } = context
-	const where = await planned(scope, () =>
+	return planned(scope, () =>
 		and(
 			uniqueWhere(models, model, found.get('where'), 'where', scope),
 			scope.readable(model.name),
 		),
 	)
-	const [row] = await store.find({ model: model.name, where, take: 1 })
+}
+
+/** The stored row a single-row write targets, locked. */
+async function target(
+	context: Context,
+	store: Store,
+	found: ReadonlyMap<string, unknown>,
+): Promise<Row> {
+	const { model } = context
+	const where = await targets(context, found)
+	const [row] = await store.find({
+		model: model.name,
+		where,
+		take: 1,
+		lock: true,
+	})
 	// A row the caller cannot read is not found (D-72).
 	if (row === undefined) {
 		throw new PublicError('NOT_FOUND', `No ${model.name} matches.`)
 	}
 	return row
+}
+
+/** The `id` a unique `where` gives, if any. */
+function idOf(where: unknown): string | undefined {
+	if (typeof where !== 'object' || where === null || !('id' in where)) {
+		return undefined
+	}
+	return typeof where.id === 'string' ? where.id : undefined
 }
 
 export async function update(
@@ -144,6 +181,17 @@ export async function update(
 	// The data's shape is checked whether or not the row is found.
 	const draft = readData(model, found.get('data'), false)
 	const sent: Readonly<Draft> = { ...draft }
+	const id = idOf(found.get('where'))
+	if (scope.access === undefined && id !== undefined && !updated(model)) {
+		// Nothing needs the stored row: a check stands for its read (D-99).
+		const where = await targets(context, found)
+		await prepared(model, draft, caller, false)
+		const steps = await updatePlan(models, model, id, draft, sent, store)
+		const check = { model: model.name, where, count: 1 }
+		const message = `No ${model.name} matches.`
+		const at = { id, read, shape }
+		return written(context, store, commits, steps, [], at, [{ check, message }])
+	}
 	const row = await target(context, store, found)
 	scope.access?.allow(model, 'update', { record: row, data: sent })
 	await prepared(model, draft, caller, false)
@@ -212,11 +260,15 @@ export async function remove(
 		store,
 		scope,
 		events,
+		checks: [],
 		replan: async (moving, id, draft) =>
 			updatePlan(models, moving, id, draft, {}, store),
 	}
 	const changes = await cascaded(context, writing, cascade)
-	if (changes.length > 0) await guarded(store.write({ changes }))
+	if (changes.length > 0) {
+		const checks = writing.checks.map(({ check }) => check)
+		await guarded(store.write({ checks, changes }), writing.checks)
+	}
 	await settle(store, caller, events, commits)
 	// The row as the redirect left it, or as it was once gone (D-89).
 	const [left] = redirected

@@ -8,19 +8,45 @@ import type { Running } from './running.ts'
 import { current } from './running.ts'
 
 /** What a query reads and writes through. */
-export type Store = Pick<Transaction, 'find' | 'count' | 'write'>
+export type Store = Pick<Transaction, 'find' | 'count' | 'write'> & {
+	/**
+	 * The write's changes when nothing follows them: alone, they need no
+	 * transaction (D-99).
+	 */
+	readonly last: Transaction['write']
+}
 
 /** A `*Commit` hook, run once the transaction commits (D-15). */
 export type Commit = () => Promise<void>
 
 type Open = {
-	readonly tx: Transaction
+	readonly app: Running
+	/** Begun by the first query (D-99). */
+	tx: Promise<Transaction> | undefined
 	readonly commits: Commit[]
 	/** The first query that failed in it (D-36). */
 	failure: { readonly error: unknown } | undefined
 }
 
 const opened = new AsyncLocalStorage<Open>()
+
+async function begun(open: Open): Promise<Transaction> {
+	open.tx ??= open.app.adapter.begin()
+	return open.tx
+}
+
+/** Queries in the transaction; `owner`'s last write may run alone. */
+function storeOf(open: Open, owner: boolean): Store {
+	return {
+		find: async (read) => (await begun(open)).find(read),
+		count: async (read) => (await begun(open)).count(read),
+		write: async (write) => (await begun(open)).write(write),
+		last: async (write) =>
+			owner && open.tx === undefined
+				? open.app.adapter.write(write)
+				: (await begun(open)).write(write),
+	}
+}
 
 /** Runs in the open transaction; a failure rolls all of it back (D-36). */
 async function joined<R>(open: Open, run: () => Promise<R>): Promise<R> {
@@ -51,24 +77,29 @@ async function committed(logger: Logger, commits: Commit[]): Promise<void> {
 	}
 }
 
+/** A transaction that failed to begin has nothing to roll back. */
+async function rollback(open: Open): Promise<void> {
+	const tx = await open.tx?.catch(() => undefined)
+	await tx?.rollback()
+}
+
 async function atomic<R>(
 	app: Running,
 	run: (open: Open) => Promise<R>,
 ): Promise<R> {
-	const tx = await app.adapter.begin()
-	const open: Open = { tx, commits: [], failure: undefined }
+	const open: Open = { app, tx: undefined, commits: [], failure: undefined }
 	let result: R
 	try {
 		result = await opened.run(open, run, open)
 	} catch (error) {
-		await tx.rollback()
+		await rollback(open)
 		throw error
 	}
 	if (open.failure !== undefined) {
-		await tx.rollback()
+		await rollback(open)
 		throw open.failure.error
 	}
-	await tx.commit()
+	await (await open.tx)?.commit()
 	// Outside the transaction: a commit hook's queries open their own.
 	await committed(app.logger, open.commits)
 	return result
@@ -80,8 +111,16 @@ export async function reading<R>(
 	run: (store: Store) => Promise<R>,
 ): Promise<R> {
 	const open = opened.getStore()
-	if (open === undefined) return run(app.adapter)
-	return joined(open, async () => run(open.tx))
+	if (open === undefined) {
+		const { adapter } = app
+		return run({
+			find: async (read) => adapter.find(read),
+			count: async (read) => adapter.count(read),
+			write: async (write) => adapter.write(write),
+			last: async (write) => adapter.write(write),
+		})
+	}
+	return joined(open, async () => run(storeOf(open, false)))
 }
 
 /** A write: in the open transaction, else in its own (D-36). */
@@ -91,9 +130,9 @@ export async function writing<R>(
 ): Promise<R> {
 	const open = opened.getStore()
 	if (open !== undefined) {
-		return joined(open, async () => run(open.tx, open.commits))
+		return joined(open, async () => run(storeOf(open, false), open.commits))
 	}
-	return atomic(app, async ({ tx, commits }) => run(tx, commits))
+	return atomic(app, async (own) => run(storeOf(own, true), own.commits))
 }
 
 /**

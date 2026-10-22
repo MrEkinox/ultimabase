@@ -157,6 +157,13 @@ export function rereads(events: readonly Event[]): boolean {
 	return events.some((event) => hasHook(event.model, names[event.operation][0]))
 }
 
+/** Whether a hook follows the write, which then runs in a transaction. */
+export function settles(events: readonly Event[]): boolean {
+	return events.some((event) =>
+		names[event.operation].some((name) => hasHook(event.model, name)),
+	)
+}
+
 async function factsOf(
 	store: Store,
 	caller: Caller,

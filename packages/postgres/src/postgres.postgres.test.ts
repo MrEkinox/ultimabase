@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { testAdapter } from '@ultimabase/testing'
 import { Client } from 'pg'
 import type { Adapter, Schema } from 'ultimabase'
-import { UniqueViolation } from 'ultimabase'
+import { CheckFailed, UniqueViolation } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAdapter, requireVersion } from './adapter.ts'
 import { postgres } from './index.ts'
@@ -16,9 +16,6 @@ const servers =
 const urls = (process.env['TEST_DATABASE_URL'] ?? servers)
 	.split(' ')
 	.filter((url) => url !== '')
-
-const transactional =
-	/^\s*(begin|start transaction|commit|rollback|savepoint|release)\b/i
 
 async function run(url: string, statement: string): Promise<void> {
 	const client = new Client({ connectionString: url })
@@ -36,13 +33,13 @@ function inSchema(url: string, schema: string): string {
 }
 
 for (const url of urls) {
-	let statements = 0
+	let trips = 0
 	const create = (): Adapter => {
 		const schema = `t_${randomUUID().replaceAll('-', '')}`
 		const adapter = createAdapter({
 			url: inSchema(url, schema),
-			log: (event) => {
-				if (!transactional.test(event.query.sql)) statements += 1
+			log: () => {
+				trips += 1
 			},
 		})
 		return {
@@ -58,7 +55,7 @@ for (const url of urls) {
 		}
 	}
 	testAdapter(`postgres at ${new URL(url).host}`, create, {
-		statements: () => statements,
+		roundTrips: () => trips,
 	})
 }
 
@@ -128,6 +125,156 @@ describe('postgres()', () => {
 		} finally {
 			await adapter.stop()
 		}
+	})
+})
+
+const shelved: Schema = {
+	models: [
+		{
+			name: 'Book',
+			fields: [
+				{
+					kind: 'many',
+					name: 'tags',
+					target: 'Tag',
+					inverse: 'books',
+					join: true,
+				},
+			],
+			indexes: [],
+		},
+		{
+			name: 'Tag',
+			fields: [
+				{
+					kind: 'many',
+					name: 'books',
+					target: 'Book',
+					inverse: 'tags',
+					join: true,
+				},
+			],
+			indexes: [],
+		},
+	],
+}
+
+const stamp = () => ({
+	id: randomUUID(),
+	createdAt: new Date(),
+	updatedAt: new Date(),
+})
+const book = stamp()
+const [first, second] = [stamp(), stamp()]
+const tags = (id: string) => ({
+	model: 'Book',
+	where: { id: { equals: id } },
+	include: { tags: {} },
+})
+
+describe('a write on postgres()', () => {
+	const url = urls[0] ?? ''
+	let schema = ''
+	let adapter: Adapter
+	let sent: string[] = []
+	beforeEach(async () => {
+		schema = `t_${randomUUID().replaceAll('-', '')}`
+		await run(url, `create schema "${schema}"`)
+		adapter = createAdapter({
+			url: inSchema(url, schema),
+			log: (event) => sent.push(event.query.sql),
+		})
+		await adapter.start(shelved)
+		await adapter.write({
+			changes: [
+				{ kind: 'insert', model: 'Book', row: book },
+				{ kind: 'insert', model: 'Tag', row: first },
+				{ kind: 'insert', model: 'Tag', row: second },
+				{
+					kind: 'link',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [first.id],
+				},
+			],
+		})
+		sent = []
+	})
+	afterEach(async () => {
+		await adapter.stop()
+		await run(url, `drop schema "${schema}" cascade`)
+	})
+
+	it('sends nothing for a write of nothing', async () => {
+		const none = {
+			kind: 'unlink',
+			model: 'Book',
+			field: 'tags',
+			id: book.id,
+		} as const
+		expect(await adapter.write({ changes: [] })).toEqual([])
+		await adapter.write({ changes: [{ ...none, targets: ['nope'] }] })
+		await adapter.write({ changes: [{ ...none, kind: 'link', targets: [] }] })
+		expect(sent).toEqual([])
+	})
+
+	it('splits a write that changes a table twice, in one transaction', async () => {
+		const [found] = await adapter.write({
+			changes: [
+				{
+					kind: 'unlink',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [first.id],
+				},
+				{
+					kind: 'link',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [second.id],
+				},
+			],
+			read: tags(book.id),
+		})
+		expect(found?.['tags']).toMatchObject([{ id: second.id }])
+		expect(sent.map((statement) => statement.split(' ')[0])).toEqual([
+			'begin',
+			'with',
+			'with',
+			'commit',
+		])
+	})
+
+	it('writes nothing when a check fails, and names it', async () => {
+		const failed = adapter.write({
+			checks: [
+				{ model: 'Tag', where: { id: { equals: first.id } }, count: 1 },
+				{ model: 'Tag', where: { id: { equals: randomUUID() } }, count: 1 },
+			],
+			changes: [
+				{
+					kind: 'unlink',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [first.id],
+				},
+			],
+		})
+		await expect(failed).rejects.toEqual(new CheckFailed(1))
+		const [found] = await adapter.find(tags(book.id))
+		expect(found?.['tags']).toMatchObject([{ id: first.id }])
+	})
+
+	it('locks the rows it reads', async () => {
+		const tx = await adapter.begin()
+		const [found] = await tx.find({ ...tags(book.id), lock: true })
+		await tx.commit()
+		expect(found?.['id']).toBe(book.id)
+		expect(sent[1]).toContain('for update')
 	})
 })
 

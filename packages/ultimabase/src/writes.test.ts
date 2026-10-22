@@ -191,10 +191,18 @@ describe('update', () => {
 		const missing = query(
 			'Author',
 			'update',
-			{ where: { id: 'missing' }, data: { name: 1 } },
+			{ where: { id: 'missing' }, data: { name: 'Ada' } },
 			as,
 		)
 		await expect(missing).rejects.toMatchObject({ code: 'NOT_FOUND' })
+		// Master loads no row: the data is validated first (D-99).
+		const invalid = query(
+			'Author',
+			'update',
+			{ where: { id: 'missing' }, data: { name: 1 } },
+			as,
+		)
+		await expect(invalid).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
 		const unknown = query(
 			'Author',
 			'update',

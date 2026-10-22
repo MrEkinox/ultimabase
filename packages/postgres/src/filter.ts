@@ -12,7 +12,8 @@ type Relation = Extract<SchemaField, { readonly kind: 'one' | 'many' }>
 /** The rows a relation reaches: `from`, then what ties them to the row. */
 export type Reach = { readonly from: Sql; readonly on: Sql }
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+export const uuid: RegExp =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function all(parts: readonly Sql[]): Sql {
 	if (parts.length === 0) return sql`true`
@@ -48,6 +49,8 @@ function pattern(operand: unknown, before: string, after: string): string {
 
 export class Filters {
 	readonly catalog: Catalog
+	/** The tables the compiled conditions reach, besides their own. */
+	readonly tables: Set<string> = new Set()
 	private next = 0
 
 	constructor(catalog: Catalog) {
@@ -94,6 +97,7 @@ export class Filters {
 	/** The rows of `field`'s target, aliased `to`, that `alias`'s row reaches. */
 	reach(table: Table, alias: string, field: Relation, to: string): Reach {
 		const target = this.catalog.table(field.target)
+		this.tables.add(target.name)
 		const from = sql`${sql.id(target.name)} as ${sql.id(to)}`
 		if (field.kind === 'one' && field.stored) {
 			return {
@@ -103,6 +107,7 @@ export class Filters {
 		}
 		if (field.kind === 'many' && field.join) {
 			const join = this.catalog.join(table.model.name, field.name)
+			this.tables.add(join.table)
 			const link = this.alias()
 			return {
 				from: sql`${from} join ${sql.id(join.table)} as ${sql.id(link)} on ${sql.id(link, join.other)} = ${sql.id(to, 'id')}`,

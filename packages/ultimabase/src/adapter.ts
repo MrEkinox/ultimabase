@@ -97,7 +97,11 @@ export type Nested = {
 	readonly include?: { readonly [field: string]: Nested }
 }
 
-export type Read = Nested & { readonly model: string }
+export type Read = Nested & {
+	readonly model: string
+	/** Locks the root rows until the transaction ends (D-99). */
+	readonly lock?: boolean
+}
 
 export type CountRead = { readonly model: string; readonly where?: Filter }
 
@@ -126,8 +130,19 @@ export type Change =
 			readonly targets: readonly string[]
 	  }
 
-/** One whole write; `read` runs after the changes, in the same write. */
+/** A count of rows a write needs before it changes anything (D-99). */
+export type Check = {
+	readonly model: string
+	readonly where: Filter
+	readonly count: number
+}
+
+/**
+ * One whole write: its checks first, which write nothing when one fails,
+ * then its changes, then `read`, in the same write.
+ */
 export type Write = {
+	readonly checks?: readonly Check[]
 	readonly changes: readonly Change[]
 	readonly read?: Read
 }
@@ -157,5 +172,16 @@ export class UniqueViolation extends Error {
 		this.name = 'UniqueViolation'
 		this.model = model
 		this.fields = fields
+	}
+}
+
+/** A check of a write found another count: nothing was written (D-99). */
+export class CheckFailed extends Error {
+	readonly index: number
+
+	constructor(index: number) {
+		super(`Check ${String(index)} of the write failed.`)
+		this.name = 'CheckFailed'
+		this.index = index
 	}
 }

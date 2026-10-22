@@ -103,11 +103,15 @@ at 200 models with field rules and schemas, a query edit under 800 ms
 
 - [x] Kysely, one round trip per read with relations and access filters
       (D-46, D-47).
-- [ ] At most two statements per write, nested writes through CTEs (D-48).
+- [x] Writes in the fewest round trips: one statement with its checks,
+      nested writes through CTEs, a transaction only when one serves
+      (D-48, D-99).
+- [x] A write benchmark: round trips and time per write case, on `memory()`
+      and PostgreSQL (D-48), in [`bench/writes`](../bench/writes/README.md).
 - [ ] Cascades (D-54), PostgreSQL 15 to 18 (D-50).
 - [ ] Development sync, `migrate create` and `migrate deploy` (D-26).
 
-Exit: the contract suite passes on `memory()` and PostgreSQL, statement
+Exit: the contract suite passes on `memory()` and PostgreSQL, round-trip
 counts included.
 
 ## Phase 4: Transports

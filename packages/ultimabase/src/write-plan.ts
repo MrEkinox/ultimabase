@@ -1,7 +1,7 @@
 // The steps of one write, before access rules and `beforeFind` turn them
 // into the adapter's changes (D-71, D-78, D-86).
 import { and, recordOf } from './access.ts'
-import type { Change, Filter, Row } from './adapter.ts'
+import type { Change, Check, Filter, Row } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Issue } from './errors.ts'
 import type { Event } from './hooks.ts'
@@ -42,11 +42,18 @@ export type Detach = Omit<Link, 'kind'> & {
 
 export type Step = Change | Move | Detach
 
-/** What one write runs in: its store, its scope and the rows it changes. */
+/** A check of the write, and what `NOT_FOUND` says when it fails (D-99). */
+export type Checked = { readonly check: Check; readonly message: string }
+
+/**
+ * What one write runs in: its store, its scope, the rows it changes and the
+ * checks its changes need.
+ */
 export type Writing = {
 	readonly store: Store
 	readonly scope: QueryScope
 	readonly events: Event[]
+	readonly checks: Checked[]
 	/** The changes a moved row's `beforeUpdate` added to its data. */
 	readonly replan: (model: ModelInfo, id: string, draft: Draft) => Promise<Plan>
 }
@@ -54,7 +61,11 @@ export type Writing = {
 const byId = (id: string): Filter => ({ id: { equals: id } })
 const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
 
-function updated(model: ModelInfo): boolean {
+/** The shape of every id the kernel makes (D-22). */
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+/** Whether a model has update hooks, which need each row it updates. */
+export function updated(model: ModelInfo): boolean {
 	return (
 		hasHook(model, 'beforeUpdate') ||
 		hasHook(model, 'afterUpdate') ||
@@ -106,10 +117,14 @@ async function move(step: Move, writing: Writing): Promise<Change[]> {
 	const filter = await scope.filter(model, trusted)
 	const access = trusted ? undefined : scope.access
 	const set = { [field]: to, updatedAt: new Date() }
-	if (filter === undefined && access === undefined && !updated(target)) {
-		return [{ kind: 'update', model, where, set }]
+	if (access === undefined && !updated(target)) {
+		return [{ kind: 'update', model, where: and(where, filter), set }]
 	}
-	const rows = await store.find({ model, where: and(where, filter) })
+	const rows = await store.find({
+		model,
+		where: and(where, filter),
+		lock: true,
+	})
 	const data = {
 		[field]: to === null ? { disconnect: true } : { connect: { id: to } },
 	}
@@ -171,22 +186,21 @@ export class Plan {
 	}
 
 	/**
-	 * Fails with the issues, then with `NOT_FOUND` for a target that is
-	 * missing or that the write cannot reach (D-86).
+	 * Fails with the issues, then adds the write's checks: a target that is
+	 * missing or that the write cannot reach is `NOT_FOUND` (D-86, D-99).
 	 */
 	async check(writing: Writing): Promise<void> {
 		if (this.issues.length > 0) throw invalid(this.issues)
 		for (const { model, trusted, ids } of this.connected.values()) {
 			if (ids.size === 0) continue
+			const message = `A connected ${model} does not exist.`
+			// No row has an id the kernel cannot have made.
+			if (![...ids].every((id) => uuid.test(id))) {
+				throw new PublicError('NOT_FOUND', message)
+			}
 			const filter = await writing.scope.filter(model, trusted)
 			const where = and(byIds([...ids]), filter)
-			const found = await writing.store.count({ model, where })
-			if (found !== ids.size) {
-				throw new PublicError(
-					'NOT_FOUND',
-					`A connected ${model} does not exist.`,
-				)
-			}
+			writing.checks.push({ check: { model, where, count: ids.size }, message })
 		}
 	}
 

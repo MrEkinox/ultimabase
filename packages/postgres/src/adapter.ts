@@ -3,6 +3,7 @@
 import type { LogEvent, QueryExecutorProvider } from 'kysely'
 import { Kysely, PostgresDialect, sql } from 'kysely'
 import { Pool } from 'pg'
+import { CheckFailed } from 'ultimabase'
 import type {
 	Adapter,
 	CountRead,
@@ -16,7 +17,8 @@ import { createTables, tableNames } from './ddl.ts'
 import { decodeRows } from './decode.ts'
 import { Catalog } from './names.ts'
 import { compileCount, compileFind } from './read.ts'
-import { compileChange, translate } from './write.ts'
+import type { Statement } from './write.ts'
+import { compileWrite, translate } from './write.ts'
 
 export type Options = {
 	readonly url: string
@@ -52,21 +54,35 @@ async function count(
 	return value
 }
 
+/** Runs a write's statements; the last one returns the rows it reads. */
+async function run(
+	catalog: Catalog,
+	db: QueryExecutorProvider,
+	given: Write,
+	statements: readonly Statement[],
+): Promise<Row[]> {
+	let rows: unknown
+	try {
+		for (const statement of statements) {
+			const [first] = (await statement.sql.execute(db)).rows
+			for (let at = 0; at < statement.checks; at += 1) {
+				if (first?.[`c${at}`] !== true) throw new CheckFailed(at)
+			}
+			rows = first?.['rows']
+		}
+	} catch (error) {
+		throw translate(catalog, error)
+	}
+	const read = given.read
+	return read === undefined ? [] : decodeRows(catalog, read.model, rows, read)
+}
+
 async function write(
 	catalog: Catalog,
 	db: QueryExecutorProvider,
 	given: Write,
 ): Promise<Row[]> {
-	try {
-		for (const change of given.changes) {
-			for (const statement of compileChange(catalog, change)) {
-				await statement.execute(db)
-			}
-		}
-		return given.read === undefined ? [] : await find(catalog, db, given.read)
-	} catch (error) {
-		throw translate(catalog, error)
-	}
+	return run(catalog, db, given, compileWrite(catalog, given))
 }
 
 /** Refuses a server below PostgreSQL 15 (D-50). */
@@ -130,7 +146,12 @@ export function createAdapter(options: Options): Adapter {
 		count: async (read) => count(started().catalog, started().db, read),
 		write: async (given) => {
 			const { catalog, db } = started()
-			return db.transaction().execute(async (trx) => write(catalog, trx, given))
+			const statements = compileWrite(catalog, given)
+			// One statement is atomic alone: no BEGIN, no COMMIT (D-99).
+			if (statements.length <= 1) return run(catalog, db, given, statements)
+			return db
+				.transaction()
+				.execute(async (trx) => run(catalog, trx, given, statements))
 		},
 		begin: async (): Promise<Transaction> => {
 			const { catalog, db } = started()

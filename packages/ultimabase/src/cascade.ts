@@ -80,6 +80,7 @@ export async function cascadeOf(
 				const rows = await store.find({
 					model: from.name,
 					where: { [field]: { is: { id: { in: targets } } } },
+					lock: true,
 				})
 				for (const found of rows) {
 					if (onDelete === 'restrict') {

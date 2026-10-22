@@ -3,13 +3,13 @@
 import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
 import { reads } from './reads.ts'
-import { statements } from './statements.ts'
+import { roundTrips } from './round-trips.ts'
 import { transactions } from './transactions.ts'
 import { writes } from './writes.ts'
 
 export type Options = {
-	/** How many statements the adapters have run so far (D-98). */
-	readonly statements: () => number
+	/** How many round trips the adapters have made so far, BEGIN and COMMIT included (D-98). */
+	readonly roundTrips: () => number
 }
 
 /**
@@ -25,6 +25,6 @@ export function testAdapter(
 		reads(create)
 		writes(create)
 		transactions(create)
-		statements(create, options.statements)
+		roundTrips(create, options.roundTrips)
 	})
 }
