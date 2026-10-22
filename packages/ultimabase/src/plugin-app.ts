@@ -3,6 +3,8 @@
 import type { Logger } from './app-options.ts'
 import type { PluginRecord } from './definition.ts'
 import type { Identify } from './identify.ts'
+import type { ExposedModel, ModelQueries } from './plugin.ts'
+import type { Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
 import { isObject } from './query-where.ts'
 
@@ -66,7 +68,29 @@ export type Installed = {
 		readonly plugins: object
 		readonly logger: Logger
 		readonly identify: Identify
+		readonly models: readonly ExposedModel[]
 	}
+}
+
+/** The models as the plugin `name` reads them, with its `.with` key. */
+function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
+	const values = new Map(
+		[...resolved.byValue].map(([value, info]) => [info.name, value]),
+	)
+	return resolved.schema.models.map((schema) => {
+		const info = resolved.models.get(schema.name)
+		const rules = info?.definition.rules
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a model value holds its queries; transports pass client arguments, which the kernel checks (D-20).
+		const queries = values.get(schema.name) as ModelQueries
+		const key: unknown =
+			rules === undefined ? undefined : Reflect.get(rules, name)
+		return Object.freeze({
+			schema,
+			uniques: info?.uniques ?? [],
+			with: key,
+			queries,
+		})
+	})
 }
 
 /** Each plugin with its context; its logger names it (D-91). */
@@ -74,6 +98,7 @@ export function withContexts(
 	apiOrder: readonly PluginRecord[],
 	logger: Logger,
 	identify: Identify,
+	resolved: Resolved,
 ): readonly Installed[] {
 	return apiOrder.map(({ code, options }) => ({
 		code,
@@ -82,6 +107,7 @@ export function withContexts(
 			plugins: code.plugins,
 			logger: logger.child({ name: code.name }),
 			identify,
+			models: exposed(code.name, resolved),
 		},
 	}))
 }

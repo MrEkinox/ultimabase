@@ -2,9 +2,15 @@
 // sends them, CORS, the body limit, the port and a stop that waits.
 import { createServer } from 'node:http'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { Logger } from 'ultimabase'
-import { defineApp, defineModel, memory, PublicError } from 'ultimabase'
-import type { Routes } from './index.ts'
+import type { Logger, PluginTypes } from 'ultimabase'
+import {
+	defineApp,
+	defineModel,
+	definePlugin,
+	memory,
+	PublicError,
+} from 'ultimabase'
+import type { HttpApi, Routes } from './index.ts'
 import { httpPlugin, routes } from './index.ts'
 import { portOf } from './server.ts'
 
@@ -48,12 +54,45 @@ notes.post('/notes', async (c) => {
 	return c.json({ text: note.text }, 201)
 })
 
+const manifest = {
+	name: 'mounting',
+	version: '1.0.0',
+	peerDependencies: { ultimabase: '*' },
+}
+interface Http extends PluginTypes {
+	readonly name: 'http'
+	readonly api: HttpApi
+}
+interface Mounting extends PluginTypes {
+	readonly name: 'mounting'
+	readonly requires: Http
+}
+let late: HttpApi | undefined
+const mounting = definePlugin<Mounting>({
+	name: 'mounting',
+	manifest,
+	requires: { http: httpPlugin },
+	api: ({ plugins }) => {
+		late = plugins.http
+		plugins.http.mount(
+			routes()
+				.get('/a', (c) => c.text('mounted'))
+				.get('/mounted', (c) => c.json(c.var.caller)),
+		)
+	},
+})
+
+type Mounted = ReturnType<typeof mounting.plugin>
+
 /** A started application on a free port, and what it logged. */
-async function started(options: Parameters<typeof httpPlugin>[0] = {}) {
+async function started(
+	options: Parameters<typeof httpPlugin>[0] = {},
+	...others: readonly Mounted[]
+) {
 	const lines: Line[] = []
 	const app = defineApp({
 		database: memory(),
-		plugins: [httpPlugin({ port: 0, routes: [notes], ...options })],
+		plugins: [httpPlugin({ port: 0, routes: [notes], ...options }), ...others],
 		models: [Note],
 		masterKey: 'secret',
 		logger: recorder(lines),
@@ -72,8 +111,11 @@ afterEach(async () => {
 	await stop?.()
 	stop = undefined
 })
-async function server(options?: Parameters<typeof httpPlugin>[0]) {
-	const running = await started(options)
+async function server(
+	options?: Parameters<typeof httpPlugin>[0],
+	...others: readonly Mounted[]
+) {
+	const running = await started(options, ...others)
 	stop = async () => running.app.stop()
 	return running
 }
@@ -115,6 +157,25 @@ describe('a route', () => {
 		const { url } = await server({ port: 0, routes: [first, second] })
 		expect(await (await fetch(`${url}/a`)).text()).toBe('first')
 		expect(await (await fetch(`${url}/b`)).text()).toBe('b')
+	})
+})
+
+describe('mount', () => {
+	it('adds a plugin’s routes after the application’s', async () => {
+		const own = routes().get('/a', (c) => c.text('own'))
+		const { url } = await server({ routes: [own] }, mounting.plugin())
+		expect(await (await fetch(`${url}/a`)).text()).toBe('own')
+		const master = await fetch(`${url}/mounted`, {
+			headers: { 'x-ultimabase-master-key': 'secret' },
+		})
+		expect(await master.json()).toMatchObject({ kind: 'master' })
+	})
+
+	it('throws once the server runs', async () => {
+		await server({}, mounting.plugin())
+		expect(() => late?.mount(routes())).toThrow(
+			"The HTTP server is running: mount routes from your plugin's api (D-107).",
+		)
 	})
 })
 

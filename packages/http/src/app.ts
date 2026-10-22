@@ -67,9 +67,13 @@ function isLocal(origin: string): boolean {
 	)
 }
 
-/** Reads `NODE_ENV` once, when the application starts. */
+/**
+ * Reads `NODE_ENV` once, when the application starts. The application's
+ * routes come before those plugins mounted (D-107).
+ */
 export function appOf(
 	options: HttpOptions,
+	mounted: readonly Routes[],
 	identify: (request: Request) => Promise<Caller>,
 	logger: Logger,
 ): Hono<HttpEnv> {
@@ -100,7 +104,9 @@ export function appOf(
 		c.set('caller', await identify(c.req.raw))
 		await next()
 	})
-	for (const routes of options.routes ?? []) app.route('/', routes)
+	for (const routes of [...(options.routes ?? []), ...mounted]) {
+		app.route('/', routes)
+	}
 	app.notFound((c) =>
 		c.json(
 			{

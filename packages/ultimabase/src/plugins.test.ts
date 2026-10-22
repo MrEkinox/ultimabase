@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { asUser } from '@ultimabase/testing'
 import type { Adapter, Write } from './adapter.ts'
 import { modelDefinitions } from './definition.ts'
-import type { Field, PluginTypes } from './index.ts'
+import type { ExposedModel, Field, PluginTypes } from './index.ts'
 import {
 	defineApp,
 	defineModel,
@@ -650,5 +650,69 @@ describe('start', () => {
 		await expect(
 			startLoose([needs('a', 'b'), needs('b', 'a')]),
 		).rejects.toThrow('plugins need each other: a → b → a (D-89).')
+	})
+})
+
+interface Lens extends PluginTypes {
+	readonly name: 'lens'
+	readonly with: { readonly plural: string } | false
+}
+let seen: readonly ExposedModel<Lens['with']>[] = []
+const lens = definePlugin<Lens>({
+	name: 'lens',
+	manifest,
+	api: ({ models }) => {
+		seen = models
+	},
+})
+const Tag = defineModel({
+	name: 'Tag',
+	use: [lens.use()],
+	fields: (f) => ({ label: f.string({ unique: true }) }),
+}).with({ lens: { plural: 'tagz' } })
+const Secret = defineModel({
+	name: 'Secret',
+	use: [lens.use()],
+	fields: (f) => ({ text: f.string() }),
+}).with({ lens: false })
+defineModel({
+	name: 'Typed',
+	use: [lens.use()],
+	fields: (f) => ({ text: f.string() }),
+	// @ts-expect-error -- the plugin types its key: `plural` is a string.
+}).with({ lens: { plural: 1 } })
+const Plain = defineModel({
+	name: 'Plain',
+	fields: (f) => ({ text: f.string() }),
+})
+
+describe('a plugin’s models', () => {
+	it('gives each model’s schema, uniques, its .with key and queries', async () => {
+		const lensed = defineApp({
+			database: memory(),
+			plugins: [lens.plugin()],
+			models: [Tag, Secret, Plain],
+		})
+		await lensed.start()
+		try {
+			expect(seen.map((model) => model.schema.name)).toEqual([
+				'Tag',
+				'Secret',
+				'Plain',
+			])
+			expect(seen.map((model) => model.with)).toEqual([
+				{ plural: 'tagz' },
+				false,
+				undefined,
+			])
+			expect(seen[0]?.uniques).toEqual([['id'], ['label']])
+			const queries = seen[0]?.queries
+			const created = await queries?.create({ data: { label: 'a' } }, M)
+			expect(created?.['label']).toBe('a')
+			expect(await Tag.count({}, M)).toBe(1)
+			expect(Object.isFrozen(seen[0])).toBe(true)
+		} finally {
+			await lensed.stop()
+		}
 	})
 })

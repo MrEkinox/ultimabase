@@ -6,7 +6,8 @@ import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks } from './model.ts'
-import type { Queries, UniqueWhere } from './query.ts'
+import type { Row, SchemaModel } from './adapter.ts'
+import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
 import type { Caller } from './rules.ts'
 import type { pluginTypes } from './symbols.ts'
 
@@ -35,8 +36,8 @@ export interface PluginTypes {
 	readonly addedFields?: { readonly [field: string]: FieldShape }
 	/** Its commands (D-15). */
 	readonly commands?: object
-	/** Its key of the model's `.with` (D-42). */
-	readonly with?: object
+	/** Its key of the model's `.with` (D-42); `false` turns it off (D-107). */
+	readonly with?: object | false
 	/** Its key of a field's `.with`, read with `this['value']` (D-12). */
 	readonly fieldWith?: object
 	/** Its key of a function's `.with`; `false` stops exposing it (D-27). */
@@ -69,6 +70,30 @@ type Apis<T> = (T extends { readonly requires: infer R extends PluginTypes }
 		? { readonly [X in R as X['name']]: ApiOf<X> | undefined }
 		: unknown)
 
+type Args = { readonly [key: string]: unknown }
+/** A model's queries as a transport calls them, with its client's arguments. */
+export interface ModelQueries {
+	findUnique(args: Args, options: QueryOptions): Promise<Row | null>
+	findMany(args: Args, options: QueryOptions): Promise<readonly Row[]>
+	count(args: Args, options: QueryOptions): Promise<number>
+	create(args: Args, options: QueryOptions): Promise<Row>
+	update(args: Args, options: QueryOptions): Promise<Row>
+	delete(args: Args, options: QueryOptions): Promise<Row>
+}
+
+/** A model as transports and tools read it (D-16, D-107). */
+export interface ExposedModel<W = unknown> {
+	/** As the adapter receives it (D-73). */
+	readonly schema: SchemaModel
+	/** `id`, unique fields and unique indexes (D-52). */
+	readonly uniques: readonly (readonly string[])[]
+	/** The plugin's key of the model's `.with`, if it was given. */
+	readonly with: W | undefined
+	readonly queries: ModelQueries
+}
+
+type WithOf<T> = T extends { readonly with: infer W } ? W : never
+
 /** What the plugin's start and api receive: its application options. */
 export interface PluginContext<T> {
 	readonly options: [AppOptions<T>] extends [never]
@@ -78,6 +103,8 @@ export interface PluginContext<T> {
 	readonly logger: Logger
 	/** Who sends a request: what a transport runs it as (D-106). */
 	readonly identify: Identify
+	/** The application's models, in their order (D-107). */
+	readonly models: readonly ExposedModel<WithOf<T>>[]
 }
 
 /** A plugin's entry in a model's `use`, named after the plugin. */
@@ -123,15 +150,17 @@ export interface PluginModel<F, O, A> {
 	readonly plugins: A
 }
 
-type CodePart<
-	T,
-	K extends 'commands' | 'api' | 'addedFields',
-	Out,
-> = T extends {
+type CodePart<T, K extends 'commands' | 'addedFields', Out> = T extends {
 	readonly [P in K]: object
 }
 	? { readonly [P in K]: Out }
 	: { readonly [P in K]?: never }
+
+// A plugin without an API may still use the step that builds them, before
+// any start, to call another plugin's API (D-107).
+type ApiPart<T> = T extends { readonly api: object }
+	? { readonly api: (context: PluginContext<T>) => T['api'] }
+	: { readonly api?: (context: PluginContext<T>) => void }
 
 /** A plugin's package, usually its imported `package.json` (D-57). */
 export interface Manifest {
@@ -173,7 +202,7 @@ export type PluginDefinition<T extends PluginTypes> = {
 		model: PluginModel<Own<T>, EntryOptions<T>, Apis<T>>,
 	) => ForModel<T, Own<T>>['commands']
 > &
-	CodePart<T, 'api', (context: PluginContext<T>) => T['api']> &
+	ApiPart<T> &
 	CodePart<
 		T,
 		'addedFields',

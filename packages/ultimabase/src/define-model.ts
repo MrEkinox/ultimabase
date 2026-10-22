@@ -34,11 +34,14 @@ type Commands<U, F> = [CommandFn<U, F>] extends [never]
 type WithKeys<U, F> = {
 	readonly [
 		V in U as V extends ModelUse<infer P, infer T>
-			? T extends { readonly with: object }
+			? T extends { readonly with: object | false }
 				? P
 				: never
 			: never
-	]?: V extends ModelUse<string, infer T extends { readonly with: object }>
+	]?: V extends ModelUse<
+		string,
+		infer T extends { readonly with: object | false }
+	>
 		? ForModel<T, F>['with']
 		: never
 }

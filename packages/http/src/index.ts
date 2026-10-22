@@ -11,21 +11,45 @@ import { closed, listening, portOf, serverOf } from './server.ts'
 
 export type { HttpEnv, HttpOptions, Routes } from './app.ts'
 
+/** What the HTTP plugin offers other plugins (D-107). */
+export interface HttpApi {
+	/** Adds routes after the application's; call it from your `api`. */
+	mount(routes: Routes): void
+}
+
 interface Http extends PluginTypes {
 	readonly name: 'http'
 	readonly appOptions: HttpOptions
+	readonly api: HttpApi
 }
 
-// Each running application's server, by the context its plugin received.
+// Each running application's server and mounted routes, by the context its
+// plugin received.
 const servers = new WeakMap<object, Server>()
+const mounts = new WeakMap<object, Routes[]>()
 
 const http = definePlugin<Http>({
 	name: 'http',
 	manifest,
+	api: (context) => {
+		const mounted: Routes[] = []
+		mounts.set(context, mounted)
+		return {
+			mount: (routes) => {
+				if (!mounts.has(context)) {
+					throw new Error(
+						"The HTTP server is running: mount routes from your plugin's api (D-107).",
+					)
+				}
+				mounted.push(routes)
+			},
+		}
+	},
 	start: async (context) => {
 		const { options, identify, logger } = context
 		const port = portOf(options.port)
-		const app = appOf(options, identify, logger)
+		const app = appOf(options, mounts.get(context) ?? [], identify, logger)
+		mounts.delete(context)
 		const server = serverOf(app.fetch)
 		const bound = await listening(server, port)
 		servers.set(context, server)

@@ -4216,3 +4216,132 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
   -H 'x-ultimabase-master-key: wrong'
 # 403 { "code": "ACCESS_DENIED", "message": "The master key is wrong." }
 ```
+
+## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
+
+Choice: completes D-16, D-34, D-41, D-45 and D-55.
+
+1. `@ultimabase/graphql` exports `graphqlPlugin(options)` and the model entry
+   `graphql()`. It requires `httpPlugin` (D-16) and depends on
+   `graphql-http`; `graphql` is a peer dependency, so the application and the
+   plugin share the one instance that `extend` needs (point 9).
+2. Mounting. The HTTP plugin's API offers `mount(routes)`, called from another
+   plugin's `api`, which the kernel builds before any `start`; a call after
+   the server started throws. The application's routes come first, then the
+   mounted ones in plugin order, so an application middleware such as a rate
+   limit also runs before `/graphql`. A mounted route reads `c.var.caller`
+   like the application's own.
+3. The kernel gives every plugin's `api`, `start` and `stop` the application's
+   `models`: each model's schema as the adapter receives it (D-73), its
+   unique targets, its `.with` key for that plugin, and its queries. A
+   transport reads nothing else of the kernel.
+4. The schema follows D-41 and D-20, at `/graphql` (`path` option), over GET
+   for queries and POST: `post(where: PostWhereUniqueInput!): Post`, `null`
+   when absent; `posts(where, orderBy, ...)`; `createPost(data)`,
+   `updatePost(where, data)`, `deletePost(where)`. Inputs spell the query
+   API: `StringFilter { equals, not, in, notIn, lt, lte, gt, gte, contains,
+startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
+   `AND`/`OR`/`NOT`, relation writes with `connect` and `disconnect`; no
+   shorthand (`title: "x"`), which a GraphQL input cannot type.
+   `PostWhereUniqueInput` is `@oneOf`. Scalars: `String`, `Float`, `Boolean`,
+   `DateTime` (ISO 8601), `JSON`, an enum per `enumOf` field
+   (`PostStatus`), `ID!` for `id`. Each root field runs one kernel query
+   built from the whole selection, nested relations included (D-46): no
+   resolver per relation, no N+1. Each root field is its own operation; two
+   mutations in one document share no transaction.
+5. Lists are Relay connections, at the root and on every `many` relation,
+   with `first`/`after` and `last`/`before` and an opaque cursor (the
+   row's `id`, base64url); the kernel's order always ends with `id`, so a
+   cursor stays exact. `totalCount` exists on root connections only and
+   costs a `count` only when selected. `pagination: 'list'` gives
+   `posts(take, skip): [Post!]!` instead.
+6. Limits (D-55), for callers other than Master: a list without `first`,
+   `last` or `take` gets `take` rows (100), and asks for at most `maxTake`
+   (100), set as `graphqlPlugin({ take, maxTake })` and per model as
+   `.with({ graphql: { maxTake } })`; at every depth. A document nested
+   deeper than `maxDepth` (10) is refused; `__schema` and `__type` do not
+   count, since the standard introspection query is about 12 levels deep.
+7. A model whose `use` lists `graphql()` takes `.with({ graphql: { plural } })`
+   or `.with({ graphql: false })`. A hidden model is absent from the schema,
+   its types included, unless an exposed model's relation reaches it. In
+   production, introspection is off and errors carry no "Did you mean"
+   suggestion, as D-04 closes by default; `introspection: true` reopens both.
+8. Errors follow D-106: a `PublicError` gives `extensions: { code, details }`;
+   any other error gives `Internal error.` with `extensions: { code:
+'INTERNAL', correlationId }`, logged with the same `correlationId`. HTTP
+   statuses are `graphql-http`'s.
+9. Outside production, `GET /graphql` from a browser serves GraphiQL 5,
+   loaded from esm.sh at pinned versions. `extend: (schema) => schema`
+   replaces the generated `GraphQLSchema` with one built from it (D-45).
+10. Functions over GraphQL, as a query or a mutation, are decided with
+    `defineFunction`. Out of 0.1: subscriptions, the Relay `Node` interface
+    and `node(id)`, batched requests, a query cost beyond depth, persisted
+    queries, a nested `totalCount`, hiding one field.
+
+Why: one plugin turns the models into the GraphQL that Relay and Apollo
+expect, through the same caller and rules as server code. Mounting from `api`
+uses the order the kernel already has, so the HTTP plugin keeps one router.
+Translating the selection into one query is what keeps GraphQL as fast as
+the query API (D-46). The previous base leaked hidden models through their
+types and suggestions (its ADR-0333) and checked the integrity of every
+GraphiQL module with a generator of its own; a development screen does not
+need the latter.
+Rejected: `Node` with global ids (`Post:uuid`), which brings back Parse's
+`id`/`objectId` split, or with raw ids, which needs one query per model to
+find a type; `graphql-depth-limit`, unmaintained; `ruru`, a large package for
+one development screen; introspection open in production by default.
+Example:
+
+```js
+// Before: Parse Server
+const parse = new ParseServer({ databaseURI, appId, masterKey })
+const gql = new ParseGraphQLServer(parse, {
+	graphQLPath: '/graphql',
+	playgroundPath: '/playground',
+})
+app.use('/parse', parse.app)
+gql.applyGraphQL(app)
+gql.applyPlayground(app)
+```
+
+```ts
+// After
+export default defineApp({
+	database: postgres({ url: process.env.DATABASE_URL }),
+	plugins: [httpPlugin({ cors: ['https://app.example.com'] }), graphqlPlugin()],
+	models: [Post, User],
+})
+```
+
+```graphql
+query {
+	posts(first: 20, where: { status: { equals: PUBLISHED } }) {
+		edges {
+			cursor
+			node {
+				title
+				author {
+					name
+				}
+				comments(first: 3) {
+					edges {
+						node {
+							body
+						}
+					}
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		totalCount
+	}
+}
+mutation {
+	createPost(data: { title: "Hi", author: { connect: { id: "…" } } }) {
+		id
+	}
+}
+```

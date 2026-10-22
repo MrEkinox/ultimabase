@@ -39,7 +39,14 @@ export type {
 export type { ServerFunction } from './function.ts'
 export { memory } from './memory.ts'
 export type { App, Model } from './model.ts'
-export type { ModelUse, PluginOf, PluginTypes, UseOf } from './plugin.ts'
+export type {
+	ExposedModel,
+	ModelQueries,
+	ModelUse,
+	PluginOf,
+	PluginTypes,
+	UseOf,
+} from './plugin.ts'
 export type { Queries } from './query.ts'
 export { definePlugin } from './plugin.ts'
 export type { Caller, Register } from './rules.ts'
