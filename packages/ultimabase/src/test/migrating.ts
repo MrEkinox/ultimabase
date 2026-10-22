@@ -116,11 +116,15 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 					state.stored = { snapshot: run.to, by: 'sync', applied }
 					return
 				}
-				for (const { name, sql, checksum } of run.files) {
+				for (const { name, sql, checksum, schema } of run.files) {
 					if (state.refuses !== undefined && sql.includes(state.refuses)) {
 						throw new MigrationFailed(name, 'a row breaks it')
 					}
-					applied.push({ name, checksum })
+					applied.push({
+						name,
+						checksum,
+						...(schema === undefined ? {} : { schema }),
+					})
 					state.stored = {
 						snapshot: state.stored?.snapshot,
 						by: 'deploy',
@@ -141,7 +145,7 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 /** The lines of the loggers configs record, by name. */
 export const logs = new Map<string, string[]>()
 
-/** A logger that keeps its `info` messages, under `name` if given. */
+/** A logger that keeps its `info` and `warn` messages, under `name` if given. */
 export function recording(
 	name?: string,
 ): Logger & { readonly lines: string[] } {
@@ -152,7 +156,9 @@ export function recording(
 		info: (first: string | object, message?: string) => {
 			lines.push(typeof first === 'string' ? first : (message ?? ''))
 		},
-		warn: () => undefined,
+		warn: (first: string | object, message?: string) => {
+			lines.push(typeof first === 'string' ? first : (message ?? ''))
+		},
 		error: () => undefined,
 		child: () => logger,
 	}

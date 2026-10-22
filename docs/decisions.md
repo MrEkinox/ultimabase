@@ -3812,8 +3812,12 @@ Choice: amends D-26, D-73 and D-98 point 1.
      as Parse's `_SCHEMA` describes its database;
    - the repository holds `migrations/schema.json`, the snapshot the
      committed migrations lead to, which `migrate create` compares with.
-     It is committed with the SQL files: two branches that each add a
-     migration conflict on it, and the second regenerates its migration.
+     It is committed with the SQL files. Git may merge two branches' changes
+     to it without a conflict; the guard is the last file's header, which
+     must name the models' hash (point 6): after such a merge, deploy
+     refuses until `migrate create` writes a file, empty when the merged
+     files already lead to the models, with the right header (amended
+     2026-10-22).
 3. Development is any `NODE_ENV` but `production`, as for the master key
    (D-49). There, `start` compares the models with the database's snapshot.
    An empty database gets every table; a change that loses no data is
@@ -3853,7 +3857,12 @@ Choice: amends D-26, D-73 and D-98 point 1.
 
 4. In production, `start` applies nothing. It reads the database's snapshot
    hash, one query, and refuses to start, naming `migrate deploy`, when it
-   differs from the models' hash or when the database has no snapshot.
+   differs from the models' hash or when the database has no snapshot. A
+   database ahead of the models is accepted: code rolled back after a
+   deploy, or the old code of a rolling deploy, finds the models' hash in
+   the header of an applied file followed by others, and starts with
+   `The database is ahead of the models: 20261022143000_add_kind.sql was applied after them.`
+   (amended 2026-10-22).
 5. `ultimabase migrate create <name>` compares the models with
    `migrations/schema.json`, or with nothing when there is no migration yet,
    and writes `migrations/<UTC yyyyMMddHHmmss>_<name>.sql`, then the new
@@ -3878,8 +3887,23 @@ Choice: amends D-26, D-73 and D-98 point 1.
      changed since the last `migrate create`;
    - when an applied file was edited or removed;
    - when development sync wrote the database's snapshot: migrations apply
-     to a database only migrations built. In development the refusal adds
-     `Restore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`
+     to a database only migrations built;
+   - when a file is pending while the database applied files after it that
+     `migrations/` does not hold: older code adds a migration to a database
+     newer code migrated.
+
+   In development each refusal adds
+   `Restore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`
+   A database ahead of the files, whose applied files after the last local
+   one are all missing, is left as it is: deploy prints the ahead line of
+   point 4 and stores nothing.
+
+   Each file runs with `set local lock_timeout = '5s'`, so a deploy waiting
+   behind a long query fails instead of queueing every query behind it; a
+   file sets its own with `set local lock_timeout`, and a timeout reads
+   `... was not applied: canceling statement due to lock timeout: another query held a table it changes past lock_timeout`.
+   Files are read with their line endings normalized to `\n`, so a Windows
+   checkout changes neither checksum nor header.
 
    A file the database refuses is rolled back, the files before it stay
    applied, and deploy names it with the database's reason:
@@ -3892,9 +3916,10 @@ Choice: amends D-26, D-73 and D-98 point 1.
    production.
    - `ultimabase migrate status` says what deploy would do or refuse,
      without applying anything: each pending file, the refusals of point 6,
-     or `The database is up to date.`. It exits 1 when there is anything to
-     do, so CI can gate a deploy on it.
-   - `ultimabase reset` drops every table of a development database, then
+     the ahead line, or `The database is up to date.`. It exits 1 when there
+     is anything to do, so CI can gate a deploy on it.
+   - `ultimabase reset` drops every table of a development database but an
+     extension's, such as PostGIS's `spatial_ref_sys`, then
      applies every migration file and stores `schema.json`'s snapshot, as a
      deploy would; with no file, the next start builds the tables. It is
      refused in production and asks nothing (amended 2026-10-22).
@@ -3951,6 +3976,10 @@ Choice: amends D-26, D-73 and D-98 point 1.
    statement: `migrate create` writes a file that says so, and deploy stores
    the new snapshot (amended 2026-10-22).
 
+   A `Migration` is a file's `name`, `sql`, `checksum` and the `schema` hash
+   its header names; `Stored.applied` lists each applied file's `name`,
+   `checksum` and `schema`, which the ahead check of point 4 reads.
+
    `start(schema)` only connects; the kernel then syncs or checks. The
    PostgreSQL package implements `Migrations`; the binary reads and writes
    the files.
@@ -3969,6 +3998,19 @@ Why:
   developer reviews asks the question without an interactive prompt, so CI
   can run it.
 - A field renamed in code keeps its column with `dbName` (D-63), at no cost.
+
+Limits:
+
+- A plugin's data migration has no place yet: a plugin changes its models,
+  and the application's `migrate create` writes the SQL, but a plugin
+  cannot ship the `update` that moves its data. It waits for a plugin that
+  needs one.
+- Adopting an existing database, such as Parse's, is out of scope: a
+  database that holds tables but no snapshot is refused (point 3).
+- `migrate squash` is the direction for a long history: it writes one file
+  from nothing to `schema.json`, whose header lists the files it replaces,
+  and deploy marks it applied on a database that applied them all. It waits
+  for an application whose history needs it.
 
 Rejected:
 

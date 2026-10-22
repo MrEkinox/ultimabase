@@ -338,7 +338,7 @@ describe('a sync on postgres()', () => {
 describe('the bookkeeping on postgres()', () => {
 	const create = [
 		'create table ultimabase_schema (id integer primary key, snapshot jsonb not null, written_by text not null, written_at timestamptz not null)',
-		'create table ultimabase_migrations (name text primary key, checksum text, applied_at timestamptz not null)',
+		'create table ultimabase_migrations (name text primary key, checksum text, schema_hash text, applied_at timestamptz not null)',
 	]
 
 	it('reads empty tables as nothing stored', async () => {
@@ -350,7 +350,7 @@ describe('the bookkeeping on postgres()', () => {
 		for (const statement of create) await query(inSchema(schema), statement)
 		await query(
 			inSchema(schema),
-			"insert into ultimabase_migrations values ('1_a.sql', null, now())",
+			"insert into ultimabase_migrations values ('1_a.sql', null, null, now())",
 		)
 		await expect(migrations.stored()).rejects.toThrow(
 			'ultimabase_migrations is broken.',
@@ -370,13 +370,13 @@ describe('a deploy on postgres()', () => {
 			.plan(undefined, to)
 			.map((statement) => `${statement.sql};`)
 			.join('\n')
-		const files = [file('1_init.sql', sql)]
+		const files = [{ ...file('1_init.sql', sql), schema: 'abc' }]
 		await migrations.apply({ kind: 'deploy', files, to })
 		await migrations.apply({ kind: 'deploy', files, to })
 		expect(await migrations.stored()).toStrictEqual({
 			snapshot: to,
 			by: 'deploy',
-			applied: [{ name: '1_init.sql', checksum: '1_init.sql' }],
+			applied: [{ name: '1_init.sql', checksum: '1_init.sql', schema: 'abc' }],
 		})
 		expect(await query(inSchema(schema), 'select * from box')).toStrictEqual([])
 	})
@@ -405,7 +405,64 @@ describe('a deploy on postgres()', () => {
 	})
 })
 
+describe('a deploy waiting for a lock', () => {
+	it('waits 5s at most, unless a file sets its own', async () => {
+		const to = migrations.snapshot(before)
+		await migrations.apply({
+			kind: 'deploy',
+			files: [
+				file(
+					'1_a.sql',
+					"create table a as select current_setting('lock_timeout') as waits;",
+				),
+			],
+			to,
+		})
+		expect(await query(inSchema(schema), 'select waits from a')).toStrictEqual([
+			{ waits: '5s' },
+		])
+		const holder = new Client({ connectionString: inSchema(schema) })
+		await holder.connect()
+		try {
+			await holder.query('begin')
+			await holder.query('lock table a in access share mode')
+			await expect(
+				migrations.apply({
+					kind: 'deploy',
+					files: [
+						file(
+							'2_b.sql',
+							"set local lock_timeout = '50ms'; alter table a add column b integer;",
+						),
+					],
+					to,
+				}),
+			).rejects.toMatchObject({
+				name: 'MigrationFailed',
+				at: '2_b.sql',
+				reason:
+					'canceling statement due to lock timeout: another query held a table it changes past lock_timeout',
+			})
+		} finally {
+			await holder.end()
+		}
+	})
+})
+
 describe('a reset on postgres()', () => {
+	it("leaves an extension's tables", async () => {
+		await query(inSchema(schema), 'create table owned (id integer)')
+		await query(inSchema(schema), 'alter extension plpgsql add table owned')
+		try {
+			expect(await migrations.reset()).toStrictEqual([])
+			expect(
+				await query(inSchema(schema), 'select * from owned'),
+			).toStrictEqual([])
+		} finally {
+			await query(inSchema(schema), 'alter extension plpgsql drop table owned')
+		}
+	})
+
 	it("drops every table, and names the models' ones", async () => {
 		await sync(undefined, before)
 		await query(inSchema(schema), 'create table extra (id integer)')

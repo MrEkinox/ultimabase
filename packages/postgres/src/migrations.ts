@@ -12,7 +12,7 @@ const tables = ['ultimabase_schema', 'ultimabase_migrations']
 
 const bookkeeping = [
 	sql`create table if not exists ultimabase_schema (id integer primary key check (id = 1), snapshot jsonb not null, written_by text not null, written_at timestamptz not null)`,
-	sql`create table if not exists ultimabase_migrations (name text primary key, checksum text not null, applied_at timestamptz not null)`,
+	sql`create table if not exists ultimabase_migrations (name text primary key, checksum text not null, schema_hash text, applied_at timestamptz not null)`,
 ]
 
 /** Runs `run` in a transaction that holds the schema's lock. */
@@ -49,7 +49,8 @@ const isApplied = (value: unknown): value is Stored['applied'] =>
 			'name' in item &&
 			typeof item.name === 'string' &&
 			'checksum' in item &&
-			typeof item.checksum === 'string',
+			typeof item.checksum === 'string' &&
+			(!('schema' in item) || typeof item.schema === 'string'),
 	)
 
 /**
@@ -65,7 +66,7 @@ export async function stored(db: Kysely<object>): Promise<Stored | undefined> {
 		}>`select
 			(select snapshot from ultimabase_schema) as snapshot,
 			(select written_by from ultimabase_schema) as written_by,
-			(select coalesce(json_agg(json_build_object('name', name, 'checksum', checksum) order by name), '[]')
+			(select coalesce(json_agg(json_strip_nulls(json_build_object('name', name, 'checksum', checksum, 'schema', schema_hash)) order by name), '[]')
 				from ultimabase_migrations) as applied`.execute(db)
 		const [row] = rows
 		const { snapshot, written_by: by, applied } = row ?? {}
@@ -101,6 +102,12 @@ async function refuseTables(
 	)
 }
 
+/**
+ * How long a file waits for a table another query holds: past it, the file
+ * fails rather than queue every query on that table behind it.
+ */
+const lockTimeout = '5s'
+
 /** Runs `text`, and names `at` when the database refuses it. */
 async function executed(
 	trx: Transaction<object>,
@@ -111,7 +118,14 @@ async function executed(
 		await sql.raw(text).execute(trx)
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error)
-		throw new MigrationFailed(at, reason)
+		const waited =
+			error instanceof Error && Reflect.get(error, 'code') === '55P03'
+		throw new MigrationFailed(
+			at,
+			waited
+				? `${reason}: another query held a table it changes past lock_timeout`
+				: reason,
+		)
 	}
 }
 
@@ -150,9 +164,13 @@ async function deploy(
 				select 1 from ultimabase_migrations where name = ${file.name}`.execute(trx)
 			// Another deploy applied it first.
 			if (rows.length > 0) return
+			// A file may set its own, with `set local lock_timeout`.
+			await sql.raw(`set local lock_timeout = '${lockTimeout}'`).execute(trx)
 			await executed(trx, file.sql, file.name)
-			await sql`insert into ultimabase_migrations (name, checksum, applied_at)
-				values (${file.name}, ${file.checksum}, now())`.execute(trx)
+			await sql`insert into ultimabase_migrations (name, checksum, schema_hash, applied_at)
+				values (${file.name}, ${file.checksum}, ${file.schema ?? null}, now())`.execute(
+				trx,
+			)
 		})
 	}
 	await locked(db, async (trx) => store(trx, run.to, 'deploy'))
@@ -162,14 +180,20 @@ export async function apply(db: Kysely<object>, run: Run): Promise<void> {
 	await (run.kind === 'sync' ? sync(db, run) : deploy(db, run))
 }
 
-/** Drops every table of the current schema; returns the models' tables. */
+/**
+ * Drops every table of the current schema but an extension's, such as
+ * PostGIS's `spatial_ref_sys`; returns the models' tables.
+ */
 export async function reset(db: Kysely<object>): Promise<readonly string[]> {
 	const dropped: string[] = []
 	await locked(db, async (trx) => {
 		const { rows } = await sql<{ table_name: string }>`
-			select table_name from information_schema.tables
-			where table_schema = current_schema() and table_type = 'BASE TABLE'
-			order by table_name`.execute(trx)
+			select relname as table_name from pg_class
+			where relnamespace = current_schema()::regnamespace
+			and relkind in ('r', 'p') and not relispartition
+			and not exists (select from pg_depend where classid = 'pg_class'::regclass
+				and objid = pg_class.oid and deptype = 'e')
+			order by relname`.execute(trx)
 		const names = rows.map((row) => row.table_name)
 		await sql.raw(`drop table ${names.map(id).join(', ')} cascade`).execute(trx)
 		dropped.push(...names.filter((name) => !tables.includes(name)))

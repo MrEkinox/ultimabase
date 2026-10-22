@@ -117,10 +117,14 @@ export async function synced(
 	return statements
 }
 
-/** Refuses a production database whose snapshot is not the models'. */
+/**
+ * Refuses a production database whose snapshot is not the models', unless
+ * a deploy applied migrations after them: the code was rolled back.
+ */
 export async function checked(
 	database: Adapter,
 	schema: Schema,
+	logger: Logger,
 ): Promise<void> {
 	const migrations = database.migrations
 	if (migrations === undefined) return
@@ -129,9 +133,18 @@ export async function checked(
 	if (stored?.snapshot === undefined) {
 		throw new Refused(`The database has no UltimaBase schema: ${deploy}`)
 	}
-	if (hashOf(stored.snapshot) !== hashOf(migrations.snapshot(schema))) {
+	const hash = hashOf(migrations.snapshot(schema))
+	if (hashOf(stored.snapshot) === hash) return
+	const at = stored.applied.findIndex((file) => file.schema === hash)
+	const later = stored.applied.slice(at + 1).map((file) => file.name)
+	if (at === -1 || later.length === 0) {
 		throw new Refused(
 			`The database's tables are not the models' (D-105): ${deploy}`,
 		)
 	}
+	logger.warn(ahead(later))
 }
+
+/** What a database whose migrations follow the models' says. */
+export const ahead = (later: readonly string[]): string =>
+	`The database is ahead of the models: ${later.join(', ')} ${later.length === 1 ? 'was' : 'were'} applied after them.`

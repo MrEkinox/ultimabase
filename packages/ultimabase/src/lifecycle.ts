@@ -65,7 +65,7 @@ async function follow(
 ): Promise<void> {
 	try {
 		await (process.env['NODE_ENV'] === 'production'
-			? checked(database, schema)
+			? checked(database, schema, logger)
 			: synced(database, schema, logger, false))
 	} catch (error) {
 		await database.stop()

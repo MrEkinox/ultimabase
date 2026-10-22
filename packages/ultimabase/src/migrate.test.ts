@@ -169,6 +169,40 @@ describe('a production start', () => {
 		expect(state.runs).toHaveLength(1)
 	})
 
+	it('starts code rolled back from a deploy, and says so', async () => {
+		process.env['NODE_ENV'] = 'production'
+		const fake = migrating().migrations
+		const hash = (...models: readonly (typeof Locker | typeof Shelf)[]) =>
+			hashOf(fake?.snapshot(schemaOf({ database: memory(), models })))
+		const state = fakeState()
+		state.stored = {
+			snapshot: fake?.snapshot(
+				schemaOf({ database: memory(), models: [Locker, Shelf] }),
+			),
+			by: 'deploy',
+			applied: [
+				{ name: '1_init.sql', checksum: 'a', schema: hash(Locker) },
+				{ name: '2_shelf.sql', checksum: 'b', schema: hash(Locker, Shelf) },
+			],
+		}
+		const { app: rolled, logger } = app(state, Locker)
+		await rolled.start()
+		await rolled.stop()
+		expect(logger.lines).toContain(
+			'The database is ahead of the models: 2_shelf.sql was applied after them.',
+		)
+		state.stored = {
+			...state.stored,
+			applied: state.stored.applied.slice(0, 1),
+		}
+		await expect(app(state, Locker).app.start()).rejects.toThrow(
+			"The database's tables are not the models'",
+		)
+		await expect(app(state, Shelf).app.start()).rejects.toThrow(
+			"The database's tables are not the models'",
+		)
+	})
+
 	it('starts a database without migrations', async () => {
 		process.env['NODE_ENV'] = 'production'
 		const started = defineApp({

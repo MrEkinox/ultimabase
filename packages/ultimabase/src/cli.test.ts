@@ -296,7 +296,7 @@ describe('migrate deploy', () => {
 		)
 		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
 		expect(err[0]).toBe(
-			`${name} was edited after it was applied to the database: restore it, and write the change with \`npx ultimabase migrate create <name>\`.`,
+			`${name} was edited after it was applied to the database: restore it, and write the change with \`npx ultimabase migrate create <name>\`.\nRestore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`,
 		)
 		const state = fakeState('edited')
 		state.stored = {
@@ -304,10 +304,44 @@ describe('migrate deploy', () => {
 			by: 'deploy',
 			applied: [{ name: '20260101000000_gone.sql', checksum: 'x' }],
 		}
+		process.env['NODE_ENV'] = 'production'
 		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
 		expect(err[1]).toBe(
 			'20260101000000_gone.sql was applied to the database, and migrations/ no longer holds it: restore it from version control.',
 		)
+	})
+
+	it('reads a Windows checkout of the files it applied', async () => {
+		const file = await config('crlf', { Locker: ['label'] })
+		await run('migrate', 'create', 'init', '--config', file)
+		await run('migrate', 'deploy', '--config', file)
+		const [name = ''] = await migrations()
+		const windows = (await read(name)).replaceAll('\n', '\r\n')
+		await writeFile(join(dir, 'migrations', name), windows)
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(0)
+		expect(out.at(-1)).toBe('The database is up to date.')
+	})
+
+	it('leaves a database that newer code migrated, and refuses a file older code adds', async () => {
+		const file = await config('rollback', { Locker: ['label'] })
+		await run('migrate', 'create', 'init', '--config', file)
+		const grown = await config('rollback', { Locker: ['label', 'kind'] })
+		await run('migrate', 'create', 'add_kind', '--config', grown)
+		await run('migrate', 'deploy', '--config', grown)
+		const [, kind = ''] = await migrations()
+		// The code rolls back to before add_kind.
+		await rm(join(dir, 'migrations', kind))
+		const ahead = `The database is ahead of the models: ${kind} was applied after them.`
+		out = []
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(0)
+		expect(await run('migrate', 'status', '--config', file)).toBe(0)
+		expect(out).toStrictEqual([ahead, ahead])
+		const older = '20000101000000_older.sql'
+		await writeFile(join(dir, 'migrations', older), '-- older\n')
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
+		expect(err).toStrictEqual([
+			`${older} is pending, and the database applied ${kind} after it, which migrations/ does not hold: deploy the code that holds them.\nRestore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`,
+		])
 	})
 
 	it('refuses a database that sync changed, saying how to rebuild it in development', async () => {

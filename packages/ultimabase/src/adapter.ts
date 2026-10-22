@@ -188,6 +188,8 @@ export type Migration = {
 	readonly name: string
 	readonly sql: string
 	readonly checksum: string
+	/** The models' hash its header names, which a production start reads. */
+	readonly schema?: string
 }
 
 /** The snapshot a database's tables match, and who wrote it (D-105). */
@@ -195,9 +197,11 @@ export type Stored = {
 	/** None when a deploy stopped before it stored one. */
 	readonly snapshot: unknown
 	readonly by: 'sync' | 'deploy'
+	/** In name order. */
 	readonly applied: readonly {
 		readonly name: string
 		readonly checksum: string
+		readonly schema?: string
 	}[]
 }
 

@@ -3,36 +3,60 @@
 import type { Migration, Migrations, Stored } from './adapter.ts'
 import { MigrationFailed } from './adapter.ts'
 import type { Internals } from './app-internals.ts'
-import { create, header, read } from './cli-migrate.ts'
+import { create, read } from './cli-migrate.ts'
 import { schemaOf } from './lifecycle.ts'
-import { hashOf, migrationsOf, Refused } from './migrate.ts'
+import { ahead, hashOf, migrationsOf, Refused } from './migrate.ts'
 
 const upToDate = 'The database is up to date.'
 
 const production = (): boolean => process.env['NODE_ENV'] === 'production'
 
-/** The files the database has not applied; refuses one edited or removed. */
-function pendingOf(
+/** How a development database gets back to what the files build. */
+const rebuild = (): readonly string[] =>
+	production()
+		? []
+		: [
+				'Restore the dump you test on, or rebuild this database from the migrations with `npx ultimabase reset`.',
+			]
+
+const refused = (...lines: readonly string[]): Refused =>
+	new Refused([...lines, ...rebuild()].join('\n'))
+
+/**
+ * The files the database has not applied, and the files it applied after
+ * the last one, which newer code wrote; refuses a file edited or removed.
+ */
+function planOf(
 	stored: Stored | undefined,
 	files: readonly Migration[],
-): readonly Migration[] {
+): { readonly pending: readonly Migration[]; readonly later: string[] } {
 	const applied = stored?.applied ?? []
+	const last = files.at(-1)?.name ?? ''
+	const later: string[] = []
 	for (const { name, checksum } of applied) {
 		const file = files.find((given) => given.name === name)
-		if (file === undefined) {
-			throw new Refused(
+		if (file === undefined && name > last) {
+			later.push(name)
+		} else if (file === undefined) {
+			throw refused(
 				`${name} was applied to the database, and migrations/ no longer holds it: restore it from version control.`,
 			)
-		}
-		if (file.checksum !== checksum) {
-			throw new Refused(
+		} else if (file.checksum !== checksum) {
+			throw refused(
 				`${name} was edited after it was applied to the database: restore it, and write the change with ${create}.`,
 			)
 		}
 	}
-	return files.filter(
+	const pending = files.filter(
 		(file) => !applied.some((given) => given.name === file.name),
 	)
+	const [first] = pending
+	if (first !== undefined && later.length > 0) {
+		throw refused(
+			`${first.name} is pending, and the database applied ${later.join(', ')} after it, which migrations/ does not hold: deploy the code that holds them.`,
+		)
+	}
+	return { pending, later }
 }
 
 /** Why the files do not lead to the models whose hash is `hash`, if so. */
@@ -41,20 +65,14 @@ function behind(files: readonly Migration[], hash: string): string | undefined {
 	if (last === undefined) {
 		return `migrations/ holds no migration: run ${create} first.`
 	}
-	if (last.sql.startsWith(`${header}${hash}\n`)) return undefined
+	if (last.schema === hash) return undefined
 	return `The models changed after ${last.name} was written: run ${create}, then deploy again.`
 }
 
-function syncedSince(): string {
-	return [
+const syncedSince = (): Refused =>
+	refused(
 		'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built (D-105).',
-		...(production()
-			? []
-			: [
-					'Restore the dump you test on, or rebuild this database from the migrations with `npx ultimabase reset`.',
-				]),
-	].join('\n')
-}
+	)
 
 /** Applies `files`; a refused one names those applied before it. */
 async function deployed(
@@ -91,13 +109,15 @@ export async function migrateDeploy(
 	const to = migrations.snapshot(schema)
 	const hash = hashOf(to)
 	const { files } = await read(dir)
-	const refused = behind(files, hash)
-	if (refused !== undefined) throw new Refused(refused)
+	const late = behind(files, hash)
+	if (late !== undefined) throw new Refused(late)
 	await database.start(schema)
 	try {
 		const stored = await migrations.stored()
-		if (stored?.by === 'sync') throw new Refused(syncedSince())
-		const pending = pendingOf(stored, files)
+		if (stored?.by === 'sync') throw syncedSince()
+		const { pending, later } = planOf(stored, files)
+		// The code was rolled back: its migrations are applied, and more.
+		if (later.length > 0) return [ahead(later)]
 		const current =
 			stored?.snapshot !== undefined && hashOf(stored.snapshot) === hash
 		if (pending.length === 0 && current) return [upToDate]
@@ -122,12 +142,14 @@ export async function migrateStatus(
 	try {
 		const stored = await migrations.stored()
 		const late = behind(files, hash)
+		const { pending, later } = planOf(stored, files)
 		const lines = [
 			...(late === undefined ? [] : [late]),
-			...(stored?.by === 'sync' ? [syncedSince()] : []),
-			...pendingOf(stored, files).map((file) => `${file.name} is pending.`),
+			...(stored?.by === 'sync' ? [syncedSince().message] : []),
+			...pending.map((file) => `${file.name} is pending.`),
 		]
 		if (lines.length > 0) return { lines, ok: false }
+		if (later.length > 0) return { lines: [ahead(later)], ok: true }
 		if (stored?.snapshot !== undefined && hashOf(stored.snapshot) === hash) {
 			return { lines: [upToDate], ok: true }
 		}

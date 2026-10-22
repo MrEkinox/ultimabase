@@ -25,9 +25,20 @@ export async function read(dir: string): Promise<Folder> {
 		.toSorted()
 	const files = await Promise.all(
 		names.map(async (name) => {
-			const sql = await readFile(join(dir, name), 'utf8')
+			// A Windows checkout's line endings change neither checksum nor header.
+			const text = await readFile(join(dir, name), 'utf8')
+			const sql = text.replaceAll('\r\n', '\n')
 			const checksum = createHash('sha256').update(sql).digest('hex')
-			return { name, sql, checksum }
+			const [first = ''] = sql.split('\n', 1)
+			const schema = first.startsWith(header)
+				? first.slice(header.length)
+				: undefined
+			return {
+				name,
+				sql,
+				checksum,
+				...(schema === undefined ? {} : { schema }),
+			}
 		}),
 	)
 	const json = join(dir, 'schema.json')
