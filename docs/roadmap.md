@@ -4,8 +4,10 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 2**. Phase 1b is closed: every typed part of 0.1 has a
-prototype example.
+Status: **Phase 3**. Phase 2 is closed: the kernel slice runs on `memory()`
+and the
+[typing campaign](../bench/typing/README.md#phase-2-closed-the-full-campaign)
+holds on the package.
 
 ## Phase 0: Tooling
 
