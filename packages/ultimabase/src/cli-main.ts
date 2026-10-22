@@ -1,10 +1,12 @@
-// The `ultimabase` command (D-105): `dev`, `start`, `sync` and `migrate`.
+// The `ultimabase` command (D-105): `dev`, `start`, `sync`, `reset` and
+// `migrate`.
 import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { configPath, load } from './cli-config.ts'
-import { migrateCreate, migrateDeploy, sync } from './cli-migrate.ts'
+import { migrateDeploy, migrateStatus, reset } from './cli-deploy.ts'
+import { migrateCreate, sync } from './cli-migrate.ts'
 
 const usage = `Usage: ultimabase <command> [--config <path>]
 
@@ -12,8 +14,12 @@ const usage = `Usage: ultimabase <command> [--config <path>]
                          database, and restart it when a file changes.
   start                  Start the application in production.
   sync [--force]         Sync the development database to the models.
-  migrate create <name>  Write the models' changes as a migration.
-  migrate deploy         Apply the pending migrations.`
+  reset                  Rebuild the development database from the
+                         migrations: every table is dropped.
+  migrate create <name>  Write the models' changes as a migration, or an
+                         empty one for your SQL.
+  migrate deploy         Apply the pending migrations.
+  migrate status         Say what a deploy would do; exit 1 if anything.`
 
 export type Io = {
 	readonly cwd: string
@@ -76,8 +82,9 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 		rest.length === 0 &&
 		(command === 'migrate'
 			? (sub === 'create' && name !== undefined) ||
-				(sub === 'deploy' && name === undefined)
-			: ['dev', 'start', 'sync'].includes(command ?? '') && sub === undefined)
+				(['deploy', 'status'].includes(sub ?? '') && name === undefined)
+			: ['dev', 'start', 'sync', 'reset'].includes(command ?? '') &&
+				sub === undefined)
 	if (values.help || !known) {
 		;(values.help ? io.out : io.err)(usage)
 		return values.help ? 0 : 1
@@ -94,8 +101,14 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 	else if (command === 'sync') {
 		const said = await sync(app, values.force)
 		if (said !== undefined) io.out(said)
+	} else if (command === 'reset') {
+		for (const line of await reset(app, dir)) io.out(line)
 	} else if (sub === 'deploy') {
 		for (const line of await migrateDeploy(app, dir)) io.out(line)
+	} else if (sub === 'status') {
+		const { lines, ok } = await migrateStatus(app, dir)
+		for (const line of lines) io.out(line)
+		return ok ? 0 : 1
 	} else io.out(await migrateCreate(app, dir, name ?? '', io.now()))
 	return 0
 }

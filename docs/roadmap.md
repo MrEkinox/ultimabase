@@ -115,6 +115,7 @@ at 200 models with field rules and schemas, a query edit under 800 ms
       to 18 (D-50).
 - [x] Development sync, `migrate create` and `migrate deploy` (D-26, D-105).
 - [x] `ultimabase dev` and `ultimabase start` (D-105).
+- [x] Data migrations: `migrate status`, `reset`, readable failures (D-105).
 
 Exit: the contract suite passes on `memory()` and PostgreSQL, round-trip
 counts included.

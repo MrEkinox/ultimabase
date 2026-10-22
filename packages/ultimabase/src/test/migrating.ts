@@ -1,9 +1,14 @@
 // `memory()` with fake `migrations` (D-105): the snapshot lists each model's
 // fields, and the plan adds or removes models and fields.
 import type { Adapter, Logger, Run, Statement, Stored } from '../index.ts'
-import { memory } from '../index.ts'
+import { memory, MigrationFailed } from '../index.ts'
 
-export type FakeState = { stored: Stored | undefined; runs: Run[] }
+export type FakeState = {
+	stored: Stored | undefined
+	runs: Run[]
+	/** A statement's SQL, or a text in a file, the database refuses. */
+	refuses?: string
+}
 
 type Models = { readonly [model: string]: readonly string[] }
 
@@ -62,6 +67,7 @@ function plan(from: unknown, to: unknown): Statement[] {
 				sql: `add ${model}.${field}`,
 				model,
 				does: `added ${field}`,
+				tries: `adding "${model}.${field}" fails when ${model} holds rows`,
 			})
 		}
 	}
@@ -99,21 +105,34 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 			stored: async () => state.stored,
 			apply: async (run) => {
 				state.runs.push(run)
-				const applied = state.stored?.applied ?? []
-				state.stored =
-					run.kind === 'sync'
-						? { snapshot: run.to, by: 'sync', applied }
-						: {
-								snapshot: run.to,
-								by: 'deploy',
-								applied: [
-									...applied,
-									...run.files.map(({ name, checksum }) => ({
-										name,
-										checksum,
-									})),
-								],
-							}
+				const applied = [...(state.stored?.applied ?? [])]
+				if (run.kind === 'sync') {
+					const refused = run.statements.find(
+						(statement) => statement.sql === state.refuses,
+					)
+					if (refused !== undefined) {
+						throw new MigrationFailed(refused.sql, 'a row breaks it')
+					}
+					state.stored = { snapshot: run.to, by: 'sync', applied }
+					return
+				}
+				for (const { name, sql, checksum } of run.files) {
+					if (state.refuses !== undefined && sql.includes(state.refuses)) {
+						throw new MigrationFailed(name, 'a row breaks it')
+					}
+					applied.push({ name, checksum })
+					state.stored = {
+						snapshot: state.stored?.snapshot,
+						by: 'deploy',
+						applied: [...applied],
+					}
+				}
+				state.stored = { snapshot: run.to, by: 'deploy', applied }
+			},
+			reset: async () => {
+				const snapshot = state.stored?.snapshot
+				state.stored = undefined
+				return snapshot === undefined ? [] : Object.keys(modelsOf(snapshot))
 			},
 		},
 	}

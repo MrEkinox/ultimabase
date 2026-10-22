@@ -4,7 +4,11 @@
 import type { Kysely, Transaction } from 'kysely'
 import { sql } from 'kysely'
 import type { Run, Stored } from 'ultimabase'
+import { MigrationFailed } from 'ultimabase'
+import { id } from './plan.ts'
 import { parseSnapshot } from './snapshot.ts'
+
+const tables = ['ultimabase_schema', 'ultimabase_migrations']
 
 const bookkeeping = [
 	sql`create table if not exists ultimabase_schema (id integer primary key check (id = 1), snapshot jsonb not null, written_by text not null, written_at timestamptz not null)`,
@@ -97,6 +101,20 @@ async function refuseTables(
 	)
 }
 
+/** Runs `text`, and names `at` when the database refuses it. */
+async function executed(
+	trx: Transaction<object>,
+	text: string,
+	at: string,
+): Promise<void> {
+	try {
+		await sql.raw(text).execute(trx)
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error)
+		throw new MigrationFailed(at, reason)
+	}
+}
+
 async function sync(
 	db: Kysely<object>,
 	run: Extract<Run, { kind: 'sync' }>,
@@ -116,7 +134,7 @@ async function sync(
 		}
 		if (row === undefined) await refuseTables(trx, run.to)
 		for (const statement of run.statements) {
-			await sql.raw(statement.sql).execute(trx)
+			await executed(trx, statement.sql, statement.sql)
 		}
 		await store(trx, run.to, 'sync')
 	})
@@ -132,14 +150,7 @@ async function deploy(
 				select 1 from ultimabase_migrations where name = ${file.name}`.execute(trx)
 			// Another deploy applied it first.
 			if (rows.length > 0) return
-			try {
-				await sql.raw(file.sql).execute(trx)
-			} catch (error) {
-				const message = error instanceof Error ? error.message : 'it failed'
-				throw new Error(`${file.name} was not applied: ${message}`, {
-					cause: error,
-				})
-			}
+			await executed(trx, file.sql, file.name)
 			await sql`insert into ultimabase_migrations (name, checksum, applied_at)
 				values (${file.name}, ${file.checksum}, now())`.execute(trx)
 		})
@@ -149,4 +160,19 @@ async function deploy(
 
 export async function apply(db: Kysely<object>, run: Run): Promise<void> {
 	await (run.kind === 'sync' ? sync(db, run) : deploy(db, run))
+}
+
+/** Drops every table of the current schema; returns the models' tables. */
+export async function reset(db: Kysely<object>): Promise<readonly string[]> {
+	const dropped: string[] = []
+	await locked(db, async (trx) => {
+		const { rows } = await sql<{ table_name: string }>`
+			select table_name from information_schema.tables
+			where table_schema = current_schema() and table_type = 'BASE TABLE'
+			order by table_name`.execute(trx)
+		const names = rows.map((row) => row.table_name)
+		await sql.raw(`drop table ${names.map(id).join(', ')} cascade`).execute(trx)
+		dropped.push(...names.filter((name) => !tables.includes(name)))
+	})
+	return dropped
 }

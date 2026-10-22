@@ -167,6 +167,11 @@ export type Statement = {
 	/** What it deletes, when it loses data: `removing "Locker.label" deletes data`. */
 	readonly loses?: string
 	/**
+	 * When the database refuses it, for a change rows can break:
+	 * `limiting "Locker.kind" to wood, glass fails when a row holds another value`.
+	 */
+	readonly tries?: string
+	/**
 	 * A removal that may be a rename: the field or model that may be the same
 	 * (`Locker.title`), the name it keeps its data under with `dbName`
 	 * (`label`), and the SQL that renames instead.
@@ -225,8 +230,13 @@ export interface Migrations {
 	plan(from: unknown, to: unknown): readonly Statement[]
 	/** The database's snapshot, if it has one; the adapter is started. */
 	stored(): Promise<Stored | undefined>
-	/** Applies `run` under a lock that one database holds at a time. */
+	/**
+	 * Applies `run` under a lock that one database holds at a time; a
+	 * statement or file the database refuses throws `MigrationFailed`.
+	 */
 	apply(run: Run): Promise<void>
+	/** Drops every table, for `ultimabase reset`; returns the models' tables. */
+	reset(): Promise<readonly string[]>
 }
 
 /** A storage adapter: its own slot, not a plugin (D-02, D-73). */
@@ -260,5 +270,20 @@ export class CheckFailed extends Error {
 		super(`Check ${String(index)} of the write failed.`)
 		this.name = 'CheckFailed'
 		this.index = index
+	}
+}
+
+/** The database refused a sync's statement or a deploy's file (D-105). */
+export class MigrationFailed extends Error {
+	/** The statement's SQL, or the file's name. */
+	readonly at: string
+	/** What the database said. */
+	readonly reason: string
+
+	constructor(at: string, reason: string) {
+		super(`The database refused ${at}: ${reason}`)
+		this.name = 'MigrationFailed'
+		this.at = at
+		this.reason = reason
 	}
 }

@@ -19,7 +19,7 @@ type Named<T> = { readonly [name: string]: T }
 type Emit = (
 	sql: string,
 	does: string,
-	more?: Pick<Statement, 'loses' | 'rename'>,
+	more?: Pick<Statement, 'loses' | 'tries' | 'rename'>,
 ) => void
 
 /** The entries of `from` that `to` lacks or defines otherwise. */
@@ -33,6 +33,10 @@ const added = <T>(from: Named<T>, to: Named<T>): [string, T][] =>
 /** The model's names for columns, which messages use. */
 const fields = (table: TableSnapshot, columns: readonly string[]): string =>
 	columns.map((column) => table.columns[column]?.field ?? column).join(', ')
+
+/** A key's columns as a tried change names them: `Locker (label, size)`. */
+const keyOf = (table: TableSnapshot, columns: readonly string[]): string =>
+	`${table.model} (${fields(table, columns)})`
 
 const checked = (name: string, { column, values }: Check): string =>
 	`constraint ${id(name)} check (${id(column)} in (${values.map(literal).join(', ')}))`
@@ -124,6 +128,11 @@ function alterColumns(
 			emit(
 				`${table} add column ${column(key, now.type, now.nullable)}`,
 				`added ${now.field}`,
+				now.nullable
+					? {}
+					: {
+							tries: `adding the required "${to.model}.${now.field}" fails when ${to.model} holds rows`,
+						},
 			)
 			continue
 		}
@@ -140,6 +149,11 @@ function alterColumns(
 			emit(
 				`${table} alter column ${id(key)} ${now.nullable ? 'drop' : 'set'} not null`,
 				`made ${now.field} ${now.nullable ? 'optional' : 'required'}`,
+				now.nullable
+					? {}
+					: {
+							tries: `making "${to.model}.${now.field}" required fails when a row holds no value`,
+						},
 			)
 		}
 	}
@@ -158,19 +172,26 @@ function addKeys(
 		emit(
 			add(`constraint ${id(key)} primary key (${list(columns)})`),
 			`keyed on ${fields(to, columns)}`,
+			{
+				tries: `keying ${keyOf(to, columns)} fails when two rows share a value`,
+			},
 		)
 	}
 	for (const [key, columns] of added(from.uniques, to.uniques)) {
 		emit(
 			add(`constraint ${id(key)} unique (${list(columns)})`),
 			`added a unique key on ${fields(to, columns)}`,
+			{
+				tries: `a unique key on ${keyOf(to, columns)} fails when two rows share a value`,
+			},
 		)
 	}
 	for (const [key, given] of added(from.checks, to.checks)) {
-		emit(
-			add(checked(key, given)),
-			`limited ${fields(to, [given.column])} to ${given.values.join(', ')}`,
-		)
+		const field = fields(to, [given.column])
+		const values = given.values.join(', ')
+		emit(add(checked(key, given)), `limited ${field} to ${values}`, {
+			tries: `limiting "${to.model}.${field}" to ${values} fails when a row holds another value`,
+		})
 	}
 }
 
@@ -236,9 +257,16 @@ export function plan(from: Snapshot | undefined, to: Snapshot): Statement[] {
 		}
 		const keys = added(was?.foreignKeys ?? {}, table.foreignKeys)
 		for (const [key, given] of keys) {
+			const field = fields(table, [given.column])
 			emit(6, table.model)(
 				foreignKey(name, key, given),
-				`added the foreign key on ${fields(table, [given.column])}`,
+				`added the foreign key on ${field}`,
+				// A column added with its key holds no value yet.
+				was?.columns[given.column] === undefined
+					? {}
+					: {
+							tries: `linking "${table.model}.${field}" fails when a row points to no row`,
+						},
 			)
 		}
 	}

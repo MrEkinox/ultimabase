@@ -129,6 +129,24 @@ const after: Schema = {
 	],
 }
 
+/** Boxes on a shelf or on a rack: the same column, another foreign key. */
+const onto = (target: string): Schema => ({
+	models: ['Shelf', 'Rack']
+		.map((name) => ({
+			name,
+			fields: [
+				scalar('name', 'string'),
+				...(name === target ? [many('boxes', 'Box', 'shelf')] : []),
+			],
+			indexes: [],
+		}))
+		.concat({
+			name: 'Box',
+			fields: [scalar('label', 'string'), one('shelf', target, 'boxes')],
+			indexes: [],
+		}),
+})
+
 let schema = ''
 let adapter: Adapter
 let migrations: Migrations
@@ -214,6 +232,13 @@ describe('a sync on postgres()', () => {
 			],
 		])
 		expect(
+			statements.flatMap(({ tries }) => (tries === undefined ? [] : [tries])),
+		).toStrictEqual([
+			'making "Shelf.depth" required fails when a row holds no value',
+			'a unique key on Shelf (name, kind) fails when two rows share a value',
+			'limiting "Shelf.kind" to wood, metal, glass fails when a row holds another value',
+		])
+		expect(
 			await query(inSchema(schema), 'select size, remark from shelf'),
 		).toStrictEqual([{ size: '3', remark: null }])
 		expect(
@@ -228,6 +253,48 @@ describe('a sync on postgres()', () => {
 		expect(
 			await query(inSchema(schema), 'select size, note from shelf'),
 		).toStrictEqual([{ size: 3, note: null }])
+	})
+
+	it('names a statement the database refuses, and changes nothing', async () => {
+		await sync(undefined, before)
+		await query(
+			inSchema(schema),
+			`insert into shelf values (gen_random_uuid(), now(), now(), 'top', 3, 'metal', 2, 'n')`,
+		)
+		const [shelf, ...rest] = before.models
+		if (shelf === undefined) throw new Error('before holds Shelf.')
+		const wood: Schema = {
+			models: [
+				{
+					...shelf,
+					fields: shelf.fields.map((field) =>
+						field.name === 'kind'
+							? scalar('kind', 'enum', { values: ['wood'] })
+							: field,
+					),
+				},
+				...rest,
+			],
+		}
+		await expect(sync(before, wood)).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: `alter table "shelf" add constraint "shelf_kind_check" check ("kind" in ('wood'))`,
+			reason:
+				'check constraint "shelf_kind_check" of relation "shelf" is violated by some row',
+		})
+		expect((await migrations.stored())?.snapshot).toStrictEqual(
+			migrations.snapshot(before),
+		)
+	})
+
+	it('tries a foreign key that moves on a column rows hold', () => {
+		const statements = migrations.plan(
+			migrations.snapshot(onto('Shelf')),
+			migrations.snapshot(onto('Rack')),
+		)
+		expect(statements.at(-1)?.tries).toBe(
+			'linking "Box.shelf" fails when a row points to no row',
+		)
 	})
 
 	it('stores what it synced, and reads nothing before', async () => {
@@ -322,7 +389,11 @@ describe('a deploy on postgres()', () => {
 		]
 		await expect(
 			migrations.apply({ kind: 'deploy', files, to }),
-		).rejects.toThrow('2_b.sql was not applied: division by zero')
+		).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: '2_b.sql',
+			reason: 'division by zero',
+		})
 		const stored = await migrations.stored()
 		expect(stored?.snapshot).toBeUndefined()
 		expect(stored?.applied.map((given) => given.name)).toStrictEqual([
@@ -331,6 +402,26 @@ describe('a deploy on postgres()', () => {
 		await expect(query(inSchema(schema), 'select * from b')).rejects.toThrow(
 			'relation "b" does not exist',
 		)
+	})
+})
+
+describe('a reset on postgres()', () => {
+	it("drops every table, and names the models' ones", async () => {
+		await sync(undefined, before)
+		await query(inSchema(schema), 'create table extra (id integer)')
+		expect(await migrations.reset()).toStrictEqual([
+			'box',
+			'extra',
+			'old',
+			'shelf',
+		])
+		expect(await migrations.stored()).toBeUndefined()
+		expect(
+			await query(
+				url,
+				`select table_name from information_schema.tables where table_schema = '${schema}'`,
+			),
+		).toStrictEqual([])
 	})
 })
 
@@ -483,7 +574,95 @@ describe('the commands on postgres()', () => {
 		expect(next.output).toBe(`Applied ${size}.\n`)
 		const synced2 = await ultimabase(dir, ['migrate', 'deploy'], development())
 		expect(synced2.output).toContain(
-			'`npx ultimabase sync` built this database',
+			'Development sync changed this database since its last deploy',
 		)
+	}, 60_000)
+
+	it('tests a data migration on a copy of production, then deploys it', async () => {
+		await config('label: f.string()')
+		await ultimabase(dir, ['migrate', 'create', 'init'], {})
+		const [init = ''] = (await readdir(joinPath(dir, 'migrations'))).toSorted()
+		const row = `insert into locker (id, created_at, updated_at, label) values (gen_random_uuid(), now(), now(), 'prod row')`
+		await ultimabase(dir, ['migrate', 'deploy'], deployed())
+		await query(inSchema(production), row)
+		// The development schema stands for a restored dump of production.
+		await ultimabase(dir, ['migrate', 'deploy'], development())
+		await query(inSchema(schema), row)
+
+		await config("label: f.string(), kind: f.enumOf(['wood', 'glass'])")
+		const tried = await ultimabase(dir, ['sync'], development())
+		expect(tried).toStrictEqual({
+			code: 1,
+			output: [
+				'UltimaBase did not sync Locker: adding the required "Locker.kind" fails when Locker holds rows.',
+				'  alter table "locker" add column "kind" text collate "C" not null;',
+				'  -- column "kind" of relation "locker" contains null values',
+				'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
+				'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
+				'',
+			].join('\n'),
+		})
+
+		await ultimabase(dir, ['migrate', 'create', 'add_kind'], {})
+		const files = (await readdir(joinPath(dir, 'migrations'))).toSorted()
+		const kind = files.find((name) => name.endsWith('_add_kind.sql')) ?? ''
+		const path = joinPath(dir, 'migrations', kind)
+		const [header = '', ...generated] = (await readFile(path, 'utf8')).split(
+			'\n',
+		)
+		expect(generated.slice(1)).toStrictEqual([
+			'-- adding the required "Locker.kind" fails when Locker holds rows.',
+			'alter table "locker" add column "kind" text collate "C" not null;',
+			'',
+			'-- limiting "Locker.kind" to wood, glass fails when a row holds another value.',
+			`alter table "locker" add constraint "locker_kind_check" check ("kind" in ('wood', 'glass'));`,
+			'',
+		])
+		expect(
+			await ultimabase(dir, ['migrate', 'status'], development()),
+		).toStrictEqual({ code: 1, output: `${kind} is pending.\n` })
+		expect(
+			await ultimabase(dir, ['migrate', 'deploy'], development()),
+		).toStrictEqual({
+			code: 1,
+			output: `${kind} was not applied: column "kind" of relation "locker" contains null values\nThe database rolled it back: fix it, then deploy again.\n`,
+		})
+
+		await writeFile(
+			path,
+			[
+				header,
+				'alter table "locker" add column "kind" text collate "C";',
+				`update "locker" set "kind" = 'glass' where "label" like 'prod%';`,
+				'alter table "locker" alter column "kind" set not null;',
+				`alter table "locker" add constraint "locker_kind_check" check ("kind" in ('wood', 'glass'));`,
+				'',
+			].join('\n'),
+		)
+		expect(
+			await ultimabase(dir, ['migrate', 'deploy'], development()),
+		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n` })
+		expect(
+			await ultimabase(dir, ['migrate', 'status'], development()),
+		).toStrictEqual({ code: 0, output: 'The database is up to date.\n' })
+		const migrated = [{ label: 'prod row', kind: 'glass' }]
+		expect(
+			await query(inSchema(schema), 'select label, kind from locker'),
+		).toStrictEqual(migrated)
+
+		expect(
+			await ultimabase(dir, ['migrate', 'deploy'], deployed()),
+		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n` })
+		expect(
+			await query(inSchema(production), 'select label, kind from locker'),
+		).toStrictEqual(migrated)
+
+		expect(await ultimabase(dir, ['reset'], development())).toStrictEqual({
+			code: 0,
+			output: `Dropped locker.\nApplied ${init}.\nApplied ${kind}.\n`,
+		})
+		expect(
+			await query(inSchema(schema), 'select label from locker'),
+		).toStrictEqual([])
 	}, 60_000)
 })

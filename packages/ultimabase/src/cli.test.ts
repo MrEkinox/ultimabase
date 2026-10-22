@@ -141,7 +141,7 @@ describe('the command line', () => {
 })
 
 describe('migrate create', () => {
-	it('writes the first migration and the snapshot, then nothing until the models change', async () => {
+	it('writes the first migration and the snapshot, a file for SQL while no model changes, then the changes', async () => {
 		const first = await config('create', { Locker: ['label'] })
 		expect(await run('migrate', 'create', 'init', '--config', first)).toBe(0)
 		const [file, schema] = await migrations()
@@ -156,9 +156,17 @@ describe('migrate create', () => {
 			models: { Locker: ['label'] },
 		})
 
-		expect(await run('migrate', 'create', 'again', '--config', first)).toBe(0)
-		expect(out[1]).toBe('The migrations already match the models.')
-		expect(await migrations()).toHaveLength(2)
+		expect(await run('migrate', 'create', 'data', '--config', first)).toBe(0)
+		const data = (await migrations()).find((name) => name.endsWith('_data.sql'))
+		expect(out[1]).toBe(
+			`Wrote migrations/${data}: no model changed, write your SQL in it.`,
+		)
+		expect((await read(data ?? '')).split('\n')).toStrictEqual([
+			sql.split('\n')[0],
+			'',
+			'-- No model changed: write your SQL here.',
+			'',
+		])
 
 		const second = await config('create', { Locker: ['title'] })
 		expect(await run('migrate', 'create', 'rename', '--config', second)).toBe(0)
@@ -170,6 +178,7 @@ describe('migrate create', () => {
 			'-- a rename? write: rename label to title;',
 			'drop Locker.label;',
 			'',
+			'-- adding "Locker.title" fails when Locker holds rows.',
 			'add Locker.title;',
 			'',
 		])
@@ -301,13 +310,157 @@ describe('migrate deploy', () => {
 		)
 	})
 
-	it('refuses a database that sync built', async () => {
+	it('refuses a database that sync changed, saying how to rebuild it in development', async () => {
 		const file = await config('synced', { Locker: ['label'] })
 		expect(await run('sync', '--config', file)).toBe(0)
 		await run('migrate', 'create', 'init', '--config', file)
+		const refused =
+			'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built (D-105).'
 		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
 		expect(err[0]).toBe(
-			'`npx ultimabase sync` built this database: deploy applies migrations only to a database they built (D-105).',
+			`${refused}\nRestore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`,
+		)
+		process.env['NODE_ENV'] = 'production'
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
+		expect(err[1]).toBe(refused)
+	})
+
+	it('applies a data migration, and stops at a file the database refuses', async () => {
+		const state = fakeState('data')
+		const file = await config('data', { Locker: ['label'] })
+		await run('migrate', 'create', 'init', '--config', file)
+		// Each config is written a second later, so the files keep this order.
+		const later = async () => config('data', { Locker: ['label'] })
+		await run('migrate', 'create', 'backfill', '--config', await later())
+		await run('migrate', 'create', 'fix', '--config', await later())
+		const [init = '', backfill = '', fix = ''] = await migrations()
+		await writeFile(
+			join(dir, 'migrations', backfill),
+			`${await read(backfill)}update locker set label = 'x';\n`,
+		)
+		await writeFile(
+			join(dir, 'migrations', fix),
+			`${await read(fix)}update locker set label = null;\n`,
+		)
+		state.refuses = 'set label = null'
+		out = []
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
+		expect(err[0]).toBe(
+			[
+				`Applied ${init}.`,
+				`Applied ${backfill}.`,
+				`${fix} was not applied: a row breaks it`,
+				'The database rolled it back: fix it, then deploy again.',
+			].join('\n'),
+		)
+		expect(state.stored?.applied.map((given) => given.name)).toStrictEqual([
+			init,
+			backfill,
+		])
+		await writeFile(
+			join(dir, 'migrations', fix),
+			`${await read(fix)}-- fixed\n`,
+		)
+		delete state.refuses
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(0)
+		expect(out).toStrictEqual([`Applied ${fix}.`])
+	})
+})
+
+describe('migrate status', () => {
+	it('lists what a deploy would apply, and exits 1 until nothing is left', async () => {
+		const state = fakeState('status')
+		const first = await config('status', { Locker: ['label'] })
+		expect(await run('migrate', 'status', '--config', first)).toBe(1)
+		expect(out).toStrictEqual([
+			'migrations/ holds no migration: run `npx ultimabase migrate create <name>` first.',
+		])
+		await run('migrate', 'create', 'init', '--config', first)
+		const [init] = await migrations()
+		out = []
+		expect(await run('migrate', 'status', '--config', first)).toBe(1)
+		expect(out).toStrictEqual([`${init} is pending.`])
+		await run('migrate', 'deploy', '--config', first)
+		out = []
+		expect(await run('migrate', 'status', '--config', first)).toBe(0)
+		expect(out).toStrictEqual(['The database is up to date.'])
+
+		const second = await config('status', { Locker: ['label', 'size'] })
+		out = []
+		expect(await run('migrate', 'status', '--config', second)).toBe(1)
+		expect(out).toStrictEqual([
+			`The models changed after ${init} was written: run \`npx ultimabase migrate create <name>\`, then deploy again.`,
+		])
+
+		state.stored = {
+			snapshot: undefined,
+			by: 'deploy',
+			applied: state.stored?.applied ?? [],
+		}
+		out = []
+		expect(await run('migrate', 'status', '--config', first)).toBe(1)
+		expect(out).toStrictEqual([
+			"The database's snapshot is not the models': run `npx ultimabase migrate deploy`.",
+		])
+	})
+
+	it('says when sync changed the database', async () => {
+		const file = await config('status-sync', { Locker: ['label'] })
+		await run('sync', '--config', file)
+		await run('migrate', 'create', 'init', '--config', file)
+		const [init] = await migrations()
+		expect(await run('migrate', 'status', '--config', file)).toBe(1)
+		expect(out.slice(1)).toStrictEqual([
+			expect.stringMatching(/^Development sync changed this database/),
+			`${init} is pending.`,
+		])
+	})
+})
+
+describe('reset', () => {
+	it('drops the tables, applies every migration, and says what the next start syncs', async () => {
+		const state = fakeState('reset')
+		const first = await config('reset', { Locker: ['label'] })
+		expect(await run('reset', '--config', first)).toBe(0)
+		expect(out).toStrictEqual([
+			'The database held no table.',
+			'migrations/ holds no migration: the next start builds the tables.',
+		])
+		await run('sync', '--config', first)
+		await run('migrate', 'create', 'init', '--config', first)
+		const [init] = await migrations()
+		out = []
+		expect(await run('reset', '--config', first)).toBe(0)
+		expect(out).toStrictEqual(['Dropped Locker.', `Applied ${init}.`])
+		expect(state.stored?.by).toBe('deploy')
+
+		const second = await config('reset', { Locker: ['label', 'size'] })
+		out = []
+		expect(await run('reset', '--config', second)).toBe(0)
+		expect(out).toStrictEqual([
+			'Dropped Locker.',
+			`Applied ${init}.`,
+			`The models changed after ${init} was written: the next start syncs them.`,
+		])
+		expect(state.stored?.snapshot).toStrictEqual({
+			models: { Locker: ['label'] },
+		})
+	})
+
+	it('stops at a file the database refuses, and refuses production', async () => {
+		const state = fakeState('reset-refused')
+		const file = await config('reset-refused', { Locker: ['label'] })
+		await run('migrate', 'create', 'init', '--config', file)
+		const [init] = await migrations()
+		state.refuses = 'create Locker'
+		expect(await run('reset', '--config', file)).toBe(1)
+		expect(err[0]).toBe(
+			`${init} was not applied: a row breaks it\nThe database rolled it back: fix it, then reset again.`,
+		)
+		process.env['NODE_ENV'] = 'production'
+		expect(await run('reset', '--config', file)).toBe(1)
+		expect(err[1]).toBe(
+			'reset rebuilds only a development database: it is refused in production.',
 		)
 	})
 })
@@ -331,6 +484,38 @@ describe('sync', () => {
 			'Synced Locker: removed label, added title.',
 		)
 		expect(state.runs).toHaveLength(2)
+	})
+
+	it('names a statement the database refuses, and how to fix its rows', async () => {
+		const state = fakeState('tried')
+		const first = await config('tried', { Locker: ['label'] })
+		await run('sync', '--config', first)
+		const fix = [
+			'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
+			'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
+		]
+		state.refuses = 'add Locker.size'
+		const second = await config('tried', { Locker: ['label', 'size'] })
+		expect(await run('sync', '--config', second)).toBe(1)
+		expect(err[0]).toBe(
+			[
+				'UltimaBase did not sync Locker: adding "Locker.size" fails when Locker holds rows.',
+				'  add Locker.size;',
+				'  -- a row breaks it',
+				...fix,
+			].join('\n'),
+		)
+		state.refuses = 'drop Locker.label'
+		const third = await config('tried', { Locker: [] })
+		expect(await run('sync', '--force', '--config', third)).toBe(1)
+		expect(err[1]).toBe(
+			[
+				'UltimaBase did not sync Locker: the database refused it.',
+				'  drop Locker.label;',
+				'  -- a row breaks it',
+				...fix,
+			].join('\n'),
+		)
 	})
 
 	it('says it synced names that changed without a table', async () => {

@@ -14,7 +14,7 @@ import type {
 	Write,
 } from 'ultimabase'
 import { decodeRows } from './decode.ts'
-import { apply, stored } from './migrations.ts'
+import { apply, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
 import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
@@ -145,6 +145,7 @@ export function createAdapter(options: Options): Adapter {
 				),
 			stored: async () => stored(started().db),
 			apply: async (given) => apply(started().db, given),
+			reset: async () => reset(started().db),
 		},
 		begin: async (): Promise<Transaction> => {
 			const { catalog, db } = started()

@@ -3822,7 +3822,19 @@ Choice: amends D-26, D-73 and D-98 point 1.
    column, index or enum value; a dropped index or constraint; a field made
    optional. A new required field, unique index or `one`, a field made
    required and a removed enum value are tried: the database refuses them
-   when a row breaks them, and nothing is applied. Any other change, a drop,
+   when a row breaks them, and nothing is applied. Sync changes the tables'
+   shape only and never moves data; a refused change names the statement,
+   what it tried and the database's reason (amended 2026-10-22):
+
+   ```
+   UltimaBase did not sync Locker: adding the required "Locker.kind" fails when Locker holds rows.
+     alter table "locker" add column "kind" text collate "C" not null;
+     -- column "kind" of relation "locker" contains null values
+   Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.
+   In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.
+   ```
+
+   Any other change, a drop,
    a type change and anything that could be a rename, stops `start` with
    its SQL and the commands that apply it:
 
@@ -3849,10 +3861,15 @@ Choice: amends D-26, D-73 and D-98 point 1.
    `-- ultimabase schema <hash>`; a statement that loses data is preceded by
    a comment saying what it deletes, and a column dropped beside a column
    added to the same table with the same type gets
-   `-- a rename? write: alter table ... rename column ...`. The file is
-   edited by hand when the plan is not what the developer meant. Nothing
-   changed writes nothing and says so. SQL files without `schema.json` are
-   refused.
+   `-- a rename? write: alter table ... rename column ...`. A tried
+   statement is preceded by what it tries,
+   `-- limiting "Locker.kind" to wood, glass fails when a row holds another value.`,
+   where a data migration goes. The file is edited by hand when the plan is
+   not what the developer meant, and that is how data moves: an `update`
+   between the generated statements. When no model changed, the file holds
+   only its header and `-- No model changed: write your SQL here.`, for a
+   migration of data alone. SQL files without `schema.json` are refused
+   (amended 2026-10-22).
 6. `ultimabase migrate deploy` applies, in name order, the files that
    `ultimabase_migrations` (name, checksum, applied at) does not list, each
    in its own transaction, under an advisory lock, then writes the models'
@@ -3861,10 +3878,27 @@ Choice: amends D-26, D-73 and D-98 point 1.
      changed since the last `migrate create`;
    - when an applied file was edited or removed;
    - when development sync wrote the database's snapshot: migrations apply
-     to a database only migrations built.
+     to a database only migrations built. In development the refusal adds
+     `Restore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`
+
+   A file the database refuses is rolled back, the files before it stay
+   applied, and deploy names it with the database's reason:
+   `20261022143000_add_kind.sql was not applied: column "kind" of relation "locker" contains null values`,
+   then `The database rolled it back: fix it, then deploy again.` (amended
+   2026-10-22).
+
 7. `ultimabase sync [--force]` runs development sync without starting the
    application; `--force` also applies what loses data. Both are refused in
    production.
+   - `ultimabase migrate status` says what deploy would do or refuse,
+     without applying anything: each pending file, the refusals of point 6,
+     or `The database is up to date.`. It exits 1 when there is anything to
+     do, so CI can gate a deploy on it.
+   - `ultimabase reset` drops every table of a development database, then
+     applies every migration file and stores `schema.json`'s snapshot, as a
+     deploy would; with no file, the next start builds the tables. It is
+     refused in production and asks nothing (amended 2026-10-22).
+
 8. The adapter contract (D-73) gains an optional `migrations` member, which
    the kernel's commands and `start` call; `memory()` has none, since it
    starts empty every time, and the commands say so:
@@ -3877,8 +3911,16 @@ Choice: amends D-26, D-73 and D-98 point 1.
    	plan(from: unknown, to: unknown): readonly Statement[]
    	/** The database's snapshot, and who wrote it. */
    	stored(): Promise<Stored | undefined>
-   	/** Runs statements or files, each file in its transaction, then stores `to`. */
+   	/** Runs statements or files, each file in its transaction, then stores
+   	 * `to`; throws `MigrationFailed` naming what the database refused. */
    	apply(run: Run): Promise<void>
+   	/** Drops every table; returns the models' ones it dropped. */
+   	reset(): Promise<readonly string[]>
+   }
+   class MigrationFailed extends Error {
+   	/** The statement's SQL, or the file's name. */
+   	readonly at: string
+   	readonly reason: string
    }
    interface Statement {
    	readonly sql: string
@@ -3887,6 +3929,8 @@ Choice: amends D-26, D-73 and D-98 point 1.
    	readonly does: string
    	/** What it deletes, when it loses data. */
    	readonly loses?: string
+   	/** What makes the database refuse it, when rows can. */
+   	readonly tries?: string
    	/** A removal that may be a rename: `Locker.title`, `label`, its SQL. */
    	readonly rename?: { to: string; dbName: string; sql: string }
    }
@@ -3943,13 +3987,23 @@ Rejected:
   extensionless imports: a dependency the starter does not need (D-92), to
   revisit if users ask.
 - Applying migrations at startup in production.
+- Adopting a database sync changed, or rewinding it to the migrations: a
+  second bookkeeping for a development copy that a dump or `reset` rebuilds
+  in seconds.
+- Down migrations: a rollback is a new migration, as with Prisma.
+- Asking before `reset`: it is refused where it could lose real data.
+- A command that runs arbitrary SQL: `psql` does it.
 
 Limits:
 
 - A change made by hand in SQL is invisible to both snapshots.
 - A tried change can still fail in production, on rows a development
   database does not have; `migrate deploy` then stops at that file, its
-  transaction rolled back.
+  transaction rolled back. `migrate deploy` on a restored dump tests it
+  first.
+- Each file runs in a transaction, so `create index concurrently` cannot be
+  written in one.
+- `reset` drops tables, not the types or functions a file created.
 
 Example:
 
@@ -3988,4 +4042,16 @@ npx ultimabase migrate create add_locker_owner
 # migrations/schema.json
 npx ultimabase migrate deploy
 # Applied 20261022143000_add_locker_owner.sql.
+```
+
+```bash
+# A data migration, tested on a restored dump of production
+pg_restore --clean -d "$DATABASE_URL" prod.dump
+npx ultimabase migrate create add_kind   # then add the update by hand
+npx ultimabase migrate status            # 20261022150000_add_kind.sql is pending. (exit 1)
+npx ultimabase migrate deploy            # Applied 20261022150000_add_kind.sql.
+# In CI, against production
+npx ultimabase migrate deploy && npx ultimabase start
+# Back to a clean development database
+npx ultimabase reset                     # Dropped locker. Applied ….sql.
 ```

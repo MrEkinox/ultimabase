@@ -2,6 +2,7 @@
 // against the database's, through the adapter's `migrations`.
 import { createHash } from 'node:crypto'
 import type { Adapter, Migrations, Schema, Statement } from './adapter.ts'
+import { MigrationFailed } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 
 /** A refusal whose message says it all: the commands print no stack. */
@@ -57,6 +58,22 @@ function refusal(losing: readonly Statement[]): string {
 	].join('\n')
 }
 
+/** Why a tried statement failed, and how to fix the rows. */
+function failure(
+	statements: readonly Statement[],
+	{ at, reason }: MigrationFailed,
+): string {
+	const statement = statements.find((given) => given.sql === at)
+	const model = statement?.model ?? 'the models'
+	return [
+		`UltimaBase did not sync ${model}: ${statement?.tries ?? 'the database refused it'}.`,
+		`  ${at};`,
+		`  -- ${reason}`,
+		'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
+		'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
+	].join('\n')
+}
+
 /**
  * Brings a development database to the models, refusing what loses data
  * unless `force`, and logs what changed. Returns the statements it ran, or
@@ -77,7 +94,14 @@ export async function synced(
 	const statements = migrations.plan(from, to)
 	const losing = statements.filter((statement) => statement.loses !== undefined)
 	if (losing.length > 0 && !force) throw new Refused(refusal(losing))
-	await migrations.apply({ kind: 'sync', from, statements, to })
+	try {
+		await migrations.apply({ kind: 'sync', from, statements, to })
+	} catch (error) {
+		if (error instanceof MigrationFailed) {
+			throw new Refused(failure(statements, error))
+		}
+		throw error
+	}
 	if (from === undefined) {
 		logger.info("Created the database's tables.")
 		return statements
