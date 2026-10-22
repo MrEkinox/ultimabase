@@ -1,5 +1,7 @@
 // The application's plugins at `start` (D-16, D-89): their values checked,
 // their requirements met, then their APIs built, each after those it needs.
+import type { SchemaModel } from './adapter.ts'
+import { readRules } from './access.ts'
 import type { Logger } from './app-options.ts'
 import type { PluginRecord } from './definition.ts'
 import type { Identify } from './identify.ts'
@@ -74,23 +76,26 @@ export type Installed = {
 
 /** The models as the plugin `name` reads them, with its `.with` key. */
 function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
-	const values = new Map(
-		[...resolved.byValue].map(([value, info]) => [info.name, value]),
-	)
-	return resolved.schema.models.map((schema) => {
-		const info = resolved.models.get(schema.name)
-		const rules = info?.definition.rules
+	return [...resolved.byValue].map(([value, info]) => {
+		const rules = info.definition.rules
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a model value holds its queries; transports pass client arguments, which the kernel checks (D-20).
-		const queries = values.get(schema.name) as ModelQueries
+		const queries = value as ModelQueries
 		const key: unknown =
 			rules === undefined ? undefined : Reflect.get(rules, name)
 		return Object.freeze({
-			schema,
-			uniques: info?.uniques ?? [],
+			schema: schemaOf(resolved, info.name),
+			uniques: info.uniques,
+			readRules: readRules(info),
 			with: key,
 			queries,
 		})
 	})
+}
+
+function schemaOf(resolved: Resolved, name: string): SchemaModel {
+	const found = resolved.schema.models.find((model) => model.name === name)
+	if (found === undefined) throw new Error(`${name} has no schema.`)
+	return found
 }
 
 /** Each plugin with its context; its logger names it (D-91). */

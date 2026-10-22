@@ -6,6 +6,7 @@ import type { Adapter, Write } from './adapter.ts'
 import { modelDefinitions } from './definition.ts'
 import type { ExposedModel, Field, PluginTypes } from './index.ts'
 import {
+	allow,
 	defineApp,
 	defineModel,
 	definePlugin,
@@ -668,7 +669,15 @@ const lens = definePlugin<Lens>({
 const Tag = defineModel({
 	name: 'Tag',
 	use: [lens.use()],
-	fields: (f) => ({ label: f.string({ unique: true }) }),
+	fields: (f) => ({
+		label: f.string({ unique: true }),
+		secret: f.string({ optional: true }).with({
+			access: { read: allow.private },
+		}),
+		note: f.string({ optional: true }).with({
+			access: { read: ({ caller }) => caller.kind === 'user' },
+		}),
+	}),
 }).with({ lens: { plural: 'tagz' } })
 const Secret = defineModel({
 	name: 'Secret',
@@ -706,6 +715,8 @@ describe('a plugin’s models', () => {
 				undefined,
 			])
 			expect(seen[0]?.uniques).toEqual([['id'], ['label']])
+			expect(seen[0]?.readRules).toEqual({ secret: 'private', note: 'rule' })
+			expect(seen[1]?.readRules).toEqual({})
 			const queries = seen[0]?.queries
 			const created = await queries?.create({ data: { label: 'a' } }, M)
 			expect(created?.['label']).toBe('a')

@@ -5,7 +5,7 @@ import { InvalidQuery, PublicError } from './errors.ts'
 import type { Filter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import type { Caller } from './rules.ts'
-import { filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
+import { allow, filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
 import { entries, isObject, normalizeWhere } from './query-where.ts'
@@ -47,6 +47,23 @@ function decide(rule: unknown, facts: object): boolean {
 		throw new TypeError('A write rule or a field rule returns a boolean.')
 	}
 	return result
+}
+
+/**
+ * Each field with a read rule: `private` when only Master reads it, which a
+ * transport leaves out, `rule` when it may be hidden (D-44, D-107).
+ */
+export function readRules(model: ModelInfo): {
+	readonly [field: string]: 'private' | 'rule'
+} {
+	const rules: { [field: string]: 'private' | 'rule' } = {}
+	for (const field of model.fields.keys()) {
+		const rule = fieldRule(model, field, 'read')
+		if (rule !== undefined) {
+			rules[field] = rule === allow.private ? 'private' : 'rule'
+		}
+	}
+	return rules
 }
 
 /** The record a rule sees: each stored `one` key as `{ id }` or `null` (D-77). */

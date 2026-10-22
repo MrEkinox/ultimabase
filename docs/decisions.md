@@ -4233,7 +4233,8 @@ Choice: completes D-16, D-34, D-41, D-45 and D-55.
    like the application's own.
 3. The kernel gives every plugin's `api`, `start` and `stop` the application's
    `models`: each model's schema as the adapter receives it (D-73), its
-   unique targets, its `.with` key for that plugin, and its queries. A
+   unique targets, the fields with a read rule (`private` when only Master
+   reads them, D-44), its `.with` key for that plugin, and its queries. A
    transport reads nothing else of the kernel.
 4. The schema follows D-41 and D-20, at `/graphql` (`path` option), over GET
    for queries and POST: `post(where: PostWhereUniqueInput!): Post`, `null`
@@ -4245,7 +4246,10 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    shorthand (`title: "x"`), which a GraphQL input cannot type.
    `PostWhereUniqueInput` is `@oneOf`. Scalars: `String`, `Float`, `Boolean`,
    `DateTime` (ISO 8601), `JSON`, an enum per `enumOf` field
-   (`PostStatus`), `ID!` for `id`. Each root field runs one kernel query
+   (`PostStatus`), `ID!` for `id`. As D-44 says, a field only Master reads
+   is absent from the types, and one with another read rule is nullable; a
+   `one` relation is always nullable, since its target's read rule may hide
+   the row (D-86). Each root field runs one kernel query
    built from the whole selection, nested relations included (D-46): no
    resolver per relation, no N+1. Each root field is its own operation; two
    mutations in one document share no transaction.
