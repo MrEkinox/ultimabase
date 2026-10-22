@@ -64,7 +64,7 @@ function updated(model: ModelInfo): boolean {
 
 /** Each moved row's update hooks (D-88): the relation stays as asked. */
 async function hooked(
-	step: Move,
+	step: Pick<Move, 'model' | 'field' | 'to'>,
 	target: ModelInfo,
 	rows: readonly Row[],
 	writing: Writing,
@@ -115,10 +115,26 @@ async function move(step: Move, writing: Writing): Promise<Change[]> {
 	}
 	for (const record of rows)
 		access?.allow(target, 'update', { record, data, via })
+	return moved(step, target, rows, writing)
+}
+
+/**
+ * The changes giving `rows` of `target` the key `to`, through the target's
+ * update hooks when it has some (D-88, D-90).
+ */
+export async function moved(
+	step: Pick<Move, 'model' | 'field' | 'to'>,
+	target: ModelInfo,
+	rows: readonly Row[],
+	writing: Writing,
+): Promise<Change[]> {
 	if (updated(target)) return hooked(step, target, rows, writing)
 	if (rows.length === 0) return []
-	const ids = rows.map((row) => row.id)
-	return [{ kind: 'update', model, where: byIds(ids), set }]
+	const { model, field, to } = step
+	const set = { [field]: to, updatedAt: new Date() }
+	return [
+		{ kind: 'update', model, where: byIds(rows.map((row) => row.id)), set },
+	]
 }
 
 /** A join's `unlink`, kept to the targets the write reaches. */

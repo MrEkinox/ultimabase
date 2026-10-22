@@ -2778,3 +2778,85 @@ await Post.delete({ where: { id } }, { as: caller }) // the delete rule
 await Post.trash.findMany({}, { as: caller }) // the deleted posts
 await Post.restore({ where: { id } })
 ```
+
+## D-90: Cascades at run time
+
+Choice: seven details of D-54 at run time.
+
+1. A `delete` runs its lookup and its model's `delete` access rule, then
+   loads every row the delete reaches, level by level: each stored `one`
+   relation whose target is a deleted row applies its `onDelete`. The rows
+   are loaded as stored, whatever `beforeFind` hides, and without access
+   rules (D-54).
+2. A `restrict` relation from a row the cascade does not remove refuses the
+   whole delete with `RELATION_RESTRICTED`, naming the model and the field,
+   before any hook runs. A row the cascade removes does not refuse.
+3. A `setNull` row runs its model's update hooks, as a row a relation write
+   moves (D-88): `beforeUpdate` with `data` holding the relation as
+   `{ disconnect: true }`, to which the hook may add fields; its `updatedAt`
+   moves. A row also deleted by the cascade is only deleted.
+4. A cascaded row whose model has a `redirect` (D-89) is redirected as a
+   direct delete: its row stays, so the cascade does not go past it. A
+   redirected row deleted directly cascades nothing.
+5. Hook order: the `beforeUpdate` of the `setNull` rows, the `beforeDelete`
+   of the deleted rows, the deepest first and the row the caller deletes
+   last, then the redirects, then one write holding every `setNull` and
+   every delete. The `after*` hooks follow in the same order, and the
+   `*Commit` hooks once it commits.
+6. The links of a deleted row in a many-to-many join are removed by the
+   adapter with the row, without hooks, since a join has no model (D-64).
+7. A row reached twice, through a cycle or two parents, is deleted once,
+   and each of its keys is emptied once.
+
+Why:
+
+1. A hook-less cascade still needs the rows to check `restrict` and to
+   reach the next level; a row `beforeFind` hides still holds a key, and
+   skipping it would leave the key pointing at nothing.
+2. Refusing before the hooks leaves no hook's write to roll back and never
+   half-empties a table; a row the cascade removes no longer references
+   the target.
+3. A search index, an audit log or `updatedAt` must see the change, or an
+   index keeps showing a deleted author. D-88 already writes a moved row
+   this way.
+4. The redirected row still exists, so its own children keep a valid key.
+5. A child's `afterDelete` still finds its parent's record in the facts it
+   receives, and one write keeps the delete atomic and D-48's statement
+   count.
+6. A join row is the relation itself, not a record anyone hooks.
+7. A self relation, a tree of categories, would otherwise loop.
+
+Rejected:
+
+- a `setNull` written without hooks;
+- `restrict` checked after the hooks;
+- cascades that skip rows `beforeFind` hides;
+- one write per level.
+
+Later: one recursive read of the adapter in place of a read per level, with
+the PostgreSQL adapter (D-48).
+
+Example:
+
+```ts
+// Before: Parse, no cascade; each relation is cleaned by hand
+Parse.Cloud.afterDelete('User', async ({ object }) => {
+	const posts = await new Parse.Query('Post')
+		.equalTo('author', object)
+		.find({ useMasterKey: true })
+	await Parse.Object.destroyAll(posts, { useMasterKey: true })
+})
+
+// After
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		author: f.one(() => User, { onDelete: 'cascade' }),
+		editor: f.one(() => User, { optional: true, inverse: 'edited' }),
+	}),
+})
+
+await User.delete({ where: { id } }, { as: caller })
+// the posts of the user are deleted, each through its delete hooks;
+// the posts they edited keep `editor: null`, through their update hooks
+```

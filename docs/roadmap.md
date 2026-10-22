@@ -80,7 +80,7 @@ validation and functions included, stays within Phase 1's exit criterion.
       transactions (D-36).
 - [x] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57,
       D-89).
-- [ ] Cascades run by the kernel (D-54).
+- [x] Cascades run by the kernel (D-54, D-90).
 - [ ] `start`, `stop` and the logger (D-58, D-59).
 - [ ] Adapter contract suite started (D-02, D-73).
 - [ ] `@ultimabase/soft-delete` (D-17).

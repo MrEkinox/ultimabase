@@ -3,7 +3,9 @@
 // write, which a plugin's `redirect` may replace (D-89), `after*` hooks; the
 // `*Commit` hooks once it commits (D-71, D-88).
 import { and, recordOf } from './access.ts'
-import type { Nested, Row } from './adapter.ts'
+import type { Change, Nested, Row } from './adapter.ts'
+import type { Cascade } from './cascade.ts'
+import { cascadeOf } from './cascade.ts'
 import { UniqueViolation } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Event } from './hooks.ts'
@@ -18,6 +20,7 @@ import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
 import type { Plan, Writing } from './write-plan.ts'
+import { moved } from './write-plan.ts'
 
 async function guarded(run: Promise<Row[]>): Promise<Row[]> {
 	try {
@@ -62,8 +65,8 @@ async function written(
 		store,
 		scope,
 		events,
-		replan: async (moved, id, draft) =>
-			updatePlan(models, moved, id, draft, {}, store),
+		replan: async (moving, id, draft) =>
+			updatePlan(models, moving, id, draft, {}, store),
 	}
 	await steps.check(writing)
 	const changes = await steps.changes(writing)
@@ -154,6 +157,40 @@ export async function update(
 	return written(context, store, commits, steps, events, at)
 }
 
+/** The changes and events of a delete's cascade, its hooks run (D-90). */
+async function cascaded(
+	context: Context,
+	writing: Writing,
+	cascade: Cascade,
+): Promise<Change[]> {
+	const { caller } = context
+	const changes: Change[] = []
+	for (const { model, field, rows } of cascade.nulled) {
+		const step = { model: model.name, field, to: null }
+		changes.push(...(await moved(step, model, rows, writing)))
+	}
+	for (const { model, row } of cascade.deleted) {
+		await runHook(model, 'beforeDelete', {
+			caller,
+			record: recordOf(model, row),
+		})
+	}
+	const ids = new Map<string, string[]>()
+	for (const { model, row, redirected } of cascade.deleted) {
+		const redirect = redirected ? redirectOf(model) : undefined
+		// Its queries run their own pipeline, in this transaction (D-89).
+		if (redirect !== undefined) await redirect(caller, row.id)
+		else ids.set(model.name, [...(ids.get(model.name) ?? []), row.id])
+	}
+	for (const [model, deleted] of ids) {
+		changes.push({ kind: 'delete', model, where: { id: { in: deleted } } })
+	}
+	for (const { model, row } of cascade.deleted) {
+		writing.events.push({ model, operation: 'delete', id: row.id, before: row })
+	}
+	return changes
+}
+
 export async function remove(
 	context: Context,
 	store: Store,
@@ -165,29 +202,25 @@ export async function remove(
 	const { shape } = plan(models, model, undefined, '', 'one', new Set())
 	const row = await target(context, store, found)
 	scope.access?.allow(model, 'delete', { record: row })
-	await runHook(model, 'beforeDelete', {
-		caller,
-		record: recordOf(model, row),
-	})
-	const redirect = redirectOf(model)
-	if (redirect === undefined) {
-		await guarded(
-			store.write({
-				changes: [{ kind: 'delete', model: model.name, where: byId(row.id) }],
-			}),
-		)
-	} else {
-		// Its queries run their own pipeline, in this transaction (D-89).
-		await redirect(caller, row.id)
+	const redirected = redirectOf(model) !== undefined
+	// A redirected row stays: it cascades nothing (D-90).
+	const cascade = redirected
+		? { deleted: [{ model, row, redirected }], nulled: [] }
+		: await cascadeOf(models, model, row, store)
+	const events: Event[] = []
+	const writing: Writing = {
+		store,
+		scope,
+		events,
+		replan: async (moving, id, draft) =>
+			updatePlan(models, moving, id, draft, {}, store),
 	}
-	const events: Event[] = [
-		{ model, operation: 'delete', id: row.id, before: row },
-	]
+	const changes = await cascaded(context, writing, cascade)
+	if (changes.length > 0) await guarded(store.write({ changes }))
 	await settle(store, caller, events, commits)
 	// The row as the redirect left it, or as it was once gone (D-89).
-	const [left] =
-		redirect === undefined
-			? []
-			: await store.find({ model: model.name, where: byId(row.id), take: 1 })
+	const [left] = redirected
+		? await store.find({ model: model.name, where: byId(row.id), take: 1 })
+		: []
 	return project(left ?? row, shape, hiddenBy(scope.access))
 }
