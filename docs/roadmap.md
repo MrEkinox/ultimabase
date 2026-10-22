@@ -4,10 +4,9 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 3**. Phase 2 is closed: the kernel slice runs on `memory()`
-and the
-[typing campaign](../bench/typing/README.md#phase-2-closed-the-full-campaign)
-holds on the package.
+Status: **Phase 4**. Phase 3 is closed: the contract suite passes on
+`memory()` and PostgreSQL, round-trip counts included, and migrations are
+in place (D-105).
 
 ## Phase 0: Tooling
 
@@ -118,7 +117,6 @@ at 200 models with field rules and schemas, a query edit under 800 ms
 - [x] Data migrations: `migrate status`, `reset`, readable failures (D-105).
 - [x] Rolled-back code, lock timeout, Windows checkouts (D-105).
 - [x] Files without a transaction, for `create index concurrently` (D-105).
-- [ ] `migrate squash` (D-105).
 
 Exit: the contract suite passes on `memory()` and PostgreSQL, round-trip
 counts included.
@@ -163,3 +161,4 @@ Exit: every feature of the previous base has an example, in far fewer lines.
 ## Beyond
 
 Files, OAuth and magic link, realtime, jobs, admin, multi-tenancy (D-25).
+`migrate squash`, once an application's history needs it (D-105).
