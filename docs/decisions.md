@@ -3306,8 +3306,8 @@ Choice:
 
 1. Tables. `start` refuses a server below PostgreSQL 15 (D-50). When the
    database holds none of the schema's tables, it creates them all in one
-   transaction, which is D-26's case of new tables. Any other state is refused
-   until `migrate` arrives (Phase 3, item 4).
+   transaction, which is D-26's case of new tables. Any other state is synced,
+   checked or refused as D-105 says (amended 2026-10-22).
 2. Columns:
    - `id uuid primary key`, with `created_at` and `updated_at` as
      `timestamptz not null`.
@@ -3781,4 +3781,187 @@ await Locker.update({ where: { id }, data: { label: 'b' } }, { as: user })
 //       and "owner" = $5) = 1 as "c0"),
 //     "#w0" as (update "locker" set ... where "id" = $1
 //       and (select "c0" from "#checks") returning *) ...
+```
+
+## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
+
+Choice: amends D-26, D-73 and D-98 point 1.
+
+1. The application lives in `ultimabase.config.ts`, at the project's root,
+   whose default export is what `defineApp` returns. It stays the one file of
+   D-24, and Next or Vite users find it where they expect a configuration.
+   The `ultimabase` binary loads it from the working directory, or from
+   `--config <path>`; `.ts`, `.mts`, `.js` and `.mjs` are looked for in that
+   order. Node loads it natively, so it and what it imports use erasable
+   TypeScript and `.ts` import extensions. Importing it starts nothing.
+   `ultimabase dev` and `ultimabase start` start it, as `next dev` and
+   `next start` do; a process of the developer's own imports it and calls
+   `start()` (D-59) instead:
+   - `ultimabase dev` sets `NODE_ENV` to `development` when it is unset, and
+     restarts the application when a file it imports changes, through
+     Node's `--watch`;
+   - `ultimabase start` sets `NODE_ENV` to `production` when it is unset, so
+     a deployed server is never in development by omission (D-49);
+   - both start the application and leave `SIGTERM` to it (D-59).
+2. A snapshot describes what the storage adapter makes of the models: for
+   PostgreSQL, every table with its columns, types, constraints and indexes.
+   It is JSON, and its hash is the SHA-256 of its canonical form. Two places
+   keep one, each for its own question:
+   - every database holds `ultimabase_schema`, one row with the snapshot its
+     tables match and whether development sync or `migrate deploy` wrote it,
+     as Parse's `_SCHEMA` describes its database;
+   - the repository holds `migrations/schema.json`, the snapshot the
+     committed migrations lead to, which `migrate create` compares with.
+     It is committed with the SQL files: two branches that each add a
+     migration conflict on it, and the second regenerates its migration.
+3. Development is any `NODE_ENV` but `production`, as for the master key
+   (D-49). There, `start` compares the models with the database's snapshot.
+   An empty database gets every table; a change that loses no data is
+   applied, all in one transaction under an advisory lock, and logged
+   (`Synced Locker: added owner.`). Losing no data means a new table,
+   column, index or enum value; a dropped index or constraint; a field made
+   optional. A new required field, unique index or `one`, a field made
+   required and a removed enum value are tried: the database refuses them
+   when a row breaks them, and nothing is applied. Any other change, a drop,
+   a type change and anything that could be a rename, stops `start` with
+   its SQL and the commands that apply it:
+
+   ```
+   UltimaBase did not sync Locker: removing "Locker.label" deletes data.
+     alter table "locker" drop column "label";
+   Run `npx ultimabase sync --force` to apply it to this development database,
+   or `npx ultimabase migrate create <name>` to write it as a migration.
+   ```
+
+   A database that holds tables but no snapshot is refused.
+
+4. In production, `start` applies nothing. It reads the database's snapshot
+   hash, one query, and refuses to start, naming `migrate deploy`, when it
+   differs from the models' hash or when the database has no snapshot.
+5. `ultimabase migrate create <name>` compares the models with
+   `migrations/schema.json`, or with nothing when there is no migration yet,
+   and writes `migrations/<UTC yyyyMMddHHmmss>_<name>.sql`, then the new
+   snapshot. It needs no database. The file starts with
+   `-- ultimabase schema <hash>`; a statement that loses data is preceded by
+   a comment saying what it deletes, and a column dropped beside a column
+   added to the same table with the same type gets
+   `-- a rename? write: alter table ... rename column ...`. The file is
+   edited by hand when the plan is not what the developer meant. Nothing
+   changed writes nothing and says so. SQL files without `schema.json` are
+   refused.
+6. `ultimabase migrate deploy` applies, in name order, the files that
+   `ultimabase_migrations` (name, checksum, applied at) does not list, each
+   in its own transaction, under an advisory lock, then writes the models'
+   snapshot to `ultimabase_schema`. Before applying anything, it refuses:
+   - when the last file's hash differs from the models' hash: the models
+     changed since the last `migrate create`;
+   - when an applied file was edited or removed;
+   - when development sync wrote the database's snapshot: migrations apply
+     to a database only migrations built.
+7. `ultimabase sync [--force]` runs development sync without starting the
+   application; `--force` also applies what loses data. Both are refused in
+   production.
+8. The adapter contract (D-73) gains an optional `migrations` member, which
+   the kernel's commands and `start` call; `memory()` has none, since it
+   starts empty every time, and the commands say so:
+
+   ```ts
+   interface Migrations {
+   	/** What this database makes of the models. */
+   	snapshot(schema: Schema): Snapshot
+   	/** The statements from one snapshot to another; none is an empty database. */
+   	plan(from: Snapshot | undefined, to: Snapshot): readonly Statement[]
+   	/** The database's snapshot, and who wrote it. */
+   	stored(): Promise<Stored | undefined>
+   	/** Runs statements or files, each file in its transaction, then stores `to`. */
+   	apply(run: Run): Promise<void>
+   }
+   interface Statement {
+   	readonly sql: string
+   	/** What it deletes, when it loses data. */
+   	readonly loses?: string
+   }
+   ```
+
+   `start(schema)` only connects; the kernel then syncs or checks. The
+   PostgreSQL package implements `Migrations`; the binary reads and writes
+   the files.
+
+Why:
+
+- In development the database follows the models by itself, so it cannot
+  tell `migrate create` what changed: the reference has to be the
+  repository's. Production's database is not reachable from a laptop, and
+  should not be.
+- A snapshot is compared with a pure function, the same one for sync and
+  for `migrate create`, testable without a database. Reading
+  `information_schema` back would need a database to write a file.
+- Comparing a hash keeps a production start at one query.
+- A drop and an add cannot be told from a rename; a comment in a file the
+  developer reviews asks the question without an interactive prompt, so CI
+  can run it.
+- A field renamed in code keeps its column with `dbName` (D-63), at no cost.
+
+Rejected:
+
+- A separate configuration file beside the application's: two files to read
+  to know how it is set up (D-24).
+- A config file found by `package.json` or by searching parent directories.
+- The snapshot only in the database, as Parse does: Parse has no migration
+  files, and no database knows what the committed migrations lead to.
+- A shadow database that replays the migrations to compare with (Prisma):
+  a database needed to write a file.
+- One snapshot per migration file (Drizzle's `meta/`): branches that each add
+  one no longer conflict, and the second migration is written from the
+  wrong snapshot.
+- Asking on the terminal whether a change is a rename.
+- Loading the configuration through a TypeScript loader such as `jiti`, for
+  extensionless imports: a dependency the starter does not need (D-92), to
+  revisit if users ask.
+- Applying migrations at startup in production.
+
+Limits:
+
+- A change made by hand in SQL is invisible to both snapshots.
+- A tried change can still fail in production, on rows a development
+  database does not have; `migrate deploy` then stops at that file, its
+  transaction rolled back.
+
+Example:
+
+```ts
+// Before: Parse Server, the schema lives in the server's options and is
+// applied, or refused, at every start
+new ParseServer({
+	schema: {
+		definitions: [lockerSchema],
+		strict: true,
+		deleteExtraFields: false,
+	},
+})
+
+// After
+// ultimabase.config.ts
+import { postgres } from '@ultimabase/postgres'
+import { defineApp } from 'ultimabase'
+import { Locker } from './src/locker.ts'
+
+export default defineApp({
+	database: postgres({ url: process.env.DATABASE_URL }),
+	models: [Locker],
+})
+
+// server.ts
+import app from './ultimabase.config.ts'
+await app.start()
+```
+
+```bash
+npx ultimabase migrate create add_locker_owner
+# migrations/20261022143000_add_locker_owner.sql
+#   -- ultimabase schema 3f2a…
+#   alter table "locker" add column "owner" text collate "C";
+# migrations/schema.json
+npx ultimabase migrate deploy
+# Applied 20261022143000_add_locker_owner.
 ```

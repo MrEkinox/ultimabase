@@ -113,7 +113,8 @@ at 200 models with field rules and schemas, a query edit under 800 ms
       [`bench/compare`](../bench/compare/README.md).
 - [x] Cascades (D-54), one write when no hook runs (D-102), PostgreSQL 15
       to 18 (D-50).
-- [ ] Development sync, `migrate create` and `migrate deploy` (D-26).
+- [ ] Development sync, `migrate create` and `migrate deploy` (D-26, D-105).
+- [ ] `ultimabase dev` and `ultimabase start` (D-105).
 
 Exit: the contract suite passes on `memory()` and PostgreSQL, round-trip
 counts included.
