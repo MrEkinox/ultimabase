@@ -3905,6 +3905,26 @@ Choice: amends D-26, D-73 and D-98 point 1.
    Files are read with their line endings normalized to `\n`, so a Windows
    checkout changes neither checksum nor header.
 
+   A file whose second line is `-- ultimabase no transaction` runs outside a
+   transaction, for what PostgreSQL refuses in one, such as an index built
+   on a large table without blocking its writes:
+
+   ```sql
+   -- ultimabase schema 3f2a…
+   -- ultimabase no transaction
+   create index concurrently "locker_label" on "locker" ("label");
+   ```
+
+   It holds one statement, since PostgreSQL runs several sent together in
+   one transaction; two read
+   `... cannot run inside a transaction block: a file without a transaction holds one statement: put each in its own file`,
+   and the same statement in an ordinary file reads
+   `...: put it in its own file, whose second line is \`-- ultimabase no transaction\``.
+It runs under the advisory lock taken for its session and with no
+`lock_timeout`: `create index concurrently`waits for running
+transactions without blocking any, and one that fails leaves an invalid
+index. A failure then reads`It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then deploy again.`
+
    A file the database refuses is rolled back, the files before it stay
    applied, and deploy names it with the database's reason:
    `20261022143000_add_kind.sql was not applied: column "kind" of relation "locker" contains null values`,
@@ -3976,8 +3996,8 @@ Choice: amends D-26, D-73 and D-98 point 1.
    statement: `migrate create` writes a file that says so, and deploy stores
    the new snapshot (amended 2026-10-22).
 
-   A `Migration` is a file's `name`, `sql`, `checksum` and the `schema` hash
-   its header names; `Stored.applied` lists each applied file's `name`,
+   A `Migration` is a file's `name`, `sql`, `checksum`, the `schema` hash
+   its header names and whether it runs in a `transaction`; `Stored.applied` lists each applied file's `name`,
    `checksum` and `schema`, which the ahead check of point 4 reads.
 
    `start(schema)` only connects; the kernel then syncs or checks. The
@@ -4007,6 +4027,15 @@ Limits:
   needs one.
 - Adopting an existing database, such as Parse's, is out of scope: a
   database that holds tables but no snapshot is refused (point 3).
+- A change made by hand to a deployed database goes unseen: deploy and
+  start compare hashes and never read the tables back. A
+  `migrate status --verify` that compares them is the direction, when a
+  team needs it.
+- Code that reads a column a later migration drops fails while both run,
+  in a rolling deploy or after a rollback. A drop ships in the deploy
+  after the code stopped reading it: add first, remove later.
+- Data migrations are SQL; a migration written in TypeScript waits for an
+  application that needs one.
 - `migrate squash` is the direction for a long history: it writes one file
   from nothing to `schema.json`, whose header lists the files it replaces,
   and deploy marks it applied on a database that applied them all. It waits

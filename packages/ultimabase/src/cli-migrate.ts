@@ -10,6 +10,9 @@ import { kernelLogger, schemaOf } from './lifecycle.ts'
 import { hashOf, migrationsOf, Refused, synced } from './migrate.ts'
 
 export const header = '-- ultimabase schema '
+
+/** For a statement a transaction refuses: `create index concurrently`. */
+export const noTransaction = '-- ultimabase no transaction'
 export const create = '`npx ultimabase migrate create <name>`'
 
 export type Folder = {
@@ -29,7 +32,7 @@ export async function read(dir: string): Promise<Folder> {
 			const text = await readFile(join(dir, name), 'utf8')
 			const sql = text.replaceAll('\r\n', '\n')
 			const checksum = createHash('sha256').update(sql).digest('hex')
-			const [first = ''] = sql.split('\n', 1)
+			const [first = '', second] = sql.split('\n', 2)
 			const schema = first.startsWith(header)
 				? first.slice(header.length)
 				: undefined
@@ -38,6 +41,7 @@ export async function read(dir: string): Promise<Folder> {
 				sql,
 				checksum,
 				...(schema === undefined ? {} : { schema }),
+				transaction: second !== noTransaction,
 			}
 		}),
 	)

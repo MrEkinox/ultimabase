@@ -190,6 +190,8 @@ export type Migration = {
 	readonly checksum: string
 	/** The models' hash its header names, which a production start reads. */
 	readonly schema?: string
+	/** False when its second line is `-- ultimabase no transaction`. */
+	readonly transaction: boolean
 }
 
 /** The snapshot a database's tables match, and who wrote it (D-105). */

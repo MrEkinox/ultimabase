@@ -3,7 +3,7 @@
 // `ultimabase_migrations`, and every change under one advisory lock.
 import type { Kysely, Transaction } from 'kysely'
 import { sql } from 'kysely'
-import type { Run, Stored } from 'ultimabase'
+import type { Migration, Run, Stored } from 'ultimabase'
 import { MigrationFailed } from 'ultimabase'
 import { id } from './plan.ts'
 import { parseSnapshot } from './snapshot.ts'
@@ -108,24 +108,31 @@ async function refuseTables(
  */
 const lockTimeout = '5s'
 
+/** What to do when the database refuses with `code`, after its reason. */
+function hint(code: unknown, transaction: boolean): string {
+	if (code === '55P03') {
+		return ': another query held a table it changes past lock_timeout'
+	}
+	if (code !== '25001') return ''
+	return transaction
+		? ': put it in its own file, whose second line is `-- ultimabase no transaction`'
+		: ': a file without a transaction holds one statement: put each in its own file'
+}
+
 /** Runs `text`, and names `at` when the database refuses it. */
 async function executed(
-	trx: Transaction<object>,
+	db: Kysely<object>,
 	text: string,
 	at: string,
+	transaction = true,
 ): Promise<void> {
 	try {
-		await sql.raw(text).execute(trx)
+		await sql.raw(text).execute(db)
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error)
-		const waited =
-			error instanceof Error && Reflect.get(error, 'code') === '55P03'
-		throw new MigrationFailed(
-			at,
-			waited
-				? `${reason}: another query held a table it changes past lock_timeout`
-				: reason,
-		)
+		const code: unknown =
+			error instanceof Error ? Reflect.get(error, 'code') : undefined
+		throw new MigrationFailed(at, `${reason}${hint(code, transaction)}`)
 	}
 }
 
@@ -154,23 +161,58 @@ async function sync(
 	})
 }
 
+/** Whether another deploy applied `file` first. */
+async function isDone(db: Kysely<object>, file: Migration): Promise<boolean> {
+	const { rows } = await sql`
+		select 1 from ultimabase_migrations where name = ${file.name}`.execute(db)
+	return rows.length > 0
+}
+
+const done = (db: Kysely<object>, file: Migration) =>
+	sql`insert into ultimabase_migrations (name, checksum, schema_hash, applied_at)
+		values (${file.name}, ${file.checksum}, ${file.schema ?? null}, now())`.execute(
+		db,
+	)
+
+/**
+ * Runs a file outside a transaction, under the schema's lock taken for the
+ * session. It waits for locks as long as it needs: `create index
+ * concurrently` waits for running transactions without blocking any, and
+ * one that fails leaves an invalid index.
+ */
+async function outside(db: Kysely<object>, file: Migration): Promise<void> {
+	await db.connection().execute(async (session) => {
+		await sql`select pg_advisory_lock(hashtext(current_schema()))`.execute(
+			session,
+		)
+		try {
+			for (const statement of bookkeeping) await statement.execute(session)
+			if (await isDone(session, file)) return
+			await executed(session, file.sql, file.name, false)
+			await done(session, file)
+		} finally {
+			await sql`select pg_advisory_unlock(hashtext(current_schema()))`.execute(
+				session,
+			)
+		}
+	})
+}
+
 async function deploy(
 	db: Kysely<object>,
 	run: Extract<Run, { kind: 'deploy' }>,
 ): Promise<void> {
 	for (const file of run.files) {
+		if (!file.transaction) {
+			await outside(db, file)
+			continue
+		}
 		await locked(db, async (trx) => {
-			const { rows } = await sql`
-				select 1 from ultimabase_migrations where name = ${file.name}`.execute(trx)
-			// Another deploy applied it first.
-			if (rows.length > 0) return
+			if (await isDone(trx, file)) return
 			// A file may set its own, with `set local lock_timeout`.
 			await sql.raw(`set local lock_timeout = '${lockTimeout}'`).execute(trx)
 			await executed(trx, file.sql, file.name)
-			await sql`insert into ultimabase_migrations (name, checksum, schema_hash, applied_at)
-				values (${file.name}, ${file.checksum}, ${file.schema ?? null}, now())`.execute(
-				trx,
-			)
+			await done(trx, file)
 		})
 	}
 	await locked(db, async (trx) => store(trx, run.to, 'deploy'))

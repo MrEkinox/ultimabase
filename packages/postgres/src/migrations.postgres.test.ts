@@ -361,7 +361,12 @@ describe('the bookkeeping on postgres()', () => {
 	})
 })
 
-const file = (name: string, sql: string) => ({ name, sql, checksum: name })
+const file = (name: string, sql: string, transaction = true) => ({
+	name,
+	sql,
+	checksum: name,
+	transaction,
+})
 
 describe('a deploy on postgres()', () => {
 	it('applies each file once, statements together, then stores the snapshot', async () => {
@@ -446,6 +451,81 @@ describe('a deploy waiting for a lock', () => {
 		} finally {
 			await holder.end()
 		}
+	})
+})
+
+describe('a deploy of a file without a transaction', () => {
+	it('creates an index concurrently, once', async () => {
+		const to = migrations.snapshot(before)
+		const files = [
+			file('1_a.sql', 'create table a (b integer);'),
+			file(
+				'2_index.sql',
+				'-- ultimabase schema abc\n-- ultimabase no transaction\ncreate index concurrently a_b on a (b);\n',
+				false,
+			),
+		]
+		await migrations.apply({ kind: 'deploy', files, to })
+		await migrations.apply({ kind: 'deploy', files, to })
+		expect(
+			await query(
+				inSchema(schema),
+				"select indexname from pg_indexes where tablename = 'a'",
+			),
+		).toStrictEqual([{ indexname: 'a_b' }])
+		expect(
+			(await migrations.stored())?.applied.map(({ name }) => name),
+		).toStrictEqual(['1_a.sql', '2_index.sql'])
+	})
+
+	it('refuses two statements, and concurrently in a transaction', async () => {
+		const to = migrations.snapshot(before)
+		await migrations.apply({
+			kind: 'deploy',
+			files: [file('1_a.sql', 'create table a (b integer);')],
+			to,
+		})
+		await expect(
+			migrations.apply({
+				kind: 'deploy',
+				files: [
+					file(
+						'2_index.sql',
+						'create index concurrently a_b on a (b); create index concurrently a_bb on a (b);',
+						false,
+					),
+				],
+				to,
+			}),
+		).rejects.toMatchObject({
+			at: '2_index.sql',
+			reason:
+				'CREATE INDEX CONCURRENTLY cannot run inside a transaction block: a file without a transaction holds one statement: put each in its own file',
+		})
+		await expect(
+			migrations.apply({
+				kind: 'deploy',
+				files: [file('2_index.sql', 'create index concurrently a_b on a (b);')],
+				to,
+			}),
+		).rejects.toMatchObject({
+			at: '2_index.sql',
+			reason:
+				'CREATE INDEX CONCURRENTLY cannot run inside a transaction block: put it in its own file, whose second line is `-- ultimabase no transaction`',
+		})
+		await migrations.apply({
+			kind: 'deploy',
+			files: [
+				file('2_index.sql', 'create index concurrently a_b on a (b);', false),
+			],
+			to,
+		})
+		expect(
+			await query(
+				inSchema(schema),
+				"select indexname from pg_indexes where tablename = 'a'",
+			),
+		).toStrictEqual([{ indexname: 'a_b' }])
 	})
 })
 

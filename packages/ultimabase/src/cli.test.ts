@@ -399,6 +399,29 @@ describe('migrate deploy', () => {
 		expect(await run('migrate', 'deploy', '--config', file)).toBe(0)
 		expect(out).toStrictEqual([`Applied ${fix}.`])
 	})
+
+	it('says a file without a transaction rolled nothing back', async () => {
+		const state = fakeState('outside')
+		const file = await config('outside', { Locker: ['label'] })
+		await run('migrate', 'create', 'init', '--config', file)
+		const later = await config('outside', { Locker: ['label'] })
+		await run('migrate', 'create', 'index_label', '--config', later)
+		const [init = '', index = ''] = await migrations()
+		const [first] = (await read(index)).split('\n', 1)
+		await writeFile(
+			join(dir, 'migrations', index),
+			`${first}\n-- ultimabase no transaction\ncreate index concurrently on locker (label);\n`,
+		)
+		state.refuses = 'concurrently'
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
+		expect(err[0]).toBe(
+			[
+				`Applied ${init}.`,
+				`${index} was not applied: a row breaks it`,
+				'It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then deploy again.',
+			].join('\n'),
+		)
+	})
 })
 
 describe('migrate status', () => {

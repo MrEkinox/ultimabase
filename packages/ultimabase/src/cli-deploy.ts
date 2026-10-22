@@ -91,7 +91,9 @@ async function deployed(
 			[
 				...lines.slice(0, done),
 				`${error.at} was not applied: ${error.reason}`,
-				`The database rolled it back: fix it, then ${again}.`,
+				files[done]?.transaction === false
+					? `It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then ${again}.`
+					: `The database rolled it back: fix it, then ${again}.`,
 			].join('\n'),
 		)
 	}

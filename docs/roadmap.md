@@ -117,6 +117,7 @@ at 200 models with field rules and schemas, a query edit under 800 ms
 - [x] `ultimabase dev` and `ultimabase start` (D-105).
 - [x] Data migrations: `migrate status`, `reset`, readable failures (D-105).
 - [x] Rolled-back code, lock timeout, Windows checkouts (D-105).
+- [x] Files without a transaction, for `create index concurrently` (D-105).
 - [ ] `migrate squash` (D-105).
 
 Exit: the contract suite passes on `memory()` and PostgreSQL, round-trip
