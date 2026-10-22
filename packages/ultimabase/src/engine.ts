@@ -193,10 +193,14 @@ export async function query(
 	const context: Context = { app, models, model, caller, scope }
 	if (isRead(operation)) {
 		const read = reads[operation]
-		return reading(app, async (store) => read(context, store, args))
+		return app.work.run(async () =>
+			reading(app, async (store) => read(context, store, args)),
+		)
 	}
 	const write = writes[operation]
-	return writing(app, async (store, commits) =>
-		write(context, store, commits, args),
+	return app.work.run(async () =>
+		writing(app, async (store, commits) =>
+			write(context, store, commits, args),
+		),
 	)
 }

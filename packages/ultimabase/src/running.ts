@@ -1,5 +1,6 @@
 // The running application (D-18): its resolved models, its adapter, its
-// logger and its plugins' APIs (D-89), one per realm.
+// logger, its plugins' APIs (D-89) and the operations `stop` waits for
+// (D-91), one per realm.
 import type { Adapter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import type { Resolved } from './schema.ts'
@@ -10,6 +11,30 @@ export type Running = {
 	readonly logger: Logger
 	/** Each plugin's API, by its name (D-16). */
 	readonly apis: ReadonlyMap<string, unknown>
+	readonly work: Work
+}
+
+/** The operations running, `*Commit` hooks included, that `stop` waits for. */
+export class Work {
+	private count = 0
+	private readonly idle: (() => void)[] = []
+
+	async run<R>(run: () => Promise<R>): Promise<R> {
+		this.count += 1
+		try {
+			return await run()
+		} finally {
+			this.count -= 1
+			if (this.count === 0) for (const done of this.idle.splice(0)) done()
+		}
+	}
+
+	async settled(): Promise<void> {
+		if (this.count === 0) return
+		await new Promise<void>((done) => {
+			this.idle.push(done)
+		})
+	}
 }
 
 let running: Running | undefined

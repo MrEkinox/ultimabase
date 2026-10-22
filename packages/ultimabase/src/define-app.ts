@@ -1,10 +1,9 @@
 // `defineApp` (D-24, D-59): the application's models and plugins, checked
-// together on its line, and the `start` that resolves them for the adapter
-// and builds the plugins' APIs (D-89).
+// together on its line, and its `start` and `stop` (D-91).
 import type { Adapter } from './adapter.ts'
 import type { Logger, MasterKey } from './app-options.ts'
-import { consoleLogger } from './console-logger.ts'
 import type { FunctionShape } from './function.ts'
+import { lifecycle } from './lifecycle.ts'
 import type {
 	App,
 	FieldTypePlugins,
@@ -12,10 +11,6 @@ import type {
 	ModelShape,
 } from './model.ts'
 import type { PluginValue } from './plugin.ts'
-import { buildApis, installed } from './plugin-app.ts'
-import type { Running } from './running.ts'
-import { register, unregister } from './running.ts'
-import { resolve } from './schema.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 
 // Checked on the `defineApp` line, where every model is typed (D-24).
@@ -88,37 +83,5 @@ export function defineApp<
 		NoInfer<ModelCheck<M>> &
 		NoInfer<InverseCheck<M>>,
 ): App<M> {
-	const { database, models } = options
-	let running: Running | undefined
-	return {
-		models,
-		start: async () => {
-			if (running !== undefined) throw new Error('The application is running.')
-			const { plugins, apiOrder } = installed(options.plugins ?? [])
-			const resolved = resolve(
-				models,
-				plugins.map((plugin) => plugin.code),
-			)
-			await database.start(resolved.schema)
-			const logger = options.logger ?? consoleLogger()
-			const apis = new Map<string, unknown>()
-			const app: Running = { resolved, adapter: database, logger, apis }
-			register(app)
-			try {
-				// An API may read the APIs it needs as it is built (D-89).
-				buildApis(apiOrder, apis, logger)
-			} catch (error) {
-				unregister(app)
-				await database.stop()
-				throw error
-			}
-			running = app
-		},
-		stop: async () => {
-			if (running === undefined) return
-			unregister(running)
-			running = undefined
-			await database.stop()
-		},
-	}
+	return { models: options.models, ...lifecycle(options) }
 }

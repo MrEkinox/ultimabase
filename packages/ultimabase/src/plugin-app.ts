@@ -57,15 +57,38 @@ export function installed(values: readonly unknown[]): {
 	return { plugins, apiOrder: needsFirst(plugins) }
 }
 
-/** Builds each plugin's API into `apis`, in `apiOrder` (D-16, D-89). */
-export function buildApis(
+/** A plugin and what its `api`, `start` and `stop` receive (D-58, D-91). */
+export type Installed = {
+	readonly code: PluginRecord['code']
+	readonly context: {
+		readonly options: object
+		readonly plugins: object
+		readonly logger: Logger
+	}
+}
+
+/** Each plugin with its context; its logger names it (D-91). */
+export function withContexts(
 	apiOrder: readonly PluginRecord[],
-	apis: Map<string, unknown>,
 	logger: Logger,
+): readonly Installed[] {
+	return apiOrder.map(({ code, options }) => ({
+		code,
+		context: {
+			options,
+			plugins: code.plugins,
+			logger: logger.child({ name: code.name }),
+		},
+	}))
+}
+
+/** Builds each plugin's API into `apis`, in their order (D-16, D-89). */
+export function buildApis(
+	plugins: readonly Installed[],
+	apis: Map<string, unknown>,
 ): void {
-	for (const { code, options } of apiOrder) {
+	for (const { code, context } of plugins) {
 		if (code.api === undefined) continue
-		const context = { options, plugins: code.plugins, logger }
 		const api: unknown = Reflect.apply(code.api, undefined, [context])
 		apis.set(code.name, api)
 	}

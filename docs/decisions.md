@@ -2865,3 +2865,82 @@ await User.delete({ where: { id } }, { as: caller })
 // the posts of the user are deleted, each through its delete hooks;
 // the posts they edited keep `editor: null`, through their update hooks
 ```
+
+## D-91: `start` and `stop` at run time
+
+Choice: eight details of D-58 and D-59 at run time.
+
+1. `start` starts the database, builds the plugins' APIs (D-89), then runs
+   each plugin's `start`, after the plugins it needs; the application is
+   already running, so a `start` may query (seed). `stop` runs the plugins'
+   `stop` in the reverse order.
+2. A plugin's `api`, `start` and `stop` receive a child of the logger bound
+   to `{ name: '<plugin>' }`; the kernel logs under `{ name: 'ultimabase' }`.
+   pino-pretty shows it before each message: `INFO (cache): Warm.`
+3. A `start` that fails stops the plugins already started, in reverse, then
+   the database, and `start` rejects with its error.
+4. A `stop` that fails is logged by the plugin's logger; the other plugins
+   and the database still stop, and `stop` rejects with the first error.
+5. After the plugins' `stop`, `stop` waits for the running queries and
+   transactions, their `*Commit` hooks included, then stops the database.
+   The kernel refuses no query while it stops: refusing requests is the
+   HTTP plugin's `stop`, which stops first since it needs the others.
+6. `start` listens once to `SIGTERM`, and `stop` removes the listener. On
+   the signal, the application stops, then sends itself `SIGTERM` again,
+   which ends the process with the signal's exit code; a second `SIGTERM`
+   during the stop ends it at once. A failed stop is logged first.
+7. Two `stop` calls at once share one stop; `stop` before `start` does
+   nothing.
+8. The kernel logs `Application started.` and `Application stopped.` at
+   `info`.
+
+Why:
+
+1. A plugin relies on what it needs from its first line to its last.
+2. A developer sees which plugin wrote each line without each plugin
+   prefixing its own; `name` is the field pino and pino-pretty already
+   read, so a pino logger shows it as is, and JSON lines stay parsable.
+3. An application that failed to start holds no connection.
+4. One broken plugin must not leave the database open, and a test still
+   sees the failure.
+5. A deployment must not cut a write or lose an email; a query a running
+   hook makes must still run.
+6. Docker and Kubernetes read the signal's exit code, and `process.exit`
+   would cut whatever else the application keeps open.
+7. A `SIGTERM` during a test's `stop` would otherwise stop the database
+   twice.
+8. They are the first lines read in a deployment's logs.
+
+Rejected: a stop timeout (the orchestrator kills the process after its own
+grace period); a message prefix such as `[cache]` written by the kernel
+(it would double pino-pretty's and change the plugin's message); `SIGINT`
+(Ctrl-C must stop a development server at once).
+
+Later: the manifest's version checks (D-57), in their own roadmap item.
+
+Example:
+
+```ts
+// Before: Parse Server, the application closes everything by hand
+const server = app.listen(1337)
+process.on('SIGTERM', () => {
+	server.close(async () => {
+		await redis.quit()
+		await mongoose.disconnect()
+		process.exit(0)
+	})
+})
+
+// After: each plugin owns its resource
+export const cache = definePlugin<Cache>({
+	name: 'cache',
+	manifest,
+	start: async ({ options, logger }) => {
+		await client.connect(options.url)
+		logger.info('Connected.') // {"name":"cache","msg":"Connected.",...}
+	},
+	stop: async () => client.quit(),
+})
+
+await app.start() // SIGTERM now stops the application cleanly
+```

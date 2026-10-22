@@ -46,6 +46,8 @@ export type PluginCode = {
 	readonly commands: Function | undefined
 	readonly api: Function | undefined
 	readonly addedFields: Function | undefined
+	readonly start: Function | undefined
+	readonly stop: Function | undefined
 	/** The APIs of the plugins it needs, read when used (D-89). */
 	readonly plugins: object
 }

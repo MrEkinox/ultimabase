@@ -87,6 +87,8 @@ export function pluginCode(definition: unknown): PluginCode {
 		commands: part('commands'),
 		api: part('api'),
 		addedFields: part('addedFields'),
+		start: part('start'),
+		stop: part('stop'),
 		plugins: apisOf(name, [...requires, ...optional]),
 	})
 }

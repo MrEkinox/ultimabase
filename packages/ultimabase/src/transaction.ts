@@ -108,5 +108,5 @@ export async function transaction<R>(run: () => Promise<R>): Promise<R> {
 	if (app === undefined) {
 		throw new Error('transaction runs on a started application.')
 	}
-	return atomic(app, run)
+	return app.work.run(async () => atomic(app, run))
 }

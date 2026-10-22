@@ -81,7 +81,8 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [x] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57,
       D-89).
 - [x] Cascades run by the kernel (D-54, D-90).
-- [ ] `start`, `stop` and the logger (D-58, D-59).
+- [x] `start`, `stop` and the logger (D-58, D-59, D-91).
+- [ ] The manifest's version checks (D-57).
 - [ ] Adapter contract suite started (D-02, D-73).
 - [ ] `@ultimabase/soft-delete` (D-17).
 - [ ] The prototype's types move into `packages/ultimabase`, each export in

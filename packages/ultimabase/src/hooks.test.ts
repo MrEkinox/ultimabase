@@ -141,13 +141,14 @@ const containing = (fields: object): unknown => expect.objectContaining(fields)
 
 beforeEach(async () => {
 	log.length = 0
-	logged.length = 0
 	facts.clear()
 	patch = {}
 	failing = undefined
 	bump = false
 	app = defineApp({ database: memory(), models: [Order, Ticket], logger })
 	await app.start()
+	// Leaves out "Application started." (D-91).
+	logged.length = 0
 })
 afterEach(async () => {
 	await app.stop()
