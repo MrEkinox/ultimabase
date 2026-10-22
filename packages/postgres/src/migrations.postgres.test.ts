@@ -1,0 +1,466 @@
+// How a PostgreSQL database follows the models (D-105): every kind of
+// change on a real server, the bookkeeping, and the commands end to end.
+import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join as joinPath } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { Client } from 'pg'
+import type { Adapter, Migrations, Schema, SchemaField } from 'ultimabase'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { postgres } from './index.ts'
+
+const url =
+	(
+		process.env['TEST_DATABASE_URL'] ??
+		'postgres://postgres:postgres@localhost:54315/postgres'
+	)
+		.split(' ')
+		.find((given) => given !== '') ?? ''
+
+async function query(target: string, statement: string): Promise<unknown[]> {
+	const client = new Client({ connectionString: target })
+	await client.connect()
+	try {
+		const { rows }: { rows: unknown[] } = await client.query(statement)
+		return rows
+	} finally {
+		await client.end()
+	}
+}
+
+const inSchema = (schema: string): string =>
+	`${url}${url.includes('?') ? '&' : '?'}options=${encodeURIComponent(`-c search_path=${schema}`)}`
+
+type Scalar = Extract<SchemaField, { kind: 'scalar' }>
+
+const scalar = (
+	name: string,
+	type: Scalar['type'],
+	more: Partial<Scalar> = {},
+): Scalar => ({
+	kind: 'scalar',
+	name,
+	type,
+	optional: false,
+	unique: false,
+	...more,
+})
+
+const one = (name: string, target: string, inverse: string): SchemaField => ({
+	kind: 'one',
+	name,
+	target,
+	inverse,
+	stored: true,
+	unique: false,
+	optional: false,
+	onDelete: 'restrict',
+})
+
+const many = (
+	name: string,
+	target: string,
+	inverse: string,
+	join = false,
+): SchemaField => ({ kind: 'many', name, target, inverse, join })
+
+/** Shelves holding boxes, and an `Old` model `after` replaces by `New`. */
+const before: Schema = {
+	models: [
+		{
+			name: 'Shelf',
+			fields: [
+				scalar('name', 'string', { unique: true }),
+				scalar('size', 'number', { optional: true }),
+				scalar('kind', 'enum', { values: ['wood', 'metal'] }),
+				scalar('depth', 'number', { optional: true }),
+				scalar('note', 'string', { optional: true }),
+				many('boxes', 'Box', 'shelf'),
+			],
+			indexes: [{ fields: ['size'], unique: false }],
+		},
+		{
+			name: 'Box',
+			fields: [scalar('label', 'string'), one('shelf', 'Shelf', 'boxes')],
+			indexes: [],
+		},
+		{
+			name: 'Old',
+			fields: [scalar('title', 'string')],
+			indexes: [],
+		},
+	],
+}
+
+const after: Schema = {
+	models: [
+		{
+			name: 'Shelf',
+			fields: [
+				scalar('name', 'string'),
+				scalar('size', 'string', { optional: true }),
+				scalar('kind', 'enum', { values: ['wood', 'metal', 'glass'] }),
+				scalar('depth', 'number'),
+				scalar('remark', 'string', { optional: true }),
+				many('boxes', 'Box', 'shelf'),
+			],
+			indexes: [
+				{ fields: ['name'], unique: false },
+				{ fields: ['name', 'kind'], unique: true },
+			],
+		},
+		{
+			name: 'Box',
+			fields: [
+				scalar('label', 'string'),
+				one('shelf', 'Shelf', 'boxes'),
+				many('tags', 'Tag', 'boxes', true),
+			],
+			indexes: [],
+		},
+		{
+			name: 'Tag',
+			fields: [scalar('label', 'string'), many('boxes', 'Box', 'tags', true)],
+			indexes: [],
+		},
+		{ name: 'New', fields: [scalar('title', 'string')], indexes: [] },
+	],
+}
+
+let schema = ''
+let adapter: Adapter
+let migrations: Migrations
+
+beforeEach(async () => {
+	schema = `t_${randomUUID().replaceAll('-', '')}`
+	await query(url, `create schema "${schema}"`)
+	adapter = postgres({ url: inSchema(schema) })
+	await adapter.start({ models: [] })
+	const given = adapter.migrations
+	if (given === undefined) throw new Error('postgres() migrates.')
+	migrations = given
+})
+
+afterEach(async () => {
+	await adapter.stop()
+	await query(url, `drop schema "${schema}" cascade`)
+})
+
+/** Syncs the database from `from` to `to`, and returns the plan. */
+async function sync(from: Schema | undefined, to: Schema) {
+	const was = from === undefined ? undefined : migrations.snapshot(from)
+	const now = migrations.snapshot(to)
+	const statements = migrations.plan(was, now)
+	await migrations.apply({ kind: 'sync', from: was, statements, to: now })
+	return statements
+}
+
+const changes = (statements: readonly { model: string; does: string }[]) =>
+	statements.map(({ model, does }) => `${model}: ${does}`)
+
+describe('a sync on postgres()', () => {
+	it('builds an empty database, then changes every kind of thing a model holds', async () => {
+		await sync(undefined, before)
+		await query(
+			inSchema(schema),
+			`insert into shelf values (gen_random_uuid(), now(), now(), 'top', 3, 'wood', 2, 'n')`,
+		)
+		const statements = await sync(before, after)
+		expect(changes(statements)).toStrictEqual([
+			'Shelf: dropped the unique key on name',
+			'Shelf: dropped the values of kind',
+			'Shelf: dropped the index on size',
+			'Old: removed',
+			'Shelf: removed note',
+			'Shelf: changed size to text',
+			'Shelf: made depth required',
+			'Shelf: added remark',
+			'Tag: created',
+			'New: created',
+			'Box.tags: created',
+			'Shelf: added a unique key on name, kind',
+			'Shelf: limited kind to wood, metal, glass',
+			'Shelf: indexed name',
+			'Box.tags: indexed tag_id',
+			'Box.tags: added the foreign key on box_id',
+			'Box.tags: added the foreign key on tag_id',
+		])
+		expect(
+			statements.flatMap(({ loses, hint }) =>
+				loses === undefined ? [] : [[loses, hint]],
+			),
+		).toStrictEqual([
+			[
+				'removing Old deletes its rows',
+				'a rename? write: alter table "old" rename to "new";',
+			],
+			[
+				'removing "Shelf.note" deletes data',
+				'a rename? write: alter table "shelf" rename column "note" to "remark";',
+			],
+			[
+				'changing "Shelf.size" from double precision to text rewrites its data',
+				undefined,
+			],
+		])
+		expect(
+			await query(inSchema(schema), 'select size, remark from shelf'),
+		).toStrictEqual([{ size: '3', remark: null }])
+		expect(
+			migrations.plan(migrations.snapshot(after), migrations.snapshot(after)),
+		).toStrictEqual([])
+
+		const back = await sync(after, before)
+		expect(changes(back).slice(0, 2)).toStrictEqual([
+			'Box.tags: dropped the foreign key on box_id',
+			'Box.tags: dropped the foreign key on tag_id',
+		])
+		expect(
+			await query(inSchema(schema), 'select size, note from shelf'),
+		).toStrictEqual([{ size: 3, note: null }])
+	})
+
+	it('stores what it synced, and reads nothing before', async () => {
+		expect(await migrations.stored()).toBeUndefined()
+		await sync(undefined, before)
+		expect(await migrations.stored()).toStrictEqual({
+			snapshot: migrations.snapshot(before),
+			by: 'sync',
+			applied: [],
+		})
+	})
+
+	it('refuses tables that no snapshot describes', async () => {
+		await query(inSchema(schema), 'create table shelf (id uuid)')
+		await expect(sync(undefined, before)).rejects.toThrow(
+			'The database already holds shelf, and no UltimaBase snapshot says what they are: sync only builds an empty database (D-105).',
+		)
+	})
+
+	it('refuses a database another process changed, and leaves one it synced', async () => {
+		await sync(undefined, before)
+		await expect(sync(undefined, after)).rejects.toThrow(
+			'The database changed while UltimaBase synced it: start again.',
+		)
+		await expect(sync(after, before)).resolves.toBeDefined()
+		await expect(sync(after, after)).rejects.toThrow(
+			'The database changed while UltimaBase synced it',
+		)
+	})
+
+	it('refuses a snapshot postgres() did not write', () => {
+		expect(() => migrations.plan(undefined, { postgres: 2 })).toThrow(
+			'The schema snapshot is not one postgres() wrote.',
+		)
+		expect(() =>
+			migrations.plan(undefined, { postgres: 1, tables: { t: {} } }),
+		).toThrow('The schema snapshot is not one postgres() wrote.')
+	})
+})
+
+describe('the bookkeeping on postgres()', () => {
+	const create = [
+		'create table ultimabase_schema (id integer primary key, snapshot jsonb not null, written_by text not null, written_at timestamptz not null)',
+		'create table ultimabase_migrations (name text primary key, checksum text, applied_at timestamptz not null)',
+	]
+
+	it('reads empty tables as nothing stored', async () => {
+		for (const statement of create) await query(inSchema(schema), statement)
+		expect(await migrations.stored()).toBeUndefined()
+	})
+
+	it('refuses tables it cannot read', async () => {
+		for (const statement of create) await query(inSchema(schema), statement)
+		await query(
+			inSchema(schema),
+			"insert into ultimabase_migrations values ('1_a.sql', null, now())",
+		)
+		await expect(migrations.stored()).rejects.toThrow(
+			'ultimabase_migrations is broken.',
+		)
+		await query(inSchema(schema), 'drop table ultimabase_schema')
+		await query(inSchema(schema), 'create table ultimabase_schema (id integer)')
+		await expect(migrations.stored()).rejects.toMatchObject({ code: '42703' })
+	})
+})
+
+const file = (name: string, sql: string) => ({ name, sql, checksum: name })
+
+describe('a deploy on postgres()', () => {
+	it('applies each file once, statements together, then stores the snapshot', async () => {
+		const to = migrations.snapshot(before)
+		const sql = migrations
+			.plan(undefined, to)
+			.map((statement) => `${statement.sql};`)
+			.join('\n')
+		const files = [file('1_init.sql', sql)]
+		await migrations.apply({ kind: 'deploy', files, to })
+		await migrations.apply({ kind: 'deploy', files, to })
+		expect(await migrations.stored()).toStrictEqual({
+			snapshot: to,
+			by: 'deploy',
+			applied: [{ name: '1_init.sql', checksum: '1_init.sql' }],
+		})
+		expect(await query(inSchema(schema), 'select * from box')).toStrictEqual([])
+	})
+
+	it('rolls a file back when it fails, and names it', async () => {
+		const to = migrations.snapshot(before)
+		const files = [
+			file('1_a.sql', 'create table a (id integer);'),
+			file('2_b.sql', 'create table b (id integer); select 1 / 0;'),
+		]
+		await expect(
+			migrations.apply({ kind: 'deploy', files, to }),
+		).rejects.toThrow('2_b.sql was not applied: division by zero')
+		const stored = await migrations.stored()
+		expect(stored?.snapshot).toBeUndefined()
+		expect(stored?.applied.map((given) => given.name)).toStrictEqual([
+			'1_a.sql',
+		])
+		await expect(query(inSchema(schema), 'select * from b')).rejects.toThrow(
+			'relation "b" does not exist',
+		)
+	})
+})
+
+const bin = joinPath(import.meta.dirname, '../../ultimabase/src/cli.ts')
+const kernel = pathToFileURL(
+	joinPath(import.meta.dirname, '../../ultimabase/src/index.ts'),
+).href
+const adapterUrl = pathToFileURL(joinPath(import.meta.dirname, 'index.ts')).href
+
+type Ran = { readonly code: number | null; readonly output: string }
+
+/** Runs `ultimabase` in `cwd` until it prints `until` or exits. */
+function ultimabase(
+	cwd: string,
+	args: readonly string[],
+	env: Record<string, string>,
+	until?: string,
+): Promise<Ran> {
+	return new Promise((done, fail) => {
+		const child = spawn(process.execPath, [bin, ...args], {
+			cwd,
+			env: { ...process.env, NO_COLOR: '1', ...env },
+		})
+		let output = ''
+		const read = (chunk: Buffer) => {
+			output += chunk.toString()
+			if (until !== undefined && output.includes(until)) child.kill('SIGTERM')
+		}
+		child.stdout.on('data', read)
+		child.stderr.on('data', read)
+		child.on('error', fail)
+		child.on('exit', (code) => {
+			done({ code, output })
+		})
+	})
+}
+
+const development = () => ({
+	DATABASE_URL: inSchema(schema),
+	NODE_ENV: 'development',
+})
+
+describe('the commands on postgres()', () => {
+	let dir = ''
+	let production = ''
+	beforeEach(async () => {
+		dir = await mkdtemp(joinPath(tmpdir(), 'ultimabase-pg-'))
+		production = `t_${randomUUID().replaceAll('-', '')}`
+		await query(url, `create schema "${production}"`)
+	})
+	afterEach(async () => {
+		await rm(dir, { recursive: true })
+		await query(url, `drop schema "${production}" cascade`)
+	})
+
+	/** Writes `ultimabase.config.ts` with a Locker of `fields`. */
+	const config = async (fields: string) =>
+		writeFile(
+			joinPath(dir, 'ultimabase.config.ts'),
+			[
+				`import { defineApp, defineModel } from '${kernel}'`,
+				`import { postgres } from '${adapterUrl}'`,
+				`const Locker = defineModel({ name: 'Locker', fields: (f) => ({ ${fields} }) })`,
+				`export default defineApp({ database: postgres({ url: process.env.DATABASE_URL ?? '' }), models: [Locker] })`,
+			].join('\n'),
+		)
+	const deployed = () => ({
+		DATABASE_URL: inSchema(production),
+		NODE_ENV: 'production',
+	})
+
+	it('syncs development, refuses what loses data, and writes and deploys migrations', async () => {
+		await config('label: f.string()')
+		const synced = await ultimabase(dir, ['sync'], development())
+		expect(synced).toMatchObject({ code: 0 })
+		expect(synced.output).toContain("Created the database's tables.")
+
+		const unready = await ultimabase(dir, ['start'], deployed())
+		expect(unready.code).toBe(1)
+		expect(unready.output).toBe(
+			'The database has no UltimaBase schema: run `npx ultimabase migrate deploy`, then start again.\n',
+		)
+
+		expect(
+			await ultimabase(dir, ['migrate', 'create', 'init'], {}),
+		).toMatchObject({ code: 0 })
+		const deploy = await ultimabase(dir, ['migrate', 'deploy'], deployed())
+		expect(deploy.code).toBe(0)
+		expect(deploy.output).toMatch(/^Applied \d{14}_init\.sql\.\n$/)
+		const started = await ultimabase(
+			dir,
+			['start'],
+			deployed(),
+			'Application stopped.',
+		)
+		expect(started.output).toContain('Application started.')
+
+		await config('size: f.number({ optional: true })')
+		const stale = await ultimabase(dir, ['migrate', 'deploy'], deployed())
+		expect(stale.code).toBe(1)
+		expect(stale.output).toContain('The models changed after')
+		const behind = await ultimabase(dir, ['start'], deployed())
+		expect(behind.output).toBe(
+			"The database's tables are not the models' (D-105): run `npx ultimabase migrate deploy`, then start again.\n",
+		)
+		const refused = await ultimabase(dir, ['sync'], development())
+		expect(refused.code).toBe(1)
+		expect(refused.output).toBe(
+			[
+				'UltimaBase did not sync Locker: removing "Locker.label" deletes data.',
+				'  alter table "locker" drop column "label";',
+				'Run `npx ultimabase sync --force` to apply it to this development database,',
+				'or `npx ultimabase migrate create <name>` to write it as a migration.',
+				'',
+			].join('\n'),
+		)
+
+		expect(
+			await ultimabase(dir, ['migrate', 'create', 'size'], {}),
+		).toMatchObject({ code: 0 })
+		const files = (await readdir(joinPath(dir, 'migrations'))).toSorted()
+		const size = files.find((name) => name.endsWith('_size.sql')) ?? ''
+		expect(
+			(await readFile(joinPath(dir, 'migrations', size), 'utf8'))
+				.split('\n')
+				.slice(2),
+		).toStrictEqual([
+			'-- removing "Locker.label" deletes data.',
+			'alter table "locker" drop column "label";',
+			'',
+			'alter table "locker" add column "size" double precision;',
+			'',
+		])
+		const next = await ultimabase(dir, ['migrate', 'deploy'], deployed())
+		expect(next.output).toBe(`Applied ${size}.\n`)
+		const synced2 = await ultimabase(dir, ['migrate', 'deploy'], development())
+		expect(synced2.output).toContain(
+			'`npx ultimabase sync` built this database',
+		)
+	}, 60_000)
+})

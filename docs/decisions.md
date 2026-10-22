@@ -3867,10 +3867,10 @@ Choice: amends D-26, D-73 and D-98 point 1.
 
    ```ts
    interface Migrations {
-   	/** What this database makes of the models. */
-   	snapshot(schema: Schema): Snapshot
+   	/** What this database makes of the models, JSON it validates on read. */
+   	snapshot(schema: Schema): unknown
    	/** The statements from one snapshot to another; none is an empty database. */
-   	plan(from: Snapshot | undefined, to: Snapshot): readonly Statement[]
+   	plan(from: unknown, to: unknown): readonly Statement[]
    	/** The database's snapshot, and who wrote it. */
    	stored(): Promise<Stored | undefined>
    	/** Runs statements or files, each file in its transaction, then stores `to`. */
@@ -3878,10 +3878,30 @@ Choice: amends D-26, D-73 and D-98 point 1.
    }
    interface Statement {
    	readonly sql: string
+   	/** For the log: `Synced Locker: added owner.` */
+   	readonly model: string
+   	readonly does: string
    	/** What it deletes, when it loses data. */
    	readonly loses?: string
+   	/** A comment for the developer: `a rename? write: …`. */
+   	readonly hint?: string
    }
+   type Run =
+   	| {
+   			kind: 'sync'
+   			from: unknown
+   			statements: readonly Statement[]
+   			to: unknown
+   	  }
+   	| { kind: 'deploy'; files: readonly Migration[]; to: unknown }
    ```
+
+   A sync's `from` is checked under the lock, so two processes syncing the
+   same database apply its statements once. `Stored.snapshot` is undefined
+   when a deploy stopped before storing one. The snapshot names the models
+   and fields, so a rename that keeps its `dbName` changes the hash with no
+   statement: `migrate create` writes a file that says so, and deploy stores
+   the new snapshot (amended 2026-10-22).
 
    `start(schema)` only connects; the kernel then syncs or checks. The
    PostgreSQL package implements `Migrations`; the binary reads and writes
@@ -3963,5 +3983,5 @@ npx ultimabase migrate create add_locker_owner
 #   alter table "locker" add column "owner" text collate "C";
 # migrations/schema.json
 npx ultimabase migrate deploy
-# Applied 20261022143000_add_locker_owner.
+# Applied 20261022143000_add_locker_owner.sql.
 ```

@@ -13,10 +13,12 @@ import type {
 	Transaction,
 	Write,
 } from 'ultimabase'
-import { createTables, tableNames } from './ddl.ts'
 import { decodeRows } from './decode.ts'
+import { apply, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
+import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
+import { parseSnapshot, snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
 import { compileWrite, translate } from './write.ts'
 
@@ -92,28 +94,6 @@ export function requireVersion(version: string | undefined): void {
 	}
 }
 
-/** Creates the tables of a new database, and refuses any other (D-98). */
-async function prepare(catalog: Catalog, db: Kysely<object>): Promise<void> {
-	const { rows } = await sql<{
-		server_version_num: string
-	}>`show server_version_num`.execute(db)
-	requireVersion(rows[0]?.server_version_num)
-	const names = tableNames(catalog)
-	const found = await sql<{ table_name: string }>`
-		select table_name from information_schema.tables
-		where table_schema = current_schema()
-		and table_name in (${sql.join(names)})`.execute(db)
-	if (found.rows.length > 0) {
-		const list = found.rows.map((row) => row.table_name).join(', ')
-		throw new Error(
-			`The database already holds ${list}: UltimaBase only creates the tables of an empty database until migrations arrive (D-98).`,
-		)
-	}
-	await db.transaction().execute(async (trx) => {
-		for (const statement of createTables(catalog)) await statement.execute(trx)
-	})
-}
-
 export function createAdapter(options: Options): Adapter {
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	const started = () => {
@@ -130,7 +110,10 @@ export function createAdapter(options: Options): Adapter {
 			})
 			const catalog = new Catalog(schema)
 			try {
-				await prepare(catalog, db)
+				const { rows } = await sql<{
+					server_version_num: string
+				}>`show server_version_num`.execute(db)
+				requireVersion(rows[0]?.server_version_num)
 			} catch (error) {
 				await db.destroy()
 				throw error
@@ -152,6 +135,16 @@ export function createAdapter(options: Options): Adapter {
 			return db
 				.transaction()
 				.execute(async (trx) => run(catalog, trx, given, statements))
+		},
+		migrations: {
+			snapshot: (schema) => snapshotOf(new Catalog(schema)),
+			plan: (from, to) =>
+				plan(
+					from === undefined ? undefined : parseSnapshot(from),
+					parseSnapshot(to),
+				),
+			stored: async () => stored(started().db),
+			apply: async (given) => apply(started().db, given),
 		},
 		begin: async (): Promise<Transaction> => {
 			const { catalog, db } = started()

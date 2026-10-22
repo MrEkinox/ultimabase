@@ -1,6 +1,7 @@
 // `defineApp` (D-24, D-59): the application's models and plugins, checked
 // together on its line, and its `start` and `stop` (D-91).
 import type { Adapter } from './adapter.ts'
+import { remember } from './app-internals.ts'
 import type { Logger, MasterKey } from './app-options.ts'
 import type { FunctionShape } from './function.ts'
 import { lifecycle } from './lifecycle.ts'
@@ -83,5 +84,5 @@ export function defineApp<
 		NoInfer<ModelCheck<M>> &
 		NoInfer<InverseCheck<M>>,
 ): App<M> {
-	return { models: options.models, ...lifecycle(options) }
+	return remember({ models: options.models, ...lifecycle(options) }, options)
 }

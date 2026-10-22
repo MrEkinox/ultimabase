@@ -1581,6 +1581,8 @@ __metadata:
     semver: "npm:7.8.5"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
+  bin:
+    ultimabase: ./src/cli.ts
   languageName: unknown
   linkType: soft
 

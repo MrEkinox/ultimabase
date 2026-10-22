@@ -158,11 +158,77 @@ export interface Transaction {
 	rollback(): Promise<void>
 }
 
+/** One statement of a plan, as it runs and as a migration file shows it. */
+export type Statement = {
+	readonly sql: string
+	/** The model it changes, and how, for the log: `Locker`, `added owner`. */
+	readonly model: string
+	readonly does: string
+	/** What it deletes, when it loses data: `removing "Locker.label" deletes data`. */
+	readonly loses?: string
+	/** A comment for the developer: `a rename? write: …`. */
+	readonly hint?: string
+}
+
+/** A migration file: its file name, its SQL and its SHA-256. */
+export type Migration = {
+	readonly name: string
+	readonly sql: string
+	readonly checksum: string
+}
+
+/** The snapshot a database's tables match, and who wrote it (D-105). */
+export type Stored = {
+	/** None when a deploy stopped before it stored one. */
+	readonly snapshot: unknown
+	readonly by: 'sync' | 'deploy'
+	readonly applied: readonly {
+		readonly name: string
+		readonly checksum: string
+	}[]
+}
+
+/**
+ * Development sync's statements, or the migration files to deploy, each in
+ * its transaction; then `to` is stored.
+ */
+export type Run =
+	| {
+			readonly kind: 'sync'
+			/** The snapshot the statements start from, checked under the lock. */
+			readonly from: unknown
+			readonly statements: readonly Statement[]
+			readonly to: unknown
+	  }
+	| {
+			readonly kind: 'deploy'
+			readonly files: readonly Migration[]
+			readonly to: unknown
+	  }
+
+/**
+ * How a database follows the models (D-105). A snapshot is JSON in the
+ * adapter's own format, which it validates when it reads one back.
+ */
+export interface Migrations {
+	/** What this database makes of the models. */
+	snapshot(schema: Schema): unknown
+	/** The statements from one snapshot to another; none is an empty database. */
+	plan(from: unknown, to: unknown): readonly Statement[]
+	/** The database's snapshot, if it has one; the adapter is started. */
+	stored(): Promise<Stored | undefined>
+	/** Applies `run` under a lock that one database holds at a time. */
+	apply(run: Run): Promise<void>
+}
+
 /** A storage adapter: its own slot, not a plugin (D-02, D-73). */
 export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
+	/** Connects; the kernel then syncs or checks the tables (D-105). */
 	start(schema: Schema): Promise<void>
 	stop(): Promise<void>
 	begin(): Promise<Transaction>
+	/** None for a database that starts empty every time, as `memory()`. */
+	readonly migrations?: Migrations
 }
 
 /** A unique index refused a write; the kernel reports `UNIQUE_VIOLATION`. */

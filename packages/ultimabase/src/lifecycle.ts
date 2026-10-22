@@ -1,9 +1,10 @@
 // `start` and `stop` (D-59, D-91): the database, the plugins' APIs, their
 // `start` and `stop`, the operations still running, and `SIGTERM`.
-import type { Adapter } from './adapter.ts'
+import type { Adapter, Schema } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import { consoleLogger } from './console-logger.ts'
 import { checkVersions } from './manifest.ts'
+import { checked, synced } from './migrate.ts'
 import type { Installed } from './plugin-app.ts'
 import { buildApis, installed, withContexts } from './plugin-app.ts'
 import type { Running } from './running.ts'
@@ -36,12 +37,43 @@ async function stopped(plugins: readonly Installed[]): Promise<unknown[]> {
 	return errors
 }
 
-export function lifecycle(options: {
+export type LifecycleOptions = {
 	readonly database: Adapter
 	readonly plugins?: readonly unknown[]
 	readonly models: readonly unknown[]
 	readonly logger?: Logger
-}): Lifecycle {
+}
+
+/** The application's schema, or a message on what is wrong with it. */
+export function schemaOf(options: LifecycleOptions): Schema {
+	const { plugins } = installed(options.plugins ?? [])
+	return resolve(
+		options.models,
+		plugins.map((plugin) => plugin.code),
+	).schema
+}
+
+/** The kernel's logger: the application's, or JSON lines. */
+export const kernelLogger = (options: LifecycleOptions): Logger =>
+	(options.logger ?? consoleLogger()).child({ name: 'ultimabase' })
+
+/** Syncs a development database, or checks a production one (D-105). */
+async function follow(
+	database: Adapter,
+	schema: Schema,
+	logger: Logger,
+): Promise<void> {
+	try {
+		await (process.env['NODE_ENV'] === 'production'
+			? checked(database, schema)
+			: synced(database, schema, logger, false))
+	} catch (error) {
+		await database.stop()
+		throw error
+	}
+}
+
+export function lifecycle(options: LifecycleOptions): Lifecycle {
 	const { database, models } = options
 	let started: Started | undefined
 	let stopping: Promise<void> | undefined
@@ -79,6 +111,7 @@ export function lifecycle(options: {
 		checkVersions(records, logger)
 		const plugins = withContexts(apiOrder, base)
 		await database.start(resolved.schema)
+		await follow(database, resolved.schema, logger)
 		const apis = new Map<string, unknown>()
 		const app: Running = {
 			resolved,

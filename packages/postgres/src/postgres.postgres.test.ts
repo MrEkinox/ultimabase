@@ -85,6 +85,16 @@ const thing: Schema = {
 	],
 }
 
+/** Starts `adapter` and builds its tables, as a development start does. */
+async function started(adapter: Adapter, schema: Schema): Promise<void> {
+	await adapter.start(schema)
+	const { migrations } = adapter
+	if (migrations === undefined) throw new Error('postgres() migrates.')
+	const to = migrations.snapshot(schema)
+	const statements = migrations.plan(undefined, to)
+	await migrations.apply({ kind: 'sync', from: undefined, statements, to })
+}
+
 const row = (label: unknown) => ({
 	id: randomUUID(),
 	createdAt: new Date(),
@@ -101,15 +111,6 @@ describe('postgres()', () => {
 	})
 	afterEach(async () => run(url, `drop schema "${schema}" cascade`))
 
-	it('refuses a database that already holds its tables', async () => {
-		const first = postgres({ url: inSchema(url, schema) })
-		await first.start(thing)
-		await first.stop()
-		await expect(
-			postgres({ url: inSchema(url, schema) }).start(thing),
-		).rejects.toThrow('The database already holds thing')
-	})
-
 	it('refuses to run before it starts', async () => {
 		await expect(
 			postgres({ url: inSchema(url, schema) }).find({ model: 'Thing' }),
@@ -118,7 +119,7 @@ describe('postgres()', () => {
 
 	it('names a long constraint by its hash, and reports what it refuses', async () => {
 		const adapter = postgres({ url: inSchema(url, schema) })
-		await adapter.start(thing)
+		await started(adapter, thing)
 		try {
 			const insert = (label: unknown) =>
 				adapter.write({
@@ -191,7 +192,7 @@ describe('a write on postgres()', () => {
 			url: inSchema(url, schema),
 			log: (event) => sent.push(event.query.sql),
 		})
-		await adapter.start(shelved)
+		await started(adapter, shelved)
 		await adapter.write({
 			changes: [
 				{ kind: 'insert', model: 'Book', row: book },
