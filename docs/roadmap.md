@@ -4,8 +4,10 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 2**. Phase 1b is closed: every typed part of 0.1 has a
-prototype example.
+Status: **Phase 3**. Phase 2 is closed: the kernel slice runs on `memory()`
+and the
+[typing campaign](../bench/typing/README.md#phase-2-closed-the-full-campaign)
+holds on the package.
 
 ## Phase 0: Tooling
 
@@ -71,21 +73,24 @@ validation and functions included, stays within Phase 1's exit criterion.
 
 ## Phase 2: Kernel slice on `memory()`
 
-- [ ] 0.1 field types and the 0.1 query subset (D-20).
-- [ ] Callers and `master` (D-19), model and field access (D-10, D-44),
+- [x] 0.1 field types and the 0.1 query subset (D-20).
+- [x] Callers and `master` (D-19), model and field access (D-10, D-44),
       relation writes from the other side (D-78),
       `anyOf` and `allOf` filters (D-81).
-- [ ] Hooks in the order of D-67, validation (D-23), errors (D-28, D-82),
+- [x] A rule's record omits the optional side of a one-to-one (D-87).
+- [x] Hooks in the order of D-67, validation (D-23), errors (D-28, D-82),
       transactions (D-36).
-- [ ] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57).
-- [ ] Cascades run by the kernel (D-54).
-- [ ] `start`, `stop` and the logger (D-58, D-59).
-- [ ] Adapter contract suite started (D-02, D-73).
-- [ ] `@ultimabase/soft-delete` (D-17).
-- [ ] The prototype's types move into `packages/ultimabase`, each export in
+- [x] Plugins at runtime: commands, `redirect` and plugin hooks (D-15, D-57,
+      D-89).
+- [x] Cascades run by the kernel (D-54, D-90).
+- [x] `start`, `stop` and the logger (D-58, D-59, D-91).
+- [x] The manifest's version checks (D-57, D-95).
+- [x] Adapter contract suite started (D-02, D-73, D-94).
+- [x] `@ultimabase/soft-delete` (D-17, D-96).
+- [x] The prototype's types move into `packages/ultimabase`, each export in
       the package its decision names, and the typing benchmark measures the
       package. Kernel tests build user callers with
-      `asUser` (D-80).
+      `asUser` (D-80, D-97).
 
 Exit: soft delete under 150 lines (D-15); the kernel within its budget. The
 full typing campaign, run again on the package, stays within reach of the

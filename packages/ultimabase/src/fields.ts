@@ -269,6 +269,12 @@ export interface Field<V, O, P extends string = never, T = never, I = V> {
 
 export type RelationValue = { readonly id: string }
 
+/** What a `many` relation's write rule sees: the caller's lists (D-86). */
+export type ManyValue = {
+	readonly connect: readonly RelationValue[]
+	readonly disconnect: readonly RelationValue[]
+}
+
 // `T` is the target's thunk, constrained to `object` only: its return type
 // is read lazily, in queries and at registration, never while declaring.
 export interface One<T, O, U = never> {
@@ -289,7 +295,7 @@ export interface Many<T, O, U = never> {
 		readonly options: O
 	}
 	with<R extends object = never>(
-		rules: FieldWith<NoInfer<R>, readonly RelationValue[], U>,
+		rules: FieldWith<NoInfer<R>, ManyValue, U>,
 	): Many<T, O> & Declared<R>
 }
 

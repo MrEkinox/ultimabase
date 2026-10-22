@@ -52,13 +52,72 @@ type StoredRef<X> =
 			: { readonly id: string }
 		: never
 
+/** The name of the model a relation's thunk returns. */
+type TargetName<T> = T extends () => infer M
+	? M extends { readonly name: infer N extends string }
+		? N
+		: never
+	: never
+
 /**
- * The stored row access rules and hooks receive (D-77): the record plus each
- * `one` relation's key, which the row already holds.
+ * Whether field `J` of target `T` is a `one` that may face field `K` of
+ * model `N`, as startup resolves it (D-37).
  */
-export type StoredRecord<F> = RecordOf<F> & {
+type FacingOne<N, K, T, J> =
+	TargetFields<T>[J & keyof TargetFields<T>] extends Relation<
+		'one',
+		infer B,
+		infer O
+	>
+		? O extends { readonly inverse: infer I extends string }
+			? [I] extends [K]
+				? true
+				: false
+			: [J, TargetName<T>] extends [K, N]
+				? false
+				: [TargetName<B>] extends [N]
+					? true
+					: false
+		: false
+
+/**
+ * Whether relation `X`, named `K` on model `N`, faces a `one`: the two
+ * sides of a one-to-one, of which the required one stores the key (D-37).
+ */
+type FacesOne<N, K, X> =
+	X extends Relation<'one', infer T, infer O>
+		? O extends { readonly inverse: infer I extends string }
+			? TargetFields<T>[I & keyof TargetFields<T>] extends Relation<'one'>
+				? true
+				: false
+			: true extends {
+						[J in keyof TargetFields<T>]: FacingOne<N, K, T, J>
+				  }[keyof TargetFields<T>]
+				? true
+				: false
+		: false
+
+/**
+ * A `one` relation the row stores: a required one, or an optional one facing
+ * a `many`. The optional side of a one-to-one has no column (D-37).
+ */
+type Stored<N, K, X> =
+	X extends Relation<'one', unknown, infer O>
+		? IsOptional<O> extends true
+			? FacesOne<N, K, X> extends true
+				? false
+				: true
+			: true
+		: false
+
+/**
+ * The stored row of model `N` that access rules and hooks receive (D-77):
+ * the record plus the key of each `one` relation the row stores, with no
+ * query.
+ */
+export type StoredRecord<F, N extends string> = RecordOf<F> & {
 	readonly [
-		K in keyof F as F[K] extends Relation<'one'> ? K : never
+		K in keyof F as Stored<N, K, F[K]> extends true ? K : never
 	]: StoredRef<F[K]>
 }
 

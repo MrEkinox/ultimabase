@@ -1,0 +1,22 @@
+{
+	"name": "ultimabase",
+	"version": "0.0.0",
+	"private": true,
+	"description": "The UltimaBase kernel and its in-memory adapter.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"semver": "7.8.5"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

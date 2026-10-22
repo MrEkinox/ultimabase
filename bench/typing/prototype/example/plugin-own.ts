@@ -1,17 +1,14 @@
 // A plugin's own code sees a model through the fields it adds (D-57): it
 // reads and writes them, and nothing else. `tsc` fails if one does not hold.
-import type { Field } from '../fields.ts'
-import type { Queries } from '../query.ts'
-import type { PluginOf, PluginTypes, UseOf } from '../ultimabase.ts'
-import { defineApp, defineModel, memory } from '../index.ts'
-import { definePlugin } from '../ultimabase.ts'
+import type { Field, PluginOf, PluginTypes, Queries, UseOf } from '../index.ts'
+import { defineApp, defineModel, definePlugin, memory } from '../index.ts'
 
 interface TrashCommands<F> {
 	readonly trash: Queries<F>
 }
 interface Trash extends PluginTypes {
 	readonly name: 'trash'
-	readonly adds: {
+	readonly addedFields: {
 		readonly trashedAt: Field<Date, { readonly optional: true }>
 	}
 	readonly commands: TrashCommands<this['fields']>
@@ -19,6 +16,7 @@ interface Trash extends PluginTypes {
 const trashDefinition = definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
+	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
 	redirect: {
 		delete: ({ where, queries }) =>
 			queries.update({ where, data: { trashedAt: new Date() } }),
@@ -49,6 +47,7 @@ const trashDefinition = definePlugin<Trash>({
 definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
+	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
 	hooks: {
 		beforeFind: ({ where, command }) =>
 			// @ts-expect-error: `trahs` is not a command of the plugin.
@@ -59,6 +58,7 @@ definePlugin<Trash>({
 definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
+	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
 	hooks: {
 		// @ts-expect-error: a filter only comes from `where`.
 		beforeFind: () => ({ trashedAt: null }),

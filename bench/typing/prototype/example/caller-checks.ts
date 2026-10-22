@@ -9,7 +9,6 @@ import {
 	graphqlPlugin,
 	memory,
 } from '../index.ts'
-import type { UserOf } from '../rules.ts'
 import { Post } from './post.ts'
 import { User } from './user.ts'
 
@@ -25,8 +24,6 @@ export type CallerChecks = [
 	Expect<Equal<SignedIn['id'], string>>,
 	Expect<Equal<SignedIn['email'], string>>,
 	Expect<Equal<SignedIn['role'], 'reader' | 'editor'>>,
-	// Without a declaration, `caller.user` is `{ id }`.
-	Expect<Equal<UserOf<{}>, { readonly id: string }>>,
 	// `defineUser` puts auth in the model's `use`, before the developer's.
 	Expect<Equal<NonNullable<(typeof User)['plugins']>, 'auth' | 'graphql'>>,
 ]

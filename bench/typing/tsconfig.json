@@ -1,0 +1,7 @@
+{
+	// The prototype is its own project: its `Register` (D-62) must not reach
+	// the packages' tests, which act as a user without one (D-80, D-97).
+	"extends": "../../tsconfig.json",
+	"include": ["prototype/**/*.ts"],
+	"exclude": []
+}

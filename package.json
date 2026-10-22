@@ -1,5 +1,5 @@
 {
-	"name": "ultimabase",
+	"name": "ultimabase-repository",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
@@ -16,13 +16,15 @@
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
 		"lint": "oxlint",
-		"test": "vitest run --project unit --passWithNoTests",
+		"test": "vitest run --project unit --coverage --passWithNoTests",
 		"test:postgres": "vitest run --project postgres --passWithNoTests",
-		"typecheck": "tsc --project tsconfig.json",
+		"typecheck": "tsc --project tsconfig.json && tsc --project bench/typing && tsc --project packages/ultimabase && tsc --project packages/testing && tsc --project packages/soft-delete",
 		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test"
 	},
 	"devDependencies": {
 		"@types/node": "^24.0.0",
+		"@types/semver": "7.8.0",
+		"@vitest/coverage-v8": "5.0.5",
 		"oxlint": "1.88.0",
 		"oxlint-tsgolint": "7.0.2004",
 		"prettier": "^3.6.2",

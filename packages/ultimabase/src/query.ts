@@ -187,32 +187,40 @@ export type UpdateArgs<F, X = never> = {
 }
 
 /** Model methods (D-18), the subset the prototype measures. */
+// Each query is a closure on its model: it can be passed around unbound.
 export interface Queries<F, X = never> {
 	findMany<const A extends FindManyArgs<F, X>>(
+		this: void,
 		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>[]>
 	findFirst<const A extends FindManyArgs<F, X>>(
+		this: void,
 		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	findUnique<const A extends FindUniqueArgs<F, X>>(
+		this: void,
 		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	count(
+		this: void,
 		args?: { readonly where?: Where<F> },
 		options?: QueryOptions,
 	): Promise<number>
 	create<const A extends CreateArgs<F>>(
+		this: void,
 		args: A & NoInfer<Exact<A, CreateArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	update<const A extends UpdateArgs<F, X>>(
+		this: void,
 		args: A & NoInfer<Exact<A, UpdateArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	delete(
+		this: void,
 		args: { readonly where: UniqueWhere<F, X> },
 		options?: QueryOptions,
 	): Promise<RecordOf<F>>

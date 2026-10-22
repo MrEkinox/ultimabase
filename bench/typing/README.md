@@ -9,6 +9,9 @@ TypeScript 7 takes to report the errors of a file, cold and after one edit.
   project, pulls the diagnostics of one file (`firstMs`), replaces one marker in
   it and pulls them again (`editMs`). It prints one JSON line.
 - `tsc -p <project> --noEmit` gives the full cold check time.
+- `prototype/` is its own project (`tsc -p bench/typing`). It imports the
+  packages by name and keeps stand-ins only for what later phases build
+  (D-97); `gen.ts` writes projects that import it.
 
 ## Baseline: the previous base on TypeScript 7
 
@@ -609,6 +612,40 @@ Against the campaign of 2026-10-20, the 200-model query edit is unchanged
 (391 ms) and the slowest project moved from 695 to 696 ms: D-74 to D-82 cost
 nothing measurable. The query edit grows about linearly with the model count;
 a model edit stays under 50 ms at every size.
+
+## Phase 2 closed: the full campaign
+
+On 2026-10-22, at `d3bbb70c`, the generated projects importing
+`packages/ultimabase` and `@ultimabase/soft-delete` (D-97): three interleaved
+runs, the previous base included, medians in milliseconds (memory in MB);
+load average 1.2 to 4.3. Same projects, edits and checks as Phase 1b closed:
+every `tsc -p` exited 0, every first check reported 0 errors and every edit
+exactly one.
+
+| Project                 | Instantiations | `tsc` | Memory | Query: first | Query: edit | Model: first | Model: edit |
+| ----------------------- | -------------: | ----: | -----: | -----------: | ----------: | -----------: | ----------: |
+| Previous base, 10       |      1 337 951 |   388 |    206 |          287 |         216 |          289 |         221 |
+| Package, 10             |        127 353 |   159 |    102 |           70 |          29 |           56 |          17 |
+| Previous base, 50       |      4 326 373 | 1 002 |    323 |          627 |         567 |          437 |         368 |
+| Package, 50             |        348 491 |   258 |    131 |          154 |         103 |           70 |          16 |
+| Previous base, 200      |     20 099 545 | 4 251 |    778 |        1 979 |       1 805 |        1 082 |         904 |
+| Package, 200            |      1 178 744 |   661 |    243 |          535 |         395 |          164 |          21 |
+| + field rules           |      1 652 665 |   823 |    302 |          669 |         528 |          171 |          25 |
+| + schemas               |      1 880 470 | 1 098 |    378 |          682 |         548 |          179 |          31 |
+| + rules and schemas     |      2 437 111 | 1 257 |    443 |          825 |         711 |          183 |          35 |
+| Package, 500            |      2 837 279 | 1 543 |    463 |        1 581 |       1 076 |          554 |          16 |
+| Previous base, wide 120 |      2 411 201 |   556 |    215 |          365 |         296 |          417 |         345 |
+| Package, wide 120       |        167 777 |   177 |    105 |           76 |          37 |           66 |          27 |
+| + field rules           |        355 617 |   205 |    114 |          105 |          66 |           91 |          53 |
+
+Phase 2's exit criterion holds: at 200 models with field rules and schemas, a
+query edit waits 711 ms (707, 725), under 800 ms, and a model edit 35 ms (34,
+35), under 50 ms. The previous base's edits measured within 3 % of Phase 1b
+closed, so the runs compare. Against the prototype, the package costs 6 to
+14 % more instantiations and 9 to 19 % more memory; the query edit at 200
+models moves from 391 to 395 ms and the slowest from 696 to 711 ms, the model
+edit 2 to 7 ms more. One model edit now passes 50 ms: the 120-field model with field
+rules, at 53 ms (52, 55), against 46 ms.
 
 ## Reproducing
 

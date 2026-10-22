@@ -33,6 +33,9 @@ Tick a roadmap item in the commit that completes it.
   budget in the commit that creates it; a budget changes only in a commit that
   says why.
 - Every bug fix gets a regression test.
+- Each package covers at least 90 % of its production code on lines,
+  statements, functions and branches, checked by `yarn test` (D-85). No
+  coverage-ignore comments.
 
 ## Validation
 

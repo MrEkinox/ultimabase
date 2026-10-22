@@ -1,17 +1,25 @@
-// auth (D-33, D-62) owns the user model. Its `define<Kind>` entry,
-// `defineUser`, builds an ordinary model with auth in its `use` (D-13).
-import type { Caller, CallerRule, Register, UserOf } from './rules.ts'
-import type { IndexShape } from './model.ts'
+// A stand-in for auth, built in Phase 5 (D-33, D-62), which owns the user
+// model. Its `define<Kind>` entry, `defineUser`, builds an ordinary model
+// with auth in its `use` (D-13).
+import type {
+	Caller,
+	CallerRule,
+	Register,
+	UserOf,
+} from '../../../packages/ultimabase/src/rules.ts'
+import type { IndexShape } from '../../../packages/ultimabase/src/model.ts'
 import type {
 	FieldShapes,
 	ModelFields,
 	ModelIndexes,
 	ModelOf,
+} from '../../../packages/ultimabase/src/define-model.ts'
+import type {
 	ModelUse,
 	PluginOf,
 	PluginTypes,
-} from './ultimabase.ts'
-import { definePlugin } from './ultimabase.ts'
+} from '../../../packages/ultimabase/src/plugin.ts'
+import { definePlugin } from '../../../packages/ultimabase/src/plugin.ts'
 
 interface Auth extends PluginTypes {
 	readonly name: 'auth'

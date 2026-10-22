@@ -1,0 +1,206 @@
+// The queries a model sends to the running application (D-18): each one
+// checked, run on the adapter, in the open transaction if any (D-36), and
+// returned in the shape it asked for.
+import { accessFor, and } from './access.ts'
+import { InvalidQuery } from './errors.ts'
+import type { Caller } from './rules.ts'
+import { isMaster } from './rules.ts'
+import { current } from './running.ts'
+import type { Context } from './query-context.ts'
+import { first, given, hiddenBy, picked } from './query-context.ts'
+import { plan, project, restrict, uniqueWhere } from './query-args.ts'
+import { entries, isObject, unknownKey } from './query-where.ts'
+import { QueryScope, planned } from './scope.ts'
+import type { Commit, Store } from './transaction.ts'
+import { reading, writing } from './transaction.ts'
+import { create, remove, update } from './writes.ts'
+
+export type Operation =
+	| 'findMany'
+	| 'findFirst'
+	| 'findUnique'
+	| 'count'
+	| 'create'
+	| 'update'
+	| 'delete'
+
+const anonymous: Caller = Object.freeze({ kind: 'anonymous' })
+
+/** `{ as }` only; without it, the caller is anonymous (D-19). */
+function callerOf(options: unknown, model: string): Caller {
+	if (options === undefined) return anonymous
+	const keys = new Map(entries(options, 'options'))
+	for (const key of keys.keys()) {
+		if (key !== 'as') throw unknownKey(`options.${key}`, model)
+	}
+	const caller = keys.get('as')
+	if (caller === undefined) return anonymous
+	if (!isObject(caller)) {
+		throw new InvalidQuery('options.as', 'options.as must be a caller.')
+	}
+	switch (caller['kind']) {
+		case 'anonymous':
+			return anonymous
+		case 'user':
+			if (
+				!isObject(caller['user']) ||
+				typeof caller['user']['id'] !== 'string'
+			) {
+				throw new InvalidQuery('options.as', 'options.as.user must be { id }.')
+			}
+			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kernel reads only the id; the record's other fields are the server code's.
+			return caller as Caller
+		case 'master':
+			// Only the kernel creates Master (D-19): a copy is a forgery.
+			if (!isMaster(caller)) {
+				throw new Error('options.as is a Master the kernel did not create.')
+			}
+			return caller
+		default:
+			throw new InvalidQuery('options.as', 'options.as must be a caller.')
+	}
+}
+
+const manyKeys = new Set([
+	'where',
+	'select',
+	'include',
+	'orderBy',
+	'take',
+	'skip',
+	'cursor',
+])
+
+async function find(
+	context: Context,
+	store: Store,
+	args: unknown,
+	single: boolean,
+): Promise<unknown> {
+	const { models, model, scope } = context
+	const { read, shape, readable } = await planned(scope, () => ({
+		...plan(models, model, args, '', 'many', manyKeys, scope),
+		readable: scope.readable(model.name),
+	}))
+	const take = read.take ?? 1
+	const limited = single ? { ...read, take: Math.sign(take) } : read
+	const rows = await store.find({
+		model: model.name,
+		...restrict(limited, readable),
+	})
+	if (single) return first(rows, shape, scope.access)
+	return rows.map((row) => project(row, shape, hiddenBy(scope.access)))
+}
+
+async function findUnique(
+	context: Context,
+	store: Store,
+	args: unknown,
+): Promise<unknown> {
+	const { models, model, scope } = context
+	const found = given(
+		args,
+		model.name,
+		['where', 'select', 'include'],
+		['where'],
+	)
+	const { read, shape, where } = await planned(scope, () => ({
+		...plan(
+			models,
+			model,
+			picked(found),
+			'',
+			'one',
+			new Set(['select', 'include']),
+			scope,
+		),
+		where: and(
+			uniqueWhere(models, model, found.get('where'), 'where', scope),
+			scope.readable(model.name),
+		),
+	}))
+	const rows = await store.find({ model: model.name, ...read, where })
+	return first(rows, shape, scope.access)
+}
+
+async function count(
+	context: Context,
+	store: Store,
+	args: unknown,
+): Promise<number> {
+	const { models, model, scope } = context
+	const found = given(args, model.name, ['where'], [])
+	const where = await planned(scope, () =>
+		and(
+			plan(
+				models,
+				model,
+				Object.fromEntries(found),
+				'',
+				'one',
+				new Set(['where']),
+				scope,
+			).read.where,
+			scope.readable(model.name),
+		),
+	)
+	return store.count({ model: model.name, ...(where && { where }) })
+}
+
+type Run = (context: Context, store: Store, args: unknown) => Promise<unknown>
+type Write = (
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	args: unknown,
+) => Promise<unknown>
+
+type ReadOperation = 'findMany' | 'findFirst' | 'findUnique' | 'count'
+
+const reads: { readonly [O in ReadOperation]: Run } = {
+	findMany: async (context, store, args) => find(context, store, args, false),
+	findFirst: async (context, store, args) => find(context, store, args, true),
+	findUnique,
+	count,
+}
+
+const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
+	create,
+	update,
+	delete: remove,
+}
+
+function isRead(operation: Operation): operation is ReadOperation {
+	return Object.hasOwn(reads, operation)
+}
+
+/** Runs one query of a model of the running application. */
+export async function query(
+	name: string,
+	operation: Operation,
+	args: unknown,
+	options: unknown,
+): Promise<unknown> {
+	const app = current()
+	const model = app?.resolved.models.get(name)
+	if (app === undefined || model === undefined) {
+		throw new Error(`${name} is not a model of a started application.`)
+	}
+	const caller = callerOf(options, name)
+	const { models } = app.resolved
+	const access = accessFor(models, caller, app.logger)
+	const scope = new QueryScope(models, caller, access)
+	const context: Context = { app, models, model, caller, scope }
+	if (isRead(operation)) {
+		const read = reads[operation]
+		return app.work.run(async () =>
+			reading(app, async (store) => read(context, store, args)),
+		)
+	}
+	const write = writes[operation]
+	return app.work.run(async () =>
+		writing(app, async (store, commits) =>
+			write(context, store, commits, args),
+		),
+	)
+}

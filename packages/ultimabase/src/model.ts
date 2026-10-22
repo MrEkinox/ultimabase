@@ -22,16 +22,16 @@ type CreateFacts<F> = {
 	readonly operation: 'create'
 	readonly value: CreateData<F>
 }
-type UpdateFacts<F> = {
+type UpdateFacts<F, N extends string> = {
 	readonly caller: Caller
 	readonly operation: 'update'
-	readonly record: StoredRecord<F>
+	readonly record: StoredRecord<F, N>
 	readonly value: UpdateData<F>
 }
-type DeleteFacts<F> = {
+type DeleteFacts<F, N extends string> = {
 	readonly caller: Caller
 	readonly operation: 'delete'
-	readonly record: StoredRecord<F>
+	readonly record: StoredRecord<F, N>
 }
 
 /** A read filter; only the `where` a read rule receives builds one (D-10). */
@@ -46,33 +46,35 @@ type ReadRule<F> = (
 ) => boolean | ReadFilter
 
 /** One rule, or one rule per operation; `write` covers the three writes. */
-export type ModelAccess<F> =
+export type ModelAccess<F, N extends string> =
 	| ((
-			facts: ReadFacts | CreateFacts<F> | UpdateFacts<F> | DeleteFacts<F>,
+			facts: ReadFacts | CreateFacts<F> | UpdateFacts<F, N> | DeleteFacts<F, N>,
 	  ) => boolean)
 	| {
 			readonly read?: ReadRule<F>
 			readonly create?: (facts: CreateFacts<F>) => boolean
-			readonly update?: (facts: UpdateFacts<F>) => boolean
-			readonly delete?: (facts: DeleteFacts<F>) => boolean
+			readonly update?: (facts: UpdateFacts<F, N>) => boolean
+			readonly delete?: (facts: DeleteFacts<F, N>) => boolean
 			readonly write?: (
-				facts: CreateFacts<F> | UpdateFacts<F> | DeleteFacts<F>,
+				facts: CreateFacts<F> | UpdateFacts<F, N> | DeleteFacts<F, N>,
 			) => boolean
 	  }
 
 type Hook<Facts> = (
 	facts: Facts & { readonly caller: Caller },
 ) => void | Promise<void>
-type RecordHook<F> = Hook<{ readonly record: StoredRecord<F> }>
-type UpdatedHook<F> = Hook<{
-	readonly record: StoredRecord<F>
-	readonly previous: StoredRecord<F>
+type RecordHook<F, N extends string> = Hook<{
+	readonly record: StoredRecord<F, N>
+}>
+type UpdatedHook<F, N extends string> = Hook<{
+	readonly record: StoredRecord<F, N>
+	readonly previous: StoredRecord<F, N>
 }>
 /** The data a `before*` hook changes in place (D-71). */
 type Draft<D> = { -readonly [K in keyof D]: D[K] }
 
 /** The fixed hooks of D-15, written by the application (D-43, D-71). */
-export type ModelHooks<F> = {
+export type ModelHooks<F, N extends string = string> = {
 	/** Narrows every read of the model, at every level, Master included. */
 	readonly beforeFind?: (facts: {
 		readonly caller: Caller
@@ -80,22 +82,22 @@ export type ModelHooks<F> = {
 	}) => ReadFilter | void | Promise<ReadFilter | void>
 	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F>> }>
 	readonly beforeUpdate?: Hook<{
-		readonly record: StoredRecord<F>
+		readonly record: StoredRecord<F, N>
 		readonly data: Draft<UpdateData<F>>
 	}>
-	readonly beforeDelete?: RecordHook<F>
-	readonly afterCreate?: RecordHook<F>
-	readonly afterUpdate?: UpdatedHook<F>
-	readonly afterDelete?: RecordHook<F>
-	readonly afterCreateCommit?: RecordHook<F>
-	readonly afterUpdateCommit?: UpdatedHook<F>
-	readonly afterDeleteCommit?: RecordHook<F>
+	readonly beforeDelete?: RecordHook<F, N>
+	readonly afterCreate?: RecordHook<F, N>
+	readonly afterUpdate?: UpdatedHook<F, N>
+	readonly afterDelete?: RecordHook<F, N>
+	readonly afterCreateCommit?: RecordHook<F, N>
+	readonly afterUpdateCommit?: UpdatedHook<F, N>
+	readonly afterDeleteCommit?: RecordHook<F, N>
 }
 
 /** The kernel's keys; `W` holds one key per plugin (D-42). */
-export type ModelWith<F, W> = {
-	readonly access?: ModelAccess<F>
-	readonly hooks?: ModelHooks<F>
+export type ModelWith<F, W, N extends string> = {
+	readonly access?: ModelAccess<F, N>
+	readonly hooks?: ModelHooks<F, N>
 } & W
 
 /** `X` lists the fields of each unique index (D-52). */
@@ -107,7 +109,7 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 	readonly [modelFields]: F
 	/** The plugins it uses, checked against the application's (D-24). */
 	readonly plugins?: P
-	with(rules: ModelWith<F, W>): this
+	with(rules: ModelWith<F, W, N>): this
 }
 
 export type FieldShape = {

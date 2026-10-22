@@ -1,27 +1,13 @@
-// D-24: a model lists the plugins it uses, `defineModel({ use: [softDelete()] })`,
-// and `defineApp({ database, plugins, models, functions })` assembles the
-// application. A plugin's types travel with its values; nothing is declared
-// globally.
-import type { Logger, MasterKey } from './app-options.ts'
-import type {
-	App,
-	FieldShape,
-	FieldTypePlugins,
-	IndexCheck,
-	IndexShape,
-	InverseCheck,
-	Model,
-	ModelHooks,
-	ModelShape,
-	RecordCheck,
-	UniqueIndexFields,
-} from './model.ts'
+// A plugin is an interface of types and one `definePlugin` (D-57). Its types
+// travel with its values; nothing is declared globally (D-24).
+import type { Logger } from './app-options.ts'
 import type { FieldBuilders } from './fields.ts'
-import type { FunctionShape } from './function.ts'
+import { pluginEntries, pluginValues } from './definition.ts'
+import { pluginCode } from './plugin-code.ts'
+import type { FieldShape, ModelHooks } from './model.ts'
 import type { Queries, UniqueWhere } from './query.ts'
-import type { RecordOf } from './record.ts'
 import type { Caller } from './rules.ts'
-import type { fieldType, modelFields, pluginTypes } from './symbols.ts'
+import type { pluginTypes } from './symbols.ts'
 
 /**
  * What a plugin adds to the models that use it (D-57). `this['fields']` is
@@ -44,8 +30,8 @@ export interface PluginTypes {
 	readonly optional?: PluginTypes
 	/** What it offers other plugins (D-16). */
 	readonly api?: object
-	/** The fields it adds to the models that use it (D-07, D-15). */
-	readonly adds?: { readonly [field: string]: FieldShape }
+	/** The fields it adds to the models that use it (D-07, D-15, D-89). */
+	readonly addedFields?: { readonly [field: string]: FieldShape }
 	/** Its commands (D-15). */
 	readonly commands?: object
 	/** Its key of the model's `.with` (D-42). */
@@ -57,11 +43,13 @@ export interface PluginTypes {
 }
 
 /** A plugin's types for one model's fields. */
-type ForModel<T, F> = T & { readonly fields: F }
+export type ForModel<T, F> = T & { readonly fields: F }
 /** What a plugin's own code sees of a model: the fields it adds. Other
  * fields are the model's, unknown to the plugin (D-57). */
-// oxlint-disable-next-line typescript/no-generated-empty-object-type -- no fields, not any value
-type Own<T> = T extends { readonly adds: infer A } ? A : Record<never, never>
+type Own<T> = T extends { readonly addedFields: infer A }
+	? A
+	: // oxlint-disable-next-line typescript/no-generated-empty-object-type -- no fields, not any value
+		Record<never, never>
 type EntryOptions<T> = T extends { readonly options: infer O extends object }
 	? O
 	: { readonly [option: string]: never }
@@ -101,11 +89,6 @@ export interface PluginValue<P extends string, R extends string = never> {
 	readonly requires?: readonly R[]
 }
 
-/** A storage adapter (D-02): its own slot, not a plugin. */
-export interface Database {
-	readonly adapter: string
-}
-
 type HookFacts<F, K extends keyof ModelHooks<F>> = Parameters<
 	NonNullable<ModelHooks<F>[K]>
 >[0]
@@ -127,7 +110,7 @@ export type PluginRedirects<F, O, A> = {
 			readonly caller: Caller
 			readonly where: UniqueWhere<F>
 		} & PluginModel<F, O, A>,
-	) => Promise<RecordOf<F>>
+	) => Promise<unknown>
 }
 
 /** What a model gives a plugin's code. */
@@ -137,7 +120,11 @@ export interface PluginModel<F, O, A> {
 	readonly plugins: A
 }
 
-type CodePart<T, K extends 'commands' | 'api', Out> = T extends {
+type CodePart<
+	T,
+	K extends 'commands' | 'api' | 'addedFields',
+	Out,
+> = T extends {
 	readonly [P in K]: object
 }
 	? { readonly [P in K]: Out }
@@ -184,6 +171,11 @@ export type PluginDefinition<T extends PluginTypes> = {
 	) => ForModel<T, Own<T>>['commands']
 > &
 	CodePart<T, 'api', (context: PluginContext<T>) => T['api']> &
+	CodePart<
+		T,
+		'addedFields',
+		(fields: FieldBuilders<never>, options: EntryOptions<T>) => Own<T>
+	> &
 	Needs<'requires', Requires<T>> &
 	Needs<'optional', Optional<T>>
 
@@ -207,173 +199,20 @@ export type UseOf<T extends PluginTypes> = Plugin<T>['use']
 /** The type of a plugin's application value function, for its export. */
 export type PluginOf<T extends PluginTypes> = Plugin<T>['plugin']
 
-export declare function definePlugin<T extends PluginTypes>(
+export function definePlugin<T extends PluginTypes>(
 	definition: PluginDefinition<T>,
-): Plugin<T>
-
-// The intersection of the used plugins' commands; `unknown` without any.
-type CommandFn<U, F> =
-	U extends ModelUse<string, infer T>
-		? T extends { readonly commands: object }
-			? (value: ForModel<T, F>['commands']) => void
-			: never
-		: never
-type Commands<U, F> = [CommandFn<U, F>] extends [never]
-	? unknown
-	: CommandFn<U, F> extends (value: infer I) => void
-		? I
-		: unknown
-
-/** Each used plugin's key of `.with`, typed by the model's fields. */
-type WithKeys<U, F> = {
-	readonly [
-		V in U as V extends ModelUse<infer P, infer T>
-			? T extends { readonly with: object }
-				? P
-				: never
-			: never
-	]?: V extends ModelUse<string, infer T extends { readonly with: object }>
-		? ForModel<T, F>['with']
-		: never
+): Plugin<T> {
+	const code = pluginCode(definition)
+	const plugin = (options?: object): PluginValue<string, string> => {
+		const value = Object.freeze({ name: code.name, requires: code.requires })
+		pluginValues.set(value, { code, options: options ?? {} })
+		return value
+	}
+	const use = (options?: object): object => {
+		const entry = Object.freeze({ plugin: code.name, options })
+		pluginEntries.set(entry, { code, options: options ?? {} })
+		return entry
+	}
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the two functions are Plugin<T>'s; their types follow T.
+	return { plugin, use } as unknown as Plugin<T>
 }
-
-/** The types of the plugins in a model's `use`. */
-type UsedTypes<U> = U extends ModelUse<string, infer T> ? T : never
-
-// The fields the used plugins add, merged with the model's own.
-type AddFn<U> =
-	U extends ModelUse<string, infer T>
-		? T extends { readonly adds: infer A }
-			? (value: A) => void
-			: never
-		: never
-type Added<U> = [AddFn<U>] extends [never]
-	? unknown
-	: AddFn<U> extends (value: infer I) => void
-		? I
-		: unknown
-type AllFields<F, U> = [Added<U>] extends [unknown]
-	? unknown extends Added<U>
-		? F
-		: F & Added<U>
-	: F & Added<U>
-
-/** A model's fields, as `fields` returns them. */
-export type FieldShapes = { readonly [field: string]: FieldShape }
-
-/** The `fields` callback: its builders know the plugins of `use` (D-12, D-57). */
-export type ModelFields<
-	F,
-	U extends readonly ModelUse<string, PluginTypes>[],
-> = (fields: FieldBuilders<UsedTypes<U[number]>>) => F & NoInfer<RecordCheck<F>>
-
-/**
- * The model a declaration with these fields and plugins builds; a plugin's
- * `define<Kind>` returns it with its own entry in `U` (D-13).
- */
-export type ModelOf<
-	N extends string,
-	F,
-	U extends readonly ModelUse<string, PluginTypes>[],
-	X extends readonly IndexShape[] = [],
-> = Model<
-	N,
-	AllFields<F, U[number]>,
-	U[number]['plugin'],
-	WithKeys<U[number], AllFields<F, U[number]>>,
-	UniqueIndexFields<X>
-> &
-	Commands<U[number], AllFields<F, U[number]>>
-
-/** `indexes`, whose fields are checked against the model's (D-52). */
-export type ModelIndexes<
-	X,
-	F,
-	U extends readonly ModelUse<string, PluginTypes>[],
-> = X & NoInfer<IndexCheck<X, AllFields<F, U[number]>>>
-
-export declare function defineModel<
-	const N extends string,
-	const F extends FieldShapes,
-	const U extends readonly ModelUse<string, PluginTypes>[] = [],
-	const X extends readonly IndexShape[] = [],
->(definition: {
-	readonly name: N
-	/** The stored table's or collection's name (D-63). */
-	readonly dbName?: string
-	readonly use?: U
-	/** The only form (D-12). */
-	readonly fields: ModelFields<F, U>
-	readonly indexes?: ModelIndexes<X, F, U>
-}): ModelOf<N, F, U, X>
-
-// Checked on the `defineApp` line, where every model is typed (D-24).
-type Used<M> =
-	| (M extends { readonly plugins?: infer P } ? P : never)
-	| (M extends { readonly [modelFields]: infer F }
-			? FieldTypePlugins<F>
-			: never)
-type Missing<P extends readonly PluginValue<string, string>[], X> = Exclude<
-	Used<X>,
-	P[number]['name'] | undefined
->
-type RequiresOf<V> = V extends PluginValue<string, infer R> ? R : never
-type Unmet<P extends readonly PluginValue<string, string>[]> = Exclude<
-	RequiresOf<P[number]>,
-	P[number]['name']
->
-type PluginCheck<
-	P extends readonly PluginValue<string, string>[],
-	M extends readonly ModelShape[],
-	Fn extends readonly FunctionShape[],
-> = [Missing<P, M[number]>] extends [never]
-	? [Missing<P, Fn[number]>] extends [never]
-		? [Unmet<P>] extends [never]
-			? unknown
-			: {
-					readonly pluginError: `a plugin requires '${Unmet<P> & string}', which is not in plugins`
-				}
-		: {
-				readonly pluginError: `a function uses '${Missing<P, Fn[number]> & string}', which is not in plugins`
-			}
-	: {
-			readonly pluginError: `a model uses '${Missing<P, M[number]> & string}', which is not in plugins`
-		}
-
-type Targets<X> = X extends { readonly [modelFields]: infer F }
-	? {
-			[K in keyof F]: F[K] extends {
-				readonly [fieldType]: { readonly target: () => infer T }
-			}
-				? T extends { readonly name: infer N }
-					? N
-					: never
-				: never
-		}[keyof F]
-	: never
-type Unlisted<M extends readonly ModelShape[]> = Exclude<
-	Targets<M[number]>,
-	M[number]['name']
->
-type ModelCheck<M extends readonly ModelShape[]> = [Unlisted<M>] extends [never]
-	? unknown
-	: {
-			readonly modelError: `a relation points to '${Unlisted<M> & string}', which is not in models`
-		}
-
-export declare function defineApp<
-	const P extends readonly PluginValue<string, string>[] = [],
-	const M extends readonly ModelShape[] = [],
-	const Fn extends readonly FunctionShape[] = [],
->(
-	options: {
-		readonly database: Database
-		readonly plugins?: P
-		readonly models: M
-		readonly functions?: Fn
-		readonly masterKey?: MasterKey
-		readonly logger?: Logger
-	} & NoInfer<PluginCheck<P, M, Fn>> &
-		NoInfer<ModelCheck<M>> &
-		NoInfer<InverseCheck<M>>,
-): App<M>

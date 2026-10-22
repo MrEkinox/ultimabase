@@ -1344,13 +1344,13 @@ rate-limit plugin.
 Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
 `appOptions` (its application value's), `requires` and `optional` (D-16),
-`api` (what it offers other plugins), `adds` (the fields it adds to the models
-that use it), `commands` (D-15), `with` (its key of the model's `.with`, D-42),
-`fieldWith` (its key of a field's `.with`, D-12) and `functionWith` (its key
-of a function's `.with`, D-27). Inside the interface,
-`this['fields']` is the fields of the model that lists the plugin in its
-`use`, `this['options']` the options of its entry there, and `this['value']`
-the value of the field whose `.with` holds its rule. Its code is one
+`api` (what it offers other plugins), `addedFields` (the fields it adds to
+the models that use it, renamed by D-89), `commands` (D-15), `with` (its key
+of the model's `.with`, D-42), `fieldWith` (its key of a field's `.with`,
+D-12) and `functionWith` (its key of a function's `.with`, D-27). Inside the
+interface, `this['fields']` is the fields of the model that lists the plugin
+in its `use`, `this['options']` the options of its entry there, and
+`this['value']` the value of the field whose `.with` holds its rule. Its code is one
 `definePlugin<T>({ name, manifest, ... })`, checked against the interface: a
 different name, a missing command or `api`, or a part the interface does not
 declare fails on its line. It returns `use`, the model entry, and `plugin`,
@@ -1418,12 +1418,13 @@ interface SoftDelete extends PluginTypes {
 	readonly name: 'softDelete'
 	readonly options: { readonly field?: string }
 	readonly appOptions: { readonly purgeAfterDays?: number }
-	readonly adds: DeletedField<this['options']>
+	readonly addedFields: DeletedField<this['options']>
 	readonly commands: SoftDeleteCommands<this['fields']>
 }
 const softDeleteDefinition = definePlugin<SoftDelete>({
 	name: 'softDelete',
 	manifest,
+	addedFields: (f, options) => deletedField(f, options),
 	hooks: { beforeFind: ({ where, options }) => hideDeleted(where, options) },
 	commands: ({ queries }) => ({
 		trash: deletedOnly(queries),
@@ -1645,11 +1646,11 @@ isolation level by default, which adds retries for no common need.
 
 ## D-67: One fixed order for every operation
 
-Choice: an operation runs in this order: `redirect` (D-15), the model's access
-rule (D-10), the fields' access rules on the data the caller sent (D-44),
-defaults (D-53), validation (D-23), the `before*` hooks, the check that
-required fields are present, the write, the in-transaction `after*` hooks,
-commit, then the `*Commit` hooks. A value written by a hook goes through
+Choice: an operation runs in this order: the model's access rule (D-10), the
+fields' access rules on the data the caller sent (D-44), defaults (D-53),
+validation (D-23), the `before*` hooks, the check that required fields are
+present, the write, which a `redirect` replaces (D-15, amended by D-89), the
+in-transaction `after*` hooks, commit, then the `*Commit` hooks. A value written by a hook goes through
 neither access rules nor validation: hooks are trusted server code, so a
 `beforeCreate` hook can fill `createdBy` even when the field refuses it on
 `create`, and a required field may be left to a hook.
@@ -2081,8 +2082,9 @@ export const Comment = defineModel({ name: 'Comment', fields }).with({
 ## D-77: Rules and hooks see a `one` relation's key
 
 Choice: the stored record access rules and hooks receive (`record`,
-`previous`) holds each `one` relation as `{ id }`, or `null` when the
-relation is optional and unset. A `many` relation stays absent. Query results
+`previous`) holds each `one` relation the row stores as `{ id }`, or `null`
+when the relation is optional and unset; the optional side of a one-to-one
+stores none (D-87). A `many` relation stays absent. Query results
 are unchanged: a relation appears only through `include` or `select` (D-74),
 and `caller.user` keeps its fields (D-62).
 Why: "only the author changes it" is the most common rule, and the key is a
@@ -2370,4 +2372,894 @@ export const editPost = defineFunction({
 	run: ({ input: { id, ...data }, caller }) =>
 		Post.update({ where: { id }, data }, { as: caller }),
 })
+```
+
+## D-85: Each package covers at least 90 % of its code
+
+Choice: every package's production code (`packages/*/src`, without tests and
+`test/` fixtures) is covered at 90 % or more on lines, statements, functions
+and branches, each package on its own. `yarn test` measures it with the V8
+provider and fails under the floor, so `yarn validate` and CI enforce it.
+95 % is the target, not a ceiling. Coverage-ignore comments are refused by
+Oxlint (`no-warning-comments`): uncovered code is tested, removed or
+restructured. A package that only PostgreSQL can test will be measured by
+`yarn test:postgres` with the same floor; that command gets coverage with the
+first such package, since today it would measure the kernel at 0 %.
+Why: the kernel is a contract for adapters and plugins; a floor per package
+keeps a well-tested package from hiding an untested one, and branches catch
+the refusal paths that a happy-path test skips.
+Limit: coverage proves code ran, not that a test checked it; review still
+judges the assertions. Code written for a later slice counts against the
+floor until its slice tests it.
+Cost: about 2 s on `yarn test`, and the `@vitest/coverage-v8` devDependency.
+Rejected: one floor for the whole repository, which a large package can carry
+for a small one; a 95 % floor, which pushes tests for invariants that cannot
+fail.
+
+## D-86: Access rules on relations, filters and written rows
+
+Choice: five details of D-10, D-44 and D-78 at run time.
+
+1. A field rule on a `many` relation receives
+   `value: { connect, disconnect }`, each a list of `{ id }` as the caller
+   sent it, `[]` when absent.
+2. `create` and `update` return the written row even when the model's read
+   rule would hide it afterwards. Field read rules still hide its fields,
+   and its includes follow their own read rules. The result type stays
+   non-nullable.
+3. A caller other than Master that filters, sorts or targets a row (`where`,
+   `orderBy`, `cursor`, a unique `where`) on a field with a read rule, at
+   any depth, gets `INVALID_QUERY` with the path, as
+   `where.author.is.email: User.email has a read rule; only Master filters on it.`
+4. A row the caller cannot read is absent everywhere:
+   - an include leaves it out, and a `one` include reads `null`;
+   - relation filters (`is`, `isNot`, `some`, `every`, `none`) see only
+     readable rows, so `is: null` holds when the target is unreadable;
+   - a `connect` to it fails with `NOT_FOUND`
+     ('A connected Post does not exist.'), and a `disconnect` of it
+     changes nothing;
+   - `update`, `delete` and a `cursor` on it act as on a missing row.
+5. A read rule's `where` is trusted server code. The kernel ANDs it as
+   written: other models' read rules are not applied to its relation
+   conditions, and it may filter on fields that have a read rule.
+
+The rules D-78 runs on the other side's rows come with this slice; the
+update hooks it also calls come with the hooks.
+
+Why:
+
+1. The full list after the write needs a query, which a rule cannot make
+   (D-76). What the caller asked is what Parse's `AddRelation` and
+   `RemoveRelation` show.
+2. The creator supplied the data. A nullable result would add a null check
+   to every `create` for a rare case.
+3. Parse lets a query constrain a protected field, which leaks its value one
+   guess at a time. `ACCESS_DENIED` is for writes (D-72).
+4. Otherwise a count, an `is: null` or a failed `connect` tells a caller that
+   hidden rows exist.
+5. Applying other models' rules to a rule's own filter cycles when Comment
+   reads through Post and Post through Comment. The developer writes that
+   filter and answers for it.
+
+Limit: a field read rule's `record` holds a `one` relation as `{ id }`. When
+the same query includes that relation and the caller cannot read its target,
+the include is `null` and so is the key the rule sees, which fails closed for
+an owner check.
+
+Rejected:
+
+- the list after the write as the `many` value;
+- a nullable write result;
+- `ACCESS_DENIED` for a filter on a hidden field;
+- relation filters that count unreadable rows;
+- read rule filters rewritten with the target's rules.
+
+Example:
+
+```ts
+// Before: Parse, a protected field can still be queried
+const query = new Parse.Query('_User').startsWith('email', 'a')
+await query.count({ sessionToken }) // guesses the emails, letter by letter
+
+// After
+await User.count({ where: { email: { startsWith: 'a' } } }, { as: caller })
+// INVALID_QUERY where.email: User.email has a read rule; only Master filters on it.
+
+// 1. The many value
+comments: f.many(() => Comment).with({
+	access: { update: ({ value }) => value.disconnect.length === 0 },
+}),
+
+// 2. Drafts are unreadable, yet the author gets the draft they created
+const draft = await Post.create(
+	{ data: { title: 'Soon', status: 'draft', author: { connect: { id } } } },
+	{ as: caller },
+)
+draft.title // 'Soon'
+
+// 4. Unreadable rows are absent
+await Comment.count({ where: { post: { is: null } } }, { as: caller })
+// counts the comments of drafts
+await Comment.create(
+	{ data: { text: 'Hi', post: { connect: { id: draft.id } } } },
+	{ as: caller },
+)
+// NOT_FOUND A connected Post does not exist.
+
+// 5. A rule's filter is trusted: it may read the hidden email
+access: { read: ({ where }) => where({ author: { is: { email: { endsWith: '@team.io' } } } }) }
+```
+
+## D-87: A rule's record omits the optional side of a one-to-one
+
+Choice: the `record` and `previous` types of access rules and hooks hold only
+the `one` relations the row stores (D-37). The optional side of a one-to-one
+is absent, as it already is at run time. Startup's inverse resolution decides
+which side that is: a named `inverse`, or else the target's `one` relation
+that points back to the model.
+Why: that side has no column, and reading the key from the other table is a
+query, which a rule cannot make (D-76, D-77). A field that the type offers
+but that is always `undefined` reads as "unset" and fails an owner check
+silently.
+Cost: typing 200 models with a one-to-one each goes from 405,172 to 661,306
+instantiations, and type checking from about 0.25 s to 0.34 s.
+Rejected:
+
+- loading the key with a query for each rule;
+- `{ id } | null | undefined` on that side;
+- write rules that return a filter ANDed into the write, as ZenStack does: it
+  reads the other side in the database, but a create must write, check and
+  roll back (D-36), which runs the hooks before the rule (D-67). To revisit
+  if usage asks for it.
+
+Example:
+
+```ts
+// Before: Parse, the pointer lives on one side only
+const passport = await new Parse.Query('Passport')
+	.equalTo('holder', person)
+	.first({ useMasterKey: true }) // a query to learn whether one exists
+
+// After: the stored side holds the key, the other side has none
+export const Passport = defineModel({
+	name: 'Passport',
+	fields: { holder: f.one(() => Person) },
+}).with({
+	access: {
+		delete: ({ caller, record }) =>
+			caller.kind === 'user' && record.holder.id === caller.user.id,
+	},
+})
+export const Person = defineModel({
+	name: 'Person',
+	fields: { passport: f.one(() => Passport, { optional: true }) },
+}).with({
+	access: {
+		delete: ({ record }) => record.passport === null,
+		// error TS2339: Property 'passport' does not exist on type 'StoredRecord<...>'
+	},
+})
+```
+
+## D-88: Hooks, validation and transactions at run time
+
+Choice: eleven details of D-15, D-23, D-36, D-67 and D-71 at run time.
+
+1. A `*Commit` hook is awaited before its operation, or the outermost
+   `transaction`, resolves. A failure is logged at `error` with a
+   correlation id (D-28) and is not thrown.
+2. `beforeFind` runs only for the models a query reaches: the queried model,
+   its includes, its relation filters, a `connect`'s targets and the rows a
+   relation write moves. It runs at most once per query and model.
+3. When an `after*` hook runs, `create` and `update` read their result again
+   after it, so the hook's writes show. Without one, the write returns its
+   row itself.
+4. A `validate` function that throws refuses with `VALIDATION_FAILED` and the
+   issue `{ path: [field], message: error.message }`. A schema's issues get
+   the field's name in front of their path.
+5. `beforeFind`'s filter is trusted server code, as a read rule's (D-86): it
+   may filter on a field with a read rule, and other models' rules do not
+   apply to its relation conditions.
+6. `create` and `update` return the written row even when `beforeFind` would
+   hide it, as for a read rule (D-86).
+7. After the `before*` hooks, the kernel checks the data again. A required
+   field left empty gives `VALIDATION_FAILED` (`'Required.'`); a value of
+   the wrong type, written by a hook or by `validate`, is a server bug and
+   fails with an internal error.
+8. Every query runs in the open `transaction`; outside one, a write opens its
+   own. Once a query has failed in a transaction, the next ones fail too, as
+   in PostgreSQL.
+9. A row a relation write moves (D-78) runs the target's `beforeUpdate`, with
+   `data` holding that relation as `{ connect: { id } }` or
+   `{ disconnect: true }`, then `afterUpdate` and `afterUpdateCommit`. The
+   hook may add fields to `data`; the relation itself is written as the
+   caller asked. The moved row's `updatedAt` moves, as `Target.update`'s
+   would.
+10. Without a `logger`, the kernel writes JSON lines to the console (D-58).
+    `ACCESS_DENIED` is logged at `warn` with its details and the caller's id
+    (D-82).
+11. A relation value the caller did not send, written by a default or a
+    `before*` hook, skips the target's access rules but not its
+    `beforeFind`: a `connect` to a row `beforeFind` hides fails with
+    `NOT_FOUND`.
+
+Why:
+
+1. A test or a serverless function that ends when the operation resolves
+   would otherwise lose the email; Parse's unawaited `afterSave` loses its
+   errors.
+2. A soft delete's or a tenant's `beforeFind` on every model would run for
+   each query, even on models it never reads.
+3. A hook that writes the row it follows, a counter or a status, would
+   otherwise return stale data; a second read on every write breaks D-48's
+   two statements.
+4. A function has no other way to say why it refuses; its message is what
+   the developer wrote for the client.
+5. Same reason as D-86 for a read rule's filter.
+6. Same reason as D-86 for a written row a read rule hides.
+7. A required field may be left to a hook (D-67), so it can only be checked
+   after it. A client never chose a hook's value, so a wrong one is not the
+   client's fault.
+8. PostgreSQL refuses every statement of an aborted transaction; `memory()`
+   must behave the same, or tests pass that fail in production.
+9. D-78 runs the target's update hooks; a move writes no other field, and
+   one changed by the hook would lose its `connect` check.
+10. ACCESS_DENIED is the error a developer debugs most; the log names who
+    was refused.
+11. D-67 skips access rules for a hook's values; a default is server code
+    too. `beforeFind` is not an access rule: a soft-deleted row stays out of
+    reach whoever writes the relation.
+
+Rejected:
+
+- `*Commit` hooks run without waiting;
+- every model's `beforeFind` at each query;
+- a read after every write;
+- a `validate` function returning an error message instead of throwing;
+- validating hook values, which D-67 rejects;
+- queries that keep running in a failed transaction.
+
+Example:
+
+```ts
+// Before: Parse, afterSave is not awaited and its errors are lost
+Parse.Cloud.afterSave('Order', async ({ object }) => {
+	await sendReceipt(object)
+})
+
+// After
+export const Order = defineModel({ name: 'Order', fields }).with({
+	hooks: {
+		// in the transaction: a failure rolls the order back
+		afterCreate: async ({ record }) => {
+			await Invoice.create(
+				{ data: { order: { connect: { id: record.id } } } },
+				{ as: master },
+			)
+		},
+		// after commit, awaited: a failure is logged, the order is kept
+		afterCreateCommit: async ({ record }) => sendReceipt(record),
+	},
+})
+
+await transaction(async () => {
+	await Order.create({ data }, { as: caller })
+	await Stock.update({ where, data: { count: 0 } }, { as: master })
+	// throws: the order and its invoice roll back, no receipt is sent
+})
+
+// A validate function refuses by throwing
+slug: f.string({
+	validate: (value) => {
+		if (!/^[a-z-]+$/.test(value)) throw new Error('Lowercase letters only.')
+		return value
+	},
+}),
+// PublicError VALIDATION_FAILED,
+// details.issues: [{ path: ['slug'], message: 'Lowercase letters only.' }]
+```
+
+## D-89: Plugins at run time
+
+Choice: seven details of D-15, D-57, D-67 and D-71 at run time. It replaces
+D-67's place for `redirect` and D-57's name `adds`.
+
+1. A redirected `delete` runs the path of a `delete`: the lookup of its row
+   (`beforeFind`, `NOT_FOUND`), the model's `delete` access rule, the
+   `beforeDelete` hooks, then the redirect in place of the write, given
+   `where: { id }` of the row found, in the operation's transaction. Then
+   `afterDelete` with the record as it was, the commit and
+   `afterDeleteCommit`. The redirect's own queries run their own pipeline.
+   `delete` returns the row as stored after the redirect, under the caller's
+   field rules, or the record as it was when the redirect removed it.
+2. While a command runs, the queries it makes on its model give the
+   plugin's hooks on that model `command`, its name. A query a hook makes,
+   the application's or a plugin's, gets no `command`. A command is a
+   function or an object of functions (`trash: queries`).
+3. The interface declares a plugin's fields in `addedFields`, and its code
+   builds them in `addedFields: (f, options) => ({ ... })`, required when
+   the interface declares them. It runs once per model entry, with the
+   entry's options (`{}` without). Its types are checked with the default
+   options: a field that an option names or adds needs a cast in the
+   plugin's code, never in the application's.
+4. A plugin's hooks run before the application's, in `plugins` order
+   (D-29); every `beforeFind` filter is ANDed. Their facts add `queries`,
+   the model's kernel queries, the entry's `options`, `plugins` and
+   `command`.
+5. `defineModel` refuses: a `use` value no plugin's entry returned, a plugin
+   listed twice in `use`, an added field whose name a model field, another
+   plugin's field or the kernel holds, two plugins adding one command, a
+   command named after a model method (`findMany`, `with`), and two plugins
+   redirecting `delete`. `start` refuses: a `plugins` value no plugin
+   returned, two plugins of one name, a plugin a model uses that is missing
+   from `plugins` or comes from another `definePlugin`, and a requirement
+   missing from `plugins`.
+6. `plugins.auth` is read when used: reading it before `start` throws. At
+   `start`, each plugin's `api(context)` runs once, after the APIs of the
+   plugins it requires or optionally uses; a cycle of requirements stops
+   startup naming its plugins. `context` holds the application value's
+   options (`{}` without), `plugins` and the logger.
+7. Later: a plugin's `start` and `stop`, the manifest's version checks
+   (D-58, D-59), Identify, with `caller.user` (with auth), and a plugin
+   reading its own `.with` key (with ACL).
+
+Why:
+
+1. The redirect only changes how the row goes away. Running the update's
+   access rule instead of the delete's would let a caller who may edit but
+   not delete delete, and Master would skip every rule. An application's
+   `afterDeleteCommit` keeps running when soft delete is installed (D-54:
+   "afterDelete sees them"). The redirect's update may run as Master and
+   return fields the caller cannot read; the kernel's read keeps them out.
+2. `restore`'s update must find the deleted row, while an application hook
+   that lists posts during it must not see the trash.
+3. Types are erased at run time: the kernel needs the code to create the
+   column. Inferring the types from the code instead is what D-57 rejects
+   (TS2719, and an option could not change a type). `fields` already names
+   the model's fields inside the interface (`this['fields']`).
+4. D-29's order, plugins first.
+5. A conflict a model alone holds is found where the model is written;
+   one of the application is found where it is assembled.
+6. Commands are built by `defineModel`, before any application starts. A
+   plugin's API may read the APIs it needs as it is built.
+7. Each needs a part that does not exist yet.
+
+Rejected:
+
+- `redirect` before the access rule, as D-67 had it;
+- a redirected `delete` running only the update's hooks;
+- `command` seen by every query that runs during a command;
+- `fields` as the name, or field types inferred from `addedFields`;
+- plugin hooks after the application's.
+
+Example:
+
+```ts
+// Before: Parse, no redirect; the client gets an error, the access rule is
+// the update's
+Parse.Cloud.beforeDelete('Post', async ({ object }) => {
+	object.set('deletedAt', new Date())
+	await object.save(null, { useMasterKey: true })
+	throw new Parse.Error(141, 'Soft deleted.')
+})
+
+// After
+interface SoftDelete extends PluginTypes {
+	readonly name: 'softDelete'
+	readonly addedFields: {
+		readonly deletedAt: Field<Date, { readonly optional: true }>
+	}
+	readonly commands: SoftDeleteCommands<this['fields']>
+}
+const softDeleteDefinition = definePlugin<SoftDelete>({
+	name: 'softDelete',
+	manifest,
+	addedFields: (f) => ({ deletedAt: f.date({ optional: true }) }),
+	hooks: {
+		beforeFind: ({ where, command }) =>
+			where({
+				deletedAt: command === undefined ? null : { not: null },
+			}),
+	},
+	// Runs after the `delete` access rule and `beforeDelete`.
+	redirect: {
+		delete: ({ where, queries }) =>
+			queries.update({ where, data: { deletedAt: new Date() } }, M),
+	},
+	commands: ({ queries }) => ({
+		trash: queries,
+		// Its update sees `command: 'restore'`, so it finds the deleted row.
+		restore: ({ where }) =>
+			queries.update({ where, data: { deletedAt: null } }, M),
+	}),
+})
+
+await Post.delete({ where: { id } }, { as: caller }) // the delete rule
+await Post.trash.findMany({}, { as: caller }) // the deleted posts
+await Post.restore({ where: { id } })
+```
+
+## D-90: Cascades at run time
+
+Choice: seven details of D-54 at run time.
+
+1. A `delete` runs its lookup and its model's `delete` access rule, then
+   loads every row the delete reaches, level by level: each stored `one`
+   relation whose target is a deleted row applies its `onDelete`. The rows
+   are loaded as stored, whatever `beforeFind` hides, and without access
+   rules (D-54).
+2. A `restrict` relation from a row the cascade does not remove refuses the
+   whole delete with `RELATION_RESTRICTED`, naming the model and the field,
+   before any hook runs. A row the cascade removes does not refuse.
+3. A `setNull` row runs its model's update hooks, as a row a relation write
+   moves (D-88): `beforeUpdate` with `data` holding the relation as
+   `{ disconnect: true }`, to which the hook may add fields; its `updatedAt`
+   moves. A row also deleted by the cascade is only deleted.
+4. A cascaded row whose model has a `redirect` (D-89) is redirected as a
+   direct delete: its row stays, so the cascade does not go past it. A
+   redirected row deleted directly cascades nothing.
+5. Hook order: the `beforeUpdate` of the `setNull` rows, the `beforeDelete`
+   of the deleted rows, the deepest first and the row the caller deletes
+   last, then the redirects, then one write holding every `setNull` and
+   every delete. The `after*` hooks follow in the same order, and the
+   `*Commit` hooks once it commits.
+6. The links of a deleted row in a many-to-many join are removed by the
+   adapter with the row, without hooks, since a join has no model (D-64).
+7. A row reached twice, through a cycle or two parents, is deleted once,
+   and each of its keys is emptied once.
+
+Why:
+
+1. A hook-less cascade still needs the rows to check `restrict` and to
+   reach the next level; a row `beforeFind` hides still holds a key, and
+   skipping it would leave the key pointing at nothing.
+2. Refusing before the hooks leaves no hook's write to roll back and never
+   half-empties a table; a row the cascade removes no longer references
+   the target.
+3. A search index, an audit log or `updatedAt` must see the change, or an
+   index keeps showing a deleted author. D-88 already writes a moved row
+   this way.
+4. The redirected row still exists, so its own children keep a valid key.
+5. A child's `afterDelete` still finds its parent's record in the facts it
+   receives, and one write keeps the delete atomic and D-48's statement
+   count.
+6. A join row is the relation itself, not a record anyone hooks.
+7. A self relation, a tree of categories, would otherwise loop.
+
+Rejected:
+
+- a `setNull` written without hooks;
+- `restrict` checked after the hooks;
+- cascades that skip rows `beforeFind` hides;
+- one write per level.
+
+Limit: the rows a delete reaches are loaded before its hooks run, so a row a
+hook creates during the delete, referencing a deleted row, is not reached.
+Creating a child of the row being deleted is the developer's error; checking
+every delete again after its write would make every application pay for it.
+
+Later: one recursive read of the adapter (`WITH RECURSIVE`) in place of a read
+per level, with the PostgreSQL adapter (D-48).
+
+Example:
+
+```ts
+// Before: Parse, no cascade; each relation is cleaned by hand
+Parse.Cloud.afterDelete('User', async ({ object }) => {
+	const posts = await new Parse.Query('Post')
+		.equalTo('author', object)
+		.find({ useMasterKey: true })
+	await Parse.Object.destroyAll(posts, { useMasterKey: true })
+})
+
+// After
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		author: f.one(() => User, { onDelete: 'cascade' }),
+		editor: f.one(() => User, { optional: true, inverse: 'edited' }),
+	}),
+})
+
+await User.delete({ where: { id } }, { as: caller })
+// the posts of the user are deleted, each through its delete hooks;
+// the posts they edited keep `editor: null`, through their update hooks
+```
+
+## D-91: `start` and `stop` at run time
+
+Choice: eight details of D-58 and D-59 at run time.
+
+1. `start` starts the database, builds the plugins' APIs (D-89), then runs
+   each plugin's `start`, after the plugins it needs; the application is
+   already running, so a `start` may query (seed). `stop` runs the plugins'
+   `stop` in the reverse order.
+2. A plugin's `api`, `start` and `stop` receive a child of the logger bound
+   to `{ name: '<plugin>' }`; the kernel logs under `{ name: 'ultimabase' }`.
+   pino-pretty shows it before each message: `INFO (cache): Warm.`
+3. A `start` that fails stops the plugins already started, in reverse, then
+   the database, and `start` rejects with its error.
+4. A `stop` that fails is logged by the plugin's logger; the other plugins
+   and the database still stop, and `stop` rejects with the first error.
+5. After the plugins' `stop`, `stop` waits for the running queries and
+   transactions, their `*Commit` hooks included, then stops the database.
+   The kernel refuses no query while it stops: refusing requests is the
+   HTTP plugin's `stop`, which stops first since it needs the others.
+6. `start` listens once to `SIGTERM`, and `stop` removes the listener. On
+   the signal, the application stops, then sends itself `SIGTERM` again,
+   which ends the process with the signal's exit code; a second `SIGTERM`
+   during the stop ends it at once. A failed stop is logged first.
+7. Two `stop` calls at once share one stop; `stop` before `start` does
+   nothing.
+8. The kernel logs `Application started.` and `Application stopped.` at
+   `info`.
+
+Why:
+
+1. A plugin relies on what it needs from its first line to its last.
+2. A developer sees which plugin wrote each line without each plugin
+   prefixing its own; `name` is the field pino and pino-pretty already
+   read, so a pino logger shows it as is, and JSON lines stay parsable.
+3. An application that failed to start holds no connection.
+4. One broken plugin must not leave the database open, and a test still
+   sees the failure.
+5. A deployment must not cut a write or lose an email; a query a running
+   hook makes must still run.
+6. Docker and Kubernetes read the signal's exit code, and `process.exit`
+   would cut whatever else the application keeps open.
+7. A `SIGTERM` during a test's `stop` would otherwise stop the database
+   twice.
+8. They are the first lines read in a deployment's logs.
+
+Rejected: a stop timeout (the orchestrator kills the process after its own
+grace period); a message prefix such as `[cache]` written by the kernel
+(it would double pino-pretty's and change the plugin's message); `SIGINT`
+(Ctrl-C must stop a development server at once).
+
+Later: the manifest's version checks (D-57), in their own roadmap item.
+
+Example:
+
+```ts
+// Before: Parse Server, the application closes everything by hand
+const server = app.listen(1337)
+process.on('SIGTERM', () => {
+	server.close(async () => {
+		await redis.quit()
+		await mongoose.disconnect()
+		process.exit(0)
+	})
+})
+
+// After: each plugin owns its resource
+export const cache = definePlugin<Cache>({
+	name: 'cache',
+	manifest,
+	start: async ({ options, logger }) => {
+		await client.connect(options.url)
+		logger.info('Connected.') // {"name":"cache","msg":"Connected.",...}
+	},
+	stop: async () => client.quit(),
+})
+
+await app.start() // SIGTERM now stops the application cleanly
+```
+
+## D-92: A dependency earns its place by removing code we would own
+
+Choice: a package takes a dependency when it replaces code we would
+otherwise write and maintain, and whose correctness is a subject of its own
+(a format, a standard, security, edge cases). The dependency is widely used,
+maintained, and brings few dependencies of its own. Each use is challenged
+in the decision or the commit that adds it: what it removes, and why Node or
+twenty lines of our own would not do.
+
+Why: a small, proven library is less code to maintain and fewer bugs than
+our own copy of it; a dependency that saves nothing is only one more thing
+to update and to trust.
+
+Rejected: no dependencies as a rule (we would rewrite version ranges, for
+instance, and get them wrong); a dependency for what Node already does or
+for a few trivial lines.
+
+Example: `semver` for the manifest's version checks (D-57): no dependencies,
+the parser npm itself uses, and version ranges are full of edge cases.
+Counter-example: `pino-pretty` for the default logger (D-93): a development
+tool with about fifteen dependencies, for a line format Node prints in a
+few lines.
+
+## D-93: The default logger is readable in a terminal
+
+Choice: amends D-58. Without a `logger`, the kernel's console logger writes a
+readable line when the stream it writes to is a terminal (`isTTY`; stdout
+for `info`, stderr for `warn` and `error`), and the JSON lines of D-58
+everywhere else:
+
+```text
+10:42:07 INFO  [ultimabase] Application started.
+10:42:09 WARN  [ultimabase] Order create refused. model=Order callerId=ada
+10:42:12 ERROR [cache] The plugin failed to stop.
+    Error: Connection lost.
+        at …
+```
+
+The time is local; the level is colored with `util.styleText`, which drops
+colors when the terminal has none or `NO_COLOR` is set; the `name` binding
+(D-91) is shown in brackets; the other bindings and fields follow as
+`key=value`, strings quoted when they hold spaces, quotes or `=`, other
+values as JSON; each error is written under the line as its stack, indented.
+No dependency (D-92).
+
+Why: a developer running the application reads its logs in a terminal, and
+JSON lines there are hard to read; a log collector reads JSON, and its
+stream is never a terminal.
+
+Rejected: `pino-pretty` (D-92); choosing the format from `NODE_ENV`, which
+applications often leave unset; one choice for both streams (`2> file` would
+write readable lines to a file).
+
+Limit: a container started with a terminal (`docker run -t`) writes readable
+lines; an application that wants JSON there gives `logger: pino()`.
+
+Later: pino as the default logger, for its `redact`, with the auth plugin
+(D-62).
+
+Example:
+
+```ts
+// Before: Parse Server, the developer configures a logger to read anything
+new ParseServer({ ..., logLevel: 'info', verbose: false, loggerAdapter: … })
+
+// After: nothing to configure
+await app.start()
+// In a terminal: 10:42:07 INFO  [ultimabase] Application started.
+// In production: {"level":"info","time":…,"name":"ultimabase","msg":"Application started."}
+```
+
+## D-94: The adapter contract suite
+
+Choice: `@ultimabase/testing` (D-40) exports `testAdapter(name, create)`,
+which declares, with Vitest, the tests every adapter passes alike (D-02,
+D-73). `create` returns an adapter on an empty database; the suite calls it
+for each test, starts an application of its own models on it and stops the
+application after the test. It cleans nothing.
+
+The suite checks what a developer sees, through the public API
+(`defineApp`, `Model.findMany`, `transaction`…), not the adapter's methods
+one by one:
+
+- every operator of D-20 on each 0.1 field type, `null` as a value and as
+  unknown in a comparison, AND, OR and NOT;
+- `is` and `isNot` on a one relation, `some`, `every` and `none` on a many
+  relation;
+- `orderBy` with nulls last ascending, `skip`, `take`, a cursor and a
+  negative `take`;
+- nested `include` and `select`, filtered, ordered and paged; `count`;
+- `create`, `update` and `delete`; connect and disconnect on each relation
+  kind; a deleted row's links removed;
+- `UNIQUE_VIOLATION` on a field and on an index, `NOT_FOUND` on a missing
+  connect, the data unchanged after either;
+- a transaction's commit, its rollback when the callback throws or after a
+  failed write, its own writes seen inside and not outside before the commit.
+
+The kernel's `memory()` runs the suite in the package's own tests.
+
+Why: an adapter author writes one line and gets the contract as tests; a
+test through the public API keeps passing when the adapter's interface
+changes, and checks the kernel and the adapter together, as the developer
+uses them.
+
+Rejected: tests that call `find` and `write` directly (they repeat the
+kernel's planning in every test and break with each change of D-73); a
+`reset` the suite calls between tests (an adapter on a fresh database is
+simpler to write and cannot leak rows from one test to the next).
+
+Three details every adapter follows, checked by the suite:
+
+- `%` and `_` are characters in `contains`, `startsWith` and `endsWith`, not
+  patterns: an SQL adapter escapes them in its `LIKE`.
+- `null` is unknown in a comparison, as in SQL, inside `every` too: a book
+  without pages does not fail `every: { pages: { gt: 200 } }`.
+- Two json values are equal when their content is, keys in any order
+  (`jsonb` in PostgreSQL).
+
+Limit: how an adapter makes other writes wait during a transaction is its
+own (memory takes a lock, PostgreSQL row locks); the suite checks only that
+no one sees uncommitted writes.
+
+Later: the statement counts of D-46 and D-48 with the PostgreSQL adapter
+(Phase 3); cascades (D-54) once PostgreSQL runs them; `updateMany` and
+`deleteMany` once the kernel has them.
+
+Example:
+
+```ts
+// Before: Parse Server, one suite run against each database by hand
+// PARSE_SERVER_TEST_DB=postgres npm test, with it_exclude_dbs(['postgres'])
+// on the tests a database fails.
+
+// After: an adapter's whole test file
+import { testAdapter } from '@ultimabase/testing'
+import { postgres } from '@ultimabase/postgres'
+
+testAdapter('postgres', () => postgres({ url: process.env.TEST_DATABASE_URL }))
+```
+
+## D-95: The manifest's version checks
+
+Choice: the checks of D-57 run in `start`, before the database starts, with
+`semver` (D-92):
+
+- `definePlugin` refuses a manifest whose `name` is empty, whose `version` is
+  not a version, or whose `peerDependencies` holds anything but valid ranges;
+  the error names the plugin and the field.
+- The kernel knows its version from its own `package.json`, imported with
+  `with { type: 'json' }`.
+- Each key of `peerDependencies` is a package name: `ultimabase` is the
+  running kernel, any other is matched against the `manifest.name` of the
+  installed plugins. A peer that is not installed is skipped; `requires`
+  already refuses a missing plugin.
+- A range accepts prereleases (`includePrerelease`): kernel `1.3.0-beta.1`
+  runs a plugin written for `^1.0.0`; `2.0.0-beta.1` does not.
+- A plugin that gives `ultimabase` no range starts, with a warning.
+- `ultimabase` and `@ultimabase/testing` are published at one version, so an
+  adapter tested with the suite of `1.4.0` runs on kernel `1.4.0`; a test of
+  the testing package checks it.
+
+Before, a plugin built for another kernel failed later, somewhere in a hook:
+
+```ts
+// ultimabase-archive/package.json: "peerDependencies": { "ultimabase": "^2.0.0" }
+await app.start() // starts; the first delete throws a TypeError in a hook
+```
+
+After, `start` refuses it and names both versions:
+
+```ts
+await app.start()
+// Error: ultimabase-archive 1.0.0 needs ultimabase ^2.0.0; this is ultimabase 1.4.0.
+```
+
+and a plugin without a kernel range is visible at once:
+
+```text
+10:42:07 WARN  [ultimabase] ultimabase-archive declares no ultimabase range.
+```
+
+Why: at `start` every plugin is known, as for `requires`; the error is the
+developer's first line, not a bug report. A missing range is common in a
+plugin's first draft, and refusing it would block a plugin for a field the
+author forgot rather than a real conflict.
+
+Rejected: the check in `defineApp` (a missing requirement is refused at
+`start`, and both checks belong together); strict ranges without
+prereleases (a beta kernel would refuse every plugin); refusing a plugin
+without a kernel range (a warning tells the same without blocking);
+a hand-written range parser (D-92).
+
+## D-96: `@ultimabase/soft-delete`
+
+Choice: the package of D-17 and D-68, written with the parts of D-89. It
+replaces D-89's example where they differ.
+
+1. `softDelete()` adds `deletedAt`, an optional date, to each model that
+   uses it. A caller other than Master can write it only to `null`, so a
+   row is deleted through `delete` and its access rule, never through an
+   `update` of the date.
+2. `delete` keeps the row and dates it, after the model's `delete` rule and
+   `beforeDelete` hooks; the application's `afterDelete*` hooks still run
+   (D-89). Every ordinary read, Master's included, leaves it out (D-17).
+3. `Post.trash` reads the deleted rows: `findMany`, `findFirst`,
+   `findUnique` and `count`, under the model's read rule.
+4. `Post.restore({ where }, { as })` brings a deleted row back under the
+   model's `update` rule: Master passes, a caller needs the rule. A row
+   that is not deleted is `NOT_FOUND`.
+5. No options: the field is `deletedAt`. Purging the trash comes later.
+6. The kernel exports the `Queries` type, with which a plugin types its
+   commands; each query takes `this: void`, since it is a closure on its
+   model and can be passed unbound (`findMany: queries.findMany`).
+7. A package's `package.json` gives `ultimabase` a plain range in
+   `peerDependencies` (`^0.0.0`) and `workspace:*` in `devDependencies`
+   only: Yarn replaces `workspace:^` only when it publishes, so the
+   imported manifest would hold a range `definePlugin` refuses (D-95).
+   Every package of the repository is published at the kernel's version,
+   which extends D-95's rule beyond `@ultimabase/testing`; a test checks
+   both.
+
+Why:
+
+1. A caller allowed to update but not to delete could otherwise delete by
+   writing the date, and a plain `update` cannot restore either, since it
+   no longer finds the row.
+2. D-17.
+3. The trash is read, not written: `Post.trash.create` would create a row
+   outside the trash, `Post.trash.delete` would date it again.
+4. D-89's `restore` ran as Master whatever the caller, so any code that
+   passed a user's caller restored with no rule.
+5. Nothing asks for a field name or a purge delay; each can be added when
+   one does.
+6. Without it, a plugin's command types repeat the kernel's.
+7. `ultimabase 1.4` with `@ultimabase/* 1.4` is one rule to read, as in
+   Babel or Angular.
+
+Rejected: `trash: queries` with every query; `restore` as Master; the
+options of D-57's example (`field`, `purgeAfterDays`); `workspace:^` in
+`peerDependencies`.
+
+Limit: a deleted row keeps its unique values, so creating a row with the
+same `title` fails with `UNIQUE_VIOLATION` until the trash is purged.
+
+Example:
+
+```ts
+// Before: Parse, a flag every query must remember
+Parse.Cloud.beforeFind('Post', ({ query }) => {
+	query.notEqualTo('deleted', true)
+})
+await post.save({ deleted: true }) // any caller allowed to save deletes
+
+// After
+import { softDelete, softDeletePlugin } from '@ultimabase/soft-delete'
+
+export const Post = defineModel({ name: 'Post', fields, use: [softDelete()] })
+const app = defineApp({ database, models, plugins: [softDeletePlugin()] })
+
+await Post.delete({ where: { id } }, { as: caller }) // the delete rule
+await Post.findMany({}, { as: master }) // without it
+await Post.trash.findMany({}, { as: caller }) // the deleted posts
+await Post.restore({ where: { id } }, { as: caller }) // the update rule
+await Post.update(
+	{ where: { id }, data: { deletedAt: new Date() } },
+	{ as: caller },
+)
+// PublicError ACCESS_DENIED, path ['deletedAt']
+```
+
+## D-97: The typing benchmark measures the packages
+
+Choice: the prototype in `bench/typing/prototype` imports the packages the
+way an application does and keeps stand-ins only for what later phases build.
+
+1. Its examples and the generated projects import public names only, from
+   `ultimabase` and `@ultimabase/soft-delete`. A plugin's field type (D-32)
+   needs `ScalarOptions`, which the kernel now exports.
+2. `defineFunction` (Phase 4), `postgres()` (Phase 3), auth (Phase 5), ACL
+   (Phase 7) and GraphQL (Phase 4) stay declared stand-ins, each naming its
+   phase. Their types may reach kernel internals; the exports they need are
+   decided in their phase.
+3. The prototype is its own TypeScript project (`bench/typing/tsconfig.json`).
+   Its `Register` (D-62) declares a user model; in the root project it also
+   reached the packages' tests, which act as a user without one.
+4. `asUser(user)` (D-80) takes the record `caller.user` has: the registered
+   user model's, or `{ id }` without one. It returns a frozen user caller.
+   The kernel and soft delete take `@ultimabase/testing` as a devDependency;
+   both resolve the same kernel source, so `master` stays one object.
+
+Why: the benchmark must measure what developers import, not a copy of it;
+and a test helper typed against one application's user model would refuse
+every other application's tests.
+
+Rejected: the kernel's `defineFunction` types now, without its runtime; an
+`asUser` that takes `{ id }` everywhere, which a rule reading
+`caller.user.email` would see as a string that is `undefined`; importing the
+testing package by a relative path.
+
+Example:
+
+```ts
+// Before: each kernel test file
+const isCaller = (value: unknown): value is Caller =>
+	typeof value === 'object' && value !== null
+function user(id: string) {
+	const as: unknown = { kind: 'user', user: { id } }
+	if (!isCaller(as)) throw new Error('A caller is an object.')
+	return { as }
+}
+await Note.create({ data }, user('ada'))
+
+// After
+import { asUser } from '@ultimabase/testing'
+
+await Note.create({ data }, { as: asUser({ id: 'ada' }) })
+// With a registered user model, the whole record: asUser(bob) (D-80).
 ```

@@ -1,0 +1,161 @@
+// The adapter contract (D-73): what the kernel sends a storage adapter, fully
+// prepared. Names are the models' own; `dbName` says what to store them as.
+
+export type ScalarType =
+	'string' | 'number' | 'boolean' | 'date' | 'json' | 'enum'
+
+export type SchemaField =
+	| {
+			readonly kind: 'scalar'
+			readonly name: string
+			readonly type: ScalarType
+			/** An `enum`'s values. */
+			readonly values?: readonly string[]
+			readonly optional: boolean
+			readonly unique: boolean
+			readonly dbName?: string
+	  }
+	| {
+			readonly kind: 'one'
+			readonly name: string
+			readonly target: string
+			/** The target's field on the other side (D-37). */
+			readonly inverse: string
+			/** Whether this side stores the key, one per pair (D-37). */
+			readonly stored: boolean
+			/** One-to-one: the stored key is unique. */
+			readonly unique: boolean
+			readonly optional: boolean
+			readonly onDelete: 'cascade' | 'restrict' | 'setNull'
+			readonly dbName?: string
+	  }
+	| {
+			readonly kind: 'many'
+			readonly name: string
+			readonly target: string
+			readonly inverse: string
+			/** Facing a `many`: a join holding the two keys only (D-64). */
+			readonly join: boolean
+	  }
+
+export type SchemaModel = {
+	readonly name: string
+	readonly dbName?: string
+	/** `id`, `createdAt` and `updatedAt` are implicit (D-22). */
+	readonly fields: readonly SchemaField[]
+	readonly indexes: readonly {
+		readonly fields: readonly string[]
+		readonly unique: boolean
+	}[]
+}
+
+export type Schema = { readonly models: readonly SchemaModel[] }
+
+/** A normalized condition on one field: no shorthand, no `undefined`. */
+export type Condition = {
+	readonly equals?: unknown
+	readonly not?: unknown
+	readonly in?: readonly unknown[]
+	readonly notIn?: readonly unknown[]
+	readonly lt?: unknown
+	readonly lte?: unknown
+	readonly gt?: unknown
+	readonly gte?: unknown
+	readonly contains?: string
+	readonly startsWith?: string
+	readonly endsWith?: string
+	readonly is?: Filter | null
+	readonly isNot?: Filter | null
+	readonly some?: Filter
+	readonly every?: Filter
+	readonly none?: Filter
+}
+
+/** A normalized `where`: `AND`, `OR` and `NOT` are lists (D-73). */
+export interface Filter {
+	readonly AND?: readonly Filter[]
+	readonly OR?: readonly Filter[]
+	readonly NOT?: readonly Filter[]
+	readonly [field: string]: Condition | readonly Filter[] | undefined
+}
+
+export type Order = {
+	readonly field: string
+	readonly direction: 'asc' | 'desc'
+}
+
+/** A relation to read with its rows; a `one` relation reads `where` only. */
+export type Nested = {
+	readonly where?: Filter
+	/** Always ends with `id`, so the order is total. */
+	readonly orderBy?: readonly Order[]
+	/** A unique target the page starts at, as Prisma's `cursor`. */
+	readonly cursor?: Filter
+	readonly skip?: number
+	/** Negative: the rows before the cursor, or the last ones. */
+	readonly take?: number
+	readonly include?: { readonly [field: string]: Nested }
+}
+
+export type Read = Nested & { readonly model: string }
+
+export type CountRead = { readonly model: string; readonly where?: Filter }
+
+/**
+ * A stored row: system and scalar fields, and each `one` relation as its key
+ * `{ id } | null`, or the included row. An included `many` is a list of rows.
+ */
+export type Row = { readonly id: string; readonly [field: string]: unknown }
+
+/** In a change, a stored `one` key is the target's id or `null`. */
+export type Change =
+	| { readonly kind: 'insert'; readonly model: string; readonly row: Row }
+	| {
+			readonly kind: 'update'
+			readonly model: string
+			readonly where: Filter
+			readonly set: { readonly [field: string]: unknown }
+	  }
+	| { readonly kind: 'delete'; readonly model: string; readonly where: Filter }
+	| {
+			readonly kind: 'link' | 'unlink'
+			readonly model: string
+			/** A `many` relation facing a `many`. */
+			readonly field: string
+			readonly id: string
+			readonly targets: readonly string[]
+	  }
+
+/** One whole write; `read` runs after the changes, in the same write. */
+export type Write = {
+	readonly changes: readonly Change[]
+	readonly read?: Read
+}
+
+export interface Transaction {
+	find(read: Read): Promise<Row[]>
+	count(read: CountRead): Promise<number>
+	write(write: Write): Promise<Row[]>
+	commit(): Promise<void>
+	rollback(): Promise<void>
+}
+
+/** A storage adapter: its own slot, not a plugin (D-02, D-73). */
+export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
+	start(schema: Schema): Promise<void>
+	stop(): Promise<void>
+	begin(): Promise<Transaction>
+}
+
+/** A unique index refused a write; the kernel reports `UNIQUE_VIOLATION`. */
+export class UniqueViolation extends Error {
+	readonly model: string
+	readonly fields: readonly string[]
+
+	constructor(model: string, fields: readonly string[]) {
+		super(`Unique constraint failed on ${model} (${fields.join(', ')}).`)
+		this.name = 'UniqueViolation'
+		this.model = model
+		this.fields = fields
+	}
+}
