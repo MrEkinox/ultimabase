@@ -587,9 +587,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/graphql@workspace:packages/graphql"
   dependencies:
+    "@types/pg": "npm:8.23.1"
     "@ultimabase/http": "workspace:*"
+    "@ultimabase/postgres": "workspace:*"
     graphql: "npm:17.0.2"
     graphql-http: "npm:1.23.1"
+    pg: "npm:8.23.1"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
@@ -614,7 +617,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/postgres@workspace:packages/postgres":
+"@ultimabase/postgres@workspace:*, @ultimabase/postgres@workspace:packages/postgres":
   version: 0.0.0-use.local
   resolution: "@ultimabase/postgres@workspace:packages/postgres"
   dependencies:

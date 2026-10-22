@@ -1,7 +1,7 @@
 // The application the GraphQL tests serve: users, their posts, and a model
 // whose read rule breaks.
 import { httpPlugin } from '@ultimabase/http'
-import type { Logger } from 'ultimabase'
+import type { Adapter, Logger } from 'ultimabase'
 import { allow, defineApp, defineModel, master, memory } from 'ultimabase'
 import { graphql, graphqlPlugin } from '../index.ts'
 import type { GraphqlOptions } from '../index.ts'
@@ -60,10 +60,13 @@ function recorder(lines: Line[]): Logger {
 	return logger
 }
 
-export async function started(options: GraphqlOptions = {}) {
+export async function started(
+	options: GraphqlOptions = {},
+	database: Adapter = memory(),
+) {
 	const lines: Line[] = []
 	const app = defineApp({
-		database: memory(),
+		database,
 		plugins: [httpPlugin({ port: 0 }), graphqlPlugin(options)],
 		models: [User, Post, Secret],
 		masterKey: 'secret',
