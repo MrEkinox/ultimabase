@@ -28,7 +28,7 @@ export { defineApp } from './define-app.ts'
 export type { ModelFields, ModelOf } from './define-model.ts'
 export { defineModel } from './define-model.ts'
 export type { ErrorCode, Issue } from './errors.ts'
-export { PublicError } from './errors.ts'
+export { InvalidQuery, PublicError } from './errors.ts'
 export type {
 	Field,
 	FieldBuilders,

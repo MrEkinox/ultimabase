@@ -583,7 +583,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ultimabase/http@workspace:packages/http":
+"@ultimabase/graphql@workspace:packages/graphql":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/graphql@workspace:packages/graphql"
+  dependencies:
+    "@ultimabase/http": "workspace:*"
+    graphql: "npm:17.0.2"
+    graphql-http: "npm:1.23.1"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/http": ^0.0.0
+    graphql: ^17.0.2
+    ultimabase: ^0.0.0
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/http@workspace:*, @ultimabase/http@workspace:packages/http":
   version: 0.0.0-use.local
   resolution: "@ultimabase/http@workspace:packages/http"
   dependencies:
@@ -819,6 +836,22 @@ __metadata:
   version: 4.2.11
   resolution: "graceful-fs@npm:4.2.11"
   checksum: 10c0/386d011a553e02bc594ac2ca0bd6d9e4c22d7fa8cfbfc448a6d148c59ea881b092db9dbe3547ae4b88e55f1b01f7c4a2ecc53b310c042793e63aa44cf6c257f2
+  languageName: node
+  linkType: hard
+
+"graphql-http@npm:1.23.1":
+  version: 1.23.1
+  resolution: "graphql-http@npm:1.23.1"
+  peerDependencies:
+    graphql: ">=0.11 <=17"
+  checksum: 10c0/32c058096bc2ef477233fa0d0a419a7a7c6e6479eb86151048b56d4beb7c688a0bec70bf47f017ad1772a23bfa1aca31d32405c9bc9983aa097b2304feb8f0e9
+  languageName: node
+  linkType: hard
+
+"graphql@npm:17.0.2":
+  version: 17.0.2
+  resolution: "graphql@npm:17.0.2"
+  checksum: 10c0/766546216b891439ed09fd8584963df2013e26f2f79f096036eaaa2788c38964e049c8a142d68e3afdabdd8bbe70042639e83f0f4b82edbc7c6850421f072bb6
   languageName: node
   linkType: hard
 
