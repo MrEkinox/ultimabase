@@ -84,7 +84,7 @@ validation and functions included, stays within Phase 1's exit criterion.
 - [x] `start`, `stop` and the logger (D-58, D-59, D-91).
 - [x] The manifest's version checks (D-57, D-95).
 - [x] Adapter contract suite started (D-02, D-73, D-94).
-- [ ] `@ultimabase/soft-delete` (D-17).
+- [x] `@ultimabase/soft-delete` (D-17, D-96).
 - [ ] The prototype's types move into `packages/ultimabase`, each export in
       the package its decision names, and the typing benchmark measures the
       package. Kernel tests build user callers with

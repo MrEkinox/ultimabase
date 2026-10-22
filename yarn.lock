@@ -554,6 +554,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ultimabase/soft-delete@workspace:packages/soft-delete":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/soft-delete@workspace:packages/soft-delete"
+  dependencies:
+    ultimabase: "workspace:*"
+  peerDependencies:
+    ultimabase: ^0.0.0
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/testing@workspace:packages/testing":
   version: 0.0.0-use.local
   resolution: "@ultimabase/testing@workspace:packages/testing"

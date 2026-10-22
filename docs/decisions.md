@@ -3136,3 +3136,81 @@ Rejected: the check in `defineApp` (a missing requirement is refused at
 prereleases (a beta kernel would refuse every plugin); refusing a plugin
 without a kernel range (a warning tells the same without blocking);
 a hand-written range parser (D-92).
+
+## D-96: `@ultimabase/soft-delete`
+
+Choice: the package of D-17 and D-68, written with the parts of D-89. It
+replaces D-89's example where they differ.
+
+1. `softDelete()` adds `deletedAt`, an optional date, to each model that
+   uses it. A caller other than Master can write it only to `null`, so a
+   row is deleted through `delete` and its access rule, never through an
+   `update` of the date.
+2. `delete` keeps the row and dates it, after the model's `delete` rule and
+   `beforeDelete` hooks; the application's `afterDelete*` hooks still run
+   (D-89). Every ordinary read, Master's included, leaves it out (D-17).
+3. `Post.trash` reads the deleted rows: `findMany`, `findFirst`,
+   `findUnique` and `count`, under the model's read rule.
+4. `Post.restore({ where }, { as })` brings a deleted row back under the
+   model's `update` rule: Master passes, a caller needs the rule. A row
+   that is not deleted is `NOT_FOUND`.
+5. No options: the field is `deletedAt`. Purging the trash comes later.
+6. The kernel exports the `Queries` type, with which a plugin types its
+   commands; each query takes `this: void`, since it is a closure on its
+   model and can be passed unbound (`findMany: queries.findMany`).
+7. A package's `package.json` gives `ultimabase` a plain range in
+   `peerDependencies` (`^0.0.0`) and `workspace:*` in `devDependencies`
+   only: Yarn replaces `workspace:^` only when it publishes, so the
+   imported manifest would hold a range `definePlugin` refuses (D-95).
+   Every package of the repository is published at the kernel's version,
+   which extends D-95's rule beyond `@ultimabase/testing`; a test checks
+   both.
+
+Why:
+
+1. A caller allowed to update but not to delete could otherwise delete by
+   writing the date, and a plain `update` cannot restore either, since it
+   no longer finds the row.
+2. D-17.
+3. The trash is read, not written: `Post.trash.create` would create a row
+   outside the trash, `Post.trash.delete` would date it again.
+4. D-89's `restore` ran as Master whatever the caller, so any code that
+   passed a user's caller restored with no rule.
+5. Nothing asks for a field name or a purge delay; each can be added when
+   one does.
+6. Without it, a plugin's command types repeat the kernel's.
+7. `ultimabase 1.4` with `@ultimabase/* 1.4` is one rule to read, as in
+   Babel or Angular.
+
+Rejected: `trash: queries` with every query; `restore` as Master; the
+options of D-57's example (`field`, `purgeAfterDays`); `workspace:^` in
+`peerDependencies`.
+
+Limit: a deleted row keeps its unique values, so creating a row with the
+same `title` fails with `UNIQUE_VIOLATION` until the trash is purged.
+
+Example:
+
+```ts
+// Before: Parse, a flag every query must remember
+Parse.Cloud.beforeFind('Post', ({ query }) => {
+	query.notEqualTo('deleted', true)
+})
+await post.save({ deleted: true }) // any caller allowed to save deletes
+
+// After
+import { softDelete, softDeletePlugin } from '@ultimabase/soft-delete'
+
+export const Post = defineModel({ name: 'Post', fields, use: [softDelete()] })
+const app = defineApp({ database, models, plugins: [softDeletePlugin()] })
+
+await Post.delete({ where: { id } }, { as: caller }) // the delete rule
+await Post.findMany({}, { as: master }) // without it
+await Post.trash.findMany({}, { as: caller }) // the deleted posts
+await Post.restore({ where: { id } }, { as: caller }) // the update rule
+await Post.update(
+	{ where: { id }, data: { deletedAt: new Date() } },
+	{ as: caller },
+)
+// PublicError ACCESS_DENIED, path ['deletedAt']
+```
