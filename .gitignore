@@ -16,3 +16,5 @@ dist
 .vscode/*
 !.vscode/settings.json
 bench/typing/gen/
+bench/compare/.yarn/
+bench/compare/generated/

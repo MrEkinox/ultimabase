@@ -3500,3 +3500,48 @@ const novel = await Novel.create(
 //   select "c0", "c1", (select ... from "novel" as "t3" ...) as "rows"
 //   from "#checks"
 ```
+
+## D-100: A comparison benchmark against other data layers
+
+Choice:
+
+1. `bench/compare` measures UltimaBase beside Prisma, Drizzle and `pg` with
+   hand-written SQL, on the same PostgreSQL server, the same tables and the
+   same rows: the round trips and the time of each case. Its tables feed the
+   comparison the documentation will publish.
+2. The cases are the ones every contender has: a create, a create that
+   connects a `one` and a `many`, an update by id, a `many` disconnected and
+   connected, a delete that cascades to a row, two creates in a transaction,
+   a read by id and a read of two levels of relations. Access rules and
+   hooks stay out: the others have none.
+3. Each contender writes the code its documentation shows, not code tuned
+   for the benchmark, and returns what UltimaBase returns: the written row,
+   or the rows read with their relations. A cascade is the database's
+   `on delete cascade` for the others, which is how they declare it. `pg`
+   is the floor: one statement a case, the fewest the case allows.
+4. Round trips are counted on the wire, the same way for everyone: a proxy
+   between the client and PostgreSQL counts each query the client sends
+   (`Query` messages, and `Sync` for the extended protocol). Every contender
+   uses `pg` underneath, Prisma through `@prisma/adapter-pg`.
+5. The benchmark is its own Yarn project with its own lockfile, outside the
+   workspaces: Prisma and Drizzle never enter the packages' dependencies,
+   and `yarn validate` neither installs nor type-checks it. Its versions are
+   pinned exactly and named in each run it records.
+
+Why:
+
+- Developers coming from Prisma or Drizzle (D-01) ask what UltimaBase costs
+  them; a table measured on the same server answers, and points at what to
+  optimize next.
+- Counting on the wire needs no cooperation from a library, so nobody's own
+  log decides its score.
+
+Rejected:
+
+- Comparing with the numbers other projects publish: other machines, other
+  cases.
+- Counting with `pg_stat_statements` or PostgreSQL's log: the first needs
+  the server configured, the second parsing, and neither sees BEGIN and
+  COMMIT the way a client pays for them.
+- Adding Prisma and Drizzle to the repository's dependencies (D-92): they
+  remove no code of ours.

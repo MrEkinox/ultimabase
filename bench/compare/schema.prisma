@@ -1,0 +1,45 @@
+// The benchmark's tables (tables.sql) as Prisma declares them (D-100).
+generator client {
+  provider               = "prisma-client"
+  output                 = "./generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  importFileExtension    = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Writer {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  name      String
+  novels    Novel[]
+
+  @@map("writer")
+}
+
+model Novel {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  title     String
+  writerId  String   @map("writer_id") @db.Uuid
+  writer    Writer   @relation(fields: [writerId], references: [id], onDelete: Cascade)
+  genres    Genre[]  @relation("genre_novels")
+
+  @@index([writerId])
+  @@map("novel")
+}
+
+model Genre {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  label     String
+  novels    Novel[]  @relation("genre_novels")
+
+  @@map("genre")
+}

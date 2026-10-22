@@ -14,5 +14,5 @@
 		"scripts/**/*.ts",
 		"packages/*/src/**/*.ts"
 	],
-	"exclude": ["bench/typing/gen", "bench/typing/prototype"]
+	"exclude": ["bench/compare", "bench/typing/gen", "bench/typing/prototype"]
 }

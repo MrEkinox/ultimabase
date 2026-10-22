@@ -1,0 +1,14 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"noEmit": true,
+		// Prisma's and Drizzle's declarations are not checked under these options.
+		"skipLibCheck": true
+	},
+	"include": ["*.ts", "generated/**/*.ts"]
+}

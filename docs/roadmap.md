@@ -108,6 +108,8 @@ at 200 models with field rules and schemas, a query edit under 800 ms
       (D-48, D-99).
 - [x] A write benchmark: round trips and time per write case, on `memory()`
       and PostgreSQL (D-48), in [`bench/writes`](../bench/writes/README.md).
+- [x] A comparison benchmark beside Prisma, Drizzle and `pg` (D-100), in
+      [`bench/compare`](../bench/compare/README.md).
 - [ ] Cascades (D-54), PostgreSQL 15 to 18 (D-50).
 - [ ] Development sync, `migrate create` and `migrate deploy` (D-26).
 

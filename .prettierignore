@@ -1,2 +1,3 @@
 .yarn
 bench/typing/gen/
+bench/compare/generated/
