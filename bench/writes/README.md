@@ -73,3 +73,26 @@ Against the reference: the cascaded delete goes from 5 round trips and
 2.45 ms to 1 and 0.89 ms (D-102), the `many` moved from 4 and 1.98 ms to 1
 and 1.11 ms (D-101), a create and an update by id lose 0.06 and 0.09 ms
 (D-103). The rest is unchanged within noise.
+
+### 2026-10-22: a user's row read without a lock, checked unchanged, 200 runs
+
+Commit `96937fde` (D-104). Same machine, load average 3.6.
+
+| Case                                      | memory trips | memory median | PostgreSQL trips | PostgreSQL median | PostgreSQL p95 |
+| ----------------------------------------- | -----------: | ------------: | ---------------: | ----------------: | -------------: |
+| create                                    |            1 |          0.14 |                1 |              0.74 |           0.93 |
+| create, a one and a many connected        |            1 |          0.26 |                1 |              1.08 |           1.28 |
+| update by id, Master                      |            1 |          0.10 |                1 |              0.78 |           0.96 |
+| update by id, a user under access rules   |            2 |          0.57 |                2 |              1.39 |           1.65 |
+| delete by id, a user under access rules   |            2 |          0.79 |                2 |              1.19 |           1.52 |
+| delete by id, Master, one row cascaded    |            1 |          0.27 |                1 |              0.90 |           1.13 |
+| update, a many disconnected and connected |            1 |          0.48 |                1 |              1.09 |           1.34 |
+| update, connected from the other side     |            1 |          0.47 |                1 |              0.91 |           1.06 |
+| create, an afterCreate hook               |            5 |          0.37 |                5 |              2.21 |           2.58 |
+| create, an afterCreateCommit hook         |            4 |          0.38 |                4 |              1.82 |           2.09 |
+| transaction(), two creates                |            4 |          0.85 |                4 |              1.92 |           2.33 |
+
+Against the previous run: a user's update goes from 4 round trips and
+1.91 ms to 2 and 1.39 ms on PostgreSQL, a user's delete from 4 and 1.70 ms
+to 2 and 1.19 ms. On `memory()` both grow, by 0.14 and 0.35 ms: the check compares the whole
+record by scanning the table, which grows across runs. The rest is unchanged within noise.
