@@ -4252,7 +4252,18 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    the row (D-86). Each root field runs one kernel query
    built from the whole selection, nested relations included (D-46): no
    resolver per relation, no N+1. Each root field is its own operation; two
-   mutations in one document share no transaction.
+   mutations in one document share no transaction. `PostCreateInput` and
+   `PostUpdateInput` hold every field, those only Master reads included,
+   each optional: a default or a hook may give it, and the kernel refuses
+   what is missing (`VALIDATION_FAILED`). Relation writes share their
+   inputs across models, since `connect` names a row by its `id` alone:
+   `ConnectInput { id }`, `CreateOneRelationInput { connect }`,
+   `UpdateOneRelationInput @oneOf { connect, disconnect: Boolean }`,
+   `CreateManyRelationInput { connect }` and
+   `UpdateManyRelationInput { connect, disconnect }`. `createPost` and
+   `updatePost` return `Post!`, the written row even when a read rule would
+   hide it (D-86). `deletePost` returns `DeletedPost!`, the row as it was
+   without its relations (D-102): `id`, the dates and the scalar fields.
 5. Lists are Relay connections, at the root and on every `many` relation,
    with `first`/`after` and `last`/`before` and an opaque cursor (the
    row's `id`, base64url); the kernel's order always ends with `id`, so a

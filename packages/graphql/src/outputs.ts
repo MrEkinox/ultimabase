@@ -146,6 +146,28 @@ function manyField(
 	}
 }
 
+/** `id`, the dates and each scalar field a caller other than Master reads. */
+function scalarFields(
+	registry: Registry,
+	model: string,
+): GraphQLFieldConfigMap<unknown, Context> {
+	const entry = registry.entry(model)
+	const fields: GraphQLFieldConfigMap<unknown, Context> = {
+		id: { type: new GraphQLNonNull(GraphQLID) },
+		createdAt: { type: new GraphQLNonNull(DateTime) },
+		updatedAt: { type: new GraphQLNonNull(DateTime) },
+	}
+	for (const field of readable(entry)) {
+		if (field.kind !== 'scalar') continue
+		const ruled = entry.exposed.readRules[field.name] === 'rule'
+		const type = scalarType(registry, model, field)
+		fields[field.name] = {
+			type: field.optional || ruled ? type : new GraphQLNonNull(type),
+		}
+	}
+	return fields
+}
+
 /** `Post`: a field only Master reads is absent, a ruled one nullable. */
 export function objectType(
 	registry: Registry,
@@ -158,27 +180,34 @@ export function objectType(
 				name: model,
 				fields: () => {
 					const entry = registry.entry(model)
-					const fields: GraphQLFieldConfigMap<unknown, Context> = {
-						id: { type: new GraphQLNonNull(GraphQLID) },
-						createdAt: { type: new GraphQLNonNull(DateTime) },
-						updatedAt: { type: new GraphQLNonNull(DateTime) },
-					}
+					const fields = scalarFields(registry, model)
 					for (const field of readable(entry)) {
-						const ruled = entry.exposed.readRules[field.name] === 'rule'
-						if (field.kind === 'scalar') {
-							const type = scalarType(registry, model, field)
-							fields[field.name] = {
-								type: field.optional || ruled ? type : new GraphQLNonNull(type),
-							}
-						} else if (field.kind === 'one') {
+						if (field.kind === 'one') {
 							// Its target's read rule may hide the row (D-86).
 							fields[field.name] = { type: objectType(registry, field.target) }
-						} else {
+						} else if (field.kind === 'many') {
+							const ruled = entry.exposed.readRules[field.name] === 'rule'
 							fields[field.name] = manyField(registry, model, field, ruled)
 						}
 					}
 					return fields
 				},
+			}),
+	)
+}
+
+/** `DeletedPost`: a deleted row as it was, without its relations (D-102). */
+export function deletedType(
+	registry: Registry,
+	model: string,
+): GraphQLObjectType {
+	const name = `Deleted${model}`
+	return registry.object(
+		name,
+		() =>
+			new GraphQLObjectType<unknown, Context>({
+				name,
+				fields: () => scalarFields(registry, model),
 			}),
 	)
 }

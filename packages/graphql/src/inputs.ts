@@ -14,6 +14,10 @@ import type { Args, Registry, Scalar } from './registry.ts'
 import { readable, scalarType } from './registry.ts'
 import { DateTime } from './scalars.ts'
 
+/** An input object's value, as the kernel's arguments. */
+export const objectOf = (value: unknown): Args =>
+	typeof value === 'object' && value !== null ? { ...value } : {}
+
 const list = <T extends GraphQLNamedInputType>(
 	type: T,
 ): GraphQLList<GraphQLNonNull<T>> => new GraphQLList(new GraphQLNonNull(type))

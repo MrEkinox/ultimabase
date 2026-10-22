@@ -20,6 +20,10 @@ export type GraphqlWith =
 	{ readonly plural?: string; readonly maxTake?: number } | false
 
 export type Context = { readonly caller: Caller }
+/** A kernel query's options: run as the request's caller (D-106). */
+export const as = (context: Context): { readonly as: Caller } => ({
+	as: context.caller,
+})
 export type Args = { readonly [arg: string]: unknown }
 export type Scalar = Extract<SchemaField, { readonly kind: 'scalar' }>
 

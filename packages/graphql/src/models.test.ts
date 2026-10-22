@@ -5,7 +5,7 @@ import type { Logger } from 'ultimabase'
 import { allow, defineApp, defineModel, master, memory } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { graphql, graphqlPlugin } from './index.ts'
-import { at, post } from './test/app.ts'
+import { asMaster, at, post } from './test/app.ts'
 
 const Tag = defineModel({
 	name: 'Tag',
@@ -43,6 +43,7 @@ async function listening(models: Parameters<typeof defineApp>[0]['models']) {
 		database: memory(),
 		plugins: [httpPlugin({ port: 0 }), graphqlPlugin()],
 		models,
+		masterKey: 'secret',
 		logger,
 	})
 	await app.start()
@@ -56,7 +57,7 @@ it('names a list after its plural and reaches a hidden model by relations', asyn
 	const { app, url } = await listening([Person, Tag])
 	try {
 		const ada = await Person.create({ data: { name: 'ada' } }, { as: master })
-		await Tag.create(
+		const tag = await Tag.create(
 			{
 				data: {
 					label: 'math',
@@ -79,6 +80,49 @@ it('names a list after its plural and reaches a hidden model by relations', asyn
 		})
 		const tags = await post(`${url}/graphql`, `{ tags { totalCount } }`)
 		expect(tags.errors?.[0]?.message).toContain('tags')
+		const deleted = await post(
+			`${url}/graphql`,
+			`mutation { deleteTag(where: { id: "${tag.id}" }) { id } }`,
+			undefined,
+			asMaster,
+		)
+		expect(deleted.errors?.[0]?.message).toContain('deleteTag')
+	} finally {
+		await app.stop()
+	}
+})
+
+it('disconnects rows of a many relation', async () => {
+	const { app, url } = await listening([Person, Tag])
+	try {
+		const ada = await Person.create({ data: { name: 'ada' } }, { as: master })
+		const tag = await Tag.create(
+			{
+				data: {
+					label: 'math',
+					owner: { connect: { id: ada.id } },
+					watcher: { connect: { id: ada.id } },
+				},
+			},
+			{ as: master },
+		)
+		const result = await post(
+			`${url}/graphql`,
+			`mutation ($ada: ID!, $tag: ID!) { updatePerson(
+				where: { id: $ada },
+				data: { name: "ada l.", hidden: { disconnect: [{ id: $tag }] } }
+			) { name } }`,
+			{ ada: ada.id, tag: tag.id },
+			asMaster,
+		)
+		expect(result).toStrictEqual({
+			data: { updatePerson: { name: 'ada l.' } },
+		})
+		const after = await Tag.findUnique(
+			{ where: { id: tag.id }, include: { watcher: true } },
+			{ as: master },
+		)
+		expect(after?.watcher).toBeNull()
 	} finally {
 		await app.stop()
 	}

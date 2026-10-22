@@ -1,5 +1,5 @@
 // The schema (D-107): for each visible model, `post(where)` and `posts(...)`,
-// each read in one kernel query as its caller.
+// each read in one kernel query as its caller, and its mutations.
 import type { GraphQLFieldConfig, GraphQLResolveInfo } from 'graphql'
 import {
 	GraphQLList,
@@ -7,19 +7,16 @@ import {
 	GraphQLObjectType,
 	GraphQLSchema,
 } from 'graphql'
-import { uniqueInput, uniqueWhere } from './inputs.ts'
+import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { connection, listRead, rowsOf } from './pages.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
+import { as } from './registry.ts'
 import { grouped, selectOf } from './select.ts'
+import { mutationFields } from './mutations.ts'
 import { run } from './errors.ts'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
-
-const as = (context: Context) => ({ as: context.caller })
-
-const objectOf = (value: unknown): Args =>
-	typeof value === 'object' && value !== null ? { ...value } : {}
 
 const whereOf = (args: Args): Args => {
 	const { where } = args
@@ -97,8 +94,10 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 /** Refuses two models whose root fields share a name. */
 export function schemaOf(registry: Registry): GraphQLSchema {
 	const fields: Fields = {}
+	const mutations: Fields = {}
 	for (const entry of registry.entries.values()) {
 		if (!entry.visible) continue
+		Object.assign(mutations, mutationFields(registry, entry))
 		for (const [name, field] of Object.entries(rootFields(registry, entry))) {
 			if (name in fields) {
 				throw new Error(
@@ -115,5 +114,6 @@ export function schemaOf(registry: Registry): GraphQLSchema {
 	}
 	return new GraphQLSchema({
 		query: new GraphQLObjectType({ name: 'Query', fields }),
+		mutation: new GraphQLObjectType({ name: 'Mutation', fields: mutations }),
 	})
 }

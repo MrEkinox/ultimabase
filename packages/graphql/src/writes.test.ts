@@ -1,0 +1,161 @@
+// Writes over GraphQL (D-107): create, update and delete, relation writes,
+// and the kernel's refusals as client errors.
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { master } from 'ultimabase'
+import type { Result } from './test/app.ts'
+import { asMaster, at, post, seeded, started, User } from './test/app.ts'
+
+let running: Awaited<ReturnType<typeof started>>
+let ada = ''
+let bob = ''
+beforeAll(async () => {
+	running = await started()
+	;({ ada, bob } = await seeded())
+})
+afterAll(async () => running.app.stop())
+
+const write = (query: string, variables?: object): Promise<Result> =>
+	post(`${running.url}/graphql`, query, variables, asMaster)
+
+describe('a create', () => {
+	it('writes each scalar type and connects a relation', async () => {
+		const result = await write(
+			`mutation ($author: ID!) { createPost(data: {
+				title: "five", slug: "five", status: draft, views: 1.5,
+				meta: { tags: ["a"] }, publishedAt: "2026-02-01T00:00:00Z",
+				author: { connect: { id: $author } }
+			}) { title status views meta publishedAt author { name } } }`,
+			{ author: bob },
+		)
+		expect(result).toStrictEqual({
+			data: {
+				createPost: {
+					title: 'five',
+					status: 'draft',
+					views: 1.5,
+					meta: { tags: ['a'] },
+					publishedAt: '2026-02-01T00:00:00.000Z',
+					author: { name: 'bob' },
+				},
+			},
+		})
+	})
+
+	it('writes a field only Master reads', async () => {
+		const result = await write(
+			`mutation { createUser(data: {
+				name: "cy", email: "cy@example.com", password: "hunter2"
+			}) { name } }`,
+		)
+		expect(result).toStrictEqual({ data: { createUser: { name: 'cy' } } })
+		const cy = await User.findUnique(
+			{ where: { name: 'cy' }, select: { password: true } },
+			{ as: master },
+		)
+		expect(cy?.password).toBe('hunter2')
+	})
+
+	it('sends the kernel’s refusals as client errors', async () => {
+		const missing = await write(
+			`mutation { createPost(data: { title: "six" }) { id } }`,
+		)
+		expect(missing.data).toBeNull()
+		expect(missing.errors?.[0]?.extensions).toMatchObject({
+			code: 'VALIDATION_FAILED',
+		})
+		const denied = await post(
+			`${running.url}/graphql`,
+			`mutation { createUser(data: { name: "dee", email: "d@example.com" }) { id } }`,
+		)
+		expect(denied.errors?.[0]?.extensions).toMatchObject({
+			code: 'ACCESS_DENIED',
+		})
+	})
+})
+
+describe('an update', () => {
+	it('changes scalars and moves a relation', async () => {
+		const result = await write(
+			`mutation ($ada: ID!, $bob: ID!) { updatePost(
+				where: { author_slug: { author: $ada, slug: "one" } },
+				data: { views: 5, meta: null, author: { connect: { id: $bob } } }
+			) { title views meta author { name } } }`,
+			{ ada, bob },
+		)
+		expect(result).toStrictEqual({
+			data: {
+				updatePost: {
+					title: 'one',
+					views: 5,
+					meta: null,
+					author: { name: 'bob' },
+				},
+			},
+		})
+	})
+
+	it('connects many rows at once', async () => {
+		const two = await write(
+			`query ($ada: ID!) { post(where: { author_slug: { author: $ada, slug: "two" } }) { id } }`,
+			{ ada },
+		)
+		const result = await write(
+			`mutation ($id: ID!) { updateUser(
+				where: { name: "bob" },
+				data: { posts: { connect: [{ id: $id }] } }
+			) { posts(orderBy: [{ title: asc }]) { edges { node { title } } } } }`,
+			{ id: at(two.data, 'post', 'id') },
+		)
+		expect(
+			at(result.data, 'updateUser', 'posts', 'edges', 0, 'node', 'title'),
+		).toBe('five')
+		expect(at(result.data, 'updateUser', 'posts', 'edges')).toHaveLength(4)
+	})
+
+	it('takes connect or disconnect on a one relation, not both', async () => {
+		const result = await write(
+			`mutation { updatePost(
+				where: { id: "x" },
+				data: { author: { connect: { id: "y" }, disconnect: true } }
+			) { id } }`,
+		)
+		expect(result.errors?.[0]?.message).toContain('exactly one')
+	})
+
+	it('finds no row to update', async () => {
+		const result = await write(
+			`mutation { updateUser(where: { name: "nobody" }, data: { name: "x" }) { id } }`,
+		)
+		expect(result.errors?.[0]?.extensions).toMatchObject({ code: 'NOT_FOUND' })
+	})
+})
+
+describe('a delete', () => {
+	it('returns the row it deleted', async () => {
+		const result = await write(
+			`mutation ($bob: ID!) { deletePost(
+				where: { author_slug: { author: $bob, slug: "four" } }
+			) { title status views } }`,
+			{ bob },
+		)
+		expect(result).toStrictEqual({
+			data: { deletePost: { title: 'four', status: 'draft', views: 30 } },
+		})
+		const gone = await write(
+			`query ($bob: ID!) { post(where: { author_slug: { author: $bob, slug: "four" } }) { id } }`,
+			{ bob },
+		)
+		expect(gone).toStrictEqual({ data: { post: null } })
+	})
+
+	it('has no relation to select', async () => {
+		const result = await write(
+			`mutation { deleteUser(where: { name: "bob" }) { name posts { totalCount } } }`,
+		)
+		expect(result.errors?.[0]?.message).toBe(
+			'Cannot query field "posts" on type "DeletedUser".',
+		)
+		const kept = await write(`{ user(where: { name: "bob" }) { name } }`)
+		expect(kept).toStrictEqual({ data: { user: { name: 'bob' } } })
+	})
+})
