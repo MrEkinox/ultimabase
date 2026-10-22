@@ -47,10 +47,10 @@ const stamp = (now: Date): string =>
 	now.toISOString().replaceAll(/[-:T]/g, '').slice(0, 'yyyyMMddHHmmss'.length)
 
 function body(hash: string, statements: readonly Statement[]): string {
-	const blocks = statements.map(({ sql, loses, hint }) =>
+	const blocks = statements.map(({ sql, loses, rename }) =>
 		[
 			...(loses === undefined ? [] : [`-- ${loses}.`]),
-			...(hint === undefined ? [] : [`-- ${hint}`]),
+			...(rename === undefined ? [] : [`-- a rename? write: ${rename.sql};`]),
 			`${sql};`,
 		].join('\n'),
 	)

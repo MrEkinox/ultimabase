@@ -99,7 +99,7 @@ describe('a development start', () => {
 		await expect(renamed.start()).rejects.toThrow(
 			[
 				'UltimaBase did not sync Locker, Shelf: removing "Locker.label" deletes data; removing Shelf deletes its rows.',
-				'  -- a rename? write: rename label to title;',
+				"  -- a rename? keep its data: give Locker.title dbName: 'label'.",
 				'  drop Locker.label;',
 				'  drop Shelf;',
 				'Run `npx ultimabase sync --force` to apply it to this development database,',

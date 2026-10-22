@@ -166,8 +166,16 @@ export type Statement = {
 	readonly does: string
 	/** What it deletes, when it loses data: `removing "Locker.label" deletes data`. */
 	readonly loses?: string
-	/** A comment for the developer: `a rename? write: …`. */
-	readonly hint?: string
+	/**
+	 * A removal that may be a rename: the field or model that may be the same
+	 * (`Locker.title`), the name it keeps its data under with `dbName`
+	 * (`label`), and the SQL that renames instead.
+	 */
+	readonly rename?: {
+		readonly to: string
+		readonly dbName: string
+		readonly sql: string
+	}
 }
 
 /** A migration file: its file name, its SQL and its SHA-256. */

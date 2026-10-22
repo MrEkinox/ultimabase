@@ -48,7 +48,13 @@ function plan(from: unknown, to: unknown): Statement[] {
 				loses: `removing "${model}.${field}" deletes data`,
 				...(twin === undefined
 					? {}
-					: { hint: `a rename? write: rename ${field} to ${twin};` }),
+					: {
+							rename: {
+								to: `${model}.${twin}`,
+								dbName: field,
+								sql: `rename ${field} to ${twin}`,
+							},
+						}),
 			})
 		}
 		for (const field of fresh) {

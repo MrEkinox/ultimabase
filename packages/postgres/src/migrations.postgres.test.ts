@@ -188,17 +188,25 @@ describe('a sync on postgres()', () => {
 			'Box.tags: added the foreign key on tag_id',
 		])
 		expect(
-			statements.flatMap(({ loses, hint }) =>
-				loses === undefined ? [] : [[loses, hint]],
+			statements.flatMap(({ loses, rename }) =>
+				loses === undefined ? [] : [[loses, rename]],
 			),
 		).toStrictEqual([
 			[
 				'removing Old deletes its rows',
-				'a rename? write: alter table "old" rename to "new";',
+				{
+					to: 'New',
+					dbName: 'old',
+					sql: 'alter table "old" rename to "new"',
+				},
 			],
 			[
 				'removing "Shelf.note" deletes data',
-				'a rename? write: alter table "shelf" rename column "note" to "remark";',
+				{
+					to: 'Shelf.remark',
+					dbName: 'note',
+					sql: 'alter table "shelf" rename column "note" to "remark"',
+				},
 			],
 			[
 				'changing "Shelf.size" from double precision to text rewrites its data',
@@ -409,6 +417,21 @@ describe('the commands on postgres()', () => {
 		expect(
 			await ultimabase(dir, ['migrate', 'create', 'init'], {}),
 		).toMatchObject({ code: 0 })
+		const [init = ''] = (await readdir(joinPath(dir, 'migrations'))).toSorted()
+		expect(
+			(await readFile(joinPath(dir, 'migrations', init), 'utf8'))
+				.split('\n')
+				.slice(2),
+		).toStrictEqual([
+			'create table "locker" (',
+			'\t"id" uuid not null,',
+			'\t"created_at" timestamptz not null,',
+			'\t"updated_at" timestamptz not null,',
+			'\t"label" text collate "C" not null,',
+			'\tconstraint "locker_pkey" primary key ("id")',
+			');',
+			'',
+		])
 		const deploy = await ultimabase(dir, ['migrate', 'deploy'], deployed())
 		expect(deploy.code).toBe(0)
 		expect(deploy.output).toMatch(/^Applied \d{14}_init\.sql\.\n$/)

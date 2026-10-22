@@ -19,7 +19,7 @@ type Named<T> = { readonly [name: string]: T }
 type Emit = (
 	sql: string,
 	does: string,
-	more?: { readonly loses?: string; readonly hint?: string },
+	more?: Pick<Statement, 'loses' | 'rename'>,
 ) => void
 
 /** The entries of `from` that `to` lacks or defines otherwise. */
@@ -62,7 +62,7 @@ function create(name: string, table: TableSnapshot): string {
 		),
 		...Object.entries(table.checks).map(([key, given]) => checked(key, given)),
 	]
-	return `create table ${id(name)} (${parts.join(', ')})`
+	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
 }
 
 /** Drops the keys, checks and indexes of `from` that `to` changes. */
@@ -104,13 +104,17 @@ function alterColumns(
 	)
 	for (const [key, was] of Object.entries(from.columns)) {
 		if (to.columns[key] !== undefined) continue
-		const twin = fresh.find(([, now]) => now.type === was.type)?.[0]
+		const twin = fresh.find(([, now]) => now.type === was.type)
 		emit(`${table} drop column ${id(key)}`, `removed ${was.field}`, {
 			loses: `removing "${from.model}.${was.field}" deletes data`,
 			...(twin === undefined
 				? {}
 				: {
-						hint: `a rename? write: ${table} rename column ${id(key)} to ${id(twin)};`,
+						rename: {
+							to: `${to.model}.${twin[1].field}`,
+							dbName: key,
+							sql: `${table} rename column ${id(key)} to ${id(twin[0])}`,
+						},
 					}),
 		})
 	}
@@ -205,15 +209,17 @@ export function plan(from: Snapshot | undefined, to: Snapshot): Statement[] {
 			addKeys(name, table, now, emit(5, now.model))
 			continue
 		}
-		const twin = fresh.find(([, created]) =>
-			same(shape(created), shape(table)),
-		)?.[0]
+		const twin = fresh.find(([, created]) => same(shape(created), shape(table)))
 		emit(2, table.model)(`drop table ${id(name)}`, 'removed', {
 			loses: `removing ${table.model} deletes its rows`,
 			...(twin === undefined
 				? {}
 				: {
-						hint: `a rename? write: alter table ${id(name)} rename to ${id(twin)};`,
+						rename: {
+							to: twin[1].model,
+							dbName: name,
+							sql: `alter table ${id(name)} rename to ${id(twin[0])}`,
+						},
 					}),
 		})
 	}

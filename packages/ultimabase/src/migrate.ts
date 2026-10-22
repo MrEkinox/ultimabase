@@ -44,8 +44,12 @@ function refusal(losing: readonly Statement[]): string {
 	const why = losing.map((statement) => statement.loses).join('; ')
 	return [
 		`UltimaBase did not sync ${models.join(', ')}: ${why}.`,
-		...losing.flatMap(({ sql, hint }) => [
-			...(hint === undefined ? [] : [`  -- ${hint}`]),
+		...losing.flatMap(({ sql, rename }) => [
+			...(rename === undefined
+				? []
+				: [
+						`  -- a rename? keep its data: give ${rename.to} dbName: '${rename.dbName}'.`,
+					]),
 			`  ${sql};`,
 		]),
 		'Run `npx ultimabase sync --force` to apply it to this development database,',

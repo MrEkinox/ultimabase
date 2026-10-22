@@ -3833,6 +3833,10 @@ Choice: amends D-26, D-73 and D-98 point 1.
    or `npx ultimabase migrate create <name>` to write it as a migration.
    ```
 
+   A removal that may be a rename says how to keep the data in development,
+   `-- a rename? keep its data: give Locker.title dbName: 'label'.`, and a
+   migration file gets the SQL instead (point 5; amended 2026-10-22).
+
    A database that holds tables but no snapshot is refused.
 
 4. In production, `start` applies nothing. It reads the database's snapshot
@@ -3883,8 +3887,8 @@ Choice: amends D-26, D-73 and D-98 point 1.
    	readonly does: string
    	/** What it deletes, when it loses data. */
    	readonly loses?: string
-   	/** A comment for the developer: `a rename? write: …`. */
-   	readonly hint?: string
+   	/** A removal that may be a rename: `Locker.title`, `label`, its SQL. */
+   	readonly rename?: { to: string; dbName: string; sql: string }
    }
    type Run =
    	| {
