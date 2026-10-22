@@ -73,13 +73,23 @@ class Draft {
 		for (const [index, check] of (write.checks ?? []).entries()) {
 			if (this.count(check) !== check.count) throw new CheckFailed(index)
 		}
+		const read = write.read
+		if (read !== undefined && write.before === true) {
+			const rows = this.find(read)
+			this.change(write.changes)
+			return rows
+		}
+		this.change(write.changes)
+		return read === undefined ? [] : this.find(read)
+	}
+
+	private change(changes: readonly Change[]): void {
 		const touched = new Set<string>()
-		for (const change of write.changes) {
+		for (const change of changes) {
 			touched.add(change.model)
 			this.apply(change)
 		}
 		for (const model of touched) this.checkUnique(model)
-		return write.read === undefined ? [] : this.find(write.read)
 	}
 
 	private matching(model: string, change: Change): StoredRow[] {

@@ -18,7 +18,7 @@ const Novel = defineModel({
 	name: 'Novel',
 	fields: (f) => ({
 		title: f.string(),
-		writer: f.one(() => Writer),
+		writer: f.one(() => Writer, { onDelete: 'cascade' }),
 		genres: f.many(() => Genre),
 	}),
 })
@@ -197,6 +197,19 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 				M,
 			)
 			expect(kept.genres).toMatchObject([{ id: other }])
+		})
+
+		it('deletes in one as Master, what it reaches included', async () => {
+			// The writer, its novel and the novel's genres, the writer returned.
+			const removed = await once(async () =>
+				Writer.delete({ where: { id: writer } }, M),
+			)
+			expect(removed.name).toBe('Ada')
+			expect(await Novel.count({}, M)).toBe(0)
+			const missing = once(async () =>
+				Writer.delete({ where: { id: writer } }, M),
+			)
+			await expect(missing).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
 
 		it('loads the row a user updates or deletes, in a transaction', async () => {

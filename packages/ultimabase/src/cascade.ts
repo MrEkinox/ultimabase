@@ -1,12 +1,13 @@
 // What a `delete` does to the rows that reference the row it deletes
 // (D-54, D-90): `cascade` deletes them, `setNull` empties their key,
 // `restrict` refuses the delete.
-import type { Row } from './adapter.ts'
+import type { Change, Filter, Row } from './adapter.ts'
 import { PublicError } from './errors.ts'
-import { redirectOf } from './hooks.ts'
+import { hasHook, redirectOf } from './hooks.ts'
 import type { Models } from './query-where.ts'
 import type { ModelInfo } from './schema.ts'
-import type { Reads } from './write-plan.ts'
+import type { Checked, Reads } from './write-plan.ts'
+import { updated } from './write-plan.ts'
 
 /** A row the delete removes, or redirects (D-89). */
 export type Doomed = {
@@ -126,4 +127,113 @@ export async function cascadeOf(
 			rows: group.rows.filter((found) => stays(group.model, found.id)),
 		})),
 	}
+}
+
+/** Whether deleting a row of `model` runs code of its own. */
+const deleteRuns = (model: ModelInfo): boolean =>
+	redirectOf(model) !== undefined ||
+	hasHook(model, 'beforeDelete') ||
+	hasHook(model, 'afterDelete') ||
+	hasHook(model, 'afterDeleteCommit')
+
+const anyOf = (filters: readonly Filter[]): Filter =>
+	filters.length === 1 && filters[0] !== undefined
+		? filters[0]
+		: { OR: filters }
+
+/**
+ * The changes and checks of a delete whose reach runs no code: each level is
+ * a filter from the rows `where` selects, so no row is loaded (D-102).
+ * `undefined` when a reached model has delete hooks or a redirect, a
+ * `setNull` one update hooks, or a cascade comes back to a model it left.
+ */
+export function cascadeWhere(
+	models: Models,
+	model: ModelInfo,
+	where: Filter,
+): { readonly changes: Change[]; readonly checks: Checked[] } | undefined {
+	/** Each deleted model's filters, and its longest path from the root. */
+	const deleted = new Map<string, { filters: Filter[]; depth: number }>()
+	/** The rows each `setNull` or `restrict` relation reaches, by relation. */
+	const reached = new Map<
+		string,
+		Reference & {
+			readonly to: string
+			readonly restricts: boolean
+			readonly filters: Filter[]
+		}
+	>()
+	const reach = (
+		reference: Reference & { readonly to: string; readonly restricts: boolean },
+		filter: Filter,
+	): void => {
+		const key = `${reference.model.name}.${reference.field}`
+		const group = reached.get(key) ?? { ...reference, filters: [] }
+		group.filters.push(filter)
+		reached.set(key, group)
+	}
+	const visit = (at: ModelInfo, filter: Filter, path: string[]): boolean => {
+		if (deleteRuns(at)) return false
+		const entry = deleted.get(at.name) ?? { filters: [], depth: 0 }
+		entry.filters.push(filter)
+		entry.depth = Math.max(entry.depth, path.length)
+		deleted.set(at.name, entry)
+		const below = [...path, at.name]
+		for (const { model: from, field, onDelete } of referencesTo(
+			models,
+			at.name,
+		)) {
+			const child = { [field]: { is: filter } }
+			if (onDelete === 'cascade') {
+				if (below.includes(from.name) || !visit(from, child, below)) {
+					return false
+				}
+			} else if (onDelete === 'setNull' && updated(from)) {
+				return false
+			} else {
+				const restricts = onDelete === 'restrict'
+				reach({ model: from, field, to: at.name, restricts }, child)
+			}
+		}
+		return true
+	}
+	if (!visit(model, where, [])) return undefined
+	// A row the cascade removes is neither emptied nor refusing.
+	const left = (from: ModelInfo, filters: readonly Filter[]): Filter => {
+		const gone = deleted.get(from.name)
+		return gone === undefined
+			? anyOf(filters)
+			: { AND: [anyOf(filters), { NOT: [anyOf(gone.filters)] }] }
+	}
+	const groups = [...reached.values()]
+	const checks = groups
+		.filter((group) => group.restricts)
+		.map((group) => ({
+			check: {
+				model: group.model.name,
+				where: left(group.model, group.filters),
+				count: 0,
+			},
+			message: `${group.model.name}.${group.field} references a ${group.to} the delete removes (D-54).`,
+			restricted: { model: group.model.name, field: group.field },
+		}))
+	// Each change filters on the rows the changes after it remove.
+	const changes: Change[] = [
+		...groups
+			.filter((group) => !group.restricts)
+			.map((group) => ({
+				kind: 'update' as const,
+				model: group.model.name,
+				where: left(group.model, group.filters),
+				set: { [group.field]: null, updatedAt: new Date() },
+			})),
+		...[...deleted]
+			.toSorted(([, a], [, b]) => b.depth - a.depth)
+			.map(([name, { filters }]) => ({
+				kind: 'delete' as const,
+				model: name,
+				where: anyOf(filters),
+			})),
+	]
+	return { changes, checks }
 }

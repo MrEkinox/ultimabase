@@ -42,8 +42,15 @@ export type Detach = Omit<Link, 'kind'> & {
 
 export type Step = Change | Move | Detach
 
-/** A check of the write, and what `NOT_FOUND` says when it fails (D-99). */
-export type Checked = { readonly check: Check; readonly message: string }
+/**
+ * A check of the write, and what `NOT_FOUND` says when it fails (D-99), or
+ * the relation a failed `RELATION_RESTRICTED` names (D-102).
+ */
+export type Checked = {
+	readonly check: Check
+	readonly message: string
+	readonly restricted?: { readonly model: string; readonly field: string }
+}
 
 /**
  * What one write runs in: its store, its scope, the rows it changes and the

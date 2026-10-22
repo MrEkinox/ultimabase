@@ -54,7 +54,7 @@ async function count(
 	return value
 }
 
-/** Runs a write's statements; the last one returns the rows it reads. */
+/** Runs a write's statements; the one that reads returns the rows. */
 async function run(
 	catalog: Catalog,
 	db: QueryExecutorProvider,
@@ -68,7 +68,7 @@ async function run(
 			for (let at = 0; at < statement.checks; at += 1) {
 				if (first?.[`c${at}`] !== true) throw new CheckFailed(at)
 			}
-			rows = first?.['rows']
+			if (first !== undefined && 'rows' in first) rows = first['rows']
 		}
 	} catch (error) {
 		throw translate(catalog, error)

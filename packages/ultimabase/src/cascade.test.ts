@@ -212,11 +212,43 @@ const Category = defineModel({
 	},
 })
 
+// A model without hooks, whose deleted rows a hooked model references.
+const Desk = defineModel({
+	name: 'Desk',
+	fields: (f) => ({ name: f.string(), lamps: f.many(() => Lamp) }),
+})
+
+const Lamp = defineModel({
+	name: 'Lamp',
+	fields: (f) => ({
+		name: f.string(),
+		desk: f.one(() => Desk, { optional: true }),
+	}),
+}).with({
+	hooks: {
+		beforeUpdate: ({ record }) => {
+			step('Lamp', 'beforeUpdate', record.name)
+		},
+	},
+})
+
 const started = () =>
 	defineApp({
 		database: memory(),
 		plugins: [trash.plugin()],
-		models: [User, Post, Comment, Invoice, Badge, Tag, Note, Reply, Category],
+		models: [
+			User,
+			Post,
+			Comment,
+			Invoice,
+			Badge,
+			Tag,
+			Note,
+			Reply,
+			Category,
+			Desk,
+			Lamp,
+		],
 	})
 let app: ReturnType<typeof started>
 
@@ -381,6 +413,14 @@ describe('setNull', () => {
 		expect(after?.updatedAt.getTime()).toBeGreaterThan(
 			before?.updatedAt.getTime() ?? Number.POSITIVE_INFINITY,
 		)
+	})
+
+	it('runs the update hooks of a row a hook-less delete reaches', async () => {
+		const desk = await Desk.create({ data: { name: 'oak' } }, M)
+		await Lamp.create({ data: { name: 'lamp', desk: by(desk.id) } }, M)
+		await Desk.delete({ where: { id: desk.id } }, M)
+		expect(log).toEqual(['Lamp beforeUpdate lamp'])
+		expect(await Desk.count({}, M)).toBe(0)
 	})
 
 	it('empties the key of a model without hooks', async () => {

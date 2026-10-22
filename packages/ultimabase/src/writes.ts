@@ -5,7 +5,7 @@
 import { and, recordOf } from './access.ts'
 import type { Change, Filter, Nested, Row } from './adapter.ts'
 import type { Cascade } from './cascade.ts'
-import { cascadeOf } from './cascade.ts'
+import { cascadeOf, cascadeWhere } from './cascade.ts'
 import { CheckFailed, UniqueViolation } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Event } from './hooks.ts'
@@ -31,6 +31,12 @@ async function guarded(
 	} catch (error) {
 		const failed =
 			error instanceof CheckFailed ? checks[error.index] : undefined
+		if (failed?.restricted !== undefined) {
+			throw new PublicError('RELATION_RESTRICTED', failed.message, {
+				details: { ...failed.restricted },
+				cause: error,
+			})
+		}
 		if (failed !== undefined) {
 			throw new PublicError('NOT_FOUND', failed.message, { cause: error })
 		}
@@ -248,8 +254,38 @@ export async function remove(
 	const { models, model, caller, scope } = context
 	const found = given(args, model.name, ['where'], ['where'])
 	const { shape } = plan(models, model, undefined, '', 'one', new Set())
+	if (scope.access === undefined) {
+		// Nothing needs the stored row: a check stands for its read, and the
+		// write returns it as it was (D-102).
+		const where = await targets(context, found)
+		const reach = cascadeWhere(models, model, where)
+		if (reach !== undefined) {
+			const check = { model: model.name, where, count: 1 }
+			const checks: Checked[] = [
+				{ check, message: `No ${model.name} matches.` },
+			]
+			checks.push(...reach.checks)
+			const read = { model: model.name, where, take: 1 }
+			const rows = await guarded(
+				store.last({
+					checks: checks.map((each) => each.check),
+					changes: reach.changes,
+					read,
+					before: true,
+				}),
+				checks,
+			)
+			return first(rows, shape, undefined)
+		}
+	}
 	const row = await target(context, store, found)
 	scope.access?.allow(model, 'delete', { record: row })
+	const reach = cascadeWhere(models, model, byId(row.id))
+	if (reach !== undefined) {
+		const checks = reach.checks.map(({ check }) => check)
+		await guarded(store.write({ checks, changes: reach.changes }), reach.checks)
+		return project(row, shape, hiddenBy(scope.access))
+	}
 	const redirected = redirectOf(model) !== undefined
 	// A redirected row stays: it cascades nothing (D-90).
 	const cascade = redirected

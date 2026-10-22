@@ -110,7 +110,8 @@ at 200 models with field rules and schemas, a query edit under 800 ms
       and PostgreSQL (D-48), in [`bench/writes`](../bench/writes/README.md).
 - [x] A comparison benchmark beside Prisma, Drizzle and `pg` (D-100), in
       [`bench/compare`](../bench/compare/README.md).
-- [ ] Cascades (D-54), PostgreSQL 15 to 18 (D-50).
+- [x] Cascades (D-54), one write when no hook runs (D-102), PostgreSQL 15
+      to 18 (D-50).
 - [ ] Development sync, `migrate create` and `migrate deploy` (D-26).
 
 Exit: the contract suite passes on `memory()` and PostgreSQL, round-trip

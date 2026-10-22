@@ -1,6 +1,7 @@
 // A write as the fewest statements (D-99): its checks, then each change as a
 // data-modifying CTE that runs only when they pass, then the read, which sees
-// the changes through CTEs named as the written tables. The unique constraint
+// the changes through CTEs named as the written tables, or, with `before`,
+// runs in the first statement and sees none (D-102). The unique constraint
 // a refused change names is the kernel's `UniqueViolation` (D-98).
 import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
@@ -259,7 +260,9 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 			([at, each]) =>
 				sql`${cte(at)} as (${each.build(first ? gate : undefined)})`,
 		)
-		const read = index === groups.length - 1 ? write.read : undefined
+		const at = write.before === true ? 0 : groups.length - 1
+		const read = index === at ? write.read : undefined
+		const seen = read !== undefined && write.before !== true
 		const selected = [
 			...(first ? columns : []),
 			...(read === undefined
@@ -269,7 +272,7 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 		const all = [
 			...(first ? [sql`"#checks" as (${checking(catalog, checks)})`] : []),
 			...ctes,
-			...(read === undefined ? [] : views(numbered)),
+			...(seen ? views(numbered) : []),
 		]
 		const list = selected.length === 0 ? sql`1 as "one"` : sql.join(selected)
 		const body = sql`select ${list}${first ? sql` from "#checks"` : sql``}`

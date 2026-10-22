@@ -139,12 +139,15 @@ export type Check = {
 
 /**
  * One whole write: its checks first, which write nothing when one fails,
- * then its changes, then `read`, in the same write.
+ * then its changes, then `read`, in the same write. With `before`, the read
+ * sees the database as it was before the changes, as a delete returns the
+ * row it removes (D-102).
  */
 export type Write = {
 	readonly checks?: readonly Check[]
 	readonly changes: readonly Change[]
 	readonly read?: Read
+	readonly before?: boolean
 }
 
 export interface Transaction {

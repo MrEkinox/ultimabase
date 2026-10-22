@@ -2,6 +2,7 @@
 // alike, checked through the kernel's public API.
 import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
+import { cascades } from './cascades.ts'
 import { reads } from './reads.ts'
 import { roundTrips } from './round-trips.ts'
 import { transactions } from './transactions.ts'
@@ -24,6 +25,7 @@ export function testAdapter(
 	describe(`the ${name} adapter`, () => {
 		reads(create)
 		writes(create)
+		cascades(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)
 	})

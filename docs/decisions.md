@@ -1165,12 +1165,12 @@ each case has the fewest it can take. The contract suite counts them on
 `memory()` and PostgreSQL (D-46, D-99). On PostgreSQL, queries made by hooks
 aside:
 
-| The write                                                                                                                | Round trips                                                                        |
-| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| Nothing needs the stored row: `create`, or an `update` by Master on a model without update hooks                         | 1: one statement, which is atomic alone, without BEGIN and COMMIT                  |
-| An access rule, a `before*` hook, a cascade or the returned row needs the stored row: `update` by a user, every `delete` | 4: BEGIN, one `SELECT ... FOR UPDATE` loading the row, one write statement, COMMIT |
-| An `after*` or `*Commit` hook runs                                                                                       | BEGIN, the write, one read per hooked row for the hook's facts, COMMIT             |
-| Inside `transaction()`                                                                                                   | the write's own statements, in the open transaction                                |
+| The write                                                                                                                                            | Round trips                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Nothing needs the stored row: `create`, an `update` by Master on a model without update hooks, a `delete` by Master whose reach runs no hook (D-102) | 1: one statement, which is atomic alone, without BEGIN and COMMIT                  |
+| An access rule or a `before*` hook needs the stored row: `update` or `delete` by a user                                                              | 4: BEGIN, one `SELECT ... FOR UPDATE` loading the row, one write statement, COMMIT |
+| An `after*` or `*Commit` hook runs                                                                                                                   | BEGIN, the write, one read per hooked row for the hook's facts, COMMIT             |
+| Inside `transaction()`                                                                                                                               | the write's own statements, in the open transaction                                |
 
 The one write statement holds every change, nested relation writes
 included, through data-modifying CTEs, since the kernel generates every id
@@ -1198,8 +1198,8 @@ Limits:
 - The rows a `before*` hook adds to a write, a `connect` or a `disconnect`
   on a model with rules or update hooks, are loaded after the hook: one
   `SELECT` more, since they are unknown before it runs.
-- A cascade loads one `SELECT` per referencing relation and level until it
-  becomes one recursive read (D-90, Phase 3).
+- A cascade that reaches a hook or a redirect loads one `SELECT` per
+  referencing relation and level (D-90); one without is no load (D-102).
 - The adapter splits a write into several statements, in one transaction,
   when PostgreSQL cannot run it as one: its sub-statements run in no set
   order and see the database as it was, so a table written twice, or read
@@ -1329,8 +1329,8 @@ target cannot be deleted while referenced) and an optional one sets null.
 A cascade goes through the kernel: the hooks of every deleted row run (soft
 delete redirects them, `afterDelete` sees them), while access rules are
 checked on the row the caller deletes only, since the model's author declared
-the cascade. It fits D-48: one recursive `SELECT` loads every affected row,
-one statement deletes them.
+the cascade. It fits D-48: a cascade that runs no hook is one statement
+(D-102); one that does loads the rows its hooks receive.
 Why: deleting a user who has posts must have a declared, predictable outcome;
 a cascade done by the database alone would bypass soft delete and hooks, and
 checking access on each child would make most cascades fail (other people's
@@ -2846,9 +2846,9 @@ Choice: seven details of D-54 at run time.
 
 Why:
 
-1. A hook-less cascade still needs the rows to check `restrict` and to
-   reach the next level; a row `beforeFind` hides still holds a key, and
-   skipping it would leave the key pointing at nothing.
+1. A row `beforeFind` hides still holds a key, and skipping it would leave
+   the key pointing at nothing. A cascade that runs no hook loads no row
+   (D-102).
 2. Refusing before the hooks leaves no hook's write to roll back and never
    half-empties a table; a row the cascade removes no longer references
    the target.
@@ -2874,8 +2874,8 @@ hook creates during the delete, referencing a deleted row, is not reached.
 Creating a child of the row being deleted is the developer's error; checking
 every delete again after its write would make every application pay for it.
 
-Later: one recursive read of the adapter (`WITH RECURSIVE`) in place of a read
-per level, with the PostgreSQL adapter (D-48).
+Later: the rows a hooked cascade reaches in one read of the adapter, in
+place of a read per level (D-48, D-102).
 
 Example:
 
@@ -3412,7 +3412,7 @@ Choice:
    `for update` on PostgreSQL; `memory()` ignores it, since its transaction
    holds the write lock. The kernel locks the rows it decides a write from:
    the row an `update` or a `delete` targets, the rows a relation write
-   changes from the other side, a cascade's rows.
+   changes from the other side, the rows a cascade loads (D-90).
 3. One statement. PostgreSQL runs a write as one statement:
    - each change is a data-modifying CTE that runs only when every check
      passed;
@@ -3590,4 +3590,72 @@ await Novel.update(
 //     where (...) not in (select ... from "#w1") union all select * from
 //     "#w2")
 //   select "c0", (...) as "rows" from "#checks"
+```
+
+## D-102: A delete whose reach runs no hook is one write, its rows unloaded
+
+Choice:
+
+1. When no model a `delete` reaches has delete hooks or a `redirect`, no
+   `setNull` model has update hooks, and no cascade comes back to a model
+   it left, the kernel loads no row of the reach. Each level is a filter on
+   the one above, from the root's `where`, `{ author: { is: … } }`:
+   - a `cascade` model is deleted by its filters, the deepest model first;
+   - a `setNull` relation empties its key and moves `updatedAt` on the rows
+     its filter reaches that the delete leaves;
+   - a `restrict` relation is a check with a count of 0 on those rows, which
+     fails as `RELATION_RESTRICTED`, naming the model and the field (D-90).
+2. Master's `delete` by any unique `where` is then one write: a check that
+   the row exists, the `restrict` checks, the changes, and the row read as
+   it was. A user's `delete` loads its row for the access rule, then writes
+   the same way.
+3. `Write.before` asks the adapter for the read as the database was before
+   the changes. PostgreSQL runs it in the first statement, without the
+   views of D-99; `memory()` reads after the checks.
+4. Any other delete loads its reach level by level, as D-90 says.
+
+Why: a delete with a cascade took one `SELECT ... FOR UPDATE` per level on
+top of the four round trips of a loaded delete, while nothing in it needed
+the rows: the database finds them inside the statement, and deferred keys
+(D-98) let the parents and the children go in any order. The hooked path
+keeps its loads, since its hooks receive the records.
+
+Rejected:
+
+- the database's `on delete` actions, which would run the cascades a second
+  time when a hook needs them (D-54);
+- a recursive read (`WITH RECURSIVE`) for the hooked path: it saves round
+  trips only on deep reaches, and needs a new adapter call; it stays a
+  "Later" of D-90.
+
+Limit: a cascade that comes back to its own model, a tree, still loads its
+rows, since a filter cannot say how deep the tree goes.
+
+Example:
+
+```ts
+const Novel = defineModel({
+	name: 'Novel',
+	fields: (f) => ({
+		title: f.string(),
+		writer: f.one(() => Writer, { onDelete: 'cascade' }),
+	}),
+})
+
+await Writer.delete({ where: { id: writerId } }, { as: master })
+// Before: 5 round trips
+//   begin
+//   select ... from "writer" where "id" = $1 for update
+//   select ... from "novel" where "writer" in ($1) for update
+//   with "#w0" as (delete from "novel" where "id" in (...)),
+//     "#w1" as (delete from "writer" where "id" in ($1)) select 1
+//   commit
+// After: 1 round trip
+//   with "#checks" as (select (select count(*) from "writer"
+//     where "id" = $1) = 1 as "c0"),
+//     "#w0" as (delete from "novel" where "writer" in (select "id" from
+//     "writer" where "id" = $1) and (select "c0" from "#checks")),
+//     "#w1" as (delete from "writer" where "id" = $1 and (...))
+//   select "c0", (select ... from "writer" where "id" = $1) as "rows"
+//   from "#checks"
 ```
