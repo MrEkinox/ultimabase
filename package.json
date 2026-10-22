@@ -18,7 +18,7 @@
 		"lint": "oxlint",
 		"test": "vitest run --project unit --coverage --passWithNoTests",
 		"test:postgres": "vitest run --project postgres --passWithNoTests",
-		"typecheck": "tsc --project tsconfig.json && tsc --project packages/ultimabase",
+		"typecheck": "tsc --project tsconfig.json && tsc --project packages/ultimabase && tsc --project packages/testing",
 		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test"
 	},
 	"devDependencies": {

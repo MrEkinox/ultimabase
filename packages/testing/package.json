@@ -1,0 +1,20 @@
+{
+	"name": "@ultimabase/testing",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Test helpers for UltimaBase applications, plugins and adapters.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"ultimabase": "workspace:*"
+	},
+	"peerDependencies": {
+		"vitest": "5.0.5"
+	}
+}

@@ -3015,3 +3015,63 @@ await app.start()
 // In a terminal: 10:42:07 INFO  [ultimabase] Application started.
 // In production: {"level":"info","time":…,"name":"ultimabase","msg":"Application started."}
 ```
+
+## D-94: The adapter contract suite
+
+Choice: `@ultimabase/testing` (D-40) exports `testAdapter(name, create)`,
+which declares, with Vitest, the tests every adapter passes alike (D-02,
+D-73). `create` returns an adapter on an empty database; the suite calls it
+for each test, starts an application of its own models on it and stops the
+application after the test. It cleans nothing.
+
+The suite checks what a developer sees, through the public API
+(`defineApp`, `Model.findMany`, `transaction`…), not the adapter's methods
+one by one:
+
+- every operator of D-20 on each 0.1 field type, `null` as a value and as
+  unknown in a comparison, AND, OR and NOT;
+- `is` and `isNot` on a one relation, `some`, `every` and `none` on a many
+  relation;
+- `orderBy` with nulls last ascending, `skip`, `take`, a cursor and a
+  negative `take`;
+- nested `include` and `select`, filtered, ordered and paged; `count`;
+- `create`, `update` and `delete`; connect and disconnect on each relation
+  kind; a deleted row's links removed;
+- `UNIQUE_VIOLATION` on a field and on an index, `NOT_FOUND` on a missing
+  connect, the data unchanged after either;
+- a transaction's commit, its rollback when the callback throws or after a
+  failed write, its own writes seen inside and not outside before the commit.
+
+The kernel's `memory()` runs the suite in the package's own tests.
+
+Why: an adapter author writes one line and gets the contract as tests; a
+test through the public API keeps passing when the adapter's interface
+changes, and checks the kernel and the adapter together, as the developer
+uses them.
+
+Rejected: tests that call `find` and `write` directly (they repeat the
+kernel's planning in every test and break with each change of D-73); a
+`reset` the suite calls between tests (an adapter on a fresh database is
+simpler to write and cannot leak rows from one test to the next).
+
+Limit: how an adapter makes other writes wait during a transaction is its
+own (memory takes a lock, PostgreSQL row locks); the suite checks only that
+no one sees uncommitted writes.
+
+Later: the statement counts of D-46 and D-48 with the PostgreSQL adapter
+(Phase 3); cascades (D-54) once PostgreSQL runs them; `updateMany` and
+`deleteMany` once the kernel has them.
+
+Example:
+
+```ts
+// Before: Parse Server, one suite run against each database by hand
+// PARSE_SERVER_TEST_DB=postgres npm test, with it_exclude_dbs(['postgres'])
+// on the tests a database fails.
+
+// After: an adapter's whole test file
+import { testAdapter } from '@ultimabase/testing'
+import { postgres } from '@ultimabase/postgres'
+
+testAdapter('postgres', () => postgres({ url: process.env.TEST_DATABASE_URL }))
+```

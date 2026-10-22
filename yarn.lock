@@ -547,6 +547,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ultimabase/testing@workspace:packages/testing":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/testing@workspace:packages/testing"
+  dependencies:
+    ultimabase: "workspace:*"
+  peerDependencies:
+    vitest: 5.0.5
+  languageName: unknown
+  linkType: soft
+
 "@vitest/coverage-v8@npm:5.0.5":
   version: 5.0.5
   resolution: "@vitest/coverage-v8@npm:5.0.5"
@@ -1379,7 +1389,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"ultimabase@workspace:packages/ultimabase":
+"ultimabase@workspace:*, ultimabase@workspace:packages/ultimabase":
   version: 0.0.0-use.local
   resolution: "ultimabase@workspace:packages/ultimabase"
   languageName: unknown
