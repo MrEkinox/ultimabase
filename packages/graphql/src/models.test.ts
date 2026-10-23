@@ -2,7 +2,14 @@
 // model reached by relations only, a ruled relation, and the schemas refused.
 import { httpPlugin } from '@ultimabase/http'
 import type { Logger } from 'ultimabase'
-import { allow, defineApp, defineModel, master, memory } from 'ultimabase'
+import {
+	allow,
+	defineApp,
+	defineFunction,
+	defineModel,
+	master,
+	memory,
+} from 'ultimabase'
 import { expect, it } from 'vitest'
 import { graphql, graphqlPlugin } from './index.ts'
 import { asMaster, at, post } from './test/app.ts'
@@ -39,7 +46,10 @@ const Team = defineModel({
 	indexes: [{ fields: ['name', 'code'], unique: true }],
 }).with({ access: allow.readOnly })
 
-async function listening(models: Parameters<typeof defineApp>[0]['models']) {
+async function listening(
+	models: Parameters<typeof defineApp>[0]['models'],
+	functions: Parameters<typeof defineApp>[0]['functions'] = [],
+) {
 	const lines: unknown[] = []
 	const logger: Logger = {
 		info: (first) => {
@@ -53,6 +63,7 @@ async function listening(models: Parameters<typeof defineApp>[0]['models']) {
 		database: memory(),
 		plugins: [httpPlugin({ port: 0 }), graphqlPlugin()],
 		models,
+		functions,
 		masterKey: 'secret',
 		logger,
 	})
@@ -166,17 +177,36 @@ it('refuses two models with the same root field', async () => {
 		fields: (f) => ({ title: f.string() }),
 	})
 	await expect(listening([Post, Posts])).rejects.toThrow(
-		"Posts: the root field posts is another model's; set .with({ graphql: { plural } }).",
+		"Posts: the root field posts is Post's; set .with({ graphql: { plural } }).",
 	)
 })
 
+const Draft = defineModel({
+	name: 'Draft',
+	use: [graphql()],
+	fields: (f) => ({ text: f.string() }),
+}).with({ graphql: false })
+
+it('serves a query function without a model, and no Mutation (D-109)', async () => {
+	const now = defineFunction({ name: 'now', query: true, run: () => undefined })
+	const { app, url } = await listening(
+		[Draft],
+		[now.with({ access: allow.public })],
+	)
+	try {
+		expect(
+			await post(
+				`${url}/graphql`,
+				'{ now __schema { mutationType { name } } }',
+			),
+		).toEqual({ data: { now: true, __schema: { mutationType: null } } })
+	} finally {
+		await app.stop()
+	}
+})
+
 it('refuses a schema without a model', async () => {
-	const Draft = defineModel({
-		name: 'Draft',
-		use: [graphql()],
-		fields: (f) => ({ text: f.string() }),
-	}).with({ graphql: false })
 	await expect(listening([Draft])).rejects.toThrow(
-		'graphqlPlugin: no model to expose; each one has .with({ graphql: false }).',
+		'graphqlPlugin: no query to expose; each model has .with({ graphql: false }) and no function is a query.',
 	)
 })

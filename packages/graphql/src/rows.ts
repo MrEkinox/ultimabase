@@ -16,9 +16,14 @@ import type { Info, Selecting } from './select.ts'
 import { grouped } from './select.ts'
 import type { Entry, Registry } from './registry.ts'
 
-/** What a field reads: one row, or a list of a model's rows. */
-type Read =
-	{ readonly kind: 'one' } | { readonly kind: 'many'; readonly entry: Entry }
+/**
+ * What a field reads: one row, a list of a model's rows, or a function's
+ * list, which counts `take` rows (D-109).
+ */
+export type Read =
+	| { readonly kind: 'one' }
+	| { readonly kind: 'many'; readonly entry: Entry }
+	| { readonly kind: 'list'; readonly size: number }
 
 const one: Read = { kind: 'one' }
 const responseKey = (node: FieldNode) => node.alias?.value ?? node.name.value
@@ -44,6 +49,7 @@ function rootReads(registry: Registry): ReadonlyMap<string, Read> {
 export function rowBudget(
 	registry: Registry,
 	maxRows: number,
+	functions: ReadonlyMap<string, ReadonlyMap<string, Read>>,
 ): (args: ValidatedExecutionArgs) => GraphQLError | undefined {
 	const roots = rootReads(registry)
 	const list = registry.settings.pagination === 'list'
@@ -52,6 +58,8 @@ export function rowBudget(
 		root: string,
 		name: string,
 	): Read | undefined => {
+		const called = functions.get(type.name)
+		if (called?.has(name) === true) return called.get(name)
 		if (root === 'mutation') return one
 		if (root === 'query') return roots.get(name)
 		const entry = registry.entries.get(type.name)
@@ -88,7 +96,7 @@ export function rowBudget(
 					// A count reads the rows it counts, however few the page returns.
 					const counted = grouped(info, fields).has('totalCount')
 					each *= counted ? Math.max(size, read.entry.take) : size
-				}
+				} else if (read?.kind === 'list') each *= read.size
 				if (read !== undefined) rows += each
 				const named = getNamedType(field.type)
 				if (isObjectType(named) && each > 0) walk(named, fields, each, '')

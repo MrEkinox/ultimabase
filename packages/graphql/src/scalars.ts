@@ -24,6 +24,8 @@ export const DateTime: GraphQLScalarType<Date, string> = new GraphQLScalarType<
 	description: 'A date and time, as an ISO 8601 string.',
 	coerceOutputValue: (value) => {
 		if (value instanceof Date) return value.toISOString()
+		// A function's schema output holds its dates as strings (D-109).
+		if (typeof value === 'string') return date(value).toISOString()
 		throw new GraphQLError('A DateTime field returned no date.')
 	},
 	coerceInputValue: date,

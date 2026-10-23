@@ -127,7 +127,7 @@ counts included.
       a route and the master key (D-49, D-106).
 - [x] `graphqlPlugin()`: `graphql-http`, Relay, depth limit, GraphiQL (D-34, D-41,
       D-55, D-107).
-- [ ] `defineFunction` (D-27, D-45).
+- [x] `defineFunction` (D-27, D-45, D-109).
 - [x] Decide a function's nullable output, as `postBySlug(slug): Post` in
       GraphQL; `Post.nullable()` (D-109).
 

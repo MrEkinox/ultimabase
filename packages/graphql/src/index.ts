@@ -1,5 +1,6 @@
-// `graphqlPlugin()` (D-107): a Relay schema generated from the models,
-// mounted on the HTTP plugin and run as each request's caller.
+// `graphqlPlugin()` (D-107, D-109): a Relay schema generated from the models
+// and the functions, mounted on the HTTP plugin and run as each request's
+// caller.
 import type { GraphQLSchema } from 'graphql'
 import {
 	executeRootSelectionSet,
@@ -17,6 +18,8 @@ import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { depthRule, introspectionDepthRule } from './depth.ts'
 import { formatter } from './errors.ts'
+import type { GraphqlFunctionWith } from './functions.ts'
+import { functionFields } from './functions.ts'
 import { graphiqlPage } from './graphiql.ts'
 import { rootNames } from './names.ts'
 import type { Context, Entry, GraphqlWith } from './registry.ts'
@@ -25,6 +28,7 @@ import { rowBudget } from './rows.ts'
 import { schemaOf } from './schema.ts'
 import { selectFor } from './select.ts'
 
+export type { GraphqlFunctionWith } from './functions.ts'
 export type { Context as GraphqlContext, GraphqlWith } from './registry.ts'
 
 /** What `graphqlPlugin` takes (D-107). */
@@ -59,6 +63,7 @@ export interface Graphql extends PluginTypes {
 	readonly appOptions: GraphqlOptions
 	readonly requires: Http
 	readonly with: GraphqlWith
+	readonly functionWith: GraphqlFunctionWith
 }
 
 /** About ten times the standard introspection query. */
@@ -68,7 +73,7 @@ const plugin = definePlugin<Graphql>({
 	name: 'graphql',
 	manifest,
 	requires: { http: httpPlugin },
-	api: ({ plugins, models, options, logger }) => {
+	api: ({ plugins, models, functions, options, logger }) => {
 		const take = options.take ?? 100
 		const entries = new Map<string, Entry>()
 		for (const exposed of models) {
@@ -86,13 +91,14 @@ const plugin = definePlugin<Graphql>({
 		const registry = new Registry(entries, {
 			pagination: options.pagination ?? 'connection',
 		})
-		const generated = schemaOf(registry)
+		const called = functionFields(registry, functions, take)
+		const generated = schemaOf(registry, called.fields)
 		const schema = options.extend?.(generated) ?? generated
 		const production = process.env['NODE_ENV'] === 'production'
 		const hideSuggestions = !(options.introspection ?? !production)
 		const closed = hideSuggestions ? [NoSchemaIntrospectionCustomRule] : []
 		const depth = depthRule(options.maxDepth ?? 10)
-		const budget = rowBudget(registry, options.maxRows ?? 20_000)
+		const budget = rowBudget(registry, options.maxRows ?? 20_000, called.reads)
 		// The contexts of Master's requests, which no budget limits.
 		const exempt = new WeakSet<object>()
 		// The caller the HTTP plugin read, by its request.

@@ -61,16 +61,20 @@ function recorder(lines: Line[]): Logger {
 	return logger
 }
 
+type Functions = Parameters<typeof defineApp>[0]['functions']
+
 export async function started(
 	options: GraphqlOptions = {},
 	database: Adapter = memory(),
 	served: readonly Routes[] = [],
+	functions: Functions = [],
 ) {
 	const lines: Line[] = []
 	const app = defineApp({
 		database,
 		plugins: [httpPlugin({ port: 0, routes: served }), graphqlPlugin(options)],
 		models: [User, Post, Secret],
+		functions,
 		masterKey: 'secret',
 		logger: recorder(lines),
 	})

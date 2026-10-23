@@ -31,8 +31,17 @@ describe('DateTime', () => {
 	it('writes a date, and only a date', () => {
 		const date = new Date('2026-01-31T12:00:00.000Z')
 		expect(DateTime.coerceOutputValue(date)).toBe('2026-01-31T12:00:00.000Z')
-		expect(() => DateTime.coerceOutputValue('2026-01-31')).toThrow(
+		expect(() => DateTime.coerceOutputValue(5)).toThrow(
 			'A DateTime field returned no date.',
+		)
+	})
+
+	it("writes a function's ISO string in UTC (D-109)", () => {
+		expect(DateTime.coerceOutputValue('2026-01-31T14:00:00+02:00')).toBe(
+			'2026-01-31T12:00:00.000Z',
+		)
+		expect(() => DateTime.coerceOutputValue('2026-01-31')).toThrow(
+			'A DateTime is an ISO 8601 string',
 		)
 	})
 })

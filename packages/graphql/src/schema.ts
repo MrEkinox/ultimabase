@@ -15,6 +15,7 @@ import { as } from './registry.ts'
 import { grouped, selectOf } from './select.ts'
 import { mutationFields } from './mutations.ts'
 import { run } from './errors.ts'
+import type { RootField } from './functions.ts'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
 
@@ -91,29 +92,63 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 	}
 }
 
-/** Refuses two models whose root fields share a name. */
-export function schemaOf(registry: Registry): GraphQLSchema {
+/** Refuses two root fields of one name, naming both owners. */
+export function schemaOf(
+	registry: Registry,
+	functions: readonly RootField[],
+): GraphQLSchema {
+	const roots = {
+		query: new Map<string, string>(),
+		mutation: new Map<string, string>(),
+	}
 	const fields: Fields = {}
 	const mutations: Fields = {}
-	for (const entry of registry.entries.values()) {
-		if (!entry.visible) continue
-		Object.assign(mutations, mutationFields(registry, entry))
-		for (const [name, field] of Object.entries(rootFields(registry, entry))) {
-			if (name in fields) {
+	const add = (
+		into: Fields,
+		owners: Map<string, string>,
+		owner: string,
+		hint: string,
+		added: Fields,
+	) => {
+		for (const [name, field] of Object.entries(added)) {
+			const other = owners.get(name)
+			if (other !== undefined) {
 				throw new Error(
-					`${entry.model.name}: the root field ${name} is another model's; set .with({ graphql: { plural } }).`,
+					`${owner}: the root field ${name} is ${other}'s; set .with({ graphql: { ${hint} } }).`,
 				)
 			}
-			fields[name] = field
+			owners.set(name, owner)
+			into[name] = field
 		}
+	}
+	for (const entry of registry.entries.values()) {
+		if (!entry.visible) continue
+		const owner = entry.model.name
+		add(
+			mutations,
+			roots.mutation,
+			owner,
+			'plural',
+			mutationFields(registry, entry),
+		)
+		add(fields, roots.query, owner, 'plural', rootFields(registry, entry))
+	}
+	for (const { query, name, owner, field } of functions) {
+		const [into, owners] = query
+			? [fields, roots.query]
+			: [mutations, roots.mutation]
+		add(into, owners, owner, 'name', { [name]: field })
 	}
 	if (Object.keys(fields).length === 0) {
 		throw new Error(
-			'graphqlPlugin: no model to expose; each one has .with({ graphql: false }).',
+			'graphqlPlugin: no query to expose; each model has .with({ graphql: false }) and no function is a query.',
 		)
 	}
 	return new GraphQLSchema({
 		query: new GraphQLObjectType({ name: 'Query', fields }),
-		mutation: new GraphQLObjectType({ name: 'Mutation', fields: mutations }),
+		mutation:
+			Object.keys(mutations).length === 0
+				? undefined
+				: new GraphQLObjectType({ name: 'Mutation', fields: mutations }),
 	})
 }
