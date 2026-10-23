@@ -7,7 +7,11 @@ import { getRequestListener } from '@hono/node-server'
 export function portOf(option: number | undefined): number {
 	const given = option ?? process.env['PORT']
 	if (given === undefined || given === '') return 3000
-	const port = Number(given)
+	// Digits only: `Number` would also read ' ', '0x1F90' or '1e3'.
+	const port =
+		typeof given === 'number' || /^\d+$/.test(given)
+			? Number(given)
+			: Number.NaN
 	if (Number.isInteger(port) && port >= 0 && port <= 65_535) return port
 	const name = option === undefined ? 'PORT' : 'port'
 	throw new Error(`${name} is ${given}, not a port between 0 and 65535.`)

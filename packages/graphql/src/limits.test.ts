@@ -1,5 +1,7 @@
 // What the plugin closes and opens (D-107): the depth limit, introspection
-// and suggestions in production, GraphiQL, and `extend`.
+// and suggestions in production, GraphiQL, `extend`, and the application's
+// middlewares before it.
+import { routes } from '@ultimabase/http'
 import type { GraphQLFieldConfigMap } from 'graphql'
 import {
 	getIntrospectionQuery,
@@ -179,5 +181,21 @@ describe('extend', () => {
 				data: { me: 'anonymous', users: { totalCount: 0 } },
 			})
 		})
+	})
+})
+
+describe('a middleware of the application', () => {
+	it('may read the body before the document runs', async () => {
+		const reading = routes().use(async (c, next) => {
+			if (c.req.method === 'POST') await c.req.json()
+			await next()
+		})
+		const running = await started({}, undefined, [reading])
+		try {
+			const result = await post(`${running.url}/graphql`, `{ __typename }`)
+			expect(result).toStrictEqual({ data: { __typename: 'Query' } })
+		} finally {
+			await running.app.stop()
+		}
 	})
 })

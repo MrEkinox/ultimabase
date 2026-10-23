@@ -8,6 +8,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
+import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import { hold } from './request.ts'
@@ -56,6 +57,8 @@ function refused(error: HTTPException, c: Context): Response {
 
 /** A `PublicError` as is; any other error masked, logged with its id. */
 function failed(error: unknown, c: Context, logger: Logger): Response {
+	// The client left: its request failed, not the server (499, as nginx).
+	if (c.req.raw.signal.aborted) return new Response(null, { status: 499 })
 	if (error instanceof HTTPException) return refused(error, c)
 	if (error instanceof PublicError) {
 		const { code, message, details } = error
@@ -84,6 +87,15 @@ function isLocal(origin: string): boolean {
 }
 
 /**
+ * Hono's path, with control characters left encoded: a route never matches
+ * one, and the development log cannot print one (D-108).
+ */
+const pathOf = (request: Request): string =>
+	getPath(request).replaceAll(/[\p{Cc}\u2028\u2029]/gu, (char) =>
+		encodeURIComponent(char),
+	)
+
+/**
  * Reads `NODE_ENV` once, when the application starts. The application's
  * routes come before those plugins mounted (D-107).
  */
@@ -96,7 +108,7 @@ export function appOf(
 	const listed = options.cors ?? []
 	const local = process.env['NODE_ENV'] !== 'production'
 	const maxSize = options.bodyLimit ?? 1024 * 1024
-	const app = new Hono<HttpEnv>()
+	const app = new Hono<HttpEnv>({ getPath: pathOf })
 	// Each request once answered, outside production (D-108).
 	if (local) {
 		app.use(async (c, next) => {
@@ -106,6 +118,15 @@ export function appOf(
 			logger.info(`${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`)
 		})
 	}
+	// Hono's `onError` receives only an `Error`; any other value thrown ends
+	// here, answered as one.
+	app.use(async (c, next) => {
+		try {
+			await next()
+		} catch (error) {
+			c.res = failed(error, c, logger)
+		}
+	})
 	app.use(
 		cors({
 			origin: (origin) =>

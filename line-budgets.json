@@ -3,6 +3,6 @@
 	"testing": 1500,
 	"soft-delete": 150,
 	"postgres": 3000,
-	"http": 420,
-	"graphql": 1510
+	"http": 460,
+	"graphql": 1520
 }

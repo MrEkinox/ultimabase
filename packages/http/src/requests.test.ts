@@ -1,11 +1,15 @@
 // What a route reads and how it refuses (D-108): `validate`, a body that is
-// not JSON, Hono's `HTTPException`, routes tested alone, the development
-// log and the server's url.
+// not the JSON or the form it claims, a client that leaves, Hono's
+// `HTTPException`, routes tested alone, the development
+// log, the server's url, and what Hono offers beyond JSON: streams, forms
+// with files, HEAD and preflight requests.
+import { connect } from 'node:net'
 import { hc } from 'hono/client'
 import { HTTPException } from 'hono/http-exception'
+import { streamSSE } from 'hono/streaming'
 import type { Logger, PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
-import { afterEach, describe, expect, expectTypeOf, it } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { HttpApi, Routes, StandardSchema } from './index.ts'
 import { httpPlugin, routes, validate } from './index.ts'
@@ -183,6 +187,48 @@ describe('a body that is not JSON', () => {
 	})
 })
 
+describe('a body that is not the form it claims', () => {
+	it('is the client’s error, parsed or read as form data', async () => {
+		const forms = routes()
+			.post('/parsed', async (c) => c.json(await c.req.parseBody()))
+			.post('/read', async (c) => c.json([...(await c.req.formData()).keys()]))
+		const { url, lines } = await serving(forms)
+		for (const path of ['/parsed', '/read']) {
+			const malformed = await fetch(`${url}${path}`, {
+				method: 'POST',
+				body: 'not a form',
+				headers: { 'content-type': 'multipart/form-data; boundary=x' },
+			})
+			expect(malformed.status).toBe(400)
+			expect(await malformed.json()).toStrictEqual({
+				code: 'BAD_REQUEST',
+				message: 'Malformed form data in request body',
+			})
+		}
+		expect(lines.filter((line) => line.level === 'error')).toStrictEqual([])
+	})
+})
+
+describe('a client that leaves before its body ends', () => {
+	it('is no server error: 499 in the log, as nginx', async () => {
+		const { url, lines } = await serving(
+			routes().post('/raw', async (c) => c.json(await c.req.json())),
+		)
+		const socket = connect(Number(new URL(url).port), 'localhost', () => {
+			socket.write(
+				'POST /raw HTTP/1.1\r\nHost: localhost\r\n' +
+					'Content-Type: application/json\r\nContent-Length: 100\r\n\r\n{"a":',
+			)
+			setTimeout(() => socket.destroy(), 20)
+		})
+		await vi.waitFor(() => {
+			const logged = lines.map((line) => String(line.first))
+			expect(logged).toContainEqual(expect.stringMatching(/^POST \/raw 499 /))
+		})
+		expect(lines.filter((line) => line.level === 'error')).toStrictEqual([])
+	})
+})
+
 describe('an HTTPException', () => {
 	const refusing = routes()
 		.get('/expired', () => {
@@ -273,6 +319,22 @@ describe('the development log', () => {
 		expect(logged[1]).toMatch(/^GET \/nowhere 404 \d+ms$/)
 	})
 
+	it('prints a path’s control characters encoded, matched or not', async () => {
+		const { url, lines } = await serving(
+			routes().get('/notes/:id', (c) => c.text(c.req.param('id'))),
+		)
+		const matched = await fetch(`${url}/notes/a%0Ab`)
+		expect(await matched.text()).toBe('a\nb')
+		await fetch(`${url}/x%0AGET%20/admin%20200%201ms%1B[2K`)
+		const logged = lines
+			.map((line) => String(line.first))
+			.filter((line) => /^[A-Z]+ \//.test(line))
+		expect(logged[0]).toMatch(/^GET \/notes\/a%0Ab 200 \d+ms$/)
+		expect(logged[1]).toMatch(
+			/^GET \/x%0AGET \/admin 200 1ms%1B\[2K 404 \d+ms$/,
+		)
+	})
+
 	it('logs no request in production', async () => {
 		process.env['NODE_ENV'] = 'production'
 		const { url, lines } = await serving(ping)
@@ -294,6 +356,91 @@ describe('url', () => {
 		stop = undefined
 		expect(() => http?.url()).toThrow(
 			"The HTTP server is not running: read its url from your plugin's start (D-108).",
+		)
+	})
+})
+
+describe('beyond JSON', () => {
+	it('streams server-sent events, logged once they end', async () => {
+		const events = routes().get('/events', (c) =>
+			streamSSE(c, async (stream) => {
+				await stream.writeSSE({ event: 'tick', data: '1' })
+				await stream.writeSSE({ event: 'tick', data: '2' })
+			}),
+		)
+		const { url, lines } = await serving(events)
+		const response = await fetch(`${url}/events`)
+		expect(response.headers.get('content-type')).toBe('text/event-stream')
+		expect(await response.text()).toBe(
+			'event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\n',
+		)
+		const logged = lines.map((line) => String(line.first))
+		expect(logged).toContainEqual(expect.stringMatching(/^GET \/events 200 /))
+	})
+
+	it('validates a form with a file, under the body limit', async () => {
+		const upload = routes().post(
+			'/upload',
+			validate(
+				'form',
+				z.object({ title: z.string(), file: z.instanceof(File) }),
+			),
+			(c) => {
+				const { title, file } = c.req.valid('form')
+				return c.json({ title, name: file.name, size: file.size })
+			},
+		)
+		const { url } = await serving(upload)
+		const form = new FormData()
+		form.set('title', 'Report')
+		form.set('file', new File(['hello'], 'report.txt'))
+		const sent = await fetch(`${url}/upload`, { method: 'POST', body: form })
+		expect(await sent.json()).toStrictEqual({
+			title: 'Report',
+			name: 'report.txt',
+			size: 5,
+		})
+		const missing = new FormData()
+		missing.set('title', 'Report')
+		const refused = await fetch(`${url}/upload`, {
+			method: 'POST',
+			body: missing,
+		})
+		expect(refused.status).toBe(400)
+		expect(await refused.json()).toMatchObject({
+			code: 'VALIDATION_FAILED',
+			details: { issues: [{ path: ['file'] }] },
+		})
+		const big = new FormData()
+		big.set('title', 'Report')
+		big.set('file', new File([new Uint8Array(1024 * 1024 + 1)], 'big.bin'))
+		const tooLarge = await fetch(`${url}/upload`, { method: 'POST', body: big })
+		expect(tooLarge.status).toBe(413)
+	})
+
+	it('answers HEAD from a GET route, without its body', async () => {
+		const { url } = await serving(routes().get('/page', (c) => c.text('hello')))
+		const head = await fetch(`${url}/page`, { method: 'HEAD' })
+		expect(head.status).toBe(200)
+		expect(await head.text()).toBe('')
+	})
+
+	it('answers a preflight for a route another plugin mounted', async () => {
+		const { url } = await serving()
+		const preflight = await fetch(`${url}/mounted`, {
+			method: 'OPTIONS',
+			headers: {
+				origin: 'http://localhost:5173',
+				'access-control-request-method': 'POST',
+				'access-control-request-headers': 'x-ultimabase-master-key',
+			},
+		})
+		expect(preflight.status).toBe(204)
+		expect(preflight.headers.get('access-control-allow-origin')).toBe(
+			'http://localhost:5173',
+		)
+		expect(preflight.headers.get('access-control-allow-headers')).toBe(
+			'x-ultimabase-master-key',
 		)
 	})
 })

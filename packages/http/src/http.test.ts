@@ -192,6 +192,9 @@ describe('an error', () => {
 	failing.get('/crash', () => {
 		throw new Error('Connection refused.')
 	})
+	failing.get('/thrown', () => {
+		throw 'Connection refused.'
+	})
 
 	it('sends a public error with its status and details', async () => {
 		const { url } = await server({ port: 0, routes: [failing] })
@@ -229,6 +232,24 @@ describe('an error', () => {
 			err: new Error('Connection refused.'),
 		})
 		expect(JSON.stringify(body)).not.toContain('Connection refused')
+	})
+
+	it('masks a thrown value that is not an Error, as one', async () => {
+		const { url, lines } = await server({ port: 0, routes: [failing] })
+		const thrown = await fetch(`${url}/thrown`)
+		expect(thrown.status).toBe(500)
+		const body: unknown = await thrown.json()
+		const correlationId: unknown = Reflect.get(Object(body), 'correlationId')
+		expect(body).toStrictEqual({
+			code: 'INTERNAL',
+			message: 'Internal error.',
+			correlationId,
+		})
+		const logged = lines.find((line) => line.level === 'error')
+		expect(logged?.first).toStrictEqual({
+			correlationId,
+			err: 'Connection refused.',
+		})
 	})
 
 	it('refuses a wrong master key', async () => {
@@ -337,6 +358,10 @@ describe('the port', () => {
 		expect(() => portOf(undefined)).toThrow(
 			'PORT is eighty, not a port between 0 and 65535.',
 		)
+		for (const value of ['  ', '0x1F90', '1e3', '8080.0', '-0']) {
+			process.env['PORT'] = value
+			expect(() => portOf(undefined)).toThrow(`PORT is ${value}, not a port`)
+		}
 		expect(() => portOf(70_000)).toThrow(
 			'port is 70000, not a port between 0 and 65535.',
 		)

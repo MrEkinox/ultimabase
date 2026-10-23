@@ -104,8 +104,16 @@ const plugin = definePlugin<Graphql>({
 					c.req.method === 'GET' &&
 					c.req.header('accept')?.includes('text/html') === true
 				if (page !== undefined && browsing) return page()
-				callers.set(c.req.raw, c.var.caller)
-				return handler(c.req.raw)
+				// A middleware may have read the body: Hono kept it, not the request.
+				const request =
+					c.req.method === 'POST' && c.req.raw.bodyUsed
+						? new Request(c.req.raw, {
+								method: 'POST',
+								body: await c.req.text(),
+							})
+						: c.req.raw
+				callers.set(request, c.var.caller)
+				return handler(request)
 			}),
 		)
 	},
