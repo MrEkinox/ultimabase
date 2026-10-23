@@ -12,7 +12,16 @@ import {
 import type { Caller } from 'ultimabase'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GraphqlOptions } from './index.ts'
-import { asMaster, post, seeded, started } from './test/app.ts'
+import {
+	asMaster,
+	at,
+	M,
+	post,
+	Post,
+	seeded,
+	started,
+	User,
+} from './test/app.ts'
 
 afterEach(() => {
 	vi.unstubAllEnvs()
@@ -33,6 +42,36 @@ async function serving(
 
 const messages = (result: { errors?: readonly { message: string }[] }) =>
 	result.errors?.map((error) => error.message)
+
+describe('a list without first', () => {
+	it('returns 100 rows, as D-55 says', async () => {
+		await serving({ maxTake: 200 }, async (url) => {
+			const ada = await User.create(
+				{ data: { name: 'ada', email: 'ada@example.com' } },
+				M,
+			)
+			for (let index = 0; index < 101; index++) {
+				await Post.create(
+					{
+						data: {
+							title: `${index}`,
+							slug: `${index}`,
+							status: 'draft',
+							author: { connect: { id: ada.id } },
+						},
+					},
+					M,
+				)
+			}
+			const result = await post(
+				url,
+				`{ posts { edges { cursor } pageInfo { hasNextPage } } }`,
+			)
+			expect(at(result.data, 'posts', 'pageInfo', 'hasNextPage')).toBe(true)
+			expect(at(result.data, 'posts', 'edges')).toHaveLength(100)
+		})
+	})
+})
 
 describe('the depth limit', () => {
 	it('refuses a document deeper than maxDepth, unless Master asks', async () => {

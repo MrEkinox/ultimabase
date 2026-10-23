@@ -5,7 +5,7 @@
 import type {
 	GraphQLFieldConfig,
 	GraphQLInputFieldConfigMap,
-	GraphQLInputType,
+	GraphQLNullableInputType,
 } from 'graphql'
 import {
 	GraphQLBoolean,
@@ -72,15 +72,15 @@ function fieldInput(
 	model: string,
 	field: SchemaField,
 	creating: boolean,
-): GraphQLInputType {
+): GraphQLNullableInputType {
 	if (field.kind === 'scalar') return scalarType(registry, model, field)
 	return relationInput(registry, field.kind, creating)
 }
 
 /**
  * `PostCreateInput` and `PostUpdateInput`: every field, those only Master
- * reads included, each optional since a default or a hook may give it; the
- * kernel checks what is missing (D-67).
+ * reads included. A create needs the fields its type needs, neither optional
+ * nor with a default (D-53); the others are optional.
  */
 function dataInput(
 	registry: Registry,
@@ -94,10 +94,13 @@ function dataInput(
 			new GraphQLInputObjectType({
 				name,
 				fields: () => {
+					const { exposed } = registry.entry(model)
+					const required = new Set(creating ? exposed.required : [])
 					const fields: GraphQLInputFieldConfigMap = {}
-					for (const field of registry.entry(model).model.fields) {
+					for (const field of exposed.schema.fields) {
+						const type = fieldInput(registry, model, field, creating)
 						fields[field.name] = {
-							type: fieldInput(registry, model, field, creating),
+							type: required.has(field.name) ? new GraphQLNonNull(type) : type,
 						}
 					}
 					return fields

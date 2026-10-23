@@ -671,6 +671,7 @@ const Tag = defineModel({
 	use: [lens.use()],
 	fields: (f) => ({
 		label: f.string({ unique: true }),
+		kind: f.string({ default: 'plain' }),
 		secret: f.string({ optional: true }).with({
 			access: { read: allow.private },
 		}),
@@ -696,7 +697,7 @@ const Plain = defineModel({
 })
 
 describe('a plugin’s models', () => {
-	it('gives each model’s schema, uniques, its .with key and queries', async () => {
+	it('gives each model’s schema, uniques, required fields, its .with key and queries', async () => {
 		const lensed = defineApp({
 			database: memory(),
 			plugins: [lens.plugin()],
@@ -717,6 +718,9 @@ describe('a plugin’s models', () => {
 			expect(seen[0]?.uniques).toEqual([['id'], ['label']])
 			expect(seen[0]?.readRules).toEqual({ secret: 'private', note: 'rule' })
 			expect(seen[1]?.readRules).toEqual({})
+			// Neither optional nor with a default, as `create`'s type (D-53).
+			expect(seen[0]?.required).toEqual(['label'])
+			expect(seen[1]?.required).toEqual(['text'])
 			const queries = seen[0]?.queries
 			const created = await queries?.create({ data: { label: 'a' } }, M)
 			expect(created?.['label']).toBe('a')

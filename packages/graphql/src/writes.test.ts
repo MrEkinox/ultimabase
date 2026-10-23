@@ -55,14 +55,28 @@ describe('a create', () => {
 		expect(cy?.password).toBe('hunter2')
 	})
 
-	it('sends the kernel’s refusals as client errors', async () => {
+	it('requires the fields create needs, as its type does (D-53)', async () => {
 		const missing = await write(
 			`mutation { createPost(data: { title: "six" }) { id } }`,
 		)
-		expect(missing.data).toBeNull()
-		expect(missing.errors?.[0]?.extensions).toMatchObject({
-			code: 'VALIDATION_FAILED',
+		expect(missing.errors?.map((error) => error.message)).toStrictEqual([
+			'Expected value of type "PostCreateInput" to include required field "slug", found: { title: "six" }.',
+			'Expected value of type "PostCreateInput" to include required field "status", found: { title: "six" }.',
+			'Expected value of type "PostCreateInput" to include required field "author", found: { title: "six" }.',
+		])
+		// `views` has a default, `meta` and `publishedAt` are optional.
+		const defaulted = await write(
+			`mutation ($ada: ID!) { createPost(data: {
+				title: "six", slug: "six", status: draft, author: { connect: { id: $ada } }
+			}) { views meta publishedAt } }`,
+			{ ada },
+		)
+		expect(defaulted).toStrictEqual({
+			data: { createPost: { views: 0, meta: null, publishedAt: null } },
 		})
+	})
+
+	it('sends the kernel’s refusals as client errors', async () => {
 		const denied = await post(
 			`${running.url}/graphql`,
 			`mutation { createUser(data: { name: "dee", email: "d@example.com" }) { id } }`,

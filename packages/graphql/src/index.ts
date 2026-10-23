@@ -24,7 +24,7 @@ export interface GraphqlOptions {
 	readonly path?: string
 	/** Relay connections, or `take` and `skip` lists. */
 	readonly pagination?: 'connection' | 'list'
-	/** The rows a list returns when none is asked for; 20 by default. */
+	/** The rows a list returns when none is asked for; 100 by default (D-55). */
 	readonly take?: number
 	/** The rows a caller other than Master may ask for; 100 by default. */
 	readonly maxTake?: number
@@ -52,7 +52,7 @@ const plugin = definePlugin<Graphql>({
 	manifest,
 	requires: { http: httpPlugin },
 	api: ({ plugins, models, options, logger }) => {
-		const take = options.take ?? 20
+		const take = options.take ?? 100
 		const entries = new Map<string, Entry>()
 		for (const exposed of models) {
 			const name = exposed.schema.name

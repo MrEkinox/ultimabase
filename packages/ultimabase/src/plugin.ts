@@ -89,6 +89,8 @@ export interface ExposedModel<W = unknown> {
 	readonly uniques: readonly (readonly string[])[]
 	/** Each field with a read rule, `private` when only Master reads it (D-44). */
 	readonly readRules: { readonly [field: string]: 'private' | 'rule' }
+	/** The fields `create` needs: neither optional nor with a default (D-53). */
+	readonly required: readonly string[]
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries

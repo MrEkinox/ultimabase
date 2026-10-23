@@ -6,7 +6,7 @@ import type { Logger } from './app-options.ts'
 import type { PluginRecord } from './definition.ts'
 import type { Identify } from './identify.ts'
 import type { ExposedModel, ModelQueries } from './plugin.ts'
-import type { Resolved } from './schema.ts'
+import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
 import { isObject } from './query-where.ts'
 
@@ -86,10 +86,23 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			schema: schemaOf(resolved, info.name),
 			uniques: info.uniques,
 			readRules: readRules(info),
+			required: required(info),
 			with: key,
 			queries,
 		})
 	})
+}
+
+/** The fields `create` needs, as its type says (D-53). */
+function required(info: ModelInfo): readonly string[] {
+	return [...info.fields.values()]
+		.filter(
+			(field) =>
+				field.kind !== 'many' &&
+				!field.optional &&
+				field.options['default'] === undefined,
+		)
+		.map((field) => field.name)
 }
 
 function schemaOf(resolved: Resolved, name: string): SchemaModel {

@@ -4247,8 +4247,7 @@ Choice: completes D-16, D-34, D-41, D-45 and D-55.
    like the application's own.
 3. The kernel gives every plugin's `api`, `start` and `stop` the application's
    `models`: each model's schema as the adapter receives it (D-73), its
-   unique targets, the fields with a read rule (`private` when only Master
-   reads them, D-44), its `.with` key for that plugin, and its queries. A
+   unique targets, the fields with a read rule (`private` when only Master reads them, D-44), the fields `create` needs (amended 2026-10-23), its `.with` key for that plugin, and its queries. A
    transport reads nothing else of the kernel.
 4. The schema follows D-41 and D-20, at `/graphql` (`path` option), over GET
    for queries and POST: `post(where: PostWhereUniqueInput!): Post`, `null`
@@ -4266,10 +4265,7 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    the row (D-86). Each root field runs one kernel query
    built from the whole selection, nested relations included (D-46): no
    resolver per relation, no N+1. Each root field is its own operation; two
-   mutations in one document share no transaction. `PostCreateInput` and
-   `PostUpdateInput` hold every field, those only Master reads included,
-   each optional: a default or a hook may give it, and the kernel refuses
-   what is missing (`VALIDATION_FAILED`). Relation writes share their
+   mutations in one document share no transaction. `PostCreateInput` and `PostUpdateInput` hold every field, those only Master reads included. In `PostCreateInput`, a field `create`'s type needs, neither optional nor with a default (D-53), is non-null, so a client's generated types require it and a document missing it is refused before it runs; the others are optional. A field a hook fills takes a default instead, as D-53 says (amended 2026-10-23). Relation writes share their
    inputs across models, since `connect` names a row by its `id` alone:
    `ConnectInput { id }`, `CreateOneRelationInput { connect }`,
    `UpdateOneRelationInput @oneOf { connect, disconnect: Boolean }`,
@@ -4344,7 +4340,7 @@ export default defineApp({
 
 ```graphql
 query {
-	posts(first: 20, where: { status: { equals: PUBLISHED } }) {
+	posts(first: 20, where: { status: { equals: published } }) {
 		edges {
 			cursor
 			node {
@@ -4369,7 +4365,9 @@ query {
 	}
 }
 mutation {
-	createPost(data: { title: "Hi", author: { connect: { id: "…" } } }) {
+	createPost(
+		data: { title: "Hi", status: draft, author: { connect: { id: "…" } } }
+	) {
 		id
 	}
 }

@@ -27,7 +27,7 @@ export const Post = defineModel({
 		title: f.string(),
 		slug: f.string(),
 		status: f.enumOf(['draft', 'published']),
-		views: f.number(),
+		views: f.number({ default: 0 }),
 		meta: f.json({ optional: true }),
 		publishedAt: f.date({ optional: true }),
 		author: f.one(() => User),
@@ -91,7 +91,8 @@ export type Result = {
 	}[]
 }
 
-const M = { as: master }
+/** Server code's options: as Master. */
+export const M = { as: master }
 export const asMaster = { 'x-ultimabase-master-key': 'secret' }
 
 /** Two users, four posts and a secret; returns the users' ids. */
