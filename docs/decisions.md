@@ -467,13 +467,13 @@ departs from Prisma only where a recorded decision says so: the caller
 option (D-19), the model as entry point (D-18), plugin commands on the model.
 The first release ships the subset needed by its examples and its GraphQL
 (D-41); the rest follows Prisma's spelling when added. That subset is
-`findUnique`, `findFirst`, `findMany`, `count`, `create`, `update` and
-`delete`, with `where` (scalar filters, `is`/`isNot`, `some`/`every`/`none`,
-`AND`/`OR`/`NOT`), `select`, `include`, `orderBy`, `take`, `skip` and
-`cursor`, and relation writes by id: `connect` on a `one` and a `many`
-relation, `disconnect: true` to unset an optional `one` relation (`null` is
-refused, as in Prisma), `disconnect: [{ id }]` on a `many` relation in
-`update`. A `cursor` is a unique target (D-52) and also pages a nested list,
+`findUnique`, `findFirst`, `findMany`, `count`, `create`, `update`,
+`delete` and `deleteMany` (D-111), with `where` (scalar filters,
+`is`/`isNot`, `some`/`every`/`none`, `AND`/`OR`/`NOT`), `select`, `include`,
+`orderBy`, `take`, `skip` and `cursor`, and relation writes by id:
+`connect` on a `one` and a `many` relation, `disconnect: true` to unset an
+optional `one` relation (`null` is refused, as in Prisma),
+`disconnect: [{ id }]` on a `many` relation in `update`. A `cursor` is a unique target (D-52) and also pages a nested list,
 which a Relay connection needs. Like Prisma, the kernel refuses at run time any
 argument key it does not know, at any depth, in the caller's arguments and in
 the filters that rules and hooks add, with the `INVALID_QUERY` code and the
@@ -487,11 +487,10 @@ casts or values built at run time, and an ignored filter key widens a query:
 on a read filter it leaks rows (D-04).
 Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1). After the first release:
-`upsert` and the batch operations `createMany`, `updateMany` and
-`deleteMany`, once it is decided which rules and hooks they run (create's or
-update's for `upsert`, per row or per batch, and the soft-delete trash);
-`omit`, which `select` covers meanwhile; nested creation (`create` in a
-relation write), which ships before 1.0; `set`, `distinct` and aggregates;
+`upsert` and the batch operations `createMany` and `updateMany`, once it is
+decided which rules and hooks they run (create's or update's for `upsert`,
+per row or per batch); `omit`, which `select` covers meanwhile; nested
+creation (`create` in a relation write), which ships before 1.0; `set`, `distinct` and aggregates;
 case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
 first.
 Rejected: a query syntax of our own; a function builder for `where` beside
@@ -4791,15 +4790,12 @@ const authDefinition = definePlugin<Auth>({
 	manifest,
 	models: [AuthSession],
 	hooks: {
-		// One delete per session: `deleteMany` comes after the release (D-20).
+		// What a user owns goes with it, in one write (D-111).
 		afterDelete: async ({ record }) => {
-			const where = { userId: record.id }
-			for (const { id } of await AuthSession.findMany(
-				{ where },
+			await AuthSession.deleteMany(
+				{ where: { userId: record.id } },
 				{ as: master },
-			)) {
-				await AuthSession.delete({ where: { id } }, { as: master })
-			}
+			)
 		},
 	},
 })
@@ -4809,4 +4805,64 @@ export const app = defineApp({
 	plugins: [httpPlugin(), graphqlPlugin(), authPlugin()],
 	models: [User, Post],
 })
+```
+
+## D-111: `deleteMany` runs a delete's rules and hooks on each row
+
+Choice: `Model.deleteMany({ where }, { as })` deletes every row `where`
+selects that the caller reads, and returns `{ count }`, as in Prisma. Without
+`where` it selects every such row, as Prisma's `deleteMany()`. It takes no
+`take`, `orderBy` or `select`.
+
+1. Each row goes through what a `delete` runs (D-48, D-90): the `delete`
+   rule on its record, `beforeDelete`, a plugin's `redirect` (the soft-delete
+   trash), the cascades, `afterDelete` and `afterDeleteCommit`.
+2. It is all or nothing: one row the rule refuses fails the whole call with
+   `ACCESS_DENIED`, and nothing is deleted; so does a `restrict` relation
+   (D-54). A row the caller cannot read is left out, not refused (D-72), and
+   no row matching is `{ count: 0 }`, not `NOT_FOUND`.
+3. When no rule applies and nothing in the reach runs code, it is one write
+   (D-102): its `where` is the root filter, and the count comes from the rows
+   the write reads as they were. Otherwise the rows are loaded locked in the
+   write's transaction, as a delete's reach is (D-90): BEGIN, one read, one
+   write, COMMIT when nothing else runs.
+4. It is server code: neither `graphqlPlugin()` nor `httpPlugin()` exposes
+   it, since a client's delete of many rows is an application's function
+   (D-109).
+
+Why: a plugin removes what depends on a row in its hook, as auth's sessions
+of a deleted user (D-110), and a loop of `findMany` and `delete` costs one
+query per row and loses the one-write case. The kernel already deletes many
+rows per call through cascades, with the hooks and the trash per row, so
+`deleteMany` adds an entry point, not a pipeline.
+Limit: a user's `deleteMany` locks its rows, where a user's `delete` reads
+its row without a lock and checks it unchanged (D-104): the check of every
+row would grow with the count. The one-write case reads the deleted rows to
+count them.
+Rejected: a batch hook that receives every row at once, which a plugin
+written for `delete` would miss; skipping rules and hooks in bulk, against
+D-48; deleting the rows the rule allows and leaving the others, which hides a
+refusal; returning the rows, which Prisma does not.
+Later: `updateMany`, `createMany` and `upsert` stay as D-20 defers them.
+Example:
+
+```ts
+// Before: one query to list the sessions, then one per session
+afterDelete: async ({ record }) => {
+	const where = { userId: record.id }
+	for (const { id } of await AuthSession.findMany({ where }, { as: master })) {
+		await AuthSession.delete({ where: { id } }, { as: master })
+	}
+},
+
+// After: one write, since AuthSession has no hook or rule of its own
+afterDelete: async ({ record }) => {
+	await AuthSession.deleteMany({ where: { userId: record.id } }, { as: master })
+},
+
+// A user empties their read notifications: the delete rule runs on each row
+const { count } = await Notification.deleteMany(
+	{ where: { read: true } },
+	{ as: caller },
+)
 ```
