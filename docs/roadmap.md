@@ -148,6 +148,11 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [ ] Documentation website (D-31).
+- [ ] Decide how `graphqlPlugin()` bounds the cost of validating a document
+      under its 2,000 tokens: 1,993 copies of one field take 100 ms of CPU
+      in graphql-js's overlapping-fields rule, which compares every two
+      fields of one name; ten such requests a second fill a core (D-55,
+      D-107).
 - [ ] Publication, after confirmation.
 
 Exit: `npm create ultimabase` produces an application that starts.
