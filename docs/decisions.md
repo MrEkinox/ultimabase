@@ -4556,7 +4556,10 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 4. Without an output, the GraphQL field is `Boolean!`, which is `true` once
    `run` resolved, since GraphQL has no empty type. A model, a type and a
    list are non-null; a schema is nullable when its JSON Schema accepts
-   `null` or, inside an object, when the property is optional.
+   `null` or, inside an object, when the property is optional. An optional
+   output schema exports as the same schema without `undefined`, so a `run`
+   that returns `undefined` there fails the call, its log naming `.nullable()`
+   (amended 2026-10-23).
 5. Relations. `run` returns rows without their relations. When the client
    selects a relation under a model the function returns, the transport
    reads the returned rows again by `id`, as the caller, with the selection
@@ -4571,8 +4574,10 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
    or an ISO string. `integer` is `Int`, whatever its bounds (Zod gives every
    integer the 53-bit safe bounds), so a value beyond 32 bits is refused by
    GraphQL; `number` is `Float`; `boolean` is `Boolean`; a string `enum`
-   whose values are all GraphQL names is an enum named from its path, any
-   other `enum` or `const` a `String`; an `array` is a list; an `object` with
+   whose values are all GraphQL names is an enum named from its path; an
+   `enum` or `const` of `integer`, `number` or `boolean` takes that type's
+   scalar, as `z.literal(1)` is `Int` (amended 2026-10-23); any other `enum`
+   or `const` is a `String`; an `array` is a list; an `object` with
    `properties` is a type named from its path; an object without them, as
    `z.record`, and a schema without a `type`, as `z.unknown()`, are `JSON`. A
    `$ref` to a schema given an id (`.meta({ id: 'Address' })`) is the shared
@@ -4584,10 +4589,17 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
    `CreateOrderInputAddress`. The field is the function's name, or
    `.with({ graphql: { name } })`; `false` hides it (D-27). A name a
    generated root field or another function already takes stops startup,
-   naming both; so does one type name given two different shapes (D-45).
+   naming both; so does one type name given two different shapes (D-45), a
+   type named like a model or a generated type (`PageInfo`,
+   `UserConnection`), and a recursive schema without an id, which GraphQL
+   can only type by its name (amended 2026-10-23).
 8. Limits (D-107). A function counts one row for a model, and `take` rows
-   for a list, which may hold any number, times the lists above it.
-   `maxDepth`, the token limit and `maxRows` apply as to any field.
+   for a list, times the lists above it. A list may hold any number of rows
+   while the client selects none of their relations; one that holds more
+   than `take` rows under a selected relation fails the call, its log naming
+   the function and `take`, since its re-read would pass `maxRows`
+   (amended 2026-10-23). `maxDepth`, the token limit and `maxRows` apply as
+   to any field.
 9. The kernel gives every plugin's `api`, `start` and `stop` the
    application's `functions`, as it gives `models` (D-107): each function's
    name, `query`, its input and output, its `.with` key for that plugin, and
