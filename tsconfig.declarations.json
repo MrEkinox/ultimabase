@@ -1,0 +1,8 @@
+{
+	// An application of ours would export these without written types: its
+	// declarations must name every type they reach (D-70).
+	"extends": "./tsconfig.json",
+	"compilerOptions": { "declaration": true },
+	"include": ["packages/*/src/test/declarations.ts"],
+	"exclude": []
+}

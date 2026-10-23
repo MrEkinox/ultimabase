@@ -1212,9 +1212,10 @@ Limits:
 Choice: `defineApp({ masterKey: process.env.ULTIMABASE_MASTER_KEY })`
 declares an optional master key. A transport receiving it (the
 `x-ultimabase-master-key` header over HTTP) runs the request as Master, with
-`caller.master.source === 'key'` (D-19). The comparison is constant-time and
-every use is logged. Without a configured key, a request carrying one is
-refused. When `NODE_ENV === 'production'`, the key is refused even if set,
+`caller.master.source === 'key'` (D-19). The comparison is constant-time;
+every refusal is logged, and every use in production, while outside it the
+HTTP plugin's line per request is enough (D-108, amended 2026-10-23).
+Without a configured key, a request carrying one is refused. When `NODE_ENV === 'production'`, the key is refused even if set,
 unless the developer writes `masterKey: { key, production: true }`. An unset
 key (`undefined`, in either form) leaves the master key off.
 Why: front-end end-to-end tests seed their data through the API with the key,
@@ -1387,8 +1388,10 @@ in its `use`, `this['options']` the options of its entry there, and
 `definePlugin<T>({ name, manifest, ... })`, checked against the interface: a
 different name, a missing command or `api`, or a part the interface does not
 declare fails on its line. It returns `use`, the model entry, and `plugin`,
-the application value (D-24, D-35), which the package exports (D-70). The
-entry is overloaded: called without options it carries the plugin's types as
+the application value (D-24, D-35), which the package exports (D-70), with
+the interface itself: a model or an application exported without a written
+type names it in its declarations, `TS4023` otherwise (amended 2026-10-23).
+The entry is overloaded: called without options it carries the plugin's types as
 they are, and only an entry given options (`softDelete({ field: 'removedAt' })`)
 types the model from their literal values.
 Hooks (an object of functions, D-15), redirects and commands receive the
@@ -4142,8 +4145,8 @@ Choice: completes D-27, D-49, D-59 and D-66.
    the same way:
    - a request with the `x-ultimabase-master-key` header is compared with the
      master key in constant time; a match is Master with
-     `caller.master.source === 'key'`; each match and each refusal is
-     logged;
+     `caller.master.source === 'key'`; each refusal is logged, and each
+     match in production (D-49, amended 2026-10-23);
    - a wrong key, a key sent while none is configured, or any key in
      production without `{ key, production: true }` is refused with
      `ACCESS_DENIED` (403);

@@ -14,7 +14,8 @@ export interface SoftDeleteCommands<F> {
 	readonly restore: Queries<F>['delete']
 }
 
-interface SoftDelete extends PluginTypes {
+/** The soft delete plugin's types (D-57). */
+export interface SoftDelete extends PluginTypes {
 	readonly name: 'softDelete'
 	readonly addedFields: {
 		readonly deletedAt: Field<Date, { readonly optional: true }>

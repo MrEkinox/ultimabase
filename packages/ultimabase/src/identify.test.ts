@@ -51,11 +51,17 @@ describe('identify', () => {
 		expect(caller).toStrictEqual({ kind: 'anonymous' })
 	})
 
-	it('finds Master in a request with the key, and logs it', async () => {
+	it('finds Master in a request with the key, logged in production only', async () => {
 		const { caller, lines } = await callerOf('secret', 'secret')
 		expect(caller).toStrictEqual({ kind: 'master', master: { source: 'key' } })
 		expect(isMaster(caller ?? {})).toBe(true)
-		expect(lines).toContain('A request acts as Master with the master key.')
+		expect(lines).not.toContain('A request acts as Master with the master key.')
+		process.env['NODE_ENV'] = 'production'
+		const allowed = { key: 'secret', production: true } as const
+		const audited = await callerOf(allowed, 'secret')
+		expect(audited.lines).toContain(
+			'A request acts as Master with the master key.',
+		)
 	})
 
 	it('refuses a wrong key, and logs it', async () => {

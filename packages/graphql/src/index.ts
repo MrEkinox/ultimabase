@@ -3,7 +3,7 @@
 import type { GraphQLSchema } from 'graphql'
 import { execute, NoSchemaIntrospectionCustomRule, validate } from 'graphql'
 import { createHandler } from 'graphql-http/lib/use/fetch'
-import type { HttpApi } from '@ultimabase/http'
+import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import type { Caller, PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
@@ -39,12 +39,8 @@ export interface GraphqlOptions {
 	readonly extend?: (schema: GraphQLSchema) => GraphQLSchema
 }
 
-interface Http extends PluginTypes {
-	readonly name: 'http'
-	readonly api: HttpApi
-}
-
-interface Graphql extends PluginTypes {
+/** The GraphQL plugin's types (D-57). */
+export interface Graphql extends PluginTypes {
 	readonly name: 'graphql'
 	readonly appOptions: GraphqlOptions
 	readonly requires: Http

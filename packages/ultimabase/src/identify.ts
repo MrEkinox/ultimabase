@@ -37,6 +37,9 @@ export function identifier(masterKey: MasterKey, logger: Logger): Identify {
 	const refusal = refusalOf(masterKey)
 	const key = typeof masterKey === 'object' ? masterKey.key : masterKey
 	const expected = digest(key ?? '')
+	// Outside production, the HTTP plugin's development log already shows
+	// each request (D-108); a use of the key is an audit line in production.
+	const audited = process.env['NODE_ENV'] === 'production'
 	return async (request) => {
 		const sent = request.headers.get(masterKeyHeader)
 		if (sent === null) return anonymous
@@ -49,7 +52,7 @@ export function identifier(masterKey: MasterKey, logger: Logger): Identify {
 			logger.warn(`A request sent the master key, refused: ${refused}`)
 			throw new PublicError('ACCESS_DENIED', refused)
 		}
-		logger.info('A request acts as Master with the master key.')
+		if (audited) logger.info('A request acts as Master with the master key.')
 		return keyMaster
 	}
 }

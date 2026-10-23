@@ -22,7 +22,8 @@ export interface HttpApi {
 	url(): string
 }
 
-interface Http extends PluginTypes {
+/** The HTTP plugin's types (D-57). */
+export interface Http extends PluginTypes {
 	readonly name: 'http'
 	readonly appOptions: HttpOptions
 	readonly api: HttpApi
