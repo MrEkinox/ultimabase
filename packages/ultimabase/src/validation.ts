@@ -4,23 +4,37 @@ import type { Issue } from './errors.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { isObject } from './query-where.ts'
 
-type Result =
+export type Result =
 	{ readonly value: unknown } | { readonly issues: readonly Issue[] }
 
-function standardOf(validate: unknown): unknown {
-	if (typeof validate !== 'object' && typeof validate !== 'function') {
-		return undefined
-	}
-	if (validate === null) return undefined
-	const standard: unknown = Reflect.get(validate, '~standard')
-	return standard
+/** A Standard Schema, its `~standard` and that object's `validate`. */
+export type Standard = {
+	readonly schema: object
+	readonly self: object
+	readonly validate: Function
 }
 
-/** A schema issue's path, behind the field's name. */
-function pathOf(field: string, path: unknown): (string | number)[] {
-	if (!Array.isArray(path)) return [field]
+/** A Standard Schema's `~standard`, or `undefined` for any other value. */
+export function standardOf(schema: unknown): Standard | undefined {
+	if (typeof schema !== 'object' && typeof schema !== 'function') {
+		return undefined
+	}
+	if (schema === null) return undefined
+	const standard: unknown = Reflect.get(schema, '~standard')
+	if (!isObject(standard) || typeof standard['validate'] !== 'function') {
+		return undefined
+	}
+	return { schema, self: standard, validate: standard['validate'] }
+}
+
+/** A schema issue's path, behind `prefix`. */
+function pathOf(
+	prefix: readonly (string | number)[],
+	path: unknown,
+): (string | number)[] {
+	if (!Array.isArray(path)) return [...prefix]
 	return [
-		field,
+		...prefix,
 		...path.map((segment: unknown) => {
 			const key = isObject(segment) ? segment['key'] : segment
 			return typeof key === 'string' || typeof key === 'number'
@@ -30,14 +44,36 @@ function pathOf(field: string, path: unknown): (string | number)[] {
 	]
 }
 
-function issuesOf(field: string, issues: readonly unknown[]): Issue[] {
-	return issues.map((issue) => ({
-		path: pathOf(field, isObject(issue) ? issue['path'] : undefined),
-		message:
-			isObject(issue) && typeof issue['message'] === 'string'
-				? issue['message']
-				: 'Invalid value.',
-	}))
+/**
+ * What a Standard Schema returns for `value`, its issues' paths behind
+ * `prefix`; `where` names the schema when it breaks the standard.
+ */
+export async function checked(
+	standard: Standard,
+	value: unknown,
+	prefix: readonly (string | number)[],
+	where: string,
+): Promise<Result> {
+	const result: unknown = await Reflect.apply(
+		standard.validate,
+		standard.self,
+		[value],
+	)
+	if (isObject(result) && Array.isArray(result['issues'])) {
+		return {
+			issues: result['issues'].map((issue: unknown) => ({
+				path: pathOf(prefix, isObject(issue) ? issue['path'] : undefined),
+				message:
+					isObject(issue) && typeof issue['message'] === 'string'
+						? issue['message']
+						: 'Invalid value.',
+			})),
+		}
+	}
+	if (isObject(result) && 'value' in result) return { value: result['value'] }
+	throw new TypeError(
+		`${where}: the schema returned no Standard Schema result.`,
+	)
 }
 
 /** The value to store, or the issues that refuse it. */
@@ -49,19 +85,8 @@ export async function validated(
 	const validate = field.options['validate']
 	if (validate === undefined) return { value }
 	const standard = standardOf(validate)
-	if (isObject(standard) && typeof standard['validate'] === 'function') {
-		const result: unknown = await Reflect.apply(
-			standard['validate'],
-			standard,
-			[value],
-		)
-		if (isObject(result) && Array.isArray(result['issues'])) {
-			return { issues: issuesOf(field.name, result['issues']) }
-		}
-		if (isObject(result) && 'value' in result) return { value: result['value'] }
-		throw new TypeError(
-			`${model.name}.${field.name}: the schema returned no Standard Schema result.`,
-		)
+	if (standard !== undefined) {
+		return checked(standard, value, [field.name], `${model.name}.${field.name}`)
 	}
 	if (typeof validate !== 'function') {
 		throw new TypeError(

@@ -36,7 +36,14 @@ export type {
 	One,
 	ScalarOptions,
 } from './fields.ts'
-export type { ServerFunction } from './function.ts'
+export { defineFunction, defineType } from './define-function.ts'
+export type {
+	FunctionPlugin,
+	Nullable,
+	ObjectType,
+	OutputSpec,
+	ServerFunction,
+} from './function.ts'
 export { memory } from './memory.ts'
 export type { App, Model } from './model.ts'
 export type {

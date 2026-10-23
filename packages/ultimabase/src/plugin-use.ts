@@ -141,6 +141,6 @@ export function usedBy(
 		const names = redirecting.map((each) => each.code.name).join(' and ')
 		throw new Error(`${model}: ${names} both redirect delete (D-89).`)
 	}
-	const methods = new Set(['name', 'with', ...Object.keys(queries)])
+	const methods = new Set(['name', 'with', 'nullable', ...Object.keys(queries)])
 	return { uses, commands: commandsOf(model, uses, methods) }
 }

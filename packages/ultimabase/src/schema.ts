@@ -157,6 +157,22 @@ function schemaField(field: FieldInfo): SchemaField {
 	return schema
 }
 
+/** Stops startup when `owner` uses a plugin that `plugins` does not hold. */
+export function checkInstalled(
+	owner: string,
+	code: PluginCode,
+	plugins: readonly PluginCode[],
+): void {
+	if (plugins.includes(code)) return
+	const { name } = code
+	const other = plugins.some((each) => each.name === name)
+	throw new Error(
+		other
+			? `${owner} uses a ${name} from another definePlugin than the one in plugins (D-89).`
+			: `${owner} uses ${name}, which is not in plugins.`,
+	)
+}
+
 /** A model's plugins in the order of `plugins`, each one installed. */
 function installedUses(
 	definition: ModelDefinition,
@@ -164,14 +180,7 @@ function installedUses(
 ): readonly PluginUse[] {
 	const at = (use: PluginUse) => plugins.indexOf(use.code)
 	for (const use of definition.uses) {
-		if (at(use) !== -1) continue
-		const { name } = use.code
-		const other = plugins.some((code) => code.name === name)
-		throw new Error(
-			other
-				? `${definition.name} uses a ${name} from another definePlugin than the one in plugins (D-89).`
-				: `${definition.name} uses ${name}, which is not in plugins.`,
-		)
+		checkInstalled(definition.name, use.code, plugins)
 	}
 	return definition.uses.toSorted((a, b) => at(a) - at(b))
 }

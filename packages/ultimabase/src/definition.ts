@@ -70,12 +70,56 @@ export type PluginUse = {
 	}
 }
 
+/** A model or a type, as an output holds it (D-109). */
+export type NamedOutput =
+	| {
+			readonly kind: 'model'
+			/** The `defineModel` value. */
+			readonly value: object
+			readonly name: string
+	  }
+	| { readonly kind: 'type'; readonly type: TypeDefinition }
+
+/** A function's or a type's output, as the kernel reads it (D-109). */
+export type Output =
+	| { readonly kind: 'schema'; readonly schema: object }
+	| (NamedOutput & { readonly form: 'one' | 'nullable' | 'list' })
+
+export type TypeDefinition = {
+	readonly name: string
+	readonly fields: ReadonlyMap<string, Output>
+}
+
+export type FunctionDefinition = {
+	readonly name: string
+	readonly query: boolean
+	readonly input: object | undefined
+	readonly output: Output | undefined
+	/** The plugins of its `use` (D-27). */
+	readonly uses: readonly PluginRecord[]
+	readonly run: Function
+	/** What `.with` received, once. */
+	rules: object | undefined
+}
+
 export const fieldDefinitions: WeakMap<object, FieldDefinition> = new WeakMap()
 export const modelDefinitions: WeakMap<object, ModelDefinition> = new WeakMap()
 /** The application values `plugin()` returned. */
 export const pluginValues: WeakMap<object, PluginRecord> = new WeakMap()
 /** The model entries `use()` returned. */
 export const pluginEntries: WeakMap<object, PluginRecord> = new WeakMap()
+export const typeDefinitions: WeakMap<object, TypeDefinition> = new WeakMap()
+export const functionDefinitions: WeakMap<object, FunctionDefinition> =
+	new WeakMap()
+/** What each `X.nullable()` returned stands for (D-109). */
+export const nullables: WeakMap<object, NamedOutput> = new WeakMap()
+
+/** `X.nullable()`, for a model or a type. */
+export function nullable(named: NamedOutput): object {
+	const marker = Object.freeze({})
+	nullables.set(marker, named)
+	return marker
+}
 
 function build(definition: FieldDefinition): object {
 	const field = {

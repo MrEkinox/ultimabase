@@ -1,6 +1,6 @@
 // A model's and a function's types, named from the model or the function
 // (D-74): what application code passes to queries and gets back.
-import type { OutputValue, RunArgs } from './function.ts'
+import type { ResultOf, RunArgs } from './function.ts'
 import type { Model } from './model.ts'
 import type {
 	CreateArgs,
@@ -55,5 +55,5 @@ export type InputOf<Fn> = Fn extends { readonly input: infer I }
 	: never
 /** What a function returns. */
 export type OutputOf<Fn> = Fn extends { readonly output: infer O }
-	? OutputValue<O>
+	? ResultOf<O>
 	: never

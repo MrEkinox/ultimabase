@@ -1,12 +1,15 @@
-// The running application (D-18): its resolved models, its adapter, its
-// logger, its plugins' APIs (D-89) and the operations `stop` waits for
-// (D-91), one per realm.
+// The running application (D-18): its resolved models and functions, its
+// adapter, its logger, its plugins' APIs (D-89) and the operations `stop`
+// waits for (D-91), one per realm.
 import type { Adapter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
+import type { FunctionDefinition } from './definition.ts'
 import type { Resolved } from './schema.ts'
 
 export type Running = {
 	readonly resolved: Resolved
+	/** Its functions, by their `defineFunction` value (D-75). */
+	readonly functions: ReadonlyMap<object, FunctionDefinition>
 	readonly adapter: Adapter
 	readonly logger: Logger
 	/** Each plugin's API, by its name (D-16). */

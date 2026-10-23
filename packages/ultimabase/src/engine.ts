@@ -27,7 +27,7 @@ export type Operation =
 const anonymous: Caller = Object.freeze({ kind: 'anonymous' })
 
 /** `{ as }` only; without it, the caller is anonymous (D-19). */
-function callerOf(options: unknown, model: string): Caller {
+export function callerOf(options: unknown, model: string): Caller {
 	if (options === undefined) return anonymous
 	const keys = new Map(entries(options, 'options'))
 	for (const key of keys.keys()) {

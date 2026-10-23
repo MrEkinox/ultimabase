@@ -8,6 +8,7 @@ import {
 	defineApp,
 	defineFunction,
 	defineModel,
+	defineType,
 	graphql,
 	graphqlPlugin,
 	memory,
@@ -63,11 +64,15 @@ export const pagedTodos = defineFunction({
 	run: ({ input, caller }) => Todo.findMany(input, { as: caller }),
 })
 
-// An object mixing models and schemas.
+// A named object mixing models and schemas (D-109).
+const EnsuredTodo = defineType({
+	name: 'EnsuredTodo',
+	fields: { todo: Todo, created: z.boolean() },
+})
 export const ensureTodo = defineFunction({
 	name: 'ensureTodo',
 	input: z.object({ title: z.string().trim().min(1) }),
-	output: { todo: Todo, created: z.boolean() },
+	output: EnsuredTodo,
 	run: async ({ input, caller }) => {
 		const [todo] = await Todo.findMany(
 			{ where: { title: input.title }, take: 1 },
@@ -79,6 +84,30 @@ export const ensureTodo = defineFunction({
 			{ as: caller },
 		)
 		return { todo: created, created: true }
+	},
+})
+
+// A query; `nullable()` lets it return `null`.
+export const findTodo = defineFunction({
+	name: 'findTodo',
+	query: true,
+	input: z.object({ title: z.string() }),
+	output: Todo.nullable(),
+	run: ({ input, caller }) =>
+		Todo.findFirst({ where: { title: input.title } }, { as: caller }),
+}).with({ access: allow.public })
+
+// Without an output, `run` returns nothing.
+export const purgeTodos = defineFunction({
+	name: 'purgeTodos',
+	run: async ({ caller }) => {
+		const archived = await Todo.findMany(
+			{ where: { archived: true } },
+			{ as: caller },
+		)
+		for (const { id } of archived) {
+			await Todo.delete({ where: { id } }, { as: caller })
+		}
 	},
 })
 
@@ -104,6 +133,8 @@ export type FunctionChecks = [
 			{ readonly todo: TodoRecord; readonly created: boolean }
 		>
 	>,
+	Expect<Equal<OutputOf<typeof findTodo>, TodoRecord | null>>,
+	Expect<Equal<OutputOf<typeof purgeTodos>, void>>,
 	Expect<Equal<OutputOf<typeof todoStats>, { open: number; archived: number }>>,
 	// What a caller sends, before the schema's `trim` (D-74).
 	Expect<Equal<InputOf<typeof ensureTodo>, { title: string }>>,
@@ -123,7 +154,15 @@ export const app = defineApp({
 	database: memory(),
 	plugins: [graphqlPlugin()],
 	models: [Todo],
-	functions: [archiveTodo, openTodos, pagedTodos, ensureTodo, todoStats],
+	functions: [
+		archiveTodo,
+		openTodos,
+		pagedTodos,
+		ensureTodo,
+		findTodo,
+		purgeTodos,
+		todoStats,
+	],
 })
 
 defineFunction({
@@ -137,6 +176,17 @@ defineFunction({
 	output: [Todo],
 	// @ts-expect-error: a list output returns a list.
 	run: ({ caller }) => Todo.findUnique({ where: { id: 'a' } }, { as: caller }),
+})
+defineFunction({
+	name: 'wrongNullable',
+	output: Todo,
+	// @ts-expect-error: `null` needs `Todo.nullable()`.
+	run: () => null,
+})
+defineType({
+	name: 'Empty',
+	// @ts-expect-error: a type's field is an output, not nothing.
+	fields: { nothing: undefined },
 })
 defineFunction({
 	name: 'noInput',

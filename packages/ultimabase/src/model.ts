@@ -1,5 +1,6 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
+import type { Nullable } from './function.ts'
 import type { Queries, Where } from './query.ts'
 import type {
 	CreateData,
@@ -110,6 +111,8 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 	/** The plugins it uses, checked against the application's (D-24). */
 	readonly plugins?: P
 	with(rules: ModelWith<F, W, N>): this
+	/** The model, or `null`, as a function's output (D-109). */
+	nullable(): Nullable<this>
 }
 
 export type FieldShape = {

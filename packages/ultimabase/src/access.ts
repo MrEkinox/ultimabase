@@ -114,7 +114,18 @@ type Refusal = {
 	readonly via?: string
 }
 
-/** The refusal, logged with the caller's id before it is thrown (D-88). */
+/** A refusal, logged with the caller's id before it is thrown (D-88). */
+export function refused(
+	details: { readonly [key: string]: string },
+	message: string,
+	caller: Caller,
+	logger: Logger,
+): PublicError {
+	const callerId = caller.kind === 'user' ? caller.user.id : null
+	logger.warn({ ...details, callerId }, message)
+	return new PublicError('ACCESS_DENIED', message, { details })
+}
+
 function denied(refusal: Refusal, caller: Caller, logger: Logger): PublicError {
 	const { model, operation, field, via } = refusal
 	const details = {
@@ -123,10 +134,7 @@ function denied(refusal: Refusal, caller: Caller, logger: Logger): PublicError {
 		...(field === undefined ? {} : { field }),
 		...(via === undefined ? {} : { via }),
 	}
-	const message = `${model} ${operation} refused.`
-	const callerId = caller.kind === 'user' ? caller.user.id : null
-	logger.warn({ ...details, callerId }, message)
-	return new PublicError('ACCESS_DENIED', message, { details })
+	return refused(details, `${model} ${operation} refused.`, caller, logger)
 }
 
 /** A write's stored `record`, its `value`, and the relation it comes from. */

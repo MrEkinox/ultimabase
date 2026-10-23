@@ -1,31 +1,52 @@
-// Functions (D-27, D-45): a server operation with a Standard Schema input
-// and a typed output, which `defineApp({ functions })` adds to the
-// application.
-import type { SchemaTypes, StandardSchema } from './fields.ts'
+// Functions (D-27, D-45, D-109): a server operation with a Standard Schema
+// input and a typed output, which `defineApp({ functions })` adds to the
+// application, and the named objects its output may hold.
+import type { AnyCheck, SchemaTypes, StandardSchema } from './fields.ts'
 import type { ModelShape } from './model.ts'
+import type { ModelUse, PluginTypes } from './plugin.ts'
 import type { QueryOptions } from './query.ts'
 import type { RecordOf } from './record.ts'
 import type { Caller } from './rules.ts'
-import type { modelFields } from './symbols.ts'
+import type { modelFields, nullableOf, typeFields } from './symbols.ts'
+
+/** `X.nullable()`: a model or a type, or `null` (D-109). */
+export type Nullable<X> = { readonly [nullableOf]: X }
+
+/** A `defineType`: a named object, which may hold a model (D-109). */
+export interface ObjectType<N extends string, F> {
+	readonly name: N
+	readonly [typeFields]: F
+	nullable(): Nullable<this>
+}
+
+type Named =
+	ModelShape | { readonly name: string; readonly [typeFields]: object }
 
 /**
- * What a function returns (D-45): a model, a list of one, an object of
- * outputs or any Standard Schema.
+ * What a function returns (D-109): a model or a type, one or `null`, a list
+ * of one, or any Standard Schema.
  */
 export type OutputSpec =
-	| ModelShape
-	| StandardSchema
-	| readonly [ModelShape]
-	| { readonly [key: string]: OutputSpec }
+	Named | Nullable<Named> | readonly [Named] | StandardSchema
 
-/** The value `run` returns for an output: typed, never validated (D-45). */
+/** A `defineType`'s fields: any output but nothing. */
+export type TypeFields = { readonly [field: string]: OutputSpec }
+
+/** The value of an output: typed, never validated (D-45). */
 export type OutputValue<O> = O extends { readonly [modelFields]: infer F }
 	? RecordOf<F>
-	: O extends StandardSchema
-		? SchemaTypes<O>['output']
-		: O extends readonly [infer X]
-			? readonly OutputValue<X>[]
-			: { readonly [K in keyof O]: OutputValue<O[K]> }
+	: O extends { readonly [typeFields]: infer F }
+		? { readonly [K in keyof F]: OutputValue<F[K]> }
+		: O extends { readonly [nullableOf]: infer X }
+			? OutputValue<X> | null
+			: O extends StandardSchema
+				? SchemaTypes<O>['output']
+				: O extends readonly [infer X]
+					? readonly OutputValue<X>[]
+					: never
+
+/** What `run` returns: nothing without an output. */
+export type ResultOf<O> = [O] extends [undefined] ? void : OutputValue<O>
 
 /**
  * A function's access rule reads the caller only: it runs before the input
@@ -49,10 +70,38 @@ export interface ServerFunction<N extends string, I, O, P, W> {
 	readonly plugins?: P
 	with(rules: FunctionWith<W>): this
 	/** Checks access, validates the input, then runs it (D-75). */
-	run(...args: RunArgs<I>): Promise<OutputValue<O>>
+	run(...args: RunArgs<I>): Promise<ResultOf<O>>
 }
 
 export type FunctionShape = {
 	readonly name: string
-	readonly output: OutputSpec
+	readonly output: OutputSpec | undefined
 }
+
+/** A plugin that exposes functions: it keys their `.with` (D-27). */
+export type FunctionPlugin = PluginTypes & {
+	readonly functionWith: object | false
+}
+
+/** Each used plugin's key of a function's `.with`. */
+export type FunctionWithKeys<U> = {
+	readonly [
+		V in U as V extends ModelUse<infer P, FunctionPlugin> ? P : never
+	]?: V extends ModelUse<string, infer T extends FunctionPlugin>
+		? T['functionWith']
+		: never
+}
+
+/** What `run` receives: the caller, and the validated input if any. */
+export type RunFacts<I> = { readonly caller: Caller } & ([I] extends [
+	StandardSchema,
+]
+	? { readonly input: SchemaTypes<I>['output'] }
+	: unknown)
+
+/** Refuses an input typed `any` or without types (D-27). */
+export type InputCheck<I> = [I] extends [StandardSchema]
+	? AnyCheck<I> extends { readonly validate: infer M }
+		? { readonly input: M }
+		: unknown
+	: unknown

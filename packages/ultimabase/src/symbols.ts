@@ -5,3 +5,5 @@ export declare const fieldType: unique symbol
 export declare const declaredRecord: unique symbol
 export declare const pluginTypes: unique symbol
 export declare const readFilter: unique symbol
+export declare const typeFields: unique symbol
+export declare const nullableOf: unique symbol

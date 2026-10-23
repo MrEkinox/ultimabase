@@ -10,6 +10,6 @@ export {
 	isSelf,
 	signedIn,
 } from './auth.ts'
-export { defineFunction, postgres } from './pending.ts'
+export { postgres } from './pending.ts'
 export { acl, aclPlugin, graphql, graphqlPlugin } from './plugin-values.ts'
 export { softDelete, softDeletePlugin } from '@ultimabase/soft-delete'

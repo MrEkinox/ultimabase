@@ -203,6 +203,12 @@ TS2322: Type 'Promise<RecordOf<{ readonly title: Field<string, ScalarOptions<str
     Type 'RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly archived: Field<boolean, { readonly default: false; }, never, never, boolean>; }> | null' is not assignable to type 'readonly RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly archived: Field<boolean, { readonly default: false; }, never, never, boolean>; }>[]'.
       Type 'null' is not assignable to type 'readonly RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly archived: Field<boolean, { readonly default: false; }, never, never, boolean>; }>[]'.
 
+prototype/example/define-function.ts: `null` needs `Todo.nullable()`.
+TS2322: Type 'null' is not assignable to type 'Promise<NoInfer<RecordOf<{ readonly title: Field<string, ScalarOptions<string>, never, never, string>; readonly archived: Field<boolean, { readonly default: false; }, never, never, boolean>; }>>> | NoInfer<RecordOf<...>>'.
+
+prototype/example/define-function.ts: a type's field is an output, not nothing.
+TS2322: Type 'undefined' is not assignable to type 'OutputSpec'.
+
 prototype/example/define-function.ts: without an input, `run` receives none.
 TS2339: Property 'input' does not exist on type '{ readonly caller: Caller; }'.
 

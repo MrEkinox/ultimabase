@@ -1,7 +1,7 @@
 // `defineModel` (D-07, D-12): the fields its callback and its plugins build,
 // recorded for `start`, and the model value whose methods run the queries
 // (D-18) and its plugins' commands (D-89).
-import { fieldBuilders, modelDefinitions } from './definition.ts'
+import { fieldBuilders, modelDefinitions, nullable } from './definition.ts'
 import type { FieldDefinition, ModelDefinition } from './definition.ts'
 import { query } from './engine.ts'
 import type { Operation } from './engine.ts'
@@ -189,6 +189,8 @@ function createModel(definition: {
 		record.rules = rules
 		return frozen
 	}
+	model['nullable'] = (): object =>
+		nullable({ kind: 'model', value: frozen, name })
 	const frozen = Object.freeze(model)
 	modelDefinitions.set(frozen, record)
 	return frozen
