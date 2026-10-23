@@ -4,9 +4,9 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 4**. Phase 3 is closed: the contract suite passes on
-`memory()` and PostgreSQL, round-trip counts included, and migrations are
-in place (D-105).
+Status: **Phase 5**. Phase 4 is closed: a whole CRUD runs over GraphQL on
+PostgreSQL 15 and 18 (`packages/graphql/src/crud.postgres.test.ts`), and
+functions are root fields (D-109).
 
 ## Phase 0: Tooling
 
