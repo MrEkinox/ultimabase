@@ -4293,7 +4293,11 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    most, and `take` at least when it selects `totalCount`, since a count
    reads the rows it counts. A single row, a `one` relation and a mutation
    count one row each. Each alias counts apart; a fragment spread twice
-   counts once (amended 2026-10-23).
+   counts once (amended 2026-10-23) A document of more than 2,000 tokens,
+   about ten times the standard introspection query, is refused before it is
+   validated, Master's included: graphql-js validates a field repeated under
+   one key in quadratic time, and 12,000 copies took 6 seconds (amended
+   2026-10-23).
 7. A model whose `use` lists `graphql()` takes `.with({ graphql: { plural } })`
    or `.with({ graphql: false })`. A hidden model is absent from the schema,
    its types included, unless an exposed model's relation reaches it. In

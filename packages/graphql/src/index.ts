@@ -4,6 +4,7 @@ import type { GraphQLSchema } from 'graphql'
 import {
 	executeRootSelectionSet,
 	NoSchemaIntrospectionCustomRule,
+	parse,
 	validate,
 	validateExecutionArgs,
 } from 'graphql'
@@ -59,6 +60,9 @@ export interface Graphql extends PluginTypes {
 	readonly with: GraphqlWith
 }
 
+/** About ten times the standard introspection query. */
+const maxTokens = 2000
+
 const plugin = definePlugin<Graphql>({
 	name: 'graphql',
 	manifest,
@@ -99,6 +103,9 @@ const plugin = definePlugin<Graphql>({
 		}
 		const handler = createHandler<Context>({
 			schema,
+			// Validation is quadratic in a field repeated under one key, so a
+			// document is bounded before it is validated.
+			parse: (source) => parse(source, { maxTokens }),
 			context: (request) => {
 				const caller = callerOf(request.raw)
 				const master = caller.kind === 'master'

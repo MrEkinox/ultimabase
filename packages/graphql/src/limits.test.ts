@@ -1,4 +1,4 @@
-// What the plugin closes and opens (D-107): the depth limit, the row budget,
+// What the plugin closes and opens (D-107): the token, depth and row limits,
 // introspection and suggestions in production, GraphiQL, and the
 // application's middlewares before it.
 import { routes } from '@ultimabase/http'
@@ -62,6 +62,22 @@ describe('a list without first', () => {
 			)
 			expect(at(result.data, 'posts', 'pageInfo', 'hasNextPage')).toBe(true)
 			expect(at(result.data, 'posts', 'edges')).toHaveLength(100)
+		})
+	})
+})
+
+describe('the token limit', () => {
+	it('refuses a document of more than 2,000 tokens before validating it', async () => {
+		await serving({}, async (url) => {
+			// Validating 12,000 copies of one field took 6 seconds.
+			const repeated = `{ posts { ${'totalCount '.repeat(12_000)}} }`
+			const begin = performance.now()
+			expect(messages(await post(url, repeated))).toStrictEqual([
+				'Syntax Error: Document contains more than 2000 tokens. Parsing aborted.',
+			])
+			expect(performance.now() - begin).toBeLessThan(1000)
+			const longest = `{ posts { ${'totalCount '.repeat(1993)}} }`
+			expect((await post(url, longest)).errors).toBeUndefined()
 		})
 	})
 })
