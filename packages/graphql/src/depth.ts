@@ -1,8 +1,10 @@
-// The depth limit (D-107): a document nested deeper than `maxDepth` is
+// The depth limits (D-107): a document nested deeper than `maxDepth` is
 // refused before it runs. `__schema` and `__type` do not count, since the
-// standard introspection query is about 12 levels deep.
+// standard introspection query is about 12 levels deep; they have their own
+// limit, graphql-js's, measured here once per fragment.
 import type {
 	ASTVisitor,
+	FieldNode,
 	SelectionNode,
 	SelectionSetNode,
 	ValidationContext,
@@ -12,35 +14,48 @@ import { GraphQLError, Kind } from 'graphql'
 
 const introspection = new Set(['__schema', '__type'])
 
+/** A field's depth, given the depth of what it selects. */
+type Weigh = (field: FieldNode, below: () => number) => number
+
+/** The deepest path under a selection set, each fragment measured once. */
+function measurer(
+	context: ValidationContext,
+	weigh: Weigh,
+): (set: SelectionSetNode | undefined) => number {
+	// One being measured counts 0, which only a cycle meets, and
+	// `NoFragmentCyclesRule` refuses a cycle.
+	const fragments = new Map<string, number>()
+	const depth = (set: SelectionSetNode | undefined): number => {
+		let deepest = 0
+		for (const selection of set?.selections ?? []) {
+			deepest = Math.max(deepest, depthOf(selection))
+		}
+		return deepest
+	}
+	const depthOf = (selection: SelectionNode): number => {
+		if (selection.kind === Kind.FIELD) {
+			return weigh(selection, () => depth(selection.selectionSet))
+		}
+		if (selection.kind === Kind.INLINE_FRAGMENT) {
+			return depth(selection.selectionSet)
+		}
+		const name = selection.name.value
+		const known = fragments.get(name)
+		if (known !== undefined) return known
+		fragments.set(name, 0)
+		const measured = depth(context.getFragment(name)?.selectionSet)
+		fragments.set(name, measured)
+		return measured
+	}
+	return depth
+}
+
 /** The validation rule that refuses a document deeper than `maxDepth`. */
 export function depthRule(maxDepth: number): ValidationRule {
 	return (context: ValidationContext): ASTVisitor => {
-		// Each fragment is measured once. One being measured counts 0, which
-		// only a cycle meets, and `NoFragmentCyclesRule` refuses a cycle.
-		const fragments = new Map<string, number>()
-		const depth = (set: SelectionSetNode | undefined): number => {
-			let deepest = 0
-			for (const selection of set?.selections ?? []) {
-				deepest = Math.max(deepest, depthOf(selection))
-			}
-			return deepest
-		}
-		const depthOf = (selection: SelectionNode): number => {
-			if (selection.kind === Kind.FIELD) {
-				if (introspection.has(selection.name.value)) return 0
-				return 1 + depth(selection.selectionSet)
-			}
-			if (selection.kind === Kind.INLINE_FRAGMENT) {
-				return depth(selection.selectionSet)
-			}
-			const name = selection.name.value
-			const known = fragments.get(name)
-			if (known !== undefined) return known
-			fragments.set(name, 0)
-			const measured = depth(context.getFragment(name)?.selectionSet)
-			fragments.set(name, measured)
-			return measured
-		}
+		const depth = measurer(context, (field, below) =>
+			introspection.has(field.name.value) ? 0 : 1 + below(),
+		)
 		return {
 			OperationDefinition: (node) => {
 				const measured = depth(node.selectionSet)
@@ -53,5 +68,31 @@ export function depthRule(maxDepth: number): ValidationRule {
 				)
 			},
 		}
+	}
+}
+
+// The lists graphql-js's `MaxIntrospectionDepthRule` counts, and how many
+// nested ones it refuses. Its own walk visits a fragment once per path, so a
+// fragment spreading the previous one twice costs 2^n visits.
+const lists = new Set(['fields', 'interfaces', 'possibleTypes', 'inputFields'])
+const maxLists = 3
+
+/** `MaxIntrospectionDepthRule`, measuring each fragment once. */
+export const introspectionDepthRule: ValidationRule = (context) => {
+	const depth = measurer(
+		context,
+		(field, below) => (lists.has(field.name.value) ? 1 : 0) + below(),
+	)
+	return {
+		Field: (node) => {
+			if (!introspection.has(node.name.value)) return undefined
+			if (depth(node.selectionSet) < maxLists) return undefined
+			context.reportError(
+				new GraphQLError('Maximum introspection depth exceeded', {
+					nodes: [node],
+				}),
+			)
+			return false
+		},
 	}
 }

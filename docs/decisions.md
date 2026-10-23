@@ -4285,7 +4285,10 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    (100), set as `graphqlPlugin({ take, maxTake })` and per model as
    `.with({ graphql: { maxTake } })`; at every depth. A document nested
    deeper than `maxDepth` (10) is refused; `__schema` and `__type` do not
-   count, since the standard introspection query is about 12 levels deep.
+   count, since the standard introspection query is about 12 levels deep;
+   they keep graphql-js's own limit, three nested lists, measured once per
+   fragment rather than once per path, which a 1.5 KB document made take 2.4
+   seconds (amended 2026-10-23).
    A document that may return more than `maxRows` rows (20 000), set as
    `graphqlPlugin({ maxRows })`, is refused before it runs, mutations
    included. A list counts the rows it asks for, times the rows of the lists

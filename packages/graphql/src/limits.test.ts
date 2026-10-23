@@ -136,6 +136,49 @@ const create = (alias: string) =>
 			posts(first: 100) { edges { node { author { posts(first: 100) { pageInfo { hasNextPage } } } } } }
 		}`
 
+// Each fragment spreads the previous one twice: 2^n visits for a validator
+// that walks a fragment once per path.
+function doubling(n: number): string {
+	const fragments = ['fragment F0 on __Type { name }']
+	for (let index = 1; index <= n; index++) {
+		fragments.push(
+			`fragment F${index} on __Type { ...F${index - 1} ofType { ...F${index - 1} } }`,
+		)
+	}
+	return `{ __type(name: "Query") { ...F${n} } } ${fragments.join(' ')}`
+}
+
+describe('the introspection depth limit', () => {
+	it('refuses three nested lists, through fragments too', async () => {
+		await serving({}, async (url) => {
+			const refused = ['Maximum introspection depth exceeded']
+			const three = `{ __schema { types { fields { type { fields { type { fields { name } } } } } } } }`
+			expect(messages(await post(url, three))).toStrictEqual(refused)
+			const spread = await post(
+				url,
+				`{ __type(name: "Query") { ...A } }
+				fragment A on __Type { fields { type { ...B } } }
+				fragment B on __Type { interfaces { fields { name } } }`,
+			)
+			expect(messages(spread)).toStrictEqual(refused)
+			const two = `{ __schema { types { fields { type { fields { name } } } } } }`
+			expect((await post(url, two)).errors).toBeUndefined()
+		})
+	})
+
+	it('measures each fragment once, in production too', async () => {
+		vi.stubEnv('NODE_ENV', 'production')
+		await serving({}, async (url) => {
+			// graphql-js's own rule took 2.4 seconds on these 1.5 KB.
+			const document = doubling(24)
+			const begin = performance.now()
+			const result = await post(url, document)
+			expect(messages(result)?.[0]).toContain('introspection has been disabled')
+			expect(performance.now() - begin).toBeLessThan(1000)
+		})
+	})
+})
+
 describe('the row budget', () => {
 	it('refuses a document that may return more than 20,000 rows, unless Master asks', async () => {
 		await serving({}, async (url) => {

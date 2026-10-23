@@ -3,6 +3,7 @@
 import type { GraphQLSchema } from 'graphql'
 import {
 	executeRootSelectionSet,
+	MaxIntrospectionDepthRule,
 	NoSchemaIntrospectionCustomRule,
 	parse,
 	validate,
@@ -14,7 +15,7 @@ import { httpPlugin, routes } from '@ultimabase/http'
 import type { Caller, PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
-import { depthRule } from './depth.ts'
+import { depthRule, introspectionDepthRule } from './depth.ts'
 import { formatter } from './errors.ts'
 import { graphiqlPage } from './graphiql.ts'
 import { rootNames } from './names.ts'
@@ -114,7 +115,8 @@ const plugin = definePlugin<Graphql>({
 				return context
 			},
 			validationRules: (request, _, specified) => [
-				...specified,
+				...specified.filter((rule) => rule !== MaxIntrospectionDepthRule),
+				introspectionDepthRule,
 				...closed,
 				...(callerOf(request.raw).kind === 'master' ? [] : [depth]),
 			],
