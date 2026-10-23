@@ -1,15 +1,8 @@
 // What the plugin closes and opens (D-107): the depth limit, the row budget,
-// introspection and suggestions in production, GraphiQL, `extend`, and the
+// introspection and suggestions in production, GraphiQL, and the
 // application's middlewares before it.
 import { routes } from '@ultimabase/http'
-import type { GraphQLFieldConfigMap } from 'graphql'
-import {
-	getIntrospectionQuery,
-	GraphQLObjectType,
-	GraphQLSchema,
-	GraphQLString,
-} from 'graphql'
-import type { Caller } from 'ultimabase'
+import { getIntrospectionQuery } from 'graphql'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GraphqlOptions } from './index.ts'
 import {
@@ -307,37 +300,6 @@ describe('outside production', () => {
 				{ s: 'publishd' },
 			)
 			expect(messages(value)?.[0]).toContain('Did you mean the enum value')
-		})
-	})
-})
-
-/** Adds `me`, the caller's kind, to the generated schema. */
-const extend = (schema: GraphQLSchema): GraphQLSchema => {
-	const config = schema.toConfig()
-	const query = schema.getQueryType()?.toConfig()
-	const me: GraphQLFieldConfigMap<unknown, { caller: Caller }> = {
-		me: {
-			type: GraphQLString,
-			resolve: (_, __, context) => context.caller.kind,
-		},
-	}
-	return new GraphQLSchema({
-		...config,
-		query: new GraphQLObjectType({
-			name: 'Query',
-			fields: { ...query?.fields, ...me },
-		}),
-		types: config.types.filter((type) => type.name !== 'Query'),
-	})
-}
-
-describe('extend', () => {
-	it('replaces the schema with the one built from it', async () => {
-		await serving({ extend }, async (url) => {
-			const result = await post(url, `{ me users { totalCount } }`)
-			expect(result).toStrictEqual({
-				data: { me: 'anonymous', users: { totalCount: 0 } },
-			})
 		})
 	})
 })

@@ -110,6 +110,25 @@ export function connectionType(
 	)
 }
 
+/**
+ * A relation's value in its row: `null` when absent and its read rule may
+ * hide it. Absent otherwise, the resolver that returned the row did not read
+ * it, such as one `extend` added.
+ */
+function readOf(
+	source: unknown,
+	model: string,
+	field: string,
+	ruled: boolean,
+): unknown {
+	const value: unknown = Reflect.get(Object(source), field)
+	if (value !== undefined) return value
+	if (ruled) return null
+	throw new Error(
+		`${model}.${field} was not read; select it with context.select(info).`,
+	)
+}
+
 /** A `many` relation: a connection, or a list with `pagination: 'list'`. */
 function manyField(
 	registry: Registry,
@@ -132,8 +151,8 @@ function manyField(
 		type: ruled ? type : new GraphQLNonNull(type),
 		args: listArgs(registry, field.target),
 		resolve: (source, args, context) => {
-			const value: unknown = Reflect.get(Object(source), field.name)
-			if (value === undefined) return null
+			const value = readOf(source, model, field.name, ruled)
+			if (value === null) return null
 			const rows = rowsOf(value)
 			const { page } = listRead(
 				registry.settings.pagination,
@@ -182,11 +201,14 @@ export function objectType(
 					const entry = registry.entry(model)
 					const fields = scalarFields(registry, model)
 					for (const field of readable(entry)) {
+						const ruled = entry.exposed.readRules[field.name] === 'rule'
 						if (field.kind === 'one') {
 							// Its target's read rule may hide the row (D-86).
-							fields[field.name] = { type: objectType(registry, field.target) }
+							fields[field.name] = {
+								type: objectType(registry, field.target),
+								resolve: (source) => readOf(source, model, field.name, ruled),
+							}
 						} else if (field.kind === 'many') {
-							const ruled = entry.exposed.readRules[field.name] === 'rule'
 							fields[field.name] = manyField(registry, model, field, ruled)
 						}
 					}

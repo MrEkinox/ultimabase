@@ -9,8 +9,10 @@ import type {
 import {
 	getArgumentValues,
 	getDirectiveValues,
+	getNamedType,
 	GraphQLIncludeDirective,
 	GraphQLSkipDirective,
+	isObjectType,
 	Kind,
 } from 'graphql'
 import { badInput } from './errors.ts'
@@ -150,4 +152,23 @@ export function selectOf(
 		}
 	}
 	return select
+}
+
+/** `context.select(info)`, for a field that returns a model or a list of one. */
+export function selectFor(
+	registry: Registry,
+	master: boolean,
+): (info: GraphQLResolveInfo) => Args & { readonly id: true } {
+	return (info) => {
+		const type = getNamedType(info.returnType)
+		if (!isObjectType(type) || !registry.entries.has(type.name)) {
+			throw new Error(
+				`context.select(info) reads a model's rows; ${info.parentType.name}.${info.fieldName} returns ${type.name}.`,
+			)
+		}
+		return {
+			...selectOf(registry, info, type, info.fieldNodes, master),
+			id: true,
+		}
+	}
 }

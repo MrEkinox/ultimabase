@@ -21,8 +21,9 @@ import type { Context, Entry, GraphqlWith } from './registry.ts'
 import { Registry } from './registry.ts'
 import { rowBudget } from './rows.ts'
 import { schemaOf } from './schema.ts'
+import { selectFor } from './select.ts'
 
-export type { GraphqlWith } from './registry.ts'
+export type { Context as GraphqlContext, GraphqlWith } from './registry.ts'
 
 /** What `graphqlPlugin` takes (D-107). */
 export interface GraphqlOptions {
@@ -99,8 +100,10 @@ const plugin = definePlugin<Graphql>({
 		const handler = createHandler<Context>({
 			schema,
 			context: (request) => {
-				const context = { caller: callerOf(request.raw) }
-				if (context.caller.kind === 'master') exempt.add(context)
+				const caller = callerOf(request.raw)
+				const master = caller.kind === 'master'
+				const context = { caller, select: selectFor(registry, master) }
+				if (master) exempt.add(context)
 				return context
 			},
 			validationRules: (request, _, specified) => [

@@ -3,6 +3,7 @@
 import type {
 	GraphQLInputObjectType,
 	GraphQLObjectType,
+	GraphQLResolveInfo,
 	GraphQLScalarType,
 } from 'graphql'
 import {
@@ -19,7 +20,16 @@ import { DateTime, JSONScalar } from './scalars.ts'
 export type GraphqlWith =
 	{ readonly plural?: string; readonly maxTake?: number } | false
 
-export type Context = { readonly caller: Caller }
+/** What every resolver receives, the generated ones and those `extend` adds. */
+export type Context = {
+	readonly caller: Caller
+	/**
+	 * The kernel's `select` for what the client asks of the rows a field
+	 * returns, relations and their pages included; spread it to add a field.
+	 * Its type names `id` only: the rest depends on the document.
+	 */
+	readonly select: (info: GraphQLResolveInfo) => { readonly id: true }
+}
 /** A kernel query's options: run as the request's caller (D-106). */
 export const as = (context: Context): { readonly as: Caller } => ({
 	as: context.caller,
