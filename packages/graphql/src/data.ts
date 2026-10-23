@@ -20,16 +20,11 @@ import {
 	GraphQLObjectType,
 	GraphQLString,
 } from 'graphql'
+import type { Node, Side } from './json-schema.ts'
+import { defsOf, isNode, jsonSchemaOf } from './json-schema.ts'
 import { upper } from './names.ts'
 import type { Context } from './registry.ts'
 import { DateTime, JSONScalar } from './scalars.ts'
-
-/** A JSON Schema, or one of its nodes. */
-type Node = { readonly [key: string]: unknown }
-type Side = 'input' | 'output'
-
-const isNode = (value: unknown): value is Node =>
-	typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const reserved = new Set(['true', 'false', 'null'])
 const named = (value: string): boolean =>
@@ -279,32 +274,8 @@ const fieldsOf =
 			]),
 		)
 
-/** A schema's JSON Schema, or startup stops naming its function (D-45). */
-function jsonSchemaOf(schema: object, side: Side, path: Path): Node {
-	const standard: unknown = Reflect.get(schema, '~standard')
-	const exporter = isNode(standard) ? standard['jsonSchema'] : undefined
-	const exported = isNode(exporter) ? exporter[side] : undefined
-	if (typeof exported !== 'function') {
-		throw new Error(
-			`${path.owner}: ${path.at} has no standard JSON Schema export (D-45).`,
-		)
-	}
-	try {
-		const node: unknown = Reflect.apply(exported, exporter, [
-			{ target: 'draft-2020-12' },
-		])
-		if (isNode(node)) return node
-	} catch (error) {
-		const reason = error instanceof Error ? error.message : String(error)
-		throw new Error(`${path.owner}: ${path.at}: ${reason} (D-45).`, {
-			cause: error,
-		})
-	}
-	throw new Error(`${path.owner}: ${path.at}'s JSON Schema is not an object.`)
-}
-
-const defsOf = (root: Node): Node =>
-	isNode(root['$defs']) ? root['$defs'] : {}
+const listOf = <T extends GraphQLNullableType>({ type, nullable }: Typed<T>) =>
+	new GraphQLList(nullable ? type : new GraphQLNonNull(type))
 
 function outputScope(
 	root: Node,
@@ -315,8 +286,7 @@ function outputScope(
 		defs: defsOf(root),
 		types,
 		leaf: (type) => type,
-		list: ({ type, nullable }) =>
-			new GraphQLList(nullable ? type : new GraphQLNonNull(type)),
+		list: listOf,
 		object: (node, properties, path) =>
 			types.object(
 				path.name,
@@ -341,8 +311,7 @@ function inputScope(
 		defs: defsOf(root),
 		types,
 		leaf: (type) => type,
-		list: ({ type, nullable }) =>
-			new GraphQLList(nullable ? type : new GraphQLNonNull(type)),
+		list: listOf,
 		object: (node, properties, path) => {
 			const name = `${path.name}${path.suffix}`
 			return types.input(
@@ -366,7 +335,7 @@ export function outputData(
 	path: Path,
 	types: DataTypes,
 ): Typed<GraphQLNullableOutputType> {
-	const root = jsonSchemaOf(schema, 'output', path)
+	const root = jsonSchemaOf(schema, 'output', `${path.owner}: ${path.at}`)
 	return dataType(root, path, outputScope(root, types))
 }
 
@@ -379,7 +348,7 @@ export function inputArgs(
 	path: Path,
 	types: DataTypes,
 ): { readonly args: GraphQLFieldConfigArgumentMap; readonly flat: boolean } {
-	const root = jsonSchemaOf(schema, 'input', path)
+	const root = jsonSchemaOf(schema, 'input', `${path.owner}: ${path.at}`)
 	const scope = inputScope(root, types)
 	const ref = root['$ref']
 	const object = typeof ref === 'string' ? scope.defs[ref.slice(8)] : root
