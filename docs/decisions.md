@@ -4151,7 +4151,11 @@ Choice: completes D-27, D-49, D-59 and D-66.
      production without `{ key, production: true }` is refused with
      `ACCESS_DENIED` (403);
    - an empty key is no key: `ULTIMABASE_MASTER_KEY=` must not let an empty
-     header in;
+     header in; an empty header while a key is configured is a wrong key
+     (403), since the client meant to send one (amended 2026-10-23);
+   - a key holding a space or a character outside visible ASCII stops
+     `start`: a header drops the spaces around a value and mangles the rest,
+     so such a key could never match (amended 2026-10-23);
    - any other request is anonymous. The auth plugin's Identify hook (phase 5) adds the user here.
 3. Errors follow D-28 and D-72. A `PublicError` is sent as
    `{ code, message, details }`, `details` only when set, with its D-72
@@ -4168,7 +4172,10 @@ Choice: completes D-27, D-49, D-59 and D-66.
 5. CORS (D-66) and the body limit use Hono's middlewares. `cors` lists the
    allowed origins; outside production, `http://localhost` and
    `http://127.0.0.1` on any port are also allowed. `bodyLimit` is in bytes,
-   1 MB by default.
+   1 MB by default. Only a preflight, an `OPTIONS` with
+   `Access-Control-Request-Method`, is answered by `cors`; any other
+   `OPTIONS` reaches its route, with the CORS headers, or `NOT_FOUND`
+   (amended 2026-10-23).
 
 Why: Hono is a small router built on the web's `Request` and `Response`,
 whose context already carries typed variables, so a route reads the caller
@@ -4375,9 +4382,15 @@ Choice: completes D-106 and D-107.
    `c.req.valid('json')`. A value the schema refuses is `VALIDATION_FAILED`
    (400) with `details.issues`, each `{ path, message }`, as the kernel sends
    them (D-23, D-72); the path starts inside the value, without the target.
+   `validate('json')` refuses a body whose content type is not JSON with
+   `UNSUPPORTED_MEDIA_TYPE` (415): Hono would validate it as `{}`, and a
+   `text/plain` body is one a page on another origin sends without a
+   preflight (amended 2026-10-23).
 2. A body `c.req.json()` cannot parse is `BAD_REQUEST` (400), with Hono's
    message `Malformed JSON in request body`, whether a route or `validate`
-   reads it. It is the client's error and is not logged.
+   reads it. It is the client's error and is not logged. So is a form
+   `c.req.formData()` or `c.req.parseBody()` cannot parse, `Malformed form
+data in request body` (amended 2026-10-23).
 3. A Hono `HTTPException` keeps its status. One built with a response sends
    that response; any other is sent as `{ code, message }`, `code` the
    status's name in capitals (`401` is `UNAUTHORIZED`, a status Node does not
@@ -4388,7 +4401,9 @@ Choice: completes D-106 and D-107.
    needs another caller starts the application (D-106).
 5. Outside production, each request is logged once it is answered, at
    `info`: `POST /notes 201 12ms`. In production nothing is logged per
-   request.
+   request. A control character in a path stays encoded (`%0A`), so a path
+   cannot forge a line; a client that leaves before its body ends is `499`,
+   as nginx counts it, and not logged as an error (amended 2026-10-23).
 6. The HTTP plugin's API gains `url()`, the address the server listens on
    once it started (`http://localhost:3000`); before, it throws. Outside
    production, `graphqlPlugin` logs `GraphiQL on http://localhost:3000/graphql.`
@@ -4397,6 +4412,12 @@ Choice: completes D-106 and D-107.
    every route after it in the application, those other plugins mount
    included (D-107), since Hono mounts routes in their order: a middleware
    for some routes only gives a path, `use('/admin/*', …)`.
+8. An error inside a stream (`stream`, `streamSSE`) comes after its status
+   was sent: the log shows `200`, and Hono writes the error with
+   `console.error` unless the route passes the helper's third argument,
+   `streamSSE(c, write, (error, stream) => …)` (amended 2026-10-23).
+9. The HTTP plugin reads each `routes()` when the server starts: a route
+   added to one after `start` is not served (amended 2026-10-23).
 
 Why: a route that reads a body should check it in one line and send the same
 errors the kernel sends; Hono's own ways to refuse a request must not turn

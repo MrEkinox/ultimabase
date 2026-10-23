@@ -129,6 +129,30 @@ describe('validate', () => {
 		expect(lines.filter((line) => line.level === 'error')).toStrictEqual([])
 	})
 
+	it('refuses a JSON body sent without its content type', async () => {
+		const { url } = await serving(items)
+		for (const headers of [{ 'content-type': 'text/plain' }, {}]) {
+			const plain = await fetch(`${url}/items`, {
+				method: 'POST',
+				body: '{"name":"desk"}',
+				headers,
+			})
+			expect(plain.status).toBe(415)
+			expect(await plain.json()).toStrictEqual({
+				code: 'UNSUPPORTED_MEDIA_TYPE',
+				message: 'The body is not JSON: send content-type: application/json.',
+			})
+		}
+		const charset = await fetch(`${url}/items`, {
+			method: 'POST',
+			body: '{"name":"desk"}',
+			headers: {
+				'content-type': 'application/merge-patch+json; charset=utf-8',
+			},
+		})
+		expect(await charset.json()).toStrictEqual({ named: 'desk' })
+	})
+
 	it('reads any Standard Schema, its path segments and its absent path', async () => {
 		const symbol = Symbol('tag')
 		const schema: StandardSchema = {

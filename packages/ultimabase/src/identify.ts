@@ -36,6 +36,13 @@ function refusalOf(masterKey: MasterKey): string | undefined {
 export function identifier(masterKey: MasterKey, logger: Logger): Identify {
 	const refusal = refusalOf(masterKey)
 	const key = typeof masterKey === 'object' ? masterKey.key : masterKey
+	// A header drops the spaces around a value and mangles what is not ASCII:
+	// such a key could never match.
+	if (key !== undefined && key !== '' && !/^[\x21-\x7e]+$/.test(key)) {
+		throw new Error(
+			'The master key holds a space or a character outside ASCII, which a header cannot carry: use letters, digits and symbols only.',
+		)
+	}
 	const expected = digest(key ?? '')
 	// Outside production, the HTTP plugin's development log already shows
 	// each request (D-108); a use of the key is an audit line in production.

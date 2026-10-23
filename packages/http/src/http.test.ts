@@ -340,6 +340,31 @@ describe('CORS', () => {
 			'x-ultimabase-master-key',
 		)
 	})
+
+	it('answers only a preflight itself, and lets a route answer OPTIONS', async () => {
+		const origin = 'http://localhost:5173'
+		const options = routes().options('/things', (c) => c.text('allowed'))
+		const { url } = await server({ port: 0, routes: [options] })
+		const own = await fetch(`${url}/things`, {
+			method: 'OPTIONS',
+			headers: { origin },
+		})
+		expect(await own.text()).toBe('allowed')
+		expect(own.headers.get('access-control-allow-origin')).toBe(origin)
+		expect(own.headers.get('vary')).toBe('Origin')
+		const foreign = await fetch(`${url}/things`, {
+			method: 'OPTIONS',
+			headers: { origin: 'https://evil.example.com' },
+		})
+		expect(foreign.headers.get('access-control-allow-origin')).toBeNull()
+		const unknown = await fetch(`${url}/nowhere`, { method: 'OPTIONS' })
+		expect(unknown.status).toBe(404)
+		const preflight = await fetch(`${url}/things`, {
+			method: 'OPTIONS',
+			headers: { origin, 'access-control-request-method': 'GET' },
+		})
+		expect(preflight.status).toBe(204)
+	})
 })
 
 describe('the port', () => {

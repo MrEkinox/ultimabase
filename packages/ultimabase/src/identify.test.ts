@@ -71,6 +71,9 @@ describe('identify', () => {
 		expect(lines).toContain(
 			'A request sent the master key, refused: The master key is wrong.',
 		)
+		// An empty header is a key sent, not none: a client bug to see.
+		const empty = await callerOf('secret', '')
+		expect(empty.caller).toStrictEqual(refused('The master key is wrong.'))
 	})
 
 	it('refuses a key while none is configured, an empty one included', async () => {
@@ -88,6 +91,19 @@ describe('identify', () => {
 		)
 		const allowed = { key: 'secret', production: true } as const
 		expect((await callerOf(allowed, 'secret')).caller).toStrictEqual({
+			kind: 'master',
+			master: { source: 'key' },
+		})
+	})
+
+	it('stops start with a key a header cannot carry', async () => {
+		for (const key of [' secret', 'secret\n', 'two words', 'clé']) {
+			await expect(callerOf(key)).rejects.toThrow(
+				'The master key holds a space or a character outside ASCII',
+			)
+		}
+		const symbols = await callerOf('a-Z_0.9~!$', 'a-Z_0.9~!$')
+		expect(symbols.caller).toStrictEqual({
 			kind: 'master',
 			master: { source: 'key' },
 		})

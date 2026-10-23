@@ -1,6 +1,7 @@
 // `validate(target, schema)` (D-108): a part of the request checked by a
 // Standard Schema, which the route reads, typed, as `c.req.valid(target)`.
 import type { Env, MiddlewareHandler, ValidationTargets } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { validator } from 'hono/validator'
 import type { Issue } from 'ultimabase'
 import { PublicError } from 'ultimabase'
@@ -45,6 +46,9 @@ type Validated<T extends keyof ValidationTargets, S extends StandardSchema> = {
 	readonly out: { readonly [K in T]: Output<S> }
 }
 
+// Hono's own test: a body it does not take as JSON, it validates as `{}`.
+const json = /^application\/([a-z-.]+\+)?json(;\s*[a-zA-Z0-9-]+=([^;]+))*$/i
+
 const keyOf = (segment: Segment): string | number => {
 	const key = typeof segment === 'object' ? segment.key : segment
 	return typeof key === 'symbol' ? String(key) : key
@@ -70,7 +74,7 @@ export const validate = <
 		})
 	}
 	// Hono infers the value from `check`; the schema gives its type.
-	return validator<
+	const validating = validator<
 		unknown,
 		string,
 		string,
@@ -80,4 +84,13 @@ export const validate = <
 		Validated<T, S>,
 		Env
 	>(target, check)
+	if (target !== 'json') return validating
+	return async (c, next) => {
+		if (!json.test(c.req.header('content-type') ?? '')) {
+			throw new HTTPException(415, {
+				message: 'The body is not JSON: send content-type: application/json.',
+			})
+		}
+		return validating(c, next)
+	}
 }

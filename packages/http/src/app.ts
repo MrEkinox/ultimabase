@@ -127,12 +127,21 @@ export function appOf(
 			c.res = failed(error, c, logger)
 		}
 	})
-	app.use(
-		cors({
-			origin: (origin) =>
-				listed.includes(origin) || (local && isLocal(origin)) ? origin : null,
-		}),
-	)
+	const allowed = (origin: string) =>
+		listed.includes(origin) || (local && isLocal(origin)) ? origin : null
+	const preflight = cors({ origin: allowed })
+	app.use(async (c, next) => {
+		// Hono's `cors` answers every OPTIONS: a route's own runs, unless the
+		// request is a preflight.
+		const asked = c.req.header('access-control-request-method')
+		if (c.req.method !== 'OPTIONS' || asked !== undefined) {
+			return preflight(c, next)
+		}
+		await next()
+		const origin = allowed(c.req.header('origin') ?? '')
+		if (origin !== null) c.header('access-control-allow-origin', origin)
+		c.header('vary', 'Origin', { append: true })
+	})
 	app.use(
 		bodyLimit({
 			maxSize,
