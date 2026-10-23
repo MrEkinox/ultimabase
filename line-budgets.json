@@ -4,5 +4,5 @@
 	"soft-delete": 150,
 	"postgres": 3000,
 	"http": 495,
-	"graphql": 1800
+	"graphql": 2600
 }
