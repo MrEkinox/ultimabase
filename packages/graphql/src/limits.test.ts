@@ -1,6 +1,6 @@
-// What the plugin closes and opens (D-107): the depth limit, introspection
-// and suggestions in production, GraphiQL, `extend`, and the application's
-// middlewares before it.
+// What the plugin closes and opens (D-107): the depth limit, the row budget,
+// introspection and suggestions in production, GraphiQL, `extend`, and the
+// application's middlewares before it.
 import { routes } from '@ultimabase/http'
 import type { GraphQLFieldConfigMap } from 'graphql'
 import {
@@ -113,6 +113,125 @@ describe('the depth limit', () => {
 			expect(messages(cycle)?.[0]).toContain('Cannot spread fragment "A"')
 			const missing = await post(url, `{ ...Missing }`)
 			expect(messages(missing)).toStrictEqual(['Unknown fragment "Missing".'])
+		})
+	})
+})
+
+/** Each post's author's posts: 100 + 100 + 100 × 100 rows by default. */
+const nested = (alias: string) =>
+	`${alias}: posts { edges { node { author { posts { pageInfo { hasNextPage } } } } } }`
+
+/** A write that returns 10,201 rows: its own, 100 posts, their authors and theirs. */
+const create = (alias: string) =>
+	`${alias}: createUser(data: { name: "${alias}", email: "${alias}@example.com" }) {
+			posts(first: 100) { edges { node { author { posts(first: 100) { pageInfo { hasNextPage } } } } } }
+		}`
+
+describe('the row budget', () => {
+	it('refuses a document that may return more than 20,000 rows, unless Master asks', async () => {
+		await serving({}, async (url) => {
+			const one = await post(url, `{ ${nested('a')} }`)
+			expect(one.errors).toBeUndefined()
+			const two = `{ ${nested('a')} ${nested('b')} }`
+			expect(messages(await post(url, two))).toStrictEqual([
+				'The document asks for more than 20,000 rows. Ask for fewer with first or last.',
+			])
+			const master = await post(url, two, undefined, asMaster)
+			expect(master.errors).toBeUndefined()
+			// Refused before it runs: running it would deny the anonymous write.
+			const writes = await post(
+				url,
+				`mutation { ${create('a')} ${create('b')} }`,
+			)
+			expect(messages(writes)).toStrictEqual([
+				'The document asks for more than 20,000 rows. Ask for fewer with first or last.',
+			])
+		})
+	})
+
+	it('counts take for a list without first, with a negative one, or counted', async () => {
+		await serving({ maxRows: 150 }, async (url) => {
+			const refused = [
+				'The document asks for more than 150 rows. Ask for fewer with first or last.',
+			]
+			const twice = `{ a: posts { totalCount } b: posts { totalCount } }`
+			expect(messages(await post(url, twice))).toStrictEqual(refused)
+			const negative = `{ a: posts(first: -5) { totalCount } b: posts(last: -5) { totalCount } }`
+			expect(messages(await post(url, negative))).toStrictEqual(refused)
+			const counts = `{ a: posts(first: 1) { totalCount } b: posts(first: 1) { totalCount } }`
+			expect(messages(await post(url, counts))).toStrictEqual(refused)
+			const pages = await post(
+				url,
+				`{ a: posts(first: 1) { edges { cursor } } b: posts(first: 1) { edges { cursor } } }`,
+			)
+			expect(pages.errors).toBeUndefined()
+			const single = `{ user(where: { name: "ada" }) { posts(first: 100) { pageInfo { hasNextPage } } } posts(first: 50) { totalCount } }`
+			expect(messages(await post(url, single))).toStrictEqual(refused)
+		})
+	})
+
+	it('counts a fragment spread twice once, and no skipped or empty list', async () => {
+		await serving({ maxRows: 150 }, async (url) => {
+			const spread = await post(
+				url,
+				`{ ...A ...A } fragment A on Query { posts { totalCount } }`,
+			)
+			expect(spread.errors).toBeUndefined()
+			const skipped = await post(
+				url,
+				`{ a: posts @skip(if: true) { totalCount } b: posts { totalCount } }`,
+			)
+			expect(skipped.errors).toBeUndefined()
+			const empty = await post(
+				url,
+				`{ a: posts(first: 0) { edges { node { author { posts { pageInfo { hasNextPage } } } } } } b: posts { totalCount } }`,
+			)
+			expect(empty.errors).toBeUndefined()
+		})
+	})
+
+	it('counts maxTake for a list asking more, which the list then refuses', async () => {
+		await serving({ maxRows: 5 }, async (url) => {
+			const result = await post(
+				url,
+				`{ users(first: 50) { edges { cursor } } }`,
+			)
+			expect(messages(result)).toStrictEqual(['first is at most 3 on User.'])
+		})
+	})
+
+	it('names take with pagination: list', async () => {
+		await serving({ pagination: 'list', maxRows: 150 }, async (url) => {
+			const result = await post(
+				url,
+				`{ a: posts { title } b: posts { title } }`,
+			)
+			expect(messages(result)).toStrictEqual([
+				'The document asks for more than 150 rows. Ask for fewer with take.',
+			])
+		})
+	})
+})
+
+describe('a fragment spread twice at each level', () => {
+	it('is read once per level, not once per path', async () => {
+		await serving({}, async (url) => {
+			await seeded()
+			const levels = 20
+			const fragments = Array.from(
+				{ length: levels },
+				(_, index) =>
+					`fragment F${index} on Post { ...F${index + 1} ...F${index + 1} }`,
+			).join(' ')
+			const result = await post(
+				url,
+				`{ posts(first: 1) { edges { node { ...F0 } } } } ${fragments}
+				fragment F${levels} on Post { title }`,
+			)
+			expect(result.errors).toBeUndefined()
+			expect(at(result.data, 'posts', 'edges', 0, 'node', 'title')).toBeTypeOf(
+				'string',
+			)
 		})
 	})
 })

@@ -69,7 +69,7 @@ it('names a list after its plural and reaches a hidden model by relations', asyn
 		)
 		const result = await post(
 			`${url}/graphql`,
-			`{ people { edges { node {
+			`{ people(first: 10) { edges { node {
 				name tags { edges { node { label } } } hidden { pageInfo { hasNextPage } }
 			} } } }`,
 		)

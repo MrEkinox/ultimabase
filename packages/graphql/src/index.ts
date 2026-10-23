@@ -1,7 +1,12 @@
 // `graphqlPlugin()` (D-107): a Relay schema generated from the models,
 // mounted on the HTTP plugin and run as each request's caller.
 import type { GraphQLSchema } from 'graphql'
-import { execute, NoSchemaIntrospectionCustomRule, validate } from 'graphql'
+import {
+	executeRootSelectionSet,
+	NoSchemaIntrospectionCustomRule,
+	validate,
+	validateExecutionArgs,
+} from 'graphql'
 import { createHandler } from 'graphql-http/lib/use/fetch'
 import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
@@ -14,6 +19,7 @@ import { graphiqlPage } from './graphiql.ts'
 import { rootNames } from './names.ts'
 import type { Context, Entry, GraphqlWith } from './registry.ts'
 import { Registry } from './registry.ts'
+import { rowBudget } from './rows.ts'
 import { schemaOf } from './schema.ts'
 
 export type { GraphqlWith } from './registry.ts'
@@ -30,6 +36,11 @@ export interface GraphqlOptions {
 	readonly maxTake?: number
 	/** The deepest a document of a caller other than Master nests; 10 by default. */
 	readonly maxDepth?: number
+	/**
+	 * The most rows a document of a caller other than Master may return, each
+	 * list times the lists above it; 20 000 by default.
+	 */
+	readonly maxRows?: number
 	/**
 	 * Introspection and "Did you mean" suggestions: closed in production,
 	 * open elsewhere, unless set.
@@ -75,6 +86,9 @@ const plugin = definePlugin<Graphql>({
 		const hideSuggestions = !(options.introspection ?? !production)
 		const closed = hideSuggestions ? [NoSchemaIntrospectionCustomRule] : []
 		const depth = depthRule(options.maxDepth ?? 10)
+		const budget = rowBudget(registry, options.maxRows ?? 20_000)
+		// The contexts of Master's requests, which no budget limits.
+		const exempt = new WeakSet<object>()
 		// The caller the HTTP plugin read, by its request.
 		const callers = new WeakMap<Request, Caller>()
 		const callerOf = (request: Request): Caller => {
@@ -84,7 +98,11 @@ const plugin = definePlugin<Graphql>({
 		}
 		const handler = createHandler<Context>({
 			schema,
-			context: (request) => ({ caller: callerOf(request.raw) }),
+			context: (request) => {
+				const context = { caller: callerOf(request.raw) }
+				if (context.caller.kind === 'master') exempt.add(context)
+				return context
+			},
 			validationRules: (request, _, specified) => [
 				...specified,
 				...closed,
@@ -92,7 +110,18 @@ const plugin = definePlugin<Graphql>({
 			],
 			validate: (on, document, rules) =>
 				validate(on, document, rules, { hideSuggestions }),
-			execute: async (args) => execute({ ...args, hideSuggestions }),
+			execute: async (args) => {
+				const validated = validateExecutionArgs({ ...args, hideSuggestions })
+				if (!('schema' in validated)) return { errors: validated }
+				const { contextValue } = validated
+				const master =
+					typeof contextValue === 'object' &&
+					contextValue !== null &&
+					exempt.has(contextValue)
+				const refused = master ? undefined : budget(validated)
+				if (refused !== undefined) return { errors: [refused] }
+				return executeRootSelectionSet(validated)
+			},
 			formatError: formatter(logger),
 		})
 		const path = options.path ?? '/graphql'

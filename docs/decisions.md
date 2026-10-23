@@ -4286,6 +4286,14 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    `.with({ graphql: { maxTake } })`; at every depth. A document nested
    deeper than `maxDepth` (10) is refused; `__schema` and `__type` do not
    count, since the standard introspection query is about 12 levels deep.
+   A document that may return more than `maxRows` rows (20 000), set as
+   `graphqlPlugin({ maxRows })`, is refused before it runs, mutations
+   included. A list counts the rows it asks for, times the rows of the lists
+   above it: `take` when it asks for none or a negative number, `maxTake` at
+   most, and `take` at least when it selects `totalCount`, since a count
+   reads the rows it counts. A single row, a `one` relation and a mutation
+   count one row each. Each alias counts apart; a fragment spread twice
+   counts once (amended 2026-10-23).
 7. A model whose `use` lists `graphql()` takes `.with({ graphql: { plural } })`
    or `.with({ graphql: false })`. A hidden model is absent from the schema,
    its types included, unless an exposed model's relation reaches it. In
@@ -4300,8 +4308,9 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    replaces the generated `GraphQLSchema` with one built from it (D-45).
 10. Functions over GraphQL, as a query or a mutation, are decided with
     `defineFunction`. Out of 0.1: subscriptions, the Relay `Node` interface
-    and `node(id)`, batched requests, a query cost beyond depth, persisted
-    queries, a nested `totalCount`, hiding one field.
+    and `node(id)`, batched requests, a cost per field, persisted queries, a
+    nested `totalCount`, hiding one field, and one relation selected twice
+    with different arguments, which is refused (amended 2026-10-23).
 
 Why: one plugin turns the models into the GraphQL that Relay and Apollo
 expect, through the same caller and rules as server code. Mounting from `api`

@@ -18,7 +18,13 @@ import { objectType } from './outputs.ts'
 import { listRead } from './pages.ts'
 import type { Args, Registry } from './registry.ts'
 
-type Info = Pick<GraphQLResolveInfo, 'fragments' | 'variableValues'>
+export type Info = Pick<GraphQLResolveInfo, 'fragments' | 'variableValues'>
+/** A field's name, or its alias: the key of its value in the response. */
+export type Key = (node: FieldNode) => string
+/** Fields under one key, the first of them included. */
+export type Fields = readonly [FieldNode, ...FieldNode[]]
+/** A field or an operation: what selects fields. */
+export type Selecting = { readonly selectionSet?: SelectionSetNode | undefined }
 
 function included(info: Info, node: Parameters<typeof getDirectiveValues>[1]) {
 	const skip = getDirectiveValues(
@@ -35,31 +41,43 @@ function included(info: Info, node: Parameters<typeof getDirectiveValues>[1]) {
 	return include?.['if'] !== false
 }
 
+// A fragment spread again adds nothing the first spread did not, so each is
+// collected once: spreading each fragment twice into the next would otherwise
+// cost 2^n visits.
 function collect(
 	info: Info,
 	set: SelectionSetNode | undefined,
-	into: Map<string, FieldNode[]>,
+	into: Map<string, [FieldNode, ...FieldNode[]]>,
+	key: Key,
+	spread: Set<string>,
 ): void {
 	for (const selection of set?.selections ?? []) {
 		if (!included(info, selection)) continue
 		if (selection.kind === Kind.FIELD) {
-			const name = selection.name.value
-			into.set(name, [...(into.get(name) ?? []), selection])
+			const found = into.get(key(selection))
+			if (found === undefined) into.set(key(selection), [selection])
+			else found.push(selection)
 		} else if (selection.kind === Kind.INLINE_FRAGMENT) {
-			collect(info, selection.selectionSet, into)
-		} else {
-			collect(info, info.fragments[selection.name.value]?.selectionSet, into)
+			collect(info, selection.selectionSet, into, key, spread)
+		} else if (!spread.has(selection.name.value)) {
+			spread.add(selection.name.value)
+			const fragment = info.fragments[selection.name.value]
+			collect(info, fragment?.selectionSet, into, key, spread)
 		}
 	}
 }
 
+const byName: Key = (node) => node.name.value
+
 /** The fields under some nodes, by name, through fragments and directives. */
 export function grouped(
 	info: Info,
-	nodes: readonly FieldNode[],
-): ReadonlyMap<string, readonly FieldNode[]> {
-	const into = new Map<string, FieldNode[]>()
-	for (const node of nodes) collect(info, node.selectionSet, into)
+	nodes: readonly Selecting[],
+	key: Key = byName,
+): ReadonlyMap<string, Fields> {
+	const into = new Map<string, [FieldNode, ...FieldNode[]]>()
+	const spread = new Set<string>()
+	for (const node of nodes) collect(info, node.selectionSet, into, key, spread)
 	return into
 }
 
