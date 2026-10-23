@@ -29,6 +29,16 @@ const Person = defineModel({
 	}),
 }).with({ access: allow.readOnly, graphql: { plural: 'people' } })
 
+const Team = defineModel({
+	name: 'Team',
+	use: [graphql()],
+	fields: (f) => ({
+		name: f.string({ unique: true }),
+		code: f.string({ unique: true }).with({ access: { read: allow.private } }),
+	}),
+	indexes: [{ fields: ['name', 'code'], unique: true }],
+}).with({ access: allow.readOnly })
+
 async function listening(models: Parameters<typeof defineApp>[0]['models']) {
 	const lines: unknown[] = []
 	const logger: Logger = {
@@ -87,6 +97,22 @@ it('names a list after its plural and reaches a hidden model by relations', asyn
 			asMaster,
 		)
 		expect(deleted.errors?.[0]?.message).toContain('deleteTag')
+	} finally {
+		await app.stop()
+	}
+})
+
+it('leaves a unique field only Master reads out of the unique input', async () => {
+	const { app, url } = await listening([Team])
+	try {
+		const result = await post(
+			`${url}/graphql`,
+			`{ __type(name: "TeamWhereUniqueInput") { inputFields { name } } }`,
+		)
+		expect(at(result.data, '__type', 'inputFields')).toStrictEqual([
+			{ name: 'id' },
+			{ name: 'name' },
+		])
 	} finally {
 		await app.stop()
 	}

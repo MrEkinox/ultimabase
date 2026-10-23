@@ -181,7 +181,12 @@ export function uniqueInput(
 	const name = `${model}WhereUniqueInput`
 	return registry.input(name, () => {
 		const fields: GraphQLInputFieldConfigMap = {}
-		for (const unique of registry.entry(model).exposed.uniques) {
+		const { exposed } = registry.entry(model)
+		// A field only Master reads is absent, as from the filters (D-44).
+		const uniques = exposed.uniques.filter((unique) =>
+			unique.every((field) => exposed.readRules[field] !== 'private'),
+		)
+		for (const unique of uniques) {
 			const [only] = unique
 			if (unique.length === 1 && only !== undefined) {
 				fields[only] = { type: uniqueType(registry, model, only) }
