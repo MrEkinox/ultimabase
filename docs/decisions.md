@@ -2485,6 +2485,11 @@ the same query includes that relation and the caller cannot read its target,
 the include is `null` and so is the key the rule sees, which fails closed for
 an owner check.
 
+Limit: a write that repeats a unique value of a row the caller cannot read
+fails with `UNIQUE_VIOLATION`, which tells the caller that row exists. The
+index is the database's, and accepting the write is not possible; Parse
+answers the same way (amended 2026-10-23).
+
 Rejected:
 
 - the list after the write as the `many` value;

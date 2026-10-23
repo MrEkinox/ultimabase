@@ -137,6 +137,8 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 
 - [ ] `auth`: `defineUser`, sessions, Identify (D-33, D-39, D-62).
 - [ ] `passwordPlugin()`: Argon2id, sign-in rate limit (D-56).
+- [ ] Decide how a plugin keeps its own models, as the sessions, out of the
+      transports: D-24 has every transport act on every model.
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
 
