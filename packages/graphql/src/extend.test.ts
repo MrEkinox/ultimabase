@@ -3,15 +3,17 @@
 import type { GraphQLFieldConfigMap } from 'graphql'
 import {
 	assertObjectType,
+	extendSchema,
 	GraphQLList,
 	GraphQLNonNull,
 	GraphQLObjectType,
 	GraphQLSchema,
 	GraphQLString,
+	parse,
 } from 'graphql'
 import { describe, expect, it } from 'vitest'
 import type { GraphqlContext } from './index.ts'
-import { asMaster, post, Post, seeded, started, User } from './test/app.ts'
+import { asMaster, at, post, Post, seeded, started, User } from './test/app.ts'
 
 type Added = GraphQLFieldConfigMap<unknown, GraphqlContext>
 
@@ -38,7 +40,18 @@ const listOf = (schema: GraphQLSchema, name: string) =>
 		new GraphQLList(new GraphQLNonNull(assertObjectType(schema.getType(name)))),
 	)
 
-const extend = adding((schema) => ({
+/** `Post.shout`, a field added to a model's type. */
+function shouting(schema: GraphQLSchema): GraphQLSchema {
+	const extended = extendSchema(
+		schema,
+		parse(`extend type Post { shout: String }`),
+	)
+	const shout = assertObjectType(extended.getType('Post')).getFields()['shout']
+	if (shout) shout.resolve = (source) => `${String(at(source, 'title'))}!`
+	return extended
+}
+
+const added = adding((schema) => ({
 	me: {
 		type: GraphQLString,
 		resolve: (_, __, context) => context.caller.kind,
@@ -68,6 +81,8 @@ const extend = adding((schema) => ({
 		resolve: (_, __, context, info) => context.select(info),
 	},
 }))
+
+const extend = (schema: GraphQLSchema) => shouting(added(schema))
 
 /** Runs `check` against an application with the fields above. */
 async function serving(
@@ -147,6 +162,22 @@ describe('a field extend adds', () => {
 					),
 				]),
 			)
+		})
+	})
+
+	it('on a model type, gets the scalars of its row', async () => {
+		await serving(async (url) => {
+			const result = await post(
+				url,
+				`{ posts(first: 1, orderBy: [{ slug: asc }]) { edges { node { shout } } }
+				published { shout } }`,
+			)
+			expect(result).toStrictEqual({
+				data: {
+					posts: { edges: [{ node: { shout: 'four!' } }] },
+					published: [{ shout: 'one!' }, { shout: 'three!' }],
+				},
+			})
 		})
 	})
 

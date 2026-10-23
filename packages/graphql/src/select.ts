@@ -19,6 +19,7 @@ import { badInput } from './errors.ts'
 import { objectType } from './outputs.ts'
 import { listRead } from './pages.ts'
 import type { Args, Registry } from './registry.ts'
+import { readable } from './registry.ts'
 
 export type Info = Pick<GraphQLResolveInfo, 'fragments' | 'variableValues'>
 /** A field's name, or its alias: the key of its value in the response. */
@@ -111,6 +112,8 @@ function nodesOf(info: Info, nodes: readonly FieldNode[]): FieldNode[] {
 	return [...(grouped(info, edges).get('node') ?? [])]
 }
 
+const system = new Set(['id', 'createdAt', 'updatedAt'])
+
 /** The kernel's `select` for what a query asks of a model's rows. */
 export function selectOf(
 	registry: Registry,
@@ -122,9 +125,22 @@ export function selectOf(
 	const entry = registry.entry(type.name)
 	const select: { [field: string]: unknown } = { id: true }
 	for (const [name, fieldNodes] of grouped(info, nodes)) {
+		if (name === '__typename') continue
+		if (system.has(name)) {
+			select[name] = true
+			continue
+		}
 		const field = entry.model.fields.find((f) => f.name === name)
-		if (field === undefined || field.kind === 'scalar') {
-			if (name !== '__typename') select[name] = true
+		if (field === undefined) {
+			// A field `extend` added: its resolver gets the row's scalars.
+			for (const scalar of readable(entry)) {
+				if (scalar.kind === 'scalar') select[scalar.name] = true
+			}
+			for (const key of system) select[key] = true
+			continue
+		}
+		if (field.kind === 'scalar') {
+			select[name] = true
 			continue
 		}
 		const target = registry.entry(field.target)

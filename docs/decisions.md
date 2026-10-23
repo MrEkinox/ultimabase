@@ -4319,7 +4319,10 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    model or a list of one, relations and their pages included, limited as
    the caller (D-55); a field returning anything else throws. A relation
    absent from a row its rule cannot hide throws "Post.author was not read;
-   select it with context.select(info)." The row budget does not know what an
+   select it with context.select(info)." A field added to a model's type, as
+   `extend type Post { shout: String }`, receives the row with its `id`, its
+   dates and every scalar field the caller reads, since its needs are unknown
+   (amended 2026-10-23). The row budget does not know what an
    added field returns, so it counts it as no rows (amended 2026-10-23).
 
    ```ts
