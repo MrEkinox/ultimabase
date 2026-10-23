@@ -4730,3 +4730,75 @@ mutation {
 	sendInvite(email: "a@example.com") # true
 }
 ```
+
+## D-110: A plugin's own models stay out of every other plugin
+
+Choice: `definePlugin({ models: [AuthSession] })` gives a plugin models of its
+own, each an ordinary `defineModel` value the plugin does not have to export.
+The application does not list them. The kernel resolves them with the
+application's models: they get tables and migrations (D-26, D-105), queries,
+validation, hooks and transactions. No plugin's `context.models` holds them,
+the owner's included: a transport never exposes them, and the owner queries
+them through the values it imports, usually `as: master`. Without an access
+rule they refuse every other caller (D-04).
+
+1. A plugin's model relates only to models of the same plugin. It keeps an
+   application row's id as a scalar (`userId: f.string()`), and the plugin's
+   hooks on the models that use it delete what depends on a row, in the
+   operation's transaction (D-36).
+2. A plugin names its models after itself (`AuthSession`, stored as
+   `auth_session`, D-63). `start` refuses a model named like another, the
+   application's or a plugin's, naming its plugin.
+3. A function cannot return a plugin's model (D-109).
+4. A plugin that acts on every model, as ACL, acts on the application's.
+
+Why: sessions, sign-in attempts (D-39, D-56) and password hashes are no data
+an application exposes. Listing them in `models` and hiding them from each
+transport (`graphql: false`) would expose them through any transport added
+later, and the master key would read password hashes in GraphiQL. A
+relation to the user model would need its other side there (D-37), which
+reaches the hidden model from the user's GraphQL type (D-107), and auth's
+code cannot name the user model before `defineUser`. The cost is no
+foreign key: deleting a user removes its sessions in auth's hook.
+Rejected: the models in `defineApp({ models })`, hidden per transport;
+an `internal: true` flag on `defineModel`, which still needs a way to list
+the model; the previous base's private storage with its own narrow API
+(its ADR-0234), a second storage path and its own migrations; a relation
+to the application's models with no inverse side, against D-37.
+Example:
+
+```ts
+// Before: the application lists auth's models and hides them in each transport
+export const app = defineApp({
+	database: postgres(),
+	plugins: [httpPlugin(), graphqlPlugin(), authPlugin()],
+	models: [User, Post, AuthSession],
+})
+// and `.with({ graphql: false })` on AuthSession, then `rest: false` in phase 7
+
+// After: in @ultimabase/auth, a model it does not export
+const AuthSession = defineModel({
+	name: 'AuthSession',
+	fields: (f) => ({
+		tokenHash: f.string({ unique: true }),
+		userId: f.string(),
+		expiresAt: f.date(),
+	}),
+	indexes: [{ fields: ['userId'] }],
+})
+const authDefinition = definePlugin<Auth>({
+	name: 'auth',
+	manifest,
+	models: [AuthSession],
+	hooks: {
+		afterDelete: ({ record }) =>
+			AuthSession.deleteMany({ where: { userId: record.id } }, { as: master }),
+	},
+})
+// In the application: nothing to list
+export const app = defineApp({
+	database: postgres(),
+	plugins: [httpPlugin(), graphqlPlugin(), authPlugin()],
+	models: [User, Post],
+})
+```
