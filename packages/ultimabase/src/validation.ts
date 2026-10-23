@@ -1,6 +1,7 @@
 // A field's `validate` (D-23): a Standard Schema or a function, whose output
 // is the stored value.
 import type { Issue } from './errors.ts'
+import type { StandardSchema } from './fields.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { isObject } from './query-where.ts'
 
@@ -9,7 +10,7 @@ export type Result =
 
 /** A Standard Schema, its `~standard` and that object's `validate`. */
 export type Standard = {
-	readonly schema: object
+	readonly schema: StandardSchema
 	readonly self: object
 	readonly validate: Function
 }
@@ -24,7 +25,9 @@ export function standardOf(schema: unknown): Standard | undefined {
 	if (!isObject(standard) || typeof standard['validate'] !== 'function') {
 		return undefined
 	}
-	return { schema, self: standard, validate: standard['validate'] }
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a `~standard` with a `validate` is the interface; each result is checked.
+	const typed = schema as StandardSchema
+	return { schema: typed, self: standard, validate: standard['validate'] }
 }
 
 /** A schema issue's path, behind `prefix`. */

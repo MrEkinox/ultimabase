@@ -124,7 +124,8 @@ function allowed(
 	throw refused({ function: name }, `${name} refused.`, caller, app.logger)
 }
 
-async function called(
+/** `run`'s call, the input first when the function takes one. */
+export async function called(
 	value: object,
 	record: FunctionDefinition,
 	args: readonly unknown[],

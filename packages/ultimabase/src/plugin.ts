@@ -1,7 +1,7 @@
 // A plugin is an interface of types and one `definePlugin` (D-57). Its types
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
-import type { FieldBuilders } from './fields.ts'
+import type { FieldBuilders, StandardSchema } from './fields.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
@@ -96,7 +96,43 @@ export interface ExposedModel<W = unknown> {
 	readonly queries: ModelQueries
 }
 
+/** How an output holds a model or a type (D-109). */
+export type OutputForm = 'one' | 'nullable' | 'list'
+
+/** A function's or a type's output, as transports read it (D-109). */
+export type ExposedOutput =
+	| { readonly kind: 'schema'; readonly schema: StandardSchema }
+	| { readonly kind: 'model'; readonly name: string; readonly form: OutputForm }
+	| {
+			readonly kind: 'type'
+			readonly type: ExposedType
+			readonly form: OutputForm
+	  }
+
+/** A `defineType`, its fields in their order (D-109). */
+export interface ExposedType {
+	readonly name: string
+	readonly fields: ReadonlyMap<string, ExposedOutput>
+}
+
+/** A function as transports read it (D-109). */
+export interface ExposedFunction<W = unknown> {
+	readonly name: string
+	/** A query, which a transport may serve over GET; a mutation otherwise. */
+	readonly query: boolean
+	readonly input: StandardSchema | undefined
+	/** `undefined` when it returns nothing. */
+	readonly output: ExposedOutput | undefined
+	/** The plugin's key of the function's `.with`, if it was given. */
+	readonly with: W | undefined
+	/** Checks access, validates the input, then runs it (D-75). */
+	run(input: unknown, options: QueryOptions): Promise<unknown>
+}
+
 type WithOf<T> = T extends { readonly with: infer W } ? W : never
+type FunctionWithOf<T> = T extends { readonly functionWith: infer W }
+	? W
+	: never
 
 /** What the plugin's start and api receive: its application options. */
 export interface PluginContext<T> {
@@ -109,6 +145,8 @@ export interface PluginContext<T> {
 	readonly identify: Identify
 	/** The application's models, in their order (D-107). */
 	readonly models: readonly ExposedModel<WithOf<T>>[]
+	/** The application's functions, in their order (D-109). */
+	readonly functions: readonly ExposedFunction<FunctionWithOf<T>>[]
 }
 
 /** A plugin's entry in a model's `use`, named after the plugin. */

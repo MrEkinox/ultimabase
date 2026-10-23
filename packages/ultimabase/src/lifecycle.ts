@@ -120,7 +120,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		const logger = base.child({ name: 'ultimabase' })
 		checkVersions(records, logger)
 		const identify = identifier(options.masterKey, logger)
-		const plugins = withContexts(apiOrder, base, identify, resolved)
+		const plugins = withContexts(apiOrder, base, identify, resolved, functions)
 		await database.start(resolved.schema)
 		await follow(database, resolved.schema, logger)
 		const apis = new Map<string, unknown>()

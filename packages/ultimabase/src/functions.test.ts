@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { asUser } from '@ultimabase/testing'
-import type { Logger, PluginTypes } from './index.ts'
+import type { ExposedFunction, Logger, PluginTypes } from './index.ts'
 import {
 	allow,
 	defineApp,
@@ -25,7 +25,14 @@ interface Rpc extends PluginTypes {
 	readonly name: 'rpc'
 	readonly functionWith: { readonly name?: string }
 }
-const rpc = definePlugin<Rpc>({ name: 'rpc', manifest })
+let exposed: readonly ExposedFunction<Rpc['functionWith']>[] = []
+const rpc = definePlugin<Rpc>({
+	name: 'rpc',
+	manifest,
+	start: ({ functions }) => {
+		exposed = functions
+	},
+})
 
 const Post = defineModel({
 	name: 'Post',
@@ -273,6 +280,49 @@ describe('outputs (D-109)', () => {
 		expect(() => defineType({ name: 'Odd', fields: { a: 1 } })).toThrow(
 			'Odd.a is a model, a type, a list of one, X.nullable() or a Standard Schema (D-109).',
 		)
+	})
+})
+
+describe('plugins (D-109)', () => {
+	it('read the functions, in their order, with their key', () => {
+		expect(exposed.map(({ name, query }) => [name, query])).toEqual([
+			['closed', false],
+			['greet', false],
+			['latest', true],
+			['search', false],
+		])
+		const [none, hello, nullable, page] = exposed
+		expect(hello?.with).toEqual({ name: 'hello' })
+		expect(none?.with).toBeUndefined()
+		expect(hello?.input).toBe(greet.input)
+		expect(none?.input).toBeUndefined()
+		expect(none?.output).toBeUndefined()
+		expect(hello?.output).toEqual({ kind: 'schema', schema: greet.output })
+		expect(nullable?.output).toMatchObject({
+			kind: 'model',
+			name: 'Post',
+			form: 'nullable',
+		})
+		expect(page?.output).toMatchObject({ kind: 'type', form: 'one' })
+		const type = page?.output?.kind === 'type' ? page.output.type : undefined
+		expect(type?.name).toBe('Page')
+		expect([...(type?.fields ?? new Map()).entries()]).toEqual([
+			['hits', expect.objectContaining({ kind: 'type', form: 'list' })],
+			['best', expect.objectContaining({ kind: 'type', form: 'nullable' })],
+			['first', expect.objectContaining({ kind: 'type', form: 'one' })],
+		])
+		expect(Object.isFrozen(hello)).toBe(true)
+	})
+
+	it('run a function as server code does', async () => {
+		const [none, hello] = exposed
+		await expect(hello?.run({ name: ' Ada ' }, {})).resolves.toBe('Hello Ada')
+		await expect(none?.run(undefined, {})).rejects.toMatchObject({
+			code: 'ACCESS_DENIED',
+		})
+		await expect(none?.run(undefined, { as: master })).resolves.toBeUndefined()
+		const invalid = hello?.run({ name: 1 }, { as: master })
+		await expect(invalid).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
 	})
 })
 

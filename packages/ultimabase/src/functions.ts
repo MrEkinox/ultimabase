@@ -7,7 +7,9 @@ import type {
 	PluginCode,
 	TypeDefinition,
 } from './definition.ts'
+import { called } from './define-function.ts'
 import { functionDefinitions } from './definition.ts'
+import type { ExposedFunction } from './plugin.ts'
 import { isObject } from './query-where.ts'
 import type { Resolved } from './schema.ts'
 import { checkInstalled } from './schema.ts'
@@ -69,4 +71,29 @@ export function resolveFunctions(
 		functions.set(value, definition)
 	}
 	return functions
+}
+
+/** The functions as the plugin `name` reads them, with its `.with` key. */
+export function exposedFunctions(
+	name: string,
+	functions: ReadonlyMap<object, FunctionDefinition>,
+): readonly ExposedFunction[] {
+	return [...functions].map(([value, record]) => {
+		const { rules, input } = record
+		const key: unknown =
+			rules === undefined ? undefined : Reflect.get(rules, name)
+		return Object.freeze({
+			name: record.name,
+			query: record.query,
+			input,
+			output: record.output,
+			with: key,
+			run: async (given: unknown, options: unknown): Promise<unknown> =>
+				called(
+					value,
+					record,
+					input === undefined ? [options] : [given, options],
+				),
+		})
+	})
 }

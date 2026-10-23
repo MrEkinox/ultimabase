@@ -1,7 +1,8 @@
 // What `defineModel`, the field builders and `definePlugin` record at run
 // time: the values behind the types.
 import type { ScalarType } from './adapter.ts'
-import type { Manifest } from './plugin.ts'
+import type { StandardSchema } from './fields.ts'
+import type { Manifest, OutputForm } from './plugin.ts'
 
 export type FieldOptions = { readonly [option: string]: unknown }
 
@@ -82,8 +83,8 @@ export type NamedOutput =
 
 /** A function's or a type's output, as the kernel reads it (D-109). */
 export type Output =
-	| { readonly kind: 'schema'; readonly schema: object }
-	| (NamedOutput & { readonly form: 'one' | 'nullable' | 'list' })
+	| { readonly kind: 'schema'; readonly schema: StandardSchema }
+	| (NamedOutput & { readonly form: OutputForm })
 
 export type TypeDefinition = {
 	readonly name: string
@@ -93,7 +94,7 @@ export type TypeDefinition = {
 export type FunctionDefinition = {
 	readonly name: string
 	readonly query: boolean
-	readonly input: object | undefined
+	readonly input: StandardSchema | undefined
 	readonly output: Output | undefined
 	/** The plugins of its `use` (D-27). */
 	readonly uses: readonly PluginRecord[]

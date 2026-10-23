@@ -3,11 +3,12 @@
 import type { SchemaModel } from './adapter.ts'
 import { readRules } from './access.ts'
 import type { Logger } from './app-options.ts'
-import type { PluginRecord } from './definition.ts'
+import type { FunctionDefinition, PluginRecord } from './definition.ts'
 import type { Identify } from './identify.ts'
-import type { ExposedModel, ModelQueries } from './plugin.ts'
+import type { ExposedFunction, ExposedModel, ModelQueries } from './plugin.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
+import { exposedFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 
 /** Each plugin after the plugins it needs; a cycle stops startup. */
@@ -62,7 +63,10 @@ export function installed(values: readonly unknown[]): {
 	return { plugins, apiOrder: needsFirst(plugins) }
 }
 
-/** A plugin and what its `api`, `start` and `stop` receive (D-58, D-91, D-106). */
+/**
+ * A plugin and what its `api`, `start` and `stop` receive (D-58, D-91, D-106,
+ * D-109).
+ */
 export type Installed = {
 	readonly code: PluginRecord['code']
 	readonly context: {
@@ -71,6 +75,7 @@ export type Installed = {
 		readonly logger: Logger
 		readonly identify: Identify
 		readonly models: readonly ExposedModel[]
+		readonly functions: readonly ExposedFunction[]
 	}
 }
 
@@ -117,6 +122,7 @@ export function withContexts(
 	logger: Logger,
 	identify: Identify,
 	resolved: Resolved,
+	functions: ReadonlyMap<object, FunctionDefinition>,
 ): readonly Installed[] {
 	return apiOrder.map(({ code, options }) => ({
 		code,
@@ -126,6 +132,7 @@ export function withContexts(
 			logger: logger.child({ name: code.name }),
 			identify,
 			models: exposed(code.name, resolved),
+			functions: exposedFunctions(code.name, functions),
 		},
 	}))
 }

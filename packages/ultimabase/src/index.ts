@@ -47,9 +47,13 @@ export type {
 export { memory } from './memory.ts'
 export type { App, Model } from './model.ts'
 export type {
+	ExposedFunction,
 	ExposedModel,
+	ExposedOutput,
+	ExposedType,
 	ModelQueries,
 	ModelUse,
+	OutputForm,
 	PluginOf,
 	PluginTypes,
 	UseOf,
