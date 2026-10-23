@@ -16,6 +16,7 @@ import { objectType } from './outputs.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { as } from './registry.ts'
 import { reread } from './reread.ts'
+import { SentDate } from './scalars.ts'
 import type { Read } from './rows.ts'
 
 /** A function's key of `.with` (D-109): its field's name, or hidden. */
@@ -31,9 +32,9 @@ export type RootField = {
 	readonly field: Field
 }
 
-/** Dates back to ISO strings: the validator reads what the client sent. */
+/** Dates back to their text: the validator reads what the client sent. */
 function plain(value: unknown): unknown {
-	if (value instanceof Date) return value.toISOString()
+	if (value instanceof SentDate) return value.sent
 	if (Array.isArray(value)) return value.map(plain)
 	if (typeof value !== 'object' || value === null) return value
 	return Object.fromEntries(
@@ -55,10 +56,13 @@ class Builder {
 	readonly #take: number
 	/** What each field reads, by type then field, for the row budget. */
 	readonly reads = new Map<string, Map<string, Read>>()
+	/** Each named type, and the first function to give it. */
+	readonly owners: Map<string, string>
 
 	constructor(registry: Registry, take: number) {
 		this.#registry = registry
 		this.#data = new DataTypes(registry.entries.keys())
+		this.owners = this.#data.owners
 		this.#take = take
 	}
 
@@ -83,18 +87,19 @@ class Builder {
 		const named =
 			output.kind === 'model'
 				? objectType(this.#registry, output.name)
-				: this.#type(output.type)
+				: this.#type(output.type, path.owner)
 		if (output.form === 'nullable') return named
 		const item = new GraphQLNonNull(named)
 		return list ? new GraphQLNonNull(new GraphQLList(item)) : item
 	}
 
 	/** A `defineType`, built once; its fields cannot refer back to it. */
-	#type(type: ExposedType): GraphQLObjectType {
+	#type(type: ExposedType, owner: string): GraphQLObjectType {
 		const known = this.#types.get(type.name)
 		if (known !== undefined) return known
 		const { name } = type
 		checkName(name, `defineType ${name}`)
+		this.owners.set(name, owner)
 		const fields = [...type.fields].map(([field, output]): [string, Field] => {
 			checkName(field, `${name}.${field}`)
 			const path = at(name, `${name}${upper(field)}`, field)
@@ -126,6 +131,7 @@ class Builder {
 						name,
 					)
 		const registry = this.#registry
+		const take = this.#take
 		return {
 			type,
 			args: given?.args ?? {},
@@ -133,7 +139,13 @@ class Builder {
 				const sent = given?.flat === true ? args : args['input']
 				const value = await fn.run(plain(sent), as(context))
 				if (output === undefined) return true
-				return reread(registry, output, value, context, info)
+				if (value === undefined && type instanceof GraphQLNonNull) {
+					throw new TypeError(
+						`${fn.name} returned undefined; make its output .nullable() and return null (D-109).`,
+					)
+				}
+				const call = { name: fn.name, take }
+				return reread(registry, output, value, context, info, call)
 			},
 		}
 	}
@@ -147,6 +159,7 @@ export function functionFields(
 ): {
 	readonly fields: readonly RootField[]
 	readonly reads: ReadonlyMap<string, ReadonlyMap<string, Read>>
+	readonly owners: ReadonlyMap<string, string>
 } {
 	const builder = new Builder(registry, take)
 	const fields: RootField[] = []
@@ -156,5 +169,5 @@ export function functionFields(
 		const field = builder.field(fn, name)
 		fields.push({ query: fn.query, name, owner: fn.name, field })
 	}
-	return { fields, reads: builder.reads }
+	return { fields, reads: builder.reads, owners: builder.owners }
 }

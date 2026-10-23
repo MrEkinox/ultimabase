@@ -6,9 +6,19 @@ import { GraphQLError, GraphQLScalarType, Kind } from 'graphql'
 const iso =
 	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
 
+/** A date a client sent, which keeps its text for a function (D-109). */
+export class SentDate extends Date {
+	readonly sent: string
+
+	constructor(sent: string) {
+		super(sent)
+		this.sent = sent
+	}
+}
+
 function date(value: unknown): Date {
 	if (typeof value === 'string' && iso.test(value)) {
-		const parsed = new Date(value)
+		const parsed = new SentDate(value)
 		if (!Number.isNaN(parsed.getTime())) return parsed
 	}
 	throw new GraphQLError(

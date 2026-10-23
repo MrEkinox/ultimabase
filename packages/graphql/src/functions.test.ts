@@ -377,7 +377,7 @@ describe('calls', () => {
 					seen: {
 						name: 'ada',
 						times: 1,
-						at: '2026-01-02T03:04:05.000Z',
+						at: '2026-01-02T03:04:05Z',
 						tags: null,
 					},
 				},
@@ -385,6 +385,13 @@ describe('calls', () => {
 		})
 		const refused = await send('mutation { hello(name: "") { text } }')
 		expect(at(refused, 'errors', 0, 'extensions', 'code')).toBe(
+			'VALIDATION_FAILED',
+		)
+		// The validator reads the date as sent: this one refuses an offset.
+		const offset = await send(
+			'mutation { hello(name: "ada", at: "2026-01-02T05:04:05+02:00") { text } }',
+		)
+		expect(at(offset, 'errors', 0, 'extensions', 'code')).toBe(
 			'VALIDATION_FAILED',
 		)
 	})
@@ -424,6 +431,46 @@ describe('calls', () => {
 				},
 			},
 		})
+	})
+
+	it('types a literal number or boolean as its scalar', async () => {
+		const Literal = z.object({
+			one: z.literal(1),
+			half: z.literal(1.5),
+			yes: z.literal(true),
+		})
+		const literal = defineFunction({
+			name: 'literal',
+			query: true,
+			input: Literal,
+			output: Literal,
+			run: ({ input }) => input,
+		}).with({ access: allow.public })
+		const { send, typeOf } = await serving({}, [literal])
+		expect(typeOf('LiteralOutput')).toBe(`type LiteralOutput {
+  one: Int!
+  half: Float!
+  yes: Boolean!
+}`)
+		expect(
+			await send('{ literal(one: 1, half: 1.5, yes: true) { one half yes } }'),
+		).toEqual({ data: { literal: { one: 1, half: 1.5, yes: true } } })
+	})
+
+	it('names .nullable() when run returns undefined', async () => {
+		const maybe = defineFunction({
+			name: 'maybe',
+			query: true,
+			output: z.string().optional(),
+			run: () => undefined,
+		}).with({ access: allow.public })
+		const { send, lines } = await serving({}, [maybe])
+		const read = await send('{ maybe }')
+		expect(at(read, 'errors', 0, 'message')).toBe('Internal error.')
+		const logged = lines.find((line) => line.level === 'error')
+		expect(at(logged?.first, 'err', 'message')).toBe(
+			'maybe returned undefined; make its output .nullable() and return null (D-109).',
+		)
 	})
 
 	it('refuses a caller the access rule refuses', async () => {
@@ -531,6 +578,19 @@ describe('limits', () => {
 			data: { latest: null },
 		})
 	})
+
+	it('refuses a list longer than take under a selected relation', async () => {
+		const { send, lines } = await serving({ take: 1 })
+		await seeded()
+		const titles = await send('{ recent { title } }')
+		expect(at(titles, 'data', 'recent')).toHaveLength(4)
+		const read = await send('{ recent { title author { name } } }')
+		expect(at(read, 'errors', 0, 'message')).toBe('Internal error.')
+		const logged = lines.find((line) => line.level === 'error')
+		expect(at(logged?.first, 'err', 'message')).toBe(
+			'recent returned 4 rows; a list counts take (1) rows, so it holds no more under a selected relation (D-109).',
+		)
+	})
 })
 
 const returning = (name: string, output: Schema | z.ZodType) =>
@@ -601,6 +661,22 @@ describe('startup', () => {
 				returning('model', z.object({ a: z.string() }).meta({ id: 'Post' })),
 			]),
 		).rejects.toThrow('model: the type Post is named like a model.')
+		const connection = z
+			.object({ a: z.string() })
+			.meta({ id: 'UserConnection' })
+		await expect(serving({}, [returning('edges', connection)])).rejects.toThrow(
+			"edges: the type UserConnection is a generated type's name.",
+		)
+		const PageInfo = defineType({ name: 'PageInfo', fields: { a: z.string() } })
+		const pi = defineFunction({
+			name: 'pi',
+			query: true,
+			output: PageInfo,
+			run: () => ({ a: 'x' }),
+		}).with({ access: allow.public })
+		await expect(serving({}, [pi])).rejects.toThrow(
+			"pi: the type PageInfo is a generated type's name.",
+		)
 	})
 
 	it('refuses a name GraphQL refuses', async () => {
@@ -629,6 +705,13 @@ describe('startup', () => {
 				),
 			]),
 		).rejects.toThrow('far: output refers to #/definitions/X, not a $defs.')
+		const tree = exporting(() => ({
+			type: 'object',
+			properties: { children: { type: 'array', items: { $ref: '#' } } },
+		}))
+		await expect(serving({}, [returning('tree', tree)])).rejects.toThrow(
+			'tree: output.children[] refers to its own schema; name it with .meta({ id }).',
+		)
 		const Bad = defineType({ name: 'Bad', fields: { 'a-b': z.string() } })
 		const typed = defineFunction({
 			name: 'typed',

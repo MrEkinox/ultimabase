@@ -29,8 +29,11 @@ export async function reread(
 	value: unknown,
 	context: Context,
 	info: GraphQLResolveInfo,
+	call: { readonly name: string; readonly take: number },
 ): Promise<unknown> {
 	const master = isMaster(context)
+	// The rows whose relations are read, which the row budget counts.
+	let counted = 0
 	const pending = new Map<string, Pending>()
 	// A list's items share their nodes: each selection is read once.
 	const relations = new Map<readonly FieldNode[], Args>()
@@ -82,6 +85,7 @@ export async function reread(
 			reading.select[name] = read
 		}
 		reading.rows.set(id, [...(reading.rows.get(id) ?? []), copy])
+		counted += 1
 		return copy
 	}
 
@@ -108,7 +112,15 @@ export async function reread(
 		if (at.form !== 'list' || !Array.isArray(item)) {
 			return one(at, item, nodes)
 		}
-		return item.map((each: unknown) => one(at, each, nodes))
+		const before = counted
+		const items = item.map((each: unknown) => one(at, each, nodes))
+		// The budget counts `take` rows in a list (D-109).
+		if (items.length > call.take && counted > before) {
+			throw new RangeError(
+				`${call.name} returned ${items.length} rows; a list counts take (${call.take}) rows, so it holds no more under a selected relation (D-109).`,
+			)
+		}
+		return items
 	}
 
 	const result = walk(output, value, info.fieldNodes)

@@ -1,22 +1,29 @@
 // `DateTime` and `JSON` (D-107), as values and as literals.
 import { parseConstValue } from 'graphql'
 import { describe, expect, it } from 'vitest'
-import { DateTime, JSONScalar } from './scalars.ts'
+import { DateTime, JSONScalar, SentDate } from './scalars.ts'
 
 const message =
 	'A DateTime is an ISO 8601 string, such as 2026-01-31T12:00:00.000Z.'
 
 describe('DateTime', () => {
 	it('reads an ISO 8601 string, as a value or a literal', () => {
-		const date = new Date('2026-01-31T12:00:00.000Z')
-		expect(DateTime.coerceInputValue('2026-01-31T12:00:00.000Z')).toStrictEqual(
-			date,
+		const time = Date.UTC(2026, 0, 31, 12)
+		const value = DateTime.coerceInputValue('2026-01-31T12:00:00.000Z')
+		expect(value).toBeInstanceOf(Date)
+		expect(value.getTime()).toBe(time)
+		const literal = DateTime.coerceInputLiteral?.(
+			parseConstValue('"2026-01-31T13:00+01:00"'),
 		)
-		expect(
-			DateTime.coerceInputLiteral?.(
-				parseConstValue('"2026-01-31T13:00+01:00"'),
-			),
-		).toStrictEqual(date)
+		expect(literal?.getTime()).toBe(time)
+	})
+
+	it('keeps the text a client sent, for a function (D-109)', () => {
+		const value = DateTime.coerceInputValue('2026-01-31T13:00+01:00')
+		expect(value).toBeInstanceOf(SentDate)
+		expect(value instanceof SentDate && value.sent).toBe(
+			'2026-01-31T13:00+01:00',
+		)
 	})
 
 	it('refuses anything else', () => {

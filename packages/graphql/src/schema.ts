@@ -96,6 +96,7 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 export function schemaOf(
 	registry: Registry,
 	functions: readonly RootField[],
+	typeOwners: ReadonlyMap<string, string>,
 ): GraphQLSchema {
 	const roots = {
 		query: new Map<string, string>(),
@@ -132,6 +133,19 @@ export function schemaOf(
 			mutationFields(registry, entry),
 		)
 		add(fields, roots.query, owner, 'plural', rootFields(registry, entry))
+	}
+	// The models' types, which no function's type may be named like.
+	const generated = new GraphQLSchema({
+		query: new GraphQLObjectType({ name: 'Query', fields: { ...fields } }),
+		mutation: new GraphQLObjectType({
+			name: 'Mutation',
+			fields: { ...mutations },
+		}),
+	}).getTypeMap()
+	for (const [name, owner] of typeOwners) {
+		if (name in generated) {
+			throw new Error(`${owner}: the type ${name} is a generated type's name.`)
+		}
 	}
 	for (const { query, name, owner, field } of functions) {
 		const [into, owners] = query

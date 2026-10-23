@@ -66,6 +66,8 @@ export class DataTypes {
 	readonly #inputs = new Map<string, Shaped<GraphQLInputObjectType>>()
 	readonly #enums = new Map<string, Shaped<GraphQLEnumType>>()
 	readonly #models: ReadonlySet<string>
+	/** Each named type the functions give, and the first to give it. */
+	readonly owners: Map<string, string> = new Map()
 
 	constructor(models: Iterable<string>) {
 		this.#models = new Set(models)
@@ -116,6 +118,7 @@ export class DataTypes {
 		if (known === undefined) {
 			const type = build()
 			cache.set(name, { key, owner, type })
+			this.owners.set(name, owner)
 			return type
 		}
 		if (known.key === key) return known.type
@@ -148,6 +151,11 @@ function refType<T extends GraphQLNullableType>(
 	path: Path,
 	scope: Scope<T>,
 ): Typed<T> {
+	if (ref === '#') {
+		throw new Error(
+			`${path.owner}: ${path.at} refers to its own schema; name it with .meta({ id }).`,
+		)
+	}
 	const id = ref.startsWith('#/$defs/') ? ref.slice(8) : ''
 	const node = scope.defs[id]
 	if (!isNode(node)) {
@@ -174,17 +182,20 @@ function typeOf<T extends GraphQLNullableType>(
 	path: Path,
 	scope: Scope<T>,
 ): T {
-	if (node['const'] !== undefined) return scope.leaf(GraphQLString)
-	const values: readonly unknown[] = Array.isArray(node['enum'])
-		? node['enum']
-		: []
+	const { const: only, enum: listed } = node
+	const values: readonly unknown[] =
+		only === undefined ? (Array.isArray(listed) ? listed : []) : [only]
+	if (type === 'boolean') return scope.leaf(GraphQLBoolean)
+	// A literal number is an `Int` when each of its values is whole.
+	if (type === 'integer' || type === 'number') {
+		const whole = values.length > 0 && values.every(Number.isInteger)
+		return scope.leaf(type === 'integer' || whole ? GraphQLInt : GraphQLFloat)
+	}
+	if (only !== undefined) return scope.leaf(GraphQLString)
 	if (values.length > 0) return scope.leaf(enumType(values, path, scope.types))
 	if (type === 'string') {
 		return scope.leaf(node['format'] === 'date-time' ? DateTime : GraphQLString)
 	}
-	if (type === 'integer') return scope.leaf(GraphQLInt)
-	if (type === 'number') return scope.leaf(GraphQLFloat)
-	if (type === 'boolean') return scope.leaf(GraphQLBoolean)
 	if (type === 'array') {
 		const items = isNode(node['items']) ? node['items'] : {}
 		return scope.list(dataType(items, { ...path, at: `${path.at}[]` }, scope))
