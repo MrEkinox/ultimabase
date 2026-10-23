@@ -220,7 +220,7 @@ export async function update(
 }
 
 /** The changes and events of a delete's cascade, its hooks run (D-90). */
-async function cascaded(
+export async function cascaded(
 	context: Context,
 	writing: Writing,
 	cascade: Cascade,
@@ -314,7 +314,7 @@ export async function remove(
 	// A redirected row stays: it cascades nothing (D-90).
 	const cascade = redirected
 		? { deleted: [{ model, row, redirected }], nulled: [] }
-		: await cascadeOf(models, model, row, store)
+		: await cascadeOf(models, model, [row], store)
 	const events: Event[] = []
 	const writing: Writing = {
 		store,

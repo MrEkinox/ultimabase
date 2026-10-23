@@ -289,6 +289,15 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			await expect(missing).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
 
+		it('deletes many in one as Master; a user locks the rows first', async () => {
+			const removed = once(async () => Writer.deleteMany({}, M))
+			await expect(removed).resolves.toEqual({ count: 1 })
+			await Shelf.create({ data: { label: 'top' } }, M)
+			// BEGIN, the locked rows, the write, COMMIT (D-111).
+			const locked = trips(4, async () => Shelf.deleteMany({}, { as: user }))
+			await expect(locked).resolves.toEqual({ count: 1 })
+		})
+
 		it('reads the row a user updates or deletes alone, then checks it unchanged', async () => {
 			const shelf = await once(async () =>
 				Shelf.create({ data: { label: 'top' } }, { as: user }),

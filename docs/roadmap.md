@@ -140,6 +140,7 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 - [x] Decide how a plugin keeps its own models, as the sessions, out of the
       transports: D-24 has every transport act on every model (D-110).
 - [x] A plugin's own models at run time (D-110).
+- [x] `deleteMany`, a delete's rules and hooks on each row (D-111).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
 

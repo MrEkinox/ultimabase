@@ -50,11 +50,7 @@ const keeper = definePlugin<Keeper>({
 	hooks: {
 		// What a row of a model using keeper owns goes with it (D-110).
 		afterDelete: async ({ record }) => {
-			// One delete per row: `deleteMany` comes after the release (D-20).
-			const where = { userId: record.id }
-			for (const { id } of await Ticket.findMany({ where }, M)) {
-				await Ticket.delete({ where: { id } }, M)
-			}
+			await Ticket.deleteMany({ where: { userId: record.id } }, M)
 		},
 	},
 	start: ({ models }) => {

@@ -31,6 +31,7 @@ type Operations<F, X> = {
 	readonly create: CreateArgs<F>
 	readonly update: UpdateArgs<F, X>
 	readonly delete: { readonly where: UniqueWhere<F, X> }
+	readonly deleteMany: { readonly where?: Where<F> | undefined }
 }
 
 /** One record, as arguments `A` return it; without them, its scalars. */
