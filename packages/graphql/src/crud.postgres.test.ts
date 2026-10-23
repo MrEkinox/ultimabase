@@ -1,45 +1,8 @@
 // A whole CRUD over GraphQL on PostgreSQL (D-107): each server
 // `TEST_DATABASE_URL` lists, each run in its own schema (D-98).
-import { randomUUID } from 'node:crypto'
-import { postgres } from '@ultimabase/postgres'
-import { Client } from 'pg'
-import type { Adapter } from 'ultimabase'
 import { expect, it } from 'vitest'
+import { database, urls } from './test/postgres.ts'
 import { asMaster, at, post, started } from './test/app.ts'
-
-const servers =
-	'postgres://postgres:postgres@localhost:54315/postgres postgres://postgres:postgres@localhost:54318/postgres'
-const urls = (process.env['TEST_DATABASE_URL'] ?? servers)
-	.split(' ')
-	.filter((url) => url !== '')
-
-async function run(url: string, statement: string): Promise<void> {
-	const client = new Client({ connectionString: url })
-	await client.connect()
-	try {
-		await client.query(statement)
-	} finally {
-		await client.end()
-	}
-}
-
-/** `postgres()` in a schema of its own, dropped when it stops. */
-function database(url: string): Adapter {
-	const schema = `t_${randomUUID().replaceAll('-', '')}`
-	const options = encodeURIComponent(`-c search_path=${schema}`)
-	const adapter = postgres({ url: `${url}?options=${options}` })
-	return {
-		...adapter,
-		start: async (given) => {
-			await run(url, `create schema "${schema}"`)
-			await adapter.start(given)
-		},
-		stop: async () => {
-			await adapter.stop()
-			await run(url, `drop schema "${schema}" cascade`)
-		},
-	}
-}
 
 for (const url of urls) {
 	it(`creates, reads, updates and deletes on ${new URL(url).host}`, async () => {
