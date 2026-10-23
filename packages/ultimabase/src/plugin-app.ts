@@ -81,7 +81,10 @@ export type Installed = {
 
 /** The models as the plugin `name` reads them, with its `.with` key. */
 function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
-	return [...resolved.byValue].map(([value, info]) => {
+	const own = [...resolved.byValue].filter(
+		([, info]) => info.owner === undefined,
+	)
+	return own.map(([value, info]) => {
 		const rules = info.definition.rules
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a model value holds its queries; transports pass client arguments, which the kernel checks (D-20).
 		const queries = value as ModelQueries

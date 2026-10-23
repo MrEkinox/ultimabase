@@ -58,6 +58,9 @@ function apisOf(plugin: string, names: readonly string[]): object {
 	return Object.freeze(plugins)
 }
 
+const isList = (value: unknown): value is readonly unknown[] =>
+	Array.isArray(value)
+
 /** Checks what a plugin's author wrote; the types refuse the rest. */
 export function pluginCode(definition: unknown): PluginCode {
 	if (!isObject(definition))
@@ -79,6 +82,10 @@ export function pluginCode(definition: unknown): PluginCode {
 	}
 	const redirect = objectAt(definition, 'redirect', `${name}.redirect`)
 	const part = (key: string) => functionAt(definition, key, `${name}.${key}`)
+	const models: unknown = definition['models'] ?? []
+	if (!isList(models)) {
+		throw new TypeError(`${name}.models is an array (D-110).`)
+	}
 	return Object.freeze({
 		name,
 		manifest: manifestOf(definition['manifest'], name),
@@ -91,6 +98,7 @@ export function pluginCode(definition: unknown): PluginCode {
 		addedFields: part('addedFields'),
 		start: part('start'),
 		stop: part('stop'),
+		models: Object.freeze([...models]),
 		plugins: apisOf(name, [...requires, ...optional]),
 	})
 }

@@ -21,6 +21,8 @@ export type ModelInfo = {
 	readonly uniques: readonly (readonly string[])[]
 	/** The plugins of its `use`, in the order of `plugins` (D-29). */
 	readonly plugins: readonly PluginUse[]
+	/** The plugin whose own model it is, if one (D-110). */
+	readonly owner: string | undefined
 }
 
 export type Resolved = {
@@ -185,31 +187,66 @@ function installedUses(
 	return definition.uses.toSorted((a, b) => at(a) - at(b))
 }
 
+const whose = (owner: string | undefined): string =>
+	owner === undefined ? 'models lists' : `${owner}.models lists`
+
+/** The models, the application's then each plugin's, by name (D-110). */
+function definitionsOf(
+	values: readonly unknown[],
+	plugins: readonly PluginCode[],
+): {
+	readonly definitions: ReadonlyMap<string, ModelDefinition>
+	readonly names: ReadonlyMap<object, string>
+	readonly owners: ReadonlyMap<string, string | undefined>
+} {
+	const definitions = new Map<string, ModelDefinition>()
+	const names = new Map<object, string>()
+	const owners = new Map<string, string | undefined>()
+	const lists: [string | undefined, readonly unknown[]][] = [
+		[undefined, values],
+		...plugins.map((code): [string, readonly unknown[]] => [
+			code.name,
+			code.models,
+		]),
+	]
+	for (const [owner, list] of lists) {
+		for (const value of list) {
+			const definition =
+				typeof value === 'object' && value !== null
+					? modelDefinitions.get(value)
+					: undefined
+			if (
+				definition === undefined ||
+				typeof value !== 'object' ||
+				value === null
+			) {
+				throw new Error(
+					`${whose(owner)} a value that defineModel did not return.`,
+				)
+			}
+			const { name } = definition
+			if (owners.has(name)) {
+				const other = owners.get(name)
+				throw new Error(
+					owner === other
+						? `${whose(owner)} two models named ${name}.`
+						: `${whose(owner)} a model named ${name}, as ${whose(other)}; name a plugin's models after it (D-110).`,
+				)
+			}
+			definitions.set(name, definition)
+			names.set(value, name)
+			owners.set(name, owner)
+		}
+	}
+	return { definitions, names, owners }
+}
+
 /** Resolves the application's models, or stops startup with a message. */
 export function resolve(
 	values: readonly unknown[],
 	plugins: readonly PluginCode[] = [],
 ): Resolved {
-	const definitions = new Map<string, ModelDefinition>()
-	const names = new Map<object, string>()
-	for (const value of values) {
-		const definition =
-			typeof value === 'object' && value !== null
-				? modelDefinitions.get(value)
-				: undefined
-		if (
-			definition === undefined ||
-			typeof value !== 'object' ||
-			value === null
-		) {
-			throw new Error('models lists a value that defineModel did not return.')
-		}
-		if (definitions.has(definition.name)) {
-			throw new Error(`models lists two models named ${definition.name}.`)
-		}
-		definitions.set(definition.name, definition)
-		names.set(value, definition.name)
-	}
+	const { definitions, names, owners } = definitionsOf(values, plugins)
 	const links: Linked[] = []
 	for (const [model, definition] of definitions) {
 		for (const [name, field] of definition.fields) {
@@ -221,6 +258,12 @@ export function resolve(
 					: undefined
 			if (target === undefined) {
 				throw new Error(`${model}.${name}: its target is not in models.`)
+			}
+			const owner = owners.get(model)
+			if (owner !== owners.get(target)) {
+				throw new Error(
+					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar (D-110).`,
+				)
 			}
 			links.push({ model, name, field, target })
 		}
@@ -277,6 +320,7 @@ export function resolve(
 			fields,
 			uniques,
 			plugins: installedUses(definition, plugins),
+			owner: owners.get(model),
 		}
 		models.set(model, info)
 		schemaModels.push({

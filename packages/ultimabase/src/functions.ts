@@ -23,8 +23,14 @@ function checkOutput(
 ): void {
 	if (output.kind === 'schema') return
 	if (output.kind === 'model') {
-		if (resolved.byValue.has(output.value)) return
-		throw new Error(`${name} returns ${output.name}, which is not in models.`)
+		const info = resolved.byValue.get(output.value)
+		if (info === undefined) {
+			throw new Error(`${name} returns ${output.name}, which is not in models.`)
+		}
+		if (info.owner === undefined) return
+		throw new Error(
+			`${name} returns ${output.name}, a model of ${info.owner} (D-110).`,
+		)
 	}
 	const { type } = output
 	const known = types.get(type.name)

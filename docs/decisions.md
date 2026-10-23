@@ -4791,8 +4791,16 @@ const authDefinition = definePlugin<Auth>({
 	manifest,
 	models: [AuthSession],
 	hooks: {
-		afterDelete: ({ record }) =>
-			AuthSession.deleteMany({ where: { userId: record.id } }, { as: master }),
+		// One delete per session: `deleteMany` comes after the release (D-20).
+		afterDelete: async ({ record }) => {
+			const where = { userId: record.id }
+			for (const { id } of await AuthSession.findMany(
+				{ where },
+				{ as: master },
+			)) {
+				await AuthSession.delete({ where: { id } }, { as: master })
+			}
+		},
 	},
 })
 // In the application: nothing to list

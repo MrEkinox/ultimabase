@@ -51,6 +51,8 @@ export type PluginCode = {
 	readonly addedFields: Function | undefined
 	readonly start: Function | undefined
 	readonly stop: Function | undefined
+	/** Its own models, which no plugin is given (D-110). */
+	readonly models: readonly unknown[]
 	/** The APIs of the plugins it needs, read when used (D-89). */
 	readonly plugins: object
 }

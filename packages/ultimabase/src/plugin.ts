@@ -5,7 +5,7 @@ import type { FieldBuilders, StandardSchema } from './fields.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
-import type { FieldShape, ModelHooks } from './model.ts'
+import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
 import type { Row, SchemaModel } from './adapter.ts'
 import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
 import type { Caller } from './rules.ts'
@@ -237,6 +237,8 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly start?: (context: PluginContext<T>) => void | Promise<void>
 	/** Runs once when the application stops: close, flush (D-15). */
 	readonly stop?: (context: PluginContext<T>) => void | Promise<void>
+	/** Its own models, which no plugin is given (D-110). */
+	readonly models?: readonly ModelShape[]
 } & CodePart<
 	T,
 	'commands',
