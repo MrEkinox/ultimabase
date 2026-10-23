@@ -237,6 +237,14 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly start?: (context: PluginContext<T>) => void | Promise<void>
 	/** Runs once when the application stops: close, flush (D-15). */
 	readonly stop?: (context: PluginContext<T>) => void | Promise<void>
+	/**
+	 * Who sends a request, or `undefined` when it is not the plugin's; the
+	 * first plugin to know it wins, after the master key (D-112).
+	 */
+	readonly identify?: (
+		request: Request,
+		context: PluginContext<T>,
+	) => Promise<Caller | undefined>
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models?: readonly ModelShape[]
 } & CodePart<

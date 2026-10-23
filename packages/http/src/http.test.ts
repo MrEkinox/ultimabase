@@ -328,6 +328,7 @@ describe('CORS', () => {
 			headers: { origin, 'x-ultimabase-master-key': 'wrong' },
 		})
 		expect(refused.headers.get('access-control-allow-origin')).toBe(origin)
+		expect(refused.headers.get('access-control-allow-credentials')).toBe('true')
 		const preflight = await fetch(`${url}/caller`, {
 			method: 'OPTIONS',
 			headers: {
@@ -339,6 +340,9 @@ describe('CORS', () => {
 		expect(preflight.status).toBe(204)
 		expect(preflight.headers.get('access-control-allow-headers')).toBe(
 			'x-ultimabase-master-key',
+		)
+		expect(preflight.headers.get('access-control-allow-credentials')).toBe(
+			'true',
 		)
 	})
 
@@ -353,11 +357,13 @@ describe('CORS', () => {
 		expect(await own.text()).toBe('allowed')
 		expect(own.headers.get('access-control-allow-origin')).toBe(origin)
 		expect(own.headers.get('vary')).toBe('Origin')
+		expect(own.headers.get('access-control-allow-credentials')).toBe('true')
 		const foreign = await fetch(`${url}/things`, {
 			method: 'OPTIONS',
 			headers: { origin: 'https://evil.example.com' },
 		})
 		expect(foreign.headers.get('access-control-allow-origin')).toBeNull()
+		expect(foreign.headers.get('access-control-allow-credentials')).toBeNull()
 		const unknown = await fetch(`${url}/nowhere`, { method: 'OPTIONS' })
 		expect(unknown.status).toBe(404)
 		const preflight = await fetch(`${url}/things`, {

@@ -9,6 +9,7 @@ export type ErrorCode =
 	| 'VALIDATION_FAILED'
 	| 'UNIQUE_VIOLATION'
 	| 'RELATION_RESTRICTED'
+	| 'UNAUTHENTICATED'
 	| 'INTERNAL'
 
 /** One failing value, as Standard Schema reports it (D-23). */

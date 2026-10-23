@@ -25,7 +25,12 @@ export type {
 export { CheckFailed, MigrationFailed, UniqueViolation } from './adapter.ts'
 export type { Logger, MasterKey } from './app-options.ts'
 export { defineApp } from './define-app.ts'
-export type { ModelFields, ModelOf } from './define-model.ts'
+export type {
+	FieldShapes,
+	ModelFields,
+	ModelIndexes,
+	ModelOf,
+} from './define-model.ts'
 export { defineModel } from './define-model.ts'
 export type { ErrorCode, Issue } from './errors.ts'
 export { InvalidQuery, PublicError } from './errors.ts'
@@ -45,7 +50,7 @@ export type {
 	ServerFunction,
 } from './function.ts'
 export { memory } from './memory.ts'
-export type { App, Model } from './model.ts'
+export type { App, IndexShape, Model } from './model.ts'
 export type {
 	ExposedFunction,
 	ExposedModel,
@@ -60,7 +65,7 @@ export type {
 } from './plugin.ts'
 export type { Queries } from './query.ts'
 export { definePlugin } from './plugin.ts'
-export type { Caller, Register } from './rules.ts'
+export type { Caller, CallerRule, Register, UserOf } from './rules.ts'
 export { allOf, allow, anyOf, master } from './rules.ts'
 export { transaction } from './transaction.ts'
 export type {

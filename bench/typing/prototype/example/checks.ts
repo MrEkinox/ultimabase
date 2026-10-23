@@ -6,6 +6,7 @@ import {
 	defineApp,
 	defineModel,
 	graphqlPlugin,
+	httpPlugin,
 	memory,
 	softDeletePlugin,
 } from '../index.ts'
@@ -172,6 +173,12 @@ const Broken = defineModel({
 // @ts-expect-error: Broken.posts: inverse 'autor' is not a field of Post.
 defineApp({
 	database: memory(),
-	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin(), authPlugin()],
+	plugins: [
+		softDeletePlugin(),
+		aclPlugin(),
+		graphqlPlugin(),
+		httpPlugin(),
+		authPlugin(),
+	],
 	models: [Broken, Post, User, Tag],
 })

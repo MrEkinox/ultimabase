@@ -583,6 +583,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ultimabase/auth@workspace:packages/auth":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/auth@workspace:packages/auth"
+  dependencies:
+    "@types/pg": "npm:8.23.1"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    hono: "npm:4.13.13"
+    pg: "npm:8.23.1"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/http": ^0.0.0
+    ultimabase: ^0.0.0
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/graphql@workspace:packages/graphql":
   version: 0.0.0-use.local
   resolution: "@ultimabase/graphql@workspace:packages/graphql"

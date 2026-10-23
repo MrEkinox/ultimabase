@@ -98,6 +98,7 @@ export function pluginCode(definition: unknown): PluginCode {
 		addedFields: part('addedFields'),
 		start: part('start'),
 		stop: part('stop'),
+		identify: part('identify'),
 		models: Object.freeze([...models]),
 		plugins: apisOf(name, [...requires, ...optional]),
 	})

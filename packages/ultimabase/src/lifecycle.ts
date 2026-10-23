@@ -3,11 +3,17 @@
 import type { Adapter, Schema } from './adapter.ts'
 import type { Logger, MasterKey } from './app-options.ts'
 import { consoleLogger } from './console-logger.ts'
+import type { PluginIdentify } from './identify.ts'
 import { identifier } from './identify.ts'
 import { checkVersions } from './manifest.ts'
 import { checked, synced } from './migrate.ts'
 import type { Installed } from './plugin-app.ts'
-import { buildApis, installed, withContexts } from './plugin-app.ts'
+import {
+	buildApis,
+	installed,
+	pluginIdentifiers,
+	withContexts,
+} from './plugin-app.ts'
 import type { Running } from './running.ts'
 import { register, unregister, Work } from './running.ts'
 import { resolveFunctions } from './functions.ts'
@@ -119,8 +125,11 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		const base = options.logger ?? consoleLogger()
 		const logger = base.child({ name: 'ultimabase' })
 		checkVersions(records, logger)
-		const identify = identifier(options.masterKey, logger)
+		// Plugins identify with their contexts, which hold identify.
+		const identifiers: PluginIdentify[] = []
+		const identify = identifier(options.masterKey, logger, identifiers)
 		const plugins = withContexts(apiOrder, base, identify, resolved, functions)
+		identifiers.push(...pluginIdentifiers(records, plugins))
 		await database.start(resolved.schema)
 		await follow(database, resolved.schema, logger)
 		const apis = new Map<string, unknown>()

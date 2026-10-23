@@ -40,6 +40,7 @@ const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
 	['VALIDATION_FAILED', 400],
 	['UNIQUE_VIOLATION', 409],
 	['RELATION_RESTRICTED', 409],
+	['UNAUTHENTICATED', 401],
 	['INTERNAL', 500],
 ])
 
@@ -129,7 +130,8 @@ export function appOf(
 	})
 	const allowed = (origin: string) =>
 		listed.includes(origin) || (local && isLocal(origin)) ? origin : null
-	const preflight = cors({ origin: allowed })
+	// An allowed origin sends its cookies, as auth's session (D-112).
+	const preflight = cors({ origin: allowed, credentials: true })
 	app.use(async (c, next) => {
 		// Hono's `cors` answers every OPTIONS: a route's own runs, unless the
 		// request is a preflight.
@@ -139,7 +141,10 @@ export function appOf(
 		}
 		await next()
 		const origin = allowed(c.req.header('origin') ?? '')
-		if (origin !== null) c.header('access-control-allow-origin', origin)
+		if (origin !== null) {
+			c.header('access-control-allow-origin', origin)
+			c.header('access-control-allow-credentials', 'true')
+		}
 		c.header('vary', 'Origin', { append: true })
 	})
 	app.use(

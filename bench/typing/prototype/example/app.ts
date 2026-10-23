@@ -4,6 +4,7 @@ import {
 	authPlugin,
 	defineApp,
 	graphqlPlugin,
+	httpPlugin,
 	memory,
 	softDeletePlugin,
 } from '../index.ts'
@@ -13,6 +14,12 @@ import { User } from './user.ts'
 
 export const app = defineApp({
 	database: memory(),
-	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin(), authPlugin()],
+	plugins: [
+		softDeletePlugin(),
+		aclPlugin(),
+		graphqlPlugin(),
+		httpPlugin(),
+		authPlugin(),
+	],
 	models: [Post, User, Tag],
 })

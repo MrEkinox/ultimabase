@@ -4,7 +4,8 @@ import type { SchemaModel } from './adapter.ts'
 import { readRules } from './access.ts'
 import type { Logger } from './app-options.ts'
 import type { FunctionDefinition, PluginRecord } from './definition.ts'
-import type { Identify } from './identify.ts'
+import type { Identify, PluginIdentify } from './identify.ts'
+import type { Caller } from './rules.ts'
 import type { ExposedFunction, ExposedModel, ModelQueries } from './plugin.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
@@ -150,4 +151,31 @@ export function buildApis(
 		const api: unknown = Reflect.apply(code.api, undefined, [context])
 		apis.set(code.name, api)
 	}
+}
+
+/** Each plugin's `identify` with its context, in the order of `plugins`. */
+export function pluginIdentifiers(
+	records: readonly PluginRecord[],
+	plugins: readonly Installed[],
+): readonly PluginIdentify[] {
+	return plugins
+		.toSorted(
+			(a, b) =>
+				records.findIndex((record) => record.code === a.code) -
+				records.findIndex((record) => record.code === b.code),
+		)
+		.flatMap(({ code, context }) => {
+			const identify = code.identify
+			if (identify === undefined) return []
+			return [
+				async (request: Request) => {
+					const caller: unknown = await Reflect.apply(identify, undefined, [
+						request,
+						context,
+					])
+					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- its type is PluginDefinition's; each query checks its caller (D-19).
+					return caller as Caller | undefined
+				},
+			]
+		})
 }
