@@ -141,6 +141,7 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
       transports: D-24 has every transport act on every model (D-110).
 - [x] A plugin's own models at run time (D-110).
 - [x] `deleteMany`, a delete's rules and hooks on each row (D-111).
+- [x] Decide auth's sessions, Identify and the API of sign-in methods (D-112).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
 

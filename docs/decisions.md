@@ -1863,6 +1863,7 @@ union, and each keeps its meaning when the application throws it:
 | `VALIDATION_FAILED`   | 400  | `details.issues`: `{ path, message }` (D-23)   |
 | `UNIQUE_VIOLATION`    | 409  | a unique index refuses a write (D-52)          |
 | `RELATION_RESTRICTED` | 409  | `onDelete: 'restrict'` refuses a delete (D-54) |
+| `UNAUTHENTICATED`     | 401  | a session token is unknown or expired (D-112)  |
 | `INTERNAL`            | 500  | any other error, with a correlation id (D-28)  |
 
 An application's own code is sent with status 400. `details` is JSON, and
@@ -4162,7 +4163,8 @@ Choice: completes D-27, D-49, D-59 and D-66.
    - a key holding a space or a character outside visible ASCII stops
      `start`: a header drops the spaces around a value and mangles the rest,
      so such a key could never match (amended 2026-10-23);
-   - any other request is anonymous. The auth plugin's Identify hook (phase 5) adds the user here.
+   - any other request is anonymous, unless a plugin's `identify` knows it:
+     auth's reads the session (D-112).
 3. Errors follow D-28 and D-72. A `PublicError` is sent as
    `{ code, message, details }`, `details` only when set, with its D-72
    status. Any other error is sent as `{ code: 'INTERNAL', message:
@@ -4865,4 +4867,91 @@ const { count } = await Notification.deleteMany(
 	{ where: { read: true } },
 	{ as: caller },
 )
+```
+
+## D-112: auth's sessions, Identify and the API of sign-in methods
+
+Choice: completes D-33, D-39, D-62, D-79 and D-106.
+
+1. `@ultimabase/auth` exports `authPlugin()`, `defineUser` (D-62),
+   `isAuthenticated` (D-10), `isSelf`, `signedIn`, `isOwner` and
+   `currentUser` (D-79). auth requires `httpPlugin()` (D-16).
+2. The kernel gives `definePlugin` an `identify(request, context)` that
+   returns a `Caller`, or `undefined` when the request is not its own.
+   The master key is checked first (D-49); then each plugin's `identify`
+   runs in the order of `plugins`, and the first caller wins; otherwise the
+   request is anonymous.
+3. A session is a row of auth's own model `AuthSession` (D-110):
+   `tokenHash`, `userId` and `expiresAt`. Its token is 32 random bytes in
+   base64url, shown once; the database keeps only its SHA-256 digest. A
+   session ends 30 days after its last use: one used with fewer than 15 days
+   left gets 30 days again, one write at most per 15 days. An expired session
+   met by Identify is deleted, and each sign-in deletes the user's expired
+   sessions. Deleting the user deletes their sessions (D-111).
+4. Identify reads `Authorization: Bearer <token>`, then the cookie; the
+   header wins when both are sent. An unknown or expired token in the
+   header fails the request with `UNAUTHENTICATED`, a kernel code sent with
+   status 401, so a client knows to sign in again. One in the cookie is
+   anonymous, since a browser's script cannot remove an httpOnly cookie and a
+   stale one must not lock it out of the sign-in route. A known token makes
+   `caller.user` the user's row, read as Master (D-62).
+5. The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, and lives 400 days,
+   the browsers' longest; the session's own expiry decides, so the cookie
+   is not sent again when a session gets more days. In production it is
+   `Secure` and named `__Host-ultimabase_session`, which a subdomain cannot
+   overwrite; outside, `ultimabase_session`, so it works on
+   `http://localhost`. `httpPlugin()`'s CORS allows credentials for the
+   origins it allows, so a front end on another origin sends the cookie.
+6. auth's API, for the sign-in methods (D-33): `signIn(c, userId)` opens a
+   session, sets its cookie on the response of the Hono context `c`, and
+   returns `{ token, expiresAt }`; `revokeSessions(userId)` ends every
+   session of a user. auth mounts `POST /auth/sign-out`, which ends the
+   request's session and clears the cookie, with status 204.
+
+Why: an opaque token stored hashed is revocable (D-39) and useless when the
+database leaks; SHA-256 fits a random token, as Argon2id fits a password
+(D-56). Identify is the kernel's because every transport reads the same
+caller (D-106), and a plugin's `identify` serves a later API-key plugin too.
+A session that renews itself while used is what a user expects of a
+"remember me". The previous base refused a stale cookie and needed an
+exception for its sign-in routes (its ADR-0236).
+Limit: Identify takes two round trips, the session then the user, since
+`AuthSession` relates to no model of the application (D-110). The
+lifetime is fixed until an application asks for an option.
+Rejected: JWTs (D-39); the token stored in clear; one lifetime from sign-in
+on, which signs out an active user every month; refusing a stale cookie; a
+cookie sent again on each renewal, which Identify cannot do without the
+response.
+Example:
+
+```ts
+// Before: Parse
+const user = await Parse.User.logIn(email, password) // user.getSessionToken()
+Parse.Cloud.define('publish', ({ user }) => {
+	if (!user) throw new Parse.Error(209, 'Invalid session token')
+})
+
+// After: the application
+export const User = defineUser({
+	name: 'User',
+	fields: (f) => ({ role: f.enumOf(['reader', 'editor']) }),
+})
+export default defineApp({
+	database: postgres({ url: process.env.DATABASE_URL }),
+	plugins: [httpPlugin(), authPlugin(), passwordPlugin()],
+	models: [User, Post],
+})
+// Any rule, hook or function reads `caller.user.role`, with no query.
+
+// A sign-in method's route
+signIn.post('/auth/sign-in', async (c) => {
+	const user = await checkPassword(await c.req.json())
+	const { token } = await plugins.auth.signIn(c, user.id)
+	return c.json({ token, user })
+})
+```
+
+```bash
+curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
+# 401 { "code": "UNAUTHENTICATED", "message": "The session expired or was revoked: sign in again." }
 ```
