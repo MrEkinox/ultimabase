@@ -1,7 +1,8 @@
 // `httpPlugin()` (D-66, D-106): routes that read the caller, errors as D-72
-// sends them, CORS, the body limit, the port and a stop that waits.
+// sends them, CORS, the body limit, the port and a stop that waits, 10 s at most.
 import { createServer } from 'node:http'
-import { afterEach, describe, expect, it } from 'vitest'
+import { streamSSE } from 'hono/streaming'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Logger, PluginTypes } from 'ultimabase'
 import {
 	defineApp,
@@ -443,5 +444,38 @@ describe('stop', () => {
 		// Its connection, idle after it, closes now, not at the client's timeout.
 		expect(Date.now() - released).toBeLessThan(1000)
 		await expect(fetch(`${url}/caller`)).rejects.toThrow('fetch failed')
+	})
+	it('closes a stream still open 10 seconds after stop, and says so', async () => {
+		const events = routes()
+		events.get('/events', (c) =>
+			streamSSE(c, async (stream) => {
+				await stream.writeSSE({ data: 'tick' })
+				await new Promise<void>((done) => {
+					stream.onAbort(done)
+				})
+			}),
+		)
+		const { app, lines, url } = await started({ port: 0, routes: [events] })
+		const response = await fetch(`${url}/events`)
+		await response.body?.getReader().read()
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		try {
+			let stopped = false
+			const stopping = (async () => {
+				await app.stop()
+				stopped = true
+			})()
+			await vi.advanceTimersByTimeAsync(9999)
+			expect(stopped).toBe(false)
+			await vi.advanceTimersByTimeAsync(1)
+			await stopping
+		} finally {
+			vi.useRealTimers()
+		}
+		expect(lines).toContainEqual({
+			level: 'warn',
+			first:
+				'Stopped 10 s after stop began: closed the requests still running.',
+		})
 	})
 })

@@ -2,6 +2,7 @@
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
 import { getRequestListener } from '@hono/node-server'
+import type { Logger } from 'ultimabase'
 
 /** The `port` option, then `PORT`, then 3000. */
 export function portOf(option: number | undefined): number {
@@ -56,13 +57,27 @@ export function serverOf(
 	return server
 }
 
-/** Stops accepting connections, then waits for running requests (D-59). */
-export async function closed(server: Server): Promise<void> {
+/** How long `stop` waits for running requests: a stream never ends. */
+const grace = 10_000
+
+/**
+ * Stops accepting connections, then waits for running requests (D-59), 10
+ * seconds at most (D-106).
+ */
+export async function closed(server: Server, logger: Logger): Promise<void> {
+	let cutting: NodeJS.Timeout | undefined
 	await new Promise<void>((done, fail) => {
 		server.close((error) => {
+			clearTimeout(cutting)
 			if (error === undefined) done()
 			else fail(error)
 		})
 		server.closeIdleConnections()
+		cutting = setTimeout(() => {
+			logger.warn(
+				`Stopped ${grace / 1000} s after stop began: closed the requests still running.`,
+			)
+			server.closeAllConnections()
+		}, grace)
 	})
 }

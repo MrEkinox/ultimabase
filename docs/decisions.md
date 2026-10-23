@@ -4168,7 +4168,11 @@ Choice: completes D-27, D-49, D-59 and D-66.
    3000; a `PORT` that is not a port stops `start`. The plugin logs
    `Listening on http://localhost:3000.` once it listens. `stop` stops
    accepting connections, closes idle keep-alive connections, and waits for
-   the requests still running, without a timeout (D-59).
+   the requests still running (D-59) for 10 seconds at most: a stream never
+   ends by itself, and an orchestrator kills a process that does not stop
+   (Kubernetes after 30 seconds) before pending `*Commit` hooks finish. It
+   then closes the connections left and logs a warning; the delay is fixed,
+   not an option (amended 2026-10-23).
 5. CORS (D-66) and the body limit use Hono's middlewares. `cors` lists the
    allowed origins; outside production, `http://localhost` and
    `http://127.0.0.1` on any port are also allowed. `bodyLimit` is in bytes,

@@ -73,13 +73,14 @@ const http = definePlugin<Http>({
 		urls.set(context, url)
 		logger.info(`Listening on ${url}.`)
 	},
-	// Stops accepting connections, then waits for running requests (D-59).
+	// Stops accepting connections, then waits for running requests (D-59, D-106).
 	stop: async (context) => {
+		const { logger } = context
 		const server = servers.get(context)
 		if (server === undefined) return
 		servers.delete(context)
 		urls.delete(context)
-		await closed(server)
+		await closed(server, logger)
 	},
 })
 
