@@ -113,6 +113,12 @@ const plugin = definePlugin<Graphql>({
 			}),
 		)
 	},
+	start: ({ plugins, options, logger }) => {
+		if (process.env['NODE_ENV'] === 'production') return
+		logger.info(
+			`GraphiQL on ${plugins.http.url()}${options.path ?? '/graphql'}.`,
+		)
+	},
 })
 
 /** The application's GraphQL API, served by `httpPlugin` (D-107). */

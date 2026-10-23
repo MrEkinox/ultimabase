@@ -4360,3 +4360,82 @@ mutation {
 	}
 }
 ```
+
+## D-108: Request bodies, Hono's errors and the development log
+
+Choice: completes D-106 and D-107.
+
+1. `@ultimabase/http` exports `validate(target, schema)`, a Hono middleware
+   built on `hono/validator`: `target` is `'json'`, `'query'`, `'param'`,
+   `'header'`, `'form'` or `'cookie'`, and `schema` any Standard Schema (Zod,
+   Valibot, ArkType). A route reads the parsed value, typed, as
+   `c.req.valid('json')`. A value the schema refuses is `VALIDATION_FAILED`
+   (400) with `details.issues`, each `{ path, message }`, as the kernel sends
+   them (D-23, D-72); the path starts inside the value, without the target.
+2. A body `c.req.json()` cannot parse is `BAD_REQUEST` (400), with Hono's
+   message `Malformed JSON in request body`, whether a route or `validate`
+   reads it. It is the client's error and is not logged.
+3. A Hono `HTTPException` keeps its status. One built with a response sends
+   that response; any other is sent as `{ code, message }`, `code` the
+   status's name in capitals (`401` is `UNAUTHORIZED`, a status Node does not
+   name is `HTTP_306`), `message` its own or the status's name. It is not
+   logged: the route chose it.
+4. `routes()` holds the anonymous caller when no application read one, so
+   `routes().request(…)` tests a route as an anonymous request; a test that
+   needs another caller starts the application (D-106).
+5. Outside production, each request is logged once it is answered, at
+   `info`: `POST /notes 201 12ms`. In production nothing is logged per
+   request.
+6. The HTTP plugin's API gains `url()`, the address the server listens on
+   once it started (`http://localhost:3000`); before, it throws. Outside
+   production, `graphqlPlugin` logs `GraphiQL on http://localhost:3000/graphql.`
+   when it starts.
+7. A middleware an application's `routes()` registers with `use` runs for
+   every route after it in the application, those other plugins mount
+   included (D-107), since Hono mounts routes in their order: a middleware
+   for some routes only gives a path, `use('/admin/*', …)`.
+
+Why: a route that reads a body should check it in one line and send the same
+errors the kernel sends; Hono's own ways to refuse a request must not turn
+into a 500 the server logs as its fault. `hono/validator` already ships with
+Hono, so a Standard Schema needs no package of its own. A readable line per
+request is what a developer looks at while building (D-93).
+Rejected: `@hono/standard-validator`, a package whose failures still need our
+error shape; `BAD_REQUEST` for every `SyntaxError`, which would also hide the
+server's own `JSON.parse` bugs; a request log in production, which belongs to
+the platform's access logs; an option to turn the development log off, until
+someone asks.
+Example:
+
+```ts
+// Before (D-106): the body's type is asserted, not checked
+webhooks.post('/webhooks/stripe', async (c) => {
+	const { id } = await c.req.json<{ id: string }>()
+	// …
+})
+
+// After
+import { routes, validate } from '@ultimabase/http'
+import { z } from 'zod'
+
+webhooks.post(
+	'/webhooks/stripe',
+	validate('json', z.object({ id: z.string() })),
+	async (c) => {
+		const { id } = c.req.valid('json')
+		// …
+	},
+)
+```
+
+```bash
+npx ultimabase dev
+# Listening on http://localhost:3000.
+# GraphiQL on http://localhost:3000/graphql.
+# POST /webhooks/stripe 400 3ms
+curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' -d '{"id":1}'
+# 400 { "code": "VALIDATION_FAILED", "message": "Invalid data.",
+#       "details": { "issues": [{ "path": ["id"], "message": "Invalid input: expected string, received number" }] } }
+curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' -d '{oops'
+# 400 { "code": "BAD_REQUEST", "message": "Malformed JSON in request body" }
+```

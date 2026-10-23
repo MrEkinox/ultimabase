@@ -1,13 +1,16 @@
 // The Hono application `httpPlugin` serves (D-66, D-106): CORS, the body
 // limit, each request's caller, the routes, and errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
+import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
+import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { hold } from './request.ts'
 
 /** What a route's context holds: `c.var.caller` (D-106). */
 export type HttpEnv = { Variables: { caller: Caller } }
@@ -39,8 +42,21 @@ const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
 	['INTERNAL', 500],
 ])
 
+/** Hono's way to refuse a request, with its status (D-108). */
+function refused(error: HTTPException, c: Context): Response {
+	if (error.res !== undefined) return error.getResponse()
+	const name = STATUS_CODES[error.status]
+	const code =
+		name === undefined
+			? `HTTP_${error.status}`
+			: name.toUpperCase().replaceAll(/[^A-Z0-9]+/g, '_')
+	const message = error.message === '' ? (name ?? code) : error.message
+	return c.json({ code, message }, error.status)
+}
+
 /** A `PublicError` as is; any other error masked, logged with its id. */
 function failed(error: unknown, c: Context, logger: Logger): Response {
+	if (error instanceof HTTPException) return refused(error, c)
 	if (error instanceof PublicError) {
 		const { code, message, details } = error
 		// An application's own code is a client error (D-72).
@@ -81,6 +97,15 @@ export function appOf(
 	const local = process.env['NODE_ENV'] !== 'production'
 	const maxSize = options.bodyLimit ?? 1024 * 1024
 	const app = new Hono<HttpEnv>()
+	// Each request once answered, outside production (D-108).
+	if (local) {
+		app.use(async (c, next) => {
+			const began = performance.now()
+			await next()
+			const ms = Math.round(performance.now() - began)
+			logger.info(`${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`)
+		})
+	}
 	app.use(
 		cors({
 			origin: (origin) =>
@@ -101,7 +126,7 @@ export function appOf(
 		}),
 	)
 	app.use(async (c, next) => {
-		c.set('caller', await identify(c.req.raw))
+		hold(c, await identify(c.req.raw))
 		await next()
 	})
 	for (const routes of [...(options.routes ?? []), ...mounted]) {

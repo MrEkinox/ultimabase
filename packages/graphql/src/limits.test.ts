@@ -113,6 +113,22 @@ describe('in production', () => {
 })
 
 describe('outside production', () => {
+	it('logs where GraphiQL is, but not in production', async () => {
+		const running = await started({ path: '/api' })
+		await running.app.stop()
+		expect(running.lines).toContainEqual({
+			level: 'info',
+			first: `GraphiQL on ${running.url}/api.`,
+		})
+		vi.stubEnv('NODE_ENV', 'production')
+		const quiet = await started()
+		await quiet.app.stop()
+		const graphiql = quiet.lines.filter((line) =>
+			String(line.first).startsWith('GraphiQL'),
+		)
+		expect(graphiql).toStrictEqual([])
+	})
+
 	it('serves GraphiQL to a browser, at the path given', async () => {
 		await serving({ path: '/api' }, async (url) => {
 			const page = await fetch(url, {
