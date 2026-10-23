@@ -1091,10 +1091,12 @@ fields: (f) => ({
 ## D-45: Function types become GraphQL types, with an escape hatch
 
 Choice: a function's `input` is any Standard Schema; its `output` is a model
-(`Todo`), a list (`[Todo]`), an object mixing models and schemas
-(`{ todo: Todo, created: z.boolean() }`) or any Standard Schema. `run` returns,
+(`Todo`), a list (`[Todo]`), a named object mixing models and schemas
+(`defineType`, which replaces the anonymous `{ todo: Todo, created:
+z.boolean() }`, amended 2026-10-23 by D-109), a model or type or `null`
+(`Todo.nullable()`), nothing, or any Standard Schema. `run` returns,
 respectively, the model's record, a `readonly` array of them, an object of
-those types and the schema's output (D-27). A paginated output
+those types, one or `null`, `void` and the schema's output (D-27). A paginated output
 (`paginated(Todo)`, a Relay connection) is out of 0.1 (amended 2026-10-20): a
 function returns `[Todo]` and takes its pagination in its `input`. GraphQL
 types come from the validator's standard JSON Schema
@@ -4342,8 +4344,8 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    	)
    ```
 
-10. Functions over GraphQL, as a query or a mutation, are decided with
-    `defineFunction`. Out of 0.1: subscriptions, the Relay `Node` interface
+10. Functions over GraphQL, as a query or a mutation, follow D-109
+    (amended 2026-10-23). Out of 0.1: subscriptions, the Relay `Node` interface
     and `node(id)`, batched requests, a cost per field, persisted queries, a
     nested `totalCount`, hiding one field, and one relation selected twice
     with different arguments, which is refused (amended 2026-10-23).
@@ -4509,4 +4511,210 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 #       "details": { "issues": [{ "path": ["id"], "message": "Invalid input: expected string, received number" }] } }
 curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' -d '{oops'
 # 400 { "code": "BAD_REQUEST", "message": "Malformed JSON in request body" }
+```
+
+## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
+
+Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
+
+1. Query or mutation. A function is a mutation unless its definition says
+   `query: true`. The flag belongs to the function, not to `.with({ graphql })`:
+   GraphQL puts a query under `Query`, served over GET and POST, and a
+   mutation under `Mutation`, POST only; REST will choose GET or POST from
+   it.
+2. Arguments. An object input gives one GraphQL argument per top-level
+   property, `postBySlug(slug: String!)`, non-null when the property is
+   required and has no default; any other input is one `input` argument; no
+   input, no argument. A client that wants one named argument writes
+   `z.object({ input: z.object({ … }).meta({ id: 'CreateOrderInput' }) })`.
+   The transport hands the arguments to the validator as the client sent
+   them: a `null` given to an optional property is refused unless the schema
+   accepts `null`. An input is always one Standard Schema, so its refinements
+   and transforms apply to the whole object; it names its types through the
+   validator (`.meta({ id })`), and the kernel adds no `defineInput`.
+3. Outputs. A Standard Schema describes data; the kernel's forms exist only
+   where a model is:
+
+   | Output                            | Form                                             |
+   | --------------------------------- | ------------------------------------------------ |
+   | Nothing                           | no `output`: `run` returns `void`                |
+   | Data: a scalar, an object, a list | a Standard Schema, named by `.meta({ id })`      |
+   | A model                           | `Post`, `[Post]`, `Post.nullable()`              |
+   | An object holding a model         | a `defineType`: `Hit`, `[Hit]`, `Hit.nullable()` |
+
+   `defineType({ name, fields })` declares a named object; each field is an
+   output of this table, a type included, except nothing. It has no `use`
+   and no `.with`: a transport exposes it where a function returns it. Its
+   name shares the models' names: a type named like a model stops startup.
+   `X.nullable()` is a model or a type, or `null`: `run` returns
+   `PostRecord | null` and the GraphQL field is nullable, as
+   `post(where): Post` is (D-107). A list holds a model or a type, not
+   `null`; a list of data is a schema (`z.array`). The anonymous object of
+   D-45, `{ todo: Todo, created: z.boolean() }`, is gone: an object holding a
+   model is named by its author.
+
+4. Without an output, the GraphQL field is `Boolean!`, which is `true` once
+   `run` resolved, since GraphQL has no empty type. A model, a type and a
+   list are non-null; a schema is nullable when its JSON Schema accepts
+   `null` or, inside an object, when the property is optional.
+5. Relations. `run` returns rows without their relations. When the client
+   selects a relation under a model the function returns, the transport
+   reads the returned rows again by `id`, as the caller, with the selection
+   of each relation: one query per model, only when a relation is selected
+   (D-46). A returned row the caller cannot read has no relations: `null`
+   for a `one`, an empty list for a `many`. Its scalars are those `run`
+   returned, since a function is trusted server code (D-27).
+6. GraphQL types of a schema, from its JSON Schema (draft 2020-12, D-45):
+   `string` is `String`, and `DateTime` with `format: 'date-time'`
+   (`z.iso.datetime()`), as the models' dates are; the validator receives
+   the ISO string the client sent, and an output `DateTime` takes a `Date`
+   or an ISO string. `integer` is `Int`, whatever its bounds (Zod gives every
+   integer the 53-bit safe bounds), so a value beyond 32 bits is refused by
+   GraphQL; `number` is `Float`; `boolean` is `Boolean`; a string `enum`
+   whose values are all GraphQL names is an enum named from its path, any
+   other `enum` or `const` a `String`; an `array` is a list; an `object` with
+   `properties` is a type named from its path; an object without them, as
+   `z.record`, and a schema without a `type`, as `z.unknown()`, are `JSON`. A
+   `$ref` to a schema given an id (`.meta({ id: 'Address' })`) is the shared
+   output type `Address` and input type `AddressInput`. A union other than
+   one type with `null` stops startup, naming the function and the path, as
+   a schema without a JSON Schema export does (`z.date()`, D-45).
+7. Names. A schema's object without an id is named from the function's name
+   in GraphQL and its path: `TodoStatsOutput`, `TodoStatsOutputByDay`,
+   `CreateOrderInputAddress`. The field is the function's name, or
+   `.with({ graphql: { name } })`; `false` hides it (D-27). A name a
+   generated root field or another function already takes stops startup,
+   naming both; so does one type name given two different shapes (D-45).
+8. Limits (D-107). A function counts one row for a model, and `take` rows
+   for a list, which may hold any number, times the lists above it.
+   `maxDepth`, the token limit and `maxRows` apply as to any field.
+9. The kernel gives every plugin's `api`, `start` and `stop` the
+   application's `functions`, as it gives `models` (D-107): each function's
+   name, `query`, its input and output, its `.with` key for that plugin, and
+   `run(input, { as })` (D-75). The kernel checks the access rule, closed to
+   all but Master by default (D-04), before it validates the input, then
+   runs the function, as `run` from server code does.
+
+Why: a function that writes must never be a GET by accident, since a page
+on another origin can send one; Parse sends every Cloud Function as a POST.
+Flat arguments read like the generated root fields. A model cannot go inside
+a `z.object`, which refuses any schema not built by Zod, so an object that
+holds one is the kernel's; naming it makes it one GraphQL type its author
+chose, reusable across functions and in fragments, and nullable like a
+model. Keeping each need to one form avoids two spellings of the same type.
+The null of `.nullable()` says "absent" without an error, as the generated
+fields do. Dates read as the models' do, so a client's generated types agree.
+A mutation without a result is common (`sendInvite`); `return true` was
+ceremony. Reading relations again keeps `run` typed and the same for every
+transport: a `select` handed to `run` would type its rows `{ id }` only, and
+a function that forgot it would fail only when a client asked for a
+relation.
+Rejected: `query` in `.with({ graphql })`; one Relay `input` argument;
+`defineInput`, which would only name a schema the validator already names;
+outputs always through `defineType`, which would wrap `archivePost`'s row
+as `archivePost { post { … } }`; the anonymous mixed object; throwing
+`NOT_FOUND` for an absent row; describing outputs with the models' field
+builders, which would need new ones (`int`, `list`, `object`) and rebuild
+Nexus (D-45); handing `run` the client's `select`; reading again only the
+relations `run` did not include, which must compare their page arguments,
+until a measurement asks for it.
+Example:
+
+```ts
+// Before (D-45): absence is an error, an object holding a model is
+// anonymous, and a mutation without a result returns `true` by hand
+export const postBySlug = defineFunction({
+	name: 'postBySlug',
+	input: z.object({ slug: z.string() }),
+	output: Post,
+	run: async ({ input, caller }) => {
+		const [post] = await Post.findMany(
+			{ where: { slug: { equals: input.slug } }, take: 1 },
+			{ as: caller },
+		)
+		if (!post) throw new PublicError('NOT_FOUND', 'No such post.')
+		return post
+	},
+})
+export const ensureTodo = defineFunction({
+	name: 'ensureTodo',
+	input: z.object({ title: z.string() }),
+	output: { todo: Todo, created: z.boolean() }, // EnsureTodoOutput
+	run: …,
+})
+export const sendInvite = defineFunction({
+	name: 'sendInvite',
+	input: z.object({ email: z.email() }),
+	output: z.boolean(),
+	run: async ({ input }) => {
+		await mail(input.email)
+		return true
+	},
+})
+
+// After
+export const postBySlug = defineFunction({
+	name: 'postBySlug',
+	query: true,
+	input: z.object({ slug: z.string() }),
+	output: Post.nullable(),
+	run: async ({ input, caller }) => {
+		const [post] = await Post.findMany(
+			{ where: { slug: { equals: input.slug } }, take: 1 },
+			{ as: caller },
+		)
+		return post ?? null
+	},
+}).with({ access: allow.public })
+
+export const EnsuredTodo = defineType({
+	name: 'EnsuredTodo',
+	fields: { todo: Todo, created: z.boolean() },
+})
+export const ensureTodo = defineFunction({
+	name: 'ensureTodo',
+	input: z.object({ title: z.string() }),
+	output: EnsuredTodo,
+	run: …,
+})
+
+export const SearchHit = defineType({
+	name: 'SearchHit',
+	fields: { post: Post, score: z.number() },
+})
+export const searchPosts = defineFunction({
+	name: 'searchPosts',
+	query: true,
+	input: z.object({ text: z.string(), since: z.iso.datetime().optional() }),
+	output: [SearchHit],
+	run: ({ input, caller }) => rank(input, caller),
+})
+
+export const sendInvite = defineFunction({
+	name: 'sendInvite',
+	input: z.object({ email: z.email() }),
+	run: async ({ input }) => {
+		await mail(input.email)
+	},
+})
+```
+
+```graphql
+query {
+	postBySlug(slug: "hello") {
+		title
+		author {
+			name
+		}
+	}
+	searchPosts(text: "hono", since: "2026-10-01T00:00:00Z") {
+		score
+		post {
+			title
+		}
+	}
+}
+mutation {
+	sendInvite(email: "a@example.com") # true
+}
 ```

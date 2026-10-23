@@ -128,8 +128,8 @@ counts included.
 - [x] `graphqlPlugin()`: `graphql-http`, Relay, depth limit, GraphiQL (D-34, D-41,
       D-55, D-107).
 - [ ] `defineFunction` (D-27, D-45).
-- [ ] Decide a function's nullable output, as `postBySlug(slug): Post` in
-      GraphQL; today `run` throws `NOT_FOUND` (D-45, D-72).
+- [x] Decide a function's nullable output, as `postBySlug(slug): Post` in
+      GraphQL; `Post.nullable()` (D-109).
 
 Exit: a full CRUD example over GraphQL against PostgreSQL.
 
