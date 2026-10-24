@@ -5264,3 +5264,59 @@ routes().post('/login', async (c) => {
 	return sent(c.json(await User.signIn({ email, password }, { client })))
 })
 ```
+
+## D-116: The client's address behind proxies
+
+Choice: completes D-113; replaces D-115's reason for not deriving `Secure`
+from the request.
+
+1. `httpPlugin({ proxies })` is the number of proxies in front of the
+   server, 0 by default: a whole number, or startup fails.
+2. With `proxies: n`, a client's address is the n-th entry of
+   `X-Forwarded-For` from the right, each proxy having appended the address
+   it saw. With fewer entries, it is the leftmost; with none, the
+   connection's.
+3. When that entry is not an IP address, the address is the connection's.
+4. Only `X-Forwarded-For` is read: neither `Forwarded`, nor a host's own
+   header, nor the forwarded protocol or host. The cookie's `Secure` still
+   follows `NODE_ENV` (D-112).
+5. With `proxies` at 0, the first request that has `X-Forwarded-For` from a
+   loopback or private address logs one warning per running application,
+   naming the address every client then counts as.
+
+Why: behind a proxy every client has the proxy's address, so ten wrong
+passwords from anyone lock an account for everyone (D-113). A client writes
+what it wants on the left of `X-Forwarded-For`; only the entries the proxies
+appended can be trusted, and their number is what the application knows of
+its hosting. Trusting the header by default would let any client of a
+server reached directly pick its address and escape every limit. An entry
+that is not an address, from a proxy that appends a port for instance,
+would give a limit per value written. The warning names a mistake that
+otherwise shows only when accounts are locked; a public address does not
+trigger it, so a client cannot make it advise `proxies` to a server reached
+directly. `NODE_ENV=production` already sets `Secure`, so nothing needs the
+forwarded protocol.
+Rejected: a list of trusted networks, Express's `trust proxy`, which needs
+the proxies' addresses that most hosts do not publish; `Forwarded`
+(RFC 7239), which few proxies send; `CF-Connecting-IP` and other hosts'
+headers, tied to one host and forged when the server is reached around it;
+a function computing the address, until an application needs one; a
+`TRUST_PROXY` variable or detecting the host, more ways to set one number.
+Example:
+
+```ts
+// Before: behind Render, every client is 10.0.0.5
+httpPlugin()
+
+// After: X-Forwarded-For: 6.6.6.6, 203.0.113.7, where the client wrote
+// 6.6.6.6 and Render appended 203.0.113.7
+httpPlugin({ proxies: 1 })
+// clientOf(c).client.address === '203.0.113.7'
+
+// Cloudflare in front of Render: X-Forwarded-For: 203.0.113.7, 172.70.1.1
+httpPlugin({ proxies: 2 })
+// clientOf(c).client.address === '203.0.113.7'
+```
+
+Routes and plugins read `clientOf(c).client.address` and `c.var.address` as
+before.
